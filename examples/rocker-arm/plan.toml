@@ -585,7 +585,7 @@ method = "paper"
 paper_mm = 0.05 # author's choice
 tool = "endmills-lms-6784/3-8in-2fl" # op 5 rougher touches the raw top first
 check_jog_mm = 10.0 # author's choice
-retouch_after = [5, 10, 20, 25, 40, 50, 60] # op 10 makes the hub face Z0; each op listed is followed by a tool change
+retouch_after = [5, 10, 20, 25, 30, 32, 40, 50, 60] # op 10 makes the hub face Z0; each op listed is followed by a tool change
 
 # Op 5 and op 10 face the walled internal field: the lower rail is Y -28..-20,
 # the upper rail Y 31.7..37 and the ears lie outside X ±160. The raster's cutter
@@ -633,7 +633,7 @@ rough_allowance_mm = 0.20 # author's choice, restored rev-3 allowance
 direction = "conventional" # author's choice
 doc_mm = 1.5 # author's choice, largest step per pass over the 2.07825 mm below Z0
 approach_mm = 5.0
-note = "Field raster round the hub island: the same passes as op 5 at each level. The Ø11.0 island keep-out (hub Ø10.2 plus 0.20 rough allowance and 0.20 clearance a side) splits each pass that crosses it: stop at the listed end, lift over the island, rapid to the next piece and plunge again. Op 30 removes the cusps left round the island; they lie within R7.4 of the pivot axis, inside its cutter sweep."
+note = "Field raster round the hub island: the same passes as op 5 at each level. The Ø11.0 island keep-out (hub Ø10.2 plus 0.20 rough allowance and 0.20 clearance a side) splits each pass that crosses it: stop at the listed end, lift over the island, rapid to the next piece and plunge again. The corners left round the island lie within R7.4 of the pivot axis: the op 30 stairs rough them and op 32 finishes them down to the strap face."
 contour = { method = "linear_table", sweep_frame = "A", sweep_bounds = { x = [-150.2375, 150.2375], y = [-15.225, 26.935], z = [-2.27825, 5.0] }, open_side = "-y", step_mm = 6.0, keep_out = [{ at = [0.0, 0.0], dia_mm = 11.0 }] } # AUTHOR'S CHOICE: op 5 rows; island keep-out about the pivot axis
 stock_removal_bounds = { x = [-160.0, 160.0], y = [-20.0, 31.7], z = [-2.27825, 5.0] }
 
@@ -649,8 +649,8 @@ doc_mm = 0.2 # author's choice: one level removes the 0.20 mm left by op 20
 to_z_cite = "harmonic-analyzer/cad/scripts/build_rocker_arm.py:122"
 direction = "conventional" # author's choice
 approach_mm = 5.0
-note = "Finish raster: the same pieces and island keep-out as op 20 at one depth, removing the 0.20 mm left by op 20; plunge at each piece start. The corners left round the hub island, within R7.4 of the pivot axis, are cleared by the op 30 hub rough pass."
-contour = { method = "linear_table", sweep_frame = "A", sweep_bounds = { x = [-150.2375, 150.2375], y = [-15.225, 26.935], z = [-2.27825, 5.0] }, open_side = "-y", step_mm = 6.0, keep_out = [{ at = [0.0, 0.0], dia_mm = 11.0 }] } # AUTHOR'S CHOICE: same pieces as op 20, so the finisher never meets op 20's island cusps
+note = "Finish raster: the op 20 rows at one depth, removing the 0.20 mm left by op 20; plunge at each piece start. Its Ø10.6 island keep-out (hub Ø10.2 plus the 0.20 rough allowance a side) ends each piece 0.20 nearer the hub than op 20, so the finisher also takes op 20's 0.20 clearance ring down to this face. It leaves corners round the island, within R7.3 of the pivot axis, standing to the hub face: the op 30 stairs rough them to 0.20 above this face and the op 32 clean-up finishes them."
+contour = { method = "linear_table", sweep_frame = "A", sweep_bounds = { x = [-150.2375, 150.2375], y = [-15.225, 26.935], z = [-2.27825, 5.0] }, open_side = "-y", step_mm = 6.0, keep_out = [{ at = [0.0, 0.0], dia_mm = 10.6 }] } # AUTHOR'S CHOICE: op 20 rows, island at the hub's 0.20 leave so the finisher never cuts the allowance the S3F file takes
 stock_removal_bounds = { x = [-160.0, 160.0], y = [-20.0, 31.7], z = [-2.27825, 5.0] }
 
 [[setups.ops]]
@@ -660,13 +660,29 @@ feature = "hub_od"
 faces = ["#75/ADVANCED_FACE[3]/HAF_HUB_OD__P02", "#464/ADVANCED_FACE[10]/HAF_HUB_OD__P02"] # upper hub patches
 tool = "endmills-lms-6784/3-8in-2fl"
 holder = "r8-collets-lms-4860/3-8in"
-to_z = -2.07825 # author's choice, finish upper hub-wall Z-2.27825 + 0.20
+to_z = -2.07825 # AUTHOR'S CHOICE: 0.20 above the finished strap face Z-2.27825, because a rough op leaves its 0.20 allowance on the strap face as on the hub wall; op 32 finishes the strap face round the hub
 doc_mm = 1.5 # author's choice, same axial step as the op 20 face rough
-rough_allowance_mm = 0.20 # author's choice, radial allowance restored from rev 3
+rough_allowance_mm = 0.20 # author's choice, allowance restored from rev 3
 direction = "conventional" # author's choice
 approach_mm = 5.0
 contour = { method = "stairs", cusp_mm = 0.25 } # AUTHOR'S CHOICE: stairs because a manual mill moves one handwheel at a time; 0.20 allowance + 0.25 cusp leaves 0.45, inside the 0.5 filing cap for the S3F buttons
-note = "Upper hub island about the pivot axis; filed round to the buttons in S3F after the bore is reamed."
+note = "Upper hub island about the pivot axis; filed round to the buttons in S3F after the bore is reamed. The stairs also rough the corners the op 20/25 rasters leave round the island, within R7.4 of the pivot axis, down to 0.20 above the strap face."
+
+[[setups.ops]]
+op = 32
+do = "finish_face"
+feature = "strap_datum_b"
+faces = ["#118/ADVANCED_FACE[5]/HAF_STRAP_DATUM_B__P01"] # exported +Z broad strap face (datum B)
+tool = "endmills-lms-6784/3-8in-4fl"
+holder = "r8-collets-lms-4860/3-8in"
+to_z = -2.27825 # upper strap face, as op 25
+doc_mm = 0.2 # author's choice: one level removes the 0.20 mm the op 30 stairs leave on the strap face
+to_z_cite = "harmonic-analyzer/cad/scripts/build_rocker_arm.py:122"
+direction = "conventional" # author's choice
+approach_mm = 5.0
+note = "Corner clean-up round the hub: rows along Y at the strap face, 1.95 mm apart, each split round the same Ø10.6 island as op 25 (stop at the listed end, lift over the island, rapid to the next piece and plunge again). They cross the op 25 rows and finish the corners op 25 left round the island, which the op 30 stairs roughed to 0.20 above this face."
+contour = { method = "linear_table", sweep_frame = "A", sweep_bounds = { x = [-11.7, 11.7], y = [-8.0, 8.0], z = [-2.27825, 5.0] }, open_side = "-x", step_mm = 2.0, keep_out = [{ at = [0.0, 0.0], dia_mm = 10.6 }] } # AUTHOR'S CHOICE: rows along Y because they cross the op 25 X rows, and 13 rows X -11.7..11.7 at 1.95 because a straight raster round a round island leaves corners between its piece ends; with op 25 these rows leave stock outside the island only within R5.50 of the pivot axis, inside the 0.5 filing cap the S3F file takes off the hub
+stock_removal_bounds = { x = [-8.0, 8.0], y = [-8.0, 8.0], z = [-2.27825, 5.0] } # the op 25 corners lie within R7.3; outside this box op 25 already finished the face
 
 [[setups.ops]]
 op = 40
@@ -821,7 +837,7 @@ method = "paper"
 paper_mm = 0.05 # author's choice
 tool = "endmills-lms-6784/3-8in-2fl" # op 5 rougher touches the raw top first
 check_jog_mm = 10.0 # author's choice
-retouch_after = [10, 15, 20, 28, 32, 33, 34, 40] # retouch before each changed cutting tool, including every rod-hole tool, the return to the rougher and the 1/4 in top-edge rougher; op 10's tool is set by the measured touch above
+retouch_after = [10, 15, 20, 28, 29, 32, 33, 34, 40] # retouch before each changed cutting tool, including every rod-hole tool, the return to the rougher and the 1/4 in top-edge rougher; op 10's tool is set by the measured touch above
 
 # Frame B reverses Y: op 5 and op 10 face the walled internal field between the
 # lower rail Y 20..28 and the upper rail Y -37..-31.7, inside the ears outside
@@ -871,7 +887,7 @@ rough_allowance_mm = 0.20
 direction = "conventional"
 doc_mm = 1.5 # author's choice, largest step per pass over the 2.07825 mm below Z0
 approach_mm = 5.0
-note = "Field raster round the hub island on the supported lower strap: the same passes as op 5 at each level, leaving 0.20 mm for the finish pass. The Ø11.0 island keep-out (hub Ø10.2 plus 0.20 rough allowance and 0.20 clearance a side) splits each pass that crosses it: stop at the listed end, lift over the island, rapid to the next piece and plunge again. Op 28 removes the cusps left round the island; they lie within R7.4 of the pivot axis, inside its cutter sweep."
+note = "Field raster round the hub island on the supported lower strap: the same passes as op 5 at each level, leaving 0.20 mm for the finish pass. The Ø11.0 island keep-out (hub Ø10.2 plus 0.20 rough allowance and 0.20 clearance a side) splits each pass that crosses it: stop at the listed end, lift over the island, rapid to the next piece and plunge again. The corners left round the island lie within R7.4 of the pivot axis: the op 28 stairs rough them and op 29 finishes them down to the strap face."
 contour = { method = "linear_table", sweep_frame = "B", sweep_bounds = { x = [-150.2375, 150.2375], y = [-26.935, 15.225], z = [-2.27825, 5.0] }, open_side = "-y", step_mm = 6.0, keep_out = [{ at = [0.0, 0.0], dia_mm = 11.0 }] } # AUTHOR'S CHOICE: op 5 rows; island keep-out about the pivot axis
 stock_removal_bounds = { x = [-160.0, 160.0], y = [-31.7, 20.0], z = [-2.27825, 5.0] }
 
@@ -886,12 +902,9 @@ doc_mm = 0.2 # author's choice: one level removes the 0.20 mm left by op 15
 to_z_cite = "harmonic-analyzer/cad/scripts/build_rocker_arm.py:122"
 direction = "conventional" # author's choice
 approach_mm = 5.0
-note = "Finish raster: the same pieces and island keep-out as op 15 at one depth, removing the 0.20 mm left by op 15; plunge at each piece start. The corners left round the hub island, within R7.4 of the pivot axis, are cleared by the op 28 hub rough pass."
-contour = { method = "linear_table", sweep_frame = "B", sweep_bounds = { x = [-150.2375, 150.2375], y = [-26.935, 15.225], z = [-2.27825, 5.0] }, open_side = "-y", step_mm = 6.0, keep_out = [{ at = [0.0, 0.0], dia_mm = 11.0 }] } # AUTHOR'S CHOICE: same pieces as op 15, so the finisher never meets op 15's island cusps
+note = "Finish raster: the op 15 rows at one depth, removing the 0.20 mm left by op 15; plunge at each piece start. Its Ø10.6 island keep-out (hub Ø10.2 plus the 0.20 rough allowance a side) ends each piece 0.20 nearer the hub than op 15, so the finisher also takes op 15's 0.20 clearance ring down to this face. It leaves corners round the island, within R7.3 of the pivot axis, standing to the hub face: the op 28 stairs rough them to 0.20 above this face and the op 29 clean-up finishes them."
+contour = { method = "linear_table", sweep_frame = "B", sweep_bounds = { x = [-150.2375, 150.2375], y = [-26.935, 15.225], z = [-2.27825, 5.0] }, open_side = "-y", step_mm = 6.0, keep_out = [{ at = [0.0, 0.0], dia_mm = 10.6 }] } # AUTHOR'S CHOICE: op 15 rows, island at the hub's 0.20 leave so the finisher never cuts the allowance the S3F file takes
 stock_removal_bounds = { x = [-160.0, 160.0], y = [-31.7, 20.0], z = [-2.27825, 5.0] }
-
-[setups.ops.checks]
-thickness = "micrometers/0-1in"
 
 [[setups.ops]]
 op = 25
@@ -908,13 +921,31 @@ feature = "hub_od"
 faces = ["#518/ADVANCED_FACE[16]/HAF_HUB_OD__P01", "#539/ADVANCED_FACE[17]/HAF_HUB_OD__P01"]
 tool = "endmills-lms-6784/3-8in-2fl"
 holder = "r8-collets-lms-4860/3-8in"
-to_z = -2.07825
+to_z = -2.07825 # AUTHOR'S CHOICE: 0.20 above the finished strap face Z-2.27825, because a rough op leaves its 0.20 allowance on the strap face as on the hub wall; op 29 finishes the strap face round the hub
 doc_mm = 1.5 # author's choice, same axial step as the op 15 face rough
 rough_allowance_mm = 0.20
 direction = "conventional"
 approach_mm = 5.0
 contour = { method = "stairs", cusp_mm = 0.25 } # AUTHOR'S CHOICE: stairs because a manual mill moves one handwheel at a time; 0.20 allowance + 0.25 cusp leaves 0.45, inside the 0.5 filing cap for the S3F buttons
-note = "Lower hub island about the transferred pilot axis; filed round to the buttons in S3F after the bore is reamed."
+note = "Lower hub island about the transferred pilot axis; filed round to the buttons in S3F after the bore is reamed. The stairs also rough the corners the op 15/20 rasters leave round the island, within R7.4 of the pivot axis, down to 0.20 above the strap face."
+
+[[setups.ops]]
+op = 29
+do = "finish_face"
+feature = "strap_faces"
+tool = "endmills-lms-6784/3-8in-4fl"
+holder = "r8-collets-lms-4860/3-8in"
+to_z = -2.27825 # lower strap face, as op 20
+doc_mm = 0.2 # author's choice: one level removes the 0.20 mm the op 28 stairs leave on the strap face
+to_z_cite = "harmonic-analyzer/cad/scripts/build_rocker_arm.py:122"
+direction = "conventional" # author's choice
+approach_mm = 5.0
+note = "Corner clean-up round the hub: rows along Y at the strap face, 1.95 mm apart, each split round the same Ø10.6 island as op 20 (stop at the listed end, lift over the island, rapid to the next piece and plunge again). They cross the op 20 rows and finish the corners op 20 left round the island, which the op 28 stairs roughed to 0.20 above this face. Then mic the strap thickness clear of the hub."
+contour = { method = "linear_table", sweep_frame = "B", sweep_bounds = { x = [-11.7, 11.7], y = [-8.0, 8.0], z = [-2.27825, 5.0] }, open_side = "-x", step_mm = 2.0, keep_out = [{ at = [0.0, 0.0], dia_mm = 10.6 }] } # AUTHOR'S CHOICE: rows along Y because they cross the op 20 X rows, and 13 rows X -11.7..11.7 at 1.95 because a straight raster round a round island leaves corners between its piece ends; with op 20 these rows leave stock outside the island only within R5.50 of the pivot axis, inside the 0.5 filing cap the S3F file takes off the hub
+stock_removal_bounds = { x = [-8.0, 8.0], y = [-8.0, 8.0], z = [-2.27825, 5.0] } # the op 20 corners lie within R7.3; outside this box op 20 already finished the face
+
+[setups.ops.checks]
+thickness = "micrometers/0-1in"
 
 [[setups.ops]]
 op = 32
@@ -1095,7 +1126,7 @@ stock_in = "S3"
 coolant = "none: bench filing"
 deburr_mm = 0.25
 deburr_cite = "harmonic-analyzer/cad/config/title_block.yaml:43-45"
-note = "AUTHOR'S CHOICE: file the hub round to filing buttons because the reamed bore A is their pin, so the hub comes out coaxial with A without indicating anything. Off the S3 fixture, clamp the buttons on both hub faces through bore A and grip the stud tail upright in the bench vise."
+note = "AUTHOR'S CHOICE: File the hub round to the filing buttons because the reamed bore A is their pin, so the hub comes out coaxial with A without indicating anything. Off the S3 fixture, clamp the buttons on both hub faces through bore A and grip the stud tail upright in the bench vise."
 
 [setups.stock_state]
 top_feature = "hub_faces"
@@ -1273,9 +1304,24 @@ height_above_pivot = "rocker-profile-template" # final bench inspection on a 6.5
 radius = "rocker-profile-template"
 arc_len = "rocker-profile-template" # engraved arc-length limit lines on the template's top blade
 [setups.ops.inspection_methods]
-height_above_pivot = "After op 40, with the part on the profile template as in the S4 op 43 inspection note: feeler the top-blade gap at its engraved stations X 0, ±50, ±100 and ±140. The X 0 gap must read 0.50 to 1.00 (top edge 8.00 to 8.50 over the pivot). Record the gaps ______."
-radius = "R799.49 to R800.51 is a radius tolerance zone (title-block ±0.51 on R800, no CR): the edge must lie between those two arcs about the template centre. Same template set-up: slide a 0.49 feeler along the whole top blade from tip to tip; it must enter everywhere. Then slide a 1.52 stack (1.00 + 0.50 + 0.02); it must enter nowhere. Record OK / not OK ______."
-arc_len = "Same template set-up: each top-edge tip corner must lie between the top blade's two engraved arc-length lines at that end. Record +X ______ and -X ______."
+height_above_pivot = [
+  "Profile template (make before S4; toolroom-made, example dimensions, plausible, not measured): ground steel base plate 380 x 110 x 12.7 with a pressed 6.500 h6 pivot pin, a 2.000 diamond pin with radial flats at X 133.067, Y 8.456 from the pivot pin (the nominal rod hole) and a Ø14 x 3 deep relief under the hub.",
+  "Template blades: two 2.0 ground blades, doweled and screwed round the part position, each working edge 1.00 outside the nominal outline: top blade R799.00 and bottom blade R817.00, both about the arc centre 808.00 above the pivot pin.",
+  "Template engraving: a gap station at X 0 on the top blade; arc-length limit lines, radial through the arc centre, on the top blade at X ±144.808 and ±145.309 from the pivot pin (top-edge arc length 291.59 and 292.61) and on the bottom blade at X ±132.668 and ±133.172 (bottom arc length 266.19 and 267.21).",
+  "The kit also holds a loose land square (ground steel block with a 40 long convex R800.00 stock face ground with the top blade, and a 12 blade square to the stock face at its end within 0.01 over 10) and a 0.02 to 1.00 feeler set.",
+  "Set-up, after op 40: clean the part and the template. Lower the part over both pins onto its lower strap face with the hub in the relief, turn it counterclockwise against the diamond pin and hold it down by hand.",
+  "Feeler the top-blade gap at the X 0 station: {X 0 gap}. It must read 0.50 to 1.00 (top edge 8.00 to 8.50 over the pivot).",
+]
+radius = [
+  "Same template set-up as height over pivot. The top edge must lie between R799.49 and R800.51 about the template centre (title-block ±0.51 on R800, no CR).",
+  "Slide a 0.49 feeler along the whole top blade, tip to tip; it must enter everywhere: {0.49 enters everywhere, OK / not OK}.",
+  "Slide a 1.52 stack (1.00 + 0.50 + 0.02) along the same blade; it must enter nowhere: {1.52 enters nowhere, OK / not OK}.",
+]
+arc_len = [
+  "Same template set-up. Each top-edge tip corner must lie between the top blade's two engraved arc-length lines at its end.",
+  "+X corner between its lines: {+X, OK / not OK}.",
+  "-X corner between its lines: {-X, OK / not OK}.",
+]
 
 [[setups.ops]]
 op = 40
@@ -1290,8 +1336,16 @@ note = "Draw-file the bottom arc, the tapered ends and both tip lands down to th
 bottom_radius = "rocker-profile-template"
 bottom_arc_len = "rocker-profile-template"
 [setups.ops.inspection_methods]
-bottom_radius = "After op 40, with the part on the profile template as in the S4 op 43 inspection note: R815.49 to R816.51 is a radius tolerance zone (title-block ±0.51 on R816, no CR): the edge must lie between those two arcs about the template centre. Slide a 0.49 feeler along the whole bottom blade from end to end; it must enter everywhere. Then slide a 1.52 stack (1.00 + 0.50 + 0.02); it must enter nowhere. Record OK / not OK ______."
-bottom_arc_len = "Same template set-up: each bottom-arc end must lie between the bottom blade's two engraved arc-length lines at that end. Record +X ______ and -X ______."
+bottom_radius = [
+  "Same profile-template set-up as S4 op 30, after op 40. The bottom edge must lie between R815.49 and R816.51 about the template centre (title-block ±0.51 on R816, no CR).",
+  "Slide a 0.49 feeler along the whole bottom blade, end to end; it must enter everywhere: {0.49 enters everywhere, OK / not OK}.",
+  "Slide a 1.52 stack (1.00 + 0.50 + 0.02) along the same blade; it must enter nowhere: {1.52 enters nowhere, OK / not OK}.",
+]
+bottom_arc_len = [
+  "Same template set-up. Each bottom-arc end must lie between the bottom blade's two engraved arc-length lines at that end.",
+  "+X end between its lines: {+X, OK / not OK}.",
+  "-X end between its lines: {-X, OK / not OK}.",
+]
 
 [[setups.ops]]
 op = 43
@@ -1302,13 +1356,12 @@ note = "After the op 40 filing, check the rod-hole-end land width and its 90° a
 tip_land = "calipers" # author's choice
 land_angle_deg = "rocker-profile-template" # the kit's loose land square, bedded on the part's own top edge, against the title-block ±1° band
 [setups.ops.inspection_methods]
-land_angle_deg = """
-Profile template (toolroom-made; example dimensions, plausible, not measured): a 380 x 110 x 12.7 mm ground steel base plate with a pressed 6.500 h6 pivot pin, a 2.000 diamond pin (flats radial) at the nominal rod hole X 133.067, Y 8.456 from the pivot pin, and a 14 mm diameter x 3 mm deep relief under the hub. Two 2.0 mm ground blades are doweled and screwed round the part position, each working edge 1.00 mm outside the nominal outline: top blade R799.00 and bottom blade R817.00 about the arc centre 808.00 above the pivot pin. Gap stations X 0, ±50, ±100 and ±140 are engraved on the top blade. Arc-length limit lines are engraved radially through the arc centre: on the top blade at X ±144.808 and ±145.309 from the pivot pin (top-edge arc length 291.59 and 292.61), on the bottom blade at X ±132.668 and ±133.172 (bottom arc length 266.19 and 267.21). The kit also holds a loose land square (a ground steel block with a 40 mm long convex R800.00 stock face, ground with the top blade, and a 12 mm blade square to the stock face at its end within 0.01 mm over 10 mm) and a 0.02 to 1.00 mm feeler set.
-
-Set-up: after op 40, clean the part and the template. Lower the part over both pins onto its lower strap face with the hub in the relief, turn it counterclockwise against the diamond pin and hold it down by hand.
-
-Land angle, with the part off the template on a clean bench: bed the land square's R800 stock face on the part's top edge with the blade end at the +X tip corner and the blade across the +X land. The square registers on the top edge itself, so the reading does not depend on how the holes clock the part. Feeler the gap between blade and land at both ends of the land. The two readings must differ by no more than 0.08 (89° to 91° over the shortest 5.08 land). Record ______ and ______.
-"""
+land_angle_deg = [
+  "Take the part off the profile template onto a clean bench.",
+  "Bed the land square's R800 stock face on the part's top edge, the blade end at the +X tip corner and the blade across the +X land. The square registers on the top edge, so hole clocking does not affect the reading.",
+  "Feeler the gap between blade and land at the land's top-edge end {gap at top} and at its bottom-edge end {gap at bottom}.",
+  "Calculate: difference = gap at top - gap at bottom, ignoring sign = {difference}; it must be 0.08 or less (89° to 91° over the shortest 5.08 land).",
+]
 
 [[setups.ops]]
 op = 44
@@ -1319,7 +1372,11 @@ note = "After op 40, check the opposite end land width and its 90° angle; inspe
 tip_land = "calipers"
 land_angle_deg = "rocker-profile-template"
 [setups.ops.inspection_methods]
-land_angle_deg = "Same land square as op 43, off the template: bed its R800 stock face on the top edge with the blade end at the -X tip corner and the blade across the -X land; feeler the gap at both ends of the land. The two readings must differ by no more than 0.08. Record ______ and ______."
+land_angle_deg = [
+  "Off the template, bed the op 43 land square's R800 stock face on the part's top edge, the blade end at the -X tip corner and the blade across the -X land.",
+  "Feeler the gap between blade and land at the land's top-edge end {gap at top} and at its bottom-edge end {gap at bottom}.",
+  "Calculate: difference = gap at top - gap at bottom, ignoring sign = {difference}; it must be 0.08 or less.",
+]
 
 [[setups.ops]]
 op = 50
@@ -1331,27 +1388,22 @@ position_dia = "rocker-position-height-gauge"
 # Nominals below are projected from the bound v40 STEP: X is outward C normal, Y is B cross C.
 # Acceptance is the drawing's Ø0.20 position; the 0.002/0.005 limits only decide whether a reading is valid.
 [setups.ops.inspection_methods]
-position_dia = """
-Inspection box (shop-made; example dimensions, plausible, not measured): a hollow cast-iron 120 mm cube with 8 mm walls. Grind the base, the right side and the front face flat and square to each other within 0.003 mm per 100 mm. Cut two 32 x 24 mm clamp windows through the left wall, 8 to 40 mm behind the front face, at 38 to 62 and 83 to 107 mm above the base, and an 80 x 80 mm access window in the back wall. C stop bar: hardened ground steel, 40 x 12 x 12.2 mm, on the front face at its left end, projecting 12 mm forward with its underside 0.5 mm above the base; fix it with two M4 x 12 cap screws and two 4 x 16 mm dowels reamed through bar and wall together, then grind its top 12.70 mm above the base and parallel to it within 0.002 mm. Two light 3 in toolmaker's parallel clamps go through the left windows.
-
-Equilibrate the part, the inspection box, the gauge pins and the gauge blocks on the granite plate at 20 ±1 °C.
-
-Select the largest freely passing gauge pin for bore A and for the rod hole. Record pin A Ø ______ and rod pin Ø ______ (actual diameters marked on the pins).
-
-Seat strap datum B against the box face with the A axis within 5 mm of the box's left edge and the hub clear above the box. Seat C on the fixed ground stop bar. Hold B with the two toolmaker's parallel clamps through the left windows, finger-light, without bending or clamping the free span.
-
-How to read each pin: wring a gauge-block stack of known calibrated length near the pin's top, zero the 1 µm test indicator on the stack, then sweep the pin crown and read the deviation at the same height-gauge setting. Check that a higher contact reads positive. Pin-centre height = stack length + deviation − pin radius. The height gauge only carries the indicator; do not use its scale.
-
-View 1, C face down on the stop bar (hub pin about 132.4 above the rod pin): read both pins within 2 mm of an accessible bore face. Record X = hub-centre height − rod-centre height ______.
-
-Tip the whole box onto its marked ground RIGHT side without unclamping the part or losing C contact (rod pin about 15.8 below the hub pin). Read both pins the same way. Record Y1 = hub-centre height − rod-centre height ______.
-
-Reseat check: gently press the non-rod tip toward the stop bar, release, and read both pins again at the same settings. Record Y2 ______. If Y2 and Y1 differ by more than 0.002, the seating did not repeat: reseat, then redo view 1 and this view. Use Y = Y2.
-
-Lean check, in both views: read the hub pin at its accessible mouth and 10 mm farther out. Record view 1 ______ and view 2 ______. If either pair differs by more than 0.005, or B cannot seat without leaning the pin, the readings are not valid: reseat and repeat; if it persists, stop and report.
-
-Result: position Ø = 2 × √((X − 132.391)² + (Y − 15.843)²), using the CAD nominals for this inspection set-up (not the milling X/Y). Record position Ø ______ and compare it with the drawing limit on the op row (RFS, no bonus).
-"""
+position_dia = [
+  "Inspection box (make before S4; shop-made, example dimensions, plausible, not measured): a hollow cast-iron 120 cube with 8 walls. Grind the base, the right side and the front face flat and square to each other within 0.003 per 100, and mark the right side.",
+  "Box windows: two 32 x 24 clamp windows through the left wall, 8 to 40 behind the front face, at 38 to 62 and 83 to 107 above the base; one 80 x 80 access window in the back wall.",
+  "C stop bar: hardened ground steel 40 x 12 x 12.2, on the front face at its left end, projecting 12 forward with its underside 0.5 above the base. Fix it with two M4 x 12 cap screws and two Ø4 x 16 dowels reamed through bar and wall together, then grind its top 12.70 above the base, parallel to the base within 0.002.",
+  "Equilibrate the part, the box, the gauge pins and the gauge blocks on the granite plate at 20 ±1 °C.",
+  "Push the largest freely passing gauge pin through bore A and through the rod hole; copy the actual diameters marked on the pins: {pin A Ø} {rod pin Ø}.",
+  "Fixed-C contact: stand the box on its base, front face toward you. Lay strap datum B (the upper strap face) flat on the front face, rod end down, with the A axis within 5 of the box's left edge, and lower the part until land C (the +X tip land) sits on the stop bar's ground top; the hub stands clear above the box. Clamp B finger-light with two 3 in toolmaker's parallel clamps through the left windows, without bending or clamping the free span. Keep this C contact and these clamps unchanged through step 12.",
+  "Reading a pin: wring a gauge-block stack of known length beside the pin's top, zero the 1 µm test indicator on the stack, then sweep the pin crown at the same height-gauge setting and read the deviation; a higher contact must read positive. Pin-centre height = stack length + deviation - pin radius. The height gauge only carries the indicator; do not use its scale.",
+  "View 1, box on its base with C down on the bar (hub pin about 132.4 above the rod pin): read each pin within 2 of an accessible bore face: hub-centre height {H1}, rod-centre height {R1}.",
+  "Lean check, view 1: read the hub pin at its accessible mouth {mouth 1} and 10 farther out {out 1}. If they differ by more than 0.005, or B cannot seat without leaning the pin, the readings are not valid: reseat from step 6 and repeat; if it persists, stop and report.",
+  "View 2: without unclamping the part or losing C contact, tip the whole box a quarter turn clockwise as you face its front, onto its marked ground right side (rod pin now about 15.8 below the hub pin). Read both pins the same way: hub-centre height {H2}, rod-centre height {R2}.",
+  "Reseat check: gently press the non-rod tip toward the stop bar, release, and read both pins again: hub {H3}, rod {R3}. If H3 - R3 and H2 - R2 differ by more than 0.002, the seating did not repeat: reseat from step 6 and redo both views.",
+  "Lean check, view 2, as in step 9: {mouth 2} {out 2}.",
+  "Calculate: X = H1 - R1 = {X}; Y = H3 - R3 = {Y}.",
+  "Calculate: position Ø = 2 × √((X - 132.391)² + (Y - 15.843)²) = {position Ø}; compare it with the drawing limit on the op row (RFS, no bonus). 132.391 and 15.843 are the CAD nominals for this inspection set-up, not the milling X/Y.",
+]
 
 [[setups.ops]]
 op = 60
@@ -1362,7 +1414,11 @@ note = "Final verification of both upper and lower hub patches against reamed da
 dia = "calipers"
 coaxiality_dia = "dial-indicator"
 [setups.ops.inspection_methods]
-coaxiality_dia = "After removing the part, support a close-fitting calibrated pin through the reamed bore in the inspection V-block. Rotate the pin and indicate both hub patches. Record upper TIR ______ and lower TIR ______, allow for pin clearance and indicator resolution, and compare each with the coaxiality limit on the op row."
+coaxiality_dia = [
+  "After removing the part, support a close-fitting calibrated pin through the reamed bore in the inspection V-block.",
+  "Rotate the pin and indicate both hub patches: {upper TIR} {lower TIR}.",
+  "Allow for pin clearance and indicator resolution, then compare each reading with the coaxiality limit on the op row.",
+]
 
 
 [[setups.ops]]

@@ -502,6 +502,34 @@ def test_stickout_inclusive_policy_boundary_and_unknown_length(length, expected)
     assert "test shop measured L/D policy" in finding.cite
 
 
+_FIT = {"measure": "trial-fit scribe to the plain end", "nominal_mm": 16.0, "add_mm": 8.0}
+
+
+@pytest.mark.parametrize(
+    ("fit", "length", "expected"),
+    [
+        (_FIT, 24.0, "pass"),
+        # The printed stickout must be the fit-up nominal plus the jaw allowance.
+        (_FIT, 23.0, "error"),
+        ({**_FIT, "add_mm": 7.0}, 24.0, "error"),
+        ({**_FIT, "nominal_mm": "unknown"}, 24.0, "unknown"),
+        ({**_FIT, "measure": "unknown"}, 24.0, "unknown"),
+        ({**_FIT, "measure": " "}, 24.0, "unknown"),
+    ],
+)
+def test_a_stickout_set_from_a_measured_fit_up_is_its_nominal_plus_the_allowance(
+    fit, length, expected
+):
+    data = bundle()
+    data.features["features"]["far"]["z_mm"][1] = 50.0
+    setup(data)["stock_state"]["north_end_z"] = 50.0
+    setup(data)["hold"]["stickout_mm"] = length
+    setup(data)["hold"]["stickout_fit"] = fit
+    finding = stickout.evaluate(data)[0]
+    assert finding.status == expected
+    assert ("stickout_fit" in finding.sentence) == (expected != "pass")
+
+
 def test_zero_stickout_preserves_policy_debt_and_verified_support_exception():
     data = bundle()
     setup(data)["hold"]["stickout_mm"] = 0.0
