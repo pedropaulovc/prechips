@@ -9,6 +9,7 @@ import re
 from prechips.measurements import nominal_angle_deg
 
 from ..findings import Finding
+from ..model import UNIT_TOLERANCE
 from .resolution import (
     UNKNOWN,
     length_mm,
@@ -136,21 +137,30 @@ def _covers(cut, target, whole=False):
     return True
 
 
+def _axis(feature):
+    """``feature``'s ``axis`` (model Z when omitted) when it is a unit vector, to the
+    ``UNIT_TOLERANCE`` loading holds a joint axis to, else None: a scaled or zero vector's
+    components are no direction cosines, so no fixed residue tells what it runs along."""
+    axis = feature.get("axis", [0.0, 0.0, 1.0])
+    if not (isinstance(axis, list) and len(axis) == 3 and all(number(v) for v in axis)):
+        return None
+    return axis if abs(math.hypot(*axis) - 1.0) <= UNIT_TOLERANCE else None
+
+
 def _footprint(target):
-    """``target``'s explicit ``bounds``, else the X/Y square holding a round Z-axis
-    feature (its ``at`` plus or minus half its largest ``dia``); empty when unknown."""
+    """``target``'s explicit ``bounds``, else the X/Y square holding a round feature about
+    a unit Z :func:`_axis` (its ``at`` plus or minus half its largest ``dia``); empty when
+    unknown."""
     bounds = mapping(target.get("bounds"))
     if bounds:
         return bounds
-    at, dia, axis = target.get("at"), target.get("dia"), target.get("axis", [0.0, 0.0, 1.0])
+    at, dia, axis = target.get("at"), target.get("dia"), _axis(target)
     sizes = dia if isinstance(dia, list) else [dia]
     if not (isinstance(at, list) and len(at) == 3 and all(number(v) for v in at[:2])):
         return {}
     if not sizes or not all(number(v) for v in sizes):
         return {}
-    if not (isinstance(axis, list) and len(axis) == 3 and all(number(v) for v in axis)):
-        return {}
-    if abs(axis[0]) > 1e-9 or abs(axis[1]) > 1e-9:
+    if axis is None or abs(axis[0]) > 1e-9 or abs(axis[1]) > 1e-9:
         return {}
     half = max(sizes) / 2
     return {name: [at[i] - half, at[i] + half] for i, name in enumerate(("x", "y"))}
@@ -167,19 +177,18 @@ def _span(values):
 
 
 def _disc(target):
-    """A round feature's box: ``at`` along its principal ``axis``, ``at`` plus or minus
-    its largest radius (half its ``dia``, else its ``radius``) across it; None spans
+    """A round feature's box: ``at`` along its principal unit :func:`_axis`, ``at`` plus or
+    minus its largest radius (half its ``dia``, else its ``radius``) across it; None spans
     unless all are numeric."""
-    at, axis = target.get("at"), target.get("axis", [0.0, 0.0, 1.0])
+    at, axis = target.get("at"), _axis(target)
     size = target.get("dia") if "dia" in target else target.get("radius")
     sizes, per = size if isinstance(size, list) else [size], 2 if "dia" in target else 1
     if not (
         isinstance(at, list)
         and len(at) == 3
-        and isinstance(axis, list)
-        and len(axis) == 3
+        and axis is not None
         and sizes
-        and all(number(v) for v in [*at, *axis, *sizes])
+        and all(number(v) for v in [*at, *sizes])
         and sum(abs(v) > 1e-9 for v in axis) == 1
     ):
         return dict.fromkeys(AXES)
@@ -237,12 +246,13 @@ def _feature_holds(bundle, setup, own, target):
     ``"whole"``, ``"partial"`` or ``UNKNOWN``. Proven in ``own``'s frame, where its box
     is exact: the setup Z must run along one of that frame's axes, and the box enclosing
     ``target`` there must lie within ``own``'s spans on the other two. A setup Z oblique
-    to that frame, or a footprint that cannot be built, is unknown."""
-    from .coordinates import mapping_vector
+    to that frame or not a known unit vector (:func:`frame_axes`), or a footprint that
+    cannot be built, is unknown."""
+    from .coordinates import frame_axes
 
     frame = _frame(bundle, own)
-    tool = mapping_vector(setup_frame(bundle, setup).get("z"))
-    axes = [mapping_vector(frame.get(axis)) for axis in AXES]
+    tool = frame_axes(setup_frame(bundle, setup))[2]
+    axes = frame_axes(frame)
     box, held = _corners(bundle, own, frame), _corners(bundle, target, frame)
     if box is None or held is None or not all(number(v) for v in [*tool, *sum(axes, [])]):
         return UNKNOWN

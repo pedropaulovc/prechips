@@ -23,7 +23,11 @@ exported manifest frame of that name, otherwise the plan-owned
 A plan-owned setup frame adds `plan.frames.<name>: author-declared setup frame`
 and its own citations to the finding, and its stated `binding` decides whether
 the transform is nominal or unbound exactly as for an exported frame.
-Unknown components propagate only through nonzero coefficients. Tolerance-band
+Unknown components propagate only through nonzero coefficients. Loading checks
+the basis of a fully known frame only, so in a frame with an unknown axis each
+numeric axis counts only if it is finite and, within `1e-9`, unit and orthogonal
+to the frame's other numeric axes; otherwise it is unknown, and so is every
+coordinate along it and every direction compared with it. Tolerance-band
 midpoints never define nominal geometry: explicit `*_nominal` values take
 precedence, otherwise only scalar dimensions are usable as nominal geometry.
 
@@ -253,8 +257,9 @@ there is no producer. A bounded op's coverage of the surface (for `top`,
 setup-frame X/Y `stock_removal_bounds` are compared with the surface's whole
 footprint. The footprint comes from the feature's own `bounds` (Z from `at` when
 they omit it), else from a round feature's `at` ± half its largest `dia` (else
-± its `radius`) across its principal `axis`. Only its `plane` value can supply an
-omitted axis. When the bounds hold the footprint, coverage is whole. When they
+± its `radius`) across its principal `axis`, which must be a unit vector within
+`1e-6`: a scaled or zero `axis` has no known footprint. Only its `plane` value
+can supply an omitted axis. When the bounds hold the footprint, coverage is whole. When they
 miss part of it, coverage is partial: the op neither advances that top or entry
 nor produces the surface, which keeps the uncut height its last whole producer
 left. When the bounds or the footprint are unknown, omitted, empty or malformed,
@@ -265,8 +270,8 @@ surface, containment is proven in that feature's own frame, where its box is
 exact: the setup Z must run along one of the frame's axes, and the box enclosing
 the surface there must lie within the feature's spans on the other two. Overlap
 or a held `at` point is partial, never whole; a setup Z oblique to the feature's
-frame leaves coverage unknown. A setup-frame box enclosing a turned feature is
-never taken as its cut.
+frame, or not a known unit axis (above), leaves coverage unknown. A setup-frame box
+enclosing a turned feature is never taken as its cut.
 It counts only if it cut that face to that Z. Its
 value is its `dro_to_z` on its own setup's grid, re-rounded to the safe side on
 the consumer's grid, so a coarser producer's −2.270 stays −2.270. Any other

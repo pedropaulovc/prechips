@@ -106,8 +106,9 @@ def test_undetermined_traverse_is_unknown_never_a_claimed_order(
 _NORMALS = {"-x": (-1, 0), "+x": (1, 0), "-y": (0, -1), "+y": (0, 1)}
 
 
-def raster(tmp_path, op):
+def raster(tmp_path, op, axes="square"):
     plan = coordinate_bundle(tmp_path, SLAB, "[[setups.ops]]\nop = 20\nfeature = 'target'\n" + op)
+    set_setup_axes(plan, axes)
     row = next(row for row in coordinates.evaluate(load_bundle(plan)) if row.subject == "S1")
     (profile,) = row.numbers["profiles"]
     return row, profile
@@ -142,6 +143,33 @@ def test_raster_with_no_established_direction_is_unknown(tmp_path):
     )
     assert profile["cut_order"] == "unknown" and row.status == "unknown"
     assert "Cutting order is unknown" in row.sentence
+
+
+@pytest.mark.parametrize(
+    ("axes", "first"),
+    [
+        ("X Y only", [[-8.0, 11.0], [-8.0, -5.0]]),
+        ("X Y only, scaled", None),
+        ("X Y only, skewed", None),
+    ],
+    ids=["unit", "scaled", "skewed"],
+)
+def test_a_raster_stands_only_on_orthonormal_setup_axes(tmp_path, axes, first):
+    # Frame A's Z is unknown, so loading never checks its X and Y. Unit, orthogonal ones
+    # place the passes as a complete frame does: the first enters at model X 0 less the
+    # origin's 5 and the Ø6 cutter's radius. Scaled or skewed ones would stretch or shear
+    # every pass, so the raster is unknown.
+    row, profile = raster(
+        tmp_path,
+        "do = 'rough_pocket'\ntool = 'cutter'\nto_z = -1.0\ndirection = 'conventional'\n"
+        "rough_allowance_mm = 0.2\napproach_mm = 5.0\n"
+        "contour = { method = 'linear_table', step_mm = 1.0, open_side = '-x' }\n",
+        axes,
+    )
+    if first is None:
+        assert profile["cutter_centre"] == "unknown" and row.status == "unknown"
+        return
+    assert profile["cutter_centre"][0] == first and row.status == "pass"
 
 
 def test_face_raster_clears_its_box_edge_to_edge_no_wider_than_its_step(tmp_path):
@@ -303,32 +331,74 @@ def test_a_hole_off_the_model_z_axis_is_held_by_its_entry_disc(tmp_path, x, entr
 
 
 C = math.sqrt(0.5)
+Z = [0.0, 0.0, 1.0]
+# 39.3° off model Z about Y, and that direction scaled down to a 1e-9 length.
+TILTED = [0.6332377902572626, 0.0, 0.7739572992033211]
+TILTED_SCALED = [9e-10, 0.0, 1.1e-9]
+XY_UNKNOWN = "x = 'unknown'\ny = 'unknown'\n"
 SETUP_AXES = {
     "square": "x = [1.0, 0.0, 0.0]\ny = [0.0, 1.0, 0.0]\nz = [0.0, 0.0, 1.0]\n",
     "turned 45": f"x = [{C}, {C}, 0.0]\ny = [{-C}, {C}, 0.0]\nz = [0.0, 0.0, 1.0]\n",
     "tilted 45": f"x = [1.0, 0.0, 0.0]\ny = [0.0, {C}, {C}]\nz = [0.0, {-C}, {C}]\n",
+    # Loading checks only a complete frame: one with an unknown axis may hold any vectors.
+    "Z only": f"{XY_UNKNOWN}z = {Z}\n",
+    "Z only, tilted": f"{XY_UNKNOWN}z = {TILTED}\n",
+    "Z only, tilted, scaled": f"{XY_UNKNOWN}z = {TILTED_SCALED}\n",
+    # 11° off Z as authored; its X component flushes to 0 when parsed, leaving it along Z.
+    "Z only, tilted, underflowed": f"{XY_UNKNOWN}z = [2e-324, 0.0, 1e-323]\n",
+    "X Y only": "x = [1.0, 0.0, 0.0]\ny = [0.0, 1.0, 0.0]\nz = 'unknown'\n",
+    "X Y only, scaled": "x = [2.0, 0.0, 0.0]\ny = [0.0, 2.0, 0.0]\nz = 'unknown'\n",
+    "X Y only, skewed": f"x = [1.0, 0.0, 0.0]\ny = [{C}, {C}, 0.0]\nz = 'unknown'\n",
 }
 
 
+def set_setup_axes(plan, axes):
+    """Give setup frame A of ``plan``'s bundle the axes ``SETUP_AXES[axes]``."""
+    features = plan.with_name("features.toml")
+    frame = "[frames.A]\norigin = [5.0, 2.0, 1.0]\n"
+    text = features.read_text(encoding="utf-8")
+    text = text.replace(frame + SETUP_AXES["square"], frame + SETUP_AXES[axes])
+    features.write_text(text, encoding="utf-8")
+
+
 @pytest.mark.parametrize(
-    ("axes", "hole_x", "strip", "entry", "tip"),
+    ("axes", "axis", "hole_x", "strip", "entry", "tip"),
     [
-        ("square", 8.5, [0.0, 10.0], 0.0, -4.802),
-        ("square", 8.5, [0.0, 20.0], -8.8, -13.602),
-        ("turned 45", 8.5, [0.0, 10.0], 0.0, -4.802),
-        ("turned 45", 5.0, [0.0, 10.0], -8.8, -13.602),
-        ("tilted 45", 5.0, [0.0, 10.0], "unknown", None),
+        ("square", Z, 8.5, [0.0, 10.0], 0.0, -4.802),
+        ("square", Z, 8.5, [0.0, 20.0], -8.8, -13.602),
+        ("turned 45", Z, 8.5, [0.0, 10.0], 0.0, -4.802),
+        ("turned 45", Z, 5.0, [0.0, 10.0], -8.8, -13.602),
+        ("tilted 45", Z, 5.0, [0.0, 10.0], "unknown", None),
+        ("Z only", Z, 5.0, [0.0, 10.0], -8.8, -13.602),
+        ("Z only, tilted", Z, 5.0, [0.0, 10.0], "unknown", None),
+        ("Z only, tilted, scaled", Z, 5.0, [0.0, 10.0], "unknown", None),
+        ("Z only, tilted, underflowed", Z, 5.0, [0.0, 10.0], "unknown", None),
+        ("square", TILTED, 5.0, [0.0, 10.0], "unknown", None),
+        ("square", TILTED_SCALED, 5.0, [0.0, 10.0], "unknown", None),
     ],
-    ids=["part out", "held", "turned part out", "turned held", "tilted"],
+    ids=[
+        "part out",
+        "held",
+        "turned part out",
+        "turned held",
+        "tilted",
+        "Z only held",
+        "Z only tilted",
+        "Z only tilted scaled",
+        "Z only tilted underflowed",
+        "hole tilted",
+        "hole tilted scaled",
+    ],
 )
 def test_an_unbounded_pocket_lowers_another_entry_only_where_its_feature_holds_it(
-    tmp_path, axes, hole_x, strip, entry, tip
+    tmp_path, axes, axis, hole_x, strip, entry, tip
 ):
     # Op 10 pockets all of 'strip' to -8.8 with no removal box. The Ø6 hole's entry disc
     # at X 8.5 (X 5.5-11.5) runs past a strip ending at X 10, so part of its entry still
     # stands at 0, however the setup is turned about Z; at X 5 (X 2-8) the strip holds
-    # it. A setup Z oblique to the strip's frame proves neither.
-    hole = f"kind = 'hole'\nat = [{hole_x}, 5.0, 1.0]\naxis = [0.0, 0.0, 1.0]\ndia = 6.0\n"
+    # it. A setup Z or hole axis oblique to the strip's frame proves neither; nor does a
+    # vector that is not unit length, whatever direction it scales.
+    hole = f"kind = 'hole'\nat = [{hole_x}, 5.0, 1.0]\naxis = {axis}\ndia = 6.0\n"
     hole += "thru = false\ndepth = [2.9, 5.0]\n[features.strip]\nkind = 'plane'\n"
     hole += f"frame = 'model'\nrequirements = []\nbounds = {{ x = {strip}, y = [0.0, 10.0], "
     ops = "[[setups.ops]]\nop = 10\ndo = 'rough_pocket'\nfeature = 'strip'\ntool = 'cutter'\n"
@@ -340,21 +410,21 @@ def test_an_unbounded_pocket_lowers_another_entry_only_where_its_feature_holds_i
         "local_thickness = { target = 20.0 }\nentry_z = { target = 0.0 }",
     )
     plan.write_text(text, "utf-8")
-    features = plan.with_name("features.toml")
-    frame = "[frames.A]\norigin = [5.0, 2.0, 1.0]\n"
-    text = features.read_text(encoding="utf-8")
-    features.write_text(text.replace(frame + SETUP_AXES["square"], frame + SETUP_AXES[axes]))
+    set_setup_axes(plan, axes)
     bundle = load_bundle(plan)
     setup = bundle.plan["setups"][0]
     (_, _, after), _ = stock_states(bundle, setup)
     source = after["entry_from"]["target"]
     assert after["entry_z"]["target"] == pytest.approx(entry)
-    if tip is None:
-        assert source == "unknown"
-        return
-    assert operative_z(bundle, setup, entry, "target", 1, source) == pytest.approx(entry)
     (row,) = (r for r in tip_endpoints.evaluate(bundle) if r.subject == "target")
     (end,) = row.numbers["endpoints"]
+    if tip is None:
+        # Unknown coverage leaves the entry, its producer and so the tip unknown.
+        assert source == "unknown"
+        assert row.status == "unknown"
+        assert end["dro_entry_z"] == end["dro_tip_z"] == "unknown"
+        return
+    assert operative_z(bundle, setup, entry, "target", 1, source) == pytest.approx(entry)
     assert row.status == "pass"
     assert end["dro_entry_z"] == pytest.approx(entry)
     assert end["dro_tip_z"] == pytest.approx(tip)
@@ -423,6 +493,38 @@ def test_z_levels_credit_another_features_floor_only_if_it_holds_the_whole_surfa
     assert levels[20]["start_z"] == 0.0 and levels[20]["levels"] == [-3.0, -6.0]
     # Op 30's face holds all of 'target': op 40 starts on its floor.
     assert levels[40]["start_z"] == -7.0 and levels[40]["levels"] == [-7.5]
+
+
+@pytest.mark.parametrize(
+    ("axis", "start"),
+    [(Z, -7.0), (TILTED, 0.0), (TILTED_SCALED, 0.0), ([0.0, 0.0, 0.0], 0.0)],
+    ids=["along Z", "tilted", "tilted scaled", "zero"],
+)
+def test_z_levels_credit_a_floor_under_a_round_feature_only_about_a_unit_z_axis(
+    tmp_path, axis, start
+):
+    # Op 10 faces 'field' to -7, op 20 the Ø4 boss 'target' inside op 10's box. The field
+    # holds the boss's disc about model Z, so op 20 starts on op 10's floor. About any
+    # other axis, a scaled one or none, the boss's footprint is unknown: it starts at the top.
+    field = (
+        "[features.field]\nframe = 'model'\nrequirements = []\nkind = 'plane'\n"
+        "bounds = { x = [-1.0, 21.0], y = [-1.0, 11.0], z = [0.0, 1.0] }\n"
+    )
+    ops = "".join(
+        f'[[setups.ops]]\nop = {op}\ndo = "{do}"\nfeature = "{name}"\ntool = "cutter"\n'
+        f'holder = "unknown"\nto_z = {to_z}\ndoc_mm = {doc}\ndirection = "conventional"\n'
+        "stock_removal_bounds = { x = [0.0, 20.0], y = [0.0, 10.0], z = [-10.0, 1.0] }\n"
+        for op, do, name, to_z, doc in (
+            (10, "rough_face", "field", -7.0, 3.0),
+            (20, "finish_face", "target", -7.5, 0.5),
+        )
+    )
+    boss = f"kind = 'boss'\nat = [10.0, 5.0, 1.0]\naxis = {axis}\ndia = 4.0\n"
+    plan = coordinate_bundle(tmp_path, boss + field, ops)
+    text = plan.read_text(encoding="utf-8")
+    plan.write_text(text.replace("top_z = 0.0\n", "top_z = 0.0\ntop_feature = 'hub'\n"), "utf-8")
+    row = next(row for row in coordinates.evaluate(load_bundle(plan)) if row.subject == "S1")
+    assert row.numbers["operations"][1]["z_levels"]["start_z"] == start
 
 
 def rocker_profile_chains(bundle):
