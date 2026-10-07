@@ -635,7 +635,7 @@ stock_in = "S3"
 coolant = "none: bench filing"
 deburr_mm = 0.25
 deburr_cite = "harmonic-analyzer/cad/config/title_block.yaml:43-45"
-note = "AUTHOR'S CHOICE: file the hub round to filing buttons because the reamed bore A is their pin, so the hub comes out coaxial with A without indicating anything, and a manual mill cannot cut the Ø10.2 hub round (a rotary table would have to swing the 340 mm rail frame). Off the S3 fixture, clamp the buttons on both hub faces through bore A and grip the stud tail upright in the bench vise."
+note = "AUTHOR'S CHOICE: file the hub round to filing buttons because the reamed bore A is their pin, so the hub comes out coaxial with A without indicating anything. Off the S3 fixture, clamp the buttons on both hub faces through bore A and grip the stud tail upright in the bench vise."
 
 [setups.stock_state]
 top_feature = "hub_faces"
@@ -666,7 +666,7 @@ op = 10
 do = "file_to_line"
 feature = "hub_od"
 guide = { buttons = "rocker-hub-filing-buttons", bore = "pivot_bore", gauge = "radius-gauge" } # AUTHOR'S CHOICE: buttons because the reamed bore centres them; the radius gauge checks the round
-note = "File the upper and lower hub walls down to the hardened button rims, working round the hub with the file flat on both buttons; stop when the file rides on the buttons all round without cutting."
+note = "File the upper hub projection, then the lower one, each down to its own hardened button rim: lay a safe-edge hand file flat on that button's rim with the safe edge running on the strap face, so the strap is never cut, and work round the projection in short strokes kept inside the scrap rails; stop when the file rides on the button all round without cutting."
 
 [setups.ops.checks]
 dia = "calipers" # illustrative example gauge for the drawing's 1.02 mm OD band; S4 op 60 checks coaxiality to the reamed bore
