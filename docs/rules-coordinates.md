@@ -365,7 +365,8 @@ earlier face or pocket op whose setup-frame X/Y `stock_removal_bounds` hold all
 of its own and that produced its surface (its feature, or a feature whose X/Y
 `bounds` hold its feature's whole footprint). Levels that cannot be placed (an
 unknown start or a `doc_mm` finer than one DRO step) keep status unknown. The
-traveler prints `Z start → depth in N levels of doc max` on the op row; the
+traveler prints `Z start → depth in N levels of doc max` on the op row, or
+`Z → depth` when the start already stands at the depth (one pass there); the
 contour block heading lists every level and says to run the complete path at
 the first and repeat it at each level in order.
 

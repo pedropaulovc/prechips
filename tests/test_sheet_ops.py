@@ -299,6 +299,22 @@ def test_a_single_level_contour_heading_keeps_its_one_z():
         assert "depth levels" not in html
 
 
+@pytest.mark.parametrize(
+    ("start", "levels", "target"),
+    [
+        # Stepped down from where its surface stands: the start, the count and the step.
+        (0.0, [-0.25, -0.5, -0.6], "Z 0.000 → -0.600 in 3 levels of 0.250 max"),
+        # Its surface already stands at the depth (an earlier op left the floor): one pass
+        # at the depth, not a level from a Z to itself.
+        (-0.6, [-0.6], "Z → -0.600"),
+    ],
+)
+def test_an_op_whose_levels_start_at_its_depth_prints_one_pass_at_that_depth(start, levels, target):
+    records = contour_records(levels)
+    records[("coordinates", "S1")]["operations"][0]["z_levels"]["dro_start_z"] = start
+    assert shop(records).z_target(POCKET, POCKET["ops"][0]) == target
+
+
 def test_each_depth_level_has_a_place_to_mark_it_done():
     html = shop(contour_records([-0.25, -0.5, -0.6])).contours(POCKET, {"c": "T1"})
     assert re.findall(r'<span class="tick"></span>level (\d) of 3', html) == ["1", "2", "3"]

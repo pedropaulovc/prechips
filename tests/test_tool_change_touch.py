@@ -1111,3 +1111,11 @@ def test_a_trial_cut_is_withdrawn_along_z_and_the_spindle_stopped_before_it_is_m
     assert len(steps) == 2, text
     for step in steps:
         assert "withdraw along Z without moving X, stop the spindle," in step, step
+
+
+def test_authored_prose_keeps_its_proper_nouns_as_written():
+    # Shop words come from the plan's own identifiers; a maker's or vendor's name an author
+    # wrote is a name to look up, printed as written.
+    sheet, setup = sheet_of(bundle("lathe", lathe_zero([]), LATHE_OPS))
+    note = "Buttons from McMaster, oil from LittleMachineShop, ProTap on the tap."
+    assert sheet.bench(note, setup) == note

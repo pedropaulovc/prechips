@@ -1456,11 +1456,6 @@ class _Traveler:
                     rf"|\b{re.escape(frame)}(?=\s*[XYZ]\s?(?:=\s?)?[-+−]?\d)"
                 )
                 text = re.sub(pattern, name, text)
-        text = re.sub(
-            r"\b([A-Z][a-z]+(?:[A-Z][a-z]+)+)\b",
-            lambda m: re.sub(r"(?<!^)(?=[A-Z])", " ", m[1]).lower(),
-            text,
-        )
         text = re.sub(r"\b[0-9a-fA-F]{32,64}\b", "", text)
         text = re.sub(
             r"https?://\S+|(?:[A-Za-z]:[\\/]|(?:\.?\.?/)?(?:cad|src|examples|harmonic-analyzer)/)\S+",
@@ -3862,15 +3857,19 @@ class _Traveler:
 
     def z_target(self, setup, op):
         """``Z → depth``, or the axial levels coordinates stepped an op authoring ``doc_mm``
-        down in: ``Z start → depth in N levels of doc max``. A grooving/parting blade's
-        target is the DRO reading of the corner its Z touch set (coordinates ``blade``),
-        named."""
+        down in: ``Z start → depth in N levels of doc max``; levels that start at the depth
+        (an earlier op left the floor there) are one pass at it, ``Z → depth``. A
+        grooving/parting blade's target is the DRO reading of the corner its Z touch set
+        (coordinates ``blade``), named."""
         o = self.operative
         levels = self.z_levels(setup, op)
         if levels is not None:
+            start, end = levels.get("dro_start_z"), levels.get("dro_to_z")
+            if _known(start) and _known(end) and start == end:
+                return f"Z → {o(end)}"
             count = levels.get("count")
             return (
-                f"Z {o(levels.get('dro_start_z'))} → {o(levels.get('dro_to_z'))} in "
+                f"Z {o(start)} → {o(end)} in "
                 f"{_text(count)} level{'' if count == 1 else 's'} of "
                 f"{o(levels.get('doc_mm'))} max"
             )
