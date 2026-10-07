@@ -1268,6 +1268,30 @@ def test_picture_contact_coordinates_print_on_the_setup_dro_grid_and_clearances_
     assert "CUT 6.653 mm FROM FIXED JAW" in labels, labels
 
 
+@pytest.mark.parametrize(
+    ("zero_x", "fixed", "moving"),
+    [
+        (-0.0025, "0.005", "12.005"),
+        (0.0025, "-0.005", "12.000"),
+        (-0.0074999999, "0.010", "12.010"),
+    ],
+)
+def test_a_contact_half_a_dro_step_off_rounds_as_the_fixture_tables_set_it(zero_x, fixed, moving):
+    # The fixture tables set half a 0.005 step away from zero (0.0025 -> 0.005, -0.0025 ->
+    # -0.005), float noise in the quotient not counting; the picture must name the same
+    # setting, never the even neighbour one step away.
+    meshes, spec = _vise_spec(12)
+    spec["decimals"] = 3
+    spec["dro_step_mm"] = 0.005
+    spec["zero_mm"] = [zero_x, 0, 0]
+    main = _Diagram(meshes, spec)
+    main.render()
+    (detail,) = _holding_details(meshes, spec, main)
+    labels = [label for label, _ in detail.leaders]
+    assert f"FIXED JAW CONTACT AT X {fixed}" in labels, labels
+    assert f"MOVING JAW CONTACT AT X {moving}" in labels, labels
+
+
 def test_keys_too_many_for_their_lanes_move_the_footer_down_never_across_it():
     # Thirty datum keys on small work: the lanes beside the scene cannot hold them at
     # body size above the divider. The picture grows; no key runs into the key below.

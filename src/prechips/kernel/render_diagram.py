@@ -229,6 +229,14 @@ def _pad_code(component, index):
     return label.removeprefix("PAD ").removeprefix("SUPPORT PAD ") or str(index)
 
 
+def dro_steps(value, step):
+    """The whole DRO steps of ``step`` nearest ``value``, as the shop sets them: half a
+    step rounds away from zero, and float noise in the quotient does not count. The one
+    rounding of a printed DRO position, in pictures and fixture tables alike."""
+    quotient = round(value / step, 6)
+    return math.copysign(math.floor(abs(quotient) + 0.5), quotient)
+
+
 def _code_ranges(codes):
     """Position codes as a drawing lists them: ``L1-L6, R1-R6``; a run of three or more
     consecutive numbers under one prefix is a range, others are listed."""
@@ -2886,12 +2894,13 @@ class _HoldingDetail(_Diagram):
         return f" AT {'XYZ'[axis]} {self._dro(self._on_grid(value - zero[axis]))}"
 
     def _on_grid(self, value):
-        """A setup coordinate at the setup's nearest DRO step (``dro_step_mm``), as the
-        fixture tables print positions; unchanged when the spec names no step."""
+        """A setup coordinate at the setup's nearest DRO step (``dro_step_mm``), rounded
+        as the fixture tables round their positions (:func:`dro_steps`); unchanged when the
+        spec names no step."""
         step = self.spec.get("dro_step_mm")
         if not isinstance(step, (int, float)) or isinstance(step, bool) or step <= 0:
             return value
-        return round(value / step) * step
+        return dro_steps(value, step) * step
 
     def _guide_stops(self):
         """Where a guided file stops: each guide solid (a filing button) its cut reaches is

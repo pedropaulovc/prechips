@@ -1857,9 +1857,11 @@ under each pad) is keyed by the position badges, `PAD SLOTS AT L1-L6`, and gets
 no second leader into a badged point. A split key names each point it leads to.
 
 Holding-detail keys print a contact's plane on the setup's DRO grid
-(`dro_step_mm`, the step the fixture tables print positions at), so a key reads
-as the DRO is set. Closest-cut and clearance distances are measured values and
-never snap to the grid.
+(`dro_step_mm`, the step the fixture tables print positions at), rounded as the
+tables round (half a step away from zero, float noise in the quotient not
+counting; one shared rounding), so a key reads as the DRO is set and as the table
+prints it. Closest-cut and clearance distances are measured values and never snap
+to the grid.
 
 A guided bench file (a hand op whose `guide.buttons` kit is held in the setup,
 its solids named to the kernel by `guide_owner`, the kit's declared button OD by
