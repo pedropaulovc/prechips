@@ -22,8 +22,6 @@ from prechips.rules.geometry_common import (
 )
 from prechips.rules.resolution import (
     HAND_FINISH,
-    WORKHOLDING_CATEGORIES,
-    inventory_category,
     number,
     record,
     resolve,
@@ -1020,8 +1018,7 @@ def _supports_inputs(bundle, setup, hold, result, debts, gaps):
 
 def hold_inputs(bundle, setup):
     hold = record(setup.get("hold"))
-    category = inventory_category(bundle, hold.get("fixture"), WORKHOLDING_CATEGORIES)
-    fixture = measurement_item(bundle, category, hold.get("fixture")) if category else {}
+    fixture = measurement_item(bundle, "workholding", hold.get("fixture"))
     kind = record(fixture).get("kind", UNKNOWN)
     result = {"kind": kind, "method": hold.get("method", UNKNOWN)}
     # Scene-only debts (supports below the seat) and gaps (undrawn possible obstacles).

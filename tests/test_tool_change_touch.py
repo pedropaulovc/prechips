@@ -1068,7 +1068,7 @@ def test_an_authored_x_touch_prints_its_axis_set_and_stops_on_a_diameter_not_sho
 def x_printed(data, touch):
     """The X half of ``touch`` as the sheet prints it."""
     sheet, setup = sheet_of(data)
-    return sheet.tool_touch(setup, touch, {}).split("X — ", 1)[1].split(" Z — ", 1)[0]
+    return sheet.tool_touch(setup, touch, {}, "spindle").split("X — ", 1)[1].split(" Z — ", 1)[0]
 
 
 @pytest.mark.parametrize(

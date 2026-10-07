@@ -258,104 +258,147 @@ def length_mm(item, field):
     return nominal_length_mm(item, field)
 
 
-def inventory_category(bundle_or_inventory, reference, categories=_INVENTORY_CATEGORIES):
-    """Return the first inventory category declaring a reference root."""
-    if not isinstance(reference, str):
-        return None
+# The categories each kind of slot reads, in order; any other slot reads its one category.
+# A hold's fixture (and its dividing head) is workholding: a fixture, a holder or a machine.
+# A spindle slot (a zero's touch tool, a transfer's tool) holds a tool or an indicator. A
+# coating's process is in-house consumables or an outside service.
+SLOT_CATEGORIES = {
+    "workholding": WORKHOLDING_CATEGORIES,
+    "spindle": ("tools", "gauges"),
+    "process": ("consumables", "services"),
+}
+# A reference that names its category: ``gauges.dti``, ``tools.drills/#61``.
+_QUALIFIED = re.compile(r"(machines|tools|holders|fixtures|gauges|services)\.(.+)", re.DOTALL)
+_NO_ITEM = frozenset({UNKNOWN, "none", "not_applicable"})
+
+
+def select(bundle_or_inventory, reference, slot=None):
+    """``(category, reference, item)``: the one inventory item ``reference`` names. This is
+    the only place the inventory is read by key; every rule, receipt and printed name reads
+    the item it returns.
+
+    A reference that names its category (``gauges.dti``) is in that category, whatever the
+    slot. A slot reads its own categories in order (:data:`SLOT_CATEGORIES`), and the first
+    that lists the key, or is stated unknown as a whole (it may list it), is final; only a
+    bare reference with no slot reads every category, in the default order, the same way.
+    ``reference`` comes back without its category; ``category`` is the one read (with
+    nothing found, the slot's first, or None for a bare reference). ``item`` is the
+    resolved record (a member's merged over its set's, a whole set as itself);
+    :data:`UNKNOWN` when the category, item or member is stated unknown or the item is
+    listed with nothing about it (``{}``); None when nothing in order lists it (a machine's
+    standard accessory of that name excepted), it is not present, or its member is not one
+    it declares. A same-key item in another category is never read."""
     inventory = getattr(bundle_or_inventory, "inventory", bundle_or_inventory)
-    root = reference.partition("/")[0]
-    for category in categories:
-        if root in record(inventory.get(category)):
-            return category
-    return None
+    qualified = _QUALIFIED.fullmatch(reference) if isinstance(reference, str) else None
+    if qualified:
+        order, reference = (qualified[1],), qualified[2]
+    elif slot:
+        order = SLOT_CATEGORIES.get(slot, (slot,))
+    else:
+        order = _INVENTORY_CATEGORIES
+    first = order[0] if qualified or slot else None
+    if not isinstance(reference, str) or reference in _NO_ITEM:
+        return first, reference, None
+    root, separator, member = reference.partition("/")
+    for category in order:
+        entries = inventory.get(category, {})
+        if entries == UNKNOWN:
+            return category, reference, UNKNOWN
+        if isinstance(entries, dict) and root in entries:
+            return category, reference, _item(entries[root], separator, member)
+    machines = inventory.get("machines", {})
+    for machine in machines.values() if isinstance(machines, dict) else ():
+        machine = inventory_record(machine)
+        if reference in machine.get("standard_accessories", []) + machine.get("included", []):
+            accessory = {
+                "kind": "accessory",
+                "verify": uncertain(machine),
+                "source": machine.get("source", "inventory machine accessories"),
+            }
+            return first, reference, accessory
+    return first, reference, None
 
 
-def listing_categories(bundle_or_inventory, reference):
-    """Every inventory category listing a reference's root, in the default order. More
-    than one means the bare key names no one item: a slot selects one
-    (:func:`slot_category`), and prose names it ``<category>.<key>``."""
+def authored(bundle_or_inventory, category, reference):
+    """The record the shop list states for a selected ``(category, reference)``
+    (:func:`select`), as written: a member's set's own; {} when that category lists none."""
     inventory = getattr(bundle_or_inventory, "inventory", bundle_or_inventory)
     root = reference.partition("/")[0] if isinstance(reference, str) else None
-    return tuple(c for c in _INVENTORY_CATEGORIES if root in record(inventory.get(c)))
+    return record(record(inventory.get(category)).get(root)) if category else {}
 
 
-def workholding_category(bundle_or_inventory, reference):
-    """Category holding a ``hold.fixture`` identity: a fixture, holder or machine (a
-    machine-hosted dividing head); ``fixtures`` when no category declares it."""
-    return inventory_category(bundle_or_inventory, reference, WORKHOLDING_CATEGORIES) or "fixtures"
-
-
-# The hold's item slots, in the order the HOLD uses them.
-_HOLD_ITEMS = ("fixture", "chuck", "parallels", "riser", "jaw_bar", "jaw_buttons", "support")
+# The hold's item slots after its fixture, in the order the HOLD uses them: each a fixture.
+_HOLD_ITEMS = ("chuck", "parallels", "riser", "jaw_bar", "jaw_buttons", "support")
+# A ``hold.clamp`` is prose unless it is a slug (``toe-clamps``): then it names a fixture.
+_CLAMP_SLUG = re.compile(r"[\w]+(?:-[\w]+)+")
 
 
 def setup_items(bundle, setup):
-    """``[(category, reference)]``: every inventory item a setup puts its hands on, first
-    use first, each in the category its slot selects: the slot's own kind first (a
-    ``checks`` gauge ``pins`` is ``gauges.pins`` before ``fixtures.pins``), then the rest;
-    ``None`` when no category lists it. The slots: the hold's fixture, chuck, parallels,
-    riser, jaw bar / buttons, support, clamps, stop and supports (workholding: fixtures,
-    holders, machines) and alignment indicator (a gauge); the zero's tools, holders and
-    gauges (a tool touch's Z measuring gauge, the transfer's tool and gauge); then each
-    op's filing guide (its buttons, template and gauge), tool, holder, inspection gauges
-    and process-hold gauges. One reference selected in two categories by two kinds of
-    slot is two items. An item is its category and reference from here on: every reader
-    resolves that pair, never the bare key again."""
+    """``[(category, reference, item)]`` (:func:`select`): every inventory item a setup puts
+    its hands on, first use first, each as its slot selects it. The slots: the machine;
+    the hold's fixture and dividing head (workholding); its chuck, parallels, riser, jaw
+    bar / buttons, support, clamps, stop, supports and support blocks (fixtures) and
+    alignment indicator (a gauge); the zero's touch tools (spindle), holders and gauges (a
+    tool touch's Z measuring gauge too), the transfer's tool (spindle) and gauge; then each
+    op's filing guide (its buttons a fixture, its template and gauge gauges), tool,
+    holder, inspection gauges (``checks`` and ``missing_requirements``) and process-hold
+    gauges. One reference two kinds of slot select in two categories is two items. An item
+    is its category and reference from here on: every reader uses that pair, never the
+    bare key again."""
     hold = record(setup.get("hold"))
-    uses = [("workholding", hold.get(key)) for key in _HOLD_ITEMS]
-    uses += [("workholding", record(clamp).get("ref")) for clamp in hold.get("clamps") or []]
-    uses.append(("workholding", hold.get("stop_fixture")))
+    uses = [("workholding", hold.get("fixture"))]
+    uses += [("fixtures", hold.get(key)) for key in _HOLD_ITEMS]
+    clamps = hold.get("clamps") if isinstance(hold.get("clamps"), list) else []
+    uses += [("fixtures", c if isinstance(c, str) else record(c).get("ref")) for c in clamps]
+    uses.append(("fixtures", hold.get("stop_fixture")))
     supports = hold.get("supports")
     for support in supports if isinstance(supports, list) else [supports]:
         ref = record(support).get("ref") if isinstance(support, dict) else support
-        uses.append(("workholding", ref))
+        uses.append(("fixtures", ref))
     uses.append(("gauges", record(hold.get("align")).get("indicator")))
     zero = record(setup.get("zero"))
     touches = zero.get("tool_touches") if isinstance(zero.get("tool_touches"), list) else []
-    slots = (("tool", "tools"), ("holder", "holders"), ("gauge", "gauges"), ("z_gauge", "gauges"))
+    slots = (("tool", "spindle"), ("holder", "holders"), ("gauge", "gauges"), ("z_gauge", "gauges"))
     for touch in [*(zero.get(axis) for axis in "xyz"), *touches]:
-        uses += [(category, record(touch).get(key)) for key, category in slots]
+        uses += [(kind, record(touch).get(key)) for key, kind in slots]
     transfer = record(zero.get("transfer"))
-    uses += [("tools", transfer.get("tool")), ("gauges", transfer.get("gauge"))]
+    uses += [("spindle", transfer.get("tool")), ("gauges", transfer.get("gauge"))]
     for op in setup.get("ops") or []:
         op = record(op)
         guide = record(op.get("guide"))
         uses += [("fixtures", guide.get("buttons"))]
         uses += [("gauges", guide.get("template")), ("gauges", guide.get("gauge"))]
         uses += [("tools", op.get("tool")), ("holders", op.get("holder"))]
-        uses += [("gauges", gauge) for gauge in record(op.get("checks")).values()]
+        for key in ("checks", "missing_requirements"):
+            uses += [("gauges", gauge) for gauge in record(op.get(key)).values()]
         process_holds = op.get("process_holds")
         for held in process_holds if isinstance(process_holds, list) else []:
             uses.append(("gauges", record(held).get("gauge")))
-    items = []
+    # Last, so the order the slots above print their receipts in stands: the machine, the
+    # dividing head, support blocks and a clamp named by its slug.
+    uses += [("machines", setup.get("machine"))]
+    uses += [("workholding", record(hold.get("index")).get("fixture"))]
+    uses += [("fixtures", hold.get("support_blocks"))]
+    clamp = hold.get("clamp")
+    if isinstance(clamp, str) and _CLAMP_SLUG.fullmatch(clamp):
+        uses.append(("fixtures", clamp))
+    items, seen = [], set()
     for slot, ref in uses:
-        if isinstance(ref, str) and ref not in {UNKNOWN, "none", "not_applicable"}:
-            item = (slot_category(bundle, ref, slot), ref)
-            if item not in items:
-                items.append(item)
+        if isinstance(ref, str) and ref not in _NO_ITEM:
+            category, reference, item = select(bundle, ref, slot)
+            if (category, reference) not in seen:
+                seen.add((category, reference))
+                items.append((category, reference, item))
     return items
 
 
-def slot_category(bundle, reference, slot):
-    """The category a slot of kind ``slot`` (an inventory category, or ``"workholding"``
-    for a hold slot) selects ``reference`` from: the first listing its root, the slot's
-    own categories first (workholding: fixtures, holders, machines), then the rest."""
-    lead = WORKHOLDING_CATEGORIES if slot == "workholding" else (slot,)
-    order = (*lead, *(c for c in _INVENTORY_CATEGORIES if c not in lead))
-    return inventory_category(bundle, reference.partition("/")[0], order)
-
-
-def shop_made_item(bundle, reference, category=None):
+def shop_made_item(bundle, reference, slot):
     """The inventory record of a shop-made holding item (``kind = "custom"`` or flagged
     ``shop_made``) with something to make, else None: an item whose every solid is bought
-    or existing (a plain ground plate) has no make table. ``category`` is the one the
-    using slot selected (:func:`setup_items`); without it, a hold slot's (fixtures, then
-    holders, then machines). The item is read from that category only, never from another
-    listing the same key."""
-    if not isinstance(reference, str) or reference in (UNKNOWN, "none", "not_applicable"):
-        return None
-    category = category or workholding_category(bundle, reference)
-    item = record(resolve(bundle, category, reference))
+    or existing (a plain ground plate) has no make table. ``slot`` is the using slot's kind
+    or the category it selected (:func:`setup_items`); the item is the one
+    :func:`select` reads there, never another category's of the same key."""
+    item = record(resolve(bundle, slot, reference))
     if not (item.get("kind") == "custom" or item.get("shop_made") is True):
         return None
     solids = [s for s in item.get("solids") or [] if isinstance(s, dict)]
@@ -404,7 +447,7 @@ def setup_named_references(bundle, setup, job=False):
         scan({key: value for key, value in bundle.plan.items() if key != "setups"}, "plan")
     scan(setup, f"Setup {setup.get('id', '?')}")
     # A shop-made item holds the work: read the one each slot selected, in its category.
-    held = [(c, ref) for c, ref in setup_items(bundle, setup) if c in WORKHOLDING_CATEGORIES]
+    held = [(c, ref) for c, ref, _ in setup_items(bundle, setup) if c in WORKHOLDING_CATEGORIES]
     for category, ref in held:
         item = shop_made_item(bundle, ref, category)
         for solid in (item or {}).get("solids") or []:
@@ -431,59 +474,45 @@ def named_references(bundle):
 
 
 def named_item(bundle, name):
-    """The inventory record a :data:`NAMED_REFERENCE` ``<category>.<key>`` names, else
-    None. A whole set (``tools.reamers-metric``) is named as itself; a member is resolved."""
-    category, _, reference = name.partition(".")
-    if "/" in reference:
-        return resolve(bundle, category, reference)
-    inventory = getattr(bundle, "inventory", bundle)
-    item = record(inventory.get(category)).get(reference)
-    if not isinstance(item, dict) or item.get("present") is False:
+    """The inventory record a :data:`NAMED_REFERENCE` ``<category>.<key>`` names
+    (:func:`select`), else None. A whole set (``tools.reamers-metric``) is named as itself;
+    a member is resolved. An item, member or category stated unknown, or an item listed
+    with nothing about it (``{}``), is unknown (needs verifying), not absent."""
+    _, _, item = select(bundle, name)
+    return {"kind": UNKNOWN, "verify": True} if item == UNKNOWN else item
+
+
+def resolve(bundle_or_inventory, slot, reference):
+    """The item :func:`select` reads for ``reference`` in ``slot`` (a slot kind or one
+    category; None for a bare reference), as a rule uses it: an unknown one as
+    ``{"kind": "unknown", "verify": True}``, and a whole set as None (its member is the
+    tool)."""
+    _, reference, item = select(bundle_or_inventory, reference, slot)
+    if item == UNKNOWN:
+        return {"kind": UNKNOWN, "verify": True}
+    if isinstance(item, dict) and "/" not in reference and item.get("kind") in SET_KINDS:
         return None
     return item
 
 
-def resolve(bundle_or_inventory, category, reference):
-    inventory = getattr(bundle_or_inventory, "inventory", bundle_or_inventory)
-    if not isinstance(reference, str) or reference in {UNKNOWN, "none", "not_applicable"}:
-        return None
-    categories = (category,) if category else _INVENTORY_CATEGORIES
-    root, separator, member = reference.partition("/")
-    item = None
-    unknown_category = False
-    for group in categories:
-        entries = inventory.get(group, {})
-        if entries == UNKNOWN:
-            unknown_category = True
-            continue
-        if isinstance(entries, dict) and root in entries:
-            if entries[root] == UNKNOWN:
-                return {"kind": UNKNOWN, "verify": True}
-            item = inventory_record(entries[root])
-            break
-    if item is None:
-        machines = inventory.get("machines", {})
-        for machine in machines.values() if isinstance(machines, dict) else ():
-            machine = inventory_record(machine)
-            if reference in machine.get("standard_accessories", []) + machine.get("included", []):
-                return {
-                    "kind": "accessory",
-                    "verify": uncertain(machine),
-                    "source": machine.get("source", "inventory machine accessories"),
-                }
-        return {"kind": UNKNOWN, "verify": True} if unknown_category else None
+def _item(entry, separator, member):
+    """A listed entry as :func:`select` returns it: the record, merged with its member's (a
+    member listed ``{}`` is its set's)."""
+    if entry == UNKNOWN or not isinstance(entry, dict) or not entry:
+        return UNKNOWN
+    item = inventory_record(entry)
     if item.get("present") is False:
         return None
     item["verify"] = uncertain(item)
     parent_uncertain = item["verify"]
     if not separator:
-        return None if item.get("kind") in SET_KINDS else item
+        return item
     kind = item.get("kind")
     size = fraction(member)
     if member in item.get("members", {}):
         selected = item["members"][member]
         if selected == UNKNOWN:
-            return {"kind": UNKNOWN, "verify": True}
+            return UNKNOWN
         item.update(inventory_record(selected))
     elif kind in {"collet_set", "parallels_set", "countersink_set"}:
         choices = inch_sizes(item.get("sizes_in", item.get("heights_in", [])))
@@ -613,59 +642,6 @@ def jaw_top_z(setup, hold, scale):
     return (min(bottom, rail) if rail is not None else bottom) + jaw / scale
 
 
-def selected_references(plan):
-    result = set()
-    keys = {
-        "machine",
-        "tool",
-        "holder",
-        "gauge",
-        "indicator",
-        "fixture",
-        "parallels",
-        "support",
-        "supports",
-        "clamps",
-        "riser",
-        "support_blocks",
-        "chuck",
-        "ref",
-    }
-
-    def walk(value):
-        if isinstance(value, dict):
-            for key, child in value.items():
-                if (
-                    key in keys
-                    and isinstance(child, str)
-                    and child not in {UNKNOWN, "none", "not_applicable"}
-                ):
-                    result.add(child)
-                elif key in keys and isinstance(child, list):
-                    result.update(
-                        v
-                        for v in child
-                        if isinstance(v, str) and v not in {UNKNOWN, "none", "not_applicable"}
-                    )
-                    walk(child)
-                elif key in {"checks", "missing_requirements"} and isinstance(child, dict):
-                    result.update(v for v in child.values() if isinstance(v, str) and v != UNKNOWN)
-                elif (
-                    key == "clamp"
-                    and isinstance(child, str)
-                    and re.fullmatch(r"[\w]+(?:-[\w]+)+", child)
-                ):
-                    result.add(child)
-                else:
-                    walk(child)
-        elif isinstance(value, list):
-            for child in value:
-                walk(child)
-
-    walk(plan.get("setups", []))
-    return result
-
-
 def operations(bundle, feature=None, owned=False):
     """Every (setup, op), or those naming ``feature``; ``owned`` adds complete claimers.
 
@@ -685,15 +661,17 @@ def operations(bundle, feature=None, owned=False):
 
 
 def coating_process(bundle_or_inventory, reference):
-    """Where a coating op's process resolves: ``("consumables", record)`` for in-house kit,
-    ``("services", item)`` for an outside process, else ``(None, None)``."""
+    """Where a coating op's process resolves (:func:`select`, in-house consumables before
+    outside services): ``("consumables", record)`` for in-house kit, ``("services", item)``
+    for an outside process, else ``(None, None)``. Consumables stated unknown, as a whole or
+    the entry, are unknown in-house kit."""
     inventory = getattr(bundle_or_inventory, "inventory", bundle_or_inventory)
-    if not isinstance(reference, str) or reference in {UNKNOWN, "none", "not_applicable"}:
+    category, reference, item = select(inventory, reference, "process")
+    if item is None:
         return None, None
-    consumables = inventory.get("consumables", {})
-    if isinstance(consumables, dict) and reference in consumables:
-        entry = consumables[reference]
-        products = entry.get("products", UNKNOWN) if isinstance(entry, dict) else UNKNOWN
+    if category == "consumables" and (item == UNKNOWN or authored(inventory, category, reference)):
+        entry = item if isinstance(item, dict) else {}
+        products = entry.get("products", UNKNOWN)
         # A blank or "unknown" product is not a resolved product.
         known = (
             isinstance(products, list)
@@ -702,14 +680,12 @@ def coating_process(bundle_or_inventory, reference):
         )
         return "consumables", {
             "kind": "consumables",
-            "name": entry.get("name", UNKNOWN) if isinstance(entry, dict) else UNKNOWN,
+            "name": entry.get("name", UNKNOWN),
             "products": products if known else UNKNOWN,
             "verify": not known,
         }
-    item = resolve(inventory, "services", reference)
-    if item is None and consumables == UNKNOWN:
-        return "consumables", {"kind": UNKNOWN, "verify": True}
-    return ("services", item) if item is not None else (None, None)
+    # An outside service (a machine's accessory of that name too, as any slot reads one).
+    return "services", {"kind": UNKNOWN, "verify": True} if item == UNKNOWN else item
 
 
 def saw_setup(setup):

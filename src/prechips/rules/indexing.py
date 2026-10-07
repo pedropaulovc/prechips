@@ -3,7 +3,15 @@
 from fractions import Fraction
 
 from prechips.findings import Finding
-from prechips.rules.resolution import UNKNOWN, _citations, number, record, resolve, uncertain
+from prechips.rules.resolution import (
+    UNKNOWN,
+    _citations,
+    number,
+    record,
+    resolve,
+    select,
+    uncertain,
+)
 
 _CITE = "PLAN.md §4.3 indexing (360° per revolution; cumulative landings and cycle closure)"
 
@@ -19,13 +27,12 @@ def _nearest(value):
 
 
 def _fixture(bundle, reference):
-    root = reference.partition("/")[0] if isinstance(reference, str) else None
-    for category in ("fixtures", "machines"):
-        if root in record(bundle.inventory.get(category)):
-            return resolve(bundle, category, reference), category
-    if any(bundle.inventory.get(category) == UNKNOWN for category in ("fixtures", "machines")):
+    """The dividing head a hold names, as its fixture slot reads it (:func:`select`), and its
+    category (``unknown`` when that is stated unknown)."""
+    category, _, item = select(bundle, reference, "workholding")
+    if item == UNKNOWN:
         return {"kind": UNKNOWN, "verify": True}, UNKNOWN
-    return None, UNKNOWN
+    return resolve(bundle, category, reference), category
 
 
 def _candidates(item, requested, source):

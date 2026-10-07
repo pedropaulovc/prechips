@@ -290,36 +290,42 @@ def test_an_explicitly_unknown_receipt_declaration_stops(field):
 
 
 @pytest.mark.parametrize(
-    "use",
+    ("use", "category"),
     [
-        {"hold": {"fixture": "vise", "jaw_buttons": "kit"}},
-        {"hold": {"fixture": "vise", "jaw_bar": "kit"}},
-        {"hold": {"fixture": "vise", "parallels": "kit"}},
-        {"hold": {"fixture": "kit"}},
-        {"hold": {"fixture": "lathe-chuck", "chuck": "kit"}},
-        {"hold": {"fixture": "vise", "support": "kit"}},
-        {"hold": {"fixture": "vise", "riser": "kit"}},
-        {"hold": {"fixture": "vise", "stop_fixture": "kit"}},
-        {"hold": {"fixture": "vise", "align": {"indicator": "kit"}}},
-        {"zero": {"x": {"tool": "kit"}}},
-        {"zero": {"x": {"gauge": "kit"}}},
-        {"zero": {"transfer": {"gauge": "kit"}}},
-        {"zero": {"transfer": {"tool": "kit"}}},
-        {"zero": {"tool_touches": [{"tool": "centre", "z_gauge": "kit"}]}},
-        {"ops": [{"op": 10, "tool": "centre", "holder": "kit"}]},
-        {"ops": [{"op": 10, "tool": "centre", "checks": {"dia": "kit"}}]},
-        {"ops": [{"op": 10, "tool": "centre", "guide": {"gauge": "kit"}}]},
-        {"ops": [{"op": 10, "tool": "centre", "process_holds": [{"gauge": "kit"}]}]},
+        ({"hold": {"fixture": "vise", "jaw_buttons": "kit"}}, "fixtures"),
+        ({"hold": {"fixture": "vise", "jaw_bar": "kit"}}, "fixtures"),
+        ({"hold": {"fixture": "vise", "parallels": "kit"}}, "fixtures"),
+        ({"hold": {"fixture": "kit"}}, "fixtures"),
+        ({"hold": {"fixture": "kit"}}, "holders"),
+        ({"hold": {"fixture": "lathe-chuck", "chuck": "kit"}}, "fixtures"),
+        ({"hold": {"fixture": "vise", "support": "kit"}}, "fixtures"),
+        ({"hold": {"fixture": "vise", "riser": "kit"}}, "fixtures"),
+        ({"hold": {"fixture": "vise", "stop_fixture": "kit"}}, "fixtures"),
+        ({"hold": {"fixture": "vise", "align": {"indicator": "kit"}}}, "gauges"),
+        ({"zero": {"x": {"tool": "kit"}}}, "tools"),
+        ({"zero": {"x": {"tool": "kit"}}}, "gauges"),
+        ({"zero": {"x": {"gauge": "kit"}}}, "gauges"),
+        ({"zero": {"transfer": {"gauge": "kit"}}}, "gauges"),
+        ({"zero": {"transfer": {"tool": "kit"}}}, "gauges"),
+        ({"zero": {"tool_touches": [{"tool": "centre", "z_gauge": "kit"}]}}, "gauges"),
+        ({"ops": [{"op": 10, "tool": "centre", "holder": "kit"}]}, "holders"),
+        ({"ops": [{"op": 10, "tool": "centre", "checks": {"dia": "kit"}}]}, "gauges"),
+        ({"ops": [{"op": 10, "tool": "centre", "guide": {"gauge": "kit"}}]}, "gauges"),
+        ({"ops": [{"op": 10, "tool": "centre", "process_holds": [{"gauge": "kit"}]}]}, "gauges"),
     ],
 )
-def test_every_slot_a_setup_uses_an_item_in_reads_its_receipt_checks(use):
+def test_every_slot_a_setup_uses_an_item_in_reads_its_receipt_checks(use, category):
+    """The kit is listed in a category the slot reads (docs/inventory.md, Identity)."""
     data = kit_bundle()
+    kit = data.inventory["fixtures"].pop("kit")
+    data.inventory.setdefault(category, {})["kit"] = kit
     setup = data.plan["setups"][0]
     setup["hold"] = {"fixture": "vise"}
     assert purchased_tooling.evaluate(data) == []
     setup.update(copy.deepcopy(use))
     [finding] = purchased_tooling.evaluate(data)
     assert finding.numbers["items"][0]["ref"] == "kit"
+    assert finding.numbers["items"][0]["category"] == category
 
 
 def test_metric_receipt_limits_round_inward():
