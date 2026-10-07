@@ -36,6 +36,16 @@ from .tip_endpoints import (
 MEASURED = {"trial_cut_measure", "measure_then_set"}
 # Lathe ops that leave a measurable diameter a later tool can be touched off on.
 TURNED = {"turn", "rough_turn", "finish_turn"}
+# AUTHOR'S CHOICE: the side of the smallest square of a partly cut surface credited as
+# left to touch off on. A paper touch needs a patch the operator can see, set the tool end
+# over and slide paper under; a narrower sliver may hold no flat surface once the burrs of
+# the cuts beside it are counted, and whether it is there at all can rest on geometry no
+# operator can check. Illustrative, not measured: larger only leaves more Z unknown.
+TOUCH_LAND_MM = 0.5
+# How far inside its recorded box a face that fills it (``fills_bbox``) is known to hold
+# surface: the kernel's 1e-6 mm side tolerance, within which a notch may run, plus the
+# 5e-7 mm by which the record's 6-decimal rounding may move each side of the box.
+FILL_MARGIN_MM = 1.5e-6
 
 DIRECTIONS = {
     "x": ({"right", "away_from_spindle_axis"}, {"left", "toward_spindle_axis"}),
@@ -209,11 +219,18 @@ def _top_cut(op, names, top_feature):
 
 
 def _rectangle(bundle, setup, target):
-    """``target``'s setup-frame X/Y footprint (:func:`_setup_footprint`) when the surface
-    is known to fill it, else None. The evidence is the kernel's one STEP face for it
-    (``faces``): a plane, flat in setup Z, whose X/Y box is the footprint and whose area
-    is that box's. Without a kernel result, or for a face set of other than one face, a
-    round, holed or L-shaped face, the box's corners may hold no surface at all."""
+    """(rectangle, land) when ``target``'s surface is known to fill its setup-frame X/Y
+    footprint (:func:`_setup_footprint`), else None: the X/Y rectangle it is known to hold
+    surface over and :data:`TOUCH_LAND_MM`, both in plan units. The evidence is the
+    kernel's one STEP face for it (``faces``): a plane that fills its own box
+    (``fills_bbox``: one wire, every edge a straight segment within the kernel's side
+    tolerance of a side of the box, and more area than that band along its sides), flat in
+    setup Z, with each corner of the box on a corner of its setup X/Y box, which is the
+    footprint. The rectangle is that box less :data:`FILL_MARGIN_MM` and the corner
+    tolerance on every side, where a notch may still run. Without a kernel result, or for
+    a face set of other than one face, a round, holed, notched or L-shaped face, or one
+    turned against the setup axes, the box's corners may hold no surface at all, however
+    little area the face lacks."""
     from .coordinates import frame_point
 
     footprint = _setup_footprint(bundle, setup, target)
@@ -224,12 +241,13 @@ def _rectangle(bundle, setup, target):
     index = mapping(kernel.get("mapping")).get(refs[0])
     faces = [mapping(f) for f in records(kernel.get("faces"))]
     face = next((f for f in faces if index is not None and f.get("index") == index), {})
-    box, area = face.get("bbox_mm"), face.get("area_mm2")
+    box = face.get("bbox_mm")
     if not (
         face.get("kind") == "Plane"
+        and face.get("fills_bbox") is True
         and isinstance(box, list)
         and len(box) == 6
-        and all(number(v) for v in [*box, area])
+        and all(number(v) for v in box)
     ):
         return None
     frame = setup_frame(bundle, setup)
@@ -237,31 +255,38 @@ def _rectangle(bundle, setup, target):
     corners = [frame_point(list(p), frame) for p in product(*ends)]
     if not all(number(v) for p in corners for v in p):
         return None
-    (x0, x1), (y0, y1), (z0, z1) = [
-        [min(p[i] for p in corners), max(p[i] for p in corners)] for i in range(3)
-    ]
+    spans = [[min(p[i] for p in corners), max(p[i] for p in corners)] for i in range(3)]
     tolerance = LENGTH_TOLERANCE_MM
-    filled = abs(area / scale**2 - (x1 - x0) * (y1 - y0)) <= tolerance * (x1 - x0 + y1 - y0)
-    (fx0, fx1), (fy0, fy1) = footprint
-    same = max(abs(a - b) for a, b in [(x0, fx0), (x1, fx1), (y0, fy0), (y1, fy1)]) <= tolerance
-    return footprint if z1 - z0 <= tolerance and filled and same else None
+    square = all(min(abs(p[i] - v) for v in spans[i]) <= tolerance for p in corners for i in (0, 1))
+    same = all(
+        abs(a - b) <= tolerance
+        for span, side in zip(spans[:2], footprint, strict=True)
+        for a, b in zip(span, side, strict=True)
+    )
+    if spans[2][1] - spans[2][0] > tolerance or not square or not same:
+        return None
+    margin = FILL_MARGIN_MM / scale + tolerance
+    return [[low + margin, high - margin] for low, high in spans[:2]], TOUCH_LAND_MM / scale
 
 
-def _uncut(footprint, regions):
-    """Whether some of X/Y ``footprint`` lies outside every X/Y region."""
-    spans = []
-    for axis in (0, 1):
-        low, high = footprint[axis]
-        cuts = (min(max(v, low), high) for region in regions for v in region[axis])
-        edges = sorted({low, high, *cuts})
-        spans.append([(a, b) for a, b in pairwise(edges) if b - a > LENGTH_TOLERANCE_MM])
+def _uncut(rectangle, land, regions):
+    """Whether a ``land`` by ``land`` square of X/Y ``rectangle`` lies outside every X/Y
+    region (it may touch one). Such a square's low corner lies in the rectangle less
+    ``land`` at its high ends, and overlaps a region when strictly inside it grown by
+    ``land`` at its low ends. The free corners, if any, include a crossing or midpoint of
+    the lines through all these ends."""
+    lows = [(low, high - land) for low, high in rectangle]
+    grown = [[(r[axis][0] - land, r[axis][1]) for axis in (0, 1)] for r in regions]
+    lines = []
+    for axis, (low, high) in enumerate(lows):
+        if high < low:
+            return False
+        ends = sorted({low, high, *(v for g in grown for v in g[axis] if low < v < high)})
+        lines.append({*ends, *((a + b) / 2 for a, b in pairwise(ends))})
     return any(
-        not any(
-            r[0][0] <= (xa + xb) / 2 <= r[0][1] and r[1][0] <= (ya + yb) / 2 <= r[1][1]
-            for r in regions
-        )
-        for xa, xb in spans[0]
-        for ya, yb in spans[1]
+        not any(g[0][0] < x < g[0][1] and g[1][0] < y < g[1][1] for g in grown)
+        for x in lines[0]
+        for y in lines[1]
     )
 
 
@@ -311,8 +336,9 @@ def _standing(bundle, setup, event, states, index):
     carries what the ops since its surface was made left of it: not ``proven`` when
     those ops may have cut it away, and their partial cuts as ``scars``. Ops that each
     cut only part of it, before or since the event, leave it at its uncut Z only while
-    some of its footprint, a rectangle (:func:`_rectangle`), lies outside all of their
-    regions; else, or with more than one feature named for it, None (unknown)."""
+    a square land of the rectangle it is known to hold (:func:`_rectangle`) lies outside
+    all of their regions (:func:`_uncut`); else, or with more than one feature named for
+    it, None (unknown)."""
     state, scars = _cuts(bundle, setup, event, states, event["index"], index)
     # A touch does not prove what cuts before it left of its surface.
     state = state if event["proven"] or state is False else None
@@ -320,8 +346,8 @@ def _standing(bundle, setup, event, states, index):
     if scars and state:
         names = {name for name, _ in scars}
         target = mapping(mapping(bundle.feature_definitions).get(min(names)))
-        footprint = _rectangle(bundle, setup, target)
-        if len(names) > 1 or footprint is None or not _uncut(footprint, [r for _, r in scars]):
+        held = _rectangle(bundle, setup, target)
+        if len(names) > 1 or held is None or not _uncut(*held, [r for _, r in scars]):
             return None
     return state
 

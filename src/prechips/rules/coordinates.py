@@ -6,6 +6,8 @@ can substitute only an unknown model transform in an unbound frame, retaining
 local_from operation provenance. No tolerance-band midpoint defines geometry: a plan
 ``aims`` entry moves only a located feature's DRO target along its height-like band to a
 stated value, and the geometry stays nominal.
+A basis axis is known only when orthonormal with its frame's other numeric axes
+(:func:`frame_axes`): loading checks only a complete frame.
 
 A located feature is placed by its own ``at``, else by its parent hole's ``at``
 (:func:`located_by`), else by the kernel's measured faces of revolution about setup Z
@@ -113,15 +115,14 @@ def model_point(point, frame):
     if not isinstance(point, list) or len(point) != 3:
         return [UNKNOWN] * 3
     origin = mapping_vector(frame.get("origin"))
+    axes = frame_axes(frame)
     return [
         _sum(
             [origin[i]]
             + [
-                point[j] * mapping_vector(frame.get(axis))[i]
-                if number(point[j]) and number(mapping_vector(frame.get(axis))[i])
-                else UNKNOWN
-                for j, axis in enumerate(AXES)
-                if mapping_vector(frame.get(axis))[i] != 0
+                point[j] * basis[i] if number(point[j]) and number(basis[i]) else UNKNOWN
+                for j, basis in enumerate(axes)
+                if basis[i] != 0
             ]
         )
         for i in range(3)
@@ -132,14 +133,29 @@ def mapping_vector(value):
     return value if isinstance(value, list) and len(value) == 3 else [UNKNOWN] * 3
 
 
+def frame_axes(frame):
+    """``frame``'s X, Y and Z vectors; each is ``[UNKNOWN] * 3`` unless finite and, to
+    loading's 1e-9, orthonormal with the frame's other numeric axes. Loading checks a
+    complete frame only: one with an unknown axis may carry scaled or skewed vectors, along
+    which no coordinate, and against which no direction, is known."""
+    vectors = [mapping_vector(mapping(frame).get(axis)) for axis in AXES]
+    known = [i for i, v in enumerate(vectors) if all(number(t) and math.isfinite(t) for t in v)]
+    bad = {
+        k
+        for i, j in itertools.combinations_with_replacement(known, 2)
+        if abs(sum(a * b for a, b in zip(vectors[i], vectors[j], strict=True)) - (i == j)) > 1e-9
+        for k in (i, j)
+    }
+    return [vectors[i] if i in known and i not in bad else [UNKNOWN] * 3 for i in range(3)]
+
+
 def frame_point(point, frame):
     frame = mapping(frame)
     if not isinstance(point, list) or len(point) != 3:
         return [UNKNOWN] * 3
     origin = mapping_vector(frame.get("origin"))
     result = []
-    for axis in AXES:
-        basis = mapping_vector(frame.get(axis))
+    for basis in frame_axes(frame):
         terms = [
             (point[i] - origin[i]) * basis[i]
             if all(number(v) for v in (point[i], origin[i], basis[i]))

@@ -23,7 +23,11 @@ exported manifest frame of that name, otherwise the plan-owned
 A plan-owned setup frame adds `plan.frames.<name>: author-declared setup frame`
 and its own citations to the finding, and its stated `binding` decides whether
 the transform is nominal or unbound exactly as for an exported frame.
-Unknown components propagate only through nonzero coefficients. Tolerance-band
+Unknown components propagate only through nonzero coefficients. Loading checks
+the basis of a fully known frame only, so in a frame with an unknown axis each
+numeric axis counts only if it is finite and, within `1e-9`, unit and orthogonal
+to the frame's other numeric axes; otherwise it is unknown, and so is every
+coordinate along it and every direction compared with it. Tolerance-band
 midpoints never define nominal geometry: explicit `*_nominal` values take
 precedence, otherwise only scalar dimensions are usable as nominal geometry.
 
@@ -405,8 +409,9 @@ there is no producer. A bounded op's coverage of the surface (for `top`,
 setup-frame X/Y `stock_removal_bounds` are compared with the surface's whole
 footprint. The footprint comes from the feature's own `bounds` (Z from `at` when
 they omit it), else from a round feature's `at` ± half its largest `dia` (else
-± its `radius`) across its principal `axis`. Only its `plane` value can supply an
-omitted axis. When the bounds hold the footprint, coverage is whole. When they
+± its `radius`) across its principal `axis`, which must be a unit vector within
+`1e-6`: a scaled or zero `axis` has no known footprint. Only its `plane` value
+can supply an omitted axis. When the bounds hold the footprint, coverage is whole. When they
 miss part of it, coverage is partial: the op neither advances that top or entry
 nor produces the surface, which keeps the uncut height its last whole producer
 left. When the bounds or the footprint are unknown, omitted, empty or malformed,
@@ -417,8 +422,8 @@ surface, containment is proven in that feature's own frame, where its box is
 exact: the setup Z must run along one of the frame's axes, and the box enclosing
 the surface there must lie within the feature's spans on the other two. Overlap
 or a held `at` point is partial, never whole; a setup Z oblique to the feature's
-frame leaves coverage unknown. A setup-frame box enclosing a turned feature is
-never taken as its cut.
+frame, or not a known unit axis (above), leaves coverage unknown. A setup-frame box
+enclosing a turned feature is never taken as its cut.
 It counts only if it cut that face to that Z. Its
 value is its `dro_to_z` on its own setup's grid, re-rounded to the safe side on
 the consumer's grid, so a coarser producer's −2.270 stays −2.270. Any other
@@ -670,25 +675,40 @@ source's recipe names its own tool's edge, so the re-touch is tool-neutral:
   of it (the top: faces the stock's `top_feature`, or any face op when there is
   none) to another Z or to no stated Z (`to_z` omitted or `"unknown"`), or cuts it
   other than by facing/pocketing. Ops that each cut only part of it leave it at
-  its uncut Z only while some of its footprint lies outside all of their
-  `stock_removal_bounds`. That needs a surface shown to fill its footprint: the
-  kernel's one STEP face for the feature (`faces`) is a plane, flat in setup Z,
-  whose setup X/Y box is the footprint and whose area is that box's. Without a
-  kernel result, or for a round, holed or L-shaped face, the box's corners may
-  hold no surface. A touch on a surface, whether a zero, a tool touch or a listed
-  retouch, is a paper touch at a nominal Z. It does not show what the ops since
-  the surface was made left of it, so it carries their partial cuts and any doubt
-  about them. A touch on a surface an op in the setup made is proven only at the
-  Z that op made, and a touch on the top only at the tracked top's Z. Only a
-  whole cut makes a new surface. The top a zero `after_op`, a listed retouch or a
-  tool touch touches is the top so tracked, so a face that states no depth leaves
-  it unknown. A surface is not proven while:
+  its uncut Z only while a land of it lies outside all of their
+  `stock_removal_bounds`: a square `TOUCH_LAND_MM` (0.5 mm) on a side, AUTHOR'S
+  CHOICE. A paper touch needs a patch the operator can see, set the tool end over
+  and slide paper under; a narrower sliver may hold no flat surface once the burrs
+  of the cuts beside it are counted, and whether it is there at all can rest on
+  geometry no operator can check. The value is illustrative, not measured; a
+  larger one only leaves more Z unknown, and a narrower land is unknown, never
+  pass. The land must lie on surface shown to be there: the kernel's one STEP
+  face for the feature (`faces`) is a plane that fills its own box (`fills_bbox`:
+  one wire, each edge a straight segment within the kernel's 1e-6 mm side
+  tolerance of a side of the box, more area than that band), flat in setup Z,
+  with each box corner on a corner of its setup X/Y box, which is the footprint.
+  Within `FILL_MARGIN_MM` (1.5e-6 mm: that side tolerance plus the 5e-7 mm the
+  record's 6-decimal rounding may move each side) and the 1e-6 corner tolerance of
+  a side of the box, a notch may still run, so no land counts there. Without a
+  kernel result, or for a round, holed, notched or L-shaped face or one turned
+  against the setup axes, the box's corners may hold no surface, however little
+  of its area the face lacks: a 0.005 mm hole can be the only part of the box
+  every cut spares. A touch on a surface, whether a zero, a tool touch or a
+  listed retouch, is a paper touch at
+  a nominal Z. It does not show what the ops since the surface was made left of
+  it, so it carries their partial cuts and any doubt about them. A touch on a
+  surface an op in the setup made is proven only at the Z that op made, and a
+  touch on the top only at the tracked top's Z. Only a whole cut makes a new
+  surface. The top a zero `after_op`, a listed retouch or a tool touch touches is
+  the top so tracked, so a face that states no depth leaves it unknown. A surface
+  is not proven while:
   - it is unnamed (a zero with no `face`);
   - an op on a feature the plan does not name has run since it was made, or a
     face op while the stock's `top_feature` is unresolved (the top);
   - an op's coverage of it is unknown, it may be gone, or a touch on it disagrees
     with (or cannot be checked against) the Z its op made or the tracked top's;
-  - partial cuts together cover it, or it is not shown to fill its footprint.
+  - partial cuts together leave no land of it, or it is not shown to fill its
+    footprint.
 
   With no proven surface, the latest one not shown gone is repeated with Z and
   Axis Set unknown (unknown). A measured Z (`trial_cut_measure`,
