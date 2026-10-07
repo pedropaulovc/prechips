@@ -1,5 +1,6 @@
 """Consumer boundaries of deterministic kernel facts, measurement debt and readiness."""
 
+import math
 import sys
 from copy import deepcopy
 from pathlib import Path
@@ -222,22 +223,105 @@ def test_holder_gauge_length_uses_explicit_inch_units(bundle):
 
 
 @pytest.mark.parametrize(
-    "depth,oal,hits,status",
+    "depth,oal,hits,shank,status",
     [
-        (10.0, 30.0, "unknown", "pass"),
-        (28.0, 30.0, 0, "pass"),
-        (28.0, 30.0, 1, "error"),
-        (31.0, 30.0, 0, "error"),
-        (28.0, 30.0, "unknown", "unknown"),
+        (10.0, 30.0, "unknown", "unknown", "pass"),
+        (28.0, 30.0, 0, 0, "pass"),
+        (28.0, 30.0, 1, 0, "error"),
+        (31.0, 30.0, 0, 0, "error"),
+        (28.0, 30.0, "unknown", 0, "unknown"),
     ],
 )
-def test_long_reach_requires_oal_and_holder_wall_clearance(bundle, depth, oal, hits, status):
-    bundle.kernel["ops"]["S1:10"].update(reach_depth_mm=depth, holder_wall_hits=hits)
+def test_long_reach_requires_oal_and_holder_wall_clearance(bundle, depth, oal, hits, shank, status):
+    bundle.kernel["ops"]["S1:10"].update(
+        reach_depth_mm=depth, holder_wall_hits=hits, shank_hits=shank
+    )
     bundle.inventory["tools"]["em"]["oal_mm"] = oal
     row = finding(reach, bundle)
     assert row.status == status
     assert row.numbers["reach_depth_mm"] == depth
     assert any("inventory.tools.em" in cite for cite in row.cite)
+
+
+@pytest.mark.parametrize(
+    "depth,shank_hits,status",
+    [
+        (28.0, 0, "pass"),  # the shank past the flute clears what the op leaves
+        (28.0, 1, "error"),  # it meets that stock: a clash past the flute
+        (8.0, 1, "error"),  # a shank wider than the cutter clashes even within the flute
+        (28.0, "unknown", "unknown"),  # unmeasured shank past the flute is never a pass
+    ],
+)
+def test_shank_past_the_flute_clears_clashes_or_stays_unknown(bundle, depth, shank_hits, status):
+    bundle.kernel["ops"]["S1:10"].update(
+        reach_depth_mm=depth,
+        holder_wall_hits=0,
+        shank_hits=shank_hits,
+        reasons={"shank_hits": "op lacks shank_radius_mm"} if shank_hits == "unknown" else {},
+    )
+    bundle.inventory["tools"]["em"]["shank_mm"] = 5.0
+    row = finding(reach, bundle)
+    assert row.status == status
+    assert row.numbers["shank_hits"] == shank_hits
+    assert row.numbers["shank_dia_mm"] == 5.0
+    if status == "unknown":
+        assert "shank_radius_mm" in row.sentence
+
+
+def test_missing_shank_diameter_is_unknown_past_the_flute(bundle):
+    # A real kernel reports the shank unknown without its diameter; the rule never
+    # passes the reach on the holder alone.
+    bundle.kernel["ops"]["S1:10"].update(
+        reach_depth_mm=28.0,
+        holder_wall_hits=0,
+        shank_hits="unknown",
+        reasons={"shank_hits": "op lacks shank_radius_mm"},
+    )
+    inputs = kernel.build_job(bundle)["setups"][0]["ops"][0]
+    assert "shank_radius_mm" not in inputs
+    row = finding(reach, bundle)
+    assert row.status == "unknown"
+    assert row.numbers["shank_dia_mm"] == "unknown"
+
+
+def test_measured_shank_and_centre_drill_seat_cone_set_where_the_shank_begins(bundle):
+    tool = bundle.inventory["tools"]["em"]
+    tool["shank_mm"] = {
+        "value": 5.0,
+        "measured": {"by": "t", "date": "2026-10-05", "instrument": "m"},
+    }
+    inputs = kernel.build_job(bundle)["setups"][0]["ops"][0]
+    assert inputs["shank_radius_mm"] == 2.5 and inputs["shank_from_mm"] == 10.0
+    # A combined drill and countersink: Ø2 pilot, 60° seat cone out to a Ø6 body.
+    tool.update(dia_mm=2.0, shank_mm=6.0, angle_deg=60.0, flute_len_mm=2.0)
+    inputs = kernel.build_job(bundle)["setups"][0]["ops"][0]
+    assert inputs["shank_from_mm"] == pytest.approx(2.0 + 2.0 / math.tan(math.radians(30.0)))
+
+
+def test_clearances_name_each_tool_part_its_obstacle_and_interference(bundle):
+    bundle.inventory["tools"]["em"]["shank_mm"] = 5.0
+    bundle.kernel["ops"]["S1:10"].update(
+        reach_depth_mm=28.0,
+        holder_wall_hits=0,
+        shank_hits=1,
+        body_clear_mm=2.0,
+        shank_clear_mm=0.5,
+        holder_clear_mm=-1.25,
+        holder_clear_top_z_mm=27.2,
+    )
+    row = finding(reach, bundle)
+    assert row.status == "error"
+    assert row.numbers["clearances"] == [
+        {"part": "tool body", "obstacle": "stock 5 from the tool axis", "mm": 2.0},
+        {"part": "tool shank", "obstacle": "the Ø6 bore this op cuts", "mm": 0.5},
+        {"part": "holder face", "obstacle": "stock under the holder at Z27.2", "mm": -1.25},
+    ]
+    bundle.kernel["ops"]["S1:10"].update(
+        body_clear_mm="not_applicable", shank_clear_mm="unknown", holder_clear_mm="not_applicable"
+    )
+    assert finding(reach, bundle).numbers["clearances"] == [
+        {"part": "tool shank", "obstacle": "stock beside the tool", "mm": "unknown"}
+    ]
 
 
 @pytest.mark.parametrize("holder_hits", [0, 1])

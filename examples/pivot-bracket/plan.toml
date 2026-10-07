@@ -462,7 +462,11 @@ height = "calipers"
 op = 60
 do = "spot"
 feature = "hold_down_a"
-tool = "bracket-spot-drill"       # long 120-degree spotter keeps the chuck above the ear
+# AUTHOR'S CHOICE: the 1/4 in long-series spotter because the 3/8 in spotter's body passes
+# 0.44 mm from the ear relief wall that stands 5.2 mm from this hole axis, and its chuck face
+# stops 3.2 mm above the Z27.2 ear crown; the 1/4 in body clears that wall by 2.0 mm and its
+# 50 mm projection keeps the chuck about 22 mm above the crown.
+tool = "bracket-long-spot-drill"
 holder = "drill-chuck-r8"
 approach_mm = 5.0                # author\'s choice: rapid plane above the current stock top
 depth_mm = 0.6                   # 2.08 mm spot diameter, smaller than the following #15 drill
@@ -484,7 +488,9 @@ station = "calipers"
 op = 80
 do = "spot"
 feature = "hold_down_b"
-tool = "bracket-spot-drill"
+# AUTHOR'S CHOICE: the 1/4 in long-series spotter, as op 60, because one spotter serves both
+# hold-down holes and its 50 mm projection keeps the chuck about 22 mm above the Z27.2 crown.
+tool = "bracket-long-spot-drill"
 holder = "drill-chuck-r8"
 approach_mm = 5.0                # author\'s choice: rapid plane above the current stock top
 depth_mm = 0.6                   # 2.08 mm spot diameter, smaller than the following #15 drill

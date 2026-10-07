@@ -53,6 +53,9 @@ Part.makeBox(60, 40, 20).common(cut).exportStep(out + "/draftstep.step")
 Part.makeBox(60, 40, 20).cut(cut).exportStep(out + "/updraftstep.step")
 wide_cut = Part.Face(Part.makePolygon(points)).extrude(V(0, 200, 0))
 Part.makeBox(60, 200, 20).cut(wide_cut).exportStep(out + "/wideupdraftstep.step")
+# The stepped block with a 4 mm through hole in its floor, axis 6 mm from the x=30 wall.
+step = Part.makeBox(60, 40, 20).cut(Part.makeBox(31, 42, 11, V(30, -1, 10)))
+step.cut(Part.makeCylinder(2, 12, V(36, 20, -1))).exportStep(out + "/step-hole.step")
 """
 
 
@@ -268,7 +271,7 @@ def solids(tmp_path_factory, freecad_kernel):
         timeout=300,
     )
     paths = {path.stem: path for path in directory.glob("*.step")}
-    assert len(paths) == 6, process.stdout[-2000:] + process.stderr[-2000:]
+    assert len(paths) == 7, process.stdout[-2000:] + process.stderr[-2000:]
     return paths
 
 
@@ -365,6 +368,65 @@ def test_to_z_web_and_unclaimed_rails_stay_in_the_next_setup(engine, solids):
     assert s2["stock_volume_mm3"] == pytest.approx(48000.0 - 60 * 30 * 10)
     assert s2["width_mm"] == 40.0 and s2["min_wall_mm"] == 5.0
     assert cleared["ops"]["S2:10"]["tool_hits"] == finished["tool_hits"]
+
+
+@pytest.mark.parametrize(
+    "shank, clash, shank_clear",
+    [(2.5, False, 3.5), (6.5, True, -0.5), (None, "unknown", "unknown")],
+)
+def test_spot_reach_holder_and_shank_meet_the_stock_earlier_ops_leave(
+    engine, solids, shank, clash, shank_clear
+):
+    # The facing op clears the 10 mm over the floor, across its hole; the setup-entry
+    # block still holds it.
+    # The R2.5 spot stands 0.5 deep on the floor 6 mm from the retained x=30 wall (z20).
+    step = solids["step-hole"]
+    floor = engine.refs(step, (30, 0, 10), (60, 40, 10), kind="Plane")
+    hole = engine.refs(step, (34, 18, 0), (38, 22, 10), kind="Cylinder")
+    assert len(floor) == len(hole) == 1
+    face = {**_floor_op("S1:10"), "do": "face"}
+    spot = {
+        **_op("S1:20", "hole", 2.5, 6.0, 12.0, holder_radius=10.0),
+        "do": "spot",
+        "hole": {"thru": True, "depth_mm": 0.5, "entry_z_mm": 10.0, "point_angle_deg": 90.0},
+        "shank_from_mm": 6.0,
+    }
+    if shank is not None:
+        spot["shank_radius_mm"] = shank
+    result = engine.run(
+        engine.job(step, {"floor": floor, "hole": hole}, [_setup("S1", [face, spot])])
+    )
+    op = result["ops"]["S1:20"]
+    # Reach from the floor the facing op left, not the entry block's z20 top.
+    assert op["reach_depth_mm"] == pytest.approx(0.5, abs=0.01)
+    assert op["reach_top_z_mm"] == pytest.approx(10.0, abs=0.01)
+    # Holder face at 9.5 + 12 stands 1.5 above the retained wall; the flute body (to 15.5)
+    # and the shank past it pass that wall 6 mm from the axis.
+    assert op["holder_wall_hits"] == 0
+    assert op["holder_clear_mm"] == pytest.approx(1.5, abs=0.01)
+    assert op["holder_clear_top_z_mm"] == pytest.approx(20.0, abs=0.01)
+    assert op["body_clear_mm"] == pytest.approx(3.5, abs=0.01)
+    # Every spot pose's shank meets the retained wall, or none does.
+    assert op["shank_hits"] == clash if clash == "unknown" else (op["shank_hits"] > 0) == clash
+    assert op["shank_clear_mm"] == (
+        shank_clear if shank_clear == "unknown" else pytest.approx(shank_clear, abs=0.01)
+    )
+    if shank is None:
+        assert "shank_radius_mm" in op["reasons"]["shank_hits"]
+
+
+@pytest.mark.parametrize("shank, clash", [(3.0, False), (4.0, True)])
+def test_milling_shank_trails_its_own_cut_and_meets_only_the_retained_wall(
+    engine, solids, shank, clash
+):
+    # A 6 mm flute clears the 10 mm over the floor pass by pass: past the flute the shank
+    # meets the x=30 wall the op leaves, not the overstock its own passes remove first.
+    step = solids["step"]
+    floor = engine.refs(step, (30, 0, 10), (60, 40, 10), kind="Plane")
+    op = {**_op("S1:10", "floor", 3.0, 6.0, 30.0), "shank_radius_mm": shank, "shank_from_mm": 6.0}
+    facts = engine.run(engine.job(step, {"floor": floor}, [_setup("S1", [op])]))["ops"]["S1:10"]
+    assert facts["reach_depth_mm"] == pytest.approx(10.0, abs=0.01)
+    assert (facts["shank_hits"] > 0) == clash
 
 
 def test_unswept_profile_wall_makes_only_later_stock_unknown(engine, solids):

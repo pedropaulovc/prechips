@@ -311,8 +311,9 @@ thin inward shell. The flute meets the stock its setup's one op-order pass
 accepts after this op, like any milling flute (see
 [In-process stock](#in-process-stock)): a rotary removal that cannot be
 derived stops that pass, so its own flute meets all of its before-op stock and
-later flutes keep only their certain finished hits. The holder retains
-setup-entry stock, and reach and holder-wall screens use setup-entry stock.
+later flutes keep only their certain finished hits. The holder obstacles retain
+setup-entry stock; reach, holder-wall and shank screens use the stock the op
+meets (see [`reach`](#reach)).
 Chuck jaws and body turn with the work; the head body, tailstock and clamps
 stay put and are checked at the presented pose.
 
@@ -519,7 +520,8 @@ shared supply ancestor. Independent forks may start from the same supply again
 as route alternatives, but cannot join that material lineage twice.
 Each setup output subtracts only that setup's derivable claimed removals from
 its selected input. Current-setup removals do not change current holding facts,
-image, reach or holder obstacles. A milling or hole flute instead meets the
+image or accessibility holder obstacles; the reach, holder-wall, shank and
+clearance facts of [`reach`](#reach) do see them. A milling or hole flute meets the
 stock its setup's earlier ops leave: before any op is measured, one pass in op
 order derives each op's before-op stock and the stock it accepts after that
 op's cut, so a flute never meets material an earlier derived cut removed and is
@@ -1078,8 +1080,8 @@ setup's earlier derived cuts leave (see [in-process stock](#in-process-stock)), 
 own derivable outside-finished allowance; the holder still sees both. The
 shell removes numerical self-contact, not a cutter-radius slab and not another
 finished face of the same feature. A cutter wider than a claimed groove
-therefore still intersects the opposite claimed wall. Holding, rendering,
-reach and holder obstacles use actual setup-entry stock, and no flute is
+therefore still intersects the opposite claimed wall. Holding, rendering and
+accessibility holder obstacles use actual setup-entry stock, and no flute is
 credited with a later op's removal.
 
 Claimed concave cone or sphere point caps are not blanket-exempt. Only a hole
@@ -1223,15 +1225,53 @@ or search-based reachability proof.
 
 ## `reach`
 
-Needs `flute_len_mm`. The kernel measures, for each upward-facing sample, the
-highest part material within the cutter radius + 0.05 mm of the offset tool
-axis, and reports the largest such height above a sample as
-`reach_depth_mm`; `holder_wall_hits` counts samples whose holder cylinder
-(starting `projection_mm` above the tip) intersects the part, and needs the
-holder radius, gauge length and projection. Numbers: `reach_depth_mm`,
-`flute_len_mm`, `oal_mm`, `holder_wall_hits`, and on a milling or axial joint
-sample `reach_top_z_mm`, the setup Z of that highest material (the reach
-reference; `"not_applicable"` when no material stands beside the tool).
+Needs `flute_len_mm`. The kernel measures reach on the stock the op meets: the
+setup-entry stock less every earlier op's accepted cut in that setup (see
+[in-process stock](#in-process-stock)). For each upward-facing sample it takes
+the highest such material within the cutter radius + 0.05 mm of the offset tool
+axis, and reports the largest such height above a sample as `reach_depth_mm`.
+`holder_wall_hits` counts samples whose holder cylinder (starting
+`projection_mm` above the tip) intersects that same stock, and needs the holder
+radius, gauge length and projection. A stock the builder cannot derive leaves
+all three unknown with its reason, never measured on the setup-entry stock.
+
+The tool past its flutes is the shank: `shank_mm`/`shank_in` from the
+inventory (a `{ value, measured }` record, halved to the engine's
+`shank_radius_mm`) running from `shank_from_mm` above the tip to the holder
+face. `shank_from_mm` is the flute length, or for a combined drill and
+countersink (`angle_deg`) the flute plus its seat cone out to the shank
+diameter. `shank_hits` counts the samples whose shank cylinder meets the stock
+the op leaves: the shank trails the flutes through the op's own cut (down its
+bore, or pass by pass down a milled wall), so the finished bore or wall counts
+and the op's own allowance does not. An unknown shank diameter or start leaves
+`shank_hits` unknown.
+
+On a hole op's own axis the kernel also reports three clearances, each the
+least over its axes, measured within the holder radius:
+
+- `body_clear_mm`: the flute body's radial gap above its own cut's mouth to the
+  stock the op leaves (a crown, ear or wall beside the spot);
+- `shank_clear_mm`: the shank's radial gap to that stock (the finished bore wall
+  for a reamer past its flutes);
+- `holder_clear_mm`: the holder face's height above the highest stock the op
+  meets under the holder, at `holder_clear_top_z_mm`.
+
+Each is `"not_applicable"` when no such stock stands beside that part of the
+tool, negative when the part is inside the stock, and unknown with the
+reason when an input is missing. They are reported numbers, not limits: no
+minimum clearance is enforced beyond the hit counts.
+
+Numbers: `reach_depth_mm`, `flute_len_mm`, `oal_mm`, `projection_mm`,
+`holder_wall_hits`, on a milling or axial joint sample `reach_top_z_mm` (the
+setup Z of that highest material, the reach reference; `"not_applicable"` when
+no material stands beside the tool), and off the turning model `shank_dia_mm`,
+`shank_from_mm`, `shank_hits`, any of `body_clear_mm`, `shank_clear_mm`,
+`holder_clear_mm` the kernel reported and `clearances`: one
+`{ part, obstacle, mm }` per reported clearance other than
+`"not_applicable"`, with `part` `tool body`, `tool shank` or `holder face`;
+`obstacle` `the Ø<d> bore this op cuts` when the gap is the op's own bore,
+`stock <r> from the tool axis`, `stock under the holder at Z<z>` or, when
+unmeasured, `stock beside the tool`/`stock under the holder`.
 
 The traveler's CLEARANCE line keeps the cut and the reach apart. The cut is the
 op row's own start Z to its printed tip Z. The reach is from `reach_top_z_mm`
@@ -1239,15 +1279,23 @@ down to that same printed tip, against the flute, with the holder-clearance
 verdict past the flute and the holder face's height above that stock
 (`projection_mm` less the reach). Reach is never printed as a cut depth.
 
-- depth ≤ flute: `entry-to-floor depth is within the selected flute length.` (pass)
 - depth > OAL: `entry-to-floor depth exceeds the selected tool OAL.` (error)
+- shank hits: `the tool shank past its flutes meets the retained stock.`
+  (error, at any depth)
+- depth ≤ flute: `entry-to-floor depth is within the selected flute length.` (pass)
 - depth > flute with holder wall hits: `depth exceeds flute length and the holder intersects walls.` (error)
-- depth > flute, ≤ OAL, zero holder hits and both holder dimensions known:
-  `depth exceeds flute length but fits OAL with the holder cylinder clear of walls.` (pass)
+- depth > flute with the shank unknown: the kernel's `shank_hits` reason, or
+  `depth exceeds flute length and the shank past the flutes is unresolved.`
+  (unknown)
+- depth > flute, ≤ OAL, zero holder and shank hits and every holder dimension
+  known: `depth exceeds flute length but fits OAL with the shank and holder clear
+  of the retained stock.` (pass; turning: `… with the holder cylinder clear of
+  walls.`)
 - otherwise `entry-to-floor depth or holder wall clearance is unresolved.` (unknown)
 
 The long-tool rescue therefore requires accepted holder gauge-diameter,
-gauge-length and projection facts; an unknown holder never passes a
+gauge-length and projection facts and, off the turning model, a measured shank
+clear of the retained stock; an unknown holder or shank never passes a
 beyond-flute depth.
 
 On the turning model, `reach_depth_mm` is the radial height of material beside the
