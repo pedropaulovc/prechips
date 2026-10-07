@@ -38,10 +38,13 @@ Measurement conventions (setup frame, tool axis +Z):
   Milling tips (rough or finish) stand at their numeric to_z when above the finished
   face, and hole tools follow their geometry-matched axis to their declared depth
   or through extent. Spot/drill flutes use their point cone plus full-radius body;
-  flat tools use an r x flute_len cylinder. The shank (radius ``shank_radius_mm``)
-  runs from tip + ``shank_from_mm`` (the flute end, or the top of a centre drill's
-  seat cone) to the holder, which starts at tip + projection. All shrink/lift by
-  ``LIFT``.
+  flat tools use an r x flute_len cylinder. A combined drill and countersink's
+  seat cone, from the flute end out to the shank radius, is cutting body: it is
+  part of the flute solid, and its own cut holds it at the final pose under the
+  shank-radius bore its widest edge sweeps on the way down. The shank (radius
+  ``shank_radius_mm``) runs from tip + ``shank_from_mm`` (the flute end, or the
+  top of that seat cone) to the holder, which starts at tip + projection. All
+  shrink/lift by ``LIFT``.
   Far-side faces cannot be claimed from that setup; undefined normals remain debt.
 * Obstacles: stock minus the sampled face's ``LIFT``-thick inward shell, plus
   placed fixture solids. A hole's known matched cap keeps unmodified stock instead
@@ -204,8 +207,8 @@ STOCK_MM3 = 1e-3  # mm^3: finished material outside the envelope, or a detached 
 TUBE_REL = 1e-3  # pipe volume vs pi r^2 L: a lineage-skin edge tube must be whole
 CONTACT_MM2 = 1e-6  # face/jaw common area that counts as a face inside a jaw
 REACH_BAND = 0.05  # mm beyond the cutter radius in which walls set reach depth
-# Axial ops' radial flute/shank clearance and holder-face clearance (:meth:`_clearances`).
-CLEARANCE_KEYS = ("body_clear_mm", "shank_clear_mm", "holder_clear_mm")
+# Axial ops' radial flute/seat/shank clearance and holder-face clearance (:meth:`_clearances`).
+CLEARANCE_KEYS = ("body_clear_mm", "seat_clear_mm", "shank_clear_mm", "holder_clear_mm")
 FACING_ACTIONS = {"face", "rough_face", "finish_face"}  # sweeps that span planar inner loops
 PROFILE_ACTIONS = {"profile", "rough_profile", "finish_profile"}  # walls clear a corridor
 AREA_REL = AREA_ABS = 1e-6  # face-signature area tolerance (relative, absolute mm^2)
@@ -1444,21 +1447,68 @@ def _boxes_touch(a, b):
     return all(a[i] <= b[i + 3] and b[i] <= a[i + 3] for i in range(3))
 
 
-def _pointed_cutter(x, y, tip, radius, slope, length):
-    """Solid a pointed tool on vertical axis (x, y) fills from ``tip`` up ``length`` mm.
+def _seat(op):
+    """(flute length, shank radius, rise) of a combined drill and countersink's seat cone,
+    which widens from the cutter radius at the flute end to the shank radius at
+    ``shank_from_mm``, or None: the shank of any other tool, or of one whose shank is
+    unknown, begins at its flute end (``kernel._shank_from``)."""
+    radius, flute = _positive(op, "radius_mm"), _positive(op, "flute_len_mm")
+    start, shank = _positive(op, "shank_from_mm"), _positive(op, "shank_radius_mm")
+    if None in (radius, flute, start, shank) or start - flute <= LIFT or shank <= radius:
+        return None
+    return flute, shank, start - flute
 
-    Its point is a cone with its apex at the tip, widening by ``slope`` (tangent of
-    half the included point angle) per mm of rise until ``radius``, then a
-    full-radius body; a length shorter than that rise truncates the cone.
+
+def _seat_solid(op):
+    """The ``seat`` of :func:`_cutter` for a checked tool (radius less LIFT, tip LIFT up):
+    LIFT inside the seat cone its own cut removes (:meth:`_hole_record`) up to the
+    shank's start, or None without a seat cone."""
+    seat = _seat(op)
+    return None if seat is None else (seat[1] - LIFT, seat[2] - LIFT)
+
+
+def _cutter(x, y, tip, radius, slope, length, seat=None, sweep=0.0):
+    """Solid a tool on vertical axis (x, y) cuts with from ``tip`` up ``length`` mm.
+
+    A pointed tool's point is a cone with its apex at the tip, widening by ``slope``
+    (tangent of half the included point angle) per mm of rise until ``radius``, then a
+    full-radius body; a length shorter than that rise truncates the cone. Without a
+    ``slope`` the end is flat. A ``seat`` (top radius, rise) continues the body with a
+    combined drill and countersink's seat cone out to that radius ``rise`` mm higher,
+    and a positive ``sweep`` that radius ``sweep`` mm higher still: the bore its widest
+    edge cuts on its way down the axis to this pose.
     """
-    rise = radius / slope
-    profile = [V(x, y, tip)]
-    if length <= rise:
-        profile.append(V(x + length * slope, y, tip + length))
+    if slope is None and seat is None:
+        return Part.makeCylinder(radius, length, V(x, y, tip))
+    if slope is None:
+        profile = [V(x, y, tip), V(x + radius, y, tip), V(x + radius, y, tip + length)]
+    elif length <= radius / slope:
+        profile = [V(x, y, tip), V(x + length * slope, y, tip + length)]
     else:
-        profile += [V(x + radius, y, tip + rise), V(x + radius, y, tip + length)]
+        rise = radius / slope
+        profile = [V(x, y, tip), V(x + radius, y, tip + rise), V(x + radius, y, tip + length)]
+    if seat is not None:
+        length += seat[1]
+        profile.append(V(x + seat[0], y, tip + length))
+        if sweep > 0:
+            length += sweep
+            profile.append(V(x + seat[0], y, tip + length))
     profile.append(V(x, y, tip + length))
     return Part.Face(Part.makePolygon(profile + profile[:1])).revolve(V(x, y, tip), Z, 360)
+
+
+def _plunge(x, y, tip, radius, slope, top, seat=None):
+    """Solid a tool fed down axis (x, y) from ``top`` to ``tip`` cuts (:func:`_cutter`).
+
+    A :func:`_seat` (flute length, shank radius, rise) wider than ``radius`` adds its
+    seat cone at the final pose and, above it, the shank-radius bore its widest edge
+    sweeps on the way down: a cone at its final pose alone would leave an annulus no
+    real feed leaves.
+    """
+    if seat is None or seat[1] <= radius:
+        return _cutter(x, y, tip, radius, slope, top - tip)
+    flute, shank, rise = seat
+    return _cutter(x, y, tip, radius, slope, flute, (shank, rise), top - tip - flute - rise)
 
 
 def _tool_hits_box(cylinder, box, solid=None):
@@ -2025,8 +2075,9 @@ def _joint_cut_spec(cut, frame):
     return spec
 
 
-def _joint_profile(spec, frame, top=None):
-    """The same pointed/flat axial tool profiles used by ordinary hole operations."""
+def _joint_profile(spec, frame, top=None, seat=None):
+    """The same pointed/flat axial tool profiles used by ordinary hole operations; a
+    ``seat`` (:func:`_seat`) adds the seat cone and the bore it sweeps (:func:`_plunge`)."""
     action = spec.get("action")
     if spec["kind"] == "cylinder_spigot":
         if action not in {"turn", "rough_turn", "finish_turn"}:
@@ -2053,13 +2104,12 @@ def _joint_profile(spec, frame, top=None):
     depth = spec["depth_mm"]
     tip = entry.z - depth
     ceiling = entry.z if top is None else max(entry.z, top)
+    slope = None
     if action in {"drill", "spot"}:
         slope = math.tan(math.radians(angle / 2))
         if action == "drill":
             tip -= radius / slope
-        profile = _pointed_cutter(entry.x, entry.y, tip, radius, slope, ceiling - tip)
-    else:
-        profile = Part.makeCylinder(radius, ceiling - tip, V(entry.x, entry.y, tip), Z)
+    profile = _plunge(entry.x, entry.y, tip, radius, slope, ceiling, seat)
     profile.transformShape(matrix.inverse())
     return profile
 
@@ -3738,7 +3788,9 @@ class _Setup:
             name, spec, cylinder = self._joint_check(op)
             target = self._placed(cylinder)
             if spec["kind"] == "cylinder_bore":
-                path = _joint_profile(spec, self.setup.get("frame"), _bbox(stock)[5] + STOCK_TOL)
+                # The tool cuts its seat cone too; finished material it takes is intrusion.
+                top = _bbox(stock)[5] + STOCK_TOL
+                path = _joint_profile(spec, self.setup.get("frame"), top, _seat(op))
                 removal = stock.common(self._placed(path))
             else:
                 outer = _joint_cylinder(
@@ -7671,13 +7723,10 @@ class _Setup:
         if radius is not None and flute is not None:
             if radius <= LIFT:
                 facts["reasons"]["tool_hits"] = "axial tool radius is below modelling clearance"
-            elif slope is None:
-                solids["tool"] = Part.makeCylinder(
-                    radius - LIFT, flute, V(entry.x, entry.y, tip + LIFT), Z
-                )
             else:
-                solids["tool"] = _pointed_cutter(
-                    entry.x, entry.y, tip + LIFT, radius - LIFT, slope, flute
+                # The seat cone past the flute is cutting body too (:func:`_seat_solid`).
+                solids["tool"] = _cutter(
+                    entry.x, entry.y, tip + LIFT, radius - LIFT, slope, flute, _seat_solid(op)
                 )
         else:
             facts["reasons"]["tool_hits"] = "axial tool radius/flute length is unmeasured"
@@ -7988,11 +8037,13 @@ class _Setup:
         bores end); ``bottom`` is the lowest of them, or None beside a debt ``reason``;
         ``cone_slope`` is a pointed tool's tan(point angle / 2), else None. A spot is
         always pointed; a drill is pointed when its hole carries ``point_angle_deg``.
-        ``removal`` is the op-radius cutter from each axis's tip (``LIFT`` lower through
-        an exit) past the entry-stock top minus unrelated finished material, or None when
-        nothing is removed. A pointed cutter is its :func:`_pointed_cutter` cone and body;
-        others sweep a cylinder. Every action but a spot adds its own bore wall allowance
-        up to the operation radius.
+        ``removal`` is the op-radius cutter fed from past the entry-stock top down to each
+        axis's tip (``LIFT`` lower through an exit), with a combined drill and
+        countersink's seat cone (:func:`_seat`) and the shank-radius bore its widest edge
+        sweeps above it (:func:`_plunge`), minus unrelated finished material, or None when
+        nothing is removed. A pointed cutter is its :func:`_cutter` cone and body; others
+        sweep a cylinder. Every action but a spot adds its own bore wall allowance up to the
+        operation radius.
         """
         key = (id(op), tuple(valid), radius)
         if key not in self.hole_cuts:
@@ -8103,15 +8154,14 @@ class _Setup:
         bottom = min(bottoms)
         top = self.box[5] + 1.0
         tools = []
+        seat = _seat(op)
         for (x, y, _), level in zip(axes, bottoms, strict=True):
             # A through cut starts LIFT past its exit so no face is coincident with it.
             low = level - LIFT if through else level
             if top - low <= LIFT:
                 continue
-            if slope is None:
-                tools.append(Part.makeCylinder(radius, top - low, V(x, y, low)))
-            else:
-                tools.append(_pointed_cutter(x, y, low, radius, slope, top - low))
+            # A seat cone's widest edge sweeps its shank-radius bore down to its final pose.
+            tools.append(_plunge(x, y, low, radius, slope, top, seat))
         record = {
             "centres": centres,
             "bottom": bottom,
@@ -8750,6 +8800,10 @@ class _Setup:
                     "had no defined surface normal"
                 )
         flute = _positive(op, "flute_len_mm")
+        # The gross tool cylinder encloses a seat cone past the flute (:func:`_seat_solid`).
+        seat = _seat_solid(op)
+        gross = radius if seat is None else max(radius, seat[0] + LIFT)
+        length = None if flute is None else flute + (0.0 if seat is None else seat[1])
         keys = ("holder_radius_mm", "holder_gauge_len_mm", "projection_mm")
         holder = {key: _positive(op, key) for key in keys}
         holder_missing = sorted(key for key, value in holder.items() if value is None)
@@ -8842,14 +8896,15 @@ class _Setup:
         def classify(kind, index, ax, ay, tip, cylinder, known):
             labels, refs = set(), frozenset()
             obstacle = (flute_regions if kind == "tool" else regions)[index][0]
-            # A pointed tool's flute is its cone and body, for part and jaws alike; its
-            # gross cylinder only culls. Holders keep their own cylinder. The read-only
-            # cutter is shared by every own face posing that exact recipe.
+            # A pointed tool's flute is its cone and body, and a seat cone past the flute is
+            # cutting body too, for part and jaws alike; the gross cylinder only culls. Holders
+            # keep their own cylinder. The read-only cutter is shared by every own face posing
+            # that exact recipe.
             solid = None
-            if kind == "tool" and slope is not None:
-                recipe = (ax, ay, tip, radius - LIFT, slope, flute)
+            if kind == "tool" and (slope is not None or seat is not None):
+                recipe = (ax, ay, tip, radius - LIFT, slope, flute, seat)
                 if recipe not in cutters:
-                    cutters[recipe] = _pointed_cutter(*recipe)
+                    cutters[recipe] = _cutter(*recipe)
                 solid = cutters[recipe]
             common = None
             if (
@@ -8891,7 +8946,7 @@ class _Setup:
         for index, _, ax, ay, tip, downward in placed:
             checks = []
             if flute is not None:
-                checks.append(("tool", (ax, ay, radius - LIFT, tip, tip + flute)))
+                checks.append(("tool", (ax, ay, gross - LIFT, tip, tip + length)))
             if not holder_missing:
                 checks.append(("holder", self._holder(ax, ay, tip, holder)))
             for kind, cylinder in checks:
@@ -9074,11 +9129,14 @@ class _Setup:
         """({key: value}, {key: why unknown}) of an axial op's clearances over its axis
         ``poses`` ((ax, ay, tip)), each the least over them: ``body_clear_mm``, the flute
         above the highest material within the reach band of the axis (its own cut's mouth),
-        and ``shank_clear_mm``, the shank past the flute, are radial gaps to the nearest
-        material the op ``leaves`` within the holder radius; ``holder_clear_mm`` is the
-        holder face's height above the highest material it ``meets`` under the holder, whose
-        Z is ``holder_clear_top_z_mm``. ``not_applicable``: no such material, or that part
-        of the tool is buried or held."""
+        ``seat_clear_mm``, a combined drill and countersink's seat cone (:meth:`_seat_gap`),
+        and ``shank_clear_mm``, the shank past the flute and seat, are radial gaps to the
+        nearest material the op ``leaves`` within the holder radius; ``holder_clear_mm`` is
+        the holder face's height above the highest material it ``meets`` under the holder,
+        whose Z is ``holder_clear_top_z_mm``. ``not_applicable``: no such material or seat
+        cone, or that part of the tool is buried or held. An unknown shank radius leaves
+        the seat unknown too: only that radius tells a seat cone from none
+        (``kernel._shank_from``)."""
         values, reasons = {key: None for key in CLEARANCE_KEYS}, {}
         holder, projection = _positive(op, "holder_radius_mm"), _positive(op, "projection_mm")
         lacking = [
@@ -9090,13 +9148,13 @@ class _Setup:
             why = "op lacks " + ", ".join(lacking)
             return dict.fromkeys(CLEARANCE_KEYS, UNKNOWN), dict.fromkeys(CLEARANCE_KEYS, why)
         flute, start = _positive(op, "flute_len_mm"), _positive(op, "shank_from_mm")
-        shank = _positive(op, "shank_radius_mm")
+        shank, seat = _positive(op, "shank_radius_mm"), _seat(op)
         if flute is None:
-            reasons["body_clear_mm"] = "op lacks flute_len_mm"
+            reasons["body_clear_mm"] = reasons["seat_clear_mm"] = "op lacks flute_len_mm"
         if start is None:
-            reasons["shank_clear_mm"] = "op lacks shank_from_mm"
+            reasons["shank_clear_mm"] = reasons["seat_clear_mm"] = "op lacks shank_from_mm"
         elif start < projection and shank is None:
-            reasons["shank_clear_mm"] = "op lacks shank_radius_mm"
+            reasons["shank_clear_mm"] = reasons["seat_clear_mm"] = "op lacks shank_radius_mm"
         top_z = None
         z0, z1 = self.box[2] - 1.0, self.box[5] + 1.0
         for ax, ay, tip in dict.fromkeys(poses):
@@ -9123,12 +9181,70 @@ class _Setup:
                 gap = axis.distToShape(band)[0] - body
                 if values[key] is None or gap < values[key]:
                     values[key] = gap
+            if seat is not None and "seat_clear_mm" not in reasons:
+                gap, why = self._seat_gap(leaves, (ax, ay, base, face), holder, radius, seat)
+                least = values["seat_clear_mm"]
+                if why is not None:
+                    reasons["seat_clear_mm"] = why
+                elif gap is not None and (least is None or gap < least):
+                    values["seat_clear_mm"] = gap
         facts = {
             key: UNKNOWN if key in reasons else "not_applicable" if value is None else _r(value)
             for key, value in values.items()
         }
         facts["holder_clear_top_z_mm"] = "not_applicable" if top_z is None else _r(top_z)
         return facts, reasons
+
+    @staticmethod
+    def _seat_gap(leaves, pose, holder, radius, seat):
+        """(the seat cone's least radial gap to the material ``leaves`` within ``holder``
+        radius, or None when there is none, and why it is unknown) at ``pose`` (axis x, y,
+        tip and holder-face Z).
+
+        The cone (:func:`_seat`) widens from ``radius`` at the flute end to the shank
+        radius at the shank's start, cut off by the holder face. A cone meeting no stock
+        (LIFT inside it) touches only its own countersink, so it is measured above the
+        highest material within REACH_BAND of it, as the flute body is above its own mouth.
+
+        At height z the gap is the stock's distance from the axis less the cone's radius
+        r(z). Stock with gap c lies on the cone moved c / slope down the axis, so with the
+        cone's apex at the bottom of the measured span every gap above minus r(bottom) is
+        the stock's distance to that apex cone over its cosine. Stock inside the apex cone
+        is deeper still and its gap unknown.
+        """
+        ax, ay, base, ceiling = pose
+        flute, shank, rise = seat
+        slope = (shank - radius) / rise
+        foot = base + flute
+        top = min(foot + rise, ceiling)
+        if top - foot <= LIFT:
+            return None, None
+        widest = radius + slope * (top - foot)
+        grown = {
+            offset: Part.makeCone(radius + offset, widest + offset, top - foot, V(ax, ay, foot))
+            for offset in (-LIFT, REACH_BAND)
+        }
+        bottom = foot
+        if leaves.common(ax, ay, widest, foot, top, grown[-LIFT]) is None:
+            mouth = leaves.common(ax, ay, widest + REACH_BAND, foot, top, grown[REACH_BAND])
+            if mouth is not None:
+                bottom = _bbox(mouth)[5] + LIFT
+                if top - bottom <= LIFT:
+                    return None, None
+        band = leaves.common(ax, ay, holder, bottom, top)
+        if band is None:
+            return None, None
+        # The apex cone runs past every foot of a perpendicular from stock within the holder.
+        height = top - bottom + holder + 1.0
+        apex = Part.makeCone(0.0, slope * height, height, V(ax, ay, bottom))
+        if band.common(apex).Volume > HIT_MM3:
+            return None, (
+                "stock inside the seat cone reaches nearer its axis than the cone's radius at "
+                "its foot; that interference depth is unmeasured"
+            )
+        lateral = next(face for face in apex.Faces if isinstance(face.Surface, Part.Cone))
+        gap = lateral.distToShape(band)[0] * math.hypot(1.0, slope)
+        return gap - (radius + slope * (bottom - foot)), None
 
     def _ref_candidates(self, cylinder, own, known):
         """(index, face) of each finished face that may bound a hit in ``cylinder``: not
@@ -10515,6 +10631,7 @@ class _Setup:
         keys = ("holder_radius_mm", "holder_gauge_len_mm", "projection_mm")
         holder = {key: _positive(op, key) for key in keys}
         holder_missing = sorted(key for key, value in holder.items() if value is None)
+        seat = _seat_solid(op)
         regions = {index: self._region(index) for index in indices}
         flute_regions = self._flute_regions(op, regions)
         # Why the stock before this op is unknown: its flute then met finished material only.
@@ -10533,7 +10650,7 @@ class _Setup:
         for index, phi, ax, ay, tip, downward in placed:
             solids = {}
             if flute is not None:
-                solids["tool"] = Part.makeCylinder(radius - LIFT, flute, V(ax, ay, tip))
+                solids["tool"] = _cutter(ax, ay, tip, radius - LIFT, None, flute, seat)
             if not holder_missing:
                 solids["holder"] = Part.makeCylinder(
                     holder["holder_radius_mm"] - LIFT,
@@ -10712,10 +10829,14 @@ class _Setup:
                 # that actual cutting column, while retaining every finished solid
                 # and all material outside the declared window below.
                 top = head.origin.z + outer
+                seat = _seat(op)
+                if seat is not None:
+                    seat = (seat[0], seat[1] - LIFT / 2, seat[2] - LIFT / 2)
                 for _, phi, ax, ay, tip, downward in poses:
                     if not downward and top > tip:
-                        # Enclose the checked r-LIFT flute without exact wall tangency.
-                        column = Part.makeCylinder(radius - LIFT / 2, top - tip, V(ax, ay, tip))
+                        # Enclose the checked r-LIFT flute and seat (:func:`_seat_solid`)
+                        # without exact wall tangency, with the bore the seat sweeps.
+                        column = _plunge(ax, ay, tip, radius - LIFT / 2, None, top, seat)
                         pieces.append(head.rotated(column, -phi))
             bound, why = self._rotary_bound(op)
             if why is not None:

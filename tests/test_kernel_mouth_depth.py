@@ -43,13 +43,20 @@ SPOT, DRILL = "center-drills-lms-4859/2", "stub-drill-6.5"
 INVENTORY = {
     "tools": {
         # LittleMachineShop #2 combined drill and countersink: 3/16 in body, 60 degree
-        # countersink, 1-7/8 in long; its chuck projection is OAL minus the chuck grip.
+        # countersink, 1-7/8 in long; its chuck projection is OAL minus the chuck grip. Its
+        # 3/16 in shank is what lets the shallow spot's reach pass: unknown, it never does.
         "center-drills-lms-4859": {
             "kind": "center_drill_set",
             "sizes": [1, 2, 3, 4, 5],
             "verify": False,
             "members": {
-                "2": {"dia_in": 0.1875, "point_angle": 60.0, "flute_len_in": 0.25, "oal_in": 1.875}
+                "2": {
+                    "dia_in": 0.1875,
+                    "shank_in": 0.1875,
+                    "point_angle": 60.0,
+                    "flute_len_in": 0.25,
+                    "oal_in": 1.875,
+                }
             },
         },
         # DIN 1897 stub drill: 70 mm long, 31 mm flutes.

@@ -91,7 +91,7 @@ rows["leg"] = answer(engine._Culled(region_shape).common(*leg), faces)
 rows["straddle"] = answer(engine._Culled(region_shape).common(15.0, 30.0, 2.0, 5.0, 15.0))
 rows["notch"] = answer(engine._Culled(region_shape).common(45.0, 45.0, 2.0, 15.0, 19.0))
 for name, (cx, cy, radius, z0, z1) in (("corner", corner), ("leg", leg)):
-    cutter = engine._pointed_cutter(cx, cy, z0, radius, 1.0, z1 - z0)
+    cutter = engine._cutter(cx, cy, z0, radius, 1.0, z1 - z0)
     region = engine._Culled(region_shape)
     cylinder_first = answer(region.common(cx, cy, radius, z0, z1))
     pointed_after = answer(region.common(cx, cy, radius, z0, z1, cutter))
@@ -235,7 +235,7 @@ culled = engine._Culled(block)
 hit = culled.hits(*crossing)
 shape = culled.common(*crossing)
 reference = engine._Culled(block).common(*crossing)
-cutter = engine._pointed_cutter(30.0, 20.0, 15.0, 2.0, 1.0, 10.0)
+cutter = engine._cutter(30.0, 20.0, 15.0, 2.0, 1.0, 10.0)
 rows["shape"] = {
     "hit": hit,
     "type": shape.ShapeType,
