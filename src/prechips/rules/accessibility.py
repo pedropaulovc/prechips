@@ -53,12 +53,13 @@ def _checkpoints(detail):
     return values, hit, unknown
 
 
-def _engagement(setup, op, entry, feed_z):
+def _engagement(setup, op, entry, feed_z, scale):
     """(status, declared Z, why) for one kernel ``rest_engagement`` entry: a follow rest
     whose jaws, set with the tool at the op's start, would meet a fixture component. The
     plan's ``hold.supports[].engage_at_z_mm`` (the cut Z the tool passes before the jaws
     go on) passes once it is at or past the computed clear Z along the feed and within the
-    op's window; before it is an error; undeclared or uncomputed stays unknown."""
+    op's window; before it is an error; undeclared or uncomputed stays unknown. All three
+    are millimetres: the op's plan-unit ``z_to`` is scaled by ``scale`` (mm per unit)."""
     rest, op_number = entry.get("rest"), op.get("op")
     supports = (setup.get("hold") or {}).get("supports")
     items = supports if isinstance(supports, list) else []
@@ -81,14 +82,20 @@ def _engagement(setup, op, entry, feed_z):
     if not number(clear) or feed_z not in (-1, 1):
         return "unknown", declared, f"{start}: no clear jaw position was computed to check"
     end = op.get("z_to")
+    if number(end) and not number(scale):
+        return "unknown", declared, f"{start}: the op's end is in unknown plan units"
     if (declared - clear) * feed_z < -1e-9:
         return (
             "error",
             declared,
             (f"{start}: set at Z{declared:g}, before Z{clear:.3f} where they clear it"),
         )
-    if number(end) and (declared - end) * feed_z > 1e-9:
-        return "error", declared, f"{start}: set at Z{declared:g}, after the op ends at Z{end:g}"
+    if number(end) and (declared - end * scale) * feed_z > 1e-9:
+        return (
+            "error",
+            declared,
+            f"{start}: set at Z{declared:g}, after the op ends at Z{end * scale:g} mm",
+        )
     return "pass", declared, None
 
 
@@ -192,7 +199,9 @@ def evaluate(bundle):
             values["blade_z_mm"] = detail["blade_z_mm"]
         engage = detail.get("rest_engagement")
         if isinstance(engage, list) and engage:
-            judged = [_engagement(setup, op, e, values.get("feed_z")) for e in engage]
+            scale = {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units"))
+            feed = values.get("feed_z")
+            judged = [_engagement(setup, op, e, feed, scale) for e in engage]
             values["rest_engagement"] = [
                 e | {"declared_z_mm": z} for e, (_, z, _) in zip(engage, judged, strict=True)
             ]

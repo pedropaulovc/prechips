@@ -383,10 +383,8 @@ def test_a_consumable_without_known_products_does_not_resolve(tmp_path, products
     subject = append_op(plan, 'do = "coating"\nfeature = "pivot_bearing"\nprocess = "oxide-kit"\n')
     inventory = examples / "inventory" / "pedro-shop.toml"
     text = inventory.read_text(encoding="utf-8")
-    assert text.count("[consumables]\n") == 1
     inventory.write_text(
-        text.replace("[consumables]\n", f"[consumables]\noxide-kit = {products}\n"),
-        encoding="utf-8",
+        text + f"\n[consumables.oxide-kit]\nproducts = {products}\n", encoding="utf-8"
     )
     assert evaluate("tool_resolves", load_bundle(plan))[subject].status == "unknown"
 

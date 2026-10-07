@@ -301,9 +301,13 @@ def test_a_setup_edge_break_tighter_than_the_drawing_prints_on_its_own_sheet(tmp
 @pytest.mark.parametrize(
     ("record_hash", "evidence", "expected"),
     [
-        ("current", "FA-001 measured and signed", "a first article is recorded for this input"),
-        ("current", "", "no first article is recorded for this input bundle"),
-        ("other", "FA-001 measured and signed", "the recorded first article is for other inputs"),
+        ("current", "FA-001 measured and signed", "a first article is recorded for this plan"),
+        ("current", "", "no first article is recorded;"),
+        (
+            "other",
+            "FA-001 measured and signed",
+            "the recorded first article was made to a different plan or drawing",
+        ),
     ],
     ids=["recorded-unchecked", "no-evidence", "stale"],
 )
@@ -321,9 +325,7 @@ def test_job_status_states_the_first_article_record_it_was_given(
     _, _, html = traveler(plan, tmp_path / "out", "--approval", approval, setup=SYNTHETIC_KERNEL)
     job = text(sections(html, "JOB STATUS")[0])
     assert f"NOT APPROVED: {expected}" in job
-    assert ("sign it off below" in job) == (
-        expected != "a first article is recorded for this input"
-    )
+    assert ("sign it off below" in job) == (expected != "a first article is recorded for this plan")
 
 
 def test_a_named_inventory_item_prints_its_name_not_its_kind_or_slug(tmp_path):

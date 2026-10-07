@@ -1434,7 +1434,7 @@ def _dome(name, feature, op, radius_mode, nose=UNKNOWN, edges=None):
     return contour
 
 
-def _dome_stair(name, feature, op, radius_mode, allowance):
+def _dome_stair(name, feature, op, radius_mode, allowance, scale):
     """The rough stair under a convex dome's finish table, apex toward +Z.
 
     One facing row per finish-table Z below the apex: from outside the work at that Z, face
@@ -1442,19 +1442,23 @@ def _dome_stair(name, feature, op, radius_mode, allowance):
     imaginary tip of a tool touched off on an outside diameter and a +Z end face reads the
     stair corner exactly, and every corner lies on the grown sphere, so the whole stair
     stays at least ``allowance / 2`` off the finished dome. Rows at or past the base
-    radius (the diameter the dome caps) cut nothing and are dropped. None when the stair
-    is not established."""
+    radius (the diameter the dome caps) cut nothing and are dropped. Rows are in plan
+    units, as the finish table's; the allowance is millimetres (``scale`` mm per unit).
+    None when the stair is not established."""
     sphere = feature.get("sphere_radius", UNKNOWN)
     apex, base = op.get("z_from", UNKNOWN), op.get("z_to", UNKNOWN)
     step = mapping(op.get("contour")).get("step_mm", UNKNOWN)
-    values = (sphere, apex, base, step, allowance)
+    values = (sphere, apex, base, step, allowance, scale)
     if not all(number(v) for v in values) or min(sphere, step) <= 0 or allowance <= 0:
         return None
     if apex <= base:
         return None  # facing rows come in from +Z: an apex toward the chuck has no stair
     centre = apex - sphere
-    grown = sphere + allowance / 2
-    work = math.sqrt(max(0.0, sphere * sphere - (base - centre) ** 2))
+    grown = sphere + allowance / 2 / scale
+    squared = sphere * sphere - (base - centre) ** 2
+    if squared < -1e-10:
+        return None  # the window runs past the sphere: no dome caps that base
+    work = math.sqrt(max(0.0, squared))
     display = 1 if radius_mode else 2
     rows = []
     count = math.ceil((apex - base) / step)
@@ -1518,9 +1522,10 @@ def _plunges(bundle, op, feature):
         return None
     if not all(number(z) for z in ends):
         return None
-    low, high = sorted(ends)
     blade = UNKNOWN if uncertain(tool) else length_mm(tool, "blade_width")
     scale = {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units"))
+    # Every *_mm fact here is millimetres: the op's plan-unit ends are scaled.
+    low, high = sorted(z * scale for z in ends) if scale else (UNKNOWN, UNKNOWN)
     band = feature.get("width")
     dia = feature.get("dia")
     result = {
@@ -1534,7 +1539,7 @@ def _plunges(bundle, op, feature):
         "dia_band_mm": [v * scale for v in dia] if scale and _band(dia) else "not_applicable",
         "width_band_mm": [v * scale for v in band] if scale and _band(band) else "not_applicable",
     }
-    if not number(blade) or blade <= 0 or result["reading_corner"] == UNKNOWN:
+    if not number(blade) or blade <= 0 or result["reading_corner"] == UNKNOWN or not scale:
         result.update(corner_z_mm=UNKNOWN, groove_z_mm=UNKNOWN, width_mm=UNKNOWN)
         return result
     span = high - low
@@ -2229,7 +2234,12 @@ def evaluate(bundle, *, pre_kernel=False):
                         generated = True
                 elif contour.get("method") == "axial_table" and stage == "rough":
                     stair = _dome_stair(
-                        name, feature, op, dro.get("radius_mode") is True, allowance
+                        name,
+                        feature,
+                        op,
+                        dro.get("radius_mode") is True,
+                        allowance,
+                        {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units"), UNKNOWN),
                     )
                     if stair:
                         numbers.setdefault("stair_tables", []).append(stair)
