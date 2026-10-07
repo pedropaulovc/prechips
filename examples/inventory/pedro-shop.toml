@@ -1152,6 +1152,14 @@ kind = "measuring_loupe"
 note = "illustrative example item: 10x measuring loupe with a 0.1 mm reticle, for reading edge breaks and scribed lines"
 range_mm = [0.0, 10.0]
 resolution_mm = 0.1
+# The PM-1127VF-LB carriage Z DRO scale, used as a length gauge: the shaft's S3 fit-up
+# hold reads scribe-to-end as T3's Z through paper after T3 is zeroed on the scribe.
+[gauges.lathe-z-dro]
+kind = "dro_scale"
+name = "lathe Z DRO"
+note = "illustrative example item: glass/magnetic Z scale on the PM-1127VF-LB carriage, read on the lathe DRO in 0.005 mm steps; span is the carriage travel along the bed (about the 27.55 in between centres)"
+range_mm = [0.0, 699.77] # example: Z scale span, plausible, not measured
+resolution_mm = { value = 0.005, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "DRO display step" } }
 # --- end DataShaft additions ---
 
 [holders]
