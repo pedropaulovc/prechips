@@ -246,7 +246,7 @@ approach_mm = 5.0 # AUTHOR'S CHOICE: rapid plane above the raw face
 to_z = 0.0
 direction = "conventional" # AUTHOR'S CHOICE: hand-fed mill
 doc_mm = 1.525 # AUTHOR'S CHOICE: one 1.525 pass, inside the .250 in end-mill depth basis of Machinery's Handbook 27th ed. Table 15a p.1054
-stock_removal_bounds = { x = [-2.5, 342.5], y = [-5.6, 70.6], z = [0.0, 1.525] } # the whole raw upper face
+stock_removal_bounds = { x = [-4.5, 344.5], y = [-5.6, 70.6], z = [0.0, 1.525] } # the whole raw upper face; AUTHOR'S CHOICE: X runs 2 mm past each bar end because every pass then starts in air and enters the end from the side, never fed down into the stock
 contour = { method = "linear_table", step_mm = 12.7 } # AUTHOR'S CHOICE: 2/3 of the 19.05 cutter per pass
 note = "Face the whole upper face flat, from Z +1.525 to Z0. Mark it as the reference face."
 
@@ -309,7 +309,7 @@ approach_mm = 5.0 # AUTHOR'S CHOICE: rapid plane above the raw edge
 to_z = 0.0
 direction = "conventional" # AUTHOR'S CHOICE: hand-fed mill
 doc_mm = 2.8 # AUTHOR'S CHOICE: two passes of 2.8, inside the .250 in end-mill depth basis of Machinery's Handbook 27th ed. Table 15a p.1054
-stock_removal_bounds = { x = [-2.5, 342.5], y = [-17.525, 0.0], z = [0.0, 5.6] } # the whole raw datum edge
+stock_removal_bounds = { x = [-4.5, 344.5], y = [-17.525, 0.0], z = [0.0, 5.6] } # the whole raw datum edge; AUTHOR'S CHOICE: X 2 mm past each bar end so every pass starts in air
 contour = { method = "linear_table", step_mm = 12.7 } # AUTHOR'S CHOICE: 2/3 of the 19.05 cutter per pass
 note = "Face the datum edge from Z +5.6 to Z0 in two passes."
 
@@ -375,7 +375,7 @@ approach_mm = 5.0 # AUTHOR'S CHOICE: rapid plane above the raw edge
 to_z = 0.0
 direction = "conventional" # AUTHOR'S CHOICE: hand-fed mill
 doc_mm = 2.8 # AUTHOR'S CHOICE: two passes of 2.8, inside the .250 in end-mill depth basis of Machinery's Handbook 27th ed. Table 15a p.1054
-stock_removal_bounds = { x = [-2.5, 342.5], y = [-17.525, 0.0], z = [0.0, 5.6] } # the whole raw opposite edge
+stock_removal_bounds = { x = [-4.5, 344.5], y = [-17.525, 0.0], z = [0.0, 5.6] } # the whole raw opposite edge; AUTHOR'S CHOICE: X 2 mm past each bar end so every pass starts in air
 contour = { method = "linear_table", step_mm = 12.7 } # AUTHOR'S CHOICE: 2/3 of the 19.05 cutter per pass
 note = "Face the opposite edge to Z0, 65.0 over the datum edge, in two passes." # AUTHOR'S CHOICE: the levels assume the nominal edge; the measured M sets the real one, and the sheet's DRO ZERO prints the raw-edge correction from offset_mm and doc_mm
 
@@ -440,7 +440,7 @@ approach_mm = 5.0 # AUTHOR'S CHOICE: rapid plane above the raw face
 to_z = 0.0
 direction = "conventional" # AUTHOR'S CHOICE: hand-fed mill
 doc_mm = 1.525 # AUTHOR'S CHOICE: one 1.525 pass, inside the .250 in end-mill depth basis of Machinery's Handbook 27th ed. Table 15a p.1054
-stock_removal_bounds = { x = [-2.5, 342.5], y = [-65.0, 0.0], z = [0.0, 1.525] } # the whole raw lower face
+stock_removal_bounds = { x = [-4.5, 344.5], y = [-65.0, 0.0], z = [0.0, 1.525] } # the whole raw lower face; AUTHOR'S CHOICE: X 2 mm past each bar end so every pass starts in air
 contour = { method = "linear_table", step_mm = 12.7 } # AUTHOR'S CHOICE: 2/3 of the 19.05 cutter per pass
 note = "Face the lower face to Z0, 16.0 over the upper face." # AUTHOR'S CHOICE: the level assumes the nominal face; the measured M sets the real one, and the sheet's DRO ZERO prints the raw-face correction from offset_mm and doc_mm
 
@@ -502,7 +502,7 @@ approach_mm = 5.0 # AUTHOR'S CHOICE: rapid plane above the bar
 to_z = -16.5 # AUTHOR'S CHOICE: 0.5 below the lower face; nothing stands under the overhang
 direction = "conventional" # AUTHOR'S CHOICE: hand-fed mill
 doc_mm = 5.5 # AUTHOR'S CHOICE: three axial steps of 5.5 with the 2.5 sawn excess as the radial cut, inside the .250 in end-mill depth basis of Machinery's Handbook 27th ed. Table 15a p.1054
-stock_removal_bounds = { x = [-2.5, 0.0], y = [-65.0, 0.0], z = [-16.5, 0.0] } # the sawn right-end excess
+stock_removal_bounds = { x = [-2.5, 0.0], y = [-67.0, 2.0], z = [-16.5, 0.0] } # the sawn right-end excess; AUTHOR'S CHOICE: Y runs 2 mm past each edge because every pass then starts in air and enters the end from the side, never fed down into the stock
 contour = { method = "linear_table", step_mm = 12.7, open_side = "-x" } # AUTHOR'S CHOICE: side-mill from the overhanging -X end, one Y pass per axial step, because the end overhangs the vise in clear air
 note = "Side-mill the right end to X0 with the side of the cutter, the bar flat, in three steps down."
 
@@ -516,7 +516,7 @@ approach_mm = 5.0 # AUTHOR'S CHOICE: rapid plane above the bar
 to_z = -16.5 # AUTHOR'S CHOICE: 0.5 below the lower face; nothing stands under the overhang
 direction = "conventional" # AUTHOR'S CHOICE: hand-fed mill
 doc_mm = 5.5 # AUTHOR'S CHOICE: three axial steps of 5.5 with the 2.5 sawn excess as the radial cut, inside the .250 in end-mill depth basis of Machinery's Handbook 27th ed. Table 15a p.1054
-stock_removal_bounds = { x = [340.0, 342.5], y = [-65.0, 0.0], z = [-16.5, 0.0] } # the sawn left-end excess
+stock_removal_bounds = { x = [340.0, 342.5], y = [-67.0, 2.0], z = [-16.5, 0.0] } # the sawn left-end excess; AUTHOR'S CHOICE: Y 2 mm past each edge so every pass starts in air
 contour = { method = "linear_table", step_mm = 12.7, open_side = "+x" } # AUTHOR'S CHOICE: side-mill from the overhanging +X end, one Y pass per axial step, because the end overhangs the vise in clear air
 note = "Side-mill the left end to X 340.0, 340.0 from the right end, with the side of the cutter, in three steps down."
 
