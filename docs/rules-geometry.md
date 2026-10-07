@@ -1802,7 +1802,9 @@ that whole contact before a section view cuts it: the outline is cut where it
 crosses the section plane and only the kept side is drawn, still keyed at the
 contact's own plane (a contact that is a point or a straight line names no
 plane). `closest_cut` is the smallest distance from this setup's
-removal to a holding solid. The detail frames the stock, the contacts and that
+removal to a holding solid; a setup that both files and machines measures it from
+its machine cuts only, the cuts the CLEARANCE table lists, so the picture's
+dimension is one of that table's rows. The detail frames the stock, the contacts and that
 distance; it outlines each contact (solid where seen, dashed where hidden),
 keys it with its holding name and the setup coordinate of its plane (a support
 whose solids lie on different planes, such as the rocker's hub stand and rail
@@ -1860,10 +1862,15 @@ as the DRO is set. Closest-cut and clearance distances are measured values and
 never snap to the grid.
 
 A guided bench file (a hand op whose `guide.buttons` kit is held in the setup,
-its solids named to the kernel by `guide_owner`) is not a cut to clear. The kit
-solids its cut reaches are where it stops (`render_scene.guide_stops` names them),
-and the kernel leaves them out of `closest_cut`, so no `CUT 0.000 mm FROM` a
-filing button prints. The detail keys
+its solids named to the kernel by `guide_owner`, the kit's declared button OD by
+`guide_rim_dia_mm`) is not a cut to clear. A kit solid is a stop only when it is a
+button of that declared OD (a cylindrical face within the OD limits, widened by the
+stock tolerance), its cut reaches it, and it is seated on the filed face (within the
+stock tolerance of the stock the file leaves, without biting into it). Those stops
+are named in `render_scene.guide_stops`, and the kernel leaves them out of
+`closest_cut`, so no `CUT 0.000 mm FROM` a filing button prints. Any other kit
+solid the cut reaches (a stud, a tab touching the unfiled wall, a square block) is
+holding to clear and keeps its real `CUT` dimension. The detail keys
 them in green: `FILE STOPS ON BOTH BUTTON RIMS` for a matched pair, or one key
 per rim, `FILE STOPS ON UPPER BUTTON RIM`, when they lie apart. A real clearance
 to the rest of the kit (its stud) is still dimensioned. When the stops are turned
