@@ -1233,11 +1233,14 @@ holder radius, gauge length and projection. Numbers: `reach_depth_mm`,
 sample `reach_top_z_mm`, the setup Z of that highest material (the reach
 reference; `"not_applicable"` when no material stands beside the tool).
 
-The traveler's CLEARANCE line keeps the cut and the reach apart. The cut is the
-op row's own start Z to its printed tip Z. The reach is from `reach_top_z_mm`
-down to that same printed tip, against the flute, with the holder-clearance
-verdict past the flute and the holder face's height above that stock
-(`projection_mm` less the reach). Reach is never printed as a cut depth.
+The traveler's mill CLEARANCE table takes the reach finding's holder clearance:
+the holder face's height above the highest stock beside the tool, `projection_mm`
+less the reach from `reach_top_z_mm` (as that surface's DRO Z) down to the op
+row's printed tip. A holder face below that stock prints its depth below it, with
+the wall verdict; past the flute, holder wall hits are a STOP and unknown hits a
+check-at-the-machine action. Each `clearances` entry (`part`, `obstacle`, `mm`)
+competes for the op's closest obstacle; a negative one is a STOP. Reach is never
+printed as a cut depth.
 
 - depth ≤ flute: `entry-to-floor depth is within the selected flute length.` (pass)
 - depth > OAL: `entry-to-floor depth exceeds the selected tool OAL.` (error)

@@ -69,6 +69,16 @@ margin-top: 1pt; }
 .keep { break-inside: avoid; page-break-inside: avoid; }
 .contours { columns: 3; column-gap: 8pt; }
 .contour { break-inside: avoid; page-break-inside: avoid; margin-bottom: 4pt; }
+.contour.wide { column-span: all; }
+h4 { font-size: 8pt; margin: 3pt 0 1pt; break-after: avoid; page-break-after: avoid; }
+.stages { display: flex; gap: 8pt; align-items: flex-start; }
+.stages > div { flex: 1 1 0; min-width: 0; }
+table.coords { table-layout: auto; }
+table.coords th { overflow-wrap: normal; }
+table.coords td.num { white-space: nowrap; overflow-wrap: normal; }
+th.read, td.read { font-weight: bold; } th.read { background: #ccc; }
+tr.repeat th { background: #fff; font-weight: bold; }
+.paged table:not([data-duplex-split]) tr.repeat { display: none; }
 .hold-row { display: flex; gap: 8pt; align-items: flex-start; }
 .hold-steps { flex: 1 1 70%; min-width: 0; }
 .fixture-render { margin: 4pt 0; break-inside: avoid; page-break-inside: avoid; }
@@ -89,6 +99,7 @@ display: block; }
 .signoff { margin-top: 6pt; break-before: avoid; page-break-before: avoid; }
 .contour-row { display: flex; gap: 8pt; align-items: flex-start; }
 .contour-row > .contour { flex: 0 0 calc((100% - 16pt) / 3); min-width: 0; }
+.contour-row > .contour.wide { flex: 1 1 100%; }
 .contour-row.tall { display: block; }
 .blank-side { padding-top: 4in; text-align: center; font-weight: bold; }
 @media screen { body { max-width: 7.7in; margin: 12pt auto; } .page { margin-bottom: 24pt; } \
@@ -259,16 +270,20 @@ _DUPLEX_JS = """(() => {
       reset();
       // The script heads every page itself: the no-script repeated op heading goes.
       document.documentElement.classList.add("paged");
-      // Contour blocks go in rows of three so each row is one measurable block.
+      // Contour blocks go in rows of three so each row is one measurable block; a wide
+      // block (a lathe profile) takes a row of its own.
       document.querySelectorAll(".contours:not([data-rows])").forEach((c) => {
         c.setAttribute("data-rows", "");
         c.style.columns = "auto";
-        const blocks = [...c.children];
-        for (let i = 0; i < blocks.length; i += 3) {
-          const row = document.createElement("div");
-          row.className = "contour-row";
-          row.append(...blocks.slice(i, i + 3));
-          c.append(row);
+        let row = null;
+        for (const block of [...c.children]) {
+          const wide = block.classList.contains("wide");
+          if (!row || wide || row.children.length === 3 || row.classList.contains("solo")) {
+            row = document.createElement("div");
+            row.className = wide ? "contour-row solo" : "contour-row";
+            c.append(row);
+          }
+          row.append(block);
         }
       });
       // Measure at the printed width whatever the window size.
@@ -301,6 +316,17 @@ _GLYPHS = {"error": "✗", "warn": "!", "unknown": "?", "unsupported": "?"}
 # A planned tool path ending this close to jaws, a dead centre or the jaw tops is
 # hand-feed territory: it is boxed on the op row instead of buried in clearance prose.
 _CRASH_ZONE_MM = 3.0
+# One printed coordinate, e.g. "-155.000": a cell that must never wrap. Whole numbers
+# (op and pass numbers) are short and keep their plain cells.
+_NUMBER = re.compile(r"[-−+]?\d+\.\d+")
+# The job page's abbreviation key: (printed form, meaning); a key prints only when used.
+_ABBREVIATIONS = (
+    (r"\bT\d+\b", "T# = tool number in that setup's TOOLS table."),
+    (r"\bEM\b", "EM = endmill."),
+    (r"\bCD\b", "CD = centre drill."),
+    (r"\bDTI\b", "DTI = test indicator."),
+    (r"\bmic\b", "mic = micrometer."),
+)
 _REQUIREMENT_NAMES = {
     "dia": "Ø",
     "position_dia": "position Ø",
@@ -726,9 +752,12 @@ def _cell_line(line):
     return escape(str(line))
 
 
-def _table(headings, rows, css="", widths=None, continued=None):
+def _table(headings, rows, css="", widths=None, continued=None, repeat=None, strong=()):
     """``continued`` is a heading row repeated with the column headings on every page the
-    table runs onto; on its first page the section heading is drawn over it."""
+    table runs onto; on its first page the section heading is drawn over it. ``repeat``
+    is a heading row printed only on the pages the table continues onto (its block's own
+    heading names the first). ``strong`` columns are the ones the operator reads from;
+    a cell holding one number never wraps."""
     columns = ""
     if widths:
         columns = (
@@ -736,25 +765,33 @@ def _table(headings, rows, css="", widths=None, continued=None):
         )
     attribute = f' class="{css}"' if css else ""
     result = [f"<table{attribute}>", columns, "<thead>"]
-    if continued:
-        result.append(
-            f'<tr class="continued"><th colspan="{len(headings)}">{escape(continued)}</th></tr>'
-        )
+    for kind, title in (("continued", continued), ("repeat", repeat)):
+        if title:
+            result.append(
+                f'<tr class="{kind}"><th colspan="{len(headings)}">{escape(title)}</th></tr>'
+            )
     result.append("<tr>")
-    result.extend(f"<th>{escape(h)}</th>" for h in headings)
+    result.extend(
+        f'<th class="read">{escape(h)}</th>' if i in strong else f"<th>{escape(h)}</th>"
+        for i, h in enumerate(headings)
+    )
     result.append("</tr></thead>")
     for row in rows:
         # A row may carry full-width warning lines printed directly beneath it.
         warnings = list(row.warnings) if isinstance(row, _Row) else []
         result.append('<tbody class="op"><tr>' if warnings else "<tbody><tr>")
-        for cell in row:
+        for index, cell in enumerate(row):
             lines = cell if isinstance(cell, (list, tuple)) else [cell]
             parts = []
             for line in lines:
                 if parts and not isinstance(line, _Box):
                     parts.append("<br>")
                 parts.append(_cell_line(line))
-            result.append("<td>" + "".join(parts) + "</td>")
+            names = ["read"] if index in strong else []
+            if isinstance(cell, str) and _NUMBER.fullmatch(cell):
+                names.append("num")
+            attribute = f' class="{" ".join(names)}"' if names else ""
+            result.append(f"<td{attribute}>" + "".join(parts) + "</td>")
         result.append("</tr>")
         if warnings:
             result.append(
@@ -1976,7 +2013,7 @@ class _Traveler:
         return f"{sense} {where}"
 
     # ------------------------------------------------------------- clearance
-    def clearance(self, setup):
+    def clearance(self, setup, tool_numbers=None):
         if saw_setup(setup):
             # A saw cut-off has no spindle stack or table travel: nothing to print.
             return None
@@ -2043,62 +2080,21 @@ class _Traveler:
             need, have = numbers.get("sum_mm"), numbers.get("spindle_to_table_max_mm")
             if _known(need):
                 lines.append(
-                    f"Dividing head: centre height {o(numbers.get('head_centre_height_mm'))}, "
-                    f"work top above table {o(numbers.get('work_top_above_table_mm'))}; "
-                    f"tool needs {o(need)} of {o(have)} spindle-to-table: {fits(need, have)}."
+                    f"Spindle-to-table over the dividing head: needs {o(need)} of {o(have)}: "
+                    f"{fits(need, have)}."
                 )
             else:
                 missing.append("spindle-to-table room over the dividing head")
         elif "bed_height_mm" in numbers or "sum_mm" in numbers:
             need, have = numbers.get("sum_mm"), numbers.get("spindle_to_table_max_mm")
-            # The needed height is the tallest op's stack, so its stickout and holder are
-            # printed with it and the shown terms add up to the total.
             worst = next((s for s in numbers.get("stacks", []) if s.get("sum_mm") == need), {})
-            stack = [
-                ("vise / fixture", numbers.get("bed_height_mm")),
-                ("risers", numbers.get("support_blocks_mm")),
-                ("parallels", numbers.get("parallels_mm")),
-                ("work", numbers.get("stock_height_mm")),
-                ("tool stickout", worst.get("tool_projection_mm")),
-                ("holder", worst.get("holder_gauge_len_mm")),
-                ("tool-change room", numbers.get("insertion_mm")),
-            ]
             if _known(need) and worst:
-                parts = [f"{name} {o(v)}" for name, v in stack if _known(v) and v]
                 lines.append(
-                    f"Spindle-to-table, tallest stack (op {_text(worst.get('op'))}): "
-                    + " + ".join(parts)
-                    + f" = {o(need)} needed of {o(have)}: {fits(need, have)}."
+                    f"Spindle-to-table, tallest stack (op {_text(worst.get('op'))}) with "
+                    f"tool-change room: needs {o(need)} of {o(have)}: {fits(need, have)}."
                 )
             else:
                 missing.append("spindle-to-table room (holding height not known)")
-        stacks = {}
-        for stack in numbers.get("stacks", []):
-            key = tuple(
-                stack.get(k)
-                for k in ("tool_projection_mm", "tool_oal_mm", "holder_gauge_len_mm", "margin_mm")
-            )
-            stacks.setdefault(key, []).append(_text(stack.get("op")))
-        every = self.cutting_ops(setup)
-        for (projection, oal, holder, margin), ops in stacks.items():
-            label = _ops_label(ops, every)
-            if not (_known(projection) and _known(margin)):
-                missing.append(f"tool stickout and headroom ({label})")
-                continue
-            lines.append(
-                f"{label[:1].upper() + label[1:]}: tool sticks out {o(projection)} "
-                f"(overall {o(oal)}), holder {o(holder)}; {o(margin)} mm to spare above the "
-                "work." + self.reach_text(setup, ops, len(ops) > 1)
-            )
-        jaw = _mapping(numbers.get("jaw_obstruction"))
-        if _known(jaw.get("jaw_top_z")):
-            # The work top as its DRO surface, so the gap adds up with the printed Zs.
-            top = self.surface_z(setup, _mapping(setup.get("stock_state")).get("top_z"), face="top")
-            above = top - jaw["jaw_top_z"] if _known(top) else "unknown"
-            lines.append(
-                f"Jaw tops at Z {o(jaw['jaw_top_z'])}; work top {o(above)} mm above the jaws. "
-                "Tool tips near the jaw tops are boxed on the op rows."
-            )
         travel = numbers.get("travel_checks", {})
         for axis in ("x", "y"):
             record = _mapping(travel.get(axis))
@@ -2110,9 +2106,122 @@ class _Traveler:
                     f"{o(record.get('travel_mm'))}: "
                     f"{fits(record.get('required_mm'), record.get('travel_mm'))}."
                 )
+        rows = self.clearance_rows(setup, numbers, tool_numbers or {})
+        if any(not _known(s.get("margin_mm")) for s in numbers.get("stacks", [])):
+            missing.append("tool stickout and headroom")
         if missing:
             lines.append(unknown + "; ".join(missing) + ".")
-        return "<h2>CLEARANCE — mill</h2>" + "".join(_p(line) for line in lines)
+        html = "<h2>CLEARANCE — mill</h2>" + "".join(_p(line) for line in lines)
+        if rows:
+            html += _table(
+                ["op", "tool", "closest obstacle", "clearance mm", "action"],
+                rows,
+                css="clearance",
+                widths=[9, 6, 45, 11, 29],
+            )
+        return html
+
+    def clearance_rows(self, setup, numbers, tool_numbers):
+        """One row per cutting op (ops sharing a tool, obstacle, clearance and action share
+        a row): the smallest known clearance among the head travel left above the work
+        (headroom ``margin_mm``), the jaw tops (``cut_tip_above_jaws_mm``, as the op row's
+        box measures it), the holder face above the highest stock beside the tool and any
+        reach ``clearances`` entry; an unknown one or an unproven wall clearance is the
+        action. Every Z printed is the surface's one DRO Z (:meth:`surface_z`)."""
+        o = self.operative
+        stacks = {str(s.get("op")): s for s in numbers.get("stacks", []) if isinstance(s, dict)}
+        tips = _mapping(numbers.get("cut_tip_above_jaws_mm"))
+        jaw = _mapping(numbers.get("jaw_obstruction")).get("jaw_top_z")
+        merged = {}
+        for op in setup.get("ops", []):
+            name = str(op.get("op"))
+            if op.get("do") in MANUAL or op.get("tool") in (None, "unknown"):
+                continue
+            candidates, actions = [], []
+            margin = _mapping(stacks.get(name)).get("margin_mm")
+            if _known(margin):
+                candidates.append((margin, "spindle-to-table room spare, tool change allowed"))
+            planned = tips.get(name, tips.get(op.get("op")))
+            if _known(planned):
+                # The op row's own jaw box number: its DRO tip over the jaw tops.
+                tip = self.dro_to_z(setup, op)
+                value = tip - jaw if _known(tip) and _known(jaw) else planned
+                candidates.append((value, "jaw tops below the tool tip"))
+                if min(planned, value) < 0:
+                    actions.append("STOP: the tip goes below the jaw tops")
+                elif planned <= _CRASH_ZONE_MM:
+                    actions.append("hand feed; check the tip clears the jaws before plunging")
+            self.reach_candidates(setup, op, candidates, actions)
+            known = [c for c in candidates if _known(c[0])]
+            actions.extend(
+                f"{what}: not computed — check at the machine"
+                for value, what in candidates
+                if value is not None and not _known(value)
+            )
+            noted = [what for value, what in candidates if value is None]
+            if known:
+                value, what = min(known, key=lambda c: c[0])
+            elif noted:
+                value, what = "—", noted[0]
+            elif actions:
+                value, what = "?", "—"
+            else:
+                continue
+            if _known(value) and value < 0 and not any(a.startswith("STOP") for a in actions):
+                actions.append("STOP: does not clear")
+            tool = tool_numbers.get((op.get("tool"), op.get("holder")), "")
+            printed = o(value) if _known(value) else value
+            key = (tool, what, printed, "; ".join(dict.fromkeys(actions)))
+            merged.setdefault(key, []).append(name)
+        return [
+            (", ".join(ops), tool, what, value, action)
+            for (tool, what, value, action), ops in merged.items()
+        ]
+
+    def reach_candidates(self, setup, op, candidates, actions):
+        """The reach finding's clearances for ``op``: the holder face above the highest stock
+        beside the tool (the kernel's ``reach_top_z_mm`` as its DRO surface Z, down to the
+        op row's printed tip, against the tool's projection), a holder whose face goes below
+        that stock with its wall clearance proven or not, and every declared ``clearances``
+        entry (``part``, ``obstacle``, ``mm``)."""
+        o = self.operative
+        record = _mapping(self.records.get(("reach", f"{setup['id']}:{op.get('op')}")))
+        if not record:
+            return
+        _, tip = self.cut_span(setup, op)
+        top = record.get("reach_top_z_mm")
+        if _known(top):
+            top = self.surface_z(setup, top)
+        reach = top - tip if _known(top) and _known(tip) else record.get("reach_depth_mm")
+        projection, hits = record.get("projection_mm"), record.get("holder_wall_hits")
+        flute = record.get("flute_len_mm")
+        beside = (
+            f"stock top beside the tool (Z {o(top)})" if _known(top) else "stock beside the tool"
+        )
+        for entry in record.get("clearances") or []:
+            entry = _mapping(entry)
+            what = f"{self.bench(entry.get('part', 'tool'))} to {self.bench(entry.get('obstacle'))}"
+            candidates.append((entry.get("mm", "unknown"), what))
+        if top == "not_applicable":
+            # No stock stands beside the tool above its tip.
+            return
+        if not (_known(reach) and _known(projection)):
+            candidates.append(("unknown", f"holder face to the {beside}"))
+            return
+        above = projection - reach
+        if above >= 0:
+            candidates.append((above, f"holder face to the {beside}"))
+        elif hits == 0:
+            candidates.append(
+                (None, f"holder goes {o(-above)} below the {beside}; checked clear of the walls")
+            )
+        else:
+            candidates.append(("unknown", f"holder {o(-above)} below the {beside}, to the walls"))
+        past = _known(flute) and reach > flute + SAME_Z
+        if past and _known(hits) and hits > 0:
+            actions.append("STOP: the holder hits a wall beside the cut")
+        elif past and not _known(hits):
+            actions.append("holder clearance of the walls not proven — check at the machine")
 
     def cut_span(self, setup, op):
         """(start Z, tip Z) of ``op`` as its op row prints them (:meth:`tip`); a start the
@@ -2128,64 +2237,6 @@ class _Traveler:
         if "to_z" in op:
             return None, self.dro_to_z(setup, op)
         return None, "unknown"
-
-    def reach_text(self, setup, ops, grouped):
-        """The cut and the reach of the op among ``ops`` whose tip goes deepest below the
-        stock beside it, kept apart: the cut runs from the op row's start Z to its tip Z;
-        the reach is from the highest stock beside the tool (the kernel's reach reference,
-        ``reach_top_z_mm``) down to that same printed tip, against the flute, with the
-        holder face's height above that stock."""
-        o = self.operative
-        candidates = []
-        operations = {str(op.get("op")): op for op in setup.get("ops", [])}
-        for name in ops:
-            record = _mapping(self.records.get(("reach", f"{setup['id']}:{name}")))
-            op = operations.get(str(name))
-            if op is None or not _known(record.get("reach_depth_mm")):
-                continue
-            start, tip = self.cut_span(setup, op)
-            top = record.get("reach_top_z_mm")
-            reach = top - tip if _known(top) and _known(tip) else record["reach_depth_mm"]
-            candidates.append((reach, str(name), start, tip, top, record))
-        if not candidates:
-            return ""
-        reach, name, start, tip, top, record = max(candidates, key=lambda c: c[0])
-        if _known(start) and _known(tip):
-            cut = f"Z {o(start)} → {o(tip)}, {o(start - tip)} deep from its start"
-        else:
-            cut = f"to Z {o(tip)}"
-        text = f" {'Deepest, op' if grouped else 'Op'} {name} cuts {cut}. Reach: "
-        if _known(top) and _known(tip):
-            text += (
-                f"its tip at Z {o(tip)} is {o(reach)} below the highest stock beside the "
-                f"tool (Z {o(top)})"
-            )
-        elif top == "not_applicable":
-            return text + "no stock stands beside the tool above its tip."
-        else:
-            text += f"its tip is {o(reach)} below the highest stock beside the tool"
-        flute, hits = record.get("flute_len_mm"), record.get("holder_wall_hits")
-        if _known(flute) and reach <= flute + SAME_Z:
-            text += f", within its {o(flute)} flute"
-        elif _known(flute):
-            text += (
-                f", {o(reach - flute)} past its {o(flute)} flute: the tool body goes below that "
-                "stock, and "
-                + (
-                    "the reach check found the holder clear of the walls"
-                    if hits == 0
-                    else "holder clearance of the walls is not proven — check at the machine"
-                )
-            )
-        projection = record.get("projection_mm")
-        if _known(projection) and _known(top) and _known(tip):
-            above = projection - reach
-            text += (
-                f"; the holder face stays {o(above)} above that stock"
-                if above >= 0
-                else f"; the holder face goes {o(-above)} below that stock"
-            )
-        return text + "."
 
     def lathe_approaches(self, setup):
         """Distance from each op's last planned Z to the jaw fronts (exposed side +Z); a
@@ -2356,6 +2407,55 @@ class _Traveler:
         return boxes
 
     # ------------------------------------------------------------------ DRO
+    def transfer_line(self, setup, transfer):
+        """The datum transfer before zeroing: a lathe part tapped true; one round feature
+        centred on by moving the table; surfaces aligned by moving the work."""
+        indicate = transfer.get("indicate")
+        items = indicate if isinstance(indicate, list) else [indicate]
+        features = ", ".join(self.feature_name(f) for f in items)
+        gauge = transfer.get("tool", transfer.get("gauge"))
+        limit = transfer.get("runout_limit_mm")
+        # A limit is never rounded: 0.0254 printed as 0.03 would loosen it.
+        reading = f"{_number(limit)} mm total indicator reading"
+        with_gauge = " with the " + self.reference(gauge) if gauge not in (None, "unknown") else ""
+        if not _known(limit):
+            line = (
+                f"Before zeroing: indicate the {features}{with_gauge}; runout limit not set "
+                "— ? confirm the allowed runout"
+            )
+        elif self.lathe(setup):
+            line = f"Before zeroing: indicate the {features}{with_gauge}; tap true to {reading}"
+            line += " or less"
+        elif self.centring(items):
+            # One round feature: the table is moved to put the spindle on its axis.
+            line = (
+                f"Before zeroing: centre on the {features}{with_gauge}, swept all round; move "
+                f"the table until the sweep reads {reading} or less, then re-check"
+            )
+        else:
+            # Surfaces: the sweep checks the work's alignment; the work moves, not the table.
+            line = (
+                f"Before zeroing: align the work on the {features}{with_gauge}: run the "
+                f"indicator along the length of each surface by table travel; while it reads "
+                f"more than {reading}, loosen the clamping, tap the high end of the work toward "
+                "the low reading, re-clamp and sweep again"
+            )
+        if transfer.get("reindicate_after"):
+            line += f". After {_ops_label(transfer['reindicate_after'])}: re-indicate and redo X/Y"
+        return line
+
+    def centring(self, items):
+        """True when a transfer indicates one round feature (a hole, bore or boss, or a
+        named non-feature such as a pin head): the sweep goes all round it and the table
+        centres on it. Surfaces, or several features, are an alignment instead."""
+        if len(items) != 1:
+            return False
+        definition = self.features.get(items[0])
+        if not isinstance(definition, dict):
+            return True
+        kind = str(definition.get("kind", ""))
+        return kind == "hole" or "bore" in kind or kind in ("boss", "cylinder_spigot")
+
     def dro(self, setup, tools):
         if saw_setup(setup):
             # The saw cut is located by its cut plane in the op row: no zero to set.
@@ -2508,30 +2608,7 @@ class _Traveler:
             )
         transfer = _mapping(authored.get("transfer"))
         if transfer:
-            indicate = transfer.get("indicate")
-            features = ", ".join(
-                self.feature_name(f)
-                for f in (indicate if isinstance(indicate, list) else [indicate])
-            )
-            gauge = transfer.get("tool", transfer.get("gauge"))
-            line = f"Before zeroing: indicate the {features}"
-            if gauge not in (None, "unknown"):
-                line += " with the " + self.reference(gauge)
-            limit = transfer.get("runout_limit_mm")
-            # A lathe part is tapped true in the chuck; on a mill the indicator is swept
-            # in the spindle and the table is moved to centre on the feature.
-            correct = "tap true to" if self.lathe(setup) else "move the table until the sweep reads"
-            line += (
-                # A limit is never rounded: 0.0254 printed as 0.03 would loosen it.
-                f"; {correct} {_number(limit)} mm total indicator reading or less, then re-check"
-                if _known(limit)
-                else "; runout limit not set — ? confirm the allowed runout"
-            )
-            if transfer.get("reindicate_after"):
-                line += (
-                    f". After {_ops_label(transfer['reindicate_after'])}: re-indicate and redo X/Y"
-                )
-            pieces.append(_p(line + "."))
+            pieces.append(_p(self.transfer_line(setup, transfer) + "."))
         retouches = {}
         tops = {
             str(op["op"]): after["top_from"] for op, _, after in stock_states(setup, self.features)
@@ -2667,40 +2744,86 @@ class _Traveler:
         if not grouped:
             return ""
         if lathe:
-            # Each surface's Z ends as the DRO shows them, as the op rows print them.
-            rows = [
-                (
-                    self.feature_name(feature),
-                    "Ø" + self.value(entry["dia"], feature, "dia"),
-                    o(self.surface_z(setup, max(entry["z"]), face=feature, done=entry["done"])),
-                    o(self.surface_z(setup, min(entry["z"]), face=feature, done=entry["done"])),
+            # Each surface's Z ends as the DRO shows them, as the op rows print them; the
+            # drawing's own limits (a drawing feature only) apart from the size turned to.
+            drawing = _mapping(self.bundle.features.get("features"))
+            rows = []
+            for feature, entry in grouped.items():
+                band = _mapping(drawing.get(feature)).get("dia")
+                drawn = "—"
+                if isinstance(band, list) and len(band) == 2 and all(map(_known, band)):
+                    drawn = "Ø" + self.band(band, feature, "dia")
+                rows.append(
+                    (
+                        self.feature_name(feature),
+                        drawn,
+                        "Ø" + o(entry["dia"]),
+                        o(self.surface_z(setup, max(entry["z"]), face=feature, done=entry["done"])),
+                        o(self.surface_z(setup, min(entry["z"]), face=feature, done=entry["done"])),
+                    )
                 )
-                for feature, entry in grouped.items()
-            ]
             table = _table(
-                ["feature", "Ø (drawing)", "cut from Z", "cut to Z"], rows, widths=[40, 20, 20, 20]
+                ["feature", "drawing Ø limits", "turn to Ø", "cut from Z", "cut to Z"],
+                rows,
+                widths=[32, 17, 17, 17, 17],
             )
             note = (
                 "X reads diameter. Z values are where this setup's cuts on each surface start "
                 "and end, not the finished extent: a later cut (relief, part-off, next setup) "
                 "may shorten the surface."
             )
+            if any(row[1] == "—" for row in rows):
+                note += " A dash in the drawing column: a process size the drawing does not give."
         else:
             rows = [
-                (self.feature_name(feature), o(c[0]), o(c[1]), o(c[2])) for (feature, c) in grouped
+                (
+                    self.feature_name(feature),
+                    self.reference_point(setup, feature, c[2]),
+                    o(c[0]),
+                    o(c[1]),
+                    o(c[2]),
+                )
+                for (feature, c) in grouped
             ]
-            table = _table(["feature", "X", "Y", "Z (drawing reference point)"], rows)
-            note = (
-                "Each feature's drawing reference point, not a tool tip and not necessarily its "
-                "middle (a hole's point may sit on its entry or exit face); the op table gives "
-                "the tool targets."
+            table = _table(
+                ["feature", "reference point", "X", "Y", "Z"], rows, widths=[26, 38, 12, 12, 12]
             )
+            note = "The op table gives the tool targets."
             note += "".join(f" {text}" for text in dict.fromkeys(filter(None, aims)))
         return f"<h2>FEATURE MAP — {escape(self.zero_name(setup))}</h2>" + table + _p(note)
 
+    def reference_point(self, setup, feature, z):
+        """What a feature-map row's X / Y / Z stand on, from the feature's own kind: an arc
+        centre, a hole or boss axis, a face; on a hole, the entry or exit face its op rows
+        print at that Z, or the Z0 surface."""
+        definition = _mapping(self.features.get(feature))
+        kind = str(definition.get("kind", ""))
+        if definition.get("arc"):
+            name = "arc centre"
+        elif "bore" in kind or kind == "hole":
+            name = "hole axis"
+        elif kind in ("boss", "cylinder_spigot"):
+            name = "boss axis"
+        elif kind == "face":
+            name = "face"
+        else:
+            name = kind.replace("_", " ") or "point"
+        o = self.operative
+        for op in setup.get("ops", []):
+            if op.get("feature") != feature:
+                continue
+            endpoint = self.endpoint(setup, op) or {}
+            for key, face in (("dro_entry_z", "entry face"), ("dro_exit_face", "exit face")):
+                if _known(endpoint.get(key)) and o(endpoint[key]) == o(z):
+                    return f"{name} at the {face}"
+        if _known(z) and o(z) == o(0.0):
+            return f"{name} on the Z0 surface"
+        return name
+
     def aim_note(self, record):
-        """A located target moved off its drawing nominal: where it now stands, from what,
-        and why (plan ``aims``); empty for an unaimed target."""
+        """A located target moved off its drawing nominal (plan ``aims``): the target, the
+        intentional offset and the dimension to inspect; empty for an unaimed target. The
+        aim's authored reason stays in the plan."""
         aim = record.get("aim") or {}
         nominal = record.get("nominal_setup")
         if "shift_mm" not in aim or not isinstance(nominal, list):
@@ -2709,16 +2832,15 @@ class _Traveler:
         requirement = aim["requirement"]
         o = self.operative
         moved = ", ".join(
-            f"{axis} {o(target)} (drawing nominal {o(drawn)})"
+            f"{axis} {o(target)}, {o(abs(target - drawn))} off the drawing nominal {o(drawn)}"
             for axis, target, drawn in zip("XYZ", record["dro"], nominal, strict=True)
             if o(target) != o(drawn)
         )
-        reason = self.bench(aim["reason"]).rstrip(".")
         return (
-            f"{self.feature_name(feature)} is aimed at {moved} so its "
-            f"{_REQUIREMENT_NAMES.get(requirement, requirement)} from the "
-            f"{self.feature_name(source)} reads {_number(aim['value_mm'])} inside "
-            f"{self.band(aim['printed_band'], feature, requirement)}: {reason}."
+            f"{self.feature_name(feature).capitalize()}: machine at {moved} — intentional; "
+            f"inspect its {_REQUIREMENT_NAMES.get(requirement, requirement)} from the "
+            f"{self.feature_name(source)} to {self.band(aim['printed_band'], feature, requirement)}"
+            f" (aimed at {_number(aim['value_mm'])})."
         )
 
     # ------------------------------------------------------------------ tools
@@ -2949,27 +3071,25 @@ class _Traveler:
         )
 
     def tip_note(self, setup, op):
-        """The tip-depth derivation belongs in the op notes, not the target cell: worked
-        from the exit face the DRO shows, then the DRO tip when the grid rounds it up."""
+        """A through op's breakthrough instruction: the exit face and the DRO tip past it,
+        both as the DRO shows them, and how far the tip runs out; the depth arithmetic
+        stays in the report."""
         endpoint = self.endpoint(setup, op)
         if not endpoint or endpoint.get("exit_face", "not_applicable") == "not_applicable":
             return None
         o = self.operative
-        if not _known(endpoint.get("tip_z")):
-            return None
-        allowance = "lead_mm" if "lead_mm" in endpoint else "point_mm"
-        point, exit_mm = endpoint.get(allowance), endpoint.get("exit_mm")
         exit_face, tip = endpoint.get("dro_exit_face"), endpoint.get("dro_tip_z")
-        through = f"exit face {o(exit_face)}"
-        if _known(point) and point:
-            through += f" − {'lead' if allowance == 'lead_mm' else 'drill point'} {o(point)}"
-        values = (exit_face, point, exit_mm)
-        exact = exit_face - point - exit_mm if all(_known(v) for v in values) else "unknown"
-        note = f"tip Z {o(exact)} = {through} − break-through {o(exit_mm)}"
-        if _known(exact) and o(tip) != o(exact):
-            step = _number(dro_grid(self.bundle, setup)[0])
-            note += f"; DRO tip {o(tip)}, rounded up on the {step} grid, never deeper"
-        return note + "."
+        if not (_known(endpoint.get("tip_z")) and _known(tip)):
+            return None
+        text = f"Break through: feed to DRO tip Z {o(tip)}"
+        exit_mm = endpoint.get("exit_mm")
+        if _known(exit_face) and _known(exit_mm) and exit_mm:
+            text += (
+                f"; the full diameter then runs {o(exit_mm)} past the exit face at Z {o(exit_face)}"
+            )
+        elif _known(exit_face):
+            text += f", past the exit face at Z {o(exit_face)}"
+        return text + "."
 
     def steps(self, text):
         """A procedure written as blank-line paragraphs prints as numbered steps; single
@@ -3443,30 +3563,39 @@ class _Traveler:
             )
         return text
 
-    def raster_clearance(self, raster):
-        """Name a raster's rows that run past the area it clears as intentional cutter
-        clearance: pass ends one cutter radius beyond its edges, and a pocket's first pass
-        wholly outside its open side."""
+    def raster_clearance(self, raster, op):
+        """Where a raster's passes start and end, from the op's ``stock_removal_bounds``
+        along the run axis: an end standing at least one cutter radius past the box starts
+        or ends in clear air; an end inside the box is walled, so the pass starts or ends
+        in material. Without a box the ends print without a claim either way."""
         o = self.operative
         axis = str(raster.get("run_axis", "")).upper()
-        ends, edges = raster.get("ends"), raster.get("area_ends")
-        radius = raster.get("clearance_mm")
-        if not (isinstance(ends, list) and isinstance(edges, list) and _known(radius)):
+        ends, radius = raster.get("ends"), raster.get("clearance_mm")
+        if not (isinstance(ends, list) and len(ends) == 2 and all(map(_known, ends))):
             return ""
-        text = (
-            f"; pass ends are intentional cutter clearance, not material: every pass starts "
-            f"and ends at {axis} {o(ends[0])} / {o(ends[1])}, at least one cutter radius "
-            f"({o(radius)}) past the cleared area's edges {axis} {o(edges[0])} / "
-            f"{o(edges[1])}, so the cutter's edge runs in from and overtravels out past each edge"
-        )
+        span = _mapping(op.get("stock_removal_bounds")).get(axis.lower())
+        text = f"; pass ends {axis} {o(ends[0])} / {o(ends[1])}"
+        if not (
+            _known(radius) and isinstance(span, list) and len(span) == 2 and all(map(_known, span))
+        ):
+            return text
+        low, high = min(span), max(span)
+        clear = [ends[0] <= low - radius + SAME_Z, ends[1] >= high + radius - SAME_Z]
+        if all(clear):
+            text += ": both in clear air, a cutter radius past the stock"
+        elif not any(clear):
+            text += (
+                ": both inside the walled field — every pass starts in material, so plunge "
+                "at its start"
+            )
+        else:
+            walled = o(ends[0]) if not clear[0] else o(ends[1])
+            text += f": the {axis} {walled} end is inside a wall — plunge there"
         entry = raster.get("entry_pass")
         if _known(entry):
             across = "X" if axis == "Y" else "Y"
             side = str(raster.get("open_side", "")).upper()
-            text += (
-                f"; pass 1 at {across} {o(entry)} stands wholly outside the open {side} "
-                "side: it enters the stock from clear air"
-            )
+            text += f"; pass 1 at {across} {o(entry)} enters from clear air on the open {side} side"
         return text
 
     def outline_clearance(self, op, profile, part):
@@ -3667,13 +3796,16 @@ class _Traveler:
             description = "Cutter-centre checkpoints" + self.cut_order(profile)
             raster = profile.get("raster")
             if isinstance(raster, dict):
+                entry["raster"] = True
                 description = (
-                    f"One-way raster, {_text(raster.get('passes'))} passes, stepover ≤ "
-                    f"{o(raster.get('step_mm'))} mm: feed each pass from → to, lift to Z "
-                    f"{o(raster.get('lift_z'))}, rapid back to the next pass's start"
+                    f"Raster, {_text(raster.get('passes'))} passes, stepover ≤ "
+                    f"{o(raster.get('step_mm'))} mm, lift to Z {o(raster.get('lift_z'))}"
                     + self.cut_order(profile)
-                    + self.raster_clearance(raster)
                 )
+                # One raster note per op: its pieces share the passes' ends.
+                if not entry.get("ends"):
+                    entry["ends"] = self.raster_clearance(raster, operations.get(op, {}))
+                    description += entry["ends"]
             entry["parts"].append((order(entry), description, headings, rows))
             if not isinstance(raster, dict):
                 entry["parts"][-1] = self.outline_clearance(
@@ -3751,7 +3883,8 @@ class _Traveler:
                     f"the R{o(compensation)} nose centre is {where} there (imaginary tip "
                     "past centre)"
                 )
-            entry["parts"].append((order(entry), description, headings, rows))
+            # The finished surface: the finish pass after any rough stair of its op.
+            entry["parts"].append((order(entry, {"stage": "finish"}), description, headings, rows))
         for stair in numbers.get("stair_tables", []):
             entry = block(stair.get("op"))
             x_unit = "radius" if _mapping(self.plan.get("dro")).get("radius_mode") is True else "Ø"
@@ -3795,15 +3928,15 @@ class _Traveler:
                 title += f" · {self.direction(op['direction'])}"
             content = f"<h3>{escape(title)}</h3>"
             if stepped:
+                # The heading lists the levels; the note says how to run them, once per op.
                 content += _p(
-                    f"{len(depths)} depth levels: run the complete path below at Z "
-                    f"{o(depths[0])}, then repeat the complete path at each level in order — "
-                    + ", then ".join(f"Z {o(z)}" for z in depths[1:])
-                    + "."
+                    f"{len(depths)} depth levels: run the complete path below at each Z in the "
+                    "heading, in order, top level first."
                 )
             elif levels and levels.get("count") == "unknown":
                 content += _p("? Depth levels not computed — " + _text(levels.get("reason")) + ".")
             tool_missing = op.get("tool") in (None, "unknown") or not tools.get(op.get("tool"))
+            wide = self.lathe(setup)
             if tool_missing:
                 content += _p(
                     f"STOP: {self.feature_name(op.get('feature')).upper()} — tool not selected; "
@@ -3814,22 +3947,48 @@ class _Traveler:
                 reasons = "".join(f" — {reason}" for reason in entry["stops"])
                 content += _p(f"STOP: contour points not computed{reasons} — do not run.", "stop")
             else:
-                for _, description, headings, rows in sorted(entry["parts"], key=lambda p: p[0]):
+                pieces = []
+                for rank, description, headings, rows in sorted(entry["parts"], key=lambda p: p[0]):
                     single = len(entry["z"]) == 1
                     columns = [
                         i
                         for i, h in enumerate(headings)
                         if any(row[i] for row in rows) and not (h == "Z" and single)
                     ]
-                    content += _p(self.bench(description) + ".") + _table(
-                        [headings[i] for i in columns], [[row[i] for i in columns] for row in rows]
+                    shown = [headings[i] for i in columns]
+                    # Side by side on a wide block, each table names its stage.
+                    label = {0: "ROUGH", 1: "FINISH"}.get(rank[0]) if wide else None
+                    pieces.append(
+                        (f"<h4>{label}</h4>" if label else "")
+                        + _p(self.bench(description) + ".")
+                        + _table(
+                            shown,
+                            [[row[i] for i in columns] for row in rows],
+                            css="coords",
+                            repeat=title,
+                            strong=[i for i, h in enumerate(shown) if h.startswith("tool ")],
+                        )
                     )
-            html.append(f'<div class="contour">{content}</div>')
+                if wide and len(pieces) > 1:
+                    content += (
+                        '<div class="stages">'
+                        + "".join(f"<div>{piece}</div>" for piece in pieces)
+                        + "</div>"
+                    )
+                else:
+                    content += "".join(pieces)
+            css = "contour wide" if wide else "contour"
+            html.append(f'<div class="{css}">{content}</div>')
         heading = (
             f"<h2>CONTOURS — {escape(self.zero_name(setup))}; "
             + ("X is diameter" if self.lathe(setup) else "cutter-centre X / Y")
             + "</h2>"
         )
+        if any(entry.get("raster") for entry in blocks.values()):
+            heading += _p(
+                "Rasters: feed each pass from → to, lift to the op's lift Z, rapid back to the "
+                "next pass's start."
+            )
         return heading + '<div class="contours">' + "".join(html) + "</div>"
 
     # ---------------------------------------------------------------- picture
@@ -4046,13 +4205,7 @@ class _Traveler:
                     cites.append(cite)
         if not cites:
             return "Speeds / feeds: no cited source — every op without a speed is a STOP."
-        illustrative = any("illustrative" in c or "example" in c for c in cites)
-        return (
-            "Speeds / feeds are starting points, not limits (source: shop cutting-data table, "
-            "RPM rounded to 50 within the machine's range"
-            + ("; the table holds illustrative example values" if illustrative else "")
-            + ")."
-        )
+        return "Speeds and feeds are starting points, not limits."
 
     def material(self):
         spec = _mapping(self.bundle.features.get("material"))
@@ -4296,11 +4449,13 @@ class _Traveler:
             widths=[8, 32, 25, 35],
         )
         html += self.requirements()
-        html += _p(
-            "T# = tool number in that setup's TOOLS table. EM = endmill; CD = centre drill; "
-            "DTI = test indicator; mic = micrometer. Keep the drawing at the bench."
-        )
+        html += _p(" ".join([*self.abbreviations(html), "Keep the drawing at the bench."]))
         return html
+
+    def abbreviations(self, page=""):
+        """The key to the abbreviations ``page`` and the setup sheets actually print."""
+        printed = getattr(self, "sheet_text", "") + " " + re.sub(r"<[^>]+>", " ", page)
+        return [meaning for pattern, meaning in _ABBREVIATIONS if re.search(pattern, printed)]
 
     # ------------------------------------------------------------------ setup
     def setup_section(self, setup):
@@ -4320,7 +4475,7 @@ class _Traveler:
         details = {
             "holding picture": self.fixture_render(setup),
             "shop-made fixture": self.shop_made_tables(setup),
-            "clearance": None if bench else self.clearance(setup),
+            "clearance": None if bench else self.clearance(setup, tool_numbers),
             "feature map": self.feature_map(setup),
         }
         sheets = {"notes": 2, "contours": 3 if contours else None}
@@ -4385,6 +4540,14 @@ class _Traveler:
         setups = self.plan.get("setups", [])
         # Setup pages are built first so the job status can name every stopped setup.
         sheets = [self.setup_section(s) for s in setups]
+        # The job page's abbreviation key names only what these sheets print.
+        self.sheet_text = " ".join(
+            re.sub(r"<[^>]+>", " ", block)
+            for setup_sheets in sheets
+            for blocks in setup_sheets
+            for block in blocks
+            if block
+        )
         # (label, blocks, takes sign-off): the job page and each front sheet are signed.
         pages = [("job page", [self.header(setups)], True)]
         for setup, setup_sheets in zip(setups, sheets, strict=True):

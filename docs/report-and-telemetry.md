@@ -366,14 +366,25 @@ and inspection notes*):
 2. **CLEARANCE** (not on bench or saw cut-off setups), machine specific. A lathe shows chuck
    Ø against swing, work Ø against swing over the cross-slide, length against
    between-centres, quill extension and the jaw-front distance to the closest
-   tool stop. A mill
-   shows the spindle-to-table stack for the tallest op (holding, work, tool
-   stickout, holder and the 25 mm tool-change room, adding up to the total),
-   per-op tool stickout and spare travel, jaw top Z and table travel.
-   Uncomputed items are grouped into one `Not computed — check at the machine`
-   line.
-3. **FEATURE MAP** (feature, Ø or X/Y, Z from/to in the setup zero). Feature
-   locations, not tool tips.
+   tool stop. A mill shows one line for the tallest spindle-to-table stack
+   (with the 25 mm tool-change room) against the room available, one for X/Y
+   table travel, one `Not computed — check at the machine` line for uncomputed
+   items, then a table: op, tool, closest obstacle, clearance mm, action. Each
+   cutting op's row takes the smallest known of its headroom margin, its DRO tip
+   over the jaw tops, the holder face above the highest stock beside the tool
+   (`projection_mm` less the reach from that stock's DRO surface Z to the op's
+   printed tip) and every `clearances` entry of its reach finding. A negative
+   clearance or a holder past the flute that hits a wall is a STOP; an unknown one
+   or an unproven holder wall clearance is a check-at-the-machine action; a jaw
+   clearance within 3 mm asks for a hand-fed approach. Ops with the same tool,
+   obstacle, clearance and action share a row.
+3. **FEATURE MAP**. Lathe: feature, the drawing's Ø limits (`—` for a process
+   size such as a joint spigot), the Ø turned to, and the Z the setup's cuts start
+   and end at. Mill: feature, the reference point the X/Y/Z stand on (hole or boss
+   axis, arc centre, face; at the entry or exit face, or on the Z0 surface), then
+   X / Y / Z. An aimed target adds one line: where to machine it, its offset from
+   the drawing nominal and the band to inspect it to. Feature locations, not tool
+   tips.
 4. **INSPECTION NOTES**: numbered inspection procedures, each starting with its
    setup and op (`S2 op 30: …`).
 
