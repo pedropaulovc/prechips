@@ -132,7 +132,13 @@ material, normalized action and inclusive mm diameter range. Exactly one cited
 row is needed. Ambiguous overlap or unknown range stays unresolved. No chart
 URL is fetched.
 
-`D_in = D_mm/25.4`; `raw_RPM = 12*sfm/(pi*D_in)`. Round the raw RPM to nearest
+`D_in = D_mm/25.4`; `raw_RPM = 12*sfm/(pi*D_in)`. When a cited
+`[[deep_hole]]` row names the operation and the hole's depth (the `blind_depth`
+through-hole local thickness or blind `depth_mm`) is strictly more than its
+`depth_over_dia` diameters, `sfm` is first multiplied by that row's
+`sfm_factor`; the deepest exceeded threshold governs. An unknown depth or an
+invalid, uncited or tied governing row leaves the RPM and feed unknown (see
+[cutting data](cutting-data.md)). Round the raw RPM to nearest
 50 with ties-to-even, then clamp to the actual machine limits (which need not
 be multiples of 50; a lathe's `ranges_rpm` bands give its overall limits).
 Mill feed in mm/min is `RPM * flute_count * chip_load_mm_per_tooth`. Lathe
@@ -162,10 +168,14 @@ Exact templates:
 
 - `This manual operation has no cutting speed or feed.`
 - `Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.`
+- `Starting RPM/feed cannot be certified: the hole depth or its governing deep-hole row is missing, ambiguous or unverified.`
 - `Starting RPM and feed are sourced; raw RPM is rounded to nearest 50, then clamped to the actual machine range.`
 
 Evidence: material/class and verification, normalized operation, tool material,
 diameter in inches, flute count, sfm/chip load, range, RPM/feed and selected
-source. Citations carry PLAN §3.5's RPM/rounding equation, inventory spindle
-range, cutting aliases/rows and the actual selected chart/row citation. No
-verified example cutting numbers or Handbook page is implied by shipped rows.
+source; an operation a deep-hole row names adds `depth_over_dia`,
+`deep_hole_row` (the governing row's citation, or `not_applicable`) and
+`deep_hole_sfm_factor`. Citations carry PLAN §3.5's RPM/rounding equation,
+inventory spindle range, cutting aliases/rows, the actual selected chart/row
+citation and any governing deep-hole row. The shipped example rows are
+labelled illustrative example values, not shop measurements.

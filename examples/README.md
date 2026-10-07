@@ -111,12 +111,16 @@ Shared inputs:
   `tool_resolves`, `sizing`, `op_chain`, `blind_depth`, `inspection`, `coordinates`
   and `zero_check` on `"*"`. Re-fixture, thin-wall and stick-out numbers and their
   citations are unknown and `numbers_verify` remains true.
-- `cutting-data.toml`: four HSS / low-carbon-steel rows (face, profile, drill,
-  ream), plus the material-force/modulus row. No Machinery's Handbook **31** page
-  was verified: the layout sketch is not evidence. Diameter ranges, sfm, chip
-  loads, K_c, E and citations are unknown. All dependent RPM/feed cells are `?`.
-  The generic `Plain Carbon Steel` alias is a candidate classification, not a
-  sourced grade or measured carbon content; no material-property claim follows.
+- `cutting-data.toml`: illustrative example rows for low-carbon steel (HSS, M2,
+  M42 and carbide tools; face, profile, spot, drill, ream, counterbore, bore,
+  turning, dome, relief, part-off and cut-to-fit, plus saw cut-off), the
+  material-force/modulus row and one deep-hole
+  drill derate. Every row is labelled `example (plausible, not measured)` and its
+  citation names the published range it sits inside (Machinery's Handbook
+  Pocket Companion, ISBN 978-0-8311-3095-4, Tables 1 and 10; tool-maker,
+  saw-maker and university charts). These are starting values, not shop
+  measurements. The generic `Plain Carbon Steel` alias is a candidate
+  classification, not a sourced grade or measured carbon content.
 
 Current expected consumer CLI exits are **0 / 0 / 0 / 0** for shaft,
 rocker, bracket and cone built-up respectively.
@@ -494,22 +498,30 @@ assumes the fit-up scribe landed at the REF span 156.67, so the S3 plain-end and
 north-end stations and stick-out are numeric.
 
 The shaft route (example plan) is: S1 grips the north stub in the three-jaw
-chuck, with the MT3 dead centre in the centre-drilled plain end and the follow rest
+chuck, with the MT3 dead centre in the centre-drilled plain end (Ø3.0 countersink,
+so the turning tool starts about 0.5 clear of the centre's cone) and the follow rest
 riding the 26:1 body on the turned side, 8 mm behind the tool (example jaw
-sizes 12 × 40 × 10 mm at 90° and 180°). It roughs and finishes the bearing toward the chuck,
+sizes 12 × 40 × 10 mm at 90° and 180°), its jaws reset with the spindle stopped
+on each newly turned diameter. It roughs and finishes the bearing toward the chuck,
 faces the thrust shoulder, mics the Ø10 shoulder left as cold-finished bar and
 plunges the south DIN 509 relief with the 1/16 in HSS parting blade. S2 reverses
 onto the finished body with the thrust face seated on the jaw fronts to turn the
 journal, face the shoulder's north face, plunge the north relief and form the
 north dome with the 93° AR tool (the 60° E gouges near the apex). S3 grips 8 mm
 north of the scribe, parts the plain end to the 1.5–2.0 past-scribe band with
-the blade and forms the south dome on the parted face with the AR tool.
+the blade and forms the south dome on the parted face with the AR tool. Each
+setup ends with a hand deburr (spindle stopped, needle file and slip stone) of
+the edges it made, checked to the drawing's R0.25 / 0.25 chamfer maximum under
+the example 10x measuring loupe (`gauges.measuring-loupe`), so every edge is
+broken before S3 op 40 oils the part.
 
 The shaft export's `pivot_bearing` has only the `CUT TO FIT` note and
-`length_ref = 156.67`, with no cut-to-fit length requirement. The plan therefore
-checks the cut-to-fit band through S3 op 10's `inspection_note` (caliper depth
-rod from the actual scribe) and does not claim a `pivot_bearing:length`
-inspection.
+`length_ref = 156.67`, with no cut-to-fit length requirement. The 1.5–2.0
+past-scribe band comes from the channel assembly drawing's fit-up note
+(`cad/scripts/draw_channel_assembly.py:82,101-110`), not the shaft drawing, so the
+plan prints it as a labelled fit-up hold in S3 op 20's `inspection_note`: the
+DRO, with the T1 tool point re-sighted on the scribe, measures the scribe-to-end
+distance. The plan does not claim a `pivot_bearing:length` inspection.
 
 The cone's indexing feature is now `crank_bore`, which owns
 `land_angle_nominal_deg = 12.5182` and the BASIC relationship. Its omitted
@@ -1097,6 +1109,20 @@ the earlier straight side slots to fabricate an arched form from above.
 The reamed bore uses paired metric 6.500 mm go / 6.530 mm no-go pins rather than
 inch-increment pins; after release, the seat rests on the surface plate and a
 height gauge reads the go-pin top minus half its diameter for the bore height.
+
+The 18 × 26.2 × 34.2 mm prepared blank carries an authored preparation
+sequence in `stock.prerequisite` (the job page's `Before S1:` line) and
+`stock.note` (STOCK AND ROUTE): bandsaw 38 mm off 3/4 × 1-1/4 in flat bar,
+then square all six faces in the mill vise from the left side, holding 26.2
+and 34.2 to ±0.02 mm because S2/S3 zero on the free and crown ends opposite
+the S1 references. These are author's process choices, not on-hand stock.
+The squaring cannot be routed as setups: every non-saw op must claim a
+manifest feature, and the blank's faces are not finished features.
+S4's HOLD lists seating, stud and bridge fitting and seat-lip indication as
+separate steps; the X/Y pickup positions live in the DRO zero rows. The S4
+outer-face raster uses a 4.0 mm stepover so its five passes print on the
+0.005 mm DRO grid. The S4 bridge member is named `two-stud bridge clamp` in
+the shared inventory.
 
 The plan and manifest use revision `example-v39` for this local illustrative
 contract, explicitly **not** a certified dimensioned drawing revision. All setup

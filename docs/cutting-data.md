@@ -17,6 +17,19 @@ else from the same cited row or tool chart, under the
 same citation and verify rules as the chip load. Numbers are starting points,
 not cut-force or stability limits.
 
+`[[deep_hole]]` rows derate a spindle operation's starting speed in deep holes.
+A row names one `operation` (for example `drill`), a `depth_over_dia` threshold
+and an `sfm_factor` in `(0, 1]`. When the hole's depth is strictly more than
+`depth_over_dia` tool diameters, the row (or chart) `sfm` is multiplied by
+`sfm_factor` before the RPM is derived; the chip load or feed per revolution is
+unchanged, so the feed falls with the RPM. The depth is the material the full
+diameter cuts, from the `blind_depth` tip endpoints: a through hole's local
+thickness or a blind hole's planned `depth_mm`, never the point or exit lead.
+The deepest exceeded threshold governs. An operation no row names keeps its
+speed. For an operation a row names, an unknown depth, a non-positive threshold
+or factor, a factor above 1, an uncited row or two rows tied at the governing
+threshold leave the RPM and feed unknown.
+
 Saw actions `saw_cut` / `cut_off` both select `operation = "saw_cut"` by material
 class and blade material, **without** a rotating-tool `diameter_range`. Exactly
 one cited row supplies positive `sfm` (linear blade feet/minute) and
@@ -32,10 +45,12 @@ source cannot certify a saw speed/feed; a mixed list keeps its real citations.
 `[[material]]` carries material class, `kc_n_per_mm2`, `e_gpa`, and citations for
 M2 [turning deflection](rules-physics.md). Exactly one sourced material row is
 needed. `K_c` is N/mm² and `E` is GPa (converted explicitly to N/mm²); authored
-radial DOC and feed/revolution supply the force inputs. The shipped K_c/E values
-remain `"unknown"`: no verified Handbook 31 table/page is available. Missing
-sources, values, geometry or material verification remain unresolved, not zero
-deflection. Adding a numerical row requires real source evidence.
+radial DOC and feed/revolution supply the force inputs. The shipped example
+rows are illustrative example values, labelled `example (plausible, not
+measured)` and checked against the cited published ranges; they are not shop
+measurements. Missing sources, values, geometry or material verification remain
+unresolved, not zero deflection. Adding a numerical row requires real source
+evidence.
 
 Citation collection discards blank and `"unknown"` entries individually, so an
 incomplete list does not erase other known sources. The same collector handles
@@ -69,6 +84,7 @@ not proof of geometric validity; rules perform the applicable checks.
 | `aliases` | `dict[str, str] \| Unknown` | Optional |
 | `cut` | `list[Cut] \| Unknown` | Optional |
 | `material` | `list[CutMaterial] \| Unknown` | Optional |
+| `deep_hole` | `list[DeepHole] \| Unknown` | Optional |
 
 ## Cut
 
@@ -91,4 +107,13 @@ not proof of geometric validity; rules perform the applicable checks.
 | `material_class` | `str` |
 | `kc_n_per_mm2` | `float` |
 | `e_gpa` | `float` |
+| `cite` | `Citations` |
+
+## DeepHole
+
+| Field | Type (also accepts `"unknown"`) |
+|---|---|
+| `operation` | `str` |
+| `depth_over_dia` | `float` |
+| `sfm_factor` | `float` |
 | `cite` | `Citations` |

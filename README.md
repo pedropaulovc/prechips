@@ -322,15 +322,24 @@ outlines are schematic, not measured fixture geometry, and unresolved drawing
 items remain plain-language warnings. The image is hashed into `report.json`
 with its scene record so an approval binds to it; it is not a toolpath.
 Before encoding, every setup diagram checks its rounded bitmap-text bounds:
-labels must keep an 8-pixel canvas margin and a 4-pixel gap from other labels.
-An overlap or clipped annotation refuses the render rather than shipping an
-unreadable picture. Footer space is reserved for every legend and note row.
-A posed chuck front that is tilted relative to setup Z is labelled as a tilted
-plane, not reported as a missing single jaw-front Z.
+labels must keep an 8-pixel canvas margin and a 4-pixel gap from other labels,
+and no label may print below body size (21-pixel cap height, about 7 pt on
+Letter). Dense callout lanes rebalance and tighten their leading instead of
+shrinking type. An overlap, clipped or undersized annotation refuses the render
+rather than shipping an unreadable picture. Footer space is reserved for every
+legend and note row. A posed chuck front that is tilted relative to setup Z
+draws no single jaw-front Z; `scene.jaw_front_oblique` records it, and the
+picture prints no commentary about it.
+Setup notes come from the declared ops: a setup without a machine-cutting op
+lists its bench actions (for example deburr, coating, inspect), and a deburr
+setup is never labelled "no material removed".
 Shallow contour insets explicitly label Y-only graphic magnification; their
 coordinate tables and the setup view remain unchanged. Custom-fixture pad and
-clamp badges sit outside the projected fixture and part outline, with leaders
-to their actual positions. Optional authored void labels identify mounting holes.
+clamp badges sit outside the projected fixture and part outline, in x order with
+uncrossed leaders to their actual positions; a badged clamp or pad group's lane
+entry is its key and draws no second leader. A lane leader's elbow never runs
+along an axis through another callout's point. Optional authored void labels
+identify mounting holes.
 The lathe's filled meridian section keeps the retained core visible inside the
 removed annulus; its jaw-end inset magnifies nearby shoulders and reliefs.
 Dashed nominal part outlines locate mill/custom-fixture targets without
@@ -340,6 +349,16 @@ arrow when available. Missing saw-plane data stays a STOP/stock debt, not a
 renderer crash.
 A tailstock context symbol without a drawn centre is not a selected or verified
 support.
+Every cutter-centre contour row and every hole op's tool-axis X/Y prints on the
+setup DRO grid; contour rows round to the side that leaves material, and a
+finish row with no safe grid point inside its feature's band is an error. Raster
+and outline rows that run past the stock are labelled cutter clearance. A contour
+cut in several depth levels lists every level in its heading and says to repeat
+the complete path at each, in order. The CLEARANCE line prints the op's cut
+(start Z to tip Z, as on its op row) apart from its reach below the highest stock
+beside the tool. Inspection procedures may be authored as step lists that print
+numbered, with recording blanks and a separate calculation line
+([plan format](docs/plan.md)).
 Each setup is checked and drawn on the input explicitly selected by `stock_in`:
 `"stock"` for one supply, `"stock.<id>"` for a built-up component, or any earlier
 setup id, not only the previous one. Every two-reference assembly array requires
@@ -523,11 +542,82 @@ Kernel-absent runs remove stale setup PNGs in the same output transaction.
 Nothing here is a toolpath or a certification of the physical setup. See
 [docs/rules-geometry.md](docs/rules-geometry.md).
 
+## Machinist review of a traveler (dev tool)
+
+`scripts/machinist_review.py` gives a printed traveler to a blind senior
+machinist: `codex exec` or `claude -p` in a neutral temp directory, with no repo
+context, reading only the page images, under the calibrated prompt in
+`scripts/prompts/machinist_review_traveler.md`. It is ported from
+harmonic-analyzer's drawing review and its drawing simplicity policy. Missing
+and unneeded content both count as defects. The two tests are **no questions**
+and **nothing the operator doesn't need to run the job**. This is a developer
+tool that calls a hosted model. It is not part of `prechips check`, so the
+offline, no-network rule for checks is unchanged.
+
+The reviewer also judges whether speeds, feeds, depths of cut, stickouts and
+tool choices are realistic for the material, tool and machine, even when they
+are example values. A value that would break the tool, exceed the machine or
+scrap the part is a blocker; one far outside the usual range but survivable is
+a clarity finding, and so is a value that matters for which the reviewer can
+establish no reference range. The summary names the comparison basis.
+
+Cutting data is checked against Machinery's Handbook (27th edition). Point
+`--handbook DIR` or `PRECHIPS_HANDBOOK_DIR` at the `machinerys-handbook` folder
+that holds the page-level `corpus/` (harmonic-analyzer's references repo). The
+handbook is never vendored: `scripts/prompts/handbook_refs.toml` lists only
+PDF and printed page numbers for the pilot operations (1018 turning, end
+milling, drilling and reaming with their adjustment factors, the reamer
+stock-allowance prose, centre drills, band-saw speeds, automatic-screw-machine
+cutoff and form tools, and inch and metric tap drills). Those `corpus/pages`
+files are embedded as text in both reviewers' prompts, and findings cite the
+table and printed page. Claude may also Read anything under `corpus/` and the
+handbook PDF (linked into its neutral directory) to look up other values; Codex
+gets only the embedded pages, because a shell lookup would break blindness. A
+named handbook without `corpus/README.md`, a manifest page missing from the
+corpus, a page whose header names another printed page, or a corpus built from
+another PDF is an error (exit 2). With no handbook named, the run warns, judges
+from memory, and records `handbook: null`.
+
+```sh
+uv run scripts/machinist_review.py --reviewer codex --traveler out/pivot-shaft
+uv run scripts/machinist_review.py --reviewer claude --bundle examples/rocker-arm/plan.toml
+uv run scripts/machinist_review.py --reviewer codex --pdf printed-traveler.pdf
+uv run scripts/machinist_review.py --reviewer codex --png page-1.png --png page-2.png
+```
+
+`--reviewer` is required. It must be the other model family from whoever wrote
+or last edited the traveler code or plan: Claude-authored work gets `codex`,
+Codex/GPT-authored work gets `claude`. Defaults are `gpt-6-astra` at low effort
+and `claude-fable-5-1` at medium (`--model`, `--effort`). `--traveler DIR_OR_HTML`
+prints `traveler.html` to a Letter PDF with headless Chrome or Edge, giving the
+duplex-padding script time to run, then renders every page at 300 dpi with
+pypdfium2. The browser comes from `PRECHIPS_CHROME`, then the standard Windows
+Chrome/Edge installs, then `PATH`. An invalid `PRECHIPS_CHROME` is an error.
+`--bundle PLAN` runs `uv run prechips traveler` into a temp directory first, with
+the caller's `FREECAD_CMD` and `PRECHIPS_KERNEL_CACHE`. Options repeat, and
+`--jobs` reviews travelers in parallel.
+
+Each traveler's report goes to `out/machinist-review/<part>/`: `review.json`,
+`review.md`, the reviewer event stream, per-attempt output with a
+`codex resume` / `claude --resume` command and the page PNGs. `--traveler` and
+`--bundle` reviews also include the printed PDF.
+`out/machinist-review/index.md` lists every traveler. The JSON records the
+SHA-256 of every page. `--traveler` and `--bundle` reviews also record hashes
+for `traveler.html` and the printed PDF, plus the `report.json` hash from the
+traveler's `prechips-report` meta tag; `--pdf` reviews record the input PDF
+hash. Its `handbook` entry records the handbook directory, the SHA-256 of the
+corpus README, the manifest and every embedded page, and for Claude the
+handbook files and PDF pages it read. Exit is 0 only when every
+traveler passes: the review stayed blind (any tool use beyond reading the copied
+pages and the handbook fails it, and Claude must still read every page), the
+verdict is `CLEAR`, and there is no blocker, clutter or clarity finding. Minor
+findings are recorded but do not gate.
+
 ## Limits
 
 M2 checks declared profile, stock holding, indexing and physics arithmetic;
 they do not confirm a measured setup. Lathe headroom checks stock/chuck swing
-and between-centres length; trial-cut measurements and example cutting data remain unknown. The
+and between-centres length; trial-cut measurements remain unknown and the example cutting data are labelled illustrative values, not shop measurements. The
 consumer's labelled manifests and adjacent STEP exports are consumed for all
 three drawn pilot parts (M3); pivot-bracket remains authored. Export delivery
 does not establish live prechips farm/trace acceptance or physical readiness.

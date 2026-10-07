@@ -551,6 +551,13 @@ def dro_z(value, grid):
     return _grid(value, *grid, True) if number(value) else UNKNOWN
 
 
+def dro_nearest(value, grid):
+    """A position as the DRO dials it on ``grid``: the nearest grid point (a hole axis has
+    no safe side); an unknown stays unknown."""
+    step, decimals = grid
+    return round(round(value / step) * step, decimals) if number(value) else UNKNOWN
+
+
 def _to_segment(point, a, b):
     delta = [b[i] - a[i] for i in range(2)]
     span = delta[0] ** 2 + delta[1] ** 2
@@ -1096,18 +1103,60 @@ def _sweep_area(feature, op, frame, frames):
     return _boundary(feature, frame, frames)
 
 
-def _linear(feature, op, offset, radius, frame, frames):
+def _linear(feature, op, offset, radius, frame, frames, grid):
+    """(Closed cutter-centre outline on the DRO grid, residual) or (None, None).
+
+    The swept area is convex (:func:`_boundary`), so a vertex no nearer either wall line it
+    joins than ``offset`` keeps both edges through it off those walls. Each vertex is the
+    nearest grid point outside both lines by at least ``offset`` (the safe side: material
+    is left, never cut), a corner of its grid cell, else up to two steps out. The residual
+    is the most any vertex stands further off a wall line than ``offset``: material left
+    on that wall; ``inf`` when a vertex has no such grid point."""
     boundary = _sweep_area(feature, op, frame, frames)
     if not boundary or not all(number(v) for v in (offset, radius)):
-        return None
+        return None, None
     lines = [
         _offset_line(boundary[i], boundary[(i + 1) % len(boundary)], -offset)
         for i in range(len(boundary))
     ]
     if any(line is None for line in lines):
-        return None
+        return None, None
     vertices = [_line_join(*lines[i - 1], *lines[i]) for i in range(len(lines))]
-    return vertices + [vertices[0]] if all(v is not None for v in vertices) else None
+    if any(v is None for v in vertices):
+        return None, None
+
+    def outside(index, point):
+        """Signed distance of ``point`` outside wall ``index``'s line (outward normal)."""
+        a, direction = boundary[index], lines[index][1]
+        return (point[0] - a[0]) * direction[1] - (point[1] - a[1]) * direction[0]
+
+    step, decimals = grid
+    snapped, residual = [], 0.0
+    for index, vertex in enumerate(vertices):
+        walls = (index - 1, index)
+        base = [_grid(v, step, decimals, False) for v in vertex]
+        point = None
+        for reach in (1, 3):
+            span = range(1 - reach, reach + 1)
+            options = sorted(
+                (
+                    [round(base[0] + i * step, decimals), round(base[1] + j * step, decimals)]
+                    for i in span
+                    for j in span
+                ),
+                key=lambda p: math.dist(p, vertex),
+            )
+            point = next(
+                (p for p in options if all(outside(w, p) >= offset - _WALL_TOL for w in walls)),
+                None,
+            )
+            if point is not None:
+                break
+        if point is None:
+            return None, math.inf
+        residual = max(residual, *(outside(w, point) - offset for w in walls))
+        snapped.append(point)
+    return snapped + [snapped[0]], residual
 
 
 # Raster ops: each pass is one straight single-axis cut fed one way at the op's Z, then the
@@ -1122,7 +1171,37 @@ _LEVEL_OPS = RASTER_OPS | {"profile", "rough_profile", "finish_profile"}
 _WALL_OPS = {"pocket", "finish_pocket", "profile", "finish_profile"}
 
 
-def _raster(feature, op, offset, radius, frame, frames, sense, order, lift_z):
+def _outside_circle(segment, circle, radius, grid):
+    """Keep the positive-length pieces of an axis-parallel pass, in feed order. Each cut
+    point lies on the DRO ``grid`` (:func:`dro_grid`), rounded away from the island, so
+    the printed piece never reaches nearer than the island radius plus ``radius``."""
+    a, b = segment
+    axis = 0 if a[0] != b[0] else 1
+    across = 1 - axis
+    centre = circle["at"]
+    reach_squared = (circle["dia_mm"] / 2 + radius) ** 2 - (a[across] - centre[across]) ** 2
+    if reach_squared <= 0:  # tangent or outside: no interior crossing
+        return [segment] if math.dist(a, b) > 1e-9 else []
+    reach = math.sqrt(reach_squared)
+    low, high = centre[axis] - reach, centre[axis] + reach
+    if max(a[axis], b[axis]) <= low or min(a[axis], b[axis]) >= high:
+        return [segment] if math.dist(a, b) > 1e-9 else []
+    low, high = _grid(low, *grid, False), _grid(high, *grid, True)
+    forward = b[axis] > a[axis]
+    entry, exit = (low, high) if forward else (high, low)
+    pieces = []
+    if (entry - a[axis]) * (1 if forward else -1) > 1e-9:
+        point = list(a)
+        point[axis] = entry
+        pieces.append([a, point])
+    if (b[axis] - exit) * (1 if forward else -1) > 1e-9:
+        point = list(b)
+        point[axis] = exit
+        pieces.append([point, b])
+    return pieces
+
+
+def _raster(feature, op, offset, radius, frame, frames, sense, order, lift_z, grid):
     """(One stage's raster record in cutting order, None) or (None, why it is unknown).
 
     Passes stand at positions across the area, stepping from its open side
@@ -1132,6 +1211,11 @@ def _raster(feature, op, offset, radius, frame, frames, sense, order, lift_z):
     face's passes are evenly spaced no more than ``step_mm`` apart from centre-on-edge to
     centre-on-edge, clearing the whole area; without an open side it steps from the low
     side of the area's shorter span, so its passes run along the longer one.
+
+    Every value sits on the DRO ``grid`` on the safe side: pass ends and a face's edge
+    passes round outward, a pocket's first pass further outside its open side and its last
+    away from the retained far wall (the material it leaves there is ``grid_residual_mm``);
+    passes between step a whole number of grid steps no larger than ``step_mm``.
 
     The uncut stock lies ahead of the stepping cutter, so every pass's cutter-side wall
     normal is the open side's unit vector: each pass runs the way that cuts the op's
@@ -1145,10 +1229,36 @@ def _raster(feature, op, offset, radius, frame, frames, sense, order, lift_z):
         return None, "a raster needs a positive contour.step_mm"
     if not number(radius) or radius <= 0:
         return None, "its cutter radius is unknown"
+    keep_out = []
+    if "keep_out" in contour:
+        circles = contour["keep_out"]
+        if not isinstance(circles, list):
+            return None, "its contour.keep_out must be a list of circles"
+        sweep_frame = frames.get(contour.get("sweep_frame", feature.get("frame", "model")))
+        for circle in circles:
+            circle = mapping(circle)
+            at, diameter = circle.get("at"), circle.get("dia_mm")
+            if not (
+                isinstance(at, list)
+                and len(at) == 2
+                and all(number(v) and math.isfinite(v) for v in at)
+                and number(diameter)
+                and math.isfinite(diameter)
+                and diameter > 0
+            ):
+                return None, "its contour.keep_out needs numeric XY at and positive dia_mm"
+            centre = frame_point(model_point([*at, 0.0], sweep_frame), frame)[:2]
+            if not all(number(v) and math.isfinite(v) for v in centre):
+                return None, "its contour.keep_out centre has no numeric setup-frame mapping"
+            keep_out.append({"at": centre, "dia_mm": diameter})
     if not face and not number(offset):
         return None, "its cutter-centre offset from the far wall is unknown"
     if step > 2 * radius:
         return None, f"its step_mm {step:g} exceeds the cutter diameter {2 * radius:g}"
+    unit, decimals = grid
+    lattice = round(math.floor(step / unit + 1e-6) * unit, decimals)
+    if lattice <= 0:
+        return None, f"its step_mm {step:g} is finer than the DRO grid {unit:g}"
     boundary = _sweep_area(feature, op, frame, frames)
     if not boundary:
         return None, "its swept area has no numeric bounds"
@@ -1161,34 +1271,44 @@ def _raster(feature, op, offset, radius, frame, frames, sense, order, lift_z):
         return None, f"its contour.open_side {side!r} is not one of -x, +x, -y, +y"
     along_x = side.endswith("x")  # passes stand at X positions and run along Y
     low, high = (left, right) if along_x else (front, back)
+    residual = 0.0
     if face:
-        count = math.ceil((high - low) / step - 1e-9)
-        positions = (
-            [low + (high - low) * i / count for i in range(count + 1)]
-            if count > 1
-            else [(low + high) / 2]
-        )
+        lo, hi = _grid(low, unit, decimals, False), _grid(high, unit, decimals, True)
+        count = math.ceil((hi - lo) / lattice - 1e-9)
+        if count > 1:
+            spacing = _grid((hi - lo) / count, unit, decimals, True)
+            inner = (round(lo + i * spacing, decimals) for i in range(count))
+            positions = [v for v in inner if v < hi - _WALL_TOL] + [hi]
+        else:
+            positions = [dro_nearest((low + high) / 2, grid)]
         if side.startswith("+"):
             positions.reverse()
     else:
-        start, end = (
-            (low - radius, high - offset) if side.startswith("-") else (high + radius, low + offset)
-        )
+        outward = side.startswith("-")
+        start = _grid(low - radius if outward else high + radius, unit, decimals, not outward)
+        exact = high - offset if outward else low + offset
+        end = _grid(exact, unit, decimals, not outward)
+        residual = abs(exact - end)
         direction = 1 if end >= start else -1
-        count = math.ceil(abs(end - start) / step)
-        positions = [start + direction * i * step for i in range(count)] + [end]
+        count = math.ceil(abs(end - start) / lattice - 1e-9)
+        positions = [round(start + direction * i * lattice, decimals) for i in range(count)]
+        positions.append(end)
     first, last = (front, back) if along_x else (left, right)
-    passes = [
-        [[v, first - radius], [v, last + radius]]
-        if along_x
-        else [[first - radius, v], [last + radius, v]]
-        for v in positions
-    ]
+    near, far = (
+        _grid(first - radius, unit, decimals, False),
+        _grid(last + radius, unit, decimals, True),
+    )
+    passes = [[[v, near], [v, far]] if along_x else [[near, v], [far, v]] for v in positions]
     reverse = _reversal(*passes[0], _OPEN_SIDES[side], sense)
     if reverse:
         passes = [list(reversed(segment)) for segment in passes]
+    for circle in keep_out:
+        passes = [
+            piece for segment in passes for piece in _outside_circle(segment, circle, radius, grid)
+        ]
     record = {
         "cutter_centre": passes,
+        "grid_residual_mm": residual,
         "raster": {
             "open_side": side,
             "open_side_basis": "contour.open_side" if "open_side" in contour else "derived",
@@ -1196,8 +1316,19 @@ def _raster(feature, op, offset, radius, frame, frames, sense, order, lift_z):
             "passes": len(passes),
             "cycle": "one_way",
             "lift_z": lift_z,
+            # Cutter clearance past the swept area: every pass runs from ``ends[0]`` to
+            # ``ends[1]`` along ``run_axis``, one cutter radius beyond the area's edges
+            # ``area_ends`` (entry and exit wholly clear); a pocket's first pass stands one
+            # radius outside its open side (``entry_pass``).
+            "run_axis": "y" if along_x else "x",
+            "area_ends": [first, last],
+            "ends": [near, far],
+            "clearance_mm": radius,
+            "entry_pass": "not_applicable" if face else start,
         },
     }
+    if "keep_out" in contour:
+        record["raster"]["keep_out"] = keep_out
     return _ordered(record, None if reverse is None else False, order, ()), None
 
 
@@ -1818,21 +1949,43 @@ def _z_residuals(bundle, setup, grid, features):
         if not any(cut[2] is op for cut in _cuts(bundle, op.get("feature"))):
             continue
         feature = mapping(features.get(op.get("feature")))
-        bands = [
-            feature[name][1] - feature[name][0]
-            for name in tolerance_requirements(feature)
-            if isinstance(feature.get(name), list)
-            and len(feature[name]) == 2
-            and all(number(v) for v in feature[name])
-        ]
+        band = _narrowest_band(feature)
         residual = dro_z(to_z, grid) - to_z
-        if bands and residual > min(bands) + _WALL_TOL:
+        if band is not None and residual > band + _WALL_TOL:
             errors.append(
                 f"op {op['op']} prints Z {dro_z(to_z, grid):.{grid[1]}f} for to_z {to_z:g}: "
                 f"{residual:.{grid[1] + 1}g} above its finished face, more than the "
-                f"{min(bands):g} tolerance band of {op.get('feature')}"
+                f"{band:g} tolerance band of {op.get('feature')}"
             )
     return errors
+
+
+def _narrowest_band(feature):
+    """The width of ``feature``'s narrowest numeric tolerance band, else None."""
+    bands = [
+        feature[name][1] - feature[name][0]
+        for name in tolerance_requirements(feature)
+        if isinstance(feature.get(name), list)
+        and len(feature[name]) == 2
+        and all(number(v) for v in feature[name])
+    ]
+    return min(bands) if bands else None
+
+
+def _grid_residual(op, feature, residual, grid):
+    """A finish pass's cutter-centre rows on the DRO grid stand ``residual`` further off its
+    wall than authored (rounded on the safe side): an error when that is more than its
+    feature's narrowest tolerance band, or when no grid point stands on the safe side."""
+    if math.isinf(residual):
+        return [f"op {op['op']} finish has a row with no DRO grid point on the safe side"]
+    band = _narrowest_band(feature)
+    if band is None or residual <= band + _WALL_TOL:
+        return []
+    return [
+        f"op {op['op']} finish rows on the {grid[0]:g} DRO grid leave "
+        f"{residual:.{grid[1] + 1}g} on the wall, more than the {band:g} tolerance band of "
+        f"{op.get('feature')}"
+    ]
 
 
 def _diagonal(points):
@@ -2031,6 +2184,7 @@ def evaluate(bundle, *, pre_kernel=False):
                 if "tool" in op
             )
         plunge_errors = []  # blade plunges leaving a groove outside its drawing width
+        grid_errors = []  # finish rows whose safe-side DRO grid point leaves more than the band
         for op in setup["ops"]:
             # An inspect op may name a list of features; a groove op names one.
             name = op.get("feature")
@@ -2075,6 +2229,9 @@ def evaluate(bundle, *, pre_kernel=False):
                 model = model_point(at, frames.get(locator_frame))
                 local = frame_point(model, frame)
                 row = {"feature": name, "model": model, "setup": local}
+                if not lathe and isinstance(local, list):
+                    # The tool-axis X/Y a hole op dials: the nearest DRO grid point.
+                    row["dro_xy"] = [dro_nearest(v, grid) for v in local[:2]]
                 if locator_name != name:
                     row["located_by"] = locator_name
                     locator_cites.extend(
@@ -2092,6 +2249,9 @@ def evaluate(bundle, *, pre_kernel=False):
                     unknown |= debt
                     if "aim" in row:
                         aim_cites.append(f"plan.aims.{locator_name}")
+                    if all(number(v) for v in row.get("dro", [UNKNOWN])):
+                        # The hole op dials the same (aimed) target the feature map prints.
+                        row["dro_xy"] = row["dro"][:2]
                 numbers["rows"].append(row)
                 unknown |= UNKNOWN in local
             if lathe:
@@ -2207,7 +2367,7 @@ def evaluate(bundle, *, pre_kernel=False):
                         else UNKNOWN
                     )
                     raster, why = _raster(
-                        feature, op, offset, radius, frame, frames, sense, order, lift
+                        feature, op, offset, radius, frame, frames, sense, order, lift, grid
                     )
                     if raster is None:
                         profile["raster_reason"] = why
@@ -2215,10 +2375,17 @@ def evaluate(bundle, *, pre_kernel=False):
                         profile.update(raster)
                         if profile["cut_order"] == UNKNOWN:
                             unordered.add(profile["cut_order_reason"])
+                        if stage == "finish":
+                            grid_errors.extend(
+                                _grid_residual(op, feature, raster["grid_residual_mm"], grid)
+                            )
                         generated = True
                 elif contour.get("method") == "linear_table":
-                    path = _linear(feature, op, offset, radius, frame, frames)
+                    path, residual = _linear(feature, op, offset, radius, frame, frames, grid)
+                    if residual is not None and stage == "finish":
+                        grid_errors.extend(_grid_residual(op, feature, residual, grid))
                     if path:
+                        profile["grid_residual_mm"] = residual
                         profile["cutter_centre"] = path
                         if not isinstance(path[0][0], list):
                             # A closed outline runs counterclockwise with the cutter outside
@@ -2266,7 +2433,7 @@ def evaluate(bundle, *, pre_kernel=False):
                 unknown |= not number(length_mm(tool, "nose_radius"))
         status = (
             "error"
-            if residuals or stairs or plunge_errors or band_errors
+            if residuals or stairs or plunge_errors or grid_errors or band_errors
             else "unknown"
             if unknown or unordered or clip_debts or unproven
             else "pass"
@@ -2288,6 +2455,9 @@ def evaluate(bundle, *, pre_kernel=False):
             sentence += " DRO depth rounding error: " + "; ".join(residuals) + "."
         if plunge_errors:
             sentence += " Relief plunge error: " + "; ".join(plunge_errors) + "."
+        if grid_errors:
+            numbers["dro_xy_residual_errors"] = grid_errors
+            sentence += " DRO cutter-centre rounding error: " + "; ".join(grid_errors) + "."
         if band_errors:
             numbers["band_errors"] = band_errors
             sentence += " Located target band error: " + "; ".join(band_errors) + "."

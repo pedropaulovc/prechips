@@ -101,13 +101,24 @@ An unresolved saw cut plane produces a plain STOP annotation and retains its
 downstream stock debt; it never prevents other geometry facts being returned.
 The final PNG layout checks every normalized bitmap-text line, including axes,
 coordinate badges, inset headings, dimensions, legends and setup notes. Rounded
-line bounds must stay 8 pixels inside the canvas and at least 4 pixels apart;
-any collision or clipping raises a render error. Footer height is reserved
-before fitting the setup view, so dense legends never compress into overlapping
-rows. These checks do not alter geometry or turn unresolved machining facts
-into passes. A checked, posed chuck front not parallel to setup Z is described
-as a tilted plane with no single Z; `scene.jaw_front_oblique` records that
-geometric distinction rather than manufacturing a missing-datum warning.
+line bounds must stay 8 pixels inside the canvas and at least 4 pixels apart,
+and every line prints at body size (bitmap scale 3: 21-pixel caps, about 7 pt on
+Letter); any collision, clipping or undersized text raises a render error.
+Callout lanes rebalance between sides and tighten their leading rather than
+shrinking type; footers grow to hold their notes. A lane leader whose
+horizontal elbow would run along an axis through another callout's point is
+drawn straight instead, and an end label stays in the lane on its own end's
+side. Footer height is reserved before fitting the setup view, so dense legends
+never compress into overlapping rows. These checks do not alter geometry or
+turn unresolved machining facts into passes. A checked, posed chuck front not
+parallel to setup Z has no single jaw-front Z; `scene.jaw_front_oblique`
+records that geometric distinction without a printed note or a missing-datum
+warning.
+Setup notes derive from every declared op, including bench ones the kernel does
+not cut: a setup with no machine-cutting action lists its actions (`No machine
+cutting: op 10 deburr, op 20 coating, op 30 inspect.`). "No material removed in
+this setup." prints only when the kernel derives no removed volume and no op
+deburrs.
 
 
 `scene` additionally records `view`, `width_px`, `height_px`, plain-language
@@ -127,13 +138,15 @@ are not compensated tool-tip feed targets. If the contour table also gives
 tool X/Z columns, those columns control the feed, not the drawn surface line.
 Numbered custom-clamp badges follow authored `hold.clamp_order`, not an order
 inferred from prose; an explicit empty list means no accessory tightening
-actions. Holding/fit-up-only setups show no invented cutter.
+actions. Setups without a cutting op show no invented cutter.
 Fixture construction primitives remain visible as geometry and individually
 named in `scene.components`; printed callouts group body/support hardware so
 bolt and shim details do not force the pad, pin and clamp labels into tiny text.
 Custom-fixture badge boxes remain outside the projected stock, fixture plate,
-other fixture components and nominal part outline; leaders return to the
-unchanged physical component centres. A trusted, explicitly labelled fixture
+other fixture components and nominal part outline, in rows above and below it in
+the points' x order so their leaders never cross; leaders return to the
+unchanged physical component centres. A badged clamp or pad group's lane entry
+is the badges' key and draws no leader of its own. A trusted, explicitly labelled fixture
 void gets a shop-caption leader at its posed centre, with `{name, label, role,
 center_mm}` recorded separately in `scene.fixture_detail_labels`. These
 annotations do not create solids, change geometry checks or resolve measurement
@@ -385,6 +398,20 @@ inventory slugs, frame names and hashes are dropped, and frame `T1` reads as
 `Setup S1 zero`. Rule ids, source paths, uncertainty detail and hashes
 stay in `report.json` (and the page's machine-readable meta tags). Print CSS is
 not a physical dry run, and presentation never changes PLANNED readiness.
+
+The printed result can be given a blind senior-machinist review with
+`scripts/machinist_review.py` (see README, "Machinist review of a traveler").
+That script prints this HTML to Letter pages with headless Chrome, so the
+duplex padding above runs, and asks a reviewer from the other model family to
+judge every page against two tests: no questions, and nothing the operator
+doesn't need. Speeds, feeds, depths of cut, tap drills and reamer allowances
+are compared with Machinery's Handbook pages that the script embeds in the
+prompt from a local, never-vendored handbook corpus (`--handbook` or
+`PRECHIPS_HANDBOOK_DIR`; page numbers in `scripts/prompts/handbook_refs.toml`),
+and findings cite the table and printed page. Without a handbook the review
+runs from memory and records that. It is a developer tool that calls a hosted
+model. It is not part of `prechips check` or `traveler`, and it does not change
+their offline contract.
 
 
 ## Telemetry and console

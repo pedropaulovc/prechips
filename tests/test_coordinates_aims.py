@@ -92,6 +92,14 @@ def test_an_aim_moves_the_dro_target_along_the_band_and_leaves_the_geometry_alon
     assert journal["band_check"]["status"] == "pass"
 
 
+def test_the_hole_op_dials_the_aimed_target_not_the_drawing_nominal():
+    data = _bores()
+    _aim(data, 39.517)
+    crank = _row(coordinates.evaluate(data)[0], "crank")
+    # The op row's tool-axis X/Y is the feature map's aimed DRO target, 0.185 off nominal.
+    assert crank["dro_xy"] == [72.885, 0.0]
+
+
 def test_an_aim_outside_the_printed_band_is_an_error():
     data = _bores()
     _aim(data, 39.335)  # inside the exported band, outside the printed 39.34

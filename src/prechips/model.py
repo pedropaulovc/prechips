@@ -250,12 +250,14 @@ Zero = record(
     },
 )
 Bounds = record("Bounds", {"x": Vector, "y": Vector, "z": Vector})
+KeepOut = record("KeepOut", {"at": Vector, **numbers("dia_mm")})
 Contour = record(
     "Contour",
     {
         **texts("method sweep_frame open_side"),
         **numbers("step_deg step_mm start_deg end_deg"),
         "sweep_bounds": Bounds,
+        "keep_out": list[KeepOut],
     },
 )
 SawPlane = record(
@@ -287,6 +289,12 @@ class ProcessHold(InputModel):
         return self
 
 
+# An inspection procedure: one string (blank-line paragraphs print as numbered steps), or a
+# list of steps, each printed as one numbered step; a ``{name}`` in a step prints a labelled
+# recording blank, and a step starting ``Calculate:`` prints as the calculation line.
+type Procedure = str | Annotated[list[str], Field(min_length=1)]
+
+
 class Aim(InputModel):
     """A located feature's DRO target moved off its drawing nominal so its height-like band
     from ``height_from`` (``height_above_pivot``, ``height`` or ``separation``) reads
@@ -311,7 +319,8 @@ Operation = record(
         # One manifest feature; an inspect op may name several (one drawing dimension
         # split across features is read once).
         "feature": str | Annotated[list[str], Field(min_length=2)],
-        **texts("tool holder direction note inspection_note"),
+        **texts("tool holder direction note"),
+        "inspection_note": Procedure,
         # A coating op's process: an outside ``services`` entry or in-house ``consumables``.
         "process": str | Annotated[list[str], Field(min_length=1)],
         "process_holds": Annotated[list[ProcessHold], Field(min_length=1)],
@@ -324,7 +333,7 @@ Operation = record(
         "faces": Annotated[list[str], Field(min_length=1)],
         "checks": dict[str, str],
         "missing_requirements": dict[str, str],
-        "inspection_methods": dict[str, str],
+        "inspection_methods": dict[str, Procedure],
         "to_z_band": Vector,
         "contour": Contour,
         # Setup-frame volume (plan units) the op clears down to the finished part.
@@ -1250,6 +1259,10 @@ Cut = record(
 CutMaterial = record(
     "CutMaterial", {"material_class": str, **numbers("kc_n_per_mm2 e_gpa"), "cite": Citations}
 )
+DeepHole = record(
+    "DeepHole",
+    {"operation": str, **numbers("depth_over_dia sfm_factor"), "cite": Citations},
+)
 
 
 class CuttingData(InputModel):
@@ -1257,3 +1270,4 @@ class CuttingData(InputModel):
     aliases: dict[str, str] | Unknown = UNKNOWN
     cut: list[Cut] | Unknown = UNKNOWN
     material: list[CutMaterial] | Unknown = UNKNOWN
+    deep_hole: list[DeepHole] | Unknown = UNKNOWN

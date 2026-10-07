@@ -521,6 +521,10 @@ routes that ship: rev 1 carries only the rows M1's rocker setup selects
 (HSS × low-carbon steel × face/profile/drill/ream), each transcribed and
 page-cited from Machinery's Handbook 31 Table 1 or left `"unknown"`; a row
 is added when a shipped route first needs it.
+Status: the shipped example `cutting-data.toml` (revision 3) carries labelled
+illustrative example rows inside cited published ranges, and a third table,
+`[[deep_hole]]`, derates an operation's sfm once the hole's depth exceeds a
+cited depth/diameter threshold ([docs/cutting-data.md](docs/cutting-data.md)).
 
 ## 4. What the checker validates (the rule catalogue)
 

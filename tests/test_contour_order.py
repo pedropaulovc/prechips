@@ -7,6 +7,7 @@ import pytest
 from test_headroom import coordinate_bundle
 
 from prechips.inputs import load_bundle
+from prechips.model import Contour
 from prechips.rules import coordinates
 
 ROCKER = Path(__file__).resolve().parents[1] / "examples/rocker-arm/plan.toml"
@@ -153,12 +154,209 @@ def test_face_raster_clears_its_box_edge_to_edge_no_wider_than_its_step(tmp_path
     )
     assert row.status == "pass", row.sentence
     passes = profile["cutter_centre"]
-    # Ø6 cutter: passes run along the longer X span, centre-on-edge in Y, <= 4 apart.
-    assert [a[1] for a, _ in passes] == pytest.approx([0.0, 10 / 3, 20 / 3, 10.0])
+    # Ø6 cutter: passes run along the longer X span, centre-on-edge in Y, <= 4 apart, each on
+    # the default 0.001 DRO grid (evenly spaced 3.334, rounded up, then the far edge).
+    assert [a[1] for a, _ in passes] == pytest.approx([0.0, 3.334, 6.668, 10.0])
     assert all(a == pytest.approx([-3.0, a[1]]) and b[0] == 23.0 for a, b in passes)
     assert profile["cut_order"] == "conventional"
     # One way: lift to the entry top (Z 0) plus approach_mm, rapid back.
     assert profile["raster"]["cycle"] == "one_way" and profile["raster"]["lift_z"] == 5.0
+
+
+def keep_out_face(tmp_path, circles, direction="conventional", sweep_frame="A", resolution=None):
+    plan = coordinate_bundle(
+        tmp_path,
+        SLAB,
+        "[[setups.ops]]\nop = 20\nfeature = 'target'\n"
+        f"do = 'face'\ntool = 'cutter'\nto_z = 0.0\ndirection = '{direction}'\n"
+        "approach_mm = 5.0\n"
+        f"contour = {{ method = 'linear_table', step_mm = 2.0, open_side = '-y', "
+        f"sweep_frame = '{sweep_frame}', "
+        "sweep_bounds = { x = [0.0, 20.0], y = [0.0, 10.0], z = [0.0, 1.0] }, "
+        f"keep_out = {circles} }}\n",
+    )
+    if sweep_frame == "B":
+        features = plan.with_name("features.toml")
+        with features.open("a", encoding="utf-8") as stream:
+            stream.write(
+                "\n[frames.B]\norigin = [0.0, 8.0, -3.52825]\n"
+                "x = [1.0, 0.0, 0.0]\ny = [0.0, -1.0, 0.0]\nz = [0.0, 0.0, -1.0]\n"
+                "binding = 'measured'\n"
+            )
+    if resolution is not None:
+        inventory = plan.with_name("inventory.toml")
+        text = inventory.read_text(encoding="utf-8").replace(
+            "kind = 'mill'\n", f"kind = 'mill'\nresolution_mm = {resolution}\n", 1
+        )
+        inventory.write_text(text, encoding="utf-8")
+    row = next(row for row in coordinates.evaluate(load_bundle(plan)) if row.subject == "S1")
+    (profile,) = row.numbers["profiles"]
+    return row, profile
+
+
+@pytest.mark.parametrize("direction", ["conventional", "climb"])
+def test_raster_keep_out_splits_in_feed_order_and_preserves_clear_passes(tmp_path, direction):
+    row, profile = keep_out_face(tmp_path, "[{ at = [10.0, 5.0], dia_mm = 2.0 }]", direction)
+    assert row.status == "pass", row.sentence
+    expected = []
+    # Cut points 10 -/+ sqrt(16 - dy^2) print on the default 0.001 grid, rounded outward.
+    cuts = {1: (6.127, 13.873), 3: (7.354, 12.646)}
+    for y in range(0, 11, 2):
+        if abs(y - 5) < 4:  # island radius 1 plus cutter radius 3
+            low, high = cuts[abs(y - 5)]
+            pieces = [[[-3.0, y], [low, y]], [[high, y], [23.0, y]]]
+        else:
+            pieces = [[[-3.0, y], [23.0, y]]]
+        if direction == "climb":
+            pieces = [list(reversed(piece)) for piece in reversed(pieces)]
+        expected.extend(pieces)
+    assert len(profile["cutter_centre"]) == 10
+    for actual, wanted in zip(profile["cutter_centre"], expected, strict=True):
+        for point, target in zip(actual, wanted, strict=True):
+            assert point == pytest.approx(target, abs=1e-12)
+        # The nearest centre on the segment, not just its endpoints, clears the island.
+        a, b = actual
+        nearest_x = min(max(10.0, min(a[0], b[0])), max(a[0], b[0]))
+        assert math.dist([nearest_x, a[1]], [10, 5]) >= 4 - 1e-9
+        assert (b[0] - a[0]) * (1 if direction == "conventional" else -1) > 0
+    assert profile["raster"] == {
+        "open_side": "-y",
+        "open_side_basis": "contour.open_side",
+        "step_mm": 2.0,
+        "passes": 10,
+        "cycle": "one_way",
+        "lift_z": 5.0,
+        "run_axis": "x",
+        "area_ends": [0.0, 20.0],
+        "ends": [-3.0, 23.0],
+        "clearance_mm": 3.0,
+        "entry_pass": "not_applicable",
+        "keep_out": [{"at": [10.0, 5.0], "dia_mm": 2.0}],
+    }
+
+
+def test_raster_keep_out_maps_from_sweep_frame_to_setup(tmp_path):
+    row, profile = keep_out_face(tmp_path, "[{ at = [10.0, 3.0], dia_mm = 2.0 }]", sweep_frame="B")
+    assert row.status == "pass", row.sentence
+    assert profile["raster"]["keep_out"] == [{"at": [5.0, 3.0], "dia_mm": 2.0}]
+    # B's Y=4 maps to setup Y=2; the cuts flank setup X=5 by sqrt(16 - 1), rounded outward.
+    pieces = [piece for piece in profile["cutter_centre"] if piece[0][1] == 2.0]
+    assert len(pieces) == 2
+    assert pieces[0][1] == pytest.approx([1.127, 2], abs=1e-12)
+    assert pieces[1][0] == pytest.approx([8.873, 2], abs=1e-12)
+
+
+@pytest.mark.parametrize("direction", ["conventional", "climb"])
+def test_raster_keep_out_cut_points_print_on_the_dro_grid_away_from_the_island(tmp_path, direction):
+    # A 0.005 mm DRO cannot show 10 -/+ sqrt(15): each cut point rounds outward, away from
+    # the island, so the printed pass never reaches nearer than island plus cutter radius.
+    row, profile = keep_out_face(
+        tmp_path, "[{ at = [10.0, 5.0], dia_mm = 2.0 }]", direction, resolution=0.005
+    )
+    assert row.status == "pass", row.sentence
+    cuts = sorted(
+        point[0]
+        for piece in profile["cutter_centre"]
+        if piece[0][1] == 4.0
+        for point in piece
+        if 0.0 < point[0] < 20.0
+    )
+    assert cuts == pytest.approx([6.125, 13.875], abs=1e-12)
+    for a, b in profile["cutter_centre"]:
+        for x in (a[0], b[0]):
+            assert abs(x / 0.005 - round(x / 0.005)) < 1e-9
+        nearest_x = min(max(10.0, min(a[0], b[0])), max(a[0], b[0]))
+        assert math.dist([nearest_x, a[1]], [10, 5]) >= 4 - 1e-9
+
+
+def test_raster_keep_out_tangent_outside_and_zero_length_pieces(tmp_path):
+    _, profile = keep_out_face(tmp_path, "[{ at = [1.0, 4.0], dia_mm = 2.0 }]")
+    pieces = profile["cutter_centre"]
+    # Tangencies at Y=0 and 8, and outside Y=10, keep the full pass.
+    for y in (0, 8, 10):
+        assert [p for p in pieces if p[0][1] == y] == [[[-3.0, y], [23.0, y]]]
+    # At Y=4 the left cut point is exactly the pass start: drop that empty piece.
+    assert [p for p in pieces if p[0][1] == 4] == [[[5.0, 4.0], [23.0, 4.0]]]
+    assert all(math.dist(*p) > 1e-9 for p in pieces)
+    assert profile["raster"]["passes"] == 8
+
+
+@pytest.mark.parametrize(
+    "circle",
+    [
+        {"at": [10.0, 5.0], "dia_mm": 0.0},
+        {"at": [10.0, 5.0], "dia_mm": -1.0},
+        {"at": ["unknown", 5.0], "dia_mm": 2.0},
+        {"at": ["bad", 5.0], "dia_mm": 2.0},
+        {"at": [10.0], "dia_mm": 2.0},
+        {"dia_mm": 2.0},
+    ],
+)
+def test_raster_invalid_keep_out_is_unknown_with_reason(circle):
+    record, reason = coordinates._raster(
+        {"frame": "model"},
+        {
+            "do": "face",
+            "stock_removal_bounds": {"x": [0, 20], "y": [0, 10]},
+            "contour": {"step_mm": 2.0, "keep_out": [circle]},
+        },
+        3.0,
+        3.0,
+        {},
+        {},
+        1,
+        {},
+        5.0,
+        (0.001, 3),
+    )
+    assert record is None
+    assert "keep_out" in reason
+
+
+@pytest.mark.parametrize(
+    "circle",
+    ["{ at = [10.0, 5.0], dia_mm = 0.0 }", "{ at = ['unknown', 5.0], dia_mm = 2.0 }"],
+)
+def test_invalid_keep_out_leaves_coordinate_finding_unknown(tmp_path, circle):
+    row, profile = keep_out_face(tmp_path, f"[{circle}]")
+    assert row.status == "unknown"
+    assert "keep_out" in profile["raster_reason"]
+    assert "raster" not in profile
+
+
+def test_raster_keep_out_defaults_to_feature_frame(tmp_path):
+    row, profile = raster(
+        tmp_path,
+        "do = 'face'\ntool = 'cutter'\nto_z = 0.0\ndirection = 'conventional'\n"
+        "contour = { method = 'linear_table', step_mm = 2.0, "
+        "keep_out = [{ at = [10.0, 5.0], dia_mm = 2.0 }] }\n",
+    )
+    assert row.status == "pass", row.sentence
+    assert profile["raster"]["keep_out"] == [{"at": [5.0, 3.0], "dia_mm": 2.0}]
+    assert profile["raster"]["passes"] == 10
+
+
+def test_raster_overlapping_keep_out_circles_remove_the_union(tmp_path):
+    _, profile = keep_out_face(
+        tmp_path,
+        "[{ at = [10.0, 5.0], dia_mm = 2.0 }, { at = [14.0, 5.0], dia_mm = 2.0 }]",
+    )
+    pieces = [p for p in profile["cutter_centre"] if p[0][1] == 4.0]
+    assert len(pieces) == 2
+    assert pieces[0][0] == [-3.0, 4.0]
+    assert pieces[0][1] == pytest.approx([6.127, 4], abs=1e-12)
+    assert pieces[1][0] == pytest.approx([17.873, 4], abs=1e-12)
+    assert pieces[1][1] == [23.0, 4.0]
+
+
+def test_raster_keep_out_schema_accepts_circles_but_rejects_unknown_entry_keys():
+    from pydantic import ValidationError
+
+    valid = {"method": "linear_table", "keep_out": [{"at": [0.0, 0.0], "dia_mm": 11.0}]}
+    assert Contour.model_validate(valid).model_dump(exclude_unset=True) == valid
+    valid["keep_out"][0]["radius"] = 5.5
+    with pytest.raises(ValidationError, match="extra_forbidden"):
+        Contour.model_validate(valid)
 
 
 def test_z_levels_start_on_an_earlier_floor_only_where_its_bounds_cover_the_op(tmp_path):

@@ -1,12 +1,16 @@
 """Consumer-visible raster, camera, visibility and print-label contracts; no FreeCAD."""
 
+import json
 import math
+import re
 import struct
 import zlib
+from pathlib import Path
 
 import pytest
 
 from prechips.kernel.render_diagram import _Diagram, render_diagram
+from prechips.kernel.render_inputs import contour_annotations
 from prechips.kernel.render_png import RenderCanvas
 
 _FRONT = ((1, 0, 0), (0, 1, 0), (0, 0, 1))
@@ -270,10 +274,7 @@ def test_setup_png_refuses_unreadable_annotations(failure):
     if failure == "clipping":
         spec["setup_id"] = "LONG-NAME-" * 30
     else:
-        spec["datums"] = [
-            {"label": f"DATUM {index}", "point_mm": [0, 0, 1]}
-            for index in range(80)
-        ]
+        spec["datums"] = [{"label": f"DATUM {index}", "point_mm": [0, 0, 1]} for index in range(80)]
     with pytest.raises(ValueError):
         render_diagram([], spec)
 
@@ -427,3 +428,157 @@ def _leader_clearance(point, a, b):
     t = ((point[0] - a[0]) * dx + (point[1] - a[1]) * dy) / (dx * dx + dy * dy)
     t = min(1.0, max(0.0, t))
     return math.dist(point, (a[0] + t * dx, a[1] + t * dy))
+
+
+_SPECS = Path(__file__).resolve().parent / "data" / "render"
+
+
+def _example_spec(name):
+    """A setup picture spec the kernel built for a shipped example setup (meshes omitted)."""
+    return json.loads((_SPECS / f"{name}.json").read_text(encoding="utf-8"))
+
+
+def _segments_cross(a, b, c, d):
+    def orient(p, q, r):
+        return (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0])
+
+    return orient(a, b, c) * orient(a, b, d) < 0 and orient(c, d, a) * orient(c, d, b) < 0
+
+
+def test_text_layout_rejects_type_below_the_minimum_print_scale():
+    canvas = _canvas(width=200, height=60)
+    canvas.text(10, 10, "SOUTH END", scale=2)
+    canvas.assert_text_layout()
+    with pytest.raises(ValueError):
+        canvas.assert_text_layout(min_scale=3)
+
+
+@pytest.mark.parametrize("name", ["shaft-s1", "cone-s1", "rocker-s3", "rocker-s4"])
+def test_dense_setup_pictures_print_every_label_at_body_size(name):
+    # Letter print: scale 3 (21 px) is about 7 pt cap height; scale 2 is under 5 pt.
+    diagram = _Diagram([], _example_spec(name))
+    diagram.render()
+
+    assert [box for box in diagram.canvas.text_boxes if box[4] - box[2] < 21] == []
+
+
+def test_a_panel_with_many_point_keys_gets_the_height_to_print_them_apart():
+    # Rocker S1: seven operation panels; op 40 alone keys seven profile points (P3-P9).
+    diagram = _Diagram([], _example_spec("rocker-s1"))
+    diagram.render()
+    keys = [box for box in diagram.canvas.text_boxes if re.fullmatch(r"P\d+|PASS \d+", box[0])]
+    assert {box[0] for box in keys} >= {f"P{number}" for number in range(1, 13)}
+    for index, (label, x0, y0, x1, y1) in enumerate(keys):
+        for other, a0, b0, a1, b1 in keys[index + 1 :]:
+            apart = x1 + 4 <= a0 or a1 + 4 <= x0 or y1 + 4 <= b0 or b1 + 4 <= y0
+            assert apart, (label, other)
+
+
+@pytest.mark.parametrize("name", ["shaft-s1", "cone-s1"])
+def test_bar_end_labels_key_their_own_end_and_never_lead_along_the_axis_past_another_point(name):
+    spec = _example_spec(name)
+    diagram = _Diagram([], spec)
+    diagram.render()
+    project = diagram.canvas.project
+    anchors = [project(datum["point_mm"]) for datum in spec["datums"]]
+    anchors.append(project(spec["zero_mm"]))
+
+    ends = [datum for datum in spec["datums"] if datum.get("kind") == "end"]
+    assert len(ends) == 2
+    for datum in ends:
+        point, label = project(datum["point_mm"]), datum["label"].upper()
+        (box,) = [box for box in diagram.canvas.text_boxes if box[0] == label]
+        # The chuck-side end is keyed in the left lane, the exposed end in the right one.
+        assert (box[1] < 590) == (point[0] < 590), label
+    for datum in ends:
+        point, label = project(datum["point_mm"]), datum["label"].upper()
+        (path,) = [path for leader, path in diagram.leaders if leader == label]
+        assert path[0] == point
+        for a, b in zip(path, path[1:], strict=False):
+            if abs(a[1] - b[1]) > 1e-6:
+                continue
+            for other in anchors:
+                if math.dist(other, point) > 1 and min(a[0], b[0]) < other[0] < max(a[0], b[0]):
+                    assert abs(other[1] - a[1]) >= 6, (label, other)
+
+
+@pytest.mark.parametrize("name", ["rocker-s3", "rocker-s4"])
+def test_plan_view_pad_and_clamp_badges_have_separate_uncrossed_leaders(name):
+    # Twelve pads under a thin strap plus straps, a pivot screw and a clocking pin.
+    spec = _example_spec(name)
+    diagram = _Diagram([], spec)
+    diagram.render()
+    targets, keyed = {}, {"SUPPORT PADS"}
+    for component in spec["components"]:
+        label = component["label"].upper()
+        code = component.get("code") or (
+            label.removeprefix("PAD ") if component["role"] == "pad" else None
+        )
+        if code:
+            targets[code] = diagram.canvas.project(component["center_mm"])
+        if component.get("code"):
+            keyed.add(label)
+    badges = {
+        text: ((x0 + x1) / 2, (y0 + y1) / 2)
+        for text, x0, y0, x1, y1 in diagram.canvas.text_boxes
+        if text in targets
+    }
+    assert badges.keys() == targets.keys()
+
+    leaders = [(code, point, badges[code]) for code, point in targets.items()]
+    for index, (code, point, badge) in enumerate(leaders):
+        for other, other_point, other_badge in leaders[index + 1 :]:
+            assert not _segments_cross(point, badge, other_point, other_badge), (code, other)
+        for other, other_point, _ in leaders:
+            if other != code:
+                assert _leader_clearance(other_point, point, badge) >= 6, (code, other)
+    # A keyed group's lane entry names it without another leader into the badged points.
+    assert [label for label, _ in diagram.leaders if label in keyed] == []
+
+
+@pytest.mark.parametrize("keep_out", [None, [], [{"at": [5, 5], "dia_mm": 2}]])
+@pytest.mark.parametrize("axis", ["x", "y"])
+def test_raster_keep_out_draws_independent_segments_without_filling_clearance(keep_out, axis):
+    split = bool(keep_out)
+    segments = [
+        [[0, 0], [10, 0]],
+        *([[[0, 5], [4, 5]], [[6, 5], [10, 5]]] if split else [[[0, 5], [10, 5]]]),
+        [[10, 10], [0, 10]],
+    ]
+    if axis == "y":
+        segments = [[[y, x] for x, y in segment] for segment in segments]
+    profile = {"op": "clear", "cutter_centre": segments, "raster": {}}
+    if keep_out is not None:
+        profile["raster"]["keep_out"] = keep_out
+    paths, waypoints = contour_annotations({"profiles": [profile]}, 25.4, "S1")
+    diagram = _Diagram([], {"view": "plan", "stock_box": [0, 0, 0, 254, 254, 1]})
+    colour = (35, 83, 147)
+
+    def project(point):
+        x, y = point if axis == "x" else point[::-1]
+        return 400 + x / 25.4 * 60, 600 - y / 25.4 * 40
+
+    labels = []
+    assert diagram._raster_band(paths, project, colour, labels) == []
+    assert waypoints == []
+    if split:
+        # Both middle pieces must be ink, not the band's faint tint. The island
+        # and space between stepover positions must remain completely unswept.
+        assert _pixel(diagram.canvas, 520, 400) == colour
+        assert _pixel(diagram.canvas, 880, 400) == colour
+        assert _pixel(diagram.canvas, 700, 400) == _WHITE
+        assert _pixel(diagram.canvas, 520, 500) == _WHITE
+    else:
+        tint = tuple(int(255 - (255 - channel) * 0.22) for channel in colour)
+        assert _pixel(diagram.canvas, 520, 400) == tint
+        assert _pixel(diagram.canvas, 700, 400) == tint
+        assert _pixel(diagram.canvas, 520, 500) == tint
+    assert _pixel(diagram.canvas, 520, 600) == colour
+    assert _pixel(diagram.canvas, 520, 200) == colour
+    assert [label["label"] for label in labels] == ["PASS 1", f"PASS {len(segments)}"]
+    assert project(labels[0]["xy"]) == pytest.approx((700, 600))
+    assert project(labels[-1]["xy"]) == pytest.approx((700, 200))
+    # Decode the direct renderer's output too: the tested surface is the actual
+    # printable PNG payload, not a recording or mocked drawing collaborator.
+    _, _, pixels = _decode_png(diagram.canvas.png())
+    assert pixels == diagram.canvas.rgb

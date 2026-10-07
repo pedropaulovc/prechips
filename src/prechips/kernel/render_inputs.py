@@ -6,6 +6,7 @@ this boundary. Display annotations never certify a holding or a toolpath.
 
 from prechips.clamp_labels import clamp_labels
 from prechips.rules.coordinates import row_id
+from prechips.rules.geometry_common import cutting_action
 from prechips.rules.resolution import number, op_feature, record, resolve, workholding_category
 from prechips.sheet import tool_label
 
@@ -97,13 +98,18 @@ def contour_annotations(numbers, scale, setup_id):
         if isinstance(points[0], list) and points[0] and isinstance(points[0][0], list):
             # A raster table contains independent straight passes, not joins between passes.
             # Its rows are numbered passes, never P keys: the picture names passes the same way.
+            keep_out = bool(record(profile.get("raster")).get("keep_out"))
             for index, segment in enumerate(points):
                 add_path(
                     profile.get("op"),
                     segment,
                     [],
                     False,
-                    raster={"pass": index + 1, "of": len(points)},
+                    raster={
+                        "pass": index + 1,
+                        "of": len(points),
+                        **({"keep_out": True} if keep_out else {}),
+                    },
                 )
         else:
             add_path(profile.get("op"), points, range(len(points)), _directed(profile))
@@ -165,6 +171,27 @@ def _target(setup):
     return {"feature": feature, "label": f"TARGET: {feature.replace('_', ' ')} ({span})"}
 
 
+# Bench actions that take material off edges the stock model does not draw.
+_EDGE_ACTIONS = {"deburr"}
+
+
+def _setup_notes(setup):
+    """The picture notes a setup's declared actions establish, and the note the kernel
+    prints when it derives no removed volume. A setup without a cutting action lists its
+    bench/holding actions; a deburr takes edge material off, so a setup with one never
+    says "no material removed"."""
+    ops = setup["ops"]
+    notes = []
+    if not any(cutting_action(op) is not False for op in ops):
+        listed = ", ".join(
+            f"op {op['op']} {op['do']}" for op in ops if isinstance(op.get("do"), str)
+        )
+        notes.append(f"No machine cutting: {listed}." if listed else "No ops declared.")
+    if any(op.get("do") in _EDGE_ACTIONS for op in ops):
+        return notes, None
+    return notes, "No material removed in this setup."
+
+
 def setup_annotations(bundle, setup, numbers):
     scale = {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units"))
     hold, state = record(setup.get("hold")), record(setup.get("stock_state"))
@@ -208,6 +235,7 @@ def setup_annotations(bundle, setup, numbers):
         "chuck_name": _holding_name(bundle, hold.get("chuck")),
         "target": _target(setup),
     }
+    result["notes"], result["nothing_removed_note"] = _setup_notes(setup)
     index = record(hold.get("index"))
     if number(index.get("angle_deg")):
         result["index_deg"] = index["angle_deg"]

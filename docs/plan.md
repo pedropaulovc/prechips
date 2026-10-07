@@ -55,6 +55,24 @@ authorize arbitrary checks. `inspection_methods` supplies the authored procedure
 for datum/geometric checks and missing requirements. A missing check is different
 from `checks.dia = "unknown"`.
 
+An `inspection_methods.<requirement>` procedure and an op's `inspection_note`
+are each either one string or a non-empty list of strings. A string prints as
+before (blank-line paragraphs become `(1)…(2)…`). A list prints as numbered steps
+in the INSPECTION NOTES, for procedures a machinist follows and records as they go:
+
+```toml
+inspection_methods.position_dia = [
+  "Pin the rod hole with the 4.000 gauge pin; zero the indicator on datum A.",
+  "Read X at the pin: {X1}",
+  "Read Y at the pin: {Y1}",
+  "Calculate: position Ø = 2 × √((X1 − 133.067)² + (Y1 + 8.456)²) = {result}",
+]
+```
+
+`{name}` prints as a labelled blank to write the reading in. A step beginning
+`Calculate:` prints apart from the numbered steps as the calculation line. A list
+is known only when every step is a non-empty string other than `"unknown"`.
+
 When an inspection requirement has no exported owner/band, an explicit operation
 may declare `missing_requirements = { length = "calipers" }` and
 `inspection_methods.length`. This uses the same gauge-reference mapping type as
@@ -69,8 +87,9 @@ A name already in that feature's exported requirements is `BadInput` in
 `to_z_band` is a range, not a substitute for measured setup binding. An
 `arc_table` contour needs explicit nominal geometry and positive angular steps;
 finite bounds come from that geometry, not an invented full circle. Linear
-pockets and faces may declare `sweep_bounds`, `sweep_frame`, and `open_side`;
-their rasters need `step_mm` (see [rules-coordinates](rules-coordinates.md)).
+pockets and faces may declare `sweep_bounds`, `sweep_frame`, `open_side`, and
+circular `keep_out` islands; their rasters need `step_mm`
+(see [rules-coordinates](rules-coordinates.md)).
 
 All five inputs are UTF-8 TOML, parsed by `tomllib` and strict Pydantic 2
 models in `src/prechips/model.py`. Unknown keys are forbidden at every modeled
@@ -691,6 +710,11 @@ rest's `jaw_width`, `jaw_height`, `jaw_depth` and `jaw_angles_deg`, a steady
 rest's `body_dia` and `body_length` ([inventory](inventory.md),
 [rules-geometry](rules-geometry.md#follow-and-steady-rests)). Example:
 `supports = ["dead_centre_tailstock_mt3", { ref = "follow-rest", ops = [10, 30], jaw_lead_mm = 8.0, jaw_side = "turned" }]`.
+The traveler's HOLD prints a follow rest's lead as a distance along the work,
+never beside a Ø sign: `jaws 8.00 mm behind the tool, on the diameter just turned:
+reset them on every pass once the tool passes Z 152.00` (trailing jaws ride each
+pass's new diameter; `engage_at_z_mm`, when declared, is the Z), or `jaws … mm
+ahead of the tool, on the uncut stock`.
 
 ## Zero
 
@@ -763,7 +787,7 @@ rest's `body_dia` and `body_length` ([inventory](inventory.md),
 | `holder` | `str` |
 | `direction` | `str` |
 | `note` | `str` |
-| `inspection_note` | `str` |
+| `inspection_note` | `str \| list[str]` (numbered steps; see above) |
 | `process` | `str \| list[str]` (`coating` only: a `services` or `consumables` id) |
 | `process_holds` | `list[ProcessHold]` |
 | `to_z` | `float` |
@@ -783,7 +807,7 @@ rest's `body_dia` and `body_length` ([inventory](inventory.md),
 | `note_cite` | `Citations` |
 | `checks` | `dict[str, str]` |
 | `missing_requirements` | `dict[str, str]` |
-| `inspection_methods` | `dict[str, str]` |
+| `inspection_methods` | `dict[str, str \| list[str]]` |
 | `to_z_band` | `Vector` |
 | `contour` | `Contour` |
 | `stock_removal_bounds` | `Bounds` |
@@ -931,6 +955,15 @@ the other spans; see [M5 measured setup screens](rules-setup.md#m5-measured-inve
 | `start_deg` | `float` |
 | `end_deg` | `float` |
 | `sweep_bounds` | `Bounds` |
+| `keep_out` | list of `{ at = [x, y], dia_mm = d }` circles |
+
+`keep_out` centres use `sweep_frame`, defaulting to the feature's frame.
+Positive `dia_mm` islands exclude the whole cutter: pass centres clear each
+island radius plus cutter radius. Crossing passes split into independent,
+positive-length pieces in feed order, each with its own feed/lift/rapid cycle;
+each cut point lies on the DRO grid, rounded away from the island.
+The raster record reports setup-frame circles in `raster.keep_out` and counts
+pieces in `raster.passes`.
 
 ## Bounds
 

@@ -5,8 +5,15 @@ to the actual machine range. A boundary not divisible by 50 is retained rather
 than commanding an out-of-range speed.
 Cutting-table diameter_range is in millimetres, inclusive at both ends; an
 ambiguous overlapping pair of rows is unresolved rather than first-row wins.
-Mill feed is RPM x flutes x chip load; lathe feed is RPM x the same row's (or
-chart's) feed per revolution. Neither has an op-level override.
+Mill feed is RPM x flutes x chip load; lathe feed is RPM x the op's planned
+``feed_mm_rev`` when declared, else the same row's (or chart's) feed per
+revolution. A mill op has no feed override.
+
+A cited ``[[deep_hole]]`` row derates the sfm of its ``operation`` (row or
+chart) by ``sfm_factor`` before the RPM is derived, once the hole's depth is
+more than ``depth_over_dia`` diameters; the deepest such threshold governs. The
+depth is the material the full diameter cuts: a through hole's local thickness,
+a blind hole's planned depth, never the point or exit lead.
 
 A saw cut (``saw_cut``/``cut_off``) has no spindle: its one canonical
 ``operation = "saw_cut"`` row supplies blade linear speed (``sfm``) and descent
@@ -20,6 +27,7 @@ from __future__ import annotations
 import math
 
 from ..findings import Finding
+from . import tip_endpoints
 from .resolution import (
     MANUAL,
     SAW_OPS,
@@ -108,6 +116,51 @@ def _positive(value):
     return number(value) and math.isfinite(value) and value > 0
 
 
+def _hole_depths(bundle):
+    """Material depth each hole op's full diameter cuts, keyed ``(setup, op)``: a through
+    hole's local thickness, a blind hole's planned depth; the point and exit lead are
+    not hole depth."""
+    depths = {}
+    for finding in tip_endpoints.evaluate(bundle):
+        for row in records(finding.numbers.get("endpoints")):
+            through = row.get("exit_face", "not_applicable") != "not_applicable"
+            depth = row.get("local_thickness" if through else "depth_mm", UNKNOWN)
+            depths[(row["setup"], row["op"])] = depth if _positive(depth) else UNKNOWN
+    return depths
+
+
+def _deep_hole(cutting, action, depth, diameter):
+    """``(sfm_factor, numbers, unknown)`` from the governing cited ``[[deep_hole]]`` row,
+    the deepest ``depth_over_dia`` the hole's depth/diameter exceeds. An operation no row
+    names keeps its sfm and reports nothing; an unknown depth or a malformed, uncited or
+    tied row leaves the derate (and so the RPM) unknown."""
+    rows = [row for row in records(cutting.get("deep_hole")) if row.get("operation") == action]
+    if not rows:
+        return 1.0, {}, False
+    ratio = depth / diameter if number(depth) and _positive(diameter) else UNKNOWN
+    numbers = {"depth_over_dia": ratio, "deep_hole_row": UNKNOWN, "deep_hole_sfm_factor": UNKNOWN}
+    valid = all(
+        _positive(row.get("depth_over_dia"))
+        and _positive(row.get("sfm_factor"))
+        and row["sfm_factor"] <= 1
+        and _cited(row.get("cite"))
+        for row in rows
+    )
+    if not valid or not number(ratio):
+        return UNKNOWN, numbers, True
+    deeper = [row for row in rows if ratio > row["depth_over_dia"]]
+    if not deeper:
+        numbers.update(deep_hole_row="not_applicable", deep_hole_sfm_factor=1.0)
+        return 1.0, numbers, False
+    limit = max(row["depth_over_dia"] for row in deeper)
+    governing = [row for row in deeper if row["depth_over_dia"] == limit]
+    if len(governing) != 1:
+        return UNKNOWN, numbers, True
+    row = governing[0]
+    numbers.update(deep_hole_row=row["cite"], deep_hole_sfm_factor=row["sfm_factor"])
+    return row["sfm_factor"], numbers, uncertain(row)
+
+
 def _blade_bounds(machine):
     band = machine.get("blade_speed_sfm", UNKNOWN)
     if isinstance(band, list) and len(band) == 2 and all(_positive(v) for v in band):
@@ -194,6 +247,7 @@ def evaluate(bundle):
     material_class = mapping(cutting.get("aliases")).get(material, UNKNOWN)
     if isinstance(material_class, dict):
         material_class = material_class.get("material_class", UNKNOWN)
+    depths = _hole_depths(bundle) if records(cutting.get("deep_hole")) else {}
     for setup in bundle.plan["setups"]:
         machine = resolve(bundle, "machines", setup.get("machine")) or {}
         lathe = machine.get("kind") == "lathe"
@@ -264,9 +318,12 @@ def evaluate(bundle):
                 # loads the cut with, overrides the row's starting value.
                 per_rev = op["feed_mm_rev"]
             diameter_in = diameter / 25.4 if number(diameter) and diameter > 0 else UNKNOWN
+            depth = depths.get((setup["id"], op["op"]), UNKNOWN)
+            factor, deep, deep_unknown = _deep_hole(cutting, action, depth, diameter)
+            speed = sfm * factor if number(sfm) and number(factor) else UNKNOWN
             raw = (
-                12 * sfm / (math.pi * diameter_in)
-                if number(sfm) and sfm > 0 and number(diameter_in)
+                12 * speed / (math.pi * diameter_in)
+                if number(speed) and speed > 0 and number(diameter_in)
                 else UNKNOWN
             )
             rpm = nearest50(raw, low, high)
@@ -291,6 +348,7 @@ def evaluate(bundle):
                 "diameter_in": diameter_in,
                 "flutes": flutes,
                 "sfm": sfm,
+                **deep,
                 "chip_load_mm_per_tooth": chip,
                 **({"feed_mm_rev": per_rev} if lathe else {}),
                 "rpm_min": low,
@@ -307,6 +365,7 @@ def evaluate(bundle):
                 or uncertain(machine)
                 or stock.get("material_verify", False)
                 or range_unknown
+                or deep_unknown
             )
             cite = [
                 "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 "
@@ -323,8 +382,19 @@ def evaluate(bundle):
                 )
             if _cited(source):
                 cite.extend(source if isinstance(source, list) else [source])
+            deep_source = deep.get("deep_hole_row", UNKNOWN)
+            if deep_source != "not_applicable" and _cited(deep_source):
+                cite.append(
+                    "cutting-data deep_hole: sfm x sfm_factor past depth_over_dia diameters"
+                )
+                cite.extend(deep_source if isinstance(deep_source, list) else [deep_source])
             sentence = (
                 (
+                    "Starting RPM/feed cannot be certified: the hole depth or its governing "
+                    "deep-hole row is missing, ambiguous or unverified."
+                )
+                if deep_unknown
+                else (
                     "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, "
                     "material or machine range is missing or unverified."
                 )

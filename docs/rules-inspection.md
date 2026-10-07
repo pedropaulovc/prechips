@@ -166,7 +166,8 @@ requirement-keyed `checks.angularity_dia` gauge and an explicit datum-referenced
 inspection declaration; the rule does not infer a method from the gauge or parse
 datum letters out of prose. Missing checks are errors. Caliper-only certification
 is an error even with a declared narrative. Missing, empty or literal `"unknown"`
-methods, unknown limits, and missing/empty/unknown datum evidence stay unresolved.
+methods, a step list with any empty or `"unknown"` step, unknown limits, and
+missing/empty/unknown datum evidence stay unresolved.
 A capable geometric gauge, known datum list and method, adequate range and
 resolution are all required to pass a band.
 
