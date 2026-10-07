@@ -146,10 +146,15 @@ arcs is ordinary inventory:
   holds only manual ops (`scribe`, `file_to_line`, `deburr`, `inspect`, …) and
   its work-holding (a bench vise, filing buttons) is drawn like any fixture.
 - Filing buttons are a `fixtures.<id>` with `kind = "filing_buttons"`: the
-  hardened button diameter `dia_mm` and the pin diameter `bore_dia_mm` they
-  are clamped on, plus `solids` (buttons, nut, stud) so the setup render can draw
-  them. A plan names the kit in `guide.buttons` and holds it (`hold.fixture` or a
-  clamp `ref`).
+  declared `[least, greatest]` limits of every element between the rims and the
+  bore axis, `button_dia_limits_mm` (button OD), `button_bore_limits_mm` (the
+  button's bore) and `pin_dia_limits_mm` (the pin through the button bores and
+  the part's bore), each a plain pair or a `{ value = [least, greatest],
+  measured, verify }` fact (or `_in`, never both), plus `button_runout_mm`, the
+  OD's runout (TIR) about its own bore; and `solids` (buttons, nut, stud) so the
+  setup render can draw them. The part's bore limits come from the drawing. A
+  plan names the kit in `guide.buttons` and holds it (`hold.fixture` or a clamp
+  `ref`); an unknown limit leaves the filed radius unproven.
 - A rotary table is a `fixtures.<id>` with `kind = "rotary_table"`:
   `graduation_deg`, `vernier_deg`, `dial_increases`, `t_slots`, `max_work`,
   `t_slot_width` and the centre bore `bore_dia` a `centre_by = "pin"` pin must
@@ -462,6 +467,8 @@ unavailable physical facts remain unknown.
 | `Measurement` | Required strings `by`, ISO calendar `date` (`YYYY-MM-DD`), `instrument`; none may be blank or `"unknown"` |
 | `LengthMeasurement` | Required `value: Number`; optional `measured: Measurement`, `verify: bool` (each may be `"unknown"`); no `cite` |
 | `MeasuredLength` / `MeasuredAngle` | `Number` or `LengthMeasurement` (mm/in, or degrees for `point_angle`) |
+| `LimitsMeasurement` | Required `value: [Number, Number]` (`[least, greatest]`); optional `measured: Measurement`, `verify: bool` (each may be `"unknown"`); no `cite` |
+| `MeasuredLimits` | `[Number, Number]` or `LimitsMeasurement` (mm/in) |
 | `EnvelopeTravel` | `x`, `y`, `z: MeasuredLength`; no block metadata |
 | `MachineEnvelope` | `travel_mm` or `travel_in: EnvelopeTravel`; `spindle_to_table_max_mm/in`, `spindle_to_table_min_mm/in: MeasuredLength`; no block metadata |
 | `ProjectionMap` | `dict[full holder reference, MeasuredLength]`; tools only |
@@ -690,6 +697,10 @@ on hand.
 | `t_slots` | `float` (`rotary_table`: number of T-slots) |
 | `max_work_mm` / `max_work_in` | `MeasuredLength` (`rotary_table`: largest work diameter the stock's swing must fit) |
 | `t_slot_width_mm` / `t_slot_width_in` | `MeasuredLength` (`rotary_table`) |
+| `button_dia_limits_mm` / `button_dia_limits_in` | `MeasuredLimits` (`filing_buttons`: button OD) |
+| `button_bore_limits_mm` / `button_bore_limits_in` | `MeasuredLimits` (`filing_buttons`: button bore on the pin) |
+| `pin_dia_limits_mm` / `pin_dia_limits_in` | `MeasuredLimits` (`filing_buttons`: pin through the button bores and the part's bore) |
+| `button_runout_mm` / `button_runout_in` | `MeasuredLength` (`filing_buttons`: button OD runout, TIR, about its own bore) |
 | `leadscrew` | `LeadScrew` |
 | `capacity_in` | `float \| list[Number] \| Capacity` |
 | `tailstock` | `Tailstock` |
