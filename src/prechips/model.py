@@ -1278,8 +1278,10 @@ Bars = record(
 # measured/verify qualify it, like a LengthMeasurement; nothing above it does. A ``void``
 # primitive (bore, tapped hole, slot) is not drawn: it is cut from the owner's other
 # primitives, or only from those named in ``cuts``. ``locates`` names the part face it
-# locates or carries, ``fastener`` its thread / fastener, and ``shim`` marks an
-# adjustable shim stack whose drawn thickness is the nominal (traveler fixture table).
+# locates or carries, ``bears`` how that locating solid bears on the work (its contact
+# cylinder in a ``bore``, or a flat ``face``), ``fastener`` its thread / fastener, and
+# ``shim`` marks an adjustable shim stack whose drawn thickness is the nominal (traveler
+# fixture table).
 # ``supply``: made with its owner (default), ``bought`` hardware, or ``existing`` in the
 # shop (a machine's vise jaw drawn for clearance); only made solids are make-table rows.
 # ``records``: values measured and written down when the part is made or received (a
@@ -1302,6 +1304,7 @@ FixtureSolid = record(
         "void": bool,
         "shim": bool,
         "supply": Literal["made", "bought", "existing"],
+        "bears": Literal["bore", "face"],
         "cuts": list[str],
         "records": list[RecordBlank],
         "measured": Measurement,

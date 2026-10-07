@@ -388,9 +388,11 @@ Other holding solids come from the same accepted-fact rule, never defaults:
   is its base: HOLD prints its underside Z, an angle plate's working face (local
   y = 0, facing local -y) and the base's `fastener` as the hold-down; with any
   such box untrusted, HOLD prints no setting line. None of these texts creates
-  geometry or trust; `locates` only names, on a plan clamp with
-  `restraint = "locate"`, the drawn solid that must prove it bears on the work
-  (rules-geometry, `thin_wall_under_clamp`).
+  geometry or trust. On a plan clamp with `restraint = "locate"`, `locates`
+  names the drawn solid that must prove it bears on the work, and
+  `bears = "bore" | "face"` on that solid says which proof it owes: its
+  contact cylinder in a bore, or a flat face. A `locates` solid without `bears`
+  leaves the clamp unproven (rules-geometry, `thin_wall_under_clamp`).
 
 For `approach = "rotary"`, the selected hold must resolve to a `dividing_head`;
 its plan `hold.chuck` names a dimensioned chuck as above. The plan supplies
