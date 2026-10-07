@@ -83,6 +83,7 @@ _CSS = (
     + """
 @page { size: Letter portrait; margin: var(--page-margin); }
 * { box-sizing: border-box; }
+html, body { overflow-x: clip; }
 body { margin: 0; color: var(--color-ink); background: var(--color-paper);
 font: var(--text-working)/var(--line-working) var(--font-working);
 font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
@@ -110,21 +111,27 @@ padding: var(--space-sm); margin: var(--space-sm) 0; break-inside: avoid; }
 ol, ul { margin: var(--space-xs) 0 var(--space-xs) 1.6em; padding: 0; }
 li { margin: 0 0 var(--space-xs); }
 ol.steps { list-style: decimal; }
+.tick { display: inline-block; width: var(--performed-size); height: var(--performed-size);
+border: var(--rule-thin) solid var(--color-ink); background: var(--color-paper);
+vertical-align: middle; margin-right: var(--space-xs); }
 .reading { white-space: nowrap; }
-.field, .result-field { display: inline-flex; flex-direction: column; gap: var(--space-xs);
-max-width: 100%; vertical-align: top; }
+.field, .result-field, .authored-blank { display: inline-flex; flex-direction: column;
+gap: var(--space-xs);
+max-width: 100%; vertical-align: top; break-inside: avoid; page-break-inside: avoid; }
 .writing-blank { display: block; box-sizing: content-box; min-width: var(--writing-width);
 min-height: var(--writing-height); padding: 0; border: var(--rule-thin) solid var(--color-ink);
 background: var(--color-paper); }
 .field { margin: var(--space-xs) var(--space-xs) var(--space-xs) 0; }
-.result-field { display: flex; width: 100%; margin-top: var(--space-sm); }
-.result-field .writing-blank { min-height: var(--writing-result-height); }
+.result-field, .authored-blank { display: flex; width: 100%; margin-top: var(--space-sm); }
+.result-field .writing-blank, .authored-blank .writing-blank {
+min-height: var(--writing-result-height); }
 table.readings .field { display: flex; }
 .calc { margin: var(--space-sm) 0; font-weight: bold; }
 table { width: 100%; border-collapse: collapse; margin: var(--space-sm) 0; table-layout: fixed; }
 th, td { border: var(--rule-thin) solid var(--color-rule); padding: var(--space-xs) var(--space-sm);
 text-align: left; vertical-align: top; overflow-wrap: anywhere; }
 th { background: var(--color-header); }
+.table-context th { font-weight: normal; background: var(--color-paper); }
 thead { display: table-header-group; }
 tr, tbody { break-inside: avoid; page-break-inside: avoid; }
 tr.warn td { border-top: 0; }
@@ -143,10 +150,12 @@ table.coords td.num { white-space: nowrap; overflow-wrap: normal; }
 .tick { display: inline-block; width: 7pt; height: 7pt; border: 1px solid var(--color-ink); \
 margin: 0 2pt -1pt 6pt; } .levels .level:first-child .tick { margin-left: 2pt; }
 .levels .level { white-space: nowrap; }
+.reading, td.num { white-space: nowrap; overflow-wrap: normal; }
 th.read, td.read { font-weight: bold; }
 th.read { background: var(--color-reading-header); }
 tr.repeat th { background: var(--color-paper); font-weight: bold; }
 .paged table:not([data-duplex-split]) tr.repeat { display: none; }
+table:not([data-duplex-split]) tr.table-context { display: none; }
 .hold-row { display: block; }
 .hold-steps { min-width: 0; }
 .fixture-render { margin: var(--space-sm) 0; break-inside: avoid; page-break-inside: avoid; }
@@ -158,6 +167,7 @@ border: var(--rule-thin) solid var(--color-rule); }
 .op-note { margin: var(--space-xs) 0; }
 .cont-head { font-size: var(--text-running); font-weight: bold; margin: 0 0 var(--space-sm);
 border-bottom: var(--rule-thin) solid var(--color-ink); }
+.cont-context { display: block; font-size: var(--text-working); overflow-wrap: normal; }
 .more { margin: var(--space-xs) 0 0; font-weight: bold; }
 table.operations { margin-top: 0; }
 table.operations > thead th { background: var(--color-paper); }
@@ -180,7 +190,8 @@ gap: var(--space-xs) var(--space-md); margin: var(--space-sm) 0 0; }
 .inspection-requirement { min-width: 0; }
 .inspection-requirement p { margin: 0; }
 .inspection-record > td { border-top-style: solid; }
-.operation-continuation { font-weight: bold; }
+.operation-continuation .op-number { font-weight: bold; }
+.record-continuation { display: block; }
 .signoff { margin-top: var(--space-lg); break-before: avoid; page-break-before: avoid;
 display: flex; flex-wrap: wrap; gap: var(--space-md); }
 .signoff .field { flex: 1 1 52mm; }
@@ -198,7 +209,8 @@ display: flex; flex-wrap: wrap; gap: var(--space-md); }
 @media screen and (max-width: 600px) {
   html:not(.print-measuring) .meta { display: block; }
   html:not(.print-measuring) .op-details { grid-template-columns: minmax(0, 1fr); }
-  html:not(.print-measuring) table:not(.operations):not(.coords) { table-layout: fixed; }
+  html:not(.print-measuring) table:not(.operations) {
+  display: block; overflow-x: auto; table-layout: auto; }
 }
 """
 )
@@ -226,21 +238,96 @@ _DUPLEX_JS = r"""(() => {
     const title = [section.dataset.part, section.dataset.drawing,
       section.dataset.revision ? "rev " + section.dataset.revision : "REV NOT CONFIRMED",
       section.dataset.title || section.dataset.sheet].filter(Boolean).join(" · ");
+    const contextHeads = new Map(
+      [...section.querySelectorAll("[data-page-context]")].map((owner) => [
+        owner.dataset.pageContext, owner.querySelector(":scope > .page-context")?.cloneNode(true)
+      ])
+    );
+    const operationHeads = new Map(
+      [...section.querySelectorAll("tbody.operation")].map((body) => [
+        body.dataset.op, [...body.rows].filter(
+          (row) => row.classList.contains("operation-main") || row.querySelector(".op-note")
+        ).map((row) => row.cloneNode(true))
+      ])
+    );
+    const tableHeads = new Map();
+    [...section.querySelectorAll("table")].forEach((t, index) => {
+      t.dataset.tableContext = String(index);
+      tableHeads.set(String(index), [...t.querySelectorAll("thead > tr.repeat, "
+        + "thead > tr.table-context")].map((row) => row.cloneNode(true)));
+    });
     let pageTop = box(section).top, pages = 1;
     let pageStart = [...section.children].find(
       (el) => !el.classList.contains("meta") && !el.classList.contains("banner")
     );
     const fits = (bottom) => bottom - pageTop <= CAP;
+    function prefixBottom(t, end, contents = null) {
+      // Measure the actual retained table, including its closing rule and margin.
+      // A same-slot probe preserves its columns, context and inherited typography.
+      const probe = t.cloneNode(false), range = document.createRange();
+      range.selectNodeContents(t);
+      if (contents) range.setEndBefore(end.parentElement);
+      else range.setEndAfter(end);
+      probe.append(range.cloneContents());
+      if (contents) {
+        const body = end.parentElement.cloneNode(false);
+        for (const row of end.parentElement.rows) {
+          const copy = row.cloneNode(row !== end);
+          if (row === end) copy.append(contents.cloneNode(true));
+          body.append(copy);
+          if (row === end) break;
+        }
+        probe.append(body);
+      }
+      t.before(probe);
+      try { return box(probe).bottom; }
+      finally { probe.remove(); }
+    }
+    function textBottom(el, contents) {
+      const probe = el.cloneNode(false);
+      probe.append(contents.cloneNode(true));
+      el.before(probe);
+      try { return box(probe).bottom; }
+      finally { probe.remove(); }
+    }
+    function pageProgress(el) {
+      if (el.tagName === "TABLE") {
+        const progress = sourceProgress(el, el.tBodies[0]);
+        return progress ? () => prefixBottom(el, progress.row, progress.contents) : null;
+      }
+      for (const point of pointsIn(el)) {
+        const contents = contentsAt(el, point);
+        if (originalText(contents) && fits(textBottom(el, contents))) {
+          return () => textBottom(el, contents);
+        }
+      }
+      return fits(box(el).bottom) ? () => box(el).bottom : null;
+    }
     function breakAt(el) {
       pages += 1;
       const head = document.createElement("p");
       head.className = "cont-head";
       head.setAttribute(ADDED, "");
       head.textContent = title + " (continued) · page " + pages;
+      const owner = el.closest("[data-page-context]");
       el.before(head);
       head.style.breakBefore = "page";
       pageTop = box(head).top;
       pageStart = el;
+      const source = owner && contextHeads.get(owner.dataset.pageContext);
+      if (source) {
+        const progress = pageProgress(el);
+        if (!progress) return;
+        const context = document.createElement("span");
+        context.className = "cont-context";
+        context.append(...[...source.childNodes].map((node) => node.cloneNode(true)));
+        head.append(context);
+        if (!fits(progress())) {
+          const identity = /^.*?\bop\s+\d+\b/.exec(source.textContent);
+          context.textContent = identity ? identity[0] : "";
+          if (!context.textContent || !fits(progress())) context.remove();
+        }
+      }
     }
     // What must start a page with `el`: the headings (and a table's caption) right above
     // it, a heading's lead-in line, and, when `el` opens its parent, what must start a
@@ -249,8 +336,8 @@ _DUPLEX_JS = r"""(() => {
       let start = el;
       for (;;) {
         const prev = start.previousElementSibling;
-        const caption = prev && prev.tagName === "P" && start.tagName === "TABLE"
-          && !prev.hasAttribute(ADDED);
+        const caption = prev && prev.tagName === "P"
+          && /^(TABLE|OL|UL)$/.test(start.tagName) && !prev.hasAttribute(ADDED);
         if (heading(prev) || caption || (prev && prev.classList.contains("lead-in"))) {
           start = prev;
         } else if (!prev && start.parentElement !== section) {
@@ -287,32 +374,119 @@ _DUPLEX_JS = r"""(() => {
       }
       return true;
     }
-    // Only an over-page block is fragmented. Ranges retain its markup and every
-    // authored character; writing fields are atomic and stay on the final fragment.
-    function fragment(el) {
+    function pointsIn(el) {
       const points = [], walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
       let node;
       while ((node = walker.nextNode())) {
-        if (node.parentElement.closest(".field, .result-field, .performed-mark")) continue;
+        if (node.parentElement.closest(
+          ".field, .result-field, .authored-blank, .performed-mark, .reading, "
+            + ".record-continuation, .op-details dt, [" + ADDED + "]"
+        )) continue;
+        const context = node.parentElement.closest(".page-context");
+        if (context && box(context).bottom - box(context).top <= CAP) continue;
         const text = node.textContent, matches = [...text.matchAll(/[ \t\r\n]+/g)];
         for (const match of matches) points.push([node, match.index + match[0].length]);
         if (!matches.length && text.length > 100) {
           for (let offset = 1; offset < text.length; offset++) points.push([node, offset]);
         }
       }
+      return points;
+    }
+    function rowContents(el, point, tail) {
+      // A Range across a row omits cells outside the range. Clone every slot,
+      // including empty ones, so later text stays beneath its original heading.
+      const index = [...el.cells].findIndex((cell) => cell.contains(point[0]));
+      const contents = document.createDocumentFragment();
+      for (const [slot, original] of [...el.cells].entries()) {
+        const copy = original.cloneNode(tail ? slot > index : slot < index);
+        if (slot === index) {
+          const part = document.createRange();
+          part.selectNodeContents(original);
+          if (tail) part.setStart(...point);
+          else part.setEnd(...point);
+          copy.append(part.cloneContents());
+        }
+        contents.append(copy);
+      }
+      return contents;
+    }
+    function contentsAt(el, point, tail = false) {
+      if (el.tagName === "TR") return rowContents(el, point, tail);
       const range = document.createRange();
       range.selectNodeContents(el);
-      // Reserve actual nested padding/rules, not a second guessed page geometry.
+      if (tail) range.setStart(...point);
+      else range.setEnd(...point);
+      return range.cloneContents();
+    }
+    function originalText(contents) {
+      const copy = contents.cloneNode(true);
+      copy.querySelectorAll(".performed-mark, .writing-blank, .record-continuation, "
+        + ".op-number, [" + ADDED + "]").forEach((node) => node.remove());
+      return /[\p{L}\p{N}]/u.test(copy.textContent);
+    }
+    function sourceProgress(t, body) {
+      const row = [...body.rows].find((source) => !source.hasAttribute(ADDED));
+      if (!row) return null;
+      for (const point of pointsIn(row)) {
+        const contents = contentsAt(row, point);
+        if (!originalText(contents)) continue;
+        if (fits(prefixBottom(t, row, contents))) return { row, contents };
+      }
+      return fits(prefixBottom(t, row)) ? { row, contents: null } : null;
+    }
+    function prepareFields() {
+      for (const field of section.querySelectorAll(".field, .result-field, .authored-blank")) {
+        if (box(field).bottom - box(field).top <= CAP) continue;
+        const label = field.querySelector(".field-label");
+        if (!label) continue;
+        const range = document.createRange();
+        range.selectNodeContents(label);
+        const last = [...range.getClientRects()].filter((rect) => rect.width > 0).pop();
+        if (!last) continue;
+        const walker = document.createTreeWalker(label, NodeFilter.SHOW_TEXT);
+        let node, start = null;
+        while (!start && (node = walker.nextNode())) {
+          const offsets = [0];
+          if (!node.parentElement.closest(".reading")) {
+            for (const match of node.textContent.matchAll(/[ \t\r\n]+/g)) {
+              offsets.push(match.index + match[0].length);
+            }
+          }
+          for (const offset of offsets) {
+            if (offset >= node.textContent.length) continue;
+            range.setStart(node, offset);
+            range.setEnd(node, offset + 1);
+            if (range.getBoundingClientRect().top >= last.top) {
+              start = [node, offset]; break;
+            }
+          }
+        }
+        if (!start) continue;
+        range.selectNodeContents(label);
+        range.setEnd(...start);
+        const prose = document.createElement("span");
+        prose.className = "authored-label";
+        prose.append(range.cloneContents());
+        range.selectNodeContents(label);
+        range.setStart(...start);
+        const caption = range.cloneContents();
+        field.before(prose);
+        label.replaceChildren(caption);
+      }
+    }
+    // Only original source is fragmented. Repeated context is admitted whole,
+    // and the writing box stays with the final measured source caption line.
+    function fragment(el) {
+      if (el.hasAttribute(ADDED)) return null;
+      const points = pointsIn(el), range = document.createRange();
+      range.selectNodeContents(el);
+      // A glyph Range is not the final line box or table row. Prove the cloned
+      // prefix's real formatting footprint before accepting the split point.
       function bottomAt(point) {
         range.setEnd(...point);
-        let bottom = range.getBoundingClientRect().bottom;
-        for (let parent = point[0].parentElement; parent; parent = parent.parentElement) {
-          const style = getComputedStyle(parent);
-          bottom += parseFloat(style.paddingBottom) + parseFloat(style.borderBottomWidth)
-            + parseFloat(style.marginBottom);
-          if (parent === el) break;
-        }
-        return bottom;
+        const contents = contentsAt(el, point);
+        if (el.tagName === "TR") return prefixBottom(el.closest("table"), el, contents);
+        return textBottom(el, contents);
       }
       let low = 0, high = points.length - 1, best = -1;
       while (low <= high) {
@@ -326,18 +500,35 @@ _DUPLEX_JS = r"""(() => {
         suffix.selectNodeContents(el);
         suffix.setStart(...points[best]);
         const remaining = suffix.cloneContents();
-        remaining.querySelectorAll(".field, .result-field").forEach((field) => field.remove());
-        if (!remaining.textContent.trim()) continue;
+        remaining.querySelectorAll(".writing-blank, .performed-mark, .record-continuation")
+          .forEach((blank) => blank.remove());
+        if (!/[\p{L}\p{N}]/u.test(remaining.textContent)) continue;
         range.setEnd(...points[best]);
-        const first = range.cloneContents(), rest = el.cloneNode(false);
-        rest.append(suffix.cloneContents());
+        const first = contentsAt(el, points[best]);
+        const rest = el.cloneNode(false);
+        rest.append(contentsAt(el, points[best], true));
         el.replaceChildren(first);
         el.after(rest);
+        for (const field of rest.querySelectorAll(".op-details > div")) {
+          if (!field.querySelector("dd") || field.querySelector("dt")) continue;
+          const source = el.querySelector(".op-details > ." + field.className + " > dt");
+          if (source) {
+            const label = source.cloneNode(true);
+            label.setAttribute(ADDED, "");
+            field.prepend(label);
+          }
+        }
         if (rest.classList.contains("inspection-record")) {
           const identity = document.createElement("p");
           identity.className = "record-continuation";
           identity.textContent = rest.dataset.recordTitle + " (continued)";
           rest.querySelector(".inspection-requirement").prepend(identity);
+        }
+        if (rest.tagName === "LI" && rest.dataset.pageContext) {
+          const identity = document.createElement("span");
+          identity.className = "record-continuation";
+          identity.textContent = rest.dataset.pageContext + " (continued)";
+          rest.prepend(identity);
         }
         const warning = rest.querySelector(".box")
           || (rest.matches(".stop, .caution") ? rest : null);
@@ -349,17 +540,86 @@ _DUPLEX_JS = r"""(() => {
       }
       return null;
     }
-    function operationContext(body) {
-      if (!body.classList.contains("operation")) return;
-      const row = body.insertRow(0), cell = row.insertCell();
-      row.className = "operation-continuation";
+    function contextRow(source) {
+      const row = source.cloneNode(true);
+      row.classList.add("operation-continuation");
       row.setAttribute(ADDED, "");
-      cell.textContent = "Op " + body.dataset.op + " (continued)";
+      row.querySelectorAll(".performed-mark, .writing-blank").forEach((mark) => mark.remove());
+      row.querySelectorAll(".field, .result-field, .authored-blank").forEach((field) => {
+        field.replaceWith(...[...(field.querySelector(".field-label")?.childNodes || [])]);
+      });
+      const number = row.querySelector(".op-number");
+      if (number) number.append(" (continued)");
+      return row;
+    }
+    function operationContext(t, body, progress) {
+      const sources = operationHeads.get(body.dataset.op);
+      if (!sources || !body.hasAttribute("data-operation-continuation")) return;
+      const full = contextRow(sources[0]), identity = full.cloneNode(true);
+      identity.querySelector(".op-action").remove();
+      identity.querySelector(".op-head h3").replaceChildren(identity.querySelector(".op-number"));
+      identity.querySelector(".op-details").remove();
+      body.prepend(identity);
+      const accepted = () => fits(prefixBottom(t, progress.row, progress.contents));
+      if (!accepted()) {
+        identity.remove();
+        throw new Error("An operation identity cannot share a page with original source progress.");
+      }
+      identity.replaceWith(full);
+      if (!accepted()) {
+        full.replaceWith(identity);
+        const compact = full.querySelector(".op-details").cloneNode(true);
+        [...compact.children].forEach((field) => {
+          if (!field.matches(".op-tool, .op-target, .op-direction")) field.remove();
+        });
+        identity.cells[0].append(compact);
+        if (!accepted()) compact.remove();
+      }
+      const notes = sources.slice(1).map(contextRow);
+      const head = [...body.rows].find((row) => row.hasAttribute(ADDED));
+      head.after(...notes);
+      if (!accepted()) notes.forEach((row) => row.remove());
+    }
+    function tableContext(t, progress) {
+      if (!t.hasAttribute(SPLIT)) return;
+      for (const source of tableHeads.get(t.dataset.tableContext) || []) {
+        const row = source.cloneNode(true);
+        row.setAttribute(ADDED, "");
+        const columns = t.tHead.querySelector("tr:not(.repeat):not(.table-context)");
+        columns.before(row);
+        if (fits(prefixBottom(t, progress.row, progress.contents))) continue;
+        const cell = row.cells[0], text = cell.textContent;
+        const boundary = text.search(/[;.!?]\s/);
+        const identity = /^.*?\bop\s+\d+\b/.exec(text)
+          || /\([^()]*\)(?=\s+\(continued\)$)/.exec(text);
+        if (row.classList.contains("repeat")) {
+          cell.textContent = identity ? identity[0] : "";
+        } else if (boundary >= 0) {
+          const range = document.createRange(), walker = document.createTreeWalker(
+            cell, NodeFilter.SHOW_TEXT
+          );
+          let remaining = boundary + 1, node;
+          range.selectNodeContents(cell);
+          while ((node = walker.nextNode())) {
+            if (remaining <= node.textContent.length) {
+              range.setEnd(node, remaining); break;
+            }
+            remaining -= node.textContent.length;
+          }
+          cell.replaceChildren(range.cloneContents());
+        } else cell.replaceChildren();
+        if (!cell.textContent || !fits(prefixBottom(t, progress.row, progress.contents))) {
+          row.remove();
+        }
+      }
     }
     function splitBody(t, body) {
       const rows = [...body.rows];
-      let index = rows.findIndex((row) => !fits(box(row).bottom));
+      const ending = box(t).bottom - box(t.tBodies[t.tBodies.length - 1]).bottom;
+      let index = rows.findIndex((row) => !fits(box(row).bottom + ending));
+      while (index > 0 && !fits(prefixBottom(t, rows[index - 1]))) index -= 1;
       if (index < 0) return false;
+      if (rows[index].hasAttribute(ADDED)) return false;
       if (rows.slice(0, index).every((row) => row.hasAttribute(ADDED))) {
         // No authored row fits beside the repeated heading: continue the oversized
         // row itself, never emit a page containing only a continuation label.
@@ -371,8 +631,20 @@ _DUPLEX_JS = r"""(() => {
       if (!t.classList.contains("operations")) rest.setAttribute("data-duplex-fragment", "");
       rest.append(...[...body.rows].slice(index));
       body.after(rest);
-      operationContext(rest);
+      if (rest.classList.contains("operation")) {
+        rest.setAttribute("data-operation-continuation", "");
+      }
       return true;
+    }
+    function startTablePage(t) {
+      t.setAttribute(SPLIT, "");
+      t.tHead.querySelectorAll("tr.continued, tr.repeat, tr.table-context")
+        .forEach((row) => row.remove());
+      breakAt(t);
+      const progress = sourceProgress(t, t.tBodies[0]);
+      if (!progress) throw new Error("A continuation cannot advance its original source.");
+      operationContext(t, t.tBodies[0], progress);
+      tableContext(t, progress);
     }
     // Bodies from j onward go to a copy with the same headings, on the next page.
     function cut(t, j) {
@@ -382,6 +654,7 @@ _DUPLEX_JS = r"""(() => {
         if (part.tagName !== "COLGROUP" && part.tagName !== "THEAD") continue;
         const copy = part.cloneNode(true);
         copy.querySelectorAll("tr.continued").forEach((row) => row.remove());
+        copy.querySelectorAll("tr.repeat, tr.table-context").forEach((row) => row.remove());
         rest.append(copy);
       }
       rest.append(...[...t.tBodies].slice(j));
@@ -417,12 +690,19 @@ _DUPLEX_JS = r"""(() => {
           more = null;
         }
       }
-      breakAt(rest);
+      startTablePage(rest);
       if (more) pointer(pages % 2 === 0 ? "on reverse" : "on the next sheet");
       table(rest);
     }
     function table(t) {
-      const over = () => [...t.tBodies].findIndex((body) => !fits(box(body).bottom));
+      const over = () => {
+        const bodies = [...t.tBodies];
+        if (!bodies.length) return -1;
+        const ending = box(t).bottom - box(bodies[bodies.length - 1]).bottom;
+        let index = bodies.findIndex((body) => !fits(box(body).bottom + ending));
+        while (index > 0 && !fits(prefixBottom(t, bodies[index - 1]))) index -= 1;
+        return index;
+      };
       let j = over();
       if (j === 0 && move(t)) j = over();
       if (!t.classList.contains("operations")) {
@@ -431,23 +711,28 @@ _DUPLEX_JS = r"""(() => {
         const countBefore = (index) => bodies.slice(0, index).filter(
           (body) => !body.hasAttribute("data-duplex-fragment")
         ).length;
-        // Only original ordinary-table row groups count toward the base's KEEP=3.
-        // A candidate is admitted only when the groups before it actually fit.
+        // Only original ordinary-table groups count toward KEEP, never fragments
+        // or added context. Feasibility includes the retained table's closing geometry.
         const tail = authored.length >= 2 * KEEP
           ? bodies.indexOf(authored[authored.length - KEEP]) : -1;
-        const adjust = () => {
-          if (j <= 0 || j >= bodies.length) return;
+        if (j > 0 && j < bodies.length) {
           const before = countBefore(j), after = authored.length - before;
-          if (before >= KEEP && after >= KEEP) return;
-          if (before >= KEEP && tail > 0 && fits(box(bodies[tail - 1]).bottom)) {
-            j = tail;
-          } else if (move(t)) {
-            j = over();
-            if (j > 0 && countBefore(j) >= KEEP && tail > 0
-                && fits(box(bodies[tail - 1]).bottom)) j = tail;
+          if (before < KEEP || after < KEEP) {
+            if (before >= KEEP && tail > 0 && fits(prefixBottom(t, bodies[tail - 1]))) {
+              j = tail;
+            } else if (move(t)) {
+              j = over();
+              if (j > 0 && countBefore(j) >= KEEP && tail > 0
+                  && fits(prefixBottom(t, bodies[tail - 1]))) j = tail;
+            }
           }
-        };
-        adjust();
+        }
+      }
+      // An authored caption may fit alone but not share even the first original row.
+      // Keep its words there, then admit bounded context beside real source progress.
+      if (j === 0 && t !== pageStart && !sourceProgress(t, t.tBodies[0])) {
+        startTablePage(t);
+        j = over();
       }
       if (j === 0) {
         if (!splitBody(t, t.tBodies[0])) {
@@ -477,8 +762,8 @@ _DUPLEX_JS = r"""(() => {
           } else move(el);
         } else if (b.bottom - b.top <= CAP && move(el) && fits(box(el).bottom)) {
           continue;
-        } else if (el.children.length && !el.matches("p, li, .stop, .caution, .unverified")) {
-          // Stack side-by-side blocks before measuring their contents, as in the base.
+        } else if (el.children.length
+            && !el.matches("p, li, .page-context, .stop, .caution, .unverified")) {
           const s = getComputedStyle(el);
           if (s.display.endsWith("flex") && !s.flexDirection.startsWith("column")) {
             el.setAttribute(STACKED, "");
@@ -498,6 +783,7 @@ _DUPLEX_JS = r"""(() => {
         }
       }
     }
+    prepareFields();
     walk(section);
     section.querySelectorAll(".cont-head").forEach((head) => {
       head.textContent += " of " + pages;
@@ -579,6 +865,12 @@ _STOCK_BOX_TOL_MM = 1e-3
 # auto-sized columns would squeeze a move number to one digit a line.
 _NUMBER = re.compile(r"[-−+]?\d+\.\d+")
 _WHOLE = re.compile(r"\d+")
+_READING_UNITS = r"(?:\s*(?:(?:mm|in)(?:/(?:rev|min))?|rpm|sfm|°))?"
+_READING = re.compile(
+    rf"(?<![\w.])(?:[XYZØRD]\s*(?:[→=]\s*)?)?[-−+±]?\d+(?:\.\d+)?"
+    rf"{_READING_UNITS}(?!\w|\.\d)"
+    rf"|(?<![\d.])[-−+±]?(?:\d+\.\d+|\.\d+){_READING_UNITS}(?!\d|\.\d)"
+)
 # The job page's abbreviation key: (printed form, meaning); a key prints only when used.
 _ABBREVIATIONS = (
     (r"\bT\d+\b", "T# = tool number in that setup's TOOLS table."),
@@ -1127,6 +1419,11 @@ class _Plain(str):
 class _Note(str):
     """An op's own note, printed on its own line directly under the op's row."""
 
+    def __new__(cls, text, context=None):
+        note = super().__new__(cls, text)
+        note.context = context
+        return note
+
 
 @dataclass(frozen=True)
 class _Inspection:
@@ -1142,26 +1439,40 @@ class _Inspection:
 class _Row(tuple):
     """Table cells plus full-width warnings printed beneath the row."""
 
-    def __new__(cls, cells, warnings=()):
+    def __new__(cls, cells, warnings=(), optional_observations=False):
         row = super().__new__(cls, cells)
         row.warnings = tuple(dict.fromkeys(warnings))
+        row.optional_observations = optional_observations
         return row
+
+
+def _numeric_html(text):
+    """Escape source text without splitting a signed numeric value from its units."""
+    text = str(text)
+    parts, end = [], 0
+    for reading in _READING.finditer(text):
+        parts.append(escape(text[end : reading.start()]))
+        parts.append(f'<span class="reading">{escape(reading.group())}</span>')
+        end = reading.end()
+    parts.append(escape(text[end:]))
+    return "".join(parts)
 
 
 def _p(text, css=""):
     attribute = f' class="{css}"' if css else ""
-    return f"<p{attribute}>{escape(str(text))}</p>"
+    return f"<p{attribute}>{_numeric_html(text)}</p>"
 
 
 def _cell_line(line):
     if isinstance(line, _Box):
-        return f'<span class="box">{escape(str(line))}</span>'
-    return escape(str(line))
+        return f'<span class="box">{_numeric_html(line)}</span>'
+    return _numeric_html(line)
 
 
 def _writing_field(label, css="field"):
+    caption = f'<span class="field-label">{_numeric_html(label)}</span>' if label else ""
     return (
-        f'<span class="{css}"><span class="field-label">{escape(label)}</span>'
+        f'<span class="{css}">{caption}'
         '<span class="writing-blank" aria-hidden="true"></span></span>'
     )
 
@@ -1175,7 +1486,7 @@ def _warning_line(warning):
     if isinstance(warning, _Note):
         return f'<div class="op-note">{_fields(warning)}</div>'
     if isinstance(warning, _Plain):
-        return f'<span class="see">{escape(warning)}</span>'
+        return f'<span class="see">{_numeric_html(warning)}</span>'
     return _cell_line(_Box(warning))
 
 
@@ -1227,11 +1538,24 @@ def _ledger_row(row, headings):
             + _writing_field(label, "result-field")
             + "</div></td></tr>"
         )
+    if (
+        row.optional_observations
+        and not any(isinstance(check, _Inspection) for check in checks)
+        and not _FIELD.search(str(action))
+        and not any(_FIELD.search(str(warning)) for warning in row.warnings)
+    ):
+        result.append(
+            '<tr class="process-observations" data-process="coating"><td>'
+            + _writing_field("Additional writing space (optional)", "result-field")
+            + "</td></tr>"
+        )
     result.append("</tbody>")
     return "".join(result)
 
 
-def _table(headings, rows, css="", widths=None, continued=None, repeat=None, strong=()):
+def _table(
+    headings, rows, css="", widths=None, continued=None, repeat=None, strong=(), context=None
+):
     """Repeat the table's context on continuations. Each body is one keep-together group;
     operations use full-width ledger rows instead of compressed columns. ``strong``
     columns are the ones the operator reads from; a cell holding one number never wraps."""
@@ -1243,10 +1567,15 @@ def _table(headings, rows, css="", widths=None, continued=None, repeat=None, str
             "<colgroup>" + "".join(f'<col style="width:{w}%">' for w in widths) + "</colgroup>"
         )
     attribute = f' class="{css}"' if css else ""
-    result = [f"<table{attribute}>", columns, "<thead>"]
+    result = [_p(context, "table-intro")] if context else []
+    result.extend((f"<table{attribute}>", columns, "<thead>"))
     for kind, title in (("continued", continued), ("repeat", repeat)):
         if title:
-            result.append(f'<tr class="{kind}"><th colspan="{count}">{escape(title)}</th></tr>')
+            result.append(f'<tr class="{kind}"><th colspan="{count}">{_numeric_html(title)}</th></tr>')
+    if context:
+        result.append(
+            f'<tr class="table-context"><th colspan="{count}">{_numeric_html(context)}</th></tr>'
+        )
     if ledger:
         result.append(
             "<tr><th>Performed mark: operation performed only — "
@@ -1324,19 +1653,30 @@ class _Note(str):
 # Discovery is brace-only: underscore prompts never become named worksheet readings.
 _NAMED_FIELD = re.compile(r"\{([^{}]+)\}")
 # Presentation also gives standalone authored underscore prompts real pen room.
-_FIELD = re.compile(r"\{([^{}]+)\}|(?<![\w])_{3,}(?![\w])")
+_FIELD = re.compile(r"\{([^{}]+)\}|(?<!\w)_{3,}(?!\w)")
 # A step starting with this prints apart from the numbered steps, as the calculation line.
 CALCULATION = "Calculate:"
 
 
 def _fields(text):
-    parts, end = [], 0
     text = str(text)
+    parts, end = [], 0
     for field in _FIELD.finditer(text):
-        parts.append(escape(text[end : field.start()]))
-        parts.append(_writing_field(field.group(1) or ""))
+        prefix = text[end : field.start()]
+        if field[1] is not None:
+            parts.extend((_numeric_html(prefix), _writing_field(field[1])))
+        else:
+            # Keep the authored sentence/calculation caption with its sole box.
+            boundaries = list(re.finditer(r"[.!?;]\s+", prefix))
+            start = boundaries[-1].end() if boundaries else 0
+            parts.extend(
+                (
+                    _numeric_html(prefix[:start]),
+                    _writing_field(prefix[start:], "authored-blank"),
+                )
+            )
         end = field.end()
-    parts.append(escape(text[end:]))
+    parts.append(_numeric_html(text[end:]))
     return "".join(parts)
 
 
@@ -1346,16 +1686,18 @@ def _readings(steps):
 
 
 def _worksheet(item):
-    """A stepwise procedure that records readings, laid out as its own worksheet (the sheet
-    heading names it): the numbered steps name each reading where it is taken, the
-    READINGS table has a line to write each in (with the step that takes it), and the
-    calculation lines work them."""
+    """Keep source step references, one value field per named reading, and authored calculations."""
     _, steps, calculations = item
 
     def named(text):
-        return _NAMED_FIELD.sub(
-            lambda m: f'<b class="reading">[{m.group(1)}]</b>', escape(str(text))
-        )
+        text = str(text)
+        parts, end = [], 0
+        for field in _NAMED_FIELD.finditer(text):
+            parts.append(_numeric_html(text[end : field.start()]))
+            parts.append(f'<b class="reading">[{escape(field[1])}]</b>')
+            end = field.end()
+        parts.append(_numeric_html(text[end:]))
+        return "".join(parts)
 
     return (
         _p("Take each reading at its step and write it in the READINGS table.")
@@ -1375,10 +1717,17 @@ def _worksheet(item):
 
 def _item(item):
     if not isinstance(item, _Steps):
+        context = getattr(item, "context", None)
+        if context:
+            return (
+                f'<span class="page-context">{_numeric_html(context)}</span>'
+                + _fields(str(item)[len(context) :])
+                + getattr(item, "sketch", "")
+            )
         return _fields(item) + getattr(item, "sketch", "")
     head, steps, calculations = item
     return (
-        escape(head)
+        f'<span class="page-context">{_numeric_html(head)}</span>'
         + item.sketch
         + '<ol class="steps">'
         + "".join(f"<li>{_fields(step)}</li>" for step in steps)
@@ -1389,7 +1738,12 @@ def _item(item):
 
 def _list(items, ordered=True):
     tag = "ol" if ordered else "ul"
-    return f"<{tag}>" + "".join(f"<li>{_item(i)}</li>" for i in items) + f"</{tag}>"
+    rendered = []
+    for item in items:
+        context = item[0] if isinstance(item, _Steps) else getattr(item, "context", None)
+        attribute = f' data-page-context="{escape(context)}"' if context else ""
+        rendered.append(f"<li{attribute}>{_item(item)}</li>")
+    return f"<{tag}>" + "".join(rendered) + f"</{tag}>"
 
 
 def _box(css, heading, lines):
@@ -1956,6 +2310,7 @@ class _Traveler:
         return html
 
     # -------------------------------------------------------------- holding
+
     def hold(self, setup):
         hold = _mapping(setup.get("hold"))
         lathe = self.lathe(setup)
@@ -2085,7 +2440,10 @@ class _Traveler:
         below = (
             _table([name for name, _ in facts], [[value for _, value in facts]]) if facts else ""
         )
-        return "<h2>HOLD</h2>" + _list(steps), below + self.indexing(setup)
+        return (
+            "<h2>HOLD</h2>" + _list(steps),
+            below + self.indexing(setup),
+        )
 
     def align_step(self, setup, hold):
         """The step that squares a vise's fixed jaw, or an angle plate's locating face, to
@@ -2901,6 +3259,7 @@ class _Traveler:
                     [headings[c] for c in keep],
                     [[row[c] for c in keep] for row in rows],
                     widths=widths,
+                    repeat=title + " (continued)",
                 )
                 if rows
                 else ""
@@ -3275,10 +3634,13 @@ class _Traveler:
         html = "<h2>CLEARANCE — mill</h2>" + "".join(_p(line) for line in lines)
         if rows:
             html += _table(
-                ["op", "tool", "closest obstacle", "clearance mm", "action"],
-                rows,
+                ["op", "tool", "closest obstacle", "clearance mm"],
+                [
+                    _Row(row[:4], [_Plain("action: " + row[4])]) if row[4] else row[:4]
+                    for row in rows
+                ],
                 css="clearance",
-                widths=[10, 10, 40, 14, 26],
+                widths=[12, 12, 55, 21],
             )
         # One block: the pagination moves the whole section rather than leave its travel
         # lines on one page and its table on the next.
@@ -3902,7 +4264,7 @@ class _Traveler:
         # Executed order: the part is indicated true (or aligned) before any tool touches it.
         transfer = _mapping(authored.get("transfer"))
         if transfer:
-            pieces.append(_p(self.transfer_line(setup, transfer) + "."))
+            pieces.append(_p(self.transfer_line(setup, transfer) + ".", "zero-transfer"))
         axes = numbers.get("axes", {})
         # Each toolpost tool is set on centre (a blade also squared) before its first
         # touch-off in the setup: the zero's tools before the zero, the rest before theirs.
@@ -4015,6 +4377,7 @@ class _Traveler:
                     "if reversed",
                 ],
                 rows,
+                css="zero",
                 widths=[9, 41, 13, 11, 13, 13],
             )
         )
@@ -4533,13 +4896,8 @@ class _Traveler:
                         ),
                     )
                 )
-            table = _table(
-                ["feature", "drawing Ø limits", heading, "cut from Z", "cut to Z"],
-                rows,
-                widths=[32, 17, 17, 17, 17],
-            )
-            if prefix is None:
-                table += _p(_X_DISPLAY_STOP + ".", "stop")
+            headings = ["feature", "drawing Ø limits", heading, "cut from Z", "cut to Z"]
+            widths = [32, 17, 17, 17, 17]
             note = (
                 {"diameter": "X reads diameter. ", "radius": "X reads radius. "}.get(display, "")
                 + "Z values are where this setup's cuts on each surface start "
@@ -4559,12 +4917,14 @@ class _Traveler:
                 )
                 for (feature, c) in grouped
             ]
-            table = _table(
-                ["feature", "reference point", "X", "Y", "Z"], rows, widths=[26, 38, 12, 12, 12]
-            )
+            headings = ["feature", "reference point", "X", "Y", "Z"]
+            widths = [26, 38, 12, 12, 12]
             note = "The op table gives the tool targets."
             note += "".join(f" {text}" for text in dict.fromkeys(filter(None, aims)))
-        return f"<h2>FEATURE MAP — {escape(self.zero_name(setup))}</h2>" + table + _p(note)
+        table = _table(headings, rows, css="feature-map", widths=widths, context=note)
+        if lathe and prefix is None:
+            table += _p(_X_DISPLAY_STOP + ".", "stop")
+        return f"<h2>FEATURE MAP — {escape(self.zero_name(setup))}</h2>" + table
 
     def reference_point(self, setup, feature, z):
         """What a feature-map row's X / Y / Z stand on, from the feature's own kind: an arc
@@ -5019,7 +5379,7 @@ class _Traveler:
         ``Calculate:`` steps apart as the calculation lines; a string prints as before
         (:meth:`steps`)."""
         if not isinstance(procedure, list):
-            return f"{head}: {self.steps(procedure)}"
+            return _Note(f"{head}: {self.steps(procedure)}", head + ":")
         steps = [self.bench(step) for step in procedure]
         return _Steps(
             (
@@ -5632,7 +5992,9 @@ class _Traveler:
             inspection = self.inspection(setup, op, inspection_notes, worksheets, sheets)
             if finishing:
                 cells = (_text(op["op"]), features, tool, instruction or ", ".join(action))
-                rows.append(_Row((*cells, inspection), boxes))
+                rows.append(
+                    _Row((*cells, inspection), boxes, optional_observations=op.get("do") == "coating")
+                )
                 continue
             rows.append(
                 _Row(
@@ -5648,6 +6010,7 @@ class _Traveler:
                         inspection,
                     ),
                     boxes,
+                    optional_observations=op.get("do") == "coating",
                 )
             )
         if finishing:
@@ -6386,7 +6749,7 @@ class _Traveler:
                 title += f" · Z {next(iter(entry['z']))}"
             if op.get("direction"):
                 title += f" · {self.direction(op['direction'])}"
-            content = f"<h3>{escape(title)}</h3>"
+            content = f'<h3 class="page-context">{_numeric_html(title)}</h3>'
             note = self.level_entries(setup, op, waypoints) if op else ""
             if note:
                 content += note
@@ -6442,12 +6805,12 @@ class _Traveler:
                     label = {0: "ROUGH", 1: "FINISH"}.get(rank[0]) if wide else None
                     pieces.append(
                         (f"<h4>{label}</h4>" if label else "")
-                        + _p(self.bench(description) + ".")
                         + _table(
                             shown,
                             cells,
                             css="coords",
                             repeat=title,
+                            context=self.bench(description) + ".",
                             strong=[i for i, h in enumerate(shown) if h.startswith("tool ")],
                         )
                         + (_p(after) if after else "")
@@ -6461,7 +6824,7 @@ class _Traveler:
                 else:
                     content += "".join(pieces)
             css = "contour wide" if wide else "contour"
-            html.append(f'<div class="{css}">{content}</div>')
+            html.append(f'<div class="{css}" data-page-context="{escape(title)}">{content}</div>')
         heading = (
             f"<h2>CONTOURS — {escape(self.zero_name(setup))}; "
             + (

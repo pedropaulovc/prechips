@@ -354,7 +354,13 @@ applicable and nearby authored context stay associated. Identify feature/locatio
 when needed; no positions, reading counts, statistics or acceptance obligations
 are inferred. A true shared across-faces shoulder dimension remains one record;
 equal printed bands alone do not certify shared physical identity. Specifically
-named authored `{name}` procedure fields remain distinct and at least 10 mm deep.
+named authored `{name}` procedure fields remain distinct, with a 35 × 10 mm
+clear interior floor. Existing standalone underscore recording prompts become
+full-width white fields at least 20 mm deep; their surrounding instruction text
+is unchanged. A typed coating operation without a genuine inspection record or
+authored recording prompt may carry **Additional writing space (optional)**.
+That area adds no requirement identity, target, mandatory check or acceptance
+obligation. Titles, source words, numbers and inspection methods are unchanged.
 Unknown requirement identities, bands and other debt stay visible and gain
 neither fabricated result data nor invented gauges.
 GO / NO-GO meaning and gauge/source ownership are unchanged.
@@ -374,6 +380,9 @@ Setup overview/operations section, in this order:
    hits the part or the holding`); repeats are collapsed. *Not verified by the
    planner — confirm at the machine* names the unproved topics with their ops.
    Errors never print as `?`; unknowns never read as passes.
+   Only an explicitly `measure_before_hold = true` M is acquired in its original
+   HOLD step before clamping, with one writing field; the zero row refers back
+   to it. Absent or false declarations retain measurement at the machine.
 2. **HOLD**: a numbered clamping sequence (mount, supports, grip, stop,
    tighten, then the authored notes) at full width; semantic picture panels
    follow in the attached picture section. Without a render the overview prints
@@ -405,7 +414,9 @@ Setup overview/operations section, in this order:
    the axis were reversed — plus re-indicate and tool-change touch-offs (several
    changes to one touch print once, naming their ops: `Tool changes before ops
    20, 30 and 40: install the op's tool (the T number in its row), then …`; the
-   tools themselves stay in the TOOLS table and the op rows). On a
+   tools themselves stay in the TOOLS table and the op rows). Existing indicating/
+   transfer prerequisites appear before the zero table, without changing their
+   words, methods or limits. On a
    mill, an X or Y check jog from a side pickup would carry the finder over the
    work, so the sheet prints the check as steps: raise Z only, until the finder
    or indicator clears the work and everything clamped to it (checked by eye
@@ -481,7 +492,9 @@ Attached picture, clearance, feature-map and inspection-note section:
    or an unproven holder wall clearance is a check-at-the-machine action; a jaw
    clearance within 3 mm asks for a hand-fed approach, holding within 3 mm of a
    cutter `hand feed past the …`, of a file `keep the file clear of the …`. Ops
-   with the same tool, obstacle, clearance and action share a row.
+   with the same tool, obstacle, clearance and action share a row. The existing
+   clearance action sentence occupies a full-width associated row, making the
+   complete action visible without changing its wording.
 3. **FEATURE MAP**. Lathe: each surface the setup cuts (one it only inspects,
    such as an as-supplied diameter, has no size to turn to and is left off):
    feature, the drawing's Ø limits (`—` for a process
@@ -494,11 +507,13 @@ Attached picture, clearance, feature-map and inspection-note section:
    its Z is the op row's) unless it carries an aim; a map with no row left is not
    printed. An aimed target adds one line: where to machine it, its offset from
    the drawing nominal and the band to inspect it to. Feature locations, not tool
-   tips.
+   tips. The existing qualification is in the repeatable table header so it
+   remains visible on continuation pages.
 4. **INSPECTION NOTES**: numbered inspection procedures, each starting with its
-   setup and op (`S2 op 30: …`). A procedure that works its readings through two
-   or more calculation lines is not a note but a worksheet on a sheet of its own
-   (see below).
+   setup and op (`S2 op 30: …`). Complete original operation context repeats
+   when it fits beside original source progress on a continuation page.
+   A procedure that works its named readings through two or more calculation
+   lines is a worksheet on its own logical sheet, not a note (see below).
 
 The attached *contours* section (only when the setup has contour ops) has one
 block per contour op titled with setup, op, tool and direction (`S2 op 50
@@ -512,8 +527,9 @@ is not computed. A table the kernel clipped at the op's stock-removal bounds
 names the printed point it starts or stops at (`stops at P7: the stock past it
 is outside this op's area`). Long contour tables may run onto more pages
 ("paper is cheap"); every block still names its setup. A move number and each
-depth level's completion box with its `level k of N` print whole on one line,
-however narrow the block.
+ depth level's completion box with its `level k of N` print whole on one line,
+ however narrow the block. Each continuation admits complete original context
+ only when it fits beside original source progress; it never fragments added context.
 
 Worksheets, one logical sheet each after the contours (`SETUP S11 — sheet 4 of 4:
 worksheet, S11 op 110 angularity Ø`): the numbered steps name each reading

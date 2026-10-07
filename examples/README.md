@@ -751,6 +751,26 @@ correction had 7 physical pages for shaft, 10 for rocker and 10 for bracket,
 matching the then-logical sections. Those counts are history, not the current
 layout contract. Footers flow after instructions.
 
+Latest parent-reported normal run, **R5**: all four actual CLI runs exited 0.
+Letter PDFs had 52 shaft, 154 rocker, 76 bracket and 112 cone pages (394 total),
+all even. Minimum native text font was 9.997 pt; all four had zero half-inch
+glyph-margin violations, setup starts on backs or header-only continuations.
+Findings, input bindings, STEP and other nonvisual report fields matched the
+**original captured baseline `d4b8826`** exactly. All R1–R5 findings-preservation
+and print observations below belong to that old-base work, not the subsequently
+advanced `origin/review/compose-r5` at `1efbef15d9824a6438cdb636a9543509f194943f`.
+New-base integration and proof remain pending. Counts are observations, not fixed targets.
+
+Targeted image reviews cleared shaft A14's complete operation context and cone
+A13/A23's dimension-label obstruction, not the whole package. New local review
+findings concern progress/context handling for long authored notes, overlong
+underscore-caption atomic layout failure and browser-fixture network containment.
+Repairs, R6 regeneration, final image review and the full gate remain pending.
+Physical printer/pen/operator rehearsal is still unobserved.
+
+<details>
+<summary>Historical prototype evidence (R1–R4; statuses at observation time)</summary>
+
 Readability prototype evidence reported by the integrating parent: actual CLI
 exit 0 for pivot-shaft, rocker, bracket and cone. First-round Letter PDFs had
 48 even pages for pivot-shaft, 134 for rocker and 70 for bracket; the parent also
@@ -758,9 +778,82 @@ reported an even Letter PDF for cone. These are intermediate observations with l
 fixes pending, not frozen reference page counts. All 48 pivot-shaft pages had
 text bounds within the 0.5-inch margins and an observed minimum font of about
 10 pt for metadata. Its HTML had no root overflow at 320/375/414/768 px;
-repeated `beforeprint` was stable with no layout error. Final all-bundle
-regeneration after fixes, the combined gate, and physical printer/pen/operator
-rehearsal remain unobserved here.
+repeated `beforeprint` was stable with no layout error. These first-round counts
+are historical prototypes; the later R4 observations below do not yet establish
+final layout acceptance, the combined gate or physical rehearsal.
+
+Separate parent-reported semantic smoke used the same genuine captured bracket
+kernel result in both CLI `check` processes: both exited 0, made no native
+discovery calls and produced byte-identical reports. This demonstrates host
+checker/report preservation for identical supplied geometry, not new-painter or
+native-run equivalence. Independent baseline/candidate runs retained identical
+source-input and STEP hashes; shaft, rocker and cone findings were identical.
+Six bracket numbers differed by 0.000001 in native stock-cylinder highest-Z
+measurements.
+
+A separate fresh frozen-baseline positive control started with an empty isolated
+kernel cache and exited 0. With unchanged source/binary identities and the
+reconstructed original cache key, it reproduced the candidate's differing
+numbers while all six render PNG hashes matched the old baseline. Thus the
+numeric differences also occur under the frozen baseline's own keyed inputs;
+they are not uniquely attributable to the readability changes. Their ultimate
+native cause and harmlessness remain unproven. Independent findings are not
+claimed universally bit-identical, and no values or tolerances were rewritten.
+Neither control establishes final print acceptance or a physical
+printer/pen/operator trial.
+
+The subsequent parent comparison found all candidate-R2 findings exactly equal
+to the actual baseline, using the explicitly fresh frozen-source positive
+control for bracket. This separate result does not overwrite the original
+epsilon observation above or claim an established native-repeatability cause.
+
+Separate R3 long-content stress evidence reported by the parent: the actual
+Letter PDF had 72 pages and preserved all 2,800 ordered entries (1,400 NOTE and
+1,400 RECORD). Minimum native text font was 9.997 pt; no text violated the
+half-inch margins, every setup started on an odd page, and there were zero
+header-only continuations versus ten in R2. This is stress-layout evidence,
+not final normal-bundle acceptance or a physical trial. An R3 partial rocker
+PDF was invalid for approval after a 300-second FreeCAD timeout while geometry
+tests ran. No all-bundle R3 success is claimed.
+
+Normal R4 observations reported by the parent: all four actual CLI runs exited
+0. Serial rocker completed in 201.126 seconds; its success under changed
+conditions does not establish the cause of the concurrent R3 timeout. Actual
+Letter PDFs had 50 shaft, 146 rocker, 74 bracket and 112 cone pages (382 total),
+all even. Minimum native text font was 9.997 pt, all glyphs stayed within
+half-inch margins, all setup starts were odd, and no continuation had only a
+header. These are R4 observations, not frozen page-count targets.
+
+Headed-browser checks passed for all four bundles at 320/375/414/768 px:
+no root clipping, horizontal root scroll or oversized content; three
+`beforeprint` calls were stable, and numeric spans had no line breaks. Real
+recording areas had 184.067 × 19.997 mm clear interiors. Minimum native DOM text
+contrast ranged from 14.167 to 17.615 with no failures; that does not measure
+bitmap PNG contrast or physical print contrast.
+
+The R4 comparison against the **original captured baseline** exited 0 with
+exact findings, authored bindings, STEP and other nonvisual fields for all four
+bundles. Comparison against the separate fresh frozen-source bracket control
+instead shows the reverse six epsilon differences: R4 matches the older native
+cache values. Both referents remain explicit; this is not proof of native
+repeatability or painter equivalence, and no values were rewritten.
+
+The parent reported an R4 focused test run before the pending R5 repairs:
+`uv run pytest -q tests/test_sheet_ops.py tests/test_render_png.py tests/test_sheet_job.py tests/test_sheet_precision.py tests/test_process_route.py`
+exited 0 with 236 passed in 166.75 seconds. Earlier failures had been repaired
+before that run. This result covers the R4 tree only, not subsequent R5 repairs,
+final layout acceptance or the full gate.
+
+Review of all 382 page images returned three CLEAR ranges and nine FIX ranges.
+Remaining fixes concerned repeated table-specific notes, full operation context,
+check-jog lead-ins, the Y1 label/box, C1 fixture title and dimension text/line
+collisions; code review also requested cell-column alignment and joint-ink
+repairs. R4 is **not layout-approved or frozen**. R5 regeneration, repaired-page
+review and the full gate remain pending. Physical printer/pen/operator rehearsal
+is still unobserved.
+
+</details>
+
 Before-start lines use ✗ / ! / ?. Tables apply explicit drawing precision;
 known operative/manual targets retain their supplied numeric form when drawing
 precision is absent, without inventing an acceptance band. Actual unknown
