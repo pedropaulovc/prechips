@@ -358,7 +358,7 @@ z_to = 0.0
 doc_mm = 0.1                # Ø6.55 → Ø6.35; example (plausible, not measured), under the .125 in (3.2 mm) depth Machinery's Handbook 27th ed. bases its Table 1 p.1027 HSS speeds on (p.1026); the Table 5c p.1036 depth factor only raises speed for lighter cuts
 feed_mm_rev = 0.05          # example (plausible, not measured); .0020 in/rev, the .002 in (0.05 mm) row of Machinery's Handbook 27th ed. Table 5c p.1036 HSS feeds
 direction = "toward_chuck"  # author's choice: plain end to the thrust face in one pass
-note = "One pass, Ø6.55 → Ø6.35, with the rest jaws set on the finished diameter at Z152. Mic at both ends and the middle for taper before moving on."
+note = "One pass, Ø6.55 → Ø6.35, with the rest jaws set on the finished diameter at Z152. After the pass end: spindle stopped, tool withdrawn along X, carriage run back clear; then mic at both ends and the middle for taper and check the finish with the comparator before moving on."
 
 [setups.ops.checks]
 dia = "micrometers/0-1in"
@@ -511,6 +511,7 @@ z_to = -7.5
 doc_mm = 0.1                # example (plausible, not measured); under the .125 in (3.2 mm) depth Machinery's Handbook 27th ed. bases its Table 1 p.1027 HSS speeds on (p.1026); the Table 5c p.1036 depth factor only raises speed for lighter cuts
 feed_mm_rev = 0.05          # example (plausible, not measured); .0020 in/rev, the .002 in (0.05 mm) row of Machinery's Handbook 27th ed. Table 5c p.1036 HSS feeds
 direction = "toward_chuck"  # author's choice
+note = "After the pass: stop the spindle, withdraw the tool along X and run the carriage back clear before you mic the journal and check its finish with the comparator."
 
 [setups.ops.checks]
 dia = "micrometers/0-1in"
@@ -717,9 +718,9 @@ direction = "radially_inward"  # author's choice
 # assembly fit-up note, "CUT THE PLAIN END 1.5 TO 2.0 PAST THE SCRIBE"); the shaft drawing gives
 # the span only as pivot_bearing.length_ref 156.67 CUT TO FIT, so this is a process hold on that
 # REF span, not a drawing limit.
-process_holds = [{ feature = "pivot_bearing", requirement = "length_ref", measure = "scribe to faced end", band = [1.50, 2.00], gauge = "lathe-z-dro", reason = "AUTHOR'S CHOICE: the channel assembly fit-up note asks for the plain end cut 1.5 to 2.0 past the trial-fit scribe; the shaft drawing leaves the span CUT TO FIT, so the hold is read here before the dome is formed from this end", cite = ["harmonic-analyzer/cad/scripts/draw_channel_assembly.py:82,101-110"] }]
+process_holds = [{ feature = "pivot_bearing", requirement = "length_ref", measure = "scribe to faced end", band = [1.50, 2.00], gauge = "lathe-z-dro", reason = "AUTHOR'S CHOICE: channel assembly fit-up note, plain end 1.5 to 2.0 past the scribe; the shaft drawing leaves this span CUT TO FIT", cite = ["harmonic-analyzer/cad/scripts/draw_channel_assembly.py:82,101-110"] }]
 inspection_note = [
-  "Fit-up hold (PROCESS HOLDS on the job page), not a shaft-drawing limit: the channel assembly drawing's fit-up note asks for the faced end 1.50 to 2.00 past the scribe; the shaft drawing gives the span only as CUT TO FIT (REF 156.67). Read it on the Z DRO. Do this with the spindle stopped and the lathe in neutral.",
+  "Fit-up hold (see PROCESS HOLDS on the job page). Spindle stopped, lathe in neutral; read it on the Z DRO.",
   "Check the zero: turn the chuck by hand until the scribe faces you. Bring T3, the HSS turning tool, back to the scribe under the 10x measuring loupe, its nose on the scribe as in its Z touch-off before op 20, and read Z: {Z_scribe}. It must read 0.00 ±0.05. If not, the part has slipped: tighten the chuck at all three pinions, set T3's Z on the scribe again as in that touch-off, then go on.",
   "Bring T3's Z-cutting edge onto the faced end through cigarette paper (0.05) until the paper drags, and read Z: {Z_end}.",
   "Calculate: scribe-to-end = Z_end − 0.05 = {result}",
