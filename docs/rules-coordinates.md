@@ -294,9 +294,13 @@ nor produces the surface, which keeps the uncut height its last whole producer
 left. When the bounds or the footprint are unknown, omitted, empty or malformed,
 coverage is unknown: that top or entry, its producer and its operative Z stay
 unknown and are never credited. A faced surface therefore needs its footprint
-authored. An op without `stock_removal_bounds` cuts its whole feature; for another
-surface its feature's footprint is the region, so overlap or a held `at` point is
-partial, never whole.
+authored. An op without `stock_removal_bounds` cuts its whole feature. For another
+surface, containment is proven in that feature's own frame, where its box is
+exact: the setup Z must run along one of the frame's axes, and the box enclosing
+the surface there must lie within the feature's spans on the other two. Overlap
+or a held `at` point is partial, never whole; a setup Z oblique to the feature's
+frame leaves coverage unknown. A setup-frame box enclosing a turned feature is
+never taken as its cut.
 It counts only if it cut that face to that Z. Its
 value is its `dro_to_z` on its own setup's grid, re-rounded to the safe side on
 the consumer's grid, so a coarser producer's −2.270 stays −2.270. Any other

@@ -190,8 +190,8 @@ def _disc(target):
     }
 
 
-def _setup_footprint(bundle, setup, target):
-    """``target``'s whole footprint as setup-frame X/Y spans, else None: its own
+def _corners(bundle, target, frame):
+    """The corners of ``target``'s footprint box in ``frame``, else None: its own
     ``bounds`` (Z from ``at`` when they omit it), else a round feature's box
     (:func:`_disc`), with an omitted axis taken only from its ``plane`` value. Unknown,
     omitted, empty or malformed spans, or a non-numeric frame, give None."""
@@ -210,15 +210,53 @@ def _setup_footprint(bundle, setup, target):
             spans[axis] = [plane.get("value")]
     if not all(_span(span) for span in spans.values()):
         return None
-    source = mapping(mapping(bundle.features.get("frames")).get(target.get("frame", "model")))
-    frame = setup_frame(bundle, setup)
+    source = _frame(bundle, target)
     points = [
-        frame_point(model_point(list(p), source), frame)[:2]
+        frame_point(model_point(list(p), source), frame)
         for p in itertools.product(spans["x"], spans["y"], spans["z"])
     ]
-    if not all(number(v) for p in points for v in p):
+    return points if all(number(v) for p in points for v in p) else None
+
+
+def _frame(bundle, feature):
+    return mapping(mapping(bundle.features.get("frames")).get(feature.get("frame", "model")))
+
+
+def _setup_footprint(bundle, setup, target):
+    """The setup-frame X/Y box enclosing ``target``'s footprint (:func:`_corners`), else
+    None. Turned against the setup it holds more than the feature, so it can prove a
+    surface held, never a cut."""
+    points = _corners(bundle, target, setup_frame(bundle, setup))
+    if points is None:
         return None
     return [[min(p[i] for p in points), max(p[i] for p in points)] for i in range(2)]
+
+
+def _feature_holds(bundle, setup, own, target):
+    """Whether cutting all of feature ``own`` down the setup's Z cut all of ``target``:
+    ``"whole"``, ``"partial"`` or ``UNKNOWN``. Proven in ``own``'s frame, where its box
+    is exact: the setup Z must run along one of that frame's axes, and the box enclosing
+    ``target`` there must lie within ``own``'s spans on the other two. A setup Z oblique
+    to that frame, or a footprint that cannot be built, is unknown."""
+    from .coordinates import mapping_vector
+
+    frame = _frame(bundle, own)
+    tool = mapping_vector(setup_frame(bundle, setup).get("z"))
+    axes = [mapping_vector(frame.get(axis)) for axis in AXES]
+    box, held = _corners(bundle, own, frame), _corners(bundle, target, frame)
+    if box is None or held is None or not all(number(v) for v in [*tool, *sum(axes, [])]):
+        return UNKNOWN
+    dots = [sum(tool[i] * axis[i] for i in range(3)) for axis in axes]
+    across = [i for i, dot in enumerate(dots) if abs(dot) <= 1e-9]
+    if len(across) != 2:
+        return UNKNOWN
+    if all(
+        min(p[i] for p in box) - SAME_Z <= min(p[i] for p in held)
+        and max(p[i] for p in held) <= max(p[i] for p in box) + SAME_Z
+        for i in across
+    ):
+        return "whole"
+    return "partial"
 
 
 def cut_region(op):
@@ -231,21 +269,19 @@ def cut_region(op):
 
 def cut_coverage(bundle, setup, op, target):
     """How much of surface ``target`` the cut ``op`` made: ``"whole"``, ``"partial"`` or
-    ``UNKNOWN``. An op without ``stock_removal_bounds`` cuts its whole feature, so all of
-    that feature, and of another surface only what its feature's footprint holds. Else
-    its :func:`cut_region`. The region and ``target``'s footprint
-    (:func:`_setup_footprint`) decide: ``"whole"`` when the region holds it,
-    ``"partial"`` when it does not. An unknown region or footprint leaves it unknown,
-    never whole; overlap or a held ``at`` point is never whole."""
+    ``UNKNOWN``. An op without ``stock_removal_bounds`` cuts all of its own feature, and
+    of another surface what its feature holds (:func:`_feature_holds`). Else its
+    :func:`cut_region` and ``target``'s footprint (:func:`_setup_footprint`) decide:
+    ``"whole"`` when the region holds it, ``"partial"`` when it does not. An unknown
+    region or footprint leaves it unknown, never whole; overlap or a held ``at`` point is
+    never whole."""
     name = op_feature(op)  # None for an inspect op's feature list: it cuts no feature
     own = mapping(mapping(bundle.feature_definitions).get(name))
-    if "stock_removal_bounds" in op:
-        region = cut_region(op)
-    elif name is not None and target == own:
-        return "whole"
-    else:
-        region = _setup_footprint(bundle, setup, own)
-    held = _setup_footprint(bundle, setup, target)
+    if "stock_removal_bounds" not in op:
+        if name is not None and target == own:
+            return "whole"
+        return _feature_holds(bundle, setup, own, target)
+    region, held = cut_region(op), _setup_footprint(bundle, setup, target)
     if held is None or region is None:
         return UNKNOWN
     if all(
