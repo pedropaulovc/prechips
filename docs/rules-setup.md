@@ -347,6 +347,48 @@ manifest datum/tolerance references, finishing cuts and transfer, plus shop
 budget citation. A nominal frame or a pickup of an earlier pilot never proves
 a later finished drawing datum.
 
+## `consistency`
+
+One fact, one source. Where the traveler prints a fact from a plan field or the
+kernel, the author's free text beside it must not say something else. A fact
+that can be derived is derived: the TOOLS table's `T<n>` numbers come from one
+function (`resolution.tool_numbers`: first use in plan order, a lathe pair
+keeping its number across that machine's setups), and a clamp's hand
+tightening from its `tighten = "hand"` ([plan](plan.md#hold)). Free text that
+cannot be derived is checked against the field it names. One subject per setup
+(hold, clamp notes, setup and stock notes, zero texts, stock heights) and one
+`{setup}:{op}` subject per op whose text names a checkable fact (note,
+`inspection_note`, `layout`, `inspection_methods`). It is `error` when:
+
+- hold or stock text says the work stays clamped (`same chucking`, `do not` /
+  `don't` / `never loosen`, `without loosening`, `stays clamped`) while the
+  setup's `zero.transfer` lacks `keep_clamped = true`, so the DRO ZERO says to
+  loosen the work to realign it;
+- a clamp's own note, or the hold text of a hold with exactly one ordered clamp,
+  calls it hand tight (`hand tight`, `tightened by hand`, `finger tight`) while
+  the clamp lacks `tighten = "hand"`, so HOLD says to tighten it fully; or a
+  `tighten = "hand"` clamp also declares `torque_nm`;
+- text names a `T<n>` that is not in this setup's TOOLS table (a plan frame of the
+  same name is never read as a tool), or says a flute count (`2fl`, `four-flute`)
+  beside one `T<n>` that differs from that tool's inventory `flutes`;
+- `stands N mm above the jaws` differs from the stock height less
+  `jaw_above_parallels_mm`, or `Z v, N mm above the jaw tops` from `v` less the jaw
+  tops (stock bottom, or `retained_rail_bottom_z` when lower, plus
+  `jaw_above_parallels_mm`), beyond the half-unit of the last decimal written;
+- `stock_state.top_z` or `bottom_z` (the lower of it and `retained_rail_bottom_z`)
+  differs from the kernel's setup-entry stock box by more than its 0.001 mm stock
+  tolerance; a `top_feature`'s `top_z` is that touched face and is only wrong above
+  the whole stock;
+- on an op checked by a GO / NO-GO pair, a clause of its inspection text passes the
+  NO-GO plug through (`push … NO-GO … through`, `push each / both / all plugs …
+  through`) with no negation in the clause.
+
+Parsing is conservative: text a check cannot tie to one field (a bare `by hand`,
+a hold text over several clamps, a height with no Z) is not checked. With stock
+heights but no kernel stock box the setup is `unknown`, never `pass`; a subject with
+nothing checkable is `not_applicable`. Evidence: `claims` (facts compared) and
+`contradictions`; the error sentence names both the text and the field.
+
 ## M2 declared workholding and indexing
 
 The [lathe rules](rules-lathe.md) check a turned profile from the actual chuck

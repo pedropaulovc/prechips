@@ -406,6 +406,32 @@ def resolve(bundle_or_inventory, category, reference):
     return item
 
 
+def tool_numbers(bundle, setup):
+    """``{(tool, holder): "T<n>"}`` for ``setup``'s cutting ops in first-use order: the
+    numbers its TOOLS table prints, one per tool + holder pair. A lathe's holders stay on
+    its toolpost between setups, so there a pair keeps one number on every setup that
+    machine runs (first use over the plan)."""
+    lathe = record(resolve(bundle, "machines", setup.get("machine"))).get("kind") == "lathe"
+    setups = (
+        [s for s in bundle.plan.get("setups", []) if s.get("machine") == setup.get("machine")]
+        if lathe
+        else [setup]
+    )
+    fixed = {}
+    for each in setups:
+        for op in each.get("ops", []):
+            if op.get("do") in MANUAL or op.get("tool") in (None, UNKNOWN):
+                continue
+            fixed.setdefault((op["tool"], op.get("holder")), f"T{len(fixed) + 1}")
+    numbers = {}
+    for op in setup.get("ops", []):
+        if op.get("do") in MANUAL or op.get("tool") in (None, UNKNOWN):
+            continue
+        key = (op["tool"], op.get("holder"))
+        numbers.setdefault(key, fixed[key])
+    return numbers
+
+
 def selected_references(plan):
     result = set()
     keys = {
