@@ -10,6 +10,7 @@ must supply edge_mm in the zero recipe. Report values never define the edge.
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import json
 import math
@@ -23,8 +24,9 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from prechips.findings import ALWAYS_REQUIRED
-from prechips.inputs import operative_definitions
-from prechips.joint_features import LABEL_PREFIX, fit, label
+from prechips.inputs import load_bundle, operative_definitions
+from prechips.joint_features import LABEL_PREFIX, fit, label, present, setup_span_mm
+from prechips.kernel import run_geometry
 from prechips.model import UNIT_TOLERANCE, Plan, tolerance_requirements
 from prechips.process_features import ANGLE_TOLERANCE_DEG
 from prechips.process_features import LABEL_PREFIX as PROCESS_PREFIX
@@ -37,17 +39,29 @@ from prechips.rules.coordinates import (
     UNIT_MM,
 )
 from prechips.rules.geometry_common import _AXIAL_LATHE_ACTIONS as AXIAL_LATHE_ACTIONS
+from prechips.rules.geometry_common import _TURNING_ACTIONS as TURNING_ACTIONS
+from prechips.rules.geometry_common import TURNING_BLADE_KINDS
 from prechips.rules.resolution import (
     LENGTH_TOLERANCE_MM,
     MANUAL,
     SAW_OPS,
     op_features,
     rough_leave,
+    same_length,
     saw_setup,
 )
 from prechips.rules.resolution import uncertain as record_uncertain
 from prechips.rules.speeds_feeds import AXIAL_FACING
-from prechips.rules.tip_endpoints import stock_states
+from prechips.rules.tip_endpoints import (
+    FACING,
+    POCKETING,
+    SAME_Z,
+    cut_coverage,
+    lineage,
+    stock_states,
+)
+from prechips.rules.tip_endpoints import _covers_xy as covers_xy
+from prechips.rules.turned_profile import AXIAL_KINDS, PROFILE_OPS, RADIUS_TOL_MM
 
 ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES = ROOT / "examples"
@@ -783,8 +797,31 @@ def check_inspection_declarations(plan: dict, features: dict, findings: dict) ->
                     )
 
 
-def check_joint_declarations(plan: dict, features: dict, findings: dict) -> None:
-    """Keep assembly identities and unresolved joint geometry explicit in the report."""
+def independent_kernel(plan_path: Path):
+    """The geometry kernel's facts for the plan at ``plan_path``, as a zero-argument call:
+    this validator's own bundle load and kernel run (``prechips.kernel.run_geometry``),
+    measured from that plan and its manifest-bound STEP bytes and keyed by them, made on
+    the first call and kept. No report value enters it; a run that is not ``ok`` measures
+    nothing (:func:`measured_setup`)."""
+    return functools.cache(lambda: run_geometry(load_bundle(plan_path)))
+
+
+def measured_setup(kernel, sid: str) -> dict:
+    """Setup ``sid``'s facts from an ``ok`` independent kernel run ``kernel``
+    (:func:`independent_kernel`), else empty."""
+    facts = kernel()
+    if not isinstance(facts, dict) or facts.get("status") != "ok":
+        return {}
+    setups = facts.get("setups")
+    measured = setups.get(sid) if isinstance(setups, dict) else None
+    return measured if isinstance(measured, dict) else {}
+
+
+def check_joint_declarations(plan: dict, features: dict, findings: dict, kernel) -> None:
+    """Keep assembly identities and unresolved joint geometry explicit in the report. A
+    join verdict reported from a kernel run is the validator's own run's (``kernel``,
+    :func:`independent_kernel`): refused is an error, no joined stock unknown, else pass,
+    with its completed joint features; with no such run nothing approves the join."""
     bundle = SimpleNamespace(plan=plan, features=features)
     for setup in plan["setups"]:
         if not isinstance(setup.get("stock_in"), list):
@@ -806,6 +843,29 @@ def check_joint_declarations(plan: dict, features: dict, findings: dict) -> None
                 and assembly["numbers"].get("stock_in") == setup["stock_in"],
                 f"{sid}: joint assembly identities differ from the plan",
             )
+            joined = measured_setup(kernel, sid)
+            if joined:
+                expected_status = (
+                    "error"
+                    if joined.get("assembly_error")
+                    else "unknown"
+                    if joined.get("stock_reason") or "stock_bbox_mm" not in joined
+                    else "pass"
+                )
+                require(
+                    assembly["status"] == expected_status,
+                    f"{sid}: joint assembly verdict differs from the kernel's join",
+                )
+                require(
+                    assembly["numbers"].get("completed_joint_features")
+                    == joined.get("completed_joint_features", "unknown"),
+                    f"{sid}: completed joint features differ from the kernel's join",
+                )
+            else:
+                require(
+                    assembly["status"] != "pass",
+                    f"{sid}: no independent kernel join derives the approved assembly",
+                )
         if joint["kind"] != "cylindrical":
             continue
         result = fit(bundle, setup)
@@ -1065,15 +1125,17 @@ def check_centre_endpoint(
 
 
 def entry_surface(stock: SimpleNamespace, setup: dict, op: dict) -> tuple:
-    """``(Z, source)`` of the surface ``op``'s feature is entered from, advanced from the
-    setup's authored ``stock_state`` through its preceding ops by the plan alone: the
+    """``(Z, source, face)`` of the surface ``op``'s feature is entered from, advanced from
+    the setup's authored ``stock_state`` through its preceding ops by the plan alone: the
     plan-only stock advance (``stock_states``) the engine shares, as it shares
-    ``operative_definitions``. ``stock`` carries the authored plan, manifest and operative
+    ``operative_definitions``; ``face`` is the feature when it has its own ``entry_z``
+    surface, else ``"top"``. ``stock`` carries the authored plan, manifest and operative
     definitions only; no report value enters it."""
     name = op["feature"]
     before = next(state for current, state, _ in stock_states(stock, setup) if current is op)
+    face = name if name in before["entry_z"] else "top"
     entry = before["entry_z"].get(name, before["top_z"])
-    return entry, before["entry_from"].get(name, before["top_from"])
+    return entry, before["entry_from"].get(name, before["top_from"]), face
 
 
 def feature_depth_mm(feature: dict, field: str, units, end: int = 1):
@@ -1117,18 +1179,134 @@ def difference(*values):
     return values[0] - sum(values[1:]) if all(map(numeric, values)) else "unknown"
 
 
+def machine_kind(setup: dict, entries: dict):
+    machine = setup.get("machine")
+    return entries.get(machine, {}).get("kind") if isinstance(machine, str) else None
+
+
+def leaves_face(setup: dict, op: dict, entries: dict):
+    """Whether ``op``, cut on ``setup``, leaves its own feature's face at its ``to_z``,
+    from the plan and the inventory alone: True for a facing or pocketing op with a
+    ``to_z`` (unknown without one); False for a manual, saw or transfer step and for an
+    axial or dividing-head cut (a mill cut, a lathe's spindle-axis tool), which leaves no
+    face across its feature; unknown for an unknown action or a turning action off a
+    lathe. A lathe turning cut leaves a face only where kernel facts pose one: no
+    plan-only derivation, rejected."""
+    action = op.get("do")
+    if action in MANUAL | SAW_OPS | {"transfer"}:
+        return False
+    if not isinstance(action, str) or action == "unknown":
+        return "unknown"
+    if action in FACING | POCKETING:
+        return True if "to_z" in op else "unknown"
+    kind = machine_kind(setup, entries)
+    if kind == "lathe":
+        require(
+            action in AXIAL_LATHE_ACTIONS,
+            f"{setup['id']}:{op.get('op')}: a turned face stands where kernel facts pose it; "
+            "no plan-only entry surface",
+        )
+        return False
+    if op.get("approach") == "rotary" and action not in TURNING_ACTIONS:
+        return False
+    turning = action in TURNING_ACTIONS or (kind != "mill" and action in PROFILE_OPS)
+    return "unknown" if turning else False
+
+
+def entry_producer(stock: SimpleNamespace, setup: dict, entry, face: str, source, entries: dict):
+    """The plan op whose cut left the surface a hole op of ``setup`` enters at nominal
+    ``entry`` (:func:`entry_surface`), as ``(setup, op)``; None when no op cut it, so the
+    authored surface stands; unknown when one may have cut it to an unknown Z or over an
+    unknown part of it. From the plan alone: the op of ``setup`` that ``source`` names;
+    else the last op, in the setups ``setup`` receives stock from (``lineage``) and shares
+    a known frame with, that cut the whole surface (``cut_coverage``): for ``"top"`` a
+    facing op on the setup's ``top_feature`` (any, when it names none), for a feature one
+    that leaves its face (:func:`leaves_face`) or a facing or pocketing op whose
+    footprint covers it. One that left the surface at another Z did not produce it."""
+    if source == "unknown":
+        return "unknown"
+    made = re.fullmatch(r"(\S+) op (\S+) to_z", source) if isinstance(source, str) else None
+    if made and made[1] == setup["id"]:
+        return next(((setup, op) for op in setup["ops"] if str(op.get("op")) == made[2]), None)
+    frame = setup.get("frame")
+    definitions = stock.feature_definitions
+    top = setup.get("stock_state", {}).get("top_feature")
+    cuts = [
+        (earlier, op)
+        for earlier in lineage(stock, setup)
+        if frame not in (None, "unknown") and earlier.get("frame") == frame
+        for op in earlier.get("ops", [])
+    ]
+    for earlier, op in reversed(cuts):
+        name, action = op.get("feature"), op.get("do")
+        if face == "top":
+            forms = action in FACING and "to_z" in op and top in (None, name)
+        elif name == face:
+            forms = leaves_face(earlier, op, entries)
+        else:
+            cut, target = definitions.get(name), definitions.get(face)
+            forms = (
+                action in FACING | POCKETING
+                and "to_z" in op
+                and isinstance(cut, dict)
+                and isinstance(target, dict)
+                and covers_xy(cut, target)
+            )
+        if not forms:
+            continue
+        surface = definitions.get((top or name) if face == "top" else face)
+        coverage = cut_coverage(stock, earlier, op, surface if isinstance(surface, dict) else {})
+        if coverage == "unknown":
+            return "unknown"
+        if coverage != "whole":
+            continue
+        if forms is True and numeric(op.get("to_z")) and abs(op["to_z"] - entry) > SAME_Z:
+            return None
+        return (earlier, op) if forms is True else "unknown"
+    return None
+
+
+def printed_entry(stock: SimpleNamespace, setup: dict, entry, face: str, source, entries: dict):
+    """The entry surface Z the traveler prints for a hole op of ``setup`` entering nominal
+    ``entry``: the ``to_z`` its producer (:func:`entry_producer`) cut, where that op's DRO
+    stopped (rounded up on its own setup's grid), then as this setup's DRO shows it
+    (rounded up on this grid); with no producer, the nominal rounded up on this grid; with
+    a producer that may have cut it anywhere, unknown. A lathe producer's face stands
+    where a blade's corner reading leaves it unless its cutter is known to be no blade:
+    that face has no plan-only derivation, rejected. Every setup's DRO zero is held to
+    its recipe by :func:`check_zero`."""
+    features = stock.features
+    grid = dro_grid(setup, features, entries)
+    if not numeric(entry):
+        return "unknown"
+    producer = entry_producer(stock, setup, entry, face, source, entries)
+    if producer is None:
+        return dro_up(entry, grid)
+    if producer == "unknown":
+        return "unknown"
+    cut_setup, op = producer
+    if machine_kind(cut_setup, entries) == "lathe":
+        tool = op.get("tool")
+        kind = tool_field(tool, "kind", entries) if isinstance(tool, str) else "unknown"
+        require(
+            isinstance(kind, str) and kind != "unknown" and kind not in TURNING_BLADE_KINDS,
+            f"{cut_setup['id']}:{op.get('op')}: a lathe face cut by what may be a blade stands "
+            "where its corner reading leaves it; no plan-only entry surface",
+        )
+    cut = dro_up(op.get("to_z", "unknown"), dro_grid(cut_setup, features, entries))
+    return dro_up(cut, grid)
+
+
 def check_printed_endpoint(row: dict, where: str, grid: tuple, planned: dict) -> None:
     """Hold the endpoint the traveler prints (``dro_*``) to the plan-derived one on the
-    setup's DRO grid: the touched entry surface rounded up; a through hole's exit face
-    rounded up; the tip keeping its planned distance below the surface it is worked from
-    (the exit face of a through hole, else the entry), then rounded up; and the depth or
-    break-through that printed tip leaves. ``planned`` carries only plan-derived values.
-    An entry surface the engine would read off another producer's grid or blade reading
-    has no plan-only derivation here and is rejected, never accepted on the report's
-    word."""
+    setup's DRO grid: the entry surface as its producer cut it (``planned["surface"]``,
+    :func:`printed_entry`); a through hole's exit face rounded up; the tip keeping its
+    planned distance below the surface it is worked from (the exit face of a through hole,
+    else that printed entry), then rounded up; and the depth or break-through that printed
+    tip leaves. ``planned`` carries only plan-derived values."""
     entry, tip, exit_face = planned["entry"], planned["tip"], planned["exit_face"]
-    printed_entry = dro_up(entry, grid)
-    same(row.get("dro_entry_z", "unknown"), printed_entry, f"{where}: printed entry Z")
+    surface = planned["surface"]
+    same(row.get("dro_entry_z", "unknown"), surface, f"{where}: printed entry Z")
     through = exit_face != "not_applicable"
     if through:
         printed_exit = dro_up(exit_face, grid)
@@ -1136,7 +1314,7 @@ def check_printed_endpoint(row: dict, where: str, grid: tuple, planned: dict) ->
         shift = difference(printed_exit, exit_face)
     else:
         require("dro_exit_face" not in row, f"{where}: a blind endpoint prints no exit face")
-        shift = difference(printed_entry, entry)
+        shift = difference(surface, entry)
     worked = tip + shift if numeric(tip) and numeric(shift) else "unknown"
     printed_tip = dro_up(worked, grid)
     same(row.get("dro_tip_z", "unknown"), printed_tip, f"{where}: printed tip Z")
@@ -1174,10 +1352,11 @@ def check_endpoints(plan: dict, features: dict, findings: dict, entries: dict) -
             where = f"{row['setup']}:{row['op']}"
             feature = definitions[op["feature"]]
             action = op["do"]
-            entry, source = entry_surface(stock, setup, op)
+            entry, source, face = entry_surface(stock, setup, op)
             near(row.get("entry_z", "unknown"), entry, f"{where}: touched entry surface")
             require(row.get("entry_from") == source, f"{where}: entry surface source")
-            planned = {"entry": entry, "exit_face": "not_applicable"}
+            surface = printed_entry(stock, setup, entry, face, source, entries)
+            planned = {"entry": entry, "surface": surface, "exit_face": "not_applicable"}
             tool = op.get("tool", "unknown")
             if action == "center_drill":
                 require(
@@ -1917,10 +2096,12 @@ def coordinate_place(context: SimpleNamespace, setup: dict, frame, row: dict, lo
     lathe ``drawing station`` its feature's ``z_mm`` station and an ``op`` row that op's
     authored Z, on the turned axis (in an unbound frame, the authored Z itself as
     ``local_from``); a ``kernel span`` row a point on setup Z through X0 Y0, legitimate only
-    for a located feature no known ``at`` places (on a mill, one with no ``at`` or parent at
-    all) and whose kernel faces of revolution the finding cites: its Z is that kernel's
-    measurement, the one coordinate no authored input fixes. A lathe station also carries
-    its feature's nominal diameter as the X target."""
+    in a bound frame, for a located feature no known ``at`` places (on a mill, one with no
+    ``at`` or parent at all) and whose kernel faces of revolution the finding cites: its Z
+    the low (start) or high (end) end of those faces as the validator's own kernel run
+    measures them (``context.kernel``, :func:`independent_kernel`), never the row's; no
+    such measurement, no span. A lathe station also carries its feature's nominal
+    diameter as the X target."""
     name, label = row["feature"], row.get("point")
     where = f"{setup['id']}: {name}"
     lathe = context.entries.get(setup.get("machine", "unknown"), {}).get("kind") == "lathe"
@@ -1971,11 +2152,20 @@ def coordinate_place(context: SimpleNamespace, setup: dict, frame, row: dict, lo
                 ),
                 f"{where}: a kernel span end its kernel faces do not cite",
             )
-            local = list(row.get("nominal_setup", row["setup"]))
+            facts = measured_setup(context.kernel, setup["id"]).get("revolved")
+            fact = facts.get(name) if isinstance(facts, dict) else None
+            measured = fact.get("z_mm") if isinstance(fact, dict) else None
+            scale = UNIT_MM.get(context.features.get("units"))
             require(
-                len(local) == 3 and local[:2] == [0.0, 0.0] and numeric(local[2]),
-                f"{where}: a kernel span end lies on setup Z through X0 Y0",
+                not unbound
+                and scale is not None
+                and isinstance(measured, list)
+                and len(measured) == 2
+                and all(map(numeric, measured))
+                and measured[0] <= measured[1],
+                f"{where}: no independent kernel run measures its span",
             )
+            local = [0.0, 0.0, measured[0 if span[2] == "start" else 1] / scale]
             model = model_point(local, frame)
         else:
             raise ValueError(f"{where}: {label!r} is no point the plan or the kernel places")
@@ -1996,12 +2186,19 @@ def coordinate_place(context: SimpleNamespace, setup: dict, frame, row: dict, lo
 
 
 def check_coordinates(
-    setup: dict, features: dict, finding: dict, plan: dict, entries: dict, inventory: dict
+    setup: dict,
+    features: dict,
+    finding: dict,
+    plan: dict,
+    entries: dict,
+    inventory: dict,
+    kernel,
 ) -> None:
     """Hold every coordinate row to the point the plan and the manifest place it at
-    (:func:`coordinate_place`), moved by the plan aims bearing on it (:func:`check_aims`),
-    and a mill row's printed DRO target and tool-axis X/Y to that standing point on the
-    machine's DRO grid (:func:`dro_grid`). No reported coordinate is an operand."""
+    (:func:`coordinate_place`; a kernel span end where the validator's own ``kernel`` run
+    measures it), moved by the plan aims bearing on it (:func:`check_aims`), and a mill
+    row's printed DRO target and tool-axis X/Y to that standing point on the machine's DRO
+    grid (:func:`dro_grid`). No reported coordinate is an operand."""
     frame = setup_frame(setup, plan, features)
     sid = setup["id"]
     if setup["frame"] in plan.get("frames", {}):
@@ -2018,6 +2215,7 @@ def check_coordinates(
         entries=entries,
         inventory=inventory,
         citations=finding["cite"],
+        kernel=kernel,
     )
     numbers = finding["numbers"]
     rows = numbers.get("rows", [])
@@ -2351,24 +2549,30 @@ def finished_exposed_diameter(setup: dict, features: dict, plan: dict | None = N
     return min(diameters) if diameters else "unknown"
 
 
-def kernel_filled_exposed_diameter(
-    setup: dict, plan: dict, features: dict, row: dict, held, citations: list[str]
-):
-    """Cross-check an exposed profile whose features declare no z_mm stations.
-
-    The kernel spans are not recomputed here. Everything the declared inputs fix is: the
-    exposed span, gap-free coverage, declared feature diameters, stock width, and the minimum.
-    A nominal-less dome must match the base derived independently from its declared radius
-    and height; its kernel span must be cited. Other missing or contradictory nominals stay
-    unresolved rather than trusting a diameter repeated by the report.
-    """
+def kernel_exposed_profile(setup: dict, plan: dict, features: dict, held, kernel):
+    """The exposed profile of a setup whose features declare no ``z_mm`` stations, as the
+    traveler's stick-out row reports it (``segments``, their least ``diameter_mm``, and
+    the kernel facts it must cite as ``cites`` prefixes), recomputed from the plan, the
+    manifest and the validator's own kernel run (``kernel``, :func:`independent_kernel`),
+    never the report; None when they do not derive it. The span runs from the stock ends
+    over the declared stick-out; each present turned feature (and each one a profiling op
+    claims) stands where that run measures its faces of revolution about setup Z (a
+    transient joint cylinder where its declared ends lie on the spindle), clipped to the
+    span, at its declared nominal diameter (a dome, narrowing away from the chuck, at the
+    base its declared radius and height give); a groove stands for the cylinder it cuts
+    into; exposed stock beyond every such feature counts at the least radius that run's
+    stock profile measures there. A feature with no such span (unless measured revolved
+    about another axis and not turned here), no declared diameter or one its dome base
+    contradicts, a gap between features, disagreeing overlaps, a dome base or stock wider
+    than held or a span the stock profile does not cover derive none."""
     definitions = operative_definitions(plan, features)
-    units = features.get("units")
-    scale = 1 if units == "mm" else 25.4 if units == "in" else None
+    scale = UNIT_MM.get(features.get("units"))
     state = setup.get("stock_state", {})
     length = setup.get("hold", {}).get("stickout_mm")
     ends = [state.get("north_end_z"), state.get("south_end_z")]
-    segments = row.get("segments")
+    frame = setup_frame(setup, plan, features)
+    measured = measured_setup(kernel, setup["id"])
+    revolved = measured.get("revolved")
     if (
         any("z_mm" in feature for feature in definitions.values())
         or scale is None
@@ -2376,82 +2580,222 @@ def kernel_filled_exposed_diameter(
         or not numeric(length)
         or length <= 0
         or not all(map(numeric, ends))
-        or not isinstance(segments, list)
-        or not segments
-        or row.get("unresolved") != []
-        or row.get("uncovered_z_mm") != []
+        or not isinstance(frame, dict)
+        or frame.get("binding") == "unknown"
+        or not isinstance(revolved, dict)
     ):
-        return "unknown"
+        return None
     exposure = [max(ends) - length, max(ends)]
-    claimed = row.get("exposed_z_mm")
-    if not (
-        isinstance(claimed, list)
-        and len(claimed) == 2
-        and all(math.isclose(a, b, abs_tol=1e-6) for a, b in zip(claimed, exposure, strict=True))
-    ):
-        return "unknown"
-    reach, diameters = exposure[0], []
-    for segment in sorted(segments, key=lambda item: item["z_mm"][0]):
-        low, high = segment["z_mm"]
-        diameter = segment["diameter_mm"]
-        if not math.isclose(low, reach, abs_tol=1e-6) or high <= low or not numeric(diameter):
-            return "unknown"
-        reach = high
-        names = segment["features"]
-        if names:
-            for name in names:
-                definition = definitions.get(name)
-                if not isinstance(definition, dict):
-                    return "unknown"
-                if definition.get("kind") not in {"cylinder", "boss", "shaft", "groove", "dome"}:
-                    return "unknown"
-                key = next(
-                    (key for key in ("dia_nominal", "nominal_dia", "dia") if key in definition),
-                    None,
-                )
-                if key is not None:
-                    nominal = definition[key]
-                    if not numeric(nominal) or not math.isclose(
-                        nominal * scale, diameter, rel_tol=1e-10, abs_tol=1e-8
-                    ):
-                        return "unknown"
-                    if definition.get("kind") != "dome":
-                        continue
-                if definition.get("kind") != "dome":
-                    return "unknown"
-                expected_base = dome_base_mm(definition, scale)
-                if not numeric(expected_base):
-                    return "unknown"
-                base = segment.get("base_diameter_mm")
-                reference = f"kernel: setups.{setup['id']}.revolved.{name} ("
-                cited = any(
-                    isinstance(citation, str) and citation.startswith(reference)
-                    for citation in citations
-                )
-                if not (
-                    numeric(base)
-                    and math.isclose(base, diameter, rel_tol=1e-10, abs_tol=1e-8)
-                    and math.isclose(expected_base, diameter, rel_tol=1e-10, abs_tol=1e-8)
-                    and 0 < diameter <= held + 1e-6
-                    and cited
-                ):
-                    return "unknown"
-        elif segment.get("source") != "kernel_stock" or not 0 < diameter <= held + 1e-6:
-            return "unknown"
-        diameters.append(diameter)
-    if not math.isclose(reach, exposure[1], abs_tol=1e-6):
-        return "unknown"
-    return min(diameters)
+    origin = [value * scale if numeric(value) else "unknown" for value in frame.get("origin", [])]
+    spindle = dict(frame, origin=origin)
+    off_axis = measured.get("revolved_off_axis")
+    off_axis = off_axis if isinstance(off_axis, dict) else {}
+    claimed = {op.get("feature", "unknown") for op in setup["ops"] if op.get("do") in PROFILE_OPS}
+    bundle = SimpleNamespace(plan=plan, features=features, feature_definitions=definitions)
+    names = {
+        name
+        for name, definition in definitions.items()
+        if definition.get("kind") in AXIAL_KINDS and present(bundle, setup, name)
+    } | claimed
+
+    def pair(value) -> bool:
+        return (
+            isinstance(value, list)
+            and len(value) == 2
+            and all(numeric(item) and math.isfinite(item) for item in value)
+        )
+
+    intervals, cites = [], set()
+    for name in sorted(names):
+        definition = definitions.get(name)
+        if not isinstance(definition, dict):
+            return None
+        joint = definition.get("joint") is not None
+        fact = None if joint else revolved.get(name)
+        span = fact.get("z_mm") if isinstance(fact, dict) else None
+        if joint:
+            declared = setup_span_mm(bundle, name, spindle)
+            span = list(declared) if declared is not None else None
+        if not pair(span):
+            axis = off_axis.get(name, {})
+            axis = axis.get("axis") if isinstance(axis, dict) else None
+            if not joint and name not in claimed and isinstance(axis, list) and len(axis) == 3:
+                continue
+            return None
+        if span[0] >= span[1]:
+            return None
+        low, high = max(span[0], exposure[0]), min(span[1], exposure[1])
+        if low >= high:
+            continue
+        kind = definition.get("kind")
+        keys = ("dia_nominal", "nominal_dia", "dia")
+        key = next((key for key in keys if key in definition), None)
+        nominal = definition[key] if key is not None else "unknown"
+        nominal = nominal * scale if numeric(nominal) and nominal > 0 else "unknown"
+        if kind == "dome":
+            radii = fact.get("end_radii_mm") if isinstance(fact, dict) else None
+            if not (pair(radii) and radii[0] - radii[1] > RADIUS_TOL_MM):
+                return None
+            diameter = dome_base_mm(definition, scale)
+            # A declared diameter the base contradicts leaves the dome unresolved.
+            if key is not None and not (
+                numeric(nominal)
+                and numeric(diameter)
+                and math.isclose(nominal, diameter, rel_tol=1e-10, abs_tol=1e-8)
+            ):
+                return None
+        elif kind in AXIAL_KINDS:
+            diameter = nominal
+        else:
+            return None
+        if not numeric(diameter) or diameter <= 0 or (kind == "dome" and diameter > held + 1e-6):
+            return None
+        intervals.append((low, high, kind, diameter, name))
+        if not joint:
+            cites.add(f"kernel: setups.{setup['id']}.revolved.{name} (")
+    segments, previous = [], None
+    boundaries = sorted({z for low, high, *_ in intervals for z in (low, high)})
+    for low, high in zip(boundaries, boundaries[1:], strict=False):
+        active = [item for item in intervals if item[0] <= low and high <= item[1]]
+        cylinders = [item for item in active if item[2] != "groove"]
+        grooves = [item for item in active if item[2] == "groove"]
+        chosen = grooves or cylinders
+        if (
+            not chosen
+            or any(not same_length(item[3], chosen[0][3]) for item in chosen)
+            or any(not same_length(item[3], cylinders[0][3]) for item in cylinders)
+            or (
+                grooves
+                and cylinders
+                and not same_length(grooves[0][3], cylinders[0][3])
+                and grooves[0][3] > cylinders[0][3]
+            )
+        ):
+            return None
+        base = (
+            cylinders[0][3]
+            if cylinders
+            else previous["base_diameter_mm"]
+            if previous is not None
+            else "unknown"
+        )
+        previous = {
+            "z_mm": [low, high],
+            "diameter_mm": chosen[0][3],
+            "base_diameter_mm": base,
+            "features": sorted(item[4] for item in chosen),
+        }
+        segments.append(previous)
+    uncovered = [list(exposure)] if not segments else []
+    if segments:
+        first, last = segments[0]["z_mm"][0], segments[-1]["z_mm"][1]
+        if first > exposure[0] and not same_length(first, exposure[0]):
+            uncovered.append([exposure[0], first])
+        if last < exposure[1] and not same_length(last, exposure[1]):
+            uncovered.append([last, exposure[1]])
+    rows = measured.get("stock_profile") if uncovered else []
+    well_formed = isinstance(rows, list) and all(
+        isinstance(row, list)
+        and len(row) == 4
+        and pair(row[:2])
+        and pair(row[2:])
+        and row[0] < row[1]
+        and 0 <= row[2] <= row[3]
+        for row in rows
+    )
+    if not well_formed:
+        return None
+    for low, high in uncovered:
+        reach = low
+        cites.add(f"kernel: setups.{setup['id']}.stock_profile (")
+        for z0, z1, least, _ in sorted(rows):
+            if z1 <= reach or same_length(z1, reach) or z0 >= high:
+                continue
+            if z0 > reach and not same_length(z0, reach):
+                break
+            if not 0 < 2 * least <= held + 1e-6:
+                return None
+            top = min(z1, high)
+            segments.append(
+                {
+                    "z_mm": [reach, top],
+                    "diameter_mm": 2 * least,
+                    "features": [],
+                    "source": "kernel_stock",
+                }
+            )
+            reach = top
+        if reach < high and not same_length(reach, high):
+            return None
+    if not segments:
+        return None
+    diameter = min(segment["diameter_mm"] for segment in segments)
+    return {
+        "diameter_mm": diameter,
+        "exposed_z_mm": exposure,
+        "segments": segments,
+        "cites": cites,
+    }
 
 
-def check_stickout(setup: dict, plan: dict, features: dict, policy: dict, finding: dict) -> None:
+def same_segments(reported, expected: list) -> bool:
+    """Whether the report's stick-out ``segments`` are ``expected`` ones: the same spans,
+    diameters, base diameters, features and sources, in order."""
+
+    def close(a, b) -> bool:
+        if numeric(b):
+            return numeric(a) and math.isclose(a, b, rel_tol=1e-10, abs_tol=1e-8)
+        return a == b
+
+    return (
+        isinstance(reported, list)
+        and len(reported) == len(expected)
+        and all(
+            isinstance(got, dict)
+            and set(got) == set(want)
+            and isinstance(got["z_mm"], list)
+            and len(got["z_mm"]) == 2
+            and all(map(close, got["z_mm"], want["z_mm"]))
+            and close(got["diameter_mm"], want["diameter_mm"])
+            and close(got.get("base_diameter_mm"), want.get("base_diameter_mm"))
+            and got["features"] == want["features"]
+            and got.get("source") == want.get("source")
+            for got, want in zip(reported, expected, strict=False)
+        )
+    )
+
+
+def check_stickout(
+    setup: dict, plan: dict, features: dict, policy: dict, finding: dict, kernel
+) -> None:
+    """Hold the stick-out row to the plan: the finished exposed diameter from declared
+    stations (:func:`finished_exposed_diameter`), else the profile the validator's own
+    kernel run derives (:func:`kernel_exposed_profile`), whose segments the row reports
+    and whose kernel facts it cites; neither derived, it stays unknown."""
     row = finding["numbers"]
     held = setup["stock_state"].get("od_mm", plan["stock"].get("dia_mm", "unknown"))
     if not numeric(held) or held <= 0:
         held = "unknown"
     diameter = finished_exposed_diameter(setup, features, plan)
+    profile = None
     if diameter == "unknown":
-        diameter = kernel_filled_exposed_diameter(setup, plan, features, row, held, finding["cite"])
+        profile = kernel_exposed_profile(setup, plan, features, held, kernel)
+    if profile is not None:
+        diameter = profile["diameter_mm"]
+        cites = [cite for cite in finding["cite"] if isinstance(cite, str)]
+        require(
+            all(any(cite.startswith(ref) for cite in cites) for ref in profile["cites"]),
+            "stick-out finished exposed diameter: an uncited kernel span or stock profile",
+        )
+        exposed = row.get("exposed_z_mm")
+        require(
+            isinstance(exposed, list)
+            and len(exposed) == 2
+            and all(map(numeric, exposed))
+            and all(map(same_length, exposed, profile["exposed_z_mm"]))
+            and same_segments(row.get("segments"), profile["segments"]),
+            "stick-out finished exposed diameter: span or segments differ from the derived profile",
+        )
     length = setup["hold"].get("stickout_mm", "unknown")
     near(row["held_diameter_mm"], held, "stick-out held diameter evidence")
     near(row["diameter_mm"], diameter, "stick-out finished exposed diameter")
@@ -2639,7 +2983,8 @@ def validate_fixture(
     check_frames(features, plan)
     check_subjects(plan, features, findings, inventory)
     check_inspection_declarations(plan, features, findings)
-    check_joint_declarations(plan, features, findings)
+    kernel = independent_kernel(folder / plan_filename)
+    check_joint_declarations(plan, features, findings, kernel)
     missing = check_references(plan, entries, findings)
     depths = check_endpoints(plan, features, findings, entries)
     definitions = operative_definitions(plan, features)
@@ -2649,10 +2994,16 @@ def validate_fixture(
             if not saw_setup(setup):
                 check_zero(setup, findings["zero_check", setup["id"]], entries, plan["dro"])
             check_coordinates(
-                setup, features, findings["coordinates", setup["id"]], plan, entries, inventory
+                setup,
+                features,
+                findings["coordinates", setup["id"]],
+                plan,
+                entries,
+                inventory,
+                kernel,
             )
         check_indexing(setup, features, entries, findings["indexing", setup["id"]])
-        check_stickout(setup, plan, features, policy, findings["stickout", setup["id"]])
+        check_stickout(setup, plan, features, policy, findings["stickout", setup["id"]], kernel)
         for op in setup["ops"]:
             check_speeds(
                 plan,

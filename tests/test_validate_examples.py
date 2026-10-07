@@ -11,9 +11,11 @@ from types import SimpleNamespace
 import pytest
 from test_cli import copy_examples
 from test_deep_hole_speed import DEEP, drill_bundle
+from test_operative_surface import plan as surface_plan
 from test_process_features import set_process_key, set_tool_fact, shaft
 
 from prechips.inputs import load_bundle
+from prechips.kernel import run_geometry
 from prechips.rules import coordinates, speeds_feeds
 from prechips.rules.tip_endpoints import evaluate as endpoint_findings
 
@@ -101,17 +103,20 @@ def test_rejects_cone_indexing_arithmetic_even_when_unverified(corruption):
         VALIDATOR["check_indexing"](setup, features, entries, corrupted)
 
 
-def test_rejects_unsourced_finished_diameter_in_unbound_profile():
+def test_rejects_unsourced_finished_diameter_in_unbound_profile(freecad_kernel):
     plan, features, _, policy, report = cone_inputs()
     setup = next(s for s in plan["setups"] if s["id"] == "S1")
     finding = next(
         f for f in report["findings"] if f["rule"] == "stickout" and f["subject"] == "S1"
     )
-    VALIDATOR["check_stickout"](setup, plan, features, policy, finding)
+    kernel = VALIDATOR["independent_kernel"](
+        ROOT / "examples" / "cone-pivot-post" / "built-up.toml"
+    )
+    VALIDATOR["check_stickout"](setup, plan, features, policy, finding, kernel)
     corrupted = copy.deepcopy(finding)
     corrupted["numbers"]["diameter_mm"] = 21.93
     with pytest.raises(ValueError):
-        VALIDATOR["check_stickout"](setup, plan, features, policy, corrupted)
+        VALIDATOR["check_stickout"](setup, plan, features, policy, corrupted, kernel)
 
 
 def test_accepts_cited_kernel_revolved_bases_without_declared_diameters():
@@ -125,37 +130,37 @@ def test_accepts_cited_kernel_revolved_bases_without_declared_diameters():
 
 
 def test_exposed_profile_converts_inch_dia_alias_and_declared_dome_base():
+    # Synthetic manifest and kernel facts: an inch shaft declared by its ``dia`` alias and
+    # a dome by its base radius, each measured revolved about setup Z.
     setup = {
         "id": "S1",
+        "frame": "F",
         "stock_state": {"north_end_z": 0.0, "south_end_z": 12.0},
         "hold": {"stickout_mm": 12.0},
+        "ops": [],
     }
     features = {
         "units": "in",
+        "frames": {"F": {"origin": [0.0, 0.0, 0.0]}},
         "features": {
             "neck": {"kind": "shaft", "dia": 0.25},
             "cap": {"kind": "dome", "base_radius": 0.125},
         },
     }
-    row = {
-        "exposed_z_mm": [0.0, 12.0],
-        "segments": [
-            {"z_mm": [0.0, 10.0], "diameter_mm": 6.35, "features": ["neck"]},
-            {
-                "z_mm": [10.0, 12.0],
-                "diameter_mm": 6.35,
-                "base_diameter_mm": 6.35,
-                "features": ["cap"],
-            },
-        ],
-        "unresolved": [],
-        "uncovered_z_mm": [],
+    revolved = {
+        "neck": {"z_mm": [0.0, 10.0]},
+        "cap": {"z_mm": [10.0, 12.0], "end_radii_mm": [3.175, 0.0]},
     }
-    citations = ["kernel: setups.S1.revolved.cap (synthetic native span)"]
-    diameter = VALIDATOR["kernel_filled_exposed_diameter"](
-        setup, {}, features, row, 10.0, citations
+    facts = {"status": "ok", "setups": {"S1": {"revolved": revolved}}}
+    profile = VALIDATOR["kernel_exposed_profile"](
+        setup, {"setups": [setup]}, features, 10.0, lambda: facts
     )
-    assert diameter == pytest.approx(6.35)
+    assert profile["diameter_mm"] == pytest.approx(6.35)
+    assert [(s["z_mm"], s["features"]) for s in profile["segments"]] == [
+        ([0.0, 10.0], ["neck"]),
+        ([10.0, 12.0], ["cap"]),
+    ]
+    assert [s["diameter_mm"] for s in profile["segments"]] == pytest.approx([6.35, 6.35])
 
 
 @pytest.mark.parametrize(
@@ -169,24 +174,30 @@ def test_exposed_profile_converts_inch_dia_alias_and_declared_dome_base():
         "uncited_kernel",
         "unknown_feature",
         "outside_stock",
+        # Self-consistent: the shoulder stretched over the 5.7 mm relief, dropped, so the
+        # least exposed diameter (and the L/D limit) reads the 6.35 mm journal instead.
+        "stretched_shoulder",
     ],
 )
-def test_rejects_self_consistent_wrong_exposed_profiles(corruption):
+def test_rejects_self_consistent_wrong_exposed_profiles(freecad_kernel, corruption):
     folder = ROOT / "examples" / "pivot-shaft"
     plan = tomllib.loads((folder / "plan.toml").read_text(encoding="utf-8"))
     features = tomllib.loads((folder / "features.toml").read_text(encoding="utf-8"))
     policy = tomllib.loads((folder / plan["paths"]["policy"]).read_text(encoding="utf-8"))
     report = json.loads((folder / "expected" / "report.json").read_bytes())
+    kernel = VALIDATOR["independent_kernel"](folder / "plan.toml")
     sid = "S3" if corruption in {"dome_cap", "dome_cap_with_nominal"} else "S1"
     setup = next(item for item in plan["setups"] if item["id"] == sid)
     finding = next(
         item for item in report["findings"] if item["rule"] == "stickout" and item["subject"] == sid
     )
+    VALIDATOR["check_stickout"](setup, plan, features, policy, copy.deepcopy(finding), kernel)
+    segments = finding["numbers"]["segments"]
     feature = {
         "groove_envelope": "south_relief",
         "non_axial_kind": "pivot_bearing",
     }.get(corruption, "south_dome")
-    segment = next(item for item in finding["numbers"]["segments"] if feature in item["features"])
+    segment = next(item for item in segments if feature in item["features"])
     definition = features["features"][feature]
     if corruption in {"dome_cap", "dome_cap_with_nominal"}:
         segment["diameter_mm"] = segment["base_diameter_mm"] = 6.0
@@ -209,16 +220,22 @@ def test_rejects_self_consistent_wrong_exposed_profiles(corruption):
     elif corruption == "unknown_feature":
         segment["features"] = ["undeclared_dome"]
         finding["cite"].append("kernel: setups.S1.revolved.undeclared_dome (forged witness)")
+    elif corruption == "stretched_shoulder":
+        shoulder = next(item for item in segments if item["features"] == ["shoulder_od"])
+        relief = next(item for item in segments if item["features"] == ["south_relief"])
+        shoulder["z_mm"][1] = relief["z_mm"][1]
+        segments.remove(relief)
+        finding["numbers"]["diameter_features"] = ["pivot_bearing"]
     else:
         definition["base_radius"] = 5.5
         segment["diameter_mm"] = segment["base_diameter_mm"] = 11.0
-    diameter = min(item["diameter_mm"] for item in finding["numbers"]["segments"])
+    diameter = min(item["diameter_mm"] for item in segments)
     finding["numbers"].update(
         diameter_mm=diameter,
         unsupported_limit_mm=diameter * policy["numbers"]["stickout_ld_max"],
     )
     with pytest.raises(ValueError, match="finished exposed diameter"):
-        VALIDATOR["check_stickout"](setup, plan, features, policy, finding)
+        VALIDATOR["check_stickout"](setup, plan, features, policy, finding, kernel)
 
 
 @pytest.mark.parametrize("action", ["tap", "ream", "drill"])
@@ -440,6 +457,35 @@ def test_endpoint_oracle_holds_the_depth_band_floor_the_traveler_stops_on():
     row, check = printed_endpoint(data)
     assert row["depth_floor_mm"] == 38.0
     row["depth_floor_mm"] = "unknown"
+    with pytest.raises(ValueError):
+        check()
+
+
+@pytest.mark.parametrize("producer_grid", [0.01, 0.1])
+def test_endpoint_oracle_starts_a_hole_on_the_face_its_producer_cut_on_its_own_grid(
+    tmp_path, producer_grid
+):
+    # S1, a coarser mill, faces the hole's entry to -2.27825; S2 (0.005 grid) drills a
+    # 2.95-3.00 deep blind hole from it. That face stands where S1's DRO stopped, rounded up
+    # on S1's grid, not where S2's grid would round the nominal.
+    path = surface_plan(tmp_path, coarse=True, depth="[2.95, 3.0]")
+    inventory = path.with_name("inventory.toml")
+    text = inventory.read_text(encoding="utf-8")
+    assert "resolution_mm = 0.01\n" in text
+    coarse = text.replace("resolution_mm = 0.01\n", f"resolution_mm = {producer_grid}\n")
+    inventory.write_text(coarse, encoding="utf-8")
+    data = load_bundle(path)
+    row, check = printed_endpoint(data)
+    entries = VALIDATOR["entries_for"](data.inventory)
+    consumer = next(setup for setup in data.plan["setups"] if setup["id"] == "S2")
+    grid = VALIDATOR["dro_grid"](consumer, data.features, entries)
+    # Forged: the entry rounded on S2's grid and the drill run from there with its depth
+    # claimed unchanged, so its tip runs past the 3.00 mm limit below the face S1 cut.
+    entry = VALIDATOR["dro_up"](row["entry_z"], grid)
+    assert entry < row["dro_entry_z"]
+    planned_tip = row["tip_z"] + entry - row["entry_z"]
+    tip = VALIDATOR["dro_up"](planned_tip, grid)
+    row.update(dro_entry_z=entry, dro_tip_z=tip, dro_depth_mm=row["depth_mm"] - (tip - planned_tip))
     with pytest.raises(ValueError):
         check()
 
@@ -676,10 +722,11 @@ def test_saw_speed_oracle_takes_its_row_from_the_plan_material_not_the_report(co
         check()
 
 
-def cone_coordinates(tmp_path, setup_id, aim=None):
+def cone_coordinates(tmp_path, setup_id, aim=None, measured=False):
     """The engine's coordinates finding for one setup of the built-up cone (``aim``
     replaces the requirement and value of plan ``aims.crank_bore``, which asks 39.517 of
-    its 39.34-39.70 printed separation), and a validator call that checks it against a
+    its 39.34-39.70 printed separation; ``measured`` runs the kernel first, as the CLI
+    does, so kernel spans place rows), and a validator call that checks it against a
     plan."""
     plan_path = copy_examples(tmp_path) / "cone-pivot-post" / "built-up.toml"
     if aim is not None:
@@ -688,13 +735,16 @@ def cone_coordinates(tmp_path, setup_id, aim=None):
         assert authored in text
         plan_path.write_text(text.replace(authored, aim), encoding="utf-8")
     bundle = load_bundle(plan_path)
+    if measured:
+        assert run_geometry(bundle)["status"] == "ok"
     setup = next(setup for setup in bundle.plan["setups"] if setup["id"] == setup_id)
     finding = next(f for f in coordinates.evaluate(bundle) if f.subject == setup_id).to_dict()
     entries = VALIDATOR["entries_for"](bundle.inventory)
+    kernel = VALIDATOR["independent_kernel"](plan_path)
 
     def check(plan=bundle.plan):
         VALIDATOR["check_coordinates"](
-            setup, bundle.features, finding, plan, entries, bundle.inventory
+            setup, bundle.features, finding, plan, entries, bundle.inventory, kernel
         )
 
     return bundle, setup, finding, check
@@ -852,6 +902,32 @@ def test_coordinate_oracle_holds_a_lathe_station_to_the_manifest_and_its_op(tmp_
         check()
 
 
+@pytest.mark.parametrize("setup_id", ["S11", "S1"])
+def test_coordinate_oracle_ends_a_kernel_span_where_its_own_kernel_run_measures_it(
+    tmp_path, freecad_kernel, setup_id
+):
+    # The head's span start, 5 mm further along setup -Z with its model point (and on the
+    # S11 mill its DRO stop) moved to match: self-consistent, as if the kernel measured the
+    # head that much longer. S1 is the lathe, S11 the mill.
+    bundle, setup, finding, check = cone_coordinates(tmp_path, setup_id, measured=True)
+    check()
+    row = next(
+        row
+        for row in finding["numbers"]["rows"]
+        if row.get("feature") == "head" and row.get("point", "").endswith("kernel span start")
+    )
+    frame = VALIDATOR["setup_frame"](setup, bundle.plan, bundle.features)
+    row["setup"][2] -= 5.0
+    row["model"] = VALIDATOR["model_point"](row["setup"], frame)
+    if "dro" in row:
+        entries = VALIDATOR["entries_for"](bundle.inventory)
+        grid = VALIDATOR["dro_grid"](setup, bundle.features, entries)
+        row["dro"] = [VALIDATOR["dro_target"](value, grid) for value in row["setup"]]
+        row["dro_xy"] = row["dro"][:2]
+    with pytest.raises(ValueError):
+        check()
+
+
 def test_validator_rejects_a_check_without_its_feature_requirement():
     plan = {
         "setups": [
@@ -909,13 +985,37 @@ def test_built_up_subject_contract_excludes_manual_assembly_but_keeps_joint_debt
         VALIDATOR["check_subjects"](plan, features, findings, inventory)
 
 
+def joined(unresolved=None, error=None):
+    """Synthetic kernel facts for the built-up cone's joins: S6 and S7 each derive their
+    joined stock with these joint features completed. ``unresolved`` names a join whose
+    joined stock that run leaves unknown (as it does for unknown fit bands), or, given an
+    ``error``, refuses."""
+    completed = ["cone_socket", "cone_spigot", "crank_socket"]
+    setups = {
+        sid: {
+            "stock_bbox_mm": [[-1.0, -1.0, -1.0], [1.0, 1.0, 1.0]],
+            "completed_joint_features": done,
+        }
+        for sid, done in (("S6", completed), ("S7", [*completed, "crank_spigot"]))
+    }
+    if unresolved is not None:
+        done = setups[unresolved]["completed_joint_features"]
+        setups[unresolved] = {"completed_joint_features": done}
+        if error is None:
+            setups[unresolved]["stock_reason"] = "joint fit diameter bands are unknown"
+        else:
+            setups[unresolved]["assembly_error"] = error
+    return lambda: {"status": "ok", "setups": setups}
+
+
 @pytest.mark.parametrize(
     "corruption", ["fit_pass", "missing", "socket", "assembly_pass", "branches"]
 )
 def test_built_up_joint_report_cannot_clear_numeric_debt_or_change_identity(corruption):
     plan, features, _, _, report = cone_inputs()
     findings = {(row["rule"], row["subject"]): row for row in report["findings"]}
-    VALIDATOR["check_joint_declarations"](plan, features, findings)
+    kernel = joined()
+    VALIDATOR["check_joint_declarations"](plan, features, findings, kernel)
     setup = next(setup for setup in plan["setups"] if setup["id"] == "S7")
     fit = findings["joint_fit", "S7"]
     assembly = findings["joint_assembly", "S7"]
@@ -931,8 +1031,9 @@ def test_built_up_joint_report_cannot_clear_numeric_debt_or_change_identity(corr
             engagement_dia_mm="unknown",
             missing=result["missing"],
         )
+        kernel = joined("S7")
         fit["status"], assembly["status"] = "unknown", "unknown"
-        VALIDATOR["check_joint_declarations"](plan, features, findings)
+        VALIDATOR["check_joint_declarations"](plan, features, findings, kernel)
     if corruption == "fit_pass":
         fit["status"] = "pass"
     elif corruption == "missing":
@@ -944,7 +1045,32 @@ def test_built_up_joint_report_cannot_clear_numeric_debt_or_change_identity(corr
     else:
         assembly["numbers"]["stock_in"].reverse()
     with pytest.raises(ValueError, match="joint|assembly"):
-        VALIDATOR["check_joint_declarations"](plan, features, findings)
+        VALIDATOR["check_joint_declarations"](plan, features, findings, kernel)
+
+
+@pytest.mark.parametrize("corruption", ["unresolved", "refused", "no_kernel", "completed"])
+def test_joint_assembly_verdict_is_the_validators_own_kernel_join(corruption):
+    # The report approves S7's join as shipped, but the validator's own kernel run leaves
+    # its joined stock unknown, refuses it or never ran; or the report claims a joint
+    # feature completed that the join never completed.
+    plan, features, _, _, report = cone_inputs()
+    findings = {(row["rule"], row["subject"]): row for row in report["findings"]}
+    assembly = findings["joint_assembly", "S7"]
+    VALIDATOR["check_joint_declarations"](plan, features, findings, joined())
+    assert assembly["status"] == "pass"
+    kernel = joined()
+    if corruption == "unresolved":
+        kernel = joined("S7")
+    elif corruption == "refused":
+        kernel = joined("S7", error="spigot insertion sweep meets socket material")
+    elif corruption == "no_kernel":
+        kernel = lambda: {"status": "unknown", "reason": "FreeCAD kernel not found"}  # noqa: E731
+    else:
+        joined_kernel = joined()()
+        joined_kernel["setups"]["S7"]["completed_joint_features"].remove("crank_spigot")
+        kernel = lambda: joined_kernel  # noqa: E731
+    with pytest.raises(ValueError, match="joint|assembly"):
+        VALIDATOR["check_joint_declarations"](plan, features, findings, kernel)
 
 
 @pytest.mark.parametrize("corruption", ["shared_ancestor", "wrong_role", "finished_face"])
@@ -1000,7 +1126,7 @@ def test_joint_kernel_failure_cannot_be_approved_without_assembly_evidence(kerne
     assembly = findings["joint_assembly", "S7"]
     assembly["numbers"] = {"kernel_status": kernel_status}
     assembly["status"] = status
-    VALIDATOR["check_joint_declarations"](plan, features, findings)
+    VALIDATOR["check_joint_declarations"](plan, features, findings, joined())
     assembly["status"] = "pass"
     with pytest.raises(ValueError, match="unavailable kernel cannot approve"):
-        VALIDATOR["check_joint_declarations"](plan, features, findings)
+        VALIDATOR["check_joint_declarations"](plan, features, findings, joined())
