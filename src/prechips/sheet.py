@@ -28,6 +28,7 @@ from .rules.resolution import (
     coating_process,
     drawing_precision,
     inventory_category,
+    jaw_top_z,
     length_mm,
     op_feature,
     op_features,
@@ -1810,6 +1811,18 @@ class _Traveler:
             facts.append(("quill out mm", o(hold["quill_extension_mm"])))
         if _known(hold.get("jaw_above_parallels_mm")):
             facts.append(("jaw top above parallels mm", o(hold["jaw_above_parallels_mm"])))
+            # The work's height above the jaw tops, from the same fields (one source for the
+            # figure an author would otherwise restate in prose).
+            scale = {"mm": 1.0, "in": 25.4}.get(self.units)
+            jaw_top = jaw_top_z(setup, hold, scale)
+            top = _mapping(setup.get("stock_state")).get("top_z")
+            if jaw_top is not None and _known(top):
+                above = (top - jaw_top) * scale
+                facts.append(
+                    ("work top above jaw tops mm", o(above))
+                    if above >= 0
+                    else ("work top below jaw tops mm", o(-above))
+                )
         along = _text(hold.get("jaws_along")).upper()
         if _known(hold.get("jaw_center_along_mm")) and along in ("X", "Y"):
             facts.append((f"jaw centre at {along}", o(hold["jaw_center_along_mm"])))
