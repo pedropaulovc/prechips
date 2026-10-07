@@ -483,6 +483,27 @@ oal_mm = { value = 114.3, measured = { by = "example (plausible, not measured)",
 [tools.drill-index-115.members."5-16in".projection_mm]
 "drill-chuck-r8" = { value = 93.7, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, chuck nose to drill point" } }
 
+[tools.drill-index-115.members."#33"]
+dia_mm = { value = 2.87, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the margins" } }
+shank_mm = 2.87
+flutes = 2
+point_angle = { value = 118, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "drill point gauge" } }
+flute_len_mm = { value = 40.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+oal_mm = { value = 63.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+
+[tools.drill-index-115.members."#33".projection_mm]
+"drill-chuck-r8" = { value = 42.9, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, chuck nose to drill point" } }
+
+[tools.drill-index-115.members."13-32in"]
+dia_mm = { value = 10.319, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the margins" } }
+shank_in = "13/32"
+flutes = 2
+point_angle = { value = 118, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "drill point gauge" } }
+flute_len_mm = { value = 87.3, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+oal_mm = { value = 133.4, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+
+[tools.drill-index-115.members."13-32in".projection_mm]
+"drill-chuck-r8" = { value = 112.8, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, chuck nose to drill point" } }
 # --- end round-7 make-op members ---
 
 # Example purchase: 9/32 in taper-length drill for the cone post's 80 mm mounting holes
