@@ -23,6 +23,7 @@ from .resolution import (
     setup_frame,
     uncertain,
 )
+from .speeds_feeds import spindle_ranges
 from .tip_endpoints import (
     FACING,
     POCKETING,
@@ -55,6 +56,61 @@ DIRECTIONS = {
     "y": ({"away"}, {"toward"}),
     "z": ({"up", "toward_exposed_end"}, {"down", "toward_chuck"}),
 }
+
+
+def finder_procedure(bundle, setup, tool):
+    """The EDGE FINDER box's facts for an X/Y pick-up with ``tool``: its type, tip Ø and
+    radius, and the rpm bands it runs at on this setup's mill (its own band intersected
+    with each spindle band; the gaps between spindle bands are never filled).
+
+    ``status`` is unknown while a fact is missing or any band endpoint is unknown, and an
+    error where no spindle band turns any of the finder's band. An electronic finder
+    signals contact with the spindle stopped, so it needs no speed."""
+    kind = tool.get("finder_type", UNKNOWN)
+    tip = length_mm(tool, "tip")
+    if not number(tip):
+        tip = length_mm(tool, "dia")
+    band = tool.get("rpm_range", UNKNOWN)
+    missing = [
+        name
+        for name, value in (
+            ("finder_type", kind),
+            ("tip_in / tip_mm", tip),
+            ("rpm_range", band if kind != "electronic" else "not_applicable"),
+        )
+        if value == UNKNOWN
+    ]
+    rpm, machine_rpm, status = "not_applicable", "not_applicable", "pass"
+    if kind != "electronic":
+        machine = resolve(bundle, "machines", setup.get("machine")) or {}
+        machine_rpm = spindle_ranges(machine)
+        known = (
+            isinstance(band, list)
+            and len(band) == 2
+            and all(number(v) for v in band)
+            and machine_rpm != UNKNOWN
+        )
+        rpm = UNKNOWN
+        if known:
+            rpm = [
+                [max(band[0], lo), min(band[1], hi)]
+                for lo, hi in machine_rpm
+                if max(band[0], lo) <= min(band[1], hi)
+            ]
+            status = "pass" if rpm else "error"
+    if status == "pass" and (missing or rpm == UNKNOWN):
+        status = UNKNOWN
+    return {
+        "finder_type": kind,
+        "tip_dia_mm": tip,
+        "radius_mm": tip / 2 if number(tip) else UNKNOWN,
+        "finder_rpm_range": band,
+        "machine_rpm": machine_rpm,
+        "rpm": rpm,
+        "missing": missing,
+        "status": status,
+        "cite": tool.get("cite", UNKNOWN),
+    }
 
 
 def axis_recipe(edge_mm, radius_mm, approach, axis, jog_mm, sign=1, scale=1, paper_mm=None):
@@ -943,6 +999,8 @@ def evaluate(bundle):
         # at an unknown Z (:func:`_face_checker`).
         face_errors, face_unknowns = [], []
         face_check = _face_checker(bundle, setup, face_errors, face_unknowns)
+        # The edge finder's procedure facts (:func:`finder_procedure`) of each pick-up.
+        finder_status = set()
 
         unknown = (
             not frame
@@ -1077,6 +1135,10 @@ def evaluate(bundle):
                 row["indicator_verify" if indicated else "finder_verify"] = uncertain(
                     tool
                 ) or not bool(tool)
+                if not indicated and tool.get("kind") == "edge_finder":
+                    # The one EDGE FINDER box on the traveler prints these facts.
+                    finder = row["finder"] = finder_procedure(bundle, setup, tool)
+                    finder_status.add(finder["status"])
             axes[axis] = row
             if axis == "z":
                 blade_corner(row, recipe, face, edge, "the Z zero touch")
@@ -1188,8 +1250,9 @@ def evaluate(bundle):
         unrecovered = transfer.get("keep_clamped") is True and not (
             isinstance(recovery, str) and recovery.strip() and recovery != UNKNOWN
         )
-        unknown |= unrecovered
-        errors = bad or missing or corner_errors or face_errors or x_errors
+        unknown |= unrecovered or UNKNOWN in finder_status
+        finder_error = "error" in finder_status
+        errors = bad or missing or corner_errors or face_errors or x_errors or finder_error
         status = "error" if errors else "unknown" if unknown else "pass"
         sentence = (
             "DRO direction or mode disagrees with the setup convention; stop and correct it "
@@ -1219,6 +1282,16 @@ def evaluate(bundle):
                 )
             )
         )
+        if finder_error:
+            sentence += (
+                " The edge finder's rpm range lies outside the spindle's: the mill cannot "
+                "run it at a speed its maker allows. Use a finder whose band the spindle turns."
+            )
+        elif UNKNOWN in finder_status:
+            sentence += (
+                " The edge finder's type, tip Ø, rpm range or the spindle's rpm range is not "
+                "stated: its procedure (speed, kick-out, tip-radius offset) cannot be printed."
+            )
         if unrecovered:
             sentence += (
                 " The datum transfer keeps the work clamped but plans no recovery for a sweep "

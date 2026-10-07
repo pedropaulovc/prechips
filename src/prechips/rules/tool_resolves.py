@@ -12,12 +12,17 @@ from .resolution import (
     SAW_OPS,
     UNKNOWN,
     coating_process,
+    inventory_category,
     length_mm,
+    named_item,
+    named_references,
     number,
     operations,
+    record,
     resolve,
     same_length,
     selected_references,
+    setup_items,
     uncertain,
 )
 
@@ -131,6 +136,47 @@ def evaluate(bundle):
                     if item is None
                     else "listed; presence or catalogue identity needs verification."
                     if uncertain(item)
+                    else "listed inventory identity resolves."
+                ),
+            )
+        )
+    # An item the prose names (``gauges.granite-surface-plate`` in a make note, a record
+    # blank's gauge) must be in the shop list: the traveler prints its name, and a name it
+    # cannot find, or an item still to verify, is unknown, never a pass. So must the item a
+    # slot reads when another category lists the same key first: a ``checks`` gauge
+    # ``pins`` is ``gauges.pins``, not the ``fixtures.pins`` resolved above.
+    named = named_references(bundle)
+    for setup in bundle.plan.get("setups") or []:
+        for category, ref in setup_items(bundle, setup):
+            if category and category != inventory_category(bundle, ref.partition("/")[0]):
+                places = named.setdefault(f"{category}.{ref}", [])
+                where = f"Setup {record(setup).get('id', '?')}"
+                if where not in places:
+                    places.append(where)
+    for name, where in sorted(named.items()):
+        category, _, reference = name.partition(".")
+        item = named_item(bundle, name)
+        verified = item is not None and not uncertain(item)
+        places = "; ".join(where)
+        findings.append(
+            Finding(
+                "tool_resolves",
+                name,
+                "pass" if verified else "unknown",
+                {
+                    "reference": reference,
+                    "category": category,
+                    "present": item is not None,
+                    "verified": verified,
+                    "named_in": where,
+                },
+                ["inventory item named in prose", "docs/inventory.md Shop-made fixtures"],
+                f"{name}: named in {places}; "
+                + (
+                    "not listed in the inventory: list it or name a listed item."
+                    if item is None
+                    else "listed; presence or catalogue identity needs verification."
+                    if not verified
                     else "listed inventory identity resolves."
                 ),
             )

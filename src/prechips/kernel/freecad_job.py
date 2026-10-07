@@ -184,7 +184,12 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import FreeCAD  # noqa: E402
 import Part  # noqa: E402
-from render_diagram import _common_plane, _shared_plane, render_diagram  # noqa: E402
+from render_diagram import (  # noqa: E402
+    _common_plane,
+    _shared_plane,
+    render_diagram,
+    render_inspection,
+)
 from step_faces import FaceRefError, StepError, StepFile  # noqa: E402
 
 UNKNOWN = "unknown"
@@ -825,6 +830,34 @@ def _kept_runs(lines, axis, keep, plane):
             previous, before = point, depth
         if run:
             runs.append(run)
+    return runs
+
+
+def _rim_runs(solid, cut, step=0.25):
+    """The runs of ``solid``'s edges lying on ``cut``'s surface, sampled every ``step``
+    mm: the rim a file guided by the solid rides on. A closed edge's run through its seam
+    is one run."""
+    box = cut.BoundBox
+    box.enlarge(STOCK_TOL)
+    runs = []
+    for edge in solid.Edges:
+        if edge.Length <= STOCK_TOL:
+            continue
+        points = edge.discretize(Number=max(2, math.ceil(edge.Length / step) + 1))
+        on = [box.isInside(p) and cut.isInside(p, STOCK_TOL, True) for p in points]
+        edge_runs, run = [], []
+        for point, touching in zip(points, on, strict=True):
+            if touching:
+                run.append([point.x, point.y, point.z])
+            elif run:
+                edge_runs.append(run)
+                run = []
+        if run:
+            edge_runs.append(run)
+        closed = (points[0] - points[-1]).Length <= STOCK_TOL
+        if closed and len(edge_runs) > 1 and on[0] and on[-1]:
+            edge_runs[0] = edge_runs.pop() + edge_runs[0][1:]
+        runs += edge_runs
     return runs
 
 
@@ -3694,6 +3727,7 @@ class _Setup:
         self.designs = {}  # id(op) -> a printed profile op's claim sweeps before its run-out
         self.clamp_parts = []
         self.clamp_restraints = {}  # clamp name -> declared restraint (press/locate/none)
+        self.clamp_locators = {}  # clamp name -> [(primitive name, solid)] declaring locates
         self.split_holds = {}  # op subject -> per-piece held-split witnesses
         self.saws = {}
         self.built = None
@@ -3874,6 +3908,14 @@ class _Setup:
             facts["fixture_rendered"] = (
                 self.fixture_ready and bool(scene["components"]) and not scene["debts"]
             )
+            with _timed(phases, "inspection_sketches"):
+                sketches, sketch_debts = self._inspection_sketches()
+            if sketches:
+                facts["inspection_pngs_base64"] = {
+                    key: base64.b64encode(sketch).decode("ascii")
+                    for key, sketch in sketches.items()
+                }
+            scene["render_debts"] = scene["render_debts"] + sketch_debts
             if any(_turned(op) for op in self.ops):
                 self._stock_profile(facts)
             saws = [
@@ -6133,13 +6175,19 @@ class _Setup:
         return None
 
     def _place_clamps(self, hold):
-        """Each posed clamp member's solids (strap, stud, heel; voids cut) as one owner."""
+        """Each posed clamp member's solids (strap, stud, heel; voids cut) as one owner, and
+        the (name, solid) of each drawn primitive that declares ``locates``."""
         clamps = []
         for clamp in hold.get("clamps", []):
             matrix = _pose_matrix(clamp["pose"])
-            clamps.append(
-                (clamp["name"], self._add_owned(clamp["solids"], "clamp", matrix, clamp["name"]))
-            )
+            solids = self._add_owned(clamp["solids"], "clamp", matrix, clamp["name"])
+            drawn = [spec for spec in clamp["solids"] if not spec.get("void")]
+            locators = [
+                (spec["name"], solid)
+                for spec, solid in zip(drawn, solids, strict=True)
+                if spec.get("locates")
+            ]
+            clamps.append((clamp["name"], solids, locators))
         return clamps
 
     def _accessories(self):
@@ -6173,12 +6221,13 @@ class _Setup:
         clamps = self._place_clamps(hold)
         self.clamp_parts = [
             (name, V(*clamp["pose"]["z"]) * -1, parts)
-            for (name, parts), clamp in zip(clamps, hold.get("clamps", []), strict=True)
+            for (name, parts, _), clamp in zip(clamps, hold.get("clamps", []), strict=True)
         ]
         self.clamp_restraints = {
             name: clamp.get("restraint", "none")
-            for (name, _), clamp in zip(clamps, hold.get("clamps", []), strict=True)
+            for (name, _, _), clamp in zip(clamps, hold.get("clamps", []), strict=True)
         }
+        self.clamp_locators = {name: locators for name, _, locators in clamps}
         self.fixture_debts.extend(str(debt) for debt in hold.get("debts", []))
         self.fixture_gaps.extend(str(gap) for gap in hold.get("gaps", []))
         self._place_steady_rests(hold)
@@ -6195,7 +6244,7 @@ class _Setup:
                     f"({_r(common.Volume)} mm^3) at the declared pose"
                 )
         bearing = []
-        for name, parts in clamps:
+        for name, parts, _ in clamps:
             # A clamp bears through its members that touch the stock and those joined to
             # them member to member; one cut off from them by air carries none of its load.
             reached = {
@@ -6747,11 +6796,30 @@ class _Setup:
         line runs along the force and the first material interval it meets at the contact is
         the run. A sample over air is not loaded. Undrawn or non-bearing clamps keep the wall
         unknown unless a drawn strap already proves it thin.
+
+        A ``restraint = "locate"`` clamp carries no clamping load, so it has no footprint run:
+        each of its solids that declares ``locates`` must instead bear on the stock by its own
+        geometry (:meth:`_locator_bearing`). A locator that does not, or draws no such solid,
+        is a debt like a non-bearing strap.
         """
         debts = [str(debt) for debt in self.hold.get("clamp_debts", [])]
         span = self.part.BoundBox.DiagonalLength + 1.0
         rows, thinnest = [], None
+        bearings, bores = [], None
         for name, force, parts in self.clamp_parts:
+            if self.clamp_restraints.get(name) == "locate":
+                locators = self.clamp_locators.get(name, [])
+                if not locators:
+                    debts.append(f"{name} draws no solid that declares what it locates")
+                for solid_name, solid in locators:
+                    if bores is None:
+                        bores = self._stock_bores()
+                    witness, why = self._locator_bearing(solid, bores)
+                    if why is not None:
+                        debts.append(f"{solid_name} {why}")
+                    else:
+                        bearings.append({"clamp": name, "solid": solid_name, **witness})
+                continue
             loaded = 0
             points = []
             try:
@@ -6776,11 +6844,88 @@ class _Setup:
             if not loaded:
                 debts.append(f"{name} has no sampled footprint point bearing on the stock")
         facts["strap_wall_map"] = rows
+        facts["locator_bearings"] = bearings
         facts["strap_wall_debts"] = debts
         if thinnest is not None:
             facts["min_wall_mm"] = _r(thinnest)
         else:
-            facts["reasons"]["min_wall_mm"] = "strap walls unresolved: " + "; ".join(debts)
+            facts["reasons"]["min_wall_mm"] = "strap walls unresolved: " + (
+                "; ".join(debts) or "no drawn strap loads the stock, only locators touch it"
+            )
+
+    def _stock_bores(self):
+        """(face, centre, unit axis, radius) of every concave cylinder of the entry stock."""
+        return [
+            (face, face.Surface.Center, face.Surface.Axis, face.Surface.Radius)
+            for face in self.part.Faces
+            if isinstance(face.Surface, Part.Cylinder) and _cylinder_concave(face)
+        ]
+
+    def _locator_bearing(self, solid, bores):
+        """(witness, None) when one locating solid bears on the entry stock by its own
+        geometry, else (None, why).
+
+        A radial pin bears in a bore: a convex cylinder of the solid stands in a concave
+        cylinder of the stock (``bores``) on a parallel axis, its axis inside the bore and
+        the two overlapping along it by more than STOCK_TOL; it must be no larger than the
+        bore, lie wholly inside it and come within STOCK_TOL of its wall. A flat locator
+        bears with a flat face within STOCK_TOL of the stock whose HELD_PROBE_MM slab, swept
+        along its outward normal, meets more than CONTACT_MM2 of stock. Either way the solid
+        shares no more than STOCK_MM3 with the stock.
+        """
+        shared = solid.common(self.part).Volume
+        radial, flat, faults = None, None, []
+        for face in solid.Faces:
+            surface = face.Surface
+            if isinstance(surface, Part.Cylinder) and not _cylinder_concave(face):
+                for bore, centre, axis, bore_radius in bores:
+                    if abs(surface.Axis.dot(axis)) < PARALLEL:
+                        continue
+                    offset = surface.Center - centre
+                    off_axis = (offset - axis * offset.dot(axis)).Length
+                    lo, hi = self._bore_span(face, axis)
+                    bore_lo, bore_hi = self._bore_span(bore, axis)
+                    engaged = min(hi, bore_hi) - max(lo, bore_lo)
+                    if off_axis >= bore_radius or engaged <= STOCK_TOL:
+                        continue  # not standing in this bore
+                    pin, hole = _r(2 * surface.Radius), _r(2 * bore_radius)
+                    if surface.Radius > bore_radius + PLANE_TOL:
+                        faults.append(f"dia {pin} is larger than the dia {hole} bore it stands in")
+                    elif off_axis + surface.Radius > bore_radius + PLANE_TOL:
+                        faults.append(
+                            f"dia {pin} stands {_r(off_axis)} off the axis of the dia {hole} bore "
+                            "it stands in and crosses its wall"
+                        )
+                    elif (gap := face.distToShape(bore)[0]) > STOCK_TOL:
+                        faults.append(
+                            f"dia {pin} comes no nearer than {_r(gap)} to the wall of the dia "
+                            f"{hole} bore it stands in (contact is within {STOCK_TOL})"
+                        )
+                    elif radial is None:
+                        radial = {
+                            "bears": "bore",
+                            "pin_dia_mm": pin,
+                            "bore_dia_mm": hole,
+                            "axis_offset_mm": _r(off_axis),
+                            "gap_mm": _r(gap),
+                            "engaged_mm": _r(engaged),
+                        }
+            elif isinstance(surface, Part.Plane) and flat is None:
+                if face.distToShape(self.part)[0] > STOCK_TOL:
+                    continue
+                u0, u1, v0, v1 = face.ParameterRange
+                normal = face.normalAt((u0 + u1) / 2, (v0 + v1) / 2)
+                slab = face.extrude(normal * HELD_PROBE_MM)
+                area = slab.common(self.part).Volume / HELD_PROBE_MM
+                if area > CONTACT_MM2:
+                    flat = {"bears": "face", "area_mm2": _r(area)}
+        if shared > STOCK_MM3:
+            return None, "; ".join([*faults, f"shares {_r(shared)} mm^3 with the stock"])
+        if radial is not None or flat is not None:
+            return radial or flat, None
+        return None, "; ".join(faults) or (
+            "stands in no bore of the stock and has no flat face bearing on it"
+        )
 
     @staticmethod
     def _footprint(parts, force, shape):
@@ -7282,6 +7427,7 @@ class _Setup:
             "stickout_mm": annotation.get("stickout_mm"),
             "stickout_add_mm": annotation.get("stickout_add_mm"),
             "decimals": annotation.get("decimals"),
+            "dro_step_mm": annotation.get("dro_step_mm"),
             "datums": datums,
             "primary_tool": tool,
             "paths": sketch,
@@ -7351,15 +7497,23 @@ class _Setup:
         held = [(name, shape) for name, shape, _ in solids if name not in possible_names]
         # A saw's cut is its blade's path, not the offcut that falls away.
         blade = self._blade_path(held)
-        # A lathe picture is a meridian section: its contacts are not the drawn faces.
+        # A lathe picture is a meridian section: its contacts are not the drawn faces. A
+        # guided file's stops are the rims it rides on, not a clearance to dimension.
+        stops = [] if lathe else self._guide_stops(held, section_view)
+        spec["guide_stops"] = stops
+        guide = self._guide_view(stops, solids, drawn, removal)
+        if guide is not None:
+            spec["guide_view"] = guide
+        scene["guide_axis_mm"] = guide["axis_mm"] if guide is not None else None
         spec["contacts"], spec["closest_cut"] = (
             ([], None)
             if lathe
             else self._render_contacts(
-                held, removal if blade is None else blade, tolerance, section_view
+                held, removal if blade is None else blade, tolerance, section_view, stops
             )
         )
         scene["closest_cut"] = spec["closest_cut"]
+        scene["guide_stops"] = [stop["tag"] for stop in stops]
         # The CLEARANCE table's per-op fixture rows: the picture's dimension and every
         # other cut's nearest holding, op by op; any holding debt leaves them unknown.
         scene["cut_clearances"] = [] if lathe else self._cut_clearances(held, not debts)
@@ -7390,7 +7544,7 @@ class _Setup:
             path = shape if path is None else path.fuse(shape)
         return path
 
-    def _render_contacts(self, solids, removal, tolerance, section_view):
+    def _render_contacts(self, solids, removal, tolerance, section_view, stops=()):
         """The holding solids touching the arriving stock, each with its contact outlines
         and plane, and the cut nearest the holding, in setup axes: ``([{"tag", "lines_mm",
         "plane"}], {"mm", "tag", "from_mm", "to_mm"} or None)``. A plane contact is the
@@ -7398,7 +7552,8 @@ class _Setup:
         is the solids' section, else their nearest point. A section view drops the half it
         removes, cutting each outline at its plane. ``plane`` is the one setup-axis plane
         ``[axis, value]`` of the contact pieces drawn, each measured whole, else None: a
-        seating face the section cuts to one edge keeps its height."""
+        seating face the section cuts to one edge keeps its height. A guided file's
+        ``stops`` (:meth:`_guide_stops`) are measured only against the other ops' cuts."""
         stock = self.part
         stock_box = _bbox(stock)
         contacts = []
@@ -7459,7 +7614,220 @@ class _Setup:
                         "plane": None if plane is None else list(plane),
                     }
                 )
-        return contacts, self._nearest_cut(removal, solids)
+        return contacts, self._holding_cut(removal, solids, stops)
+
+    def _holding_cut(self, removal, solids, stops):
+        """The picture's ``closest_cut`` (:meth:`_nearest_cut`): the setup's ``removal``
+        against every holding solid but a guided file's stops, and each stop against the
+        cuts of the setup's other ops, so a machine cut reaching a button still reads (the
+        whole removal when one of those cuts fails its boolean)."""
+        tags = {stop["tag"] for stop in stops}
+        nearest = self._nearest_cut(removal, [item for item in solids if item[0] not in tags])
+        pieces = []
+        for op in self.ops if tags else ():
+            before, after, why = self.cuts.get(id(op), (None, None, "not built"))
+            if isinstance(op.get("guide_owner"), str) or why is not None or after is before:
+                continue
+            try:
+                pieces.append(before.cut(after))
+            except Exception:
+                pieces = [removal]
+                break
+        if pieces and removal is not None:
+            other = pieces[0].fuse(pieces[1:]) if len(pieces) > 1 else pieces[0]
+            near = self._nearest_cut(other, [item for item in solids if item[0] in tags])
+            if near is not None and (nearest is None or near["mm"] < nearest["mm"]):
+                nearest = near
+        return nearest
+
+    def _guide_view(self, stops, solids, drawn, removal):
+        """The look down a guided file's guide axis (spec ``guide_view``): ``axis_mm``,
+        the axis of the stop solids' largest cylindrical face as [point, unit direction]
+        pointing at the setup's +X, +Y or +Z side, and meshes of the work, its removal and
+        the guide kit's solids. Stops at two heights along the axis (a button pair) are
+        sectioned square to it between them (``section_mm``, a point on that plane): half
+        way, unless the plane would miss most of the stock to file off, then at the height
+        nearest half way that crosses it. The near half is removed, so the near button does
+        not hide the work it guides; else the meshes are whole. None without stops, or when
+        no stop solid is turned (no axis to look along)."""
+        named = {name: (shape, colour) for name, shape, colour in solids}
+        faces = [
+            face
+            for stop in stops
+            for face in named[stop["tag"]][0].Faces
+            if isinstance(face.Surface, Part.Cylinder)
+        ]
+        if not faces:
+            return None
+        surface = max(faces, key=lambda face: face.Area).Surface
+        axis = [surface.Axis.x, surface.Axis.y, surface.Axis.z]
+        if axis[max(range(3), key=lambda i: abs(axis[i]))] < 0:
+            axis = [-v for v in axis]
+        owner = stops[0]["tag"].rsplit(":", 1)[0]
+        kit = [(name, *named[name]) for name in named if name.rsplit(":", 1)[0] == owner]
+        boxes = [_bbox(named[stop["tag"]][0]) for stop in stops]
+        if removal is not None and removal.Volume > STOCK_MM3:
+            boxes.append(_bbox(removal))
+        span = max(max(b[i + 3] for b in boxes) - min(b[i] for b in boxes) for i in range(3))
+        tolerance = max(0.005, span / 400)
+        centre, direction = surface.Center, V(*axis)
+        heights = [V(*stop["at_mm"]).dot(direction) for stop in stops]
+        keep, section = None, None
+        if max(heights) - min(heights) > PLANE_TOL:
+            low, high = min(heights), max(heights)
+            middle = (low + high) / 2
+            big = 10 * max(span, 1.0) + 1000
+            if removal is not None and removal.Volume > STOCK_MM3:
+                # The cut face shows the stock to file off only where the plane crosses
+                # it: the height between the rims crossing most of it, nearest the middle.
+                band = (high - low) / 40
+
+                def crossed(height):
+                    at = centre + direction * (height - band / 2 - centre.dot(direction))
+                    return removal.common(Part.makeCylinder(big, band, at, direction)).Volume
+
+                samples = [low + (high - low) * (i + 0.5) / 20 for i in range(20)]
+                areas = [crossed(height) for height in samples]
+                if max(areas) > 0 and crossed(middle) < 0.5 * max(areas):
+                    middle = min(
+                        (h for h, a in zip(samples, areas, strict=True) if a >= 0.5 * max(areas)),
+                        key=lambda h: abs(h - (low + high) / 2),
+                    )
+            section = centre + direction * (middle - centre.dot(direction))
+            # The viewer stands at the axis's + end: keep what lies below the plane.
+            keep = Part.makeCylinder(big, big, section - direction * big, direction)
+        meshes = []
+        pieces = [("part", drawn, _COLOURS["part"], False)]
+        if removal is not None and removal.Volume > STOCK_MM3:
+            pieces.append(("removal", removal, _COLOURS["removed"], True))
+        pieces += [(name, shape, colour, False) for name, shape, colour in kit]
+        for tag, shape, colour, hatch in pieces:
+            if keep is not None:
+                shape = shape.common(keep)
+                if not shape.Faces:
+                    continue
+            points, triangles = shape.tessellate(tolerance)
+            meshes.append(([(p.x, p.y, p.z) for p in points], triangles, colour, hatch, tag))
+        guide = {"axis_mm": [[centre.x, centre.y, centre.z], axis], "meshes": meshes}
+        if section is not None:
+            guide["section_mm"] = [section.x, section.y, section.z]
+        return guide
+
+    def _inspection_sketches(self):
+        """The labelled set-up sketches of this setup's inspect ops (the render annotation's
+        ``inspections``: op, requirement, views) as ``({"<op>:<requirement>": png},
+        debts)``. Each view draws the stock this setup leaves and the gauges and holding it
+        names (``aids``) in the part model's axes, seen from ``toward`` with ``up`` up off
+        the plate, and its ``marks``. Without that stock no sketch is drawn: its NOT SHOWN
+        line is the debt."""
+        inspections = self.setup.get("render", {}).get("inspections") or []
+        sketches, debts = {}, []
+        if not inspections:
+            return sketches, debts
+        if self.stock_out is None:
+            for inspection in inspections:
+                debts.append(
+                    f"op {inspection['op']} {inspection['requirement']} sketch: NOT SHOWN: "
+                    "the stock this setup leaves is unresolved, so it is not drawn."
+                )
+            return sketches, debts
+        box = _bbox(self.stock_out)
+        tolerance = max(0.01, max(box[i + 3] - box[i] for i in range(3)) / 400)
+
+        def mesh(shape, colour, tag):
+            points, triangles = shape.tessellate(tolerance)
+            return ([(p.x, p.y, p.z) for p in points], triangles, colour, False, tag)
+
+        def aid_solid(aid):
+            if aid["shape"] != "box" or not aid.get("axes"):
+                return _primitive(aid)
+            # A box square to its own edge directions: built at the origin, then posed.
+            x, y = (V(*axis) for axis in aid["axes"])
+            z, at = x.cross(y), aid["at_mm"]
+            solid = Part.makeBox(*aid["size_mm"])
+            solid.transformShape(
+                FreeCAD.Matrix(
+                    *(x.x, y.x, z.x, at[0]),
+                    *(x.y, y.y, z.y, at[1]),
+                    *(x.z, y.z, z.z, at[2]),
+                    *(0, 0, 0, 1),
+                )
+            )
+            return solid
+
+        part = mesh(self.stock_out, _COLOURS["part"], "part")
+        for inspection in inspections:
+            views = []
+            for view in inspection["views"]:
+                aids = view.get("aids", [])
+                up, toward = view["up"], view["toward"]
+                right = [
+                    up[1] * toward[2] - up[2] * toward[1],
+                    up[2] * toward[0] - up[0] * toward[2],
+                    up[0] * toward[1] - up[1] * toward[0],
+                ]
+                views.append(
+                    {
+                        "title": view["title"],
+                        "camera": [right, up, toward],
+                        "meshes": [part]
+                        + [
+                            mesh(
+                                aid_solid(aid),
+                                _COLOURS["fixture" if aid["shape"] == "box" else "clamp"],
+                                aid["name"],
+                            )
+                            for aid in aids
+                        ],
+                        "aids": [aid["name"] for aid in aids],
+                        "marks": view["marks"],
+                    }
+                )
+            key = f"{inspection['op']}:{inspection['requirement']}"
+            sketches[key], drawn = render_inspection(views)
+            name = f"op {inspection['op']} {inspection['requirement']} sketch"
+            debts += [f"{name}: {debt}" for debt in drawn]
+        return sketches, debts
+
+    def _guide_stops(self, solids, section_view=None):
+        """The rims a guided bench file rides on: each solid of a hand op's guide kit (its
+        ``guide_owner``, the prefix of the kit's solid tags) that the op's own cut reaches,
+        as ``{"tag", "at_mm", "rim_mm"}``. ``rim_mm`` holds the runs of the solid's edges
+        on the cut (:func:`_rim_runs`); ``at_mm`` is the rim point a picture keys: in a
+        section view the kept one nearest the section plane (the rim seen edge-on), else
+        the one nearest the rim's middle. A solid the cut reaches only off its edges is
+        keyed at its contact point nearest the contact's middle. A cut the stock builder
+        did not derive stops nowhere."""
+        stops = []
+        for op in self.ops:
+            owner = op.get("guide_owner")
+            before, after, why = self.cuts.get(id(op), (None, None, "not built"))
+            if not (_hand(op) and isinstance(owner, str)) or why is not None or after is before:
+                continue
+            try:
+                cut = before.cut(after)
+            except Exception:
+                continue
+            if cut.Volume <= STOCK_MM3:
+                continue
+            for name, solid in solids:
+                if name.rsplit(":", 1)[0] != owner or any(s["tag"] == name for s in stops):
+                    continue
+                distance, pairs, _ = _distance(cut, solid)
+                if distance > STOCK_TOL or not pairs:
+                    continue
+                rim = _rim_runs(solid, cut)
+                points = [V(*p) for run in rim for p in run] or [far for _, far in pairs]
+                if rim and section_view is not None:
+                    axis, keep, plane = section_view[:3]
+                    kept = [V(*p) for run in _kept_runs(rim, axis, keep, plane) for p in run]
+                    points = kept or points
+                    at = min(points, key=lambda p: abs(p[axis] - plane))
+                else:
+                    middle = sum(points, V(0, 0, 0)) * (1.0 / len(points))
+                    at = min(points, key=lambda p: (p - middle).Length)
+                stops.append({"tag": name, "at_mm": [at.x, at.y, at.z], "rim_mm": rim})
+        return stops
 
     @staticmethod
     def _nearest_cut(removal, solids):

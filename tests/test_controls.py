@@ -89,6 +89,11 @@ POSITION_CHECK = re.compile(
     r'(?ms)^position_dia = (?:""".*?"""|\'\'\'.*?\'\'\''
     r'|\[(?:"(?:[^"\\\n]|\\.)*"|\'[^\'\n]*\'|[^\]"\'])*\]|[^\n]*)[^\n]*\n'
 )
+# A whole set-up sketch table of the position check: its header and every line up to the
+# next table header.
+POSITION_VIEW = re.compile(
+    r"(?ms)^\[\[setups\.ops\.inspection_views\.position_dia\]\]\n.*?(?=^\[|\Z)"
+)
 
 
 def test_removed_position_check_is_named_error_not_size_coverage(tmp_path):
@@ -96,7 +101,8 @@ def test_removed_position_check_is_named_error_not_size_coverage(tmp_path):
     plan = examples / "rocker-arm" / "plan.toml"
     text = plan.read_text(encoding="utf-8")
     _, baseline, _ = traveler(plan, tmp_path / "baseline", setup=SYNTHETIC_KERNEL)
-    # Remove each position check together with its inspection method; nothing else changes.
+    # Remove each position check together with its inspection method and the set-up
+    # sketches that illustrate that method; nothing else changes.
     expected = tomllib.loads(text)
     features = set()
     for setup in expected["setups"]:
@@ -107,8 +113,13 @@ def test_removed_position_check_is_named_error_not_size_coverage(tmp_path):
             methods = op.get("inspection_methods")
             if isinstance(methods, dict):
                 methods.pop("position_dia", None)
+            views = op.get("inspection_views")
+            if isinstance(views, dict):
+                views.pop("position_dia", None)
+                if not views:
+                    del op["inspection_views"]
     assert features, "the control needs a planned position check"
-    stripped = POSITION_CHECK.sub("", text)
+    stripped = POSITION_VIEW.sub("", POSITION_CHECK.sub("", text))
     assert tomllib.loads(stripped) == expected
     plan.write_text(stripped, encoding="utf-8")
     result, report, _ = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
@@ -351,16 +362,17 @@ def test_missing_retouch_schedule_is_unknown_after_facing(
         encoding="utf-8",
     )
     inventory = plan.parent.parent / "inventory" / "pedro-shop.toml"
+    finder = 'finder_type = "mechanical"\nrpm_range = [750, 1500]\n'
     with inventory.open("a", encoding="utf-8") as stream:
-        for tool, kind in [
-            ("control-finder", "edge_finder"),
-            ("control-face", "endmill"),
-            ("control-second", "endmill"),
-            ("control-third", "endmill"),
+        for tool, kind, extra in [
+            ("control-finder", "edge_finder", finder),
+            ("control-face", "endmill", ""),
+            ("control-second", "endmill", ""),
+            ("control-third", "endmill", ""),
         ]:
             stream.write(
                 f'\n[tools.{tool}]\nkind = "{kind}"\nverify = false\n'
-                'dia_mm = 6.0\nshank_mm = 9.525\nunits = "mm"\n'
+                f'dia_mm = 6.0\nshank_mm = 9.525\nunits = "mm"\n{extra}'
             )
     (plan.parent.parent / "shop-policy.toml").write_text(
         '[required]\nzero_check = "setups"\n', encoding="utf-8"
