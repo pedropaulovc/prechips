@@ -6771,6 +6771,22 @@ class _Setup:
                         }
         return None
 
+    def _holding_middle(self, axis, default):
+        """The middle along ``axis`` of the placed holding solids that touch the work, when
+        it lies inside the work; else ``default``."""
+        low, high = math.inf, -math.inf
+        for component in self.fixture:
+            if _box_gap(self.box, component["bbox"]) > STOCK_TOL:
+                continue
+            if _distance(component["solid"], self.part)[0] > STOCK_TOL:
+                continue
+            low = min(low, component["bbox"][axis])
+            high = max(high, component["bbox"][axis + 3])
+        if low > high:
+            return default
+        middle = (low + high) / 2
+        return middle if self.box[axis] < middle < self.box[axis + 3] else default
+
     def _render(self):
         """Arriving stock, exact fixture, and this setup's derived removal, in setup axes."""
         size = max(self.box[3] - self.box[0], self.box[4] - self.box[1], self.box[5] - self.box[2])
@@ -6812,17 +6828,21 @@ class _Setup:
         )
         halfspace, section_view = None, None
         if view == "elevation":
-            # Section on the stock's centre plane across its longer horizontal side; the
-            # near half of every solid is removed so saddles, pins and stops show.
+            # Section across the stock's longer horizontal side, on the plane through the
+            # middle of the holding that touches the work (else the stock's centre), so
+            # the buttons, saddles and pins that hold it are cut and their contacts show;
+            # the near half of every solid is removed.
             centre = [(self.box[i] + self.box[i + 3]) / 2 for i in range(3)]
             big = 10 * max(size, 1.0) + 1000
-            if self.box[3] - self.box[0] >= self.box[4] - self.box[1]:
-                axis, keep = 1, 1  # view from -Y, keep y >= centre
+            axis = 1 if self.box[3] - self.box[0] >= self.box[4] - self.box[1] else 0
+            centre[axis] = self._holding_middle(axis, centre[axis])
+            if axis == 1:
+                keep = 1  # view from -Y, keep y >= the section
                 halfspace = Part.makeBox(2 * big, big, 2 * big, V(-big, centre[1], -big))
                 camera = [[1, 0, 0], [0, 0, 1], [0, -1, 0]]
                 note = f"SECTION AT SETUP Y {_r(centre[1])}  /  VIEW FROM -Y  /  X RIGHT, Z UP"
             else:
-                axis, keep = 0, -1  # view from +X, keep x <= centre
+                keep = -1  # view from +X, keep x <= the section
                 halfspace = Part.makeBox(big, 2 * big, 2 * big, V(centre[0] - big, -big, -big))
                 camera = [[0, 1, 0], [0, 0, 1], [1, 0, 0]]
                 note = f"SECTION AT SETUP X {_r(centre[0])}  /  VIEW FROM +X  /  Y RIGHT, Z UP"
@@ -7114,6 +7134,8 @@ class _Setup:
                 "jaw_front_oblique": jaw_front_oblique,
             }
         )
+        if section_view is not None:
+            scene["section"] = {"axis": "xy"[section_view[0]], "at_mm": _r(section_view[2])}
         details = [c for c in components if c["role"] == "detail"]
         if details:
             scene["fixture_detail_labels"] = details

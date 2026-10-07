@@ -1709,7 +1709,11 @@ returns a PNG 1600 pixels wide and 1000 tall (taller with holding detail bands,
 below) suitable for a wide printed setup figure. The camera
 uses setup axes: a lathe elevation has +Z to the right, radial +X up and +Y
 away, with headstock/chuck left and tailstock right; a mill uses a front-right
-isometric view; a custom plate uses a plan view down setup -Z. The engine's
+isometric view; a custom plate uses a plan view down setup -Z, and a custom
+fixture on a bench or saw an elevation section across the stock's longer
+horizontal side, on the plane through the middle of the holding that touches
+the work (else the stock's centre), so the buttons, saddles and pins holding it
+are cut and their contacts show (`render_scene.section`: `axis`, `at_mm`). The engine's
 own orthographic z-buffer rasterizer, bundled bitmap font and PNG encoder
 use no installed fonts, timestamps or machine-specific metadata. Fresh runs
 and cache hits give identical bytes.
@@ -1792,7 +1796,11 @@ them (a longer raster is a band with its first and last pass), each with a
 direction arrow when the table gives a cutting sense; its `ARROWS: POINT ORDER`
 legend prints only when an arrow is drawn. An
 isometric or elevation view is detailed only when the band draws the stock at
-least 1.5 times larger; a lathe's meridian section gets no holding detail. A
+least 1.5 times larger; when framing the whole stock cannot, the band is a
+window on the holding that touches it (its contacts and the whole of each
+component making one: both of the rocker's hub buttons and the stud the vise
+grips), titled with the stretch of the work it shows (`SETUP X a TO b`), and is
+drawn when that reaches 1.5 times. A lathe's meridian section gets no holding detail. A
 plan view always gets the detail, drawn from 30° above the side so contact
 heights read, and long work is split along its length into at most two bands,
 each keying only the contacts in its share. Bands grow taller rather than

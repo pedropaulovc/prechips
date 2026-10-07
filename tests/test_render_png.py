@@ -1018,6 +1018,58 @@ def test_picture_coordinates_and_clearances_print_as_the_setup_tables_print_them
     assert f"CONTACT AT X {plane}" in text, text
 
 
+def test_long_work_held_at_a_small_hub_gets_a_detail_windowed_on_its_holding():
+    # A 340 mm arm sectioned on its long side, held at its hub between two 10 mm buttons
+    # on a stud: framing the whole arm draws the buttons no larger, so the detail frames
+    # the holding that touches the work and says which stretch of the work it shows.
+    stock = [0, 0, 0, 340, 40, 16]
+    solids = {
+        "kit:upper-button": [165, 15, 16, 175, 25, 20],
+        "kit:lower-button": [165, 15, -4, 175, 25, 0],
+        "kit:stud": [168, 18, -60, 172, 22, 24],
+    }
+    meshes = [_block(stock, (160, 175, 185), "part")]
+    meshes += [_block(box, (120, 98, 76), name) for name, box in solids.items()]
+    contacts = [
+        {"tag": tag, "lines_mm": [[[165, 15, z], [175, 15, z], [175, 25, z], [165, 25, z]]]}
+        for tag, z in (("kit:upper-button", 16), ("kit:lower-button", 0))
+    ]
+    spec = {
+        "setup_id": "S1",
+        "view": "elevation",
+        "camera": [[1, 0, 0], [0, 0, 1], [0, -1, 0]],
+        "stock_box": stock,
+        "zero_mm": [170, 20, 16],
+        "contacts": contacts,
+        "components": [
+            {
+                "name": "clamp 1 kit",
+                "label": "C1: kit",
+                "role": "clamp",
+                "code": "C1",
+                "box_mm": [165, 15, -60, 175, 25, 24],
+                "center_mm": [170, 20, -18],
+                "meshes": list(solids),
+            }
+        ],
+    }
+    main = _Diagram(meshes, spec)
+    main.render()
+    (detail,) = _holding_details(meshes, spec, main)
+
+    drawn = _stock_short_side(main.canvas, stock)
+    assert _stock_short_side(detail.canvas, stock) >= 1.5 * drawn
+    # Both button seats and the stud they hang on are inside the window.
+    left, top, right, bottom = detail.viewport
+    for box in solids.values():
+        for point in _corners(box):
+            x, y = detail.canvas.project(point)
+            assert left <= x <= right and top <= y <= bottom, point
+    text = " ".join(box[0] for box in detail.canvas.text_boxes)
+    assert "SETUP X -" in text and " TO " in text, text
+    assert text.count("CONTACT AT Z") == 2, text
+
+
 def test_keys_too_many_for_their_lanes_move_the_footer_down_never_across_it():
     # Thirty datum keys on small work: the lanes beside the scene cannot hold them at
     # body size above the divider. The picture grows; no key runs into the key below.

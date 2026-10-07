@@ -2052,7 +2052,9 @@ def _holding_details(meshes, spec, diagram):
     ``_DETAIL_MIN_PX`` (small beside its holding). One band is drawn when it draws that
     side at least ``_DETAIL_GAIN`` times larger. A plan view, which cannot show contact
     heights, always gets the detail's raised view, split along the work's length into the
-    fewest bands (at most ``_DETAIL_TILES``) that reach the gain, else the most."""
+    fewest bands (at most ``_DETAIL_TILES``) that reach the gain, else the most. Any other
+    view whose whole work cannot reach the gain is windowed on the holding that touches
+    it (:func:`_detail_frame`), when that reaches the gain."""
     frame = _detail_frame(spec)
     if frame is None or not diagram.stock_pixels:
         return []
@@ -2072,7 +2074,10 @@ def _holding_details(meshes, spec, diagram):
             break
     else:
         if spec["view"] != "plan":
-            return []
+            tiles = [_detail_frame(spec, window=True)]
+            scale = _fit_scale(_corners(tiles[0]), camera, _detail_viewport(tiles[0], camera))
+            if scale * across < _DETAIL_GAIN * drawn:
+                return []
     details = []
     for index, tile in enumerate(tiles, 1):
         extra = 0
@@ -2142,18 +2147,26 @@ def _fit_scale(points, camera, viewport):
     return min(scales) if scales else 1.0
 
 
-def _detail_frame(spec):
+def _detail_frame(spec, window=False):
     """The box a holding detail frames: the stock, its contact outlines and the closest
-    cut's ends, padded; None when nothing touches the stock."""
+    cut's ends, padded; None when nothing touches the stock. A ``window`` frames instead
+    the holding that touches the stock: its contact outlines and the whole of each
+    component making one (both buttons and the stud they hang on, a jaw and its grip)."""
     stock = spec.get("stock_box")
     contacts = spec.get("contacts") or []
     if stock is None or not contacts:
         return None
-    points = _corners(stock)
-    points += [p for contact in contacts for line in contact["lines_mm"] for p in line]
-    cut = spec.get("closest_cut")
-    if cut:
-        points += [cut["from_mm"], cut["to_mm"]]
+    points = [p for contact in contacts for line in contact["lines_mm"] for p in line]
+    if window:
+        tags = {contact["tag"] for contact in contacts}
+        for component in spec.get("components", []):
+            if tags.intersection(component.get("meshes", ())) and component.get("box_mm"):
+                points += _corners(component["box_mm"])
+    else:
+        points += _corners(stock)
+        cut = spec.get("closest_cut")
+        if cut:
+            points += [cut["from_mm"], cut["to_mm"]]
     low = [min(p[i] for p in points) for i in range(3)]
     high = [max(p[i] for p in points) for i in range(3)]
     pads = [0.05 * (high[i] - low[i]) + 2.0 for i in range(3)]
@@ -2275,9 +2288,13 @@ class _HoldingDetail(_Diagram):
         title = "HOLDING DETAIL" if count == 1 else f"HOLDING DETAIL {index} OF {count}"
         title += f" X{self.gain:.1f}"
         zero = self.spec.get("zero_mm")
-        if count == 1 or zero is None:
-            return title
         axis = max(range(3), key=lambda i: abs(self.camera[0][i]))
+        # A band or a window on the holding shows only a stretch of the work: say which.
+        whole = (
+            self.frame[axis] <= self.stock[axis] and self.stock[axis + 3] <= self.frame[axis + 3]
+        )
+        if (count == 1 and whole) or zero is None:
+            return title
         low, high = self.frame[axis] - zero[axis], self.frame[axis + 3] - zero[axis]
         return f"{title}  /  SETUP {'XYZ'[axis]} {_mm(low)} TO {_mm(high)}"
 
