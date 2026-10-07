@@ -2929,7 +2929,7 @@ class _Traveler:
         ``hold.clamps`` entry ``clamp <i> <ref>`` by its label and solid (``LOC2 collar``),
         any other by its solid's own name."""
         owner, _, solid = str(tag).rpartition(":")
-        solid = solid.replace("-", " ")
+        solid = solid.replace("-", " ").replace("_", " ")
         match = re.fullmatch(r"clamp (\d+) .+", owner)
         labels = clamp_labels(_mapping(setup.get("hold")))
         if match and 0 < int(match.group(1)) <= len(labels):

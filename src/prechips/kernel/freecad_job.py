@@ -7155,19 +7155,21 @@ class _Setup:
         for op in self.ops:
             if _hand(op) or _sawn(op):
                 continue
+            # A kernel op carries its identity as the subject "<setup>:<op>".
+            number = str(op.get("subject", "")).partition(":")[2] or UNKNOWN
             before, after, why = self.cuts.get(id(op), (None, None, "not built"))
             if why is not None or before is None:
-                rows.append({"op": op.get("op"), "mm": UNKNOWN, "tag": UNKNOWN})
+                rows.append({"op": number, "mm": UNKNOWN, "tag": UNKNOWN})
                 continue
             if after is before:
                 continue
             try:
                 nearest = self._nearest_cut(before.cut(after), solids)
             except Exception:
-                rows.append({"op": op.get("op"), "mm": UNKNOWN, "tag": UNKNOWN})
+                rows.append({"op": number, "mm": UNKNOWN, "tag": UNKNOWN})
                 continue
             if nearest is not None:
-                rows.append({"op": op.get("op"), "mm": _r(nearest["mm"]), "tag": nearest["tag"]})
+                rows.append({"op": number, "mm": _r(nearest["mm"]), "tag": nearest["tag"]})
         return rows
 
     def _index_arc(self, annotation, fixture_kind):
