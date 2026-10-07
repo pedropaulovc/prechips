@@ -9,11 +9,15 @@ the selected tool's own centre, its mouth on the touched entry surface) and its 
 mouth must be the ``centre_hole_dia_mm`` the hold seats the point in. An undeclared
 centre, mouth, routing anywhere in the lineage, or preparation is unknown; a centre no
 earlier lineage op makes, a preparation contradiction, or a mouth that differs is an
-error. A support is a centre by its inventory kind (a dead, live or tailstock centre, or a
-tailstock) or, for a machine accessory, by its name. A support that is unknown, not in the
-inventory, of unknown kind or unconfirmed (verify) may be one; so may each centre beyond
-the one ``centre_hole`` a hold names. Any of those keeps the finding unknown unless an
-error is established. A hold none of whose supports is (or may be) a centre is not
+error. A support is a centre when its inventory kind names a centre (a ``centre`` /
+``center`` word: dead, live, tailstock centre) or is a ``tailstock``, which carries work
+only on its centre, or, for a machine accessory with no record, when its name does; the
+word ``tailstock`` alone in a name (a tailstock drill chuck or quill) is not one. A
+support whose identity is unresolved (unknown, not in the inventory, or of unknown kind)
+may be one; so may each centre beyond the one ``centre_hole`` a hold names. Any of those
+keeps the finding unknown unless an error is established. A support of a known non-centre
+kind is not one, whatever verification or measurement debt its record carries: that debt
+is its own checks'. A hold none of whose supports is (or may be) a centre is not
 applicable. A wholly undeclared hold names no support to check: its debt is
 ``hold_fields``', as an unrouted setup's is stock routing's rather than ``joint_fit``'s.
 The kernel separately checks that the point touches the cut countersink without
@@ -31,21 +35,27 @@ from prechips.rules.resolution import (
     record,
     resolve,
     same_length,
-    uncertain,
     workholding_category,
 )
 from prechips.rules.tip_endpoints import centre_check
 
-# A tailstock carries work only on a centre.
-CENTRE_KINDS = frozenset(
-    {"dead_centre", "dead_center", "live_centre", "live_center"}
-    | {"tailstock", "tailstock_centre", "tailstock_center"}
-)
-# A machine accessory has no fixture record: a centre is named as one.
-_CENTRE_NAME = re.compile(r"(?:^|[^a-z])(?:centre|center|tailstock)(?:$|[^a-z])", re.IGNORECASE)
+# A whole ``centre`` / ``center`` word in a kind or accessory name: a dead, live, tailstock
+# or pipe centre, never a self-centering chuck.
+_CENTRE_WORD = re.compile(r"(?:^|[^a-z])(?:centre|center)(?:$|[^a-z])", re.IGNORECASE)
 # Declared no-support sentinels.
 _NO_SUPPORT = frozenset({"none", "not_applicable"})
 _CITE = "PLAN.md §4.1 hold fields: hold.centre_hole and centre_hole_dia_mm"
+
+
+def _is_centre(kind, reference):
+    """Whether a support of inventory ``kind`` named ``reference`` carries work on a centre.
+
+    The kind says so (a centre word, or a ``tailstock``, which carries work only on its
+    centre); a machine accessory has no record, so its name must name a centre.
+    """
+    if kind == "tailstock":
+        return True
+    return bool(_CENTRE_WORD.search(reference if kind == "accessory" else kind))
 
 
 def _supports(hold):
@@ -57,11 +67,10 @@ def _supports(hold):
 
 
 def _centres(bundle, hold):
-    """``(centres, unresolved)``: the distinct ``hold`` supports that are dead or live centres
-    (a centre kind, or a machine accessory named a centre), plus the hold's ``support`` if it
-    declares the centre it seats in; and the support references whose kind is unresolved
-    (unknown, not in the inventory, of unknown kind, or unconfirmed), any of which may be a
-    centre."""
+    """``(centres, unresolved)``: the distinct ``hold`` supports that are centres
+    (``_is_centre``), plus the hold's ``support`` if it declares the centre it seats in; and
+    the support references whose identity is unresolved (unknown, not in the inventory, or
+    of unknown kind), any of which may be a centre."""
     centres, unresolved = [], []
     for reference in _supports(hold):
         if not isinstance(reference, str) or reference in (UNKNOWN, ""):
@@ -73,10 +82,8 @@ def _centres(bundle, hold):
         kind = record(item).get("kind", UNKNOWN)
         if item is None or not isinstance(kind, str) or kind == UNKNOWN:
             unresolved.append(reference)
-        elif kind in CENTRE_KINDS or (kind == "accessory" and _CENTRE_NAME.search(reference)):
+        elif _is_centre(kind, reference):
             centres.append(reference)
-        elif uncertain(item):
-            unresolved.append(reference)
     if not centres and any(key in hold for key in ("centre_hole", "centre_hole_dia_mm")):
         centres.append(hold.get("support", UNKNOWN))
     return list(dict.fromkeys(centres)), unresolved
@@ -164,8 +171,8 @@ def _open(centres, unresolved):
         reasons.append(
             "whether support "
             + ", ".join(repr(reference) for reference in unresolved)
-            + " is a centre is unresolved: it is unknown, not in the inventory, of unknown "
-            "kind or unconfirmed"
+            + " is a centre is unresolved: it is unknown, not in the inventory or of unknown "
+            "kind"
         )
     if len(centres) > 1:
         reasons.append(

@@ -63,11 +63,12 @@ M2 holding checks use explicitly declared `sizes_mm` / `sizes_in` or a two-ended
 (`diameter_in`) says nothing about jaw capacity. Tailstock/steady exceptions
 must resolve to actual inventory or a named machine accessory; an unconfirmed
 accessory does not certify support. A support's `kind` also says whether it
-carries the work on a centre (`centre_support`): a dead, live or tailstock
-centre, a `tailstock`, or an accessory named a centre or tailstock is one. A
-support declared `"unknown"`, of unknown kind, or whose record carries `verify`
-or an unknown flag may be one, so it is never taken as proof that no centre is
-used.
+carries the work on a centre (`centre_support`): a kind with a whole `centre` /
+`center` word or a `tailstock` is one, and an accessory, which has no record,
+is one when its name has such a word (`tailstock_drill_chuck` is not). A
+support declared `"unknown"`, of unknown kind, or not in the inventory may be
+one, so it is never taken as proof that no centre is used; a known non-centre
+kind stays one whatever `verify` or measurement debt its record carries.
 A `follow_rest` / `steady_rest` fixture that a plan `hold.supports` table
 selects (`{ ref, ops, jaw_lead_mm }` / `{ ref, ops, at_z_mm }`) declares its jaw
 capacity as fact-local measured `capacity_min_mm` / `capacity_max_mm` (or

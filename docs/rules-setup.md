@@ -41,11 +41,16 @@ limit appears as a fallback.
 One subject per setup. Always required wherever a centre carries the work: no
 shop-policy entry is needed and none can waive it (`findings.ALWAYS_REQUIRED`,
 like `joint_fit`/`joint_assembly`). A centre is a `support` or any `supports`
-entry whose inventory `kind` is a dead, live or tailstock centre (`dead_centre`,
-`live_centre`, `tailstock_centre`, either spelling) or a `tailstock`, a machine
-standard accessory named a centre or tailstock (`dead_centre_headstock`), or a
-hold that declares `centre_hole` / `centre_hole_dia_mm`. A hold with no centre
-is not applicable and never blocks.
+entry whose inventory `kind` has a whole `centre` / `center` word (`dead_centre`,
+`live_center`, `tailstock_centre`, `pipe_center`) or is `tailstock` (a
+tailstock carries work only on its centre), a machine standard accessory whose
+name has such a word (`dead_centre_headstock`), or a hold that declares
+`centre_hole` / `centre_hole_dia_mm`. The word `tailstock` in an accessory name
+is not a centre (`tailstock_drill_chuck`, `tailstock_quill`), nor is a kind
+such as `self_centering_steady_rest`. A support of a known non-centre kind stays
+one whatever `verify` or measurement debt its record carries; that debt is its
+own checks' (`stickout`, `turning_deflection`). A hold with no centre is not
+applicable and never blocks.
 The hold's `centre_hole` must name a plan
 [process feature](plan.md#process-features) `centre_hole`; a `center_drill`
 op of an earlier setup in this setup's `stock_in` lineage must drill it, that
@@ -65,9 +70,9 @@ touched entry surface and, on a lathe, on the spindle axis), and its
   or one upstream) lacks `stock_in`; the maker's `blind_depth` row is unknown (a
   centre size, a selected-tool fact such as its point angle, the tool's record
   being unconfirmed, or the touched entry surface); the seat or mouth diameter
-  is unknown; a support's kind is unresolved (the reference is unknown, not in
-  the inventory, declared `"unknown"`, of unknown kind, or unconfirmed by
-  `verify`), with or without a known centre beside it, since it may be one; or
+  is unknown; a support's identity is unresolved (the reference is unknown, not
+  in the inventory, declared `"unknown"`, or of unknown kind), with or without a
+  known centre beside it, since it may be one; or
   the work rides on more than one centre, since a hold names one `centre_hole`
   and each other centre's seat is unchecked. A wholly undeclared hold names no
   support: its debt is `hold_fields`', and this rule is not applicable;

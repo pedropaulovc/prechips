@@ -213,21 +213,32 @@ def gate(bundle, row):
 
 
 LIVE_CENTRE = '\n[fixtures.live-centre-mt3]\nkind = "live_centre"\nfits = "PM-1127VF-LB"\n'
-# Supports whose kind leaves open whether they are centres, and a tailstock, which carries
-# work only on one.
+# Supports whose kind leaves open whether they are centres; a tailstock, which carries work
+# only on one; a centre named by kind alone; and rests of known non-centre kind carrying
+# record-level or measurement verification debt.
 SUPPORTS = (
     LIVE_CENTRE
     + '\n[fixtures.kind-unknown]\nkind = "unknown"\n'
-    + '\n[fixtures.unconfirmed-rest]\nkind = "rest"\nverify = true\n'
     + '\n[fixtures.tailstock-x]\nkind = "tailstock"\n'
+    + '\n[fixtures.pipe-centre]\nkind = "pipe_center"\n'
+    + '\n[fixtures.unconfirmed-rest]\nkind = "steady_rest"\nverify = true\n'
+    + '\n[fixtures.unmeasured-rest]\nkind = "steady_rest"\n'
+    + "capacity_min_mm = { value = 5, verify = true }\ncapacity_max_mm = 50\n"
+    + '\n[fixtures.self-centering-rest]\nkind = "self_centering_steady_rest"\n'
 )
 
 
 def add_supports(plan):
-    """Add ``SUPPORTS`` and a fixture declared wholly ``"unknown"`` to the copied inventory."""
+    """Add ``SUPPORTS``, a fixture declared wholly ``"unknown"`` and two tailstock-mounted
+    standard accessories that are not centres to the copied inventory."""
     inventory = plan.parents[1] / "inventory" / "pedro-shop.toml"
     text = inventory.read_text(encoding="utf-8")
     text = text.replace("[fixtures]\n", '[fixtures]\ndeclared-unknown = "unknown"\n', 1)
+    text = text.replace(
+        "standard_accessories = [",
+        'standard_accessories = ["tailstock_drill_chuck", "tailstock_quill", ',
+        1,
+    )
     inventory.write_text(text + SUPPORTS, "utf-8")
 
 
@@ -239,18 +250,26 @@ def add_supports(plan):
         ("supports", '["follow_rest", { ref = "live-centre-mt3" }]', "unknown"),
         # A machine's standard-accessory dead centre, with no fixture record of its own.
         ("support", '"dead_centre_headstock"', "unknown"),
-        # A tailstock carries the work on a centre.
+        # A tailstock carries the work on a centre; so does any kind naming one.
         ("support", '"tailstock-x"', "unknown"),
+        ("support", '"pipe-centre"', "unknown"),
         # A support that is unknown, or that the inventory does not know, may be a centre.
         ("support", '"unknown"', "unknown"),
         ("support", '"tailstock-thing"', "unknown"),
-        # So may an inventory record declared unknown, of unknown kind, or unconfirmed.
+        # So may an inventory record declared unknown, or of unknown kind.
         ("support", '"declared-unknown"', "unknown"),
         ("support", '"kind-unknown"', "unknown"),
-        ("supports", '["unconfirmed-rest"]', "unknown"),
         # No centre: the rest alone, or nothing.
         ("supports", '["follow_rest"]', "not_applicable"),
         ("support", '"none"', "not_applicable"),
+        # Tailstock-mounted accessories that are not centres.
+        ("support", '"tailstock_drill_chuck"', "not_applicable"),
+        ("support", '"tailstock_quill"', "not_applicable"),
+        # Rests whose kind is known: their verify or measurement debt is their own checks'.
+        ("support", '"steady_rest"', "not_applicable"),
+        ("supports", '["unconfirmed-rest"]', "not_applicable"),
+        ("support", '"unmeasured-rest"', "not_applicable"),
+        ("support", '"self-centering-rest"', "not_applicable"),
     ],
 )
 def test_a_centre_with_no_prepared_seat_blocks_without_any_shop_policy_entry(
