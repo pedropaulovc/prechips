@@ -1399,7 +1399,9 @@ sheet.
    coaxial concave cone/sphere cap no wider than the bore, with numerical
    lift at either end, not entry-stock height; wider back countersinks are
    not reserved, blind columns stop at their caps, and pins/rods outside the
-   hole remain material.
+   hole remain material. A face raster's `contour.keep_out` islands keep their
+   stock (a later op's rough leave on a hub) and keep that op's floor poses one
+   cutter radius outside them; unmapped islands leave the cut unknown.
    Current-setup cuts shape output stock and, in op order, the stock each
    later milling or hole flute of the setup meets (never a later cut's); the
    flute also excludes its own op's accepted cut, never the failed clearance of

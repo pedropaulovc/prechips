@@ -1042,7 +1042,9 @@ island radius plus cutter radius. Crossing passes split into independent,
 positive-length pieces in feed order, each with its own feed/lift/rapid cycle;
 each cut point lies on the DRO grid, rounded away from the island.
 The raster record reports setup-frame circles in `raster.keep_out` and counts
-pieces in `raster.passes`.
+pieces in `raster.passes`. The geometry kernel honours the same circles: the op
+removes no stock inside an island, and its floor poses stand at least one cutter
+radius outside it (see [rules-geometry.md](rules-geometry.md)).
 
 ## Guide
 

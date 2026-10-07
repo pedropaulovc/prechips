@@ -1213,6 +1213,19 @@ For milling, a far-side face (outward normal opposing setup +Z by more than
 90°) is an invalid cutting claim, reported as an error naming the face before
 tool-dimension debt can hide it.
 
+A face raster's `contour.keep_out` islands reach the kernel as the setup-frame
+circles the coordinates rule mapped (`raster.keep_out`). Its passes keep the
+whole cutter outside each circle, so the op removes no stock inside one, a
+claimed-face sample inside or on a circle is not that op's and is not posed,
+and a floor sample's legal centre nearer a circle than one cutter radius
+beyond it moves straight out from the circle's centre until the cutter edge
+touches it. The stock an island keeps (a later op's rough leave on a boss)
+still meets the flute and holder at every other pose. An op that authors
+`keep_out` without mapped circles leaves its cut and accessibility unknown.
+The kernel test pins it: a rough and a finish face raster round a boss keep
+the island annulus over the boss height and clear it at every pose, and the
+finisher with an unmapped island leaves its cut and accessibility unknown.
+
 The kernel tests pin the discriminations: a plate-top sample within a cutter
 radius of a boss stands at its nearest legal centre and clears, as do samples
 near an R10 or exactly cutter-sized circular pocket wall, an arc/chord corner,

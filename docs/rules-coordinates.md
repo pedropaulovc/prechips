@@ -278,7 +278,11 @@ rounded away from the island, so a printed piece never reaches nearer than that
 clearance; pieces no longer than 1e-9 mm are dropped. Each piece
 is a separate `cutter_centre` entry with the same feed/lift/rapid cycle.
 `raster.keep_out` records the circles in setup XY and `raster.passes` counts
-pieces. Diagrams draw these pieces separately, not as a continuous swept band.
+Diagrams draw these pieces separately, not as a continuous swept band.
+The kernel receives the same setup-frame circles: the op removes no stock
+inside an island and its sampled floor poses keep outside it
+([rules-geometry.md](rules-geometry.md)); an op whose raster record carries no
+mapped circles leaves its cut and accessibility unknown.
 Invalid circles leave the raster unknown with a reason.
 Face ops without a contour print no raster: a box raster could cross retained
 material inside the box. Tables are numeric nominal geometry, not cutter

@@ -275,6 +275,8 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
         table = table_checkpoints(subject, tables, op["op"], units)
         if table is not None:
             result["checkpoints"] = table
+    if not turned and "keep_out" in record(op.get("contour")):
+        result["keep_out"] = raster_islands(tables, op["op"], units)
     if model in (TURNING, ROTARY):
         # Turning: the declared span on setup Z bounds and extends the revolved removal.
         # Rotary: the span along the head axis from the chuck pose origin.
@@ -322,6 +324,26 @@ def _hand_inputs(bundle, op, subject, finishing):
     if "faces" in op:
         result["faces"] = op["faces"]
     return result
+
+
+def raster_islands(tables, op, units):
+    """An op's face-raster ``keep_out`` circles as the coordinates rule mapped them into
+    its setup frame (``at_mm`` setup XY and ``dia_mm``, millimetres), or UNKNOWN when no
+    raster record carries them: the kernel never cuts or poses through an unmapped island."""
+    scale = {"mm": 1.0, "in": 25.4}.get(units)
+    for profile in record(tables).get("profiles", []):
+        profile = record(profile)
+        circles = record(profile.get("raster")).get("keep_out")
+        if profile.get("op") != op or not isinstance(circles, list) or scale is None:
+            continue
+        islands = []
+        for circle in map(record, circles):
+            at = circle.get("at")
+            if not (isinstance(at, list) and all(number(v) for v in at)):
+                return UNKNOWN
+            islands.append({"at_mm": [v * scale for v in at], "dia_mm": circle.get("dia_mm")})
+        return islands
+    return UNKNOWN
 
 
 def table_checkpoints(subject, tables, op, units):
@@ -1054,6 +1076,7 @@ _ENGINE_OP = (
     "checkpoints",
     "rough_allowance_mm",
     "stock_removal_bounds",
+    "keep_out",
     "approach",
     "z_from",
     "z_to",

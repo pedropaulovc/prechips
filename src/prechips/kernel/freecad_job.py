@@ -613,6 +613,53 @@ def _positive(record, key):
     return float(value) if _number(value) and value > 0 else None
 
 
+def _islands(op):
+    """(an op's raster ``keep_out`` islands as setup-frame ``(x, y, radius)`` mm, or None,
+    and why they are unknown). Its passes keep the whole cutter outside every circle."""
+    circles = op.get("keep_out", [])
+    if not isinstance(circles, list):
+        return None, "contour.keep_out islands have no setup-frame circles"
+    islands = []
+    for circle in circles:
+        at = circle.get("at_mm") if isinstance(circle, dict) else None
+        dia = _positive(circle, "dia_mm") if isinstance(circle, dict) else None
+        if not (isinstance(at, list) and len(at) == 2 and all(map(_number, at)) and dia):
+            return None, "contour.keep_out needs numeric setup-frame at_mm and positive dia_mm"
+        islands.append((float(at[0]), float(at[1]), dia / 2))
+    return islands, None
+
+
+def _in_island(islands, x, y):
+    """Whether ``(x, y)`` lies inside or on a keep-out circle: no pass of the op reaches it."""
+    return any(math.hypot(x - cx, y - cy) <= r + PLANAR_EQUAL_MM for cx, cy, r in islands)
+
+
+def _off_islands(islands, x, y, radius, point):
+    """Tool axis ``(x, y)`` moved straight out from each keep-out circle it stands nearer
+    than one cutter ``radius`` beyond (towards the sample ``point`` from a centred axis),
+    where the passes keep it: the cutter edge just touches the circle."""
+    for cx, cy, r in islands:
+        need = r + radius
+        dx, dy = x - cx, y - cy
+        distance = math.hypot(dx, dy)
+        if distance >= need - PLANAR_EQUAL_MM:
+            continue
+        if distance <= 1e-9:
+            dx, dy = point.x - cx, point.y - cy
+            distance = math.hypot(dx, dy)
+        x, y = cx + need * dx / distance, cy + need * dy / distance
+    return x, y
+
+
+def _island_solid(islands, box):
+    """The keep-out circles as cylinders through the Z span of ``box``, or None."""
+    if not islands:
+        return None
+    low, high = box[2] - 1.0, box[5] + 1.0
+    solids = [Part.makeCylinder(r, high - low, V(cx, cy, low)) for cx, cy, r in islands]
+    return solids[0].fuse(solids[1:]) if len(solids) > 1 else solids[0]
+
+
 def _bbox(shape):
     box = shape.optimalBoundingBox(True, False)
     return (box.XMin, box.YMin, box.ZMin, box.XMax, box.YMax, box.ZMax)
@@ -4091,6 +4138,9 @@ class _Setup:
             if cut["reason"] is not None:
                 return None, cut["reason"]
             return (cut["removal"], []), None
+        islands, why = _islands(op)
+        if why is not None:
+            return None, why
         leave, why = self._guarded(op)
         if why is not None:
             return None, why
@@ -4111,6 +4161,11 @@ class _Setup:
             removal, why = self._removal(op, valid, to_z, leave)
         if why is not None:
             return None, why
+        if removal is not None and islands:
+            # The passes keep the whole cutter outside each island: its stock stays.
+            removal = removal.cut(_island_solid(islands, _bbox(removal)))
+            if removal.Volume <= HIT_MM3:
+                removal = None
         band, why = self._band(
             stock, valid, to_z, leave, carried, self._reach_window(op, leave, carried)
         )
@@ -8693,6 +8748,8 @@ class _Setup:
         # Transient faces already include their joint cut's allowance; ordinary rough
         # poses stand their known leave off the finished surface along the normal.
         leave, why = (0.0, None) if joint or hole_cut is not None else self._guarded(op)
+        islands, unmapped = _islands(op)
+        why = why or unmapped
         if why is not None:
             for key in self._MEASURED:
                 facts[key] = UNKNOWN
@@ -8714,7 +8771,12 @@ class _Setup:
                 except Exception as exc:
                     undefined[index] = exc
                     continue
-            samples.extend((index, point, normal) for point, normal in found)
+            # A sample inside a keep-out island is not this op's: its passes never reach it.
+            samples.extend(
+                (index, point, normal)
+                for point, normal in found
+                if not _in_island(islands, point.x, point.y)
+            )
             if missed:
                 sample_problems.append(
                     f"{self.owner.labels[index]}: {missed} sample point(s) "
@@ -8755,6 +8817,7 @@ class _Setup:
             if index in floors:
                 try:
                     ax, ay = self._planar_axis(index, point, radius, leave, level + LIFT)
+                    ax, ay = _off_islands(islands, ax, ay, radius, point)
                 except Exception as exc:
                     undefined[index] = exc
                     continue
