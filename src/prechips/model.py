@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from datetime import date
 from typing import Annotated, Any, Literal
 
@@ -427,6 +428,98 @@ class Aim(InputModel):
         return self
 
 
+type KnownPoint3 = Annotated[list[float], Field(min_length=3, max_length=3)]
+# Authored unit vectors carry trig residue; the kernel's pose tolerance applies.
+UNIT_TOLERANCE = 1e-6
+
+
+def _unit(vector: list[float], what: str) -> None:
+    if abs(math.sqrt(sum(v * v for v in vector)) - 1.0) > UNIT_TOLERANCE:
+        raise ValueError(f"{what} must be a unit vector.")
+
+
+class InspectionAid(InputModel):
+    """A gauge, block or holding an inspection sketch draws, in the part model's own
+    coordinates (mm): a ``box`` from its least corner ``at_mm`` by ``size_mm`` along its
+    edge directions ``axes`` (unit x then y, square; the model's X and Y when absent), or a
+    ``cylinder`` (a gauge pin, a rod) from its base centre ``at_mm`` along the unit
+    ``axis``, ``dia_mm`` across and ``length_mm`` long."""
+
+    name: str
+    shape: Literal["box", "cylinder"]
+    at_mm: KnownPoint3
+    size_mm: KnownPoint3 | None = None
+    axes: Annotated[list[KnownPoint3], Field(min_length=2, max_length=2)] | None = None
+    axis: KnownPoint3 | None = None
+    dia_mm: float | None = None
+    length_mm: float | None = None
+
+    @model_validator(mode="after")
+    def sized(self) -> InspectionAid:
+        _known_text(self.name, "An inspection aid name")
+        turned = (self.axis, self.dia_mm, self.length_mm)
+        if self.shape == "box":
+            if self.size_mm is None or any(v is not None for v in turned):
+                raise ValueError(
+                    f"Inspection aid {self.name!r}: a box states size_mm and its axes only."
+                )
+            if min(self.size_mm) <= 0:
+                raise ValueError(f"Inspection aid {self.name!r}: a box size must be positive.")
+            if self.axes is not None:
+                x, y = self.axes
+                _unit(x, f"Inspection aid {self.name!r} x axis")
+                _unit(y, f"Inspection aid {self.name!r} y axis")
+                if abs(sum(a * b for a, b in zip(x, y, strict=True))) > UNIT_TOLERANCE:
+                    raise ValueError(f"Inspection aid {self.name!r}: its axes must be square.")
+            return self
+        if self.size_mm is not None or self.axes is not None or any(v is None for v in turned):
+            raise ValueError(
+                f"Inspection aid {self.name!r}: a cylinder states axis, dia_mm and length_mm."
+            )
+        _unit(self.axis, f"Inspection aid {self.name!r} axis")
+        if self.dia_mm <= 0 or self.length_mm <= 0:
+            raise ValueError(f"Inspection aid {self.name!r}: a cylinder size must be positive.")
+        return self
+
+
+class InspectionMark(InputModel):
+    """A labelled point of an inspection sketch, in the part model's coordinates (mm): a
+    datum contact, a stop, a gauge position. A ``reads`` mark is where a height reading is
+    taken; the sketch draws its + arrow up off the plate (a higher contact reads +)."""
+
+    label: str
+    at_mm: KnownPoint3
+    reads: bool = False
+
+    @model_validator(mode="after")
+    def named(self) -> InspectionMark:
+        _known_text(self.label, "An inspection mark label")
+        return self
+
+
+class InspectionView(InputModel):
+    """One labelled look at the part set up on the surface plate for an inspection: ``up``
+    (a unit vector in the part model's axes) points up off the plate, the way a height
+    reading rises, and ``toward`` points from the part to the viewer, square to ``up``.
+    The sketch draws the part as the inspection's setup leaves it, the ``aids`` and the
+    ``marks``."""
+
+    title: str
+    up: KnownPoint3
+    toward: KnownPoint3
+    aids: list[InspectionAid] = Field(default_factory=list)
+    marks: Annotated[list[InspectionMark], Field(min_length=1)]
+
+    @model_validator(mode="after")
+    def square(self) -> InspectionView:
+        _known_text(self.title, "An inspection view title")
+        _unit(self.up, f"Inspection view {self.title!r} up")
+        _unit(self.toward, f"Inspection view {self.title!r} toward")
+        if abs(sum(a * b for a, b in zip(self.up, self.toward, strict=True))) > UNIT_TOLERANCE:
+            raise ValueError(f"Inspection view {self.title!r}: toward must be square to up.")
+        return self
+
+
 Operation = record(
     "Operation",
     {
@@ -453,6 +546,8 @@ Operation = record(
         "go_no_go": dict[str, GoNoGo | Unknown],
         "missing_requirements": dict[str, str],
         "inspection_methods": dict[str, Procedure],
+        # Requirement -> the labelled sketches its inspection method's worksheet prints.
+        "inspection_views": dict[str, Annotated[list[InspectionView], Field(min_length=1)]],
         "to_z_band": Vector,
         "contour": Contour,
         "guide": Guide,
@@ -467,10 +562,7 @@ Operation = record(
     },
     indexed=("do",),
 )
-type KnownPoint3 = Annotated[list[float], Field(min_length=3, max_length=3)]
 type KnownBand = Annotated[list[float], Field(min_length=2, max_length=2)]
-# Authored unit vectors carry trig residue; the kernel's pose tolerance applies.
-UNIT_TOLERANCE = 1e-6
 
 
 def _cited(value: Any) -> bool:
@@ -753,6 +845,20 @@ class Plan(InputModel):
                         raise ValueError(f"{where}: a feature list names distinct known features.")
                 if "process" in op.model_fields_set and op.do != "coating":
                     raise ValueError(f"{where}: only a coating op names a coating process.")
+                if isinstance(op.inspection_views, dict):
+                    if op.do != "inspect":
+                        raise ValueError(f"{where}: only an inspect op declares inspection views.")
+                    methods = op.inspection_methods
+                    unmatched = [
+                        requirement
+                        for requirement in op.inspection_views
+                        if not isinstance(methods, dict) or requirement not in methods
+                    ]
+                    if unmatched:
+                        raise ValueError(
+                            f"{where}: inspection views for {', '.join(unmatched)} illustrate "
+                            "no stated inspection method."
+                        )
         return self
 
     @model_validator(mode="after")

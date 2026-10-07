@@ -105,8 +105,10 @@ def test_kernel_absent_run_removes_stale_setup_images(tmp_path, verb):
     out = tmp_path / "out"
     out.mkdir()
     (out / "setup-S1.png").write_bytes(_png((80, 100, 120)))
-    # A previous route can also have had more setups than this one.
+    # A previous route can also have had more setups than this one, and an inspection's
+    # set-up sketch.
     (out / "setup-S2.png").write_bytes(_png((120, 100, 80)))
+    (out / "setup-S2-op50-position_dia.png").write_bytes(_png((100, 120, 80)))
     result = run_cli(
         verb,
         plan,
@@ -119,6 +121,106 @@ def test_kernel_absent_run_removes_stale_setup_images(tmp_path, verb):
     assert not report.get("renders")
     expected = {"report.json", "traveler.html"} if verb == "traveler" else {"report.json"}
     assert {path.name for path in out.iterdir()} == expected
+
+
+_SKETCHED_OP = """do = "inspect"
+feature = "pivot_bearing"
+[setups.ops.checks]
+dia = "micrometers/0-1in"
+[setups.ops.inspection_methods]
+dia = [
+  "Read the bearing at its north end {N} and its south end {S}.",
+  "Calculate: mean = (N + S) / 2 = {mean}",
+  "Calculate: taper = N - S = {taper}",
+]
+[[setups.ops.inspection_views.dia]]
+title = "ON V-BLOCKS"
+up = [1.0, 0.0, 0.0]
+toward = [0.0, -1.0, 0.0]
+marks = [{label = "N", at_mm = [6.0, 0.0, 10.0], reads = true}]
+"""
+
+
+@pytest.mark.parametrize("changed", [True, False], ids=["changed-sketch", "matching-sketch"])
+def test_an_inspection_sketch_is_written_bound_and_printed_on_its_worksheet(
+    tmp_path, monkeypatch, changed
+):
+    import json
+
+    from test_cli import copy_examples
+    from test_process_route import append_op
+
+    import prechips.cli as cli
+    import prechips.kernel as kernel
+
+    monkeypatch.setenv("OTEL_SDK_DISABLED", "true")
+    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
+    sid, op = append_op(plan, _SKETCHED_OP).split(":")
+    sketch = _png((90, 110, 70))
+
+    def render_bundles(bundles):
+        for index, bundle in enumerate(bundles):
+            facts = {
+                "render_png_base64": base64.b64encode(_png((80, 100, 120))).decode("ascii"),
+                "inspection_pngs_base64": {
+                    f"{op}:dia": base64.b64encode(sketch).decode("ascii"),
+                },
+            }
+            bundles[index] = replace(bundle, kernel={"status": "ok", "setups": {sid: facts}})
+        return [bundle.kernel for bundle in bundles]
+
+    monkeypatch.setattr(kernel, "run_geometries", render_bundles)
+    out = tmp_path / "out"
+    args = [str(plan), "--out", str(out)]
+    assert cli.main(["traveler", *args]) in {0, 2, 4}
+    report = json.loads((out / "report.json").read_bytes())
+    ordinal = 1 + [s["id"] for s in load_bundle(plan).plan["setups"]].index(sid)
+    name = f"setup-S{ordinal}-op{op}-dia.png"
+    record = {"path": name, "sha256": hashlib.sha256(sketch).hexdigest()}
+    assert report["renders"][sid]["inspections"] == {f"{op}:dia": record}
+    assert report["inputs"][f"render:{sid}:{op}:dia"] == record
+    assert (out / name).read_bytes() == sketch
+    html = (out / "traveler.html").read_text(encoding="utf-8")
+    # The figure heads the worksheet the check's readings are worked on.
+    worksheet = html[html.index("Take each reading at its step") :]
+    assert worksheet.index(f'<img src="{name}"') < worksheet.index('<ol class="steps">')
+    prior_hash = report["hash"]
+    if changed:
+        sketch = _png((70, 110, 90))
+
+    assert cli.main(["check", *args]) in {0, 2, 4}
+    report = json.loads((out / "report.json").read_bytes())
+    assert (
+        report["inputs"][f"render:{sid}:{op}:dia"]["sha256"] == hashlib.sha256(sketch).hexdigest()
+    )
+    assert (report["hash"] != prior_hash) is changed
+    assert (out / name).exists() is not changed
+
+
+def test_an_inspection_sketch_is_sent_with_the_cut_it_follows_in_the_route(tmp_path):
+    # The kernel draws a sketch on the stock as the route stands at its inspect op: the
+    # job names the last cut before it (op order, not op number), or none.
+    from test_cli import copy_examples
+    from test_process_route import append_op
+
+    import prechips.kernel as kernel
+
+    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
+    sid, op = append_op(plan, _SKETCHED_OP).split(":")
+    bundle = load_bundle(plan)
+
+    def sent():
+        job = kernel.build_job(bundle)
+        (setup,) = [setup for setup in job["setups"] if setup["id"] == sid]
+        (inspection,) = setup["render"]["inspections"]
+        return [cut["subject"] for cut in setup["ops"]], inspection
+
+    cuts, inspection = sent()
+    assert cuts and inspection["op"] == int(op) and inspection["after"] == cuts[-1]
+    assert "position" not in inspection
+    ops = next(setup for setup in bundle.plan["setups"] if setup["id"] == sid)["ops"]
+    ops.insert(0, ops.pop())
+    assert sent()[1]["after"] is None
 
 
 def test_refused_stale_image_deletion_restores_every_prior_output(tmp_path, monkeypatch):

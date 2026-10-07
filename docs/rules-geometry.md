@@ -1816,7 +1816,9 @@ that whole contact before a section view cuts it: the outline is cut where it
 crosses the section plane and only the kept side is drawn, still keyed at the
 contact's own plane (a contact that is a point or a straight line names no
 plane). `closest_cut` is the smallest distance from this setup's
-removal to a holding solid. The detail frames the stock, the contacts and that
+removal to a holding solid; a setup that both files and machines measures it from
+its machine cuts only, the cuts the CLEARANCE table lists, so the picture's
+dimension is one of that table's rows. The detail frames the stock, the contacts and that
 distance; it outlines each contact (solid where seen, dashed where hidden),
 keys it with its holding name and the setup coordinate of its plane (a support
 whose solids lie on different planes, such as the rocker's hub stand and rail
@@ -1854,6 +1856,81 @@ plan view always gets the detail, drawn from 30° above the side so contact
 heights read, and long work is split along its length into at most two bands,
 each keying only the contacts in its share. Bands grow taller rather than
 shrink or drop a key; the scene's `height_px` is the delivered PNG's height.
+
+A path sketch keys its waypoints and passes in badge rows above and below the
+plotted geometry, never over a path: each row keeps its points' left-to-right
+order directly over or under them, so the short leaders fan out without crossing,
+and neighbouring points on the geometry's middle band alternate between the
+rows. A plot under 24 pixels deep at the scale its width allows is stretched in Y
+by a whole step, x2 to x4, and says so (`Y EXAG x2`). The picture grows to give
+the rows and panels their room rather than shrink a key or drop one. A key
+lane's leader to a fixture ends at that solid's visible edge nearest the lane,
+crossing as little of the work as it can and no other key's point; lane leaders
+run square, in their keys' order. A named void at numbered positions (a slot
+under each pad) is keyed by the position badges, `PAD SLOTS AT L1-L6`, and gets
+no second leader into a badged point. A split key names each point it leads to.
+
+Holding-detail keys print a contact's plane on the setup's DRO grid
+(`dro_step_mm`, the step the fixture tables print positions at), rounded as the
+tables round (half a step away from zero, float noise in the quotient not
+counting; one shared rounding), so a key reads as the DRO is set and as the table
+prints it. Closest-cut and clearance distances are measured values and never snap
+to the grid; `closest_cut.mm` is rounded as the CLEARANCE rows are (six places).
+Every decimal a picture prints (DRO values, clearances, sizes, a band's gain) and
+every fixed-decimal number on the sheet goes through one rounding,
+`render_diagram.decimal_text`: the float's written decimal, a half-way value
+rounded away from zero (2.8045 at three places prints 2.805, never 2.804), so a
+picture and its table never print one value two ways.
+
+A guided bench file (a hand op whose `guide.buttons` kit is held in the setup,
+its solids named to the kernel by `guide_owner`, the kit's declared button OD by
+`guide_rim_dia_mm`) is not a cut to clear. A kit solid is a stop only when it is a
+button of that declared OD (a cylindrical face within the OD limits, widened by the
+stock tolerance), its cut reaches it, it is seated on the filed face (within the
+stock tolerance of the stock the file leaves, without biting into it), and that
+rim sets the filed boundary: the rim's cylinder, run along its axis, touches the
+cut where the cut meets the stock the file leaves and nowhere enters the cut. A
+button of the right OD whose rim stands over the unfiled wall is no stop. Those stops
+are named in `render_scene.guide_stops`, and the kernel leaves them out of
+`closest_cut`, so no `CUT 0.000 mm FROM` a filing button prints. Any other kit
+solid the cut reaches (a stud, a tab touching the unfiled wall, a square block) is
+holding to clear and keeps its real `CUT` dimension. The detail keys
+them in green: `FILE STOPS ON BOTH BUTTON RIMS` for a matched pair, or one key
+per rim, `FILE STOPS ON UPPER BUTTON RIM`, when they lie apart. A real clearance
+to the rest of the kit (its stud) is still dimensioned: in the holding detail when
+one is drawn and keys it, else on the setup picture itself, so a picture never
+drops its `CUT` dimension because the detail band is not drawn. When the stops are turned
+solids on one axis that the setup picture does not already look along (within
+cos 0.99), a **guide view** band below the detail looks down that axis, enlarged
+(`VIEW ALONG THE BUTTON AXIS X14.6`, with the setup axes it draws right and up).
+It outlines the rims in green with their stop key, hatches `STOCK TO FILE OFF`
+inside the `FINISHED OUTLINE`, draws `FILE AT ITS STOP` flat on the rims, and
+draws a `FILE APPROACH` arrow coming in square from beyond them. It keys the kit
+as the setup picture names it (`render_scene.guide_axis_mm`: a point on the axis
+and its direction). When the stops lie at different heights along the axis, the
+kernel sections the view between them, half way unless that plane would miss most
+of the stock to file off, so the near button does not hide the work and the cut
+face shows what the file takes; the band notes `SECTION BETWEEN THE RIMS`.
+
+An inspect op's `inspection_views` ([plan](plan.md)) are drawn as one set-up
+sketch per requirement, a band per view, on the stock as the setup's route stands
+at that inspect op: after the last op before it that the kernel cuts (the job's
+inspection `after`, that op's subject, or the arriving stock when none precedes
+it), never the stock later ops leave. Only the pieces of it that hold the part
+are drawn: scrap a cut before the inspection released, such as a rail frame, is
+off the part when it is inspected. It is drawn in the
+part model's own axes: `up` up the page, seen from `toward`. The bands are
+returned as `inspection_pngs_base64` keyed `<op>:<requirement>`, apart from the
+setup picture. Each band titles its view, wrapping a title too long for one line
+and moving the band down under it, and draws a hatched `SURFACE PLATE` line
+under the lowest solid. It keys every aid by name, on the aid's own visible
+pixels (each aid is drawn under its own tag, so an aid named like the work never
+borrows the work's pixels), and every mark at its point. A `reads` mark is green with a `+` arrow up
+the page, the way that orientation's height reading rises, under the note
+`+ ARROW: THE WAY A READING RISES (A HIGHER CONTACT READS +)`; other marks are
+red contacts. What a sketch cannot show is a render debt on the setup's
+`render_debts` (`op <op> <requirement> sketch: NOT SHOWN: …`): an aid hidden in a
+view, or the whole sketch when the stock at its place in the route is unresolved.
 
 Alongside the image the engine returns `render_scene` with `fixture_kind`,
 `jaws`, `parallels`, `components`, `debts`, camera/resolution, plain-language

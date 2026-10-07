@@ -253,8 +253,10 @@ def setup_annotations(bundle, setup, numbers):
         "chuck_name": _holding_name(bundle, hold.get("chuck")),
         "target": _target(setup),
         # The setup's DRO decimals: picture coordinates and clearances print as the
-        # traveler's tables print them (``_Traveler.operative``), one value one text.
+        # traveler's tables print them (``_Traveler.operative``), one value one text; its
+        # step puts a picture's setup coordinates on the grid the fixture tables use.
         "decimals": dro_grid(bundle, setup)[1],
+        "dro_step_mm": dro_grid(bundle, setup)[0] * scale if scale else None,
     }
     result["notes"], result["nothing_removed_note"] = _setup_notes(setup)
     index = record(hold.get("index"))
@@ -281,4 +283,14 @@ def setup_annotations(bundle, setup, numbers):
                     "xz": points[index],
                 }
             )
+    # Each inspect op's set-up sketches, drawn in the part model's own axes (mm), with its
+    # place in the setup's route (``position``, the op's index in the setup's op list).
+    inspections = [
+        {"op": op["op"], "position": position, "requirement": requirement, "views": views}
+        for position, op in enumerate(setup["ops"])
+        for requirement, views in record(op.get("inspection_views")).items()
+        if isinstance(views, list)
+    ]
+    if inspections:
+        result["inspections"] = inspections
     return result
