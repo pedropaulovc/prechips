@@ -982,6 +982,36 @@ _LEVEL_OPS = RASTER_OPS | {"profile", "rough_profile", "finish_profile"}
 _WALL_OPS = {"pocket", "finish_pocket", "profile", "finish_profile"}
 
 
+def _outside_circle(segment, circle, radius, grid):
+    """Keep the positive-length pieces of an axis-parallel pass, in feed order. Each cut
+    point lies on the DRO ``grid`` (:func:`dro_grid`), rounded away from the island, so
+    the printed piece never reaches nearer than the island radius plus ``radius``."""
+    a, b = segment
+    axis = 0 if a[0] != b[0] else 1
+    across = 1 - axis
+    centre = circle["at"]
+    reach_squared = (circle["dia_mm"] / 2 + radius) ** 2 - (a[across] - centre[across]) ** 2
+    if reach_squared <= 0:  # tangent or outside: no interior crossing
+        return [segment] if math.dist(a, b) > 1e-9 else []
+    reach = math.sqrt(reach_squared)
+    low, high = centre[axis] - reach, centre[axis] + reach
+    if max(a[axis], b[axis]) <= low or min(a[axis], b[axis]) >= high:
+        return [segment] if math.dist(a, b) > 1e-9 else []
+    low, high = _grid(low, *grid, False), _grid(high, *grid, True)
+    forward = b[axis] > a[axis]
+    entry, exit = (low, high) if forward else (high, low)
+    pieces = []
+    if (entry - a[axis]) * (1 if forward else -1) > 1e-9:
+        point = list(a)
+        point[axis] = entry
+        pieces.append([a, point])
+    if (b[axis] - exit) * (1 if forward else -1) > 1e-9:
+        point = list(b)
+        point[axis] = exit
+        pieces.append([point, b])
+    return pieces
+
+
 def _raster(feature, op, offset, radius, frame, frames, sense, order, lift_z, grid):
     """(One stage's raster record in cutting order, None) or (None, why it is unknown).
 
@@ -1010,6 +1040,28 @@ def _raster(feature, op, offset, radius, frame, frames, sense, order, lift_z, gr
         return None, "a raster needs a positive contour.step_mm"
     if not number(radius) or radius <= 0:
         return None, "its cutter radius is unknown"
+    keep_out = []
+    if "keep_out" in contour:
+        circles = contour["keep_out"]
+        if not isinstance(circles, list):
+            return None, "its contour.keep_out must be a list of circles"
+        sweep_frame = frames.get(contour.get("sweep_frame", feature.get("frame", "model")))
+        for circle in circles:
+            circle = mapping(circle)
+            at, diameter = circle.get("at"), circle.get("dia_mm")
+            if not (
+                isinstance(at, list)
+                and len(at) == 2
+                and all(number(v) and math.isfinite(v) for v in at)
+                and number(diameter)
+                and math.isfinite(diameter)
+                and diameter > 0
+            ):
+                return None, "its contour.keep_out needs numeric XY at and positive dia_mm"
+            centre = frame_point(model_point([*at, 0.0], sweep_frame), frame)[:2]
+            if not all(number(v) and math.isfinite(v) for v in centre):
+                return None, "its contour.keep_out centre has no numeric setup-frame mapping"
+            keep_out.append({"at": centre, "dia_mm": diameter})
     if not face and not number(offset):
         return None, "its cutter-centre offset from the far wall is unknown"
     if step > 2 * radius:
@@ -1061,6 +1113,10 @@ def _raster(feature, op, offset, radius, frame, frames, sense, order, lift_z, gr
     reverse = _reversal(*passes[0], _OPEN_SIDES[side], sense)
     if reverse:
         passes = [list(reversed(segment)) for segment in passes]
+    for circle in keep_out:
+        passes = [
+            piece for segment in passes for piece in _outside_circle(segment, circle, radius, grid)
+        ]
     record = {
         "cutter_centre": passes,
         "grid_residual_mm": residual,
@@ -1082,6 +1138,8 @@ def _raster(feature, op, offset, radius, frame, frames, sense, order, lift_z, gr
             "entry_pass": "not_applicable" if face else start,
         },
     }
+    if "keep_out" in contour:
+        record["raster"]["keep_out"] = keep_out
     return _ordered(record, None if reverse is None else False, order, ()), None
 
 

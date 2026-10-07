@@ -197,6 +197,17 @@ op's `stock_removal_bounds` (by the cutter radius) as cutter clearance.
 A finish raster or outline whose `grid_residual_mm` exceeds its feature's
 narrowest numeric tolerance band, or that has no safe grid point, is an error
 (`dro_xy_residual_errors`).
+Optional `contour.keep_out = [{ at = [x, y], dia_mm = d }]` declares circular
+islands in `sweep_frame` (default: the feature's frame), with positive diameter.
+The whole cutter stays outside them: centre clearance is island radius plus
+cutter radius. After feed direction is established, crossing passes split into
+pieces in cutting order. Each cut point lies on the setup machine's DRO grid,
+rounded away from the island, so a printed piece never reaches nearer than that
+clearance; pieces no longer than 1e-9 mm are dropped. Each piece
+is a separate `cutter_centre` entry with the same feed/lift/rapid cycle.
+`raster.keep_out` records the circles in setup XY and `raster.passes` counts
+pieces. Diagrams draw these pieces separately, not as a continuous swept band.
+Invalid circles leave the raster unknown with a reason.
 Face ops without a contour print no raster: a box raster could cross retained
 material inside the box. Tables are numeric nominal geometry, not cutter
 accessibility, fixtures, wall thickness or collision proof; raster passes are

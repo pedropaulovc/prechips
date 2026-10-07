@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from prechips.kernel.render_diagram import _Diagram, render_diagram
+from prechips.kernel.render_inputs import contour_annotations
 from prechips.kernel.render_png import RenderCanvas
 
 _FRONT = ((1, 0, 0), (0, 1, 0), (0, 0, 1))
@@ -520,3 +521,50 @@ def test_plan_view_pad_and_clamp_badges_have_separate_uncrossed_leaders(name):
                 assert _leader_clearance(other_point, point, badge) >= 6, (code, other)
     # A keyed group's lane entry names it without another leader into the badged points.
     assert [label for label, _ in diagram.leaders if label in keyed] == []
+
+@pytest.mark.parametrize("keep_out", [None, [], [{"at": [5, 5], "dia_mm": 2}]])
+@pytest.mark.parametrize("axis", ["x", "y"])
+def test_raster_keep_out_draws_independent_segments_without_filling_clearance(keep_out, axis):
+    split = bool(keep_out)
+    segments = [
+        [[0, 0], [10, 0]],
+        *([[[0, 5], [4, 5]], [[6, 5], [10, 5]]] if split else [[[0, 5], [10, 5]]]),
+        [[10, 10], [0, 10]],
+    ]
+    if axis == "y":
+        segments = [[[y, x] for x, y in segment] for segment in segments]
+    profile = {"op": "clear", "cutter_centre": segments, "raster": {}}
+    if keep_out is not None:
+        profile["raster"]["keep_out"] = keep_out
+    paths, waypoints = contour_annotations({"profiles": [profile]}, 25.4, "S1")
+    diagram = _Diagram([], {"view": "plan", "stock_box": [0, 0, 0, 254, 254, 1]})
+    colour = (35, 83, 147)
+
+    def project(point):
+        x, y = point if axis == "x" else point[::-1]
+        return 400 + x / 25.4 * 60, 600 - y / 25.4 * 40
+
+    labels = []
+    assert diagram._raster_band(paths, project, colour, labels) == []
+    assert waypoints == []
+    if split:
+        # Both middle pieces must be ink, not the band's faint tint. The island
+        # and space between stepover positions must remain completely unswept.
+        assert _pixel(diagram.canvas, 520, 400) == colour
+        assert _pixel(diagram.canvas, 880, 400) == colour
+        assert _pixel(diagram.canvas, 700, 400) == _WHITE
+        assert _pixel(diagram.canvas, 520, 500) == _WHITE
+    else:
+        tint = tuple(int(255 - (255 - channel) * 0.22) for channel in colour)
+        assert _pixel(diagram.canvas, 520, 400) == tint
+        assert _pixel(diagram.canvas, 700, 400) == tint
+        assert _pixel(diagram.canvas, 520, 500) == tint
+    assert _pixel(diagram.canvas, 520, 600) == colour
+    assert _pixel(diagram.canvas, 520, 200) == colour
+    assert [label["label"] for label in labels] == ["PASS 1", f"PASS {len(segments)}"]
+    assert project(labels[0]["xy"]) == pytest.approx((700, 600))
+    assert project(labels[-1]["xy"]) == pytest.approx((700, 200))
+    # Decode the direct renderer's output too: the tested surface is the actual
+    # printable PNG payload, not a recording or mocked drawing collaborator.
+    _, _, pixels = _decode_png(diagram.canvas.png())
+    assert pixels == diagram.canvas.rgb

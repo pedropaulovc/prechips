@@ -87,8 +87,9 @@ A name already in that feature's exported requirements is `BadInput` in
 `to_z_band` is a range, not a substitute for measured setup binding. An
 `arc_table` contour needs explicit nominal geometry and positive angular steps;
 finite bounds come from that geometry, not an invented full circle. Linear
-pockets and faces may declare `sweep_bounds`, `sweep_frame`, and `open_side`;
-their rasters need `step_mm` (see [rules-coordinates](rules-coordinates.md)).
+pockets and faces may declare `sweep_bounds`, `sweep_frame`, `open_side`, and
+circular `keep_out` islands; their rasters need `step_mm`
+(see [rules-coordinates](rules-coordinates.md)).
 
 All five inputs are UTF-8 TOML, parsed by `tomllib` and strict Pydantic 2
 models in `src/prechips/model.py`. Unknown keys are forbidden at every modeled
@@ -931,6 +932,15 @@ the other spans; see [M5 measured setup screens](rules-setup.md#m5-measured-inve
 | `start_deg` | `float` |
 | `end_deg` | `float` |
 | `sweep_bounds` | `Bounds` |
+| `keep_out` | list of `{ at = [x, y], dia_mm = d }` circles |
+
+`keep_out` centres use `sweep_frame`, defaulting to the feature's frame.
+Positive `dia_mm` islands exclude the whole cutter: pass centres clear each
+island radius plus cutter radius. Crossing passes split into independent,
+positive-length pieces in feed order, each with its own feed/lift/rapid cycle;
+each cut point lies on the DRO grid, rounded away from the island.
+The raster record reports setup-frame circles in `raster.keep_out` and counts
+pieces in `raster.passes`.
 
 ## Bounds
 
