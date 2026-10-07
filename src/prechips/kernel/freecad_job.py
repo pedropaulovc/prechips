@@ -8780,11 +8780,14 @@ class _Setup:
         elif thru is True:
             # Each axis exits where its own claimed bores end, not at the entry-stock
             # floor: finished material below the exit (a clevis's lower leg, a cross
-            # bore's far wall) is never on this tool's path.
-            bottoms = [
-                min(self._bore_span(self.faces[index], Z)[0] for index, _ in members) - point
-                for _, _, members in axes
-            ]
+            # bore's far wall) is never on this tool's path. A plan that runs the tool
+            # further (its exit face plus exit allowance) cuts the stock it carries past
+            # the finished bore end, so no skin is left over the bore's mouth.
+            planned = hole.get("exit_z_mm")
+            bottoms = []
+            for _, _, members in axes:
+                end = min(self._bore_span(self.faces[index], Z)[0] for index, _ in members)
+                bottoms.append((min(end, planned) if _number(planned) else end) - point)
             through = True
         else:
             return debt("hole thru is unknown and the op has no to_z; its bottom is unknown", axes)
