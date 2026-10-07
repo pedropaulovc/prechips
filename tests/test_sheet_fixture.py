@@ -978,3 +978,158 @@ def test_jaw_buttons_get_a_make_table_and_the_hold_points_to_it():
 def test_a_fixture_placed_by_its_pose_still_stops_without_one():
     _, table = loose_page({"fixture": "plate"})
     assert "? not posed" in table and "loose" not in table
+
+
+MAKE_OP = {
+    "hold": "vise on parallels",
+    "tool": "endmill-6",
+    "rpm": 1600,
+    "feed": "0.05 mm/rev",
+    "doc_mm": 0.5,
+    "cite": "MH 31st Table 17 p.1061",
+}
+END_MILL = {"kind": "endmill", "name": "3-flute end mill", "dia_mm": 6}
+
+
+def make_page(*ops, item_ops=None, tools=None):
+    """The bridge fixture made by ``item_ops`` (the item's own) and ``ops`` (its head's);
+    the shop's tools list ``endmill-6``."""
+    head = cylinder("head", 0, 8.26, 8, 4, **({"make_ops": list(ops)} if ops else {}))
+    data = bundle([{"fixture": "bridge", "pose": IDENTITY}])
+    data.inventory["tools"] = {"endmill-6": dict(END_MILL)} if tools is None else tools
+    data.inventory["fixtures"]["bridge"] = {
+        "kind": "custom",
+        "solids": [
+            {"name": "beam", "shape": "box", "at_mm": [-30, -5, 0], "size_mm": [60, 10, 8.26]},
+            head,
+        ],
+        **({} if item_ops is None else {"make_ops": item_ops}),
+    }
+    page = sheets(data)[0]
+    return data, page[page.index("SHOP-MADE FIXTURE") :]
+
+
+def make_lines(table):
+    """The table's numbered make-operation lines, in print order."""
+    return [line for line in table.split("|") if re.match(r"\d+\. ", line)]
+
+
+def test_each_make_operation_prints_one_cutting_data_line_in_order():
+    rough = {**MAKE_OP, "hold": "bandsaw vise", "rpm": [400, 600], "feed": "0.1 mm/rev"}
+    finish = {**MAKE_OP, "doc_mm": 0.25, "cite": "MH 31st Table 15a p.1040"}
+    _, table = make_page(finish, item_ops=[rough])
+    first, second = make_lines(table)
+    # The item's own operations run first, then each primitive's after its row name.
+    assert first.startswith("1. ") and second.startswith("2. head")
+    for line, op, speed in ((first, rough, "400–600 rpm"), (second, finish, "1600 rpm")):
+        assert f"hold: {op['hold']}" in line and "6 mm 3-flute end mill" in line
+        assert speed in line and op["feed"] in line and op["cite"] in line
+        assert f"{op['doc_mm']:g} mm/pass" in line and "STOP" not in line and "?" not in line
+
+
+@pytest.mark.parametrize("field", ["hold", "tool", "rpm", "feed", "doc_mm", "cite"])
+def test_an_unknown_make_fact_prints_and_stops_never_omitted(field):
+    _, table = make_page(item_ops=[{**MAKE_OP, field: "unknown"}])
+    (line,) = make_lines(table)
+    assert "?" in line and "STOP" in line
+    # Every other fact still prints: one unknown never hides the rest of the line.
+    known = {key: value for key, value in MAKE_OP.items() if key != field}
+    assert all(str(value) in line for key, value in known.items() if key != "tool")
+    assert field == "tool" or "6 mm 3-flute end mill" in line
+
+
+@pytest.mark.parametrize("tools", [{}, {"endmill-8": END_MILL}, "unknown"])
+def test_a_make_tool_the_shop_tools_do_not_list_stops(tools):
+    _, table = make_page(item_ops=[MAKE_OP], tools=tools)
+    (line,) = make_lines(table)
+    assert "? endmill-6" in line and "STOP" in line
+
+
+def test_an_unknown_make_operation_list_stops():
+    _, table = make_page(item_ops="unknown")
+    (line,) = make_lines(table)
+    assert "?" in line and "STOP" in line
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        {**MAKE_OP, "feed": "0.05"},
+        {**MAKE_OP, "feed": "0.05 per rev"},
+        {**MAKE_OP, "feed": " "},
+        {**MAKE_OP, "cite": " "},
+        {key: value for key, value in MAKE_OP.items() if key != "cite"},
+        {key: value for key, value in MAKE_OP.items() if key != "rpm"},
+        {**MAKE_OP, "rpm": [600, 400]},
+        {**MAKE_OP, "rpm": 0},
+        {**MAKE_OP, "doc_mm": -0.5},
+        {**MAKE_OP, "tool": ""},
+        {**MAKE_OP, "speed": 600},
+    ],
+)
+def test_malformed_make_operations_are_rejected(bad):
+    from pydantic import ValidationError
+
+    from prechips.model import Inventory
+
+    def item(op, **extra):
+        head = cylinder("head", 0, 0, 8, 4, **extra)
+        return {"fixtures": {"screw": {"kind": "custom", "solids": [head], "make_ops": [op]}}}
+
+    unknown = dict.fromkeys(MAKE_OP, "unknown")
+    for good in (MAKE_OP, unknown, {**MAKE_OP, "rpm": [400, 600], "feed": "120 mm/min"}):
+        Inventory.model_validate(item(good))
+    with pytest.raises(ValidationError):
+        Inventory.model_validate(item(bad))
+
+
+@pytest.mark.parametrize("owner", ["bought item", "bought primitive"])
+def test_only_what_is_made_here_has_make_operations(owner):
+    from pydantic import ValidationError
+
+    from prechips.model import Inventory
+
+    plate = {"kind": "angle_plate", "make_ops": [MAKE_OP]}
+    if owner == "bought primitive":
+        stud = cylinder("stud", 0, 0, 8, 4, supply="bought", make_ops=[MAKE_OP])
+        plate = {"kind": "custom", "solids": [stud]}
+    with pytest.raises(ValidationError):
+        Inventory.model_validate({"fixtures": {"plate": plate}})
+
+
+@pytest.mark.parametrize(
+    ("change", "status"),
+    [
+        ({}, "pass"),
+        ({"rpm": "unknown"}, "unknown"),
+        ({"tool": "unknown"}, "unknown"),
+        ({"tool": "dti"}, "error"),
+        ({"tool": "endmill-8"}, "error"),
+    ],
+)
+def test_a_make_operation_tool_must_resolve_in_the_shop_tools(change, status):
+    from prechips.rules import tool_resolves
+
+    data, _ = make_page({**MAKE_OP, **change})
+    data.inventory["gauges"] = {"dti": {"kind": "dti"}}
+    found = [f for f in tool_resolves.evaluate(data) if f.numbers.get("make_op")]
+    assert [f.status for f in found] == [status]
+
+
+def test_a_make_operation_tool_gets_its_receipt_check():
+    from prechips.rules import purchased_tooling
+
+    tools = {"endmill-6": {**END_MILL, "acceptance": "unknown"}}
+    data, _ = make_page(item_ops=[MAKE_OP], tools=tools)
+    found = {f.subject: f.status for f in purchased_tooling.evaluate(data)}
+    assert found["S1"] == "unknown"
+
+
+def test_an_item_a_make_operation_names_in_its_hold_is_checked():
+    from prechips.rules import tool_resolves
+
+    data, table = make_page(item_ops=[{**MAKE_OP, "hold": "clamped on gauges.granite-plate"}])
+    (line,) = make_lines(table)
+    assert "? granite-plate" in line and "gauges." not in line
+    named = {f.subject: f.status for f in tool_resolves.evaluate(data) if f.numbers.get("named_in")}
+    assert named["gauges.granite-plate"] == "unknown"
