@@ -104,7 +104,7 @@ def test_rejects_cone_indexing_arithmetic_even_when_unverified(corruption):
 
 
 def test_rejects_unsourced_finished_diameter_in_unbound_profile(freecad_kernel):
-    plan, features, _, policy, report = cone_inputs()
+    plan, features, inventory, policy, report = cone_inputs()
     setup = next(s for s in plan["setups"] if s["id"] == "S1")
     finding = next(
         f for f in report["findings"] if f["rule"] == "stickout" and f["subject"] == "S1"
@@ -112,11 +112,11 @@ def test_rejects_unsourced_finished_diameter_in_unbound_profile(freecad_kernel):
     kernel = VALIDATOR["independent_kernel"](
         ROOT / "examples" / "cone-pivot-post" / "built-up.toml"
     )
-    VALIDATOR["check_stickout"](setup, plan, features, policy, finding, kernel)
+    VALIDATOR["check_stickout"](setup, plan, features, inventory, policy, finding, kernel)
     corrupted = copy.deepcopy(finding)
     corrupted["numbers"]["diameter_mm"] = 21.93
     with pytest.raises(ValueError):
-        VALIDATOR["check_stickout"](setup, plan, features, policy, corrupted, kernel)
+        VALIDATOR["check_stickout"](setup, plan, features, inventory, policy, corrupted, kernel)
 
 
 def test_accepts_cited_kernel_revolved_bases_without_declared_diameters():
@@ -180,18 +180,17 @@ def test_exposed_profile_converts_inch_dia_alias_and_declared_dome_base():
     ],
 )
 def test_rejects_self_consistent_wrong_exposed_profiles(freecad_kernel, corruption):
+    plan, features, inventory, policy, report = pivot_shaft_inputs()
     folder = ROOT / "examples" / "pivot-shaft"
-    plan = tomllib.loads((folder / "plan.toml").read_text(encoding="utf-8"))
-    features = tomllib.loads((folder / "features.toml").read_text(encoding="utf-8"))
-    policy = tomllib.loads((folder / plan["paths"]["policy"]).read_text(encoding="utf-8"))
-    report = json.loads((folder / "expected" / "report.json").read_bytes())
     kernel = VALIDATOR["independent_kernel"](folder / "plan.toml")
     sid = "S3" if corruption in {"dome_cap", "dome_cap_with_nominal"} else "S1"
     setup = next(item for item in plan["setups"] if item["id"] == sid)
     finding = next(
         item for item in report["findings"] if item["rule"] == "stickout" and item["subject"] == sid
     )
-    VALIDATOR["check_stickout"](setup, plan, features, policy, copy.deepcopy(finding), kernel)
+    VALIDATOR["check_stickout"](
+        setup, plan, features, inventory, policy, copy.deepcopy(finding), kernel
+    )
     segments = finding["numbers"]["segments"]
     feature = {
         "groove_envelope": "south_relief",
@@ -235,7 +234,75 @@ def test_rejects_self_consistent_wrong_exposed_profiles(freecad_kernel, corrupti
         unsupported_limit_mm=diameter * policy["numbers"]["stickout_ld_max"],
     )
     with pytest.raises(ValueError, match="finished exposed diameter"):
-        VALIDATOR["check_stickout"](setup, plan, features, policy, finding, kernel)
+        VALIDATOR["check_stickout"](setup, plan, features, inventory, policy, finding, kernel)
+
+
+def pivot_shaft_inputs():
+    folder = ROOT / "examples" / "pivot-shaft"
+    plan = tomllib.loads((folder / "plan.toml").read_text(encoding="utf-8"))
+    features = tomllib.loads((folder / "features.toml").read_text(encoding="utf-8"))
+    inventory = tomllib.loads((folder / plan["paths"]["inventory"]).read_text(encoding="utf-8"))
+    policy = tomllib.loads((folder / plan["paths"]["policy"]).read_text(encoding="utf-8"))
+    report = json.loads((folder / "expected" / "report.json").read_bytes())
+    return plan, features, inventory, policy, report
+
+
+@pytest.mark.parametrize(
+    "case", ["support_unselected", "support_unverified", "ratio_halved", "report_named_support"]
+)
+def test_stickout_verdict_and_support_come_from_the_plan_hold_and_inventory(freecad_kernel, case):
+    # pivot-shaft S1 holds 167.5 mm out against a 22.8 mm unsupported limit and passes
+    # only on its selected, verified dead centre; S2 holds 14 mm, inside its limit. Change
+    # what the plan selects, the inventory verifies or the policy allows: the stick-out
+    # row derived from those inputs is accepted, and the shipped approval is not.
+    plan, features, inventory, policy, report = pivot_shaft_inputs()
+    kernel = VALIDATOR["independent_kernel"](ROOT / "examples" / "pivot-shaft" / "plan.toml")
+    sid = "S1" if case.startswith("support_") else "S2"
+    setup = next(item for item in plan["setups"] if item["id"] == sid)
+    shipped = next(
+        item for item in report["findings"] if item["rule"] == "stickout" and item["subject"] == sid
+    )
+    assert shipped["status"] == "pass"
+    derived = copy.deepcopy(shipped)
+    row = derived["numbers"]
+    if case == "support_unselected":
+        setup["hold"]["support"] = "none"  # the follow rest alone is no stick-out support
+        row["supports"] = [s for s in row["supports"] if s["reference"] == "follow_rest"]
+        row["support_status"], derived["status"] = "not_applicable", "error"
+    elif case == "support_unverified":
+        inventory["fixtures"]["dead_centre_tailstock_mt3"]["verify"] = True
+        row["supports"][0]["status"] = "unknown"
+        row["support_status"], derived["status"] = "unknown", "unknown"
+    else:
+        policy["numbers"]["stickout_ld_max"] = 2.0
+        row.update(stickout_ld_max=2.0, unsupported_limit_mm=row["diameter_mm"] * 2.0)
+        shipped["numbers"].update(
+            stickout_ld_max=2.0, unsupported_limit_mm=row["diameter_mm"] * 2.0
+        )
+        derived["status"] = "error"
+        if case == "report_named_support":
+            shipped["numbers"]["support_status"] = "pass"
+            shipped["numbers"]["supports"] = [
+                {"reference": "tailstock", "kind": "accessory", "status": "pass", "source": "x"}
+            ]
+    VALIDATOR["check_stickout"](setup, plan, features, inventory, policy, derived, kernel)
+    with pytest.raises(ValueError):
+        VALIDATOR["check_stickout"](setup, plan, features, inventory, policy, shipped, kernel)
+
+
+def test_stickout_cannot_call_a_lathe_hold_inapplicable(freecad_kernel):
+    plan, features, inventory, policy, report = pivot_shaft_inputs()
+    kernel = VALIDATOR["independent_kernel"](ROOT / "examples" / "pivot-shaft" / "plan.toml")
+    setup = next(item for item in plan["setups"] if item["id"] == "S1")
+    finding = next(
+        item
+        for item in report["findings"]
+        if item["rule"] == "stickout" and item["subject"] == "S1"
+    )
+    VALIDATOR["check_stickout"](setup, plan, features, inventory, policy, finding, kernel)
+    finding["status"] = "not_applicable"
+    with pytest.raises(ValueError):
+        VALIDATOR["check_stickout"](setup, plan, features, inventory, policy, finding, kernel)
 
 
 @pytest.mark.parametrize("action", ["tap", "ream", "drill"])
@@ -1140,29 +1207,77 @@ def test_built_up_joint_report_cannot_clear_numeric_debt_or_change_identity(corr
         VALIDATOR["check_joint_declarations"](plan, features, findings, kernel)
 
 
-@pytest.mark.parametrize("corruption", ["unresolved", "refused", "no_kernel", "completed"])
+@pytest.mark.parametrize(
+    "corruption", ["unresolved", "refused", "no_kernel", "no_setup_facts", "completed"]
+)
 def test_joint_assembly_verdict_is_the_validators_own_kernel_join(corruption):
     # The report approves S7's join as shipped, but the validator's own kernel run leaves
-    # its joined stock unknown, refuses it or never ran; or the report claims a joint
-    # feature completed that the join never completed.
+    # its joined stock unknown, refuses it, never ran or derived nothing for S7; or the
+    # report claims a joint feature completed that the join never completed.
     plan, features, _, _, report = cone_inputs()
     findings = {(row["rule"], row["subject"]): row for row in report["findings"]}
     assembly = findings["joint_assembly", "S7"]
     VALIDATOR["check_joint_declarations"](plan, features, findings, joined())
     assert assembly["status"] == "pass"
-    kernel = joined()
+    facts = joined()()
     if corruption == "unresolved":
-        kernel = joined("S7")
+        facts = joined("S7")()
     elif corruption == "refused":
-        kernel = joined("S7", error="spigot insertion sweep meets socket material")
+        facts = joined("S7", error="spigot insertion sweep meets socket material")()
     elif corruption == "no_kernel":
-        kernel = lambda: {"status": "unknown", "reason": "FreeCAD kernel not found"}  # noqa: E731
+        facts = {"status": "unknown", "kernel_unavailable": True, "reason": "no FreeCAD"}
+    elif corruption == "no_setup_facts":
+        del facts["setups"]["S7"]
     else:
-        joined_kernel = joined()()
-        joined_kernel["setups"]["S7"]["completed_joint_features"].remove("crank_spigot")
-        kernel = lambda: joined_kernel  # noqa: E731
-    with pytest.raises(ValueError, match="joint|assembly"):
-        VALIDATOR["check_joint_declarations"](plan, features, findings, kernel)
+        facts["setups"]["S7"]["completed_joint_features"].remove("crank_spigot")
+    with pytest.raises(ValueError):
+        VALIDATOR["check_joint_declarations"](plan, features, findings, lambda: facts)
+
+
+UNAVAILABLE = {"status": "unknown", "kernel_unavailable": True, "reason": "no FreeCAD"}
+REFUSED = "spigot insertion sweep meets socket material"
+
+
+@pytest.mark.parametrize(
+    ("run", "sid", "status", "numbers"),
+    [
+        # No kernel ran: an always-required join is unknown debt, never inapplicable,
+        # whether the report keeps the shipped join evidence or the kernel's failure.
+        ("unavailable", "S6", "not_applicable", "shipped"),
+        ("unavailable", "S7", "not_applicable", "shipped"),
+        ("unavailable", "S7", "not_applicable", None),
+        # The validator's run refused S7: the report cannot call it unavailable debt.
+        ("refused", "S7", "unknown", {"kernel_status": "unknown", "kernel_unavailable": True}),
+        ("refused", "S7", "unknown", {"kernel_status": "unavailable"}),
+        ("refused", "S7", "error", {"kernel_status": "error"}),
+        # The validator's run joined S7: a reported kernel failure is not that run.
+        ("joined", "S7", "unknown", {"kernel_status": "unknown", "kernel_unavailable": True}),
+        ("joined", "S7", "error", {"kernel_status": "error"}),
+    ],
+)
+def test_joint_assembly_report_cannot_name_a_kernel_outcome_its_validator_did_not_run(
+    run, sid, status, numbers
+):
+    plan, features, _, _, report = cone_inputs()
+    findings = {(row["rule"], row["subject"]): row for row in report["findings"]}
+    shipped = copy.deepcopy(findings["joint_assembly", sid]["numbers"])
+    if run == "unavailable":
+        facts = UNAVAILABLE
+        for subject in ("S6", "S7"):
+            findings["joint_assembly", subject].update(
+                status="unknown", numbers={"kernel_status": "unknown", "kernel_unavailable": True}
+            )
+    elif run == "refused":
+        facts = joined("S7", error=REFUSED)()
+        findings["joint_assembly", "S7"]["status"] = "error"
+    else:
+        facts = joined()()
+    VALIDATOR["check_joint_declarations"](plan, features, findings, lambda: facts)
+    findings["joint_assembly", sid]["status"] = status
+    if numbers is not None:
+        findings["joint_assembly", sid]["numbers"] = shipped if numbers == "shipped" else numbers
+    with pytest.raises(ValueError):
+        VALIDATOR["check_joint_declarations"](plan, features, findings, lambda: facts)
 
 
 @pytest.mark.parametrize("corruption", ["shared_ancestor", "wrong_role", "finished_face"])
@@ -1211,14 +1326,19 @@ def test_joint_checks_use_operative_requirements_without_inventing_drawing_field
         VALIDATOR["check_inspection_declarations"](plan, features, findings)
 
 
-@pytest.mark.parametrize("kernel_status,status", [("unavailable", "unknown"), ("error", "error")])
-def test_joint_kernel_failure_cannot_be_approved_without_assembly_evidence(kernel_status, status):
+@pytest.mark.parametrize(
+    ("facts", "status"), [(UNAVAILABLE, "unknown"), ({"status": "error", "reason": "x"}, "error")]
+)
+def test_joint_kernel_failure_cannot_be_approved_without_assembly_evidence(facts, status):
+    # The validator's own run failed: each join carries that failure, and none approves.
     plan, features, _, _, report = cone_inputs()
     findings = {(row["rule"], row["subject"]): row for row in report["findings"]}
-    assembly = findings["joint_assembly", "S7"]
-    assembly["numbers"] = {"kernel_status": kernel_status}
-    assembly["status"] = status
-    VALIDATOR["check_joint_declarations"](plan, features, findings, joined())
-    assembly["status"] = "pass"
-    with pytest.raises(ValueError, match="unavailable kernel cannot approve"):
-        VALIDATOR["check_joint_declarations"](plan, features, findings, joined())
+    numbers = {"kernel_status": facts["status"]}
+    if facts.get("kernel_unavailable"):
+        numbers["kernel_unavailable"] = True
+    for sid in ("S6", "S7"):
+        findings["joint_assembly", sid].update(status=status, numbers=dict(numbers))
+    VALIDATOR["check_joint_declarations"](plan, features, findings, lambda: facts)
+    findings["joint_assembly", "S7"]["status"] = "pass"
+    with pytest.raises(ValueError):
+        VALIDATOR["check_joint_declarations"](plan, features, findings, lambda: facts)

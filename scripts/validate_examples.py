@@ -52,6 +52,7 @@ from prechips.rules.resolution import (
 )
 from prechips.rules.resolution import uncertain as record_uncertain
 from prechips.rules.speeds_feeds import AXIAL_FACING
+from prechips.rules.stickout import support_state
 from prechips.rules.tip_endpoints import (
     FACING,
     POCKETING,
@@ -824,11 +825,45 @@ def measured_setup(kernel, sid: str) -> dict:
     return measured if isinstance(measured, dict) else {}
 
 
+def kernel_join(kernel, setup: dict) -> tuple:
+    """``(status, numbers)``: the ``joint_assembly`` finding the validator's own kernel run
+    (``kernel``, :func:`independent_kernel`) derives for the assembly ``setup``. A run that
+    is not ``ok`` names its status (``kernel_status``, plus ``kernel_unavailable`` when
+    the kernel is missing) and is an error only when it errored, else unknown; an ``ok``
+    run refusing the join is an error, one leaving its joined stock unknown or deriving
+    none for the setup (no setup facts at all included) unknown, else pass, with that
+    setup's completed joint features."""
+    facts = kernel()
+    facts = facts if isinstance(facts, dict) else {}
+    run = facts.get("status")
+    if run != "ok":
+        numbers = {"kernel_status": run or "unknown"}
+        if facts.get("kernel_unavailable") is True:
+            numbers["kernel_unavailable"] = True
+        return ("error" if run == "error" else "unknown"), numbers
+    setups = facts.get("setups")
+    detail = setups.get(setup["id"]) if isinstance(setups, dict) else None
+    detail = detail if isinstance(detail, dict) else {}
+    status = (
+        "error"
+        if detail.get("assembly_error")
+        else "unknown"
+        if detail.get("stock_reason") or "stock_bbox_mm" not in detail
+        else "pass"
+    )
+    numbers = {
+        "joint": setup["joint"]["kind"],
+        "stock_in": list(setup["stock_in"]),
+        "completed_joint_features": detail.get("completed_joint_features", "unknown"),
+    }
+    return status, numbers
+
+
 def check_joint_declarations(plan: dict, features: dict, findings: dict, kernel) -> None:
-    """Keep assembly identities and unresolved joint geometry explicit in the report. A
-    join verdict reported from a kernel run is the validator's own run's (``kernel``,
-    :func:`independent_kernel`): refused is an error, no joined stock unknown, else pass,
-    with its completed joint features; with no such run nothing approves the join."""
+    """Keep assembly identities and unresolved joint geometry explicit in the report. Every
+    assembly's join verdict and its evidence, kernel availability included, are exactly
+    those the validator's own kernel run derives (:func:`kernel_join`); nothing in the
+    report decides which applies."""
     bundle = SimpleNamespace(plan=plan, features=features)
     for setup in plan["setups"]:
         if not isinstance(setup.get("stock_in"), list):
@@ -836,43 +871,15 @@ def check_joint_declarations(plan: dict, features: dict, findings: dict, kernel)
         sid = setup["id"]
         joint = setup["joint"]
         assembly = findings["joint_assembly", sid]
-        if "kernel_status" in assembly["numbers"]:
-            expected_status = (
-                "error" if assembly["numbers"]["kernel_status"] == "error" else "unknown"
-            )
-            require(
-                assembly["status"] == expected_status,
-                f"{sid}: unavailable kernel cannot approve the assembly",
-            )
-        else:
-            require(
-                assembly["numbers"].get("joint") == joint["kind"]
-                and assembly["numbers"].get("stock_in") == setup["stock_in"],
-                f"{sid}: joint assembly identities differ from the plan",
-            )
-            joined = measured_setup(kernel, sid)
-            if joined:
-                expected_status = (
-                    "error"
-                    if joined.get("assembly_error")
-                    else "unknown"
-                    if joined.get("stock_reason") or "stock_bbox_mm" not in joined
-                    else "pass"
-                )
-                require(
-                    assembly["status"] == expected_status,
-                    f"{sid}: joint assembly verdict differs from the kernel's join",
-                )
-                require(
-                    assembly["numbers"].get("completed_joint_features")
-                    == joined.get("completed_joint_features", "unknown"),
-                    f"{sid}: completed joint features differ from the kernel's join",
-                )
-            else:
-                require(
-                    assembly["status"] != "pass",
-                    f"{sid}: no independent kernel join derives the approved assembly",
-                )
+        status, numbers = kernel_join(kernel, setup)
+        require(
+            assembly["status"] == status,
+            f"{sid}: joint assembly verdict differs from the validator's own kernel join",
+        )
+        require(
+            assembly["numbers"] == numbers,
+            f"{sid}: joint assembly evidence differs from the validator's own kernel join",
+        )
         if joint["kind"] != "cylindrical":
             continue
         result = fit(bundle, setup)
@@ -2871,12 +2878,20 @@ def same_segments(reported, expected: list) -> bool:
 
 
 def check_stickout(
-    setup: dict, plan: dict, features: dict, policy: dict, finding: dict, kernel
+    setup: dict,
+    plan: dict,
+    features: dict,
+    inventory: dict,
+    policy: dict,
+    finding: dict,
+    kernel,
 ) -> None:
     """Hold the stick-out row to the plan: the finished exposed diameter from declared
     stations (:func:`finished_exposed_diameter`), else the profile the validator's own
     kernel run derives (:func:`kernel_exposed_profile`), whose segments the row reports
-    and whose kernel facts it cites; neither derived, it stays unknown."""
+    and whose kernel facts it cites; neither derived, it stays unknown. The selected
+    support is the plan's hold read through the inventory (``stickout.support_state``),
+    and the verdict is the one those inputs decide, never a report field."""
     row = finding["numbers"]
     held = setup["stock_state"].get("od_mm", plan["stock"].get("dia_mm", "unknown"))
     if not numeric(held) or held <= 0:
@@ -2911,21 +2926,37 @@ def check_stickout(
     citations = citation if isinstance(citation, list) else [citation]
     cited = any(isinstance(c, str) and c.strip() and c != "unknown" for c in citations)
     verified = policy["numbers_verify"]["stickout_ld_max"] is False
-    limit = (
-        diameter * limit_ratio
-        if numeric(diameter) and numeric(limit_ratio) and limit_ratio > 0 and cited and verified
-        else "unknown"
-    )
+    known_limit = numeric(limit_ratio) and limit_ratio > 0 and cited and verified
+    limit = diameter * limit_ratio if known_limit and numeric(diameter) else "unknown"
     near(row["unsupported_limit_mm"], limit, "stick-out unsupported limit")
-    if (
-        setup["machine"] == "PM-1127VF-LB"
-        and limit == "unknown"
-        and row["support_status"] != "pass"
-    ):
-        require(
-            finding["status"] == "unknown",
-            "unresolved exposed profile or shop ratio cannot approve stick-out",
-        )
+    support, supports = support_state(SimpleNamespace(plan=plan, inventory=inventory), setup)
+    require(
+        row["support_status"] == support and row["supports"] == supports,
+        "stick-out selected support differs from the plan's hold in the inventory",
+    )
+    machines = inventory.get("machines", {})
+    machine = machines.get(setup.get("machine")) if isinstance(machines, dict) else None
+    kind = machine.get("kind", "unknown") if isinstance(machine, dict) else "unknown"
+    if kind != "lathe":
+        status = "unknown" if kind == "unknown" else "not_applicable"
+    elif not numeric(length) or length < 0 or not numeric(held):
+        status = "unknown"
+    elif length == 0 and (known_limit or support == "pass"):
+        status = "pass"
+    elif not numeric(diameter):
+        status = "unknown"
+    elif support == "pass":
+        status = "pass"
+    elif not known_limit:
+        status = "unknown"
+    elif length <= limit:
+        status = "pass"
+    else:
+        status = "unknown" if support == "unknown" else "error"
+    require(
+        finding["status"] == status,
+        f"stick-out verdict {finding['status']} is not the {status} its inputs decide",
+    )
 
 
 def check_cone_facts(plan: dict, features: dict) -> None:
@@ -3109,7 +3140,9 @@ def validate_fixture(
                 kernel,
             )
         check_indexing(setup, features, entries, findings["indexing", setup["id"]])
-        check_stickout(setup, plan, features, policy, findings["stickout", setup["id"]], kernel)
+        check_stickout(
+            setup, plan, features, inventory, policy, findings["stickout", setup["id"]], kernel
+        )
         for op in setup["ops"]:
             check_speeds(
                 plan,
