@@ -1669,6 +1669,39 @@ drawn strap's certainly thin run still decides `error`/protective `pass`, but
 a run that meets the floor is `unknown` (`drawn straps meet the shop floor but
 other clamps are unresolved: …`) while any debt remains.
 
+A clamp declared `restraint = "locate"` carries no clamping load, so it has no
+footprint run and adds nothing to `min_wall_mm`. Each of its drawn solids that
+declares `locates` must instead bear on the setup-entry stock the way its
+`bears` declares, and only that way: neither proof stands in for the other.
+`bears = "bore"` is a radial pin. A convex cylinder of the solid stands in a
+concave cylinder of the stock when their axes are parallel, its axis lies inside
+the bore and the two overlap along it by more than 1e-3 mm. It bears in a bore
+whose full circle contains it and whose actual wall it comes within 1e-3 mm of,
+so the drawn contact cylinder has clearance but touches. It may pass clear
+through a larger section of the same hole (a counterbore) on the way. Running
+past a bore's full circle is not a fault by itself, because that part of the
+circle may be a neighbouring relief hole and not stock. Interference is
+measured as the stock the solid occupies (below), and the debt names each bore
+wall that this stock meets. Its end faces prove nothing: a loose pin resting on
+the floor of a blind bore, or a pin standing on the work beside or over its
+bore, is not located. `bears = "face"` is a flat locator. It needs a flat face
+within 1e-3 mm of the stock whose 0.01 mm slab, swept along its outward normal,
+meets more than 1e-6 mm² of it. Either way the solid shares no more than
+1e-3 mm³ with the stock. Another member touching the stock (a collar on the
+work) proves nothing. The kernel lists each proof under `locator_bearings`: the
+clamp, the solid and `bears`. A `bore` proof records the pin and bore
+diameters, the axis offset, the gap and the engaged length; a `face` proof
+records the face's area. Each of the following is a named `strap_wall_debts`
+entry, like a non-bearing strap:
+
+- a locator with no declared `bears`;
+- a pin that stands in no bore, or stands clear of every bore it stands in;
+- a flat locator with no bearing face;
+- a locator that shares more than 1e-3 mm³ with the stock (an oversize pin, or
+  one off its bore's axis that runs into the wall);
+- a locate clamp that draws no `locates` solid (an unmeasured locating solid is
+  not drawn).
+
 Separated parallel footprint lines from one clamp may meet the entry stock in
 one exact native compound intersection. Their segments and Boolean operand order
 are unchanged, with no fuzzy tolerance. Supporting lines must be more than
