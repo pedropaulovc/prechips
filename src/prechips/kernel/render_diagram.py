@@ -360,6 +360,41 @@ def _clip_segment(a, b, box):
     return ((a[0] + low * dx, a[1] + low * dy), (a[0] + high * dx, a[1] + high * dy))
 
 
+def _leader_segments(path, reserved, radius):
+    """Visible leader fragments outside text backing; round caps stay outside it too."""
+    for a, b in zip(path, path[1:], strict=False):
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        if dx == dy == 0:
+            if not any(
+                left - radius <= a[0] <= right + radius and top - radius <= a[1] <= bottom + radius
+                for left, top, right, bottom in reserved
+            ):
+                yield a, b
+            continue
+        axis = 0 if abs(dx) >= abs(dy) else 1
+        delta = (dx, dy)[axis]
+        covered = []
+        for left, top, right, bottom in reserved:
+            clipped = _clip_segment(
+                a, b, (left - radius, top - radius, right + radius, bottom + radius)
+            )
+            if clipped:
+                covered.append(tuple((point[axis] - a[axis]) / delta for point in clipped))
+        cursor = 0.0
+        for low, high in sorted(covered):
+            if low > cursor:
+                yield (
+                    (a[0] + cursor * dx, a[1] + cursor * dy),
+                    (a[0] + low * dx, a[1] + low * dy),
+                )
+            cursor = max(cursor, high)
+        if cursor < 1:
+            yield (
+                (a[0] + cursor * dx, a[1] + cursor * dy),
+                b,
+            )
+
+
 def _badge_width(canvas, label, scale=_BODY_SCALE):
     return max(5 * scale + 2 * _BADGE_PAD, canvas.text_width(label, scale=scale) + 2 * _BADGE_PAD)
 
@@ -1516,6 +1551,10 @@ class _Diagram:
         """Two lanes of print-size keys. Type never shrinks: lanes rebalance, then tighten
         their leading; a leader never runs along the axis through another callout."""
         c = self.canvas
+        reserved = [
+            (left - 4, top - 3, right + 4, bottom + 3)
+            for _, left, top, right, bottom in c.text_boxes
+        ]
         # A leader naming a drawn solid must end on that solid's visible pixels; one that
         # cannot is a render debt, never a printed leader to the wrong thing.
         kept = []
@@ -1766,11 +1805,14 @@ class _Diagram:
                     elif height is not None:
                         step = [(point[0], height)] if height != point[1] else []
                         path = [point, *step, (bend_x, height), end]
+                    segments = list(
+                        _leader_segments(path, reserved, 3 if item.colour == _CONTACT else 1)
+                    )
                     if item.colour == _CONTACT:
-                        for a, b in zip(path, path[1:], strict=False):
+                        for a, b in segments:
                             c.line(a, b, _WHITE, width=6)
                         c.circle(*point, 5, fill=_WHITE)
-                    for a, b in zip(path, path[1:], strict=False):
+                    for a, b in segments:
                         c.line(a, b, item.colour, width=2)
                     if item.leader == "hidden":
                         c.circle(*point, 4, fill=_WHITE, outline=item.colour)

@@ -3,6 +3,7 @@
 from copy import deepcopy
 
 import pytest
+from test_sheet_ops import Markup, content
 
 from prechips.findings import Finding, exit_code
 from prechips.inputs import Bundle
@@ -91,12 +92,22 @@ def bundle(
         paths={},
         hashes={},
         root=tmp_path,
+        kernel={"status": "ok", "ops": {}, "setups": {}, "mapping": {}},
     )
 
 
 def result(bundle):
     [finding] = indexing.evaluate(bundle)
     return finding
+
+
+def index_text(html):
+    """The indexing paragraph, preserving inline number and unit boundaries."""
+    markup = Markup(html)
+    [paragraph] = [
+        node for node in markup.nodes if node["tag"] == "p" and content(node).startswith("Index:")
+    ]
+    return content(paragraph)
 
 
 def test_continuous_rotation_passes_only_on_a_dividing_head(tmp_path):
@@ -151,7 +162,7 @@ def test_exact_direct_candidate_precedes_exact_worm_candidate(tmp_path):
         24,
     )
     assert (finding.numbers["turns"], finding.numbers["spaces"]) == (0, 2)
-    html = render_traveler(subject, [finding], {"verification": "checked"})
+    html = index_text(render_traveler(subject, [finding], {"verification": "checked"}))
     assert "24-hole circle: 0 spindle turns + 2 hole spaces" in html
     assert "Each step is exactly the planned 30°." in html
 
@@ -213,7 +224,7 @@ def test_authored_step_pattern_is_open_and_never_closed(
     assert finding.numbers["closure"] == "not_applicable"
     assert finding.numbers["failed"] == []
     assert exit_code([finding], subject.policy, subject) == 0
-    html = render_traveler(subject, [finding], {"verification": "checked"})
+    html = index_text(render_traveler(subject, [finding], {"verification": "checked"}))
     assert f"Each step is exactly the planned {angle:g}°." in html
 
 
@@ -246,7 +257,7 @@ def test_full_pattern_closure_is_checked_inclusively_against_tolerance(
         "within_tolerance": status == "pass",
     }
     assert finding.numbers["failed"] == failed
-    html = render_traveler(subject, [finding], {"verification": "checked"})
+    html = index_text(render_traveler(subject, [finding], {"verification": "checked"}))
     # The 7th landing is the return to the start: its error is the closure.
     assert "Each step turns the work 51.6000°, 0.1714° off the planned 51.4286°" in html
     assert "landing 7 ends 1.2000° off" in html
@@ -307,7 +318,7 @@ def test_single_cone_tilt_checks_landing_without_cycle_closure_and_prints_spaces
     assert finding.numbers["position_errors_deg"] == pytest.approx([407 / 115000])
     assert finding.numbers["closure"] == "not_applicable"
     assert finding.numbers["failed"] == []
-    html = render_traveler(subject, [finding], {"verification": "checked"})
+    html = index_text(render_traveler(subject, [finding], {"verification": "checked"}))
     assert "plate B, 23-hole circle: 1 crank turn + 9 hole spaces" in html
     # One executable value: the angle the plate gives, not the planned one, plus the residual.
     assert (
@@ -337,7 +348,7 @@ def test_unverified_inventory_retains_tentative_arithmetic_not_a_certification(t
     assert finding.numbers["actual_angle_deg"] == 51.6
     assert finding.numbers["verified"] is False
     assert finding.numbers["failed"] == ["landing 7", "cycle closure"]
-    html = render_traveler(subject, [finding], {"verification": "checked"})
+    html = index_text(render_traveler(subject, [finding], {"verification": "checked"}))
     assert "Index: ? Tentative" in html
     assert "15-hole circle: 5 crank turns + 11 hole spaces" in html
 
@@ -360,7 +371,7 @@ def test_the_index_line_judges_the_achievable_angle_against_the_allowance(
     finding = result(subject)
     assert finding.status == status
     assert finding.numbers["step_error_deg"] == pytest.approx(407 / 115000)
-    html = render_traveler(subject, [finding], {"verification": "checked"})
+    html = index_text(render_traveler(subject, [finding], {"verification": "checked"}))
     assert f"This setting turns the work 12.5217°, 0.0035° off the planned 12.5182°{verdict}" in (
         html
     )
@@ -553,5 +564,5 @@ def test_explicit_unknown_selector_cannot_inherit_a_looser_general_class(tmp_pat
     assert finding.numbers["actual_angle_deg"] == pytest.approx(360 / 7)
     assert finding.numbers["closure"]["within_tolerance"] == "unknown"
     assert exit_code([finding], subject.policy, subject) == 4
-    html = render_traveler(subject, [finding], {"verification": "planned"})
+    html = index_text(render_traveler(subject, [finding], {"verification": "planned"}))
     assert "Index: ? Tentative" in html

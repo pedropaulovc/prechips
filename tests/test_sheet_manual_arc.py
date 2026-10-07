@@ -1,9 +1,10 @@
 """Manual arc travelers tell the operator how to rough, lay out and file the arc."""
 
 import re
-from html import unescape
 
 import pytest
+from test_sheet_ops import Markup, content
+from test_sheet_precision import VisibleText, table_rows, tagged
 
 from prechips.findings import Finding
 from prechips.inputs import Bundle
@@ -12,7 +13,31 @@ from prechips.sheet import _Traveler
 
 
 def text(html):
-    return unescape(re.sub(r"<[^>]+>", " ", html))
+    visible = "".join(" " if part == "|" else part for part in VisibleText(html).parts)
+    return " ".join(visible.split())
+
+
+def coordinate_tables(html):
+    markup = Markup(html)
+    (owner,) = markup.find("contour")
+    assert owner["attrs"]["data-page-context"].startswith("S1 op 20 —")
+    return markup, owner, markup.find("coords", owner)
+
+
+def headers(markup, table):
+    (head,) = tagged(markup, "thead", table)
+    rows = tagged(markup, "tr", head)
+    return [content(cell).strip() for cell in tagged(markup, "th", rows[-1])]
+
+
+def operation_text(html, op):
+    markup = Markup(html)
+    (owner,) = [
+        node for node in markup.find("operation") if node["attrs"].get("data-op") == str(op)
+    ]
+    instructions = markup.find("see", owner)
+    assert instructions, f"Missing manual instructions for op {op}"
+    return " ".join(" ".join(content(node).split()) for node in instructions)
 
 
 def no_programming(html):
@@ -128,7 +153,7 @@ def contour_sheet(tmp_path, arc, line=None, scribed=False):
     )
     html = sheet.contours(setup, {("tools", "cutter"): "6 mm endmill"})
     no_programming(html)
-    assert "99.000" not in html, "the generic arc profile must not print a second table"
+    assert "99.000" not in text(html), "the generic arc profile must not print a second table"
     return html, text(html)
 
 
@@ -146,24 +171,38 @@ def test_stairs_print_every_corner_and_single_handwheel_axis(tmp_path):
     }
     line["stair_cusp_mm"] = 0.1272
     html, printed = contour_sheet(tmp_path, arc, line)
-    # The cusp bound prints on the 0.001 DRO grid, rounded up: never finer, never less.
-    assert "the stair leaves ≤ 0.128" in printed and "0.1272" not in printed
-    # Nothing scribed the arc: the rough stays outside the finished outline, not a line
-    # no step drew.
-    assert "rough stairs" in printed.lower() and "outside the finished outline" in printed
-    assert "scribed" not in printed
-    assert "one handwheel axis per row" in printed
-    assert "at most 0.420 mm for the file" in printed and "cap 0.5 mm" in printed
+    markup, owner, tables = coordinate_tables(html)
+    assert len(tables) == 2
+    rough_context, join_context = [
+        content(markup.find("table-context", table)[0]) for table in tables
+    ]
+    # The cusp bound belongs to the join table and rounds up to the 0.001 DRO grid.
+    assert "the stair leaves ≤ 0.128" in join_context and "0.1272" not in printed
+    assert "rough stairs" in rough_context.lower()
+    assert "outside the finished outline" in rough_context and "scribed" not in printed
+    assert all("one handwheel axis per row" in value for value in (rough_context, join_context))
+    assert "at most 0.420 mm for the file" in rough_context and "cap 0.5 mm" in rough_context
     # Every move is at one Z: it heads the block and each table's continued-page heading
     # (one per table), and no row repeats it.
-    assert "S1 op 20 — arc · 6 mm endmill · Z -2.125" in printed
-    assert "<th>Z</th>" not in html and printed.count("-2.125") == 3, printed
-    # The moves are numbered on through the op's tables: the joins carry on from the arc.
-    assert re.search(r"\b1\s+P1\s+15\.200\s+-3\.000\s+X", printed)
-    assert re.search(r"\b2\s+P2.*corner.*15\.200\s+1\.500\s+Y", printed)
-    assert re.search(r"\b3\s+P3\s+12\.800\s+1\.500\s+X", printed)
-    assert re.search(r"\b5\s+P5\s+12\.800\s+4\.000\s+Y", printed)
-    assert "<th>handwheel axis</th>" in html
+    (heading,) = tagged(markup, "h3", owner)
+    assert "S1 op 20" in content(heading) and "6 mm endmill" in content(heading)
+    assert "Z -2.125" in content(heading)
+    for table in tables:
+        (repeat,) = markup.find("repeat", table)
+        assert "S1 op 20" in content(repeat) and "Z -2.125" in content(repeat)
+    assert "Z" not in [heading for table in tables for heading in headers(markup, table)]
+    assert printed.count("-2.125") == 3, printed
+    # Each row owns its picture index, coordinates and one handwheel axis.
+    assert headers(markup, tables[0]) == ["#", "P", "X", "Y", "handwheel axis"]
+    assert table_rows(markup, tables[0]) == [
+        ["1", "P1", "15.200", "-3.000", "X"],
+        ["2", "P2 (corner)", "15.200", "1.500", "Y"],
+        ["3", "P3", "12.800", "1.500", "X"],
+    ]
+    assert table_rows(markup, tables[1]) == [
+        ["4", "P4", "12.800", "1.500", ""],
+        ["5", "P5", "12.800", "4.000", "Y"],
+    ]
 
 
 def test_chain_drill_prints_holes_then_breakout_and_filing_stock(tmp_path):
@@ -175,14 +214,25 @@ def test_chain_drill_prints_holes_then_breakout_and_filing_stock(tmp_path):
         break_out="chisel the webs out along the hole line",
     )
     html, printed = contour_sheet(tmp_path, arc, scribed=True)
-    assert "<th>hole #</th>" in html
-    assert "drill Ø3.5 mm" in printed and "pitch 3.2 mm" in printed
-    assert "every hole outside the scribed line" in printed
-    assert re.search(r"1\s+P1\s+15\.200\s+-3\.000", printed)
-    assert re.search(r"3\s+P3\s+12\.800\s+1\.500", printed)
-    assert "chisel the webs out along the hole line" in printed
-    assert html.index("</table>") < html.index("chisel the webs")
-    assert "at most 0.420 mm for the file" in printed
+    markup, owner, tables = coordinate_tables(html)
+    (table,) = tables
+    assert headers(markup, table) == ["hole #", "P", "X", "Y"]
+    assert table_rows(markup, table) == [
+        ["1", "P1", "15.200", "-3.000"],
+        ["2", "P2", "15.200", "1.500"],
+        ["3", "P3", "12.800", "1.500"],
+    ]
+    context = content(markup.find("table-context", table)[0])
+    assert "drill Ø3.5 mm" in context and "pitch 3.2 mm" in context
+    assert "every hole outside the scribed line" in context
+    (breakout,) = [
+        node
+        for node in tagged(markup, "p", owner)
+        if "chisel the webs out along the hole line" in content(node)
+    ]
+    assert markup.nodes.index(table) < markup.nodes.index(breakout)
+    assert "at most 0.420 mm for the file" in content(breakout)
+    assert "cap 0.5 mm" in content(breakout)
 
 
 def test_chords_print_endpoints_length_sagitta_index_and_radius_band(tmp_path):
@@ -208,23 +258,31 @@ def test_chords_print_endpoints_length_sagitta_index_and_radius_band(tmp_path):
         ],
     )
     html, printed = contour_sheet(tmp_path, arc)
-    for heading in (
+    markup, owner, tables = coordinate_tables(html)
+    (table,) = tables
+    assert headers(markup, table) == [
         "chord #",
+        "from P",
         "from X",
         "from Y",
+        "to P",
         "to X",
         "to Y",
         "length mm",
         "sagitta mm",
         "index °",
-    ):
-        assert f"<th>{heading}</th>" in html
-    assert re.search(r"P1\s+15\.200\s+-3\.000\s+P2\s+15\.200\s+1\.500\s+4\.5\s+0\.025", printed)
-    assert "15.25" in printed and "0.007" in printed
-    assert "lock X at 15.200" in printed and "feed Y -3.000 → 1.500" in printed
-    assert "lock Y at -1.125" in printed and "feed X 4.750 → 7.150" in printed
-    assert "chord ends sit on R 100.1 mm" in printed
-    assert "every chord stays inside R 99.8–100.2 mm" in printed
+        "handwheel cut",
+    ]
+    rows = table_rows(markup, table)
+    assert [row[:-1] for row in rows] == [
+        ["1", "P1", "15.200", "-3.000", "P2", "15.200", "1.500", "4.5", "0.025", ""],
+        ["2", "P2", "15.200", "1.500", "P3", "12.800", "1.500", "2.4", "0.007", "15.25"],
+    ]
+    assert "lock X at 15.200" in rows[0][-1] and "feed Y -3.000 → 1.500" in rows[0][-1]
+    assert "lock Y at -1.125" in rows[1][-1] and "feed X 4.750 → 7.150" in rows[1][-1]
+    context = content(markup.find("table-context", table)[0])
+    assert "chord ends sit on R 100.1 mm" in context
+    assert "every chord stays inside R 99.8–100.2 mm" in context
 
 
 def test_unknown_chord_cut_does_not_print_a_handwheel_motion(tmp_path):
@@ -242,15 +300,19 @@ def test_unknown_chord_cut_does_not_print_a_handwheel_motion(tmp_path):
             }
         ],
     )
-    _, printed = contour_sheet(tmp_path, arc)
-    assert "STOP: chord handwheel cut not established" in printed
+    html, printed = contour_sheet(tmp_path, arc)
+    markup, owner, tables = coordinate_tables(html)
+    (table,) = tables
+    (row,) = table_rows(markup, table)
+    assert "STOP: chord handwheel cut not established" in row[-1]
     assert "feed X" not in printed
 
 
+@pytest.mark.parametrize("rotation", ["clockwise", "counterclockwise"])
 @pytest.mark.parametrize("centre_by", ["pin", "indicate"])
 @pytest.mark.parametrize(("convex", "offset", "formula"), [(True, 13, "plus"), (False, 7, "minus")])
 def test_rotary_recipe_prints_centring_offset_dial_and_conventional_direction(
-    tmp_path, centre_by, convex, offset, formula
+    tmp_path, centre_by, convex, offset, formula, rotation
 ):
     arc = arc_record("rotary_table")
     arc["rotary"] = {
@@ -271,25 +333,29 @@ def test_rotary_recipe_prints_centring_offset_dial_and_conventional_direction(
         "stop_deg": 102.5,
         "sweep_deg": 90,
         "resolution_deg": 0.25,
-        "rotation": "counterclockwise",
+        "rotation": rotation,
     }
     html, printed = contour_sheet(tmp_path, arc)
-    assert "<ol>" in html and "<table" not in html
-    assert "indicating its centre bore" in printed and "DRO X0 Y0" in printed
+    markup, owner, tables = coordinate_tables(html)
+    assert not tables
+    (steps,) = tagged(markup, "ol", owner)
+    instructions = [content(node) for node in tagged(markup, "li", steps)]
+    assert len(instructions) == 4
+    centring, locating, offsetting, cutting = instructions
+    assert "indicating its centre bore" in centring and "DRO X0 Y0" in centring
     if centre_by == "pin":
-        # The pin, the table bore it fits and the centre's play are all on the sheet.
-        assert "Ø4 mm through centre bore" in printed and "Ø4.01 mm" in printed
-        assert "0.015 mm" in printed
+        assert "Ø4 mm through centre bore" in locating and "Ø4.01 mm" in locating
+        assert "0.015 mm" in locating
     else:
-        assert "indicate centre bore" in printed
-    # The printed X is explained by the radius it cuts (the DRO grid moved it off R9.99).
-    assert f"offset the table to X {offset}.000 " in printed
-    assert f"R 10 mm {formula} cutter radius 3 mm" in printed
-    assert ("convex" if convex else "concave") in printed
-    assert "lock x and y" in printed.lower() and "set Z -2.125" in printed
-    assert "counterclockwise from 12.5° to 102.5°" in printed
-    assert "sweep 90°" in printed and "dial to 0.25°" in printed
-    assert "conventional-cut direction" in printed
+        assert "indicate centre bore" in locating
+    # The formula and the resulting offset must be on the same step, not elsewhere.
+    assert f"offset the table to X {offset}.000 " in offsetting
+    assert f"R 10 mm {formula} cutter radius 3 mm" in offsetting
+    assert ("convex" if convex else "concave") in offsetting
+    assert "lock x and y" in cutting.lower() and "set Z -2.125" in cutting
+    assert re.search(rf"\b{rotation} from 12\.5° to 102\.5°", cutting)
+    assert "sweep 90°" in cutting and "dial to 0.25°" in cutting
+    assert "conventional-cut direction" in cutting
     assert "15.200" not in printed, "rotary samples belong only to the picture"
 
 
@@ -340,23 +406,23 @@ def test_manual_layout_and_filing_attach_to_their_operation_even_at_the_bench(
     )
     html = "".join(sum(sheet.setup_section(setup), []))
     no_programming(html)
-    printed = text(html)
-    assert "blue the part" in printed and "scribe R10 mm" in printed
-    assert "X 2.000, Y -3.000" in printed and "on the axis of centre bore" in printed
-    assert ("arc template" if layout == "template" else layout) in printed
-    assert (
-        "arc ends" in printed and "X 12.000, Y -3.000" in printed and "X 2.000, Y 7.000" in printed
-    )
-    assert "file down to the hardened button rims" in printed
-    assert "R10 filing buttons" in printed
-    # Every stack element's receipt limits print...
+    layout_text = operation_text(html, 10)
+    filing_text = operation_text(html, 30)
+    assert "blue the part" in layout_text and "scribe R10 mm" in layout_text
+    assert "X 2.000, Y -3.000" in layout_text and "on the axis of centre bore" in layout_text
+    assert ("arc template" if layout == "template" else layout) in layout_text
+    assert "arc ends" in layout_text
+    assert "X 12.000, Y -3.000" in layout_text and "X 2.000, Y 7.000" in layout_text
+    assert "file down to the hardened button rims" in filing_text
+    assert "R10 filing buttons" in filing_text
+    # Receipt limits and the outward-rounded proven band belong to the filing operation.
     for value in ("19.99", "4.01", "3.99", "0.004", "4.01842"):
-        assert value in printed
-    # ...and the worst case rounds outward, never narrower than the band it was proven in.
-    assert "R9.968 to R10.027 mm" in printed
-    assert "check with radius gauge" in printed
-    assert "file off the stock left by S1:20 (at most 0.5 mm)" in printed
-    assert "STOP" not in printed
+        assert value in filing_text
+    assert "R9.968 to R10.027 mm" in filing_text
+    assert "check with radius gauge" in filing_text
+    assert "file off the stock left by S1:20 (at most 0.5 mm)" in filing_text
+    assert "Bench filing:" not in layout_text and "Layout:" not in filing_text
+    assert "STOP" not in text(html)
 
 
 @pytest.mark.parametrize(
@@ -380,7 +446,7 @@ def test_template_guide_and_unknown_stock_do_not_claim_a_filing_allowance(
         machine="bench",
     )
     html = "".join(sum(sheet.setup_section(setup), []))
-    printed = text(html)
+    printed = operation_text(html, 30)
     no_programming(html)
     assert "guide: arc template" in printed
     assert f"STOP: {stop}" in printed
@@ -399,6 +465,6 @@ def test_buttons_without_a_worst_case_band_print_a_stop(tmp_path, missing):
         manual=[filing],
         machine="bench",
     )
-    printed = text("".join(sum(sheet.setup_section(setup), [])))
+    printed = operation_text("".join(sum(sheet.setup_section(setup), [])), 30)
     assert "STOP" in printed
     assert not re.search(r"R\d+(\.\d+)? to R\d", printed)

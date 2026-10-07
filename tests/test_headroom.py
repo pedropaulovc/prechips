@@ -1,12 +1,12 @@
 """Physical mill stack arithmetic, independent of authored reference outputs."""
 
 import math
-import re
 from copy import deepcopy
 from types import SimpleNamespace
 
 import pytest
 from test_cli import traveler
+from test_sheet_ops import Markup, content
 
 from prechips.inputs import load_bundle
 from prechips.rules import coordinates
@@ -651,20 +651,47 @@ def test_contour_allowances_produce_actual_rough_and_finish_targets(
             )
     if action != "profile":
         return
-    displayed = {
-        "rough" if "stage: rough" in description else "finish": table
-        for description, table in re.findall(
-            r"<p>([^<]*stage: (?:rough|finish)[^<]*)</p>(<table.*?</table>)", html, re.DOTALL
-        )
-    }
+    markup = Markup(html)
+    blocks = [
+        block
+        for block in markup.find("contour")
+        if block["attrs"].get("data-page-context", "").startswith("S1 op 20 —")
+    ]
+    assert len(blocks) == 1
+    displayed = {}
+    for table in markup.find("coords", within=blocks[0]):
+        contexts = markup.find("table-context", within=table)
+        assert len(contexts) == 1
+        description = content(contexts[0])
+        stage = next(stage for stage in ("rough", "finish") if f"stage: {stage}" in description)
+        assert stage not in displayed
+        displayed[stage] = table
+    assert set(displayed) == {"rough", "finish"}
     for stage, allowance in (("rough", 0.3), ("finish", 0.0)):
         table = displayed[stage]
-        # The column headings are the thead's last row; a first row repeats the op/tool
-        # header across all columns for a table split over pages.
-        thead = table[: table.index("</thead>")].split("<tr")[-1]
-        headings = re.findall(r"<th(?:\s[^>]*)?>(.*?)</th>", thead)
-        first_row = re.search(r"<tbody><tr>(.*?)</tr>", table, re.DOTALL).group(1)
-        cells = dict(zip(headings, re.findall(r"<td[^>]*>(.*?)</td>", first_row), strict=True))
+        thead = next(
+            node for node in markup.nodes if node["tag"] == "thead" and node["parent"] is table
+        )
+        heading_rows = [
+            node for node in markup.nodes if node["tag"] == "tr" and node["parent"] is thead
+        ]
+        headings = [
+            content(node)
+            for node in markup.nodes
+            if node["tag"] == "th" and node["parent"] is heading_rows[-1]
+        ]
+        body = next(
+            node for node in markup.nodes if node["tag"] == "tbody" and node["parent"] is table
+        )
+        first_row = next(
+            node for node in markup.nodes if node["tag"] == "tr" and node["parent"] is body
+        )
+        values = [
+            content(node)
+            for node in markup.nodes
+            if node["tag"] == "td" and node["parent"] is first_row
+        ]
+        cells = dict(zip(headings, values, strict=True))
         assert [float(cells["X"]), float(cells["Y"])] == pytest.approx(
             [28.0 + allowance, 8.0] if method == "stairs" else [-8.0 - allowance, -5.0 - allowance]
         )

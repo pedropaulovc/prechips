@@ -3,14 +3,14 @@ feed it needs, and one printed DRO Z per surface."""
 
 import re
 import tomllib
-from html import unescape
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 from test_contour_grid import SLAB, outline
 from test_headroom import coordinate_bundle
-from test_sheet_ops import SPOT, T4, reach_records, shop
+from test_sheet_ops import SPOT, Markup, content, reach_records, shop
 
 from prechips.inputs import load_bundle
 from prechips.rules import coordinates, speeds_feeds
@@ -216,11 +216,21 @@ def scratch_outline(tmp_path, plunge=True):
     )
     if not plunge:
         (plan.parent / "cutting.toml").write_text("revision = 1\n", encoding="utf-8")
-    return load_bundle(plan)
+    # Synthetic stock envelope for this unit's entry proof, not a measured part.
+    return replace(
+        load_bundle(plan),
+        kernel={
+            "status": "ok",
+            "setups": {"S1": {"stock_bbox_mm": [-20.0, -20.0, -10.0, 30.0, 20.0, 0.0]}},
+        },
+    )
 
 
 def page_text(html):
-    return unescape(re.sub(r"<[^>]+>", " ", html))
+    markup = Markup(html)
+    return "\n".join(
+        content(node) for node in markup.nodes if node["tag"] in {"p", "h2", "h3", "td", "th"}
+    )
 
 
 def test_every_level_of_a_multi_level_outline_prints_its_own_z_and_entry(tmp_path):
@@ -230,15 +240,24 @@ def test_every_level_of_a_multi_level_outline_prints_its_own_z_and_entry(tmp_pat
     [record] = row.numbers["level_paths"]
     assert record["levels"] == [-1.0, -2.0] and record["closed"] is True
     html = _Traveler(bundle, [row], {}, None).render()
-    text = " ".join(page_text(html).split())
-    # Every level's Z, in the heading; how each gets down and back, said once.
-    assert "Z -1.000, -2.000" in text, text
-    entry = "X -8.300, Y -5.300"
-    assert (
-        f"2 depth levels, top first, at the Zs in the heading: run the whole path below at "
-        f"each. Get down {entry}: plunge from the level above (level 1 from Z 0.000)"
-    ) in text, text
-    assert f"Between levels, stay at {entry}: the path ends where it starts." in text
+    markup = Markup(html)
+    [owner] = [
+        node
+        for node in markup.find("contour")
+        if node["attrs"]["data-page-context"].startswith("S1 op 20 —")
+    ]
+    [heading] = markup.find("page-context", owner)
+    assert re.search(r"Z (-1\.000), (-2\.000)(?: ·|$)", content(heading))
+    [entry] = [
+        content(node)
+        for node in markup.nodes
+        if node["tag"] == "p" and node["parent"] is owner and "Get down" in content(node)
+    ]
+    assert "2 depth levels, top first" in entry
+    assert "X -8.300, Y -5.300: plunge from the level above" in entry
+    assert "level 1 from Z 0.000" in entry
+    assert "Between levels, stay at X -8.300, Y -5.300" in entry
+    assert "the path ends where it starts" in entry
 
 
 def test_a_plunging_op_without_a_plunge_feed_is_unknown_and_a_stop(tmp_path):

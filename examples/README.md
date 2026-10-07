@@ -751,14 +751,35 @@ correction had 7 physical pages for shaft, 10 for rocker and 10 for bracket,
 matching the then-logical sections. Those counts are history, not the current
 layout contract. Footers flow after instructions.
 
-Latest new-base observations reported by the parent, on baseline
+Latest parent-reported **R6**, integrated on baseline
 `1efbef15d9824a6438cdb636a9543509f194943f`: all four actual CLI runs exited 0.
-Letter PDFs had 22 shaft, 94 rocker, 72 bracket and 56 cone pages (244 total),
-all even. These are baseline observations, not actual merged R6 proof or layout
-approval. The current merged focused run had 527 passed and 13 failed in
-574.34 seconds; semantic/test-API migration and layout repairs remain in progress.
-Final merged regeneration, image review and the full gate are pending.
-Physical printer/pen/operator rehearsal remains unobserved.
+Letter PDFs had 52 shaft, 220 rocker, 138 bracket and 118 cone pages (528 total),
+all even. Minimum rendered metadata font was 9.997 pt; there were zero half-inch
+glyph-margin violations, setup starts on backs or header-only continuations.
+The same baseline's own PDFs had 22/94/72/56 pages; neither set is a fixed target.
+
+Headed-browser checks passed for all four at 320/375/414/768 px without root
+clipping or horizontal scroll; three `beforeprint` calls were stable without
+errors. Minimum working text was 16 px, the 90 broad fields had minimum clear
+interiors of 19.997 × 184.067 mm, DOM contrast was at least 14.167:1 and headers
+used roman type. These are browser/PDF observations, not PNG or physical proof.
+Three reports matched the baseline except declared visual fields. Bracket's nine
+0.000001 differences came from the genuine captured kernel values. Four direct
+controls used frozen R6/current-base hosts and both actual captures: for each
+same capture the hosts produced byte-identical complete reports/findings and
+reproduced that capture's preserved actual report exactly. Normalized source/job
+hashes and STEP bindings matched. This establishes host-report preservation for
+supplied geometry, not an established native cause, harmlessness or native-run
+equivalence; no values or tolerances were normalized or waived.
+
+All 528 page images were reviewed individually across 13 ranges: five CLEAR
+and eight FIX. Major context/finishing-hierarchy and minor presentation repairs
+remain active; these range verdicts are not final package approval.
+The latest focused run had 577 passed and three failed;
+three test migrations have since been settled but are not yet verified.
+Final layout approval, golden regeneration and the full gate remain pending.
+Physical printer/pen/operator rehearsal is unobserved; this evidence establishes
+neither machining nor farm acceptance.
 
 <details>
 <summary>Historical old-base evidence (R1–R5 on d4b8826; statuses at observation time)</summary>

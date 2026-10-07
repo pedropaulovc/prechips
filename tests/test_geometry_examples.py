@@ -13,6 +13,7 @@ from test_cli import copy_examples, traveler
 
 from prechips.inputs import load_bundle
 from prechips.kernel import run_geometry
+from prechips.rules.hold_fields import align_due
 
 GEOMETRY_RULES = {
     "accessibility",
@@ -36,7 +37,34 @@ CASES = [
 
 
 def run_fixture(examples, name, plan_filename, out):
-    return traveler(examples / "geometry" / name / plan_filename, out)
+    plan = examples / "geometry" / name / plan_filename
+    bundle = load_bundle(plan)
+    due = align_due(bundle)
+    missing = {
+        setup["id"]
+        for setup in bundle.plan["setups"]
+        if setup["id"] in due and "align" not in setup.get("hold", {})
+    }
+    if missing:
+        # These copied geometric controls have no indicator inventory. Declare the
+        # alignment unresolved, never measured; only their named geometry is required.
+        assert "hold_fields" not in bundle.policy["required"]
+        assert bundle.inventory["gauges"] == {}
+        parts = re.split(r"(?m)(?=^\[\[setups\]\][ \t]*$)", plan.read_text(encoding="utf-8"))
+        assert len(parts) == len(bundle.plan["setups"]) + 1
+        for index, setup in enumerate(bundle.plan["setups"], start=1):
+            if setup["id"] in missing:
+                assert parts[index].count("[setups.hold]\n") == 1
+                parts[index] = parts[index].replace(
+                    "[setups.hold]\n", '[setups.hold]\nalign = "unknown"\n', 1
+                )
+        plan.write_text("".join(parts), encoding="utf-8")
+    result, report, html = traveler(plan, out)
+    for sid in missing:
+        holding = finding(report, "hold_fields", sid)
+        assert holding["status"] == "unknown"
+        assert holding["numbers"]["hold"]["align"] == "unknown"
+    return result, report, html
 
 
 def finding(report, rule, subject):

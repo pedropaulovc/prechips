@@ -7,12 +7,12 @@ dials is on its own grid.
 """
 
 import re
-from html import unescape
 from pathlib import Path
 
 import pytest
 from test_cli import SYNTHETIC_KERNEL, traveler
 from test_headroom import coordinate_bundle
+from test_sheet_ops import Markup, content
 
 from prechips.inputs import Bundle
 from prechips.model import Features, Inventory, Plan
@@ -100,8 +100,29 @@ def on_grid(value):
     return value / STEP == pytest.approx(round(value / STEP), abs=1e-6)
 
 
+class Readings(Markup):
+    """Keep real line breaks in multi-line endpoint fields, not inline spans."""
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "br":
+            self.handle_data("\n")
+        super().handle_starttag(tag, attrs)
+
+
 def printed(html):
-    return re.sub(r"\|+", "|", unescape(re.sub(r"<[^>]+>", "|", html)))
+    markup = Readings(html)
+    lines = []
+    for node in markup.nodes:
+        if node["tag"] in {"p", "h2", "h3"}:
+            lines.append(content(node))
+        elif node["tag"] == "tr":
+            cells = [
+                content(cell)
+                for cell in markup.nodes
+                if cell["tag"] in {"td", "th"} and cell["parent"] is node
+            ]
+            lines.append("|" + "|".join(cells) + "|")
+    return "\n".join(lines)
 
 
 def zero(text, name):
@@ -112,6 +133,14 @@ def zero(text, name):
         text,
     )
     return tuple(map(float, match.groups()))
+
+
+def endpoint_cell(html, entry):
+    """The operation's target field, not its containing full-width ledger cell."""
+    markup = Readings(html)
+    [target] = [node for node in markup.find("op-target") if f"Z {entry:.3f} → " in content(node)]
+    [cell] = [node for node in markup.nodes if node["tag"] == "dd" and node["parent"] is target]
+    return content(cell)
 
 
 @pytest.mark.parametrize("coarse,checked", [(False, -2.275), (True, -2.27)])
@@ -133,8 +162,13 @@ def test_later_setup_prints_the_checked_as_cut_face(tmp_path, coarse, checked):
     assert (axis_set, must, mirrored) == pytest.approx(
         (face_z + paper, face_z + paper + jog, face_z + paper - jog)
     )
+    endpoint_text = endpoint_cell(html, face_z)
     entry, tip, exit_face = map(
-        float, re.search(r"\|Z ([^|]+) → ([^|]+)\|breaks through at ([^|]+)\|", text).groups()
+        float,
+        re.search(
+            r"Z (-?\d+\.\d+) → (-?\d+\.\d+)\nbreaks through at (-?\d+\.\d+)",
+            endpoint_text,
+        ).groups(),
     )
     (endpoint,) = findings["blind_depth", "hole"]["numbers"]["endpoints"]
     assert entry == endpoint["dro_entry_z"] == face_z
@@ -260,7 +294,7 @@ def turned_from(tmp_path, cut, shaft_xy):
     # The lathe map prints the drawing Ø limits (here none) apart from the turn-to Ø.
     mapped = re.search(
         r"\|shaft\|+[^|]*\|+Ø6(?:\.0+)?\|+(-?\d+\.\d+)\|+-10\.000\|",
-        unescape(re.sub(r"<[^>]+>", "|", sheet.feature_map(lathe))),
+        printed(sheet.feature_map(lathe)),
     )[1]
     return start, mapped
 
@@ -288,7 +322,7 @@ def test_rounded_up_through_tip_that_stops_short_is_a_stop(tmp_path, exit_mm, st
     """A DRO tip rounded up off a zero break-through stops the drill point short of the
     exit face, so the drill row stops; one grid step of authored break-through clears it."""
     _, _, html = traveler(plan(tmp_path, exit_mm), tmp_path / "out", setup=SYNTHETIC_KERNEL)
-    (cell,) = re.findall(r"<td>(?:tool axis [^<]*<br>)?(Z -2\.275 → .*?)</td>", html)
+    cell = endpoint_cell(html, -2.275)
     assert ("STOP" in cell) is stopped
 
 
@@ -316,6 +350,6 @@ def test_rounded_up_depth_outside_its_depth_band_is_a_stop(tmp_path, do, drilled
     ]
     shown = endpoint["dro_depth_mm"]
     assert drilled - STEP < shown < drilled
-    (cell,) = re.findall(r"<td>(?:tool axis [^<]*<br>)?(Z -2\.275 → .*?)</td>", html)
+    cell = endpoint_cell(html, -2.275)
     assert f"depth {shown:.3f}" in cell
     assert ("STOP" in cell) is stopped

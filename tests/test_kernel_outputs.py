@@ -101,12 +101,12 @@ def test_kernel_absent_run_removes_stale_setup_images(tmp_path, verb):
 
     from test_cli import copy_examples, run_cli
 
-    plan = copy_examples(tmp_path) / "geometry" / "pocket-reach" / "long-reach.toml"
+    # Use an otherwise complete plan: an unrelated holding error must not mask kernel debt.
+    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
     out = tmp_path / "out"
     out.mkdir()
     (out / "setup-S1.png").write_bytes(_png((80, 100, 120)))
-    # A previous route can also have had more setups than this one, and an inspection's
-    # set-up sketch.
+    # No prior setup image or inspection sketch may survive an unavailable-kernel run.
     (out / "setup-S2.png").write_bytes(_png((120, 100, 80)))
     (out / "setup-S2-op50-position_dia.png").write_bytes(_png((100, 120, 80)))
     result = run_cli(
@@ -303,6 +303,18 @@ def test_check_after_traveler_removes_stale_assets_and_binds_current_render(
                     bundle.plan["setups"][0]["id"]: {
                         "render_png_base64": base64.b64encode(current_png).decode("ascii"),
                         "fixture_reason": "Synthetic unresolved fixture for output regression.",
+                        "render_scene": {
+                            "width_px": 1,
+                            "height_px": 1,
+                            "print_panels": [
+                                {
+                                    "role": "setup",
+                                    "label": "Synthetic output-lifecycle image",
+                                    "top_px": 0,
+                                    "height_px": 1,
+                                }
+                            ],
+                        },
                     }
                 },
             }

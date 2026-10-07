@@ -122,11 +122,13 @@ max-width: 100%; vertical-align: top; break-inside: avoid; page-break-inside: av
 min-height: var(--writing-height); padding: 0; border: var(--rule-thin) solid var(--color-ink);
 background: var(--color-paper); }
 .field { margin: var(--space-xs) var(--space-xs) var(--space-xs) 0; }
+.field.prose-field { display: flex; width: fit-content; }
 .result-field, .authored-blank { display: flex; width: 100%; margin-top: var(--space-sm); }
 .result-field .writing-blank, .authored-blank .writing-blank {
 min-height: var(--writing-result-height); }
 table.readings .field { display: flex; }
 .calc { margin: var(--space-sm) 0; font-weight: bold; }
+.calc { break-inside: avoid; page-break-inside: avoid; }
 table { width: 100%; border-collapse: collapse; margin: var(--space-sm) 0; table-layout: fixed; }
 th, td { border: var(--rule-thin) solid var(--color-rule); padding: var(--space-xs) var(--space-sm);
 text-align: left; vertical-align: top; overflow-wrap: anywhere; }
@@ -151,6 +153,26 @@ table.coords td.num { white-space: nowrap; overflow-wrap: normal; }
 margin: 0 2pt -1pt 6pt; } .levels .level:first-child .tick { margin-left: 2pt; }
 .levels .level { white-space: nowrap; }
 .reading, td.num { white-space: nowrap; overflow-wrap: normal; }
+table.fixture, table.blank-check { table-layout: auto; }
+table.fixture th, table.fixture td, table.blank-check th, table.blank-check td {
+overflow-wrap: normal; word-break: normal; hyphens: none; }
+@media screen and (max-width: 640px) {
+html:not(.print-measuring) table.fixture,
+html:not(.print-measuring) table.blank-check { table-layout: fixed; }
+html:not(.print-measuring) table.fixture thead tr:not(.repeat):not(.table-context),
+html:not(.print-measuring) table.blank-check thead tr:not(.repeat):not(.table-context),
+html:not(.print-measuring) table.fixture colgroup,
+html:not(.print-measuring) table.blank-check colgroup { display: none; }
+html:not(.print-measuring) table.fixture tbody,
+html:not(.print-measuring) table.blank-check tbody,
+html:not(.print-measuring) table.fixture tbody tr,
+html:not(.print-measuring) table.blank-check tbody tr { display: block; }
+html:not(.print-measuring) table.fixture td,
+html:not(.print-measuring) table.blank-check td { display: block; width: 100%; }
+html:not(.print-measuring) table.fixture td::before,
+html:not(.print-measuring) table.blank-check td::before {
+content: attr(data-label); display: block; font-weight: bold; }
+}
 th.read, td.read { font-weight: bold; }
 th.read { background: var(--color-reading-header); }
 tr.repeat th { background: var(--color-paper); font-weight: bold; }
@@ -251,11 +273,45 @@ _DUPLEX_JS = r"""(() => {
         ).map((row) => row.cloneNode(true))
       ])
     );
-    const tableHeads = new Map();
+    const tableHeads = new Map(), fixtureRows = new Map();
     [...section.querySelectorAll("table")].forEach((t, index) => {
       t.dataset.tableContext = String(index);
-      tableHeads.set(String(index), [...t.querySelectorAll("thead > tr.repeat, "
-        + "thead > tr.table-context")].map((row) => row.cloneNode(true)));
+      const sources = [...t.querySelectorAll("thead > tr.repeat, "
+        + "thead > tr.table-context")].map((row) => row.cloneNode(true));
+      const candidate = (contents, css = "table-context") => {
+        const row = document.createElement("tr"), cell = document.createElement("th");
+        row.className = css;
+        row.dataset.optionalContext = "";
+        cell.colSpan = t.tHead.rows[t.tHead.rows.length - 1].cells.length;
+        cell.append(contents);
+        row.append(cell);
+        return row;
+      };
+      const op = t.closest(".contour")?.querySelector(":scope > .contour-context");
+      if (op) {
+        const copy = op.cloneNode(true);
+        const before = sources.findIndex((row) => row.classList.contains("table-context"));
+        sources.splice(before < 0 ? sources.length : before, 0, candidate(copy));
+      }
+      const worksheet = t.classList.contains("readings") ? t.closest(".worksheet") : null;
+      if (worksheet) {
+        for (const [html, css] of [
+          [worksheet.dataset.worksheetTitle, "repeat"],
+          ...JSON.parse(worksheet.dataset.readingContext).map((html) => [html, "table-context"])
+        ]) {
+          const contents = document.createElement("span");
+          contents.innerHTML = html;
+          sources.push(candidate(contents, css));
+        }
+      }
+      tableHeads.set(String(index), sources);
+      if (t.classList.contains("fixture")) {
+        [...t.tBodies].flatMap((body) => [...body.rows]).forEach((row, slot) => {
+          row.dataset.rowContext = index + ":" + slot;
+          fixtureRows.set(row.dataset.rowContext,
+            [...row.cells].slice(0, 2).map((cell) => cell.cloneNode(true)));
+        });
+      }
     });
     let pageTop = box(section).top, pages = 1;
     let pageStart = [...section.children].find(
@@ -416,6 +472,18 @@ _DUPLEX_JS = r"""(() => {
         }
       }
       breakAt(start);
+      const movedTable = el.tagName === "TABLE" ? el
+        : (heading(el) || el.classList.contains("table-intro"))
+          && el.nextElementSibling?.tagName === "TABLE" ? el.nextElementSibling : null;
+      if (movedTable && (tableHeads.get(movedTable.dataset.tableContext) || []).some(
+            (row) => row.hasAttribute("data-optional-context")
+          )) {
+        const progress = sourceProgress(movedTable, movedTable.tBodies[0]);
+        if (progress) {
+          movedTable.setAttribute(SPLIT, "");
+          tableContext(movedTable, progress, true);
+        }
+      }
       if (more && pages % 2 === 1) {
         more.textContent = more.textContent.replace("on reverse", "on the next sheet");
       }
@@ -484,10 +552,25 @@ _DUPLEX_JS = r"""(() => {
       for (const point of pointsIn(row)) {
         const contents = contentsAt(row, point);
         if (!originalText(contents)) continue;
-        if (fits(prefixBottom(t, row, contents))) return { row, contents };
+        if (fits(prefixBottom(t, row, contents))) return { row, point, contents };
       }
-      if (fits(prefixBottom(t, row))) return { row, contents: null };
+      if (fits(prefixBottom(t, row))) return { row, point: null, contents: null };
       return relax && prepareFields(row) ? sourceProgress(t, body, false) : null;
+    }
+    function progressBottom(t, progress) {
+      return prefixBottom(t, progress.row,
+        progress.point ? contentsAt(progress.row, progress.point) : progress.contents);
+    }
+    function contextBudget(t, progress) {
+      if (!t.classList.contains("operations")) {
+        const original = [...t.tBodies].filter(
+          (body) => !body.hasAttribute("data-duplex-fragment")
+        );
+        if (original.length >= KEEP && fits(prefixBottom(t, original[KEEP - 1]))) {
+          return () => prefixBottom(t, original[KEEP - 1]);
+        }
+      }
+      return () => progressBottom(t, progress);
     }
     function prepareFields(el) {
       const selector = ".field, .result-field, .authored-blank";
@@ -567,6 +650,7 @@ _DUPLEX_JS = r"""(() => {
         const first = contentsAt(el, points[best]);
         const rest = el.cloneNode(false);
         rest.append(contentsAt(el, points[best], true));
+        if (rest.dataset.rowContext) rest.dataset.rowContinuation = "";
         el.replaceChildren(first);
         el.after(rest);
         for (const field of rest.querySelectorAll(".op-details > div")) {
@@ -640,14 +724,27 @@ _DUPLEX_JS = r"""(() => {
       head.after(...notes);
       if (!accepted()) notes.forEach((row) => row.remove());
     }
-    function tableContext(t, progress) {
+    function tableContext(t, progress, optionalOnly = false) {
       if (!t.hasAttribute(SPLIT)) return;
+      const budget = contextBudget(t, progress);
       for (const source of tableHeads.get(t.dataset.tableContext) || []) {
+        if (optionalOnly && !source.hasAttribute("data-optional-context")) continue;
         const row = source.cloneNode(true);
         row.setAttribute(ADDED, "");
+        row.querySelectorAll(".performed-mark, .writing-blank, .tick")
+          .forEach((mark) => mark.remove());
+        row.querySelectorAll(".field, .result-field, .authored-blank").forEach((field) => {
+          field.replaceWith(...[...(field.querySelector(".field-label")?.childNodes || [])]);
+        });
         const columns = t.tHead.querySelector("tr:not(.repeat):not(.table-context)");
-        columns.before(row);
-        if (fits(prefixBottom(t, progress.row, progress.contents))) continue;
+        const followingContext = optionalOnly && row.classList.contains("table-context")
+          ? t.tHead.querySelector(`tr.table-context:not([${ADDED}])`) : null;
+        (followingContext || columns).before(row);
+        if (fits(budget())) continue;
+        if (row.hasAttribute("data-optional-context")) {
+          row.remove();
+          continue;
+        }
         const cell = row.cells[0], text = cell.textContent;
         const boundary = text.search(/[;.!?]\s/);
         const identity = /^.*?\bop\s+\d+\b/.exec(text)
@@ -668,10 +765,28 @@ _DUPLEX_JS = r"""(() => {
           }
           cell.replaceChildren(range.cloneContents());
         } else cell.replaceChildren();
-        if (!cell.textContent || !fits(prefixBottom(t, progress.row, progress.contents))) {
+        if (!cell.textContent || !fits(budget())) {
           row.remove();
         }
       }
+    }
+    function fixtureContext(t, progress) {
+      const row = progress.row, source = fixtureRows.get(row.dataset.rowContext);
+      if (!source || !row.hasAttribute("data-row-continuation")) return;
+      const budget = contextBudget(t, progress), copies = [];
+      source.forEach((cell, slot) => {
+        if (originalText(row.cells[slot])) return;
+        const copy = document.createElement("span");
+        copy.className = "row-continuation";
+        copy.setAttribute(ADDED, "");
+        copy.append(...[...cell.childNodes].map((node) => node.cloneNode(true)));
+        copy.querySelectorAll(".performed-mark, .writing-blank, .tick")
+          .forEach((mark) => mark.remove());
+        if (slot === 0) copy.append(" (continued)");
+        row.cells[slot].prepend(copy);
+        copies.push(copy);
+      });
+      if (!fits(budget())) copies.forEach((copy) => copy.remove());
     }
     function splitBody(t, body) {
       const rows = [...body.rows];
@@ -705,6 +820,7 @@ _DUPLEX_JS = r"""(() => {
       if (!progress) throw new Error("A continuation cannot advance its original source.");
       operationContext(t, t.tBodies[0], progress);
       tableContext(t, progress);
+      fixtureContext(t, progress);
     }
     // Bodies from j onward go to a copy with the same headings, on the next page.
     function cut(t, j) {
@@ -924,11 +1040,16 @@ _STOCK_BOX_TOL_MM = 1e-3
 # auto-sized columns would squeeze a move number to one digit a line.
 _NUMBER = re.compile(r"[-−+]?\d+\.\d+")
 _WHOLE = re.compile(r"\d+")
-_READING_UNITS = r"(?:\s*(?:(?:mm|in)(?:/(?:rev|min))?|rpm|sfm|°))?"
+_READING_VALUE = r"[-−+±]?(?:(?:\d+\s+)?\d+/\d+|\d+(?:\.\d+)?|\.\d+)"
+_READING_UNITS = r"(?:\s*(?:(?:mm|in)(?:/(?:rev|min))?|rpm|sfm|°)(?!\w))?"
 _READING = re.compile(
-    rf"(?<![\w.])(?:[XYZØRD]\s*(?:[→=]\s*)?)?[-−+±]?\d+(?:\.\d+)?"
+    rf"(?<![\w.])(?:M\d+(?:\.\d+)?(?:\s*[x×]\s*\d+(?:\.\d+)?)?"
+    rf"|#\d+-\d+|\d+/\d+-\d+)"
+    rf"(?:\s*[x×]\s*{_READING_VALUE}{_READING_UNITS})?(?!\w|\.\d)"
+    rf"|(?<![\w.])(?:[XYZØRD]\s*(?:[→=]\s*)?)?{_READING_VALUE}"
+    rf"(?:\s*(?:[-–…±×]|\.\.\.)\s*(?:[ØRD]\s*)?{_READING_VALUE})*"
     rf"{_READING_UNITS}(?!\w|\.\d)"
-    rf"|(?<![\d.])[-−+±]?(?:\d+\.\d+|\.\d+){_READING_UNITS}(?!\d|\.\d)"
+    rf"|(?<![\d.])[-−+±]?(?:\d+\.\d+|\.\d+){_READING_UNITS}(?!\w|\.\d)"
 )
 # The job page's abbreviation key: (printed form, meaning); a key prints only when used.
 _ABBREVIATIONS = (
@@ -1551,6 +1672,26 @@ def _warning_line(warning):
     return _cell_line(_Box(warning))
 
 
+def _action_body(value):
+    lines = value if isinstance(value, (list, tuple)) else [value]
+    parts = []
+    for line in lines:
+        if isinstance(line, _Box):
+            parts.append(_cell_line(line))
+            continue
+        text, start = str(line), 0
+        fields = list(_FIELD.finditer(text))
+        for boundary in re.finditer(r"[.!?;]\s+(?=[A-Z])", text):
+            end = boundary.end()
+            if any(field.start() <= boundary.start() < field.end() for field in fields):
+                continue
+            parts.append(f"<p>{_fields(text[start:end])}</p>")
+            start = end
+        if start < len(text):
+            parts.append(f"<p>{_fields(text[start:])}</p>")
+    return "".join(parts)
+
+
 def _ledger_row(row, headings):
     finishing = len(row) == 5
     if finishing:
@@ -1568,8 +1709,12 @@ def _ledger_row(row, headings):
         '<div class="op-head">',
         '<span class="performed-mark" role="img" '
         f'aria-label="Operation {escape(op)} performed mark"></span>',
-        f'<h3><span class="op-number">{"Step" if finishing else "Op"} {escape(op)}</span> — '
-        f'<span class="op-action">{_ledger_text(action)}</span></h3></div>',
+        f'<h3><span class="op-number">{"Step" if finishing else "Op"} {escape(op)}</span>'
+        + (
+            "</h3></div>" + f'<div class="op-action">{_action_body(action)}</div>'
+            if finishing
+            else f' — <span class="op-action">{_ledger_text(action)}</span></h3></div>'
+        ),
         '<dl class="op-details">',
     ]
     for name, heading, value in zip(fields, labels, values, strict=True):
@@ -1673,8 +1818,10 @@ def _table(
                 _NUMBER.fullmatch(cell) or (css == "coords" and _WHOLE.fullmatch(cell))
             ):
                 names.append("num")
-            attribute = f' class="{" ".join(names)}"' if names else ""
-            result.append(f"<td{attribute}>" + "".join(parts) + "</td>")
+            attributes = f' class="{" ".join(names)}"' if names else ""
+            if css in ("fixture", "blank-check"):
+                attributes += f' data-label="{escape(str(headings[index]))}"'
+            result.append(f"<td{attributes}>" + "".join(parts) + "</td>")
         result.append("</tr>")
         if warnings:
             result.append(
@@ -1721,13 +1868,14 @@ _FIELD = re.compile(r"\{([^{}]+)\}|(?<!\w)_{3,}(?!\w)")
 CALCULATION = "Calculate:"
 
 
-def _fields(text):
+def _fields(text, *, prose=True):
     text = str(text)
     parts, end = [], 0
     for field in _FIELD.finditer(text):
         prefix = text[end : field.start()]
         if field[1] is not None:
-            parts.extend((_numeric_html(prefix), _writing_field(field[1])))
+            css = "field prose-field" if prose else "field"
+            parts.extend((_numeric_html(prefix), _writing_field(field[1], css)))
         else:
             # Keep the authored sentence/calculation caption with its sole box.
             boundaries = list(re.finditer(r"[.!?;]\s+", prefix))
@@ -1750,7 +1898,19 @@ def _readings(steps):
 
 def _worksheet(item):
     """Keep source step references, one value field per named reading, and authored calculations."""
-    _, steps, calculations = item
+    head, steps, calculations = item
+    unit_sentence = re.compile(
+        r"\bWrite (?:every|each|all) readings?\b(?:[^.!?]|\.(?=\d))*[.!?]?", re.I
+    )
+    units = list(
+        dict.fromkeys(
+            match.group() for step in steps for match in unit_sentence.finditer(str(step))
+        )
+    )
+    metadata = (
+        f' data-worksheet-title="{escape(_numeric_html(head.rstrip(":")))}"'
+        f' data-reading-context="{escape(json.dumps([_numeric_html(unit) for unit in units]))}"'
+    )
 
     def named(text):
         text = str(text)
@@ -1763,7 +1923,8 @@ def _worksheet(item):
         return "".join(parts)
 
     return (
-        _p("Take each reading at its step and write it in the READINGS table.")
+        f'<div class="worksheet"{metadata}>'
+        + _p("Take each reading at its step and write it in the READINGS table.")
         + item.sketch
         + '<ol class="steps">'
         + "".join(f"<li>{named(step)}</li>" for step in steps)
@@ -1774,7 +1935,8 @@ def _worksheet(item):
             "readings",
             widths=[10, 30, 60],
         )
-        + "".join(f'<p class="calc">{_fields(line)}</p>' for line in calculations)
+        + "".join(f'<p class="calc">{_fields(line, prose=False)}</p>' for line in calculations)
+        + "</div>"
     )
 
 
@@ -1795,7 +1957,7 @@ def _item(item):
         + '<ol class="steps">'
         + "".join(f"<li>{_fields(step)}</li>" for step in steps)
         + "</ol>"
-        + "".join(f'<p class="calc">{_fields(line)}</p>' for line in calculations)
+        + "".join(f'<p class="calc">{_fields(line, prose=False)}</p>' for line in calculations)
     )
 
 
@@ -2611,7 +2773,12 @@ class _Traveler:
                 f"Process limits for the squared blank, not drawing limits: SETUP {receiver} "
                 "locates on these faces. File the edge burrs off and wipe the blank first."
             )
-            + _table(["check", "limit and method", "gauge"], rows, widths=[10, 65, 25])
+            + _table(
+                ["check", "limit and method", "gauge"],
+                rows,
+                css="blank-check",
+                widths=[14, 61, 25],
+            )
         )
 
     def jaw_buttons(self, reference, pointer=""):
@@ -2773,13 +2940,12 @@ class _Traveler:
         return self.shop_made_homes.setdefault((key, repr(uses[key][1])), setup["id"])
 
     def shop_made_pointer(self, setup, reference, uses):
-        """`` (shop-made: …)`` naming the sheet with the item's table; empty otherwise."""
+        """`` (shop-made: …)`` naming the setup with the item's table; empty otherwise."""
         key = self.holding_identity(setup, reference)
         if not isinstance(reference, str) or key not in uses:
             return ""
         home = self.shop_made_home(setup, key, uses)
-        where = "sheet 2" if home == setup["id"] else f"Setup {home} sheet 2"
-        return f" (shop-made: SHOP-MADE FIXTURE table, {where})"
+        return f" (shop-made: SHOP-MADE FIXTURE table, Setup {home})"
 
     @functools.cached_property
     def mill_grid(self):
@@ -3321,6 +3487,7 @@ class _Traveler:
                 _table(
                     [headings[c] for c in keep],
                     [[row[c] for c in keep] for row in rows],
+                    css="fixture",
                     widths=widths,
                     repeat=title + " (continued)",
                 )
@@ -6398,7 +6565,10 @@ class _Traveler:
 
         text = get_down()
         if not several:
-            return _p(((text[:1].upper() + text[1:]) if raster else "Enter at " + text) + ".")
+            return _p(
+                ((text[:1].upper() + text[1:]) if raster else "Enter at " + text) + ".",
+                "contour-context",
+            )
         first = where(downs[0])
         if raster:
             after = f"lift to Z {o(raised)}{above}, rapid back to pass 1"
@@ -6408,7 +6578,8 @@ class _Traveler:
             after = f"raise to Z {o(raised)}{above}, move back to {first}"
         return _p(
             f"{len(depths)} depth levels, top first, at the Zs in the heading: run the whole "
-            f"path below at each. Get down {text}. Between levels, {after}."
+            f"path below at each. Get down {text}. Between levels, {after}.",
+            "contour-context",
         )
 
     def contours(self, setup, tools):
@@ -6822,10 +6993,14 @@ class _Traveler:
                 # The heading lists the levels; the note says how to run them, once per op.
                 content += _p(
                     f"{len(depths)} depth levels: run the complete path below at each Z in the "
-                    "heading, in order, top level first."
+                    "heading, in order, top level first.",
+                    "contour-context",
                 )
             elif levels and levels.get("count") == "unknown":
-                content += _p("? Depth levels not computed — " + _text(levels.get("reason")) + ".")
+                content += _p(
+                    "? Depth levels not computed — " + _text(levels.get("reason")) + ".",
+                    "contour-context",
+                )
             if stepped and entry["parts"]:
                 # The whole path runs once per level: a box to tick as each level is done.
                 content += _levels(len(depths))
@@ -7645,7 +7820,7 @@ class _Traveler:
             result.append(
                 f'<section class="page" data-sheet="{escape(label)}" data-title="{escape(title)}" '
                 f'data-part="{escape(part)}" data-drawing="{escape(_text(drawing.get("number")))}" '
-                f'data-revision="{escape(revision)}">'
+                f'data-revision="{escape(revision or "")}">'
             )
             result.append(
                 f'<div class="meta"><h1>{escape(part.upper())} · '

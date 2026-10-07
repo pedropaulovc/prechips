@@ -492,6 +492,88 @@ def _example_spec(name):
     return json.loads((_SPECS / f"{name}.json").read_text(encoding="utf-8"))
 
 
+def _synthetic_nominal_stickout_scene():
+    """Box-mesh print scene, not a native S3 reconstruction or holding certificate."""
+    # Borrow the authored S2 chuck/tool geometry and S3 fit-up coordinates. Keep the
+    # overlapping endpoint/nominal dimension real in projection, without injected paths.
+    spec = _example_spec("shaft-s2")
+    for key in ("lathe_profiles", "axial_paths", "waypoints"):
+        spec.pop(key, None)
+    spec.update(
+        setup_id="S3",
+        stock_box=[-5, -5, -158.17, 5, 5, 16.83],
+        stock_round_dia_mm=10,
+        jaw_front_z_mm=-8,
+        stickout_mm=24.83,
+        stickout_add_mm=8,
+        datums=[
+            {"kind": "end", "label": "NORTH END", "point_mm": [0, 0, -158.17]},
+            {"kind": "end", "label": "SOUTH END / PLAIN END", "point_mm": [0, 0, 16.83]},
+        ],
+    )
+    for component in spec["components"]:
+        component["box_mm"][2] += 1
+        component["box_mm"][5] += 1
+        component["center_mm"][2] += 1
+    meshes = [_block(spec["stock_box"], (160, 175, 185), "part")]
+    meshes.extend(
+        _block(component["box_mm"], (120, 98, 76), tag)
+        for component in spec["components"]
+        for tag in component.get("meshes", [])
+    )
+    return meshes, spec
+
+
+def test_production_png_protects_nominal_dimension_text_from_a_plain_end_leader():
+    meshes, spec = _synthetic_nominal_stickout_scene()
+    supplied = json.dumps(spec, sort_keys=True)
+    png, debts, panels = render_diagram(meshes, spec)
+    width, height, pixels = _decode_png(png)
+    assert debts == []
+    assert (width, height) == (1600, 1484)
+    assert panels == [
+        {"top_px": 0, "height_px": height, "role": "setup", "label": "SETUP S3  /  LATHE VIEW"}
+    ]
+    diagram = _Diagram(meshes, spec)
+    scale = diagram.canvas.scale
+    diagram.render()
+    assert diagram.canvas.scale == scale
+    assert json.dumps(spec, sort_keys=True) == supplied
+    label = "NOM STICKOUT 24.83 MM"
+    ((_, left, top, right, bottom),) = [box for box in diagram.canvas.text_boxes if box[0] == label]
+    (path,) = [path for text, path in diagram.leaders if text == "SOUTH END / PLAIN END"]
+    assert path[0] == pytest.approx(diagram.canvas.project((0, 0, 16.83)))
+    assert _tag_at(diagram.canvas, *path[0]) == "part"
+    a, b = path[-2:]
+
+    def crossing_x(y):
+        return a[0] + (b[0] - a[0]) * (y - a[1]) / (b[1] - a[1])
+
+    # Require the real routed leader to cross the last two glyph cells. A convenient
+    # non-overlapping fixture would otherwise pass without exercising the protection.
+    assert a[1] < top < bottom < b[1]
+    assert right - 60 < crossing_x((top + bottom) / 2) < right
+    reference = _canvas(width=right - left + 8, height=bottom - top + 6)
+    reference.text(4, 3, label, colour=(35, 83, 147), scale=5)
+    _, _, expected = _decode_png(reference.png())
+    actual = bytearray()
+    for y in range(top - 3, bottom + 3):
+        offset = (y * width + left - 4) * 3
+        actual.extend(pixels[offset : offset + reference.width * 3])
+    assert actual == expected
+    for y in (top - 7, bottom + 7):
+        x = math.floor(crossing_x(y))
+        offset = (y * width + x) * 3
+        assert tuple(pixels[offset : offset + 3]) == _INK
+    first, second = diagram.dimensions["NOM STICKOUT 24.83 mm"]
+    assert first[0] == pytest.approx(diagram.jaw_marker[0])
+    assert second[0] == pytest.approx(diagram.canvas.project((-5, -5, 16.83))[0])
+    assert first[1] == second[1]
+    texts = {box[0] for box in diagram.canvas.text_boxes}
+    assert {"NORTH END", "SOUTH END /", "PLAIN END", label, "STOCK Z 175 MM"} <= texts
+    diagram.canvas.assert_text_layout(min_scale=5)
+
+
 @pytest.mark.parametrize(
     "name,stock,jaw,stickout",
     [
@@ -613,7 +695,8 @@ def test_print_bands_cover_the_actual_png_once_and_keep_complete_local_annotatio
         labels = {box[0] for box in detail.canvas.text_boxes}
         assert detail._title() in labels
         if panel["role"] == "path_detail":
-            assert "ARROWS: POINT ORDER" in labels
+            # An unknown-order raster legitimately has no direction caption. The
+            # known climb/unknown PNG consumer regression below checks that claim.
             for point in detail.spec["waypoints"]:
                 assert point["label"] in labels
                 assert f"OP {point.get('op', '')}" in labels
@@ -905,7 +988,18 @@ def test_a_raster_sketch_draws_every_pass_and_claims_arrows_only_when_drawn(orde
     assert ("ARROWS: POINT ORDER" in texts) is (order == "climb")
     assert diagram.returns_drawn == (5 if order == "climb" else 0)
     assert ("DASHED: LIFTED RETURN" in texts) is (order == "climb")
-    diagram.canvas.assert_text_layout(min_scale=3)
+    diagram.canvas.assert_text_layout(min_scale=5)
+    width, _, pixels = _decode_png(diagram.canvas.png())
+    reference = _canvas(width=720, height=35)
+    if order == "climb":
+        reference.text(0, 0, "ARROWS: POINT ORDER", colour=(85, 93, 100), scale=5)
+    _, _, expected = _decode_png(reference.png())
+    caption = bytearray()
+    for y in range(865, 900):
+        caption.extend(pixels[(y * width + 40) * 3 : (y * width + 760) * 3])
+    # Ordered input must paint the complete readable direction caption; unknown
+    # input must leave its entire print-size rectangle white, not infer an order.
+    assert caption == expected
 
 
 # The sketch's operation colours (``_operation_panels``) and their raster band tint.

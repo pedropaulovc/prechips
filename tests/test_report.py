@@ -1,9 +1,12 @@
 """Canonical report bytes are the approval and input binding contract."""
 
 import hashlib
+import re
+import tomllib
 
 import pytest
 from test_cli import SYNTHETIC_KERNEL, copy_examples, traveler
+from test_sheet_ops import Markup, content
 
 from prechips.report import canonical_bytes, report_hash
 
@@ -61,6 +64,93 @@ def test_traveler_preserves_authored_slash_instructions(tmp_path, instruction, s
 
     _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
 
-    assert instruction in html
+    markup = Markup(html)
+    setup = tomllib.loads(plan.read_text(encoding="utf-8"))["setups"][0]
+    setup_id = setup["id"]
+    operation_id = str(setup["ops"][0]["op"])
+    pages = [
+        page
+        for page in markup.find("page")
+        if page["attrs"]["data-sheet"].startswith(f"SETUP {setup_id} sheet ")
+    ]
+    if field == "inspection_note":
+        blocks = [
+            node
+            for page in pages
+            for node in markup.find("keep", page)
+            if any(
+                child["parent"] is node and content(child) == "INSPECTION NOTES"
+                for child in markup.nodes
+            )
+        ]
+        notes = [
+            node
+            for block in blocks
+            for node in markup.nodes
+            if node["tag"] == "li"
+            and node["parent"]["parent"] is block
+            and content(node).startswith(f"{setup_id} op {operation_id}: ")
+        ]
+        assert [
+            content(node).removeprefix(f"{setup_id} op {operation_id}: ") for node in notes
+        ] == [instruction]
+    elif section == "[[setups.ops]]":
+        operations = [
+            node
+            for page in pages
+            for node in markup.find("operation", page)
+            if node["attrs"]["data-op"] == operation_id
+        ]
+        notes = [node for operation in operations for node in markup.find("op-note", operation)]
+        assert [content(node) for node in notes] == [instruction]
+    else:
+        blocks = [node for page in pages for node in markup.find("hold-steps", page)]
+        notes = [
+            node
+            for block in blocks
+            for node in markup.nodes
+            if node["tag"] == "li"
+            and node["parent"]["parent"] is block
+            and content(node).startswith("Note: ")
+        ]
+        assert [content(node).removeprefix("Note: ").removesuffix(".") for node in notes] == [
+            instruction
+        ]
+    instruction_blocks = [
+        node
+        for node in markup.nodes
+        if node["tag"] == "li" or "op-note" in node["attrs"].get("class", "").split()
+    ]
+    assert sum(content(node).count(instruction) for node in instruction_blocks) == 1
+    assert all(
+        repo_citation not in content(node) and url_citation not in content(node) for node in notes
+    )
     assert repo_citation not in html
     assert url_citation not in html
+
+
+@pytest.mark.parametrize("revision", [None, "unknown"])
+def test_traveler_unconfirmed_revision_has_no_printed_or_serialized_revision(tmp_path, revision):
+    examples = copy_examples(tmp_path)
+    plan = examples / "pivot-shaft" / "plan.toml"
+    source = plan.read_text(encoding="utf-8")
+    replacement = "" if revision is None else 'revision = "unknown"'
+    source, count = re.subn(r"(?m)^revision = .*$", replacement, source)
+    assert count == 1
+    plan.write_text(source, encoding="utf-8")
+
+    _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
+
+    markup = Markup(html)
+    pages = markup.find("page")
+    assert pages
+    assert all(page["attrs"]["data-revision"] == "" for page in pages)
+    for page in pages:
+        headings = [
+            node
+            for node in markup.nodes
+            if node["tag"] == "h1" and node["parent"] in markup.find("meta", page)
+        ]
+        assert len(headings) == 1
+        assert content(headings[0]).endswith("REV NOT CONFIRMED")
+    assert "Drawing revision not confirmed" in content(pages[0])

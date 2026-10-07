@@ -2040,14 +2040,26 @@ def test_datum_transfer_prerequisite_precedes_axis_setting_for_lathe_and_mill(
     limit = transfer_spec["runout_limit_mm"]
     assert f"{limit} mm total indicator reading" in content(transfer)
     assert len(markup.find("zero-transfer")) == 1
-    settings = [
-        node
-        for node in markup.nodes
-        if node["tag"] == "p" and content(node).startswith("Before touching off")
-    ]
+    settings = {}
+    for row in markup.nodes:
+        if (
+            row["tag"] != "tr"
+            or row["parent"]["tag"] != "tbody"
+            or row["parent"]["parent"] is not axes
+        ):
+            continue
+        cells = [node for node in markup.nodes if node["tag"] == "td" and node["parent"] is row]
+        settings[content(cells[0])] = (row, cells[1])
+    assert settings
+    assert set(settings) == {axis.upper() for axis in ("x", "y", "z") if axis in setup["zero"]}
     if sheet.lathe(setup):
-        assert settings
-    assert all(markup.nodes.index(transfer) < markup.nodes.index(setting) for setting in settings)
+        assert set(settings) == {"X", "Z"}
+        assert all(setup["zero"][axis.lower()].get("tool") for axis in settings)
+    for axis, (row, contact) in settings.items():
+        assert markup.nodes.index(transfer) < markup.nodes.index(row)
+        tool = setup["zero"][axis.lower()].get("tool")
+        if tool not in (None, "unknown"):
+            assert (tools.get(tool) or sheet.short_reference(tool)) in content(contact)
     assert not markup.find("writing-blank", axes)
 
 
@@ -2346,6 +2358,181 @@ def test_grouped_clearance_actions_keep_the_supplied_check_in_full_width_rows():
         assert row[4] in content(action)
         assert "check the tip clears the jaws before plunging" in content(action)
         assert int(action["parent"]["attrs"]["colspan"]) == len(cells)
+
+
+def test_shaft_fit_up_prose_fields_keep_their_source_and_sole_boxes():
+    from prechips.sheet import _list
+
+    sheet = example_sheet("pivot-shaft/plan.toml")
+    setup = next(setup for setup in sheet.plan["setups"] if setup["id"] == "S3")
+    sheet.setup = setup
+    op = next(op for op in setup["ops"] if op["op"] == 20)
+    procedure = op["inspection_note"]
+    expected = [sheet.bench(line, setup) for line in procedure]
+    names = [match.group(1) for line in expected for match in re.finditer(r"\{([^{}]+)\}", line)]
+    markup = Markup(_list([sheet.note("S3 op 20 fit-up", procedure)]))
+    steps = markup.find("steps")[0]
+    entries = [node for node in markup.nodes if node["tag"] == "li" and node["parent"] is steps]
+    assert [content(entry) for entry in entries] == [
+        re.sub(r"\{([^{}]+)\}", r"\1", line)
+        for line in expected
+        if not line.startswith("Calculate:")
+    ]
+    assert [
+        content(markup.find("field-label", field)[0]) for field in markup.find("prose-field")
+    ] == (names[:2])
+    assert [content(label) for label in markup.find("field-label")] == names
+    assert len(markup.find("writing-blank")) == 3
+    assert all(len(markup.find("writing-blank", field)) == 1 for field in markup.find("field"))
+    calculation = markup.find("calc")[0]
+    assert content(calculation) == next(
+        re.sub(r"\{([^{}]+)\}", r"\1", line) for line in expected if line.startswith("Calculate:")
+    )
+    assert not markup.find("prose-field", calculation)
+
+
+def test_printed_shaft_fit_up_field_has_its_own_line_before_the_next_sentence(printed_sheet):
+    from prechips.sheet import _list
+
+    sheet = example_sheet("pivot-shaft/plan.toml")
+    setup = next(setup for setup in sheet.plan["setups"] if setup["id"] == "S3")
+    sheet.setup = setup
+    op = next(op for op in setup["ops"] if op["op"] == 20)
+    source = _list([sheet.note("S3 op 20 fit-up", op["inspection_note"])])
+    original = Markup(source)
+    printed, layout = printed_sheet(
+        source,
+        """pageOf => {
+          const field = [...document.querySelectorAll('.prose-field')].find(el =>
+            el.querySelector('.field-label')?.textContent === 'Z scribe');
+          const label = field.querySelector('.field-label'),
+            box = field.querySelector('.writing-blank');
+          const item = field.closest('li');
+          const walker = document.createTreeWalker(item, NodeFilter.SHOW_TEXT);
+          let next, node;
+          while (node = walker.nextNode()) {
+            const index = node.textContent.indexOf('It must read');
+            if (index >= 0) {
+              next = document.createRange();
+              next.setStart(node, index); next.setEnd(node, index + 'It must read'.length);
+              break;
+            }
+          }
+          const preceding = document.createRange();
+          preceding.setStart(item, 0); preceding.setEndBefore(field);
+          const rect = el => {
+            const r = el.getBoundingClientRect();
+            return {top:r.top, bottom:r.bottom, left:r.left, right:r.right, width:r.width};
+          };
+          return {
+            field:rect(field), label:rect(label), box:rect(box), next:rect(next),
+            precedingBottom: Math.max(...[...preceding.getClientRects()].map(r => r.bottom)),
+            owner:rect(item), fieldPage:pageOf(field), labelPage:pageOf(label), boxPage:pageOf(box),
+            display:getComputedStyle(field).display,
+            direction:getComputedStyle(field).flexDirection,
+            boxes:item.querySelectorAll('.writing-blank').length
+          };
+        }""",
+    )
+    assert [content(node) for node in printed.find("steps")] == [
+        content(node) for node in original.find("steps")
+    ]
+    assert len(printed.find("writing-blank")) == len(original.find("writing-blank")) == 3
+    assert layout["display"] == "flex" and layout["direction"] == "column"
+    assert layout["boxes"] == 1
+    assert layout["fieldPage"] == layout["labelPage"] == layout["boxPage"]
+    assert layout["field"]["top"] >= layout["precedingBottom"] - 0.5
+    assert layout["next"]["top"] >= layout["field"]["bottom"] - 0.5
+    assert layout["label"]["bottom"] <= layout["box"]["top"] + 0.5
+    assert layout["box"]["left"] >= layout["field"]["left"] - 0.5
+    assert layout["box"]["right"] <= layout["field"]["right"] + 0.5
+    assert layout["box"]["bottom"] <= layout["field"]["bottom"] + 0.5
+    assert layout["field"]["width"] < layout["owner"]["width"]
+
+
+@pytest.mark.parametrize(
+    "callout", ["Ø6.475–6.495 mm", "#10-32 x 5/8 in", "M5x0.8", "3/8-16", "3/8 in"]
+)
+def test_printed_compound_callouts_stay_whole_without_losing_source_text(printed_sheet, callout):
+    from prechips.sheet import _table
+
+    text = f"Use {callout}; retain the original callout."
+    source = _table(["Component", "Size"], [["Authored component", text]], css="fixture")
+    original = Markup(source)
+    cell = next(node for node in original.nodes if node["tag"] == "td" and content(node) == text)
+    assert callout in [content(node) for node in original.find("reading", cell)]
+    printed, readings = printed_sheet(
+        source,
+        """pageOf => [...document.querySelectorAll('.reading')].map(el => {
+          const range = document.createRange(); range.selectNodeContents(el);
+          const rects = [...range.getClientRects()].filter(r => r.width > 0);
+          const cell = el.closest('td').getBoundingClientRect();
+          return {text:el.textContent, lines:[...new Set(rects.map(r => r.top))].length,
+            fits:rects.every(r => r.left >= cell.left - .5 && r.right <= cell.right + .5)};
+        })""",
+        prepare="""() => {
+          const table = document.querySelector('table');
+          table.style.width = '300px';
+        }""",
+    )
+    assert [content(node) for node in printed.nodes if node["tag"] == "td"] == [
+        content(node) for node in original.nodes if node["tag"] == "td"
+    ]
+    whole = [reading for reading in readings if reading["text"] == callout]
+    assert len(whole) == 1
+    assert whole[0]["lines"] == 1 and whole[0]["fits"]
+
+
+def test_decimal_before_into_does_not_consume_a_unit_prefix():
+    from prechips.sheet import _table
+
+    sentence = "Advance 0.8 into the bore, then withdraw."
+    markup = Markup(_table(["Action"], [[sentence]]))
+    owner = next(node for node in markup.nodes if node["tag"] == "td")
+    assert content(owner) == sentence
+    assert [content(node) for node in markup.find("reading", owner)] == ["0.8"]
+
+
+def test_printed_manual_finishing_action_is_working_body_below_its_step(printed_sheet):
+    note = (
+        PAINT_NOTE
+        + " Keep the masked edges clean and inspect the entire surface under good light."
+        + " Allow the coating to dry before removing the masking."
+    )
+    source = _bench_sheet(
+        [{"op": 10, "do": "coating", "feature": "body", "process": "ral-6005", "note": note}]
+    )
+    original = Markup(source)
+    operation = original.find("operation")[0]
+    action = original.find("op-action", operation)
+    assert len(action) == 1
+    assert content(action[0]) == note
+    head = original.find("op-head", operation)[0]
+    assert not original.find("op-action", head)
+    assert len(original.find("performed-mark", operation)) == 1
+    assert not any(original.find(css, operation) for css in ("op-speed", "op-feed", "op-target"))
+    printed, layout = printed_sheet(
+        source,
+        """pageOf => {
+          const op = document.querySelector('.operation'), head = op.querySelector('.op-head');
+          const action = op.querySelector('.op-action');
+          const paragraphs = [...action.querySelectorAll('p')];
+          return {heading:head.textContent, top:action.getBoundingClientRect().top,
+            headingBottom:head.getBoundingClientRect().bottom,
+            headingPage:pageOf(head), actionPage:pageOf(action),
+            paragraphs:paragraphs.map(p => p.textContent),
+            weight:getComputedStyle(paragraphs[0] || action).fontWeight};
+        }""",
+    )
+    assert [content(node) for node in printed.find("op-action")] == [note]
+    assert len(printed.find("performed-mark")) == 1
+    assert not any(printed.find(css) for css in ("op-speed", "op-feed", "op-target"))
+    assert "Step" in layout["heading"] and "10" in layout["heading"]
+    assert note not in layout["heading"]
+    assert layout["top"] >= layout["headingBottom"] - 0.5
+    assert layout["headingPage"] == layout["actionPage"]
+    assert layout["paragraphs"] and "".join(layout["paragraphs"]) == note
+    assert int(layout["weight"]) < 600
 
 
 @pytest.fixture
