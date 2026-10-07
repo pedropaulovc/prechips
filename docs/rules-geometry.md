@@ -1599,7 +1599,11 @@ distance; it outlines each contact (solid where seen, dashed where hidden),
 keys it with its holding name and the setup coordinate of its plane (a support
 whose solids lie on different planes, such as the rocker's hub stand and rail
 shims, is keyed plane by plane, and same-named solids share a key only on one
-plane), and dimensions the closest cut in amber. An
+plane). A numbered support (a coded clamp such as `SUP1`, or a pad) on one plane
+keeps its position badge; one whose solids seat the work on several planes keys
+each solid with its code, its own name and its plane, led to its own contact,
+and pad keys at several heights name the pads each keys. It dimensions the
+closest cut in amber. An
 isometric or elevation view is detailed only when the band draws the stock at
 least 1.5 times larger; a lathe's meridian section gets no holding detail. A
 plan view always gets the detail, drawn from 30° above the side so contact
