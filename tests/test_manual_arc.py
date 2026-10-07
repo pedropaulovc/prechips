@@ -35,7 +35,7 @@ POLICY = (
 INVENTORY = (
     "[machines.mill]\nkind = 'mill'\nverify = false\n"
     "[machines.mill.spindle]\nrotation = 'cw'\n"
-    "[tools.cutter]\nkind = 'endmill'\ndia_mm = 6.0\nverify = false\n"
+    "[tools.cutter]\nkind = 'endmill'\nmaterial = 'HSS'\ndia_mm = 6.0\nverify = false\n"
     "[tools.drill]\nkind = 'drill'\ndia_mm = 3.0\npoint_angle = 118.0\nverify = false\n"
     "[tools.bore-drill]\nkind = 'drill'\ndia_mm = 6.0\npoint_angle = 118.0\nverify = false\n"
     "[fixtures.table]\nkind = 'rotary_table'\ngraduation_deg = 1.0\nvernier_deg = 0.1\n"
@@ -80,7 +80,7 @@ def scratch(
     plan.write_text(
         'part = "manual-arc"\nfeatures = "features.toml"\n'
         "[paths]\ninventory = 'inventory.toml'\npolicy = 'policy.toml'\n"
-        "cutting_data = 'cutting.toml'\n"
+        "cutting_data = 'cutting.toml'\n[stock]\nmaterial = 'scratch steel'\n"
         "[[setups]]\nid = 'S1'\nmachine = 'mill'\nframe = 'A'\n"
         "coolant = 'unknown'\ndeburr_mm = 'unknown'\n"
         f"[setups.hold]\n{hold}\n"
@@ -104,7 +104,13 @@ def scratch(
     )
     (root / "inventory.toml").write_text(INVENTORY, encoding="utf-8")
     (root / "policy.toml").write_text(policy, encoding="utf-8")
-    (root / "cutting.toml").write_text("revision = 1\n", encoding="utf-8")
+    # Every end mill these plans plunge has a cited plunge feed (level_entry).
+    (root / "cutting.toml").write_text(
+        "revision = 1\n[aliases]\n'scratch steel' = 'steel'\n"
+        "[[plunge]]\nmaterial_class = 'steel'\ntool_material = 'HSS'\n"
+        "diameter_range = [0.0, 50.0]\nfeed_mm_rev = 0.05\ncite = 'scratch plunge feed'\n",
+        encoding="utf-8",
+    )
     return plan
 
 

@@ -39,6 +39,7 @@ from .rules.resolution import (
 from .rules.resolution import record as _mapping
 from .rules.tip_endpoints import FACING, SAME_Z, operative_z, stock_states
 from .rules.zero_recipe import DIRECTIONS as _SIGNS
+from .rules.zero_recipe import FACE_Z_TOL_MM
 
 _CSS = """@page { size: Letter portrait; margin: .4in; }
 * { box-sizing: border-box; }
@@ -166,13 +167,30 @@ _DUPLEX_JS = """(() => {
       }
     }
     // Start a new page at `el` with its lead; false when that gains nothing because the
-    // lead already opens this page.
+    // lead already opens this page. An op table moved whole leaves a pointer where it
+    // would have started, so the page it leaves says where the operations went.
     function move(el) {
       const start = lead(el);
       if (start === pageStart || start.contains(pageStart) || box(start).top <= pageTop) {
         return false;
       }
+      let more = null;
+      if (el.tagName === "TABLE" && el.classList.contains("operations") && el.tBodies.length) {
+        more = document.createElement("p");
+        more.className = "more";
+        more.setAttribute(ADDED, "");
+        start.before(more);
+        const op = el.tBodies[0].rows[0].cells[0].textContent;
+        more.textContent = "Operations continue on reverse, op " + op;
+        if (!fits(box(more).bottom)) {
+          more.remove();
+          more = null;
+        }
+      }
       breakAt(start);
+      if (more && pages % 2 === 1) {
+        more.textContent = more.textContent.replace("on reverse", "on the next sheet");
+      }
       return true;
     }
     // Rows from body `j` on go to a copy of `t` that starts the next page.
@@ -2147,7 +2165,8 @@ class _Traveler:
                 lines.append(text + ".")
             if not lines:
                 lines.append("? Lathe clearance not computed — check swing and tailstock room.")
-            return "<h2>CLEARANCE — lathe</h2>" + "".join(_p(line) for line in lines)
+            body = "".join(_p(line) for line in lines)
+            return f'<div class="keep"><h2>CLEARANCE — lathe</h2>{body}</div>'
         unknown = "? Not computed — check at the machine: "
         missing = []
         if "head_centre_height_mm" in numbers:
@@ -2193,7 +2212,9 @@ class _Traveler:
                 css="clearance",
                 widths=[9, 6, 45, 11, 29],
             )
-        return html
+        # One block: the pagination moves the whole section rather than leave its travel
+        # lines on one page and its table on the next.
+        return f'<div class="keep">{html}</div>'
 
     def clearance_rows(self, setup, numbers, tool_numbers):
         """One row per cutting op (ops sharing a tool, obstacle, clearance and action share
@@ -2265,7 +2286,7 @@ class _Traveler:
         _, tip = self.cut_span(setup, op)
         top = record.get("reach_top_z_mm")
         if _known(top):
-            top = self.surface_z(setup, top)
+            top = self.kernel_z(setup, top)
         reach = top - tip if _known(top) and _known(tip) else record.get("reach_depth_mm")
         projection, hits = record.get("projection_mm"), record.get("holder_wall_hits")
         flute = record.get("flute_len_mm")
@@ -2275,6 +2296,8 @@ class _Traveler:
         for entry in record.get("clearances") or []:
             entry = _mapping(entry)
             what = f"{self.bench(entry.get('part', 'tool'))} to {self.bench(entry.get('obstacle'))}"
+            if _known(entry.get("z_mm")):
+                what += f" at Z {o(self.kernel_z(setup, entry['z_mm']))}"
             candidates.append((entry.get("mm", "unknown"), what))
         if top == "not_applicable":
             # No stock stands beside the tool above its tip.
@@ -3208,6 +3231,21 @@ class _Traveler:
         own path end, not a touched face."""
         return operative_z(self.bundle, setup, value, face, done, source, path)
 
+    def kernel_z(self, setup, value_mm):
+        """A Z the geometry kernel measured (mm) as the surface's one printed DRO Z
+        (:meth:`surface_z`). A value within the kernel's as-is face tolerance
+        (``FACE_Z_TOL_MM``) of a DRO grid line is that line: kernel noise, never a reason
+        to round up a step. Anything farther off the grid rounds as any surface does."""
+        scale = {"mm": 1.0, "in": 25.4}.get(self.units)
+        if not (_known(value_mm) and scale):
+            return value_mm
+        value = value_mm / scale
+        step, decimals = dro_grid(self.bundle, setup)
+        line = round(round(value / step) * step, decimals)
+        if abs(value - line) * scale <= FACE_Z_TOL_MM:
+            value = line
+        return self.surface_z(setup, value)
+
     def datum_z(self, setup, face, edge, done=0):
         """A touched Z datum at nominal ``edge`` once ``setup``'s first ``done`` ops have
         run, as the op that last cut ``face`` (``top``: the stock top) left it, through
@@ -3658,6 +3696,12 @@ class _Traveler:
             speed, feed, missing = self.speeds(setup, op, saw_table)
             if missing:
                 stops.setdefault("no starting speed / feed", []).append(str(op["op"]))
+            plunge = self.plunge_feed(setup, op)
+            if plunge is not None and plunge.startswith("STOP"):
+                feed = [*(feed if isinstance(feed, list) else [feed]), _Box(plunge)]
+                stops.setdefault("no plunge feed", []).append(str(op["op"]))
+            elif plunge is not None:
+                feed = [*(feed if isinstance(feed, list) else [feed]), f"plunge {plunge}"]
             direction = op.get(
                 "direction",
                 "not_applicable"
@@ -3954,6 +3998,94 @@ class _Traveler:
                 "clearance for entry, exit and overtravel, not material"
             )
         return rank, description, headings, rows, after
+
+    def level_path(self, setup, op_id):
+        """The coordinates level-entry record of op ``op_id`` (rules/level_entry.py), or {}."""
+        numbers = self.records.get(("coordinates", setup["id"]), {})
+        for record in numbers.get("level_paths") or []:
+            if str(_mapping(record).get("op")) == str(op_id):
+                return record
+        return {}
+
+    def plunge_feed(self, setup, op):
+        """The op's plunge feed in mm/min, or a STOP when it plunges without a known one;
+        None when nothing in its path plunges into the stock."""
+        record = self.level_path(setup, op.get("op"))
+        if "plunge_mm_rev" not in record:
+            return None
+        numbers = self.records.get(("speeds_feeds", f"{setup['id']}:{op['op']}"), {})
+        feed = numbers.get("plunge_mm_min")
+        return f"{_number(feed, 0)} mm/min" if _known(feed) else "STOP: plunge feed not set"
+
+    def level_entries(self, setup, op, waypoints):
+        """``(note, table)``: how the op's path goes down at each depth level and gets back
+        for the next, as coordinates proved it (``level_paths``); ``("", "")`` without a
+        record. One level prints one sentence; several print one row per level, each with
+        its own Z, so no level reads the deepest Z."""
+        o = self.operative
+        record = self.level_path(setup, op.get("op"))
+        downs, depths = record.get("entries"), record.get("levels")
+        if not (isinstance(downs, list) and downs and isinstance(depths, list) and depths):
+            return "", ""
+        feed = self.plunge_feed(setup, op)
+        raised, raster = record.get("raise_z"), record.get("raster") is True
+        above = " (above the stock)" if record.get("raise_clear") is True else ""
+        at = f" at {feed}"
+        if feed is None or feed.startswith("STOP"):
+            at = f" — {feed}" if feed else ""
+
+        def where(down):
+            xy = down.get("xy") or ["unknown", "unknown"]
+            label = self.waypoint(waypoints, op.get("op"), xy)
+            return label or f"X {o(xy[0])}, Y {o(xy[1])}"
+
+        def get_down(start, z):
+            if raster:
+                plunged = [d for d in downs if not d.get("air")]
+                if not plunged:
+                    return f"at each pass start, clear of the stock: lower to Z {o(z)}"
+                text = f"plunge Z {o(start)} → {o(z)}{at}"
+                if len(plunged) == len(downs):
+                    return "at each pass start: " + text
+                return (
+                    "at the pass starting "
+                    + "; at the pass starting ".join(where(d) for d in plunged)
+                    + f": {text}; at every other pass start, clear of the stock: lower to "
+                    f"Z {o(z)}"
+                )
+            steps = []
+            for index, down in enumerate(downs):
+                lead = "" if index == 0 else f"raise to Z {o(raised)}{above}, move to "
+                if down.get("air"):
+                    steps.append(f"{lead}{where(down)}, clear of the stock: lower to Z {o(z)}")
+                else:
+                    steps.append(f"{lead}{where(down)}: plunge Z {o(start)} → {o(z)}{at}")
+            return "; then ".join(steps)
+
+        first = where(downs[0])
+        start = record.get("from_z")
+        if len(depths) == 1:
+            text = get_down(start, depths[0])
+            note = (text[:1].upper() + text[1:]) if raster else "Enter at " + text
+            return _p(note + "."), ""
+        rows = []
+        for index, z in enumerate(depths):
+            last = index == len(depths) - 1
+            if raster:
+                after = "" if last else f"lift to Z {o(raised)}{above}, rapid back to pass 1"
+            elif last:
+                after = ""
+            elif record.get("closed") is True:
+                after = f"stay at {first}: the path ends where it starts"
+            else:
+                after = f"raise to Z {o(raised)}{above}, move back to {first}"
+            rows.append([str(index + 1), o(z), get_down(start, z), after])
+            start = z
+        note = _p(
+            f"{len(depths)} depth levels, top first: run the whole path below at each level's Z."
+        )
+        table = _table(["level", "Z", "get down", "then"], rows, css="coords")
+        return note, table
 
     def contours(self, setup, tools):
         """One block per contour op; both sides of a symmetric profile print explicitly."""
@@ -4340,7 +4472,10 @@ class _Traveler:
             if op.get("direction"):
                 title += f" · {self.direction(op['direction'])}"
             content = f"<h3>{escape(title)}</h3>"
-            if stepped:
+            note, table = self.level_entries(setup, op, waypoints) if op else ("", "")
+            if note:
+                content += note + table
+            elif stepped:
                 # The heading lists the levels; the note says how to run them, once per op.
                 content += _p(
                     f"{len(depths)} depth levels: run the complete path below at each Z in the "
@@ -4368,11 +4503,13 @@ class _Traveler:
                         pieces.append(_list(description))
                         continue
                     # A handwheel-axis table keeps its Z: each row is one axis move at it.
+                    # Under several depth levels each level's Z is the level table's, so no
+                    # path row prints one Z for every level.
                     single = len(entry["z"]) == 1 and "handwheel axis" not in headings
                     columns = [
                         i
                         for i, h in enumerate(headings)
-                        if any(row[i] for row in rows) and not (h == "Z" and single)
+                        if any(row[i] for row in rows) and not (h == "Z" and (single or stepped))
                     ]
                     shown = [headings[i] for i in columns]
                     # Side by side on a wide block, each table names its stage.

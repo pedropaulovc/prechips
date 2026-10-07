@@ -186,6 +186,13 @@ Machinery's Handbook 27th ed. p.1132 centre-drill feeds by drill size. A mill op
 report the `feed_mm_rev` evaluated, the one the sheet prints. Verified material,
 tool and machine facts are needed.
 
+A non-lathe op that cuts a `contour` also reports its plunge feed: `plunge_mm_rev`
+from the one matching cited `[[plunge]]` row (material class, tool material, tool
+diameter; see [cutting data](cutting-data.md#plunge)), `plunge_mm_min = RPM *
+plunge_mm_rev`, and `plunge_reason` when it is unknown. It does not change the
+finding's status: whether the op plunges at all is the coordinates rule's
+`level_paths`, which makes a plunge without a known feed debt.
+
 Saw cut-off uses only a cited canonical `operation = "saw_cut"` row (for either
 `saw_cut` or `cut_off`), keyed by material class and blade material without a
 diameter filter. Positive row `sfm` is linear blade speed, clamped to the

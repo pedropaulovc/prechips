@@ -73,7 +73,7 @@ def shop(records, kind="mill"):
     sheet = bare(3)
     sheet.records = records
     sheet.report = {}
-    sheet.bundle = SimpleNamespace()
+    sheet.bundle = SimpleNamespace(features={"units": "mm"}, inventory={}, plan={"setups": []})
     sheet.units = "mm"
     sheet.bench = lambda text, setup=None: text
     sheet.machine = lambda setup: {"kind": kind}

@@ -1330,8 +1330,9 @@ no material stands beside the tool), and off the turning model `shank_dia_mm`,
 `"not_applicable"`, with `part` `tool body`, `seat cone`, `tool shank` or
 `holder face`;
 `obstacle` `the Ø<d> bore this op cuts` when the gap is the op's own bore,
-`stock <r> from the tool axis`, `stock under the holder at Z<z>` or, when
-unmeasured, `stock beside the tool`/`stock under the holder`.
+`stock <r> from the tool axis`, `stock under the holder` or, when
+unmeasured, `stock beside the tool`. The holder face's entry also carries
+`z_mm`, the kernel's `holder_clear_top_z_mm`, when that Z is measured.
 
 The traveler's mill CLEARANCE table takes the reach finding's holder clearance:
 the holder face's height above the highest stock beside the tool, `projection_mm`
@@ -1339,8 +1340,13 @@ less the reach from `reach_top_z_mm` (as that surface's DRO Z) down to the op
 row's printed tip. A holder face below that stock prints its depth below it, with
 the wall verdict; past the flute, holder wall hits are a STOP and unknown hits a
 check-at-the-machine action. Each `clearances` entry (`part`, `obstacle`, `mm`)
-competes for the op's closest obstacle; a negative one is a STOP. Reach is never
-printed as a cut depth.
+competes for the op's closest obstacle; a negative one is a STOP; an entry with
+`z_mm` names that stock's Z. Every kernel Z the table prints (`reach_top_z_mm`,
+`z_mm`) is that surface's one DRO Z: a value within the kernel's as-is face
+tolerance (1e-3 mm, `FACE_Z_TOL_MM`) of a DRO grid line is that line, kernel
+noise; any other value rounds up on the grid as every surface does, so the
+same stock top prints the same Z in the table, the op rows and the zero recipe.
+Reach is never printed as a cut depth.
 
 - depth > OAL: `entry-to-floor depth exceeds the selected tool OAL.` (error)
 - shank hits: `the tool shank past its flutes meets the retained stock.`

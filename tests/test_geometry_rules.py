@@ -323,7 +323,7 @@ def test_clearances_name_each_tool_part_its_obstacle_and_interference(bundle):
     assert row.numbers["clearances"] == [
         {"part": "tool body", "obstacle": "stock 5 from the tool axis", "mm": 2.0},
         {"part": "tool shank", "obstacle": "the Ø6 bore this op cuts", "mm": 0.5},
-        {"part": "holder face", "obstacle": "stock under the holder at Z27.2", "mm": -1.25},
+        {"part": "holder face", "obstacle": "stock under the holder", "mm": -1.25, "z_mm": 27.2},
     ]
     bundle.kernel["ops"]["S1:10"].update(
         body_clear_mm="not_applicable", shank_clear_mm="unknown", holder_clear_mm="not_applicable"

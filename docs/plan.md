@@ -1028,6 +1028,10 @@ setup Z for M5's travel screen. There is no invented default: absence or
 to measure/author it. It does not itself command a machine move or assert XY
 collision clearance. Feature extents/centres and commanded tip targets supply
 the other spans; see [M5 measured setup screens](rules-setup.md#m5-measured-inventory-screens).
+On a milled path that returns to an entry (a raster, a path in pieces, an open
+path cut in several depth levels) it also sets the raise Z the sheet prints,
+`approach_mm` above the current top; without it that return is coordinates debt
+([depth levels](rules-coordinates.md#coordinates)).
 
 ## Contour
 

@@ -20,6 +20,12 @@ A saw cut (``saw_cut``/``cut_off``) has no spindle: its one canonical
 feed (``feed_mm_min``) directly. There is no diameter band, tool chart or
 override; the sourced speed is clamped to the machine's inclusive
 ``blade_speed_sfm`` range and no RPM is derived.
+
+A mill op with a ``contour`` path also carries its plunge feed: the end mill fed
+straight down its own axis, ``RPM x feed_mm_rev`` of the one cited ``[[plunge]]`` row
+for its material class, tool material and tool diameter. It does not change this
+finding's status; the coordinates rule decides which ops plunge into the stock and
+leaves those without a known plunge feed unknown.
 """
 
 from __future__ import annotations
@@ -164,6 +170,44 @@ def _deep_hole(cutting, action, depth, diameter):
     return row["sfm_factor"], numbers, uncertain(row)
 
 
+def stock_material_class(bundle):
+    """The cutting-data class the plan's stock material is aliased to, else unknown."""
+    stock = mapping(bundle.plan.get("stock"))
+    material = stock.get("material", mapping(bundle.features.get("material")).get("spec", UNKNOWN))
+    found = mapping(mapping(bundle.cutting_data).get("aliases")).get(material, UNKNOWN)
+    return found.get("material_class", UNKNOWN) if isinstance(found, dict) else found
+
+
+def plunge_row(bundle, op):
+    """``(feed_mm_rev, cite, why)`` of the one cited ``[[plunge]]`` row matching the stock's
+    material class, the op tool's material and its diameter (mm, inclusive range); the feed
+    is unknown, with why, when no row, several rows or an uncited, unverified or
+    non-positive row matches."""
+    tool = resolve(bundle, "tools", op.get("tool")) or {}
+    diameter = length_mm(tool, "dia")
+    key = (stock_material_class(bundle), tool.get("material", UNKNOWN))
+    if UNKNOWN in key or not number(diameter):
+        return UNKNOWN, UNKNOWN, "the material class, tool material or tool diameter is unknown"
+    matching = []
+    for row in records(mapping(bundle.cutting_data).get("plunge")):
+        band = row.get("diameter_range", UNKNOWN)
+        if (row.get("material_class"), row.get("tool_material")) != key:
+            continue
+        if not (isinstance(band, list) and len(band) == 2 and all(number(v) for v in band)):
+            return UNKNOWN, UNKNOWN, "a matching plunge row has no numeric diameter range"
+        if band[0] <= diameter <= band[1]:
+            matching.append(row)
+    if not matching:
+        return UNKNOWN, UNKNOWN, "no cutting-data plunge row matches this tool"
+    if len(matching) > 1:
+        return UNKNOWN, UNKNOWN, "several cutting-data plunge rows match this tool"
+    row = matching[0]
+    feed = row.get("feed_mm_rev", UNKNOWN)
+    if not _cited(row.get("cite")) or uncertain(row) or not _positive(feed):
+        return UNKNOWN, UNKNOWN, "the matching plunge row is uncited, unverified or not positive"
+    return feed, row["cite"], None
+
+
 def _blade_bounds(machine):
     band = machine.get("blade_speed_sfm", UNKNOWN)
     if isinstance(band, list) and len(band) == 2 and all(_positive(v) for v in band):
@@ -247,9 +291,7 @@ def evaluate(bundle):
     stock = mapping(bundle.plan.get("stock"))
     material = stock.get("material", mapping(bundle.features.get("material")).get("spec", UNKNOWN))
     cutting = mapping(bundle.cutting_data)
-    material_class = mapping(cutting.get("aliases")).get(material, UNKNOWN)
-    if isinstance(material_class, dict):
-        material_class = material_class.get("material_class", UNKNOWN)
+    material_class = stock_material_class(bundle)
     depths = _hole_depths(bundle) if records(cutting.get("deep_hole")) else {}
     for setup in bundle.plan["setups"]:
         machine = resolve(bundle, "machines", setup.get("machine")) or {}
@@ -361,6 +403,15 @@ def evaluate(bundle):
                 "cutting_data_row": source,
                 "rpm_range_verify": uncertain(machine),
             }
+            plunge_cite = UNKNOWN
+            if not lathe and isinstance(op.get("contour"), dict):
+                plunge, plunge_cite, why = plunge_row(bundle, op)
+                numbers["plunge_mm_rev"] = plunge
+                numbers["plunge_mm_min"] = (
+                    rpm * plunge if number(rpm) and number(plunge) else UNKNOWN
+                )
+                if why is not None:
+                    numbers["plunge_reason"] = why
             unknown = (
                 rpm == UNKNOWN
                 or feed == UNKNOWN
@@ -391,6 +442,9 @@ def evaluate(bundle):
                     "cutting-data deep_hole: sfm x sfm_factor past depth_over_dia diameters"
                 )
                 cite.extend(deep_source if isinstance(deep_source, list) else [deep_source])
+            if _cited(plunge_cite):
+                cite.append("cutting-data plunge: plunge feed = RPM x feed_mm_rev")
+                cite.extend(plunge_cite if isinstance(plunge_cite, list) else [plunge_cite])
             sentence = (
                 (
                     "Starting RPM/feed cannot be certified: the hole depth or its governing "

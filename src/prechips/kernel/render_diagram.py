@@ -669,11 +669,9 @@ class _Diagram:
         return framed
 
     def _notes(self):
+        # The tool and op tables name the selected tool; the picture labels it, so the
+        # notes do not repeat it on every setup.
         notes = [_plain(note) for note in self.spec.get("notes", [])]
-        if self.tool:
-            notes.append(
-                f"Selected tool: {self.tool['label']} / op {self.tool.get('op', 'not declared')}"
-            )
         if self.spec.get("zero_mm") is None:
             notes.append("Z0: not declared")
         if "datums" not in self.spec:
@@ -1824,6 +1822,8 @@ class _Diagram:
             elif kind == "nominal":
                 c.line((274, y + 10), (301, y + 10), _BLUE, width=2, dashed=True)
             _text(c, 318, y, label, _MUTED if kind == "text" else _INK)
+        if not self.note_lines:
+            return
         _text(c, 840, self.footer_top + 23, "SETUP NOTES")
         note_start = self.footer_top + 57
         for index, line in enumerate(self.note_lines):
