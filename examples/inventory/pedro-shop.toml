@@ -945,6 +945,7 @@ solids = [
 # Illustrative dimensions only: 3/8-16 studs and conservative cylindrical hex-nut
 # envelopes, not a purchased bridge or a claim of actual measurements.
 [fixtures.clamping-kit-lms-1144.members.bracket-bridge]
+name = "two-stud bridge clamp"  # DataBracket (r3): the member's own shop name on the S4 sheets
 kind = "strap_clamp"
 shop_made = true
 note = "illustrative shop-made two-stud bridge bar on 3/8-16 studs; cylindrical nut envelopes are conservative, not actual hex geometry or purchase/measurement evidence"

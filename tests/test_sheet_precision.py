@@ -335,24 +335,27 @@ def test_a_named_inventory_item_prints_its_name_not_its_kind_or_slug(tmp_path):
     inventory = examples / "inventory" / "pedro-shop.toml"
     named = inventory.read_text(encoding="utf-8")
     for header, name in (
-        ("[machines.bandsaw-4x6]", "4x6 bandsaw"),
-        ("[fixtures.cone-cap-bridge]", "cap bridge clamp"),
+        ("[machines.bandsaw-4x6]", "test bandsaw"),
+        ("[fixtures.cone-cap-bridge]", "test cap bridge"),
         ("[fixtures.clamping-kit-lms-1144]", "LMS 58-piece clamping kit"),
+        ("[fixtures.clamping-kit-lms-1144.members.bracket-bridge]", "test bridge piece"),
     ):
-        assert named.count(f"\n{header}\n") == 1, header
-        named = named.replace(f"\n{header}\n", f'\n{header}\nname = "{name}"\n')
+        # Replace a shipped name, if any, so the test owns every name it asserts.
+        pattern = rf"\n{re.escape(header)}\n(?:name = [^\n]*\n)?"
+        assert len(re.findall(pattern, named)) == 1, header
+        named = re.sub(pattern, lambda _, h=header, n=name: f'\n{h}\nname = "{n}"\n', named)
     inventory.write_text(named, encoding="utf-8")
     _, _, cone = traveler(
         examples / "cone-pivot-post" / "built-up.toml", tmp_path / "cone", setup=SYNTHETIC_KERNEL
     )
     sheets = text(cone)
-    assert re.search(r"SETUP S\d+ — 4x6 bandsaw · sheet 1", sheets)
-    assert "Clamp 1: cap bridge clamp —" in sheets
+    assert re.search(r"SETUP S\d+ — test bandsaw · sheet 1", sheets)
+    assert re.search(r"C1 clamp: test cap bridge\b", sheets)
     assert "bandsaw-4x6" not in sheets and "cone-cap-bridge" not in sheets
     _, _, bracket = traveler(
         examples / "pivot-bracket" / "plan.toml", tmp_path / "bracket", setup=SYNTHETIC_KERNEL
     )
-    assert "Clamp 1: bracket bridge strap clamp —" in text(bracket)
+    assert re.search(r"C1 clamp: test bridge piece\b", text(bracket))
     assert "LMS 58-piece clamping kit" not in text(bracket)
 
 
