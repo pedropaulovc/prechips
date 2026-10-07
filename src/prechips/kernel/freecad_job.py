@@ -3214,6 +3214,7 @@ class _Setup:
         # the fixture obstacle. ``possible`` are (name, box) regions a jaw may also occupy.
         self.fixture = []
         self.fixture_possible = []
+        self.hold_solids = []  # an authored holding body's placed solids (``_place_solids``)
         self.fixture_ready = False  # the holding itself is placed, so hit counts can be made
         self.fixture_debts = []  # scene-only debts (supports below the seat, poses to check)
         self.fixture_gaps = []  # undrawn components that could be obstacles
@@ -5259,16 +5260,12 @@ class _Setup:
             )
 
     def _place_solids(self, hold, facts):
-        """An authored fixture body (angle plate, custom nest) at its declared pose."""
+        """An authored fixture body (angle plate, custom nest) at its declared pose. Whether
+        it reaches the stock is judged once the clamps are posed (:meth:`_accessories`)."""
         matrix = _pose_matrix(hold["pose"])
-        self._add_owned(hold.get("solids", []), "fixture", matrix, "fixture")
+        self.hold_solids = self._add_owned(hold.get("solids", []), "fixture", matrix, "fixture")
         if not self.fixture:
             return "no fixture solid is declared free of measurement debt"
-        if all(c["solid"].distToShape(self.part)[0] > STOCK_TOL for c in self.fixture):
-            self.fixture_debts.append(
-                f"{hold.get('fixture_kind')} fixture solids do not touch the stock at the "
-                "declared pose"
-            )
         return None
 
     def _place_clamps(self, hold):
@@ -5333,9 +5330,24 @@ class _Setup:
                     f"{component['name']} intersects the setup-entry stock "
                     f"({_r(common.Volume)} mm^3) at the declared pose"
                 )
+        bearing = []
         for name, parts in clamps:
             if all(part.distToShape(self.part)[0] > STOCK_TOL for part in parts):
                 self.fixture_debts.append(f"{name} does not bear on the stock at its pose")
+                continue
+            bearing.extend(parts)
+        # An authored body holds the work directly or through a clamp that bears on it (a
+        # bench vise gripping the stud of filing buttons pressed on the work).
+        reached = [self.part, *bearing]
+        if self.hold_solids and all(
+            solid.distToShape(other)[0] > STOCK_TOL
+            for solid in self.hold_solids
+            for other in reached
+        ):
+            self.fixture_debts.append(
+                f"{hold.get('fixture_kind')} fixture solids touch neither the stock nor a clamp "
+                "bearing on it at the declared pose"
+            )
 
     def _place_steady_rests(self, hold):
         """A steady rest is a static ring at ``at_z_mm``, ``body_length_mm`` long: from the

@@ -1573,6 +1573,7 @@ dividing head `jaws` is `exact` once placed; jawless kinds report
 `not_applicable`; an unplaced non-vise fixture is `absent` with debt
 `fixture not drawn: <reason>`. Further debts name an undrawn possible
 obstacle (`not drawn: …`), a strap that does not bear on the stock top, a
+fixture body that touches neither the stock nor a clamp bearing on it, a
 solid that intersects the entry stock, or unequal scroll-chuck contact
 radii. `fixture_rendered` is true only when the fixture is placed, at least
 one component is drawn, every component is exact and the debt list is
