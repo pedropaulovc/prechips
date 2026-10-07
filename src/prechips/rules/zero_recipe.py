@@ -153,7 +153,8 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
     """One DRO per setup: each cutting op runs on Axis Sets its own tool made.
 
     The DRO reads the tool that last set it: the zero, a tool touch or a listed retouch
-    (which serves the next tool only). A cutting op with another tool is touched off
+    (which serves the next tool only); an axis with no zero recipe has no setter until a
+    touch. A cutting op with another tool is touched off
     first, derived here: Z on the latest touched or faced surface still standing at a
     known plan Z (its paper; a faced surface takes the zero's), never a measured one,
     else on the latest standing surface whose Z is unknown (unknown); on a lathe, X on
@@ -181,11 +182,12 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
         placed.setdefault(_position(ops, touch), []).append(touch)
     listed = {str(n) for n in records(recipe.get("retouch_after"))}
     z_events, x_events, derived, missing = [], [], [], []
-    # Ops before the zero's after_op run before any tool set the Z DRO.
+    # Ops before the zero's after_op run before any tool set the Z DRO; with no zero
+    # recipe no tool set it at all (the missing zero is reported, not a tool change).
     set_z = None
-    set_x, x_gauge = (
-        (x_recipe.get("tool", UNKNOWN), x_recipe.get("gauge")) if lathe else (None, None)
-    )
+    set_x, x_gauge = (None, None)
+    if lathe and x_recipe:
+        set_x, x_gauge = x_recipe.get("tool", UNKNOWN), x_recipe.get("gauge")
     pending = False
 
     def z_event(index, surface, z, touch_paper, source):
@@ -201,10 +203,10 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
         )
 
     for index, (op, _, after) in enumerate(states):
-        if index == start:
+        if index == start and recipe:
             set_z = recipe.get("tool", UNKNOWN)
             if recipe.get("method") not in MEASURED:
-                z_event(index, face, zero_z, paper, "zero")
+                z_event(index, face or UNKNOWN, zero_z, paper, "zero")
         for touch in placed.get(index, []):
             if touch.get("z_face"):
                 set_z = touch.get("tool", UNKNOWN)
@@ -226,7 +228,7 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
             # Whether an unknown tool takes the DRO over from its setter is unknown.
             unknown, pending = True, False
             set_z = None if set_z is None else UNKNOWN
-            set_x = UNKNOWN if lathe else None
+            set_x = None if set_x is None else UNKNOWN
         cutting = cuts and tool not in (None, UNKNOWN)
         if cutting and pending:
             set_z, pending = tool, False
@@ -278,7 +280,8 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
             if len(lost) < len(changed):
                 derived.append(record)
                 unknown |= UNKNOWN in (record.get("z_axis_set"), record.get("x_axis_set"))
-            set_z, set_x = tool, tool if lathe else None
+            set_z = tool if "z" in changed else set_z
+            set_x = tool if "x" in changed else set_x
         if str(op.get("op")) in listed:
             pending = True
             z_event(index + 1, "top", after["top_z"], paper, f"retouch after op {op['op']}")

@@ -46,6 +46,7 @@ def bundle(machine, zero, ops, stock_state=None):
             },
             "gauges": {"mic": {"kind": "micrometer"}},
         },
+        policy={},
     )
     data.feature_definitions = data.features["features"]
     return data
@@ -267,6 +268,19 @@ def test_an_unresolved_incoming_tool_keeps_the_tool_change_unknown(incoming):
     ops = [op(10, "spot", "hole", "centre"), op(20, "drill", "hole", incoming)]
     finding = evaluate(bundle("mill", mill_zero(DECK), ops))[0]
     assert finding.status == "unknown"
+    assert finding.numbers["missing_touches"] == []
+
+
+@pytest.mark.parametrize("machine", ["mill", "lathe"])
+def test_a_setup_with_no_zero_has_no_tool_dro_to_change(machine):
+    # No recipe set the DRO, so no tool cuts on another tool's Axis Set: the zero is
+    # missing (unknown), not a tool change to touch off.
+    ops = [op(10, "spot", "hole", "centre"), op(20, "drill", "hole", "drill")]
+    if machine == "lathe":
+        ops = [op(10, "face", "end", "turner"), op(20, "part_off", "relief", "parter")]
+    finding = evaluate(bundle(machine, {}, ops))[0]
+    assert finding.status == "unknown"
+    assert finding.numbers["derived_touches"] == []
     assert finding.numbers["missing_touches"] == []
 
 

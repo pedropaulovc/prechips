@@ -423,8 +423,9 @@ Y zero recipe.
 
 One DRO per setup: the DRO reads the tool that last set it, by the zero, a tool
 touch (made before the first of its `before_ops`, else after its `after_op`) or
-a listed retouch. Ops before the Z zero's `after_op` run before any tool set Z.
-Every cutting op whose tool did not make the latest Axis Set
+a listed retouch. Ops before the Z zero's `after_op` run before any tool set Z,
+and an axis with no zero recipe has no tool's Axis Set to change (the missing
+zero is unknown). Every cutting op whose tool did not make the latest Axis Set
 is touched off first (`derived_touches`, printed "re-touch" at that op). The
 source's recipe names its own tool's edge, so the re-touch is tool-neutral:
 `edge_then_set` on a lathe (Z-cutting edge to the surface, withdraw along X),
