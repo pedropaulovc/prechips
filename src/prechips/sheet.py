@@ -341,6 +341,7 @@ _TOPICS = {
     "coverage": "every drawn surface has an op",
     "indexing": "indexing",
     "hold_fields": "holding details",
+    "centre_support": "tailstock centre",
     "order": "op order",
     "op_chain": "op sequence",
     "construction": "construction",
@@ -2773,6 +2774,13 @@ class _Traveler:
     def tip(self, setup, op):
         o = self.operative
         endpoint = self.endpoint(setup, op)
+        if endpoint and endpoint.get("depth_scale") == "quill":
+            # A tailstock centre drill is fed by the quill: its depth is read on the quill
+            # scale from touching the work, never as a carriage DRO Z.
+            depth = endpoint.get("depth_mm")
+            if not _known(depth):
+                return ["quill depth not set", _Box("STOP: centre depth unknown")]
+            return [f"quill {o(depth)} past touching the end"]
         if endpoint:
             # A hole op prints its endpoint as the DRO shows it (blind_depth's dro_* values).
             entry = endpoint.get("dro_entry_z")
@@ -3264,7 +3272,8 @@ class _Traveler:
                 "direction",
                 "not_applicable"
                 if manual
-                or op.get("do") in {"spot", "drill", "ream", "tap", "counterbore", "countersink"}
+                or op.get("do")
+                in {"spot", "center_drill", "drill", "ream", "tap", "counterbore", "countersink"}
                 else None,
             )
             direction = self.direction(direction)
@@ -4087,6 +4096,10 @@ class _Traveler:
                 + self.band(definition.get(d), feature, d)
                 for d in dict.fromkeys(tolerance_requirements(definition))
             ]
+            if _mapping(definition.get("process")):
+                # Plan stock preparation (a faced end, a centre): the route makes it, the
+                # drawing never asks for it, so it is no acceptance row.
+                continue
             if _mapping(definition.get("joint")):
                 # Plan-authored preparation, never drawing acceptance.
                 joint_prep.append(
@@ -4198,12 +4211,13 @@ class _Traveler:
             (f"stock {_text(_mapping(c).get('id'))}", _mapping(c))
             for c in (components if isinstance(components, list) else [])
         ]
+        first = _text(_mapping((self.plan.get("setups") or [{}])[0]).get("id"))
         for name, piece in pieces:
             if piece.get("on_hand") is False:
-                state.append(f"Before S1: obtain the {name} — not on hand.")
+                state.append(f"Before {first}: obtain the {name} — not on hand.")
             prerequisite = piece.get("prerequisite")
             if isinstance(prerequisite, str) and prerequisite not in ("unknown", ""):
-                state.append(f"Before S1: {self.bench(prerequisite).rstrip('.')}.")
+                state.append(f"Before {first}: {self.bench(prerequisite).rstrip('.')}.")
         return state
 
     def dro_resolution(self, setups):

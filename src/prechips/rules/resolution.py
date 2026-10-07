@@ -92,12 +92,13 @@ def op_feature(op):
 
 
 def claim_refs(bundle, op):
-    """The face refs an op claims: its explicit ``faces``, else its feature's ``faces``."""
+    """The face refs an op claims: its explicit ``faces``, else its feature's ``faces``; a
+    plan-owned transient (joint or process) feature claims its one plan label."""
     if "faces" in op:
         return op["faces"]
     feature = record(bundle.feature_definitions.get(op_feature(op)))
-    joint = record(feature.get("joint"))
-    return [joint["label"]] if joint else feature.get("faces", UNKNOWN)
+    owner = record(feature.get("joint")) or record(feature.get("process"))
+    return [owner["label"]] if owner else feature.get("faces", UNKNOWN)
 
 
 def known_refs(refs):

@@ -3,8 +3,8 @@
 `part`, `features`, and `setups` are required. The loader additionally requires
 a nonempty setup list, known unique setup ids, a nonempty operation list per
 setup and known unique operation numbers within each setup. A saw stock cut may
-omit `feature`; every authored feature must be in the manifest or in plan-owned
-`joint_features`, and inspection checks need a named feature. Plan and manifest
+omit `feature`; every authored feature must be in the manifest, in plan-owned
+`joint_features` or in plan-owned `process_features`, and inspection checks need a named feature. Plan and manifest
 part names must agree; a known setup frame must name an exported manifest frame
 or a plan-owned frame in [`frames`](#frames). A literal `"unknown"` setup frame
 stays unresolved.
@@ -126,6 +126,7 @@ of geometric validity; rules perform the applicable checks.
 | `frames` | `dict[str, PlanFrame] \| Unknown` | Optional |
 | `aims` | `dict[str, Aim]` | Optional |
 | `joint_features` | `dict[str, JointFeature]` | Optional |
+| `process_features` | `dict[str, ProcessFeature]` | Optional |
 | `setups` | `list[Setup]` | Required |
 
 ## Frames
@@ -217,6 +218,45 @@ actual removal; spotting does not complete a socket. Transient `tap` and
 `counterbore` operations leave named geometry debt until thread/step profiles
 are supported. A rough cut's allowance must be removed by a valid finishing
 cut before the selected branch can supply completed preparation to a join.
+
+## Process features
+
+`[process_features.<id>]` declares stock preparation the route makes and later
+relies on, never a drawing surface: a faced end (`end_face`) or a combined drill
+and countersink centre (`centre_hole`) that a later setup's dead centre rides in.
+Identities must not collide with exported or joint features, and nothing may name
+a `plan.process_features.` label as a face reference.
+
+| Field | Meaning |
+|---|---|
+| `kind` | `end_face` or `centre_hole` |
+| `at` | Point on the stock end, model coordinates (manifest units); a centre's mouth centre |
+| `axis` | Unit inward normal of that end, pointing into the kept material (the drilling direction) |
+| `cite` | Nonempty author/source citation |
+| `size` | `centre_hole` only: the source's size name |
+| `drill_dia_mm` | `centre_hole` only: pilot drill diameter D |
+| `drill_length_mm` | `centre_hole` only: pilot length C from the countersink to the tip, point included |
+| `mouth_dia_mm` | `centre_hole` only: countersink diameter at the face; must exceed `drill_dia_mm` |
+| `countersink_angle_deg` | `centre_hole` only: included countersink angle, between 0 and 180 |
+| `note` | Optional text |
+
+A `centre_hole` needs every centre field (each may be `"unknown"` debt); an
+`end_face` authors none. The centre's feed depth below its faced end is
+`drill_length_mm + (mouth_dia_mm - drill_dia_mm) / 2 / tan(countersink_angle_deg / 2)`:
+the Machinery's Handbook Table 6 drill length C plus the countersink that opens to
+the mouth. Any unknown size leaves the depth unknown.
+
+Only `face`, `rough_face` and `finish_face` prepare an `end_face`; only
+`center_drill` prepares a `centre_hole`. Such an op names exactly that one
+feature and carries no `faces`, `checks` or `missing_requirements`: there is no
+drawing limit to inspect. Process ops resolve through the same rules as other
+cuts (speeds and feeds, reach, accessibility, headroom, tip endpoints), and the
+kernel removes the analytic centre (countersink, pilot and drill point) or faces
+the end so the setup picture and the next setup's entry stock show them. They
+earn no finished STEP coverage and no finish coverage, even when the cut lies on a
+drawing plane, and a process feature is never a drawing-requirements row. A
+hold's `centre_hole` names the process centre its dead centre rides in (see
+[Hold](#hold)).
 
 ## Drawing
 
@@ -536,7 +576,8 @@ for collet/chuck capacity, not the unsupported-section diameter.
 | `jaw_clock_deg` | `Number` |
 | `support_tip_mm` | `[Number, Number, Number]` |
 | `quill_extension_mm` | `Number` |
-| `centre_hole_dia_mm` | `Number` (> 0): the work's centre-hole countersink mouth at its end face; the kernel cuts a seat of the dead centre's own point angle with that mouth on the face where the centre axis leaves the stock, and the centre must touch that seat (else a render debt) before it is checked against the setup-entry stock |
+| `centre_hole` | `str`: the `process_features` `centre_hole` the dead centre rides in; the [`centre_support`](rules-setup.md#centre_support) rule requires an earlier setup in this setup's `stock_in` lineage to drill it with a mouth equal to `centre_hole_dia_mm`, and the kernel seats the centre in that cut countersink instead of cutting a seat of its own |
+| `centre_hole_dia_mm` | `Number` (> 0): the work's centre-hole countersink mouth at its end face; without `centre_hole`, the kernel cuts a seat of the dead centre's own point angle with that mouth on the face where the centre axis leaves the stock. In either case the centre must touch its seat (else a render debt) before it is checked against the setup-entry stock |
 | `clamps` | `list[ClampPlacement]` |
 | `clamp_order` | `list[positive int]` (1-based indices into `clamps`) |
 | `preload_direction` | `"clockwise"` / `"counterclockwise"` |

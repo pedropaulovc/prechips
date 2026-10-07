@@ -118,6 +118,14 @@ Measurement conventions (setup frame, tool axis +Z):
   full area lies inside the turned radius +-``STOCK_TOL`` over the finite cut window,
   inside the branch's component-owned finished material and on the accepted after-op
   stock (exact face-minus-solid areas, never samples).
+* Process features (job ``process_features``, op ``process_cut``): plan-declared stock
+  preparation, never finished faces and never coverage. An ``end_face`` is the stock's
+  section in its plane (one transient disc a facing op claims and faces like any to_z
+  claim); a ``centre_hole`` is its exact countersink, pilot and point faces about
+  ``axis`` (into the kept material), and its op removes that analytic revolved solid
+  (the countersink extended 1 mm out of the face) less component-owned finished material,
+  then measures its pointed pilot and holder like any axial tool on the setup -Z axis.
+  A centre not wholly inside the stock it is drilled in leaves that stock unknown.
 * Rotary (mill ops with ``approach = "rotary"``; dividing-head setups): the head
   axis is the chuck pose z through its origin and must be perpendicular to setup Z
   (otherwise the op is unsupported). Claimable portions are the positive-area
@@ -1904,6 +1912,83 @@ def _joint_faces(spec, cylinder):
     return faces
 
 
+def _process_place(spec):
+    """(at, unit axis into the kept material) of a process feature, model mm."""
+    at, axis = spec.get("at_mm"), spec.get("axis")
+    if not all(
+        isinstance(value, list) and len(value) == 3 and all(_number(v) for v in value)
+        for value in (at, axis)
+    ):
+        raise _Unknown(f"{spec.get('label')} placement is unknown")
+    axis = V(*axis)
+    if axis.Length < 1e-9:
+        raise _Unknown(f"{spec.get('label')} axis is a zero vector")
+    return V(*at), axis.normalize()
+
+
+def _centre_solids(spec, point_angle=None, lead=0.0):
+    """A centre hole's countersink, pilot and (given its included angle) point solids.
+
+    The countersink opens from the pilot to the mouth on the face at ``at``; ``lead``
+    continues it that far out of the face along its own cone. The pilot runs on to
+    ``drill_length_mm`` below the countersink, its point included.
+    """
+    at, axis = _process_place(spec)
+    keys = ("mouth_dia_mm", "drill_dia_mm", "countersink_angle_deg", "drill_length_mm")
+    if not all(_number(spec.get(key)) and spec[key] > 0 for key in keys):
+        raise _Unknown(f"{spec.get('label')} sizes are unknown")
+    mouth, drill = spec["mouth_dia_mm"] / 2, spec["drill_dia_mm"] / 2
+    if mouth - drill <= PLANE_TOL or spec["countersink_angle_deg"] >= 180:
+        raise _Unknown(f"{spec.get('label')} countersink does not open from its pilot")
+    sink = (mouth - drill) / math.tan(math.radians(spec["countersink_angle_deg"] / 2))
+    slope, length = (mouth - drill) / sink, spec["drill_length_mm"]
+    solids = [Part.makeCone(mouth + lead * slope, drill, sink + lead, at - axis * lead, axis)]
+    point = 0.0
+    if point_angle is not None:
+        point = drill / math.tan(math.radians(point_angle / 2))
+    if length - point <= PLANE_TOL:
+        raise _Unknown(f"{spec.get('label')} pilot point is not shorter than its drill length")
+    solids.append(Part.makeCylinder(drill, length - point, at + axis * sink, axis))
+    if point_angle is not None:
+        solids.append(Part.makeCone(drill, 0.0, point, at + axis * (sink + length - point), axis))
+    return solids
+
+
+def _process_faces(spec, stock):
+    """A process feature's transient claim faces, model mm, outward normals (into air).
+
+    An end face is the stock's section in its plane; a centre hole is its countersink and
+    pilot walls.
+    """
+    at, axis = _process_place(spec)
+    if spec.get("kind") == "centre_hole":
+        faces = []
+        for solid in _centre_solids(spec):
+            for face in solid.Faces:
+                if isinstance(face.Surface, (Part.Cylinder, Part.Cone)):
+                    target = face.copy()
+                    target.reverse()
+                    faces.append(target)
+        return faces
+    if spec.get("kind") != "end_face":
+        raise _Unknown(f"process feature kind {spec.get('kind')!r} is not modelled")
+    if stock is None:
+        raise _Unknown(f"{spec.get('label')}: the stock is unknown")
+    disc = Part.Face(Part.Wire(Part.makeCircle(stock.BoundBox.DiagonalLength + 10, at, axis)))
+    faces = []
+    for face in disc.common(stock).Faces:
+        if face.Area <= HIT_MM3:
+            continue
+        target = face.copy()
+        u0, u1, v0, v1 = target.ParameterRange
+        if target.normalAt((u0 + u1) / 2, (v0 + v1) / 2).dot(axis) > 0:
+            target.reverse()
+        faces.append(target)
+    if not faces:
+        raise _Unknown(f"{spec.get('label')} plane does not meet the stock")
+    return faces
+
+
 def _interface(spec):
     """The finite contact rectangle, centred at the authored point in model millimetres."""
     if not all(
@@ -2313,6 +2398,7 @@ class _Job:
             for ref in supplies
         }
         self._init_joints()
+        self._init_process(stock if reason is None else None)
         result["transient_faces"] = [
             {"index": len(signatures) + index, "label": self.labels[len(signatures) + index]}
             for index in range(len(self.synthetic_faces))
@@ -2721,6 +2807,24 @@ class _Job:
         except (ValueError, KeyError) as exc:
             error = str(exc)
         return None, error, state, error
+
+    def _init_process(self, stock):
+        """Transient claim faces of the job's process features (module docstring)."""
+        self.process_indices, self.process_planes = {}, set()
+        features = self.job.get("process_features", {})
+        for name, spec in sorted((features if isinstance(features, dict) else {}).items()):
+            try:
+                faces = _process_faces(spec, stock)
+            except (_Unknown, Part.OCCError):
+                continue  # its ops' claims stay unknown
+            indices = []
+            for face in faces:
+                indices.append(len(self.labels))
+                self.labels.append(spec.get("label", "plan.process_features." + name))
+                self.synthetic_faces.append(face)
+            self.process_indices[name] = indices
+            if spec.get("kind") == "end_face":
+                self.process_planes.update(indices)
 
     def _init_joints(self):
         self.joint_features = self.job.get("joint_features", {})
@@ -3493,6 +3597,33 @@ class _Setup:
             self.joint_errors[self._subject(op)] = str(exc)
             return None, str(exc)
 
+    def _process_removal(self, op, stock):
+        """(the analytic centre an axial process op drills in ``stock``, or None, and why
+        it is unknown). Finished material stays, so a tool reaching it hits the part."""
+        cut = op["process_cut"]
+        if cut.get("reason"):
+            return None, cut["reason"]
+        if cut.get("kind") != "centre_hole":
+            return None, f"{cut['label']}: only a lathe facing op cuts a process end face"
+        try:
+            angle = cut.get("point_angle_deg")
+            exact, led = (_centre_solids(cut, angle, lead) for lead in (0.0, 1.0))
+        except _Unknown as exc:
+            return None, str(exc)
+        exact, led = (self._placed(s[0].fuse(s[1:]).removeSplitter()) for s in (exact, led))
+        outside = exact.cut(stock).Volume
+        if outside > STOCK_MM3:
+            return None, (
+                f"{cut['label']} is not wholly inside the stock it is drilled in "
+                f"({_r(outside)} mm^3 outside)"
+            )
+        removal = stock.common(led)
+        if self.protected.Volume > HIT_MM3:
+            removal = removal.cut(self.protected)
+        if removal.isNull() or removal.Volume <= HIT_MM3:
+            return None, None
+        return removal, None
+
     def _joint_corners(self, op):
         """Primitive topology checked against the actual post-cut branch, not final STEP."""
         name, spec, cylinder = self._joint_check(op)
@@ -3773,9 +3904,15 @@ class _Setup:
         lower-leave op also cuts the lineage leave off its claimed lateral faces of ``stock``
         (:meth:`_band`).
         """
+        process = op.get("process_cut")
+        if isinstance(process, dict) and process.get("reason"):
+            return None, process["reason"]
         valid, away, why = self._claims(op)
         if not isinstance(valid, list):
             return None, f"claimed faces are unresolved ({why})"
+        if isinstance(process, dict) and not _turned(op):
+            removal, why = self._process_removal(op, stock)
+            return (None, why) if why is not None else ((removal, []), None)
         to_z = op.get("to_z")
         if to_z is not None and not _number(to_z):
             return None, "to_z is unknown"
@@ -3843,6 +3980,7 @@ class _Setup:
             for op in self.ops:
                 if (
                     isinstance(op.get("joint_cut"), dict)
+                    or isinstance(op.get("process_cut"), dict)
                     or _sawn(op)
                     or _turned(op)
                     or _rotary(op)
@@ -4785,6 +4923,9 @@ class _Setup:
         if "faces" in op:
             return op["faces"], f"op {self._subject(op)} faces"
         name = op.get("feature")
+        process = op.get("process_cut")
+        if isinstance(process, dict):
+            return [process.get("label")], f"process feature {name!r}"
         if name in self.owner.joint_features:
             return [self.owner.joint_features[name]["label"]], f"joint feature {name!r}"
         declared = self.owner._declared()
@@ -4796,6 +4937,9 @@ class _Setup:
         """Claimed STEP or analytic transient indexes; only STEP indexes earn final coverage."""
         if isinstance(op.get("joint_cut"), dict):
             return self.owner.joint_op_indices.get(self._subject(op), UNKNOWN)
+        process = op.get("process_cut")
+        if isinstance(process, dict):
+            return self.owner.process_indices.get(process.get("process_feature")) or UNKNOWN
         refs, _ = self._claim_refs(op)
         indices = self.owner._feature(refs)
         return indices if indices != UNKNOWN and indices else UNKNOWN
@@ -7051,14 +7195,40 @@ class _Setup:
             return self._op_unknown(op, reason)
         after = self.part if removal is None else self.part.cut(removal)
         entry = self.matrix.multVec(V(*spec["at_mm"]))
-        radius = _positive(op, "radius_mm")
-        flute = _positive(op, "flute_len_mm")
         tip = entry.z - spec["depth_mm"]
         slope = None
         if spec["action"] in {"drill", "spot"}:
             slope = math.tan(math.radians(spec["point_angle_deg"] / 2))
             if spec["action"] == "drill":
                 tip -= spec["diameter_mm"] / (2 * slope)
+        return self._axial_facts(op, after, entry, tip, slope)
+
+    def _process_axial_op(self, op):
+        """A centre drill's pointed pilot and holder, fed along setup -Z to the centre's
+        full depth (``process_cut``); on a lathe the centre lies on the spindle axis."""
+        cut = op["process_cut"]
+        removal, reason = self._process_removal(op, self.part)
+        if reason:
+            return self._op_unknown(op, reason)
+        after = self.part if removal is None else self.part.cut(removal)
+        at, axis = _process_place(cut)
+        entry = self.matrix.multVec(at)
+        feed = self.matrix.multVec(at + axis) - entry
+        if feed.dot(Z) > -PARALLEL:
+            return self._op_unknown(
+                op, f"{cut['label']} axis is not the setup -Z feed of an axial tool"
+            )
+        if self.setup.get("machine_kind") == "lathe" and math.hypot(entry.x, entry.y) > AXIS_TOL:
+            return self._op_unknown(
+                op, f"{cut['label']} is off the spindle axis the tailstock tool feeds along"
+            )
+        slope = math.tan(math.radians(cut["point_angle_deg"] / 2))
+        return self._axial_facts(op, after, entry, entry.z - cut["depth_mm"], slope)
+
+    def _axial_facts(self, op, after, entry, tip, slope):
+        """Centred axial tool (pointed when ``slope``) and holder hits on ``after`` stock."""
+        radius = _positive(op, "radius_mm")
+        flute = _positive(op, "flute_len_mm")
         facts = {
             "reasons": {},
             "claimed_indices": self._indices(op),
@@ -7134,6 +7304,14 @@ class _Setup:
                 return self.saws[id(op)]
             return self._saw_facts(op, self.cuts[id(op)][2])
         owner = self.owner
+        process = op.get("process_cut")
+        if isinstance(process, dict):
+            if process.get("reason"):
+                return self._op_unknown(op, process["reason"])
+            if not _turned(op):
+                if self.stock_reason is not None:
+                    return self._op_unknown(op, self.stock_reason)
+                return self._process_axial_op(op)
         if isinstance(op.get("joint_cut"), dict):
             if self.stock_reason is not None:
                 return self._op_unknown(op, self.stock_reason)
@@ -9347,7 +9525,9 @@ class _Setup:
 
     def _turn_corners(self, indices):
         """Sorted concave meridian corner radii between/inside claims, or why unknown."""
-        if any(index >= len(self.finished.Faces) for index in indices):
+        # A process end face is one analytic disc: a plane has no meridian corner of its own.
+        transient = {index for index in indices if index >= len(self.finished.Faces)}
+        if transient - self.owner.process_planes:
             return "transient joint targets do not establish finished-part corner topology"
         part, faces, labels = self.finished, self.faces, self.owner.labels
         radii, problems = set(), []

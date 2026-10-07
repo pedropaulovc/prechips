@@ -179,6 +179,19 @@ chip_load_mm_per_tooth = 0.025
 cite = "example (plausible, not measured); large straight-flute socket reamer: speed below hillindustrialtools.com/pages/hss-reamer-speeds-feeds non-alloy steel groups 2-3 (1018) 33-46 SFM and littlemachineshop.com/pages/cutting-speeds 1018 HSS reaming 40-65 fpm; 6 flutes x 0.025 mm = .0059 in/rev, below Hill's 0.5512 in .0067-.0091 in/rev"
 # --- end cone-pivot-post built-up additions ---
 
+# --- ShaftPrep additions ---
+# Lathe centre drilling from the tailstock: the speed is taken at the pilot diameter, as
+# the Handbook's centre-drill rows are keyed by drill size; feed per spindle revolution.
+[[cut]]
+material_class = "low_carbon_steel"
+tool_material = "M42"
+operation = "center_drill"
+diameter_range = [0.5, 3.175]
+sfm = 110
+feed_mm_rev = 0.038
+cite = "example (plausible, not measured); Machinery's Handbook 27th ed. p.1132 'Approximate Cutting Speeds and Feeds for Standard Automatic Screw Machine Tools—Brown and Sharpe', Center drills, hole dia. under 1/8 in, mild or soft steel: H.S.S. 110 fpm, feed .0015 in/rev (0.038 mm/rev); diameter band ends at that table's 1/8 in (3.175 mm) row break, taken at the pilot; #2 combined drill and countersink pilot D 5/64 in from p.873 Table 6. The automatic-screw-machine rate is the hand-feed ceiling here: the quill is fed by hand"
+# --- end ShaftPrep additions ---
+
 [[material]]
 material_class = "low_carbon_steel"
 kc_n_per_mm2 = 1900

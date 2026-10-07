@@ -6,6 +6,7 @@ op has no tool: it names its process, an outside service or in-house consumables
 """
 
 from ..findings import Finding
+from .geometry_common import _AXIAL_LATHE_ACTIONS
 from .resolution import (
     MANUAL,
     SAW_OPS,
@@ -165,9 +166,13 @@ def evaluate(bundle):
         if not unknown:
             spindle = machine.get("spindle", {})
             toolpost = machine.get("toolpost", {})
+            tailstock = machine.get("tailstock", {})
+            # A lathe's spindle-axis tools ride in the tailstock quill, not the toolpost.
             machine_standard = (
                 (spindle.get("taper") if isinstance(spindle, dict) else None)
                 if machine.get("kind") != "lathe"
+                else (tailstock.get("taper") if isinstance(tailstock, dict) else None)
+                if op["do"] in _AXIAL_LATHE_ACTIONS
                 else (toolpost.get("series") if isinstance(toolpost, dict) else None)
             )
             holder_standard = holder.get("taper", holder.get("standard", holder.get("series")))

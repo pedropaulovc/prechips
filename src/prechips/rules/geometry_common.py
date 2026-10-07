@@ -103,10 +103,12 @@ def cutting_action(op):
 
 def finishing_subjects(bundle):
     # Reuse the existing final datum-cut semantics, including drill→ream/bore/tap.
-    # A saw cut removes stock but never finishes a target face.
+    # A saw cut removes stock but never finishes a target face; nor does stock
+    # preparation of a plan process feature (it has no drawing face to finish).
     return {
         f"{setup['id']}:{op['op']}"
-        for name in bundle.feature_definitions
+        for name, definition in bundle.feature_definitions.items()
+        if not record(record(definition).get("process"))
         for _, setup, op in _cuts(bundle, name)
         if cutting_action(op) is True and op.get("do") not in SAW_OPS | {"coating"}
     }
@@ -135,11 +137,14 @@ def provenance(bundle, rule, setup=None, op=None, feature=None):
     if feature is not None:
         entry = record(bundle.feature_definitions.get(feature))
         joint = record(entry.get("joint"))
-        cite.append(
-            f"plan.joint_features.{joint['id']}: analytic transient cylinder"
-            if joint
-            else f"features.{feature}: faces and requirements"
-        )
+        if joint:
+            cite.append(f"plan.joint_features.{joint['id']}: analytic transient cylinder")
+        elif record(entry.get("process")):
+            from prechips.process_features import source_cite
+
+            cite.extend(source_cite(entry))
+        else:
+            cite.append(f"features.{feature}: faces and requirements")
         cite.extend(_citations(entry.get("cite")))
     if setup is not None:
         cite.append(f"plan.setups.{setup['id']}: frame and hold")
@@ -192,6 +197,9 @@ def unavailable(bundle, rule, subject, facts, cite):
 
 def mapped_feature(bundle, facts, name):
     feature = record(bundle.feature_definitions.get(name))
+    if record(feature.get("process")):
+        # Stock preparation maps to no finished face: it is never drawing coverage.
+        return set(), []
     joint = record(feature.get("joint"))
     refs = [joint["label"]] if joint else feature.get("faces", UNKNOWN)
     errors = record(facts.get("mapping_errors"))
@@ -225,9 +233,12 @@ def op_claims(bundle, facts, setup, op):
 
     A transient joint-feature op's analytic claims never credit finished faces: it earns
     only the kernel's ``certified_indices``, the exported faces its accepted finishing cut
-    measurably leaves as its own surface, and otherwise an empty set (never debt).
+    measurably leaves as its own surface, and otherwise an empty set (never debt). A plan
+    process-feature op (stock preparation) credits no finished face at all.
     """
     refs = claim_refs(bundle, op)
+    if record(record(bundle.feature_definitions.get(op_feature(op))).get("process")):
+        return set(), [], []
     errors = record(facts.get("mapping_errors"))
     detail = record(record(facts.get("ops")).get(f"{setup['id']}:{op['op']}"))
     reported = detail.get("mapping_errors")
