@@ -635,13 +635,13 @@ feature = "cross_bore"
 tool = "bracket-spot-drill"
 holder = "drill-chuck-r8"
 approach_mm = 5.0                # author's choice
-depth_mm = 0.6                   # 2.08 mm spot diameter, below the 1/4 in predrill diameter
+depth_mm = 0.6                   # 2.08 mm spot diameter, below the letter D predrill diameter
 
 [[setups.ops]]
 op = 40
 do = "drill"
 feature = "cross_bore"
-tool = "drill-index-115/1-4in"   # predrill 6.35 leaves 0.15 diametral for the reamer
+tool = "drill-index-115/D"       # predrill 6.248 leaves 0.264 diametral (0.13 mm, .0052 in, radial) for the 6.512 reamer, inside Machinery's Handbook 27th ed. p.1133 reamer depth of cut .004-.008 in for holes over 1/8 in
 holder = "drill-chuck-r8"
 approach_mm = 5.0                # author's choice
 exit_mm = 2.0                    # author's choice

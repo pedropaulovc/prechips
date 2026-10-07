@@ -262,7 +262,7 @@ do = "spot"
 feature = "pivot_bore"
 tool = "center-drills-lms-4859/2"
 holder = "drill-chuck-r8"
-depth_mm = 0.50 # author's choice, shallow spot inside the #2 pilot length
+depth_mm = 0.50 # author's choice, shallow spot inside the #2 pilot length (1.98 mm drill length, Machinery's Handbook 27th ed. Table 6 p.873)
 approach_mm = 5.0
 
 [[setups.ops]]
@@ -488,14 +488,14 @@ do = "spot"
 feature = "rod_hole"
 tool = "center-drills-lms-4859/2"
 holder = "drill-chuck-r8"
-depth_mm = 0.50 # author's choice, shallow spot from the lower strap face in frame B
+depth_mm = 0.50 # author's choice, shallow spot from the lower strap face in frame B, inside the #2 pilot length (1.98 mm, Machinery's Handbook 27th ed. Table 6 p.873)
 approach_mm = 5.0
 
 [[setups.ops]]
 op = 33
 do = "drill"
 feature = "rod_hole"
-tool = "rocker-rod-pilot-drill/1.90mm" # illustrative metric purchase, 0.104 mm diametral stock for the following ream
+tool = "rocker-rod-pilot-drill/1.85mm" # illustrative metric purchase, 0.154 mm diametral (0.077 mm, .0030 in, radial) stock for the 2.004 reamer, inside Machinery's Handbook 27th ed. p.1133 reamer depth of cut .003-.004 in for holes 1/8 in or less
 holder = "drill-chuck-r8"
 exit_mm = 1.5 # author's choice, full drill diameter beyond local strap exit
 approach_mm = 5.0

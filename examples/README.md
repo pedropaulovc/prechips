@@ -116,9 +116,11 @@ Shared inputs:
   turning, dome, relief, part-off and cut-to-fit, plus saw cut-off), the
   material-force/modulus row and one deep-hole
   drill derate. Every row is labelled `example (plausible, not measured)` and its
-  citation names the published range it sits inside (Machinery's Handbook
-  Pocket Companion, ISBN 978-0-8311-3095-4, Tables 1 and 10; tool-maker,
-  saw-maker and university charts). These are starting values, not shop
+  citation names the Machinery's Handbook 27th edition table, printed page and
+  range the value sits inside (revision 4); tool-maker, saw-maker and university
+  charts appear only as secondary citations. Reamer pre-drills leave radial
+  stock inside the handbook's p.1133 reamer depth of cut (.003-.004 in for holes
+  1/8 in or less, .004-.008 in over). These are starting values, not shop
   measurements. The generic `Plain Carbon Steel` alias is a candidate
   classification, not a sourced grade or measured carbon content.
 
@@ -198,7 +200,7 @@ halfway through a fixed setup:
   magnetic end stop touches the left blank end for positioning only; it carries
   no cutting load and does not modify Pedro's vise. S2 adds adjustable passive
   jacks under the S1-finished strap, set to just contact without lifting the
-  rails. The rod hole is spotted, drilled 1.90 mm and reamed 2.00 mm before the
+  rails. The rod hole is spotted, drilled 1.85 mm and reamed 2.00 mm before the
   outside pockets leave only the web. The visible process HOLD uses GO 2.000 /
   NO-GO 2.010; the wider drawing band alone does not authorize loading the pin.
 - **S3 — supported upper hub and ream.** Stepped padded straps press over the
@@ -581,7 +583,7 @@ citation map for the generated exports. The bracket remains authored.
   geometry follows the STEP/spec: 16 mm foot width, 24.2 mm foot run, 6 mm foot
   height/ear thickness, 14 mm ear width, R7 crown, 4.572 mm hold-down holes and
   6.50 mm reamed cross-bore at 25.2 mm above the seat. The #15 drill and
-  1/4 in predrill have labelled illustrative dimensions in the inventory.
+  letter D predrill have labelled illustrative dimensions in the inventory.
 
 **Historical handwritten/general-band reconciliation:** the shaft/rocker M1
 bundles used title-block numeric inch rows ×25.4: 0.762 / 0.508 / 0.127 mm.

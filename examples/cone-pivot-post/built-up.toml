@@ -298,8 +298,8 @@ holder = "qctp-axa-lms-2280/1-turning-facing"
 to_z = 0.0
 to_dia = 0.0
 direction = "radially_inward"
-doc_mm = 0.5 # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.040 in (1.0 mm) DOC
-feed_mm_rev = 0.08 # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.004 in/rev (0.10 mm)
+doc_mm = 0.5 # example (plausible, not measured); below the 0.04 in (1.0 mm) smallest depth column of Machinery's Handbook 27th ed. Table 5a p.1035, whose depth factor only raises speed for lighter cuts (Table 1 p.1027 carbide basis 0.1 in depth, p.1026)
+feed_mm_rev = 0.08 # example (plausible, not measured); .0031 in/rev, inside Machinery's Handbook 27th ed. Table 5a p.1035 feed ratios 0.1-1.0 of Table 1 p.1027 optimum feed .017 in/rev (.0017-.017 in/rev)
 approach_mm = 3.0
 note = "This face is datum B. Finish with a light pass for the Ra."
 [setups.ops.checks]
@@ -315,8 +315,8 @@ z_from = 0.0
 z_to = -95.0 # AUTHOR'S CHOICE: 9 mm past the head top, 5 mm short of the jaws
 rough_allowance_mm = 0.4 # AUTHOR'S CHOICE on DIAMETER
 direction = "toward_chuck"
-doc_mm = 0.35 # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.040 in (1.0 mm) DOC
-feed_mm_rev = 0.1 # example (plausible, not measured); at littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.004 in/rev (0.10 mm)
+doc_mm = 0.35 # example (plausible, not measured); below the 0.04 in (1.0 mm) smallest depth column of Machinery's Handbook 27th ed. Table 5a p.1035, whose depth factor only raises speed for lighter cuts (Table 1 p.1027 carbide basis 0.1 in depth, p.1026)
+feed_mm_rev = 0.1 # example (plausible, not measured); .0039 in/rev, inside Machinery's Handbook 27th ed. Table 5a p.1035 feed ratios 0.1-1.0 of Table 1 p.1027 optimum feed .017 in/rev (.0017-.017 in/rev)
 approach_mm = 3.0
 note = "Two passes, stopping 5 mm short of the jaws."
 [[setups.ops]]
@@ -329,8 +329,8 @@ holder = "qctp-axa-lms-2280/1-turning-facing"
 z_from = 0.0
 z_to = -95.0
 direction = "toward_chuck"
-doc_mm = 0.2 # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.040 in (1.0 mm) DOC
-feed_mm_rev = 0.05 # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.004 in/rev (0.10 mm)
+doc_mm = 0.2 # example (plausible, not measured); below the 0.04 in (1.0 mm) smallest depth column of Machinery's Handbook 27th ed. Table 5a p.1035, whose depth factor only raises speed for lighter cuts (Table 1 p.1027 carbide basis 0.1 in depth, p.1026)
+feed_mm_rev = 0.05 # example (plausible, not measured); .0020 in/rev, inside Machinery's Handbook 27th ed. Table 5a p.1035 feed ratios 0.1-1.0 of Table 1 p.1027 optimum feed .017 in/rev (.0017-.017 in/rev)
 approach_mm = 3.0
 note = "The head keeps this diameter; ops 40-50 then turn the body down to the shoulder."
 [setups.ops.checks]
@@ -346,8 +346,8 @@ z_from = 0.0
 z_to = -59.4 # AUTHOR'S CHOICE: run the rough pass to the shoulder plane so the claimed body face is turned over its whole length; op 50 cuts the corner
 rough_allowance_mm = 0.3 # AUTHOR'S CHOICE on DIAMETER
 direction = "toward_chuck"
-doc_mm = 0.25 # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.040 in (1.0 mm) DOC
-feed_mm_rev = 0.1 # example (plausible, not measured); at littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.004 in/rev (0.10 mm)
+doc_mm = 0.25 # example (plausible, not measured); below the 0.04 in (1.0 mm) smallest depth column of Machinery's Handbook 27th ed. Table 5a p.1035, whose depth factor only raises speed for lighter cuts (Table 1 p.1027 carbide basis 0.1 in depth, p.1026)
+feed_mm_rev = 0.1 # example (plausible, not measured); .0039 in/rev, inside Machinery's Handbook 27th ed. Table 5a p.1035 feed ratios 0.1-1.0 of Table 1 p.1027 optimum feed .017 in/rev (.0017-.017 in/rev)
 approach_mm = 3.0
 note = "Rough the body to the shoulder, disengaging the feed early and hand-feeding the last 1 mm to the Z DRO reading; withdraw radially up the shoulder."
 [[setups.ops]]
@@ -360,8 +360,8 @@ holder = "qctp-axa-lms-2280/1-turning-facing"
 z_from = 0.0
 z_to = -59.4 # AUTHOR'S CHOICE: the R0.2 nose forms the body-to-head corner inside the R0.25 maximum
 direction = "toward_chuck"
-doc_mm = 0.15 # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.040 in (1.0 mm) DOC
-feed_mm_rev = 0.05 # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.004 in/rev (0.10 mm)
+doc_mm = 0.15 # example (plausible, not measured); below the 0.04 in (1.0 mm) smallest depth column of Machinery's Handbook 27th ed. Table 5a p.1035, whose depth factor only raises speed for lighter cuts (Table 1 p.1027 carbide basis 0.1 in depth, p.1026)
+feed_mm_rev = 0.05 # example (plausible, not measured); .0020 in/rev, inside Machinery's Handbook 27th ed. Table 5a p.1035 feed ratios 0.1-1.0 of Table 1 p.1027 optimum feed .017 in/rev (.0017-.017 in/rev)
 approach_mm = 3.0
 note = "Hand-feed the last 1 mm to the Z DRO reading, then withdraw radially up the shoulder; the R0.2 nose leaves the corner. Mic at three stations for taper."
 process_holds = [{ feature = "body", requirement = "dia", band = [41.99, 42.03], gauge = "micrometers/1-2in", reason = "AUTHOR'S CHOICE: the S6, S7, S10 and S12 cradle saddles are bored 42.011, and their cone pins, crank pins and cap pad are set for that body; 41.99-42.03 keeps the body axis within 0.022 of that height in the shallow saddles" }]
@@ -439,8 +439,8 @@ holder = "qctp-axa-lms-2280/1-turning-facing"
 to_z = 21.0055
 to_dia = 0.0 # AUTHOR'S CHOICE: face the solid blank to the centre; the journal bore is drilled after bonding
 direction = "radially_inward"
-doc_mm = 0.25 # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.040 in (1.0 mm) DOC
-feed_mm_rev = 0.05 # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.004 in/rev (0.10 mm)
+doc_mm = 0.25 # example (plausible, not measured); below the 0.04 in (1.0 mm) smallest depth column of Machinery's Handbook 27th ed. Table 5a p.1035, whose depth factor only raises speed for lighter cuts (Table 1 p.1027 carbide basis 0.1 in depth, p.1026)
+feed_mm_rev = 0.05 # example (plausible, not measured); .0020 in/rev, inside Machinery's Handbook 27th ed. Table 5a p.1035 feed ratios 0.1-1.0 of Table 1 p.1027 optimum feed .017 in/rev (.0017-.017 in/rev)
 approach_mm = 3.0
 note = "Finish with a light pass for the Ra. This cap ends up on the outside of the post."
 [setups.ops.checks]
@@ -455,8 +455,8 @@ z_from = 21.0055
 z_to = -23.0 # AUTHOR'S CHOICE: 2 mm past the parting plane, 5 mm short of the jaws
 rough_allowance_mm = 0.2 # AUTHOR'S CHOICE on DIAMETER
 direction = "toward_chuck"
-doc_mm = 0.4 # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.040 in (1.0 mm) DOC
-feed_mm_rev = 0.08 # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.004 in/rev (0.10 mm)
+doc_mm = 0.4 # example (plausible, not measured); below the 0.04 in (1.0 mm) smallest depth column of Machinery's Handbook 27th ed. Table 5a p.1035, whose depth factor only raises speed for lighter cuts (Table 1 p.1027 carbide basis 0.1 in depth, p.1026)
+feed_mm_rev = 0.08 # example (plausible, not measured); .0031 in/rev, inside Machinery's Handbook 27th ed. Table 5a p.1035 feed ratios 0.1-1.0 of Table 1 p.1027 optimum feed .017 in/rev (.0017-.017 in/rev)
 approach_mm = 3.0
 [[setups.ops]]
 op = 30
@@ -467,8 +467,8 @@ holder = "qctp-axa-lms-2280/1-turning-facing"
 z_from = 21.0055
 z_to = -23.0
 direction = "toward_chuck"
-doc_mm = 0.1 # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.040 in (1.0 mm) DOC
-feed_mm_rev = 0.03 # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.004 in/rev (0.10 mm)
+doc_mm = 0.1 # example (plausible, not measured); below the 0.04 in (1.0 mm) smallest depth column of Machinery's Handbook 27th ed. Table 5a p.1035, whose depth factor only raises speed for lighter cuts (Table 1 p.1027 carbide basis 0.1 in depth, p.1026)
+feed_mm_rev = 0.045 # example (plausible, not measured); .0018 in/rev, inside Machinery's Handbook 27th ed. Table 5a p.1035 feed ratios 0.1-1.0 of Table 1 p.1027 optimum feed .017 in/rev (.0017-.017 in/rev)
 approach_mm = 3.0
 note = "Finish to the bonding size. Mic both ends and the middle."
 [setups.ops.checks]
@@ -484,8 +484,8 @@ to_z = -21.0505 # AUTHOR'S CHOICE: part the sleeve 42.056 long, 0.045 over the C
 to_dia = 0.0
 direction = "radially_inward"
 approach_mm = 3.0
-doc_mm = 0.25 # example (plausible, not measured); radial hand peck, UFL 'Parting on Lathe' Step 6: feed by hand, never power feed, and peck to break up the chips
-feed_mm_rev = 0.025 # example (plausible, not measured); UFL 'Speeds and Feeds' Example 5 tip parting 0.001 in/rev (0.025 mm) for steels, hand-fed
+doc_mm = 0.25 # example (plausible, not measured); radial hand peck: the handbook gives cutoff feed (p.1132), not a peck depth; UFL 'Parting on Lathe' Step 6: feed by hand, never power feed, and peck to break up the chips
+feed_mm_rev = 0.025 # example (plausible, not measured); .0010 in/rev, inside Machinery's Handbook 27th ed. p.1132 cutoff-tool feeds .0006-.0015 in/rev, hand-fed
 note = "Before parting, lay a folded rag in the chip tray under the cut. Keep the blade width on the chuck side of the line. Let the sleeve drop onto the rag, stop the spindle, then pick it up. Never reach under turning work."
 [[setups.ops]]
 op = 50
@@ -562,8 +562,8 @@ holder = "qctp-axa-lms-2280/1-turning-facing"
 to_z = 0.0
 to_dia = 0.0 # AUTHOR'S CHOICE: face the solid blank to the centre; the crank bore is drilled after bonding
 direction = "radially_inward"
-doc_mm = 0.25 # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.040 in (1.0 mm) DOC
-feed_mm_rev = 0.05 # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.004 in/rev (0.10 mm)
+doc_mm = 0.25 # example (plausible, not measured); below the 0.04 in (1.0 mm) smallest depth column of Machinery's Handbook 27th ed. Table 5a p.1035, whose depth factor only raises speed for lighter cuts (Table 1 p.1027 carbide basis 0.1 in depth, p.1026)
+feed_mm_rev = 0.05 # example (plausible, not measured); .0020 in/rev, inside Machinery's Handbook 27th ed. Table 5a p.1035 feed ratios 0.1-1.0 of Table 1 p.1027 optimum feed .017 in/rev (.0017-.017 in/rev)
 approach_mm = 3.0
 note = "Face the 1 mm allowance off the north face."
 [[setups.ops]]
@@ -576,8 +576,8 @@ z_from = 0.0
 z_to = -73.0 # AUTHOR'S CHOICE: 1 mm past the parting plane, 6 mm short of the jaws
 rough_allowance_mm = 0.2 # AUTHOR'S CHOICE on DIAMETER
 direction = "toward_chuck"
-doc_mm = 0.25 # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.040 in (1.0 mm) DOC
-feed_mm_rev = 0.05 # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.004 in/rev (0.10 mm)
+doc_mm = 0.25 # example (plausible, not measured); below the 0.04 in (1.0 mm) smallest depth column of Machinery's Handbook 27th ed. Table 5a p.1035, whose depth factor only raises speed for lighter cuts (Table 1 p.1027 carbide basis 0.1 in depth, p.1026)
+feed_mm_rev = 0.05 # example (plausible, not measured); .0020 in/rev, inside Machinery's Handbook 27th ed. Table 5a p.1035 feed ratios 0.1-1.0 of Table 1 p.1027 optimum feed .017 in/rev (.0017-.017 in/rev)
 approach_mm = 3.0
 [[setups.ops]]
 op = 30
@@ -588,8 +588,8 @@ holder = "qctp-axa-lms-2280/1-turning-facing"
 z_from = 0.0
 z_to = -73.0
 direction = "toward_chuck"
-doc_mm = 0.1 # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.040 in (1.0 mm) DOC
-feed_mm_rev = 0.03 # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.004 in/rev (0.10 mm)
+doc_mm = 0.1 # example (plausible, not measured); below the 0.04 in (1.0 mm) smallest depth column of Machinery's Handbook 27th ed. Table 5a p.1035, whose depth factor only raises speed for lighter cuts (Table 1 p.1027 carbide basis 0.1 in depth, p.1026)
+feed_mm_rev = 0.045 # example (plausible, not measured); .0018 in/rev, inside Machinery's Handbook 27th ed. Table 5a p.1035 feed ratios 0.1-1.0 of Table 1 p.1027 optimum feed .017 in/rev (.0017-.017 in/rev)
 approach_mm = 3.0
 note = "Finish to the bonding size. Mic both ends and the middle."
 [setups.ops.checks]
@@ -605,8 +605,8 @@ to_z = -72.0344 # source boss length, spec:55-56
 to_dia = 0.0
 direction = "radially_inward"
 approach_mm = 3.0
-doc_mm = 0.25 # example (plausible, not measured); radial hand peck, UFL 'Parting on Lathe' Step 6: feed by hand, never power feed, and peck to break up the chips
-feed_mm_rev = 0.025 # example (plausible, not measured); UFL 'Speeds and Feeds' Example 5 tip parting 0.001 in/rev (0.025 mm) for steels, hand-fed
+doc_mm = 0.25 # example (plausible, not measured); radial hand peck: the handbook gives cutoff feed (p.1132), not a peck depth; UFL 'Parting on Lathe' Step 6: feed by hand, never power feed, and peck to break up the chips
+feed_mm_rev = 0.025 # example (plausible, not measured); .0010 in/rev, inside Machinery's Handbook 27th ed. p.1132 cutoff-tool feeds .0006-.0015 in/rev, hand-fed
 note = "Before parting, lay a folded rag in the chip tray under the cut. Keep the blade width on the chuck side of the line. Let the sleeve drop onto the rag, stop the spindle, then pick it up. Never reach under turning work."
 [setups.ops.checks]
 length = "calipers"
@@ -688,7 +688,7 @@ do = "spot"
 feature = "crank_socket"
 tool = "center-drills-lms-4859/2"
 holder = "drill-chuck-r8"
-depth_mm = 2.0 # example (plausible, not measured); Machinery's Handbook Pocket Companion (ISBN 978-0-8311-3095-4) p.113 Table 3a size 2 combined drill and countersink: 5/64 in (1.98 mm) drill, 1.98 mm drill length, so the 60° countersink just starts
+depth_mm = 2.0 # example (plausible, not measured); Machinery's Handbook 27th ed. Table 6 p.873 size 2 combined drill and countersink: 5/64 in (1.98 mm) drill diameter, 5/64 in (1.98 mm) drill length, so the 60° countersink just starts
 approach_mm = 5.0
 note = "Spot at X-72.7 Y0 on the top of the head."
 [[setups.ops]]
@@ -704,11 +704,11 @@ note = "Pilot through the head, pecking every 6 mm to clear chips."
 op = 30
 do = "drill"
 feature = "crank_socket"
-tool = "cone-joint-drill-21p5"
+tool = "cone-joint-drill-21p75"
 holder = "drill-chuck-r8"
 exit_mm = 0.5
 approach_mm = 5.0
-note = "Open the pilot; this leaves 0.51 mm on diameter for the reamer."
+note = "Open the pilot; this leaves 0.26 mm on diameter for the reamer."
 [[setups.ops]]
 op = 40
 do = "ream"
@@ -789,7 +789,7 @@ do = "spot"
 feature = "cone_socket"
 tool = "center-drills-lms-4859/2"
 holder = "drill-chuck-r8"
-depth_mm = 2.0 # example (plausible, not measured); Machinery's Handbook Pocket Companion (ISBN 978-0-8311-3095-4) p.113 Table 3a size 2 combined drill and countersink: 5/64 in (1.98 mm) drill, 1.98 mm drill length, so the 60° countersink just starts
+depth_mm = 2.0 # example (plausible, not measured); Machinery's Handbook 27th ed. Table 6 p.873 size 2 combined drill and countersink: 5/64 in (1.98 mm) drill diameter, 5/64 in (1.98 mm) drill length, so the 60° countersink just starts
 approach_mm = 5.0
 note = "Spot at X-33.37 Y0 on the top of the body."
 [[setups.ops]]
@@ -1007,7 +1007,7 @@ do = "spot"
 feature = "crank_bore"
 tool = "center-drills-lms-4859/2"
 holder = "drill-chuck-r8"
-depth_mm = 2.0 # example (plausible, not measured); Machinery's Handbook Pocket Companion (ISBN 978-0-8311-3095-4) p.113 Table 3a size 2 combined drill and countersink: 5/64 in (1.98 mm) drill, 1.98 mm drill length, so the 60° countersink just starts
+depth_mm = 2.0 # example (plausible, not measured); Machinery's Handbook 27th ed. Table 6 p.873 size 2 combined drill and countersink: 5/64 in (1.98 mm) drill diameter, 5/64 in (1.98 mm) drill length, so the 60° countersink just starts
 approach_mm = 5.0
 note = "Spot at X-72.885 Y0 on the sleeve north face, 0.185 toward the head top from the sleeve centre."
 [[setups.ops]]
@@ -1100,7 +1100,7 @@ do = "spot"
 feature = "journal_bore"
 tool = "center-drills-lms-4859/2"
 holder = "drill-chuck-r8"
-depth_mm = 2.0 # example (plausible, not measured); Machinery's Handbook Pocket Companion (ISBN 978-0-8311-3095-4) p.113 Table 3a size 2 combined drill and countersink: 5/64 in (1.98 mm) drill, 1.98 mm drill length, so the 60° countersink just starts
+depth_mm = 2.0 # example (plausible, not measured); Machinery's Handbook 27th ed. Table 6 p.873 size 2 combined drill and countersink: 5/64 in (1.98 mm) drill diameter, 5/64 in (1.98 mm) drill length, so the 60° countersink just starts
 approach_mm = 5.0
 note = "Spot at X-33.37 Y0, the centre of the north cap: Y0 is the post axis from the body crest, and the journal axis crosses it."
 [[setups.ops]]
@@ -1161,7 +1161,7 @@ clamp = "AUTHOR'S CHOICE: clamp the post with the cap bridge (C1) while the saw 
 [[setups.ops]]
 op = 10
 do = "saw_cut"
-tool = "bandsaw-blade-10-14"
+tool = "bandsaw-blade-4-6"
 cut_plane = { axis = "x", value = -1.75, keep = "above" }
 note = "With the post clamped, slide the cradle in the open saw vise until the blade touches the scribed line, then close the vise on the cradle base; the 1.5 mm kerf leaves the head 87 mm tall and the cradle base ends 3 mm on the kept side of the kerf. Set the blade guides outside the 44.45 mm tail. Saw with the blade centred on the line; the tail drops clear as the cut breaks through, leaving 1 mm on the head top for S11."
 
@@ -1234,7 +1234,7 @@ faces = ["#431/ADVANCED_FACE[12]/HAF_HEAD__P02"]
 tool = "endmills-lms-6784/3-4in-4fl"
 holder = "r8-collets-lms-4860/3-4in"
 to_z = 86.0
-doc_mm = 0.5 # AUTHOR'S CHOICE: the 3/4 cutter projects about 3xD from the collet; example (plausible, not measured), lighter than the .050 in (1.27 mm) depth-of-cut end-mill column of Machinery's Handbook Pocket Companion (ISBN 978-0-8311-3095-4) p.137 Table 10
+doc_mm = 0.5 # AUTHOR'S CHOICE: the 3/4 cutter projects about 3xD from the collet; example (plausible, not measured), lighter than the .050 in (1.27 mm) depth-of-cut end-mill column of Machinery's Handbook 27th ed. Table 15a p.1054
 approach_mm = 5.0
 direction = "conventional"
 stock_removal_bounds = { x = [-26.2, 26.2], y = [-26.2, 26.2], z = [86.0, 87.0] }
@@ -1248,7 +1248,7 @@ do = "spot"
 feature = "mount_west"
 tool = "center-drills-lms-4859/2"
 holder = "drill-chuck-r8"
-depth_mm = 2.0 # example (plausible, not measured); Machinery's Handbook Pocket Companion (ISBN 978-0-8311-3095-4) p.113 Table 3a size 2 combined drill and countersink: 5/64 in (1.98 mm) drill, 1.98 mm drill length, so the 60° countersink just starts
+depth_mm = 2.0 # example (plausible, not measured); Machinery's Handbook 27th ed. Table 6 p.873 size 2 combined drill and countersink: 5/64 in (1.98 mm) drill diameter, 5/64 in (1.98 mm) drill length, so the 60° countersink just starts
 approach_mm = 5.0
 [[setups.ops]]
 op = 30
@@ -1256,7 +1256,7 @@ do = "spot"
 feature = "mount_east"
 tool = "center-drills-lms-4859/2"
 holder = "drill-chuck-r8"
-depth_mm = 2.0 # example (plausible, not measured); Machinery's Handbook Pocket Companion (ISBN 978-0-8311-3095-4) p.113 Table 3a size 2 combined drill and countersink: 5/64 in (1.98 mm) drill, 1.98 mm drill length, so the 60° countersink just starts
+depth_mm = 2.0 # example (plausible, not measured); Machinery's Handbook 27th ed. Table 6 p.873 size 2 combined drill and countersink: 5/64 in (1.98 mm) drill diameter, 5/64 in (1.98 mm) drill length, so the 60° countersink just starts
 approach_mm = 5.0
 [[setups.ops]]
 op = 40
@@ -1289,7 +1289,7 @@ feature = "mount_west_counterbore"
 tool = "endmills-lms-6784/7-16in-2fl"
 holder = "r8-collets-lms-4860/3-8in"
 depth_mm = 6.0198
-doc_mm = 0.5 # example (plausible, not measured); plunge step lighter than the .050 in (1.27 mm) depth-of-cut end-mill column of Machinery's Handbook Pocket Companion (ISBN 978-0-8311-3095-4) p.137 Table 10
+doc_mm = 0.5 # example (plausible, not measured); plunge step lighter than the .050 in (1.27 mm) depth-of-cut end-mill column of Machinery's Handbook 27th ed. Table 15a p.1054
 approach_mm = 5.0
 note = "Plunge the centre-cutting 7/16 in end mill to a flat seat 6.02 mm below the head top; the 11.11 mm cutter is inside the 11.0-12.02 mm band."
 [setups.ops.checks]
@@ -1302,7 +1302,7 @@ feature = "mount_east_counterbore"
 tool = "endmills-lms-6784/7-16in-2fl"
 holder = "r8-collets-lms-4860/3-8in"
 depth_mm = 6.0198
-doc_mm = 0.5 # example (plausible, not measured); plunge step lighter than the .050 in (1.27 mm) depth-of-cut end-mill column of Machinery's Handbook Pocket Companion (ISBN 978-0-8311-3095-4) p.137 Table 10
+doc_mm = 0.5 # example (plausible, not measured); plunge step lighter than the .050 in (1.27 mm) depth-of-cut end-mill column of Machinery's Handbook 27th ed. Table 15a p.1054
 approach_mm = 5.0
 [setups.ops.checks]
 dia = "calipers"
