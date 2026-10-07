@@ -245,22 +245,22 @@ deburr_mm = 0.25
 deburr_cite = ["harmonic-analyzer/cad/config/title_block.yaml:45"]
 [setups.stock_state]
 od_mm = 44.45
-north_end_z = 2.0 # AUTHOR'S CHOICE: 2 mm foot facing allowance
+north_end_z = 2.0 # AUTHOR'S CHOICE: nominal 2 mm foot facing allowance on a 127 mm blank; the Z zero uses the measured blank length M
 south_end_z = -125.0
-note = "AUTHOR'S CHOICE: raw 1-3/4 in bar from the foot end Z+2 to the tail end Z-125."
+note = "AUTHOR'S CHOICE: raw 1-3/4 in bar, nominal 127 long, from the foot end Z+2 to the tail end Z-125. Op 10 faces the foot end to Z0, which leaves the post exactly 125.0 from finished foot B to the tail end whatever the sawn blank measures."
 [setups.hold]
 fixture = "chuck-3jaw-6-d1-4"
 support = "none"
 grip_on = "AUTHOR'S CHOICE: the last 25 mm of the raw tail"
 grip_mm = 25.0
-stickout_mm = 102.0 # AUTHOR'S CHOICE: jaw fronts Z-100 to raw foot end Z+2
+stickout_mm = 102.0 # AUTHOR'S CHOICE: nominal M - 25; jaw fronts Z-100 to raw foot end Z+2
 fixed_jaw = "not_applicable"
 jaws_along = "not_applicable"
 parallels = "not_applicable"
 jaw_above_parallels_mm = "not_applicable"
 pose = { origin_mm = [0.0, 0.0, -100.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
 jaw_clock_deg = 0.0
-stop = "AUTHOR'S CHOICE: set 102 mm of bar out of the jaws with a steel rule."
+stop = "AUTHOR'S CHOICE: before chucking, caliper the sawn blank end to end over its high spots: M (nominal 127.0). Set M - 25 mm of bar out of the jaws with a steel rule (102 when M reads 127.0), so the jaw fronts sit 100 mm behind finished foot B."
 clamp = "Tighten all three chuck pinions on the raw tail; remove the key. Check the bar runs true within 0.1 mm at the foot end before facing."
 [setups.zero.x]
 feature = "spindle_axis"
@@ -271,13 +271,15 @@ tool = "turning-tools-warner-lms-4132/AR"
 gauge = "micrometers/1-2in"
 check_jog_mm = 10.0
 [setups.zero.z]
-face = "foot_seat"
-edge_mm = 0.0
+face = "raw foot end"
+edge_mm = 2.0 # nominal raw end; the Axis Set uses the measured blank length M, not this
 from = "+z"
-method = "face_then_set"
-after_op = 10
+method = "measure_then_set" # AUTHOR'S CHOICE: the sawn blank length varies, so it is measured and op 10 faces it to exactly 125.0
+gauge = "calipers"
+measure = "before chucking: caliper the sawn blank end to end over its high spots (nominal 127.0); touch T1 on the high spot of the raw foot end"
+offset_mm = -125.0 # finished foot B is Z0, 125.0 from the raw tail end
 tool = "turning-tools-warner-lms-4132/AR"
-paper_mm = 0.0
+paper_mm = 0.0 # touch with the spindle running until the first chip shows: the raw end is waste, faced off in op 10
 check_jog_mm = 10.0
 retouch_after = []
 [[setups.zero.tool_touches]]
@@ -301,7 +303,7 @@ direction = "radially_inward"
 doc_mm = 0.5 # example (plausible, not measured); below the 0.04 in (1.0 mm) smallest depth column of Machinery's Handbook 27th ed. Table 5a p.1035, whose depth factor only raises speed for lighter cuts (Table 1 p.1027 carbide basis 0.1 in depth, p.1026)
 feed_mm_rev = 0.08 # example (plausible, not measured); .0031 in/rev, inside Machinery's Handbook 27th ed. Table 5a p.1035 feed ratios 0.1-1.0 of Table 1 p.1027 optimum feed .017 in/rev (.0017-.017 in/rev)
 approach_mm = 3.0
-note = "This face is datum B. Finish with a light pass for the Ra."
+note = "This face is datum B. Face in passes down to the Z0 DRO reading (M - 125 mm off the raw end, 2 mm on a 127.0 blank), then a light finishing pass for the Ra; the post is now 125.0 long, foot B to the raw tail end."
 [setups.ops.checks]
 finish_ra = "roughness-comparator"
 [[setups.ops]]
@@ -648,8 +650,9 @@ parallels = "not_applicable"
 jaw_above_parallels_mm = "not_applicable"
 pose = { origin_mm = [-105.0, 0.0, 0.0], x = [0.0, 0.0, 1.0], z = [1.0, 0.0, 0.0] }
 jaw_clock_deg = 0.0
-stop = "AUTHOR'S CHOICE: tail end against the chuck body face, 105 mm of post out of the jaws. Indicate the turned head and body to run true within 0.02 mm, then indicate foot B square to the head axis."
+stop = "AUTHOR'S CHOICE: caliper the post from foot B to the raw tail end first: it must read 125.0, as S1 op 10 left it. Tail end against the chuck body face, so 105 mm of post stands out of the jaws. Indicate the turned head and body to run true within 0.02 mm, then indicate foot B square to the head axis."
 clamp = "AUTHOR'S CHOICE: tighten each independent jaw a little at a time while indicating. Then align the head with the table: with the DTI in the spindle, sweep the top of the body along X from foot B to the shoulder, then its side; tap the head on the table until each sweep reads within 0.01 mm, tighten the head bolts and re-check both sweeps and the runout. Remove the key and lock the spindle before drilling."
+note = "AUTHOR'S CHOICE: Ra witness bores, made once before the dividing head goes on the table, because the roughness comparator cannot reach inside the Ø11.4 crank and Ø12.3 journal bores (S8 op 30, S9 op 30 and S11 ops 100-110 compare against them). Saw two 1018 offcuts about 15 mm long, one from the 25 mm crank bar and one from the 3/4 in cone bar. Grip each in the mill vise and, with cutting oil, drill the crank offcut 11.2 and ream it with the 0.4500 in reamer at the S8 op 30 speed and feed, then drill the cone offcut 12.05 and ream it with the 0.4835 in reamer at the S9 op 30 speed and feed, each with a steady quill feed and the reamer lead run out of the far side. Mark them crank and journal and keep them with the job."
 [setups.hold.index]
 fixture = "BS-0"
 feature = "crank_bore"
@@ -750,6 +753,7 @@ jaw_above_parallels_mm = "not_applicable"
 pose = { origin_mm = [-105.0, 0.0, 0.0], x = [0.0, 0.0, 1.0], z = [1.0, 0.0, 0.0] }
 jaw_clock_deg = 12.5182
 stop = "AUTHOR'S CHOICE: same chucking as S4; do not loosen the jaws."
+note = "AUTHOR'S CHOICE: the work never moves in the jaws in this setup, because the S4 crank socket fixes the post's turn about its axis. If the alignment sweep below reads over 0.02 mm, do not loosen or tap the work. Recovery: unlock the spindle, index back to the zero hole (the S4 position) and lock it; with the DTI in the spindle, run the tip down the reamed Ø22.01 crank-socket wall by quill feed, once on the -Y side and once on the +Y side. If each reading holds within one dial division (0.0005 in) over the socket depth, the post has not turned: re-align the head as in S4 (tap the head body on the table, never the work, until the top and side sweeps of the body along X each read within 0.01 mm, then tighten the head bolts), re-index to the plate setting and sweep again. If the socket wall does not hold one division, the post has turned in the jaws: ease one jaw, turn the post until both socket-wall readings hold one division, re-tighten each jaw a little at a time while indicating the head and body to 0.02 mm, then re-index."
 clamp = "AUTHOR'S CHOICE: unlock the spindle and index by the plate setting on the Index line below; then lock the spindle before drilling."
 [setups.hold.index]
 fixture = "BS-0"
@@ -860,7 +864,7 @@ jaw_above_parallels_mm = "not_applicable"
 pose = { origin_mm = [0.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
 stop = "AUTHOR'S CHOICE: the foot stop locates foot B; the two cone pins carry the north cap, which centres the sleeve on the post axis."
 clamp = "none"
-note = "Cradle assembly, once before first use: screw the body saddle, tail saddle and foot stop to the base with the M5 screws from below, snug. Ream each pair of Ø4 dowel holes through the base and 7 mm into the part above, press the dowels in flush with the base underside, then tighten the screws. With the cradle clamped flat on the mill, bore the body and tail seats in one setting on one axis and face the foot stop square to that axis, so the locating surfaces are cut after the parts are pinned. Last, ream the crank-pin holes square to the base and the cone-pin holes tilted 12.52° (square to the cone cap) and press each pin until its top reaches the drawn height, checked with the height gauge from the base top"
+note = "Cradle assembly, once before first use: screw the body saddle, tail saddle and foot stop to the base with the M5 screws from below, snug. Ream each pair of Ø4 dowel holes through the base and 7 mm into the part above, press the dowels in flush with the base underside, then tighten the screws. With the cradle clamped flat on the mill, bore the body and tail seats in one setting on one axis and face the foot stop square to that axis, so the locating surfaces are cut after the parts are pinned. Last, ream the crank-pin holes square to the base and the cone-pin holes tilted 12.52° (square to the cone cap), and press each pin in until its top reads, with the height gauge from the base top: crank pins 8.62; cone pins 9.93 at the high (-X) edge of the tilted top, which puts its centre at 9.49."
 [[setups.ops]]
 op = 10
 do = "inspect"
@@ -1032,6 +1036,15 @@ note = "Ream with cutting oil and a steady feed; run the lead out of the far end
 [setups.ops.checks]
 dia = "bore-gauge-small"
 finish_ra = "roughness-comparator"
+# AUTHOR'S CHOICE: Machinery's Handbook 27th ed. Table 1 p.730 puts Ra 1.6 (63 µin) inside reaming's
+# average-application band (Ra 3.2-0.8 µm); p.724 names roughness comparison specimens (ASME B46.1).
+# The comparator cannot enter a Ø11.4 bore, so a witness bore reamed the same way stands in for it.
+[setups.ops.inspection_methods]
+finish_ra = [
+  "AUTHOR'S CHOICE: take the crank witness reamed before S4 (S4 hold note). Hacksaw it along its bore axis, beside the bore, and break it open to expose half the bore wall without touching the wall.",
+  "Under the measuring loupe, in one light, lay the witness wall beside the comparator's turned Ra 1.6 and Ra 3.2 specimens and draw a fingernail across the lay of each: the witness must look and feel no rougher than Ra 1.6. Write yes or no: {witness}",
+  "Shine a light into the part bore and look along it with the loupe from each mouth: the wall must show the same even reamed lay as the witness, with no chatter bands, tears or scores. Write yes or no: {bore}",
+]
 
 # ======================================================================= S9
 [[setups]]
@@ -1062,6 +1075,7 @@ jaw_above_parallels_mm = "not_applicable"
 pose = { origin_mm = [-105.0, 0.0, 0.0], x = [0.0, 0.0, 1.0], z = [1.0, 0.0, 0.0] }
 jaw_clock_deg = 12.5182
 stop = "AUTHOR'S CHOICE: same chucking as S8; do not loosen the jaws."
+note = "AUTHOR'S CHOICE: the work never moves in the jaws in this setup, because the S8 crank bore fixes the post's turn about its axis. If the alignment sweep below reads over 0.02 mm, do not loosen or tap the work. Recovery: unlock the spindle, index back to the zero hole (the S8 position) and lock it; with the DTI in the spindle, run the tip down the reamed Ø11.43 crank-bore wall by quill feed, once on the -Y side and once on the +Y side. If each reading holds within one dial division (0.0005 in) over the bore depth, the post has not turned: re-align the head as in S4 (tap the head body on the table, never the work, until the top and side sweeps of the body along X each read within 0.01 mm, then tighten the head bolts), re-index to the plate setting and sweep again. If the bore wall does not hold one division, the post has turned in the jaws: ease one jaw, turn the post until both bore-wall readings hold one division, re-tighten each jaw a little at a time while indicating the head and body to 0.02 mm, then re-index."
 clamp = "AUTHOR'S CHOICE: unlock the spindle and index by the plate setting on the Index line below; then lock the spindle before drilling."
 [setups.hold.index]
 fixture = "BS-0"
@@ -1126,6 +1140,14 @@ note = "Ream datum A through the sleeve cap to cap; run the lead out of the sout
 dia = "bore-gauge-small"
 height = "calipers"
 finish_ra = "roughness-comparator"
+# AUTHOR'S CHOICE: Ra by the journal witness bore, as S8 op 30 (Machinery's Handbook 27th ed.
+# Table 1 p.730 reaming; p.724 roughness comparison specimens).
+[setups.ops.inspection_methods]
+finish_ra = [
+  "AUTHOR'S CHOICE: take the journal witness reamed before S4 (S4 hold note). Hacksaw it along its bore axis, beside the bore, and break it open to expose half the bore wall without touching the wall.",
+  "Under the measuring loupe, in one light, lay the witness wall beside the comparator's turned Ra 1.6 and Ra 3.2 specimens and draw a fingernail across the lay of each: the witness must look and feel no rougher than Ra 1.6. Write yes or no: {witness}",
+  "Shine a light into the part bore and look along it with the loupe from each mouth: the wall must show the same even reamed lay as the witness, with no chatter bands, tears or scores. Write yes or no: {bore}",
+]
 
 # ======================================================================= S10
 [[setups]]
@@ -1145,7 +1167,7 @@ note = "AUTHOR'S CHOICE: post horizontal, cone cross-bore vertical; the crank sl
 fixture = "cone-saw-cradle"
 pose = { origin_mm = [0.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
 clamps = [
-  { ref = "cone-cap-bridge", restraint = "press", pose = { origin_mm = [52.632, 0.0, 21.0505], x = [0.0, 1.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "brass pad on the south cap annulus, which S2 op 40 leaves 0.045 proud; tighten both nuts evenly. The load runs down the cone sleeve onto the north-cap pad, not through the bonded joint; studs at Y+-30 clear the body" },
+  { ref = "cone-cap-bridge", restraint = "press", pose = { origin_mm = [52.63, 0.0, 21.0505], x = [0.0, 1.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "brass pad on the south cap annulus, which S2 op 40 leaves 0.045 proud; tighten both nuts evenly. The load runs down the cone sleeve onto the north-cap pad, not through the bonded joint; studs at Y+-30 clear the body" },
 ]
 clamp_order = [1]
 locate = "first scribe a line round the post 87.75 mm from foot B for the blade centre (foot B down on the surface plate, height gauge). Lay the post in both cradle saddles with the crank sleeve up and turn it until the north cap annulus sits flat on the cap pad; the cap faces square the cone cross-bore to the saw bed"
@@ -1159,13 +1181,23 @@ parallels = "not_applicable"
 jaw_above_parallels_mm = "not_applicable"
 stop = "AUTHOR'S CHOICE: no end stop along the post: the north cap on its pad and the bridge on the south cap fix it in the cradle, and op 10 sets the blade to the scribed line."
 clamp = "AUTHOR'S CHOICE: clamp the post with the cap bridge (C1) while the saw vise is still open; the cradle is moved and gripped only in op 10."
-note = "Cradle assembly, once before first use: screw both saddles and the cap pad to the base with the 1/4-20 screws from below, snug. Ream each pair of 3/16 in dowel holes through the base and 7 mm into the saddle, press the dowels in flush with the base underside, then tighten. With the base clamped flat on the mill, bore both seats in one setting and grind the pad top flush with the seat bottoms, so the locating surfaces are cut after pinning. Screw the brass pad to the bridge beam, square to it. Saw load: about 0.3 kN along the blade (MH 27th Table 3b p.1086 Kp 0.74 × feed factor 1.6 × wear factor 1.3, Tables 4-5 p.1087, × 0.26 in³/min = 0.41 hp at 200 ft/min); each saddle's two hardened dowels carry 2 × 3,600 lb in single shear (MH 27th Table 1 p.1670), over 100 times that. The feed thrust at the cut, 30 mm outside the head-side saddle, lifts the foot end with about 0.4 kN at the bridge: tighten the bridge nuts wrench-tight"
+# AUTHOR'S CHOICE saw-load check (design note, kept off the operator page): about 0.3 kN along the
+# blade (MH 27th Table 3b p.1086 Kp 0.74 x feed factor 1.6 x wear factor 1.3, Tables 4-5 p.1087,
+# x 0.26 in^3/min = 0.41 hp at 200 ft/min); each saddle's two hardened dowels carry 2 x 3,600 lb in
+# single shear (MH 27th Table 1 p.1670), over 100 times that. The feed thrust at the cut, 30 mm
+# outside the head-side saddle, lifts the foot end with about 0.4 kN at the bridge, hence the
+# wrench-tight bridge nuts.
+note = "Cradle assembly, once before first use: screw both saddles and the cap pad to the base with the 1/4-20 screws from below, snug. Ream each pair of 3/16 in dowel holes through the base and 7 mm into the saddle, press the dowels in flush with the base underside, then tighten. With the base clamped flat on the mill, bore both seats in one setting and grind the pad top flush with the seat bottoms, so the locating surfaces are cut after pinning. Screw the brass pad to the bridge beam, square to it. Tighten the bridge nuts wrench-tight: the saw's feed thrust tries to lift the foot end."
 [[setups.ops]]
 op = 10
 do = "saw_cut"
 tool = "bandsaw-blade-4-6"
 cut_plane = { axis = "x", value = -1.75, keep = "above" }
-note = "With the post clamped, slide the cradle in the open saw vise until the blade touches the scribed line, then close the vise on the cradle base; the 1.5 mm kerf leaves the head 87 mm tall and the cradle base ends 3 mm on the kept side of the kerf. Set the blade guides outside the 44.45 mm tail. Saw with the blade centred on the line; the tail drops clear as the cut breaks through, leaving 1 mm on the head top for S11."
+# AUTHOR'S CHOICE feed control: 65 mm/min takes about 40 s through the 43 mm section (2.25 sq in), an
+# average 3.4 sq in/min, under the MH 27th p.1140 graph rate of about 4.8 sq in/min for a 4/6 blade
+# at 200 fpm (p.1142's worked example reads the same 4/6 line at about 4 sq in/min at 130 fpm); p.1140
+# says to start from that rate and adjust by the chips; p.1142 says to break a new blade in at low feed.
+note = "With the post clamped, slide the cradle in the open saw vise until the blade touches the scribed line, then close the vise on the cradle base; the 1.5 mm kerf leaves the head 87 mm tall and the cradle base ends 3 mm on the kept side of the kerf. Set the blade guides outside the 44.45 mm tail. Feed: set the bow's downfeed control (the hydraulic cylinder valve, or the spring where the saw has no cylinder) so the blade sinks about 1 mm a second, 65 mm/min: about 10 mm in 10 s against a steel rule held beside the bow, and about 40 s through the post. Then judge by the chips: curly, silvery and warm is right; burned and heavy, ease the feed; thin or powdery, feed harder. A new blade: start at a light feed and build up over its first few cuts. Saw with the blade centred on the line; the tail drops clear as the cut breaks through, leaving 1 mm on the head top for S11."
 
 # ======================================================================= S11
 [[setups]]
@@ -1339,6 +1371,8 @@ note = "Deburr inside the journal bore without enlarging it; recheck diameter A,
 dia = "bore-gauge-small"
 height = "calipers"
 finish_ra = "roughness-comparator"
+[setups.ops.inspection_methods]
+finish_ra = "AUTHOR'S CHOICE: after deburring, shine a light into the journal bore and look along it with the measuring loupe from each mouth, the split journal witness that passed S9 op 30 beside it: the wall must still show the same even reamed lay, with no new scratches, scores or burrs from deburring."
 [[setups.ops]]
 op = 110
 do = "inspect"
@@ -1351,6 +1385,7 @@ angularity_dia = "height-gauge"
 finish_ra = "roughness-comparator"
 [setups.ops.inspection_methods]
 separation = "AUTHOR'S CHOICE: stand the post on foot B on the surface plate. With the DTI on the height gauge, read the top and bottom of each bore at both mouths; each bore centre is the mean of its top and bottom readings. Separation = crank centre - journal centre, accept 39.34-39.70."
+finish_ra = "AUTHOR'S CHOICE: shine a light into the crank bore and look along it with the measuring loupe from each mouth, the split crank witness that passed S8 op 30 beside it: the wall must still show the same even reamed lay, with no new scratches, scores or burrs since S8."
 # AUTHOR'S CHOICE: the crank axis must lie in a Ø0.10 cylinder over its 72.03 bore, at 12.5182 deg
 # to journal axis A and parallel to foot B. Gauge rods resting in the bores carry each axis outside
 # the part, so the DTI never reaches into a bore. With rise r over step S and L = 72.0344:
@@ -1359,8 +1394,9 @@ separation = "AUTHOR'S CHOICE: stand the post on foot B on the surface plate. Wi
 # S_crank 76.2 (3 in face), S_journal 50.8 (2 in face): 0.945, 1.384, 0.901, 16.918, 1.418.
 # (The former 50.8 / 25.4 steps give the former 1.418, 2.768, 1.351, 11.279, 2.836.)
 angularity_dia = [
-  "AUTHOR'S CHOICE: slide the Ø11.405 gauge rod through the crank bore and the Ø12.250 gauge rod through the journal bore, each with about 40 mm out of both ends; each rod rests on the bottom of its bore under its own weight.",
+  "AUTHOR'S CHOICE: slide the Ø11.405 gauge rod through the crank bore and the Ø12.250 gauge rod through the journal bore, each with about 40 mm out of both ends. By the op 100 and op 110 bore readings each rod is 0.006-0.038 mm under its bore. Seat each rod by gravity on the low line of its bore, pressing it down by hand at both mouths: lying along that line over the full bore length, the rod stays parallel to the bore axis, so the clearance moves both readings of a rise equally and cancels.",
   "Mount the DTI on the height gauge, tip on top of the rod with the lever lifted to mid-travel (about 0.015 in of its 0.030 in); a higher rod reads +. At each position sweep the tip across the rod and take the highest reading. Write every reading in mm: inch dial × 25.4.",
+  "Seating check, at every position: read, press the rod down with a finger at the far mouth, read again; the two must agree within one dial division (0.0005 in). If not, the rod rocks on a bellmouthed mouth: wipe rod and bore, reseat and repeat. Then roll the rod half a turn in its bore and repeat the rise; record the mean of the two rises, so a bend in the rod cancels.",
   "Lay a parallel on the plate in line with the rod and stand the second 1-2-3 block at its end as the stop. Position A: height-gauge base against the stop. Position B: the first 1-2-3 block between stop and base, 2 in face (50.8) for the journal rod, 3 in face (76.2) for the crank rod. Rise = reading at B − reading at A.",
   "Place the stop so position A puts the tip about 4 mm outside the north cap on the journal rod, or about 2 mm outside the flush crank-sleeve end on the crank rod; position B then lands just outside the south cap, or just outside the projecting crank-sleeve end.",
   "Orientation 1, foot B on the plate. Journal rod rise: {rJ1}",
