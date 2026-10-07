@@ -1004,3 +1004,42 @@ def test_an_authored_x_touch_prints_its_axis_set_and_stops_on_a_diameter_not_sho
     # The paper counts once on the radius, twice on a diameter display.
     assert "Axis Set X measured Ø + 0.10" in line, line
     assert ("STOP" in line) is stop, line
+
+
+def x_printed(data, touch):
+    """The X half of ``touch`` as the sheet prints it."""
+    sheet, setup = sheet_of(data)
+    return sheet.tool_touch(setup, touch, {}).split("X — ", 1)[1].split(" Z — ", 1)[0]
+
+
+@pytest.mark.parametrize(
+    ("x_method", "paper", "contact"),
+    [
+        # Words that name the surface but not the paper the Axis Set counts.
+        ("touch the journal just measured", 0.05, "paper 0.05"),
+        ("touch the journal just measured", 0.0, "no paper"),
+        # Words that name neither.
+        ("bring the blade in until it drags", 0.05, "paper 0.05"),
+        # Paper not stated: its Axis Set is unknown, and so is the paper printed.
+        ("touch the journal just measured", "unknown", "paper ?"),
+    ],
+)
+def test_an_authored_x_touch_prints_the_surface_and_paper_its_axis_set_counts(
+    x_method, paper, contact
+):
+    data = x_touch("journal", 40, x_method=x_method)
+    data.plan["setups"][0]["zero"]["tool_touches"][0]["x_paper_mm"] = paper
+    _, row = x_row(data)
+    printed = x_printed(data, row)
+    assert x_method in printed, printed
+    assert "journal Ø" in printed and contact in printed, printed
+
+
+def test_a_derived_x_re_touch_prints_the_surface_and_that_it_takes_no_paper():
+    ops = [*LATHE_OPS, op(50, "face", "dome", "turner", to_z=0.0)]
+    data = bundle("lathe", lathe_zero([BLADE]), ops)
+    [touch] = evaluate(data)[0].numbers["derived_touches"]
+    printed = x_printed(data, touch)
+    # Its Axis Set is the measured diameter alone: a direct touch on the journal.
+    assert "journal Ø" in printed and "no paper" in printed, printed
+    assert printed.endswith("Axis Set X measured Ø."), printed
