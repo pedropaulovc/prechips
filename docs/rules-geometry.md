@@ -829,14 +829,24 @@ the claimed face's own width (along the spindle axis, through the box's whole
 depth), over the finished face's holes and edges too. Past each end of that
 width, where such stock also stands behind the plane, the op's own cutter of
 radius r steps from the plane up onto the skin and leaves the cusp of that step:
-before a vertical wall, the region under the arc of radius r tangent to the
-plane `sqrt(r² − (r − min(a, r))²)` past the end and through the skin's outer
-corner (when r ≤ a, tangent to its end face at height r), at the heights where
-both that stock and the skin's backing stand. No other op, earlier or later, is
-credited with clearing it. A flat-bottomed cutter steps square onto a floor's
-skin and leaves no cusp; a step past the end of an inclined planar claim's skin,
-or a claim on a surface neither planar nor curved analytic, makes the leave, and
-so the stock, unknown. A violation is not an
+before a vertical wall, at each height, what lies in front of the plane past the
+end that no disc of radius r covers whose centre clears, at once, everything the
+op keeps at and above that height (the stock behind the plane, the skin, the
+guard's `a` rounding of the wall's own convex edge and reserved columns). Beside
+that rounding the cusp reaches `sqrt((r + a)² − r²)` past the end, where the
+cutter touches the plane and the rounding; above the wall, where no guard stands,
+the skin's sharp outer corner alone bounds it, `sqrt(r² − (r − min(a, r))²)`.
+Heights where the kept shape is not upright are taken in slabs at most 0.25 mm
+deep, each keeping what that shape just above its foot leaves. Both growths by r
+are exact unions of the shape and the reach of each of its edges (a free-form
+section edge is fitted with arcs within 1e-4 mm and reached that much farther,
+erring towards keeping stock), and are checked after the Booleans: a legal centre
+nearer the kept shape than r, a disc overlapping it, or a failed Boolean makes
+the stock unknown. No other op,
+earlier or later, is credited with clearing it. A flat-bottomed cutter steps
+square onto a floor's skin and leaves no cusp; a step past the end of an inclined
+planar claim's skin, or a claim on a surface neither planar nor curved analytic,
+makes the leave, and so the stock, unknown. A violation is not an
 error verdict: it is named stock debt (the stock reason names the failed
 guard), so stock-dependent results for that setup and later setups selecting
 its output stay `unknown`, never clearance. Genuine collisions with finished

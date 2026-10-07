@@ -219,6 +219,7 @@ PROFILE_ACTIONS = {"profile", "rough_profile", "finish_profile"}  # walls clear 
 # Curved analytic claims: a clearing box's leave before them is the guard's offset.
 _CURVED_ANALYTIC = (Part.Cylinder, Part.Cone, Part.Sphere, Part.Toroid)
 FLAT_CHORD = 1e-4  # mm, chord error measuring a claimed wall's width along its edges
+CUSP_STEP_MM = 0.25  # mm: most height between sections of a non-upright skin-end neighbourhood
 AREA_REL = AREA_ABS = 1e-6  # face-signature area tolerance (relative, absolute mm^2)
 BBOX_TOL = 1e-4  # mm, face-signature bbox tolerance
 PLANE_TOL = 1e-6  # mm, coplanarity of contact faces / interval ends
@@ -1899,6 +1900,137 @@ def _path_area(centre, radius):
             centre.makeOffset2D(-radius, 0, True, False, False)
         )
     return centre.makeOffset2D(radius, 0, True, False, False)
+
+
+def _fitted(edge, tol, most=64):
+    """[lines and arcs through the ends and middle of the fewest of 1, 2, 4 ... ``most``
+    equal runs of ``edge``, each within ``tol`` of the points its run samples to
+    ``tol``], or None."""
+    first, last = edge.FirstParameter, edge.LastParameter
+    count = 1
+    while count <= most:
+        pieces = []
+        for i in range(count):
+            a, b = first + (last - first) * i / count, first + (last - first) * (i + 1) / count
+            start, middle, end = edge.valueAt(a), edge.valueAt((a + b) / 2), edge.valueAt(b)
+            points, chord = edge.discretize(Deflection=tol, First=a, Last=b), end - start
+            if chord.Length <= PLANE_TOL:
+                break
+            if all((p - start).cross(chord).Length <= tol * chord.Length for p in points):
+                pieces.append(Part.LineSegment(start, end).toShape())
+                continue
+            arc = Part.Arc(start, middle, end).toShape()
+            centre, size = arc.Curve.Center, arc.Curve.Radius
+            if not all(abs((p - centre).Length - size) <= tol for p in points):
+                break
+            pieces.append(arc)
+        else:
+            return pieces
+        count *= 2
+    return None
+
+
+def _edge_reach(edge, radius):
+    """[level faces together covering exactly the points within ``radius`` of a line or
+    circular-arc ``edge``]: past either end of an open arc, its end is its nearest point."""
+    first, last = edge.FirstParameter, edge.LastParameter
+    a, m, b = edge.valueAt(first), edge.valueAt((first + last) / 2), edge.valueAt(last)
+
+    def disc(centre, size):
+        return Part.Face(Part.Wire(Part.makeCircle(size, centre)))
+
+    if type(edge.Curve).__name__ == "Line":
+        return _stadium(a, b, radius).Faces if edge.Length > PLANE_TOL else [disc(a, radius)]
+    centre, size = edge.Curve.Center, edge.Curve.Radius
+    outer, inner = size + radius, size - radius
+    if edge.isClosed():
+        ring = disc(centre, outer)
+        return [ring.cut(disc(centre, inner))] if inner > PLANE_TOL else [ring]
+    ta, tb = edge.tangentAt(first).normalize(), edge.tangentAt(last).normalize()
+    ua, um, ub = ((point - centre) * (1 / size) for point in (a, m, b))
+    rim = Part.Arc(centre + ua * outer, centre + um * outer, centre + ub * outer).toShape()
+    if inner <= PLANE_TOL:
+        spokes = [centre + ua * outer, centre + ub * outer]
+        sides = [Part.LineSegment(centre, spokes[0]), Part.LineSegment(spokes[1], centre)]
+        pie = Part.Face(Part.Wire([sides[0].toShape(), rim, sides[1].toShape()]))
+        return [pie, disc(a, radius), disc(b, radius)]
+    hub = Part.Arc(centre + ub * inner, centre + um * inner, centre + ua * inner).toShape()
+    caps = [
+        Part.Arc(centre + ub * outer, b + tb * radius, centre + ub * inner).toShape(),
+        Part.Arc(centre + ua * inner, a - ta * radius, centre + ua * outer).toShape(),
+    ]
+    return [Part.Face(Part.Wire([rim, caps[0], hub, caps[1]]))]
+
+
+def _grown(faces, radius, outer=True):
+    """[level faces whose union is the level ``faces`` each grown by ``radius``]: the faces
+    and the points within ``radius`` of each of their edges (:func:`_edge_reach`), exactly,
+    since a point off a face is nearest its boundary. A free-form edge no single line or
+    arc holds to ``PLANE_TOL`` gives way to the fewest lines and arcs within ``BBOX_TOL``
+    of it (:func:`_fitted`), reached by ``radius + BBOX_TOL`` so that the exact growth
+    lies inside the union when ``outer``; otherwise that would err outward and raises. OCC's
+    2D offset is not used: it fails on the B-splines that sections of swept round faces
+    leave, and quietly misplaces offsets of runs of short arcs."""
+    grown = list(faces)
+    for edge in (edge for face in faces for edge in face.Edges):
+        exact = type(edge.Curve).__name__ in ("Line", "Circle")
+        pieces = [edge] if exact else _fitted(edge, PLANE_TOL, 1)
+        if pieces is not None:
+            grown += [part for piece in pieces for part in _edge_reach(piece, radius)]
+            continue
+        pieces = _fitted(edge, BBOX_TOL / 4) if outer else None
+        if pieces is None:
+            raise ValueError("no lines or arcs fit a free-form edge of a level section")
+        # Samples to a quarter of the tolerance and arcs within that of them stray at most
+        # three quarters of it from the run.
+        grown += [part for piece in pieces for part in _edge_reach(piece, radius + BBOX_TOL)]
+    return grown
+
+
+def _cut_each(faces, tools):
+    """[the level ``faces`` less each of ``tools`` in turn], one face by one tool at a time:
+    overlapping tools of one Boolean can interfere, and OCC fails to cut some compounds of
+    faces whose faces it cuts."""
+    for tool in tools:
+        box = tool.BoundBox
+        faces = [
+            piece
+            for face in faces
+            for piece in (face.cut(tool).Faces if face.BoundBox.intersect(box) else [face])
+        ]
+    return faces
+
+
+def _out_of_reach(obstacle, band, reach, centres, radius):
+    """Level faces of ``band`` that no disc of ``radius`` clear of the level ``obstacle``
+    faces (which may overlap) covers, those touching ``reach``: the obstacle's own share
+    of the band too, and what a disc reaches only by overlapping it. ``centres`` must hold
+    every centre whose disc meets ``band``, its edges clear of the obstacle's offsets, and
+    ``obstacle`` everything within ``radius`` of ``centres``. A legal centre is one in
+    ``centres`` outside the obstacle grown by ``radius``, and the discs about the legal
+    centres are those grown back by ``radius`` (a morphological opening), each growth
+    erring towards keeping more (:func:`_grown`), as does dropping legal slivers of no
+    area. Both growths are certified, since a Boolean on near-coincident edges can err
+    quietly: no legal centre nearer the obstacle than ``radius`` and no disc overlapping
+    it. OCC failures raise."""
+    if not obstacle:
+        return []
+    region = obstacle[0].fuse(obstacle[1:]).removeSplitter() if len(obstacle) > 1 else obstacle[0]
+    unreached = band.Faces
+    grown = _grown(region.Faces, radius)
+    legal = [face for face in _cut_each(centres.Faces, grown) if face.Area > CONTACT_MM2]
+    if legal:
+        if any(face.distToShape(region)[0] < radius - PLANE_TOL for face in legal):
+            raise ValueError("a legal cutter centre lies within the radius of what stays")
+        discs = _grown(legal, radius, outer=False)
+        if sum(face.common(disc).Area for face in region.Faces for disc in discs) > CONTACT_MM2:
+            raise ValueError("a legal cutter's disc overlaps what stays")
+        unreached = _cut_each(unreached, discs)
+    return [
+        face
+        for face in unreached
+        if face.Area > CONTACT_MM2 and face.common(reach).Area > CONTACT_MM2
+    ]
 
 
 def _centre_sweep(paths, radius, top):
@@ -4846,7 +4978,8 @@ class _Setup:
         every other bore's and anything outside the box, the guard's window or the sweep
         stays reserved. Before a claimed planar wall the leave is flat across the stock
         standing behind its plane (:meth:`_flat_leave`), not the finished face's outline,
-        and keeps the cusp the op's own ``radius`` leaves past that skin's ends.
+        and keeps the cusp the op's own ``radius`` leaves past that skin's ends, its cutter
+        clear of all the op keeps at once (:meth:`_skin_cusps`).
         """
         span, why = _clearing_span(bounds, _bbox(stock))
         if span is None:
@@ -4900,14 +5033,23 @@ class _Setup:
             removed = removed.cut(
                 reserved[0].fuse(reserved[1:]) if len(reserved) > 1 else reserved[0]
             )
+        steps = []
         if leave:
             flat, why = self._flat_leave(valid, stock, span, leave, reserved, radius)
             if why is not None:
                 return None, why
+            flat, steps = flat
             if flat:
                 removed = removed.cut(flat[0].fuse(flat[1:]) if len(flat) > 1 else flat[0])
         if to_z is not None:
             removed = removed.common(self._above(to_z))
+        if steps and removed.Volume > HIT_MM3:
+            try:
+                cusps = self._skin_cusps(stock, removed, steps, span, leave, radius)
+            except Exception as exc:  # OCC Booleans and their certification
+                return None, f"the cusp past a flat rough leave's end is unknown ({exc})"
+            if cusps:
+                removed = removed.cut(cusps[0].fuse(cusps[1:]) if len(cusps) > 1 else cusps[0])
         pieces = [piece for piece in removed.Solids if piece.Volume > HIT_MM3]
         claimed = [self.faces[index] for index in valid]
         stray = [
@@ -4925,8 +5067,8 @@ class _Setup:
         return (pieces[0].fuse(pieces[1:]) if len(pieces) > 1 else pieces[0]), None
 
     def _flat_leave(self, valid, stock, span, leave, reserved, radius):
-        """([flat skin pieces] or None, why not): the leave a clearing box's passes stop
-        short of each claimed planar wall.
+        """(([flat skin pieces], [steps]) or None, why not): the leave a clearing box's
+        passes stop short of each claimed planar wall.
 
         A cutter roughing the box stops ``leave`` short of the wall's plane along its whole
         pass, not only over the finished face: wherever stock it may not enter stands
@@ -4937,15 +5079,16 @@ class _Setup:
         axis, so its band runs through the box's whole depth there. Past the face's edges
         no claim stops the passes: in front of open air or of material this box clears, the
         guard's offset alone is the leave. Where such stock stands behind the plane past an
-        edge too, the passes run on at the plane and step up onto the band, and this op's
-        own cutter of ``radius`` leaves the cusp in that step (:meth:`_skin_ends`); no other
+        edge too, the passes run on at the plane and step up onto the band: each such step
+        (:meth:`_skin_steps`) is returned, and once the op's removal is known this op's own
+        cutter of ``radius`` keeps the cusp it leaves there (:meth:`_skin_cusps`); no other
         op, before or after, is credited with clearing it. A curved analytic claim keeps the
         offset; a claim whose surface is neither analytic nor a plane makes the leave, and
         so the stock, unknown.
         """
         corners = [V(span[i], span[j], span[k]) for i in (0, 3) for j in (1, 4) for k in (2, 5)]
         box = _box_shape(span)
-        pieces = []
+        pieces, steps = [], []
         for index in valid:
             face = self.faces[index]
             surface = face.Surface
@@ -4991,7 +5134,7 @@ class _Setup:
                 ]
                 backing = [piece for piece in backing if piece and piece.Volume > HIT_MM3]
                 frame = (origin, across, normal, other, u0, u1, v0, v1)
-                ends, why = self._skin_ends(stock, box, reserved, backing, frame, leave, radius)
+                ends, why = self._skin_steps(stock, box, reserved, backing, frame, leave, radius)
             except ValueError as exc:
                 return None, f"the flat rough leave before {self.owner.labels[index]}: {exc}"
             if why is not None:
@@ -5000,25 +5143,23 @@ class _Setup:
                 band = piece.copy()
                 band.translate(normal * leave)
                 pieces.append(band.common(box))
-            pieces += ends
-        return [piece for piece in pieces if piece.Volume > HIT_MM3], None
+            steps += [(frame, end, sign) for end, sign in ends]
+        return ([piece for piece in pieces if piece.Volume > HIT_MM3], steps), None
 
-    def _skin_ends(self, stock, box, reserved, backing, frame, leave, radius):
-        """([what stays past the ends of a flat skin], or None and why that is unknown).
+    def _skin_steps(self, stock, box, reserved, backing, frame, leave, radius):
+        """([(end, sign) of each end of a flat skin the passes step up onto], or None and
+        why that is unknown).
 
         ``frame`` is (origin, across, normal, other, u0, u1, v0, v1): the skin, ``leave``
         deep in front of a claimed plane (``normal`` its front), spans u0..u1 along
         ``across`` and v0..v1 along ``other``; ``backing`` is what stands behind the plane
-        over that span. Past an end, stock outside the ``box`` or a ``reserved`` column
-        standing behind the plane floors the passes at the plane itself, so the floor and
-        the skin's end make a concave step ``leave`` high. Across a wall (``normal`` across
-        the spindle axis) the cutter's section is a disc of ``radius``: rolled along the
-        floor into the step, it stops where its arc meets the skin's outer corner (or, when
-        ``radius <= leave``, the end face), ``reach`` = sqrt(r^2 - (r - min(leave, r))^2)
-        short of it. Under that arc stays, at the heights where the floor stands past the
-        end and the skin's backing stands at it. A floor's flat end makes the step square,
-        leaving nothing. On an inclined plane the cutter's section is no disc: a step there
-        is not derived, so the leave is unknown.
+        over that span. Past an end (``sign`` -1 at u0, +1 at u1), stock outside the
+        ``box`` or a ``reserved`` column standing behind the plane within ``radius +
+        leave`` of it floors the passes at the plane itself; where the skin's backing
+        stands at that end too, the floor and the skin make a concave step about ``leave``
+        high, whose cusp :meth:`_skin_cusps` derives. A flat-bottomed cutter steps square
+        onto a floor's skin: no step. Across an inclined plane the cutter's section is no
+        disc, so a step there is not derived and the leave is unknown.
         """
         origin, across, normal, other, u0, u1, v0, v1 = frame
 
@@ -5029,13 +5170,11 @@ class _Setup:
             return Part.Face(Part.makePolygon([*points, points[0]]))
 
         if abs(normal.z) >= PARALLEL:
-            return [], None  # a flat end steps square onto a floor's skin
-        depth = min(leave, radius)
-        reach = math.sqrt(radius * radius - (radius - depth) ** 2)
+            return [], None
         inset = min(COVER_MM, (u1 - u0) / 2)
-        kept = []
+        steps = []
         for end, sign in ((u0, -1.0), (u1, 1.0)):
-            far = end + sign * reach
+            far = end + sign * (radius + leave)
             beyond = quad([at(end, 0, v0), at(far, 0, v0), at(far, 0, v1), at(end, 0, v1)])
             beyond = beyond.extrude(normal * -leave)
             floor = [_valid(stock.common(beyond).cut(box), "stock behind a wall past its end")]
@@ -5043,45 +5182,119 @@ class _Setup:
                 _valid(column.common(beyond), "a reserved bore behind a wall past its end")
                 for column in reserved
             ]
-            floor = [piece for piece in floor if piece and piece.Volume > HIT_MM3]
-            # The skin's backing at its end, carried on past it.
+            if not any(piece and piece.Volume > HIT_MM3 for piece in floor):
+                continue
             inner = end - sign * inset
             section = quad(
                 [at(inner, 0, v0), at(inner, -leave, v0), at(inner, -leave, v1), at(inner, 0, v1)]
             )
-            rim = [
-                face.extrude(across * (sign * (reach + inset)))
-                for piece in backing
-                for face in piece.common(section).Faces
-                if face.Area > CONTACT_MM2
-            ]
-            if not floor or not rim:
+            if not any(
+                face.Area > CONTACT_MM2 for piece in backing for face in piece.common(section).Faces
+            ):
                 continue
             if abs(normal.z) > 1 - PARALLEL:
                 return None, (
                     "is unknown: stock behind its inclined plane past the face's edge steps "
                     "up onto the skin, and the cusp the cutter leaves there is not derived"
                 )
-            centre = at(far, radius, v0)
-            outer, foot = at(end, depth, v0), at(far, 0, v0)
-            middle = (outer - centre) + (foot - centre)
-            middle.normalize()
-            wire = Part.Wire(
-                [
-                    Part.LineSegment(foot, at(end, 0, v0)).toShape(),
-                    Part.LineSegment(at(end, 0, v0), outer).toShape(),
-                    Part.Arc(outer, centre + middle * radius, foot).toShape(),
-                ]
+            steps.append((end, sign))
+        return steps, None
+
+    def _skin_cusps(self, stock, removed, steps, span, leave, radius):
+        """[what no cutter of ``radius`` reaches past the ends of flat skins, to cut from
+        ``removed``].
+
+        ``steps`` are (frame, end, sign) of :meth:`_skin_steps`, each before a wall whose
+        ``normal`` runs across the spindle axis, so at every height the cutter's section is
+        a disc of ``radius``. Its body stands above its tip: with the tip at height z the
+        disc must clear the shadow at z of all the op retains at and above z inside the box
+        ``span`` (``stock`` less ``removed``: the skins, the guard's rounding round the
+        wall's own edges, the floor behind the plane and reserved columns at once), its
+        section at z with the prisms of its faces not standing upright swept down the box's
+        depth (as :func:`_straight_sweep`), each sectioned on its own. Of the band
+        ``leave`` deep in front of the plane past the end, what no disc about a legal
+        centre, one clear of that shadow, covers (:func:`_out_of_reach`) stays: the pieces
+        touching the band within ``radius + leave`` of the end, beyond the farthest a
+        step's cusp reaches (sqrt((r + a)^2 - r^2) beside the round guard of radius a round
+        a wall's convex edge, the cutter tangent to the plane and to that guard). Heights
+        split where a face of what it retains starts or stops, and every ``CUSP_STEP_MM``
+        where a face not standing upright spans them; a slab keeps what the shadow just
+        above its foot leaves, the widest over the slab. OCC failures raise.
+        """
+        bottom, top = max(span[2], removed.BoundBox.ZMin), span[5]
+        kept = [self._skin_cusp(stock, removed, step, bottom, top, leave, radius) for step in steps]
+        return [cusp for cusp in kept if cusp is not None]
+
+    @staticmethod
+    def _skin_cusp(stock, removed, step, bottom, top, leave, radius):
+        """What stays past one ``step``'s skin end (:meth:`_skin_cusps`) between heights
+        ``bottom`` and ``top``, or None. The legal centres are sought half a radius wider
+        than any disc meeting the band needs and the shadow taken a radius wider again, so
+        that neither box's edges fall on an offset of the other's or of the band's."""
+        (origin, across, normal, *_), end, sign = step
+
+        def quad(ua, ub, da, db, z=0.0):
+            corners = [origin + across * u + normal * d for u, d in ((ua, da), (ub, da))]
+            corners += [origin + across * u + normal * d for u, d in ((ub, db), (ua, db))]
+            points = [V(point.x, point.y, z) for point in corners]
+            return Part.Face(Part.makePolygon([*points, points[0]]))
+
+        near, far = radius + leave, 2 * (radius + leave)
+        wide, wider = 1.5 * radius, 3 * radius
+        band = quad(end, end + sign * far, 0, leave)
+        reach = quad(end, end + sign * near, 0, leave)
+        centres = quad(end - sign * wide, end + sign * (far + wide), -wide, leave + wide)
+
+        def around(z):
+            return quad(end - sign * wider, end + sign * (far + wider), -wider, leave + wider, z)
+
+        local = stock.common(around(bottom).extrude(V(0, 0, top - bottom))).cut(removed)
+        if not local.Solids:
+            return None
+        down = V(0, 0, bottom - top)
+        faces, prisms = [], []
+        for face in local.Faces:
+            box, upright = face.BoundBox, _vertical(face, Z)
+            faces.append((box, upright))
+            if upright or box.ZMax <= bottom + PLANE_TOL:
+                continue
+            prism = face.extrude(down)
+            if abs(prism.Volume) > HIT_MM3:
+                if prism.Volume < 0:
+                    prism.reverse()
+                prisms.append((prism, box.ZMax))
+        levels = sorted(
+            {bottom, top}
+            | {z for box, _ in faces for z in (box.ZMin, box.ZMax) if bottom < z < top}
+        )
+        pieces = []
+        for lo, hi in zip(levels, levels[1:], strict=False):
+            if hi - lo <= PLANE_TOL:
+                continue
+            upright = all(
+                vertical
+                for box, vertical in faces
+                if box.ZMin < hi - PLANE_TOL and box.ZMax > lo + PLANE_TOL
             )
-            cusp = Part.Face(wire).extrude(other * (v1 - v0))
-            for part in (floor, rim):
-                solid = part[0].fuse(part[1:]) if len(part) > 1 else part[0].copy()
-                solid.translate(normal * leave)
-                cusp = cusp.common(solid)
-            cusp = _valid(cusp.common(box), "a flat skin's end cusp")
-            if cusp is not None:
-                kept.append(cusp)
-        return kept, None
+            count = 1 if upright else math.ceil((hi - lo) / CUSP_STEP_MM)
+            depth = (hi - lo) / count
+            for foot in (lo + i * depth for i in range(count)):
+                z = foot + min(BBOX_TOL, depth / 4)
+                level = around(z)
+                shadow = []
+                for solid in [local, *(prism for prism, high in prisms if high > z)]:
+                    for face in solid.common(level).Faces:
+                        face = face.copy()
+                        face.translate(V(0, 0, -z))
+                        shadow.append(face)
+                for face in _out_of_reach(shadow, band, reach, centres, radius):
+                    face = face.copy()
+                    face.translate(V(0, 0, foot))
+                    pieces.append(face.extrude(V(0, 0, depth)))
+        if not pieces:
+            return None
+        solid = pieces[0].fuse(pieces[1:]).removeSplitter() if len(pieces) > 1 else pieces[0]
+        return _valid(solid, "a flat skin's end cusp")
 
     def _removal(self, op, valid, to_z, leave):
         """(stock outside the op's guard its claims sweep (:meth:`_op_sweep`), or None, and

@@ -5,14 +5,18 @@ poses stand that far off, derived stock keeps the leave, and a later finish of t
 faces removes it. An authored clearing box may span several passes beyond the claims'
 cutter-dilated footprint, but still never removes finished material, unclaimed
 disconnected pockets or not-yet-drilled hole columns. FreeCAD-backed tests run
-``src/prechips/kernel/freecad_job.py`` under ``freecadcmd`` and skip without it.
+``src/prechips/kernel/freecad_job.py`` under ``freecadcmd`` and skip without it; a witness
+script loads that same source to test points of an op's output stock against the room
+its cutter has to stand clear of what that op may not enter.
 """
 
+import json
 import math
+import os
 import subprocess
 
 import pytest
-from test_kernel_geometry import Engine, _op, _setup, _vise
+from test_kernel_geometry import ENGINE, Engine, _op, _setup, _vise
 
 _AUTHOR = r"""
 import math
@@ -168,55 +172,146 @@ def test_a_bounded_rough_leaves_a_flat_skin_before_its_wall_not_a_later_arch_or_
     assert second["stock_bbox_mm"] == [3.0, 20 - LEAVE, 0.0, 17.0, 30.0, 28.0]
 
 
-def _end_section(radius, leave):
-    """Area in front of a wall plane, beyond one end of its flat skin, that a bounded
-    rough keeps when raw stock stands behind the plane past that end: the union of the
-    guard's quarter disc round the wall's convex edge (radius ``leave``) and the cusp no
-    radius-``radius`` cutter reaches between the skin's end and the plane. That cutter
-    touches the plane no nearer the end than ``reach``, its edge through the skin's outer
-    corner. Midpoint-integrated across the end, independent of the kernel."""
-    depth = min(leave, radius)
-    reach = math.sqrt(radius**2 - (radius - depth) ** 2)
-    span, steps = max(reach, leave), 200_000
-    total = 0.0
-    for i in range(steps):
-        x = (i + 0.5) * span / steps  # distance beyond the skin's end
-        cusp = radius - math.sqrt(radius**2 - (reach - x) ** 2) if x < reach else 0.0
-        guard = math.sqrt(leave**2 - x**2) if x < leave else 0.0
-        total += max(cusp, guard)
-    return total * span / steps
+# Runs one job per case through the kernel, keeping the first setup's output stock, and
+# asks of each sample point whether that stock holds it and how much room a cutter of the
+# op's radius has to stand clear of what that op may not enter while covering it.
+_WITNESS = r"""
+import importlib.util, json, os, sys
+import FreeCAD, Part
+V = FreeCAD.Vector
+out = sys.argv[sys.argv.index("--") + 1]
+spec = importlib.util.spec_from_file_location("cusp_kernel", os.environ["KERNEL_SOURCE"])
+kernel = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(kernel)
+runners, run = [], kernel._Setup.run
+
+def capture(self):
+    result = run(self)
+    runners.append(self)
+    return result
+
+kernel._Setup.run = capture
+
+def rectangle(x0, y0, x1, y1, z):
+    points = [V(x0, y0, z), V(x1, y0, z), V(x1, y1, z), V(x0, y1, z)]
+    return Part.Face(Part.makePolygon(points + points[:1]))
+
+def disc(x, y, z, radius):
+    return Part.Face(Part.Wire([Part.makeCircle(radius, V(x, y, z), V(0, 0, 1))]))
+
+with open(out + "/cases.json", encoding="utf-8") as handle:
+    cases = json.load(handle)
+for case in cases:
+    runners.clear()
+    case["status"] = kernel.run_job(case["job"])["status"]
+    stock, case["reason"] = runners[0].stock_out, runners[0].stock_out_reason
+    radius, leave = case["radius"], case["leave"]
+    for sample in case["samples"]:
+        x, y, z = sample["point"]
+        # Centres a cutter may not take at this height: within its radius of the raw stock
+        # behind the wall plane (y 20) or of the flat skin before the 14 mm wall and, where
+        # the wall stands, within its radius of the guard's rounding of the wall's edge.
+        obstacle = rectangle(0, 20, 20, 30, z).makeOffset2D(radius, 0, False, False, False)
+        skin = rectangle(3, 20 - leave, 17, 20, z)
+        obstacle = obstacle.fuse(skin.makeOffset2D(radius, 0, False, False, False))
+        if sample["guard"]:
+            obstacle = obstacle.fuse(disc(3, 20, z, radius + leave))
+        sample["legal_mm2"] = disc(x, y, z, radius).cut(obstacle).Area
+        sample["retained"] = stock is not None and stock.isInside(V(x, y, z), 1e-7, True)
+with open(out + "/witness.json", "w", encoding="utf-8") as handle:
+    json.dump(cases, handle)
+"""
+# (cutter radius, rough leave) pairs: a large cutter beside a thin and a thick leave, and
+# cutters near the leave's own size.
+PAIRS = [(3.0, 0.2), (3.0, 0.5), (0.15, 0.2), (0.5, 0.5)]
 
 
-@pytest.mark.parametrize(
-    "radius",
-    [
-        # The cutter leaves a 1.08 mm cusp past each end of the skin.
-        3.0,
-        # A cutter this small reaches inside the guard's own rounding: no cusp beyond it.
-        0.15,
-    ],
-)
-def test_a_bounded_rough_keeps_the_cusp_its_cutter_leaves_past_the_ends_of_a_flat_skin(
-    engine, solids, radius
-):
-    step = solids["wall"]
-    wall = engine.refs(step, (3, 20, 0), (17, 20, 28), kind="Plane")
-    assert len(wall) == 1
-    # Raw stock stands behind the wall plane past both of the wall's ends.
+def _cusp_samples(radius, leave, z, guard=True):
+    """Points in front of a wall plane at y 20 past its skin's end at x 3, at height ``z``:
+    two between the cusp a cutter clearing only a sharp skin corner would leave and the one
+    it leaves clearing the guard's rounding of radius ``leave`` too (both tangent to the
+    plane), one beyond that and one well past both. These depths only place the points;
+    the witness's legal-centre area decides which of them a cutter reaches."""
+    rounded = math.sqrt((radius + leave) ** 2 - radius**2)
+    sharp = math.sqrt(radius**2 - (radius - min(leave, radius)) ** 2)
+
+    def depth(reach, t):
+        return radius - math.sqrt(radius**2 - (reach - t) ** 2) if t < reach else 0.0
+
+    if not guard:
+        rounded = sharp
+    middle = (leave + rounded) / 2
+    points = []
+    for t in (leave + 0.05, middle):
+        need, short = depth(rounded, t), depth(sharp, t)
+        points.append((t, (short + need) / 2 if need > short else need / 2))
+    points += [(middle, (depth(rounded, middle) + leave) / 2), (rounded + 0.2, 0.01)]
+    return [{"point": [3 - t, 20 - d, z], "guard": guard} for t, d in points]
+
+
+@pytest.fixture(scope="module")
+def witness(solids, freecad_kernel, tmp_path_factory):
+    """Each case's samples with the stock its bounded rough leaves and the witness's area."""
+    directory = tmp_path_factory.mktemp("cusp-witness")
+    engine = Engine(directory, freecad_kernel)
     blank = _blank((0.0, 0.0, 0.0), 20.0, (30.0, 28.0))
     run = {"x": [0.0, 20.0], "y": [0.0, 20.0], "z": [0.0, 28.0]}
-    rough = {**_rough("S1:10", "wall", radius, 30.0, 40.0), "do": "rough_pocket"}
-    setups = [
-        _setup([{**rough, "stock_removal_bounds": run}], _vise(5.0, centre=10.0), setup_id="S1"),
-        _setup([], _vise(5.0, centre=10.0), setup_id="S2"),
+    hold = _vise(5.0, centre=10.0)
+
+    def case(name, step, top, radius, leave, samples):
+        wall = engine.refs(step, (3, 20, 0), (17, 20, top), kind="Plane")
+        assert len(wall) == 1
+        rough = _rough("S1:10", "wall", radius, 30.0, 40.0, leave, stock_removal_bounds=run)
+        setups = [
+            _setup([{**rough, "do": "rough_pocket"}], hold, setup_id="S1"),
+            _setup([], hold, setup_id="S2"),
+        ]
+        job = engine.job(step, {"wall": wall}, setups, stock=blank)
+        return {"name": name, "job": job, "radius": radius, "leave": leave, "samples": samples}
+
+    cases = [
+        case(f"wall r{r} a{a}", solids["wall"], 28, r, a, _cusp_samples(r, a, 10.0))
+        for r, a in PAIRS
     ]
-    result = engine.run(engine.job(step, {"wall": wall}, setups, stock=blank))
-    second = result["setups"]["S2"]
-    assert "stock_reason" not in second, second.get("stock_reason")
-    # The raw stock behind the plane, the flat skin over the wall's 14 mm and, past each
-    # end, what no pass of this op's cutter reaches. No later op is credited with it.
-    kept = 20 * 10 * 28 + 14 * LEAVE * 28 + 2 * 28 * _end_section(radius, LEAVE)
-    assert second["stock_volume_mm3"] == pytest.approx(kept, abs=1e-3)
+    # Above the ear's 26 mm crown no guard stands: the skin's sharp corner alone shapes
+    # the cusp there, and the review's witness point just off that corner stays.
+    crown = [{"point": [2.99, 19.99, 27.0], "guard": False}]
+    crown += _cusp_samples(3.0, LEAVE, 27.0, guard=False)
+    cases.append(
+        case("ear", solids["ear"], 26, 3.0, LEAVE, crown + _cusp_samples(3.0, LEAVE, 10.0))
+    )
+    (directory / "cases.json").write_text(json.dumps(cases), encoding="utf-8")
+    script = directory / "witness.py"
+    script.write_text(_WITNESS, encoding="utf-8")
+    process = subprocess.run(
+        [freecad_kernel, str(script), "--", str(directory)],
+        capture_output=True,
+        text=True,
+        errors="replace",
+        timeout=1800,
+        env={**os.environ, "KERNEL_SOURCE": str(ENGINE)},
+    )
+    report = directory / "witness.json"
+    assert report.exists(), process.stdout[-2000:] + process.stderr[-2000:]
+    return {case["name"]: case for case in json.loads(report.read_text(encoding="utf-8"))}
+
+
+@pytest.mark.parametrize("name", [*(f"wall r{r} a{a}" for r, a in PAIRS), "ear"])
+def test_a_bounded_rough_keeps_what_no_legal_cutter_centre_reaches_past_its_skins_end(
+    witness, name
+):
+    # Raw stock stands behind the wall plane past both of the wall's ends, so the passes
+    # run on at the plane there and step up onto the flat skin. A point stays exactly when
+    # no centre clear of that stock, the skin and the guard's rounding covers it: the op's
+    # own cutter must clear all three at once, and no later op is credited with it.
+    case = witness[name]
+    assert case["status"] == "ok" and case["reason"] is None, case
+    unreached = [s for s in case["samples"] if s["legal_mm2"] < 1e-9]
+    reached = [s for s in case["samples"] if s["legal_mm2"] > 1e-6]
+    assert unreached and reached, case["samples"]
+    assert len(unreached) + len(reached) == len(case["samples"]), case["samples"]
+    assert [s for s in unreached if not s["retained"]] == []
+    assert [s for s in reached if s["retained"]] == []
 
 
 @pytest.mark.parametrize(
@@ -261,8 +356,10 @@ def test_a_flat_skin_stops_at_its_walls_edge_and_only_a_box_covering_its_cusp_cl
     assert "stock_reason" not in second, second.get("stock_reason")
     # The front pass stops short of the front wall over its 14 mm width only, so no front
     # skin runs on past its edge. There the front cutter's own sweep leaves the cusp
-    # between the skin's end and the raw stock behind the plane, reaching this far past it.
-    reach = math.sqrt(3.0**2 - (3.0 - LEAVE) ** 2)
+    # between the skin's end and the raw stock behind the plane. Below the ear's crown it
+    # reaches this far past it, to where the cutter touches the plane while clear of the
+    # guard's rounding of the wall's edge.
+    reach = math.sqrt((3.0 + LEAVE) ** 2 - 3.0**2)
     side_op = result["ops"]["S1:20"]
     assert ("part" in side_op["obstacles"]["tool"]) is met, side_op
     # Left in place, the cusp is the work's edge; cleared, the side box's own skin is.
