@@ -1162,6 +1162,14 @@ kind = "measuring_loupe"
 note = "illustrative example item: 10x measuring loupe with a 0.1 mm reticle, for reading edge breaks and scribed lines"
 range_mm = [0.0, 10.0]
 resolution_mm = 0.1
+# The PM-1127VF-LB carriage Z DRO scale, used as a length gauge: the shaft's S3 fit-up
+# hold reads scribe-to-end as T3's Z through paper after T3 is zeroed on the scribe.
+[gauges.lathe-z-dro]
+kind = "dro_scale"
+name = "lathe Z DRO"
+note = "illustrative example item: glass/magnetic Z scale on the PM-1127VF-LB carriage, read on the lathe DRO in 0.005 mm steps; span is the carriage travel along the bed (about the 27.55 in between centres)"
+range_mm = [0.0, 699.77] # example: Z scale span, plausible, not measured
+resolution_mm = { value = 0.005, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "DRO display step" } }
 # --- end DataShaft additions ---
 
 [holders]
@@ -2229,17 +2237,19 @@ solids = [
 name = "rocker hub filing buttons"
 kind = "filing_buttons"
 shop_made = true
-note = "illustrative example shop-made kit: two hardened and ground 10.20 mm buttons 4 mm thick, bored 6.50, on a headed 6.49 mm ground stud (the lower button seats on its Ø9 head) with an M6 top thread, nut and 42 mm tail for the bench vise; the buttons seat on the two hub faces (7.0565 apart)"
-dia_mm = { value = 10.2, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, button OD" } }
-bore_dia_mm = { value = 6.49, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, ground stud" } }
+note = "illustrative example shop-made kit: two hardened and ground 10.19-10.21 mm buttons 4 mm thick, bored 6.500-6.515, on a headed 6.485-6.490 mm ground stud (the lower button seats on its Ø9 head) with an M6 top thread, nut and 42 mm tail for the bench vise; the buttons seat on the two hub faces (7.0565 apart)"
+button_dia_limits_mm = { value = [10.19, 10.21], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "acceptance limits after grinding: 0-1 in micrometer on each button OD" } }
+button_bore_limits_mm = { value = [6.500, 6.515], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "acceptance limits after grinding: 6.500 GO / 6.515 NO-GO pins in each button bore" } }
+pin_dia_limits_mm = { value = [6.485, 6.490], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "acceptance limits after grinding: 0-1 in micrometer along the ground stud body" } }
+button_runout_mm = { value = 0.01, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "acceptance limit: DTI on each button OD turned on the 6.500 GO pin held in a V-block, 0.01 TIR max" } }
 solids = [
-  { name = "upper-button", shape = "cylinder", at_mm = [0.0, 0.0, 0.0], axis = [0.0, 0.0, 1.0], dia_mm = 10.2, length_mm = 4.0, locates = "upper hub face; its hardened rim is the filing line", note = "O1 tool steel, hardened 58-62 HRC, OD and faces ground", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, OD and thickness" } },
+  { name = "upper-button", shape = "cylinder", at_mm = [0.0, 0.0, 0.0], axis = [0.0, 0.0, 1.0], dia_mm = 10.2, length_mm = 4.0, locates = "upper hub face; its hardened rim is the filing line", note = "O1 tool steel, hardened 58-62 HRC; bore ground 6.500-6.515, then OD ground 10.19-10.21 on a 6.500 arbor (0.01 TIR max), faces ground", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, OD and thickness" } },
   { name = "upper-button-bore", void = true, cuts = ["upper-button"], shape = "cylinder", at_mm = [0.0, 0.0, -0.5], axis = [0.0, 0.0, 1.0], dia_mm = 6.5, length_mm = 5.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "pin gauges" } },
-  { name = "lower-button", shape = "cylinder", at_mm = [0.0, 0.0, -11.0565], axis = [0.0, 0.0, 1.0], dia_mm = 10.2, length_mm = 4.0, locates = "lower hub face; its hardened rim is the filing line", note = "O1 tool steel, hardened 58-62 HRC, OD and faces ground", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, OD and thickness" } },
+  { name = "lower-button", shape = "cylinder", at_mm = [0.0, 0.0, -11.0565], axis = [0.0, 0.0, 1.0], dia_mm = 10.2, length_mm = 4.0, locates = "lower hub face; its hardened rim is the filing line", note = "O1 tool steel, hardened 58-62 HRC; bore ground 6.500-6.515, then OD ground 10.19-10.21 on a 6.500 arbor (0.01 TIR max), faces ground", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, OD and thickness" } },
   { name = "lower-button-bore", void = true, cuts = ["lower-button"], shape = "cylinder", at_mm = [0.0, 0.0, -11.5565], axis = [0.0, 0.0, 1.0], dia_mm = 6.5, length_mm = 5.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "pin gauges" } },
   { name = "nut", supply = "bought", fastener = "M6 hex nut", shape = "cylinder", at_mm = [0.0, 0.0, 4.0], axis = [0.0, 0.0, 1.0], dia_mm = 11.0, length_mm = 5.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, M6 nut across corners and height" } },
   { name = "nut-bore", void = true, cuts = ["nut"], shape = "cylinder", at_mm = [0.0, 0.0, 3.5], axis = [0.0, 0.0, 1.0], dia_mm = 6.5, length_mm = 6.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "M6 thread drawn at the stud diameter" } },
-  { name = "stud", shape = "cylinder", at_mm = [0.0, 0.0, -56.0], axis = [0.0, 0.0, 1.0], dia_mm = 6.49, length_mm = 66.0, locates = "reamed pivot bore", fastener = "6.49 ground stud, M6 top thread", note = "turned with its head from Ø10 O1 drill rod, hardened 50-55 HRC, body ground to 6.49", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, ground stud; steel rule, length" } },
+  { name = "stud", shape = "cylinder", at_mm = [0.0, 0.0, -56.0], axis = [0.0, 0.0, 1.0], dia_mm = 6.49, length_mm = 66.0, locates = "reamed pivot bore", fastener = "6.49 ground stud, M6 top thread", note = "turned with its head from Ø10 O1 drill rod, hardened 50-55 HRC, body ground to 6.485-6.490", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, ground stud; steel rule, length" } },
   { name = "stud-head", shape = "cylinder", at_mm = [0.0, 0.0, -14.0565], axis = [0.0, 0.0, 1.0], dia_mm = 9.0, length_mm = 3.0, locates = "lower button's seat: the nut's reaction", note = "integral with the stud; top face square to the stud axis, ground", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, head OD and thickness" } },
 ]
 
@@ -2250,6 +2260,10 @@ shop_made = true
 note = "illustrative example shop-made kit: two hardened and ground 14.00 mm buttons 4 mm thick, bored 6.50, on a headed 6.49 mm ground stud (the lower button seats on its Ø12 head) with an M6 top thread, nut and long tail for the bench vise; the buttons seat on the two ear faces (6.0 apart)"
 dia_mm = { value = 14.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, button OD" } }
 bore_dia_mm = { value = 6.49, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, ground stud" } }
+button_dia_limits_mm = { value = [13.95, 14.03], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "receipt acceptance limits: 0-1 in micrometer on each button OD (bought Ø14 g6, ground)" } }
+button_bore_limits_mm = { value = [6.500, 6.530], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "receipt acceptance limits: 6.500 GO / 6.530 NO-GO pins in each button bore (bought 6.5 H7)" } }
+pin_dia_limits_mm = { value = [6.475, 6.495], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "receipt acceptance limits: 0-1 in micrometer on the stud tail and body (bought 6.49 h6)" } }
+button_runout_mm = { value = 0.01, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "receipt acceptance limit: DTI on each button OD turned on the 6.500 GO pin held in a V-block, 0.01 TIR max" } }
 solids = [
   { name = "upper-button", shape = "cylinder", at_mm = [0.0, 0.0, 0.0], axis = [0.0, 0.0, 1.0], dia_mm = 14.0, length_mm = 4.0, locates = "outer ear face; its hardened rim is the filing line", note = "O1 tool steel, hardened 58-62 HRC, OD and faces ground", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, OD and thickness" } },
   { name = "upper-button-bore", void = true, cuts = ["upper-button"], shape = "cylinder", at_mm = [0.0, 0.0, -0.5], axis = [0.0, 0.0, 1.0], dia_mm = 6.5, length_mm = 5.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "pin gauges" } },
