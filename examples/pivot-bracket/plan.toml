@@ -293,7 +293,7 @@ jaw_above_parallels_mm = 19.5453
 clamp = "hold the round bar level against the moving jaw by hand, its centre at the Round bar line's height above the parallels, by eye (3 mm either way still seats the work), and close the jaw until it pinches the bar; hand plus quarter turn; tap the work down onto the parallels with a soft hammer" # AUTHOR'S CHOICE: the round bar's height only needs to land inside the grip
 parallels_along = "x"
 parallels_centres_mm = [[17.1, -2.0], [17.1, -16.5]] # AUTHOR'S CHOICE: under both sides of the bar
-note = "Before clamping, file the burrs off the faced edges and wipe the bar, jaws and parallels. Bar on edge on 1 in parallels, the faced left side against the fixed jaw; it stands 12.2 mm above the jaws. The outer end comes out square to the left side."
+note = "Before clamping, file the burrs off the faced edges and wipe the bar, jaws and parallels. Bar on edge on 1 in parallels, the faced left side against the fixed jaw. The outer end comes out square to the left side."
 
 [setups.zero.x]
 edge = "sawn crown end"
@@ -487,7 +487,7 @@ jaw_above_parallels_mm = 29.0703
 clamp = "hold the round bar level against the moving jaw by hand, its centre at the Round bar line's height above the parallels, by eye (3 mm either way still seats the work), and close the jaw until it pinches the bar; snug, sweep the outer end with the DTI down its 30 mm and tap the work square; hand plus quarter turn" # AUTHOR'S CHOICE: the end must come out square to both long faces
 parallels_along = "x"
 parallels_centres_mm = [[13.1, -2.0], [13.1, -16.0]] # AUTHOR'S CHOICE: under both sides of the bar
-note = "Before clamping, file the burrs off the faced edges and wipe the bar, jaws and parallels. Bar standing on its sawn seat end on 5/8 in parallels, the faced left side against the fixed jaw; it stands 8.9 mm above the jaws."
+note = "Before clamping, file the burrs off the faced edges and wipe the bar, jaws and parallels. Bar standing on its sawn seat end on 5/8 in parallels, the faced left side against the fixed jaw."
 
 [setups.zero.x]
 edge = "blank_free_end"
@@ -550,7 +550,7 @@ jaw_above_parallels_mm = 29.0703
 clamp = "hold the round bar level against the moving jaw by hand, its centre at the Round bar line's height above the parallels, by eye (3 mm either way still seats the work), and close the jaw until it pinches the bar; hand plus quarter turn; tap the work down until both parallels are pinned" # AUTHOR'S CHOICE: the faced crown end seats flat
 parallels_along = "x"
 parallels_centres_mm = [[13.1, -2.0], [13.1, -16.0]] # AUTHOR'S CHOICE: under both sides of the bar
-note = "Before clamping, file the burrs off the faced edges and wipe the bar, jaws and parallels. Bar standing on its faced crown end on 5/8 in parallels, the faced left side against the fixed jaw; it stands 7.0 mm above the jaws."
+note = "Before clamping, file the burrs off the faced edges and wipe the bar, jaws and parallels. Bar standing on its faced crown end on 5/8 in parallels, the faced left side against the fixed jaw."
 
 [setups.zero.x]
 edge = "blank_outer_end"
