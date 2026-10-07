@@ -599,17 +599,37 @@ def tool_numbers(bundle, setup):
     return numbers
 
 
-def jaw_top_z(setup, hold, scale):
+def jaw_top_z(bundle, setup, hold, scale):
     """The vise jaw tops' Z in ``setup``'s frame (plan units): the work's seated bottom
     (``retained_rail_bottom_z`` when lower than ``bottom_z``) plus the hold's
-    ``jaw_above_parallels_mm``, as the kernel seats its jaws. None when any of them is
-    unknown (an authored but unknown rail leaves the seat unknown) or ``scale`` (mm per
-    plan unit) is."""
+    ``jaw_above_parallels_mm``, as the kernel seats its jaws. None when any input is unknown
+    or unverified, as the kernel's vise inputs read them: a jaw height flagged
+    ``jaw_above_parallels_mm_verify`` (anything but false) or not a number at least 0;
+    parallels other than ``"none"`` / ``"not_applicable"`` that do not resolve, are
+    uncertain or lack an accepted positive ``height``; an unknown seat (an authored but
+    unknown rail included); or ``scale`` (mm per plan unit)."""
+    from prechips.measurements import length_fact
+    from prechips.rules._envelope import measurement_item
+
+    hold = record(hold)
     state = record(setup.get("stock_state"))
     bottom, rail = state.get("bottom_z"), state.get("retained_rail_bottom_z")
-    jaw = record(hold).get("jaw_above_parallels_mm")
-    if not (scale and number(bottom) and number(jaw)) or (rail is not None and not number(rail)):
+    jaw = hold.get("jaw_above_parallels_mm")
+    if not (scale and number(bottom) and number(jaw) and jaw >= 0) or (
+        rail is not None and not number(rail)
+    ):
         return None
+    if hold.get("jaw_above_parallels_mm_verify", False) is not False:
+        return None
+    parallels = hold.get("parallels")
+    if parallels not in ("none", "not_applicable"):
+        if not isinstance(parallels, str) or uncertain(resolve(bundle, "fixtures", parallels)):
+            return None
+        height = length_fact(
+            measurement_item(bundle, "fixtures", parallels), "height", require_measured=False
+        )
+        if not (height["verified"] and number(height["value"]) and height["value"] > 0):
+            return None
     return (min(bottom, rail) if rail is not None else bottom) + jaw / scale
 
 
