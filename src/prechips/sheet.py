@@ -1812,9 +1812,10 @@ class _Traveler:
         if _known(hold.get("jaw_above_parallels_mm")):
             facts.append(("jaw top above parallels mm", o(hold["jaw_above_parallels_mm"])))
             # The work's height above the jaw tops, from the same fields: the one source, so
-            # plan text must not restate it (consistency), and an unknown input prints "?".
+            # plan text must not restate it (consistency), and an unknown or unverified input
+            # prints "?".
             scale = {"mm": 1.0, "in": 25.4}.get(self.units)
-            jaw_top = jaw_top_z(setup, hold, scale)
+            jaw_top = jaw_top_z(self.bundle, setup, hold, scale)
             top = _mapping(setup.get("stock_state")).get("top_z")
             if jaw_top is not None and _known(top):
                 above = (top - jaw_top) * scale
@@ -1824,7 +1825,12 @@ class _Traveler:
                     else ("work top below jaw tops mm", o(-above))
                 )
             else:
-                facts.append(("work top above jaw tops mm", "? seat or stock top unknown"))
+                facts.append(
+                    (
+                        "work top above jaw tops mm",
+                        "? jaw height, parallels, seat or stock top unknown or unverified",
+                    )
+                )
         along = _text(hold.get("jaws_along")).upper()
         if _known(hold.get("jaw_center_along_mm")) and along in ("X", "Y"):
             facts.append((f"jaw centre at {along}", o(hold["jaw_center_along_mm"])))

@@ -32,11 +32,14 @@ Compared. A ``T<n>`` in a setup's or op's text names that setup's TOOLS row:
   [the] plug(s)`` or ``the plugs`` through: contradicts the pair.
 
 Two checks need no prose: ``tighten = "hand"`` with a ``torque_nm``, and ``stock_state``
-against the kernel's setup-entry stock box, which gives only the stock's highest and
-lowest points: ``top_z`` is the highest (a ``top_feature``'s face is only bounded by it),
-and the lower of ``bottom_z`` and ``retained_rail_bottom_z`` the lowest. A compared fact
-whose field, inventory value, plan units or kernel value is missing or unknown, or that
-the box cannot prove, is ``unknown``, never ``pass``.
+against the kernel's setup-entry stock. A ``top_z`` / ``bottom_z`` whose ``top_feature`` /
+``bottom_feature`` names a feature is compared with the kernel's height of that feature's
++Z / -Z face: the stock over (under) it while it is uncut, else the face, within its band.
+Otherwise the stock box gives only the highest and lowest points: ``top_z`` is the highest
+(a named face the kernel did not measure is only bounded by it), and the lower of
+``bottom_z`` and ``retained_rail_bottom_z`` the lowest. A compared fact whose field,
+inventory value, plan units, band or kernel value is missing or unknown, or that the kernel
+cannot prove, is ``unknown``, never ``pass``.
 """
 
 from __future__ import annotations
@@ -237,12 +240,127 @@ def _restated_jaw_heights(hold, texts):
     return len(found), found, []
 
 
+_NAMED = {"top_z": ("top_feature", "up"), "bottom_z": ("bottom_feature", "down")}
+
+
+def _named_faces(state, authored, faces):
+    """``{field: {name, face, stock} | {name, reason}}`` for each authored ``top_z`` /
+    ``bottom_z`` whose ``top_feature`` / ``bottom_feature`` names a feature: the kernel's
+    mm Z of that feature's +Z / -Z face and of the entering stock over / under it."""
+    named = {}
+    for field, (key, side) in _NAMED.items():
+        name = state.get(key)
+        if field not in authored or not isinstance(name, str) or name in ("", UNKNOWN):
+            continue
+        measured = record(faces.get(name))
+        height = record(measured.get(side))
+        if number(height.get("face_z")) and number(height.get("stock_z")):
+            named[field] = {"name": name, "face": height["face_z"], "stock": height["stock_z"]}
+        else:
+            reason = measured.get("reason") or height.get("reason") or "no height given"
+            named[field] = {"name": name, "reason": reason}
+    return named
+
+
+def _band(bundle, name, faces, scale):
+    """(requirement, low, high, nominal) in mm when ``name``'s one requirement band is the
+    separation of its two horizontal faces: the kernel puts its +Z and -Z faces the
+    requirement's nominal apart, so a thicker feature moves each face outward. Else None."""
+    feature = record(bundle.feature_definitions.get(name))
+    requirements = feature.get("requirements")
+    if not (isinstance(requirements, list) and len(requirements) == 1):
+        return None
+    (requirement,) = requirements
+    band, nominal = feature.get(requirement), feature.get(f"{requirement}_nominal")
+    if not (
+        isinstance(band, list)
+        and len(band) == 2
+        and all(map(number, (*band, nominal)))
+        and band[0] <= band[1]
+    ):
+        return None
+    up, down = (record(record(faces.get(name)).get(side)).get("face_z") for side in ("up", "down"))
+    if not (number(up) and number(down)) or abs(up - down - nominal * scale) > STOCK_TOL_MM:
+        return None
+    return requirement, band[0] * scale, band[1] * scale, nominal * scale
+
+
+def _face_heights(bundle, authored, named, faces, scale):
+    """Found and unchecked for the measured named faces. Still under raw stock, a face's
+    height is the stock's over (under) it. Cut, it may sit off its CAD Z only as far as its
+    feature's band lets the feature grow outward or shrink (:func:`_band`), the other face
+    held at its CAD Z. With both faces of one feature cut, their authored separation is the
+    band's, and each face may move only as far as the other's own range allows: the band's
+    span. A cut face off its CAD Z without such a band is unknown."""
+    found, unchecked = [], []
+    measured = {field: face for field, face in named.items() if "face" in face}
+    cut = {f for f, face in measured.items() if abs(face["stock"] - face["face"]) <= STOCK_TOL_MM}
+
+    def said(field):
+        face = measured[field]
+        return (
+            f"stock_state.{field} {authored[field]:g} is {_NAMED[field][0]} {face['name']}'s "
+            f"face, which the kernel finishes at Z {face['face'] / scale:.4f}"
+        )
+
+    for field in sorted(set(measured) - cut):
+        face = measured[field]
+        if abs(authored[field] * scale - face["stock"]) > STOCK_TOL_MM:
+            where = "over" if field == "top_z" else "under"
+            found.append(
+                f"{said(field)}; uncut, the setup-entry stock {where} it is at "
+                f"Z {face['stock'] / scale:.4f}"
+            )
+    pair = cut == {"top_z", "bottom_z"} and len({measured[f]["name"] for f in cut}) == 1
+    if pair:
+        name = measured["top_z"]["name"]
+        band = _band(bundle, name, faces, scale)
+        apart = (authored["top_z"] - authored["bottom_z"]) * scale
+        if band is not None and not band[1] - STOCK_TOL_MM <= apart <= band[2] + STOCK_TOL_MM:
+            found.append(
+                f"stock_state.top_z {authored['top_z']:g} and bottom_z {authored['bottom_z']:g} "
+                f"are {name}'s two cut faces, {apart / scale:g} apart, outside its {band[0]} "
+                f"band {band[1] / scale:g}-{band[2] / scale:g}"
+            )
+    for field in sorted(cut):
+        face = measured[field]
+        off = authored[field] * scale - face["face"]
+        if abs(off) <= STOCK_TOL_MM:
+            continue
+        band = _band(bundle, face["name"], faces, scale)
+        if band is None:
+            unchecked.append(
+                f"{said(field)}; no band of {face['name']} is proved to be its faces' "
+                "separation, so the departure is not judged"
+            )
+            continue
+        requirement, low, high, nominal = band
+        # Outward is growth: the feature thickens by it on this face's side.
+        grows = off if field == "top_z" else -off
+        least, most = (low - high, high - low) if pair else (low - nominal, high - nominal)
+        if not least - STOCK_TOL_MM <= grows <= most + STOCK_TOL_MM:
+            lowest, highest = (
+                (face["face"] + least, face["face"] + most)
+                if field == "top_z"
+                else (face["face"] - most, face["face"] - least)
+            )
+            found.append(
+                f"{said(field)}; its {requirement} band {low / scale:g}-{high / scale:g} puts it "
+                f"between Z {lowest / scale:.4f} and Z {highest / scale:.4f}"
+            )
+    return found, unchecked
+
+
 def _kernel_stock(bundle, setup, scale):
-    """``stock_state`` heights against the kernel's setup-entry stock box, which gives only
-    the stock's highest and lowest points. ``top_z`` is the highest, unless it is a
-    ``top_feature``'s touched face, which the box only bounds from above. The lower of
-    ``bottom_z`` and ``retained_rail_bottom_z`` is the lowest; the higher of the two is not
-    compared, and a rail with no ``bottom_z`` is proved only when it is below the stock."""
+    """``stock_state`` heights against the kernel's setup-entry stock. A ``top_z`` /
+    ``bottom_z`` whose ``top_feature`` / ``bottom_feature`` names a feature is that
+    feature's +Z / -Z face, compared with the kernel's height of it (:func:`_face_heights`).
+    Otherwise the stock box gives only the stock's highest and lowest points. ``top_z`` is
+    the highest, unless it is a named face the kernel did not measure, which the box only
+    bounds from above. The lower of ``bottom_z`` and ``retained_rail_bottom_z`` is the
+    lowest (a measured named seat at the stock's lowest point is judged by its face alone);
+    the higher of the two is compared only as a measured named face, and a rail with no
+    ``bottom_z`` is proved only when it is below the stock."""
     from prechips.kernel import run_geometry
 
     state = record(setup.get("stock_state"))
@@ -261,12 +379,16 @@ def _kernel_stock(bundle, setup, scale):
     kernel = record(run_geometry(bundle))
     if kernel.get("status") != "ok":
         return 0, [], [f"the kernel did not model the stock (status {kernel.get('status')})"]
-    box = record(record(kernel.get("setups")).get(setup["id"])).get("stock_bbox_mm")
+    facts = record(record(kernel.get("setups")).get(setup["id"]))
+    box = facts.get("stock_bbox_mm")
     if not (isinstance(box, list) and len(box) == 6 and all(map(number, box))):
         return 0, [], ["the kernel gave no setup-entry stock box for this setup"]
-    found, unchecked = [], []
+    faces = record(facts.get("stock_faces_mm"))
+    named = _named_faces(state, authored, faces)
+    found, unchecked = _face_heights(bundle, authored, named, faces, scale)
+    judged = {field for field, face in named.items() if "face" in face}
     top, face = authored.get("top_z"), state.get("top_feature")
-    if top is not None:
+    if top is not None and "top_z" not in judged:
         off = top * scale - box[5]
         message = (
             f"stock_state.top_z {top:g}, but the kernel's setup-entry stock top is at "
@@ -279,31 +401,45 @@ def _kernel_stock(bundle, setup, scale):
                 f"{message}; top_feature is unknown, so a touched face cannot be told from a "
                 "wrong stock top"
                 if face == UNKNOWN
-                else f"{message}; it is top_feature {face}'s touched face, whose height the "
-                "box does not give"
+                else f"{message}; it is top_feature {face}'s face, whose height the kernel "
+                f"did not give ({named['top_z']['reason']})"
             )
     lows = {f: authored[f] for f in ("bottom_z", "retained_rail_bottom_z") if f in authored}
     if lows:
         field = min(lows, key=lows.get)
-        off = lows[field] * scale - box[2]
-        message = (
-            f"stock_state.{field} {lows[field]:g}, the lowest authored stock point, but the "
-            f"kernel's setup-entry stock bottom is at Z {box[2] / scale:.4f}"
-        )
-        if off < -STOCK_TOL_MM or (off > STOCK_TOL_MM and "bottom_z" in lows):
-            found.append(message)
-        elif "bottom_z" not in lows:
-            unchecked.append(
-                f"stock_state.retained_rail_bottom_z {lows[field]:g} with no bottom_z: the "
-                f"kernel's stock bottom (Z {box[2] / scale:.4f}) may be the seat's, so the "
-                "rail is not compared"
+        seat = named.get("bottom_z", {})
+        # A measured named seat that is the stock's lowest point has been judged as a face.
+        if not (
+            field == "bottom_z"
+            and "bottom_z" in judged
+            and abs(seat["stock"] - box[2]) <= STOCK_TOL_MM
+        ):
+            off = lows[field] * scale - box[2]
+            message = (
+                f"stock_state.{field} {lows[field]:g}, the lowest authored stock point, but "
+                f"the kernel's setup-entry stock bottom is at Z {box[2] / scale:.4f}"
             )
-        for other, value in lows.items():
-            if other != field and (value - lows[field]) * scale > STOCK_TOL_MM:
+            if off < -STOCK_TOL_MM or (off > STOCK_TOL_MM and "bottom_z" in lows):
+                found.append(message)
+            elif "bottom_z" not in lows:
                 unchecked.append(
-                    f"stock_state.{other} {value:g} is above the lowest authored point, and the "
-                    "kernel box gives only the stock's lowest point, so it is not compared"
+                    f"stock_state.retained_rail_bottom_z {lows[field]:g} with no bottom_z: the "
+                    f"kernel's stock bottom (Z {box[2] / scale:.4f}) may be the seat's, so the "
+                    "rail is not compared"
                 )
+        for other, value in lows.items():
+            if other in judged or other == field or (value - lows[field]) * scale <= STOCK_TOL_MM:
+                continue
+            unmeasured = (
+                f"; bottom_feature {seat['name']}'s face height is unknown ({seat['reason']})"
+                if other == "bottom_z" and seat
+                else ""
+            )
+            unchecked.append(
+                f"stock_state.{other} {value:g} is above the lowest authored point, and the "
+                f"kernel box gives only the stock's lowest point, so it is not compared"
+                + unmeasured
+            )
     return 1, found, unchecked
 
 

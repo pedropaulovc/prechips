@@ -3820,6 +3820,8 @@ class _Setup:
             self.box = _bbox(self.part)
             facts["stock_bbox_mm"] = [_r(v) for v in self.box]
             facts["stock_volume_mm3"] = _r(self.part.Volume)
+            if self.setup.get("stock_features"):
+                facts["stock_faces_mm"] = self._stock_faces()
             with _timed(phases, "fixture"):
                 self._fixture(facts)
         else:
@@ -3904,6 +3906,60 @@ class _Setup:
         elif unknown:
             facts["reason"] = unknown[0]
         return facts, ops
+
+    def _stock_faces(self):
+        """stock_faces_mm: each named feature's horizontal finished faces as held, by outward
+        side, ``up`` (+Z) and ``down`` (-Z): ``{face_z, stock_z}``, their one Z and the
+        entering stock's highest point over their footprint (lowest under it; the face's own
+        Z once it is cut), else ``{reason}``. A feature without resolved faces is ``{reason}``."""
+        result = {}
+        for name in self.setup["stock_features"]:
+            indices = self.owner.features.get(name)
+            if not (isinstance(indices, list) and indices):
+                result[name] = {"reason": f"feature {name} has no resolved faces"}
+                continue
+            sides = {"up": [], "down": []}
+            for index in indices:
+                normal = _common_normal([self.faces[index]])
+                if normal is not None and abs(normal.z) >= PARALLEL:
+                    sides["up" if normal.z > 0 else "down"].append(self.faces[index])
+            result[name] = {
+                side: self._stock_over(name, side, faces) for side, faces in sides.items()
+            }
+        return result
+
+    def _stock_over(self, name, side, faces):
+        """One side's ``{face_z, stock_z}`` (:meth:`_stock_faces`), or why it has no height:
+        finished material beyond the face over its footprint, or a face the entering stock
+        has lost (none of it behind its plane). A face the stock still carries in part, an
+        oversize hole having shaved its edge, keeps its height."""
+        word = "+Z" if side == "up" else "-Z"
+        if not faces:
+            return {"reason": f"no planar face of {name} faces {word}"}
+        heights = [z for face in faces for z in _bbox(face)[2::3]]
+        if max(heights) - min(heights) > STOCK_TOL:
+            return {"reason": f"the {word} faces of {name} lie at more than one Z"}
+        z = sum(heights) / len(heights)
+        sign = 1.0 if side == "up" else -1.0
+        reach = (self.box[5] - z if side == "up" else z - self.box[2]) + 1.0
+        try:
+            beyond = [face.extrude(V(0, 0, sign * reach)) for face in faces]
+            if any(self.finished.common(prism).Volume > HIT_MM3 for prism in beyond):
+                return {"reason": f"finished material stands {word} of the face of {name}"}
+            behind = [face.extrude(V(0, 0, -sign * COVER_MM)) for face in faces]
+            if any(slab.common(self.part).Volume <= HIT_MM3 for slab in behind):
+                return {"reason": f"the entering stock does not carry the face of {name}"}
+            over = [
+                _bbox(piece)
+                for piece in (self.part.common(p) for p in beyond)
+                if piece.Volume > HIT_MM3
+            ]
+        except Exception as exc:  # an OCC boolean failure proves no height
+            return {"reason": f"the stock over the face of {name} was not measured: {exc}"}
+        stock = (
+            (max(b[5] for b in over) if side == "up" else min(b[2] for b in over)) if over else z
+        )
+        return {"face_z": _r(z), "stock_z": _r(stock)}
 
     def _stock_profile(self, facts):
         """stock_profile: [z_lo, z_hi, r_lo, r_hi] setup-frame bands of the least outer
