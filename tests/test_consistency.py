@@ -683,3 +683,119 @@ def test_text_passing_the_no_go_plug_through_contradicts_the_go_no_go_check(meth
 )
 def test_a_no_go_plug_that_does_not_enter_is_not_an_error(method):
     assert errors(bundle([{"ops": [gauged(method)]}])) == {}
+
+
+# ------------------------------------------------------------ shop-made make notes
+def jig(*solids, decimals=1):
+    """A setup held on a shop-made jig of ``solids``, made to ``decimals`` places."""
+    pose = {"origin_mm": [0, 0, 0], "x": [1, 0, 0], "z": [0, 0, 1]}
+    data = bundle([{"hold": {"fixture": "jig", "pose": pose}}])
+    fixtures = {**INVENTORY["fixtures"], "jig": {"kind": "custom", "solids": list(solids)}}
+    return replace(
+        data,
+        inventory={**INVENTORY, "fixtures": fixtures},
+        policy={"numbers": {"fixture_make_decimals": decimals}},
+    )
+
+
+def block(name, size, note=None, **extra):
+    solid = {"name": name, "shape": "box", "at_mm": [0, 0, 0], "size_mm": size, **extra}
+    return {**solid, "note": note} if note else solid
+
+
+def rod(name, dia, length, note=None, **extra):
+    solid = {
+        "name": name,
+        "shape": "cylinder",
+        "at_mm": [0, 0, 20],
+        "axis": [0, 0, 1],
+        "dia_mm": dia,
+        "length_mm": length,
+        **extra,
+    }
+    return {**solid, "note": note} if note else solid
+
+
+ARM = "1/2 x 3/8 in bar (bought), sawn and milled to {}; drill the stop hole"
+
+
+def test_a_make_note_restating_a_size_the_table_prints_otherwise_is_an_error():
+    # The table prints the 65.1631 arm at the make decimals, 65.2: the note says 65.16.
+    found = errors(jig(block("arm", [65.1631, 11, 10], ARM.format("11 x 10 x 65.16"))))["S1"]
+    assert "11 x 10 x 65.16" in found and "65.2 × 11 × 10" in found and "arm" in found
+
+
+@pytest.mark.parametrize(
+    "size", ["11 x 10 x 65.2", "65.2 × 11 × 10", "11.0 wide x 10 high x 65.20 long (±0.1)"]
+)
+def test_a_make_note_restating_the_printed_size_in_any_order_passes(size):
+    row = rows(jig(block("arm", [65.1631, 11, 10], ARM.format(size))))["S1"]
+    assert row.status == "pass" and row.numbers["claims"] == 1
+
+
+@pytest.mark.parametrize(
+    ("note", "status"),
+    [
+        ("3/4 in round (bought): turn Ø6.30 x 13.45, cut 1/4-20", "error"),
+        ("3/4 in round (bought): turned Ø6.4 x 13.5 on the lathe", "pass"),
+        ("turn the screw to 6.4 x 13.5", "pass"),
+        ("turn the screw to 6.35 x 13.5", "error"),
+    ],
+)
+def test_a_turned_size_in_a_make_note_is_the_printed_diameter_and_length(note, status):
+    assert rows(jig(rod("screw", 6.35, 13.45, note)))["S1"].status == status
+
+
+def test_a_note_shared_by_two_rows_reads_each_size_against_the_row_it_names():
+    note = "drill rod: turn the head Ø10 x 3 and the screw Ø{} x 13.5"
+    for dia, status in (("6.4", "pass"), ("6.30", "error")):
+        data = jig(
+            rod("head", 10, 3, note.format(dia)), rod("screw", 6.35, 13.45, note.format(dia))
+        )
+        row = rows(data)["S1"]
+        assert (row.status, row.numbers["claims"]) == (status, 2)
+        if status == "error":
+            assert "screw" in row.sentence and "Ø10 x 3" not in row.sentence
+
+
+def test_two_numbers_milled_to_are_two_of_a_block_s_edges():
+    for size, status in (("360 x 145", "pass"), ("360 x 150", "error")):
+        base = block("base", [360, 145, 25.4], f"ground plate, sawn to {size} by the supplier")
+        assert rows(jig(base))["S1"].status == status
+
+
+@pytest.mark.parametrize(
+    "note",
+    [
+        # Sub-portions of a solid, holes and pins, inch sizes, bought stock sections.
+        "turn the thread end Ø6.30 x 17.5, the body to 6.50 for 14.06, the Ø9 x 3 head",
+        "drill 13/32 and counterbore Ø15.9 x 10.5; press the Ø4 x 16 dowels in",
+        "1/2 x 3/8 in bar, Ø3/4 in round, milled to 0.5 x 0.375 in, to 1/2 x 3/8",
+        "turn the thread portion Ø4.80 x 7.2 and the tail to 6.49 x 42 x 3 x 2",
+    ],
+)
+def test_sizes_not_of_a_whole_made_row_are_not_read(note):
+    row = rows(jig(rod("stud", 6.49, 76.5, note)))["S1"]
+    assert (row.status, row.numbers["claims"]) == ("not_applicable", 0)
+
+
+def test_a_bought_or_existing_part_s_note_restates_no_printed_size():
+    bought = block("stop", [10, 10, 10], "ground to 12 x 12 x 12", supply="bought")
+    existing = block("jaw", [80, 10, 30], "milled to 80 x 12 x 30", supply="existing")
+    assert rows(jig(bought, existing))["S1"].numbers["claims"] == 0
+
+
+def test_a_size_the_table_withholds_leaves_the_restated_size_unknown():
+    arm = block("arm", [65.1631, 11, 10], ARM.format("11 x 10 x 65.16"), verify=True)
+    row = rows(jig(arm))["S1"]
+    assert row.status == "unknown" and "11 x 10 x 65.16" in row.sentence
+
+
+def test_the_table_s_own_size_cell_is_the_one_the_rule_reads():
+    # Made to 2 places the arm prints 65.16, so the same note agrees.
+    data = jig(block("arm", [65.1631, 11, 10], ARM.format("11 x 10 x 65.16")), decimals=2)
+    assert rows(data)["S1"].status == "pass"
+    traveler = _Traveler(data, [], {}, None)
+    traveler.setup = data.plan["setups"][0]
+    table = unescape(re.sub(r"<[^>]+>", "|", traveler.shop_made_tables(traveler.setup)))
+    assert "65.16 × 11 × 10" in table and "11 x 10 x 65.16" in table

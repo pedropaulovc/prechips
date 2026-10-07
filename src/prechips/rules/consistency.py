@@ -88,6 +88,14 @@ _THROUGH = re.compile(
     + r")(?:\s+[\w-]+){0,4}?\s+through\b",
     re.I,
 )
+# A whole made row's size in its make note: a number of its own (not a fraction, an inch
+# size or part of a hyphen range; ``Ø``, a letter, may lead it); ``to`` two or three of them
+# (each perhaps ``wide`` / ``high`` / ``thick`` / ``long`` / ``deep`` and a parenthesis), or a
+# turned ``Ø D x L``.
+_SIZE_NUMBER = r"(?<![0-9A-Za-z_./-])\d+(?:\.\d+)?(?![\d/]|\.\d|-\d)"
+_SIZE_EDGE = rf"({_SIZE_NUMBER})(?:\s+(?:wide|high|thick|long|deep))?(?:\s+\([^()]*\))?"
+_SIZE_BY = r"\s*[x×]\s*"
+_SIZE_END = rf"(?!{_SIZE_BY}\d|\s*(?:in\b|\"|″))"
 
 
 def _texts(value):
@@ -483,6 +491,105 @@ def _no_go(op):
     return len(found), found, []
 
 
+def _size_fits(claim, row):
+    """Whether a make note's ``claim`` (mm numbers) is the size ``row`` prints: a box's
+    three edges in any order, or two of them; a cylinder's Ø and length. None when the row
+    prints no number to compare."""
+    solid, printed, _ = row
+    if printed is None or "?" in printed:
+        return None
+    values = [float(value) for value in printed]
+    if solid.get("shape") == "cylinder":
+        return claim == values
+    for value in claim:
+        if value not in values:
+            return False
+        values.remove(value)
+    return True
+
+
+def _note_sizes(traveler, title, text, rows):
+    """The sizes one make note gives the made rows it prints with (``rows``: solid, printed
+    numbers, Size mm cell). ``[the <row>] to A x B [x C]`` sizes the named row, else a box
+    the note is made with; ``turn[ed] [the <row>] Ø D x L`` and ``the <row> Ø D x L`` size
+    the named row, else a cylinder the note is made with."""
+    from prechips.sheet import _solid_name
+
+    names = {}
+    for row in rows:
+        label = row[0].get("label")
+        for name in {_solid_name(row[0].get("name", "?")), label and traveler.bench(label)}:
+            if name:
+                names.setdefault(name.lower(), []).append(row)
+    named = "|".join(re.escape(name) for name in sorted(names, key=len, reverse=True))
+    edges = rf"{_SIZE_EDGE}{_SIZE_BY}{_SIZE_EDGE}(?:{_SIZE_BY}{_SIZE_EDGE})?"
+    to = re.compile(rf"\b(?:the\s+({named})\s+)?to\s+{edges}{_SIZE_END}", re.I)
+    turned = re.compile(
+        rf"(?:\bturn(?:ed)?\s+(?:the\s+({named})\s+)?|\bthe\s+({named})\s+)"
+        rf"Ø\s*({_SIZE_NUMBER}){_SIZE_BY}{_SIZE_EDGE}{_SIZE_END}",
+        re.I,
+    )
+    # A named row may be either shape; an unnamed ``to`` size is a box's, a ``Ø`` a cylinder's.
+    sized = [
+        (m[0], m[1], m.groups()[1:], {"box", "cylinder"} if m[1] else {"box"})
+        for m in to.finditer(text)
+    ]
+    sized += [(m[0], m[1] or m[2], m.groups()[2:], {"cylinder"}) for m in turned.finditer(text)]
+    claims, found, unchecked = 0, [], []
+    for said, name, numbers, shapes in sized:
+        claim = [float(value) for value in numbers if value is not None]
+        pool = [
+            row
+            for row in (names[name.lower()] if name else rows)
+            if row[0].get("shape") in shapes and (row[0].get("shape") == "box" or len(claim) == 2)
+        ]
+        if not pool:
+            continue
+        claims += 1
+        verdicts = [_size_fits(claim, row) for row in pool]
+        if True in verdicts:
+            continue
+        # Rows sharing a label print one cell for all of them.
+        cells = {
+            f"{traveler.bench(row[0].get('label') or _solid_name(row[0].get('name', '?')))} "
+            f"{row[2]}": None
+            for row in pool
+        }
+        printed = "; ".join(cells)
+        if None in verdicts:
+            unchecked.append(
+                f'the {title} make note gives "{said}", but the SHOP-MADE FIXTURE row it '
+                f"sizes prints no number to compare ({printed})"
+            )
+        else:
+            found.append(
+                f'the {title} make note gives "{said}", but its SHOP-MADE FIXTURE table '
+                f"prints {printed}"
+            )
+    return claims, found, unchecked
+
+
+def _restated_sizes(traveler, setup):
+    """The make notes of the SHOP-MADE FIXTURE tables this setup's sheet prints, each size
+    they give a whole made row against that row's Size mm cell (:func:`_note_sizes`)."""
+    traveler.setup = setup
+    uses = traveler.shop_made_uses(setup)
+    claims, found, unchecked = 0, [], []
+    for reference in uses:
+        if traveler.shop_made_home(setup, reference, uses) != setup["id"]:
+            continue
+        traveler.fixture_unknowns = set()
+        notes = {}
+        for row in traveler.shop_made_sizes(reference):
+            if row[0].get("note"):
+                notes.setdefault(traveler.bench(row[0]["note"]).rstrip("."), []).append(row)
+        title = traveler.reference(reference, "fixtures")
+        for text, rows in notes.items():
+            c, f, u = _note_sizes(traveler, title, text, rows)
+            claims, found, unchecked = claims + c, found + f, unchecked + u
+    return claims, found, unchecked
+
+
 def _finding(subject, checks, cite):
     claims = sum(c for c, _, _ in checks)
     found = [f for _, fs, _ in checks for f in fs]
@@ -507,8 +614,13 @@ def _finding(subject, checks, cite):
 
 
 def evaluate(bundle):
+    # The SHOP-MADE FIXTURE tables' own numbers, homes and note text; imported here, as the
+    # sheet imports the rules.
+    from prechips.sheet import _Traveler
+
     scale = {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units"))
     frames = set(record(bundle.plan.get("frames")))
+    traveler = _Traveler(bundle, [], {}, None)
     result = []
     for setup in bundle.plan.get("setups", []):
         sid = setup["id"]
@@ -520,23 +632,22 @@ def evaluate(bundle):
             + _texts(record(setup.get("stock_state")).get("note"))
             + _zero_texts(setup.get("zero"))
         )
+        sizes = _restated_sizes(traveler, setup)
         checks = [
             _restated_chucking(setup_texts),
             _hand_tight(hold),
             _tool_claims(bundle, setup, setup_texts, frames),
             _restated_jaw_heights(hold, setup_texts),
             _kernel_stock(bundle, setup, scale),
+            sizes,
         ]
-        result.append(
-            _finding(
-                sid,
-                checks,
-                [
-                    f"plan setups {sid}: hold, zero, stock_state and notes",
-                    "kernel setup-entry stock box",
-                ],
-            )
-        )
+        cite = [
+            f"plan setups {sid}: hold, zero, stock_state and notes",
+            "kernel setup-entry stock box",
+        ]
+        if any(sizes):
+            cite.append("SHOP-MADE FIXTURE tables: made rows' Size mm and make notes")
+        result.append(_finding(sid, checks, cite))
         for op in setup.get("ops", []):
             texts = [
                 t for key in ("note", "inspection_note", "layout") for t in _texts(op.get(key))
