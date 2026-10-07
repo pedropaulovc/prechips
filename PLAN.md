@@ -526,9 +526,12 @@ page-cited from Machinery's Handbook 31 Table 1 or left `"unknown"`; a row
 is added when a shipped route first needs it.
 Status: the shipped example `cutting-data.toml` (revision 5) carries labelled
 illustrative example rows, each inside a range cited by table and printed page
-from Machinery's Handbook 27th edition, and a third table,
-`[[deep_hole]]`, derates an operation's sfm once the hole's depth exceeds a
-cited depth/diameter threshold ([docs/cutting-data.md](docs/cutting-data.md)).
+from Machinery's Handbook 27th edition, a third table,
+`[[deep_hole]]`, that derates an operation's sfm once the hole's depth exceeds a
+cited depth/diameter threshold, and a fourth, `[[plunge]]`, giving the end-mill
+plunge feed each milled path needs where it goes down into material; a plunge
+without one is coordinates debt and a sheet STOP
+([docs/cutting-data.md](docs/cutting-data.md)).
 
 ## 4. What the checker validates (the rule catalogue)
 

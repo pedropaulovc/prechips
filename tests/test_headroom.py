@@ -74,6 +74,7 @@ def bundle():
         },
         features={"frames": {"A": {"x": [1, 0, 0], "y": [0, 1, 0]}}, "features": {}},
         policy={},
+        cutting_data={},
     )
     data.feature_definitions = data.features["features"]
     return data
@@ -491,7 +492,7 @@ def coordinate_bundle(tmp_path, feature, operations):
     plan.write_text(
         'part = "coordinate-control"\nfeatures = "features.toml"\n'
         "[paths]\ninventory = 'inventory.toml'\npolicy = 'policy.toml'\n"
-        "cutting_data = 'cutting.toml'\n"
+        "cutting_data = 'cutting.toml'\n[stock]\nmaterial = 'scratch steel'\n"
         "[[setups]]\nid = 'S1'\nmachine = 'mill'\nframe = 'A'\n"
         "coolant = 'unknown'\ndeburr_mm = 'unknown'\n"
         "[setups.hold]\nfixture = 'unknown'\nstop = 'unknown'\ngrip_mm = 'unknown'\n"
@@ -514,7 +515,8 @@ def coordinate_bundle(tmp_path, feature, operations):
     (root / "inventory.toml").write_text(
         "[machines.mill]\nkind = 'mill'\nverify = false\n"
         "[machines.mill.spindle]\nrotation = 'cw'\n"
-        "[tools.cutter]\nkind = 'endmill'\ndia_mm = 6.0\nverify = false\n"
+        "[tools.cutter]\nkind = 'endmill'\ndia_mm = 6.0\nmaterial = 'HSS'\ncenter_cutting = true\n"
+        "verify = false\n"
         "[tools.spot]\nkind = 'center_drill'\ndia_mm = 6.0\npoint_angle = 90.0\n"
         "verify = false\n"
         "[tools.drill]\nkind = 'drill'\ndia_mm = 6.0\npoint_angle = 118.0\n"
@@ -528,7 +530,14 @@ def coordinate_bundle(tmp_path, feature, operations):
         "[numbers_verify]\nmax_filing_stock_mm = false\n",
         encoding="utf-8",
     )
-    (root / "cutting.toml").write_text("revision = 1\n", encoding="utf-8")
+    # Every end mill the scratch plans plunge is centre-cutting with a cited plunge feed
+    # (level_entry).
+    (root / "cutting.toml").write_text(
+        "revision = 1\n[aliases]\n'scratch steel' = 'steel'\n"
+        "[[plunge]]\nmaterial_class = 'steel'\ntool_material = 'HSS'\n"
+        "diameter_range = [0.0, 50.0]\nfeed_mm_rev = 0.05\ncite = 'scratch plunge feed'\n",
+        encoding="utf-8",
+    )
     return plan
 
 
@@ -612,7 +621,7 @@ def test_contour_allowances_produce_actual_rough_and_finish_targets(
         tmp_path,
         feature,
         f"[[setups.ops]]\nop = 20\ndo = '{action}'\nfeature = 'target'\n"
-        "tool = 'cutter'\nto_z = -1.0\ndirection = 'conventional'\n"
+        "tool = 'cutter'\nto_z = -1.0\ndirection = 'conventional'\napproach_mm = 2.0\n"
         + allowance_field
         + f"contour = {{ method = '{method}', cusp_mm = 0.1 }}\n",
     )

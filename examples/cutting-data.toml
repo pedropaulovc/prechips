@@ -317,6 +317,28 @@ chip_load_mm_per_tooth = 0.02
 cite = "example (plausible, not measured); cobalt spot drill: speed on the tool body inside Machinery's Handbook 27th ed. (Industrial Press, 2004) Table 17 p.1061 traditional HSS drilling speeds for plain carbon steels 1006-1026, 60-100 fpm (100 at 100-125 HB, 90 at 125-175, 70 at 175-225, 60 at 225-275); 2 flutes x 0.02 mm = .0016 in/rev, inside the same handbook's p.1060 drill feeds for the traditional speeds 0.001-0.003 in/rev for drills smaller than 1/8 in, because a shallow spot cuts only its point (a 2.08 mm spot), and beside p.1132's centre-drill feed .0015 in/rev for holes under 1/8 in"
 # --- end pivot-bracket additions ---
 
+# --- SheetR5 additions ---
+# Plunge: an end mill fed straight down its own axis into the stock, feed per spindle
+# revolution (rules-operations.md speeds_feeds; plunge feed = RPM x feed_mm_rev). The
+# corpus has no end-mill plunge table, so each value is derived from p.1060's twist-drill
+# feed for the same diameter. Bands break at 1/4 in (6.35 mm), p.1060's size step; the
+# shared 1/4 in size takes the smaller drill band's feed. The first band starts at exactly
+# 1/8 in (3.175 mm), p.1060's lower bound, and the plunge needs a centre-cutting end mill.
+[[plunge]]
+material_class = "low_carbon_steel"
+tool_material = "HSS"
+diameter_range = [3.175, 6.35]
+feed_mm_rev = 0.025
+cite = "example (plausible, not measured); AUTHOR'S CHOICE: 0.001 in/rev (0.025 mm/rev), half the 0.002 in/rev floor of Machinery's Handbook 27th ed. (Industrial Press, 2004) p.1060 ordinary twist-drill feed 0.002-0.006 in/rev for 1/8- to 1/4-in drills, because an end mill fed down its axis has no drill point to centre it and only its end teeth to clear the chip; it equals one tooth at the same handbook's Table 15a p.1054 .001 in/tooth for a 1/4 in HSS end mill in plain carbon steels AISI 1006-1030"
+
+[[plunge]]
+material_class = "low_carbon_steel"
+tool_material = "HSS"
+diameter_range = [6.351, 12.7]
+feed_mm_rev = 0.05
+cite = "example (plausible, not measured); AUTHOR'S CHOICE: 0.002 in/rev (0.05 mm/rev), half the 0.004 in/rev floor of Machinery's Handbook 27th ed. (Industrial Press, 2004) p.1060 ordinary twist-drill feed 0.004-0.010 in/rev for 1/4- to 1/2-in drills, because an end mill fed down its axis has no drill point to centre it and only its end teeth to clear the chip; it equals two teeth at the same handbook's Table 15a p.1054 .001 in/tooth for a 1/2 in HSS end mill in plain carbon steels AISI 1006-1030"
+# --- end SheetR5 additions ---
+
 # Deep holes: sfm x sfm_factor once the hole's depth exceeds depth_over_dia drill
 # diameters (rules-operations.md speeds_feeds); feed per tooth is unchanged.
 [[deep_hole]]
