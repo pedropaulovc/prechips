@@ -8254,9 +8254,10 @@ class _Setup:
         )
         scene["closest_cut"] = spec["closest_cut"]
         scene["guide_stops"] = [stop["tag"] for stop in stops]
-        png, drawn_debts = render_diagram(meshes, spec)
+        png, drawn_debts, print_panels = render_diagram(meshes, spec)
         render_debts.extend(drawn_debts)
-        # A holding detail band below the picture makes it taller than the default.
+        scene["print_panels"] = print_panels
+        scene["width_px"] = int.from_bytes(png[16:20], "big")
         scene["height_px"] = int.from_bytes(png[20:24], "big")
         return png, scene
 

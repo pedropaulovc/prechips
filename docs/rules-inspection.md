@@ -128,6 +128,16 @@ resolution and band width where available. Citations: PLAN §4.1 inspection,
 feature requirement manifest and inventory range/resolution/verification. A pin
 size check is not a position check; a declared gauge is not first-article data.
 
+One full-width freeform readings/observations area stays below each real
+requirement with its known owner(s), usable authored limits, gauge, units and
+method reference. Equal printed bands alone do not establish shared physical
+identity; a true across-faces dimension stays one record. Feature/location can
+be identified when needed, without inferred counts, positions or statistics.
+Unknown identities, bands and capability debts remain `?`; the layout invents
+neither a result nor a gauge. Named authored procedure fields remain distinct
+from freeform areas. An operation-performed mark is progress only,
+separate from inspection acceptance, GO / NO-GO outcomes and clearance to proceed.
+
 ## GO / NO-GO limit checks
 
 An op's `go_no_go = { <requirement> = { go = <mm>, no_go = <mm> } }` states the two

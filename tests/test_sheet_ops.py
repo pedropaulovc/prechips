@@ -2,8 +2,10 @@
 
 import functools
 import random
+import json
 import re
 from html import unescape
+from html.parser import HTMLParser
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -18,6 +20,52 @@ def bare(precision):
     sheet = _Traveler.__new__(_Traveler)
     sheet.precision = lambda feature, dimension: precision
     return sheet
+
+
+class Markup(HTMLParser):
+    """Read generated record associations without pinning its incidental markup."""
+
+    def __init__(self, html):
+        super().__init__()
+        self.nodes = []
+        self.stack = []
+        self.feed(html)
+
+    def handle_starttag(self, tag, attrs):
+        node = {
+            "tag": tag,
+            "attrs": dict(attrs),
+            "text": [],
+            "parent": self.stack[-1] if self.stack else None,
+        }
+        self.nodes.append(node)
+        if tag not in {"br", "col", "img", "meta", "input", "hr", "link"}:
+            self.stack.append(node)
+
+    def handle_endtag(self, tag):
+        while self.stack:
+            if self.stack.pop()["tag"] == tag:
+                break
+
+    def handle_data(self, text):
+        for node in self.stack:
+            node["text"].append(text)
+
+    def find(self, css, within=None):
+        result = []
+        for node in self.nodes:
+            if css not in node["attrs"].get("class", "").split():
+                continue
+            parent = node
+            while parent is not None and parent is not within:
+                parent = parent["parent"]
+            if within is None or parent is within:
+                result.append(node)
+        return result
+
+
+def content(node):
+    return "".join(node["text"])
 
 
 @pytest.mark.parametrize(
@@ -899,13 +947,17 @@ def test_a_procedure_authored_as_steps_prints_numbered_with_fields_and_its_calcu
         ],
     )
     html = _list([note])
-    assert html.count("<li>") == 3  # the note, then its two numbered steps
-    assert '<ol class="steps"><li>Pin the rod hole; read X at the pin: ' in html
-    assert '<span class="field">X1 ____________</span>' in html
-    assert '<p class="calc">Calculate: position Ø = 2 × √((X1 − 133.067)² + (Y1 + 8.456)²) = ' in (
-        html
-    )
-    # An authored string keeps printing as before.
+    markup = Markup(html)
+    assert len([node for node in markup.nodes if node["tag"] == "li"]) == 3
+    fields = markup.find("field")
+    assert [content(markup.find("field-label", field)[0]) for field in fields] == [
+        "X1",
+        "Y1",
+        "result",
+    ]
+    assert all(len(markup.find("writing-blank", field)) == 1 for field in fields)
+    calculation = content(markup.find("calc")[0])
+    assert "133.067" in calculation and "8.456" in calculation and "−" in calculation
     assert shop({}).note("S1 op 10 Ra", "Compare.") == "S1 op 10 Ra: Compare."
 
 
@@ -917,6 +969,22 @@ ANGULARITY = [
     "Calculate: 0.945 × rC1 − 1.384 × rJ1 = {e1}",
     "Calculate: √(e1² + e2²) = {result}; accept 0.10 or less.",
 ]
+
+
+def worksheet_readings(markup):
+    """Source step, named reading and sole value-field label in each READINGS row."""
+    table = markup.find("readings")[0]
+    result = []
+    for row in markup.nodes:
+        if row["tag"] != "tr" or row["parent"]["parent"] is not table:
+            continue
+        cells = [node for node in markup.nodes if node["tag"] == "td" and node["parent"] is row]
+        if not cells:
+            continue
+        assert len(cells) == 3 and len(markup.find("writing-blank", cells[2])) == 1
+        label = content(markup.find("field-label", cells[2])[0])
+        result.append((content(cells[0]), content(cells[1]), label))
+    return result
 
 
 @pytest.mark.parametrize(
@@ -942,12 +1010,82 @@ def test_readings_worked_through_several_calculations_get_a_worksheet_of_their_o
         return
     assert cell == ["see S11 sheet 4 worksheet"] and notes == ["an earlier note"]
     html = _worksheet(worksheets[0])
-    # Each step names its reading; the READINGS table has one line per reading, with the
-    # step that takes it and an empty value cell; the calculations keep their blanks.
-    assert '<li>Orientation 2. Crank rod rise: <b class="reading">[rC2]</b></li>' in html
-    readings = re.findall(r"<tr><td[^>]*>(\d)</td><td>\[(\w+)\]</td><td></td></tr>", html)
-    assert readings == [("1", "rJ1"), ("2", "rC1"), ("3", "rJ2"), ("4", "rC2")]
-    assert html.count("____________") == 2  # e1 and result, on the calculation lines
+    markup = Markup(html)
+    steps = markup.find("steps")[0]
+    assert not markup.find("field", steps)  # steps refer to readings, not extra value boxes
+    assert [content(node) for node in markup.find("reading", steps)] == [
+        "[rJ1]", "[rC1]", "[rJ2]", "[rC2]"
+    ]
+    assert worksheet_readings(markup) == [
+        ("1", "[rJ1]", "rJ1"), ("2", "[rC1]", "rC1"),
+        ("3", "[rJ2]", "rJ2"), ("4", "[rC2]", "rC2"),
+    ]
+    calculations = markup.find("calc")
+    assert [
+        content(markup.find("field-label", line)[0]) for line in calculations
+    ] == ["e1", "result"]
+    assert all(len(markup.find("writing-blank", line)) == 1 for line in calculations)
+    assert "0.945 × rC1 − 1.384 × rJ1 =" in content(calculations[0])
+    assert "√(e1² + e2²) =" in content(calculations[1])
+
+
+def test_underscore_prompts_never_classify_as_named_worksheet_readings():
+    from prechips.sheet import _list, _readings
+
+    procedure = ["Read the dial: _____", "Calculate: a = _____", "Calculate: b = _____"]
+    sheet = shop({})
+    notes, worksheets = [], []
+    rows = sheet.inspection(
+        {"id": "S1"}, {"op": 10, "inspection_note": procedure},
+        notes, worksheets, {"notes": 2, "worksheets": 3},
+    )
+    assert rows == ["see S1 sheet 2 note 1"] and not worksheets
+    assert _readings(procedure) == []
+    assert len(Markup(_list(notes)).find("writing-blank")) == 3
+
+
+@pytest.mark.parametrize("details", [False, True])
+def test_real_cone_worksheet_keeps_source_steps_equations_and_attachment_order(details):
+    from prechips.inputs import load_bundle
+
+    bundle = load_bundle(Path(__file__).resolve().parents[1] / "examples/cone-pivot-post/built-up.toml")
+    setup = next(item for item in bundle.plan["setups"] if item["id"] == "S11")
+    authored = next(op for op in setup["ops"] if op["op"] == 110)["inspection_methods"]["angularity_dia"]
+    sheet = _Traveler(bundle, [], {}, None)
+    # Exercise both routing branches without invoking a native renderer.
+    sheet.fixture_render = lambda setup: ""
+    sheet.shop_made_tables = lambda setup: ""
+    sheet.clearance = lambda setup, tools: ""
+    sheet.feature_map = lambda setup: "<h2>FEATURE MAP</h2>" if details else ""
+    sheet.blank_checks = lambda setup: ""
+    sheet.contours = lambda setup, tools: "<h2>CONTOURS</h2>"
+    original_operations = sheet.operations
+
+    def operations(setup, tools, sheets):
+        table, notes, worksheets, stops = original_operations(setup, tools, sheets)
+        return table, notes if details else "", worksheets, stops
+
+    sheet.operations = operations
+    sections = sheet.setup_section(setup)
+    assert len(sections) == (4 if details else 3)
+    front = "".join(sections[0])
+    assert f"S11 sheet {len(sections)} worksheet" in front
+    assert "CONTOURS" in "".join(sections[-2])
+    worksheet = "".join(sections[-1])
+    assert "worksheet, S11 op 110 angularity Ø" in worksheet
+    markup = Markup(worksheet)
+    assert worksheet_readings(markup) == [
+        ("5", "[rJ1]", "rJ1"), ("6", "[rC1]", "rC1"),
+        ("7", "[rJ2]", "rJ2"), ("8", "[rC2]", "rC2"),
+    ]
+    assert not markup.find("field", markup.find("steps")[0])
+    calculations = markup.find("calc")
+    assert [content(markup.find("field-label", row)[0]) for row in calculations] == [
+        "e1", "e2", "result",
+    ]
+    assert len(markup.find("writing-blank")) == 7
+    for row, source in zip(calculations, authored[-3:], strict=True):
+        assert content(row) == re.sub(r"\{([^{}]+)\}", r"\1", source)
 
 
 @pytest.mark.parametrize(
@@ -1016,30 +1154,27 @@ def test_a_bench_finishing_setup_prints_a_finishing_table_not_empty_machining_co
     html = _bench_sheet(
         [{**paint, "note": PAINT_NOTE}, {"op": 20, "do": "deburr", "feature": "body"}]
     )
-    headings = re.findall(r"<th>([^<]*)</th>", html)
+    markup = Markup(html)
     assert "<h2>ASSEMBLY / FINISHING</h2>" in html and "<h2>OPERATIONS</h2>" not in html
-    assert headings == [
-        "step",
-        "feature",
-        "material / consumable",
-        "action",
-        "inspection: limit, gauge",
-    ]
-    painted = html.split("<td>10</td>", 1)[1].split("</tr>", 1)[0]
-    # The consumable sits in its own column and the op's instruction is its action, once.
-    cells = re.findall(r"<td>(.*?)</td>", painted, re.DOTALL)
-    assert cells[1] == "RAL 6005 alkyd (in-house)"
-    assert PAINT_NOTE in cells[2]
+    painted, deburred = markup.find("operation")
+    assert [node["attrs"]["data-op"] for node in (painted, deburred)] == ["10", "20"]
+    assert content(markup.find("op-feature", painted)[0]).endswith("body")
+    assert "RAL 6005 alkyd (in-house)" in content(markup.find("op-consumable", painted)[0])
+    assert PAINT_NOTE in content(markup.find("op-action", painted)[0])
     assert html.count("brush RAL 6005") == 1
-    deburred = html.split("<td>20</td>", 1)[1].split("</tr>", 1)[0]
-    assert "deburr" in deburred
+    assert "deburr" in content(markup.find("op-action", deburred)[0])
+    for operation in (painted, deburred):
+        assert len(markup.find("performed-mark", operation)) == 1
+        assert markup.find("inspection-message", operation)
+        for css in ("op-speed", "op-feed", "op-target", "op-direction", "op-tool"):
+            assert not markup.find(css, operation)
 
 
 def test_a_setup_with_any_cutting_op_keeps_the_machining_table():
     paint = {"op": 10, "do": "coating", "feature": "body", "process": "ral-6005"}
     html = _bench_sheet([paint, {"op": 20, "do": "drill", "feature": "body"}])
     assert "<h2>OPERATIONS</h2>" in html and "FINISHING" not in html
-    assert "rpm" in re.findall(r"<th>([^<]*)</th>", html)
+    assert "rpm" in content(Markup(html).find("op-speed")[0])
 
 
 def _lathe_sheet(ops, hands):
@@ -1063,11 +1198,11 @@ def _lathe_sheet(ops, hands):
     sheet = _Traveler(data, [], {}, None)
     html, _, _, stops = sheet.operations(data.plan["setups"][0], {}, {"notes": 2})
     rows = {}
-    for row in re.findall(r"<tr>(.*?)</tr>", html, re.DOTALL):
-        found = re.findall(r"<td>(.*?)</td>", row, re.DOTALL)
-        cells = [unescape(re.sub(r"<[^>]+>", " ", cell)).split() for cell in found]
-        if len(cells) > 4 and cells[0]:
-            rows[cells[0][0]] = cells[4]  # op number -> its rpm cell's words
+    markup = Markup(html)
+    for operation in markup.find("operation"):
+        speed = markup.find("op-speed", operation)[0]
+        value = next(node for node in markup.nodes if node["tag"] == "dd" and node["parent"] is speed)
+        rows[operation["attrs"]["data-op"]] = " ".join(value["text"]).split()
     return html, rows, stops
 
 
@@ -1436,3 +1571,320 @@ def test_a_runout_limit_prints_as_declared(limit):
     line = sheet.transfer_line({"id": "S2"}, {**transfer, "runout_limit_mm": limit})
     printed = re.search(r"(\d+(?:\.\d+)?) mm total indicator reading", line)
     assert printed and float(printed.group(1)) == limit, line
+def ledger(features, ops):
+    """Exercise the actual operation assembly with already-computed machining fields."""
+    from prechips.sheet import _Box
+
+    sheet = shop({})
+    sheet.features = features
+    sheet.units = "mm"
+    sheet.findings = []
+    sheet.bundle = SimpleNamespace(features={"units": "mm"}, inventory={"tools": {"c": {}}})
+    sheet.setup = {"id": "S1", "ops": ops}
+    sheet.feature_name = lambda feature: feature.replace("_", " ")
+    sheet.feature_label = lambda feature, marked=True: sheet.feature_name(feature)
+    sheet.short_reference = lambda reference, category: f"Gauge {reference}"
+    sheet.contour_ops = set()
+    sheet.lathe = lambda setup: False
+    sheet.cut_depths = lambda setup, op, lathe: op.get("action", [op["do"]])
+    sheet.speeds = lambda setup, op, saw: ("1234", ["0.025 mm/rev", "(31 mm/min)"], False)
+    sheet.hole_xy = lambda setup, op: ["tool axis X -25.000, Y +1.250"]
+    sheet.tip = lambda setup, op: ["Z -3.125 mm"]
+    sheet.relief_plunges = lambda setup, op: []
+    sheet.rest_engagement = lambda setup, op: []
+    sheet.unset_z = lambda setup, op, target: target
+    sheet.crash_boxes = lambda setup, op: [_Box(op["safety"])] if op.get("safety") else []
+    sheet.manual_arc_lines = lambda setup, op, stops: []
+    sheet.tip_note = lambda setup, op: None
+    sheet.direction = lambda direction: direction
+    html, notes, worksheets, stops = sheet.operations(
+        sheet.setup, {("c", None): "T4"}, {"notes": 2, "contours": 3}
+    )
+    assert not worksheets
+    return Markup(html), notes, stops
+
+
+def test_task_ledger_preserves_authored_operation_order_fields_and_attached_safety():
+    ops = [
+        {
+            "op": 30,
+            "do": "finish_turn",
+            "feature": "bore",
+            "tool": "c",
+            "action": ["Inspect at -3.125 mm", "retain +0.025 mm"],
+            "direction": "toward −Z",
+            "checks": {"dia": "mic", "position_dia": "dti"},
+            "inspection_methods": {"position_dia": "Seat datum A; read at -25.000 mm."},
+            "safety": "STOP: unresolved clamp clearance",
+            "note": "Keep the part seated until this operation is complete.",
+        },
+        {"op": 10, "do": "inspect", "feature": "bore", "tool": "c", "direction": "not_applicable"},
+    ]
+    markup, notes, _ = ledger(
+        {"bore": {"dia": [6.33, 6.35], "position_dia": [0.0, 0.025], "position_datums": ["A"]}},
+        ops,
+    )
+    operations = markup.find("operation")
+    assert [node["attrs"]["data-op"] for node in operations] == ["30", "10"]
+    for node, op in zip(operations, ops, strict=True):
+        assert len(markup.find("performed-mark", node)) == 1
+        action_text = content(markup.find("op-action", node)[0])
+        assert all(action in action_text for action in op.get("action", [op["do"]]))
+        for css, values in {
+            "op-feature": ["bore"],
+            "op-tool": ["T4"],
+            "op-speed": ["1234"],
+            "op-feed": ["0.025 mm/rev", "(31 mm/min)"],
+            "op-target": ["X -25.000, Y +1.250", "Z -3.125 mm"],
+            "op-direction": [op["direction"]],
+        }.items():
+            assert all(value in content(markup.find(css, node)[0]) for value in values)
+    first = operations[0]
+    assert ops[0]["safety"] in content(first)
+    assert ops[0]["note"] in content(markup.find("op-note", first)[0])
+    assert ops[0]["safety"] not in content(operations[1])
+    records = markup.find("inspection-record", first)
+    assert [node["attrs"]["data-requirement"] for node in records] == ["dia", "position_dia"]
+    assert all(json.loads(node["attrs"]["data-features"]) == ["bore"] for node in records)
+    assert all(len(markup.find("result-field", node)) == 1 for node in records)
+    assert "6.330–6.350" in content(records[0])
+    assert "0.000–0.025" in content(records[1]) and "A" in content(records[1])
+    assert len(Markup(notes).find("steps")) == 0
+    assert "Seat datum A; read at -25.000 mm." in notes
+    assert "S1 sheet 2 note 1" in content(records[1])
+
+
+def test_shared_owner_limit_is_read_once_with_one_associated_result():
+    markup, notes, _ = ledger(
+        {"left": {"dia": [6.33, 6.35]}, "right": {"dia": [6.33, 6.35]}},
+        [
+            {
+                "op": 50,
+                "do": "inspect",
+                "feature": ["left", "right"],
+                "checks": {"dia": "mic"},
+                "inspection_methods": {"dia": "Use the micrometer."},
+            }
+        ],
+    )
+    records = markup.find("inspection-record")
+    assert len(records) == 1
+    assert json.loads(records[0]["attrs"]["data-features"]) == ["left", "right"]
+    assert content(records[0]).count("6.330–6.350") == 1
+    assert len(markup.find("result-field", records[0])) == 1
+    assert notes.count("Use the micrometer.") == 1
+
+
+def test_distinct_owner_bands_keep_their_result_and_method_associations():
+    markup, notes, _ = ledger(
+        {"left": {"dia": [6.33, 6.35]}, "right": {"dia": [8.01, 8.03]}},
+        [
+            {
+                "op": 50,
+                "do": "inspect",
+                "feature": ["left", "right"],
+                "checks": {"dia": "mic"},
+                "inspection_methods": {"dia": "Use the micrometer."},
+            }
+        ],
+    )
+    records = markup.find("inspection-record")
+    assert [json.loads(node["attrs"]["data-features"]) for node in records] == [["left"], ["right"]]
+    for node, expected, other in (
+        (records[0], "6.330–6.350", "8.010–8.030"),
+        (records[1], "8.010–8.030", "6.330–6.350"),
+    ):
+        assert expected in content(node) and other not in content(node)
+        assert "S1 sheet 2 note 1" in content(node)
+        assert len(markup.find("writing-blank", node)) == 1
+    assert notes.count("Use the micrometer.") == 1
+
+
+def test_missing_requirements_identities_and_process_holds_do_not_get_fake_results():
+    markup, notes, _ = ledger(
+        {"bore": {"dia": [6.33, 6.35], "position_dia": "unknown"}},
+        [
+            {
+                "op": 50,
+                "do": "inspect",
+                "feature": "bore",
+                "checks": {"dia": "mic", "position_dia": "dti", "unknown": "unknown"},
+                "missing_requirements": {"depth": "unknown"},
+                "inspection_methods": {"position_dia": "Seat datum A; method remains required."},
+                "process_holds": [
+                    {
+                        "feature": "bore",
+                        "requirement": "dia",
+                        "band": [6.335, 6.345],
+                        "gauge": "mic",
+                        "reason": "Retain material for the next operation.",
+                    }
+                ],
+                "inspection_note": "Keep the drawing at the bench.",
+            },
+            {"op": 60, "do": "inspect", "checks": {"dia": "mic"}},
+            {"op": 70, "do": "inspect", "feature": "bore", "checks": "unknown"},
+        ],
+    )
+    assert [node["attrs"]["data-requirement"] for node in markup.find("inspection-record")] == [
+        "dia"
+    ]
+    messages = markup.find("inspection-message")
+    assert any(
+        "depth" in content(node) and "no drawing limit" in content(node) for node in messages
+    )
+    assert any(
+        "PROCESS HOLD" in content(node) and "6.335–6.345" in content(node) for node in messages
+    )
+    assert any("position Ø ?" in content(node) for node in messages)
+    assert any("inspection checks not set" in content(node) for node in messages)
+    assert all(not markup.find("writing-blank", node) for node in messages)
+    assert "Seat datum A; method remains required." in notes
+    assert "Keep the drawing at the bench." in notes
+
+
+def test_long_authored_method_and_qualitative_limit_check_keep_their_association():
+    method = "Compare the GO and NO-GO sizes without forcing the gauge. " * 400
+    markup, notes, _ = ledger(
+        {"edge": {"kind": "shaft", "dia": [6.33, 6.35]}},
+        [
+            {
+                "op": 80,
+                "do": "inspect",
+                "feature": "edge",
+                "checks": {"dia": "ring"},
+                "go_no_go": {"dia": {"go": 6.33, "no_go": 6.35}},
+                "inspection_methods": {"dia": method},
+            }
+        ],
+    )
+    record = markup.find("inspection-record")[0]
+    assert method.strip() in notes
+    assert json.loads(record["attrs"]["data-features"]) == ["edge"]
+    assert record["attrs"]["data-requirement"] == "dia"
+    assert "GO 6.330 passes over" in content(record)
+    assert "NO-GO 6.350 does not" in content(record)
+    assert "S1 sheet 2 note 1" in content(record)
+    assert len(markup.find("writing-blank", record)) == 1
+    label = content(markup.find("field-label", record)[0])
+    assert "mm" not in label and "°" not in label
+
+
+def test_one_shared_shoulder_dimension_keeps_both_faces_and_one_recording_area():
+    note = "Shoulder length: caliper across the Ø10 shoulder, north face to thrust face."
+    owners = ["shoulder_north_face", "shoulder_thrust"]
+    markup, _, _ = ledger(
+        {owner: {"kind": "face", "length": [0.99, 2.01]} for owner in owners},
+        [
+            {
+                "op": 71,
+                "do": "inspect",
+                "feature": owners,
+                "note": note,
+                "checks": {"length": "calipers"},
+            }
+        ],
+    )
+    records = markup.find("inspection-record")
+    assert len(records) == 1
+    assert json.loads(records[0]["attrs"]["data-features"]) == owners
+    assert records[0]["attrs"]["data-requirement"] == "length"
+    assert len(markup.find("result-field", records[0])) == 1
+    assert len(markup.find("writing-blank", records[0])) == 1
+    assert note in content(markup.find("op-action")[0])
+
+
+def test_authored_multi_location_note_stays_with_one_freeform_requirement_record():
+    note = "Mic at both ends and the middle for taper before moving on."
+    markup, _, _ = ledger(
+        {"pivot_bearing": {"dia": [6.33, 6.35]}},
+        [
+            {
+                "op": 30,
+                "do": "finish_turn",
+                "feature": "pivot_bearing",
+                "tool": "c",
+                "note": note,
+                "checks": {"dia": "mic"},
+            }
+        ],
+    )
+    operation = markup.find("operation")[0]
+    assert note in content(markup.find("op-note", operation)[0])
+    records = markup.find("inspection-record", operation)
+    assert len(records) == 1
+    assert json.loads(records[0]["attrs"]["data-features"]) == ["pivot_bearing"]
+    assert len(markup.find("result-field", records[0])) == 1
+    assert len(markup.find("writing-blank", records[0])) == 1
+
+
+def picture_sheet(panels):
+    sheet = shop({})
+    sheet.plan = {"part": "Bracket"}
+    sheet.arrival = lambda setup: "stock blank"
+    sheet.reference = lambda reference, category: "vise"
+    sheet.drawing_revision = lambda: "B"
+    sheet.report = {
+        "renders": {
+            "S1": {
+                "path": "renders/S1.png",
+                "fixture": "modeled",
+                "scene": {
+                    "width_px": 1600,
+                    "height_px": 2200,
+                    "print_panels": panels,
+                    "debts": ["not drawn: rear clamp"],
+                    "render_debts": ["graphic exaggeration: leader clearance"],
+                },
+            }
+        }
+    }
+    return sheet
+
+
+def test_printable_picture_windows_cover_the_canonical_image_once_at_one_scale():
+    panels = [
+        {"top_px": 0, "height_px": 1400, "role": "setup", "label": "Main setup"},
+        {"top_px": 1400, "height_px": 800, "role": "holding_detail", "label": "Rear clamp"},
+    ]
+    html = picture_sheet(panels).fixture_render({"id": "S1", "hold": {"fixture": "vise"}})
+    markup = Markup(html)
+    figures = markup.find("fixture-render")
+    assert len(figures) == len(panels)
+    windows = [node for node in markup.nodes if node["tag"] == "svg"]
+    assert [node["attrs"]["viewbox"] for node in windows] == ["0 0 1600 1400", "0 1400 1600 800"]
+    images = [node for node in markup.nodes if node["tag"] == "image"]
+    assert all(
+        node["attrs"]["href"] == "renders/S1.png"
+        and node["attrs"]["width"] == "1600"
+        and node["attrs"]["height"] == "2200"
+        for node in images
+    )
+    captions = [content(node) for node in markup.nodes if node["tag"] == "figcaption"]
+    assert all(
+        "Bracket" in caption and "Setup S1" in caption and "rev B" in caption
+        for caption in captions
+    )
+    assert "Main setup" in captions[0] and "Rear clamp" in captions[1]
+    assert "NOT SHOWN: rear clamp" in html
+    assert "graphic exaggeration: leader clearance" in html
+
+
+@pytest.mark.parametrize(
+    "panels",
+    [
+        [{"top_px": 0, "height_px": 1400, "role": "setup", "label": "Incomplete"}],
+        [
+            {"top_px": 0, "height_px": 1400, "role": "setup", "label": "Main"},
+            {
+                "top_px": 1300,
+                "height_px": 900,
+                "role": "holding_detail",
+                "label": "Repeated pixels",
+            },
+        ],
+    ],
+)
+def test_printable_picture_windows_never_silently_omit_or_duplicate_source_content(panels):
+    with pytest.raises(ValueError):
+        picture_sheet(panels).fixture_render({"id": "S1", "hold": {"fixture": "vise"}})

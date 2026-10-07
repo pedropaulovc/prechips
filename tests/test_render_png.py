@@ -12,6 +12,8 @@ import pytest
 import prechips.kernel.render_diagram as render_module
 from prechips.kernel.render_diagram import (
     _CONTACT,
+    _INK,
+    _AnnotationDetail,
     _corners,
     _Diagram,
     _guide_view,
@@ -269,7 +271,8 @@ def test_typographic_label_equivalents_and_unknown_characters_are_deterministic(
     assert typographic.text_width("A\nABC", scale=2) == typographic.text_width("ABC", scale=2)
 
 
-def test_setup_png_refuses_clipped_annotations():
+@pytest.mark.parametrize("failure", ["clipping", "overlap"])
+def test_setup_png_refuses_clipped_annotations(failure):
     # A title wider than the canvas cannot print; the renderer refuses it.
     spec = {
         "setup_id": "S1",
@@ -280,9 +283,17 @@ def test_setup_png_refuses_clipped_annotations():
         "stickout_mm": 2,
         "datums": [{"label": "END", "point_mm": [0, 0, 1]}],
     }
-    width, height, _ = _decode_png(render_diagram([], spec)[0])
-    assert (width, height) == (1600, 1000)
-    spec["setup_id"] = "LONG-NAME-" * 30
+    png, _, panels = render_diagram([], spec)
+    width, height, _ = _decode_png(png)
+    assert width == 1600
+    assert panels == [
+        {"top_px": 0, "height_px": height, "role": "setup", "label": "SETUP S1  /  LATHE VIEW"}
+    ]
+    assert height / width * 7.5 <= 8.4
+    if failure == "clipping":
+        spec["setup_id"] = "LONG-NAME-" * 30
+    else:
+        spec["datums"] = [{"label": f"DATUM {index}", "point_mm": [0, 0, 1]} for index in range(80)]
     with pytest.raises(ValueError):
         render_diagram([], spec)
 
@@ -494,12 +505,79 @@ def test_text_layout_rejects_type_below_the_minimum_print_scale():
         canvas.assert_text_layout(min_scale=3)
 
 
+@pytest.mark.parametrize(
+    "name", ["shaft-s1", "shaft-s2", "cone-s1", "rocker-s1", "rocker-s3", "rocker-s4"]
+)
+def test_print_bands_cover_the_actual_png_once_and_keep_complete_local_annotations(name):
+    spec = _example_spec(name)
+    supplied = json.dumps(spec, sort_keys=True)
+    png, debts, panels = render_diagram([], spec)
+    width, height, pixels = _decode_png(png)
+    assert json.dumps(spec, sort_keys=True) == supplied
+    assert png == render_diagram([], spec)[0]
+    assert width == 1600
+    assert panels and panels[0]["role"] == "setup"
+    cursor = 0
+    for panel in panels:
+        assert type(panel["top_px"]) is int and type(panel["height_px"]) is int
+        assert panel["top_px"] == cursor
+        assert 0 < panel["height_px"] / width * 7.5 <= 8.4
+        assert panel["role"] in {"setup", "profile_detail", "path_detail", "holding_detail"}
+        assert panel["label"]
+        cursor += panel["height_px"]
+    assert cursor == height
+
+    diagram = _Diagram([], {**spec, "notes": list(spec.get("notes", [])) + debts})
+    diagram.render()
+    assert panels == diagram.print_panels
+    diagram.canvas.assert_text_layout(min_scale=5)
+    # No annotation can straddle a print-band boundary or disappear when the sheet
+    # prints those complete full-width source windows at one shared scale.
+    for _, _, top, _, bottom in diagram.canvas.text_boxes:
+        owners = [
+            panel
+            for panel in panels
+            if panel["top_px"] <= top and bottom <= panel["top_px"] + panel["height_px"]
+        ]
+        assert len(owners) == 1
+        assert (bottom - top) / width * 7.5 * 72 >= 11
+    for panel, detail in zip(panels[1:], diagram.annotation_details, strict=True):
+        first = panel["top_px"] * width * 3
+        last = (panel["top_px"] + panel["height_px"]) * width * 3
+        assert pixels[first:last] == detail.canvas.rgb
+        detail.canvas.assert_text_layout(min_scale=5)
+        labels = {box[0] for box in detail.canvas.text_boxes}
+        assert detail._title() in labels
+        if panel["role"] == "path_detail":
+            assert "ARROWS: POINT ORDER" in labels
+            for point in detail.spec["waypoints"]:
+                assert point["label"] in labels
+                assert f"OP {point.get('op', '')}" in labels
+            for path in detail.spec["paths"]:
+                assert f"OP {path.get('op', '')}" in labels
+        else:
+            assert "Z RIGHT / RADIAL UP" in labels
+    # Every original waypoint keeps its operation/row/coordinate association exactly;
+    # only existing independent operation sketches can become separate bands.
+    shown = [
+        point
+        for detail in diagram.annotation_details
+        for point in detail.spec["waypoints"]
+        if (detail.role == "path_detail") == ("xy" in point)
+    ]
+    expected = spec.get("waypoints", [])
+    assert sorted(shown, key=lambda p: p["label"]) == sorted(expected, key=lambda p: p["label"])
+
+
 @pytest.mark.parametrize("name", ["shaft-s1", "cone-s1", "rocker-s3", "rocker-s4"])
 def test_dense_setup_pictures_print_every_label_at_body_size(name):
-    # Letter print: scale 3 (21 px) is about 7 pt cap height; scale 2 is under 5 pt.
+    # Cap height at a 7.5 inch print width must reach 11 pt without shrinking tall composites.
     diagram, _ = _main_diagram([], _example_spec(name))
 
-    assert [box for box in diagram.canvas.text_boxes if box[4] - box[2] < 21] == []
+    assert diagram.canvas.text_boxes
+    for _, _, top, _, bottom in diagram.canvas.text_boxes:
+        assert (bottom - top) / diagram.canvas.width * 7.5 * 72 >= 11
+    diagram.canvas.assert_text_layout(min_scale=5)
 
 
 def test_a_panel_with_many_point_keys_gets_the_height_to_print_them_apart():
@@ -512,6 +590,85 @@ def test_a_panel_with_many_point_keys_gets_the_height_to_print_them_apart():
         for other, a0, b0, a1, b1 in keys[index + 1 :]:
             apart = x1 + 4 <= a0 or a1 + 4 <= x0 or y1 + 4 <= b0 or b1 + 4 <= y0
             assert apart, (label, other)
+
+
+def test_profile_legend_glyphs_are_dark_while_samples_keep_source_colors_and_dashes():
+    spec = _example_spec("shaft-s1")
+    diagram = _Diagram([], spec)
+    diagram.render()
+    (detail,) = diagram.annotation_details
+    canvas = detail.canvas
+    for profile in spec["lathe_profiles"]:
+        label = profile["label"].upper()
+        ((_, left, top, right, bottom),) = [box for box in canvas.text_boxes if box[0] == label]
+        glyph_pixels = {
+            _pixel(canvas, x, y) for y in range(top, bottom) for x in range(left, right)
+        }
+        assert _INK in glyph_pixels
+        assert glyph_pixels <= {_WHITE, _INK}
+        sample = [_pixel(canvas, x, top + 10) for x in range(32, 58)]
+        color = tuple(profile["colour"])
+        assert color in sample
+        if profile["label"] == "arriving stock":
+            assert _WHITE in sample
+        else:
+            assert all(pixel == color for pixel in sample)
+    canvas.assert_text_layout(min_scale=5)
+
+
+@pytest.mark.parametrize("name", ["shaft-s1", "shaft-s2", "cone-s1"])
+def test_profile_band_removes_only_unused_tail_without_refitting_complete_content(name):
+    spec = _example_spec(name)
+    diagram = _Diagram([], spec)
+    diagram.render()
+    (detail,) = diagram.annotation_details
+    # Independently repaint the established tall layout. A compact canonical canvas
+    # must retain every primitive pixel, label and leader at precisely the same place.
+    reference = _AnnotationDetail(spec, "profile_detail", diagram.canvas.scale, 1460)
+    reference.canvas = RenderCanvas([], reference.camera, (0, 0, 1, 1), height=1460)
+    reference.canvas.scale = diagram.canvas.scale
+    reference._lathe_detail(32, 1568, spec["lathe_profiles"])
+    canvas = detail.canvas
+    assert canvas.width == reference.canvas.width == 1600
+    assert canvas.height < reference.canvas.height
+    assert canvas.text_boxes == reference.canvas.text_boxes
+    assert detail.leaders == reference.leaders
+    assert detail.hidden_leaders == reference.hidden_leaders
+    assert canvas.rgb == reference.canvas.rgb[: len(canvas.rgb)]
+    unused = reference.canvas.rgb[len(canvas.rgb) :]
+    assert unused == b"\xff" * len(unused)
+    stride = canvas.width * 3
+    white_row = b"\xff" * stride
+    ink_bottom = max(
+        y + 1
+        for y in range(canvas.height)
+        if canvas.rgb[y * stride : (y + 1) * stride] != white_row
+    )
+    content_bottom = max(ink_bottom, max(box[4] for box in canvas.text_boxes))
+    assert 16 <= canvas.height - content_bottom <= 48
+    (panel,) = [p for p in diagram.print_panels if p["role"] == "profile_detail"]
+    assert panel["height_px"] == canvas.height
+    assert panel["top_px"] + panel["height_px"] == diagram.canvas.height
+    canvas.assert_text_layout(min_scale=5)
+
+
+def test_profile_height_includes_geometry_and_arrowheads_below_the_last_text():
+    class LowArrowProfile(_AnnotationDetail):
+        def _lathe_detail(self, left, right, profiles):
+            bottom = super()._lathe_detail(left, right, profiles)
+            self.canvas.arrow((500, 910), (620, 1100), (35, 83, 147), width=3)
+            return bottom
+
+    spec = _example_spec("shaft-s1")
+    main = _Diagram([], spec)
+    detail = LowArrowProfile(spec, "profile_detail", main.canvas.scale, 1460)
+    detail.render()
+    assert max(box[4] for box in detail.canvas.text_boxes) < 900
+    assert 1100 < detail.canvas.height < 1460
+    assert (35, 83, 147) in {
+        _pixel(detail.canvas, x, y) for y in range(1090, 1101) for x in range(610, 630)
+    }
+    detail.canvas.assert_text_layout(min_scale=5)
 
 
 @pytest.mark.parametrize("keys", [("P1",), ("P2", "P3"), ("P1", "P2", "P3")])
@@ -544,7 +701,7 @@ def test_lathe_point_keys_that_would_crowd_get_an_enlarged_detail_with_keys_apar
             if other != label:
                 assert x1 + 4 <= a0 or a1 + 4 <= x0 or y1 + 4 <= b0 or b1 + 4 <= y0
     # Every printed label still keeps the print size and clearance rules.
-    diagram.canvas.assert_text_layout(min_scale=3)
+    diagram.canvas.assert_text_layout(min_scale=5)
 
 
 @pytest.mark.parametrize("name", ["shaft-s1", "cone-s1"])
@@ -562,7 +719,7 @@ def test_bar_end_labels_key_their_own_end_and_never_lead_along_the_axis_past_ano
         point, label = project(datum["point_mm"]), datum["label"].upper()
         (box,) = [box for box in diagram.canvas.text_boxes if box[0] == label]
         # The chuck-side end is keyed in the left lane, the exposed end in the right one.
-        assert (box[1] < 590) == (point[0] < 590), label
+        assert (box[1] < diagram.lane_split) == (point[0] < diagram.lane_split), label
     for datum in ends:
         point, label = project(datum["point_mm"]), datum["label"].upper()
         (path,) = [path for leader, path in diagram.leaders if leader == label]
@@ -786,7 +943,7 @@ def test_a_named_solid_hidden_from_view_is_a_render_debt_not_a_leader():
             }
         ],
     }
-    png, debts = render_diagram(meshes, spec)
+    png, debts, panels = render_diagram(meshes, spec)
 
     assert debts == ["NOT SHOWN: PARALLELS is hidden in this view, so it has no leader."]
     diagram = _Diagram(meshes, {**spec, "notes": debts})
@@ -794,11 +951,12 @@ def test_a_named_solid_hidden_from_view_is_a_render_debt_not_a_leader():
     assert [label for label, _ in diagram.leaders if label == "PARALLELS"] == []
     # The debt is printed in the picture's own notes, and the picture is the one returned.
     assert png == diagram.canvas.png()
+    assert panels == diagram.print_panels
     # Moved out from under the stock, the same parallel is drawn and keeps its leader.
     meshes[1] = _slab(12, 2, 18, 8, 1, (120, 98, 76), "parallel_1")
     spec["components"][0].update(box_mm=[12, 2, 0, 18, 8, 1], center_mm=[15, 5, 0.5])
     spec["stock_box"] = [0, 0, 0, 18, 10, 2]
-    _, debts = render_diagram(meshes, spec)
+    _, debts, _ = render_diagram(meshes, spec)
     assert debts == []
 
 
@@ -1047,11 +1205,25 @@ def test_a_clearance_no_detail_band_keys_is_dimensioned_on_the_setup_picture(mon
 )
 def test_small_work_in_its_holding_gets_an_enlarged_contact_detail(size, touching, detailed):
     meshes, spec = _vise_spec(size, touching)
-    png, debts = render_diagram(meshes, spec)
+    png, debts, panels = render_diagram(meshes, spec)
     _, height, _ = _decode_png(png)
     main = _Diagram(meshes, spec)
     main.render()
     details = _holding_details(meshes, spec, main)
+    expected = list(main.print_panels)
+    top = main.canvas.height
+    for detail in details:
+        expected.append(
+            {
+                "top_px": top,
+                "height_px": detail.canvas.height,
+                "role": "holding_detail",
+                "label": detail._title(),
+            }
+        )
+        top += detail.canvas.height
+    assert panels == expected
+    assert all(panel["height_px"] / 1600 * 7.5 <= 8.4 for panel in panels)
 
     assert debts == []
     if not detailed:
@@ -1073,7 +1245,47 @@ def test_small_work_in_its_holding_gets_an_enlarged_contact_detail(size, touchin
     assert len(ends) == 2
     first, second = ends.values()
     assert math.dist(first, second) > 20
-    detail.canvas.assert_text_layout(min_scale=3)
+    detail.canvas.assert_text_layout(min_scale=5)
+
+
+def test_holding_print_band_preserves_contact_planes_closest_cut_and_feature_owners():
+    meshes, spec = _vise_spec(12)
+    spec["closest_cut"] = {
+        "mm": 1.25,
+        "tag": "fixed_jaw",
+        "from_mm": [1.25, 3, 5],
+        "to_mm": [0, 3, 5],
+    }
+    supplied = json.dumps(spec, sort_keys=True)
+    png, debts, panels = render_diagram(meshes, spec)
+    width, height, pixels = _decode_png(png)
+    assert debts == []
+    assert json.dumps(spec, sort_keys=True) == supplied
+    main = _Diagram(meshes, spec)
+    main.render()
+    (detail,) = _holding_details(meshes, spec, main)
+    contacts = {callout.label for callout in detail.callouts if callout.colour == _CONTACT}
+    assert contacts == {"FIXED JAW CONTACT AT X 0", "MOVING JAW CONTACT AT X 12"}
+    cut = "CUT 1.25 mm FROM FIXED JAW"
+    assert cut in {callout.label for callout in detail.callouts}
+    (path,) = [path for label, path in detail.leaders if label == cut]
+    ends = [detail.canvas.project(spec["closest_cut"][key]) for key in ("from_mm", "to_mm")]
+    assert path[0] == pytest.approx(tuple(sum(p[i] for p in ends) / 2 for i in range(2)))
+    for callout in main.callouts:
+        if callout.targets:
+            assert all(_tag_at(main.canvas, *point) in callout.targets for point in callout.points)
+    band = panels[-1]
+    assert band == {
+        "top_px": main.canvas.height,
+        "height_px": detail.canvas.height,
+        "role": "holding_detail",
+        "label": detail._title(),
+    }
+    assert band["top_px"] + band["height_px"] == height
+    assert pixels[band["top_px"] * width * 3 :] == detail.canvas.rgb
+    detail.canvas.assert_text_layout(min_scale=5)
+    for _, _, top, _, bottom in detail.canvas.text_boxes:
+        assert (bottom - top) / width * 7.5 * 72 >= 11
 
 
 @pytest.mark.parametrize(
@@ -1604,14 +1816,18 @@ def test_long_thin_plan_work_gets_split_details_that_key_each_contact_height_onc
     for detail in details:
         assert _stock_short_side(detail.canvas, stock) >= 1.5 * drawn
         keyed.append(sorted(c.label for c in detail.callouts if c.colour == _CONTACT))
-        detail.canvas.assert_text_layout(min_scale=3)
+        detail.canvas.assert_text_layout(min_scale=5)
     # One support on two planes: each plane is keyed with its own height, in the band
     # that holds it, exactly once.
     (near,), (far,) = keyed
     assert near.endswith("AT Z 10")
     assert far.endswith("AT Z 12")
-    _, height, _ = _decode_png(render_diagram(meshes, spec)[0])
+    png, _, panels = render_diagram(meshes, spec)
+    _, height, _ = _decode_png(png)
     assert height == main.canvas.height + sum(d.canvas.height for d in details)
+    assert [p["label"] for p in panels if p["role"] == "holding_detail"] == [
+        detail._title() for detail in details
+    ]
 
 
 @pytest.mark.parametrize(

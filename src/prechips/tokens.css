@@ -1,0 +1,34 @@
+/* Hallmark · macrostructure: Narrative Workflow · tone: utilitarian technical
+ * typography: existing offline Arial; paper ledger, no display pairing or runtime fetching
+ * Rendered execution/geometry critique is owned by the parent after PDF/browser verification.
+ */
+:root {
+  --color-ink: oklch(0% 0 0);
+  --color-paper: oklch(100% 0 0);
+  --color-rule: oklch(45% 0 0);
+  --color-header: oklch(94% 0 0);
+  --color-reading-header: oklch(87% 0 0);
+  --font-working: Arial, Helvetica, sans-serif;
+  --text-working: 12pt;
+  --text-running: 10pt;
+  --text-section: 16pt;
+  --text-operation: 15pt;
+  --text-title: 20pt;
+  --line-working: 1.4;
+  --space-xs: 4pt;
+  --space-sm: 8pt;
+  --space-md: 12pt;
+  --space-lg: 16pt;
+  --rule-thin: 1px;
+  --rule-warning: 2px;
+  --page-width: 8.5in;
+  --page-height: 11in;
+  --page-margin: 0.5in;
+  --page-content-width: calc(var(--page-width) - 2 * var(--page-margin));
+  --page-content-height: calc(var(--page-height) - 2 * var(--page-margin));
+  --page-rounding: 1px;
+  --writing-width: 35mm;
+  --writing-height: 10mm;
+  --writing-result-height: 20mm;
+  --performed-size: 5mm;
+}

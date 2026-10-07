@@ -17,6 +17,11 @@ else from the same cited row or tool chart, under the
 same citation and verify rules as the chip load. Numbers are starting points,
 not cut-force or stability limits.
 
+The operation ledger keeps the cited speed/feed recommendation beside its
+action in authored order. Marking that operation performed does not accept the
+recommendation or verify actual cutting conditions. The paper layout adds no
+cutting-data field and does not replace unknown recommendations with numbers.
+
 `[[deep_hole]]` rows derate a spindle operation's starting speed in deep holes.
 A row names one `operation` (for example `drill`), a `depth_over_dia` threshold
 and an `sfm_factor` in `(0, 1]`. When the hole's depth is strictly more than

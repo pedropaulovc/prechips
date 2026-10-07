@@ -26,7 +26,18 @@ _AMBER = (172, 111, 16)
 _AMBER_LIGHT = (252, 235, 190)
 _NOMINAL_FAINT = (173, 193, 218)
 _FIXTURE = (120, 98, 76)
-_BODY_SCALE = 3
+_BODY_SCALE = 5
+_TITLE_SCALE = _BODY_SCALE + 1
+_TEXT_HEIGHT = 7 * _BODY_SCALE
+_LEADING = 9 * _BODY_SCALE
+_BADGE_PAD = 2 * _BODY_SCALE
+_BADGE_HEIGHT = _TEXT_HEIGHT + 2 * _BADGE_PAD
+_BADGE_GAP = 2 * _BODY_SCALE
+_BADGE_PITCH = _BADGE_HEIGHT + _BADGE_GAP
+# At 7.5 inches wide this leaves room for the traveler's continuation header and caption.
+_PANEL_MAX_HEIGHT = 1792
+# Same deliberate outer margin as the full-width panel's left and right content.
+_PROFILE_BOTTOM_PAD = 32
 _AXIS_COLOURS = ((160, 47, 43), (44, 104, 57), (42, 83, 158))
 _CAMERAS = {
     "lathe": ((0, 0, 1), (1, 0, 0), (0, -1, 0)),
@@ -38,7 +49,7 @@ _CAMERAS = {
     ),
 }
 # Two point keys closer than two badge cells cannot both sit beside their points.
-_KEY_ROOM_PX = 66
+_KEY_ROOM_PX = 2 * _BADGE_HEIGHT
 # Height of a lathe window shrunk to orientation so its crowded contour's detail has room.
 _ORIENTATION_PX = 70
 # The legend a path sketch prints once it has drawn a direction arrow.
@@ -287,7 +298,7 @@ class _Measure:
 _MEASURE = _Measure()
 
 
-def _wrap(canvas, text, width, scale=2):
+def _wrap(canvas, text, width, scale=_BODY_SCALE):
     words = _plain(text).split()
     lines, line = [], ""
     for word in words:
@@ -349,33 +360,36 @@ def _clip_segment(a, b, box):
     return ((a[0] + low * dx, a[1] + low * dy), (a[0] + high * dx, a[1] + high * dy))
 
 
-def _badge_width(canvas, label, scale=3):
-    return max(24, canvas.text_width(label, scale=scale) + 12)
+def _badge_width(canvas, label, scale=_BODY_SCALE):
+    return max(5 * scale + 2 * _BADGE_PAD, canvas.text_width(label, scale=scale) + 2 * _BADGE_PAD)
 
 
-def _badge(canvas, point, label, colour=_BLUE, scale=3):
+def _badge(canvas, point, label, colour=_BLUE, scale=_BODY_SCALE):
     width = _badge_width(canvas, label, scale)
-    height = 7 * scale + 12
+    height = 7 * scale + 2 * _BADGE_PAD
     x, y = point[0] - width / 2, point[1] - height / 2
     canvas.rect(x, y, width, height, _WHITE)
     _outline(canvas, [(x, y), (x + width, y), (x + width, y + height), (x, y + height)], colour)
-    _text(canvas, point[0], y + 6, label, colour, scale=scale, align="centre")
+    _text(canvas, point[0], y + _BADGE_PAD, label, colour, scale=scale, align="centre")
 
 
 def _rows_for(widths, span):
     """Fewest interleaved badge rows (every n-th badge per row) that fit ``span``."""
     for rows in range(1, len(widths) + 1):
-        if all(sum(w + 8 for w in widths[row::rows]) - 8 <= span for row in range(rows)):
+        if all(
+            sum(w + _BADGE_GAP for w in widths[row::rows]) - _BADGE_GAP <= span
+            for row in range(rows)
+        ):
             return rows
     return 0
 
 
 def _row_positions(targets, widths, left, right):
-    """Badge centres in one row, in the targets' order, at least 8 px apart, inside
+    """Badge centres in one row, in the targets' order, with a type-sized gap, inside
     ``left``..``right`` and of least squared displacement from the targets."""
     offsets = [0.0]
     for first, second in zip(widths, widths[1:], strict=False):
-        offsets.append(offsets[-1] + (first + second) / 2 + 8)
+        offsets.append(offsets[-1] + (first + second) / 2 + _BADGE_GAP)
     # Isotonic (pool-adjacent-violators) fit of the offset-free positions.
     blocks = []
     for value in (target - offset for target, offset in zip(targets, offsets, strict=True)):
@@ -392,10 +406,8 @@ def _row_positions(targets, widths, left, right):
 
 
 def _band_sides(points, widths, span, capacity):
-    """Each point's band, -1 above the geometry or 1 below it (``points`` in pixels, y
-    down), and the points' left-to-right order. A point off the geometry's mid band keys
-    on its own side; mid-band neighbours alternate, then move to the other band while one
-    band needs more of its ``span``-wide rows than its ``capacity``."""
+    """Each point's band, -1 above the geometry or 1 below it, and left-to-right order.
+    Off-band points key on their own side; neighbours alternate, then rebalance to fit."""
     middle = (min(p[1] for p in points) + max(p[1] for p in points)) / 2
     band = 0.1 * (max(p[1] for p in points) - min(p[1] for p in points))
     order = sorted(range(len(points)), key=lambda index: (points[index][0], points[index][1]))
@@ -449,17 +461,20 @@ def _band_cells(points, widths, plot, exclusion):
     to right order directly above or below them, so the leaders fan out without crossing
     and every badge stays beside its own support, clamp or pickup."""
     left, top, right, bottom = plot
-    height, pitch = 33, 41
-    upper_bottom, lower_top = min(bottom, exclusion[1] - 8), max(top, exclusion[3] + 8)
+    height, pitch = _BADGE_HEIGHT, _BADGE_PITCH
+    upper_bottom = min(bottom, exclusion[1] - _BADGE_GAP)
+    lower_top = max(top, exclusion[3] + _BADGE_GAP)
     capacity = {
-        -1: max(0, int((upper_bottom - top + 8) / pitch)),
-        1: max(0, int((bottom - lower_top + 8) / pitch)),
+        -1: max(0, int((upper_bottom - top + _BADGE_GAP) / pitch)),
+        1: max(0, int((bottom - lower_top + _BADGE_GAP) / pitch)),
     }
     sides, order = _band_sides(points, widths, right - left, capacity)
     centres = [None] * len(points)
     for side, edge in ((-1, upper_bottom), (1, lower_top)):
         members = [index for index in order if sides[index] == side]
         rows = _rows_for([widths[index] for index in members], right - left)
+        if (members and rows == 0) or rows > capacity[side]:
+            raise ValueError("position badges do not fit beside their geometry at print size")
         for row in range(rows):
             # Row 0 is nearest the geometry; outer rows interleave between its badges.
             row_members = members[row::rows]
@@ -517,7 +532,7 @@ def _dimension(canvas, first, second, label, colour=_INK):
     _text(
         canvas,
         (first[0] + second[0]) / 2,
-        (first[1] + second[1]) / 2 - 23,
+        (first[1] + second[1]) / 2 - _TEXT_HEIGHT - 8,
         label,
         colour,
         align="centre",
@@ -693,7 +708,7 @@ def _radial_steps(profiles):
 
 
 class _Diagram:
-    grows_to_fit = False
+    grows_to_fit = True
     splits_sides = True
     keyed_cut = False  # whether this picture keyed ``closest_cut`` (:meth:`_closest_cut`)
 
@@ -707,6 +722,8 @@ class _Diagram:
         scene keeps its size and place. ``lane_extra`` (default ``extra``) is the part the
         lanes take: a picture grown for its sketch never spreads its keys into the room."""
         self.spec = spec
+        self.input_meshes = list(meshes)
+        self.extra = extra
         self.view = spec["view"]
         self.camera = (
             tuple(map(tuple, spec["camera"])) if spec.get("camera") else _CAMERAS[self.view]
@@ -770,7 +787,7 @@ class _Diagram:
                     )
                     radius = x / 2 if convention == "diameter" else x
                     self.off_window_keys.append((waypoint["label"], (radius, 0, z)))
-        self.meshes = list(meshes)
+        self.meshes = list(self.input_meshes)
         points = _corners(self.stock)
         points.extend(point for line in self.nominal for point in line)
         points.extend(point for _, point in self.off_window_keys)
@@ -795,37 +812,40 @@ class _Diagram:
             self.meshes.append((points, [], _WHITE))
         self.components = framed
         self.canvas = RenderCanvas([], self.camera, (0, 0, 1, 1), width=1, height=1)
-        # Keep the printable scene large. Verbose source legends must not turn
-        # into a second notes column and push the placed geometry off the page.
-        self.footer_top = 740
-        self.scene_bottom = 620
-        # Footer type stays at print size; a longer key or note list grows the footer.
+        # The complete setup and its keys occupy one full-width print panel. Independent
+        # profile sketches get their own bands instead of shrinking in a third column.
+        self.footer_top = 1060 + extra
+        self.scene_bottom = 740
         self.note_lines = self._notes()
         self.legend_rows = self._legend()
-        footer_height = 57 + max(
-            max(0, len(self.legend_rows) - 1) * 30 + 21,
-            max(0, len(self.note_lines) - 1) * 27 + 21,
+        footer_height = (
+            88
+            + max(
+                320,
+                max(0, len(self.legend_rows) - 1) * _LEADING + _TEXT_HEIGHT,
+                max(0, len(self.note_lines) - 1) * _LEADING + _TEXT_HEIGHT,
+            )
+            + 16
         )
-        self.footer_top = min(self.footer_top, 984 - footer_height)
-        self.scene_bottom = min(self.scene_bottom, self.footer_top - 120)
-        # The stock dimension row sits 66 px above the footer: a longer footer lifts it.
-        self.dimension_y = min(674, self.footer_top - 66)
-        self.footer_top += extra
-        # Label lanes: the first row's top and the last row's bottom limit; each side's
-        # (text left, text width, leader end x), and the x that splits points between them.
+        height = self.footer_top + footer_height
+        if height > _PANEL_MAX_HEIGHT:
+            raise ValueError(
+                "complete setup panel exceeds the printable Letter height at body size"
+            )
+        self.dimension_y = self.footer_top - 146
         lane_extra = extra if lane_extra is None else lane_extra
-        self.lanes = (202, self.footer_top - extra + lane_extra - 64)
-        self.lane_specs = ((32, 214, 249), (928, 210, 916))
-        self.lane_split = 590
-        viewport = (278, 225, 900, self.scene_bottom)
+        self.lanes = (290, self.footer_top - extra + lane_extra - 140)
+        self.lane_specs = ((32, 360, 410), (1208, 360, 1190))
+        self.lane_split = 800
+        viewport = (440, 380, 1160, self.scene_bottom)
         if self.view in ("plan", "elevation") and (
             any(component.get("code") for component in self.components)
             or any(_role(component) == "pad" for component in self.components)
         ):
-            # Leave real exterior key bands even for a vertically tall fixture.
-            viewport = (278, 278, 900, 540)
+            # Two real exterior badge bands, sized from the larger glyph cells.
+            viewport = (440, 430, 1160, 630)
         self.viewport = viewport
-        self.canvas = RenderCanvas(self.meshes, self.camera, viewport, height=1000 + extra, fit=fit)
+        self.canvas = RenderCanvas(self.meshes, self.camera, viewport, height=height, fit=fit)
         self.stock_pixels = [self.canvas.project(p) for p in _corners(self.stock)]
         self.position_badges.extend(
             {"label": label, "xy": self.canvas.project(point), "colour": _BLUE}
@@ -962,7 +982,7 @@ class _Diagram:
                 f"Stickout {self._dro(self.spec['stickout_mm'])} mm is nominal: "
                 f"set it as the measured fit-up + {self._dro(add)} mm."
             )
-        return [line for note in notes for line in _wrap(self.canvas, note, 720, scale=3)]
+        return [line for note in notes for line in _wrap(self.canvas, note, 608)]
 
     def _legend(self):
         rows = []
@@ -985,7 +1005,7 @@ class _Diagram:
                     rows.append((label, kind))
                     kinds.add(kind)
             else:
-                rows.extend((line, "text") for line in _wrap(self.canvas, text, 480, scale=3))
+                rows.extend((line, "text") for line in _wrap(self.canvas, text, 568))
         required = [("ARRIVING STOCK", "stock"), ("WORKHOLDING", "fixture")]
         if any(len(mesh) > 3 and mesh[3] for mesh in self.meshes):
             required.append(("REMOVED THIS SETUP", "removal"))
@@ -1001,7 +1021,7 @@ class _Diagram:
             rows.append(("PAD BADGES: POSITIONS", "text"))
         if self.nominal and "nominal" not in kinds:
             rows.append(("FINISHED OUTLINE, THIS SETUP", "nominal"))
-        return rows
+        return [(line, kind) for label, kind in rows for line in _wrap(self.canvas, label, 568)]
 
     def render(self):
         self._header()
@@ -1018,7 +1038,12 @@ class _Diagram:
             )
         self._components()
         self._origin_datums_tool()
+        first_measurement = len(self.canvas.text_boxes)
         self._measurements()
+        self.obstacles.extend(
+            (left - 4, top - 4, right + 4, bottom + 4)
+            for _, left, top, right, bottom in self.canvas.text_boxes[first_measurement:]
+        )
         for z, small, large in self.shoulders:
             # A step too small to see at print scale is named with both diameters; the
             # jaw-end profile names the steps inside its window beside its own tick.
@@ -1030,6 +1055,8 @@ class _Diagram:
         if self.spec.get("key_closest_cut"):
             self._closest_cut()
         self._labels()
+        if self.lane_overflow > 0:
+            return self.canvas.png()
         if self.position_badges:
             exclusion = None
             if self.view in ("plan", "elevation"):
@@ -1040,33 +1067,49 @@ class _Diagram:
             self._waypoint_badges(
                 self.position_badges,
                 lambda p: p,
-                (278, 205, 900, 593),
+                (440, 280, 1160, self.footer_top - 210),
                 prefix="",
                 colour=_FIXTURE,
                 exclusion=exclusion,
             )
-        self._insets()
         for x, y, label, scale in self.context_labels:
             _text(self.canvas, x, y, label, _MUTED, scale=scale, align="centre", backing=True)
         self._footer()
         self.canvas.assert_text_layout(min_scale=_BODY_SCALE)
+        self.print_panels = [
+            {"top_px": 0, "height_px": self.canvas.height, "role": "setup", "label": self._title()}
+        ]
+        self.annotation_details = []
         return self.canvas.png()
+
+    def _title(self):
+        return f"SETUP {self.spec['setup_id']}  /  {self.view.upper()} VIEW"
 
     def _header(self):
         c = self.canvas
-        _text(c, 32, 27, f"SETUP {self.spec['setup_id']}  /  {self.view.upper()} VIEW", scale=4)
-        # A subtitle states what the operator reads off the view; the isometric view's
-        # orientation is its axes key, so it has none.
+        _text(c, 32, 27, self._title(), scale=_TITLE_SCALE)
+        # The isometric orientation is its axes key, so it has no generator subtitle.
         subtitles = {
             "lathe": "SPINDLE Z TO RIGHT  /  RADIAL X UP  /  FULL ARRIVING STOCK",
             "plan": "SETUP X TO RIGHT  /  Y UP  /  VIEW FROM +Z",
             "elevation": self.spec.get("view_note", "SETUP Z UP"),
         }
         if self.view in subtitles:
-            _text(c, 34, 76, subtitles[self.view], _MUTED)
-        _text(c, 1565, 77, "DIMENSIONS IN mm", _MUTED, align="right")
-        c.line((32, 112), (1568, 112), _INK, width=2)
-        _text(c, 32, 138, "PLACED STOCK + WORKHOLDING", _INK)
+            for index, line in enumerate(_wrap(c, subtitles[self.view], 1020)):
+                _text(c, 34, 92 + index * _LEADING, line, _MUTED)
+        _text(c, 1565, 92, "DIMENSIONS IN mm", _MUTED, align="right")
+        c.line((32, 196), (1568, 196), _INK, width=2)
+        _text(c, 32, 220, "PLACED STOCK + WORKHOLDING", _INK)
+        if self.spec.get("preload") == "counterclockwise":
+            center = (1055, 220 + _TEXT_HEIGHT / 2)
+            arc = [
+                (center[0] + 13 * math.cos(a), center[1] - 13 * math.sin(a))
+                for a in (i * math.pi / 12 for i in range(2, 23))
+            ]
+            for a, b in zip(arc, arc[1:], strict=False):
+                c.line(a, b, _FIXTURE, width=2)
+            c.arrow(arc[-2], arc[-1], _FIXTURE, width=2)
+            _text(c, 1568, 220, "CCW PRELOAD / +Z", _FIXTURE, align="right")
 
     def _component_pixels(self, components):
         return [
@@ -1088,8 +1131,10 @@ class _Diagram:
                     [(x - 8, y + 110), (x + 98, y + 110), (x + 98, y + 128), (x - 8, y + 128)],
                     dashed=True,
                 )
-                self.obstacles.append((x - 36, y - 30, x + 130, y + 130))
-                self.context_labels.append((x + 47, y - 26, "HEADSTOCK", 3))
+                self.obstacles.append((x - 100, y - _TEXT_HEIGHT - 16, x + 200, y + 130))
+                self.context_labels.append(
+                    (x + 47, y - _TEXT_HEIGHT - 10, "HEADSTOCK", _BODY_SCALE)
+                )
             centres = [item for item in self.components if _role(item) in ("centre", "center")]
             if centres:
                 # A tailstock is drawn only where a centre actually supports the work.
@@ -1105,8 +1150,10 @@ class _Diagram:
                     [(x - 4, y + 88), (x + 88, y + 88), (x + 88, y + 106), (x - 4, y + 106)],
                     dashed=True,
                 )
-                self.obstacles.append((x - 40, y - 30, x + 125, y + 110))
-                self.context_labels.append((x + 41, y - 26, "TAILSTOCK", 3))
+                self.obstacles.append((x - 100, y - _TEXT_HEIGHT - 16, x + 200, y + 110))
+                self.context_labels.append(
+                    (x + 41, y - _TEXT_HEIGHT - 10, "TAILSTOCK", _BODY_SCALE)
+                )
 
     def _nominal_overlay(self, project, clip=None, faint=False):
         _dashed(self.canvas, self.nominal, project, _NOMINAL_FAINT if faint else _BLUE, clip)
@@ -1379,7 +1426,7 @@ class _Diagram:
         c = self.canvas
         y = self.dimension_y
         if self.stock is None:
-            _text(c, 285, y, "STOCK EXTENTS: NOT DECLARED", _MUTED)
+            _text(c, 440, y - _TEXT_HEIGHT - 8, "STOCK EXTENTS: NOT DECLARED", _MUTED)
             return
         box = self.stock
         sizes = [box[i + 3] - box[i] for i in range(3)]
@@ -1391,7 +1438,14 @@ class _Diagram:
             if round_dia is not None
             else f"STOCK BOX: X {_mm(sizes[0])}  /  Y {_mm(sizes[1])}  /  Z {_mm(sizes[2])} mm"
         )
-        _text(c, 32, self.footer_top - 36, stock_text)
+        summary = _wrap(c, stock_text, 1536)
+        for index, line in enumerate(summary):
+            _text(
+                c,
+                32,
+                self.footer_top - 16 - _TEXT_HEIGHT - (len(summary) - 1 - index) * _LEADING,
+                line,
+            )
         axis = (
             2
             if self.view == "lathe"
@@ -1436,14 +1490,13 @@ class _Diagram:
                 # row, never from the stock-length extension line.
                 a = jaw_marker
                 b = c.project((box[0], box[1], box[5]))
-                dim_y = y - 52
+                dim_y = y - _LEADING - 16
                 c.line(a, (a[0], dim_y), _BLUE, width=2, dashed=True)
                 c.line(b, (b[0], dim_y), _BLUE, width=2, dashed=True)
                 _dimension(c, (a[0], dim_y), (b[0], dim_y), label, _BLUE)
                 self.dimensions[label] = ((a[0], dim_y), (b[0], dim_y))
             else:
-                x = 32 + c.text_width(_plain(stock_text), scale=_BODY_SCALE) + 48
-                _text(c, x, self.footer_top - 36, label, _BLUE)
+                _text(c, 1568, y - _LEADING - 16, label, _BLUE, align="right")
 
     def _labels(self):
         """Two lanes of print-size keys. Type never shrinks: lanes rebalance, then tighten
@@ -1482,7 +1535,7 @@ class _Diagram:
         limit = self.lanes[1]
         anchors = [(callout, point) for callout in self.callouts for point in callout.points]
         wrapped = {
-            (id(item), side): _wrap(c, item.label, lane_specs[side][1], scale=3)
+            (id(item), side): _wrap(c, item.label, lane_specs[side][1])
             for item in self.callouts
             for side in (0, 1)
         }
@@ -1505,11 +1558,11 @@ class _Diagram:
             rows, row_y = [], self.lanes[0]
             for item in items:
                 lines = wrapped[(id(item), side)]
-                span = max(c.text_width(line, scale=3) for line in lines) + 8
+                span = max(c.text_width(line, scale=_BODY_SCALE) for line in lines) + 8
                 left, right = (
                     (x - 4, x - 4 + span) if side == 0 else (x + width + 4 - span, x + width + 4)
                 )
-                height = len(lines) * pitch + 6
+                height = (len(lines) - 1) * pitch + _TEXT_HEIGHT + 6
                 for o_left, top, o_right, bottom in sorted(self.obstacles, key=lambda b: b[1]):
                     if (
                         left < o_right
@@ -1533,7 +1586,7 @@ class _Diagram:
             return sorted(items, key=height)
 
         def overflow(items, side):
-            return pack(ordered(items), side, 27, 5)[1] - limit
+            return pack(ordered(items), side, _LEADING, 8)[1] - limit
 
         lanes = [[], []]
         for callout in self.callouts:
@@ -1649,7 +1702,8 @@ class _Diagram:
         # A band that can grow (the holding detail) is redrawn taller instead of
         # printing keys past its edge.
         self.lane_overflow = max(
-            pack(ordered(items), side, 25, 0)[1] - limit for side, items in enumerate(lanes)
+            pack(ordered(items), side, _TEXT_HEIGHT + 5, 0)[1] - limit
+            for side, items in enumerate(lanes)
         )
         if self.lane_overflow > 0 and self.grows_to_fit:
             return
@@ -1660,10 +1714,14 @@ class _Diagram:
             pitch, floor = next(
                 (
                     (pitch, floor)
-                    for pitch, floor in ((27, 5), (25, 5), (25, 0))
+                    for pitch, floor in (
+                        (_LEADING, 8),
+                        (_TEXT_HEIGHT + 5, 8),
+                        (_TEXT_HEIGHT + 5, 0),
+                    )
                     if pack(callouts, side, pitch, floor)[1] <= limit
                 ),
-                (25, 0),
+                (_TEXT_HEIGHT + 5, 0),
             )
             lo, hi = float(floor), 60.0
             for _ in range(12):
@@ -1677,7 +1735,7 @@ class _Diagram:
             rows = [math.floor(row_y) for row_y in rows]
             for item, row_y in zip(callouts, rows, strict=True):
                 lines = wrapped[(id(item), side)]
-                target_y = row_y + ((len(lines) - 1) * pitch + 21) / 2
+                target_y = row_y + ((len(lines) - 1) * pitch + _TEXT_HEIGHT) / 2
                 drawn = item.points if item.leader in ("line", "hidden") else []
                 outlines = item.outlines or (None,) * len(drawn)
                 heights = runs.get(id(item), [None] * len(drawn))
@@ -1709,43 +1767,23 @@ class _Diagram:
                         row_y + index * pitch,
                         line,
                         item.colour,
-                        scale=3,
+                        scale=_BODY_SCALE,
                         align="right" if side else "left",
                         backing=True,
                     )
 
-    def _insets(self):
-        c = self.canvas
-        left, right = 1174, 1568
-        c.line((1157, 134), (1157, self.footer_top - 17), _RULE, width=2)
-        profiles = self.spec.get("lathe_profiles", []) if self.view == "lathe" else []
-        if profiles or (
-            self.view == "lathe"
-            and (
-                self.spec.get("axial_paths")
-                or any("xz" in p for p in self.spec.get("waypoints", []))
-            )
-        ):
-            top = self._lathe_detail(left, right, profiles) + 24
-            if self.spec.get("paths") or any("xy" in p for p in self.spec.get("waypoints", [])):
-                self._path_inset(left, right, top, self.footer_top - 70)
-        else:
-            self._path_inset(left, right, 142, self.footer_top - 70)
-        if self.spec.get("preload") == "counterclockwise":
-            center = (left + 17, self.footer_top - 37)
-            arc = [
-                (center[0] + 13 * math.cos(a), center[1] - 13 * math.sin(a))
-                for a in (i * math.pi / 12 for i in range(2, 23))
-            ]
-            for a, b in zip(arc, arc[1:], strict=False):
-                c.line(a, b, _FIXTURE, width=2)
-            c.arrow(arc[-2], arc[-1], _FIXTURE, width=2)
-            _text(c, left + 42, center[1] - 10, "CCW PRELOAD / +Z", _FIXTURE, scale=3)
-
     def _lathe_detail(self, left, right, profiles):
         c = self.canvas
-        _text(c, left, 140, "JAW-END PROFILE")
-        _text(c, left, 169, "Z RIGHT / RADIAL UP", _MUTED)
+        _text(c, left, 22, "JAW-END PROFILE", scale=_TITLE_SCALE)
+        _text(c, left, 84, "Z RIGHT / RADIAL UP", _MUTED)
+        _text(
+            c,
+            right,
+            84,
+            f"SETUP {self.spec['setup_id']} / DIMENSIONS IN mm",
+            _MUTED,
+            align="right",
+        )
         axial = self.spec.get("axial_paths", [])
         display = {str(path["op"]): path.get("x_display", "radius") for path in axial}
 
@@ -1778,15 +1816,17 @@ class _Diagram:
             points.extend(p for _, path in paths for p in path)
         points.extend(p["xy"] for p in waypoints)
         if not points:
-            _text(c, left, 208, "PROFILE NOT DECLARED", _MUTED)
-            return 239
+            _text(c, left, 129, "PROFILE NOT DECLARED", _MUTED)
+            return 129 + _LEADING
         if not self.lathe_window:
             zmin, zmax = min(p[1] for p in points), max(p[1] for p in points)
         rmin, rmax = min(p[0] for p in points), max(p[0] for p in points)
         window_label = f"Z {_mm(zmin)} TO {_mm(zmax)} MM"
-        _text(c, left, 198, window_label, _MUTED)
-        scale = min((right - left - 134) / max(zmax - zmin, 1e-9), 234 / max(rmax - rmin, 1e-9))
-        cy = 355
+        _text(c, left, 129, window_label, _MUTED)
+        scale = min(
+            (right - left - 2 * _BADGE_PITCH) / max(zmax - zmin, 1e-9), 320 / max(rmax - rmin, 1e-9)
+        )
+        cy = 390
         # A contour much smaller than the window, or whose point keys would crowd one
         # another at the window's scale, gets its own enlarged local detail.
         local = None
@@ -1806,7 +1846,7 @@ class _Diagram:
                     bounds[2] + margin,
                     bounds[3] + margin,
                 )
-                cy = 236 + (rmax - rmin) * scale / 2
+                cy = 200 + (rmax - rmin) * scale / 2
         cx = (left + right) / 2
 
         def project(point):
@@ -1838,10 +1878,8 @@ class _Diagram:
             for line in profile["lines"]:
                 for a, b in zip(line, line[1:], strict=False):
                     c.line(project(a), project(b), colour, width=3, dashed=dashed)
-            for index, line in enumerate(
-                _wrap(c, profile["label"].upper(), right - left - 34, scale=3)
-            ):
-                rows.append((line, colour, (colour, dashed) if index == 0 else None, 34))
+            for index, line in enumerate(_wrap(c, profile["label"].upper(), right - left - 34)):
+                rows.append((line, _INK, (colour, dashed) if index == 0 else None, 34))
         for z, small, large in self.shoulders:
             step = large - small
             # The main view names no step inside this window; every step either view
@@ -1851,23 +1889,23 @@ class _Diagram:
             point = project((large, z))
             c.line((point[0], point[1] - 12), (point[0], point[1] + 12), _INK, width=2)
             shoulder = _shoulder(z, small, large, self.spec.get("decimals"))
-            for line in _wrap(c, shoulder, right - left, scale=3):
+            for line in _wrap(c, shoulder, right - left):
                 rows.append((line, _INK, None, 0))
         for path, _ in paths:
-            for line in _wrap(c, f"OP {path['op']} SURFACE", right - left - 34, scale=3):
+            for line in _wrap(c, f"OP {path['op']} SURFACE", right - left - 34):
                 rows.append((line, _GREEN, (_GREEN, False), 34))
         if paths:
             rows.append((_ARROWS, _MUTED, None, 0))
         if closed:
-            for line in _wrap(c, "TINT: PROFILE DIFFERENCE", right - left, scale=3):
+            for line in _wrap(c, "TINT: PROFILE DIFFERENCE", right - left):
                 rows.append((line, _AMBER, None, 0))
         if self.off_window_keys:
-            for line in _wrap(c, "OFF-WINDOW P KEYS: FULL VIEW", right - left, scale=3):
+            for line in _wrap(c, "OFF-WINDOW P KEYS: FULL VIEW", right - left):
                 rows.append((line, _MUTED, None, 0))
-        row = 510
-        if crowded and local is not None:
-            # The key rows end at the column foot so the detail gets every free row.
-            row = max(row, self.footer_top - 17 - 30 * len(rows))
+        row = 690
+        if local is not None:
+            # Complete local geometry and its large point keys remain above their own key.
+            row = max(row, self.footer_top - 17 - _LEADING * len(rows))
         if local is not None:
             zlo, rlo, zhi, rhi = local
             box = (left, cy + (rmax - rmin) * scale / 2 + 22, right, row - 17)
@@ -1884,13 +1922,13 @@ class _Diagram:
                 width=1,
                 dashed=True,
             )
-            plot = (box[0] + 8, box[1] + 30, box[2] - 8, box[3] - 6)
+            plot = (box[0] + 8, box[1] + _TEXT_HEIGHT + 18, box[2] - 8, box[3] - 6)
             # Keys go above and below a wide contour, or beside a tall one.
             cell = max((_badge_width(c, _plain(p["label"])) for p in waypoints), default=0)
             detail = max(
                 min(
                     (plot[2] - plot[0] - 40) / (zhi - zlo),
-                    max(20, plot[3] - plot[1] - 2 * 31) / (rhi - rlo),
+                    max(20, plot[3] - plot[1] - 2 * _BADGE_PITCH) / (rhi - rlo),
                 ),
                 min(
                     max(20, plot[2] - plot[0] - 2 * (cell + 16)) / (zhi - zlo),
@@ -1929,7 +1967,7 @@ class _Diagram:
                 self._ordered_path([enlarged(p) for p in points], _GREEN, clip=clip)
             self._waypoint_badges(waypoints, enlarged, plot, perimeter=True)
         for _, points in paths:
-            window = (project((0, zmin))[0], 228, project((0, zmax))[0], 493)
+            window = (project((0, zmin))[0], 190, project((0, zmax))[0], 575)
             if local is None:
                 self._ordered_path([project(p) for p in points], _GREEN, clip=window)
             else:
@@ -1939,7 +1977,7 @@ class _Diagram:
                     if segment:
                         c.line(*segment, _GREEN, width=3)
         if local is None:
-            self._waypoint_badges(waypoints, project, (left, 205, right, 493))
+            self._waypoint_badges(waypoints, project, (left, 180, right, 620))
         for line, colour, sample, indent in rows:
             if line == _ARROWS and self.arrows_drawn == arrows_before:
                 continue
@@ -1948,59 +1986,33 @@ class _Diagram:
                     (left, row + 10), (left + 25, row + 10), sample[0], width=3, dashed=sample[1]
                 )
             _text(c, left + indent, row, line, colour)
-            row += 30
+            row += _LEADING
         return row
 
     def _path_inset(self, left, right, top, bottom):
         c = self.canvas
         paths = self.spec.get("paths", [])
         waypoints = [p for p in self.spec.get("waypoints", []) if "xy" in p]
-        points = [point for path in paths for point in path["xy"]]
-        points.extend(item["xy"] for item in waypoints)
-        if not points:
-            return
-        _text(c, left, top, "PROFILE SKETCH / XY")
-        content_top = top + 40
         ops = list(dict.fromkeys(str(p.get("op", "")) for p in paths + waypoints))
+        _text(c, left, top, "PROFILE SKETCH / XY", scale=_TITLE_SCALE)
+        _text(
+            c,
+            right,
+            top + _LEADING + 8,
+            f"SETUP {self.spec['setup_id']} / DIMENSIONS IN mm",
+            _MUTED,
+            align="right",
+        )
         before = self.arrows_drawn
-        # A raster's lifted returns need a second legend line above the arrows'.
-        legend = 26 if _lifted_returns(paths) else 0
-        if len(ops) > 1:
-            self._operation_panels(
-                left, right, content_top, bottom - 34 - legend, ops, paths, waypoints
-            )
-            self._sketch_legend(left, bottom - 21, before)
-            return
-        ops = list(dict.fromkeys(_plain(path.get("op", "")) for path in paths))
-        key_lines = [(op, line) for op in ops for line in _wrap(c, op, right - left - 36, scale=3)]
-        plot_bottom = bottom - 40 - 30 * len(key_lines) - legend
-        keys = _sketch_keys(paths, waypoints)
-        top = content_top + 14
-        need = self._sketch_need(right - left, points, keys)
-        self.inset_overflow = max(self.inset_overflow, need - (plot_bottom - top))
-        if self.inset_overflow > 0 and self.grows_to_fit:
-            return
-        project, plot, badges = self._sketch_plot(
-            (left, top, right, plot_bottom), points, keys, indent=0
+        legend = _LEADING if _lifted_returns(paths) else 0
+        self._operation_panels(
+            left, right, top + 2 * _LEADING + 28, bottom - 2 * _LEADING - legend,
+            ops, paths, waypoints,
         )
+        self._sketch_legend(left, bottom - _TEXT_HEIGHT, before)
         if self.nominal:
-            self._nominal_overlay(lambda p: project(p[:2]), plot, faint=True)
-        palette = (_BLUE, _GREEN, _AMBER, (113, 65, 137))
-        colours = {op: palette[index % len(palette)] for index, op in enumerate(ops)}
-        labels = []
-        for op in ops:
-            op_paths = [path for path in paths if _plain(path.get("op", "")) == op]
-            for path in self._raster_band(op_paths, project, colours[op], labels):
-                self._ordered_path([project(point) for point in path["xy"]], colours[op])
-        self._waypoint_badges(
-            waypoints + labels, project, badges, exclusion=_drawn_box(project, points)
-        )
-        row = plot_bottom + 18
-        for op, line in key_lines:
-            c.line((left, row + 10), (left + 23, row + 10), colours[op], width=3)
-            _text(c, left + 32, row, line, colours[op])
-            row += 30
-        self._sketch_legend(left, bottom - 22, before)
+            _text(c, right, bottom - _TEXT_HEIGHT, "FINISHED OUTLINE, THIS SETUP",
+                  _BLUE, align="right")
 
     def _sketch_bands(self, width, points, keys):
         """A ``width``-wide sketch's vertical budget: ``(exaggeration lines, key rows
@@ -2057,12 +2069,11 @@ class _Diagram:
         )
 
     def _sketch_legend(self, left, top, arrows_before):
-        """The arrows legend at ``top`` once a direction arrow is drawn, and the lifted
-        returns' line above it once a return is dashed."""
+        """Name only the direction arrows and lifted returns actually drawn."""
         row = top
         if self.arrows_drawn > arrows_before:
             _text(self.canvas, left, row, _ARROWS, _MUTED)
-            row -= 26
+            row -= _LEADING
         if self.returns_drawn:
             _text(self.canvas, left, row, _RETURNS, _MUTED)
 
@@ -2081,7 +2092,7 @@ class _Diagram:
             x = left + (index % columns) * (width + 12)
             y = tops[index // columns]
             height = heights[index // columns]
-            colour = palette[index % len(palette)]
+            colour = getattr(self, "operation_colours", {}).get(op, palette[index % len(palette)])
             _outline(
                 c,
                 [(x, y), (x + width, y), (x + width, y + height), (x, y + height)],
@@ -2096,7 +2107,9 @@ class _Diagram:
             if not points:
                 continue
             project, plot, badges = self._sketch_plot(
-                (x, y + 31, x + width, y + height), points, _sketch_keys(op_paths, op_waypoints)
+                (x, y + _TEXT_HEIGHT + 22, x + width, y + height),
+                points,
+                _sketch_keys(op_paths, op_waypoints),
             )
             if self.nominal:
                 self._nominal_overlay(project, plot, faint=True)
@@ -2125,7 +2138,8 @@ class _Diagram:
         Rows that need more than ``span`` ask the picture to grow (``inset_overflow``)."""
         rows = math.ceil(len(ops) / columns)
         total = span - 12 * (rows - 1)
-        needs = [31.0 + _SKETCH_PLOT_MIN + 12] * rows
+        title_band = _TEXT_HEIGHT + 22
+        needs = [title_band + _SKETCH_PLOT_MIN + 12] * rows
         for index, op in enumerate(ops):
             op_paths = [p for p in paths if str(p.get("op", "")) == op]
             op_waypoints = [p for p in waypoints if str(p.get("op", "")) == op]
@@ -2133,7 +2147,9 @@ class _Diagram:
             points.extend(p["xy"] for p in op_waypoints)
             if not points:
                 continue
-            need = 31 + self._sketch_need(width, points, _sketch_keys(op_paths, op_waypoints))
+            need = title_band + self._sketch_need(
+                width, points, _sketch_keys(op_paths, op_waypoints)
+            )
             needs[index // columns] = max(needs[index // columns], need)
         self.inset_overflow = max(self.inset_overflow, sum(needs) - total)
         equal = total / rows
@@ -2278,16 +2294,18 @@ class _Diagram:
         left, top, right, bottom = plot
         span_x, span_y = right - left, bottom - top
         cell_width = max(_badge_width(c, label) for label in labels)
-        cell_height = 33
-        columns = max(1, int((span_x + 8) / (cell_width + 8)))
+        cell_height = _BADGE_HEIGHT
+        columns = max(1, int((span_x + _BADGE_GAP) / (cell_width + _BADGE_GAP)))
         if perimeter:
             columns = min(columns, math.ceil(math.sqrt(len(labels))))
         required_rows = math.ceil(len(labels) / columns)
         rows = (
-            max(required_rows, 2 if 2 * cell_height + 8 <= span_y else 1)
+            max(required_rows, 2 if 2 * cell_height + _BADGE_GAP <= span_y else 1)
             if perimeter
-            else max(required_rows, int((span_y + 8) / (cell_height + 8)))
+            else max(required_rows, int((span_y + _BADGE_GAP) / _BADGE_PITCH))
         )
+        if cell_width > span_x or rows * cell_height + (rows - 1) * _BADGE_GAP > span_y:
+            raise ValueError("point keys exceed their complete geometry panel at print size")
         ys = (
             [top + cell_height / 2 + i * (span_y - cell_height) / (rows - 1) for i in range(rows)]
             if rows > 1
@@ -2333,40 +2351,53 @@ class _Diagram:
     def _footer(self):
         c = self.canvas
         c.line((32, self.footer_top), (1568, self.footer_top), _INK, width=2)
-        self._triad(112, self.footer_top + 139)
-        _text(c, 273, self.footer_top + 23, "KEY")
-        legend_start = self.footer_top + 57
+        self._triad(140, self.footer_top + 185)
+        _text(c, 350, self.footer_top + 23, "KEY")
+        legend_start = self.footer_top + 88
         for index, (label, kind) in enumerate(self.legend_rows):
-            y = legend_start + index * 30
+            y = legend_start + index * _LEADING
             if kind == "stock":
-                c.rect(274, y + 2, 27, 18, (160, 174, 184), outline=_INK)
+                c.rect(350, y + 8, 24, 24, (160, 174, 184), outline=_INK)
             elif kind == "fixture":
-                c.rect(274, y + 2, 27, 18, _FIXTURE, outline=_INK)
+                c.rect(350, y + 8, 24, 24, _FIXTURE, outline=_INK)
             elif kind == "removal":
-                c.rect(274, y + 2, 27, 18, _AMBER_LIGHT, outline=_AMBER)
-                for dx in (0, 7, 14, 21):
-                    c.line((276 + dx, y + 17), (282 + dx, y + 6), _AMBER, width=2)
+                c.rect(350, y + 8, 24, 24, _AMBER_LIGHT, outline=_AMBER)
+                for dx in (0, 7, 14):
+                    c.line((352 + dx, y + 30), (358 + dx, y + 10), _AMBER, width=2)
             elif kind == "tool":
-                c.arrow((274, y + 10), (301, y + 10), _GREEN, width=3)
+                c.arrow((350, y + _TEXT_HEIGHT / 2), (374, y + _TEXT_HEIGHT / 2), _GREEN, width=3)
             elif kind == "context":
-                c.line((274, y + 10), (301, y + 10), _MUTED, width=2, dashed=True)
+                c.line(
+                    (350, y + _TEXT_HEIGHT / 2),
+                    (374, y + _TEXT_HEIGHT / 2),
+                    _MUTED,
+                    width=2,
+                    dashed=True,
+                )
             elif kind == "nominal":
-                c.line((274, y + 10), (301, y + 10), _BLUE, width=2, dashed=True)
-            _text(c, 318, y, label, _MUTED if kind == "text" else _INK)
+                c.line(
+                    (350, y + _TEXT_HEIGHT / 2),
+                    (374, y + _TEXT_HEIGHT / 2),
+                    _BLUE,
+                    width=2,
+                    dashed=True,
+                )
+            _text(c, 380, y, label, _MUTED if kind == "text" else _INK)
         if not self.note_lines:
             return
-        _text(c, 840, self.footer_top + 23, "SETUP NOTES")
-        note_start = self.footer_top + 57
+        _text(c, 960, self.footer_top + 23, "SETUP NOTES")
+        note_start = self.footer_top + 88
         for index, line in enumerate(self.note_lines):
-            _text(c, 840, note_start + index * 27, line, _MUTED)
+            _text(c, 960, note_start + index * _LEADING, line, _MUTED)
 
     def _triad(self, x, y):
         c = self.canvas
         _text(c, 32, self.footer_top + 23, "SETUP AXES")
         right, up, toward = self.camera
         normal_axis = None
+        label_boxes = []
         for index, label in enumerate("XYZ"):
-            dx, dy = right[index] * 61, -up[index] * 61
+            dx, dy = right[index] * 80, -up[index] * 80
             colour = _AXIS_COLOURS[index]
             if math.hypot(dx, dy) < 1e-9:
                 normal_axis = index
@@ -2376,32 +2407,189 @@ class _Diagram:
                 else:
                     c.line((x - 5, y - 5), (x + 5, y + 5), colour, width=2)
                     c.line((x - 5, y + 5), (x + 5, y - 5), colour, width=2)
-                _text(c, x - 29, y + 17, label, colour)
+                end = (x, y)
+                left, top = x - _TEXT_HEIGHT / 2, y + _LEADING
             else:
                 end = (x + dx, y + dy)
                 c.arrow((x, y), end, colour, width=3)
-                _text(
-                    c,
-                    end[0] + (7 if dx >= 0 else -17),
-                    end[1] + (4 if dy >= 0 else -17),
-                    label,
-                    colour,
-                )
+                left = end[0] + (12 if dx >= 0 else -_TEXT_HEIGHT)
+                top = end[1] + (6 if dy >= 0 else -_TEXT_HEIGHT)
+            width = c.text_width(label, scale=_BODY_SCALE)
+            while any(
+                left < right_edge + 4
+                and old_left < left + width + 4
+                and top < bottom + 4
+                and old_top < top + _TEXT_HEIGHT + 4
+                for old_left, old_top, right_edge, bottom in label_boxes
+            ):
+                left += _TEXT_HEIGHT + 8
+            label_boxes.append((left, top, left + width, top + _TEXT_HEIGHT))
+            _text(c, left, top, label, colour)
         if normal_axis is not None:
             direction = "TOWARD" if toward[normal_axis] > 0 else "AWAY"
-            _text(c, 32, self.footer_top + 211, f"{'XYZ'[normal_axis]} {direction}", _MUTED)
+            _text(c, 32, self.footer_top + 290, f"{'XYZ'[normal_axis]} {direction}", _MUTED)
         else:
-            c.circle(37, self.footer_top + 218, 6, fill=_WHITE, outline=_MUTED)
-            c.circle(37, self.footer_top + 218, 2, fill=_MUTED)
-            _text(c, 49, self.footer_top + 211, "VIEW NORMAL", _MUTED)
+            c.circle(37, self.footer_top + 307, 6, fill=_WHITE, outline=_MUTED)
+            c.circle(37, self.footer_top + 307, 2, fill=_MUTED)
+            _text(c, 49, self.footer_top + 290, "VIEW NORMAL", _MUTED)
+
+
+def _append_panel(diagram, detail, role, label):
+    """Append a complete independently laid-out canvas; metadata uses its actual extent."""
+    canvas, source = diagram.canvas, detail.canvas
+    if source.width != canvas.width or source.height > _PANEL_MAX_HEIGHT:
+        raise ValueError("complete diagram band exceeds its printable width or height")
+    top = canvas.height
+    canvas.grow(source.height)
+    canvas.paste(source, 0, top)
+    canvas.text_boxes.extend(
+        (text, left, y + top, right, bottom + top)
+        for text, left, y, right, bottom in source.text_boxes
+    )
+    for target, leaders in (
+        (diagram.leaders, detail.leaders),
+        (diagram.hidden_leaders, detail.hidden_leaders),
+    ):
+        target.extend((text, [(x, y + top) for x, y in path]) for text, path in leaders)
+    diagram.print_panels.append(
+        {"top_px": top, "height_px": source.height, "role": role, "label": label}
+    )
+
+
+class _ProfileCanvas(RenderCanvas):
+    """Measure all painted profile primitives, including leaders and arrowheads."""
+
+    def __init__(self, camera):
+        self.drawn_bottom = 0
+        super().__init__([], camera, (0, 0, 1, 1), height=_PANEL_MAX_HEIGHT)
+
+    def _span(self, row, first, last, pixel):
+        if row >= 0 and max(0, first) <= min(self.width - 1, last):
+            self.drawn_bottom = max(self.drawn_bottom, row + 1)
+        super()._span(row, first, last, pixel)
+
+
+class _AnnotationDetail(_Diagram):
+    """An existing independent sketch, promoted out of the small third column."""
+
+    def __init__(self, spec, role, main_scale, height):
+        super().__init__([], spec)
+        self.role = role
+        # Keep the established profile layout reference independent of bitmap height:
+        # shortening its unused tail must never refit/recentre the window or local detail.
+        self.footer_top = height - 16
+        self.canvas = (
+            _ProfileCanvas(self.camera)
+            if role == "profile_detail"
+            else RenderCanvas([], self.camera, (0, 0, 1, 1), height=height)
+        )
+        # Shoulder visibility is judged at the main picture's geometry scale.
+        self.canvas.scale = main_scale
+        if role == "path_detail":
+            ops = list(
+                dict.fromkeys(
+                    str(p.get("op", "")) for p in spec.get("paths", []) + spec.get("waypoints", [])
+                )
+            )
+            width = (1536 - 12) / 2 if len(ops) > 1 else 1536
+            for op in ops:
+                labels = [
+                    _plain(p["label"])
+                    for p in spec.get("waypoints", [])
+                    if str(p.get("op", "")) == op
+                ]
+                raster = sorted(
+                    p["raster"]["pass"]
+                    for p in spec.get("paths", [])
+                    if str(p.get("op", "")) == op and p.get("raster")
+                )
+                labels += [f"PASS {n}" for n in dict.fromkeys(raster[:1] + raster[-1:])]
+                if not labels:
+                    continue
+                cell = max(_badge_width(self.canvas, label) for label in labels)
+                columns = min(
+                    max(1, int((width - 12 + _BADGE_GAP) / (cell + _BADGE_GAP))),
+                    math.ceil(math.sqrt(len(labels))),
+                )
+                rows = math.ceil(len(labels) / columns)
+                needed = 400 + 2 * _LEADING + _TEXT_HEIGHT + rows * _BADGE_PITCH
+                if needed > self.canvas.height:
+                    self.canvas.grow(needed - self.canvas.height)
+            self.footer_top = self.canvas.height - 16
+
+    def _title(self):
+        return "JAW-END PROFILE" if self.role == "profile_detail" else "PROFILE SKETCH / XY"
+
+    def render(self):
+        if self.role == "profile_detail":
+            self._lathe_detail(32, 1568, self.spec.get("lathe_profiles", []))
+            self.canvas.assert_text_layout(min_scale=_BODY_SCALE)
+            # Span coverage includes geometry, tint, samples, circles, backing rectangles,
+            # leaders and arrow wings; text boxes also reserve complete character cells.
+            content_bottom = max(
+                self.canvas.drawn_bottom,
+                max((box[4] for box in self.canvas.text_boxes), default=0),
+            )
+            needed = content_bottom + _PROFILE_BOTTOM_PAD
+            if needed > _PANEL_MAX_HEIGHT:
+                raise ValueError("complete jaw-end profile and key exceed the printable band")
+            scale = self.canvas.scale
+            self.canvas = RenderCanvas([], self.camera, (0, 0, 1, 1), height=needed)
+            self.canvas.scale = scale
+            self.leaders.clear()
+            self.hidden_leaders.clear()
+            # Paint a new, correctly sized canvas with the identical layout/projection;
+            # never slice a previous PNG or refit geometry to its reduced height.
+            self._lathe_detail(32, 1568, self.spec.get("lathe_profiles", []))
+        else:
+            self._path_inset(32, 1568, 22, self.canvas.height - 24)
+        self.canvas.assert_text_layout(min_scale=_BODY_SCALE)
+
+
+def _annotation_details(spec, main_scale):
+    details = []
+    if spec["view"] == "lathe" and (
+        spec.get("lathe_profiles")
+        or spec.get("axial_paths")
+        or any("xz" in p for p in spec.get("waypoints", []))
+    ):
+        detail = _AnnotationDetail(spec, "profile_detail", main_scale, 1460)
+        detail.render()
+        details.append(detail)
+    paths = spec.get("paths", [])
+    waypoints = [p for p in spec.get("waypoints", []) if "xy" in p]
+    ops = list(dict.fromkeys(str(p.get("op", "")) for p in paths + waypoints))
+    palette = (_BLUE, _GREEN, _AMBER, (113, 65, 137))
+    colours = {op: palette[index % len(palette)] for index, op in enumerate(ops)}
+    # Every authored operation retains its entire geometry, waypoints and local key.
+    # Two side-by-side operation panels form a complete full-width printable band.
+    batches = [ops[index : index + 2] for index in range(0, len(ops), 2)]
+    while batches:
+        selected = batches.pop(0)
+        local = {
+            **spec,
+            "paths": [p for p in paths if str(p.get("op", "")) in selected],
+            "waypoints": [p for p in waypoints if str(p.get("op", "")) in selected],
+        }
+        detail = _AnnotationDetail(local, "path_detail", main_scale, 980)
+        if detail.canvas.height > _PANEL_MAX_HEIGHT:
+            if len(selected) == 2:
+                batches[:0] = [[selected[0]], [selected[1]]]
+                continue
+            raise ValueError(
+                "one complete authored operation exceeds its printable band at body size"
+            )
+        detail.operation_colours = colours
+        detail.render()
+        details.append(detail)
+    return details
 
 
 def render_diagram(meshes, spec):
-    """Return ``(png, debts)``: a setup PNG 1600 px wide (taller when holding detail bands
-    or a guided file's look along its guide axis are printed below it), and the NOT SHOWN
-    lines for what it could not draw truthfully (a named solid hidden from its leader).
-    Those lines are also printed in the picture's own notes. No physical dimension is
-    invented.
+    """Return ``(png, debts, print_panels)``: the complete deterministic 1600 px wide PNG,
+    its truthful NOT SHOWN debts, and ordered full-width independently printable bands.
+    Bands cover the final PNG exactly once; no picture, leader or local key is cropped
+    away to meet the print height. Debts also appear in the picture's own notes.
 
     ``meshes`` contain numeric setup-frame XYZ triples, triangle index triples,
     RGB, optionally a removal-hatch flag and the tag of the solid each draws. ``spec``
@@ -2433,11 +2621,11 @@ def render_diagram(meshes, spec):
             debts = found
             continue
         if not details:
-            return png, debts
+            return png, debts, diagram.print_panels
         for detail in details:
-            diagram.canvas.grow(detail.canvas.height)
-            diagram.canvas.paste(detail.canvas, 0, diagram.canvas.height - detail.canvas.height)
-        return diagram.canvas.png(), debts
+            _append_panel(diagram, detail, "holding_detail", detail._title())
+        diagram.canvas.assert_text_layout(min_scale=_BODY_SCALE)
+        return diagram.canvas.png(), debts, diagram.print_panels
     raise ValueError(f"setup picture debts do not settle: {debts}")
 
 
@@ -2505,6 +2693,7 @@ def _holding_details(meshes, spec, diagram):
                 (index, len(tiles)),
                 extra,
             )
+            detail.gain = detail.canvas.scale / diagram.canvas.scale
             detail.render()
             if detail.lane_overflow <= 0:
                 break
@@ -2573,7 +2762,8 @@ def _detail_viewport(frame, camera, extra=0, top=100):
     """The detail band's viewport: full width, and only as tall as the framed geometry
     needs at that width, between the room its keys need and the full band, plus
     ``extra`` rows the keys turned out to need; ``top`` below the band's header."""
-    left, right = 370, 1230
+    left, right = 440, 1160
+    top = max(top, 200 + _BADGE_PITCH)
     xs = [_dot3(p, camera[0]) for p in _corners(frame)]
     ys = [_dot3(p, camera[1]) for p in _corners(frame)]
     needed = (max(ys) - min(ys)) * (right - left) / max(max(xs) - min(xs), 1e-9)
@@ -2737,9 +2927,11 @@ class _HoldingDetail(_Diagram):
         self._owned = None
         self.meshes = list(meshes)
         self.viewport = _detail_viewport(frame, camera, extra, top)
-        self.footer_top = math.ceil(self.viewport[3]) + 28
-        self.lanes = (self.viewport[1], self.footer_top - 16)
-        self.lane_specs = ((32, 300, 344), (1268, 300, 1256))
+        self.footer_top = math.ceil(self.viewport[3]) + _BADGE_PITCH + 28
+        if self.footer_top > _PANEL_MAX_HEIGHT:
+            raise ValueError("complete holding geometry and contact keys exceed the printable band")
+        self.lanes = (self.viewport[1] - _BADGE_PITCH, self.footer_top - 16)
+        self.lane_specs = ((32, 360, 410), (1208, 360, 1190))
         self.lane_split = (self.viewport[0] + self.viewport[2]) / 2
         self.canvas = RenderCanvas(
             self.meshes,
@@ -2835,8 +3027,11 @@ class _HoldingDetail(_Diagram):
     def render(self):
         c = self.canvas
         c.line((32, 8), (1568, 8), _INK, width=2)
-        _text(c, 32, 22, self._title(), scale=4)
-        _text(c, 34, 62, "CONTACT FACES: SOLID WHERE SEEN, DASHED WHERE HIDDEN", _CONTACT)
+        title_lines = _wrap(c, self._title(), 1536, scale=_TITLE_SCALE)
+        for index, line in enumerate(title_lines):
+            _text(c, 32, 22 + index * 9 * _TITLE_SCALE, line, scale=_TITLE_SCALE)
+        note_y = 22 + len(title_lines) * 9 * _TITLE_SCALE + 10
+        _text(c, 34, note_y, "CONTACT FACES: SOLID WHERE SEEN, DASHED WHERE HIDDEN", _CONTACT)
         groups = self._contact_groups()
         keyed = []
         for label, plane, members in groups:
@@ -2890,7 +3085,7 @@ class _HoldingDetail(_Diagram):
             self._waypoint_badges(
                 self.position_badges,
                 lambda p: p,
-                self.viewport,
+                (self.viewport[0], top - _BADGE_PITCH, self.viewport[2], bottom + _BADGE_PITCH),
                 prefix="",
                 colour=_CONTACT,
                 exclusion=(

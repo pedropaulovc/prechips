@@ -6,6 +6,9 @@ from html import unescape
 
 import pytest
 from test_cli import ROOT, SYNTHETIC_KERNEL, copy_examples, traveler
+from test_sheet_ops import Markup, content
+
+from prechips.rules.resolution import MANUAL
 
 
 def text(html):
@@ -62,10 +65,6 @@ def test_unknown_inventory_category_still_renders_its_references(tmp_path):
     # It is named by its whole inventory identity: no item of a category stated unknown
     # is named, and table abbreviations never rewrite a key.
     assert re.search(r"\? Ø [^|]*: \? gauges\.micrometers/0-1in\b", text(html))
-
-
-def op_rows(html):
-    return re.findall(r"<tr><td>(\d+)</td>(.*?)</tr>", html, re.DOTALL)
 
 
 def test_known_numbers_without_drawing_precision_print_and_unknowns_stay_explicit(bracket):
@@ -130,11 +129,14 @@ def test_operative_z_keeps_its_own_digits_over_drawing_precision(tmp_path):
     assert endpoints["op 10 to_z"]["model"] == pytest.approx([0.0, 0.0, -158.92])
     assert endpoints["op 20 to_z"]["setup"] == [0.0, 0.0, 1.75]
     assert endpoints["op 20 to_z"]["model"] == pytest.approx([0.0, 0.0, -158.42])
-    s3_ops = sections(html, "OPERATIONS")[-1]
-    op20 = next(cells for number, cells in op_rows(s3_ops) if number == "20")
-    assert "1.75" in text(op20)
-    op10 = next(cells for number, cells in op_rows(s3_ops) if number == "10")
-    assert "2.25 (chuck-side corner)" in text(op10)
+    markup = Markup(sections(html, "OPERATIONS")[-1])
+    operations = {node["attrs"]["data-op"]: node for node in markup.find("operation")}
+    op20 = content(markup.find("op-target", operations["20"])[0])
+    assert re.search(r"(?<![\d.])1\.75(?!\d)", op20)
+    op10 = content(markup.find("op-target", operations["10"])[0])
+    assert re.search(r"(?<![\d.])2\.25(?!\d)", op10)
+    # The kept face is located by the chuck-side blade corner, not a drawing-rounded Z.
+    assert "chuck-side corner" in op10
     dome = next(
         contour
         for row in findings(report, "coordinates")
@@ -183,10 +185,13 @@ def test_shaft_missing_length_prints_as_a_normal_unknown_inspection_row(tmp_path
     plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
     plan.write_text(plan.read_text(encoding="utf-8") + MISSING_LENGTH_OP, encoding="utf-8")
     _, report, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
-    row = next(
-        cells for number, cells in op_rows(sections(html, "OPERATIONS")[-1]) if number == "50"
-    )
-    assert "156.67" not in text(row)
+    markup = Markup(sections(html, "OPERATIONS")[-1])
+    operation = next(node for node in markup.find("operation") if node["attrs"]["data-op"] == "50")
+    messages = markup.find("inspection-message", operation)
+    assert any("length" in content(node).lower() and "?" in content(node) for node in messages)
+    assert "156.67" not in content(operation)
+    assert not markup.find("inspection-record", operation)
+    assert not markup.find("result-field", operation)
     finding = next(
         row for row in findings(report, "inspection") if row["subject"] == "pivot_bearing:length"
     )
@@ -206,14 +211,20 @@ def test_lathe_feed_prints_per_revolution_with_the_true_value(tmp_path):
             per_rev[setup, op] = value
     assert per_rev
     pages = sections(html, "OPERATIONS")
+    checked = set()
     for setup, page in zip(ids, pages, strict=True):
-        for op, cells in op_rows(page):
+        markup = Markup(page)
+        for operation in markup.find("operation"):
+            op = operation["attrs"]["data-op"]
             value = per_rev.get((setup, op))
             if value is None:
                 continue
-            printed = re.findall(r"([\d.]+) mm/rev", text(cells))
+            feed = content(markup.find("op-feed", operation)[0])
+            printed = re.findall(r"([\d.]+) mm/rev", feed)
             # A per-rev feed must never carry the mm/min magnitude.
-            assert printed and float(printed[0]) == pytest.approx(value, abs=0.005), (op, cells)
+            assert printed and float(printed[0]) == pytest.approx(value, abs=0.005), (op, feed)
+            checked.add((setup, op))
+    assert checked == set(per_rev)
 
 
 def test_hold_text_has_no_pose_vectors(tmp_path):
@@ -257,7 +268,11 @@ def test_job_status_names_every_setup_that_has_a_stop(tmp_path):
 def test_front_sheet_pointers_lead_to_attached_sheets_of_the_same_setup(tmp_path):
     # The machinist follows "contour table on S2 sheet 3" from an op row; that page must
     # exist, belong to the same setup and carry the op's table.
-    _, _, html = traveler(ROOT / "examples" / "pivot-shaft" / "plan.toml", tmp_path / "out")
+    _, _, html = traveler(
+        ROOT / "examples" / "pivot-shaft" / "plan.toml",
+        tmp_path / "out",
+        setup=SYNTHETIC_KERNEL,
+    )
     pages = {}
     for page in html.split('<section class="page"')[1:]:
         heading = re.search(r"<h2>SETUP (\S+) — (?:[^<]*?· )?sheet (\d+) of (\d+)", page)
@@ -269,9 +284,11 @@ def test_front_sheet_pointers_lead_to_attached_sheets_of_the_same_setup(tmp_path
         if number != "1":
             continue
         followed = 0
-        for op, cells in re.findall(r"<tbody[^>]*><tr><td>(\d+)</td>(.*?)</tbody>", page, re.S):
+        markup = Markup(page)
+        for operation in markup.find("operation"):
+            op = operation["attrs"]["data-op"]
             for kind, target, sheet in re.findall(
-                r"(note|contour table) on (\S+) sheet (\d+)", text(cells)
+                r"(note|contour table) on (\S+) sheet (\d+)", content(operation)
             ):
                 assert target == setup
                 attached = pages[(setup, sheet)][1]
@@ -436,15 +453,17 @@ def test_op_notes_print_under_their_own_row_on_the_front_sheet(tmp_path):
     noted = 0
     for setup in authored["setups"]:
         front = html.split(f'data-sheet="SETUP {setup["id"]} sheet 1"')[1].split("</section>")[0]
-        rows = dict(re.findall(r"<tbody[^>]*><tr><td>(\d+)</td>(.*?)</tbody>", front, re.S))
+        markup = Markup(front)
+        operations = {node["attrs"]["data-op"]: node for node in markup.find("operation")}
+        css = "op-action" if all(step["do"] in MANUAL for step in setup["ops"]) else "op-note"
         for op in setup["ops"]:
             if op.get("note"):
                 # The bench reading may rename a leading feature id; the words after it stay.
                 words = " ".join(op["note"].split()[1:5]).lower()
-                assert words in text(rows[str(op["op"])]).lower(), op["op"]
+                notes = markup.find(css, operations[str(op["op"])])
+                assert any(words in content(note).lower() for note in notes), op["op"]
                 noted += 1
     assert noted
-    assert "See note on" not in text(html)
 
 
 @pytest.mark.parametrize(

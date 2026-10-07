@@ -16,7 +16,6 @@ from prechips.sheet import _Traveler
 
 ROOT = Path(__file__).resolve().parents[1]
 LABEL = re.compile(r"\(continued\) · page (\d+) of (\d+)")
-BLANK = "This side intentionally blank"
 
 
 def machinist_review():
@@ -98,14 +97,14 @@ def test_long_rough_and_finish_lathe_tables_keep_every_page_counted_and_sheets_o
     texts = printed_pages(html, tmp_path)
     # A physical page is a sheet's first page, a labelled continuation or a blank back; a
     # page the script did not count carries no label and reads as an extra sheet.
-    starts = [i for i, text in enumerate(texts) if BLANK not in text and not LABEL.search(text)]
+    starts = [i for i, text in enumerate(texts) if text.strip() and not LABEL.search(text)]
     assert len(starts) == html.count('<section class="page" data-sheet=')
     runs = [texts[start:end] for start, end in zip(starts, [*starts[1:], len(texts)], strict=True)]
     for start, run in zip(starts, runs, strict=True):
         # Every sheet opens on a front side and fills a whole number of leaves.
         assert start % 2 == 0 and len(run) % 2 == 0
-        counted = [text for text in run if BLANK not in text]
-        assert all(BLANK in text for text in run[len(counted) :])
+        counted = [text for text in run if text.strip()]
+        assert all(not text.strip() for text in run[len(counted) :])
         labels = [LABEL.search(text) for text in counted[1:]]
         assert [(int(m[1]), int(m[2])) for m in labels] == [
             (page, len(counted)) for page in range(2, len(counted) + 1)
@@ -139,7 +138,7 @@ def _runs(texts, count):
     return [texts[a:b] for a, b in zip(starts, [*starts[1:], len(texts)], strict=True)]
 
 
-FILLERS = range(820, 961, 10)
+FILLERS = range(760, 881, 10)
 
 
 def test_an_op_table_moved_whole_to_the_next_page_leaves_a_pointer_to_it(tmp_path):
@@ -151,7 +150,7 @@ def test_an_op_table_moved_whole_to_the_next_page_leaves_a_pointer_to_it(tmp_pat
         '<tbody class="op"><tr><td>20</td><td>second-op-row</td></tr></tbody></table>'
     )
     # Fillers that leave a line free above the page end: room for the pointer itself.
-    fillers = range(820, 931, 10)
+    fillers = range(740, 881, 10)
     texts = printed_pages(_sections([(filler, ops) for filler in fillers]), tmp_path)
     moved = 0
     for run in _runs(texts, len(fillers)):
@@ -225,7 +224,7 @@ def test_a_table_split_across_pages_never_strands_one_or_two_rows(tmp_path, coun
 
     rows = [(str(n), f"row-{n}-end") for n in range(1, count + 1)]
     block = "<h2>CHECK THE BLANK</h2>" + _table(["#", "check"], rows)
-    fillers = range(700, 961, 12)
+    fillers = range(500, 881, 12)
     texts = printed_pages(_sections([(filler, block) for filler in fillers]), tmp_path)
     split = 0
     for run in _runs(texts, len(fillers)):

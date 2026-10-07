@@ -130,6 +130,14 @@ procedure; reference-only dimensions such as `length_ref` are not substitutes.
 A name already in that feature's exported requirements is `BadInput` in
 `missing_requirements`; use `checks` so actual requirements cannot be bypassed.
 
+Paper records use the existing requirement-keyed `checks` and authored methods;
+they add no plan fields. One full-width freeform readings/observations area
+remains below each real requirement with its known owner(s), limits, gauge,
+method and authored context. It does not infer reading positions or counts.
+Authored `{name}` blanks remain separate named procedure fields, not invented
+samples or statistical summaries. Missing identities or bands remain visible
+as unresolved `?` instructions, without fabricated automatic measurement fields.
+
 `to_z` is an authored endpoint;
 `to_z_band` is a range, not a substitute for measured setup binding. An arc
 contour needs explicit nominal geometry and one of the manual-arc methods

@@ -992,9 +992,12 @@ def test_a_zero_measured_before_the_hold_is_measured_before_clamping():
     measure = steps.index("length from the thrust face to the stub end")
     assert measure < steps.index("thrust face seated") < steps.index("Tighten the chuck")
     assert "measure Z M = length from the thrust face" in steps
+    assert steps.count('class="writing-blank"') == 1
+    assert '<span class="field-label">Z M</span>' in steps
     # The zero row then refers back to that reading instead of introducing M itself.
     row = sheet.dro(setup, TURNER)
     assert "length from the thrust face" not in row and "M measured before clamping" in row
+    assert '<span class="field-label">Z M</span>' not in row
 
 
 @pytest.mark.parametrize("before_hold", [None, False])
@@ -1002,7 +1005,8 @@ def test_a_zero_measured_at_the_machine_stays_in_the_zero_table(before_hold):
     sheet, setup = measured_hold(before_hold)
     steps, _ = sheet.hold(setup)
     assert "length from the thrust face" not in steps
-    assert "M = length from the thrust face" in sheet.dro(setup, TURNER)
+    assert 'class="field"' not in steps and 'class="writing-blank"' not in steps
+    assert "M = length from the thrust face" in sheet.dro(setup, {"turner": "T1 turner"})
 
 
 def x_touch(x_face, before, ops=LATHE_OPS, x_method="paper on the measured diameter", x=None):

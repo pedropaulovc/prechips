@@ -1,7 +1,7 @@
 # prechips — plan (rev 6)
 
 > Checks before chips. prechips turns a part plus a short process plan into a
-> **validated traveler a machinist can work from**: one page per setup saying
+> **traveler a machinist can work from**: variable pages per setup saying
 > how to hold it, where zero is, what the DRO should read for each feature,
 > which tool, what speed and feed to start at, and what to measure. Every
 > setup is validated for feasibility against the current shop inventory, the
@@ -54,13 +54,23 @@ precision is absent; unrelated tolerance formatting must not change a cut target
 
 ## 2. The traveler (the product)
 
-Letter, portrait, printable; one header page plus one page per setup; HTML
-with print CSS (PDF via the browser). Sketch for `rocker-arm`, setup S3 (mill,
-finish the hub and profile on a prepared blank). **Layout sketch only: the
-coordinates, revision and tool list below are placeholders, not the part's
+Letter portrait, with 0.5-inch margins, 12 pt working text and at least 10 pt
+metadata in familiar offline sans-serif type. Physical page counts vary with
+content; operation groups retain authored order and associated inspection
+writing areas: one full-width white freeform readings/observations area below
+each real requirement, at least 20 mm clear interior depth excluding labels,
+padding and borders. Known owners, bands, gauges and methods remain associated;
+named authored procedure fields remain separate and at least 10 mm deep.
+No reading positions, counts or statistics are inferred. An operation's
+performed mark is progress only, not acceptance, clearance or approval; no input
+schema field is added.
+
+Sketch for `rocker-arm`, setup S3 (mill, finish the hub and profile on a prepared
+blank). **Historical layout sketch only: its four-page numbering, coordinates,
+revision and tool list are illustrative, not the current pagination or part
 geometry** (the real numbers live in `examples/rocker-arm/spec.yaml` and the
-harmonic-analyzer build scripts; the rod hole is at ~146 mm, not 85). The
-RPMs do follow from the cited 90 sfm (§2 rules).
+harmonic-analyzer build scripts; the rod hole is at ~146 mm, not 85). The RPMs
+follow from the cited 90 sfm (§2 rules).
 
 ```
 ROCKER ARM  MHA-071  rev v21             qty 20    1018 CRS, black oxide

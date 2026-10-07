@@ -1844,8 +1844,8 @@ torque, or that the shop's real fixture matches its record.
 ## Renders
 
 For each setup with a numeric frame and derivable incoming stock the kernel
-returns a PNG 1600 pixels wide and 1000 tall (taller with holding detail bands,
-below) suitable for a wide printed setup figure. The camera
+returns a PNG 1600 pixels wide with panel-dependent height, suitable for
+semantic printed setup windows. The camera
 uses setup axes: a lathe elevation has +Z to the right, radial +X up and +Y
 away, with headstock/chuck left and tailstock right; a mill uses a front-right
 isometric view; a custom plate uses a plan view down setup -Z, and a custom
@@ -1879,8 +1879,9 @@ tables. Custom plates show pads, locators and authored clamp-action order.
 Table/vise-body/headstock/tailstock context outlines are marked schematic;
 they never add fabricated solids or authorize a cut. Inventory stop solids
 require `hold.stop_fixture` and a numeric `hold.stop_pose`.
-Every label prints at body size (21-pixel caps, about 7 pt on Letter); the
-renderer refuses smaller text. Setup notes come from the setup's declared ops,
+Every label is at least bitmap body scale 5 (35-pixel cap height, approximately
+11.8 pt at 1600 pixels across 7.5 inches); this is not a CSS font size or physical
+printer certification. The renderer refuses smaller text. Setup notes come from the setup's declared ops,
 bench actions included, so a deburr/coating/inspect setup says it has no
 machine cutting rather than "no material removed".
 
@@ -2080,6 +2081,13 @@ view, or the whole sketch when the stock at its place in the route is unresolved
 Alongside the image the engine returns `render_scene` with `fixture_kind`,
 `jaws`, `parallels`, `components`, `debts`, camera/resolution, plain-language
 `shows` / `legend`, annotation-only `render_debts` and shared `waypoints`.
+Actual PNG dimensions are `width_px` and `height_px`. Ordered `print_panels`
+records `{top_px, height_px, role, label}` partition that canonical image into
+full-width contiguous bands covering every pixel exactly once. Roles are
+`setup`, `profile_detail`, `path_detail` and `holding_detail`. The traveler uses
+these semantic windows at a common print scale, with panel/setup identity;
+there is no arbitrary whole-image crop, fit or downscale fallback. Panel
+presentation preserves coordinate units, geometry and visible rendering debt.
 `fixture_kind` is the inventory holding kind; `components` lists every drawn
 solid as `{name, role, exact}` (`exact = false` only for the vise's
 lateral-undeclared jaw extents; a follow rest adds role `follow_rest` and the

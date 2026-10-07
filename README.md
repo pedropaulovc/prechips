@@ -3,12 +3,12 @@
 Checks before chips: a deterministic, offline checker and printable traveler for
 an authored manual-machining plan. M1/M2 load five TOML inputs, evaluate declared
 plan, workholding, indexing and physics rule families, write a canonical findings
-report, and render a Letter-portrait shop traveler: per setup, one front sheet
-(STOP box, holding steps beside the picture, tools, DRO zero and operations with
-speeds/feeds and inspection, ops continuing on its back when long) plus attached
-sheets for the full-size picture, clearance, notes and contour tables; print it
-double-sided, and blank backs keep every sheet starting on a front side (see
-docs/report-and-telemetry.md, "Generated traveler").
+report, and render a Letter-portrait shop traveler with variable physical
+pagination. Setup sections keep the authored operation order in full-width
+operation groups, with associated inspection writing areas and attached picture,
+clearance, notes and contour sections. Print double-sided: blank backs keep
+logical sections, including each setup start, on a front side (see
+[Generated traveler](docs/report-and-telemetry.md#generated-traveler)).
 M4 adds eight geometry and workholding rules measured on the bundle's STEP by a
 local FreeCAD kernel, plus a deterministic setup render on the sheet. M5 adds
 measured machine/holder inventory, envelope/travel screens and a machine
@@ -72,8 +72,9 @@ uv run prechips traveler examples/pivot-bracket/plan.toml --out out/pivot-bracke
 uv run prechips traveler examples/cone-pivot-post/built-up.toml --out out/cone-pivot-post
 ```
 
-Current expected consumer CLI exits are **shaft 0 / rocker 2 / bracket 2 / cone
-built-up 0**. Inspection choices follow the exported feature owners. Missing
+Current expected consumer CLI exits are **0 / 0 / 0 / 0** for shaft, rocker,
+bracket and cone built-up respectively (see [example evidence](examples/README.md)).
+Inspection choices follow the exported feature owners. Missing
 tooling, holding and inspection capability keep their stops. The cone example
 carries explicitly labelled construction, signed-station, step-corner and copied
 length/height-band divergences from the upstream export; these are not claims
@@ -334,9 +335,9 @@ missing `jaw_depth` or a debt-carrying jaw fact is debt and the setup picture
 is a labelled part-only view; an
 undeclared jaw centre draws only the certain jaw material plus a pale
 possible-jaw envelope and keeps samples inside it `?`. Setup diagrams are
-deterministic PNGs 1600 pixels wide and 1000 tall with an engine-bundled bitmap
-font: lathe side elevations, mill isometric views and custom-plate plan views,
-with labelled axes, Z0, datums, holding, stickout and the selected tool's
+deterministic PNGs 1600 pixels wide with panel-dependent height and an
+engine-bundled bitmap font: lathe side elevations, mill isometric views and
+custom-plate plan views, with labelled axes, Z0, datums, holding, stickout and the selected tool's
 approach. Amber hatching shows this setup's derived material removal (entry
 minus exit stock); profile sketches share waypoint keys with the traveler
 tables. Authored clamp order and posed inventory stops are shown explicitly.
@@ -354,11 +355,15 @@ warnings. The image is hashed into `report.json` with its scene record so an
 approval binds to it; it is not a toolpath.
 Before encoding, every setup diagram checks its rounded bitmap-text bounds:
 labels must keep an 8-pixel canvas margin and a 4-pixel gap from other labels,
-and no label may print below body size (21-pixel cap height, about 7 pt on
-Letter). Dense callout lanes rebalance and tighten their leading instead of
-shrinking type. An overlap, clipped or undersized annotation refuses the render
-rather than shipping an unreadable picture. Footer space is reserved for every
-legend and note row. A posed chuck front that is tilted relative to setup Z
+and no label may print below body size (35-pixel bitmap cap height, approximately
+11.8 pt at 1600 pixels across 7.5 inches, not a CSS font size). Dense callout
+lanes rebalance and tighten their leading instead of shrinking type. An overlap,
+clipped or undersized annotation refuses the render rather than shipping an
+unreadable picture. Footer space is reserved for every legend and note row.
+Semantic `scene.print_panels` partition the canonical PNG into complete,
+common-scale print windows; there is no arbitrary whole-image crop, fit or
+downscale fallback. See the [panel contract](docs/report-and-telemetry.md#kernel-renders).
+A posed chuck front that is tilted relative to setup Z
 draws no single jaw-front Z; `scene.jaw_front_oblique` records it, and the
 picture prints no commentary about it.
 Setup notes come from the declared ops: a setup without a machine-cutting op
@@ -421,9 +426,18 @@ part arrives from, and an op table moved whole to the next page leaves an
 face), leaves off a face square to setup Z (its centre is no DRO stop), and gives a lathe row's drawing Ø limits apart from the size turned to. A
 surface-alignment sweep tells the operator to tap the work, not move the table;
 the job page's abbreviation key lists only abbreviations the sheets print.
-Inspection procedures may be authored as step lists that print
-numbered, with recording blanks and a separate calculation line
-([plan format](docs/plan.md)).
+Inspection procedures may be authored as numbered step lists with named reading
+blanks and a separate calculation line ([plan format](docs/plan.md)). These are
+distinct from requirement-associated records: one full-width white freeform
+readings/observations area below each real requirement, at least 20 mm clear
+interior depth excluding labels, padding and borders. Known owners, limits,
+gauges, units and method references stay associated; feature/location can be
+identified when needed without inferred reading counts or statistics.
+Specifically named procedure blanks remain separate, at least 10 mm deep. The
+operation-performed mark records progress only, not inspection acceptance,
+clearance to proceed or approval. Work text is 12 pt, metadata at least 10 pt,
+in familiar offline sans-serif type with 0.5-inch print margins. These dimensions
+are layout targets, not physical printer or pen certification.
 Each setup is checked and drawn on the input explicitly selected by `stock_in`:
 `"stock"` for one supply, `"stock.<id>"` for a built-up component, or any earlier
 setup id, not only the previous one. Every two-reference assembly array requires
