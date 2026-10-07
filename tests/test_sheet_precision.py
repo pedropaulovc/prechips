@@ -48,7 +48,7 @@ def test_unknown_inventory_category_still_renders_its_references(tmp_path):
     examples = copy_examples(tmp_path)
     inventory = examples / "inventory" / "pedro-shop.toml"
     stripped = re.sub(
-        r"(?ms)^\[gauges(?:\.[^\n]*)?\]\n.*?(?=^\[(?!gauges[.\]]))",
+        r"(?ms)^\[gauges(?:\.[^\n]*)?\]\n.*?(?=^\[(?!gauges[.\]])|\Z)",
         "",
         inventory.read_text(encoding="utf-8"),
     )
