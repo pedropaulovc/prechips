@@ -194,7 +194,13 @@ their wording, not their presence. Do not invent a requirement because the
 part "might" need it in an assembly you cannot see. An outside process
 (plating, black oxide, heat treatment) is a route step: it must say what
 goes out, what is protected, and what is checked on return; do not ask for
-the vendor's own process.
+the vendor's own process. A shop-made fixture is specified by its make
+table, not a separate drawing. For a trivial one (cut and bench-made from
+stock, with no locating or aligning feature and nothing held tighter than
+±0.5) the make table is sufficient; do not ask for more. For any other
+shop-made fixture, the make table must be complete and buildable: every
+dimension, every fit that locates or aligns, the material, the route to make
+it, and tools that are in the shop's inventory. Report what is missing.
 
 Inspect every page before answering: read each page whole, then reconcile
 across pages, the job page against every setup and each setup against the

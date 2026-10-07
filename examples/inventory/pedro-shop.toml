@@ -541,11 +541,19 @@ vendor = "LittleMachineShop"
 sku = 3662
 by = "photo"
 
+# EngProc7 (r7): finder_type and rpm_range feed the traveler's one EDGE FINDER box
+# (docs/inventory.md "Edge finder"); the tip Ø is the contact diameter the offset halves.
 [tools.edge-finder]
 kind = "edge_finder"
 make = "Starrett 827A (illustrative example identity)"
 shank_in = "3/8"
 tip_in = 0.2
+finder_type = "mechanical"
+rpm_range = [750, 1500]
+cite = [
+  "Starrett 827A: mechanical edge finder, .200 in contact Ø, .375 in body, single end (starrett.com Edge & Center Finders listing)",
+  "750-1500 rpm for a .200 in mechanical edge finder; tip centres then breaks away at the edge (Travers Tool Co., How to Use a .200 in Edge Finder, solutions.travers.com, 2025)",
+]
 note = "LMS packages ship Starrett 827A or Fisher; example value: 0.200 in tip, 3/8 in shank"
 
 [tools.turning-tools-warner-lms-4132]
@@ -2241,6 +2249,17 @@ button_dia_limits_mm = { value = [13.95, 14.03], measured = { by = "example (pla
 button_bore_limits_mm = { value = [6.500, 6.530], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "receipt acceptance limits: 6.500 GO / 6.530 NO-GO pins in each button bore (bought 6.5 H7)" } }
 pin_dia_limits_mm = { value = [6.475, 6.495], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "receipt acceptance limits: 0-1 in micrometer on the stud tail and body (bought 6.49 h6)" } }
 button_runout_mm = { value = 0.01, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "receipt acceptance limit: DTI on each button OD turned on the 6.500 GO pin held in a V-block, 0.01 TIR max" } }
+# EngProc7 (r7): what is bought and its receipt checks, printed as the traveler's
+# PURCHASED TOOLING / RECEIPT CHECK table (docs/inventory.md "Purchased tooling").
+purchase = "two bearing-steel collars hardened 58-62 HRC, OD 14 g6 ground, bore 6.5 H7, 4 thick (the buttons); one stepped stud hardened and ground 6.49 h6 with a Ø12 x 5 head and an M6x1 x 10 soft thread; one ISO 4032 M6 nut"
+acceptance = [
+  { check = "each button OD", gauge = "micrometers/0-1in", limits = "button_dia_limits_mm" },
+  { check = "each button bore", gauge = "bracket-cross-bore-pins", limits = "button_bore_limits_mm", accept = "6.500 GO pin enters, 6.530 NO-GO does not" },
+  { check = "stud tail and ground body", gauge = "micrometers/0-1in", limits = "pin_dia_limits_mm" },
+  { check = "each button OD runout", gauge = "rocker-datum-indicator", how = "button on the 6.500 GO pin in a V-block, one full turn", limits = "button_runout_mm", accept = "TIR" },
+  { check = "each button rim hard", gauge = "none", how = "smooth file, light stroke on the rim", accept = "the file skates without biting" },
+  { check = "stud thread", gauge = "none", accept = "the M6 nut runs the full thread by hand" },
+]
 solids = [
   { name = "upper-button", supply = "bought", shape = "cylinder", at_mm = [0.0, 0.0, 0.0], axis = [0.0, 0.0, 1.0], dia_mm = 14.0, length_mm = 4.0, locates = "outer ear face; its hardened rim is the filing line", fastener = "hardened ground Ø14 g6 x 4 button collar, bore 6.5 H7", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, OD and thickness on receipt" } },
   { name = "upper-button-bore", void = true, supply = "bought", cuts = ["upper-button"], shape = "cylinder", at_mm = [0.0, 0.0, -0.5], axis = [0.0, 0.0, 1.0], dia_mm = 6.5, length_mm = 5.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "6.500 GO / 6.530 NO-GO bore pins on receipt" } },
