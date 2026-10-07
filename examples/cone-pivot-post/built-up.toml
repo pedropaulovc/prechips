@@ -878,7 +878,7 @@ jaw_above_parallels_mm = "not_applicable"
 pose = { origin_mm = [0.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
 stop = "AUTHOR'S CHOICE: the foot stop locates foot B; the two cone pins, 7.4 either side of the cap centre across the post axis, carry the north cap on its annulus and set the sleeve depth and the post's roll."
 clamp = "none"
-note = "Cradle: made once before first use to the SHOP-MADE FIXTURE table and its Make: line (sheet 2); the seats, the foot-stop face and the pin holes are cut after the parts are doweled to the base. Before each use, check each pin top with the DTI on the height gauge from the base top: crank pins 8.62; cone pins 8.32 (+X pin) and 11.53 (-X pin) at the high (-X) edge of each tilted top, each within 0.013."
+note = "Cradle: made once before first use to the SHOP-MADE FIXTURE table and its Make: line (sheet 2); the seats, the foot-stop face and the pin holes are cut after the parts are doweled to the base. Before each use, read each pin top over the gauge arbor (gauges.cone-cradle-gauge-arbor) bedded in both seats against the foot stop, with the DTI on the height gauge zeroed on its body-section crown and the post axis half its miked diameter below: crank pins 21.38 ±0.12 below the axis; cone pins 21.01 ±0.06 along each pin's own axis from the post axis, read at the high (-X) edge of each tilted Ø3.2 flat as 21.76 (+X pin) and 18.56 (-X pin) below the axis ±0.06, the two errors within 0.03 of each other. The cradle only sets the sleeves: the bonded post is still inspected to its own print after the cure (op 30 and the later setups)."
 [[setups.ops]]
 op = 10
 do = "inspect"
