@@ -132,12 +132,12 @@ note = "AUTHOR'S CHOICE: Setup S1/S3 zero is the upper hub face at the pivot axi
 cite = ["AUTHOR'S CHOICE", "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72", "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117"]
 
 [frames.TB]
-origin = [0.0, 8.0, -3.55175]
+origin = [0.0, 8.0, -3.52825]
 x = [1.0, 0.0, 0.0]
 y = [0.0, -1.0, 0.0]
 z = [0.0, 0.0, -1.0]
 binding = "nominal" # S2: X/Y indicated on the S1 pilot, Z0 the faced lower hub face
-note = "AUTHOR'S CHOICE: Setup S2 zero is the lower hub face at the pivot axis, rod-hole end at +X: X/Y indicated on the S1 pilot, Z set from the measured hub length before op 10. Z0 is that face at the 7.080 hub-length aim, 7.080 below the S1 hub face (model Z 3.52825 - 7.080 = -3.55175), so every S2 Z (incoming top, rails, roughing levels) follows from the same aim as the S1 output."
+note = "AUTHOR'S CHOICE: Setup S2 zero is the lower hub face at the pivot axis, rod-hole end at +X: X/Y indicated on the S1 pilot, Z set from the measured hub length before op 10."
 cite = ["AUTHOR'S CHOICE", "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72", "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117"]
 
 # Stock-preparation frames (P1-P5). Each Z0 is the blank face the setup faces; X/Y are
@@ -757,10 +757,10 @@ note = "Lower side, rod-hole end still at +X. The part is turned over about X, s
 
 [setups.stock_state]
 top_feature = "hub_faces" # the Z-touch face is the lower hub face; strap face ops do not move it
-top_z = 4.44825 # raw model Z-8 face in frame TB (Z0 the lower hub face at the 7.080 aim): S1 leaves 11.52825 under its hub face, minus the 7.080 hub = 4.44825
+top_z = 4.47175 # raw model Z-8 face in the nominal frame TB (origin Z -3.52825, the 7.0565 CAD hub); the 7.080-aim part's raw face sits 0.0235 lower, inside the Z touch
 bottom_z = -7.080 # S1 hub face: the op 10 measured touch sets frame B Z0 so the hub lands at the AUTHOR'S CHOICE 7.080 aim inside the drawing band
 bottom_z_cite = "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-121"
-retained_rail_bottom_z = -11.55175 # raw model Z+8 face (the S1 raw top) in frame TB: 4.44825 - 16.0 raw thickness; rails, not the faced hub, seat on the supports
+retained_rail_bottom_z = -11.52825 # raw model Z+8 face (the S1 raw top) in the nominal frame TB, as the kernel's entry stock box has it; on the DRO the 7.080-aim part puts it at -11.55175, 0.0235 lower, as top_z; rails, not the faced hub, seat on the supports
 
 [setups.stock_state.local_thickness]
 rod_hole = 2.5235 # AUTHOR'S CHOICE derived: 7.080 hub aim minus the two 2.27825 hub-proud steps (S1 op 25, S2 op 20)
@@ -783,8 +783,8 @@ riser_along = "length"
 riser_centres_mm = [[-40.0, -4.5], [40.0, -4.5]] # author's choice, frame B (Y flipped)
 parallels_centres_mm = [[0.0, -34.5], [0.0, 25.5]] # author's choice, wholly under retained rails
 clamps = [
-  { ref = "rocker-s2-support-jack", restraint = "none", pose = { origin_mm = [40.0, -1.0, -4.80175], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, -1.0] }, note = "passive upward-bearing support jack, not a clamp; adjust to touch the finished strap without lifting the rail frame, then lock the jack" },
-  { ref = "rocker-s2-support-jack", restraint = "none", pose = { origin_mm = [-40.0, -1.0, -4.80175], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, -1.0] }, note = "mirrored support jack, adjusted and locked independently without preload" },
+  { ref = "rocker-s2-support-jack", restraint = "none", pose = { origin_mm = [40.0, -1.0, -4.77825], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, -1.0] }, note = "passive upward-bearing support jack, not a clamp; adjust to touch the finished strap without lifting the rail frame, then lock the jack" },
+  { ref = "rocker-s2-support-jack", restraint = "none", pose = { origin_mm = [-40.0, -1.0, -4.77825], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, -1.0] }, note = "mirrored support jack, adjusted and locked independently without preload" },
 ]
 clamp_order = [] # the jack entries are passive supports, not tightening actions
 grip_on = "full-thickness rectangular rails and ears"
@@ -792,7 +792,7 @@ grip_mm = 6.0 # author's choice, minimum vertical jaw engagement on the full-thi
 jaw_above_parallels_mm = 6.8453 # nominal stack: 44.9453 measured jaw - 25.4 example riser - 12.7 example parallel
 jaw_center_along_mm = 0.0369 # set by the end stop: its 90.7 nose reach off the fixed jaw's left end puts the blank end at X-170, so the jaw end is at X-79.3 (jaws 158.6738 wide)
 stop_fixture = "rocker-vise-stop"
-stop_pose = { origin_mm = [-79.3, 28.0, -4.70645], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
+stop_pose = { origin_mm = [-79.3, 28.0, -4.68295], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
 stop = "switch on the magnetic fixed-jaw end stop and bring the left blank end gently against its nose; then indicate the pilot to transfer datum"
 clamp = "hand snug, then quarter turn; confirm seating and rail engagement" # author's choice
 note = "Seat the retained rails, not the thin strap or a hub rim. Risers: the same matched O1 pair as S1 (76.2 along the jaws x 63.5 across x 25.4 high, heights within 0.01), on the vise floor centred X -40 and X +40, Y -4.5 in this frame; parallels on the risers under the rails at Y -34.5 and Y 25.5. Use light conventional cuts at the outboard tips; stop and resolve chatter before deepening the cut."
@@ -854,7 +854,7 @@ tool = "endmills-lms-6784/3-8in-2fl"
 holder = "r8-collets-lms-4860/3-8in"
 to_z = 0.20 # author's choice, finish hub face Z0 + 0.20 allowance
 rough_allowance_mm = 0.20 # author's choice, same leave as the strap and profile roughs
-doc_mm = 1.5 # author's choice, largest step per pass over the 4.24825 mm from the raw top
+doc_mm = 1.5 # author's choice, largest step per pass over the 4.27175 mm from the raw top
 direction = "conventional" # author's choice
 approach_mm = 5.0 # author's choice: rapid plane above the retained rails
 note = "Field raster: passes along X, stepping from the narrow rail (Y -31.7) toward the wide rail (Y 20). The field is walled on all four sides, so at every pass start plunge the centre-cutting end mill straight down to the level Z at light quill feed, then feed the pass; lift to the retract Z and rapid back to the next start. The cutter edge finishes on the rail walls and ear walls; the rails and ears stay at raw height. Then mic the hub length from the S1 hub face to this face, clear of burrs: the op 10 Z re-touch is set from that reading."

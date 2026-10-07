@@ -1826,12 +1826,12 @@ solids = [
 # not clamps). Frame: origin on the jack axis at the head's bearing face under the
 # strap, +z DOWN toward the riser bar (a passive support reacting upward, so its
 # bearing face lies along -pose.z). S2 poses two at frame-B origin [+-40, -1,
-# -4.80175] (the S1-finished strap face at the 7.080 hub aim), z = [0, 0, -1],
-# x = [1, 0, 0]: at the nominal 19.45 mm working extension the base sits on the
-# riser-bar seat at Z-24.25175; the screw adjusts to the actual strap face. Run each
-# 1/4-20 screw up to touch the S1-finished strap face without lifting the part, then
-# jam the lock nut on the body. Everything wider than the 10 mm head stays below local
-# z 7.25 (world Z -12.05175), under the raw blank bottom at -11.55175. About 4 mm of exposed thread
+# -4.77825], z = [0, 0, -1], x = [1, 0, 0]: at the nominal 19.45 mm working extension
+# the base sits on the riser-bar seat at Z-24.22825; the screw adjusts to the actual
+# strap face (0.0235 lower for the 7.080-aim part). Run each 1/4-20 screw up to touch
+# the S1-finished strap face without lifting the part, then jam the lock nut on the
+# body. Everything wider than the 10 mm head stays below local z 7.25 (world Z
+# -12.03), under the raw blank bottom at -11.52825. About 4 mm of exposed thread
 # between head and lock nut gives roughly +-2 mm of adjustment about nominal.
 [fixtures.rocker-s2-support-jack]
 name = "lower-side support jack"
@@ -1865,7 +1865,7 @@ solids = [
 # The nose sets the blank end at X-170, so the jaw end sits at X-79.3: the jaws are
 # centred 0.0369 right of the blank centre (jaw_width 6.247 in = 158.6738 mm).
 # Poses (x = [1, 0, 0], z = [0, 0, 1]), z at the jaw top: S1 [-79.3, 37, -4.68295]
-# (nose at Y4.5); S2 [-79.3, 28, -4.70645] (nose at Y-4.5). The arm stays >= 3.5 mm behind the rear
+# (nose at Y4.5); S2 [-79.3, 28, -4.68295] (nose at Y-4.5). The arm stays >= 3.5 mm behind the rear
 # jaw plane (outside the blank) and the finger and nose at X <= -170, so no steel
 # enters the cutter-clear region (X >= -160 inside the rails).
 [fixtures.rocker-vise-stop]
