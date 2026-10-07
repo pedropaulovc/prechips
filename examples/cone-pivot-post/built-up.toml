@@ -652,7 +652,7 @@ pose = { origin_mm = [-105.0, 0.0, 0.0], x = [0.0, 0.0, 1.0], z = [1.0, 0.0, 0.0
 jaw_clock_deg = 0.0
 stop = "AUTHOR'S CHOICE: caliper the post from foot B to the raw tail end first: it must read 125.0, as S1 op 10 left it. Tail end against the chuck body face, so 105 mm of post stands out of the jaws. Indicate the turned head and body to run true within 0.02 mm, then indicate foot B square to the head axis."
 clamp = "AUTHOR'S CHOICE: tighten each independent jaw a little at a time while indicating. Then align the head with the table: with the DTI in the spindle, sweep the top of the body along X from foot B to the shoulder, then its side; tap the head on the table until each sweep reads within 0.01 mm, tighten the head bolts and re-check both sweeps and the runout. Remove the key and lock the spindle before drilling."
-note = "AUTHOR'S CHOICE: Ra witness bores, made once before the dividing head goes on the table, because the roughness comparator cannot reach inside the Ø11.4 crank and Ø12.3 journal bores (S8 op 30, S9 op 30 and S11 ops 100-110 compare against them). Saw two 1018 offcuts about 15 mm long, one from the 25 mm crank bar and one from the 3/4 in cone bar. Grip each in the mill vise and, with cutting oil, drill the crank offcut 11.2 and ream it with the 0.4500 in reamer at the S8 op 30 speed and feed, then drill the cone offcut 12.05 and ream it with the 0.4835 in reamer at the S9 op 30 speed and feed, each with a steady quill feed and the reamer lead run out of the far side. Mark them crank and journal and keep them with the job."
+note = "AUTHOR'S CHOICE: Ra witness bores, made once before the dividing head goes on the table, because the roughness comparator cannot reach inside the Ø11.4 crank and Ø12.3 journal bores (S8 op 30, S9 op 30 and S11 ops 100-110 compare against them). Saw two 1018 offcuts about 15 mm long, one from the 25 mm crank bar and one from the 3/4 in cone bar, and grip each in the mill vise on parallels with the bore line clear of them. Crank offcut: spot it with the #2 centre drill, drill 11.2 through at the S8 op 20 speed and feed, then ream it with the 0.4500 in reamer at the S8 op 30 speed and feed. Journal offcut: spot it, drill 12.05 through at the S9 op 20 speed and feed, then ream it with the 0.4835 in reamer at the S9 op 30 speed and feed. Use cutting oil and a steady quill feed; run each drill point and the reamer lead fully out of the far side. Mark them crank and journal and keep them with the job."
 [setups.hold.index]
 fixture = "BS-0"
 feature = "crank_bore"
@@ -737,7 +737,7 @@ top_z = 22.225
 bottom_z = -22.225
 entry_z = { cone_socket = 21.0055 }
 local_thickness = { cone_socket = 42.03 } # AUTHOR'S CHOICE: the largest body the S1 op 50 hold allows, so the full diameter breaks through on any body
-note = "AUTHOR'S CHOICE: the same chucking turned 12.5182 degrees; the cross-bore enters at the top of the body."
+note = "AUTHOR'S CHOICE: the same chucking turned 12.5182 degrees; the cross-bore enters at the top of the body. Break-through depths are set for the thickest body the S1 op 50 hold allows (42.03), so the exit Zs in the operations sit below the feature map's nominal body face."
 [setups.hold]
 fixture = "BS-0"
 chuck = "chuck-4jaw-5-bs0"
@@ -765,7 +765,7 @@ indicate = ["head", "foot_seat"]
 gauge = "dti"
 runout_limit_mm = 0.02
 keep_clamped = true
-recovery = "unlock the spindle, index back to the zero hole (the S4 position) and lock it; with the DTI in the spindle, run the tip down the reamed Ø22.01 crank-socket wall by quill feed, once on the -Y side and once on the +Y side. If each reading holds within one dial division (0.0005 in) over the socket depth, the post has not turned: re-align the head as in S4 (tap the head body on the table, never the work, until the top and side sweeps of the body along X each read within 0.01 mm, then tighten the head bolts), re-index to the plate setting and sweep again. If the socket wall does not hold one division, the post has turned in the jaws: ease one jaw, turn the post until both socket-wall readings hold one division, re-tighten each jaw a little at a time while indicating the head and body to 0.02 mm, then re-index."
+recovery = "1) Unlock the spindle, index back to the zero hole (the S4 position) and lock it. 2) With the DTI in the spindle, run the tip down the reamed Ø22.01 crank-socket wall by quill feed, once on the -Y side and once on the +Y side. 3) Each reading holds within one dial division (0.0005 in) over the socket depth: the post has not turned, the head has moved. Re-align the head as in S4 (tap the head body on the table, never the work, until the top and side sweeps of the body along X each read within 0.01 mm, then tighten the head bolts), re-index to the plate setting and sweep again. The zeros stand. 4) A reading moves more than one division: the post has turned in the jaws. This is the only case that moves the work: ease one jaw, turn the post until both socket-wall readings hold one division, re-tighten each jaw a little at a time while indicating the head and body to 0.02 mm, re-index, then set the Y, X and Z zeros again from the start of this table."
 [setups.zero.y]
 feature = "body"
 edge_mm = 0.0
@@ -1058,7 +1058,7 @@ top_z = 23.245
 bottom_z = -51.835
 entry_z = { journal_bore = 21.0055 }
 local_thickness = { journal_bore = 42.08 } # AUTHOR'S CHOICE: Z is set on the north cap, and the longest sleeve the S2 op 50 hold allows puts the south cap at Z-21.0745, so the full diameter breaks through on any sleeve
-note = "AUTHOR'S CHOICE: the same chucking turned 12.5182 degrees so the north cone cap is up; the edge of the crank sleeve north face is the highest point."
+note = "AUTHOR'S CHOICE: the same chucking turned 12.5182 degrees so the north cone cap is up; the edge of the crank sleeve north face is the highest point. Break-through depths are set for the longest sleeve the S2 op 50 hold allows (42.08 cap to cap), so the exit Zs in the operations sit below the feature map's nominal south-cap face."
 [setups.hold]
 fixture = "BS-0"
 chuck = "chuck-4jaw-5-bs0"
@@ -1086,7 +1086,7 @@ indicate = ["head", "foot_seat", "cone_boss_north_face"]
 gauge = "dti"
 runout_limit_mm = 0.02
 keep_clamped = true
-recovery = "unlock the spindle, index back to the zero hole (the S8 position) and lock it; with the DTI in the spindle, run the tip down the reamed Ø11.43 crank-bore wall by quill feed, once on the -Y side and once on the +Y side. If each reading holds within one dial division (0.0005 in) over the bore depth, the post has not turned: re-align the head as in S4 (tap the head body on the table, never the work, until the top and side sweeps of the body along X each read within 0.01 mm, then tighten the head bolts), re-index to the plate setting and sweep again. If the bore wall does not hold one division, the post has turned in the jaws: ease one jaw, turn the post until both bore-wall readings hold one division, re-tighten each jaw a little at a time while indicating the head and body to 0.02 mm, then re-index."
+recovery = "1) Unlock the spindle, index back to the zero hole (the S8 position) and lock it. 2) With the DTI in the spindle, run the tip down the reamed Ø11.43 crank-bore wall by quill feed, once on the -Y side and once on the +Y side. 3) Each reading holds within one dial division (0.0005 in) over the bore depth: the post has not turned, the head has moved. Re-align the head as in S4 (tap the head body on the table, never the work, until the top and side sweeps of the body along X each read within 0.01 mm, then tighten the head bolts), re-index to the plate setting and sweep again. The zeros stand. 4) A reading moves more than one division: the post has turned in the jaws. This is the only case that moves the work: ease one jaw, turn the post until both bore-wall readings hold one division, re-tighten each jaw a little at a time while indicating the head and body to 0.02 mm, re-index, then set the Y, X and Z zeros again from the start of this table."
 [setups.zero.y]
 feature = "body"
 edge_mm = 0.0
@@ -1395,6 +1395,7 @@ finish_ra = "AUTHOR'S CHOICE: shine a light into the crank bore and look along i
 # S_crank 76.2 (3 in face), S_journal 50.8 (2 in face): 0.945, 1.384, 0.901, 16.918, 1.418.
 # (The former 50.8 / 25.4 steps give the former 1.418, 2.768, 1.351, 11.279, 2.836.)
 angularity_dia = [
+  "AUTHOR'S CHOICE: qualify each gauge rod before use. Micrometer it at both ends and the middle: the three readings must agree within 0.0001 in (one division) and match its size. Then lay it in the V-blocks on the surface plate, DTI tip on top over each block and at the middle, and turn it one full turn: each reading must stay within one dial division (0.0005 in). A rod that fails either check is not used.",
   "AUTHOR'S CHOICE: slide the Ø11.405 gauge rod through the crank bore and the Ø12.250 gauge rod through the journal bore, each with about 40 mm out of both ends. By the op 100 and op 110 bore readings each rod is 0.006-0.038 mm under its bore. Seat each rod by gravity on the low line of its bore, pressing it down by hand at both mouths: lying along that line over the full bore length, the rod stays parallel to the bore axis, so the clearance moves both readings of a rise equally and cancels.",
   "Mount the DTI on the height gauge, tip on top of the rod with the lever lifted to mid-travel (about 0.015 in of its 0.030 in); a higher rod reads +. At each position sweep the tip across the rod and take the highest reading. Write every reading in mm: inch dial × 25.4.",
   "Seating check, at every position: read, press the rod down with a finger at the far mouth, read again; the two must agree within one dial division (0.0005 in). If not, the rod rocks on a bellmouthed mouth: wipe rod and bore, reseat and repeat. Then roll the rod half a turn in its bore and repeat the rise; record the mean of the two rises, so a bend in the rod cancels.",
