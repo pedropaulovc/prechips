@@ -3707,7 +3707,8 @@ class _Setup:
         # certain jaw boxes {"fixed", "moving"} plus "possible": [(fixed side?, box)] once placed
         self.jaws = None
         self.jaw_bar = None  # a vise's placed round bar between the work and the moving jaw
-        # a vise's placed jaw buttons {side: (solid, gripped Z span)}, one per jaw
+        # a vise's placed jaw buttons, one per jaw: {side: (solid, Z intervals where the work
+        # bears on its face, whether that bearing is planar)}
         self.jaw_buttons = None
         self.hold = None  # the declared hold, once it is declared without a reason
         self.fixture_reason = None
@@ -4848,7 +4849,8 @@ class _Setup:
         (:meth:`_sweep`), because facing there removes it. Its column below that height,
         every other bore's and anything outside the box, the guard's window or the sweep
         stays reserved. Before a claimed planar wall the leave is flat across the stock
-        standing behind its plane (:meth:`_flat_leave`), not the finished face's outline.
+        standing behind its plane (:meth:`_flat_leave`), not the finished face's outline,
+        and keeps the cusp the op's own ``radius`` leaves past that skin's ends.
         """
         span, why = _clearing_span(bounds, _bbox(stock))
         if span is None:
@@ -4903,7 +4905,7 @@ class _Setup:
                 reserved[0].fuse(reserved[1:]) if len(reserved) > 1 else reserved[0]
             )
         if leave:
-            flat, why = self._flat_leave(valid, stock, span, leave, reserved)
+            flat, why = self._flat_leave(valid, stock, span, leave, reserved, radius)
             if why is not None:
                 return None, why
             if flat:
@@ -4926,7 +4928,7 @@ class _Setup:
             return None, None
         return (pieces[0].fuse(pieces[1:]) if len(pieces) > 1 else pieces[0]), None
 
-    def _flat_leave(self, valid, stock, span, leave, reserved):
+    def _flat_leave(self, valid, stock, span, leave, reserved, radius):
         """([flat skin pieces] or None, why not): the leave a clearing box's passes stop
         short of each claimed planar wall.
 
@@ -4937,11 +4939,13 @@ class _Setup:
         outline and over the holes and edges later setups make in it. The band spans the
         claimed face's own extent across the spindle axis; a wall's passes stack down the
         axis, so its band runs through the box's whole depth there. Past the face's edges
-        no claim stops the passes, and a neighbouring box's cutter turning that corner sweeps
-        the stock in front of them. There, and in front of open air or of material this box
-        clears, the guard's offset alone is the leave. A curved analytic claim keeps the
-        offset; a claim whose surface is neither analytic nor a plane makes the leave, and so
-        the stock, unknown.
+        no claim stops the passes: in front of open air or of material this box clears, the
+        guard's offset alone is the leave. Where such stock stands behind the plane past an
+        edge too, the passes run on at the plane and step up onto the band, and this op's
+        own cutter of ``radius`` leaves the cusp in that step (:meth:`_skin_ends`); no other
+        op, before or after, is credited with clearing it. A curved analytic claim keeps the
+        offset; a claim whose surface is neither analytic nor a plane makes the leave, and
+        so the stock, unknown.
         """
         corners = [V(span[i], span[j], span[k]) for i in (0, 3) for j in (1, 4) for k in (2, 5)]
         box = _box_shape(span)
@@ -4989,15 +4993,99 @@ class _Setup:
                     _valid(column.common(behind), "a reserved bore behind a wall")
                     for column in reserved
                 ]
+                backing = [piece for piece in backing if piece and piece.Volume > HIT_MM3]
+                frame = (origin, across, normal, other, u0, u1, v0, v1)
+                ends, why = self._skin_ends(stock, box, reserved, backing, frame, leave, radius)
             except ValueError as exc:
                 return None, f"the flat rough leave before {self.owner.labels[index]}: {exc}"
+            if why is not None:
+                return None, f"the flat rough leave before {self.owner.labels[index]} {why}"
             for piece in backing:
-                if piece is None or piece.Volume <= HIT_MM3:
-                    continue
                 band = piece.copy()
                 band.translate(normal * leave)
                 pieces.append(band.common(box))
+            pieces += ends
         return [piece for piece in pieces if piece.Volume > HIT_MM3], None
+
+    def _skin_ends(self, stock, box, reserved, backing, frame, leave, radius):
+        """([what stays past the ends of a flat skin], or None and why that is unknown).
+
+        ``frame`` is (origin, across, normal, other, u0, u1, v0, v1): the skin, ``leave``
+        deep in front of a claimed plane (``normal`` its front), spans u0..u1 along
+        ``across`` and v0..v1 along ``other``; ``backing`` is what stands behind the plane
+        over that span. Past an end, stock outside the ``box`` or a ``reserved`` column
+        standing behind the plane floors the passes at the plane itself, so the floor and
+        the skin's end make a concave step ``leave`` high. Across a wall (``normal`` across
+        the spindle axis) the cutter's section is a disc of ``radius``: rolled along the
+        floor into the step, it stops where its arc meets the skin's outer corner (or, when
+        ``radius <= leave``, the end face), ``reach`` = sqrt(r^2 - (r - min(leave, r))^2)
+        short of it. Under that arc stays, at the heights where the floor stands past the
+        end and the skin's backing stands at it. A floor's flat end makes the step square,
+        leaving nothing. On an inclined plane the cutter's section is no disc: a step there
+        is not derived, so the leave is unknown.
+        """
+        origin, across, normal, other, u0, u1, v0, v1 = frame
+
+        def at(u, d, v):
+            return origin + across * u + normal * d + other * v
+
+        def quad(points):
+            return Part.Face(Part.makePolygon([*points, points[0]]))
+
+        if abs(normal.z) >= PARALLEL:
+            return [], None  # a flat end steps square onto a floor's skin
+        depth = min(leave, radius)
+        reach = math.sqrt(radius * radius - (radius - depth) ** 2)
+        inset = min(COVER_MM, (u1 - u0) / 2)
+        kept = []
+        for end, sign in ((u0, -1.0), (u1, 1.0)):
+            far = end + sign * reach
+            beyond = quad([at(end, 0, v0), at(far, 0, v0), at(far, 0, v1), at(end, 0, v1)])
+            beyond = beyond.extrude(normal * -leave)
+            floor = [_valid(stock.common(beyond).cut(box), "stock behind a wall past its end")]
+            floor += [
+                _valid(column.common(beyond), "a reserved bore behind a wall past its end")
+                for column in reserved
+            ]
+            floor = [piece for piece in floor if piece and piece.Volume > HIT_MM3]
+            # The skin's backing at its end, carried on past it.
+            inner = end - sign * inset
+            section = quad(
+                [at(inner, 0, v0), at(inner, -leave, v0), at(inner, -leave, v1), at(inner, 0, v1)]
+            )
+            rim = [
+                face.extrude(across * (sign * (reach + inset)))
+                for piece in backing
+                for face in piece.common(section).Faces
+                if face.Area > CONTACT_MM2
+            ]
+            if not floor or not rim:
+                continue
+            if abs(normal.z) > 1 - PARALLEL:
+                return None, (
+                    "is unknown: stock behind its inclined plane past the face's edge steps "
+                    "up onto the skin, and the cusp the cutter leaves there is not derived"
+                )
+            centre = at(far, radius, v0)
+            outer, foot = at(end, depth, v0), at(far, 0, v0)
+            middle = (outer - centre) + (foot - centre)
+            middle.normalize()
+            wire = Part.Wire(
+                [
+                    Part.LineSegment(foot, at(end, 0, v0)).toShape(),
+                    Part.LineSegment(at(end, 0, v0), outer).toShape(),
+                    Part.Arc(outer, centre + middle * radius, foot).toShape(),
+                ]
+            )
+            cusp = Part.Face(wire).extrude(other * (v1 - v0))
+            for part in (floor, rim):
+                solid = part[0].fuse(part[1:]) if len(part) > 1 else part[0].copy()
+                solid.translate(normal * leave)
+                cusp = cusp.common(solid)
+            cusp = _valid(cusp.common(box), "a flat skin's end cusp")
+            if cusp is not None:
+                kept.append(cusp)
+        return kept, None
 
     def _removal(self, op, valid, to_z, leave):
         """(stock outside the op's guard its claims sweep (:meth:`_op_sweep`), or None, and
@@ -5764,7 +5852,7 @@ class _Setup:
                     self._add(side + "_jaw", "jaw", _box_shape(self.jaws[side]), self.jaws[side])
                 if self.jaw_bar is not None:
                     self._add("jaw_bar " + self.hold["jaw_bar"]["name"], "fixture", self.jaw_bar)
-                for side, (solid, _) in (self.jaw_buttons or {}).items():
+                for side, (solid, *_) in (self.jaw_buttons or {}).items():
                     name = self.hold["jaw_buttons"]["name"]
                     self._add(f"jaw_buttons {name} {side}", "fixture", solid)
                 self.fixture_possible = [
@@ -6288,7 +6376,7 @@ class _Setup:
                 return reason
         if buttons:
             jaw_z = (top - height, top)
-            reason = self._jaw_buttons(buttons, a_axis, c_axis, planes, outward, jaw_a, jaw_z)
+            reason = self._jaw_buttons(buttons, a_axis, c_axis, planes, outward, jaw_a, jaw_z, zone)
             if reason:
                 return reason
         self.jaws = {
@@ -6323,15 +6411,14 @@ class _Setup:
         grips, planar, contact_faces = [], [], {}
         for side in ("fixed", "moving"):
             intervals, labels = self._contact(zone, c_axis, planes[side], outward[side], seat, top)
+            flat = bool(intervals)
             if buttons:
-                # The work bears only on its button's face, not the jaw's.
-                intervals = _clipped(intervals, self.jaw_buttons[side][1])
-            planar.append(bool(intervals))
-            contact_faces[side] = labels
-            if not intervals:
+                # The work bears only where it touches its button's face, not the jaw's.
+                intervals, flat = self.jaw_buttons[side][1:]
+            elif not intervals:
                 intervals = self._line_contact(zone, c_axis, planes[side])
-                if buttons:
-                    intervals = _clipped(intervals, self.jaw_buttons[side][1])
+            planar.append(flat)
+            contact_faces[side] = labels
             grips.append(_r(_merged_length(intervals)))
         facts["parallel_pair"] = all(planar)
         facts["contact_grip_mm"] = grips
@@ -6381,12 +6468,14 @@ class _Setup:
         self.jaw_bar = solid
         return None
 
-    def _jaw_buttons(self, buttons, a_axis, c_axis, planes, outward, jaw_a, jaw_z):
+    def _jaw_buttons(self, buttons, a_axis, c_axis, planes, outward, jaw_a, jaw_z, zone):
         """Each jaw's button: centred on the one bore of the work that opens on that jaw
         face wide enough for its spigot, its face on the work and its spigot in the bore;
         else why it cannot be placed there. No such bore (or more than one), a spigot the
-        bore does not take whole, a button that meets the work beyond the face, or a jaw
-        that misses the button leaves the jaws unplaced."""
+        bore does not take whole, a button that meets the work beyond the face, a jaw that
+        misses the button, or a button that bears on none of the jaw-held work (``zone``)
+        within the jaw's height (:meth:`_bearing`: a face no wider than the bore's mouth)
+        leaves the jaws unplaced."""
         name, thick = buttons["name"], buttons["thickness_mm"]
         radius, spigot_r = buttons["dia_mm"] / 2, buttons["spigot_dia_mm"] / 2
         placed = {}
@@ -6440,13 +6529,25 @@ class _Setup:
                     f"jaw_buttons {name}: the {side} jaw (Z {_r(jaw_z[0])} to {_r(jaw_z[1])}) "
                     f"misses the button centred at Z {_r(centre[2])}"
                 )
-            placed[side] = (button.fuse(spigot), (max(span[0], jaw_z[0]), min(span[1], jaw_z[1])))
+            # Proven bearing, never the face's extent: a button inside the bore's mouth
+            # stands clear of the work however much of the face lies beside it.
+            disc = Part.Face(Part.Wire(Part.makeCircle(radius, V(*centre), V(*out))))
+            intervals, flat = self._bearing(zone, c_axis, plane, outward[side], disc, jaw_z)
+            if not intervals:
+                return (
+                    f"jaw_buttons {name}: the Ø{_r(2 * radius)} mm button centred at Z "
+                    f"{_r(centre[2])} on {where} bears on no jaw-held work within the jaw "
+                    f"(Z {_r(jaw_z[0])} to {_r(jaw_z[1])}), so the jaws are unplaced"
+                )
+            placed[side] = (button.fuse(spigot), intervals, flat)
         self.jaw_buttons = placed
         return None
 
-    def _contact(self, zone, c_axis, plane, outward, seat, top):
-        """z-intervals of planar zone faces on the jaw plane, and the part faces they come from."""
-        intervals, stock = [], False
+    @staticmethod
+    def _jaw_faces(zone, c_axis, plane, outward):
+        """Planar faces of ``zone`` over ``CONTACT_MM2`` lying on the jaw plane and facing
+        the jaw (``outward`` along ``c_axis``)."""
+        faces = []
         for face in zone.Faces:
             if not isinstance(face.Surface, Part.Plane):
                 continue
@@ -6457,10 +6558,14 @@ class _Setup:
             normal = face.normalAt((u0 + u1) / 2, (v0 + v1) / 2)
             if normal[c_axis] * outward < PARALLEL or face.Area <= CONTACT_MM2:
                 continue
-            intervals.append((box[2], box[5]))
-            if not stock and self._source(face) is None:
-                stock = True
-        labels = ["in-process stock"] if stock else []
+            faces.append(face)
+        return faces
+
+    def _contact(self, zone, c_axis, plane, outward, seat, top):
+        """z-intervals of planar zone faces on the jaw plane, and the part faces they come from."""
+        flats = self._jaw_faces(zone, c_axis, plane, outward)
+        intervals = [(_bbox(face)[2], _bbox(face)[5]) for face in flats]
+        labels = ["in-process stock"] if any(self._source(face) is None for face in flats) else []
         a_axis, (a0, a1) = self.clamp["a_axis"], self.clamp["jaw_a"]
         for index, face in enumerate(self.faces):
             if not isinstance(face.Surface, Part.Plane):
@@ -6485,7 +6590,30 @@ class _Setup:
                     return index
         return None
 
-    def _line_contact(self, zone, c_axis, plane):
+    def _bearing(self, zone, c_axis, plane, outward, face, span):
+        """(Z intervals within ``span`` where the jaw-held work ``zone`` bears on ``face``,
+        a button's face on the jaw plane, and whether that bearing is planar): the area
+        its planar faces on that plane share with ``face``, each connected piece one
+        interval; with no planar face there, the part of its section by the plane inside
+        ``face`` (a line contact). A face that meets the work only along an edge (one as
+        wide as the bore's mouth) shares no area and bears nowhere."""
+        flats = self._jaw_faces(zone, c_axis, plane, outward)
+        if flats:
+            pieces = [
+                piece
+                for flat in flats
+                for piece in flat.common(face).Faces
+                if piece.Area > CONTACT_MM2
+            ]
+            return _clipped([(_bbox(piece)[2], _bbox(piece)[5]) for piece in pieces], span), True
+        # A level line contact has no Z length; it bears when it lies inside the span.
+        lines = self._line_contact(zone, c_axis, plane, face)
+        inside = [(lo, hi) for lo, hi in lines if span[0] < hi and lo < span[1]]
+        return [(max(lo, span[0]), min(hi, span[1])) for lo, hi in inside], False
+
+    def _line_contact(self, zone, c_axis, plane, within=None):
+        """z-intervals of the edges of ``zone``'s section by the jaw plane, only their parts
+        inside the face ``within`` when given."""
         size = (
             4 * max(self.box[3] - self.box[0], self.box[4] - self.box[1], self.box[5] - self.box[2])
             + 10
@@ -6495,6 +6623,8 @@ class _Setup:
         # Explicit in-plane x so both plane directions run positive from ``corner``.
         normal, xdir = (V(1, 0, 0), V(0, 1, 0)) if c_axis == 0 else (V(0, 1, 0), V(0, 0, 1))
         section = zone.section(Part.makePlane(size, size, V(*corner), normal, xdir))
+        if within is not None:
+            section = section.common(within)
         return [(_bbox(edge)[2], _bbox(edge)[5]) for edge in section.Edges]
 
     def _in_jaws(self, claimed):
@@ -8722,11 +8852,12 @@ class _Setup:
 
     def _hole_cut(self, op, valid, radius):
         """Geometry-located cut of a hole op: ``centres``, ``bottom``, ``removal``, ``reason``,
-        ``cone_slope``.
+        ``cone_slope``, ``conflict``.
 
         ``centres`` are setup-frame vectors on each claimed tool-axis bore axis whose z is
         that axis's own actual tip once known (a through hole exits where its claimed
-        bores end); ``bottom`` is the lowest of them, or None beside a debt ``reason``;
+        bores end, or at its planned exit); ``bottom`` is the lowest of them, or None beside
+        a debt ``reason``;
         ``cone_slope`` is a pointed tool's tan(point angle / 2), else None. A spot is
         always pointed; a drill is pointed when its hole carries ``point_angle_deg``.
         ``removal`` is the op-radius cutter fed from past the entry-stock top down to each
@@ -8735,7 +8866,9 @@ class _Setup:
         sweeps above it (:func:`_plunge`), minus unrelated finished material, or None when
         nothing is removed. A pointed cutter is its :func:`_cutter` cone and body; others
         sweep a cylinder. Every action but a spot adds its own bore wall allowance up to the
-        operation radius.
+        operation radius. ``conflict`` names a planned through exit above a claimed bore's
+        end (the plan contradicting the finished bore; the cut still stops at the plan),
+        else None.
         """
         key = (id(op), tuple(valid), radius)
         if key not in self.hole_cuts:
@@ -8748,6 +8881,7 @@ class _Setup:
                     "removal": None,
                     "reason": f"hole cut boolean failed ({exc})",
                     "cone_slope": None,
+                    "conflict": None,
                 }
         return self.hole_cuts[key]
 
@@ -8762,6 +8896,7 @@ class _Setup:
                 "removal": None,
                 "reason": reason,
                 "cone_slope": None,
+                "conflict": None,
             }
 
         hole = op.get("hole")
@@ -8800,7 +8935,9 @@ class _Setup:
         axes.sort(key=lambda axis: (axis[0], axis[1]))
         to_z, action, thru = op.get("to_z"), op.get("do"), hole.get("thru")
         entry, depth = hole.get("entry_z_mm"), hole.get("depth_mm")
-        through, slope = False, None
+        # Per axis, whether the tool runs out of its bore (a through cut); why not, if a
+        # planned exit contradicts the finished bore.
+        exits, slope, conflict = [False] * len(axes), None, None
         if action == "spot" or (action == "drill" and "point_angle_deg" in hole):
             # A pointed tool cuts with its cone, never a flat-bottomed cylinder: without a
             # known included angle neither its cut nor its flute obstacle is derivable.
@@ -8834,15 +8971,28 @@ class _Setup:
         elif thru is True:
             # Each axis exits where its own claimed bores end, not at the entry-stock
             # floor: finished material below the exit (a clevis's lower leg, a cross
-            # bore's far wall) is never on this tool's path. A plan that runs the tool
-            # further (its exit face plus exit allowance) cuts the stock it carries past
-            # the finished bore end, so no skin is left over the bore's mouth.
+            # bore's far wall) is never on this tool's path. A planned exit (its exit face
+            # plus exit allowance) governs instead, never deepened to the CAD: below the
+            # bore end it cuts the stock carried past it, so no skin is left over the
+            # bore's mouth; above it, the plan contradicts the finished through bore, which
+            # the cut leaves unfinished and the op names as an error.
             planned = hole.get("exit_z_mm")
-            bottoms = []
-            for _, _, members in axes:
+            bottoms, short = [], []
+            for i, (x, y, members) in enumerate(axes):
                 end = min(self._bore_span(self.faces[index], Z)[0] for index, _ in members)
-                bottoms.append((min(end, planned) if _number(planned) else end) - point)
-            through = True
+                exits[i] = not (_number(planned) and planned > end + BBOX_TOL)
+                if not exits[i]:
+                    short.append(
+                        f"{_r(planned - end)} mm above the end of the bore at x {_r(x)} "
+                        f"y {_r(y)} (Z {_r(end)})"
+                    )
+                bottoms.append((planned if _number(planned) else end) - point)
+            if short:
+                conflict = (
+                    f"its planned through exit at Z {_r(planned)} (entry less the stock_state "
+                    f"local_thickness and exit_mm) stops {'; '.join(short)}, so the plan "
+                    "contradicts the finished through bore and its cut leaves it unfinished"
+                )
         else:
             return debt("hole thru is unknown and the op has no to_z; its bottom is unknown", axes)
         centres = [V(x, y, level) for (x, y, _), level in zip(axes, bottoms, strict=True)]
@@ -8850,9 +9000,9 @@ class _Setup:
         top = self.box[5] + 1.0
         tools = []
         seat = _seat(op)
-        for (x, y, _), level in zip(axes, bottoms, strict=True):
+        for (x, y, _), level, out in zip(axes, bottoms, exits, strict=True):
             # A through cut starts LIFT past its exit so no face is coincident with it.
-            low = level - LIFT if through else level
+            low = level - LIFT if out else level
             if top - low <= LIFT:
                 continue
             # A seat cone's widest edge sweeps its shank-radius bore down to its final pose.
@@ -8863,6 +9013,7 @@ class _Setup:
             "removal": None,
             "reason": None,
             "cone_slope": slope,
+            "conflict": conflict,
         }
         if not tools:
             return record
@@ -9458,6 +9609,9 @@ class _Setup:
             if not joint and isinstance(op.get("hole"), dict)
             else None
         )
+        if hole_cut is not None and hole_cut["conflict"] is not None:
+            # The plan and the finished bore disagree: an error at the op, never a choice.
+            facts["stock_removal_error"] = hole_cut["conflict"]
         if hole_cut is not None and hole_cut["reason"] is not None:
             for key in self._MEASURED:
                 facts[key] = UNKNOWN
