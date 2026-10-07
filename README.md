@@ -608,6 +608,10 @@ cleared footprint (possibly several passes), not capped to the claims' XY
 bounding box plus cutter radius and not a toolpath proof; known radius,
 finite bounds, stock intersection, finished protection, exact claim/piece
 contact, future hole columns and no split of an original solid still apply.
+Before a claimed planar wall it leaves a flat skin of its leave across the
+face's width and, past each end of a vertical wall's skin where stock stands
+behind its plane, the cusp its own cutter radius leaves in that step; no other
+op is credited with clearing it.
 Generic bounded clearing preserves known
 unclaimed planned-hole columns for their own future hole operations, not all
 concave cylindrical faces (a face raster's `contour.keep_out` islands, and the cusps

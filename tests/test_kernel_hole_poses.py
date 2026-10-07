@@ -15,6 +15,7 @@ from test_kernel_geometry import Engine, _op, _setup, _vise
 from test_kernel_stock import _bundle
 
 from prechips import kernel
+from prechips.rules import reach
 from prechips.rules.tip_endpoints import evaluate
 
 _AUTHOR = r"""
@@ -209,3 +210,40 @@ def test_a_through_hole_runs_out_of_the_stock_it_carries_past_the_finished_bore(
     assert result["setups"]["S2"]["stock_volume_mm3"] == pytest.approx(
         60.0 * 40.0 * 22.0 - math.pi * 3.0**2 * cut_height
     )
+
+
+@pytest.mark.parametrize(
+    "thickness, exit_mm, cut_height, conflict",
+    [
+        # The plan says 10 mm of stock under the entry: its exit, z 9.5, lies 9.5 mm above
+        # the finished bore's end at z 0. The tool still plunges only 10.5 mm.
+        (10.0, 0.5, 10.5, True),
+        # An exit exactly at the bore's end agrees with it.
+        (20.0, 0.0, 20.0, False),
+    ],
+)
+def test_a_planned_exit_short_of_the_finished_bore_end_is_cut_as_planned_and_is_an_error(
+    engine, solids, tmp_path, thickness, exit_mm, cut_height, conflict
+):
+    step = solids["hole"]
+    bore = engine.refs(step, (26.75, 16.75, 0), (33.25, 23.25, 20))
+    op = {"do": "bore", "exit_mm": exit_mm}
+    bundle = _host(tmp_path, step, "mm", {"kind": "hole", "thru": True, "faces": bore}, op)
+    bundle.plan["stock"].update(origin_mm=[0.0, 0.0, -2.0], section_mm=[40.0, 22.0])
+    bundle.plan["setups"][0]["stock_state"].update(local_thickness={"bore": thickness})
+    # Flutes long enough for the whole bore: reach can fail only on the conflict.
+    bundle.inventory["tools"]["em"]["flute_len_mm"] = 40.0
+    (finding,) = [f for f in evaluate(bundle) if f.subject == "bore"]
+    assert finding.numbers["endpoints"][0]["tip_z"] == pytest.approx(20.0 - cut_height)
+    result = engine.run(kernel.engine_job(kernel.build_job(bundle)))
+    detail = result["ops"]["S1:10"]
+    # Never deeper than planned: the kernel cuts what the traveler's endpoint cuts.
+    assert detail["reach_depth_mm"] == pytest.approx(cut_height)
+    assert result["setups"]["S2"]["stock_volume_mm3"] == pytest.approx(
+        60.0 * 40.0 * 22.0 - math.pi * 3.0**2 * cut_height
+    )
+    # The plan contradicting the finished bore is a finding, never a silent choice.
+    assert ("stock_removal_error" in detail) is conflict, detail
+    if conflict:
+        (row,) = [f for f in reach.evaluate(bundle) if f.subject == "S1:10"]
+        assert row.status == "error", row
