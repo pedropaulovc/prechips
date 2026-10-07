@@ -696,6 +696,19 @@ def test_turning_model_stays_unknown_without_every_tool_dimension(bundle):
     assert row.status == "unknown" and "unmeasured" in row.sentence
 
 
+def test_a_tool_set_shorter_than_its_head_is_unknown_naming_the_setting_not_unmeasured(bundle):
+    from prechips.kernel import op_inputs
+
+    setup = _turning(bundle, _facts([1], []))
+    bundle.inventory["tools"]["turn"]["projection_mm"] = {"post": 10.0}
+    row = _rows(accessibility, bundle)["S1:10"]
+    assert row.status == "unknown" and "projection_mm at least head_len_mm" in row.sentence
+    assert "unmeasured" not in row.sentence
+    assert row.numbers == {"projection_mm": 10.0, "head_len_mm": 12.0}
+    # The head length is measured: the kernel gets it, to say why the holder is not posed.
+    assert op_inputs(bundle, setup, setup["ops"][0])["head_len_mm"] == 12.0
+
+
 @pytest.mark.parametrize(
     "rule", [accessibility, reach, internal_corner_radius, coverage, finish_coverage]
 )

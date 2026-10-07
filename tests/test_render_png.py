@@ -407,6 +407,39 @@ def test_stickout_dimension_starts_at_the_jaw_front_marker_not_the_stock_end():
     assert diagram.dimensions["STOCK Z 100 mm"][0][0] < start[0] - 10
 
 
+def test_a_stickout_from_a_fit_up_is_labelled_nominal_with_its_setting():
+    spec = {
+        "setup_id": "S1",
+        "view": "lathe",
+        "stock_box": [-10, -10, -60, 10, 10, 40],
+        "jaw_front_z_mm": -40,
+        "stickout_mm": 80,
+        "stickout_add_mm": 8,
+    }
+    diagram = _Diagram([], spec)
+    diagram.render()
+    # The dimension is the nominal; the setting rule goes to the wrapping notes, so a
+    # short stickout's dimension label never runs into the lane labels.
+    assert "NOM STICKOUT 80 mm" in diagram.dimensions
+    assert not any(label.startswith("STICKOUT") for label in diagram.dimensions)
+    text = " ".join(box[0] for box in diagram.canvas.text_boxes)
+    assert "STICKOUT 80 MM IS NOMINAL: SET IT AS THE MEASURED FIT-UP + 8 MM." in text, text
+
+
+@pytest.mark.parametrize(("round_dia", "printed"), [(20, "STOCK DIA 20 MM"), (None, "STOCK BOX")])
+def test_round_stock_prints_its_diameter_not_a_bounding_box(round_dia, printed):
+    spec = {"setup_id": "S1", "view": "lathe", "stock_box": [-10, -10, -60, 10, 10, 40]}
+    if round_dia is not None:
+        spec["stock_round_dia_mm"] = round_dia
+    diagram = _Diagram([], spec)
+    diagram.render()
+    texts = [box[0] for box in diagram.canvas.text_boxes]
+    assert any(text.startswith(printed) for text in texts), texts
+    # Round stock: the box would only repeat the length the stock dimension already gives.
+    assert any(text.startswith("STOCK BOX") for text in texts) is (round_dia is None)
+    assert "STOCK Z 100 mm" in diagram.dimensions
+
+
 def test_arc_apex_below_its_ends_keys_below_and_no_leader_grazes_another_point():
     diagram = _Diagram([], {"view": "plan", "stock_box": [0, 0, 0, 10, 10, 1]})
     # A semicircle sagging below its ends, keyed end, apex, end as the table lists it.
@@ -609,19 +642,39 @@ def test_raster_keep_out_draws_independent_segments_without_filling_clearance(ke
         assert _pixel(diagram.canvas, 700, 400) == _WHITE
         assert _pixel(diagram.canvas, 520, 500) == _WHITE
     else:
+        # Three passes: each is drawn in ink over the band; between them is the tint.
         tint = tuple(int(255 - (255 - channel) * 0.22) for channel in colour)
-        assert _pixel(diagram.canvas, 520, 400) == tint
-        assert _pixel(diagram.canvas, 700, 400) == tint
+        assert _pixel(diagram.canvas, 520, 400) == colour
         assert _pixel(diagram.canvas, 520, 500) == tint
     assert _pixel(diagram.canvas, 520, 600) == colour
     assert _pixel(diagram.canvas, 520, 200) == colour
-    assert [label["label"] for label in labels] == ["PASS 1", f"PASS {len(segments)}"]
+    # A few passes are each labelled with the table's pass number.
+    assert [label["label"] for label in labels] == [
+        f"PASS {n}" for n in range(1, len(segments) + 1)
+    ]
     assert project(labels[0]["xy"]) == pytest.approx((700, 600))
     assert project(labels[-1]["xy"]) == pytest.approx((700, 200))
     # Decode the direct renderer's output too: the tested surface is the actual
     # printable PNG payload, not a recording or mocked drawing collaborator.
     _, _, pixels = _decode_png(diagram.canvas.png())
     assert pixels == diagram.canvas.rgb
+
+
+@pytest.mark.parametrize("order", ["climb", "unknown"])
+def test_a_raster_sketch_draws_every_pass_and_claims_arrows_only_when_drawn(order):
+    """The cone's S11 sketch: six passes, every one drawn and labelled as the pass table
+    numbers them, each with its cutting direction when the table gives one; the legend
+    names arrows only when arrows are drawn."""
+    segments = [[[0, y], [40, y]] for y in range(0, 12, 2)]
+    profile = {"op": "40", "cutter_centre": segments, "raster": {}, "cut_order": order}
+    paths, waypoints = contour_annotations({"profiles": [profile]}, 1.0, "S1")
+    spec = {"view": "plan", "stock_box": [0, 0, 0, 40, 10, 5], "paths": paths}
+    diagram = _Diagram([], {**spec, "waypoints": waypoints})
+    diagram._path_inset(40, 760, 100, 900)
+    texts = [box[0] for box in diagram.canvas.text_boxes]
+    assert [f"PASS {n}" for n in range(1, 7)] == [t for t in texts if t.startswith("PASS")]
+    assert (diagram.arrows_drawn >= 6) is (order == "climb")
+    assert ("ARROWS: POINT ORDER" in texts) is (order == "climb")
 
 
 def _slab(x0, y0, x1, y1, z, colour, tag):
