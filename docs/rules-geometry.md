@@ -1835,7 +1835,9 @@ that whole contact before a section view cuts it: the outline is cut where it
 crosses the section plane and only the kept side is drawn, still keyed at the
 contact's own plane (a contact that is a point or a straight line names no
 plane). `closest_cut` is the smallest distance from this setup's
-removal to a holding solid. The detail frames the stock, the contacts and that
+removal to a holding solid; a setup that both files and machines measures it from
+its machine cuts only, the cuts the CLEARANCE table lists, so the picture's
+dimension is one of that table's rows. The detail frames the stock, the contacts and that
 distance; it outlines each contact (solid where seen, dashed where hidden),
 keys it with its holding name and the setup coordinate of its plane (a support
 whose solids lie on different planes, such as the rocker's hub stand and rail
@@ -1888,15 +1890,22 @@ under each pad) is keyed by the position badges, `PAD SLOTS AT L1-L6`, and gets
 no second leader into a badged point. A split key names each point it leads to.
 
 Holding-detail keys print a contact's plane on the setup's DRO grid
-(`dro_step_mm`, the step the fixture tables print positions at), so a key reads
-as the DRO is set. Closest-cut and clearance distances are measured values and
-never snap to the grid.
+(`dro_step_mm`, the step the fixture tables print positions at), rounded as the
+tables round (half a step away from zero, float noise in the quotient not
+counting; one shared rounding), so a key reads as the DRO is set and as the table
+prints it. Closest-cut and clearance distances are measured values and never snap
+to the grid.
 
 A guided bench file (a hand op whose `guide.buttons` kit is held in the setup,
-its solids named to the kernel by `guide_owner`) is not a cut to clear. The kit
-solids its cut reaches are where it stops (`render_scene.guide_stops` names them),
-and the kernel leaves them out of `closest_cut`, so no `CUT 0.000 mm FROM` a
-filing button prints. The detail keys
+its solids named to the kernel by `guide_owner`, the kit's declared button OD by
+`guide_rim_dia_mm`) is not a cut to clear. A kit solid is a stop only when it is a
+button of that declared OD (a cylindrical face within the OD limits, widened by the
+stock tolerance), its cut reaches it, and it is seated on the filed face (within the
+stock tolerance of the stock the file leaves, without biting into it). Those stops
+are named in `render_scene.guide_stops`, and the kernel leaves them out of
+`closest_cut`, so no `CUT 0.000 mm FROM` a filing button prints. Any other kit
+solid the cut reaches (a stud, a tab touching the unfiled wall, a square block) is
+holding to clear and keeps its real `CUT` dimension. The detail keys
 them in green: `FILE STOPS ON BOTH BUTTON RIMS` for a matched pair, or one key
 per rim, `FILE STOPS ON UPPER BUTTON RIM`, when they lie apart. A real clearance
 to the rest of the kit (its stud) is still dimensioned. When the stops are turned
@@ -1913,12 +1922,16 @@ of the stock to file off, so the near button does not hide the work and the cut
 face shows what the file takes; the band notes `SECTION BETWEEN THE RIMS`.
 
 An inspect op's `inspection_views` ([plan](plan.md)) are drawn as one set-up
-sketch per requirement, a band per view, on the stock the setup leaves and in the
+sketch per requirement, a band per view, on the stock the setup leaves (only the
+pieces of it that hold the part: scrap a cut released, such as a rail frame, is
+off the part when it is inspected) and in the
 part model's own axes: `up` up the page, seen from `toward`. The bands are
 returned as `inspection_pngs_base64` keyed `<op>:<requirement>`, apart from the
-setup picture. Each band titles its view and draws a hatched `SURFACE PLATE` line
+setup picture. Each band titles its view, wrapping a title too long for one line
+and moving the band down under it, and draws a hatched `SURFACE PLATE` line
 under the lowest solid. It keys every aid by name, on the aid's own visible
-pixels, and every mark at its point. A `reads` mark is green with a `+` arrow up
+pixels (each aid is drawn under its own tag, so an aid named like the work never
+borrows the work's pixels), and every mark at its point. A `reads` mark is green with a `+` arrow up
 the page, the way that orientation's height reading rises, under the note
 `+ ARROW: THE WAY A READING RISES (A HIGHER CONTACT READS +)`; other marks are
 red contacts. What a sketch cannot show is a render debt on the setup's

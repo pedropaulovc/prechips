@@ -7602,7 +7602,10 @@ class _Setup:
         """The picture's ``closest_cut`` (:meth:`_nearest_cut`): the setup's ``removal``
         against every holding solid but a guided file's stops, and each stop against the
         cuts of the setup's other ops, so a machine cut reaching a button still reads (the
-        whole removal when one of those cuts fails its boolean)."""
+        whole removal when one of those cuts fails its boolean). A setup that both files
+        and machines dimensions its machine cuts only, the CLEARANCE table's rows
+        (:meth:`_cut_clearances`): a hand stroke's reach beside them is not a cutter's."""
+        removal = self._machined(removal)
         tags = {stop["tag"] for stop in stops}
         nearest = self._nearest_cut(removal, [item for item in solids if item[0] not in tags])
         pieces = []
@@ -7621,6 +7624,29 @@ class _Setup:
             if near is not None and (nearest is None or near["mm"] < nearest["mm"]):
                 nearest = near
         return nearest
+
+    def _machined(self, removal):
+        """The setup's ``removal`` less its hand ops' when it also has machine cuts: the
+        fuse of its machine ops' own cuts; ``removal`` itself when it has no hand removal,
+        no machine one, saws (its blade path is the picture's), or a boolean fails."""
+        machine, filed = [], False
+        for op in self.ops:
+            if _sawn(op):
+                return removal
+            before, after, why = self.cuts.get(id(op), (None, None, "not built"))
+            if why is not None or before is None or after is before:
+                continue
+            if _hand(op):
+                filed = True
+            else:
+                machine.append((before, after))
+        if not filed or not machine or removal is None:
+            return removal
+        try:
+            pieces = [before.cut(after) for before, after in machine]
+            return pieces[0].fuse(pieces[1:]) if len(pieces) > 1 else pieces[0]
+        except Exception:
+            return removal
 
     def _guide_view(self, stops, solids, drawn, removal):
         """The look down a guided file's guide axis (spec ``guide_view``): ``axis_mm``,
@@ -7698,10 +7724,11 @@ class _Setup:
     def _inspection_sketches(self):
         """The labelled set-up sketches of this setup's inspect ops (the render annotation's
         ``inspections``: op, requirement, views) as ``({"<op>:<requirement>": png},
-        debts)``. Each view draws the stock this setup leaves and the gauges and holding it
-        names (``aids``) in the part model's axes, seen from ``toward`` with ``up`` up off
-        the plate, and its ``marks``. Without that stock no sketch is drawn: its NOT SHOWN
-        line is the debt."""
+        debts)``. Each view draws the stock this setup leaves (the pieces of it that hold
+        the part: scrap a cut released is off the part when it is inspected) and the
+        gauges and holding it names (``aids``) in the part model's axes, seen from
+        ``toward`` with ``up`` up off the plate, and its ``marks``. Without that stock no
+        sketch is drawn: its NOT SHOWN line is the debt."""
         inspections = self.setup.get("render", {}).get("inspections") or []
         sketches, debts = {}, []
         if not inspections:
@@ -7737,7 +7764,7 @@ class _Setup:
             )
             return solid
 
-        part = mesh(self.stock_out, _COLOURS["part"], "part")
+        part = mesh(self._inspected(self.stock_out), _COLOURS["part"], "part")
         for inspection in inspections:
             views = []
             for view in inspection["views"]:
@@ -7757,11 +7784,15 @@ class _Setup:
                             mesh(
                                 aid_solid(aid),
                                 _COLOURS["fixture" if aid["shape"] == "box" else "clamp"],
-                                aid["name"],
+                                f"aid {index}",
                             )
-                            for aid in aids
+                            for index, aid in enumerate(aids, 1)
                         ],
-                        "aids": [aid["name"] for aid in aids],
+                        # Each aid owns its pixels by its own tag, never by its printed
+                        # name: an aid called "part" is not the workpiece.
+                        "aids": [
+                            [f"aid {index}", aid["name"]] for index, aid in enumerate(aids, 1)
+                        ],
                         "marks": view["marks"],
                     }
                 )
@@ -7771,20 +7802,41 @@ class _Setup:
             debts += [f"{name}: {debt}" for debt in drawn]
         return sketches, debts
 
+    def _inspected(self, stock):
+        """The model-frame ``stock`` pieces that hold the finished part; ``stock`` itself
+        when it is one piece, none holds the part, or a boolean fails."""
+        if len(stock.Solids) < 2:
+            return stock
+        try:
+            finished = self.finished.copy()
+            finished.transformShape(self.matrix.inverse())
+            kept = [s for s in stock.Solids if s.common(finished).Volume > STOCK_MM3]
+        except Exception:
+            return stock
+        if not kept:
+            return stock
+        return kept[0] if len(kept) == 1 else Part.makeCompound(kept)
+
     def _guide_stops(self, solids, section_view=None):
-        """The rims a guided bench file rides on: each solid of a hand op's guide kit (its
+        """The rims a guided bench file rides on: each button of a hand op's guide kit (its
         ``guide_owner``, the prefix of the kit's solid tags) that the op's own cut reaches,
-        as ``{"tag", "at_mm", "rim_mm"}``. ``rim_mm`` holds the runs of the solid's edges
-        on the cut (:func:`_rim_runs`); ``at_mm`` is the rim point a picture keys: in a
-        section view the kept one nearest the section plane (the rim seen edge-on), else
-        the one nearest the rim's middle. A solid the cut reaches only off its edges is
-        keyed at its contact point nearest the contact's middle. A cut the stock builder
-        did not derive stops nowhere."""
+        as ``{"tag", "at_mm", "rim_mm"}``. A button is a kit solid with a cylindrical face
+        of the kit's declared button OD (``guide_rim_dia_mm``) that touches the stock the
+        op leaves without entering it: its rim lies on the filed surface. Any other kit
+        solid (a stud, a nut, a button standing off or buried in the work) is holding the
+        file must clear, so no stop; nor is anything without the declared OD. ``rim_mm``
+        holds the runs of the solid's edges on the cut (:func:`_rim_runs`); ``at_mm`` is the
+        rim point a picture keys: in a section view the kept one nearest the section plane
+        (the rim seen edge-on), else the one nearest the rim's middle. A solid the cut
+        reaches only off its edges is keyed at its contact point nearest the contact's
+        middle. A cut the stock builder did not derive stops nowhere."""
         stops = []
         for op in self.ops:
-            owner = op.get("guide_owner")
+            owner, rims = op.get("guide_owner"), op.get("guide_rim_dia_mm")
             before, after, why = self.cuts.get(id(op), (None, None, "not built"))
             if not (_hand(op) and isinstance(owner, str)) or why is not None or after is before:
+                continue
+            if not (isinstance(rims, list) and len(rims) == 2 and all(_number(v) for v in rims)):
                 continue
             try:
                 cut = before.cut(after)
@@ -7792,11 +7844,27 @@ class _Setup:
                 continue
             if cut.Volume <= STOCK_MM3:
                 continue
+            low, high = min(rims) - STOCK_TOL, max(rims) + STOCK_TOL
             for name, solid in solids:
                 if name.rsplit(":", 1)[0] != owner or any(s["tag"] == name for s in stops):
                     continue
+                if not any(
+                    isinstance(face.Surface, Part.Cylinder)
+                    and low <= 2 * face.Surface.Radius <= high
+                    for face in solid.Faces
+                ):
+                    continue
                 distance, pairs, _ = _distance(cut, solid)
                 if distance > STOCK_TOL or not pairs:
+                    continue
+                try:
+                    seated = (
+                        _distance(after, solid)[0] <= STOCK_TOL
+                        and solid.common(after).Volume <= STOCK_MM3
+                    )
+                except Exception:
+                    seated = False
+                if not seated:
                     continue
                 rim = _rim_runs(solid, cut)
                 points = [V(*p) for run in rim for p in run] or [far for _, far in pairs]
@@ -7844,7 +7912,8 @@ class _Setup:
         ``drawn`` whole (unresolved, a component undrawn, a jaw extent undeclared), since
         what is not drawn may stand nearer than anything drawn. An op that removes
         nothing, a hand op and a saw op (its blade path is the picture's) carry none. The
-        setup picture's ``closest_cut`` is the least over the whole setup's removal."""
+        setup picture's ``closest_cut`` is the least over the whole setup's removal, or
+        over these rows' cuts when the setup also files (:meth:`_holding_cut`)."""
         rows = []
         for op in self.ops:
             if _hand(op) or _sawn(op):

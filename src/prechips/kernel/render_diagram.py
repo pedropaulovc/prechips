@@ -229,6 +229,14 @@ def _pad_code(component, index):
     return label.removeprefix("PAD ").removeprefix("SUPPORT PAD ") or str(index)
 
 
+def dro_steps(value, step):
+    """The whole DRO steps of ``step`` nearest ``value``, as the shop sets them: half a
+    step rounds away from zero, and float noise in the quotient does not count. The one
+    rounding of a printed DRO position, in pictures and fixture tables alike."""
+    quotient = round(value / step, 6)
+    return math.copysign(math.floor(abs(quotient) + 0.5), quotient)
+
+
 def _code_ranges(codes):
     """Position codes as a drawing lists them: ``L1-L6, R1-R6``; a run of three or more
     consecutive numbers under one prefix is a range, others are listed."""
@@ -258,6 +266,15 @@ def _code_ranges(codes):
 
 def _dot3(a, b):
     return sum(x * y for x, y in zip(a, b, strict=True))
+
+
+class _Measure:
+    """Bitmap text widths before a canvas exists (a band's header sized up front)."""
+
+    text_width = RenderCanvas.text_width
+
+
+_MEASURE = _Measure()
 
 
 def _wrap(canvas, text, width, scale=2):
@@ -780,6 +797,8 @@ class _Diagram:
         )
         self.footer_top = min(self.footer_top, 984 - footer_height)
         self.scene_bottom = min(self.scene_bottom, self.footer_top - 120)
+        # The stock dimension row sits 66 px above the footer: a longer footer lifts it.
+        self.dimension_y = min(674, self.footer_top - 66)
         self.footer_top += extra
         # Label lanes: the first row's top and the last row's bottom limit; each side's
         # (text left, text width, leader end x), and the x that splits points between them.
@@ -1306,7 +1325,7 @@ class _Diagram:
 
     def _measurements(self):
         c = self.canvas
-        y = 674
+        y = self.dimension_y
         if self.stock is None:
             _text(c, 285, y, "STOCK EXTENTS: NOT DECLARED", _MUTED)
             return
@@ -1365,7 +1384,7 @@ class _Diagram:
                 # row, never from the stock-length extension line.
                 a = jaw_marker
                 b = c.project((box[0], box[1], box[5]))
-                dim_y = 622
+                dim_y = y - 52
                 c.line(a, (a[0], dim_y), _BLUE, width=2, dashed=True)
                 c.line(b, (b[0], dim_y), _BLUE, width=2, dashed=True)
                 _dimension(c, (a[0], dim_y), (b[0], dim_y), label, _BLUE)
@@ -2492,11 +2511,11 @@ def _tiles(frame, camera, count):
     return tiles
 
 
-def _detail_viewport(frame, camera, extra=0):
+def _detail_viewport(frame, camera, extra=0, top=100):
     """The detail band's viewport: full width, and only as tall as the framed geometry
     needs at that width, between the room its keys need and the full band, plus
-    ``extra`` rows the keys turned out to need."""
-    left, top, right = 370, 100, 1230
+    ``extra`` rows the keys turned out to need; ``top`` below the band's header."""
+    left, right = 370, 1230
     xs = [_dot3(p, camera[0]) for p in _corners(frame)]
     ys = [_dot3(p, camera[1]) for p in _corners(frame)]
     needed = (max(ys) - min(ys)) * (right - left) / max(max(xs) - min(xs), 1e-9)
@@ -2642,7 +2661,7 @@ class _HoldingDetail(_Diagram):
     grows_to_fit = True
     splits_sides = False
 
-    def __init__(self, meshes, spec, frame, camera, gain, tile=(1, 1), extra=0):
+    def __init__(self, meshes, spec, frame, camera, gain, tile=(1, 1), extra=0, top=100):
         self.spec = spec
         self.view = spec["view"]
         self.camera = camera
@@ -2659,7 +2678,7 @@ class _HoldingDetail(_Diagram):
         self.render_debts = []
         self._owned = None
         self.meshes = list(meshes)
-        self.viewport = _detail_viewport(frame, camera, extra)
+        self.viewport = _detail_viewport(frame, camera, extra, top)
         self.footer_top = math.ceil(self.viewport[3]) + 28
         self.lanes = (self.viewport[1], self.footer_top - 16)
         self.lane_specs = ((32, 300, 344), (1268, 300, 1256))
@@ -2886,12 +2905,13 @@ class _HoldingDetail(_Diagram):
         return f" AT {'XYZ'[axis]} {self._dro(self._on_grid(value - zero[axis]))}"
 
     def _on_grid(self, value):
-        """A setup coordinate at the setup's nearest DRO step (``dro_step_mm``), as the
-        fixture tables print positions; unchanged when the spec names no step."""
+        """A setup coordinate at the setup's nearest DRO step (``dro_step_mm``), rounded
+        as the fixture tables round their positions (:func:`dro_steps`); unchanged when the
+        spec names no step."""
         step = self.spec.get("dro_step_mm")
         if not isinstance(step, (int, float)) or isinstance(step, bool) or step <= 0:
             return value
-        return round(value / step) * step
+        return dro_steps(value, step) * step
 
     def _guide_stops(self):
         """Where a guided file stops: each guide solid (a filing button) its cut reaches is
@@ -3115,13 +3135,14 @@ def render_inspection(views):
     """``(png, debts)``: an inspection's labelled set-up sketches as one PNG 1600 px wide,
     a band per view, and the NOT SHOWN lines for what a band could not key truthfully.
 
-    Each view has a ``title``; a ``camera`` [right, up, toward] in the part model's axes,
-    ``up`` pointing up off the surface plate; ``meshes`` as :func:`render_diagram` takes
-    them, tagged ``part`` or with the name of the aid (gauge, block, holding) each draws;
-    ``aids``, those names, each keyed; and ``marks`` (``label``, ``at_mm``, ``reads``). The
-    plate is drawn under the lowest solid. Every mark is keyed with a leader; a reading
-    mark carries an arrow up off the plate with a + at its head, the way a higher contact
-    reads +. Nothing is drawn that the views do not state."""
+    Each view has a ``title`` (wrapped, the band moved down under it); a ``camera``
+    [right, up, toward] in the part model's axes, ``up`` pointing up off the surface
+    plate; ``meshes`` as :func:`render_diagram` takes them, tagged ``part`` or with the
+    tag of the aid (gauge, block, holding) each draws; ``aids``, ``[tag, name]`` pairs,
+    each keyed by its name on its own tag's pixels; and ``marks`` (``label``, ``at_mm``,
+    ``reads``). The plate is drawn under the lowest solid. Every mark is keyed with a
+    leader; a reading mark carries an arrow up off the plate with a + at its head, the
+    way a higher contact reads +. Nothing is drawn that the views do not state."""
     bands = []
     for view in views:
         extra = 0
@@ -3147,8 +3168,13 @@ class _InspectionSketch(_HoldingDetail):
     ARROW_PX = 48
     PLUS_PX = 7
 
+    # A title line's pitch at scale 4; a long title wraps and pushes the band down.
+    TITLE_PITCH = 40
+
     def __init__(self, view, extra=0):
         self.sketch = view
+        self.title_lines = _wrap(_MEASURE, view["title"], 1536, scale=4)
+        self.header = (len(self.title_lines) - 1) * self.TITLE_PITCH
         camera = tuple(tuple(axis) for axis in view["camera"])
         points = [p for mesh in view["meshes"] for p in mesh[0]]
         points += [mark["at_mm"] for mark in view["marks"]]
@@ -3157,28 +3183,29 @@ class _InspectionSketch(_HoldingDetail):
         pads = [0.08 * (high[i] - low[i]) + 1.0 for i in range(3)]
         frame = [low[i] - pads[i] for i in range(3)] + [high[i] + pads[i] for i in range(3)]
         spec = {"view": "elevation", "components": [], "stock_box": frame, "contacts": []}
-        super().__init__(view["meshes"], spec, frame, camera, 1.0, (1, 1), extra)
+        super().__init__(view["meshes"], spec, frame, camera, 1.0, (1, 1), extra, 100 + self.header)
 
     def render(self):
         c = self.canvas
         c.line((32, 8), (1568, 8), _INK, width=2)
-        title = self.sketch["title"]
-        _text(c, 32, 22, title, scale=4 if c.text_width(_plain(title), scale=4) <= 1536 else 3)
+        for index, line in enumerate(self.title_lines):
+            _text(c, 32, 22 + index * self.TITLE_PITCH, line, scale=4)
         reads = any(mark.get("reads") for mark in self.sketch["marks"])
         if reads:
-            _text(c, 34, 62, "+ ARROW: THE WAY A READING RISES (A HIGHER CONTACT READS +)", _MUTED)
+            note = "+ ARROW: THE WAY A READING RISES (A HIGHER CONTACT READS +)"
+            _text(c, 34, 62 + self.header, note, _MUTED)
         self._plate()
-        for name in self.sketch["aids"]:
-            pixels = [c.project(p) for mesh in self.meshes if mesh[4] == name for p in mesh[0]]
+        for tag, name in self.sketch["aids"]:
+            pixels = [c.project(p) for mesh in self.meshes if mesh[4] == tag for p in mesh[0]]
             near = (
                 sum(p[0] for p in pixels) / len(pixels),
                 sum(p[1] for p in pixels) / len(pixels),
             )
-            point = self._anchor((name,), near)
+            point = self._anchor((tag,), near)
             if point is None:
                 self._hidden(_plain(name))
                 continue
-            self.callouts.append(_Callout(_plain(name), [point], _FIXTURE, targets=(name,)))
+            self.callouts.append(_Callout(_plain(name), [point], _FIXTURE, targets=(tag,)))
         for mark in self.sketch["marks"]:
             x, y = c.project(mark["at_mm"])
             colour = _GREEN if mark.get("reads") else _CONTACT
