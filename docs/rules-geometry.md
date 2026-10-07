@@ -149,9 +149,11 @@ faces that no reference names are labelled `imported face index <n>`
 (0-based) wherever the kernel has to name them, for example in `coverage`.
 Each imported face's record in `faces` gives its `index`, `ref`, surface
 `kind`, `area_mm2`, `bbox_mm` and `fills_bbox`: true only for a plane with one
-wire whose every edge is a straight segment along a side of its flat box, so
-the face is that whole rectangle; a hole or notch of any size, however little
-area it takes, makes it false.
+wire whose every edge is a straight segment within the kernel's 1e-6 mm side
+tolerance of a side of its flat box, and with more area than that band along the
+sides, so the face is that whole rectangle but for the band; a hole of any size,
+or a notch reaching further in, however little area it takes, makes it false, as
+does a face lying wholly in the band (a rim along three sides).
 
 Plan-owned joint cylinders are separate analytic targets, labelled with their
 `plan.joint_features.<id>` provenance. They are never assigned synthetic STEP

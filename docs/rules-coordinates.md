@@ -467,16 +467,26 @@ source's recipe names its own tool's edge, so the re-touch is tool-neutral:
   of it (the top: faces the stock's `top_feature`, or any face op when there is
   none) to another Z or to no stated Z (`to_z` omitted or `"unknown"`), or cuts it
   other than by facing/pocketing. Ops that each cut only part of it leave it at
-  its uncut Z only while some of its footprint lies outside all of their
-  `stock_removal_bounds`. That needs a surface shown to fill its footprint: the
-  kernel's one STEP face for the feature (`faces`) is a plane that fills its own
-  box (`fills_bbox`: one wire, each edge a straight segment along a side of the
-  box), flat in setup Z, with each box corner on a corner of its setup X/Y box,
-  which is the footprint. Without a kernel result, or for a round, holed,
-  notched or L-shaped face or one turned against the setup axes, the box's
-  corners may hold no surface, however little of its area the face lacks: a
-  0.005 mm hole can be the only part of the box every cut spares. A touch on a
-  surface, whether a zero, a tool touch or a listed retouch, is a paper touch at
+  its uncut Z only while a land of it lies outside all of their
+  `stock_removal_bounds`: a square `TOUCH_LAND_MM` (0.5 mm) on a side, AUTHOR'S
+  CHOICE. A paper touch needs a patch the operator can see, set the tool end over
+  and slide paper under; a narrower sliver may hold no flat surface once the burrs
+  of the cuts beside it are counted, and whether it is there at all can rest on
+  geometry no operator can check. The value is illustrative, not measured; a
+  larger one only leaves more Z unknown, and a narrower land is unknown, never
+  pass. The land must lie on surface shown to be there: the kernel's one STEP
+  face for the feature (`faces`) is a plane that fills its own box (`fills_bbox`:
+  one wire, each edge a straight segment within the kernel's 1e-6 mm side
+  tolerance of a side of the box, more area than that band), flat in setup Z,
+  with each box corner on a corner of its setup X/Y box, which is the footprint.
+  Within `FILL_MARGIN_MM` (1.5e-6 mm: that side tolerance plus the 5e-7 mm the
+  record's 6-decimal rounding may move each side) and the 1e-6 corner tolerance of
+  a side of the box, a notch may still run, so no land counts there. Without a
+  kernel result, or for a round, holed, notched or L-shaped face or one turned
+  against the setup axes, the box's corners may hold no surface, however little
+  of its area the face lacks: a 0.005 mm hole can be the only part of the box
+  every cut spares. A touch on a surface, whether a zero, a tool touch or a
+  listed retouch, is a paper touch at
   a nominal Z. It does not show what the ops since the surface was made left of
   it, so it carries their partial cuts and any doubt about them. A touch on a
   surface an op in the setup made is proven only at the Z that op made, and a
@@ -489,7 +499,8 @@ source's recipe names its own tool's edge, so the re-touch is tool-neutral:
     face op while the stock's `top_feature` is unresolved (the top);
   - an op's coverage of it is unknown, it may be gone, or a touch on it disagrees
     with (or cannot be checked against) the Z its op made or the tracked top's;
-  - partial cuts together cover it, or it is not shown to fill its footprint.
+  - partial cuts together leave no land of it, or it is not shown to fill its
+    footprint.
 
   With no proven surface, the latest one not shown gone is repeated with Z and
   Axis Set unknown (unknown). A measured Z (`trial_cut_measure`,

@@ -657,10 +657,13 @@ def _signature(face):
 
 
 def _fills_bbox(face):
-    """Whether ``face`` fills its box (``_bbox``), a rectangle flat on one model axis: a
-    plane with one wire, each of whose edges is a straight segment along a side of that
-    box. A hole (another wire), a notch or a curved or slanted edge leaves part of the box
-    with no face, however small the missing area."""
+    """Whether ``face`` fills its box (``_bbox``), a rectangle flat on one model axis, but
+    for a band PLANE_TOL wide inside its sides: a plane with one wire, each of whose edges
+    is a straight segment within PLANE_TOL of a side of that box. A hole (another wire), a
+    notch reaching further in or a curved or slanted edge leaves part of the box with no
+    face, however small the missing area. Its edges in the band, the face either covers
+    the box inset by PLANE_TOL or lies wholly in the band (a rim along three sides, say);
+    only the first has more area than the band."""
     if type(face.Surface).__name__ != "Plane" or len(face.Wires) != 1:
         return False
     box = _bbox(face)
@@ -674,7 +677,9 @@ def _fills_bbox(face):
         ends = [vertex.Point for vertex in edge.Vertexes]
         if not any(all(abs(p[axis] - at) <= PLANE_TOL for p in ends) for axis, at in sides):
             return False
-    return True
+    spans = [box[axis + 3] - box[axis] for axis in range(3) if axis != flat[0]]
+    inner = math.prod(max(span - 2 * PLANE_TOL, 0.0) for span in spans)
+    return face.Area > math.prod(spans) - inner
 
 
 def _matches(a, b):

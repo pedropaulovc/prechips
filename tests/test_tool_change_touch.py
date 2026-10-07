@@ -472,6 +472,15 @@ for name, shape in [
     ("notch", deck.cut(Part.makeBox(0.005, 0.005, 12, V(19.995, 9.995, -1)))),
     # A block beside it as tall splits the top's X 20 edge at Y 5, a rectangle still.
     ("split-edge", deck.fuse(Part.makeBox(10, 5, 10, V(20, 0, 0)))),
+    # X 0..20.0000006, notched through its X end 0.0000009 mm deep at Y 4..6: every edge
+    # within the kernel's 1e-6 mm of a side, and its box rounded out to X 20.000001.
+    (
+        "thin-notch",
+        Part.makeBox(20.0000006, 10, 10).cut(Part.makeBox(1, 2, 12, V(19.9999997, 4, -1))),
+    ),
+    # Pocketed to Z 5 inside 0.0000009 mm walls on three sides, open at Y 10: its Z 10
+    # top is a rim along three sides of its box, every edge within 1e-6 mm of a side.
+    ("rim", deck.cut(Part.makeBox(20 - 1.8e-6, 11, 6, V(9e-7, 9e-7, 5)))),
 ]:
     assert shape.isValid() and len(shape.Solids) == 1, name
     shape.exportStep(out + "/" + name + ".step")
@@ -480,7 +489,7 @@ for name, shape in [
 
 @pytest.fixture(scope="module")
 def deck_tops(tmp_path_factory, freecad_kernel):
-    """The kernel's face record of each authored deck's Z 10 top, X 0..20, Y 0..10."""
+    """The kernel's face record of each authored deck's Z 10 top from X 0, Y 0..10."""
     directory = tmp_path_factory.mktemp("decks")
     script = directory / "author.py"
     script.write_text(_DECKS, encoding="utf-8")
@@ -493,9 +502,12 @@ def deck_tops(tmp_path_factory, freecad_kernel):
     )
     engine, tops = Engine(directory, freecad_kernel), {}
     for path in directory.glob("*.step"):
-        box = [0.0, 0.0, 10.0, 20.0, 10.0, 10.0]
-        [tops[path.stem]] = [f for f in engine.faces(path) if f["bbox_mm"] == box]
-    assert len(tops) == 4, process.stdout[-2000:] + process.stderr[-2000:]
+        [tops[path.stem]] = [
+            f
+            for f in engine.faces(path)
+            if f["bbox_mm"][:3] == [0.0, 0.0, 10.0] and f["bbox_mm"][4:] == [10.0, 10.0]
+        ]
+    assert len(tops) == 6, process.stdout[-2000:] + process.stderr[-2000:]
     return tops
 
 
@@ -507,6 +519,17 @@ def deck_faced_in(face, regions):
     return data
 
 
+def sparing(x, y):
+    """Regions that between them face all of X -1..21, Y -1..11 but the box ``x`` by ``y``."""
+    (x0, x1), (y0, y1) = x, y
+    return [
+        [[-1.0, x0], [-1.0, 11.0]],
+        [[x1, 21.0], [-1.0, 11.0]],
+        [[x0, x1], [-1.0, y0]],
+        [[x0, x1], [y1, 11.0]],
+    ]
+
+
 def drill_pickup(data):
     """(status, Z Axis Set) of the one touch derived for ``data``'s drill."""
     finding = evaluate(data)[0]
@@ -515,38 +538,96 @@ def drill_pickup(data):
 
 
 UNPROVEN, SPARED = ("unknown", "unknown"), ("pass", pytest.approx(10.05))
-# Faces to Z 5 sparing only the hole's 0.005 mm square, or only the notch's.
-HOLE_CUTS = [
-    [[0.0, 9.9975], [0.0, 10.0]],
-    [[10.0025, 20.0], [0.0, 10.0]],
-    [[9.9975, 10.0025], [0.0, 4.9975]],
-    [[9.9975, 10.0025], [5.0025, 10.0]],
+# The 0.005 mm squares of the hole and the notch, and 1 mm squares about them.
+HOLE, NOTCH = ([9.9975, 10.0025], [4.9975, 5.0025]), ([19.995, 20.0], [9.995, 10.0])
+CENTRE, CORNER = ([9.5, 10.5], [4.5, 5.5]), ([19.0, 20.0], [9.0, 10.0])
+# Faces to Z 5 sparing only the thin notch's X 19.9999997.. end of the deck at Y 4..6.
+THIN_NOTCH_CUTS = [
+    [[0.0, 19.9999997], [0.0, 10.0]],
+    [[19.9999997, 21.0], [0.0, 4.0]],
+    [[19.9999997, 21.0], [6.0, 10.0]],
 ]
-NOTCH_CUTS = [[[0.0, 19.995], [0.0, 10.0]], [[19.995, 20.0], [0.0, 9.995]]]
 
 
 @pytest.mark.parametrize(
     "deck, cuts, pickup",
     [
-        ("small-hole", HOLE_CUTS, UNPROVEN),
-        ("notch", NOTCH_CUTS, UNPROVEN),
-        ("filled", HOLE_CUTS, SPARED),
-        ("filled", NOTCH_CUTS, SPARED),
-        ("split-edge", HOLE_CUTS, SPARED),
+        ("small-hole", sparing(*HOLE), UNPROVEN),
+        ("small-hole", sparing(*CENTRE), UNPROVEN),
+        ("notch", sparing(*NOTCH), UNPROVEN),
+        ("notch", sparing(*CORNER), UNPROVEN),
+        ("thin-notch", THIN_NOTCH_CUTS, UNPROVEN),
+        ("rim", sparing([10.0, 20.0], [0.0, 10.0]), UNPROVEN),
+        ("filled", sparing(*CENTRE), SPARED),
+        ("filled", sparing(*CORNER), SPARED),
+        ("filled", sparing([10.0, 20.0], [0.0, 10.0]), SPARED),
+        ("split-edge", sparing(*CENTRE), SPARED),
+        ("thin-notch", sparing([19.0, 20.5], [0.0, 1.0]), SPARED),
     ],
-    ids=["small-hole", "notch", "filled-centre", "filled-corner", "split-edge"],
+    ids=[
+        "small-hole",
+        "about-small-hole",
+        "notch",
+        "about-notch",
+        "thin-notch",
+        "rim",
+        "filled-centre",
+        "filled-corner",
+        "filled-half",
+        "split-edge",
+        "thin-notch-clear-end",
+    ],
 )
 @pytest.mark.parametrize("face", ["deck", "top"])
-def test_a_cell_every_cut_spares_holds_the_datum_only_where_the_face_fills_its_box(
+def test_a_land_every_cut_spares_holds_the_datum_only_where_the_face_fills_its_box(
     deck_tops, face, deck, cuts, pickup
 ):
-    # The deck's top as the kernel measures it, faced in parts that spare only a 0.005 mm
-    # square. A hole or notch there leaves no Z 10 at all, though the face lacks only
-    # 0.000025 mm^2 of its box; on a face filling its box the square is still Z 10.
+    # The deck's top as the kernel measures it, bounded by its box, faced in parts. A
+    # hole or notch in the spared square leaves no Z 10 at all there, however little of
+    # the box the face lacks; so does a notch 0.0000009 mm deep, inside the kernel's side
+    # tolerance, at the only part of the box (rounded out past the notch) every cut
+    # spares, and a rim along three sides with no surface inside it. Where the face fills
+    # its box, the spared 1 mm square is still Z 10, as is the thin notch's clear end.
     data = deck_faced_in(face, cuts)
     top = deck_tops[deck]
+    box = top["bbox_mm"]
+    bounds = {"x": [box[0], box[3]], "y": [box[1], box[4]], "z": [box[2], box[5]]}
+    data.features["features"]["deck"]["bounds"] = bounds
     data.kernel = {"status": "ok", "mapping": {"#1/FACE": top["index"]}, "faces": [top]}
     assert drill_pickup(data) == pickup
+
+
+@pytest.mark.parametrize(
+    "cuts, pickup",
+    [
+        (sparing(*HOLE), UNPROVEN),
+        (sparing([9.7505, 10.2495], [4.5, 5.5]), UNPROVEN),
+        (sparing([9.75, 10.25], [4.75, 5.25]), SPARED),
+        (sparing([19.6, 20.0], [0.0, 10.0]), UNPROVEN),
+        # An L of the X 19..20, Y 9..10 corner, 0.3 mm wide along X 19 and along Y 10.
+        (
+            [[[-1.0, 19.0], [-1.0, 11.0]], [[19.0, 21.0], [-1.0, 9.0]], [[19.3, 21.0], [9.0, 9.7]]],
+            UNPROVEN,
+        ),
+        # That 1 mm corner whole, with two other cuts ending at X 19.4 and X 19.6.
+        (
+            [
+                [[-1.0, 19.0], [-1.0, 11.0]],
+                [[19.0, 21.0], [-1.0, 9.0]],
+                [[19.4, 21.0], [-1.0, 1.0]],
+                [[18.0, 19.6], [-1.0, 1.0]],
+            ],
+            SPARED,
+        ),
+    ],
+    ids=["hole-sized", "just-narrower", "touch-sized", "strip", "narrow-L", "across-cut-ends"],
+)
+@pytest.mark.parametrize("face", ["deck", "top"])
+def test_a_spared_patch_holds_the_datum_only_where_a_touch_fits_on_it(face, cuts, pickup):
+    # The deck fills its box, faced in parts that spare a 0.005 mm square, a 0.499 by
+    # 1 mm patch, a 0.5 mm square, a 0.4 by 10 mm strip or a 0.3 mm wide L: only a land
+    # 0.5 mm square holds a touch, wherever the other cuts' ends cross it.
+    assert drill_pickup(deck_faced_in(face, cuts)) == pickup
 
 
 @pytest.mark.parametrize(
