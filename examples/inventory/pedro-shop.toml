@@ -379,6 +379,112 @@ oal_mm = { value = 146.1, measured = { by = "example (plausible, not measured)",
 [tools.drill-index-115.members."15-32in".projection_mm]
 "drill-chuck-r8" = { value = 125.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, chuck nose to drill point" } }
 
+# --- round-7 make-op members (rocker-arm and cone-pivot-post shop-made fixtures) ---
+# Nominal diameters: Machinery's Handbook 27th ed. decimal equivalents of letter, number and
+# fractional drill sizes (#7: Table 3 p.1933 tap drill for 1/4-20; #16, #25, #29: Table 4
+# p.1934); flute length, OAL and chuck projection are example jobber values.
+
+[tools.drill-index-115.members."G"]
+dia_mm = { value = 6.629, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the margins" } }
+shank_mm = 6.629
+flutes = 2
+point_angle = { value = 118, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "drill point gauge" } }
+flute_len_mm = { value = 73.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+oal_mm = { value = 104.8, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+
+[tools.drill-index-115.members."G".projection_mm]
+"drill-chuck-r8" = { value = 84.2, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, chuck nose to drill point" } }
+
+[tools.drill-index-115.members."B"]
+dia_mm = { value = 6.045, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the margins" } }
+shank_mm = 6.045
+flutes = 2
+point_angle = { value = 118, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "drill point gauge" } }
+flute_len_mm = { value = 68.3, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+oal_mm = { value = 98.4, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+
+[tools.drill-index-115.members."B".projection_mm]
+"drill-chuck-r8" = { value = 77.8, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, chuck nose to drill point" } }
+
+[tools.drill-index-115.members."O"]
+dia_mm = { value = 8.026, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the margins" } }
+shank_mm = 8.026
+flutes = 2
+point_angle = { value = 118, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "drill point gauge" } }
+flute_len_mm = { value = 84.1, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+oal_mm = { value = 117.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+
+[tools.drill-index-115.members."O".projection_mm]
+"drill-chuck-r8" = { value = 96.9, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, chuck nose to drill point" } }
+
+[tools.drill-index-115.members."#7"]
+dia_mm = { value = 5.105, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the margins" } }
+shank_mm = 5.105
+flutes = 2
+point_angle = { value = 118, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "drill point gauge" } }
+flute_len_mm = { value = 61.9, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+oal_mm = { value = 92.1, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+
+[tools.drill-index-115.members."#7".projection_mm]
+"drill-chuck-r8" = { value = 71.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, chuck nose to drill point" } }
+
+[tools.drill-index-115.members."#16"]
+dia_mm = { value = 4.496, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the margins" } }
+shank_mm = 4.496
+flutes = 2
+point_angle = { value = 118, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "drill point gauge" } }
+flute_len_mm = { value = 54.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+oal_mm = { value = 82.6, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+
+[tools.drill-index-115.members."#16".projection_mm]
+"drill-chuck-r8" = { value = 62.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, chuck nose to drill point" } }
+
+[tools.drill-index-115.members."#25"]
+dia_mm = { value = 3.797, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the margins" } }
+shank_mm = 3.797
+flutes = 2
+point_angle = { value = 118, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "drill point gauge" } }
+flute_len_mm = { value = 54.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+oal_mm = { value = 79.4, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+
+[tools.drill-index-115.members."#25".projection_mm]
+"drill-chuck-r8" = { value = 58.8, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, chuck nose to drill point" } }
+
+[tools.drill-index-115.members."#29"]
+dia_mm = { value = 3.454, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the margins" } }
+shank_mm = 3.454
+flutes = 2
+point_angle = { value = 118, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "drill point gauge" } }
+flute_len_mm = { value = 49.2, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+oal_mm = { value = 73.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+
+[tools.drill-index-115.members."#29".projection_mm]
+"drill-chuck-r8" = { value = 52.4, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, chuck nose to drill point" } }
+
+[tools.drill-index-115.members."9-32in"]
+dia_mm = { value = 7.144, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the margins" } }
+shank_in = "9/32"
+flutes = 2
+point_angle = { value = 118, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "drill point gauge" } }
+flute_len_mm = { value = 74.6, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+oal_mm = { value = 108.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+
+[tools.drill-index-115.members."9-32in".projection_mm]
+"drill-chuck-r8" = { value = 87.4, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, chuck nose to drill point" } }
+
+[tools.drill-index-115.members."5-16in"]
+dia_mm = { value = 7.938, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the margins" } }
+shank_in = "5/16"
+flutes = 2
+point_angle = { value = 118, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "drill point gauge" } }
+flute_len_mm = { value = 81.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+oal_mm = { value = 114.3, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+
+[tools.drill-index-115.members."5-16in".projection_mm]
+"drill-chuck-r8" = { value = 93.7, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, chuck nose to drill point" } }
+
+# --- end round-7 make-op members ---
+
 # Example purchase: 9/32 in taper-length drill for the cone post's 80 mm mounting holes
 # (a jobber 9/32 has only 73 mm of flute).
 [tools.drills-taper-length]
