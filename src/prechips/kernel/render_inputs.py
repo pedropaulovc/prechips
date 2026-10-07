@@ -105,13 +105,14 @@ def contour_annotations(numbers, scale, setup_id):
         if isinstance(points[0], list) and points[0] and isinstance(points[0][0], list):
             # A raster table contains independent straight passes, not joins between passes.
             # Its rows are numbered passes, never P keys: the picture names passes the same way.
+            # Each pass runs in cutting order when the table gives a cutting sense.
             keep_out = bool(record(profile.get("raster")).get("keep_out"))
             for index, segment in enumerate(points):
                 add_path(
                     profile.get("op"),
                     segment,
                     [],
-                    False,
+                    _directed(profile),
                     raster={
                         "pass": index + 1,
                         "of": len(points),
@@ -199,12 +200,22 @@ def _setup_notes(setup):
     return notes, "No material removed in this setup."
 
 
+def _fit_add(hold):
+    """The allowance a fit-up stickout adds to its measured reading (``hold.stickout_fit``),
+    when the reading is stated; the picture then labels the stickout as nominal."""
+    fit = record(hold.get("stickout_fit"))
+    measure, add = fit.get("measure"), fit.get("add_mm")
+    stated = isinstance(measure, str) and measure.strip() and measure != "unknown"
+    return add if stated and number(add) else None
+
+
 def setup_annotations(bundle, setup, numbers):
     scale = {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units"))
     hold, state = record(setup.get("hold")), record(setup.get("stock_state"))
     result = {
         "fixed_jaw_label": "FIXED JAW (" + str(hold.get("fixed_jaw", "side not declared")) + ")",
         "stickout_mm": hold.get("stickout_mm") if number(hold.get("stickout_mm")) else None,
+        "stickout_add_mm": _fit_add(hold),
         "ends": [
             {"label": label, "z_mm": state[key]}
             for key, label in (

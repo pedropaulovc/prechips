@@ -4,6 +4,8 @@ import re
 from html import unescape
 from pathlib import Path
 
+import pytest
+
 from prechips.inputs import Bundle
 from prechips.sheet import _Traveler
 
@@ -182,12 +184,15 @@ def cylinder(name, x, z, dia, length, **extra):
     }
 
 
-def bridge_page(*extra, **policy_numbers):
+def bridge_page(*extra, precision=3, mill=None, tolerances=None, **policy_numbers):
     """A shop-made two-stud bridge: a made beam and locating pad, bought studs, washers
     and nuts, clearance holes through beam and washers, nut threads, and the machine's
     vise jaw drawn for clearance."""
     data = bundle([{"fixture": "bridge", "pose": IDENTITY}])
-    data.features["precision"] = 3
+    data.features.update(precision=precision, units="mm")
+    if tolerances is not None:
+        data.features["general_tolerances"] = tolerances
+    data.inventory["machines"]["mill"].update(mill or {})
     data.policy["numbers"] = policy_numbers
     bought = {"supply": "bought"}
     data.inventory["fixtures"]["bridge"] = {
@@ -329,6 +334,52 @@ def test_fixture_numbers_print_at_policy_make_precision_and_fits_at_drawing_prec
     assert "Ø20.6 × 1.6" in table
     # The locating pad is a fit: drawing precision (3), not the make precision.
     assert "10 × 10 × 2.346" in table
+
+
+def test_a_locating_solid_with_a_bore_in_it_is_a_fit_as_well_as_its_bore():
+    # A stand locates the part on its own top face; the bore through it does not make that
+    # face a make-precision number.
+    stand = cylinder("stand", 0, -17, 9.94, 9.94, locates="hub face")
+    bore = cylinder("stand-bore", 0, -18, 4.5, 12, void=True, cuts=["stand"])
+    table = bridge_page(stand, bore, fixture_make_decimals=1)
+    assert "Ø9.94 × 9.94" in table and "Z -17…-7.06" in table
+    assert "Ø9.9 × 9.9" not in table and "-7.1" not in table
+
+
+# The shop's mill reads 0.005 mm; a pin locating the part stands in a hole in the beam.
+FIVE_MICRON = {"resolution_mm": 0.005}
+DIAL = (
+    cylinder("pin", -0.368, 8.26, 4, 6, locates="cap bore"),
+    cylinder("pin-hole", -0.368, -1, 4, 12, void=True, cuts=["beam"]),
+    # A 3/4 in rail: half a 0.1 make step rounds up, whatever the float noise.
+    {"name": "rail", "shape": "box", "at_mm": [60, -5, 0], "size_mm": [19.05, 5, 5]},
+)
+
+
+def test_fixture_positions_print_on_the_mill_grid_one_value_per_place():
+    table = bridge_page(*DIAL, precision="unknown", mill=FIVE_MICRON, fixture_make_decimals=1)
+    # The pin is a fit: on the mill's 0.005 grid, not 3 places off it.
+    assert "axis at X -0.37, Y 0; Z 8.26…14.26" in table
+    # The hole the pin stands in prints the same X, not the 0.1 make precision.
+    assert "with 1 × Ø4 hole: axis at X -0.37, Y 0; Z -1…11" in table
+    assert "-0.368" not in table and "X -0.4," not in table
+    # The locating pad's 2.3456 thickness and underside are on the grid too.
+    assert "10 × 10 × 2.345" in table and "Z -2.345…0" in table
+    assert "19.1 × 5 × 5" in table
+
+
+@pytest.mark.parametrize(
+    ("tolerances", "printed"),
+    [({"linear_3pl": 0.13}, "X -0.37,"), ({"linear_3pl": 0.001}, "X ?,"), ({}, "X ?,")],
+)
+def test_a_fit_the_mill_grid_moves_beyond_the_drawing_tolerance_is_unknown(tolerances, printed):
+    table = bridge_page(*DIAL, precision=3, mill=FIVE_MICRON, tolerances=tolerances)
+    pin = table[table.index("|pin|") :]
+    assert f"axis at {printed} Y 0; Z 8.26…14.26" in pin
+    # The hole it stands in is the same place: never a different, silently moved value.
+    assert f"with 1 × Ø4 hole: axis at {printed} Y 0" in table
+    if "?" in printed:
+        assert "cannot hold" in table and "linear_3pl" in table
 
 
 def test_separate_bought_parts_with_one_fastener_text_count_apart():

@@ -41,6 +41,17 @@ def tolerance_requirements(feature: dict[str, Any]) -> list[str]:
     return sorted(result)
 
 
+def reference_only(feature: dict[str, Any], requirement: str) -> bool:
+    """A drawing's reference dimension (``<name>_ref``, such as a CUT TO FIT span): a number
+    the drawing states with no limit, so no drawing band exists to hold inside."""
+    value = feature.get(requirement)
+    return (
+        requirement.endswith("_ref")
+        and isinstance(value, (int, float))
+        and not isinstance(value, bool)
+    )
+
+
 class InputModel(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
 
@@ -202,6 +213,9 @@ ClampPlacement = record(
     },
 )
 type PlanCentres = list[Annotated[list[Number], Field(min_length=2, max_length=2)]]
+# A stickout set from a measured fit-up: the printed ``stickout_mm`` is the nominal
+# ``nominal_mm + add_mm``; the operator sets the ``measure`` reading plus ``add_mm``.
+StickoutFit = record("StickoutFit", {"measure": str, **numbers("nominal_mm add_mm")})
 Hold = record(
     "Hold",
     {
@@ -213,6 +227,7 @@ Hold = record(
         "grip_mm": Number | Literal["not_applicable"],
         "jaw_above_parallels_mm": Number | Literal["not_applicable"],
         "stickout_mm": Number,
+        "stickout_fit": StickoutFit,
         "jaw_center_along_mm": Number,
         "parallels_centres_mm": Annotated[PlanCentres, Field(min_length=2, max_length=2)],
         "riser_centres_mm": Annotated[PlanCentres, Field(min_length=1)],
@@ -244,6 +259,8 @@ Hold = record(
         "jaw_bar": str,
     },
 )
+# ``measure_before_hold``: a ``measure_then_set`` M read on the part before it is held (a
+# span the hold then covers): the HOLD prints the reading before the clamping.
 AxisZero = record(
     "AxisZero",
     {
@@ -252,8 +269,12 @@ AxisZero = record(
         **numbers("edge_mm radius_mm paper_mm check_jog_mm offset_mm"),
         "retouch_after": list[int],
         "after_op": int,
+        "measure_before_hold": bool,
     },
 )
+# ``keep_clamped``: the hold must not be loosened to realign the work (an indexed setup
+# that keeps the earlier chucking); ``recovery`` is then the plan's sequence for a sweep
+# that reads over the limit, printed in place of the loosen-and-tap advice.
 Transfer = record(
     "Transfer",
     {
@@ -263,13 +284,18 @@ Transfer = record(
         "gauge": str,
         "runout_limit_mm": Number,
         "reindicate_after": list[int],
+        "keep_clamped": bool,
+        "recovery": str,
     },
 )
+# A lathe touch's X surface: ``x_face`` names the plan feature (or ``"x_zero"``, this
+# setup's X-zero trial-cut land) whose measured diameter the tool touches, through
+# ``x_paper_mm`` of paper; x_method keeps the operator's words.
 ToolTouch = record(
     "ToolTouch",
     {
-        **texts("tool x_method gauge z_face method z_gauge z_measure"),
-        **numbers("edge_mm paper_mm z_offset_mm"),
+        **texts("tool x_method x_face gauge z_face method z_gauge z_measure"),
+        **numbers("edge_mm paper_mm x_paper_mm z_offset_mm"),
         # The blade corner a grooving/parting blade's Z touch sets, where the touched
         # face's normal cannot give it (a scribe): docs/rules-coordinates.md.
         "corner": Literal["chuck_side", "tailstock_side"],
@@ -329,7 +355,11 @@ class GoNoGo(InputModel):
 
 class ProcessHold(InputModel):
     """A shop limit inside one drawing requirement band, held for a stated process reason
-    (a downstream fit, a clocking stop): printed as a process hold, never a drawing limit."""
+    (a downstream fit, a clocking stop): printed as a process hold, never a drawing limit.
+
+    On a reference-only dimension (``<name>_ref``, such as a CUT TO FIT span) the drawing
+    sets no limit: the hold then names what its gauge reads (``measure``) and where its
+    band comes from (``cite``)."""
 
     feature: str
     requirement: str
@@ -338,6 +368,8 @@ class ProcessHold(InputModel):
     reason: str
     # The GO / NO-GO sizes the hold's gauge reads the hold band with, when it is a limit check.
     go_no_go: GoNoGo | None = None
+    measure: str | None = None
+    cite: Citations | None = None
 
     @model_validator(mode="after")
     def stated(self) -> ProcessHold:
@@ -345,8 +377,12 @@ class ProcessHold(InputModel):
             (self.feature, "feature"),
             (self.requirement, "requirement"),
             (self.reason, "reason"),
+            *(((self.measure, "measure"),) if self.measure is not None else ()),
         ):
             _known_text(value, f"A process hold {what}")
+        cites = [self.cite] if isinstance(self.cite, str) else self.cite
+        if cites is not None and (not cites or any(not c.strip() or c == UNKNOWN for c in cites)):
+            raise ValueError("A process hold cite must name known, non-empty sources.")
         if not self.band[0] < self.band[1]:
             raise ValueError("A process hold band must be an ordered [lo, hi] band, lo < hi.")
         return self

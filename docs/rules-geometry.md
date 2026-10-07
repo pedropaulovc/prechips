@@ -233,7 +233,10 @@ whose kind is `parting_blade` or `grooving_blade` is a blade instead: two
 `nose_radius` corners on a square front edge `blade_width` wide (inventory
 `blade_width_mm`/`blade_width_in`; job op `corners = 2`, `blade_width_mm`),
 entering angle 90°, sides running straight back to `head_len`; an unmeasured
-`blade_width` leaves the row `unknown`. Claimed
+`blade_width` leaves the row `unknown`. A tool set out of its holder by less
+than its `head_len` (projection shorter than the head) leaves the holder unposed:
+every turning rule on the op is `unknown` naming the setting ("set projection_mm
+at least head_len_mm"), never a crash or an "unmeasured" head. Claimed
 faces must be surfaces of revolution about setup Z on the outside; other faces
 are claim errors; internal (bore) claims stay `unknown`. Samples on the
 claimed meridians (a dome's pole included; a `to_z` op's samples moved onto
@@ -412,7 +415,9 @@ the feed and inside the op window (its plan-unit `z_to` scaled to mm), is an
 clear Z was computed, or when the plan units are unknown. The traveler prints it
 on the DRO grid rounded along the feed (the clear side) and rechecks the printed
 Z against the clear Z and `z_to`; with no such grid position it prints a STOP
-box. A blade's `blade_z_mm` is its axial extent over its cutting poses; the
+box. The Z sits in the op's coordinate cell; the per-pass set-on and pass-end
+release sequence prints once, full width ([plan](plan.md#reference)). A blade's
+`blade_z_mm` is its axial extent over its cutting poses; the
 traveler's jaw distance uses its chuck-side face (in plan units, rounded toward
 the jaws), not only the Z its op names. A facing/parting op posed at its `to_z`
 also records `faced_side`, the claimed faces' outward axial normal (+1 toward the
@@ -1704,7 +1709,14 @@ difference between actual entry and derived exit stock. When exit stock is
 unresolved, only the arriving stock is drawn and the missing cuts are named
 plainly. Fixture role colours, labels, setup X/Y/Z, Z0, named datum ends,
 jaw-front Z, stickout and a selected-tool approach illustration accompany the
-geometry. Steady rest rings are drawn as fixture solids; each follow rest's
+geometry. The footer sizes the arriving stock: round stock (a solid of
+revolution about setup Z on a lathe, else about a box axis with a square
+cross-section, checked at six meridians) prints `STOCK Ø` its largest diameter,
+its length left to the stock dimension; only other stock prints `STOCK BOX: X / Y
+/ Z`. A stickout from a measured fit-up (`hold.stickout_fit` with a stated
+reading) is dimensioned `NOM STICKOUT … mm` and the setup notes say it is set as
+the measured fit-up + N mm. Steady rest
+rings are drawn as fixture solids; each follow rest's
 jaws are drawn and labelled posed for the first cutting sample of the first
 op it serves. An exposed-end detail makes short lathe stickouts legible; when
 its point keys would sit closer than their badges need (a jaw-end dome), it is
@@ -1760,7 +1772,14 @@ plane). A numbered support (a coded clamp such as `SUP1`, or a pad) on one plane
 keeps its position badge; one whose solids seat the work on several planes keys
 each solid with its code, its own name and its plane, led to its own contact,
 and pad keys at several heights name the pads each keys. It dimensions the
-closest cut in amber. An
+closest cut in amber (`render_scene.closest_cut`: `mm`, the holding `tag`, the
+two end points): from this setup's removal, or on a saw setup from the blade's
+path (each saw op's kerf slab on its cut plane, across the stock and holding),
+never from the falling offcut. A path sketch draws every pass of a raster of
+at most eight passes, labelled `PASS 1` … `PASS n` as the pass table numbers
+them (a longer raster is a band with its first and last pass), each with a
+direction arrow when the table gives a cutting sense; its `ARROWS: POINT ORDER`
+legend prints only when an arrow is drawn. An
 isometric or elevation view is detailed only when the band draws the stock at
 least 1.5 times larger; a lathe's meridian section gets no holding detail. A
 plan view always gets the detail, drawn from 30° above the side so contact

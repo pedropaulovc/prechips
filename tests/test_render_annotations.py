@@ -142,17 +142,18 @@ def test_only_an_established_cutting_order_draws_travel_arrows(order, directed):
         "line_table": [{"op": 20, "dro_xy": points, **table}],
         "profiles": [
             {"op": 30, "cutter_centre": points, **table},
-            # Raster passes are independent cuts, never a travel claim.
+            # Raster passes are independent cuts: each pass still runs in the table's
+            # cutting sense, so its own arrow is drawn only when that sense is established.
             {"op": 40, "cutter_centre": [[[0, 0], [0, 5]], [[1, 0], [1, 5]]], **table},
         ],
     }
     paths, _ = contour_annotations(numbers, 1.0, "S1")
-    assert {path["op"]: path["directed"] for path in paths if path["op"] != "40"} == {
+    assert {path["op"]: path["directed"] for path in paths} == {
         "10": directed,
         "20": directed,
         "30": directed,
+        "40": directed,
     }
-    assert not any(path["directed"] for path in paths if path["op"] == "40")
 
 
 def test_clamp_badges_keep_the_declared_index_and_never_count_a_locator_as_a_clamp():

@@ -57,7 +57,16 @@ def row(bundle):
     return evaluate(bundle)[0]
 
 
-TOUCH = {"tool": "parter", "gauge": "mic", "z_face": "shoulder", "edge_mm": 0.0, "paper_mm": 0.0}
+# Its X on the X zero's trial-cut land, no cut since, touched without paper.
+TOUCH = {
+    "tool": "parter",
+    "gauge": "mic",
+    "x_face": "x_zero",
+    "x_paper_mm": 0.0,
+    "z_face": "shoulder",
+    "edge_mm": 0.0,
+    "paper_mm": 0.0,
+}
 
 
 @pytest.mark.parametrize(
@@ -124,3 +133,26 @@ def test_diameter_display_sets_the_gauge_diameter_not_its_radius():
     assert x["axis_set"] == pytest.approx(6.35)
     assert x["check_reading"] == pytest.approx(26.35)
     assert x["mirrored_reading"] == pytest.approx(-13.65)
+
+
+TRANSFER = {"from": "S0", "indicate": "shoulder", "gauge": "mic", "runout_limit_mm": 0.02}
+
+
+@pytest.mark.parametrize(
+    ("transfer", "status"),
+    [
+        (TRANSFER, "pass"),
+        ({**TRANSFER, "keep_clamped": False}, "pass"),
+        ({**TRANSFER, "keep_clamped": True, "recovery": "index back and re-clock"}, "pass"),
+        # Kept clamped with no recovery: what to do with a sweep over the limit is unknown.
+        ({**TRANSFER, "keep_clamped": True}, "unknown"),
+        ({**TRANSFER, "keep_clamped": True, "recovery": " "}, "unknown"),
+        ({**TRANSFER, "keep_clamped": True, "recovery": "unknown"}, "unknown"),
+    ],
+)
+def test_a_transfer_kept_clamped_needs_its_recovery(transfer, status):
+    bundle = lathe(touches=[TOUCH])
+    bundle.plan["setups"][0]["zero"]["transfer"] = transfer
+    finding = row(bundle)
+    assert finding.status == status
+    assert ("transfer.recovery" in finding.sentence) == (status == "unknown")

@@ -358,7 +358,12 @@ Front sheet (sheet 1), in this order:
    op's own note (and the tip-depth derivation) on its own line and, for a
    contour op, `See contour table on S2 sheet 3`. An inspection procedure is
    cited as `[S2 sheet 2 note 1]`. An op row with its boxed lines and note
-   never splits across the front and back.
+   never splits across the front and back. A setup whose ops are all bench
+   steps (`inspect`, `deburr`, `coating`, `fit`, `scribe`, `release`, hand
+   finishing) prints **ASSEMBLY / FINISHING** instead: step, feature, material /
+   consumable (a coating's in-house consumable or outside service), action (the
+   op's own instruction, else its action) and inspection, with no empty
+   machining columns.
 7. The sign-off line, after the last op row (on the back when the ops run
    over).
 
@@ -384,8 +389,12 @@ and inspection notes*):
    or an unproven holder wall clearance is a check-at-the-machine action; a jaw
    clearance within 3 mm asks for a hand-fed approach. Ops with the same tool,
    obstacle, clearance and action share a row.
-3. **FEATURE MAP**. Lathe: feature, the drawing's Ø limits (`—` for a process
-   size such as a joint spigot), the Ø turned to, and the Z the setup's cuts start
+3. **FEATURE MAP**. Lathe: each surface the setup cuts (one it only inspects,
+   such as an as-supplied diameter, has no size to turn to and is left off):
+   feature, the drawing's Ø limits (`—` for a process
+   size such as a joint spigot), the X turned to as the DRO displays it (`turn to
+   Ø` on a diameter display, `turn to X (radius)` on a radius one; `?` and a STOP
+   when `dro.radius_mode` is not stated), and the Z the setup's cuts start
    and end at. Mill: feature, the reference point the X/Y/Z stand on (hole or boss
    axis, arc centre, face; at the entry or exit face, or on the Z0 surface), then
    X / Y / Z. An aimed target adds one line: where to machine it, its offset from

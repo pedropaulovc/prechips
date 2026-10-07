@@ -656,7 +656,13 @@ rounded inward on the grid (low up, high down), an unknown end kept unknown. A
 (`blade_band_errors`: `op {n} prints Z {corner_dro_z} for its {corner} corner,
 which forms its face at {formed_z}, outside its allowed {lo} to {hi}`). The
 sheet's op row prints `Z → {corner_dro_z} ({corner} corner)` and the band as
-`allowed {lo} to {hi} ({corner} corner)` from `corner_dro_band`. An unknown
+`allowed {lo} to {hi} ({corner} corner)` from `corner_dro_band`. A part-off or
+cut-to-fit row also prints its X: `X {start} → {end} ({r} radial)`, the end the
+authored `to_dia` (the axis, Ø0, unless authored) and the start that plus twice
+the reach finding's `reach_depth_mm`, in the setup's X display (diameter or
+radius); an unknown depth prints `X → {end} (radial plunge unknown)` and an
+unknown `to_dia` or X display (`dro.radius_mode` omitted or unknown) a STOP with
+no X. An unknown
 reading corner, kernel side or blade width leaves `corner_dro_z` unknown with its
 `reason` and the setup `unknown` (exit 4); the sheet prints "blade corner not set"
 for the target and the band and stops, and the face it leaves stands at an
@@ -671,6 +677,13 @@ past the base radius are dropped. An apex toward the chuck, or a window whose
 base the sphere cannot reach (cap taller than its diameter), has no stair
 (`unknown`). The finish table prints its row-to-row order for an apex-to-base
 convex dome: X out to the next row first, then Z toward the chuck.
+
+Lathe X readings: every lathe row's `x_target_mm` (feature rows, kernel span ends,
+dome and stair rows, `setup_xz`, a dome's tool `x_tool_mm`) is the radius on a
+radius display (`dro.radius_mode = true`) and twice it on a diameter one
+(`false`). An omitted or unknown `radius_mode` leaves each of them unknown, never a
+default display, and the setup `unknown` (`dro.radius_mode not stated`); the
+sheet's feature map, part-off X and dome/stair tables then print no X and a STOP.
 
 Evidence groups: frame/binding, reference rows, operation targets, profiles,
 arc/line/axial tables and advanced entry surfaces. Citations: PLAN §4.1,
@@ -768,13 +781,38 @@ numeric; the rows show `M -9`, `M +1`. The same holds for a tool touch's
 
 Each `[[setups.zero.tool_touches]]` entry is complete when its `tool` and X
 `gauge` resolve without a verify flag and `edge_mm` and `paper_mm` are numeric:
-`x_axis_set` is the same measured-diameter expression and `z_axis_set` is
+`x_axis_set` is the measured-diameter expression plus the X paper
+(`x_paper_mm`, once on the radius: `measured D + 2p` on a diameter display,
+`measured D/2 + p` on radius; a `trial_cut_measure` touch makes its own
+diameter and takes none; unknown paper is unknown) and `z_axis_set` is
 `edge_mm + side*paper_mm`. A mill touch sets Z only (`x_axis_set = "not_applicable"`):
 the mill X/Y read the spindle axis whatever the tool. A touch with
 `method = "measure_then_set"` sets `M + z_offset_mm + side*paper_mm`, M read with
 `z_gauge` as `z_measure`. Missing tools, unverified finder/gauge facts, missing
 recipes and unknown frame binding preserve unknown. A lathe does not require a
 Y zero recipe.
+
+A lathe X touch is set on the diameter actually touched (D2), so `x_face_status`
+checks it stands where the touch is made. A `trial_cut_measure` touch passes.
+`x_face = "x_zero"` (this setup's X-zero trial-cut land) is an error when the X
+zero is no trial cut or comes after the touch, and `unknown` once a cutting op
+runs after the zero (the land is no feature the rule can follow). Any other
+`x_face` must be a plan feature (else error) whose latest naming op before the
+touch, in this setup then back through the earlier setups of its `stock_in`
+lineage, turns it (`turn`, `rough_turn`, `finish_turn`): an op that cuts it
+otherwise is an error, an op naming no feature `unknown`; never turned and not
+supplied as-is (`stock.as_is_faces`) is an error, or `unknown` when the lineage
+omits `stock_in`. No `x_face` names no surface: `unknown`. The traveler prints the
+touch's contact whatever its `x_method` words say: the surface (`on the {x_face}
+Ø, measured`) and the paper the Axis Set counts (`paper {x_paper_mm}`, `no paper`,
+or `paper ?` when unknown; a `trial_cut_measure` touch is its own surface and
+takes none), then the words, its Axis Set X and, for an error or unknown, a STOP.
+A derived X re-touch is a direct touch on the measured diameter (`x_paper_mm = 0`).
+
+A datum `transfer` with `keep_clamped = true` cannot be tapped true: a sweep over
+its `runout_limit_mm` needs the plan's `recovery`. Without a stated `recovery`
+(missing, blank or `"unknown"`) the finding is `unknown` (`state
+transfer.recovery`), and the traveler prints a STOP in place of the transfer.
 
 Paper side: paper lies between the tool and the face, on the side the tool meets
 the face from, so a Z touch through `paper_mm` of paper (the zero, a tool touch or

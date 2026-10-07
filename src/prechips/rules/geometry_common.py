@@ -561,6 +561,21 @@ def op_contexts(bundle, rule, required=(), fixture=False, stock=True, turning=No
                     blocked = Finding(
                         rule, subject, "unknown", {}, cite, holds[setup["id"]]["reason"]
                     )
+                elif turned and _clamped_head(inputs):
+                    blocked = Finding(
+                        rule,
+                        subject,
+                        "unknown",
+                        {
+                            "projection_mm": inputs["projection_mm"],
+                            "head_len_mm": inputs["head_len_mm"],
+                        },
+                        cite,
+                        f"{subject}: the tool is set {inputs['projection_mm']:g} mm out of its "
+                        f"holder, shorter than its {inputs['head_len_mm']:g} mm head, so the "
+                        "holder clamps the head and its clearance is not modelled: set "
+                        "projection_mm at least head_len_mm.",
+                    )
                 elif any(not number(inputs.get(key)) for key in keys):
                     blocked = Finding(
                         rule,
@@ -572,6 +587,12 @@ def op_contexts(bundle, rule, required=(), fixture=False, stock=True, turning=No
                         "or unavailable.",
                     )
         yield setup, op, facts, detail, inputs, cite, blocked
+
+
+def _clamped_head(inputs):
+    """A turning tool set out of its holder by less than its head length."""
+    projection, head = inputs.get("projection_mm"), inputs.get("head_len_mm")
+    return number(projection) and number(head) and projection < head
 
 
 def setup_contexts(bundle, rule):
