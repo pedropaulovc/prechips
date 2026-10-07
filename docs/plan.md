@@ -729,9 +729,9 @@ HOLD prints the order as "seat against the locators (turning in
 `preload_direction`), snug each in turn, then tighten each fully in the same
 order", to the entry's optional declared `torque_nm` when given. An entry declared
 `tighten = "hand"` (a nut run down on a stud without a wrench) is printed as
-tightened "by hand only, no wrench" instead of fully; it takes no `torque_nm`. Plan
-text calling a clamp hand tight while its entry lacks `tighten = "hand"` is an error
-([consistency](rules-setup.md#consistency)).
+tightened "by hand only, no wrench" instead of fully; it takes no `torque_nm`. A
+clamp's note must not restate its tightening as hand or finger tight: the HOLD
+prints it from these fields ([consistency](rules-setup.md#consistency)).
 
 A physical stop uses `stop_fixture` plus `stop_pose`; its inventory solids
 follow the same dimension/measurement/void trust rules as other fixture bodies.
@@ -757,7 +757,9 @@ of part inside the jaws and `jaw_above_parallels_mm` the jaw plate standing
 above the stock seat (support tops, or the bed without a lifting support).
 HOLD prints it and, from the same fields, `work top above jaw tops mm`
 (`stock_state.top_z` less the seated bottom, `retained_rail_bottom_z` when lower,
-and this height), so a note need not restate either.
+and this height; `?` when any of them is unknown). A note in this hold must not
+give heights from the jaws: give them as Z values
+([consistency](rules-setup.md#consistency)).
 An explicit `parallels = "none"` or `"not_applicable"` means known zero parallel
 lift and no parallel solids or parallel-position debt. Without another lifting
 support the work seats on the bed. Omitted,

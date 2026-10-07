@@ -205,7 +205,7 @@ Pose = record("Pose", {"origin_mm": Point3, "x": Point3, "z": Point3})
 # ``restraint``: press holds stock down onto the fixture; locate only positions it.
 # ``torque_nm``: the declared tightening torque the traveler prints in the clamp order.
 # ``tighten = "hand"``: tightened by hand only, never with a wrench; the traveler's clamp
-# order prints it, and free text calling a clamp hand tight must match it (consistency).
+# order prints it, so a clamp note must not restate hand tightening (consistency).
 ClampPlacement = record(
     "ClampPlacement",
     {

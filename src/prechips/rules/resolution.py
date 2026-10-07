@@ -455,14 +455,15 @@ def tool_numbers(bundle, setup):
 def jaw_top_z(setup, hold, scale):
     """The vise jaw tops' Z in ``setup``'s frame (plan units): the work's seated bottom
     (``retained_rail_bottom_z`` when lower than ``bottom_z``) plus the hold's
-    ``jaw_above_parallels_mm``, as the kernel seats its jaws. None when either is unknown
-    or ``scale`` (mm per plan unit) is."""
+    ``jaw_above_parallels_mm``, as the kernel seats its jaws. None when any of them is
+    unknown (an authored but unknown rail leaves the seat unknown) or ``scale`` (mm per
+    plan unit) is."""
     state = record(setup.get("stock_state"))
     bottom, rail = state.get("bottom_z"), state.get("retained_rail_bottom_z")
     jaw = record(hold).get("jaw_above_parallels_mm")
-    if not (scale and number(bottom) and number(jaw)):
+    if not (scale and number(bottom) and number(jaw)) or (rail is not None and not number(rail)):
         return None
-    return (min(bottom, rail) if number(rail) else bottom) + jaw / scale
+    return (min(bottom, rail) if rail is not None else bottom) + jaw / scale
 
 
 def selected_references(plan):
