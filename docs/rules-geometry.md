@@ -1690,6 +1690,9 @@ held on edge stands above its jaws and hides the rear jaw from the isometric
 camera), with a known box is instead drawn as a dashed outline of that box, its
 leader ending on the outline at an open ring, so its position still shows
 without pointing at the solid in front. A hidden parallel stays a render debt.
+An isometric view calls out the holding that touches the stock; a vise jaw
+that presses the work through it (the moving jaw behind a `jaw_bar` round bar,
+called out as `ROUND BAR`) is holding too.
 Triangles that share an edge cover every pixel centre on it exactly
 once, so a solid wholly behind another never shows through its seams. A datum's
 authored face name keeps its words but its axis words are restated in the

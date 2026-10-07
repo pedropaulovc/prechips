@@ -66,6 +66,9 @@ class _Callout:
     leader: str = "line"
     # Mesh tags of the drawn solids the label names: its leader must end on one of them.
     targets: tuple = ()
+    # A "hidden" callout's dashed outlines, one per point: each leader ends on its outline
+    # where it faces the label.
+    outlines: tuple = ()
 
 
 def _plain(value):
@@ -637,7 +640,9 @@ class _Diagram:
     def _framed(self):
         """Components the view is scaled to. An isometric view frames the stock and the
         holding that touches it, at most 1.5x the stock's largest size: a vise or table
-        many times the part's size is cropped, not allowed to shrink the work."""
+        many times the part's size is cropped, not allowed to shrink the work. A vise jaw
+        that presses the work through touching holding (a round bar between the work and
+        the moving jaw) is holding too."""
         if self.view != "isometric" or self.stock is None:
             return list(self.components)
         size = max(self.stock[i + 3] - self.stock[i] for i in range(3))
@@ -645,8 +650,16 @@ class _Diagram:
         frame = [self.stock[i] - pad for i in range(3)] + [
             self.stock[i + 3] + pad for i in range(3)
         ]
-        touch = [self.stock[i] - 1.0 for i in range(3)] + [
-            self.stock[i + 3] + 1.0 for i in range(3)
+
+        def touches(box, other):
+            return not any(
+                box[i] > other[i + 3] + 1.0 or box[i + 3] < other[i] - 1.0 for i in range(3)
+            )
+
+        touching = [
+            c["box_mm"]
+            for c in self.components
+            if c.get("box_mm") and touches(c["box_mm"], self.stock)
         ]
         framed = []
         for component in self.components:
@@ -654,7 +667,10 @@ class _Diagram:
             if box is None:
                 framed.append(component)
                 continue
-            if any(box[i] > touch[i + 3] or box[i + 3] < touch[i] for i in range(3)):
+            pressing = _role(component) in ("fixed_jaw", "moving_jaw") and any(
+                touches(box, other) for other in touching
+            )
+            if not touches(box, self.stock) and not pressing:
                 continue
             framed.append(
                 dict(
@@ -884,17 +900,20 @@ class _Diagram:
                 if point is not None:
                     points.append(point)
             if not points and all(
-                item.get("role") in ("fixed_jaw", "moving_jaw") and item.get("box_mm")
+                _role(item) in ("fixed_jaw", "moving_jaw") and item.get("box_mm")
                 for item in components
             ):
                 # A vise jaw hidden behind the work is still the face the work seats on:
                 # its box is drawn as a dashed hidden-position outline, its leader
                 # stopping there, never on the work in front of it.
+                outlines = tuple(self._box_outline(item) for item in components)
                 points = [
-                    _nearest_on_outline(self._box_outline(item), c.project(item["center_mm"]))
-                    for item in components
+                    _nearest_on_outline(outline, c.project(item["center_mm"]))
+                    for outline, item in zip(outlines, components, strict=True)
                 ]
-                self.callouts.append(_Callout(label.upper(), points, _FIXTURE, leader="hidden"))
+                self.callouts.append(
+                    _Callout(label.upper(), points, _FIXTURE, leader="hidden", outlines=outlines)
+                )
                 continue
             if not points:
                 self._hidden(label.upper())
@@ -1207,8 +1226,13 @@ class _Diagram:
             for item, row_y in zip(callouts, rows, strict=True):
                 lines = wrapped[(id(item), side)]
                 target_y = row_y + ((len(lines) - 1) * pitch + 21) / 2
-                for point in item.points if item.leader in ("line", "hidden") else []:
+                drawn = item.points if item.leader in ("line", "hidden") else []
+                outlines = item.outlines or (None,) * len(drawn)
+                for point, outline in zip(drawn, outlines, strict=True):
                     end = (edge, target_y)
+                    if outline:
+                        # The ring sits where the hidden outline faces its label.
+                        point = _nearest_on_outline(outline, end)
                     path = [point, end]
                     if not blocked(item, point, side):
                         path = [point, (edge + (14 if side == 0 else -14), point[1]), end]

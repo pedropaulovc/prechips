@@ -828,6 +828,45 @@ def _block(box, colour, tag):
     return (points, triangles, colour, False, tag)
 
 
+@pytest.mark.parametrize("pressing", [True, False], ids=["through_a_round_bar", "nothing_between"])
+def test_a_moving_jaw_pressing_the_work_through_a_round_bar_keeps_its_leader(pressing):
+    # Isometric: the bar on edge seats on the fixed jaw; a round bar between it and the
+    # moving jaw holds the moving jaw 6 mm off the work. Without the bar the jaw stands
+    # off alone and is not holding.
+    stock = [0, 0, 0, 100, 20, 60]
+    boxes = {
+        "fixed_jaw": [10, 20, 0, 90, 38, 40],
+        "moving_jaw": [10, -24, 0, 90, -6, 40],
+    }
+    if pressing:
+        boxes["jaw_bar"] = [12, -6, 17, 88, 0, 23]
+    meshes = [_block(stock, (160, 175, 185), "part")]
+    meshes += [_block(box, (120, 98, 76), name) for name, box in boxes.items()]
+    labels = {"fixed_jaw": "FIXED JAW", "moving_jaw": "MOVING JAW", "jaw_bar": "ROUND BAR"}
+    spec = {
+        "setup_id": "P2",
+        "view": "isometric",
+        "stock_box": stock,
+        "components": [
+            {
+                "name": name,
+                "label": labels[name],
+                "role": name,
+                "box_mm": box,
+                "center_mm": [(box[i] + box[i + 3]) / 2 for i in range(3)],
+                "meshes": [name],
+            }
+            for name, box in boxes.items()
+        ],
+    }
+    diagram = _Diagram(meshes, spec)
+    diagram.render()
+
+    named = {label for label, _ in diagram.leaders}
+    assert ("MOVING JAW" in named) is pressing
+    assert ("ROUND BAR" in named) is pressing
+
+
 def _vise_spec(size, touching=True):
     """Plan view of a ``size`` x ``size`` x 10 block between two 160 mm long vise jaws."""
     stock = [0, 0, 0, size, size, 10]

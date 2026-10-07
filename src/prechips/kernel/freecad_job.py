@@ -6896,6 +6896,9 @@ class _Setup:
                     label, role = annotation.get("fixed_jaw_label", "FIXED JAW"), "fixed_jaw"
                 elif name == "moving_jaw":
                     label, role = "MOVING JAW", "moving_jaw"
+                elif name.startswith("jaw_bar "):
+                    # The round bar between the work and the moving jaw, as HOLD names it.
+                    label, role = "ROUND BAR", "jaw_bar"
                 elif local.startswith("pad"):
                     role = "pad"
                 elif local.startswith("base"):
