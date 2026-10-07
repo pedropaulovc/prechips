@@ -1052,7 +1052,7 @@ jaws_along = "not_applicable"
 parallels = "not_applicable"
 supports = "not_applicable"      # the plate assembly includes the load-bearing foot-end ledge
 clamps = [
-  { ref = "clamping-kit-lms-1144/bracket-bridge", pose = { origin_mm = [0.0, -6.0, -16.0], x = [1.0, 0.0, 0.0], z = [0.0, -1.0, 0.0] }, torque_nm = 15.0, note = "presses the foot toward the plate (+Y); bar top at Setup Z -9.65; studs, washers and nuts outside the foot width, clear of the foot-end ledge, arch and cross-bore" },
+  { ref = "clamping-kit-lms-1144/bracket-bridge", pose = { origin_mm = [0.0, -6.0, -16.0], x = [1.0, 0.0, 0.0], z = [0.0, -1.0, 0.0] }, torque_nm = 15.0, note = "presses the foot toward the plate (+Y); bar top at Setup Z -9.65; studs, washers and nuts outside the foot width, clear of the foot-end ledge, arch and cross-bore; torque the two front nuts alternately with the 1/4 in drive torque wrench and 9/16 in socket" },
 ]                                # torque_nm: AUTHOR'S CHOICE, firm hand torque on the 3/8-16 front nuts for a 6 mm foot
 clamp_order = [1]
 method = "strap_clamps"
@@ -1172,7 +1172,7 @@ frame = "TC"                     # outer face up on the button stud, stud tail d
 stock_in = "S4"
 coolant = "none: bench filing"
 deburr_mm = 0.25                 # example (plausible): title-block edge break
-note = "AUTHOR'S CHOICE: file the arch to filing buttons because the reamed cross bore is their pin, so the R7 comes out concentric with the bore without a second mill setup. Off the angle plate, clamp the buttons on both ear faces through the cross bore and grip the stud tail upright in the bench vise."
+note = "AUTHOR'S CHOICE: file the arch to filing buttons because the reamed cross bore is their pin, so the R7 comes out concentric with the bore without a second mill setup. The button kit is bought finished, hardened and ground (this shop does no heat treatment or grinding): two bearing-steel button collars Ø14 g6 x 4 bored 6.5 H7; one stepped stud with a Ø6.49 h6 tail 45 long, a Ø12 x 5 head, a Ø6.49 h6 body 13.5 long and an M6x1 thread 10 long; one M6 nut. On receipt, before the first S4F: mic each button OD (accept 13.95-14.03) and the stud's tail and body (accept 6.475-6.495) with the 0-1 in micrometer, limits that keep the filed arch inside R6.90-7.10 with both pin clearances at worst; the 6.500 GO pin enters each button bore and the 6.530 NO-GO pin does not; a smooth file skates on each button rim without biting (file-hard); the M6 nut runs the full thread by hand. Reject any part that fails."
 
 [setups.stock_state]             # frame TC
 top_feature = "outer_face"
@@ -1183,9 +1183,9 @@ bottom_z = -24.2                 # foot free end
 fixture = "bench-vise-4in"
 pose = { origin_mm = [0.0, -25.2, -35.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] } # AUTHOR'S CHOICE: jaw tops 10.8 mm below the foot end, closed on the stud tail
 clamps = [
-  { ref = "bracket-arch-filing-buttons", restraint = "press", pose = { origin_mm = [0.0, -25.2, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "stud through the reamed cross bore, one button on each ear face, nut tightened by hand" },
+  { ref = "bracket-arch-filing-buttons", restraint = "press", pose = { origin_mm = [0.0, -25.2, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, torque_nm = 4.0, note = "M6 nut on the stud's 10 mm thread presses the upper button; the lower button seats on the stud head; torque with the 1/4 in drive torque wrench and 10 mm socket while one hand holds the foot against the turn" },
 ]
-clamp_order = [1]
+clamp_order = [1]                # torque_nm: AUTHOR'S CHOICE, 4 N·m, firm enough that the buttons do not creep under the file and well under an M6 nut's working torque
 support = "none"
 grip_on = "AUTHOR'S CHOICE: the button stud tail in the vise jaws; the part is clamped between the buttons and never touches the jaws"
 grip_mm = "not_applicable"
@@ -1194,7 +1194,7 @@ jaws_along = "not_applicable"
 parallels = "not_applicable"
 jaw_above_parallels_mm = "not_applicable"
 stop = "AUTHOR'S CHOICE: none; steady the foot by hand against the file stroke"
-clamp = "M6 nut on the button stud, hand tight, pressing the buttons on the two ear faces"
+clamp = "close the bench vise on the stud tail, stud head up and 20 mm above the jaw tops; drop the lower button over the stud onto the head; slide the cross bore over the stud, inner ear face down on the lower button; drop the upper button onto the outer face and run the M6 nut down by hand until it just seats the stack"
 
 [[setups.ops]]
 op = 10
