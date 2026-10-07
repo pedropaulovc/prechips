@@ -919,26 +919,35 @@ def test_a_touch_on_a_blade_face_standing_at_an_unknown_z_is_unknown(missing):
     assert zero.status == "unknown"
 
 
-@pytest.mark.parametrize(
-    ("width", "status"), [("unknown", "unknown"), (1.61, "error"), (1.6, "pass")]
-)
-def test_a_later_setup_zeroed_on_a_blade_face_reads_where_it_stands(width, status):
-    # S2 takes S1's part in the same frame and zeros its turner on the end S1's blade
-    # formed, then faces the sleeve to -8. Its Z zero is set where that end stands: never
-    # from the nominal -10 when S1 left it at an unknown Z, refused when S1 left it off
-    # S2's 0.1 grid (-9.99, set as -9.9).
+def _zeroed_on_the_end(bundle):
+    """S1 keeps only op 40, the cut that leaves the end at -10; S2 takes its part in the
+    same frame, zeros its turner on that end (edge -10, no paper) and faces the sleeve to
+    -8, a 7.96..8.04 length."""
     import copy
 
-    bundle = _retouched(1.6)
-    bundle.inventory["tools"]["blade"]["blade_width_mm"] = width
     first = bundle.plan["setups"][0]
     first["ops"] = first["ops"][:1]
     second = copy.deepcopy(first)
-    second.update(id="S2", stock_in="S1")
+    second.update(id="S2", stock_in="S1", machine="lathe")
     second["ops"] = [{"op": 50, "do": "face", "feature": "sleeve", "tool": "turner", "to_z": -8.0}]
     second["zero"]["tool_touches"] = []
     second["zero"]["z"].update(face="end", edge_mm=-10.0, tool="turner", method="touch")
     bundle.plan["setups"].append(second)
+    return bundle
+
+
+@pytest.mark.parametrize("do", ["face", "part_off"])
+@pytest.mark.parametrize(
+    ("width", "status"), [("unknown", "unknown"), (1.61, "error"), (1.6, "pass")]
+)
+def test_a_later_setup_zeroed_on_a_blade_face_reads_where_it_stands(do, width, status):
+    # S2 zeros on the end S1's blade faced or parted off. Its Z zero is set where that end
+    # stands: never from the nominal -10 when S1 left it at an unknown Z, refused when S1
+    # left it off S2's 0.1 grid (-9.99, set as -9.9), whatever the blade's action.
+    bundle = _retouched(1.6)
+    bundle.inventory["tools"]["blade"]["blade_width_mm"] = width
+    bundle.plan["setups"][0]["ops"][0]["do"] = do
+    bundle = _zeroed_on_the_end(bundle)
     zeros = {f.subject: f.status for f in zero_recipe.evaluate(bundle)}
     assert zeros == {"S1": "pass", "S2": status}
     if status == "pass":
@@ -946,6 +955,34 @@ def test_a_later_setup_zeroed_on_a_blade_face_reads_where_it_stands(width, statu
             "S1": "pass",
             "S2": "pass",
         }
+
+
+@pytest.mark.parametrize(
+    ("fact", "to_z", "status"),
+    [
+        ({"faced_side": 1, "sample_count": 3}, -9.95, "error"),
+        ({"faced_side": 1, "sample_count": 3}, -9.9, "pass"),
+        ({}, -9.95, "unknown"),
+        ({"sample_count": 3}, -9.95, "pass"),
+    ],
+)
+def test_a_later_setup_zeroed_on_a_turned_shoulder_reads_where_it_stands(fact, to_z, status):
+    # S1 turns the end's shoulder to to_z with the turner on a 0.01 lathe; S2's 0.1 DRO
+    # can only set -9.95 as -9.9, so its zero on that shoulder is refused, and an on-grid
+    # -9.9 shoulder passes. The kernel pose decides whether the turn left a face there:
+    # unsampled, it is unknown, never stock; sampled with no axial face (a diameter
+    # alone), the end is stock its touch sets.
+    bundle = _retouched(1.6)
+    lathe = bundle.inventory["machines"]["lathe"]
+    bundle.inventory["machines"]["fine_lathe"] = {**lathe, "resolution_mm": 0.01}
+    first = bundle.plan["setups"][0]
+    first["machine"] = "fine_lathe"
+    first["ops"][0] = {"op": 40, "do": "turn", "feature": "end", "tool": "turner", "to_z": to_z}
+    bundle.kernel["ops"]["S1:40"] = fact
+    bundle = _zeroed_on_the_end(bundle)
+    bundle.plan["setups"][1]["zero"]["z"]["edge_mm"] = to_z
+    zeros = {f.subject: f.status for f in zero_recipe.evaluate(bundle)}
+    assert zeros == {"S1": "pass", "S2": status}
 
 
 def test_each_toolpost_tool_is_set_on_centre_before_its_first_touch_off():

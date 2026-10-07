@@ -8,7 +8,7 @@ import re
 from prechips.measurements import nominal_angle_deg
 
 from ..findings import Finding
-from .resolution import UNKNOWN, length_mm, number, resolve, uncertain
+from .resolution import MANUAL, SAW_OPS, UNKNOWN, length_mm, number, resolve, uncertain
 
 FACING = {"face", "rough_face", "finish_face"}
 POCKETING = {"pocket", "rough_pocket", "finish_pocket"}
@@ -215,13 +215,16 @@ def operative_z(bundle, setup, value, face=None, done=0, source=None):
 
     The producer is the op ``source`` names in this setup (``"S2 op 20 to_z"``,
     :func:`stock_states`). Else, for the stock ``"top"``, the op that last faced it in
-    this setup's first ``done`` ops (:func:`stock_states`). Else the last facing or
-    pocketing op proven to cut feature ``face`` in the same-frame setups of this setup's
-    :func:`lineage` (and, for a feature, this setup's first ``done`` ops), when it cut it
-    to ``value``: for ``"top"`` a facing op on ``top_feature`` (any, if none is named),
-    for a feature an op on it or whose feature's XY footprint covers it
-    (:func:`_covers_xy`). An equal Z alone is never proof; no ``face`` names no
-    producer."""
+    this setup's first ``done`` ops (:func:`stock_states`). Else the last op proven to cut
+    feature ``face`` in the same-frame setups of this setup's :func:`lineage` (and, for a
+    feature, this setup's first ``done`` ops), when it cut it to ``value``: for ``"top"``
+    a facing op on ``top_feature`` (any, if none is named); for a feature an op on it that
+    leaves its face at its ``to_z`` (:func:`forms_face`: a facing or pocketing op, a
+    part-off, cut-to-fit, groove or turned shoulder the kernel poses on that plane), or a
+    facing or pocketing op whose feature's XY footprint covers it (:func:`_covers_xy`).
+    An op on it whose face is unknown (:func:`forms_face` unknown, or an unknown
+    ``to_z``) is its producer, so the surface is unknown, never its nominal. An equal Z
+    alone is never proof; no ``face`` names no producer."""
     from .coordinates import dro_grid, dro_z, formed_z
 
     if not number(value):
@@ -238,6 +241,32 @@ def _covers_xy(cut, target):
     starts there where it spans that surface's whole footprint."""
     bounds = {k: v for k, v in mapping(cut.get("bounds")).items() if k in ("x", "y")}
     return _covers({**cut, "bounds": bounds}, target, whole=True)
+
+
+def forms_face(bundle, setup, op):
+    """Whether ``op``'s cut leaves its feature's face at its ``to_z``: True for a facing or
+    pocketing op, and for a lathe turning-approach op the geometry kernel poses on its
+    ``to_z`` plane (``faced_side``: its claimed faces all face one way along Z, as a face,
+    part-off, cut-to-fit, groove wall or turned shoulder does); False for an op without a
+    ``to_z``, a manual, saw or transfer step, any other off-lathe op, and a turning op the
+    kernel sampled without one-sided axial faces (an outside diameter alone). Unknown for
+    a turning op with a ``to_z`` the kernel has not sampled (no run, or no sample count),
+    so a face it may have left is never taken for stock."""
+    from .geometry_common import TURNING, approach
+
+    if "to_z" not in op or op.get("do") in MANUAL | SAW_OPS | {"transfer"}:
+        return False
+    if op.get("do") in FACING | POCKETING:
+        return True
+    if approach(bundle, setup, op) != TURNING:
+        return False
+    kernel = mapping(getattr(bundle, "kernel", None))
+    fact = mapping(mapping(kernel.get("ops")).get(f"{setup.get('id')}:{op.get('op')}"))
+    if kernel.get("status") != "ok":
+        return UNKNOWN
+    if fact.get("faced_side") in (1, -1):
+        return True
+    return False if number(fact.get("sample_count")) else UNKNOWN
 
 
 def _producer(bundle, setup, value, face, done, source):
@@ -263,16 +292,25 @@ def _producer(bundle, setup, value, face, done, source):
     top = mapping(setup.get("stock_state")).get("top_feature")
     for cut_setup, op in reversed(cuts):
         name, to_z = op.get("feature"), op.get("to_z")
-        if op.get("do") not in FACING | POCKETING or not number(to_z):
-            continue
         if face == "top":
-            hit = op["do"] in FACING and top in (None, name)
+            # The stock top only a facing op moves (:func:`stock_states`).
+            forms = op.get("do") in FACING and "to_z" in op and top in (None, name)
+        elif name == face:
+            forms = forms_face(bundle, cut_setup, op)
         else:
-            hit = name == face or _covers_xy(
-                mapping(features.get(name)), mapping(features.get(face))
+            # A facing or pocketing cut clears its whole footprint at its to_z.
+            forms = (
+                op.get("do") in FACING | POCKETING
+                and "to_z" in op
+                and _covers_xy(mapping(features.get(name)), mapping(features.get(face)))
             )
-        if hit:
-            return (cut_setup, op) if abs(to_z - value) <= SAME_Z else None
+        if not forms:
+            continue
+        if forms is True and number(to_z) and abs(to_z - value) > SAME_Z:
+            # It left this face at another Z: the face at value is not its.
+            return None
+        # Where it left the face; unknown when that is (:func:`formed_z`).
+        return cut_setup, op
     return None
 
 

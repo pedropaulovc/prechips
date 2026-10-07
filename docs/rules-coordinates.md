@@ -328,19 +328,28 @@ never a later recut. It then walks the selected stock ancestry: the setup's
 `stock_in` chain, the same one the kernel builds, joint branches included, and
 same-frame setups only. A setup outside that chain never counts, even if it cut
 the same nominal face. The producer is the op that advanced a stock-state top
-or entry, or the facing or pocketing op that last cut the face proven to be the
-one read: for `top`, a facing op on `top_feature`; for a feature (a zero face, an
-op's own feature for its start and end Z, a feature map row), an op on that
-feature or one whose feature's X/Y `bounds` hold its whole footprint (its own
-`bounds`, else a Z-axis round feature's `at` ± half its largest `dia`); overlap
-is not cover. An equal Z alone is never proof, and with no footprint to prove it
-there is no producer.
-It counts only if it cut that face to that Z. Its
+or entry, or the op that last cut the face proven to be the one read: for
+`top`, a facing op on `top_feature`; for a feature (a zero face, an op's own
+feature for its start and end Z, a feature map row), an op on that feature that
+leaves its face at its `to_z` (`forms_face`), or a facing or pocketing op whose
+feature's X/Y `bounds` hold its whole footprint (its own `bounds`, else a Z-axis
+round feature's `at` ± half its largest `dia`); overlap is not cover. An op
+leaves its feature's face at `to_z` when it is a facing or pocketing op, or a
+lathe turning op the kernel poses on that plane (`faced_side`: its claimed
+faces all face one way along Z, as a face, part-off, cut-to-fit, groove wall or
+turned shoulder does). A turning op the kernel sampled with no such face (a
+diameter alone), an op without `to_z`, and a manual, saw or transfer step leave
+none. A turning op with a `to_z` the kernel has not sampled, or an op on the
+face with an unknown `to_z`, is a producer whose face stands at an unknown Z,
+never raw stock. An equal Z alone is never proof, and with no footprint to
+prove it there is no producer.
+A known producer counts only if it cut that face to that Z. Its
 value is its `dro_to_z` on its own setup's grid (for a grooving/parting blade, the
 `formed_z` its rounded corner reading leaves), re-rounded to the safe side on
 the consumer's grid, so a coarser producer's −2.270 stays −2.270. That value is
 unknown, never the nominal `to_z`, when the blade's reading corner, kernel side
-or width is unknown, or when the Z touch the producer cut on has an unknown edge
+or width is unknown, when whether the op leaves a face at `to_z` is unknown, or
+when the Z touch the producer cut on has an unknown edge
 or paper stand-off or meets a face standing at an unknown Z (`reads_unknown`);
 the surface then prints `?`. A touch on a produced face standing off the
 consumer's grid is refused under `zero_check` (Touched faces, below). Any other
@@ -583,16 +592,18 @@ Touched faces: every non-measured Z touch (the zero, a tool touch, a derived
 re-touch or a listed top retouch) sets its Axis Set from its face as this
 setup's DRO shows it (the surface the sheet prints, `operative_z`). When an op
 cut that face under a set Z DRO, in this setup before the touch or in a
-same-frame setup of its `stock_in` lineage (the producer `operative_z` finds;
-ops before their setup's Z zero do not count: the zero places their faces), the
-face stands at that op's `formed_z` (`face_stands`). A face standing off this
-DRO's grid (a blade's off-grid width, a finer producer grid) is set where it is
-not, so every Z the tool then cuts to lands off by the difference: an `error`
+same-frame setup of its `stock_in` lineage (the producer `operative_z` finds:
+any op that leaves the face at its `to_z`, `forms_face`, a facing op or a blade
+part-off alike; ops before their setup's Z zero do not count: the zero places
+their faces), the face stands at that op's `formed_z` (`face_stands`). A face
+standing off this DRO's grid (a blade's off-grid width, a finer producer grid)
+is set where it is not, so every Z the tool then cuts to lands off by the
+difference: an `error`
 (`{who} sets {face} as Z {shown}, which stands at {formed_z}`), whatever cut
 reads the touch next. A face standing at an unknown Z (`formed_z` unknown) is
 `unknown`, and the sheet prints its Axis Set as `?`. A measured touch reads its
-face and is not checked; a face no op produced (the stock) stands where the touch
-sets it.
+face and is not checked; a face no op produced (the stock, or a face only a
+saw, a manual step or a diameter cut touched) stands where the touch sets it.
 
 Templates:
 

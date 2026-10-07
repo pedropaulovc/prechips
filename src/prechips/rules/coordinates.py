@@ -35,7 +35,7 @@ from .resolution import (
     setup_frame,
     uncertain,
 )
-from .tip_endpoints import FACING, HOLE_OPS, POCKETING, _covers_xy, stock_states
+from .tip_endpoints import FACING, HOLE_OPS, POCKETING, _covers_xy, forms_face, stock_states
 
 AXES = ("x", "y", "z")
 CENTRE_OPS = HOLE_OPS | {"center"}
@@ -1785,14 +1785,15 @@ def formed_z(bundle, setup, op):
     """The Z the face ``op`` leaves stands at once the DRO reads its printed target: a
     lathe grooving/parting blade op's ``formed_z`` from the rounded reading of the corner
     its Z touch set (:func:`_blade_target`); else ``dro_z(to_z)`` on ``setup``'s grid.
-    Unknown, never its nominal ``to_z``, when the blade's corner, side or width is, or
-    when the DRO Z it cuts on was set at an unknown place (:func:`reads_unknown`).
+    Unknown, never its nominal ``to_z``, when the blade's corner, side or width is, when
+    whether it leaves a face at ``to_z`` is (:func:`~.tip_endpoints.forms_face`), or when
+    the DRO Z it cuts on was set at an unknown place (:func:`reads_unknown`).
     Coordinates records it as the op's ``dro_to_z``."""
     from .zero_recipe import blade, blade_readings, reads_unknown, z_readings
 
     grid = dro_grid(bundle, setup)
     readings = z_readings(bundle, setup)
-    if reads_unknown(bundle, setup, op, readings):
+    if forms_face(bundle, setup, op) == UNKNOWN or reads_unknown(bundle, setup, op, readings):
         return UNKNOWN
     if blade(bundle, op.get("tool")):
         # Empty off a lathe, where no blade corner reads the DRO.

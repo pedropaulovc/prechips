@@ -517,10 +517,11 @@ def _corner_recorder(bundle, setup, lathe, errors):
 def face_stands(bundle, setup, face, edge, done=0, source=None):
     """Where the ``face`` a Z touch at plan ``edge`` meets physically stands once
     ``setup``'s first ``done`` ops have run, when an op cut it under a set Z DRO: that op's
-    :func:`formed_z` (unknown when a blade's corner, side or width is), found as the sheet
-    finds the face it prints (:func:`operative_z`: ``source``, this setup's ops and its
-    same-frame stock lineage). None for any other face: the stock, or a face cut before
-    its setup's Z zero, stands where the touch sets it."""
+    :func:`formed_z` (unknown when a blade's corner, side or width is, or whether it left
+    a face there), found as the sheet finds the face it prints (:func:`operative_z`:
+    ``source``, this setup's ops and its same-frame stock lineage; any op the kernel poses
+    on a face of the touched feature, :func:`forms_face`). None for any other face: the
+    stock, or a face cut before its setup's Z zero, stands where the touch sets it."""
     from .coordinates import formed_z
 
     if not number(edge):
