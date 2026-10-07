@@ -1794,7 +1794,10 @@ never from the falling offcut. A path sketch draws every pass of a raster of
 at most eight passes, labelled `PASS 1` … `PASS n` as the pass table numbers
 them (a longer raster is a band with its first and last pass), each with a
 direction arrow when the table gives a cutting sense; its `ARROWS: POINT ORDER`
-legend prints only when an arrow is drawn. An
+legend prints only when an arrow is drawn. The raster cycle is one way, so
+each lift and rapid back from a drawn pass's end to the next pass's start is
+dashed in the op's colour under `DASHED: LIFTED RETURN`, and a return never
+reads as a cut; a band showing only its first and last pass draws none. An
 isometric or elevation view is detailed only when the band draws the stock at
 least 1.5 times larger; when framing the whole stock cannot, the band is a
 window on the holding that touches it (its contacts and the whole of each

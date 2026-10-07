@@ -660,7 +660,8 @@ def test_raster_keep_out_draws_independent_segments_without_filling_clearance(ke
 def test_a_raster_sketch_draws_every_pass_and_claims_arrows_only_when_drawn(order):
     """The cone's S11 sketch: six passes, every one drawn and labelled as the pass table
     numbers them, each with its cutting direction when the table gives one; the legend
-    names arrows only when arrows are drawn."""
+    names arrows only when arrows are drawn. A known one-way cycle dashes each lift and
+    rapid back to the next pass's start, so a return never reads as a cut."""
     segments = [[[0, y], [40, y]] for y in range(0, 12, 2)]
     profile = {"op": "40", "cutter_centre": segments, "raster": {}, "cut_order": order}
     paths, waypoints = contour_annotations({"profiles": [profile]}, 1.0, "S1")
@@ -671,6 +672,9 @@ def test_a_raster_sketch_draws_every_pass_and_claims_arrows_only_when_drawn(orde
     assert [f"PASS {n}" for n in range(1, 7)] == [t for t in texts if t.startswith("PASS")]
     assert (diagram.arrows_drawn >= 6) is (order == "climb")
     assert ("ARROWS: POINT ORDER" in texts) is (order == "climb")
+    assert diagram.returns_drawn == (5 if order == "climb" else 0)
+    assert ("DASHED: LIFTED RETURN" in texts) is (order == "climb")
+    diagram.canvas.assert_text_layout(min_scale=3)
 
 
 def _slab(x0, y0, x1, y1, z, colour, tag):

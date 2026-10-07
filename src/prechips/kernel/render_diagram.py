@@ -44,6 +44,32 @@ _ARROWS = "ARROWS: POINT ORDER"
 # A raster of at most this many passes draws and labels every pass; a longer one is a band
 # with its first and last pass.
 _EVERY_PASS = 8
+# The legend a path sketch prints once it has drawn a raster's lifted return: the cycle
+# is one way (feed a pass, lift, rapid back to the next pass's start).
+_RETURNS = "DASHED: LIFTED RETURN"
+
+
+def _lifted_returns(paths):
+    """(from, to) XY of each rapid return between consecutive raster passes a sketch draws
+    whole: the end of pass n to the start of pass n + 1 of the same op, when both run in a
+    known direction. A band showing only its first and last pass draws none."""
+    returns = []
+    for op in dict.fromkeys(str(path.get("op", "")) for path in paths):
+        raster = sorted(
+            (p for p in paths if p.get("raster") and str(p.get("op", "")) == op),
+            key=lambda p: p["raster"]["pass"],
+        )
+        keep_out = any(path["raster"].get("keep_out") for path in raster)
+        if len(raster) > _EVERY_PASS and not keep_out:
+            continue
+        for before, after in zip(raster, raster[1:], strict=False):
+            if (
+                after["raster"]["pass"] == before["raster"]["pass"] + 1
+                and before.get("directed") is True
+                and after.get("directed") is True
+            ):
+                returns.append((before["xy"][-1], after["xy"][0]))
+    return returns
 
 
 def _labelled_passes(numbers):
@@ -574,6 +600,7 @@ class _Diagram:
         self.off_window_keys = []
         # Direction arrows drawn so far: a legend claims "ARROWS" only once one is drawn.
         self.arrows_drawn = 0
+        self.returns_drawn = 0
         self.shoulders = (
             _radial_steps(spec.get("lathe_profiles", [])) if self.view == "lathe" else []
         )
@@ -1581,15 +1608,19 @@ class _Diagram:
         content_top = top + 40
         ops = list(dict.fromkeys(str(p.get("op", "")) for p in paths + waypoints))
         before = self.arrows_drawn
+        # A raster's lifted returns need a second legend line above the arrows'.
+        legend = 26 if _lifted_returns(paths) else 0
         if len(ops) > 1:
-            self._operation_panels(left, right, content_top, bottom - 34, ops, paths, waypoints)
-            if self.arrows_drawn > before:
-                _text(c, left, bottom - 21, _ARROWS, _MUTED)
+            self._operation_panels(
+                left, right, content_top, bottom - 34 - legend, ops, paths, waypoints
+            )
+            self._sketch_legend(left, bottom - 21, before)
             return
         xmin, ymin, xmax, ymax = _bounds(points)
         ops = list(dict.fromkeys(_plain(path.get("op", "")) for path in paths))
         key_lines = [(op, line) for op in ops for line in _wrap(c, op, right - left - 36, scale=3)]
-        plot_top, plot_bottom = content_top + 14, bottom - 40 - 30 * len(key_lines)
+        plot_top = content_top + 14
+        plot_bottom = bottom - 40 - 30 * len(key_lines) - legend
         scale = min(
             (right - left - 74) / max(xmax - xmin, 1e-9),
             max(50, plot_bottom - plot_top - 28) / max(ymax - ymin, 1e-9),
@@ -1619,8 +1650,17 @@ class _Diagram:
             c.line((left, row + 10), (left + 23, row + 10), colours[op], width=3)
             _text(c, left + 32, row, line, colours[op])
             row += 30
-        if self.arrows_drawn > before:
-            _text(c, left, bottom - 22, _ARROWS, _MUTED)
+        self._sketch_legend(left, bottom - 22, before)
+
+    def _sketch_legend(self, left, top, arrows_before):
+        """The arrows legend at ``top`` once a direction arrow is drawn, and the lifted
+        returns' line above it once a return is dashed."""
+        row = top
+        if self.arrows_drawn > arrows_before:
+            _text(self.canvas, left, row, _ARROWS, _MUTED)
+            row -= 26
+        if self.returns_drawn:
+            _text(self.canvas, left, row, _RETURNS, _MUTED)
 
     def _operation_panels(self, left, right, top, bottom, ops, paths, waypoints):
         """Separate authored operations, not every raster pass or curve record."""
@@ -1776,6 +1816,11 @@ class _Diagram:
                 colour,
                 arrows=path.get("directed") is True,
             )
+        # The cycle is one way: each pass's lift and rapid back to the next pass's start is
+        # dashed, never drawn as a cut.
+        for start, end in _lifted_returns(raster):
+            _dashed(c, [[start, end]], project, colour)
+            self.returns_drawn += 1
         numbers = set(_labelled_passes([path["raster"]["pass"] for path in raster]))
         for path in raster:
             if path["raster"]["pass"] in numbers:
