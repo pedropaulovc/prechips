@@ -137,6 +137,7 @@ def rules_bundle(root):
                 "S1": {
                     "parallel_pair": True,
                     "width_mm": 20.0,
+                    "jaw_separation_mm": 20.0,
                     "contact_grip_mm": [4.0, 4.0],
                     "claimed_in_jaws": [],
                     "min_wall_mm": 2.0,
@@ -323,7 +324,7 @@ def test_clearances_name_each_tool_part_its_obstacle_and_interference(bundle):
     assert row.numbers["clearances"] == [
         {"part": "tool body", "obstacle": "stock 5 from the tool axis", "mm": 2.0},
         {"part": "tool shank", "obstacle": "the Ø6 bore this op cuts", "mm": 0.5},
-        {"part": "holder face", "obstacle": "stock under the holder at Z27.2", "mm": -1.25},
+        {"part": "holder face", "obstacle": "stock under the holder", "mm": -1.25, "z_mm": 27.2},
     ]
     bundle.kernel["ops"]["S1:10"].update(
         body_clear_mm="not_applicable", shank_clear_mm="unknown", holder_clear_mm="not_applicable"
@@ -387,8 +388,11 @@ def test_finish_coverage_accepts_overlapping_claim_from_another_feature(bundle):
 @pytest.mark.parametrize(
     "changes,status",
     [
-        ({"width_mm": 60.0}, "pass"),
-        ({"width_mm": 60.1}, "error"),
+        ({"jaw_separation_mm": 60.0}, "pass"),
+        ({"jaw_separation_mm": 60.1}, "error"),
+        # A part that fits the 60 mm opening, plus the round bar's Ø, does not.
+        ({"width_mm": 55.0, "jaw_separation_mm": 61.35}, "error"),
+        ({"jaw_separation_mm": "unknown"}, "unknown"),
         ({"contact_grip_mm": [4.0, 3.9]}, "error"),
         ({"parallel_pair": False}, "error"),
         ({"claimed_in_jaws": ["#1"]}, "error"),
@@ -398,6 +402,19 @@ def test_finish_coverage_accepts_overlapping_claim_from_another_feature(bundle):
 def test_vise_bilateral_grip_opening_and_claimed_face_boundaries(bundle, changes, status):
     bundle.kernel["setups"]["S1"].update(changes)
     assert finding(vise, bundle).status == status
+
+
+@pytest.mark.parametrize(("separation", "status"), [(60.0, "pass"), (60.1, "error")])
+def test_an_inch_drawing_holds_the_kernel_jaw_separation_to_the_opening_in_mm(
+    bundle, separation, status
+):
+    # The kernel measures the work and its round bar in mm whatever the drawing's units:
+    # an inch manifest rescales neither the separation nor the 60 mm vise opening.
+    bundle.features["units"] = "in"
+    bundle.kernel["setups"]["S1"]["jaw_separation_mm"] = separation
+    row = finding(vise, bundle)
+    assert row.status == status
+    assert (row.numbers["jaw_separation_mm"], row.numbers["opening_mm"]) == (separation, 60.0)
 
 
 @pytest.mark.parametrize(

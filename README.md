@@ -340,8 +340,9 @@ When the work is small beside its holding, or a plan view hides contact
 heights, a holding detail band below the picture (making the PNG taller) shows
 each holding contact face keyed with its setup coordinate and the closest cut to
 the holding. A leader that names a solid ends on that solid's visible pixels;
-a hidden numbered clamp or pad is drawn as a dashed outline of its position,
-and any other leader that cannot end on its solid is a printed `NOT SHOWN`
+a hidden numbered clamp or pad, or a hidden vise jaw, is drawn as a dashed
+outline of its position, and any other leader that cannot end on its solid is
+a printed `NOT SHOWN`
 render debt. Datum labels state their axis words in the setup's axes and mark
 an underside or hidden face. Dashed machine-context outlines are schematic, not
 measured fixture geometry, and unresolved drawing items remain plain-language
@@ -386,13 +387,22 @@ pass is said to run in and out clear only when each emitted piece's start and
 end is, so pieces a keep-out splits are proven one by one. A
 through hole's breakthrough note gives the run-out its printed DRO tip leaves,
 cut down to the DRO decimals, not the authored `exit_mm`. A contour cut in
-several depth levels lists every level once, in its heading. Contour tables
+several depth levels lists every level's Z once, in its heading, and says once
+above its rows how each level goes down (in air only when the kernel's stock box
+proves it, else a plunge from the level above at the op's cited plunge feed from
+`[[plunge]]` cutting data, a STOP without one) and how it gets back for the next
+level (straight down for a closed path, else raise to a Z called above the stock
+only on that proof). Contour tables
 repeat their op, tool and Z on a continued page and never wrap a coordinate.
 The mill CLEARANCE section prints a short stack/travel verdict and a per-op table
 of the closest obstacle (headroom, jaw tops, holder face above the stock beside
 the tool, or a reach finding's declared clearances) with the clearance and the
 action; an unknown clearance is a check-at-the-machine action, a negative one a
-STOP. The FEATURE MAP names what each mill row stands on (hole axis, arc centre,
+STOP. The section prints on one page, moved whole rather than split. Every
+kernel Z it prints is that surface's one DRO Z: kernel noise within 1e-3 mm of a
+grid line is that line, a bench setup prints on the grid of the machine setup the
+part arrives from, and an op table moved whole to the next page leaves an
+`Operations continue on reverse, op N` pointer. The FEATURE MAP names what each mill row stands on (hole axis, arc centre,
 face) and gives a lathe row's drawing Ø limits apart from the size turned to. A
 surface-alignment sweep tells the operator to tap the work, not move the table;
 the job page's abbreviation key lists only abbreviations the sheets print.
@@ -455,6 +465,15 @@ unresolved. A tailstock drill chuck or a rest is not a centre. The centre depth
 is the Machinery's Handbook Table 6 drill length plus the countersink to the mouth,
 printed as a tailstock-quill depth, and only for the selected centre drill's
 own accepted D, C, angle, body and point with the mouth on the touched end.
+A mill route squares a sawn rectangular bar the same way: each blank face is
+an `end_face` that a face op cuts flat, or a side-milling profile cuts on an end
+overhanging the vise. The kernel removes each as a planar slab, so later pictures
+and stock show the squared blank. `[stock.prepared]` declares the blank the first
+part setup receives; `prepared_blank` checks its faced size against that
+declaration within the declared tolerance and requires an inventory gauge and
+written method for its size, flatness, squareness and parallelism checks, which
+the sheet prints as CHECK THE BLANK. A hold's `jaw_bar` puts a round bar against
+the moving jaw while a reference face seats on the fixed jaw.
 See [the plan format](docs/plan.md) for the authored fields.
 
 Cutter self-contact exclusion is only a thin shell of the sampled face;

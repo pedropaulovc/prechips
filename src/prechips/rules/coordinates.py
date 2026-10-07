@@ -710,12 +710,30 @@ def dro_grid(bundle, setup):
     """(step, decimals): the setup machine's DRO grid in plan units.
 
     The step is the inventory machine's declared ``resolution`` when it is a positive
-    length, else :data:`DRO_DEFAULT_STEP`; the decimals print one step exactly.
+    length, else :data:`DRO_DEFAULT_STEP`; the decimals print one step exactly. A bench
+    (``kind`` bench or manual) declaring none has no DRO of its own: its surfaces are the
+    ones the nearest machine setup in its stock lineage left, so they print on that
+    machine's grid, one surface one value.
     """
+    from ._bench import BENCH_KINDS
+    from .tip_endpoints import lineage
+
     units = bundle.features.get("units")
     scale = {"mm": 1.0, "in": 25.4}.get(units)
     machine = resolve(bundle, "machines", setup.get("machine")) or {}
     declared = length_mm(machine, "resolution") if scale else UNKNOWN
+    if not (number(declared) and declared > 0) and machine.get("kind") in BENCH_KINDS:
+        source = next(
+            (
+                s
+                for s in reversed(lineage(bundle, setup))
+                if (resolve(bundle, "machines", s.get("machine")) or {}).get("kind")
+                not in BENCH_KINDS
+            ),
+            None,
+        )
+        if source is not None:
+            return dro_grid(bundle, source)
     step = declared / scale if number(declared) and declared > 0 else DRO_DEFAULT_STEP
     decimals = next((d for d in range(9) if abs(round(step, d) - step) <= 1e-12), 9)
     return step, decimals
@@ -1623,8 +1641,9 @@ def _boundary(feature, frame, frames):
 
 def _sweep_area(feature, op, frame, frames):
     """Setup-XY corners of the area a ``linear_table`` sweeps, or None: ``contour.
-    sweep_bounds`` in ``sweep_frame``, else a face op's setup-frame
-    ``stock_removal_bounds``, else the feature's own bounds."""
+    sweep_bounds`` in ``sweep_frame``, else a face op's or side-milling profile's
+    (:func:`_rastered`) setup-frame ``stock_removal_bounds``, else the feature's own
+    bounds."""
     contour = mapping(op.get("contour"))
     if isinstance(contour.get("sweep_bounds"), dict):
         envelope = {
@@ -1634,7 +1653,8 @@ def _sweep_area(feature, op, frame, frames):
         }
         return _boundary(envelope, frame, frames)
     box = op.get("stock_removal_bounds")
-    if op.get("do") in FACING and isinstance(box, dict):
+    side_mill = op.get("do") in _PROFILE_OPS and "open_side" in contour
+    if (op.get("do") in FACING or side_mill) and isinstance(box, dict):
         spans = [box.get(axis) for axis in ("x", "y")]
         if not all(
             isinstance(span, list) and len(span) == 2 and all(number(v) for v in span)
@@ -1709,9 +1729,17 @@ RASTER_OPS = POCKETING | FACING
 # ahead of the stepping cutter back toward the cleared side it steps away from.
 _OPEN_SIDES = {"-x": (-1.0, 0.0), "+x": (1.0, 0.0), "-y": (0.0, -1.0), "+y": (0.0, 1.0)}
 # Milling ops whose authored ``doc_mm`` steps them down in axial levels.
-_LEVEL_OPS = RASTER_OPS | {"profile", "rough_profile", "finish_profile"}
+_PROFILE_OPS = {"profile", "rough_profile", "finish_profile"}
+_LEVEL_OPS = RASTER_OPS | _PROFILE_OPS
 # Wall-finishing ops: the cutter's flank engages the whole wall above its tip.
 _WALL_OPS = {"pocket", "finish_pocket", "profile", "finish_profile"}
+
+
+def _rastered(op, contour):
+    """Whether a ``linear_table`` op cuts in raster passes: a pocket or face, or a profile
+    with a declared ``open_side``: a one-sided side-mill (a blank end overhanging the vise)
+    whose passes step from clear air on the open side to the retained wall, as a pocket's."""
+    return op.get("do") in RASTER_OPS or (op.get("do") in _PROFILE_OPS and "open_side" in contour)
 
 
 def _outside_circle(segment, circle, radius, grid, scale):
@@ -3657,7 +3685,7 @@ def evaluate(bundle, *, pre_kernel=False):
                             if item["cut_order"] == UNKNOWN and item.get("method") != "chain_drill"
                         )
                         generated = True
-                elif contour.get("method") == "linear_table" and op.get("do") in RASTER_OPS:
+                elif contour.get("method") == "linear_table" and _rastered(op, contour):
                     approach = op.get("approach_mm", UNKNOWN)
                     scale = {"mm": 1.0, "in": 25.4}.get(units)
                     lift = (
@@ -3734,6 +3762,15 @@ def evaluate(bundle, *, pre_kernel=False):
                 unknown |= (not generated and not refused) or not tool or uncertain(tool)
             if lathe:
                 unknown |= not number(length_mm(tool, "nose_radius"))
+        if not lathe:
+            from .level_entry import level_paths
+
+            paths, path_debts = level_paths(
+                bundle, setup, numbers, stock_states(bundle, setup), grid, units, dro_z
+            )
+            if paths:
+                numbers["level_paths"] = paths
+            plan_debts.extend(path_debts)
         status = (
             "error"
             if residuals

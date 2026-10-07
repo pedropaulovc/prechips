@@ -107,6 +107,33 @@ class StockComponent(InputModel):
         return self
 
 
+# The squared blank's acceptance checks: one gauge per size (``length``, ``section_0``,
+# ``section_1``, read against size ± tolerance) and one per form check, each form check
+# with its written method in ``methods`` and its limit in ``form_mm`` (the most, in mm,
+# its method's gauge may move over the face; the gauge's resolution must read it).
+PreparedChecks = record(
+    "PreparedChecks",
+    {**texts("length section_0 section_1 flat square parallel")},
+)
+PreparedMethods = record("PreparedMethods", {**texts("flat square parallel")})
+PreparedForm = record("PreparedForm", numbers("flat square parallel"))
+# The squared blank the route's first machining setup receives (docs/plan.md "Prepared
+# blank"): a box on the root stock's own axes, made from the rectangular root stock by
+# plan process end faces in the receiving setup's earlier stock lineage.
+PreparedBlank = record(
+    "PreparedBlank",
+    {
+        "setup": str,
+        "origin_mm": Vector,
+        "section_mm": Vector,
+        "length_mm": float,
+        "tolerance_mm": Vector,
+        "checks": PreparedChecks,
+        "methods": PreparedMethods,
+        "form_mm": PreparedForm,
+        "cite": Citations,
+    },
+)
 Stock = record(
     "Stock",
     {
@@ -120,6 +147,7 @@ Stock = record(
         "section_axis": Vector,
         "as_is_faces": list[str],
         "components": list[StockComponent],
+        "prepared": PreparedBlank,
         "cite": Citations,
     },
 )
@@ -210,6 +238,10 @@ Hold = record(
         # the stock's own end. Checked against the arriving stock by hold_fields.
         "stop_face": str,
         "stop_pose": Pose,
+        # A vise's round bar between the work and the moving jaw (an inventory fixture of
+        # kind round_bar with measured dia/length): the moving jaw closes on the bar, which
+        # presses the work along one line so the fixed jaw seats its face square.
+        "jaw_bar": str,
     },
 )
 AxisZero = record(
@@ -1368,6 +1400,17 @@ DeepHole = record(
     "DeepHole",
     {"operation": str, **numbers("depth_over_dia sfm_factor"), "cite": Citations},
 )
+# An end mill fed straight down its own axis into the stock: feed per spindle revolution,
+# selected like a cut row by material class, tool material and tool diameter.
+Plunge = record(
+    "Plunge",
+    {
+        **texts("material_class tool_material"),
+        "diameter_range": Vector,
+        "feed_mm_rev": float,
+        "cite": Citations,
+    },
+)
 
 
 class CuttingData(InputModel):
@@ -1376,3 +1419,4 @@ class CuttingData(InputModel):
     cut: list[Cut] | Unknown = UNKNOWN
     material: list[CutMaterial] | Unknown = UNKNOWN
     deep_hole: list[DeepHole] | Unknown = UNKNOWN
+    plunge: list[Plunge] | Unknown = UNKNOWN

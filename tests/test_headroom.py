@@ -74,6 +74,7 @@ def bundle():
         },
         features={"frames": {"A": {"x": [1, 0, 0], "y": [0, 1, 0]}}, "features": {}},
         policy={},
+        cutting_data={},
     )
     data.feature_definitions = data.features["features"]
     return data
@@ -128,6 +129,39 @@ def test_a_printed_cutter_path_sets_the_jaw_sweep_not_its_box_widened_by_the_rad
     # An outline whose centres reach Y 15 brings the edge within 2 mm of it: still boxed.
     slab["bounds"]["y"] = [0, 12]
     assert evaluate(data)[0].numbers["cut_tip_above_jaws_mm"]["10"] == pytest.approx(7.4)
+
+
+@pytest.mark.parametrize(
+    ("centre", "x_span", "boxed"),
+    [
+        # Jaws 80 wide centred at X 0 end at X ±40; a Ø6 cutter over X 44..50 keeps its
+        # edge 1 mm past the jaw end: inside the crash zone, still boxed.
+        (0.0, [44, 50], True),
+        # Over X 47..50 its edge stands 4 mm beyond the jaw end: clear.
+        (0.0, [47, 50], False),
+        # The same sweep with the jaws centred at X 10 (ends at -30 / 50) is under them.
+        (10.0, [47, 50], True),
+        # No declared jaw centre: the jaw ends are underivable.
+        (None, [47, 50], True),
+    ],
+)
+def test_a_below_jaw_cut_beyond_the_jaw_ends_is_clear_only_past_the_crash_zone(
+    centre, x_span, boxed
+):
+    # A blank end overhanging the vise: the cutter sweeps the whole clamp width (Y) but
+    # stands beyond the jaws along X, the axis they run.
+    data = bundle()
+    setup = data.plan["setups"][0]
+    setup["hold"]["jaws_along"] = "x"
+    if centre is not None:
+        setup["hold"]["jaw_center_along_mm"] = centre
+    data.inventory["fixtures"]["vise"]["jaw_width_mm"] = 80
+    data.inventory["tools"]["cutter"]["dia_mm"] = 6
+    data.kernel = {"status": "ok", "setups": {"S1": {"stock_bbox_mm": [-60, -15, -12, 60, 15, 4]}}}
+    op = setup["ops"][0]
+    op.update(to_z=-12, stock_removal_bounds={"x": x_span, "y": [-25, 25], "z": [-12, 4]})
+    cuts = evaluate(data)[0].numbers["cut_tip_above_jaws_mm"]
+    assert ("10" in cuts) is boxed
 
 
 def test_coordinate_translation_does_not_change_spindle_stack():
@@ -458,7 +492,7 @@ def coordinate_bundle(tmp_path, feature, operations):
     plan.write_text(
         'part = "coordinate-control"\nfeatures = "features.toml"\n'
         "[paths]\ninventory = 'inventory.toml'\npolicy = 'policy.toml'\n"
-        "cutting_data = 'cutting.toml'\n"
+        "cutting_data = 'cutting.toml'\n[stock]\nmaterial = 'scratch steel'\n"
         "[[setups]]\nid = 'S1'\nmachine = 'mill'\nframe = 'A'\n"
         "coolant = 'unknown'\ndeburr_mm = 'unknown'\n"
         "[setups.hold]\nfixture = 'unknown'\nstop = 'unknown'\ngrip_mm = 'unknown'\n"
@@ -481,7 +515,8 @@ def coordinate_bundle(tmp_path, feature, operations):
     (root / "inventory.toml").write_text(
         "[machines.mill]\nkind = 'mill'\nverify = false\n"
         "[machines.mill.spindle]\nrotation = 'cw'\n"
-        "[tools.cutter]\nkind = 'endmill'\ndia_mm = 6.0\nverify = false\n"
+        "[tools.cutter]\nkind = 'endmill'\ndia_mm = 6.0\nmaterial = 'HSS'\ncenter_cutting = true\n"
+        "verify = false\n"
         "[tools.spot]\nkind = 'center_drill'\ndia_mm = 6.0\npoint_angle = 90.0\n"
         "verify = false\n"
         "[tools.drill]\nkind = 'drill'\ndia_mm = 6.0\npoint_angle = 118.0\n"
@@ -495,7 +530,14 @@ def coordinate_bundle(tmp_path, feature, operations):
         "[numbers_verify]\nmax_filing_stock_mm = false\n",
         encoding="utf-8",
     )
-    (root / "cutting.toml").write_text("revision = 1\n", encoding="utf-8")
+    # Every end mill the scratch plans plunge is centre-cutting with a cited plunge feed
+    # (level_entry).
+    (root / "cutting.toml").write_text(
+        "revision = 1\n[aliases]\n'scratch steel' = 'steel'\n"
+        "[[plunge]]\nmaterial_class = 'steel'\ntool_material = 'HSS'\n"
+        "diameter_range = [0.0, 50.0]\nfeed_mm_rev = 0.05\ncite = 'scratch plunge feed'\n",
+        encoding="utf-8",
+    )
     return plan
 
 
@@ -579,7 +621,7 @@ def test_contour_allowances_produce_actual_rough_and_finish_targets(
         tmp_path,
         feature,
         f"[[setups.ops]]\nop = 20\ndo = '{action}'\nfeature = 'target'\n"
-        "tool = 'cutter'\nto_z = -1.0\ndirection = 'conventional'\n"
+        "tool = 'cutter'\nto_z = -1.0\ndirection = 'conventional'\napproach_mm = 2.0\n"
         + allowance_field
         + f"contour = {{ method = '{method}', cusp_mm = 0.1 }}\n",
     )

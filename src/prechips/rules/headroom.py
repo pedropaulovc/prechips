@@ -209,26 +209,50 @@ def _printed_xy(coordinates, op):
     return points if points and known else None
 
 
-def _inside_jaws(bundle, op, faces, coordinates):
-    """Whether ``op``'s cutter stays more than :data:`CRASH_ZONE_MM` inside both jaw faces
-    along the clamp axis: its printed cutter-centre path (:func:`_printed_xy`) plus the
-    cutter radius, else its stock_removal_bounds widened by the radius. An underivable
-    sweep or jaw never is."""
-    if faces is None:
-        return False
-    axis, (low, high) = faces
-    dia = length_mm(resolve(bundle, "tools", op.get("tool")) or {}, "dia")
-    if not _numeric(dia):
-        return False
+def _span(op, coordinates, axis):
+    """[low, high] of ``op``'s cutter-centre sweep along setup ``axis`` (0 = X, 1 = Y): its
+    printed cutter-centre path (:func:`_printed_xy`), else its stock_removal_bounds."""
     printed = _printed_xy(coordinates, op["op"])
     span = (
         [min(p[axis] for p in printed), max(p[axis] for p in printed)]
         if printed
         else _mapping(op.get("stock_removal_bounds")).get("xy"[axis])
     )
-    if not (isinstance(span, list) and len(span) == 2 and all(_numeric(v) for v in span)):
+    if isinstance(span, list) and len(span) == 2 and all(_numeric(v) for v in span):
+        return span
+    return None
+
+
+def _clear_of_jaws(bundle, setup, op, faces, coordinates):
+    """Whether ``op``'s cutter stays more than :data:`CRASH_ZONE_MM` clear of the vise jaws:
+    inside both jaw faces along the clamp axis, or wholly beyond the jaws' ends along the
+    axis they run (a blank end overhanging the vise). The jaw ends stand at the declared
+    ``jaw_center_along_mm`` ± half the vise's jaw width. An underivable sweep or jaw never
+    is clear."""
+    if faces is None:
         return False
-    return span[0] - dia / 2 > low + CRASH_ZONE_MM and span[1] + dia / 2 < high - CRASH_ZONE_MM
+    dia = length_mm(resolve(bundle, "tools", op.get("tool")) or {}, "dia")
+    if not _numeric(dia):
+        return False
+    axis, (low, high) = faces
+    span = _span(op, coordinates, axis)
+    if (
+        span
+        and span[0] - dia / 2 > low + CRASH_ZONE_MM
+        and span[1] + dia / 2 < high - CRASH_ZONE_MM
+    ):
+        return True
+    hold = _mapping(setup.get("hold"))
+    fixture_ref = hold.get("fixture")
+    fixture = resolve(bundle, workholding_category(bundle, fixture_ref), fixture_ref) or {}
+    centre, width = hold.get("jaw_center_along_mm"), length_mm(fixture, "jaw_width")
+    along = _span(op, coordinates, 1 - axis)
+    if not (along and _numeric(centre) and _numeric(width)) or uncertain(fixture):
+        return False
+    ends = (centre - width / 2, centre + width / 2)
+    return (
+        along[1] + dia / 2 < ends[0] - CRASH_ZONE_MM or along[0] - dia / 2 > ends[1] + CRASH_ZONE_MM
+    )
 
 
 def evaluate(bundle):
@@ -418,7 +442,7 @@ def evaluate(bundle):
             if op["do"] not in SAW_OPS
             and _numeric(op.get("to_z"))
             and _numeric(jaw_top_z)
-            and not _inside_jaws(bundle, op, faces, printed)
+            and not _clear_of_jaws(bundle, setup, op, faces, printed)
         }
         numbers.update(
             {
