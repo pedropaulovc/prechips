@@ -443,26 +443,27 @@ NAMED_REFERENCE = re.compile(
     r"\.([A-Za-z0-9](?:[\w-]*\w)?(?:/[\w#./-]*[\w#])?)"
 )
 
-# Brackets, quotes and sentence punctuation around a name in authored text, not part of it.
-_NAME_OPENERS = "([{\"'"
-_NAME_CLOSERS = ")]}\"'.,;:!?"
+# A link or path in authored text, taken literally to the next whitespace: a URL
+# (``scheme://…``), a drive-letter path (``C:\…``, ``C:/…``), a UNC path (``\\server\…``), a
+# relative path (``./…``, ``../…``) or a rooted one (``/srv/…/…``). Nothing in it is a name.
+LITERAL_SPAN = re.compile(
+    r"(?<![\w.+-])[A-Za-z][A-Za-z0-9+.-]*://\S*"
+    r"|(?<![\w\\])[A-Za-z]:[\\/]\S*"
+    r"|(?<![\w\\])\\\\[^\s\\]+\\\S*"
+    r"|(?<![\w./\\])\.{1,2}[\\/]\S*"
+    r"|(?<![\w./\\:])/[^\s/]+/\S*"
+)
 
 
 def authored_names(text):
     """``[(start, end, "<category>.<key>")]``: each inventory item authored text (a make
-    operation's hold or source, printed as written) names, read token by token: a
-    whitespace-separated token that, less the brackets, quotes and sentence punctuation
-    around it, is a name (:data:`NAMED_REFERENCE`) and nothing more. A link or path
-    (``https://tools.example.com/x``, ``C:\\shop\\tools.chart.pdf``) is more than a name,
-    so nothing in it is read as one."""
-    found = []
-    for token in re.finditer(r"\S+", text if isinstance(text, str) else ""):
-        word = token[0].lstrip(_NAME_OPENERS)
-        start = token.end() - len(word)
-        word = word.rstrip(_NAME_CLOSERS)
-        if NAMED_REFERENCE.fullmatch(word):
-            found.append((start, start + len(word), word))
-    return found
+    operation's hold or source, printed as written) names (:data:`NAMED_REFERENCE`),
+    outside its links and paths (:data:`LITERAL_SPAN`): a name next to punctuation or in
+    quotes is a name, nothing inside ``https://tools.example.com/x`` or
+    ``C:\\shop\\tools.chart.pdf`` is."""
+    text = text if isinstance(text, str) else ""
+    prose = LITERAL_SPAN.sub(lambda span: " " * len(span[0]), text)
+    return [(m.start(), m.end(), m[0]) for m in NAMED_REFERENCE.finditer(prose)]
 
 
 def setup_named_references(bundle, setup, job=False):

@@ -27,8 +27,8 @@ An explicitly unknown operation action also makes its assembly fit unknown.
 An inventory item named in prose as `<category>.<key>[/<member>]` (a plan note
 or cite, a make note, record check or `how`, or make operation `hold` or `cite`
 of a shop-made item a setup uses, and each record's `gauge` as
-`gauges.<gauge>`; docs/inventory.md; in a make operation's `hold` or `cite`, a
-word of its own only, never a name inside a link or path) is a subject
+`gauges.<gauge>`; docs/inventory.md; in a make operation's `hold` or `cite`,
+anywhere outside a link or path, never inside one) is a subject
 of its own, `<category>.<key>`, with `named_in` listing where. It passes when
 the item is listed and verified; missing or unverified, it is unknown (never a
 pass, and never printed as the bare key: the traveler prints `? <key>`). A

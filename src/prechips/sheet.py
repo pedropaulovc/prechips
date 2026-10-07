@@ -2657,7 +2657,7 @@ class _Traveler:
 
     def authored(self, text):
         """Authored text whole, as written (a link or path in it too), each inventory item it
-        names as a word of its own (:func:`authored_names`) as its shop name."""
+        names outside its links and paths (:func:`authored_names`) as its shop name."""
         text = " ".join(str(text).split())
         printed, last = "", 0
         for start, end, _ in authored_names(text):

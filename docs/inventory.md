@@ -380,10 +380,12 @@ Other holding solids come from the same accepted-fact rule, never defaults:
   shared by primitives of one `label` once: `1. hold:
   vise on parallels; T: <tool's shop name>; 600 rpm; 0.05 mm/rev; 0.5 mm/pass;
   MH 31st Table 17 p.1061`. `hold` and `cite` print as written, a link or path
-  in them too; a word of its own that names an item (`fixtures.vise-pm-6`,
-  `(gauges.dti),`) prints as its shop name, never a name inside a link or path
-  (`https://tools.example.com/x`, `C:\shop\tools.chart.pdf`), which is not read
-  as one. An unknown fact prints `?`, a tool the shop's tools do not list (only
+  in them too; an item they name (`fixtures.vise-pm-6`, also next to
+  punctuation or in quotes: `fixtures.a,gauges.dti`, `` `gauges.dti` ``) prints
+  as its shop name, but nothing inside a link or path is read as a name: a URL
+  (`scheme://…`), a drive-letter (`C:\…`), UNC (`\\server\…`), relative
+  (`./…`, `../…`) or rooted (`/srv/…/…`) path, up to the next space. An
+  unknown fact prints `?`, a tool the shop's tools do not list (only
   `tools` counts: no other category's item or machine accessory of that key)
   `? <key>`, a listed tool still to verify `? <tool's shop name>`, and the line
   ends in a STOP naming them; `make_ops = "unknown"` prints one STOP line. The

@@ -1222,9 +1222,10 @@ def test_a_machine_accessory_the_tools_do_not_list_is_no_make_tool(key):
         ("cite", "https://example.com/cutting-data"),
         ("cite", "Vendor chart https://example.com/em.pdf p.3"),
         ("hold", "as drawn in https://example.com/hold.png"),
-        ("cite", "https://tools.example.com/cutting-data"),
-        ("cite", r"C:\shop\tools.cutting-data.pdf"),
         ("hold", "per /srv/charts/fixtures.bridge.pdf"),
+        ("cite", r"\\shop-nas\charts\tools.chart.pdf"),
+        ("cite", "./charts/tools.chart.pdf"),
+        ("hold", "per ../charts/fixtures.bridge.pdf"),
     ],
 )
 def test_authored_make_text_prints_whole(field, value):
@@ -1238,11 +1239,43 @@ def test_authored_make_text_prints_whole(field, value):
     assert not [f for f in tool_resolves.evaluate(data) if f.numbers.get("named_in")]
 
 
-def test_a_name_beside_a_link_prints_as_its_shop_name():
-    hold = "clamped on gauges.granite-plate, (https://gauges.granite-plate.example/p.pdf)"
-    _, table = make_page(item_ops=[{**MAKE_OP, "hold": hold}])
+@pytest.mark.parametrize(
+    ("hold", "printed", "unknown"),
+    [
+        ("indicate with gauges.dti", "indicate with ? dti", ["gauges.dti"]),
+        ("indicate with (gauges.dti),", "indicate with (? dti),", ["gauges.dti"]),
+        ("indicate with `gauges.dti`", "indicate with `? dti`", ["gauges.dti"]),
+        ("indicate with “gauges.dti”", "indicate with “? dti”", ["gauges.dti"]),
+        (
+            "use fixtures.missing,gauges.dti",
+            "use ? missing,? dti",
+            ["fixtures.missing", "gauges.dti"],
+        ),
+        (
+            "indicate with gauges.dti;check runout",
+            "indicate with ? dti;check runout",
+            ["gauges.dti"],
+        ),
+        (
+            "indicate with gauges.dti (https://tools.example.com/chart)",
+            "indicate with ? dti (https://tools.example.com/chart)",
+            ["gauges.dti"],
+        ),
+        ("per https://tools.example.com/chart", "per https://tools.example.com/chart", []),
+        (r"per C:\shop\tools.chart.pdf", r"per C:\shop\tools.chart.pdf", []),
+    ],
+    ids=[f"token-{n}" for n in range(9)],
+)
+def test_an_item_named_in_make_text_is_checked_outside_links_and_paths(hold, printed, unknown):
+    from prechips.rules import tool_resolves
+
+    data, table = make_page(item_ops=[{**MAKE_OP, "hold": hold}])
     (line,) = make_lines(table)
-    assert "hold: clamped on ? granite-plate, (https://gauges.granite-plate.example/p.pdf);" in line
+    # Each name the shop list lacks prints its marker and stays unknown, whatever
+    # punctuation or quotes sit next to it; a link or path prints as written.
+    assert f"hold: {printed};" in line
+    named = {f.subject: f.status for f in tool_resolves.evaluate(data) if f.numbers.get("named_in")}
+    assert named == dict.fromkeys(unknown, "unknown")
 
 
 @pytest.mark.parametrize(
