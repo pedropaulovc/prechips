@@ -113,6 +113,10 @@ kind = "pin_gauge"
 range_mm = [5.0, 7.0]
 resolution_mm = 0.001
 verify = false
+[gauges.dti]
+kind = "dial_test_indicator"
+resolution_mm = 0.0127
+verify = false
 """
 CUTTING = 'revision = 1\n[aliases]\nsteel = "low_carbon_steel"\n' + "".join(
     f"""[[cut]]
@@ -156,7 +160,12 @@ z = "up"
 """
 
 
-def setup(sid, retouch, extra=""):
+# A setup that mounts the vise squares its fixed jaw to the table travel (hold_fields
+# align_due); a later setup on the same vise, jaws unturned, keeps it and declares none.
+ALIGN = 'align = { indicator = "dti", limit_mm = 0.0254, over_mm = 100.0, cite = "scratch" }\n'
+
+
+def setup(sid, retouch, extra="", align=ALIGN):
     return f"""[[setups]]
 id = "{sid}"
 machine = "mill"
@@ -170,8 +179,9 @@ bottom_z = -10.0
 h1 = 10.0
 [setups.hold]
 fixture = "vise"
+jaws_along = "x"
 fixed_jaw = "rear"
-stop = "left"
+{align}stop = "left"
 grip_mm = 5.0
 clamp = "snug"
 [setups.zero.x]
@@ -258,7 +268,7 @@ def one_setup(*ops):
 def test_release_may_precede_the_next_setups_cuts(tmp_path, freecad_kernel):
     # PLAN's own route: release the part from S1, then S2 cuts again.
     s1 = one_setup(face(), spot(), drill(), release(40))
-    s2 = setup("S2", "[10]", 'stock_in = "S1"\n') + face()
+    s2 = setup("S2", "[10]", 'stock_in = "S1"\n', align="") + face()
     code, findings = check(tmp_path, s1, s2)
     assert findings[("order", "S1")]["status"] == "pass"
     assert code == 0
