@@ -2,10 +2,12 @@
 
 import itertools
 import re
+import sys
 from copy import deepcopy
 from dataclasses import replace
 from html import unescape
 from pathlib import Path
+from unicodedata import category, decomposition, normalize
 
 import pytest
 
@@ -852,6 +854,73 @@ def test_a_fraction_range_or_split_number_is_no_edge_of_a_named_size():
         if (row.status, row.numbers["claims"]) != ("not_applicable", 0):
             wrong.append((solid["note"], row.status))
     assert wrong == []
+
+
+# Every Unicode punctuation mark but a parenthesis, and every glyph NFKC folds into one.
+PUNCTUATION = [chr(c) for c in range(sys.maxunicode + 1) if category(chr(c)).startswith("P")]
+OPENS = [p for p in PUNCTUATION if normalize("NFKC", p) == "("]
+CLOSES = [p for p in PUNCTUATION if normalize("NFKC", p) == ")"]
+PUNCTUATION = [p for p in PUNCTUATION if not set("()") & set(normalize("NFKC", p))]
+
+
+def test_a_parenthesis_that_closes_is_its_edge_s_whatever_punctuation_it_holds():
+    # Before the row or on any edge, nested or a second one: a closed annotation splits no
+    # clause and ends no size, whatever mark it holds (a ; included); the size goes on.
+    wrong = []
+    forms = ("(rough{p} finish later)", "(rough (check{p} measure))", "(rough) (check{p} measure)")
+    marks = [(p, "(", ")") for p in PUNCTUATION]
+    marks += [(";", o, c) for o, c in itertools.product(OPENS, CLOSES)]
+    places = [(2, None), (2, 0), (2, 1), (3, None), (3, 0), (3, 1), (3, 2)]
+    for (p, o, c), form, (arity, at) in itertools.product(marks, forms, places):
+        annotation = " " + form.format(p=p).replace("(", o).replace(")", c)
+        edges = ["4", "8"] if arity == 2 else ["65.2", "11", "10"]
+        if at is not None:
+            edges[at] += annotation
+        lead = annotation if at is None else ""
+        if arity == 2:
+            solid = rod("stud", 10, 50, f"Turn{lead} the stud to " + " x ".join(edges))
+        else:
+            solid = block("arm", [65.2, 11, 10], f"Mill{lead} the arm to " + " x ".join(edges))
+        row = rows(jig(solid))["S1"]
+        if (row.status, row.numbers["claims"]) != ("error", 1):
+            wrong.append((solid["note"], row.status))
+    assert wrong == []
+
+
+# Each glyph NFKC would turn into a digit (a fraction, a superscript or subscript digit)
+# or into no angle (º, ˚), and superscript fractions. The other superscripts and
+# subscripts, letters and signs (ª, ᴬ, ⁺, ⁽, ™), fold as NFKC folds them.
+SCRIPTS = [chr(c) for c in range(sys.maxunicode + 1)]
+SCRIPTS = [s for s in SCRIPTS if decomposition(s).startswith(("<fraction>", "<super>", "<sub>"))]
+KEPT = [s for s in SCRIPTS if any(d.isdigit() for d in normalize("NFKC", s))]
+KEPT += ["º", "˚", "¹/₂", "¹⁄₂", "¹ / ₂", "₁/₂"]
+FOLDED = [s for s in SCRIPTS if s not in KEPT]
+
+
+def test_a_kept_glyph_anywhere_in_the_clause_makes_a_named_size_ambiguous():
+    # Before the row, or after the size bare or in parentheses: a fraction, a superscript
+    # or subscript digit or an angle glyph leaves the size unread; a folded glyph does not.
+    wrong = []
+    forms = ("Turn from {g} rod the stud to 4 x 8", "Turn the stud to 4 x 8 (from {g} rod)")
+    forms += ("Turn the stud to 4 x 8 from {g} rod", "Mill from {g} bar the arm to 65.2 x 11 x 10")
+    forms += ("Mill the arm to 65.2 x 11 x 10 (from {g} bar)",)
+    for glyph, form in itertools.product(["", *KEPT, *FOLDED], forms):
+        note = form.format(g=glyph)
+        solid = rod("stud", 10, 50, note) if "stud" in note else block("arm", [65.2, 11, 10], note)
+        row = rows(jig(solid))["S1"]
+        expected = ("not_applicable", 0) if glyph in KEPT else ("error", 1)
+        if (row.status, row.numbers["claims"]) != expected:
+            wrong.append((note, row.status))
+    assert wrong == []
+
+
+@pytest.mark.parametrize("name", ["thread", "slot", "knurl", "recess", "groove"])
+def test_a_row_named_with_a_feature_word_is_read_by_its_name(name):
+    # The row's name is no governing text: "the thread" names the thread row, no verb.
+    row = rows(jig(rod(name, 10, 50, f"Turn the {name} to Ø4 x 8")))["S1"]
+    assert (row.status, row.numbers["claims"]) == ("error", 1)
+    row = rows(jig(rod(name, 10, 50, f"Drill the {name} to Ø4 x 8 deep")))["S1"]
+    assert (row.status, row.numbers["claims"]) == ("not_applicable", 0)
 
 
 def test_every_lead_and_edge_of_a_named_whole_size_restates_it():

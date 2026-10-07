@@ -388,9 +388,11 @@ only leave it there.
   statement in the closed grammar below, whose governing text is not ambiguous.
   Any other wording, and any ambiguous text, makes no claim (never an error,
   never a pass); those are the coverage limits listed under Not covered. The note
-  is NFKC-normalised, except fraction, superscript and subscript glyphs (`½` stays
-  a fraction, `8²` and `45º` are not folded into `82` and `45o`), and split into
-  tokens: whitespace collapses, `x`, `X`, `×` and `*` are one separator, and a
+  is NFKC-normalised, except the glyphs NFKC would turn into digits (a fraction
+  glyph, a superscript or subscript digit: `½` stays a fraction, `8²` is not
+  folded into `82`) or into no angle (`º`, `˚`); other superscripts and
+  subscripts (`ª`, `⁺`, `⁽`, `™`) fold. It is then split into tokens: whitespace
+  collapses, `x`, `X`, `×` and `*` are one separator, and a
   number splits from its unit and from a glued separator (`65.2x11x10`, `4mmx8`,
   `Øunknown`). The grammar:
 
@@ -406,9 +408,10 @@ only leave it there.
   `½`, `1⁄2`) or a range (`8-10`, `8–10`, `8 - 10`) is not one. A unit is `mm`,
   `in`, `inch`, `inches`, `"`, `″`, `'` or `′`, with its point (`mm.`) when the
   size goes on after it. An edge word is `wide`, `high`, `thick`, `long` or
-  `deep`. A parenthesis never closed ends at a `;`. The terminator is not a
-  number, fraction, range, name (`M6`), `x` or unit, nor a comma or point glued
-  to a digit (`8,5`).
+  `deep`. A parenthesis that closes runs through its `)`, whatever it holds
+  (`4 (rough; finish later) x 8`); one never closed ends at its own `;`. The
+  terminator is not a number, fraction, range, name (`M6`), `x` or unit, nor a
+  comma or point glued to a digit (`8,5`).
 
   The governing text is the statement's clause. Clauses split at `,`, `:`, `;`,
   `!` and at a full stop before a capital or the note's end, but never inside a
@@ -424,7 +427,10 @@ only leave it there.
     stock noun, with or without a hyphen between (`drill rod`, `drill-rod`,
     `boring bar`, `tap wrench`), names that tool or stock and is not a verb;
   - an angle unit: `°`, `º`, `˚`, `deg`, `degs`, `degree` or `degrees`;
-  - a fraction.
+  - a fraction, or a glyph the normalisation keeps (`¹/₂`, `8²`).
+
+  The row's own name is not governing text, so a row named `thread` or `slot` is
+  read by its name.
 
   Each row the name denotes is its own finding, including rows that share a label
   or a note, and a withheld row (`?`). A size before a later finishing step is
@@ -531,17 +537,18 @@ Not covered (never read, so never an error):
   and milled to 11 x 10 x 65.2`, `turned Ø16 x 9.05`, `drill Ø4 x 8 deep in the
   stud`), a part of a solid (`the thread portion Ø4.80 x 7.2`, `the arm's
   nose`), only some of a row's edges (`the arm to 11 x 10`), a hole's Ø, edges in
-  fractions, ranges, words or other separators (`✕`), and a bought or existing
-  part's note;
+  fractions, ranges, words or other separators (`✕`), an edge annotated other
+  than in a parenthesis that closes (`4 [rough] x 8`, `4 (rough; x 8`), and a
+  bought or existing part's note;
 - make-note sizes in ambiguous governing text. This is a feature verb, angle
-  unit or fraction anywhere in the clause, even in parentheses, before the row
-  or after the size. Examples: `drill and tap the stud to Ø4 x 8 deep`, `Drill
-  (use the mill) the stud …`, `turn the stud to Ø4 x 8 and drill it`, `0.5 x
-  45 (nominal) (deg)`, `from ½ in rod`. It is also a clause with no verb of its
-  own whose sentence holds one. Two instructions that are not split into
-  clauses, because they are joined by `then` or by a full stop before a
-  lower-case word, are one clause, so a feature verb in either leaves the other
-  unread;
+  unit, fraction or kept glyph anywhere in the clause, even in parentheses,
+  before the row or after the size. Examples: `drill and tap the stud to Ø4 x 8
+  deep`, `Drill (use the mill) the stud …`, `turn the stud to Ø4 x 8 and drill
+  it`, `0.5 x 45 (nominal) (deg)`, `from ½ in rod`, `from ¹/₂ in rod`, `4 x 8
+  mm²`. It is also a clause with no verb of its own whose sentence holds one.
+  Two instructions that are not split into clauses, because they are joined by
+  `then` or by a full stop before a lower-case word, are one clause, so a
+  feature verb in either leaves the other unread;
 - a shop-made item's positions, fits and fasteners restated in text;
 - picture labels other than the cut (contact coordinates, stock sizes, jaw and
   Z labels), the picture's holder name against the CLEARANCE row's, and a

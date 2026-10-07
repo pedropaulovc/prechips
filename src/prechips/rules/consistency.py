@@ -24,9 +24,11 @@ not matter: the fact has one source, and the text may only leave it to that sour
   only a statement in the closed grammar below, in governing text that is not ambiguous,
   is an error; any other wording, and any ambiguous text, makes no claim (never an error,
   never a pass), a documented coverage limit. The note is folded (:func:`_fold`: NFKC,
-  except fraction, superscript and subscript glyphs) and tokenised (:func:`_tokens`:
-  whitespace collapsed, ``x`` / ``X`` / ``×`` / ``*`` one separator, numbers split from
-  units and from a glued ``x``), then read (:func:`_size_at`) as::
+  except the glyphs :func:`_kept` keeps, those NFKC would turn into digits, a fraction
+  glyph or a superscript or subscript digit, or into no angle, ``º`` and ``˚``) and
+  tokenised (:func:`_tokens`: whitespace collapsed, ``x`` / ``X`` / ``×`` / ``*`` one
+  separator, numbers split from units and from a glued ``x``), then read (:func:`_size_at`)
+  as::
 
       statement  = "the" row ["to"] ["Ø"] edge "x" edge ["x" edge] terminator
       edge       = (number | "?" | "unknown") [unit ["."]] [edge word] {parenthesis}
@@ -36,8 +38,10 @@ not matter: the fact has one source, and the text may only leave it to that sour
   length). A number is in digits (a fraction, ``1/2``, ``1 / 2``, ``½``, or a range,
   ``8-10``, ``8–10``, is none); a unit is mm, in, inch, inches, ``"`` or ``'``, its point
   kept only when the size goes on (``4 mm. x 8``); an edge word is wide, high, thick, long
-  or deep; a parenthesis never closed ends at a ``;``. The terminator is no number,
-  fraction, range, name, ``x`` or unit, nor a comma or point glued to a digit (``8,5``).
+  or deep; a parenthesis that closes runs through its ``)``, whatever it holds
+  (``(rough; finish later)``), and one never closed ends at its own ``;``. The terminator
+  is no number, fraction, range, name, ``x`` or unit, nor a comma or point glued to a
+  digit (``8,5``).
   The governing text (:func:`_scope`) is the statement's clause (split at ``, : ; !`` and
   at a full stop before a capital or the note's end, never inside a parenthesis that
   closes), or its sentence when the clause has no verb before ``the <row>``. It is
@@ -45,10 +49,11 @@ not matter: the fact has one source, and the text may only leave it to that sour
   drill, bore, ream, tap, counterbore, countersink, spot, spotface, chamfer, bevel,
   thread, knurl, groove, slot, pocket, notch, recess, undercut; hyphenated compounds split
   and joined; not a word directly before a tool or stock noun, ``drill rod``,
-  ``drill-rod``, ``boring bar``), an angle unit (``°``, ``º``, ``deg``, ``degrees``) or a
-  fraction. The row's Size mm prints the size; each row the name denotes is its own
-  finding, whatever its numbers or unit (a size before a finishing step is an allowance
-  over the printed one).
+  ``drill-rod``, ``boring bar``), an angle unit (``°``, ``º``, ``deg``, ``degrees``), a
+  fraction or a kept glyph (``¹/₂``, ``8²``). The row's own name is no governing text (a
+  row named ``thread``). The row's Size mm prints the size; each row the name denotes is
+  its own finding, whatever its numbers or unit (a size before a finishing step is an
+  allowance over the printed one).
 
 Compared. A ``T<n>`` in a setup's or op's text names that setup's TOOLS row:
 
@@ -140,8 +145,9 @@ _TOKEN = re.compile(
     rf"|(?P<word>[^\W\d_Øø{_VULGAR}]+(?:['’][^\W\d_Øø{_VULGAR}]+)*)|(?P<mark>\S)",
     re.I,
 )
-# NFKC would turn these into other characters: ``½`` into ``1⁄2``, ``²`` into ``2``, ``º``
-# into ``o`` (:func:`_fold`).
+# NFKC would change what these say: a fraction glyph or a superscript or subscript digit into
+# other digits (``½`` into ``1⁄2``, ``8²`` into ``82``), ``º`` and ``˚`` into no angle
+# (:func:`_kept`).
 _UNFOLDED = ("<fraction>", "<super>", "<sub>")
 _LENGTH = frozenset({"mm", "in", "inch", "inches", '"', "'", "′"})
 _ANGLE = frozenset({"°", "º", "˚", "deg", "degs", "degree", "degrees"})
@@ -564,11 +570,21 @@ def _no_go(op):
     return len(found), found, []
 
 
+def _kept(char):
+    """Whether :func:`_fold` keeps ``char``: NFKC would turn it into a digit (a fraction glyph,
+    a superscript or subscript digit) or would turn an angle mark (``º``, ``˚``) into a
+    letter or a space. Other superscripts and subscripts (``ª``, ``ᴬ``, ``⁺``, ``⁽``, ``™``)
+    fold."""
+    if char in "º˚":
+        return True
+    tag = unicodedata.decomposition(char).split(" ", 1)[0]
+    return tag in _UNFOLDED and any(c.isdigit() for c in unicodedata.normalize("NFKC", char))
+
+
 def _fold(text):
-    """``text`` NFKC-normalised (full-width forms, compatibility spaces), except a fraction,
-    superscript or subscript glyph and the ring ``˚``, which keep their identity: ``½`` is
-    no ``1⁄2``, ``8²`` no ``82``, ``45º`` no ``45o``."""
-    kept = {c for c in text if c == "˚" or unicodedata.decomposition(c).startswith(_UNFOLDED)}
+    """``text`` NFKC-normalised (full-width forms, compatibility spaces), except the glyphs
+    :func:`_kept` keeps: ``½`` is no ``1⁄2``, ``8²`` no ``82``, ``45º`` no ``45o``."""
+    kept = {c for c in text if _kept(c)}
     parts = re.split(f"([{re.escape(''.join(kept))}])", text) if kept else [text]
     return "".join(p if p in kept else unicodedata.normalize("NFKC", p) for p in parts)
 
@@ -594,10 +610,22 @@ def _tokens(text):
     return text, tokens
 
 
+def _closing(tokens, i):
+    """The index of the ``)`` that closes the ``(`` at ``tokens[i]``; None when none does."""
+    depth = 0
+    for j in range(i, len(tokens)):
+        depth += {"(": 1, ")": -1}.get(tokens[j][1], 0)
+        if depth == 0:
+            return j
+    return None
+
+
 def _edge_tail(tokens, i):
     """Where a size edge's tail from ``tokens[i]`` ends: a length unit (with its abbreviation
     point when more of the size follows, ``4 mm. x 8``), then wide / high / thick / long /
-    deep, then parentheses (one never closed ends at a ``;`` or the note's end)."""
+    deep, then parentheses. One that closes (:func:`_closing`) runs through its ``)``,
+    whatever it holds (``(rough; finish later)``); one never closed ends at its own ``;``
+    (none in a parenthesis inside it that closes) or the note's end."""
     if i < len(tokens) and tokens[i][1] in _LENGTH:
         i += 1
         if i + 1 < len(tokens) and tokens[i][1] == "." and tokens[i][2] == tokens[i - 1][3]:
@@ -606,12 +634,15 @@ def _edge_tail(tokens, i):
     if i < len(tokens) and tokens[i][1] in _EDGE_WORDS:
         i += 1
     while i < len(tokens) and tokens[i][1] == "(":
-        depth = 0
+        close = _closing(tokens, i)
+        if close is not None:
+            i = close + 1
+            continue
+        i += 1
         while i < len(tokens) and tokens[i][1] != ";":
-            depth += {"(": 1, ")": -1}.get(tokens[i][1], 0)
-            i += 1
-            if depth == 0:
-                break
+            inner = _closing(tokens, i) if tokens[i][1] == "(" else None
+            i = (i if inner is None else inner) + 1
+        break
     return i
 
 
@@ -649,12 +680,11 @@ def _boundaries(text, tokens):
     """Per token: 2 where a sentence ends (``;``, ``!``, a full stop at the note's end or
     before a capital), 1 where a clause ends (``,``, ``:``), else 0. Nothing inside a
     parenthesis that closes ends either; one never closed ends at its ``;``."""
-    inside, opened = set(), []
+    inside = set()
     for j, token in enumerate(tokens):
-        if token[1] == "(":
-            opened.append(j)
-        elif token[1] == ")" and opened:
-            inside.update(range(opened.pop() + 1, j))
+        close = _closing(tokens, j) if token[1] == "(" else None
+        if close is not None:
+            inside.update(range(j + 1, close))
     marks = []
     for j, (_, value, _, end) in enumerate(tokens):
         full_stop = value == "." and (
@@ -710,10 +740,12 @@ def _scope(tokens, marks, i, after):
 def _ambiguous(tokens, start, end):
     """Whether ``tokens[start:end]``, a size's governing text (:func:`_scope`), leaves it
     something other than the row's whole size: a feature verb (:func:`_verbs`), an angle
-    unit or a fraction anywhere in it."""
+    unit, a fraction or a glyph :func:`_fold` keeps (``¹/₂``, ``8²``) anywhere in it."""
     if _verbs(tokens, start, end)[1]:
         return True
-    return any(t[1] in _ANGLE or t[0] == "frac" for t in tokens[start:end])
+    return any(
+        t[1] in _ANGLE or t[0] == "frac" or any(_kept(c) for c in t[1]) for t in tokens[start:end]
+    )
 
 
 def _arity(solid):
@@ -730,8 +762,8 @@ def _note_sizes(traveler, title, note, rows):
     """The SHOP-MADE FIXTURE rows (``rows``: solids, Size mm cell) whose whole size the make
     note they print with restates unambiguously: ``the <row>`` (a solid's name or the row's
     label) then :func:`_size_at` with as many edges as the row prints, in governing text
-    (:func:`_scope`) that is not :func:`_ambiguous`. Each row the name denotes is its own
-    finding, whatever the numbers or units say."""
+    (:func:`_scope`, less the row's name) that is not :func:`_ambiguous`. Each row the name
+    denotes is its own finding, whatever the numbers or units say."""
     from prechips.sheet import _solid_name
 
     names = {}
@@ -753,7 +785,11 @@ def _note_sizes(traveler, title, note, rows):
             continue
         key = next((k for k in keys if tuple(values[i + 1 : i + 1 + len(k)]) == k), None)
         size = key and _size_at(tokens, i + 1 + len(key))
-        if not size or _ambiguous(tokens, *_scope(tokens, marks, i, size[0])):
+        if not size:
+            continue
+        # The row's own name is no governing text: "the thread" names a row, no verb.
+        start, end = _scope(tokens, marks, i, size[0])
+        if _ambiguous(tokens, start, i + 1) or _ambiguous(tokens, i + 1 + len(key), end):
             continue
         after, edges = size
         said = text[tokens[i][2] : tokens[after - 1][3]]
