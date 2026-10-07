@@ -2380,10 +2380,10 @@ class _Traveler:
             pieces.append(_p(self.tool_touch(setup, touch, tools)))
         for gap in numbers.get("missing_touches", []):
             name = tools.get(gap.get("tool")) or self.short_reference(gap.get("tool"))
-            axes = " and ".join(_text(axis).upper() for axis in gap.get("axes", []))
+            missing = " and ".join(_text(axis).upper() for axis in gap.get("axes", []))
             pieces.append(
                 _p(
-                    f"STOP: before op {_text(gap.get('before_op'))}, {name} has no {axes} "
+                    f"STOP: before op {_text(gap.get('before_op'))}, {name} has no {missing} "
                     "touch — the DRO reads another tool. Plan a tool touch."
                 )
             )
