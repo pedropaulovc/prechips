@@ -1953,9 +1953,10 @@ class _Traveler:
 
     def shop_made_parts(self, reference):
         """The item's solids, made solids, withheld solids (id -> why), holes per parent
-        solid id, drilled parent ids and fit ids: a locating solid's fit is the bore cut in
-        it, else the solid itself. Like the kernel, an unverified primitive gives no
-        numbers, and an unverified hole withholds the solids it would cut."""
+        solid id, drilled parent ids and fit ids: a locating solid is a fit, and so is every
+        bore cut in it (either may be the surface that locates). Like the kernel, an
+        unverified primitive gives no numbers, and an unverified hole withholds the solids it
+        would cut."""
         item = self.shop_made(reference)
         solids = [s for s in item.get("solids") or [] if isinstance(s, dict)]
         # Made solids, and existing parts (a bought angle plate) only for holes cut here.
@@ -1980,7 +1981,7 @@ class _Traveler:
                     holes.setdefault(id(parent), []).append(void)
         fits = set()
         for solid in (s for s in made if s.get("locates")):
-            fits.update(id(v) for v in holes.get(id(solid), [solid]))
+            fits.update([id(solid), *(id(v) for v in holes.get(id(solid), []))])
         return solids, made, withheld, holes, drilled, fits
 
     def shop_made_table(self, setup, reference, placements):
