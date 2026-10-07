@@ -384,20 +384,52 @@ only leave it there.
   derived, so other heights are given as Z values.
 - A made row's whole size in a make note it prints with, on a SHOP-MADE FIXTURE
   table (read on the setup whose sheet prints the table): the row's Size mm prints
-  it. The note is NFKC-normalised and split into tokens: whitespace collapses,
-  `x`, `X`, `×` and `*` are one separator, and a number splits from its unit and
-  from a glued separator (`65.2x11x10`, `4mmx8`, `Øunknown`). The note names the
-  row (`the <row>`, by its solid's name or its `label`, word for word) and gives
-  every edge the row prints: `the <row> [to] A x B x C` for a box (a cut-out too),
-  `the <row> [to] [Ø] D x L` for a cylinder. An edge is a number in digits (not a
-  fraction or part of a hyphen range), `?` or `unknown`, perhaps with a unit
-  (`mm`, `in`, `inch`, `inches`, `"`, `″`, `'`, `′`), then `wide`, `high`,
-  `thick`, `long` or `deep` and a parenthesis (one never closed ends at a `;`).
-  The size ends at the note's end, a word or a mark, not at a further number,
-  `x` or unit. Each row the name denotes is its own finding, rows sharing a
-  label or a note included, and a withheld row (`?`) as well. A size before a
-  later finishing step is still the row's size, so it is given as an allowance
-  over the printed size (`0.01 over`), not as a second size.
+  it. The contract is that only an unambiguous restatement is an error: a
+  statement in the closed grammar below, whose governing text is not ambiguous.
+  Any other wording, and any ambiguous text, makes no claim (never an error,
+  never a pass); those are the coverage limits listed under Not covered. The note
+  is NFKC-normalised, except fraction, superscript and subscript glyphs (`½` stays
+  a fraction, `8²` and `45º` are not folded into `82` and `45o`), and split into
+  tokens: whitespace collapses, `x`, `X`, `×` and `*` are one separator, and a
+  number splits from its unit and from a glued separator (`65.2x11x10`, `4mmx8`,
+  `Øunknown`). The grammar:
+
+  ```text
+  statement  = "the" row ["to"] ["Ø"] edge "x" edge ["x" edge] terminator
+  edge       = (number | "?" | "unknown") [unit ["."]] [edge word] {parenthesis}
+  terminator = the note's end | a word | a mark
+  ```
+
+  The row is named word for word, by its solid's name or its `label`, and the
+  statement gives every edge the row prints: three for a box (a cut-out too), Ø
+  and length for a cylinder. A number is in digits; a fraction (`1/2`, `1 / 2`,
+  `½`, `1⁄2`) or a range (`8-10`, `8–10`, `8 - 10`) is not one. A unit is `mm`,
+  `in`, `inch`, `inches`, `"`, `″`, `'` or `′`, with its point (`mm.`) when the
+  size goes on after it. An edge word is `wide`, `high`, `thick`, `long` or
+  `deep`. A parenthesis never closed ends at a `;`. The terminator is not a
+  number, fraction, range, name (`M6`), `x` or unit, nor a comma or point glued
+  to a digit (`8,5`).
+
+  The governing text is the statement's clause. Clauses split at `,`, `:`, `;`,
+  `!` and at a full stop before a capital or the note's end, but never inside a
+  parenthesis that closes. When the clause has no verb before `the <row>`
+  (`Drill, with care, the stud …`), the governing text is the whole sentence.
+  That text is ambiguous, and the statement is not read, when it holds any of
+  these anywhere:
+  - a feature verb: `drill`, `bore`, `ream`, `tap`, `counterbore`,
+    `countersink`, `spot`, `spotface`, `chamfer`, `bevel`, `thread`, `knurl`,
+    `groove`, `slot`, `pocket`, `notch`, `recess` or `undercut`. Inflections and
+    `c'bore` / `csk` count, and a hyphenated compound is read both split
+    (`spot-drill`) and joined (`counter-sink`). A word directly before a tool or
+    stock noun, with or without a hyphen between (`drill rod`, `drill-rod`,
+    `boring bar`, `tap wrench`), names that tool or stock and is not a verb;
+  - an angle unit: `°`, `º`, `˚`, `deg`, `degs`, `degree` or `degrees`;
+  - a fraction.
+
+  Each row the name denotes is its own finding, including rows that share a label
+  or a note, and a withheld row (`?`). A size before a later finishing step is
+  still the row's size, so give it as an allowance over the printed size (`0.01
+  over`), not as a second size.
 
 **Compared** forms are an `error` when they disagree with the field. A `T<n>` in a
 setup's or op's text names that setup's TOOLS row.
@@ -495,18 +527,22 @@ Not covered (never read, so never an error):
 - flute counts in words (`four-flute`), or not bound to one tool number;
 - inspection text that sends a plug through in any other wording (`gently push
   …`, `the NO-GO goes through`);
-- make-note sizes that do not name the row (`sawn and milled to 11 x 10 x
-  65.2`, `turned Ø16 x 9.05`, `drill Ø4 x 8 deep in the stud`), a part of a
-  solid (`the thread portion Ø4.80 x 7.2`, `the arm's nose`), only some of a
-  row's edges (`the arm to 11 x 10`), a hole's Ø, fractions and hyphen ranges,
-  a size with an angle on any edge (`0.5 x 45°`, `45 deg`, `45 (degrees)`), a
-  size a feature verb governs (`drill`, `bore`, `ream`, `tap`, `counterbore`,
-  `countersink`, `spot`, `spotface`, `chamfer` or `bevel` nearest before `the
-  <row>` in its clause: `drill and tap the stud to Ø4 x 8 deep` is the hole's;
-  before a tool or stock noun, as in `drill rod` or `tap wrench`, the word is
-  no verb), a bought or existing part's note, and a shop-made item's
-  positions, fits and fasteners restated in text. The governing verb is found
-  by that nearest-verb rule, not by a parse;
+- make-note sizes outside the grammar: sizes that do not name the row (`sawn
+  and milled to 11 x 10 x 65.2`, `turned Ø16 x 9.05`, `drill Ø4 x 8 deep in the
+  stud`), a part of a solid (`the thread portion Ø4.80 x 7.2`, `the arm's
+  nose`), only some of a row's edges (`the arm to 11 x 10`), a hole's Ø, edges in
+  fractions, ranges, words or other separators (`✕`), and a bought or existing
+  part's note;
+- make-note sizes in ambiguous governing text. This is a feature verb, angle
+  unit or fraction anywhere in the clause, even in parentheses, before the row
+  or after the size. Examples: `drill and tap the stud to Ø4 x 8 deep`, `Drill
+  (use the mill) the stud …`, `turn the stud to Ø4 x 8 and drill it`, `0.5 x
+  45 (nominal) (deg)`, `from ½ in rod`. It is also a clause with no verb of its
+  own whose sentence holds one. Two instructions that are not split into
+  clauses, because they are joined by `then` or by a full stop before a
+  lower-case word, are one clause, so a feature verb in either leaves the other
+  unread;
+- a shop-made item's positions, fits and fasteners restated in text;
 - picture labels other than the cut (contact coordinates, stock sizes, jaw and
   Z labels), the picture's holder name against the CLEARANCE row's, and a
   clearance restated in op text.

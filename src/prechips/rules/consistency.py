@@ -20,20 +20,35 @@ not matter: the fact has one source, and the text may only leave it to that sour
   with ``jaw_above_parallels_mm``: the jaw tops are derived from the seated bottom and that
   field;
 * in the make note of a made SHOP-MADE FIXTURE row, on the sheet of the setup that prints
-  the item's table, a named row's whole size. The note is NFKC-normalised and tokenised
-  (:func:`_tokens`: whitespace collapsed, ``x`` / ``X`` / ``×`` / ``*`` one separator, numbers
-  split from units and from a glued ``x``), then read as ``the <row> [to] [Ø] A x B [x C]``
-  (:func:`_size_at`) with as many edges as the row prints: a box's three (a cut-out's too),
-  a cylinder's Ø and length. Each edge is a number in digits (not a fraction or part of a
-  hyphen range), ``?`` or ``unknown``, perhaps with a length unit (feet and inch marks
-  too), then wide / high / thick / long / deep and a parenthesis, and no further number,
-  ``x`` or unit follows. An angle on any edge (``°``, ``deg``, ``degrees``, bare or in
-  parentheses) makes it no size, and so does a feature verb (drill, bore, ream, tap,
-  counterbore, countersink, spot, spotface, chamfer, bevel) nearest before ``the <row>`` in
-  its clause (not one before a tool or stock noun, ``drill rod``): that is the hole's or
-  chamfer's size. The row's Size mm prints the size; each row the name denotes is its own
-  finding, whatever its numbers or unit (a size before a finishing step is an allowance over
-  the printed one).
+  the item's table, an unambiguous restatement of a named row's whole size. The contract:
+  only a statement in the closed grammar below, in governing text that is not ambiguous,
+  is an error; any other wording, and any ambiguous text, makes no claim (never an error,
+  never a pass), a documented coverage limit. The note is folded (:func:`_fold`: NFKC,
+  except fraction, superscript and subscript glyphs) and tokenised (:func:`_tokens`:
+  whitespace collapsed, ``x`` / ``X`` / ``×`` / ``*`` one separator, numbers split from
+  units and from a glued ``x``), then read (:func:`_size_at`) as::
+
+      statement  = "the" row ["to"] ["Ø"] edge "x" edge ["x" edge] terminator
+      edge       = (number | "?" | "unknown") [unit ["."]] [edge word] {parenthesis}
+      terminator = the note's end | a word | a mark
+
+  with as many edges as the row prints (a box's three, a cut-out's too; a cylinder's Ø and
+  length). A number is in digits (a fraction, ``1/2``, ``1 / 2``, ``½``, or a range,
+  ``8-10``, ``8–10``, is none); a unit is mm, in, inch, inches, ``"`` or ``'``, its point
+  kept only when the size goes on (``4 mm. x 8``); an edge word is wide, high, thick, long
+  or deep; a parenthesis never closed ends at a ``;``. The terminator is no number,
+  fraction, range, name, ``x`` or unit, nor a comma or point glued to a digit (``8,5``).
+  The governing text (:func:`_scope`) is the statement's clause (split at ``, : ; !`` and
+  at a full stop before a capital or the note's end, never inside a parenthesis that
+  closes), or its sentence when the clause has no verb before ``the <row>``. It is
+  ambiguous (:func:`_ambiguous`) when it holds, anywhere, a feature verb (:func:`_verbs`:
+  drill, bore, ream, tap, counterbore, countersink, spot, spotface, chamfer, bevel,
+  thread, knurl, groove, slot, pocket, notch, recess, undercut; hyphenated compounds split
+  and joined; not a word directly before a tool or stock noun, ``drill rod``,
+  ``drill-rod``, ``boring bar``), an angle unit (``°``, ``º``, ``deg``, ``degrees``) or a
+  fraction. The row's Size mm prints the size; each row the name denotes is its own
+  finding, whatever its numbers or unit (a size before a finishing step is an allowance
+  over the printed one).
 
 Compared. A ``T<n>`` in a setup's or op's text names that setup's TOOLS row:
 
@@ -110,31 +125,43 @@ _THROUGH = re.compile(
     + r")(?:\s+[\w-]+){0,4}?\s+through\b",
     re.I,
 )
-# Make-note tokens (:func:`_tokens`): a fraction or a hyphen range is one token, never an edge;
-# a length unit or ``unknown`` splits from a glued ``x`` (``4mmx8``, ``xunknown``); ``Ø``
-# stands alone (``Øunknown``); an apostrophe between letters is the word's (``arm's``).
+# Make-note tokens (:func:`_tokens`): a fraction (``1/2``, ``1 / 2``, ``½``, a fraction slash)
+# or a range (``8-10``, ``8–10``, ``8 - 10``) is one token, never an edge; a length unit or
+# ``unknown`` splits from a glued ``x`` (``4mmx8``, ``xunknown``); ``Ø`` stands alone
+# (``Øunknown``); an apostrophe between letters is the word's (``arm's``).
+_VULGAR = "¼½¾\u2150-\u215f\u2189"
+_DECIMAL = r"\d+(?:\.\d+)?"
 _GLUED = r"(?=(?:x(?:unknown)?)?(?![^\W\d_]))"
 _TOKEN = re.compile(
-    r"(?P<frac>\d+(?:\.\d+)?(?:-\d+)?/\d+)|(?P<range>\d+(?:\.\d+)?-\d+(?:\.\d+)?)"
-    rf"|(?P<num>\d+(?:\.\d+)?)|(?P<dia>[Øø⌀])|(?P<unit>(?:mm|inches|inch|in){_GLUED})"
+    rf"(?P<frac>{_DECIMAL}(?:-\d+)? ?[/⁄∕] ?\d+|[{_VULGAR}⁄∕])"
+    rf"|(?P<range>{_DECIMAL} ?[-‐‑‒–—−] ?{_DECIMAL})"
+    rf"|(?P<num>{_DECIMAL})|(?P<dia>[Øø⌀])|(?P<unit>(?:mm|inches|inch|in){_GLUED})"
     rf"|(?P<unknown>unknown{_GLUED})|(?P<by>x(?=unknown(?:x|(?![^\W\d_]))))"
-    r"|(?P<word>[^\W\d_Øø]+(?:['’][^\W\d_Øø]+)*)|(?P<mark>\S)",
+    rf"|(?P<word>[^\W\d_Øø{_VULGAR}]+(?:['’][^\W\d_Øø{_VULGAR}]+)*)|(?P<mark>\S)",
     re.I,
 )
+# NFKC would turn these into other characters: ``½`` into ``1⁄2``, ``²`` into ``2``, ``º``
+# into ``o`` (:func:`_fold`).
+_UNFOLDED = ("<fraction>", "<super>", "<sub>")
 _LENGTH = frozenset({"mm", "in", "inch", "inches", '"', "'", "′"})
-_ANGLE = frozenset({"°", "deg", "degs", "degree", "degrees"})
+_ANGLE = frozenset({"°", "º", "˚", "deg", "degs", "degree", "degrees"})
 _EDGE_WORDS = frozenset({"wide", "high", "thick", "long", "deep"})
-_CLAUSE = frozenset({";", ",", ":", ".", "!"})
-# The verb nearest before ``the <row>`` in its clause: one that makes a feature on the row (a
-# hole or a chamfer) gives that feature's size, one that shapes the row its own. A feature
-# word before a tool or stock noun names the tool or stock (``drill rod``), not the verb.
+_HYPHENS = frozenset("-‐‑‒–—")
+# A verb that makes a feature on the row (a hole, a chamfer, a thread, a groove …) gives that
+# feature's size; one that shapes the row gives its own. A feature word before a tool or
+# stock noun names the tool or stock (``drill rod``, ``boring bar``), not the verb.
 _FEATURE_VERB = re.compile(
     r"drill(?:s|ed|ing)?|bor(?:e|es|ed|ing)|ream(?:s|ed|ing)?|tap(?:s|ped|ping)?"
-    r"|counterbor(?:e|es|ed|ing)|countersink(?:s|ing)?|countersunk|spot(?:s|ted|ting)?"
-    r"|spotfac(?:e|es|ed|ing)|chamfer(?:s|ed|ing)?|bevel(?:s|ed|led|ing|ling)?"
+    r"|(?:counter|c['’]?)bor(?:e|es|ed|ing)|(?:counter|c['’]?)sink(?:s|ing)?|countersunk"
+    r"|c['’]?sk|ctsk|spot(?:s|ted|ting)?|spotfac(?:e|es|ed|ing)|chamfer(?:s|ed|ing)?"
+    r"|bevel(?:s|ed|led|ing|ling)?|thread(?:s|ed|ing)?|knurl(?:s|ed|ing)?|groov(?:e|es|ed|ing)"
+    r"|slot(?:s|ted|ting)?|pocket(?:s|ed|ing)?|notch(?:es|ed|ing)?|recess(?:es|ed|ing)?"
+    r"|undercut(?:s|ting)?"
 )
 _TOOL_NOUNS = frozenset(
-    {"rod", "bit", "bits", "press", "chuck", "wrench", "bar", "gauge", "gage", "blank", "stock"}
+    {"rod", "rods", "bit", "bits", "press", "presses", "chuck", "chucks", "wrench", "wrenches"}
+    | {"bar", "bars", "gauge", "gauges", "gage", "gages", "blank", "blanks", "stock"}
+    | {"tool", "tools", "head", "heads"}
 )
 _SHAPE_VERB = re.compile(
     r"turn(?:s|ed|ing)?|mill(?:s|ed|ing)?|fac(?:e|es|ed|ing)|saw(?:s|n|ed|ing)?|cut(?:s|ting)?"
@@ -537,12 +564,21 @@ def _no_go(op):
     return len(found), found, []
 
 
+def _fold(text):
+    """``text`` NFKC-normalised (full-width forms, compatibility spaces), except a fraction,
+    superscript or subscript glyph and the ring ``˚``, which keep their identity: ``½`` is
+    no ``1⁄2``, ``8²`` no ``82``, ``45º`` no ``45o``."""
+    kept = {c for c in text if c == "˚" or unicodedata.decomposition(c).startswith(_UNFOLDED)}
+    parts = re.split(f"([{re.escape(''.join(kept))}])", text) if kept else [text]
+    return "".join(p if p in kept else unicodedata.normalize("NFKC", p) for p in parts)
+
+
 def _tokens(text):
-    """``(text, tokens)``: ``text`` NFKC-normalised, whitespace collapsed, ″ / '' / “ ” as
-    ``"``; each token ``[kind, lower-case value, start, end]``. ``x`` / ``×`` / ``*`` are
-    ``by``; a number glued to a word other than a unit or ``x`` is part of a ``name`` (M6,
-    6061T6)."""
-    text = re.sub(r"\s+", " ", unicodedata.normalize("NFKC", text)).strip()
+    """``(text, tokens)``: ``text`` folded (:func:`_fold`), whitespace collapsed, ″ / '' /
+    “ ” as ``"``; each token ``[kind, lower-case value, start, end]``. ``x`` / ``×`` / ``*``
+    are ``by``; a number glued to a word other than a unit, an angle or ``x`` is part of a
+    ``name`` (M6, 6061T6)."""
+    text = re.sub(r"\s+", " ", _fold(text)).strip()
     text = re.sub(r"′′|''|[“”]", '"', text)
     tokens = []
     for m in _TOKEN.finditer(text):
@@ -558,32 +594,32 @@ def _tokens(text):
     return text, tokens
 
 
-def _edge_tail(values, i):
-    """Where a size edge's tail from ``values[i]`` ends: a length unit, then wide / high /
-    thick / long / deep, then a parenthesis (one never closed ends at a ``;`` or the note's
-    end). None when an angle unit is in it (``45°``, ``45 deg``, ``45 (degrees)``)."""
-    if i < len(values) and values[i] in _LENGTH:
+def _edge_tail(tokens, i):
+    """Where a size edge's tail from ``tokens[i]`` ends: a length unit (with its abbreviation
+    point when more of the size follows, ``4 mm. x 8``), then wide / high / thick / long /
+    deep, then parentheses (one never closed ends at a ``;`` or the note's end)."""
+    if i < len(tokens) and tokens[i][1] in _LENGTH:
         i += 1
-    if i < len(values) and values[i] in _EDGE_WORDS:
+        if i + 1 < len(tokens) and tokens[i][1] == "." and tokens[i][2] == tokens[i - 1][3]:
+            if tokens[i + 1][0] == "by" or tokens[i + 1][1] in (*_EDGE_WORDS, "("):
+                i += 1
+    if i < len(tokens) and tokens[i][1] in _EDGE_WORDS:
         i += 1
-    if i < len(values) and values[i] == "(":
-        start, depth = i, 0
-        while i < len(values) and values[i] != ";":
-            depth += {"(": 1, ")": -1}.get(values[i], 0)
+    while i < len(tokens) and tokens[i][1] == "(":
+        depth = 0
+        while i < len(tokens) and tokens[i][1] != ";":
+            depth += {"(": 1, ")": -1}.get(tokens[i][1], 0)
             i += 1
             if depth == 0:
                 break
-        if _ANGLE & set(values[start:i]):
-            return None
-    if i < len(values) and values[i] in _ANGLE:
-        return None
     return i
 
 
 def _size_at(tokens, i):
     """``(after, edges)`` for ``[to] [Ø] edge x edge [x edge]`` at ``tokens[i]``: each edge a
     number, ``?`` or ``unknown`` and its tail (:func:`_edge_tail`), then a terminator (the
-    note's end, a word or a mark, not a number, ``x`` or unit). None for anything else."""
+    note's end, a word or a mark: not a number, fraction, range, name, ``x`` or unit, nor a
+    comma or point glued to a digit, ``8,5``). None for anything else."""
     values = [t[1] for t in tokens]
     if i < len(values) and values[i] == "to":
         i += 1
@@ -591,9 +627,7 @@ def _size_at(tokens, i):
     i += dia
     edges = 0
     while i < len(tokens) and (tokens[i][0] == "num" or values[i] in ("?", "unknown")):
-        i, edges = _edge_tail(values, i + 1), edges + 1
-        if i is None:
-            return None
+        i, edges = _edge_tail(tokens, i + 1), edges + 1
         if edges == 3 or i + 1 >= len(tokens) or tokens[i][0] != "by":
             break
         i += 1
@@ -602,26 +636,84 @@ def _size_at(tokens, i):
     if edges < 2 or (dia and edges != 2):
         return None
     if i < len(tokens):
-        if tokens[i][0] in ("num", "frac", "range", "name", "by") or values[i] in _LENGTH:
+        kind, value, _, end = tokens[i]
+        glued = i + 1 < len(tokens) and tokens[i + 1][0] == "num" and tokens[i + 1][2] == end
+        if kind in ("num", "frac", "range", "name", "by") or value in _LENGTH:
+            return None
+        if value in (",", ".") and glued:
             return None
     return i, edges
 
 
-def _feature_verb(tokens, i):
-    """Whether the verb nearest before ``tokens[i]`` in its clause makes a feature."""
-    for j in range(i - 1, -1, -1):
-        kind, value = tokens[j][:2]
-        if value in _CLAUSE:
-            return False
-        if kind != "word":
+def _boundaries(text, tokens):
+    """Per token: 2 where a sentence ends (``;``, ``!``, a full stop at the note's end or
+    before a capital), 1 where a clause ends (``,``, ``:``), else 0. Nothing inside a
+    parenthesis that closes ends either; one never closed ends at its ``;``."""
+    inside, opened = set(), []
+    for j, token in enumerate(tokens):
+        if token[1] == "(":
+            opened.append(j)
+        elif token[1] == ")" and opened:
+            inside.update(range(opened.pop() + 1, j))
+    marks = []
+    for j, (_, value, _, end) in enumerate(tokens):
+        full_stop = value == "." and (
+            end == len(text) or text[end] == " " and text[end + 1 : end + 2].isupper()
+        )
+        if j in inside:
+            marks.append(0)
+        elif value in (";", "!") or full_stop:
+            marks.append(2)
+        else:
+            marks.append(1 if value in (",", ":") else 0)
+    return marks
+
+
+def _verbs(tokens, start, end):
+    """``(shapes, features)``: whether ``tokens[start:end]`` holds a verb that shapes a row
+    (turn, mill …) and one that makes a feature on it (drill, chamfer, thread …), a
+    hyphenated compound read joined as well (``counter-sink``). A feature word directly
+    before a tool or stock noun, a hyphen between them or not, names the tool or stock
+    (``drill rod``, ``drill-rod``): it is no verb."""
+    shapes = features = False
+    for j in range(start, end):
+        if tokens[j][0] != "word":
             continue
-        if _FEATURE_VERB.fullmatch(value):
-            if j + 1 < i and tokens[j + 1][1] in _TOOL_NOUNS:
-                continue
-            return True
-        if _SHAPE_VERB.fullmatch(value):
-            return False
-    return False
+        forms = [(tokens[j][1], j)]
+        if j + 2 < end and tokens[j + 1][1] in _HYPHENS and tokens[j + 2][0] == "word":
+            if tokens[j][3] == tokens[j + 1][2] and tokens[j + 1][3] == tokens[j + 2][2]:
+                forms.append((tokens[j][1] + tokens[j + 2][1], j + 2))
+        for word, last in forms:
+            after = last + 1
+            while after < len(tokens) and tokens[after][1] in _HYPHENS:
+                after += 1
+            noun = after < len(tokens) and tokens[after][1] in _TOOL_NOUNS
+            features = features or bool(_FEATURE_VERB.fullmatch(word)) and not noun
+            shapes = shapes or bool(_SHAPE_VERB.fullmatch(word))
+    return shapes, features
+
+
+def _scope(tokens, marks, i, after):
+    """``(start, end)`` of the text governing ``the <row>`` at ``tokens[i]`` and its size (up
+    to ``after``): their clause (:func:`_boundaries`), or their sentence when no verb comes
+    before them in the clause (``Drill, with care, the stud …``)."""
+
+    def span(level):
+        start = next((j + 1 for j in range(i - 1, -1, -1) if marks[j] >= level), 0)
+        end = next((j for j in range(after, len(tokens)) if marks[j] >= level), len(tokens))
+        return start, end
+
+    start, end = span(1)
+    return (start, end) if any(_verbs(tokens, start, i)) else span(2)
+
+
+def _ambiguous(tokens, start, end):
+    """Whether ``tokens[start:end]``, a size's governing text (:func:`_scope`), leaves it
+    something other than the row's whole size: a feature verb (:func:`_verbs`), an angle
+    unit or a fraction anywhere in it."""
+    if _verbs(tokens, start, end)[1]:
+        return True
+    return any(t[1] in _ANGLE or t[0] == "frac" for t in tokens[start:end])
 
 
 def _arity(solid):
@@ -636,9 +728,10 @@ def _arity(solid):
 
 def _note_sizes(traveler, title, note, rows):
     """The SHOP-MADE FIXTURE rows (``rows``: solids, Size mm cell) whose whole size the make
-    note they print with restates: ``the <row>`` (a solid's name or the row's label) then
-    :func:`_size_at` with as many edges as the row prints, not governed by a feature verb.
-    Each row the name denotes is its own finding, whatever the numbers or units say."""
+    note they print with restates unambiguously: ``the <row>`` (a solid's name or the row's
+    label) then :func:`_size_at` with as many edges as the row prints, in governing text
+    (:func:`_scope`) that is not :func:`_ambiguous`. Each row the name denotes is its own
+    finding, whatever the numbers or units say."""
     from prechips.sheet import _solid_name
 
     names = {}
@@ -652,6 +745,7 @@ def _note_sizes(traveler, title, note, rows):
                 names.setdefault(key, {})[id(members)] = row
     keys = sorted(names, key=len, reverse=True)
     text, tokens = _tokens(note)
+    marks = _boundaries(text, tokens)
     values = [t[1] for t in tokens]
     found = []
     for i, value in enumerate(values):
@@ -659,7 +753,7 @@ def _note_sizes(traveler, title, note, rows):
             continue
         key = next((k for k in keys if tuple(values[i + 1 : i + 1 + len(k)]) == k), None)
         size = key and _size_at(tokens, i + 1 + len(key))
-        if not size or _feature_verb(tokens, i):
+        if not size or _ambiguous(tokens, *_scope(tokens, marks, i, size[0])):
             continue
         after, edges = size
         said = text[tokens[i][2] : tokens[after - 1][3]]

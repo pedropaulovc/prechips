@@ -756,6 +756,10 @@ def test_a_make_note_giving_a_named_made_row_s_size_restates_it(size):
         "turned the screw Ø6.30 x 13.45 on the lathe",
         "turn the screw to 6.35 x 13.5",
         "turn the screw to Ø6.4 mm x 13.5 mm",
+        # A feature verb or a fraction in another clause or sentence governs nothing here.
+        "drill the bore, then turn the screw to Ø6.4 x 13.5",
+        "Drill the 1/4 bore. Turn the screw Ø6.4 x 13.5",
+        "Turn the screw Ø6.4 x 13.5 mm. Drill the bore",
     ],
 )
 def test_a_named_cylinder_s_diameter_and_length_restate_its_size(note):
@@ -766,10 +770,10 @@ def test_a_named_cylinder_s_diameter_and_length_restate_its_size(note):
 
 SPACINGS = ("{a} {by} {b}", "{a}{by}{b}", "{a} {by}{b}", "{a}{by} {b}")
 SEPARATORS = ("x", "X", "×", "*")
-UNITS = ("", "mm", " in", " (inches)")
+UNITS = ("", "mm", " in", " (inches)", " mm.")
 SHAPING = ("turn", "mill", "finish")
 FEATURE = ("drill", "bore", "ream", "tap", "counterbore", "countersink", "spot", "chamfer")
-ANGLES = ("", "°", " deg", " degrees", " (deg)", " (°)")
+ANGLES = ("", "°", " deg", " degrees", " (deg)", " (°)", "º", " (nominal) (deg)", " mm. (deg)")
 
 
 def test_a_named_cylinder_size_is_restated_in_every_spacing_separator_unit_and_verb():
@@ -785,6 +789,68 @@ def test_a_named_cylinder_size_is_restated_in_every_spacing_separator_unit_and_v
         expected = ("error", 1) if verb in SHAPING and not angle else ("not_applicable", 0)
         if (row.status, row.numbers["claims"]) != expected:
             wrong.append((note, row.status))
+    assert wrong == []
+
+
+TOOLING = (
+    "",
+    " from drill rod",
+    " from drill-rod",
+    " from drill - rod",
+    " using a boring bar",
+    " using a bore gauge",
+    " using a boring tool",
+    " with a tap wrench",
+    " on the mill",
+    " (use the mill)",
+    " (use a sharp bit, lubricate well)",
+    " with a 4 mm. bit",
+)
+
+
+def test_the_verb_governs_a_named_size_whatever_tooling_text_its_clause_holds():
+    # A feature verb anywhere in the clause, a hyphenated one or one in parentheses
+    # included, makes the size its feature's; a feature word before a tool or stock noun
+    # (drill rod, drill-rod, boring bar) is that noun's, and no verb.
+    wrong = []
+    verbs = SHAPING + FEATURE + ("spot-drill", "counter-sink", "c'bore", "re-drill")
+    for verb, tooling, before in itertools.product(verbs, TOOLING, (True, False)):
+        lead, tail = (tooling, "") if before else ("", tooling)
+        note = f"{verb.capitalize()}{lead} the stud to Ø4 x 8 deep{tail}"
+        row = rows(jig(rod("stud", 10, 50, note)))["S1"]
+        expected = ("error", 1) if verb in SHAPING else ("not_applicable", 0)
+        if (row.status, row.numbers["claims"]) != expected:
+            wrong.append((note, row.status))
+    elsewhere = (" (then drill)", " and drill", " and counter-sink", " (spot, then drill)")
+    for verb, feature, before in itertools.product(SHAPING, elsewhere, (True, False)):
+        lead, tail = (feature, "") if before else ("", feature)
+        note = f"{verb.capitalize()}{lead} the stud to Ø4 x 8{tail}"
+        row = rows(jig(rod("stud", 10, 50, note)))["S1"]
+        if (row.status, row.numbers["claims"]) != ("not_applicable", 0):
+            wrong.append((note, row.status))
+    assert wrong == []
+
+
+NOT_EDGES = ("1/2", "1 / 2", "½", "1⁄2", "1∕2", "4½", "4 1/2", "8²", "8,5")
+NOT_EDGES += ("8-10", "8 - 10", "8–10", "8—10", "8−10")
+
+
+def test_a_fraction_range_or_split_number_is_no_edge_of_a_named_size():
+    # In any edge and with any unit: a fraction (ASCII, spaced, a vulgar or slashed glyph),
+    # a range in any dash, a superscript or a decimal comma is not a size's edge.
+    wrong = []
+    for edge, unit, position in itertools.product(NOT_EDGES, UNITS, range(5)):
+        cylinder = position < 2
+        edges = ["4", "8"] if cylinder else ["65.2", "11", "10"]
+        edges[position if cylinder else position - 2] = edge
+        size = " x ".join(e + unit for e in edges)
+        if cylinder:
+            solid = rod("stud", 10, 50, "Turn the stud to Ø" + size)
+        else:
+            solid = block("arm", [65.2, 11, 10], "Mill the arm to " + size)
+        row = rows(jig(solid))["S1"]
+        if (row.status, row.numbers["claims"]) != ("not_applicable", 0):
+            wrong.append((solid["note"], row.status))
     assert wrong == []
 
 
@@ -883,6 +949,11 @@ def test_a_box_size_not_given_as_the_named_row_s_whole_size_is_not_read(note):
         "Drill and tap the stud to Ø4 x 8 deep",
         "spot-drill, then drill the stud Ø4 x 8 and counterbore the stud Ø6 x 3",
         "Drill a hole in the stud to Ø4 x 8 deep",
+        # A clause with no verb of its own reads in its sentence's, a parenthesis that
+        # closes ends no clause, and a fraction anywhere in the clause makes it no size.
+        "Drill, with care, the stud to Ø4 x 8 deep",
+        "Drill (use a sharp bit; lubricate well) the stud to Ø4 x 8 deep",
+        "Turn from ½ in rod the stud to Ø6.49 x 76.5",
     ],
 )
 def test_a_cylinder_size_not_given_as_the_named_row_s_whole_size_is_not_read(note):
