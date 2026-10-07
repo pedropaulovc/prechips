@@ -78,7 +78,12 @@ def test_known_numbers_without_drawing_precision_print_and_unknowns_stay_explici
     assert tables and all("<td>?</td>" not in table for table in tables)
     targets = text("".join(sections(html, "OPERATIONS")))
     printed = re.findall(r"Z (-?\d+\.(\d+)) → (-?\d+\.(\d+))", targets)
-    grids = {row["subject"]: row["numbers"]["dro_grid"] for row in findings(report, "coordinates")}
+    # Bench setups (the bracket's S5 send-out) have no DRO, so their findings carry no grid.
+    grids = {
+        row["subject"]: row["numbers"]["dro_grid"]
+        for row in findings(report, "coordinates")
+        if "dro_grid" in row["numbers"]
+    }
     for row in findings(report, "blind_depth"):
         for endpoint in row["numbers"].get("endpoints", []):
             entry, tip = endpoint["entry_z"], endpoint["tip_z"]
@@ -100,16 +105,17 @@ def test_operative_z_keeps_its_own_digits_over_drawing_precision(tmp_path):
         setup=SYNTHETIC_KERNEL,
     )
     coordinates = next(row for row in findings(report, "coordinates") if row["subject"] == "S3")
+    # S3 op 20 faces the parted end to the dome apex, a DRO-set local Z.
     endpoint = next(
-        row for row in coordinates["numbers"]["rows"] if row.get("point") == "op 10 to_z"
+        row for row in coordinates["numbers"]["rows"] if row.get("point") == "op 20 to_z"
     )
     assert coordinates["status"] == "pass"
     # Nominal frame T3 (z = -model Z from -156.67) maps the authored local endpoint.
     assert endpoint["setup"] == [0.0, 0.0, 1.75]
     assert endpoint["model"] == pytest.approx([0.0, 0.0, -158.42])
     s3_ops = sections(html, "OPERATIONS")[-1]
-    op10 = next(cells for number, cells in op_rows(s3_ops) if number == "10")
-    assert "1.75" in text(op10)
+    op20 = next(cells for number, cells in op_rows(s3_ops) if number == "20")
+    assert "1.75" in text(op20)
     dome = next(
         contour
         for row in findings(report, "coordinates")
@@ -117,8 +123,15 @@ def test_operative_z_keeps_its_own_digits_over_drawing_precision(tmp_path):
         if contour.get("feature") == "south_dome"
     )
     page = next(page for page in sections(html, "CONTOURS") if "south dome" in page)
-    table = page[page.index("<table", page.index("south dome")) :]
-    headings = re.findall(r"<th>([^<]*)</th>", table[: table.index("</thead>")])
+    # The dome's rough stair (headed "in to X") leaves stock on the surface; the finish
+    # table after it carries the dome stations.
+    tables = page[page.index("south dome") :].split("<table")[1:]
+    table, headings = next(
+        (table, headings)
+        for table in tables
+        if "in to X (Ø)"
+        not in (headings := re.findall(r"<th>([^<]*)</th>", table[: table.index("</thead>")]))
+    )
     # A compensated dome also prints tool X/Z; the stations are the surface Z column.
     column = headings.index("surface Z" if "surface Z" in headings else "Z")
     rows = re.findall(r"<tr>((?:<td>[^<]*</td>)+)</tr>", table)
@@ -130,7 +143,7 @@ def test_operative_z_keeps_its_own_digits_over_drawing_precision(tmp_path):
 
 MISSING_LENGTH_OP = """
 [[setups.ops]]
-op = 30
+op = 50
 do = "inspect"
 feature = "pivot_bearing"
 missing_requirements = { length = "calipers" }
@@ -141,11 +154,12 @@ length = "Measure 1.75 past the actual scribe to the cut face with calipers."
 
 
 def test_shaft_missing_length_prints_as_a_normal_unknown_inspection_row(tmp_path):
+    # Appended after S3's last op (40, oiling) with the next free number.
     plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
     plan.write_text(plan.read_text(encoding="utf-8") + MISSING_LENGTH_OP, encoding="utf-8")
     _, report, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
     row = next(
-        cells for number, cells in op_rows(sections(html, "OPERATIONS")[-1]) if number == "30"
+        cells for number, cells in op_rows(sections(html, "OPERATIONS")[-1]) if number == "50"
     )
     assert "156.67" not in text(row)
     finding = next(
