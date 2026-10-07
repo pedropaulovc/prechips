@@ -45,7 +45,11 @@ the setup's standing touched or faced surfaces, or reports it missing as an erro
 ([coordinates and DRO zero](rules-coordinates.md#zero_check)). Z
 `method = "measure_then_set"` (with `gauge`, `measure`, `offset_mm`; on a tool
 touch `z_gauge`, `z_measure`, `z_offset_mm`) sets a measured edge, M + offset +
-paper.
+paper. On a mill setup's `top` the raw top then reads Z = M + offset while the ops'
+levels start from `stock_state.top_z`; the DRO ZERO prints that correction: face a
+higher top down to `top_z` first, no deeper per pass than the setup's least op
+`doc_mm`, in plan units rounded down onto the DRO grid (unknown plan units print
+no cap).
 
 `checks` maps requirement names to inventory gauge references. Every key must
 belong to the selected resolved feature's `requirements` list (exported or
@@ -263,17 +267,31 @@ along setup -Z ([`blind_depth`](rules-operations.md#blind_depth-tip-endpoints)).
 A mismatch is an error, and any unknown or unaccepted size or tool fact, or an
 unconfirmed tool record, leaves the depth unknown and the centre uncut.
 
-Only `face`, `rough_face` and `finish_face` prepare an `end_face`; only
-`center_drill` prepares a `centre_hole`. Such an op names exactly that one
+An `end_face` is any planar face of the stock: a turned end, or one of the six
+faces of a rectangular blank a mill squares before S1. On a rectangular root stock
+square to the model axes, each `end_face` square to a model axis carries derived
+`bounds`: the root stock's section in that plane. A later setup's footprint of the
+face is those bounds trimmed by every process face an earlier setup in its stock
+lineage made, so a blank face is always cut whole. Round, built-up or unaligned
+stock gets no derived bounds.
+
+`face`, `rough_face` and `finish_face` prepare an `end_face`; on a mill
+`profile`, `rough_profile` and `finish_profile` also prepare one, side-milled with
+the cutter's periphery (a blank end overhanging the vise; give the op's
+`linear_table` contour an `open_side` so its passes step in from clear air, see
+[rules-coordinates](rules-coordinates.md)). Only `center_drill` prepares a
+`centre_hole`. Such an op names exactly that one
 feature and carries no `faces`, `checks` or `missing_requirements`: there is no
 drawing limit to inspect. Process ops resolve through the same rules as other
-cuts (speeds and feeds, reach, accessibility, headroom, tip endpoints), and the
-kernel removes the analytic centre (countersink, pilot and drill point) or faces
-the end so the setup picture and the next setup's entry stock show them. They
+cuts (speeds and feeds, reach, accessibility, headroom, tip endpoints, holding and
+the fixture model), and the kernel removes the analytic centre (countersink, pilot
+and drill point) or cuts the face away as a planar slab of the arriving stock so
+the setup picture and the next setup's entry stock show them. They
 earn no finished STEP coverage and no finish coverage, even when the cut lies on a
 drawing plane, and a process feature is never a drawing-requirements row. A
 hold's `centre_hole` names the process centre its dead or live centre rides in
-(see [Hold](#hold)).
+(see [Hold](#hold)); the squared blank the faces make is declared in
+[`stock.prepared`](#prepared-blank).
 
 ## Drawing
 
@@ -317,6 +335,7 @@ hold's `centre_hole` names the process centre its dead or live centre rides in
 | `section_axis` | `Vector` |
 | `as_is_faces` | `list[str]` |
 | `components` | `list[StockComponent]` |
+| `prepared` | `PreparedBlank` ([Prepared blank](#prepared-blank)) |
 | `cite` | `Citations` |
 
 For a built-up stock candidate, `components` lists the separately authored
@@ -361,6 +380,35 @@ permission does not lift the one-piece-only restriction. An explicit `one_piece`
 candidate needs no such permission. Omitting the **plan's** candidate construction
 is unknown rather than an implicit one-piece declaration.
 See [stock-form comparison](rules-comparison.md).
+
+### Prepared blank
+
+`[stock.prepared]` declares the squared blank a mill route makes from a
+rectangular root stock (`[stock]`, the raw sawn bar) with plan process
+`end_face`s, and the setup that receives it. The saw cut stays prose in
+`stock.prerequisite`. `prepared = "unknown"` declares a blank without saying
+which: rule `prepared_blank` stays unknown.
+
+| Field | Type (also accepts `"unknown"`) |
+|---|---|
+| `setup` | `str`: the plan setup that receives the blank (its `stock_in` lineage makes it) |
+| `origin_mm` | `Vector`: blank corner, model frame, on the root stock's axes |
+| `section_mm` | `Vector`: along `section_axis`, then along `axis × section_axis` |
+| `length_mm` | `Number`: along the root stock `axis` |
+| `tolerance_mm` | `Vector`: ± band for section 0, section 1 and length |
+| `checks` | `PreparedChecks`: gauge reference per check |
+| `methods` | `PreparedMethods`: written procedure per form check |
+| `form_mm` | `PreparedForm`: `flat`, `square`, `parallel` limits (the most each procedure's gauge may move) |
+| `cite` | `Citations` |
+
+`PreparedChecks` names an inventory gauge for `length`, `section_0`,
+`section_1`, `flat`, `square` and `parallel`; `PreparedMethods` gives the written
+`flat`, `square` and `parallel` procedures and `PreparedForm` their limits. An
+unknown `setup` is `BadInput`, as is a prepared blank on round or built-up stock
+(there is no box to trim). Rule `prepared_blank`
+([rules-setup](rules-setup.md#prepared_blank)) checks the size, the stock the
+kernel cut and the checks; the receiving setup's sheet prints them as **CHECK THE
+BLANK**, each form row with its limit and method.
 
 ## Dro
 
@@ -583,6 +631,7 @@ for collet/chuck capacity, not the unsupported-section diameter.
 | `jaw_above_parallels_mm` | `Number \| Literal['not_applicable']` |
 | `stickout_mm` | `Number` |
 | `jaw_center_along_mm` | `Number` |
+| `jaw_bar` | `str` (fixtures `round_bar` between the work and the moving jaw) |
 | `parallels_centres_mm` | `list[[Number, Number]]` (exactly two) |
 | `parallels_along` | `str` (`x` / `y`; parallels under a non-vise hold) |
 | `riser_up` | `str` (riser dimension standing vertical: `length` / `width` / `height`) |
@@ -689,6 +738,18 @@ choices, while each parallel dimension has its own fact-local trust; the
 inventory item's `verify` does not taint other numeric facts. Omitting the
 optional poses does not block independent `vise` / `thin_wall_under_clamp`
 facts. A selected parallel's missing height still leaves fixture dimensions unknown.
+
+`jaw_bar` names a fixtures `round_bar` laid between the work and the moving jaw,
+so a faced reference face seats flat on the fixed jaw while the opposite face is
+still raw. Its fact-local measured `dia` holds the moving jaw off the work by
+that diameter, so the jaws open by the work's width plus that Ø; the kernel draws
+the bar along the jaws at the middle of the work held in the jaws and refuses a
+bar taller than that work, or one that bears on no jaw-held work along its length.
+The HOLD step prints the bar centre's height above the parallels in mm, like the
+jaw height: the work's height comes from `stock_state` in plan units, so unknown
+plan units leave the bar's height unknown. A bar that does not resolve to a
+`round_bar` with measured `dia` and `length` leaves the jaws
+unplaced (fixture debt), never drawn as closing on the work.
 
 Other holding kinds are drawn from their own declarations, never defaulted.
 A `chuck_3jaw` / `chuck_4jaw` (and the chuck a `dividing_head` names with

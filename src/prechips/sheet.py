@@ -385,6 +385,7 @@ _TOPICS = {
     "indexing": "indexing",
     "hold_fields": "holding details",
     "centre_support": "tailstock centre",
+    "prepared_blank": "squared blank size",
     "order": "op order",
     "op_chain": "op sequence",
     "construction": "construction",
@@ -439,6 +440,7 @@ _METHODS = {
 _CORNERS = {"chuck_side": "chuck-side", "tailstock_side": "tailstock-side"}
 _STOCK_FORMS = {
     "round_bar": "round bar",
+    "flat_bar": "flat bar",
     "rectangular_blank": "rectangular blank",
     "prepared_blank": "prepared blank",
 }
@@ -1405,6 +1407,14 @@ class _Traveler:
             if stated("support_orientation"):
                 line += f" ({_text(hold['support_orientation'])} up)"
             steps.append(line + ".")
+        if stated("jaw_bar") and hold["jaw_bar"] != "unknown":
+            steps.append(
+                "Round bar: "
+                + self.reference(hold["jaw_bar"], "fixtures")
+                + " between the work and the moving jaw, centred in the jaws, its centre "
+                + self.jaw_bar_height(setup, hold)
+                + "."
+            )
         supports = hold.get("supports")
         if isinstance(supports, str) and supports not in ("none", "not_applicable", "unknown"):
             if not (stated("riser") and supports == hold.get("riser")):
@@ -1487,6 +1497,60 @@ class _Traveler:
             _table([name for name, _ in facts], [[value for _, value in facts]]) if facts else ""
         )
         return "<h2>HOLD</h2>" + _list(steps), below + self.indexing(setup)
+
+    def blank_checks(self, setup):
+        """The squared blank's checks, on the sheet of the setup that hands it on."""
+        prepared = _mapping(_mapping(self.plan.get("stock")).get("prepared"))
+        receiver = prepared.get("setup")
+        setups = {s["id"]: s for s in self.plan.get("setups", [])}
+        if receiver not in setups or setups[receiver].get("stock_in") != setup["id"]:
+            return ""
+        checks, methods = _mapping(prepared.get("checks")), _mapping(prepared.get("methods"))
+        limits = _mapping(prepared.get("form_mm"))
+        section = prepared.get("section_mm")
+        section = section if isinstance(section, list) and len(section) == 2 else [None] * 2
+        sizes = [prepared.get("length_mm"), *section]
+        tolerance = prepared.get("tolerance_mm")
+        tolerance = tolerance if isinstance(tolerance, list) and len(tolerance) == 3 else []
+        allowed = [tolerance[2], tolerance[0], tolerance[1]] if tolerance else [None] * 3
+
+        def gauge(key):
+            ref = checks.get(key, "unknown")
+            return "? not chosen" if ref == "unknown" else self.reference(ref, "gauges")
+
+        rows = []
+        for key, size, tol in zip(
+            ("length", "section_0", "section_1"), sizes, allowed, strict=True
+        ):
+            limit = f"{size:g} ±{tol:g} mm" if _known(size) and _known(tol) else "? not set"
+            rows.append(("size", limit, gauge(key)))
+        for key in ("flat", "square", "parallel"):
+            method, limit = methods.get(key), limits.get(key)
+            limit = f"within {limit:g} mm" if _known(limit) else "? limit not set"
+            method = self.bench(method, setup) if method else "? not written"
+            rows.append((key, f"{limit}: {method}", gauge(key)))
+        return (
+            f"<h2>CHECK THE BLANK — before SETUP {escape(receiver)}</h2>"
+            + _p(
+                f"Process limits for the squared blank, not drawing limits: SETUP {receiver} "
+                "locates on these faces. File the edge burrs off and wipe the blank first."
+            )
+            + _table(["check", "limit and method", "gauge"], rows, widths=[10, 65, 25])
+        )
+
+    def jaw_bar_height(self, setup, hold):
+        """Where the vise's round bar sits, as the kernel models it, in mm like the other
+        holding facts: its centre halfway up the work the jaws hold,
+        ``min(jaw_above_parallels_mm, top_z - bottom_z) / 2`` above the parallels (the
+        work's middle only when the jaws cover all of it). The stock heights are plan-unit
+        setup-frame values, so the work's height is unknown without the plan units."""
+        state = _mapping(setup.get("stock_state"))
+        top, bottom = state.get("top_z"), state.get("bottom_z")
+        jaw = hold.get("jaw_above_parallels_mm")
+        scale = {"mm": 1.0, "in": 25.4}.get(self.units)
+        if not (_known(top) and _known(bottom) and _known(jaw) and scale):
+            return "? height not set (jaw height, stock top/bottom or plan units unknown)"
+        return f"{self.operative(min(jaw, (top - bottom) * scale) / 2)} mm above the parallels"
 
     def hold_facts(self, setup, hold, lathe):
         o = self.operative
@@ -2712,6 +2776,9 @@ class _Traveler:
                     ordered=True,
                 )
             )
+        correction = self.measured_top(setup)
+        if correction:
+            pieces.append(_p(correction))
         transfer = _mapping(authored.get("transfer"))
         if transfer:
             pieces.append(_p(self.transfer_line(setup, transfer) + "."))
@@ -2754,6 +2821,43 @@ class _Traveler:
             if record.get("note"):
                 pieces.append(_p(self.bench(record["note"])))
         return "".join(pieces)
+
+    def measured_top(self, setup):
+        """A mill Z zero set from a bench-measured M on the raw top (``measure_then_set`` on
+        face ``top``) puts that top at Z = M + offset, while the ops' levels start from the
+        declared stock top. A higher top is faced down to the declared top first, never
+        deeper per pass than the setup's shallowest declared ``doc_mm``: the cap is the
+        plan's, not prose, in plan units rounded down onto the DRO grid so the printed cap
+        never exceeds it. Empty for any other zero."""
+        touch = _mapping(_mapping(setup.get("zero")).get("z"))
+        if self.lathe(setup) or touch.get("method") != "measure_then_set":
+            return ""
+        if touch.get("face") != "top":
+            return ""
+        o = self.operative
+        offset, top = touch.get("offset_mm"), _mapping(setup.get("stock_state")).get("top_z")
+        if not (_known(offset) and _known(top)):
+            return "STOP: the measured top's Z is not set — offset_mm or stock top unknown."
+        raw = "M" if not offset else f"M {'−' if offset < 0 else '+'} {_number(abs(offset))}"
+        docs = [
+            op["doc_mm"]
+            for op in setup.get("ops", [])
+            if _known(op.get("doc_mm")) and op["doc_mm"] > 0
+        ]
+        scale = {"mm": 1.0, "in": 25.4}.get(self.units)  # doc_mm is mm; levels are plan units
+        least = self.mm_on_grid(setup, min(docs), up=False) if docs and scale else None
+        if not docs:
+            cap = "? per pass: no op sets doc_mm"
+        elif scale is None:
+            cap = "? per pass: plan units unknown"
+        elif least <= 0:
+            cap = f"? per pass: the least doc_mm {_number(min(docs))} is under one DRO step"
+        else:
+            cap = f"no more than {o(least)} per pass"
+        return (
+            f"M puts the raw top at Z = {raw}; the ops' levels start from Z {o(top)}. If "
+            f"{raw} is above Z {o(top)}, first face the top down to Z {o(top)}, {cap}."
+        )
 
     def reading(self, value, expression=None):
         """DRO readings; a measured-diameter expression reads as plain arithmetic."""
@@ -4548,6 +4652,8 @@ class _Traveler:
                 continue
             if key in {"on_hand", "prerequisite"}:
                 continue  # Outstanding before the first setup: printed in JOB STATUS.
+            if key == "prepared":
+                continue  # Printed as CHECK THE BLANK before the setup that receives it.
             if key == "note":
                 extras.append(self.bench(value).rstrip(".") + ".")
                 continue
@@ -4911,6 +5017,7 @@ class _Traveler:
         sheets = {"notes": 2, "contours": 3 if contours else None}
         ops_html, notes_html, op_stops = self.operations(setup, tool_numbers, sheets)
         details["inspection notes"] = notes_html
+        details["blank check"] = self.blank_checks(setup)
         details = {subject: block for subject, block in details.items() if block}
         if not details and contours:
             # Nothing for sheet 2: the contours are sheet 2.

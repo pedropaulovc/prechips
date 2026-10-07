@@ -173,7 +173,10 @@ solids once the plan declares `parallels_centres_mm`. A `blocks_123` riser
 item supplies `length`, `width` and `height` the same way. These are the vise
 sources of fixture solids: `jaw_depth_mm` / `jaw_depth_in` is the physical
 jaw-plate thickness along the gripping normal and is never synthesized from
-jaw width, jaw height, bed height or any other dimension.
+jaw width, jaw height, bed height or any other dimension. A `round_bar` item
+(the bar a plan's `hold.jaw_bar` lays between the work and the moving jaw)
+needs fact-local measured `dia` and `length`; its Ø holds the moving jaw off the
+work, and without both the jaws stay unplaced.
 
 Other holding solids come from the same accepted-fact rule, never defaults:
 
