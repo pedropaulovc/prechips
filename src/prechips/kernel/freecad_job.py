@@ -3907,6 +3907,36 @@ class _Setup:
             states.append(rows)
         facts["stock_profile"] = [[_r(value) for value in row] for row in _least_rows(states)]
 
+    def _round_stock_dia(self, lathe):
+        """The largest diameter of the stock as held when it is a solid of revolution, else
+        None: about setup Z on a lathe, else about a box axis whose cross-section is square
+        (round bar lying on a mill). The picture then prints that Ø, not a bounding box."""
+        box = self.box
+        sizes = [box[i + 3] - box[i] for i in range(3)]
+        axes = (
+            [2]
+            if lathe
+            else [
+                i
+                for i in range(3)
+                if abs(sizes[(i + 1) % 3] - sizes[(i + 2) % 3]) <= STOCK_ROUND_MM
+            ]
+        )
+        for axis in axes:
+            solid = self.part.copy()
+            if not lathe:
+                # The candidate axis through the box centre onto setup Z.
+                centre = [(box[i] + box[i + 3]) / 2 for i in range(3)]
+                solid.translate(V(-centre[0], -centre[1], -centre[2]))
+                if axis == 0:
+                    solid.rotate(V(0, 0, 0), V(0, 1, 0), -90.0)
+                elif axis == 1:
+                    solid.rotate(V(0, 0, 0), V(1, 0, 0), 90.0)
+            rows, why = _revolved_rows(solid)
+            if why is None and rows:
+                return _r(2 * max(row[3] for row in rows))
+        return None
+
     # ------------------------------------------------------------------ in-process stock
 
     def _placed(self, shape):
@@ -6841,11 +6871,13 @@ class _Setup:
             "setup_id": self.setup.get("id"),
             "view": view,
             "stock_box": list(self.box),
+            "stock_round_dia_mm": self._round_stock_dia(lathe),
             "components": components,
             "zero_mm": [0.0, 0.0, 0.0],
             "jaw_front_z_mm": jaw_z,
             "jaw_front_oblique": jaw_front_oblique,
             "stickout_mm": annotation.get("stickout_mm"),
+            "stickout_add_mm": annotation.get("stickout_add_mm"),
             "datums": datums,
             "primary_tool": tool,
             "paths": sketch,

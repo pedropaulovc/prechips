@@ -1050,7 +1050,14 @@ class _Diagram:
             return
         box = self.stock
         sizes = [box[i + 3] - box[i] for i in range(3)]
-        stock_text = f"STOCK BOX: X {_mm(sizes[0])}  /  Y {_mm(sizes[1])}  /  Z {_mm(sizes[2])} mm"
+        # Round stock is its diameter (the stock dimension gives its length); a bounding box
+        # describes only prismatic stock.
+        round_dia = self.spec.get("stock_round_dia_mm")
+        stock_text = (
+            f"STOCK Ø {_mm(round_dia)} mm"
+            if round_dia is not None
+            else f"STOCK BOX: X {_mm(sizes[0])}  /  Y {_mm(sizes[1])}  /  Z {_mm(sizes[2])} mm"
+        )
         _text(c, 32, self.footer_top - 36, stock_text)
         axis = (
             2
@@ -1088,6 +1095,10 @@ class _Diagram:
         stickout = self.spec.get("stickout_mm")
         if stickout is not None:
             label = f"STICKOUT {_mm(stickout)} mm"
+            add = self.spec.get("stickout_add_mm")
+            if add is not None:
+                # Set from a measured fit-up: the drawn value is the nominal.
+                label = f"NOMINAL {label} (SET = MEASURED + {_mm(add)})"
             if jaw_marker is not None and self.view == "lathe":
                 # The declared distance runs from the jaw-front marker itself, on its own
                 # row, never from the stock-length extension line.

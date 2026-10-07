@@ -776,6 +776,11 @@ the mill X/Y read the spindle axis whatever the tool. A touch with
 recipes and unknown frame binding preserve unknown. A lathe does not require a
 Y zero recipe.
 
+A datum `transfer` with `keep_clamped = true` cannot be tapped true: a sweep over
+its `runout_limit_mm` needs the plan's `recovery`. Without a stated `recovery`
+(missing, blank or `"unknown"`) the finding is `unknown` (`state
+transfer.recovery`), and the traveler prints a STOP in place of the transfer.
+
 Paper side: paper lies between the tool and the face, on the side the tool meets
 the face from, so a Z touch through `paper_mm` of paper (the zero, a tool touch or
 a derived re-touch, which repeats its source's paper from the same side) stands

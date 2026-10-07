@@ -199,12 +199,22 @@ def _setup_notes(setup):
     return notes, "No material removed in this setup."
 
 
+def _fit_add(hold):
+    """The allowance a fit-up stickout adds to its measured reading (``hold.stickout_fit``),
+    when the reading is stated; the picture then labels the stickout as nominal."""
+    fit = record(hold.get("stickout_fit"))
+    measure, add = fit.get("measure"), fit.get("add_mm")
+    stated = isinstance(measure, str) and measure.strip() and measure != "unknown"
+    return add if stated and number(add) else None
+
+
 def setup_annotations(bundle, setup, numbers):
     scale = {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units"))
     hold, state = record(setup.get("hold")), record(setup.get("stock_state"))
     result = {
         "fixed_jaw_label": "FIXED JAW (" + str(hold.get("fixed_jaw", "side not declared")) + ")",
         "stickout_mm": hold.get("stickout_mm") if number(hold.get("stickout_mm")) else None,
+        "stickout_add_mm": _fit_add(hold),
         "ends": [
             {"label": label, "z_mm": state[key]}
             for key, label in (

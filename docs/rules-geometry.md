@@ -412,7 +412,9 @@ the feed and inside the op window (its plan-unit `z_to` scaled to mm), is an
 clear Z was computed, or when the plan units are unknown. The traveler prints it
 on the DRO grid rounded along the feed (the clear side) and rechecks the printed
 Z against the clear Z and `z_to`; with no such grid position it prints a STOP
-box. A blade's `blade_z_mm` is its axial extent over its cutting poses; the
+box. The Z sits in the op's coordinate cell; the per-pass set-on and pass-end
+release sequence prints once, full width ([plan](plan.md#reference)). A blade's
+`blade_z_mm` is its axial extent over its cutting poses; the
 traveler's jaw distance uses its chuck-side face (in plan units, rounded toward
 the jaws), not only the Z its op names. A facing/parting op posed at its `to_z`
 also records `faced_side`, the claimed faces' outward axial normal (+1 toward the
@@ -1704,7 +1706,13 @@ difference between actual entry and derived exit stock. When exit stock is
 unresolved, only the arriving stock is drawn and the missing cuts are named
 plainly. Fixture role colours, labels, setup X/Y/Z, Z0, named datum ends,
 jaw-front Z, stickout and a selected-tool approach illustration accompany the
-geometry. Steady rest rings are drawn as fixture solids; each follow rest's
+geometry. The footer sizes the arriving stock: round stock (a solid of
+revolution about setup Z on a lathe, else about a box axis with a square
+cross-section, checked at six meridians) prints `STOCK Ø` its largest diameter,
+its length left to the stock dimension; only other stock prints `STOCK BOX: X / Y
+/ Z`. A stickout from a measured fit-up (`hold.stickout_fit` with a stated
+reading) is labelled `NOMINAL STICKOUT … (SET = MEASURED + N)`. Steady rest
+rings are drawn as fixture solids; each follow rest's
 jaws are drawn and labelled posed for the first cutting sample of the first
 op it serves. An exposed-end detail makes short lathe stickouts legible; when
 its point keys would sit closer than their badges need (a jaw-end dome), it is

@@ -1066,6 +1066,14 @@ def evaluate(bundle):
             numbers["tool_setting"] = tool_setting(bundle, setup, zero, touches, derived)
         if "transfer" in zero:
             numbers["transfer"] = zero["transfer"]
+        # A hold that must stay clamped cannot be tapped true: a sweep over its limit needs
+        # the plan's recovery, else what to do then is unknown.
+        transfer = mapping(zero.get("transfer"))
+        recovery = transfer.get("recovery")
+        unrecovered = transfer.get("keep_clamped") is True and not (
+            isinstance(recovery, str) and recovery.strip() and recovery != UNKNOWN
+        )
+        unknown |= unrecovered
         errors = bad or missing or corner_errors or face_errors
         status = "error" if errors else "unknown" if unknown else "pass"
         sentence = (
@@ -1096,6 +1104,11 @@ def evaluate(bundle):
                 )
             )
         )
+        if unrecovered:
+            sentence += (
+                " The datum transfer keeps the work clamped but plans no recovery for a sweep "
+                "over its limit: state transfer.recovery."
+            )
         if corner_errors:
             sentence += (
                 " A blade's Z touch names a corner its face cannot give ("
