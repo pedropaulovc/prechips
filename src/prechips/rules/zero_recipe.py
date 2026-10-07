@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import re
 from itertools import pairwise, product
 
 from ..findings import Finding
 from ._bench import manual_bench, not_applicable
-from .geometry_common import approach
+from .geometry_common import TURNING_BLADE_KINDS, approach
 from .resolution import (
     LENGTH_TOLERANCE_MM,
     MANUAL,
@@ -96,6 +97,76 @@ def measured_z(bundle, gauge, measure, offset_mm, paper_mm):
     if not (named and gauge_ready(bundle, gauge) and number(offset_mm) and number(paper_mm)):
         return UNKNOWN
     return offset_mm + paper_mm
+
+
+# The corner a grooving/parting blade's Z touch sets, by the touched face's outward normal
+# along setup Z: a face toward the free end (+1) is met from +Z by the blade's chuck-side
+# corner, a face toward the chuck (-1) by its tailstock-side corner.
+CORNERS = {1: "chuck_side", -1: "tailstock_side"}
+_NAMED_CORNER = re.compile(r"\b(chuck|tailstock)-side\s+corner\b", re.IGNORECASE)
+# Millimetres within which a kernel end face stands at a touch's plan Z.
+FACE_Z_TOL_MM = 1e-3
+
+
+def blade(bundle, reference):
+    """Whether tool ``reference`` is a two-cornered grooving/parting blade."""
+    return (resolve(bundle, "tools", reference) or {}).get("kind") in TURNING_BLADE_KINDS
+
+
+def face_normal_z(bundle, setup, face, edge):
+    """The outward normal sign along setup Z (+1/-1) of ``face`` where a Z touch at plan
+    ``edge`` meets it: the kernel's measured ``end_faces`` of an already-present run (this
+    never starts the kernel). With no end face at ``edge`` (stock still stands on it), the
+    feature's end faces decide only when they all agree; otherwise unknown."""
+    kernel = mapping(getattr(bundle, "kernel", None))
+    if kernel.get("status") != "ok" or not isinstance(face, str):
+        return UNKNOWN
+    if setup_frame(bundle, setup).get("binding", UNKNOWN) == UNKNOWN:
+        return UNKNOWN
+    revolved = mapping(mapping(mapping(kernel.get("setups")).get(setup["id"])).get("revolved"))
+    ends = [
+        end
+        for end in records(mapping(revolved.get(face)).get("end_faces"))
+        if isinstance(end, dict) and end.get("normal_z") in CORNERS and number(end.get("z_mm"))
+    ]
+    scale = {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units"))
+    if number(edge) and scale:
+        at = [end for end in ends if abs(end["z_mm"] - edge * scale) <= FACE_Z_TOL_MM]
+        ends = at or ends
+    signs = {end["normal_z"] for end in ends}
+    return signs.pop() if len(signs) == 1 else UNKNOWN
+
+
+def touch_corner(bundle, setup, touch, face, edge):
+    """Which corner of a grooving/parting blade a Z touch on ``face`` at plan ``edge`` sets
+    (None for any other tool): ``reference_corner`` is the corner the DRO Z then reads,
+    from the face's outward normal (``corner_from`` "face normal"), else the touch's
+    authored ``corner`` ("authored"), else unknown. An authored corner, or one its
+    ``method`` names, that the face cannot give is ``corner_error`` and leaves the corner
+    unknown: the plan is never re-read to fit."""
+    if not blade(bundle, touch.get("tool")):
+        return None
+    normal = face_normal_z(bundle, setup, face, edge)
+    derived = CORNERS.get(normal, UNKNOWN)
+    authored = touch.get("corner") if touch.get("corner") in CORNERS.values() else None
+    named = {match.lower() + "_side" for match in _NAMED_CORNER.findall(str(touch.get("method")))}
+    claimed = named | ({authored} if authored else set())
+    error = None
+    if len(claimed) > 1:
+        error = "names both the chuck-side and the tailstock-side corner"
+    elif derived != UNKNOWN and claimed and claimed != {derived}:
+        error = (
+            f"names the {next(iter(claimed)).replace('_', '-')} corner, but its "
+            f"{face} faces {'+Z (the free end)' if normal == 1 else '-Z (the chuck)'}: a "
+            f"blade touches it with its {derived.replace('_', '-')} corner"
+        )
+    if error is not None:
+        return {"reference_corner": UNKNOWN, "corner_from": UNKNOWN, "corner_error": error}
+    if derived != UNKNOWN:
+        return {"reference_corner": derived, "corner_from": "face normal"}
+    if authored:
+        return {"reference_corner": authored, "corner_from": "authored"}
+    return {"reference_corner": UNKNOWN, "corner_from": UNKNOWN}
 
 
 def _position(ops, record):
@@ -308,7 +379,9 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
     unknown tool leaves the DRO's setter unknown; an incoming tool that does not
     resolve unflagged keeps its touch unknown, as an authored touch is. A touch naming
     none of the setup's ops serves none. Returns (derived touches, missing touches,
-    unknown)."""
+    unknown, readings): ``readings`` maps each cutting op to the Z touch record its DRO Z
+    reads (the zero's recipe, a tool touch or a derived re-touch), None when no touch of
+    its tool set Z."""
     ops = records(setup.get("ops"))
     states = list(stock_states(bundle, setup))
     features = mapping(bundle.feature_definitions)
@@ -324,6 +397,8 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
         placed.setdefault(_position(ops, touch), []).append(touch)
     listed = {str(n) for n in records(recipe.get("retouch_after"))}
     z_events, x_events, derived, missing = [], [], [], []
+    # The Z touch the DRO reads (its tool, face and edge), per cutting op.
+    z_by, readings = None, {}
     # Ops before the zero's after_op run before any tool set the Z DRO; with no zero
     # recipe no tool set it at all (the missing zero is reported, not a tool change).
     set_z = None
@@ -359,11 +434,12 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
     for index, (op, _, _) in enumerate(states):
         if index == start and recipe:
             set_z = recipe.get("tool", UNKNOWN)
+            z_by = {**recipe, "tool": set_z, "z_face": face, "edge_mm": zero_z}
             if recipe.get("method") not in MEASURED:
                 z_event(index, face or UNKNOWN, zero_z, paper, "zero")
         for touch in placed.get(index, []):
             if touch.get("z_face"):
-                set_z = touch.get("tool", UNKNOWN)
+                set_z, z_by = touch.get("tool", UNKNOWN), touch
                 if touch.get("method") != "measure_then_set":
                     z_event(
                         index,
@@ -385,7 +461,7 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
             set_x = None if set_x is None else UNKNOWN
         cutting = cuts and tool not in (None, UNKNOWN)
         if cutting and pending:
-            set_z, pending = tool, False
+            set_z, pending, z_by = tool, False, {"tool": tool, "z_face": "top"}
         changed = [
             axis for axis, current in (("x", set_x), ("z", set_z)) if current not in (None, tool)
         ]
@@ -434,15 +510,19 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
                         x_axis_set=f"measured {shown}" if ready else UNKNOWN,
                     )
             if lost:
+                z_by = None if "z" in lost else z_by
                 by = set_z if "z" in lost else set_x
                 missing.append(
                     {"before_op": op["op"], "tool": tool, "axes": lost, "dro_set_by": by}
                 )
             if len(lost) < len(changed):
                 derived.append(record)
+                z_by = record if "z" in changed and "z" not in lost else z_by
                 unknown |= UNKNOWN in (record.get("z_axis_set"), record.get("x_axis_set"))
             set_z = tool if "z" in changed else set_z
             set_x = tool if "x" in changed else set_x
+        if cutting:
+            readings[str(op["op"])] = z_by if set_z == tool else None
         if str(op.get("op")) in listed:
             pending = True
             z_event(index + 1, "top", tops[index + 1][0], paper, f"retouch after op {op['op']}")
@@ -455,7 +535,113 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
         if lathe and op.get("do") in TURNED:
             for name in sorted(_features(op) or ()):
                 x_events.append({"x_face": name, "gauge": x_gauge, "index": index + 1})
-    return derived, missing, unknown
+    return derived, missing, unknown, readings
+
+
+def lathe_setup(bundle, setup):
+    """Whether ``setup`` runs on a lathe: a lathe-kind (or lathe-type) machine."""
+    machine = resolve(bundle, "machines", setup.get("machine")) or {}
+    return machine.get("kind") == "lathe" or "lathe" in str(machine.get("type", "")).lower()
+
+
+def blade_readings(bundle, setup):
+    """{op: corner record} for each grooving/parting-blade op of a lathe setup: the corner
+    the DRO Z reads while it cuts (:func:`touch_corner` of the Z touch in effect, from
+    :func:`tool_changes`), with ``reason`` when no touch of that blade set Z. Empty off a
+    lathe."""
+    if saw_setup(setup) or not lathe_setup(bundle, setup):
+        return {}
+    zero = mapping(setup.get("zero"))
+    touches = [touch for touch in records(zero.get("tool_touches")) if isinstance(touch, dict)]
+    *_, readings = tool_changes(bundle, setup, zero, True, UNKNOWN, touches)
+    result = {}
+    for op in records(setup.get("ops")):
+        if not isinstance(op, dict) or not blade(bundle, op.get("tool")):
+            continue
+        touch = readings.get(str(op.get("op")))
+        corner = None
+        if touch is not None:
+            corner = touch_corner(bundle, setup, touch, touch.get("z_face"), touch.get("edge_mm"))
+        result[str(op.get("op"))] = corner or {
+            "reference_corner": UNKNOWN,
+            "corner_from": UNKNOWN,
+            "reason": "no Z touch of this blade sets the DRO before it cuts",
+        }
+    return result
+
+
+# How a lathe tool is set before its first touch-off (Moltrecht, below); a toolpost's own
+# ``centre_height`` / ``square_blade`` words, when the inventory gives them, say how.
+TOOL_SETTING_CITES = [
+    "Moltrecht, Machining for Hobbyists: Getting Started (Industrial Press 2015) ch. 6 "
+    "p136 Fig. 6-7: the nose of the cutting tool on centre, at the height of the lathe centers",
+    "Moltrecht, Machining for Hobbyists: Getting Started (Industrial Press 2015) ch. 6 "
+    "p147 Fig. 6-20: a cut-off blade perpendicular to the workpiece axis, its end cutting "
+    "edge on center",
+]
+CENTRE_HEIGHT = "set its cutting edge on spindle centre height"
+SQUARE_BLADE = "square the blade to the spindle axis"
+
+
+def toolpost(bundle, setup):
+    """The setup machine's ``toolpost`` record (empty without one)."""
+    machine = resolve(bundle, "machines", setup.get("machine")) or {}
+    return mapping(mapping(machine).get("toolpost"))
+
+
+def tool_setting(bundle, setup, zero, touches, derived):
+    """Each toolpost tool's setting before its first touch-off in a lathe setup: on centre
+    height, and a blade squared to the spindle axis. One record per tool a turning op of
+    the setup cuts with (tailstock tools never touch the carriage DRO), at the first of
+    the zero (``touch`` "zero", its ``axis``), its ``tool_touches`` or its
+    ``derived_touches`` (``index``) that touches it off, in op order. Words come from the
+    setup machine's toolpost ``centre_height`` / ``square_blade``, else the requirement
+    alone."""
+    ops = records(setup.get("ops"))
+    carriage = {op.get("tool") for op in ops if approach(bundle, setup, op) != "axial"}
+    words = toolpost(bundle, setup)
+    events = [
+        (-1, 0, {"touch": "zero", "axis": axis}, mapping(zero.get(axis)).get("tool"))
+        for axis in ("x", "z")
+    ]
+    for kind, rank, rows in (("tool_touches", 1, touches), ("derived_touches", 2, derived)):
+        for index, row in enumerate(rows):
+            position = _position(ops, row)
+            at = len(ops) if position is None else position
+            events.append((at, rank, {"touch": kind, "index": index}, row.get("tool")))
+    result, seen = [], set()
+    for *_, where, tool in sorted(events, key=lambda event: event[:2]):
+        if tool in seen or tool in (None, UNKNOWN) or tool not in carriage:
+            continue
+        seen.add(tool)
+        result.append(
+            {
+                **where,
+                "tool": tool,
+                "centre_height": words.get("centre_height", CENTRE_HEIGHT),
+                "square_blade": (
+                    words.get("square_blade", SQUARE_BLADE)
+                    if blade(bundle, tool)
+                    else "not_applicable"
+                ),
+            }
+        )
+    return result
+
+
+def _corner_recorder(bundle, setup, lathe, errors):
+    """A function adding a blade Z touch's corner record (:func:`touch_corner`) to its
+    row, collecting each contradiction into ``errors``; off a lathe it records nothing."""
+
+    def record(row, touch, face, edge, who):
+        corner = touch_corner(bundle, setup, touch, face, edge) if lathe and face else None
+        if corner is None:
+            return
+        row.update(corner)
+        if "corner_error" in corner:
+            errors.append(f"{who} {corner['corner_error']}")
+
+    return record
 
 
 def evaluate(bundle):
@@ -482,13 +668,18 @@ def evaluate(bundle):
             )
             continue
         frame = setup_frame(bundle, setup)
-        machine = resolve(bundle, "machines", setup.get("machine")) or {}
-        lathe = machine.get("kind") == "lathe" or "lathe" in str(machine.get("type", "")).lower()
+        lathe = lathe_setup(bundle, setup)
         zero = mapping(setup.get("zero"))
         ops = records(setup.get("ops"))
         # The top as each op left it, unknown where no stated depth proves it.
         tops = [z for z, _ in _tops(bundle, setup, list(stock_states(bundle, setup)))]
         axes = {}
+        # Blade Z touches whose authored corner the touched face cannot give. An unknown
+        # corner leaves the Axis Set known: the blade ops whose Zs it reads stay unknown
+        # under coordinates instead.
+        corner_errors = []
+        blade_corner = _corner_recorder(bundle, setup, lathe, corner_errors)
+
         unknown = (
             not frame
             or frame.get("binding") == UNKNOWN
@@ -617,6 +808,9 @@ def evaluate(bundle):
                     tool
                 ) or not bool(tool)
             axes[axis] = row
+            if axis == "z":
+                face = recipe.get("face", recipe.get("feature"))
+                blade_corner(row, recipe, face, edge, "the Z zero touch")
             unknown |= (
                 any(values[k] == UNKNOWN for k in ("axis_set", "check_reading", "mirrored_reading"))
                 or not tool
@@ -659,12 +853,18 @@ def evaluate(bundle):
                 )
             else:
                 z_set = edge + paper if number(edge) and number(paper) else UNKNOWN
-            touches.append({**record, "x_axis_set": x_set, "z_axis_set": z_set})
+            row = {**record, "x_axis_set": x_set, "z_axis_set": z_set}
+            who = f"the {record.get('tool', UNKNOWN)} touch"
+            blade_corner(row, record, record.get("z_face"), edge, who)
+            touches.append(row)
             unknown |= x_set == UNKNOWN or z_set == UNKNOWN or not tool or uncertain(tool)
-        derived, missing, changes_unknown = tool_changes(
+        derived, missing, changes_unknown, _ = tool_changes(
             bundle, setup, zero, lathe, x_scale, touches
         )
         unknown |= changes_unknown
+        for row in derived:
+            who = f"the {row.get('tool', UNKNOWN)} re-touch"
+            blade_corner(row, row, row.get("z_face"), row.get("edge_mm"), who)
         numbers = {
             "frame": setup.get("frame", UNKNOWN),
             "binding": frame.get("binding", "nominal"),
@@ -678,9 +878,11 @@ def evaluate(bundle):
             "derived_touches": derived,
             "missing_touches": missing,
         }
+        if lathe:
+            numbers["tool_setting"] = tool_setting(bundle, setup, zero, touches, derived)
         if "transfer" in zero:
             numbers["transfer"] = zero["transfer"]
-        status = "error" if bad or missing else "unknown" if unknown else "pass"
+        status = "error" if bad or missing or corner_errors else "unknown" if unknown else "pass"
         sentence = (
             "DRO direction or mode disagrees with the setup convention; stop and correct it "
             "before the check jog."
@@ -709,6 +911,12 @@ def evaluate(bundle):
                 )
             )
         )
+        if corner_errors:
+            sentence += (
+                " A blade's Z touch names a corner its face cannot give ("
+                + "; ".join(corner_errors)
+                + "): plan its Zs from the corner the face gives."
+            )
         result.append(
             Finding(
                 "zero_check",
@@ -720,6 +928,8 @@ def evaluate(bundle):
                     "Electronica EL400 Operation Manual §6.2 p20, §7.4 p31, §8.1 p37, §9.2.1 p62",
                     "plan zero and stock_state; inventory finder nominal size",
                     *plan_frame_cite(bundle, setup),
+                    *(TOOL_SETTING_CITES if lathe else []),
+                    *(records(toolpost(bundle, setup).get("cite")) if lathe else []),
                 ],
                 sentence,
             )

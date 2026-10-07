@@ -1035,6 +1035,15 @@ sheet.
    the printed height-like band it holds from `height_from`; a target outside the
    band is `✗`. A plan `aims` entry may move the target inside its band for a
    stated reason (the cone crank bore at 39.517 separation) without moving geometry.
+   **Lathe blade corners and tool setting (2026-10-06, r4):** a grooving/parting
+   blade's Z touch sets the corner its touched face's kernel normal gives (+Z face:
+   chuck side, −Z face: tailstock side), else the touch's authored `corner`, else
+   `?`; a contradicting corner is `✗`. Blade op rows print Z as that corner's
+   reading, a blade width beyond `to_z` when the other corner forms the face
+   (cone S2/S3 part-offs at Z −22.65 / −73.63), while sweeps, clearances and jaw
+   distances keep the true blade extents. Each toolpost tool's first touch-off
+   in a lathe setup is preceded by setting it on centre height (and squaring a
+   blade), from the toolpost's cited words.
 2. **M2 — local declared-input implementation completed 2026-10-03.**
    Turned-profile monotonicity,
    supported stick-out, collet/chuck diameter capacity, exact-first indexing,

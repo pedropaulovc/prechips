@@ -110,6 +110,18 @@ type = "wedge"
 holders = 5
 included = true
 note = "a second AXA QCTP (250-111) came off the JET"
+# --- EngBlade additions ---
+# How each toolpost tool is set before its first touch-off in a setup: on spindle centre
+# height, and a parting/grooving blade also squared to the spindle axis (docs/inventory.md).
+centre_height = "set its cutting edge on spindle centre height with the holder's height nut: level with the tailstock dead-centre point, or so a facing cut leaves no pip at the centre"
+square_blade = "square the blade to the spindle axis: spindle stopped, bring its side flat against the chuck face or a faced shoulder, swing the toolpost until no gap shows, then lock the toolpost"
+cite = [
+    "Moltrecht, Machining for Hobbyists: Getting Started (Industrial Press 2015) ch. 6 p136 Fig. 6-7: the nose of the cutting tool on centre, at the height of the lathe centers",
+    "Moltrecht, Machining for Hobbyists: Getting Started (Industrial Press 2015) ch. 6 p147 Fig. 6-20: a cut-off blade perpendicular to the workpiece axis, its end cutting edge on center",
+    "AUTHOR'S CHOICE: the AXA holder's height nut, checked against the tailstock dead-centre point or a pip-free facing cut, because both checks need no extra gauge",
+    "AUTHOR'S CHOICE: square the blade off the chuck face or a faced shoulder because both are square to the spindle axis and at hand in every lathe setup",
+]
+# --- end EngBlade additions ---
 
 # --- pivot-shaft additions ---
 # Lathe envelope read by the lathe headroom screen (swing values are diameters).

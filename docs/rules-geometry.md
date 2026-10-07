@@ -370,7 +370,12 @@ on the DRO grid rounded along the feed (the clear side) and rechecks the printed
 Z against the clear Z and `z_to`; with no such grid position it prints a STOP
 box. A blade's `blade_z_mm` is its axial extent over its cutting poses; the
 traveler's jaw distance uses its chuck-side face (in plan units, rounded toward
-the jaws), not only the Z its op names.
+the jaws), not only the Z its op names. A facing/parting op posed at its `to_z`
+also records `faced_side`, the claimed faces' outward axial normal (+1 toward the
+free end, -1 toward the chuck): the blade stands on that side of `to_z`, so a
++1 face is formed by a blade's chuck-side corner and a -1 face by its
+tailstock-side corner ([coordinates](rules-coordinates.md#coordinates) blade
+`to_z` ops).
 
 ### Follow and steady rests
 

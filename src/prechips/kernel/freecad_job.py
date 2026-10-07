@@ -8907,6 +8907,9 @@ class _Setup:
             # A facing/parting op leaves its to_z plane: it is posed there, across the
             # claims' radii (and down to to_dia/2 when it parts to a diameter).
             side, faced = sides.pop(), {}
+            # The claims' outward axial normal: the blade lies on that side of to_z, so a
+            # +1 face is formed by its chuck-side corner and a -1 face by its free-end one.
+            facts["faced_side"] = side
             radii = [(index, point[0]) for index, point, _ in samples]
             if _number(op.get("to_dia_mm")) and op["to_dia_mm"] >= 0:
                 radii.append((samples[0][0], op["to_dia_mm"] / 2))
@@ -10083,7 +10086,10 @@ class _Setup:
         revolution carries a meridian on its boundary, its seam or an angular limit; a planar
         one its outer circle), the least by distance to the axis (a disk reaches it inside its
         boundary). ``end_radii_mm`` is the greatest boundary radius at each axial end and
-        ``kinds`` the surface kinds. A feature whose references are unknown/unmapped, or with
+        ``kinds`` the surface kinds. ``end_faces`` are its planar faces square to setup Z:
+        each one's ``z_mm`` and ``normal_z``, the sign of its outward normal along setup Z
+        (+1 faces the free end, -1 the chuck), which decides the corner a grooving/parting
+        blade touches it with. A feature whose references are unknown/unmapped, or with
         any face that is not an external surface of revolution about setup Z through
         x = y = 0, is omitted with its reason under ``revolved_reasons``. When none of its
         faces is revolved about setup Z and one is a cylinder/cone/torus/surface of
@@ -10099,9 +10105,9 @@ class _Setup:
             if not isinstance(indices, list) or not indices:
                 reasons[name] = "face references are unknown or unmapped"
                 continue
-            problems, kinds, points, axes, away = [], set(), [], [], 0
+            problems, kinds, points, axes, away, ends = [], set(), [], [], 0, []
             for index in indices:
-                verdict, _, skipped = self._revolution(index)
+                verdict, samples, skipped = self._revolution(index)
                 label = self.owner.labels[index]
                 face = self.faces[index]
                 if verdict == "away":
@@ -10122,6 +10128,12 @@ class _Setup:
                 for edge in face.Edges:
                     if not edge.Degenerated and edge.Length >= 1e-7:
                         points.extend(edge.discretize(Deflection=1e-4))
+                if type(face.Surface).__name__ == "Plane" and samples:
+                    signs = {1 if n_z > 0 else -1 for _, (n_r, n_z) in samples}
+                    zs = [z for (_, z), _ in samples]
+                    square = all(abs(n_r) <= REVOLVED_TOL for _, (n_r, _) in samples)
+                    if square and len(signs) == 1 and max(zs) - min(zs) <= PLANE_TOL:
+                        ends.append({"z_mm": _r(sum(zs) / len(zs)), "normal_z": signs.pop()})
             if problems:
                 extra = f" (+{len(problems) - 3} more)" if len(problems) > 3 else ""
                 reasons[name] = "; ".join(problems[:3]) + extra
@@ -10141,6 +10153,7 @@ class _Setup:
                     _r(max(r for r, z in meridian if high - z <= PLANE_TOL)),
                 ],
                 "kinds": sorted(kinds),
+                "end_faces": sorted(ends, key=lambda end: (end["z_mm"], end["normal_z"])),
             }
         facts["revolved"] = revolved
         facts["revolved_reasons"] = reasons

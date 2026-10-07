@@ -394,6 +394,8 @@ _METHODS = {
         "withdraw along X without moving Z, then set"
     ),
 }
+# The grooving/parting blade corner a Z touch sets (zero_check ``reference_corner``).
+_CORNERS = {"chuck_side": "chuck-side", "tailstock_side": "tailstock-side"}
 _STOCK_FORMS = {
     "round_bar": "round bar",
     "rectangular_blank": "rectangular blank",
@@ -2452,6 +2454,16 @@ class _Traveler:
                 )
             )
         axes = numbers.get("axes", {})
+        # Each toolpost tool is set on centre (a blade also squared) before its first
+        # touch-off in the setup: the zero's tools before the zero, the rest before theirs.
+        settings_at = {
+            (record.get("touch"), record.get("axis", record.get("index"))): record
+            for record in numbers.get("tool_setting", [])
+            if isinstance(record, dict)
+        }
+        for axis in ("x", "z"):
+            if ("zero", axis) in settings_at:
+                pieces.append(_p(self.tool_setting(settings_at[("zero", axis)], tools)))
         top_feature = setup.get("stock_state", {}).get("top_feature")
         rows = []
         for axis in ("x", "y", "z"):
@@ -2479,6 +2491,9 @@ class _Traveler:
                 contact.append(_METHODS.get(method, _text(method)))
             if tool and not indicate:
                 contact.append(tool)
+            if _CORNERS.get(computed.get("reference_corner")):
+                corner = _CORNERS[computed["reference_corner"]]
+                contact.append(f"{corner} corner — Z reads it")
             if "holder" in touch and touch.get("tool") not in tools:
                 contact.append("in " + self.short_reference(touch["holder"], "holders"))
             if touch.get("from") not in (None, "indicated"):
@@ -2608,10 +2623,11 @@ class _Traveler:
                     f"(Z {top}) with {paper} paper → Axis Set Z {axis_set}."
                 )
             )
-        for touch in numbers.get("tool_touches", []):
-            pieces.append(_p(self.tool_touch(setup, touch, tools)))
-        for touch in numbers.get("derived_touches", []):
-            pieces.append(_p(self.tool_touch(setup, touch, tools)))
+        for kind in ("tool_touches", "derived_touches"):
+            for index, touch in enumerate(numbers.get(kind, [])):
+                if (kind, index) in settings_at:
+                    pieces.append(_p(self.tool_setting(settings_at[(kind, index)], tools)))
+                pieces.append(_p(self.tool_touch(setup, touch, tools)))
         for gap in numbers.get("missing_touches", []):
             name = tools.get(gap.get("tool")) or self.short_reference(gap.get("tool"))
             missing = " and ".join(_text(axis).upper() for axis in gap.get("axes", []))
@@ -2639,6 +2655,17 @@ class _Traveler:
             subject = "measured Ø" if match[1] == "D" else "M"
             return f"{subject} {sign} {self.operative(float(match[3]))}"
         return "measured Ø" if text.strip() == "measured D" else self.bench(text)
+
+    def tool_setting(self, record, tools):
+        """The step that sets a toolpost tool before its first touch-off (zero_check
+        ``tool_setting``): on centre height, and a blade squared to the spindle axis."""
+        reference = record.get("tool")
+        name = tools.get(reference) or self.short_reference(reference)
+        text = f"Before touching off {name}: {self.bench(record.get('centre_height'))}"
+        square = record.get("square_blade")
+        if square not in (None, "not_applicable"):
+            text += f"; then {self.bench(square)}"
+        return text + "."
 
     def tool_touch(self, setup, touch, tools):
         reference = touch.get("tool")
@@ -2675,10 +2702,17 @@ class _Traveler:
                 surface = self.datum_z(setup, z_face, edge, done)
                 axis_set = axis_set + surface - edge if _known(surface) else "unknown"
             method = re.sub(r";?\s*Axis Set Z\.?$", "", str(touch.get("method", "touch")))
+            # A blade's Z touch sets one corner (zero_check ``reference_corner``): named.
+            corner = _CORNERS.get(touch.get("reference_corner"))
+            blade = "reference_corner" in touch
+            words = _METHODS.get(method, self.bench(method))
             text = f"Z — on the {self.bench(z_face)}"
+            if corner:
+                text = f"Z — {corner} corner on the {self.bench(z_face)}"
+                words = words.replace("this tool's Z-cutting edge", f"this blade's {corner} corner")
             if "repeats" in touch and _known(surface):
                 text += f" (Z {self.operative(surface)})"
-            text += f": {_METHODS.get(method, self.bench(method))}"
+            text += f": {words}"
             if touch.get("z_measure"):
                 gauge = touch.get("z_gauge")
                 text += f", M = {self.bench(touch['z_measure'])}" + (
@@ -2686,8 +2720,12 @@ class _Traveler:
                 )
             if _known(paper):
                 text += f", paper {self.operative(paper)}" if paper else ", no paper"
-            text += f"; Axis Set Z {self.reading(axis_set)}."
-            parts.append(text)
+            text += f"; Axis Set Z {self.reading(axis_set)}"
+            if corner:
+                text += f": Z now reads the {corner} corner"
+            elif blade:
+                text += ". STOP: which blade corner this touch sets is not known — plan it"
+            parts.append(text + ".")
         return " ".join(parts)
 
     # -------------------------------------------------------------- features
@@ -2924,7 +2962,9 @@ class _Traveler:
 
     def z_target(self, setup, op):
         """``Z → depth``, or the axial levels coordinates stepped an op authoring ``doc_mm``
-        down in: ``Z start → depth in N levels of doc max``."""
+        down in: ``Z start → depth in N levels of doc max``. A grooving/parting blade's
+        target is the DRO reading of the corner its Z touch set (coordinates ``blade``),
+        named."""
         o = self.operative
         levels = self.z_levels(setup, op)
         if levels is not None:
@@ -2934,6 +2974,12 @@ class _Traveler:
                 f"{_text(count)} level{'' if count == 1 else 's'} of "
                 f"{o(levels.get('doc_mm'))} max"
             )
+        blade = _mapping(self.coordinates_entry(setup, op).get("blade"))
+        if blade:
+            corner = _CORNERS.get(blade.get("reading_corner"))
+            if corner is None or not _known(blade.get("corner_dro_z")):
+                return "Z → ? (blade corner not set)"
+            return f"Z → {o(blade['corner_dro_z'])} ({corner} corner)"
         return f"Z → {o(self.dro_to_z(setup, op))}"
 
     def relief_plunges(self, setup, op):
@@ -2957,9 +3003,11 @@ class _Traveler:
             return self.operative(value / scale if scale and _known(value) else "unknown")
 
         corners = plunges.get("corner_z_mm")
+        corner = _CORNERS.get(plunges.get("reading_corner"))
+        if corner is None:
+            return [_Box("STOP: plunge positions not set — blade corner unknown")]
         if not isinstance(corners, list):
-            return [_Box("STOP: plunge positions not set — blade width or hand unknown")]
-        corner = "chuck-side" if plunges.get("reading_corner") == "chuck_side" else "+Z"
+            return [_Box("STOP: plunge positions not set — blade width unknown")]
         parts = [f"plunge {index} {corner} corner Z {o(z)}" for index, z in enumerate(corners, 1)]
         feature = op.get("feature")
         size = f"Ø {o(plunges.get('diameter_mm'))}"

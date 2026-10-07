@@ -98,24 +98,41 @@ def test_known_numbers_without_drawing_precision_print_and_unknowns_stay_explici
                 ), (endpoint, printed)
 
 
+# S3 op 10 parts the waste off on the +Z side of its cut: the synthetic kernel says so,
+# as the real one does, so the blade's chuck-side corner forms the kept face.
+_PARTED_TOWARD_FREE_END = (
+    SYNTHETIC_KERNEL
+    + """
+_faced = cli.load_bundle
+def _faced_bundle(*args, **kwargs):
+    bundle = _faced(*args, **kwargs)
+    bundle.kernel["ops"]["S3:10"] = {"faced_side": 1}
+    return bundle
+cli.load_bundle = _faced_bundle
+"""
+)
+
+
 def test_operative_z_keeps_its_own_digits_over_drawing_precision(tmp_path):
     _, report, html = traveler(
         ROOT / "examples" / "pivot-shaft" / "plan.toml",
         tmp_path / "out",
-        setup=SYNTHETIC_KERNEL,
+        setup=_PARTED_TOWARD_FREE_END,
     )
     coordinates = next(row for row in findings(report, "coordinates") if row["subject"] == "S3")
-    # S3 op 20 faces the parted end to the dome apex, a DRO-set local Z.
-    endpoint = next(
-        row for row in coordinates["numbers"]["rows"] if row.get("point") == "op 20 to_z"
-    )
+    endpoints = {row.get("point"): row for row in coordinates["numbers"]["rows"]}
     assert coordinates["status"] == "pass"
-    # Nominal frame T3 (z = -model Z from -156.67) maps the authored local endpoint.
-    assert endpoint["setup"] == [0.0, 0.0, 1.75]
-    assert endpoint["model"] == pytest.approx([0.0, 0.0, -158.42])
+    # Nominal frame T3 (z = -model Z from -156.67) maps the authored local endpoints:
+    # op 10 parts the waste long, op 20 faces the parted end to the dome apex.
+    assert endpoints["op 10 to_z"]["setup"] == [0.0, 0.0, 2.25]
+    assert endpoints["op 10 to_z"]["model"] == pytest.approx([0.0, 0.0, -158.92])
+    assert endpoints["op 20 to_z"]["setup"] == [0.0, 0.0, 1.75]
+    assert endpoints["op 20 to_z"]["model"] == pytest.approx([0.0, 0.0, -158.42])
     s3_ops = sections(html, "OPERATIONS")[-1]
     op20 = next(cells for number, cells in op_rows(s3_ops) if number == "20")
     assert "1.75" in text(op20)
+    op10 = next(cells for number, cells in op_rows(s3_ops) if number == "10")
+    assert "2.25 (chuck-side corner)" in text(op10)
     dome = next(
         contour
         for row in findings(report, "coordinates")

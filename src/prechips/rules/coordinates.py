@@ -1802,16 +1802,18 @@ def _edge_facts(bundle, op):
     return {"hand": mapping(item).get("hand", UNKNOWN), **angles}
 
 
-def _plunges(bundle, op, feature):
+def _plunges(bundle, op, feature, reading=None):
     """The plunges of a grooving/parting blade over its op's ``z_from``..``z_to`` groove,
     or None when the op is not a blade groove op.
 
-    The DRO reads the blade corner its Z touch-off set: a right-hand blade's chuck-side
-    (-Z) corner, a left-hand blade's +Z corner. Plunges start flush with the chuck-side
-    groove wall and step evenly, never more than a blade width, until the last plunge is
-    flush with the far wall; a blade at least as wide as the groove plunges once. The
-    groove they leave (first plunge's chuck-side face to the last one's far face) is
-    checked against the feature's declared ``width`` band."""
+    The DRO reads the blade corner its Z touch-off set (``reading``, from
+    :func:`prechips.rules.zero_recipe.blade_readings`): the chuck-side corner after a touch
+    on a face toward the free end, the tailstock-side corner after one on a face toward
+    the chuck; unknown without one. Plunges start flush with the chuck-side groove wall and
+    step evenly, never more than a blade width, until the last plunge is flush with the
+    far wall; a blade at least as wide as the groove plunges once. The groove they leave
+    (first plunge's chuck-side face to the last one's far face) is checked against the
+    feature's declared ``width`` band."""
     from .geometry_common import TURNING_BLADE_KINDS
     from .turned_profile import GROOVE_OPS, nominal_diameter
 
@@ -1831,9 +1833,7 @@ def _plunges(bundle, op, feature):
         "op": op["op"],
         "feature": op.get("feature", UNKNOWN),
         "blade_width_mm": blade,
-        "reading_corner": {"right": "chuck_side", "left": "free_end_side"}.get(
-            tool.get("hand"), UNKNOWN
-        ),
+        "reading_corner": (reading or {}).get("reference_corner", UNKNOWN),
         "diameter_mm": nominal_diameter(bundle, feature),
         "dia_band_mm": [v * scale for v in dia] if scale and _band(dia) else "not_applicable",
         "width_band_mm": [v * scale for v in band] if scale and _band(band) else "not_applicable",
@@ -1845,13 +1845,64 @@ def _plunges(bundle, op, feature):
     count = 1 if span <= blade + 1e-9 else math.ceil((span - blade) / blade - 1e-9) + 1
     step = (span - blade) / (count - 1) if count > 1 else 0.0
     faces = [low + k * step for k in range(count)]
-    lift = blade if result["reading_corner"] == "free_end_side" else 0.0
+    lift = blade if result["reading_corner"] == "tailstock_side" else 0.0
     width = max(span, blade)
     result.update(
         corner_z_mm=[face + lift for face in faces],
         groove_z_mm=[low, low + width],
         width_mm=width,
     )
+    return result
+
+
+def _blade_target(bundle, setup, op, reading, grid):
+    """A grooving/parting blade op's ``to_z`` as the DRO reading of its reference corner,
+    or None for any other op (a groove op prints its plunges instead).
+
+    ``to_z`` is the face the op leaves. The blade stands on that face's outward side
+    (kernel ``faced_side`` of an already-present run; this never starts the kernel): a
+    face toward the free end is formed by its chuck-side corner, one toward the chuck by
+    its tailstock-side corner (``forming_corner``). The DRO reads the corner its Z touch
+    set (``reading_corner``); when that is the other corner, its reading lies a blade
+    width beyond ``to_z``. ``corner_dro_z`` is that reading on the DRO grid, rounded up
+    like ``dro_to_z`` so the face it leaves is the one ``dro_to_z`` prints. Unknown, with
+    its ``reason``, when the corner, the side or the blade width is."""
+    from .geometry_common import TURNING_BLADE_KINDS
+    from .turned_profile import GROOVE_OPS
+
+    tool = resolve(bundle, "tools", op.get("tool")) or {}
+    if tool.get("kind") not in TURNING_BLADE_KINDS or op.get("do") in GROOVE_OPS:
+        return None
+    if "to_z" not in op:
+        return None
+    width = UNKNOWN if uncertain(tool) else length_mm(tool, "blade_width")
+    kernel = mapping(getattr(bundle, "kernel", None))
+    fact = mapping(mapping(kernel.get("ops")).get(f"{setup['id']}:{op['op']}"))
+    side = fact.get("faced_side") if kernel.get("status") == "ok" else None
+    reading = mapping(reading)
+    result = {
+        "reading_corner": reading.get("reference_corner", UNKNOWN),
+        "forming_corner": {1: "chuck_side", -1: "tailstock_side"}.get(side, UNKNOWN),
+        "blade_width_mm": width,
+    }
+    scale = {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units"))
+    reasons = []
+    if result["reading_corner"] == UNKNOWN:
+        reasons.append(reading.get("reason", "the corner its Z touch set is unknown"))
+    if result["forming_corner"] == UNKNOWN:
+        reasons.append("no kernel pose puts the blade on one side of the face it leaves")
+    if not number(width) or width <= 0:
+        reasons.append("the blade width is not a measured length")
+    if not number(op["to_z"]) or not scale:
+        reasons.append("to_z or the feature units are unknown")
+    if reasons:
+        result.update(corner_dro_z=UNKNOWN, reason="; ".join(reasons))
+        return result
+    offset = 0.0
+    if result["reading_corner"] != result["forming_corner"]:
+        # Formed by the chuck-side corner, the blade spans to_z..to_z + width.
+        offset = (width if result["forming_corner"] == "chuck_side" else -width) / scale
+    result["corner_dro_z"] = dro_z(op["to_z"] + offset, grid)
     return result
 
 
@@ -2325,10 +2376,21 @@ def evaluate(bundle, *, pre_kernel=False):
         numbers["dro_grid"] = {"step": grid[0], "decimals": grid[1]}
         declared = mapping(mapping(setup.get("stock_state")).get("entry_z"))
         states, cleared, plan_debts = stock_states(bundle, setup), [], []
+        # The corner each blade op's DRO Z reads (the Z touch in effect when it cuts).
+        readings = {}
+        if lathe:
+            from .zero_recipe import blade_readings
+
+            readings = blade_readings(bundle, setup)
+        blade_unknown = False
         for entry, (op, before, _) in zip(numbers["operations"], states, strict=True):
             if "to_z" in entry:
                 # The depth the DRO shows: rounded up, never deeper than authored.
                 entry["dro_to_z"] = dro_z(entry["to_z"], grid)
+            target = _blade_target(bundle, setup, op, readings.get(str(op.get("op"))), grid)
+            if lathe and target is not None:
+                entry["blade"] = target
+                blade_unknown |= target["corner_dro_z"] == UNKNOWN
             levels = None
             if not lathe:
                 levels = _z_levels(op, before, declared, cleared, features, grid, units)
@@ -2339,7 +2401,7 @@ def evaluate(bundle, *, pre_kernel=False):
             if op.get("do") in RASTER_OPS and number(op.get("to_z")) and _xy_box(op):
                 cleared.append((op.get("feature"), _xy_box(op), op["to_z"]))
         residuals = _z_residuals(bundle, setup, grid, features)
-        unknown = not frame or frame.get("binding") == UNKNOWN
+        unknown = not frame or frame.get("binding") == UNKNOWN or blade_unknown
         if lathe:
             numbers["x_display"] = (
                 "radius"
@@ -2359,7 +2421,10 @@ def evaluate(bundle, *, pre_kernel=False):
             # An inspect op may name a list of features; a groove op names one.
             name = op.get("feature")
             plunges = _plunges(
-                bundle, op, mapping(features.get(name) if isinstance(name, str) else None)
+                bundle,
+                op,
+                mapping(features.get(name) if isinstance(name, str) else None),
+                readings.get(str(op.get("op"))),
             )
             if plunges is None:
                 continue

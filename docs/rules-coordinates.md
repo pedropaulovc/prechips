@@ -437,13 +437,29 @@ STOP):
 ` Single-axis stair error: op {op} finish: single-axis steps leave {cusp} on {feature}, more than its {band} band.`
 
 Blade grooves: a `form_*`/groove op whose tool is a grooving/parting blade gets
-`plunges` numbers: the corner the DRO reads (a right-hand blade's chuck-side
-corner, a left-hand blade's +Z corner) at each plunge, flush with the chuck-side
+`plunges` numbers: the corner the DRO reads (`reading_corner`, the corner the Z
+touch in effect when the op cuts set; see `zero_check` blade corners, never the
+blade's `hand`) at each plunge, flush with the chuck-side
 wall and stepping evenly, never more than a blade width, until the last plunge
 is flush with the far wall; the diameter each stops at; and the groove they
 leave (`max(span, blade_width)`). A groove outside the feature's `width` band
 is an `error` (`op {n} plunges leave a groove {w} wide, outside the drawing
-width {lo} to {hi}`); an unknown blade width or hand is `unknown`.
+width {lo} to {hi}`); an unknown blade width or reading corner is `unknown`,
+and the sheet stops the op ("plunge positions not set").
+
+Blade `to_z` ops (a part-off or cut-to-fit with a grooving/parting blade): the
+operation entry gets `blade` = {`reading_corner`, `forming_corner`,
+`blade_width_mm`, `corner_dro_z`}. `to_z` stays the face the op leaves and
+`dro_to_z` its DRO Z; the blade stands on that face's outward side (kernel op
+`faced_side`), so a face toward the free end is formed by the chuck-side corner
+and one toward the chuck by the tailstock-side corner. When the corner the DRO
+reads is the other one, its reading is a blade width beyond `to_z`:
+`corner_dro_z = dro_z(to_z - w)` for a chuck-side reading forming a face toward
+the chuck, `dro_z(to_z + w)` for a tailstock-side reading forming one toward the
+free end, else `dro_z(to_z)`. The sheet's op row prints
+`Z → {corner_dro_z} ({corner} corner)`. An unknown reading corner, kernel side or
+blade width leaves `corner_dro_z` unknown with its `reason` and the setup
+`unknown` (exit 4); the sheet prints "blade corner not set" and stops.
 
 Dome roughing: the rough stage of an `axial_table` op (a `form_*` op with
 `rough_allowance_mm`, or a `rough_*` op) is a `stair_tables` entry, not the
@@ -514,6 +530,35 @@ the mill X/Y read the spindle axis whatever the tool. A touch with
 `z_gauge` as `z_measure`. Missing tools, unverified finder/gauge facts, missing
 recipes and unknown frame binding preserve unknown. A lathe does not require a
 Y zero recipe.
+
+Blade corners: a Z touch (zero, tool touch or derived re-touch) by a
+grooving/parting blade sets one of its two corners. `reference_corner` comes
+from the touched face's outward normal along setup Z, read from the kernel's
+`revolved.<face>.end_faces` at the touch's `edge_mm` (all end faces when none is
+at that Z and they agree): a face toward the free end (+1) gives
+`chuck_side`, one toward the chuck (-1) `tailstock_side` (`corner_from = "face
+normal"`). Without a measured normal (a scribe, a stock end) the touch's
+authored `corner` is used (`corner_from = "authored"`), else the corner stays
+`unknown`; its Axis Set is still complete, while every blade op that reads it is
+`unknown` under `coordinates`. An authored `corner`, or a corner its `method`
+text names ("chuck-side corner", "tailstock-side corner"), that the face's
+normal contradicts, or a touch naming both, is `corner_error`: the corner stays
+unknown and the finding is an `error` (`A blade's Z touch names a corner its face
+cannot give (...)`). The sheet names the corner in the touch ("Z — chuck-side
+corner on the ...; Axis Set Z ...: Z now reads the chuck-side corner"), in the
+zero row and in a re-touch, and stops a blade touch whose corner is unknown.
+
+Tool setting: on a lathe, `tool_setting` lists one record per toolpost tool (a
+tool some non-axial op of the setup cuts with) at its first touch-off in the
+setup, in op order: the zero (`touch = "zero"`, `axis`), else its first
+`tool_touches` or `derived_touches` entry (`index`). Each carries
+`centre_height` and, for a grooving/parting blade, `square_blade` (otherwise
+`not_applicable`): the setup machine's `toolpost` words, else the requirement
+alone ("set its cutting edge on spindle centre height", "square the blade to the
+spindle axis"). The sheet prints "Before touching off {tool}: ..." before the
+zero table for the zero's tool and before each other tool's first touch. Cited
+to Moltrecht, *Machining for Hobbyists: Getting Started* (2015) ch. 6 p136
+Fig. 6-7 and p147 Fig. 6-20, plus the toolpost's own `cite`.
 
 One DRO per setup: the DRO reads the tool that last set it, by the zero, a tool
 touch (made before the first of its `before_ops`, else after its `after_op`) or
