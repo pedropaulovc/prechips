@@ -1567,11 +1567,16 @@ renderer refuses smaller text. Setup notes come from the setup's declared ops,
 bench actions included, so a deburr/coating/inspect setup says it has no
 machine cutting rather than "no material removed".
 
-A leader that names a drawn solid (the stock, a jaw, a parallel, a clamp) ends
-on that solid's own visible pixels, never on its bounding box or on whatever
-lies in front of it. When no pixel of the named solid is visible the leader is
-not drawn and the picture carries the render debt `NOT SHOWN: <label> is hidden
-in this view, so it has no leader.`, printed in its own notes. A datum's
+A leader that names a drawn solid (the stock, a jaw, a parallel, a clamp, a
+numbered clamp or pad badge) ends on that solid's own visible pixels, never on
+its bounding box or on whatever lies in front of it. When no pixel of the named
+solid is visible the leader is not drawn and the picture carries the render
+debt `NOT SHOWN: <label> is hidden in this view, so it has no leader.`, printed
+in its own notes; a hidden numbered clamp or pad with a known box is instead
+drawn as a dashed outline of that box, its badge's leader ending on the outline
+at an open ring, so its position still shows without pointing at the solid in
+front. Triangles that share an edge cover every pixel centre on it exactly
+once, so a solid wholly behind another never shows through its seams. A datum's
 authored face name keeps its words but its axis words are restated in the
 setup's axes through the setup placement (the rocker's model "+Z broad strap
 face" is "-Z broad strap face" in a setup that turns the part over; an axis
@@ -1584,13 +1589,17 @@ When something touches the stock and the main picture draws the stock's
 narrower side under 200 pixels, a **holding detail** band is printed below the
 picture. The kernel computes the contacts from the exact solids: each holding
 solid within the stock tolerance of the work gives the outline of the shared
-face (or the section edges, else the nearest point), clipped to a section
-view's kept side, and `closest_cut` is the smallest distance from this setup's
+face (or the section edges, else the nearest point). Its plane is measured on
+that whole contact before a section view cuts it: the outline is cut where it
+crosses the section plane and only the kept side is drawn, still keyed at the
+contact's own plane (a contact that is a point or a straight line names no
+plane). `closest_cut` is the smallest distance from this setup's
 removal to a holding solid. The detail frames the stock, the contacts and that
 distance; it outlines each contact (solid where seen, dashed where hidden),
 keys it with its holding name and the setup coordinate of its plane (a support
 whose solids lie on different planes, such as the rocker's hub stand and rail
-shims, is keyed plane by plane), and dimensions the closest cut in amber. An
+shims, is keyed plane by plane, and same-named solids share a key only on one
+plane), and dimensions the closest cut in amber. An
 isometric or elevation view is detailed only when the band draws the stock at
 least 1.5 times larger; a lathe's meridian section gets no holding detail. A
 plan view always gets the detail, drawn from 30° above the side so contact

@@ -322,12 +322,13 @@ When the work is small beside its holding, or a plan view hides contact
 heights, a holding detail band below the picture (making the PNG taller) shows
 each holding contact face keyed with its setup coordinate and the closest cut to
 the holding. A leader that names a solid ends on that solid's visible pixels;
-one that cannot is a printed `NOT SHOWN` render debt. Datum labels state their
-axis words in the setup's axes and mark an underside or hidden face. Dashed
-machine-context outlines are schematic, not measured fixture geometry, and
-unresolved drawing items remain plain-language warnings. The image is hashed
-into `report.json` with its scene record so an approval binds to it; it is not
-a toolpath.
+a hidden numbered clamp or pad is drawn as a dashed outline of its position,
+and any other leader that cannot end on its solid is a printed `NOT SHOWN`
+render debt. Datum labels state their axis words in the setup's axes and mark
+an underside or hidden face. Dashed machine-context outlines are schematic, not
+measured fixture geometry, and unresolved drawing items remain plain-language
+warnings. The image is hashed into `report.json` with its scene record so an
+approval binds to it; it is not a toolpath.
 Before encoding, every setup diagram checks its rounded bitmap-text bounds:
 labels must keep an 8-pixel canvas margin and a 4-pixel gap from other labels,
 and no label may print below body size (21-pixel cap height, about 7 pt on

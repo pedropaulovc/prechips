@@ -163,7 +163,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import FreeCAD  # noqa: E402
 import Part  # noqa: E402
-from render_diagram import render_diagram  # noqa: E402
+from render_diagram import _common_plane, _shared_plane, render_diagram  # noqa: E402
 from step_faces import FaceRefError, StepError, StepFile  # noqa: E402
 
 UNKNOWN = "unknown"
@@ -611,17 +611,25 @@ def _box_gap(a, b):
 
 
 def _kept_runs(lines, axis, keep, plane):
-    """The runs of each polyline on the half of a section view that is drawn."""
+    """The runs of each polyline on the half of a section view that is drawn. A segment
+    crossing the section plane is cut at it, so its run keeps the crossing point."""
     runs = []
     for line in lines:
-        run = []
+        run, previous, before = [], None, None
         for point in line:
-            if (point[axis] - plane) * keep >= -STOCK_TOL:
+            depth = (point[axis] - plane) * keep
+            inside = depth >= -STOCK_TOL
+            if previous is not None and inside != (before >= -STOCK_TOL) and max(before, depth) > 0:
+                t = before / (before - depth)
+                crossing = [previous[i] + t * (point[i] - previous[i]) for i in range(3)]
+                crossing[axis] = plane
+                run.append(crossing)
+            if inside:
                 run.append(point)
-                continue
-            if run:
+            elif run:
                 runs.append(run)
-            run = []
+                run = []
+            previous, before = point, depth
         if run:
             runs.append(run)
     return runs
@@ -6185,11 +6193,14 @@ class _Setup:
         return png, scene
 
     def _render_contacts(self, solids, removal, tolerance, section_view):
-        """The holding solids touching the arriving stock, each with its contact outlines,
-        and the cut nearest the holding, in setup axes: ``([{"tag", "lines_mm"}], {"mm",
-        "tag", "from_mm", "to_mm"} or None)``. A plane contact is the common area of a
-        holding face and an opposed stock face on one plane; a curved one is the solids'
-        section, else their nearest point. The half a section view removes is dropped."""
+        """The holding solids touching the arriving stock, each with its contact outlines
+        and plane, and the cut nearest the holding, in setup axes: ``([{"tag", "lines_mm",
+        "plane"}], {"mm", "tag", "from_mm", "to_mm"} or None)``. A plane contact is the
+        common area of a holding face and an opposed stock face on one plane; a curved one
+        is the solids' section, else their nearest point. A section view drops the half it
+        removes, cutting each outline at its plane. ``plane`` is the one setup-axis plane
+        ``[axis, value]`` of the contact pieces drawn, each measured whole, else None: a
+        seating face the section cuts to one edge keeps its height."""
         stock = self.part
         stock_box = _bbox(stock)
         contacts = []
@@ -6199,7 +6210,7 @@ class _Setup:
             distance, pairs, _ = _distance(solid, stock)
             if distance > STOCK_TOL:
                 continue
-            lines = []
+            pieces = []  # one per shared face, else the section, else the nearest point
             for held in solid.Faces:
                 if not isinstance(held.Surface, Part.Plane):
                     continue
@@ -6217,22 +6228,39 @@ class _Setup:
                         continue
                     common = held.common(face)
                     if common.Area > STOCK_TOL**2:
-                        lines += [
-                            [[p.x, p.y, p.z] for p in edge.discretize(Deflection=tolerance)]
-                            for edge in common.Edges
-                        ]
-            if not lines:
-                lines = [
+                        pieces.append(
+                            [
+                                [[p.x, p.y, p.z] for p in edge.discretize(Deflection=tolerance)]
+                                for edge in common.Edges
+                            ]
+                        )
+            if not pieces:
+                section = [
                     [[p.x, p.y, p.z] for p in edge.discretize(Deflection=tolerance)]
                     for edge in solid.section(stock).Edges
                 ]
-            if not lines:
+                if section:
+                    pieces.append(section)
+            if not pieces:
                 point = pairs[0][1]
-                lines = [[[point.x, point.y, point.z]]]
-            if section_view is not None:
-                lines = _kept_runs(lines, *section_view[:3])
-            if lines:
-                contacts.append({"tag": name, "lines_mm": lines})
+                pieces.append([[[point.x, point.y, point.z]]])
+            kept = [
+                (
+                    _common_plane(piece),
+                    piece if section_view is None else _kept_runs(piece, *section_view[:3]),
+                )
+                for piece in pieces
+            ]
+            kept = [(plane, lines) for plane, lines in kept if lines]
+            if kept:
+                plane = _shared_plane([plane for plane, _ in kept])
+                contacts.append(
+                    {
+                        "tag": name,
+                        "lines_mm": [line for _, lines in kept for line in lines],
+                        "plane": None if plane is None else list(plane),
+                    }
+                )
         nearest = None
         if removal is not None and removal.Volume > STOCK_MM3:
             cut_box = _bbox(removal)

@@ -328,15 +328,19 @@ class RenderCanvas:
             yc = row + 0.5
             lo, hi = left_bound, right_bound
             for ax, ay, bx, by in edges:
-                slope = -(by - ay)
-                offset = (bx - ax) * (yc - ay) + (by - ay) * ax
-                if slope > 0:
-                    lo = max(lo, -offset / slope)
-                elif slope < 0:
-                    hi = min(hi, -offset / slope)
-                elif offset < 0:
-                    lo, hi = 1.0, 0.0
-                    break
+                if ay == by:
+                    if (bx - ax) * (yc - ay) < 0:
+                        lo, hi = 1.0, 0.0
+                        break
+                    continue
+                # Both triangles sharing an edge get the same crossing, whichever way each
+                # runs along it, so no pixel centre on the edge falls between them.
+                px, py, qx, qy = (ax, ay, bx, by) if (ay, ax) < (by, bx) else (bx, by, ax, ay)
+                crossing = px + (qx - px) * (yc - py) / (qy - py)
+                if ay > by:
+                    lo = max(lo, crossing)
+                else:
+                    hi = min(hi, crossing)
             first = max(left, math.ceil(lo - 0.5))
             last = min(right, math.floor(hi - 0.5))
             base = row * width

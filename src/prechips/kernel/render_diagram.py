@@ -48,6 +48,8 @@ _DETAIL_GAIN = 1.5
 _DETAIL_TILES = 2
 # Contact outlines in the holding detail.
 _CONTACT = (178, 34, 34)
+# Contact points within this many mm of one setup-axis plane lie on it.
+_PLANE_MM = 1e-3
 # The detail's view of a plan setup: from the long side, raised this far, so the contact
 # heights a plan view cannot show are seen.
 _DETAIL_RISE_DEG = 30
@@ -444,6 +446,41 @@ def _anchor_on(canvas, owned, targets, near, inset=4):
     return (pixels[0][0] + 0.5, pixels[0][1] + 0.5) if pixels else None
 
 
+def _hull(points):
+    """The convex hull of pixel points, in order around it (monotone chain)."""
+    points = sorted(set(points))
+    if len(points) <= 2:
+        return points
+
+    def turn(o, a, b):
+        return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+
+    lower, upper = [], []
+    for point in points:
+        while len(lower) >= 2 and turn(lower[-2], lower[-1], point) <= 0:
+            lower.pop()
+        lower.append(point)
+    for point in reversed(points):
+        while len(upper) >= 2 and turn(upper[-2], upper[-1], point) <= 0:
+            upper.pop()
+        upper.append(point)
+    return lower[:-1] + upper[:-1]
+
+
+def _nearest_on_outline(outline, point):
+    """The point of a closed pixel polygon's edges nearest ``point``."""
+    best = None
+    for a, b in zip(outline, outline[1:] + outline[:1], strict=True):
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        length = dx * dx + dy * dy
+        t = 0.0 if not length else ((point[0] - a[0]) * dx + (point[1] - a[1]) * dy) / length
+        t = min(1.0, max(0.0, t))
+        candidate = (a[0] + t * dx, a[1] + t * dy)
+        if best is None or math.dist(candidate, point) < math.dist(best, point):
+            best = candidate
+    return best
+
+
 def _shoulder(z, small, large):
     return f"SHOULDER Z {_mm(z)}: DIA {_mm(2 * small)} / DIA {_mm(2 * large)}"
 
@@ -486,6 +523,8 @@ class _Diagram:
         self.context_labels = []
         self.position_badges = []
         self.leaders = []  # printed leaders: (label, pixel polyline from the point)
+        # Badge leaders to a hidden solid's dashed outline, never to what lies in front of it.
+        self.hidden_leaders = []
         # Operator-facing lines for what the picture could not show truthfully.
         self.render_debts = []
         self._owned = None
@@ -824,10 +863,12 @@ class _Diagram:
         for label, components in groups.items():
             if label in numbered:
                 # Each position carries its code badge; the lane entry is the badge's key.
-                points = [c.project(item["center_mm"]) for item in components]
-                self.callouts.append(_Callout(label.upper(), points, _FIXTURE, leader="keyed"))
-                for point in points:
-                    self.position_badges.append({"label": numbered[label], "xy": point})
+                badges = [self._numbered_badge(numbered[label], label, item) for item in components]
+                badges = [badge for badge in badges if badge]
+                if badges:
+                    points = [badge["xy"] for badge in badges]
+                    self.callouts.append(_Callout(label.upper(), points, _FIXTURE, leader="keyed"))
+                    self.position_badges.extend(badges)
                 continue
             points, targets = [], ()
             for item in components:
@@ -845,26 +886,49 @@ class _Diagram:
                 self._hidden(label.upper())
                 continue
             self.callouts.append(_Callout(label.upper(), points, _FIXTURE, targets=targets))
-        if pads:
-            for index, component in enumerate(pads, 1):
-                point = c.project(component["center_mm"])
-                code = _pad_code(component, index)
-                if self.view == "plan" and component.get("box_mm"):
-                    left, top, right, bottom = _bounds(self._component_pixels([component]))
-                    _outline(
-                        c,
-                        [(left, top), (right, top), (right, bottom), (left, bottom)],
-                        _FIXTURE,
-                        width=2,
-                        dashed=True,
-                    )
-                self.position_badges.append({"label": code, "xy": point})
+        badges = []
+        for index, component in enumerate(pads, 1):
+            outline = None
+            if self.view == "plan" and component.get("box_mm"):
+                # A plan view outlines every pad, even where the work covers it.
+                outline = self._box_outline(component)
+            label = self._component_label(component)
+            badge = self._numbered_badge(_pad_code(component, index), label, component, outline)
+            if badge:
+                badges.append(badge)
+        if badges:
             self.callouts.append(
-                _Callout(
-                    "SUPPORT PADS", [c.project(pads[0]["center_mm"])], _FIXTURE, leader="keyed"
-                )
+                _Callout("SUPPORT PADS", [badges[0]["xy"]], _FIXTURE, leader="keyed")
             )
+            self.position_badges.extend(badges)
         self._stock_callout()
+
+    def _numbered_badge(self, code, label, component, outline=None):
+        """A numbered component's position badge (a coded clamp or a pad), or None. Its
+        leader ends on the component's own visible pixels. A component hidden in this view
+        is a hidden-position symbol: its box drawn as a dashed outline (``outline`` when
+        already drawn), the leader ending on that outline, never on what lies in front of
+        it. One with no box to outline is a render debt."""
+        near = self.canvas.project(component["center_mm"])
+        tags = tuple(component.get("meshes", ()))
+        if not tags:
+            # Not a drawn solid (a named void in the fixture): its own point.
+            return {"label": code, "xy": near}
+        point = self._anchor(tags, near)
+        if point is not None:
+            return {"label": code, "xy": point}
+        if outline is None and component.get("box_mm"):
+            outline = self._box_outline(component)
+        if outline is None:
+            self._hidden(label.upper())
+            return None
+        return {"label": code, "xy": near, "outline": outline}
+
+    def _box_outline(self, component):
+        """Draw a component's projected box as a dashed outline; returns its pixel polygon."""
+        outline = _hull([self.canvas.project(p) for p in _corners(component["box_mm"])])
+        _outline(self.canvas, outline, _FIXTURE, width=2, dashed=True)
+        return outline
 
     def _stock_callout(self):
         if not self.stock_pixels:
@@ -1643,7 +1707,8 @@ class _Diagram:
         exclusion=None,
     ):
         """Pack disjoint print-size cells, optionally wholly above/below projected geometry;
-        returns [(label, badge centre, point)] in pixels."""
+        returns [(label, badge centre, point)] in pixels. A waypoint with an ``outline``
+        marks a hidden solid: its leader stops on that dashed outline at an open ring."""
         if not waypoints:
             return []
         c = self.canvas
@@ -1661,17 +1726,22 @@ class _Diagram:
             cells = list(range(len(points)))
         else:
             available, cells = self._grid_cells(points, labels, plot, perimeter)
-        placed = [
-            (available[cell], label, point, item.get("colour", colour))
-            for item, label, point, cell in zip(waypoints, labels, points, cells, strict=True)
-        ]
-        for badge, label, point, point_colour in placed:
+        placed = []
+        for item, label, point, cell in zip(waypoints, labels, points, cells, strict=True):
+            badge, outline = available[cell], item.get("outline")
+            end = _nearest_on_outline(outline, badge) if outline else point
+            placed.append((badge, label, end, item.get("colour", colour), bool(outline)))
+        for badge, label, point, point_colour, hidden in placed:
             c.line(point, badge, _MUTED, width=2)
+            if hidden:
+                c.circle(*point, 4, fill=_WHITE, outline=point_colour)
+                self.hidden_leaders.append((label, [point, badge]))
+                continue
             c.circle(*point, 3, fill=point_colour)
             self.leaders.append((label, [point, badge]))
-        for badge, label, _, badge_colour in placed:
+        for badge, label, _, badge_colour, _ in placed:
             _badge(c, badge, label, badge_colour)
-        return [(label, badge, point) for badge, label, point, _ in placed]
+        return [(label, badge, point) for badge, label, point, _, _ in placed]
 
     def _grid_cells(self, points, labels, plot, perimeter):
         """Evenly spread cells and each point's cell (least leader length, no grazing)."""
@@ -1948,13 +2018,54 @@ def _solid_name(tag):
 
 
 def _common_plane(lines):
-    """(axis, value) of the one setup-axis plane every point of ``lines`` lies on, or None."""
+    """(axis, value) of the one setup-axis plane the points of ``lines`` lie on, or None.
+    Points on one straight line (a lone point, a single edge) lie on many planes and name
+    none: a seating face a section reduces to one edge is not a lateral plane."""
     points = [p for line in lines for p in line]
+    if not points:
+        return None
+    first = points[0]
+    far = max(points, key=lambda p: math.dist(p, first))
+    span = [far[i] - first[i] for i in range(3)]
+    length = math.hypot(*span)
+
+    def off_line(point):
+        d = [point[i] - first[i] for i in range(3)]
+        return math.hypot(
+            d[1] * span[2] - d[2] * span[1],
+            d[2] * span[0] - d[0] * span[2],
+            d[0] * span[1] - d[1] * span[0],
+        )
+
+    if length <= _PLANE_MM or all(off_line(p) <= _PLANE_MM * length for p in points):
+        return None
     for axis in range(3):
         values = [p[axis] for p in points]
-        if max(values) - min(values) <= 1e-3:
+        if max(values) - min(values) <= _PLANE_MM:
             return axis, sum(values) / len(values)
     return None
+
+
+def _same_plane(a, b):
+    """Whether two (axis, value) planes are one, or are both unknown."""
+    if a is None or b is None:
+        return a is b
+    return a[0] == b[0] and abs(a[1] - b[1]) <= _PLANE_MM
+
+
+def _shared_plane(planes):
+    """The one known plane every one of ``planes`` is, else None."""
+    first = planes[0] if planes else None
+    return first if first is not None and all(_same_plane(first, p) for p in planes) else None
+
+
+def _contact_plane(contact):
+    """A contact's setup-axis plane: the kernel's, measured on the whole contact before a
+    section view clips it, else that of its outline."""
+    if "plane" in contact:
+        plane = contact["plane"]
+        return None if plane is None else (int(plane[0]), float(plane[1]))
+    return _common_plane(contact["lines_mm"])
 
 
 class _HoldingDetail(_Diagram):
@@ -1991,6 +2102,7 @@ class _HoldingDetail(_Diagram):
         self.obstacles = []
         self.position_badges = []
         self.leaders = []
+        self.hidden_leaders = []
         self.render_debts = []
         self._owned = None
         self.meshes = list(meshes)
@@ -2021,25 +2133,36 @@ class _HoldingDetail(_Diagram):
         return f"{title}  /  SETUP {'XYZ'[axis]} {_mm(low)} TO {_mm(high)}"
 
     def _contact_groups(self):
-        """{label: [(member name or None, badge code or None, lines)]}: each contacting
-        solid under the holding name it is printed with. A component whose contacting
-        solids lie on different planes is named solid by solid, so each plane is keyed."""
-        contacts = {contact["tag"]: contact["lines_mm"] for contact in self.spec["contacts"]}
-        groups, named = defaultdict(list), set()
-        loose = []
+        """[(label, plane, [(member name or None, badge code or None, lines)])]: each
+        contacting solid under the holding name it is printed with and the setup-axis plane
+        it lies on (None when unknown). Solids of one name on different planes are keyed
+        plane by plane; a component whose contacting solids lie on different planes is
+        named solid by solid."""
+        contacts = {contact["tag"]: contact for contact in self.spec["contacts"]}
+        planes = {tag: _contact_plane(contact) for tag, contact in contacts.items()}
+        groups, named, loose = [], set(), []
+
+        def add(label, plane, member, code, lines):
+            for key, key_plane, members in groups:
+                if key == label and _same_plane(key_plane, plane):
+                    members.append((member, code, lines))
+                    return
+            groups.append((label, plane, [(member, code, lines)]))
+
         for component in self.components:
             tags = [tag for tag in component.get("meshes", ()) if tag in contacts]
             if not tags:
                 continue
             named.update(tags)
             label = self._component_label(component)
-            lines = [line for tag in tags for line in contacts[tag]]
+            lines = [line for tag in tags for line in contacts[tag]["lines_mm"]]
+            plane = _shared_plane([planes[tag] for tag in tags])
             if _is_pad(component, label):
-                groups["SUPPORT PADS"].append((None, _pad_code(component, 1), lines))
+                add("SUPPORT PADS", plane, None, _pad_code(component, 1), lines)
             elif component.get("code"):
-                groups[label].append((None, _plain(component["code"]), lines))
-            elif len(tags) == 1 or _common_plane(lines) is not None:
-                groups[label].append((None, None, lines))
+                add(label, plane, None, _plain(component["code"]), lines)
+            elif len(tags) == 1 or plane is not None:
+                add(label, plane, None, None, lines)
             else:
                 loose.extend(tags)
         loose.extend(tag for tag in contacts if tag not in named)
@@ -2047,9 +2170,9 @@ class _HoldingDetail(_Diagram):
             name = _solid_name(tag)
             stem, _, member = name.rpartition(" ")
             if stem and len(member) <= 2:
-                groups[stem].append((member, None, contacts[tag]))
+                add(stem, planes[tag], member, None, contacts[tag]["lines_mm"])
             else:
-                groups[name].append((None, None, contacts[tag]))
+                add(name, planes[tag], None, None, contacts[tag]["lines_mm"])
         return groups
 
     def render(self):
@@ -2058,7 +2181,7 @@ class _HoldingDetail(_Diagram):
         _text(c, 32, 22, self._title(), scale=4)
         _text(c, 34, 62, "CONTACT FACES: SOLID WHERE SEEN, DASHED WHERE HIDDEN", _CONTACT)
         groups = self._contact_groups()
-        for label, members in groups.items():
+        for label, plane, members in groups:
             for _, _, lines in members:
                 self._contact_outline(lines)
             shown = [
@@ -2074,7 +2197,7 @@ class _HoldingDetail(_Diagram):
                 text += f" {names[0]}"
             elif names:
                 text += f" ({', '.join(names)})"
-            text += f" CONTACT{self._plane_text([lines for _, _, lines, _ in shown])}"
+            text += f" CONTACT{self._plane_text(plane)}"
             points = [point for _, _, _, point in shown]
             codes = [code for _, code, _, _ in shown]
             if not any(codes):
@@ -2092,7 +2215,7 @@ class _HoldingDetail(_Diagram):
         if self.position_badges:
             contact = [
                 c.project(p)
-                for members in groups.values()
+                for _, _, members in groups
                 for _, _, lines in members
                 for line in lines
                 for p in line
@@ -2167,9 +2290,8 @@ class _HoldingDetail(_Diagram):
         x, y = self.canvas.project(point)
         return left <= x <= right and top <= y <= bottom
 
-    def _plane_text(self, members):
+    def _plane_text(self, plane):
         zero = self.spec.get("zero_mm")
-        plane = _common_plane([line for lines in members for line in lines])
         if zero is None or plane is None:
             return ""
         axis, value = plane

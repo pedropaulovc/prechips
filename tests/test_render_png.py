@@ -14,6 +14,7 @@ from prechips.kernel.render_diagram import (
     _corners,
     _Diagram,
     _holding_details,
+    _tag_at,
     render_diagram,
 )
 from prechips.kernel.render_inputs import contour_annotations
@@ -702,6 +703,78 @@ def test_a_named_solid_hidden_from_view_is_a_render_debt_not_a_leader():
     assert debts == []
 
 
+def test_a_solid_wholly_behind_another_shows_no_pixel_through_its_triangle_seams():
+    # The front square's two triangles share a 45° diagonal that crosses every pixel row
+    # exactly at a pixel centre, at whatever scale the square is fitted to. The face
+    # behind it must not show through along that seam at any of those scales.
+    square = ((0, 1, 2), (0, 2, 3))
+    front = ((0, 0, 2), (10, 0, 2), (10, 10, 2), (0, 10, 2))
+    back = ((2, 2, 1), (8, 2, 1), (8, 8, 1), (2, 8, 1))
+    meshes = [
+        (front, square, (160, 175, 185), False, "front"),
+        (back, square, (120, 98, 76), False, "back"),
+    ]
+    for size in range(20, 202, 2):
+        canvas = _canvas(meshes, width=size, height=size)
+        seen = {canvas.tags[index] for index in canvas.owner if index >= 0}
+        assert seen == {"front"}, size
+
+
+@pytest.mark.parametrize("kind", ["coded_clamp", "pad"])
+@pytest.mark.parametrize("hidden", [True, False], ids=["under_the_work", "beside_the_work"])
+def test_a_numbered_position_badge_never_leads_to_the_solid_in_front_of_it(kind, hidden):
+    # Plan view from +Z: a clamp declared as C1, or support pad 1, wholly under the stock
+    # or beside it.
+    box = [2, 2, 0, 8, 8, 1] if hidden else [12, 2, 0, 18, 8, 1]
+    tag = "fx:clamp" if kind == "coded_clamp" else "fx:pad-1"
+    meshes = [
+        _slab(0, 0, 10, 10, 2, (160, 175, 185), "part"),
+        _slab(box[0], box[1], box[3], box[4], 1, (120, 98, 76), tag),
+    ]
+    component = {
+        "name": tag,
+        "box_mm": box,
+        "center_mm": [(box[i] + box[i + 3]) / 2 for i in range(3)],
+        "meshes": [tag],
+    }
+    if kind == "coded_clamp":
+        component.update(label="C1: TOE CLAMP", role="clamp", code="C1")
+    else:
+        component.update(label="PAD 1", role="pad")
+    badge = "C1" if kind == "coded_clamp" else "1"
+    spec = {
+        "setup_id": "S1",
+        "view": "plan",
+        "stock_box": [0, 0, 0, 10, 10, 2],
+        "components": [component],
+    }
+    diagram = _Diagram(meshes, spec)
+    diagram.render()
+
+    assert diagram.render_debts == []
+    # A badge leader drawn to a solid ends on that solid's own pixels, never the stock's.
+    ends = [_tag_at(diagram.canvas, *path[0]) for label, path in diagram.leaders if label == badge]
+    if not hidden:
+        assert ends == [tag]
+        return
+    assert ends == []
+    # Hidden, its position is a dashed outline of its box, and the badge's leader stops
+    # on that outline at an open ring.
+    (path,) = [path for label, path in diagram.hidden_leaders if label == badge]
+    left, top = diagram.canvas.project((box[0], box[4], 0))
+    right, bottom = diagram.canvas.project((box[3], box[1], 0))
+    x, y = path[0]
+    assert left - 1 <= x <= right + 1 and top - 1 <= y <= bottom + 1
+    assert min(abs(x - left), abs(x - right), abs(y - top), abs(y - bottom)) < 1
+    assert _pixel(diagram.canvas, math.floor(x), math.floor(y)) == _WHITE
+    far_edge = bottom if abs(y - top) < abs(y - bottom) else top
+    inked = {
+        _pixel(diagram.canvas, column, math.floor(far_edge))
+        for column in range(math.ceil(left), math.floor(right))
+    }
+    assert (120, 98, 76) in inked
+
+
 def _block(box, colour, tag):
     """A tagged box solid: its six faces as twelve triangles."""
     x0, y0, z0, x1, y1, z1 = box
@@ -841,6 +914,57 @@ def test_long_thin_plan_work_gets_split_details_that_key_each_contact_height_onc
     assert far.endswith("AT Z 12")
     _, height, _ = _decode_png(render_diagram(meshes, spec)[0])
     assert height == main.canvas.height + sum(d.canvas.height for d in details)
+
+
+@pytest.mark.parametrize(
+    ("heights", "keys"),
+    [
+        ((10, 12), ["RAIL SHIM LU CONTACT AT Z 10", "RAIL SHIM RU CONTACT AT Z 12"]),
+        ((12, 12), ["BODY SUPPORTS CONTACT AT Z 12"]),
+    ],
+    ids=["stepped_work_on_two_heights", "flat_work_on_one_height"],
+)
+def test_one_named_family_in_one_band_is_keyed_once_per_contact_height(heights, keys):
+    # Both rail shims touch the work within one detail band. A stepped underside sets
+    # them at two heights, and each height is what the operator sets that shim to; on
+    # flat work the whole support shares one plane and is keyed once.
+    left, right = heights
+    solids = {
+        "fx:rail-shim-lu": [20, -2, 0, 28, 4, left],
+        "fx:rail-shim-ru": [40, -2, 0, 48, 4, right],
+    }
+    stock = [0, 0, min(heights), 100, 12, 18]
+    meshes = [
+        _block([0, 0, left, 35, 12, 18], (160, 175, 185), "part"),
+        _block([35, 0, right, 100, 12, 18], (160, 175, 185), "part"),
+    ]
+    meshes += [_block(box, (120, 98, 76), tag) for tag, box in solids.items()]
+    contacts = [
+        {"tag": tag, "lines_mm": [[[x0, 0, z1], [x1, 0, z1], [x1, 4, z1], [x0, 4, z1]]]}
+        for tag, (x0, _, _, x1, _, z1) in solids.items()
+    ]
+    spec = {
+        "setup_id": "S3",
+        "view": "plan",
+        "stock_box": stock,
+        "zero_mm": [0, 0, 0],
+        "components": [
+            {
+                "name": "body_supports",
+                "role": "fixture",
+                "box_mm": [20, -2, 0, 48, 4, 12],
+                "center_mm": [34, 1, 6],
+                "meshes": list(solids),
+            }
+        ],
+        "contacts": contacts,
+    }
+    main = _Diagram(meshes, spec)
+    main.render()
+    details = _holding_details(meshes, spec, main)
+
+    keyed = [[c.label for c in d.callouts if c.colour == _CONTACT] for d in details]
+    assert [sorted(band) for band in keyed if band] == [keys]
 
 
 @pytest.mark.parametrize(("normal", "hidden"), [((0, 0, -1), True), ((0, 0, 1), False)])
