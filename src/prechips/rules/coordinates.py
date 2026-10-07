@@ -243,16 +243,22 @@ def faced_aim_error(plan, manifest, name, aim):
             f"aims.{name}.face moves a plane of the length between features.{name}.lower_z "
             f"and upper_z; the feature declares no {' or '.join(missing)}"
         )
-    claimed = any(
-        op.get("do") in FACING
-        and name in op_features(op)
-        and (not isinstance(op.get("faces"), list) or face in op["faces"])
-        for setup in plan.get("setups", [])
-        for op in setup.get("ops", [])
-    )
-    if not claimed:
+    if not faced_aim_claims(plan, name, face):
         return f"no facing op claims aims.{name}.face {face}, so the aim moves no cut"
     return None
+
+
+def faced_aim_claims(plan, name, face):
+    """The facing ops (:data:`FACING`) on feature ``name`` that claim ``face`` (they name no
+    ``faces``, or name that one), in plan order."""
+    return [
+        op
+        for setup in plan.get("setups", [])
+        for op in setup.get("ops", [])
+        if op.get("do") in FACING
+        and name in op_features(op)
+        and (not isinstance(op.get("faces"), list) or face in op["faces"])
+    ]
 
 
 def faced_aims(bundle):

@@ -305,6 +305,11 @@ Faced aims move no DRO target. Aim each face whose position follows from the
 aimed one. In the rocker example, the strap thickness is the hub aim less two
 fixed hub-proud steps, so the strap face carries its own aim.
 
+The sheet prints each faced aim once, in the instructions of the last facing op
+that claims its face: the feature's requirement "faced to" `value_mm` (at no
+fewer places than the drawing's), the band that holds it, and the reason. For
+example: `Hub faces length faced to 7.080 (band 7.057–7.106): AUTHOR'S CHOICE …`.
+
 ## Joint features
 
 `[joint_features.<id>]` declares transient component geometry, not a change to

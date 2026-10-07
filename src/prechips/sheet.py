@@ -20,7 +20,14 @@ from .measurements import length_fact, record_trusted
 from .model import reference_only, tolerance_requirements
 from .rules._bench import manual_bench
 from .rules._envelope import measurement_item
-from .rules.coordinates import CENTRE_OPS, OVERSHOOT_NOTE, dro_grid, dro_z, row_id
+from .rules.coordinates import (
+    CENTRE_OPS,
+    OVERSHOOT_NOTE,
+    dro_grid,
+    dro_z,
+    faced_aim_claims,
+    row_id,
+)
 from .rules.hold_fields import align_indicator, align_travel
 from .rules.inspection import ZONES, go_no_go_pair
 from .rules.resolution import (
@@ -4064,6 +4071,32 @@ class _Traveler:
             f" (aimed at {_number(aim['value'])})."
         )
 
+    def faced_aim_note(self, setup, op):
+        """Each faced aim (plan ``aims`` naming a ``face``) once, at the last facing op that
+        claims its face (:func:`~.rules.coordinates.faced_aim_claims`): the length it faces
+        to, at no fewer places than the drawing's, the band that holds it and the aim's
+        reason. Empty at any other op."""
+        scale = {"mm": 1.0, "in": 25.4}.get(self.units)
+        notes = []
+        for name, aim in _mapping(self.plan.get("aims")).items():
+            face = _mapping(aim).get("face")
+            claims = faced_aim_claims(self.plan, name, face) if face is not None else []
+            if not (scale and claims and claims[-1] is op):
+                continue
+            requirement = aim["requirement"]
+            value, places = aim["value_mm"] / scale, self.precision(name, requirement)
+            shown = _number(value)
+            if isinstance(places, int) and len(shown.partition(".")[2]) < places:
+                shown = _number(value, places)
+            band = _mapping(self.bundle.feature_definitions.get(name)).get(requirement, "unknown")
+            reason = self.bench(aim["reason"], setup).rstrip(".")
+            notes.append(
+                f"{self.feature_name(name).capitalize()} "
+                f"{_REQUIREMENT_NAMES.get(requirement, requirement)} faced to {shown} "
+                f"(band {self.band(band, name, requirement)}): {reason}."
+            )
+        return " ".join(notes) or None
+
     # ------------------------------------------------------------------ tools
     def tool_table(self, setup):
         """The setup's TOOLS table: one row per tool + holder pair, numbered as
@@ -4979,6 +5012,7 @@ class _Traveler:
                         self.bench(note, setup) if note else None,
                         derivation,
                         self.compound_note(setup, op),
+                        self.faced_aim_note(setup, op),
                     ],
                 )
             )
