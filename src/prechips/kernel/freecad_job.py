@@ -218,6 +218,7 @@ FACING_ACTIONS = {"face", "rough_face", "finish_face"}  # sweeps that span plana
 PROFILE_ACTIONS = {"profile", "rough_profile", "finish_profile"}  # walls clear a corridor
 # Curved analytic claims: a clearing box's leave before them is the guard's offset.
 _CURVED_ANALYTIC = (Part.Cylinder, Part.Cone, Part.Sphere, Part.Toroid)
+FLAT_CHORD = 1e-4  # mm, chord error measuring a claimed wall's width along its edges
 AREA_REL = AREA_ABS = 1e-6  # face-signature area tolerance (relative, absolute mm^2)
 BBOX_TOL = 1e-4  # mm, face-signature bbox tolerance
 PLANE_TOL = 1e-6  # mm, coplanarity of contact faces / interval ends
@@ -4929,10 +4930,14 @@ class _Setup:
         pass, not only over the finished face: wherever stock it may not enter stands
         behind the plane (stock outside the box, or a reserved not-yet-drilled bore column),
         the band ``leave`` deep in front of the plane stays, flat across the finished face's
-        outline and over the holes and edges later setups make in it. In front of open air
-        or of material this box clears, the guard's offset alone is the leave. A curved
-        analytic claim keeps the offset; a claim whose surface is neither analytic nor a
-        plane makes the leave, and so the stock, unknown.
+        outline and over the holes and edges later setups make in it. The band spans the
+        claimed face's own extent across the spindle axis; a wall's passes stack down the
+        axis, so its band runs through the box's whole depth there. Past the face's edges
+        no claim stops the passes, and a neighbouring box's cutter turning that corner sweeps
+        the stock in front of them. There, and in front of open air or of material this box
+        clears, the guard's offset alone is the leave. A curved analytic claim keeps the
+        offset; a claim whose surface is neither analytic nor a plane makes the leave, and so
+        the stock, unknown.
         """
         corners = [V(span[i], span[j], span[k]) for i in (0, 3) for j in (1, 4) for k in (2, 5)]
         box = _box_shape(span)
@@ -4949,17 +4954,30 @@ class _Setup:
                 )
             origin = surface.Position
             normal = _normal_at(face, origin)
-            across = normal.cross(V(1, 0, 0) if abs(normal.x) < 0.9 else V(0, 1, 0))
-            across.normalize()
+            # In the plane, ``across`` runs across the spindle axis and ``other`` along it as
+            # far as the plane allows; a floor's both run across it.
+            if abs(normal.z) >= PARALLEL:
+                across = V(1, 0, 0)
+            else:
+                across = normal.cross(V(0, 0, 1))
+                across.normalize()
             other = normal.cross(across)
-            us = [(corner - origin).dot(across) for corner in corners]
-            vs = [(corner - origin).dot(other) for corner in corners]
-            u0, u1, v0, v1 = min(us) - 1, max(us) + 1, min(vs) - 1, max(vs) + 1
+            points = [
+                point for edge in face.Edges for point in edge.discretize(Deflection=FLAT_CHORD)
+            ]
+            us = [(point - origin).dot(across) for point in points]
+            if abs(normal.z) <= 1 - PARALLEL:
+                vs = [(corner - origin).dot(other) for corner in corners]
+                v0, v1 = min(vs) - 1, max(vs) + 1
+            else:
+                vs = [(point - origin).dot(other) for point in points]
+                v0, v1 = min(vs), max(vs)
+            u0, u1 = min(us), max(us)
             outline = [
                 origin + across * u + other * v for u, v in ((u0, v0), (u1, v0), (u1, v1), (u0, v1))
             ]
             plane = Part.Face(Part.makePolygon([*outline, outline[0]]))
-            # The slab ``leave`` deep behind the wall plane, across the box's extent on it.
+            # The slab ``leave`` deep behind the wall plane over the face's width.
             behind = plane.extrude(normal * -leave)
             try:
                 backing = [_valid(stock.common(behind).cut(box), "stock behind a wall")]
