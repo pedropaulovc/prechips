@@ -175,8 +175,9 @@ machine axis read-out) reads only a length along its axis (`length`, `depth`,
 `height`, `thickness`, `station`); naming it for a diameter or a form is `error`.
 Evidence: each hold's band, drawing band, gauge, reason, `measure` and `cite` when
 given, `inside_drawing_band`, `gauge_status` and `gauge_message`. The sheet prints it as
-`PROCESS HOLD — not a drawing limit: <reason> — <feature> <requirement> <band>:
-<gauge>`, followed by its GO / NO-GO pair when declared. A reference-only hold prints
+`PROCESS HOLD — not a drawing limit (why: see job page): <feature> <requirement>
+<band>: <gauge>`, followed by its GO / NO-GO pair when declared; the reason prints
+once, on the job page. A reference-only hold prints
 its `measure` for the requirement and adds `(drawing: <dimension> REF <value>, no
 limit)`. The band prints with the
 most decimals among its own limits, the drawing precision (none for a REF span) and

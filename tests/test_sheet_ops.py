@@ -313,7 +313,7 @@ def test_a_raster_block_says_how_to_lift_not_what_its_table_already_shows():
     for narration in ("passes", "stepover", "stage", "cutting order", "pass ends", "13.765"):
         assert narration not in block, (narration, block)
     # The passes are numbered: the table is where their count and ends are read.
-    assert re.search(r"<td>1</td>.*<td>2</td>", html)
+    assert re.search(r"<td[^>]*>1</td>.*<td[^>]*>2</td>", html)
 
 
 def kernel_stock(box_mm, status="ok"):
@@ -669,6 +669,31 @@ def test_a_mill_feature_map_names_the_point_each_row_stands_on_from_the_feature_
     assert "hold down||hole axis on the Z0 surface||" in plain
     assert "ear arch||arc centre on the Z0 surface||" in plain
     assert "crank bore||hole axis at the exit face||" in plain
+
+
+@pytest.mark.parametrize(
+    ("normal", "kept"),
+    [([0.0, 0.0, 1.0], False), ([0.0, 0.0, -1.0], False), ([1.0, 0.0, 0.0], True)],
+)
+def test_a_mill_feature_map_leaves_off_a_face_square_to_the_spindle(normal, kept):
+    # A face square to setup Z is located only by its centre: no X / Y the DRO stops at,
+    # and its Z is the op row's. A face standing across the table keeps its row: its X
+    # places it. A map left with no row prints nothing.
+    identity = {"x": [1.0, 0.0, 0.0], "y": [0.0, 1.0, 0.0], "z": [0.0, 0.0, 1.0]}
+    frames = {"model": identity, "T": {**identity, "origin": [0.0, 0.0, 0.0]}}
+    face = {"feature": "blank_end", "dro": [17.1, 13.1, 0.0]}
+    hole = {"feature": "hold_down", "dro": [0.0, -8.2, 0.0]}
+    features = {"blank_end": {"kind": "end_face", "axis": normal}, "hold_down": {"kind": "hole"}}
+    setup = {"id": "S1", "frame": "T", "ops": [{"op": 10, "do": "face", "feature": "blank_end"}]}
+    maps = []
+    for rows in ([face, hole], [face]):
+        sheet = mapped({("coordinates", "S1"): {"rows": rows}}, features)
+        sheet.bundle = SimpleNamespace(features={"features": {}, "frames": frames}, plan={})
+        maps.append(rows_of(sheet.feature_map(setup)))
+    both, alone = maps
+    assert "hold down||hole axis on the Z0 surface||" in both
+    assert ("blank end||" in both) is kept
+    assert ("blank end||" in alone) is kept and bool(alone) is kept
 
 
 def test_an_aimed_target_names_its_offset_and_inspection_but_not_the_authored_reason():
@@ -1051,12 +1076,52 @@ def test_each_lathe_op_that_turns_the_spindle_names_which_way_from_its_tool_hand
     assert "spindle direction not known" not in stops
 
 
+def test_a_lathe_setup_turning_one_way_says_so_once_and_its_rpm_cells_carry_only_the_rpm():
+    ops = [
+        {"op": 10, "do": "face", "feature": "body", "tool": "rh"},
+        {"op": 20, "do": "rough_turn", "feature": "body", "tool": "lh"},
+        {"op": 30, "do": "inspect", "feature": "body"},
+    ]
+    html, rows, stops = _lathe_sheet(ops, {"rh": "right", "lh": "left"})
+    assert "FORWARD" not in rows["10"] + rows["20"]
+    assert (
+        "<h2>OPERATIONS — spindle FORWARD whenever it runs: the top of the work turns toward "
+        "you</h2>"
+    ) in html
+    assert "spindle direction not known" not in stops
+
+
+def test_a_lathe_op_whose_turn_is_unknown_leaves_the_known_turns_in_their_cells():
+    # One STOP among FORWARD ops: the heading cannot say one turn for every op.
+    ops = [
+        {"op": 10, "do": "face", "feature": "body", "tool": "rh"},
+        {"op": 20, "do": "rough_turn", "feature": "body", "tool": "bit"},
+    ]
+    html, rows, stops = _lathe_sheet(ops, {"rh": "right", "bit": None})
+    assert rows["10"][-1] == "FORWARD"
+    assert "whenever it runs" not in html
+    assert stops["spindle direction not known"] == ["20"]
+
+
 def test_a_lathe_tool_without_a_declared_hand_is_a_stop_not_a_guessed_direction():
     ops = [{"op": 10, "do": "face", "feature": "body", "tool": "bit"}]
     html, rows, stops = _lathe_sheet(ops, {"bit": None})
     assert "STOP: spindle direction not known" in " ".join(rows["10"])
     assert stops["spindle direction not known"] == ["10"]
     assert "FORWARD" not in html
+
+
+@pytest.mark.parametrize("checked", [True, False])
+def test_a_lathe_op_table_says_to_stop_the_spindle_before_any_gauge_touches_the_work(checked):
+    # A lathe op inspected in the chuck is measured stopped, the tool withdrawn: said once
+    # over the op rows; a table with nothing measured says nothing about measuring.
+    finish = {"op": 10, "do": "finish_turn", "feature": "body", "tool": "rh"}
+    if checked:
+        finish["checks"] = {"dia": "mic"}
+    html, _, _ = _lathe_sheet([finish], {"rh": "right"})
+    (heading,) = re.findall(r"<h2>OPERATIONS.*?</h2>", html)
+    stopped = "measure only with the spindle stopped and the tool withdrawn" in heading
+    assert stopped is checked, heading
 
 
 @pytest.mark.parametrize(
@@ -1094,3 +1159,111 @@ def test_a_turn_over_names_where_the_old_plus_x_end_goes(x_after, ends):
     assert _Traveler(data, [], {}, None).flip(setups[1]) == (
         f"Turn the part over: the other face up, {ends}. "
     )
+
+
+_MEASURED = {"by": "test", "date": "2026-10-05", "instrument": "caliper"}
+
+
+@pytest.mark.parametrize("unmeasured", [None, "spigot_length_mm", "thickness_mm"])
+def test_the_hold_prints_the_jaw_buttons_measured_sizes(unmeasured):
+    from prechips.inputs import Bundle
+
+    sizes = {"dia_mm": 16.0, "thickness_mm": 3.0, "spigot_dia_mm": 12.2, "spigot_length_mm": 2.0}
+    buttons = {"kind": "jaw_buttons", "name": "two jaw buttons with spigots"}
+    for key, value in sizes.items():
+        # An unmeasured size is a bare nominal: the kernel will not place the jaws on it.
+        buttons[key] = value if key == unmeasured else {"value": value, "measured": _MEASURED}
+    setup = {
+        "id": "S1",
+        "machine": "lathe",
+        "hold": {"kind": "chuck", "fixture": "chuck", "jaw_buttons": "buttons"},
+        "ops": [],
+    }
+    data = Bundle(
+        plan={"setups": [setup]},
+        inventory={
+            "machines": {"lathe": {"kind": "lathe"}},
+            "fixtures": {"chuck": {"kind": "chuck", "name": "3-jaw chuck"}, "buttons": buttons},
+        },
+        features={"features": {}, "frames": {}, "units": "mm"},
+        policy={},
+        cutting_data={},
+        paths={},
+        hashes={},
+        root=Path("."),
+        kernel={"status": "ok", "ops": {}},
+    )
+    hold, _ = _Traveler(data, [], {}, None).hold(setup)
+    (step,) = [s for s in re.findall(r"<li>(.*?)</li>", unescape(hold)) if "Jaw buttons" in s]
+    printed = {
+        "dia_mm": "face Ø16.000 mm",
+        "thickness_mm": "thickness 3.000 mm",
+        "spigot_dia_mm": "spigot Ø12.200 mm",
+        "spigot_length_mm": "spigot length 2.000 mm",
+    }
+    for key, text in printed.items():
+        assert (text in step) is (key != unmeasured), (key, step)
+    if unmeasured:
+        name = unmeasured.removesuffix("_mm").replace("_", " ")
+        assert f"{name} ? not measured" in step, step
+
+
+_STRAP_CITE = ["drawing.py:28 (STRAP 2.50 THICK)", "title_block.yaml:linear_2pl"]
+
+
+_APART = [("strap faces", "thickness 1.99–3.01"), ("strap (datum B)", "thickness 1.99–3.01")]
+
+
+@pytest.mark.parametrize(
+    ("datum_cite", "datum_band", "rows"),
+    [
+        # One drawing dimension the two faces share: its limits print once, naming both.
+        (_STRAP_CITE, [1.99, 3.01], [("strap faces / strap (datum B)", "thickness 1.99–3.01")]),
+        # Same limits, another dimension on the drawing: each keeps its own row.
+        (["drawing.py:40 (DATUM B FACE)"], [1.99, 3.01], _APART),
+        # Same dimension cited, other limits: nothing shows they are one dimension.
+        (
+            _STRAP_CITE,
+            [2.0, 3.0],
+            [("strap faces", "thickness 1.99–3.01"), ("strap (datum B)", "thickness 2.00–3.00")],
+        ),
+        # An uncited requirement is never taken for another feature's dimension.
+        ([], [1.99, 3.01], _APART),
+    ],
+)
+def test_a_drawing_dimension_two_features_share_prints_its_limits_once(
+    datum_cite, datum_band, rows
+):
+    from prechips.inputs import Bundle
+
+    def face(band, cite):
+        return {
+            "kind": "face",
+            "requirements": ["thickness"],
+            "thickness": band,
+            "thickness_nominal": 2.5,
+            "precision": {"thickness": 2},
+            "cite": {"thickness": cite},
+        }
+
+    features = {
+        "strap_faces": face([1.99, 3.01], _STRAP_CITE),
+        "strap_datum_b": face(datum_band, datum_cite),
+    }
+    data = Bundle(
+        plan={"setups": []},
+        inventory={},
+        features={"features": features, "frames": {}, "units": "mm"},
+        policy={},
+        cutting_data={},
+        paths={},
+        hashes={},
+        root=Path("."),
+        kernel={"status": "ok", "ops": {}},
+    )
+    html = _Traveler(data, [], {}, None).requirements()
+    found = [
+        tuple(unescape(re.sub(r"<[^>]+>", "", cell)) for cell in re.findall(r"<td>(.*?)</td>", row))
+        for row in re.findall(r"<tr>(.*?)</tr>", html)
+    ]
+    assert [row for row in found if row and "strap" in row[0]] == rows
