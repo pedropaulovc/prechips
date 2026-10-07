@@ -216,6 +216,9 @@ STOCK_AZIMUTHS = 6  # meridian sections (0..150 deg) that must agree for a stock
 STOCK_ROUND_MM = 2e-3  # mm: radius disagreement between them that still counts as round
 TURNING = "turning"
 ROTARY = "rotary"
+# A bench file to the line: no machine cutter; it takes at most the op's
+# max_filing_stock_mm off its claimed faces (:meth:`_Setup._hand_removal`).
+HAND = "hand"
 SAW_ACTIONS = {"saw_cut", "cut_off"}
 # Facing-type turning actions sweep their claims along +Z (toward the free end).
 AXIAL_TURNING = {"face", "cut_to_fit", "part_off"}
@@ -258,6 +261,10 @@ def _turned(op):
 
 def _rotary(op):
     return op.get("approach") == ROTARY
+
+
+def _hand(op):
+    return op.get("approach") == HAND
 
 
 def _sawn(op):
@@ -3120,6 +3127,8 @@ class _Setup:
         # None, why that stock is unknown); the facts of each saw it reached; and (end
         # stock, None) or (None, why it stopped).
         self.cuts = {}
+        # id(op) of each bench file whose removal the stock builder accepted.
+        self.filed = set()
         # Each printed-checkpoint op awaiting the later setups (:meth:`_checkpoint_facts`).
         self.checkpoint_jobs = []
         self.run_outs = {}  # id(op) -> (its printed run-out sweep or None, why unknown)
@@ -3295,7 +3304,7 @@ class _Setup:
         for op in self.ops:
             with _timed(op_clocks, self._subject(op)):
                 result = self._op(op)
-                if self.stock_reason is not None and not _sawn(op):
+                if self.stock_reason is not None and not _sawn(op) and not _hand(op):
                     self._unproven(result, self.stock_reason)
                 self._checkpoint_facts(op, result)
                 if self._subject(op) in self.split_holds:
@@ -3699,6 +3708,8 @@ class _Setup:
                 if stopped is None and after is not stock:
                     stock = after
                     self.stock_states.append(stock)
+                if stopped is None and _hand(op):
+                    self.filed.add(id(op))
             except Exception as exc:
                 stopped = f"in-process stock boolean failed ({exc}); {where}"
             finally:
@@ -3755,7 +3766,8 @@ class _Setup:
         """(the cut ``op`` makes in ``stock``, or None, and why it cannot be derived).
 
         A cut is ``(own clearance or None, connected band groups)``, each group a list of
-        solids; ``(None, [])`` removes nothing. A joint op (``joint_cut``) removes its
+        solids; ``(None, [])`` removes nothing. A bench file takes only the stock near its
+        claims (:meth:`_hand_removal`). A joint op (``joint_cut``) removes its
         analytic transient cylinder (:meth:`_joint_removal`) and a turning op its revolved
         stock (:meth:`_turn_removal`); a rotary op its independent window-clipped cutting
         volumes (:meth:`_rotary_removal`), each its own one-volume group cut in order and
@@ -3776,6 +3788,8 @@ class _Setup:
         valid, away, why = self._claims(op)
         if not isinstance(valid, list):
             return None, f"claimed faces are unresolved ({why})"
+        if _hand(op):
+            return self._hand_removal(op, valid, stock)
         to_z = op.get("to_z")
         if to_z is not None and not _number(to_z):
             return None, "to_z is unknown"
@@ -3821,6 +3835,66 @@ class _Setup:
         if why is not None:
             return None, why
         return (removal, band or []), None
+
+    def _hand_removal(self, op, valid, stock):
+        """(the cut a bench file makes in ``stock``, or None, and why it is not derived).
+
+        A file takes the stock within the op's ``max_filing_stock_mm`` of its claimed faces,
+        from any side: ``stock`` within their :meth:`_skin` at that depth (plus
+        ``COVER_MM``), less the protected finished material, each piece its own group, never
+        fused. Stock that, once those pieces go (:meth:`_remove`), still borders a claimed
+        face's interior past that depth is more than a file takes, so the cut is not
+        derived; it is never filed away.
+        """
+        cap = op.get("max_filing_stock_mm")
+        if not _number(cap) or cap < 0:
+            return None, "max_filing_stock_mm is unknown, so the stock a file takes is unknown"
+        if not valid:
+            return (None, []), None
+        depth = cap + COVER_MM
+        primitives, why = self._skin(valid, depth)
+        if why is not None:
+            return None, why
+        pieces = []
+        try:
+            for primitive in primitives:
+                piece = _material(stock.common(primitive), "stock within the file's reach")
+                if piece is not None:
+                    piece, why = self._protect(piece, 0.0, None)
+                    if why is not None:
+                        return None, why
+                    piece = _material(piece, "that stock outside the finished part")
+                if piece is not None:
+                    pieces.extend(solid for solid in piece.Solids if solid.Volume > 0)
+        except ValueError as exc:
+            return None, f"the stock within its {_r(cap)} mm filing depth is not derivable ({exc})"
+        groups = [[piece] for piece in pieces]
+        rest = []
+        for original in stock.Solids:
+            kept, why = self._remove(original, None, groups, lambda kept: self._held(op, kept))
+            if why is not None:
+                return None, why
+            rest.extend(kept)
+        reach = depth + COVER_MM
+        window = _box_shape(self._claim_window(valid, reach))
+        overstock, why = self._protect(Part.makeCompound(rest).common(window), 0.0, None)
+        if why is not None:
+            return None, why
+        deep = (
+            sorted(
+                self.owner.labels[index]
+                for index in valid
+                if self._interior_contact(self.faces[index], overstock, reach)
+            )
+            if overstock.Volume > HIT_MM3
+            else []
+        )
+        if deep:
+            return None, (
+                f"stock deeper than its {_r(cap)} mm max_filing_stock_mm still borders claimed "
+                f"face(s) {', '.join(deep)}; a file takes no more"
+            )
+        return (None, groups), None
 
     def _finish(self, ops):
         """(model-frame stock this setup leaves, or None, and why it cannot be derived).
@@ -4831,7 +4905,8 @@ class _Setup:
         )
 
     def _claims(self, op):
-        """(direction-valid indices or unknown, labels facing away, reason) for an op."""
+        """(direction-valid indices or unknown, labels facing away, reason) for an op; a bench
+        file reaches its claims from any side."""
         if isinstance(op.get("joint_cut"), dict):
             try:
                 self._joint_check(op)
@@ -4842,6 +4917,8 @@ class _Setup:
         indices = self._indices(op)
         if indices == UNKNOWN:
             return UNKNOWN, [], "claimed face references are unknown or unmapped"
+        if _hand(op):
+            return sorted(indices), [], None
         labels = self.owner.labels
         internal = []
         if _rotary(op):
@@ -6233,9 +6310,11 @@ class _Setup:
 
     def _render_tool(self, annotation, lathe):
         """Selected primary cutter's actual silhouette at an illustrative approach pose."""
-        if not self.ops:
+        # A bench file has no cutter to draw: the primary cutter is the first machine op's.
+        ops = [op for op in self.ops if not _hand(op)]
+        if not ops:
             return None, None
-        op = self.ops[0]
+        op = ops[0]
         label = annotation.get("tools", {}).get(str(op.get("subject", "").rsplit(":", 1)[-1]))
         op_number = str(op.get("subject", "")).rsplit(":", 1)[-1]
         label = label or "selected tool"
@@ -6462,6 +6541,11 @@ class _Setup:
         if _sawn(op):
             return self._saw_facts(op, reason)
         facts = {"reason": reason, "reasons": {}}
+        if _hand(op):
+            # A file has no cutter to sample: only its claims are facts.
+            facts.update(approach=HAND, claimed_indices=UNKNOWN)
+            facts["reasons"]["claimed_indices"] = reason
+            return facts
         if _turned(op):
             facts["approach"] = TURNING
         elif _rotary(op):
@@ -7145,6 +7229,8 @@ class _Setup:
         indices = self._indices(op)
         if indices == UNKNOWN:
             return self._op_unknown(op, f"{what}: face references are unknown")
+        if _hand(op):
+            return self._hand_op(op, indices)
         if _turned(op):
             facts = self._turn_op(op, indices)
             if isinstance(op.get("joint_cut"), dict):
@@ -7234,6 +7320,24 @@ class _Setup:
         ]
         if unknown:
             facts["reason"] = unknown[0]
+        return facts
+
+    def _hand_op(self, op, indices):
+        """A bench file's facts: no cutter to sample; its claims count only once the stock
+        builder filed them (:meth:`_hand_removal`), else they stay unknown with why."""
+        facts = {"approach": HAND, "claim_errors": [], "reasons": {}}
+        if self.stock_reason is not None:
+            why = f"in-process stock unknown: {self.stock_reason}"
+        elif id(op) in self.filed:
+            why = None
+        else:
+            why = self.cuts.get(id(op), (None, None, None))[2] or self.built[1]
+            why = why or "the stock builder did not file it"
+        if why is None:
+            facts["claimed_indices"] = sorted(indices)
+        else:
+            facts["claimed_indices"] = UNKNOWN
+            facts["reasons"]["claimed_indices"] = facts["reason"] = why
         return facts
 
     def _corners(self, indices, hole=False):

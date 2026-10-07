@@ -5,7 +5,7 @@ indicating an earlier pilot does not establish a later reamed datum.
 """
 
 from prechips.findings import Finding
-from prechips.rules.resolution import MANUAL, SAW_OPS, operations
+from prechips.rules.resolution import HAND_FINISH, MANUAL, SAW_OPS, operations
 
 _NONFINISH = {"spot", "inspect", "release", "fit", "scribe", "transfer", "deburr"} | SAW_OPS
 
@@ -20,6 +20,7 @@ def _number(value):
 
 def _cuts(bundle, feature):
     """Final forming cuts of a feature: its labeled ops plus ops whose explicit faces own it.
+    Filing to the line forms its faces; other manual work does not.
 
     An unresolved datum (no feature name) has no cuts, never every op.
     """
@@ -29,7 +30,7 @@ def _cuts(bundle, feature):
     cuts = [
         (order[id(setup)], setup, op)
         for setup, op in operations(bundle, feature, owned=True)
-        if op["do"] not in _NONFINISH | MANUAL and not op["do"].startswith("rough")
+        if op["do"] not in _NONFINISH | (MANUAL - HAND_FINISH) and not op["do"].startswith("rough")
     ]
     # A pilot is not the final datum when reaming happens in a later setup.
     if any(op["do"] in ("ream", "tap", "bore") for _, _, op in cuts):

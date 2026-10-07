@@ -4,6 +4,7 @@ from prechips.findings import Finding
 from prechips.rules.datum_consistency import _cuts
 from prechips.rules.resolution import (
     COMPLETE_FORM,
+    HAND_FINISH,
     MANUAL,
     SAW_OPS,
     WORKHOLDING_CATEGORIES,
@@ -29,6 +30,9 @@ LATHE_APPROACH_REASON = (
 )
 TURNING = "turning"
 ROTARY = "rotary"
+# A bench file (``HAND_FINISH``): no machine cutter; the kernel removes at most the shop's
+# max_filing_stock_mm off its claimed faces.
+HAND = "hand"
 CHUCK_KINDS = {"chuck_3jaw", "chuck_4jaw"}
 # Shared profile/form/groove actions also occur on mills; resolve their machine kind.
 _TURNING_ACTIONS = (
@@ -65,8 +69,10 @@ def blade_keys(inputs):
 
 
 def approach(bundle, setup, op):
-    """'turning', 'rotary' (dividing-head milling), 'axial' (-Z cutter cylinders) or None
-    when no approach model applies."""
+    """'hand' (a bench file), 'turning', 'rotary' (dividing-head milling), 'axial' (-Z
+    cutter cylinders) or None when no approach model applies."""
+    if op.get("do") in HAND_FINISH:
+        return HAND
     machine = record(resolve(bundle, "machines", setup.get("machine")))
     kind, action = machine.get("kind"), op.get("do")
     if op.get("approach") == ROTARY and kind != "lathe" and action not in _TURNING_ACTIONS:
@@ -85,10 +91,10 @@ def approach_model_reason(bundle, setup, op):
 
 
 def approach_facts(bundle, facts, setup, op):
-    """Whether a turning/rotary op's kernel facts come from its own model (never raw -Z
+    """Whether a hand/turning/rotary op's kernel facts come from its own model (never raw -Z
     facts); axial ops always do."""
     model = approach(bundle, setup, op)
-    if model not in (TURNING, ROTARY):
+    if model not in (HAND, TURNING, ROTARY):
         return True
     detail = record(record(facts.get("ops")).get(f"{setup['id']}:{op['op']}"))
     return detail.get("approach") == model
@@ -103,12 +109,13 @@ def cutting_action(op):
 
 def finishing_subjects(bundle):
     # Reuse the existing final datum-cut semantics, including drill→ream/bore/tap.
-    # A saw cut removes stock but never finishes a target face.
+    # A saw cut removes stock but never finishes a target face; a file to the line does.
     return {
         f"{setup['id']}:{op['op']}"
         for name in bundle.feature_definitions
         for _, setup, op in _cuts(bundle, name)
-        if cutting_action(op) is True and op.get("do") not in SAW_OPS | {"coating"}
+        if (cutting_action(op) is True or op.get("do") in HAND_FINISH)
+        and op.get("do") not in SAW_OPS | {"coating"}
     }
 
 
@@ -408,7 +415,9 @@ def op_contexts(bundle, rule, required=(), fixture=False, stock=True, turning=No
                     "not_applicable",
                     {},
                     cite,
-                    f"{subject}: {op['do']} does not cut geometry.",
+                    f"{subject}: {op['do']} is bench filing; no machine cutter reaches the part."
+                    if op.get("do") in HAND_FINISH
+                    else f"{subject}: {op['do']} does not cut geometry.",
                 )
             elif cutting_action(op) is None:
                 blocked = Finding(
