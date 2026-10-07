@@ -752,7 +752,7 @@ jaw_above_parallels_mm = "not_applicable"
 pose = { origin_mm = [-105.0, 0.0, 0.0], x = [0.0, 0.0, 1.0], z = [1.0, 0.0, 0.0] }
 jaw_clock_deg = 12.5182
 stop = "AUTHOR'S CHOICE: same chucking as S4; do not loosen the jaws."
-note = "AUTHOR'S CHOICE: the work never moves in the jaws in this setup, because the S4 crank socket fixes the post's turn about its axis. If the alignment sweep below reads over 0.02 mm, do not loosen or tap the work. Recovery: unlock the spindle, index back to the zero hole (the S4 position) and lock it; with the DTI in the spindle, run the tip down the reamed Ø22.01 crank-socket wall by quill feed, once on the -Y side and once on the +Y side. If each reading holds within one dial division (0.0005 in) over the socket depth, the post has not turned: re-align the head as in S4 (tap the head body on the table, never the work, until the top and side sweeps of the body along X each read within 0.01 mm, then tighten the head bolts), re-index to the plate setting and sweep again. If the socket wall does not hold one division, the post has turned in the jaws: ease one jaw, turn the post until both socket-wall readings hold one division, re-tighten each jaw a little at a time while indicating the head and body to 0.02 mm, then re-index."
+note = "AUTHOR'S CHOICE: the work never moves in the jaws in this setup, because the S4 crank socket fixes the post's turn about its axis."
 clamp = "AUTHOR'S CHOICE: unlock the spindle and index by the plate setting on the Index line below; then lock the spindle before drilling."
 [setups.hold.index]
 fixture = "BS-0"
@@ -764,6 +764,8 @@ from = "S4"
 indicate = ["head", "foot_seat"]
 gauge = "dti"
 runout_limit_mm = 0.02
+keep_clamped = true
+recovery = "unlock the spindle, index back to the zero hole (the S4 position) and lock it; with the DTI in the spindle, run the tip down the reamed Ø22.01 crank-socket wall by quill feed, once on the -Y side and once on the +Y side. If each reading holds within one dial division (0.0005 in) over the socket depth, the post has not turned: re-align the head as in S4 (tap the head body on the table, never the work, until the top and side sweeps of the body along X each read within 0.01 mm, then tighten the head bolts), re-index to the plate setting and sweep again. If the socket wall does not hold one division, the post has turned in the jaws: ease one jaw, turn the post until both socket-wall readings hold one division, re-tighten each jaw a little at a time while indicating the head and body to 0.02 mm, then re-index."
 [setups.zero.y]
 feature = "body"
 edge_mm = 0.0
@@ -1071,7 +1073,7 @@ jaw_above_parallels_mm = "not_applicable"
 pose = { origin_mm = [-105.0, 0.0, 0.0], x = [0.0, 0.0, 1.0], z = [1.0, 0.0, 0.0] }
 jaw_clock_deg = 12.5182
 stop = "AUTHOR'S CHOICE: same chucking as S8; do not loosen the jaws."
-note = "AUTHOR'S CHOICE: the work never moves in the jaws in this setup, because the S8 crank bore fixes the post's turn about its axis. If the alignment sweep below reads over 0.02 mm, do not loosen or tap the work. Recovery: unlock the spindle, index back to the zero hole (the S8 position) and lock it; with the DTI in the spindle, run the tip down the reamed Ø11.43 crank-bore wall by quill feed, once on the -Y side and once on the +Y side. If each reading holds within one dial division (0.0005 in) over the bore depth, the post has not turned: re-align the head as in S4 (tap the head body on the table, never the work, until the top and side sweeps of the body along X each read within 0.01 mm, then tighten the head bolts), re-index to the plate setting and sweep again. If the bore wall does not hold one division, the post has turned in the jaws: ease one jaw, turn the post until both bore-wall readings hold one division, re-tighten each jaw a little at a time while indicating the head and body to 0.02 mm, then re-index."
+note = "AUTHOR'S CHOICE: the work never moves in the jaws in this setup, because the S8 crank bore fixes the post's turn about its axis."
 clamp = "AUTHOR'S CHOICE: unlock the spindle and index by the plate setting on the Index line below; then lock the spindle before drilling."
 [setups.hold.index]
 fixture = "BS-0"
@@ -1083,6 +1085,8 @@ from = "S8"
 indicate = ["head", "foot_seat", "cone_boss_north_face"]
 gauge = "dti"
 runout_limit_mm = 0.02
+keep_clamped = true
+recovery = "unlock the spindle, index back to the zero hole (the S8 position) and lock it; with the DTI in the spindle, run the tip down the reamed Ø11.43 crank-bore wall by quill feed, once on the -Y side and once on the +Y side. If each reading holds within one dial division (0.0005 in) over the bore depth, the post has not turned: re-align the head as in S4 (tap the head body on the table, never the work, until the top and side sweeps of the body along X each read within 0.01 mm, then tighten the head bolts), re-index to the plate setting and sweep again. If the bore wall does not hold one division, the post has turned in the jaws: ease one jaw, turn the post until both bore-wall readings hold one division, re-tighten each jaw a little at a time while indicating the head and body to 0.02 mm, then re-index."
 [setups.zero.y]
 feature = "body"
 edge_mm = 0.0
