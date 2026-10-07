@@ -542,6 +542,13 @@ def _blade_entry(bundle):
             -72.0344,
             "tailstock_side",
         ),
+        # A touch Z on none of them: only end faces that all agree give a corner.
+        ([{"z_mm": 0.0, "normal_z": 1}, {"z_mm": -3.0, "normal_z": 1}], 0.5, "chuck_side"),
+        (
+            [{"z_mm": -72.0344, "normal_z": -1}, {"z_mm": 0.0, "normal_z": 1}],
+            0.5,
+            "unknown",
+        ),
     ],
 )
 def test_a_blade_z_touch_sets_the_corner_its_face_normal_gives(ends, edge, corner):
