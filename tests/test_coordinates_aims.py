@@ -216,6 +216,73 @@ def test_a_reference_machined_in_another_setup_is_measured_at_its_model_position
     assert _row(finding, "crank")["band_check"]["value_mm"] == 39.702
 
 
+@pytest.mark.parametrize("action", ["inspect", "deburr"])
+def test_a_reference_this_setup_does_not_machine_stands_at_its_model_position(action):
+    # Only inspecting (or deburring) the journal here leaves it at 33.368, not at its
+    # printed 33.370: the crank's 73.070 target stands 39.702 from it, past 39.70.
+    data = _bores(crank_x=73.066, grid=0.01)
+    setup(data)["ops"][0]["do"] = action
+    finding = coordinates.evaluate(data)[0]
+    assert finding.status == "error"
+    assert _row(finding, "crank")["band_check"]["value_mm"] == 39.702
+
+
+def test_machining_a_child_does_not_move_its_unmachined_parent():
+    # A counterbore dialled at the journal's printed 33.370 leaves the journal hole itself
+    # where it was made, 33.368: the crank's 73.070 target stands 39.702 from it.
+    data = _bores(crank_x=73.066, grid=0.01)
+    data.features["features"]["cbore"] = {"kind": "counterbore", "parent": "journal"}
+    setup(data)["ops"][0]["feature"] = "cbore"
+    finding = coordinates.evaluate(data)[0]
+    assert finding.status == "error"
+    assert _row(finding, "crank")["band_check"]["value_mm"] == 39.702
+
+
+def test_a_feature_this_setup_only_inspects_is_checked_where_it_was_made():
+    # Bored at 73.074, the crank stands 39.704 from the journal's printed 33.370; its
+    # inspection row prints 73.070 (39.700) but that display does not move it inside.
+    data = _bores(crank_x=73.074, grid=0.01)
+    setup(data)["ops"][1]["do"] = "inspect"
+    finding = coordinates.evaluate(data)[0]
+    assert finding.status == "error"
+    crank = _row(finding, "crank")
+    assert crank["dro"] == [73.07, 0.0, 0.0]
+    assert crank["band_check"]["value_mm"] == 39.704
+
+
+def _inspected(data, *, machined):
+    """``data`` with its one setup only inspecting both bores; ``machined`` adds a second
+    setup that centres them (where an aim is cut)."""
+    cut = deepcopy(setup(data))
+    for op in setup(data)["ops"]:
+        op["do"] = "inspect"
+    if machined:
+        data.plan["setups"].append({**cut, "id": "S2"})
+    return data
+
+
+def test_an_inspected_aimed_feature_is_checked_at_its_aimed_point():
+    # As in the cone's final inspection setup: both bores were cut in another setup, the
+    # crank at its aim, so the band reads the aim between their planned points here, not
+    # between this setup's display roundings.
+    data = _bores()
+    _aim(data, 39.517)
+    finding = coordinates.evaluate(_inspected(data, machined=True))[0]
+    assert finding.status == "pass"
+    assert _row(finding, "crank")["band_check"]["value_mm"] == 39.517
+
+
+def test_an_aim_on_a_feature_no_setup_cuts_moves_nothing():
+    # Only inspected, the crank stays at its drawing nominal: 39.332, below the band.
+    data = _bores()
+    _aim(data, 39.517)
+    finding = coordinates.evaluate(_inspected(data, machined=False))[0]
+    assert finding.status == "error"
+    crank = _row(finding, "crank")
+    assert crank["dro"] == [72.7, 0.0, 0.0] and "crank" in crank["aim"]["why"]
+    assert crank["band_check"]["value_mm"] == 39.332
+
+
 def _inch(value_mm):
     data = _bores()
     data.features["units"] = "in"
@@ -266,7 +333,8 @@ def test_an_aim_on_a_parent_located_child_is_refused_with_its_reason():
     finding = coordinates.evaluate(data)[0]
     assert finding.status == "unknown"
     cbore = _row(finding, "cbore")
-    assert "journal" in cbore["aim"]["why"]
+    assert "journal" in cbore["refused_aim"]["why"]
+    assert "aim" not in cbore and cbore["dro"] == [33.37, 0.0, 0.0]
     assert "plan.aims.cbore" in finding.cite
 
 
@@ -279,6 +347,33 @@ def test_a_child_dials_its_aimed_parent_target():
     assert finding.status == "pass"
     cbore = _row(finding, "cbore")
     assert cbore["dro_xy"] == [72.885, 0.0] and cbore["aim"]["feature"] == "crank"
+
+
+@pytest.mark.parametrize(
+    ("crank_aim", "target", "status"),
+    [(39.517, 72.885, "unknown"), (39.335, 72.7, "error")],
+)
+def test_a_refused_child_aim_keeps_the_child_on_its_parents_target(crank_aim, target, status):
+    # The counterbore's own aim is refused; it still dials the crank's actual target, the
+    # aimed 72.885 when that aim holds and the nominal 72.700 when it is refused too.
+    data = _bores()
+    _aim(data, crank_aim)
+    data.features["features"]["cbore"] = {
+        "kind": "counterbore",
+        "parent": "crank",
+        "requirements": ["height"],
+        "height": [72.0, 74.0],
+        "height_from": "foot",
+    }
+    data.plan["aims"]["cbore"] = {"requirement": "height", "value_mm": 73.0, "reason": "x"}
+    setup(data)["ops"].append({"op": 30, "do": "center", "feature": "cbore", "tool": "cutter"})
+    finding = coordinates.evaluate(data)[0]
+    assert finding.status == status
+    crank, cbore = _row(finding, "crank"), _row(finding, "cbore")
+    assert crank["dro"] == cbore["dro"] == [target, 0.0, 0.0]
+    assert cbore["dro_xy"] == [target, 0.0]
+    assert cbore["aim"]["feature"] == "crank" and "crank" in cbore["refused_aim"]["why"]
+    assert {"plan.aims.crank", "plan.aims.cbore"} <= set(finding.cite)
 
 
 @pytest.mark.parametrize("resolution", ["unknown", 0.005])
@@ -299,3 +394,83 @@ def test_explicitly_unknown_hole_axes_leave_the_band_unknown():
     assert finding.status == "unknown"
     check = _row(finding, "crank")["band_check"]
     assert check["status"] == "unknown" and "axis" in check["why"]
+
+
+def _coaxial(**cbore):
+    """The bores with a counterbore on the journal (no ``at`` or ``axis`` of its own) as
+    the only feature centred; ``cbore`` adds fields to it."""
+    data = _bores(crank_x=72.885)
+    data.features["features"]["cbore"] = {"kind": "counterbore", "parent": "journal", **cbore}
+    setup(data)["ops"] = [{"op": 10, "do": "center", "feature": "cbore", "tool": "cutter"}]
+    return data
+
+
+@pytest.mark.parametrize(
+    ("axis", "status", "value"),
+    [
+        ("unknown", "unknown", None),
+        ([1.0, 0.0, 0.0], "error", 0.0),
+        ([0.0, 0.0, 1.0], "pass", 39.515),
+    ],
+)
+def test_a_coaxial_child_without_an_axis_takes_its_parents(axis, status, value):
+    # On the journal's axis: an unknown one leaves the separation unmeasured, one along X
+    # meets the crank's axis, one along Z reads 33.370 to 72.885.
+    data = _coaxial(requirements=["separation"], separation=[39.34, 39.7], height_from="crank")
+    data.features["features"]["journal"]["axis"] = axis
+    finding = coordinates.evaluate(data)[0]
+    assert finding.status == status
+    check = _row(finding, "cbore")["band_check"]
+    assert check.get("value_mm") == value
+    assert value is not None or "journal's axis" in check["why"]
+
+
+def test_a_coaxial_child_reference_takes_its_parents_unknown_axis():
+    data = _coaxial()
+    data.features["features"]["journal"]["axis"] = "unknown"
+    data.features["features"]["crank"]["height_from"] = "cbore"
+    setup(data)["ops"] = [{"op": 10, "do": "center", "feature": "crank", "tool": "cutter"}]
+    finding = coordinates.evaluate(data)[0]
+    assert finding.status == "unknown"
+    check = _row(finding, "crank")["band_check"]
+    assert check["status"] == "unknown" and "journal's axis" in check["why"]
+
+
+@pytest.mark.parametrize(
+    "link",
+    [{"kind": "counterbore", "parent": "journal"}, {"kind": "boss", "coaxial_to": "journal"}],
+)
+def test_a_feature_on_the_journal_axis_takes_it_even_with_its_own_at(link):
+    # A counterbore of the journal, or a boss drawn coaxial with it, placed by its own at:
+    # that point still fixes no direction for its separation from the crank.
+    data = _coaxial()
+    data.features["features"]["journal"]["axis"] = "unknown"
+    data.features["features"]["cbore"] = {
+        **link,
+        "at": [33.368, 0.0, 5.0],
+        "requirements": ["separation"],
+        "separation": [39.34, 39.7],
+        "height_from": "crank",
+    }
+    finding = coordinates.evaluate(data)[0]
+    assert finding.status == "unknown"
+    check = _row(finding, "cbore")["band_check"]
+    assert check["status"] == "unknown" and "journal's axis" in check["why"]
+
+
+def test_a_coaxial_child_reads_its_parents_axis_in_the_parents_frame():
+    # The journal declares [1, 0, 0] in a frame whose x is model Z; read in the
+    # counterbore's own model frame it would run along X and meet the crank's axis.
+    data = _coaxial(requirements=["separation"], separation=[39.34, 39.7], height_from="crank")
+    data.features["frames"]["turned"] = {
+        "origin": [0.0, 0.0, 0.0],
+        "x": [0.0, 0.0, 1.0],
+        "y": [0.0, 1.0, 0.0],
+        "z": [-1.0, 0.0, 0.0],
+    }
+    data.features["features"]["journal"].update(
+        frame="turned", at=[0.0, 0.0, -33.368], axis=[1.0, 0.0, 0.0]
+    )
+    finding = coordinates.evaluate(data)[0]
+    assert finding.status == "pass"
+    assert _row(finding, "cbore")["band_check"]["value_mm"] == 39.515

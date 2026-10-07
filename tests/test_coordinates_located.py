@@ -156,8 +156,10 @@ def test_kernel_located_mill_rows_print_on_the_dro_grid():
 
 
 def test_an_aim_moves_both_kernel_span_ends_along_the_band():
-    # Both span ends stand 5.0 from the foot plane (model X 0); the aim reads 5.2.
+    # Both span ends stand 5.0 from the foot plane (model X 0); the aim reads 5.2 where a
+    # centre op cuts the boss at its target.
     data = _off_grid_boss()
+    setup(data)["ops"].append({"op": 30, "do": "center", "feature": "head", "tool": "cutter"})
     data.features["features"]["foot"] = {
         "kind": "face",
         "plane": {"frame": "model", "axis": "x", "value": 0.0},
