@@ -74,7 +74,12 @@ inspection_methods.position_dia = [
 ```
 
 `{name}` prints as a labelled blank to write the reading in. A step beginning
-`Calculate:` prints apart from the numbered steps as the calculation line. A list
+`Calculate:` prints apart from the numbered steps as the calculation line. A
+procedure whose readings are worked through two or more calculation lines is a
+worksheet: it prints on an attached sheet of its own after the contours (the op
+row names it, `[S11 sheet 4 worksheet]`), its steps naming each reading
+`[rJ1]` where it is taken, a READINGS table with one line to write each in and
+the step that takes it, then its calculation lines. A list
 is known only when every step is a non-empty string other than `"unknown"`.
 
 When an inspection requirement has no exported owner/band, an explicit operation
@@ -525,7 +530,8 @@ not an alternative bond process. Known physical refusals remain errors even
 when prep or cure is unknown; a later invalid join does not invalidate an
 earlier independent, valid assembly.
 The traveler prints the prep, cure time and **do not disturb until cured** before
-later machining. The process does not model cure kinetics or certify a product:
+later machining, once: on the setup's first `fit` op (the op that bonds), else in
+its "Starts from" line. The process does not model cure kinetics or certify a product:
 cite the author's source/choice for the declared band and cure conditions.
 These fields do not apply to `silver_braze` or `press`; their behavior is unchanged.
 Use the canonical noncutting bench action `do = "fit"`, not an undeclared
@@ -633,6 +639,7 @@ for collet/chuck capacity, not the unsupported-section diameter.
 | `stickout_fit` | `{ measure: str, nominal_mm: Number, add_mm: Number }`: a stickout set from a measured fit-up; `stickout_mm` is the nominal `nominal_mm + add_mm` ([stickout](rules-lathe.md#stickout)) and the operator sets the `measure` reading + `add_mm`. The HOLD table prints `nominal stickout mm` and `set stickout: measured … + N`; the picture dimensions `NOM STICKOUT …` and its notes say it is set as the measured fit-up + N |
 | `jaw_center_along_mm` | `Number` |
 | `jaw_bar` | `str` (fixtures `round_bar` between the work and the moving jaw) |
+| `align` | `{ indicator: str, limit_mm: Number, over_mm: Number, face: str, cite: str \| list[str] }`: how a mill vise's fixed jaw or angle plate's locating face is squared to the table travel; `indicator` is an inventory `dial_test_indicator` / `dial_indicator` gauge swept `over_mm` along the face, its reading changing no more than `limit_mm`; an angle plate's `face` names the fixture solid whose face is squared. Required where the setup mounts or turns the vise or plate ([hold_fields](rules-setup.md#hold_fields)) |
 | `parallels_centres_mm` | `list[[Number, Number]]` (exactly two) |
 | `parallels_along` | `str` (`x` / `y`; parallels under a non-vise hold) |
 | `riser_up` | `str` (riser dimension standing vertical: `length` / `width` / `height`) |

@@ -1775,7 +1775,11 @@ and pad keys at several heights name the pads each keys. It dimensions the
 closest cut in amber (`render_scene.closest_cut`: `mm`, the holding `tag`, the
 two end points): from this setup's removal, or on a saw setup from the blade's
 path (each saw op's kerf slab on its cut plane, across the stock and holding),
-never from the falling offcut. A path sketch draws every pass of a raster of
+never from the falling offcut. A mill picture also carries
+`render_scene.cut_clearances`, one `{op, mm, tag}` per op the stock builder cut
+(the material it takes away to the nearest holding solid; `unknown` `mm` and
+`tag` where its cut was not derived), which the CLEARANCE table prints op by op.
+A path sketch draws every pass of a raster of
 at most eight passes, labelled `PASS 1` … `PASS n` as the pass table numbers
 them (a longer raster is a band with its first and last pass), each with a
 direction arrow when the table gives a cutting sense; its `ARROWS: POINT ORDER`
