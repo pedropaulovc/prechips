@@ -782,6 +782,12 @@ def _bbox(shape):
     return (box.XMin, box.YMin, box.ZMin, box.XMax, box.YMax, box.ZMax)
 
 
+def _union_box(boxes):
+    """The box around ``boxes`` (each ``(x0, y0, z0, x1, y1, z1)``), as a list."""
+    low = [min(b[i] for b in boxes) for i in range(3)]
+    return low + [max(b[i] for b in boxes) for i in range(3, 6)]
+
+
 def _box_shape(box):
     x0, y0, z0, x1, y1, z1 = box
     return Part.makeBox(x1 - x0, y1 - y0, z1 - z0, V(x0, y0, z0))
@@ -866,6 +872,15 @@ def _merged_length(intervals):
         total += hi - max(lo, end)
         end = hi
     return total
+
+
+def _clipped(intervals, span):
+    """The parts of ``intervals`` inside ``span`` (lo, hi)."""
+    return [
+        (max(lo, span[0]), min(hi, span[1]))
+        for lo, hi in intervals
+        if min(hi, span[1]) > max(lo, span[0])
+    ]
 
 
 # --------------------------------------------------------------------------- mapping
@@ -3689,6 +3704,8 @@ class _Setup:
         # certain jaw boxes {"fixed", "moving"} plus "possible": [(fixed side?, box)] once placed
         self.jaws = None
         self.jaw_bar = None  # a vise's placed round bar between the work and the moving jaw
+        # a vise's placed jaw buttons {side: (solid, gripped Z span)}, one per jaw
+        self.jaw_buttons = None
         self.hold = None  # the declared hold, once it is declared without a reason
         self.fixture_reason = None
         # Placed fixture components: {name, role, solid, bbox, box, rotating}; their union is
@@ -5725,6 +5742,9 @@ class _Setup:
                     self._add(side + "_jaw", "jaw", _box_shape(self.jaws[side]), self.jaws[side])
                 if self.jaw_bar is not None:
                     self._add("jaw_bar " + self.hold["jaw_bar"]["name"], "fixture", self.jaw_bar)
+                for side, (solid, _) in (self.jaw_buttons or {}).items():
+                    name = self.hold["jaw_buttons"]["name"]
+                    self._add(f"jaw_buttons {name} {side}", "fixture", solid)
                 self.fixture_possible = [
                     (("fixed" if fixed else "moving") + "_jaw_possible", box)
                     for fixed, box in self.jaws["possible"]
@@ -6220,15 +6240,33 @@ class _Setup:
             lo_corner[c_axis], hi_corner[c_axis] = c0, c1
             return (lo_corner[0], lo_corner[1], top - height, hi_corner[0], hi_corner[1], top)
 
-        # A round bar between the work and the moving jaw holds that jaw off by its Ø.
-        bar = hold.get("jaw_bar")
+        # A round bar between the work and the moving jaw holds that jaw off by its Ø;
+        # jaw buttons hold each jaw off by their thickness.
+        bar, buttons = hold.get("jaw_bar"), hold.get("jaw_buttons")
+        if bar and buttons:
+            return (
+                "jaw_bar and jaw_buttons are both declared; the kernel places one of them "
+                "between the work and the jaws, not both"
+            )
         gap = bar["dia_mm"] if bar else 0.0
-        fixed_c = (hi, hi + depth) if sign > 0 else (lo - depth, lo)
-        moving_c = (lo - gap - depth, lo - gap) if sign > 0 else (hi + gap, hi + gap + depth)
+        thick = buttons["thickness_mm"] if buttons else 0.0
+        fixed_c = (hi + thick, hi + thick + depth) if sign > 0 else (lo - thick - depth, lo - thick)
+        moving_c = (
+            (lo - gap - thick - depth, lo - gap - thick)
+            if sign > 0
+            else (hi + gap + thick, hi + gap + thick + depth)
+        )
         jaw_a = (centre - width / 2, centre + width / 2) if exact else (a_lo, a_hi)
+        planes = {"fixed": hi if sign > 0 else lo, "moving": lo if sign > 0 else hi}
+        outward = {"fixed": sign, "moving": -sign}
         if bar:
             moving_plane = lo if sign > 0 else hi
             reason = self._jaw_bar(bar, sign, a_axis, c_axis, moving_plane, jaw_a, zone)
+            if reason:
+                return reason
+        if buttons:
+            jaw_z = (top - height, top)
+            reason = self._jaw_buttons(buttons, a_axis, c_axis, planes, outward, jaw_a, jaw_z)
             if reason:
                 return reason
         self.jaws = {
@@ -6259,16 +6297,19 @@ class _Setup:
             "exact": exact,
         }
         facts["width_mm"] = _r(hi - lo)
-        facts["jaw_separation_mm"] = _r(hi - lo + gap)
-        planes = {"fixed": hi if sign > 0 else lo, "moving": lo if sign > 0 else hi}
-        outward = {"fixed": sign, "moving": -sign}
+        facts["jaw_separation_mm"] = _r(hi - lo + gap + 2 * thick)
         grips, planar, contact_faces = [], [], {}
         for side in ("fixed", "moving"):
             intervals, labels = self._contact(zone, c_axis, planes[side], outward[side], seat, top)
+            if buttons:
+                # The work bears only on its button's face, not the jaw's.
+                intervals = _clipped(intervals, self.jaw_buttons[side][1])
             planar.append(bool(intervals))
             contact_faces[side] = labels
             if not intervals:
                 intervals = self._line_contact(zone, c_axis, planes[side])
+                if buttons:
+                    intervals = _clipped(intervals, self.jaw_buttons[side][1])
             grips.append(_r(_merged_length(intervals)))
         facts["parallel_pair"] = all(planar)
         facts["contact_grip_mm"] = grips
@@ -6316,6 +6357,69 @@ class _Setup:
                 f"{[_r(held[a_axis]), _r(held[a_axis + 3])]}), so the moving jaw is unplaced"
             )
         self.jaw_bar = solid
+        return None
+
+    def _jaw_buttons(self, buttons, a_axis, c_axis, planes, outward, jaw_a, jaw_z):
+        """Each jaw's button: centred on the one bore of the work that opens on that jaw
+        face wide enough for its spigot, its face on the work and its spigot in the bore;
+        else why it cannot be placed there. No such bore (or more than one), a spigot the
+        bore does not take whole, a button that meets the work beyond the face, or a jaw
+        that misses the button leaves the jaws unplaced."""
+        name, thick = buttons["name"], buttons["thickness_mm"]
+        radius, spigot_r = buttons["dia_mm"] / 2, buttons["spigot_dia_mm"] / 2
+        placed = {}
+        for side in ("fixed", "moving"):
+            plane = planes[side]
+            where = f"the {side} jaw face ({'xy'[c_axis]} {_r(plane)})"
+            centres = []
+            for edge in self.part.Edges:
+                curve = edge.Curve
+                if not isinstance(curve, Part.Circle) or abs(curve.Axis[c_axis]) < PARALLEL:
+                    continue
+                if abs(curve.Center[c_axis] - plane) > PLANE_TOL:
+                    continue
+                if curve.Radius < spigot_r - PLANE_TOL:
+                    continue
+                centre = [curve.Center.x, curve.Center.y, curve.Center.z]
+                if all(math.dist(centre, other) > PLANE_TOL for other in centres):
+                    centres.append(centre)
+            if len(centres) != 1:
+                return (
+                    f"jaw_buttons {name}: {len(centres)} bores of Ø {_r(2 * spigot_r)} mm or "
+                    f"more open on {where}, so the button's place there is undefined"
+                )
+            (centre,) = centres
+            out = [0.0, 0.0, 0.0]
+            out[c_axis] = float(outward[side])
+            button = Part.makeCylinder(radius, thick, V(*centre), V(*out))
+            spigot = Part.makeCylinder(
+                spigot_r, buttons["spigot_length_mm"], V(*centre), V(*(-v for v in out))
+            )
+            if spigot.common(self.part).Volume > HIT_MM3:
+                return (
+                    f"jaw_buttons {name}: the Ø{_r(2 * spigot_r)} x "
+                    f"{_r(buttons['spigot_length_mm'])} mm spigot does not fit the bore at "
+                    f"{_r(centre[2])} mm Z on {where}"
+                )
+            if button.common(self.part).Volume > HIT_MM3:
+                return (
+                    f"jaw_buttons {name}: the Ø{_r(2 * radius)} mm button meets the work "
+                    f"off {where}"
+                )
+            span = (centre[2] - radius, centre[2] + radius)
+            a_span = (centre[a_axis] - radius, centre[a_axis] + radius)
+            if (
+                span[1] <= jaw_z[0]
+                or span[0] >= jaw_z[1]
+                or a_span[1] <= jaw_a[0]
+                or a_span[0] >= jaw_a[1]
+            ):
+                return (
+                    f"jaw_buttons {name}: the {side} jaw (Z {_r(jaw_z[0])} to {_r(jaw_z[1])}) "
+                    f"misses the button centred at Z {_r(centre[2])}"
+                )
+            placed[side] = (button.fuse(spigot), (max(span[0], jaw_z[0]), min(span[1], jaw_z[1])))
+        self.jaw_buttons = placed
         return None
 
     def _contact(self, zone, c_axis, plane, outward, seat, top):
@@ -6667,6 +6771,22 @@ class _Setup:
                         }
         return None
 
+    def _holding_middle(self, axis, default):
+        """The middle along ``axis`` of the placed holding solids that touch the work, when
+        it lies inside the work; else ``default``."""
+        low, high = math.inf, -math.inf
+        for component in self.fixture:
+            if _box_gap(self.box, component["bbox"]) > STOCK_TOL:
+                continue
+            if _distance(component["solid"], self.part)[0] > STOCK_TOL:
+                continue
+            low = min(low, component["bbox"][axis])
+            high = max(high, component["bbox"][axis + 3])
+        if low > high:
+            return default
+        middle = (low + high) / 2
+        return middle if self.box[axis] < middle < self.box[axis + 3] else default
+
     def _render(self):
         """Arriving stock, exact fixture, and this setup's derived removal, in setup axes."""
         size = max(self.box[3] - self.box[0], self.box[4] - self.box[1], self.box[5] - self.box[2])
@@ -6708,17 +6828,21 @@ class _Setup:
         )
         halfspace, section_view = None, None
         if view == "elevation":
-            # Section on the stock's centre plane across its longer horizontal side; the
-            # near half of every solid is removed so saddles, pins and stops show.
+            # Section across the stock's longer horizontal side, on the plane through the
+            # middle of the holding that touches the work (else the stock's centre), so
+            # the buttons, saddles and pins that hold it are cut and their contacts show;
+            # the near half of every solid is removed.
             centre = [(self.box[i] + self.box[i + 3]) / 2 for i in range(3)]
             big = 10 * max(size, 1.0) + 1000
-            if self.box[3] - self.box[0] >= self.box[4] - self.box[1]:
-                axis, keep = 1, 1  # view from -Y, keep y >= centre
+            axis = 1 if self.box[3] - self.box[0] >= self.box[4] - self.box[1] else 0
+            centre[axis] = self._holding_middle(axis, centre[axis])
+            if axis == 1:
+                keep = 1  # view from -Y, keep y >= the section
                 halfspace = Part.makeBox(2 * big, big, 2 * big, V(-big, centre[1], -big))
                 camera = [[1, 0, 0], [0, 0, 1], [0, -1, 0]]
                 note = f"SECTION AT SETUP Y {_r(centre[1])}  /  VIEW FROM -Y  /  X RIGHT, Z UP"
             else:
-                axis, keep = 0, -1  # view from +X, keep x <= centre
+                keep = -1  # view from +X, keep x <= the section
                 halfspace = Part.makeBox(big, 2 * big, 2 * big, V(centre[0] - big, -big, -big))
                 camera = [[0, 1, 0], [0, 0, 1], [1, 0, 0]]
                 note = f"SECTION AT SETUP X {_r(centre[0])}  /  VIEW FROM +X  /  Y RIGHT, Z UP"
@@ -6773,7 +6897,7 @@ class _Setup:
                 solids += possible
                 possible = []
         rests = self._rest_render(debts)
-        solids += [(name, jaw, _COLOURS["rest"]) for name, jaws, _ in rests for jaw in jaws]
+        solids += [(rest[0], jaw, _COLOURS["rest"]) for rest in rests for jaw in rest[1]]
         for name, shape, colour in solids + possible:
             mesh(shape, colour, tag=name)
         parallels = any(c["role"] == "parallel" for c in self.fixture)
@@ -6794,13 +6918,22 @@ class _Setup:
                 for c in self.fixture
             ]
             + [
-                {"name": name, "role": "follow_rest", "exact": True, "pose": pose}
-                for name, _, pose in rests
+                {
+                    "name": name,
+                    "role": "follow_rest",
+                    "exact": True,
+                    "pose": pose,
+                    "box_mm": _union_box([_bbox(jaw) for jaw in jaws]),
+                }
+                for name, jaws, pose, _, _ in rests
             ],
             "debts": debts,
         }
         annotation = self.setup.get("render", {})
-        tool, tool_debt = self._render_tool(annotation, lathe)
+        # The tool is drawn at the cut Z its op's follow rest is drawn for, beside the jaws.
+        tool, tool_debt = self._render_tool(
+            annotation, lathe, {subject: z for _, _, _, subject, z in rests}
+        )
         if tool_debt:
             render_debts.append(tool_debt)
         sketch, waypoints, sketch_debts = self._clipped_sketch(annotation)
@@ -6897,11 +7030,8 @@ class _Setup:
             legend[0] = "Blue-grey: arriving stock; cuts not confirmed."
             legend.pop(1)
         components = self._render_components(annotation, named=view == "elevation")
-        for name, jaws, _ in rests:
-            boxes = [_bbox(jaw) for jaw in jaws]
-            box = [min(b[i] for b in boxes) for i in range(3)] + [
-                max(b[i] for b in boxes) for i in range(3, 6)
-            ]
+        for name, jaws, *_ in rests:
+            box = _union_box([_bbox(jaw) for jaw in jaws])
             centre = [(box[i] + box[i + 3]) / 2 for i in range(3)]
             components.append(
                 {
@@ -6943,6 +7073,7 @@ class _Setup:
             "jaw_front_oblique": jaw_front_oblique,
             "stickout_mm": annotation.get("stickout_mm"),
             "stickout_add_mm": annotation.get("stickout_add_mm"),
+            "decimals": annotation.get("decimals"),
             "datums": datums,
             "primary_tool": tool,
             "paths": sketch,
@@ -7003,6 +7134,8 @@ class _Setup:
                 "jaw_front_oblique": jaw_front_oblique,
             }
         )
+        if section_view is not None:
+            scene["section"] = {"axis": "xy"[section_view[0]], "at_mm": _r(section_view[2])}
         details = [c for c in components if c["role"] == "detail"]
         if details:
             scene["fixture_detail_labels"] = details
@@ -7289,6 +7422,9 @@ class _Setup:
                 elif name.startswith("jaw_bar "):
                     # The round bar between the work and the moving jaw, as HOLD names it.
                     label, role = "ROUND BAR", "jaw_bar"
+                elif name.startswith("jaw_buttons "):
+                    # A button between the work and each jaw, as HOLD names them.
+                    label, role = "JAW BUTTONS", "jaw_buttons"
                 elif local.startswith("pad"):
                     role = "pad"
                 elif local.startswith("base"):
@@ -7348,8 +7484,10 @@ class _Setup:
                 )
         return result
 
-    def _render_tool(self, annotation, lathe):
-        """Selected primary cutter's actual silhouette at an illustrative approach pose."""
+    def _render_tool(self, annotation, lathe, rest_z=None):
+        """Selected primary cutter's actual silhouette at an illustrative approach pose;
+        a turning op whose follow rest is drawn (``rest_z``: op subject -> the cut Z its
+        jaws are posed for) shows the tool at that Z, beside the jaws."""
         # A bench file has no cutter to draw: the primary cutter is the first machine op's.
         ops = [op for op in self.ops if not _hand(op)]
         if not ops:
@@ -7362,7 +7500,9 @@ class _Setup:
             tool, missing, holder_missing = self._turn_tool(op)
             if missing:
                 return None, "STOP: selected turning tool dimensions are unresolved; do not run."
-            if _number(op.get("to_z")):
+            if _number((rest_z or {}).get(self._subject(op))):
+                z = rest_z[self._subject(op)]
+            elif _number(op.get("to_z")):
                 z = op["to_z"]
             elif _number(op.get("z_from")) and _number(op.get("z_to")):
                 z = (op["z_from"] + op["z_to"]) / 2
@@ -7497,19 +7637,24 @@ class _Setup:
         return profiles, beyond
 
     def _rest_render(self, debts):
-        """[(name, jaw solids, pose)] of each posed follow rest at its first served op's
-        first cutting point; an unposed complete rest is a scene debt."""
+        """[(name, jaw solids, pose, op subject, cut Z)] of each posed follow rest for its
+        first served op, set at its declared engage Z (else that op's first cutting point);
+        an unposed complete rest is a scene debt."""
         drawn = []
         for rest in (self.hold or {}).get("follow_rests", []):
             if rest.get("missing"):
                 continue  # its host debt is already a scene debt
             name = f"follow rest {rest['name']}"
             for op in self.ops:
-                record = self.rest_poses.get((rest["name"], self._subject(op)))
+                subject = self._subject(op)
+                record = self.rest_poses.get((rest["name"], subject))
                 if record is not None and record["render"] is not None:
-                    jaws, z = record["render"]
-                    pose = f"jaws for {self._subject(op)} cutting at z {z} mm"
-                    drawn.append((name, jaws, pose))
+                    jaws, z, why = record["render"]
+                    if why is not None:
+                        debts.append(f"{name} not drawn for {subject}: {why}")
+                        break
+                    pose = f"jaws for {subject} cutting at z {z} mm"
+                    drawn.append((name, jaws, pose, subject, z))
                     break
             else:
                 debts.append(f"{name} not drawn: no served op posed its jaws")
@@ -8659,11 +8804,14 @@ class _Setup:
         elif thru is True:
             # Each axis exits where its own claimed bores end, not at the entry-stock
             # floor: finished material below the exit (a clevis's lower leg, a cross
-            # bore's far wall) is never on this tool's path.
-            bottoms = [
-                min(self._bore_span(self.faces[index], Z)[0] for index, _ in members) - point
-                for _, _, members in axes
-            ]
+            # bore's far wall) is never on this tool's path. A plan that runs the tool
+            # further (its exit face plus exit allowance) cuts the stock it carries past
+            # the finished bore end, so no skin is left over the bore's mouth.
+            planned = hole.get("exit_z_mm")
+            bottoms = []
+            for _, _, members in axes:
+                end = min(self._bore_span(self.faces[index], Z)[0] for index, _ in members)
+                bottoms.append((min(end, planned) if _number(planned) else end) - point)
             through = True
         else:
             return debt("hole thru is unknown and the op has no to_z; its bottom is unknown", axes)
@@ -10661,6 +10809,20 @@ class _Setup:
             jaws.append(jaw)
         return jaws, z0
 
+    def _rest_render_pose(self, rest, section, tool, jaws, point):
+        """(jaw solids, cut Z, why not drawn) the picture shows for a served rest: set on the
+        work with the tool at the declared ``engage_at_z_mm``, the Z the tool passes before
+        the jaws go on (``accessibility`` checks it against the clear Z), else at this first
+        cutting point. An engage Z with no work diameter there to ride is not drawn."""
+        engage = rest.get("engage_at_z_mm")
+        if not _number(engage):
+            return jaws, _r(point[1]), None
+        radius = _outer_radius(section, engage, engage)
+        if radius is None or radius <= PLANE_TOL:
+            why = f"no work diameter at its engage z {_r(engage)} mm to ride"
+            return None, _r(engage), why
+        return self._rest_jaws(rest, radius, engage, tool["feed_z"])[0], _r(engage), None
+
     def _rest_hits(self, posed, tool, point, section, pieces, subject):
         """({tool kind: follow rest names its jaws meet}, why a rest could not be posed or
         None) for one cutting point; jaw clashes with the work and the fixture are recorded.
@@ -10699,7 +10861,7 @@ class _Setup:
                     record["clashes"][key] = record["clashes"].get(key, 0) + 1
             record["poses"] += 1
             if record["render"] is None:
-                record["render"] = (jaws, _r(point[1]))
+                record["render"] = self._rest_render_pose(rest, rest_section, tool, jaws, point)
             # Riding the set diameter is contact; work beyond it under the jaws is a clash.
             band = _band(radius + STOCK_TOL, self._outer(), z0, z0 + depth)
             if band is not None and band.common(profile).Volume > STOCK_MM3:
