@@ -1071,6 +1071,136 @@ def _common_normal(faces):
     return normal
 
 
+# --------------------------------------------------------------------------- faced aims
+
+
+def _aimed_solid(solid, specs, mapping, labels):
+    """``(solid, facts)``: the finished part as a plan's faced aims (``aims.<feature>``
+    naming a ``face``) make it. Each aimed face, a plane on one of its feature's declared
+    planes (``lower_mm``/``upper_mm`` along ``axis``), moves ``delta_mm`` along its outward
+    normal, away from the other plane, so the faced length reads the aimed value; every
+    other face keeps its index (:func:`_moved_face`). The STEP stays as exported; this is
+    the part the plan cuts. Raises :class:`_Unknown` when an aim cannot be placed."""
+    facts = []
+    for spec in specs:
+        if not isinstance(spec, dict):
+            raise ValueError("job aimed_faces holds a non-record")
+        what = f"aims.{spec.get('feature')}"
+        if "reason" in spec:
+            raise _Unknown(f"{what}: {spec['reason']}")
+        ref = spec.get("face")
+        index = mapping.get(ref)
+        if index is None:
+            raise _Unknown(f"{what}.face {ref} is not mapped to a STEP face")
+        label = labels[index]
+        face = solid.Faces[index]
+        normal = _common_normal([face])
+        axis = V(*spec["axis"])
+        if normal is None or abs(normal.dot(axis)) < PARALLEL:
+            raise _Unknown(f"{what}.face {label} is not a plane square to the feature's Z")
+        at = face.Vertexes[0].Point.dot(axis)
+        lower, upper = spec["lower_mm"], spec["upper_mm"]
+        outward = normal.dot(axis) > 0
+        if abs(at - (upper if outward else lower)) > STOCK_TOL:
+            raise _Unknown(
+                f"{what}.face {label} at {_r(at)} mm faces "
+                f"{'up' if outward else 'down'} the feature's Z but is not its "
+                f"{'upper' if outward else 'lower'} plane ({_r(upper if outward else lower)} mm)"
+            )
+        delta = spec["delta_mm"]
+        solid = _moved_face(solid, index, normal, delta, f"{what}.face {label}")
+        facts.append(
+            {
+                "feature": spec.get("feature"),
+                "face": ref,
+                "index": index,
+                "delta_mm": _r(delta),
+                "plane_mm": [_r(at), _r(at + (delta if outward else -delta))],
+            }
+        )
+    return solid, facts
+
+
+def _square_to(face, normal):
+    """Whether ``face`` runs along ``normal``: a plane it lies in or a cylinder about it,
+    so sliding an edge it shares along ``normal`` keeps it on ``face``'s own surface."""
+    surface = face.Surface
+    if isinstance(surface, Part.Plane):
+        return abs(surface.Axis.dot(normal)) <= 1 - PARALLEL
+    if isinstance(surface, Part.Cylinder):
+        return abs(surface.Axis.dot(normal)) >= PARALLEL
+    return False
+
+
+def _moved_face(solid, index, normal, delta, what):
+    """``solid`` with planar face ``index`` slid ``delta`` mm along its outward unit
+    ``normal``: each neighbour (square to it, :func:`_square_to`) runs on over the strip
+    its shared edges sweep or is cut back by that slab, so the result holds the same faces
+    in the same order, and equals the solid plus (minus) that face's prism. Raises
+    :class:`_Unknown` for any other neighbour or a result that is not that solid."""
+    faces = list(solid.Faces)
+    face = faces[index]
+    base = face.Vertexes[0].Point.dot(normal)
+    rebuilt = list(faces)
+    rebuilt[index] = face.translated(normal * delta)
+    for other, wall in enumerate(faces):
+        shared = [e for e in wall.Edges if any(e.isSame(f) for f in face.Edges)]
+        if other == index or not shared:
+            continue
+        if not _square_to(wall, normal):
+            raise _Unknown(f"{what}: its neighbour does not run square to it")
+        heights = [v.Point.dot(normal) - base for v in wall.Vertexes]
+        if min(heights) < -PLANE_TOL and max(heights) > PLANE_TOL:
+            raise _Unknown(f"{what}: a neighbour runs through its plane")
+        inside = max(heights) <= PLANE_TOL
+        if inside == (delta > 0):
+            strips = []
+            for edge in shared:
+                strip = edge.extrude(normal * delta)
+                point = strip.CenterOfMass
+                if _normal_at(strip, point).dot(_normal_at(wall, point)) < 0:
+                    strip.reverse()
+                strips.append(strip)
+            pieces = Part.makeShell([wall, *strips]).removeSplitter().Faces
+        else:
+            size = 4 * math.dist(_bbox(solid)[:3], _bbox(solid)[3:]) + 10
+            slab = Part.makeBox(2 * size, 2 * size, abs(delta), V(-size, -size, 0))
+            slab.Placement = FreeCAD.Placement(
+                normal * (base + min(0.0, delta)), FreeCAD.Rotation(Z, normal)
+            )
+            pieces = wall.cut(slab).Faces
+        if len(pieces) != 1:
+            raise _Unknown(f"{what}: a neighbour does not stay one face")
+        rebuilt[other] = pieces[0]
+    sewn = Part.Shape(Part.Shell(rebuilt))
+    sewn.sewShape()
+    order = []
+    for wanted in rebuilt:
+        matches = [
+            face
+            for face in sewn.Faces
+            if abs(face.Area - wanted.Area) <= AREA_ABS + AREA_REL * wanted.Area
+            and face.CenterOfMass.distanceToPoint(wanted.CenterOfMass) <= BBOX_TOL
+        ]
+        if len(matches) != 1:
+            raise _Unknown(f"{what}: the moved faces do not close one shell")
+        order.append(matches[0])
+    shell = Part.Shell(order)
+    moved = Part.Solid(shell) if shell.isClosed() else None
+    if moved is not None and moved.Volume < 0:
+        moved.reverse()
+    prism = face.extrude(normal * delta)
+    expected = solid.fuse(prism) if delta > 0 else solid.cut(prism)
+    if (
+        moved is None
+        or not moved.isValid()
+        or len(moved.Faces) != len(faces)
+        or moved.cut(expected).Volume + expected.cut(moved).Volume > HIT_MM3
+    ):
+        raise _Unknown(f"{what}: moving it does not give one valid solid")
+    return moved
+
+
 _AXIS_WORD = re.compile(r"(?<![A-Za-z0-9])([+\-\u2212])([XYZ])(?![A-Za-z0-9])")
 
 
@@ -2854,6 +2984,12 @@ class _Job:
         mapping, errors = self._job_refs(step, mapping, errors)
         self.mapping, self.errors = mapping, errors
         self.features = {name: self._feature(value) for name, value in self._declared().items()}
+        aimed = job.get("aimed_faces", [])
+        if not isinstance(aimed, list):
+            raise ValueError("job aimed_faces is not a list")
+        # ``faces`` and ``bbox_mm`` describe the STEP as exported; every setup cuts the part
+        # the plan's faced aims make.
+        self.solid, aimed_facts = _aimed_solid(solid, aimed, mapping, self.labels)
         result = {
             "status": "ok",
             "bbox_mm": [_r(v) for v in _bbox(solid)],
@@ -2876,6 +3012,8 @@ class _Job:
             "ops": {},
             "setups": {},
         }
+        if aimed_facts:
+            result["aimed_faces"] = aimed_facts
         setups = job.get("setups", [])
         if not isinstance(setups, list):
             raise ValueError("job setups is not a list")
@@ -3650,7 +3788,10 @@ class _Job:
     def _job_refs(self, step, mapping, errors):
         refs = []
         declared = list(self._declared().values()) + self._claims()
-        for value in declared + [self.job.get("as_is_faces")]:
+        aimed = self.job.get("aimed_faces")
+        aimed = aimed if isinstance(aimed, list) else []
+        faces = [spec.get("face") for spec in aimed if isinstance(spec, dict)]
+        for value in declared + [self.job.get("as_is_faces"), faces]:
             if isinstance(value, list):
                 refs.extend(ref for ref in value if isinstance(ref, str) and ref != UNKNOWN)
         mapping, errors = dict(mapping), dict(errors)

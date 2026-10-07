@@ -87,8 +87,10 @@ source, printed band, nominal value and shift in mm), and the finding cites
 the drawing nominal and the reason. A child located by its parent's `at` dials its
 parent's target, aimed or not, and carries the parent's `aim`; an aim of the
 child's own would take it off that axis: it is refused (unknown, reason in
-`refused_aim.why`, cited too) and moves nothing. An aim never
-changes geometry, a claim, a kernel input or another feature's target. A
+`refused_aim.why`, cited too) and moves nothing. Such a target aim never
+changes geometry, a claim, a kernel input or another feature's target. A faced
+aim (one naming a `face`) moves no target here; the kernel cuts the part it
+makes ([plan aims](plan.md#aims)). A
 `value_mm` outside its printed band is refused before any rounding: bad input on
 load, an error in the rule, and the target stays nominal. An aim whose feature
 no mill setup's centre op names (only inspected, faced or profiled, cut through a
@@ -365,7 +367,9 @@ earlier face or pocket op whose setup-frame X/Y `stock_removal_bounds` hold all
 of its own and that produced its surface (its feature, or a feature whose X/Y
 `bounds` hold its feature's whole footprint). Levels that cannot be placed (an
 unknown start or a `doc_mm` finer than one DRO step) keep status unknown. The
-traveler prints `Z start → depth in N levels of doc max` on the op row; the
+traveler prints `Z start → depth in N levels of doc max` on the op row, or
+`Z → depth` when the levels are one pass that starts at the depth; levels left
+unknown print `?` for their count and the row's STOP stands. The
 contour block heading lists every level and says to run the complete path at
 the first and repeat it at each level in order.
 

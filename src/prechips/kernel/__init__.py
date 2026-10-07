@@ -1092,7 +1092,7 @@ def build_job(bundle):
     from prechips.joint_features import primitives_mm, setup_joint
     from prechips.process_features import primitives_mm as process_primitives_mm
     from prechips.rules.coordinates import evaluate as coordinate_findings
-    from prechips.rules.coordinates import revolved_located
+    from prechips.rules.coordinates import faced_aims, revolved_located
     from prechips.rules.geometry_common import (
         complete_form_subjects,
         cutting_action,
@@ -1140,6 +1140,7 @@ def build_job(bundle):
                 "locate_revolved": revolved_located(setup, bundle.feature_definitions),
             }
         )
+    aimed = faced_aims(bundle)
     return {
         "version": 1,
         "step_path": str(Path(bundle.paths["step"]).resolve())
@@ -1153,6 +1154,8 @@ def build_job(bundle):
         "joint_features": primitives_mm(bundle),
         "process_features": process_primitives_mm(bundle),
         "as_is_faces": record(bundle.plan.get("stock")).get("as_is_faces", UNKNOWN),
+        # The part the plan cuts: its faced aims move those finished faces.
+        **({"aimed_faces": aimed} if aimed else {}),
         "stock": stock_inputs(bundle),
         "setups": setups,
     }
@@ -1350,6 +1353,7 @@ def engine_job(job):
         "joint_features": job.get("joint_features", {}),
         "process_features": job.get("process_features", {}),
         "as_is_faces": job["as_is_faces"],
+        **({"aimed_faces": job["aimed_faces"]} if job.get("aimed_faces") else {}),
         "stock": job["stock"],
         "setups": [
             {

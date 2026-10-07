@@ -1,7 +1,9 @@
 """One DRO per setup: a tool that did not set it is touched off before it cuts."""
 
 import math
+import re
 import subprocess
+from html import unescape
 from types import SimpleNamespace
 
 import pytest
@@ -263,6 +265,25 @@ def test_a_listed_retouch_installs_the_incoming_tool_and_none_for_the_same_tool(
     assert "After op 20, install T2 drill for op 30, then touch the top" in html
     assert "After op 10, T1 end mill stays in for op 20: re-touch the top" in html
     assert "install T1" not in html
+
+
+def test_several_tool_changes_to_one_touch_name_their_ops_not_the_tools_again():
+    # The op rows carry each op's T number and the TOOLS table names it: the touch
+    # paragraph lists where the changes fall, not a second tool-by-tool itinerary.
+    zero = mill_zero({"face": "top", "tool": "mill"}, retouch_after=[10, 20])
+    ops = [
+        op(10, "face", "deck", "mill", to_z=0.0),
+        op(20, "spot", "hole", "centre"),
+        op(30, "drill", "hole", "drill"),
+    ]
+    sheet, setup = sheet_of(bundle("mill", zero, ops, {"top_z": 2.0}))
+    tools = {"mill": "T1 end mill", "centre": "T2 centre drill", "drill": "T3 drill"}
+    text = unescape(re.sub(r"<[^>]+>", " ", sheet.dro(setup, tools)))
+    (line,) = [part for part in re.split(r"\s{2,}", text) if "ops 20 and 30" in part]
+    assert "touch the top" in line and "Axis Set Z" in line, line
+    # The Z zero row names the tool that sets Z; the incoming tools are named nowhere.
+    for name in ("T2 centre drill", "T3 drill"):
+        assert name not in text, (name, text)
 
 
 def test_a_mill_tool_touch_installs_its_tool_first():
@@ -1081,3 +1102,25 @@ def test_a_derived_x_re_touch_prints_the_surface_and_that_it_takes_no_paper():
     # Its Axis Set is the measured diameter alone: a direct touch on the journal.
     assert "journal Ø" in printed and "no paper" in printed, printed
     assert printed.endswith("Axis Set X measured Ø."), printed
+
+
+def test_a_trial_cut_is_withdrawn_along_z_and_the_spindle_stopped_before_it_is_measured():
+    # The X zero's trial cut and a blade's own: the tool backs off along Z only (its X is
+    # what the Axis Set counts) and the spindle stops before the mic touches the work.
+    touch = {**BLADE, "x_method": "trial_cut_measure"}
+    del touch["x_face"]
+    sheet, setup = sheet_of(bundle("lathe", lathe_zero([touch]), LATHE_OPS))
+    html = sheet.dro(setup, {"turner": "T1 turner", "parter": "T2 parter"})
+    text = " ".join(unescape(re.sub(r"<[^>]+>", " ", html)).split())
+    steps = re.findall(r"trial cut.*?measure", text)
+    assert len(steps) == 2, text
+    for step in steps:
+        assert "withdraw along Z without moving X, stop the spindle," in step, step
+
+
+def test_authored_prose_keeps_its_proper_nouns_as_written():
+    # Shop words come from the plan's own identifiers; a maker's or vendor's name an author
+    # wrote is a name to look up, printed as written.
+    sheet, setup = sheet_of(bundle("lathe", lathe_zero([]), LATHE_OPS))
+    note = "Buttons from McMaster, oil from LittleMachineShop, ProTap on the tap."
+    assert sheet.bench(note, setup) == note
