@@ -45,7 +45,10 @@ the setup's standing touched or faced surfaces, or reports it missing as an erro
 ([coordinates and DRO zero](rules-coordinates.md#zero_check)). Z
 `method = "measure_then_set"` (with `gauge`, `measure`, `offset_mm`; on a tool
 touch `z_gauge`, `z_measure`, `z_offset_mm`) sets a measured edge, M + offset +
-paper.
+paper. On a mill setup's `top` the raw top then reads Z = M + offset while the ops'
+levels start from `stock_state.top_z`; the DRO ZERO prints that correction: face a
+higher top down to `top_z` first, no deeper per pass than the setup's least op
+`doc_mm`.
 
 `checks` maps requirement names to inventory gauge references. Every key must
 belong to the selected resolved feature's `requirements` list (exported or
@@ -382,7 +385,8 @@ See [stock-form comparison](rules-comparison.md).
 `[stock.prepared]` declares the squared blank a mill route makes from a
 rectangular root stock (`[stock]`, the raw sawn bar) with plan process
 `end_face`s, and the setup that receives it. The saw cut stays prose in
-`stock.prerequisite`.
+`stock.prerequisite`. `prepared = "unknown"` declares a blank without saying
+which: rule `prepared_blank` stays unknown.
 
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
@@ -393,14 +397,17 @@ rectangular root stock (`[stock]`, the raw sawn bar) with plan process
 | `tolerance_mm` | `Vector`: ± band for section 0, section 1 and length |
 | `checks` | `PreparedChecks`: gauge reference per check |
 | `methods` | `PreparedMethods`: written procedure per form check |
+| `form_mm` | `PreparedForm`: `flat`, `square`, `parallel` limits (the most each procedure's gauge may move) |
 | `cite` | `Citations` |
 
 `PreparedChecks` names an inventory gauge for `length`, `section_0`,
 `section_1`, `flat`, `square` and `parallel`; `PreparedMethods` gives the written
-`flat`, `square` and `parallel` procedures. An unknown `setup` is `BadInput`, as is
-a prepared blank on round or built-up stock (there is no box to trim). Rule
-`prepared_blank` ([rules-setup](rules-setup.md#prepared_blank)) checks the size
-and the checks; the receiving setup's sheet prints them as **CHECK THE BLANK**.
+`flat`, `square` and `parallel` procedures and `PreparedForm` their limits. An
+unknown `setup` is `BadInput`, as is a prepared blank on round or built-up stock
+(there is no box to trim). Rule `prepared_blank`
+([rules-setup](rules-setup.md#prepared_blank)) checks the size, the stock the
+kernel cut and the checks; the receiving setup's sheet prints them as **CHECK THE
+BLANK**, each form row with its limit and method.
 
 ## Dro
 
@@ -734,9 +741,11 @@ facts. A selected parallel's missing height still leaves fixture dimensions unkn
 `jaw_bar` names a fixtures `round_bar` laid between the work and the moving jaw,
 so a faced reference face seats flat on the fixed jaw while the opposite face is
 still raw. Its fact-local measured `dia` holds the moving jaw off the work by
-that diameter; the kernel draws the bar along the jaws at the middle of the work
-held in the jaws and refuses a bar taller than that work. A bar that does not
-resolve to a `round_bar` with measured `dia` and `length` leaves the jaws
+that diameter, so the jaws open by the work's width plus that Ø; the kernel draws
+the bar along the jaws at the middle of the work held in the jaws and refuses a
+bar taller than that work, or one that bears on no jaw-held work along its length.
+The HOLD step prints the bar centre's height above the parallels. A bar that does
+not resolve to a `round_bar` with measured `dia` and `length` leaves the jaws
 unplaced (fixture debt), never drawn as closing on the work.
 
 Other holding kinds are drawn from their own declarations, never defaulted.

@@ -89,31 +89,43 @@ shop policy; an error always exits 2.
 ## `prepared_blank`
 
 One subject, `stock.prepared`; not applicable without a
-[`[stock.prepared]`](plan.md#prepared-blank). The stock the receiving setup
-gets is the root stock box trimmed, plane by plane, by every plan process
+[`[stock.prepared]`](plan.md#prepared-blank), and `unknown` when it is declared
+`"unknown"` (a blank is prepared, and nothing says which). The receiving setup's
+box is first the root stock box trimmed, plane by plane, by every plan process
 `end_face` made by an op in an earlier setup of its `stock_in` lineage
-(analytic, kernel-free). Each declared size (section 0, section 1, length) must
-lie within its ± `tolerance_mm` of that received box, at the declared
-`origin_mm`.
+(analytic). Each declared size (section 0, section 1, length) must lie within
+its ± `tolerance_mm` of that box, at the declared `origin_mm`.
 
-Once the size passes, each blank check resolves: `length`, `section_0` and
-`section_1` through the [inspection](rules-inspection.md) gauge capability
-against the size ± tolerance band (`limits_mm`); `flat`, `square` and
-`parallel` need a dial indicator, dial test indicator, height gauge or CMM from
-inventory and a written `methods` procedure.
+The planes say only where the route means to face. What its generated passes cut
+is the kernel's stock handed on by the receiving setup's `stock_in` setup
+(`stock_out_bbox_mm`, `stock_out_volume_mm3`): read along the blank's axes, that
+box must lie within the same bands, and the stock must fill it (relative 1e-6), so a
+shallow, partial or missed face (its slab stays) or a pass cut inside the blank is an
+error. Without that stock (no kernel, or its stock unknown) the blank is unknown; a
+blank taken as supplied (`stock_in = "stock"`) is the root stock itself.
+
+Each blank check resolves too: `length`, `section_0` and `section_1` through the
+[inspection](rules-inspection.md) gauge capability against the size ± tolerance
+band (`limits_mm`); `flat`, `square` and `parallel` need a dial indicator, dial
+test indicator, height gauge or CMM from inventory, a written `methods`
+procedure, a positive `form_mm` limit and a verified gauge resolution no coarser
+than that limit. The worse of the cut and the checks stands.
 
 - **error:** a blank face is made outside the receiving setup's lineage or after
-  it, a received size is outside its band, or a check's gauge is missing from
-  inventory or cannot measure the band;
-- **unknown:** a lineage setup lacks `stock_in`, a size, origin, tolerance or
-  root-stock fact is unknown, or a check or method is undeclared;
+  it, a received or cut size is outside its band, the cut stock does not fill its
+  box, a check's gauge is missing from inventory or cannot measure the band, or a
+  form gauge's resolution is coarser than its limit;
+- **unknown:** the blank is declared `"unknown"`, a lineage setup lacks `stock_in`,
+  a size, origin, tolerance or root-stock fact is unknown, the kernel's cut stock
+  is unknown, or a check, method, form limit or gauge resolution is undeclared or
+  unverified;
 - **pass:** otherwise, naming the ops that made each face.
 
-Evidence: received and declared boxes and sizes, the ops that made each face,
-faces made outside the lineage, and one `checks` row per check. A process face
-never earns drawing coverage, so the blank is checked here, not by a drawing
-requirement. Its unknown blocks (exit 4) like every always-required rule; an
-error exits 2.
+Evidence: received, declared and cut boxes, the cut volume, the received sizes, the
+ops that made each face, faces made outside the lineage, and one `checks` row per
+check (a form row with its `limit_mm` and `resolution_mm`). A process face never
+earns drawing coverage, so the blank is checked here, not by a drawing requirement.
+Its unknown blocks (exit 4) like every always-required rule; an error exits 2.
 
 ## `headroom`
 
