@@ -20,7 +20,7 @@ from test_kernel_geometry import IDENTITY, Engine, _op, _vise
 from prechips import kernel
 from prechips.inputs import Bundle
 from prechips.model import Stock
-from prechips.rules import reach
+from prechips.rules import accessibility, reach
 
 ENGINE = Path(kernel.__file__).resolve().parent / "freecad_job.py"
 BOX = {
@@ -62,6 +62,11 @@ step.cut(Part.makeCylinder(2, 12, V(36, 20, -1))).exportStep(out + "/step-hole.s
 # A z10 floor (x >= 30) beside a shoulder up to z13, its 2 mm through hole 1.5 mm from it.
 seat = Part.makeBox(60, 40, 13).cut(Part.makeBox(31, 42, 4, V(30, -1, 10)))
 seat.cut(Part.makeCylinder(1, 12, V(31.5, 20, -1))).exportStep(out + "/seat.step")
+# The stepped block's floor with a 6 mm through hole instead, its axis 6 mm from that wall.
+step.cut(Part.makeCylinder(3, 12, V(36, 20, -1))).exportStep(out + "/wide-hole.step")
+# A z10 plate whose 6 mm bore opens through a finished 4 mm neck from z8.5 up.
+neck = Part.makeBox(60, 40, 10).cut(Part.makeCylinder(3, 9.5, V(36, 20, -1)))
+neck.cut(Part.makeCylinder(2, 3, V(36, 20, 8))).exportStep(out + "/neck.step")
 """
 
 
@@ -277,7 +282,7 @@ def solids(tmp_path_factory, freecad_kernel):
         timeout=300,
     )
     paths = {path.stem: path for path in directory.glob("*.step")}
-    assert len(paths) == 8, process.stdout[-2000:] + process.stderr[-2000:]
+    assert len(paths) == 10, process.stdout[-2000:] + process.stderr[-2000:]
     return paths
 
 
@@ -479,6 +484,62 @@ def test_centre_drill_seat_cone_is_cutting_body_checked_against_retained_stock(
     if name == "seat":
         assert op["body_clear_mm"] == pytest.approx(0.5, abs=1e-3)
         assert op["shank_hits"] == 0
+
+
+# The size 2 centre drill's 3/16 in body: its seat top stands 1.9 + 2.392 mm over the tip.
+SHANK = 2.38125
+
+
+def _centre_spot(depth):
+    return {
+        **_op("S1:20", "hole", PILOT, PILOT_LEN, 20.0),
+        "do": "spot",
+        "hole": {"thru": True, "depth_mm": depth, "entry_z_mm": 10.0, "point_angle_deg": 118.0},
+        "shank_from_mm": PILOT_LEN + (SHANK - PILOT) / SEAT_SLOPE,
+        "shank_radius_mm": SHANK,
+    }
+
+
+@pytest.mark.parametrize("depth", [4.2, 4.4, 5.0])
+def test_seat_cone_feeds_down_its_own_shank_bore_to_its_final_pose(engine, solids, tmp_path, depth):
+    # After facing, the spot on the future 6 mm bore, 6 mm from the retained z20 wall.
+    # Past 4.292 mm deep the seat's widest edge has crossed the z10 entry, boring what it
+    # passed out to the shank radius; no pose on the way down meets stock it bored away.
+    step = solids["wide-hole"]
+    floor = engine.refs(step, (30, 0, 10), (60, 40, 10), kind="Plane")
+    hole = engine.refs(step, (33, 17, 0), (39, 23, 10), kind="Cylinder")
+    assert len(floor) == len(hole) == 1
+    face = {**_floor_op("S1:10"), "do": "face"}
+    setup = _setup("S1", [face, _centre_spot(depth)])
+    op = engine.run(engine.job(step, {"floor": floor, "hole": hole}, [setup]))["ops"]["S1:20"]
+    assert op["tool_hits"] == 0, op
+    assert op["obstacles"]["tool"] == []
+    assert op["shank_hits"] == 0
+    rules = rules_bundle(tmp_path)
+    tool = rules.inventory["tools"]["em"]
+    tool.update(
+        dia_mm=2 * PILOT,
+        flute_len_mm=PILOT_LEN,
+        projection_mm={"holder": 20.0},
+        oal_mm=100.0,
+        shank_mm=2 * SHANK,
+    )
+    rules.kernel["ops"]["S1:10"] = {**op, "claimed_indices": [1], "claim_errors": []}
+    assert finding(accessibility, rules).status == "pass"
+    assert finding(reach, rules).status == "pass"
+
+
+def test_seat_sweep_never_bores_finished_material_in_its_path(engine, solids):
+    # 6 mm deep in the plate's 6 mm bore the final seat cone (z5.9-8.29) clears the
+    # finished 4 mm neck above it (z8.5-10), but the seat passes through that neck on its
+    # way down: its bore is never credited with finished material, so the seat hits it.
+    step = solids["neck"]
+    hole = engine.refs(step, (33, 17, 0), (39, 23, 10), kind="Cylinder")
+    assert len(hole) == 2
+    job = engine.job(step, {"hole": hole}, [_setup("S1", [_centre_spot(6.0)])], stock=PART)
+    op = engine.run(job)["ops"]["S1:20"]
+    assert op["tool_hits"] > 0, op
+    assert op["obstacles"]["tool"] == ["part"]
 
 
 @pytest.mark.parametrize("shank, clash", [(3.0, False), (4.0, True)])

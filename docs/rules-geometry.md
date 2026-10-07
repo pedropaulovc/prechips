@@ -1243,12 +1243,16 @@ countersink (`angle_deg`) the flute plus its seat cone out to the shank
 diameter. That seat cone, from the flute radius at the flute end to the shank
 radius at `shank_from_mm`, is cutting body, not shank: it is part of the tool
 solid whose hits `accessibility` counts, and a spot or drill removes it with
-its own cut, so a spot deeper than its pilot countersinks its own mouth while a
-retained shoulder inside the cone is a tool hit. `shank_hits` counts the
-samples whose shank cylinder meets the stock the op leaves: the shank trails
-the flutes through the op's own cut (down its bore, or pass by pass down a
-milled wall), so the finished bore or wall counts and the op's own allowance
-does not. An unknown shank diameter or start leaves `shank_hits` unknown.
+its own cut: the cone at its final pose and, above it, the shank-diameter bore
+its widest edge sweeps on the way down. So a spot deeper than its pilot
+countersinks its own mouth, one deeper than the whole cone bores it out to the
+shank diameter, and finished material in that path (a retained shoulder
+inside the cone, a narrower finished bore) stays a tool hit. `shank_hits`
+counts the samples whose shank cylinder meets the stock the op leaves: the
+shank trails the flutes through the op's own cut (down its bore, or pass by
+pass down a milled wall), so the finished bore or wall counts and the op's own
+allowance does not. An unknown shank diameter or start leaves `shank_hits`
+unknown.
 
 On a hole op's own axis the kernel also reports four clearances, each the
 least over its axes, measured within the holder radius:

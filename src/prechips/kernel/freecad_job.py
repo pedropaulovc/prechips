@@ -40,7 +40,8 @@ Measurement conventions (setup frame, tool axis +Z):
   or through extent. Spot/drill flutes use their point cone plus full-radius body;
   flat tools use an r x flute_len cylinder. A combined drill and countersink's
   seat cone, from the flute end out to the shank radius, is cutting body: it is
-  part of the flute solid and of its own cut at the final pose. The shank (radius
+  part of the flute solid, and its own cut holds it at the final pose under the
+  shank-radius bore its widest edge sweeps on the way down. The shank (radius
   ``shank_radius_mm``) runs from tip + ``shank_from_mm`` (the flute end, or the
   top of that seat cone) to the holder, which starts at tip + projection. All
   shrink/lift by ``LIFT``.
@@ -1354,14 +1355,16 @@ def _seat_solid(op):
     return None if seat is None else (seat[1] - LIFT, seat[2] - LIFT)
 
 
-def _cutter(x, y, tip, radius, slope, length, seat=None):
+def _cutter(x, y, tip, radius, slope, length, seat=None, sweep=0.0):
     """Solid a tool on vertical axis (x, y) cuts with from ``tip`` up ``length`` mm.
 
     A pointed tool's point is a cone with its apex at the tip, widening by ``slope``
     (tangent of half the included point angle) per mm of rise until ``radius``, then a
     full-radius body; a length shorter than that rise truncates the cone. Without a
     ``slope`` the end is flat. A ``seat`` (top radius, rise) continues the body with a
-    combined drill and countersink's seat cone out to that radius ``rise`` mm higher.
+    combined drill and countersink's seat cone out to that radius ``rise`` mm higher,
+    and a positive ``sweep`` that radius ``sweep`` mm higher still: the bore its widest
+    edge cuts on its way down the axis to this pose.
     """
     if slope is None and seat is None:
         return Part.makeCylinder(radius, length, V(x, y, tip))
@@ -1375,8 +1378,25 @@ def _cutter(x, y, tip, radius, slope, length, seat=None):
     if seat is not None:
         length += seat[1]
         profile.append(V(x + seat[0], y, tip + length))
+        if sweep > 0:
+            length += sweep
+            profile.append(V(x + seat[0], y, tip + length))
     profile.append(V(x, y, tip + length))
     return Part.Face(Part.makePolygon(profile + profile[:1])).revolve(V(x, y, tip), Z, 360)
+
+
+def _plunge(x, y, tip, radius, slope, top, seat=None):
+    """Solid a tool fed down axis (x, y) from ``top`` to ``tip`` cuts (:func:`_cutter`).
+
+    A :func:`_seat` (flute length, shank radius, rise) wider than ``radius`` adds its
+    seat cone at the final pose and, above it, the shank-radius bore its widest edge
+    sweeps on the way down: a cone at its final pose alone would leave an annulus no
+    real feed leaves.
+    """
+    if seat is None or seat[1] <= radius:
+        return _cutter(x, y, tip, radius, slope, top - tip)
+    flute, shank, rise = seat
+    return _cutter(x, y, tip, radius, slope, flute, (shank, rise), top - tip - flute - rise)
 
 
 def _tool_hits_box(cylinder, box, solid=None):
@@ -1886,7 +1906,7 @@ def _joint_cut_spec(cut, frame):
 
 def _joint_profile(spec, frame, top=None, seat=None):
     """The same pointed/flat axial tool profiles used by ordinary hole operations; a
-    ``seat`` (:func:`_seat`) adds the seat cone it cuts at its final pose."""
+    ``seat`` (:func:`_seat`) adds the seat cone and the bore it sweeps (:func:`_plunge`)."""
     action = spec.get("action")
     if spec["kind"] == "cylinder_spigot":
         if action not in {"turn", "rough_turn", "finish_turn"}:
@@ -1913,17 +1933,12 @@ def _joint_profile(spec, frame, top=None, seat=None):
     depth = spec["depth_mm"]
     tip = entry.z - depth
     ceiling = entry.z if top is None else max(entry.z, top)
+    slope = None
     if action in {"drill", "spot"}:
         slope = math.tan(math.radians(angle / 2))
         if action == "drill":
             tip -= radius / slope
-        profile = _cutter(entry.x, entry.y, tip, radius, slope, ceiling - tip)
-    else:
-        profile = Part.makeCylinder(radius, ceiling - tip, V(entry.x, entry.y, tip), Z)
-    if seat is not None and seat[1] > radius:
-        flute, shank, rise = seat
-        cone = Part.makeCone(radius, shank, rise, V(entry.x, entry.y, tip + flute))
-        profile = profile.fuse(cone)
+    profile = _plunge(entry.x, entry.y, tip, radius, slope, ceiling, seat)
     profile.transformShape(matrix.inverse())
     return profile
 
@@ -7409,12 +7424,13 @@ class _Setup:
         bores end); ``bottom`` is the lowest of them, or None beside a debt ``reason``;
         ``cone_slope`` is a pointed tool's tan(point angle / 2), else None. A spot is
         always pointed; a drill is pointed when its hole carries ``point_angle_deg``.
-        ``removal`` is the op-radius cutter from each axis's tip (``LIFT`` lower through
-        an exit) past the entry-stock top, plus a combined drill and countersink's seat
-        cone (:func:`_seat`) at its final pose, minus unrelated finished material, or None
-        when nothing is removed. A pointed cutter is its :func:`_cutter` cone and body;
-        others sweep a cylinder. Every action but a spot adds its own bore wall allowance
-        up to the operation radius.
+        ``removal`` is the op-radius cutter fed from past the entry-stock top down to each
+        axis's tip (``LIFT`` lower through an exit), with a combined drill and
+        countersink's seat cone (:func:`_seat`) and the shank-radius bore its widest edge
+        sweeps above it (:func:`_plunge`), minus unrelated finished material, or None when
+        nothing is removed. A pointed cutter is its :func:`_cutter` cone and body; others
+        sweep a cylinder. Every action but a spot adds its own bore wall allowance up to the
+        operation radius.
         """
         key = (id(op), tuple(valid), radius)
         if key not in self.hole_cuts:
@@ -7531,11 +7547,8 @@ class _Setup:
             low = level - LIFT if through else level
             if top - low <= LIFT:
                 continue
-            tools.append(_cutter(x, y, low, radius, slope, top - low))
-            if seat is not None:
-                # The seat cone cuts at the final pose only, from the flute end out.
-                flute, shank, rise = seat
-                tools.append(Part.makeCone(radius, shank, rise, V(x, y, level + flute)))
+            # A seat cone's widest edge sweeps its shank-radius bore down to its final pose.
+            tools.append(_plunge(x, y, low, radius, slope, top, seat))
         record = {
             "centres": centres,
             "bottom": bottom,
@@ -10198,10 +10211,14 @@ class _Setup:
                 # that actual cutting column, while retaining every finished solid
                 # and all material outside the declared window below.
                 top = head.origin.z + outer
+                seat = _seat(op)
+                if seat is not None:
+                    seat = (seat[0], seat[1] - LIFT / 2, seat[2] - LIFT / 2)
                 for _, phi, ax, ay, tip, downward in poses:
                     if not downward and top > tip:
-                        # Enclose the checked r-LIFT flute without exact wall tangency.
-                        column = Part.makeCylinder(radius - LIFT / 2, top - tip, V(ax, ay, tip))
+                        # Enclose the checked r-LIFT flute and seat (:func:`_seat_solid`)
+                        # without exact wall tangency, with the bore the seat sweeps.
+                        column = _plunge(ax, ay, tip, radius - LIFT / 2, None, top, seat)
                         pieces.append(head.rotated(column, -phi))
             bound, why = self._rotary_bound(op)
             if why is not None:
