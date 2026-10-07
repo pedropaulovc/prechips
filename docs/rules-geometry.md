@@ -1867,15 +1867,20 @@ A guided bench file (a hand op whose `guide.buttons` kit is held in the setup,
 its solids named to the kernel by `guide_owner`, the kit's declared button OD by
 `guide_rim_dia_mm`) is not a cut to clear. A kit solid is a stop only when it is a
 button of that declared OD (a cylindrical face within the OD limits, widened by the
-stock tolerance), its cut reaches it, and it is seated on the filed face (within the
-stock tolerance of the stock the file leaves, without biting into it). Those stops
+stock tolerance), its cut reaches it, it is seated on the filed face (within the
+stock tolerance of the stock the file leaves, without biting into it), and that
+rim sets the filed boundary: the rim's cylinder, run along its axis, touches the
+cut where the cut meets the stock the file leaves and nowhere enters the cut. A
+button of the right OD whose rim stands over the unfiled wall is no stop. Those stops
 are named in `render_scene.guide_stops`, and the kernel leaves them out of
 `closest_cut`, so no `CUT 0.000 mm FROM` a filing button prints. Any other kit
 solid the cut reaches (a stud, a tab touching the unfiled wall, a square block) is
 holding to clear and keeps its real `CUT` dimension. The detail keys
 them in green: `FILE STOPS ON BOTH BUTTON RIMS` for a matched pair, or one key
 per rim, `FILE STOPS ON UPPER BUTTON RIM`, when they lie apart. A real clearance
-to the rest of the kit (its stud) is still dimensioned. When the stops are turned
+to the rest of the kit (its stud) is still dimensioned: in the holding detail when
+one is drawn and keys it, else on the setup picture itself, so a picture never
+drops its `CUT` dimension because the detail band is not drawn. When the stops are turned
 solids on one axis that the setup picture does not already look along (within
 cos 0.99), a **guide view** band below the detail looks down that axis, enlarged
 (`VIEW ALONG THE BUTTON AXIS X14.6`, with the setup axes it draws right and up).
@@ -1889,9 +1894,12 @@ of the stock to file off, so the near button does not hide the work and the cut
 face shows what the file takes; the band notes `SECTION BETWEEN THE RIMS`.
 
 An inspect op's `inspection_views` ([plan](plan.md)) are drawn as one set-up
-sketch per requirement, a band per view, on the stock the setup leaves (only the
-pieces of it that hold the part: scrap a cut released, such as a rail frame, is
-off the part when it is inspected) and in the
+sketch per requirement, a band per view, on the stock as the setup's route stands
+at that inspect op: after the last op before it that the kernel cuts (the job's
+inspection `after`, that op's subject, or the arriving stock when none precedes
+it), never the stock later ops leave. Only the pieces of it that hold the part
+are drawn: scrap a cut before the inspection released, such as a rail frame, is
+off the part when it is inspected. It is drawn in the
 part model's own axes: `up` up the page, seen from `toward`. The bands are
 returned as `inspection_pngs_base64` keyed `<op>:<requirement>`, apart from the
 setup picture. Each band titles its view, wrapping a title too long for one line
@@ -1903,7 +1911,7 @@ the page, the way that orientation's height reading rises, under the note
 `+ ARROW: THE WAY A READING RISES (A HIGHER CONTACT READS +)`; other marks are
 red contacts. What a sketch cannot show is a render debt on the setup's
 `render_debts` (`op <op> <requirement> sketch: NOT SHOWN: …`): an aid hidden in a
-view, or the whole sketch when the setup's exit stock is unresolved.
+view, or the whole sketch when the stock at its place in the route is unresolved.
 
 Alongside the image the engine returns `render_scene` with `fixture_kind`,
 `jaws`, `parallels`, `components`, `debts`, camera/resolution, plain-language

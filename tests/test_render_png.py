@@ -1018,6 +1018,28 @@ def test_a_footer_raised_by_a_long_legend_lifts_the_stock_dimension_above_it():
     assert y < diagram.footer_top - 36
 
 
+def test_a_clearance_no_detail_band_keys_is_dimensioned_on_the_setup_picture(monkeypatch):
+    # Work larger than its jaws draws no holding detail; the kit-free obstruction the
+    # kernel measured (0 mm to the fixed jaw) is still printed, on the setup picture.
+    meshes, spec = _vise_spec(150)
+    spec["closest_cut"] = {
+        "mm": 0.0,
+        "tag": "fixed_jaw",
+        "from_mm": [0, 75, 5],
+        "to_mm": [0, 75, 5],
+    }
+    drawn = []
+    main = render_module._main_diagram
+    monkeypatch.setattr(
+        render_module, "_main_diagram", lambda *a: drawn.append(main(*a)) or drawn[-1]
+    )
+    png, _ = render_module.render_diagram(meshes, spec)
+    diagram, printed = drawn[-1]
+    assert printed == png
+    text = " ".join(box[0] for box in diagram.canvas.text_boxes)
+    assert "CUT 0 MM FROM FIXED JAW" in text, text
+
+
 @pytest.mark.parametrize(
     ("size", "touching", "detailed"),
     [(12, True, True), (150, True, False), (12, False, False)],

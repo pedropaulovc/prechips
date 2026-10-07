@@ -76,11 +76,11 @@ def _hold(strand, main="press", floor_from_y=-10.0):
     }
 
 
-def _run(engine, step, hold, bounds=BOUNDS, inspections=None):
+def _run(engine, step, hold, bounds=BOUNDS, inspections=None, cut=True):
     south = engine.refs(step, (5, 5, 0), (65, 5, 20), kind="Plane")
     assert len(south) == 1
     setups = [
-        _setup([{**_rough(bounds), "feature": "south"}], hold),
+        _setup([{**_rough(bounds), "feature": "south"}] if cut else [], hold),
         _setup([], hold, setup_id="S2"),
     ]
     if inspections is not None:
@@ -134,12 +134,35 @@ def test_an_inspection_sketch_draws_the_piece_that_holds_the_part_not_the_scrap(
         "toward": [1.0, 0.0, 0.0],
         "marks": [{"label": "A", "at_mm": [35.0, 25.0, 20.0]}],
     }
-    inspections = [{"op": 10, "requirement": "height", "views": [view]}]
+    inspections = [{"op": 20, "after": "S1:10", "requirement": "height", "views": [view]}]
     cleared = {**BOUNDS, "y": [-5.0, 5.0]}
     heights = []
     for bounds in (BOUNDS, cleared):
         result = _run(engine, solids["island"], _hold("press"), bounds, inspections)
         facts = result["setups"]["S1"]
-        png = base64.b64decode(facts["inspection_pngs_base64"]["10:height"])
+        png = base64.b64decode(facts["inspection_pngs_base64"]["20:height"])
         heights.append(struct.unpack(">II", png[16:24])[1])
     assert heights[0] == heights[1], heights
+
+
+def test_an_inspection_before_the_releasing_cut_draws_the_stock_as_it_stands_there(engine, solids):
+    # Op 5 inspects before op 10 releases the strip, op 20 after it: op 5 draws the
+    # stock as it arrives (as when the setup cuts nothing), never the released part.
+    view = {
+        "title": "VIEW 1",
+        "up": [0.0, 0.0, 1.0],
+        "toward": [1.0, 0.0, 0.0],
+        "marks": [{"label": "A", "at_mm": [35.0, 25.0, 20.0]}],
+    }
+    inspections = [
+        {"op": 5, "after": None, "requirement": "height", "views": [view]},
+        {"op": 20, "after": "S1:10", "requirement": "height", "views": [view]},
+    ]
+    sketches = [
+        _run(engine, solids["island"], _hold("press"), BOUNDS, inspections, cut=cut)["setups"][
+            "S1"
+        ]["inspection_pngs_base64"]
+        for cut in (True, False)
+    ]
+    assert sketches[0]["5:height"] == sketches[1]["5:height"]
+    assert sketches[0]["20:height"] != sketches[0]["5:height"]

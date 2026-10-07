@@ -1083,6 +1083,20 @@ def hold_inputs(bundle, setup):
     return result
 
 
+def _inspections_after(setup, sent, render):
+    """``render`` with each inspection's route ``position`` replaced by ``after``: the
+    subject of the last op sent to the kernel (``sent``) before it in the setup's route,
+    or None when none precedes it. The kernel draws the stock as it stands there."""
+    for inspection in render.get("inspections", []):
+        before = [
+            op
+            for op in setup["ops"][: inspection.pop("position")]
+            if any(op is other for other in sent)
+        ]
+        inspection["after"] = f"{setup['id']}:{before[-1]['op']}" if before else None
+    return render
+
+
 def build_job(bundle):
     from prechips.joint_features import primitives_mm, setup_joint
     from prechips.process_features import primitives_mm as process_primitives_mm
@@ -1112,6 +1126,11 @@ def build_job(bundle):
             transformed = UNKNOWN
         elif units == "in":
             transformed["origin"] = [value * 25.4 for value in transformed["origin"]]
+        sent = [
+            op
+            for op in setup["ops"]
+            if cutting_action(op) is not False or op.get("do") in HAND_FINISH
+        ]
         setups.append(
             {
                 "id": setup["id"],
@@ -1119,11 +1138,12 @@ def build_job(bundle):
                 "hold": hold_inputs(bundle, setup),
                 "ops": [
                     op_inputs(bundle, setup, op, finishing, complete, coordinates.get(setup["id"]))
-                    for op in setup["ops"]
-                    if cutting_action(op) is not False or op.get("do") in HAND_FINISH
+                    for op in sent
                 ],
                 "stock_in": setup.get("stock_in", UNKNOWN),
-                "render": setup_annotations(bundle, setup, coordinates.get(setup["id"], {})),
+                "render": _inspections_after(
+                    setup, sent, setup_annotations(bundle, setup, coordinates.get(setup["id"], {}))
+                ),
                 "joint": setup_joint(bundle, setup),
                 # A lathe setup's spindle axis is setup Z: rotating fixture solids revolve.
                 "machine_kind": record(resolve(bundle, "machines", setup.get("machine"))).get(

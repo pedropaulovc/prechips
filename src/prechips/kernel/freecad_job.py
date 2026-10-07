@@ -7581,27 +7581,17 @@ class _Setup:
 
     def _inspection_sketches(self):
         """The labelled set-up sketches of this setup's inspect ops (the render annotation's
-        ``inspections``: op, requirement, views) as ``({"<op>:<requirement>": png},
-        debts)``. Each view draws the stock this setup leaves (the pieces of it that hold
-        the part: scrap a cut released is off the part when it is inspected) and the
-        gauges and holding it names (``aids``) in the part model's axes, seen from
-        ``toward`` with ``up`` up off the plate, and its ``marks``. Without that stock no
-        sketch is drawn: its NOT SHOWN line is the debt."""
+        ``inspections``: op, ``after``, requirement, views) as ``({"<op>:<requirement>":
+        png}, debts)``. Each view draws the stock as the route stands at the inspection
+        (:meth:`_stock_after`; the pieces of it that hold the part: scrap a cut before it
+        released is off the part when it is inspected) and the gauges and holding it names
+        (``aids``) in the part model's axes, seen from ``toward`` with ``up`` up off the
+        plate, and its ``marks``. Without that stock no sketch is drawn: its NOT SHOWN line
+        is the debt."""
         inspections = self.setup.get("render", {}).get("inspections") or []
         sketches, debts = {}, []
-        if not inspections:
-            return sketches, debts
-        if self.stock_out is None:
-            for inspection in inspections:
-                debts.append(
-                    f"op {inspection['op']} {inspection['requirement']} sketch: NOT SHOWN: "
-                    "the stock this setup leaves is unresolved, so it is not drawn."
-                )
-            return sketches, debts
-        box = _bbox(self.stock_out)
-        tolerance = max(0.01, max(box[i + 3] - box[i] for i in range(3)) / 400)
 
-        def mesh(shape, colour, tag):
+        def mesh(shape, colour, tag, tolerance):
             points, triangles = shape.tessellate(tolerance)
             return ([(p.x, p.y, p.z) for p in points], triangles, colour, False, tag)
 
@@ -7622,8 +7612,15 @@ class _Setup:
             )
             return solid
 
-        part = mesh(self._inspected(self.stock_out), _COLOURS["part"], "part")
         for inspection in inspections:
+            name = f"op {inspection['op']} {inspection['requirement']} sketch"
+            stock, why = self._stock_after(inspection)
+            if stock is None:
+                debts.append(f"{name}: NOT SHOWN: {why}, so it is not drawn.")
+                continue
+            box = _bbox(stock)
+            tolerance = max(0.01, max(box[i + 3] - box[i] for i in range(3)) / 400)
+            part = mesh(stock, _COLOURS["part"], "part", tolerance)
             views = []
             for view in inspection["views"]:
                 aids = view.get("aids", [])
@@ -7643,6 +7640,7 @@ class _Setup:
                                 aid_solid(aid),
                                 _COLOURS["fixture" if aid["shape"] == "box" else "clamp"],
                                 f"aid {index}",
+                                tolerance,
                             )
                             for index, aid in enumerate(aids, 1)
                         ],
@@ -7656,33 +7654,48 @@ class _Setup:
                 )
             key = f"{inspection['op']}:{inspection['requirement']}"
             sketches[key], drawn = render_inspection(views)
-            name = f"op {inspection['op']} {inspection['requirement']} sketch"
             debts += [f"{name}: {debt}" for debt in drawn]
         return sketches, debts
 
-    def _inspected(self, stock):
-        """The model-frame ``stock`` pieces that hold the finished part; ``stock`` itself
-        when it is one piece, none holds the part, or a boolean fails."""
-        if len(stock.Solids) < 2:
-            return stock
-        try:
-            finished = self.finished.copy()
-            finished.transformShape(self.matrix.inverse())
-            kept = [s for s in stock.Solids if s.common(finished).Volume > STOCK_MM3]
-        except Exception:
-            return stock
-        if not kept:
-            return stock
-        return kept[0] if len(kept) == 1 else Part.makeCompound(kept)
+    def _stock_after(self, inspection):
+        """(model-frame stock an ``inspection`` draws, or None, and why it is unknown): the
+        stock as the setup's route stands there, after the op whose subject is its
+        ``after`` (the stock arriving when that is None), not the stock the setup leaves.
+        Of a stock in pieces, only those holding the finished part: scrap a cut before it
+        released is off the part (all of them when none does or a boolean fails)."""
+        if "after" not in inspection:
+            return None, "its place in the setup's route is not given"
+        subject, unresolved = inspection["after"], (self.built or (None, self.stock_reason))[1]
+        stock = self.stock_states[0] if self.stock_states and self.matrix is not None else None
+        if stock is None:
+            return None, f"the stock at this setup is unresolved ({unresolved})"
+        if subject is not None:
+            op = next((op for op in self.ops if self._subject(op) == subject), None)
+            if op is None:
+                return None, f"{subject} is no cut of this setup"
+            _, stock, why = self.cuts.get(id(op), (None, None, "not built"))
+            if why is not None or id(op) == self.stopped_cut:
+                return None, f"the stock after {subject} is unresolved ({why or unresolved})"
+        if len(stock.Solids) > 1:
+            try:
+                kept = [s for s in stock.Solids if s.common(self.finished).Volume > STOCK_MM3]
+            except Exception:
+                kept = []
+            if kept:
+                stock = kept[0] if len(kept) == 1 else Part.makeCompound(kept)
+        model = stock.copy()
+        model.transformShape(self.matrix.inverse())
+        return model, None
 
     def _guide_stops(self, solids, section_view=None):
         """The rims a guided bench file rides on: each button of a hand op's guide kit (its
         ``guide_owner``, the prefix of the kit's solid tags) that the op's own cut reaches,
         as ``{"tag", "at_mm", "rim_mm"}``. A button is a kit solid with a cylindrical face
         of the kit's declared button OD (``guide_rim_dia_mm``) that touches the stock the
-        op leaves without entering it: its rim lies on the filed surface. Any other kit
-        solid (a stud, a nut, a button standing off or buried in the work) is holding the
-        file must clear, so no stop; nor is anything without the declared OD. ``rim_mm``
+        op leaves without entering it, whose rim sets the filed boundary
+        (:meth:`_rim_sets_boundary`). Any other kit solid (a stud, a nut, a button standing
+        off, buried in the work or whose rim lies off the filed face) is holding the file
+        must clear, so no stop; nor is anything without the declared OD. ``rim_mm``
         holds the runs of the solid's edges on the cut (:func:`_rim_runs`); ``at_mm`` is the
         rim point a picture keys: in a section view the kept one nearest the section plane
         (the rim seen edge-on), else the one nearest the rim's middle. A solid the cut
@@ -7706,12 +7719,6 @@ class _Setup:
             for name, solid in solids:
                 if name.rsplit(":", 1)[0] != owner or any(s["tag"] == name for s in stops):
                     continue
-                if not any(
-                    isinstance(face.Surface, Part.Cylinder)
-                    and low <= 2 * face.Surface.Radius <= high
-                    for face in solid.Faces
-                ):
-                    continue
                 distance, pairs, _ = _distance(cut, solid)
                 if distance > STOCK_TOL or not pairs:
                     continue
@@ -7719,6 +7726,12 @@ class _Setup:
                     seated = (
                         _distance(after, solid)[0] <= STOCK_TOL
                         and solid.common(after).Volume <= STOCK_MM3
+                        and any(
+                            isinstance(face.Surface, Part.Cylinder)
+                            and low <= 2 * face.Surface.Radius <= high
+                            and self._rim_sets_boundary(face, solid, cut, after)
+                            for face in solid.Faces
+                        )
                     )
                 except Exception:
                     seated = False
@@ -7736,6 +7749,27 @@ class _Setup:
                     at = min(points, key=lambda p: (p - middle).Length)
                 stops.append({"tag": name, "at_mm": [at.x, at.y, at.z], "rim_mm": rim})
         return stops
+
+    @staticmethod
+    def _rim_sets_boundary(face, solid, cut, after):
+        """Whether the cylindrical ``face`` of a button is the rim the filed boundary lies
+        on: its cylinder, run along its axis through the work, nowhere enters the ``cut``
+        (the file never passes inside the rim) and touches it where the cut meets the stock
+        the file leaves (``after``). A rim beyond the filed face (over the unfiled wall)
+        enters the cut; one short of it touches neither."""
+        surface = face.Surface
+        axis = V(surface.Axis)
+        axis.normalize()
+        box = cut.BoundBox
+        box.add(solid.BoundBox)
+        reach = box.DiagonalLength + 1
+        rim = Part.makeCylinder(surface.Radius, 2 * reach, surface.Center - axis * reach, axis)
+        if rim.common(cut).Volume > STOCK_MM3:
+            return False
+        distance, pairs, _ = _distance(cut, rim)
+        return distance <= STOCK_TOL and any(
+            _distance(after, Part.Vertex(near))[0] <= STOCK_TOL for near, _ in pairs
+        )
 
     @staticmethod
     def _nearest_cut(removal, solids):

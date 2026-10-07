@@ -582,7 +582,8 @@ def test_an_inspect_ops_set_up_sketches_are_drawn_beside_the_setup_picture(engin
             "marks": marks + [{"label": "H2", "at_mm": [38.0, 25.0, 30.0], "reads": True}],
         },
     ]
-    setup["render"] = {"inspections": [{"op": 50, "requirement": "position_dia", "views": views}]}
+    inspection = {"op": 50, "after": None, "requirement": "position_dia", "views": views}
+    setup["render"] = {"inspections": [inspection]}
     result = engine.run(engine.job(step, setups=[setup]))
     assert result["status"] == "ok", result
     facts = result["setups"]["S1"]
