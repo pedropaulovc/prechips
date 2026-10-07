@@ -3526,13 +3526,14 @@ class _Traveler:
 
     @functools.cached_property
     def receipt_homes(self):
-        """``{bought item reference: setup id}``: the first setup using an item with
-        receipt checks prints its PURCHASED TOOLING / RECEIPT CHECK table."""
+        """``{(category, bought item reference): setup id}``: the first setup using an item
+        with receipt checks prints its PURCHASED TOOLING / RECEIPT CHECK table. A
+        ``fixtures.pins`` and a ``gauges.pins`` are two items, each with its own table."""
         homes = {}
         for setup in self.plan.get("setups", []):
             numbers = _mapping(self.records.get(("purchased_tooling", setup["id"])))
             for item in numbers.get("items", []):
-                homes.setdefault(item["ref"], setup["id"])
+                homes.setdefault((item.get("category"), item["ref"]), setup["id"])
         return homes
 
     def purchased_tooling(self, setup):
@@ -3541,8 +3542,9 @@ class _Traveler:
         numbers = _mapping(self.records.get(("purchased_tooling", setup["id"])))
         html = []
         for item in numbers.get("items", []):
-            name = self.reference(item["ref"])
-            home = self.receipt_homes.get(item["ref"], setup["id"])
+            identity = (item.get("category"), item["ref"])
+            name = self.reference(item["ref"], item.get("category"))
+            home = self.receipt_homes.get(identity, setup["id"])
             if home != setup["id"]:
                 html.append(
                     _p(

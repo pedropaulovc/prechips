@@ -211,7 +211,12 @@ a tool touch's `z_gauge`, the transfer's tool or gauge, and an op's filing
 guide or its gauge, tool, holder, inspection gauge or process-hold gauge; any
 item named in the setup's prose or in the notes and record blanks of the
 shop-made items it uses, the job page's prose counting as the first setup's:
-see the key syntax under shop-made solids) that carries the list. Unknown is
+see the key syntax under shop-made solids) that carries the list. An item is its
+category and key: a slot reads its own kind first (a hold slot workholding, an
+indicator, inspection or process-hold gauge a gauge, a tool slot a tool), and
+prose names the category, so `fixtures.pins` and `gauges.pins` are two items,
+each with its own checks, table and first setup, and `tool_resolves` checks the
+gauge a slot reads even when a fixture of that key is listed. Unknown is
 never an acceptance: an `acceptance` or `purchase` stated
 `"unknown"`; a `check`, `how` or `accept` that is blank or unknown; a gauge that
 is unknown, not listed or not verified; a `limits_mm` that is not two known

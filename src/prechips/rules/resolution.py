@@ -280,38 +280,54 @@ def workholding_category(bundle_or_inventory, reference):
 _HOLD_ITEMS = ("fixture", "chuck", "parallels", "riser", "jaw_bar", "jaw_buttons", "support")
 
 
-def setup_item_refs(setup):
-    """Every inventory reference a setup puts its hands on, first use first: the hold's
-    fixture, chuck, parallels, riser, jaw bar / buttons, support, clamps, stop, supports
-    and alignment indicator; the zero's tools, holders and gauges (a tool touch's Z
-    measuring gauge, the transfer's tool and gauge); then each op's filing guide and its
-    gauge, tool, holder, inspection gauges and process-hold gauges."""
+def _first(category):
+    """The categories a slot of ``category`` searches: its own first, then the rest."""
+    lead = WORKHOLDING_CATEGORIES if category == "workholding" else (category,)
+    return (*lead, *(c for c in _INVENTORY_CATEGORIES if c not in lead))
+
+
+def setup_item_uses(setup):
+    """``[(categories, reference)]``: every inventory reference a setup puts its hands on,
+    first use first, each with the categories its slot reads it from, the slot's own
+    first (a ``checks`` gauge ``pins`` is ``gauges.pins`` before ``fixtures.pins``): the
+    hold's fixture, chuck, parallels, riser, jaw bar / buttons, support, clamps, stop,
+    supports (workholding) and alignment indicator (a gauge); the zero's tools, holders
+    and gauges (a tool touch's Z measuring gauge, the transfer's tool and gauge); then each
+    op's filing guide (its buttons, template and gauge), tool, holder, inspection gauges
+    and process-hold gauges. A reference used through two kinds of slot is listed for
+    each."""
     hold = record(setup.get("hold"))
-    refs = [hold.get(key) for key in _HOLD_ITEMS]
-    refs += [record(clamp).get("ref") for clamp in hold.get("clamps") or [] if clamp]
-    refs.append(hold.get("stop_fixture"))
+    uses = [("workholding", hold.get(key)) for key in _HOLD_ITEMS]
+    uses += [("workholding", record(clamp).get("ref")) for clamp in hold.get("clamps") or []]
+    uses.append(("workholding", hold.get("stop_fixture")))
     supports = hold.get("supports")
     for support in supports if isinstance(supports, list) else [supports]:
-        refs.append(record(support).get("ref") if isinstance(support, dict) else support)
-    refs.append(record(hold.get("align")).get("indicator"))
+        ref = record(support).get("ref") if isinstance(support, dict) else support
+        uses.append(("workholding", ref))
+    uses.append(("gauges", record(hold.get("align")).get("indicator")))
     zero = record(setup.get("zero"))
     touches = zero.get("tool_touches") if isinstance(zero.get("tool_touches"), list) else []
+    slots = (("tool", "tools"), ("holder", "holders"), ("gauge", "gauges"), ("z_gauge", "gauges"))
     for touch in [*(zero.get(axis) for axis in "xyz"), *touches]:
-        refs += [record(touch).get(key) for key in ("tool", "holder", "gauge", "z_gauge")]
-    refs += [record(zero.get("transfer")).get(key) for key in ("tool", "gauge")]
+        uses += [(category, record(touch).get(key)) for key, category in slots]
+    transfer = record(zero.get("transfer"))
+    uses += [("tools", transfer.get("tool")), ("gauges", transfer.get("gauge"))]
     for op in setup.get("ops") or []:
         op = record(op)
         guide = record(op.get("guide"))
-        refs += [guide.get(key) for key in ("buttons", "template", "gauge")]
-        refs += [op.get("tool"), op.get("holder")]
-        refs += list(record(op.get("checks")).values())
+        uses += [("fixtures", guide.get("buttons"))]
+        uses += [("gauges", guide.get("template")), ("gauges", guide.get("gauge"))]
+        uses += [("tools", op.get("tool")), ("holders", op.get("holder"))]
+        uses += [("gauges", gauge) for gauge in record(op.get("checks")).values()]
         process_holds = op.get("process_holds")
         for held in process_holds if isinstance(process_holds, list) else []:
-            refs.append(record(held).get("gauge"))
+            uses.append(("gauges", record(held).get("gauge")))
     seen = []
-    for ref in refs:
-        if isinstance(ref, str) and ref not in {UNKNOWN, "none", "not_applicable", *seen}:
-            seen.append(ref)
+    for category, ref in uses:
+        use = (_first(category), ref)
+        if isinstance(ref, str) and ref not in {UNKNOWN, "none", "not_applicable"}:
+            if use not in seen:
+                seen.append(use)
     return seen
 
 
@@ -370,7 +386,13 @@ def setup_named_references(bundle, setup, job=False):
     if job:
         scan({key: value for key, value in bundle.plan.items() if key != "setups"}, "plan")
     scan(setup, f"Setup {setup.get('id', '?')}")
-    for ref in setup_item_refs(setup):
+    # A shop-made item is workholding: a slot that reads a same-key gauge does not use it.
+    held = [
+        ref
+        for categories, ref in setup_item_uses(setup)
+        if inventory_category(bundle, ref.partition("/")[0], categories) in WORKHOLDING_CATEGORIES
+    ]
+    for ref in dict.fromkeys(held):
         item = shop_made_item(bundle, ref)
         for solid in (item or {}).get("solids") or []:
             where = f"{ref} {record(solid).get('name', '?')}"
