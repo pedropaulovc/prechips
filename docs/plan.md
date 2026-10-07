@@ -203,34 +203,112 @@ provenance.
 
 ## Aims
 
-`[aims.<feature>]` moves one located feature's DRO target off its drawing
-nominal so that a height-like band it holds from its `height_from` reference
-(`height_above_pivot`, `height` or `separation`) reads a stated value. It is a
-process choice on the printed target, never a change to the STEP, the manifest,
-a cutting claim or a kernel input.
+`[aims.<feature>]` holds one drawing requirement at a stated value inside its
+printed band: a process choice. Without `face` it moves one located feature's
+DRO target off its drawing nominal so that a height-like band it holds from its
+`height_from` reference (`height_above_pivot`, `height` or `separation`) reads
+that value. That form changes only the printed target, never the STEP, the
+manifest, a cutting claim or a kernel input. With `face` it holds a faced
+length: the part the kernel cuts has that face moved so that the length between
+the feature's `lower_z` and `upper_z` planes reads the value.
 
 | Field | Meaning |
 |---|---|
-| `requirement` | The height-like requirement the aim sets; it must be one of the feature's exported drawing requirements |
-| `value_mm` | The value, in mm, that requirement reads at the aimed target; it must lie inside the printed band |
-| `reason` | Known text; the bundled examples begin it with `AUTHOR'S CHOICE` |
+| `requirement` | The requirement the aim sets. It must be one of the feature's exported drawing requirements |
+| `value_mm` | The value, in mm, that the requirement reads at the aim. It must lie inside the printed band |
+| `reason` | Known text. The bundled examples begin it with `AUTHOR'S CHOICE` |
+| `face` | Optional. The faced plane that moves, a ref from the feature's own `faces` |
 
-The `<feature>` must be a manifest feature that exports `requirement`, and
-`value_mm` (converted to the manifest units) must lie inside that requirement's
-band as the sheet prints it; anything else is bad input. The
+The `<feature>` must be a manifest feature that exports `requirement`.
+`value_mm`, converted to the manifest units, must lie inside that requirement's
+band as the sheet prints it. Anything else is bad input.
+
+**Target aims (no `face`).** The
 [`coordinates`](rules-coordinates.md#coordinates) rule moves the feature's own
-target along the band's measuring direction in every setup that locates it. It
-then checks the target against the printed band where the features stand: the
-DRO-rounded target where that setup machines the feature (a centre op names
-it), the planned point where it only inspects it, measured from the
-reference's own printed target when the same setup machines it (else the
-reference's planned point), and cites `plan.aims.<feature>`. The sheet's
-feature map prints the aimed target together with the drawing nominal and the
-reason. An aim on a feature without that band, on one no mill setup's centre op
-(a hole op or `center`) names, under unknown units, or one whose distance cannot
-be measured stays unknown and moves nothing. An aim on a child located by its
-parent's `at` is refused (unknown); the child still dials its parent's target,
-aimed or not.
+target along the band's measuring direction in every setup that locates it,
+then checks the target against the printed band where the features stand:
+
+- the DRO-rounded target, where that setup machines the feature (a centre op
+  names it);
+- the planned point, where the setup only inspects it.
+
+The distance is measured from the reference's own printed target when the same
+setup machines the reference, else from the reference's planned point. The
+finding cites `plan.aims.<feature>`. The sheet's feature map prints the aimed
+target with the drawing nominal and the reason. These aims stay unknown and move
+nothing:
+
+- an aim on a feature without that band;
+- an aim on a feature no mill setup's centre op (a hole op or `center`) names;
+- an aim under unknown units;
+- an aim whose distance cannot be measured.
+
+An aim on a child located by its parent's `at` is refused (unknown). The child
+still dials its parent's target, aimed or not.
+
+**Faced aims (`face`).** Loading also needs:
+
+- `face` listed in the exported feature's `faces`;
+- the feature to declare `lower_z` and `upper_z`, the planes in its frame that
+  the faced length runs between;
+- a facing op (`face`, `rough_face` or `finish_face`) on the feature to claim
+  `face`, either by naming no `faces` or by naming that one.
+
+Anything else is bad input. The kernel job gets:
+
+- the face;
+- the feature frame's Z, as a model axis;
+- both planes, in mm;
+- `value_mm`;
+- the requirement's printed band, in mm;
+- `delta_mm`, which is `value_mm` minus the planes' separation.
+
+The kernel then builds the part the plan cuts:
+
+- The aimed face must be a plane on one of the two declared planes, facing away
+  from the other one. It moves `delta_mm` along its outward normal. A zero move
+  leaves it where it is.
+- Every neighbouring face runs square to the face (a plane along its normal, or
+  a cylinder about it). Each one runs on to the moved face or is cut back to it,
+  so every face keeps its index.
+- The result must equal the STEP solid plus (or minus) the face's prism.
+- The aims compose. On the part every move makes, each aimed face must stand on
+  its aimed plane. The length's other end is every face on the other plane that
+  faces the other way, and each of those faces must still stand where it was.
+  The length between the two ends must read `value_mm` inside the band. So an
+  aim that moves another aim's face, or the other end of its length, fails both
+  lengths. Two features aiming the two faces of one thickness are such a pair.
+  Loading cannot refuse such a pair as bad input, because only the kernel knows
+  which plane a face lies on.
+
+Every setup's protected part, removal bounds, in-process stock, clearances,
+pictures and stock facts stand on that one face position. A frame and zero on
+the aimed face therefore agree with what the earlier setup leaves. The aimed
+value stays inside the printed band, and the finished part is the one the aim
+makes.
+
+The kernel result keeps `faces` and `bbox_mm` as the STEP exports them, and
+lists each moved face under `aimed_faces` with its feature, ref, index,
+`delta_mm` and its plane before and after, in mm along the axis. Other cases
+leave the whole kernel result unknown with the reason:
+
+- unknown units, printed band, planes or frame. No known band authorizes a move;
+- a declared `<requirement>_nominal` that is not the planes' separation;
+- an aimed face that is unmapped, not planar, or on neither plane;
+- no face on the other plane facing the other way, so the length has no other
+  end;
+- a neighbour that does not run square to the face;
+- a move that does not give one valid solid;
+- aims that move each other's faces or other ends.
+
+Faced aims move no DRO target. Aim each face whose position follows from the
+aimed one. In the rocker example, the strap thickness is the hub aim less two
+fixed hub-proud steps, so the strap face carries its own aim.
+
+The sheet prints each faced aim once, in the instructions of the last facing op
+that claims its face: the feature's requirement "faced to" `value_mm` (at no
+fewer places than the drawing's), the band that holds it, and the reason. For
+example: `Hub faces length faced to 7.080 (band 7.057–7.106): AUTHOR'S CHOICE …`.
 
 ## Joint features
 

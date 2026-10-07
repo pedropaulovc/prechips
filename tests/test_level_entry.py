@@ -62,7 +62,11 @@ def open_path(box_top, approach=2.0, plunge=True, center_cutting=True, operation
         "line_table": [line or {"op": 20, "stage": "rough", "dro_xy": [[0.0, -5.0], [0.0, 5.0]]}],
     }
     states = [(op, {"top_z": 0.0}, {})]
-    return level_paths(bundle, {"id": "S1"}, numbers, states, GRID, "mm", coordinates.dro_z)
+
+    def top(z, done):
+        return coordinates.dro_z(z, GRID)
+
+    return level_paths(bundle, {"id": "S1"}, numbers, states, GRID, "mm", coordinates.dro_z, top)
 
 
 def test_an_open_path_returns_over_the_stock_only_when_the_stock_box_proves_it():

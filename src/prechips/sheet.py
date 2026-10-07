@@ -19,7 +19,14 @@ from .measurements import length_fact, record_trusted
 from .model import reference_only, tolerance_requirements
 from .rules._bench import manual_bench
 from .rules._envelope import measurement_item
-from .rules.coordinates import CENTRE_OPS, OVERSHOOT_NOTE, dro_grid, dro_z, row_id
+from .rules.coordinates import (
+    CENTRE_OPS,
+    OVERSHOOT_NOTE,
+    dro_grid,
+    dro_z,
+    faced_aim_claims,
+    row_id,
+)
 from .rules.hold_fields import align_indicator, align_travel
 from .rules.inspection import ZONES, go_no_go_pair
 from .rules.resolution import (
@@ -54,7 +61,14 @@ from .rules.resolution import (
     uncertain,
 )
 from .rules.resolution import record as _mapping
-from .rules.tip_endpoints import FACING, SAME_Z, operative_z, stock_states
+from .rules.tip_endpoints import (
+    FACING,
+    SAME_Z,
+    arrival_zs,
+    operative_z,
+    stock_states,
+    transfer,
+)
 from .rules.zero_recipe import DIRECTIONS as _SIGNS
 from .rules.zero_recipe import FACE_Z_TOL_MM
 
@@ -4244,6 +4258,32 @@ class _Traveler:
             f" (aimed at {_number(aim['value'])})."
         )
 
+    def faced_aim_note(self, setup, op):
+        """Each faced aim (plan ``aims`` naming a ``face``) once, at the last facing op that
+        claims its face (:func:`~.rules.coordinates.faced_aim_claims`): the length it faces
+        to, at no fewer places than the drawing's, the band that holds it and the aim's
+        reason. Empty at any other op."""
+        scale = {"mm": 1.0, "in": 25.4}.get(self.units)
+        notes = []
+        for name, aim in _mapping(self.plan.get("aims")).items():
+            face = _mapping(aim).get("face")
+            claims = faced_aim_claims(self.plan, name, face) if face is not None else []
+            if not (scale and claims and claims[-1] is op):
+                continue
+            requirement = aim["requirement"]
+            value, places = aim["value_mm"] / scale, self.precision(name, requirement)
+            shown = _number(value)
+            if isinstance(places, int) and len(shown.partition(".")[2]) < places:
+                shown = _number(value, places)
+            band = _mapping(self.bundle.feature_definitions.get(name)).get(requirement, "unknown")
+            reason = self.bench(aim["reason"], setup).rstrip(".")
+            notes.append(
+                f"{self.feature_name(name).capitalize()} "
+                f"{_REQUIREMENT_NAMES.get(requirement, requirement)} faced to {shown} "
+                f"(band {self.band(band, name, requirement)}): {reason}."
+            )
+        return " ".join(notes) or None
+
     # ------------------------------------------------------------------ tools
     def tool_pair(self, tool, holder):
         """A tool + holder pair as the items they select (:func:`identity`): ``tools.drill``
@@ -5169,6 +5209,7 @@ class _Traveler:
                         self.bench(note, setup) if note else None,
                         derivation,
                         self.compound_note(setup, op),
+                        self.faced_aim_note(setup, op),
                     ],
                 )
             )
@@ -6224,6 +6265,12 @@ class _Traveler:
         parts = []
         if _known(state.get("od_mm")):
             parts.append(f"Ø{o(state['od_mm'])}")
+        # Each arriving surface as the DRO shows it, as every other line prints it; the Zs
+        # carried over from the setup it arrives from, and that one transform.
+        arrival = arrival_zs(self.bundle, setup)
+        move = transfer(self.bundle, setup)
+        carried = move["carried"] if move else {}
+        stated, derived = [], []
         for key, label in (
             ("top_z", "top"),
             ("bottom_z", "bottom"),
@@ -6234,16 +6281,40 @@ class _Traveler:
         ):
             if key not in state:
                 continue
-            value = state[key]
             name = label
             if key == "top_z" and state.get("top_feature"):
                 name = f"top ({self.feature_name(state['top_feature'])})"
-            # Each arriving surface as the DRO shows it, as every other line prints it.
-            value = self.surface_z(setup, value, face="top" if key == "top_z" else None)
-            parts.append(f"{name} at Z {o(value)}" if _known(value) else f"{name} Z ? not set")
+            stated.append(label)
+            printed = arrival[key][1] if key in arrival else state[key]
+            if key in carried and printed == carried[key][1]:
+                derived.append(label)
+            parts.append(f"{name} at Z {o(printed)}" if _known(printed) else f"{name} Z ? not set")
         line = self.flip(setup) + f"Starts from: {self.arrival(setup)}"
         if parts:
             line += " — " + ", ".join(parts)
+        grid = dro_grid(self.bundle, setup)
+        if derived and (
+            abs(move["shift"] - move["offset"]) > SAME_Z
+            or any(z != dro_z(exact, grid) for exact, z in carried.values())
+        ):
+            # The transfer rounded its offset, or carried the sheet before's rounding: show
+            # the one transform every carried Z took, at every place it holds.
+            who = "each Z" if derived == stated else " and ".join(derived) + " Z"
+            before = f"its Setup {move['before']['id']} Z"
+            plus = "−" if move["shift"] < 0 else "+"
+            shift = abs(move["shift"])
+            line += (
+                f" ({who} = {f'−({before})' if move['sign'] < 0 else before} {plus} "
+                f"{o(shift, max(self.decimals, _places(shift)))})"
+            )
+        elif move and move["shift"] is None:
+            # The Zs the sheet before printed are not whole steps of this DRO apart: say so,
+            # rather than name a transform rounding each alone would break.
+            line += (
+                f" (each Z on this DRO's {o(grid[0])} steps by itself: Setup "
+                f"{move['before']['id']}'s Zs are not whole steps apart, so no one shift "
+                "carries them)"
+            )
         line += "." + self.joint_text(setup)
         if state.get("note"):
             line += " " + self.bench(state["note"], setup).rstrip(".") + "."

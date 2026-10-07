@@ -414,18 +414,26 @@ type Procedure = str | Annotated[list[str], Field(min_length=1)]
 
 
 class Aim(InputModel):
-    """A located feature's DRO target moved off its drawing nominal so its height-like band
-    from ``height_from`` (``height_above_pivot``, ``height`` or ``separation``) reads
-    ``value_mm``: a stated process choice printed beside the target, never geometry."""
+    """A drawing requirement held at a stated value inside its band: a process choice.
+
+    Without ``face``, a located feature's DRO target moved off its drawing nominal so its
+    height-like band from ``height_from`` (``height_above_pivot``, ``height`` or
+    ``separation``) reads ``value_mm``, printed beside the target, never geometry. With
+    ``face``, the faced length between the feature's ``lower_z`` and ``upper_z`` planes
+    held at ``value_mm`` by moving that one faced plane: the kernel cuts the part with the
+    face there."""
 
     requirement: str
     value_mm: float
     reason: str
+    face: str | None = None
 
     @model_validator(mode="after")
     def stated(self) -> Aim:
         _known_text(self.requirement, "An aim requirement")
         _known_text(self.reason, "An aim reason")
+        if self.face is not None:
+            _known_text(self.face, "An aim face")
         return self
 
 

@@ -118,19 +118,22 @@ def _same(a, b, tol):
     return all(number(v) for v in (*a[:2], *b[:2])) and math.dist(a[:2], b[:2]) <= tol
 
 
-def level_paths(bundle, setup, numbers, states, grid, units, dro_z):
-    """``(records, debts)``: one record per path op (see the module docstring)."""
+def level_paths(bundle, setup, numbers, states, grid, units, dro_z, top):
+    """``(records, debts)``: one record per path op (see the module docstring). ``top``
+    prints the stock top before op ``done`` as the setup prints it
+    (:func:`~.tip_endpoints.operative_z`): a start on the top, and the lift above it."""
     scale = {"mm": 1.0, "in": 25.4}.get(units)
     box = stock_box(bundle, setup)
     tolerance = grid[0] / 2
     entries = {str(e.get("op")): e for e in numbers.get("operations") or []}
-    before = {str(op.get("op")): (op, b) for op, b, _ in states}
+    before = {str(op.get("op")): (op, b, done) for done, (op, b, _) in enumerate(states)}
     profiles = {}
     for profile in numbers.get("profiles") or []:
         profiles.setdefault(str(profile.get("op")), profile)
     records, debts = [], []
     for op_id, pieces in _pieces(numbers).items():
-        op, prior = before.get(op_id, ({}, {}))
+        op, prior, done = before.get(op_id, ({}, {}, 0))
+        printed_top = top(prior["top_z"], done=done) if "top_z" in prior else UNKNOWN
         entry = entries.get(op_id, {})
         profile = profiles.get(op_id, {})
         levels = mapping(entry.get("z_levels"))
@@ -145,7 +148,8 @@ def level_paths(bundle, setup, numbers, states, grid, units, dro_z):
             depths = UNKNOWN
         start = levels.get("dro_start_z") if levels else None
         if start is None:
-            start = dro_z(profile.get("entry_z", prior.get("top_z", UNKNOWN)), grid)
+            entry_z = profile.get("entry_z")
+            start = printed_top if entry_z is None else dro_z(entry_z, grid)
         radius = length_mm(resolve(bundle, "tools", op.get("tool")) or {}, "dia")
         radius = radius / 2 if number(radius) else UNKNOWN
         raster = any(is_raster for _, is_raster in pieces)
@@ -192,10 +196,10 @@ def level_paths(bundle, setup, numbers, states, grid, units, dro_z):
         several = isinstance(depths, list) and len(depths) > 1
         returns = raster or len(downs) > 1 or (several and not closed)
         if returns:
-            approach, top = op.get("approach_mm", UNKNOWN), prior.get("top_z", UNKNOWN)
+            approach = op.get("approach_mm", UNKNOWN)
             raised = (
-                dro_z(top + approach / scale, grid)
-                if scale and number(approach) and number(top)
+                dro_z(printed_top + approach / scale, grid)
+                if scale and number(approach) and number(printed_top)
                 else UNKNOWN
             )
             record["raise_z"] = raised
