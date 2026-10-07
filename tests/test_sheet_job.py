@@ -147,3 +147,50 @@ def test_the_abbreviation_key_lists_only_abbreviations_the_sheets_print(shaft, r
             assert (f"{abbreviation} = " in key) is used, (abbreviation, key)
     # The shaft is turned: no endmill prints, so its key has no endmill entry.
     assert "EM = " not in text(pages(shaft[1])[0])
+
+
+def plan_setups(folder):
+    plan = (ROOT / "examples" / folder / "plan.toml").read_text(encoding="utf-8")
+    return tomllib.loads(plan)["setups"]
+
+
+def setup_pages(html, sid):
+    return [page for page in pages(html) if f"<h2>SETUP {sid} — " in page]
+
+
+def test_a_jaw_round_bar_prints_at_the_height_it_is_held(bracket, rocker):
+    # The bar's centre is half the height the jaws grip (the work's, up to the jaw top),
+    # so the whole 6.35 bar (the inventory's) bears inside the jaw, however tall the work.
+    for folder, (_, html) in (("pivot-bracket", bracket), ("rocker-arm", rocker)):
+        barred = [s for s in plan_setups(folder) if s.get("hold", {}).get("jaw_bar")]
+        assert barred
+        for setup in barred:
+            jaw = setup["hold"]["jaw_above_parallels_mm"]
+            state = setup["stock_state"]
+            gripped = min(jaw, state["top_z"] - state["bottom_z"])
+            hold = text(sections(setup_pages(html, setup["id"])[0], "HOLD")[0])
+            centre = re.search(r"Round bar:[^|]*centre ([\d.]+) mm above the parallels", hold)
+            assert centre, (setup["id"], hold)
+            assert float(centre[1]) == pytest.approx(gripped / 2, abs=5e-4), setup["id"]
+            assert float(centre[1]) + 6.35 / 2 <= jaw, setup["id"]
+
+
+def test_a_measured_raw_top_is_faced_down_no_deeper_per_pass_than_the_setup_cuts(bracket, rocker):
+    # A raw top measured above the ops' start level is faced down first: the DRO ZERO says
+    # how deep per pass from the setup's own doc_mm, and no other line contradicts it.
+    for folder, (_, html) in (("pivot-bracket", bracket), ("rocker-arm", rocker)):
+        measured = [
+            s
+            for s in plan_setups(folder)
+            if s.get("zero", {}).get("z", {}).get("method") == "measure_then_set"
+            and s["zero"]["z"].get("face") == "top"
+        ]
+        assert measured
+        for setup in measured:
+            doc = min(op["doc_mm"] for op in setup["ops"] if "doc_mm" in op)
+            pages_of = setup_pages(html, setup["id"])
+            zero = text(sections(pages_of[0], "DRO ZERO")[0])
+            caps = re.findall(r"no more than ([\d.]+) per pass", zero)
+            assert caps, (setup["id"], zero)
+            every = re.findall(r"no more than ([\d.]+) per pass", text("".join(pages_of)))
+            assert [float(cap) for cap in every] == [pytest.approx(doc)] * len(every)

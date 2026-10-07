@@ -129,7 +129,9 @@ Measurement conventions (setup frame, tool axis +Z):
 * Process features (job ``process_features``, op ``process_cut``): plan-declared stock
   preparation, never finished faces and never coverage. An ``end_face`` is the stock's
   section in its plane (one transient disc a facing op claims and faces like any to_z
-  claim); a ``centre_hole`` is its exact countersink, pilot and point faces about
+  claim); a milled one removes only the stock its op's generated cutter-centre passes
+  sweep from ``to_z`` up (``sweep``), so a shallow or misplaced pass leaves its slab. A
+  ``centre_hole`` is its exact countersink, pilot and point faces about
   ``axis`` (into the kept material), and its op removes that analytic revolved solid
   (the countersink extended 1 mm out of the face) less component-owned finished material,
   then measures the whole combined drill and countersink (point, pilot, countersink on to
@@ -1727,6 +1729,33 @@ def _path_area(centre, radius):
     return centre.makeOffset2D(radius, 0, True, False, False)
 
 
+def _centre_sweep(paths, radius, top):
+    """The solid a cutter of ``radius`` sweeps along level cutter-centre ``paths`` (each
+    ``(setup-frame xy points, tip z)``): every point within the radius of a path, standing
+    from its tip up to ``top``; None when every path stands at or above ``top``. OCC
+    failures raise."""
+    pieces = []
+    for xy, z0 in paths:
+        points = []
+        for x, y in xy:
+            point = V(x, y, 0)
+            if not points or (point - points[-1]).Length > PLANE_TOL:
+                points.append(point)
+        if z0 >= top:
+            continue
+        if len(points) == 1:
+            area = Part.Face(Part.Wire(Part.makeCircle(radius, points[0])))
+        else:
+            if len(points) > 2 and (points[-1] - points[0]).Length <= PLANE_TOL:
+                points[-1] = points[0]
+            area = _path_area(Part.makePolygon(points), radius)
+        area.translate(V(0, 0, z0))
+        pieces.extend(face.extrude(V(0, 0, top - z0)) for face in area.Faces)
+    if not pieces:
+        return None
+    return (pieces[0].fuse(pieces[1:]) if len(pieces) > 1 else pieces[0]).removeSplitter()
+
+
 def _sweep_window(sweep):
     """A box holding a whole +Z claim sweep."""
     box = _bbox(sweep)
@@ -2292,7 +2321,16 @@ def _straight_sweep(shape, vector):
 # Engine hold kind -> the _Setup method that places it (None = placed, else why not).
 _PLACERS = {"vise": "_place", "chuck": "_place_chuck", "solids": "_place_solids"}
 # Vise grip-zone facts; other holdings leave them unknown with the placement reason.
-_VISE_FACTS = ("parallel_pair", "width_mm", "contact_grip_mm", "claimed_in_jaws", "min_wall_mm")
+# ``jaw_separation_mm`` is the jaw opening the hold needs (the work's width plus a round
+# bar's Ø), ``width_mm`` the work's own.
+_VISE_FACTS = (
+    "parallel_pair",
+    "width_mm",
+    "jaw_separation_mm",
+    "contact_grip_mm",
+    "claimed_in_jaws",
+    "min_wall_mm",
+)
 # Components whose interpenetration with the entering stock is a declaration error.
 _SOLID_ROLES = frozenset(("chuck_jaw", "chuck_body", "head", "centre", "fixture", "clamp", "riser"))
 # Components a held stock piece may be pressed onto: never a clamp, a rest or other stock.
@@ -3556,11 +3594,7 @@ class _Setup:
         matrix, frame_reason = _frame_matrix(self.setup.get("frame"))
         facts = {
             "fixture_rendered": False,
-            "parallel_pair": UNKNOWN,
-            "width_mm": UNKNOWN,
-            "contact_grip_mm": UNKNOWN,
-            "claimed_in_jaws": UNKNOWN,
-            "min_wall_mm": UNKNOWN,
+            **dict.fromkeys(_VISE_FACTS, UNKNOWN),
             "reasons": {},
         }
         if matrix is not None:
@@ -3596,13 +3630,7 @@ class _Setup:
             )
             facts["reason"] = frame_reason
             facts["fixture_reason"] = frame_reason
-            for key in (
-                "parallel_pair",
-                "width_mm",
-                "contact_grip_mm",
-                "claimed_in_jaws",
-                "min_wall_mm",
-            ):
+            for key in _VISE_FACTS:
                 facts["reasons"][key] = frame_reason
             ops = {}
             for op in self.ops:
@@ -3623,13 +3651,7 @@ class _Setup:
             self._use(self.certain)
             self.box = _bbox(self.finished)
             facts["stock_reason"] = self.fixture_reason = self.stock_reason
-            for key in (
-                "parallel_pair",
-                "width_mm",
-                "contact_grip_mm",
-                "claimed_in_jaws",
-                "min_wall_mm",
-            ):
+            for key in _VISE_FACTS:
                 facts["reasons"][key] = self.stock_reason
         # Lathe chucks grip radially: their thin-wall fact is the run of material under each
         # jaw. ``chuck`` is set only once the fixture-solid model has placed a chuck.
@@ -3875,7 +3897,7 @@ class _Setup:
         if cut.get("reason"):
             return None, cut["reason"]
         if cut.get("kind") == "end_face":
-            return self._slab_removal(cut, stock)
+            return self._slab_removal(op, stock)
         try:
             angle = cut.get("point_angle_deg")
             exact, led = (_centre_solids(cut, angle, lead) for lead in (0.0, 1.0))
@@ -3901,27 +3923,39 @@ class _Setup:
             return None, None
         return removal, None
 
-    def _slab_removal(self, cut, stock):
-        """(the stock beyond a milled process end face, or None, and why it is unknown).
+    def _slab_removal(self, op, stock):
+        """(the stock a milled process end face op cuts, or None, and why it is unknown).
 
-        The half-space on the far side of the plane from ``axis`` (into the kept material)
-        is removed whole: a squaring cut faces the entire section. Cutting into finished
-        target material is never stock preparation, so it leaves the stock unknown with the
-        volume it would spoil.
+        The op cuts what its generated cutter-centre passes sweep (``sweep``: setup-frame
+        polylines from ``to_z_mm`` up, :func:`_centre_sweep`), never the whole slab past
+        the face's plane: a pass too shallow, too short or off the stock leaves its
+        material, for the prepared blank to refuse. Cutting into finished target material
+        is never stock preparation, so it leaves the stock unknown with the volume it would
+        spoil.
         """
+        cut = op["process_cut"]
+        sweep = cut.get("sweep")
+        if not isinstance(sweep, dict):
+            return None, f"{cut['label']} has no cutter-centre passes, so its cut is unknown"
+        radius = _positive(op, "radius_mm")
+        if radius is None:
+            return None, f"the cutter radius is unknown, so the {cut['label']} cut is unknown"
         try:
-            at, axis = _process_place(cut)
-        except _Unknown as exc:
-            return None, str(exc)
-        centre = self.matrix.inverse().multVec(stock.BoundBox.Center)
-        reach = stock.BoundBox.DiagonalLength + 10.0 + (centre - at).Length
-        beyond = self._placed(Part.makeCylinder(reach, reach, at - axis * reach, axis))
-        removal = stock.common(beyond)
+            swept = _centre_sweep(
+                [(path, sweep["to_z_mm"]) for path in sweep["paths"]],
+                radius,
+                _bbox(stock)[5] + COVER_MM,
+            )
+        except Exception as exc:  # OCC offset failures: the swept stock is unknown
+            return None, f"{cut['label']} cutter sweep is unknown ({exc})"
+        if swept is None:
+            return None, None
+        removal = stock.common(swept)
         if self.protected.Volume > HIT_MM3:
             spoiled = removal.common(self.protected).Volume
             if spoiled > HIT_MM3:
                 return None, (
-                    f"{cut['label']} plane cuts {_r(spoiled)} mm^3 of finished target "
+                    f"{cut['label']} cut takes {_r(spoiled)} mm^3 of finished target "
                     "material; the prepared blank is smaller than the part"
                 )
         if removal.isNull() or removal.Volume <= HIT_MM3:
@@ -4736,31 +4770,15 @@ class _Setup:
         """
         if id(op) in self.run_outs:
             return self.run_outs[id(op)]
-        table, pieces, result = op["checkpoints"], [], (None, None)
+        table, result = op["checkpoints"], (None, None)
         top = _bbox(self.part)[5] + COVER_MM
         try:
             if table.get("reason"):
                 raise ValueError(table["reason"])
-            for path in table.get("paths", []):
-                points = []
-                for x, y in path["xy_mm"]:
-                    point = V(x, y, 0)
-                    if not points or (point - points[-1]).Length > PLANE_TOL:
-                        points.append(point)
-                z0 = path["tip_z_mm"]
-                if z0 >= top:
-                    continue
-                if len(points) == 1:
-                    area = Part.Face(Part.Wire(Part.makeCircle(radius, points[0])))
-                else:
-                    if len(points) > 2 and (points[-1] - points[0]).Length <= PLANE_TOL:
-                        points[-1] = points[0]
-                    area = _path_area(Part.makePolygon(points), radius)
-                area.translate(V(0, 0, z0))
-                pieces.extend(face.extrude(V(0, 0, top - z0)) for face in area.Faces)
-            if pieces:
-                swept = pieces[0].fuse(pieces[1:]) if len(pieces) > 1 else pieces[0]
-                result = swept.removeSplitter(), None
+            paths = [(path["xy_mm"], path["tip_z_mm"]) for path in table.get("paths", [])]
+            swept = _centre_sweep(paths, radius, top)
+            if swept is not None:
+                result = swept, None
         except Exception as exc:  # an unknown printed row and OCC offset failures alike
             result = None, f"its printed cutter-centre run-out is unknown ({exc})"
         self.run_outs[id(op)] = result
@@ -5920,7 +5938,8 @@ class _Setup:
         moving_c = (lo - gap - depth, lo - gap) if sign > 0 else (hi + gap, hi + gap + depth)
         jaw_a = (centre - width / 2, centre + width / 2) if exact else (a_lo, a_hi)
         if bar:
-            reason = self._jaw_bar(bar, sign, a_axis, c_axis, lo if sign > 0 else hi, jaw_a)
+            moving_plane = lo if sign > 0 else hi
+            reason = self._jaw_bar(bar, sign, a_axis, c_axis, moving_plane, jaw_a, zone)
             if reason:
                 return reason
         self.jaws = {
@@ -5951,6 +5970,7 @@ class _Setup:
             "exact": exact,
         }
         facts["width_mm"] = _r(hi - lo)
+        facts["jaw_separation_mm"] = _r(hi - lo + gap)
         planes = {"fixed": hi if sign > 0 else lo, "moving": lo if sign > 0 else hi}
         outward = {"fixed": sign, "moving": -sign}
         grips, planar, contact_faces = [], [], {}
@@ -5972,9 +5992,14 @@ class _Setup:
         self._walls(facts)
         return None
 
-    def _jaw_bar(self, bar, sign, a_axis, c_axis, plane, jaw_a):
+    def _jaw_bar(self, bar, sign, a_axis, c_axis, plane, jaw_a, zone):
         """The round bar on the work's moving-jaw face, level with the middle of the work
-        held in the jaws and centred on them, or why it does not fit there."""
+        held in the jaws and centred on them, or why it does not fit there. The bar holds
+        the moving jaw off by its Ø only where it bears on the work: some of the jaw-held
+        work (``zone``) must lie within ``COVER_MM`` of the bar on the work's side, along
+        the bar's span, at the bar's height. A bar off the work (the jaws centred beyond
+        it, a bar shorter than the gap to it, a face that does not reach the bar's height)
+        leaves the jaws unplaced."""
         seat, upper = (
             self.box[2],
             min(self.box[2] + self.hold["jaw_above_parallels_mm"], self.box[5]),
@@ -5989,7 +6014,19 @@ class _Setup:
         base[a_axis] = (jaw_a[0] + jaw_a[1]) / 2 - length / 2
         base[c_axis] = plane - sign * radius
         direction[a_axis] = 1.0
-        self.jaw_bar = Part.makeCylinder(radius, length, V(*base), V(*direction))
+        solid = Part.makeCylinder(radius, length, V(*base), V(*direction))
+        probe, shift = solid.copy(), [0.0, 0.0, 0.0]
+        shift[c_axis] = sign * COVER_MM
+        probe.translate(V(*shift))
+        if zone.common(probe).Volume <= HIT_MM3:
+            span = [_r(base[a_axis]), _r(base[a_axis] + length)]
+            held = _bbox(zone)
+            return (
+                f"jaw_bar {bar['name']} spans {span} along {'xy'[a_axis]} at Z "
+                f"{_r(base[2])} but bears on no work there (the jaw-held work spans "
+                f"{[_r(held[a_axis]), _r(held[a_axis + 3])]}), so the moving jaw is unplaced"
+            )
+        self.jaw_bar = solid
         return None
 
     def _contact(self, zone, c_axis, plane, outward, seat, top):

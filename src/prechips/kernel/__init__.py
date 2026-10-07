@@ -217,6 +217,8 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
             else:
                 process_cut["point_angle_deg"] = binding["tool"]["point_angle_deg"]
                 process_cut["body_dia_mm"] = binding["tool"]["body_dia_mm"]
+        elif process_cut.get("kind") == "end_face" and not turned and "reason" not in process_cut:
+            process_cut.update(face_sweep(op, tables, bundle.features.get("units", UNKNOWN)))
         result["process_cut"] = process_cut
     if "faces" in op:
         result["faces"] = op["faces"]
@@ -301,6 +303,55 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
             "Selected tool/holder dimensions unmeasured or unavailable: " + ", ".join(missing)
         )
     return result
+
+
+def _xy(value):
+    return isinstance(value, list) and len(value) == 2 and all(number(v) for v in value)
+
+
+def face_sweep(op, tables, units):
+    """``{"sweep": ...}``: what a milled process end face op cuts, its generated
+    cutter-centre passes (the coordinates ``profiles`` the sheet prints for it) as
+    setup-frame mm polylines ``paths`` and its cutter end ``to_z_mm``. The kernel removes
+    only the stock that sweep reaches, never the whole slab past the face's plane: a pass
+    too shallow, too short or off the stock leaves its material. ``{"reason": ...}`` when
+    the passes or depth are unknown."""
+    scale = {"mm": 1.0, "in": 25.4}.get(units)
+    if scale is None:
+        return {"reason": f"feature units {units!r} are not mm or in"}
+    to_z = op.get("to_z", UNKNOWN)
+    if not number(to_z):
+        return {"reason": f"op {op.get('op')} to_z is unknown, so the face it cuts is unknown"}
+    profiles = [
+        profile
+        for profile in record(tables).get("profiles", [])
+        if isinstance(profile, dict) and profile.get("op") == op.get("op")
+    ]
+    if not profiles:
+        return {"reason": f"op {op.get('op')} prints no cutter-centre passes for its end face"}
+    paths = []
+    for profile in profiles:
+        why = next(
+            (
+                profile[key]
+                for key in ("raster_reason", "arc_reason", "clip_reason")
+                if key in profile
+            ),
+            None,
+        )
+        if why is not None:
+            return {"reason": f"op {op.get('op')} cutter-centre passes are unknown: {why}"}
+        centre = profile.get("cutter_centre")
+        if isinstance(centre, list) and centre and _xy(centre[0]):
+            centre = [centre]  # one path of points, not a list of passes
+        if not (
+            isinstance(centre, list)
+            and centre
+            and all(isinstance(path, list) and path and all(map(_xy, path)) for path in centre)
+        ):
+            return {"reason": f"op {op.get('op')} cutter-centre passes are unknown"}
+        paths.extend([[v * scale for v in point] for point in path] for path in centre)
+    return {"sweep": {"paths": paths, "to_z_mm": to_z * scale}}
 
 
 def _hand_inputs(bundle, op, subject, finishing):

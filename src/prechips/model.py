@@ -109,12 +109,14 @@ class StockComponent(InputModel):
 
 # The squared blank's acceptance checks: one gauge per size (``length``, ``section_0``,
 # ``section_1``, read against size ± tolerance) and one per form check, each form check
-# with its written method in ``methods``.
+# with its written method in ``methods`` and its limit in ``form_mm`` (the most, in mm,
+# its method's gauge may move over the face; the gauge's resolution must read it).
 PreparedChecks = record(
     "PreparedChecks",
     {**texts("length section_0 section_1 flat square parallel")},
 )
 PreparedMethods = record("PreparedMethods", {**texts("flat square parallel")})
+PreparedForm = record("PreparedForm", numbers("flat square parallel"))
 # The squared blank the route's first machining setup receives (docs/plan.md "Prepared
 # blank"): a box on the root stock's own axes, made from the rectangular root stock by
 # plan process end faces in the receiving setup's earlier stock lineage.
@@ -128,6 +130,7 @@ PreparedBlank = record(
         "tolerance_mm": Vector,
         "checks": PreparedChecks,
         "methods": PreparedMethods,
+        "form_mm": PreparedForm,
         "cite": Citations,
     },
 )

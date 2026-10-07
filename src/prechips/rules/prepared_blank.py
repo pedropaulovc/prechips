@@ -6,21 +6,28 @@ own axes, each size held to ``tolerance_mm`` (± per ``[section[0], section[1], 
 The root ``[stock]`` is the sawn bar; plan
 process ``end_face`` features made (``ACTIONS["end_face"]``: face ops, or side-milling
 profiles) by ops of earlier setups in the receiving setup's ``stock_in`` lineage trim
-it, and nothing else does. The rule compares that trimmed box with the declared one
-analytically (no kernel): a size or face outside its tolerance, including a face no
-earlier lineage op makes, is an error; so is a made face that is not square to the
-blank's axes. Any unknown size, placement, tolerance, unit or routing stays unknown,
-never a pass.
+it, and nothing else does. The rule first compares that trimmed box with the declared one
+analytically: a size or face outside its tolerance, including a face no earlier lineage
+op makes, is an error; so is a made face that is not square to the blank's axes. A plane
+says only where a face is meant to be, so the blank is certified from what the ops'
+printed passes cut: the kernel's stock handed on by the receiver's ``stock_in`` setup must
+fill the declared box within tolerance (a shallow, partial or missed face is an error;
+no kernel stock is unknown). Any unknown size, placement, tolerance, unit or routing stays
+unknown, never a pass; so does a preparation declared ``"unknown"``.
 
 Once the size passes, ``stock.prepared.checks`` resolve as the sheet's CHECK THE BLANK
 rows: the size checks through the inspection gauge capability against size ± tolerance,
-the form checks (flat, square, parallel) through an indicating inventory gauge plus a
-written ``stock.prepared.methods`` procedure. A missing gauge is an error; an undeclared
-check stays unknown.
+the form checks (flat, square, parallel) through an indicating inventory gauge whose
+verified resolution reads the ``form_mm`` limit, plus a written ``stock.prepared.methods``
+procedure. A missing gauge or one too coarse is an error; an undeclared check, limit or
+resolution stays unknown.
 """
+
+import math
 
 from prechips.findings import Finding
 from prechips.joint_features import _lineage
+from prechips.measurements import length_fact
 from prechips.process_features import ACTIONS, label, primitive, process_of
 from prechips.rules.inspection import _capability, procedure_known
 from prechips.rules.resolution import UNKNOWN, number, record, resolve, uncertain
@@ -30,6 +37,9 @@ SUBJECT = "stock.prepared"
 _CITE = "PLAN.md §4.1 stock: stock.prepared and plan.process_features end faces"
 # A made face whose normal is this close to a blank axis is square to it.
 _SQUARE = 1e-6
+# The kernel's stock fills its own box to this fraction (boolean round-off), else a pass
+# cut inside the blank.
+_FULL = 1e-6
 _NAMES = ("length", "section[0]", "section[1]")
 # stock.prepared.checks keys: the three sizes (in _NAMES order), then the form checks.
 _CHECKED = ("length", "section_0", "section_1")
@@ -148,20 +158,10 @@ def _evaluate(bundle, prepared):
     numbers["received_box_mm"] = [[round(v, 6) for v in span] for span in box]
     numbers["declared_box_mm"] = [[round(v, 6) for v in span] for span in declared]
     numbers["received_size_mm"] = [round(hi - lo, 6) for lo, hi in box]
-    errors = []
+    allowed = [tolerance[2], tolerance[0], tolerance[1]]
+    errors = _misfit(f"{receiver} receives", box, declared, allowed)
     if tilted:
-        errors.append("made face(s) not square to the blank's axes: " + ", ".join(tilted))
-    for name, (lo, hi), (want_lo, want_hi), allowed in zip(
-        _NAMES, box, declared, [tolerance[2], tolerance[0], tolerance[1]], strict=True
-    ):
-        size, want = hi - lo, want_hi - want_lo
-        off = max(abs(lo - want_lo), abs(hi - want_hi), abs(size - want))
-        if off > allowed + 1e-9:
-            errors.append(
-                f"{receiver} receives {name} {size:.3f} between {lo:.3f} and {hi:.3f}, not the "
-                f"declared {want:.3f} between {want_lo:.3f} and {want_hi:.3f} "
-                f"(±{allowed:g})"
-            )
+        errors.insert(0, "made face(s) not square to the blank's axes: " + ", ".join(tilted))
     if errors:
         if later:
             errors.append(
@@ -171,16 +171,86 @@ def _evaluate(bundle, prepared):
         return "error", numbers, "; ".join(errors)
     sizes = dict(zip(_CHECKED, [length, *section], strict=True))
     bands = {
-        key: [size - allowed, size + allowed]
-        for (key, size), allowed in zip(
-            sizes.items(), [tolerance[2], tolerance[0], tolerance[1]], strict=True
-        )
+        key: [size - tol, size + tol]
+        for (key, size), tol in zip(sizes.items(), allowed, strict=True)
     }
-    status, why = _checks(bundle, prepared, bands, numbers)
-    if status != "pass":
-        return status, numbers, why
+    # What the faces cut and how the blank is checked: the worse verdict stands.
+    verdicts = [
+        _cut(bundle, receiver, axes, declared, allowed, numbers),
+        _checks(bundle, prepared, bands, numbers),
+    ]
+    worst = max((status for status, _ in verdicts), key=_SEVERITY.get)
+    if worst != "pass":
+        return worst, numbers, "; ".join(why for status, why in verdicts if status == worst)
     faced = ", ".join(where for _, where in made) or "no op (as supplied)"
     return "pass", numbers, f"{receiver} receives the declared prepared blank, faced in {faced}"
+
+
+def _misfit(what, box, declared, allowed):
+    """Each blank axis whose ``box`` span is off the ``declared`` one by more than its
+    tolerance, as error clauses."""
+    errors = []
+    for name, (lo, hi), (want_lo, want_hi), tol in zip(_NAMES, box, declared, allowed, strict=True):
+        size, want = hi - lo, want_hi - want_lo
+        off = max(abs(lo - want_lo), abs(hi - want_hi), abs(size - want))
+        if off > tol + 1e-9:
+            errors.append(
+                f"{what} {name} {size:.3f} between {lo:.3f} and {hi:.3f}, not the "
+                f"declared {want:.3f} between {want_lo:.3f} and {want_hi:.3f} (±{tol:g})"
+            )
+    return errors
+
+
+def _cut(bundle, receiver, axes, declared, allowed, numbers):
+    """Whether the stock the kernel cut is the declared blank (``status``, why).
+
+    The process faces' planes say only where the route means to face. What its ops'
+    generated passes actually cut is the kernel's stock handed on by the receiver's
+    ``stock_in`` setup: its model-frame box, read along the blank axes, must lie within
+    each size's tolerance of the declared box (a shallow, partial or missed face leaves
+    its slab), and its volume must fill that box (a gouge takes volume inside it).
+    Without that stock (no kernel, or its stock unknown) the blank stays unknown. A blank
+    taken as supplied (``stock_in = "stock"``) is the root stock itself, checked
+    analytically."""
+    from prechips.kernel import run_geometry
+
+    source = next(
+        (s.get("stock_in", UNKNOWN) for s in bundle.plan["setups"] if s["id"] == receiver),
+        UNKNOWN,
+    )
+    if source == "stock":  # no earlier setup: nothing was cut, the analytic box is the blank
+        return "pass", ""
+    if source == UNKNOWN:
+        return "unknown", f"the stock routing into {receiver} is undeclared"
+    facts = record(run_geometry(bundle))
+    if facts.get("status") != "ok":
+        reason = facts.get("reason", UNKNOWN)
+        return "unknown", f"no kernel stock proves what the faces cut ({reason})"
+    handed = record(record(facts.get("setups")).get(source))
+    if handed.get("stock_out_reason"):
+        return "unknown", f"the stock {source} hands on is unknown ({handed['stock_out_reason']})"
+    bbox, volume = _vector(handed.get("stock_out_bbox_mm"), 6), handed.get("stock_out_volume_mm3")
+    if bbox is None or not number(volume):
+        return "unknown", f"the kernel reports no stock {source} hands on"
+    spans = []
+    for unit in axes:
+        index = next((k for k in range(3) if abs(abs(unit[k]) - 1.0) <= _SQUARE), None)
+        if index is None:
+            return "unknown", "the blank's axes are not model axes, so the cut box is unread"
+        lo, hi = bbox[index], bbox[index + 3]
+        spans.append([lo, hi] if unit[index] > 0 else [-hi, -lo])
+    numbers["cut_box_mm"] = [[round(v, 6) for v in span] for span in spans]
+    numbers["cut_volume_mm3"] = volume
+    errors = _misfit(f"{source} hands on", spans, declared, allowed)
+    full = math.prod(hi - lo for lo, hi in spans)
+    if volume < full * (1 - _FULL):
+        errors.append(
+            f"{source} hands on {volume:.3f} mm^3, short of its {full:.3f} mm^3 box: "
+            "a pass cut inside the blank"
+        )
+    if errors:
+        return "error", "the faces cut a different blank: " + "; ".join(errors)
+    return "pass", ""
 
 
 def _checks(bundle, prepared, bands, numbers):
@@ -188,6 +258,7 @@ def _checks(bundle, prepared, bands, numbers):
     against size ± tolerance (:func:`prechips.rules.inspection._capability`), each form
     check by a form gauge with its written method. Undeclared checks stay unknown."""
     checks, methods = record(prepared.get("checks")), record(prepared.get("methods"))
+    limits = record(prepared.get("form_mm"))
     results, worst = {}, "pass"
     for key in (*_CHECKED, *_FORM):
         gauge_ref = checks.get(key, UNKNOWN)
@@ -200,7 +271,7 @@ def _checks(bundle, prepared, bands, numbers):
                 bundle, {"kind": "prepared_blank"}, key, bands[key], gauge_ref, {}, row
             )
         else:
-            status, message = _form(bundle, gauge_ref, methods.get(key), row)
+            status, message = _form(bundle, gauge_ref, methods.get(key), limits.get(key), row)
         row.update(status=status, message=message)
         results[key] = row
         worst = max(worst, status, key=_SEVERITY.get)
@@ -211,24 +282,38 @@ def _checks(bundle, prepared, bands, numbers):
     return worst, "blank check " + "; ".join(failing)
 
 
-def _form(bundle, gauge_ref, method, row):
-    """A flatness, squareness or parallelism check: a form gauge and a written method."""
+def _form(bundle, gauge_ref, method, limit, row):
+    """A flatness, squareness or parallelism check: a form gauge whose verified resolution
+    reads the check's ``form_mm`` limit (as an inspection geometric tolerance: resolution
+    no coarser than the limit), and a written method. An unknown limit or resolution stays
+    unknown."""
     gauge = resolve(bundle, "gauges", gauge_ref) if gauge_ref != UNKNOWN else None
     row["method"] = method if method is not None else UNKNOWN
+    row["limit_mm"] = limit if number(limit) else UNKNOWN
     if gauge is None:
         return "unknown", "the check's gauge is undeclared"
     if gauge.get("kind", UNKNOWN) not in _FORM_GAUGES:
         return "error", f"a {gauge.get('kind', UNKNOWN)} cannot read flatness or squareness"
+    # Only the resolution fact's own trust lets it establish or refute capability.
+    fact = length_fact(gauge, "resolution", require_measured=False)
+    resolution = fact["value"] if fact["verified"] else UNKNOWN
+    row["resolution_mm"] = resolution
     if not procedure_known(method):
         return "unknown", "the check's method is unwritten"
+    if not (number(limit) and limit > 0):
+        return "unknown", "the check's form limit (form_mm) is undeclared"
+    if not number(resolution):
+        return "unknown", "the gauge's resolution is unknown"
     if uncertain(gauge):
         return "unknown", "the gauge needs verification"
-    return "pass", "form gauge and written method"
+    if resolution > limit + 1e-9:
+        return "error", f"gauge resolution {resolution:g} mm is coarser than the {limit:g} limit"
+    return "pass", "form gauge reads the limit, with a written method"
 
 
 def evaluate(bundle):
-    prepared = record(bundle.plan.get("stock")).get("prepared")
-    if not isinstance(prepared, dict):
+    stock = record(bundle.plan.get("stock"))
+    if "prepared" not in stock:
         return [
             Finding(
                 RULE,
@@ -237,6 +322,19 @@ def evaluate(bundle):
                 {},
                 [_CITE],
                 "stock.prepared: the plan declares no prepared blank.",
+            )
+        ]
+    prepared = stock["prepared"]
+    if not isinstance(prepared, dict):
+        # Declared but unknown: a blank is prepared, and nothing says which.
+        return [
+            Finding(
+                RULE,
+                SUBJECT,
+                "unknown",
+                {"prepared": prepared},
+                [_CITE],
+                "stock.prepared: the prepared blank is declared unknown.",
             )
         ]
     status, numbers, why = _evaluate(bundle, prepared)

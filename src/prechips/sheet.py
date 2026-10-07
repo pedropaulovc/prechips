@@ -1411,7 +1411,9 @@ class _Traveler:
             steps.append(
                 "Round bar: "
                 + self.reference(hold["jaw_bar"], "fixtures")
-                + " between the work and the moving jaw, level with the work's middle."
+                + " between the work and the moving jaw, centred in the jaws, its centre "
+                + self.jaw_bar_height(setup, hold)
+                + "."
             )
         supports = hold.get("supports")
         if isinstance(supports, str) and supports not in ("none", "not_applicable", "unknown"):
@@ -1504,6 +1506,7 @@ class _Traveler:
         if receiver not in setups or setups[receiver].get("stock_in") != setup["id"]:
             return ""
         checks, methods = _mapping(prepared.get("checks")), _mapping(prepared.get("methods"))
+        limits = _mapping(prepared.get("form_mm"))
         section = prepared.get("section_mm")
         section = section if isinstance(section, list) and len(section) == 2 else [None] * 2
         sizes = [prepared.get("length_mm"), *section]
@@ -1522,16 +1525,30 @@ class _Traveler:
             limit = f"{size:g} ±{tol:g} mm" if _known(size) and _known(tol) else "? not set"
             rows.append(("size", limit, gauge(key)))
         for key in ("flat", "square", "parallel"):
-            method = methods.get(key)
-            rows.append((key, self.bench(method, setup) if method else "? not written", gauge(key)))
+            method, limit = methods.get(key), limits.get(key)
+            limit = f"within {limit:g} mm" if _known(limit) else "? limit not set"
+            method = self.bench(method, setup) if method else "? not written"
+            rows.append((key, f"{limit}: {method}", gauge(key)))
         return (
             f"<h2>CHECK THE BLANK — before SETUP {escape(receiver)}</h2>"
             + _p(
                 f"Process limits for the squared blank, not drawing limits: SETUP {receiver} "
                 "locates on these faces. File the edge burrs off and wipe the blank first."
             )
-            + _table(["check", "limit or method", "gauge"], rows, widths=[10, 65, 25])
+            + _table(["check", "limit and method", "gauge"], rows, widths=[10, 65, 25])
         )
+
+    def jaw_bar_height(self, setup, hold):
+        """Where the vise's round bar sits, as the kernel models it: its centre halfway up
+        the work the jaws hold, ``min(jaw_above_parallels_mm, top_z - bottom_z) / 2`` above
+        the parallels (the work's middle only when the jaws cover all of it)."""
+        state = _mapping(setup.get("stock_state"))
+        top, bottom = state.get("top_z"), state.get("bottom_z")
+        jaw = hold.get("jaw_above_parallels_mm")
+        if not (_known(top) and _known(bottom) and _known(jaw)):
+            return "? height not set (jaw height or stock top/bottom unknown)"
+        height = self.operative(min(jaw, top - bottom) / 2)
+        return f"{height} {_text(self.units)} above the parallels"
 
     def hold_facts(self, setup, hold, lathe):
         o = self.operative
@@ -2756,6 +2773,9 @@ class _Traveler:
                     ordered=True,
                 )
             )
+        correction = self.measured_top(setup)
+        if correction:
+            pieces.append(_p(correction))
         transfer = _mapping(authored.get("transfer"))
         if transfer:
             pieces.append(_p(self.transfer_line(setup, transfer) + "."))
@@ -2798,6 +2818,39 @@ class _Traveler:
             if record.get("note"):
                 pieces.append(_p(self.bench(record["note"])))
         return "".join(pieces)
+
+    def measured_top(self, setup):
+        """A mill Z zero set from a bench-measured M on the raw top (``measure_then_set`` on
+        face ``top``) puts that top at Z = M + offset, while the ops' levels start from the
+        declared stock top. A higher top is faced down to the declared top first, never
+        deeper per pass than the setup's shallowest declared ``doc_mm``: the cap is the
+        plan's, not prose. Empty for any other zero."""
+        touch = _mapping(_mapping(setup.get("zero")).get("z"))
+        if self.lathe(setup) or touch.get("method") != "measure_then_set":
+            return ""
+        if touch.get("face") != "top":
+            return ""
+        o = self.operative
+        offset, top = touch.get("offset_mm"), _mapping(setup.get("stock_state")).get("top_z")
+        if not (_known(offset) and _known(top)):
+            return "STOP: the measured top's Z is not set — offset_mm or stock top unknown."
+        raw = "M" if not offset else f"M {'−' if offset < 0 else '+'} {_number(abs(offset))}"
+        docs = [
+            op["doc_mm"]
+            for op in setup.get("ops", [])
+            if _known(op.get("doc_mm")) and op["doc_mm"] > 0
+        ]
+        scale = {"mm": 1.0, "in": 25.4}.get(self.units)  # doc_mm is mm; levels are plan units
+        if not docs:
+            cap = "? per pass: no op sets doc_mm"
+        elif scale is None:
+            cap = "? per pass: plan units unknown"
+        else:
+            cap = f"no more than {o(min(docs) / scale)} per pass"
+        return (
+            f"M puts the raw top at Z = {raw}; the ops' levels start from Z {o(top)}. If "
+            f"{raw} is above Z {o(top)}, first face the top down to Z {o(top)}, {cap}."
+        )
 
     def reading(self, value, expression=None):
         """DRO readings; a measured-diameter expression reads as plain arithmetic."""

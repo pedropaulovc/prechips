@@ -76,12 +76,13 @@ def _exported(feature: dict) -> list:
 
 def _prepared_blank(plan: dict, ids: list[str]) -> None:
     """A prepared blank names a known receiving setup and is cut from one rectangular root
-    stock; its size check (rule ``prepared_blank``) has no other root to trim."""
+    stock; its size check (rule ``prepared_blank``) has no other root to trim. An explicitly
+    ``"unknown"`` preparation names no setup: the rule leaves it unknown."""
     stock = plan.get("stock")
     prepared = stock.get("prepared") if isinstance(stock, dict) else None
     if prepared is None:
         return
-    receiver = prepared.get("setup", "unknown")
+    receiver = prepared.get("setup", "unknown") if isinstance(prepared, dict) else "unknown"
     if receiver != "unknown" and receiver not in ids:
         raise BadInput(f"stock.prepared.setup {receiver!r} is not a plan setup.")
     if stock.get("components") or "dia_mm" in stock:
