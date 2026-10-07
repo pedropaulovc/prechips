@@ -1539,16 +1539,18 @@ class _Traveler:
         )
 
     def jaw_bar_height(self, setup, hold):
-        """Where the vise's round bar sits, as the kernel models it: its centre halfway up
-        the work the jaws hold, ``min(jaw_above_parallels_mm, top_z - bottom_z) / 2`` above
-        the parallels (the work's middle only when the jaws cover all of it)."""
+        """Where the vise's round bar sits, as the kernel models it, in mm like the other
+        holding facts: its centre halfway up the work the jaws hold,
+        ``min(jaw_above_parallels_mm, top_z - bottom_z) / 2`` above the parallels (the
+        work's middle only when the jaws cover all of it). The stock heights are plan-unit
+        setup-frame values, so the work's height is unknown without the plan units."""
         state = _mapping(setup.get("stock_state"))
         top, bottom = state.get("top_z"), state.get("bottom_z")
         jaw = hold.get("jaw_above_parallels_mm")
-        if not (_known(top) and _known(bottom) and _known(jaw)):
-            return "? height not set (jaw height or stock top/bottom unknown)"
-        height = self.operative(min(jaw, top - bottom) / 2)
-        return f"{height} {_text(self.units)} above the parallels"
+        scale = {"mm": 1.0, "in": 25.4}.get(self.units)
+        if not (_known(top) and _known(bottom) and _known(jaw) and scale):
+            return "? height not set (jaw height, stock top/bottom or plan units unknown)"
+        return f"{self.operative(min(jaw, (top - bottom) * scale) / 2)} mm above the parallels"
 
     def hold_facts(self, setup, hold, lathe):
         o = self.operative
@@ -2824,7 +2826,8 @@ class _Traveler:
         face ``top``) puts that top at Z = M + offset, while the ops' levels start from the
         declared stock top. A higher top is faced down to the declared top first, never
         deeper per pass than the setup's shallowest declared ``doc_mm``: the cap is the
-        plan's, not prose. Empty for any other zero."""
+        plan's, not prose, in plan units rounded down onto the DRO grid so the printed cap
+        never exceeds it. Empty for any other zero."""
         touch = _mapping(_mapping(setup.get("zero")).get("z"))
         if self.lathe(setup) or touch.get("method") != "measure_then_set":
             return ""
@@ -2841,12 +2844,15 @@ class _Traveler:
             if _known(op.get("doc_mm")) and op["doc_mm"] > 0
         ]
         scale = {"mm": 1.0, "in": 25.4}.get(self.units)  # doc_mm is mm; levels are plan units
+        least = self.mm_on_grid(setup, min(docs), up=False) if docs and scale else None
         if not docs:
             cap = "? per pass: no op sets doc_mm"
         elif scale is None:
             cap = "? per pass: plan units unknown"
+        elif least <= 0:
+            cap = f"? per pass: the least doc_mm {_number(min(docs))} is under one DRO step"
         else:
-            cap = f"no more than {o(min(docs) / scale)} per pass"
+            cap = f"no more than {o(least)} per pass"
         return (
             f"M puts the raw top at Z = {raw}; the ops' levels start from Z {o(top)}. If "
             f"{raw} is above Z {o(top)}, first face the top down to Z {o(top)}, {cap}."
