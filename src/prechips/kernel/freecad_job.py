@@ -220,6 +220,7 @@ PROFILE_ACTIONS = {"profile", "rough_profile", "finish_profile"}  # walls clear 
 _CURVED_ANALYTIC = (Part.Cylinder, Part.Cone, Part.Sphere, Part.Toroid)
 FLAT_CHORD = 1e-4  # mm, chord error measuring a claimed wall's width along its edges
 CUSP_STEP_MM = 0.25  # mm: most height between sections of a non-upright skin-end neighbourhood
+CUSP_SLAB_MM = 0.01  # mm: least height of a slab of a skin-end neighbourhood below its top
 AREA_REL = AREA_ABS = 1e-6  # face-signature area tolerance (relative, absolute mm^2)
 BBOX_TOL = 1e-4  # mm, face-signature bbox tolerance
 PLANE_TOL = 1e-6  # mm, coplanarity of contact faces / interval ends
@@ -1930,75 +1931,114 @@ def _fitted(edge, tol, most=64):
     return None
 
 
-def _edge_reach(edge, radius):
-    """[level faces together covering exactly the points within ``radius`` of a line or
-    circular-arc ``edge``]: past either end of an open arc, its end is its nearest point."""
+def _edge_band(edge, radius):
+    """[level faces holding the points within ``radius`` of a line or circular-arc ``edge``
+    that lie beside it, nearest some inner point of it]: the band beside a line, the ring
+    sector beside an arc (a pie once ``radius`` passes the arc's own), the ring or disc round
+    a circle, so that with discs of ``radius`` about an open edge's ends they hold exactly
+    the points within ``radius`` of it. Each is built whole, with no Boolean and whatever
+    the edge's orientation; a line shorter than ``PLANE_TOL`` has none."""
     first, last = edge.FirstParameter, edge.LastParameter
     a, m, b = edge.valueAt(first), edge.valueAt((first + last) / 2), edge.valueAt(last)
 
     def disc(centre, size):
-        return Part.Face(Part.Wire(Part.makeCircle(size, centre)))
+        return Part.Wire(Part.makeCircle(size, centre))
+
+    def line(start, end):
+        return Part.LineSegment(start, end).toShape()
 
     if type(edge.Curve).__name__ == "Line":
-        return _stadium(a, b, radius).Faces if edge.Length > PLANE_TOL else [disc(a, radius)]
+        if edge.Length <= PLANE_TOL:
+            return []
+        side = V(-(b - a).y, (b - a).x, 0).normalize() * radius
+        corners = [a + side, b + side, b - side, a - side]
+        return [Part.Face(Part.makePolygon([*corners, corners[0]]))]
     centre, size = edge.Curve.Center, edge.Curve.Radius
     outer, inner = size + radius, size - radius
     if edge.isClosed():
-        ring = disc(centre, outer)
-        return [ring.cut(disc(centre, inner))] if inner > PLANE_TOL else [ring]
-    ta, tb = edge.tangentAt(first).normalize(), edge.tangentAt(last).normalize()
+        rims = [disc(centre, outer), *([disc(centre, inner)] if inner > PLANE_TOL else [])]
+        return Part.makeFace(rims, "Part::FaceMakerBullseye").Faces
     ua, um, ub = ((point - centre) * (1 / size) for point in (a, m, b))
     rim = Part.Arc(centre + ua * outer, centre + um * outer, centre + ub * outer).toShape()
     if inner <= PLANE_TOL:
-        spokes = [centre + ua * outer, centre + ub * outer]
-        sides = [Part.LineSegment(centre, spokes[0]), Part.LineSegment(spokes[1], centre)]
-        pie = Part.Face(Part.Wire([sides[0].toShape(), rim, sides[1].toShape()]))
-        return [pie, disc(a, radius), disc(b, radius)]
+        pie = [line(centre, centre + ua * outer), rim, line(centre + ub * outer, centre)]
+        return [Part.Face(Part.Wire(pie))]
     hub = Part.Arc(centre + ub * inner, centre + um * inner, centre + ua * inner).toShape()
-    caps = [
-        Part.Arc(centre + ub * outer, b + tb * radius, centre + ub * inner).toShape(),
-        Part.Arc(centre + ua * inner, a - ta * radius, centre + ua * outer).toShape(),
-    ]
-    return [Part.Face(Part.Wire([rim, caps[0], hub, caps[1]]))]
+    sector = [rim, line(centre + ub * outer, centre + ub * inner), hub]
+    sector.append(line(centre + ua * inner, centre + ua * outer))
+    return [Part.Face(Part.Wire(sector))]
+
+
+def _end_discs(ends, outer):
+    """[one level disc about each of the ``ends`` ((point, radius) pairs), those within
+    ``PLANE_TOL`` of the first of them sharing its disc]: the largest that holds each of
+    theirs when ``outer``, else the smallest that each of theirs holds. Each edge's own disc
+    about a shared end, or discs about one end a hair apart in radius, leave slivers that
+    OCC's Booleans misclassify."""
+    discs = []
+    for point, size in ends:
+        for disc in discs:
+            gap = (disc[0] - point).Length
+            if gap <= PLANE_TOL:
+                disc[1] = max(disc[1], size + gap) if outer else min(disc[1], size - gap)
+                break
+        else:
+            discs.append([point, size])
+    return [Part.Face(Part.Wire(Part.makeCircle(size, point))) for point, size in discs]
 
 
 def _grown(faces, radius, outer=True):
-    """[level faces whose union is the level ``faces`` each grown by ``radius``]: the faces
-    and the points within ``radius`` of each of their edges (:func:`_edge_reach`), exactly,
-    since a point off a face is nearest its boundary. A free-form edge no single line or
-    arc holds to ``PLANE_TOL`` gives way to the fewest lines and arcs within ``BBOX_TOL``
-    of it (:func:`_fitted`), reached by ``radius + BBOX_TOL`` so that the exact growth
-    lies inside the union when ``outer``; otherwise that would err outward and raises. OCC's
-    2D offset is not used: it fails on the B-splines that sections of swept round faces
-    leave, and quietly misplaces offsets of runs of short arcs."""
-    grown = list(faces)
+    """[level faces whose union is the level ``faces`` each grown by ``radius``]: the faces,
+    the points beside each of their edges within ``radius`` (:func:`_edge_band`) and discs
+    of ``radius`` about the edges' ends (:func:`_end_discs`), exactly, since a point off a
+    face is nearest its boundary. A free-form edge no single line or arc holds to
+    ``PLANE_TOL`` gives way to the fewest lines and arcs within ``BBOX_TOL`` of it
+    (:func:`_fitted`), reached by ``radius + BBOX_TOL`` so that the exact growth lies
+    inside the union when ``outer``; otherwise that would err outward and raises. OCC's 2D
+    offset is not used: it fails on the B-splines that sections of swept round faces leave,
+    and quietly misplaces offsets of runs of short arcs."""
+    grown, ends = list(faces), []
     for edge in (edge for face in faces for edge in face.Edges):
         exact = type(edge.Curve).__name__ in ("Line", "Circle")
-        pieces = [edge] if exact else _fitted(edge, PLANE_TOL, 1)
-        if pieces is not None:
-            grown += [part for piece in pieces for part in _edge_reach(piece, radius)]
-            continue
-        pieces = _fitted(edge, BBOX_TOL / 4) if outer else None
+        pieces, size = [edge] if exact else _fitted(edge, PLANE_TOL, 1), radius
         if pieces is None:
-            raise ValueError("no lines or arcs fit a free-form edge of a level section")
-        # Samples to a quarter of the tolerance and arcs within that of them stray at most
-        # three quarters of it from the run.
-        grown += [part for piece in pieces for part in _edge_reach(piece, radius + BBOX_TOL)]
-    return grown
+            pieces = _fitted(edge, BBOX_TOL / 4) if outer else None
+            if pieces is None:
+                raise ValueError("no lines or arcs fit a free-form edge of a level section")
+            # Samples to a quarter of the tolerance and arcs within that of them stray at
+            # most three quarters of it from the run.
+            size = radius + BBOX_TOL
+        for piece in pieces:
+            grown += _edge_band(piece, size)
+            if not piece.isClosed():
+                ends += [(piece.valueAt(piece.FirstParameter), size)]
+                ends += [(piece.valueAt(piece.LastParameter), size)]
+    return grown + _end_discs(ends, outer)
 
 
-def _cut_each(faces, tools):
-    """[the level ``faces`` less each of ``tools`` in turn], one face by one tool at a time:
-    overlapping tools of one Boolean can interfere, and OCC fails to cut some compounds of
-    faces whose faces it cuts."""
-    for tool in tools:
-        box = tool.BoundBox
-        faces = [
-            piece
-            for face in faces
-            for piece in (face.cut(tool).Faces if face.BoundBox.intersect(box) else [face])
-        ]
-    return faces
+def _level_section(solid, z):
+    """[the faces of ``solid``'s section at height ``z``, moved to height 0]: its common with
+    a level face a millimetre wider than its box all round, so no side of that face lies on
+    a face of the solid (OCC cannot intersect a prism swept down from a fillet face with a
+    level face whose side lies on the prism's, as one trimmed by the same box's side does).
+    An edge of the section off the height ``z`` by more than PLANE_TOL raises."""
+    box = solid.BoundBox
+    corners = [(box.XMin - 1, box.YMin - 1), (box.XMax + 1, box.YMin - 1)]
+    corners += [(box.XMax + 1, box.YMax + 1), (box.XMin - 1, box.YMax + 1)]
+    points = [V(x, y, z) for x, y in corners]
+    moved = []
+    for face in solid.common(Part.Face(Part.makePolygon([*points, points[0]]))).Faces:
+        for edge in face.Edges:
+            first, last = edge.FirstParameter, edge.LastParameter
+            if any(
+                abs(edge.valueAt(first + (last - first) * i / 4).z - z) > PLANE_TOL
+                for i in range(5)
+            ):
+                raise ValueError("a level section of what stays strays off its level")
+        face = face.copy()
+        face.translate(V(0, 0, -z))
+        moved.append(face)
+    return moved
 
 
 def _out_of_reach(obstacle, band, reach, centres, radius):
@@ -2010,22 +2050,26 @@ def _out_of_reach(obstacle, band, reach, centres, radius):
     ``centres`` outside the obstacle grown by ``radius``, and the discs about the legal
     centres are those grown back by ``radius`` (a morphological opening), each growth
     erring towards keeping more (:func:`_grown`), as does dropping legal slivers of no
-    area. Both growths are certified, since a Boolean on near-coincident edges can err
-    quietly: no legal centre nearer the obstacle than ``radius`` and no disc overlapping
-    it. OCC failures raise."""
+    area. Each growth is cut in one Boolean (cut a tool at a time, OCC's result hung on
+    the order) and certified, since a Boolean on coincident edges can err quietly: no legal
+    centre nearer the obstacle than ``radius``, no disc overlapping it, and the band's
+    unreached and covered shares adding up to it. OCC failures raise."""
     if not obstacle:
         return []
     region = obstacle[0].fuse(obstacle[1:]).removeSplitter() if len(obstacle) > 1 else obstacle[0]
     unreached = band.Faces
-    grown = _grown(region.Faces, radius)
-    legal = [face for face in _cut_each(centres.Faces, grown) if face.Area > CONTACT_MM2]
+    cut = centres.cut(_grown(region.Faces, radius))
+    legal = [face for face in cut.Faces if face.Area > CONTACT_MM2]
     if legal:
         if any(face.distToShape(region)[0] < radius - PLANE_TOL for face in legal):
             raise ValueError("a legal cutter centre lies within the radius of what stays")
         discs = _grown(legal, radius, outer=False)
-        if sum(face.common(disc).Area for face in region.Faces for disc in discs) > CONTACT_MM2:
+        if region.common(discs).Area > CONTACT_MM2:
             raise ValueError("a legal cutter's disc overlaps what stays")
-        unreached = _cut_each(unreached, discs)
+        unreached = band.cut(discs).Faces
+        covered = band.common(discs).Area
+        if abs(band.Area - covered - sum(face.Area for face in unreached)) > CONTACT_MM2:
+            raise ValueError("the band's unreached and covered shares do not add up to it")
     return [
         face
         for face in unreached
@@ -5221,9 +5265,10 @@ class _Setup:
         touching the band within ``radius + leave`` of the end, beyond the farthest a
         step's cusp reaches (sqrt((r + a)^2 - r^2) beside the round guard of radius a round
         a wall's convex edge, the cutter tangent to the plane and to that guard). Heights
-        split where a face of what it retains starts or stops, and every ``CUSP_STEP_MM``
-        where a face not standing upright spans them; a slab keeps what the shadow just
-        above its foot leaves, the widest over the slab. OCC failures raise.
+        split where a face of what it retains starts or stops (a slab thinner than
+        ``CUSP_SLAB_MM`` joining the one below), and every ``CUSP_STEP_MM`` where a face not
+        standing upright spans them; a slab keeps what the shadow just above its foot
+        leaves, the widest over the slab. OCC failures raise.
         """
         bottom, top = max(span[2], removed.BoundBox.ZMin), span[5]
         kept = [self._skin_cusp(stock, removed, step, bottom, top, leave, radius) for step in steps]
@@ -5267,10 +5312,14 @@ class _Setup:
                 if prism.Volume < 0:
                     prism.reverse()
                 prisms.append((prism, box.ZMax))
-        levels = sorted(
-            {bottom, top}
-            | {z for box, _ in faces for z in (box.ZMin, box.ZMax) if bottom < z < top}
-        )
+        heights = sorted({z for box, _ in faces for z in (box.ZMin, box.ZMax) if bottom < z < top})
+        # A slab thinner than CUSP_SLAB_MM joins the one below: its foot's shadow is the
+        # widest over both, and steps that thin break later Booleans.
+        levels = [bottom]
+        for z in heights:
+            if z - levels[-1] >= CUSP_SLAB_MM and top - z >= CUSP_SLAB_MM:
+                levels.append(z)
+        levels.append(top)
         pieces = []
         for lo, hi in zip(levels, levels[1:], strict=False):
             if hi - lo <= PLANE_TOL:
@@ -5284,13 +5333,9 @@ class _Setup:
             depth = (hi - lo) / count
             for foot in (lo + i * depth for i in range(count)):
                 z = foot + min(BBOX_TOL, depth / 4)
-                level = around(z)
                 shadow = []
                 for solid in [local, *(prism for prism, high in prisms if high > z)]:
-                    for face in solid.common(level).Faces:
-                        face = face.copy()
-                        face.translate(V(0, 0, -z))
-                        shadow.append(face)
+                    shadow += _level_section(solid, z)
                 for face in _out_of_reach(shadow, band, reach, centres, radius):
                     face = face.copy()
                     face.translate(V(0, 0, foot))

@@ -837,12 +837,16 @@ that rounding the cusp reaches `sqrt((r + a)² − r²)` past the end, where the
 cutter touches the plane and the rounding; above the wall, where no guard stands,
 the skin's sharp outer corner alone bounds it, `sqrt(r² − (r − min(a, r))²)`.
 Heights where the kept shape is not upright are taken in slabs at most 0.25 mm
-deep, each keeping what that shape just above its foot leaves. Both growths by r
-are exact unions of the shape and the reach of each of its edges (a free-form
-section edge is fitted with arcs within 1e-4 mm and reached that much farther,
-erring towards keeping stock), and are checked after the Booleans: a legal centre
-nearer the kept shape than r, a disc overlapping it, or a failed Boolean makes
-the stock unknown. No other op,
+deep, each keeping what that shape just above its foot leaves (the widest over
+the slab, since the shadow takes in all that stands above); a slab thinner than
+0.01 mm joins the one below. Each height's section is taken with a level face
+wider than the shape. Both growths by r
+are exact unions of the shape, the band beside each of its edges and one disc
+about each edge end (a free-form section edge is fitted with arcs within 1e-4 mm
+and reached that much farther, erring towards keeping stock); each is cut in one
+Boolean and checked after it: a legal centre nearer the kept shape than r, a disc
+overlapping it, a band whose covered and uncovered shares do not add up to it, or
+a failed Boolean makes the stock unknown. No other op,
 earlier or later, is credited with clearing it. A flat-bottomed cutter steps
 square onto a floor's skin and leaves no cusp; a step past the end of an inclined
 planar claim's skin, or a claim on a surface neither planar nor curved analytic,

@@ -16,7 +16,7 @@ import os
 import subprocess
 
 import pytest
-from test_kernel_geometry import ENGINE, Engine, _op, _setup, _vise
+from test_kernel_geometry import DATA, ENGINE, Engine, _op, _setup, _vise
 
 _AUTHOR = r"""
 import math
@@ -364,6 +364,210 @@ def test_a_flat_skin_stops_at_its_walls_edge_and_only_a_box_covering_its_cusp_cl
     assert ("part" in side_op["obstacles"]["tool"]) is met, side_op
     # Left in place, the cusp is the work's edge; cleared, the side box's own skin is.
     assert second["stock_bbox_mm"][0] == pytest.approx(3 - reach if met else 3 - LEAVE, abs=1e-4)
+
+
+# What a bounded rough keeps past a flat skin's end is certain where the faces of a
+# level section meet: two of the pivot bracket's S1:20 sections (leave 0.3, cutter radius
+# 4.7625) as the cusp handed them to ``_out_of_reach``, dumped as one compound of the band,
+# the reach, the legal-centre neighbourhood and then the faces of what stays. In "arcs"
+# (lines and arcs, eight faces nested in one another) the cuts tool by tool, and in
+# "b-spline" (the guard's rounding of the wall's edge a B-spline, its faces sharing the
+# rounding's ends) each edge's own disc about a shared end, left a legal centre a sliver
+# within the cutter's radius of what stays, and the stock unknown. The witness never asks
+# the kernel: it rebuilds what stays from plain rectangles and the rounding's circle,
+# a hair smaller and a hair larger than the dump (checked against it), grows them with
+# OCC's own arc offsets and measures how much room a cutter has to cover each sample.
+_REACH = r"""
+import importlib.util, json, os, sys
+import FreeCAD, Part
+V = FreeCAD.Vector
+out = sys.argv[sys.argv.index("--") + 1]
+spec = importlib.util.spec_from_file_location("reach_kernel", os.environ["KERNEL_SOURCE"])
+kernel = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(kernel)
+with open(out + "/case.json", encoding="utf-8") as handle:
+    case = json.load(handle)
+dump = Part.Shape()
+dump.importBrep(case["brep"])
+band, reach, centres, *obstacle = dump.childShapes()
+radius = case["radius"]
+try:
+    kept = kernel._out_of_reach(obstacle, band, reach, centres, radius)
+    case["reason"] = None
+except ValueError as exc:
+    kept, case["reason"] = [], str(exc)
+
+def rectangle(x0, y0, x1, y1):
+    points = [V(x0, y0, 0), V(x1, y0, 0), V(x1, y1, 0), V(x0, y1, 0)]
+    return Part.Face(Part.makePolygon(points + points[:1]))
+
+def disc(x, y, size):
+    return Part.Face(Part.Wire([Part.makeCircle(size, V(x, y, 0))]))
+
+def stays(slack, grow=0.0):
+    rectangles = [rectangle(*corners) for corners in case["rectangles"]]
+    if grow:
+        rectangles = [face.makeOffset2D(grow, 0, False, False, False) for face in rectangles]
+    discs = [disc(x, y, size + slack + grow) for x, y, size in case["guards"]]
+    return rectangles[0].fuse(rectangles[1:] + discs)
+
+tol = case["tol"]
+union = obstacle[0].fuse(obstacle[1:])
+case["dump_outside_witness"] = sum(face.cut(stays(tol)).Area for face in obstacle)
+case["witness_outside_dump"] = stays(-tol).cut(union).Area
+least, most = stays(tol, radius), stays(-tol, radius)
+for sample in case["samples"]:
+    point = V(*sample["point"], 0)
+    room = disc(point.x, point.y, radius).common(centres)
+    sample["legal_least"] = room.cut(least).Area
+    sample["legal_most"] = room.cut(most).Area
+    sample["retained"] = any(face.isInside(point, 1e-7, True) for face in kept)
+with open(out + "/kept.json", "w", encoding="utf-8") as handle:
+    json.dump(case, handle)
+"""
+
+
+def _reach_case(name):
+    radius, leave = 4.7625, 0.3
+    if name == "arcs":
+        # The wall plane x -8, its skin to x -8.3 above y -3, its rounding about (-8, -3).
+        return {
+            "radius": radius,
+            "rectangles": [(-8.3, -3.0, 6.2875, 11.2875), (-8.0, -3.3, 6.2875, 11.2875)],
+            "guards": [(-8.0, -3.0, leave)],
+            # Inside the rounding, beside it past the skin's corner, below the floor's
+            # corner and far down the band.
+            "samples": [
+                {"point": [-8.1, -3.1], "kept": True},
+                {"point": [-8.05, -3.25], "kept": True},
+                {"point": [-8.25, -3.25], "kept": False},
+                {"point": [-8.02, -3.4], "kept": False},
+                {"point": [-8.15, -8.0], "kept": False},
+            ],
+        }
+    # The wall plane y -3, its skin to y -3.3 out to x 7, its rounding about (6.9875, -3).
+    tangent = 6.9875 + math.sqrt((radius + leave) ** 2 - radius**2)
+    return {
+        "radius": radius,
+        "rectangles": [(-7.2875, -3.0, 9.0, 4.0), (-7.0, -3.3, 7.0, -3.0)],
+        "guards": [(6.9875, -3.0, leave), (-6.9875, -3.0, leave)],
+        # Just in front of the plane short of the cutter tangent to the plane and the
+        # rounding (beyond its disc by 0.04 and 0.012), past it, and well past it lower
+        # in the band.
+        "samples": [
+            {"point": [8.0, -3.01], "kept": True},
+            {"point": [8.3, -3.005], "kept": True},
+            {"point": [tangent + 0.2, -3.01], "kept": False},
+            {"point": [10.5, -3.2], "kept": False},
+        ],
+    }
+
+
+@pytest.mark.parametrize("name", ["arcs", "b-spline"])
+def test_a_skin_ends_cusp_is_certain_where_its_sections_faces_meet(freecad_kernel, tmp_path, name):
+    case = {
+        **_reach_case(name),
+        "brep": str(DATA / "cusp-reach" / f"pivot-bracket-{name}.brep"),
+        # The rounding's B-spline strays up to 1.4e-4 mm inside its circle.
+        "tol": 2e-4,
+    }
+    (tmp_path / "case.json").write_text(json.dumps(case), encoding="utf-8")
+    script = tmp_path / "reach.py"
+    script.write_text(_REACH, encoding="utf-8")
+    process = subprocess.run(
+        [freecad_kernel, str(script), "--", str(tmp_path)],
+        capture_output=True,
+        text=True,
+        errors="replace",
+        timeout=600,
+        env={**os.environ, "KERNEL_SOURCE": str(ENGINE)},
+    )
+    report = tmp_path / "kept.json"
+    assert report.exists(), process.stdout[-2000:] + process.stderr[-2000:]
+    result = json.loads(report.read_text(encoding="utf-8"))
+    # The witness brackets the dump: what stays lies inside its larger shape and holds its
+    # smaller one, so the room it leaves a cutter brackets the dump's.
+    assert result["dump_outside_witness"] < 1e-8, result
+    assert result["witness_outside_dump"] < 1e-8, result
+    samples = result["samples"]
+    assert [s for s in samples if s["kept"] and s["legal_most"] > 1e-9] == []
+    assert [s for s in samples if not s["kept"] and s["legal_least"] < 1e-6] == []
+    assert result["reason"] is None, result["reason"]
+    assert [s for s in samples if s["retained"] != s["kept"]] == []
+
+
+# The rocker arm's S2:40 bounded rough (leave 0.2, cutter radius 4.7625) as it met its
+# skins' eight ends: the stock and what its box removes before the cusp, dumped, with the
+# steps. Taking a level section of a prism swept down from a fillet face with the
+# neighbourhood box's own face, whose side lies on the prism's, OCC failed ("Null shape");
+# faces of what it keeps there start and stop a thousandth of a millimetre apart, and a
+# cusp slab that thin between them left the box's own removal, less the cusp, cutting an
+# invalid piece from the stock. Either left the stock unknown. The kernel's own removal
+# judges the piece; the volumes are checked apart from it.
+_SLABS = r"""
+import importlib.util, json, os, sys
+import FreeCAD, Part
+V = FreeCAD.Vector
+out = sys.argv[sys.argv.index("--") + 1]
+spec = importlib.util.spec_from_file_location("slab_kernel", os.environ["KERNEL_SOURCE"])
+kernel = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(kernel)
+with open(out + "/case.json", encoding="utf-8") as handle:
+    case = json.load(handle)
+with open(case["steps"], encoding="utf-8") as handle:
+    dump = json.load(handle)
+stock, removed = Part.Shape(), Part.Shape()
+stock.importBrep(case["stock"])
+removed.importBrep(case["removed"])
+steps = [
+    (tuple(V(*v) if isinstance(v, list) else v for v in frame), end, sign)
+    for frame, end, sign in dump["steps"]
+]
+setup = kernel._Setup
+cusps = setup._skin_cusps(setup, stock, removed, steps, dump["span"], dump["leave"], dump["radius"])
+left = removed.cut(cusps[0].fuse(cusps[1:]))
+pieces = [piece for piece in left.Solids if piece.Volume > kernel.HIT_MM3]
+own = pieces[0].fuse(pieces[1:]) if len(pieces) > 1 else pieces[0]
+kept, case["reason"] = setup._remove(stock, own, [])
+kept = kept or []
+case["cusps"] = [cusp.Volume for cusp in cusps]
+case["kept"] = [piece.Volume for piece in kept]
+case["kept_cusp"] = sum(piece.common(cusp).Volume for piece in kept for cusp in cusps)
+case["stock_mm3"], case["own_mm3"] = stock.Volume, own.Volume
+with open(out + "/kept.json", "w", encoding="utf-8") as handle:
+    json.dump(case, handle)
+"""
+
+
+def test_a_skin_ends_cusp_leaves_the_box_removal_one_valid_stock_piece_beside_fillets(
+    freecad_kernel, tmp_path
+):
+    data = DATA / "cusp-slabs"
+    case = {
+        "stock": str(data / "rocker-arm-stock.brep"),
+        "removed": str(data / "rocker-arm-removed.brep"),
+        "steps": str(data / "rocker-arm.json"),
+    }
+    (tmp_path / "case.json").write_text(json.dumps(case), encoding="utf-8")
+    script = tmp_path / "slabs.py"
+    script.write_text(_SLABS, encoding="utf-8")
+    process = subprocess.run(
+        [freecad_kernel, str(script), "--", str(tmp_path)],
+        capture_output=True,
+        text=True,
+        errors="replace",
+        timeout=900,
+        env={**os.environ, "KERNEL_SOURCE": str(ENGINE)},
+    )
+    report = tmp_path / "kept.json"
+    assert report.exists(), process.stdout[-2000:] + process.stderr[-2000:]
+    result = json.loads(report.read_text(encoding="utf-8"))
+    assert result["reason"] is None, result["reason"]
+    # One piece, holding what the cusps keep, with the stock's volume less the removal's.
+    assert len(result["cusps"]) == 8 and min(result["cusps"]) > 0, result["cusps"]
+    assert len(result["kept"]) == 1, result["kept"]
+    assert result["kept"][0] == pytest.approx(result["stock_mm3"] - result["own_mm3"], abs=1e-3)
+    assert result["kept_cusp"] == pytest.approx(sum(result["cusps"]), abs=1e-3)
 
 
 @pytest.mark.parametrize("action", ["mill", "finish_profile"])
