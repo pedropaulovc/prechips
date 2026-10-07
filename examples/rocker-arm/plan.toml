@@ -1153,7 +1153,7 @@ jaws_along = "not_applicable"
 parallels = "not_applicable"
 jaw_above_parallels_mm = "not_applicable"
 stop = "AUTHOR'S CHOICE: none; steady the arm by hand against the file stroke"
-clamp = "M6 nut on the button stud, hand tight, pressing the buttons on the two hub faces"
+clamp = "1/4-20 nut on the button stud over the spacer sleeve, hand tight, pressing the buttons on the two hub faces"
 
 [[setups.ops]]
 op = 10
@@ -1397,8 +1397,8 @@ position_dia = "rocker-position-height-gauge"
 [setups.ops.inspection_methods]
 position_dia = [
   "Inspection box (buy and adapt before S4; example dimensions, plausible, not measured): a bought Suburban BXP-050505-G 127 mm cast-iron box parallel, walls about 12.7. Mark its right side. AUTHOR'S CHOICE: the box is sold square within 0.0083 per 100, short of the 0.003 per 100 this check needs, so its actual base-to-right squareness is measured by reversal (steps 5 and 6) and the view-2 reading is corrected for it (step 16).",
-  "Box windows, milled on the PM-30MV with light cuts, the box held by toe clamps on parallels, never in the vise: two 32 x 24 clamp windows through the left wall, 12.7 to 44.7 behind the front face, at 38 to 62 and 83 to 107 above the base; one 80 x 80 access window in the back wall. Drill #29 and tap two M4 holes 10 deep in the front face, 8 and 28 from the left face, 6.35 above the base.",
-  "C stop bar: hardened O1, lapped 40 x 12.70 x 12.70 (top and bottom 12.700 ±0.002, parallel within 0.002), on the front face at its left end, projecting 12.7 forward. Stand the box and the bar together on the granite, bar pressed to the front face, and tighten its two M4 x 16 cap screws: its underside is then flush with the base and its lapped top 12.70 above it. No dowels.",
+  "Box windows, milled on the PM-30MV with light cuts, the box held by toe clamps on parallels, never in the vise: two 32 x 24 clamp windows through the left wall, 12.7 to 44.7 behind the front face, at 38 to 62 and 83 to 107 above the base; one 80 x 80 access window in the back wall. Drill #29 and tap two #8-32 holes 10 deep in the front face, 8 and 28 from the left face, 6.35 above the base.",
+  "C stop bar: hardened O1, lapped 40 x 12.70 x 12.70 (top and bottom 12.700 ±0.002, parallel within 0.002), on the front face at its left end, projecting 12.7 forward. Stand the box and the bar together on the granite, bar pressed to the front face, and tighten its two #8-32 x 5/8 in cap screws: its underside is then flush with the base and its lapped top 12.70 above it. No dowels.",
   "Equilibrate the part, the box, the gauge pins and the gauge blocks on the granite surface plate (gauges.granite-surface-plate) at 20 ±1 °C.",
   "Box squareness by reversal (each inspection session; never before the windows are milled), on the granite surface plate (gauges.granite-surface-plate), the 1 µm test indicator on the height gauge, a higher contact reading positive: (a) box on its base, indicator over the top face at one slider setting: read 10 in from the left face and 10 in from the right side; p = (right - left) x 100 / 107 = {p}. (b) Right side toward the gauge: read the right side at 10 and at 110 above the granite, moving only the slider; s1 = reading at 110 - reading at 10 = {s1}. (c) Roll the box over onto its top face about the axis square to the right side, so the right side still faces the gauge, and repeat (b): s2 = {s2}.",
   "Calculate: E_box = (s1 - s2 - p) / 2 = {E_box} per 100 (positive: the right side's top stands out past its foot, so the base-to-right angle is over 90°). The height-gauge column's own lean is in both s1 and s2 and cancels.",
