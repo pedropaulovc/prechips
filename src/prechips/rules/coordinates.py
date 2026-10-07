@@ -1687,7 +1687,7 @@ def _plunges(bundle, op, feature, reading=None):
     return result
 
 
-def _blade_target(bundle, setup, op, reading, grid):
+def _blade_target(bundle, setup, op, reading, grid, shift=0.0):
     """A grooving/parting blade op's ``to_z`` as the DRO reading of its reference corner,
     or None for any other op (a groove op prints its plunges instead).
 
@@ -1701,8 +1701,9 @@ def _blade_target(bundle, setup, op, reading, grid):
     back from it (off the grid when the width is), never below ``to_z``. A ``to_z_band``
     is in face coordinates too: ``corner_dro_band`` is the same band as readings of the
     reading corner, rounded inward onto the grid so every reading in it leaves the face
-    inside the band (an unknown end stays unknown). Unknown, with its ``reason``, when the
-    corner, the side or the blade width is."""
+    inside the band (an unknown end stays unknown); a DRO whose Z touch reads ``shift``
+    above where the tool stands (:func:`z_datum` ``error_mm``) shifts those readings up
+    with it. Unknown, with its ``reason``, when the corner, the side or the blade width is."""
     from .geometry_common import TURNING_BLADE_KINDS
     from .turned_profile import GROOVE_OPS
 
@@ -1743,10 +1744,12 @@ def _blade_target(bundle, setup, op, reading, grid):
     result.update(corner_dro_z=corner, formed_z=round(corner - offset, 9))
     ends = _band_ends(op)
     if ends is not None:
-        low, high = ends
+        low, high = (
+            end + offset + shift if number(end) and number(shift) else UNKNOWN for end in ends
+        )
         result["corner_dro_band"] = [
-            _grid(low + offset, *grid, True) if number(low) else UNKNOWN,
-            _grid(high + offset, *grid, False) if number(high) else UNKNOWN,
+            _grid(low, *grid, True) if number(low) else UNKNOWN,
+            _grid(high, *grid, False) if number(high) else UNKNOWN,
         ]
     return result
 
@@ -1760,21 +1763,36 @@ def _band_ends(op):
     return tuple(sorted(band)) if all(number(v) for v in band) else tuple(band)
 
 
-def _allowed_error(op, target):
+def _allowed_error(op, target, datum=None):
     """Why ``op``'s blade target forms its face outside the op's own ``to_z_band``, else
     None: rounding a reading through an off-grid blade width can carry the face past a
-    band end, so the printed target falls outside the readings printed as allowed."""
+    band end, and a DRO its Z touch set off its face (``datum``, :func:`z_datum`) stands
+    the face its ``error_mm`` lower, so the printed target falls outside the readings
+    printed as allowed."""
     ends, formed = _band_ends(op), target.get("formed_z")
-    if ends is None or not number(formed):
+    shift = mapping(datum).get("error_mm", 0.0)
+    if ends is None or not number(formed) or not number(shift):
         return None
     low, high = ends
-    if (number(low) and formed < low - 1e-9) or (number(high) and formed > high + 1e-9):
+    face = round(formed - shift, 9)
+    if (number(low) and face < low - 1e-9) or (number(high) and face > high + 1e-9):
         return (
             f"op {op['op']} prints Z {target['corner_dro_z']:g} for its "
             f"{target['reading_corner'].replace('_', '-')} corner, which forms its face at "
-            f"{formed:g}, outside its allowed {_text_z(low)} to {_text_z(high)}"
+            f"{face:g}{_datum_text(datum)}, outside its allowed {_text_z(low)} to "
+            f"{_text_z(high)}"
         )
     return None
+
+
+def _datum_text(datum):
+    """How the touch a DRO reads sets it off its face (:func:`z_datum`), for a message."""
+    if not number(mapping(datum).get("error_mm")):
+        return ""
+    return (
+        f" (its DRO Z set by a touch on {datum['face']} as {datum['shown_z']:g}, which stands "
+        f"at {datum['formed_z']:g})"
+    )
 
 
 def _text_z(value):
@@ -1782,20 +1800,26 @@ def _text_z(value):
 
 
 def formed_z(bundle, setup, op):
-    """The Z the face ``op`` leaves stands at once the DRO reads its printed target: a
-    lathe grooving/parting blade op's ``formed_z`` from the rounded reading of the corner
+    """Where the face ``op`` leaves physically stands once the DRO reads its printed target:
+    a lathe grooving/parting blade op's ``formed_z`` from the rounded reading of the corner
     its Z touch set (:func:`_blade_target`), when known; else ``dro_z(to_z)`` on
-    ``setup``'s grid. Coordinates records it as the op's ``dro_to_z``."""
-    from .zero_recipe import blade, blade_readings
+    ``setup``'s grid; less the ``error_mm`` the Z touch its DRO reads sets it off its own
+    face by (:func:`z_datum`), unknown when that is. Coordinates records the first as the
+    op's ``dro_to_z`` and the touch as its ``z_datum``."""
+    from .zero_recipe import blade, blade_readings, z_datum, z_readings
 
     grid = dro_grid(bundle, setup)
+    readings = z_readings(bundle, setup)
+    touch = readings.get(str(op.get("op")))
+    shift = mapping(touch and z_datum(bundle, setup, touch)).get("error_mm", 0.0)
+    face = dro_z(op.get("to_z", UNKNOWN), grid)
     if blade(bundle, op.get("tool")):
         # Empty off a lathe, where no blade corner reads the DRO.
-        reading = blade_readings(bundle, setup).get(str(op.get("op")))
+        reading = blade_readings(bundle, setup, readings).get(str(op.get("op")))
         target = reading and _blade_target(bundle, setup, op, reading, grid)
         if target and number(target.get("formed_z")):
-            return target["formed_z"]
-    return dro_z(op.get("to_z", UNKNOWN), grid)
+            face = target["formed_z"]
+    return round(face - shift, 9) if number(face) and number(shift) else UNKNOWN
 
 
 def _band(value):
@@ -2049,11 +2073,15 @@ def _sequence(tables):
 
 
 def _z_residuals(bundle, setup, grid, features, entries):
-    """Each finish op whose DRO depth misses its finished face by more than its feature's
-    narrowest numeric tolerance band: a final forming cut (``_cuts``) whose ``to_z`` ends
-    on that face (no ``exit_mm`` run-out past it) leaves it at its operation entry's
+    """Each finish op of a feature with a numeric tolerance band whose cut misses its
+    finished face: a final forming cut (``_cuts``) whose ``to_z`` ends on that face (no
+    ``exit_mm`` run-out past it) leaves it where its DRO reads its operation entry's
     ``dro_to_z`` (``entries`` by op): :func:`dro_z` above it, or for a blade the face its
-    rounded corner reading forms (``blade`` ``formed_z``)."""
+    rounded corner reading forms (``blade`` ``formed_z``). A DRO its Z touch set off that
+    touch's face (``z_datum``) cuts it ``error_mm`` lower. A cut standing above ``to_z`` by
+    more than the feature's narrowest band, or below it at all (deeper than authored,
+    which rounding never is), is an error; an unknown error leaves the op unchecked (the
+    caller's unknown)."""
     errors = []
     for op in setup["ops"]:
         to_z = op.get("to_z")
@@ -2065,20 +2093,34 @@ def _z_residuals(bundle, setup, grid, features, entries):
         band = _narrowest_band(feature)
         entry = mapping(entries.get(str(op["op"])))
         face = entry.get("dro_to_z", dro_z(to_z, grid))
+        datum = mapping(entry.get("z_datum"))
+        shift = datum.get("error_mm", 0.0)
+        if band is None or not number(shift):
+            continue
         blade = mapping(entry.get("blade"))
         printed = f"Z {face:.{grid[1]}f}"
         if number(blade.get("formed_z")):
             corner = blade["reading_corner"].replace("_", "-")
             printed = (
                 f"Z {blade['corner_dro_z']:.{grid[1]}f} for its {corner} corner, forming "
-                f"its face at {face:g},"
+                f"its face at {face:g}"
             )
-        residual = face - to_z
-        if band is not None and residual > band + _WALL_TOL:
+        cut = round(face - shift, 9)
+        if shift:
+            printed += f"{_datum_text(datum)}, and so cuts it at {cut:g}"
+        if shift or number(blade.get("formed_z")):
+            printed += ","
+        residual = cut - to_z
+        if residual > band + _WALL_TOL:
             errors.append(
                 f"op {op['op']} prints {printed} for to_z {to_z:g}: "
                 f"{residual:.{grid[1] + 1}g} above its finished face, more than the "
                 f"{band:g} tolerance band of {op.get('feature')}"
+            )
+        elif residual < -_WALL_TOL:
+            errors.append(
+                f"op {op['op']} prints {printed} for to_z {to_z:g}: "
+                f"{-residual:.{grid[1] + 1}g} below its finished face, deeper than authored"
             )
     return errors
 
@@ -2280,26 +2322,33 @@ def evaluate(bundle, *, pre_kernel=False):
         numbers["dro_grid"] = {"step": grid[0], "decimals": grid[1]}
         declared = mapping(mapping(setup.get("stock_state")).get("entry_z"))
         states, cleared = stock_states(setup, features), []
-        # The corner each blade op's DRO Z reads (the Z touch in effect when it cuts).
-        readings = {}
-        if lathe:
-            from .zero_recipe import blade_readings
+        from .zero_recipe import blade_readings, z_datums
 
-            readings = blade_readings(bundle, setup)
-        blade_unknown = False
+        # The corner each blade op's DRO Z reads (the Z touch in effect when it cuts).
+        readings = blade_readings(bundle, setup) if lathe else {}
+        # The ops whose DRO Z reads a touch set off where its face stands.
+        datums = z_datums(bundle, setup)
+        blade_unknown = datum_unknown = False
         allowed_errors = []  # blade targets forming their face outside the op's to_z_band
         for entry, (op, before, _) in zip(numbers["operations"], states, strict=True):
             if "to_z" in entry:
                 # The depth the DRO shows: rounded up, never deeper than authored.
                 entry["dro_to_z"] = dro_z(entry["to_z"], grid)
-            target = _blade_target(bundle, setup, op, readings.get(str(op.get("op"))), grid)
+            datum = datums.get(str(op.get("op")))
+            if datum is not None:
+                # It cuts its DRO targets that much lower (:func:`z_datum`).
+                entry["z_datum"] = datum
+                datum_unknown |= not number(datum["error_mm"])
+            shift = datum["error_mm"] if datum else 0.0
+            reading = readings.get(str(op.get("op")))
+            target = _blade_target(bundle, setup, op, reading, grid, shift)
             if lathe and target is not None:
                 entry["blade"] = target
                 blade_unknown |= target["corner_dro_z"] == UNKNOWN
                 if "formed_z" in target:
-                    # The face the printed corner reading leaves (:func:`formed_z`).
+                    # The face the printed corner reading leaves, as the DRO reads it.
                     entry["dro_to_z"] = target["formed_z"]
-                    error = _allowed_error(op, target)
+                    error = _allowed_error(op, target, datum)
                     if error:
                         allowed_errors.append(error)
             levels = None
@@ -2311,7 +2360,7 @@ def evaluate(bundle, *, pre_kernel=False):
                 cleared.append((op.get("feature"), _xy_box(op), op["to_z"]))
         entries = {str(entry.get("op")): entry for entry in numbers["operations"]}
         residuals = _z_residuals(bundle, setup, grid, features, entries)
-        unknown = not frame or frame.get("binding") == UNKNOWN or blade_unknown
+        unknown = not frame or frame.get("binding") == UNKNOWN or blade_unknown or datum_unknown
         if lathe:
             numbers["x_display"] = (
                 "radius"

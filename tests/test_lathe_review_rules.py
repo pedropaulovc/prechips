@@ -791,6 +791,113 @@ def test_a_surface_a_blade_faced_prints_where_its_rounded_corner_reading_left_it
     assert operative_z(bundle, setup, -10.0, face="end", done=1) == pytest.approx(printed)
 
 
+def _retouched(width):
+    """On a 0.1 grid a ``width`` blade faces the end to -10 reading its chuck-side corner
+    (forming with its tailstock-side one); the turner, re-touched on that end, then faces
+    the sleeve to -8, a 7.96..8.04 length."""
+    touch = {**_FACE_TOUCH, "gauge": "mic", "x_method": "touch bar diameter"}
+    bundle = _parted(touch, [{"z_mm": 0.0, "normal_z": 1}], -1, to_z=-10.0)
+    bundle.plan["dro"].update(
+        mode="abs", direction={"x": "away_from_spindle_axis", "z": "toward_exposed_end"}
+    )
+    bundle.inventory["machines"]["lathe"]["resolution_mm"] = 0.1
+    bundle.inventory["tools"]["blade"]["blade_width_mm"] = width
+    bundle.inventory["gauges"] = {"mic": {"kind": "micrometer", "resolution_mm": 0.01}}
+    bundle.inventory["tools"]["turner"] = dict(_AR)
+    setup = bundle.plan["setups"][0]
+    setup["zero"].update(
+        x={
+            "feature": "spindle_axis",
+            "method": "trial_cut_measure",
+            "tool": "turner",
+            "gauge": "mic",
+            "check_jog_mm": 10.0,
+        },
+        z={
+            "face": "other_end",
+            "edge_mm": 20.0,
+            "method": "face_then_set",
+            "tool": "turner",
+            "paper_mm": 0.0,
+            "check_jog_mm": 10.0,
+            "retouch_after": [],
+        },
+    )
+    setup["ops"][0].update(do="face", feature="end")
+    setup["ops"].append(
+        {"op": 50, "do": "face", "feature": "sleeve", "tool": "turner", "to_z": -8.0}
+    )
+    bundle.features["features"]["sleeve"] = {
+        "kind": "shaft",
+        "length": [7.96, 8.04],
+        "requirements": ["length"],
+    }
+    return bundle
+
+
+@pytest.mark.parametrize(
+    ("width", "cut", "status"),
+    [(1.61, -8.09, "error"), (1.65, -8.05, "error"), (1.6, -8.0, "pass")],
+)
+def test_a_cut_after_a_retouch_on_a_rounded_blade_face_holds_its_length(width, cut, status):
+    # The 1.61 blade's chuck-side reading -11.6 forms the end at -9.99, which the turner's
+    # re-touch can only set as -9.9 on the 0.1 grid: its DRO then reads 0.09 above where
+    # it stands, so its face to Z -8.0 cuts at -8.09, an 8.09 sleeve outside 7.96..8.04.
+    # A 1.65 blade forms -9.95: 0.05 deeper than authored is refused too, though less
+    # than the band is wide (8.05 is outside it). The on-grid 1.6 blade forms -10.0 and
+    # the sleeve holds 8.00.
+    zero, finding, sheet, setup = _traveler(_retouched(width))
+    [retouch] = zero.numbers["derived_touches"]
+    assert (retouch["tool"], retouch["z_face"], retouch["before_ops"]) == ("turner", "end", [50])
+    faced, face = (next(e for e in finding.numbers["operations"] if e["op"] == n) for n in (40, 50))
+    # The re-touch's Axis Set is the end as the sheet shows it; the end stands where the
+    # blade formed it. The turner's DRO reads their difference above where it stands.
+    error = sheet.datum_z(setup, "end", -10.0, done=1) - faced["dro_to_z"]
+    assert face["dro_to_z"] == pytest.approx(-8.0)
+    assert face["dro_to_z"] - error == pytest.approx(cut)
+    assert finding.status == status
+    assert bool(finding.numbers.get("dro_z_residual_errors")) is (status == "error")
+    assert face.get("z_datum", {}).get("error_mm", 0.0) == pytest.approx(error)
+
+
+@pytest.mark.parametrize(
+    ("width", "face", "status"), [(1.61, -20.09, "error"), (1.6, -20.0, "pass")]
+)
+def test_a_blade_retouched_on_a_rounded_blade_face_holds_its_band_where_it_stands(
+    width, face, status
+):
+    # A 1.6 parter re-touched (chuck-side corner) on the end the first blade formed parts
+    # to -20 within -20.05..-19.95. Formed at -9.99 by the 1.61 blade but set as -9.9, its
+    # DRO reads 0.09 high: reading -21.6 forms -20.0 as the DRO shows it, -20.09 where it
+    # stands. Its allowed readings move up with the DRO.
+    bundle = _retouched(width)
+    setup = bundle.plan["setups"][0]
+    op = {"op": 60, "do": "part_off", "tool": "parter", "to_z": -20.0}
+    setup["ops"][1:] = [{**op, "to_z_band": [-20.05, -19.95]}]
+    bundle.inventory["tools"]["parter"] = _blade()
+    bundle.kernel["setups"]["S1"]["revolved"]["end"] = {
+        "end_faces": [{"z_mm": -10.0, "normal_z": 1}]
+    }
+    bundle.kernel["ops"]["S1:60"] = {"faced_side": -1}
+    zero, finding, sheet, setup = _traveler(bundle)
+    [retouch] = zero.numbers["derived_touches"]
+    assert (retouch["tool"], retouch["z_face"], retouch["reference_corner"]) == (
+        "parter",
+        "end",
+        "chuck_side",
+    )
+    operations = finding.numbers["operations"]
+    faced, entry = (next(e for e in operations if e["op"] == n) for n in (40, 60))
+    assert entry["blade"]["corner_dro_z"] == pytest.approx(-21.6)
+    shift = sheet.datum_z(setup, "end", -10.0, done=1) - faced["dro_to_z"]
+    assert entry["dro_to_z"] - shift == pytest.approx(face)
+    assert finding.status == status
+    # Every reading in the printed interval leaves the face, where it stands, in the band.
+    for reading in _allowed(sheet.tip(setup, setup["ops"][1])):
+        assert -20.05 - 1e-9 <= reading + 1.6 - shift <= -19.95 + 1e-9
+    assert entry.get("z_datum", {}).get("error_mm", 0.0) == pytest.approx(shift)
+
+
 def test_each_toolpost_tool_is_set_on_centre_before_its_first_touch_off():
     from prechips.sheet import _Traveler
 

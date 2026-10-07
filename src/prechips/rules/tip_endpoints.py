@@ -206,11 +206,12 @@ def lineage(bundle, setup):
 
 
 def operative_z(bundle, setup, value, face=None, done=0, source=None):
-    """One printed Z for the surface at nominal ``value`` in ``setup``: the ``dro_to_z``
-    of the op that produced it, on that op's own setup grid (:func:`formed_z`: for a
-    grooving/parting blade, the face its rounded corner reading leaves), then as this
-    setup's DRO shows it (``dro_z``: rounded up on its grid; a value on both grids
-    stays); with no producer, ``dro_z`` of ``value``. An unknown stays unknown.
+    """One printed Z for the surface at nominal ``value`` in ``setup``: where the op that
+    produced it left it (:func:`formed_z`: its ``dro_to_z`` on that op's own setup grid,
+    for a grooving/parting blade the face its rounded corner reading leaves, less the
+    error of the Z touch its DRO read), then as this setup's DRO shows it (``dro_z``:
+    rounded up on its grid; a value on both grids stays); with no producer, ``dro_z`` of
+    ``value``. An unknown stays unknown.
 
     The producer is the op ``source`` names in this setup (``"S2 op 20 to_z"``,
     :func:`stock_states`). Else, for the stock ``"top"``, the op that last faced it in
