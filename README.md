@@ -355,7 +355,9 @@ finish row with no safe grid point inside its feature's band is an error. Raster
 and outline rows that run past the stock are labelled cutter clearance only when
 the cutter stands a radius outside the stock the kernel modelled entering the
 setup; a raster's pass ends always print, and are called in air only on that
-proof (an op's removal box never proves an end in air or in material). A
+proof (an op's removal box never proves an end in air or in material); every
+pass is said to run in and out clear only when each emitted piece's start and
+end is, so pieces a keep-out splits are proven one by one. A
 through hole's breakthrough note gives the run-out its printed DRO tip leaves,
 cut down to the DRO decimals, not the authored `exit_mm`. A contour cut in
 several depth levels lists every level once, in its heading. Contour tables

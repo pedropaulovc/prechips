@@ -301,6 +301,76 @@ def test_pass_one_enters_from_air_only_a_cutter_radius_outside_its_open_side(ent
     assert ("pass 1" in note) is air
 
 
+def face_raster(keep_out, stage="finish"):
+    """Op 10's face raster as the coordinates producer emits it: a Ø6 cutter over X 0..20,
+    Y 0..10 at a 2 stepover from the open -Y side, its passes split around a Ø2 keep-out at
+    (10, 5) when ``keep_out``."""
+    from prechips.rules.coordinates import _raster
+
+    contour = {"step_mm": 2.0, "open_side": "-y"}
+    if keep_out:
+        contour["keep_out"] = [{"at": [10.0, 5.0], "dia_mm": 2.0}]
+    op = {"op": 10, "do": "face", "contour": contour}
+    op["stock_removal_bounds"] = {"x": [0.0, 20.0], "y": [0.0, 10.0]}
+    frame = {"origin": [0.0, 0.0, 0.0], "x": [1.0, 0.0, 0.0], "y": [0.0, 1.0, 0.0]}
+    frame["z"] = [0.0, 0.0, 1.0]
+    order = {"cut_order": "conventional"}
+    profile, why = _raster(
+        {"frame": "model"}, op, 3.0, 3.0, frame, {"model": frame}, 1, order, 5.0, (0.001, 3)
+    )
+    assert profile is not None, why
+    return {"op": 10, "stage": stage, "dro_to_z": -0.6, **profile}
+
+
+def face_notes(box_mm, *profiles):
+    records = {("coordinates", "S1"): {"operations": [{"op": 10}], "profiles": list(profiles)}}
+    sheet = shop(records)
+    sheet.bundle = kernel_stock(box_mm)
+    html = sheet.contours(POCKET, {"c": "T1"})
+    return [part.split("</p>", 1)[0] for part in html.split("Raster, ")[1:]]
+
+
+# The universal claim over a raster's passes, and the stock the face op receives.
+EVERY, FACE_STOCK = re.compile(r"every pass"), [0.005, 0.0, -1.0, 19.995, 10.0, 1.0]
+
+
+def wholly_in_stock(point, box, radius=3.0):
+    return all(box[i] < point[i] - radius and point[i] + radius < box[i + 3] for i in range(2))
+
+
+@pytest.mark.parametrize(
+    ("keep_out", "box_mm", "every"),
+    [
+        (False, FACE_STOCK, True),  # every pass starts and ends at X -3 / 23, in air
+        (True, FACE_STOCK, False),  # split pieces start and stop inside the stock box
+        (True, [0.005, 0.0, -1.0, 2.0, 10.0, 1.0], True),  # every piece's ends past the stock
+    ],
+)
+def test_every_pass_runs_in_and_out_clear_only_when_every_emitted_piece_end_is_proven(
+    keep_out, box_mm, every
+):
+    profile = face_raster(keep_out)
+    ends = [point for piece in profile["cutter_centre"] for point in piece]
+    inner = sorted({point[0] for point in ends} - {-3.0, 23.0})
+    # The keep-out's pieces start and stop between the outer ends; on the full stock some
+    # (pass 5 starts at X 13.873, Y 4) stand with the whole cutter inside the stock box.
+    assert bool(inner) is keep_out
+    assert any(wholly_in_stock(point, box_mm) for point in ends) is (not every)
+    (note,) = face_notes(box_mm, profile)
+    assert bool(EVERY.search(note)) is every
+    # The outer X -3 / 23 ends stay proven in air, and no inner end is named as such.
+    assert "both in air" in note and not MATERIAL.search(note)
+    assert not any(f"{value:.3f}" in note for value in inner)
+
+
+def test_a_stage_whose_pieces_prove_less_does_not_share_the_op_raster_claim():
+    rough, finish = face_raster(False, "rough"), face_raster(True, "finish")
+    notes = face_notes(FACE_STOCK, rough, finish)
+    assert len(notes) == 2 and EVERY.search(notes[0])
+    # The split finish stage states its own ends without the rough stage's every-pass claim.
+    assert "-3.000 / 23.000" in notes[1] and not EVERY.search(notes[1])
+
+
 @pytest.mark.parametrize(
     "bundle",
     [

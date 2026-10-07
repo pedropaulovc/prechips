@@ -3608,30 +3608,55 @@ class _Traveler:
 
         return clear
 
-    def raster_clearance(self, setup, raster):
-        """Where a raster's passes start and end along the run axis, and which ends are in
-        air: a cutter a radius past the stock the setup receives (:meth:`stock_clear`) meets
-        none. Nothing else proves an end clear or in material, so an end inside that box,
-        or any end without it, prints with no claim either way. A pocket's first pass
-        enters from air only when it stands a radius outside that box on the open side."""
+    def raster_clearance(self, setup, profile):
+        """Where a raster profile's passes start and end along the run axis, and what of that
+        is proven in air: a cutter a radius past the stock the setup receives
+        (:meth:`stock_clear`) meets none. Nothing else proves an end clear or in material, so
+        an end inside that box, or any end without it, prints with no claim either way. The
+        passes run in and out clear only when every emitted piece's start and end is proven
+        so: a keep-out splits passes into pieces that also start and stop between the outer
+        ends. A pocket's first pass enters from air only when it stands a radius outside that
+        box on the open side."""
         o = self.operative
+        raster = profile["raster"]
         axis = str(raster.get("run_axis", "")).upper()
         ends, radius = raster.get("ends"), raster.get("clearance_mm")
         if not (isinstance(ends, list) and len(ends) == 2 and all(map(_known, ends))):
             return ""
-        text = f"; pass ends {axis} {o(ends[0])} / {o(ends[1])}"
+        # Every emitted piece's start and end, or none when any is malformed or unknown.
+        pieces = profile.get("cutter_centre")
+        points = (
+            [point for piece in pieces for point in piece]
+            if isinstance(pieces, list)
+            and all(isinstance(piece, list) and len(piece) == 2 for piece in pieces)
+            else []
+        )
+        if not all(isinstance(p, list) and len(p) >= 2 and all(map(_known, p[:2])) for p in points):
+            points = []
+        run = "XY".index(axis) if axis in ("X", "Y") else None
+        # The outer ends are every piece's ends only when no keep-out split a pass.
+        whole = (
+            run is not None
+            and bool(points)
+            and all(min(abs(p[run] - end) for end in ends) <= 1e-9 for p in points)
+        )
+        text = f"; {'pass' if whole else 'outer pass'} ends {axis} {o(ends[0])} / {o(ends[1])}"
         clear = self.stock_clear(setup)
-        if clear is None or not _known(radius) or axis not in ("X", "Y"):
+        if clear is None or not _known(radius) or run is None:
             return text
-        run = "XY".index(axis)
         low, high = sorted(ends)
         air = [v for v, side in ((low, -1), (high, 1)) if clear(run, v, radius, side)]
+        every = bool(points) and all(any(clear(i, p[i], radius) for i in range(2)) for p in points)
         if len(air) == 2:
-            text += (
-                ": both in air, a cutter radius past the stock — every pass runs in and out clear"
-            )
+            text += ": both in air, a cutter radius past the stock"
         elif air:
             text += f": the {axis} {o(air[0])} end is in air, a cutter radius past the stock"
+        if every and air:
+            text += " — every pass runs in and out clear"
+        elif every:
+            text += ": every pass runs in and out clear, a cutter radius past the stock"
+        elif air and not whole:
+            text += "; split passes also start and stop between them, not proven clear"
         entry, side = raster.get("entry_pass"), str(raster.get("open_side", "")).upper()
         across = 1 - run
         if (
@@ -3843,10 +3868,12 @@ class _Traveler:
                     f"{o(raster.get('step_mm'))} mm, lift to Z {o(raster.get('lift_z'))}"
                     + self.cut_order(profile)
                 )
-                # One raster note per op: its pieces share the passes' ends.
-                if not entry.get("ends"):
-                    entry["ends"] = self.raster_clearance(setup, raster)
-                    description += entry["ends"]
+                # One raster note per op while its pieces prove the same; a stage whose
+                # pieces prove otherwise prints its own.
+                note = self.raster_clearance(setup, profile)
+                if note != entry.get("ends"):
+                    entry["ends"] = note
+                    description += note
             entry["parts"].append((order(entry), description, headings, rows))
             if not isinstance(raster, dict):
                 entry["parts"][-1] = self.outline_clearance(setup, profile, entry["parts"][-1])

@@ -214,8 +214,12 @@ end (or the entry pass, on its open side) in air only when it stands a cutter
 radius outside the stock the kernel modelled entering the setup (its
 `stock_bbox_mm`, which holds every op's stock); the op's `stock_removal_bounds`
 is what it may remove, not where stock ends, so it proves neither air nor
-material and an unproven end carries no claim. A closed outline's rows are on the
-grid too: each vertex is the nearest grid point at least its offset outside
+material and an unproven end carries no claim. A `keep_out` splits passes into
+pieces that also start and stop between the outer `ends`; the traveler then
+prints those as the outer ends and says every pass runs in and out clear only
+when each emitted piece's start and end is proven so, stage by stage. A closed
+outline's rows are on the grid too: each vertex is the nearest grid point at
+least its offset outside
 both wall lines it joins (a corner of its grid cell, else up to two steps out);
 `grid_residual_mm` is the most any vertex stands further off a wall than its
 offset. The traveler likewise names outline rows whose cutter stands wholly
