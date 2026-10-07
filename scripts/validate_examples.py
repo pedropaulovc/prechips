@@ -167,6 +167,26 @@ SET_KINDS = {
     "micrometer_set",
     "lathe_tool_bits",
 }
+# An identity the inventory leaves explicitly "unknown": present but unverified, as the
+# checker records one (resolution.resolve). A category it leaves "unknown" makes every
+# identity no other category declares one; ``entries`` notes it under a key no inventory
+# name can be.
+UNKNOWN_ITEM = {"kind": "unknown", "verify": True}
+UNKNOWN_CATEGORY = ("unknown category",)
+# Collections an explicit "unknown" leaves empty and flags for verification
+# (resolution.inventory_record): a selected identity's own, or its set's.
+UNKNOWN_MAPS = ("members", "nominal_dia_mm", "nominal_dia_cite", "holders")
+UNKNOWN_LISTS = (
+    "standard_accessories",
+    "included",
+    "sizes",
+    "sizes_mm",
+    "sizes_in",
+    "styles",
+    "ranges_in",
+    "heights_in",
+    "flutes",
+)
 REFERENCE_KEYS = {
     "machine",
     "tool",
@@ -296,26 +316,44 @@ def fraction(value: str) -> Fraction | None:
 
 
 def entries_for(inventory: dict) -> dict:
+    """Every inventory identity by name, and each machine accessory as a reference to its
+    machine. An identity the inventory leaves "unknown" is :data:`UNKNOWN_ITEM`; a category
+    it leaves "unknown" stands under :data:`UNKNOWN_CATEGORY`."""
     entries = {}
     for category in ("machines", "fixtures", "holders", "tools", "gauges"):
-        for name, item in inventory.get(category, {}).items():
+        items = inventory.get(category, {})
+        if items == "unknown":
+            entries[UNKNOWN_CATEGORY] = UNKNOWN_ITEM
+            continue
+        for name, item in items.items():
             require(name not in entries, f"duplicate inventory identity {name}")
-            entries[name] = item
-    for name, machine in inventory.get("machines", {}).items():
-        for accessory in machine.get("standard_accessories", []) + machine.get("included", []):
-            entries.setdefault(accessory, {"ref": name})
+            entries[name] = UNKNOWN_ITEM if item == "unknown" else item
+    machines = inventory.get("machines", {})
+    for name, machine in machines.items() if isinstance(machines, dict) else ():
+        for key in ("standard_accessories", "included"):
+            for accessory in listed(machine, key):
+                entries.setdefault(accessory, {"ref": name})
     return entries
+
+
+def listed(item, key: str) -> list:
+    """``item``'s list ``key``; none where the item or the list is unknown."""
+    value = item.get(key, []) if isinstance(item, dict) else []
+    return value if isinstance(value, list) else []
 
 
 def resolves(ref: str, entries: dict) -> bool:
     if ref in entries:
         item = entries[ref]
         return item.get("present") is not False and item.get("kind") not in SET_KINDS
-    if "/" not in ref:
-        return False
-    root, selected = ref.split("/", 1)
-    entry = entries.get(root, {})
-    if not entry or entry.get("present") is False:
+    root, _, selected = ref.partition("/")
+    if root not in entries:
+        # Undeclared: missing, unless a category the inventory leaves unknown may hold it.
+        return UNKNOWN_CATEGORY in entries
+    entry = entries[root]
+    if entry is UNKNOWN_ITEM:
+        return True
+    if not selected or not entry or entry.get("present") is False:
         return False
     members = entry.get("members", {})
     if isinstance(members, dict) and selected in members:
@@ -325,7 +363,7 @@ def resolves(ref: str, entries: dict) -> bool:
         return member == "unknown" or (
             isinstance(member, dict) and member.get("present") is not False
         )
-    if selected in entry.get("included", []) + entry.get("standard_accessories", []):
+    if selected in listed(entry, "included") + listed(entry, "standard_accessories"):
         return True
     kind = entry.get("kind")
     if kind in {"collet_set", "parallels_set", "countersink_set"}:
@@ -337,12 +375,13 @@ def resolves(ref: str, entries: dict) -> bool:
         if not match:
             return False
         size = fraction(match[1])
+        sizes = entry.get("sizes_in", {})
         return size is not None and size in {
-            fraction(str(v)) for v in entry.get("sizes_in", {}).get("2_and_4_flute", [])
+            fraction(str(v)) for v in listed(sizes, "2_and_4_flute")
         }
     if kind == "center_drill_set":
         return selected.removeprefix("#").isdigit() and int(selected.removeprefix("#")) in (
-            entry.get("sizes", [])
+            listed(entry, "sizes")
         )
     if kind == "drill_index":
         numbered = re.fullmatch(r"#(\d{1,2})", selected)
@@ -363,27 +402,42 @@ def resolves(ref: str, entries: dict) -> bool:
             "4-heavy-boring": "#4 heavy boring",
             "7-parting": "#7 parting (1/2 blade)",
         }
-        return choices.get(selected, selected) in entry.get("holders", {})
+        holders = entry.get("holders", {})
+        return isinstance(holders, dict) and choices.get(selected, selected) in holders
     if kind == "insert_holders":
-        return selected in entry.get("styles", [])
+        return selected in listed(entry, "styles")
     if kind == "micrometer_set":
-        return selected.removesuffix("in") in entry.get("ranges_in", [])
+        return selected.removesuffix("in") in listed(entry, "ranges_in")
     return False
 
 
+def unknown_collection(item) -> bool:
+    """Whether ``item`` leaves a collection it is read through explicitly unknown
+    (:data:`UNKNOWN_MAPS`, :data:`UNKNOWN_LISTS`): it is then flagged for verification."""
+    return isinstance(item, dict) and (
+        any(key in item and not isinstance(item[key], dict) for key in UNKNOWN_MAPS)
+        or any(item.get(key) == "unknown" for key in UNKNOWN_LISTS)
+    )
+
+
 def uncertain(ref: str, entries: dict, seen: tuple = ()) -> bool:
+    """Whether ``ref`` is flagged for verification: undeclared or explicitly unknown, a
+    selected member left unknown, a collection it is read through left unknown, or any
+    record of its identity (its set's, its own, a fact's, a referenced machine's) with
+    ``verify`` true or unknown, ``present`` unknown or a coverage still to verify."""
     root = ref if ref in entries else ref.split("/", 1)[0]
     if root not in entries or root in seen:
         return True
     members = entries[root].get("members", {})
     member = ref.split("/", 1)[1] if ref != root else None
-    if isinstance(members, dict) and member is not None and members.get(member) == "unknown":
+    selected = members.get(member) if isinstance(members, dict) and member is not None else None
+    if selected == "unknown" or unknown_collection(entries[root]) or unknown_collection(selected):
         return True
 
     def walk(value) -> bool:
         if isinstance(value, dict):
             if (
-                value.get("verify") is True
+                value.get("verify") in (True, "unknown")
                 or value.get("present") == "unknown"
                 or "verify" in str(value.get("coverage", "")).lower()
             ):
@@ -1515,9 +1569,15 @@ def zero_inputs(plan: dict, features: dict, inventory: dict, policy: dict, kerne
     )
 
 
-def verified_item(ref, entries: dict) -> bool:
-    """Whether ``ref`` names an inventory identity that resolves unflagged."""
-    return isinstance(ref, str) and resolves(ref, entries) and not uncertain(ref, entries)
+def verified_item(ref, entries: dict, inventory: dict) -> bool:
+    """Whether ``ref`` names an inventory identity that resolves unflagged both as the
+    validator reads the inventory (:func:`resolves`, :func:`uncertain`) and as the checker
+    resolves it: neither reading makes a flagged, unverified or explicitly unknown identity
+    ready."""
+    if not (isinstance(ref, str) and resolves(ref, entries) and not uncertain(ref, entries)):
+        return False
+    item = resolve_item(inventory, None, ref)
+    return bool(item) and not record_uncertain(item)
 
 
 def paper_stand_off(paper, side):
@@ -1581,23 +1641,30 @@ def derive_zero(setup: dict, own, entries: dict) -> tuple:
 
     The DRO's jog polarity per axis is the plan's ``dro.direction`` (:data:`DRO_COUNTS`):
     a reversed axis (-1), or a mode other than ABS, is the error to stop on. The display
-    scale is the plan's radius/diameter mode on a lathe's X, else 1. Each axis row's
-    contact is its edge, less or plus its finder radius by the side it comes from, or for
-    Z its edge plus its paper on the side the face is met from; the readings follow
-    (:func:`zero_readings`). Readings, a tool or gauge that does not resolve unflagged, an
-    unknown frame, binding, controller, mode or radius mode, retouch list or touch list
-    leave the zero unknown. Where its surfaces stand (the top as each op leaves it, the
-    side a face is met from, which touched or faced surface a tool change is touched off
-    on, a blade's corner, where a touched face stands on the DRO grid) is plan and kernel
-    geometry, read with the checker's surface functions on these inputs; a missing touch,
-    a blade corner its face cannot give or a face set off the grid is an error."""
+    scale is the plan's radius/diameter mode on a lathe's X, else 1; a lathe is the
+    setup's machine as the inventory resolves it. Each axis row's contact is its edge,
+    less or plus its finder radius (half its resolved tip, else body, diameter) by the side
+    it comes from, or for Z its edge plus its paper on the side the face is met from; the
+    readings follow (:func:`zero_readings`). Readings, a tool or gauge that is not ready
+    (:func:`verified_item`: flagged, unverified or explicitly unknown), an unknown frame,
+    binding, controller, mode or radius mode, retouch list or touch list leave the zero
+    unknown. Where its surfaces stand (the top as each op leaves it, the side a face is met
+    from, which touched or faced surface a tool change is touched off on, a blade's corner,
+    where a touched face stands on the DRO grid) is plan and kernel geometry, read with the
+    checker's surface functions on these inputs; a missing touch, a blade corner its face
+    cannot give or a face set off the grid is an error."""
     plan = own.plan
     dro = plan.get("dro") if isinstance(plan.get("dro"), dict) else {}
     counts = dro.get("direction") if isinstance(dro.get("direction"), dict) else {}
     radius_mode, mode = dro.get("radius_mode"), dro.get("mode", "unknown")
     frame = setup_frame(setup, plan, own.features)
     frame = frame if isinstance(frame, dict) else {}
-    lathe = machine_kind(setup, entries) == "lathe"
+    # A lathe as the checker resolves the setup's machine: present, lathe kind or type.
+    lathe = zero_rules.lathe_setup(own, setup)
+
+    def ready(ref) -> bool:
+        return verified_item(ref, entries, own.inventory)
+
     zero, ops = setup["zero"], setup["ops"]
     states = list(stock_states(own, setup))
     tops = [z for z, _ in zero_rules._tops(own, setup, states)]
@@ -1621,8 +1688,7 @@ def derive_zero(setup: dict, own, entries: dict) -> tuple:
         sign = 1 if direction in up else -1 if direction in down else "unknown"
         bad |= sign == -1
         method, approach = recipe.get("method"), recipe.get("from")
-        tool_ok = verified_item(recipe.get("tool"), entries)
-        gauge_ok = verified_item(recipe.get("gauge"), entries)
+        tool_ok, gauge_ok = ready(recipe.get("tool")), ready(recipe.get("gauge"))
         edge = recipe.get("edge_mm", "unknown")
         face = recipe.get("face", recipe.get("feature"))
         done = zero_rules._position(ops, {"after_op": recipe.get("after_op")}) or 0
@@ -1632,9 +1698,12 @@ def derive_zero(setup: dict, own, entries: dict) -> tuple:
         elif approach == "indicated":
             radius = 0
         else:
-            tool = recipe.get("tool")
-            tip = entries.get(tool, {}).get("tip_in") if isinstance(tool, str) else None
-            radius = tip * 25.4 / 2 if numeric(tip) else "unknown"
+            # A finder's tip, else its body, diameter halved, as the item resolves (a set
+            # member's own or its set's, in mm or inches, as a fact or a bare length).
+            tool = resolve_item(own.inventory, None, recipe.get("tool")) or {}
+            tip = nominal_length_mm(tool, "tip")
+            diameter = tip if numeric(tip) else nominal_length_mm(tool, "dia")
+            radius = diameter / 2 if numeric(diameter) else "unknown"
         if axis == "z":
             if recipe.get("face") == "top":
                 # The top as the ops through after_op left it, not the incoming top.
@@ -1700,14 +1769,14 @@ def derive_zero(setup: dict, own, entries: dict) -> tuple:
             "not_applicable"
             if not lathe
             else f"measured {display}"
-            if display != "unknown" and verified_item(record.get("gauge"), entries)
+            if display != "unknown" and ready(record.get("gauge"))
             else "unknown"
         )
         if record.get("method") == "measure_then_set":
             measure, offset = record.get("z_measure"), record.get("z_offset_mm", "unknown")
             named = isinstance(measure, str) and measure.strip() not in {"", "unknown"}
-            ready = named and verified_item(record.get("z_gauge"), entries)
-            known = ready and numeric(offset) and numeric(stand_off)
+            ready_z = named and ready(record.get("z_gauge"))
+            known = ready_z and numeric(offset) and numeric(stand_off)
             z_set = bench_edge(offset + stand_off) if known else "unknown"
         else:
             z_set = edge + stand_off if numeric(edge) and numeric(stand_off) else "unknown"
@@ -1716,7 +1785,7 @@ def derive_zero(setup: dict, own, entries: dict) -> tuple:
         blade_corner(row, record, record.get("z_face"), edge, who)
         face_check(record, record.get("z_face"), edge, zero_rules._position(ops, record) or 0, who)
         touches.append(row)
-        unknown |= "unknown" in (x_set, z_set) or not verified_item(record.get("tool"), entries)
+        unknown |= "unknown" in (x_set, z_set) or not ready(record.get("tool"))
     derived, missing, changes_unknown, _ = zero_rules.tool_changes(
         own, setup, zero, lathe, x_scale, touches
     )

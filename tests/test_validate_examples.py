@@ -22,6 +22,7 @@ from prechips.rules import (
     prepared_blank,
     speeds_feeds,
     stickout,
+    tool_resolves,
     zero_recipe,
 )
 from prechips.rules.tip_endpoints import evaluate as endpoint_findings
@@ -799,15 +800,16 @@ def test_speed_oracle_takes_every_operand_from_the_inputs_not_the_report(corrupt
         check()
 
 
+@pytest.mark.parametrize("flag", [True, "unknown"])
 @pytest.mark.parametrize("debt", ["machine", "tool", "material"])
-def test_speed_oracle_never_passes_a_row_on_unverified_inputs(debt):
-    # The engine leaves the derated 750 rpm unknown; the report claims a pass and drops
-    # the verification flags it prints.
+def test_speed_oracle_never_passes_a_row_on_unverified_inputs(debt, flag):
+    # The engine leaves the derated 750 rpm unknown on an input flagged for verification
+    # or left unknown; the report claims a pass and drops the verification flags it prints.
     data = drill_bundle(depth_mm=40.0)
     if debt == "material":
-        data.plan["stock"]["material_verify"] = True
+        data.plan["stock"]["material_verify"] = flag
     else:
-        data.inventory[f"{debt}s"][{"machine": "mill", "tool": "drill"}[debt]]["verify"] = True
+        data.inventory[f"{debt}s"][{"machine": "mill", "tool": "drill"}[debt]]["verify"] = flag
     finding, check = speed_finding(data)
     check()
     assert finding["status"] == "unknown"
@@ -815,6 +817,36 @@ def test_speed_oracle_never_passes_a_row_on_unverified_inputs(debt):
     finding["numbers"].update(material_verify=False, rpm_range_verify=False)
     with pytest.raises(ValueError):
         check()
+
+
+@pytest.mark.parametrize(
+    ("path", "value"),
+    [
+        # The drill's verification left unknown, on its record or on a fact it is read by.
+        (("tools", "drill", "verify"), "unknown"),
+        (("tools", "drill", "dia_mm"), {"value": 6.35, "verify": "unknown"}),
+        # The drill, or every tool, left unknown.
+        (("tools", "drill"), "unknown"),
+        (("tools",), "unknown"),
+        # A collection the drill is read through left unknown.
+        (("tools", "drill", "flutes"), "unknown"),
+        # The machine's verification left unknown.
+        (("machines", "mill", "verify"), "unknown"),
+    ],
+)
+def test_reference_oracle_never_reads_an_unknown_identity_as_verified(path, value):
+    """An identity the inventory leaves unknown, or whose verification it leaves unknown,
+    resolves unverified: the engine's unknown is accepted, the same row passed is not."""
+    data = drill_bundle()
+    set_key(path, value)(data.inventory)
+    findings = {(f.rule, f.subject): f.to_dict() for f in tool_resolves.evaluate(data)}
+    entries = VALIDATOR["entries_for"](data.inventory)
+    key = "tool_resolves", path[1] if len(path) > 1 else "drill"
+    assert findings[key]["status"] == "unknown"
+    VALIDATOR["check_references"](data.plan, entries, findings)
+    findings[key] = {**findings[key], "status": "pass"}
+    with pytest.raises(ValueError):
+        VALIDATOR["check_references"](data.plan, entries, findings)
 
 
 def saw_finding(data):
@@ -1020,29 +1052,31 @@ def test_zero_rows_are_the_plans_and_an_unresolved_zero_cannot_pass(
         VALIDATOR["check_zero"](setup, finding, entries, own)
 
 
-def native_zero(part, setup_id, dro_edit=None):
+def native_zero(part, setup_id, dro_edit=None, inventory_edit=None):
     """The engine's ``zero_check`` finding for one example setup after ``dro_edit`` (a
-    callable on the plan's ``dro`` table), from a kernel run of the unedited plan (the
-    DRO table does not enter the kernel)."""
+    callable on the plan's ``dro`` table) and ``inventory_edit`` (one on the inventory),
+    from a kernel run of the unedited plan (neither enters the kernel)."""
     bundle = load_bundle(ROOT / "examples" / part / "plan.toml")
     assert run_geometry(bundle)["status"] == "ok"
     if dro_edit:
         dro_edit(bundle.plan["dro"])
+    if inventory_edit:
+        inventory_edit(bundle.inventory)
     finding = next(f for f in zero_recipe.evaluate(bundle) if f.subject == setup_id)
     return json.loads(json.dumps(finding.to_dict()))
 
 
 def set_key(path, value):
-    """A ``dro`` edit setting ``path`` (keys under ``dro``) to ``value``, or deleting it."""
+    """An edit of a table setting ``path`` (keys under it) to ``value``, or deleting it."""
 
-    def edit(dro):
+    def edit(table):
         *parents, key = path
         for parent in parents:
-            dro = dro[parent]
+            table = table[parent]
         if value is None:
-            del dro[key]
+            del table[key]
         else:
-            dro[key] = value
+            table[key] = value
 
     return edit
 
@@ -1104,6 +1138,74 @@ def test_zero_jog_polarity_is_never_the_reports(freecad_kernel, part, setup_id, 
     native["status"] = status
     with pytest.raises(ValueError):
         VALIDATOR["check_zero"](setup, native, entries, own)
+
+
+def inventory_edits(*edits):
+    """One inventory edit applying each ``(path, value)`` of ``edits`` (:func:`set_key`)."""
+
+    def edit(inventory):
+        for path, value in edits:
+            set_key(path, value)(inventory)
+
+    return edit
+
+
+FINDER = ("tools", "edge-finder")
+MICROMETERS = ("gauges", "micrometers")
+ZERO_INVENTORY_EDITS = [
+    # A finder, cutter, tool bit or gauge whose verification the inventory leaves unknown,
+    # on its record, on a fact it is read through or on the selected set member, or that
+    # the inventory leaves unknown whole or by category, is not ready: never a pass.
+    ("pivot-bracket", "S2", [((*FINDER, "verify"), "unknown")], "unknown"),
+    (
+        "pivot-bracket",
+        "S2",
+        [((*FINDER, "tip_in"), {"value": 0.2, "verify": "unknown"})],
+        "unknown",
+    ),
+    ("pivot-bracket", "S2", [(FINDER, "unknown")], "unknown"),
+    ("pivot-bracket", "S2", [(("tools",), "unknown")], "unknown"),
+    ("pivot-bracket", "S2", [(("tools", "bracket-long-endmill", "verify"), "unknown")], "unknown"),
+    ("pivot-shaft", "S1", [(("tools", "hss-toolbit-3-8-rh", "verify"), "unknown")], "unknown"),
+    ("pivot-shaft", "S1", [((*MICROMETERS, "verify"), "unknown")], "unknown"),
+    (
+        "pivot-shaft",
+        "S1",
+        [((*MICROMETERS, "members"), {"0-1in": {"verify": "unknown"}})],
+        "unknown",
+    ),
+    ("pivot-shaft", "S2", [(("gauges", "calipers", "verify"), "unknown")], "unknown"),
+    # Flagged outright, the same.
+    ("pivot-bracket", "S2", [((*FINDER, "verify"), True)], "unknown"),
+    ("pivot-shaft", "S1", [((*MICROMETERS, "present"), "unknown")], "unknown"),
+    # A finder's radius is half its tip, else its body, diameter, in either unit.
+    ("pivot-bracket", "S2", [((*FINDER, "tip_in"), None), ((*FINDER, "dia_in"), 0.2)], "pass"),
+    ("pivot-bracket", "S2", [((*FINDER, "tip_in"), None), ((*FINDER, "tip_mm"), 5.08)], "pass"),
+    # A machine the inventory lists as absent is no lathe.
+    ("pivot-shaft", "S1", [(("machines", "PM-1127VF-LB", "present"), False)], "unknown"),
+]
+
+
+@pytest.mark.parametrize(("part", "setup_id", "edits", "verdict"), ZERO_INVENTORY_EDITS)
+def test_zero_readiness_radius_and_lathe_come_from_the_inventory(
+    freecad_kernel, part, setup_id, edits, verdict
+):
+    """The engine's finding on the edited inventory is accepted with its own verdict only;
+    the unedited inventory's (a retained report) no longer stands where the edit moves it."""
+    setup, _, _, own = zero_case(part, setup_id)
+    edit = inventory_edits(*edits)
+    before = native_zero(part, setup_id)
+    edit(own.inventory)
+    entries = VALIDATOR["entries_for"](own.inventory)
+    native = native_zero(part, setup_id, inventory_edit=edit)
+    assert native["status"] == verdict
+    VALIDATOR["check_zero"](setup, copy.deepcopy(native), entries, own)
+    for forged in sorted({"pass", "unknown", "error"} - {verdict}):
+        with pytest.raises(ValueError):
+            VALIDATOR["check_zero"](setup, {**native, "status": forged}, entries, own)
+    if before != native:
+        with pytest.raises(ValueError):
+            VALIDATOR["check_zero"](setup, before, entries, own)
 
 
 def coverage_case():
