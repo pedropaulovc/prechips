@@ -1655,6 +1655,25 @@ drawn strap's certainly thin run still decides `error`/protective `pass`, but
 a run that meets the floor is `unknown` (`drawn straps meet the shop floor but
 other clamps are unresolved: …`) while any debt remains.
 
+A clamp declared `restraint = "locate"` carries no clamping load, so it has no
+footprint run and adds nothing to `min_wall_mm`. Each of its drawn solids that
+declares `locates` must instead bear on the setup-entry stock by its own
+geometry. A radial pin bears in a bore: one of its convex cylinders stands in a
+concave cylinder of the stock on a parallel axis (its axis inside the bore, the
+two overlapping along it by more than 1e-3 mm), is no larger than the bore, lies
+wholly inside it and comes within 1e-3 mm of its wall, so the drawn contact
+cylinder has clearance but touches. A flat locator bears with a flat face within
+1e-3 mm of the stock whose 0.01 mm slab swept along its outward normal meets more
+than 1e-6 mm² of it. Either way the solid shares no more than 1e-3 mm³ with the
+stock. Another member touching the stock (a collar on the work) proves nothing.
+The kernel lists each proof under `locator_bearings` (clamp, solid, `bears` =
+`bore` with pin and bore diameters, axis offset, gap and engaged length, or
+`face` with its area). A locator that stands in no bore and has no bearing
+face, is larger than the bore it stands in, crosses its wall, stands clear of
+it, or overlaps the stock, and a locate clamp that draws no `locates` solid
+(an unmeasured locating solid is not drawn), is a named `strap_wall_debts`
+entry like a non-bearing strap.
+
 Separated parallel footprint lines from one clamp may meet the entry stock in
 one exact native compound intersection. Their segments and Boolean operand order
 are unchanged, with no fuzzy tolerance. Supporting lines must be more than
