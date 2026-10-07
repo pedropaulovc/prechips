@@ -437,21 +437,6 @@ def _nearest_free(free, start, bound):
     return None
 
 
-def _outward_free(free, start, bound):
-    """The (s, z) point nearest ``start`` straight out along +s, at its own z, within
-    ``bound`` that ``free`` accepts, or None: ``POSE_SEARCH`` radial steps, the first free
-    one bisected back."""
-    _, steps, halvings = POSE_SEARCH
-    for step in range(1, steps + 1):
-        low, high = bound * (step - 1) / steps, bound * step / steps
-        if free((start[0] + high, start[1])):
-            for _ in range(halvings):
-                middle = (low + high) / 2
-                low, high = (low, middle) if free((start[0] + middle, start[1])) else (middle, high)
-            return (start[0] + high, start[1])
-    return None
-
-
 def _band(r0, r1, z0, z1):
     """Revolved annulus r0..r1 x z0..z1 (r0 may be 0), or None when it is empty."""
     if r1 - r0 <= PLANE_TOL or z1 - z0 <= PLANE_TOL:
@@ -8733,18 +8718,9 @@ class _Setup:
                 if tool["corners"] == 2:
                     blade_z += [low, high]
             else:
-                # The commanded Z stays: a nose meeting the profile there within twice its
-                # radius (a fillet it contours to the window end) stands out on it at that
-                # Z; one that cannot is checked where it was commanded.
+                # Checked where commanded: a nose standing in finished material there
+                # (past a shoulder, inside a fillet) hits the part; nothing displaces it.
                 centre = window["centre"]
-                nose = tool["radius_mm"]
-
-                def free(c, nose=nose):
-                    return _disk_clear(c, nose - LIFT, segments)
-
-                if segments and not free(centre):
-                    centre = _outward_free(free, centre, 2 * nose) or centre
-                window["centre"] = centre
                 window["meets"] = set()
             section, pieces = self._turn_sections(tool, centre, not holder_missing)
             solids = {"tool": _revolved(section)}
@@ -8865,18 +8841,28 @@ class _Setup:
             if abs(normal[1]) <= REVOLVED_TOL and normal[0] > 0
         ]
         nose, against = tool["radius_mm"], -tool["feed_z"]
+        # Claimed end faces the nose meets leading: a shoulder the op faces stops it there.
+        faces = [
+            (index, point)
+            for index, point, normal in samples
+            if abs(normal[0]) <= REVOLVED_TOL and normal[1] * against > 0
+        ]
         windows = []
         for end in ("z_from", "z_to"):
             if not radial or not _number(op.get(end)):
                 continue
             z = float(op[end])
             index, point = min(radial, key=lambda item: (abs(item[1][1] - z), item[1][0]))
+            # Riding the diameter, or on a claimed face at the commanded Z where the nose
+            # first reaches it from that diameter (past a fillet larger than the nose).
+            reach = [p[0] for _, p in faces if abs(p[1] - z) <= LIFT]
+            centre_s = max(point[0] + nose, min(reach)) if reach else point[0] + nose
             windows.append(
                 {
                     "end": end,
                     "index": index,
                     "point": (point[0], z),
-                    "centre": (point[0] + nose, z + against * nose),
+                    "centre": (centre_s, z + against * nose),
                     "sample_z": point[1],
                 }
             )

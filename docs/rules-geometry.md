@@ -330,10 +330,9 @@ are also declared, and is `unknown` while the head is unverified.
 A single-point turning op with numeric `z_from`/`z_to` is also posed where it
 starts and stops: the nose's leading extreme at that Z (the DRO reading after a
 +Z end-face touch) on the turned diameter of the claimed cylinder sample
-nearest it. A nose meeting the profile there stands out along X at the same Z
-within twice the nose radius (on a fillet it contours to that end); one with no
-clear pose at that Z is checked where commanded, so a stop past a finished
-shoulder hits the part. Those poses count in `tool_hits`/`holder_hits`, so an air start
+nearest it, or on a claimed end face at exactly that Z (a shoulder the op faces)
+where the nose first reaches it. It is checked exactly there: nothing displaces
+it, so a stop past a finished shoulder, however low, hits the part. Those poses count in `tool_hits`/`holder_hits`, so an air start
 into the dead centre or an overtravel into the chuck jaws is an accessibility
 error. `window_poses` records each end's Z, diameter, what it meets and the
 nearest placed fixture component with its clearance; at `z_from` it adds
