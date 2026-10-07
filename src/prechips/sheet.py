@@ -1524,8 +1524,13 @@ class _Traveler:
         for key in ("flat", "square", "parallel"):
             method = methods.get(key)
             rows.append((key, self.bench(method, setup) if method else "? not written", gauge(key)))
-        return f"<h2>CHECK THE BLANK — before SETUP {escape(receiver)}</h2>" + _table(
-            ["check", "limit or method", "gauge"], rows, widths=[10, 65, 25]
+        return (
+            f"<h2>CHECK THE BLANK — before SETUP {escape(receiver)}</h2>"
+            + _p(
+                f"Process limits for the squared blank, not drawing limits: SETUP {receiver} "
+                "locates on these faces. File the edge burrs off and wipe the blank first."
+            )
+            + _table(["check", "limit or method", "gauge"], rows, widths=[10, 65, 25])
         )
 
     def hold_facts(self, setup, hold, lathe):

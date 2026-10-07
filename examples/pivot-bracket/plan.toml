@@ -287,7 +287,7 @@ jaw_above_parallels_mm = 19.5453
 clamp = "hand plus quarter turn, then tap the bar down onto the parallels with a soft hammer" # AUTHOR'S CHOICE
 parallels_along = "x"
 parallels_centres_mm = [[17.1, -2.0], [17.1, -16.5]] # AUTHOR'S CHOICE: under both sides of the bar
-note = "Bar on edge on 1 in parallels, the faced left side against the fixed jaw; it stands 12.2 mm above the jaws. The outer end comes out square to the left side."
+note = "Before clamping, file the burrs off the faced edges and wipe the bar, jaws and parallels. Bar on edge on 1 in parallels, the faced left side against the fixed jaw; it stands 12.2 mm above the jaws. The outer end comes out square to the left side."
 
 [setups.zero.x]
 edge = "sawn crown end"
@@ -350,7 +350,7 @@ jaw_above_parallels_mm = 19.5453
 clamp = "hand plus quarter turn, then tap the bar down onto the parallels with a soft hammer" # AUTHOR'S CHOICE
 parallels_along = "x"
 parallels_centres_mm = [[17.1, -2.0], [17.1, -16.5]] # AUTHOR'S CHOICE: under both sides of the bar
-note = "Bar on edge on 1 in parallels, the faced outer end down and the faced left side against the fixed jaw."
+note = "Before clamping, file the burrs off the faced edges and wipe the bar, jaws and parallels. Bar on edge on 1 in parallels, the faced outer end down and the faced left side against the fixed jaw."
 
 [setups.zero.x]
 edge = "sawn seat end"
@@ -389,7 +389,7 @@ direction = "conventional"       # AUTHOR'S CHOICE: hand-fed mill
 doc_mm = 1.4                     # AUTHOR'S CHOICE: two passes of 1.4 and 1.375, inside the .250 in end-mill depth basis of Machinery's Handbook 27th ed. Table 15a p.1054
 stock_removal_bounds = { x = [-1.9, 36.1], y = [-18.525, 0.0], z = [0.0, 2.775] } # the whole raw free end
 contour = { method = "linear_table", step_mm = 12.7 } # AUTHOR'S CHOICE: 2/3 of the 19.05 cutter per pass
-note = "Face the free end to Z0, 26.2 over the outer end, in two passes."
+note = "Face the free end to Z0, 26.2 over the outer end, in two passes. The raw end is at Z = M − 26.2: if that is above Z +2.775, first face it down to Z +2.775, no more than 1.4 per pass." # AUTHOR'S CHOICE: the levels assume the nominal end; the measured M sets the real one
 
 [[setups]]
 id = "P4"
@@ -415,7 +415,7 @@ jaw_above_parallels_mm = 13.1953
 clamp = "hand plus quarter turn, then tap the bar down until both parallels are pinned" # AUTHOR'S CHOICE: the left side seats flat on both parallels
 parallels_along = "x"
 parallels_centres_mm = [[17.1, 2.0], [17.1, 24.2]] # AUTHOR'S CHOICE: under both edges of the bar
-note = "Bar flat on 1-1/4 in parallels, the faced left side down. The right side comes out parallel to the left side."
+note = "Before clamping, file the burrs off the faced edges and wipe the bar, jaws and parallels. Bar flat on 1-1/4 in parallels, the faced left side down. The right side comes out parallel to the left side."
 
 [setups.zero.x]
 edge = "sawn crown end"
@@ -454,7 +454,7 @@ direction = "conventional"       # AUTHOR'S CHOICE: hand-fed mill
 doc_mm = 0.525                   # AUTHOR'S CHOICE: one 0.525 pass, inside the .250 in end-mill depth basis of Machinery's Handbook 27th ed. Table 15a p.1054
 stock_removal_bounds = { x = [-1.9, 36.1], y = [0.0, 26.2], z = [0.0, 0.525] } # the whole raw right side
 contour = { method = "linear_table", step_mm = 12.7 } # AUTHOR'S CHOICE: 2/3 of the 19.05 cutter per pass
-note = "Face the right side to Z0, 18.0 over the left side."
+note = "Face the right side to Z0, 18.0 over the left side. The raw side is at Z = M − 18.0: if that is above Z +0.525, first face it down to Z +0.525, no more than 1.4 per pass." # AUTHOR'S CHOICE: the level assumes the nominal side; the measured M sets the real one
 
 [[setups]]
 id = "P5"
@@ -475,13 +475,13 @@ fixed_jaw = "rear"               # the faced left side against the fixed jaw
 parallels = "parallels-lms-6745/5-8in"
 jaw_bar = "jaw-round-bar"        # AUTHOR'S CHOICE: round bar against the moving jaw because a tilted moving jaw would rock the bar; the bar presses on one line so only the faced left side on the fixed jaw sets the end square
 jaw_center_along_mm = 13.1        # the 26.2 run centred in the jaws
-stop = "No end stop: centre the bar in the jaws; stand the faced outer end square to the table with the DTI before tightening." # AUTHOR'S CHOICE
+stop = "No end stop: centre the bar in the jaws." # AUTHOR'S CHOICE
 grip_mm = 29.0703                # measured jaw 1.7695 in - 5/8 in parallels, x 25.4
 jaw_above_parallels_mm = 29.0703
 clamp = "snug, sweep the outer end with the DTI down its 30 mm, tap square, then hand plus quarter turn" # AUTHOR'S CHOICE: the end must come out square to both long faces
 parallels_along = "x"
 parallels_centres_mm = [[13.1, -2.0], [13.1, -16.0]] # AUTHOR'S CHOICE: under both sides of the bar
-note = "Bar standing on its sawn seat end on 5/8 in parallels, the faced left side against the fixed jaw; it stands 8.9 mm above the jaws. Before tightening, sweep the faced outer end square to the table with the DTI."
+note = "Before clamping, file the burrs off the faced edges and wipe the bar, jaws and parallels. Bar standing on its sawn seat end on 5/8 in parallels, the faced left side against the fixed jaw; it stands 8.9 mm above the jaws."
 
 [setups.zero.x]
 edge = "blank_free_end"
@@ -544,7 +544,7 @@ jaw_above_parallels_mm = 29.0703
 clamp = "hand plus quarter turn, then tap the bar down until both parallels are pinned" # AUTHOR'S CHOICE: the faced crown end seats flat
 parallels_along = "x"
 parallels_centres_mm = [[13.1, -2.0], [13.1, -16.0]] # AUTHOR'S CHOICE: under both sides of the bar
-note = "Bar standing on its faced crown end on 5/8 in parallels, the faced left side against the fixed jaw; it stands 7.0 mm above the jaws."
+note = "Before clamping, file the burrs off the faced edges and wipe the bar, jaws and parallels. Bar standing on its faced crown end on 5/8 in parallels, the faced left side against the fixed jaw; it stands 7.0 mm above the jaws."
 
 [setups.zero.x]
 edge = "blank_outer_end"
@@ -583,7 +583,7 @@ direction = "conventional"       # AUTHOR'S CHOICE: hand-fed mill
 doc_mm = 1.9                     # AUTHOR'S CHOICE: one 1.9 pass, inside the .250 in end-mill depth basis of Machinery's Handbook 27th ed. Table 15a p.1054
 stock_removal_bounds = { x = [0.0, 26.2], y = [-18.0, 0.0], z = [0.0, 1.9] } # the whole sawn seat end
 contour = { method = "linear_table", step_mm = 9.0 } # AUTHOR'S CHOICE: two passes over the 18 mm end
-note = "Face the sawn seat end to Z0, 34.2 over the crown end."
+note = "Face the sawn seat end to Z0, 34.2 over the crown end. The sawn end is at Z = M − 34.2: if that is above Z +1.9, first face it down to Z +1.9, no more than 1.9 per pass." # AUTHOR'S CHOICE: the level assumes the nominal end; the measured M sets the real one
 
 # ======================================================================= S1
 [[setups]]

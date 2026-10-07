@@ -270,7 +270,7 @@ jaw_above_parallels_mm = 32.2453
 clamp = "hand plus quarter turn, then tap the bar down onto the parallels with a soft hammer" # AUTHOR'S CHOICE
 parallels_along = "x"
 parallels_centres_mm = [[170.0, -2.5], [170.0, -15.0]] # AUTHOR'S CHOICE: under both faces of the bar
-note = "Bar on edge on 1/2 in parallels, the faced upper face against the fixed jaw; it stands 44 mm above the jaws. The datum edge comes out square to the upper face."
+note = "Before clamping, file the burrs off the faced edges and wipe the bar, jaws and parallels. Bar on edge on 1/2 in parallels, the faced upper face against the fixed jaw; it stands 44 mm above the jaws. The datum edge comes out square to the upper face."
 
 [setups.zero.x]
 edge = "sawn left end"
@@ -333,7 +333,7 @@ jaw_above_parallels_mm = 32.2453
 clamp = "hand plus quarter turn, then tap the bar down onto the parallels with a soft hammer" # AUTHOR'S CHOICE
 parallels_along = "x"
 parallels_centres_mm = [[170.0, -2.5], [170.0, -15.0]] # AUTHOR'S CHOICE: under both faces of the bar
-note = "Bar on edge on 1/2 in parallels, the faced datum edge down and the faced upper face against the fixed jaw."
+note = "Before clamping, file the burrs off the faced edges and wipe the bar, jaws and parallels. Bar on edge on 1/2 in parallels, the faced datum edge down and the faced upper face against the fixed jaw."
 
 [setups.zero.x]
 edge = "sawn right end"
@@ -372,7 +372,7 @@ direction = "conventional" # AUTHOR'S CHOICE: hand-fed mill
 doc_mm = 2.8 # AUTHOR'S CHOICE: two passes of 2.8, inside the .250 in end-mill depth basis of Machinery's Handbook 27th ed. Table 15a p.1054
 stock_removal_bounds = { x = [-2.5, 342.5], y = [-17.525, 0.0], z = [0.0, 5.6] } # the whole raw opposite edge
 contour = { method = "linear_table", step_mm = 12.7 } # AUTHOR'S CHOICE: 2/3 of the 19.05 cutter per pass
-note = "Face the opposite edge to Z0, 65.0 over the datum edge, in two passes."
+note = "Face the opposite edge to Z0, 65.0 over the datum edge, in two passes. The raw edge is at Z = M − 65.0: if that is above Z +5.6, first face it down to Z +5.6, no more than 2.8 per pass." # AUTHOR'S CHOICE: the levels assume the nominal edge; the measured M sets the real one
 
 [[setups]]
 id = "P4"
@@ -398,7 +398,7 @@ jaw_above_parallels_mm = 13.1953
 clamp = "hand plus quarter turn, then tap the bar down until both parallels are pinned" # AUTHOR'S CHOICE: the upper face seats flat on both parallels
 parallels_along = "x"
 parallels_centres_mm = [[170.0, -3.0], [170.0, -62.0]] # AUTHOR'S CHOICE: under both edges of the bar
-note = "Bar flat on 1-1/4 in parallels, the faced upper face down. The lower face comes out parallel to the upper face."
+note = "Before clamping, file the burrs off the faced edges and wipe the bar, jaws and parallels. Bar flat on 1-1/4 in parallels, the faced upper face down. The lower face comes out parallel to the upper face."
 
 [setups.zero.x]
 edge = "sawn left end"
@@ -437,7 +437,7 @@ direction = "conventional" # AUTHOR'S CHOICE: hand-fed mill
 doc_mm = 1.525 # AUTHOR'S CHOICE: one 1.525 pass, inside the .250 in end-mill depth basis of Machinery's Handbook 27th ed. Table 15a p.1054
 stock_removal_bounds = { x = [-2.5, 342.5], y = [-65.0, 0.0], z = [0.0, 1.525] } # the whole raw lower face
 contour = { method = "linear_table", step_mm = 12.7 } # AUTHOR'S CHOICE: 2/3 of the 19.05 cutter per pass
-note = "Face the lower face to Z0, 16.0 over the upper face."
+note = "Face the lower face to Z0, 16.0 over the upper face. The raw face is at Z = M − 16.0: if that is above Z +1.525, first face it down to Z +1.525, no more than 1.525 per pass." # AUTHOR'S CHOICE: the level assumes the nominal face; the measured M sets the real one
 
 [[setups]]
 id = "P5"
@@ -463,7 +463,7 @@ jaw_above_parallels_mm = 13.1953
 clamp = "hand plus quarter turn, then tap the bar down until both parallels are pinned" # AUTHOR'S CHOICE
 parallels_along = "x"
 parallels_centres_mm = [[170.0, -3.0], [170.0, -62.0]] # AUTHOR'S CHOICE: under both edges of the bar
-note = "Bar flat on 1-1/4 in parallels, upper face up, datum edge against the fixed jaw; both sawn ends overhang the jaws by 93.5 mm. Side-mill each end with the side of the cutter, the bar flat."
+note = "Before clamping, file the burrs off the faced edges and wipe the bar, jaws and parallels. Bar flat on 1-1/4 in parallels, upper face up, datum edge against the fixed jaw; both sawn ends overhang the jaws by 93.5 mm. Side-mill each end with the side of the cutter, the bar flat."
 
 [setups.zero.x]
 edge = "sawn right end"
