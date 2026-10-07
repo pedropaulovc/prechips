@@ -274,6 +274,8 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
         table = table_checkpoints(subject, tables, op["op"], units)
         if table is not None:
             result["checkpoints"] = table
+    if not turned and "keep_out" in record(op.get("contour")):
+        result["keep_out"], result["keep_out_passes"] = raster_keep_out(tables, op["op"], units)
     if model in (TURNING, ROTARY):
         # Turning: the declared span on setup Z bounds and extends the revolved removal.
         # Rotary: the span along the head axis from the chuck pose origin.
@@ -370,6 +372,48 @@ def _hand_inputs(bundle, op, subject, finishing):
     if "faces" in op:
         result["faces"] = op["faces"]
     return result
+
+
+def raster_keep_out(tables, op, units):
+    """(An op's face-raster ``keep_out`` circles as the coordinates rule mapped them into
+    its setup frame, ``at_mm`` setup XY and ``dia_mm``, and its passes as that rule split
+    them, ``printed`` cutter-centre pieces and the ``skipped`` parts the circles removed,
+    each ``[[x, y], [x, y]]`` setup-frame mm), both UNKNOWN unless every raster record of
+    the op carries them: the kernel never cuts or poses through an unmapped island, nor
+    takes stock that no printed piece sweeps."""
+    scale = {"mm": 1.0, "in": 25.4}.get(units)
+    circles, passes = None, {"printed": [], "skipped": []}
+
+    def segments(value):
+        if not isinstance(value, list) or not all(
+            isinstance(segment, list)
+            and len(segment) == 2
+            and all(isinstance(p, list) and len(p) == 2 and all(map(number, p)) for p in segment)
+            for segment in value
+        ):
+            return None
+        return [[[v * scale for v in point] for point in segment] for segment in value]
+
+    for profile in record(tables).get("profiles", []):
+        profile = record(profile)
+        if profile.get("op") != op:
+            continue
+        raster = record(profile.get("raster"))
+        printed = segments(profile.get("cutter_centre"))
+        skipped = segments(raster.get("keep_out_skipped"))
+        mapped = raster.get("keep_out")
+        if scale is None or not isinstance(mapped, list) or printed is None or skipped is None:
+            return UNKNOWN, UNKNOWN
+        islands = []
+        for circle in map(record, mapped):
+            at = circle.get("at")
+            if not (isinstance(at, list) and all(number(v) for v in at)):
+                return UNKNOWN, UNKNOWN
+            islands.append({"at_mm": [v * scale for v in at], "dia_mm": circle.get("dia_mm")})
+        circles = circles or islands
+        passes["printed"].extend(printed)
+        passes["skipped"].extend(skipped)
+    return (UNKNOWN, UNKNOWN) if circles is None else (circles, passes)
 
 
 def table_checkpoints(subject, tables, op, units):
@@ -1122,6 +1166,8 @@ _ENGINE_OP = (
     "checkpoints",
     "rough_allowance_mm",
     "stock_removal_bounds",
+    "keep_out",
+    "keep_out_passes",
     "approach",
     "z_from",
     "z_to",
@@ -1281,7 +1327,7 @@ def _execute(executable, job):
             capture_output=True,
             text=True,
             errors="replace",
-            timeout=300,
+            timeout=600,  # runaway guard: about twice the heaviest example's cold batch
         )
         if process.returncode:
             detail = (process.stderr or process.stdout).strip()
