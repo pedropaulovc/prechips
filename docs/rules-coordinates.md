@@ -54,14 +54,21 @@ also carries `dro`: that point at the nearest step of the setup machine's DRO gr
 (`dro_grid`), at most half a step away, which the sheet's feature map prints and a
 hole op dials (`dro_xy`). When the feature declares a height-like band
 (`height_above_pivot`, `height` or `separation`, the first one present) from a
-`height_from` reference, the row's `band_check` measures the DRO target from that
-reference: along a reference plane's normal, otherwise from the reference's own
-printed DRO target when this setup locates it too (else its planned model point)
-along the common normal of both declared axes, square to the one declared axis,
-else point to point when neither declares an axis. A declared axis that is
-`"unknown"` (or whose frame is) leaves the distance unmeasured; a kernel span's two
-ends must stand at one distance, else the band names neither. The band is the one
-the sheet prints, rounded inward at its drawing precision. A target outside it is
+`height_from` reference, the row's `band_check` measures where the feature stands
+from where that reference stands. A feature this setup machines (a centre op —
+a hole op or `center` — names it) stands at its DRO target; one it only inspects
+or otherwise works without dialling it, or machines through a child or in
+another setup, stands at its planned point (its aimed model point, unrounded),
+whatever its row prints. The distance runs along a reference plane's normal,
+otherwise from the located reference along the common normal of both measuring
+axes, square to the one axis, else point to point when neither has one. A
+feature without its own `axis` that names a parent hole (`hole`, else `parent`)
+or is drawn `coaxial_to` another takes that feature's axis, in that feature's
+frame, whether or not it has its own `at`. An axis that is `"unknown"` (or whose
+frame is), or that comes from an undeclared feature, leaves the distance
+unmeasured; a kernel span's two ends must stand at one distance, else the band
+names neither. The band is the one the sheet prints, rounded inward at its
+drawing precision. A target outside it is
 an error (`Located target band error: …`, value in mm). A distance that cannot be
 measured, a band that is not two numbers, feature units other than mm or in, or a
 provisional DRO grid — the machine's `resolution` unknown or not qualified by its
@@ -74,13 +81,16 @@ the `aim` (owner `feature`, requirement, value in mm and in manifest units, reas
 source, printed band, nominal value and shift in mm), and the finding cites
 `plan.aims.<name>`; the feature map adds a sentence that gives the aimed target,
 the drawing nominal and the reason. A child located by its parent's `at` dials its
-parent's aimed target and carries the parent's aim; an aim of the child's own would
-take it off that axis and is refused (unknown, reason in `aim.why`). An aim never
+parent's target, aimed or not, and carries the parent's `aim`; an aim of the
+child's own would take it off that axis: it is refused (unknown, reason in
+`refused_aim.why`, cited too) and moves nothing. An aim never
 changes geometry, a claim, a kernel input or another feature's target. A
 `value_mm` outside its printed band is refused before any rounding: bad input on
 load, an error in the rule, and the target stays nominal. An aim whose feature
+no mill setup's centre op names (only inspected, faced or profiled, cut through a
+child or drilled on a lathe, so no cut stands at the aimed target), whose feature
 holds no such band, whose band or units are unknown, or whose distance cannot be
-measured stays unknown with the reason in `aim.why`.
+measured stays unknown with the reason in `aim.why` and the target stays nominal.
 
 **Kernel revolved location, any setup.** The kernel request lists, per setup,
 its located features with neither `at` nor a parent (`locate_revolved`); the

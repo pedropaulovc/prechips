@@ -173,12 +173,17 @@ The `<feature>` must be a manifest feature that exports `requirement`, and
 band as the sheet prints it; anything else is bad input. The
 [`coordinates`](rules-coordinates.md#coordinates) rule moves the feature's own
 target along the band's measuring direction in every setup that locates it. It
-then checks the DRO-rounded target against the printed band, measured from the
-reference's own printed target when the same setup locates it, and cites
-`plan.aims.<feature>`. The sheet's feature map prints the aimed target together
-with the drawing nominal and the reason. An aim on a feature without that band,
-on a child located by its parent's `at`, under unknown units, or one whose
-distance cannot be measured stays unknown.
+then checks the target against the printed band where the features stand: the
+DRO-rounded target where that setup machines the feature (a centre op names
+it), the planned point where it only inspects it, measured from the
+reference's own printed target when the same setup machines it (else the
+reference's planned point), and cites `plan.aims.<feature>`. The sheet's
+feature map prints the aimed target together with the drawing nominal and the
+reason. An aim on a feature without that band, on one no mill setup's centre op
+(a hole op or `center`) names, under unknown units, or one whose distance cannot
+be measured stays unknown and moves nothing. An aim on a child located by its
+parent's `at` is refused (unknown); the child still dials its parent's target,
+aimed or not.
 
 ## Joint features
 
