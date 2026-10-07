@@ -8,7 +8,8 @@
 # Category cutover: workholding → fixtures; measuring → gauges; collet/QCTP sets → holders.
 # Drill nominal diameters below are cited identities; member facts are example values.
 # Centre-drill angle_deg = 60 is a centre-seat angle, NOT a drill point_angle.
-stock = []
+# Stock (bar the shop holds) is the [[stock]] array of tables in the r7 shop kit section
+# at the end of this file; TOML cannot extend an inline `stock = []` from there.
 
 [machines]
 
@@ -2299,3 +2300,376 @@ note = "illustrative example item: 0-450 mm (18 in) dial calipers reading 0.02 m
 range_mm = [0.0, 450.0] # example (plausible, not measured)
 resolution_mm = 0.02 # example (plausible, not measured)
 # --- end MillPrep additions ---
+
+# --- r7 shop kit: heat-treat, lapping, materials (Pedro 2026-10) ---
+# Pedro's approved shop-capability kit (review-loop/r3/shop-additions.md §7, rulings
+# 2026-10): torch/oil hardening and oven tempering of O1, bench grinder, stones, a
+# cast-iron lap with ring and barrel laps, the bar the fixture parts are made from,
+# two adhesives, a bought box parallel and a bought Class X gauge pin. ILLUSTRATIVE
+# EXAMPLE DATA: vendor SKUs/URLs and prices were read from the vendor pages named in
+# shop-additions.md; every physical value presented as the shop's own reading is
+# labelled fact-locally `measured = { by = "example (plausible, not measured)", ... }`.
+# Facts with no schema home (temperatures, hardness, grit, flatness/squareness,
+# volumes, a consumable's vendor and spec) are stated in `note`/`products`/comments
+# only; no rule reads them. MH = Machinery's Handbook 27th ed., printed page numbers.
+
+# Heat-treat kit (shop-additions.md §A): O1 hardened by torch in a soft-brick chamber,
+# quenched in medium-speed oil, tempered in a dedicated toaster oven, checked by files.
+[tools.torch-bernzomatic-ts8000]
+name = "MAP-Pro torch (Bernzomatic TS8000)"
+kind = "torch"
+make = "Bernzomatic"
+sku = "TS8000BZKC"
+source = "https://www.homedepot.com/p/Bernzomatic-DuraCast-8000-Torch-Kit-with-14-1-oz-MAP-Pro-Cylinder-and-Premium-Blow-Torch-with-Adjustable-Flame-TS8000BZKC/205683985"
+note = "illustrative example item: TS8000 trigger-start torch with a 14.1 oz MAP-Pro cylinder, fired through a hole into the fire-brick chamber. AUTHOR'S CHOICE: bring O1 up slowly to a dull red (about 1200 °F) to equalise, then to non-magnetic and one shade further to an even cherry red (1475-1500 °F), hold about 5 min for 4-12 mm sections, because overheating causes warpage, scale and decarburisation (MH p.514-515) and Hudson's O1 sheet gives 1475-1500 °F. Judge colour in shade, never in sunlight. The torch gives hardness, never size."
+cite = ["MH 27th p.496 Table 9 (O1: harden 1450-1500 °F, oil)", "MH 27th p.514-515", "https://www.hudsontoolsteel.com/technical-data/steelO1"]
+
+# Four K23 soft insulating bricks; two or three make the heating chamber.
+[fixtures.fire-brick-chamber]
+name = "K23 fire-brick heating chamber"
+kind = "fire_brick_chamber"
+make = "K23 insulating fire brick (2300 °F)"
+source = "https://euclids.com/products/insulating-firebrick-k23-4-5-x-9-x-2-5"
+note = "illustrative example item: four K23 soft insulating fire bricks (rated 2300 °F); two or three form a chamber the torch fires into through a drilled hole. Small parts hang on soft iron binding wire or are held in the tongs. AUTHOR'S CHOICE: soft insulating brick, not hard firebrick, because it reflects the heat back onto the part and a MAP torch cannot heat a dense brick mass."
+# measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "count of bricks" } (pieces is a plain number in the schema)
+pieces = 4
+length_in = { value = 9.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, one brick" } }
+width_in = { value = 4.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, one brick" } }
+height_in = { value = 2.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, one brick" } }
+
+[fixtures.quench-can-m2a1]
+name = "quench can (steel M2A1 ammo can, lidded)"
+kind = "quench_tank"
+material = "steel"
+source = "https://www.luckygunner.com/ammo-can-50-cal-green-new-m2a1-mil-spec-1"
+note = "illustrative example item: steel M2A1 .50 cal ammunition can with its lid, holding about 1 gal of Park's AAA quench oil. AUTHOR'S CHOICE: a lidded steel can, never a plastic box, because a hot part can ignite the oil and the lid smothers a flash fire; keep the lid and a B/ABC extinguisher within reach. AUTHOR'S CHOICE: warm the oil to about 90-130 °F by quenching a hot scrap bar first, enter vertically and keep the part moving, because parts left still or on the tank bottom get soft spots (MH p.517). Pull at about 150 °F (hand-warm) and temper immediately (Hudson O1 sheet)."
+cite = ["MH 27th p.517-519 (oil bath temperature, moving the work, quench tanks)", "https://www.hudsontoolsteel.com/technical-data/steelO1"]
+length_in = { value = 12.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "tape measure, outside length" } }
+width_in = { value = 6.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "tape measure, outside width" } }
+height_in = { value = 7.25, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "tape measure, outside height to the lid seal" } }
+
+# Park's AAA quench oil, 1 gal: https://usaknifemaker.com/park-s-aaa-quench-oil-1-or-5-gallon-container.html
+[consumables.quench-oil-parks-aaa]
+name = "Park's AAA quench oil"
+products = ["Park's AAA quench oil, 1 gal (medium speed, flash point 340 °F)"]
+
+# ATP-641 anti-scale compound: https://knifemaking.com/products/anti-scale-compound-for-heat-treating
+[consumables.anti-scale-atp-641]
+name = "ATP-641 anti-scale coating"
+products = ["ATP-641 anti-scale compound (works 1000-2300 °F; rinses off in hot water), brushed on before hardening to limit scale and decarburisation"]
+
+# Soft iron binding wire for hanging small parts in the chamber (local hardware).
+[consumables.binding-wire]
+name = "soft iron binding wire"
+products = ["16-18 ga black annealed iron wire, local hardware (no vendor checked)"]
+
+[tools.tongs-1-4in]
+name = "1/4 in bladesmith tongs"
+kind = "tongs"
+source = "https://usaknifemaker.com/tongs-1-4.html"
+note = "illustrative example item: 1/4 in bladesmith tongs for carrying a hot part from the chamber to the quench."
+length_in = { value = 18.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "tape measure, overall length" } }
+
+# The non-magnetic test for the hardening heat (local hardware, no vendor checked).
+[gauges.pickup-magnet]
+name = "telescoping pickup magnet"
+kind = "magnet"
+note = "illustrative example item: telescoping pickup magnet used as a go/no-go hardening-heat test; O1 is ready to soak one colour shade past the point where the magnet no longer pulls it (decalescence, MH p.514-515). It reads no temperature."
+cite = ["MH 27th p.514-515 (decalescence and recalescence points)"]
+
+[machines.tempering-oven]
+name = "tempering oven (shop-only toaster oven)"
+kind = "oven"
+make = "BLACK+DECKER"
+sku = "TO1950SBD"
+source = "https://www.walmart.com/ip/BLACK-DECKER-6-Slice-Toaster-Oven-Black-TO1950SBD/29461616"
+note = "illustrative example item: 6-slice toaster oven reaching 450 °F, kept for shop use only; no spindle, DRO or axes. AUTHOR'S CHOICE: temper O1 at 400 °F for 2 h, air cool, then repeat, because MH Table 9 gives Rc 62 at 350 °F and Rc 57 at 500 °F (about Rc 60 at 400 °F by interpolation) and Hudson asks for 2 h minimum, immediately after the quench. AUTHOR'S CHOICE: set the parts on a steel block or sand tray and read the oven thermometer, not the dial, because a toaster oven swings by about ±25 °F (estimate, not measured). Temper colours are not dependable (MH p.521-523). Stress-relief temper at 350-375 °F after heavy lapping (Metal Supermarkets O1)."
+cite = ["MH 27th p.496 Table 9", "MH 27th p.521-523", "https://www.hudsontoolsteel.com/technical-data/steelO1", "https://www.metalsupermarkets.com/tool-steel-o1/"]
+
+[gauges.oven-thermometer-taylor-5932]
+name = "oven thermometer (Taylor 5932)"
+kind = "thermometer"
+make = "Taylor"
+sku = "5932"
+source = "https://www.taylorusa.com/products/oven-thermometer"
+note = "illustrative example item: 100-600 °F dial oven thermometer, kept on the steel block beside the parts during tempering."
+
+[gauges.hardness-files]
+name = "hardness test files, 40-65 HRC"
+kind = "hardness_file_set"
+make = "Gardco"
+source = "https://www.gardco.com/en-US/product/hardness-tester-files-set-of-6/01t5I0000023qKBQAY"
+note = "illustrative example item: set of six calibrated hardness test files, 40/45/50/55/60/65 HRC. A go/no-go estimate, not a Rockwell number: after the decarburised skin is lapped off, the 55 file must skate and the 60 file skates or barely bites for about 60 HRC."
+# measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "count of files in the case" } (pieces is a plain number in the schema)
+pieces = 6
+
+[gauges.hardness-files.members.40hrc]
+note = "40 HRC file"
+
+[gauges.hardness-files.members.45hrc]
+note = "45 HRC file"
+
+[gauges.hardness-files.members.50hrc]
+note = "50 HRC file"
+
+[gauges.hardness-files.members.55hrc]
+note = "55 HRC file"
+
+[gauges.hardness-files.members.60hrc]
+note = "60 HRC file"
+
+[gauges.hardness-files.members.65hrc]
+note = "65 HRC file"
+
+# Safety equipment has no inventory category of its own; listed here so the kit is whole.
+[tools.heat-treat-safety-kit]
+name = "heat-treat and grinding safety kit"
+kind = "safety_kit"
+note = "illustrative example item: full face shield, leather gloves and a B/ABC fire extinguisher, local purchase (no vendor checked). AUTHOR'S CHOICE: face shield on at the grinder and at the quench, extinguisher within reach of the quench can, because MH p.1207-1211 requires eye protection at a wheel and quench oil can flash."
+cite = ["MH 27th p.1207-1211 (grinding wheel safety)"]
+
+# Grinding, stoning and lapping kit (shop-additions.md §B). The bench grinder roughs,
+# chamfers, sharpens HSS and nicks hardened pins; it never finishes a size (MH p.1229:
+# offhand grinding is "grinding to broad tolerances"). Every micron surface is lapped.
+[machines.bench-grinder-rikon-80-805]
+name = "8 in slow-speed bench grinder (Rikon 80-805)"
+kind = "bench_grinder"
+make = "Rikon"
+sku = "80-805"
+source = "https://www.woodcraft.com/products/rikon-8-slow-speed-grinder-1-2-hp"
+arbor = "5/8 in"
+note = "illustrative example item: 8 in, 1/2 HP, 1750 rpm bench grinder with white aluminium-oxide 60 and 120 grit wheels, 1 in wide. Offhand only: roughing, chamfers, breaking edges, nicking hardened gauge pins, HSS bits; no size is finished on it. AUTHOR'S CHOICE: ring-test a new wheel, guards on, tool rest within 1/8 in of the wheel, face shield on, because MH p.1207-1211 sets these wheel-safety rules. AUTHOR'S CHOICE: dip small hardened parts in water constantly, because a hot edge draws its temper."
+cite = ["https://rikontools.com/product/model-80-805-8-low-speed-grinder/", "MH 27th p.1229 (offhand grinding = broad tolerances)", "MH 27th p.1207-1211"]
+
+[machines.bench-grinder-rikon-80-805.spindle]
+rpm_min = 1750
+rpm_max = 1750
+hp = 0.5
+
+[tools.grinding-wheel-60]
+name = "8 in white Al2O3 wheel, 60 grit"
+kind = "grinding_wheel"
+make = "Rikon"
+material = "white aluminium oxide, vitrified"
+arbor = "5/8 in"
+source = "https://rikontools.com/product/model-80-805-8-low-speed-grinder/"
+note = "illustrative example item: the 80-805's coarse wheel, 60 grit, supplied with the grinder. MH Table 4 recommends FA46-FA60 vitrified wheels for hardened O1 (grindability Group 1); the friable white wheel fits that."
+cite = ["MH 27th p.1189-1190 Tables 3 and 4"]
+dia_in = { value = 8.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule across the wheel" } }
+width_in = { value = 1.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, wheel face width" } }
+
+[tools.grinding-wheel-120]
+name = "8 in white Al2O3 wheel, 120 grit"
+kind = "grinding_wheel"
+make = "Rikon"
+material = "white aluminium oxide, vitrified"
+arbor = "5/8 in"
+source = "https://rikontools.com/product/model-80-805-8-low-speed-grinder/"
+note = "illustrative example item: the 80-805's fine wheel, 120 grit, supplied with the grinder; squares and chamfers the snapped gauge-pin end, dipping constantly."
+cite = ["MH 27th p.1189-1190 Tables 3 and 4"]
+dia_in = { value = 8.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule across the wheel" } }
+width_in = { value = 1.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, wheel face width" } }
+
+[tools.wheel-dresser-norton]
+name = "multi-point diamond wheel dresser (Norton)"
+kind = "wheel_dresser"
+make = "Norton"
+sku = "NO-DIAMDR"
+source = "https://toolsforworkingwood.com/store/item/NO-DIAMDR/norton-multi-point-diamond-wheel-dresser"
+note = "illustrative example item: Norton multi-point diamond dresser for truing and opening both grinder wheels (the Rikon P80-805-54 dresser was out of stock)."
+cite = ["MH 27th p.1196-1200 (truing and dressing)"]
+
+[tools.india-stone-ib8]
+name = "India combination stone, coarse/fine (Norton IB8)"
+kind = "sharpening_stone"
+make = "Norton"
+sku = "IB8"
+source = "https://www.sharpeningsupplies.com/products/norton-combination-india-stone"
+note = "illustrative example item: Norton India combination oil stone, coarse/fine, used with honing oil for burrs and edges on hardened parts and the fine finish of the stoned diamond-pin flats."
+length_in = { value = 8.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule" } }
+width_in = { value = 2.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule" } }
+height_in = { value = 1.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, thickness" } }
+
+[tools.diamond-plate-dmt-coarse]
+name = "6 in diamond plate, coarse (DMT Dia-Sharp)"
+kind = "diamond_plate"
+make = "DMT"
+source = "https://dmtsharp.com/products/6-in-dia-sharp-bench-stone-coarse"
+note = "illustrative example item: DMT Dia-Sharp 6 in coarse diamond bench plate, for removing hardened metal: the two flats stoned on the Class X gauge pin (held in a small V-block) before finishing on the India fine face."
+length_in = { value = 6.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule" } }
+width_in = { value = 2.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule" } }
+
+# The flat lap. The granite surface plate is the shop's measuring datum and is never a lap.
+[tools.lap-plate-cast-iron]
+name = "cast-iron lapping plate, 12 x 16 in"
+kind = "lap_plate"
+material = "cast iron"
+source = "https://www.amazon.com/dp/B07NVTHH26"
+note = "illustrative example item: 12 x 16 x 4 in cast-iron flat lap, sold as flatness within 0.01 mm. AUTHOR'S CHOICE: never lap on the granite surface plate, because the granite is the shop's measuring datum and MH p.1236 makes flat laps of cast iron; abrasive charged into granite would wear the datum. AUTHOR'S CHOICE: condition the lap before any micron work (check it against the granite with marking blue, then lap it over the whole surface with a conditioning block, the practical form of the MH p.1237 three-plate method), because the vendor promises only 0.01 mm, more than the bands it must produce. Charge the lap by pressing the abrasive in with a hardened block, keep it wet with kerosene, light pressure (25 psi or less), figure-8 strokes over the whole plate turning the part (MH p.1237-1239)."
+cite = ["MH 27th p.1235-1239 (laps, charging, truing flat laps, pressure, lubricants)"]
+length_in = { value = 16.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "tape measure" } }
+width_in = { value = 12.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "tape measure" } }
+height_in = { value = 4.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, plate thickness" } }
+
+# Split ring laps made in the shop from the brass rod below (MH p.1236): a bored sleeve
+# with a split and a clamp screw, run on the part in the lathe at low speed. One per
+# lapped OD the rulings name: button OD 10.20, stud and screw shoulder 6.49, screw head 8.00.
+[tools.ring-laps]
+name = "split brass ring laps"
+kind = "ring_lap_set"
+shop_made = true
+material = "C360 free-machining brass"
+note = "illustrative example shop-made item: three split brass ring laps, each a bored sleeve about 20 mm long with a saw split and a clamp screw, bored to the lapped size and closed onto the work with the screw; charged with the SiC compounds and run in the lathe at low speed. Ring laps follow each diameter's own axis: they correct size and roundness, never coaxiality (shop-additions.md item 2)."
+cite = ["MH 27th p.1236 (external ring and split laps)"]
+
+[tools.ring-laps.members."10.20mm"]
+note = "filing-button OD lap"
+dia_mm = { value = 10.2, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "two-point bore gauge zeroed on the micrometer, bore before splitting" } }
+length_mm = { value = 20.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+
+[tools.ring-laps.members."6.49mm"]
+note = "stud body and pivot-screw shoulder lap"
+dia_mm = { value = 6.49, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "metric pin gauges, bore before splitting" } }
+length_mm = { value = 20.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+
+[tools.ring-laps.members."8.00mm"]
+note = "pivot-screw head lap"
+dia_mm = { value = 8.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "pin gauges, bore before splitting" } }
+length_mm = { value = 20.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+
+[tools.barrel-lap-acro-1-4]
+name = "1/4 in expanding barrel lap (Acro 1-4-TH)"
+kind = "barrel_lap"
+make = "Acro"
+sku = "1-4-TH"
+source = "https://www.penntoolco.com/acro-lap-mfg-1-4-th-barrel-1-4-bl-005/"
+note = "illustrative example item: Acro 1/4 in expanding barrel lap (expands about 15 %), covering the 6.50 button bore; laps the hardened buttons' bores to 6.505-6.515, checked with the 6.50x pin gauges."
+dia_in = { value = 0.25, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, barrel unexpanded" } }
+# measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, barrel unexpanded and fully expanded" } (range_mm is a plain number list in the schema)
+range_mm = [6.35, 7.3]
+
+# Clover silicon-carbide grease mix, 1/2 oz: 400 grit https://usaknifemaker.com/loctite-clover-compound-400-grit-very-fine-1-2-oz.html
+[consumables.lapping-compound-400]
+name = "Clover SiC lapping compound, 400 grit"
+products = ["Clover silicon-carbide grease mix, 400 grit, 1/2 oz (stock removal on the lap; MH p.1239: no advantage coarser than No. 150)"]
+
+# Clover silicon-carbide grease mix, 1/2 oz: 800 grit https://usaknifemaker.com/loctite-clover-compound-800-grit-extremely-fine-1-2-oz.html
+[consumables.lapping-compound-800]
+name = "Clover SiC lapping compound, 800 grit"
+products = ["Clover silicon-carbide grease mix, 800 grit, 1/2 oz (finish lapping)"]
+
+# Lap lubricant on cast iron (MH p.1239); honing oil for the India stone. Local purchase.
+[consumables.kerosene]
+name = "kerosene (lap lubricant)"
+products = ["kerosene, 1 qt, local (no vendor checked)"]
+
+# Adhesives (Pedro rulings 3 and 5).
+# Loctite 638 retaining compound, 10 ml: https://rahoerr.com/products/loctite-638-retaining-compound-10-ml
+[consumables.loctite-638]
+name = "Loctite 638 retaining compound"
+products = ["Loctite 638 high-strength retaining compound, 10 ml (Class X pin into the turned 4140 diamond-pin body; bonded 2.990-2.998 slip-fit shank)"]
+
+# Loctite EA 9462 structural epoxy, 50 ml dual cartridge: https://www.pilotshq.com/products/loctite-9462-hysol-epoxy-structural-adhesive-50ml-dual-cart-83142
+[consumables.loctite-ea-9462]
+name = "Loctite EA 9462 structural epoxy"
+products = ["Loctite EA 9462 two-part structural epoxy, 50 ml 1:1 dual cartridge (profile-plate pads and stand bonded against the granite and a gauge-block stack)"]
+
+[tools.cartridge-gun-50ml]
+name = "50 ml 1:1 cartridge gun"
+kind = "dispensing_gun"
+make = "medmix MIXPAC"
+sku = "EAD50MS-11"
+source = "https://www.ellsworth.com/products/adhesives/epoxy/henkel-loctite-hysol-9462-epoxy-adhesive-beige-50-ml-cartridge/"
+note = "illustrative example item: manual 50 ml 1:1 dispensing gun with static mixer nozzles for the EA 9462 cartridge. AUTHOR'S CHOICE: fill slots and counterbores sparingly and tape-mask round the pockets, because epoxy on the granite or the gauge blocks would bond the part to the reference."
+
+# Bought inspection reference (Pedro ruling 4): characterise, correct, then adapt.
+[fixtures.box-parallel-bxp-050505-g]
+name = "5 in box parallel (Suburban BXP-050505-G)"
+kind = "inspection_box"
+make = "Suburban Tool"
+sku = "BXP-050505-G"
+source = "https://www.subtool.com/products/box-parallel-bxp-050505-g"
+material = "fine-grain stress-relieved cast iron, precision ground"
+note = "illustrative example item: 5 x 5 x 5 in precision-ground box parallel, size ±0.002 in, faces square and parallel within 0.0005 in per 6 in (about 0.0083 mm per 100 mm, short of a 0.003/100 spec). AUTHOR'S CHOICE: characterise its base-to-side squareness by reversal on the granite (height gauge and 1 µm test indicator, readings in both box orientations) and apply the measured error as an inspection correction, because the catalogue figure is not good enough and reversal cancels the reference square's own error. AUTHOR'S CHOICE: mill the clamp and back windows with light cuts and soft clamping, then re-check squareness, because relieving cast iron can move it. Wall and web geometry are not recorded yet: no solids."
+cite = ["https://www.subtool.com/products/box-parallel-bxp-050505-g", "review-loop/r3/shop-additions.md item 4"]
+length_mm = { value = 127.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "outside micrometer, 4-5 in" } }
+width_mm = { value = 127.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "outside micrometer, 4-5 in" } }
+height_mm = { value = 127.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "height gauge on granite against a gauge-block stack" } }
+
+# Bought gauge pin used as the diamond pin's round lands (Pedro ruling 3).
+[gauges.vermont-class-x-0782-plus]
+name = "Class X gauge pin 0.0782 in plus (Vermont Gage)"
+kind = "pin_gauge"
+make = "Vermont Gage"
+source = "https://www.judgetool.com/products/vermomt-class-x-pin-gages-in-0001-increments-000040-tolerance/"
+note = "illustrative example item: two Vermont Gage Class X plus (GO) pins, 0.0782 in, tolerance +0.000040 in (0.07820-0.07824 in = 1.9863-1.9873 mm), tool steel 60/65 Rc, 2 in long, with certificate. Consumed as the bonded diamond-pin lands: nicked on the grinder wheel edge (wet) and snapped, end squared on the 120 wheel, two flats stoned to 1.76 across on the diamond plate, bonded with Loctite 638 into the turned 4140 body; the round lands stay untouched gauge surface."
+# measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "count of pins" } (pieces is a plain number in the schema)
+pieces = 2
+dia_in = { value = 0.07821, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "certificate value, checked with the 1 µm test indicator against a gauge-block stack" } }
+length_in = { value = 2.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+
+# Materials (shop-additions.md §7 and Pedro rulings 1-6). The stock schema has no SKU or
+# source field: each vendor and SKU is in `cite`. Bar sizes are example readings.
+[[stock]]
+form = "round_bar"
+material = "O1 oil-hardening tool steel drill rod, annealed"
+note = "illustrative example item: Ø11 mm O1 drill rod, ±0.013 mm, 3 ft; hub filing buttons (Pedro ruling 1: O1, torch-hardened, lapped). Example reading: measured = { by = \"example (plausible, not measured)\", date = \"2026-10-05\", instrument = \"micrometer, Ø at both ends\" } (dia_mm/length_mm are plain numbers in the stock schema)"
+dia_mm = 11.0
+length_mm = 914.4
+on_hand = true
+cite = ["McMaster-Carr 8893K281 https://www.mcmaster.com/8893K281/", "MH 27th p.495-496 (O1)"]
+
+[[stock]]
+form = "round_bar"
+material = "O1 oil-hardening tool steel drill rod, annealed"
+note = "illustrative example item: Ø10 mm O1 drill rod, ±0.013 mm, 3 ft; pivot-screw washer (Pedro ruling 2: O1, hardened and lapped), spare stand stock. Example reading: measured = { by = \"example (plausible, not measured)\", date = \"2026-10-05\", instrument = \"micrometer, Ø at both ends\" } (dia_mm/length_mm are plain numbers in the stock schema)"
+dia_mm = 10.0
+length_mm = 914.4
+on_hand = true
+cite = ["McMaster-Carr 8893K279 https://www.mcmaster.com/8893K279/", "MH 27th p.495-496 (O1)"]
+
+[[stock]]
+form = "round_bar"
+material = "4140 alloy steel, pre-hardened to HRC 32 (vendor)"
+note = "illustrative example item: Ø7/16 in 4140 rod, hardened to HRC 32 by the vendor, 1 ft; left unhardened by the shop: headed stud (ruling 1), pivot shoulder screw (ruling 2), diamond-pin body (ruling 3), profile-plate stand. Example reading: measured = { by = \"example (plausible, not measured)\", date = \"2026-10-05\", instrument = \"micrometer, Ø at both ends\" } (dia_mm/length_mm are plain numbers in the stock schema)"
+dia_mm = 11.1125
+length_mm = 304.8
+on_hand = true
+cite = ["McMaster-Carr 6818T119 https://www.mcmaster.com/6818T119/"]
+
+[[stock]]
+form = "flat_bar"
+material = "O1 tool steel, precision-ground flat, annealed"
+note = "illustrative example item: 1/8 x 1/2 in O1 ground flat, ±0.001 in, 1.5 ft; profile-plate pads, left annealed (ruling 5: reference-bonded with EA 9462, pads about 0.07 short). Example reading: measured = { by = \"example (plausible, not measured)\", date = \"2026-10-05\", instrument = \"micrometer, thickness and width\" } (section_mm/length_mm are plain numbers in the stock schema)"
+section_mm = [12.7, 3.175]
+length_mm = 457.2
+on_hand = true
+cite = ["McMaster-Carr 9516K45 https://www.mcmaster.com/9516K45/"]
+
+[[stock]]
+form = "flat_bar"
+material = "O1 tool steel, precision-ground flat, annealed"
+note = "illustrative example item: 1/2 x 1/2 x 18 in O1 ground flat, ±0.001 in thickness; the ABC box's C stop bar (ruling 4: lapped O1 seated on the base, no dowels). Example reading: measured = { by = \"example (plausible, not measured)\", date = \"2026-10-05\", instrument = \"micrometer, both sections\" } (section_mm/length_mm are plain numbers in the stock schema)"
+section_mm = [12.7, 12.7]
+length_mm = 457.2
+on_hand = true
+cite = ["Abrams Industries 102060 https://us.abrams-industries.com/steel/tool-steel/o1/gfs-reg-18/o1-1-2-x-1-2-x-18-reg"]
+
+[[stock]]
+form = "round_bar"
+material = "1018 low-carbon steel, cold finished"
+note = "illustrative example item: Ø3/4 in 1018 cold-finished round offcut, about 12 in, already on the shelf (the saw cradle is 1018); the cone saw-cradle north-cap pad (ruling 6: 1018, milled then lapped, no hardening). Example reading: measured = { by = \"example (plausible, not measured)\", date = \"2026-10-05\", instrument = \"calipers, Ø; tape measure, length\" } (dia_mm/length_mm are plain numbers in the stock schema)"
+dia_mm = 19.05
+length_mm = 300.0
+on_hand = true
+cite = ["review-loop/r3/shop-additions.md item 6 (1018 on hand)"]
+
+[[stock]]
+form = "round_bar"
+material = "C360 free-machining brass rod"
+note = "illustrative example item: Ø1 in C360 brass rod, 12 in, stock for the shop-made split ring laps (MH p.1236); SKU chosen at order. Example reading: measured = { by = \"example (plausible, not measured)\", date = \"2026-10-05\", instrument = \"calipers, Ø; tape measure, length\" } (dia_mm/length_mm are plain numbers in the stock schema)"
+dia_mm = 25.4
+length_mm = 304.8
+on_hand = true
+cite = ["McMaster-Carr brass rods https://www.mcmaster.com/products/brass-rods/", "MH 27th p.1236"]
+# --- end r7 shop kit ---
