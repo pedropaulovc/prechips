@@ -2239,3 +2239,23 @@ solids = [
   { name = "handwheel", supply = "existing", shape = "cylinder", at_mm = [110.0, 0.0, -45.0], axis = [1.0, 0.0, 0.0], dia_mm = 60.0, length_mm = 15.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } },
 ]
 # --- end EngManualArc additions ---
+# --- MillPrep additions ---
+# The LMS 6745 set's 1-1/4 in pair, which holds a 3/4 in bar flat with a few mm above
+# the PM-6 jaws for facing (P1/P4 squaring setups).
+[fixtures.parallels-lms-6745.members."1-1-4in"]
+height_in = { value = 1.25, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer" } }
+# A ground round bar laid between the work and the PM-6 moving jaw when squaring: the
+# jaw presses the work along one line, so the faced reference side seats flat on the
+# fixed jaw (example item; Ø and length are plausible example values, not measured).
+[fixtures.jaw-round-bar]
+kind = "round_bar"
+name = "1/4 in ground round bar, 6 in long"
+dia_mm = { value = 6.35, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer" } }
+length_mm = { value = 152.4, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule" } }
+# Long calipers for the rocker blank's 340 mm length (the 6 in calipers stop short).
+[gauges.calipers-18in]
+kind = "caliper"
+note = "illustrative example item: 0-450 mm (18 in) dial calipers reading 0.02 mm"
+range_mm = [0.0, 450.0] # example (plausible, not measured)
+resolution_mm = 0.02 # example (plausible, not measured)
+# --- end MillPrep additions ---

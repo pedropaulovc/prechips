@@ -775,6 +775,50 @@ def test_a_numbered_position_badge_never_leads_to_the_solid_in_front_of_it(kind,
     assert (120, 98, 76) in inked
 
 
+@pytest.mark.parametrize("hidden", [True, False], ids=["behind_the_work", "beside_the_work"])
+def test_a_vise_jaw_hidden_by_the_work_is_a_dashed_outline_with_its_leader_not_a_debt(hidden):
+    # Plan view from +Z: a bar standing taller than its jaws hides the jaw behind it, as a
+    # tall bar held on edge hides the rear jaw from the isometric camera. The jaw is the
+    # face the work seats on, so its position is still drawn.
+    box = [2, 2, 0, 8, 8, 1] if hidden else [12, 2, 0, 18, 8, 1]
+    meshes = [
+        _slab(0, 0, 10, 10, 2, (160, 175, 185), "part"),
+        _slab(box[0], box[1], box[3], box[4], 1, (120, 98, 76), "fixed_jaw"),
+    ]
+    spec = {
+        "setup_id": "S1",
+        "view": "plan",
+        "stock_box": [0, 0, 0, 10, 10, 2],
+        "components": [
+            {
+                "name": "fixed_jaw",
+                "role": "fixed_jaw",
+                "box_mm": box,
+                "center_mm": [(box[i] + box[i + 3]) / 2 for i in range(3)],
+                "meshes": ["fixed_jaw"],
+            }
+        ],
+    }
+    diagram = _Diagram(meshes, spec)
+    diagram.render()
+
+    assert diagram.render_debts == []
+    seen = [path for label, path in diagram.leaders if label == "FIXED JAW"]
+    if not hidden:
+        assert [_tag_at(diagram.canvas, *path[0]) for path in seen] == ["fixed_jaw"]
+        return
+    assert seen == []
+    # Its leader stops at an open ring on the dashed outline of its box, never on the
+    # work in front of it.
+    (path,) = [path for label, path in diagram.hidden_leaders if label == "FIXED JAW"]
+    left, top = diagram.canvas.project((box[0], box[4], 0))
+    right, bottom = diagram.canvas.project((box[3], box[1], 0))
+    x, y = path[0]
+    assert left - 1 <= x <= right + 1 and top - 1 <= y <= bottom + 1
+    assert min(abs(x - left), abs(x - right), abs(y - top), abs(y - bottom)) < 1
+    assert _pixel(diagram.canvas, math.floor(x), math.floor(y)) == _WHITE
+
+
 def _block(box, colour, tag):
     """A tagged box solid: its six faces as twelve triangles."""
     x0, y0, z0, x1, y1, z1 = box
@@ -782,6 +826,45 @@ def _block(box, colour, tag):
     faces = ((0, 1, 3, 2), (4, 6, 7, 5), (0, 4, 5, 1), (2, 3, 7, 6), (0, 2, 6, 4), (1, 5, 7, 3))
     triangles = [t for a, b, c, d in faces for t in ((a, b, c), (a, c, d))]
     return (points, triangles, colour, False, tag)
+
+
+@pytest.mark.parametrize("pressing", [True, False], ids=["through_a_round_bar", "nothing_between"])
+def test_a_moving_jaw_pressing_the_work_through_a_round_bar_keeps_its_leader(pressing):
+    # Isometric: the bar on edge seats on the fixed jaw; a round bar between it and the
+    # moving jaw holds the moving jaw 6 mm off the work. Without the bar the jaw stands
+    # off alone and is not holding.
+    stock = [0, 0, 0, 100, 20, 60]
+    boxes = {
+        "fixed_jaw": [10, 20, 0, 90, 38, 40],
+        "moving_jaw": [10, -24, 0, 90, -6, 40],
+    }
+    if pressing:
+        boxes["jaw_bar"] = [12, -6, 17, 88, 0, 23]
+    meshes = [_block(stock, (160, 175, 185), "part")]
+    meshes += [_block(box, (120, 98, 76), name) for name, box in boxes.items()]
+    labels = {"fixed_jaw": "FIXED JAW", "moving_jaw": "MOVING JAW", "jaw_bar": "ROUND BAR"}
+    spec = {
+        "setup_id": "P2",
+        "view": "isometric",
+        "stock_box": stock,
+        "components": [
+            {
+                "name": name,
+                "label": labels[name],
+                "role": name,
+                "box_mm": box,
+                "center_mm": [(box[i] + box[i + 3]) / 2 for i in range(3)],
+                "meshes": [name],
+            }
+            for name, box in boxes.items()
+        ],
+    }
+    diagram = _Diagram(meshes, spec)
+    diagram.render()
+
+    named = {label for label, _ in diagram.leaders}
+    assert ("MOVING JAW" in named) is pressing
+    assert ("ROUND BAR" in named) is pressing
 
 
 def _vise_spec(size, touching=True):

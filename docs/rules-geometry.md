@@ -188,7 +188,12 @@ cylinder), so they are never STEP indices and never enter final face, source,
 as-is, corner, `coverage` or `finish_coverage` mappings. A process op credits
 no imported face, even when its cut lies on a drawing plane, and is never
 claim debt. Facing an end face uses the turning model with the disc as its
-claim. A `center_drill` op removes the analytic centre (countersink of
+claim. A milled end face removes only the stock its op's generated cutter-centre
+passes ([coordinates](rules-coordinates.md) profiles, setup frame) sweep, as the
+cutter's radius about each pass from the op's `to_z` up over the stock; a pass
+stopped short, misplaced or cut in air leaves its slab on the stock, and passes
+coordinates cannot generate leave the op unknown. A `center_drill` op removes the
+analytic centre (countersink of
 `countersink_angle_deg` to `mouth_dia_mm`, pilot of `drill_dia_mm` and
 `drill_length_mm`, point cone from the tool's verified `point_angle`) led 1 mm
 out of the face, minus protected finished material, along setup -Z through the
@@ -1523,15 +1528,17 @@ One row per setup. Non-vise holding (`kind` ≠ `vise`) is `not_applicable`
 (`{setup}: vise has no vise grip-zone facts for {kind} holding.`); unknown
 holding identity or any missing pose/dimension is `unknown` with the job's
 reason. With the jaws placed the kernel reports `width_mm` (part extent
-between the inner jaw planes), `contact_grip_mm` (per jaw, the merged length
-of planar part faces lying in that jaw plane within the zone; a line contact
-is measured when no planar face touches), `parallel_pair` (both jaw planes
-have planar contact faces) and `claimed_in_jaws` (claimed faces sharing area
-with a jaw box). Numbers: those plus `opening_mm`, `required_grip_mm`,
-`parallels_height_mm`. Errors join with `; `:
+between the inner jaw planes), `jaw_separation_mm` (how far the jaws stand apart
+closed on it: `width_mm` plus a `jaw_bar` round bar's Ø), `contact_grip_mm` (per
+jaw, the merged length of planar part faces lying in that jaw plane within the
+zone; a line contact is measured when no planar face touches), `parallel_pair`
+(both jaw planes have planar contact faces) and `claimed_in_jaws` (claimed faces
+sharing area with a jaw box). A `jaw_bar` that bears on no jaw-held work along its
+length leaves the jaws unplaced. Numbers: those plus `opening_mm`,
+`required_grip_mm`, `parallels_height_mm`. Errors join with `; `:
 
 - `gripped faces are not a parallel pair`
-- `part width exceeds vise opening`
+- `jaw separation (part width plus any round bar) exceeds vise opening`
 - `both jaws do not provide the declared grip`
 - `claimed faces enter jaw solids: <refs>`
 - pass: `parallel gripped faces, opening, both-jaw grip and claimed-face exclusion fit declared parallels.`
@@ -1685,10 +1692,15 @@ numbered clamp or pad badge) ends on that solid's own visible pixels, never on
 its bounding box or on whatever lies in front of it. When no pixel of the named
 solid is visible the leader is not drawn and the picture carries the render
 debt `NOT SHOWN: <label> is hidden in this view, so it has no leader.`, printed
-in its own notes; a hidden numbered clamp or pad with a known box is instead
-drawn as a dashed outline of that box, its badge's leader ending on the outline
-at an open ring, so its position still shows without pointing at the solid in
-front. Triangles that share an edge cover every pixel centre on it exactly
+in its own notes; a hidden numbered clamp or pad, or a hidden vise jaw (a bar
+held on edge stands above its jaws and hides the rear jaw from the isometric
+camera), with a known box is instead drawn as a dashed outline of that box, its
+leader ending on the outline at an open ring, so its position still shows
+without pointing at the solid in front. A hidden parallel stays a render debt.
+An isometric view calls out the holding that touches the stock; a vise jaw
+that presses the work through it (the moving jaw behind a `jaw_bar` round bar,
+called out as `ROUND BAR`) is holding too.
+Triangles that share an edge cover every pixel centre on it exactly
 once, so a solid wholly behind another never shows through its seams. A datum's
 authored face name keeps its words but its axis words are restated in the
 setup's axes through the setup placement (the rocker's model "+Z broad strap

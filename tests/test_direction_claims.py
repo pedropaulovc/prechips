@@ -420,6 +420,7 @@ def bundle(tmp_path):
                 name: {
                     "parallel_pair": True,
                     "width_mm": 20.0,
+                    "jaw_separation_mm": 20.0,
                     "contact_grip_mm": [4.0, 4.0],
                     "claimed_in_jaws": [],
                     "min_wall_mm": 2.0,
@@ -548,7 +549,8 @@ def _unproven_stock(bundle):
     setup = bundle.kernel["setups"]["S1"]
     setup["stock_reason"] = setup["reason"] = STOCK_REASON
     setup["reasons"] = {}
-    for key in ("parallel_pair", "width_mm", "contact_grip_mm", "claimed_in_jaws", "min_wall_mm"):
+    vise_facts = ("parallel_pair", "width_mm", "jaw_separation_mm", "contact_grip_mm")
+    for key in (*vise_facts, "claimed_in_jaws", "min_wall_mm"):
         setup[key] = "unknown"
         setup["reasons"][key] = STOCK_REASON
     bundle.inventory["tools"]["em"]["verify"] = True
