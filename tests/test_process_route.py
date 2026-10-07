@@ -472,16 +472,54 @@ def test_a_dro_scale_reads_a_length_along_its_axis_never_a_diameter(tmp_path, re
 def test_process_holds_reach_the_job_page_apart_from_the_drawing_limits(tmp_path):
     plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
     sid, op = hold_span(plan)
+    bundle = load_bundle(plan)
+    (authored,) = next(
+        step["process_holds"]
+        for setup in bundle.plan["setups"]
+        if setup["id"] == sid
+        for step in setup["ops"]
+        if step["op"] == op
+    )
+    reference = bundle.feature_definitions[authored["feature"]][authored["requirement"]]
     _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
-    page = unescape(re.sub(r"<[^>]+>", "|", html))
-    job = page[: page.index("SETUP S")]
-    assert "PROCESS HOLDS — in-process limits, not drawing limits" in job
-    holds = job[job.index("PROCESS HOLDS") :]
-    for text in (f"{sid} op {op}", "scribe to faced end 1.50–2.00", "REF 156.67", FIT_UP):
-        assert text in holds, text
-    # The op row says what it reads and that the drawing gives the span only as REF.
-    (row,) = [row for row in op_rows(html, op) if "PROCESS HOLD" in row]
-    assert "scribe to faced end 1.50–2.00" in row and "REF 156.67" in row
+    markup, op_node = operation(html, sid, op)
+    job = next(node for node in markup.nodes if node["attrs"].get("data-sheet") == "job page")
+    job_rows = []
+    for node in markup.nodes:
+        if node["tag"] != "tr" or authored["reason"] not in content(node):
+            continue
+        ancestor = node
+        while ancestor is not None and ancestor is not job:
+            ancestor = ancestor["parent"]
+        if ancestor is job:
+            job_rows.append(node)
+    (job_row,) = job_rows
+    cells = [node for node in markup.nodes if node["tag"] == "td" and node["parent"] is job_row]
+    assert len(cells) == 5
+    assert content(cells[0]) == f"{sid} op {op}"
+    assert authored["reason"] in content(cells[4])
+    # The separate job summary and the owning operation retain the same authored hold.
+    (message,) = [
+        node
+        for node in markup.find("inspection-message", op_node)
+        if authored["reason"] in content(node)
+    ]
+    assert not markup.find("result-field", message)
+    for reading, drawing in (
+        (content(cells[1]), content(cells[3])),
+        (content(message), content(message)),
+    ):
+        assert authored["measure"] in reading
+        band = re.search(r"(?<![\d.])(\d+(?:\.\d+)?)–(\d+(?:\.\d+)?)(?!\d)", reading)
+        assert band is not None
+        assert [float(value) for value in band.groups()] == authored["band"]
+        caption = re.search(r"\bREF\s+(\d+(?:\.\d+)?)\b", drawing)
+        assert caption is not None
+        # An unqualified REF is printed to six significant digits, not binary float
+        # residue; the expected value still comes from this feature's actual definition.
+        assert caption.group(1) == f"{reference:.6g}"
+    # A reference span is not an invented drawing acceptance band.
+    assert "–" not in content(cells[3])
 
 
 # ------------------------------------------------- review regressions (PR #90, round 1)

@@ -9,13 +9,14 @@ import sys
 from pathlib import Path
 
 import pytest
+from test_sheet_ops import Markup, content
 
 from prechips.inputs import load_bundle
 from prechips.rules import coordinates
 from prechips.sheet import _Traveler
 
 ROOT = Path(__file__).resolve().parents[1]
-LABEL = re.compile(r"\(continued\) · page (\d+) of (\d+)")
+LABEL = re.compile(r"\(continued\)\s*·\s*page\s+(\d+)\s+of\s+(\d+)")
 
 
 def machinist_review():
@@ -95,17 +96,27 @@ def test_long_rough_and_finish_lathe_tables_keep_every_page_counted_and_sheets_o
     dome["rough_allowance_mm"] = 1.0
     html = _Traveler(bundle, coordinates.evaluate(bundle, pre_kernel=True), {}, None).render()
     texts = printed_pages(html, tmp_path)
-    # A physical page is a sheet's first page, a labelled continuation or a blank back; a
-    # page the script did not count carries no label and reads as an extra sheet.
-    starts = [i for i, text in enumerate(texts) if text.strip() and not LABEL.search(text)]
-    assert len(starts) == html.count('<section class="page" data-sheet=')
+    markup = Markup(html)
+    sections = [
+        node for node in markup.nodes if node["tag"] == "section" and "data-sheet" in node["attrs"]
+    ]
+    # Only the original front carries the section's approval banner. Continuations may
+    # copy setup/operation identities, but those copies are not new logical sheets.
+    banners = [content(markup.find("banner", section)[0]) for section in sections]
+    assert banners and all(banners)
+    normalized = [" ".join(text.split()) for text in texts]
+    starts = [i for i, text in enumerate(normalized) if any(banner in text for banner in banners)]
+    assert len(starts) == len(sections)
+    assert all(banner in normalized[start] for banner, start in zip(banners, starts, strict=True))
     runs = [texts[start:end] for start, end in zip(starts, [*starts[1:], len(texts)], strict=True)]
-    for start, run in zip(starts, runs, strict=True):
+    for section, start, run in zip(sections, starts, runs, strict=True):
         # Every sheet opens on a front side and fills a whole number of leaves.
         assert start % 2 == 0 and len(run) % 2 == 0
         counted = [text for text in run if text.strip()]
         assert all(not text.strip() for text in run[len(counted) :])
         labels = [LABEL.search(text) for text in counted[1:]]
+        assert all(labels), counted
+        assert all(section["attrs"]["data-title"] in " ".join(text.split()) for text in counted[1:])
         assert [(int(m[1]), int(m[2])) for m in labels] == [
             (page, len(counted)) for page in range(2, len(counted) + 1)
         ]
@@ -157,8 +168,13 @@ def test_an_op_table_moved_whole_to_the_next_page_leaves_a_pointer_to_it(tmp_pat
         if "first-op-row" in run[0]:
             continue
         moved += 1
-        assert "Operations continue on reverse, op 10" in run[0], run[0]
-        assert "first-op-row" in run[1]
+        pointer = re.search(
+            r"\bOperations\s+continue\s+(reverse|next\s+front)\s*,\s*op\s+(\d+)\b",
+            run[0],
+        )
+        assert pointer is not None, run[0]
+        assert pointer.group(1) == "reverse" and int(pointer.group(2)) == 10
+        assert "first-op-row" in run[1] and "second-op-row" in run[1]
     # The boundary itself: some fillers leave no room for the table.
     assert moved
 

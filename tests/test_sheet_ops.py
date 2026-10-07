@@ -156,6 +156,7 @@ def shop(records, kind="mill"):
     sheet.records = records
     sheet.report = {}
     sheet.bundle = SimpleNamespace(features={"units": "mm"}, inventory={}, plan={"setups": []})
+    sheet.plan = sheet.bundle.plan
     sheet.units = "mm"
     sheet.bench = lambda text, setup=None: text
     sheet.machine = lambda setup: {"kind": kind}
@@ -411,10 +412,13 @@ def test_a_floor_already_at_depth_is_one_pass_only_when_its_levels_are_establish
 
 def test_each_depth_level_has_a_place_to_mark_it_done():
     markup = Markup(shop(contour_records([-0.25, -0.5, -0.6])).contours(POCKET, {"c": "T1"}))
-    assert len(markup.find("tick")) == 3
+    marks = markup.find("tick")
+    assert len(marks) == 3
+    parents = {id(mark["parent"]): mark["parent"] for mark in marks}
     assert [
-        re.search(r"level (\d) of 3", content(mark["parent"])).group(1)
-        for mark in markup.find("tick")
+        number
+        for parent in parents.values()
+        for number in re.findall(r"level (\d) of 3", content(parent))
     ] == ["1", "2", "3"]
     # One level: the op row is the only mark it needs.
     single = Markup(shop(contour_records([-0.6])).contours(POCKET, {"c": "T1"}))
@@ -430,11 +434,16 @@ def test_a_raster_block_says_how_to_lift_not_what_its_table_already_shows():
         assert narration not in block, (narration, block)
     # The passes are numbered: the table is where their count and ends are read.
     rows = [
-        node for node in markup.nodes if node["tag"] == "tr"
-        and node["parent"]["tag"] == "tbody" and node["parent"]["parent"] is table
+        node
+        for node in markup.nodes
+        if node["tag"] == "tr"
+        and node["parent"]["tag"] == "tbody"
+        and node["parent"]["parent"] is table
     ]
     assert [
-        content(next(node for node in markup.nodes if node["tag"] == "td" and node["parent"] is row))
+        content(
+            next(node for node in markup.nodes if node["tag"] == "td" and node["parent"] is row)
+        )
         for row in rows
     ] == ["1", "2"]
 
@@ -448,9 +457,7 @@ def raster_notes(html):
     """Each raster table's note: how its passes lift, and what of their ends is proven."""
     markup = Markup(html)
     return [
-        content(node)
-        for node in markup.find("table-context")
-        if "after each pass" in content(node)
+        content(node) for node in markup.find("table-context") if "after each pass" in content(node)
     ]
 
 
@@ -632,7 +639,8 @@ def outline_note(bundle):
     html = sheet.contours({"id": "S1", "ops": [op]}, {"c": "T1"})
     markup = Markup(html)
     (note,) = [
-        content(node) for node in markup.find("table-context")
+        content(node)
+        for node in markup.find("table-context")
         if "Cutter-centre checkpoints" in content(node)
     ]
     return note.split("Cutter-centre checkpoints", 1)[1]
@@ -745,11 +753,25 @@ def test_a_lathe_feature_map_prints_the_x_turned_to_in_the_dro_display(
         kind="lathe",
     )
     html = sheet.feature_map({"id": "S1", "ops": [{"op": 10, "do": "turn", "feature": "head"}]})
-    head = html.split("<td>head</td>", 1)[1].split("</tr>", 1)[0]
-    assert f"<th>{heading}</th>" in html and f">{cell}</td>" in head, html
-    assert note in html.split("</table>", 1)[1], html
+    markup = Markup(html)
+    table = markup.find("feature-map")[0]
+    head = next(
+        node["parent"] for node in markup.nodes if node["tag"] == "td" and content(node) == "head"
+    )
+    cells = [node for node in markup.nodes if node["tag"] == "td" and node["parent"] is head]
+    assert len(cells) == 5
+    assert content(cells[1]) == "Ø42.000–43.600" and content(cells[2]) == cell
+    assert heading in [
+        content(node)
+        for node in markup.nodes
+        if node["tag"] == "th" and not node["attrs"].get("colspan")
+    ]
+    if display == "unknown":
+        assert markup.find("stop")
+    else:
+        assert note in content(markup.find("table-context", table)[0])
     if display != "diameter":
-        assert "X reads diameter" not in html and "Ø21.375" not in html
+        assert "Ø21.375" not in content(head)
 
 
 @pytest.mark.parametrize(
@@ -1056,17 +1078,21 @@ def test_readings_worked_through_several_calculations_get_a_worksheet_of_their_o
     steps = markup.find("steps")[0]
     assert not markup.find("field", steps)  # steps refer to readings, not extra value boxes
     assert [
-        content(node) for node in markup.find("reading", steps)
+        content(node)
+        for node in markup.find("reading", steps)
         if re.fullmatch(r"\[[^\[\]]+\]", content(node))
     ] == ["[rJ1]", "[rC1]", "[rJ2]", "[rC2]"]
     assert worksheet_readings(markup) == [
-        ("1", "[rJ1]", "rJ1"), ("2", "[rC1]", "rC1"),
-        ("3", "[rJ2]", "rJ2"), ("4", "[rC2]", "rC2"),
+        ("1", "[rJ1]", "rJ1"),
+        ("2", "[rC1]", "rC1"),
+        ("3", "[rJ2]", "rJ2"),
+        ("4", "[rC2]", "rC2"),
     ]
     calculations = markup.find("calc")
-    assert [
-        content(markup.find("field-label", line)[0]) for line in calculations
-    ] == ["e1", "result"]
+    assert [content(markup.find("field-label", line)[0]) for line in calculations] == [
+        "e1",
+        "result",
+    ]
     assert all(len(markup.find("writing-blank", line)) == 1 for line in calculations)
     assert "0.945 × rC1 − 1.384 × rJ1 =" in content(calculations[0])
     assert "√(e1² + e2²) =" in content(calculations[1])
@@ -1079,8 +1105,11 @@ def test_underscore_prompts_never_classify_as_named_worksheet_readings():
     sheet = shop({})
     notes, worksheets = [], []
     rows = sheet.inspection(
-        {"id": "S1"}, {"op": 10, "inspection_note": procedure},
-        notes, worksheets, {"notes": 2, "worksheets": 3},
+        {"id": "S1"},
+        {"op": 10, "inspection_note": procedure},
+        notes,
+        worksheets,
+        {"notes": 2, "worksheets": 3},
     )
     assert rows == ["see S1 sheet 2 note 1"] and not worksheets
     assert _readings(procedure) == []
@@ -1091,9 +1120,13 @@ def test_underscore_prompts_never_classify_as_named_worksheet_readings():
 def test_real_cone_worksheet_keeps_source_steps_equations_and_attachment_order(details):
     from prechips.inputs import load_bundle
 
-    bundle = load_bundle(Path(__file__).resolve().parents[1] / "examples/cone-pivot-post/built-up.toml")
+    bundle = load_bundle(
+        Path(__file__).resolve().parents[1] / "examples/cone-pivot-post/built-up.toml"
+    )
     setup = next(item for item in bundle.plan["setups"] if item["id"] == "S11")
-    authored = next(op for op in setup["ops"] if op["op"] == 110)["inspection_methods"]["angularity_dia"]
+    authored = next(op for op in setup["ops"] if op["op"] == 110)["inspection_methods"][
+        "angularity_dia"
+    ]
     sheet = _Traveler(bundle, [], {}, None)
     # Exercise both routing branches without invoking a native renderer.
     sheet.fixture_render = lambda setup: ""
@@ -1118,13 +1151,17 @@ def test_real_cone_worksheet_keeps_source_steps_equations_and_attachment_order(d
     assert "worksheet, S11 op 110 angularity Ø" in worksheet
     markup = Markup(worksheet)
     assert worksheet_readings(markup) == [
-        ("5", "[rJ1]", "rJ1"), ("6", "[rC1]", "rC1"),
-        ("7", "[rJ2]", "rJ2"), ("8", "[rC2]", "rC2"),
+        ("5", "[rJ1]", "rJ1"),
+        ("6", "[rC1]", "rC1"),
+        ("7", "[rJ2]", "rJ2"),
+        ("8", "[rC2]", "rC2"),
     ]
     assert not markup.find("field", markup.find("steps")[0])
     calculations = markup.find("calc")
     assert [content(markup.find("field-label", row)[0]) for row in calculations] == [
-        "e1", "e2", "result",
+        "e1",
+        "e2",
+        "result",
     ]
     assert len(markup.find("writing-blank")) == 7
     for row, source in zip(calculations, authored[-3:], strict=True):
@@ -1204,7 +1241,7 @@ def test_a_bench_finishing_setup_prints_a_finishing_table_not_empty_machining_co
     assert content(markup.find("op-feature", painted)[0]).endswith("body")
     assert "RAL 6005 alkyd (in-house)" in content(markup.find("op-consumable", painted)[0])
     assert PAINT_NOTE in content(markup.find("op-action", painted)[0])
-    assert html.count("brush RAL 6005") == 1
+    assert content(painted).count("brush RAL 6005") == 1
     assert "deburr" in content(markup.find("op-action", deburred)[0])
     for operation in (painted, deburred):
         assert len(markup.find("performed-mark", operation)) == 1
@@ -1244,7 +1281,9 @@ def _lathe_sheet(ops, hands):
     markup = Markup(html)
     for operation in markup.find("operation"):
         speed = markup.find("op-speed", operation)[0]
-        value = next(node for node in markup.nodes if node["tag"] == "dd" and node["parent"] is speed)
+        value = next(
+            node for node in markup.nodes if node["tag"] == "dd" and node["parent"] is speed
+        )
         rows[operation["attrs"]["data-op"]] = " ".join(value["text"]).split()
     return html, rows, stops
 
@@ -1955,8 +1994,9 @@ def test_explicit_before_hold_measurement_has_one_field_in_its_original_hold_ste
     assert touch["measure_before_hold"] is True
     markup = Markup(sheet.hold(setup)[0])
     (reading,) = [
-        node for node in markup.nodes if node["tag"] == "li"
-        and sheet.bench(touch["measure"], setup) in content(node)
+        node
+        for node in markup.nodes
+        if node["tag"] == "li" and sheet.bench(touch["measure"], setup) in content(node)
     ]
     assert sheet.short_reference(touch["gauge"], "gauges") in content(reading)
     assert [content(label) for label in markup.find("field-label", reading)] == ["Z M"]
@@ -1970,14 +2010,15 @@ def test_explicit_before_hold_measurement_has_one_field_in_its_original_hold_ste
         assert not holding.find("writing-blank")
         assert not any(
             sheet.bench(touch["measure"], held) in content(node)
-            for node in holding.nodes if node["tag"] == "li"
+            for node in holding.nodes
+            if node["tag"] == "li"
         )
 
 
 @pytest.mark.parametrize(
     ("relative", "setup_id"),
     [
-        ("pivot-shaft/plan.toml", "S2"),
+        ("pivot-shaft/plan.toml", "S3"),
         ("cone-pivot-post/built-up.toml", "S4"),
         ("cone-pivot-post/built-up.toml", "S5"),
     ],
@@ -1989,13 +2030,24 @@ def test_datum_transfer_prerequisite_precedes_axis_setting_for_lathe_and_mill(
     sheet = example_sheet(relative)
     setup = next(setup for setup in sheet.plan["setups"] if setup["id"] == setup_id)
     sheet.setup = setup
+    transfer_spec = setup["zero"].get("transfer")
+    assert isinstance(transfer_spec, dict) and transfer_spec.get("indicate")
     _, tools, _ = sheet.tool_table(setup)
     markup = Markup(sheet.dro(setup, tools))
     transfer = markup.find("zero-transfer")[0]
     axes = markup.find("zero")[0]
     assert markup.nodes.index(transfer) < markup.nodes.index(axes)
-    assert "0.02 mm total indicator reading" in content(transfer)
+    limit = transfer_spec["runout_limit_mm"]
+    assert f"{limit} mm total indicator reading" in content(transfer)
     assert len(markup.find("zero-transfer")) == 1
+    settings = [
+        node
+        for node in markup.nodes
+        if node["tag"] == "p" and content(node).startswith("Before touching off")
+    ]
+    if sheet.lathe(setup):
+        assert settings
+    assert all(markup.nodes.index(transfer) < markup.nodes.index(setting) for setting in settings)
     assert not markup.find("writing-blank", axes)
 
 
@@ -2045,7 +2097,9 @@ def test_feature_map_qualification_is_part_of_its_repeatable_table_header():
         drawing={"body": {"kind": "cylinder", "dia": [9.9, 10.1]}},
         kind="lathe",
     )
-    markup = Markup(sheet.feature_map({"id": "S1", "ops": [{"op": 10, "do": "turn", "feature": "body"}]}))
+    markup = Markup(
+        sheet.feature_map({"id": "S1", "ops": [{"op": 10, "do": "turn", "feature": "body"}]})
+    )
     table = markup.find("feature-map")[0]
     qualification = markup.find("table-context", table)[0]
     assert qualification["parent"]["tag"] == "thead"
@@ -2148,8 +2202,15 @@ def test_existing_gap_series_keeps_one_authored_area_and_note_continuation_ident
     owner = next(node for node in markup.nodes if node["tag"] == "li")
     context = markup.find("page-context", owner)[0]
     assert owner["attrs"]["data-page-context"] == content(context)
-    assert content(owner) == str(note).replace("______", "")
-    assert len(markup.find("authored-blank", owner)) == 1
+    steps = markup.find("steps", owner)[0]
+    entries = [node for node in markup.nodes if node["tag"] == "li" and node["parent"] is steps]
+    assert [content(entry) for entry in entries] == [
+        re.sub(r"\{([^{}]+)\}", r"\1", line) for line in note[1]
+    ]
+    names = [match.group(1) for line in source for match in re.finditer(r"\{([^{}]+)\}", line)]
+    assert names
+    assert [content(label) for label in markup.find("field-label", owner)] == names
+    assert len(markup.find("writing-blank", owner)) == len(names)
     assert not markup.find("inspection-record", owner)
 
 
@@ -2294,7 +2355,9 @@ def printed_sheet(tmp_path):
 
     from prechips.sheet import _CSS, _DUPLEX_JS
 
-    variable = "PRECHIPS_TEST_BROWSER" if "PRECHIPS_TEST_BROWSER" in os.environ else "PRECHIPS_CHROME"
+    variable = (
+        "PRECHIPS_TEST_BROWSER" if "PRECHIPS_TEST_BROWSER" in os.environ else "PRECHIPS_CHROME"
+    )
     requested = os.environ.get(variable)
     if requested is not None:
         executable = Path(requested)
@@ -2324,7 +2387,7 @@ def printed_sheet(tmp_path):
     thread.start()
     canary = f"http://127.0.0.1:{proxy.server_port}/browser-fixture-positive-control"
 
-    def print_html(source, probe):
+    def print_html(source, probe, prepare=None):
         document = tmp_path / "traveler.html"
         document.write_text(
             '<!doctype html><html><head><meta charset="utf-8">'
@@ -2334,6 +2397,7 @@ def printed_sheet(tmp_path):
             + source
             + '</section><img style="position:absolute;width:0;height:0" '
             + f'src="{canary}" alt=""><script>'
+            + (f"addEventListener('DOMContentLoaded', {prepare});" if prepare else "")
             + "addEventListener('load', () => {"
             + "const capture = () => {"
             + "document.documentElement.classList.add('print-measuring');"
@@ -2760,3 +2824,193 @@ def test_printed_unbounded_authored_context_makes_finite_original_progress(print
         (field,) = details["fields"]
         assert field["label"].strip()
         assert field["labelPage"] == field["boxPage"] and field["fits"]
+
+
+def test_printed_running_header_retains_working_context_and_measured_final_count(printed_sheet):
+    from prechips.sheet import _list, _Note
+
+    context = "S4 op 50 — original face · T4 · Z -3.125 mm"
+    source = _list(
+        [
+            _Note(
+                context
+                + ": "
+                + "Keep the existing datum seated and record the authored measurement. " * 600,
+                context,
+            )
+        ]
+    )
+    _, details = printed_sheet(
+        source,
+        """pageOf => {
+          const section = document.querySelector('section.page');
+          const pages = Number(section.dataset.pages);
+          const source = section.querySelector('.page-context');
+          return {
+            pages, workingFont: getComputedStyle(source).fontSize,
+            heads: [...section.querySelectorAll('.cont-head')].map(head => {
+              const context = head.querySelector('.cont-context');
+              const count = head.querySelector('.cont-count');
+              const total = head.querySelector('.cont-page-total');
+              const before = head.getBoundingClientRect().height;
+              if (total) total.textContent = '?';
+              const reserved = head.getBoundingClientRect().height;
+              if (total) total.textContent = String(pages);
+              const after = head.getBoundingClientRect().height;
+              return {
+                text: head.textContent, context: context?.textContent || null,
+                font: context ? getComputedStyle(context).fontSize : null,
+                readings: context ? [...context.querySelectorAll('.reading')].map(reading => {
+                  const range = document.createRange(); range.selectNodeContents(reading);
+                  return {text: reading.textContent, lines: range.getClientRects().length};
+                }) : [],
+                countFits: !!count && count.getBoundingClientRect().width
+                  <= head.getBoundingClientRect().width,
+                before, reserved, after
+              };
+            })
+          };
+        }""",
+    )
+    assert details["pages"] >= 10
+    assert len(details["heads"]) == details["pages"] - 1
+    for page, head in enumerate(details["heads"], 2):
+        assert head["context"] == context
+        assert head["font"] == details["workingFont"]
+        assert f"(continued)\n · page {page} of {details['pages']}\n{context}" in head["text"]
+        assert {"text": "Z -3.125 mm", "lines": 1} in head["readings"]
+        assert head["countFits"]
+        assert head["before"] == head["reserved"] == head["after"]
+
+
+@pytest.mark.parametrize("kind", ["caption", "context"])
+def test_printed_near_cap_atomic_source_uses_its_actual_continuation_body(printed_sheet, kind):
+    from prechips.sheet import _list, _Note
+
+    source = _list(
+        [_Note("S4 op 50 inspection: Record the existing datum ______", "S4 op 50 inspection:")]
+    )
+    short_label = (
+        "Keep this short authored caption atomic together with its existing recording box "
+        "and preserve the original gauge, datum and instruction without alteration"
+    )
+    short_source = _list(
+        [
+            _Note(
+                "S4 op 50 inspection: "
+                + "Keep the existing datum seated and record the authored measurement. " * 70
+                + short_label
+                + " ______.",
+                "S4 op 50 inspection:",
+            )
+        ]
+    )
+    _, short = printed_sheet(
+        short_source,
+        """pageOf => ({
+          prose: document.querySelectorAll('.authored-label').length,
+          fields: document.querySelectorAll('.authored-blank').length,
+          boxes: document.querySelectorAll('.writing-blank').length,
+          label: document.querySelector('.authored-blank .field-label').textContent.trim()
+        })""",
+    )
+    assert short == {"prose": 0, "fields": 1, "boxes": 1, "label": short_label}
+    prepare = """() => {
+      const root = document.documentElement, body = document.body;
+      const saved = body.getAttribute('style');
+      root.classList.add('paged', 'print-measuring');
+      body.style.cssText = 'max-width:none;width:var(--page-content-width);margin:0;padding:0';
+      const measure = document.createElement('div');
+      measure.style.height = 'var(--page-content-height)'; body.append(measure);
+      const cap = measure.getBoundingClientRect().height
+        - parseFloat(getComputedStyle(root).getPropertyValue('--page-rounding'));
+      measure.remove();
+      const kind = KIND;
+      const field = document.querySelector(
+        kind === 'caption' ? '.authored-blank' : '.page-context');
+      const label = kind === 'caption' ? field.querySelector('.field-label') : field;
+      const prefix = kind === 'context'
+        ? [...label.childNodes].map(node => node.cloneNode(true)) : [];
+      const words = ('Measure the original datum with the existing gauge '
+        + 'before writing the reading ').repeat(250).trim().split(/\\s+/);
+      const set = n => {
+        const text = words.slice(0, n).join(' ') + ' final reading';
+        label.replaceChildren(...prefix.map(node => node.cloneNode(true)),
+          document.createTextNode((kind === 'context' ? ' ' : '') + text));
+      };
+      const height = () => {
+        const box = field.getBoundingClientRect(), style = getComputedStyle(field);
+        return box.height + parseFloat(style.marginTop) + parseFloat(style.marginBottom);
+      };
+      let low = 1, high = words.length, best = 0;
+      while (low <= high) {
+        const middle = (low + high) >> 1; set(middle);
+        if (height() <= cap) {best = middle; low = middle + 1;} else high = middle - 1;
+      }
+      set(best);
+      if (kind === 'context') {
+        field.closest('[data-page-context]').dataset.pageContext = label.textContent;
+      }
+      window.nearCapInput = {kind, cap, height: height(), text: label.textContent};
+      root.classList.remove('paged', 'print-measuring');
+      if (saved === null) body.removeAttribute('style'); else body.setAttribute('style', saved);
+    }""".replace("KIND", json.dumps(kind))
+    _, details = printed_sheet(
+        source,
+        """pageOf => {
+          const section = document.querySelector('section.page');
+          const heads = [...section.querySelectorAll('.cont-head')];
+          const tops = [section.getBoundingClientRect().top,
+            ...heads.map(head => head.getBoundingClientRect().top)];
+          const original = el => !el.closest('[data-duplex], .record-continuation, .cont-head');
+          const selector = window.nearCapInput.kind === 'caption'
+            ? '.authored-label, .authored-blank .field-label' : '.page-context';
+          const reconstructed = [...section.querySelectorAll(selector)].filter(original)
+            .map(el => el.textContent).join('');
+          const fields = [...section.querySelectorAll('.authored-blank')];
+          const sourcePages = new Set();
+          for (const item of section.querySelectorAll('li')) {
+            if (!original(item)) continue;
+            const own = item.cloneNode(true);
+            own.querySelectorAll('[data-duplex], .record-continuation, .writing-blank')
+              .forEach(el => el.remove());
+            if (/[\\p{L}\\p{N}]/u.test(own.textContent)) sourcePages.add(pageOf(item));
+          }
+          return {
+            input: window.nearCapInput, reconstructed, pages: Number(section.dataset.pages),
+            sourcePages: [...sourcePages].sort((a, b) => a - b),
+            contextFont: getComputedStyle(section.querySelector('.page-context')).fontSize,
+            heads: heads.map(head => ({
+              font: getComputedStyle(head.querySelector('.cont-context')).fontSize,
+              readings: [...head.querySelectorAll('.cont-context .reading')]
+                .map(node => node.textContent)
+            })),
+            fields: fields.map(field => {
+              const label = field.querySelector('.field-label'),
+                box = field.querySelector('.writing-blank');
+              const rect = field.getBoundingClientRect(), style = getComputedStyle(field);
+              return {
+                label: label.textContent, boxes: field.querySelectorAll('.writing-blank').length,
+                samePage: pageOf(label) === pageOf(box),
+                fits: rect.bottom + parseFloat(style.marginBottom) - tops[pageOf(field)]
+                  <= window.nearCapInput.cap + .01,
+                available: window.nearCapInput.cap
+                  - (rect.top - parseFloat(style.marginTop) - tops[pageOf(field)])
+              };
+            })
+          };
+        }""",
+        prepare,
+    )
+    assert details["input"]["height"] <= details["input"]["cap"]
+    assert details["pages"] > 1
+    assert details["sourcePages"] == list(range(details["pages"]))
+    assert details["reconstructed"] == details["input"]["text"]
+    assert details["heads"]
+    for head in details["heads"]:
+        assert head["font"] == details["contextFont"]
+        assert "50" in head["readings"]
+    (field,) = details["fields"]
+    assert details["input"]["height"] > field["available"]
+    assert field["label"].strip()
+    assert field["boxes"] == 1 and field["samePage"] and field["fits"]

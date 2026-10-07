@@ -427,13 +427,21 @@ face), leaves off a face square to setup Z (its centre is no DRO stop), and give
 surface-alignment sweep tells the operator to tap the work, not move the table;
 the job page's abbreviation key lists only abbreviations the sheets print.
 Inspection procedures may be authored as numbered step lists with named reading
-blanks and a separate calculation line ([plan format](docs/plan.md)). These are
+blanks and separate calculations ([plan format](docs/plan.md)). A step list
+with named brace readings and at least two calculation lines uses a worksheet:
+original steps reference one READINGS value box per named reading, and the
+original calculations print once. These are
 distinct from requirement-associated records: one full-width white freeform
 readings/observations area below each real requirement, at least 20 mm clear
 interior depth excluding labels, padding and borders. Known owners, limits,
 gauges, units and method references stay associated; feature/location can be
 identified when needed without inferred reading counts or statistics.
-Specifically named procedure blanks remain separate, at least 10 mm deep. The
+Specifically named procedure blanks remain separate, with a 35 × 10 mm clear
+interior floor. Pre-clamping M acquisition occurs only for explicit
+`measure_before_hold = true` with an authored `measure`; pen room stays in its
+original HOLD step, not a new section. Otherwise acquisition remains at the
+machine. Manual-only finishing retains step, feature, consumable, action and
+inspection content; optional writing space creates no additional checks. The
 operation-performed mark records progress only, not inspection acceptance,
 clearance to proceed or approval. Work text is 12 pt, metadata at least 10 pt,
 in familiar offline sans-serif type with 0.5-inch print margins. These dimensions

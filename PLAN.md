@@ -60,7 +60,13 @@ content; operation groups retain authored order and associated inspection
 writing areas: one full-width white freeform readings/observations area below
 each real requirement, at least 20 mm clear interior depth excluding labels,
 padding and borders. Known owners, bands, gauges and methods remain associated;
-named authored procedure fields remain separate and at least 10 mm deep.
+named authored fields have a 35 × 10 mm clear floor. A step list with named
+brace readings and at least two calculations uses a worksheet: source steps
+reference READINGS value boxes and calculations print once. Explicit
+`measure_before_hold = true` with authored measurement text keeps pre-clamping
+M acquisition and pen room in the original HOLD step; otherwise it remains at
+the machine. Manual-only finishing retains its five authored cells; mixed
+setups keep the machining ledger. Optional writing space adds no checks.
 No reading positions, counts or statistics are inferred. An operation's
 performed mark is progress only, not acceptance, clearance or approval; no input
 schema field is added.

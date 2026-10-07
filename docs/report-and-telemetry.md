@@ -380,9 +380,11 @@ Setup overview/operations section, in this order:
    hits the part or the holding`); repeats are collapsed. *Not verified by the
    planner — confirm at the machine* names the unproved topics with their ops.
    Errors never print as `?`; unknowns never read as passes.
-   Only an explicitly `measure_before_hold = true` M is acquired in its original
-   HOLD step before clamping, with one writing field; the zero row refers back
-   to it. Absent or false declarations retain measurement at the machine.
+   Pre-clamping acquisition requires explicit `measure_before_hold = true`
+   and an authored `measure`. The original HOLD step gets a 35 × 10 mm clear
+   writing field and the zero row refers back to it; there is no separate
+   MEASURED ZERO INPUTS section. Absent/false declarations retain measurement
+   at the machine.
 2. **HOLD**: a numbered clamping sequence (mount, supports, grip, stop,
    tighten, then the authored notes) at full width; semantic picture panels
    follow in the attached picture section. Without a render the overview prints
@@ -456,6 +458,9 @@ Setup overview/operations section, in this order:
    prints **ASSEMBLY / FINISHING** instead: step, feature, material / consumable
    (a coating's in-house consumable or outside service), action (the op's own
    instruction, else its action) and inspection, with no empty machining fields.
+   Mixed machining/manual setups retain the machining ledger; manual-only
+   groups preserve these five authored cells rather than inventing speeds,
+   targets or additional checks.
 7. The existing sign-off follows the operations and has its own writing area.
    Neither that area nor a performed mark changes findings or approval state.
 
@@ -512,8 +517,8 @@ Attached picture, clearance, feature-map and inspection-note section:
 4. **INSPECTION NOTES**: numbered inspection procedures, each starting with its
    setup and op (`S2 op 30: …`). Complete original operation context repeats
    when it fits beside original source progress on a continuation page.
-   A procedure that works its named readings through two or more calculation
-   lines is a worksheet on its own logical sheet, not a note (see below).
+   Only an authored step-list procedure with named brace readings and at least
+   two calculation lines becomes a worksheet on its own logical sheet (see below).
 
 The attached *contours* section (only when the setup has contour ops) has one
 block per contour op titled with setup, op, tool and direction (`S2 op 50
@@ -532,10 +537,12 @@ is outside this op's area`). Long contour tables may run onto more pages
  only when it fits beside original source progress; it never fragments added context.
 
 Worksheets, one logical sheet each after the contours (`SETUP S11 — sheet 4 of 4:
-worksheet, S11 op 110 angularity Ø`): the numbered steps name each reading
-where it is taken (`[rJ1]`), a READINGS table retains its source step and named
-reading with one writing area for its value, and the calculation lines keep
-their own authored fields and equations.
+worksheet, S11 op 110 angularity Ø`): classification requires a step list,
+named `{name}` readings in its steps and at least two calculation lines.
+Steps retain their original numbers and use reading references (`[rJ1]`), not
+duplicate value boxes. READINGS supplies one value box per named reading at its
+source step. Original equations and calculation fields print once, after the
+readings; underscore prompts alone do not turn a procedure into a worksheet.
 
 The job section and setup overview/operations section end with the existing
 sign-off. Setup coordinates, Z targets and DRO values print at the DRO's display

@@ -961,7 +961,8 @@ def test_the_datum_transfer_prints_before_the_zero_it_sets_up():
     (transfer,) = markup.find("zero-transfer")
     axes = markup.find("zero")[0]
     setting = next(
-        node for node in markup.nodes
+        node
+        for node in markup.nodes
         if node["tag"] == "p" and content(node).startswith("Before touching off")
     )
     # One original sweep precedes both its tool setting and the zero table.

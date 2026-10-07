@@ -891,7 +891,12 @@ def test_a_raster_sketch_draws_every_pass_and_claims_arrows_only_when_drawn(orde
     segments = [[[0, y], [40, y]] for y in range(0, 12, 2)]
     profile = {"op": "40", "cutter_centre": segments, "raster": {}, "cut_order": order}
     paths, waypoints = contour_annotations({"profiles": [profile]}, 1.0, "S1")
-    spec = {"view": "plan", "stock_box": [0, 0, 0, 40, 10, 5], "paths": paths}
+    spec = {
+        "setup_id": "S1",
+        "view": "plan",
+        "stock_box": [0, 0, 0, 40, 10, 5],
+        "paths": paths,
+    }
     diagram = _Diagram([], {**spec, "waypoints": waypoints})
     diagram._path_inset(40, 760, 100, 900)
     texts = [box[0] for box in diagram.canvas.text_boxes]
@@ -942,6 +947,41 @@ def test_profile_sketch_keys_sit_beside_the_paths_never_over_them(case, monkeypa
         }
         assert not covered & _SKETCH_INK, label
     keyed.canvas.assert_text_layout(min_scale=3)
+
+
+def test_unknown_order_inset_png_does_not_claim_arrows_drawn_outside_its_panel():
+    segments = [[[0, y], [40, y]] for y in range(0, 12, 2)]
+    profile = {"op": "40", "cutter_centre": segments, "raster": {}, "cut_order": "unknown"}
+    paths, waypoints = contour_annotations({"profiles": [profile]}, 1.0, "S1")
+    spec = {
+        "setup_id": "S1",
+        "view": "plan",
+        "stock_box": [0, 0, 0, 40, 10, 5],
+        "paths": paths,
+        "waypoints": waypoints,
+    }
+    supplied = json.dumps(spec, sort_keys=True)
+    diagram = _Diagram([], spec)
+    # Real direction keys elsewhere on the canvas are not evidence of this inset's
+    # cutting order. Counting all previously drawn arrows would claim a false legend.
+    diagram._ordered_path([(1100, 100), (1300, 100)], _INK)
+    arrows_before = diagram.arrows_drawn
+    assert arrows_before > 0
+    diagram._path_inset(40, 760, 100, 900)
+    texts = [box[0] for box in diagram.canvas.text_boxes]
+    assert [f"PASS {n}" for n in range(1, 7)] == [text for text in texts if text.startswith("PASS")]
+    assert diagram.arrows_drawn == arrows_before
+    assert "ARROWS: POINT ORDER" not in texts
+    assert json.dumps(spec, sort_keys=True) == supplied
+    width, _, pixels = _decode_png(diagram.canvas.png())
+    outside = (100 * width + 1200) * 3
+    assert pixels[outside : outside + 3] == bytes(_INK)
+    # Inspect the whole print-size caption rectangle in the encoded PNG: no direction
+    # claim may appear there, even though the independently drawn arrow is real ink.
+    caption = bytearray()
+    for y in range(865, 900):
+        caption.extend(pixels[(y * width + 40) * 3 : (y * width + 760) * 3])
+    assert set(caption) == {255}
 
 
 def _slab(x0, y0, x1, y1, z, colour, tag):

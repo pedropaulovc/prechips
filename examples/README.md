@@ -751,7 +751,19 @@ correction had 7 physical pages for shaft, 10 for rocker and 10 for bracket,
 matching the then-logical sections. Those counts are history, not the current
 layout contract. Footers flow after instructions.
 
-Latest parent-reported normal run, **R5**: all four actual CLI runs exited 0.
+Latest new-base observations reported by the parent, on baseline
+`1efbef15d9824a6438cdb636a9543509f194943f`: all four actual CLI runs exited 0.
+Letter PDFs had 22 shaft, 94 rocker, 72 bracket and 56 cone pages (244 total),
+all even. These are baseline observations, not actual merged R6 proof or layout
+approval. The current merged focused run had 527 passed and 13 failed in
+574.34 seconds; semantic/test-API migration and layout repairs remain in progress.
+Final merged regeneration, image review and the full gate are pending.
+Physical printer/pen/operator rehearsal remains unobserved.
+
+<details>
+<summary>Historical old-base evidence (R1–R5 on d4b8826; statuses at observation time)</summary>
+
+Historical parent-reported normal run, **R5**: all four actual CLI runs exited 0.
 Letter PDFs had 52 shaft, 154 rocker, 76 bracket and 112 cone pages (394 total),
 all even. Minimum native text font was 9.997 pt; all four had zero half-inch
 glyph-margin violations, setup starts on backs or header-only continuations.
@@ -768,8 +780,6 @@ underscore-caption atomic layout failure and browser-fixture network containment
 Repairs, R6 regeneration, final image review and the full gate remain pending.
 Physical printer/pen/operator rehearsal is still unobserved.
 
-<details>
-<summary>Historical prototype evidence (R1–R4; statuses at observation time)</summary>
 
 Readability prototype evidence reported by the integrating parent: actual CLI
 exit 0 for pivot-shaft, rocker, bracket and cone. First-round Letter PDFs had

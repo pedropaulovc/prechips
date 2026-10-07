@@ -167,6 +167,7 @@ border: var(--rule-thin) solid var(--color-rule); }
 .op-note { margin: var(--space-xs) 0; }
 .cont-head { font-size: var(--text-running); font-weight: bold; margin: 0 0 var(--space-sm);
 border-bottom: var(--rule-thin) solid var(--color-ink); }
+.cont-count { display: block; white-space: nowrap; }
 .cont-context { display: block; font-size: var(--text-working); overflow-wrap: normal; }
 .more { margin: var(--space-xs) 0 0; font-weight: bold; }
 table.operations { margin-top: 0; }
@@ -290,7 +291,12 @@ _DUPLEX_JS = r"""(() => {
       try { return box(probe).bottom; }
       finally { probe.remove(); }
     }
-    function pageProgress(el) {
+    function sourceBottom(el, point) {
+      const contents = contentsAt(el, point);
+      return el.tagName === "TR"
+        ? prefixBottom(el.closest("table"), el, contents) : textBottom(el, contents);
+    }
+    function pageProgress(el, relax = true) {
       if (el.tagName === "TABLE") {
         const progress = sourceProgress(el, el.tBodies[0]);
         return progress ? () => prefixBottom(el, progress.row, progress.contents) : null;
@@ -301,14 +307,44 @@ _DUPLEX_JS = r"""(() => {
           return () => textBottom(el, contents);
         }
       }
-      return fits(box(el).bottom) ? () => box(el).bottom : null;
+      if (fits(box(el).bottom)) return () => box(el).bottom;
+      return relax && prepareFields(el) ? pageProgress(el, false) : null;
+    }
+    function compactContext(el, suffix = "") {
+      const identity = /^.*?\bop\s+\d+\b/.exec(el.textContent);
+      if (!identity) return false;
+      const range = document.createRange(),
+        walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      range.selectNodeContents(el);
+      let remaining = identity[0].length, node;
+      while ((node = walker.nextNode())) {
+        if (remaining <= node.length) {
+          range.setEnd(node, remaining);
+          el.replaceChildren(range.cloneContents(), suffix);
+          return true;
+        }
+        remaining -= node.length;
+      }
+      return false;
     }
     function breakAt(el) {
       pages += 1;
       const head = document.createElement("p");
       head.className = "cont-head";
       head.setAttribute(ADDED, "");
-      head.textContent = title + " (continued) · page " + pages;
+      const running = document.createElement("span");
+      running.className = "cont-title";
+      running.textContent = title + " (continued)";
+      const count = document.createElement("span");
+      count.className = "cont-count";
+      count.append(" · page " + pages + " of ");
+      const total = document.createElement("span");
+      total.className = "cont-page-total";
+      total.textContent = "?";
+      count.append(total);
+      // The count line is present during every fit/progress measurement. Its final
+      // digits cannot change the title wrapping or the preserved working context.
+      head.append(running, "\n", count);
       const owner = el.closest("[data-page-context]");
       el.before(head);
       head.style.breakBefore = "page";
@@ -316,15 +352,22 @@ _DUPLEX_JS = r"""(() => {
       pageStart = el;
       const source = owner && contextHeads.get(owner.dataset.pageContext);
       if (source) {
-        const progress = pageProgress(el);
+        let progress = pageProgress(el);
+        if (!progress) {
+          // A repeated long note title is not original progress. Keep its stable
+          // setup/op identity when the full repeat blocks the original remainder.
+          for (const repeated of el.querySelectorAll(".record-continuation")) {
+            compactContext(repeated, " (continued)");
+          }
+          progress = pageProgress(el);
+        }
         if (!progress) return;
         const context = document.createElement("span");
         context.className = "cont-context";
         context.append(...[...source.childNodes].map((node) => node.cloneNode(true)));
-        head.append(context);
+        head.append("\n", context);
         if (!fits(progress())) {
-          const identity = /^.*?\bop\s+\d+\b/.exec(source.textContent);
-          context.textContent = identity ? identity[0] : "";
+          if (!compactContext(context)) context.replaceChildren();
           if (!context.textContent || !fits(progress())) context.remove();
         }
       }
@@ -356,12 +399,16 @@ _DUPLEX_JS = r"""(() => {
         return false;
       }
       let more = null;
-      if (el.tagName === "TABLE" && el.classList.contains("operations") && el.tBodies.length) {
+      const operations = el.matches("table.operations") ? el
+        : heading(el) && el.nextElementSibling?.matches("table.operations")
+          ? el.nextElementSibling : null;
+      if (operations && operations.tBodies.length) {
         more = document.createElement("p");
         more.className = "more";
         more.setAttribute(ADDED, "");
         start.before(more);
-        const op = el.tBodies[0].dataset.op || el.tBodies[0].rows[0].cells[0].textContent;
+        const op = operations.tBodies[0].dataset.op
+          || operations.tBodies[0].rows[0].cells[0].textContent;
         more.textContent = "Operations continue on reverse, op " + op;
         if (!fits(box(more).bottom)) {
           more.remove();
@@ -375,7 +422,8 @@ _DUPLEX_JS = r"""(() => {
       return true;
     }
     function pointsIn(el) {
-      const points = [], walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      const points = [], atomicContexts = new Map();
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
       let node;
       while ((node = walker.nextNode())) {
         if (node.parentElement.closest(
@@ -383,7 +431,13 @@ _DUPLEX_JS = r"""(() => {
             + ".record-continuation, .op-details dt, [" + ADDED + "]"
         )) continue;
         const context = node.parentElement.closest(".page-context");
-        if (context && box(context).bottom - box(context).top <= CAP) continue;
+        if (context) {
+          if (!atomicContexts.has(context)) {
+            atomicContexts.set(context,
+              fits(sourceBottom(el, [context, context.childNodes.length])));
+          }
+          if (atomicContexts.get(context)) continue;
+        }
         const text = node.textContent, matches = [...text.matchAll(/[ \t\r\n]+/g)];
         for (const match of matches) points.push([node, match.index + match[0].length]);
         if (!matches.length && text.length > 100) {
@@ -424,7 +478,7 @@ _DUPLEX_JS = r"""(() => {
         + ".op-number, [" + ADDED + "]").forEach((node) => node.remove());
       return /[\p{L}\p{N}]/u.test(copy.textContent);
     }
-    function sourceProgress(t, body) {
+    function sourceProgress(t, body, relax = true) {
       const row = [...body.rows].find((source) => !source.hasAttribute(ADDED));
       if (!row) return null;
       for (const point of pointsIn(row)) {
@@ -432,11 +486,16 @@ _DUPLEX_JS = r"""(() => {
         if (!originalText(contents)) continue;
         if (fits(prefixBottom(t, row, contents))) return { row, contents };
       }
-      return fits(prefixBottom(t, row)) ? { row, contents: null } : null;
+      if (fits(prefixBottom(t, row))) return { row, contents: null };
+      return relax && prepareFields(row) ? sourceProgress(t, body, false) : null;
     }
-    function prepareFields() {
-      for (const field of section.querySelectorAll(".field, .result-field, .authored-blank")) {
-        if (box(field).bottom - box(field).top <= CAP) continue;
+    function prepareFields(el) {
+      const selector = ".field, .result-field, .authored-blank";
+      const fields = el.matches(selector) ? [el] : [...el.querySelectorAll(selector)];
+      let changed = false;
+      for (const field of fields) {
+        if (field.closest("[" + ADDED + "]")
+            || fits(sourceBottom(el, [field, field.childNodes.length]))) continue;
         const label = field.querySelector(".field-label");
         if (!label) continue;
         const range = document.createRange();
@@ -467,26 +526,27 @@ _DUPLEX_JS = r"""(() => {
         const prose = document.createElement("span");
         prose.className = "authored-label";
         prose.append(range.cloneContents());
+        // Fitting short labels stay atomic; an empty prefix cannot advance source.
+        if (!/[\p{L}\p{N}]/u.test(prose.textContent)) continue;
         range.selectNodeContents(label);
         range.setStart(...start);
         const caption = range.cloneContents();
         field.before(prose);
         label.replaceChildren(caption);
+        changed = true;
       }
+      return changed;
     }
     // Only original source is fragmented. Repeated context is admitted whole,
     // and the writing box stays with the final measured source caption line.
-    function fragment(el) {
+    function fragment(el, relax = true) {
       if (el.hasAttribute(ADDED)) return null;
       const points = pointsIn(el), range = document.createRange();
       range.selectNodeContents(el);
       // A glyph Range is not the final line box or table row. Prove the cloned
       // prefix's real formatting footprint before accepting the split point.
       function bottomAt(point) {
-        range.setEnd(...point);
-        const contents = contentsAt(el, point);
-        if (el.tagName === "TR") return prefixBottom(el.closest("table"), el, contents);
-        return textBottom(el, contents);
+        return sourceBottom(el, point);
       }
       let low = 0, high = points.length - 1, best = -1;
       while (low <= high) {
@@ -538,7 +598,7 @@ _DUPLEX_JS = r"""(() => {
         }
         return rest;
       }
-      return null;
+      return relax && prepareFields(el) ? fragment(el, false) : null;
     }
     function contextRow(source) {
       const row = source.cloneNode(true);
@@ -783,10 +843,9 @@ _DUPLEX_JS = r"""(() => {
         }
       }
     }
-    prepareFields();
     walk(section);
     section.querySelectorAll(".cont-head").forEach((head) => {
-      head.textContent += " of " + pages;
+      head.querySelector(".cont-page-total").textContent = String(pages);
     });
     section.dataset.pages = pages;
     return pages;
@@ -1479,7 +1538,9 @@ def _writing_field(label, css="field"):
 
 def _ledger_text(value):
     lines = value if isinstance(value, (list, tuple)) else [value]
-    return "<br>".join(_cell_line(line) if isinstance(line, _Box) else _fields(line) for line in lines)
+    return "<br>".join(
+        _cell_line(line) if isinstance(line, _Box) else _fields(line) for line in lines
+    )
 
 
 def _warning_line(warning):
@@ -1571,7 +1632,9 @@ def _table(
     result.extend((f"<table{attribute}>", columns, "<thead>"))
     for kind, title in (("continued", continued), ("repeat", repeat)):
         if title:
-            result.append(f'<tr class="{kind}"><th colspan="{count}">{_numeric_html(title)}</th></tr>')
+            result.append(
+                f'<tr class="{kind}"><th colspan="{count}">{_numeric_html(title)}</th></tr>'
+            )
     if context:
         result.append(
             f'<tr class="table-context"><th colspan="{count}">{_numeric_html(context)}</th></tr>'
@@ -5993,7 +6056,9 @@ class _Traveler:
             if finishing:
                 cells = (_text(op["op"]), features, tool, instruction or ", ".join(action))
                 rows.append(
-                    _Row((*cells, inspection), boxes, optional_observations=op.get("do") == "coating")
+                    _Row(
+                        (*cells, inspection), boxes, optional_observations=op.get("do") == "coating"
+                    )
                 )
                 continue
             rows.append(
