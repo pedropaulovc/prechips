@@ -1,7 +1,8 @@
 """Parallel gripping pair, opening, bilateral contact, jaw exclusion and parallels.
 
 The opening the hold needs is the kernel's ``jaw_separation_mm``: the work's width
-between the jaw planes plus any round bar between the work and the moving jaw."""
+between the jaw planes plus any round bar between the work and the moving jaw and
+both jaw buttons' thickness."""
 
 from prechips.findings import Finding
 from prechips.rules.geometry_common import fact_reason, setup_contexts
@@ -46,7 +47,10 @@ def evaluate(bundle):
             if not parallel:
                 errors.append("gripped faces are not a parallel pair")
             if separation > opening and not same_length(separation, opening):
-                errors.append("jaw separation (part width plus any round bar) exceeds vise opening")
+                errors.append(
+                    "jaw separation (part width plus any round bar or jaw buttons) "
+                    "exceeds vise opening"
+                )
             if any(value < grip and not same_length(value, grip) for value in contacts):
                 errors.append("both jaws do not provide the declared grip")
             if inside:
