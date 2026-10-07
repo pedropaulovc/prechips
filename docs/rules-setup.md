@@ -34,7 +34,12 @@ setup before it on that machine (a setup on another fixture between them took th
 or plate off). Its `indicator` must be an inventory gauge of kind
 `dial_test_indicator` or `dial_indicator`, `limit_mm` and `over_mm` must be
 positive, and an angle plate's `face` must name one of the plate's solids; a missing
-block or invalid value is an error, an explicit unknown is unknown. The face runs
+block or invalid value (a gauge not in the inventory, declared absent or of another
+kind) is an error, an explicit unknown is unknown. So is `align = "unknown"` (each
+member unknown) and an indicator whose kind, presence or verification is not
+established (`kind = "unknown"`, `present = "unknown"`, `verify = true`); the
+indicator is a selected inventory reference, so `tool_resolves` checks its identity
+like any tool or fixture. The face runs
 along the vise's `jaws_along`, or for an angle plate along the longer horizontal
 side of the `face` box solid, carried into the setup frame by `pose`; a run that is
 not X or Y is unknown (`hold.align.travel`). Evidence: `align_due` (`mounted`,

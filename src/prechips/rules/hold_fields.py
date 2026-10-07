@@ -22,6 +22,7 @@ from prechips.rules.resolution import (
     owns_feature,
     record,
     resolve,
+    uncertain,
     workholding_category,
 )
 from prechips.rules.tip_endpoints import HOLE_OPS
@@ -78,22 +79,40 @@ def _face_solid(bundle, hold):
     return named[0] if len(named) == 1 else None
 
 
+def align_indicator(bundle, gauge):
+    """``gauge`` when it names an inventory dial or test indicator known to be on hand and
+    verified; ``UNKNOWN`` when that is not established (the reference itself, its kind, its
+    presence or its verification is unknown); None when it is no such indicator."""
+    if gauge == UNKNOWN:
+        return UNKNOWN
+    if not isinstance(gauge, str):
+        return None
+    item = resolve(bundle, "gauges", gauge)
+    if item is None:
+        return None
+    kind = item.get("kind", UNKNOWN)
+    if kind != UNKNOWN and kind not in INDICATORS:
+        return None
+    return UNKNOWN if kind == UNKNOWN or uncertain(item) else gauge
+
+
 def align_fields(bundle, hold):
     """The ``hold.align`` declarations, each ``None`` where absent or invalid: an indicator
-    that is no inventory dial or test indicator, a non-positive limit or sweep length, or
-    an angle plate's ``face`` that names none of its solids."""
+    that is no inventory dial or test indicator (:func:`align_indicator`), a non-positive
+    limit or sweep length, or an angle plate's ``face`` that names none of its solids. An
+    align block stated ``"unknown"`` leaves each of them unknown."""
     align = hold.get("align")
     if align is None:
         return {"hold.align": None}
-    align = record(align)
     keys = ["indicator", "limit_mm", "over_mm"]
     if _fixture(bundle, hold).get("kind") == "angle_plate":
         keys.append("face")
+    if align == UNKNOWN:
+        return {f"hold.align.{key}": UNKNOWN for key in keys}
+    align = record(align)
     fields = {f"hold.align.{key}": align.get(key) for key in keys}
-    gauge = align.get("indicator")
-    if gauge not in (None, UNKNOWN):
-        kind = record(resolve(bundle, "gauges", gauge)).get("kind")
-        fields["hold.align.indicator"] = gauge if kind in INDICATORS else None
+    if align.get("indicator") is not None:
+        fields["hold.align.indicator"] = align_indicator(bundle, align["indicator"])
     for key in ("limit_mm", "over_mm"):
         value = align.get(key)
         if value not in (None, UNKNOWN) and not (

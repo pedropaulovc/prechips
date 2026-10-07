@@ -286,6 +286,67 @@ def test_undrawn_fixture_components_leave_clear_samples_unknown(engine, parts):
     assert "not drawn: clamp 1 'kit/strap' pose is undeclared" in setup["render_scene"]["debts"]
 
 
+# The plate's raw stock is 2 mm taller: op S1:10 takes that layer off its top.
+_TALL = {
+    "shape": "box",
+    "origin_mm": [0.0, 0.0, 0.0],
+    "axis": [1.0, 0.0, 0.0],
+    "section_axis": [0.0, 1.0, 0.0],
+    "length_mm": 40.0,
+    "section_mm": [20.0, 12.0],
+}
+
+
+def _behind(**extra):
+    """An angle plate whose upright stands 10 mm behind the plate (y 30..35), on its base."""
+    return {
+        "kind": "solids",
+        "fixture_kind": "angle_plate",
+        "pose": {"origin_mm": [0.0, 0.0, 0.0], **UP},
+        "solids": [
+            _box("plate:upright", [0.0, 30.0, 0.0], [40.0, 5.0, 20.0]),
+            _box("plate:base", [0.0, 0.0, -5.0], [40.0, 35.0, 5.0]),
+        ],
+        "clamps": [],
+        "debts": [],
+        "gaps": [],
+        **extra,
+    }
+
+
+def _clearances(engine, step, ops, hold):
+    top = engine.refs(step, (0, 0, 10), (40, 20, 10))
+    job = engine.job(step, {"top": top}, [_setup(ops, hold)], stock=_TALL)
+    return _scene(engine.run(job))["render_scene"]["cut_clearances"]
+
+
+@pytest.mark.parametrize(
+    "hold",
+    [
+        _behind(gaps=["clamp 1 near-cut pose is undeclared"]),
+        {"kind": "unknown", "reason": "fixture dimensions unknown"},
+    ],
+    ids=["a-component-undrawn", "no-holding-drawn"],
+)
+def test_a_cut_beside_holding_not_wholly_drawn_has_an_unknown_clearance(engine, parts, hold):
+    ops = [_op("S1:10", "top", 3.0, 10.0, 40.0)]
+    # Wholly drawn, the upright is the holding nearest the layer the cut takes off.
+    expected = [{"op": "10", "mm": 10.0, "tag": "plate:upright"}]
+    assert _clearances(engine, parts["plate"], ops, _behind()) == expected
+    # An undrawn component may stand nearer; with none drawn, nothing is measured at all.
+    unknown = [{"op": "10", "mm": "unknown", "tag": "unknown"}]
+    assert _clearances(engine, parts["plate"], ops, hold) == unknown
+
+
+def test_the_first_cut_the_stock_builder_cannot_derive_has_an_unknown_clearance(engine, parts):
+    # Op 10's feature is undeclared: its cut, and so every later one, is unknown.
+    ops = [_op("S1:10", "missing", 3.0, 10.0, 40.0), _op("S1:20", "top", 3.0, 10.0, 40.0)]
+    assert _clearances(engine, parts["plate"], ops, _behind()) == [
+        {"op": "10", "mm": "unknown", "tag": "unknown"},
+        {"op": "20", "mm": "unknown", "tag": "unknown"},
+    ]
+
+
 def _web_hold(*origins):
     """The web part on a bare custom floor solid, one strap (along y) per footprint origin."""
     across = {"x": [0.0, 1.0, 0.0], "z": [0.0, 0.0, 1.0]}
