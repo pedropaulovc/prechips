@@ -590,9 +590,9 @@ _FACE_TOUCH = {"tool": "blade", "z_face": "shoulder", "edge_mm": 0.0, "paper_mm"
 
 
 def _parted(touch, ends, side, to_z=-5.0, face="shoulder"):
-    """A blade parting to ``to_z`` after its Z ``touch``; a synthetic kernel gives the
-    touched ``face`` its ``end_faces`` and the op its ``faced_side`` (None: no fact)."""
-    op = {"op": 40, "do": "part_off", "tool": "blade", "to_z": to_z}
+    """A blade parting the end to ``to_z`` after its Z ``touch``; a synthetic kernel gives
+    the touched ``face`` its ``end_faces`` and the op its ``faced_side`` (None: no fact)."""
+    op = {"op": 40, "do": "part_off", "feature": "end", "tool": "blade", "to_z": to_z}
     zero = {"tool_touches": [{**touch, "before_ops": [40]}]}
     bundle = _lathe([op], {}, {"blade": _blade()}, zero=zero)
     bundle.inventory["machines"]["lathe"]["resolution_mm"] = 0.01
@@ -876,9 +876,10 @@ def test_a_surface_a_blade_faced_prints_where_its_rounded_corner_reading_left_it
 
 
 def _retouched(width):
-    """On a 0.1 grid a ``width`` blade faces the end to -10 reading its chuck-side corner
-    (forming with its tailstock-side one); the turner, re-touched on that end, then faces
-    the sleeve to -8, a 7.96..8.04 length."""
+    """On a 0.1 grid the turner turns the bar (op 30: the standing diameter its later
+    re-touch reads X on); a ``width`` blade faces the end to -10 (op 40) reading its
+    chuck-side corner (forming with its tailstock-side one); the turner, re-touched on that
+    end, then faces the sleeve to -8 (op 50), a 7.96..8.04 length."""
     touch = {**_FACE_TOUCH, "gauge": "mic", "x_method": "touch bar diameter"}
     bundle = _parted(touch, [{"z_mm": 0.0, "normal_z": 1}], -1, to_z=-10.0)
     bundle.plan["dro"].update(
@@ -907,7 +908,12 @@ def _retouched(width):
             "retouch_after": [],
         },
     )
-    setup["ops"][0].update(do="face", feature="end")
+    setup["ops"][0]["do"] = "face"
+    setup["ops"].insert(
+        0,
+        {"op": 30, "do": "turn", "feature": "bar", "tool": "turner", "z_from": 0.0, "z_to": -10.0},
+    )
+    bundle.features["features"]["bar"] = {"kind": "shaft", "frame": "model", "dia": [9.9, 10.0]}
     setup["ops"].append(
         {"op": 50, "do": "face", "feature": "sleeve", "tool": "turner", "to_z": -8.0}
     )
@@ -927,12 +933,12 @@ def _consumer(bundle, kind):
     setup = bundle.plan["setups"][0]
     features = bundle.features["features"]
     if kind == "band":
-        setup["ops"][1]["to_z_band"] = [-8.04, -7.96]
+        setup["ops"][2]["to_z_band"] = [-8.04, -7.96]
         features["sleeve"] = {"kind": "shaft", "length": "unknown", "requirements": ["length"]}
     elif kind == "bore":
         bundle.inventory["tools"]["turner"]["kind"] = "boring_bar"
         setup["stock_state"]["entry_z"] = {"hole": 0.0}
-        setup["ops"][1] = {
+        setup["ops"][2] = {
             "op": 50,
             "do": "bore",
             "feature": "hole",
@@ -949,7 +955,7 @@ def _consumer(bundle, kind):
         }
     elif kind == "blade":
         op = {"op": 60, "do": "part_off", "tool": "parter", "to_z": -20.0}
-        setup["ops"][1:] = [{**op, "to_z_band": [-20.05, -19.95]}]
+        setup["ops"][2:] = [{**op, "to_z_band": [-20.05, -19.95]}]
         bundle.inventory["tools"]["parter"] = _blade()
         bundle.kernel["setups"]["S1"]["revolved"]["end"] = {
             "end_faces": [{"z_mm": -10.0, "normal_z": 1}]
@@ -971,10 +977,10 @@ def test_a_touch_on_a_blade_face_off_its_dro_grid_is_refused_whatever_cuts_next(
     bundle = _consumer(_retouched(width), kind)
     zero, finding, sheet, setup = _traveler(bundle)
     [retouch] = zero.numbers["derived_touches"]
-    assert (retouch["z_face"], retouch["before_ops"][0]) == ("end", setup["ops"][1]["op"])
+    assert (retouch["z_face"], retouch["before_ops"][0]) == ("end", setup["ops"][2]["op"])
     # The Axis Set the sheet prints for the end against where the blade left it.
-    stands = coordinates.formed_z(bundle, setup, setup["ops"][0])
-    off = sheet.datum_z(setup, "end", -10.0, done=1) != pytest.approx(stands)
+    stands = coordinates.formed_z(bundle, setup, setup["ops"][1])
+    off = sheet.datum_z(setup, "end", -10.0, done=2) != pytest.approx(stands)
     assert off is (width == 1.61)
     assert zero.status == ("error" if off else "pass")
     if not off:
@@ -998,19 +1004,19 @@ def test_a_touch_on_a_blade_face_standing_at_an_unknown_z_is_unknown(missing):
     else:
         setup["zero"]["tool_touches"][0]["edge_mm"] = "unknown"
     zero, finding, sheet, setup = _traveler(bundle)
-    assert coordinates.formed_z(bundle, setup, setup["ops"][0]) == "unknown"
-    assert sheet.datum_z(setup, "end", -10.0, done=1) == "unknown"
+    assert coordinates.formed_z(bundle, setup, setup["ops"][1]) == "unknown"
+    assert sheet.datum_z(setup, "end", -10.0, done=2) == "unknown"
     assert zero.status == "unknown"
 
 
 def _zeroed_on_the_end(bundle):
-    """S1 keeps only op 40, the cut that leaves the end at -10; S2 takes its part in the
-    same frame, zeros its turner on that end (edge -10, no paper) and faces the sleeve to
-    -8, a 7.96..8.04 length."""
+    """S1 keeps its ops through op 40, the cut that leaves the end at -10; S2 takes its
+    part in the same frame, zeros its turner on that end (edge -10, no paper) and faces the
+    sleeve to -8, a 7.96..8.04 length."""
     import copy
 
     first = bundle.plan["setups"][0]
-    first["ops"] = first["ops"][:1]
+    first["ops"] = first["ops"][:2]
     second = copy.deepcopy(first)
     second.update(id="S2", stock_in="S1", machine="lathe")
     second["ops"] = [{"op": 50, "do": "face", "feature": "sleeve", "tool": "turner", "to_z": -8.0}]
@@ -1030,7 +1036,7 @@ def test_a_later_setup_zeroed_on_a_blade_face_reads_where_it_stands(do, width, s
     # left it off S2's 0.1 grid (-9.99, set as -9.9), whatever the blade's action.
     bundle = _retouched(1.6)
     bundle.inventory["tools"]["blade"]["blade_width_mm"] = width
-    bundle.plan["setups"][0]["ops"][0]["do"] = do
+    bundle.plan["setups"][0]["ops"][1]["do"] = do
     bundle = _zeroed_on_the_end(bundle)
     zeros = {f.subject: f.status for f in zero_recipe.evaluate(bundle)}
     assert zeros == {"S1": "pass", "S2": status}
@@ -1061,7 +1067,7 @@ def test_a_later_setup_zeroed_on_a_turned_shoulder_reads_where_it_stands(fact, t
     bundle.inventory["machines"]["fine_lathe"] = {**lathe, "resolution_mm": 0.01}
     first = bundle.plan["setups"][0]
     first["machine"] = "fine_lathe"
-    first["ops"][0] = {"op": 40, "do": "turn", "feature": "end", "tool": "turner", "to_z": to_z}
+    first["ops"][1] = {"op": 40, "do": "turn", "feature": "end", "tool": "turner", "to_z": to_z}
     bundle.kernel["ops"]["S1:40"] = fact
     bundle.kernel["faces"] = [{"index": 0, "kind": "Cylinder"}]
     bundle = _zeroed_on_the_end(bundle)
@@ -1101,7 +1107,7 @@ def _touched_end(bundle, route):
 
     if route == "authored":
         bundle.plan["setups"][0]["zero"]["tool_touches"].append(dict(_END_TOUCH))
-        setup, done = bundle.plan["setups"][0], 1
+        setup, done = bundle.plan["setups"][0], 2
     else:
         bundle = _zeroed_on_the_end(bundle)
         setup, done = bundle.plan["setups"][1], 0
@@ -1140,11 +1146,11 @@ def test_a_touch_on_a_face_a_sampled_cut_may_have_left_is_never_stock(
     # alone: else the touch meets a face standing at an unknown Z, never the nominal.
     bundle = _retouched(1.6)
     first = bundle.plan["setups"][0]
-    first["ops"][0]["do"] = do
+    first["ops"][1]["do"] = do
     if to_z is None:
-        del first["ops"][0]["to_z"]
+        del first["ops"][1]["to_z"]
     else:
-        first["ops"][0]["to_z"] = to_z
+        first["ops"][1]["to_z"] = to_z
     _claims(bundle, kinds, count)
     zero, stands = _touched_end(bundle, route)
     assert zero == status
@@ -1175,7 +1181,7 @@ def test_a_touch_on_a_face_a_turning_window_may_have_left_is_never_stock(
     # window claims is a face it cut: unless the kernel sampled it over diameters alone,
     # the touch meets a face standing at an unknown Z, never the nominal.
     bundle = _retouched(1.6)
-    op = bundle.plan["setups"][0]["ops"][0]
+    op = bundle.plan["setups"][0]["ops"][1]
     del op["to_z"]
     op.update(do=do, tool=tool, z_from=window[0], z_to=window[1])
     _claims(bundle, kinds, count)
@@ -1190,15 +1196,15 @@ def test_a_turning_window_prints_its_own_ends_whatever_an_earlier_window_left():
     # to (its path, not a face it touches), with no STOP.
     bundle = _retouched(1.6)
     first = bundle.plan["setups"][0]
-    rough = first["ops"][0]
+    rough = first["ops"][1]
     del rough["to_z"]
     rough.update(do="rough_turn", tool="turner", z_from=0.0, z_to=-10.0)
     finish = {**rough, "op": 45, "do": "finish_turn"}
-    first["ops"].insert(1, finish)
+    first["ops"].insert(2, finish)
     _claims(bundle, ["Plane", "Cylinder"], 20)
     bundle.kernel["ops"]["S1:45"] = dict(bundle.kernel["ops"]["S1:40"])
     zero, finding, sheet, setup = _traveler(bundle)
-    assert sheet.datum_z(setup, "end", -10.0, done=2) == "unknown"
+    assert sheet.datum_z(setup, "end", -10.0, done=3) == "unknown"
     assert [sheet.op_z(setup, finish, key) for key in ("z_from", "z_to")] == [0.0, -10.0]
     assert not any("STOP" in part for part in sheet.tip(setup, finish))
 
