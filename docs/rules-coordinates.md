@@ -661,7 +661,8 @@ cut-to-fit row also prints its X: `X {start} → {end} ({r} radial)`, the end th
 authored `to_dia` (the axis, Ø0, unless authored) and the start that plus twice
 the reach finding's `reach_depth_mm`, in the setup's X display (diameter or
 radius); an unknown depth prints `X → {end} (radial plunge unknown)` and an
-unknown `to_dia` a STOP. An unknown
+unknown `to_dia` or X display (`dro.radius_mode` omitted or unknown) a STOP with
+no X. An unknown
 reading corner, kernel side or blade width leaves `corner_dro_z` unknown with its
 `reason` and the setup `unknown` (exit 4); the sheet prints "blade corner not set"
 for the target and the band and stops, and the face it leaves stands at an
@@ -676,6 +677,13 @@ past the base radius are dropped. An apex toward the chuck, or a window whose
 base the sphere cannot reach (cap taller than its diameter), has no stair
 (`unknown`). The finish table prints its row-to-row order for an apex-to-base
 convex dome: X out to the next row first, then Z toward the chuck.
+
+Lathe X readings: every lathe row's `x_target_mm` (feature rows, kernel span ends,
+dome and stair rows, `setup_xz`, a dome's tool `x_tool_mm`) is the radius on a
+radius display (`dro.radius_mode = true`) and twice it on a diameter one
+(`false`). An omitted or unknown `radius_mode` leaves each of them unknown, never a
+default display, and the setup `unknown` (`dro.radius_mode not stated`); the
+sheet's feature map, part-off X and dome/stair tables then print no X and a STOP.
 
 Evidence groups: frame/binding, reference rows, operation targets, profiles,
 arc/line/axial tables and advanced entry surfaces. Citations: PLAN §4.1,
@@ -795,7 +803,11 @@ lineage, turns it (`turn`, `rough_turn`, `finish_turn`): an op that cuts it
 otherwise is an error, an op naming no feature `unknown`; never turned and not
 supplied as-is (`stock.as_is_faces`) is an error, or `unknown` when the lineage
 omits `stock_in`. No `x_face` names no surface: `unknown`. The traveler prints the
-touch's Axis Set X and, for an error or unknown, a STOP.
+touch's contact whatever its `x_method` words say: the surface (`on the {x_face}
+Ø, measured`) and the paper the Axis Set counts (`paper {x_paper_mm}`, `no paper`,
+or `paper ?` when unknown; a `trial_cut_measure` touch is its own surface and
+takes none), then the words, its Axis Set X and, for an error or unknown, a STOP.
+A derived X re-touch is a direct touch on the measured diameter (`x_paper_mm = 0`).
 
 A datum `transfer` with `keep_clamped = true` cannot be tapped true: a sweep over
 its `runout_limit_mm` needs the plan's `recovery`. Without a stated `recovery`

@@ -209,7 +209,7 @@ _AR = {
 }
 
 
-def _dome(**extra):
+def _dome_bundle(**extra):
     op = {
         "op": 20,
         "do": "form_dome",
@@ -221,8 +221,68 @@ def _dome(**extra):
         "contour": {"method": "axial_table", "step_mm": 0.1},
         **extra,
     }
-    bundle = _lathe([op], {"dome": dict(_DOME)}, {"ar": dict(_AR)})
-    return coordinates.evaluate(bundle)[0]
+    return _lathe([op], {"dome": dict(_DOME)}, {"ar": dict(_AR)})
+
+
+def _dome(**extra):
+    return coordinates.evaluate(_dome_bundle(**extra))[0]
+
+
+def _on_display(bundle, radius_mode):
+    """``bundle`` with its lathe DRO X display as ``radius_mode`` (None: not stated)."""
+    if radius_mode is None:
+        del bundle.plan["dro"]["radius_mode"]
+    else:
+        bundle.plan["dro"]["radius_mode"] = radius_mode
+    return bundle
+
+
+@pytest.mark.parametrize(
+    ("radius_mode", "per_radius"), [(False, 2), (True, 1), ("unknown", None), (None, None)]
+)
+def test_lathe_x_readings_are_in_the_dro_display_and_unknown_without_one(radius_mode, per_radius):
+    bundle = _on_display(_dome_bundle(rough_allowance_mm=0.2), radius_mode)
+    # A declared base radius gives the dome's op rows a size to turn to: Ø6.35.
+    bundle.features["features"]["dome"]["base_radius"] = 3.175
+    [finding] = coordinates.evaluate(bundle)
+    turned = [row for row in finding.numbers["rows"] if "x_target_mm" in row]
+    (finish,) = finding.numbers["contours"]
+    (stair,) = finding.numbers["stair_tables"]
+    table = finish["rows"] + stair["rows"]
+    assert turned and table
+    if per_radius:
+        assert finding.status == "pass"
+        assert all(row["x_target_mm"] == pytest.approx(3.175 * per_radius) for row in turned)
+        for row in table:
+            assert row["x_target_mm"] == pytest.approx(row["radius_mm"] * per_radius)
+            assert row["setup_xz"][0] == row["x_target_mm"]
+        assert all(isinstance(row["x_tool_mm"], float) for row in finish["rows"])
+        return
+    # Not knowing whether the DRO shows radius or diameter, no X reading is printable;
+    # the physical sizes stay.
+    assert finding.status == "unknown" and "radius_mode" in finding.sentence
+    assert {row["x_target_mm"] for row in turned} == {"unknown"}
+    for row in table:
+        assert isinstance(row["radius_mm"], float)
+        assert row["x_target_mm"] == row["setup_xz"][0] == "unknown"
+        assert row.get("x_tool_mm", "unknown") == "unknown"
+
+
+@pytest.mark.parametrize(
+    ("radius_mode", "shown"), [(False, "diameter"), (True, "radius"), ("unknown", None)]
+)
+def test_a_dome_table_prints_x_in_the_dro_display_or_withholds_it(radius_mode, shown):
+    bundle = _on_display(_dome_bundle(rough_allowance_mm=0.2), radius_mode)
+    _, _, sheet, setup = _traveler(bundle)
+    html = unescape(sheet.contours(setup, {"ar": "T1 AR"}))
+    if shown:
+        unit = "Ø" if shown == "diameter" else shown
+        assert f"X is {shown}" in html
+        assert f"in to X ({unit})" in html and f"surface X ({unit})" in html
+        return
+    # Neither the rough stair nor the finish table prints a number it cannot read.
+    assert "<table" not in html and "X is" not in html
+    assert re.search(r"STOP: contour points not computed[^<]*radius or diameter", html), html
 
 
 def test_a_dome_with_a_rough_allowance_gets_a_stair_that_never_comes_inside_it():
@@ -830,6 +890,32 @@ def test_a_parting_row_with_an_unknown_endpoint_stops():
     op.update(do="cut_to_fit", to_dia="unknown")
     _, _, sheet, setup = _traveler(bundle)
     assert any("STOP" in str(part) and "X endpoint" in str(part) for part in sheet.tip(setup, op))
+
+
+@pytest.mark.parametrize(
+    ("radius_mode", "depth", "expected"),
+    [
+        # A radius display reads half of both ends: Ø2.0 is X1.00, the Ø6.4 start X3.20.
+        (True, 2.2, "X 3.20 → 1.00 (2.20 radial)"),
+        (True, "unknown", "X → 1.00 (radial plunge unknown)"),
+        # Not knowing the display, X1.00 and X2.00 are each wrong on one of them.
+        ("unknown", 2.2, None),
+        ("unknown", "unknown", None),
+        (None, 2.2, None),
+    ],
+)
+def test_a_parting_row_prints_its_x_only_on_a_known_dro_display(radius_mode, depth, expected):
+    bundle = _on_display(_parted(_FACE_TOUCH, [{"z_mm": 0.0, "normal_z": 1}], -1), radius_mode)
+    op = bundle.plan["setups"][0]["ops"][0]
+    op.update(to_dia=2.0)
+    _, _, sheet, setup = _traveler(bundle)
+    sheet.records[("reach", "S1:40")] = {"reach_depth_mm": depth}
+    parts = [str(part) for part in sheet.tip(setup, op)]
+    if expected:
+        assert expected in parts, parts
+        return
+    assert not any(part.startswith("X") for part in parts), parts
+    assert any(part.startswith("STOP") and "radius or diameter" in part for part in parts), parts
 
 
 def _traveler(bundle):

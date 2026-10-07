@@ -645,8 +645,10 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
                 else:
                     shown = measured(x_scale)
                     ready = shown != UNKNOWN and gauge_ready(bundle, source["gauge"])
+                    # A direct touch on the measured diameter: its Axis Set counts no paper.
                     record.update(
                         x_face=source["x_face"],
+                        x_paper_mm=0.0,
                         gauge=source["gauge"],
                         x_axis_set=f"measured {shown}" if ready else UNKNOWN,
                     )

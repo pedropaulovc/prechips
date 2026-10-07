@@ -18,6 +18,7 @@ prints on the DRO grid (``dro``), and a row whose feature holds a height-like ba
 
 from __future__ import annotations
 
+import functools
 import itertools
 import math
 
@@ -1991,6 +1992,14 @@ def _z_levels(op, before, declared, cleared, features, grid, units):
     return record
 
 
+def _x_reading(radius, radius_mode):
+    """``radius`` as the lathe DRO's X display reads it: itself on a radius display
+    (``dro.radius_mode = true``), twice it on a diameter one (``false``); unknown when the
+    plan omits the display or states it unknown, never a default display."""
+    scale = {True: 1, False: 2}.get(radius_mode) if isinstance(radius_mode, bool) else None
+    return scale * radius if scale and number(radius) else UNKNOWN
+
+
 def _lathe_rows(name, feature, setup, frame, frames, radius_mode):
     rows = []
     diameter = _nominal(feature, "dia")
@@ -2007,7 +2016,9 @@ def _lathe_rows(name, feature, setup, frame, frames, radius_mode):
                     "model": model,
                     "setup": frame_point(model, frame),
                     "dia_nominal": diameter,
-                    "x_target_mm": diameter / 2 if radius_mode and number(diameter) else diameter,
+                    "x_target_mm": _x_reading(diameter / 2, radius_mode)
+                    if number(diameter)
+                    else UNKNOWN,
                 }
             )
     for op in setup["ops"]:
@@ -2026,7 +2037,9 @@ def _lathe_rows(name, feature, setup, frame, frames, radius_mode):
                 "model": model,
                 "setup": local,
                 "dia_nominal": diameter,
-                "x_target_mm": diameter / 2 if radius_mode and number(diameter) else diameter,
+                "x_target_mm": _x_reading(diameter / 2, radius_mode)
+                if number(diameter)
+                else UNKNOWN,
             }
             if unbound and local[2] == UNKNOWN:
                 row["setup"][2] = z
@@ -2052,7 +2065,7 @@ def _axis_rows(bundle, setup, name, feature, frame, dro, lathe):
     if span is None:
         return [], None, f"kernel: {cite}"
     diameter = _nominal(feature, "dia")
-    radius_mode = dro.get("radius_mode") is True
+    radius_mode = dro.get("radius_mode")
     rows = []
     for end, z in zip(("start", "end"), span, strict=True):
         local = [0.0, 0.0, z / scale]
@@ -2064,7 +2077,9 @@ def _axis_rows(bundle, setup, name, feature, frame, dro, lathe):
         }
         if lathe:
             row["dia_nominal"] = diameter
-            row["x_target_mm"] = diameter / 2 if radius_mode and number(diameter) else diameter
+            row["x_target_mm"] = (
+                _x_reading(diameter / 2, radius_mode) if number(diameter) else UNKNOWN
+            )
         rows.append(row)
     return rows, cite, None
 
@@ -2108,7 +2123,7 @@ def _dome(name, feature, op, radius_mode, nose=UNKNOWN, edges=None):
         compensation, why = UNKNOWN, arc_reason
     else:
         compensation, why = nose, None
-    display = 1 if radius_mode else 2
+    reading = functools.partial(_x_reading, radius_mode=radius_mode)
     rows = []
     count = math.ceil(abs(apex - base) / step)
     for i in range(count + 1):
@@ -2123,8 +2138,8 @@ def _dome(name, feature, op, radius_mode, nose=UNKNOWN, edges=None):
                 "z_mm": z,
                 "radius_mm": radius,
                 "diameter_mm": 2 * radius,
-                "x_target_mm": display * radius,
-                "setup_xz": [display * radius, z],
+                "x_target_mm": reading(radius),
+                "setup_xz": [reading(radius), z],
                 "normal_deg": math.degrees(math.atan2(normal_z, normal_r)),
             }
         )
@@ -2139,7 +2154,7 @@ def _dome(name, feature, op, radius_mode, nose=UNKNOWN, edges=None):
     if why is None:
         for row in rows:
             normal = math.radians(row["normal_deg"])
-            row["x_tool_mm"] = display * (row["radius_mm"] + nose * (math.cos(normal) - 1))
+            row["x_tool_mm"] = reading(row["radius_mm"] + nose * (math.cos(normal) - 1))
             row["z_tool_mm"] = row["z_mm"] + nose * (math.sin(normal) - 1)
     contour = {
         "feature": name,
@@ -2184,7 +2199,7 @@ def _dome_stair(name, feature, op, radius_mode, allowance, scale):
     if squared < -1e-10:
         return None  # the window runs past the sphere: no dome caps that base
     work = math.sqrt(max(0.0, squared))
-    display = 1 if radius_mode else 2
+    reading = functools.partial(_x_reading, radius_mode=radius_mode)
     rows = []
     count = math.ceil((apex - base) / step)
     for i in range(1, count + 1):
@@ -2196,8 +2211,8 @@ def _dome_stair(name, feature, op, radius_mode, allowance, scale):
             {
                 "z_mm": z,
                 "radius_mm": radius,
-                "x_target_mm": display * radius,
-                "setup_xz": [display * radius, z],
+                "x_target_mm": reading(radius),
+                "setup_xz": [reading(radius), z],
             }
         )
     return {
@@ -3473,6 +3488,10 @@ def evaluate(bundle, *, pre_kernel=False):
                 for op in setup["ops"]
                 if "tool" in op and op.get("do") not in _AXIAL_LATHE_ACTIONS
             )
+            if numbers["x_display"] == UNKNOWN:
+                # Every X the setup prints reads radius or diameter; a default is half or
+                # twice the cut on the other display.
+                plan_debts.append("dro.radius_mode not stated: X reads radius or diameter")
         plunge_errors = []  # blade plunges leaving a groove outside its drawing width
         grid_errors = []  # finish rows whose safe-side DRO grid point leaves more than the band
         for op in setup["ops"]:
@@ -3555,7 +3574,7 @@ def evaluate(bundle, *, pre_kernel=False):
                 unknown |= UNKNOWN in local
             if lathe:
                 numbers["rows"].extend(
-                    _lathe_rows(name, feature, setup, frame, frames, dro.get("radius_mode") is True)
+                    _lathe_rows(name, feature, setup, frame, frames, dro.get("radius_mode"))
                 )
         # Each band is measured where its features stand: one this setup machines (a centre
         # op dials its printed DRO target) at that target; one it only inspects, or works
@@ -3746,7 +3765,7 @@ def evaluate(bundle, *, pre_kernel=False):
                         name,
                         feature,
                         op,
-                        dro.get("radius_mode") is True,
+                        dro.get("radius_mode"),
                         allowance,
                         {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units"), UNKNOWN),
                     )
@@ -3759,7 +3778,7 @@ def evaluate(bundle, *, pre_kernel=False):
                         name,
                         feature,
                         op,
-                        dro.get("radius_mode") is True,
+                        dro.get("radius_mode"),
                         nose if number(nose) else UNKNOWN,
                         _edge_facts(bundle, op) if tool and not uncertain(tool) else None,
                     )
