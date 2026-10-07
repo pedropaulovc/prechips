@@ -1,8 +1,11 @@
 """One DRO per setup: a tool that did not set it is touched off before it cuts."""
 
+import math
+import subprocess
 from types import SimpleNamespace
 
 import pytest
+from test_kernel_geometry import Engine
 
 from prechips.rules.zero_recipe import evaluate
 from prechips.sheet import _Traveler
@@ -371,6 +374,7 @@ def deck_bundle(face, cuts, footprint=True):
         deck["bounds"] = {"x": [0.0, 20.0], "y": [0.0, 10.0], "z": [10.0, 10.0]}
         box = [0.0, 0.0, 10.0, 20.0, 10.0, 10.0]
         plane = {"index": 0, "ref": "#1/FACE", "kind": "Plane", "area_mm2": 200.0, "bbox_mm": box}
+        plane["fills_bbox"] = True
         data.kernel = {"status": "ok", "mapping": {"#1/FACE": 0}, "faces": [plane]}
     data.features["features"]["deck"] = deck
     return data
@@ -439,18 +443,130 @@ def test_a_datum_not_known_to_fill_its_box_is_not_spared_by_its_corners(deck):
 @pytest.mark.parametrize("kernel", ["L-shaped", "none"])
 def test_a_plane_face_not_shown_to_fill_its_box_is_not_spared_by_its_corners(kernel):
     # The deck's one plane face is an L (X 0..20 at Y 0..5 and X 0..5 at Y 5..10, 125 of
-    # its box's 200 mm^2), or no kernel result shows its shape. Faced over X 0..5, then
-    # over X 5..20 at Y 0..5, the only uncut part of its box is the empty corner.
+    # its box's 200 mm^2, not filling it), or no kernel result shows its shape. Faced over
+    # X 0..5, then over X 5..20 at Y 0..5, the only uncut part of its box is the empty
+    # corner.
     data = deck_bundle("deck", [[0.0, 5.0], [5.0, 20.0]])
     data.plan["setups"][0]["ops"][1]["stock_removal_bounds"]["y"] = [0.0, 5.0]
     if kernel == "none":
         del data.kernel
     else:
-        data.kernel["faces"][0]["area_mm2"] = 125.0
+        data.kernel["faces"][0].update(area_mm2=125.0, fills_bbox=False)
     finding = evaluate(data)[0]
     assert finding.status == "unknown"
     [touch] = finding.numbers["derived_touches"]
     assert touch["z_axis_set"] == "unknown"
+
+
+_DECKS = r"""
+import sys
+import FreeCAD, Part
+V = FreeCAD.Vector
+out = sys.argv[sys.argv.index("--") + 1]
+deck = Part.makeBox(20, 10, 10)
+for name, shape in [
+    ("filled", deck),
+    # A 0.005 mm square hole through the middle: its top has a second, inner wire.
+    ("small-hole", deck.cut(Part.makeBox(0.005, 0.005, 12, V(9.9975, 4.9975, -1)))),
+    # The same square notched out of the X 20, Y 10 corner: one wire of six edges.
+    ("notch", deck.cut(Part.makeBox(0.005, 0.005, 12, V(19.995, 9.995, -1)))),
+    # A block beside it as tall splits the top's X 20 edge at Y 5, a rectangle still.
+    ("split-edge", deck.fuse(Part.makeBox(10, 5, 10, V(20, 0, 0)))),
+]:
+    assert shape.isValid() and len(shape.Solids) == 1, name
+    shape.exportStep(out + "/" + name + ".step")
+"""
+
+
+@pytest.fixture(scope="module")
+def deck_tops(tmp_path_factory, freecad_kernel):
+    """The kernel's face record of each authored deck's Z 10 top, X 0..20, Y 0..10."""
+    directory = tmp_path_factory.mktemp("decks")
+    script = directory / "author.py"
+    script.write_text(_DECKS, encoding="utf-8")
+    process = subprocess.run(
+        [freecad_kernel, str(script), "--", str(directory)],
+        capture_output=True,
+        text=True,
+        errors="replace",
+        timeout=300,
+    )
+    engine, tops = Engine(directory, freecad_kernel), {}
+    for path in directory.glob("*.step"):
+        box = [0.0, 0.0, 10.0, 20.0, 10.0, 10.0]
+        [tops[path.stem]] = [f for f in engine.faces(path) if f["bbox_mm"] == box]
+    assert len(tops) == 4, process.stdout[-2000:] + process.stderr[-2000:]
+    return tops
+
+
+def deck_faced_in(face, regions):
+    """:func:`deck_bundle` faced to Z 5 over each X/Y region of ``regions``."""
+    data = deck_bundle(face, [x for x, _ in regions])
+    for cut, (_, y) in zip(data.plan["setups"][0]["ops"][:-1], regions, strict=True):
+        cut["stock_removal_bounds"]["y"] = y
+    return data
+
+
+def drill_pickup(data):
+    """(status, Z Axis Set) of the one touch derived for ``data``'s drill."""
+    finding = evaluate(data)[0]
+    [touch] = finding.numbers["derived_touches"]
+    return finding.status, touch["z_axis_set"]
+
+
+UNPROVEN, SPARED = ("unknown", "unknown"), ("pass", pytest.approx(10.05))
+# Faces to Z 5 sparing only the hole's 0.005 mm square, or only the notch's.
+HOLE_CUTS = [
+    [[0.0, 9.9975], [0.0, 10.0]],
+    [[10.0025, 20.0], [0.0, 10.0]],
+    [[9.9975, 10.0025], [0.0, 4.9975]],
+    [[9.9975, 10.0025], [5.0025, 10.0]],
+]
+NOTCH_CUTS = [[[0.0, 19.995], [0.0, 10.0]], [[19.995, 20.0], [0.0, 9.995]]]
+
+
+@pytest.mark.parametrize(
+    "deck, cuts, pickup",
+    [
+        ("small-hole", HOLE_CUTS, UNPROVEN),
+        ("notch", NOTCH_CUTS, UNPROVEN),
+        ("filled", HOLE_CUTS, SPARED),
+        ("filled", NOTCH_CUTS, SPARED),
+        ("split-edge", HOLE_CUTS, SPARED),
+    ],
+    ids=["small-hole", "notch", "filled-centre", "filled-corner", "split-edge"],
+)
+@pytest.mark.parametrize("face", ["deck", "top"])
+def test_a_cell_every_cut_spares_holds_the_datum_only_where_the_face_fills_its_box(
+    deck_tops, face, deck, cuts, pickup
+):
+    # The deck's top as the kernel measures it, faced in parts that spare only a 0.005 mm
+    # square. A hole or notch there leaves no Z 10 at all, though the face lacks only
+    # 0.000025 mm^2 of its box; on a face filling its box the square is still Z 10.
+    data = deck_faced_in(face, cuts)
+    top = deck_tops[deck]
+    data.kernel = {"status": "ok", "mapping": {"#1/FACE": top["index"]}, "faces": [top]}
+    assert drill_pickup(data) == pickup
+
+
+@pytest.mark.parametrize(
+    "turn, cuts, pickup",
+    [
+        # Its setup X/Y box is X 0..22.32, Y -10..8.66; the spared X 0..2, Y -10..-8
+        # corner of it lies off the face.
+        (30, [[[2.0, 22.4], [-10.1, 8.7]], [[-0.1, 2.0], [-8.0, 8.7]]], UNPROVEN),
+        # Its setup X/Y box is the face, X 0..10, Y -20..0: the spared corner is Z 10.
+        (90, [[[2.0, 10.0], [-20.0, 0.0]], [[0.0, 2.0], [-18.0, 0.0]]], SPARED),
+    ],
+    ids=["turned-30", "turned-90"],
+)
+def test_a_face_filling_its_box_fills_the_setup_box_only_square_to_the_setup(turn, cuts, pickup):
+    # The deck fills its model box, but the setup's X/Y axes are turned against the
+    # model's about Z: turned 30 deg, the face's setup box has corners the face is not in.
+    data = deck_faced_in("deck", cuts)
+    c, s = math.cos(math.radians(turn)), math.sin(math.radians(turn))
+    data.features["frames"]["F"].update(x=[c, s, 0.0], y=[-s, c, 0.0])
+    assert drill_pickup(data) == pickup
 
 
 def retouch_deck(data, retouch):

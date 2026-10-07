@@ -140,9 +140,12 @@ def _top_cut(op, names, top_feature):
 def _rectangle(bundle, setup, target):
     """``target``'s setup-frame X/Y footprint (:func:`_setup_footprint`) when the surface
     is known to fill it, else None. The evidence is the kernel's one STEP face for it
-    (``faces``): a plane, flat in setup Z, whose X/Y box is the footprint and whose area
-    is that box's. Without a kernel result, or for a face set of other than one face, a
-    round, holed or L-shaped face, the box's corners may hold no surface at all."""
+    (``faces``): a plane that fills its own box (``fills_bbox``: one wire, every edge a
+    straight segment along a side of the box), flat in setup Z, with each corner of the
+    box on a corner of its setup X/Y box, which is the footprint. Without a kernel
+    result, or for a face set of other than one face, a round, holed, notched or
+    L-shaped face, or one turned against the setup axes, the box's corners may hold no
+    surface at all, however little area the face lacks."""
     from .coordinates import frame_point
 
     footprint = _setup_footprint(bundle, setup, target)
@@ -153,12 +156,13 @@ def _rectangle(bundle, setup, target):
     index = mapping(kernel.get("mapping")).get(refs[0])
     faces = [mapping(f) for f in records(kernel.get("faces"))]
     face = next((f for f in faces if index is not None and f.get("index") == index), {})
-    box, area = face.get("bbox_mm"), face.get("area_mm2")
+    box = face.get("bbox_mm")
     if not (
         face.get("kind") == "Plane"
+        and face.get("fills_bbox") is True
         and isinstance(box, list)
         and len(box) == 6
-        and all(number(v) for v in [*box, area])
+        and all(number(v) for v in box)
     ):
         return None
     frame = setup_frame(bundle, setup)
@@ -166,14 +170,15 @@ def _rectangle(bundle, setup, target):
     corners = [frame_point(list(p), frame) for p in product(*ends)]
     if not all(number(v) for p in corners for v in p):
         return None
-    (x0, x1), (y0, y1), (z0, z1) = [
-        [min(p[i] for p in corners), max(p[i] for p in corners)] for i in range(3)
-    ]
+    spans = [[min(p[i] for p in corners), max(p[i] for p in corners)] for i in range(3)]
     tolerance = LENGTH_TOLERANCE_MM
-    filled = abs(area / scale**2 - (x1 - x0) * (y1 - y0)) <= tolerance * (x1 - x0 + y1 - y0)
-    (fx0, fx1), (fy0, fy1) = footprint
-    same = max(abs(a - b) for a, b in [(x0, fx0), (x1, fx1), (y0, fy0), (y1, fy1)]) <= tolerance
-    return footprint if z1 - z0 <= tolerance and filled and same else None
+    square = all(min(abs(p[i] - v) for v in spans[i]) <= tolerance for p in corners for i in (0, 1))
+    same = all(
+        abs(a - b) <= tolerance
+        for span, side in zip(spans[:2], footprint, strict=True)
+        for a, b in zip(span, side, strict=True)
+    )
+    return footprint if spans[2][1] - spans[2][0] <= tolerance and square and same else None
 
 
 def _uncut(footprint, regions):

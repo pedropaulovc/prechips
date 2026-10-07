@@ -464,17 +464,21 @@ source's recipe names its own tool's edge, so the re-touch is tool-neutral:
   other than by facing/pocketing. Ops that each cut only part of it leave it at
   its uncut Z only while some of its footprint lies outside all of their
   `stock_removal_bounds`. That needs a surface shown to fill its footprint: the
-  kernel's one STEP face for the feature (`faces`) is a plane, flat in setup Z,
-  whose setup X/Y box is the footprint and whose area is that box's. Without a
-  kernel result, or for a round, holed or L-shaped face, the box's corners may
-  hold no surface. A touch on a surface, whether a zero, a tool touch or a listed
-  retouch, is a paper touch at a nominal Z. It does not show what the ops since
-  the surface was made left of it, so it carries their partial cuts and any doubt
-  about them. A touch on a surface an op in the setup made is proven only at the
-  Z that op made, and a touch on the top only at the tracked top's Z. Only a
-  whole cut makes a new surface. The top a zero `after_op`, a listed retouch or a
-  tool touch touches is the top so tracked, so a face that states no depth leaves
-  it unknown. A surface is not proven while:
+  kernel's one STEP face for the feature (`faces`) is a plane that fills its own
+  box (`fills_bbox`: one wire, each edge a straight segment along a side of the
+  box), flat in setup Z, with each box corner on a corner of its setup X/Y box,
+  which is the footprint. Without a kernel result, or for a round, holed,
+  notched or L-shaped face or one turned against the setup axes, the box's
+  corners may hold no surface, however little of its area the face lacks: a
+  0.005 mm hole can be the only part of the box every cut spares. A touch on a
+  surface, whether a zero, a tool touch or a listed retouch, is a paper touch at
+  a nominal Z. It does not show what the ops since the surface was made left of
+  it, so it carries their partial cuts and any doubt about them. A touch on a
+  surface an op in the setup made is proven only at the Z that op made, and a
+  touch on the top only at the tracked top's Z. Only a whole cut makes a new
+  surface. The top a zero `after_op`, a listed retouch or a tool touch touches is
+  the top so tracked, so a face that states no depth leaves it unknown. A surface
+  is not proven while:
   - it is unnamed (a zero with no `face`);
   - an op on a feature the plan does not name has run since it was made, or a
     face op while the stock's `top_feature` is unresolved (the top);

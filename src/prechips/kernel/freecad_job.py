@@ -656,6 +656,27 @@ def _signature(face):
     return type(face.Surface).__name__, face.Area, _bbox(face)
 
 
+def _fills_bbox(face):
+    """Whether ``face`` fills its box (``_bbox``), a rectangle flat on one model axis: a
+    plane with one wire, each of whose edges is a straight segment along a side of that
+    box. A hole (another wire), a notch or a curved or slanted edge leaves part of the box
+    with no face, however small the missing area."""
+    if type(face.Surface).__name__ != "Plane" or len(face.Wires) != 1:
+        return False
+    box = _bbox(face)
+    flat = [axis for axis in range(3) if box[axis + 3] - box[axis] <= PLANE_TOL]
+    if len(flat) != 1:
+        return False
+    sides = [(axis, box[axis + 3 * end]) for axis in range(3) if axis != flat[0] for end in (0, 1)]
+    for edge in face.Wires[0].Edges:
+        if not isinstance(edge.Curve, Part.Line) or len(edge.Vertexes) != 2:
+            return False
+        ends = [vertex.Point for vertex in edge.Vertexes]
+        if not any(all(abs(p[axis] - at) <= PLANE_TOL for p in ends) for axis, at in sides):
+            return False
+    return True
+
+
 def _matches(a, b):
     return (
         a[0] == b[0]
@@ -2289,8 +2310,11 @@ class _Job:
                     "kind": kind,
                     "bbox_mm": [_r(v) for v in box],
                     "area_mm2": _r(area),
+                    "fills_bbox": _fills_bbox(face),
                 }
-                for index, (kind, area, box) in enumerate(signatures)
+                for index, ((kind, area, box), face) in enumerate(
+                    zip(signatures, solid.Faces, strict=True)
+                )
             ],
             "mapping": dict(sorted(mapping.items())),
             "mapping_errors": dict(sorted(errors.items())),

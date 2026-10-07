@@ -245,7 +245,7 @@ def test_a_face_over_part_of_a_surface_never_produces_its_zero_or_operative_z(tm
     # The kernel shows the top is one plane face filling the slab's X/Y box, so the Z 0
     # left of it beside the cut is a surface the zero touches.
     bundle.feature_definitions["target"]["faces"] = ["#1/FACE"]
-    face = {"index": 0, "kind": "Plane", "area_mm2": 200.0}
+    face = {"index": 0, "kind": "Plane", "area_mm2": 200.0, "fills_bbox": True}
     face["bbox_mm"] = [0.0, 0.0, 1.0, 20.0, 10.0, 1.0]
     kernel = {"status": "ok", "mapping": {"#1/FACE": 0}, "faces": [face]}
     object.__setattr__(bundle, "kernel", kernel)
