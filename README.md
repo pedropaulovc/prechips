@@ -599,7 +599,9 @@ finite bounds, stock intersection, finished protection, exact claim/piece
 contact, future hole columns and no split of an original solid still apply.
 Generic bounded clearing preserves known
 unclaimed planned-hole columns for their own future hole operations, not all
-concave cylindrical faces.
+concave cylindrical faces (a face raster's `contour.keep_out` islands, and the cusps
+its split passes leave between piece ends round them, likewise keep their stock,
+and that op's floor poses stand one cutter radius outside the islands).
 Those reserved columns span the actual matched bore plus any adjacent coaxial
 concave cone/sphere cap no wider than the bore, using exact axial spans and
 numerical lift at either end, not the entry-stock height. Wider back
