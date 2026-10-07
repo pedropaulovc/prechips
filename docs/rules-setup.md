@@ -351,43 +351,72 @@ a later finished drawing datum.
 
 One fact, one source. Where the traveler prints a fact from a plan field or the
 kernel, the author's free text beside it must not say something else. A fact
-that can be derived is derived: the TOOLS table's `T<n>` numbers come from one
-function (`resolution.tool_numbers`: first use in plan order, a lathe pair
-keeping its number across that machine's setups), and a clamp's hand
-tightening from its `tighten = "hand"` ([plan](plan.md#hold)). Free text that
-cannot be derived is checked against the field it names. One subject per setup
-(hold, clamp notes, setup and stock notes, zero texts, stock heights) and one
-`{setup}:{op}` subject per op whose text names a checkable fact (note,
-`inspection_note`, `layout`, `inspection_methods`). It is `error` when:
+that can be derived is derived, so the plan need not restate it in prose: the
+TOOLS table's `T<n>` numbers come from one function (`resolution.tool_numbers`:
+first use in plan order, a lathe pair keeping its number across that machine's
+setups), a clamp's hand tightening from its `tighten = "hand"`
+([plan](plan.md#hold)), the DRO ZERO's kept clamping from
+`zero.transfer.keep_clamped`, and HOLD's `work top above jaw tops mm` from
+`stock_state.top_z` less the jaw tops (`resolution.jaw_top_z`: the seated bottom,
+`retained_rail_bottom_z` when lower, plus `jaw_above_parallels_mm`). One subject
+per setup (hold, clamp notes, setup and stock notes, zero texts, stock heights)
+and one `{setup}:{op}` subject per op whose text the rule reads (note,
+`inspection_note`, `layout`, `inspection_methods`).
 
-- hold or stock text says the work stays clamped (`same chucking`, `do not` /
-  `don't` / `never loosen`, `without loosening`, `stays clamped`) while the
-  setup's `zero.transfer` lacks `keep_clamped = true`, so the DRO ZERO says to
-  loosen the work to realign it;
-- a clamp's own note, or the hold text of a hold with exactly one ordered clamp,
-  calls it hand tight (`hand tight`, `tightened by hand`, `finger tight`) while
-  the clamp lacks `tighten = "hand"`, so HOLD says to tighten it fully; or a
-  `tighten = "hand"` clamp also declares `torque_nm`;
-- text names a `T<n>` that is not in this setup's TOOLS table (a plan frame of the
-  same name is never read as a tool), or says a flute count (`2fl`, `four-flute`)
-  beside one `T<n>` that differs from that tool's inventory `flutes`;
-- `stands N mm above the jaws` differs from the stock height less
-  `jaw_above_parallels_mm`, or `Z v, N mm above the jaw tops` from `v` less the jaw
-  tops (stock bottom, or `retained_rail_bottom_z` when lower, plus
-  `jaw_above_parallels_mm`), beyond the half-unit of the last decimal written;
+Prose is read only in the forms below; any other wording is not attributed and
+makes no claim, so it can never error. Sentences split at `;`, `!`, `?` and full
+stops (never a decimal point); clauses split at `,` and `:` as well. "Negated"
+means `not`, `never`, `no` (not `NO-GO`), `cannot`, `without`, `unlike`,
+`instead` or `-n't` in the clause. A "time word" is `before`, `after`, `until`,
+`once`, `when`, `while`, `then`, `first`, `initially`, `now`, `was`, `will`, `if`
+and the like, anywhere in the sentence. It is `error` when:
+
+- an un-negated clause says `same chucking as <setup>` naming `zero.transfer.from`,
+  or a whole clause says `do not` / `don't` / `never loosen the [vise | chuck] jaws`
+  (or `work`, `workpiece`, `part`, `chuck`, `vise`), in hold or stock text, in a
+  sentence with no time word, while `zero.transfer` lacks `keep_clamped = true`;
+- an un-negated `hand tight[ened]`, `tighten[ed] by hand` or `finger tight`, in a
+  sentence with no time word, in an ordered clamp's note (or in the hold text of a
+  hold with exactly one ordered clamp), while the clamp lacks `tighten = "hand"`; or
+  a `tighten = "hand"` clamp also declares `torque_nm`;
+- a `T<n>` word (not inside a name such as `6061-T6`, not before a decimal point or
+  hyphen, not a plan frame's name) is not in this setup's TOOLS table;
+- a flute count bound to exactly one tool number (`2-flute T1`, `T1 (2-flute …)`,
+  `T1, the 2fl …`) differs from that tool's inventory `flutes`;
+- an un-negated clause that starts `[the] [raw] work` (or `workpiece`, `part`, `bar`,
+  `stock`, `blank`) `stands N mm above the [vise] jaws` (or `jaw tops`), in a sentence
+  with no time word and with no tolerance or hedge after it (`±`, `+/-`, `within`,
+  `about`, `approx`, `nominal`, …), differs from the work-top height beyond the
+  half-unit of the last decimal written;
+- `Z v, N mm above the [vise] jaw tops`, with no tolerance or hedge after it,
+  differs from `v` less the jaw tops the same way;
 - `stock_state.top_z` or `bottom_z` (the lower of it and `retained_rail_bottom_z`)
   differs from the kernel's setup-entry stock box by more than its 0.001 mm stock
-  tolerance; a `top_feature`'s `top_z` is that touched face and is only wrong above
-  the whole stock;
-- on an op checked by a GO / NO-GO pair, a clause of its inspection text passes the
-  NO-GO plug through (`push … NO-GO … through`, `push each / both / all plugs …
-  through`) with no negation in the clause.
+  tolerance; a named `top_feature`'s `top_z` is that touched face and is only wrong
+  above the whole stock;
+- on an op checked by a GO / NO-GO pair, an un-negated clause of its inspection text
+  (parenthesised text dropped) starts with `push` / `pass` / `run` / `slide` (after
+  `and`, `then`, `now`, `next`, `finally`, `so` or `but`) and sends `the NO-GO
+  [plug]`, `the GO and NO-GO plugs`, `each` / `every` / `both` / `all [the] plug(s)`
+  or `the plugs` through.
 
-Parsing is conservative: text a check cannot tie to one field (a bare `by hand`,
-a hold text over several clamps, a height with no Z) is not checked. With stock
-heights but no kernel stock box the setup is `unknown`, never `pass`; a subject with
-nothing checkable is `not_applicable`. Evidence: `claims` (facts compared) and
-`contradictions`; the error sentence names both the text and the field.
+A form that is read but cannot be compared is `unknown`, never `pass`: a `T<n>`
+beyond a TOOLS table that still has an op with no tool chosen, a flute count for a
+tool with no inventory `flutes`, a height with an unknown stock top/bottom,
+`jaw_above_parallels_mm` or plan units, authored stock heights with an unknown
+value, unknown plan units or no kernel stock box, and a `top_z` below the kernel
+stock when `top_feature = "unknown"` (a touched face cannot be told from a wrong
+top). A subject the rule reads nothing in is `not_applicable`; an op subject is
+emitted only when its text is read. Evidence: `claims`, `contradictions` and
+`unchecked`.
+
+Not covered (never read, so never an error): kept chucking in any other wording
+(`never loosen it`, `without loosening`, `stays clamped`, `leave it in the chuck`,
+`same chucking as` another setup); hand tightening in any other wording or for a
+hold text over several clamps; flute counts not bound to one tool number;
+heights stated for another subject (`it`, `the stop`), as a range, in inches, with a
+tolerance or for another time; inspection text that sends a plug through in any
+other wording (`gently push …`, `the NO-GO goes through`).
 
 ## M2 declared workholding and indexing
 
