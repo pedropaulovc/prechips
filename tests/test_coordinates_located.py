@@ -63,6 +63,7 @@ def test_parent_located_counterbore_resolves_identically_in_coordinates_and_trav
         "feature": "cbore",
         "model": [10, 50, 4],
         "setup": [5.0, -1.0, 50.0],
+        "dro_xy": [5.0, -1.0],
         "located_by": "right",
     }
     assert "features.features.right.at" in targets.cite
@@ -164,7 +165,9 @@ def test_explicit_unknown_at_on_a_mill_boss_wins_over_the_kernel_axis():
     assert coordinates.revolved_located(setup(data), data.feature_definitions) == []
     finding = coordinates.evaluate(data)[0]
     assert finding.status == "unknown"
-    assert _rows(finding, "head") == [{"feature": "head", "model": UNKNOWN, "setup": UNKNOWN}]
+    assert _rows(finding, "head") == [
+        {"feature": "head", "model": UNKNOWN, "setup": UNKNOWN, "dro_xy": UNKNOWN[:2]}
+    ]
 
 
 def test_lathe_spindle_rows_and_unmeasured_rows_keep_their_shape():

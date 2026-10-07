@@ -55,6 +55,24 @@ authorize arbitrary checks. `inspection_methods` supplies the authored procedure
 for datum/geometric checks and missing requirements. A missing check is different
 from `checks.dia = "unknown"`.
 
+An `inspection_methods.<requirement>` procedure and an op's `inspection_note`
+are each either one string or a non-empty list of strings. A string prints as
+before (blank-line paragraphs become `(1)…(2)…`). A list prints as numbered steps
+in the INSPECTION NOTES, for procedures a machinist follows and records as they go:
+
+```toml
+inspection_methods.position_dia = [
+  "Pin the rod hole with the 4.000 gauge pin; zero the indicator on datum A.",
+  "Read X at the pin: {X1}",
+  "Read Y at the pin: {Y1}",
+  "Calculate: position Ø = 2 × √((X1 − 133.067)² + (Y1 + 8.456)²) = {result}",
+]
+```
+
+`{name}` prints as a labelled blank to write the reading in. A step beginning
+`Calculate:` prints apart from the numbered steps as the calculation line. A list
+is known only when every step is a non-empty string other than `"unknown"`.
+
 When an inspection requirement has no exported owner/band, an explicit operation
 may declare `missing_requirements = { length = "calipers" }` and
 `inspection_methods.length`. This uses the same gauge-reference mapping type as
@@ -740,7 +758,7 @@ rest's `body_dia` and `body_length` ([inventory](inventory.md),
 | `holder` | `str` |
 | `direction` | `str` |
 | `note` | `str` |
-| `inspection_note` | `str` |
+| `inspection_note` | `str \| list[str]` (numbered steps; see above) |
 | `process` | `str \| list[str]` (`coating` only: a `services` or `consumables` id) |
 | `process_holds` | `list[ProcessHold]` |
 | `to_z` | `float` |
@@ -760,7 +778,7 @@ rest's `body_dia` and `body_length` ([inventory](inventory.md),
 | `note_cite` | `Citations` |
 | `checks` | `dict[str, str]` |
 | `missing_requirements` | `dict[str, str]` |
-| `inspection_methods` | `dict[str, str]` |
+| `inspection_methods` | `dict[str, str \| list[str]]` |
 | `to_z_band` | `Vector` |
 | `contour` | `Contour` |
 | `stock_removal_bounds` | `Bounds` |

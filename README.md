@@ -335,6 +335,16 @@ arrow when available. Missing saw-plane data stays a STOP/stock debt, not a
 renderer crash.
 A tailstock context symbol without a drawn centre is not a selected or verified
 support.
+Every cutter-centre contour row and every hole op's tool-axis X/Y prints on the
+setup DRO grid; contour rows round to the side that leaves material, and a
+finish row with no safe grid point inside its feature's band is an error. Raster
+and outline rows that run past the stock are labelled cutter clearance. A contour
+cut in several depth levels lists every level in its heading and says to repeat
+the complete path at each, in order. The CLEARANCE line prints the op's cut
+(start Z to tip Z, as on its op row) apart from its reach below the highest stock
+beside the tool. Inspection procedures may be authored as step lists that print
+numbered, with recording blanks and a separate calculation line
+([plan format](docs/plan.md)).
 Each setup is checked and drawn on the input explicitly selected by `stock_in`:
 `"stock"` for one supply, `"stock.<id>"` for a built-up component, or any earlier
 setup id, not only the previous one. Every two-reference assembly array requires

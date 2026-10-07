@@ -94,6 +94,15 @@ def _nominal_band_error(feature, requirement):
     return {}
 
 
+def procedure_known(method):
+    """An authored inspection procedure: a non-empty string other than ``unknown``, or a
+    list of steps each of which is one."""
+    steps = method if isinstance(method, list) else [method]
+    return bool(steps) and all(
+        isinstance(step, str) and bool(step.strip()) and step.strip() != "unknown" for step in steps
+    )
+
+
 def _capability(bundle, feature, requirement, value, gauge_ref, op, nums):
     """``(status, message)``: can the named gauge read ``value`` for ``requirement``."""
     status, message = "unknown", "explicit inspection method is unknown"
@@ -113,9 +122,7 @@ def _capability(bundle, feature, requirement, value, gauge_ref, op, nums):
         nums.update(gauge_kind=kind, range_mm=span, resolution_mm=resolution)
         method = record(op.get("inspection_methods")).get(requirement)
         geometric = requirement in {"position_dia", "coaxiality_dia", "angularity_dia"}
-        method_known = (
-            isinstance(method, str) and bool(method.strip()) and method.strip() != "unknown"
-        )
+        method_known = procedure_known(method)
         angularity_datums = feature.get("angularity_datums", "unknown")
         angularity_geometry_known = (
             isinstance(angularity_datums, list)

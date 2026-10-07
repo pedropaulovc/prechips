@@ -287,6 +287,10 @@ class ProcessHold(InputModel):
         return self
 
 
+# An inspection procedure: one string (blank-line paragraphs print as numbered steps), or a
+# list of steps, each printed as one numbered step; a ``{name}`` in a step prints a labelled
+# recording blank, and a step starting ``Calculate:`` prints as the calculation line.
+type Procedure = str | Annotated[list[str], Field(min_length=1)]
 Operation = record(
     "Operation",
     {
@@ -295,7 +299,8 @@ Operation = record(
         # One manifest feature; an inspect op may name several (one drawing dimension
         # split across features is read once).
         "feature": str | Annotated[list[str], Field(min_length=2)],
-        **texts("tool holder direction note inspection_note"),
+        **texts("tool holder direction note"),
+        "inspection_note": Procedure,
         # A coating op's process: an outside ``services`` entry or in-house ``consumables``.
         "process": str | Annotated[list[str], Field(min_length=1)],
         "process_holds": Annotated[list[ProcessHold], Field(min_length=1)],
@@ -308,7 +313,7 @@ Operation = record(
         "faces": Annotated[list[str], Field(min_length=1)],
         "checks": dict[str, str],
         "missing_requirements": dict[str, str],
-        "inspection_methods": dict[str, str],
+        "inspection_methods": dict[str, Procedure],
         "to_z_band": Vector,
         "contour": Contour,
         # Setup-frame volume (plan units) the op clears down to the finished part.

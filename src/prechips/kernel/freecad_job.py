@@ -4768,6 +4768,7 @@ class _Setup:
             "tool_hits",
             "holder_hits",
             "reach_depth_mm",
+            "reach_top_z_mm",
             "holder_wall_hits",
         ):
             facts[key] = UNKNOWN
@@ -7048,6 +7049,7 @@ class _Setup:
             "sample_count": 1,
             "corner_radii_mm": [],
             "reach_depth_mm": _r(max(entry.z, self.box[5]) - tip),
+            "reach_top_z_mm": _r(max(entry.z, self.box[5])),
             "obstacles": {"tool": [], "holder": []},
             "hit_refs": {"tool": [], "holder": []},
             "min_hits": {"tool": 0, "holder": 0},
@@ -8154,8 +8156,9 @@ class _Setup:
                 placed.append((indices[0], centre, centre.x, centre.y, centre.z + LIFT, False))
         top = self.box[5]
         part = self._culled_part()
-        # Reach: highest material within r + band of the tool axis above each sample.
-        reach = 0.0
+        # Reach: highest material within r + band of the tool axis above each sample; its
+        # top Z is the reference surface the reach is measured from.
+        reach, reach_top = 0.0, None
         for _, _, ax, ay, tip, downward in sorted(
             placed, key=lambda item: (item[4], item[0], item[2], item[3])
         ):
@@ -8164,11 +8167,16 @@ class _Setup:
             if top - (tip - LIFT) <= reach:
                 break
             common = part.common(ax, ay, radius + REACH_BAND, tip, top + 1.0)
-            if common is not None:
-                reach = max(reach, _bbox(common)[5] - (tip - LIFT))
+            if common is not None and _bbox(common)[5] - (tip - LIFT) > reach:
+                reach_top = _bbox(common)[5]
+                reach = reach_top - (tip - LIFT)
         facts["reach_depth_mm"] = UNKNOWN if sample_reason else _r(reach)
+        facts["reach_top_z_mm"] = (
+            UNKNOWN if sample_reason else "not_applicable" if reach_top is None else _r(reach_top)
+        )
         if sample_reason:
             reasons["reach_depth_mm"] = sample_reason
+            reasons["reach_top_z_mm"] = sample_reason
         if holder_missing:
             facts["holder_wall_hits"] = UNKNOWN
             reasons["holder_wall_hits"] = "op lacks " + ", ".join(holder_missing)
