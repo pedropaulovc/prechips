@@ -2051,14 +2051,22 @@ def _out_of_reach(obstacle, band, reach, centres, radius):
     centres are those grown back by ``radius`` (a morphological opening), each growth
     erring towards keeping more (:func:`_grown`), as does dropping legal slivers of no
     area. Each growth is cut in one Boolean (cut a tool at a time, OCC's result hung on
-    the order) and certified, since a Boolean on coincident edges can err quietly: no legal
-    centre nearer the obstacle than ``radius``, no disc overlapping it, and the band's
-    unreached and covered shares adding up to it. OCC failures raise."""
+    the order), with only the tools meeting the box of what it cuts, and certified, since a
+    Boolean on coincident edges can err quietly: no legal centre nearer the obstacle than
+    ``radius``, no disc overlapping it, and the band's unreached and covered shares adding
+    up to it. OCC failures raise."""
+
+    def meeting(faces, shape):
+        box = shape.BoundBox
+        box.enlarge(PLANE_TOL)
+        return [face for face in faces if face.BoundBox.intersect(box)]
+
     if not obstacle:
         return []
     region = obstacle[0].fuse(obstacle[1:]).removeSplitter() if len(obstacle) > 1 else obstacle[0]
     unreached = band.Faces
-    cut = centres.cut(_grown(region.Faces, radius))
+    grown = meeting(_grown(region.Faces, radius), centres)
+    cut = centres.cut(grown) if grown else centres
     legal = [face for face in cut.Faces if face.Area > CONTACT_MM2]
     if legal:
         if any(face.distToShape(region)[0] < radius - PLANE_TOL for face in legal):
@@ -2066,8 +2074,9 @@ def _out_of_reach(obstacle, band, reach, centres, radius):
         discs = _grown(legal, radius, outer=False)
         if region.common(discs).Area > CONTACT_MM2:
             raise ValueError("a legal cutter's disc overlaps what stays")
-        unreached = band.cut(discs).Faces
-        covered = band.common(discs).Area
+        discs = meeting(discs, band)
+        unreached = band.cut(discs).Faces if discs else band.Faces
+        covered = band.common(discs).Area if discs else 0.0
         if abs(band.Area - covered - sum(face.Area for face in unreached)) > CONTACT_MM2:
             raise ValueError("the band's unreached and covered shares do not add up to it")
     return [
@@ -5304,7 +5313,10 @@ class _Setup:
         faces, prisms = [], []
         for face in local.Faces:
             box, upright = face.BoundBox, _vertical(face, Z)
-            faces.append((box, upright))
+            # Slabs split at a face's exact extent: OCC's quick box of a round face runs
+            # past it (a fillet's sphere corner's by 0.1 mm), and each extra slab costs a
+            # section and two Booleans. A prism's box stays the quick one, never too low.
+            faces.append((face.optimalBoundingBox(False, False), upright))
             if upright or box.ZMax <= bottom + PLANE_TOL:
                 continue
             prism = face.extrude(down)
