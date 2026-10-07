@@ -642,8 +642,8 @@ deburr_cite = ["AUTHOR'S CHOICE: small socket edge break keeps the bonded length
 top_z = 22.225
 bottom_z = -22.225
 entry_z = { crank_socket = 21.3753 }
-local_thickness = { crank_socket = 42.7506 }
-note = "AUTHOR'S CHOICE: turned post horizontal in the dividing head; the raw tail is the highest point. The socket enters at the top of the head."
+local_thickness = { crank_socket = 43.1753 } # AUTHOR'S CHOICE: nominal entry to the bottom of the largest head the drawing allows (Ø43.6, Z-21.8), so the full diameter breaks through on any head
+note = "AUTHOR'S CHOICE: turned post horizontal in the dividing head; the raw tail is the highest point. The socket enters at the top of the head. Z0 is on the post axis (set on the body crest); break-through depths are set for the largest head the drawing allows (Ø43.6), so the exit Zs in the operations sit below the feature map's nominal head face."
 [setups.hold]
 fixture = "BS-0"
 chuck = "chuck-4jaw-5-bs0"
@@ -684,13 +684,10 @@ from = "+x"
 tool = "edge-finder"
 check_jog_mm = 10.0
 [setups.zero.z]
-face = "head"
-edge_mm = 21.3753 # nominal head radius; the Axis Set uses the measured M, because S1 leaves the head anywhere in its 42.0-43.6 drawing band
+face = "body" # AUTHOR'S CHOICE: the body crest, not the head: S1 op 50 holds the body to 41.99-42.03 (radius within 0.01 of 21.0055), while the head may be anywhere in its 42.0-43.6 drawing band, so Z0 lands on the post axis
+edge_mm = 21.0055
 from = "+z"
-method = "measure_then_set" # AUTHOR'S CHOICE: Z0 on the post axis whatever head diameter S1 left, so the socket depth from the axis holds
-gauge = "micrometers/1-2in"
-measure = "half the head diameter: mic the head at the socket station, divide the reading by 2; touch T1 on the top of the head on the Y crest"
-offset_mm = 0.0
+method = "touch_then_set"
 tool = "center-drills-lms-4859/2"
 paper_mm = 0.0
 check_jog_mm = 10.0
@@ -1226,7 +1223,7 @@ jaw_buttons = "cone-cap-jaw-buttons"
 jaw_protection = "AUTHOR'S CHOICE: the jaw buttons. Make two from 6061 aluminium bar on the lathe: face Ø16.0 x 3.0 thick, with a Ø12.2 x 2.0 long spigot turned on one side (0.06-0.09 mm loose in the 12.256-12.286 journal bore, so it drops in by hand), both faces flat and parallel, edges broken. The journal bore runs through, so the spigot cannot bottom and the 3.0 face seats on the cap. A Ø16 face is smaller than the Ø17.26 socket mouth, so it bears on the cap annulus only, never on the body, and holds the jaw 3 mm off the body."
 stop = "AUTHOR'S CHOICE: foot B on two 1/2 in tall, 1/8 in thick parallels against the jaws, under the foot at Y+-17.8..21.0, clear of both hole exits at X+-12.67."
 clamp = "AUTHOR'S CHOICE: seat a button in each end of the journal bore, close the soft jaws on the two buttons with the crank sleeve over the front jaw, tap B down on the parallels and tighten. Contact check before cutting: look along each jaw: daylight must show between the jaw and the body all round both buttons. The cap faces square the cross-bore to the jaws, so no clocking is needed; the jaw tops stay 8.6 mm under the head shoulder and 10.9 mm under the crank sleeve."
-note = "AUTHOR'S CHOICE: Soft jaws: made once before first use, because the hardened plates stand 18.55 mm too low to reach the caps over the parallels. Two plates from the 1 x 3 in 6061 flat (stock), each sawn 162 long and six faces milled on the PM-30MV to 158.7 x 63.5 x 19.15, faces parallel within 0.02. Take a hardened plate off, clamp it on a blank with the bottom edges and ends flush, and spot through its two bolt holes; drill 7/16 in (drill-index-115; M10 normal fit 10.80, MH 27th Table 21 p.1557) and counterbore with the 11/16 in end mill (endmills-lms-6784; M10 counterbore 17.25, MH 27th Table 21 p.1557) to the hardened plate's counterbore depth plus 1.25, so the vise's own M10 screws reach the same thread. Bolt the plates on with their bottom edges on the hardened plates' seat, then skim each gripping face 0.10 in place with the 3/4 in end mill (endmills-lms-6784), to 19.05 thick, so the faces close parallel within 0.02 over their length. Buttons: see Jaw protection."
+note = "AUTHOR'S CHOICE: Soft jaws: made once before first use, because the hardened plates stand 18.55 mm too low to reach the caps over the parallels. Two plates from the 1 x 3 in 6061 flat (stock), each sawn 162 long and six faces milled on the PM-30MV to 158.67 (the hardened plate's length) x 63.5 x 19.15, faces parallel within 0.02. Take a hardened plate off, clamp it on a blank with the bottom edges and ends flush, and spot through its two bolt holes; drill 7/16 in (drill-index-115; M10 normal fit 10.80, MH 27th Table 21 p.1557) and counterbore with the 11/16 in end mill (endmills-lms-6784; M10 counterbore 17.25, MH 27th Table 21 p.1557) from the gripping face to the hardened plate's counterbore depth plus 1.25, so the vise's own M10 screws reach the same thread. Bolt the plates on with their bottom edges on the bed, then skim each gripping face 0.10 in place with the 3/4 in end mill (endmills-lms-6784), to 19.05 thick, so the faces close parallel within 0.02 over their length. Buttons: see Jaw protection."
 [setups.zero.transfer]
 from = "S9"
 indicate = ["head", "foot_seat", "crank_boss"]
