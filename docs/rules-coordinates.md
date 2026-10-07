@@ -439,15 +439,18 @@ source's recipe names its own tool's edge, so the re-touch is tool-neutral:
 `edge_then_set` on a lathe (Z-cutting edge to the surface, withdraw along X),
 `touch_then_set` on a mill:
 
-- Z on the latest touched or faced surface still standing at a known plan Z:
+- Z on the latest touched or faced surface proven to stand at a known plan Z:
   the zero face, a tool-touch face, a listed retouch's top or a face/pocket op's
-  `to_z` (faced surfaces take the zero's paper). A surface stands until an op
-  cuts that feature (the top: moves the top) to another or an unknown Z, or cuts
-  it other than by facing/pocketing; a face or pocket op on an unnamed feature
-  ends every surface. With no standing surface at a known Z, the latest standing
-  one whose Z is unknown is repeated with an unknown Axis Set (unknown). A
-  measured Z (`trial_cut_measure`, `measure_then_set`) is no plan number to
-  repeat.
+  `to_z` (faced surfaces take the zero's paper). A surface ends when an op cuts
+  that feature (the top: faces the stock's `top_feature`, any face op without
+  one) to another Z or to no stated Z (`to_z` omitted or `"unknown"`), or cuts it
+  other than by facing/pocketing. An op that provably cuts only part of it
+  (`stock_removal_bounds` not holding its footprint) leaves it at its uncut Z and
+  makes no new surface. A surface is not proven while it is unnamed (a zero with
+  no `face`) or after any op on a feature the plan does not name. With no proven
+  surface, the latest one not shown gone is repeated with Z and Axis Set unknown
+  (unknown). A measured Z (`trial_cut_measure`, `measure_then_set`) is no plan
+  number to repeat.
 - On a lathe, X on the latest diameter turned in the setup (`turn`,
   `rough_turn`, `finish_turn`) that still stands, measured with the latest X
   gauge, Axis Set the measured diameter. A turned diameter stands until an op
