@@ -263,7 +263,7 @@ approach_mm = 5.0                # AUTHOR'S CHOICE: rapid plane above the raw si
 to_z = 0.0
 direction = "conventional"       # AUTHOR'S CHOICE: hand-fed mill
 doc_mm = 0.525                   # AUTHOR'S CHOICE: one 0.525 pass, inside the .250 in end-mill depth basis of Machinery's Handbook 27th ed. Table 15a p.1054
-stock_removal_bounds = { x = [-1.9, 36.1], y = [-2.775, 28.975], z = [0.0, 0.525] } # the whole raw left side
+stock_removal_bounds = { x = [-3.9, 38.1], y = [-2.775, 28.975], z = [0.0, 0.525] } # the whole raw left side; AUTHOR'S CHOICE: X runs 2 mm past each bar end because every pass then starts in air and enters the end from the side, never fed down into the stock
 contour = { method = "linear_table", step_mm = 12.7 } # AUTHOR'S CHOICE: 2/3 of the 19.05 cutter per pass
 note = "Face the whole left side flat, X -1.9..36.1 and Y -2.775..28.975, from Z +0.525 to Z0. Mark it as the reference face."
 
@@ -326,7 +326,7 @@ approach_mm = 5.0                # AUTHOR'S CHOICE: rapid plane above the raw ed
 to_z = 0.0
 direction = "conventional"       # AUTHOR'S CHOICE: hand-fed mill
 doc_mm = 1.4                     # AUTHOR'S CHOICE: two passes of 1.4 and 1.375, inside the .250 in end-mill depth basis of Machinery's Handbook 27th ed. Table 15a p.1054
-stock_removal_bounds = { x = [-1.9, 36.1], y = [-18.525, 0.0], z = [0.0, 2.775] } # the whole raw outer end
+stock_removal_bounds = { x = [-3.9, 38.1], y = [-18.525, 0.0], z = [0.0, 2.775] } # the whole raw outer end; AUTHOR'S CHOICE: X 2 mm past each bar end so every pass starts in air
 contour = { method = "linear_table", step_mm = 12.7 } # AUTHOR'S CHOICE: 2/3 of the 19.05 cutter per pass
 note = "Face the outer end from Z +2.775 to Z0 in two passes."
 
@@ -392,7 +392,7 @@ approach_mm = 5.0                # AUTHOR'S CHOICE: rapid plane above the raw ed
 to_z = 0.0
 direction = "conventional"       # AUTHOR'S CHOICE: hand-fed mill
 doc_mm = 1.4                     # AUTHOR'S CHOICE: two passes of 1.4 and 1.375, inside the .250 in end-mill depth basis of Machinery's Handbook 27th ed. Table 15a p.1054
-stock_removal_bounds = { x = [-1.9, 36.1], y = [-18.525, 0.0], z = [0.0, 2.775] } # the whole raw free end
+stock_removal_bounds = { x = [-3.9, 38.1], y = [-18.525, 0.0], z = [0.0, 2.775] } # the whole raw free end; AUTHOR'S CHOICE: X 2 mm past each bar end so every pass starts in air
 contour = { method = "linear_table", step_mm = 12.7 } # AUTHOR'S CHOICE: 2/3 of the 19.05 cutter per pass
 note = "Face the free end to Z0, 26.2 over the outer end, in two passes." # AUTHOR'S CHOICE: the levels assume the nominal end; the measured M sets the real one, and the sheet's DRO ZERO prints the raw-end correction from offset_mm and doc_mm
 
@@ -457,7 +457,7 @@ approach_mm = 5.0                # AUTHOR'S CHOICE: rapid plane above the raw si
 to_z = 0.0
 direction = "conventional"       # AUTHOR'S CHOICE: hand-fed mill
 doc_mm = 0.525                   # AUTHOR'S CHOICE: one 0.525 pass, inside the .250 in end-mill depth basis of Machinery's Handbook 27th ed. Table 15a p.1054
-stock_removal_bounds = { x = [-1.9, 36.1], y = [0.0, 26.2], z = [0.0, 0.525] } # the whole raw right side
+stock_removal_bounds = { x = [-3.9, 38.1], y = [0.0, 26.2], z = [0.0, 0.525] } # the whole raw right side; AUTHOR'S CHOICE: X 2 mm past each bar end so every pass starts in air
 contour = { method = "linear_table", step_mm = 12.7 } # AUTHOR'S CHOICE: 2/3 of the 19.05 cutter per pass
 note = "Face the right side to Z0, 18.0 over the left side." # AUTHOR'S CHOICE: the level assumes the nominal side; the measured M sets the real one, and the sheet's DRO ZERO prints the raw-side correction from offset_mm and doc_mm
 
@@ -520,7 +520,7 @@ approach_mm = 5.0                # AUTHOR'S CHOICE: rapid plane above the sawn e
 to_z = 0.0
 direction = "conventional"       # AUTHOR'S CHOICE: hand-fed mill
 doc_mm = 1.9                     # AUTHOR'S CHOICE: one 1.9 pass, inside the .250 in end-mill depth basis of Machinery's Handbook 27th ed. Table 15a p.1054
-stock_removal_bounds = { x = [0.0, 26.2], y = [-18.0, 0.0], z = [0.0, 1.9] } # the whole sawn crown end
+stock_removal_bounds = { x = [-2.0, 28.2], y = [-18.0, 0.0], z = [0.0, 1.9] } # the whole sawn crown end; AUTHOR'S CHOICE: X 2 mm past each edge so every pass starts in air
 contour = { method = "linear_table", step_mm = 9.0 } # AUTHOR'S CHOICE: two passes over the 18 mm end
 note = "Face the sawn crown end from Z +1.9 to Z0."
 
@@ -586,7 +586,7 @@ approach_mm = 5.0                # AUTHOR'S CHOICE: rapid plane above the sawn e
 to_z = 0.0
 direction = "conventional"       # AUTHOR'S CHOICE: hand-fed mill
 doc_mm = 1.9                     # AUTHOR'S CHOICE: one 1.9 pass, inside the .250 in end-mill depth basis of Machinery's Handbook 27th ed. Table 15a p.1054
-stock_removal_bounds = { x = [0.0, 26.2], y = [-18.0, 0.0], z = [0.0, 1.9] } # the whole sawn seat end
+stock_removal_bounds = { x = [-2.0, 28.2], y = [-18.0, 0.0], z = [0.0, 1.9] } # the whole sawn seat end; AUTHOR'S CHOICE: X 2 mm past each edge so every pass starts in air
 contour = { method = "linear_table", step_mm = 9.0 } # AUTHOR'S CHOICE: two passes over the 18 mm end
 note = "Face the sawn seat end to Z0, 34.2 over the crown end." # AUTHOR'S CHOICE: the level assumes the nominal end; the measured M sets the real one, and the sheet's DRO ZERO prints the sawn-end correction from offset_mm and doc_mm
 
