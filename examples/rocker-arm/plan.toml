@@ -503,13 +503,14 @@ exit_mm = 1.5 # clears the 0.4 mm lead beyond the 2.5 mm strap
 approach_mm = 5.0
 note = "Ream through the strap while the full-thickness outside stock still supports it."
 inspection_note = "Gauge before op 40. If the hole fails a drawing plug or the process hold, stop; do not open the outer pockets until the hole is resolved."
-process_holds = [{ feature = "rod_hole", requirement = "dia", band = [2.000, 2.010], gauge = "rocker-rod-limit-gauges", reason = "AUTHOR'S CHOICE: the S3/S4 diamond pin clocks the part in this hole; a looser hole spends the S4 position budget" }]
+process_holds = [{ feature = "rod_hole", requirement = "dia", band = [2.000, 2.010], gauge = "rocker-rod-limit-gauges", go_no_go = { go = 2.000, no_go = 2.010 }, reason = "AUTHOR'S CHOICE: the S3/S4 diamond pin clocks the part in this hole; a looser hole spends the S4 position budget" }]
+go_no_go = { dia = { go = 2.000, no_go = 2.090 } } # drawing band as printed, 2.00-2.09
 
 [setups.ops.checks]
-dia = "rocker-rod-limit-gauges" # four plugs: drawing GO 1.994 / NO-GO 2.094, process GO 2.000 / NO-GO 2.010
+dia = "rocker-rod-limit-gauges" # three plugs: GO 2.000 (drawing and process hold), process NO-GO 2.010, drawing NO-GO 2.090
 
 [setups.ops.inspection_methods]
-dia = "Plug-gauge after deburring both mouths. The 1.994 GO plug enters through the strap and the 2.094 NO-GO plug does not; then the 2.000 GO plug enters and the 2.010 NO-GO plug does not (process hold)."
+dia = "Plug-gauge after deburring both mouths: the drawing GO and NO-GO plugs first, then the process-hold NO-GO plug. Push each plug by hand through the strap; never force it."
 
 [[setups.ops]]
 op = 40
@@ -874,7 +875,8 @@ op = 95
 do = "inspect"
 feature = "rod_hole"
 note = "After black oxide: re-gauge the rod hole before release."
+go_no_go = { dia = { go = 2.000, no_go = 2.090 } } # drawing band as printed, 2.00-2.09
 [setups.ops.checks]
 dia = "rocker-rod-limit-gauges"
 [setups.ops.inspection_methods]
-dia = "Clean the hole of oxide residue and oil. The 1.994 GO plug enters through the strap and the 2.094 NO-GO plug does not."
+dia = "Clean the hole of oxide residue and oil, then push the drawing GO and NO-GO plugs by hand through the strap."

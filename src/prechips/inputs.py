@@ -174,6 +174,14 @@ def load_bundle(
                             "is not in the exported requirements; use missing_requirements "
                             "for an absent requirement."
                         )
+            limits = op.get("go_no_go")
+            if isinstance(limits, dict):
+                for requirement in limits:
+                    if not isinstance(checks, dict) or requirement not in checks:
+                        raise BadInput(
+                            f"{setup['id']}:{op['op']}: {label} go_no_go.{requirement} "
+                            "names no checks gauge; a GO / NO-GO pair needs its checks entry."
+                        )
             missing = op.get("missing_requirements")
             if isinstance(missing, dict):
                 for requirement in missing:

@@ -1604,17 +1604,19 @@ note = "illustrative example item: custom calibrated GO 6.500 / NO-GO 6.530 mm p
 range_mm = [6.5, 6.53]
 resolution_mm = 0.001
 
-# Four metric plugs for the rod-pin hole: drawing GO 1.994, process GO 2.000,
-# process NO-GO 2.010 (the shop's tighter band, so the 1.98 diamond pin's diametral
-# clearance stays 0.02-0.03) and drawing NO-GO 2.094. The drawing GO plug keeps
-# range_mm truthful at the drawing's lower limit. range_mm and resolution_mm are
-# plain numbers in the schema (illustrative example label: not measured, not a
-# calibration certificate).
+# EngInspect (review round 3): three metric plugs for the rod-pin hole, each inside the
+# drawing band as the traveler prints it (2.00-2.09): GO 2.000 (drawing and process
+# hold), process NO-GO 2.010 (the shop's tighter band, so the 1.98 diamond pin's diametral
+# clearance stays 0.02-0.03) and drawing NO-GO 2.090. A GO / NO-GO check may only name
+# sizes listed in sizes_mm. range_mm, sizes_mm and resolution_mm are plain numbers in the
+# schema (illustrative example label: not measured, not a calibration certificate).
 [gauges.rocker-rod-limit-gauges]
 kind = "pin_gauge_set"
-note = "illustrative example item: four custom calibrated plug gauges for the rod-pin hole: drawing GO 1.994, process GO 2.000, process NO-GO 2.010, drawing NO-GO 2.094 mm"
-range_mm = [1.994, 2.094]
+note = "illustrative example item: three custom calibrated plug gauges for the rod-pin hole: GO 2.000, process NO-GO 2.010, drawing NO-GO 2.090 mm"
+range_mm = [2.0, 2.09]
+sizes_mm = [2.0, 2.01, 2.09]
 resolution_mm = 0.001
+# End EngInspect.
 
 # Rocker-only 1 µm test indicator for the 0.020 mm pilot -> ream centre control
 # (the shared 0.0005 in DTI is too coarse for that budget and stays as is).

@@ -668,6 +668,10 @@ rest's `jaw_width`, `jaw_height`, `jaw_depth` and `jaw_angles_deg`, a steady
 rest's `body_dia` and `body_length` ([inventory](inventory.md),
 [rules-geometry](rules-geometry.md#follow-and-steady-rests)). Example:
 `supports = ["dead_centre_tailstock_mt3", { ref = "follow-rest", ops = [10, 30], jaw_lead_mm = 8.0, jaw_side = "turned" }]`.
+Where an op's start would foul the rest, the op row prints the engagement step at
+`engage_at_z_mm`: each pass, stop the feed, then the spindle; set the jaws and lock
+them; restart the spindle, then resume the feed. Hands never set a rest on a
+turning spindle, and the cut never resumes on a stopped one.
 
 ## Zero
 
@@ -759,6 +763,7 @@ rest's `body_dia` and `body_length` ([inventory](inventory.md),
 | `to_z_cite` | `Citations` |
 | `note_cite` | `Citations` |
 | `checks` | `dict[str, str]` |
+| `go_no_go` | `dict[str, GoNoGo]` (each key also in `checks`) |
 | `missing_requirements` | `dict[str, str]` |
 | `inspection_methods` | `dict[str, str]` |
 | `to_z_band` | `Vector` |
@@ -783,13 +788,24 @@ unknown in `tool_resolves`, and an unlisted one is an error. A drawing
 (`finish_route`, [inspection rules](rules-inspection.md)).
 
 A `ProcessHold` is `{ feature, requirement, band = [lo, hi], gauge, reason }`, all
-required: a shop limit tighter than the drawing, held for a stated process reason
+required, plus an optional `go_no_go`: a shop limit tighter than the drawing, held for a stated process reason
 (a downstream fit, a pin that clocks a later setup). `requirement` must be one the
 feature exports (else `BadInput`), and `band` is in the drawing's units. The
 inspection rule errors when the band reaches outside the drawing band (limits
 included, a scalar zone `v` read as [0, v]). The sheet prints it in the op's
 inspection cell as `PROCESS HOLD — not a drawing limit: <reason>`, never as a
 drawing limit.
+
+A `GoNoGo` is `{ go = <mm>, no_go = <mm> }`, both positive and different: the two
+limit-gauge sizes a limit check uses. The GO size must pass the work (enter a hole,
+pass over a boss or shaft) and the NO-GO size must not. An op's
+`go_no_go.<requirement>` is the pair its `checks.<requirement>` gauge uses for the
+drawing band; a `process_holds` entry's `go_no_go` is the pair for the hold band.
+Both sizes must be listed in the gauge's `sizes_mm` and lie inside the band they
+accept, the drawing band as printed (rounded inward) or the hold band; see
+[inspection rules](rules-inspection.md#go--no-go-limit-checks). The op row prints
+`GO <go> enters, NO-GO <no_go> does not`, so `inspection_methods` need not repeat
+the sizes.
 
 `faces` explicitly declares this operation's cutting claims using bound STEP
 references. Omission uses the feature's default `faces`; `"unknown"` means

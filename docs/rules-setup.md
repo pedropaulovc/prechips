@@ -240,5 +240,6 @@ Closure against a whole revolution is checked **only for a full pattern**:
 pattern: every position is checked against `angle_tol_deg`, with no closure.
 `positions = 1` is one angular setting, such as the cone journal's 12.5182°
 inclination, with no closure. The traveler prints plate, circle, turns and hole
-**spaces**, even when that arithmetic remains tentative because inventory
-confirmation is missing.
+**spaces**, then the angle that setting actually turns, its difference from the
+planned angle and the allowance, even when that arithmetic remains tentative
+because inventory confirmation is missing.

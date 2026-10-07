@@ -152,7 +152,8 @@ def test_exact_direct_candidate_precedes_exact_worm_candidate(tmp_path):
     )
     assert (finding.numbers["turns"], finding.numbers["spaces"]) == (0, 2)
     html = render_traveler(subject, [finding], {"verification": "checked"})
-    assert "circle 24: 0 spindle turns + 2 hole spaces" in html
+    assert "24-hole circle: 0 spindle turns + 2 hole spaces" in html
+    assert "Each step is exactly the planned 30°." in html
 
 
 def test_nearest_candidate_searches_every_declared_circle(tmp_path):
@@ -213,8 +214,7 @@ def test_authored_step_pattern_is_open_and_never_closed(
     assert finding.numbers["failed"] == []
     assert exit_code([finding], subject.policy, subject) == 0
     html = render_traveler(subject, [finding], {"verification": "checked"})
-    assert "Open pattern: no cycle closure." in html
-    assert "Cycle closure: ?" not in html
+    assert f"Each step is exactly the planned {angle:g}°." in html
 
 
 @pytest.mark.parametrize(
@@ -247,7 +247,11 @@ def test_full_pattern_closure_is_checked_inclusively_against_tolerance(
     }
     assert finding.numbers["failed"] == failed
     html = render_traveler(subject, [finding], {"verification": "checked"})
-    assert "Cycle closure: 361.2° against 360°; error 1.2°." in html
+    # The 7th landing is the return to the start: its error is the closure.
+    assert "Each step turns the work 51.6000°, 0.1714° off the planned 51.4286°" in html
+    assert "landing 7 ends 1.2000° off" in html
+    verdict = "(allowed ±1.2°)" if status == "pass" else "OUTSIDE the ±1.1° allowed"
+    assert verdict in html
 
 
 @pytest.mark.parametrize("tolerance,status", [(0.01, "pass"), (0.009999, "error")])
@@ -304,9 +308,11 @@ def test_single_cone_tilt_checks_landing_without_cycle_closure_and_prints_spaces
     assert finding.numbers["closure"] == "not_applicable"
     assert finding.numbers["failed"] == []
     html = render_traveler(subject, [finding], {"verification": "checked"})
-    assert "12.52" in html
-    assert "plate B, circle 23: 1 crank turns + 9 hole spaces" in html
-    assert "Single setting: no cycle closure." in html
+    assert "plate B, 23-hole circle: 1 crank turn + 9 hole spaces" in html
+    # One executable value: the angle the plate gives, not the planned one, plus the residual.
+    assert (
+        "This setting turns the work 12.5217°, 0.0035° off the planned 12.5182° (allowed ±0.01°)."
+    ) in html
     absent = result(bundle(tmp_path, angle=_ABSENT, positions=1))
     assert absent.status == "unknown"
     assert absent.numbers["closure"] == "not_applicable"
@@ -333,7 +339,31 @@ def test_unverified_inventory_retains_tentative_arithmetic_not_a_certification(t
     assert finding.numbers["failed"] == ["landing 7", "cycle closure"]
     html = render_traveler(subject, [finding], {"verification": "checked"})
     assert "Index: ? Tentative" in html
-    assert "circle 15: 5 crank turns + 11 hole spaces" in html
+    assert "15-hole circle: 5 crank turns + 11 hole spaces" in html
+
+
+@pytest.mark.parametrize(
+    ("tolerance", "status", "verdict"),
+    [(0.0795, "pass", " (allowed ±0.0795°)"), (0.0035, "error", ": OUTSIDE the ±0.0035° allowed")],
+)
+def test_the_index_line_judges_the_achievable_angle_against_the_allowance(
+    tmp_path, tolerance, status, verdict
+):
+    # The cone's 12.5182° on BS-0: plate B, 23 holes gives 288/23 = 12.52174°, 0.00354° over.
+    item = {
+        "kind": "dividing_head",
+        "verify": False,
+        "worm_ratio": 40.0,
+        "plate_holes": {"B": [21.0, 23.0, 27.0]},
+    }
+    subject = bundle(tmp_path, angle=12.5182, positions=1, tolerance=tolerance, item=item)
+    finding = result(subject)
+    assert finding.status == status
+    assert finding.numbers["step_error_deg"] == pytest.approx(407 / 115000)
+    html = render_traveler(subject, [finding], {"verification": "checked"})
+    assert f"This setting turns the work 12.5217°, 0.0035° off the planned 12.5182°{verdict}" in (
+        html
+    )
 
 
 @pytest.mark.parametrize(

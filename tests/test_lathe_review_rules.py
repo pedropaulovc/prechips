@@ -1,5 +1,7 @@
 """Lathe op starts, relief plunges and dome roughing as the rules derive them."""
 
+import re
+from html import unescape
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -270,3 +272,29 @@ def test_a_follow_rest_goes_on_only_once_the_tool_passes_its_declared_clear_z(mo
         _rest_row(monkeypatch, 155.474, 152.0).numbers["rest_engagement"][0]["declared_z_mm"]
         == 152.0
     )
+
+
+def test_the_follow_rest_goes_on_with_the_spindle_stopped_and_it_restarts_before_the_cut(
+    tmp_path,
+):
+    from test_cli import copy_examples
+
+    from prechips.findings import Finding
+    from prechips.inputs import load_bundle
+    from prechips.sheet import render_traveler
+
+    bundle = load_bundle(copy_examples(tmp_path) / "pivot-shaft" / "plan.toml")
+    engage = {**_ENGAGE, "engage_z_mm": 155.474, "declared_z_mm": 152.0}
+    clear = Finding("accessibility", "S1:10", "pass", {"rest_engagement": [engage]}, [], "S1:10.")
+    html = unescape(re.sub(r"<[^>]+>", " ", render_traveler(bundle, [clear], {})))
+    step = re.search(r"each pass, at Z 152\.00:[^.]*", html).group(0)
+    # Hands go near the work only once it has stopped, and the cut resumes on a running spindle.
+    order = [
+        "stop the feed, then the spindle",
+        "set the follow-rest jaws",
+        "lock them",
+        "restart the spindle",
+        "then resume the feed",
+    ]
+    found = [step.find(words) for words in order]
+    assert -1 not in found and found == sorted(found), step

@@ -48,6 +48,13 @@ height are operative geometry, not values to infer from unrelated angles or
 overall dimensions. A centre drill's centre-seat angle is not its drill-point
 angle. `chart` is a source citation, never a downloaded chart.
 
+A limit-gauge set (`pin_gauge`, `pin_gauge_set` or `plug_gauge` for holes;
+`ring_gauge` or `snap_gauge` for a boss or shaft) lists the sizes it physically
+holds in `sizes_mm`. A plan GO / NO-GO pair may only name listed sizes: an unlisted
+size is an inspection error, and a set with no `sizes_mm` leaves the pair unknown
+([inspection](rules-inspection.md#go--no-go-limit-checks)). `range_mm` stays the
+span the set covers for ordinary span/resolution checks.
+
 M2 holding checks use explicitly declared `sizes_mm` / `sizes_in` or a two-ended
 `range_mm` / `range_in` for the held stock diameter. A six-inch chuck body
 (`diameter_in`) says nothing about jaw capacity. Tailstock/steady exceptions

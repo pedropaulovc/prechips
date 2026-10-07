@@ -264,6 +264,22 @@ SawPlane = record(
 )
 
 
+class GoNoGo(InputModel):
+    """The two limit-gauge sizes (mm) a go/no-go check uses: the GO size must pass the
+    work (enter a hole, slip over a shaft) and the NO-GO size must not."""
+
+    go: float
+    no_go: float
+
+    @model_validator(mode="after")
+    def sized(self) -> GoNoGo:
+        if not (self.go > 0 and self.no_go > 0):
+            raise ValueError("GO and NO-GO gauge sizes must be positive.")
+        if self.go == self.no_go:
+            raise ValueError("GO and NO-GO gauge sizes must differ.")
+        return self
+
+
 class ProcessHold(InputModel):
     """A shop limit inside one drawing requirement band, held for a stated process reason
     (a downstream fit, a clocking stop): printed as a process hold, never a drawing limit."""
@@ -273,6 +289,8 @@ class ProcessHold(InputModel):
     band: Annotated[list[float], Field(min_length=2, max_length=2)]
     gauge: str
     reason: str
+    # The GO / NO-GO sizes the hold's gauge reads the hold band with, when it is a limit check.
+    go_no_go: GoNoGo | None = None
 
     @model_validator(mode="after")
     def stated(self) -> ProcessHold:
@@ -307,6 +325,8 @@ Operation = record(
         "note_cite": Citations,
         "faces": Annotated[list[str], Field(min_length=1)],
         "checks": dict[str, str],
+        # Requirement -> the GO / NO-GO sizes its `checks` gauge uses (a limit check).
+        "go_no_go": dict[str, GoNoGo],
         "missing_requirements": dict[str, str],
         "inspection_methods": dict[str, str],
         "to_z_band": Vector,

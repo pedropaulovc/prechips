@@ -743,7 +743,7 @@ jaw_above_parallels_mm = "not_applicable"
 pose = { origin_mm = [-71.632, 0.0, 0.0], x = [0.0, 0.0, 1.0], z = [1.0, 0.0, 0.0] }
 jaw_clock_deg = 12.5182
 stop = "AUTHOR'S CHOICE: same chucking as S4; do not loosen the jaws."
-clamp = "AUTHOR'S CHOICE: unlock the spindle and index 12.5182 degrees, cranking in the same direction as the index for the final approach so the worm backlash is taken up; then lock the spindle before drilling."
+clamp = "AUTHOR'S CHOICE: unlock the spindle and index by the plate setting on the Index line below; then lock the spindle before drilling."
 [setups.hold.index]
 fixture = "BS-0"
 feature = "crank_bore"
@@ -1041,7 +1041,7 @@ jaw_above_parallels_mm = "not_applicable"
 pose = { origin_mm = [-71.632, 0.0, 0.0], x = [0.0, 0.0, 1.0], z = [1.0, 0.0, 0.0] }
 jaw_clock_deg = 12.5182
 stop = "AUTHOR'S CHOICE: same chucking as S8; do not loosen the jaws."
-clamp = "AUTHOR'S CHOICE: unlock the spindle and index 12.5182 degrees, cranking in the same direction as the index for the final approach so the worm backlash is taken up; then lock the spindle before drilling."
+clamp = "AUTHOR'S CHOICE: unlock the spindle and index by the plate setting on the Index line below; then lock the spindle before drilling."
 [setups.hold.index]
 fixture = "BS-0"
 feature = "crank_bore"
