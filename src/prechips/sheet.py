@@ -19,7 +19,7 @@ from .measurements import record_trusted
 from .model import reference_only, tolerance_requirements
 from .rules._bench import manual_bench
 from .rules.coordinates import CENTRE_OPS, OVERSHOOT_NOTE, dro_grid, dro_z, row_id
-from .rules.hold_fields import align_travel
+from .rules.hold_fields import align_indicator, align_travel
 from .rules.inspection import go_no_go_pair
 from .rules.resolution import (
     MANUAL,
@@ -1680,7 +1680,7 @@ class _Traveler:
             name
             for name, known in (
                 ("the travel it runs along", axis in ("X", "Y")),
-                ("the indicator", isinstance(gauge, str) and gauge != "unknown"),
+                ("the indicator", align_indicator(self.bundle, gauge) not in (None, "unknown")),
                 ("the sweep length", _known(over)),
                 ("the limit", _known(limit)),
             )
@@ -2951,8 +2951,9 @@ class _Traveler:
         """``(mm, name)``: how near the material ``op`` cuts comes to the holding, from the
         kernel's setup picture (its ``cut_clearances``; the picture dimensions the least of
         the setup's), and the holding solid it is, as the HOLD names it
-        (:meth:`holding_name`); ``unknown`` where the kernel could not derive the cut; None
-        when the kernel measured nothing for the op (no picture, or no cut)."""
+        (:meth:`holding_name`); ``unknown`` where the kernel could not derive the cut or the
+        holding is not drawn whole; None when the kernel measured nothing for the op (no
+        picture, or no cut)."""
         render = _mapping(_mapping(self.report.get("renders")).get(setup["id"]))
         for row in _mapping(render.get("scene")).get("cut_clearances") or []:
             row = _mapping(row)
@@ -2968,7 +2969,7 @@ class _Traveler:
         ``hold.clamps`` entry ``clamp <i> <ref>`` by its label and solid (``LOC2 collar``),
         any other by its solid's own name."""
         owner, _, solid = str(tag).rpartition(":")
-        solid = solid.replace("-", " ")
+        solid = solid.replace("-", " ").replace("_", " ")
         match = re.fullmatch(r"clamp (\d+) .+", owner)
         labels = clamp_labels(_mapping(setup.get("hold")))
         if match and 0 < int(match.group(1)) <= len(labels):
@@ -4778,21 +4779,21 @@ class _Traveler:
             at = f" — {feed}" if feed else ""
         start, several = record.get("from_z"), len(depths) > 1
         plunge = f"plunge Z {o(start)} → {o(depths[0])}{at}"
+        if o(start) == o(depths[0]):
+            # The op starts at its only level, but nothing proves that entry clear: fed
+            # down to it, never "plunge Z a → a".
+            plunge = f"plunge to Z {o(depths[0])}{at}"
         lower = f"lower to Z {o(depths[0])}"
         if several:
             plunge = f"plunge from the level above (level 1 from Z {o(start)}){at}"
             lower = "lower to the level's Z"
-        # The op starts at its only level: the cutter lowers to it at every entry, above
-        # nothing, and only the path cuts: never a plunge from a Z to itself.
-        lowered = record.get("lowered") if not several else None
-        if lowered in ("cleared", "top"):
-            place = (
-                "in the cleared area"
-                if lowered == "cleared"
-                else "the top of the stock this op meets"
-            )
-            lower = f"lower to Z {o(depths[0])}, {place}; the path then cuts the stock left "
-            lower += "along it"
+        # The op starts at its only level and the stock box puts that level at or above
+        # the stock top: the cutter lowers to it at every entry, above nothing, and only
+        # the path cuts.
+        lowered = record.get("lowered") == "top" and not several
+        if lowered:
+            lower = f"lower to Z {o(depths[0])}, the top of the stock this op meets; the path "
+            lower += "then cuts the stock left along it"
 
         def where(down):
             xy = down.get("xy") or ["unknown", "unknown"]

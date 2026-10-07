@@ -3814,8 +3814,10 @@ class _Setup:
         # Stock builder (:meth:`_build`): id(op) -> (setup-frame stock before it, the stock
         # accepted after it (its before stock when it stopped the builder), None) or (None,
         # None, why that stock is unknown); the facts of each saw it reached; and (end
-        # stock, None) or (None, why it stopped).
+        # stock, None) or (None, why it stopped). ``stopped_cut`` is id() of the op whose
+        # cut stopped it, else None.
         self.cuts = {}
+        self.stopped_cut = None
         # id(op) of each bench file whose removal the stock builder accepted.
         self.filed = set()
         # Each printed-checkpoint op awaiting the later setups (:meth:`_checkpoint_facts`).
@@ -4511,6 +4513,8 @@ class _Setup:
                 stopped = f"in-process stock boolean failed ({exc}); {where}"
             finally:
                 self.cuts[id(op)] = (before, stock, None)
+                if stopped is not None:
+                    self.stopped_cut = id(op)
         return (None, stopped) if stopped is not None else (stock, None)
 
     @staticmethod
@@ -7514,8 +7518,8 @@ class _Setup:
         )
         scene["closest_cut"] = spec["closest_cut"]
         # The CLEARANCE table's per-op fixture rows: the picture's dimension and every
-        # other cut's nearest holding, op by op.
-        scene["cut_clearances"] = [] if lathe else self._cut_clearances(held)
+        # other cut's nearest holding, op by op; any holding debt leaves them unknown.
+        scene["cut_clearances"] = [] if lathe else self._cut_clearances(held, not debts)
         png, drawn_debts = render_diagram(meshes, spec)
         render_debts.extend(drawn_debts)
         # A holding detail band below the picture makes it taller than the default.
@@ -7637,31 +7641,41 @@ class _Setup:
                 }
         return nearest
 
-    def _cut_clearances(self, solids):
+    def _cut_clearances(self, solids, drawn):
         """Each cutting op's own cut against the holding ``solids``: ``[{"op", "mm",
         "tag"}]`` in op order, ``mm`` the least distance from the material the op takes
         away (its before-op stock less its after stock) to the nearest holding solid
-        ``tag``. An op whose cut the stock builder could not derive, or whose boolean
-        fails, is ``unknown`` (``mm`` and ``tag``), never left out; an op that removes
+        ``tag``. An op whose cut the stock builder could not derive (the op that stopped it
+        and every later one), or whose boolean fails, is ``unknown`` (``mm`` and ``tag``),
+        never left out; so is every op that removes material when the holding is not
+        ``drawn`` whole (unresolved, a component undrawn, a jaw extent undeclared), since
+        what is not drawn may stand nearer than anything drawn. An op that removes
         nothing, a hand op and a saw op (its blade path is the picture's) carry none. The
         setup picture's ``closest_cut`` is the least over the whole setup's removal."""
         rows = []
         for op in self.ops:
             if _hand(op) or _sawn(op):
                 continue
+            # A kernel op carries its identity as the subject "<setup>:<op>".
+            number = str(op.get("subject", "")).partition(":")[2] or UNKNOWN
+            unknown = {"op": number, "mm": UNKNOWN, "tag": UNKNOWN}
             before, after, why = self.cuts.get(id(op), (None, None, "not built"))
-            if why is not None or before is None:
-                rows.append({"op": op.get("op"), "mm": UNKNOWN, "tag": UNKNOWN})
+            if why is not None or before is None or id(op) == self.stopped_cut:
+                rows.append(unknown)
                 continue
             if after is before:
                 continue
             try:
-                nearest = self._nearest_cut(before.cut(after), solids)
+                removal = before.cut(after)
+                cuts = removal.Volume > STOCK_MM3
+                nearest = self._nearest_cut(removal, solids) if cuts and drawn else None
             except Exception:
-                rows.append({"op": op.get("op"), "mm": UNKNOWN, "tag": UNKNOWN})
+                rows.append(unknown)
                 continue
-            if nearest is not None:
-                rows.append({"op": op.get("op"), "mm": _r(nearest["mm"]), "tag": nearest["tag"]})
+            if cuts and not drawn:
+                rows.append(unknown)
+            elif nearest is not None:
+                rows.append({"op": number, "mm": _r(nearest["mm"]), "tag": nearest["tag"]})
         return rows
 
     def _index_arc(self, annotation, fixture_kind):

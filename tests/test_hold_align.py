@@ -7,7 +7,7 @@ from html import unescape
 import pytest
 
 from prechips.inputs import Bundle
-from prechips.rules import hold_fields
+from prechips.rules import hold_fields, tool_resolves
 from prechips.sheet import _Traveler
 
 ALIGN = {"indicator": "dti", "limit_mm": 0.0254, "over_mm": 100.0, "cite": "AUTHOR'S CHOICE"}
@@ -159,3 +159,51 @@ def test_the_hold_squares_an_angle_plate_face_along_the_run_its_pose_gives():
 def test_an_align_not_established_is_a_stop_on_the_hold(fixture, align, stop):
     text = hold_text(bundle(setup("S1", fixture, pose=POSE, align=align)), "S1")
     assert f"STOP: square {stop}" in text and "do not run" in text
+
+
+@pytest.mark.parametrize(
+    "gauge",
+    [{"verify": True}, {"present": "unknown"}, {"kind": "unknown"}],
+    ids=["unverified", "presence-unknown", "kind-unknown"],
+)
+def test_an_indicator_not_established_on_hand_leaves_the_squaring_unknown_and_a_stop(gauge):
+    data = bundle(setup("V1", "vise"))
+    data.inventory["gauges"]["dti"].update(gauge)
+    (row,) = hold_fields.evaluate(data)
+    assert row.status == "unknown" and row.numbers["missing"] == ["hold.align.indicator"]
+    text = hold_text(data, "V1")
+    assert "STOP: square the fixed jaw to the table travel — the indicator" in text, text
+    assert "Square the fixed jaw" not in text
+
+
+def test_the_indicator_an_align_selects_is_an_inventory_reference_like_any_other():
+    # Named only in hold.align, the indicator's identity is still checked: unverified, it
+    # is unknown there too, and verified it resolves.
+    data = bundle(setup("V1", "vise"))
+    rows = {f.subject: f for f in tool_resolves.evaluate(data)}
+    assert rows["dti"].status == "pass"
+    data.inventory["gauges"]["dti"]["verify"] = True
+    rows = {f.subject: f for f in tool_resolves.evaluate(data)}
+    assert rows["dti"].status == "unknown"
+
+
+@pytest.mark.parametrize(
+    ("fixture", "debt"),
+    [
+        ("vise", ["hold.align.indicator", "hold.align.limit_mm", "hold.align.over_mm"]),
+        (
+            "plate",
+            [
+                "hold.align.indicator",
+                "hold.align.limit_mm",
+                "hold.align.over_mm",
+                "hold.align.face",
+            ],
+        ),
+    ],
+)
+def test_an_align_stated_unknown_is_unknown_never_absent(fixture, debt):
+    data = bundle(setup("S1", fixture, pose=POSE, align="unknown"))
+    (row,) = hold_fields.evaluate(data)
+    assert row.status == "unknown" and row.numbers["missing"] == debt
+    assert "do not run" in hold_text(data, "S1")
