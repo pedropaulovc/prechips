@@ -105,7 +105,7 @@ display: block; }
 .contour-row { display: flex; gap: 8pt; align-items: flex-start; }
 .contour-row > .contour { flex: 0 0 calc((100% - 16pt) / 3); min-width: 0; }
 .contour-row > .contour.wide { flex: 1 1 100%; }
-.contour-row.tall { display: block; }
+.contour-row.tall, [data-duplex-stacked] { display: block; }
 .contours.wide .contour-row { display: block; }
 .blank-side { padding-top: 4in; text-align: center; font-weight: bold; }
 @media screen { body { max-width: 7.7in; margin: 12pt auto; } .page { margin-bottom: 24pt; } \
@@ -126,6 +126,7 @@ _DUPLEX_JS = """(() => {
   const CAP = 975;
   const ADDED = "data-duplex";
   const SPLIT = "data-duplex-split";
+  const STACKED = "data-duplex-stacked";
   const heading = (el) => el && /^H[1-6]$/.test(el.tagName);
   function box(el) {
     const r = el.getBoundingClientRect(), s = getComputedStyle(el);
@@ -245,8 +246,13 @@ _DUPLEX_JS = """(() => {
         } else if (b.bottom - b.top <= CAP && move(el) && fits(box(el).bottom)) {
           continue;
         } else if (el.children.length) {
-          // Too tall to move whole: break inside it, contour blocks stacked.
-          if (el.classList.contains("contour-row")) el.classList.add("tall");
+          // Too tall to move whole: break inside it. Blocks standing side by side (a
+          // flex row: contour blocks, rough and finish stages) stack first, so the walk
+          // meets them one below another, each measured from where the last one ends.
+          const s = getComputedStyle(el);
+          if (s.display.endsWith("flex") && !s.flexDirection.startsWith("column")) {
+            el.setAttribute(STACKED, "");
+          }
           walk(el);
         } else {
           // One unbreakable block taller than a page: the browser splits it.
@@ -264,6 +270,7 @@ _DUPLEX_JS = """(() => {
   }
   function reset() {
     document.querySelectorAll(".blank-side, [" + ADDED + "]").forEach((el) => el.remove());
+    document.querySelectorAll("[" + STACKED + "]").forEach((el) => el.removeAttribute(STACKED));
     // Re-join split tables, last piece first.
     [...document.querySelectorAll("table[" + SPLIT + "]")].reverse().forEach((rest) => {
       rest.previousElementSibling.append(...[...rest.tBodies]);
@@ -322,6 +329,10 @@ _GLYPHS = {"error": "✗", "warn": "!", "unknown": "?", "unsupported": "?"}
 # A planned tool path ending this close to jaws, a dead centre or the jaw tops is
 # hand-feed territory: it is boxed on the op row instead of buried in clearance prose.
 _CRASH_ZONE_MM = 3.0
+# A cutter counts as wholly outside the kernel's setup-entry stock box only past it by
+# this much: the kernel's as-is face tolerance (its STOCK_TOL), so box rounding never
+# turns a grazing cutter into one in air.
+_STOCK_BOX_TOL_MM = 1e-3
 # One printed coordinate, e.g. "-155.000": a cell that must never wrap. Whole numbers
 # (op and pass numbers) are short and keep their plain cells.
 _NUMBER = re.compile(r"[-−+]?\d+\.\d+")
@@ -3206,9 +3217,12 @@ class _Traveler:
         )
 
     def tip_note(self, setup, op):
-        """A through op's breakthrough instruction: the exit face and the DRO tip past it,
-        both as the DRO shows them, and how far the tip runs out; the depth arithmetic
-        stays in the report."""
+        """A through op's breakthrough instruction, every value as the DRO shows it: the
+        DRO tip, the exit face and how far past it the full diameter then runs. That run-out
+        is what the printed tip leaves, never the authored ``exit_mm``: the lower of
+        ``dro_exit_mm`` (past the nominal face) and the same past the printed face, cut down
+        to the DRO decimals so it is never overstated. An unknown or negative run-out claims
+        none (a negative one is the tip's STOP); the depth arithmetic stays in the report."""
         endpoint = self.endpoint(setup, op)
         if not endpoint or endpoint.get("exit_face", "not_applicable") == "not_applicable":
             return None
@@ -3217,14 +3231,22 @@ class _Traveler:
         if not (_known(endpoint.get("tip_z")) and _known(tip)):
             return None
         text = f"Break through: feed to DRO tip Z {o(tip)}"
-        exit_mm = endpoint.get("exit_mm")
-        if _known(exit_face) and _known(exit_mm) and exit_mm:
-            text += (
-                f"; the full diameter then runs {o(exit_mm)} past the exit face at Z {o(exit_face)}"
+        if not _known(exit_face):
+            return text + "."
+        lead, left = endpoint.get("lead_mm", endpoint.get("point_mm")), endpoint.get("dro_exit_mm")
+        run_out = min(left, exit_face - lead - tip) if _known(left) and _known(lead) else None
+        if run_out is None or run_out < -SAME_Z:
+            return text + f"; exit face at Z {o(exit_face)}."
+        scale = 10 ** dro_grid(self.bundle, setup)[1]
+        run_out = math.floor(round(run_out * scale, 6)) / scale
+        if run_out <= 0:
+            return (
+                text + f"; the full diameter then just reaches the exit face at Z {o(exit_face)}."
             )
-        elif _known(exit_face):
-            text += f", past the exit face at Z {o(exit_face)}"
-        return text + "."
+        return text + (
+            f"; the full diameter then runs at least {o(run_out)} past the exit face at "
+            f"Z {o(exit_face)}."
+        )
 
     def steps(self, text):
         """A procedure written as blank-line paragraphs prints as numbered steps; single
@@ -3802,70 +3824,114 @@ class _Traveler:
             )
         return text
 
-    def raster_clearance(self, raster, op):
-        """Where a raster's passes start and end, from the op's ``stock_removal_bounds``
-        along the run axis: an end standing at least one cutter radius past the box starts
-        or ends in clear air; an end inside the box is walled, so the pass starts or ends
-        in material. Without a box the ends print without a claim either way."""
+    def stock_clear(self, setup):
+        """A test of whether a cutter stands wholly outside the stock ``setup`` receives as
+        the kernel modelled it (its setup-frame ``stock_bbox_mm``), or None unless the kernel
+        ran and modelled that stock. Every op's stock lies within that box, since cuts only
+        remove material; an op's ``stock_removal_bounds`` is only what it may remove, never
+        where the stock ends. The test takes a setup axis (0 X, 1 Y), the cutter centre on
+        it in plan units, the cutter radius in mm and the side: -1 below the box, +1 above
+        it, 0 either; it must clear the box by _STOCK_BOX_TOL_MM."""
+        kernel = getattr(self.bundle, "kernel", None)
+        scale = {"mm": 1.0, "in": 25.4}.get(self.units)
+        if not isinstance(kernel, dict) or kernel.get("status") != "ok" or scale is None:
+            return None
+        box = _mapping(_mapping(kernel.get("setups")).get(setup.get("id"))).get("stock_bbox_mm")
+        if not (isinstance(box, list) and len(box) == 6 and all(map(_known, box))):
+            return None
+
+        def clear(axis, centre, radius, side=0):
+            below = centre * scale + radius <= box[axis] - _STOCK_BOX_TOL_MM
+            above = centre * scale - radius >= box[axis + 3] + _STOCK_BOX_TOL_MM
+            return below if side < 0 else above if side > 0 else below or above
+
+        return clear
+
+    def raster_clearance(self, setup, profile):
+        """Where a raster profile's passes start and end along the run axis, and what of that
+        is proven in air: a cutter a radius past the stock the setup receives
+        (:meth:`stock_clear`) meets none. Nothing else proves an end clear or in material, so
+        an end inside that box, or any end without it, prints with no claim either way. The
+        passes run in and out clear only when every emitted piece's start and end is proven
+        so: a keep-out splits passes into pieces that also start and stop between the outer
+        ends. A pocket's first pass enters from air only when it stands a radius outside that
+        box on the open side."""
         o = self.operative
+        raster = profile["raster"]
         axis = str(raster.get("run_axis", "")).upper()
         ends, radius = raster.get("ends"), raster.get("clearance_mm")
         if not (isinstance(ends, list) and len(ends) == 2 and all(map(_known, ends))):
             return ""
-        span = _mapping(op.get("stock_removal_bounds")).get(axis.lower())
-        text = f"; pass ends {axis} {o(ends[0])} / {o(ends[1])}"
-        if not (
-            _known(radius) and isinstance(span, list) and len(span) == 2 and all(map(_known, span))
-        ):
+        # Every emitted piece's start and end, or none when any is malformed or unknown.
+        pieces = profile.get("cutter_centre")
+        points = (
+            [point for piece in pieces for point in piece]
+            if isinstance(pieces, list)
+            and all(isinstance(piece, list) and len(piece) == 2 for piece in pieces)
+            else []
+        )
+        if not all(isinstance(p, list) and len(p) >= 2 and all(map(_known, p[:2])) for p in points):
+            points = []
+        run = "XY".index(axis) if axis in ("X", "Y") else None
+        # The outer ends are every piece's ends only when no keep-out split a pass.
+        whole = (
+            run is not None
+            and bool(points)
+            and all(min(abs(p[run] - end) for end in ends) <= 1e-9 for p in points)
+        )
+        text = f"; {'pass' if whole else 'outer pass'} ends {axis} {o(ends[0])} / {o(ends[1])}"
+        clear = self.stock_clear(setup)
+        if clear is None or not _known(radius) or run is None:
             return text
-        low, high = min(span), max(span)
-        clear = [ends[0] <= low - radius + SAME_Z, ends[1] >= high + radius - SAME_Z]
-        if all(clear):
-            text += ": both in clear air, a cutter radius past the stock"
-        elif not any(clear):
+        low, high = sorted(ends)
+        air = [v for v, side in ((low, -1), (high, 1)) if clear(run, v, radius, side)]
+        every = bool(points) and all(any(clear(i, p[i], radius) for i in range(2)) for p in points)
+        if len(air) == 2:
+            text += ": both in air, a cutter radius past the stock"
+        elif air:
+            text += f": the {axis} {o(air[0])} end is in air, a cutter radius past the stock"
+        if every and air:
+            text += " — every pass runs in and out clear"
+        elif every:
+            text += ": every pass runs in and out clear, a cutter radius past the stock"
+        elif air and not whole:
+            text += "; split passes also start and stop between them, not proven clear"
+        entry, side = raster.get("entry_pass"), str(raster.get("open_side", "")).upper()
+        across = 1 - run
+        if (
+            _known(entry)
+            and side in ("-X", "+X", "-Y", "+Y")
+            and "XY".index(side[1]) == across
+            and clear(across, entry, radius, -1 if side[0] == "-" else 1)
+        ):
             text += (
-                ": both inside the walled field — every pass starts in material, so plunge "
-                "at its start"
+                f"; pass 1 at {'XY'[across]} {o(entry)} enters from air, a cutter radius "
+                f"outside the stock on the open {side} side"
             )
-        else:
-            walled = o(ends[0]) if not clear[0] else o(ends[1])
-            text += f": the {axis} {walled} end is inside a wall — plunge there"
-        entry = raster.get("entry_pass")
-        if _known(entry):
-            across = "X" if axis == "Y" else "Y"
-            side = str(raster.get("open_side", "")).upper()
-            text += f"; pass 1 at {across} {o(entry)} enters from clear air on the open {side} side"
         return text
 
-    def outline_clearance(self, op, profile, part):
-        """A cutter-centre outline's rows standing wholly clear of the op's stock box
-        (``stock_removal_bounds`` grown by the cutter radius) named as cutter clearance."""
-        box, radius = _mapping(op.get("stock_removal_bounds")), profile.get("cutter_radius_mm")
-        spans = [box.get(axis) for axis in ("x", "y")]
+    def outline_clearance(self, setup, profile, part):
+        """A cutter-centre outline's rows whose cutter stands wholly outside the stock the
+        setup receives (:meth:`stock_clear`) named as cutter clearance; without that box no
+        row is."""
+        clear, radius = self.stock_clear(setup), profile.get("cutter_radius_mm")
         points = profile.get("cutter_centre")
-        if not (
-            _known(radius)
-            and isinstance(points, list)
-            and all(isinstance(s, list) and len(s) == 2 and all(map(_known, s)) for s in spans)
-        ):
+        if clear is None or not _known(radius) or not isinstance(points, list):
             return part
         rank, description, headings, rows, after = part
-        clear = sorted(
+        named = sorted(
             {
                 row[0] or f"row {index}"
                 for index, (row, point) in enumerate(zip(rows, points, strict=False), start=1)
                 if isinstance(point, list)
                 and len(point) >= 2
                 and all(map(_known, point[:2]))
-                and any(
-                    point[i] < min(spans[i]) - radius or point[i] > max(spans[i]) + radius
-                    for i in range(2)
-                )
+                and any(clear(i, point[i], radius) for i in range(2))
             }
         )
-        if clear:
+        if named:
             description += (
-                f"; {', '.join(clear)} stand wholly clear of the stock: intentional cutter "
+                f"; {', '.join(named)} stand wholly clear of the stock: intentional cutter "
                 "clearance for entry, exit and overtravel, not material"
             )
         return rank, description, headings, rows, after
@@ -4128,15 +4194,15 @@ class _Traveler:
                     f"{o(raster.get('step_mm'))} mm, lift to Z {o(raster.get('lift_z'))}"
                     + self.cut_order(profile)
                 )
-                # One raster note per op: its pieces share the passes' ends.
-                if not entry.get("ends"):
-                    entry["ends"] = self.raster_clearance(raster, operations.get(op, {}))
-                    description += entry["ends"]
+                # One raster note per op while its pieces prove the same; a stage whose
+                # pieces prove otherwise prints its own.
+                note = self.raster_clearance(setup, profile)
+                if note != entry.get("ends"):
+                    entry["ends"] = note
+                    description += note
             entry["parts"].append((order(entry), description, headings, rows, None))
             if not isinstance(raster, dict):
-                entry["parts"][-1] = self.outline_clearance(
-                    operations.get(op, {}), profile, entry["parts"][-1]
-                )
+                entry["parts"][-1] = self.outline_clearance(setup, profile, entry["parts"][-1])
         for contour in numbers.get("contours", []):
             if not isinstance(contour, dict) or contour.get("method") != "axial_table":
                 continue

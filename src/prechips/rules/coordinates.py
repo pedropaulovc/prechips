@@ -1682,10 +1682,11 @@ def _raster(feature, op, offset, radius, frame, frames, sense, order, lift_z, gr
             "passes": len(passes),
             "cycle": "one_way",
             "lift_z": lift_z,
-            # Cutter clearance past the swept area: every pass runs from ``ends[0]`` to
+            # Cutter clearance past the swept area: the passes run from ``ends[0]`` to
             # ``ends[1]`` along ``run_axis``, one cutter radius beyond the area's edges
-            # ``area_ends`` (entry and exit wholly clear); a pocket's first pass stands one
-            # radius outside its open side (``entry_pass``).
+            # ``area_ends`` (clear of the area, not proven clear of the stock); a keep_out
+            # splits them into pieces that also start and stop between. A pocket's first
+            # pass stands one radius outside its open side (``entry_pass``).
             "run_axis": "y" if along_x else "x",
             "area_ends": [first, last],
             "ends": [near, far],
