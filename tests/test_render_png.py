@@ -418,8 +418,12 @@ def test_a_stickout_from_a_fit_up_is_labelled_nominal_with_its_setting():
     }
     diagram = _Diagram([], spec)
     diagram.render()
-    assert "NOMINAL STICKOUT 80 mm (SET = MEASURED + 8)" in diagram.dimensions
+    # The dimension is the nominal; the setting rule goes to the wrapping notes, so a
+    # short stickout's dimension label never runs into the lane labels.
+    assert "NOM STICKOUT 80 mm" in diagram.dimensions
     assert not any(label.startswith("STICKOUT") for label in diagram.dimensions)
+    text = " ".join(box[0] for box in diagram.canvas.text_boxes)
+    assert "STICKOUT 80 MM IS NOMINAL: SET IT AS THE MEASURED FIT-UP + 8 MM." in text, text
 
 
 @pytest.mark.parametrize(("round_dia", "printed"), [(20, "STOCK DIA 20 MM"), (None, "STOCK BOX")])

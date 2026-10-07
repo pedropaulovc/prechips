@@ -2521,7 +2521,8 @@ class _Traveler:
 
         Where the op's start would foul a rest (``engage_at_z_mm``), its cell prints that Z
         on the DRO grid toward the clear side (along the feed), rechecked as printed: past
-        the Z where the jaws clear the fixture and not past the op's end. The pass sequence
+        the Z where the jaws clear the fixture and not past the op's end; a declared Z with
+        no clearance check is a STOP, never the lead. The pass sequence
         prints once, full width: hands set the jaws only once the feed and then the spindle
         have stopped, and the spindle runs again before the feed resumes. Trailing jaws (on
         the diameter just turned) are backed off at every pass end before the tool withdraws
@@ -2558,6 +2559,9 @@ class _Traveler:
             ridden = "uncut stock ahead of the tool" if side == "uncut" else "diameter just turned"
             entry = engagements.get(rest)
             on = None
+            if entry is None and _known(support.get("engage_at_z_mm")):
+                # A declared engage Z with no clearance check: the lead would contradict it.
+                entry = {"declared_z_mm": support["engage_at_z_mm"]}
             if entry is not None:
                 declared, clear = entry["declared_z_mm"], entry.get("engage_z_mm")
                 printed = self.mm_on_grid(setup, declared, up=feed == 1)

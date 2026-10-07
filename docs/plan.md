@@ -630,7 +630,7 @@ for collet/chuck capacity, not the unsupported-section diameter.
 | `grip_mm` | `Number \| Literal['not_applicable']` |
 | `jaw_above_parallels_mm` | `Number \| Literal['not_applicable']` |
 | `stickout_mm` | `Number` |
-| `stickout_fit` | `{ measure: str, nominal_mm: Number, add_mm: Number }`: a stickout set from a measured fit-up; `stickout_mm` is the nominal `nominal_mm + add_mm` ([stickout](rules-lathe.md#stickout)) and the operator sets the `measure` reading + `add_mm`. The HOLD table prints `nominal stickout mm` and `set stickout: measured … + N`; the picture labels `NOMINAL STICKOUT … (SET = MEASURED + N)` |
+| `stickout_fit` | `{ measure: str, nominal_mm: Number, add_mm: Number }`: a stickout set from a measured fit-up; `stickout_mm` is the nominal `nominal_mm + add_mm` ([stickout](rules-lathe.md#stickout)) and the operator sets the `measure` reading + `add_mm`. The HOLD table prints `nominal stickout mm` and `set stickout: measured … + N`; the picture dimensions `NOM STICKOUT …` and its notes say it is set as the measured fit-up + N |
 | `jaw_center_along_mm` | `Number` |
 | `jaw_bar` | `str` (fixtures `round_bar` between the work and the moving jaw) |
 | `parallels_centres_mm` | `list[[Number, Number]]` (exactly two) |
