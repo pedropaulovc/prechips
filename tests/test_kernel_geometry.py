@@ -154,8 +154,10 @@ save("hole", Part.makeBox(60, 40, 20).cut(Part.makeCylinder(3.25, 22, V(30, 20, 
 # A blind cylindrical opening with an unclaimed neighbouring boss inside it.
 opening = Part.makeBox(60, 40, 20).cut(Part.makeCylinder(4, 19, V(30, 20, 2)))
 save("hole-boss", opening.fuse(Part.makeCylinder(0.8, 10, V(31.8, 20, 2))).removeSplitter())
+# 40x30x20 block with a 12.2 mm journal bore through it along Y at (x 20, z 10).
+save("journal", Part.makeBox(40, 30, 20).cut(Part.makeCylinder(6.1, 32, V(20, -1, 10), V(0, 1, 0))))
 """
-_AUTHORED = 12
+_AUTHORED = 13
 
 
 def _run(payload, directory, executable):
@@ -390,6 +392,79 @@ def test_curved_jaw_contact_is_a_measured_line_on_either_clamp_axis(engine, soli
     setup = engine.run(engine.job(solids["puck"], setups=[_setup([], hold)]))["setups"]["S1"]
     assert setup["width_mm"] == 20.0
     assert setup["parallel_pair"] is False and setup["contact_grip_mm"] == [8.0, 8.0]
+
+
+@pytest.mark.parametrize(
+    ("name", "spigot_dia", "seated"),
+    [
+        ("journal", 12.0, True),
+        # A spigot wider than the bore cannot drop into it.
+        ("journal", 13.0, False),
+        # No bore opens on the jaw faces: a spigot has nothing to seat in.
+        ("channel", 12.0, False),
+    ],
+)
+def test_jaw_buttons_stand_the_jaws_off_the_work_with_their_spigots_in_its_bore(
+    engine, solids, name, spigot_dia, seated
+):
+    buttons = {
+        "name": "jaw-buttons",
+        "dia_mm": 16.0,
+        "thickness_mm": 3.0,
+        "spigot_dia_mm": spigot_dia,
+        "spigot_length_mm": 2.0,
+    }
+    hold = {**_vise(15.0), "jaw_buttons": buttons}
+    setup = engine.run(engine.job(solids[name], setups=[_setup([], hold)]))["setups"]["S1"]
+    if not seated:
+        assert "jaw_buttons jaw-buttons" in setup["fixture_reason"]
+        assert setup["render_scene"]["jaws"] == "absent"
+        return
+    # The jaws close on the buttons, 3 mm off each face of the 30 mm work. Each button's
+    # Ø16 face, centred on the bore at Z 10, grips the face from Z 2 up to the jaw top.
+    assert setup["width_mm"] == 30.0
+    assert setup["jaw_separation_mm"] == 36.0
+    assert setup["contact_grip_mm"] == [13.0, 13.0]
+    drawn = [c["name"] for c in setup["render_scene"]["components"]]
+    assert sorted(n for n in drawn if n.startswith("jaw_buttons ")) == [
+        "jaw_buttons jaw-buttons fixed",
+        "jaw_buttons jaw-buttons moving",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("dia", "grip"),
+    [
+        # The Ø16 face bears on the work around the Ø12.2 bore, Z 2 to the jaw top at 15.
+        (16.0, 13.0),
+        # A 0.1 mm land round the bore mouth still bears, Z 3.8 to 15.
+        (12.4, 11.2),
+        # A face only as wide as the bore touches its edge along a line of no area.
+        (12.2, None),
+        # A face inside the bore's mouth never touches the work.
+        (10.0, None),
+    ],
+)
+def test_a_jaw_button_must_bear_on_the_work_round_its_bore_or_the_jaws_stay_unplaced(
+    engine, solids, dia, grip
+):
+    buttons = {
+        "name": "jaw-buttons",
+        "dia_mm": dia,
+        "thickness_mm": 3.0,
+        "spigot_dia_mm": 6.0,
+        "spigot_length_mm": 2.0,
+    }
+    hold = {**_vise(15.0, centre=20.0), "jaw_buttons": buttons}
+    setup = engine.run(engine.job(solids["journal"], setups=[_setup([], hold)]))["setups"]["S1"]
+    if grip is None:
+        assert "jaw_buttons jaw-buttons" in setup["fixture_reason"], setup
+        assert setup["render_scene"]["jaws"] == "absent"
+        assert setup["contact_grip_mm"] == "unknown" and setup["parallel_pair"] == "unknown"
+        return
+    assert "fixture_reason" not in setup, setup["fixture_reason"]
+    assert setup["parallel_pair"] is True
+    assert setup["contact_grip_mm"] == [grip, grip]
 
 
 def test_jaw_centre_places_a_part_longer_than_the_jaws(engine, solids):

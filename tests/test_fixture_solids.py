@@ -138,6 +138,31 @@ def test_each_holding_kind_renders_exact_components_without_debts(engine, parts)
     assert roles == {"angle:upright": "fixture", "kit/strap:strap": "clamp"}
 
 
+@pytest.mark.parametrize(("button_y", "section_y"), [((2.0, 6.0), 4.0), ((-8.0, 28.0), 10.0)])
+def test_a_bench_section_cuts_through_the_holding_that_touches_the_work(
+    engine, parts, button_y, section_y
+):
+    # The 40 x 20 plate sits on one button under it. A section on the plate's centre plane
+    # (Y 10) misses a button standing at Y 2..6, so the picture would draw no contact.
+    low, high = button_y
+    hold = {
+        "kind": "solids",
+        "fixture_kind": "custom",
+        "pose": {"origin_mm": [0.0, 0.0, 0.0], **UP},
+        "solids": [_box("rest:button", [15.0, low, -5.0], [10.0, high - low, 5.0])],
+        "debts": [],
+        "gaps": [],
+    }
+    setup = _scene(
+        engine.run(
+            engine.job(parts["plate"], setups=[{**_setup([], hold), "machine_kind": "bench"}])
+        )
+    )
+    scene = setup["render_scene"]
+    assert scene["view"] == "elevation"
+    assert scene["section"] == {"axis": "y", "at_mm": section_y}
+
+
 def test_chuck_jaws_close_on_the_stock_at_their_clock_angles(engine, parts):
     setup = _scene(engine.run(engine.job(parts["bar"], setups=[_setup([], _chuck(clock=30.0))])))
     assert setup["chuck"]["jaw_angles_deg"] == [30.0, 150.0, 270.0]
