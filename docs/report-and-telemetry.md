@@ -384,7 +384,9 @@ and inspection notes*):
    or an unproven holder wall clearance is a check-at-the-machine action; a jaw
    clearance within 3 mm asks for a hand-fed approach. Ops with the same tool,
    obstacle, clearance and action share a row.
-3. **FEATURE MAP**. Lathe: feature, the drawing's Ø limits (`—` for a process
+3. **FEATURE MAP**. Lathe: each surface the setup cuts (one it only inspects,
+   such as an as-supplied diameter, has no size to turn to and is left off):
+   feature, the drawing's Ø limits (`—` for a process
    size such as a joint spigot), the Ø turned to, and the Z the setup's cuts start
    and end at. Mill: feature, the reference point the X/Y/Z stand on (hole or boss
    axis, arc centre, face; at the entry or exit face, or on the Z0 surface), then

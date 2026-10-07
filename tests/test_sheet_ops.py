@@ -505,12 +505,41 @@ def test_a_lathe_feature_map_keeps_the_drawing_limits_apart_from_the_size_turned
         drawing={"head": {"kind": "cylinder", "dia": [42.0, 43.6]}},
         kind="lathe",
     )
-    html = sheet.feature_map({"id": "S1", "ops": []})
+    turned = [
+        {"op": 10, "do": "turn", "feature": "head"},
+        {"op": 20, "do": "turn", "feature": "spigot"},
+    ]
+    html = sheet.feature_map({"id": "S1", "ops": turned})
     head = html.split("<td>head</td>", 1)[1].split("</tr>", 1)[0]
     assert "Ø42.000–43.600" in head and "Ø42.750" in head
     # A process size (a joint spigot) has no drawing limits to print.
     spigot = html.split("<td>spigot</td>", 1)[1].split("</tr>", 1)[0]
     assert "<td>—</td>" in spigot and "Ø17.200" in spigot
+
+
+@pytest.mark.parametrize(
+    ("ops", "listed"),
+    [
+        # Mic'd as supplied, never cut: no size to turn to, no Z to cut from.
+        ([{"op": 5, "do": "inspect", "feature": "shoulder_od"}], False),
+        ([], False),
+        ([{"op": 10, "do": "turn", "feature": "shoulder_od"}], True),
+    ],
+)
+def test_a_lathe_feature_map_lists_only_surfaces_this_setup_cuts(ops, listed):
+    rows = [
+        {"feature": "shoulder_od", "setup": [5.0, 0.0, z], "x_target_mm": 10.0} for z in (0, -1.5)
+    ]
+    rows += [{"feature": "bearing", "setup": [3.2, 0.0, z], "x_target_mm": 6.35} for z in (0, -9)]
+    sheet = mapped(
+        {("coordinates", "S1"): {"x_display": "diameter", "rows": rows}},
+        {"shoulder_od": {"kind": "cylinder"}, "bearing": {"kind": "cylinder"}},
+        kind="lathe",
+    )
+    setup = {"id": "S1", "ops": [*ops, {"op": 20, "do": "finish_turn", "feature": "bearing"}]}
+    html = sheet.feature_map(setup)
+    assert "<td>bearing</td>" in html
+    assert ("<td>shoulder od</td>" in html) is listed
 
 
 def test_a_mill_feature_map_names_the_point_each_row_stands_on_from_the_feature_kind():

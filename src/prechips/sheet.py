@@ -3115,6 +3115,9 @@ class _Traveler:
         o = self.operative
         grouped = {}
         aims = []
+        # A lathe map gives the size each surface is turned to and the Zs its cuts run
+        # between: a surface this setup only inspects (an as-supplied diameter) has none.
+        cut = {op.get("feature") for op in setup.get("ops", []) if op.get("do") not in MANUAL}
         for record in numbers.get("rows", []):
             feature = record.get("feature")
             # A mill target prints where the DRO stops: on its grid, aims applied.
@@ -3123,7 +3126,7 @@ class _Traveler:
                 continue
             if lathe:
                 x = record.get("x_target_mm")
-                if not _known(x) or not _known(coordinates[2]):
+                if feature not in cut or not _known(x) or not _known(coordinates[2]):
                     continue
                 # Its ends as its ops print them: cut before its first op (:meth:`op_z`).
                 first = [
@@ -3341,9 +3344,33 @@ class _Traveler:
         for key, value in (("z_from", start), ("z_to", end)):
             if key in op and not ("z_from" in op and "z_to" in op):
                 parts.append(f"{'from' if key == 'z_from' else 'to'} Z {o(value)}")
+        parts.extend(self.plunge_x(setup, op))
         if any("?" in part for part in parts):
             parts.append(_Box("STOP: Z target not set"))
         return parts or (["—"] if op.get("do") in MANUAL else [_Box("STOP: Z target not set")])
+
+    def plunge_x(self, setup, op):
+        """A lathe part-off / cut-to-fit row's X: the diameter the blade plunges to
+        (``to_dia``, the axis unless authored) as the DRO reads it, from the diameter it
+        starts on, and the total radial plunge between them (the reach finding's depth, in
+        mm). An unknown endpoint is a STOP; an unknown plunge prints the endpoint alone."""
+        if op.get("do") not in {"part_off", "cut_to_fit"} or not self.lathe(setup):
+            return []
+        to_dia = op.get("to_dia", 0.0)
+        if not (_known(to_dia) and to_dia >= 0):
+            return [_Box("STOP: X endpoint (to_dia) not set")]
+        scale = {"mm": 1.0, "in": 25.4}.get(self.units)
+        depth = _mapping(self.records.get(("reach", f"{setup['id']}:{op.get('op')}"))).get(
+            "reach_depth_mm"
+        )
+        radius = _mapping(self.records.get(("coordinates", setup["id"]))).get("x_display")
+        half = 0.5 if radius == "radius" else 1.0
+        o = self.operative
+        if not (_known(depth) and scale):
+            return [f"X → {o(to_dia * half)} (radial plunge unknown)"]
+        radial = depth / scale
+        start = (to_dia + 2 * radial) * half
+        return [f"X {o(start)} → {o(to_dia * half)} ({o(radial)} radial)"]
 
     def hole_xy(self, setup, op):
         """A mill hole op's tool-axis X/Y as the DRO dials it: its feature's located row's

@@ -9994,7 +9994,8 @@ class _Setup:
             if tool["blade_width_mm"] < 2 * tool["radius_mm"]:
                 missing.append("blade_width_mm at least twice radius_mm")
         holder = sorted(key for key in cls._TURN_HOLDER if tool[key] is None)
-        if not holder and tool["projection_mm"] < tool["head_len_mm"]:
+        head = tool["head_len_mm"]
+        if not holder and head is not None and tool["projection_mm"] < head:
             holder.append("projection_mm at least head_len_mm")
         return tool, missing, holder
 
