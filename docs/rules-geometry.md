@@ -822,7 +822,21 @@ such claim's for a column several share, and
 only inside its box, guard window and own outer-loop sweep; the column below,
 other bores, and the core outside that scope stay reserved, while the flute and
 holder checks still meet them); and
-the removal must not split an original input solid. A violation is not an
+the removal must not split an original input solid. Before a claimed planar wall
+the protected leave is flat: wherever stock outside the box or a reserved column
+stands behind the wall's plane, a skin `a` thick stays in front of the plane across
+the claimed face's own width (along the spindle axis, through the box's whole
+depth), over the finished face's holes and edges too. Past each end of that
+width, where such stock also stands behind the plane, the op's own cutter of
+radius r steps from the plane up onto the skin and leaves the cusp of that step:
+before a vertical wall, the region under the arc of radius r tangent to the
+plane `sqrt(r² − (r − min(a, r))²)` past the end and through the skin's outer
+corner (when r ≤ a, tangent to its end face at height r), at the heights where
+both that stock and the skin's backing stand. No other op, earlier or later, is
+credited with clearing it. A flat-bottomed cutter steps square onto a floor's
+skin and leaves no cusp; a step past the end of an inclined planar claim's skin,
+or a claim on a surface neither planar nor curved analytic, makes the leave, and
+so the stock, unknown. A violation is not an
 error verdict: it is named stock debt (the stock reason names the failed
 guard), so stock-dependent results for that setup and later setups selecting
 its output stay `unknown`, never clearance. Genuine collisions with finished

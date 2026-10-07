@@ -4845,7 +4845,8 @@ class _Setup:
         (:meth:`_sweep`), because facing there removes it. Its column below that height,
         every other bore's and anything outside the box, the guard's window or the sweep
         stays reserved. Before a claimed planar wall the leave is flat across the stock
-        standing behind its plane (:meth:`_flat_leave`), not the finished face's outline.
+        standing behind its plane (:meth:`_flat_leave`), not the finished face's outline,
+        and keeps the cusp the op's own ``radius`` leaves past that skin's ends.
         """
         span, why = _clearing_span(bounds, _bbox(stock))
         if span is None:
@@ -4900,7 +4901,7 @@ class _Setup:
                 reserved[0].fuse(reserved[1:]) if len(reserved) > 1 else reserved[0]
             )
         if leave:
-            flat, why = self._flat_leave(valid, stock, span, leave, reserved)
+            flat, why = self._flat_leave(valid, stock, span, leave, reserved, radius)
             if why is not None:
                 return None, why
             if flat:
@@ -4923,7 +4924,7 @@ class _Setup:
             return None, None
         return (pieces[0].fuse(pieces[1:]) if len(pieces) > 1 else pieces[0]), None
 
-    def _flat_leave(self, valid, stock, span, leave, reserved):
+    def _flat_leave(self, valid, stock, span, leave, reserved, radius):
         """([flat skin pieces] or None, why not): the leave a clearing box's passes stop
         short of each claimed planar wall.
 
@@ -4934,11 +4935,13 @@ class _Setup:
         outline and over the holes and edges later setups make in it. The band spans the
         claimed face's own extent across the spindle axis; a wall's passes stack down the
         axis, so its band runs through the box's whole depth there. Past the face's edges
-        no claim stops the passes, and a neighbouring box's cutter turning that corner sweeps
-        the stock in front of them. There, and in front of open air or of material this box
-        clears, the guard's offset alone is the leave. A curved analytic claim keeps the
-        offset; a claim whose surface is neither analytic nor a plane makes the leave, and so
-        the stock, unknown.
+        no claim stops the passes: in front of open air or of material this box clears, the
+        guard's offset alone is the leave. Where such stock stands behind the plane past an
+        edge too, the passes run on at the plane and step up onto the band, and this op's
+        own cutter of ``radius`` leaves the cusp in that step (:meth:`_skin_ends`); no other
+        op, before or after, is credited with clearing it. A curved analytic claim keeps the
+        offset; a claim whose surface is neither analytic nor a plane makes the leave, and
+        so the stock, unknown.
         """
         corners = [V(span[i], span[j], span[k]) for i in (0, 3) for j in (1, 4) for k in (2, 5)]
         box = _box_shape(span)
@@ -4986,15 +4989,99 @@ class _Setup:
                     _valid(column.common(behind), "a reserved bore behind a wall")
                     for column in reserved
                 ]
+                backing = [piece for piece in backing if piece and piece.Volume > HIT_MM3]
+                frame = (origin, across, normal, other, u0, u1, v0, v1)
+                ends, why = self._skin_ends(stock, box, reserved, backing, frame, leave, radius)
             except ValueError as exc:
                 return None, f"the flat rough leave before {self.owner.labels[index]}: {exc}"
+            if why is not None:
+                return None, f"the flat rough leave before {self.owner.labels[index]} {why}"
             for piece in backing:
-                if piece is None or piece.Volume <= HIT_MM3:
-                    continue
                 band = piece.copy()
                 band.translate(normal * leave)
                 pieces.append(band.common(box))
+            pieces += ends
         return [piece for piece in pieces if piece.Volume > HIT_MM3], None
+
+    def _skin_ends(self, stock, box, reserved, backing, frame, leave, radius):
+        """([what stays past the ends of a flat skin], or None and why that is unknown).
+
+        ``frame`` is (origin, across, normal, other, u0, u1, v0, v1): the skin, ``leave``
+        deep in front of a claimed plane (``normal`` its front), spans u0..u1 along
+        ``across`` and v0..v1 along ``other``; ``backing`` is what stands behind the plane
+        over that span. Past an end, stock outside the ``box`` or a ``reserved`` column
+        standing behind the plane floors the passes at the plane itself, so the floor and
+        the skin's end make a concave step ``leave`` high. Across a wall (``normal`` across
+        the spindle axis) the cutter's section is a disc of ``radius``: rolled along the
+        floor into the step, it stops where its arc meets the skin's outer corner (or, when
+        ``radius <= leave``, the end face), ``reach`` = sqrt(r^2 - (r - min(leave, r))^2)
+        short of it. Under that arc stays, at the heights where the floor stands past the
+        end and the skin's backing stands at it. A floor's flat end makes the step square,
+        leaving nothing. On an inclined plane the cutter's section is no disc: a step there
+        is not derived, so the leave is unknown.
+        """
+        origin, across, normal, other, u0, u1, v0, v1 = frame
+
+        def at(u, d, v):
+            return origin + across * u + normal * d + other * v
+
+        def quad(points):
+            return Part.Face(Part.makePolygon([*points, points[0]]))
+
+        if abs(normal.z) >= PARALLEL:
+            return [], None  # a flat end steps square onto a floor's skin
+        depth = min(leave, radius)
+        reach = math.sqrt(radius * radius - (radius - depth) ** 2)
+        inset = min(COVER_MM, (u1 - u0) / 2)
+        kept = []
+        for end, sign in ((u0, -1.0), (u1, 1.0)):
+            far = end + sign * reach
+            beyond = quad([at(end, 0, v0), at(far, 0, v0), at(far, 0, v1), at(end, 0, v1)])
+            beyond = beyond.extrude(normal * -leave)
+            floor = [_valid(stock.common(beyond).cut(box), "stock behind a wall past its end")]
+            floor += [
+                _valid(column.common(beyond), "a reserved bore behind a wall past its end")
+                for column in reserved
+            ]
+            floor = [piece for piece in floor if piece and piece.Volume > HIT_MM3]
+            # The skin's backing at its end, carried on past it.
+            inner = end - sign * inset
+            section = quad(
+                [at(inner, 0, v0), at(inner, -leave, v0), at(inner, -leave, v1), at(inner, 0, v1)]
+            )
+            rim = [
+                face.extrude(across * (sign * (reach + inset)))
+                for piece in backing
+                for face in piece.common(section).Faces
+                if face.Area > CONTACT_MM2
+            ]
+            if not floor or not rim:
+                continue
+            if abs(normal.z) > 1 - PARALLEL:
+                return None, (
+                    "is unknown: stock behind its inclined plane past the face's edge steps "
+                    "up onto the skin, and the cusp the cutter leaves there is not derived"
+                )
+            centre = at(far, radius, v0)
+            outer, foot = at(end, depth, v0), at(far, 0, v0)
+            middle = (outer - centre) + (foot - centre)
+            middle.normalize()
+            wire = Part.Wire(
+                [
+                    Part.LineSegment(foot, at(end, 0, v0)).toShape(),
+                    Part.LineSegment(at(end, 0, v0), outer).toShape(),
+                    Part.Arc(outer, centre + middle * radius, foot).toShape(),
+                ]
+            )
+            cusp = Part.Face(wire).extrude(other * (v1 - v0))
+            for part in (floor, rim):
+                solid = part[0].fuse(part[1:]) if len(part) > 1 else part[0].copy()
+                solid.translate(normal * leave)
+                cusp = cusp.common(solid)
+            cusp = _valid(cusp.common(box), "a flat skin's end cusp")
+            if cusp is not None:
+                kept.append(cusp)
+        return kept, None
 
     def _removal(self, op, valid, to_z, leave):
         """(stock outside the op's guard its claims sweep (:meth:`_op_sweep`), or None, and
