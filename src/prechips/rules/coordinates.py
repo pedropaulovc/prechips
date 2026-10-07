@@ -1971,10 +1971,13 @@ def _z_levels(op, before, declared, cleared, features, grid, units):
     start = declared.get(name, top)
     basis = "declared entry_z" if name in declared else "setup top_z"
     floor = None if op["do"] in _WALL_OPS else _cleared_floor(op, cleared, features)
-    if floor is not None and number(start) and floor < start:
+    # ``start_cleared``: the start is an earlier op's floor (rules/level_entry.py).
+    cleared_start = floor is not None and number(start) and floor < start
+    if cleared_start:
         start, basis = floor, "floor of an earlier op that cleared this op's whole region"
     end, doc = dro_z(op["to_z"], grid), op["doc_mm"]
     record = {"start_z": start, "start_basis": basis, "dro_start_z": dro_z(start, grid)}
+    record["start_cleared"] = cleared_start
     record.update(dro_to_z=end, doc_mm=doc)
     scale = {"mm": 1.0, "in": 25.4}.get(units)
     step, decimals = grid

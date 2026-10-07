@@ -221,6 +221,7 @@ bottom_z = -18.525               # raw right side
 fixture = "vise-pm-6"
 jaws_along = "x"                 # AUTHOR'S CHOICE: jaws on the two narrow edges, bar flat
 fixed_jaw = "rear"
+align = { indicator = "dti", limit_mm = 0.0254, over_mm = 100.0, cite = "AUTHOR'S CHOICE: the fixed jaw squared to 0.001 in (0.0254 mm) over 100 mm of the 6 in jaw because the shop test indicator (gauges.dti) reads 0.0005 in, so the limit is two graduations it resolves" }
 parallels = "parallels-lms-6745/1-1-4in"
 jaw_center_along_mm = 17.1        # AUTHOR'S CHOICE: the 38 mm bar centred in the jaws
 stop = "No end stop: centre the bar in the jaws on the parallels." # AUTHOR'S CHOICE
@@ -609,6 +610,7 @@ bottom_z = -33.2                 # author's choice: raw crown-side face at model
 fixture = "vise-pm-6"
 jaws_along = "y"                 # rev 3: jaws normal to X, gripping the unmachined body across X
 fixed_jaw = "left"               # author's choice: fixed jaw on -X, jaws run along Y
+align = { indicator = "dti", limit_mm = 0.0254, over_mm = 100.0, cite = "AUTHOR'S CHOICE: the vise turned a quarter for the jaws along Y, its fixed jaw squared again to 0.001 in (0.0254 mm) over 100 mm of the 6 in jaw because the shop test indicator (gauges.dti) reads 0.0005 in, so the limit is two graduations it resolves" }
 parallels = "parallels-lms-6745/1in"
 jaw_center_along_mm = 9.1         # author's choice: centre the 26.2 mm raw blank run in the jaws
 stop = "No end stop: clamp the blank centrally over the parallels, then edge-find its left face and outer end for this Setup's X/Y zeros." # author's choice
@@ -1049,6 +1051,7 @@ fixture = "angle-plate"
 pose = { origin_mm = [0.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] } # author's choice: plate frame = TC
 fixed_jaw = "not_applicable"
 jaws_along = "not_applicable"
+align = { indicator = "dti", face = "upright", limit_mm = 0.0254, over_mm = 100.0, cite = "AUTHOR'S CHOICE: the upright face that seats datum A squared to the X travel to 0.001 in (0.0254 mm) over 100 mm of its 127 mm length because the shop test indicator (gauges.dti) reads 0.0005 in, so the limit is two graduations it resolves" }
 parallels = "not_applicable"
 supports = "not_applicable"      # the plate assembly includes the load-bearing foot-end ledge
 clamps = [
