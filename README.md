@@ -241,7 +241,12 @@ Omitted setup `machine`, operation `do`, and feature `kind` are normalized to
 crashing the checker.
 
 Worked located features need a complete numeric three-component centre; absent,
-unknown or two-component coordinates never clear the coordinate check. A nonrough
+unknown or two-component coordinates never clear the coordinate check. A mill
+feature map prints each located target on the DRO grid. A target holding a
+height-like band from its `height_from` reference must stand inside the printed
+band at that grid point, or the setup's coordinates are `✗`. A plan `aims` entry
+may move the target within the band for a stated process reason (the cone
+aims its crank bore at mid-band separation). It never moves geometry. A nonrough
 mill contour carrying `rough_allowance_mm` prints distinct rough and finish cutter
 tables, with the rough allowance added to the cutter radius.
 Drawing dimensions retain their declared precision; when no precision is

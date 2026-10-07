@@ -48,6 +48,28 @@ A known point still needs a usable model-to-setup frame transform. Bounds-only
 face, rectangular profile and pocket features do not acquire an invented centre
 requirement.
 
+**Mill DRO targets, aims and printed bands.** Off a lathe, a located row with a
+known setup point also carries `dro`: that point at the nearest step of the setup
+machine's DRO grid (`dro_grid`), at most half a step away, which the sheet's
+feature map prints. When the feature declares a height-like band
+(`height_above_pivot`, `height` or `separation`, the first one present) from a
+`height_from` reference, the row's `band_check` measures the DRO target from that
+reference: along a reference plane's normal, otherwise from the reference's own
+planned point along the common normal of both declared axes, square to the one
+declared axis, else point to point. The band is the one the sheet prints, rounded
+inward at its drawing precision. A target outside it is an error
+(`Located target band error: …`); a distance that cannot be measured, or a band
+that is not two numbers, keeps the setup unknown. A plan
+[`aims`](plan.md#aims) entry moves the feature's target along that same
+direction so its band reads `value_mm`, on every setup that locates it. The row
+keeps the unaimed point as `nominal_setup`, records the `aim` (requirement,
+value, reason, source, printed band, nominal value and shift), and the finding
+cites `plan.aims.<name>`; the feature map adds a sentence that gives the aimed
+target, the drawing nominal and the reason. An aim never changes geometry, a
+claim, a kernel input or another feature's target. An aim whose feature holds
+no such band, or whose distance cannot be measured, stays unknown with the
+reason in `aim.why`.
+
 **Kernel revolved location, any setup.** The kernel request lists, per setup,
 its located features with neither `at` nor a parent (`locate_revolved`); the
 engine measures their finished faces of revolution about setup Z in every
