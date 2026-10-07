@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 import itertools
 import math
 import re
@@ -424,8 +425,9 @@ def operative_z(bundle, setup, value, face=None, done=0, source=None, path=False
 
 def top_reader(bundle, setup):
     """``top(value, done=0)``: :func:`operative_z` of ``setup``'s stock ``"top"``, the Zs
-    it carries over (:func:`transfer`) found once, and each read once, for the setup."""
-    carried, reads = _carried(bundle, setup), {}
+    it carries over (:func:`transfer`) found at most once, and each read once, for the
+    setup."""
+    carried, reads = functools.cache(lambda: _carried(bundle, setup)), {}
 
     def top(value, done=0):
         if not number(value):
@@ -440,7 +442,8 @@ def top_reader(bundle, setup):
 
 
 def _operative_z(bundle, setup, value, face, done, source, path, carried):
-    """:func:`operative_z`, given ``setup``'s carried Zs (:func:`_carried`) when known."""
+    """:func:`operative_z`; ``carried()``, when given, returns ``setup``'s carried Zs
+    (:func:`_carried`)."""
     from .coordinates import dro_grid, dro_z, formed_z
 
     if not number(value):
@@ -462,10 +465,9 @@ def _operative_z(bundle, setup, value, face, done, source, path, carried):
                 continue
             if abs(state[key] - value) > SAME_Z:
                 continue
-            if carried is None:
-                carried = _carried(bundle, setup)
-            if key in carried:
-                return carried[key][1]
+            found = carried() if carried else _carried(bundle, setup)
+            if key in found:
+                return found[key][1]
     return dro_z(value, dro_grid(bundle, setup))
 
 
@@ -555,7 +557,7 @@ def arrival_zs(bundle, setup):
         if not number(value):
             continue
         if key == "top_z":
-            printed = _operative_z(bundle, setup, value, "top", 0, None, False, carried)
+            printed = _operative_z(bundle, setup, value, "top", 0, None, False, lambda: carried)
         else:
             printed = carried.get(key, (value, dro_z(value, dro_grid(bundle, setup))))[1]
         received[key] = (value, printed)
