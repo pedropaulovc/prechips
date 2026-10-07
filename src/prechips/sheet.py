@@ -1309,9 +1309,13 @@ class _Traveler:
     def posed_start(self, setup, op):
         """The kernel's pose of a turning op at its start (accessibility ``window_poses``)
         when a fixture component is within the crash zone of it: the clearance, and how
-        far out the start may go when that was found; None otherwise."""
+        far out the start may go when that was found; None otherwise. The start prints as
+        the DRO shows it (:meth:`surface_z`), off the posed one by the grid rounding: the
+        clearance loses that offset when it is outward (back against the feed), and a
+        printed start at or past the checked limit, or with no clearance left, is a STOP."""
         numbers = _mapping(self.records.get(("accessibility", f"{setup['id']}:{op['op']}")))
         o = self.operative
+        scale = {"mm": 1.0, "in": 25.4}.get(self.units)
         for pose in numbers.get("window_poses") or []:
             pose = _mapping(pose)
             clear, z = pose.get("clearance_mm"), op.get("z_from")
@@ -1323,12 +1327,26 @@ class _Traveler:
             ref = name.rsplit(" ", 1)[-1]
             if resolve(self.bundle, "fixtures", ref):
                 name = "the " + self.short_reference(ref, "fixtures")
-            gap = self.mm_on_grid(setup, clear, up=False)
-            text = f"START Z {o(self.surface_z(setup, z))}: {o(gap)} CLEAR OF {name}"
-            start = pose.get("max_start_z_mm")
+            planned, posed = self.surface_z(setup, z), pose.get("z_mm")
+            start, feed = pose.get("max_start_z_mm"), numbers.get("feed_z")
+            out = -feed if feed in (-1, 1) else None
+            if out is None and _known(start) and _known(posed) and start != posed:
+                out = 1 if start > posed else -1
+            moved = planned * scale - posed if _known(planned) and scale and _known(posed) else 0
+            clear -= max(0.0, moved * out if out else abs(moved))
+            limit = "unknown"
             if _known(start) and _known(z):
                 # Toward the planned start: never further out than the found limit.
                 limit = self.mm_on_grid(setup, start, up=start < pose.get("z_mm", start))
+            past = _known(limit) and out and (planned * scale - start) * out > -1e-9
+            if clear <= 0 or past:
+                stop = f"STOP: START Z {o(planned)} is not checked clear of {name}"
+                if _known(limit):
+                    stop += f": the checked start is no further out than Z {o(limit)}"
+                return _Box(stop)
+            gap = self.mm_on_grid(setup, clear, up=False)
+            text = f"START Z {o(planned)}: {o(gap)} CLEAR OF {name}"
+            if _known(limit):
                 text += f" — start no further out than Z {o(limit)}"
             return _Box(text)
         return None

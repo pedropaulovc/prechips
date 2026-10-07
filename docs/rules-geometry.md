@@ -330,8 +330,10 @@ are also declared, and is `unknown` while the head is unverified.
 A single-point turning op with numeric `z_from`/`z_to` is also posed where it
 starts and stops: the nose's leading extreme at that Z (the DRO reading after a
 +Z end-face touch) on the turned diameter of the claimed cylinder sample
-nearest it, relieved to the nearest clear pose within twice the nose radius as
-a cut sample is. Those poses count in `tool_hits`/`holder_hits`, so an air start
+nearest it. A nose meeting the profile there stands out along X at the same Z
+within twice the nose radius (on a fillet it contours to that end); one with no
+clear pose at that Z is checked where commanded, so a stop past a finished
+shoulder hits the part. Those poses count in `tool_hits`/`holder_hits`, so an air start
 into the dead centre or an overtravel into the chuck jaws is an accessibility
 error. `window_poses` records each end's Z, diameter, what it meets and the
 nearest placed fixture component with its clearance; at `z_from` it adds
@@ -340,7 +342,9 @@ holder touches that component (stepped out by the clearance until within
 0.001 mm; none when nothing is met within 250 mm). The traveler boxes a start
 within 3 mm of a component with both numbers, converted to plan units on the
 setup's DRO grid (clearance rounded down, the furthest start toward the planned
-one). Served follow rests are not set
+one). The start prints where the DRO shows it; rounded out against the feed, the
+clearance loses that offset, and a printed start at or past the limit, or with
+no clearance left, is a STOP box instead. Served follow rests are not set
 at a window end: when their jaws, set on the work with the tool at `z_from`,
 would meet a fixture component, `rest_engagement` gives the cut Z from which
 they clear it. The plan's `hold.supports[].engage_at_z_mm` (millimetres, the Z

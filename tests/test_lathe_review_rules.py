@@ -433,3 +433,38 @@ def test_an_inch_dome_stair_keeps_half_the_millimetre_allowance_off_the_sphere()
         r, z = row["x_target_mm"] / 2, row["z_mm"]
         off = (r * r + (z - centre) ** 2) ** 0.5 - 4.1102 / inch
         assert off == pytest.approx(0.1 / inch)
+
+
+def _start(z_mm, clearance, max_start, feed=None):
+    pose = {
+        "end": "z_from",
+        "z_mm": z_mm,
+        "clearance_mm": clearance,
+        "max_start_z_mm": max_start,
+        "nearest_fixture": "dead centre",
+    }
+    numbers = {"window_poses": [pose]} | ({"feed_z": feed} if feed else {})
+    sheet, setup, op = _sheet("mm", 0.1, numbers, z_mm, 10.0)
+    return sheet.posed_start(setup, op)
+
+
+def test_a_start_rounded_out_past_its_checked_limit_is_refused():
+    # Checked at Z50.04 with 0.02 clear and a limit of 50.06, the start prints at Z50.1 on
+    # the 0.1 grid, past the limit: refused, never printed with a borrowed clearance.
+    refused = _start(50.04, 0.02, 50.06)
+    assert refused.startswith("STOP: START Z 50.1 is not checked clear of dead centre")
+    assert refused == _start(50.04, 0.02, 50.06, feed=-1)
+    # With room, the printed start keeps the clearance less its outward rounding (0.25 -
+    # 0.06 = 0.19, printed down to 0.1) and the limit stays rounded in.
+    assert _start(50.04, 0.25, 50.81, feed=-1) == (
+        "START Z 50.1: 0.1 CLEAR OF dead centre — start no further out than Z 50.8"
+    )
+
+
+def test_an_unknown_later_band_does_not_hide_a_known_band_holding_the_start():
+    # Op 12's band may or may not hold Z1.75; either way the start is banded (op 12's
+    # band, else op 10's 1.5..2).
+    later = {**_PART, "op": 12, "to_z": 2.25, "to_z_band": [2.0, "unknown"]}
+    row = _chain([{**_PART, "to_z_band": [1.5, 2.0]}, later, _FORM])
+    assert row.status == "error"
+    assert "which op 10 leaves anywhere in 1.5 to 2;" in row.sentence

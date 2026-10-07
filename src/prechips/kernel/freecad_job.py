@@ -437,6 +437,21 @@ def _nearest_free(free, start, bound):
     return None
 
 
+def _outward_free(free, start, bound):
+    """The (s, z) point nearest ``start`` straight out along +s, at its own z, within
+    ``bound`` that ``free`` accepts, or None: ``POSE_SEARCH`` radial steps, the first free
+    one bisected back."""
+    _, steps, halvings = POSE_SEARCH
+    for step in range(1, steps + 1):
+        low, high = bound * (step - 1) / steps, bound * step / steps
+        if free((start[0] + high, start[1])):
+            for _ in range(halvings):
+                middle = (low + high) / 2
+                low, high = (low, middle) if free((start[0] + middle, start[1])) else (middle, high)
+            return (start[0] + high, start[1])
+    return None
+
+
 def _band(r0, r1, z0, z1):
     """Revolved annulus r0..r1 x z0..z1 (r0 may be 0), or None when it is empty."""
     if r1 - r0 <= PLANE_TOL or z1 - z0 <= PLANE_TOL:
@@ -4989,13 +5004,32 @@ class _Setup:
                 swept=quill if lathe else None,
                 owner="tailstock",
             )
+        seated = self.part
         if centre.get("hole_dia_mm"):
-            # The work's centre hole: a countersink of the centre's own point angle from
-            # the tip out to its declared mouth, which the setup-entry stock lacks.
+            # The work's centre hole, which the setup-entry stock lacks: a countersink of
+            # the centre's own point angle whose declared mouth lies on the work face where
+            # the centre axis leaves the stock. The centre must touch that seat.
             mouth = centre["hole_dia_mm"] / 2
-            self.centre_seat = Part.makeCone(0, mouth, mouth / math.tan(half), tip, axis)
-        if point.distToShape(self.part)[0] > STOCK_TOL:
-            self.fixture_debts.append(f"{name} tip does not reach the stock")
+            box = self.part.BoundBox
+            span = box.DiagonalLength + (tip - box.Center).Length
+            line = Part.LineSegment(tip - axis * span, tip + axis * span).toShape()
+            ends = [(vertex.Point - tip).dot(axis) for vertex in self.part.common(line).Vertexes]
+            if not ends:
+                self.fixture_debts.append(f"{name} axis does not meet the stock's centre hole")
+            else:
+                depth = mouth / math.tan(half)
+                apex = tip + axis * (max(ends) - depth)
+                # Past the face by 1 mm, so the cut never leaves a coplanar skin.
+                self.centre_seat = Part.makeCone(
+                    0, (depth + 1.0) * math.tan(half), depth + 1.0, apex, axis
+                )
+                seated = self.part.cut(self.centre_seat)
+        if point.distToShape(seated)[0] > STOCK_TOL:
+            self.fixture_debts.append(
+                f"{name} tip does not reach the stock"
+                if seated is self.part
+                else f"{name} does not seat in the declared centre hole"
+            )
 
     def _place_solids(self, hold, facts):
         """An authored fixture body (angle plate, custom nest) at its declared pose."""
@@ -8699,8 +8733,9 @@ class _Setup:
                 if tool["corners"] == 2:
                     blade_z += [low, high]
             else:
-                # As a cut sample: a nose meeting the profile within twice its radius (a
-                # fillet or corner at the window end) stands at the nearest clear pose.
+                # The commanded Z stays: a nose meeting the profile there within twice its
+                # radius (a fillet it contours to the window end) stands out on it at that
+                # Z; one that cannot is checked where it was commanded.
                 centre = window["centre"]
                 nose = tool["radius_mm"]
 
@@ -8708,7 +8743,7 @@ class _Setup:
                     return _disk_clear(c, nose - LIFT, segments)
 
                 if segments and not free(centre):
-                    centre = _nearest_free(free, centre, 2 * nose) or centre
+                    centre = _outward_free(free, centre, 2 * nose) or centre
                 window["centre"] = centre
                 window["meets"] = set()
             section, pieces = self._turn_sections(tool, centre, not holder_missing)

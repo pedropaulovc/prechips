@@ -265,3 +265,25 @@ def test_a_turning_op_is_posed_at_its_window_ends_so_overtravel_into_the_jaws_fa
     assert beyond["tool_hits"] > 0
     stop = next(w for w in beyond["window_poses"] if w["end"] == "z_to")
     assert stop["z_mm"] == 4.0 and set(JAWS) & set(stop["meets"])
+
+
+def test_a_turning_stop_past_a_finished_shoulder_is_checked_where_it_is_commanded(engine, shafts):
+    # The journal ends at the R1-filleted shoulder (z 20): a stop there stands the nose out
+    # on the fillet, clear; commanded 0.3 past it (z 19.7) the nose stands in the finished
+    # shoulder, which no clear pose at that Z avoids.
+    step = shafts["filleted"]
+    features = _journals(engine, step)
+    ops = [_turn("T1:10", "exposed", z_from=40.0, z_to=z_to) for z_to in (20.0, 19.7)]
+    results = engine.run(
+        {
+            "jobs": [
+                engine.job(step, features, [_lathe("T1", [op], _chuck(face_z=10.0))], stock=BAR)
+                for op in ops
+            ]
+        }
+    )["results"]
+    at, past = (result["ops"]["T1:10"] for result in results)
+    assert at["tool_hits"] == 0
+    assert past["tool_hits"] > 0
+    stop = next(w for w in past["window_poses"] if w["end"] == "z_to")
+    assert stop["z_mm"] == 19.7 and "part" in stop["meets"]

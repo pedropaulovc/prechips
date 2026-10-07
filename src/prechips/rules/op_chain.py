@@ -27,6 +27,7 @@ def _banded_starts(bundle):
             start = op.get("z_from")
             if not _forms(op) or not number(start):
                 continue
+            maybe = []  # later ops whose partly unknown band may hold the start
             for earlier in reversed(ops[:index]):
                 to_z, band = earlier.get("to_z"), earlier.get("to_z_band")
                 banded = isinstance(band, list) and len(band) == 2
@@ -43,15 +44,18 @@ def _banded_starts(bundle):
                 )
                 lo, hi = sorted(band) if known else band
                 if same or known:
+                    # Certain whatever the later partly unknown bands hold: if one holds
+                    # the start it is banded there, else this band leaves it.
                     errors.setdefault(op.get("feature"), []).append(
                         f"{leader} leaves anywhere in {_z(lo)} to {_z(hi)}; an op must leave "
                         "that face at a deterministic to_z first"
                     )
-                else:
-                    unknowns.setdefault(op.get("feature"), []).append(
-                        f"{leader} leaves anywhere in {_z(lo)} to {_z(hi)}, which may hold it"
-                    )
-                break
+                    maybe = []
+                    break
+                # Unknown until known not to hold it: keep scanning the earlier producers.
+                maybe.append(f"{leader} leaves anywhere in {_z(lo)} to {_z(hi)}, which may hold it")
+            if maybe:
+                unknowns.setdefault(op.get("feature"), []).extend(maybe)
     return errors, unknowns
 
 
