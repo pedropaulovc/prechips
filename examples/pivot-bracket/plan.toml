@@ -37,7 +37,7 @@ as_is_faces = []                 # every finished face is cut
 # DataBracket (r3): the blank's preparation, before S1. The engine cannot route squaring
 # setups (every non-saw op must claim a manifest feature), so the steps are stock text.
 prerequisite = "saw and square the blank to 18.0 × 26.2 × 34.2 mm, as listed under STOCK AND ROUTE" # AUTHOR'S CHOICE: printed as the job page's Before S1 line
-note = "AUTHOR'S CHOICE: Prepare the blank 1 mm over the finished part on every face, because S1-S3 pick up these faces. (1) Bandsaw a 38 mm length off 3/4 × 1-1/4 in flat bar. (2) In the mill vise on parallels, face one wide side flat: the left side. (3) Left side against the fixed jaw, face one narrow edge square to it: the outer end. (4) Left side against the fixed jaw, outer end down on the parallels, face the other edge to 26.2: the free end. (5) Left side down on the parallels, face the other wide side to 18.0: the right side. (6) Stand the blank on a sawn end, left side against the fixed jaw and the outer end indicated square to the table, and face the top end: the crown end. Turn it end for end, crown down on the parallels, and face the seat end to 34.2. (7) Mic 18.0 within ±0.1 and 26.2 and 34.2 within ±0.02, then mark the left side, outer end and crown end. S1 edge-finds the left side and outer end; S2 and S3 edge-find the left side and free end and touch Z on the crown end, so a 26.2 or 34.2 error moves their cuts by the same amount."
+note = "AUTHOR'S CHOICE: The blank is 1 mm over the finished part on every face. (1) Bandsaw 38 mm off 3/4 × 1-1/4 in flat bar. (2) Vise on parallels: face one wide side flat — the left side. (3) Left side to the fixed jaw: square one edge — the outer end. (4) Left side to the fixed jaw, outer end down: face the opposite edge to 26.2 — the free end. (5) Left side down: face the other wide side to 18.0. (6) Sawn end down, left side to the fixed jaw, outer end indicated square: face the crown end; flip it crown down and face the seat end to 34.2. (7) Mic 18.0 ±0.1, 26.2 and 34.2 ±0.02; mark the left side, outer end and crown end. S1 picks up the left side and outer end; S2/S3 pick up the left side and free end and touch Z on the crown end."
 cite = ["AUTHOR'S CHOICE: 3/4 x 1-1/4 in, a common flat-bar section over 18 x 26.2; 38 mm saws 1.9 mm over each 34.2 end", "AUTHOR'S CHOICE: six-face vise squaring with the left side as the reference face, because S1-S3 edge-find it", "AUTHOR'S CHOICE: 26.2 and 34.2 held to +/-0.02 because S2/S3 zero on the free and crown ends, opposite the S1 references"]
 
 [dro]
@@ -107,7 +107,7 @@ jaw_above_parallels_mm = 19.5453
 clamp = "hand plus quarter turn" # author's choice; verify actual grip before cutting
 parallels_along = "y"
 parallels_centres_mm = [[-6.5, 9.1], [6.5, 9.1]] # author's choice: under the blank edges
-note = "Seat side up on 1 in parallels; blank X -9..9 and Y -4..22.2 in this Setup. Raw seat is Z +1, finished seat Z0. Finish the foot boundary only down to Z -6, leaving the ear-side stock below for S2-S4. The foot-profile cut bottom stays 7.65 mm above the jaw tops."
+note = "Seat side up on 1 in parallels; blank X -9..9 and Y -4..22.2 in this Setup. Raw seat is Z +1, finished seat Z0. Finish the foot boundary only down to Z -6, leaving the ear-side stock below for S2-S4. The foot-profile cut bottom stays 7.655 mm above the jaw tops." # DataBracket (r3): jaw tops print at Z -13.655
 
 [setups.zero.x]
 edge = "blank_left"
@@ -180,7 +180,7 @@ length = "calipers"
 
 # ======================================================================= S2
 # AUTHOR'S CHOICE: rough the upper free run and the ear side strips while the raw
-# overhang is gripped 13.55 mm deep, so S3 (gripping only 3.67 mm of the 6 mm foot)
+# overhang is gripped 13.545 mm deep, so S3 (gripping only 3.67 mm of the 6 mm foot)
 # never rough-mills more than 16 mm above the foot top. The jaws close on the raw
 # 18 mm overhang above the 16 mm finished foot; the foot hangs between them untouched.
 [[setups]]
@@ -213,7 +213,7 @@ stop = "No end stop: seat the finished seat on the parallels, close the jaws on 
 clamp = "hand plus quarter turn" # author's choice
 parallels_along = "y"
 parallels_centres_mm = [[-6.25, -9.1], [6.25, -9.1]] # author's choice: under the 16 mm foot
-note = "Seat down on the 1 in parallels. The jaws grip the raw 18 mm overhang from the foot top up to Z +13.55; the finished 16 mm foot sits between the jaws without touching them. Rough only down to Z +16, 2.45 mm above the jaw tops."
+note = "Seat down on the 1 in parallels. The jaws grip the raw 18 mm overhang from the foot top up to Z +13.545; the finished 16 mm foot sits between the jaws without touching them. Rough only down to Z +16, 2.455 mm above the jaw tops." # DataBracket (r3): jaw top printed as grip_mm 13.5453
 
 [setups.zero.x]
 edge = "raw_overhang_left"
@@ -245,7 +245,7 @@ faces = ["#96/ADVANCED_FACE[7]/NONE"] # retained inner wall, roughed down to Z +
 tool = "bracket-long-endmill"
 holder = "r8-collets-lms-4860/3-8in"
 approach_mm = 5.0                # author's choice: rapid plane above the current stock top
-to_z = 16.0                      # AUTHOR'S CHOICE: 2.45 mm above the jaw tops at Z +13.55
+to_z = 16.0                      # AUTHOR'S CHOICE: 2.455 mm above the jaw tops at Z +13.545
 direction = "conventional"       # author's choice
 doc_mm = 4.0                     # AUTHOR'S CHOICE: three axial levels at 1 mm radial step, about 0.4D
 rough_allowance_mm = 0.3         # author's choice: stock on the retained ear wall
@@ -260,7 +260,7 @@ faces = ["#41/ADVANCED_FACE[4]/NONE"] # left ear wall, roughed down to Z +16 onl
 tool = "bracket-long-endmill"
 holder = "r8-collets-lms-4860/3-8in"
 approach_mm = 5.0                # author's choice: rapid plane above the current stock top
-to_z = 16.0                      # AUTHOR'S CHOICE: 2.45 mm above the jaw tops
+to_z = 16.0                      # AUTHOR'S CHOICE: 2.455 mm above the jaw tops
 direction = "conventional"       # author's choice
 doc_mm = 4.0                     # AUTHOR'S CHOICE: three axial levels at 1 mm radial step
 rough_allowance_mm = 0.3         # author's choice: radial ear-side stock
@@ -275,7 +275,7 @@ faces = ["#451/ADVANCED_FACE[14]/NONE"] # right ear wall, roughed down to Z +16 
 tool = "bracket-long-endmill"
 holder = "r8-collets-lms-4860/3-8in"
 approach_mm = 5.0                # author's choice: rapid plane above the current stock top
-to_z = 16.0                      # AUTHOR'S CHOICE: 2.45 mm above the jaw tops
+to_z = 16.0                      # AUTHOR'S CHOICE: 2.455 mm above the jaw tops
 direction = "conventional"       # author's choice
 doc_mm = 4.0                     # AUTHOR'S CHOICE: three axial levels at 1 mm radial step
 rough_allowance_mm = 0.3         # author's choice: radial ear-side stock
@@ -318,7 +318,7 @@ stop = "No end stop: seat the finished foot on the parallels and against the fix
 clamp = "hand plus quarter turn" # author's choice
 parallels_along = "y"
 parallels_centres_mm = [[-6.25, -9.1], [6.25, -9.1]]
-note = "Seat down on one pair of 1-5/8 in tall, 1/8 in thick ground parallels, keeping the X0 drilling line clear. Do not use 1-2-3 blocks between the jaws closed on this 16 mm foot. The jaws grip 3.67 mm of the foot; the foot top is 2.33 mm above the jaw tops. S2 already roughed everything above Z +16, so the roughing here stays within 18.3 mm of the jaw tops. Retain a straight rectangular crown for S4, not an arch sculpted from above."
+note = "Seat down on one pair of 1-5/8 in tall, 1/8 in thick ground parallels, keeping the X0 drilling line clear. Do not use 1-2-3 blocks between the jaws closed on this 16 mm foot. The jaws grip 3.67 mm of the foot; the foot top is 2.33 mm above the jaw tops. S2 already roughed everything above Z +16, so the roughing here stays within 18.33 mm of the jaw tops. Retain a straight rectangular crown for S4, not an arch sculpted from above." # DataBracket (r3): 16 + 2.33 above the jaw tops at Z -2.330
 
 [setups.zero.transfer]
 from = "S1"
