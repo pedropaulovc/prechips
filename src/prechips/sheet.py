@@ -501,6 +501,13 @@ _SPINDLE_TURNS = {
 }
 
 
+# A shop-made item the HOLD places (no pose places its solids): its make table gives
+# positions in the item's own frame, and where it goes is the HOLD's to say.
+LOOSE = "loose"
+LOOSE_TEXT = "loose: placed as the HOLD says"
+_ITEM_FRAME = ([0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0])
+
+
 def _pose_axes(pose):
     """(origin, x, y, z) of a declared orthonormal fixture pose (y = z × x), else None."""
     pose = _mapping(pose)
@@ -1577,6 +1584,7 @@ class _Traveler:
             steps.append(
                 "Jaw buttons: "
                 + self.reference(hold["jaw_buttons"], "fixtures")
+                + self.shop_made_pointer(setup, hold["jaw_buttons"], uses)
                 + ", one between each jaw and the work, its spigot in the work's bore."
             )
         supports = hold.get("supports")
@@ -1853,20 +1861,23 @@ class _Traveler:
     def shop_made_uses(self, setup):
         """``{reference: [(label, pose)]}`` for each shop-made item the hold uses, in HOLD
         order: the fixture at ``hold.pose``, each clamp entry at its own pose (labelled by
-        :func:`clamp_labels`), the work stop at ``stop_pose``; risers and supports carry
-        no pose."""
+        :func:`clamp_labels`), the work stop at ``stop_pose``. An item whose solids nothing
+        poses, because the HOLD places it (a vise's own jaw plates, the riser, supports,
+        jaw buttons: the kernel builds those from their facts), is :data:`LOOSE`."""
         hold = _mapping(setup.get("hold"))
         clamps = hold.get("clamps") if isinstance(hold.get("clamps"), list) else []
-        placed = [(hold.get("fixture"), None, hold.get("pose"))]
+        fixture = hold.get("fixture")
+        vise = _mapping(self.shop_made(fixture)).get("kind") == "vise"
+        placed = [(fixture, None, LOOSE if vise else hold.get("pose"))]
         placed += [
             (_mapping(clamp).get("ref"), label, _mapping(clamp).get("pose"))
             for label, clamp in zip(clamp_labels(hold), clamps, strict=True)
         ]
         placed.append((hold.get("stop_fixture"), "stop", hold.get("stop_pose")))
-        placed += [(hold.get(key), None, None) for key in ("riser", "supports")]
+        placed += [(hold.get(key), None, LOOSE) for key in ("riser", "supports", "jaw_buttons")]
         uses = {}
         for reference, label, pose in placed:
-            if self.shop_made(reference) is None or (pose is None and reference in uses):
+            if self.shop_made(reference) is None or (pose in (None, LOOSE) and reference in uses):
                 continue
             uses.setdefault(reference, []).append((label, pose))
         return uses
@@ -2075,7 +2086,10 @@ class _Traveler:
         return "?"
 
     def solid_position(self, solid, axes, fit=False):
-        """Setup-frame position: a box's X/Y/Z extents, a cylinder's axis."""
+        """Setup-frame position (or item-frame, for an item the HOLD places): a box's X/Y/Z
+        extents, a cylinder's axis."""
+        if axes == LOOSE:
+            return LOOSE_TEXT
         extents = _solid_extents(solid, axes) if axes else None
         if extents is None:
             return "? not posed"
@@ -2171,10 +2185,15 @@ class _Traveler:
         made row's ``note`` (material, heat treatment, finish) one "Make:" entry under
         that; solids already in the shop (``supply = "existing"``, such as machine vise
         jaws drawn for clearance) are not listed. A fit position printed ``?`` says why
-        under the table."""
+        under the table. An item only the HOLD places (:data:`LOOSE`) gives its positions
+        in its own frame, the one its solids are drawn in."""
         sid = setup["id"]
         item = self.shop_made(reference)
-        placed = [(label, _pose_axes(pose)) for label, pose in placements]
+        loose = all(pose == LOOSE for _, pose in placements)
+        placed = [
+            (label, _ITEM_FRAME if loose else LOOSE if pose == LOOSE else _pose_axes(pose))
+            for label, pose in placements
+        ]
         solids, made, withheld, holes, drilled, fits = self.shop_made_parts(reference)
         self.fixture_unknowns = set()
         groups = {}
@@ -2268,11 +2287,12 @@ class _Traveler:
             if any(_example(item.get(f"{edge}_mm")) for edge in ("length", "width", "height")):
                 body += f" {EXAMPLE_MARK}"
                 self.example_marks = True
-            rows.append([body, size, ["? not posed"], "—", "—"])
+            rows.append([body, size, [LOOSE_TEXT if loose else "? not posed"], "—", "—"])
+        frame = f"its own frame ({LOOSE_TEXT})" if loose else f"Setup {sid}"
         headings = [
             "Component",
             "Size mm",
-            f"Position, Setup {sid} X / Y / Z mm",
+            f"Position, {frame} X / Y / Z mm",
             "Locates",
             "Fastener",
         ]
@@ -2284,8 +2304,14 @@ class _Traveler:
         title = f"SHOP-MADE FIXTURE — {self.reference(reference, 'fixtures')}"
         title += f" ({', '.join(users)})" if users else ""
         intro = (
-            f"Make before Setup {sid}. Positions are in the Setup {sid} frame: boxes give "
-            "their X / Y / Z extents, cylinders their axis."
+            f"Make before Setup {sid}. "
+            + (
+                f"Nothing poses it in the Setup {sid} frame: set it where the HOLD says. "
+                "Positions are in the item's own frame"
+                if loose
+                else f"Positions are in the Setup {sid} frame"
+            )
+            + ": boxes give their X / Y / Z extents, cylinders their axis."
         )
         hardware = self.hardware(
             [s for s in solids if not s.get("void") and _supply(s) == "bought"], len(placed)

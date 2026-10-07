@@ -296,7 +296,13 @@ Other holding solids come from the same accepted-fact rule, never defaults:
   one `supply` group into one row, named by their shared `label` or the words
   their names share) with its size and setup-frame position (box X / Y / Z
   extents, cylinder axis), placed by `hold.pose`, the clamp entry's `pose` or
-  `stop_pose`. A void is listed, as "with N × <fastener or size>: positions",
+  `stop_pose`; a posed slot whose pose is missing prints "? not posed". An item
+  the HOLD places from its facts, which no pose places (a shop-made `vise`
+  fixture's jaw plates, `hold.riser`, `hold.supports`, `hold.jaw_buttons`), is
+  loose: its table gives positions in the item's own frame, the frame its
+  solids are drawn in, under "loose: placed as the HOLD says", and the HOLD
+  step naming it points to the table. A void is listed, as "with N × <fastener
+  or size>: positions",
   in the row of every made or existing primitive it cuts: every one `cuts`
   names, else every one it overlaps. Overlap is decided exactly for boxes,
   parallel cylinders and axis-aligned cylinders against boxes; a primitive an
