@@ -8708,11 +8708,12 @@ class _Setup:
 
     def _hole_cut(self, op, valid, radius):
         """Geometry-located cut of a hole op: ``centres``, ``bottom``, ``removal``, ``reason``,
-        ``cone_slope``.
+        ``cone_slope``, ``conflict``.
 
         ``centres`` are setup-frame vectors on each claimed tool-axis bore axis whose z is
         that axis's own actual tip once known (a through hole exits where its claimed
-        bores end); ``bottom`` is the lowest of them, or None beside a debt ``reason``;
+        bores end, or at its planned exit); ``bottom`` is the lowest of them, or None beside
+        a debt ``reason``;
         ``cone_slope`` is a pointed tool's tan(point angle / 2), else None. A spot is
         always pointed; a drill is pointed when its hole carries ``point_angle_deg``.
         ``removal`` is the op-radius cutter fed from past the entry-stock top down to each
@@ -8721,7 +8722,9 @@ class _Setup:
         sweeps above it (:func:`_plunge`), minus unrelated finished material, or None when
         nothing is removed. A pointed cutter is its :func:`_cutter` cone and body; others
         sweep a cylinder. Every action but a spot adds its own bore wall allowance up to the
-        operation radius.
+        operation radius. ``conflict`` names a planned through exit above a claimed bore's
+        end (the plan contradicting the finished bore; the cut still stops at the plan),
+        else None.
         """
         key = (id(op), tuple(valid), radius)
         if key not in self.hole_cuts:
@@ -8734,6 +8737,7 @@ class _Setup:
                     "removal": None,
                     "reason": f"hole cut boolean failed ({exc})",
                     "cone_slope": None,
+                    "conflict": None,
                 }
         return self.hole_cuts[key]
 
@@ -8748,6 +8752,7 @@ class _Setup:
                 "removal": None,
                 "reason": reason,
                 "cone_slope": None,
+                "conflict": None,
             }
 
         hole = op.get("hole")
@@ -8786,7 +8791,9 @@ class _Setup:
         axes.sort(key=lambda axis: (axis[0], axis[1]))
         to_z, action, thru = op.get("to_z"), op.get("do"), hole.get("thru")
         entry, depth = hole.get("entry_z_mm"), hole.get("depth_mm")
-        through, slope = False, None
+        # Per axis, whether the tool runs out of its bore (a through cut); why not, if a
+        # planned exit contradicts the finished bore.
+        exits, slope, conflict = [False] * len(axes), None, None
         if action == "spot" or (action == "drill" and "point_angle_deg" in hole):
             # A pointed tool cuts with its cone, never a flat-bottomed cylinder: without a
             # known included angle neither its cut nor its flute obstacle is derivable.
@@ -8820,15 +8827,28 @@ class _Setup:
         elif thru is True:
             # Each axis exits where its own claimed bores end, not at the entry-stock
             # floor: finished material below the exit (a clevis's lower leg, a cross
-            # bore's far wall) is never on this tool's path. A plan that runs the tool
-            # further (its exit face plus exit allowance) cuts the stock it carries past
-            # the finished bore end, so no skin is left over the bore's mouth.
+            # bore's far wall) is never on this tool's path. A planned exit (its exit face
+            # plus exit allowance) governs instead, never deepened to the CAD: below the
+            # bore end it cuts the stock carried past it, so no skin is left over the
+            # bore's mouth; above it, the plan contradicts the finished through bore, which
+            # the cut leaves unfinished and the op names as an error.
             planned = hole.get("exit_z_mm")
-            bottoms = []
-            for _, _, members in axes:
+            bottoms, short = [], []
+            for i, (x, y, members) in enumerate(axes):
                 end = min(self._bore_span(self.faces[index], Z)[0] for index, _ in members)
-                bottoms.append((min(end, planned) if _number(planned) else end) - point)
-            through = True
+                exits[i] = not (_number(planned) and planned > end + BBOX_TOL)
+                if not exits[i]:
+                    short.append(
+                        f"{_r(planned - end)} mm above the end of the bore at x {_r(x)} "
+                        f"y {_r(y)} (Z {_r(end)})"
+                    )
+                bottoms.append((planned if _number(planned) else end) - point)
+            if short:
+                conflict = (
+                    f"its planned through exit at Z {_r(planned)} (entry less the stock_state "
+                    f"local_thickness and exit_mm) stops {'; '.join(short)}, so the plan "
+                    "contradicts the finished through bore and its cut leaves it unfinished"
+                )
         else:
             return debt("hole thru is unknown and the op has no to_z; its bottom is unknown", axes)
         centres = [V(x, y, level) for (x, y, _), level in zip(axes, bottoms, strict=True)]
@@ -8836,9 +8856,9 @@ class _Setup:
         top = self.box[5] + 1.0
         tools = []
         seat = _seat(op)
-        for (x, y, _), level in zip(axes, bottoms, strict=True):
+        for (x, y, _), level, out in zip(axes, bottoms, exits, strict=True):
             # A through cut starts LIFT past its exit so no face is coincident with it.
-            low = level - LIFT if through else level
+            low = level - LIFT if out else level
             if top - low <= LIFT:
                 continue
             # A seat cone's widest edge sweeps its shank-radius bore down to its final pose.
@@ -8849,6 +8869,7 @@ class _Setup:
             "removal": None,
             "reason": None,
             "cone_slope": slope,
+            "conflict": conflict,
         }
         if not tools:
             return record
@@ -9444,6 +9465,9 @@ class _Setup:
             if not joint and isinstance(op.get("hole"), dict)
             else None
         )
+        if hole_cut is not None and hole_cut["conflict"] is not None:
+            # The plan and the finished bore disagree: an error at the op, never a choice.
+            facts["stock_removal_error"] = hole_cut["conflict"]
         if hole_cut is not None and hole_cut["reason"] is not None:
             for key in self._MEASURED:
                 facts[key] = UNKNOWN

@@ -1196,11 +1196,17 @@ A spot's `depth_mm` is its apex tip depth below the entry. A drill's
 with nothing added. A through drill's full diameter exits each matched bore's
 actual axial bottom, so its tip is one point length (plus numerical lift)
 below that; other through actions end at the bore bottom plus numerical lift,
-not the raw-stock bounding-box bottom. When the plan runs the tool further, its
-full diameter reaches the planned exit instead: the received exit face
+not the raw-stock bounding-box bottom. A planned exit governs instead, never
+deepened to the CAD: the received exit face
 (`entry_z - local_thickness[feature]`) less the op's `exit_mm`, both numeric and
-`exit_mm >= 0`. Stock carried past the finished bore's end (a cap left proud by
-a part-off) is cut through, so no skin stays over the bore's mouth.
+`exit_mm >= 0`, is where the tool's full diameter stops on every matched bore. Below
+a bore's end it cuts the stock carried past it (a cap left proud by a part-off),
+so no skin stays over the bore's mouth. More than 1e-4 mm above a bore's end the
+plan contradicts the finished through bore: the tool still stops at the planned
+exit (no lift, so the bore keeps its unfinished floor), and the op's
+`stock_removal_error` names the planned exit Z and each bore end it stops short
+of, so its [`accessibility`](#accessibility), [`reach`](#reach) and
+[`internal_corner_radius`](#internal_corner_radius) rows are errors.
 Spot and tap operations honor an explicit depth even when the feature declares
 `thru = true`; that feature fact does not extend their local removal past the
 authored endpoint. `stock_state.top_z` and `entry_z` are machine-frame
