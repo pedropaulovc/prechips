@@ -230,7 +230,7 @@ jaw_above_parallels_mm = 13.1953
 clamp = "hand plus quarter turn, then tap the bar down onto the parallels with a soft hammer" # AUTHOR'S CHOICE: seat the raw side before the first face
 parallels_along = "x"
 parallels_centres_mm = [[17.1, 0.5], [17.1, 25.7]] # AUTHOR'S CHOICE: under both edges of the bar
-note = "Bar flat on 1-1/4 in parallels, left side up. Face the left side just enough to clean up: it is the reference face for every later setup."
+note = "Bar flat on 1-1/4 in parallels, left side up; the jaw tops sit at Z -5.33, under the faced left side (Z0). Face the left side just enough to clean up: it is the reference face for every later setup."
 
 [setups.zero.x]
 edge = "sawn crown end"
