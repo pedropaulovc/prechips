@@ -1,4 +1,4 @@
-"""One fact, one source: free text that names a structured fact must agree with it."""
+"""One fact, one source: free text must not restate a derived fact, nor contradict a field."""
 
 import re
 from copy import deepcopy
@@ -10,6 +10,7 @@ import pytest
 
 from prechips.inputs import Bundle
 from prechips.rules import consistency
+from prechips.rules.resolution import jaw_top_z
 from prechips.sheet import _Traveler
 
 INVENTORY = {
@@ -63,45 +64,44 @@ def kernel(box):
 TRANSFER = {"from": "S0", "indicate": ["head", "foot"], "runout_limit_mm": 0.02}
 
 
+@pytest.mark.parametrize("keep", [True, False])
 @pytest.mark.parametrize(
-    "stop",
+    ("source", "where", "text"),
     [
-        "same chucking as S0; do not loosen the jaws.",
-        "Use the same chucking as S0.",
-        "Do not loosen the jaws.",
+        ("S0", "stop", "same chucking as S0; do not loosen the jaws."),
+        ("S0-A", "note", "Use the same chucking as S0-A."),
+        ("rough-turn", "note", "Use the same chucking as rough-turn."),
+        ("S0", "note", "Use the same chucking as S0-A."),
+        ("S0", "note", "This is not the same chucking as S0; loosen and re-clamp the work."),
+        ("S0", "stock", "the same chucking turned 12.5182 degrees."),
+        (None, "stop", "same chucking as S0; do not loosen the jaws."),
     ],
 )
-def test_the_same_chucking_as_the_transfer_setup_needs_a_transfer_kept_clamped(stop):
-    found = errors(bundle([{"hold": {"stop": stop}, "zero": {"transfer": TRANSFER}}]))
-    assert "keep_clamped" in found["S1"]
-
-
-def test_a_transfer_kept_clamped_agrees_with_the_same_chucking():
-    transfer = {**TRANSFER, "keep_clamped": True, "recovery": "stop and re-plan"}
-    hold = {"stop": "same chucking as S0; do not loosen the jaws."}
-    assert rows(bundle([{"hold": hold, "zero": {"transfer": transfer}}]))["S1"].status == "pass"
+def test_text_restating_the_chucking_is_an_error_whatever_the_transfer_says(
+    source, where, text, keep
+):
+    setup = {"hold": {"stop": text} if where == "stop" else {"note": text}}
+    if where == "stock":
+        setup = {"stock_state": {"note": text}}
+    if source:
+        transfer = {**TRANSFER, "from": source, "keep_clamped": keep, "recovery": "re-plan"}
+        setup["zero"] = {"transfer": transfer}
+    found = errors(bundle([setup]))["S1"]
+    assert "same chucking" in found and "keep_clamped" in found and "drop" in found
 
 
 @pytest.mark.parametrize(
     "note",
     [
-        "This is not the same chucking as S0; loosen and re-clamp the work.",
         "Do not loosen the toolpost; loosen the workpiece jaws for transfer.",
+        "Do not loosen the jaws.",
         "Leave it in the chuck, never loosen it.",
-        "Use the same chucking as S4.",
-        "same chucking as S0 until op 20, then re-clamp the work.",
-        "same chucking as S4; do not loosen the jaws until the work is indicated.",
-        "Do not loosen the jaws until the work is indicated.",
+        "Use the same chuck as S0.",
     ],
 )
-def test_kept_chucking_text_is_attributed_only_as_the_same_chucking_as_the_transfer_setup(note):
-    assert errors(bundle([{"hold": {"note": note}, "zero": {"transfer": TRANSFER}}])) == {}
-
-
-def test_the_same_chucking_without_a_transfer_has_no_loosening_step_to_contradict():
-    assert (
-        errors(bundle([{"hold": {"stop": "same chucking as S0; do not loosen the jaws."}}])) == {}
-    )
+def test_other_chucking_wording_is_not_read(note):
+    data = bundle([{"hold": {"note": note}, "zero": {"transfer": TRANSFER}}])
+    assert rows(data)["S1"].status == "not_applicable"
 
 
 # ------------------------------------------------------------ hand tight
@@ -124,25 +124,40 @@ def test_mixed_hand_and_wrench_clamps_name_the_hand_ones():
     ) in page
 
 
-@pytest.mark.parametrize("where", ["clamp", "hold"])
-def test_a_clamp_the_text_leaves_hand_tight_needs_tighten_hand(where):
-    clamp = {"ref": "strap", "torque_nm": 15}
-    hold = {"clamps": [clamp], "clamp_order": [1]}
-    (clamp if where == "clamp" else hold)["note"] = "Leave the nut hand tight."
-    assert 'tighten = "hand"' in errors(bundle([{"hold": hold}]))["S1"]
-
-
 @pytest.mark.parametrize(
     "note",
     [
+        "Leave the nut hand tight.",
+        "M6 nut on the button stud, hand-tight.",
         "Do not leave this clamp hand tight; torque it to 15 N m.",
-        "Initially hand tight for alignment; then torque this clamp to 15 N m.",
-        "Tighten by hand, then torque to 15 N m.",
+        "Hand tight for alignment; torque C1 to 15 N m.",
+        "Initially hand-tightened for alignment.",
+        "Nut tightened by hand.",
+        "Finish by tightening by hand.",
+        "Keep it finger tight.",
     ],
 )
-def test_a_torqued_clamp_whose_note_mentions_hand_tightening_is_not_an_error(note):
-    hold = {"clamps": [{"ref": "strap", "torque_nm": 15, "note": note}], "clamp_order": [1]}
-    assert errors(bundle([{"hold": hold}])) == {}
+@pytest.mark.parametrize("field", [{"tighten": "hand"}, {"torque_nm": 15}, {}])
+def test_a_clamp_note_restating_its_tightening_is_an_error(note, field):
+    hold = {"clamps": [{"ref": "strap", "note": note, **field}], "clamp_order": [1]}
+    found = errors(bundle([{"hold": hold}]))["S1"]
+    assert "C1" in found and "tighten / torque_nm" in found and "drop" in found
+
+
+STRAP = {"ref": "strap", "torque_nm": 15}
+
+
+@pytest.mark.parametrize(
+    "hold",
+    [
+        {"clamps": [{**STRAP, "note": "Run the nut down by hand."}], "clamp_order": [1]},
+        {"clamps": [STRAP], "clamp_order": [1], "clamp": "Strap C1, hand tight."},
+        {"clamps": [STRAP], "clamp_order": [1], "note": "Leave the nut hand tight."},
+        {"clamps": [{**STRAP, "note": "Leave the nut hand tight."}]},
+    ],
+)
+def test_hand_tightening_outside_an_ordered_clamp_note_is_not_read(hold):
+    assert rows(bundle([{"hold": hold}]))["S1"].status == "not_applicable"
 
 
 def test_a_hand_tight_clamp_cannot_also_carry_a_torque():
@@ -156,15 +171,17 @@ def test_a_tool_number_in_text_must_be_on_the_setup_tools_table():
     assert "TOOLS" in found["S1:20"]
 
 
+@pytest.mark.parametrize("count", [2, 8, 9, 10, 12])
 @pytest.mark.parametrize(
-    "note",
+    "form",
     [
-        "Use T1 (2-flute) for this cut.",
-        "Use the 2-flute T1 for this cut.",
-        "Use T1, the 2fl cutter.",
+        "Use T1 ({n}-flute) for this cut.",
+        "Use the {n}-flute T1 for this cut.",
+        "Use T1, the {n}fl cutter.",
     ],
 )
-def test_a_flute_count_bound_to_a_tool_number_must_match_its_inventory(note):
+def test_a_flute_count_bound_to_a_tool_number_must_match_its_inventory(form, count):
+    note = form.format(n=count)
     assert "4 flutes" in errors(bundle([{"ops": [{**FACE, "note": note}]}]))["S1:10"]
 
 
@@ -176,9 +193,15 @@ def test_tool_numbers_and_flutes_that_match_the_tools_table_pass(note):
 
 
 @pytest.mark.parametrize(
-    "note", ["Use T1 instead of the old 2-flute cutter.", "T1 replaces the old 2-flute cutter."]
+    "note",
+    [
+        "Use T1 instead of the old 2-flute cutter.",
+        "T1 replaces the old 2-flute cutter.",
+        "Use T1 (two-flute) for this cut.",
+        "Use the 1.5-flute T1 for this cut.",
+    ],
 )
-def test_a_flute_count_that_describes_another_cutter_is_not_attributed_to_the_tool(note):
+def test_a_flute_count_not_bound_in_digits_to_one_tool_number_is_not_read(note):
     assert errors(bundle([{"ops": [{**FACE, "note": note}]}])) == {}
 
 
@@ -216,41 +239,54 @@ def test_the_hold_prints_the_work_top_height_above_the_jaw_tops():
     assert "work top above jaw tops mm" in page and "5.855" in page
 
 
-@pytest.mark.parametrize("jaws", ["the jaws", "the jaw tops"])
-def test_the_stated_height_of_the_work_above_the_jaws_must_match_the_hold(jaws):
-    found = errors(bundle([bar(f"Bar flat on parallels; the bar stands 5.3 mm above {jaws}.")]))
-    assert "jaw_above_parallels_mm" in found["S1"] and "5.855" in found["S1"]
-
-
-@pytest.mark.parametrize("stated", ["5.9", "5.85", "6"])
-def test_a_height_above_the_jaws_agrees_to_its_stated_precision(stated):
-    note = f"Bar flat on parallels; the raw bar stands {stated} mm above the jaws."
-    assert rows(bundle([bar(note)], kernel=BAR_BOX))["S1"].status == "pass"
+@pytest.mark.parametrize("rail", ["unknown", -21.0])
+def test_an_unknown_rail_leaves_the_jaw_tops_and_the_work_top_height_unknown(rail):
+    setup = bar("Bar flat on parallels.")
+    setup["stock_state"]["retained_rail_bottom_z"] = rail
+    page = sheet(bundle([setup]))
+    derived = jaw_top_z(setup, setup["hold"], 1.0)
+    if rail == "unknown":
+        assert derived is None and "5.855" not in page
+        assert "work top above jaw tops mm" in page and "? seat or stock top unknown" in page
+    else:
+        assert derived == pytest.approx(-21.0 + 13.1953) and "8.330" in page
 
 
 @pytest.mark.parametrize(
     "note",
     [
-        "The stop stands 2 mm above the jaws; the work stands 5.855 mm above the jaws.",
-        "Before this setup the stock stands 8 mm above the jaws; now it stands 5.855 mm above "
-        "the jaws.",
-        "The work stands 5.8 mm above the jaws (+/- 0.2 mm).",
+        "Bar flat on parallels; the raw bar stands 5.855 mm above the jaw tops.",
+        "Bar flat on parallels; it stands 5.3 mm above the jaws.",
+        "Z 0.525, 5.855 mm above the jaw tops.",
+        "Before re-seating, Z 0.525, 8 mm above the jaw tops.",
+        "The work stands 5.8 mm above the jaws (tolerance +/- 0.2 mm).",
+        "The stop stands 2 mm above the vise jaws.",
+        "The foot top is 0.1 in below the jaw top.",
     ],
 )
-def test_a_height_above_the_jaws_of_another_object_state_or_tolerance_is_not_an_error(note):
-    assert errors(bundle([bar(note)])) == {}
+def test_a_height_from_the_jaw_tops_in_a_vise_hold_restates_the_derived_jaws(note):
+    found = errors(bundle([bar(note)], kernel=BAR_BOX))["S1"]
+    assert "jaw_above_parallels_mm" in found and "Z values" in found and "drop" in found
 
 
-def test_a_stated_height_above_the_jaws_without_the_jaw_height_is_unknown():
-    data = bundle([bar("The work stands 5.855 mm above the jaws.", jaw="not_applicable")], BAR_BOX)
-    assert rows(data)["S1"].status == "unknown"
+def test_an_op_note_restating_a_height_from_the_jaw_tops_errors_on_the_op():
+    op = {**FACE, "note": "Rough only down to Z -2, 2.5 mm above the jaw tops."}
+    setup = {**bar("Bar flat on parallels."), "ops": [op]}
+    assert "jaw_above_parallels_mm" in errors(bundle([setup], kernel=BAR_BOX))["S1:10"]
 
 
-def test_a_z_stated_above_the_jaw_tops_must_match_the_jaw_top_height():
-    good = "Rough only down to Z +16, 5.63 mm above the jaw tops."
-    assert errors(bundle([bar(good, top=27.2, bottom=-6.0, jaw=16.3703)])) == {}
-    bad = "Rough only down to Z +16, 6.5 mm above the jaw tops."
-    assert "jaw tops" in errors(bundle([bar(bad, top=27.2, bottom=-6.0, jaw=16.3703)]))["S1"]
+@pytest.mark.parametrize(
+    ("note", "jaw"),
+    [
+        ("The work stands 30 mm above the jaws.", None),
+        ("The roughing stays within 18.33 mm of the jaw tops.", 13.1953),
+        ("Keep the cut clear of the jaw tops.", 13.1953),
+    ],
+)
+def test_other_jaw_wording_or_a_hold_without_a_jaw_height_is_not_read(note, jaw):
+    setup = {"hold": {"note": note}} if jaw is None else bar(note, jaw=jaw)
+    setup.pop("stock_state", None)
+    assert rows(bundle([setup]))["S1"].status == "not_applicable"
 
 
 # ------------------------------------------------------------ stock heights vs kernel
@@ -265,15 +301,33 @@ def test_stock_heights_within_the_kernel_tolerance_pass():
     assert errors(bundle([state], kernel=kernel([-9, -22, -24.2, 9, 4, 1e-6]))) == {}
 
 
-def test_retained_rails_set_the_lowest_stock_point():
+def test_a_seat_above_a_lower_rail_is_not_compared_with_the_box_bottom():
     state = {"stock_state": {"top_z": 0.0, "bottom_z": -7.08, "retained_rail_bottom_z": -11.528}}
-    assert errors(bundle([state], kernel=kernel([-170, -40, -11.528, 170, 40, 0.0]))) == {}
+    row = rows(bundle([state], kernel=kernel([-170, -40, -11.528, 170, 40, 0.0])))["S1"]
+    assert row.status == "unknown" and "bottom_z -7.08" in row.sentence
 
 
-def test_a_touched_top_feature_may_stand_below_raw_rails_but_never_above_the_stock():
+@pytest.mark.parametrize(
+    ("state", "status"),
+    [
+        ({"retained_rail_bottom_z": -20.0}, "error"),
+        ({"top_z": 0.0, "retained_rail_bottom_z": -20.0}, "error"),
+        ({"top_z": 0.0, "bottom_z": -10.0, "retained_rail_bottom_z": -20.0}, "error"),
+        ({"retained_rail_bottom_z": -5.0}, "unknown"),
+        ({"retained_rail_bottom_z": -10.0}, "unknown"),
+        ({"top_z": 0.0, "bottom_z": -10.0, "retained_rail_bottom_z": -10.0}, "pass"),
+    ],
+)
+def test_a_rail_alone_is_compared_only_where_the_box_bottom_proves_it(state, status):
+    data = bundle([{"stock_state": state}], kernel=kernel([-10, -10, -10, 10, 10, 0]))
+    assert rows(data)["S1"].status == status
+
+
+def test_a_touched_top_feature_below_the_stock_top_is_unknown_and_above_it_an_error():
     box = kernel([-170, -40, -11.528, 170, 40, 4.47175])
     below = {"stock_state": {"top_feature": "hub", "top_z": 0.0, "bottom_z": -11.528}}
-    assert errors(bundle([below], kernel=box)) == {}
+    row = rows(bundle([below], kernel=box))["S1"]
+    assert row.status == "unknown" and "hub" in row.sentence
     above = {"stock_state": {"top_feature": "hub", "top_z": 4.6, "bottom_z": -11.528}}
     assert "top_z" in errors(bundle([above], kernel=box))["S1"]
 
