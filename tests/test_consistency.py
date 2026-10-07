@@ -799,3 +799,74 @@ def test_the_table_s_own_size_cell_is_the_one_the_rule_reads():
     traveler.setup = data.plan["setups"][0]
     table = unescape(re.sub(r"<[^>]+>", "|", traveler.shop_made_tables(traveler.setup)))
     assert "65.16 × 11 × 10" in table and "11 x 10 x 65.16" in table
+
+
+# ------------------------------------------------------------ picture cut vs CLEARANCE
+COLLAR = "clamp 2 pin:collar"
+
+
+def pictured(cut, *clearances, resolution=None):
+    """S1's setup picture dimensioning ``cut`` (``(mm, tag)``, or None) above the CLEARANCE
+    table's per-op ``clearances`` (``(op, mm, tag)``), on a mill of DRO ``resolution``."""
+    scene = {
+        "closest_cut": None if cut is None else {"mm": cut[0], "tag": cut[1]},
+        "cut_clearances": [{"op": op, "mm": mm, "tag": tag} for op, mm, tag in clearances],
+    }
+    data = bundle([{}], {"status": "ok", "setups": {"S1": {"render_scene": scene}}})
+    if resolution is None:
+        return data
+    mill = {"kind": "mill", "resolution_mm": resolution}
+    return replace(data, inventory={**INVENTORY, "machines": {"mill": mill}})
+
+
+def test_a_picture_cut_the_clearance_table_gives_otherwise_is_an_error():
+    # Rocker RK-B6: the S4 picture's 1.568 against op 27's own cut beside the same collar.
+    data = pictured((1.5684, COLLAR), ("25", 4.79372, COLLAR), ("27", 2.056593, COLLAR))
+    found = errors(data)["S1"]
+    assert "CUT 1.568 mm" in found and "op 27" in found and "2.057" in found
+    assert "collar" in found
+
+
+@pytest.mark.parametrize(
+    ("cut", "resolution"),
+    [
+        (2.0566, None),  # 2.057 both: the least of the two ops' cuts
+        (4.7937, None),  # the other op's, at the same printed value
+        (2.0612, 0.01),  # 2.06 both on a 0.01 grid
+    ],
+)
+def test_a_picture_cut_printed_as_one_op_s_row_passes(cut, resolution):
+    data = pictured(
+        (cut, COLLAR), ("25", 4.79372, COLLAR), ("27", 2.056593, COLLAR), resolution=resolution
+    )
+    row = rows(data)["S1"]
+    assert (row.status, row.numbers["claims"]) == ("pass", 1)
+
+
+def test_a_value_the_two_surfaces_round_apart_is_an_error():
+    # One clearance, 2.8045: the picture rounds the binary float (2.804), the table the
+    # written decimal (2.805).
+    found = errors(pictured((2.8045, COLLAR), ("27", 2.8045, COLLAR)))["S1"]
+    assert "CUT 2.804 mm" in found and "2.805" in found
+
+
+def test_a_picture_cut_beside_rows_not_computed_is_unknown():
+    row = rows(pictured((2.0566, COLLAR), ("27", "unknown", "unknown")))["S1"]
+    assert row.status == "unknown" and "CUT 2.057 mm" in row.sentence
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        # A tie: the picture names one parallel, the table the other, at one value.
+        pictured((11.4272, "parallel 1"), ("40", 11.427189, "parallel 2")),
+        # A file's or saw's cut alone: the table carries no row for it.
+        pictured((0.0, "clamp 1 kit:upper-button")),
+        # No cut to dimension.
+        pictured(None, ("27", 2.056593, COLLAR)),
+    ],
+    ids=["other-holder", "no-rows", "no-picture-cut"],
+)
+def test_a_picture_cut_with_no_row_of_its_holder_restates_nothing(data):
+    row = rows(data)["S1"]
+    assert (row.status, row.numbers["claims"]) == ("not_applicable", 0)

@@ -350,18 +350,21 @@ a later finished drawing datum.
 ## `consistency`
 
 One fact, one source. Where the traveler prints a fact from a plan field or the
-kernel, the author's free text must leave it to that source. A fact that can be
+kernel, the author's free text must leave it to that source, and two surfaces
+that print one fact must print one value. A fact that can be
 derived is derived: the TOOLS table's `T<n>` numbers come from one function
 (`resolution.tool_numbers`: first use in plan order, a lathe pair keeping its
 number across that machine's setups), a clamp's tightening from its `tighten` /
 `torque_nm` ([plan](plan.md#hold)), the DRO ZERO's kept clamping from
-`zero.transfer.keep_clamped`, and the jaw tops and HOLD's `work top above jaw tops
+`zero.transfer.keep_clamped`, the jaw tops and HOLD's `work top above jaw tops
 mm` from `resolution.jaw_top_z` (the seated bottom, `retained_rail_bottom_z` when
 lower, plus `jaw_above_parallels_mm`, from the inputs the kernel accepts for its
-vise). One subject per setup (hold, clamp notes,
-setup and stock notes, zero texts, stock heights) and one `{setup}:{op}` subject
-per op whose text the rule reads (note, `inspection_note`, `layout`,
-`inspection_methods`).
+vise), a SHOP-MADE FIXTURE row's Size mm from its solid at the make decimals, and
+each op's cut beside the holding from the kernel's `cut_clearances`. One subject
+per setup (hold, clamp notes, setup and stock notes, zero texts, stock heights,
+the make notes of the SHOP-MADE FIXTURE tables its sheet prints, its picture's
+cut) and one `{setup}:{op}` subject per op whose text the rule reads (note,
+`inspection_note`, `layout`, `inspection_methods`).
 
 The rule reads exactly the token patterns below; any other wording makes no
 claim, so it is never an error and never a pass.
@@ -396,10 +399,29 @@ setup's or op's text names that setup's TOOLS row.
   `push`, `pass`, `run` or `slide` (after `and`, `then`, `now`, `next`, `finally`,
   `so` or `but`) and sends `the NO-GO [plug]`, `the GO and NO-GO plugs`, `each`,
   `every`, `both` or `all [the] plug(s)`, or `the plugs` through.
+- A made row's make note on a SHOP-MADE FIXTURE table (read on the setup whose
+  sheet prints the table) gives a size its table's Size mm does not print:
+  - `[the <row>] to A x B [x C]` (an edge may add `wide`, `high`, `thick`, `long`
+    or `deep` and a parenthesis) sizes the named row, else a box row made with
+    that note; its numbers must be two or three of the row's printed edges, in
+    any order;
+  - `turn[ed] [the <row>] Ø D x L` or `the <row> Ø D x L` sizes the named row,
+    else a cylinder row made with that note; it must be the row's printed Ø and
+    length;
+  - each number stands alone: a fraction, an inch size (`in`, `"`), part of a
+    hyphen range or a number followed by another `x N` is not read. A row is
+    named by its solid's name or its `label`, and a note shared by several rows
+    is compared with each row it names.
 
-Two checks need no prose:
+Three checks need no prose:
 
 - A `tighten = "hand"` clamp also declares `torque_nm`.
+- The setup picture's `CUT <mm> mm FROM <holder>` (the kernel's `closest_cut`)
+  must be one op's CLEARANCE row beside the same holding solid (the kernel's
+  `cut_clearances`), each printed as its own surface rounds it at the setup's
+  DRO decimals. A picture cut beside a solid no CLEARANCE row names (a file's or
+  a saw's cut, which carries no row, or the other solid of a tie) restates
+  nothing.
 - `stock_state` heights are checked against the kernel's setup-entry stock,
   beyond its 0.001 mm stock tolerance. Each height is judged by the one evidence
   source its declaration names, and no other source stands in for it.
@@ -434,6 +456,9 @@ A compared fact that cannot be proved is `unknown`, never `pass`:
 
 - a `T<n>` beyond a TOOLS table that still has an op with no tool chosen;
 - a flute count for a tool with no inventory `flutes`;
+- a make-note size whose row the SHOP-MADE FIXTURE table withholds (`?`);
+- a picture cut that no computed CLEARANCE row of its holder prints, while
+  another op's row is not computed (that op's cut may be the picture's);
 - any authored stock height that is unknown, unknown plan units, or no kernel
   stock box;
 - a `top_z` below the box top under an `"unknown"` `top_feature`;
@@ -467,7 +492,13 @@ Not covered (never read, so never an error):
   of the jaws`), or in a hold without `jaw_above_parallels_mm`;
 - flute counts in words (`four-flute`), or not bound to one tool number;
 - inspection text that sends a plug through in any other wording (`gently push
-  …`, `the NO-GO goes through`).
+  …`, `the NO-GO goes through`);
+- make-note sizes of part of a solid (a thread end, a spigot, a counterbore),
+  holes, a bought or existing part's note, and a shop-made item's positions,
+  fits and fasteners restated in text;
+- picture labels other than the cut (contact coordinates, stock sizes, jaw and
+  Z labels), the picture's holder name against the CLEARANCE row's, and a
+  clearance restated in op text.
 
 ## M2 declared workholding and indexing
 

@@ -1,12 +1,13 @@
 """One fact, one source: plan text must not restate a fact the traveler derives from a
-field, nor contradict one it names.
+field, nor contradict one it names, and two printed surfaces of one fact must agree.
 
 The traveler prints these facts from one source each: the TOOLS table's tool numbers
 (``resolution.tool_numbers``) and flute counts, the clamp order's tightening (``tighten`` /
 ``torque_nm``), the DRO ZERO's kept clamping (``zero.transfer.keep_clamped``), the HOLD's
-jaw tops and work-top height above them (``resolution.jaw_top_z``) and the op row's GO /
-NO-GO sizes. The rule reads exactly the token patterns below; any other text makes no
-claim (never an error, never a pass).
+jaw tops and work-top height above them (``resolution.jaw_top_z``), the op row's GO /
+NO-GO sizes, a SHOP-MADE FIXTURE row's Size mm (its solid's size, at the make decimals) and
+each op's cut beside the holding (the kernel's ``cut_clearances``). The rule reads exactly
+the token patterns below; any other text makes no claim (never an error, never a pass).
 
 Restated, an error wherever the pattern occurs (negation, time, tolerance and subject do
 not matter: the fact has one source, and the text may only leave it to that source):
@@ -29,9 +30,19 @@ Compared. A ``T<n>`` in a setup's or op's text names that setup's TOOLS row:
   ``; ! ?`` and full stops, clauses at ``, :`` too; parenthesised text dropped) that starts
   with push / pass / run / slide (after and / then / now / next / finally / so / but) and
   sends ``the NO-GO [plug]``, ``the GO and NO-GO plugs``, ``each / every / both / all
-  [the] plug(s)`` or ``the plugs`` through: contradicts the pair.
+  [the] plug(s)`` or ``the plugs`` through: contradicts the pair;
+* in the make note of a made SHOP-MADE FIXTURE row, on the sheet of the setup that prints
+  the item's table: ``[the <row>] to A x B [x C]`` (an edge may carry wide / high / thick /
+  long / deep and a parenthesis) and ``turn[ed] [the <row>] Ø D x L`` or ``the <row> Ø D x
+  L``, each number one of its own (not a fraction, an inch size, part of a hyphen range, or
+  followed by another ``x N``): the named row's printed Size mm, else that of a row of the
+  note's shape (a box for ``to``, a cylinder for ``Ø``). Box edges match in any order, two
+  or three of them; a cylinder's Ø and length match exactly.
 
-Two checks need no prose: ``tighten = "hand"`` with a ``torque_nm``, and ``stock_state``
+Three checks need no prose: ``tighten = "hand"`` with a ``torque_nm``; the setup picture's
+``CUT <mm> mm FROM <holder>`` (the kernel's ``closest_cut``), which must print one op's
+CLEARANCE row beside the same holding solid (its ``cut_clearances``), each as its own
+surface rounds it at the setup's DRO decimals; and ``stock_state``
 against the kernel's setup-entry stock, each height judged by the one evidence source its
 declaration names, never another in its place. A ``top_z`` / ``bottom_z`` whose
 ``top_feature`` / ``bottom_feature`` names a feature is judged by the kernel's height of that
@@ -42,7 +53,9 @@ box gives only the highest and lowest points: ``top_z`` is the highest (under an
 and ``retained_rail_bottom_z`` the lowest. A named seat proves only its own face: the box
 still shows whether stock other than that measured face reaches below every authored point.
 A compared fact whose field, inventory value, plan units, band or kernel value is missing or
-unknown, or that the kernel cannot prove, is ``unknown``, never ``pass``.
+unknown, or that the kernel cannot prove, is ``unknown``, never ``pass``: a make-note size
+whose row the table withholds (``?``), and a picture cut no computed CLEARANCE row of its
+holder prints while another op's row is not computed.
 """
 
 from __future__ import annotations
@@ -590,6 +603,59 @@ def _restated_sizes(traveler, setup):
     return claims, found, unchecked
 
 
+def _picture_cut(bundle, setup):
+    """The setup picture's ``CUT <mm> mm FROM <holder>`` (the kernel's ``closest_cut``)
+    against the CLEARANCE table's per-op rows (its ``cut_clearances``) beside the same
+    holding solid, each printed as its surface prints it at the setup's DRO decimals: the
+    picture's value must be one op's. Rows not computed leave it unknown; a picture cut
+    no row names (a file's or saw's alone, a tie's other solid) restates nothing."""
+    from prechips.kernel import run_geometry
+    from prechips.kernel.render_diagram import _dro
+    from prechips.rules.coordinates import dro_grid
+    from prechips.sheet import _number
+
+    facts = record(record(record(run_geometry(bundle)).get("setups")).get(setup["id"]))
+    scene = record(facts.get("render_scene"))
+    cut = record(scene.get("closest_cut"))
+    rows = [record(row) for row in scene.get("cut_clearances") or []]
+    if not cut or not rows:
+        return 0, [], []
+    decimals = dro_grid(bundle, setup)[1]
+    holder = str(cut.get("tag")).rpartition(":")[2].replace("-", " ").replace("_", " ")
+    if not number(cut.get("mm")):
+        return 1, [], [f"the setup picture's cut from the {holder} has no measured value"]
+    said = f'"CUT {_dro(cut["mm"], decimals)} mm" from the {holder}'
+    beside = {
+        str(row.get("op")): _number(row["mm"], decimals)
+        for row in rows
+        if row.get("tag") == cut.get("tag") and number(row.get("mm"))
+    }
+    if _dro(cut["mm"], decimals) in beside.values():
+        return 1, [], []
+    # An op whose cut is not computed may be the one the picture dimensions.
+    pending = [str(row.get("op")) for row in rows if not number(row.get("mm"))]
+    if pending:
+        return (
+            1,
+            [],
+            [
+                f"the setup picture prints {said}, but the CLEARANCE rows of op "
+                f"{', '.join(pending)} are not computed, so whether one is its cut is unknown"
+            ],
+        )
+    if beside:
+        given = ", ".join(f"{value} (op {op})" for op, value in beside.items())
+        return (
+            1,
+            [
+                f"the setup picture prints {said}, but its CLEARANCE table gives the cut "
+                f"beside the {holder} as {given}"
+            ],
+            [],
+        )
+    return 0, [], []
+
+
 def _finding(subject, checks, cite):
     claims = sum(c for c, _, _ in checks)
     found = [f for _, fs, _ in checks for f in fs]
@@ -599,9 +665,9 @@ def _finding(subject, checks, cite):
     )
     if found:
         sentence = (
-            "Plan text conflicts with the one source of a fact: "
+            "A printed fact conflicts with its one source: "
             + "; ".join(found)
-            + ". Correct the text or the field."
+            + ". Correct the text, field or engine output that differs."
         )
     elif unchecked:
         sentence = "A stated fact cannot be compared: " + "; ".join(unchecked) + "."
@@ -633,6 +699,7 @@ def evaluate(bundle):
             + _zero_texts(setup.get("zero"))
         )
         sizes = _restated_sizes(traveler, setup)
+        picture = _picture_cut(bundle, setup)
         checks = [
             _restated_chucking(setup_texts),
             _hand_tight(hold),
@@ -640,6 +707,7 @@ def evaluate(bundle):
             _restated_jaw_heights(hold, setup_texts),
             _kernel_stock(bundle, setup, scale),
             sizes,
+            picture,
         ]
         cite = [
             f"plan setups {sid}: hold, zero, stock_state and notes",
@@ -647,6 +715,8 @@ def evaluate(bundle):
         ]
         if any(sizes):
             cite.append("SHOP-MADE FIXTURE tables: made rows' Size mm and make notes")
+        if any(picture):
+            cite.append("kernel setup picture: closest_cut and per-op cut_clearances")
         result.append(_finding(sid, checks, cite))
         for op in setup.get("ops", []):
             texts = [
