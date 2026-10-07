@@ -778,7 +778,7 @@ direction = "conventional"       # author's choice
 doc_mm = 4.0                     # AUTHOR'S CHOICE: three axial levels at 1 mm radial step
 rough_allowance_mm = 0.3         # author's choice: radial ear-side stock
 contour = { method = "linear_table", step_mm = 1.0, sweep_frame = "model", sweep_bounds = { x = [-9.0, -7.0], y = [6.0, 33.2], z = [-4.0, 3.0] }, open_side = "-x" } # outside-in left-strip rasters
-stock_removal_bounds = { x = [-9.0, -7.0], y = [-3.0, 4.0], z = [16.0, 27.2] } # left strip above Z +16 only
+stock_removal_bounds = { x = [-9.0, -7.0], y = [-3.3, 4.0], z = [16.0, 27.2] } # left strip above Z +16 only; y reaches S2:10's 0.3 mm leave in front of the ear-wall plane, where its passes (run a cutter radius past y -3) take the cusp S2:10's cutter leaves past the ear's edge
 
 [[setups.ops]]
 op = 30
@@ -793,7 +793,7 @@ direction = "conventional"       # author's choice
 doc_mm = 4.0                     # AUTHOR'S CHOICE: three axial levels at 1 mm radial step
 rough_allowance_mm = 0.3         # author's choice: radial ear-side stock
 contour = { method = "linear_table", step_mm = 1.0, sweep_frame = "model", sweep_bounds = { x = [7.0, 9.0], y = [6.0, 33.2], z = [-4.0, 3.0] }, open_side = "+x" } # outside-in right-strip rasters
-stock_removal_bounds = { x = [7.0, 9.0], y = [-3.0, 4.0], z = [16.0, 27.2] } # right strip above Z +16 only
+stock_removal_bounds = { x = [7.0, 9.0], y = [-3.3, 4.0], z = [16.0, 27.2] } # right strip above Z +16 only; y reaches S2:10's 0.3 mm leave in front of the ear-wall plane, where its passes take the cusp S2:10's cutter leaves past the ear's edge
 
 # ======================================================================= S3
 [[setups]]
