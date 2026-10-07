@@ -57,7 +57,16 @@ def row(bundle):
     return evaluate(bundle)[0]
 
 
-TOUCH = {"tool": "parter", "gauge": "mic", "z_face": "shoulder", "edge_mm": 0.0, "paper_mm": 0.0}
+# Its X on the X zero's trial-cut land, no cut since, touched without paper.
+TOUCH = {
+    "tool": "parter",
+    "gauge": "mic",
+    "x_face": "x_zero",
+    "x_paper_mm": 0.0,
+    "z_face": "shoulder",
+    "edge_mm": 0.0,
+    "paper_mm": 0.0,
+}
 
 
 @pytest.mark.parametrize(
