@@ -7,10 +7,8 @@ from prechips.rules.resolution import (
     HAND_FINISH,
     MANUAL,
     SAW_OPS,
-    WORKHOLDING_CATEGORIES,
     _citations,
     claim_refs,
-    inventory_category,
     known_refs,
     number,
     op_feature,
@@ -18,6 +16,7 @@ from prechips.rules.resolution import (
     plan_frame_cite,
     record,
     resolve,
+    select,
     setup_frame,
 )
 from prechips.rules.turned_profile import PROFILE_OPS
@@ -157,12 +156,12 @@ def provenance(bundle, rule, setup=None, op=None, feature=None):
     if setup is not None:
         cite.append(f"plan.setups.{setup['id']}: frame and hold")
         hold = record(setup.get("hold"))
-        fixture_category = inventory_category(bundle, hold.get("fixture"), WORKHOLDING_CATEGORIES)
-        for category, reference in (
-            (fixture_category, hold.get("fixture")),
+        for slot, reference in (
+            ("workholding", hold.get("fixture")),
             ("fixtures", hold.get("parallels")),
         ):
-            item = record(resolve(bundle, category, reference)) if category else {}
+            category = select(bundle, reference, slot)[0]
+            item = record(resolve(bundle, slot, reference))
             if item:
                 cite.append(f"inventory.{category}.{reference}: declared dimensions")
                 cite.extend(_citations(item.get("cite")))

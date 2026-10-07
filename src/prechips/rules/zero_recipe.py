@@ -162,7 +162,7 @@ def x_touch_set(scale, paper_mm, trial_cut):
 
 def gauge_ready(bundle, reference):
     """A trial-cut diameter is a bench reading: it needs a resolved, unflagged gauge."""
-    gauge = resolve(bundle, None, reference)
+    gauge = resolve(bundle, "gauges", reference)
     return bool(gauge) and not uncertain(gauge)
 
 
@@ -678,7 +678,7 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
             axis for axis, current in (("x", set_x), ("z", set_z)) if current not in (None, tool)
         ]
         if cutting and changed:
-            resolved = resolve(bundle, None, tool)
+            resolved = resolve(bundle, "tools", tool)
             unknown |= UNKNOWN in (set_x, set_z) or not resolved or uncertain(resolved)
             record, lost = {"before_ops": [op["op"]], "tool": tool}, []
             if "z" in changed:
@@ -1024,7 +1024,7 @@ def evaluate(bundle):
             bad |= sign == -1
             edge = recipe.get("edge_mm", UNKNOWN)
             paper = recipe.get("paper_mm", UNKNOWN) if axis == "z" else None
-            tool = resolve(bundle, None, recipe.get("tool")) or {}
+            tool = resolve(bundle, "spindle", recipe.get("tool")) or {}
             method = recipe.get("method")
             indicated = recipe.get("from") == "indicated"
             radius = (
@@ -1171,7 +1171,7 @@ def evaluate(bundle):
             edge, paper = record.get("edge_mm", UNKNOWN), record.get("paper_mm", UNKNOWN)
             side = touch_side(bundle, setup, record, record.get("z_face"), edge, lathe)
             stand_off = paper_offset(paper, side)
-            tool = resolve(bundle, None, record.get("tool")) or {}
+            tool = resolve(bundle, "spindle", record.get("tool")) or {}
             who = f"the {record.get('tool', UNKNOWN)} touch"
             # A mill's X/Y read the spindle axis whatever the tool: its touches set Z only.
             x_set = (

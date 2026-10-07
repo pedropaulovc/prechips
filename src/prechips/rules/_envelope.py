@@ -10,22 +10,24 @@ from prechips.rules.resolution import (
     EXPORTED_FRAMES,
     UNKNOWN,
     _citations,
+    authored,
     number,
     record,
     resolve,
+    select,
     setup_frame_ref,
-    workholding_category,
 )
 
 
-def measurement_item(bundle, category, reference):
-    """Resolve selected members without promoting item metadata into length facts."""
-    resolved = resolve(bundle, category, reference) or {}
-    if not resolved or not isinstance(reference, str):
+def measurement_item(bundle, slot, reference):
+    """The item ``slot`` selects (:func:`select`), its selected members resolved, without
+    promoting item metadata into length facts: a whole item is read as authored."""
+    resolved = resolve(bundle, slot, reference) or {}
+    if not resolved:
         return resolved
-    root, separator, _ = reference.partition("/")
-    authored = record(record(bundle.inventory.get(category)).get(root))
-    return authored if authored and not separator else resolved
+    category, reference, _ = select(bundle, reference, slot)
+    stated = authored(bundle, category, reference)
+    return stated if stated and "/" not in reference else resolved
 
 
 def fact(item, field, category, identity, debts, cite, *, require_measured=True):
@@ -193,8 +195,8 @@ def stock_extents(bundle, setup):
 def fixture_height(bundle, setup, debts, cite):
     hold = record(setup.get("hold"))
     identity = hold.get("fixture", UNKNOWN)
-    category = workholding_category(bundle, identity)
-    fixture = measurement_item(bundle, category, identity)
+    category = select(bundle, identity, "workholding")[0]
+    fixture = measurement_item(bundle, "workholding", identity)
     if not fixture or fixture.get("kind") == UNKNOWN:
         authoring_entry(
             debts,

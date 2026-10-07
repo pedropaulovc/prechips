@@ -4,6 +4,7 @@ from ..findings import Finding
 from .resolution import (
     UNKNOWN,
     _citations,
+    authored,
     number,
     record,
     resolve,
@@ -70,7 +71,6 @@ def support_state(bundle, setup):
         "included", []
     )
     evidence = []
-    fixtures = record(bundle.inventory.get("fixtures"))
     for reference in sorted(refs):
         item = resolve(bundle, "fixtures", reference)
         if item is not None and item.get("kind") == "accessory":
@@ -78,7 +78,7 @@ def support_state(bundle, setup):
         if (
             item is None
             and reference in accessories
-            and reference.partition("/")[0] not in fixtures
+            and not authored(bundle, "fixtures", reference)
         ):
             item = {
                 "kind": "accessory",

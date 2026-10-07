@@ -212,18 +212,28 @@ guide or its gauge, tool, holder, inspection gauge or process-hold gauge; any
 item named in the setup's prose or in the notes and record blanks of the
 shop-made items it uses, the job page's prose counting as the first setup's:
 see the key syntax under shop-made solids) that carries the list. An item is its
-category and key: a slot selects its own kind first (a hold slot workholding:
-fixtures, holders, machines; an indicator, inspection, process-hold or guide
-gauge a gauge; a tool slot a tool; a holder slot a holder), and prose names the
-category, so `fixtures.pins` and `gauges.pins` are two items, each with its own
+category and key, and one selection reads it. A reference that names its
+category (`gauges.pins` in prose) reads that category alone. A slot reads its
+own categories in order: a hold's fixture or dividing head is workholding
+(fixtures, holders, machines); its chuck, parallels, riser, jaw bar or buttons,
+supports, clamps, stop and support blocks are fixtures; a zero's or tool
+touch's tool and the transfer's tool are a tool, then a gauge (an indicator in
+the spindle); an indicator, inspection, process-hold or guide gauge is a gauge;
+an op's tool a tool; a holder a holder; the setup's machine a machine. The
+first of those categories that lists the key, or is stated `"unknown"` as a
+whole, is final: a same-key item in another category is never read. Only a
+bare key with no slot (a bare key in prose) reads the categories in the
+default order (machines, tools, holders, fixtures, gauges). So `fixtures.pins`
+and `gauges.pins` are two items, each with its own
 checks, table and first setup. Everything after the selection reads that item
 only: its receipt, its `tool_resolves` finding (the gauge a slot reads is
 checked even when a fixture of that key is listed), the notes and record blanks
 of a shop-made holder or fixture, and every name the traveler prints for it. A
-bare key in prose that two categories list names no one item and prints as
-written; name it `<category>.<key>`. The selected category is authoritative: an
-item it lists as `"unknown"` or with nothing about it (`{}`), or a category
-stated `"unknown"`, is unknown to every rule and prints `? <category>.<key>`;
+bare key in prose prints as a slot's item only when every slot using it selects
+that one item and a bare key selects it too; otherwise it names no one item and
+prints as written: name it `<category>.<key>`. An item the selection finds
+stated `"unknown"` or listed with nothing about it (`{}`), or a category stated
+`"unknown"`, is unknown to every rule and prints `? <category>.<key>`;
 it never borrows a same-key item's name or record. Unknown is
 never an acceptance: an `acceptance` or `purchase` stated
 `"unknown"`; a `check`, `how` or `accept` that is blank or unknown; a gauge that

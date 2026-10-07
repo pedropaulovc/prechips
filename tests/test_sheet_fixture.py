@@ -310,7 +310,7 @@ RECORD = {
 }
 
 
-def record_page(*records, gauges=None):
+def record_bundle(*records, gauges=None):
     head = cylinder("head", 0, 8.26, 8, 4, records=list(records))
     data = bundle([{"fixture": "bridge", "pose": IDENTITY}])
     data.inventory["gauges"] = {"dti": {"kind": "dti", "name": "0.0005 in test indicator"}}
@@ -322,6 +322,11 @@ def record_page(*records, gauges=None):
             head,
         ],
     }
+    return data
+
+
+def record_page(*records, gauges=None):
+    data = record_bundle(*records, gauges=gauges)
     return data, sheets(data)[0]
 
 
@@ -500,6 +505,8 @@ def test_a_gauge_slot_resolves_the_gauge_not_a_same_key_fixture():
 
 
 INSPECT = {"op": 10, "do": "inspect", "feature": "bore"}
+# A slug, so a ``hold.clamp`` naming it names an item too.
+KEY = "pin-set"
 
 
 def _put(path, value):
@@ -516,29 +523,24 @@ def _put(path, value):
 
 
 PASSING_RECEIPT = [{"check": "condition", "gauge": "none", "accept": "no visible damage"}]
-# Slots this bare setup does not print by name (no align step due, no stop pointer, no
-# tool-touch, guide or hold-feature records): there the receipt table is the only place an
-# item is named, and an unknown item has no receipt.
-UNPRINTED_HERE = {
-    "hold.stop_fixture",
-    "hold.align.indicator",
-    "zero.z_gauge",
-    "op.holder",
-    "op.process_holds",
-    "op.guide.buttons",
-    "op.guide.template",
-    "op.guide.gauge",
-    "shop-made holder",
-    "shop-made holder, fixture decoy",
+# The categories a kind of slot reads, in order (docs/inventory.md, Identity); any other
+# slot reads its one category. A bare key in prose names no slot: the item it would read is
+# put in gauges.
+SLOT_ORDER = {
+    "workholding": ("fixtures", "holders", "machines"),
+    "spindle": ("tools", "gauges"),
+    None: ("gauges",),
 }
-# Every way a setup reaches an inventory item: (slot, the category it selects, a category
-# the default key order reads first, the mutation using the slot, a shop-made item whose
-# record blank names the gauge). The decoy sits in that earlier category under the same key.
-ITEM_LOOKUPS = [
+# The order a bare key with no slot reads, then a category no slot reads.
+DEFAULT_ORDER = ("machines", "tools", "holders", "fixtures", "gauges", "services")
+# Every way a setup reaches an inventory item: (path, the kind of slot, the mutation using
+# the slot, whether the item is shop-made, its record blank naming a gauge).
+ITEM_PATHS = [
+    ("machine", "machines", _put("machine", str), False),
+    ("hold.fixture", "workholding", _put("hold.fixture", str), False),
     *(
-        (f"hold.{slot}", "fixtures", "tools", _put(f"hold.{slot}", lambda k: k), False)
+        (f"hold.{slot}", "fixtures", _put(f"hold.{slot}", str), False)
         for slot in (
-            "fixture",
             "chuck",
             "parallels",
             "riser",
@@ -547,93 +549,118 @@ ITEM_LOOKUPS = [
             "support",
             "supports",
             "stop_fixture",
+            "support_blocks",
+            "clamp",
         )
     ),
-    ("hold.clamps", "fixtures", "tools", _put("hold.clamps", lambda k: [{"ref": k}]), False),
-    ("hold.align.indicator", "gauges", "fixtures", _put("hold.align.indicator", str), False),
-    ("zero.x.gauge", "gauges", "fixtures", _put("zero.x.gauge", str), False),
-    ("zero.x.tool", "tools", "machines", _put("zero.x.tool", str), False),
-    ("zero.x.holder", "holders", "tools", _put("zero.x.holder", str), False),
+    ("hold.clamps", "fixtures", _put("hold.clamps", lambda k: [{"ref": k}]), False),
+    ("hold.index.fixture", "workholding", _put("hold.index.fixture", str), False),
+    ("hold.align.indicator", "gauges", _put("hold.align.indicator", str), False),
+    ("zero.x.tool", "spindle", _put("zero.x.tool", str), False),
+    ("zero.x.holder", "holders", _put("zero.x.holder", str), False),
+    ("zero.x.gauge", "gauges", _put("zero.x.gauge", str), False),
     (
-        "zero.z_gauge",
+        "zero.tool_touches.tool",
+        "spindle",
+        _put("zero.tool_touches", lambda k: [{"tool": k}]),
+        False,
+    ),
+    (
+        "zero.tool_touches.z_gauge",
         "gauges",
-        "fixtures",
         _put("zero.tool_touches", lambda k: [{"z_gauge": k}]),
         False,
     ),
-    ("zero.transfer.tool", "tools", "machines", _put("zero.transfer.tool", str), False),
-    ("zero.transfer.gauge", "gauges", "fixtures", _put("zero.transfer.gauge", str), False),
-    ("op.tool", "tools", "machines", _put("ops", lambda k: [{**INSPECT, "tool": k}]), False),
-    ("op.holder", "holders", "tools", _put("ops", lambda k: [{**INSPECT, "holder": k}]), False),
-    (
-        "op.checks",
-        "gauges",
-        "fixtures",
-        _put("ops", lambda k: [{**INSPECT, "checks": {"d": k}}]),
-        False,
+    ("zero.transfer.tool", "spindle", _put("zero.transfer.tool", str), False),
+    ("zero.transfer.gauge", "gauges", _put("zero.transfer.gauge", str), False),
+    ("op.tool", "tools", _put("ops", lambda k: [{**INSPECT, "tool": k}]), False),
+    ("op.holder", "holders", _put("ops", lambda k: [{**INSPECT, "holder": k}]), False),
+    *(
+        (f"op.{key}", "gauges", _put("ops", lambda k, key=key: [{**INSPECT, key: {"d": k}}]), False)
+        for key in ("checks", "missing_requirements")
     ),
     (
         "op.process_holds",
         "gauges",
-        "fixtures",
         _put("ops", lambda k: [{**INSPECT, "process_holds": [{"gauge": k}]}]),
         False,
     ),
     *(
         (
             f"op.guide.{slot}",
-            real,
-            decoy,
+            kind,
             _put("ops", lambda k, s=slot: [{**INSPECT, "guide": {s: k}}]),
             False,
         )
-        for slot, real, decoy in (
-            ("buttons", "fixtures", "tools"),
-            ("template", "gauges", "fixtures"),
-            ("gauge", "gauges", "fixtures"),
-        )
+        for slot, kind in (("buttons", "fixtures"), ("template", "gauges"), ("gauge", "gauges"))
     ),
-    ("prose", "gauges", "fixtures", _put("note", lambda k: f"Check with gauges.{k}."), False),
-    ("shop-made fixture", "fixtures", "tools", _put("hold.fixture", str), True),
+    ("prose, qualified", "gauges", _put("note", lambda k: f"Check with gauges.{k}."), False),
+    ("prose, bare", None, _put("note", lambda k: f"Check with the {k}."), False),
+    ("shop-made fixture", "workholding", _put("hold.fixture", str), True),
     (
-        "shop-made holder",
-        "holders",
-        "tools",
-        _put("ops", lambda k: [{**INSPECT, "holder": k}]),
-        True,
-    ),
-    (
-        "shop-made holder, fixture decoy",
-        "holders",
+        "shop-made clamp",
         "fixtures",
-        _put("ops", lambda k: [{**INSPECT, "holder": k}]),
+        _put("hold.clamps", lambda k: [{"ref": k, "pose": IDENTITY}]),
         True,
     ),
+    ("shop-made holder", "holders", _put("ops", lambda k: [{**INSPECT, "holder": k}]), True),
 ]
+CATEGORY_STATES = ("listed", "item unknown", "item {}", "category unknown", "category absent")
 
 
-@pytest.mark.parametrize("state", ["listed", "unknown", "empty"])
-@pytest.mark.parametrize(
-    ("slot", "real", "decoy", "use", "shop_made"),
-    ITEM_LOOKUPS,
-    ids=[row[0] for row in ITEM_LOOKUPS],
-)
-def test_every_item_lookup_reads_its_slots_category_never_a_same_key_decoy(
-    slot, real, decoy, use, shop_made, state
+def _decoy_category(kind, placement):
+    """A category the slot never reads, before (``earlier``) or after (``later``) the one
+    it selects in the default order; None when there is none that side."""
+    order = SLOT_ORDER.get(kind, (kind,))
+    at = DEFAULT_ORDER.index(order[0])
+    side = DEFAULT_ORDER[:at][::-1] if placement == "earlier" else DEFAULT_ORDER[at + 1 :]
+    return next((category for category in side if category not in order), None)
+
+
+ITEM_CASES = [
+    pytest.param(path, kind, use, shop_made, state, placement, id=f"{path}|{state}|{placement}")
+    for path, kind, use, shop_made in ITEM_PATHS
+    for state in CATEGORY_STATES
+    for placement in ("none", "earlier", "later")
+    if placement == "none" or _decoy_category(kind, placement)
+]
+# Paths this bare setup does not print by name (no align step due, no stop pointer, no
+# guide or hold-feature records): there the receipt table is the only place a listed item
+# is named, and an unknown one has no receipt. A bare key in prose is never a shop name.
+UNPRINTED_HERE = {
+    "hold.stop_fixture",
+    "hold.align.indicator",
+    "zero.tool_touches.z_gauge",
+    "op.holder",
+    "op.process_holds",
+    "op.guide.buttons",
+    "op.guide.template",
+    "op.guide.gauge",
+    "prose, bare",
+    "shop-made holder",
+}
+# Paths the sheet names only where a bare key in prose names them: as the item the slot
+# selects when a bare key reads that item too, else as written.
+BARE_ONLY = {"hold.support_blocks", "hold.clamp"}
+
+
+@pytest.mark.parametrize(("path", "kind", "use", "shop_made", "state", "placement"), ITEM_CASES)
+def test_every_item_path_reads_only_the_item_its_slot_selects(
+    path, kind, use, shop_made, state, placement
 ):
-    """An item is its category and key. The item a slot selects has an unknown receipt and
-    is unverified, or is listed as unknown, or with nothing about it (``{}``); another
-    category lists the same key with a passing receipt, verified. Receipt checks,
-    resolution and every printed name read the selected item: an unknown or empty one is
-    unknown, and prints ``? <category>.<key>``, never the other category's name."""
+    """An item is its category and key. A slot reads its own categories in order and the
+    first that lists the key or is stated unknown is final; a ``<category>.<key>`` in prose
+    reads that category alone. The selected item is listed (unverified, receipt unknown),
+    stated unknown, listed with nothing about it, its category is stated unknown, or the
+    category is absent; a category the slot never reads, before or after it in the default
+    order, lists the same key verified with a passing receipt. Receipt checks, resolution
+    and every printed name read the selected item; the other is never read."""
     from prechips.rules import purchased_tooling, tool_resolves
 
-    data, _ = record_page()
-    # The decoy's category comes first in the shop list too: no lookup order finds the
-    # selected item by luck.
-    categories = {"tools": {}, "holders": {}, **data.inventory}
-    data.inventory.clear()
-    data.inventory.update({decoy: categories.pop(decoy), **categories})
+    data = record_bundle()
+    order = SLOT_ORDER.get(kind, (kind,))
+    real = order[0]
+    decoy = _decoy_category(kind, placement) if placement != "none" else None
     data.inventory["fixtures"]["par"] = {"kind": "parallels"}
     data.plan["setups"][0]["hold"]["parallels"] = "par"
     item = {"kind": "accessory", "name": "REAL item", "acceptance": "unknown", "verify": True}
@@ -645,43 +672,68 @@ def test_every_item_lookup_reads_its_slots_category_never_a_same_key_decoy(
             "solids": [cylinder("head", 0, 0, 8, 4, records=[RECORD])],
         }
         data.inventory["gauges"]["dti"]["acceptance"] = "unknown"
-    data.inventory[real]["pins"] = {"listed": item, "unknown": "unknown", "empty": {}}[state]
-    data.inventory[decoy]["pins"] = {
-        "kind": "accessory",
-        "name": "DECOY",
-        "acceptance": PASSING_RECEIPT,
-    }
-    use(data.plan["setups"][0], "pins")
-
-    findings = purchased_tooling.evaluate(data)
-    owners = [(row["category"], row["ref"]) for f in findings for row in f.numbers["items"]]
-    assert (decoy, "pins") not in owners
-    if state == "listed":
-        (receipt,) = findings
-        assert receipt.status == "unknown"
-        assert (("gauges", "dti") if shop_made else (real, "pins")) in owners
-    if state != "listed" or not shop_made:
-        resolved = {f.subject: f.status for f in tool_resolves.evaluate(data)}
-        assert "unknown" in (resolved.get("pins"), resolved.get(f"{real}.pins"))
-        assert f"{decoy}.pins" not in resolved
+    for category in order:
+        data.inventory.setdefault(category, {})
+    if state == "category unknown":
+        data.inventory[real] = "unknown"
+    elif state == "category absent":
+        del data.inventory[real]
+    else:
+        data.inventory[real][KEY] = {"listed": item, "item unknown": "unknown", "item {}": {}}[
+            state
+        ]
+    if decoy:
+        listed = {**data.inventory.pop(decoy, {}), KEY: {"kind": "accessory", "name": "DECOY"}}
+        listed[KEY]["acceptance"] = PASSING_RECEIPT
+        rest = dict(data.inventory)
+        data.inventory.clear()
+        # In the shop list's own order too, the decoy is where the placement says.
+        data.inventory.update(
+            {decoy: listed, **rest} if placement == "earlier" else {**rest, decoy: listed}
+        )
     setup = data.plan["setups"][0]
+    use(setup, KEY)
+
+    receipts = purchased_tooling.evaluate(data)
+    owners = [(row["category"], row["ref"]) for f in receipts for row in f.numbers["items"]]
+    assert (decoy, KEY) not in owners
+    if state == "listed" and kind is not None:
+        (receipt,) = receipts
+        assert receipt.status == "unknown"
+        assert (("gauges", "dti") if shop_made else (real, KEY)) in owners
+    resolved = [f for f in tool_resolves.evaluate(data) if f.numbers.get("reference") == KEY]
+    assert {f.subject for f in resolved} <= {KEY, f"{real}.{KEY}"}
+    assert {f.numbers["category"] for f in resolved} <= {real}
+    if kind is None:
+        assert not resolved  # a bare key in prose is no slot: it selects nothing
+    else:
+        # Unverified, unknown or empty is unknown; not listed where the slot reads is an
+        # error (a named one in prose is unknown). Never a pass: only the decoy passes.
+        absent = "unknown" if path == "prose, qualified" else "error"
+        assert {f.status for f in resolved} == {absent if state == "category absent" else "unknown"}
+
     # The dividing head names the hold's fixture; touch-offs name their tool.
-    index = Finding("indexing", "S1", "pass", {"rotation": True, "fixture": "pins"}, [], ".")
-    traveler = _Traveler(data, [*findings, index], {}, None)
+    index = Finding("indexing", "S1", "pass", {"rotation": True, "fixture": KEY}, [], ".")
+    traveler = _Traveler(data, [*receipts, index], {}, None)
     printed = traveler.purchased_tooling(setup)
-    if slot != "op.process_holds":  # an inspect op without its hold feature does not render
+    if path != "op.process_holds":  # an inspect op without its hold feature does not render
         printed += sheets(data)[0]
-    if slot == "hold.fixture":
-        printed += traveler.indexing({**setup, "hold": {**setup["hold"], "index": "pins"}})
-    if real == "tools":
-        printed += traveler.touched_tool("pins", {})
-    # A bare key in prose names no one item when two categories list it: never the decoy.
-    printed += traveler.bench("Use the pins.", setup)
-    if state == "listed" and not (shop_made and real == "holders"):  # only its gauge prints
-        assert "REAL" in printed
-    if state != "listed" and slot not in UNPRINTED_HERE:
-        assert f"? {real}.pins" in printed
+    if kind == "workholding" and not shop_made:
+        printed += traveler.indexing({**setup, "hold": {"index": {}, **setup["hold"]}})
+    if kind in ("spindle", "tools"):
+        printed += traveler.touched_tool(KEY, {}, kind)
+    bare = traveler.bench(f"Use the {KEY}.", setup)
+    printed += bare
     assert "DECOY" not in printed
+    if kind is None or placement == "earlier":
+        # A bare key reads the decoy's category first, or names no slot: it names no one
+        # item and prints as written.
+        assert bare == f"Use the {KEY}."
+    if state == "listed" and path not in ("prose, bare", "shop-made holder"):
+        assert "REAL" in printed  # (a shop-made holder prints its record's gauge)
+    unprinted = path in UNPRINTED_HERE or (path in BARE_ONLY and placement == "earlier")
+    if state in ("item unknown", "item {}", "category unknown") and not unprinted:
+        assert f"? {real}.{KEY}" in printed
 
 
 def drill_note(note):

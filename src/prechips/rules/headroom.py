@@ -40,7 +40,6 @@ from prechips.rules.resolution import (
     saw_setup,
     setup_frame,
     uncertain,
-    workholding_category,
 )
 
 _UNKNOWN = "unknown"
@@ -244,7 +243,7 @@ def _clear_of_jaws(bundle, setup, op, faces, coordinates):
         return True
     hold = _mapping(setup.get("hold"))
     fixture_ref = hold.get("fixture")
-    fixture = resolve(bundle, workholding_category(bundle, fixture_ref), fixture_ref) or {}
+    fixture = resolve(bundle, "workholding", fixture_ref) or {}
     centre, width = hold.get("jaw_center_along_mm"), length_mm(fixture, "jaw_width")
     along = _span(op, coordinates, 1 - axis)
     if not (along and _numeric(centre) and _numeric(width)) or uncertain(fixture):
@@ -292,7 +291,7 @@ def evaluate(bundle):
         hold = _mapping(setup.get("hold"))
         state = _mapping(setup.get("stock_state"))
         fixture_ref = hold.get("fixture")
-        fixture = resolve(bundle, workholding_category(bundle, fixture_ref), fixture_ref) or {}
+        fixture = resolve(bundle, "workholding", fixture_ref) or {}
         parallels_ref = hold.get("parallels")
         parallels = resolve(bundle, "fixtures", parallels_ref) or {}
         parallel_height = (
@@ -524,7 +523,7 @@ def _lathe(bundle, setup, machine, machine_ref):
     hold = _mapping(setup.get("hold"))
     state = _mapping(setup.get("stock_state"))
     fixture_ref = hold.get("fixture")
-    fixture = resolve(bundle, workholding_category(bundle, fixture_ref), fixture_ref) or {}
+    fixture = resolve(bundle, "workholding", fixture_ref) or {}
     scale = {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units"))
     od = state.get("od_mm", _UNKNOWN)
     north, south = state.get("north_end_z"), state.get("south_end_z")

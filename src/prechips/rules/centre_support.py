@@ -35,7 +35,6 @@ from prechips.rules.resolution import (
     record,
     resolve,
     same_length,
-    workholding_category,
 )
 from prechips.rules.tip_endpoints import centre_check
 
@@ -78,7 +77,7 @@ def _centres(bundle, hold):
             continue
         if reference in _NO_SUPPORT:
             continue
-        item = resolve(bundle, workholding_category(bundle, reference), reference)
+        item = resolve(bundle, "fixtures", reference)
         kind = record(item).get("kind", UNKNOWN)
         if item is None or not isinstance(kind, str) or kind == UNKNOWN:
             unresolved.append(reference)

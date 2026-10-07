@@ -25,23 +25,21 @@ from .rules.resolution import (
     MANUAL,
     NAMED_REFERENCE,
     SAW_OPS,
-    WORKHOLDING_CATEGORIES,
+    UNKNOWN,
+    authored,
     coating_process,
     drawing_precision,
-    inventory_category,
     length_mm,
-    listing_categories,
     named_item,
     op_feature,
     op_features,
     printed_band,
     resolve,
     saw_setup,
-    selected_references,
+    select,
     setup_frame,
+    setup_items,
     shop_made_item,
-    slot_category,
-    workholding_category,
 )
 from .rules.resolution import record as _mapping
 from .rules.tip_endpoints import FACING, SAME_Z, operative_z, stock_states
@@ -1079,12 +1077,17 @@ class _Traveler:
         # values, so the job page prints the one legend for its mark.
         self.example_marks = False
         self.references = {}
-        # A bare plan key in prose prints as its shop name, unless two categories list it:
-        # then it names no one item (prose names it ``<category>.<key>``) and stays as is.
-        for reference in sorted(selected_references(self.plan)):
-            if isinstance(reference, str) and reference not in ("unknown", "none"):
-                if len(listing_categories(bundle, reference)) <= 1:
-                    self.references[reference] = self.reference(reference)
+        # A bare plan key in prose prints as the shop name of the one item it names: the
+        # item every slot using it selects (:func:`setup_items`), when a bare reference
+        # (:func:`select` with no slot) selects that item too, or nothing at all. Otherwise
+        # the key names no one item (prose names it ``<category>.<key>``) and stays as is.
+        slots = {}
+        for setup in self.plan.get("setups") or []:
+            for category, reference, _ in setup_items(bundle, _mapping(setup)):
+                slots.setdefault(reference, set()).add(category)
+        for reference, categories in sorted(slots.items()):
+            if len(categories) == 1 and select(bundle, reference)[0] in categories | {None}:
+                self.references[reference] = self.reference(reference, *categories)
         self.faces = {
             face: name
             for name, feature in self.features.items()
@@ -1349,11 +1352,11 @@ class _Traveler:
         return key in _METADATA or key.endswith(("_cite", "_verify")) or key == "verify"
 
     # ------------------------------------------------------------- vocabulary
-    def reference(self, reference, category=None):
-        return reference_label(self.bundle, reference, category)
+    def reference(self, reference, slot=None):
+        return reference_label(self.bundle, reference, slot)
 
-    def short_reference(self, reference, category=None):
-        return short_reference_label(self.bundle, reference, category)
+    def short_reference(self, reference, slot=None):
+        return short_reference_label(self.bundle, reference, slot)
 
     def tool_name(self, reference):
         return tool_label(self.bundle, reference)
@@ -1421,11 +1424,12 @@ class _Traveler:
             lambda m: self.feature_name(self.faces[m[0]]) if m[0] in self.faces else "a face",
             text,
         )
-        # An inventory item named in prose (``gauges.dti``) prints as its shop name; one
-        # the shop list does not have prints ``? <key>`` (tool_resolves reports it unknown).
+        # An inventory item named in prose (``gauges.dti``) prints as its shop name, read in
+        # the category it names; one that category does not have prints ``? <key>``
+        # (tool_resolves reports it unknown), and one it states unknown ``? <category>.<key>``.
         text = NAMED_REFERENCE.sub(
             lambda m: (
-                reference_label(self.bundle, m[2], m[1]).removesuffix(" (not in shop list)")
+                reference_label(self.bundle, m[0]).removesuffix(" (not in shop list)")
                 if named_item(self.bundle, m[0]) is not None
                 else f"? {m[2]}"
             ),
@@ -1586,7 +1590,7 @@ class _Traveler:
         if fixture == "unknown":
             steps.append("STOP: holding not chosen — do not run.")
         else:
-            mount = "Mount the " + self.reference(fixture, "fixtures")
+            mount = "Mount the " + self.reference(fixture, "workholding")
             mount += self.shop_made_pointer(setup, fixture, uses)
             if stated("chuck"):
                 mount += " with the " + self.reference(hold["chuck"], "fixtures")
@@ -1710,7 +1714,7 @@ class _Traveler:
         if due in (None, "not_applicable"):
             return []
         ref = hold.get("fixture")
-        kind = _mapping(resolve(self.bundle, workholding_category(self.bundle, ref), ref))
+        kind = _mapping(resolve(self.bundle, "workholding", ref))
         vise = kind.get("kind") == "vise"
         align = _mapping(hold.get("align"))
         named = align.get("face") not in (None, "unknown")
@@ -1876,9 +1880,10 @@ class _Traveler:
         return facts
 
     # ------------------------------------------------------------ shop-made
-    def shop_made(self, reference):
-        """The shop-made holding item with something to make (:func:`shop_made_item`)."""
-        return shop_made_item(self.bundle, reference)
+    def shop_made(self, setup, reference):
+        """The shop-made holding item with something to make (:func:`shop_made_item`), the
+        one the setup's hold selects (:func:`_holding_slot`)."""
+        return shop_made_item(self.bundle, reference, _holding_slot(setup, reference))
 
     def shop_made_uses(self, setup):
         """``{reference: [(label, pose)]}`` for each shop-made item the hold uses, in HOLD
@@ -1889,7 +1894,7 @@ class _Traveler:
         hold = _mapping(setup.get("hold"))
         clamps = hold.get("clamps") if isinstance(hold.get("clamps"), list) else []
         fixture = hold.get("fixture")
-        vise = _mapping(self.shop_made(fixture)).get("kind") == "vise"
+        vise = _mapping(self.shop_made(setup, fixture)).get("kind") == "vise"
         placed = [(fixture, None, LOOSE if vise else hold.get("pose"))]
         placed += [
             (_mapping(clamp).get("ref"), label, _mapping(clamp).get("pose"))
@@ -1899,7 +1904,9 @@ class _Traveler:
         placed += [(hold.get(key), None, LOOSE) for key in ("riser", "supports", "jaw_buttons")]
         uses = {}
         for reference, label, pose in placed:
-            if self.shop_made(reference) is None or (pose in (None, LOOSE) and reference in uses):
+            if self.shop_made(setup, reference) is None or (
+                pose in (None, LOOSE) and reference in uses
+            ):
                 continue
             uses.setdefault(reference, []).append((label, pose))
         return uses
@@ -1978,8 +1985,7 @@ class _Traveler:
         fixture = hold.get("fixture")
         if not isinstance(fixture, str):
             return []
-        category = inventory_category(self.bundle, fixture, WORKHOLDING_CATEGORIES)
-        item = _mapping(resolve(self.bundle, category or "fixtures", fixture))
+        item = _mapping(resolve(self.bundle, "workholding", fixture))
         angle_plate = item.get("kind") == "angle_plate"
         axes = _pose_axes(hold.get("pose"))
         solids = item.get("solids") if isinstance(item.get("solids"), list) else []
@@ -2003,7 +2009,7 @@ class _Traveler:
         base, (low, _) = min(boxes, key=lambda pair: pair[1][0][2])
         surface = _FIXTURE_SURFACES.get(self.machine(setup).get("kind"))
         level = _setup_axis(_place(axes, [0.0, 0.0, 1.0], translate=False)) == (2, 1)
-        name = "Angle plate" if angle_plate else self.reference(fixture, "fixtures")
+        name = "Angle plate" if angle_plate else self.reference(fixture, "workholding")
         name = name[:1].upper() + name[1:]
         line = (
             f"{name}: base flat on the {surface}, underside at Z {f(low[2])}"
@@ -2028,7 +2034,7 @@ class _Traveler:
         stacks = {}
         for reference, placements in uses.items():
             tags = [label if len(placements) > 1 else None for label, _ in placements]
-            for solid in self.shop_made(reference).get("solids") or []:
+            for solid in self.shop_made(setup, reference).get("solids") or []:
                 solid = _mapping(solid)
                 if solid.get("shim") is not True:
                     continue
@@ -2149,7 +2155,7 @@ class _Traveler:
         uses = self.shop_made_uses(setup)
         self.fit_places = {}
         for reference, placements in uses.items():
-            solids, _, withheld, _, _, fits = self.shop_made_parts(reference)
+            solids, _, withheld, _, _, fits = self.shop_made_parts(setup, reference)
             for solid in solids:
                 if id(solid) not in fits or id(solid) in withheld:
                     continue
@@ -2167,13 +2173,13 @@ class _Traveler:
         self.fit_places = {}
         return tables
 
-    def shop_made_parts(self, reference):
+    def shop_made_parts(self, setup, reference):
         """The item's solids, made solids, withheld solids (id -> why), holes per parent
         solid id, drilled parent ids and fit ids: a locating solid is a fit, and so is every
         bore cut in it (either may be the surface that locates). Like the kernel, an
         unverified primitive gives no numbers, and an unverified hole withholds the solids it
         would cut."""
-        item = self.shop_made(reference)
+        item = self.shop_made(setup, reference)
         solids = [s for s in item.get("solids") or [] if isinstance(s, dict)]
         # Made solids, and existing parts (a bought angle plate) only for holes cut here.
         made = [s for s in solids if not s.get("void") and _supply(s) != "bought"]
@@ -2213,13 +2219,13 @@ class _Traveler:
         under the table. An item only the HOLD places (:data:`LOOSE`) gives its positions
         in its own frame, the one its solids are drawn in."""
         sid = setup["id"]
-        item = self.shop_made(reference)
+        item = self.shop_made(setup, reference)
         loose = all(pose == LOOSE for _, pose in placements)
         placed = [
             (label, _ITEM_FRAME if loose else LOOSE if pose == LOOSE else _pose_axes(pose))
             for label, pose in placements
         ]
-        solids, made, withheld, holes, drilled, fits = self.shop_made_parts(reference)
+        solids, made, withheld, holes, drilled, fits = self.shop_made_parts(setup, reference)
         self.fixture_unknowns = set()
         groups = {}
         for solid in made:
@@ -2345,7 +2351,7 @@ class _Traveler:
         spare = sum(w for c, w in enumerate(widths) if c not in keep)
         widths = [widths[c] + (spare if c == 2 else 0) for c in keep]
         users = [label for label, _ in placements if label and label != "stop"]
-        title = f"SHOP-MADE FIXTURE — {self.reference(reference, 'fixtures')}"
+        title = f"SHOP-MADE FIXTURE — {self.reference(reference, _holding_slot(setup, reference))}"
         title += f" ({', '.join(users)})" if users else ""
         intro = (
             f"Make before Setup {sid}. "
@@ -2479,14 +2485,14 @@ class _Traveler:
             return _p(
                 self.bench(
                     f"Index: {glyph} {tentative}"
-                    f"{self.short_reference(numbers.get('fixture'), 'fixtures')}; continuous "
+                    f"{self.short_reference(numbers.get('fixture'), 'workholding')}; continuous "
                     "rotation turned by the rotary ops; no plate landings."
                 )
             )
         r = _number  # Dividing-head arithmetic keeps its own digits; it is not a DRO reading.
         glyph = _GLYPHS.get(_status(finding), "")
         tentative = "Tentative — " if _status(finding) == "unknown" else ""
-        fixture = self.short_reference(numbers.get("fixture"), "fixtures")
+        fixture = self.short_reference(numbers.get("fixture"), "workholding")
         head = f"Index: {glyph} {tentative}{fixture}: "
         positions = numbers.get("positions")
         lock = "Lock the spindle before cutting."
@@ -2854,8 +2860,8 @@ class _Traveler:
             # name of the ref when it is one, else the component as named.
             name = str(pose.get("nearest_fixture"))
             ref = name.rsplit(" ", 1)[-1]
-            if resolve(self.bundle, "fixtures", ref):
-                name = "the " + self.short_reference(ref, "fixtures")
+            if resolve(self.bundle, _holding_slot(setup, ref), ref):
+                name = "the " + self.short_reference(ref, _holding_slot(setup, ref))
             planned, posed = self.surface_z(setup, z), pose.get("z_mm")
             start, feed = pose.get("max_start_z_mm"), numbers.get("feed_z")
             out = -feed if feed in (-1, 1) else None
@@ -3097,7 +3103,7 @@ class _Traveler:
         limit = transfer.get("runout_limit_mm")
         # A limit is never rounded: 0.0254 printed as 0.03 would loosen it.
         reading = f"{_number(limit)} mm total indicator reading"
-        slot = "tools" if "tool" in transfer else "gauges"
+        slot = "spindle" if "tool" in transfer else "gauges"
         with_gauge = (
             " with the " + self.reference(gauge, slot) if gauge not in (None, "unknown") else ""
         )
@@ -3242,7 +3248,7 @@ class _Traveler:
                 tool = (
                     "? tool not chosen"
                     if touch["tool"] in (None, "unknown")
-                    else self.touched_tool(touch["tool"], tools)
+                    else self.touched_tool(touch["tool"], tools, "spindle")
                 )
             if indicate:
                 contact.append(self.indicate_recipe(setup, axis, target, authored, tool))
@@ -3375,7 +3381,7 @@ class _Traveler:
             for record in records:
                 after, served = _text(record.get("op")), record.get("next_op")
                 incoming = record.get("next_tool")
-                name = self.touched_tool(incoming, tools)
+                name = self.touched_tool(incoming, tools, "tools")
                 if record.get("tool_change") is True:
                     changes.append((after, name, _text(served)))
                 elif record.get("tool_change") is False and _known(served):
@@ -3410,9 +3416,10 @@ class _Traveler:
             for index, touch in enumerate(numbers.get(kind, [])):
                 if (kind, index) in settings_at:
                     pieces.append(_p(self.tool_setting(settings_at[(kind, index)], tools)))
-                pieces.append(_p(self.tool_touch(setup, touch, tools)))
+                slot = "spindle" if kind == "tool_touches" else "tools"
+                pieces.append(_p(self.tool_touch(setup, touch, tools, slot)))
         for gap in numbers.get("missing_touches", []):
-            name = self.touched_tool(gap.get("tool"), tools)
+            name = self.touched_tool(gap.get("tool"), tools, "tools")
             missing = " and ".join(_text(axis).upper() for axis in gap.get("axes", []))
             pieces.append(
                 _p(
@@ -3528,7 +3535,7 @@ class _Traveler:
         cites = [cite] if isinstance(cite, str) and cite != "unknown" else cite
         if isinstance(cites, list) and cites:
             lines.append(_p("Finder data: " + "; ".join(str(c) for c in cites) + "."))
-        title = f"EDGE FINDER — {self.reference(reference, 'tools')}"
+        title = f"EDGE FINDER — {self.reference(reference, 'spindle')}"
         if sum(key[0] == reference for key in self.finder_homes) > 1:
             title += f" on {self.reference(machine, 'machines')}"
         return f'<div class="keep"><h3>{escape(title)}</h3>{"".join(lines)}</div>'
@@ -3654,24 +3661,25 @@ class _Traveler:
             return f"{subject} {sign} {self.operative(float(match[3]))}"
         return "measured Ø" if text.strip() == "measured D" else self.bench(text)
 
-    def touched_tool(self, reference, tools):
+    def touched_tool(self, reference, tools, slot):
         """A touched-off tool's name: the setup's own name for it (``tools``), else the
-        shop name of the tools-category item (never a same-key item of another category)."""
-        return tools.get(reference) or self.short_reference(reference, "tools")
+        shop name of the item ``slot`` selects (a zero's or tool touch's tool is a spindle
+        slot, an op's a tool; never a same-key item of another category)."""
+        return tools.get(reference) or self.short_reference(reference, slot)
 
     def tool_setting(self, record, tools):
         """The step that sets a toolpost tool before its first touch-off (zero_check
         ``tool_setting``): on centre height, and a blade squared to the spindle axis."""
-        name = self.touched_tool(record.get("tool"), tools)
+        name = self.touched_tool(record.get("tool"), tools, "tools")
         text = f"Before touching off {name}: {self.bench(record.get('centre_height'))}"
         square = record.get("square_blade")
         if square not in (None, "not_applicable"):
             text += f"; then {self.bench(square)}"
         return text + "."
 
-    def tool_touch(self, setup, touch, tools):
+    def tool_touch(self, setup, touch, tools, slot):
         reference = touch.get("tool")
-        name = self.touched_tool(reference, tools)
+        name = self.touched_tool(reference, tools, slot)
         before = touch.get("before_ops")
         when = f"Before {_ops_label(before if isinstance(before, list) else [before])}"
         if touch.get("after_op") not in (None, "unknown"):
@@ -5693,7 +5701,7 @@ class _Traveler:
         if not render:
             return ""
         scene = _mapping(render.get("scene"))
-        fixture = self.reference(_mapping(setup.get("hold")).get("fixture"), "fixtures")
+        fixture = self.reference(_mapping(setup.get("hold")).get("fixture"), "workholding")
         caption = [f"Setup {setup['id']} — {self.arrival(setup)}, held in the {fixture}."]
         lines = []
         for debt in scene.get("debts") or []:
@@ -6139,7 +6147,7 @@ class _Traveler:
                     self.reference(s.get("machine"), "machines"),
                     "STOP: not chosen"
                     if _mapping(s.get("hold")).get("fixture", "unknown") == "unknown"
-                    else self.reference(s["hold"]["fixture"], "fixtures"),
+                    else self.reference(s["hold"]["fixture"], "workholding"),
                 )
                 for s in setups
             ],
@@ -6310,37 +6318,32 @@ def render_traveler(bundle, findings, report, approval=None) -> str:
     return _Traveler(bundle, findings, report, approval).render()
 
 
+def _holding_slot(setup, reference):
+    """The slot a hold item is selected in (:func:`setup_items`): the hold's fixture is
+    workholding, any other hold item a fixture."""
+    fixture = _mapping(setup.get("hold")).get("fixture")
+    return "workholding" if reference == fixture else "fixtures"
+
+
 # The shop-name helpers read only the bundle's inventory (and its units for a blade
 # width), so the render host can label tools without building a traveler.
-def reference_label(bundle, reference, category=None) -> str:
+def reference_label(bundle, reference, slot=None) -> str:
     """Shop name for an inventory reference; '(not in shop list)' when it does not resolve.
-    The item is the one the rules read (:func:`slot_category`): ``category``'s own first
-    (``fixtures`` is a hold slot: fixtures, holders, machines), then the rest; with no
-    category, the default order. The selected category is authoritative: an item it lists
-    as unknown or with nothing about it (``{}``), or a category stated unknown, prints
-    ``? <category>.<key>``, and a same-key item in another category never names it. Only a
-    reference no category selects is looked for in the rest of the shop list."""
+    The item is the one the rules read: the one :func:`select` selects for ``reference`` in
+    ``slot`` (a slot kind or one category; a ``<category>.<key>`` reference names its own).
+    An item, member or category stated unknown, or an item listed with nothing about it
+    (``{}``), prints ``? <category>.<key>``; a same-key item in another category never
+    names it."""
     if reference in (None, "unknown", "none", "not_applicable"):
         return _text(reference)
     if not isinstance(reference, str):
         return "?"
-    slot = "workholding" if category == "fixtures" else category
-    root, _, member = reference.partition("/")
-    selected = (
-        slot_category(bundle, reference, slot) if slot else inventory_category(bundle, root)
-    ) or category
-    # No category selects it: the shop list may still name it in a category no rule reads.
-    identity_category = selected or inventory_category(bundle, reference, tuple(bundle.inventory))
-    entries = bundle.inventory.get(identity_category) if identity_category else None
-    stated = _mapping(entries).get(root)
-    raw = _mapping(stated)
-    if (
-        entries == "unknown"
-        or stated in ("unknown", {})
-        or (member and _mapping(raw.get("members")).get(member) == "unknown")
-    ):
-        return f"? {identity_category}.{reference}"
-    item = resolve(bundle, selected, reference)
+    category, key, selected = select(bundle, reference, slot)
+    if selected == UNKNOWN:
+        return f"? {category}.{key}"
+    root, _, member = key.partition("/")
+    raw = authored(bundle, category, key)
+    item = resolve(bundle, slot, reference)
     record = item or raw
     # A member's display name is its own: a named kit does not name each of its pieces.
     own = _mapping(_mapping(raw.get("members")).get(member)) if member else {}
@@ -6348,7 +6351,7 @@ def reference_label(bundle, reference, category=None) -> str:
     named = own if member else raw or record
     name = named.get("name", named.get("label"))
     if not name:
-        if "machines" in (category, identity_category):
+        if category == "machines":
             # A maker's model number (PM-30MV) is the machine's name; any other identity
             # is an inventory slug, so the operator reads the machine's kind instead.
             model = re.fullmatch(r"[A-Z0-9]+(?:-[A-Z0-9]+)*", root) and re.search(r"\d", root)
@@ -6396,9 +6399,9 @@ def reference_label(bundle, reference, category=None) -> str:
     return f"{name} (not in shop list)" if item is None else str(name)
 
 
-def short_reference_label(bundle, reference, category=None) -> str:
+def short_reference_label(bundle, reference, slot=None) -> str:
     """`reference_label` with the long tool words cut for table cells."""
-    label = reference_label(bundle, reference, category)
+    label = reference_label(bundle, reference, slot)
     for full, short in (
         ("4-flute", "4fl"),
         ("2-flute", "2fl"),
