@@ -785,6 +785,43 @@ def _places(value):
     return next((d for d in range(7) if abs(round(value, d) - value) < 1e-9), 6)
 
 
+def _limits(value):
+    """A declared ``[least, greatest]`` pair as ``19.99–20``, else None."""
+    if isinstance(value, list) and len(value) == 2 and all(map(_known, value)):
+        return "–".join(_number(v) for v in value)
+    return None
+
+
+def _buttons_text(guide, bore):
+    """Filing buttons on the traveler: every stack element's receipt limits, then the
+    radius they file worst case (rounded outward to 0.001, so printing never narrows it)
+    on its centre-shift basis; else a STOP naming the unknown elements."""
+    runout = guide.get("button_runout_mm")
+    stack = [
+        ("button OD", "buttons Ø{} mm", _limits(guide.get("button_dia_mm"))),
+        ("button bore", "bored Ø{} mm", _limits(guide.get("button_bore_mm"))),
+        ("button runout", "OD runout {} mm TIR", _number(runout) if _known(runout) else None),
+        ("pin", "on a Ø{} mm pin", _limits(guide.get("pin_dia_mm"))),
+        (bore, f"through {bore} Ø{{}} mm", _limits(guide.get("bore_dia_mm"))),
+    ]
+    text = ", ".join(form.format(value) for _, form, value in stack if value is not None)
+    reach, button = guide.get("files_to_mm"), guide.get("button_dia_mm")
+    shift = _mapping(guide.get("centre_shift_mm"))
+    parts = [shift.get(key) for key in ("pin_in_bore", "button_on_pin", "runout")]
+    missing = [name for name, _, value in stack if value is None]
+    if missing or _limits(reach) is None or not all(map(_known, parts)):
+        unknown = f"{', '.join(missing)} limits unknown; " if missing else ""
+        return f"{text}; STOP: {unknown}worst-case filing radius not established"
+    low = math.floor(round(reach[0] * 1000, 6)) / 1000
+    high = math.ceil(round(reach[1] * 1000, 6)) / 1000
+    return (
+        f"{text}; worst case they file R{low:.3f} to R{high:.3f} mm: rims "
+        f"R{_number(button[0] / 2)}–{_number(button[1] / 2)} mm less or plus the "
+        f"{_number(sum(parts))} mm their centre can shift (pin in bore {_number(parts[0])}, "
+        f"button on pin {_number(parts[1])}, half the runout {_number(parts[2])})"
+    )
+
+
 def _angle(value):
     """A dividing-head angle: four decimals, or two significant digits below 0.001°."""
     small = value and abs(value) < 1e-3
@@ -4273,14 +4310,8 @@ class _Traveler:
             target = "file down to the hardened button rims"
             guide_text = (
                 f"{self.reference(guide.get('kit'), 'fixtures')} "
-                f"(Ø{_number(guide.get('button_dia_mm'))} mm buttons clamped on a "
-                f"Ø{_number(guide.get('pin_dia_mm'))} mm pin through "
-                f"{self.feature_name(guide.get('bore'))}"
+                f"({_buttons_text(guide, self.feature_name(guide.get('bore')))})"
             )
-            reach = guide.get("files_to_mm")
-            if isinstance(reach, list) and len(reach) == 2 and all(map(_known, reach)):
-                guide_text += f"; they file R{_number(reach[0], 3)} to R{_number(reach[1], 3)} mm"
-            guide_text += ")"
         elif guide.get("kind") == "template":
             guide_text = self.reference(guide.get("kit"), "gauges")
             layout = numbers.get("layout_op")
