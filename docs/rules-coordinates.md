@@ -707,15 +707,25 @@ circle). Unknown geometry is unknown.
   gauge whose `range_mm` covers R (a range miss or another kind is an error; an
   unknown range or `verify = true` is unknown).
 - `file_to_line`: `guide.buttons` names an inventory `fixtures` kit of
-  `kind = "filing_buttons"` (`dia_mm`, pin `bore_dia_mm`) that the setup holds
-  (`hold.fixture` or a clamp `ref`), pinned through `guide.bore`. The bore must
-  be the hole on the arc's axis, sized by a drill, ream or bore op before the
-  filing, and the pin must enter its smallest size; the buttons only guide a
-  convex arc. They file from `dia/2 − play` to `dia/2 + play`
-  (`files_to_mm`, play = (largest bore − pin)/2), which must sit inside the
-  radial band. Any of those failing is an error; a kit missing from the
-  inventory, not held, flagged to verify, or unknown sizes (a bore `dia` that is
-  not a known pair of numbers) are unknown, and so is an unknown radius band.
+  `kind = "filing_buttons"` that the setup holds (`hold.fixture` or a clamp
+  `ref`), pinned through `guide.bore`. The bore must be the hole on the arc's
+  axis, sized by a drill, ream or bore op before the filing; the buttons only
+  guide a convex arc. The guide record carries every element's declared limits
+  in mm: `button_dia_mm`, `button_bore_mm` and `pin_dia_mm` (the kit's
+  `*_limits` pairs), `button_runout_mm` and the bore's drawing `bore_dia_mm`.
+  The pin's largest size must enter the smallest bore and button bore. The rim
+  centre then shifts off the bore axis by at most `centre_shift_mm`:
+  `pin_in_bore = (bore_max − pin_min)/2`, `button_on_pin = (button_bore_max −
+  pin_min)/2` and `runout = runout/2`, so the buttons file worst case from
+  `button_min/2 − shift` to `button_max/2 + shift` (`files_to_mm`), which must
+  sit inside the radial band. Any of those failing is an error; a kit missing
+  from the inventory, not held, flagged to verify (itself or any fact), or any
+  element limit unknown (absent, not two positive ordered numbers, a negative
+  runout, a bore `dia` that is not a known pair of numbers) is unknown, and so
+  is an unknown radius band. The traveler prints every element's limits and the
+  worst-case band rounded outward to 0.001 mm (the shift basis stays in the
+  report's `centre_shift_mm`), marked `not proven` unless the finding passes, or
+  a STOP when the band itself is not established.
   `guide.template` instead files to a line an earlier `scribe` op laid out
   (`layout_op`; none is
   unknown). `guide.gauge` must be a radius or profile gauge covering R (no gauge
@@ -733,6 +743,11 @@ share, and, past a straight claimed-face edge that no other claimed face shares
 and along which the face's tangent plane is constant, the quarter the stroke runs
 on into beyond the edge and outside that plane. The last takes the corner nib
 between faces filed in different ops; the finished part is never filed.
+
+On the traveler, a `manual_arc` finding left unknown stops its op: the op's row
+prints a STOP with the finding's reasons (`debts`), and the setup's STOP list
+names the op, so no unproven layout or filing reads as an established step. An
+error stops it the same way through the op's error box.
 
 ## `zero_check`
 
