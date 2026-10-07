@@ -757,10 +757,10 @@ note = "Lower side, rod-hole end still at +X. The part is turned over about X, s
 
 [setups.stock_state]
 top_feature = "hub_faces" # the Z-touch face is the lower hub face; strap face ops do not move it
-top_z = 4.47175 # author's choice, flipped raw model Z-8 relative to frame B Z-3.52825
+top_z = 4.44825 # derived: S1 leaves the part 11.52825 thick (raw S1 bottom Z-11.52825 to the S1 hub face Z0); here the S1 hub face is at Z-7.080, so the raw face is at 11.52825 - 7.080
 bottom_z = -7.080 # S1 hub face: the op 10 measured touch sets frame B Z0 so the hub lands at the AUTHOR'S CHOICE 7.080 aim inside the drawing band
 bottom_z_cite = "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-121"
-retained_rail_bottom_z = -11.52825 # author's choice, raw model Z8 after flip; rails, not faced hub, seat on supports
+retained_rail_bottom_z = -11.55175 # derived: the S1 raw top (S1 Z+4.47175) after the flip, 4.47175 below the S1 hub face at Z-7.080; rails, not faced hub, seat on supports
 
 [setups.stock_state.local_thickness]
 rod_hole = 2.5235 # AUTHOR'S CHOICE derived: 7.080 hub aim minus the two 2.27825 hub-proud steps (S1 op 25, S2 op 20)
@@ -1034,7 +1034,7 @@ coolant = "cutting_oil_brush" # author's choice
 deburr_mm = 0.25
 deburr_cite = "harmonic-analyzer/cad/config/title_block.yaml:43-45"
 stock_in = "S2"
-note = "Strap-held ream setup: tram the plate and indicate the empty plate bore before loading. Lower the blank straight down over the permanent rod-hole diamond pin onto the lower-strap support pads, then match the rail-rest shims without lifting the part. Indicate the D pilot and confirm its centre is within 0.20 mm radial of the empty plate-bore reference before tightening. If the rod hole will not drop over the pin with the pilot inside 0.20 mm, stop and inspect S2 hole spacing; do not force it. Re-indicate the pilot as working A, then ream without relocating. The fixture's Z figures are drawn for the CAD part at the bottom of the hub-length band; the 7.080 part sits 0.0235 higher on the same pads and stand, so touch Z on its upper hub face, never on the plate. Remote studs and stepped straps clear the raw rails; do not profile across these straps. The pin stays fitted for S4."
+note = "Strap-held ream setup: tram the plate and indicate the empty plate bore before loading. Lower the blank straight down over the permanent rod-hole diamond pin onto the lower-strap support pads; with the strap seated, build the hub shim stack to the gap under the lower hub face, then match the rail-rest shims, all without lifting the part. Indicate the D pilot and confirm its centre is within 0.20 mm radial of the empty plate-bore reference before tightening. If the rod hole will not drop over the pin with the pilot inside 0.20 mm, stop and inspect S2 hole spacing; do not force it. Re-indicate the pilot as working A, then ream without relocating. The fixture's Z figures are drawn for the CAD part at the bottom of the hub-length band; the 7.080 part sits 0.0235 higher on the same pads and hub shims, so touch Z on its upper hub face, never on the plate. Remote studs and stepped straps clear the raw rails; do not profile across these straps. The pin stays fitted for S4."
 
 [setups.stock_state]
 top_feature = "hub_faces" # Z touches the upper hub face
@@ -1070,7 +1070,7 @@ grip_mm = "not_applicable" # author's choice, supported plate/strap contacts, no
 jaw_above_parallels_mm = "not_applicable"
 stop = "before tightening the straps, confirm the indicated pilot is within 0.20 mm radial of the empty plate-bore reference; then re-indicate the pilot as working datum A" # author's clearance control, not a drawing tolerance
 clamp = "two stepped padded straps on upper datum face B, remote studs outside the retained rail frame; supported toes, no stud through the part"
-note = "The permanent pin and coarse arm alignment keep the part over its twelve support pads and the strap toes on face B; they do not establish datum C. Seat the lower strap face first, then match the shimmed rail rests to the actual raw rails without lifting the part. The 8 mm stand relief clears the reamer after the 0.20 mm placement check."
+note = "The permanent pin and coarse arm alignment keep the part over its twelve support pads and the strap toes on face B; they do not establish datum C. Seat the lower strap face first, then build the hub shim stack and match the shimmed rail rests to the actual raw rails without lifting the part. The 8 mm stand relief clears the reamer after the 0.20 mm placement check."
 
 [setups.zero]
 tool_touches = [] # one Z touch per tool change, listed in retouch_after
@@ -1174,7 +1174,7 @@ coolant = "cutting_oil_brush"
 deburr_mm = 0.25
 deburr_cite = "harmonic-analyzer/cad/config/title_block.yaml:43-45"
 stock_in = "S3F"
-note = "Lower the part from S3F straight down over the permanent rod-hole pin onto the support pads. Fit the shoulder screw and washer through the reamed pivot bore. Match each shimmed rail rest to the actual raw rail without lifting the part. Rotate the part counterclockwise viewed from above (looking down setup -Z) to preload the rod hole against the closing-cut side of the pin, then tighten the shoulder screw and washer. Indicate the ground screw head after tightening to establish the fixture axis; the head is coaxial with the shoulder, not an exposed part-bore touch. Clamp the scrap rails independently. Touch Z on an unobstructed upper strap patch, not the washer-covered hub. Scribe the outline from the template (ops 10 and 20), rough it outside the line in stairs with light conventional passes (ops 25 and 27), then file it to the line (ops 30 and 40); ops 25 and 27 use a 1/4 in end mill so the cutter keeps clear of both rail walls."
+note = "Lower the part from S3F straight down over the permanent rod-hole pin onto the support pads and the hub shim stack built in S3 (re-feeler it; rebuild it if a feeler enters under the hub). Fit the shoulder screw and washer through the reamed pivot bore. Match each shimmed rail rest to the actual raw rail without lifting the part. Rotate the part counterclockwise viewed from above (looking down setup -Z) to preload the rod hole against the closing-cut side of the pin, then tighten the shoulder screw and washer. Indicate the ground screw head after tightening to establish the fixture axis; the head is coaxial with the shoulder, not an exposed part-bore touch. Clamp the scrap rails independently. Touch Z on an unobstructed upper strap patch, not the washer-covered hub. Scribe the outline from the template (ops 10 and 20), rough it outside the line in stairs with light conventional passes (ops 25 and 27), then file it to the line (ops 30 and 40); ops 25 and 27 use a 1/4 in end mill so the cutter keeps clear of both rail walls."
 
 [setups.stock_state]
 top_feature = "hub_faces"
@@ -1293,7 +1293,7 @@ rough_allowance_mm = 0.20 # AUTHOR'S CHOICE: the 0.20 radial the earlier roughs 
 direction = "conventional" # author's choice
 approach_mm = 5.0
 contour = { method = "stairs", cusp_mm = 0.25 } # AUTHOR'S CHOICE: stairs because a manual mill moves one handwheel at a time; 0.20 allowance + 0.25 cusp leaves 0.45, inside the 0.5 filing cap
-note = "Work the stair tables in this order: -X join, bottom arc, +X join; the joins meet the op 25 top-arc end points. The outline releases during this op. Enter each table from the scrap side; never plunge beside the part edge. Move one handwheel at a time at the listed Z, pushing into the counterclockwise-preloaded pin contact. Retract clear of stock and fixturing before moving to the next table. LOC2 clearance: the +X join passes 2.32 from the pin's 3.0 neck at its closest, at nominal positions (the cutter at Z -6.025 stays 3.07 above the 4.5 collar). Before cutting the +X join, with the spindle stopped, jog the cutter at the listed Z to the rows nearest the pin and pass a 2.0 gauge pin between cutter and neck at each; if it does not pass, stop and re-check the zero. Keep every scrap-rail clamp tight until the op is complete and the cutter is retracted, then remove the scrap. The diamond pin takes the closing-cut load; the shoulder screw and washer prevent lift and the pads carry Z."
+note = "Work the stair tables in this order: -X join, bottom arc, +X join; the joins meet the op 25 top-arc end points. The outline releases during this op. Enter each table from the scrap side; never plunge beside the part edge. Move one handwheel at a time at the listed Z, pushing into the counterclockwise-preloaded pin contact. Retract clear of stock and fixturing before moving to the next table. LOC2 clearance: the +X join passes the pin's 3.0 neck at the distance the CLEARANCE table gives, at nominal positions; the 4.5 collar lies wholly below the cutter tip (collar top Z -9.1, cutter tip Z -6.025). Before cutting the +X join, with the spindle stopped, jog the cutter at the listed Z to the rows nearest the pin and pass a 2.0 gauge pin between cutter and neck at each; if it does not pass, stop and re-check the zero. Keep every scrap-rail clamp tight until the op is complete and the cutter is retracted, then remove the scrap. The diamond pin takes the closing-cut load; the shoulder screw and washer prevent lift and the pads carry Z."
 
 [[setups.ops]]
 op = 30
@@ -1313,12 +1313,12 @@ height_above_pivot = [
   "Template engraving: a gap station at X 0 on the top blade; arc-length limit lines, radial through the arc centre, on the top blade at X ±144.808 and ±145.309 from the pivot pin (top-edge arc length 291.59 and 292.61) and on the bottom blade at X ±132.668 and ±133.172 (bottom arc length 266.19 and 267.21).",
   "The kit also holds a loose land square (ground steel block with a 40 long convex R800.00 stock face ground with the top blade, and a 12 blade square to the stock face at its end within 0.01 over 10) and a 0.02 to 1.00 feeler set.",
   "Set-up, after op 40: clean the part and the template. Lower the part over both pins onto its lower strap face with the hub in the relief, turn it counterclockwise against the diamond pin and hold it down by hand.",
-  "Feeler the top-blade gap at the X 0 station: {X 0 gap}. It must read 0.50 to 1.00 (top edge 8.00 to 8.50 over the pivot).",
+  "Feeler the top-blade gap at the X 0 station: {X 0 gap}. It must read 0.51 to 0.99 (top edge 8.01 to 8.49 over the pivot: the drawing's 8.00 to 8.50, 0.01 inside each limit for the blade's 0.01 edge tolerance).",
 ]
 radius = [
   "Same template set-up as height over pivot. The top edge must lie between R799.49 and R800.51 about the template centre (title-block ±0.51 on R800, no CR).",
-  "Slide a 0.49 feeler along the whole top blade, tip to tip; it must enter everywhere: {0.49 enters everywhere, OK / not OK}.",
-  "Slide a 1.52 stack (1.00 + 0.50 + 0.02) along the same blade; it must enter nowhere: {1.52 enters nowhere, OK / not OK}.",
+  "Slide a 0.50 feeler along the whole top blade, tip to tip; it must enter everywhere: {0.50 enters everywhere, OK / not OK}. The 0.50 and 1.50 feelers sit 0.01 inside the 0.49 to 1.51 gaps the limits give, covering the blades' 0.01 edge tolerance.",
+  "Slide a 1.50 stack (1.00 + 0.50) along the same blade; it must enter nowhere: {1.50 enters nowhere, OK / not OK}.",
 ]
 arc_len = [
   "Same template set-up. Each top-edge tip corner must lie between the top blade's two engraved arc-length lines at its end.",
@@ -1341,8 +1341,8 @@ bottom_arc_len = "rocker-profile-template"
 [setups.ops.inspection_methods]
 bottom_radius = [
   "Same profile-template set-up as S4 op 30, after op 40. The bottom edge must lie between R815.49 and R816.51 about the template centre (title-block ±0.51 on R816, no CR).",
-  "Slide a 0.49 feeler along the whole bottom blade, end to end; it must enter everywhere: {0.49 enters everywhere, OK / not OK}.",
-  "Slide a 1.52 stack (1.00 + 0.50 + 0.02) along the same blade; it must enter nowhere: {1.52 enters nowhere, OK / not OK}.",
+  "Slide a 0.50 feeler along the whole bottom blade, end to end; it must enter everywhere: {0.50 enters everywhere, OK / not OK}. As at op 30, the 0.50 and 1.50 feelers sit 0.01 inside the 0.49 to 1.51 gaps, covering the blades' 0.01 edge tolerance.",
+  "Slide a 1.50 stack (1.00 + 0.50) along the same blade; it must enter nowhere: {1.50 enters nowhere, OK / not OK}.",
 ]
 bottom_arc_len = [
   "Same template set-up. Each bottom-arc end must lie between the bottom blade's two engraved arc-length lines at that end.",

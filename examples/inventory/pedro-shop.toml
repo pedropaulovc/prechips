@@ -1591,11 +1591,13 @@ height_mm = { value = 25.4, measured = { by = "example (plausible, not measured)
 # mm above the PM-30MV's 2.4 in spindle-to-table minimum (frame-A Z0 is 40.4 above the
 # table). Twelve strap pads (tops Z-4.77825 on the lower strap face, ~6 mm inside the
 # finished outline, so outside the end mills' swept bands), a bored hub stand (OD 9.4
-# with an 8.0 relief bore, top Z-7.0565 on the lower hub face; the relief clears the S3
-# reamer exit and the S4 shoulder, which locates only in the reamed hub and the plate's
-# 6.500 bore). Pad tops stand 2.27825 above the stand top, the hub-proud step S1 and S2
-# cut from each hub face, so pads and stand carry the part at any hub length in its
-# band. Z figures here are for the CAD part at the band minimum (hub 7.0565); the
+# with an 8.0 relief bore, top Z-7.1065) and a per-part hub shim stack on it (0.05
+# nominal, top Z-7.0565 on the lower hub face; the relief clears the S3 reamer exit and
+# the S4 shoulder, which locates only in the reamed hub and the plate's 6.500 bore).
+# Pad tops stand 2.32825 above the stand top: 0.05 more than the 2.27825 hub-proud step
+# S1 and S2 cut from each hub face, so the shim stack, built with feeler gauges after
+# the strap seats on the pads, takes up each part's actual step. Z figures here are for
+# the CAD part at the band minimum (hub 7.0565); the
 # 7.080-aim part sits 0.0235 higher on the same pads and stand, so each setup touches Z
 # on the part, never on the plate. Four rail rests sit under the retained rails at X+-70
 # (>16 mm outside the outline). Each rest is a fixed 3.0 mm ground body (top Z-12) plus
@@ -1618,7 +1620,7 @@ height_mm = { value = 25.4, measured = { by = "example (plausible, not measured)
 [fixtures.rocker-profile-fixture]
 name = "rocker profile fixture plate"
 kind = "custom"
-note = "illustrative example shop-made fixture: 360 x 145 x 25.4 mm ground plate, twelve strap pads, relieved hub stand, four 3.0 mm rail rests with per-blank shim stacks, shoulder-screw locating bore, rod-pin hole, stud and hold-down holes"
+note = "illustrative example shop-made fixture: 360 x 145 x 25.4 mm ground plate, twelve strap pads, relieved hub stand with a per-part hub shim stack, four 3.0 mm rail rests with per-blank shim stacks, shoulder-screw locating bore, rod-pin hole, stud and hold-down holes"
 length_mm = { value = 360.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule" } }
 width_mm = { value = 145.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule" } }
 height_mm = { value = 35.62175, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "height gauge, plate bottom to the highest strap-pad tops" } }
@@ -1649,9 +1651,10 @@ solids = [
   { name = "pad-r6-slot", label = "Pad slots", void = true, cuts = ["base"], shape = "box", at_mm = [110.0, 7.2, -17.0], size_mm = [12.0, 2.4, 2.0], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, slot width; depth micrometer, slot depth" } },
   { name = "pad-l6", locates = "lower strap face", fastener = "bonded 2 mm deep in its plate slot with a 0.05 mm bond gap a side (pad = slot - 0.10 each way); tops ground together with the stand", shape = "box", at_mm = [-121.95, 7.25, -17.0], size_mm = [11.9, 2.3, 12.22175], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers; height gauge, plate top to pad top 10.22175 after bonding" } },
   { name = "pad-l6-slot", label = "Pad slots", void = true, cuts = ["base"], shape = "box", at_mm = [-122.0, 7.2, -17.0], size_mm = [12.0, 2.4, 2.0], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, slot width; depth micrometer, slot depth" } },
-  { name = "hub-stand", locates = "lower hub face", fastener = "bonded 2 mm deep in its 9.5 counterbore coaxial with the 6.500 bore, 0.05 mm bond gap a side; top ground with the pads to 2.278 below the pad tops (check across each pad and the stand with the height gauge before first use: the step must read 2.278 ±0.005, so the hub seats on the stand as the strap seats on the pads and no clamp bends the strap)", shape = "cylinder", at_mm = [0.0, 0.0, -17.0], axis = [0.0, 0.0, 1.0], dia_mm = 9.4, length_mm = 9.9435, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer OD and length; height gauge, plate top to stand top 7.9435 after bonding" } },
+  { name = "hub-stand", fastener = "bonded 2 mm deep in its 9.5 counterbore coaxial with the 6.500 bore, 0.05 mm bond gap a side; top ground with the pads to 2.328 below the pad tops (height gauge across each pad and the stand before first use: 2.328 ±0.005), 0.05 under the part's 2.278 hub step so the hub shim stack takes up each part's actual step", shape = "cylinder", at_mm = [0.0, 0.0, -17.0], axis = [0.0, 0.0, 1.0], dia_mm = 9.4, length_mm = 9.8935, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer OD and length; height gauge, plate top to stand top 7.8935 after bonding" } },
+  { name = "hub-shim", shim = true, locates = "lower hub face", shape = "cylinder", at_mm = [0.0, 0.0, -7.1065], axis = [0.0, 0.0, 1.0], dia_mm = 9.4, length_mm = 0.05, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the shim-stock washers; nominal, re-selected per part with feeler gauges" } },
   { name = "stand-counterbore", void = true, cuts = ["base"], shape = "cylinder", at_mm = [0.0, 0.0, -17.0], axis = [0.0, 0.0, 1.0], dia_mm = 9.5, length_mm = 2.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "inside micrometer, counterbore dia; depth micrometer, counterbore depth" } },
-  { name = "stand-bore", void = true, cuts = ["hub-stand"], shape = "cylinder", at_mm = [0.0, 0.0, -17.5], axis = [0.0, 0.0, 1.0], dia_mm = 8.0, length_mm = 11.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "inside micrometer, relief bore" } },
+  { name = "stand-bore", void = true, cuts = ["hub-stand", "hub-shim"], shape = "cylinder", at_mm = [0.0, 0.0, -17.5], axis = [0.0, 0.0, 1.0], dia_mm = 8.0, length_mm = 11.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "inside micrometer, relief bore" } },
   { name = "locating-bore", fastener = "6.500 H7 locating bore (6.500-6.512)", void = true, cuts = ["base"], shape = "cylinder", at_mm = [0.0, 0.0, -21.0], axis = [0.0, 0.0, 1.0], dia_mm = 6.5, length_mm = 6.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "pin gauges, 6.500 go; depth micrometer" } },
   { name = "pivot-tap", fastener = "M5x0.8 tapped", void = true, cuts = ["base"], shape = "cylinder", at_mm = [0.0, 0.0, -28.2], axis = [0.0, 0.0, 1.0], dia_mm = 5.1, length_mm = 7.3, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "M5x0.8 thread plug gauge; drawn at major dia + 0.1" } },
   { name = "rod-pin-hole", fastener = "3.0 H7 pin hole, positioned with the bore from the -Y reference edge", void = true, cuts = ["base"], shape = "cylinder", at_mm = [133.06740213488345, 8.456064115939025, -21.0], axis = [0.0, 0.0, 1.0], dia_mm = 3.0, length_mm = 6.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "nominal 3.000 H7 fit envelope (design value, not an actual reading); checked with 3.000 go / 3.010 no-go pin gauges; depth micrometer" } },
@@ -1746,7 +1749,7 @@ note = "illustrative example shop-made shoulder screw: 6.49 ground shoulder x 21
 solids = [
   { name = "washer", locates = "upper hub face (clamps)", shape = "cylinder", at_mm = [0.0, 0.0, 0.0], axis = [0.0, 0.0, 1.0], dia_mm = 9.0, length_mm = 1.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, OD and thickness" } },
   { name = "washer-bore", void = true, cuts = ["washer"], shape = "cylinder", at_mm = [0.0, 0.0, -0.5], axis = [0.0, 0.0, 1.0], dia_mm = 6.6, length_mm = 2.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "pin gauges" } },
-  { name = "head", shape = "cylinder", at_mm = [0.0, 0.0, 1.5], axis = [0.0, 0.0, 1.0], dia_mm = 8.0, length_mm = 4.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, head OD ground with the shoulder; test indicator, head-to-shoulder TIR <= 0.003 between centres; calipers, head height" } },
+  { name = "head", note = "head ground 7.995-8.000 in the same setup as the shoulder, coaxial with it to TIR 0.003; before first use mic the head, then roll the shoulder in the inspection V-block and indicate the head: reject over 0.003 TIR. The head locates the S4 X/Y pickup and the outline-template bush (8.000-8.015)", shape = "cylinder", at_mm = [0.0, 0.0, 1.5], axis = [0.0, 0.0, 1.0], dia_mm = 8.0, length_mm = 4.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, head OD ground with the shoulder; test indicator, head-to-shoulder TIR <= 0.003 in a V-block; calipers, head height" } },
   { name = "shoulder", locates = "reamed bore A", fastener = "ground 6.490/6.485: 0.010-0.045 clearance in reamed A, 0.010-0.027 in the plate bore", shape = "cylinder", at_mm = [0.0, 0.0, -20.0], axis = [0.0, 0.0, 1.0], dia_mm = 6.49, length_mm = 21.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, ground shoulder; calipers, head underside to shoulder end" } },
   { name = "thread", fastener = "M5x0.8 into plate tap", shape = "cylinder", at_mm = [0.0, 0.0, -27.2], axis = [0.0, 0.0, 1.0], dia_mm = 5.0, length_mm = 7.2, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "M5x0.8 thread ring gauge; calipers, thread length" } },
 ]
@@ -1781,7 +1784,7 @@ kind = "locating_pin"
 shop_made = true
 note = "illustrative example shop-made stepped diamond pin: custom-ground 1.9875 working tip (1.76 across flats) on a 3.0 neck down to a 4.5 collar seated on the plate, 3.0 m6 shank in a 3.0 H7 plate hole; in-process orientation locator and positive tangential stop for the closing profile pass only, not datum C and not a clamp"
 solids = [
-  { name = "neck", shape = "cylinder", at_mm = [0.0, 0.0, 0.0], axis = [0.0, 0.0, 1.0], dia_mm = 3.0, length_mm = 4.32175, note = "AUTHOR'S CHOICE: 3.0 neck, because the S4 op 27 +X join passes 2.32 from it at Z -6.025; the 4.5 collar stays below the cutter tip", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer OD; height gauge, collar top to neck face 4.32" } },
+  { name = "neck", shape = "cylinder", at_mm = [0.0, 0.0, 0.0], axis = [0.0, 0.0, 1.0], dia_mm = 3.0, length_mm = 4.32175, note = "AUTHOR'S CHOICE: 3.0 neck, because at the collar's 4.5 the S4 op 27 +X join would pass under 2 from the pin; the 4.5 collar stays below the cutter tip", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer OD; height gauge, collar top to neck face 4.32" } },
   { name = "collar", shape = "cylinder", at_mm = [0.0, 0.0, 4.32175], axis = [0.0, 0.0, 1.0], dia_mm = 4.5, length_mm = 5.9, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer OD; height gauge, plate top to collar top 5.9" } },
   { name = "rodlocator", locates = "rod hole (in-process orientation locator, not datum C)", fastener = "round lands ground 1.9875/1.9850: 0.0125-0.025 clearance in the 2.000-2.010 reamed rod hole", shape = "cylinder", at_mm = [0.0, 0.0, 0.0], axis = [0.0, 0.0, -1.0], dia_mm = 1.9875, length_mm = 2.37825, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the custom-ground round lands; calipers, length above the neck face" } },
   { name = "flat-pos", void = true, cuts = ["rodlocator"], shape = "box", at_mm = [0.88, -1.5, -2.6], size_mm = [1.0, 3.0, 2.8], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer across the flats (1.76)" } },
@@ -2252,13 +2255,13 @@ solids = [
 # drops over the ground shoulder-screw head (coaxial with bore A) in the S4 fixture.
 # It is a layout template only, distinct from the rocker-profile-template inspection
 # gauge (whose blades sit 1.00 outside the outline). AUTHOR'S CHOICE: made to order by
-# an outside wire-EDM shop from the part CAD, because no machine here holds an R800
-# line to 0.02; the shop bonds in the bush.
+# an outside wire-EDM shop to the outline dimensions printed at S4 op 10 (from the bore
+# A axis), because no machine here holds an R800 line to 0.02; the shop bonds in the bush.
 [gauges.rocker-outline-template]
 name = "rocker outline template"
 kind = "profile_gauge"
 shop_made = true
-note = "illustrative example 1.5 mm O1 gauge-plate cut-out of the finished rocker outline, wire-EDM cut to order from the part CAD with its edges ON the nominal outline within 0.02 (top edge R800.00 and bottom arc R816.00 about the centre 808.00 above bore A, tapered ends and both tip lands); a Ø14.1 hub hole with a bonded Ø14 x 7.8 bush (Ø11 clearance bore 3.9 deep over the hub and washer, then an 8.000-8.015 bore over the Ø8 shoulder-screw head) and a Ø2.0 sight hole at the rod-hole centre X 133.067, Y 8.456 for clocking. A scribing template, not the inspection profile template"
+note = "illustrative example 1.5 mm O1 gauge-plate cut-out of the finished rocker outline, wire-EDM cut to order with its edges ON the nominal outline within 0.02: from the bore A axis, top edge R800.00 about X 0, Y 808.00 between X ±145.240, Y 21.295; 5.59 radial lands to X ±146.255, Y 15.800; straight tapers to X ±132.757, Y 2.872; bottom arc R816.00 about the same centre; a Ø14.1 hub hole with a bonded Ø14 x 7.8 bush (Ø11 clearance bore 3.9 deep over the hub and washer, then an 8.000-8.015 bore over the Ø8 shoulder-screw head) and a Ø2.0 sight hole at the rod-hole centre X 133.067, Y 8.456 for clocking. A scribing template, not the inspection profile template"
 range_mm = [800.0, 816.0] # example: the radii its edges are cut to
 resolution_mm = 0.05 # example: scribed-line width
 
