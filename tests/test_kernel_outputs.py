@@ -197,6 +197,32 @@ def test_an_inspection_sketch_is_written_bound_and_printed_on_its_worksheet(
     assert (out / name).exists() is not changed
 
 
+def test_an_inspection_sketch_is_sent_with_the_cut_it_follows_in_the_route(tmp_path):
+    # The kernel draws a sketch on the stock as the route stands at its inspect op: the
+    # job names the last cut before it (op order, not op number), or none.
+    from test_cli import copy_examples
+    from test_process_route import append_op
+
+    import prechips.kernel as kernel
+
+    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
+    sid, op = append_op(plan, _SKETCHED_OP).split(":")
+    bundle = load_bundle(plan)
+
+    def sent():
+        job = kernel.build_job(bundle)
+        (setup,) = [setup for setup in job["setups"] if setup["id"] == sid]
+        (inspection,) = setup["render"]["inspections"]
+        return [cut["subject"] for cut in setup["ops"]], inspection
+
+    cuts, inspection = sent()
+    assert cuts and inspection["op"] == int(op) and inspection["after"] == cuts[-1]
+    assert "position" not in inspection
+    ops = next(setup for setup in bundle.plan["setups"] if setup["id"] == sid)["ops"]
+    ops.insert(0, ops.pop())
+    assert sent()[1]["after"] is None
+
+
 def test_refused_stale_image_deletion_restores_every_prior_output(tmp_path, monkeypatch):
     from contextlib import nullcontext
     from pathlib import Path

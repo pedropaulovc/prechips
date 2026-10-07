@@ -844,14 +844,28 @@ the claimed face's own width (along the spindle axis, through the box's whole
 depth), over the finished face's holes and edges too. Past each end of that
 width, where such stock also stands behind the plane, the op's own cutter of
 radius r steps from the plane up onto the skin and leaves the cusp of that step:
-before a vertical wall, the region under the arc of radius r tangent to the
-plane `sqrt(r² − (r − min(a, r))²)` past the end and through the skin's outer
-corner (when r ≤ a, tangent to its end face at height r), at the heights where
-both that stock and the skin's backing stand. No other op, earlier or later, is
-credited with clearing it. A flat-bottomed cutter steps square onto a floor's
-skin and leaves no cusp; a step past the end of an inclined planar claim's skin,
-or a claim on a surface neither planar nor curved analytic, makes the leave, and
-so the stock, unknown. A violation is not an
+before a vertical wall, at each height, what lies in front of the plane past the
+end that no disc of radius r covers whose centre clears, at once, everything the
+op keeps at and above that height (the stock behind the plane, the skin, the
+guard's `a` rounding of the wall's own convex edge and reserved columns). Beside
+that rounding the cusp reaches `sqrt((r + a)² − r²)` past the end, where the
+cutter touches the plane and the rounding; above the wall, where no guard stands,
+the skin's sharp outer corner alone bounds it, `sqrt(r² − (r − min(a, r))²)`.
+Heights where the kept shape is not upright are taken in slabs at most 0.25 mm
+deep, each keeping what that shape just above its foot leaves (the widest over
+the slab, since the shadow takes in all that stands above); a slab thinner than
+0.01 mm joins the one below. Each height's section is taken with a level face
+wider than the shape. Both growths by r
+are exact unions of the shape, the band beside each of its edges and one disc
+about each edge end (a free-form section edge is fitted with arcs within 1e-4 mm
+and reached that much farther, erring towards keeping stock); each is cut in one
+Boolean and checked after it: a legal centre nearer the kept shape than r, a disc
+overlapping it, a band whose covered and uncovered shares do not add up to it, or
+a failed Boolean makes the stock unknown. No other op,
+earlier or later, is credited with clearing it. A flat-bottomed cutter steps
+square onto a floor's skin and leaves no cusp; a step past the end of an inclined
+planar claim's skin, or a claim on a surface neither planar nor curved analytic,
+makes the leave, and so the stock, unknown. A violation is not an
 error verdict: it is named stock debt (the stock reason names the failed
 guard), so stock-dependent results for that setup and later setups selecting
 its output stay `unknown`, never clearance. Genuine collisions with finished
@@ -1909,21 +1923,31 @@ Holding-detail keys print a contact's plane on the setup's DRO grid
 tables round (half a step away from zero, float noise in the quotient not
 counting; one shared rounding), so a key reads as the DRO is set and as the table
 prints it. Closest-cut and clearance distances are measured values and never snap
-to the grid.
+to the grid; `closest_cut.mm` is rounded as the CLEARANCE rows are (six places).
+Every decimal a picture prints (DRO values, clearances, sizes, a band's gain) and
+every fixed-decimal number on the sheet goes through one rounding,
+`render_diagram.decimal_text`: the float's written decimal, a half-way value
+rounded away from zero (2.8045 at three places prints 2.805, never 2.804), so a
+picture and its table never print one value two ways.
 
 A guided bench file (a hand op whose `guide.buttons` kit is held in the setup,
 its solids named to the kernel by `guide_owner`, the kit's declared button OD by
 `guide_rim_dia_mm`) is not a cut to clear. A kit solid is a stop only when it is a
 button of that declared OD (a cylindrical face within the OD limits, widened by the
-stock tolerance), its cut reaches it, and it is seated on the filed face (within the
-stock tolerance of the stock the file leaves, without biting into it). Those stops
+stock tolerance), its cut reaches it, it is seated on the filed face (within the
+stock tolerance of the stock the file leaves, without biting into it), and that
+rim sets the filed boundary: the rim's cylinder, run along its axis, touches the
+cut where the cut meets the stock the file leaves and nowhere enters the cut. A
+button of the right OD whose rim stands over the unfiled wall is no stop. Those stops
 are named in `render_scene.guide_stops`, and the kernel leaves them out of
 `closest_cut`, so no `CUT 0.000 mm FROM` a filing button prints. Any other kit
 solid the cut reaches (a stud, a tab touching the unfiled wall, a square block) is
 holding to clear and keeps its real `CUT` dimension. The detail keys
 them in green: `FILE STOPS ON BOTH BUTTON RIMS` for a matched pair, or one key
 per rim, `FILE STOPS ON UPPER BUTTON RIM`, when they lie apart. A real clearance
-to the rest of the kit (its stud) is still dimensioned. When the stops are turned
+to the rest of the kit (its stud) is still dimensioned: in the holding detail when
+one is drawn and keys it, else on the setup picture itself, so a picture never
+drops its `CUT` dimension because the detail band is not drawn. When the stops are turned
 solids on one axis that the setup picture does not already look along (within
 cos 0.99), a **guide view** band below the detail looks down that axis, enlarged
 (`VIEW ALONG THE BUTTON AXIS X14.6`, with the setup axes it draws right and up).
@@ -1937,9 +1961,12 @@ of the stock to file off, so the near button does not hide the work and the cut
 face shows what the file takes; the band notes `SECTION BETWEEN THE RIMS`.
 
 An inspect op's `inspection_views` ([plan](plan.md)) are drawn as one set-up
-sketch per requirement, a band per view, on the stock the setup leaves (only the
-pieces of it that hold the part: scrap a cut released, such as a rail frame, is
-off the part when it is inspected) and in the
+sketch per requirement, a band per view, on the stock as the setup's route stands
+at that inspect op: after the last op before it that the kernel cuts (the job's
+inspection `after`, that op's subject, or the arriving stock when none precedes
+it), never the stock later ops leave. Only the pieces of it that hold the part
+are drawn: scrap a cut before the inspection released, such as a rail frame, is
+off the part when it is inspected. It is drawn in the
 part model's own axes: `up` up the page, seen from `toward`. The bands are
 returned as `inspection_pngs_base64` keyed `<op>:<requirement>`, apart from the
 setup picture. Each band titles its view, wrapping a title too long for one line
@@ -1951,7 +1978,7 @@ the page, the way that orientation's height reading rises, under the note
 `+ ARROW: THE WAY A READING RISES (A HIGHER CONTACT READS +)`; other marks are
 red contacts. What a sketch cannot show is a render debt on the setup's
 `render_debts` (`op <op> <requirement> sketch: NOT SHOWN: …`): an aid hidden in a
-view, or the whole sketch when the setup's exit stock is unresolved.
+view, or the whole sketch when the stock at its place in the route is unresolved.
 
 Alongside the image the engine returns `render_scene` with `fixture_kind`,
 `jaws`, `parallels`, `components`, `debts`, camera/resolution, plain-language

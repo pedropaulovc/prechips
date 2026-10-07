@@ -11,7 +11,6 @@ from __future__ import annotations
 import functools
 import math
 import re
-from decimal import ROUND_HALF_UP, Context, Decimal
 from html import escape
 
 from .clamp_labels import clamp_labels
@@ -857,12 +856,11 @@ def _number(value, precision=None):
     if not math.isfinite(value):
         return "?"
     if isinstance(precision, int):
-        # Enough digits for any finite float at any printed precision.
-        exact = Decimal(repr(float(value)))
-        step = Decimal(1).scaleb(-precision)
-        result = f"{exact.quantize(step, ROUND_HALF_UP, Context(prec=400)):f}"
-    else:
-        result = f"{round(value, 6):g}"
+        # The pictures' own rounding: a picture and its table never print one value two ways.
+        from prechips.kernel.render_diagram import decimal_text
+
+        return decimal_text(value, precision)
+    result = f"{round(value, 6):g}"
     return result.removeprefix("-") if float(result) == 0 else result
 
 

@@ -428,7 +428,10 @@ def _pinned(engine, parts, land=None, at=(30.0, 10.0), part="bored", locator=Non
         **_cylinder("land", [0.0, 0.0, 0.0], 4.003, 6.0, locates="the bore", bears="bore"),
         **(land or {}),
     }
-    pin = {"kind": "locating_pin", "solids": [land, _cylinder("collar", [0.0, 0.0, -5.0], 8.0, 5.0)]}
+    pin = {
+        "kind": "locating_pin",
+        "solids": [land, _cylinder("collar", [0.0, 0.0, -5.0], 8.0, 5.0)],
+    }
     hold = {
         "fixture": "nest",
         "pose": {"origin_mm": [0.0, 0.0, 0.0], **UP},
@@ -484,7 +487,8 @@ ON_TOP = {"at_mm": [0.0, 0.0, -6.0]}  # the land stands on the plate top, z 10..
             None,
             (30.5, 10.0),
             "bored",
-            "dia 4.003 stands 0.5 off the axis of the dia 4.004 bore it stands in and crosses its wall",
+            "dia 4.003 stands 0.5 off the axis of the dia 4.004 bore it stands in"
+            " and crosses its wall",
         ),
         # Loose: the collar rests on the top, but the land itself touches nothing.
         (
