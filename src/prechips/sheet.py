@@ -767,7 +767,12 @@ def _number(value, precision=None):
         return _text(value)
     if not math.isfinite(value):
         return "?"
-    result = f"{value:.{precision}f}" if isinstance(precision, int) else f"{round(value, 6):g}"
+    if isinstance(precision, int):
+        # The pictures' own rounding: a picture and its table never print one value two ways.
+        from prechips.kernel.render_diagram import decimal_text
+
+        return decimal_text(value, precision)
+    result = f"{round(value, 6):g}"
     return result.removeprefix("-") if float(result) == 0 else result
 
 

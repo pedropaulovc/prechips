@@ -1861,7 +1861,12 @@ Holding-detail keys print a contact's plane on the setup's DRO grid
 tables round (half a step away from zero, float noise in the quotient not
 counting; one shared rounding), so a key reads as the DRO is set and as the table
 prints it. Closest-cut and clearance distances are measured values and never snap
-to the grid.
+to the grid; `closest_cut.mm` is rounded as the CLEARANCE rows are (six places).
+Every decimal a picture prints (DRO values, clearances, sizes, a band's gain) and
+every fixed-decimal number on the sheet goes through one rounding,
+`render_diagram.decimal_text`: the float's written decimal, a half-way value
+rounded away from zero (2.8045 at three places prints 2.805, never 2.804), so a
+picture and its table never print one value two ways.
 
 A guided bench file (a hand op whose `guide.buttons` kit is held in the setup,
 its solids named to the kernel by `guide_owner`, the kit's declared button OD by

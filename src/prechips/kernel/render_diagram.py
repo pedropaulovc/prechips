@@ -8,6 +8,7 @@ import math
 import re
 from collections import defaultdict
 from dataclasses import dataclass, replace
+from decimal import ROUND_HALF_UP, Context, Decimal
 
 try:
     from .render_png import RenderCanvas
@@ -157,9 +158,19 @@ def _plain(value):
     return " ".join(text.split()).upper()
 
 
+def decimal_text(value, places):
+    """``value`` printed at ``places`` decimals as the shop rounds its written decimal: a
+    half-way value rounds away from zero on the float's own shortest decimal, never on its
+    binary expansion (2.8045 at three places is 2.805, not 2.804); zero prints unsigned.
+    The one rounding of a printed decimal, in pictures and sheet tables alike."""
+    exact = Decimal(repr(float(value)))
+    step = Decimal(1).scaleb(-places)
+    text = f"{exact.quantize(step, ROUND_HALF_UP, Context(prec=400)):f}"
+    return text.removeprefix("-") if float(text) == 0 else text
+
+
 def _mm(value):
-    text = f"{value:.2f}".rstrip("0").rstrip(".")
-    return "0" if text in ("", "-0") else text
+    return decimal_text(value, 2).rstrip("0").rstrip(".")
 
 
 def _dro(value, decimals):
@@ -168,8 +179,7 @@ def _dro(value, decimals):
     so a picture and its table never show one value rounded two ways; else :func:`_mm`."""
     if not isinstance(decimals, int) or isinstance(decimals, bool) or decimals < 0:
         return _mm(value)
-    text = f"{value:.{decimals}f}"
-    return text.removeprefix("-") if float(text) == 0 else text
+    return decimal_text(value, decimals)
 
 
 def _corners(box):
@@ -2737,7 +2747,7 @@ class _HoldingDetail(_Diagram):
     def _title(self):
         index, count = self.tile
         title = "HOLDING DETAIL" if count == 1 else f"HOLDING DETAIL {index} OF {count}"
-        title += f" X{self.gain:.1f}"
+        title += f" X{decimal_text(self.gain, 1)}"
         zero = self.spec.get("zero_mm")
         axis = max(range(3), key=lambda i: abs(self.camera[0][i]))
         # A band or a window on the holding shows only a stretch of the work: say which.
@@ -3021,7 +3031,7 @@ class _GuideView(_HoldingDetail):
     def _title(self):
         nouns = {name.rsplit(" ", 1)[-1] for name in self.names}
         noun = nouns.pop() if len(nouns) == 1 else "GUIDE"
-        return f"VIEW ALONG THE {noun} AXIS X{self.gain:.1f}"
+        return f"VIEW ALONG THE {noun} AXIS X{decimal_text(self.gain, 1)}"
 
     def _facing(self):
         """Where this view looks from and which setup axes it draws right and up, as the

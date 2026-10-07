@@ -7792,7 +7792,8 @@ class _Setup:
                     "from_mm": [near.x, near.y, near.z],
                     "to_mm": [far.x, far.y, far.z],
                 }
-        return nearest
+        # Rounded as the CLEARANCE rows are: a picture prints the value its table prints.
+        return nearest and {**nearest, "mm": _r(nearest["mm"])}
 
     def _cut_clearances(self, solids, drawn):
         """Each cutting op's own cut against the holding ``solids``: ``[{"op", "mm",
@@ -7829,7 +7830,7 @@ class _Setup:
             if cuts and not drawn:
                 rows.append(unknown)
             elif nearest is not None:
-                rows.append({"op": number, "mm": _r(nearest["mm"]), "tag": nearest["tag"]})
+                rows.append({"op": number, "mm": nearest["mm"], "tag": nearest["tag"]})
         return rows
 
     def _index_arc(self, annotation, fixture_kind):

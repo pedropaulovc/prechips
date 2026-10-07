@@ -1102,6 +1102,29 @@ def test_picture_coordinates_and_clearances_print_as_the_setup_tables_print_them
     assert f"CONTACT AT X {plane}" in text, text
 
 
+def test_a_half_way_value_prints_as_its_written_decimal_in_the_picture_and_its_table():
+    # 2.8045 is stored as 2.80449999…: the shop rounds the written 2.8045 half up, away
+    # from zero, so the picture's CUT and JAW FRONT and the sheet's table all read 2.805.
+    from prechips.sheet import _number
+
+    meshes, spec = _vise_spec(12)
+    spec["decimals"] = 3
+    spec["jaw_front_z_mm"] = -2.8045
+    spec["closest_cut"] = {
+        "mm": 2.8045,
+        "tag": "fixed_jaw",
+        "from_mm": [0, 6, 10],
+        "to_mm": [0, 6, 10 - 2.8045],
+    }
+    main = _Diagram(meshes, spec)
+    main.render()
+    (detail,) = _holding_details(meshes, spec, main)
+    text = " ".join(box[0] for drawn in (main, detail) for box in drawn.canvas.text_boxes)
+    assert "CUT 2.805 MM FROM" in text, text
+    assert "JAW FRONT Z -2.805 MM" in text, text
+    assert (_number(2.8045, 3), _number(-2.8045, 3)) == ("2.805", "-2.805")
+
+
 def _button_kit():
     """A 340 mm arm sectioned on its long side, held at its hub between two 10 mm buttons
     on a stud (clamp C1): ``(meshes, spec, solids)``."""
