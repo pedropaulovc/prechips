@@ -2238,46 +2238,29 @@ class _Traveler:
             text = f"{seat}; then {text[:1].lower()}{text[1:]}"
         return text + "."
 
-    def solid_numbers(self, solid, fit=False):
-        """A solid's printed size numbers (:meth:`fixture_number`): a box's three edges, a
-        cylinder's Ø and length (a hole's Ø alone); None for any other shape."""
-        f = functools.partial(self.fixture_number, fit=fit)
-        if solid.get("shape") == "box" and isinstance(solid.get("size_mm"), list):
-            return [f(v) for v in solid["size_mm"]]
-        if solid.get("shape") == "cylinder":
-            if solid.get("void") is True:
-                return [f(solid.get("dia_mm"))]
-            return [f(solid.get("dia_mm")), f(solid.get("length_mm"))]
-        return None
-
     def solid_size(self, solid, fit=False):
-        numbers = self.solid_numbers(solid, fit)
+        f = functools.partial(self.fixture_number, fit=fit)
         void = solid.get("void") is True
-        if numbers is None:
-            return "?"
-        if solid.get("shape") == "box":
-            size = " × ".join(numbers)
+        if solid.get("shape") == "box" and isinstance(solid.get("size_mm"), list):
+            size = " × ".join(f(v) for v in solid["size_mm"])
             return f"cut-out {size}" if void else size
-        if void:
-            return f"Ø{numbers[0]} hole"
-        return f"Ø{numbers[0]} × {numbers[1]}"
+        if solid.get("shape") == "cylinder":
+            if void:
+                return f"Ø{f(solid.get('dia_mm'))} hole"
+            return f"Ø{f(solid.get('dia_mm'))} × {f(solid.get('length_mm'))}"
+        return "?"
 
     def shop_made_sizes(self, reference):
-        """``[(solid, numbers, size)]`` for each made solid, from its SHOP-MADE FIXTURE row
-        (:meth:`shop_made_rows`): the row's printed numbers (:meth:`solid_numbers`) and
-        Size mm cell, None and ``?`` for a row :meth:`shop_made_parts` withholds."""
+        """``[(solid, size)]`` for each made solid: its SHOP-MADE FIXTURE row's Size mm cell
+        (:meth:`shop_made_rows`), ``?`` for a row :meth:`shop_made_parts` withholds."""
         _, made, withheld, _, drilled, fits = self.shop_made_parts(reference)
         sizes = []
         for members in self.shop_made_rows(made, withheld, drilled):
             first = members[0]
             if _supply(first) != "made":
                 continue
-            if id(first) in withheld:
-                numbers, size = None, "?"
-            else:
-                fit = id(first) in fits
-                numbers, size = self.solid_numbers(first, fit), self.solid_size(first, fit)
-            sizes += [(solid, numbers, size) for solid in members]
+            size = "?" if id(first) in withheld else self.solid_size(first, id(first) in fits)
+            sizes += [(solid, size) for solid in members]
         return sizes
 
     @staticmethod

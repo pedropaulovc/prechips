@@ -382,6 +382,18 @@ only leave it there.
 - `N mm` or `N in` `above` or `below the [vise] jaw[s]` or `jaw top[s]`, in the
   setup or op text of a hold that sets `jaw_above_parallels_mm`: the jaw tops are
   derived, so other heights are given as Z values.
+- A made row's whole size in a make note it prints with, on a SHOP-MADE FIXTURE
+  table (read on the setup whose sheet prints the table): the row's Size mm prints
+  it. The note names the row (`the <row>`, by its solid's name or its `label`) and
+  gives every edge the row prints: `the <row> to A x B x C` for a box (a cut-out
+  too), and `the <row> to D x L` or `the <row> [to] Ø D x L` for a cylinder. An
+  edge is a number in digits, `?` or `unknown`, perhaps with a unit (`mm`, `in`,
+  `inch`, `inches`, `"`, `″`), then `wide`, `high`, `thick`, `long` or `deep` and
+  a parenthesis. The size ends where no further `x` edge, digit or angle (`°`,
+  `deg`) follows. Each row the name denotes is its own restatement, rows sharing
+  a label or a note included, and a withheld row (`?`) as well. A size before a
+  later finishing step is still the row's size, so it is given as an allowance
+  over the printed size (`0.01 over`), not as a second size.
 
 **Compared** forms are an `error` when they disagree with the field. A `T<n>` in a
 setup's or op's text names that setup's TOOLS row.
@@ -399,19 +411,6 @@ setup's or op's text names that setup's TOOLS row.
   `push`, `pass`, `run` or `slide` (after `and`, `then`, `now`, `next`, `finally`,
   `so` or `but`) and sends `the NO-GO [plug]`, `the GO and NO-GO plugs`, `each`,
   `every`, `both` or `all [the] plug(s)`, or `the plugs` through.
-- A made row's make note on a SHOP-MADE FIXTURE table (read on the setup whose
-  sheet prints the table) gives a size its table's Size mm does not print:
-  - `[the <row>] to A x B [x C]` (an edge may add `wide`, `high`, `thick`, `long`
-    or `deep` and a parenthesis) sizes the named row, else a box row made with
-    that note; its numbers must be two or three of the row's printed edges, in
-    any order;
-  - `turn[ed] [the <row>] Ø D x L` or `the <row> Ø D x L` sizes the named row,
-    else a cylinder row made with that note; it must be the row's printed Ø and
-    length;
-  - each number stands alone: a fraction, an inch size (`in`, `"`), part of a
-    hyphen range or a number followed by another `x N` is not read. A row is
-    named by its solid's name or its `label`, and a note shared by several rows
-    is compared with each row it names.
 
 Three checks need no prose:
 
@@ -456,7 +455,6 @@ A compared fact that cannot be proved is `unknown`, never `pass`:
 
 - a `T<n>` beyond a TOOLS table that still has an op with no tool chosen;
 - a flute count for a tool with no inventory `flutes`;
-- a make-note size whose row the SHOP-MADE FIXTURE table withholds (`?`);
 - a picture cut that no computed CLEARANCE row of its holder prints, while
   another op's row is not computed (that op's cut may be the picture's);
 - any authored stock height that is unknown, unknown plan units, or no kernel
@@ -493,9 +491,11 @@ Not covered (never read, so never an error):
 - flute counts in words (`four-flute`), or not bound to one tool number;
 - inspection text that sends a plug through in any other wording (`gently push
   …`, `the NO-GO goes through`);
-- make-note sizes of part of a solid (a thread end, a spigot, a counterbore),
-  holes, a bought or existing part's note, and a shop-made item's positions,
-  fits and fasteners restated in text;
+- make-note sizes that do not name the row (`sawn and milled to 11 x 10 x
+  65.2`, `turned Ø16 x 9.05`), a part of a solid (`the thread portion Ø4.80 x
+  7.2`, a counterbore), only some of a row's edges (`the arm to 11 x 10`), a
+  hole's Ø, fractions and hyphen ranges, a bought or existing part's note, and a
+  shop-made item's positions, fits and fasteners restated in text;
 - picture labels other than the cut (contact coordinates, stock sizes, jaw and
   Z labels), the picture's holder name against the CLEARANCE row's, and a
   clearance restated in op text.

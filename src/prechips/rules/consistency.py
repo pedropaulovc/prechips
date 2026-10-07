@@ -18,7 +18,15 @@ not matter: the fact has one source, and the text may only leave it to that sour
   in the note of a clamp on ``clamp_order``: the HOLD prints its tightening;
 * ``N mm|in above|below the [vise] jaw[s] | jaw top[s]`` in the setup or op text of a hold
   with ``jaw_above_parallels_mm``: the jaw tops are derived from the seated bottom and that
-  field.
+  field;
+* in the make note of a made SHOP-MADE FIXTURE row, on the sheet of the setup that prints
+  the item's table, a named row's whole size: ``the <row> to A x B x C`` for a box (a
+  cut-out too), ``the <row> to D x L`` or ``the <row> [to] Ø D x L`` for a cylinder, each
+  edge a number in digits (not a fraction or part of a hyphen range), ``?`` or ``unknown``,
+  perhaps with a unit, wide / high / thick / long / deep and a parenthesis, and no further
+  ``x`` edge, digit or angle after: the row's Size mm prints it. Every row the name denotes
+  restates it, whatever its numbers or unit (a size before a finishing step is an allowance
+  over the printed one).
 
 Compared. A ``T<n>`` in a setup's or op's text names that setup's TOOLS row:
 
@@ -31,13 +39,6 @@ Compared. A ``T<n>`` in a setup's or op's text names that setup's TOOLS row:
   with push / pass / run / slide (after and / then / now / next / finally / so / but) and
   sends ``the NO-GO [plug]``, ``the GO and NO-GO plugs``, ``each / every / both / all
   [the] plug(s)`` or ``the plugs`` through: contradicts the pair;
-* in the make note of a made SHOP-MADE FIXTURE row, on the sheet of the setup that prints
-  the item's table: ``[the <row>] to A x B [x C]`` (an edge may carry wide / high / thick /
-  long / deep and a parenthesis) and ``turn[ed] [the <row>] Ø D x L`` or ``the <row> Ø D x
-  L``, each number one of its own (not a fraction, an inch size, part of a hyphen range, or
-  followed by another ``x N``): the named row's printed Size mm, else that of a row of the
-  note's shape (a box for ``to``, a cylinder for ``Ø``). Box edges match in any order, two
-  or three of them; a cylinder's Ø and length match exactly.
 
 Three checks need no prose: ``tighten = "hand"`` with a ``torque_nm``; the setup picture's
 ``CUT <mm> mm FROM <holder>`` (the kernel's ``closest_cut``), which must print one op's
@@ -53,9 +54,8 @@ box gives only the highest and lowest points: ``top_z`` is the highest (under an
 and ``retained_rail_bottom_z`` the lowest. A named seat proves only its own face: the box
 still shows whether stock other than that measured face reaches below every authored point.
 A compared fact whose field, inventory value, plan units, band or kernel value is missing or
-unknown, or that the kernel cannot prove, is ``unknown``, never ``pass``: a make-note size
-whose row the table withholds (``?``), and a picture cut no computed CLEARANCE row of its
-holder prints while another op's row is not computed.
+unknown, or that the kernel cannot prove, is ``unknown``, never ``pass``: a picture cut no
+computed CLEARANCE row of its holder prints while another op's row is not computed.
 """
 
 from __future__ import annotations
@@ -101,14 +101,18 @@ _THROUGH = re.compile(
     + r")(?:\s+[\w-]+){0,4}?\s+through\b",
     re.I,
 )
-# A whole made row's size in its make note: a number of its own (not a fraction, an inch
-# size or part of a hyphen range; ``Ø``, a letter, may lead it); ``to`` two or three of them
-# (each perhaps ``wide`` / ``high`` / ``thick`` / ``long`` / ``deep`` and a parenthesis), or a
-# turned ``Ø D x L``.
-_SIZE_NUMBER = r"(?<![0-9A-Za-z_./-])\d+(?:\.\d+)?(?![\d/]|\.\d|-\d)"
-_SIZE_EDGE = rf"({_SIZE_NUMBER})(?:\s+(?:wide|high|thick|long|deep))?(?:\s+\([^()]*\))?"
+# A made row's whole size after ``the <row>`` in its make note. An edge is a number in digits
+# (not a fraction or part of a hyphen range; ``Ø``, a letter, may lead it), ``?`` or
+# ``unknown``, perhaps with a unit (mm, in, inch, inches, ″, "), then wide / high / thick /
+# long / deep and a parenthesis. The size ends where no further ``x`` edge, digit or angle
+# follows.
+_SIZE_EDGE = (
+    r"(?:(?<![0-9A-Za-z_./-])\d+(?:\.\d+)?(?![\d/]|\.\d|-\d)|\?|\bunknown\b)"
+    r"(?:\s*(?:mm|in|inch|inches)\b|\s*[\"″])?"
+    r"(?:\s+(?:wide|high|thick|long|deep)\b)?(?:\s*\([^()]*\))?"
+)
 _SIZE_BY = r"\s*[x×]\s*"
-_SIZE_END = rf"(?!{_SIZE_BY}\d|\s*(?:in\b|\"|″))"
+_SIZE_END = r"(?!\s*[x×](?![^\W\d_])|\s*(?:°|deg\b|degrees?\b))"
 
 
 def _texts(value):
@@ -504,28 +508,21 @@ def _no_go(op):
     return len(found), found, []
 
 
-def _size_fits(claim, row):
-    """Whether a make note's ``claim`` (mm numbers) is the size ``row`` prints: a box's
-    three edges in any order, or two of them; a cylinder's Ø and length. None when the row
-    prints no number to compare."""
-    solid, printed, _ = row
-    if printed is None or "?" in printed:
-        return None
-    values = [float(value) for value in printed]
-    if solid.get("shape") == "cylinder":
-        return claim == values
-    for value in claim:
-        if value not in values:
-            return False
-        values.remove(value)
-    return True
+def _arity(solid):
+    """How many edges a made row's Size mm prints: a box's three (a cut-out's too), a
+    cylinder's Ø and length. None for a hole, whose Ø alone is not read."""
+    if solid.get("shape") == "box":
+        return 3
+    if solid.get("shape") == "cylinder" and solid.get("void") is not True:
+        return 2
+    return None
 
 
 def _note_sizes(traveler, title, text, rows):
-    """The sizes one make note gives the made rows it prints with (``rows``: solid, printed
-    numbers, Size mm cell). ``[the <row>] to A x B [x C]`` sizes the named row, else a box
-    the note is made with; ``turn[ed] [the <row>] Ø D x L`` and ``the <row> Ø D x L`` size
-    the named row, else a cylinder the note is made with."""
+    """The made rows (``rows``: solid, Size mm cell) whose whole size one make note they
+    print with restates: ``the <row> to`` its edges (a box's three, a cylinder's Ø and
+    length) or ``the <row> [to] Ø D x L`` for a cylinder. Each row the name denotes is its
+    own restatement, whatever the numbers, units or unknown edges say."""
     from prechips.sheet import _solid_name
 
     names = {}
@@ -535,59 +532,32 @@ def _note_sizes(traveler, title, text, rows):
             if name:
                 names.setdefault(name.lower(), []).append(row)
     named = "|".join(re.escape(name) for name in sorted(names, key=len, reverse=True))
-    edges = rf"{_SIZE_EDGE}{_SIZE_BY}{_SIZE_EDGE}(?:{_SIZE_BY}{_SIZE_EDGE})?"
-    to = re.compile(rf"\b(?:the\s+({named})\s+)?to\s+{edges}{_SIZE_END}", re.I)
-    turned = re.compile(
-        rf"(?:\bturn(?:ed)?\s+(?:the\s+({named})\s+)?|\bthe\s+({named})\s+)"
-        rf"Ø\s*({_SIZE_NUMBER}){_SIZE_BY}{_SIZE_EDGE}{_SIZE_END}",
-        re.I,
-    )
-    # A named row may be either shape; an unnamed ``to`` size is a box's, a ``Ø`` a cylinder's.
-    sized = [
-        (m[0], m[1], m.groups()[1:], {"box", "cylinder"} if m[1] else {"box"})
-        for m in to.finditer(text)
-    ]
-    sized += [(m[0], m[1] or m[2], m.groups()[2:], {"cylinder"}) for m in turned.finditer(text)]
-    claims, found, unchecked = 0, [], []
-    for said, name, numbers, shapes in sized:
-        claim = [float(value) for value in numbers if value is not None]
-        pool = [
-            row
-            for row in (names[name.lower()] if name else rows)
-            if row[0].get("shape") in shapes and (row[0].get("shape") == "box" or len(claim) == 2)
-        ]
-        if not pool:
-            continue
-        claims += 1
-        verdicts = [_size_fits(claim, row) for row in pool]
-        if True in verdicts:
-            continue
-        # Rows sharing a label print one cell for all of them.
-        cells = {
-            f"{traveler.bench(row[0].get('label') or _solid_name(row[0].get('name', '?')))} "
-            f"{row[2]}": None
-            for row in pool
-        }
-        printed = "; ".join(cells)
-        if None in verdicts:
-            unchecked.append(
-                f'the {title} make note gives "{said}", but the SHOP-MADE FIXTURE row it '
-                f"sizes prints no number to compare ({printed})"
-            )
-        else:
-            found.append(
-                f'the {title} make note gives "{said}", but its SHOP-MADE FIXTURE table '
-                f"prints {printed}"
-            )
-    return claims, found, unchecked
+    by = f"{_SIZE_BY}{_SIZE_EDGE}"
+    to = re.compile(rf"\bthe\s+({named})\s+to\s+{_SIZE_EDGE}{by}({by})?{_SIZE_END}", re.I)
+    turned = re.compile(rf"\bthe\s+({named})\s+(?:to\s+)?Ø\s*{_SIZE_EDGE}{by}{_SIZE_END}", re.I)
+    # ``to`` gives two edges (a cylinder's Ø and length) or three (a box's); ``Ø`` two.
+    sized = [(m, 3 if m[2] else 2) for m in to.finditer(text)]
+    sized += [(m, 2) for m in turned.finditer(text)]
+    found = {}
+    for match, edges in sized:
+        for solid, cell in names[match[1].lower()]:
+            if _arity(solid) != edges:
+                continue
+            row = traveler.bench(solid.get("label") or _solid_name(solid.get("name", "?")))
+            found[
+                f'the {title} make note gives a made row\'s size ("{match[0]}"), but its '
+                f"SHOP-MADE FIXTURE table prints that size ({row} {cell}); leave it to the "
+                "table and drop the restatement"
+            ] = None
+    return len(found), list(found), []
 
 
 def _restated_sizes(traveler, setup):
-    """The make notes of the SHOP-MADE FIXTURE tables this setup's sheet prints, each size
-    they give a whole made row against that row's Size mm cell (:func:`_note_sizes`)."""
+    """The make notes of the SHOP-MADE FIXTURE tables this setup's sheet prints, each whole
+    made-row size they restate (:func:`_note_sizes`)."""
     traveler.setup = setup
     uses = traveler.shop_made_uses(setup)
-    claims, found, unchecked = 0, [], []
+    claims, found = 0, []
     for reference in uses:
         if traveler.shop_made_home(setup, reference, uses) != setup["id"]:
             continue
@@ -598,9 +568,9 @@ def _restated_sizes(traveler, setup):
                 notes.setdefault(traveler.bench(row[0]["note"]).rstrip("."), []).append(row)
         title = traveler.reference(reference, "fixtures")
         for text, rows in notes.items():
-            c, f, u = _note_sizes(traveler, title, text, rows)
-            claims, found, unchecked = claims + c, found + f, unchecked + u
-    return claims, found, unchecked
+            c, f, _ = _note_sizes(traveler, title, text, rows)
+            claims, found = claims + c, found + f
+    return claims, found, []
 
 
 def _picture_cut(bundle, setup):
