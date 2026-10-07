@@ -207,8 +207,9 @@ A check states one numeric limit at most and needs a limit or `accept`; a
 The `purchased_tooling` rule (always required) checks every item a setup uses
 (any hold slot — fixture, chuck, parallels, riser, jaw bar or buttons, support,
 clamps, stop, supports, alignment indicator — a zero's tool, holder or gauge,
-and an op's filing guide, tool, holder or inspection gauge) that carries the
-list. Unknown is never an acceptance: an `acceptance` or `purchase` stated
+a tool touch's `z_gauge`, the transfer's tool or gauge, and an op's filing
+guide or its gauge, tool, holder, inspection gauge or process-hold gauge) that
+carries the list. Unknown is never an acceptance: an `acceptance` or `purchase` stated
 `"unknown"`; a `check`, `how` or `accept` that is blank or unknown; a gauge that
 is unknown, not listed or not verified; a `limits_mm` that is not two known
 lengths, low ≤ high; or a `limits` field the item does not state as known
@@ -216,7 +217,9 @@ lengths leaves the setup unknown and prints `STOP:`. The traveler prints one
 PURCHASED TOOLING / RECEIPT CHECK table per item on the front sheet of the
 first setup using it, its limits rounded inward to 0.001 mm (inch gauges also
 get them in inches, rounded inward to 0.0001 in); later setups point back to
-it.
+it. A band too narrow for those decimals (or a cap that would round to zero)
+takes up to three more, never a reversed or empty band; past that the mm band
+prints exactly as declared and the inch band is left off.
 
 ## Kernel geometry facts (M4)
 

@@ -283,8 +283,9 @@ _HOLD_ITEMS = ("fixture", "chuck", "parallels", "riser", "jaw_bar", "jaw_buttons
 def setup_item_refs(setup):
     """Every inventory reference a setup puts its hands on, first use first: the hold's
     fixture, chuck, parallels, riser, jaw bar / buttons, support, clamps, stop, supports
-    and alignment indicator; the zero's tools, holders and gauges; then each op's filing
-    guide, tool, holder and inspection gauges."""
+    and alignment indicator; the zero's tools, holders and gauges (a tool touch's Z
+    measuring gauge, the transfer's tool and gauge); then each op's filing guide and its
+    gauge, tool, holder, inspection gauges and process-hold gauges."""
     hold = record(setup.get("hold"))
     refs = [hold.get(key) for key in _HOLD_ITEMS]
     refs += [record(clamp).get("ref") for clamp in hold.get("clamps") or [] if clamp]
@@ -296,13 +297,17 @@ def setup_item_refs(setup):
     zero = record(setup.get("zero"))
     touches = zero.get("tool_touches") if isinstance(zero.get("tool_touches"), list) else []
     for touch in [*(zero.get(axis) for axis in "xyz"), *touches]:
-        refs += [record(touch).get(key) for key in ("tool", "holder", "gauge")]
-    refs.append(record(zero.get("transfer")).get("gauge"))
+        refs += [record(touch).get(key) for key in ("tool", "holder", "gauge", "z_gauge")]
+    refs += [record(zero.get("transfer")).get(key) for key in ("tool", "gauge")]
     for op in setup.get("ops") or []:
         op = record(op)
         guide = record(op.get("guide"))
-        refs += [guide.get("buttons"), guide.get("template"), op.get("tool"), op.get("holder")]
+        refs += [guide.get(key) for key in ("buttons", "template", "gauge")]
+        refs += [op.get("tool"), op.get("holder")]
         refs += list(record(op.get("checks")).values())
+        process_holds = op.get("process_holds")
+        for held in process_holds if isinstance(process_holds, list) else []:
+            refs.append(record(held).get("gauge"))
     seen = []
     for ref in refs:
         if isinstance(ref, str) and ref not in {UNKNOWN, "none", "not_applicable", *seen}:

@@ -752,16 +752,20 @@ def _known(value):
     return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
 
 
-def _inch(mm, up=False):
-    """``mm`` in inches to 0.0001, rounded up (a low limit) or down: never looser."""
-    tenths = round(mm / 25.4 * 1e4, 6)
-    return f"{(math.ceil(tenths) if up else math.floor(tenths)) / 1e4:.4f}"
-
-
-def _mm(mm, up=False):
-    """``mm`` to 0.001 mm, rounded up (a low limit) or down: never looser."""
-    microns = round(mm * 1e3, 6)
-    return f"{(math.ceil(microns) if up else math.floor(microns)) / 1e3:.3f}"
+def _inward(low, high, unit="mm"):
+    """``(low, high)`` texts of a band given in mm, in ``unit`` (``mm`` to 0.001, ``in`` to
+    0.0001), rounded inward (low up, high down): never looser. A band too narrow for those
+    decimals takes more until it is not reversed, and a cap ``(0, high)`` until it is not
+    rounded to nothing. Past 0.1 µm a mm band prints exactly as declared; an inch band
+    that cannot be stated inward is None (the mm band stands alone)."""
+    scale, places = {"mm": (1.0, 3), "in": (25.4, 4)}[unit]
+    for decimals in range(places, places + 4):
+        steps = 10**decimals
+        lo = math.ceil(round(low / scale * steps, 6)) / steps
+        hi = math.floor(round(high / scale * steps, 6)) / steps
+        if lo <= hi and (hi > 0 or high <= 0):
+            return f"{lo:.{decimals}f}", f"{hi:.{decimals}f}"
+    return (repr(float(low)), repr(float(high))) if unit == "mm" else None
 
 
 def _stated(value):
@@ -3502,17 +3506,18 @@ class _Traveler:
                 accept = []
                 limits, most = check.get("limits_mm"), check.get("max_mm")
                 # Limits print rounded inward (the low limit up, the high one down), in mm
-                # and, for an inch gauge, in inches: never looser than declared.
+                # and, for an inch gauge, in inches: never looser than declared, and never
+                # reversed or rounded to nothing (`_inward` keeps the decimals that needs).
                 reads = _mapping(resolve(self.bundle, "gauges", gauge))
                 inch = any(key.endswith("_in") for key in reads)
                 if isinstance(limits, list) and all(_known(v) for v in limits):
-                    text = f"{_mm(limits[0], up=True)}–{_mm(limits[1])} mm"
-                    if inch:
-                        text += f" ({_inch(limits[0], up=True)}–{_inch(limits[1])} in)"
-                    accept.append(text)
+                    text = "{}–{} mm".format(*_inward(*limits))
+                    inches = _inward(*limits, "in") if inch else None
+                    accept.append(text + (" ({}–{} in)".format(*inches) if inches else ""))
                 elif _known(most):
-                    text = f"≤ {_mm(most)} mm"
-                    accept.append(text + (f" (≤ {_inch(most)} in)" if inch else ""))
+                    inches = _inward(0, most, "in") if inch else None
+                    text = f"≤ {_inward(0, most)[1]} mm"
+                    accept.append(text + (f" (≤ {inches[1]} in)" if inches else ""))
                 if _stated(check["accept"]) and check["accept"] != "not_applicable":
                     accept.append(check["accept"])
                 if check["status"] != "pass":

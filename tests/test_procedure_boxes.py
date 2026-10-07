@@ -2,6 +2,7 @@
 and the purchased tooling receipt checks."""
 
 import copy
+import re
 
 import pytest
 from pydantic import ValidationError
@@ -303,8 +304,12 @@ def test_an_explicitly_unknown_receipt_declaration_stops(field):
         {"zero": {"x": {"tool": "kit"}}},
         {"zero": {"x": {"gauge": "kit"}}},
         {"zero": {"transfer": {"gauge": "kit"}}},
+        {"zero": {"transfer": {"tool": "kit"}}},
+        {"zero": {"tool_touches": [{"tool": "centre", "z_gauge": "kit"}]}},
         {"ops": [{"op": 10, "tool": "centre", "holder": "kit"}]},
         {"ops": [{"op": 10, "tool": "centre", "checks": {"dia": "kit"}}]},
+        {"ops": [{"op": 10, "tool": "centre", "guide": {"gauge": "kit"}}]},
+        {"ops": [{"op": 10, "tool": "centre", "process_holds": [{"gauge": "kit"}]}]},
     ],
 )
 def test_every_slot_a_setup_uses_an_item_in_reads_its_receipt_checks(use):
@@ -323,6 +328,35 @@ def test_metric_receipt_limits_round_inward():
     kit["button_runout_mm"] = 0.0104
     _, html = receipt_html(kit_bundle(kit))
     assert "13.951–14.029 mm" in html and "≤ 0.010 mm" in html
+
+
+def printed_band(html, unit):
+    """Every ``lo–hi unit`` band the receipt table prints, as numbers."""
+    return [
+        (float(lo), float(hi)) for lo, hi in re.findall(rf"(\d+\.\d+)–(\d+\.\d+) {unit}\b", html)
+    ]
+
+
+@pytest.mark.parametrize(
+    ("band", "most"),
+    [([13.9504, 13.9506], 0.0004), ([13.95, 13.95], 0.00001), ([6.4999, 6.5001], 0.0104)],
+)
+def test_a_narrow_receipt_band_never_prints_reversed_or_wider(band, most):
+    kit = copy.deepcopy(KIT)
+    kit["button_dia_limits_mm"] = band
+    kit["button_runout_mm"] = most
+    data = kit_bundle(kit)
+    data.inventory["gauges"]["mic"] = {"kind": "micrometer", "range_in": [0, 1]}
+    _, html = receipt_html(data)
+    [(lo, hi)] = printed_band(html, "mm")
+    assert band[0] <= lo <= hi <= band[1]
+    # An inch band prints for an inch gauge unless no inch decimals fit inside the band.
+    inches = printed_band(html, "in")
+    assert len(inches) == (band[0] < band[1])
+    for lo_in, hi_in in inches:
+        assert band[0] / 25.4 <= lo_in <= hi_in <= band[1] / 25.4
+    [cap] = [float(v) for v in re.findall(r"≤ (\d+\.\d+) mm", html)]
+    assert 0 < cap <= most
 
 
 def validate(items, category="fixtures"):
