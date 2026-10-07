@@ -214,6 +214,9 @@ naming them. Each table is recorded under `arc_table` (its joins under
   least gap from the stepped cutter's edge to the finished line) and
   `stock_left_mm` (allowance + cusp). No corner that keeps outside the line,
   or a `line_clear_mm` below zero, is an error and withholds the stage's rows.
+  The traveler prints the cusp rounded up onto the DRO grid, and says the
+  stairs (or a chain's holes) stay outside the scribed line only when a
+  `scribe` op on the feature runs before them, else outside the finished outline.
 - `chain_drill` (rough only; holes no more than `pitch_mm` apart along the
   rough path, drilled with the op's drill): every hole's full diameter must stay
   outside the line (`hole_clear_mm` ≥ 0) and neighbours must leave a web
@@ -300,14 +303,15 @@ leaves on the far wall is the profile's `grid_residual_mm`; passes between step 
 whole number of grid steps no larger than `step_mm` (a `step_mm` finer than one
 grid step is unknown). The raster record carries `run_axis`, `area_ends`, the
 pass `ends`, `clearance_mm` (the cutter radius they run past the area) and a
-pocket's `entry_pass`. The traveler always prints the pass ends, and calls an
-end (or the entry pass, on its open side) in air only when it stands a cutter
+pocket's `entry_pass`. The traveler prints the pass ends in the raster table; the
+note above it says to lift to the raster's lift Z after each pass and names an end
+(by its side), or the entry pass on its open side, in air only when it stands a cutter
 radius outside the stock the kernel modelled entering the setup (its
 `stock_bbox_mm`, which holds every op's stock); the op's `stock_removal_bounds`
 is what it may remove, not where stock ends, so it proves neither air nor
 material and an unproven end carries no claim. A `keep_out` splits passes into
-pieces that also start and stop between the outer `ends`; the traveler then
-prints those as the outer ends and says every pass runs in and out clear only
+pieces that also start and stop between the outer `ends`; the note then names
+those as the outer ends and says every pass runs in and out clear only
 when each emitted piece's start and end is proven so, stage by stage. A closed
 outline's rows are on the grid too: each vertex is the nearest grid point at
 least its offset outside
@@ -508,7 +512,8 @@ printed entry (through: exit face) and rounded up again, and the `dro_depth_mm`
 or `dro_exit_mm` that leaves; a through tip short of the exit face prints a
 STOP. The traveler's breakthrough note gives as the run-out the lower of
 `dro_exit_mm` and the same past `dro_exit_face`, cut down to the DRO decimals,
-and claims none when it is unknown or negative. Every row that prints a
+and claims none when it is unknown or negative (the op row's Z column prints the
+tip and the exit face; the note repeats neither). Every row that prints a
 rounded depth carries `depth_floor_mm`: the lower
 end of the feature's `depth` band, or for a tap its `thread_depth` (else `depth`)
 band. Any other kind of row, and a bare `depth` (an upper limit only), has an
@@ -599,6 +604,13 @@ feed, see [cutting data](cutting-data.md#plunge), which only a tool declared
 `center_cutting = true` has) and, when unknown, `plunge_reason`. Fixture and clamp
 heights are not in the box: a raise Z is never
 claimed clear of them.
+A single-level op whose level Z is the Z it starts from carries `lowered = "top"`
+only when the setup-entry `stock_bbox_mm` puts that level at or above the stock top
+(within the kernel's 1e-3 mm tolerance): nothing stands above it at any entry, so
+the cutter is lowered to that Z, never plunged, and needs no plunge feed. An equal
+start Z alone proves nothing at the entry: a feature's declared `entry_z` or an
+earlier op's cleared floor is not the stock height where the cutter goes down, so
+that entry plunges (with its feed, or as debt without one).
 
 Each of these is pass-plan debt (unknown), appended as ` Pass plan unknown: … .`
 (`;`-joined with the other pass-plan debts):
@@ -610,7 +622,9 @@ Each of these is pass-plan debt (unknown), appended as ` Pass plan unknown: … 
 - `op {op} returns to its entry at Z {z}, not above the stock it receives`.
 
 The setup sheet prints each path's record above its table: a single level as
-`Enter at P1: plunge Z a → b at F mm/min.` (or `clear of the stock: lower to Z`);
+`Enter at P1: plunge Z a → b at F mm/min.` (`plunge to Z b at F mm/min` when it starts
+at b; `lower to Z b, the top of the stock this op meets` when `lowered`; or `clear of
+the stock: lower to Z`);
 several levels, whose Zs the block heading lists, as one statement of how each
 level gets down (`plunge from the level above (level 1 from Z a) at F mm/min`)
 and how it gets back between levels (`raise to Z R (above the stock), move back
@@ -776,7 +790,12 @@ an ear's inner face) uses its own authored edge; stock top is not its fallback.
 
 For each authored Z `retouch_after`, the new set value is advanced top + paper.
 A profile does not move the touched top. A listed retouch sets Z for the next
-cutting tool only.
+cutting tool only: each `retouch` row carries `next_op`, `next_tool` and
+`tool_change` (true when that tool is not the one in the spindle, unknown when either
+tool is unknown; past the last cut `next_op`/`next_tool` are `not_applicable` and
+`tool_change` false). The sheet tells the operator to
+install the incoming tool, then touch the top and Axis Set Z; with no change, the tool
+stays in and only re-touches.
 
 X `method = "trial_cut_measure"` cuts a diameter, measures it at the machine
 with the declared `gauge` and Axis Sets that reading. Like paper thickness the

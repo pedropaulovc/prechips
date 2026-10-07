@@ -1189,6 +1189,7 @@ grip_on = "AUTHOR'S CHOICE: the two cone-sleeve caps, Z24.77..41.97 above foot B
 grip_mm = 17.2
 fixed_jaw = "rear"
 jaws_along = "x"
+align = { indicator = "dti", limit_mm = 0.0254, over_mm = 100.0, cite = "AUTHOR'S CHOICE: the fixed jaw squared to 0.001 in (0.0254 mm) over 100 mm of the 6 in jaw because the shop test indicator (gauges.dti) reads 0.0005 in, so the limit is two graduations it resolves" }
 parallels = "parallels-lms-6745/1-2in"
 parallels_along = "x"
 parallels_centres_mm = [[0.0, -19.4], [0.0, 19.4]]
