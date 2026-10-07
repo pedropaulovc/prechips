@@ -695,6 +695,14 @@ class _Diagram:
             notes.append("Datums: not declared")
         if self.is_chuck and self.spec.get("stickout_mm") is None:
             notes.append("Stickout: not declared")
+        add = self.spec.get("stickout_add_mm")
+        if self.spec.get("stickout_mm") is not None and add is not None:
+            # Set from a measured fit-up: the dimension is the nominal; the note, in the
+            # wrapping footer, says how it is set.
+            notes.append(
+                f"Stickout {_mm(self.spec['stickout_mm'])} mm is nominal: "
+                f"set it as the measured fit-up + {_mm(add)} mm."
+            )
         return [line for note in notes for line in _wrap(self.canvas, note, 720, scale=3)]
 
     def _legend(self):
@@ -1095,10 +1103,9 @@ class _Diagram:
         stickout = self.spec.get("stickout_mm")
         if stickout is not None:
             label = f"STICKOUT {_mm(stickout)} mm"
-            add = self.spec.get("stickout_add_mm")
-            if add is not None:
-                # Set from a measured fit-up: the drawn value is the nominal.
-                label = f"NOMINAL {label} (SET = MEASURED + {_mm(add)})"
+            if self.spec.get("stickout_add_mm") is not None:
+                # Set from a measured fit-up: the drawn value is the nominal (see notes).
+                label = f"NOM {label}"
             if jaw_marker is not None and self.view == "lathe":
                 # The declared distance runs from the jaw-front marker itself, on its own
                 # row, never from the stock-length extension line.

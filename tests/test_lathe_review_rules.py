@@ -401,9 +401,10 @@ def test_a_follow_rest_z_is_printed_on_the_clear_side_of_the_dro_grid():
     assert line.startswith("STOP")
 
 
-def _rest_steps(side, lead=8.0, engage=True):
+def _rest_steps(side, lead=8.0, engage=True, declared=None):
     """The follow-rest cells and full-width lines of a rough turn fed toward the chuck,
-    the jaws on ``side`` ``lead`` mm from the tool; ``engage``: set on once past Z152."""
+    the jaws on ``side`` ``lead`` mm from the tool; ``engage``: set on once past Z152,
+    checked clear; ``declared``: the support's own engage_at_z_mm."""
     numbers = {"feed_z": -1}
     if engage:
         numbers["rest_engagement"] = [{**_ENGAGE, "engage_z_mm": 155.474, "declared_z_mm": 152.0}]
@@ -411,6 +412,8 @@ def _rest_steps(side, lead=8.0, engage=True):
     support = {"ref": "follow_rest", "ops": [10], "jaw_side": side}
     if lead is not None:
         support["jaw_lead_mm"] = lead
+    if declared is not None:
+        support["engage_at_z_mm"] = declared
     setup["hold"]["supports"] = [support]
     return sheet.rest_steps(setup, op)
 
@@ -454,6 +457,15 @@ def test_a_follow_rest_with_unknown_geometry_stops_and_never_prints_a_checked_re
     _, lines = _rest_steps(side, lead=lead)
     assert any(line.startswith("STOP") for line in lines)
     assert not any("return the carriage" in line for line in lines)
+
+
+def test_a_declared_follow_rest_z_that_was_not_checked_stops_never_falls_back_to_the_lead():
+    # The plan sets the rest on at Z152 (past where the start would foul it); with no
+    # clearance check of that Z, "once the tool has turned 8 mm" would contradict it.
+    cells, lines = _rest_steps("turned", engage=False, declared=152.0)
+    assert [type(cell).__name__ for cell in cells] == ["_Box"]
+    assert str(cells[0]).startswith("STOP")
+    assert not any("once the tool has turned" in str(line) for line in lines)
 
 
 def test_an_inch_relief_is_plunged_in_millimetres_and_printed_in_inches():
@@ -564,15 +576,18 @@ def test_the_follow_rest_goes_on_with_the_spindle_stopped_and_it_restarts_before
 
     bundle = load_bundle(copy_examples(tmp_path) / "pivot-shaft" / "plan.toml")
     engage = {**_ENGAGE, "engage_z_mm": 155.474, "declared_z_mm": 152.0}
-    clear = Finding(
-        "accessibility",
-        "S1:10",
-        "pass",
-        {"rest_engagement": [engage], "feed_z": -1},
-        [],
-        "S1:10.",
-    )
-    page = render_traveler(bundle, [clear], {})
+    clear = [
+        Finding(
+            "accessibility",
+            f"S1:{number}",
+            "pass",
+            {"rest_engagement": [engage], "feed_z": -1},
+            [],
+            f"S1:{number}.",
+        )
+        for number in (10, 30)
+    ]
+    page = render_traveler(bundle, clear, {})
     html = unescape(re.sub(r"<[^>]+>", " ", page))
     step = re.search(r"at Z 152\.00: [^.]*", html).group(0)
     # Hands go near the work only once it has stopped, and the cut resumes on a running spindle.
@@ -590,8 +605,8 @@ def test_the_follow_rest_goes_on_with_the_spindle_stopped_and_it_restarts_before
     full_width = re.findall(r'<span class="see">([^<]*)</span>', page)
     assert sum("set the follow-rest jaws" in line for line in full_width) == 2
     assert unescape(page).count("set the follow-rest jaws") == 2
-    # Only op 10 has the engagement fact here: its cell alone prints the Z.
-    assert unescape(page).count("follow rest on: Z 152.00") == 1
+    # Each op's coordinate cell prints the Z its own engagement check cleared.
+    assert unescape(page).count("follow rest on: Z 152.00") == 2
 
 
 def test_each_op_sets_the_follow_rest_on_the_side_its_own_support_entry_declares(tmp_path):

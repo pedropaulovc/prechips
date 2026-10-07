@@ -1711,7 +1711,8 @@ revolution about setup Z on a lathe, else about a box axis with a square
 cross-section, checked at six meridians) prints `STOCK Ø` its largest diameter,
 its length left to the stock dimension; only other stock prints `STOCK BOX: X / Y
 / Z`. A stickout from a measured fit-up (`hold.stickout_fit` with a stated
-reading) is labelled `NOMINAL STICKOUT … (SET = MEASURED + N)`. Steady rest
+reading) is dimensioned `NOM STICKOUT … mm` and the setup notes say it is set as
+the measured fit-up + N mm. Steady rest
 rings are drawn as fixture solids; each follow rest's
 jaws are drawn and labelled posed for the first cutting sample of the first
 op it serves. An exposed-end detail makes short lathe stickouts legible; when
