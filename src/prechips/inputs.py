@@ -136,6 +136,12 @@ def load_bundle(
     if "unknown" in ids or len(set(ids)) != len(ids):
         raise BadInput("Setup ids must be known and unique.")
     planned_frames = plan.get("frames") if isinstance(plan.get("frames"), dict) else {}
+    for name, aim in plan.get("aims", {}).items():
+        if aim["requirement"] not in _exported(definitions.get(name, {})):
+            raise BadInput(
+                f"aims.{name}: {aim['requirement']} is not an exported drawing requirement "
+                "of a manifest feature."
+            )
     for setup in setups:
         ops = setup.get("ops")
         if not isinstance(ops, list) or not ops:

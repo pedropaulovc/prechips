@@ -287,6 +287,22 @@ class ProcessHold(InputModel):
         return self
 
 
+class Aim(InputModel):
+    """A located feature's DRO target moved off its drawing nominal so its height-like band
+    from ``height_from`` (``height_above_pivot``, ``height`` or ``separation``) reads
+    ``value_mm``: a stated process choice printed beside the target, never geometry."""
+
+    requirement: str
+    value_mm: float
+    reason: str
+
+    @model_validator(mode="after")
+    def stated(self) -> Aim:
+        _known_text(self.requirement, "An aim requirement")
+        _known_text(self.reason, "An aim reason")
+        return self
+
+
 Operation = record(
     "Operation",
     {
@@ -530,6 +546,8 @@ class Plan(InputModel):
     setups: list[Setup]
     # Plan-owned transient joint cylinders keyed by id; never exported finished features.
     joint_features: dict[str, JointFeature] = Field(default_factory=dict)
+    # Plan-owned DRO aims keyed by located feature; never a change to its geometry.
+    aims: dict[str, Aim] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def named_frames(self) -> Plan:

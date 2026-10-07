@@ -2142,6 +2142,7 @@ class _Traveler:
         cut that feature before it left it (:meth:`surface_z`)."""
         done = self.ops_done(setup, before=op.get("op"))
         return self.surface_z(setup, op.get(key), face=op.get("feature"), done=done)
+
     @property
     def near_jaw_mm(self):
         """The shop's declared distance from spinning jaws inside which an op row carries
@@ -2464,9 +2465,11 @@ class _Traveler:
         lathe = numbers.get("x_display") == "diameter" or self.lathe(setup)
         o = self.operative
         grouped = {}
+        aims = []
         for record in numbers.get("rows", []):
             feature = record.get("feature")
-            coordinates = record.get("setup")
+            # A mill target prints where the DRO stops: on its grid, aims applied.
+            coordinates = record.get("dro", record.get("setup"))
             if not isinstance(coordinates, (list, tuple)) or len(coordinates) != 3:
                 continue
             if lathe:
@@ -2482,6 +2485,7 @@ class _Traveler:
                 entry["z"].append(coordinates[2])
             elif all(_known(v) for v in coordinates):
                 grouped.setdefault((feature, tuple(coordinates)), {})
+                aims.append(self.aim_note(record))
         if not grouped:
             return ""
         if lathe:
@@ -2513,7 +2517,30 @@ class _Traveler:
                 "middle (a hole's point may sit on its entry or exit face); the op table gives "
                 "the tool targets."
             )
+            note += "".join(f" {text}" for text in dict.fromkeys(filter(None, aims)))
         return f"<h2>FEATURE MAP — {escape(self.zero_name(setup))}</h2>" + table + _p(note)
+
+    def aim_note(self, record):
+        """A located target moved off its drawing nominal: where it now stands, from what,
+        and why (plan ``aims``); empty for an unaimed target."""
+        aim = record.get("aim") or {}
+        nominal = record.get("nominal_setup")
+        if "shift_mm" not in aim or not isinstance(nominal, list):
+            return ""
+        feature, source = record["feature"], aim["source"]
+        requirement = aim["requirement"]
+        o = self.operative
+        moved = ", ".join(
+            f"{axis} {o(target)} (drawing nominal {o(drawn)})"
+            for axis, target, drawn in zip("XYZ", record["dro"], nominal, strict=True)
+            if o(target) != o(drawn)
+        )
+        return (
+            f"{self.feature_name(feature)} is aimed at {moved} so its "
+            f"{_REQUIREMENT_NAMES.get(requirement, requirement)} from the "
+            f"{self.feature_name(source)} reads {_number(aim['value_mm'])} inside "
+            f"{self.band(aim['printed_band'], feature, requirement)}: {self.bench(aim['reason'])}."
+        )
 
     # ------------------------------------------------------------------ tools
     def tool_table(self, setup):
@@ -2669,6 +2696,7 @@ class _Traveler:
         low, high = plunges.get("groove_z_mm", [None, None])
         parts.append(f"groove Z {o(low)} to {o(high)}")
         return parts
+
     def surface_z(self, setup, value, source=None, face=None, done=0):
         """One surface, one printed Z (:func:`operative_z`): the checked depth of the op
         that produced it, on its own setup's grid, as this setup's DRO shows it; else
