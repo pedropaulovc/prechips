@@ -104,10 +104,11 @@ Shared inputs:
   (2.886 in). Each value carries its own `measured` record; the vendor
   nominals stay beside it as comments, and the item's `verify = true`
   identity flag is kept. The rocker and bracket plans' jaw-overlap arithmetic
-  now uses the measured jaw height. Bracket S1/S2 use 19.5453 / 3.6703 mm
-  engagement with labelled illustrative parallels and no stale verify flags.
-  The bracket's S2 tall narrow pair replaces the former 1-2-3-block stack:
-  a 50.8 mm-wide block cannot fit between jaws closed on a 16 mm foot.
+  now uses the measured jaw height. Bracket S1/S2/S3 use 19.5453 / 10.3703 /
+  3.6703 mm engagement on the 1 in set pair and the labelled illustrative
+  1-1/8 in and 1-5/8 in tall narrow pairs, with no stale verify flags. The
+  tall narrow pairs replace the former 1-2-3-block stack: a 50.8 mm-wide block
+  cannot fit between jaws closed on a 16 mm foot.
 - `shop-policy.toml`: shop-owned, not copied into plans. The default requires
   `tool_resolves`, `sizing`, `op_chain`, `blind_depth`, `inspection`, `coordinates`
   and `zero_check` on `"*"`. Re-fixture, thin-wall and stick-out numbers and their
@@ -1145,6 +1146,16 @@ separate steps; the X/Y pickup positions live in the DRO zero rows. The S4
 outer-face raster uses a 4.0 mm stepover so its five passes print on the
 0.005 mm DRO grid. The S4 bridge member is named `two-stud bridge clamp` in
 the shared inventory.
+Bracket S2 sits on the 1-1/8 in tall narrow pair, so its jaw tops (Z +10.37)
+stand 5.63 mm below the Z +16 roughing floor. The S2/S3 X/Y pickups name where
+the raw faces survive: S2 touches the raw left side and free end at Z +20,
+above the jaws; S3 touches them at Z +8, between the jaw tops (Z −2.33) and the
+Z +16 step S2 left, after a preliminary edge-finder Z on the top. The S4
+angle-plate and bridge make rows print each hole as a drill size (#21 tap drill
+for #10-32, #7 and letter X free-fit clearances, Machinery's Handbook 27th ed.
+Table 4, p.1934), and each made or drilled part has a Make note: material,
+stock, sizes, drill speeds under Table 17 (p.1061, 1018) and Table 20 (p.1068,
+gray iron) and assembly. These are example values, not measured fixtures.
 
 The plan and manifest use revision `example-v39` for this local illustrative
 contract, explicitly **not** a certified dimensioned drawing revision. All setup
