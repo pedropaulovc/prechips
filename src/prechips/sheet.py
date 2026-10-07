@@ -22,7 +22,7 @@ from .rules._bench import manual_bench
 from .rules._envelope import measurement_item
 from .rules.coordinates import CENTRE_OPS, OVERSHOOT_NOTE, dro_grid, dro_z, row_id
 from .rules.hold_fields import align_indicator, align_travel
-from .rules.inspection import go_no_go_pair
+from .rules.inspection import ZONES, go_no_go_pair
 from .rules.resolution import (
     MANUAL,
     NAMED_REFERENCE,
@@ -779,13 +779,15 @@ def _known(value):
     return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
 
 
-def _inward(low, high, unit="mm"):
+def _inward(low, high, unit="mm", places=None):
     """``(low, high)`` texts of a band given in mm, in ``unit`` (``mm`` to 0.001, ``in`` to
-    0.0001), rounded inward (low up, high down): never looser. A band too narrow for those
-    decimals takes more until it is not reversed, and a cap ``(0, high)`` until it is not
-    rounded to nothing. Past 0.1 µm a mm band prints exactly as declared; an inch band
-    that cannot be stated inward is None (the mm band stands alone)."""
-    scale, places = {"mm": (1.0, 3), "in": (25.4, 4)}[unit]
+    0.0001, or to ``places`` decimals, a drawing's precision), rounded inward (low up, high
+    down): never looser. A band too narrow for those decimals takes more until it is not
+    reversed, and a cap ``(0, high)`` until it is not rounded to nothing. Three decimals
+    past that a mm band prints exactly as declared; an inch band that cannot be stated
+    inward is None (the mm band stands alone)."""
+    scale, default = {"mm": (1.0, 3), "in": (25.4, 4)}[unit]
+    places = default if places is None else places
     for decimals in range(places, places + 4):
         steps = 10**decimals
         lo = math.ceil(round(low / scale * steps, 6)) / steps
@@ -817,10 +819,12 @@ def _amount(value):
 
 
 def _number(value, precision=None):
-    """Declared drawing precision fixes the decimals, a half-way value rounding up (away
-    from zero) as the shop rounds its written decimal, not its binary float (3.175 at two
-    places is 3.18); any other known number prints its own value (six significant digits,
-    float residue below 1e-6 dropped), never ``?``."""
+    """Declared decimals fix the places, a half-way value rounding up (away from zero) as
+    the shop rounds its written decimal, not its binary float (3.175 at two places is
+    3.18); any other known number prints its own value (six significant digits, float
+    residue below 1e-6 dropped), never ``?``. An acceptance limit never takes this rounding
+    to fewer places than its own: :meth:`_Traveler.band` and :meth:`_Traveler.cap` round
+    it inward."""
     if not isinstance(value, (int, float)) or isinstance(value, bool):
         return _text(value)
     if not math.isfinite(value):
@@ -1385,15 +1389,28 @@ class _Traveler:
     def band(self, value, feature, dimension):
         """A drawing acceptance band (``6.330–6.350``) at the drawing's own precision,
         rounded inward (low limit up, high limit down) so printing never loosens it; a band
-        too narrow for that precision prints its limits as declared."""
+        too narrow for that precision, or with a limit unknown, prints each limit as
+        declared. A zone or maximum (``position_dia = 0.045``) prints as its :meth:`cap`."""
         precision = self.precision(feature, dimension)
         printed = printed_band(value, precision)
         if printed is not None:
             return "–".join(_number(limit, precision) for limit in printed)
-        known = isinstance(value, (list, tuple)) and len(value) == 2 and all(map(_known, value))
-        if known and isinstance(precision, int):
-            return f"{_number(value[0])}–{_number(value[1])}"
+        pair = isinstance(value, (list, tuple)) and len(value) == 2
+        if pair and all(_known(limit) or limit == "unknown" for limit in value):
+            return "–".join(_number(limit) for limit in value)
+        if dimension in ZONES:
+            return self.cap(value, feature, dimension)
         return self.value(value, feature, dimension).replace(" / ", "–")
+
+    def cap(self, value, feature=None, dimension=None):
+        """A drawing maximum (a zone, an edge break), the band [0, value], at the drawing's
+        precision rounded down so printing never loosens it, taking more decimals rather
+        than printing nothing (:func:`_inward`); as declared when that precision is not
+        stated."""
+        precision = self.precision(feature, dimension)
+        if _known(value) and value > 0 and isinstance(precision, int):
+            return _inward(0, value, places=precision)[1]
+        return _number(value)
 
     @staticmethod
     def metadata(key):
@@ -4148,15 +4165,17 @@ class _Traveler:
 
     def z_target(self, setup, op):
         """``Z → depth``, or the axial levels coordinates stepped an op authoring ``doc_mm``
-        down in: ``Z start → depth in N levels of doc max``; levels that start at the depth
-        (an earlier op left the floor there) are one pass at it, ``Z → depth``. A
+        down in: ``Z start → depth in N levels of doc max``; levels coordinates established
+        as one pass starting at the depth (an earlier op left the floor there) print as
+        that pass, ``Z → depth``, while levels it could not establish keep their ``?``. A
         grooving/parting blade's target is the DRO reading of the corner its Z touch set
         (coordinates ``blade``), named."""
         o = self.operative
         levels = self.z_levels(setup, op)
         if levels is not None:
             start, end = levels.get("dro_start_z"), levels.get("dro_to_z")
-            if _known(start) and _known(end) and start == end:
+            one_pass = isinstance(levels.get("levels"), list) and levels.get("count") == 1
+            if one_pass and _known(start) and _known(end) and start == end:
                 return f"Z → {o(end)}"
             count = levels.get("count")
             return (
@@ -6012,8 +6031,8 @@ class _Traveler:
                 )
                 continue
             limits = "; ".join(values) or "no toleranced requirement"
-            # Two features cited to the same drawing dimensions with the same limits (one
-            # dimension the drawing gives both faces) print as one row naming both.
+            # Two features on the same model faces with the same known limits (one dimension
+            # exported twice) print as one row naming both.
             key = self.drawing_dimensions(definition, limits)
             if key in same:
                 index = same[key]
@@ -6042,20 +6061,24 @@ class _Traveler:
 
     @staticmethod
     def drawing_dimensions(definition, limits):
-        """The drawing dimensions a feature's requirement row prints: its printed limits and
-        each requirement's band, nominal and cited drawing source; None when a requirement
-        is unidentified or uncited, as nothing then shows it is another feature's
-        dimension."""
-        cites = _mapping(definition.get("cite"))
-        key = [limits]
+        """What proves a feature's requirement row is another feature's: the same model
+        faces carrying the same printed limits, each requirement's band and nominal known
+        numbers. None when the faces are not declared or a requirement, band or nominal is
+        not known: a shared citation or equal numbers never show two features are one
+        dimension, as one drawing sheet carries many alike."""
+        faces = definition.get("faces")
+        if not (isinstance(faces, list) and faces and all(map(_stated, faces))):
+            return None
+        key = [limits, tuple(sorted(set(faces)))]
         for requirement in dict.fromkeys(tolerance_requirements(definition)):
-            cite = cites.get(requirement)
-            if requirement == "unknown" or not isinstance(cite, list) or not cite:
+            band, nominal = definition.get(requirement), definition.get(f"{requirement}_nominal")
+            pair = isinstance(band, list) and len(band) == 2 and all(map(_known, band))
+            if requirement == "unknown" or not (pair or _known(band)):
                 return None
-            nominal = definition.get(f"{requirement}_nominal")
-            band = repr(definition.get(requirement))
-            key.append((requirement, band, repr(nominal), *map(str, cite)))
-        return tuple(key) if len(key) > 1 else None
+            if nominal is not None and not _known(nominal):
+                return None
+            key.append((requirement, repr(band), repr(nominal)))
+        return tuple(key) if len(key) > 2 else None
 
     def process_holds(self, setups):
         """Every op's in-process holds, gathered on the job page under their own heading so
@@ -6083,8 +6106,8 @@ class _Traveler:
             return note
         general = _mapping(self.bundle.features.get("general_tolerances"))
         radius, chamfer = general.get("edge_break_r"), general.get("chamfer_max")
-        limits = ([f"break sharp edges R{self.value(radius)} max"] if _known(radius) else []) + (
-            [f"chamfer {self.value(chamfer)} max"] if _known(chamfer) else []
+        limits = ([f"break sharp edges R{self.cap(radius)} max"] if _known(radius) else []) + (
+            [f"chamfer {self.cap(chamfer)} max"] if _known(chamfer) else []
         )
         if limits:
             return "Remove burrs; " + " or ".join(limits) + "."
@@ -6115,7 +6138,7 @@ class _Traveler:
         cites = cite if isinstance(cite, list) else [cite]
         why = "; ".join(self.bench(c) for c in cites if isinstance(c, str) and " " in c.strip())
         text = f"Break edges {self.operative(deburr)} mm max in this setup"
-        text += f", not the drawing's {self.value(min(drawing))}" if drawing else ""
+        text += f", not the drawing's {self.cap(min(drawing))}" if drawing else ""
         return _p(text + (f": {why.rstrip('.')}" if why.strip() else "") + ".")
 
     def drawing_revision(self):

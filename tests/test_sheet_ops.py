@@ -315,6 +315,29 @@ def test_an_op_whose_levels_start_at_its_depth_prints_one_pass_at_that_depth(sta
     assert shop(records).z_target(POCKET, POCKET["ops"][0]) == target
 
 
+@pytest.mark.parametrize(
+    ("doc", "established"),
+    [
+        # No step, or one under the 0.001 DRO grid: the producer establishes no levels.
+        ("unknown", False),
+        (0.0001, False),
+        (0.25, True),
+    ],
+)
+def test_a_floor_already_at_depth_is_one_pass_only_when_its_levels_are_established(
+    doc, established
+):
+    from prechips.rules.coordinates import _z_levels
+
+    op = {**POCKET["ops"][0], "to_z": -0.6, "doc_mm": doc}
+    records = contour_records([-0.6])
+    records[("coordinates", "S1")]["operations"][0]["z_levels"] = _z_levels(
+        op, {"top_z": -0.6}, {}, [], {}, (0.001, 3), "mm"
+    )
+    parts = [str(part) for part in shop(records).tip(POCKET, op)]
+    assert any("STOP" in part for part in parts) is not established, parts
+
+
 def test_each_depth_level_has_a_place_to_mark_it_done():
     html = shop(contour_records([-0.25, -0.5, -0.6])).contours(POCKET, {"c": "T1"})
     assert re.findall(r'<span class="tick"></span>level (\d) of 3', html) == ["1", "2", "3"]
@@ -1224,52 +1247,14 @@ def test_the_hold_prints_the_jaw_buttons_measured_sizes(unmeasured):
         assert f"{name} ? not measured" in step, step
 
 
-_STRAP_CITE = ["drawing.py:28 (STRAP 2.50 THICK)", "title_block.yaml:linear_2pl"]
-
-
-_APART = [("strap faces", "thickness 1.99–3.01"), ("strap (datum B)", "thickness 1.99–3.01")]
-
-
-@pytest.mark.parametrize(
-    ("datum_cite", "datum_band", "rows"),
-    [
-        # One drawing dimension the two faces share: its limits print once, naming both.
-        (_STRAP_CITE, [1.99, 3.01], [("strap faces / strap (datum B)", "thickness 1.99–3.01")]),
-        # Same limits, another dimension on the drawing: each keeps its own row.
-        (["drawing.py:40 (DATUM B FACE)"], [1.99, 3.01], _APART),
-        # Same dimension cited, other limits: nothing shows they are one dimension.
-        (
-            _STRAP_CITE,
-            [2.0, 3.0],
-            [("strap faces", "thickness 1.99–3.01"), ("strap (datum B)", "thickness 2.00–3.00")],
-        ),
-        # An uncited requirement is never taken for another feature's dimension.
-        ([], [1.99, 3.01], _APART),
-    ],
-)
-def test_a_drawing_dimension_two_features_share_prints_its_limits_once(
-    datum_cite, datum_band, rows
-):
+def _requirement_rows(features, **manifest):
+    """The job page's DRAWING REQUIREMENTS rows as ``(feature, limits)`` texts."""
     from prechips.inputs import Bundle
 
-    def face(band, cite):
-        return {
-            "kind": "face",
-            "requirements": ["thickness"],
-            "thickness": band,
-            "thickness_nominal": 2.5,
-            "precision": {"thickness": 2},
-            "cite": {"thickness": cite},
-        }
-
-    features = {
-        "strap_faces": face([1.99, 3.01], _STRAP_CITE),
-        "strap_datum_b": face(datum_band, datum_cite),
-    }
     data = Bundle(
         plan={"setups": []},
         inventory={},
-        features={"features": features, "frames": {}, "units": "mm"},
+        features={"features": features, "frames": {}, "units": "mm", **manifest},
         policy={},
         cutting_data={},
         paths={},
@@ -1278,8 +1263,87 @@ def test_a_drawing_dimension_two_features_share_prints_its_limits_once(
         kernel={"status": "ok", "ops": {}},
     )
     html = _Traveler(data, [], {}, None).requirements()
-    found = [
+    rows = [
         tuple(unescape(re.sub(r"<[^>]+>", "", cell)) for cell in re.findall(r"<td>(.*?)</td>", row))
         for row in re.findall(r"<tr>(.*?)</tr>", html)
     ]
-    assert [row for row in found if row and "strap" in row[0]] == rows
+    return [row for row in rows if row]
+
+
+def _strap(band=(1.99, 3.01), faces=("#410/ADVANCED_FACE[9]/STRAP",), nominal=2.5):
+    face = {
+        "kind": "face",
+        "requirements": ["thickness"],
+        "thickness": list(band) if isinstance(band, tuple) else band,
+        "thickness_nominal": nominal,
+        "precision": {"thickness": 2},
+        # One cited drawing source: a sheet carries many dimensions, so it proves nothing.
+        "cite": {"thickness": ["drawing.pdf page 1"]},
+    }
+    return face if faces is None else {**face, "faces": list(faces)}
+
+
+@pytest.mark.parametrize(
+    ("first", "second", "merged"),
+    [
+        # The same model faces carrying the same known limits: one dimension, printed once.
+        (_strap(), _strap(), True),
+        # Other faces, equal limits and the same cited sheet (two bores alike): apart.
+        (_strap(), _strap(faces=["#118/ADVANCED_FACE[5]/DATUM_B"]), False),
+        # No faces declared: nothing shows the two are one dimension.
+        (_strap(faces=None), _strap(faces=None), False),
+        # The same faces with other limits.
+        (_strap(), _strap(band=(2.0, 3.0)), False),
+        # A limit or nominal not known is never taken for another feature's.
+        (_strap(band="unknown"), _strap(band="unknown"), False),
+        (_strap(band=(1.99, "unknown")), _strap(band=(1.99, "unknown")), False),
+        (_strap(nominal="unknown"), _strap(nominal="unknown"), False),
+    ],
+)
+def test_two_features_share_a_requirement_row_only_on_the_same_faces_and_known_limits(
+    first, second, merged
+):
+    rows = _requirement_rows({"strap_faces": first, "strap_datum_b": second})
+    rows = [row for row in rows if "strap" in row[0]]
+    if merged:
+        assert rows == [("strap faces / strap (datum B)", "thickness 1.99–3.01")]
+    else:
+        assert [name for name, _ in rows] == ["strap faces", "strap (datum B)"], rows
+
+
+@pytest.mark.parametrize(
+    ("requirement", "limit", "precision"),
+    [
+        # Half a step past the drawing's decimals: rounded up it would pass a 0.048 error.
+        ("position_dia", 0.045, 2),
+        ("finish_ra", 0.85, 1),
+        # Under one step at that precision: never printed as nothing, rejecting every part.
+        ("coaxiality_dia", 0.004, 2),
+    ],
+)
+def test_a_drawing_maximum_never_prints_looser_than_declared(requirement, limit, precision):
+    hole = {"kind": "hole", "requirements": [requirement], requirement: limit}
+    hole["precision"] = {requirement: precision}
+    ((_, limits),) = [row for row in _requirement_rows({"pin_bore": hole}) if row[0] == "pin bore"]
+    printed = float(re.findall(r"\d+(?:\.\d+)?", limits)[-1])
+    assert 0 < printed <= limit, limits
+
+
+@pytest.mark.parametrize("band", [[5.904, "unknown"], ["unknown", 6.096], [6.0, 6.004]])
+def test_a_band_not_printable_inward_keeps_each_declared_limit(band):
+    # One limit unknown, or too narrow for the drawing's two decimals: no known limit
+    # prints looser than declared, and the unknown one stays unknown.
+    bore = {"kind": "hole", "requirements": ["dia"], "dia": band, "precision": {"dia": 2}}
+    ((_, limits),) = [row for row in _requirement_rows({"bore": bore}) if row[0] == "bore"]
+    low, high = limits.removeprefix("Ø ").split("–")
+    assert low == "?" if band[0] == "unknown" else float(low) >= band[0], limits
+    assert high == "?" if band[1] == "unknown" else float(high) <= band[1], limits
+
+
+def test_the_drawing_edge_break_never_prints_looser_than_declared():
+    rows = _requirement_rows(
+        {}, precision=1, general_tolerances={"edge_break_r": 0.25, "chamfer_max": 0.35}
+    )
+    ((_, limits),) = [row for row in rows if row[0] == "all edges"]
+    radius, chamfer = map(float, re.findall(r"\d+\.\d+", limits))
+    assert 0 < radius <= 0.25 and 0 < chamfer <= 0.35, limits

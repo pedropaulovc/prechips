@@ -280,12 +280,18 @@ the setup that receives that stock, supply notes and a setup → machine → hol
 table, machines by display name: an inventory `name`, a maker's model number,
 or else the machine kind, never an inventory slug) and **DRAWING
 REQUIREMENTS** (feature → limits, ending with the drawing's edge break printed
-once for the job as `all edges`; two features carrying the same cited drawing
-dimension, band and nominal alike, print it once on one row naming both,
-`strap faces / strap (datum B)`; a stock thickness prints only when no feature
-carries a thickness limit). Authored values keep their digits (a 1.9875 mm
-pin, a 0.0254 mm runout limit); only computed numbers are cut to DRO
-resolution.
+once for the job as `all edges`; two features on the same model faces carrying
+the same known limits and nominal print them once on one row naming both,
+`strap faces / strap (datum B)` — a shared citation or equal numbers alone never
+merge rows, nor does an unknown limit; a stock thickness prints only when no
+feature carries a thickness limit). Authored values keep their digits (a 1.9875
+mm pin, a 0.0254 mm runout limit); only computed numbers are cut to DRO
+resolution. A drawing limit printed at the drawing's precision rounds inward,
+never looser: a band's low limit up and high limit down, a zone or maximum
+(position, coaxiality, angularity, Ra, the edge break) down (`position Ø 0.045`
+at two places prints 0.04) and to more places rather than to nothing; a band too
+narrow for that precision, or with one limit unknown, prints each limit as
+declared.
 
 Each setup then prints as one **front sheet** to run the setup from, followed
 by attached sheets the front sheet points to. Every sheet starts on a new
@@ -388,9 +394,10 @@ Front sheet (sheet 1), in this order:
    contour op, `See contour table on S2 sheet 3`. A blade relief's Z cell gives
    each plunge's corner Z and the diameter it plunges to; the groove's extent
    prints only where it differs from the row's own Z window, and the diameter's
-   drawing limits only when the inspection cell does not carry them. A number
-   printed at fewer decimals than it holds rounds half-way values up (3.175 at
-   two places is 3.18). An inspection procedure is
+   drawing limits only when the inspection cell does not carry them. A computed
+   number printed at fewer decimals than it holds rounds half-way values up
+   (3.175 at two places is 3.18); a drawing limit rounds inward (DRAWING
+   REQUIREMENTS above). An inspection procedure is
    cited as `[S2 sheet 2 note 1]`. An op row with its boxed lines and note
    never splits across the front and back. A setup whose ops are all bench
    steps (`inspect`, `deburr`, `coating`, `fit`, `scribe`, `release`, hand
