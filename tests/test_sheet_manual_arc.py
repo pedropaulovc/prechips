@@ -307,9 +307,13 @@ def manual_record(op, action):
             "kind": "buttons",
             "kit": "buttons",
             "bore": "centre_bore",
-            "button_dia_mm": 20,
-            "pin_dia_mm": 4,
-            "files_to_mm": [9.98, 10.02],
+            "button_dia_mm": [19.99, 20.0],
+            "button_bore_mm": [4.0, 4.01],
+            "pin_dia_mm": [3.99, 4.0],
+            "button_runout_mm": 0.004,
+            "bore_dia_mm": [4.0, 4.01842],
+            "centre_shift_mm": {"pin_in_bore": 0.01421, "button_on_pin": 0.01, "runout": 0.002},
+            "files_to_mm": [9.96879, 10.02621],
         },
         "gauge": {"ref": "gauge", "range_mm": [9, 11]},
         "rough_op": "S1:20",
@@ -344,13 +348,15 @@ def test_manual_layout_and_filing_attach_to_their_operation_even_at_the_bench(
         "arc ends" in printed and "X 12.000, Y -3.000" in printed and "X 2.000, Y 7.000" in printed
     )
     assert "file down to the hardened button rims" in printed
-    assert (
-        "R10 filing buttons (Ø20 mm buttons clamped on a Ø4 mm pin through centre bore; "
-        "they file R9.980 to R10.020 mm)"
-    ) in printed
+    assert "R10 filing buttons" in printed
+    # Every stack element's receipt limits print...
+    for value in ("19.99", "4.01", "3.99", "0.004", "4.01842"):
+        assert value in printed
+    # ...and the worst case rounds outward, never narrower than the band it was proven in.
+    assert "R9.968 to R10.027 mm" in printed
     assert "check with radius gauge" in printed
     assert "file off the stock left by S1:20 (at most 0.5 mm)" in printed
-    assert "STOP: no tool" not in printed
+    assert "STOP" not in printed
 
 
 @pytest.mark.parametrize(
@@ -379,3 +385,20 @@ def test_template_guide_and_unknown_stock_do_not_claim_a_filing_allowance(
     assert "guide: arc template" in printed
     assert f"STOP: {stop}" in printed
     assert "at most" not in printed
+
+
+@pytest.mark.parametrize("missing", ["pin_dia_mm", "button_runout_mm", "files_to_mm"])
+def test_buttons_without_a_worst_case_band_print_a_stop(tmp_path, missing):
+    filing = manual_record(30, "file_to_line")
+    guide = filing["guide"]
+    guide.pop("files_to_mm")
+    guide[missing] = "unknown"
+    sheet, setup = traveler(
+        tmp_path,
+        [{"op": 30, "do": "file_to_line", "feature": "arc"}],
+        manual=[filing],
+        machine="bench",
+    )
+    printed = text("".join(sum(sheet.setup_section(setup), [])))
+    assert "STOP" in printed
+    assert not re.search(r"R\d+(\.\d+)? to R\d", printed)
