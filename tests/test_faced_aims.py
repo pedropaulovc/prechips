@@ -203,6 +203,8 @@ def _flip_job(engine, step, aim, spec):
         ],
         stock=BLANK,
     )
+    # S3 seats on the aimed face: the consistency rule reads its height from stock_faces_mm.
+    job["setups"][2]["stock_features"] = ["bottom"]
     if spec is not None:
         job["aimed_faces"] = [{"feature": "plate_faces", "face": bottom[0], **spec}]
     return job
@@ -232,6 +234,10 @@ def test_every_setup_cuts_the_part_the_faced_aim_makes(engine, plates, length):
     assert s3["stock_volume_mm3"] == pytest.approx(60 * 40 * length, rel=1e-6)
     # The face op at Z0 stands on the aimed face, inside the stock it removes.
     assert result["ops"]["S2:10"]["tool_hits"] == 0
+    # The seated face's height, which consistency compares with stock_state.bottom_z, is
+    # the aimed one: frame, zero, stock and the stated bottom stand on one face position.
+    seated = s3["stock_faces_mm"]["bottom"]["down"]
+    assert seated == {"face_z": pytest.approx(-length), "stock_z": pytest.approx(-length)}
 
 
 def test_without_the_aim_the_cad_face_lies_outside_the_aimed_removal_box(engine, plates):
