@@ -176,7 +176,8 @@ def test_a_single_level_contour_heading_keeps_its_one_z():
 def test_raster_rows_past_the_cleared_area_are_named_cutter_clearance():
     html = shop(contour_records(None)).contours(POCKET, {"c": "T1"})
     assert "pass ends are intentional cutter clearance, not material" in html
-    assert "X -13.765 / 13.765, one cutter radius (4.760) past the cleared area" in html
+    # The pass ends, the radius they clear by and the area edges they clear.
+    assert all(n in html for n in ("X -13.765 / 13.765", "(4.760)", "X -9.000 / 9.000"))
     assert "pass 1 at Y 1.000 stands wholly outside the open -Y side" in html
 
 

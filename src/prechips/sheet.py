@@ -3326,9 +3326,9 @@ class _Traveler:
             return ""
         text = (
             f"; pass ends are intentional cutter clearance, not material: every pass starts "
-            f"and ends at {axis} {o(ends[0])} / {o(ends[1])}, one cutter radius ({o(radius)}) "
-            f"past the cleared area's edges {axis} {o(edges[0])} / {o(edges[1])}, so the "
-            "cutter's edge runs in from and overtravels out past each edge"
+            f"and ends at {axis} {o(ends[0])} / {o(ends[1])}, at least one cutter radius "
+            f"({o(radius)}) past the cleared area's edges {axis} {o(edges[0])} / "
+            f"{o(edges[1])}, so the cutter's edge runs in from and overtravels out past each edge"
         )
         entry = raster.get("entry_pass")
         if _known(entry):
