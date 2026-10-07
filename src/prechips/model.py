@@ -250,12 +250,14 @@ Zero = record(
     },
 )
 Bounds = record("Bounds", {"x": Vector, "y": Vector, "z": Vector})
+KeepOut = record("KeepOut", {"at": Vector, **numbers("dia_mm")})
 Contour = record(
     "Contour",
     {
         **texts("method sweep_frame open_side"),
         **numbers("step_deg step_mm start_deg end_deg"),
         "sweep_bounds": Bounds,
+        "keep_out": list[KeepOut],
     },
 )
 SawPlane = record(

@@ -180,6 +180,15 @@ stepping from `open_side`, else from the low side of the shorter span. Every
 pass runs one cutter radius past both ends of the area. The cycle is one way:
 feed the pass, lift to the op's retract Z (its entry stock top plus
 `approach_mm`, unknown without it) and rapid back to the next pass's start.
+Optional `contour.keep_out = [{ at = [x, y], dia_mm = d }]` declares circular
+islands in `sweep_frame` (default: the feature's frame), with positive diameter.
+The whole cutter stays outside them: centre clearance is island radius plus
+cutter radius. After feed direction is established, crossing passes split into
+pieces in cutting order; pieces no longer than 1e-9 mm are dropped. Each piece
+is a separate `cutter_centre` entry with the same feed/lift/rapid cycle.
+`raster.keep_out` records the circles in setup XY and `raster.passes` counts
+pieces. Diagrams draw these pieces separately, not as a continuous swept band.
+Invalid circles leave the raster unknown with a reason.
 Face ops without a contour print no raster: a box raster could cross retained
 material inside the box. Tables are numeric nominal geometry, not cutter
 accessibility, fixtures, wall thickness or collision proof; raster passes are

@@ -1214,14 +1214,18 @@ class _Diagram:
             )
 
     def _raster_band(self, paths, project, colour, labels):
-        """Draw a raster's first and last pass and the band its passes cover; return the
-        other paths. Passes are named as the table numbers them (PASS 1 ... PASS n)."""
+        """Draw ordinary rasters as a band, but keep-out rasters as independent lines.
+
+        Sparse endpoint labels use the table's independent PASS 1 ... PASS n numbers;
+        a filled band must never claim that the clearance between split passes is swept.
+        Return non-raster paths for the caller to draw separately.
+        """
         c = self.canvas
         raster = sorted((p for p in paths if p.get("raster")), key=lambda p: p["raster"]["pass"])
         if not raster:
             return paths
         first, last = raster[0], raster[-1]
-        if len(raster) > 2:
+        if len(raster) > 2 and not any(path["raster"].get("keep_out") for path in raster):
             f0, f1 = project(first["xy"][0]), project(first["xy"][-1])
             l0, l1 = project(last["xy"][0]), project(last["xy"][-1])
             same = (f1[0] - f0[0]) * (l1[0] - l0[0]) + (f1[1] - f0[1]) * (l1[1] - l0[1]) >= 0
