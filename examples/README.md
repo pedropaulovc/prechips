@@ -657,8 +657,8 @@ The historical M1 built-up candidate declared two **AUTHOR'S CHOICE** leaf
 blanks: a 46×50×92 rectangular body and a Ø25×100 boss, joined by a proposed
 pressed fit whose interface, interference, engagement, press/arbor and strength
 were unknown. The current bonded-sleeve route and its three leaf blanks are
-described under "Built-up cone route provenance". No blank is on hand
-(`inventory stock=[]`).
+described under "Built-up cone route provenance". No blank is on hand: none
+of the inventory's `[[stock]]` entries (the r7 shop-kit materials) is a cone blank.
 
 The BS-0 lives under inventory **machines**, with worm 40, direct 24×15° and all
 18 listed worm circles (`inventory/pedro-shop.toml:88–117`). The independent
