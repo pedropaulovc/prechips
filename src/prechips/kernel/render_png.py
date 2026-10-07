@@ -357,14 +357,19 @@ class RenderCanvas:
                                     top + row * scale + offset, first, first + scale - 1, pixel
                                 )
 
-    def assert_text_layout(self, *, margin=8, min_gap=4):
-        """Reject text outside the inset canvas or closer than ``min_gap`` pixels.
+    def assert_text_layout(self, *, margin=8, min_gap=4, min_scale=1):
+        """Reject text outside the inset canvas, closer than ``min_gap`` pixels, or painted
+        smaller than ``min_scale`` (a glyph is ``7 * scale`` pixels tall).
 
         ``text_boxes`` contains normalized, nonblank lines with exclusive right
         and bottom bounds; surrounding spaces do not contribute to the bounds.
         Checking is opt-in and never changes the painted pixels.
         """
         for index, (label, left, top, right, bottom) in enumerate(self.text_boxes):
+            if bottom - top < 7 * min_scale:
+                raise ValueError(
+                    f"Text {label!r} is painted below the minimum print scale {min_scale}"
+                )
             if (
                 left < margin
                 or top < margin

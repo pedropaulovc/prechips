@@ -1559,6 +1559,10 @@ tables. Custom plates show pads, locators and authored clamp-action order.
 Table/vise-body/headstock/tailstock context outlines are marked schematic;
 they never add fabricated solids or authorize a cut. Inventory stop solids
 require `hold.stop_fixture` and a numeric `hold.stop_pose`.
+Every label prints at body size (21-pixel caps, about 7 pt on Letter); the
+renderer refuses smaller text. Setup notes come from the setup's declared ops,
+bench actions included, so a deburr/coating/inspect setup says it has no
+machine cutting rather than "no material removed".
 
 Alongside the image the engine returns `render_scene` with `fixture_kind`,
 `jaws`, `parallels`, `components`, `debts`, camera/resolution, plain-language

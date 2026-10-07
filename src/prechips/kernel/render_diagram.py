@@ -42,6 +42,9 @@ class _Callout:
     label: str
     points: list
     colour: tuple = _INK
+    # "line": a leader from the lane to the point; "keyed": the point carries its own
+    # position badge, so the lane entry is the badge's key and draws no leader.
+    leader: str = "line"
 
 
 def _plain(value):
@@ -173,13 +176,108 @@ def _clip_segment(a, b, box):
     return ((a[0] + low * dx, a[1] + low * dy), (a[0] + high * dx, a[1] + high * dy))
 
 
+def _badge_width(canvas, label, scale=3):
+    return max(24, canvas.text_width(label, scale=scale) + 12)
+
+
 def _badge(canvas, point, label, colour=_BLUE, scale=3):
-    width = max(24, canvas.text_width(label, scale=scale) + 12)
+    width = _badge_width(canvas, label, scale)
     height = 7 * scale + 12
     x, y = point[0] - width / 2, point[1] - height / 2
     canvas.rect(x, y, width, height, _WHITE)
     _outline(canvas, [(x, y), (x + width, y), (x + width, y + height), (x, y + height)], colour)
     _text(canvas, point[0], y + 6, label, colour, scale=scale, align="centre")
+
+
+def _rows_for(widths, span):
+    """Fewest interleaved badge rows (every n-th badge per row) that fit ``span``."""
+    for rows in range(1, len(widths) + 1):
+        if all(sum(w + 8 for w in widths[row::rows]) - 8 <= span for row in range(rows)):
+            return rows
+    return 0
+
+
+def _row_positions(targets, widths, left, right):
+    """Badge centres in one row, in the targets' order, at least 8 px apart, inside
+    ``left``..``right`` and of least squared displacement from the targets."""
+    offsets = [0.0]
+    for first, second in zip(widths, widths[1:], strict=False):
+        offsets.append(offsets[-1] + (first + second) / 2 + 8)
+    # Isotonic (pool-adjacent-violators) fit of the offset-free positions.
+    blocks = []
+    for value in (target - offset for target, offset in zip(targets, offsets, strict=True)):
+        blocks.append([value, 1])
+        while len(blocks) > 1 and blocks[-2][0] / blocks[-2][1] > blocks[-1][0] / blocks[-1][1]:
+            total, count = blocks.pop()
+            blocks[-1][0] += total
+            blocks[-1][1] += count
+    fitted = [total / count for total, count in blocks for _ in range(count)]
+    low, high = left + widths[0] / 2, right - widths[-1] / 2 - offsets[-1]
+    return [
+        min(max(value, low), high) + offset for value, offset in zip(fitted, offsets, strict=True)
+    ]
+
+
+def _band_cells(points, widths, plot, exclusion):
+    """Badge centres in rows wholly above and below ``exclusion``. Neighbouring points on
+    the geometry's mid band alternate between the bands; each row keeps its points' left
+    to right order directly above or below them, so the leaders fan out without crossing
+    and every badge stays beside its own support, clamp or pickup."""
+    left, top, right, bottom = plot
+    height, pitch = 33, 41
+    upper_bottom, lower_top = min(bottom, exclusion[1] - 8), max(top, exclusion[3] + 8)
+    capacity = {
+        -1: max(0, int((upper_bottom - top + 8) / pitch)),
+        1: max(0, int((bottom - lower_top + 8) / pitch)),
+    }
+    middle = (min(p[1] for p in points) + max(p[1] for p in points)) / 2
+    band = 0.1 * (max(p[1] for p in points) - min(p[1] for p in points))
+    order = sorted(range(len(points)), key=lambda index: (points[index][0], points[index][1]))
+    sides, free = {}, []
+    for index in order:
+        offset = points[index][1] - middle
+        if abs(offset) <= band:
+            free.append(index)
+            sides[index] = -1 if len(free) % 2 else 1
+        else:
+            sides[index] = 1 if offset > 0 else -1
+    for index in order:
+        if not capacity[sides[index]]:
+            sides[index] = -sides[index]
+
+    def rows_needed(side):
+        return _rows_for([widths[index] for index in order if sides[index] == side], right - left)
+
+    # Move mid-band points to the other band while one band needs more rows than it has.
+    for _ in free:
+        side = max((-1, 1), key=lambda s: rows_needed(s) - capacity[s])
+        if rows_needed(side) <= capacity[side] or not capacity[-side]:
+            break
+        movable = [index for index in free if sides[index] == side]
+        if not movable:
+            break
+        moved = min(movable, key=lambda index: abs(points[index][1] - middle))
+        sides[moved] = -side
+        if rows_needed(-side) > capacity[-side]:
+            sides[moved] = side
+            break
+    centres = [None] * len(points)
+    for side, edge in ((-1, upper_bottom), (1, lower_top)):
+        members = [index for index in order if sides[index] == side]
+        rows = rows_needed(side)
+        for row in range(rows):
+            # Row 0 is nearest the geometry; outer rows interleave between its badges.
+            row_members = members[row::rows]
+            y = edge + side * (height / 2 + row * pitch)
+            xs = _row_positions(
+                [points[index][0] for index in row_members],
+                [widths[index] for index in row_members],
+                left,
+                right,
+            )
+            for index, x in zip(row_members, xs, strict=True):
+                centres[index] = (x, y)
+    return centres
 
 
 def _dimension(canvas, first, second, label, colour=_INK):
@@ -277,6 +375,7 @@ class _Diagram:
         self.obstacles = []
         self.context_labels = []
         self.position_badges = []
+        self.leaders = []  # printed leaders: (label, pixel polyline from the point)
         self.dimensions = {}  # printed dimension label -> its two arrow ends (pixels)
         self.jaw_marker = None  # projected jaw-front marker, where stickout starts
         self.lathe_window = None
@@ -340,17 +439,12 @@ class _Diagram:
         # into a second notes column and push the placed geometry off the page.
         self.footer_top = 740
         self.scene_bottom = 620
-        self.note_scale = 3
+        # Footer type stays at print size; a longer key or note list grows the footer.
         self.note_lines = self._notes()
-        if len(self.note_lines) > 8:
-            self.note_scale = 2
-            self.note_lines = self._notes()
         self.legend_rows = self._legend()
-        self.legend_scale = 3 if len(self.legend_rows) <= 8 else 2
-        self.legend_pitch = 30 if self.legend_scale == 3 else 22
         footer_height = 57 + max(
-            max(0, len(self.legend_rows) - 1) * self.legend_pitch + 7 * self.legend_scale,
-            max(0, len(self.note_lines) - 1) * 9 * self.note_scale + 7 * self.note_scale,
+            max(0, len(self.legend_rows) - 1) * 30 + 21,
+            max(0, len(self.note_lines) - 1) * 27 + 21,
         )
         self.footer_top = min(self.footer_top, 984 - footer_height)
         self.scene_bottom = min(self.scene_bottom, self.footer_top - 120)
@@ -368,6 +462,10 @@ class _Diagram:
             {"label": label, "xy": self.canvas.project(point), "colour": _BLUE}
             for label, point in self.off_window_keys
         )
+
+    def _in_lathe_window(self, z):
+        """Whether the jaw-end profile inset draws station ``z``."""
+        return self.lathe_window is not None and self.lathe_window[0] <= z <= self.lathe_window[1]
 
     def _framed(self):
         """Components the view is scaled to. An isometric view frames the stock and the
@@ -416,9 +514,7 @@ class _Diagram:
             notes.append("Datums: not declared")
         if self.is_chuck and self.spec.get("stickout_mm") is None:
             notes.append("Stickout: not declared")
-        return [
-            line for note in notes for line in _wrap(self.canvas, note, 720, scale=self.note_scale)
-        ]
+        return [line for note in notes for line in _wrap(self.canvas, note, 720, scale=3)]
 
     def _legend(self):
         rows = []
@@ -471,10 +567,12 @@ class _Diagram:
         self._origin_datums_tool()
         self._measurements()
         for z, small, large in self.shoulders:
-            # A step too small to see at print scale is named with both diameters.
-            if (large - small) * self.canvas.scale < 3:
-                point = self.canvas.project((large, 0, z))
-                self.callouts.append(_Callout(_shoulder(z, small, large), [point], _INK))
+            # A step too small to see at print scale is named with both diameters; the
+            # jaw-end profile names the steps inside its window beside its own tick.
+            if (large - small) * self.canvas.scale >= 3 or self._in_lathe_window(z):
+                continue
+            point = self.canvas.project((large, 0, z))
+            self.callouts.append(_Callout(_shoulder(z, small, large), [point], _INK))
         self._labels()
         if self.position_badges:
             exclusion = None
@@ -495,7 +593,7 @@ class _Diagram:
         for x, y, label, scale in self.context_labels:
             _text(self.canvas, x, y, label, _MUTED, scale=scale, align="centre", backing=True)
         self._footer()
-        self.canvas.assert_text_layout()
+        self.canvas.assert_text_layout(min_scale=_BODY_SCALE)
         return self.canvas.png()
 
     def _header(self):
@@ -510,7 +608,7 @@ class _Diagram:
         _text(c, 34, 76, subtitles[self.view], _MUTED)
         _text(c, 1565, 77, "DIMENSIONS IN mm", _MUTED, align="right")
         c.line((32, 112), (1568, 112), _INK, width=2)
-        _text(c, 32, 138, "PLACED STOCK + WORKHOLDING", _INK, scale=2)
+        _text(c, 32, 138, "PLACED STOCK + WORKHOLDING", _INK)
 
     def _component_pixels(self, components):
         return [
@@ -626,10 +724,13 @@ class _Diagram:
             groups[label].append(component)
         for label, components in groups.items():
             points = [c.project(item["center_mm"]) for item in components]
-            self.callouts.append(_Callout(label.upper(), points, _FIXTURE))
-            if label in numbered:
-                for point in points:
-                    self.position_badges.append({"label": numbered[label], "xy": point})
+            if label not in numbered:
+                self.callouts.append(_Callout(label.upper(), points, _FIXTURE))
+                continue
+            # Each position carries its code badge; the lane entry is the badge's key.
+            self.callouts.append(_Callout(label.upper(), points, _FIXTURE, leader="keyed"))
+            for point in points:
+                self.position_badges.append({"label": numbered[label], "xy": point})
         if pads:
             for index, component in enumerate(pads, 1):
                 point = c.project(component["center_mm"])
@@ -646,7 +747,9 @@ class _Diagram:
                     )
                 self.position_badges.append({"label": code, "xy": point})
             self.callouts.append(
-                _Callout("SUPPORT PADS", [c.project(pads[0]["center_mm"])], _FIXTURE)
+                _Callout(
+                    "SUPPORT PADS", [c.project(pads[0]["center_mm"])], _FIXTURE, leader="keyed"
+                )
             )
         if self.stock_pixels:
             left, top, right, _ = _bounds(self.stock_pixels)
@@ -767,95 +870,124 @@ class _Diagram:
                 _text(c, x, self.footer_top - 36, label, _BLUE)
 
     def _labels(self):
+        """Two lanes of print-size keys. Type never shrinks: lanes rebalance, then tighten
+        their leading; a leader never runs along the axis through another callout."""
         c = self.canvas
+        lane_specs = ((32, 214, 249), (928, 210, 916))
+        limit = self.footer_top - 64
+        anchors = [(callout, point) for callout in self.callouts for point in callout.points]
+        wrapped = {
+            (id(item), side): _wrap(c, item.label, lane_specs[side][1], scale=3)
+            for item in self.callouts
+            for side in (0, 1)
+        }
+
+        def blocked(item, point, side):
+            # A horizontal run to this lane that passes another callout's point reads as
+            # that point's leader (two ends of a bar on one axis line).
+            elbow_x = lane_specs[side][2] + (14 if side == 0 else -14)
+            low, high = sorted((point[0], elbow_x))
+            return any(
+                abs(other[1] - point[1]) < 6
+                and low < other[0] < high
+                and abs(other[0] - point[0]) > 1
+                for owner, other in anchors
+                if owner is not item
+            )
+
+        def pack(items, side, pitch, gap):
+            x, width, _ = lane_specs[side]
+            rows, row_y = [], 202
+            for item in items:
+                lines = wrapped[(id(item), side)]
+                span = max(c.text_width(line, scale=3) for line in lines) + 8
+                left, right = (
+                    (x - 4, x - 4 + span) if side == 0 else (x + width + 4 - span, x + width + 4)
+                )
+                height = len(lines) * pitch + 6
+                for o_left, top, o_right, bottom in sorted(self.obstacles, key=lambda b: b[1]):
+                    if (
+                        left < o_right
+                        and right > o_left
+                        and row_y < bottom
+                        and row_y + height > top
+                    ):
+                        row_y = bottom + 10
+                rows.append(row_y)
+                row_y += height + gap
+            return rows, row_y - gap
+
+        def ordered(items):
+            return sorted(items, key=lambda item: item.points[0][1])
+
+        def overflow(items, side):
+            return pack(ordered(items), side, 27, 5)[1] - limit
+
         lanes = [[], []]
         for callout in self.callouts:
-            side = 0 if callout.points[0][0] < 590 else 1
-            lanes[side].append(callout)
-        lane_specs = ((32, 214, 249), (928, 210, 916))
-        capacities = []
-        for x, width, _ in lane_specs:
-            intervals = sorted(
-                (max(202, b[1]), min(self.footer_top - 64, b[3]))
-                for b in self.obstacles
-                if x < b[2] and x + width > b[0]
-            )
-            blocked, end = 0, 202
-            for top, bottom in intervals:
-                if bottom > max(top, end):
-                    blocked += bottom - max(top, end)
-                    end = bottom
-            capacities.append(self.footer_top - 64 - 202 - blocked)
-
-        def cost(items, side):
-            return sum(
-                len(_wrap(c, item.label, lane_specs[side][1], scale=3)) * 27 + 11 for item in items
-            )
-
-        # Balance wrapped height rather than raw label count before reducing type.
+            lanes[0 if callout.points[0][0] < 590 else 1].append(callout)
         for _ in self.callouts:
-            source = max((0, 1), key=lambda side: cost(lanes[side], side) - capacities[side])
-            if cost(lanes[source], source) <= capacities[source]:
+            source = max((0, 1), key=lambda side: overflow(lanes[side], side))
+            if overflow(lanes[source], source) <= 0:
                 break
             target = 1 - source
             candidates = [
                 item
                 for item in lanes[source]
-                if cost(lanes[target] + [item], target) <= capacities[target]
+                if (
+                    item.leader == "keyed"
+                    or not any(blocked(item, point, target) for point in item.points)
+                )
+                and overflow(lanes[target] + [item], target) <= 0
             ]
             if not candidates:
                 break
-            moved = min(candidates, key=lambda item: abs(item.points[0][0] - 590))
+            moved = min(
+                candidates,
+                key=lambda item: (item.leader != "keyed", abs(item.points[0][0] - 590)),
+            )
             lanes[source].remove(moved)
             lanes[target].append(moved)
-        for side, callouts in enumerate(lanes):
-            callouts.sort(key=lambda item: item.points[0][1])
+        for side, items in enumerate(lanes):
+            callouts = ordered(items)
             x, width, edge = lane_specs[side]
-            obstacles = sorted(
-                (b for b in self.obstacles if x < b[2] and x + width > b[0]), key=lambda b: b[1]
+            # Tighter leading before closer rows; the glyphs stay at print size.
+            pitch, floor = next(
+                (
+                    (pitch, floor)
+                    for pitch, floor in ((27, 5), (25, 5), (25, 0))
+                    if pack(callouts, side, pitch, floor)[1] <= limit
+                ),
+                (25, 0),
             )
-            scale = 3
-            labels = [_wrap(c, item.label, width, scale=scale) for item in callouts]
-
-            def pack(gap, current_labels, current_scale, current_obstacles):
-                rows, row_y = [], 202
-                for lines in current_labels:
-                    height = len(lines) * (9 * current_scale) + 6
-                    for _, top, _, bottom in current_obstacles:
-                        if row_y < bottom and row_y + height > top:
-                            row_y = bottom + 10
-                    rows.append(row_y)
-                    row_y += height + gap
-                return rows, row_y - gap
-
-            # Dense fixture keys use the smaller body face only when necessary;
-            # no label may spill into dimensions, a context symbol or the footer.
-            if pack(5, labels, scale, obstacles)[1] > self.footer_top - 64:
-                scale = 2
-                labels = [_wrap(c, item.label, width, scale=scale) for item in callouts]
-            lo, hi = 5.0, 60.0
+            lo, hi = float(floor), 60.0
             for _ in range(12):
                 gap = (lo + hi) / 2
-                if pack(gap, labels, scale, obstacles)[1] <= self.footer_top - 64:
+                if pack(callouts, side, pitch, gap)[1] <= limit:
                     lo = gap
                 else:
                     hi = gap
-            rows, _ = pack(lo, labels, scale, obstacles)
-            for item, lines, row_y in zip(callouts, labels, rows, strict=True):
-                target_y = row_y + (len(lines) * 9 * scale - 3 * scale) / 2
-                for point in item.points:
-                    elbow = (edge + (14 if side == 0 else -14), point[1])
-                    c.line(point, elbow, item.colour, width=2)
-                    c.line(elbow, (edge, target_y), item.colour, width=2)
+            rows, _ = pack(callouts, side, pitch, lo)
+            for item, row_y in zip(callouts, rows, strict=True):
+                lines = wrapped[(id(item), side)]
+                target_y = row_y + ((len(lines) - 1) * pitch + 21) / 2
+                for point in item.points if item.leader == "line" else []:
+                    end = (edge, target_y)
+                    path = [point, end]
+                    if not blocked(item, point, side):
+                        path = [point, (edge + (14 if side == 0 else -14), point[1]), end]
+                    for a, b in zip(path, path[1:], strict=False):
+                        c.line(a, b, item.colour, width=2)
                     c.circle(*point, 3, fill=item.colour)
+                    self.leaders.append((item.label, path))
                 for index, line in enumerate(lines):
                     _text(
                         c,
                         x + width if side else x,
-                        row_y + index * 9 * scale,
+                        row_y + index * pitch,
                         line,
                         item.colour,
-                        scale=scale,
+                        scale=3,
                         align="right" if side else "left",
                         backing=True,
                     )
@@ -930,8 +1062,7 @@ class _Diagram:
             zmin, zmax = min(p[1] for p in points), max(p[1] for p in points)
         rmin, rmax = min(p[0] for p in points), max(p[0] for p in points)
         window_label = f"Z {_mm(zmin)} TO {_mm(zmax)} MM"
-        window_scale = 3 if c.text_width(window_label, scale=3) <= right - left else 2
-        _text(c, left, 198, window_label, _MUTED, scale=window_scale)
+        _text(c, left, 198, window_label, _MUTED)
         scale = min((right - left - 134) / max(zmax - zmin, 1e-9), 234 / max(rmax - rmin, 1e-9))
         cx, cy = (left + right) / 2, 355
         # A contour much smaller than the window gets its own enlarged local detail.
@@ -993,13 +1124,16 @@ class _Diagram:
                 _text(c, left + 34, row, line, colour)
                 row += 30
         for z, small, large in self.shoulders:
-            if (large - small) * scale >= 3 or not zmin <= z <= zmax:
+            step = large - small
+            # The main view names no step inside this window; every step either view
+            # cannot show is named here.
+            if not zmin <= z <= zmax or min(step * scale, step * self.canvas.scale) >= 3:
                 continue
             point = project((large, z))
             c.line((point[0], point[1] - 12), (point[0], point[1] + 12), _INK, width=2)
-            for line in _wrap(c, _shoulder(z, small, large), right - left, scale=2):
-                _text(c, left, row, line, _INK, scale=2)
-                row += 24
+            for line in _wrap(c, _shoulder(z, small, large), right - left, scale=3):
+                _text(c, left, row, line, _INK)
+                row += 30
         if local is not None:
             zlo, rlo, zhi, rhi = local
             box = (left, cy + (rmax - rmin) * scale / 2 + 22, right, 493)
@@ -1035,7 +1169,7 @@ class _Diagram:
                 _RULE,
                 width=1,
             )
-            _text(c, box[0] + 8, box[1] + 6, f"DETAIL  x{_mm(detail / scale)}", _GREEN, scale=2)
+            _text(c, box[0] + 8, box[1] + 6, f"DETAIL  x{_mm(detail / scale)}", _GREEN)
             clip = (box[0] + 1, box[1] + 1, box[2] - 1, box[3] - 1)
             for profile in profiles:
                 colour = tuple(profile.get("colour", _INK))
@@ -1072,11 +1206,13 @@ class _Diagram:
             _text(c, left, row, "ARROWS: POINT ORDER", _MUTED)
             row += 30
         if closed:
-            _text(c, left, row, "TINT: PROFILE DIFFERENCE", _AMBER, scale=2)
-            row += 24
+            for line in _wrap(c, "TINT: PROFILE DIFFERENCE", right - left, scale=3):
+                _text(c, left, row, line, _AMBER)
+                row += 30
         if self.off_window_keys:
-            _text(c, left, row, "OFF-WINDOW P KEYS: FULL VIEW", _MUTED, scale=2)
-            row += 24
+            for line in _wrap(c, "OFF-WINDOW P KEYS: FULL VIEW", right - left, scale=3):
+                _text(c, left, row, line, _MUTED)
+                row += 30
         return row
 
     def _path_inset(self, left, right, top, bottom):
@@ -1168,20 +1304,22 @@ class _Diagram:
             # Keep the dense six-panel grid unchanged. Shallow wider panels can
             # instead use a declared, unequal graphic scale and exterior P keys.
             if rows <= 2 and 0 < span_y * factor < 24 and span_x * factor >= 60:
-                key_width = max(
-                    [24] + [c.text_width(p["label"], scale=2) + 12 for p in op_waypoints]
+                key_widths = [_badge_width(c, _plain(p["label"])) for p in op_waypoints]
+                # Either band may have to hold every key: a shallow arc's points can all
+                # sit on one side of it.
+                key_rows = max(1, _rows_for(key_widths, width - 12))
+                exaggeration_lines = (
+                    1 if c.text_width("Y EXAG x00.00", scale=3) <= width - 16 else 2
                 )
-                key_columns = max(1, int((width - 4) / (key_width + 8)))
-                key_rows = math.ceil(len(op_waypoints) / key_columns)
-                upper_rows = math.ceil(key_rows / 2)
-                lower_rows = key_rows - upper_rows
-                badge_top = y + 46
-                plot_top = badge_top + 26 * upper_rows + 8 * max(0, upper_rows - 1) + 8
-                plot_bottom = y + height - 6 - 26 * lower_rows - 8 * max(0, lower_rows - 1) - 8
+                badge_top = y + 35 + 27 * exaggeration_lines
+                plot_top = badge_top + 41 * key_rows
+                plot_bottom = y + height - 6 - 41 * key_rows
                 if plot_bottom - plot_top >= 24:
                     # Limit graphic distortion even when the key bands leave ample space.
                     factor_y = min((plot_bottom - plot_top) / span_y, 4 * factor)
-                    _text(c, x + 8, y + 30, f"Y EXAG x{_mm(factor_y / factor)}", _MUTED, scale=2)
+                    exaggeration = f"Y EXAG x{_mm(factor_y / factor)}"
+                    for index, line in enumerate(_wrap(c, exaggeration, width - 16, scale=3)):
+                        _text(c, x + 8, y + 31 + 27 * index, line, _MUTED)
                     exclusion = (x + 7, plot_top, x + width - 7, plot_bottom)
                 else:
                     plot_top, plot_bottom = y + 66, y + height - 44
@@ -1293,8 +1431,8 @@ class _Diagram:
         perimeter=False,
         exclusion=None,
     ):
-        """Pack disjoint cells, optionally wholly above/below projected geometry; returns
-        [(label, badge centre, point)] in pixels."""
+        """Pack disjoint print-size cells, optionally wholly above/below projected geometry;
+        returns [(label, badge centre, point)] in pixels."""
         if not waypoints:
             return []
         c = self.canvas
@@ -1304,43 +1442,47 @@ class _Diagram:
             prefix + label if prefix and not label.upper().startswith(prefix) else label
             for label in labels
         ]
-        span_x, span_y = right - left, bottom - top
-        for scale in (3, 2, 1):
-            cell_width = max(24, max(c.text_width(label, scale=scale) for label in labels) + 12)
-            cell_height = 7 * scale + 12
-            columns = max(1, int((span_x + 8) / (cell_width + 8)))
-            if perimeter and exclusion is None:
-                columns = min(columns, math.ceil(math.sqrt(len(labels))))
-            required_rows = math.ceil(len(labels) / columns)
-            if exclusion is not None:
-                upper_bottom = min(bottom, exclusion[1] - 8)
-                lower_top = max(top, exclusion[3] + 8)
-                upper_rows = max(0, int((upper_bottom - top + 8) / (cell_height + 8)))
-                lower_rows = max(0, int((bottom - lower_top + 8) / (cell_height + 8)))
-                if upper_rows + lower_rows >= required_rows:
-                    break
-            elif cell_height * required_rows + 8 * (required_rows - 1) <= span_y:
-                break
+        points = [project(item["xy"]) for item in waypoints]
         if exclusion is not None:
-            # Work outward from the exact projected boundary, never over the part.
-            ys = [upper_bottom - cell_height / 2 - i * (cell_height + 8) for i in range(upper_rows)]
-            ys.extend(
-                lower_top + cell_height / 2 + i * (cell_height + 8) for i in range(lower_rows)
+            available = _band_cells(
+                points, [_badge_width(c, label) for label in labels], plot, exclusion
             )
+            cells = list(range(len(points)))
         else:
-            rows = (
-                max(required_rows, 2 if 2 * cell_height + 8 <= span_y else 1)
-                if perimeter
-                else max(required_rows, int((span_y + 8) / (cell_height + 8)))
-            )
-            ys = (
-                [
-                    top + cell_height / 2 + i * (span_y - cell_height) / (rows - 1)
-                    for i in range(rows)
-                ]
-                if rows > 1
-                else [(top + bottom) / 2]
-            )
+            available, cells = self._grid_cells(points, labels, plot, perimeter)
+        placed = [
+            (available[cell], label, point, item.get("colour", colour))
+            for item, label, point, cell in zip(waypoints, labels, points, cells, strict=True)
+        ]
+        for badge, label, point, point_colour in placed:
+            c.line(point, badge, _MUTED, width=2)
+            c.circle(*point, 3, fill=point_colour)
+            self.leaders.append((label, [point, badge]))
+        for badge, label, _, badge_colour in placed:
+            _badge(c, badge, label, badge_colour)
+        return [(label, badge, point) for badge, label, point, _ in placed]
+
+    def _grid_cells(self, points, labels, plot, perimeter):
+        """Evenly spread cells and each point's cell (least leader length, no grazing)."""
+        c = self.canvas
+        left, top, right, bottom = plot
+        span_x, span_y = right - left, bottom - top
+        cell_width = max(_badge_width(c, label) for label in labels)
+        cell_height = 33
+        columns = max(1, int((span_x + 8) / (cell_width + 8)))
+        if perimeter:
+            columns = min(columns, math.ceil(math.sqrt(len(labels))))
+        required_rows = math.ceil(len(labels) / columns)
+        rows = (
+            max(required_rows, 2 if 2 * cell_height + 8 <= span_y else 1)
+            if perimeter
+            else max(required_rows, int((span_y + 8) / (cell_height + 8)))
+        )
+        ys = (
+            [top + cell_height / 2 + i * (span_y - cell_height) / (rows - 1) for i in range(rows)]
+            if rows > 1
+            else [(top + bottom) / 2]
+        )
         xs = (
             [
                 left + cell_width / 2 + i * (span_x - cell_width) / (columns - 1)
@@ -1350,8 +1492,7 @@ class _Diagram:
             else [(left + right) / 2]
         )
         available = [(x, y) for y in ys for x in xs]
-        points = [project(item["xy"]) for item in waypoints]
-        if perimeter or exclusion is not None:
+        if perimeter:
             # Each badge goes to a cell on its point's own side of the geometry (an arc's
             # low apex keys below it); straight leaders of least total length never cross.
             middle = (min(p[1] for p in points) + max(p[1] for p in points)) / 2
@@ -1377,28 +1518,16 @@ class _Diagram:
                 if other_index != index and math.dist(other, points[index]) > 1
             )
 
-        cells = _match(len(points), available, cost)
-        placed = [
-            (available[cell], label, point, item.get("colour", colour))
-            for item, label, point, cell in zip(waypoints, labels, points, cells, strict=True)
-        ]
-        for badge, _, point, point_colour in placed:
-            c.line(point, badge, _MUTED, width=2)
-            c.circle(*point, 3, fill=point_colour)
-        for badge, label, _, badge_colour in placed:
-            _badge(c, badge, label, badge_colour, scale=scale)
-        return [(label, badge, point) for badge, label, point, _ in placed]
+        return available, _match(len(points), available, cost)
 
     def _footer(self):
         c = self.canvas
         c.line((32, self.footer_top), (1568, self.footer_top), _INK, width=2)
         self._triad(112, self.footer_top + 139)
         _text(c, 273, self.footer_top + 23, "KEY")
-        legend_scale = self.legend_scale
         legend_start = self.footer_top + 57
-        legend_pitch = self.legend_pitch
         for index, (label, kind) in enumerate(self.legend_rows):
-            y = legend_start + index * legend_pitch
+            y = legend_start + index * 30
             if kind == "stock":
                 c.rect(274, y + 2, 27, 18, (160, 174, 184), outline=_INK)
             elif kind == "fixture":
@@ -1413,12 +1542,11 @@ class _Diagram:
                 c.line((274, y + 10), (301, y + 10), _MUTED, width=2, dashed=True)
             elif kind == "nominal":
                 c.line((274, y + 10), (301, y + 10), _BLUE, width=2, dashed=True)
-            _text(c, 318, y, label, _MUTED if kind == "text" else _INK, scale=legend_scale)
+            _text(c, 318, y, label, _MUTED if kind == "text" else _INK)
         _text(c, 840, self.footer_top + 23, "SETUP NOTES")
         note_start = self.footer_top + 57
-        note_pitch = 9 * self.note_scale
         for index, line in enumerate(self.note_lines):
-            _text(c, 840, note_start + index * note_pitch, line, _MUTED, scale=self.note_scale)
+            _text(c, 840, note_start + index * 27, line, _MUTED)
 
     def _triad(self, x, y):
         c = self.canvas
