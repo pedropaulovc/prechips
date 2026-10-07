@@ -467,6 +467,8 @@ def test_follow_rest_hold_prints_its_jaw_lead_as_a_distance_not_a_diameter(side,
     (line,) = [part for part in hold.split("|") if part.startswith("Support: follow")]
     assert f"9.50 mm {where}" in line
     assert not re.search(r"Ø\s*9\.50*\b", line)
-    # Trailing jaws ride each pass's new diameter, so the HOLD says they are reset per pass,
-    # at the declared engagement Z; leading jaws ride the uncut stock and are not.
-    assert ("every pass" in line and "Z 152.00" in line) == (side == "turned")
+    # Trailing jaws ride each pass's new diameter, so the HOLD says they go on and come off
+    # every pass; the checked Z and the sequence print once, under each op (rest_steps).
+    # Leading jaws ride the uncut stock and are not.
+    assert ("every pass" in line) == (side == "turned")
+    assert "Z 152" not in line

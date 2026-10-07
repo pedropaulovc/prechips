@@ -3017,10 +3017,10 @@ class _Traveler:
         text = value if isinstance(value, str) and value != "unknown" else expression
         if not isinstance(text, str) or text == "unknown":
             return "?"
-        match = re.fullmatch(r"([DM])\s*([+-])\s*(\d+(?:\.\d+)?)", text.strip())
+        match = re.fullmatch(r"(?:measured\s+)?(D/2|D|M)\s*([+-])\s*(\d+(?:\.\d+)?)", text.strip())
         if match:
             sign = "+" if match[2] == "+" else "−"
-            subject = "measured Ø" if match[1] == "D" else "M"
+            subject = {"D": "measured Ø", "D/2": "measured Ø/2", "M": "M"}[match[1]]
             return f"{subject} {sign} {self.operative(float(match[3]))}"
         return "measured Ø" if text.strip() == "measured D" else self.bench(text)
 
@@ -3047,17 +3047,27 @@ class _Traveler:
         if touch.get("x_method") or touch.get("x_face"):
             gauge = touch.get("gauge")
             x_face = touch.get("x_face")
-            parts.append(
-                "X — "
-                + (
-                    f"on the {self.feature_name(x_face)} Ø, measured"
-                    if x_face
-                    else self.bench(touch["x_method"])
-                )
-                + (f" ({self.short_reference(gauge, 'gauges')})" if gauge else "")
-                + (f"; Axis Set X {self.reading(touch.get('x_axis_set'))}" if x_face else "")
-                + "."
+            surface = (
+                "the X-zero trial-cut land"
+                if x_face == "x_zero"
+                else f"the {self.feature_name(x_face)} Ø"
             )
+            # The author's words say how; a repeat or a wordless touch names the surface.
+            words = touch.get("x_method") if "repeats" not in touch else None
+            how = self.bench(words) if words else f"on {surface}, measured"
+            paper = touch.get("x_paper_mm")
+            if not words and _known(paper) and paper:
+                how += f", paper {self.operative(paper)}"
+            text = "X — " + how + (f" ({self.short_reference(gauge, 'gauges')})" if gauge else "")
+            if touch.get("x_axis_set", "not_applicable") != "not_applicable":
+                text += f"; Axis Set X {self.reading(touch.get('x_axis_set'))}"
+            if touch.get("x_face_status") in ("error", "unknown"):
+                # zero_check x_face_status: D2, the zero is set on the diameter touched.
+                text += (
+                    ". STOP: the diameter this X touch measures is not shown standing here "
+                    "— plan the touch on one that is"
+                )
+            parts.append(text + ".")
         z_face = touch.get("z_face")
         if z_face:
             paper = touch.get("paper_mm")

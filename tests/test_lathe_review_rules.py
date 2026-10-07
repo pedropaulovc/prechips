@@ -949,7 +949,13 @@ def _retouched(width):
     re-touch reads X on); a ``width`` blade faces the end to -10 (op 40) reading its
     chuck-side corner (forming with its tailstock-side one); the turner, re-touched on that
     end, then faces the sleeve to -8 (op 50), a 7.96..8.04 length."""
-    touch = {**_FACE_TOUCH, "gauge": "mic", "x_method": "touch bar diameter"}
+    touch = {
+        **_FACE_TOUCH,
+        "gauge": "mic",
+        "x_method": "touch bar diameter",
+        "x_face": "bar",
+        "x_paper_mm": 0.0,
+    }
     bundle = _parted(touch, [{"z_mm": 0.0, "normal_z": 1}], -1, to_z=-10.0)
     bundle.plan["dro"].update(
         mode="abs", direction={"x": "away_from_spindle_axis", "z": "toward_exposed_end"}
@@ -1153,6 +1159,8 @@ _END_TOUCH = {
     "before_ops": [50],
     "gauge": "mic",
     "x_method": "touch bar diameter",
+    "x_face": "bar",
+    "x_paper_mm": 0.0,
     "method": "touch",
 }
 

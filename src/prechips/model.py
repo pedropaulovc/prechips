@@ -277,11 +277,14 @@ Transfer = record(
         "recovery": str,
     },
 )
+# A lathe touch's X surface: ``x_face`` names the plan feature (or ``"x_zero"``, this
+# setup's X-zero trial-cut land) whose measured diameter the tool touches, through
+# ``x_paper_mm`` of paper; x_method keeps the operator's words.
 ToolTouch = record(
     "ToolTouch",
     {
-        **texts("tool x_method gauge z_face method z_gauge z_measure"),
-        **numbers("edge_mm paper_mm z_offset_mm"),
+        **texts("tool x_method x_face gauge z_face method z_gauge z_measure"),
+        **numbers("edge_mm paper_mm x_paper_mm z_offset_mm"),
         # The blade corner a grooving/parting blade's Z touch sets, where the touched
         # face's normal cannot give it (a scribe): docs/rules-coordinates.md.
         "corner": Literal["chuck_side", "tailstock_side"],

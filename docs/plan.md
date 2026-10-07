@@ -915,7 +915,9 @@ STOP and [zero_check](rules-coordinates.md#zero_check) is `unknown`.
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
 | `tool` | `str` |
-| `x_method` | `str` |
+| `x_method` | `str` (the operator's words; `"trial_cut_measure"`: the touch trial-cuts its own diameter) |
+| `x_face` | `str`: the plan feature whose measured diameter a lathe X touch is set on, or `"x_zero"` for this setup's X-zero trial-cut land; must stand where it touches ([zero_check](rules-coordinates.md#zero_check)) |
+| `x_paper_mm` | `float`: paper between the tool and that diameter; Axis Set X = measured D + 2×paper on a diameter display (D/2 + paper on radius) |
 | `gauge` | `str` |
 | `z_face` | `str` |
 | `method` | `str` |
