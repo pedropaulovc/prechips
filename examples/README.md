@@ -132,7 +132,7 @@ PLAN §8 M3.
 | `pivot-shaft` | Three-jaw drive with a tailstock dead centre and follow rest, journals/shoulder/both reliefs/both domes, then indicated rechucks and assembly-dependent plain-end fitting. No final hole, flat or indexing. | **0**: every required subject passes; all three setups render with their fixtures modeled. |
 | `rocker-arm` | Four setups: bounded rough/finish facing inside a retained rail frame, modeled magnetic end stop, permanent rod-hole pin and supported hub ream, then shoulder-screw profiling with independently held scrap. | **0 (native CLI proof)**: check and traveler have no error, unknown, warning or unsupported findings; all four native fixture scenes are modeled with no fixture or render debts. Printed contour targets are checked against the actual material and holding geometry. |
 | `pivot-bracket` | Seat-up, foot-top-up and side-on ear setups; full raw-top facing, walls-first/floor-last L-foot relief, arched ear, reamed cross-bore and two hold-down holes. The v39 STEP is bound; bands remain explicitly illustrative without a dimensioned drawing. | **0 (composed native CLI proof)**: check and traveler have no error, unknown or unsupported findings; all three native fixture scenes are modeled with no fixture or render debts. |
-| `cone-pivot-post/built-up.toml` | Eleven setups: a turned body and head plus cone and crank sleeves bonded into reamed sockets, with dividing-head, bench-cradle, saw-cradle and soft-jaw holds. | **0 (native CLI proof)**: check and traveler have no error, unknown or unsupported findings; all eleven fixture scenes are modeled with exact components and no fixture or render debts. |
+| `cone-pivot-post/built-up.toml` | Twelve setups: a turned body and head plus cone and crank sleeves bonded into reamed sockets, with dividing-head, bench-cradle, saw-cradle and soft-jaw holds. | **0 (native CLI proof)**: check and traveler have no error, unknown or unsupported findings; all twelve fixture scenes are modeled with exact components and no fixture or render debts. |
 
 ### Rocker-arm supported route
 
@@ -288,7 +288,7 @@ the sheet. No operative asset lies outside the bundle.
 
 `cone-pivot-post/built-up.toml` is an authored manufacturing alternative, not a
 second consumer export. It uses the same v40 cone STEP and the example-only
-construction permission above. Its eleven setups turn the body and head in one
+construction permission above. Its twelve setups turn the body and head in one
 piece from 44.45 mm (1-3/4 in) 1018 round bar, turn the cone sleeve
 (Ø17.2 × 42.011) from 19.05 mm bar and the crank sleeve (Ø21.93 × 72.0344) from
 25 mm bar, and bond both sleeves into reamed cross-sockets with retaining
@@ -297,17 +297,18 @@ process choices, not stock-on-hand or first-article evidence.
 
 | Setup | Machine / holding | Work |
 |---|---|---|
-| S1 | lathe, 3-jaw on the raw tail | face foot B; rough and finish head Ø42.7506 and body Ø42.011; r0.1 parting-blade corner pass leaves the body/head step at R0.25 max |
+| S1 | lathe, 3-jaw on the raw tail | face foot B; rough and finish head Ø42.7506 and body to the Ø41.95–41.99 process hold; r0.1 parting-blade corner pass leaves the body/head step at R0.25 max |
 | S2 | lathe, 3-jaw on a 25 mm grip | cone sleeve: face the north cap, turn the Ø17.194–17.206 spigot, spring pass, part off |
 | S3 | lathe, 3-jaw on a 25 mm grip | crank sleeve: face, turn the Ø21.924–21.936 spigot, spring pass, part off |
 | S4 | mill, BS-0 dividing head along table X, 4-jaw on the tail | spot, drill and ream the Ø22.000–22.020 crank socket through the head |
 | S5 | same chucking, indexed 12.5182° | spot, drill and ream the Ø17.250–17.270 cone socket through the body |
 | S6 | bench, modeled `cone-bond-cradle` | bond the cone sleeve; 24 h cure |
 | S7 | bench, same cradle | bond the crank sleeve; 24 h cure |
-| S8 | mill, BS-0 along table X, tail re-chucked | spot, drill and ream crank bore Ø11.413–11.443 through the bonded sleeve |
+| S8 | mill, BS-0 along table X, tail re-chucked | spot, drill and ream crank bore Ø11.413–11.443 through the bonded sleeve, aimed at 39.517 separation (plan `aims`) |
 | S9 | same chucking, indexed 12.5182° | spot, drill and ream journal bore A through the bonded cone sleeve |
 | S10 | 4 × 6 bandsaw, shop-made `cone-saw-cradle` in the saw vise, `cone-cap-bridge` strap on the south cap | saw the tail off 1 mm above the head top |
-| S11 | mill, PM 6 in vise with tall aluminium soft jaws on the two cone caps, foot B on parallels | face the head top to Z86 with a 3/4 in end mill; spot, drill and counterbore both mounting holes |
+| S11 | mill, PM 6 in vise with tall aluminium soft jaws on the two cone caps, foot B on parallels | face the head top to Z86 with a 3/4 in end mill; spot, drill and counterbore both mounting holes; inspect |
+| S12 | bench, modeled `cone-bond-cradle` | paint the non-functional turned surfaces RAL 6005, mask and oil the functional faces |
 
 The sleeve chuckings grip 25 mm of sacrificial bar. The crank sleeve leaves
 85 mm exposed, below the 87.72 mm four-diameter limit at its finished 21.930 mm
@@ -323,8 +324,20 @@ finish-turns the body to the head shoulder, so the claimed body face is turned
 over its whole length, and the parting-blade pass clears the R0.4 nose fillet.
 A plain vise on round stock has no parallel planar grip pair: S10 lays the post
 in a shop-made saw cradle under a cap bridge whose load runs down the cone
-sleeve onto a cap pad, and S11 grips the two flush cone-sleeve caps in tall soft
-jaws. All cradle, bridge and soft-jaw dimensions are illustrative.
+sleeve onto a cap pad, and S11 grips the two cone-sleeve caps in tall soft
+jaws. Two process holds inside the drawing bands make those holds work for
+every accepted part. S1 turns the body to Ø41.95–41.99, clear of the Ø42.011
+cradle saddles. S2 holds the cone sleeve to 41.99–42.05 long, so the north
+cap sits flush with the body and the south cap 0–0.10 proud. All cradle,
+bridge and soft-jaw dimensions are illustrative.
+
+The CAD stations give a crank-to-journal separation of 72.700 − 33.368 =
+39.332, just under the printed 39.34–39.70. The plan's `aims.crank_bore`
+therefore moves the crank bore's DRO target to 39.517, near mid-band and on
+the 0.005 grid. The crank sleeve and its socket stay at the CAD station, so the
+bore sits 0.185 off the sleeve centre. The dividing-head setups zero X on foot B
+(Axis Set ± the edge-finder radius) and Y on the body crest. Both bore axes
+cross the post axis.
 
 The pre-bond sockets and spigots are plan-owned joint features, not invented
 STEP faces. The cone joint gives 0.044–0.076 mm diametral clearance inside its
@@ -340,9 +353,11 @@ structural-joint certification.
 Every declared holding item remains part of its setup scene, including the
 bonding cradle and the saw vise. The socket bore gauge keeps its fact-local
 illustrative measurement label; its 0.001 mm resolution is not flattened into
-an unlabeled number to get past the inventory schema. Final crank angularity and
-separation use the declared outsourced CMM method, not a caliper or a
-dividing-head angle as certification.
+an unlabeled number to get past the inventory schema. S11 op 110 checks the
+crank separation and its Ø0.10 angularity on the surface plate with the DTI on
+the height gauge. The angularity check reads bore slopes over 1-2-3 block steps
+in two orientations and combines them into one zone deviation. It is an
+illustrative hobby-gauge method, not certification.
 Generated built-up artifacts live in `cone-pivot-post/expected/built-up/`.
 Generated findings and scene debts, not the authorship of this section,
 determine readiness.
