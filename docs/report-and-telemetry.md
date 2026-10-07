@@ -347,9 +347,14 @@ The printed result can be given a blind senior-machinist review with
 That script prints this HTML to Letter pages with headless Chrome, so the
 duplex padding above runs, and asks a reviewer from the other model family to
 judge every page against two tests: no questions, and nothing the operator
-doesn't need. It is a developer tool that calls a hosted model. It is not part
-of `prechips check` or `traveler`, and it does not change their offline
-contract.
+doesn't need. Speeds, feeds, depths of cut, tap drills and reamer allowances
+are compared with Machinery's Handbook pages that the script embeds in the
+prompt from a local, never-vendored handbook corpus (`--handbook` or
+`PRECHIPS_HANDBOOK_DIR`; page numbers in `scripts/prompts/handbook_refs.toml`),
+and findings cite the table and printed page. Without a handbook the review
+runs from memory and records that. It is a developer tool that calls a hosted
+model. It is not part of `prechips check` or `traveler`, and it does not change
+their offline contract.
 
 
 ## Telemetry and console

@@ -25,10 +25,20 @@ THE SHOP AND THE BUILDER
   value is genuinely ambiguous about its unit.
 - Speeds, feeds, depths of cut, stickouts, measured shop facts and the part
   data may be example values rather than measured ones. Their source is not
-  your concern; whether they are realistic is. Judge every number against
-  common shop literature (Machinery's Handbook speed/feed tables, the tool
-  maker's charts, standard drill/tap/reamer tables) for that material, tool
-  material and size, operation and this class of machine:
+  your concern; whether they are realistic is. Judge every number for that
+  material, tool material and size, operation and this class of machine.
+  Compare every speed, feed, depth of cut, tap drill and reamer allowance
+  against the Machinery's Handbook reference pages the package input
+  supplies, and cite the table and printed page in the issue (for example
+  "Table 1, p. 1027"). Apply a table on its own terms: its material class,
+  tool material, hardness band and the feed and depth it assumes, with the
+  page's adjustment factors when the traveler's feed or depth differs. Where
+  the handbook gives only prose (reamer stock allowance has no table, only a
+  common range), cite the prose; never demand a table value it does not
+  have. A value no reference page covers, or a review with no handbook, is
+  judged from the shop literature you know (handbook tables, tool makers'
+  charts, standard drill/tap/reamer tables); say "no attached table" and
+  name the range you used.
   - A value that would break or bury the tool, chatter it badly, stall or
     exceed the machine, scrap the part or hurt the builder is a blocker:
     rpm or surface speed several times the handbook range, a feed per tooth
@@ -38,10 +48,15 @@ THE SHOP AND THE BUILDER
   - A value well outside the usual range but survivable (badly slow, rubbing
     feed, a roughing depth far too timid) is clarity: the builder will stop
     and doubt it.
+  - A value that matters to the cut and for which you cannot establish any
+    range, from the reference pages or from what you know, is clarity: name
+    the value and say "no reference range established". Never pass it
+    silently.
   - A value inside the usual range is fine even if you would pick another.
     Do not tune for optimum; a conservative choice inside the range a novice
     should use is correct.
-  Say which literature range you compared against in the issue.
+  The summary states the comparison basis: the handbook pages you used, or
+  memory when no handbook was supplied.
   DO also judge whether the numbers agree with each other, with their units
   and with the pictures.
 
@@ -185,9 +200,10 @@ Inspect every page before answering: read each page whole, then reconcile
 across pages, the job page against every setup and each setup against the
 one before it. The attached images ARE the pages, already rendered at full
 resolution; inspect every one directly, with the Read tool where you have
-one. Do not open any other file, run commands, or fetch anything. There is
-nothing else to look at, and a review that reaches beyond the supplied page
-images is discarded.
+one. The handbook reference pages are not part of the traveler; they are only
+the yardstick for cutting data. Do not open any file other than the page
+images and the handbook files the package input names, run commands, or fetch
+anything. A review that reaches beyond them is discarded.
 
 These rules follow the shop-practice tests the literature agrees on: no
 questions, and nothing that is not needed (Harvey, *Machine Shop Trade
@@ -198,7 +214,7 @@ names the page number, the setup and its sheet, and the section, op or
 picture; say the fix):
 - verdict: CLEAR if you could run every setup from these pages with no
   questions and they carry nothing the operator does not need; otherwise FIX.
-- summary: one sentence.
+- summary: one sentence, naming the cutting-data comparison basis.
 - blockers: what stops you running the job or would crash, gouge, scrap or
   hurt: an op with no tool, speed, feed, coordinate or depth anywhere in the
   traveler; two different numbers for one surface; a picture that
@@ -206,7 +222,8 @@ picture; say the fix):
   requirements; a unit you cannot tell; a zero that cannot be picked up; a
   check with no gauge or no limit; a crash, gouge, unsupported or cut-free
   step or an unreachable cut; a clearance that fails the novice worst case
-  above. Nothing else goes here.
+  above; a cutting value the realism rule above makes a blocker. Nothing
+  else goes here.
 - clutter: everything the operator does not need: each leaked rule id, hash,
   key, slug, "unknown", "?", debug word or over-long decimal; a restated
   title block; a boilerplate warning; a note repeating a table; an
@@ -218,7 +235,8 @@ picture; say the fix):
   of cutting order or an unlabelled overshoot; workholding steps out of
   order or missing the stop or snug order; a DRO zero without its pickup
   recipe or must-read / if-reversed checks; a picture missing orientation,
-  zero, removed versus retained, tool approach or scale.
+  zero, removed versus retained, tool approach or scale; a cutting value well
+  outside its range, or one with no reference range established.
 - minor: taste and polish that would not change how you run the job, plus
   stated thin clearances under the worst-case rule above.
 An empty list is a valid answer for any category. Never pad a category.

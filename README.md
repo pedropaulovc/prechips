@@ -502,11 +502,28 @@ tool that calls a hosted model. It is not part of `prechips check`, so the
 offline, no-network rule for checks is unchanged.
 
 The reviewer also judges whether speeds, feeds, depths of cut, stickouts and
-tool choices are realistic against common shop literature (Machinery's
-Handbook tables, tool makers' charts) for the material, tool and machine,
-even when they are example values. A value that would break the tool, exceed
-the machine or scrap the part is a blocker; one far outside the usual range
-but survivable is a clarity finding.
+tool choices are realistic for the material, tool and machine, even when they
+are example values. A value that would break the tool, exceed the machine or
+scrap the part is a blocker; one far outside the usual range but survivable is
+a clarity finding, and so is a value that matters for which the reviewer can
+establish no reference range. The summary names the comparison basis.
+
+Cutting data is checked against Machinery's Handbook (27th edition). Point
+`--handbook DIR` or `PRECHIPS_HANDBOOK_DIR` at the `machinerys-handbook` folder
+that holds the page-level `corpus/` (harmonic-analyzer's references repo). The
+handbook is never vendored: `scripts/prompts/handbook_refs.toml` lists only
+PDF and printed page numbers for the pilot operations (1018 turning, end
+milling, drilling and reaming with their adjustment factors, the reamer
+stock-allowance prose, centre drills, band-saw speeds, automatic-screw-machine
+cutoff and form tools, and inch and metric tap drills). Those `corpus/pages`
+files are embedded as text in both reviewers' prompts, and findings cite the
+table and printed page. Claude may also Read anything under `corpus/` and the
+handbook PDF (linked into its neutral directory) to look up other values; Codex
+gets only the embedded pages, because a shell lookup would break blindness. A
+named handbook without `corpus/README.md`, a manifest page missing from the
+corpus, a page whose header names another printed page, or a corpus built from
+another PDF is an error (exit 2). With no handbook named, the run warns, judges
+from memory, and records `handbook: null`.
 
 ```sh
 uv run scripts/machinist_review.py --reviewer codex --traveler out/pivot-shaft
@@ -529,13 +546,19 @@ the caller's `FREECAD_CMD` and `PRECHIPS_KERNEL_CACHE`. Options repeat, and
 
 Each traveler's report goes to `out/machinist-review/<part>/`: `review.json`,
 `review.md`, the reviewer event stream, per-attempt output with a
-`codex resume` / `claude --resume` command, the printed PDF and the page PNGs.
+`codex resume` / `claude --resume` command and the page PNGs. `--traveler` and
+`--bundle` reviews also include the printed PDF.
 `out/machinist-review/index.md` lists every traveler. The JSON records the
-SHA-256 of `traveler.html`, the PDF and every page, plus the `report.json` hash
-from the traveler's `prechips-report` meta tag. Exit is 0 only when every
+SHA-256 of every page. `--traveler` and `--bundle` reviews also record hashes
+for `traveler.html` and the printed PDF, plus the `report.json` hash from the
+traveler's `prechips-report` meta tag; `--pdf` reviews record the input PDF
+hash. Its `handbook` entry records the handbook directory, the SHA-256 of the
+corpus README, the manifest and every embedded page, and for Claude the
+handbook files and PDF pages it read. Exit is 0 only when every
 traveler passes: the review stayed blind (any tool use beyond reading the copied
-pages fails it), the verdict is `CLEAR`, and there is no blocker, clutter or
-clarity finding. Minor findings are recorded but do not gate.
+pages and the handbook fails it, and Claude must still read every page), the
+verdict is `CLEAR`, and there is no blocker, clutter or clarity finding. Minor
+findings are recorded but do not gate.
 
 ## Limits
 

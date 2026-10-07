@@ -35,18 +35,30 @@ Package sources (each traveler is one package, named after its part):
 
 Isolation is enforced by the reviewer CLI in a neutral temp directory: nothing
 in the invocation references the repo; Claude runs restricted and in safe mode
-with MCP disabled and Read as the only tool, limited to the copied pages;
-Codex runs ``--ignore-user-config`` in a read-only sandbox with the pages
-attached. The event stream is scanned so any tool use beyond reading the
-copied pages flags the review as non-blind, which fails it. Each attempt uses
+with MCP disabled and Read as the only tool, limited to the copied pages and
+the handbook below; Codex runs ``--ignore-user-config`` in a read-only sandbox
+with the pages attached. The event stream is scanned so any tool use beyond
+those reads flags the review as non-blind, which fails it. Each attempt uses
 a fresh session id whose transcript the CLI keeps, and the report names a
 ready-to-run resume command (``claude --resume <id>`` / ``codex resume <id>``).
+
+Cutting data is judged against Machinery's Handbook (27th ed.). ``--handbook DIR``
+or ``PRECHIPS_HANDBOOK_DIR`` names the ``machinerys-handbook`` folder holding the
+page-level ``corpus/``; it is never vendored. The pages listed in
+``scripts/prompts/handbook_refs.toml`` are read from ``corpus/pages/NNNN.md`` and
+embedded in the prompt for both reviewers. Claude may also Read anything under
+``corpus/`` and the handbook PDF, which is linked into the neutral directory; those
+reads are blind, any other path is not. Codex gets only the embedded pages. A
+named handbook that is missing or does not match the manifest is an error (exit
+2); with none, the review runs from memory and records ``handbook: null``.
 
 Reports go to ``out/machinist-review/<name>/`` (``review.json``,
 ``review.md``, the event stream, attempt artifacts, the printed PDF and the
 page PNGs), with ``out/machinist-review/index.md`` across packages. The JSON
 records the SHA-256 of ``traveler.html``, the PDF and every page, plus the
-``report.json`` hash from the traveler's ``<meta name="prechips-report">``.
+``report.json`` hash from the traveler's ``<meta name="prechips-report">``, and
+the handbook directory with the SHA-256 of its corpus README, the manifest and
+every embedded page, plus the handbook files Claude read.
 
 Usage::
 
@@ -72,6 +84,7 @@ import sys
 import tempfile
 import threading
 import time
+import tomllib
 import uuid
 from collections.abc import Iterable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -85,7 +98,11 @@ SCRIPTS_DIR = Path(__file__).resolve().parent
 ROOT = SCRIPTS_DIR.parent
 PROMPT_FILE = SCRIPTS_DIR / "prompts" / "machinist_review_traveler.md"
 SCHEMA_FILE = SCRIPTS_DIR / "prompts" / "machinist_review_schema.json"
+HANDBOOK_REFS_FILE = SCRIPTS_DIR / "prompts" / "handbook_refs.toml"
+HANDBOOK_ENV = "PRECHIPS_HANDBOOK_DIR"
+HANDBOOK_PDF_NAME = "machinerys-handbook.pdf"
 REPORT_ROOT = ROOT / "out" / "machinist-review"
+_PAGE_HEADER = re.compile(r"# PDF page (\d+) \| Printed handbook page (\S+)")
 
 DEFAULT_MODELS = {"claude": "claude-fable-5-1", "codex": "gpt-6-astra"}
 DEFAULT_EFFORTS = {"claude": "medium", "codex": "low"}
@@ -136,6 +153,25 @@ class ReviewPackage:
     provenance: dict[str, Any]
 
 
+@dataclass(frozen=True)
+class HandbookPage:
+    pdf_page: int
+    printed: str
+    title: str
+    text: str
+
+
+@dataclass(frozen=True)
+class Handbook:
+    """The handbook corpus and the go-to pages embedded in every prompt."""
+
+    root: Path
+    corpus: Path
+    pdf: Path | None
+    pages: tuple[HandbookPage, ...]
+    provenance: dict[str, Any]
+
+
 @dataclass
 class Review:
     name: str
@@ -156,6 +192,8 @@ class Review:
     events_file: str | None = None
     attempts: int = 1
     extra: dict[str, Any] = field(default_factory=dict)
+    # None means the review ran from memory with no handbook pages.
+    handbook: dict[str, Any] | None = None
 
 
 def _sha256(path: Path) -> str:
@@ -464,6 +502,142 @@ def prepare_package(
 
 
 # ---------------------------------------------------------------------------
+# Machinery's Handbook reference
+
+
+def resolve_handbook(explicit: Path | None, env: Mapping[str, str] | None = None) -> Path | None:
+    """Return the handbook folder from ``--handbook`` or the env var, or None.
+
+    An explicit path is authoritative: one without ``corpus/README.md`` is an
+    error, never replaced by the other source or by a memory-only review.
+    """
+    env = os.environ if env is None else env
+    if explicit is not None:
+        root, origin = explicit, "--handbook"
+    elif env.get(HANDBOOK_ENV):
+        root, origin = Path(env[HANDBOOK_ENV]), HANDBOOK_ENV
+    else:
+        return None
+    if not (root / "corpus" / "README.md").is_file():
+        raise FileNotFoundError(
+            f"{origin} {root}: no corpus/README.md; name the machinerys-handbook folder "
+            "that contains corpus/"
+        )
+    return root.resolve()
+
+
+def load_handbook(root: Path, manifest: Path = HANDBOOK_REFS_FILE) -> Handbook:
+    """Read every manifest page from ``root/corpus/pages`` and record provenance."""
+    manifest_bytes = manifest.read_bytes()
+    corpus = root / "corpus"
+    readme_bytes = (corpus / "README.md").read_bytes()
+    try:
+        data = tomllib.loads(manifest_bytes.decode("utf-8"))
+        source = str(data["source_pdf_sha256"])
+        entries = [(int(e["pdf"]), str(e["printed"]), str(e["title"])) for e in data["page"]]
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError(f"{manifest}: invalid handbook manifest: {exc}") from exc
+    if not entries:
+        raise ValueError(f"{manifest}: lists no handbook pages")
+    if source not in readme_bytes.decode("utf-8", errors="replace"):
+        raise ValueError(
+            f"{corpus / 'README.md'} does not name source PDF {source}; the manifest's "
+            "page numbers belong to another edition or scan"
+        )
+    pages: list[HandbookPage] = []
+    records: list[dict[str, Any]] = []
+    for pdf_page, printed, title in entries:
+        path = corpus / "pages" / f"{pdf_page:04d}.md"
+        if not path.is_file():
+            raise ValueError(f"{manifest.name}: PDF page {pdf_page} ({title}) is not in {corpus}")
+        raw = path.read_bytes()
+        text = raw.decode("utf-8")
+        header = _PAGE_HEADER.match(text)
+        if header is None or int(header[1]) != pdf_page or header[2] != printed:
+            raise ValueError(
+                f"{path}: header does not name PDF page {pdf_page}, printed page {printed} "
+                f"as {manifest.name} says"
+            )
+        pages.append(HandbookPage(pdf_page=pdf_page, printed=printed, title=title, text=text))
+        records.append(
+            {
+                "pdf_page": pdf_page,
+                "printed_page": printed,
+                "title": title,
+                "file": str(path),
+                "sha256": hashlib.sha256(raw).hexdigest(),
+            }
+        )
+    pdf = root / HANDBOOK_PDF_NAME
+    return Handbook(
+        root=root,
+        corpus=corpus,
+        pdf=pdf if pdf.is_file() else None,
+        pages=tuple(pages),
+        provenance={
+            "dir": str(root),
+            "corpus_readme_sha256": hashlib.sha256(readme_bytes).hexdigest(),
+            "source_pdf_sha256": source,
+            "manifest": str(manifest),
+            "manifest_sha256": hashlib.sha256(manifest_bytes).hexdigest(),
+            "pages": records,
+        },
+    )
+
+
+def _handbook_prompt(handbook: Handbook | None, *, reviewer: str) -> tuple[str, str]:
+    """Return the package-input note and the trailing reference-page packet."""
+    if handbook is None:
+        return (
+            "\nHANDBOOK REFERENCE\nNo Machinery's Handbook pages are supplied with this "
+            "review. Judge cutting data from your knowledge of the shop literature as the "
+            "rubric says, name the range you used, and say in the summary that the "
+            "comparison basis is memory.\n",
+            "",
+        )
+    listing = "".join(f"- p. {page.printed}: {page.title}\n" for page in handbook.pages)
+    note = (
+        "\nHANDBOOK REFERENCE\n"
+        f"The REFERENCE PAGES section at the end holds {len(handbook.pages)} pages of "
+        "Machinery's Handbook 27th ed. as extracted text, printed page (p.) first:\n"
+        f"{listing}"
+        "They are not part of the traveler: never review them, never report a finding "
+        "against them, and they are not in the page count. Each page keeps the printed "
+        "layout as text; where a table's columns are ambiguous in text, say so rather "
+        "than guess. Cite tables by their printed page.\n"
+    )
+    if reviewer == "claude":
+        pdf = (
+            f" and {HANDBOOK_PDF_NAME} in your working directory (Read it with the pages "
+            "parameter set to the PDF page)"
+            if handbook.pdf is not None
+            else ""
+        )
+        note += (
+            "To look up a value these pages do not cover, or to settle an ambiguous "
+            f"table, you may also Read any file under {handbook.corpus}{pdf}. In the "
+            "corpus, README.md gives the lookup procedure and source caveats, tables.md "
+            "and index.md map terms to pages, and pages/NNNN.md is PDF page NNNN, not "
+            "the printed page. You cannot run commands, so skip the README's rendering "
+            "commands. Read nothing else.\n"
+        )
+    packet = "\n\nREFERENCE PAGES (Machinery's Handbook 27th ed.)\n" + "".join(
+        f"\n=== Printed page {page.printed} (PDF page {page.pdf_page}): {page.title} ===\n"
+        f"{page.text.rstrip()}\n"
+        for page in handbook.pages
+    )
+    return note, packet
+
+
+def _rule_path(path: Path) -> str:
+    """Claude permission-rule form of an absolute path (``//c/dir`` on Windows)."""
+    posix = path.resolve().as_posix()
+    if len(posix) > 1 and posix[1] == ":":
+        posix = f"/{posix[0].lower()}{posix[2:]}"
+    return f"/{posix}"
+
+
+# ---------------------------------------------------------------------------
 # Reviewer invocation
 
 
@@ -471,8 +645,15 @@ def load_prompt() -> str:
     return PROMPT_FILE.read_text(encoding="utf-8")
 
 
-def _review_prompt(page_count: int, *, reviewer: str, prompt_text: str | None = None) -> str:
+def _review_prompt(
+    page_count: int,
+    *,
+    reviewer: str,
+    prompt_text: str | None = None,
+    handbook: Handbook | None = None,
+) -> str:
     prompt = load_prompt() if prompt_text is None else prompt_text
+    note, packet = _handbook_prompt(handbook, reviewer=reviewer)
     prompt += (
         "\n\nPACKAGE INPUT\n"
         f"Page count: {page_count}. The images are the printed pages in order: "
@@ -482,10 +663,16 @@ def _review_prompt(page_count: int, *, reviewer: str, prompt_text: str | None = 
     )
     if page_count > 1:
         prompt += "Compare every page against every other page before accepting CLEAR.\n"
+    prompt += note + packet
     if reviewer == "claude":
+        others = (
+            "any other file except the handbook files named under HANDBOOK REFERENCE"
+            if handbook is not None
+            else "any other file"
+        )
         prompt = (
             "Use the Read tool to inspect every copied sheet-1.png through "
-            f"sheet-{page_count}.png in order. Do not read any other file. "
+            f"sheet-{page_count}.png in order. Do not read {others}. "
             "Then perform this blind review.\n\n" + prompt
         )
     return prompt
@@ -500,11 +687,23 @@ def build_claude_command(
     effort: str,
     session_id: str,
     claude: str = "claude",
+    handbook_corpus: Path | None = None,
+    handbook_pdf: Path | None = None,
 ) -> list[str]:
-    """Return the exact isolated ``claude -p`` argv for one package."""
-    if schema.parent != workdir or not images or any(i.parent != workdir for i in images):
+    """Return the exact isolated ``claude -p`` argv for one package.
+
+    Restricted mode confines Read to the working directories, so the handbook
+    corpus is added as one and the handbook PDF must be linked into ``workdir``.
+    """
+    inputs = (*images, *((handbook_pdf,) if handbook_pdf is not None else ()))
+    if schema.parent != workdir or not images or any(i.parent != workdir for i in inputs):
         raise ValueError("review inputs must be inside the neutral workdir")
     schema_json = json.dumps(json.loads(schema.read_text(encoding="utf-8")), separators=(",", ":"))
+    allowed = [f"Read({path.name})" for path in inputs]
+    add_dirs: list[str] = []
+    if handbook_corpus is not None:
+        allowed.append(f"Read({_rule_path(handbook_corpus)}/**)")
+        add_dirs = ["--add-dir", str(handbook_corpus)]
     return [
         claude,
         "-p",
@@ -522,7 +721,8 @@ def build_claude_command(
         "--tools",
         "Read",
         "--allowedTools",
-        *(f"Read({image.name})" for image in images),
+        *allowed,
+        *add_dirs,
         "--restricted",
         "--safe-mode",
         "--session-id",
@@ -585,13 +785,23 @@ def _walk(obj: Any) -> Iterable[Any]:
 
 
 def _claude_event_evidence(
-    events: Sequence[dict[str, Any]], *, allowed_images: Sequence[Path]
-) -> tuple[int, set[Path]]:
-    """Return unauthorized-event count and copied page images read."""
+    events: Sequence[dict[str, Any]],
+    *,
+    allowed_images: Sequence[Path],
+    references: Sequence[Path] = (),
+) -> tuple[int, set[Path], list[str]]:
+    """Return unauthorized-event count, copied page images read and handbook reads.
+
+    ``references`` are handbook directories (any file below is allowed) or files.
+    Handbook reads are labelled relative to the reference's parent, with the PDF
+    ``pages`` argument when one was given.
+    """
     allowed = {path.resolve() for path in allowed_images}
+    refs = [path.resolve() for path in references]
     workdirs = {path.parent for path in allowed}
     unauthorized = 0
     reads: set[Path] = set()
+    reference_reads: list[str] = []
     for event in events:
         event_unauthorized = False
         for node in _walk(event):
@@ -605,17 +815,29 @@ def _claude_event_evidence(
                 tool_input = node.get("input")
                 raw_path = tool_input.get("file_path") if isinstance(tool_input, dict) else None
                 if raw_path:
-                    candidates = (
-                        [Path(str(raw_path))]
-                        if Path(str(raw_path)).is_absolute()
-                        else [workdir / str(raw_path) for workdir in workdirs]
-                    )
-                    match = next(
-                        (c.resolve() for c in candidates if c.resolve() in allowed),
-                        None,
-                    )
+                    candidates = [
+                        c.resolve()
+                        for c in (
+                            [Path(str(raw_path))]
+                            if Path(str(raw_path)).is_absolute()
+                            else [workdir / str(raw_path) for workdir in workdirs]
+                        )
+                    ]
+                    match = next((c for c in candidates if c in allowed), None)
                     if match is not None:
                         reads.add(match)
+                        continue
+                    hit = next(
+                        ((c, r) for c in candidates for r in refs if c == r or r in c.parents),
+                        None,
+                    )
+                    if hit is not None:
+                        assert isinstance(tool_input, dict)
+                        label = hit[0].relative_to(hit[1].parent).as_posix()
+                        if tool_input.get("pages"):
+                            label += f" pages={tool_input['pages']}"
+                        if label not in reference_reads:
+                            reference_reads.append(label)
                         continue
                 event_unauthorized = True
                 continue
@@ -624,14 +846,25 @@ def _claude_event_evidence(
             ):
                 event_unauthorized = True
         unauthorized += int(event_unauthorized)
-    return unauthorized, reads
+    return unauthorized, reads, reference_reads
 
 
 def count_tool_events(
-    events: Sequence[dict[str, Any]], *, allowed_images: Sequence[Path] = ()
+    events: Sequence[dict[str, Any]],
+    *,
+    allowed_images: Sequence[Path] = (),
+    references: Sequence[Path] = (),
 ) -> int:
-    """Count events that reach beyond reading the copied pages (0 means blind)."""
-    return _claude_event_evidence(events, allowed_images=allowed_images)[0]
+    """Count events that reach beyond the copied pages and handbook (0 means blind)."""
+    return _claude_event_evidence(events, allowed_images=allowed_images, references=references)[0]
+
+
+def inspection_proven(
+    events: Sequence[dict[str, Any]], *, images: Sequence[Path], references: Sequence[Path] = ()
+) -> bool:
+    """True only when the successful attempt read every one of its sheet images."""
+    _, read, _ = _claude_event_evidence(events, allowed_images=images, references=references)
+    return bool(images) and {path.resolve() for path in images} == read
 
 
 def count_codex_tool_events(events: Sequence[dict[str, Any]]) -> int:
@@ -775,6 +1008,7 @@ def review_package(
     timeout_s: float = 1800.0,
     executable: str | None = None,
     prompt_text: str | None = None,
+    handbook: Handbook | None = None,
 ) -> Review:
     if reviewer not in REVIEWERS:
         raise ValueError(f"unknown reviewer {reviewer!r}; choose one of {REVIEWERS}")
@@ -786,7 +1020,9 @@ def review_package(
     executable = executable or shutil.which(reviewer)
     if not executable:
         raise RuntimeError(f"{reviewer} CLI not found on PATH")
-    prompt = _review_prompt(page_count, reviewer=reviewer, prompt_text=prompt_text)
+    prompt = _review_prompt(
+        page_count, reviewer=reviewer, prompt_text=prompt_text, handbook=handbook
+    )
     prompt_sha = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
     schema_bytes = SCHEMA_FILE.read_bytes()
     report_dir = package.report_dir
@@ -798,6 +1034,8 @@ def review_package(
     verdict: dict[str, Any] | None = None
     events: list[dict[str, Any]] = []
     allowed_images: list[Path] = []
+    references: list[Path] = []
+    verdict_references: list[Path] = []
     verdict_images: list[Path] = []
     success_events: list[dict[str, Any]] = []
     attempt_records: list[dict[str, Any]] = []
@@ -835,6 +1073,20 @@ def review_package(
                 images.append(image)
             record["images"] = [str(image) for image in images]
             allowed_images.extend(images)
+            attempt_references: list[Path] = []
+            handbook_pdf: Path | None = None
+            if reviewer == "claude" and handbook is not None:
+                attempt_references.append(handbook.corpus)
+                if handbook.pdf is not None:
+                    # Restricted mode reads only working directories; link the
+                    # PDF in rather than exposing the whole handbook folder.
+                    handbook_pdf = workdir / HANDBOOK_PDF_NAME
+                    try:
+                        os.link(handbook.pdf, handbook_pdf)
+                    except OSError:
+                        shutil.copyfile(handbook.pdf, handbook_pdf)
+                    attempt_references.append(handbook_pdf)
+            references.extend(attempt_references)
             schema = workdir / "schema.json"
             schema.write_bytes(schema_bytes)
             output = workdir / "verdict.json"
@@ -848,6 +1100,8 @@ def review_package(
                     effort=effort,
                     session_id=session_id,
                     claude=executable,
+                    handbook_corpus=handbook.corpus if handbook is not None else None,
+                    handbook_pdf=handbook_pdf,
                 )
             else:
                 cmd = build_codex_command(
@@ -883,6 +1137,7 @@ def review_package(
                 else extract_codex_verdict(output, attempt_events)
             )
             verdict_images = list(images)
+            verdict_references = list(attempt_references)
             success_events = list(attempt_events)
             error = None
             record["outcome"] = "succeeded"
@@ -920,6 +1175,7 @@ def review_package(
             # reviewer produced rather than another copy of every page.
             inputs = {Path(image) for image in record["images"]}
             inputs.add(workdir / "schema.json")
+            inputs.add(workdir / HANDBOOK_PDF_NAME)
             for artifact in sorted(workdir.iterdir()):
                 if artifact in inputs:
                     continue
@@ -931,26 +1187,35 @@ def review_package(
             shutil.rmtree(workdir, ignore_errors=True)
 
     _write_events(events_path, events)
+    handbook_record = None if handbook is None else dict(handbook.provenance)
     if reviewer == "claude":
-        tool_events, _ = _claude_event_evidence(events, allowed_images=allowed_images)
-        _, read_images = _claude_event_evidence(success_events, allowed_images=verdict_images)
-        inspection_proven = (
-            bool(verdict_images) and {path.resolve() for path in verdict_images} == read_images
+        tool_events = count_tool_events(
+            events, allowed_images=allowed_images, references=references
+        )
+        _, read_images, handbook_reads = _claude_event_evidence(
+            success_events, allowed_images=verdict_images, references=verdict_references
+        )
+        proven = inspection_proven(
+            success_events, images=verdict_images, references=verdict_references
         )
         extra: dict[str, Any] = {
             "image_read_events": len(read_images),
             "images_read": sorted(path.name for path in read_images),
         }
+        if handbook_record is not None:
+            handbook_record["reads"] = handbook_reads
     else:
         tool_events = count_codex_tool_events(events)
-        inspection_proven = True
+        proven = True
         extra = {}
+        if handbook_record is not None:
+            handbook_record["reads"] = None  # Codex gets the embedded pages only.
     extra["evidence"] = {
         "effective_prompt": prompt,
         "schema": schema_bytes.decode("utf-8"),
         "attempts": attempt_records,
     }
-    blind = tool_events == 0 and inspection_proven
+    blind = tool_events == 0 and proven
     review = Review(
         name=package.name,
         source_kind=package.provenance["source_kind"],
@@ -970,6 +1235,7 @@ def review_package(
         events_file=str(events_path),
         attempts=attempts,
         extra=extra,
+        handbook=handbook_record,
     )
     write_review(review, report_dir)
     return review
@@ -1005,6 +1271,15 @@ def render_markdown(review: Review) -> str:
         f"- blind: {review.blind} (tool events: {review.tool_events})",
         f"- sha256: {', '.join(hashes) or 'pages only'}; prompt {review.prompt_sha256[:12]}",
     ]
+    handbook = review.handbook
+    if handbook is None:
+        lines.append("- handbook: none supplied; cutting data judged from memory")
+    else:
+        printed = ", ".join(page["printed_page"] for page in handbook["pages"])
+        line = f"- handbook: {handbook['dir']}; embedded pages {printed}"
+        if handbook.get("reads") is not None:
+            line += f"; read: {', '.join(handbook['reads']) or 'nothing more'}"
+        lines.append(line)
     if review.error:
         lines += ["", f"**error:** {review.error}"]
     verdict = review.verdict
@@ -1108,6 +1383,12 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         type=Path,
         help="UTF-8 rubric override; package and blind-inspection instructions still apply",
     )
+    parser.add_argument(
+        "--handbook",
+        type=Path,
+        help=f"machinerys-handbook folder containing corpus/ (default: ${HANDBOOK_ENV}); "
+        "without one the review judges cutting data from memory",
+    )
     parser.add_argument("--index", action="store_true", help="only rebuild index.md")
     return parser.parse_args(argv)
 
@@ -1126,6 +1407,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         return 2
     try:
+        handbook_root = resolve_handbook(args.handbook)
+        handbook = load_handbook(handbook_root) if handbook_root is not None else None
         sources = discover_sources(
             travelers=args.traveler, pdfs=args.pdf, pngs=args.png, bundles=args.bundle
         )
@@ -1136,6 +1419,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     except (OSError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
+    if handbook is None:
+        print(
+            f"warning: no handbook (--handbook or {HANDBOOK_ENV}); cutting data is "
+            "judged from memory and the review records handbook: null",
+            file=sys.stderr,
+        )
     prompt_text = (
         args.prompt_file.read_text(encoding="utf-8") if args.prompt_file is not None else None
     )
@@ -1172,6 +1461,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 retries=args.retries,
                 timeout_s=args.timeout,
                 prompt_text=prompt_text,
+                handbook=handbook,
             ): package
             for package in packages
         }

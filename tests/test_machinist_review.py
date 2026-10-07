@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import importlib.util
+import json
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -108,3 +110,108 @@ def test_explicit_missing_chrome_is_not_replaced_by_another_browser(tmp_path: Pa
         mr.find_chrome(env)
     with pytest.raises(FileNotFoundError, match="PRECHIPS_CHROME"):
         mr.find_chrome({"PATH": str(tmp_path / "empty")})
+
+
+SOURCE_SHA = "ab" * 32
+
+
+def _handbook(tmp_path: Path, pages: dict[int, str]) -> tuple[Path, Path]:
+    """A tiny corpus folder and a manifest naming ``pages`` (pdf page -> printed)."""
+    root = tmp_path / "machinerys-handbook"
+    (root / "corpus" / "pages").mkdir(parents=True)
+    (root / "corpus" / "README.md").write_text(f"Source PDF SHA-256: `{SOURCE_SHA}`\n", "utf-8")
+    for pdf_page, printed in pages.items():
+        (root / "corpus" / "pages" / f"{pdf_page:04d}.md").write_text(
+            f"# PDF page {pdf_page:04d} | Printed handbook page {printed}\n\n"
+            f"sentinel-row-{pdf_page} 1018 120 fpm\n",
+            "utf-8",
+        )
+    manifest = tmp_path / "handbook_refs.toml"
+    entries = "".join(
+        f'[[page]]\npdf = {pdf_page}\nprinted = "{printed}"\ntitle = "Table {pdf_page}"\n'
+        for pdf_page, printed in pages.items()
+    )
+    manifest.write_text(f'source_pdf_sha256 = "{SOURCE_SHA}"\n{entries}', "utf-8")
+    return root, manifest
+
+
+def test_explicit_missing_handbook_is_refused(tmp_path: Path, capsys) -> None:
+    real, _ = _handbook(tmp_path, {1348: "1027"})
+    missing = tmp_path / "nowhere"
+    with pytest.raises(FileNotFoundError, match="--handbook"):
+        mr.resolve_handbook(missing, {mr.HANDBOOK_ENV: str(real)})
+    with pytest.raises(FileNotFoundError, match=mr.HANDBOOK_ENV):
+        mr.resolve_handbook(None, {mr.HANDBOOK_ENV: str(missing)})
+    (tmp_path / "traveler.html").write_text("<title>p traveler</title>", encoding="utf-8")
+    argv = ["--reviewer", "codex", "--handbook", str(missing), "--traveler", str(tmp_path)]
+    assert mr.main([*argv, "--report-dir", str(tmp_path / "r")]) == 2
+    assert "--handbook" in capsys.readouterr().err
+    assert not (tmp_path / "r").exists()
+
+
+def test_manifest_page_missing_from_corpus_raises(tmp_path: Path) -> None:
+    root, manifest = _handbook(tmp_path, {1348: "1027", 1382: "1061"})
+    (root / "corpus" / "pages" / "1382.md").unlink()
+    with pytest.raises(ValueError, match="1382"):
+        mr.load_handbook(root, manifest)
+
+
+def _fake_codex(calls: list[dict[str, Any]]):
+    def run(cmd, **kwargs):
+        calls.append({"cmd": cmd, "input": kwargs["input"]})
+        Path(cmd[cmd.index("-o") + 1]).write_text(json.dumps(_verdict()), encoding="utf-8")
+        started = json.dumps({"type": "thread.started", "thread_id": "t"})
+        return subprocess.CompletedProcess(cmd, 0, stdout=started + "\n", stderr="")
+
+    return run
+
+
+@pytest.mark.parametrize("with_handbook", [False, True])
+def test_handbook_is_embedded_or_review_is_recorded_memory_only(
+    tmp_path: Path, monkeypatch, with_handbook: bool
+) -> None:
+    assert mr.resolve_handbook(None, {}) is None
+    handbook = None
+    if with_handbook:
+        root, manifest = _handbook(tmp_path, {1348: "1027"})
+        handbook = mr.load_handbook(mr.resolve_handbook(root, {}), manifest)
+    page = tmp_path / "page-1.png"
+    page.write_bytes(b"png")
+    package = mr.ReviewPackage(
+        name="p", report_dir=tmp_path / "r", pages=(page,), provenance={"source_kind": "png"}
+    )
+    calls: list[dict[str, Any]] = []
+    monkeypatch.setattr(mr.subprocess, "run", _fake_codex(calls))
+    review = mr.review_package(package, reviewer="codex", executable="codex", handbook=handbook)
+
+    recorded = json.loads((tmp_path / "r" / "review.json").read_text(encoding="utf-8"))
+    assert review.passed and len(calls) == 1
+    if not with_handbook:
+        assert recorded["handbook"] is None
+        assert "sentinel-row" not in calls[0]["input"]
+        return
+    assert "sentinel-row-1348" in calls[0]["input"]
+    page_md = root / "corpus" / "pages" / "1348.md"
+    assert recorded["handbook"]["pages"][0]["sha256"] == mr._sha256(page_md)
+    assert recorded["handbook"]["manifest_sha256"] == mr._sha256(manifest)
+    assert recorded["handbook"]["corpus_readme_sha256"] == mr._sha256(root / "corpus" / "README.md")
+
+
+def test_claude_may_read_the_handbook_but_must_still_read_every_sheet(tmp_path: Path) -> None:
+    root, _ = _handbook(tmp_path, {1348: "1027"})
+    corpus = root / "corpus"
+    (root / "README_RAG.md").write_text("not in the corpus", encoding="utf-8")
+    workdir = tmp_path / "work"
+    workdir.mkdir()
+    sheets = [workdir / "sheet-1.png", workdir / "sheet-2.png"]
+    refs = [corpus]
+    handbook_read = _read(str(corpus / "pages" / "1348.md"))
+    for event in (handbook_read, _read(str(corpus / "README.md"))):
+        assert mr.count_tool_events([event], allowed_images=sheets, references=refs) == 0
+    for path in (root / "README_RAG.md", corpus / ".." / "README_RAG.md", tmp_path / "x.md"):
+        event = _read(str(path))
+        assert mr.count_tool_events([event], allowed_images=sheets, references=refs) == 1
+
+    skipped = [_read(str(sheets[0])), handbook_read]
+    assert not mr.inspection_proven(skipped, images=sheets, references=refs)
+    assert mr.inspection_proven([*skipped, _read("sheet-2.png")], images=sheets, references=refs)
