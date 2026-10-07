@@ -1,10 +1,15 @@
 """Operation-sheet wording a machinist acts on: printed bands and index directions."""
 
+import functools
 import re
+from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 from prechips.sheet import _Traveler
+
+ROCKER = Path(__file__).resolve().parents[1] / "examples/rocker-arm/plan.toml"
 
 
 def bare(precision):
@@ -63,10 +68,13 @@ def test_blank_line_paragraphs_print_as_numbered_steps():
 
 
 def shop(records, kind="mill"):
-    """A bare sheet over ``records`` printing millimetres at three decimals."""
+    """A bare sheet over ``records`` printing millimetres at three decimals, with no kernel
+    result."""
     sheet = bare(3)
     sheet.records = records
     sheet.report = {}
+    sheet.bundle = SimpleNamespace()
+    sheet.units = "mm"
     sheet.bench = lambda text, setup=None: text
     sheet.machine = lambda setup: {"kind": kind}
     sheet.operative = lambda v: (
@@ -217,25 +225,129 @@ def test_a_single_level_contour_heading_keeps_its_one_z():
         assert "depth levels" not in html
 
 
+def kernel_stock(box_mm, status="ok"):
+    """A bundle whose kernel modelled S1's entry stock as setup-frame box ``box_mm``."""
+    return SimpleNamespace(kernel={"status": status, "setups": {"S1": {"stock_bbox_mm": box_mm}}})
+
+
+def raster_note(bundle, units="mm", removal=None, records=None):
+    """The raster note op 10 prints: its passes at Y 1 and 2 run X -13.765 to 13.765 with a
+    4.76 cutter radius over the area X -9..9, entering from the open -Y side."""
+    sheet = shop(records or contour_records(None))
+    sheet.bundle, sheet.units = bundle, units
+    op = {**POCKET["ops"][0]}
+    if removal is not None:
+        op["stock_removal_bounds"] = removal
+    html = sheet.contours({"id": "S1", "ops": [op]}, {"c": "T1"})
+    return html.split("Raster, ", 1)[1].split("</p>", 1)[0]
+
+
+# What the sheet may say only on proof: a pass end or pass 1 in air, or a pass in material.
+AIR, MATERIAL = re.compile(r"\bair\b|\bclear\b"), re.compile(r"wall|material|plunge")
+
+
 @pytest.mark.parametrize(
-    ("box", "claim"),
+    "removal",
     [
-        ([-9.0, 9.0], "clear air"),  # ends a cutter radius past the stock
-        ([-160.0, 160.0], "walled"),  # ends inside the cleared field: plunge in material
+        {"x": [-9.0, 9.0], "y": [5.77, 30.0]},  # the ends stand a radius past what it removes
+        {"x": [-160.0, 160.0], "y": [-20.0, 30.0]},  # the ends lie inside what it removes
     ],
 )
-def test_raster_pass_ends_are_classified_against_the_op_stock_box(box, claim):
-    pocket = {"id": "S1", "ops": [{**POCKET["ops"][0], "stock_removal_bounds": {"x": box}}]}
-    html = shop(contour_records(None)).contours(pocket, {"c": "T1"})
-    assert "pass ends X -13.765 / 13.765: both " in html
-    other = {"clear air": "walled", "walled": "clear air,"}[claim]
-    assert claim in html and other not in html
+@pytest.mark.parametrize("bundle", [SimpleNamespace(), kernel_stock(None)])
+def test_an_op_removal_box_alone_never_puts_a_raster_end_in_air_or_in_material(removal, bundle):
+    # stock_removal_bounds is what the op may remove; stock past it may stand or not.
+    note = raster_note(bundle, removal=removal)
+    assert "pass ends X -13.765 / 13.765" in note
+    assert not AIR.search(note) and not MATERIAL.search(note)
 
 
-def test_raster_pass_ends_without_a_stock_box_make_no_claim():
-    html = shop(contour_records(None)).contours(POCKET, {"c": "T1"})
-    assert "pass ends X -13.765 / 13.765" in html
-    assert "clear air, a cutter" not in html and "walled" not in html
+@pytest.mark.parametrize(
+    ("units", "box_mm", "air"),
+    [
+        # A cutter radius 4.76 past the entry stock at both ends and on the open -Y side.
+        ("mm", [-9.0, 5.77, -5.0, 9.0, 30.0, 5.0], ["-13.765", "13.765", "pass 1"]),
+        # The +X end 0.005 inside the stock, then grazing it exactly: only the -X end.
+        ("mm", [-9.0, 5.77, -5.0, 9.01, 30.0, 5.0], ["-13.765", "pass 1"]),
+        ("mm", [-9.0, 5.77, -5.0, 9.005, 30.0, 5.0], ["-13.765", "pass 1"]),
+        # Pass 1 at Y 1 grazes stock from Y 5.76: it does not enter from air.
+        ("mm", [-9.0, 5.76, -5.0, 9.0, 30.0, 5.0], ["-13.765", "13.765"]),
+        # Inch plan values against the millimetre kernel box: X ±13.765 in is ±349.631 mm
+        # and pass 1 at Y 1 in is Y 25.4 mm, clear of stock from Y 30.2 only that way.
+        ("in", [-340.0, 30.2, -5.0, 340.0, 400.0, 5.0], ["-13.765", "13.765", "pass 1"]),
+        ("mm", [-340.0, 30.2, -5.0, 340.0, 400.0, 5.0], ["pass 1"]),
+        ("in", [-9.0, 5.77, -5.0, 9.0, 30.0, 5.0], ["-13.765", "13.765"]),
+        # Unknown plan units prove nothing.
+        ("unknown", [-9.0, 5.77, -5.0, 9.0, 30.0, 5.0], []),
+    ],
+)
+def test_raster_ends_are_in_air_only_a_cutter_radius_past_the_kernel_entry_stock(
+    units, box_mm, air
+):
+    note = raster_note(kernel_stock(box_mm), units, removal={"x": [-9.0, 9.0]})
+    assert "pass ends X -13.765 / 13.765" in note and not MATERIAL.search(note)
+    claimed = [end for end in ("-13.765", "13.765") if re.search(rf"X {end} end|both", note)]
+    if "pass 1" in note:
+        claimed.append("pass 1")
+    assert claimed == air and bool(AIR.search(note)) is bool(air)
+
+
+@pytest.mark.parametrize(("entry", "air"), [(40.0, True), (34.0, False)])
+def test_pass_one_enters_from_air_only_a_cutter_radius_outside_its_open_side(entry, air):
+    # Open +Y: pass 1 at Y 40 stands 5.24 above stock ending at Y 30; at Y 34, 0.76 short.
+    records = contour_records(None)
+    raster = records[("coordinates", "S1")]["profiles"][0]["raster"]
+    raster.update(open_side="+y", entry_pass=entry)
+    note = raster_note(kernel_stock([-9.0, -30.0, -5.0, 9.0, 30.0, 5.0]), records=records)
+    assert ("pass 1" in note) is air
+
+
+@pytest.mark.parametrize(
+    "bundle",
+    [
+        kernel_stock([-9.0, 5.77, -5.0, 9.0, 30.0, 5.0], status="unavailable"),
+        kernel_stock([-9.0, 5.77, -5.0, "unknown", 30.0, 5.0]),
+        SimpleNamespace(kernel={"status": "ok", "setups": {"S2": {"stock_bbox_mm": [0.0] * 6}}}),
+    ],
+)
+def test_raster_ends_claim_nothing_without_a_modelled_entry_stock(bundle):
+    note = raster_note(bundle, removal={"x": [-9.0, 9.0]})
+    assert "pass ends X -13.765 / 13.765" in note
+    assert not AIR.search(note) and not MATERIAL.search(note)
+
+
+def outline_note(bundle):
+    """Op 10's outline note: rows X -20, 0 and 20 at Y 0 for a 4.76 cutter radius, inside
+    its removal box X -9..9 grown by the radius only at X 0."""
+    profile = {
+        "op": 10,
+        "stage": "finish",
+        "dro_to_z": -0.6,
+        "cutter_radius_mm": 4.76,
+        "cutter_centre": [[-20.0, 0.0], [0.0, 0.0], [20.0, 0.0]],
+    }
+    records = {("coordinates", "S1"): {"operations": [{"op": 10}], "profiles": [profile]}}
+    sheet = shop(records)
+    sheet.bundle = bundle
+    op = {**POCKET["ops"][0], "stock_removal_bounds": {"x": [-9.0, 9.0], "y": [-9.0, 9.0]}}
+    html = sheet.contours({"id": "S1", "ops": [op]}, {"c": "T1"})
+    return html.split("Cutter-centre checkpoints", 1)[1].split("</p>", 1)[0]
+
+
+@pytest.mark.parametrize(
+    ("bundle", "clear"),
+    [
+        (SimpleNamespace(), []),  # the removal box alone proves no row outside the stock
+        (kernel_stock([-9.0, -9.0, -5.0, 9.0, 9.0, 5.0]), ["row 1", "row 3"]),
+        (kernel_stock([-16.0, -9.0, -5.0, 16.0, 9.0, 5.0]), []),  # rows 1 and 3 cut stock
+        (kernel_stock([-16.0, -9.0, -5.0, 15.0, 9.0, 5.0]), ["row 3"]),
+    ],
+)
+def test_outline_rows_are_cutter_clearance_only_wholly_outside_the_kernel_entry_stock(
+    bundle, clear
+):
+    note = outline_note(bundle)
+    named = re.search(r";\s*([^;]*) stand wholly clear of the stock", note)
+    assert (named.group(1).split(", ") if named else []) == clear
 
 
 def test_a_contour_table_repeats_its_op_on_continued_pages_and_never_wraps_a_number():
@@ -267,8 +379,6 @@ def test_a_hole_op_prints_its_tool_axis_on_the_dro_grid():
 
 
 def mapped(records, features, drawing=None, kind="mill"):
-    from types import SimpleNamespace
-
     sheet = shop(records, kind)
     sheet.features = features
     sheet.bundle = SimpleNamespace(features={"features": drawing or {}})
@@ -350,26 +460,65 @@ def test_an_aimed_target_names_its_offset_and_inspection_but_not_the_authored_re
     assert "gauge reads low" not in note
 
 
-def tip_sheet():
-    endpoint = {
-        "setup": "S1",
-        "op": 60,
-        "dro_entry_z": 0.0,
-        "tip_z": -25.214,
-        "dro_tip_z": -25.210,
-        "exit_face": "#1/ADVANCED_FACE[2]/NONE",
-        "dro_exit_face": -21.375,
-        "point_mm": 1.839,
-        "exit_mm": 0.5,
-    }
-    return mapped({("blind_depth", "hole"): {"endpoints": [endpoint]}}, {})
+@functools.cache
+def rocker():
+    from prechips.inputs import load_bundle
+
+    return load_bundle(ROCKER)
 
 
-def test_a_breakthrough_note_prints_only_dro_grid_values():
-    note = tip_sheet().tip_note(SPOT, SPOT["ops"][0])
-    assert "-25.210" in note and "-21.375" in note and "0.500" in note
-    # The off-grid exact tip and the point allowance arithmetic stay in the report.
-    assert "-25.214" not in note and "1.839" not in note
+def through(**row):
+    """(a sheet over a through op 60's endpoint as tip_endpoints derives it on the rocker's
+    S1 0.005 mm DRO grid, the endpoint, the setup)."""
+    from prechips.rules.tip_endpoints import _operative
+
+    bundle = rocker()
+    setup = bundle.plan["setups"][0]
+    endpoint = {"setup": setup["id"], "op": 60, "entry_z": 0.0, "entry_from": "stock", **row}
+    _operative(endpoint, bundle, setup, "top")
+    sheet = mapped({("blind_depth", "hole"): {"endpoints": [endpoint]}}, {})
+    sheet.bundle = bundle
+    return sheet, endpoint, setup
+
+
+def run_outs(note, endpoint):
+    """The run-outs a breakthrough note claims: every number it prints besides the DRO tip
+    and exit face, so the off-grid exact tip or the point arithmetic would count too."""
+    printed = {f"{endpoint['dro_tip_z']:.3f}", f"{endpoint['dro_exit_face']:.3f}"}
+    numbers = re.findall(r"-?\d+\.\d+", note)
+    assert printed <= set(numbers)
+    return [float(v) for v in numbers if v not in printed]
+
+
+@pytest.mark.parametrize(
+    ("row", "lead", "claimed"),
+    [
+        # The off-grid exit face rounds up to -10.000 and the tip to -11.335: the full
+        # diameter runs 0.494 past the face (0.496 past the printed one), not the 0.5 asked.
+        ({"exit_face": -10.002, "point_mm": 0.839, "exit_mm": 0.5}, "point_mm", [0.494]),
+        # A reamer's lead: 0.4987 achieved prints 0.498, never rounded up to 0.499.
+        ({"exit_face": -10.0013, "lead_mm": 0.3, "exit_mm": 0.5}, "lead_mm", [0.498]),
+        # Nothing left past the face: no run-out is claimed.
+        ({"exit_face": -10.0, "point_mm": 0.84, "exit_mm": 0.0}, "point_mm", []),
+        # The rounded-up tip leaves the full diameter short (the op's STOP): none claimed.
+        ({"exit_face": -10.002, "point_mm": 0.839, "exit_mm": 0.003}, "point_mm", []),
+    ],
+)
+def test_a_breakthrough_note_claims_only_the_run_out_the_printed_tip_achieves(row, lead, claimed):
+    tip = row["exit_face"] - row[lead] - row["exit_mm"]
+    sheet, endpoint, setup = through(**row, tip_z=tip)
+    note = sheet.tip_note(setup, SPOT["ops"][0])
+    full = endpoint["dro_tip_z"] + row[lead]  # where the full diameter ends
+    achieved = min(row["exit_face"], endpoint["dro_exit_face"]) - full
+    assert run_outs(note, endpoint) == claimed
+    # 0.494 and 0.4987 can only print as 0.494 and 0.498: never more than the tip achieves.
+    assert all(achieved - 0.001 < value <= achieved + 1e-9 for value in claimed)
+
+
+def test_a_breakthrough_note_claims_no_run_out_the_endpoint_leaves_unknown():
+    sheet, endpoint, setup = through(exit_face=-10.002, point_mm=0.839, exit_mm=0.5, tip_z=-11.341)
+    endpoint["dro_exit_mm"] = "unknown"
+    assert run_outs(sheet.tip_note(setup, SPOT["ops"][0]), endpoint) == []
 
 
 def transfer_sheet(indicate, kind):

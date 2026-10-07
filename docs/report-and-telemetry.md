@@ -304,8 +304,11 @@ adds a `This side intentionally blank — SETUP S2 sheet 1 back` page after any
 sheet with an odd page count, the job page included. Every sheet therefore
 starts on a front side, and a single-page front sheet has a blank back. Contour
 blocks print in rows of three under the script and in three newspaper columns
-without it. With scripts disabled the same content prints without padding
-(sheets may then start on a back side, so print single-sided) and a running
+without it; a side-by-side row too tall for one page (contours, a lathe op's
+rough and finish tables, the hold picture beside its steps) is stacked before
+it is split, so every page it runs over is counted. With scripts disabled the
+same content prints without padding (sheets may then start on a back side, so
+print single-sided) and a running
 op table repeats `SETUP S2 — sheet 1 (continued): operations` with its column
 headings.
 

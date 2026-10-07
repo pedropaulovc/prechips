@@ -209,13 +209,17 @@ leaves on the far wall is the profile's `grid_residual_mm`; passes between step 
 whole number of grid steps no larger than `step_mm` (a `step_mm` finer than one
 grid step is unknown). The raster record carries `run_axis`, `area_ends`, the
 pass `ends`, `clearance_mm` (the cutter radius they run past the area) and a
-pocket's `entry_pass`; the traveler names those rows intentional cutter
-clearance for entry, exit and overtravel. A closed outline's rows are on the
+pocket's `entry_pass`. The traveler always prints the pass ends, and calls an
+end (or the entry pass, on its open side) in air only when it stands a cutter
+radius outside the stock the kernel modelled entering the setup (its
+`stock_bbox_mm`, which holds every op's stock); the op's `stock_removal_bounds`
+is what it may remove, not where stock ends, so it proves neither air nor
+material and an unproven end carries no claim. A closed outline's rows are on the
 grid too: each vertex is the nearest grid point at least its offset outside
 both wall lines it joins (a corner of its grid cell, else up to two steps out);
 `grid_residual_mm` is the most any vertex stands further off a wall than its
-offset. The traveler likewise names outline rows standing wholly outside the
-op's `stock_removal_bounds` (by the cutter radius) as cutter clearance.
+offset. The traveler likewise names outline rows whose cutter stands wholly
+outside that entry stock as cutter clearance.
 A finish raster or outline whose `grid_residual_mm` exceeds its feature's
 narrowest numeric tolerance band, or that has no safe grid point, is an error
 (`dro_xy_residual_errors`).
@@ -342,7 +346,10 @@ surface Z prints on the grid by `dro_z`. Hole endpoints
 carry `dro_entry_z`, `dro_exit_face` and `dro_tip_z`, the tip worked from the
 printed entry (through: exit face) and rounded up again, and the `dro_depth_mm`
 or `dro_exit_mm` that leaves; a through tip short of the exit face prints a
-STOP. Every row that prints a rounded depth carries `depth_floor_mm`: the lower
+STOP. The traveler's breakthrough note gives as the run-out the lower of
+`dro_exit_mm` and the same past `dro_exit_face`, cut down to the DRO decimals,
+and claims none when it is unknown or negative. Every row that prints a
+rounded depth carries `depth_floor_mm`: the lower
 end of the feature's `depth` band, or for a tap its `thread_depth` (else `depth`)
 band. Any other kind of row, and a bare `depth` (an upper limit only), has an
 unknown floor. A `dro_depth_mm` below its floor prints a STOP, and so does a depth

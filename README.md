@@ -352,9 +352,12 @@ support.
 Every cutter-centre contour row and every hole op's tool-axis X/Y prints on the
 setup DRO grid; contour rows round to the side that leaves material, and a
 finish row with no safe grid point inside its feature's band is an error. Raster
-and outline rows that run past the stock are labelled cutter clearance; a
-raster's pass ends are called clear air when they stand a cutter radius past the
-op's stock box, or walled (plunge in material) when inside it. A contour cut in
+and outline rows that run past the stock are labelled cutter clearance only when
+the cutter stands a radius outside the stock the kernel modelled entering the
+setup; a raster's pass ends always print, and are called in air only on that
+proof (an op's removal box never proves an end in air or in material). A
+through hole's breakthrough note gives the run-out its printed DRO tip leaves,
+cut down to the DRO decimals, not the authored `exit_mm`. A contour cut in
 several depth levels lists every level once, in its heading. Contour tables
 repeat their op, tool and Z on a continued page and never wrap a coordinate.
 The mill CLEARANCE section prints a short stack/travel verdict and a per-op table
