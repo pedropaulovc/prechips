@@ -336,6 +336,16 @@ def test_fixture_numbers_print_at_policy_make_precision_and_fits_at_drawing_prec
     assert "10 × 10 × 2.346" in table
 
 
+def test_a_locating_solid_with_a_bore_in_it_is_a_fit_as_well_as_its_bore():
+    # A stand locates the part on its own top face; the bore through it does not make that
+    # face a make-precision number.
+    stand = cylinder("stand", 0, -17, 9.94, 9.94, locates="hub face")
+    bore = cylinder("stand-bore", 0, -18, 4.5, 12, void=True, cuts=["stand"])
+    table = bridge_page(stand, bore, fixture_make_decimals=1)
+    assert "Ø9.94 × 9.94" in table and "Z -17…-7.06" in table
+    assert "Ø9.9 × 9.9" not in table and "-7.1" not in table
+
+
 # The shop's mill reads 0.005 mm; a pin locating the part stands in a hole in the beam.
 FIVE_MICRON = {"resolution_mm": 0.005}
 DIAL = (
