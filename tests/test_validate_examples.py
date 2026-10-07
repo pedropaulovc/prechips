@@ -16,7 +16,7 @@ from test_process_features import set_process_key, set_tool_fact, shaft
 
 from prechips.inputs import load_bundle
 from prechips.kernel import run_geometry
-from prechips.rules import coordinates, speeds_feeds
+from prechips.rules import coordinates, indexing, prepared_blank, speeds_feeds, stickout
 from prechips.rules.tip_endpoints import evaluate as endpoint_findings
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -303,6 +303,77 @@ def test_stickout_cannot_call_a_lathe_hold_inapplicable(freecad_kernel):
     finding["status"] = "not_applicable"
     with pytest.raises(ValueError):
         VALIDATOR["check_stickout"](setup, plan, features, inventory, policy, finding, kernel)
+
+
+@pytest.fixture(scope="module")
+def shaft_bundle(freecad_kernel):
+    bundle = load_bundle(ROOT / "examples" / "pivot-shaft" / "plan.toml")
+    facts = run_geometry(bundle)
+    assert facts["status"] == "ok", facts.get("reason")
+    return bundle
+
+
+@pytest.mark.parametrize("sid", ["S1", "S2"])
+@pytest.mark.parametrize(
+    "case",
+    [
+        "fallback_unverified",
+        "fallback_verify_unknown",
+        "fallback_dia_unknown",
+        "held_unknown",
+        "held_zero",
+        "stock_state_unknown",
+        "fallback_verified",
+    ],
+)
+def test_stickout_holds_only_a_verified_held_diameter(shaft_bundle, sid, case):
+    # With no od_mm in the setup's stock state the held diameter falls back to the
+    # stock's dia_mm, which is evidence only when the stock's form is verified. The
+    # engine's own stick-out row is accepted: unknown for an unverified, unknown or
+    # unusable held diameter, a pass on the verified fallback. A row that holds the
+    # unverified fallback (or any number the plan does not give) as evidence and
+    # passes is not.
+    bundle = copy.deepcopy(shaft_bundle)
+    stock = bundle.plan["stock"]
+    setup = next(item for item in bundle.plan["setups"] if item["id"] == sid)
+    fallback = stock["dia_mm"]
+    if case.startswith("fallback"):
+        setup["stock_state"].pop("od_mm", None)
+        stock["form_verify"] = {
+            "fallback_unverified": True,
+            "fallback_verify_unknown": "unknown",
+        }.get(case, False)
+        if case == "fallback_dia_unknown":
+            stock["dia_mm"] = "unknown"
+    elif case == "held_unknown":
+        setup["stock_state"]["od_mm"] = "unknown"
+    elif case == "held_zero":
+        setup["stock_state"]["od_mm"] = 0
+    else:
+        setup["stock_state"] = "unknown"
+    native = next(f.to_dict() for f in stickout.evaluate(bundle) if f.subject == sid)
+
+    def check(finding):
+        VALIDATOR["check_stickout"](
+            setup,
+            bundle.plan,
+            bundle.features,
+            bundle.inventory,
+            bundle.policy,
+            finding,
+            lambda: bundle.kernel,
+        )
+
+    check(native)
+    if case == "fallback_verified":
+        assert (native["status"], native["numbers"]["held_diameter_mm"]) == ("pass", fallback)
+        return
+    assert native["status"] == "unknown"
+    forged = copy.deepcopy(native)
+    forged["status"] = "pass"
+    forged["numbers"]["held_diameter_mm"] = fallback
+    with pytest.raises(ValueError):
+        check(forged)
 
 
 @pytest.mark.parametrize("action", ["tap", "ream", "drill"])
@@ -789,6 +860,172 @@ def test_saw_speed_oracle_takes_its_row_from_the_plan_material_not_the_report(co
         check()
 
 
+def saw_bundle():
+    """``drill_bundle`` turned into one verified bimetal blade cut on a verified saw."""
+    data = drill_bundle()
+    data.plan["setups"][0].update(machine="saw", ops=[{"op": 10, "do": "saw_cut", "tool": "blade"}])
+    data.inventory["machines"]["saw"] = {"kind": "saw", "blade_speed_sfm": [50, 300]}
+    data.inventory["tools"]["blade"] = {"kind": "saw_blade", "material": "bimetal"}
+    data.cutting_data["cut"].append(SAW_ROW)
+    return data
+
+
+@pytest.mark.parametrize("cut", ["drill", "saw"])
+def test_speed_oracle_certifies_the_row_its_inputs_settle(cut):
+    # A sourced RPM (or blade speed) and feed on verified inputs is certified: the
+    # report cannot leave it tentative, any more than it can pass an unsettled one.
+    if cut == "drill":
+        finding, check = speed_finding(drill_bundle(thickness=20.0))
+    else:
+        finding, check = saw_finding(saw_bundle())
+    check()
+    assert finding["status"] == "pass"
+    finding["status"] = "unknown"
+    with pytest.raises(ValueError):
+        check()
+
+
+@pytest.mark.parametrize(
+    ("hole", "forged"),
+    [
+        # A through hole whose tip its verified drill places: pass.
+        ("through", "unknown"),
+        ("through", "error"),
+        ("through", "no_row"),
+        # A blind tip 40 mm (plus the drill point) into a 10 mm deep hole: error.
+        ("over_guard", "pass"),
+        ("over_guard", "unknown"),
+        # A blind hole with no depth guard to hold the tip to: unknown.
+        ("no_guard", "pass"),
+        ("no_guard", "error"),
+    ],
+)
+def test_endpoint_verdict_is_the_one_its_ops_tools_and_depth_guard_decide(hole, forged):
+    data = drill_bundle(thickness=20.0) if hole == "through" else drill_bundle(depth_mm=40.0)
+    if hole == "over_guard":
+        data.features["features"]["hole"]["depth"] = 10.0
+    findings = {(f.rule, f.subject): f.to_dict() for f in endpoint_findings(data)}
+    entries = VALIDATOR["entries_for"](data.inventory)
+    finding = findings["blind_depth", "hole"]
+    native = {"through": "pass", "over_guard": "error", "no_guard": "unknown"}[hole]
+    assert finding["status"] == native
+    VALIDATOR["check_endpoints"](data.plan, data.features, findings, entries)
+    if forged == "no_row":
+        finding["numbers"]["endpoints"].clear()  # nothing left to place the tip
+    else:
+        finding["status"] = forged
+    with pytest.raises(ValueError):
+        VALIDATOR["check_endpoints"](data.plan, data.features, findings, entries)
+
+
+@pytest.mark.parametrize(("where", "key", "value"), CENTRE_CASES)
+def test_centre_endpoint_verdict_is_the_one_its_inputs_decide(tmp_path, where, key, value):
+    # Prepared, contradicted or unresolved, the centre's verdict is its own row's: an
+    # unresolved centre is not an error, and a prepared one is not left tentative.
+    _, check, finding = centre_findings(tmp_path, where, key, value)
+    check()
+    for forged in sorted({"pass", "unknown", "error"} - {finding["status"]}):
+        finding["status"] = forged
+        with pytest.raises(ValueError):
+            check()
+
+
+@pytest.mark.parametrize(
+    ("tolerance", "verified", "native"),
+    [
+        # The 12.5182 degree setting inside a 1 degree band on the verified head.
+        (1.0, True, "pass"),
+        # A 0.0001 degree band the nearest setting misses.
+        (0.0001, True, "error"),
+        # The 1 degree band on an unverified head: tentative.
+        (1.0, False, "unknown"),
+    ],
+)
+def test_indexing_verdict_is_the_one_its_head_and_tolerance_decide(tolerance, verified, native):
+    plan, features, inventory, _, _ = cone_inputs()
+    setup = next(s for s in plan["setups"] if s["id"] == "S5")
+    declaration = setup["hold"]["index"]
+    features["features"][declaration["feature"]]["angle_tol_deg"] = tolerance
+    inventory["machines"][declaration["fixture"]]["verify"] = not verified
+    bundle = SimpleNamespace(
+        plan=plan,
+        features=features,
+        inventory=inventory,
+        feature_definitions=features["features"],
+    )
+    (finding,) = (f.to_dict() for f in indexing.evaluate(bundle) if f.subject == "S5")
+    assert finding["status"] == native
+    entries = VALIDATOR["entries_for"](inventory)
+    VALIDATOR["check_indexing"](setup, features, entries, finding)
+    for forged in sorted({"pass", "unknown", "error"} - {native}):
+        finding["status"] = forged
+        with pytest.raises(ValueError):
+            VALIDATOR["check_indexing"](setup, features, entries, finding)
+
+
+@pytest.mark.parametrize(
+    ("part", "setup_id", "corruption"),
+    [
+        ("pivot-bracket", "S2", "drop_axis"),
+        ("pivot-bracket", "S1", "drop_retouch"),
+        ("pivot-bracket", "S2", "unknown_paper:pass"),
+        # Only a saw or manual bench setup waives its zero: an unresolved zero, or a
+        # settled one, reported as waived or informational is approved by the gate.
+        ("pivot-bracket", "S2", "unknown_paper:not_applicable"),
+        ("pivot-bracket", "S2", "unknown_paper:info"),
+        ("pivot-bracket", "S2", "settled:not_applicable"),
+        ("pivot-shaft", "S2", "drop_axis"),
+    ],
+)
+def test_zero_rows_are_the_plans_and_an_unresolved_zero_cannot_pass(part, setup_id, corruption):
+    folder = ROOT / "examples" / part
+    plan = tomllib.loads((folder / "plan.toml").read_text(encoding="utf-8"))
+    inventory = tomllib.loads((folder / plan["paths"]["inventory"]).read_text(encoding="utf-8"))
+    report = json.loads((folder / "expected" / "report.json").read_bytes())
+    setup = next(s for s in plan["setups"] if s["id"] == setup_id)
+    finding = next(
+        f for f in report["findings"] if f["rule"] == "zero_check" and f["subject"] == setup_id
+    )
+    entries = VALIDATOR["entries_for"](inventory)
+    VALIDATOR["check_zero"](setup, finding, entries, plan["dro"])
+    numbers = finding["numbers"]
+    if corruption == "drop_axis":
+        del numbers["axes"]["x"]  # the X zero left unchecked
+    elif corruption == "drop_retouch":
+        assert numbers["retouch"]
+        numbers["retouch"].pop()
+    elif corruption.startswith("unknown_paper"):
+        # No paper thickness: the Z Axis Set and its retouches are unknown, as the row
+        # says; the zero is not certified.
+        setup["zero"]["z"]["paper_mm"] = "unknown"
+        z = numbers["axes"]["z"]
+        z.update(axis_set="unknown", check_reading="unknown", mirrored_reading="unknown")
+        for row in numbers["retouch"]:
+            row["axis_set"] = "unknown"
+    if ":" in corruption:
+        finding["status"] = corruption.split(":")[1]
+    with pytest.raises(ValueError):
+        VALIDATOR["check_zero"](setup, finding, entries, plan["dro"])
+
+
+def test_required_coverage_comes_from_the_policy_not_the_report():
+    plan, features, _, _, report = cone_inputs()
+    keys = [(row["rule"], row["subject"]) for row in report["findings"]]
+    # A required subject no rule reports (S99) has the checker's unknown coverage row;
+    # the report cannot drop it because another subject (S1) keeps the rule present.
+    policy = {"required": {"vise": ["S1", "S99"]}}
+    VALIDATOR["check_required_coverage"](policy, plan, features, [*keys, ("vise", "S99")])
+    with pytest.raises(ValueError):
+        VALIDATOR["check_required_coverage"](policy, plan, features, keys)
+    # An empty selection's coverage row is required by the policy's selection of its
+    # rule, never by the selector the report prints on it.
+    policy = {"required": {"vise": []}}
+    star = {"rule": "vise", "subject": "*", "status": "unknown", "numbers": {"required": []}}
+    assert VALIDATOR["report_exit"]({"findings": [star]}, policy, plan, features) == 4
+    star["numbers"]["required"] = "forged"
+    assert VALIDATOR["report_exit"]({"findings": [star]}, policy, plan, features) == 4
+
+
 def cone_coordinates(tmp_path, setup_id, aim=None, measured=False):
     """The engine's coordinates finding for one setup of the built-up cone (``aim``
     replaces the requirement and value of plan ``aims.crank_bore``, which asks 39.517 of
@@ -946,6 +1183,16 @@ def test_coordinate_oracle_holds_the_printed_dro_target_to_the_aimed_point_on_th
         check()
 
 
+@pytest.mark.parametrize("status", ["not_applicable", "info"])
+def test_a_cutting_setups_coordinates_are_a_verdict_never_a_waiver(tmp_path, status):
+    # Only a manual bench setup waives its coordinates; S8 mills the aimed crank bore.
+    _, finding, _, check = aimed_bore(tmp_path)
+    check()
+    finding["status"] = status
+    with pytest.raises(ValueError):
+        check()
+
+
 @pytest.mark.parametrize("corruption", ["x_target", "station_z"])
 def test_coordinate_oracle_holds_a_lathe_station_to_the_manifest_and_its_op(tmp_path, corruption):
     bundle, setup, finding, check = cone_coordinates(tmp_path, "S1")
@@ -995,96 +1242,159 @@ def test_coordinate_oracle_ends_a_kernel_span_where_its_own_kernel_run_measures_
         check()
 
 
-def blank_inputs():
-    """The rocker-arm plan, whose prepared blank is checked with gauges no setup names,
-    its inventory, and the ``prepared_blank`` finding the engine reports once the received
-    blank fits: every check read through the plan's gauge and passing."""
-    folder = ROOT / "examples" / "rocker-arm"
-    plan = tomllib.loads((folder / "plan.toml").read_text(encoding="utf-8"))
-    inventory = tomllib.loads((folder / plan["paths"]["inventory"]).read_text(encoding="utf-8"))
-    prepared = plan["stock"]["prepared"]
-    bands = {"length": [339.8, 340.2], "section_0": [64.9, 65.1], "section_1": [15.95, 16.05]}
-    rows = {
-        key: {"gauge": prepared["checks"][key], "limits_mm": band, "status": "pass"}
-        for key, band in bands.items()
-    }
-    for key in ("flat", "square", "parallel"):
-        method = prepared["methods"][key]
-        rows[key] = {"gauge": "dti", "limit_mm": 0.05, "method": method, "status": "pass"}
-    finding = {"status": "pass", "numbers": {"checks": rows}}
-    return plan, inventory, {("prepared_blank", "stock.prepared"): finding}
+@pytest.fixture(scope="module")
+def rocker_blank(freecad_kernel):
+    """The rocker-arm bundle, whose prepared blank P5 cuts and gauges no setup names
+    check, and its kernel facts."""
+    bundle = load_bundle(ROOT / "examples" / "rocker-arm" / "plan.toml")
+    facts = run_geometry(bundle)
+    assert facts["status"] == "ok", facts.get("reason")
+    return bundle, facts
 
 
-@pytest.mark.parametrize("case", ["as_planned", "missing_gauge", "undeclared_gauge"])
-def test_prepared_blank_gauges_resolve_through_their_own_finding(case):
-    plan, inventory, findings = blank_inputs()
-    finding = findings["prepared_blank", "stock.prepared"]
-    rows = finding["numbers"]["checks"]
-    checks = plan["stock"]["prepared"]["checks"]
-    if case == "missing_gauge":
-        checks["length"] = "calipers-36in"
-        rows["length"] = {"gauge": "calipers-36in", "status": "error"}
-        finding["status"] = "error"
+def blank_case(rocker_blank, case=None):
+    """The engine's own ``prepared_blank`` finding for the rocker-arm with ``case`` changed
+    in its plan, inventory or kernel facts, and a validator call that checks a candidate
+    finding against those inputs and facts (returning the gauges it cannot resolve)."""
+    bundle, facts = copy.deepcopy(rocker_blank)
+    prepared = bundle.plan["stock"]["prepared"]
+    gauges = bundle.inventory["gauges"]
+    cut = facts["setups"]["P5"]
+    if case == "missing_form_limit":
+        prepared["form_mm"].pop("flat")
+    elif case == "unknown_form_limit":
+        prepared["form_mm"]["flat"] = "unknown"
+    elif case == "missing_form_method":
+        prepared["methods"].pop("flat")
+    elif case == "gauge_range_short":
+        prepared["checks"]["length"] = "calipers"  # a 6 in caliper on the 340 mm length
+    elif case == "gauge_resolution_coarse":
+        gauges["calipers-18in"]["resolution_mm"] = 1.0
+    elif case == "gauge_verify_unknown":
+        gauges["calipers-18in"]["verify"] = "unknown"
+    elif case == "missing_gauge":
+        prepared["checks"]["length"] = "calipers-36in"
     elif case == "undeclared_gauge":
-        del checks["flat"]
-        rows["flat"].update(gauge="unknown", status="unknown")
-        finding["status"] = "unknown"
-    entries = VALIDATOR["entries_for"](inventory)
+        del prepared["checks"]["flat"]
+    elif case == "kernel_unavailable":
+        facts = {"status": "unknown", "kernel_unavailable": True}
+    elif case == "cut_unexplained":
+        cut["stock_out_reason"] = "unknown milling pass"
+    elif case == "cut_missing":
+        del facts["setups"]["P5"]
+    elif case == "cut_half_volume":
+        cut["stock_out_volume_mm3"] *= 0.5
+    elif case == "cut_long":
+        cut["stock_out_bbox_mm"][3] += 5.0
+    object.__setattr__(bundle, "kernel", facts)
+    native = prepared_blank.evaluate(bundle)[0].to_dict()
+
+    def check(finding):
+        """``finding`` None: the report carries no prepared_blank finding."""
+        return VALIDATOR["check_prepared_blank"](
+            bundle.plan,
+            bundle.features,
+            bundle.inventory,
+            {} if finding is None else {("prepared_blank", "stock.prepared"): finding},
+            lambda: facts,
+        )
+
+    return bundle, native, check
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        "missing_form_limit",
+        "unknown_form_limit",
+        "missing_form_method",
+        "gauge_range_short",
+        "gauge_resolution_coarse",
+        "gauge_verify_unknown",
+        "missing_gauge",
+        "undeclared_gauge",
+        "kernel_unavailable",
+        "cut_unexplained",
+        "cut_missing",
+        "cut_half_volume",
+        "cut_long",
+    ],
+)
+def test_prepared_blank_approval_comes_from_its_gauges_and_kernel_cut(rocker_blank, case):
+    # A blank its gauges cannot read (no form limit or method, a caliper short of the
+    # length or too coarse for its band, an unverified, missing or undeclared gauge) or
+    # its kernel cut does not explain (no run, an unexplained or missing cut, a cut that
+    # is not the declared box) is not approved. The engine's own unresolved or failed
+    # finding is accepted; the same finding with every check row and the verdict
+    # approved is not.
+    _, native, check = blank_case(rocker_blank, case)
+    assert native["status"] != "pass"
+    check(native)
+    forged = copy.deepcopy(native)
+    forged["status"] = "pass"
+    for row in forged["numbers"].get("checks", {}).values():
+        row["status"] = "pass"
+    with pytest.raises(ValueError):
+        check(forged)
+
+
+@pytest.mark.parametrize("case", [None, "missing_gauge"])
+def test_prepared_blank_reports_the_gauges_it_cannot_resolve(rocker_blank, case):
+    bundle, native, check = blank_case(rocker_blank, case)
+    entries = VALIDATOR["entries_for"](bundle.inventory)
     # No setup names them, so no tool_resolves finding reads them.
-    assert VALIDATOR["check_references"]({"stock": plan["stock"], "setups": []}, entries, {}) == []
-    missing = VALIDATOR["check_prepared_blank"](plan, inventory, findings)
-    assert missing == (["calipers-36in"] if case == "missing_gauge" else [])
+    stock_only = {"stock": bundle.plan["stock"], "setups": []}
+    assert VALIDATOR["check_references"](stock_only, entries, {}) == []
+    assert check(native) == (["calipers-36in"] if case else [])
 
 
 @pytest.mark.parametrize(
     "corruption",
     [
         "other_gauge",
-        "missing_gauge_passed",
-        "undeclared_gauge_passed",
-        "unverified_gauge_passed",
         "size_band",
+        "gauge_range",
         "form_limit",
         "method",
-        "verdict_better_than_row",
+        "row_not_approved",
         "checks_never_read",
         "dropped_row",
+        "cut_volume",
         "no_finding",
         "approved_without_blank",
     ],
 )
-def test_prepared_blank_verdict_holds_to_the_plan_gauges_and_inventory(corruption):
-    plan, inventory, findings = blank_inputs()
-    finding = findings["prepared_blank", "stock.prepared"]
+def test_prepared_blank_verdict_holds_to_the_plan_gauges_and_inventory(rocker_blank, corruption):
+    bundle, native, check = blank_case(rocker_blank)
+    assert native["status"] == "pass"
+    check(native)
+    finding = copy.deepcopy(native)
     rows = finding["numbers"]["checks"]
-    prepared = plan["stock"]["prepared"]
+    prepared = bundle.plan["stock"]["prepared"]
     if corruption == "other_gauge":
         rows["length"]["gauge"] = "calipers"
-    elif corruption == "missing_gauge_passed":
-        prepared["checks"]["length"] = rows["length"]["gauge"] = "calipers-36in"
-    elif corruption == "undeclared_gauge_passed":
-        del prepared["checks"]["flat"]
-        rows["flat"]["gauge"] = "unknown"
-    elif corruption == "unverified_gauge_passed":
-        inventory["gauges"]["dti"]["verify"] = True
     elif corruption == "size_band":
         rows["length"]["limits_mm"] = [339.0, 341.0]
+    elif corruption == "gauge_range":
+        rows["length"]["range_mm"] = [0, 1000]
     elif corruption == "form_limit":
         rows["flat"]["limit_mm"] = 0.5
     elif corruption == "method":
         rows["square"]["method"] = prepared["methods"]["flat"]
-    elif corruption == "verdict_better_than_row":
+    elif corruption == "row_not_approved":
         rows["square"]["status"] = "unknown"
     elif corruption == "checks_never_read":
         del finding["numbers"]["checks"]
     elif corruption == "dropped_row":
         del rows["parallel"]
+    elif corruption == "cut_volume":
+        finding["numbers"]["cut_volume_mm3"] *= 1.5
     elif corruption == "no_finding":
-        findings.clear()
+        finding = None
     elif corruption == "approved_without_blank":
-        del plan["stock"]["prepared"]
+        del bundle.plan["stock"]["prepared"]
     with pytest.raises(ValueError):
-        VALIDATOR["check_prepared_blank"](plan, inventory, findings)
+        check(finding)
 
 
 def test_validator_rejects_a_check_without_its_feature_requirement():
