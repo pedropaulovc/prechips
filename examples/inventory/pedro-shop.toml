@@ -633,17 +633,19 @@ projection_mm = { "qctp-axa-lms-2280/1-turning-facing" = { value = 20.0, measure
 # --- end pivot-shaft DataShaft4 additions ---
 
 # --- cone-pivot-post additions ---
-# Example purchase: a second AR-style right-hand holder carrying a TCMT 21.50 insert
-# (1/128 in, 0.2 mm nose), so a finishing pass leaves the cone post's R0.25-max
-# body-to-head corner directly, without a separate corner pass.
+# Example purchase: a second AR-style right-hand holder carrying a TCMT 110202 insert
+# (ISO 1832; 0.2 mm nose), so a finishing pass leaves the cone post's R0.25-max
+# body-to-head corner directly, without a separate corner pass. Named by its ISO code because
+# the ANSI B212.4 seventh position counts 1/64 in and gives 0 to a sharp corner (Machinery's
+# Handbook 27th ed. p.758), so an ANSI "TCMT 21.50" would read as a sharp-corner insert.
 [tools.turning-tools-fine-nose]
 kind = "insert_holders"
 make = "A R Warner"
 material = "carbide"
 styles = ["AR"]
-insert = "TCMT-21.50"
+insert = "TCMT-110202"
 shank_in = "3/8"
-note = "illustrative example item: AR right-hand turning/facing holder with a TCMT 21.50 (0.2 mm nose radius) insert"
+note = "illustrative example item: AR right-hand turning/facing holder with a TCMT 110202 (ISO, 0.2 mm nose radius) insert"
 
 [tools.turning-tools-fine-nose.members."AR-R0.2"]
 hand = "right"
@@ -1459,14 +1461,18 @@ solids = [
 # Frame: origin at the centre of the brass pad's underside on the south cap, +x along the
 # beam, +z away from the work. S10 poses it at B6 [52.63, 0, 21.0505], x = B6 +Y: the pad
 # bears on the south cap annulus and the 76 mm beam spans the post with studs at B6 Y+-30
-# (4.2 mm clear of the body), screwed into the cradle base taps.
+# (4.2 mm clear of the body), screwed into the cradle base taps. The pad is 16 mm square so
+# along the post axis it stays inside the Ø17.26 socket mouth: wherever it overhangs the
+# sleeve its corner is over body that has curved at least 0.25 mm away, so only the cap,
+# never the body, can carry the clamp load.
 [fixtures.cone-cap-bridge]
 name = "cap bridge clamp"
 shop_made = true
 kind = "strap_clamp"
-note = "AUTHOR'S CHOICE: illustrative example shop-made bridge: 76 x 19.05 x 12.7 mm 1018 steel beam with an 18 x 18 x 6 mm C360 brass pad held by one 1/4-20 x 1/2 in flat-head cap screw from the pad face into the beam (tapped through, #7 tap drill, MH 27th Table 3 p.1933), its head 0.5 mm below the pad face over the journal bore so it never touches the cap; two 3/8-16 x 3-3/4 in studs, washers and nuts; cylindrical nut and screw-head envelopes are conservative, not hex or conical geometry"
+note = "AUTHOR'S CHOICE: illustrative example shop-made bridge: 76 x 19.05 x 12.7 mm 1018 steel beam with a 16 x 16 x 6 mm C360 brass pad, small enough to bear on the south cap only, held by one 1/4-20 x 1/2 in flat-head cap screw from the pad face into the beam (tapped through, #7 tap drill, MH 27th Table 3 p.1933), its head 0.5 mm below the pad face over the journal bore so it never touches the cap; two 3/8-16 x 3-3/4 in studs, washers and nuts; cylindrical nut and screw-head envelopes are conservative, not hex or conical geometry"
 solids = [
-  { name = "pad", label = "pad, C360 brass", locates = "south cap annulus", fastener = "1 × 1/4-20 × 1/2 in flat-head cap screw from the pad face, on the pad centre: 9/32 in clearance (MH 27th Table 5 p.1621), 82° countersink to Ø12.7 so the head sits 0.5 below the face", shape = "box", at_mm = [-9.0, -9.0, 0.0], size_mm = [18.0, 18.0, 6.0], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, brass pad" } },
+  { name = "pad", label = "pad, C360 brass", locates = "south cap annulus", fastener = "1 × 1/4-20 × 1/2 in flat-head cap screw from the pad face, on the pad centre: 9/32 in clearance (MH 27th Table 5 p.1621), 82° countersink to Ø12.7 so the head sits 0.5 below the face", shape = "box", at_mm = [-8.0, -8.0, 0.0], size_mm = [16.0, 16.0, 6.0], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, brass pad" } },
+  { name = "pad-countersink", fastener = "82° countersink, Ø12.7 mouth, 4.1 deep to the screw head top", shape = "cylinder", at_mm = [0.0, 0.0, 0.0], axis = [0.0, 0.0, 1.0], dia_mm = 12.7, length_mm = 4.1, void = true, cuts = ["pad"], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, countersink mouth and depth" } },
   { name = "beam", label = "beam, 1018 steel", shape = "box", at_mm = [-38.0, -9.525, 6.0], size_mm = [76.0, 19.05, 12.7], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers and steel rule" } },
   { name = "rear-stud", supply = "bought", fastener = "3/8-16 x 3-3/4 in stud", shape = "cylinder", at_mm = [30.0, 0.0, -62.0055], axis = [0.0, 0.0, 1.0], dia_mm = 9.525, length_mm = 95.25, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, 3/8-16 x 3-3/4 in stud" } },
   { name = "rear-washer", supply = "bought", shape = "cylinder", at_mm = [30.0, 0.0, 18.7], axis = [0.0, 0.0, 1.0], dia_mm = 20.64, length_mm = 1.6, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } },
