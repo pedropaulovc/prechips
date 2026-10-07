@@ -6098,16 +6098,25 @@ class _Traveler:
         grid = dro_grid(self.bundle, setup)
         if derived and (
             abs(move["shift"] - move["offset"]) > SAME_Z
-            or any(z != dro_z(stated, grid) for stated, z in carried.values())
+            or any(z != dro_z(exact, grid) for exact, z in carried.values())
         ):
             # The transfer rounded its offset, or carried the sheet before's rounding: show
-            # the one transform every carried Z took.
+            # the one transform every carried Z took, at every place it holds.
             who = "each Z" if derived == stated else " and ".join(derived) + " Z"
             before = f"its Setup {move['before']['id']} Z"
             plus = "−" if move["shift"] < 0 else "+"
+            shift = abs(move["shift"])
             line += (
                 f" ({who} = {f'−({before})' if move['sign'] < 0 else before} {plus} "
-                f"{o(abs(move['shift']))})"
+                f"{o(shift, max(self.decimals, _places(shift)))})"
+            )
+        elif move and move["shift"] is None:
+            # The Zs the sheet before printed are not whole steps of this DRO apart: say so,
+            # rather than name a transform rounding each alone would break.
+            line += (
+                f" (each Z on this DRO's {o(grid[0])} steps by itself: Setup "
+                f"{move['before']['id']}'s Zs are not whole steps apart, so no one shift "
+                "carries them)"
             )
         line += "." + self.joint_text(setup)
         if state.get("note"):

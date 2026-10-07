@@ -494,11 +494,16 @@ def transfer(bundle, setup):
     before printed for that surface (:func:`_left_z`) plus one ``shift``: so the printed
     numbers linking the two agree on the printed grid, two surfaces apart on one sheet
     stay as far apart on the next, and the transfer rounds once. ``carried`` maps each
-    such key to ``(stated Z, printed Z)``. ``shift`` is the offset rounded up onto this
-    setup's DRO grid (``dro_z``). Where that would print the stock top below its stated Z
+    such key to ``(stated Z, printed Z)``. ``shift`` is the least value at or above the
+    offset that lands those Zs on this setup's DRO grid (the offset rounded up, ``dro_z``,
+    when they are on it already). Where that would print the stock top below its stated Z
     and the setup's Z zero does not touch that top (whose touch sets it where it prints),
-    the shift is the least grid value that keeps it at or above: a tool clear of the
-    printed top is clear of the stock."""
+    the shift is the least that lands the top on the grid at or above it: a tool clear of
+    the printed top is clear of the stock.
+
+    Zs the setup before printed that do not lie whole steps of this grid apart (from a
+    finer DRO) no one shift lands on it, and rounding each alone would move them apart:
+    such a transfer carries none, and its ``shift`` is None."""
     from .coordinates import dro_grid, dro_z, frame_axes, mapping_vector
 
     source, before = setup.get("stock_in"), None
@@ -520,6 +525,7 @@ def transfer(bundle, setup):
     sign = 1 if turn > 0 else -1
     offset = sum((a - b) * c for a, b, c in zip(o_there, o_here, z_here, strict=True))
     grid = dro_grid(bundle, setup)
+    step = grid[0]
     received = arrival_zs(bundle, before)
     state, left = mapping(setup.get("stock_state")), {}
     for key, named in ARRIVAL_ZS.items():
@@ -528,13 +534,20 @@ def transfer(bundle, setup):
             z = _left_z(bundle, before, sign * (state[key] - offset), feature, received)
             if number(z):
                 left[key] = sign * z
-    shift = dro_z(offset, grid)
+    move = {"before": before, "sign": sign, "offset": offset, "shift": dro_z(offset, grid)}
+    if not left:
+        return {**move, "carried": {}}
+    anchor = next(iter(left.values()))
+    if any(abs((z - anchor) / step - round((z - anchor) / step)) > 1e-6 for z in left.values()):
+        return {**move, "shift": None, "carried": {}}
+    shift = dro_z(anchor + offset, grid) - anchor
     zero = mapping(mapping(setup.get("zero")).get("z"))
     touched = zero.get("face") == "top" and zero.get("after_op") is None
     if "top_z" in left and not touched and left["top_z"] + shift < state["top_z"] - SAME_Z:
-        shift = dro_z(state["top_z"] - left["top_z"], grid)
+        shift = dro_z(state["top_z"], grid) - left["top_z"]
+    shift = round(shift, 9)
     carried = {key: (state[key], dro_z(z + shift, grid)) for key, z in left.items()}
-    return {"before": before, "sign": sign, "offset": offset, "shift": shift, "carried": carried}
+    return {**move, "shift": shift, "carried": carried}
 
 
 def _carried(bundle, setup):
