@@ -3907,6 +3907,36 @@ class _Setup:
             states.append(rows)
         facts["stock_profile"] = [[_r(value) for value in row] for row in _least_rows(states)]
 
+    def _round_stock_dia(self, lathe):
+        """The largest diameter of the stock as held when it is a solid of revolution, else
+        None: about setup Z on a lathe, else about a box axis whose cross-section is square
+        (round bar lying on a mill). The picture then prints that Ø, not a bounding box."""
+        box = self.box
+        sizes = [box[i + 3] - box[i] for i in range(3)]
+        axes = (
+            [2]
+            if lathe
+            else [
+                i
+                for i in range(3)
+                if abs(sizes[(i + 1) % 3] - sizes[(i + 2) % 3]) <= STOCK_ROUND_MM
+            ]
+        )
+        for axis in axes:
+            solid = self.part.copy()
+            if not lathe:
+                # The candidate axis through the box centre onto setup Z.
+                centre = [(box[i] + box[i + 3]) / 2 for i in range(3)]
+                solid.translate(V(-centre[0], -centre[1], -centre[2]))
+                if axis == 0:
+                    solid.rotate(V(0, 0, 0), V(0, 1, 0), -90.0)
+                elif axis == 1:
+                    solid.rotate(V(0, 0, 0), V(1, 0, 0), 90.0)
+            rows, why = _revolved_rows(solid)
+            if why is None and rows:
+                return _r(2 * max(row[3] for row in rows))
+        return None
+
     # ------------------------------------------------------------------ in-process stock
 
     def _placed(self, shape):
@@ -6841,11 +6871,13 @@ class _Setup:
             "setup_id": self.setup.get("id"),
             "view": view,
             "stock_box": list(self.box),
+            "stock_round_dia_mm": self._round_stock_dia(lathe),
             "components": components,
             "zero_mm": [0.0, 0.0, 0.0],
             "jaw_front_z_mm": jaw_z,
             "jaw_front_oblique": jaw_front_oblique,
             "stickout_mm": annotation.get("stickout_mm"),
+            "stickout_add_mm": annotation.get("stickout_add_mm"),
             "datums": datums,
             "primary_tool": tool,
             "paths": sketch,
@@ -6910,22 +6942,44 @@ class _Setup:
         if details:
             scene["fixture_detail_labels"] = details
         possible_names = {name for name, _ in self.fixture_possible}
+        held = [(name, shape) for name, shape, _ in solids if name not in possible_names]
+        # A saw's cut is its blade's path, not the offcut that falls away.
+        blade = self._blade_path(held)
         # A lathe picture is a meridian section: its contacts are not the drawn faces.
         spec["contacts"], spec["closest_cut"] = (
             ([], None)
             if lathe
             else self._render_contacts(
-                [(name, shape) for name, shape, _ in solids if name not in possible_names],
-                removal,
-                tolerance,
-                section_view,
+                held, removal if blade is None else blade, tolerance, section_view
             )
         )
+        scene["closest_cut"] = spec["closest_cut"]
         png, drawn_debts = render_diagram(meshes, spec)
         render_debts.extend(drawn_debts)
         # A holding detail band below the picture makes it taller than the default.
         scene["height_px"] = int.from_bytes(png[20:24], "big")
         return png, scene
+
+    def _blade_path(self, solids):
+        """The setup's saw blade paths in setup axes, or None when it saws nothing: each
+        saw op's kerf slab on its cut plane, across the stock and its holding on the other
+        two axes (the blade passes down through the whole section and on past it)."""
+        boxes = [self.box] + [_bbox(shape) for _, shape in solids]
+        bounds = [min(b[i] for b in boxes) - 1.0 for i in range(3)]
+        bounds += [max(b[i + 3] for b in boxes) + 1.0 for i in range(3)]
+        path = None
+        for op in self.ops:
+            plane, kerf = op.get("cut_plane"), _positive(op, "kerf_mm")
+            if not (_sawn(op) and kerf is not None and isinstance(plane, dict)):
+                continue
+            axis = {"x": 0, "y": 1, "z": 2}.get(plane.get("axis"))
+            if axis is None or not _number(plane.get("value")):
+                continue
+            slab = list(bounds)
+            slab[axis], slab[axis + 3] = plane["value"] - kerf / 2, plane["value"] + kerf / 2
+            shape = _box_shape(slab)
+            path = shape if path is None else path.fuse(shape)
+        return path
 
     def _render_contacts(self, solids, removal, tolerance, section_view):
         """The holding solids touching the arriving stock, each with its contact outlines
@@ -9962,7 +10016,8 @@ class _Setup:
             if tool["blade_width_mm"] < 2 * tool["radius_mm"]:
                 missing.append("blade_width_mm at least twice radius_mm")
         holder = sorted(key for key in cls._TURN_HOLDER if tool[key] is None)
-        if not holder and tool["projection_mm"] < tool["head_len_mm"]:
+        head = tool["head_len_mm"]
+        if not holder and head is not None and tool["projection_mm"] < head:
             holder.append("projection_mm at least head_len_mm")
         return tool, missing, holder
 

@@ -216,6 +216,27 @@ def test_multiple_saws_use_successive_stock_and_keep_fixture_render(saw_engine, 
     assert [cut["stock_volume_after_mm3"] for cut in scene["saw_cuts"]] == [800.0, 640.0]
 
 
+def test_a_saw_cut_is_measured_from_the_blade_path_to_the_holding(saw_engine, saw_target):
+    """The cone's S10: the stock sits on a saddle above a base plate that stops short of
+    the cut. The picture's cut-to-holding distance runs from the kerf, where the blade
+    passes down beside the base, not from the falling offcut's lowest corner."""
+    fixture = {
+        "kind": "solids",
+        "fixture_kind": "custom_fixture",
+        "pose": {"origin_mm": [0, 0, 0], "x": [1, 0, 0], "z": [0, 0, 1]},
+        "solids": [
+            {"name": "saddle", "shape": "box", "at_mm": [6, 0, -4], "size_mm": [2, 10, 4]},
+            {"name": "base", "shape": "box", "at_mm": [5, 0, -6], "size_mm": [5, 10, 2]},
+        ],
+    }
+    # Kerf X1..X2 (keep X2 up); the base starts at X5: 3 mm from the blade path, though
+    # the offcut's nearest corner is 4 mm from the saddle and 5 mm from the base.
+    result = _run(saw_engine, saw_target, _saw("x", 1.5, "above"), hold=fixture)
+    cut = result["setups"]["S1"]["render_scene"]["closest_cut"]
+    assert cut["tag"] == "base"
+    assert cut["mm"] == pytest.approx(3.0, abs=1e-6)
+
+
 def test_later_mill_removal_uses_native_sawn_stock(saw_engine, saw_target):
     top = saw_engine.refs(saw_target, [2, 2, 8], [8, 8, 8])
     assert len(top) == 1
