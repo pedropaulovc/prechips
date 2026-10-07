@@ -27,6 +27,11 @@ it is a known empty requirement map, so nonrequired unknowns do not block the
 gate. Any error still yields exit 2. Policy cannot make an unimplemented required
 check silently pass.
 
+`joint_fit`, `joint_assembly` and `centre_support` are always required: their
+`warn`, `unknown` or `unsupported` rows yield 4 whatever `[required]` says, so a
+shop never lists them and an omission cannot waive them. A setup with no joint or
+no centre has only `not_applicable` rows for them, which never block.
+
 When no policy path is supplied, the loader requires `tool_resolves`, `sizing`,
 `op_chain`, `blind_depth`, `inspection`, `coordinates`, and `zero_check` on `"*"`.
 The fallback is not an extra file and therefore has no file digest in inputs.

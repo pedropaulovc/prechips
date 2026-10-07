@@ -223,14 +223,15 @@ cut before the selected branch can supply completed preparation to a join.
 
 `[process_features.<id>]` declares stock preparation the route makes and later
 relies on, never a drawing surface: a faced end (`end_face`) or a combined drill
-and countersink centre (`centre_hole`) that a later setup's dead centre rides in.
+and countersink centre (`centre_hole`) that a later setup's dead or live centre
+rides in.
 Identities must not collide with exported or joint features, and nothing may name
 a `plan.process_features.` label as a face reference.
 
 | Field | Meaning |
 |---|---|
 | `kind` | `end_face` or `centre_hole` |
-| `at` | Point on the stock end, model coordinates (manifest units); a centre's mouth centre |
+| `at` | Point on the stock end, model coordinates (manifest units); a centre's mouth centre, on the entry surface its quill is touched on |
 | `axis` | Unit inward normal of that end, pointing into the kept material (the drilling direction) |
 | `cite` | Nonempty author/source citation |
 | `size` | `centre_hole` only: the source's size name |
@@ -244,7 +245,11 @@ A `centre_hole` needs every centre field (each may be `"unknown"` debt); an
 `end_face` authors none. The centre's feed depth below its faced end is
 `drill_length_mm + (mouth_dia_mm - drill_dia_mm) / 2 / tan(countersink_angle_deg / 2)`:
 the Machinery's Handbook Table 6 drill length C plus the countersink that opens to
-the mouth. Any unknown size leaves the depth unknown.
+the mouth. The centre is its `center_drill` op's selected tool: D, C and the
+angle must be that tool's `dia`, `pilot_len` and `angle_deg`, and the mouth no
+wider than its body (`shank`); its mouth must lie on the surface the quill is
+touched on, fed along setup -Z ([`blind_depth`](rules-operations.md#blind_depth-tip-endpoints)).
+A mismatch is an error, and any unknown size or tool fact leaves the depth unknown.
 
 Only `face`, `rough_face` and `finish_face` prepare an `end_face`; only
 `center_drill` prepares a `centre_hole`. Such an op names exactly that one
@@ -255,8 +260,8 @@ kernel removes the analytic centre (countersink, pilot and drill point) or faces
 the end so the setup picture and the next setup's entry stock show them. They
 earn no finished STEP coverage and no finish coverage, even when the cut lies on a
 drawing plane, and a process feature is never a drawing-requirements row. A
-hold's `centre_hole` names the process centre its dead centre rides in (see
-[Hold](#hold)).
+hold's `centre_hole` names the process centre its dead or live centre rides in
+(see [Hold](#hold)).
 
 ## Drawing
 
@@ -576,7 +581,7 @@ for collet/chuck capacity, not the unsupported-section diameter.
 | `jaw_clock_deg` | `Number` |
 | `support_tip_mm` | `[Number, Number, Number]` |
 | `quill_extension_mm` | `Number` |
-| `centre_hole` | `str`: the `process_features` `centre_hole` the dead centre rides in; the [`centre_support`](rules-setup.md#centre_support) rule requires an earlier setup in this setup's `stock_in` lineage to drill it with a mouth equal to `centre_hole_dia_mm`, and the kernel seats the centre in that cut countersink instead of cutting a seat of its own |
+| `centre_hole` | `str`: the `process_features` `centre_hole` the dead or live centre rides in; the always-required [`centre_support`](rules-setup.md#centre_support) rule requires an earlier setup in this setup's `stock_in` lineage (every setup in it routed) to drill it, with its preparation established and a mouth equal to `centre_hole_dia_mm`; the kernel seats the centre in that cut countersink instead of cutting a seat of its own |
 | `centre_hole_dia_mm` | `Number` (> 0): the work's centre-hole countersink mouth at its end face; without `centre_hole`, the kernel cuts a seat of the dead centre's own point angle with that mouth on the face where the centre axis leaves the stock. In either case the centre must touch its seat (else a render debt) before it is checked against the setup-entry stock |
 | `clamps` | `list[ClampPlacement]` |
 | `clamp_order` | `list[positive int]` (1-based indices into `clamps`) |

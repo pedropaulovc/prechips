@@ -49,7 +49,13 @@ series. Collet capacity, range and maximum shank checks are separate. Drill poin
 angle, reamer lead, flute length, projection, holder gauge length and fixture bed
 height are operative geometry, not values to infer from unrelated angles or
 overall dimensions. A centre drill's centre-seat angle is not its drill-point
-angle. `chart` is a source citation, never a downloaded chart.
+angle. A combined drill and countersink (`center_drill_set` member) that drills
+a plan centre must carry its own Table 6 geometry: pilot `dia` (D), `pilot_len`
+(drill length C, countersink start to point tip, point included), countersink
+`angle_deg` (the set's centre-seat angle unless the member overrides it), body
+`shank` (A) and the pilot `point_angle`. The plan centre must equal them;
+`flute_len` stays the cutting length reach compares. `chart` is a source
+citation, never a downloaded chart.
 
 M2 holding checks use explicitly declared `sizes_mm` / `sizes_in` or a two-ended
 `range_mm` / `range_in` for the held stock diameter. A six-inch chuck body
@@ -559,6 +565,7 @@ on hand.
 | `shank_mm` | `float` |
 | `flute_len_mm` | `MeasuredLength` |
 | `flute_len_in` | `MeasuredLength` |
+| `pilot_len` / `pilot_len_mm` / `pilot_len_in` | `MeasuredLength` (combined drill and countersink: Table 6 drill length C, countersink start to point tip) |
 | `oal_mm` | `MeasuredLength` |
 | `oal_in` | `MeasuredLength` |
 | `gauge_len_mm` | `MeasuredLength` |

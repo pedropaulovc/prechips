@@ -507,7 +507,7 @@ def input_paths(folder: Path, plan: dict, plan_filename: str = "plan.toml") -> d
 
 
 def required_finding(finding: dict, policy: dict, plan: dict, features: dict) -> bool:
-    """Match checker readiness, including non-waivable physical joint rules."""
+    """Match checker readiness, including non-waivable joint and centre-support rules."""
     if finding["rule"] in ALWAYS_REQUIRED:
         return True
     required = policy.get("required", "unknown")

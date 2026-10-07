@@ -362,21 +362,25 @@ index = {fixture = "BS-0", angle_deg = "unknown", positions = "unknown"}
 
 
 @pytest.mark.parametrize(
-    "hold",
+    ("hold", "code"),
     [
-        'fixture = "unknown"\nfixed_jaw = "not_applicable"\nstop = "none"\n'
-        'grip_mm = "not_applicable"\nclamp = "not_applicable"\n',
-        HOLD + 'support = "unknown"\n',
-        HOLD + 'supports = ["unknown", {ref = "unknown"}]\n',
-        HOLD + "supports = [{}]\n",
-        HOLD + 'index = "unknown"\n',
+        (
+            'fixture = "unknown"\nfixed_jaw = "not_applicable"\nstop = "none"\n'
+            'grip_mm = "not_applicable"\nclamp = "not_applicable"\n',
+            0,
+        ),
+        # An unresolved support may be a centre, so the always-required centre_support blocks.
+        (HOLD + 'support = "unknown"\n', 4),
+        (HOLD + 'supports = ["unknown", {ref = "unknown"}]\n', 4),
+        (HOLD + "supports = [{}]\n", 4),
+        (HOLD + 'index = "unknown"\n', 0),
     ],
 )
 def test_explicit_unknown_fixtures_remain_visible_without_none_sentinels(
-    tmp_path, freecad_kernel, hold
+    tmp_path, freecad_kernel, hold, code
 ):
     plan = candidate(tmp_path / "inputs", "unknown-fixture", hold=hold)
-    _, rows = compare([plan], tmp_path / "out")
+    _, rows = compare([plan], tmp_path / "out", code)
     assert "unknown" in rows[0]["fixtures"]
     assert "none" not in rows[0]["fixtures"]
     assert "not_applicable" not in rows[0]["fixtures"]

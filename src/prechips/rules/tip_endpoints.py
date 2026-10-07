@@ -8,7 +8,17 @@ import re
 from prechips.measurements import nominal_angle_deg
 
 from ..findings import Finding
-from .resolution import UNKNOWN, length_mm, number, resolve, uncertain
+from .resolution import (
+    LENGTH_TOLERANCE_MM,
+    UNKNOWN,
+    length_mm,
+    number,
+    record,
+    resolve,
+    same_length,
+    setup_frame,
+    uncertain,
+)
 
 FACING = {"face", "rough_face", "finish_face"}
 POCKETING = {"pocket", "rough_pocket", "finish_pocket"}
@@ -275,14 +285,99 @@ def _producer(bundle, setup, value, face, done, source):
     return None
 
 
+def _centre_mouth(bundle, setup, feature, entry):
+    """``(errors, unknown, mouth setup Z)``: a centre's mouth ``at`` must lie on the entry
+    surface ``entry`` the quill is touched on, its ``axis`` along the setup -Z feed and, on
+    a lathe, its mouth on the spindle axis the tailstock quill feeds along."""
+    from prechips.model import UNIT_TOLERANCE
+
+    from .coordinates import frame_point
+
+    frame = setup_frame(bundle, setup)
+    at, axis = feature.get("at"), feature.get("axis")
+    scale = {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units"))
+    if not all(isinstance(v, list) and len(v) == 3 and all(map(number, v)) for v in (at, axis)):
+        return [], ["its mouth position or axis is unknown"], UNKNOWN
+    mouth = frame_point(at, frame)
+    ahead = frame_point([a + d for a, d in zip(at, axis, strict=True)], frame)
+    if not all(map(number, mouth + ahead)) or scale is None:
+        return [], ["its mouth in the setup frame is unknown"], UNKNOWN
+    feed = [b - a for a, b in zip(mouth, ahead, strict=True)]
+    norm = math.sqrt(sum(v * v for v in feed))
+    errors, unknown = [], []
+    if norm == 0 or feed[2] / norm > -1 + UNIT_TOLERANCE:
+        errors.append("its axis is not the setup -Z the quill feeds along")
+    off = math.hypot(mouth[0], mouth[1]) * scale
+    if off > LENGTH_TOLERANCE_MM:
+        kind = record(resolve(bundle, "machines", setup.get("machine"))).get("kind")
+        if kind == "lathe":
+            errors.append(f"its mouth is {off:g} mm off the spindle axis the quill feeds along")
+        elif not isinstance(kind, str) or kind == UNKNOWN:
+            unknown.append("whether its off-axis mouth is on a lathe spindle axis is unknown")
+    if not number(entry):
+        unknown.append("the entry surface the quill is touched on is unknown")
+    elif not same_length(mouth[2] * scale, entry * scale):
+        errors.append(
+            f"its mouth lies at setup Z {mouth[2]:g}, not on the Z {entry:g} entry surface "
+            "the quill is touched on"
+        )
+    return errors, unknown, mouth[2]
+
+
+def centre_endpoint(bundle, setup, op, feature, entry):
+    """``(fields, status, reasons, measurement debt)`` of a quill-fed centre drilled from
+    ``entry``.
+
+    Its depth past touching the end is the Table 6 drill length C plus the countersink
+    (``centre_depth_mm``), but only for the centre the selected tool's own facts cut
+    (``centre_tool``) with its mouth on the touched entry surface along the setup -Z
+    feed. A contradiction is ``error``, anything unresolved ``unknown``; either leaves the
+    depth unknown, so the traveler prints no quill depth.
+    """
+    from prechips.process_features import centre_depth_mm, centre_tool
+
+    depth = centre_depth_mm(feature)
+    binding = centre_tool(bundle, op)
+    errors, unknown, mouth_z = _centre_mouth(bundle, setup, feature, entry)
+    (errors if binding["status"] == "error" else unknown).extend(binding["reasons"])
+    if not number(depth["depth_mm"]):
+        unknown.append("a centre size is unknown")
+    status = "error" if errors else "unknown" if unknown else "pass"
+    known = depth["depth_mm"] if status == "pass" else UNKNOWN
+    fields = {
+        "depth_mm": known,
+        "countersink_depth_mm": depth["countersink_depth_mm"],
+        "drill_length_mm": depth["drill_length_mm"],
+        "depth_scale": "quill",
+        "exit_face": "not_applicable",
+        "tip_z": _subtract(entry, known),
+        "mouth_z": mouth_z,
+        "tool_centre": binding["tool"],
+    }
+    return fields, status, errors or unknown, binding["measurements"]
+
+
+def centre_check(bundle, setup, op):
+    """``centre_endpoint``'s ``(status, reasons)`` for centre op ``op`` of ``setup``."""
+    features = bundle.feature_definitions
+    name = op.get("feature")
+    before = next(state for current, state, _ in stock_states(setup, features) if current is op)
+    entry = before["entry_z"].get(name, before["top_z"])
+    _, status, reasons, _ = centre_endpoint(bundle, setup, op, features.get(name, {}), entry)
+    return status, reasons
+
+
 def evaluate(bundle):
-    from prechips.process_features import centre_depth_mm, source_cite
+    from prechips.process_features import source_cite
 
     features = bundle.feature_definitions
     endpoints = {name: [] for name in features}
     unresolved = set()
     errors = set()
     negative_exit = set()
+    # Per centre: why it is not the centre its selected tool cuts from the touched surface.
+    centre_errors = {}
+    debts = {}
     for setup in bundle.plan["setups"]:
         for op, before, _ in stock_states(setup, features):
             name = op.get("feature")
@@ -311,15 +406,14 @@ def evaluate(bundle):
                 nominal_angle_deg(tool, "point_angle"),
             )
             if centre:
-                depth = centre_depth_mm(feature)
-                row.update(
-                    depth_mm=depth["depth_mm"],
-                    countersink_depth_mm=depth["countersink_depth_mm"],
-                    drill_length_mm=depth["drill_length_mm"],
-                    depth_scale="quill",
-                    exit_face="not_applicable",
-                    tip_z=_subtract(entry, depth["depth_mm"]),
-                )
+                fields, status, reasons, debt = centre_endpoint(bundle, setup, op, feature, entry)
+                row.update(fields)
+                debts.setdefault(name, {}).update((item["id"], item) for item in debt)
+                if status == "error":
+                    centre_errors.setdefault(name, []).extend(reasons)
+                elif status == "unknown":
+                    row["unknown"] = reasons
+                    unresolved.add(name)
             elif action == "spot":
                 depth = hole_depth_mm(op, feature, bundle.features.get("units"))
                 row.update(
@@ -405,12 +499,17 @@ def evaluate(bundle):
         rows = endpoints[name]
         if feature.get("kind") not in _HOLE_KINDS | {"centre_hole"}:
             status, sentence = "not_applicable", "Not a hole; no tip endpoint applies."
-        elif name in errors or name in negative_exit:
+        elif name in errors or name in negative_exit or name in centre_errors:
             sentence = " ".join(
                 text
                 for flagged, text in (
                     (negative_exit, "A through exit allowance is negative; exit_mm must be >= 0."),
                     (errors, "The blind tip or tap flute length exceeds the declared depth guard."),
+                    (
+                        centre_errors,
+                        "The centre is not the one its selected tool cuts from the touched "
+                        f"entry surface: {'; '.join(centre_errors.get(name, []))}.",
+                    ),
                 )
                 if name in flagged
             )
@@ -432,7 +531,15 @@ def evaluate(bundle):
                 "blind_depth",
                 name,
                 status,
-                {"kind": feature.get("kind", UNKNOWN), "endpoints": rows},
+                {
+                    "kind": feature.get("kind", UNKNOWN),
+                    "endpoints": rows,
+                    **(
+                        {"measurements": [debts[name][key] for key in sorted(debts[name])]}
+                        if debts.get(name)
+                        else {}
+                    ),
+                },
                 [
                     "PLAN.md §4.1 tip endpoints",
                     *(

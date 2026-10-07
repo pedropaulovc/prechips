@@ -29,6 +29,16 @@ ACTIONS = {
     "centre_hole": frozenset({"center_drill"}),
 }
 _CENTRE_KEYS = ("drill_dia_mm", "drill_length_mm", "mouth_dia_mm", "countersink_angle_deg")
+# The selected combined drill and countersink's own fact behind each centre size
+# (Machinery's Handbook Table 6: drill D, drill length C, the countersink angle and body A).
+_TOOL_FACTS = {
+    "drill_dia_mm": "dia",
+    "drill_length_mm": "pilot_len",
+    "countersink_angle_deg": "angle_deg",
+    "body_dia_mm": "shank",
+}
+# Authored included angles agree exactly, up to float residue.
+ANGLE_TOLERANCE_DEG = 1e-9
 _SCALE = {"mm": 1.0, "in": 25.4}
 
 
@@ -111,6 +121,63 @@ def centre_depth_mm(definition: Any) -> dict:
         "countersink_depth_mm": countersink,
         "drill_length_mm": length,
         "depth_mm": countersink + length,
+    }
+
+
+def centre_tool(bundle, op: dict) -> dict:
+    """How centre op ``op``'s selected combined drill and countersink fixes its centre.
+
+    A drilled centre is its cutter's own shape: the selected tool's pilot diameter D
+    (``dia``), Table 6 drill length C (``pilot_len``: countersink start to tip, point
+    included) and included countersink angle (``angle_deg``), opened no wider than its body
+    diameter A (its ``shank``). The process feature must declare exactly those sizes.
+    ``status`` is ``error`` when a declared size differs from the tool's (or the mouth is
+    wider than its body), else ``unknown`` while a declared size or a tool fact is unknown
+    or not accepted, else ``pass``. ``reasons`` explains each, ``tool`` holds the accepted
+    facts and ``measurements`` the debt behind each unaccepted one.
+    """
+    from prechips.measurements import angle_fact, length_fact, measurement_entry
+    from prechips.rules._envelope import measurement_item
+    from prechips.rules.resolution import LENGTH_TOLERANCE_MM, same_length
+
+    process = process_of(bundle.feature_definitions.get(op.get("feature"))) or {}
+    reference = op.get("tool", UNKNOWN)
+    item = measurement_item(bundle, "tools", reference)
+    errors, unknown, measurements, tool = [], [], [], {}
+    for key, field in _TOOL_FACTS.items():
+        read = angle_fact if key == "countersink_angle_deg" else length_fact
+        fact = read(item, field, require_measured=False)
+        tool[key] = fact["value"] if fact["verified"] else UNKNOWN
+        if not fact["verified"]:
+            unknown.append(f"tool {reference!r} {field} is not accepted: {fact['reason']}")
+            if item:
+                measurements.append(measurement_entry("tools", reference, field))
+    for key in ("drill_dia_mm", "drill_length_mm", "countersink_angle_deg"):
+        declared, own = process.get(key, UNKNOWN), tool[key]
+        if not _number(declared):
+            unknown.append(f"the declared {key} is unknown")
+        elif _number(own) and not (
+            abs(declared - own) <= ANGLE_TOLERANCE_DEG
+            if key == "countersink_angle_deg"
+            else same_length(declared, own)
+        ):
+            errors.append(
+                f"the declared {key} {declared:g} is not tool {reference!r}'s "
+                f"{_TOOL_FACTS[key]} {own:g}"
+            )
+    mouth, body = process.get("mouth_dia_mm", UNKNOWN), tool["body_dia_mm"]
+    if not _number(mouth):
+        unknown.append("the declared mouth_dia_mm is unknown")
+    elif _number(body) and mouth > body + LENGTH_TOLERANCE_MM:
+        errors.append(
+            f"the declared Ø{mouth:g} mouth is wider than tool {reference!r}'s Ø{body:g} body"
+        )
+    status = "error" if errors else "unknown" if unknown else "pass"
+    return {
+        "status": status,
+        "reasons": errors or unknown,
+        "tool": tool,
+        "measurements": measurements,
     }
 
 

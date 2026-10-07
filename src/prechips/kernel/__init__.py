@@ -124,7 +124,7 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
     """One op's kernel inputs; ``tables`` is its setup's coordinates numbers, whose printed
     cutter-centre checkpoints the kernel checks against the stock model (``checkpoints``)."""
     from prechips.joint_features import joint_operation
-    from prechips.process_features import process_operation
+    from prechips.process_features import centre_tool, process_operation
     from prechips.rules.geometry_common import (
         ROTARY,
         TURNING,
@@ -185,8 +185,16 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
                 "point_angle",
                 require_measured=False,
             )
-            if point["verified"] and number(point["value"]) and 0 < point["value"] < 180:
+            # The kernel cuts only the centre the selected tool itself makes.
+            binding = centre_tool(bundle, op)
+            if binding["status"] != "pass":
+                process_cut["reason"] = (
+                    f"{process_cut['label']} is not the centre tool {op.get('tool')!r} cuts: "
+                    + "; ".join(binding["reasons"])
+                )
+            elif point["verified"] and number(point["value"]) and 0 < point["value"] < 180:
                 process_cut["point_angle_deg"] = point["value"]
+                process_cut["body_dia_mm"] = binding["tool"]["body_dia_mm"]
             else:
                 process_cut["reason"] = (
                     f"{process_cut['label']} pilot point angle of tool {op.get('tool')!r} "

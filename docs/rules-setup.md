@@ -38,26 +38,41 @@ limit appears as a fallback.
 
 ## `centre_support`
 
-One subject per setup. Not applicable unless the hold rides on a centre: a
-dead/live centre `support`, or a declared `centre_hole` / `centre_hole_dia_mm`.
+One subject per setup. Always required wherever a centre carries the work: no
+shop-policy entry is needed and none can waive it (`findings.ALWAYS_REQUIRED`,
+like `joint_fit`/`joint_assembly`). A centre is a `support` or any `supports`
+entry whose fixture `kind` is a dead or live centre (`dead_centre`,
+`live_centre`, either spelling), a machine standard accessory named a centre
+(`dead_centre_headstock`), or a hold that declares `centre_hole` /
+`centre_hole_dia_mm`. A hold with no centre is not applicable and never blocks.
 The hold's `centre_hole` must name a plan
 [process feature](plan.md#process-features) `centre_hole`; a `center_drill`
-op of an earlier setup in this setup's `stock_in` lineage must drill it, and
-its `mouth_dia_mm` must equal `centre_hole_dia_mm`.
+op of an earlier setup in this setup's `stock_in` lineage must drill it, that
+op's preparation must be established (its [`blind_depth`](rules-operations.md#blind_depth-tip-endpoints)
+centre row: the selected tool's own centre, its mouth on the touched entry
+surface and, on a lathe, on the spindle axis), and its `mouth_dia_mm` must equal
+`centre_hole_dia_mm`.
 
 - **error:** the lineage is fully declared and no earlier setup in it drills
-  the centre (none does, or only this setup or a later one does), or the hold's
-  seat and the drilled mouth differ;
-- **unknown:** `centre_hole` is undeclared, a lineage setup lacks `stock_in`, or
-  the seat or mouth diameter is unknown;
+  the centre (none does, or only this setup or a later one does), the maker's
+  preparation is contradicted (a centre size its selected tool does not cut,
+  or a mouth off the surface or axis its quill is touched on and fed along), or
+  the hold's seat and the drilled mouth differ;
+- **unknown:** `centre_hole` is undeclared; any setup in the lineage (this one
+  or one upstream) lacks `stock_in`; a centre size, a selected-tool fact or the
+  touched entry surface is unknown; the seat or mouth diameter is unknown; or
+  no centre is known but a support reference is unknown or not in the
+  inventory (it may be one). A wholly undeclared hold names no support: its
+  debt is `hold_fields`', and this rule is not applicable;
 - **pass:** otherwise, naming the setup and op that drilled it.
 
-Evidence: support, centre, the ops that drill it before and after, mouth and
-seat diameters, and the Table 6 depth arithmetic (`drill_length_mm`,
+Evidence: support, the centres found, the centre, the ops that drill it before
+and after, whether the lineage is routed, each maker's preparation status,
+mouth and seat diameters, and the Table 6 depth arithmetic (`drill_length_mm`,
 `countersink_depth_mm`, `depth_mm`). The kernel separately seats the centre in
 the cut countersink and checks it against the setup-entry stock; that check is
-a fixture render debt, not this rule. Like `hold_fields`, its unknown blocks
-(exit 4) only where the shop policy requires it; an error always exits 2.
+a fixture render debt, not this rule. Its unknown blocks (exit 4) under any
+shop policy; an error always exits 2.
 
 ## `headroom`
 
