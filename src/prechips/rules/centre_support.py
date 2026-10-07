@@ -31,6 +31,7 @@ from prechips.joint_features import _lineage
 from prechips.process_features import ACTIONS, centre_depth_mm, label, process_of
 from prechips.rules.resolution import (
     UNKNOWN,
+    identity,
     number,
     record,
     resolve,
@@ -83,9 +84,15 @@ def _centres(bundle, hold):
             unresolved.append(reference)
         elif _is_centre(kind, reference):
             centres.append(reference)
+    # One centre however the hold spells it (``support = "x"`` and ``supports =
+    # ["fixtures.x"]``): the item it selects (identity), printed as first spelled.
+    distinct = {}
+    for reference in centres:
+        distinct.setdefault(identity(bundle, reference, "fixtures"), reference)
+    centres = list(distinct.values())
     if not centres and any(key in hold for key in ("centre_hole", "centre_hole_dia_mm")):
         centres.append(hold.get("support", UNKNOWN))
-    return list(dict.fromkeys(centres)), unresolved
+    return centres, unresolved
 
 
 def _makers(bundle, setup, name):
