@@ -985,7 +985,7 @@ go_no_go = { dia = { go = 2.000, no_go = 2.090 } } # drawing band as printed, 2.
 dia = "rocker-rod-limit-gauges" # three plugs: GO 2.000 (drawing and process hold), process NO-GO 2.010, drawing NO-GO 2.090
 
 [setups.ops.inspection_methods]
-dia = "Plug-gauge after deburring both mouths: the drawing GO and NO-GO plugs first, then the process-hold NO-GO plug. Push each plug by hand through the strap; never force it."
+dia = "Plug-gauge after deburring both mouths. The drawing GO plug (2.000) must pass by hand through the strap. Offer the drawing NO-GO plug (2.090) gently at each mouth, then the process-hold NO-GO plug (2.010): neither may enter. Never force a plug."
 
 [[setups.ops]]
 op = 40
@@ -1253,7 +1253,7 @@ do = "scribe"
 feature = "top_edge"
 layout = "template" # AUTHOR'S CHOICE: template because an R800 line is beyond any trammel on this bench
 guide = { template = "rocker-outline-template" }
-note = "Outline template (make before S4; a scribing template, not the op 30 profile template, which is the inspection gauge): a 1.5 thick O1 gauge-plate cut-out of the finished rocker outline, its edges ON the nominal outline within 0.02 (top edge R800.00 and bottom arc R816.00 about the centre 808.00 above bore A, the tapered ends and both tip lands). AUTHOR'S CHOICE: wire-EDM cut by an outside shop from the part CAD, because no machine here holds an R800 line to 0.02. Over the hub it has a Ø14.1 hole with a Ø14 x 7.8 long steel bush bonded in it, flush with the template underside: a Ø11 clearance bore 3.9 deep clears the hub and the Ø9 washer, then an 8.000-8.015 bore 3.9 long slips over the Ø8 shoulder-screw head. At X 133.067, Y 8.456 from the bush axis it has a Ø2.0 sight hole over the rod hole. Lay-out: blue the upper strap face; drop the bush over the screw head so the template lies flat on the strap face; turn it until the rod hole shows concentric through the sight hole (the pin tip ends 0.12 below the strap face); hold it down by hand and scribe the top edge along the template edge."
+note = "Outline template (make before S4; a scribing template, not the op 30 profile template, which is the inspection gauge): a 1.5 thick O1 gauge-plate cut-out of the finished rocker outline, its edges ON the nominal outline within 0.02. The nominal outline, from the bore A axis with Y toward the arc centre: top edge R800.00 about X 0, Y 808.00, from X -145.240, Y 21.295 to X 145.240, Y 21.295; at each end a 5.59 radial land to X ±146.255, Y 15.800; a straight taper to X ±132.757, Y 2.872; bottom arc R816.00 about the same centre between those two points (Y -8.00 at X 0). AUTHOR'S CHOICE: wire-EDM cut by an outside shop to these dimensions, because no machine here holds an R800 line to 0.02. Over the hub it has a Ø14.1 hole with a Ø14 x 7.8 long steel bush bonded in it, flush with the template underside: a Ø11 clearance bore 3.9 deep clears the hub and the Ø9 washer, then an 8.000-8.015 bore 3.9 long slips over the Ø8 shoulder-screw head. At X 133.067, Y 8.456 from the bush axis it has a Ø2.0 sight hole over the rod hole. Lay-out: blue the upper strap face; drop the bush over the screw head so the template lies flat on the strap face; turn it until the rod hole shows concentric through the sight hole (the pin tip ends 0.12 below the strap face); hold it down by hand and scribe the top edge along the template edge."
 
 [[setups.ops]]
 op = 20
@@ -1307,8 +1307,8 @@ radius = "rocker-profile-template"
 arc_len = "rocker-profile-template" # engraved arc-length limit lines on the template's top blade
 [setups.ops.inspection_methods]
 height_above_pivot = [
-  "Profile template (make before S4; toolroom-made, example dimensions, plausible, not measured): ground steel base plate 380 x 110 x 12.7 with a pressed 6.500 h6 pivot pin, a 2.000 diamond pin with radial flats at X 133.067, Y 8.456 from the pivot pin (the nominal rod hole) and a Ø14 x 3 deep relief under the hub.",
-  "Template blades: two 2.0 ground blades, doweled and screwed round the part position, each working edge 1.00 outside the nominal outline: top blade R799.00 and bottom blade R817.00, both about the arc centre 808.00 above the pivot pin.",
+  "Profile template (make before S4; example dimensions, plausible, not measured; AUTHOR'S CHOICE: made to order by the same outside wire-EDM shop as the S4 op 10 outline template, because the shop cannot hold the R799/R817 blade edges to 0.01): ground steel base plate 380 x 110 x 12.7 with a pressed 6.500 h6 pivot pin, a 2.000 diamond pin with radial flats at X 133.067, Y 8.456 from the pivot pin (the nominal rod hole) and a Ø14 x 3 deep relief under the hub.",
+  "Template blades: two 2.0 blades, doweled and screwed round the part position, each working edge 1.00 outside the nominal outline given at S4 op 10: top blade R799.00 and bottom blade R817.00, both about the arc centre 808.00 above the pivot pin, each blade edge within 0.01 of its radius.",
   "Template engraving: a gap station at X 0 on the top blade; arc-length limit lines, radial through the arc centre, on the top blade at X ±144.808 and ±145.309 from the pivot pin (top-edge arc length 291.59 and 292.61) and on the bottom blade at X ±132.668 and ±133.172 (bottom arc length 266.19 and 267.21).",
   "The kit also holds a loose land square (ground steel block with a 40 long convex R800.00 stock face ground with the top blade, and a 12 blade square to the stock face at its end within 0.01 over 10) and a 0.02 to 1.00 feeler set.",
   "Set-up, after op 40: clean the part and the template. Lower the part over both pins onto its lower strap face with the hub in the relief, turn it counterclockwise against the diamond pin and hold it down by hand.",
@@ -1460,4 +1460,4 @@ go_no_go = { dia = { go = 2.000, no_go = 2.090 } } # drawing band as printed, 2.
 [setups.ops.checks]
 dia = "rocker-rod-limit-gauges"
 [setups.ops.inspection_methods]
-dia = "Clean the hole of oxide residue and oil, then push the drawing GO and NO-GO plugs by hand through the strap."
+dia = "Clean the hole of oxide residue and oil. The drawing GO plug (2.000) must pass by hand through the strap; offer the drawing NO-GO plug (2.090) gently at each mouth: it must not enter. Never force a plug."
