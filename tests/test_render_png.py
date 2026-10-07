@@ -2,6 +2,7 @@
 
 import json
 import math
+import re
 import struct
 import zlib
 from pathlib import Path
@@ -461,6 +462,18 @@ def test_dense_setup_pictures_print_every_label_at_body_size(name):
     assert [box for box in diagram.canvas.text_boxes if box[4] - box[2] < 21] == []
 
 
+def test_a_panel_with_many_point_keys_gets_the_height_to_print_them_apart():
+    # Rocker S1: seven operation panels; op 40 alone keys seven profile points (P3-P9).
+    diagram = _Diagram([], _example_spec("rocker-s1"))
+    diagram.render()
+    keys = [box for box in diagram.canvas.text_boxes if re.fullmatch(r"P\d+|PASS \d+", box[0])]
+    assert {box[0] for box in keys} >= {f"P{number}" for number in range(1, 13)}
+    for index, (label, x0, y0, x1, y1) in enumerate(keys):
+        for other, a0, b0, a1, b1 in keys[index + 1 :]:
+            apart = x1 + 4 <= a0 or a1 + 4 <= x0 or y1 + 4 <= b0 or b1 + 4 <= y0
+            assert apart, (label, other)
+
+
 @pytest.mark.parametrize("name", ["shaft-s1", "cone-s1"])
 def test_bar_end_labels_key_their_own_end_and_never_lead_along_the_axis_past_another_point(name):
     spec = _example_spec(name)
@@ -521,6 +534,7 @@ def test_plan_view_pad_and_clamp_badges_have_separate_uncrossed_leaders(name):
                 assert _leader_clearance(other_point, point, badge) >= 6, (code, other)
     # A keyed group's lane entry names it without another leader into the badged points.
     assert [label for label, _ in diagram.leaders if label in keyed] == []
+
 
 @pytest.mark.parametrize("keep_out", [None, [], [{"at": [5, 5], "dia_mm": 2}]])
 @pytest.mark.parametrize("axis", ["x", "y"])

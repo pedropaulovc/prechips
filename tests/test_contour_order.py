@@ -226,6 +226,11 @@ def test_raster_keep_out_splits_in_feed_order_and_preserves_clear_passes(tmp_pat
         "passes": 10,
         "cycle": "one_way",
         "lift_z": 5.0,
+        "run_axis": "x",
+        "area_ends": [0.0, 20.0],
+        "ends": [-3.0, 23.0],
+        "clearance_mm": 3.0,
+        "entry_pass": "not_applicable",
         "keep_out": [{"at": [10.0, 5.0], "dia_mm": 2.0}],
     }
 

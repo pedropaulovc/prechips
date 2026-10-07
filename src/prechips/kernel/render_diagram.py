@@ -1271,11 +1271,13 @@ class _Diagram:
         columns = 2 if len(ops) > 1 else 1
         rows = math.ceil(len(ops) / columns)
         width = (right - left - 12 * (columns - 1)) / columns
-        height = (bottom - top - 12 * (rows - 1)) / rows
+        heights = self._panel_heights(ops, paths, waypoints, width, bottom - top, columns)
+        tops = [top + sum(heights[:row]) + 12 * row for row in range(rows)]
         palette = (_BLUE, _GREEN, _AMBER, (113, 65, 137))
         for index, op in enumerate(ops):
             x = left + (index % columns) * (width + 12)
-            y = top + (index // columns) * (height + 12)
+            y = tops[index // columns]
+            height = heights[index // columns]
             colour = palette[index % len(palette)]
             _outline(
                 c,
@@ -1350,6 +1352,43 @@ class _Diagram:
                 perimeter=True,
                 exclusion=exclusion,
             )
+
+    def _panel_heights(self, ops, paths, waypoints, width, span, columns):
+        """Each panel row's height: equal rows unless an operation's keys need more room.
+
+        A panel keys its points in perimeter cells (at most sqrt(n) columns, as in
+        :meth:`_grid_cells`) between its title band and its bottom edge; rows whose keys
+        would stack closer than one badge height plus a 4 px gap take height from rows
+        with spare room, so dense key sets never overprint."""
+        c = self.canvas
+        rows = math.ceil(len(ops) / columns)
+        total = span - 12 * (rows - 1)
+        # Title band (31) and bottom margin (6) around one badge row (33 high).
+        needs = [37.0 + 33.0] * rows
+        for index, op in enumerate(ops):
+            labels = [
+                label if label.upper().startswith("P") else "P" + label
+                for label in (_plain(p["label"]) for p in waypoints if str(p.get("op", "")) == op)
+            ]
+            raster = sorted(
+                p["raster"]["pass"] for p in paths if str(p.get("op", "")) == op and p.get("raster")
+            )
+            labels.extend(f"PASS {number}" for number in dict.fromkeys(raster[:1] + raster[-1:]))
+            if not labels:
+                continue
+            cell = max(_badge_width(c, label) for label in labels)
+            fit = max(1, int((width - 12 + 8) / (cell + 8)))
+            key_rows = math.ceil(len(labels) / min(fit, math.ceil(math.sqrt(len(labels)))))
+            # Further badge rows on a 37 px pitch (33 high plus a 4 px gap).
+            need = 37 + 33 + 37 * (key_rows - 1)
+            needs[index // columns] = max(needs[index // columns], need)
+        equal = total / rows
+        if all(need <= equal for need in needs):
+            return [equal] * rows
+        if sum(needs) <= total:
+            spare = (total - sum(needs)) / rows
+            return [need + spare for need in needs]
+        return [total * need / sum(needs) for need in needs]
 
     def _raster_band(self, paths, project, colour, labels):
         """Draw ordinary rasters as a band, but keep-out rasters as independent lines.
