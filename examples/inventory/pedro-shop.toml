@@ -1370,6 +1370,19 @@ note = "Illustrative example purchase: 150 mm hardened ground gauge rod, 0.4823 
 dia_mm = { value = 12.25, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, both ends and middle" } }
 length_mm = { value = 150.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule" } }
 
+# Shop-made jaw buttons for the cone S11 vise hold: one between each soft jaw and a cone-sleeve
+# cap, its spigot in the reamed Ø12.27 journal bore. Ø16 is under the Ø17.26 socket mouth, so a
+# button bears on the cap annulus only; the 3 mm face holds each jaw off the body.
+[fixtures.cone-cap-jaw-buttons]
+kind = "jaw_buttons"
+name = "cone cap jaw buttons, 6061 aluminium, pair"
+present = true
+note = "Illustrative example item: two turned 6061 aluminium buttons, Ø16 x 3 mm face with a Ø12.2 x 2 mm spigot, a loose fit in the 12.256-12.286 mm journal bore; plausible values, not measured."
+dia_mm = { value = 16.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, button face" } }
+thickness_mm = { value = 3.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, face to shoulder" } }
+spigot_dia_mm = { value = 12.2, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, spigot" } }
+spigot_length_mm = { value = 2.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers depth rod, shoulder to spigot end" } }
+
 [machines.cone-bond-bench]
 name = "assembly bench"
 kind = "bench"

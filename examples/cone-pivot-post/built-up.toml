@@ -1226,7 +1226,8 @@ parallels_along = "x"
 parallels_centres_mm = [[0.0, -19.4], [0.0, 19.4]]
 jaw_above_parallels_mm = 50.8
 jaw_center_along_mm = 0.0
-jaw_protection = "AUTHOR'S CHOICE: two shop-made aluminium buttons, Ø16 x 3 mm with a Ø12.2 x 2 mm spigot that drops into the reamed journal bore, one on each cap. A button is smaller than the Ø17.26 socket mouth, so it bears on the cap annulus only, and it holds the jaws 3 mm off the body."
+jaw_buttons = "cone-cap-jaw-buttons"
+jaw_protection = "AUTHOR'S CHOICE: the jaw buttons; a Ø16 button is smaller than the Ø17.26 socket mouth, so it bears on the cap annulus only and holds the jaw 3 mm off the body."
 stop = "AUTHOR'S CHOICE: foot B on two 1/2 in tall, 1/8 in thick parallels against the jaws, under the foot at Y+-17.8..21.0, clear of both hole exits at X+-12.67."
 clamp = "AUTHOR'S CHOICE: seat a button in each end of the journal bore, close the soft jaws on the two buttons with the crank sleeve over the front jaw, tap B down on the parallels and tighten. Contact check before cutting: look along each jaw: daylight must show between the jaw and the body all round both buttons. The cap faces square the cross-bore to the jaws, so no clocking is needed; the jaw tops stay 8.6 mm under the head shoulder and 10.9 mm under the crank sleeve."
 [setups.zero.transfer]
