@@ -2251,8 +2251,8 @@ class _Traveler:
         return "?"
 
     def shop_made_sizes(self, reference):
-        """``[(solid, size)]`` for each made solid: its SHOP-MADE FIXTURE row's Size mm cell
-        (:meth:`shop_made_rows`), ``?`` for a row :meth:`shop_made_parts` withholds."""
+        """``[(solids, size)]`` for each made SHOP-MADE FIXTURE row (:meth:`shop_made_rows`):
+        its solids and Size mm cell, ``?`` for a row :meth:`shop_made_parts` withholds."""
         _, made, withheld, _, drilled, fits = self.shop_made_parts(reference)
         sizes = []
         for members in self.shop_made_rows(made, withheld, drilled):
@@ -2260,7 +2260,7 @@ class _Traveler:
             if _supply(first) != "made":
                 continue
             size = "?" if id(first) in withheld else self.solid_size(first, id(first) in fits)
-            sizes += [(solid, size) for solid in members]
+            sizes.append((members, size))
         return sizes
 
     @staticmethod

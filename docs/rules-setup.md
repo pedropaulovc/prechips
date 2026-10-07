@@ -384,14 +384,18 @@ only leave it there.
   derived, so other heights are given as Z values.
 - A made row's whole size in a make note it prints with, on a SHOP-MADE FIXTURE
   table (read on the setup whose sheet prints the table): the row's Size mm prints
-  it. The note names the row (`the <row>`, by its solid's name or its `label`) and
-  gives every edge the row prints: `the <row> to A x B x C` for a box (a cut-out
-  too), and `the <row> to D x L` or `the <row> [to] Ø D x L` for a cylinder. An
-  edge is a number in digits, `?` or `unknown`, perhaps with a unit (`mm`, `in`,
-  `inch`, `inches`, `"`, `″`), then `wide`, `high`, `thick`, `long` or `deep` and
-  a parenthesis. The size ends where no further `x` edge, digit or angle (`°`,
-  `deg`) follows. Each row the name denotes is its own restatement, rows sharing
-  a label or a note included, and a withheld row (`?`) as well. A size before a
+  it. The note is NFKC-normalised and split into tokens: whitespace collapses,
+  `x`, `X`, `×` and `*` are one separator, and a number splits from its unit and
+  from a glued separator (`65.2x11x10`, `4mmx8`, `Øunknown`). The note names the
+  row (`the <row>`, by its solid's name or its `label`, word for word) and gives
+  every edge the row prints: `the <row> [to] A x B x C` for a box (a cut-out too),
+  `the <row> [to] [Ø] D x L` for a cylinder. An edge is a number in digits (not a
+  fraction or part of a hyphen range), `?` or `unknown`, perhaps with a unit
+  (`mm`, `in`, `inch`, `inches`, `"`, `″`, `'`, `′`), then `wide`, `high`,
+  `thick`, `long` or `deep` and a parenthesis (one never closed ends at a `;`).
+  The size ends at the note's end, a word or a mark, not at a further number,
+  `x` or unit. Each row the name denotes is its own finding, rows sharing a
+  label or a note included, and a withheld row (`?`) as well. A size before a
   later finishing step is still the row's size, so it is given as an allowance
   over the printed size (`0.01 over`), not as a second size.
 
@@ -492,10 +496,15 @@ Not covered (never read, so never an error):
 - inspection text that sends a plug through in any other wording (`gently push
   …`, `the NO-GO goes through`);
 - make-note sizes that do not name the row (`sawn and milled to 11 x 10 x
-  65.2`, `turned Ø16 x 9.05`), a part of a solid (`the thread portion Ø4.80 x
-  7.2`, a counterbore), only some of a row's edges (`the arm to 11 x 10`), a
-  hole's Ø, fractions and hyphen ranges, a bought or existing part's note, and a
-  shop-made item's positions, fits and fasteners restated in text;
+  65.2`, `turned Ø16 x 9.05`, `drill Ø4 x 8 deep in the stud`), a part of a
+  solid (`the thread portion Ø4.80 x 7.2`, `the arm's nose`), only some of a
+  row's edges (`the arm to 11 x 10`), a hole's Ø, fractions and hyphen ranges,
+  a size with an angle on any edge (`0.5 x 45°`, `45 deg`, `45 (degrees)`), a
+  size a feature verb governs (`drill`, `bore`, `ream`, `tap`, `counterbore`,
+  `countersink`, `spot`, `spotface`, `chamfer` or `bevel` nearest before `the
+  <row>` in its clause: `drill and tap the stud to Ø4 x 8 deep` is the hole's),
+  a bought or existing part's note, and a shop-made item's positions, fits and
+  fasteners restated in text;
 - picture labels other than the cut (contact coordinates, stock sizes, jaw and
   Z labels), the picture's holder name against the CLEARANCE row's, and a
   clearance restated in op text.

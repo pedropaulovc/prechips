@@ -1,5 +1,6 @@
 """One fact, one source: free text must not restate a derived fact, nor contradict a field."""
 
+import itertools
 import re
 from copy import deepcopy
 from dataclasses import replace
@@ -725,6 +726,10 @@ ARM = "1/2 x 3/8 in bar (bought), sawn, then mill the arm to {}; drill the stop 
         "11 x 10 x 65.16",
         "65.2 × 11 × 10",
         "11.0 wide x 10 high x 65.20 long (±0.1)",
+        "158.67 (the plate's length) x 11 x 10",
+        "65.2 x 11 x 10 (±0.1 (approx))",
+        "65.2 x 11 x 10 (approx",
+        "65.2 x 11 x 10' long",
         "65.16 mm x 11 mm x 10 mm",
         "2.57 x 0.43 x 0.39 inches",
         "2.57 x 0.43 x 0.39 (in)",
@@ -759,6 +764,50 @@ def test_a_named_cylinder_s_diameter_and_length_restate_its_size(note):
     assert "screw Ø6.4 × 13.5" in row.sentence
 
 
+SPACINGS = ("{a} {by} {b}", "{a}{by}{b}", "{a} {by}{b}", "{a}{by} {b}")
+SEPARATORS = ("x", "X", "×", "*")
+UNITS = ("", "mm", " in", " (inches)")
+SHAPING = ("turn", "mill", "finish")
+FEATURE = ("drill", "bore", "ream", "tap", "counterbore", "countersink", "spot", "chamfer")
+ANGLES = ("", "°", " deg", " degrees", " (deg)", " (°)")
+
+
+def test_a_named_cylinder_size_is_restated_in_every_spacing_separator_unit_and_verb():
+    # The stud prints Ø10 × 50. Only a feature verb (a hole or a chamfer) governing the
+    # statement, or an angle on either edge, makes it something other than the size.
+    wrong = []
+    for spacing, by, unit, verb, angle, first in itertools.product(
+        SPACINGS, SEPARATORS, UNITS, SHAPING + FEATURE, ANGLES, (True, False)
+    ):
+        a, b = ("4" + angle, "8" + unit) if first else ("4" + unit, "8" + angle)
+        note = f"{verb.title()} the stud to Ø" + spacing.format(a=a, by=by, b=b)
+        row = rows(jig(rod("stud", 10, 50, note)))["S1"]
+        expected = ("error", 1) if verb in SHAPING and not angle else ("not_applicable", 0)
+        if (row.status, row.numbers["claims"]) != expected:
+            wrong.append((note, row.status))
+    assert wrong == []
+
+
+def test_every_lead_and_edge_of_a_named_whole_size_restates_it():
+    wrong = []
+    for lead, edge, spacing, unit in itertools.product(
+        ("to Ø", "to Ø ", "Ø", "Ø ", "to ", ""), ("10", "?", "unknown"), SPACINGS, UNITS
+    ):
+        if edge == "unknown" and unit == "mm":
+            continue  # "unknownmm" is one word, not an edge and its unit
+        note = f"Turn the stud {lead}" + spacing.format(a=edge + unit, by="x", b="50" + unit)
+        row = rows(jig(rod("stud", 10, 50, note)))["S1"]
+        if (row.status, row.numbers["claims"]) != ("error", 1):
+            wrong.append((note, row.status))
+    for spacing, by, unit in itertools.product(SPACINGS, SEPARATORS, UNITS):
+        edges = spacing.format(a="65.2" + unit, by=by, b="11" + unit)
+        note = "Mill the arm to " + spacing.format(a=edges, by=by, b="10" + unit)
+        row = rows(jig(block("arm", [65.2, 11, 10], note)))["S1"]
+        if (row.status, row.numbers["claims"]) != ("error", 1):
+            wrong.append((note, row.status))
+    assert wrong == []
+
+
 def test_each_row_a_shared_note_names_is_its_own_restatement():
     note = "drill rod: turn the head Ø10 x 3 and the screw Ø6.4 x 13.5"
     row = rows(jig(rod("head", 10, 3, note), rod("screw", 6.35, 13.45, note)))["S1"]
@@ -777,6 +826,14 @@ def test_every_row_a_shared_label_names_is_restated_none_discharges_another(righ
     other = "pad 10 × 20 × 40" if "size_mm" in right else "pad ?"
     assert (row.status, row.numbers["claims"]) == ("error", 2)
     assert "pad 10 × 20 × 30" in row.sentence and other in row.sentence
+
+
+def test_each_withheld_row_a_shared_label_names_is_its_own_finding():
+    note = "Mill the pad to 10 x 20 x 30"
+    pads = [block(name, [10, 20, 30], note, label="pad", verify=True) for name in ("left", "right")]
+    row = rows(jig(*pads))["S1"]
+    assert (row.status, row.numbers["claims"]) == ("error", 2)
+    assert len(set(row.numbers["contradictions"])) == 2
 
 
 def test_only_the_named_row_s_size_is_read_beside_other_sizes():
@@ -804,6 +861,8 @@ def test_only_the_named_row_s_size_is_read_beside_other_sizes():
         "mill the arm, sawn, to 11 x 10 x 65.2",
         "the arm's nose to 11 x 10 x 65.2",
         "the armature to 11 x 10 x 65.2",
+        "mill the arm to M6 x 11 x 10, the arm to 6061T6 x 11 x 10",
+        "mill the arm to 65.2 x 11 x 10 (approx, 45°)",
     ],
 )
 def test_a_box_size_not_given_as_the_named_row_s_whole_size_is_not_read(note):
@@ -820,6 +879,9 @@ def test_a_box_size_not_given_as_the_named_row_s_whole_size_is_not_read(note):
         "chamfer the stud to 0.5 x 45°, then the stud to 0.5 x 45 deg",
         "the stud Ø6.49 x 76.5 x 2 off, the stud to 6.49-6.50 x 76.5",
         "turn the stud to 6.49 x 76.5 x 3, the stud to Ø6.49",
+        "Drill Ø4 x 8 deep in the stud",
+        "Drill and tap the stud to Ø4 x 8 deep",
+        "spot-drill, then drill the stud Ø4 x 8 and counterbore the stud Ø6 x 3",
     ],
 )
 def test_a_cylinder_size_not_given_as_the_named_row_s_whole_size_is_not_read(note):

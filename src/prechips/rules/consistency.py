@@ -20,13 +20,19 @@ not matter: the fact has one source, and the text may only leave it to that sour
   with ``jaw_above_parallels_mm``: the jaw tops are derived from the seated bottom and that
   field;
 * in the make note of a made SHOP-MADE FIXTURE row, on the sheet of the setup that prints
-  the item's table, a named row's whole size: ``the <row> to A x B x C`` for a box (a
-  cut-out too), ``the <row> to D x L`` or ``the <row> [to] Ø D x L`` for a cylinder, each
-  edge a number in digits (not a fraction or part of a hyphen range), ``?`` or ``unknown``,
-  perhaps with a unit, wide / high / thick / long / deep and a parenthesis, and no further
-  ``x`` edge, digit or angle after: the row's Size mm prints it. Every row the name denotes
-  restates it, whatever its numbers or unit (a size before a finishing step is an allowance
-  over the printed one).
+  the item's table, a named row's whole size. The note is NFKC-normalised and tokenised
+  (:func:`_tokens`: whitespace collapsed, ``x`` / ``X`` / ``×`` / ``*`` one separator, numbers
+  split from units and from a glued ``x``), then read as ``the <row> [to] [Ø] A x B [x C]``
+  (:func:`_size_at`) with as many edges as the row prints: a box's three (a cut-out's too),
+  a cylinder's Ø and length. Each edge is a number in digits (not a fraction or part of a
+  hyphen range), ``?`` or ``unknown``, perhaps with a length unit (feet and inch marks
+  too), then wide / high / thick / long / deep and a parenthesis, and no further number,
+  ``x`` or unit follows. An angle on any edge (``°``, ``deg``, ``degrees``, bare or in
+  parentheses) makes it no size, and so does a feature verb (drill, bore, ream, tap,
+  counterbore, countersink, spot, spotface, chamfer, bevel) nearest before ``the <row>`` in
+  its clause: that is the hole's or chamfer's size. The row's Size mm prints the size; each
+  row the name denotes is its own finding, whatever its numbers or unit (a size before a
+  finishing step is an allowance over the printed one).
 
 Compared. A ``T<n>`` in a setup's or op's text names that setup's TOOLS row:
 
@@ -60,7 +66,9 @@ computed CLEARANCE row of its holder prints while another op's row is not comput
 
 from __future__ import annotations
 
+import itertools
 import re
+import unicodedata
 
 from prechips.clamp_labels import clamp_labels
 from prechips.findings import Finding
@@ -101,18 +109,34 @@ _THROUGH = re.compile(
     + r")(?:\s+[\w-]+){0,4}?\s+through\b",
     re.I,
 )
-# A made row's whole size after ``the <row>`` in its make note. An edge is a number in digits
-# (not a fraction or part of a hyphen range; ``Ø``, a letter, may lead it), ``?`` or
-# ``unknown``, perhaps with a unit (mm, in, inch, inches, ″, "), then wide / high / thick /
-# long / deep and a parenthesis. The size ends where no further ``x`` edge, digit or angle
-# follows.
-_SIZE_EDGE = (
-    r"(?:(?<![0-9A-Za-z_./-])\d+(?:\.\d+)?(?![\d/]|\.\d|-\d)|\?|\bunknown\b)"
-    r"(?:\s*(?:mm|in|inch|inches)\b|\s*[\"″])?"
-    r"(?:\s+(?:wide|high|thick|long|deep)\b)?(?:\s*\([^()]*\))?"
+# Make-note tokens (:func:`_tokens`): a fraction or a hyphen range is one token, never an edge;
+# a length unit or ``unknown`` splits from a glued ``x`` (``4mmx8``, ``xunknown``); ``Ø``
+# stands alone (``Øunknown``); an apostrophe between letters is the word's (``arm's``).
+_GLUED = r"(?=(?:x(?:unknown)?)?(?![^\W\d_]))"
+_TOKEN = re.compile(
+    r"(?P<frac>\d+(?:\.\d+)?(?:-\d+)?/\d+)|(?P<range>\d+(?:\.\d+)?-\d+(?:\.\d+)?)"
+    rf"|(?P<num>\d+(?:\.\d+)?)|(?P<dia>[Øø⌀])|(?P<unit>(?:mm|inches|inch|in){_GLUED})"
+    rf"|(?P<unknown>unknown{_GLUED})|(?P<by>x(?=unknown(?:x|(?![^\W\d_]))))"
+    r"|(?P<word>[^\W\d_Øø]+(?:['’][^\W\d_Øø]+)*)|(?P<mark>\S)",
+    re.I,
 )
-_SIZE_BY = r"\s*[x×]\s*"
-_SIZE_END = r"(?!\s*[x×](?![^\W\d_])|\s*(?:°|deg\b|degrees?\b))"
+_LENGTH = frozenset({"mm", "in", "inch", "inches", '"', "'", "′"})
+_ANGLE = frozenset({"°", "deg", "degs", "degree", "degrees"})
+_EDGE_WORDS = frozenset({"wide", "high", "thick", "long", "deep"})
+_CLAUSE = frozenset({";", ",", ":", ".", "!"})
+# The verb nearest before ``the <row>`` in its clause: one that makes a feature on the row (a
+# hole or a chamfer) gives that feature's size, one that shapes the row its own.
+_FEATURE_VERB = re.compile(
+    r"drill(?:s|ed|ing)?|bor(?:e|es|ed|ing)|ream(?:s|ed|ing)?|tap(?:s|ped|ping)?"
+    r"|counterbor(?:e|es|ed|ing)|countersink(?:s|ing)?|countersunk|spot(?:s|ted|ting)?"
+    r"|spotfac(?:e|es|ed|ing)|chamfer(?:s|ed|ing)?|bevel(?:s|ed|led|ing|ling)?"
+)
+_SHAPE_VERB = re.compile(
+    r"turn(?:s|ed|ing)?|mill(?:s|ed|ing)?|fac(?:e|es|ed|ing)|saw(?:s|n|ed|ing)?|cut(?:s|ting)?"
+    r"|grind(?:s|ing)?|ground|lap(?:s|ped|ping)?|machin(?:e|es|ed|ing)|finish(?:es|ed|ing)?"
+    r"|mak(?:e|es|ing)|made|fil(?:e|es|ed|ing)|rough(?:s|ed|ing)?|part(?:s|ed|ing)?"
+    r"|hon(?:e|es|ed|ing)|plan(?:e|es|ed|ing)|shap(?:e|es|ed|ing)"
+)
 
 
 def _texts(value):
@@ -508,6 +532,88 @@ def _no_go(op):
     return len(found), found, []
 
 
+def _tokens(text):
+    """``(text, tokens)``: ``text`` NFKC-normalised, whitespace collapsed, ″ / '' / “ ” as
+    ``"``; each token ``[kind, lower-case value, start, end]``. ``x`` / ``×`` / ``*`` are
+    ``by``; a number glued to a word other than a unit or ``x`` is part of a ``name`` (M6,
+    6061T6)."""
+    text = re.sub(r"\s+", " ", unicodedata.normalize("NFKC", text)).strip()
+    text = re.sub(r"′′|''|[“”]", '"', text)
+    tokens = []
+    for m in _TOKEN.finditer(text):
+        value = m[0].lower()
+        kind = "by" if value in ("x", "×", "*") else m.lastgroup
+        tokens.append([kind, value, m.start(), m.end()])
+    for before, after in itertools.pairwise(tokens):
+        if before[3] == after[2]:
+            if before[0] == "word" and after[0] == "num":
+                after[0] = "name"
+            elif before[0] == "num" and after[0] == "word" and after[1] not in _ANGLE:
+                before[0] = "name"
+    return text, tokens
+
+
+def _edge_tail(values, i):
+    """Where a size edge's tail from ``values[i]`` ends: a length unit, then wide / high /
+    thick / long / deep, then a parenthesis (one never closed ends at a ``;`` or the note's
+    end). None when an angle unit is in it (``45°``, ``45 deg``, ``45 (degrees)``)."""
+    if i < len(values) and values[i] in _LENGTH:
+        i += 1
+    if i < len(values) and values[i] in _EDGE_WORDS:
+        i += 1
+    if i < len(values) and values[i] == "(":
+        start, depth = i, 0
+        while i < len(values) and values[i] != ";":
+            depth += {"(": 1, ")": -1}.get(values[i], 0)
+            i += 1
+            if depth == 0:
+                break
+        if _ANGLE & set(values[start:i]):
+            return None
+    if i < len(values) and values[i] in _ANGLE:
+        return None
+    return i
+
+
+def _size_at(tokens, i):
+    """``(after, edges)`` for ``[to] [Ø] edge x edge [x edge]`` at ``tokens[i]``: each edge a
+    number, ``?`` or ``unknown`` and its tail (:func:`_edge_tail`), then a terminator (the
+    note's end, a word or a mark, not a number, ``x`` or unit). None for anything else."""
+    values = [t[1] for t in tokens]
+    if i < len(values) and values[i] == "to":
+        i += 1
+    dia = i < len(tokens) and tokens[i][0] == "dia"
+    i += dia
+    edges = 0
+    while i < len(tokens) and (tokens[i][0] == "num" or values[i] in ("?", "unknown")):
+        i, edges = _edge_tail(values, i + 1), edges + 1
+        if i is None:
+            return None
+        if edges == 3 or i + 1 >= len(tokens) or tokens[i][0] != "by":
+            break
+        i += 1
+    else:
+        return None
+    if edges < 2 or (dia and edges != 2):
+        return None
+    if i < len(tokens):
+        if tokens[i][0] in ("num", "frac", "range", "name", "by") or values[i] in _LENGTH:
+            return None
+    return i, edges
+
+
+def _feature_verb(tokens, i):
+    """Whether the verb nearest before ``tokens[i]`` in its clause makes a feature."""
+    for kind, value, *_ in reversed(tokens[:i]):
+        if value in _CLAUSE:
+            return False
+        if kind == "word" and _FEATURE_VERB.fullmatch(value):
+            return True
+        if kind == "word" and _SHAPE_VERB.fullmatch(value):
+            return False
+    return False
+
+
 def _arity(solid):
     """How many edges a made row's Size mm prints: a box's three (a cut-out's too), a
     cylinder's Ø and length. None for a hole, whose Ø alone is not read."""
@@ -518,38 +624,48 @@ def _arity(solid):
     return None
 
 
-def _note_sizes(traveler, title, text, rows):
-    """The made rows (``rows``: solid, Size mm cell) whose whole size one make note they
-    print with restates: ``the <row> to`` its edges (a box's three, a cylinder's Ø and
-    length) or ``the <row> [to] Ø D x L`` for a cylinder. Each row the name denotes is its
-    own restatement, whatever the numbers, units or unknown edges say."""
+def _note_sizes(traveler, title, note, rows):
+    """The SHOP-MADE FIXTURE rows (``rows``: solids, Size mm cell) whose whole size the make
+    note they print with restates: ``the <row>`` (a solid's name or the row's label) then
+    :func:`_size_at` with as many edges as the row prints, not governed by a feature verb.
+    Each row the name denotes is its own finding, whatever the numbers or units say."""
     from prechips.sheet import _solid_name
 
     names = {}
     for row in rows:
-        label = row[0].get("label")
-        for name in {_solid_name(row[0].get("name", "?")), label and traveler.bench(label)}:
+        members, _ = row
+        label = members[0].get("label")
+        spelled = {_solid_name(s.get("name", "?")) for s in members}
+        for name in spelled | {label and traveler.bench(label)}:
             if name:
-                names.setdefault(name.lower(), []).append(row)
-    named = "|".join(re.escape(name) for name in sorted(names, key=len, reverse=True))
-    by = f"{_SIZE_BY}{_SIZE_EDGE}"
-    to = re.compile(rf"\bthe\s+({named})\s+to\s+{_SIZE_EDGE}{by}({by})?{_SIZE_END}", re.I)
-    turned = re.compile(rf"\bthe\s+({named})\s+(?:to\s+)?Ø\s*{_SIZE_EDGE}{by}{_SIZE_END}", re.I)
-    # ``to`` gives two edges (a cylinder's Ø and length) or three (a box's); ``Ø`` two.
-    sized = [(m, 3 if m[2] else 2) for m in to.finditer(text)]
-    sized += [(m, 2) for m in turned.finditer(text)]
-    found = {}
-    for match, edges in sized:
-        for solid, cell in names[match[1].lower()]:
-            if _arity(solid) != edges:
+                key = tuple(t[1] for t in _tokens(name)[1])
+                names.setdefault(key, {})[id(members)] = row
+    keys = sorted(names, key=len, reverse=True)
+    text, tokens = _tokens(note)
+    values = [t[1] for t in tokens]
+    found = []
+    for i, value in enumerate(values):
+        if value != "the":
+            continue
+        key = next((k for k in keys if tuple(values[i + 1 : i + 1 + len(k)]) == k), None)
+        size = key and _size_at(tokens, i + 1 + len(key))
+        if not size or _feature_verb(tokens, i):
+            continue
+        after, edges = size
+        said = text[tokens[i][2] : tokens[after - 1][3]]
+        for members, cell in names[key].values():
+            if _arity(members[0]) != edges:
                 continue
-            row = traveler.bench(solid.get("label") or _solid_name(solid.get("name", "?")))
-            found[
-                f'the {title} make note gives a made row\'s size ("{match[0]}"), but its '
-                f"SHOP-MADE FIXTURE table prints that size ({row} {cell}); leave it to the "
+            first = members[0]
+            row = traveler.bench(first.get("label") or _solid_name(first.get("name", "?")))
+            solids = ", ".join(str(s.get("name", "?")) for s in members)
+            found.append(
+                f'the {title} make note gives a made row\'s size ("{said}"), but its '
+                f"SHOP-MADE FIXTURE table prints that size ({row} {cell}; "
+                f"{'solids' if len(members) > 1 else 'solid'} {solids}); leave it to the "
                 "table and drop the restatement"
-            ] = None
-    return len(found), list(found), []
+            )
+    return len(found), found, []
 
 
 def _restated_sizes(traveler, setup):
@@ -563,12 +679,13 @@ def _restated_sizes(traveler, setup):
             continue
         traveler.fixture_unknowns = set()
         notes = {}
-        for row in traveler.shop_made_sizes(reference):
-            if row[0].get("note"):
-                notes.setdefault(traveler.bench(row[0]["note"]).rstrip("."), []).append(row)
+        for members, size in traveler.shop_made_sizes(reference):
+            if members[0].get("note"):
+                note = traveler.bench(members[0]["note"]).rstrip(".")
+                notes.setdefault(note, []).append((members, size))
         title = traveler.reference(reference, "fixtures")
-        for text, rows in notes.items():
-            c, f, _ = _note_sizes(traveler, title, text, rows)
+        for note, rows in notes.items():
+            c, f, _ = _note_sizes(traveler, title, note, rows)
             claims, found = claims + c, found + f
     return claims, found, []
 
