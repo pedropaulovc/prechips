@@ -2,6 +2,7 @@
 
 import functools
 import re
+from html import unescape
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -205,6 +206,48 @@ def test_ops_with_one_tool_obstacle_clearance_and_action_share_a_row():
     assert [row[0] for row in rows] == ["60, 70"]
 
 
+def near_holding(mm, tag="clamp 2 diamond-pin:collar"):
+    """A clearance sheet whose kernel picture measured op 60's cut ``mm`` from ``tag``; the
+    hold's second clamp entry is a locator (LOC2)."""
+    sheet = clearance_sheet(reach_records(top=4.47))
+    scene = {"cut_clearances": [{"op": 60, "mm": mm, "tag": tag}]}
+    sheet.report = {"renders": {"S1": {"scene": scene}}}
+    clamps = [{"ref": "strap"}, {"ref": "diamond-pin", "restraint": "locate"}]
+    return sheet, {**SPOT, "hold": {"clamps": clamps}}
+
+
+def test_the_holding_nearest_the_cut_is_a_clearance_row_and_a_hand_feed_check_on_the_op():
+    # Holder face 22.03 over the stock; the locator's collar 1.57 from the cut is closer.
+    sheet, setup = near_holding(1.57)
+    ((ops, _, obstacle, value, action),) = sheet.clearance_rows(setup, headroom(40.0), {})
+    assert (obstacle, value) == ("LOC2 collar beside the cut", "1.570")
+    assert action == "hand feed past the LOC2 collar; check the cutter clears it"
+    (box,) = sheet.crash_boxes(setup, setup["ops"][0])
+    assert box == "LOC2 COLLAR 1.570 mm FROM THE CUT — hand feed past it"
+    # Jaw tops 1.2 below the tip are closer still: the collar stays named, with its gap.
+    numbers = headroom(40.0, tip_above_jaws=1.2, jaw_top_z=-1.7)
+    ((_, _, obstacle, _, action),) = sheet.clearance_rows(setup, numbers, {})
+    assert "jaw" in obstacle and "hand feed past the LOC2 collar (1.570 mm)" in action
+
+
+@pytest.mark.parametrize(
+    ("mm", "tag", "obstacle", "action"),
+    [
+        # Past the crash zone: a clearance like any other, no check.
+        (12.0, "profile-fixture:pad-r1", None, ""),
+        (3.5, "profile-fixture:pad-r1", "pad r1 beside the cut", ""),
+        # The kernel could not derive the op's cut: never a pass.
+        ("unknown", "unknown", None, "holding beside the cut: not computed — check at"),
+    ],
+)
+def test_a_far_or_unknown_holding_clearance_is_no_hand_feed_check(mm, tag, obstacle, action):
+    sheet, setup = near_holding(mm, tag)
+    ((_, _, printed, _, actions),) = sheet.clearance_rows(setup, headroom(40.0), {})
+    assert obstacle is None or printed == obstacle
+    assert action in actions and "hand feed" not in actions
+    assert sheet.crash_boxes(setup, setup["ops"][0]) == []
+
+
 def contour_records(levels):
     operation = {"op": 10, "dro_to_z": -0.6}
     if levels is not None:
@@ -254,9 +297,31 @@ def test_a_single_level_contour_heading_keeps_its_one_z():
         assert "depth levels" not in html
 
 
+def test_each_depth_level_has_a_place_to_mark_it_done():
+    html = shop(contour_records([-0.25, -0.5, -0.6])).contours(POCKET, {"c": "T1"})
+    assert re.findall(r'<span class="tick"></span>level (\d) of 3', html) == ["1", "2", "3"]
+    # One level: the op row is the only mark it needs.
+    assert "tick" not in shop(contour_records([-0.6])).contours(POCKET, {"c": "T1"})
+
+
+def test_a_raster_block_says_how_to_lift_not_what_its_table_already_shows():
+    html = shop(contour_records(None)).contours(POCKET, {"c": "T1"})
+    block = html.split("</h3>", 1)[1].split("<table", 1)[0]
+    assert "Lift to Z 5.000 after each pass." in block, block
+    for narration in ("passes", "stepover", "stage", "cutting order", "pass ends", "13.765"):
+        assert narration not in block, (narration, block)
+    # The passes are numbered: the table is where their count and ends are read.
+    assert re.search(r"<td>1</td>.*<td>2</td>", html)
+
+
 def kernel_stock(box_mm, status="ok"):
     """A bundle whose kernel modelled S1's entry stock as setup-frame box ``box_mm``."""
     return SimpleNamespace(kernel={"status": status, "setups": {"S1": {"stock_bbox_mm": box_mm}}})
+
+
+def raster_notes(html):
+    """Each raster table's note: how its passes lift, and what of their ends is proven."""
+    return re.findall(r"<p>([^<]*after each pass[^<]*)</p>", html)
 
 
 def raster_note(bundle, units="mm", removal=None, records=None):
@@ -267,8 +332,10 @@ def raster_note(bundle, units="mm", removal=None, records=None):
     op = {**POCKET["ops"][0]}
     if removal is not None:
         op["stock_removal_bounds"] = removal
-    html = sheet.contours({"id": "S1", "ops": [op]}, {"c": "T1"})
-    return html.split("Raster, ", 1)[1].split("</p>", 1)[0]
+    (note,) = raster_notes(sheet.contours({"id": "S1", "ops": [op]}, {"c": "T1"}))
+    # The table prints the pass ends: the note names an end by its side only.
+    assert "13.765" not in note
+    return note
 
 
 # What the sheet may say only on proof: a pass end or pass 1 in air, or a pass in material.
@@ -286,7 +353,6 @@ AIR, MATERIAL = re.compile(r"\bair\b|\bclear\b"), re.compile(r"wall|material|plu
 def test_an_op_removal_box_alone_never_puts_a_raster_end_in_air_or_in_material(removal, bundle):
     # stock_removal_bounds is what the op may remove; stock past it may stand or not.
     note = raster_note(bundle, removal=removal)
-    assert "pass ends X -13.765 / 13.765" in note
     assert not AIR.search(note) and not MATERIAL.search(note)
 
 
@@ -313,8 +379,12 @@ def test_raster_ends_are_in_air_only_a_cutter_radius_past_the_kernel_entry_stock
     units, box_mm, air
 ):
     note = raster_note(kernel_stock(box_mm), units, removal={"x": [-9.0, 9.0]})
-    assert "pass ends X -13.765 / 13.765" in note and not MATERIAL.search(note)
-    claimed = [end for end in ("-13.765", "13.765") if re.search(rf"X {end} end|both", note)]
+    assert not MATERIAL.search(note)
+    claimed = [
+        end
+        for end, side in (("-13.765", "-X"), ("13.765", "+X"))
+        if re.search(rf"both in air|{re.escape(side)} pass end is in air", note)
+    ]
     if "pass 1" in note:
         claimed.append("pass 1")
     assert claimed == air and bool(AIR.search(note)) is bool(air)
@@ -356,7 +426,7 @@ def face_notes(box_mm, *profiles):
     sheet = shop(records)
     sheet.bundle = kernel_stock(box_mm)
     html = sheet.contours(POCKET, {"c": "T1"})
-    return [part.split("</p>", 1)[0] for part in html.split("Raster, ")[1:]]
+    return raster_notes(html)
 
 
 # The universal claim over a raster's passes, and the stock the face op receives.
@@ -396,8 +466,10 @@ def test_a_stage_whose_pieces_prove_less_does_not_share_the_op_raster_claim():
     rough, finish = face_raster(False, "rough"), face_raster(True, "finish")
     notes = face_notes(FACE_STOCK, rough, finish)
     assert len(notes) == 2 and EVERY.search(notes[0])
-    # The split finish stage states its own ends without the rough stage's every-pass claim.
-    assert "-3.000 / 23.000" in notes[1] and not EVERY.search(notes[1])
+    # The split finish stage states its own outer ends without the rough stage's every-pass
+    # claim, and each table names its stage.
+    assert "outer pass ends both in air" in notes[1] and not EVERY.search(notes[1])
+    assert notes[0].startswith("Rough: lift") and notes[1].startswith("Finish: lift")
 
 
 @pytest.mark.parametrize(
@@ -410,7 +482,6 @@ def test_a_stage_whose_pieces_prove_less_does_not_share_the_op_raster_claim():
 )
 def test_raster_ends_claim_nothing_without_a_modelled_entry_stock(bundle):
     note = raster_note(bundle, removal={"x": [-9.0, 9.0]})
-    assert "pass ends X -13.765 / 13.765" in note
     assert not AIR.search(note) and not MATERIAL.search(note)
 
 
@@ -613,12 +684,14 @@ def through(**row):
 
 
 def run_outs(note, endpoint):
-    """The run-outs a breakthrough note claims: every number it prints besides the DRO tip
-    and exit face, so the off-grid exact tip or the point arithmetic would count too."""
-    printed = {f"{endpoint['dro_tip_z']:.3f}", f"{endpoint['dro_exit_face']:.3f}"}
+    """The run-outs a breakthrough note claims. The op row's Z column prints the DRO tip and
+    the exit face; the note repeats neither (no Z, no tip or face number)."""
+    if note is None:
+        return []
     numbers = re.findall(r"-?\d+\.\d+", note)
-    assert printed <= set(numbers)
-    return [float(v) for v in numbers if v not in printed]
+    printed = {f"{endpoint['dro_tip_z']:.3f}", f"{endpoint['dro_exit_face']:.3f}"}
+    assert "Z" not in note and not printed & set(numbers), note
+    return [float(v) for v in numbers]
 
 
 @pytest.mark.parametrize(
@@ -718,6 +791,47 @@ def test_a_procedure_authored_as_steps_prints_numbered_with_fields_and_its_calcu
     assert shop({}).note("S1 op 10 Ra", "Compare.") == "S1 op 10 Ra: Compare."
 
 
+ANGULARITY = [
+    "Orientation 1, position A then B. Journal rod rise: {rJ1}",
+    "Orientation 1. Crank rod rise: {rC1}",
+    "Orientation 2. Journal rod rise: {rJ2}",
+    "Orientation 2. Crank rod rise: {rC2}",
+    "Calculate: 0.945 × rC1 − 1.384 × rJ1 = {e1}",
+    "Calculate: √(e1² + e2²) = {result}; accept 0.10 or less.",
+]
+
+
+@pytest.mark.parametrize(
+    ("procedure", "worksheet"),
+    [
+        (ANGULARITY, True),  # readings worked through two calculation lines
+        (ANGULARITY[:5], False),  # one calculation line: a note
+        (["Seat it.", "Read it.", "Calculate: a = b", "Calculate: c = d"], False),  # no reading
+    ],
+)
+def test_readings_worked_through_several_calculations_get_a_worksheet_of_their_own(
+    procedure, worksheet
+):
+    from prechips.sheet import _worksheet
+
+    sheet = shop({})
+    notes, worksheets = ["an earlier note"], []
+    op = {"op": 110, "feature": "bore", "inspection_note": procedure}
+    sheets = {"notes": 2, "worksheets": 4}
+    cell = sheet.inspection({"id": "S11"}, op, notes, worksheets, sheets)
+    if not worksheet:
+        assert cell == ["see S11 sheet 2 note 2"] and not worksheets
+        return
+    assert cell == ["see S11 sheet 4 worksheet"] and notes == ["an earlier note"]
+    html = _worksheet(worksheets[0])
+    # Each step names its reading; the READINGS table has one line per reading, with the
+    # step that takes it and an empty value cell; the calculations keep their blanks.
+    assert '<li>Orientation 2. Crank rod rise: <b class="reading">[rC2]</b></li>' in html
+    readings = re.findall(r"<tr><td[^>]*>(\d)</td><td>\[(\w+)\]</td><td></td></tr>", html)
+    assert readings == [("1", "rJ1"), ("2", "rC1"), ("3", "rJ2"), ("4", "rC2")]
+    assert html.count("____________") == 2  # e1 and result, on the calculation lines
+
+
 @pytest.mark.parametrize(
     ("method", "known"),
     [
@@ -775,7 +889,7 @@ def _bench_sheet(ops):
         kernel={"status": "ok", "ops": {}},
     )
     sheet = _Traveler(data, [], {}, None)
-    html, _, _ = sheet.operations(data.plan["setups"][0], {}, {"notes": 2})
+    html, _, _, _ = sheet.operations(data.plan["setups"][0], {}, {"notes": 2})
     return html
 
 
@@ -808,6 +922,108 @@ def test_a_setup_with_any_cutting_op_keeps_the_machining_table():
     html = _bench_sheet([paint, {"op": 20, "do": "drill", "feature": "body"}])
     assert "<h2>OPERATIONS</h2>" in html and "FINISHING" not in html
     assert "rpm" in re.findall(r"<th>([^<]*)</th>", html)
+
+
+def _lathe_sheet(ops, hands):
+    from prechips.inputs import Bundle
+
+    tools = {name: {"kind": "lathe_tool_bit", "name": name} for name in hands}
+    for name, hand in hands.items():
+        if hand is not None:
+            tools[name]["hand"] = hand
+    data = Bundle(
+        plan={"setups": [{"id": "S1", "machine": "lathe", "ops": ops}]},
+        inventory={"machines": {"lathe": {"kind": "lathe"}}, "tools": tools},
+        features={"features": {"body": {"kind": "cylinder"}}},
+        policy={},
+        cutting_data={},
+        paths={},
+        hashes={},
+        root=Path("."),
+        kernel={"status": "ok", "ops": {}},
+    )
+    sheet = _Traveler(data, [], {}, None)
+    html, _, _, stops = sheet.operations(data.plan["setups"][0], {}, {"notes": 2})
+    rows = {}
+    for row in re.findall(r"<tr>(.*?)</tr>", html, re.DOTALL):
+        found = re.findall(r"<td>(.*?)</td>", row, re.DOTALL)
+        cells = [unescape(re.sub(r"<[^>]+>", " ", cell)).split() for cell in found]
+        if len(cells) > 4 and cells[0]:
+            rows[cells[0][0]] = cells[4]  # op number -> its rpm cell's words
+    return html, rows, stops
+
+
+@pytest.mark.parametrize(
+    ("tool", "shank"),
+    [
+        ({"dia_mm": 21.8, "shank_in": 0.5}, "shank Ø12.700"),  # a reduced-shank drill
+        ({"dia_mm": 9.525, "shank_in": 0.375}, None),  # shank and cut the same size
+        ({"dia_mm": 21.8}, None),  # no shank declared: nothing claimed
+    ],
+)
+def test_a_tool_row_prints_the_shank_where_it_differs_from_the_cutting_diameter(tool, shank):
+    sheet = shop({})
+    sheet.bundle.inventory = {"tools": {"drill": {"kind": "drill", **tool}}}
+    detail = sheet.tool_detail("drill")
+    assert [d for d in detail if d.startswith("shank")] == ([shank] if shank else [])
+
+
+JOINT = {
+    "kind": "cylindrical",
+    "socket": "socket",
+    "spigot": "spigot",
+    "fit": "clearance",
+    "clearance_mm": [0.044, 0.076],
+    "method": "retaining_compound",
+    "process": "retaining compound",
+    "cure_time_min": 1440,
+    "surface_prep": "solvent-degreased and dry",
+}
+
+
+@pytest.mark.parametrize("fit_op", [True, False])
+def test_a_joint_prep_and_cure_print_once_on_the_op_that_fits_it_not_in_the_arrival(fit_op):
+    sheet = shop({})
+    sheet.features = {"socket": {"thru": True}}
+    ops = [{"op": 10, "do": "inspect"}] + ([{"op": 20, "do": "fit"}] if fit_op else [])
+    setup = {"id": "S6", "joint": JOINT, "ops": ops}
+    arrival = sheet.joint_text(setup)
+    at_ops = [sheet.compound_note(setup, op) for op in ops]
+    # What goes into what, and the band, always arrive with the parts.
+    assert "spigot into through-socket socket, clearance 0.044 to 0.076 mm diametral." in arrival
+    # Prep and the undisturbed cure print exactly once: on the fit op, else on arrival.
+    cure = (
+        "Surface prep: solvent-degreased and dry. Do not disturb until cured: cure time 1440 min."
+    )
+    printed = [text for text in [arrival, *at_ops] if text and "Surface prep" in text]
+    assert len(printed) == 1 and ("cure time 1440 min" in printed[0])
+    assert at_ops == ([None, cure] if fit_op else [None])
+
+
+def test_each_lathe_op_that_turns_the_spindle_names_which_way_from_its_tool_hand():
+    ops = [
+        {"op": 10, "do": "face", "feature": "body", "tool": "rh"},
+        {"op": 20, "do": "rough_turn", "feature": "body", "tool": "lh"},
+        {"op": 30, "do": "drill", "feature": "body", "tool": "lh"},  # a left-hand cut drill
+        {"op": 40, "do": "inspect", "feature": "body"},
+    ]
+    html, rows, stops = _lathe_sheet(ops, {"rh": "right", "lh": "left"})
+    # An edge-up turning tool of either hand: the work turns down onto it.
+    assert rows["10"][-1] == rows["20"][-1] == "FORWARD"
+    assert rows["30"][-1] == "REVERSE" and rows["40"] == ["—"]
+    assert (
+        "<h2>OPERATIONS — spindle FORWARD: the top of the work turns toward you; "
+        "spindle REVERSE: the top of the work turns away from you</h2>"
+    ) in html
+    assert "spindle direction not known" not in stops
+
+
+def test_a_lathe_tool_without_a_declared_hand_is_a_stop_not_a_guessed_direction():
+    ops = [{"op": 10, "do": "face", "feature": "body", "tool": "bit"}]
+    html, rows, stops = _lathe_sheet(ops, {"bit": None})
+    assert "STOP: spindle direction not known" in " ".join(rows["10"])
+    assert stops["spindle direction not known"] == ["10"]
+    assert "FORWARD" not in html
 
 
 @pytest.mark.parametrize(

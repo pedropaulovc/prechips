@@ -234,6 +234,39 @@ def test_a_listed_retouch_serves_only_the_next_tool():
     assert touch["z_axis_set"] == pytest.approx(0.05)
 
 
+def test_a_listed_retouch_installs_the_incoming_tool_and_none_for_the_same_tool():
+    # Ops 10 and 20 both run the end mill: the retouch after op 10 is no tool change. The
+    # one after op 20 serves the drill, which goes in before its touch.
+    zero = mill_zero({"face": "top", "tool": "mill"}, retouch_after=[10, 20])
+    ops = [
+        op(10, "face", "deck", "mill", to_z=0.0),
+        op(20, "face", "deck", "mill", to_z=0.0),
+        op(30, "drill", "hole", "drill"),
+    ]
+    data = bundle("mill", zero, ops, {"top_z": 2.0})
+    finding = evaluate(data)[0]
+    after = {row["op"]: row for row in finding.numbers["retouch"]}
+    assert (after[10]["next_op"], after[10]["tool_change"]) == (20, False)
+    assert (after[20]["next_op"], after[20]["next_tool"], after[20]["tool_change"]) == (
+        30,
+        "drill",
+        True,
+    )
+    sheet, setup = sheet_of(data)
+    html = sheet.dro(setup, {"mill": "T1 end mill", "drill": "T2 drill"})
+    assert "before the next tool" not in html
+    assert "After op 20, install T2 drill for op 30, then touch the top" in html
+    assert "After op 10, T1 end mill stays in for op 20: re-touch the top" in html
+    assert "install T1" not in html
+
+
+def test_a_mill_tool_touch_installs_its_tool_first():
+    ops = [op(10, "spot", "hole", "centre"), op(20, "drill", "hole", "drill")]
+    sheet, setup = sheet_of(bundle("mill", mill_zero(DECK), ops))
+    html = sheet.dro(setup, {"centre": "T1 centre drill", "drill": "T2 drill"})
+    assert "Before op 20, install T2 drill, then re-touch it:" in html
+
+
 def test_a_top_picked_up_after_a_facing_op_is_re_touched_where_that_op_left_it():
     # The face runs before the zero (no tool has set Z yet); the centre drill then
     # touches the faced top, and the drill repeats that touch at -2, not the incoming 0.
