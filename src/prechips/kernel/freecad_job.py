@@ -7485,10 +7485,11 @@ class _Setup:
         the axis of the stop solids' largest cylindrical face as [point, unit direction]
         pointing at the setup's +X, +Y or +Z side, and meshes of the work, its removal and
         the guide kit's solids. Stops at two heights along the axis (a button pair) are
-        sectioned square to it half-way between them (``section_mm``, a point on that
-        plane), the near half removed, so the near button does not hide the work it guides;
-        else the meshes are whole. None without stops, or when no stop solid is turned (no
-        axis to look along)."""
+        sectioned square to it between them (``section_mm``, a point on that plane): half
+        way, unless the plane would miss most of the stock to file off, then at the height
+        nearest half way that crosses it. The near half is removed, so the near button does
+        not hide the work it guides; else the meshes are whole. None without stops, or when
+        no stop solid is turned (no axis to look along)."""
         named = {name: (shape, colour) for name, shape, colour in solids}
         faces = [
             face
@@ -7513,9 +7514,26 @@ class _Setup:
         heights = [V(*stop["at_mm"]).dot(direction) for stop in stops]
         keep, section = None, None
         if max(heights) - min(heights) > PLANE_TOL:
-            middle = (max(heights) + min(heights)) / 2
-            section = centre + direction * (middle - centre.dot(direction))
+            low, high = min(heights), max(heights)
+            middle = (low + high) / 2
             big = 10 * max(span, 1.0) + 1000
+            if removal is not None and removal.Volume > STOCK_MM3:
+                # The cut face shows the stock to file off only where the plane crosses
+                # it: the height between the rims crossing most of it, nearest the middle.
+                band = (high - low) / 40
+
+                def crossed(height):
+                    at = centre + direction * (height - band / 2 - centre.dot(direction))
+                    return removal.common(Part.makeCylinder(big, band, at, direction)).Volume
+
+                samples = [low + (high - low) * (i + 0.5) / 20 for i in range(20)]
+                areas = [crossed(height) for height in samples]
+                if max(areas) > 0 and crossed(middle) < 0.5 * max(areas):
+                    middle = min(
+                        (h for h, a in zip(samples, areas, strict=True) if a >= 0.5 * max(areas)),
+                        key=lambda h: abs(h - (low + high) / 2),
+                    )
+            section = centre + direction * (middle - centre.dot(direction))
             # The viewer stands at the axis's + end: keep what lies below the plane.
             keep = Part.makeCylinder(big, big, section - direction * big, direction)
         meshes = []

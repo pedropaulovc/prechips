@@ -1875,8 +1875,9 @@ inside the `FINISHED OUTLINE`, draws `FILE AT ITS STOP` flat on the rims, and
 draws a `FILE APPROACH` arrow coming in square from beyond them. It keys the kit
 as the setup picture names it (`render_scene.guide_axis_mm`: a point on the axis
 and its direction). When the stops lie at different heights along the axis, the
-kernel sections the view half-way between them so the near button does not hide
-the work, and the band notes `SECTION BETWEEN THE RIMS`.
+kernel sections the view between them, half way unless that plane would miss most
+of the stock to file off, so the near button does not hide the work and the cut
+face shows what the file takes; the band notes `SECTION BETWEEN THE RIMS`.
 
 An inspect op's `inspection_views` ([plan](plan.md)) are drawn as one set-up
 sketch per requirement, a band per view, on the stock the setup leaves and in the
