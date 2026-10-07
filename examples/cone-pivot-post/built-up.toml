@@ -74,7 +74,7 @@ z = "toward_exposed_end"
 [aims.crank_bore]
 requirement = "separation"
 value_mm = 39.517
-reason = "AUTHOR'S CHOICE: the CAD crank station 72.700 less the journal station 33.368 is 39.332, just under the printed 39.34-39.70 separation; aim the crank bore 0.185 farther from the journal, 39.517 near mid-band and on the 0.005 DRO grid. The crank sleeve and its socket stay at the CAD station, so the bore sits 0.185 off the sleeve centre toward the head top (wall 5.07 at its thinnest)."
+reason = "AUTHOR'S CHOICE: the CAD stations give 39.332, below the band. The sleeve stays at its CAD station, so the bore sits 0.185 off the sleeve centre toward the head top (wall 5.07 at its thinnest)."
 
 # Plan-owned, nominally indicated setup frames in model coordinates.
 # AUTHOR'S CHOICE: example setup positions, not measurements of a real chucking.
@@ -649,7 +649,7 @@ jaw_above_parallels_mm = "not_applicable"
 pose = { origin_mm = [-105.0, 0.0, 0.0], x = [0.0, 0.0, 1.0], z = [1.0, 0.0, 0.0] }
 jaw_clock_deg = 0.0
 stop = "AUTHOR'S CHOICE: tail end against the chuck body face, 105 mm of post out of the jaws. Indicate the turned head and body to run true within 0.02 mm, then indicate foot B square to the head axis."
-clamp = "AUTHOR'S CHOICE: tighten each independent jaw a little at a time while indicating; remove the key and lock the spindle before drilling."
+clamp = "AUTHOR'S CHOICE: tighten each independent jaw a little at a time while indicating. Then align the head with the table: with the DTI in the spindle, sweep the top of the body along X from foot B to the shoulder, then its side; tap the head on the table until each sweep reads within 0.01 mm, tighten the head bolts and re-check both sweeps and the runout. Remove the key and lock the spindle before drilling."
 [setups.hold.index]
 fixture = "BS-0"
 feature = "crank_bore"
@@ -968,7 +968,7 @@ jaw_above_parallels_mm = "not_applicable"
 pose = { origin_mm = [-105.0, 0.0, -21.3753], x = [0.0, 0.0, 1.0], z = [1.0, 0.0, 0.0] }
 jaw_clock_deg = 0.0
 stop = "AUTHOR'S CHOICE: tail end against the chuck body face, 105 mm of post out of the jaws, index pin in the zero hole. Before the final tightening, turn the post in the jaws until the crank sleeve indicates vertical, then indicate the head and body to run true within 0.02 mm and foot B square."
-clamp = "AUTHOR'S CHOICE: tighten each independent jaw a little at a time while indicating; remove the key and lock the spindle before drilling."
+clamp = "AUTHOR'S CHOICE: tighten each independent jaw a little at a time while indicating. If the head was moved since S5, re-align it as in S4: sweep the top and the side of the body along X with the DTI in the spindle, each within 0.01 mm, tighten the head bolts and re-check. Remove the key and lock the spindle before drilling."
 [setups.hold.index]
 fixture = "BS-0"
 feature = "crank_bore"
@@ -1009,7 +1009,7 @@ tool = "center-drills-lms-4859/2"
 holder = "drill-chuck-r8"
 depth_mm = 2.0
 approach_mm = 5.0
-note = "Spot at X-72.885 Y0 on the sleeve north face: the crank bore is aimed 0.185 toward the head top from the sleeve centre so its separation from the journal reads mid-band."
+note = "Spot at X-72.885 Y0 on the sleeve north face, 0.185 toward the head top from the sleeve centre."
 [[setups.ops]]
 op = 20
 do = "drill"
@@ -1216,10 +1216,12 @@ tool = "dti"
 check_jog_mm = 10.0
 [setups.zero.z]
 face = "top"
-edge_mm = 87.0
+edge_mm = 87.0 # nominal sawn top; the Axis Set uses the measured height M
 from = "+z"
-method = "touch_then_set"
+method = "measure_then_set" # AUTHOR'S CHOICE: a bandsawn top is not reliably 87.0, so its high spot is measured from foot B
 gauge = "height-gauge"
+measure = "before clamping: stand the part foot B down on the surface plate and height-gauge the sawn top at its high spot (nominal 87.0); touch T1 on that high spot in the vise"
+offset_mm = 0.0
 tool = "endmills-lms-6784/3-4in-4fl"
 paper_mm = 0.0
 check_jog_mm = 10.0
@@ -1237,7 +1239,7 @@ approach_mm = 5.0
 direction = "conventional"
 stock_removal_bounds = { x = [-26.2, 26.2], y = [-26.2, 26.2], z = [86.0, 87.0] }
 contour = { method = "linear_table", step_mm = 12.7, open_side = "+y" } # AUTHOR'S CHOICE: 0.67 x cutter dia stepover, stepping from the rear, away from the crank sleeve over the front jaw
-note = "Before clamping, stand the part foot B down on the surface plate and height-gauge the sawn top at its high spot. In the vise, touch T1 on that high spot and set Z to the reading."
+note = "Take 0.5 mm levels from the measured top M down to Z86.000; the contour table lists them from the nominal 87.0, so add levels above 86.5 if M is higher."
 [setups.ops.checks]
 height = "height-gauge"
 [[setups.ops]]
@@ -1305,6 +1307,11 @@ approach_mm = 5.0
 [setups.ops.checks]
 dia = "calipers"
 depth = "calipers"
+[[setups.ops]]
+op = 75
+do = "deburr"
+feature = "head"
+note = "Off the vise, by hand with a file, a stone and a hand countersink: break the head-top rim, both counterbore rims, both mount-hole exits at foot B and the foot B rim to R0.25 or 0.25 chamfer max. Leave the reamed bore walls alone; their rims keep the 0.1 mm breaks from S8 and S9. Blow out the mount holes."
 [[setups.ops]]
 op = 80
 do = "inspect"

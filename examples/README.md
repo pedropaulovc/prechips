@@ -307,7 +307,7 @@ process choices, not stock-on-hand or first-article evidence.
 | S8 | mill, BS-0 along table X, tail re-chucked | spot, drill and ream crank bore Ø11.413–11.443 through the bonded sleeve, aimed at 39.517 separation (plan `aims`) |
 | S9 | same chucking, indexed 12.5182° | spot, drill and ream journal bore A through the bonded cone sleeve |
 | S10 | 4 × 6 bandsaw, shop-made `cone-saw-cradle` in the saw vise, `cone-cap-bridge` strap on the south cap | saw the tail off 1 mm above the head top |
-| S11 | mill, PM 6 in vise with tall aluminium soft jaws on the two cone caps, foot B on parallels | face the head top to Z86 with a 3/4 in end mill; spot, drill and counterbore both mounting holes; inspect |
+| S11 | mill, PM 6 in vise with tall aluminium soft jaws on the two cone caps, foot B on parallels | Z from the measured sawn top; face the head top to Z86 with a 3/4 in end mill; spot, drill and counterbore both mounting holes; break the edges by hand; inspect |
 | S12 | bench, modeled `cone-bond-cradle` | paint the non-functional turned surfaces RAL 6005, mask and oil the functional faces |
 
 The sleeve chuckings grip 25 mm of sacrificial bar. The crank sleeve leaves
@@ -337,7 +337,9 @@ therefore moves the crank bore's DRO target to 39.517, near mid-band and on
 the 0.005 grid. The crank sleeve and its socket stay at the CAD station, so the
 bore sits 0.185 off the sleeve centre. The dividing-head setups zero X on foot B
 (Axis Set ± the edge-finder radius) and Y on the body crest. Both bore axes
-cross the post axis.
+cross the post axis. S4 aligns the head to table X by sweeping the top and
+side of the turned body, and S8 re-checks that alignment. S11 sets Z from the
+sawn top's measured high spot, not from a nominal 87.0.
 
 The pre-bond sockets and spigots are plan-owned joint features, not invented
 STEP faces. The cone joint gives 0.044–0.076 mm diametral clearance inside its
