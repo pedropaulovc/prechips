@@ -573,6 +573,46 @@ def resolve(bundle_or_inventory, category, reference):
     return item
 
 
+def tool_numbers(bundle, setup):
+    """``{(tool, holder): "T<n>"}`` for ``setup``'s cutting ops in first-use order: the
+    numbers its TOOLS table prints, one per tool + holder pair. A lathe's holders stay on
+    its toolpost between setups, so there a pair keeps one number on every setup that
+    machine runs (first use over the plan)."""
+    lathe = record(resolve(bundle, "machines", setup.get("machine"))).get("kind") == "lathe"
+    setups = (
+        [s for s in bundle.plan.get("setups", []) if s.get("machine") == setup.get("machine")]
+        if lathe
+        else [setup]
+    )
+    fixed = {}
+    for each in setups:
+        for op in each.get("ops", []):
+            if op.get("do") in MANUAL or op.get("tool") in (None, UNKNOWN):
+                continue
+            fixed.setdefault((op["tool"], op.get("holder")), f"T{len(fixed) + 1}")
+    numbers = {}
+    for op in setup.get("ops", []):
+        if op.get("do") in MANUAL or op.get("tool") in (None, UNKNOWN):
+            continue
+        key = (op["tool"], op.get("holder"))
+        numbers.setdefault(key, fixed[key])
+    return numbers
+
+
+def jaw_top_z(setup, hold, scale):
+    """The vise jaw tops' Z in ``setup``'s frame (plan units): the work's seated bottom
+    (``retained_rail_bottom_z`` when lower than ``bottom_z``) plus the hold's
+    ``jaw_above_parallels_mm``, as the kernel seats its jaws. None when any of them is
+    unknown (an authored but unknown rail leaves the seat unknown) or ``scale`` (mm per
+    plan unit) is."""
+    state = record(setup.get("stock_state"))
+    bottom, rail = state.get("bottom_z"), state.get("retained_rail_bottom_z")
+    jaw = record(hold).get("jaw_above_parallels_mm")
+    if not (scale and number(bottom) and number(jaw)) or (rail is not None and not number(rail)):
+        return None
+    return (min(bottom, rail) if rail is not None else bottom) + jaw / scale
+
+
 def selected_references(plan):
     result = set()
     keys = {

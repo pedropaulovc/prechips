@@ -31,6 +31,7 @@ from .rules.resolution import (
     coating_process,
     drawing_precision,
     inventory_category,
+    jaw_top_z,
     length_mm,
     listing_categories,
     named_item,
@@ -43,6 +44,7 @@ from .rules.resolution import (
     setup_frame,
     shop_made_item,
     slot_category,
+    tool_numbers,
     workholding_category,
 )
 from .rules.resolution import record as _mapping
@@ -1954,6 +1956,20 @@ class _Traveler:
             facts.append(("quill out mm", o(hold["quill_extension_mm"])))
         if _known(hold.get("jaw_above_parallels_mm")):
             facts.append(("jaw top above parallels mm", o(hold["jaw_above_parallels_mm"])))
+            # The work's height above the jaw tops, from the same fields: the one source, so
+            # plan text must not restate it (consistency), and an unknown input prints "?".
+            scale = {"mm": 1.0, "in": 25.4}.get(self.units)
+            jaw_top = jaw_top_z(setup, hold, scale)
+            top = _mapping(setup.get("stock_state")).get("top_z")
+            if jaw_top is not None and _known(top):
+                above = (top - jaw_top) * scale
+                facts.append(
+                    ("work top above jaw tops mm", o(above))
+                    if above >= 0
+                    else ("work top below jaw tops mm", o(-above))
+                )
+            else:
+                facts.append(("work top above jaw tops mm", "? seat or stock top unknown"))
         along = _text(hold.get("jaws_along")).upper()
         if _known(hold.get("jaw_center_along_mm")) and along in ("X", "Y"):
             facts.append((f"jaw centre at {along}", o(hold["jaw_center_along_mm"])))
@@ -2155,7 +2171,8 @@ class _Traveler:
 
     def tightening(self, hold):
         """The declared ``clamp_order`` as a two-pass tightening step, after seating the
-        part on its locators (and its declared preload), with any declared torque."""
+        part on its locators (and its declared preload), with any declared torque; a clamp
+        declared ``tighten = "hand"`` is tightened by hand only."""
         order = hold.get("clamp_order")
         clamps = hold.get("clamps") if isinstance(hold.get("clamps"), list) else []
         labels = clamp_labels(hold)
@@ -2167,13 +2184,25 @@ class _Traveler:
         if not steps:
             return ""
         named = ", ".join(labels[i - 1] for i in steps)
+        hand = [labels[i - 1] for i in steps if _mapping(clamps[i - 1]).get("tighten") == "hand"]
         if len(steps) == 1:
-            text = f"Tighten {named}: snug it, then tighten fully"
+            text = (
+                f"Tighten {named} by hand only, no wrench"
+                if hand
+                else f"Tighten {named}: snug it, then tighten fully"
+            )
+        elif len(hand) == len(steps):
+            text = (
+                f"Tighten in order {named} by hand only, no wrench: snug each in turn, then "
+                "tighten each by hand in the same order"
+            )
         else:
             text = (
                 f"Tighten in order {named}: snug each in turn, then tighten each fully "
                 "in the same order"
             )
+            if hand:
+                text += f"; {', '.join(hand)} by hand only, no wrench"
         torques = {
             labels[i - 1]: _mapping(clamps[i - 1]).get("torque_nm")
             for i in steps
@@ -4013,28 +4042,16 @@ class _Traveler:
 
     # ------------------------------------------------------------------ tools
     def tool_table(self, setup):
-        """T-numbers in first-use order, one per tool + holder pair. A lathe's holders stay
-        on its toolpost between setups, so there a pair keeps one number on every setup
-        that machine runs (first use over the plan)."""
-        setups = (
-            [s for s in self.plan.get("setups", []) if s.get("machine") == setup.get("machine")]
-            if self.lathe(setup)
-            else [setup]
-        )
-        fixed = {}
-        for each in setups:
-            for op in each.get("ops", []):
-                if op.get("do") in MANUAL or op.get("tool") in (None, "unknown"):
-                    continue
-                fixed.setdefault((op["tool"], op.get("holder")), f"T{len(fixed) + 1}")
-        numbers, rows = {}, {}
+        """The setup's TOOLS table: one row per tool + holder pair, numbered as
+        ``tool_numbers`` numbers them (the one numbering free text is checked against)."""
+        numbers = tool_numbers(self.bundle, setup)
+        rows = {}
         for op in setup.get("ops", []):
             reference = op.get("tool")
             if op.get("do") in MANUAL or reference in (None, "unknown"):
                 continue
             key = (reference, op.get("holder"))
-            if key not in numbers:
-                numbers[key] = fixed[key]
+            if key not in rows:
                 holder = op.get("holder")
                 rows[key] = [
                     numbers[key],

@@ -187,7 +187,7 @@ warn once and disable exporters without changing the report or checker exit.
 - Rules: [tools and sizing](docs/rules-tools.md),
   [operations and depth](docs/rules-operations.md),
   [coordinates and zero](docs/rules-coordinates.md),
-  [setup and datum](docs/rules-setup.md), [inspection](docs/rules-inspection.md),
+  [setup, datum and text consistency](docs/rules-setup.md), [inspection](docs/rules-inspection.md),
   [lathe feasibility](docs/rules-lathe.md), [indexing](docs/rules-indexing.md),
   [physics proxies](docs/rules-physics.md), [comparison](docs/rules-comparison.md),
   [geometry and workholding on the kernel](docs/rules-geometry.md).
