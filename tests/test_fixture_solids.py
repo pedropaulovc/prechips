@@ -220,8 +220,15 @@ def _gripped_hold(clamp_z=10.0, clamps=True):
 
 def test_a_holding_body_reaches_the_work_through_a_clamp_that_bears_on_it(engine, parts):
     step = parts["plate"]
-    holds = [_gripped_hold(), _gripped_hold(clamp_z=12.0), _gripped_hold(clamps=False)]
-    gripped, floating, alone = (
+    # One clamp's heel touches the body and its strap the plate, 8 mm of air between them:
+    # members of one clamp carry no load across a gap.
+    split = _gripped_hold()
+    split["clamps"][0]["solids"] = [
+        _box("kit/strap:heel", [-25.0, -6.0, 0.0], [2.0, 12.0, 8.0]),
+        _box("kit/strap:strap", [-15.0, -6.0, 0.0], [40.0, 12.0, 8.0]),
+    ]
+    holds = [_gripped_hold(), _gripped_hold(clamp_z=12.0), _gripped_hold(clamps=False), split]
+    gripped, floating, alone, apart = (
         _scene(result)
         for result in engine.run(
             {"jobs": [engine.job(step, setups=[_setup([], hold)]) for hold in holds]}
@@ -229,12 +236,13 @@ def test_a_holding_body_reaches_the_work_through_a_clamp_that_bears_on_it(engine
     )
     assert gripped["render_scene"]["debts"] == []
     assert gripped["fixture_rendered"] is True
-    # Gripping a strap that bears on nothing, or nothing at all, does not hold the work.
+    # Gripping a strap that bears on nothing, nothing at all, or a member cut off from the
+    # one that bears does not hold the work.
     debt = (
         "custom fixture solids touch neither the stock nor a clamp bearing on it at the "
         "declared pose"
     )
-    for setup in (floating, alone):
+    for setup in (floating, alone, apart):
         assert debt in setup["render_scene"]["debts"]
         assert setup["fixture_rendered"] is False
 
