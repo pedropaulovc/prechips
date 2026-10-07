@@ -1,6 +1,7 @@
 """Operation-sheet wording a machinist acts on: printed bands and index directions."""
 
 import functools
+import random
 import re
 from html import unescape
 from pathlib import Path
@@ -230,6 +231,21 @@ def test_the_holding_nearest_the_cut_is_a_clearance_row_and_a_hand_feed_check_on
     assert "jaw" in obstacle and "hand feed past the LOC2 collar (1.570 mm)" in action
 
 
+def test_a_file_near_the_holding_is_a_clearance_row_and_a_check_on_its_own_op():
+    # Filing the last of the profile brings the work 2.817 from the locator: the picture's
+    # dimension, so a row of the table and a box on the file's op, never a machine op's.
+    sheet, setup = near_holding(2.817, "clamp 2 diamond-pin:rodlocator")
+    scene = sheet.report["renders"]["S1"]["scene"]
+    scene["cut_clearances"][0]["op"] = 30
+    filed = {"op": 30, "do": "file_to_line", "feature": "hole"}
+    setup = {**setup, "ops": [filed]}
+    ((ops, tool, obstacle, value, action),) = sheet.clearance_rows(setup, {}, {})
+    assert (ops, tool, obstacle, value) == ("30", "", "LOC2 rodlocator beside the cut", "2.817")
+    assert action == "keep the file clear of the LOC2 rodlocator"
+    (box,) = sheet.crash_boxes(setup, filed)
+    assert box == "LOC2 RODLOCATOR 2.817 mm FROM THE CUT — keep the file clear of it"
+
+
 @pytest.mark.parametrize(
     ("mm", "tag", "obstacle", "action"),
     [
@@ -299,6 +315,45 @@ def test_a_single_level_contour_heading_keeps_its_one_z():
         assert "depth levels" not in html
 
 
+@pytest.mark.parametrize(
+    ("start", "levels", "target"),
+    [
+        # Stepped down from where its surface stands: the start, the count and the step.
+        (0.0, [-0.25, -0.5, -0.6], "Z 0.000 → -0.600 in 3 levels of 0.250 max"),
+        # Its surface already stands at the depth (an earlier op left the floor): one pass
+        # at the depth, not a level from a Z to itself.
+        (-0.6, [-0.6], "Z → -0.600"),
+    ],
+)
+def test_an_op_whose_levels_start_at_its_depth_prints_one_pass_at_that_depth(start, levels, target):
+    records = contour_records(levels)
+    records[("coordinates", "S1")]["operations"][0]["z_levels"]["dro_start_z"] = start
+    assert shop(records).z_target(POCKET, POCKET["ops"][0]) == target
+
+
+@pytest.mark.parametrize(
+    ("doc", "established"),
+    [
+        # No step, or one under the 0.001 DRO grid: the producer establishes no levels.
+        ("unknown", False),
+        (0.0001, False),
+        (0.25, True),
+    ],
+)
+def test_a_floor_already_at_depth_is_one_pass_only_when_its_levels_are_established(
+    doc, established
+):
+    from prechips.rules.coordinates import _z_levels
+
+    op = {**POCKET["ops"][0], "to_z": -0.6, "doc_mm": doc}
+    records = contour_records([-0.6])
+    records[("coordinates", "S1")]["operations"][0]["z_levels"] = _z_levels(
+        op, {"top_z": -0.6}, {}, [], {}, (0.001, 3), "mm"
+    )
+    parts = [str(part) for part in shop(records).tip(POCKET, op)]
+    assert any("STOP" in part for part in parts) is not established, parts
+
+
 def test_each_depth_level_has_a_place_to_mark_it_done():
     html = shop(contour_records([-0.25, -0.5, -0.6])).contours(POCKET, {"c": "T1"})
     assert re.findall(r'<span class="tick"></span>level (\d) of 3', html) == ["1", "2", "3"]
@@ -313,7 +368,7 @@ def test_a_raster_block_says_how_to_lift_not_what_its_table_already_shows():
     for narration in ("passes", "stepover", "stage", "cutting order", "pass ends", "13.765"):
         assert narration not in block, (narration, block)
     # The passes are numbered: the table is where their count and ends are read.
-    assert re.search(r"<td>1</td>.*<td>2</td>", html)
+    assert re.search(r"<td[^>]*>1</td>.*<td[^>]*>2</td>", html)
 
 
 def kernel_stock(box_mm, status="ok"):
@@ -671,6 +726,31 @@ def test_a_mill_feature_map_names_the_point_each_row_stands_on_from_the_feature_
     assert "crank bore||hole axis at the exit face||" in plain
 
 
+@pytest.mark.parametrize(
+    ("normal", "kept"),
+    [([0.0, 0.0, 1.0], False), ([0.0, 0.0, -1.0], False), ([1.0, 0.0, 0.0], True)],
+)
+def test_a_mill_feature_map_leaves_off_a_face_square_to_the_spindle(normal, kept):
+    # A face square to setup Z is located only by its centre: no X / Y the DRO stops at,
+    # and its Z is the op row's. A face standing across the table keeps its row: its X
+    # places it. A map left with no row prints nothing.
+    identity = {"x": [1.0, 0.0, 0.0], "y": [0.0, 1.0, 0.0], "z": [0.0, 0.0, 1.0]}
+    frames = {"model": identity, "T": {**identity, "origin": [0.0, 0.0, 0.0]}}
+    face = {"feature": "blank_end", "dro": [17.1, 13.1, 0.0]}
+    hole = {"feature": "hold_down", "dro": [0.0, -8.2, 0.0]}
+    features = {"blank_end": {"kind": "end_face", "axis": normal}, "hold_down": {"kind": "hole"}}
+    setup = {"id": "S1", "frame": "T", "ops": [{"op": 10, "do": "face", "feature": "blank_end"}]}
+    maps = []
+    for rows in ([face, hole], [face]):
+        sheet = mapped({("coordinates", "S1"): {"rows": rows}}, features)
+        sheet.bundle = SimpleNamespace(features={"features": {}, "frames": frames}, plan={})
+        maps.append(rows_of(sheet.feature_map(setup)))
+    both, alone = maps
+    assert "hold down||hole axis on the Z0 surface||" in both
+    assert ("blank end||" in both) is kept
+    assert ("blank end||" in alone) is kept and bool(alone) is kept
+
+
 def test_an_aimed_target_names_its_offset_and_inspection_but_not_the_authored_reason():
     sheet = mapped({}, {})
     record = {
@@ -760,7 +840,7 @@ def test_a_breakthrough_note_claims_no_run_out_the_endpoint_leaves_unknown():
 
 def transfer_sheet(indicate, kind):
     sheet = mapped({}, {"face_a": {"kind": "face"}, "bore": {"kind": "hole"}})
-    sheet.reference = lambda gauge: "dial test indicator"
+    sheet.reference = lambda gauge, category=None: "dial test indicator"
     return sheet, {"from": "S1", "indicate": indicate, "tool": "dti", "runout_limit_mm": 0.0254}
 
 
@@ -1051,12 +1131,52 @@ def test_each_lathe_op_that_turns_the_spindle_names_which_way_from_its_tool_hand
     assert "spindle direction not known" not in stops
 
 
+def test_a_lathe_setup_turning_one_way_says_so_once_and_its_rpm_cells_carry_only_the_rpm():
+    ops = [
+        {"op": 10, "do": "face", "feature": "body", "tool": "rh"},
+        {"op": 20, "do": "rough_turn", "feature": "body", "tool": "lh"},
+        {"op": 30, "do": "inspect", "feature": "body"},
+    ]
+    html, rows, stops = _lathe_sheet(ops, {"rh": "right", "lh": "left"})
+    assert "FORWARD" not in rows["10"] + rows["20"]
+    assert (
+        "<h2>OPERATIONS — spindle FORWARD whenever it runs: the top of the work turns toward "
+        "you</h2>"
+    ) in html
+    assert "spindle direction not known" not in stops
+
+
+def test_a_lathe_op_whose_turn_is_unknown_leaves_the_known_turns_in_their_cells():
+    # One STOP among FORWARD ops: the heading cannot say one turn for every op.
+    ops = [
+        {"op": 10, "do": "face", "feature": "body", "tool": "rh"},
+        {"op": 20, "do": "rough_turn", "feature": "body", "tool": "bit"},
+    ]
+    html, rows, stops = _lathe_sheet(ops, {"rh": "right", "bit": None})
+    assert rows["10"][-1] == "FORWARD"
+    assert "whenever it runs" not in html
+    assert stops["spindle direction not known"] == ["20"]
+
+
 def test_a_lathe_tool_without_a_declared_hand_is_a_stop_not_a_guessed_direction():
     ops = [{"op": 10, "do": "face", "feature": "body", "tool": "bit"}]
     html, rows, stops = _lathe_sheet(ops, {"bit": None})
     assert "STOP: spindle direction not known" in " ".join(rows["10"])
     assert stops["spindle direction not known"] == ["10"]
     assert "FORWARD" not in html
+
+
+@pytest.mark.parametrize("checked", [True, False])
+def test_a_lathe_op_table_says_to_stop_the_spindle_before_any_gauge_touches_the_work(checked):
+    # A lathe op inspected in the chuck is measured stopped, the tool withdrawn: said once
+    # over the op rows; a table with nothing measured says nothing about measuring.
+    finish = {"op": 10, "do": "finish_turn", "feature": "body", "tool": "rh"}
+    if checked:
+        finish["checks"] = {"dia": "mic"}
+    html, _, _ = _lathe_sheet([finish], {"rh": "right"})
+    (heading,) = re.findall(r"<h2>OPERATIONS.*?</h2>", html)
+    stopped = "measure only with the spindle stopped and the tool withdrawn" in heading
+    assert stopped is checked, heading
 
 
 @pytest.mark.parametrize(
@@ -1094,3 +1214,220 @@ def test_a_turn_over_names_where_the_old_plus_x_end_goes(x_after, ends):
     assert _Traveler(data, [], {}, None).flip(setups[1]) == (
         f"Turn the part over: the other face up, {ends}. "
     )
+
+
+_MEASURED = {"by": "test", "date": "2026-10-05", "instrument": "caliper"}
+
+
+@pytest.mark.parametrize("unmeasured", [None, "spigot_length_mm", "thickness_mm"])
+def test_the_hold_prints_the_jaw_buttons_measured_sizes(unmeasured):
+    from prechips.inputs import Bundle
+
+    sizes = {"dia_mm": 16.0, "thickness_mm": 3.0, "spigot_dia_mm": 12.2, "spigot_length_mm": 2.0}
+    buttons = {"kind": "jaw_buttons", "name": "two jaw buttons with spigots"}
+    for key, value in sizes.items():
+        # An unmeasured size is a bare nominal: the kernel will not place the jaws on it.
+        buttons[key] = value if key == unmeasured else {"value": value, "measured": _MEASURED}
+    setup = {
+        "id": "S1",
+        "machine": "lathe",
+        "hold": {"kind": "chuck", "fixture": "chuck", "jaw_buttons": "buttons"},
+        "ops": [],
+    }
+    data = Bundle(
+        plan={"setups": [setup]},
+        inventory={
+            "machines": {"lathe": {"kind": "lathe"}},
+            "fixtures": {"chuck": {"kind": "chuck", "name": "3-jaw chuck"}, "buttons": buttons},
+        },
+        features={"features": {}, "frames": {}, "units": "mm"},
+        policy={},
+        cutting_data={},
+        paths={},
+        hashes={},
+        root=Path("."),
+        kernel={"status": "ok", "ops": {}},
+    )
+    hold, _ = _Traveler(data, [], {}, None).hold(setup)
+    (step,) = [s for s in re.findall(r"<li>(.*?)</li>", unescape(hold)) if "Jaw buttons" in s]
+    printed = {
+        "dia_mm": "face Ø16.000 mm",
+        "thickness_mm": "thickness 3.000 mm",
+        "spigot_dia_mm": "spigot Ø12.200 mm",
+        "spigot_length_mm": "spigot length 2.000 mm",
+    }
+    for key, text in printed.items():
+        assert (text in step) is (key != unmeasured), (key, step)
+    if unmeasured:
+        name = unmeasured.removesuffix("_mm").replace("_", " ")
+        assert f"{name} ? not measured" in step, step
+
+
+def _requirement_rows(features, **manifest):
+    """The job page's DRAWING REQUIREMENTS rows as ``(feature, limits)`` texts."""
+    from prechips.inputs import Bundle
+
+    data = Bundle(
+        plan={"setups": []},
+        inventory={},
+        features={"features": features, "frames": {}, "units": "mm", **manifest},
+        policy={},
+        cutting_data={},
+        paths={},
+        hashes={},
+        root=Path("."),
+        kernel={"status": "ok", "ops": {}},
+    )
+    html = _Traveler(data, [], {}, None).requirements()
+    rows = [
+        tuple(unescape(re.sub(r"<[^>]+>", "", cell)) for cell in re.findall(r"<td>(.*?)</td>", row))
+        for row in re.findall(r"<tr>(.*?)</tr>", html)
+    ]
+    return [row for row in rows if row]
+
+
+def _strap(band=(1.99, 3.01), faces=("#410/ADVANCED_FACE[9]/STRAP",), nominal=2.5):
+    face = {
+        "kind": "face",
+        "requirements": ["thickness"],
+        "thickness": list(band) if isinstance(band, tuple) else band,
+        "precision": {"thickness": 2},
+        # One cited drawing source: a sheet carries many dimensions, so it proves nothing.
+        "cite": {"thickness": ["drawing.pdf page 1"]},
+    }
+    if nominal is not None:
+        face["thickness_nominal"] = nominal
+    return face if faces is None else {**face, "faces": list(faces)}
+
+
+@pytest.mark.parametrize(
+    ("first", "second", "merged"),
+    [
+        # The same model faces carrying the same known limits: one dimension, printed once.
+        (_strap(), _strap(), True),
+        # Other faces, equal limits and the same cited sheet (two bores alike): apart.
+        (_strap(), _strap(faces=["#118/ADVANCED_FACE[5]/DATUM_B"]), False),
+        # No faces declared: nothing shows the two are one dimension.
+        (_strap(faces=None), _strap(faces=None), False),
+        # The same faces with other limits.
+        (_strap(), _strap(band=(2.0, 3.0)), False),
+        # A limit or nominal not known is never taken for another feature's.
+        (_strap(band="unknown"), _strap(band="unknown"), False),
+        (_strap(band=(1.99, "unknown")), _strap(band=(1.99, "unknown")), False),
+        (_strap(nominal="unknown"), _strap(nominal="unknown"), False),
+        # An omitted nominal is no more known than one declared unknown.
+        (_strap(nominal=None), _strap(nominal=None), False),
+    ],
+)
+def test_two_features_share_a_requirement_row_only_on_the_same_faces_and_known_limits(
+    first, second, merged
+):
+    rows = _requirement_rows({"strap_faces": first, "strap_datum_b": second})
+    rows = [row for row in rows if "strap" in row[0]]
+    if merged:
+        assert rows == [("strap faces / strap (datum B)", "thickness 1.99–3.01")]
+    else:
+        assert [name for name, _ in rows] == ["strap faces", "strap (datum B)"], rows
+
+
+@pytest.mark.parametrize(
+    ("requirement", "limit", "precision"),
+    [
+        # Half a step past the drawing's decimals: rounded up it would pass a 0.048 error.
+        ("position_dia", 0.045, 2),
+        ("finish_ra", 0.85, 1),
+        # Under one step at that precision: never printed as nothing, rejecting every part.
+        ("coaxiality_dia", 0.004, 2),
+    ],
+)
+def test_a_drawing_maximum_never_prints_looser_than_declared(requirement, limit, precision):
+    hole = {"kind": "hole", "requirements": [requirement], requirement: limit}
+    hole["precision"] = {requirement: precision}
+    ((_, limits),) = [row for row in _requirement_rows({"pin_bore": hole}) if row[0] == "pin bore"]
+    printed = float(re.findall(r"\d+(?:\.\d+)?", limits)[-1])
+    assert 0 < printed <= limit, limits
+
+
+@pytest.mark.parametrize(
+    ("band", "precision"),
+    [
+        ([5.904, "unknown"], 2),
+        (["unknown", 6.096], 2),
+        ([6.0, 6.004], 2),
+        # Rail-length magnitudes, where significant digits and decimal places differ.
+        ([1234.564, "unknown"], 3),
+        (["unknown", 1234.567], 3),
+        ([1234.5671, 1234.5674], 3),
+    ],
+)
+def test_a_band_not_printable_inward_keeps_each_declared_limit(band, precision):
+    # One limit unknown, or too narrow for the drawing's decimals: no known limit prints
+    # looser than declared, and the unknown one stays unknown.
+    bore = {"kind": "hole", "requirements": ["dia"], "dia": band, "precision": {"dia": precision}}
+    ((_, limits),) = [row for row in _requirement_rows({"bore": bore}) if row[0] == "bore"]
+    low, high = limits.removeprefix("Ø ").split("–")
+    assert low == "?" if band[0] == "unknown" else float(low) >= band[0], limits
+    assert high == "?" if band[1] == "unknown" else float(high) <= band[1], limits
+
+
+def test_a_printed_limit_never_lies_outside_its_declared_band():
+    # Known, half-known, too-narrow and maximum limits at any magnitude, any decimals and
+    # any drawing precision (or none): what prints lies inside or on the declared band.
+    rng = random.Random(140)
+    for _ in range(3000):
+        scale = rng.choice([1e-3, 0.1, 1.0, 10.0, 1000.0, 5000.0])
+        low = round(rng.uniform(-scale, scale), rng.randint(0, 6))
+        width = rng.choice([0.0, 1e-4, 4e-3, 0.03, 1.0, 50.0]) * rng.random()
+        high = max(low, round(low + width, rng.randint(0, 6)))
+        kind = rng.choice(["known", "low", "high", "max"])
+        declared = {
+            "known": [low, high],
+            "low": [low, "unknown"],
+            "high": ["unknown", high],
+            "max": abs(high) or 0.001,
+        }[kind]
+        precision = rng.choice([0, 1, 2, 3, 4, None, "unknown"])
+        dimension = "position_dia" if kind == "max" else "dia"
+        printed = bare(precision).band(declared, None, dimension)
+        case = (declared, precision, printed)
+        if kind == "max":
+            assert 0 < float(printed) <= declared, case
+            continue
+        ends = printed.split("–")
+        assert len(ends) == 2, case
+        texts = dict(zip(("low", "high"), ends, strict=True))
+        limits = dict(zip(("low", "high"), declared, strict=True))
+        for end, limit in limits.items():
+            if limit == "unknown":
+                assert texts[end] == "?", case
+        if limits["low"] != "unknown":
+            assert float(texts["low"]) >= limits["low"], case
+        if limits["high"] != "unknown":
+            assert float(texts["high"]) <= limits["high"], case
+        if kind == "known":
+            assert float(texts["low"]) <= float(texts["high"]), case
+
+
+def test_the_drawing_edge_break_never_prints_looser_than_declared():
+    rows = _requirement_rows(
+        {}, precision=1, general_tolerances={"edge_break_r": 0.25, "chamfer_max": 0.35}
+    )
+    ((_, limits),) = [row for row in rows if row[0] == "all edges"]
+    radius, chamfer = map(float, re.findall(r"\d+\.\d+", limits))
+    assert 0 < radius <= 0.25 and 0 < chamfer <= 0.35, limits
+
+
+@pytest.mark.parametrize(("low", "high"), [(-6.0, -5.9), (-1234.5675, -1234.5671)])
+def test_an_authored_z_band_prints_its_limits_as_declared(low, high):
+    sheet = bare(2)
+    sheet.coordinates_entry = lambda setup, op: {}
+    printed = re.findall(r"-?\d+(?:\.\d+)?", sheet.allowed({}, {"to_z_band": [low, high]}))
+    assert list(map(float, printed)) == [low, high], printed
+
+
+@pytest.mark.parametrize("limit", [0.0254, 0.0000125])
+def test_a_runout_limit_prints_as_declared(limit):
+    sheet, transfer = transfer_sheet(["bore"], "mill")
+    line = sheet.transfer_line({"id": "S2"}, {**transfer, "runout_limit_mm": limit})
+    printed = re.search(r"(\d+(?:\.\d+)?) mm total indicator reading", line)
+    assert printed and float(printed.group(1)) == limit, line

@@ -82,6 +82,40 @@ row names it, `[S11 sheet 4 worksheet]`), its steps naming each reading
 the step that takes it, then its calculation lines. A list
 is known only when every step is a non-empty string other than `"unknown"`.
 
+An inspect op may illustrate a stated procedure with set-up sketches:
+`inspection_views.<requirement>` is a non-empty list of views, one per way the
+part is set up on the surface plate for that check. Each view gives a `title`,
+`up` (a unit vector in the part model's axes pointing up off the plate, the way
+a height reading rises), `toward` (a unit vector square to `up`, from the part to
+the viewer), optional `aids` and at least one `mark`, all in part-model
+millimetres:
+
+```toml
+[[setups.ops.inspection_views.position_dia]]
+title = "VIEW 1: BOX ON ITS BASE, LAND C DOWN ON THE STOP BAR"
+up = [-0.9833816999, -0.1815500823, 0.0]
+toward = [0.0, 0.0, -1.0]
+aids = [
+  { name = "C STOP BAR", shape = "box", at_mm = [155.526, 40.78, 1.25], size_mm = [40.0, 12.2, 12.0], axes = [[0.1815500823, -0.9833816999, 0.0], [-0.9833816999, -0.1815500823, 0.0]] },
+  { name = "ROD GAUGE PIN", shape = "cylinder", at_mm = [133.067, 16.456, -25.0], axis = [0.0, 0.0, 1.0], dia_mm = 1.994, length_mm = 26.2 },
+]
+marks = [
+  { label = "R1: ROD PIN TOP", at_mm = [132.087, 16.275, -5.0], reads = true },
+  { label = "C: LAND C ON THE STOP BAR", at_mm = [145.747, 26.547, 0.0] },
+]
+```
+
+An aid is a `box` from its least corner `at_mm` by `size_mm` along its edge
+directions `axes` (unit x then y, square; the model's X and Y when absent), or a
+`cylinder` from its base centre `at_mm` along the unit `axis`, `dia_mm` across
+and `length_mm` long. A mark is a labelled point; `reads = true` marks where a
+height reading is taken. The kernel draws the sketch on the stock the op's setup
+leaves ([renders](rules-geometry.md#renders)) and the traveler prints it at the
+head of that requirement's worksheet or inspection note
+([report binding](report-and-telemetry.md#kernel-renders)). Views on an op that is
+not `inspect`, or for a requirement with no `inspection_methods` entry, are
+`BadInput`.
+
 When an inspection requirement has no exported owner/band, an explicit operation
 may declare `missing_requirements = { length = "calipers" }` and
 `inspection_methods.length`. This uses the same gauge-reference mapping type as
@@ -674,7 +708,10 @@ placed by `pose` (origin at the strap underside on the work). `restraint` is
 `press` (it holds the work down along pose -z), `locate` (it only positions
 the work) or `none`; undeclared is `none`. Only a press clamp can hold a stock
 piece an op splits off, and only when the kernel proves the load path onto an
-anchored support (rules-geometry, held split).
+anchored support (rules-geometry, held split). A `locate` clamp must prove that
+its solids that declare `locates` bear on the stock by their own geometry: a
+pin's contact cylinder in the bore it locates, a flat locator's face
+(rules-geometry, `thin_wall_under_clamp`).
 
 `clamp` is the clamping instruction, or a declared clamp fixture's name. An
 explicit `clamp = "none"` or `"not_applicable"` with no `clamps` members
@@ -783,7 +820,9 @@ jaws unplaced (fixture debt), as does a face with no such bore, or with several,
 or a button whose face shares no area with the work round that bore within the
 jaw's height (a button no wider than the bore's mouth bears on nothing). The
 contacts drawn are the button faces, not the jaws, and the grip measured is
-only where the work bears on them.
+only where the work bears on them. The HOLD's jaw-button step prints the four
+measured sizes the jaws close on (face Ø, thickness, spigot Ø, spigot length);
+an unmeasured one prints `? not measured`.
 
 Other holding kinds are drawn from their own declarations, never defaulted.
 A `chuck_3jaw` / `chuck_4jaw` (and the chuck a `dividing_head` names with
@@ -999,6 +1038,7 @@ STOP and [zero_check](rules-coordinates.md#zero_check) is `unknown`.
 | `go_no_go` | `dict[str, GoNoGo \| Unknown]` (each key also in `checks`) |
 | `missing_requirements` | `dict[str, str]` |
 | `inspection_methods` | `dict[str, str \| list[str]]` |
+| `inspection_views` | `dict[str, list[InspectionView]]` |
 | `to_z_band` | `Vector` |
 | `contour` | `Contour` |
 | `stock_removal_bounds` | `Bounds` |
@@ -1026,9 +1066,10 @@ required, plus an optional `go_no_go`: a shop limit tighter than the drawing, he
 feature exports (else `BadInput`), and `band` is in the drawing's units. The
 inspection rule errors when the band reaches outside the drawing band (limits
 included, a scalar zone `v` read as [0, v]). The sheet prints it in the op's
-inspection cell as `PROCESS HOLD — not a drawing limit: <reason>`, never as a
-drawing limit, and the job page gathers every hold in a **PROCESS HOLDS —
-in-process limits, not drawing limits** table, apart from DRAWING REQUIREMENTS.
+inspection cell as `PROCESS HOLD — not a drawing limit (why: see job page): …`,
+never as a drawing limit, and the job page gathers every hold, with its reason, in
+a **PROCESS HOLDS — in-process limits, not drawing limits** table, apart from
+DRAWING REQUIREMENTS; the reason prints nowhere else.
 
 A hold may instead name a feature's reference-only dimension (`<name>_ref`, a
 number the drawing gives as REF or CUT TO FIT, such as an assembly fit-up span).

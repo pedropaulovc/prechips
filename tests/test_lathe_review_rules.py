@@ -199,6 +199,51 @@ def test_relief_plunges_wider_than_the_drawing_width_band_are_refused():
     assert narrow["corner_z_mm"] == [0.0] and narrow["width_mm"] == pytest.approx(1.6)
 
 
+@pytest.mark.parametrize(
+    ("checks", "z_to", "band", "groove"),
+    [
+        # Inspected for Ø and plunged over its own Z window: the row's inspection cell
+        # and Z window already print both, so the plunge lines add neither.
+        ({"dia": "caliper"}, 2.0, False, False),
+        # Not inspected for Ø in this op: the band rides with the plunge diameter.
+        ({}, 2.0, True, False),
+        # A blade wider than the authored span leaves a groove beyond the row's window.
+        ({"dia": "caliper"}, 1.0, False, True),
+    ],
+)
+def test_a_relief_row_prints_its_band_and_groove_extent_once(checks, z_to, band, groove):
+    from prechips.sheet import _Traveler
+
+    op = {"op": 50, "do": "form_relief", "feature": "relief", "tool": "blade"}
+    op.update(z_from=0.0, z_to=z_to, direction="plunge_radial", checks=checks)
+    tools = {"blade": _blade()}
+    bundle = _lathe([op], {"relief": dict(_RELIEF)}, tools, zero=_scribe_touch("chuck_side"))
+    sheet = _Traveler(bundle, [], {}, None)
+    setup = sheet.setup = bundle.plan["setups"][0]
+    sheet.records[("coordinates", "S1")] = coordinates.evaluate(bundle)[0].numbers
+    printed = sheet.relief_plunges(setup, op)
+    assert any(line.startswith("to Ø 5.700") or "each to Ø 5.700" in line for line in printed)
+    assert any("(5.57" in line for line in printed) is band, printed
+    assert any(line.startswith("groove Z") for line in printed) is groove, printed
+
+
+@pytest.mark.parametrize(("dia", "radial"), [(6.35, "3.18"), (6.33, "3.17"), (2.25, "1.13")])
+def test_a_half_way_travel_rounds_up_on_a_coarser_dro(dia, radial):
+    # Parting Ø6.35 to the axis plunges 3.175 radial; a 0.01 DRO prints that 3.18, the
+    # same as the hand rounding of half the drawing diameter, never a float's 3.17.
+    from prechips.sheet import _Traveler
+
+    op = {"op": 10, "do": "part_off", "feature": "relief", "tool": "blade", "to_z": 0.0}
+    bundle = _lathe([op], {"relief": dict(_RELIEF)}, {"blade": _blade()})
+    bundle.inventory["machines"]["lathe"]["resolution_mm"] = 0.01
+    sheet = _Traveler(bundle, [], {}, None)
+    setup = sheet.setup = bundle.plan["setups"][0]
+    sheet.records[("coordinates", "S1")] = {"x_display": "diameter"}
+    sheet.records[("reach", "S1:10")] = {"reach_depth_mm": dia / 2}
+    (line,) = sheet.plunge_x(setup, op)
+    assert line.endswith(f"→ 0.00 ({radial} radial)"), line
+
+
 _DOME = {"kind": "dome", "frame": "model", "height": [0.7, 2.3], "sphere_radius": 4.1102}
 _AR = {
     "kind": "turning_tool",
@@ -434,6 +479,86 @@ def test_millimetre_start_and_engagement_facts_print_in_inch_dro_coordinates():
     assert sheet.rest_steps(setup, op)[0] == ["follow rest on: Z 2.000"]
 
 
+def test_the_jaw_clearance_is_the_tools_own_chuck_side_extent_not_the_z_its_op_names():
+    # The op names Z0.25; the insert's nose, posed on the profile, reaches Z0.104 on the
+    # chuck side: 2.104 from jaw fronts at Z-2, printed down the 0.01 grid as 2.10.
+    sheet, setup, op = _sheet("mm", 0.01, {"tool_z_mm": [0.104, 2.15], "feed_z": -1}, 1.75, 0.25)
+    setup["hold"]["pose"] = {"origin_mm": [0.0, 0.0, -2.0], "z": [0.0, 0.0, 1.0]}
+    sheet.records[("headroom", "S1")] = {"stock_od_mm": 10.0}
+    assert sheet.lathe_approaches(setup) == {"10": pytest.approx(2.10)}
+    assert "closest planned tool stop 2.10 mm from the jaws" in sheet.clearance(setup)
+    assert sheet.crash_boxes(setup, op) == ["JAWS Z -2.00: 2.10 clear — hand feed to a stop"]
+
+
+def _dome_tables(compensation=0.4):
+    """A dome's finish table (fed to its tool readings) and rough stair, op 10."""
+    rows = [{"z_mm": 1.75, "z_tool_mm": 1.75}, {"z_mm": 0.25, "z_tool_mm": 0.104}]
+    if compensation == "unknown":
+        rows = [{"z_mm": row["z_mm"]} for row in rows]
+    finish = {
+        "op": 10,
+        "method": "axial_table",
+        "tool_nose_compensation_mm": compensation,
+        "rows": rows,
+    }
+    stair = {"op": 10, "stage": "rough", "rows": [{"z_mm": 1.65}, {"z_mm": 0.45}]}
+    return {"contours": [finish], "stair_tables": [stair]}
+
+
+def test_a_tool_fed_to_its_tip_table_stands_where_the_table_puts_it_not_on_the_drawn_profile():
+    # The plan forms the dome 0.25 above the drawn one (a cut-to-fit end): the kernel stands
+    # the nose on the drawn profile down to Z-0.146, but the finish table feeds it to Z0.104
+    # at most, so the tool stops 8.104 from jaw fronts at Z-8, printed down the grid as 8.10.
+    numbers = {"tool_z_mm": [-0.146, 62.475], "nose_z_mm": [-0.146, 2.29], "feed_z": -1}
+    sheet, setup, op = _sheet("mm", 0.01, numbers, 1.75, 0.25)
+    setup["hold"]["pose"] = {"origin_mm": [0.0, 0.0, -8.0], "z": [0.0, 0.0, 1.0]}
+    sheet.records[("headroom", "S1")] = {"stock_od_mm": 10.0}
+    sheet.records[("coordinates", "S1")] = _dome_tables()
+    assert sheet.lathe_approaches(setup) == {"10": pytest.approx(8.10)}
+    assert "closest planned tool stop 8.10 mm from the jaws" in sheet.clearance(setup)
+    # A shank standing 1.6 below the nose at every pose goes with it: Z-1.496, so 6.50.
+    sheet.records[("accessibility", "S1:10")]["tool_z_mm"] = [-1.746, 62.475]
+    assert sheet.lathe_approaches(setup) == {"10": pytest.approx(6.50)}
+    # A table printing only the surface does not say where the nose stands.
+    sheet.records[("coordinates", "S1")] = _dome_tables("unknown")
+    assert sheet.lathe_approaches(setup) == {"10": "unknown"}
+    # Nor does a tool the kernel posed without its nose's extent.
+    sheet.records[("coordinates", "S1")] = _dome_tables()
+    del sheet.records[("accessibility", "S1:10")]["nose_z_mm"]
+    assert sheet.lathe_approaches(setup) == {"10": "unknown"}
+
+
+def test_a_tool_posed_within_the_kernels_hit_test_inset_of_its_ops_z_stands_at_that_z():
+    # Posed into the shoulder at the op's Z-23, the nose's outline stands 0.000977 past it: the
+    # kernel clears only its 0.001 inset section, so the tool stops at Z-23.00, 4.99 from -27.99.
+    numbers = {"tool_z_mm": [-23.000977, 82.88], "nose_z_mm": [-23.000977, 21.8], "feed_z": -1}
+    sheet, setup, op = _sheet("mm", 0.01, numbers, 21.0, -23.0)
+    setup["hold"]["pose"] = {"origin_mm": [0.0, 0.0, -27.99], "z": [0.0, 0.0, 1.0]}
+    sheet.records[("headroom", "S1")] = {"stock_od_mm": 10.0}
+    assert sheet.lathe_approaches(setup) == {"10": pytest.approx(4.99)}
+    record = sheet.records[("accessibility", "S1:10")]
+    # Farther past it than that, the outline is past the Z: down the grid, 4.98.
+    record["tool_z_mm"] = [-23.0015, 82.88]
+    assert sheet.lathe_approaches(setup) == {"10": pytest.approx(4.98)}
+    # A blade's far face 0.0005 short of a grid line, but a whole width from the op's Z, is the
+    # tool's own reach (3.9895): never printed as 3.99.
+    record["tool_z_mm"] = [-24.0005, 82.88]
+    assert sheet.lathe_approaches(setup) == {"10": pytest.approx(3.98)}
+
+
+def test_a_tool_the_kernel_could_not_pose_whole_has_an_unknown_jaw_clearance():
+    # Its holder is undeclared: the shank may stand nearer the jaws than the Z the op
+    # names, so no distance is printed and the op still gets its hand-feed check.
+    sheet, setup, op = _sheet("mm", 0.01, {"tool_z_mm": "unknown", "feed_z": -1}, 1.75, 0.25)
+    setup["hold"]["pose"] = {"origin_mm": [0.0, 0.0, -8.0], "z": [0.0, 0.0, 1.0]}
+    sheet.records[("headroom", "S1")] = {"stock_od_mm": 10.0}
+    assert sheet.lathe_approaches(setup) == {"10": "unknown"}
+    assert "closest tool approach not computed — check at the machine" in sheet.clearance(setup)
+    assert sheet.crash_boxes(setup, op) == [
+        "JAWS Z -8.00: tool clearance not computed — hand feed to a stop"
+    ]
+
+
 def test_a_follow_rest_z_is_printed_on_the_clear_side_of_the_dro_grid():
     # Clear from Z155.47 toward the chuck; declared 155.46 passes, but ordinary rounding
     # to the 0.1 grid prints 155.5, where the jaws still meet the centre.
@@ -563,7 +688,9 @@ def test_an_inch_relief_is_plunged_in_millimetres_and_printed_in_inches():
         "plunge 1 chuck-side corner Z 0.000",
         "plunge 2 chuck-side corner Z 0.016",
     ]
-    assert printed[3] == "groove Z 0.000 to 0.079"
+    # The groove is the row's own Z window, printed there in inches.
+    assert "Z 0.000 → 0.079" in sheet.tip(setup, op)
+    assert not any(line.startswith("groove Z") for line in printed), printed
 
 
 def test_an_inch_dome_stair_keeps_half_the_millimetre_allowance_off_the_sphere():

@@ -166,7 +166,7 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
             "cut_plane": saw_plane(op.get("cut_plane"), bundle.features.get("units", UNKNOWN)),
         }
     if op.get("do") in HAND_FINISH:
-        return _hand_inputs(bundle, op, subject, finishing)
+        return _hand_inputs(bundle, setup, op, subject, finishing)
     model = approach(bundle, setup, op)
     turned = model == TURNING
     if turned:
@@ -283,6 +283,9 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
         table = table_checkpoints(subject, tables, op["op"], units)
         if table is not None:
             result["checkpoints"] = table
+        sweep = tool_paths(op, tables, units)
+        if sweep is not None:
+            result["tool_paths"] = sweep
     if not turned and "keep_out" in record(op.get("contour")):
         result["keep_out"], result["keep_out_passes"] = raster_keep_out(tables, op["op"], units)
     if model in (TURNING, ROTARY):
@@ -364,9 +367,102 @@ def face_sweep(op, tables, units):
     return {"sweep": {"paths": paths, "to_z_mm": to_z * scale}}
 
 
-def _hand_inputs(bundle, op, subject, finishing):
+def tool_paths(op, tables, units):
+    """Every cutter-centre move a milled op's coordinates tables command, in setup-frame mm,
+    for the kernel's sweep of the tool and its holder against the holding:
+    ``{"paths": [{"xy_mm", "z_mm": [low, high]}], "levels_mm": [low, high], "entry_z_mm"}``,
+    the cutter tip anywhere from ``low`` to ``high`` along each path.
+
+    A printed pass or outline (a list ``cutter_centre``) is cut at every one of the op's
+    Z levels (``z_levels.levels``, else its ``dro_to_z``), and its cutter stands at each end
+    from the lowest level up to where it enters and leaves: the op's start Z
+    (``dro_start_z``), and a raster's lift Z. A raster is one way: its cutter rapids at the
+    lift Z from each pass's end to the next pass's start, and from the last back to the
+    first when another level follows. An arc table's rows (dict ``cutter_centre`` rows,
+    ``tables``) reach the kernel as the op's ``checkpoints``, clipped there for a bounded
+    op; ``levels_mm`` and ``entry_z_mm`` stand them the same way. ``{"reason": ...}`` when
+    a pass, level, start or lift is unknown; None when the op prints no cutter-centre path.
+    """
+    name = op.get("op")
+    profiles = [
+        profile
+        for profile in record(tables).get("profiles", [])
+        if isinstance(profile, dict) and profile.get("op") == name
+    ]
+    if not profiles:
+        return None
+    scale = {"mm": 1.0, "in": 25.4}.get(units)
+    if scale is None:
+        return {"reason": f"feature units {units!r} are not mm or in"}
+    operation = next(
+        (
+            record(entry)
+            for entry in record(tables).get("operations", [])
+            if record(entry).get("op") == name
+        ),
+        {},
+    )
+    levels = record(operation.get("z_levels"))
+    tips = levels.get("levels") or [operation.get("dro_to_z", UNKNOWN)]
+    known = isinstance(tips, list) and all(map(number, tips))
+    entry = levels.get("dro_start_z", max(tips) if known else UNKNOWN)
+    if not (known and number(entry)):
+        return {"reason": f"op {name} Z levels or start Z are unknown"}
+    low, high = min(tips) * scale, max(tips) * scale
+    entry = max(entry * scale, high)
+    paths, printed_tables = [], False
+    for profile in profiles:
+        why = next(
+            (
+                profile[key]
+                for key in ("raster_reason", "arc_reason", "clip_reason")
+                if key in profile
+            ),
+            None,
+        )
+        if why is not None:
+            return {"reason": f"op {name} cutter-centre paths are unknown: {why}"}
+        centre = profile.get("cutter_centre")
+        if isinstance(centre, list) and centre and all(isinstance(row, dict) for row in centre):
+            printed_tables = True
+            continue
+        if isinstance(centre, list) and centre and _xy(centre[0]):
+            centre = [centre]  # one path of points, not a list of passes
+        if not (
+            isinstance(centre, list)
+            and centre
+            and all(isinstance(path, list) and path and all(map(_xy, path)) for path in centre)
+        ):
+            return {"reason": f"op {name} cutter-centre paths are unknown"}
+        passes = [[[v * scale for v in point] for point in path] for path in centre]
+        top = entry
+        raster = profile.get("raster")
+        if isinstance(raster, dict):
+            lift = raster.get("lift_z")
+            if not number(lift):
+                return {"reason": f"op {name} raster lift Z is unknown"}
+            lift *= scale
+            top = max(top, lift)
+            again = len(tips) > 1
+            for k, path in enumerate(passes):
+                if k + 1 < len(passes) or again:
+                    rapid = [path[-1], passes[(k + 1) % len(passes)][0]]
+                    paths.append({"xy_mm": rapid, "z_mm": [lift, lift]})
+        for path in passes:
+            paths.append({"xy_mm": path, "z_mm": [low, high]})
+            for end in dict.fromkeys(map(tuple, (path[0], path[-1]))):
+                paths.append({"xy_mm": [list(end)], "z_mm": [low, top]})
+    result = {"paths": paths, "levels_mm": [low, high], "entry_z_mm": entry}
+    if printed_tables:
+        result["tables"] = True
+    return result
+
+
+def _hand_inputs(bundle, setup, op, subject, finishing):
     """A bench file's kernel inputs: its claims and the policy's ``max_filing_stock_mm``,
-    the most stock a file takes off its claimed faces; it has no machine cutter or holder."""
+    the most stock a file takes off its claimed faces; it has no machine cutter or holder.
+    A file guided by filing buttons held in this setup names the kit's solids by their
+    kernel owner (``guide_owner``): where its cut reaches them is where the file stops."""
     from prechips.rules.coordinates import filing_cap
     from prechips.rules.geometry_common import HAND, finishing_subjects
 
@@ -380,7 +476,25 @@ def _hand_inputs(bundle, op, subject, finishing):
     }
     if "faces" in op:
         result["faces"] = op["faces"]
+    kit = record(op.get("guide")).get("buttons")
+    hold = record(setup.get("hold"))
+    clamps = hold.get("clamps") if isinstance(hold.get("clamps"), list) else []
+    owner = next(
+        (
+            _clamp_owner(index, kit)
+            for index, clamp in enumerate(clamps, start=1)
+            if record(clamp).get("ref") == kit
+        ),
+        kit if hold.get("fixture") == kit else None,
+    )
+    if isinstance(kit, str) and kit != UNKNOWN and owner is not None:
+        result["guide_owner"] = owner
     return result
+
+
+def _clamp_owner(index, reference):
+    """The kernel owner of clamp ``index``'s solids: their tags are ``<owner>:<name>``."""
+    return f"clamp {index} {reference}"
 
 
 def raster_keep_out(tables, op, units):
@@ -586,6 +700,10 @@ def _solids(item, owner):
         caption = solid.get("label")
         if isinstance(caption, str) and caption.strip() and caption != UNKNOWN:
             primitive["label"] = caption.strip()
+        locates = solid.get("locates")
+        if isinstance(locates, str) and locates.strip() and locates != UNKNOWN:
+            # The locating element: a locate clamp must prove it bears on the stock.
+            primitive["locates"] = True
         if void:
             primitive["void"] = True
             if cuts is not None:
@@ -864,12 +982,12 @@ def _clamp_inputs(bundle, hold, result, gaps):
         if pose is None:
             debts.append(f"clamp {index} {reference!r} pose is undeclared or not orthonormal")
             continue
-        solids, missing = _solids(item, f"clamp {index} {reference}")
+        solids, missing = _solids(item, _clamp_owner(index, reference))
         debts.extend(missing)
         if solids:
             placed.append(
                 {
-                    "name": f"clamp {index} {reference}",
+                    "name": _clamp_owner(index, reference),
                     "pose": pose,
                     "solids": solids,
                     # Undeclared is no restraint; a press is credited only by the kernel's
@@ -1201,6 +1319,7 @@ _ENGINE_OP = (
     "shank_from_mm",
     "to_z",
     "checkpoints",
+    "tool_paths",
     "rough_allowance_mm",
     "stock_removal_bounds",
     "keep_out",
@@ -1210,6 +1329,7 @@ _ENGINE_OP = (
     "z_to",
     "angle_window_deg",
     "max_filing_stock_mm",
+    "guide_owner",
     "to_dia_mm",
     *TURNING_TOOL_KEYS,
     *TURNING_HOLDER_KEYS,

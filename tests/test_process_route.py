@@ -159,6 +159,42 @@ def test_only_a_coating_op_names_a_process(tmp_path):
         load_bundle(plan)
 
 
+_VIEW = """[[setups.ops.inspection_views.dia]]
+title = "ON V-BLOCKS"
+up = [1.0, 0.0, 0.0]
+toward = [0.0, -1.0, 0.0]
+marks = [{label = "N", at_mm = [6.0, 0.0, 10.0], reads = true}]
+"""
+
+
+@pytest.mark.parametrize(
+    ("op", "error"),
+    [
+        ('do = "inspect"\n', None),
+        ('do = "coating"\nprocess = "cutting-oil"\n', "only an inspect op declares"),
+        ('do = "inspect"\n', "views for dia illustrate no stated inspection method"),
+    ],
+    ids=["illustrating_its_method", "on_a_coating_op", "without_a_method"],
+)
+def test_inspection_views_illustrate_an_inspect_ops_stated_method(tmp_path, op, error):
+    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
+    method = "" if error and "method" in error else 'dia = "Read it {N}."\n'
+    body = (
+        f'{op}feature = "pivot_bearing"\n[setups.ops.checks]\ndia = "micrometers/0-1in"\n'
+        f"[setups.ops.inspection_methods]\n{method}{_VIEW}"
+    )
+    append_op(plan, body)
+    if error is None:
+        (setup,) = [
+            s for s in load_bundle(plan).plan["setups"] if s["id"] == setups(plan)[-1]["id"]
+        ]
+        (view,) = setup["ops"][-1]["inspection_views"]["dia"]
+        assert view["marks"] == [{"label": "N", "at_mm": [6.0, 0.0, 10.0], "reads": True}]
+        return
+    with pytest.raises(BadInput, match=error):
+        load_bundle(plan)
+
+
 # ------------------------------------------------------- multi-feature inspection
 
 SHOULDER = ("shoulder_north_face", "shoulder_thrust")
@@ -287,9 +323,11 @@ def test_a_process_hold_prints_as_a_shop_limit_not_a_drawing_limit(tmp_path):
     plan = copy_examples(tmp_path) / "rocker-arm" / "plan.toml"
     _, op = hold_ream(plan, "[2.000, 2.010]")
     _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
-    (row,) = [row for row in op_rows(html, op) if REASON in row]
-    assert f"PROCESS HOLD — not a drawing limit: {REASON}" in row
-    assert "2.000–2.010" in row
+    (row,) = [row for row in op_rows(html, op) if "PROCESS HOLD" in row]
+    assert "PROCESS HOLD — not a drawing limit" in row and "2.000–2.010" in row
+    # Why it holds prints once, on the job page; the op row points there.
+    assert "see job page" in row and REASON not in row
+    assert unescape(html).count(REASON) == 1
 
 
 def test_a_process_hold_read_by_an_inch_gauge_prints_the_mm_digits_that_gauge_resolves(tmp_path):
@@ -297,7 +335,7 @@ def test_a_process_hold_read_by_an_inch_gauge_prints_the_mm_digits_that_gauge_re
     plan = copy_examples(tmp_path) / "rocker-arm" / "plan.toml"
     _, op = hold_ream(plan, "[2.000, 2.010]", gauge="micrometers/0-1in")
     _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
-    (row,) = [row for row in op_rows(html, op) if REASON in row]
+    (row,) = [row for row in op_rows(html, op) if "PROCESS HOLD" in row]
     assert "2.000–2.010" in row
 
 
@@ -409,7 +447,7 @@ def test_process_holds_reach_the_job_page_apart_from_the_drawing_limits(tmp_path
     for text in (f"{sid} op {op}", "scribe to faced end 1.50–2.00", "REF 156.67", FIT_UP):
         assert text in holds, text
     # The op row says what it reads and that the drawing gives the span only as REF.
-    (row,) = [row for row in op_rows(html, op) if FIT_UP in row]
+    (row,) = [row for row in op_rows(html, op) if "PROCESS HOLD" in row]
     assert "scribe to faced end 1.50–2.00" in row and "REF 156.67" in row
 
 

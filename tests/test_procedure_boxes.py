@@ -2,6 +2,7 @@
 and the purchased tooling receipt checks."""
 
 import copy
+import re
 
 import pytest
 from pydantic import ValidationError
@@ -47,10 +48,61 @@ def test_a_complete_edge_finder_gives_its_speed_band_inside_the_mill():
     assert finder["finder_type"] == "mechanical"
     assert finder["tip_dia_mm"] == pytest.approx(5.08)
     assert finder["radius_mm"] == pytest.approx(2.54)
-    assert finder["rpm"] == [1000, 1200]
+    assert finder["rpm"] == [[1000, 1200]]
     # The mill's lower top speed clips the finder's band.
     clipped = finder_row(mill_bundle(spindle={"rpm_min": 50, "rpm_max": 1100}))
-    assert clipped["finder"]["rpm"] == [1000, 1100]
+    assert clipped["finder"]["rpm"] == [[1000, 1100]]
+
+
+def test_a_finder_band_across_a_gap_between_spindle_ranges_runs_only_where_it_turns():
+    gapped = {"ranges_rpm": [[50, 900], [1500, 3000]]}
+    finding = evaluate(mill_bundle(spindle=gapped))[0]
+    # 1000-1200 falls in the gap: no range turns it.
+    assert finding.status == "error"
+    wide = {**FINDER, "rpm_range": [800, 1600]}
+    finder = finder_row(mill_bundle(wide, spindle=gapped))["finder"]
+    assert finder["rpm"] == [[800, 900], [1500, 1600]]
+    data = mill_bundle(wide, spindle=gapped)
+    html = _Traveler(data, evaluate(data), {}, {}).dro(data.plan["setups"][0], {})
+    box = html[html.index("<h3>EDGE FINDER") :]
+    assert "800–900 or 1500–1600 rpm" in box and "1000" not in box
+
+
+@pytest.mark.parametrize(
+    ("finder", "spindle"),
+    [
+        ({**FINDER, "rpm_range": ["unknown", 1200]}, None),
+        ({**FINDER, "rpm_range": [1000, "unknown"]}, None),
+        (FINDER, {"rpm_min": 50, "rpm_max": "unknown"}),
+        (FINDER, {"ranges_rpm": [[50, 900], [1000, "unknown"]]}),
+        (FINDER, {"ranges_rpm": "unknown"}),
+    ],
+)
+def test_a_partly_unknown_speed_band_leaves_the_finder_speed_unknown(finder, spindle):
+    data = mill_bundle(finder, spindle=spindle)
+    finding = evaluate(data)[0]
+    assert finding.status == "unknown"
+    assert finding.numbers["axes"]["x"]["finder"]["rpm"] == "unknown"
+    html = _Traveler(data, [finding], {}, {}).dro(data.plan["setups"][0], {})
+    assert "STOP" in html[html.index("<h3>EDGE FINDER") :]
+
+
+def test_each_mill_gets_the_finder_speed_it_can_turn():
+    data = mill_bundle({**FINDER, "rpm_range": [750, 1500]}, setups=2)
+    data.inventory["machines"]["mill"]["spindle"] = {"rpm_min": 50, "rpm_max": 900}
+    data.inventory["machines"]["fast"] = {
+        "kind": "mill",
+        "spindle": {"rpm_min": 1200, "rpm_max": 3000},
+    }
+    data.plan["setups"][1]["machine"] = "fast"
+    findings = evaluate(data)
+    sheet = _Traveler(data, findings, {}, {})
+    first, second = (sheet.dro(setup, {}) for setup in data.plan["setups"])
+    assert "750–900 rpm" in first[first.index("<h3>EDGE FINDER") :]
+    # The second mill's speed is never the first mill's box.
+    box = second[second.index("<h3>EDGE FINDER") :]
+    assert "1200–1500 rpm" in box and "750–900" not in second
+    assert "Setup S1 sheet 1" not in second
 
 
 @pytest.mark.parametrize("missing", ["finder_type", "rpm_range", "tip_in"])
@@ -189,6 +241,122 @@ def test_the_receipt_check_table_stops_on_an_unresolved_gauge():
         data.plan["setups"][0]
     )
     assert "STOP" in html
+
+
+def receipt_html(data):
+    findings = purchased_tooling.evaluate(data)
+    return findings, _Traveler(data, findings, {}, {}).purchased_tooling(data.plan["setups"][0])
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"limits_mm": ["unknown", 14.03]},
+        {"limits_mm": [13.95, "unknown"]},
+        {"limits_mm": "unknown"},
+        {"limits": "unknown"},
+        {"check": "unknown"},
+        {"how": "unknown"},
+    ],
+)
+def test_an_unknown_receipt_criterion_stops_instead_of_accepting(change):
+    kit = copy.deepcopy(KIT)
+    row = kit["acceptance"][0]
+    row.pop("limits")
+    row.update({"limits_mm": [13.95, 14.03], **change})
+    if "limits" in change:
+        row.pop("limits_mm")
+    [finding], html = receipt_html(kit_bundle(kit))
+    assert finding.status == "unknown"
+    assert "STOP" in html
+
+
+@pytest.mark.parametrize("accept", ["unknown", "", "   "])
+def test_an_unknown_hand_criterion_stops_instead_of_accepting(accept):
+    kit = copy.deepcopy(KIT)
+    kit["acceptance"][2]["accept"] = accept
+    [finding], html = receipt_html(kit_bundle(kit))
+    assert finding.status == "unknown"
+    assert "STOP" in html
+
+
+@pytest.mark.parametrize("field", ["acceptance", "purchase"])
+def test_an_explicitly_unknown_receipt_declaration_stops(field):
+    kit = {**copy.deepcopy(KIT), field: "unknown"}
+    [finding], html = receipt_html(kit_bundle(kit))
+    assert finding.status == "unknown"
+    assert is_required(finding, {"required": {}})
+    assert "STOP" in html
+
+
+@pytest.mark.parametrize(
+    "use",
+    [
+        {"hold": {"fixture": "vise", "jaw_buttons": "kit"}},
+        {"hold": {"fixture": "vise", "jaw_bar": "kit"}},
+        {"hold": {"fixture": "vise", "parallels": "kit"}},
+        {"hold": {"fixture": "kit"}},
+        {"hold": {"fixture": "lathe-chuck", "chuck": "kit"}},
+        {"hold": {"fixture": "vise", "support": "kit"}},
+        {"hold": {"fixture": "vise", "riser": "kit"}},
+        {"hold": {"fixture": "vise", "stop_fixture": "kit"}},
+        {"hold": {"fixture": "vise", "align": {"indicator": "kit"}}},
+        {"zero": {"x": {"tool": "kit"}}},
+        {"zero": {"x": {"gauge": "kit"}}},
+        {"zero": {"transfer": {"gauge": "kit"}}},
+        {"zero": {"transfer": {"tool": "kit"}}},
+        {"zero": {"tool_touches": [{"tool": "centre", "z_gauge": "kit"}]}},
+        {"ops": [{"op": 10, "tool": "centre", "holder": "kit"}]},
+        {"ops": [{"op": 10, "tool": "centre", "checks": {"dia": "kit"}}]},
+        {"ops": [{"op": 10, "tool": "centre", "guide": {"gauge": "kit"}}]},
+        {"ops": [{"op": 10, "tool": "centre", "process_holds": [{"gauge": "kit"}]}]},
+    ],
+)
+def test_every_slot_a_setup_uses_an_item_in_reads_its_receipt_checks(use):
+    data = kit_bundle()
+    setup = data.plan["setups"][0]
+    setup["hold"] = {"fixture": "vise"}
+    assert purchased_tooling.evaluate(data) == []
+    setup.update(copy.deepcopy(use))
+    [finding] = purchased_tooling.evaluate(data)
+    assert finding.numbers["items"][0]["ref"] == "kit"
+
+
+def test_metric_receipt_limits_round_inward():
+    kit = copy.deepcopy(KIT)
+    kit["button_dia_limits_mm"] = [13.9504, 14.0296]
+    kit["button_runout_mm"] = 0.0104
+    _, html = receipt_html(kit_bundle(kit))
+    assert "13.951–14.029 mm" in html and "≤ 0.010 mm" in html
+
+
+def printed_band(html, unit):
+    """Every ``lo–hi unit`` band the receipt table prints, as numbers."""
+    return [
+        (float(lo), float(hi)) for lo, hi in re.findall(rf"(\d+\.\d+)–(\d+\.\d+) {unit}\b", html)
+    ]
+
+
+@pytest.mark.parametrize(
+    ("band", "most"),
+    [([13.9504, 13.9506], 0.0004), ([13.95, 13.95], 0.00001), ([6.4999, 6.5001], 0.0104)],
+)
+def test_a_narrow_receipt_band_never_prints_reversed_or_wider(band, most):
+    kit = copy.deepcopy(KIT)
+    kit["button_dia_limits_mm"] = band
+    kit["button_runout_mm"] = most
+    data = kit_bundle(kit)
+    data.inventory["gauges"]["mic"] = {"kind": "micrometer", "range_in": [0, 1]}
+    _, html = receipt_html(data)
+    [(lo, hi)] = printed_band(html, "mm")
+    assert band[0] <= lo <= hi <= band[1]
+    # An inch band prints for an inch gauge unless no inch decimals fit inside the band.
+    inches = printed_band(html, "in")
+    assert len(inches) == (band[0] < band[1])
+    for lo_in, hi_in in inches:
+        assert band[0] / 25.4 <= lo_in <= hi_in <= band[1] / 25.4
+    [cap] = [float(v) for v in re.findall(r"≤ (\d+\.\d+) mm", html)]
+    assert 0 < cap <= most
 
 
 def validate(items, category="fixtures"):
