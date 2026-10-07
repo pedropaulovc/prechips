@@ -294,7 +294,8 @@ def test_reference_rocker_arm_binds_the_labelled_export_and_models_each_setup(
         == hashlib.sha256(raw).hexdigest()
     )
     assert report["inputs"]["step"]["path"] == "examples/rocker-arm/rocker-arm.STEP"
-    assert set(report["renders"]) == {"S1", "S2", "S3", "S3F", "S4"}
+    prep = {"P1", "P2", "P3", "P4", "P5"}
+    assert set(report["renders"]) == prep | {"S1", "S2", "S3", "S3F", "S4"}
     for _setup, render in report["renders"].items():
         assert render["fixture"] == "modeled"
         assert render["scene"]["debts"] == []
