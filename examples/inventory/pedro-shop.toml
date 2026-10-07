@@ -1071,6 +1071,15 @@ resolution_mm = 0.001
 kind = "magnetic_base"
 present = true
 
+# --- DataShaft additions ---
+# Edge-break check for the pivot shaft's deburr ops (R0.25 or 0.25 chamfer max).
+[gauges.measuring-loupe]
+kind = "measuring_loupe"
+note = "illustrative example item: 10x measuring loupe with a 0.1 mm reticle, for reading edge breaks and scribed lines"
+range_mm = [0.0, 10.0]
+resolution_mm = 0.1
+# --- end DataShaft additions ---
+
 [holders]
 
 [holders.r8-collets-lms-4860]

@@ -475,22 +475,30 @@ assumes the fit-up scribe landed at the REF span 156.67, so the S3 plain-end and
 north-end stations and stick-out are numeric.
 
 The shaft route (example plan) is: S1 grips the north stub in the three-jaw
-chuck, with the MT3 dead centre in the centre-drilled plain end and the follow rest
+chuck, with the MT3 dead centre in the centre-drilled plain end (Ø3.0 countersink,
+so the turning tool starts about 0.5 clear of the centre's cone) and the follow rest
 riding the 26:1 body on the turned side, 8 mm behind the tool (example jaw
-sizes 12 × 40 × 10 mm at 90° and 180°). It roughs and finishes the bearing toward the chuck,
+sizes 12 × 40 × 10 mm at 90° and 180°), its jaws reset with the spindle stopped
+on each newly turned diameter. It roughs and finishes the bearing toward the chuck,
 faces the thrust shoulder, mics the Ø10 shoulder left as cold-finished bar and
 plunges the south DIN 509 relief with the 1/16 in HSS parting blade. S2 reverses
 onto the finished body with the thrust face seated on the jaw fronts to turn the
 journal, face the shoulder's north face, plunge the north relief and form the
 north dome with the 93° AR tool (the 60° E gouges near the apex). S3 grips 8 mm
 north of the scribe, parts the plain end to the 1.5–2.0 past-scribe band with
-the blade and forms the south dome on the parted face with the AR tool.
+the blade and forms the south dome on the parted face with the AR tool. Each
+setup ends with a hand deburr (spindle stopped, needle file and slip stone) of
+the edges it made, checked to the drawing's R0.25 / 0.25 chamfer maximum under
+the example 10x measuring loupe (`gauges.measuring-loupe`), so every edge is
+broken before S3 op 40 oils the part.
 
 The shaft export's `pivot_bearing` has only the `CUT TO FIT` note and
-`length_ref = 156.67`, with no cut-to-fit length requirement. The plan therefore
-checks the cut-to-fit band through S3 op 10's `inspection_note` (caliper depth
-rod from the actual scribe) and does not claim a `pivot_bearing:length`
-inspection.
+`length_ref = 156.67`, with no cut-to-fit length requirement. The 1.5–2.0
+past-scribe band comes from the channel assembly drawing's fit-up note
+(`cad/scripts/draw_channel_assembly.py:82,101-110`), not the shaft drawing, so the
+plan prints it as a labelled fit-up hold in S3 op 20's `inspection_note`: the
+DRO, with the T1 tool point re-sighted on the scribe, measures the scribe-to-end
+distance. The plan does not claim a `pivot_bearing:length` inspection.
 
 The cone's indexing feature is now `crank_bore`, which owns
 `land_angle_nominal_deg = 12.5182` and the BASIC relationship. Its omitted

@@ -668,6 +668,11 @@ rest's `jaw_width`, `jaw_height`, `jaw_depth` and `jaw_angles_deg`, a steady
 rest's `body_dia` and `body_length` ([inventory](inventory.md),
 [rules-geometry](rules-geometry.md#follow-and-steady-rests)). Example:
 `supports = ["dead_centre_tailstock_mt3", { ref = "follow-rest", ops = [10, 30], jaw_lead_mm = 8.0, jaw_side = "turned" }]`.
+The traveler's HOLD prints a follow rest's lead as a distance along the work,
+never beside a Ø sign: `jaws 8.00 mm behind the tool, on the diameter just turned:
+reset them on every pass once the tool passes Z 152.00` (trailing jaws ride each
+pass's new diameter; `engage_at_z_mm`, when declared, is the Z), or `jaws … mm
+ahead of the tool, on the uncut stock`.
 
 ## Zero
 
