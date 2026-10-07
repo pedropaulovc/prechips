@@ -122,6 +122,7 @@ bottom_z = -21.29464
 fixture = "test-vise-wide"
 jaws_along = "x"
 fixed_jaw = "rear"
+align = { indicator = "test-dti", limit_mm = 0.0254, over_mm = 100.0, cite = "synthetic test specification: fixed jaw squared to the X travel within 0.0254 mm over 100 mm of the 320 mm jaw; not a measured alignment" }
 parallels = "test-parallels-20"
 grip_on = "hub faces"
 grip_mm = 6.0
