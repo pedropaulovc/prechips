@@ -1,0 +1,13 @@
+{
+  "date": "2026-10-06",
+  "scope": "print-first technical setup sheets",
+  "baseline": "d4b8826",
+  "design_system": null,
+  "font_stack": {"value": "8pt/1.25 Arial, sans-serif", "cite": "src/prechips/sheet.py:45"},
+  "palette": {"value": "black ink, white paper, gray table rules and headers", "cite": "src/prechips/sheet.py:45-66"},
+  "motion": "none",
+  "spacing": {"value": "0.4in page margin, 1-2pt cell padding, no named spacing tokens", "cite": "src/prechips/sheet.py:43-65"},
+  "framework": "Python-generated standalone HTML/CSS with browser-measured duplex pagination",
+  "preserve": ["technical content and authored precision", "warning semantics", "setup images", "offline runtime", "duplex front-starts"],
+  "introduce": ["readable working typography", "named spacing and color tokens", "pen-sized recording fields", "aligned task hierarchy", "matching pagination geometry"]
+}
