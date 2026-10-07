@@ -877,6 +877,10 @@ def _follow_rest(setup, entry, item, reference):
         missing.append(f"plan hold.supports[{reference}].jaw_lead_mm (positive)")
     if rest["side"] not in _JAW_SIDES:
         missing.append(f"plan hold.supports[{reference}].jaw_side (turned or uncut)")
+    engage = entry.get("engage_at_z_mm", UNKNOWN)
+    if number(engage):
+        # Where the jaws go on: the picture poses them there, beside the tool.
+        rest["engage_at_z_mm"] = engage
     if record(item).get("kind") != "follow_rest":
         missing.append(f"fixtures.{reference} kind follow_rest")
     for dimension in ("jaw_width", "jaw_height", "jaw_depth"):

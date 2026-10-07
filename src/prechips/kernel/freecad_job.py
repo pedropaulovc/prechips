@@ -782,6 +782,12 @@ def _bbox(shape):
     return (box.XMin, box.YMin, box.ZMin, box.XMax, box.YMax, box.ZMax)
 
 
+def _union_box(boxes):
+    """The box around ``boxes`` (each ``(x0, y0, z0, x1, y1, z1)``), as a list."""
+    low = [min(b[i] for b in boxes) for i in range(3)]
+    return low + [max(b[i] for b in boxes) for i in range(3, 6)]
+
+
 def _box_shape(box):
     x0, y0, z0, x1, y1, z1 = box
     return Part.makeBox(x1 - x0, y1 - y0, z1 - z0, V(x0, y0, z0))
@@ -6773,7 +6779,7 @@ class _Setup:
                 solids += possible
                 possible = []
         rests = self._rest_render(debts)
-        solids += [(name, jaw, _COLOURS["rest"]) for name, jaws, _ in rests for jaw in jaws]
+        solids += [(rest[0], jaw, _COLOURS["rest"]) for rest in rests for jaw in rest[1]]
         for name, shape, colour in solids + possible:
             mesh(shape, colour, tag=name)
         parallels = any(c["role"] == "parallel" for c in self.fixture)
@@ -6794,13 +6800,22 @@ class _Setup:
                 for c in self.fixture
             ]
             + [
-                {"name": name, "role": "follow_rest", "exact": True, "pose": pose}
-                for name, _, pose in rests
+                {
+                    "name": name,
+                    "role": "follow_rest",
+                    "exact": True,
+                    "pose": pose,
+                    "box_mm": _union_box([_bbox(jaw) for jaw in jaws]),
+                }
+                for name, jaws, pose, _, _ in rests
             ],
             "debts": debts,
         }
         annotation = self.setup.get("render", {})
-        tool, tool_debt = self._render_tool(annotation, lathe)
+        # The tool is drawn at the cut Z its op's follow rest is drawn for, beside the jaws.
+        tool, tool_debt = self._render_tool(
+            annotation, lathe, {subject: z for _, _, _, subject, z in rests}
+        )
         if tool_debt:
             render_debts.append(tool_debt)
         sketch, waypoints, sketch_debts = self._clipped_sketch(annotation)
@@ -6897,11 +6912,8 @@ class _Setup:
             legend[0] = "Blue-grey: arriving stock; cuts not confirmed."
             legend.pop(1)
         components = self._render_components(annotation, named=view == "elevation")
-        for name, jaws, _ in rests:
-            boxes = [_bbox(jaw) for jaw in jaws]
-            box = [min(b[i] for b in boxes) for i in range(3)] + [
-                max(b[i] for b in boxes) for i in range(3, 6)
-            ]
+        for name, jaws, *_ in rests:
+            box = _union_box([_bbox(jaw) for jaw in jaws])
             centre = [(box[i] + box[i + 3]) / 2 for i in range(3)]
             components.append(
                 {
@@ -6943,6 +6955,7 @@ class _Setup:
             "jaw_front_oblique": jaw_front_oblique,
             "stickout_mm": annotation.get("stickout_mm"),
             "stickout_add_mm": annotation.get("stickout_add_mm"),
+            "decimals": annotation.get("decimals"),
             "datums": datums,
             "primary_tool": tool,
             "paths": sketch,
@@ -7308,8 +7321,10 @@ class _Setup:
                 )
         return result
 
-    def _render_tool(self, annotation, lathe):
-        """Selected primary cutter's actual silhouette at an illustrative approach pose."""
+    def _render_tool(self, annotation, lathe, rest_z=None):
+        """Selected primary cutter's actual silhouette at an illustrative approach pose;
+        a turning op whose follow rest is drawn (``rest_z``: op subject -> the cut Z its
+        jaws are posed for) shows the tool at that Z, beside the jaws."""
         # A bench file has no cutter to draw: the primary cutter is the first machine op's.
         ops = [op for op in self.ops if not _hand(op)]
         if not ops:
@@ -7322,7 +7337,9 @@ class _Setup:
             tool, missing, holder_missing = self._turn_tool(op)
             if missing:
                 return None, "STOP: selected turning tool dimensions are unresolved; do not run."
-            if _number(op.get("to_z")):
+            if _number((rest_z or {}).get(self._subject(op))):
+                z = rest_z[self._subject(op)]
+            elif _number(op.get("to_z")):
                 z = op["to_z"]
             elif _number(op.get("z_from")) and _number(op.get("z_to")):
                 z = (op["z_from"] + op["z_to"]) / 2
@@ -7457,19 +7474,24 @@ class _Setup:
         return profiles, beyond
 
     def _rest_render(self, debts):
-        """[(name, jaw solids, pose)] of each posed follow rest at its first served op's
-        first cutting point; an unposed complete rest is a scene debt."""
+        """[(name, jaw solids, pose, op subject, cut Z)] of each posed follow rest for its
+        first served op, set at its declared engage Z (else that op's first cutting point);
+        an unposed complete rest is a scene debt."""
         drawn = []
         for rest in (self.hold or {}).get("follow_rests", []):
             if rest.get("missing"):
                 continue  # its host debt is already a scene debt
             name = f"follow rest {rest['name']}"
             for op in self.ops:
-                record = self.rest_poses.get((rest["name"], self._subject(op)))
+                subject = self._subject(op)
+                record = self.rest_poses.get((rest["name"], subject))
                 if record is not None and record["render"] is not None:
-                    jaws, z = record["render"]
-                    pose = f"jaws for {self._subject(op)} cutting at z {z} mm"
-                    drawn.append((name, jaws, pose))
+                    jaws, z, why = record["render"]
+                    if why is not None:
+                        debts.append(f"{name} not drawn for {subject}: {why}")
+                        break
+                    pose = f"jaws for {subject} cutting at z {z} mm"
+                    drawn.append((name, jaws, pose, subject, z))
                     break
             else:
                 debts.append(f"{name} not drawn: no served op posed its jaws")
@@ -10621,6 +10643,20 @@ class _Setup:
             jaws.append(jaw)
         return jaws, z0
 
+    def _rest_render_pose(self, rest, section, tool, jaws, point):
+        """(jaw solids, cut Z, why not drawn) the picture shows for a served rest: set on the
+        work with the tool at the declared ``engage_at_z_mm``, the Z the tool passes before
+        the jaws go on (``accessibility`` checks it against the clear Z), else at this first
+        cutting point. An engage Z with no work diameter there to ride is not drawn."""
+        engage = rest.get("engage_at_z_mm")
+        if not _number(engage):
+            return jaws, _r(point[1]), None
+        radius = _outer_radius(section, engage, engage)
+        if radius is None or radius <= PLANE_TOL:
+            why = f"no work diameter at its engage z {_r(engage)} mm to ride"
+            return None, _r(engage), why
+        return self._rest_jaws(rest, radius, engage, tool["feed_z"])[0], _r(engage), None
+
     def _rest_hits(self, posed, tool, point, section, pieces, subject):
         """({tool kind: follow rest names its jaws meet}, why a rest could not be posed or
         None) for one cutting point; jaw clashes with the work and the fixture are recorded.
@@ -10659,7 +10695,7 @@ class _Setup:
                     record["clashes"][key] = record["clashes"].get(key, 0) + 1
             record["poses"] += 1
             if record["render"] is None:
-                record["render"] = (jaws, _r(point[1]))
+                record["render"] = self._rest_render_pose(rest, rest_section, tool, jaws, point)
             # Riding the set diameter is contact; work beyond it under the jaws is a clash.
             band = _band(radius + STOCK_TOL, self._outer(), z0, z0 + depth)
             if band is not None and band.common(profile).Volume > STOCK_MM3:

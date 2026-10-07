@@ -996,6 +996,32 @@ def test_small_work_in_its_holding_gets_an_enlarged_contact_detail(size, touchin
     detail.canvas.assert_text_layout(min_scale=3)
 
 
+@pytest.mark.parametrize(
+    ("decimals", "cut", "plane"), [(3, "6.655", "12.000"), (4, "6.6547", "12.0000")]
+)
+def test_picture_coordinates_and_clearances_print_as_the_setup_tables_print_them(
+    decimals, cut, plane
+):
+    # The kernel measures the jaw tops 6.6547 below the cut; the setup's tables print that
+    # at its DRO decimals, and so must the picture: never 6.65 beside a table's 6.655.
+    meshes, spec = _vise_spec(12)
+    spec["decimals"] = decimals
+    spec["jaw_front_z_mm"] = -6.6547
+    spec["closest_cut"] = {
+        "mm": 6.6547,
+        "tag": "fixed_jaw",
+        "from_mm": [0, 6, 10],
+        "to_mm": [0, 6, 10 - 6.6547],
+    }
+    main = _Diagram(meshes, spec)
+    main.render()
+    (detail,) = _holding_details(meshes, spec, main)
+    text = " ".join(box[0] for drawn in (main, detail) for box in drawn.canvas.text_boxes)
+    assert f"JAW FRONT Z -{cut} MM" in text, text
+    assert f"CUT {cut} MM FROM" in text, text
+    assert f"CONTACT AT X {plane}" in text, text
+
+
 def test_long_thin_plan_work_gets_split_details_that_key_each_contact_height_once():
     # A 300 x 12 mm bar seen from above: its holding heights cannot show in the plan, and
     # one band across the whole length would draw the bar hardly larger than the plan.
