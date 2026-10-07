@@ -357,11 +357,13 @@ Front sheet (sheet 1), in this order:
    until the display shows the Axis Set value again, then lower. The picked-up
    value is never set again. A lathe check jogs away from the work and has no
    raise step. An edge-finder pick-up row names the **EDGE FINDER** box, which
-   prints once per finder, in the DRO ZERO of the first setup picking up with
-   it ([inventory](inventory.md#edge-finder)): the speed band inside the mill's
-   range, how the contact shows, and the offset — half the tip Ø, Axis Set edge
-   − r from the − side and edge + r from the + side; a later setup's rows name
-   `EDGE FINDER box, Setup S1 sheet 1`. A missing finder fact prints `STOP:`.
+   prints once per finder and mill, in the DRO ZERO of the first setup picking
+   up with it on that mill ([inventory](inventory.md#edge-finder)): the speed
+   bands where the mill's ranges turn the finder (never a speed between them),
+   how the contact shows, and the offset — half the tip Ø, Axis Set edge − r
+   from the − side and edge + r from the + side; a later setup on the same mill
+   names `EDGE FINDER box, Setup S1 sheet 1`. A missing or unknown finder or
+   spindle fact prints `STOP:`.
 6. **OPERATIONS**: op, action with depth of cut, feature, `T#` tool, rpm, feed,
    Z target, cut direction and `limit: gauge` inspection. Lathe feed prints as
    `mm/rev` with the resulting `mm/min` in brackets; mill and saw feeds print in

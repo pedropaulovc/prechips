@@ -276,19 +276,33 @@ def workholding_category(bundle_or_inventory, reference):
     return inventory_category(bundle_or_inventory, reference, WORKHOLDING_CATEGORIES) or "fixtures"
 
 
+# The hold's item slots, in the order the HOLD uses them.
+_HOLD_ITEMS = ("fixture", "chuck", "parallels", "riser", "jaw_bar", "jaw_buttons", "support")
+
+
 def setup_item_refs(setup):
-    """The inventory references a setup puts its hands on, first use first: the hold's
-    fixture, clamps, stop, riser and supports, then each op's filing guide and tool."""
+    """Every inventory reference a setup puts its hands on, first use first: the hold's
+    fixture, chuck, parallels, riser, jaw bar / buttons, support, clamps, stop, supports
+    and alignment indicator; the zero's tools, holders and gauges; then each op's filing
+    guide, tool, holder and inspection gauges."""
     hold = record(setup.get("hold"))
-    refs = [hold.get("fixture")]
+    refs = [hold.get(key) for key in _HOLD_ITEMS]
     refs += [record(clamp).get("ref") for clamp in hold.get("clamps") or [] if clamp]
-    refs += [hold.get("stop_fixture"), hold.get("riser")]
+    refs.append(hold.get("stop_fixture"))
     supports = hold.get("supports")
     for support in supports if isinstance(supports, list) else [supports]:
         refs.append(record(support).get("ref") if isinstance(support, dict) else support)
+    refs.append(record(hold.get("align")).get("indicator"))
+    zero = record(setup.get("zero"))
+    touches = zero.get("tool_touches") if isinstance(zero.get("tool_touches"), list) else []
+    for touch in [*(zero.get(axis) for axis in "xyz"), *touches]:
+        refs += [record(touch).get(key) for key in ("tool", "holder", "gauge")]
+    refs.append(record(zero.get("transfer")).get("gauge"))
     for op in setup.get("ops") or []:
-        guide = record(record(op).get("guide"))
-        refs += [guide.get("buttons"), guide.get("template"), record(op).get("tool")]
+        op = record(op)
+        guide = record(op.get("guide"))
+        refs += [guide.get("buttons"), guide.get("template"), op.get("tool"), op.get("holder")]
+        refs += list(record(op.get("checks")).values())
     seen = []
     for ref in refs:
         if isinstance(ref, str) and ref not in {UNKNOWN, "none", "not_applicable", *seen}:

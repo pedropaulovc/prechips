@@ -758,6 +758,17 @@ def _inch(mm, up=False):
     return f"{(math.ceil(tenths) if up else math.floor(tenths)) / 1e4:.4f}"
 
 
+def _mm(mm, up=False):
+    """``mm`` to 0.001 mm, rounded up (a low limit) or down: never looser."""
+    microns = round(mm * 1e3, 6)
+    return f"{(math.ceil(microns) if up else math.floor(microns)) / 1e3:.3f}"
+
+
+def _stated(value):
+    """A text the shop can act on: not blank and not the unknown sentinel."""
+    return isinstance(value, str) and value.strip() not in ("", "unknown")
+
+
 def _supply_name(root):
     """A root supply (``stock.<component>``, ``stock`` or an unrouted setup) in shop words."""
     if root == "stock":
@@ -3265,15 +3276,15 @@ class _Traveler:
                     ordered=True,
                 )
             )
-        for reference, home in self.finder_homes.items():
-            if home == setup["id"]:
+        for (reference, machine), home in self.finder_homes.items():
+            if home == setup["id"] and machine == setup.get("machine"):
                 finder = next(
                     computed["finder"]
                     for axis, computed in axes.items()
                     if computed.get("finder")
                     and _mapping(authored.get(axis)).get("tool") == reference
                 )
-                pieces.append(self.finder_box(reference, finder))
+                pieces.append(self.finder_box(reference, machine, finder))
         correction = self.measured_top(setup)
         if correction:
             pieces.append(_p(correction))
@@ -3349,26 +3360,29 @@ class _Traveler:
 
     @functools.cached_property
     def finder_homes(self):
-        """``{edge-finder reference: setup id}``: the first setup whose DRO zero picks up
-        with it prints the traveler's one EDGE FINDER box for it."""
+        """``{(edge-finder reference, machine): setup id}``: the first setup whose DRO zero
+        picks up with that finder on that mill prints its EDGE FINDER box. The speed is the
+        mill's, so each mill the finder is used on gets its own box."""
         homes = {}
         for setup in self.plan.get("setups", []):
             axes = _mapping(self.records.get(("zero_check", setup["id"]))).get("axes")
             zero = _mapping(setup.get("zero"))
             for axis in ("x", "y"):
                 if _mapping(_mapping(axes).get(axis)).get("finder"):
-                    homes.setdefault(_mapping(zero.get(axis)).get("tool"), setup["id"])
+                    key = (_mapping(zero.get(axis)).get("tool"), setup.get("machine"))
+                    homes.setdefault(key, setup["id"])
         return homes
 
     def finder_pointer(self, setup, reference):
         """``EDGE FINDER box`` with the sheet that prints it when another setup's does."""
-        home = self.finder_homes.get(reference, setup["id"])
+        home = self.finder_homes.get((reference, setup.get("machine")), setup["id"])
         return "EDGE FINDER box" + ("" if home == setup["id"] else f", Setup {home} sheet 1")
 
-    def finder_box(self, reference, finder):
-        """The one edge-finding procedure every X/Y pick-up with ``reference`` follows: the
-        speed it runs at on this mill, how its contact shows and how half its tip Ø is
-        applied by the side it comes from (``zero_recipe.finder_procedure`` facts)."""
+    def finder_box(self, reference, machine, finder):
+        """The one edge-finding procedure every X/Y pick-up with ``reference`` on
+        ``machine`` follows: the speed it runs at on that mill, how its contact shows and
+        how half its tip Ø is applied by the side it comes from
+        (``zero_recipe.finder_procedure`` facts)."""
         o = self.operative
         kind = finder.get("finder_type")
         lines = []
@@ -3382,29 +3396,38 @@ class _Traveler:
                     "stop",
                 )
             )
+
+        def bands(value):
+            return " or ".join("–".join(_number(v) for v in pair) for pair in value)
+
         rpm, band, spindle = finder.get("rpm"), finder.get("finder_rpm_range"), None
         if isinstance(finder.get("machine_rpm"), list):
-            spindle = "–".join(_number(v) for v in finder["machine_rpm"])
+            spindle = bands(finder["machine_rpm"])
         if kind == "electronic":
             lines.append(_p("Speed: spindle stopped — the finder does not turn."))
         elif finder.get("status") == "error":
             lines.append(
                 _p(
-                    f"STOP: the finder's {'–'.join(_number(v) for v in band)} rpm lies outside "
-                    f"the mill's {spindle} rpm.",
+                    f"STOP: the finder's {bands([band])} rpm lies outside the mill's "
+                    f"{spindle} rpm.",
                     "stop",
                 )
             )
-        elif isinstance(rpm, list):
+        elif isinstance(rpm, list) and rpm:
             lines.append(
                 _p(
-                    f"Speed: {_number(rpm[0])}–{_number(rpm[1])} rpm, in the spindle range that "
-                    f"covers it (finder {'–'.join(_number(v) for v in band)} rpm; mill "
-                    f"{spindle} rpm)."
+                    f"Speed: {bands(rpm)} rpm, where a spindle range turns it (finder "
+                    f"{bands([band])} rpm; mill {spindle} rpm). Never a speed between the "
+                    "mill's ranges."
+                    if len(rpm) > 1
+                    else f"Speed: {bands(rpm)} rpm, in the spindle range that covers it "
+                    f"(finder {bands([band])} rpm; mill {spindle} rpm)."
                 )
             )
         elif "rpm range" not in missing:
-            lines.append(_p("STOP: the mill's rpm range is not known — no speed.", "stop"))
+            lines.append(
+                _p("STOP: the finder's or the mill's rpm range is not known — no speed.", "stop")
+            )
         if kind == "mechanical":
             lines.append(
                 _p(
@@ -3439,6 +3462,8 @@ class _Traveler:
         if isinstance(cites, list) and cites:
             lines.append(_p("Finder data: " + "; ".join(str(c) for c in cites) + "."))
         title = f"EDGE FINDER — {self.reference(reference, 'tools')}"
+        if sum(key[0] == reference for key in self.finder_homes) > 1:
+            title += f" on {self.reference(machine, 'machines')}"
         return f'<div class="keep"><h3>{escape(title)}</h3>{"".join(lines)}</div>'
 
     @functools.cached_property
@@ -3472,32 +3497,38 @@ class _Traveler:
             for check in item["checks"]:
                 gauge = check["gauge"]
                 tool = "by hand / eye" if gauge == "none" else self.short_reference(gauge, "gauges")
-                if check["how"] != "not_applicable":
+                if _stated(check["how"]) and check["how"] != "not_applicable":
                     tool += f"; {check['how']}"
                 accept = []
                 limits, most = check.get("limits_mm"), check.get("max_mm")
-                # An inch gauge reads the limits in inches, rounded inward: never looser.
+                # Limits print rounded inward (the low limit up, the high one down), in mm
+                # and, for an inch gauge, in inches: never looser than declared.
                 reads = _mapping(resolve(self.bundle, "gauges", gauge))
                 inch = any(key.endswith("_in") for key in reads)
                 if isinstance(limits, list) and all(_known(v) for v in limits):
-                    text = f"{limits[0]:.3f}–{limits[1]:.3f} mm"
+                    text = f"{_mm(limits[0], up=True)}–{_mm(limits[1])} mm"
                     if inch:
                         text += f" ({_inch(limits[0], up=True)}–{_inch(limits[1])} in)"
                     accept.append(text)
                 elif _known(most):
-                    text = f"≤ {most:.3f} mm"
+                    text = f"≤ {_mm(most)} mm"
                     accept.append(text + (f" (≤ {_inch(most)} in)" if inch else ""))
-                if check["accept"] != "not_applicable":
+                if _stated(check["accept"]) and check["accept"] != "not_applicable":
                     accept.append(check["accept"])
                 if check["status"] != "pass":
                     accept.append(f"STOP: {check['reason']}")
                 rows.append([check["check"], tool, "; ".join(accept)])
             purchase = item.get("purchase")
+            stops = item.get("stops") or []
             html.append(
                 f'<div class="keep"><h3>PURCHASED TOOLING / RECEIPT CHECK — {escape(name)}</h3>'
-                + (_p(f"Bought finished: {purchase}.") if purchase != "unknown" else "")
+                + "".join(
+                    _p(f"STOP: {stop} — do not use it until the shop list states it.", "stop")
+                    for stop in stops
+                )
+                + (_p(f"Bought finished: {purchase}.") if _stated(purchase) else "")
                 + _p("Check on receipt, before first use; return the item if any check fails.")
-                + _table(["check", "gauge", "accept"], rows, widths=[30, 35, 35])
+                + (_table(["check", "gauge", "accept"], rows, widths=[30, 35, 35]) if rows else "")
                 + "</div>"
             )
         return "".join(html)

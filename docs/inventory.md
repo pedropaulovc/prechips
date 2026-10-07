@@ -177,13 +177,15 @@ A `tools.<id>` with `kind = "edge_finder"` that picks up a mill X or Y zero
 its tip diameter `tip_in` / `tip_mm` (else `dia`) and, when mechanical,
 `rpm_range`, the maker's speed band, with a `cite`. The zero check
 ([rules-coordinates](rules-coordinates.md)) records these on each pick-up row
-as `finder`: the radius (half the tip Ø), and the speed it runs at here, the
-finder's band clipped to the setup machine's `spindle` `rpm_min`/`rpm_max`. A
-missing fact, or an unknown spindle range, leaves the zero unknown; a band the
-spindle cannot turn is an error. The traveler prints one EDGE FINDER box per
-finder, in the DRO ZERO block of the first setup that picks up with it — the
-speed, how the contact shows (a mechanical tip runs true, then kicks sideways;
-an electronic one lights), and the offset, Axis Set edge − r coming from the −
+as `finder`: the radius (half the tip Ø), and the speeds it runs at here, the
+finder's band intersected with each of the setup machine's spindle bands
+(`ranges_rpm`, else `rpm_min`–`rpm_max`); a speed between two bands is never
+offered. A missing fact, or any unknown endpoint of the finder's or the
+spindle's bands, leaves the zero unknown; a band no spindle band turns is an
+error. The traveler prints one EDGE FINDER box per finder and mill, in the DRO
+ZERO block of the first setup that picks up with it on that mill — the speed,
+how the contact shows (a mechanical tip runs true, then kicks sideways; an
+electronic one lights), and the offset, Axis Set edge − r coming from the −
 side and edge + r from the + side — and every X/Y row names the box.
 
 ## Purchased tooling
@@ -203,12 +205,18 @@ in `purchase` and its receipt checks in `acceptance`, a list of tables:
 A check states one numeric limit at most and needs a limit or `accept`; a
 `"none"` gauge takes no numeric limit; a shop-made item takes no `acceptance`.
 The `purchased_tooling` rule (always required) checks every item a setup uses
-(hold fixture, clamps, stop, riser, supports, an op's filing guide or tool) that
-carries the list: a gauge that is unknown, not listed or not verified, or a
-`limits` field the item does not state, leaves the setup unknown. The traveler
-prints one PURCHASED TOOLING / RECEIPT CHECK table per item on the front sheet
-of the first setup using it (inch gauges also get the limits in inches, rounded
-inward); later setups point back to it.
+(any hold slot — fixture, chuck, parallels, riser, jaw bar or buttons, support,
+clamps, stop, supports, alignment indicator — a zero's tool, holder or gauge,
+and an op's filing guide, tool, holder or inspection gauge) that carries the
+list. Unknown is never an acceptance: an `acceptance` or `purchase` stated
+`"unknown"`; a `check`, `how` or `accept` that is blank or unknown; a gauge that
+is unknown, not listed or not verified; a `limits_mm` that is not two known
+lengths, low ≤ high; or a `limits` field the item does not state as known
+lengths leaves the setup unknown and prints `STOP:`. The traveler prints one
+PURCHASED TOOLING / RECEIPT CHECK table per item on the front sheet of the
+first setup using it, its limits rounded inward to 0.001 mm (inch gauges also
+get them in inches, rounded inward to 0.0001 in); later setups point back to
+it.
 
 ## Kernel geometry facts (M4)
 

@@ -23,7 +23,7 @@ from .resolution import (
     setup_frame,
     uncertain,
 )
-from .speeds_feeds import spindle_bounds
+from .speeds_feeds import spindle_ranges
 from .tip_endpoints import (
     FACING,
     POCKETING,
@@ -60,11 +60,12 @@ DIRECTIONS = {
 
 def finder_procedure(bundle, setup, tool):
     """The EDGE FINDER box's facts for an X/Y pick-up with ``tool``: its type, tip Ø and
-    radius, and the rpm band it runs at here (its own band, clipped to the spindle's).
+    radius, and the rpm bands it runs at on this setup's mill (its own band intersected
+    with each spindle band; the gaps between spindle bands are never filled).
 
-    ``status`` is unknown while a fact is missing, and an error where the spindle cannot
-    turn the finder's band. An electronic finder signals contact with the spindle stopped,
-    so it needs no speed."""
+    ``status`` is unknown while a fact is missing or any band endpoint is unknown, and an
+    error where no spindle band turns any of the finder's band. An electronic finder
+    signals contact with the spindle stopped, so it needs no speed."""
     kind = tool.get("finder_type", UNKNOWN)
     tip = length_mm(tool, "tip")
     if not number(tip):
@@ -82,11 +83,21 @@ def finder_procedure(bundle, setup, tool):
     rpm, machine_rpm, status = "not_applicable", "not_applicable", "pass"
     if kind != "electronic":
         machine = resolve(bundle, "machines", setup.get("machine")) or {}
-        machine_rpm = list(spindle_bounds(machine))
-        known = band != UNKNOWN and all(number(v) for v in machine_rpm)
-        rpm = [max(band[0], machine_rpm[0]), min(band[1], machine_rpm[1])] if known else UNKNOWN
-        if known and rpm[0] > rpm[1]:
-            status = "error"
+        machine_rpm = spindle_ranges(machine)
+        known = (
+            isinstance(band, list)
+            and len(band) == 2
+            and all(number(v) for v in band)
+            and machine_rpm != UNKNOWN
+        )
+        rpm = UNKNOWN
+        if known:
+            rpm = [
+                [max(band[0], lo), min(band[1], hi)]
+                for lo, hi in machine_rpm
+                if max(band[0], lo) <= min(band[1], hi)
+            ]
+            status = "pass" if rpm else "error"
     if status == "pass" and (missing or rpm == UNKNOWN):
         status = UNKNOWN
     return {
