@@ -174,10 +174,11 @@ def test_unbound_shaft_frame_keeps_model_z_unknown_and_records_the_local_station
     # A bound frame maps the op's setup Z into model Z.
     assert rows(found["S1"])["shoulder_thrust", "op 20 to_z"]["model"] == [0.0, 0.0, -7.5]
     # An unbound frame invents no model Z; the authored local station is kept and attributed.
-    apex = rows(found["S3"])["south_dome", "op 20 z_from"]
+    # S3 parts long (op 10), faces the apex (op 20) and forms the dome from it (op 30).
+    apex = rows(found["S3"])["south_dome", "op 30 z_from"]
     assert apex["model"][2] == "unknown"
     assert apex["setup"] == [0.0, 0.0, 1.75]
-    assert apex["local_from"] == {"op": 20, "field": "z_from", "axis": "z"}
+    assert apex["local_from"] == {"op": 30, "field": "z_from", "axis": "z"}
     assert found["S3"].status == "unknown"
 
 
