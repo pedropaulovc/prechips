@@ -77,7 +77,13 @@ resolution_mm = { value = 0.01, measured = { by = "example (plausible, not measu
 # --- end pivot-shaft additions ---
 
 [machines.PM-1127VF-LB.spindle]
-ranges_rpm = [[70, 380], [380, 2200]]
+# precisionmatthews.com/shop/pm-1127vf-lb (web.archive.org 2022-05-25) states both
+# "Variable Spindle Speeds From 70-2200 rpm (2 Ranges, Low 70-380 RPM for more torque,
+# and High 380-2200 RPM for more speed) *This speed range is correct, machine updated as
+# of 2019*" (feature list) and "Spindle Speeds, Infinitely Variable 70-2000 RPM (2 Steps)"
+# (Main Specifications). This machine's build year is unknown, so the lower 2000 rpm top
+# speed governs: no setup sheet may ask for more than the 2000 the page also promises.
+ranges_rpm = [[70, 380], [380, 2000]]
 bore_in = 1.5
 mount = "D1-4"
 hp = 1
@@ -1217,12 +1223,12 @@ flute_len_mm = { value = 60.0, measured = { by = "example (plausible, not measur
 oal_mm = { value = 140.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule" } }
 projection_mm = { "drill-chuck-r8" = { value = 85.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, chuck nose to reamer tip" } } }
 
-[tools.cone-joint-drill-21p5]
+[tools.cone-joint-drill-21p75]
 kind = "drill"
 material = "HSS"
 present = true
-note = "example purchase: 21.5 mm reduced-shank drill, 1/2 in shank; pilot first, then drill the socket before reaming"
-dia_mm = { value = 21.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer across the margins" } }
+note = "example purchase: 21.75 mm reduced-shank drill, 1/2 in shank; pilot first, then drill the socket before reaming"
+dia_mm = { value = 21.75, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer across the margins" } }
 shank_in = "1/2"
 flutes = 2
 point_angle = { value = 118.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "drill point gauge" } }
@@ -1723,25 +1729,25 @@ oal_mm = { value = 101.6, measured = { by = "example (plausible, not measured)",
 [tools.drill-index-115.members."D".projection_mm]
 "drill-chuck-r8" = { value = 81.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, chuck nose to drill point" } }
 
-# Rod-pin hole pilot: one HSS 1.90 mm stub drill (DIN 1897 proportions), rocker-only;
-# leaves 0.104 mm diametral stock for the 2.004 reamer.
+# Rod-pin hole pilot: one HSS 1.85 mm stub drill (DIN 1897 proportions), rocker-only;
+# leaves 0.154 mm diametral (0.077 mm, .0030 in, radial) stock for the 2.004 reamer.
 [tools.rocker-rod-pilot-drill]
 kind = "drill_set"
 material = "HSS"
-sizes_mm = [1.9]
-note = "illustrative example item: HSS 1.90 mm stub (screw-machine) drill, DIN 1897 proportions, pilot for the 2.00 reamer"
+sizes_mm = [1.85]
+note = "illustrative example item: HSS 1.85 mm stub (screw-machine) drill, DIN 1897 proportions, pilot for the 2.00 reamer"
 
-[tools.rocker-rod-pilot-drill.members."1.90mm"]
-dia_mm = { value = 1.9, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the margins" } }
+[tools.rocker-rod-pilot-drill.members."1.85mm"]
+dia_mm = { value = 1.85, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the margins" } }
 # measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer on shank" } (shank_mm is a plain number in the schema)
-shank_mm = 1.9
+shank_mm = 1.85
 # measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "visual flute count" } (flutes is a plain integer in the schema)
 flutes = 2
 point_angle = { value = 118, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "drill point gauge" } }
 flute_len_mm = { value = 12.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
 oal_mm = { value = 38.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
 
-[tools.rocker-rod-pilot-drill.members."1.90mm".projection_mm]
+[tools.rocker-rod-pilot-drill.members."1.85mm".projection_mm]
 "drill-chuck-r8" = { value = 24.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, chuck nose to drill point" } }
 
 # Rod-pin hole finish: one HSS 2.00 mm machine (chucking) reamer, DIN 212

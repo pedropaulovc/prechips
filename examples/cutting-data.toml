@@ -1,9 +1,12 @@
 # Versioned reference table. ILLUSTRATIVE EXAMPLE DATA (AGENTS.md "Examples
 # policy"): every row is an example starting value, not a measured shop number.
-# Each value was checked against the published range its cite names and sits
-# inside or below it. Diameter ranges are mm, inclusive at both ends,
-# one row per diameter within a (material, tool, operation).
-revision = 3
+# Each value sits inside the range its cite names in Machinery's Handbook 27th
+# edition (Industrial Press, 2004; printed page numbers). The 1018 hardness is not
+# supplied, so speed ranges span the handbook's hardness bands for the 1006-1026
+# plain carbon steel row. Diameter ranges are mm, inclusive at both ends, one row
+# per diameter within a (material, tool, operation); drill rows break at 1/8 in
+# (3.175 mm) and 1/2 in (12.7 mm), the handbook's drill-feed size steps.
+revision = 4
 
 [aliases]
 "1018 CRS" = "low_carbon_steel"
@@ -15,28 +18,82 @@ revision = 3
 material_class = "low_carbon_steel"
 tool_material = "HSS"
 operation = "face"
-diameter_range = [0.0, 25.4]
+diameter_range = [0.0, 12.7]
 sfm = 90
 chip_load_mm_per_tooth = 0.025
-cite = "example (plausible, not measured); speed inside Machinery's Handbook Pocket Companion (Industrial Press, ISBN 978-0-8311-3095-4) p.128 Table 1, AISI 1016-1021 HSS milling 110 fpm, and littlemachineshop.com/pages/cutting-speeds 1018 HSS milling 65-110 fpm; chip load .001 in/tooth, the floor of the same Handbook's p.137 Table 10 for AISI 1006-1030 end mills (1/2 in cutter at .250 in depth, 1/4 in cutter at .050 in depth)"
+cite = "example (plausible, not measured); speed inside Machinery's Handbook 27th ed. (Industrial Press, 2004) Table 11 p.1045 HSS milling speeds for plain carbon steels 1006-1026, 65-110 fpm (110 at 100-175 HB, 90 at 175-225, 65 at 225-275); .001 in/tooth (0.025 mm), the floor of the same handbook's Table 15a p.1054 HSS end-mill feeds for AISI 1006-1030 at 100-200 HB, 1/4 to 1/2 in cutters .001-.002 in/tooth"
+
+[[cut]]
+material_class = "low_carbon_steel"
+tool_material = "HSS"
+operation = "face"
+diameter_range = [12.71, 19.05]
+sfm = 90
+chip_load_mm_per_tooth = 0.05
+cite = "example (plausible, not measured); speed inside Machinery's Handbook 27th ed. (Industrial Press, 2004) Table 11 p.1045 HSS milling speeds for plain carbon steels 1006-1026, 65-110 fpm (110 at 100-175 HB, 90 at 175-225, 65 at 225-275); .002 in/tooth (0.05 mm), inside the same handbook's Table 15a p.1054 HSS end-mill feeds for AISI 1006-1030 at 100-200 HB, 3/4 in cutter .002-.003 in/tooth (1/2 in .001-.002)"
+
+[[cut]]
+material_class = "low_carbon_steel"
+tool_material = "HSS"
+operation = "face"
+diameter_range = [19.06, 25.4]
+sfm = 90
+chip_load_mm_per_tooth = 0.075
+cite = "example (plausible, not measured); speed inside Machinery's Handbook 27th ed. (Industrial Press, 2004) Table 11 p.1045 HSS milling speeds for plain carbon steels 1006-1026, 65-110 fpm (110 at 100-175 HB, 90 at 175-225, 65 at 225-275); .003 in/tooth (0.075 mm), inside the same handbook's Table 15a p.1054 HSS end-mill feeds for AISI 1006-1030 at 100-200 HB, 1 in and up .003-.004 in/tooth (3/4 in .002-.003)"
 
 [[cut]]
 material_class = "low_carbon_steel"
 tool_material = "HSS"
 operation = "profile"
-diameter_range = [0.0, 25.4]
+diameter_range = [0.0, 12.7]
 sfm = 90
 chip_load_mm_per_tooth = 0.025
-cite = "example (plausible, not measured); speed inside Machinery's Handbook Pocket Companion (Industrial Press, ISBN 978-0-8311-3095-4) p.128 Table 1, AISI 1016-1021 HSS milling 110 fpm, and littlemachineshop.com/pages/cutting-speeds 1018 HSS milling 65-110 fpm; chip load .001 in/tooth, the floor of the same Handbook's p.137 Table 10 for AISI 1006-1030 end mills (1/2 in cutter at .250 in depth, 1/4 in cutter at .050 in depth)"
+cite = "example (plausible, not measured); speed inside Machinery's Handbook 27th ed. (Industrial Press, 2004) Table 11 p.1045 HSS milling speeds for plain carbon steels 1006-1026, 65-110 fpm (110 at 100-175 HB, 90 at 175-225, 65 at 225-275); .001 in/tooth (0.025 mm), the floor of the same handbook's Table 15a p.1054 HSS end-mill feeds for AISI 1006-1030 at 100-200 HB, 1/4 to 1/2 in cutters .001-.002 in/tooth"
+
+[[cut]]
+material_class = "low_carbon_steel"
+tool_material = "HSS"
+operation = "profile"
+diameter_range = [12.71, 19.05]
+sfm = 90
+chip_load_mm_per_tooth = 0.05
+cite = "example (plausible, not measured); speed inside Machinery's Handbook 27th ed. (Industrial Press, 2004) Table 11 p.1045 HSS milling speeds for plain carbon steels 1006-1026, 65-110 fpm (110 at 100-175 HB, 90 at 175-225, 65 at 225-275); .002 in/tooth (0.05 mm), inside the same handbook's Table 15a p.1054 HSS end-mill feeds for AISI 1006-1030 at 100-200 HB, 3/4 in cutter .002-.003 in/tooth (1/2 in .001-.002)"
+
+[[cut]]
+material_class = "low_carbon_steel"
+tool_material = "HSS"
+operation = "profile"
+diameter_range = [19.06, 25.4]
+sfm = 90
+chip_load_mm_per_tooth = 0.075
+cite = "example (plausible, not measured); speed inside Machinery's Handbook 27th ed. (Industrial Press, 2004) Table 11 p.1045 HSS milling speeds for plain carbon steels 1006-1026, 65-110 fpm (110 at 100-175 HB, 90 at 175-225, 65 at 225-275); .003 in/tooth (0.075 mm), inside the same handbook's Table 15a p.1054 HSS end-mill feeds for AISI 1006-1030 at 100-200 HB, 1 in and up .003-.004 in/tooth (3/4 in .002-.003)"
 
 [[cut]]
 material_class = "low_carbon_steel"
 tool_material = "HSS"
 operation = "counterbore"
-diameter_range = [0.0, 25.4]
+diameter_range = [0.0, 12.7]
 sfm = 70
-chip_load_mm_per_tooth = 0.006
-cite = "example (plausible, not measured); end-mill plunge at UFL MAE Design Lab 'Speeds and Feeds' (web.mae.ufl.edu/designlab/Advanced Manufacturing/Speeds and Feeds) plunge tip, 75% of peripheral speed and 25% of peripheral feed, applied to Machinery's Handbook Pocket Companion (ISBN 978-0-8311-3095-4) p.128 Table 1 AISI 1016-1021 HSS milling 110 fpm (75% = 82 fpm) and p.137 Table 10 end-mill floor .001 in/tooth (25% = .00025 in/tooth)"
+chip_load_mm_per_tooth = 0.025
+cite = "example (plausible, not measured); centre-cutting end mill plunged over a drilled pilot; speed inside Machinery's Handbook 27th ed. (Industrial Press, 2004) Table 11 p.1045 HSS milling speeds for plain carbon steels 1006-1026, 65-110 fpm (65 at 225-275 HB, 90 at 175-225); .001 in/tooth (0.025 mm), the floor of the same handbook's Table 15a p.1054 HSS end-mill feeds for AISI 1006-1030 at 100-200 HB, 1/4 to 1/2 in cutters .001-.002 in/tooth"
+
+[[cut]]
+material_class = "low_carbon_steel"
+tool_material = "HSS"
+operation = "counterbore"
+diameter_range = [12.71, 19.05]
+sfm = 70
+chip_load_mm_per_tooth = 0.05
+cite = "example (plausible, not measured); centre-cutting end mill plunged over a drilled pilot; speed inside Machinery's Handbook 27th ed. (Industrial Press, 2004) Table 11 p.1045 HSS milling speeds for plain carbon steels 1006-1026, 65-110 fpm (65 at 225-275 HB, 90 at 175-225); .002 in/tooth (0.05 mm), inside the same handbook's Table 15a p.1054 HSS end-mill feeds for AISI 1006-1030 at 100-200 HB, 3/4 in cutter .002-.003 in/tooth (1/2 in .001-.002)"
+
+[[cut]]
+material_class = "low_carbon_steel"
+tool_material = "HSS"
+operation = "counterbore"
+diameter_range = [19.06, 25.4]
+sfm = 70
+chip_load_mm_per_tooth = 0.075
+cite = "example (plausible, not measured); centre-cutting end mill plunged over a drilled pilot; speed inside Machinery's Handbook 27th ed. (Industrial Press, 2004) Table 11 p.1045 HSS milling speeds for plain carbon steels 1006-1026, 65-110 fpm (65 at 225-275 HB, 90 at 175-225); .003 in/tooth (0.075 mm), inside the same handbook's Table 15a p.1054 HSS end-mill feeds for AISI 1006-1030 at 100-200 HB, 1 in and up .003-.004 in/tooth (3/4 in .002-.003)"
 
 [[cut]]
 material_class = "low_carbon_steel"
@@ -45,25 +102,25 @@ operation = "spot"
 diameter_range = [0.5, 6.5]
 sfm = 70
 chip_load_mm_per_tooth = 0.02
-cite = "example (plausible, not measured); speed below Machinery's Handbook Pocket Companion (ISBN 978-0-8311-3095-4) p.128 Table 1 AISI 1016-1021 HSS drilling 90 fpm and norsemandrill.com/feeds-speeds-drill.php mild steel 80-110 SFM; 2 flutes x 0.02 mm = .0016 in/rev, inside Norseman's under-1/8 in .001-.003 in/rev and below its 1/8-1/4 in .002-.006"
+cite = "example (plausible, not measured); centre drill: speed inside Machinery's Handbook 27th ed. (Industrial Press, 2004) Table 17 p.1061 traditional HSS drilling speeds for plain carbon steels 1006-1026, 60-100 fpm (100 at 100-125 HB, 90 at 125-175, 70 at 175-225, 60 at 225-275), below the same handbook's p.1132 automatic-screw-machine centre-drill HSS speed 110 fpm for mild steel; 2 flutes x 0.02 mm = .0016 in/rev, inside p.1060 drill feeds for the traditional speeds 0.001-0.003 in/rev for drills smaller than 1/8 in and beside p.1132's centre-drill feed .0015 in/rev for holes under 1/8 in"
 
 [[cut]]
 material_class = "low_carbon_steel"
 tool_material = "HSS"
 operation = "drill"
-diameter_range = [0.5, 3.0]
+diameter_range = [0.5, 3.175]
 sfm = 80
 chip_load_mm_per_tooth = 0.02
-cite = "example (plausible, not measured); speed inside norsemandrill.com/feeds-speeds-drill.php mild steel 80-110 SFM and littlemachineshop.com/pages/cutting-speeds 1018 HSS drilling 60-100 fpm, below Machinery's Handbook Pocket Companion (ISBN 978-0-8311-3095-4) p.128 Table 1 AISI 1016-1021 drilling 90 fpm; 2 flutes x 0.02 mm = .0016 in/rev, inside Norseman's under-1/8 in .001-.003 in/rev and RedLine Tools catalogue p.340 HSS drill 1/16-1/8 in medium feed .0010-.0020"
+cite = "example (plausible, not measured); speed inside Machinery's Handbook 27th ed. (Industrial Press, 2004) Table 17 p.1061 traditional HSS drilling speeds for plain carbon steels 1006-1026, 60-100 fpm (100 at 100-125 HB, 90 at 125-175, 70 at 175-225, 60 at 225-275); 2 flutes x 0.02 mm = .0016 in/rev, inside the same handbook's p.1060 drill feeds for the traditional speeds 0.001-0.003 in/rev for drills smaller than 1/8 in (p.1132 automatic-screw-machine twist drills in mild steel: 1/16 in .002, 1/8 in .0035). Where the mill's top speed clamps the RPM of a small drill the surface speed falls, never rises"
 
 [[cut]]
 material_class = "low_carbon_steel"
 tool_material = "HSS"
 operation = "drill"
-diameter_range = [3.01, 13.0]
+diameter_range = [3.176, 12.7]
 sfm = 80
-chip_load_mm_per_tooth = 0.05
-cite = "example (plausible, not measured); speed inside norsemandrill.com/feeds-speeds-drill.php mild steel 80-110 SFM and littlemachineshop.com/pages/cutting-speeds 1018 HSS drilling 60-100 fpm, below Machinery's Handbook Pocket Companion (ISBN 978-0-8311-3095-4) p.128 Table 1 AISI 1016-1021 drilling 90 fpm; 2 flutes x 0.05 mm = .0039 in/rev, inside Norseman's 1/8-1/4 in .002-.006 in/rev and RedLine Tools catalogue p.340 HSS 1/8-1/4 in medium .0030-.0050 and 1/4-1/2 in light .0030-.0050; at or below Norseman's 1/4-1/2 in .004-.010"
+chip_load_mm_per_tooth = 0.055
+cite = "example (plausible, not measured); speed inside Machinery's Handbook 27th ed. (Industrial Press, 2004) Table 17 p.1061 traditional HSS drilling speeds for plain carbon steels 1006-1026, 60-100 fpm (100 at 100-125 HB, 90 at 125-175, 70 at 175-225, 60 at 225-275); 2 flutes x 0.055 mm = 0.11 mm/rev (.0043 in/rev), inside the same handbook's p.1060 drill feeds for the traditional speeds 0.002-0.006 in/rev for 1/8-1/4 in drills and 0.004-0.010 in/rev for 1/4-1/2 in drills"
 
 [[cut]]
 material_class = "low_carbon_steel"
@@ -71,17 +128,17 @@ tool_material = "HSS"
 operation = "ream"
 diameter_range = [1.0, 13.0]
 sfm = 45
-chip_load_mm_per_tooth = 0.015
-cite = "example (plausible, not measured); speed inside littlemachineshop.com/pages/cutting-speeds 1018 HSS reaming 40-65 fpm and hillindustrialtools.com/pages/hss-reamer-speeds-feeds non-alloy steel groups 2-3 (1018) 33-46 SFM, below Machinery's Handbook Pocket Companion (ISBN 978-0-8311-3095-4) p.128 Table 1 AISI 1016-1021 reaming 60 fpm; 0.015 mm/flute gives 4 flutes at 2 mm .0024 in/rev (Hill 0.0787 in .002-.0028) and 6 flutes at 6.5 mm .0035 in/rev (Hill 0.2362 in .0035-.0043), below Hill for larger reamers"
+chip_load_mm_per_tooth = 0.042
+cite = "example (plausible, not measured); speed inside Machinery's Handbook 27th ed. (Industrial Press, 2004) Table 17 p.1061 traditional HSS reaming speeds for plain carbon steels 1006-1026, 40-65 fpm (65 at 100-125 HB, 60 at 125-175, 45 at 175-225, 40 at 225-275); p.1063: reaming speeds need no diameter adjustment. 0.042 mm/flute: 4 flutes = 0.17 mm/rev (.0066 in/rev), inside p.1133 automatic-screw-machine reamer feed .006-.008 in/rev for holes 1/8 in or less; 6 flutes = 0.25 mm/rev (.0099 in/rev), at p.1133's .010 in/rev for holes over 1/8 in. Both sit below Table 17's combined HSS reaming feeds .018-.036 in/rev, which p.1063 allows when the speed stays at or below the average speed (185 fpm)"
 
 [[cut]]
 material_class = "low_carbon_steel"
 tool_material = "carbide"
 operation = "bore"
 diameter_range = [5.0, 50.0]
-sfm = 250
-chip_load_mm_per_tooth = 0.03
-cite = "example (plausible, not measured); single-point carbide, speed below littlemachineshop.com/pages/cutting-speeds 1018 carbide turning 800-885 fpm; 0.03 mm (.0012 in) per revolution, below that chart's 0.004 in/rev basis"
+sfm = 300
+chip_load_mm_per_tooth = 0.045
+cite = "example (plausible, not measured); single-point carbide: speed inside Machinery's Handbook 27th ed. (Industrial Press, 2004) Table 1 p.1027 plain carbon steels 1006-1026 combined carbide turning speeds 300-1295 fpm (300 = uncoated tough grade at 175-225 HB, optimum feed); 0.045 mm (.0018 in) per revolution, feeds inside the span Table 5a p.1035 adjusts (feed ratio 0.1-1.0 of Table 1's optimum feed .017 in/rev for the uncoated hard grade = .0017-.017 in/rev); speeds are left at Table 1 without the Table 5a feed/depth factors, which only raise speed for lighter cuts (feed ratio 0.1-0.2 Ff 1.20-1.34, 0.04 in depth Fd 1.10-1.29), so the starting value stays on the low side"
 
 # --- pivot-shaft additions ---
 # Lathe rows: carbide inserts (TCMT 21.51) on 1018, feed in mm per spindle revolution.
@@ -93,7 +150,7 @@ operation = "face"
 diameter_range = [0.0, 125.0]
 sfm = 300
 feed_mm_rev = 0.08
-cite = "example (plausible, not measured); speed below littlemachineshop.com/pages/cutting-speeds 1018 carbide turning 800-885 fpm; feed 0.08 mm/rev (.0031 in), below that chart's 0.004 in/rev, 0.040 in depth basis"
+cite = "example (plausible, not measured); speed inside Machinery's Handbook 27th ed. (Industrial Press, 2004) Table 1 p.1027 plain carbon steels 1006-1026 combined carbide turning speeds 300-1295 fpm (300 = uncoated tough grade at 175-225 HB, optimum feed); feed 0.08 mm/rev (.0031 in), feeds inside the span Table 5a p.1035 adjusts (feed ratio 0.1-1.0 of Table 1's optimum feed .017 in/rev for the uncoated hard grade = .0017-.017 in/rev); speeds are left at Table 1 without the Table 5a feed/depth factors, which only raise speed for lighter cuts (feed ratio 0.1-0.2 Ff 1.20-1.34, 0.04 in depth Fd 1.10-1.29), so the starting value stays on the low side"
 
 [[cut]]
 material_class = "low_carbon_steel"
@@ -102,7 +159,7 @@ operation = "rough_turn"
 diameter_range = [0.0, 125.0]
 sfm = 300
 feed_mm_rev = 0.10
-cite = "example (plausible, not measured); speed below littlemachineshop.com/pages/cutting-speeds 1018 carbide turning 800-885 fpm; feed 0.10 mm/rev (.0039 in), at or below that chart's 0.004 in/rev, 0.040 in depth basis"
+cite = "example (plausible, not measured); speed inside Machinery's Handbook 27th ed. (Industrial Press, 2004) Table 1 p.1027 plain carbon steels 1006-1026 combined carbide turning speeds 300-1295 fpm (300 = uncoated tough grade at 175-225 HB, optimum feed); feed 0.10 mm/rev (.0039 in), feeds inside the span Table 5a p.1035 adjusts (feed ratio 0.1-1.0 of Table 1's optimum feed .017 in/rev for the uncoated hard grade = .0017-.017 in/rev); speeds are left at Table 1 without the Table 5a feed/depth factors, which only raise speed for lighter cuts (feed ratio 0.1-0.2 Ff 1.20-1.34, 0.04 in depth Fd 1.10-1.29), so the starting value stays on the low side"
 
 [[cut]]
 material_class = "low_carbon_steel"
@@ -111,16 +168,16 @@ operation = "finish_turn"
 diameter_range = [0.0, 125.0]
 sfm = 350
 feed_mm_rev = 0.05
-cite = "example (plausible, not measured); speed below littlemachineshop.com/pages/cutting-speeds 1018 carbide turning 800-885 fpm; feed 0.05 mm/rev (.0020 in), below that chart's 0.004 in/rev, 0.040 in depth basis"
+cite = "example (plausible, not measured); speed inside Machinery's Handbook 27th ed. (Industrial Press, 2004) Table 1 p.1027 plain carbon steels 1006-1026 combined carbide turning speeds 300-1295 fpm (300 = uncoated tough grade at 175-225 HB, optimum feed); feed 0.05 mm/rev (.0020 in), feeds inside the span Table 5a p.1035 adjusts (feed ratio 0.1-1.0 of Table 1's optimum feed .017 in/rev for the uncoated hard grade = .0017-.017 in/rev); speeds are left at Table 1 without the Table 5a feed/depth factors, which only raise speed for lighter cuts (feed ratio 0.1-0.2 Ff 1.20-1.34, 0.04 in depth Fd 1.10-1.29), so the starting value stays on the low side"
 
 [[cut]]
 material_class = "low_carbon_steel"
 tool_material = "carbide"
 operation = "form_dome"
 diameter_range = [0.0, 125.0]
-sfm = 250
-feed_mm_rev = 0.04
-cite = "example (plausible, not measured); speed below littlemachineshop.com/pages/cutting-speeds 1018 carbide turning 800-885 fpm; feed 0.04 mm/rev (.0016 in), below that chart's 0.004 in/rev, 0.040 in depth basis"
+sfm = 300
+feed_mm_rev = 0.045
+cite = "example (plausible, not measured); speed inside Machinery's Handbook 27th ed. (Industrial Press, 2004) Table 1 p.1027 plain carbon steels 1006-1026 combined carbide turning speeds 300-1295 fpm (300 = uncoated tough grade at 175-225 HB, optimum feed); feed 0.045 mm/rev (.0018 in), feeds inside the span Table 5a p.1035 adjusts (feed ratio 0.1-1.0 of Table 1's optimum feed .017 in/rev for the uncoated hard grade = .0017-.017 in/rev); speeds are left at Table 1 without the Table 5a feed/depth factors, which only raise speed for lighter cuts (feed ratio 0.1-0.2 Ff 1.20-1.34, 0.04 in depth Fd 1.10-1.29), so the starting value stays on the low side"
 
 [[cut]]
 material_class = "low_carbon_steel"
@@ -129,7 +186,7 @@ operation = "part_off"
 diameter_range = [0.0, 125.0]
 sfm = 70
 feed_mm_rev = 0.025
-cite = "example (plausible, not measured); speed below UFL MAE Design Lab 'Parting on Lathe' (web.mae.ufl.edu/designlab/Advanced Manufacturing/Lathe Parting) HSS part-off tool in steel about 100 ft/min and Machinery's Handbook Pocket Companion (ISBN 978-0-8311-3095-4) p.128 Table 1 AISI 1016-1021 HSS turning 110 fpm; feed 0.025 mm/rev (.0010 in), at UFL 'Speeds and Feeds' Example 5 tip's typical CNC parting feed 0.001 in/rev for steels, a hand-feed pace because the same tip rules out power feed when parting on a manual lathe"
+cite = "example (plausible, not measured); speed inside Machinery's Handbook 27th ed. (Industrial Press, 2004) Table 1 p.1027 HSS turning speeds for plain carbon steels 1006-1026, 70-120 fpm (70 at 225-275 HB), and below p.1132 automatic-screw-machine HSS cutoff/form-tool speed 150 fpm for mild steel; feed 0.025 mm/rev (.0010 in), inside p.1132 cutoff-tool feeds .0006-.0015 in/rev (angular .0006, stock under 1/8 in .0008, circular or straight 1/16-1/8 in wide .0015), hand-fed"
 
 [[cut]]
 material_class = "low_carbon_steel"
@@ -138,7 +195,7 @@ operation = "form_relief"
 diameter_range = [0.0, 125.0]
 sfm = 70
 feed_mm_rev = 0.02
-cite = "example (plausible, not measured); parting-blade plunge groove: speed below UFL MAE Design Lab 'Parting on Lathe' (web.mae.ufl.edu/designlab/Advanced Manufacturing/Lathe Parting) HSS part-off tool in steel about 100 ft/min and Machinery's Handbook Pocket Companion (ISBN 978-0-8311-3095-4) p.128 Table 1 AISI 1016-1021 HSS turning 110 fpm; feed 0.02 mm/rev (.0008 in), below UFL 'Speeds and Feeds' Example 5 tip's typical CNC parting feed 0.001 in/rev for steels, a hand-feed pace because the same tip rules out power feed when parting on a manual lathe"
+cite = "example (plausible, not measured); parting-blade plunge groove: speed inside Machinery's Handbook 27th ed. (Industrial Press, 2004) Table 1 p.1027 HSS turning speeds for plain carbon steels 1006-1026, 70-120 fpm (70 at 225-275 HB), and below p.1132 automatic-screw-machine HSS cutoff/form-tool speed 150 fpm for mild steel; feed 0.02 mm/rev (.0008 in), inside p.1132 circular form-tool feeds .0004-.0009 in/rev (1 in wide .0004 to 1/8 in wide .0009) for the 1.6 mm blade"
 
 [[cut]]
 material_class = "low_carbon_steel"
@@ -147,7 +204,7 @@ operation = "cut_to_fit"
 diameter_range = [0.0, 125.0]
 sfm = 70
 feed_mm_rev = 0.025
-cite = "example (plausible, not measured); speed below UFL MAE Design Lab 'Parting on Lathe' (web.mae.ufl.edu/designlab/Advanced Manufacturing/Lathe Parting) HSS part-off tool in steel about 100 ft/min and Machinery's Handbook Pocket Companion (ISBN 978-0-8311-3095-4) p.128 Table 1 AISI 1016-1021 HSS turning 110 fpm; feed 0.025 mm/rev (.0010 in), at UFL 'Speeds and Feeds' Example 5 tip's typical CNC parting feed 0.001 in/rev for steels, a hand-feed pace because the same tip rules out power feed when parting on a manual lathe"
+cite = "example (plausible, not measured); speed inside Machinery's Handbook 27th ed. (Industrial Press, 2004) Table 1 p.1027 HSS turning speeds for plain carbon steels 1006-1026, 70-120 fpm (70 at 225-275 HB), and below p.1132 automatic-screw-machine HSS cutoff/form-tool speed 150 fpm for mild steel; feed 0.025 mm/rev (.0010 in), inside p.1132 cutoff-tool feeds .0006-.0015 in/rev (angular .0006, stock under 1/8 in .0008, circular or straight 1/16-1/8 in wide .0015), hand-fed"
 # --- end pivot-shaft additions ---
 
 # --- cone-pivot-post built-up additions ---
@@ -158,25 +215,25 @@ operation = "finish_turn"
 diameter_range = [0.0, 125.0]
 sfm = 70
 feed_mm_rev = 0.02
-cite = "example (plausible, not measured); light HSS parting-blade corner pass: speed below UFL MAE Design Lab 'Parting on Lathe' (web.mae.ufl.edu/designlab/Advanced Manufacturing/Lathe Parting) HSS part-off tool in steel about 100 ft/min and Machinery's Handbook Pocket Companion (ISBN 978-0-8311-3095-4) p.128 Table 1 AISI 1016-1021 HSS turning 110 fpm; feed 0.02 mm/rev (.0008 in), below UFL 'Speeds and Feeds' Example 5 tip's typical CNC parting feed 0.001 in/rev for steels"
+cite = "example (plausible, not measured); light HSS parting-blade corner pass: speed inside Machinery's Handbook 27th ed. (Industrial Press, 2004) Table 1 p.1027 HSS turning speeds for plain carbon steels 1006-1026, 70-120 fpm (70 at 225-275 HB), and below p.1132 automatic-screw-machine HSS cutoff/form-tool speed 150 fpm for mild steel; feed 0.02 mm/rev (.0008 in), inside p.1132 circular form-tool feeds .0004-.0009 in/rev (1 in wide .0004 to 1/8 in wide .0009) for the 1.6 mm blade"
 
 [[cut]]
 material_class = "low_carbon_steel"
 tool_material = "HSS"
 operation = "drill"
-diameter_range = [13.01, 25.4]
-sfm = 55
-chip_load_mm_per_tooth = 0.06
-cite = "example (plausible, not measured); reduced-shank socket drill: speed below norsemandrill.com/feeds-speeds-drill.php mild steel 80-110 SFM and Machinery's Handbook Pocket Companion (ISBN 978-0-8311-3095-4) p.128 Table 1 AISI 1016-1021 drilling 90 fpm; 2 flutes x 0.06 mm = .0047 in/rev, below Norseman's 1/2-1 in .007-.015 in/rev and RedLine Tools catalogue p.340 HSS 1/2-3/4 in light .0050-.0080"
+diameter_range = [12.71, 25.4]
+sfm = 65
+chip_load_mm_per_tooth = 0.09
+cite = "example (plausible, not measured); reduced-shank socket drill: speed inside Machinery's Handbook 27th ed. (Industrial Press, 2004) Table 17 p.1061 traditional HSS drilling speeds for plain carbon steels 1006-1026, 60-100 fpm (100 at 100-125 HB, 90 at 125-175, 70 at 175-225, 60 at 225-275); 2 flutes x 0.09 mm = 0.18 mm/rev (.0071 in/rev), inside the same handbook's p.1060 drill feeds for the traditional speeds 0.007-0.015 in/rev for 1/2-1 in drills"
 
 [[cut]]
 material_class = "low_carbon_steel"
 tool_material = "HSS"
 operation = "ream"
 diameter_range = [13.01, 25.4]
-sfm = 30
-chip_load_mm_per_tooth = 0.025
-cite = "example (plausible, not measured); large straight-flute socket reamer: speed below hillindustrialtools.com/pages/hss-reamer-speeds-feeds non-alloy steel groups 2-3 (1018) 33-46 SFM and littlemachineshop.com/pages/cutting-speeds 1018 HSS reaming 40-65 fpm; 6 flutes x 0.025 mm = .0059 in/rev, below Hill's 0.5512 in .0067-.0091 in/rev"
+sfm = 45
+chip_load_mm_per_tooth = 0.042
+cite = "example (plausible, not measured); large straight-flute socket reamer: speed inside Machinery's Handbook 27th ed. (Industrial Press, 2004) Table 17 p.1061 traditional HSS reaming speeds for plain carbon steels 1006-1026, 40-65 fpm (65 at 100-125 HB, 60 at 125-175, 45 at 175-225, 40 at 225-275); p.1063: reaming speeds need no diameter adjustment. 6 flutes x 0.042 mm = 0.25 mm/rev (.0099 in/rev), at p.1133 automatic-screw-machine reamer feed .010 in/rev for holes over 1/8 in and below Table 17's combined HSS reaming feeds .018-.036 in/rev, which p.1063 allows when the speed stays at or below the average speed (185 fpm)"
 # --- end cone-pivot-post built-up additions ---
 
 [[material]]
@@ -190,9 +247,9 @@ cite = "example (plausible, not measured); K_c inside sandvik.coromant.com knowl
 material_class = "low_carbon_steel"
 tool_material = "M42"
 operation = "saw_cut"
-sfm = 120
+sfm = 200
 feed_mm_min = 25.0
-cite = "example (plausible, not measured); 120 ft/min belt step of Harbor Freight 4x6 band saw item 93762 manual p.10 Fig. H (80/120/200 FPM; 200 listed for low to medium carbon steels), below LENOX 'Guide to Band Sawing' p.21 bi-metal speed chart 1008/1018 270 FPM (4 in, flood fluid) after its +5% to +10% size adjustment for 1-1/4 to 2-1/2 in and no-fluid -30-50% (142-208 FPM dry for the 1-3/4 in bar); 25 mm/min descent through the 1-3/4 in bar is 1.7 sq in/min, below sawblade.com/tech-tips/band-saw-blade-speed-and-feed-chart 1015-1018 at 1-3 in, 275 FPM and 9-12 sq in/min"
+cite = "example (plausible, not measured); Machinery's Handbook 27th ed. (Industrial Press, 2004) p.1142 bimetal band-saw speed for 1018, 300 fpm (4 in material, 3/4 variable-tooth blade, cutting fluid); +10% for the about 1.4 in average length of cut through the 1-3/4 in bar (+10% at 1-1/4 in) = 330 fpm, then -30% to -50% for cutting dry = 165-231 fpm; 200 fpm is inside that range and is the 4x6 saw's top belt step (Harbor Freight item 93762 manual p.10 Fig. H, 80/120/200 FPM). 25 mm/min descent through the 1-3/4 in bar is about 1.7 sq in/min, below the p.1140 cutting-rate graph's finest line (8/12 pitch, about 2.4 sq in/min at 200 fpm; finer pitches cut slower and the graph has no 10/14 line), a starting rate p.1140 says to adjust from the chips"
 # --- end cone-pivot-post additions ---
 
 # --- pivot-bracket additions ---
@@ -203,7 +260,7 @@ operation = "spot"
 diameter_range = [6.51, 13.0]
 sfm = 70
 chip_load_mm_per_tooth = 0.02
-cite = "example (plausible, not measured); cobalt spot drill: speed below Machinery's Handbook Pocket Companion (ISBN 978-0-8311-3095-4) p.128 Table 1 AISI 1016-1021 HSS drilling 90 fpm and norsemandrill.com/feeds-speeds-drill.php mild steel 80-110 SFM; 2 flutes x 0.02 mm = .0016 in/rev, below Norseman's 1/4-1/2 in .004-.010 in/rev"
+cite = "example (plausible, not measured); cobalt spot drill: speed on the tool body inside Machinery's Handbook 27th ed. (Industrial Press, 2004) Table 17 p.1061 traditional HSS drilling speeds for plain carbon steels 1006-1026, 60-100 fpm (100 at 100-125 HB, 90 at 125-175, 70 at 175-225, 60 at 225-275); 2 flutes x 0.02 mm = .0016 in/rev, inside the same handbook's p.1060 drill feeds for the traditional speeds 0.001-0.003 in/rev for drills smaller than 1/8 in, because a shallow spot cuts only its point (a 2.08 mm spot), and beside p.1132's centre-drill feed .0015 in/rev for holes under 1/8 in"
 # --- end pivot-bracket additions ---
 
 # Deep holes: sfm x sfm_factor once the hole's depth exceeds depth_over_dia drill
@@ -211,5 +268,5 @@ cite = "example (plausible, not measured); cobalt spot drill: speed below Machin
 [[deep_hole]]
 operation = "drill"
 depth_over_dia = 3.0
-sfm_factor = 0.5
-cite = "example (plausible, not measured); UFL MAE Design Lab 'Speeds and Feeds' (web.mae.ufl.edu/designlab/Advanced Manufacturing/Speeds and Feeds) Example 1A TIP2: deeper than 3xD without through-spindle coolant, reduce spindle speed an additional 50%; norsemandrill.com/feeds-speeds-drill.php: reduce feed and speed up to 45-50% (printed '45-50‰') deeper than 4 drill diameters. 80 sfm x 0.5 = 40 sfm, inside Norseman's 80 SFM reduced 45-50% (40-44) and below Machinery's Handbook Pocket Companion (ISBN 978-0-8311-3095-4) p.128 Table 1 AISI 1016-1021 drilling 90 fpm halved; the kept .0039 in/rev stays inside Norseman's 1/4-1/2 in .004-.010 in/rev reduced up to 50%"
+sfm_factor = 0.8
+cite = "example (plausible, not measured); threshold from Machinery's Handbook 27th ed. (Industrial Press, 2004) p.1065: when drilling holes deeper than three times the drill diameter, withdraw the drill (peck feed) at intervals to clear chips and let coolant reach the tip. The handbook gives no deep-hole speed factor, so 0.8 is chosen to keep 80 fpm x 0.8 = 64 fpm inside Table 17 p.1061 traditional HSS drilling speeds 60-100 fpm for plain carbon steels 1006-1026 (60 at 225-275 HB); the UFL MAE Design Lab 'Speeds and Feeds' Example 1A tip (-50% past 3xD) and norsemandrill.com (-45-50% past 4xD) are secondary and would fall below that range. The feed stays at the p.1060 row value"
