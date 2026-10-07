@@ -103,7 +103,7 @@ def evaluate(bundle):
             dimensions.extend((f"section_mm[{i}]", value) for i, value in enumerate(section))
         invalid_stock = [field for field, value in dimensions if _known(value) and value <= 0]
         manifest_mm = bundle.features.get("units") == "mm"
-        for op, before, _ in tip_endpoints.stock_states(setup, features):
+        for op, before, _ in tip_endpoints.stock_states(bundle, setup):
             if op.get("do") in MANUAL or op.get("do") in SAW_OPS:
                 continue
             label = f"plan.setups.{setup['id']}.ops.{op['op']}"

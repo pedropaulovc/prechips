@@ -2,16 +2,26 @@
 
 from __future__ import annotations
 
+import itertools
 import math
 import re
 
 from prechips.measurements import nominal_angle_deg
 
 from ..findings import Finding
-from .resolution import UNKNOWN, length_mm, number, resolve, uncertain
+from .resolution import (
+    UNKNOWN,
+    length_mm,
+    number,
+    op_feature,
+    resolve,
+    setup_frame,
+    uncertain,
+)
 
 FACING = {"face", "rough_face", "finish_face"}
 POCKETING = {"pocket", "rough_pocket", "finish_pocket"}
+AXES = ("x", "y", "z")
 HOLE_OPS = {"spot", "drill", "ream", "tap", "counterbore", "bore"}
 # Plan units of float residue within which two authored Zs are one surface.
 SAME_Z = 1e-9
@@ -111,7 +121,7 @@ def _covers(cut, target, whole=False):
                 return False
         elif axis in other:
             interval = other[axis]
-            if not all(number(v) for v in interval):
+            if not _span(interval):
                 return False
             if whole and not band[0] <= interval[0] <= interval[1] <= band[1]:
                 return False
@@ -146,14 +156,153 @@ def _footprint(target):
     return {name: [at[i] - half, at[i] + half] for i, name in enumerate(("x", "y"))}
 
 
-def stock_states(setup, features=None):
+def _span(values):
+    """Whether ``values`` is a well-formed span: one or more numbers, ascending."""
+    return (
+        isinstance(values, list)
+        and bool(values)
+        and all(number(v) for v in values)
+        and values == sorted(values)
+    )
+
+
+def _disc(target):
+    """A round feature's box: ``at`` along its principal ``axis``, ``at`` plus or minus
+    its largest radius (half its ``dia``, else its ``radius``) across it; None spans
+    unless all are numeric."""
+    at, axis = target.get("at"), target.get("axis", [0.0, 0.0, 1.0])
+    size = target.get("dia") if "dia" in target else target.get("radius")
+    sizes, per = size if isinstance(size, list) else [size], 2 if "dia" in target else 1
+    if not (
+        isinstance(at, list)
+        and len(at) == 3
+        and isinstance(axis, list)
+        and len(axis) == 3
+        and sizes
+        and all(number(v) for v in [*at, *axis, *sizes])
+        and sum(abs(v) > 1e-9 for v in axis) == 1
+    ):
+        return dict.fromkeys(AXES)
+    half = max(sizes) / per
+    return {
+        name: [at[i]] if abs(axis[i]) > 1e-9 else [at[i] - half, at[i] + half]
+        for i, name in enumerate(AXES)
+    }
+
+
+def _corners(bundle, target, frame):
+    """The corners of ``target``'s footprint box in ``frame``, else None: its own
+    ``bounds`` (Z from ``at`` when they omit it), else a round feature's box
+    (:func:`_disc`), with an omitted axis taken only from its ``plane`` value. Unknown,
+    omitted, empty or malformed spans, or a non-numeric frame, give None."""
+    from .coordinates import frame_point, model_point
+
+    at, bounds, plane = (
+        target.get("at"),
+        mapping(target.get("bounds")),
+        mapping(target.get("plane")),
+    )
+    spans = {axis: bounds.get(axis) for axis in AXES} if bounds else _disc(target)
+    if bounds and "z" not in bounds and isinstance(at, list) and len(at) == 3:
+        spans["z"] = [at[2]]
+    for axis in AXES:
+        if spans[axis] is None and axis not in bounds and plane.get("axis") == axis:
+            spans[axis] = [plane.get("value")]
+    if not all(_span(span) for span in spans.values()):
+        return None
+    source = _frame(bundle, target)
+    points = [
+        frame_point(model_point(list(p), source), frame)
+        for p in itertools.product(spans["x"], spans["y"], spans["z"])
+    ]
+    return points if all(number(v) for p in points for v in p) else None
+
+
+def _frame(bundle, feature):
+    return mapping(mapping(bundle.features.get("frames")).get(feature.get("frame", "model")))
+
+
+def _setup_footprint(bundle, setup, target):
+    """The setup-frame X/Y box enclosing ``target``'s footprint (:func:`_corners`), else
+    None. Turned against the setup it holds more than the feature, so it can prove a
+    surface held, never a cut."""
+    points = _corners(bundle, target, setup_frame(bundle, setup))
+    if points is None:
+        return None
+    return [[min(p[i] for p in points), max(p[i] for p in points)] for i in range(2)]
+
+
+def _feature_holds(bundle, setup, own, target):
+    """Whether cutting all of feature ``own`` down the setup's Z cut all of ``target``:
+    ``"whole"``, ``"partial"`` or ``UNKNOWN``. Proven in ``own``'s frame, where its box
+    is exact: the setup Z must run along one of that frame's axes, and the box enclosing
+    ``target`` there must lie within ``own``'s spans on the other two. A setup Z oblique
+    to that frame, or a footprint that cannot be built, is unknown."""
+    from .coordinates import mapping_vector
+
+    frame = _frame(bundle, own)
+    tool = mapping_vector(setup_frame(bundle, setup).get("z"))
+    axes = [mapping_vector(frame.get(axis)) for axis in AXES]
+    box, held = _corners(bundle, own, frame), _corners(bundle, target, frame)
+    if box is None or held is None or not all(number(v) for v in [*tool, *sum(axes, [])]):
+        return UNKNOWN
+    dots = [sum(tool[i] * axis[i] for i in range(3)) for axis in axes]
+    across = [i for i, dot in enumerate(dots) if abs(dot) <= 1e-9]
+    if len(across) != 2:
+        return UNKNOWN
+    if all(
+        min(p[i] for p in box) - SAME_Z <= min(p[i] for p in held)
+        and max(p[i] for p in held) <= max(p[i] for p in box) + SAME_Z
+        for i in across
+    ):
+        return "whole"
+    return "partial"
+
+
+def cut_region(op):
+    """``op``'s setup-frame X/Y ``stock_removal_bounds`` as ``[[x0, x1], [y0, y1]]``, else
+    None when an axis is unknown, omitted or malformed."""
+    box = mapping(op.get("stock_removal_bounds"))
+    region = [box.get("x"), box.get("y")]
+    return region if all(_span(s) and len(s) == 2 for s in region) else None
+
+
+def cut_coverage(bundle, setup, op, target):
+    """How much of surface ``target`` the cut ``op`` made: ``"whole"``, ``"partial"`` or
+    ``UNKNOWN``. An op without ``stock_removal_bounds`` cuts all of its own feature, and
+    of another surface what its feature holds (:func:`_feature_holds`). Else its
+    :func:`cut_region` and ``target``'s footprint (:func:`_setup_footprint`) decide:
+    ``"whole"`` when the region holds it, ``"partial"`` when it does not. An unknown
+    region or footprint leaves it unknown, never whole; overlap or a held ``at`` point is
+    never whole."""
+    name = op_feature(op)  # None for an inspect op's feature list: it cuts no feature
+    own = mapping(mapping(bundle.feature_definitions).get(name))
+    if "stock_removal_bounds" not in op:
+        if name is not None and target == own:
+            return "whole"
+        return _feature_holds(bundle, setup, own, target)
+    region, held = cut_region(op), _setup_footprint(bundle, setup, target)
+    if held is None or region is None:
+        return UNKNOWN
+    if all(
+        region[i][0] - SAME_Z <= held[i][0] and held[i][1] <= region[i][1] + SAME_Z
+        for i in range(2)
+    ):
+        return "whole"
+    return "partial"
+
+
+def stock_states(bundle, setup):
     """Yield (op, before, after); profiles never move the touched top surface.
 
     Entry values are separate from the setup's touched top. Explicit pocket/face
-    footprints may advance entry planes inside the cut, not adjoining strips.
+    footprints may advance entry planes inside the cut, not adjoining strips. An op that
+    cut only part of a surface (:func:`cut_coverage`) advances neither it nor the top:
+    the surface keeps the uncut height its last whole producer left. One whose coverage
+    is unknown leaves that surface's Z, and its source, unknown.
     Local thickness is authored at the eventual hole entry, not raw stock height.
     """
-    features = mapping(features)
+    features = mapping(bundle.feature_definitions)
     stock = mapping(setup.get("stock_state"))
     top = stock.get("top_z", UNKNOWN)
     entries = dict(mapping(stock.get("entry_z")))
@@ -169,15 +318,24 @@ def stock_states(setup, features=None):
         if "to_z" in op and op.get("do") in FACING | POCKETING:
             name = op.get("feature")
             cut = mapping(features.get(name))
+            made = f"{setup['id']} op {op['op']} to_z"
             for target in entries:
-                if target == name or _covers(cut, mapping(features.get(target))):
-                    entries[target] = op["to_z"]
-                    origins[target] = f"{setup['id']} op {op['op']} to_z"
+                if target != name and not _covers(cut, mapping(features.get(target))):
+                    continue
+                coverage = cut_coverage(bundle, setup, op, mapping(features.get(target)))
+                if coverage != "partial":
+                    entries[target], origins[target] = (
+                        (op["to_z"], made) if coverage == "whole" else (UNKNOWN, UNKNOWN)
+                    )
+            faced = mapping(features.get(stock.get("top_feature") or name))
             if op.get("do") in FACING and (
                 stock.get("top_feature") is None or name == stock["top_feature"]
             ):
-                top = op["to_z"]
-                top_from = f"{setup['id']} op {op['op']} to_z"
+                coverage = cut_coverage(bundle, setup, op, faced)
+                if coverage != "partial":
+                    top, top_from = (
+                        (op["to_z"], made) if coverage == "whole" else (UNKNOWN, UNKNOWN)
+                    )
         after = {
             "top_z": top,
             "entry_z": dict(entries),
@@ -219,12 +377,15 @@ def operative_z(bundle, setup, value, face=None, done=0, source=None):
     to ``value``: for ``"top"`` a facing op on ``top_feature`` (any, if none is named),
     for a feature an op on it or whose feature's XY footprint covers it
     (:func:`_covers_xy`). An equal Z alone is never proof; no ``face`` names no
-    producer."""
+    producer. A partial cut (:func:`cut_coverage`) never produces the surface; one of
+    unknown coverage leaves its producer, and so the Z, unknown."""
     from .coordinates import dro_grid, dro_z
 
     if not number(value):
         return value
     producer = _producer(bundle, setup, value, face, done, source)
+    if producer == UNKNOWN:
+        return UNKNOWN
     if producer:
         value = dro_z(producer[1]["to_z"], dro_grid(bundle, producer[0]))
     return dro_z(value, dro_grid(bundle, setup))
@@ -242,8 +403,10 @@ def _producer(bundle, setup, value, face, done, source):
     ops = setup.get("ops", [])
     features = bundle.feature_definitions
     if source is None and face == "top" and done:
-        states = list(stock_states(setup, features))[:done]
+        states = list(stock_states(bundle, setup))[:done]
         source = states[-1][2]["top_from"] if states else None
+    if source == UNKNOWN:
+        return UNKNOWN
     match = re.fullmatch(r"(\S+) op (\S+) to_z", source) if isinstance(source, str) else None
     if match and match[1] == setup.get("id"):
         return next(((setup, op) for op in ops if str(op.get("op")) == match[2]), None)
@@ -269,7 +432,16 @@ def _producer(bundle, setup, value, face, done, source):
             hit = name == face or _covers_xy(
                 mapping(features.get(name)), mapping(features.get(face))
             )
-        if hit:
+        if not hit:
+            continue
+        surface = mapping(features.get(top or name if face == "top" else face))
+        # An op that cut only part of the surface did not produce it: the uncut part
+        # still stands where its last whole producer left it. Unknown coverage proves
+        # neither.
+        coverage = cut_coverage(bundle, cut_setup, op, surface)
+        if coverage == UNKNOWN:
+            return UNKNOWN
+        if coverage == "whole":
             return (cut_setup, op) if abs(to_z - value) <= SAME_Z else None
     return None
 
@@ -281,7 +453,7 @@ def evaluate(bundle):
     errors = set()
     negative_exit = set()
     for setup in bundle.plan["setups"]:
-        for op, before, _ in stock_states(setup, features):
+        for op, before, _ in stock_states(bundle, setup):
             name = op.get("feature")
             if op.get("do") not in HOLE_OPS or name not in features:
                 continue

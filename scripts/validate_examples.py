@@ -796,7 +796,7 @@ def check_zero(setup: dict, finding: dict, entries: dict, dro: dict) -> None:
                 and isinstance(gauge, str)
                 and resolves(gauge, entries)
                 and not uncertain(gauge, entries)
-                and bool(str(recipe.get("measure", "")).strip())
+                and str(recipe.get("measure", "")).strip() not in {"", "unknown"}
                 and all(numeric(v) for v in (base, paper, jog))
             )
             for field, step in (("axis_set", 0), ("check_reading", 1), ("mirrored_reading", -1)):

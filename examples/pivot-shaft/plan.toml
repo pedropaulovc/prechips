@@ -532,6 +532,19 @@ paper_mm = 0.0             # author's choice: chuck-side corner aligned to the s
 method = "spindle stopped; align the chuck-side corner to the scribe; withdraw along X without moving Z"  # author's choice; the sheet prints the Axis Set value
 before_ops = [10]
 
+# The blade's Axis Set replaced the AR's zero; put the AR back in holder #1 and re-touch it
+# on the same body diameter and scribe before it faces and domes.
+[[setups.zero.tool_touches]]
+tool = "turning-tools-warner-lms-4132/AR"
+x_method = "touch the body diameter just measured by micrometer; Axis Set its measured diameter"  # author's choice
+gauge = "micrometers/0-1in"
+z_face = "scribe"
+edge_mm = 0.0
+paper_mm = 0.0             # author's choice: tool nose aligned to the scribe, stationary spindle, as for the zero
+method = "spindle stopped; align the tool nose to the centre of the scribe; withdraw along X without moving Z"  # author's choice; the sheet prints the Axis Set value
+after_op = 10
+before_ops = [20]
+
 [[setups.ops]]
 op = 10
 do = "cut_to_fit"

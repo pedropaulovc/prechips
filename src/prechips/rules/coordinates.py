@@ -1328,15 +1328,18 @@ _LEVEL_OPS = RASTER_OPS | {"profile", "rough_profile", "finish_profile"}
 _WALL_OPS = {"pocket", "finish_pocket", "profile", "finish_profile"}
 
 
-def _outside_circle(segment, circle, radius, grid):
+def _outside_circle(segment, circle, radius, grid, scale):
     """Keep the positive-length pieces of an axis-parallel pass, in feed order. Each cut
     point lies on the DRO ``grid`` (:func:`dro_grid`), rounded away from the island, so
-    the printed piece never reaches nearer than the island radius plus ``radius``."""
+    the printed piece never reaches nearer than the island radius plus ``radius``. The
+    island's ``dia_mm`` is millimetres; ``segment``, ``radius`` and ``grid`` are plan units
+    (``scale`` mm per plan unit)."""
     a, b = segment
     axis = 0 if a[0] != b[0] else 1
     across = 1 - axis
     centre = circle["at"]
-    reach_squared = (circle["dia_mm"] / 2 + radius) ** 2 - (a[across] - centre[across]) ** 2
+    island = circle["dia_mm"] / 2 / scale
+    reach_squared = (island + radius) ** 2 - (a[across] - centre[across]) ** 2
     if reach_squared <= 0:  # tangent or outside: no interior crossing
         return [segment] if math.dist(a, b) > 1e-9 else []
     reach = math.sqrt(reach_squared)
@@ -1358,7 +1361,7 @@ def _outside_circle(segment, circle, radius, grid):
     return pieces
 
 
-def _raster(feature, op, offset, radius, frame, frames, sense, order, lift_z, grid):
+def _raster(feature, op, offset, radius, frame, frames, sense, order, lift_z, grid, scale):
     """(One stage's raster record in cutting order, None) or (None, why it is unknown).
 
     Passes stand at positions across the area, stepping from its open side
@@ -1378,6 +1381,8 @@ def _raster(feature, op, offset, radius, frame, frames, sense, order, lift_z, gr
     normal is the open side's unit vector: each pass runs the way that cuts the op's
     ``direction`` with the spindle (:func:`_reversal`), else the order is unknown. The
     cycle is one way: feed a pass, lift to ``lift_z``, rapid back to the next pass's start.
+    ``step_mm``, ``offset`` and ``radius`` are millimetres; the passes stand in plan units
+    (``scale`` mm per plan unit).
     """
     face = op.get("do") in FACING
     contour = mapping(op.get("contour"))
@@ -1412,10 +1417,14 @@ def _raster(feature, op, offset, radius, frame, frames, sense, order, lift_z, gr
         return None, "its cutter-centre offset from the far wall is unknown"
     if step > 2 * radius:
         return None, f"its step_mm {step:g} exceeds the cutter diameter {2 * radius:g}"
+    if not number(scale):
+        return None, "its plan units are neither mm nor in"
+    authored, step, radius = step, step / scale, radius / scale
+    offset = offset / scale if number(offset) else offset
     unit, decimals = grid
     lattice = round(math.floor(step / unit + 1e-6) * unit, decimals)
     if lattice <= 0:
-        return None, f"its step_mm {step:g} is finer than the DRO grid {unit:g}"
+        return None, f"its step_mm {authored:g} is finer than the DRO grid {unit:g}"
     boundary = _sweep_area(feature, op, frame, frames)
     if not boundary:
         return None, "its swept area has no numeric bounds"
@@ -1461,7 +1470,9 @@ def _raster(feature, op, offset, radius, frame, frames, sense, order, lift_z, gr
         passes = [list(reversed(segment)) for segment in passes]
     for circle in keep_out:
         passes = [
-            piece for segment in passes for piece in _outside_circle(segment, circle, radius, grid)
+            piece
+            for segment in passes
+            for piece in _outside_circle(segment, circle, radius, grid, scale)
         ]
     record = {
         "cutter_centre": passes,
@@ -1469,7 +1480,7 @@ def _raster(feature, op, offset, radius, frame, frames, sense, order, lift_z, gr
         "raster": {
             "open_side": side,
             "open_side_basis": "contour.open_side" if "open_side" in contour else "derived",
-            "step_mm": step,
+            "step_mm": authored,
             "passes": len(passes),
             "cycle": "one_way",
             "lift_z": lift_z,
@@ -2313,7 +2324,7 @@ def evaluate(bundle, *, pre_kernel=False):
         grid = dro_grid(bundle, setup)
         numbers["dro_grid"] = {"step": grid[0], "decimals": grid[1]}
         declared = mapping(mapping(setup.get("stock_state")).get("entry_z"))
-        states, cleared = stock_states(setup, features), []
+        states, cleared, plan_debts = stock_states(bundle, setup), [], []
         for entry, (op, before, _) in zip(numbers["operations"], states, strict=True):
             if "to_z" in entry:
                 # The depth the DRO shows: rounded up, never deeper than authored.
@@ -2323,6 +2334,8 @@ def evaluate(bundle, *, pre_kernel=False):
                 levels = _z_levels(op, before, declared, cleared, features, grid, units)
             if levels is not None:
                 entry["z_levels"] = levels
+                if levels["levels"] == UNKNOWN:
+                    plan_debts.append(f"op {op['op']} axial levels: {levels['reason']}")
             if op.get("do") in RASTER_OPS and number(op.get("to_z")) and _xy_box(op):
                 cleared.append((op.get("feature"), _xy_box(op), op["to_z"]))
         residuals = _z_residuals(bundle, setup, grid, features)
@@ -2436,7 +2449,7 @@ def evaluate(bundle, *, pre_kernel=False):
             unknown |= debt
             if "aim" in rows[0]:
                 aim_cites.append(f"plan.aims.{rows[0]['aim']['feature']}")
-        for op, before, after in stock_states(setup, features):
+        for op, before, after in stock_states(bundle, setup):
             numbers["entry_surfaces"].append({"op": op["op"], **after["entry_z"]})
             contour = mapping(op.get("contour"))
             unknown |= op.get("contour") == UNKNOWN
@@ -2545,7 +2558,7 @@ def evaluate(bundle, *, pre_kernel=False):
                         else UNKNOWN
                     )
                     raster, why = _raster(
-                        feature, op, offset, radius, frame, frames, sense, order, lift, grid
+                        feature, op, offset, radius, frame, frames, sense, order, lift, grid, scale
                     )
                     if raster is None:
                         profile["raster_reason"] = why
@@ -2557,6 +2570,12 @@ def evaluate(bundle, *, pre_kernel=False):
                             grid_errors.extend(
                                 _grid_residual(op, feature, raster["grid_residual_mm"], grid)
                             )
+                        if lift == UNKNOWN:
+                            # Each pass lifts before its rapid return: no lift Z, no cycle.
+                            profile["lift_reason"] = (
+                                "its lift Z is unknown: it needs approach_mm above a known top"
+                            )
+                            plan_debts.append(f"op {op['op']} {stage}: {profile['lift_reason']}")
                         generated = True
                 elif contour.get("method") == "linear_table":
                     path, residual = _linear(feature, op, offset, radius, frame, frames, grid)
@@ -2613,7 +2632,7 @@ def evaluate(bundle, *, pre_kernel=False):
             "error"
             if residuals or stairs or plunge_errors or grid_errors or band_errors
             else "unknown"
-            if unknown or unordered or clip_debts or unproven
+            if unknown or unordered or clip_debts or unproven or plan_debts
             else "pass"
         )
         sentence = (
@@ -2628,6 +2647,8 @@ def evaluate(bundle, *, pre_kernel=False):
             sentence += " Cutting order is unknown: " + "; ".join(sorted(unordered)) + "."
         if clip_debts:
             sentence += " Stock-removal clip debt: " + "; ".join(clip_debts) + "."
+        if plan_debts:
+            sentence += " Pass plan unknown: " + "; ".join(plan_debts) + "."
         if residuals:
             numbers["dro_z_residual_errors"] = residuals
             sentence += " DRO depth rounding error: " + "; ".join(residuals) + "."
