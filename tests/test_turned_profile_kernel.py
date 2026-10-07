@@ -380,6 +380,10 @@ def test_kernel_measures_revolved_spans_of_an_authored_shaft_and_dome(
     assert dome["z_mm"] == approx([30.0, 31.5]) and dome["radii_mm"] == approx([0.0, 4.0])
     assert dome["end_radii_mm"] == approx([4.0, 0.0]) and dome["kinds"] == ["Sphere"]
     assert end["z_mm"] == [0, 0] and end["radii_mm"] == approx([0.0, 4.0])
+    # The plain end faces the chuck in S1 and the free end once rechucked reversed: the
+    # sign a blade's Z touch on it reads its corner from. A cylinder has no end face.
+    assert end["end_faces"] == [{"z_mm": approx(0.0), "normal_z": -1}]
+    assert shaft["end_faces"] == [] and dome["end_faces"] == []
     # A milled flat is not a face of revolution: omitted, with the reason named.
     assert "flat" not in first["revolved"]
     assert "not revolved about setup Z" in first["revolved_reasons"]["flat"]
@@ -390,6 +394,7 @@ def test_kernel_measures_revolved_spans_of_an_authored_shaft_and_dome(
     shaft, dome = second["revolved"]["shaft"], second["revolved"]["dome"]
     assert shaft["z_mm"] == approx([1.5, 31.5])
     assert dome["z_mm"] == approx([0.0, 1.5]) and dome["end_radii_mm"] == approx([0.0, 4.0])
+    assert second["revolved"]["end"]["end_faces"] == [{"z_mm": approx(31.5), "normal_z": 1}]
 
 
 def test_kernel_measures_requested_revolved_facts_in_mill_setups(

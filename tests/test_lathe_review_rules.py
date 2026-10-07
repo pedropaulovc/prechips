@@ -1,12 +1,13 @@
 """Lathe op starts, relief plunges and dome roughing as the rules derive them."""
 
+import dataclasses
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
 from prechips.inputs import Bundle
-from prechips.rules import coordinates, op_chain
+from prechips.rules import coordinates, op_chain, zero_recipe
 
 
 def _setup(ops, setup_id="S3"):
@@ -74,24 +75,25 @@ _IDENTITY = {
 }
 
 
-def _lathe(ops, features, tools, units="mm"):
+def _lathe(ops, features, tools, units="mm", zero=None):
     """A one-setup lathe bundle in an identity frame (setup Z = model Z, +Z free end)."""
+    setup = {
+        "id": "S1",
+        "machine": "lathe",
+        "frame": "T",
+        "stock_state": {"od_mm": 10.0, "north_end_z": 20.0, "south_end_z": -5.0},
+        "hold": {"fixture": "chuck", "support": "none", "stickout_mm": 20.0},
+        "ops": ops,
+    }
+    if zero is not None:
+        setup["zero"] = zero
     return Bundle(
         plan={
             "part": "lathe-review",
             "features": "features.toml",
             "dro": {"controller": "test DRO", "radius_mode": False},
             "stock": {"form": "round_bar", "dia_mm": 10.0, "cite": "test authored blank"},
-            "setups": [
-                {
-                    "id": "S1",
-                    "machine": "lathe",
-                    "frame": "T",
-                    "stock_state": {"od_mm": 10.0, "north_end_z": 20.0, "south_end_z": -5.0},
-                    "hold": {"fixture": "chuck", "support": "none", "stickout_mm": 20.0},
-                    "ops": ops,
-                }
-            ],
+            "setups": [setup],
         },
         features={
             "part": "lathe-review",
@@ -121,7 +123,13 @@ def _blade(hand="right"):
     return {"kind": "parting_blade", "hand": hand, "nose_radius_mm": 0.1, "blade_width_mm": 1.6}
 
 
-def _relief(z_from, z_to, hand="right"):
+def _scribe_touch(corner, op=50):
+    """A blade Z touch on a scribe (no face normal), its corner authored."""
+    touch = {"tool": "blade", "z_face": "scribe", "edge_mm": 0.0, "paper_mm": 0.0}
+    return {"tool_touches": [{**touch, "corner": corner, "before_ops": [op]}]}
+
+
+def _relief(z_from, z_to, corner="chuck_side"):
     op = {
         "op": 50,
         "do": "form_relief",
@@ -131,12 +139,14 @@ def _relief(z_from, z_to, hand="right"):
         "z_to": z_to,
         "direction": "plunge_radial",
     }
-    return coordinates.evaluate(_lathe([op], {"relief": dict(_RELIEF)}, {"blade": _blade(hand)}))[0]
+    features, tools = {"relief": dict(_RELIEF)}, {"blade": _blade()}
+    bundle = _lathe([op], features, tools, zero=_scribe_touch(corner))
+    return coordinates.evaluate(bundle)[0]
 
 
 def test_a_blade_narrower_than_its_relief_plunges_flush_with_each_wall():
     # The 1.6 blade cuts the 2.0 relief in two plunges whose chuck-side corners (the DRO
-    # reading after a +Z end-face touch) sit at Z0 and Z0.4, each to the drawing diameter.
+    # reading its touch set) sit at Z0 and Z0.4, each to the drawing diameter.
     finding = _relief(0.0, 2.0)
     (plunges,) = finding.numbers["plunges"]
     assert plunges["corner_z_mm"] == pytest.approx([0.0, 0.4])
@@ -144,11 +154,32 @@ def test_a_blade_narrower_than_its_relief_plunges_flush_with_each_wall():
     assert plunges["width_mm"] == pytest.approx(2.0)
     assert plunges["diameter_mm"] == 5.7 and plunges["dia_band_mm"] == [5.57, 5.83]
     assert finding.status != "error"
-    # Authored from the far wall, the plunges are the same; a left-hand blade reads its
-    # +Z corner instead.
+    # Authored from the far wall, the plunges are the same; after a touch that set the
+    # tailstock-side corner, the DRO reads that corner instead.
     assert _relief(2.0, 0.0).numbers["plunges"][0]["corner_z_mm"] == pytest.approx([0.0, 0.4])
-    left = _relief(0.0, 2.0, hand="left").numbers["plunges"][0]
-    assert left["corner_z_mm"] == pytest.approx([1.6, 2.0])
+    far = _relief(0.0, 2.0, corner="tailstock_side").numbers["plunges"][0]
+    assert far["corner_z_mm"] == pytest.approx([1.6, 2.0])
+
+
+def test_blade_plunges_with_no_corner_set_stay_unknown_whatever_the_blade_hand():
+    # The corner the DRO reads comes from the Z touch, never the blade's hand: with no
+    # touch of the blade the plunges are not placed, and the sheet stops.
+    from prechips.sheet import _Traveler
+
+    op = {"op": 50, "do": "form_relief", "feature": "relief", "tool": "blade"}
+    op.update(z_from=0.0, z_to=2.0, direction="plunge_radial")
+    for hand in ("right", "left"):
+        bundle = _lathe([op], {"relief": dict(_RELIEF)}, {"blade": _blade(hand)})
+        finding = coordinates.evaluate(bundle)[0]
+        (plunges,) = finding.numbers["plunges"]
+        assert plunges["reading_corner"] == "unknown"
+        assert plunges["corner_z_mm"] == "unknown"
+        assert finding.status == "unknown"
+        sheet = _Traveler(bundle, [], {}, None)
+        setup = sheet.setup = bundle.plan["setups"][0]
+        sheet.records[("coordinates", "S1")] = finding.numbers
+        [stop] = sheet.relief_plunges(setup, op)
+        assert stop.startswith("STOP") and "blade corner unknown" in stop
 
 
 def test_relief_plunges_wider_than_the_drawing_width_band_are_refused():
@@ -392,7 +423,8 @@ def test_an_inch_relief_is_plunged_in_millimetres_and_printed_in_inches():
         "z_to": 2.0 / inch,
         "direction": "plunge_radial",
     }
-    bundle = _lathe([op], {"relief": relief}, {"blade": _blade()}, units="in")
+    zero = _scribe_touch("chuck_side")
+    bundle = _lathe([op], {"relief": relief}, {"blade": _blade()}, units="in", zero=zero)
     finding = coordinates.evaluate(bundle)[0]
     (plunges,) = finding.numbers["plunges"]
     assert plunges["corner_z_mm"] == pytest.approx([0.0, 0.4])
@@ -468,3 +500,194 @@ def test_an_unknown_later_band_does_not_hide_a_known_band_holding_the_start():
     row = _chain([{**_PART, "to_z_band": [1.5, 2.0]}, later, _FORM])
     assert row.status == "error"
     assert "which op 10 leaves anywhere in 1.5 to 2;" in row.sentence
+
+
+_FACE_TOUCH = {"tool": "blade", "z_face": "shoulder", "edge_mm": 0.0, "paper_mm": 0.0}
+
+
+def _parted(touch, ends, side, to_z=-5.0, face="shoulder"):
+    """A blade parting to ``to_z`` after its Z ``touch``; a synthetic kernel gives the
+    touched ``face`` its ``end_faces`` and the op its ``faced_side`` (None: no fact)."""
+    op = {"op": 40, "do": "part_off", "tool": "blade", "to_z": to_z}
+    zero = {"tool_touches": [{**touch, "before_ops": [40]}]}
+    bundle = _lathe([op], {}, {"blade": _blade()}, zero=zero)
+    bundle.inventory["machines"]["lathe"]["resolution_mm"] = 0.01
+    facts = {} if side is None else {"faced_side": side}
+    kernel = {
+        "status": "ok",
+        "setups": {"S1": {"revolved": {face: {"end_faces": ends}}}},
+        "ops": {"S1:40": facts},
+    }
+    return dataclasses.replace(bundle, kernel=kernel)
+
+
+def _blade_entry(bundle):
+    [finding] = coordinates.evaluate(bundle)
+    [entry] = [e for e in finding.numbers["operations"] if e["op"] == 40]
+    return finding, entry
+
+
+@pytest.mark.parametrize(
+    ("ends", "edge", "corner"),
+    [
+        # A face toward the free end is met by the chuck-side corner, one toward the
+        # chuck by the tailstock-side corner; no measured normal gives no corner.
+        ([{"z_mm": 0.0, "normal_z": 1}], 0.0, "chuck_side"),
+        ([{"z_mm": 0.0, "normal_z": -1}], 0.0, "tailstock_side"),
+        ([], 0.0, "unknown"),
+        # A feature with end faces both ways (a boss's two ends): the one at the touch Z.
+        ([{"z_mm": -72.0344, "normal_z": -1}, {"z_mm": 0.0, "normal_z": 1}], 0.0, "chuck_side"),
+        (
+            [{"z_mm": -72.0344, "normal_z": -1}, {"z_mm": 0.0, "normal_z": 1}],
+            -72.0344,
+            "tailstock_side",
+        ),
+    ],
+)
+def test_a_blade_z_touch_sets_the_corner_its_face_normal_gives(ends, edge, corner):
+    bundle = _parted({**_FACE_TOUCH, "edge_mm": edge}, ends, -1)
+    [zero] = zero_recipe.evaluate(bundle)
+    [touch] = zero.numbers["tool_touches"]
+    assert touch["reference_corner"] == corner
+    assert zero.status != "error"
+    finding, entry = _blade_entry(bundle)
+    assert entry["blade"]["reading_corner"] == corner
+    if corner == "unknown":
+        # Its op Z stays unknown (exit 4), never a guessed corner.
+        assert entry["blade"]["corner_dro_z"] == "unknown"
+        assert finding.status == "unknown"
+
+
+@pytest.mark.parametrize(
+    ("normal", "side", "expected"),
+    [
+        # The tailstock-side corner forms a face toward the chuck: the chuck-side corner
+        # the DRO reads stands a blade width (1.6) beyond it.
+        (1, -1, -6.6),
+        (1, 1, -5.0),
+        (-1, -1, -5.0),
+        # The chuck-side corner forms a face toward the free end: the tailstock-side
+        # corner the DRO reads stands a blade width above it.
+        (-1, 1, -3.4),
+    ],
+)
+def test_a_blade_op_z_is_the_reading_of_the_corner_its_touch_set(normal, side, expected):
+    bundle = _parted(_FACE_TOUCH, [{"z_mm": 0.0, "normal_z": normal}], side)
+    finding, entry = _blade_entry(bundle)
+    assert entry["blade"]["corner_dro_z"] == pytest.approx(expected)
+    # The face the op leaves is unchanged; only the reading moves.
+    assert entry["dro_to_z"] == pytest.approx(-5.0)
+    assert finding.status != "error"
+
+
+def test_a_blade_op_with_no_kernel_side_for_its_face_stays_unknown():
+    finding, entry = _blade_entry(_parted(_FACE_TOUCH, [{"z_mm": 0.0, "normal_z": 1}], None))
+    assert entry["blade"]["forming_corner"] == "unknown"
+    assert entry["blade"]["corner_dro_z"] == "unknown"
+    assert finding.status == "unknown"
+
+
+@pytest.mark.parametrize(
+    "touch",
+    [
+        {**_FACE_TOUCH, "corner": "tailstock_side"},
+        {**_FACE_TOUCH, "method": "feed the tailstock-side corner in until it drags"},
+        {**_FACE_TOUCH, "corner": "chuck_side", "method": "the tailstock-side corner"},
+    ],
+)
+def test_a_blade_touch_naming_a_corner_its_face_cannot_give_is_an_error(touch):
+    bundle = _parted(touch, [{"z_mm": 0.0, "normal_z": 1}], -1)
+    [zero] = zero_recipe.evaluate(bundle)
+    assert zero.status == "error"
+    [row] = zero.numbers["tool_touches"]
+    assert row["reference_corner"] == "unknown" and row["corner_error"]
+    # Never re-read to fit: the op's Z stays unknown.
+    assert _blade_entry(bundle)[1]["blade"]["corner_dro_z"] == "unknown"
+
+
+def test_an_authored_corner_the_face_agrees_with_is_not_an_error():
+    touch = {**_FACE_TOUCH, "corner": "chuck_side", "method": "feed the chuck-side corner in"}
+    [zero] = zero_recipe.evaluate(_parted(touch, [{"z_mm": 0.0, "normal_z": 1}], -1))
+    assert zero.status != "error"
+    assert zero.numbers["tool_touches"][0]["corner_from"] == "face normal"
+
+
+def test_a_sleeve_parted_after_a_touch_on_its_far_end_comes_out_full_length():
+    # The cone's S2: the 1.6 blade touched on the +Z north face at Z21.0055 (no paper)
+    # reads its chuck-side corner; op 40 parts the -Z south face at Z-21.0505. Printing
+    # Z-21.05 put that corner on the line and left the sleeve a blade width short of its
+    # 42.04..42.08 hold; the corner goes to -22.65.
+    from prechips.sheet import _Traveler
+
+    touch = {"tool": "blade", "z_face": "north", "edge_mm": 21.0055, "paper_mm": 0.0}
+    bundle = _parted(touch, [{"z_mm": 21.0055, "normal_z": 1}], -1, -21.0505, "north")
+    [zero] = zero_recipe.evaluate(bundle)
+    finding, entry = _blade_entry(bundle)
+    corner = entry["blade"]["corner_dro_z"]
+    assert corner == pytest.approx(-22.65)
+    [touched] = zero.numbers["tool_touches"]
+    sleeve = touched["z_axis_set"] - (corner + 1.6)
+    assert 42.04 <= sleeve <= 42.08
+    sheet = _Traveler(bundle, [], {}, None)
+    setup = sheet.setup = bundle.plan["setups"][0]
+    sheet.records[("zero_check", "S1")] = zero.numbers
+    sheet.records[("coordinates", "S1")] = finding.numbers
+    assert sheet.z_target(setup, bundle.plan["setups"][0]["ops"][0]) == (
+        "Z → -22.65 (chuck-side corner)"
+    )
+    text = sheet.dro(setup, {"blade": "T3 blade"})
+    assert "Z — chuck-side corner on the north" in text
+    assert "Z now reads the chuck-side corner" in text
+
+
+def test_each_toolpost_tool_is_set_on_centre_before_its_first_touch_off():
+    from prechips.sheet import _Traveler
+
+    ops = [
+        {"op": 10, "do": "rough_turn", "feature": "body", "tool": "turner"},
+        {"op": 40, "do": "part_off", "tool": "blade", "to_z": -5.0},
+        {"op": 60, "do": "part_off", "tool": "blade", "to_z": -9.0},
+    ]
+    zero = {
+        "x": {"feature": "spindle_axis", "method": "trial_cut_measure", "tool": "turner"},
+        "z": {"face": "end", "edge_mm": 0.0, "method": "touch", "tool": "turner"},
+        "tool_touches": [
+            {**_FACE_TOUCH, "corner": "chuck_side", "before_ops": [40]},
+            {**_FACE_TOUCH, "corner": "chuck_side", "before_ops": [60]},
+        ],
+    }
+    tools = {"blade": _blade(), "turner": dict(_AR)}
+    bundle = _lathe(ops, {}, tools, zero=zero)
+    [finding] = zero_recipe.evaluate(bundle)
+    # One step per tool, at its first touch-off; only the blade is squared.
+    assert finding.numbers["tool_setting"] == [
+        {
+            "touch": "zero",
+            "axis": "x",
+            "tool": "turner",
+            "centre_height": zero_recipe.CENTRE_HEIGHT,
+            "square_blade": "not_applicable",
+        },
+        {
+            "touch": "tool_touches",
+            "index": 0,
+            "tool": "blade",
+            "centre_height": zero_recipe.CENTRE_HEIGHT,
+            "square_blade": zero_recipe.SQUARE_BLADE,
+        },
+    ]
+    # The toolpost's own words say how, and the sheet prints each step before its touch.
+    bundle.inventory["machines"]["lathe"]["toolpost"] = {
+        "centre_height": "shim it level with the tailstock point",
+        "square_blade": "square it off the chuck face",
+    }
+    [finding] = zero_recipe.evaluate(bundle)
+    sheet = _Traveler(bundle, [], {}, None)
+    setup = sheet.setup = bundle.plan["setups"][0]
+    sheet.records[("zero_check", "S1")] = finding.numbers
+    text = sheet.dro(setup, {"blade": "T3 blade", "turner": "T1 turner"})
+    blade = "Before touching off T3 blade: shim it level with the tailstock point; then square"
+    assert text.count(blade) == 1
+    assert text.index(blade) < text.index("Before op 40, touch off T3 blade")
+    turner = "Before touching off T1 turner: shim it level with the tailstock point."
+    assert text.index(turner) < text.index("<table")

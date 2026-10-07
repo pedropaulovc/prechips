@@ -200,6 +200,12 @@ not apply. Dividing-head headroom uses centre height and the posed axis offset,
 and child hole operations inherit a missing travel centre from their named
 parent/hole while explicit unknown locations remain debt.
 
+On the lathe, a parting/grooving blade's Z touch names the blade corner it sets
+(the touched face's normal decides it; a scribe touch states it), and every blade
+op row prints Z as that corner's reading. Each toolpost tool's first touch-off in
+a setup is preceded by setting it on centre height, and squaring a blade to the
+spindle axis ([zero_check](docs/rules-coordinates.md#zero_check)).
+
 The literal `"unknown"` never means zero, absence, approval or a pass. A
 `verify = true` inventory entry is verification debt, not certified geometry:
 on an item it leaves that identity unresolved for the declared-input rules,

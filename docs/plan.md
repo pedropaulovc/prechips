@@ -772,6 +772,7 @@ ahead of the tool, on the uncut stock`.
 | `z_gauge` | `str` (`measure_then_set`) |
 | `z_measure` | `str` (`measure_then_set`: what M is) |
 | `z_offset_mm` | `float` (`measure_then_set`: Axis Set Z = M + offset + paper) |
+| `corner` | `"chuck_side" \| "tailstock_side"`: a grooving/parting blade's Z touch corner where the touched face gives no measured normal (a scribe); a face normal that contradicts it is an error ([zero_check](rules-coordinates.md#zero_check)) |
 | `before_ops` | `list[int]` |
 | `after_op` | `int` |
 

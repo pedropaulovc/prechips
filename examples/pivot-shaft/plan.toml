@@ -530,6 +530,7 @@ z_face = "scribe"
 edge_mm = 0.0
 paper_mm = 0.0             # author's choice: chuck-side corner aligned to the scribe, stationary spindle
 method = "spindle stopped; align the chuck-side corner to the scribe; withdraw along X without moving Z"  # author's choice; the sheet prints the Axis Set value
+corner = "chuck_side"      # AUTHOR'S CHOICE: the chuck-side corner on the scribe because it forms the kept +Z dome end at Z2.25; a scribe has no face normal to give it
 before_ops = [10]
 
 [[setups.ops]]

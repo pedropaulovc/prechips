@@ -486,7 +486,7 @@ direction = "radially_inward"
 approach_mm = 3.0
 doc_mm = 0.25 # example (plausible, not measured); radial hand peck, UFL 'Parting on Lathe' Step 6: feed by hand, never power feed, and peck to break up the chips
 feed_mm_rev = 0.025 # example (plausible, not measured); UFL 'Speeds and Feeds' Example 5 tip parting 0.001 in/rev (0.025 mm) for steels, hand-fed
-note = "Before parting, lay a folded rag in the chip tray under the cut. Keep the blade width on the chuck side of the line. Let the sleeve drop onto the rag, stop the spindle, then pick it up. Never reach under turning work."
+note = "Before parting, lay a folded rag in the chip tray under the cut. Let the sleeve drop onto the rag, stop the spindle, then pick it up. Never reach under turning work."
 [[setups.ops]]
 op = 50
 do = "inspect"
@@ -607,7 +607,7 @@ direction = "radially_inward"
 approach_mm = 3.0
 doc_mm = 0.25 # example (plausible, not measured); radial hand peck, UFL 'Parting on Lathe' Step 6: feed by hand, never power feed, and peck to break up the chips
 feed_mm_rev = 0.025 # example (plausible, not measured); UFL 'Speeds and Feeds' Example 5 tip parting 0.001 in/rev (0.025 mm) for steels, hand-fed
-note = "Before parting, lay a folded rag in the chip tray under the cut. Keep the blade width on the chuck side of the line. Let the sleeve drop onto the rag, stop the spindle, then pick it up. Never reach under turning work."
+note = "Before parting, lay a folded rag in the chip tray under the cut. Let the sleeve drop onto the rag, stop the spindle, then pick it up. Never reach under turning work."
 [setups.ops.checks]
 length = "calipers"
 [[setups.ops]]

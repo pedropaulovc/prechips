@@ -692,6 +692,9 @@ block, a `source` or a member; the only measurement evidence is the
 | `note` | `str` |
 | `holders` | `int` |
 | `included` | `bool` |
+| `centre_height` | `str`: how a tool is set on spindle centre height before its first touch-off in a lathe setup (printed as that step; without it the sheet states the requirement alone) |
+| `square_blade` | `str`: how a grooving/parting blade is squared to the spindle axis in the same step |
+| `cite` | `Citations` for those words |
 
 ## DirectIndex
 

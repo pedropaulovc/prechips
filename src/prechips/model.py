@@ -235,6 +235,9 @@ ToolTouch = record(
     {
         **texts("tool x_method gauge z_face method z_gauge z_measure"),
         **numbers("edge_mm paper_mm z_offset_mm"),
+        # The blade corner a grooving/parting blade's Z touch sets, where the touched
+        # face's normal cannot give it (a scribe): docs/rules-coordinates.md.
+        "corner": Literal["chuck_side", "tailstock_side"],
         "before_ops": list[int],
         "after_op": int,
     },
@@ -971,7 +974,17 @@ Tailstock = record(
     },
 )
 Threads = record("Threads", {"inch_tpi": Vector, "metric_pitch_mm": Vector})
-Toolpost = record("Toolpost", {**texts("series type note"), "holders": int, "included": bool})
+# ``centre_height`` / ``square_blade``: how each tool is set on spindle centre height and a
+# blade squared to the spindle axis before its first touch-off (docs/inventory.md).
+Toolpost = record(
+    "Toolpost",
+    {
+        **texts("series type note centre_height square_blade"),
+        "holders": int,
+        "included": bool,
+        "cite": Citations,
+    },
+)
 DirectIndex = record("DirectIndex", numbers("positions step_deg"))
 Tilt = record("Tilt", numbers("down up"))
 Bars = record(
