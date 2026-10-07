@@ -6,7 +6,7 @@ screen-space symbolism, deliberately separate from the modelled fixture geometry
 
 import math
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 try:
     from .render_png import RenderCanvas
@@ -534,12 +534,15 @@ def _radial_steps(profiles):
 
 class _Diagram:
     grows_to_fit = False
+    splits_sides = True
 
     def _dro(self, value):
         """``value`` as the traveler's tables print it (:func:`_dro`)."""
         return _dro(value, self.spec.get("decimals"))
 
-    def __init__(self, meshes, spec):
+    def __init__(self, meshes, spec, extra=0):
+        """``extra``: pixels the footer moves down (the canvas grows by as much) so the
+        label lanes hold every key; the placed scene keeps its size and place."""
         self.spec = spec
         self.view = spec["view"]
         self.camera = (
@@ -639,6 +642,7 @@ class _Diagram:
         )
         self.footer_top = min(self.footer_top, 984 - footer_height)
         self.scene_bottom = min(self.scene_bottom, self.footer_top - 120)
+        self.footer_top += extra
         # Label lanes: the first row's top and the last row's bottom limit; each side's
         # (text left, text width, leader end x), and the x that splits points between them.
         self.lanes = (202, self.footer_top - 64)
@@ -652,7 +656,7 @@ class _Diagram:
             # Leave real exterior key bands even for a vertically tall fixture.
             viewport = (278, 278, 900, 540)
         self.viewport = viewport
-        self.canvas = RenderCanvas(self.meshes, self.camera, viewport, fit=fit)
+        self.canvas = RenderCanvas(self.meshes, self.camera, viewport, height=1000 + extra, fit=fit)
         self.stock_pixels = [self.canvas.project(p) for p in _corners(self.stock)]
         self.position_badges.extend(
             {"label": label, "xy": self.canvas.project(point), "colour": _BLUE}
@@ -1172,7 +1176,27 @@ class _Diagram:
                     self._hidden(callout.label)
                     continue
             kept.append(callout)
-        self.callouts = kept
+        # A label naming points on both sides of the picture is keyed once in each lane,
+        # each copy leading to its own side's points: no leader fans across the work. A
+        # holding detail keys each contact once, so it keeps one key.
+        self.callouts = []
+        for callout in kept:
+            sides = [[], []]
+            for index, point in enumerate(callout.points):
+                sides[0 if point[0] < self.lane_split else 1].append(index)
+            if callout.leader == "keyed" or not all(sides) or not self.splits_sides:
+                self.callouts.append(callout)
+                continue
+            for indices in sides:
+                self.callouts.append(
+                    replace(
+                        callout,
+                        points=[callout.points[i] for i in indices],
+                        outlines=tuple(callout.outlines[i] for i in indices)
+                        if callout.outlines
+                        else (),
+                    )
+                )
         lane_specs = self.lane_specs
         limit = self.lanes[1]
         anchors = [(callout, point) for callout in self.callouts for point in callout.points]
@@ -1992,8 +2016,7 @@ def render_diagram(meshes, spec):
     # A debt found while laying out is printed in the notes, which can move the layout:
     # redraw until the printed notes are exactly the debts of the picture they sit in.
     for attempt in range(4):
-        diagram = _Diagram(meshes, {**spec, "notes": list(spec.get("notes", [])) + debts})
-        png = diagram.render()
+        diagram, png = _main_diagram(meshes, {**spec, "notes": list(spec.get("notes", [])) + debts})
         if attempt == 0:
             details = _holding_details(meshes, spec, diagram)
         found = [debt for detail in details for debt in detail.render_debts]
@@ -2008,6 +2031,19 @@ def render_diagram(meshes, spec):
             diagram.canvas.paste(detail.canvas, 0, diagram.canvas.height - detail.canvas.height)
         return diagram.canvas.png(), debts
     raise ValueError(f"setup picture debts do not settle: {debts}")
+
+
+def _main_diagram(meshes, spec):
+    """``(diagram, png)``: the setup picture, its footer moved down (the canvas taller)
+    until every key fits its label lane, so no key runs past the divider into the key."""
+    extra = 0
+    while True:
+        diagram = _Diagram(meshes, spec, extra)
+        diagram.grows_to_fit = True
+        png = diagram.render()
+        if diagram.lane_overflow <= 0:
+            return diagram, png
+        extra += math.ceil(diagram.lane_overflow)
 
 
 def _holding_details(meshes, spec, diagram):
@@ -2200,6 +2236,7 @@ class _HoldingDetail(_Diagram):
         return ((0, 1, 0), (-s, 0, c), (c, 0, s))  # from +X, raised
 
     grows_to_fit = True
+    splits_sides = False
 
     def __init__(self, meshes, spec, frame, camera, gain, tile=(1, 1), extra=0):
         self.spec = spec
