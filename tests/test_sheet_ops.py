@@ -752,3 +752,59 @@ def test_plans_author_inspection_procedures_as_strings_or_step_lists():
     assert op.model_dump()["inspection_methods"]["position_dia"] == steps
     with pytest.raises(ValidationError):
         Operation.model_validate({"op": 10, "do": "inspect", "inspection_note": []})
+
+
+PAINT_NOTE = "Mask the bores; brush RAL 6005 to 50-75 um dry film."
+
+
+def _bench_sheet(ops):
+    from prechips.inputs import Bundle
+
+    data = Bundle(
+        plan={"setups": [{"id": "S12", "machine": "bench", "ops": ops}]},
+        inventory={
+            "machines": {"bench": {"kind": "bench"}},
+            "consumables": {"ral-6005": {"name": "RAL 6005 alkyd"}},
+        },
+        features={"features": {"body": {"kind": "cylinder"}}},
+        policy={},
+        cutting_data={},
+        paths={},
+        hashes={},
+        root=Path("."),
+        kernel={"status": "ok", "ops": {}},
+    )
+    sheet = _Traveler(data, [], {}, None)
+    html, _, _ = sheet.operations(data.plan["setups"][0], {}, {"notes": 2})
+    return html
+
+
+def test_a_bench_finishing_setup_prints_a_finishing_table_not_empty_machining_columns():
+    paint = {"op": 10, "do": "coating", "feature": "body", "process": "ral-6005"}
+    html = _bench_sheet(
+        [{**paint, "note": PAINT_NOTE}, {"op": 20, "do": "deburr", "feature": "body"}]
+    )
+    headings = re.findall(r"<th>([^<]*)</th>", html)
+    assert "<h2>FINISHING</h2>" in html and "<h2>OPERATIONS</h2>" not in html
+    assert headings == [
+        "step",
+        "feature",
+        "material / consumable",
+        "action",
+        "inspection: limit, gauge",
+    ]
+    painted = html.split("<td>10</td>", 1)[1].split("</tr>", 1)[0]
+    # The consumable sits in its own column and the op's instruction is its action, once.
+    cells = re.findall(r"<td>(.*?)</td>", painted, re.DOTALL)
+    assert cells[1] == "RAL 6005 alkyd (in-house)"
+    assert PAINT_NOTE in cells[2]
+    assert html.count("brush RAL 6005") == 1
+    deburred = html.split("<td>20</td>", 1)[1].split("</tr>", 1)[0]
+    assert "deburr" in deburred
+
+
+def test_a_setup_with_any_cutting_op_keeps_the_machining_table():
+    paint = {"op": 10, "do": "coating", "feature": "body", "process": "ral-6005"}
+    html = _bench_sheet([paint, {"op": 20, "do": "drill", "feature": "body"}])
+    assert "<h2>OPERATIONS</h2>" in html and "<h2>FINISHING</h2>" not in html
+    assert "rpm" in re.findall(r"<th>([^<]*)</th>", html)

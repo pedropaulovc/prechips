@@ -358,7 +358,12 @@ Front sheet (sheet 1), in this order:
    op's own note (and the tip-depth derivation) on its own line and, for a
    contour op, `See contour table on S2 sheet 3`. An inspection procedure is
    cited as `[S2 sheet 2 note 1]`. An op row with its boxed lines and note
-   never splits across the front and back.
+   never splits across the front and back. A setup whose ops are all bench
+   steps (`inspect`, `deburr`, `coating`, `fit`, `scribe`, `release`, hand
+   finishing) prints **FINISHING** instead: step, feature, material /
+   consumable (a coating's in-house consumable or outside service), action (the
+   op's own instruction, else its action) and inspection, with no empty
+   machining columns.
 7. The sign-off line, after the last op row (on the back when the ops run
    over).
 

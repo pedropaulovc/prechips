@@ -3924,12 +3924,16 @@ class _Traveler:
 
         ``sheets`` maps "notes" and "contours" to the attached sheet numbers that carry
         them; an op's own note prints under its row, and the row names the sheet that
-        carries its inspection procedure or contour table.
+        carries its inspection procedure or contour table. A setup of bench steps only
+        (no op cuts) prints a FINISHING table instead: step, feature, material /
+        consumable, action (the op's own instruction) and inspection, with no machining
+        columns left empty.
         """
         ops = setup.get("ops", [])
         rows, inspection_notes, stops = [], [], {}
         where = {kind: f"{setup['id']} sheet {number}" for kind, number in sheets.items() if number}
         saw_table = any(op.get("do") in SAW_OPS for op in ops)
+        finishing = bool(ops) and all(op.get("do") in MANUAL for op in ops)
         lathe = self.lathe(setup)
         op_findings = {}
         for finding in self.findings:
@@ -4029,55 +4033,66 @@ class _Traveler:
             # action column keeps its line height; the op's own note follows them there.
             note = op.get("note")
             derivation = self.tip_note(setup, op)
-            if note or derivation:
-                boxes.append(
-                    _Note(
-                        " ".join(
-                            filter(None, [self.bench(note, setup) if note else None, derivation])
-                        )
-                    )
-                )
+            instruction = " ".join(
+                filter(None, [self.bench(note, setup) if note else None, derivation])
+            )
+            if instruction and not finishing:
+                boxes.append(_Note(instruction))
             if str(op["op"]) in self.contour_ops:
                 boxes.append(_Plain(f"See contour table on {where['contours']}"))
+            features = (
+                ", ".join(self.feature_label(f, marked=False) for f in op_features(op))
+                if feature is not None
+                else "stock"
+                if saw
+                else "?"
+            )
+            inspection = self.inspection(op, inspection_notes, where["notes"])
+            if finishing:
+                cells = (_text(op["op"]), features, tool, instruction or ", ".join(action))
+                rows.append(_Row((*cells, inspection), boxes))
+                continue
             rows.append(
                 _Row(
                     (
                         _text(op["op"]),
                         ", ".join(action),
-                        ", ".join(self.feature_label(f, marked=False) for f in op_features(op))
-                        if feature is not None
-                        else "stock"
-                        if saw
-                        else "?",
+                        features,
                         tool,
                         speed,
                         feed,
                         target,
                         direction,
-                        self.inspection(op, inspection_notes, where["notes"]),
+                        inspection,
                     ),
                     boxes,
                 )
             )
-        headings = [
-            "op",
-            "do",
-            "feature",
-            "tool",
-            "speed" if saw_table else "rpm",
-            "feed",
-            "cut target" if saw_table else ("Z from → to" if lathe else "Z tip"),
-            "direction",
-            "inspection: limit, gauge",
-        ]
+        if finishing:
+            title = "finishing"
+            headings = ["step", "feature", "material / consumable", "action"]
+            widths = [5, 12, 20, 41, 22]
+        else:
+            title = "operations"
+            headings = [
+                "op",
+                "do",
+                "feature",
+                "tool",
+                "speed" if saw_table else "rpm",
+                "feed",
+                "cut target" if saw_table else ("Z from → to" if lathe else "Z tip"),
+                "direction",
+            ]
+            widths = [4, 16, 12, 7, 6, 9, 11, 9, 26]
         # A long table runs onto the back of the front sheet; the repeated heading row
-        # names it there, and on the front the OPERATIONS heading is drawn over it.
-        table = "<h2>OPERATIONS</h2>" + _table(
-            headings,
+        # names it there, and on the front the section heading is drawn over it.
+        table = f"<h2>{title.upper()}</h2>" + _table(
+            [*headings, "inspection: limit, gauge"],
             rows,
             "operations",
-            [4, 16, 12, 7, 6, 9, 11, 9, 26],
-            continued=f"SETUP {setup['id']} — sheet 1 (continued): operations",
+            widths,
+            continued=f"SETUP {setup['id']} — sheet 1 (continued): {title}",
         )
         notes_html = (
             f'<div class="keep"><h2>INSPECTION NOTES</h2>{_list(inspection_notes)}</div>'
