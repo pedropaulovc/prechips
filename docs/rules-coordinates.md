@@ -457,17 +457,23 @@ source's recipe names its own tool's edge, so the re-touch is tool-neutral:
   none) to another Z or to no stated Z (`to_z` omitted or `"unknown"`), or cuts it
   other than by facing/pocketing. Ops that each cut only part of it leave it at
   its uncut Z only while some of its footprint lies outside all of their
-  `stock_removal_bounds`. That footprint must be the surface's own X/Y `bounds`,
-  square to the setup axes, because a round feature's box has corners off the
-  surface. A touch on the surface does not reset the partial cuts it took
-  since it was made. Only a whole cut makes a new surface. The top a zero
-  `after_op` or a listed retouch touches is the top so tracked, so a face that
-  states no depth leaves it unknown. A surface is not proven while:
+  `stock_removal_bounds`. That needs a surface known to fill its footprint: a
+  `kind = "plane"` feature on at most one face, with no `dia` or `radius`,
+  whose own X/Y `bounds` are square to the setup axes. A round feature, or a face
+  known only by its box, may not reach the box's corners. A touch on a surface,
+  whether a zero, a tool touch or a listed retouch, is a paper touch at a nominal
+  Z. It does not show what the ops since the surface was made left of it, so it
+  carries their partial cuts and any doubt about them. A touch on a surface an op
+  in the setup made is proven only at the Z that op made. Only a whole cut makes a
+  new surface. The top a zero `after_op` or a listed retouch touches is the top
+  so tracked, so a face that states no depth leaves it unknown. A surface is not
+  proven while:
   - it is unnamed (a zero with no `face`);
-  - an op on a feature the plan does not name has run since, or a face op while
-    the stock's `top_feature` is unresolved (the top);
-  - an op's coverage of it is unknown;
-  - partial cuts together cover it, or its footprint is not such a rectangle.
+  - an op on a feature the plan does not name has run since it was made, or a
+    face op while the stock's `top_feature` is unresolved (the top);
+  - an op's coverage of it is unknown, it may be gone, or a touch on it disagrees
+    with (or cannot be checked against) the Z its op made;
+  - partial cuts together cover it, or it is not such a plane.
 
   With no proven surface, the latest one not shown gone is repeated with Z and
   Axis Set unknown (unknown). A measured Z (`trial_cut_measure`,

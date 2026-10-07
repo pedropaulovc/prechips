@@ -138,15 +138,22 @@ def _top_cut(op, names, top_feature):
 
 
 def _rectangle(bundle, setup, target):
-    """``target``'s setup-frame X/Y footprint (:func:`_setup_footprint`) when that box is
-    the surface itself: its own X/Y ``bounds`` square to the setup axes (the box keeps
-    their area). A round feature's or a turned rectangle's box holds points off it."""
-    footprint = _setup_footprint(bundle, setup, target)
-    bounds = mapping(target.get("bounds"))
-    spans = [bounds.get("x"), bounds.get("y")]
-    if footprint is None or not all(
-        isinstance(s, list) and len(s) == 2 and all(number(v) for v in s) for s in spans
+    """``target``'s setup-frame X/Y footprint (:func:`_setup_footprint`) when the surface
+    is known to fill it: a ``kind = "plane"`` feature on at most one face, nothing round
+    about it (no ``dia`` or ``radius``), with numeric X/Y ``bounds`` square to the setup
+    axes (the box keeps their area). Else None: a round feature, a face known only by
+    its box or a turned rectangle may not reach the box's corners."""
+    spans = [mapping(target.get("bounds")).get(axis) for axis in ("x", "y")]
+    if not (
+        target.get("kind") == "plane"
+        and "dia" not in target
+        and "radius" not in target
+        and len(records(target.get("faces"))) <= 1
+        and all(isinstance(s, list) and len(s) == 2 and all(number(v) for v in s) for s in spans)
     ):
+        return None
+    footprint = _setup_footprint(bundle, setup, target)
+    if footprint is None:
         return None
     (x0, x1), (y0, y1) = footprint
     area, box = (spans[0][1] - spans[0][0]) * (spans[1][1] - spans[1][0]), (x1 - x0) * (y1 - y0)
@@ -213,12 +220,15 @@ def _cuts(bundle, setup, event, states, start, end):
 def _standing(bundle, setup, event, states, index):
     """Whether a touched or faced Z surface still stands at op ``index``.
 
-    The surface is tracked across the ops since the event (:func:`_cuts`). Ops that
-    each cut only part of it, since it was made (the event's own ``scars``) or since the
-    event, leave it at its uncut Z only while some of its footprint, a rectangle
-    (:func:`_rectangle`), lies outside all of their regions; else, or with more than one
-    feature named for it, None (unknown)."""
+    The surface is tracked across the ops since the event (:func:`_cuts`). A touch
+    carries what the ops since its surface was made left of it: not ``proven`` when
+    those ops may have cut it away, and their partial cuts as ``scars``. Ops that each
+    cut only part of it, before or since the event, leave it at its uncut Z only while
+    some of its footprint, a rectangle (:func:`_rectangle`), lies outside all of their
+    regions; else, or with more than one feature named for it, None (unknown)."""
     state, scars = _cuts(bundle, setup, event, states, event["index"], index)
+    # A touch does not prove what cuts before it left of its surface.
+    state = state if event["proven"] or state is False else None
     scars = event["scars"] + scars
     if scars and state:
         names = {name for name, _ in scars}
@@ -236,8 +246,9 @@ def _tops(bundle, setup, states):
     stand (:func:`_standing`)."""
     stock = mapping(setup.get("stock_state"))
     features = mapping(bundle.feature_definitions)
-    track = {"index": 0, "face": "top", "z": stock.get("top_z", UNKNOWN), "top": True}
-    track["scars"], tops = [], []
+    z = stock.get("top_z", UNKNOWN)
+    track = {"index": 0, "face": "top", "z": z, "top": True, "scars": [], "proven": True}
+    tops = []
     for index in range(len(states) + 1):
         standing = _standing(bundle, setup, track, states, index) is True
         tops.append((track["z"] if number(track["z"]) and standing else UNKNOWN, track["index"]))
@@ -247,7 +258,7 @@ def _tops(bundle, setup, states):
         if cut not in {False, UNKNOWN}:
             if cut_coverage(bundle, setup, op, mapping(features.get(cut))) == "whole":
                 z = op.get("to_z") if number(op.get("to_z")) else UNKNOWN
-                track = {"index": index + 1, "face": "top", "z": z, "top": True, "scars": []}
+                track = {**track, "index": index + 1, "z": z}
     return tops
 
 
@@ -315,10 +326,16 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
             "source": source,
             "made": made,
         }
-        # A touch on a surface made earlier carries the partial cuts it took since.
-        since = [e["index"] for e in z_events if e["made"] and e["face"] == surface]
-        since = index if made else tops[index][1] if event["top"] else max(since, default=0)
-        event["scars"] = _cuts(bundle, setup, event, states, since, index)[1]
+        # A touch on a surface made earlier carries what the ops since left of it, and
+        # repeats it only at the Z that op made.
+        maker = [e for e in z_events if e["made"] and e["face"] == surface]
+        if made or event["top"] or not maker:
+            since, agrees = (index if made else tops[index][1] if event["top"] else 0), True
+        else:
+            since, agrees = maker[-1]["index"], number(maker[-1]["z"]) and number(z)
+            agrees = agrees and abs(maker[-1]["z"] - z) <= LENGTH_TOLERANCE_MM
+        state, event["scars"] = _cuts(bundle, setup, event, states, since, index)
+        event["proven"] = state is True and agrees
         z_events.append(event)
 
     for index, (op, _, _) in enumerate(states):
