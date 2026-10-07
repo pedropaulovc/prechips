@@ -216,6 +216,8 @@ REACH_BAND = 0.05  # mm beyond the cutter radius in which walls set reach depth
 CLEARANCE_KEYS = ("body_clear_mm", "seat_clear_mm", "shank_clear_mm", "holder_clear_mm")
 FACING_ACTIONS = {"face", "rough_face", "finish_face"}  # sweeps that span planar inner loops
 PROFILE_ACTIONS = {"profile", "rough_profile", "finish_profile"}  # walls clear a corridor
+# Curved analytic claims: a clearing box's leave before them is the guard's offset.
+_CURVED_ANALYTIC = (Part.Cylinder, Part.Cone, Part.Sphere, Part.Toroid)
 AREA_REL = AREA_ABS = 1e-6  # face-signature area tolerance (relative, absolute mm^2)
 BBOX_TOL = 1e-4  # mm, face-signature bbox tolerance
 PLANE_TOL = 1e-6  # mm, coplanarity of contact faces / interval ends
@@ -4823,7 +4825,8 @@ class _Setup:
         highest such claim's, no ``LIFT``) inside the op's own outer-loop sweep
         (:meth:`_sweep`), because facing there removes it. Its column below that height,
         every other bore's and anything outside the box, the guard's window or the sweep
-        stays reserved.
+        stays reserved. Before a claimed planar wall the leave is flat across the stock
+        standing behind its plane (:meth:`_flat_leave`), not the finished face's outline.
         """
         span, why = _clearing_span(bounds, _bbox(stock))
         if span is None:
@@ -4877,6 +4880,12 @@ class _Setup:
             removed = removed.cut(
                 reserved[0].fuse(reserved[1:]) if len(reserved) > 1 else reserved[0]
             )
+        if leave:
+            flat, why = self._flat_leave(valid, stock, span, leave, reserved)
+            if why is not None:
+                return None, why
+            if flat:
+                removed = removed.cut(flat[0].fuse(flat[1:]) if len(flat) > 1 else flat[0])
         if to_z is not None:
             removed = removed.common(self._above(to_z))
         pieces = [piece for piece in removed.Solids if piece.Volume > HIT_MM3]
@@ -4894,6 +4903,62 @@ class _Setup:
         if not pieces:
             return None, None
         return (pieces[0].fuse(pieces[1:]) if len(pieces) > 1 else pieces[0]), None
+
+    def _flat_leave(self, valid, stock, span, leave, reserved):
+        """([flat skin pieces] or None, why not): the leave a clearing box's passes stop
+        short of each claimed planar wall.
+
+        A cutter roughing the box stops ``leave`` short of the wall's plane along its whole
+        pass, not only over the finished face: wherever stock it may not enter stands
+        behind the plane (stock outside the box, or a reserved not-yet-drilled bore column),
+        the band ``leave`` deep in front of the plane stays, flat across the finished face's
+        outline and over the holes and edges later setups make in it. In front of open air
+        or of material this box clears, the guard's offset alone is the leave. A curved
+        analytic claim keeps the offset; a claim whose surface is neither analytic nor a
+        plane makes the leave, and so the stock, unknown.
+        """
+        corners = [V(span[i], span[j], span[k]) for i in (0, 3) for j in (1, 4) for k in (2, 5)]
+        box = _box_shape(span)
+        pieces = []
+        for index in valid:
+            face = self.faces[index]
+            surface = face.Surface
+            if not isinstance(surface, Part.Plane):
+                if isinstance(surface, _CURVED_ANALYTIC):
+                    continue
+                return None, (
+                    f"the flat rough leave before claimed face {self.owner.labels[index]} is "
+                    f"unknown: its {type(surface).__name__} surface is not proven planar"
+                )
+            origin = surface.Position
+            normal = _normal_at(face, origin)
+            across = normal.cross(V(1, 0, 0) if abs(normal.x) < 0.9 else V(0, 1, 0))
+            across.normalize()
+            other = normal.cross(across)
+            us = [(corner - origin).dot(across) for corner in corners]
+            vs = [(corner - origin).dot(other) for corner in corners]
+            u0, u1, v0, v1 = min(us) - 1, max(us) + 1, min(vs) - 1, max(vs) + 1
+            outline = [
+                origin + across * u + other * v for u, v in ((u0, v0), (u1, v0), (u1, v1), (u0, v1))
+            ]
+            plane = Part.Face(Part.makePolygon([*outline, outline[0]]))
+            # The slab ``leave`` deep behind the wall plane, across the box's extent on it.
+            behind = plane.extrude(normal * -leave)
+            try:
+                backing = [_valid(stock.common(behind).cut(box), "stock behind a wall")]
+                backing += [
+                    _valid(column.common(behind), "a reserved bore behind a wall")
+                    for column in reserved
+                ]
+            except ValueError as exc:
+                return None, f"the flat rough leave before {self.owner.labels[index]}: {exc}"
+            for piece in backing:
+                if piece is None or piece.Volume <= HIT_MM3:
+                    continue
+                band = piece.copy()
+                band.translate(normal * leave)
+                pieces.append(band.common(box))
+        return [piece for piece in pieces if piece.Volume > HIT_MM3], None
 
     def _removal(self, op, valid, to_z, leave):
         """(stock outside the op's guard its claims sweep (:meth:`_op_sweep`), or None, and
