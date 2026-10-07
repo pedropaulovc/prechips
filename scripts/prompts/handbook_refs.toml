@@ -1,0 +1,117 @@
+# Machinery's Handbook go-to packet for the blind traveler review.
+#
+# Only page numbers live here; the handbook is never vendored. scripts/machinist_review.py
+# reads each page from <handbook>/corpus/pages/NNNN.md (NNNN = `pdf`, the PDF page)
+# and embeds its text in the prompt, labelled with `printed`, the handbook folio. The
+# corpus page header must name the same printed page, and the corpus README must name
+# `source_pdf_sha256`, or the run is refused.
+#
+# Pages come from the corpus README's verified "Go-to machining pages" list for the
+# pilot operations (every pilot is 1018 low-carbon steel): carbide and HSS turning
+# with the feed/depth factors, end milling with its factors, drilling and reaming,
+# the reamer stock-allowance prose (the handbook has no allowance table), centre
+# drills, band-saw speeds, automatic-screw-machine cutoff/form/recess data for the
+# HSS parting and plunge tools, and inch and metric tap drills.
+
+edition = "Machinery's Handbook 27th edition"
+source_pdf_sha256 = "014d2b9b63458ccc4d02ff96e4ab2557f1243b6f9eec3a9ed918f1bb35403ccb"
+
+[[page]]
+pdf = 1347
+printed = "1026"
+title = "Speed and Feed Tables for Turning: tool geometry and the feed/depth basis of the tables"
+
+[[page]]
+pdf = 1348
+printed = "1027"
+title = "Table 1. Cutting Feeds and Speeds for Turning Plain Carbon and Alloy Steels (1018 row)"
+
+[[page]]
+pdf = 1356
+printed = "1035"
+title = "Tables 5a/5b. Turning-speed adjustment factors for feed, depth of cut and lead angle; tool life"
+
+[[page]]
+pdf = 1357
+printed = "1036"
+title = "Table 5c. Cutting-Speed Adjustment Factors for Turning with HSS Tools"
+
+[[page]]
+pdf = 1366
+printed = "1045"
+title = "Table 11. Cutting Feeds and Speeds for Milling Plain Carbon and Alloy Steels (1018 row)"
+
+[[page]]
+pdf = 1375
+printed = "1054"
+title = "Table 15a. Recommended Feed in Inches per Tooth for Milling with HSS Cutters"
+
+[[page]]
+pdf = 1377
+printed = "1056"
+title = "Table 15b. End Milling (Full Slot) Speed Adjustment Factors for Feed, Depth of Cut and Lead Angle"
+
+[[page]]
+pdf = 1381
+printed = "1060"
+title = "Using the Feed and Speed Tables for Drilling, Reaming, and Threading"
+
+[[page]]
+pdf = 1382
+printed = "1061"
+title = "Table 17. Feeds and Speeds for Drilling, Reaming, and Threading Plain Carbon and Alloy Steels (1018 row)"
+
+[[page]]
+pdf = 1384
+printed = "1063"
+title = "Table 17 (continued): drilling and reaming operating assumptions"
+
+[[page]]
+pdf = 1392
+printed = "1071"
+title = "Table 22. Feed and Diameter Speed Adjustment Factors for HSS Twist Drills and Reamers"
+
+[[page]]
+pdf = 1154
+printed = "833"
+title = "Fluted Chucking Reamers: reaming stock allowance (prose, no table)"
+
+[[page]]
+pdf = 1162
+printed = "841"
+title = "Reamer Difficulties, Poor Finish: too little reaming stock"
+
+[[page]]
+pdf = 1194
+printed = "873"
+title = "Table 6. American National Standard Combined Drills and Countersinks (centre drills)"
+
+[[page]]
+pdf = 1453
+printed = "1132"
+title = "Approximate Speeds and Feeds for Automatic Screw Machine Tools (Brown and Sharpe): cutoff, form, centre drills"
+
+[[page]]
+pdf = 1454
+printed = "1133"
+title = "Automatic Screw Machine Tools (continued): recessing, facing, reamers and bits"
+
+[[page]]
+pdf = 1462
+printed = "1141"
+title = "Bimetal Band Saw Speeds for Cutting 4-Inch Material with Coolant"
+
+[[page]]
+pdf = 1463
+printed = "1142"
+title = "Bimetal Band Saw Speeds (continued): 1018 row and coolant/blade/size adjustments"
+
+[[page]]
+pdf = 2254
+printed = "1933"
+title = "Table 3. Tap Drill Sizes for Threads of American National Form (inch)"
+
+[[page]]
+pdf = 2258
+printed = "1937"
+title = "Table 6. British Standard Tapping Drill Sizes for ISO Metric Coarse Pitch Threads"
