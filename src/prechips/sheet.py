@@ -2305,6 +2305,43 @@ class _Traveler:
             return f"Ø{f(solid.get('dia_mm'))} × {f(solid.get('length_mm'))}"
         return "?"
 
+    def shop_made_sizes(self, reference):
+        """``[(solids, size)]`` for each made SHOP-MADE FIXTURE row (:meth:`shop_made_rows`):
+        its solids and Size mm cell, ``?`` for a row :meth:`shop_made_parts` withholds."""
+        _, made, withheld, _, drilled, fits = self.shop_made_parts(reference)
+        sizes = []
+        for members in self.shop_made_rows(made, withheld, drilled):
+            first = members[0]
+            if _supply(first) != "made":
+                continue
+            size = "?" if id(first) in withheld else self.solid_size(first, id(first) in fits)
+            sizes.append((members, size))
+        return sizes
+
+    @staticmethod
+    def shop_made_rows(made, withheld, drilled):
+        """The SHOP-MADE FIXTURE table's rows, each its solids: identical ``made`` solids
+        share one (a withheld solid is its own); an existing solid is a row only when holes
+        are cut in it (``drilled``)."""
+        groups = {}
+        for solid in made:
+            if _supply(solid) == "existing" and id(solid) not in drilled:
+                continue
+            key = (
+                solid.get("label"),
+                _supply(solid),
+                id(solid) if id(solid) in withheld else None,
+                solid.get("shape"),
+                repr(solid.get("size_mm")),
+                solid.get("dia_mm"),
+                solid.get("length_mm"),
+                solid.get("locates"),
+                solid.get("fastener"),
+                solid.get("note"),
+            )
+            groups.setdefault(key, []).append(solid)
+        return list(groups.values())
+
     def solid_position(self, solid, axes, fit=False):
         """Setup-frame position (or item-frame, for an item the HOLD places): a box's X/Y/Z
         extents, a cylinder's axis."""
@@ -2470,23 +2507,6 @@ class _Traveler:
         ]
         solids, made, withheld, holes, drilled, fits = self.shop_made_parts(setup, reference)
         self.fixture_unknowns = set()
-        groups = {}
-        for solid in made:
-            if _supply(solid) == "existing" and id(solid) not in drilled:
-                continue
-            key = (
-                solid.get("label"),
-                _supply(solid),
-                id(solid) if id(solid) in withheld else None,
-                solid.get("shape"),
-                repr(solid.get("size_mm")),
-                solid.get("dia_mm"),
-                solid.get("length_mm"),
-                solid.get("locates"),
-                solid.get("fastener"),
-                solid.get("note"),
-            )
-            groups.setdefault(key, []).append(solid)
 
         def prefixed(tag, name, count, where):
             parts = (tag if len(placed) > 1 else None, name if count > 1 else None)
@@ -2494,7 +2514,9 @@ class _Traveler:
             return f"{prefix}: {where}" if prefix else where
 
         rows, notes, components = [], {}, {}
-        for (label, *_), members in groups.items():
+        groups = self.shop_made_rows(made, withheld, drilled)
+        for members in groups:
+            label = members[0].get("label")
             names = [_solid_name(solid.get("name", "?")) for solid in members]
             stem, tags = _name_group(names)
             component = f"{stem} ×{len(members)}" if stem else " / ".join(names)
@@ -2553,7 +2575,7 @@ class _Traveler:
             )
         # A made hole's note (how it is cut) is a Make entry; a bought or existing part's
         # note (its state as bought, what to leave alone) prints apart, as Notes.
-        listed = {id(s) for members in groups.values() for s in members}
+        listed = {id(s) for members in groups for s in members}
         others = {}
         for solid in solids:
             note = solid.get("note")

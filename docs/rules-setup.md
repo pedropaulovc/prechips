@@ -350,18 +350,21 @@ a later finished drawing datum.
 ## `consistency`
 
 One fact, one source. Where the traveler prints a fact from a plan field or the
-kernel, the author's free text must leave it to that source. A fact that can be
+kernel, the author's free text must leave it to that source, and two surfaces
+that print one fact must print one value. A fact that can be
 derived is derived: the TOOLS table's `T<n>` numbers come from one function
 (`resolution.tool_numbers`: first use in plan order, a lathe pair keeping its
 number across that machine's setups), a clamp's tightening from its `tighten` /
 `torque_nm` ([plan](plan.md#hold)), the DRO ZERO's kept clamping from
-`zero.transfer.keep_clamped`, and the jaw tops and HOLD's `work top above jaw tops
+`zero.transfer.keep_clamped`, the jaw tops and HOLD's `work top above jaw tops
 mm` from `resolution.jaw_top_z` (the seated bottom, `retained_rail_bottom_z` when
 lower, plus `jaw_above_parallels_mm`, from the inputs the kernel accepts for its
-vise). One subject per setup (hold, clamp notes,
-setup and stock notes, zero texts, stock heights) and one `{setup}:{op}` subject
-per op whose text the rule reads (note, `inspection_note`, `layout`,
-`inspection_methods`).
+vise), a SHOP-MADE FIXTURE row's Size mm from its solid at the make decimals, and
+each op's cut beside the holding from the kernel's `cut_clearances`. One subject
+per setup (hold, clamp notes, setup and stock notes, zero texts, stock heights,
+the make notes of the SHOP-MADE FIXTURE tables its sheet prints, its picture's
+cut) and one `{setup}:{op}` subject per op whose text the rule reads (note,
+`inspection_note`, `layout`, `inspection_methods`).
 
 The rule reads exactly the token patterns below; any other wording makes no
 claim, so it is never an error and never a pass.
@@ -379,6 +382,60 @@ only leave it there.
 - `N mm` or `N in` `above` or `below the [vise] jaw[s]` or `jaw top[s]`, in the
   setup or op text of a hold that sets `jaw_above_parallels_mm`: the jaw tops are
   derived, so other heights are given as Z values.
+- A made row's whole size in a make note it prints with, on a SHOP-MADE FIXTURE
+  table (read on the setup whose sheet prints the table): the row's Size mm prints
+  it. The contract is that only an unambiguous restatement is an error: a
+  statement in the closed grammar below, whose governing text is not ambiguous.
+  Any other wording, and any ambiguous text, makes no claim (never an error,
+  never a pass); those are the coverage limits listed under Not covered. The note
+  is NFKC-normalised, except the glyphs NFKC would turn into digits (a fraction
+  glyph, a superscript or subscript digit: `½` stays a fraction, `8²` is not
+  folded into `82`) or into no angle (`º`, `˚`); other superscripts and
+  subscripts (`ª`, `⁺`, `⁽`, `™`) fold. It is then split into tokens: whitespace
+  collapses, `x`, `X`, `×` and `*` are one separator, and a
+  number splits from its unit and from a glued separator (`65.2x11x10`, `4mmx8`,
+  `Øunknown`). The grammar:
+
+  ```text
+  statement  = "the" row ["to"] ["Ø"] edge "x" edge ["x" edge] terminator
+  edge       = (number | "?" | "unknown") [unit ["."]] [edge word] {parenthesis}
+  terminator = the note's end | a word | a mark
+  ```
+
+  The row is named word for word, by its solid's name or its `label`, and the
+  statement gives every edge the row prints: three for a box (a cut-out too), Ø
+  and length for a cylinder. A number is in digits; a fraction (`1/2`, `1 / 2`,
+  `½`, `1⁄2`) or a range (`8-10`, `8–10`, `8 - 10`) is not one. A unit is `mm`,
+  `in`, `inch`, `inches`, `"`, `″`, `'` or `′`, with its point (`mm.`) when the
+  size goes on after it. An edge word is `wide`, `high`, `thick`, `long` or
+  `deep`. A parenthesis that closes runs through its `)`, whatever it holds
+  (`4 (rough; finish later) x 8`); one never closed ends at its own `;`. The
+  terminator is not a number, fraction, range, name (`M6`), `x` or unit, nor a
+  comma or point glued to a digit (`8,5`).
+
+  The governing text is the statement's clause. Clauses split at `,`, `:`, `;`,
+  `!` and at a full stop before a capital or the note's end, but never inside a
+  parenthesis that closes. When the clause has no verb before `the <row>`
+  (`Drill, with care, the stud …`), the governing text is the whole sentence.
+  That text is ambiguous, and the statement is not read, when it holds any of
+  these anywhere:
+  - a feature verb: `drill`, `bore`, `ream`, `tap`, `counterbore`,
+    `countersink`, `spot`, `spotface`, `chamfer`, `bevel`, `thread`, `knurl`,
+    `groove`, `slot`, `pocket`, `notch`, `recess` or `undercut`. Inflections and
+    `c'bore` / `csk` count, and a hyphenated compound is read both split
+    (`spot-drill`) and joined (`counter-sink`). A word directly before a tool or
+    stock noun, with or without a hyphen between (`drill rod`, `drill-rod`,
+    `boring bar`, `tap wrench`), names that tool or stock and is not a verb;
+  - an angle unit: `°`, `º`, `˚`, `deg`, `degs`, `degree` or `degrees`;
+  - a fraction, or a glyph the normalisation keeps (`¹/₂`, `8²`).
+
+  The row's own name is not governing text, so a row named `thread` or `slot` is
+  read by its name.
+
+  Each row the name denotes is its own finding, including rows that share a label
+  or a note, and a withheld row (`?`). A size before a later finishing step is
+  still the row's size, so give it as an allowance over the printed size (`0.01
+  over`), not as a second size.
 
 **Compared** forms are an `error` when they disagree with the field. A `T<n>` in a
 setup's or op's text names that setup's TOOLS row.
@@ -397,9 +454,15 @@ setup's or op's text names that setup's TOOLS row.
   `so` or `but`) and sends `the NO-GO [plug]`, `the GO and NO-GO plugs`, `each`,
   `every`, `both` or `all [the] plug(s)`, or `the plugs` through.
 
-Two checks need no prose:
+Three checks need no prose:
 
 - A `tighten = "hand"` clamp also declares `torque_nm`.
+- The setup picture's `CUT <mm> mm FROM <holder>` (the kernel's `closest_cut`)
+  must be one op's CLEARANCE row beside the same holding solid (the kernel's
+  `cut_clearances`), each printed as its own surface rounds it at the setup's
+  DRO decimals. A picture cut beside a solid no CLEARANCE row names (a file's or
+  a saw's cut, which carries no row, or the other solid of a tie) restates
+  nothing.
 - `stock_state` heights are checked against the kernel's setup-entry stock,
   beyond its 0.001 mm stock tolerance. Each height is judged by the one evidence
   source its declaration names, and no other source stands in for it.
@@ -434,6 +497,8 @@ A compared fact that cannot be proved is `unknown`, never `pass`:
 
 - a `T<n>` beyond a TOOLS table that still has an op with no tool chosen;
 - a flute count for a tool with no inventory `flutes`;
+- a picture cut that no computed CLEARANCE row of its holder prints, while
+  another op's row is not computed (that op's cut may be the picture's);
 - any authored stock height that is unknown, unknown plan units, or no kernel
   stock box;
 - a `top_z` below the box top under an `"unknown"` `top_feature`;
@@ -467,7 +532,27 @@ Not covered (never read, so never an error):
   of the jaws`), or in a hold without `jaw_above_parallels_mm`;
 - flute counts in words (`four-flute`), or not bound to one tool number;
 - inspection text that sends a plug through in any other wording (`gently push
-  …`, `the NO-GO goes through`).
+  …`, `the NO-GO goes through`);
+- make-note sizes outside the grammar: sizes that do not name the row (`sawn
+  and milled to 11 x 10 x 65.2`, `turned Ø16 x 9.05`, `drill Ø4 x 8 deep in the
+  stud`), a part of a solid (`the thread portion Ø4.80 x 7.2`, `the arm's
+  nose`), only some of a row's edges (`the arm to 11 x 10`), a hole's Ø, edges in
+  fractions, ranges, words or other separators (`✕`), an edge annotated other
+  than in a parenthesis that closes (`4 [rough] x 8`, `4 (rough; x 8`), and a
+  bought or existing part's note;
+- make-note sizes in ambiguous governing text. This is a feature verb, angle
+  unit, fraction or kept glyph anywhere in the clause, even in parentheses,
+  before the row or after the size. Examples: `drill and tap the stud to Ø4 x 8
+  deep`, `Drill (use the mill) the stud …`, `turn the stud to Ø4 x 8 and drill
+  it`, `0.5 x 45 (nominal) (deg)`, `from ½ in rod`, `from ¹/₂ in rod`, `4 x 8
+  mm²`. It is also a clause with no verb of its own whose sentence holds one.
+  Two instructions that are not split into clauses, because they are joined by
+  `then` or by a full stop before a lower-case word, are one clause, so a
+  feature verb in either leaves the other unread;
+- a shop-made item's positions, fits and fasteners restated in text;
+- picture labels other than the cut (contact coordinates, stock sizes, jaw and
+  Z labels), the picture's holder name against the CLEARANCE row's, and a
+  clearance restated in op text.
 
 ## M2 declared workholding and indexing
 
