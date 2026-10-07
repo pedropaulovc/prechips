@@ -55,7 +55,9 @@ requirement.
 **Mill DRO targets, aims and printed bands.** Off a lathe, a located row with a
 known setup point — an `at` or parent row, or each end of a kernel span (below) —
 also carries `dro`: that point at the nearest step of the setup machine's DRO grid
-(`dro_grid`), at most half a step away, which the sheet's feature map prints and a
+(`dro_grid`), at most half a step away (exactly half a step rounds away from zero,
+as the fixture tables and holding details round: `render_diagram.dro_steps`),
+which the sheet's feature map prints and a
 hole op dials (`dro_xy`). When the feature declares a height-like band
 (`height_above_pivot`, `height` or `separation`, the first one present) from a
 `height_from` reference, the row's `band_check` measures where the feature stands
@@ -365,12 +367,15 @@ earlier face or pocket op whose setup-frame X/Y `stock_removal_bounds` hold all
 of its own and that produced its surface (its feature, or a feature whose X/Y
 `bounds` hold its feature's whole footprint). Levels that cannot be placed (an
 unknown start or a `doc_mm` finer than one DRO step) keep status unknown. The
-traveler prints `Z start → depth in N levels of doc max` on the op row; the
+traveler prints `Z start → depth in N levels of doc max` on the op row, or
+`Z → depth` when the levels are one pass that starts at the depth; levels left
+unknown print `?` for their count and the row's STOP stands. The
 contour block heading lists every level and says to run the complete path at
 the first and repeat it at each level in order.
 
 **Hole targets.** Each located mill row (`rows`) carries `dro_xy`, its setup
-X/Y at the nearest DRO grid point (a hole axis has no safe side). A centre,
+X/Y at the nearest DRO grid point (a hole axis has no safe side; half a step
+rounds away from zero, as `dro` does). A centre,
 spot, drill, ream, tap, counterbore or bore op whose feature has exactly one
 located row prints that tool-axis X/Y on its op row; an unknown one prints a STOP.
 
@@ -791,12 +796,14 @@ an ear's inner face) uses its own authored edge; stock top is not its fallback.
 An X/Y pick-up with an `edge_finder` tool (not `from = "indicated"`) records the
 finder's procedure facts on its row as `finder`: `finder_type`, `tip_dia_mm`
 (`tip_in`/`tip_mm`, else `dia`), `radius_mm`, the finder's `finder_rpm_range`,
-the setup machine's `machine_rpm` (`spindle` `rpm_min`/`rpm_max`, else its
-`ranges_rpm`) and `rpm`, the band it runs at (the two intersected; an electronic
-finder runs with the spindle stopped, `not_applicable`). A missing type, tip or
-mechanical rpm range, or an unknown spindle range, leaves the zero unknown; a
-finder band the spindle cannot turn is an error. The traveler prints these once
-as the EDGE FINDER box ([inventory](inventory.md#edge-finder)).
+the setup machine's spindle bands `machine_rpm` (`[[lo, hi], …]`: `ranges_rpm`,
+each clipped to a stated `rpm_min`/`rpm_max`, else `[[rpm_min, rpm_max]]`) and
+`rpm`, the bands it runs at (the finder's band intersected with each spindle
+band; a gap between bands is never filled; an electronic finder runs with the
+spindle stopped, `not_applicable`). A missing type, tip or mechanical rpm
+range, or any unknown endpoint of either band, leaves the zero unknown; a
+finder band no spindle band turns is an error. The traveler prints these once
+per finder and mill as the EDGE FINDER box ([inventory](inventory.md#edge-finder)).
 
 For each authored Z `retouch_after`, the new set value is advanced top + paper.
 A profile does not move the touched top. A listed retouch sets Z for the next

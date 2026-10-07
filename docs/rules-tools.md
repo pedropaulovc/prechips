@@ -24,6 +24,24 @@ mismatch conclusions and stay unknown. A missing item's error is owned by its
 reference finding; its assembly finding stays unknown.
 An explicitly unknown operation action also makes its assembly fit unknown.
 
+An inventory item named in prose as `<category>.<key>[/<member>]` (a plan note
+or cite, a make note, record check or `how`, or make operation `hold` or `cite`
+of a shop-made item a setup uses, and each record's `gauge` as
+`gauges.<gauge>`; docs/inventory.md) is a subject
+of its own, `<category>.<key>`, with `named_in` listing where. It passes when
+the item is listed and verified; missing or unverified, it is unknown (never a
+pass, and never printed as the bare key: the traveler prints `? <key>`). A
+whole set is named by its key; a member must resolve as a member, read whole
+(`tools.drills/#61` is unknown on a `#1-60` index, never the index itself).
+
+Each make operation (`make_ops`, docs/inventory.md) of a shop-made item a
+setup holds with is a subject of its own, `<category>.<key> make op <n>`
+numbered in print order. Its `tool` is a `tools` key, read in the tools only:
+a key the tools do not list is an error. It passes when the tool is listed and
+verified and the hold, speed, feed, depth of cut and source are known; an
+unknown fact, an unknown tool or tools list, or a tool still to verify is
+unknown, never a pass.
+
 Saw cut-off resolves the selected bandsaw blade and a `mill` / `bench` /
 `bandsaw` machine instead of a spindle/holder/shank assembly. No holder is
 required; incompatible known machine/tool kinds are errors and unverified
@@ -35,6 +53,12 @@ Sentence templates:
 - `{ref}: not listed in the inventory.`
 - `{ref}: listed; presence or catalogue identity needs verification.`
 - `{ref}: listed inventory identity resolves.`
+- `{category.key}: named in {places}; not listed in the inventory: list it or name a listed item.`
+- `{category.key}: named in {places}; listed; presence or catalogue identity needs verification.`
+- `{category.key}: named in {places}; listed inventory identity resolves.`
+- `{category.key} make op {n}: tool {key} is not in the shop's tools.`
+- `{category.key} make op {n}: {facts} not known.`
+- `{category.key} make op {n}: its tool resolves and its cutting data is stated.`
 - `{setup:op}: holder interface and shank fit.`
 - `{setup:op}: assembly fit needs measured shank, holder and machine facts.`
 - `{setup:op}: {violations}.` Violations are `holder interface does not match

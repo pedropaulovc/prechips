@@ -3727,6 +3727,7 @@ class _Setup:
         self.designs = {}  # id(op) -> a printed profile op's claim sweeps before its run-out
         self.clamp_parts = []
         self.clamp_restraints = {}  # clamp name -> declared restraint (press/locate/none)
+        self.clamp_locators = {}  # clamp name -> [(primitive name, solid)] declaring locates
         self.split_holds = {}  # op subject -> per-piece held-split witnesses
         self.saws = {}
         self.built = None
@@ -6118,13 +6119,19 @@ class _Setup:
         return None
 
     def _place_clamps(self, hold):
-        """Each posed clamp member's solids (strap, stud, heel; voids cut) as one owner."""
+        """Each posed clamp member's solids (strap, stud, heel; voids cut) as one owner, and
+        the (name, solid) of each drawn primitive that declares ``locates``."""
         clamps = []
         for clamp in hold.get("clamps", []):
             matrix = _pose_matrix(clamp["pose"])
-            clamps.append(
-                (clamp["name"], self._add_owned(clamp["solids"], "clamp", matrix, clamp["name"]))
-            )
+            solids = self._add_owned(clamp["solids"], "clamp", matrix, clamp["name"])
+            drawn = [spec for spec in clamp["solids"] if not spec.get("void")]
+            locators = [
+                (spec["name"], solid)
+                for spec, solid in zip(drawn, solids, strict=True)
+                if spec.get("locates")
+            ]
+            clamps.append((clamp["name"], solids, locators))
         return clamps
 
     def _accessories(self):
@@ -6158,12 +6165,13 @@ class _Setup:
         clamps = self._place_clamps(hold)
         self.clamp_parts = [
             (name, V(*clamp["pose"]["z"]) * -1, parts)
-            for (name, parts), clamp in zip(clamps, hold.get("clamps", []), strict=True)
+            for (name, parts, _), clamp in zip(clamps, hold.get("clamps", []), strict=True)
         ]
         self.clamp_restraints = {
             name: clamp.get("restraint", "none")
-            for (name, _), clamp in zip(clamps, hold.get("clamps", []), strict=True)
+            for (name, _, _), clamp in zip(clamps, hold.get("clamps", []), strict=True)
         }
+        self.clamp_locators = {name: locators for name, _, locators in clamps}
         self.fixture_debts.extend(str(debt) for debt in hold.get("debts", []))
         self.fixture_gaps.extend(str(gap) for gap in hold.get("gaps", []))
         self._place_steady_rests(hold)
@@ -6180,7 +6188,7 @@ class _Setup:
                     f"({_r(common.Volume)} mm^3) at the declared pose"
                 )
         bearing = []
-        for name, parts in clamps:
+        for name, parts, _ in clamps:
             # A clamp bears through its members that touch the stock and those joined to
             # them member to member; one cut off from them by air carries none of its load.
             reached = {
@@ -6732,11 +6740,30 @@ class _Setup:
         line runs along the force and the first material interval it meets at the contact is
         the run. A sample over air is not loaded. Undrawn or non-bearing clamps keep the wall
         unknown unless a drawn strap already proves it thin.
+
+        A ``restraint = "locate"`` clamp carries no clamping load, so it has no footprint run:
+        each of its solids that declares ``locates`` must instead bear on the stock by its own
+        geometry (:meth:`_locator_bearing`). A locator that does not, or draws no such solid,
+        is a debt like a non-bearing strap.
         """
         debts = [str(debt) for debt in self.hold.get("clamp_debts", [])]
         span = self.part.BoundBox.DiagonalLength + 1.0
         rows, thinnest = [], None
+        bearings, bores = [], None
         for name, force, parts in self.clamp_parts:
+            if self.clamp_restraints.get(name) == "locate":
+                locators = self.clamp_locators.get(name, [])
+                if not locators:
+                    debts.append(f"{name} draws no solid that declares what it locates")
+                for solid_name, solid in locators:
+                    if bores is None:
+                        bores = self._stock_bores()
+                    witness, why = self._locator_bearing(solid, bores)
+                    if why is not None:
+                        debts.append(f"{solid_name} {why}")
+                    else:
+                        bearings.append({"clamp": name, "solid": solid_name, **witness})
+                continue
             loaded = 0
             points = []
             try:
@@ -6761,11 +6788,88 @@ class _Setup:
             if not loaded:
                 debts.append(f"{name} has no sampled footprint point bearing on the stock")
         facts["strap_wall_map"] = rows
+        facts["locator_bearings"] = bearings
         facts["strap_wall_debts"] = debts
         if thinnest is not None:
             facts["min_wall_mm"] = _r(thinnest)
         else:
-            facts["reasons"]["min_wall_mm"] = "strap walls unresolved: " + "; ".join(debts)
+            facts["reasons"]["min_wall_mm"] = "strap walls unresolved: " + (
+                "; ".join(debts) or "no drawn strap loads the stock, only locators touch it"
+            )
+
+    def _stock_bores(self):
+        """(face, centre, unit axis, radius) of every concave cylinder of the entry stock."""
+        return [
+            (face, face.Surface.Center, face.Surface.Axis, face.Surface.Radius)
+            for face in self.part.Faces
+            if isinstance(face.Surface, Part.Cylinder) and _cylinder_concave(face)
+        ]
+
+    def _locator_bearing(self, solid, bores):
+        """(witness, None) when one locating solid bears on the entry stock by its own
+        geometry, else (None, why).
+
+        A radial pin bears in a bore: a convex cylinder of the solid stands in a concave
+        cylinder of the stock (``bores``) on a parallel axis, its axis inside the bore and
+        the two overlapping along it by more than STOCK_TOL; it must be no larger than the
+        bore, lie wholly inside it and come within STOCK_TOL of its wall. A flat locator
+        bears with a flat face within STOCK_TOL of the stock whose HELD_PROBE_MM slab, swept
+        along its outward normal, meets more than CONTACT_MM2 of stock. Either way the solid
+        shares no more than STOCK_MM3 with the stock.
+        """
+        shared = solid.common(self.part).Volume
+        radial, flat, faults = None, None, []
+        for face in solid.Faces:
+            surface = face.Surface
+            if isinstance(surface, Part.Cylinder) and not _cylinder_concave(face):
+                for bore, centre, axis, bore_radius in bores:
+                    if abs(surface.Axis.dot(axis)) < PARALLEL:
+                        continue
+                    offset = surface.Center - centre
+                    off_axis = (offset - axis * offset.dot(axis)).Length
+                    lo, hi = self._bore_span(face, axis)
+                    bore_lo, bore_hi = self._bore_span(bore, axis)
+                    engaged = min(hi, bore_hi) - max(lo, bore_lo)
+                    if off_axis >= bore_radius or engaged <= STOCK_TOL:
+                        continue  # not standing in this bore
+                    pin, hole = _r(2 * surface.Radius), _r(2 * bore_radius)
+                    if surface.Radius > bore_radius + PLANE_TOL:
+                        faults.append(f"dia {pin} is larger than the dia {hole} bore it stands in")
+                    elif off_axis + surface.Radius > bore_radius + PLANE_TOL:
+                        faults.append(
+                            f"dia {pin} stands {_r(off_axis)} off the axis of the dia {hole} bore "
+                            "it stands in and crosses its wall"
+                        )
+                    elif (gap := face.distToShape(bore)[0]) > STOCK_TOL:
+                        faults.append(
+                            f"dia {pin} comes no nearer than {_r(gap)} to the wall of the dia "
+                            f"{hole} bore it stands in (contact is within {STOCK_TOL})"
+                        )
+                    elif radial is None:
+                        radial = {
+                            "bears": "bore",
+                            "pin_dia_mm": pin,
+                            "bore_dia_mm": hole,
+                            "axis_offset_mm": _r(off_axis),
+                            "gap_mm": _r(gap),
+                            "engaged_mm": _r(engaged),
+                        }
+            elif isinstance(surface, Part.Plane) and flat is None:
+                if face.distToShape(self.part)[0] > STOCK_TOL:
+                    continue
+                u0, u1, v0, v1 = face.ParameterRange
+                normal = face.normalAt((u0 + u1) / 2, (v0 + v1) / 2)
+                slab = face.extrude(normal * HELD_PROBE_MM)
+                area = slab.common(self.part).Volume / HELD_PROBE_MM
+                if area > CONTACT_MM2:
+                    flat = {"bears": "face", "area_mm2": _r(area)}
+        if shared > STOCK_MM3:
+            return None, "; ".join([*faults, f"shares {_r(shared)} mm^3 with the stock"])
+        if radial is not None or flat is not None:
+            return radial or flat, None
+        return None, "; ".join(faults) or (
+            "stands in no bore of the stock and has no flat face bearing on it"
+        )
 
     @staticmethod
     def _footprint(parts, force, shape):

@@ -167,7 +167,10 @@ through-hole local thickness or blind `depth_mm`) is strictly more than its
 invalid, uncited or tied governing row leaves the RPM and feed unknown (see
 [cutting data](cutting-data.md)). Round the raw RPM to nearest
 50 with ties-to-even, then clamp to the actual machine limits (which need not
-be multiples of 50; a lathe's `ranges_rpm` bands give its overall limits).
+be multiples of 50). A spindle's `ranges_rpm` bands (each clipped to a stated
+`rpm_min`/`rpm_max`) give those limits; an RPM in a gap between two bands
+drops to the top of the band below, never a speed the spindle cannot select,
+and any unknown band endpoint leaves the RPM unknown.
 Mill feed in mm/min is `RPM * flute_count * chip_load_mm_per_tooth`. Lathe
 feed in mm/min is `RPM * feed_mm_rev`: the op's planned `feed_mm_rev` when
 declared (the feed `turning_deflection` loads the cut with; a planned

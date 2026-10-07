@@ -177,13 +177,15 @@ A `tools.<id>` with `kind = "edge_finder"` that picks up a mill X or Y zero
 its tip diameter `tip_in` / `tip_mm` (else `dia`) and, when mechanical,
 `rpm_range`, the maker's speed band, with a `cite`. The zero check
 ([rules-coordinates](rules-coordinates.md)) records these on each pick-up row
-as `finder`: the radius (half the tip Ø), and the speed it runs at here, the
-finder's band clipped to the setup machine's `spindle` `rpm_min`/`rpm_max`. A
-missing fact, or an unknown spindle range, leaves the zero unknown; a band the
-spindle cannot turn is an error. The traveler prints one EDGE FINDER box per
-finder, in the DRO ZERO block of the first setup that picks up with it — the
-speed, how the contact shows (a mechanical tip runs true, then kicks sideways;
-an electronic one lights), and the offset, Axis Set edge − r coming from the −
+as `finder`: the radius (half the tip Ø), and the speeds it runs at here, the
+finder's band intersected with each of the setup machine's spindle bands
+(`ranges_rpm`, else `rpm_min`–`rpm_max`); a speed between two bands is never
+offered. A missing fact, or any unknown endpoint of the finder's or the
+spindle's bands, leaves the zero unknown; a band no spindle band turns is an
+error. The traveler prints one EDGE FINDER box per finder and mill, in the DRO
+ZERO block of the first setup that picks up with it on that mill — the speed,
+how the contact shows (a mechanical tip runs true, then kicks sideways; an
+electronic one lights), and the offset, Axis Set edge − r coming from the −
 side and edge + r from the + side — and every X/Y row names the box.
 
 ## Purchased tooling
@@ -203,12 +205,34 @@ in `purchase` and its receipt checks in `acceptance`, a list of tables:
 A check states one numeric limit at most and needs a limit or `accept`; a
 `"none"` gauge takes no numeric limit; a shop-made item takes no `acceptance`.
 The `purchased_tooling` rule (always required) checks every item a setup uses
-(hold fixture, clamps, stop, riser, supports, an op's filing guide or tool) that
-carries the list: a gauge that is unknown, not listed or not verified, or a
-`limits` field the item does not state, leaves the setup unknown. The traveler
-prints one PURCHASED TOOLING / RECEIPT CHECK table per item on the front sheet
-of the first setup using it (inch gauges also get the limits in inches, rounded
-inward); later setups point back to it.
+(any hold slot — fixture, chuck, parallels, riser, jaw bar or buttons, support,
+clamps, stop, supports, alignment indicator — a zero's tool, holder or gauge,
+a tool touch's `z_gauge`, the transfer's tool or gauge, and an op's filing
+guide or its gauge, tool, holder, inspection gauge or process-hold gauge; any
+item named in the setup's prose or in the notes and record blanks of the
+shop-made items it uses, the job page's prose counting as the first setup's:
+see the key syntax under shop-made solids) that carries the list. An item is its
+category and key: a slot selects its own kind first (a hold slot workholding:
+fixtures, holders, machines; an indicator, inspection, process-hold or guide
+gauge a gauge; a tool slot a tool; a holder slot a holder), and prose names the
+category, so `fixtures.pins` and `gauges.pins` are two items, each with its own
+checks, table and first setup. Everything after the selection reads that item
+only: its receipt, its `tool_resolves` finding (the gauge a slot reads is
+checked even when a fixture of that key is listed), the notes and record blanks
+of a shop-made holder or fixture, and every name the traveler prints for it. A
+bare key in prose that two categories list names no one item and prints as
+written; name it `<category>.<key>`. Unknown is
+never an acceptance: an `acceptance` or `purchase` stated
+`"unknown"`; a `check`, `how` or `accept` that is blank or unknown; a gauge that
+is unknown, not listed or not verified; a `limits_mm` that is not two known
+lengths, low ≤ high; or a `limits` field the item does not state as known
+lengths leaves the setup unknown and prints `STOP:`. The traveler prints one
+PURCHASED TOOLING / RECEIPT CHECK table per item on the front sheet of the
+first setup using it, its limits rounded inward to 0.001 mm (inch gauges also
+get them in inches, rounded inward to 0.0001 in); later setups point back to
+it. A band too narrow for those decimals (or a cap that would round to zero)
+takes up to three more, never a reversed or empty band; past that the mm band
+prints exactly as declared and the inch band is left off.
 
 ## Kernel geometry facts (M4)
 
@@ -339,11 +363,58 @@ Other holding solids come from the same accepted-fact rule, never defaults:
   one stack per shim primitive per placement of its item. A made primitive's
   `note` (material, heat treatment, finish) prints once per row in a "Make:"
   line under the table; primitives with different notes do not share a row.
+  A made hole's `note` (how it is cut) joins the Make entries under its `label`
+  or name; a bought or existing primitive's `note` (its state as bought, what
+  to leave alone) prints on a "Notes:" line after them, so a bought shell whose
+  windows are made here states its whole route.
+  `make_ops = [{ hold, tool, rpm, feed, doc_mm, cite }]` on a shop-made item, or
+  on one of its made primitives or holes, are the cutting operations that make
+  it: `hold` how the piece is held (text), `tool` a `tools` key, `rpm` a speed
+  > 0 or an ordered `[low, high]` range, `feed` a number (or `low-high`) with its
+  unit (`mm/rev`, `mm/min`, `mm/tooth`, `in/rev`, `in/min`, `in/tooth`; a bare
+  number is refused), `doc_mm` the depth of cut per pass (> 0) and `cite` the
+  source of the cutting data (`MH 31st Table 17 p.1061`). All six are stated on
+  every entry; a fact not yet known is `"unknown"`, never omitted or blank. Under
+  "Make operations, in order:" each prints as one numbered line, the item's own
+  first, then each primitive's (after its row name), in `solids` order, a list
+  shared by primitives of one `label` once: `1. hold:
+  vise on parallels; T: <tool's shop name>; 600 rpm; 0.05 mm/rev; 0.5 mm/pass;
+  MH 31st Table 17 p.1061`. An unknown fact prints `?`, a tool the shop's tools
+  do not list `? <key>`, and the line ends in a STOP naming them; `make_ops =
+  "unknown"` prints one STOP line. The tool is a slot like an op's tool: its
+  receipt checks print with the setup's (`purchased_tooling`) and `tool_resolves`
+  checks each operation (docs/rules-tools.md). A bought item or bought or
+  existing primitive has none.
+  `records = [{ check, gauge, how, max_mm, goal_mm, over_mm }]` on any
+  primitive are values measured and written down when the part is made or
+  received (a head-to-shoulder TIR, a squareness by reversal). Each prints
+  under "Measure and record before first use:" as a fill-in: what, the gauge's
+  shop name and how, `accept ≤ max_mm`, `goal ≤ goal_mm` (both rounded down),
+  then `measured ________ mm`, `over over_mm mm` when given. `check` must be
+  stated, and `how` and `gauge`, when given (`records` itself must be a list:
+  a stated unknown would print nothing to fill in); each length, when given, is
+  a known length ≥ 0 (`over_mm` > 0) and
+  the goal lies inside the max. A record without `max_mm` is a characterisation:
+  recorded, not judged. A record's `gauge` is a `gauges` key; one the shop list
+  does not have prints `? <key>`.
+  Any prose (a `note`, a record's `check` or `how`, a make operation's `hold` or
+  `cite`, a plan note) names an
+  inventory item as `<category>.<key>[/<member>]` (`gauges.granite-surface-plate`,
+  `tools.drills/#61`, `tools.drills/1/4`, `tools.reamers-metric/6.49mm`), category
+  one of `machines`, `tools`, `holders`, `fixtures`, `gauges`, `services`. The
+  member runs to its last letter, digit or `#` (a sentence's full stop is not
+  part of it) and is read whole, as the slots read it: a member the item does
+  not have is not the item. The traveler prints the item's shop name in its
+  place, or `? <key>` when the shop list does not have it; `tool_resolves`
+  checks it (docs/rules-tools.md) and `purchased_tooling` reads its receipt
+  checks.
   An angle plate's (or posed shop-made fixture's) lowest box that is not bought
   is its base: HOLD prints its underside Z, an angle plate's working face (local
   y = 0, facing local -y) and the base's `fastener` as the hold-down; with any
   such box untrusted, HOLD prints no setting line. None of these texts creates
-  geometry or trust.
+  geometry or trust; `locates` only names, on a plan clamp with
+  `restraint = "locate"`, the drawn solid that must prove it bears on the work
+  (rules-geometry, `thin_wall_under_clamp`).
 
 For `approach = "rotary"`, the selected hold must resolve to a `dividing_head`;
 its plan `hold.chuck` names a dimensioned chuck as above. The plan supplies
@@ -790,13 +861,15 @@ flagged `verify = true` counts as undeclared. With an op's `direction`
 (`conventional`/`climb`) it fixes the cutting order of contour tables
 (see [coordinates](rules-coordinates.md)); absent, that order stays unknown.
 
-A lathe spindle's turn comes from the op's tool, not from `rotation`: the traveler
-prints FORWARD (the top of the work turns toward the operator) in the rpm cell of
-each lathe op whose tool declares `hand = "right"` or `"left"` (a turning, facing,
-grooving or boring tool of either hand is set edge up, as the turning model poses
-it), REVERSE for a left-hand-cut tailstock tool (centre drill, drill, reamer, tap),
-and a STOP when the tool declares no `hand`. The op table's heading says once what
-each printed word means.
+A lathe spindle's turn comes from the op's tool, not from `rotation`: the turn is
+FORWARD (the top of the work turns toward the operator) for a lathe op whose tool
+declares `hand = "right"` or `"left"` (a turning, facing, grooving or boring tool
+of either hand is set edge up, as the turning model poses it), REVERSE for a
+left-hand-cut tailstock tool (centre drill, drill, reamer, tap), and a STOP when
+the tool declares no `hand`. When every spindle op of the setup turns the same
+known way, the op table's heading says it once (`spindle FORWARD whenever it runs:
+…`) and the rpm cells carry only the speed; mixed turns print the word in each rpm
+cell, the heading saying once what each word means.
 
 ## Length and angle facts
 

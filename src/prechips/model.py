@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import re
 from datetime import date
 from typing import Annotated, Any, Literal
 
@@ -1282,6 +1283,24 @@ Bars = record(
 # adjustable shim stack whose drawn thickness is the nominal (traveler fixture table).
 # ``supply``: made with its owner (default), ``bought`` hardware, or ``existing`` in the
 # shop (a machine's vise jaw drawn for clearance); only made solids are make-table rows.
+# ``records``: values measured and written down when the part is made or received (a
+# head-to-shoulder TIR, a squareness by reversal), printed as fill-ins under the table.
+# A record says what is measured (``check``), optionally with which inventory ``gauge``
+# and ``how``; ``max_mm`` is its spec (reject over), ``goal_mm`` a tighter aim, and
+# ``over_mm`` the length the value is taken over. No spec: a characterisation, recorded only.
+RecordBlank = record(
+    "RecordBlank",
+    {**texts("check gauge how"), **numbers("max_mm goal_mm over_mm")},
+)
+# One operation that makes a shop-made item or one of its primitives (docs/inventory.md
+# "Shop-made fixtures"): how the piece is held, the ``tools`` key that cuts, the spindle
+# speed (a number or a [low, high] range), the feed with its unit (``0.05 mm/rev``), the
+# depth of cut per pass and the source of the cutting data. Each prints as one line.
+MakeOp = record(
+    "MakeOp",
+    {**texts("hold tool feed cite"), "rpm": float | LimitPair, "doc_mm": float},
+)
+MakeOps = Annotated[list[MakeOp], Field(min_length=1)]
 FixtureSolid = record(
     "FixtureSolid",
     {
@@ -1294,6 +1313,8 @@ FixtureSolid = record(
         "shim": bool,
         "supply": Literal["made", "bought", "existing"],
         "cuts": list[str],
+        "records": list[RecordBlank],
+        "make_ops": MakeOps,
         "measured": Measurement,
         "verify": bool,
     },
@@ -1326,6 +1347,8 @@ InventoryItem = record(
         # Bought-finished tooling: what is bought, and its receipt checks.
         "purchase": str,
         "acceptance": Annotated[list[AcceptanceCheck], Field(min_length=1)],
+        # A shop-made item's make operations, one cutting-data line each.
+        "make_ops": MakeOps,
         **numbers(
             "headstock_tilt_deg swing_over_bed_in between_centres_in "
             "cross_slide_travel_in compound_travel_in weight_lb worm_ratio centre_height_in "
@@ -1558,8 +1581,9 @@ def _inventory_lengths(
 
 
 def _inventory_checks(item: Any, where: str) -> None:
-    """Receipt checks belong to bought items, and an edge finder's speed band is ordered
-    (docs/inventory.md "Purchased tooling", "Edge finder")."""
+    """Receipt checks belong to bought items and make operations to shop-made ones, and an
+    edge finder's speed band is ordered (docs/inventory.md "Purchased tooling", "Shop-made
+    fixtures", "Edge finder")."""
     if not isinstance(item, dict):
         return
     band = item.get("rpm_range")
@@ -1572,9 +1596,103 @@ def _inventory_checks(item: Any, where: str) -> None:
         for index, check in enumerate(checks):
             if isinstance(check, dict):
                 _acceptance_check(check, f"{where}.acceptance[{index}]")
+    made_here = item.get("shop_made") is True or item.get("kind") == "custom"
+    if "make_ops" in item:
+        _make_ops(item["make_ops"], f"{where}.make_ops", made_here)
+    solids = item.get("solids")
+    for solid in solids if isinstance(solids, list) else ():
+        if not isinstance(solid, dict):
+            continue
+        name = solid.get("name", "?")
+        if "make_ops" in solid:
+            supply = solid.get("supply", "made")
+            if supply != "made":
+                raise ValueError(
+                    f"{where} solid {name}: a {supply} primitive is not made here; give the "
+                    "make_ops to the hole made in it, or to the item."
+                )
+            _make_ops(solid["make_ops"], f"{where} solid {name}.make_ops", made_here)
+        if "records" not in solid:
+            continue
+        records = solid["records"]
+        if not isinstance(records, list):
+            raise ValueError(
+                f"{where} solid {name}: records must list what is measured (omit it for none)."
+            )
+        for index, blank in enumerate(records):
+            if isinstance(blank, dict):
+                _record_blank(blank, f"{where} solid {name}.records[{index}]")
     members = item.get("members")
     for name, member in members.items() if isinstance(members, dict) else ():
         _inventory_checks(member, f"{where}/{name}")
+
+
+# A make operation's feed: a number or a low-high range, then its unit.
+_FEED_NUMBER = r"(?:\d+(?:\.\d*)?|\.\d+)"
+_MAKE_FEED = re.compile(
+    rf"{_FEED_NUMBER}(?:\s*[-–]\s*{_FEED_NUMBER})?\s*(?:mm|in)/(?:rev|min|tooth)"
+)
+_MAKE_OP_FIELDS = ("hold", "tool", "rpm", "feed", "doc_mm", "cite")
+
+
+def _make_ops(ops: Any, where: str, made_here: bool) -> None:
+    """Make operations belong to a shop-made item (``kind = "custom"`` or ``shop_made``).
+    Each states all six facts its line prints: its hold and ``tools`` key as text, its
+    speed (a number or an ordered range) and depth of cut as numbers > 0, its feed as a
+    number with its unit and the source of its cutting data. A fact not yet known is
+    ``unknown`` (the traveler prints ``?`` and a STOP), never omitted or blank."""
+    if not made_here:
+        raise ValueError(
+            f'{where}: only a shop-made item (kind = "custom" or shop_made = true) is made.'
+        )
+    for index, op in enumerate(ops if isinstance(ops, list) else ()):
+        if not isinstance(op, dict):
+            continue
+        at = f"{where}[{index}]"
+        for key in _MAKE_OP_FIELDS:
+            if key not in op:
+                raise ValueError(f"{at}: {key} must be stated, or be unknown.")
+        for key in ("hold", "tool", "feed", "cite"):
+            if isinstance(op[key], str) and not op[key].strip():
+                raise ValueError(f"{at}: {key} must be stated, or be unknown.")
+        feed = op["feed"]
+        if isinstance(feed, str) and feed != UNKNOWN and not _MAKE_FEED.fullmatch(feed.strip()):
+            raise ValueError(
+                f"{at}: feed {feed!r} must be a number with its unit: mm/rev, mm/min, "
+                "mm/tooth, in/rev, in/min or in/tooth."
+            )
+        if _numeric_pair(op["rpm"]):
+            _ordered(op["rpm"], f"{at}: rpm", floor=0.0, inclusive=False)
+        for key in ("rpm", "doc_mm"):
+            value = op[key]
+            if isinstance(value, int | float) and not isinstance(value, bool) and value <= 0:
+                raise ValueError(f"{at}: {key} must be > 0, or be unknown.")
+
+
+def _record_blank(blank: dict, where: str) -> None:
+    """A record blank says what is measured, and how and with which gauge when it says so
+    at all (a stated unknown would be dropped from the fill-in); its spec, goal and span
+    are known lengths (an unknown spec would print a fill-in nobody can judge), the goal
+    inside the spec. An unknown gauge stays allowed: tool_resolves reports it unknown."""
+    check = blank.get("check")
+    if not isinstance(check, str) or check.strip() in ("", UNKNOWN):
+        raise ValueError(f"{where}: check must say what is measured and recorded.")
+    how = blank.get("how")
+    if "how" in blank and (not isinstance(how, str) or how.strip() in ("", UNKNOWN)):
+        raise ValueError(f"{where}: how must say how it is measured, or be omitted.")
+    gauge = blank.get("gauge")
+    if "gauge" in blank and (not isinstance(gauge, str) or not gauge.strip()):
+        raise ValueError(f"{where}: gauge must name an inventory gauge, or be omitted.")
+    for key in ("max_mm", "goal_mm", "over_mm"):
+        value = blank.get(key)
+        if key in blank and (
+            not isinstance(value, int | float) or isinstance(value, bool) or value < 0
+        ):
+            raise ValueError(f"{where}: {key} must be a known length >= 0, or omitted.")
+    if "goal_mm" in blank and "max_mm" in blank and blank["goal_mm"] > blank["max_mm"]:
+        raise ValueError(f"{where}: goal_mm must lie inside the max_mm spec.")
+    if blank.get("over_mm") == 0:
+        raise ValueError(f"{where}: over_mm must be a length > 0.")
 
 
 def _acceptance_check(check: dict, where: str) -> None:

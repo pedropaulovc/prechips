@@ -229,6 +229,14 @@ def _pad_code(component, index):
     return label.removeprefix("PAD ").removeprefix("SUPPORT PAD ") or str(index)
 
 
+def dro_steps(value, step):
+    """The whole DRO steps of ``step`` nearest ``value``, as the shop sets them: half a
+    step rounds away from zero, and float noise in the quotient does not count. The one
+    rounding of a printed DRO position, in pictures and fixture tables alike."""
+    quotient = round(value / step, 6)
+    return math.copysign(math.floor(abs(quotient) + 0.5), quotient)
+
+
 def _code_ranges(codes):
     """Position codes as a drawing lists them: ``L1-L6, R1-R6``; a run of three or more
     consecutive numbers under one prefix is a range, others are listed."""

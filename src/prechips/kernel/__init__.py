@@ -606,6 +606,10 @@ def _solids(item, owner):
         caption = solid.get("label")
         if isinstance(caption, str) and caption.strip() and caption != UNKNOWN:
             primitive["label"] = caption.strip()
+        locates = solid.get("locates")
+        if isinstance(locates, str) and locates.strip() and locates != UNKNOWN:
+            # The locating element: a locate clamp must prove it bears on the stock.
+            primitive["locates"] = True
         if void:
             primitive["void"] = True
             if cuts is not None:
