@@ -426,7 +426,10 @@ BLANK**, each form row with its limit and method.
 read once in radius mode and twice in diameter mode. It does not change a known
 mill's linear axes. In a mixed-machine route, the traveler labels the actual
 setup machine's display convention rather than applying the lathe label to all
-setups. Unknown controller/install facts remain unresolved independently.
+setups. Omitted or unknown on a lathe, no X reading is printed: the feature map,
+part-off X and dome tables stop rather than assume a display
+([coordinates](rules-coordinates.md#coordinates)). Unknown controller/install
+facts remain unresolved independently.
 
 ## Direction
 
@@ -928,7 +931,7 @@ STOP and [zero_check](rules-coordinates.md#zero_check) is `unknown`.
 | `tool` | `str` |
 | `x_method` | `str` (the operator's words; `"trial_cut_measure"`: the touch trial-cuts its own diameter) |
 | `x_face` | `str`: the plan feature whose measured diameter a lathe X touch is set on, or `"x_zero"` for this setup's X-zero trial-cut land; must stand where it touches ([zero_check](rules-coordinates.md#zero_check)) |
-| `x_paper_mm` | `float`: paper between the tool and that diameter; Axis Set X = measured D + 2×paper on a diameter display (D/2 + paper on radius) |
+| `x_paper_mm` | `float`: paper between the tool and that diameter; Axis Set X = measured D + 2×paper on a diameter display (D/2 + paper on radius). The traveler prints the surface and this paper (`no paper` at 0, `paper ?` unknown) with the `x_method` words |
 | `gauge` | `str` |
 | `z_face` | `str` |
 | `method` | `str` |
@@ -1005,7 +1008,15 @@ feature exports (else `BadInput`), and `band` is in the drawing's units. The
 inspection rule errors when the band reaches outside the drawing band (limits
 included, a scalar zone `v` read as [0, v]). The sheet prints it in the op's
 inspection cell as `PROCESS HOLD — not a drawing limit: <reason>`, never as a
-drawing limit.
+drawing limit, and the job page gathers every hold in a **PROCESS HOLDS —
+in-process limits, not drawing limits** table, apart from DRAWING REQUIREMENTS.
+
+A hold may instead name a feature's reference-only dimension (`<name>_ref`, a
+number the drawing gives as REF or CUT TO FIT, such as an assembly fit-up span).
+The drawing sets no limit there, so the hold must also say what the gauge reads
+(`measure`, e.g. `"scribe to faced end"`) and where the band comes from (`cite`);
+missing either is `BadInput`. A `measure` on a hold of an exported requirement is
+`BadInput` too: that hold reads the requirement itself.
 
 A `GoNoGo` is `{ go = <mm>, no_go = <mm> }`, both positive and different: the two
 limit-gauge sizes a limit check uses. The GO size must pass the work (enter a hole,

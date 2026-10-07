@@ -392,7 +392,9 @@ and inspection notes*):
 3. **FEATURE MAP**. Lathe: each surface the setup cuts (one it only inspects,
    such as an as-supplied diameter, has no size to turn to and is left off):
    feature, the drawing's Ø limits (`—` for a process
-   size such as a joint spigot), the Ø turned to, and the Z the setup's cuts start
+   size such as a joint spigot), the X turned to as the DRO displays it (`turn to
+   Ø` on a diameter display, `turn to X (radius)` on a radius one; `?` and a STOP
+   when `dro.radius_mode` is not stated), and the Z the setup's cuts start
    and end at. Mill: feature, the reference point the X/Y/Z stand on (hole or boss
    axis, arc centre, face; at the entry or exit face, or on the Z0 surface), then
    X / Y / Z. An aimed target adds one line: where to machine it, its offset from

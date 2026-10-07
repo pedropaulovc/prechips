@@ -518,6 +518,37 @@ def test_a_lathe_feature_map_keeps_the_drawing_limits_apart_from_the_size_turned
 
 
 @pytest.mark.parametrize(
+    ("display", "x", "heading", "cell", "note"),
+    [
+        ("diameter", 42.75, "turn to Ø", "Ø42.750", "X reads diameter."),
+        # A radius display reads half the Ø42.75 head: never printed as a Ø.
+        ("radius", 21.375, "turn to X (radius)", "21.375", "X reads radius."),
+        # Not knowing the display, no X is printed and the map says why it stops.
+        ("unknown", "unknown", "turn to X", "?", "STOP"),
+    ],
+)
+def test_a_lathe_feature_map_prints_the_x_turned_to_in_the_dro_display(
+    display, x, heading, cell, note
+):
+    rows = [
+        {"feature": "head", "setup": [21.375, 0.0, z], "dia_nominal": 42.75, "x_target_mm": x}
+        for z in (0, -95)
+    ]
+    sheet = mapped(
+        {("coordinates", "S1"): {"x_display": display, "rows": rows}},
+        {"head": {"kind": "cylinder"}},
+        drawing={"head": {"kind": "cylinder", "dia": [42.0, 43.6]}},
+        kind="lathe",
+    )
+    html = sheet.feature_map({"id": "S1", "ops": [{"op": 10, "do": "turn", "feature": "head"}]})
+    head = html.split("<td>head</td>", 1)[1].split("</tr>", 1)[0]
+    assert f"<th>{heading}</th>" in html and f">{cell}</td>" in head, html
+    assert note in html.split("</table>", 1)[1], html
+    if display != "diameter":
+        assert "X reads diameter" not in html and "Ø21.375" not in html
+
+
+@pytest.mark.parametrize(
     ("ops", "listed"),
     [
         # Mic'd as supplied, never cut: no size to turn to, no Z to cut from.
@@ -808,3 +839,40 @@ def test_a_setup_with_any_cutting_op_keeps_the_machining_table():
     html = _bench_sheet([paint, {"op": 20, "do": "drill", "feature": "body"}])
     assert "<h2>OPERATIONS</h2>" in html and "FINISHING" not in html
     assert "rpm" in re.findall(r"<th>([^<]*)</th>", html)
+
+
+@pytest.mark.parametrize(
+    ("x_after", "ends"),
+    [
+        ([1, 0, 0], "the +X end stays at +X"),
+        ([-1, 0, 0], "the +X end moves to −X"),
+        # Turned over about X and a quarter turn: the old +X end now lies along Y.
+        ([0, 1, 0], "the +X end moves to +Y"),
+        ([0, -1, 0], "the +X end moves to −Y"),
+    ],
+)
+def test_a_turn_over_names_where_the_old_plus_x_end_goes(x_after, ends):
+    from prechips.inputs import Bundle
+
+    frames = {
+        "first": {"origin": [0, 0, 0], "x": [1, 0, 0], "z": [0, 0, 1]},
+        "turned": {"origin": [0, 0, 0], "x": x_after, "z": [0, 0, -1]},
+    }
+    setups = [
+        {"id": "S1", "machine": "mill", "frame": "first", "ops": []},
+        {"id": "S2", "machine": "mill", "frame": "turned", "stock_in": "S1", "ops": []},
+    ]
+    data = Bundle(
+        plan={"setups": setups},
+        inventory={"machines": {"mill": {"kind": "mill"}}},
+        features={"features": {}, "frames": frames},
+        policy={},
+        cutting_data={},
+        paths={},
+        hashes={},
+        root=Path("."),
+        kernel={"status": "ok", "ops": {}},
+    )
+    assert _Traveler(data, [], {}, None).flip(setups[1]) == (
+        f"Turn the part over: the other face up, {ends}. "
+    )

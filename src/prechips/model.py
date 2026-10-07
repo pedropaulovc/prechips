@@ -41,6 +41,17 @@ def tolerance_requirements(feature: dict[str, Any]) -> list[str]:
     return sorted(result)
 
 
+def reference_only(feature: dict[str, Any], requirement: str) -> bool:
+    """A drawing's reference dimension (``<name>_ref``, such as a CUT TO FIT span): a number
+    the drawing states with no limit, so no drawing band exists to hold inside."""
+    value = feature.get(requirement)
+    return (
+        requirement.endswith("_ref")
+        and isinstance(value, (int, float))
+        and not isinstance(value, bool)
+    )
+
+
 class InputModel(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
 
@@ -348,7 +359,11 @@ class GoNoGo(InputModel):
 
 class ProcessHold(InputModel):
     """A shop limit inside one drawing requirement band, held for a stated process reason
-    (a downstream fit, a clocking stop): printed as a process hold, never a drawing limit."""
+    (a downstream fit, a clocking stop): printed as a process hold, never a drawing limit.
+
+    On a reference-only dimension (``<name>_ref``, such as a CUT TO FIT span) the drawing
+    sets no limit: the hold then names what its gauge reads (``measure``) and where its
+    band comes from (``cite``)."""
 
     feature: str
     requirement: str
@@ -357,6 +372,8 @@ class ProcessHold(InputModel):
     reason: str
     # The GO / NO-GO sizes the hold's gauge reads the hold band with, when it is a limit check.
     go_no_go: GoNoGo | None = None
+    measure: str | None = None
+    cite: Citations | None = None
 
     @model_validator(mode="after")
     def stated(self) -> ProcessHold:
@@ -364,8 +381,12 @@ class ProcessHold(InputModel):
             (self.feature, "feature"),
             (self.requirement, "requirement"),
             (self.reason, "reason"),
+            *(((self.measure, "measure"),) if self.measure is not None else ()),
         ):
             _known_text(value, f"A process hold {what}")
+        cites = [self.cite] if isinstance(self.cite, str) else self.cite
+        if cites is not None and (not cites or any(not c.strip() or c == UNKNOWN for c in cites)):
+            raise ValueError("A process hold cite must name known, non-empty sources.")
         if not self.band[0] < self.band[1]:
             raise ValueError("A process hold band must be an ordered [lo, hi] band, lo < hi.")
         return self

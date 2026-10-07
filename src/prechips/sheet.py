@@ -16,7 +16,7 @@ from html import escape
 from .clamp_labels import clamp_labels
 from .joint_features import JOINT_PREP_LABEL, setup_ancestry
 from .measurements import record_trusted
-from .model import tolerance_requirements
+from .model import reference_only, tolerance_requirements
 from .rules._bench import manual_bench
 from .rules.coordinates import CENTRE_OPS, OVERSHOOT_NOTE, dro_grid, dro_z, row_id
 from .rules.inspection import go_no_go_pair
@@ -364,6 +364,7 @@ _ABBREVIATIONS = (
     (r"\bDTI\b", "DTI = test indicator."),
     (r"\bmic\b", "mic = micrometer."),
 )
+PROCESS_HOLDS_LABEL = "PROCESS HOLDS — in-process limits, not drawing limits"
 _REQUIREMENT_NAMES = {
     "dia": "Ø",
     "position_dia": "position Ø",
@@ -785,6 +786,11 @@ def _ops_label(ops, every=None):
 
 class _Box(str):
     """A table-cell line printed as a bold boxed warning."""
+
+
+# Every lathe X reading is a radius or a diameter: unread, each number is half or twice
+# the cut on the other display, so none prints.
+_X_DISPLAY_STOP = "STOP: X display not set (dro.radius_mode): X reads radius or diameter"
 
 
 class _Plain(str):
@@ -1953,9 +1959,10 @@ class _Traveler:
 
     def shop_made_parts(self, reference):
         """The item's solids, made solids, withheld solids (id -> why), holes per parent
-        solid id, drilled parent ids and fit ids: a locating solid's fit is the bore cut in
-        it, else the solid itself. Like the kernel, an unverified primitive gives no
-        numbers, and an unverified hole withholds the solids it would cut."""
+        solid id, drilled parent ids and fit ids: a locating solid is a fit, and so is every
+        bore cut in it (either may be the surface that locates). Like the kernel, an
+        unverified primitive gives no numbers, and an unverified hole withholds the solids it
+        would cut."""
         item = self.shop_made(reference)
         solids = [s for s in item.get("solids") or [] if isinstance(s, dict)]
         # Made solids, and existing parts (a bought angle plate) only for holes cut here.
@@ -1980,7 +1987,7 @@ class _Traveler:
                     holes.setdefault(id(parent), []).append(void)
         fits = set()
         for solid in (s for s in made if s.get("locates")):
-            fits.update(id(v) for v in holes.get(id(solid), [solid]))
+            fits.update([id(solid), *(id(v) for v in holes.get(id(solid), []))])
         return solids, made, withheld, holes, drilled, fits
 
     def shop_made_table(self, setup, reference, placements):
@@ -3134,13 +3141,26 @@ class _Traveler:
                 if x_face == "x_zero"
                 else f"the {self.feature_name(x_face)} Ø"
             )
-            # The author's words say how; a repeat or a wordless touch names the surface.
+            # The contact the Axis Set counts always prints, whatever the author's words
+            # say: the surface, measured, and the paper between (a trial cut is its own
+            # surface and takes none). A repeat drops the words its source was made with.
             words = touch.get("x_method") if "repeats" not in touch else None
-            how = self.bench(words) if words else f"on {surface}, measured"
+            how = self.bench(words) if words else None
             paper = touch.get("x_paper_mm")
-            if not words and _known(paper) and paper:
-                how += f", paper {self.operative(paper)}"
-            text = "X — " + how + (f" ({self.short_reference(gauge, 'gauges')})" if gauge else "")
+            contact = f"on {surface}, measured"
+            if words != "trial_cut_measure":
+                contact += ", " + (
+                    ("paper " + self.operative(paper) if paper else "no paper")
+                    if _known(paper) and paper >= 0
+                    else "paper ?"
+                )
+            elif x_face is None:
+                contact = None
+            gauge_words = f" ({self.short_reference(gauge, 'gauges')})" if gauge else ""
+            if contact is None:
+                text = f"X — {how}{gauge_words}"
+            else:
+                text = f"X — {contact}{gauge_words}" + (f": {how}" if how else "")
             if touch.get("x_axis_set", "not_applicable") != "not_applicable":
                 text += f"; Axis Set X {self.reading(touch.get('x_axis_set'))}"
             if touch.get("x_face_status") in ("error", "unknown"):
@@ -3193,7 +3213,12 @@ class _Traveler:
         if saw_setup(setup):
             return ""
         numbers = self.records.get(("coordinates", setup["id"]), {})
-        lathe = numbers.get("x_display") == "diameter" or self.lathe(setup)
+        display = numbers.get("x_display")
+        lathe = "x_display" in numbers or self.lathe(setup)
+        # The size each surface turns to, as the DRO's X display reads it; unread, the
+        # surface still lists with its drawing limits and Zs, its X withheld.
+        turned = {"diameter": ("turn to Ø", "Ø"), "radius": ("turn to X (radius)", "")}
+        heading, prefix = turned.get(display, ("turn to X", None))
         o = self.operative
         grouped = {}
         aims = []
@@ -3208,7 +3233,8 @@ class _Traveler:
                 continue
             if lathe:
                 x = record.get("x_target_mm")
-                if feature not in cut or not _known(x) or not _known(coordinates[2]):
+                size = x if prefix is not None else record.get("dia_nominal")
+                if feature not in cut or not _known(size) or not _known(coordinates[2]):
                     continue
                 # Its ends as its ops print them: cut before its first op (:meth:`op_z`).
                 first = [
@@ -3236,7 +3262,7 @@ class _Traveler:
                     (
                         self.feature_name(feature),
                         drawn,
-                        "Ø" + o(entry["dia"]),
+                        "?" if prefix is None else prefix + o(entry["dia"]),
                         *(
                             o(self.surface_z(setup, z, face=feature, done=entry["done"], path=True))
                             for z in (max(entry["z"]), min(entry["z"]))
@@ -3244,12 +3270,15 @@ class _Traveler:
                     )
                 )
             table = _table(
-                ["feature", "drawing Ø limits", "turn to Ø", "cut from Z", "cut to Z"],
+                ["feature", "drawing Ø limits", heading, "cut from Z", "cut to Z"],
                 rows,
                 widths=[32, 17, 17, 17, 17],
             )
+            if prefix is None:
+                table += _p(_X_DISPLAY_STOP + ".", "stop")
             note = (
-                "X reads diameter. Z values are where this setup's cuts on each surface start "
+                {"diameter": "X reads diameter. ", "radius": "X reads radius. "}.get(display, "")
+                + "Z values are where this setup's cuts on each surface start "
                 "and end, not the finished extent: a later cut (relief, part-off, next setup) "
                 "may shorten the surface."
             )
@@ -3435,18 +3464,21 @@ class _Traveler:
         """A lathe part-off / cut-to-fit row's X: the diameter the blade plunges to
         (``to_dia``, the axis unless authored) as the DRO reads it, from the diameter it
         starts on, and the total radial plunge between them (the reach finding's depth, in
-        mm). An unknown endpoint is a STOP; an unknown plunge prints the endpoint alone."""
+        mm). An unknown endpoint or X display (radius or diameter) is a STOP; an unknown
+        plunge prints the endpoint alone."""
         if op.get("do") not in {"part_off", "cut_to_fit"} or not self.lathe(setup):
             return []
         to_dia = op.get("to_dia", 0.0)
         if not (_known(to_dia) and to_dia >= 0):
             return [_Box("STOP: X endpoint (to_dia) not set")]
+        display = _mapping(self.records.get(("coordinates", setup["id"]))).get("x_display")
+        half = {"radius": 0.5, "diameter": 1.0}.get(display)
+        if half is None:
+            return [_Box(_X_DISPLAY_STOP)]
         scale = {"mm": 1.0, "in": 25.4}.get(self.units)
         depth = _mapping(self.records.get(("reach", f"{setup['id']}:{op.get('op')}"))).get(
             "reach_depth_mm"
         )
-        radius = _mapping(self.records.get(("coordinates", setup["id"]))).get("x_display")
-        half = 0.5 if radius == "radius" else 1.0
         o = self.operative
         if not (_known(depth) and scale):
             return [f"X → {o(to_dia * half)} (radial plunge unknown)"]
@@ -3765,26 +3797,52 @@ class _Traveler:
         return rows or ["—"]
 
     def process_hold(self, hold):
-        """A shop limit inside the drawing band, printed apart from the drawing's own."""
-        feature, requirement = hold["feature"], hold["requirement"]
-        places = self.gauge_places(hold["band"], feature, requirement, hold["gauge"])
-        band = "–".join(_number(limit, places) for limit in hold["band"])
-        name = _REQUIREMENT_NAMES.get(requirement, _text(requirement))
-        line = (
-            f"PROCESS HOLD — not a drawing limit: {self.bench(hold['reason'])} — "
-            f"{self.feature_name(feature)} {name} {band}: "
-            f"{self.short_reference(hold['gauge'], 'gauges')}"
+        """A shop limit inside the drawing band, printed apart from the drawing's own; a hold
+        on a reference-only span also names the REF it sets, since the drawing has no limit."""
+        reading, gauge, drawing, reference = self.process_hold_parts(hold)
+        return (
+            f"PROCESS HOLD — not a drawing limit: {self.bench(hold['reason'])} — {reading}"
+            + (f" (drawing: {drawing})" if reference else "")
+            + f": {gauge}"
         )
+
+    def process_hold_parts(self, hold):
+        """``(reading, gauge, drawing, reference)`` of one process hold: what the gauge reads
+        at the hold band, the gauge (with its GO / NO-GO sizes), the drawing's own limit, and
+        whether that is a reference-only span. Such a hold reads its stated ``measure``; the
+        drawing gives the span only as REF, with no limit."""
+        feature, requirement = hold["feature"], hold["requirement"]
+        definition = _mapping(self.features.get(feature))
+        reference = reference_only(definition, requirement)
+        places = self.gauge_places(hold["band"], feature, requirement, hold["gauge"])
+        if reference:
+            name = self.bench(hold["measure"])
+            base = requirement.removesuffix("_ref")
+            drawing = (
+                f"{_REQUIREMENT_NAMES.get(base, _text(base))} "
+                f"REF {_number(definition[requirement])}, no limit"
+            )
+        else:
+            name = _REQUIREMENT_NAMES.get(requirement, _text(requirement))
+            drawing = f"{name} {self.band(definition.get(requirement), feature, requirement)}"
+        band = "–".join(_number(limit, places) for limit in hold["band"])
+        gauge = self.short_reference(hold["gauge"], "gauges")
         if hold.get("go_no_go"):
-            line += self.go_no_go(hold["go_no_go"], feature, requirement, hold["gauge"])
-        return line
+            gauge += self.go_no_go(hold["go_no_go"], feature, requirement, hold["gauge"])
+        return f"{self.feature_name(feature)} {name} {band}", gauge, drawing, reference
 
     def gauge_places(self, sizes, feature, requirement, reference):
         """Decimals a gauge reading prints at: the sizes' own digits, one gauge step and the
-        drawing precision, whichever is finest."""
+        drawing precision, whichever is finest. A reference-only span has no drawing limit,
+        so no drawing precision applies to it."""
         gauge = resolve(self.bundle, "gauges", reference) or {}
         resolution = length_mm(gauge, "resolution")
-        precision = self.precision(feature, requirement)
+        definition = _mapping(self.features.get(feature))
+        precision = (
+            None
+            if reference_only(definition, requirement)
+            else self.precision(feature, requirement)
+        )
         # The decimals that show one gauge step: 0.001 mm reads 3, and 0.0001 in (0.00254 mm)
         # also reads 3, not the five places of its mm conversion.
         step = 0
@@ -4722,10 +4780,17 @@ class _Traveler:
             entry["parts"].append((order(entry), description, headings, rows, None))
             if not isinstance(raster, dict):
                 entry["parts"][-1] = self.outline_clearance(setup, profile, entry["parts"][-1])
+        # Surface, tool and stair X all read on the lathe DRO's X display; unread, the
+        # dome's blocks stop rather than print a radius as a diameter or the reverse.
+        x_unit = {"radius": "radius", "diameter": "Ø"}.get(numbers.get("x_display"))
+        unread = _X_DISPLAY_STOP.removeprefix("STOP: ")
         for contour in numbers.get("contours", []):
             if not isinstance(contour, dict) or contour.get("method") != "axial_table":
                 continue
             entry = block(contour.get("op"))
+            if x_unit is None:
+                entry["stops"].append(unread)
+                continue
             compensation = contour.get("tool_nose_compensation_mm")
             compensated = _known(compensation)
             rows = [
@@ -4748,8 +4813,6 @@ class _Traveler:
             nose = _amount(
                 _mapping(resolve(self.bundle, "tools", operation.get("tool"))).get("nose_radius_mm")
             )
-            # Surface and tool X both read on the lathe DRO's X display.
-            x_unit = "radius" if _mapping(self.plan.get("dro")).get("radius_mode") is True else "Ø"
             if compensated:
                 description += (
                     f". Surface X ({x_unit}) / Z are the finished dome; tool X ({x_unit}) / Z "
@@ -4800,7 +4863,9 @@ class _Traveler:
             )
         for stair in numbers.get("stair_tables", []):
             entry = block(stair.get("op"))
-            x_unit = "radius" if _mapping(self.plan.get("dro")).get("radius_mode") is True else "Ø"
+            if x_unit is None:
+                entry["stops"].append(unread)
+                continue
             rows = [
                 [str(index), o(r.get("z_mm")), o(r.get("x_target_mm"))]
                 for index, r in enumerate(stair.get("rows", []), 1)
@@ -4860,7 +4925,7 @@ class _Traveler:
                     "stop",
                 )
             elif not entry["parts"]:
-                reasons = "".join(f" — {reason}" for reason in entry["stops"])
+                reasons = "".join(f" — {reason}" for reason in dict.fromkeys(entry["stops"]))
                 content += _p(f"STOP: contour points not computed{reasons} — do not run.", "stop")
             else:
                 pieces = []
@@ -4906,7 +4971,13 @@ class _Traveler:
             html.append(f'<div class="{css}">{content}</div>')
         heading = (
             f"<h2>CONTOURS — {escape(self.zero_name(setup))}; "
-            + ("X is diameter" if self.lathe(setup) else "cutter-centre X / Y")
+            + (
+                {"diameter": "X is diameter", "radius": "X is radius"}.get(
+                    numbers.get("x_display"), "X: ? radius or diameter"
+                )
+                if self.lathe(setup)
+                else "cutter-centre X / Y"
+            )
             + "</h2>"
         )
         if any(entry.get("raster") for entry in blocks.values()):
@@ -5089,8 +5160,15 @@ class _Traveler:
             return "Turn the part end for end. "
         top = _mapping(setup.get("stock_state")).get("top_feature")
         up = f"{self.feature_name(top)} up" if top else "the other face up"
-        kept = sum(a * b for a, b in zip(x, x_before, strict=True)) > 0.5
-        ends = "the +X end stays at +X" if kept else "the +X end moves to −X"
+        # Where the old +X end lands in this setup's frame: along X, or (turned a quarter
+        # turn as well) along Y = Z × X. A unit X in the XY plane is within 45° of one.
+        y = [z[1] * x[2] - z[2] * x[1], z[2] * x[0] - z[0] * x[2], z[0] * x[1] - z[1] * x[0]]
+        along_x = sum(a * b for a, b in zip(x, x_before, strict=True))
+        along_y = sum(a * b for a, b in zip(y, x_before, strict=True))
+        if abs(along_x) >= abs(along_y):
+            ends = "the +X end stays at +X" if along_x > 0 else "the +X end moves to −X"
+        else:
+            ends = f"the +X end moves to {'+' if along_y > 0 else '−'}Y"
         return f"Turn the part over: {up}, {ends}. "
 
     def stock_state(self, setup):
@@ -5204,6 +5282,25 @@ class _Traveler:
                 ["plan feature", "limits"], joint_prep, widths=[30, 70]
             )
         return html
+
+    def process_holds(self, setups):
+        """Every op's in-process holds, gathered on the job page under their own heading so
+        they are never read as drawing limits: where, what the gauge reads at the hold band,
+        the gauge, the drawing's own limit (REF for a reference-only span) and why."""
+        rows = []
+        for setup in setups:
+            for op in setup.get("ops", []):
+                for hold in op.get("process_holds", []):
+                    reading, gauge, drawing, _ = self.process_hold_parts(hold)
+                    where = f"{setup['id']} op {op['op']}"
+                    rows.append((where, reading, gauge, drawing, self.bench(hold["reason"])))
+        if not rows:
+            return ""
+        return f"<h2>{escape(PROCESS_HOLDS_LABEL)}</h2>" + _table(
+            ["setup / op", "hold", "gauge", "drawing", "why"],
+            rows,
+            widths=[10, 26, 18, 18, 28],
+        )
 
     def edge_break(self):
         """The drawing's edge break, printed once for the whole job."""
@@ -5385,6 +5482,7 @@ class _Traveler:
             widths=[8, 32, 25, 35],
         )
         html += self.requirements()
+        html += self.process_holds(setups)
         html += _p(" ".join([*self.abbreviations(html), "Keep the drawing at the bench."]))
         return html
 
