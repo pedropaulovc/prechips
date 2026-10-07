@@ -424,8 +424,10 @@ at: the nose posed on the profile, each window end, a blade's both faces;
 which the rest of the outline stands rigidly about. The traveler's jaw distance
 uses the tool's chuck-side extent (in plan units, rounded toward the jaws), not
 only the Z its op names, in the op's jaw box and the CLEARANCE section alike;
-an extent within the kernel's 0.001 mm hit-test inset past the op's own Z (the
-outline posed against that face stands up to that far into it) is at that Z.
+a nose posed within the kernel's 0.001 mm hit-test inset past the op's own Z (it
+stands against that face up to that far into it), and itself the tool's lowest
+point, is at that Z; any other part's reach past the Z (a shank, a blade's far
+face) is the tool's own.
 An op fed to the imaginary-tip readings of a dome table and its rough stair
 ([coordinates](rules-coordinates.md#coordinates)) stands where those readings
 put the nose's lowest point, not on the drawn profile (a cut-to-fit end forms
@@ -433,8 +435,9 @@ the dome elsewhere than drawn); its outline goes with it, reaching below the
 lowest reading by `nose_z_mm` less `tool_z_mm` at their chuck-side ends. It is
 `unknown` (the jaw distance `not computed`, never the named Z) when the tool is
 not posed whole: a holder, tool dimension or claimed face the kernel cannot
-pose, or a claim it cannot sample; or when the op's dome table prints no tool
-readings. A
+pose, a claim it cannot sample, or an op the kernel stops before posing at all
+(a turning op with no extent is unknown, never absent); or when the op's dome
+table prints no tool readings. A
 facing/parting op posed at its `to_z`
 also records `faced_side`, the claimed faces' outward axial normal (+1 toward the
 free end, -1 toward the chuck): the blade stands on that side of `to_z`, so a
@@ -1857,17 +1860,22 @@ nearer of two distances to the nearest holding solid. One is its whole tool (the
 cutter to its flute length, a body at the larger of the cutter and shank radius to
 the shank's start, the shank to the projection and the holder over its gauge
 length) swept over every move it is commanded through: each pass or outline of
-its coordinates tables (`tool_paths`) at every Z level, each end standing up to the
-op's start Z or a raster's lift Z, a one-way raster's rapids at the lift Z, each
-printed arc-table checkpoint path at every level, and each hole, drill/spot/ream
-joint or centre-drill plunge from above the stock to its tip (a pointed tool's
-cone, a centre drill's own profile). The other is what the op takes off (its
+its coordinates tables (`tool_paths`) at every Z level, over the whole span it
+covers (a path doubling back along its line reaches its far point, not just its
+ends), each end standing up to the op's start Z (its level plan's start, else the
+entry surface its profile names on the DRO grid; never its own depth) or a
+raster's lift Z, a one-way raster's rapids at the lift Z, each printed arc-table
+checkpoint path at every level, and each hole, drill/spot/ream joint or
+centre-drill plunge from above the stock to its tip (a pointed tool's cone, a
+centre drill's own profile at its true outline, not the inset one that tests its
+cut). The other is what the op takes off (its
 before-op stock less its after stock): the cutter goes wherever that material is,
 whether or not a printed path leads it there. A bench file's is what it takes off
 to the nearest holding solid but its own guide stops; a file that takes nothing
 carries no row. `mm` and `tag` are `unknown` for a move or tool dimension the
 kernel is not told (an arc table that reaches it as no checkpoints, a raster or arc
-reason, an unmeasured shank), for the cut that stopped the stock builder and every
+reason, a start Z the tables do not give, an unmeasured shank), for the cut that
+stopped the stock builder and every
 later one, and for every op while the holding is not drawn whole (any
 `render_scene.debts`: an unresolved fixture, an undrawn component, an undeclared
 jaw extent), since what is not drawn may stand nearer than anything drawn;
