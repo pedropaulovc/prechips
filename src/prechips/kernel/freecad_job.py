@@ -166,6 +166,7 @@ import hashlib
 import json
 import math
 import os
+import re
 import sys
 import tempfile
 import time
@@ -175,7 +176,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import FreeCAD  # noqa: E402
 import Part  # noqa: E402
-from render_diagram import render_diagram  # noqa: E402
+from render_diagram import _common_plane, _shared_plane, render_diagram  # noqa: E402
 from step_faces import FaceRefError, StepError, StepFile  # noqa: E402
 
 UNKNOWN = "unknown"
@@ -619,6 +620,36 @@ def _boxes_overlap(a, b):
     return all(a[i] < b[i + 3] - PLANE_TOL and b[i] < a[i + 3] - PLANE_TOL for i in range(3))
 
 
+def _box_gap(a, b):
+    """Least distance between two (min..max) boxes: a lower bound on their solids'."""
+    return math.sqrt(sum(max(0.0, a[i] - b[i + 3], b[i] - a[i + 3]) ** 2 for i in range(3)))
+
+
+def _kept_runs(lines, axis, keep, plane):
+    """The runs of each polyline on the half of a section view that is drawn. A segment
+    crossing the section plane is cut at it, so its run keeps the crossing point."""
+    runs = []
+    for line in lines:
+        run, previous, before = [], None, None
+        for point in line:
+            depth = (point[axis] - plane) * keep
+            inside = depth >= -STOCK_TOL
+            if previous is not None and inside != (before >= -STOCK_TOL) and max(before, depth) > 0:
+                t = before / (before - depth)
+                crossing = [previous[i] + t * (point[i] - previous[i]) for i in range(3)]
+                crossing[axis] = plane
+                run.append(crossing)
+            if inside:
+                run.append(point)
+            elif run:
+                runs.append(run)
+                run = []
+            previous, before = point, depth
+        if run:
+            runs.append(run)
+    return runs
+
+
 def _box_within(inner, outer):
     return all(
         outer[i] - PLANE_TOL <= inner[i] and inner[i + 3] <= outer[i + 3] + PLANE_TOL
@@ -774,6 +805,44 @@ def _frame_matrix(frame):
 def _normal_at(face, point):
     u, v = face.Surface.parameter(point)
     return face.normalAt(u, v)
+
+
+def _common_normal(faces):
+    """The one outward unit normal every face shares (planar faces), else None."""
+    normal = None
+    for face in faces:
+        if not isinstance(face.Surface, Part.Plane):
+            return None
+        here = _normal_at(face, face.CenterOfMass)
+        if here.Length < 0.5:
+            return None
+        here.normalize()
+        if normal is not None and normal.dot(here) < PARALLEL:
+            return None
+        normal = here
+    return normal
+
+
+_AXIS_WORD = re.compile(r"(?<![A-Za-z0-9])([+\-\u2212])([XYZ])(?![A-Za-z0-9])")
+
+
+def _setup_axis_words(text, turn):
+    """An authored name's model-frame axis words (``+Z``) restated in setup axes, as the
+    picture is drawn; a model direction along no setup axis is dropped, never printed in
+    the wrong frame."""
+
+    def restate(match):
+        sign = -1.0 if match.group(1) != "+" else 1.0
+        model = [0.0, 0.0, 0.0]
+        model["XYZ".index(match.group(2))] = sign
+        held = turn(FreeCAD.Vector(*model))
+        for index, value in enumerate((held.x, held.y, held.z)):
+            if abs(value) >= PARALLEL:
+                return ("+" if value > 0 else "-") + "XYZ"[index]
+        return ""
+
+    restated = _AXIS_WORD.sub(restate, text).replace("()", "")
+    return " ".join(restated.split()).replace(" ,", ",")
 
 
 def _on_surface(face, point, precision):
@@ -3493,6 +3562,10 @@ class _Setup:
             placed.transformShape(self.matrix)
         return placed
 
+    def _turn(self, vector):
+        """A model-frame direction in setup axes."""
+        return self.matrix.multVec(vector) - self.matrix.multVec(FreeCAD.Vector())
+
     def _use(self, solid):
         """Make ``solid`` the material present for the following facts."""
         self.part = solid
@@ -5978,7 +6051,7 @@ class _Setup:
                 note = f"SECTION AT SETUP X {_r(centre[0])}  /  VIEW FROM +X  /  Y RIGHT, Z UP"
             section_view = (axis, keep, centre[axis], camera, note)
 
-        def mesh(shape, colour, hatch=False, section=False):
+        def mesh(shape, colour, hatch=False, section=False, tag=None):
             # A lathe elevation is a meridian section: the removed annulus's
             # outside surface must not hide the retained core behind it.
             if section:
@@ -5988,11 +6061,13 @@ class _Setup:
                 if not shape.Faces:
                     return
             points, triangles = shape.tessellate(tolerance)
-            meshes.append(([(p.x, p.y, p.z) for p in points], triangles, colour, hatch))
+            # The tag names the solid, so the picture can prove a leader ends on it.
+            meshes.append(([(p.x, p.y, p.z) for p in points], triangles, colour, hatch, tag))
 
-        mesh(output if output is not None else self.part, _COLOURS["part"], section=lathe)
+        drawn = output if output is not None else self.part
+        mesh(drawn, _COLOURS["part"], section=lathe, tag="part")
         if removal is not None and removal.Volume > STOCK_MM3:
-            mesh(removal, _COLOURS["removed"], True, section=lathe)
+            mesh(removal, _COLOURS["removed"], True, section=lathe, tag="removal")
         debts, solids, possible = [], [], []
         vise = self.hold is not None and self.hold.get("kind") == "vise"
         if not self.fixture_ready:
@@ -6026,8 +6101,8 @@ class _Setup:
                 possible = []
         rests = self._rest_render(debts)
         solids += [(name, jaw, _COLOURS["rest"]) for name, jaws, _ in rests for jaw in jaws]
-        for _, shape, colour in solids + possible:
-            mesh(shape, colour)
+        for name, shape, colour in solids + possible:
+            mesh(shape, colour, tag=name)
         parallels = any(c["role"] == "parallel" for c in self.fixture)
         scene = {
             "fixture_kind": fixture_kind,
@@ -6086,7 +6161,7 @@ class _Setup:
             }
             for group in ends.values()
         ]
-        drawn = output if output is not None else self.part
+        # ``drawn`` is the solid meshed above: retained output, else the arriving stock.
         surface = Part.Compound(drawn.Faces) if drawn is not None else None
         for datum in annotation.get("datums", []):
             indices = self.owner.features.get(datum["feature"])
@@ -6100,12 +6175,21 @@ class _Setup:
                 box = [min(b[i] for b in boxes) for i in range(3)] + [
                     max(b[i] for b in boxes) for i in range(3, 6)
                 ]
-                datums.append(
-                    {
-                        "label": datum["label"],
-                        "point_mm": [(box[i] + box[i + 3]) / 2 for i in range(3)],
-                    }
-                )
+                record = {
+                    "label": _setup_axis_words(datum["label"], self._turn),
+                    "point_mm": [(box[i] + box[i + 3]) / 2 for i in range(3)],
+                }
+                normal = _common_normal([self.faces[i] for i in indices])
+                if normal is not None:
+                    # The face's outward direction as held: the picture names an underside
+                    # and outlines a face the view cannot see, never draws it as the top.
+                    record["normal"] = [normal.x, normal.y, normal.z]
+                    record["outline_mm"] = [
+                        [[p.x, p.y, p.z] for p in edge.discretize(Deflection=tolerance)]
+                        for i in indices
+                        for edge in self.faces[i].Edges
+                    ]
+                datums.append(record)
         # The host derives the action notes from every declared op, bench ones included.
         notes = list(annotation.get("notes", []))
         nothing_removed = annotation.get("nothing_removed_note")
@@ -6153,6 +6237,7 @@ class _Setup:
                     "role": "rest",
                     "box_mm": box,
                     "center_mm": centre,
+                    "meshes": [name],
                 }
             )
         if section_view is not None:
@@ -6246,7 +6331,109 @@ class _Setup:
         details = [c for c in components if c["role"] == "detail"]
         if details:
             scene["fixture_detail_labels"] = details
-        return render_diagram(meshes, spec), scene
+        possible_names = {name for name, _ in self.fixture_possible}
+        # A lathe picture is a meridian section: its contacts are not the drawn faces.
+        spec["contacts"], spec["closest_cut"] = (
+            ([], None)
+            if lathe
+            else self._render_contacts(
+                [(name, shape) for name, shape, _ in solids if name not in possible_names],
+                removal,
+                tolerance,
+                section_view,
+            )
+        )
+        png, drawn_debts = render_diagram(meshes, spec)
+        render_debts.extend(drawn_debts)
+        # A holding detail band below the picture makes it taller than the default.
+        scene["height_px"] = int.from_bytes(png[20:24], "big")
+        return png, scene
+
+    def _render_contacts(self, solids, removal, tolerance, section_view):
+        """The holding solids touching the arriving stock, each with its contact outlines
+        and plane, and the cut nearest the holding, in setup axes: ``([{"tag", "lines_mm",
+        "plane"}], {"mm", "tag", "from_mm", "to_mm"} or None)``. A plane contact is the
+        common area of a holding face and an opposed stock face on one plane; a curved one
+        is the solids' section, else their nearest point. A section view drops the half it
+        removes, cutting each outline at its plane. ``plane`` is the one setup-axis plane
+        ``[axis, value]`` of the contact pieces drawn, each measured whole, else None: a
+        seating face the section cuts to one edge keeps its height."""
+        stock = self.part
+        stock_box = _bbox(stock)
+        contacts = []
+        for name, solid in solids:
+            if _box_gap(stock_box, _bbox(solid)) > STOCK_TOL:
+                continue
+            distance, pairs, _ = _distance(solid, stock)
+            if distance > STOCK_TOL:
+                continue
+            pieces = []  # one per shared face, else the section, else the nearest point
+            for held in solid.Faces:
+                if not isinstance(held.Surface, Part.Plane):
+                    continue
+                reach = held.BoundBox
+                reach.enlarge(STOCK_TOL)
+                outward = _normal_at(held, held.CenterOfMass)
+                for face in stock.Faces:
+                    if not isinstance(face.Surface, Part.Plane) or not reach.intersect(
+                        face.BoundBox
+                    ):
+                        continue
+                    if _normal_at(face, face.CenterOfMass).dot(outward) > -PARALLEL:
+                        continue
+                    if abs((face.CenterOfMass - held.CenterOfMass).dot(outward)) > STOCK_TOL:
+                        continue
+                    common = held.common(face)
+                    if common.Area > STOCK_TOL**2:
+                        pieces.append(
+                            [
+                                [[p.x, p.y, p.z] for p in edge.discretize(Deflection=tolerance)]
+                                for edge in common.Edges
+                            ]
+                        )
+            if not pieces:
+                section = [
+                    [[p.x, p.y, p.z] for p in edge.discretize(Deflection=tolerance)]
+                    for edge in solid.section(stock).Edges
+                ]
+                if section:
+                    pieces.append(section)
+            if not pieces:
+                point = pairs[0][1]
+                pieces.append([[[point.x, point.y, point.z]]])
+            kept = [
+                (
+                    _common_plane(piece),
+                    piece if section_view is None else _kept_runs(piece, *section_view[:3]),
+                )
+                for piece in pieces
+            ]
+            kept = [(plane, lines) for plane, lines in kept if lines]
+            if kept:
+                plane = _shared_plane([plane for plane, _ in kept])
+                contacts.append(
+                    {
+                        "tag": name,
+                        "lines_mm": [line for _, lines in kept for line in lines],
+                        "plane": None if plane is None else list(plane),
+                    }
+                )
+        nearest = None
+        if removal is not None and removal.Volume > STOCK_MM3:
+            cut_box = _bbox(removal)
+            for name, solid in sorted(solids, key=lambda item: _box_gap(cut_box, _bbox(item[1]))):
+                if nearest is not None and _box_gap(cut_box, _bbox(solid)) >= nearest["mm"]:
+                    break
+                distance, pairs, _ = _distance(removal, solid)
+                if nearest is None or distance < nearest["mm"]:
+                    near, far = pairs[0]
+                    nearest = {
+                        "mm": distance,
+                        "tag": name,
+                        "from_mm": [near.x, near.y, near.z],
+                        "to_mm": [far.x, far.y, far.z],
+                    }
+        return contacts, nearest
 
     def _index_arc(self, annotation, fixture_kind):
         """A dividing head's authored index: an arc about the head axis on the jaw face,
@@ -6370,12 +6557,21 @@ class _Setup:
                     # primitive. All exact solids and names stay in the scene.
                     key, label = owner + ":body_supports", "FIXTURE BODY / SUPPORTS"
             box = component["bbox"]
+            meshes = [name]
             if key in grouped:
                 previous = grouped[key]["box_mm"]
                 box = [min(previous[i], box[i]) for i in range(3)] + [
                     max(previous[i], box[i]) for i in range(3, 6)
                 ]
-            grouped[key] = {"name": key, "label": label, "role": role, "box_mm": list(box)}
+                meshes = grouped[key]["meshes"] + meshes
+            # ``meshes``: the drawn solids this callout names; its leader must end on one.
+            grouped[key] = {
+                "name": key,
+                "label": label,
+                "role": role,
+                "box_mm": list(box),
+                "meshes": meshes,
+            }
             if code:
                 grouped[key]["code"] = code
         for component in grouped.values():

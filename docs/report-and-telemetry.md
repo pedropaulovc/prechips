@@ -78,7 +78,8 @@ prior `traveler.html` so no old sheet accompanies the new report. It does not
 create PNGs or a sheet. Replacement and removal share the report transaction;
 a refusal restores every prior output, even if a stale target has already
 disappeared. No stale fixture image survives a successful run.
-The render is a 1600×1000 deterministic software drawing of kernel geometry,
+The render is a deterministic software drawing of kernel geometry, 1600 pixels
+wide and 1000 tall plus any holding detail bands below (`scene.height_px`),
 with an engine-bundled bitmap font and the engine's own PNG encoder. No host
 font, clock, image service or machine-specific metadata participates in the
 bytes. Lathe views put the headstock/chuck on the left, the tailstock on the

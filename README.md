@@ -319,15 +319,23 @@ missing `jaw_depth` or a debt-carrying jaw fact is debt and the setup picture
 is a labelled part-only view; an
 undeclared jaw centre draws only the certain jaw material plus a pale
 possible-jaw envelope and keeps samples inside it `?`. Setup diagrams are
-1600×1000 deterministic PNGs with an engine-bundled bitmap font: lathe side
-elevations, mill isometric views and custom-plate plan views, with labelled
-axes, Z0, datums, holding, stickout and the selected tool's approach. Amber
-hatching shows this setup's derived material removal (entry minus exit stock);
-profile sketches share waypoint keys with the traveler tables. Authored clamp
-order and posed inventory stops are shown explicitly. Dashed machine-context
-outlines are schematic, not measured fixture geometry, and unresolved drawing
-items remain plain-language warnings. The image is hashed into `report.json`
-with its scene record so an approval binds to it; it is not a toolpath.
+deterministic PNGs 1600 pixels wide and 1000 tall with an engine-bundled bitmap
+font: lathe side elevations, mill isometric views and custom-plate plan views,
+with labelled axes, Z0, datums, holding, stickout and the selected tool's
+approach. Amber hatching shows this setup's derived material removal (entry
+minus exit stock); profile sketches share waypoint keys with the traveler
+tables. Authored clamp order and posed inventory stops are shown explicitly.
+When the work is small beside its holding, or a plan view hides contact
+heights, a holding detail band below the picture (making the PNG taller) shows
+each holding contact face keyed with its setup coordinate and the closest cut to
+the holding. A leader that names a solid ends on that solid's visible pixels;
+a hidden numbered clamp or pad is drawn as a dashed outline of its position,
+and any other leader that cannot end on its solid is a printed `NOT SHOWN`
+render debt. Datum labels state their axis words in the setup's axes and mark
+an underside or hidden face. Dashed machine-context outlines are schematic, not
+measured fixture geometry, and unresolved drawing items remain plain-language
+warnings. The image is hashed into `report.json` with its scene record so an
+approval binds to it; it is not a toolpath.
 Before encoding, every setup diagram checks its rounded bitmap-text bounds:
 labels must keep an 8-pixel canvas margin and a 4-pixel gap from other labels,
 and no label may print below body size (21-pixel cap height, about 7 pt on

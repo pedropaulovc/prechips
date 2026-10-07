@@ -1288,6 +1288,16 @@ sheet.
    declared). The catalogue gains `centre_support`; `rules_version` is unchanged
    until the integrator refreezes goldens.
 
+   **Setup-picture details shipped (2026-10-07, review round 4):** a leader
+   naming a solid ends on that solid's visible pixels or becomes a printed
+   `NOT SHOWN` render debt; a crowded lathe exposed-end detail enlarges until
+   its point keys stand apart; datum axis words are restated in setup axes and
+   underside/hidden datum faces are marked; small work and plan views get a
+   holding detail band with kernel-computed contact faces keyed by setup
+   coordinate and the closest cut to the holding. Pictures only; no rule or
+   exit code changed, and the new leader debt joins the annotation-only
+   `render_debts`. Machinist re-review is pending.
+
    Geometry checks and rasterized pictures use **setup-entry stock** selected
    explicitly by `stock_in`: `"stock"` for one supply, `"stock.<id>"` for a
    built-up component, any earlier setup id (not just the previous setup), or an
