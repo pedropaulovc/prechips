@@ -579,7 +579,7 @@ method = "paper"
 paper_mm = 0.05                  # author's choice
 tool = "endmills-lms-6784/3-8in-4fl"
 check_jog_mm = 10.0              # author's choice
-retouch_after = [10, 20]         # op 10 faces the outer face to z = 0; op 30 changes tool
+retouch_after = [10, 15]         # op 10 faces the outer face to z = 0; op 30 changes tool
 
 [[setups.ops]]
 op = 10
@@ -615,24 +615,8 @@ to_z = -6.3                      # AUTHOR'S CHOICE: through the 6 mm ear into th
 direction = "conventional"       # author's choice
 doc_mm = 3.2                     # AUTHOR'S CHOICE: two axial levels, about 0.34D
 rough_allowance_mm = 0.3         # author's choice: radial crown stock
-contour = { method = "arc_table", step_deg = 10.0 } # author's choice: upper semicircle
+contour = { method = "stairs", cusp_mm = 0.15 } # AUTHOR'S CHOICE: stairs because a manual mill moves one handwheel at a time; 0.3 allowance + 0.15 cusp leaves 0.45, inside the 0.5 filing cap for the S4F buttons
 stock_removal_bounds = { x = [-7.0, 7.0], y = [-33.2, -25.2], z = [-6.0, 1.0] } # TC: remove crown stock from the rectangular ear retained in S3
-
-[[setups.ops]]
-op = 20
-do = "finish_profile"
-feature = "ear_arch"
-tool = "endmills-lms-6784/3-8in-4fl"
-holder = "r8-collets-lms-4860/3-8in"
-approach_mm = 5.0                # author's choice
-to_z = -6.3                      # AUTHOR'S CHOICE: 0.3 mm break-through below the ear inner face at Z -6, into the open relief
-direction = "conventional"       # author's choice
-doc_mm = 6.3                     # AUTHOR'S CHOICE: one full-depth finish pass at 0.3 mm radial, about 0.66D
-contour = { method = "arc_table", step_deg = 10.0 } # author's choice
-stock_removal_bounds = { x = [-7.0, 7.0], y = [-33.2, -25.2], z = [-6.0, 1.0] }
-
-[setups.ops.checks]
-radius = "radius-gauge"
 
 [[setups.ops]]
 op = 30
@@ -668,19 +652,62 @@ height = "height-gauge"
 [setups.ops.inspection_methods]
 height = "After release, seat datum A on the surface plate with the 6.500 mm go pin in the bore. Measure the pin top and subtract half the pin diameter; accept the 25.1-25.3 mm centre height."
 
+# ======================================================================= S4F
+# EngManualArc: bench filing of the R7 arch to filing buttons on the reamed cross bore.
+[[setups]]
+id = "S4F"
+machine = "fitting-bench"
+frame = "TC"                     # outer face up on the button stud, stud tail down in the vise
+stock_in = "S4"
+coolant = "none: bench filing"
+deburr_mm = 0.25                 # example (plausible): title-block edge break
+note = "AUTHOR'S CHOICE: file the arch to filing buttons because the reamed cross bore is their pin, so the R7 comes out concentric with the bore without a second mill setup. Off the angle plate, clamp the buttons on both ear faces through the cross bore and grip the stud tail upright in the bench vise."
+
+[setups.stock_state]             # frame TC
+top_feature = "outer_face"
+top_z = 0.0                      # outer face, under the top button
+bottom_z = -24.2                 # foot free end
+
+[setups.hold]
+fixture = "bench-vise-4in"
+pose = { origin_mm = [0.0, -25.2, -35.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] } # AUTHOR'S CHOICE: jaw tops 10.8 mm below the foot end, closed on the stud tail
+clamps = [
+  { ref = "bracket-arch-filing-buttons", restraint = "press", pose = { origin_mm = [0.0, -25.2, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "stud through the reamed cross bore, one button on each ear face, nut tightened by hand" },
+]
+clamp_order = [1]
+support = "none"
+grip_on = "AUTHOR'S CHOICE: the button stud tail in the vise jaws; the part is clamped between the buttons and never touches the jaws"
+grip_mm = "not_applicable"
+fixed_jaw = "not_applicable"
+jaws_along = "not_applicable"
+parallels = "not_applicable"
+jaw_above_parallels_mm = "not_applicable"
+stop = "AUTHOR'S CHOICE: none; steady the foot by hand against the file stroke"
+clamp = "M6 nut on the button stud, hand tight, pressing the buttons on the two ear faces"
+
+[[setups.ops]]
+op = 10
+do = "file_to_line"
+feature = "ear_arch"
+guide = { buttons = "bracket-arch-filing-buttons", bore = "cross_bore", gauge = "radius-gauge" } # AUTHOR'S CHOICE: buttons because the reamed bore centres them; the R7 leaf checks the arch
+note = "File the crown stairs left by S4 op 15 down to the hardened button rims across the full 6 mm ear, working from one arch end over the crown to the other; stop when the file rides on both buttons without cutting."
+
+[setups.ops.checks]
+radius = "radius-gauge"
+
 # ======================================================================= S5
 # Finishing is bench work off the mill: no spindle, holder, DRO or zero recipe.
 [[setups]]
 id = "S5"
 machine = "finishing-bench"
 frame = "TB"                     # seat down on the rest plate, foot top up
-stock_in = "S4"
+stock_in = "S4F"
 coolant = "none: bench finishing"
 deburr_mm = 0.25                 # example (plausible): title-block edge break
 note = "AUTHOR'S CHOICE: Off the mill, break the edges, clean the part and send it out for black oxide with nothing masked; re-gauge the bore when it comes back."
 
 [setups.stock_state]             # frame B, the finished part
-top_z = 26.2                     # ear crown: bore axis (model Y 25.2) + R7, after S4 op 20
+top_z = 26.2                     # ear crown: bore axis (model Y 25.2) + R7, after S4F op 10
 bottom_z = -6.0                  # finished seat
 
 [setups.hold]

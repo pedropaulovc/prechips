@@ -21,9 +21,9 @@ def scratch(tmp_path, feature, method, direction, rotation="'cw'", flipped=False
     plan = coordinate_bundle(
         tmp_path,
         feature,
-        "[[setups.ops]]\nop = 20\ndo = 'finish_profile'\nfeature = 'target'\n"
+        "[[setups.ops]]\nop = 20\ndo = 'rough_profile'\nfeature = 'target'\n"
         f"tool = 'cutter'\nto_z = -1.0\ndirection = {direction}\n"
-        f"contour = {{ method = '{method}', step_deg = 30.0 }}\n",
+        f"rough_allowance_mm = 0.2\ncontour = {{ method = '{method}', cusp_mm = 0.1 }}\n",
     )
     inventory = plan.with_name("inventory.toml")
     text = inventory.read_text(encoding="utf-8")
@@ -62,14 +62,14 @@ def turning(points, centre):
         ("'climb'", "'cw'", True, -OUTSIDE),
     ],
 )
-@pytest.mark.parametrize("method", ["arc_table", "linear_table"])
+@pytest.mark.parametrize("method", ["stairs", "linear_table"])
 def test_outside_contours_follow_spindle_direction_and_setup_frame(
     tmp_path, method, direction, rotation, flipped, sense
 ):
-    feature = BOSS if method == "arc_table" else SLAB
+    feature = BOSS if method == "stairs" else SLAB
     row = scratch(tmp_path, feature, method, direction, rotation, flipped)
     assert row.status == "pass", row.sentence
-    if method == "arc_table":
+    if method == "stairs":
         (arc,) = row.numbers["arc_table"]
         points = [item["setup_xy"] for item in arc["rows"]]
         centre = arc["centre_setup_xy"]
@@ -92,12 +92,12 @@ def test_outside_contours_follow_spindle_direction_and_setup_frame(
         ("'positive_setup_x'", "'cw'", "neither conventional nor climb"),
     ],
 )
-@pytest.mark.parametrize("method", ["arc_table", "linear_table"])
+@pytest.mark.parametrize("method", ["stairs", "linear_table"])
 def test_undetermined_traverse_is_unknown_never_a_claimed_order(
     tmp_path, method, direction, rotation, reason
 ):
-    row = scratch(tmp_path, BOSS if method == "arc_table" else SLAB, method, direction, rotation)
-    table = row.numbers["arc_table"][0] if method == "arc_table" else row.numbers["profiles"][0]
+    row = scratch(tmp_path, BOSS if method == "stairs" else SLAB, method, direction, rotation)
+    table = row.numbers["arc_table"][0] if method == "stairs" else row.numbers["profiles"][0]
     assert table["cut_order"] == "unknown"
     assert reason in table["cut_order_reason"]
     assert row.status == "unknown"
@@ -663,8 +663,8 @@ def test_z_levels_credit_another_features_floor_only_if_it_holds_the_whole_surfa
 
 def rocker_profile_chains(bundle):
     """(setup, op, stage, bottom arc rows, join fragments) for each rocker outline pass."""
-    for row in coordinates.evaluate(bundle):
-        for arc in row.numbers["arc_table"]:
+    for row in coordinates.evaluate(bundle, pre_kernel=True):
+        for arc in row.numbers.get("arc_table", []):
             lines = [
                 line["setup_xy"]
                 for line in row.numbers["line_table"]

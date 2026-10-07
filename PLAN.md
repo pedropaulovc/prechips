@@ -19,7 +19,10 @@ finished part, with partial-face windows whose exact per-face union decides
 coverage and finish coverage. This is not continuous toolpath proof; its
 combined integration gate remains unobserved. Physical paper rehearsal and
 live parented farm/App Insights acceptance remain pending/unobserved. Rev 6,
-2026-10-03.
+2026-10-03. Manual arcs (D1): the manual mill cuts arcs only by the 1898
+method (layout, single-axis stairs or a chain drill outside the line, bench
+filing to buttons or a template checked with a radius gauge, or chords / a
+rotary table); the MDI/`contouring` path and `arc_table` are removed.
 Sections below retain design intent; README and docs describe the shipped
 schema/CLI/rules. Rev 1 was traveler-first but promised geometric proofs
 it could not deliver. Revs 2–3 absorbed two adversarial
@@ -129,8 +132,8 @@ Rules for the sheet:
   deburr limit, cut direction, what the setup starts from, the tip endpoint
   of every hole (point length or reamer lead + exit allowance), the Z the
   top is at after each op and the number to set after each tool touch,
-  cutter-centre coordinates for a manual contour (the arc table on a
-  continuation sheet), the step that releases a held feature. Each comes
+  cutter-centre coordinates for a manual contour (stair, drill, chord or
+  rotary-table rows on a continuation sheet), the step that releases a held feature. Each comes
   from a `plan.toml` field (§3.1) or a rule's computation; none is free text
   the generator makes up. A field the author left blank is a `?` line, not
   a blank cell.
@@ -293,7 +296,7 @@ holder = "r8-3/8"
 to_z = 0.0
 direction = "climb"
 rough_allowance_mm = 0.3
-contour = { method = "arc_table", step_deg = 10 }
+contour = { method = "stairs", cusp_mm = 0.25 }
 checks = { dia = "caliper" }
 
 [[setups.ops]]
@@ -306,7 +309,7 @@ note = "lift onto the fixture plate before S4 cuts the rails free"
 The author writes the route and every holding/cutting decision above.
 prechips fills in RPM/feed, tip endpoints (from the stock state, the tool's
 point angle or reamer lead, and `exit_mm`), the Z of the top after each op
-and the per-tool touch value, cutter-centre coordinates and the arc table,
+and the per-tool touch value, cutter-centre coordinates and the stair table,
 holder clearance, and resolves tool, holder and fixture ids against the
 shop. `checks` is keyed by requirement (`dia`, `position`, `finish`,
 `depth`), one gauge per requirement, so a feature with two tolerances needs
@@ -563,7 +566,7 @@ not exist.
 | tip endpoints from stock state: the setup's `stock_state` advances per op (`to_z`); a through hole's tip endpoint = exit face − point length (`point_angle`, D) − `exit_mm`, reamer: − `lead_mm` − `exit_mm`; blind: depth + point ≤ `features.depth`; tap flute ≥ thread depth; exit face from `local_thickness[feature]`, never the stock section | plan.setups.stock_state, plan.ops.exit_mm/depth_mm/to_z, features.thru/depth, inventory.tools.point_angle/lead_mm/flute_len | M1 | fills the Z column; "6.2 drill to −2.0 leaves 0.14 of cone in the bore; go to −3.86." |
 | speeds/feeds from cutting-data, rounded, then clamped | plan.ops, inventory.tools (material, flutes, chart), machine rpm range, cutting-data | M1 | fills the columns; "? no row for O1 hardened" |
 | zero recipe: for each axis, contact reading = (edge coordinate in frame A) + side·(finder radius), side = −1 when the finder approaches from the negative side of the edge, +1 from the positive side; paper: edge + paper; the Axis Set value is that reading; the check reading = Axis Set value + sign·`check_jog_mm` where sign = +1 if `dro.direction` agrees with the frame axis, else −1; the mirrored reading = Axis Set value − sign·jog; the retouch value after each `retouch_after` op from the advanced stock state | plan.dro, plan.setups.zero (edge, approach side), plan.setups.stock_state, features.frames, inventory.tools (finder dia) | M1 | fills the DRO block; "Y direction is set 'toward' but frame A's Y points away: the sheet would mirror every Y." |
-| coordinates: feature centre → setup frame → cutter centre (tool radius for profiles; rough and finish offsets both; the arc table for `contour.method = "arc_table"`) | features.at/frames, plan.setups.frame, plan.ops.contour, inventory.tools.dia | M1 | silent when right; prints sheet 3a |
+| coordinates: feature centre → setup frame → cutter centre (tool radius for profiles; rough and finish offsets both; manual-arc tables for `contour.method` `stairs`/`chain_drill`/`chords`/`rotary_table`, docs/plan.md Manual arcs) | features.at/frames, plan.setups.frame, plan.ops.contour, inventory.tools.dia, policy.numbers.max_filing_stock_mm | M1 | silent when right; prints sheet 3a |
 | inspection per requirement: every entry in a feature's `requirements` that is a tolerance (any `*_dia`, `dia`, `finish_ra`, `depth`, `coaxiality_dia` — every requirement that carries a band, not a fixed list) has a `checks.<requirement>` on the op that finishes it, and the named gauge exists and spans the band | features.requirements, plan.ops.checks, inventory.gauges | M1 | "Rod hole position Ø0.20 has no check; the 2.00 pin proves size only." |
 | hold fields complete: fixed jaw, stop, grip, clamp, coolant, deburr, direction per cutting op, holder per op, stock state per setup | plan.setups.hold/coolant/deburr_mm/stock_state, plan.ops.direction/holder | M1 | "S3 does not say which jaw is fixed." |
 | headroom: bed-to-table height + parallels + stock height (`top_z − bottom_z` of the supported stock, never a coordinate) + tool projection + holder gauge length + 25 mm insertion ≤ spindle-to-table at full quill retract; jaw height is a separate obstruction check against the tool path, not a layer in the stack; part + fixture ≤ travel | inventory (vise bed height and jaw height, parallels, tool OAL/projection, holder gauge length, `machine.envelope` max and X/Y travel — unmeasured → `?`), plan.stock_state, plan.stock section | M1 | "Vise bed height not measured." |

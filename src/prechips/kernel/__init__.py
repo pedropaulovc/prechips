@@ -21,6 +21,7 @@ from prechips.rules.geometry_common import (
     TURNING_TOOL_KEYS,
 )
 from prechips.rules.resolution import (
+    HAND_FINISH,
     WORKHOLDING_CATEGORIES,
     inventory_category,
     number,
@@ -163,6 +164,8 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
             "kerf_mm": _accepted_length(tool, "kerf"),
             "cut_plane": saw_plane(op.get("cut_plane"), bundle.features.get("units", UNKNOWN)),
         }
+    if op.get("do") in HAND_FINISH:
+        return _hand_inputs(bundle, op, subject, finishing)
     model = approach(bundle, setup, op)
     turned = model == TURNING
     if turned:
@@ -302,11 +305,31 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
     return result
 
 
+def _hand_inputs(bundle, op, subject, finishing):
+    """A bench file's kernel inputs: its claims and the policy's ``max_filing_stock_mm``,
+    the most stock a file takes off its claimed faces; it has no machine cutter or holder."""
+    from prechips.rules.coordinates import filing_cap
+    from prechips.rules.geometry_common import HAND, finishing_subjects
+
+    result = {
+        "subject": subject,
+        "feature": op.get("feature", UNKNOWN),
+        "do": op["do"],
+        "finishing": subject in (finishing_subjects(bundle) if finishing is None else finishing),
+        "approach": HAND,
+        "max_filing_stock_mm": filing_cap(bundle),
+    }
+    if "faces" in op:
+        result["faces"] = op["faces"]
+    return result
+
+
 def table_checkpoints(subject, tables, op, units):
     """An op's printed DRO cutter-centre checkpoints in setup-frame mm: ``rows`` of id,
     ``xy_mm`` and ``tip_z_mm`` (the values the DRO shows, ``overshoot`` on a corner miter),
     each printed table's ``paths`` (``xy_mm`` in cutting order, its ``tip_z_mm``, row
-    ``ids`` and ``overshoot`` flags), and why any is unknown; None when it prints none.
+    ``ids``, ``overshoot`` flags and ``stepped``), and why any is unknown; None when it
+    prints none.
 
     A bounded op's tables (``bounded``) are whole: the kernel clips them where the cutter
     first meets stock outside the op's stock_removal_bounds. Each path then carries its
@@ -347,6 +370,7 @@ def table_checkpoints(subject, tables, op, units):
                     "tip_z_mm": points[0]["tip_z_mm"],
                     "ids": [point["id"] for point in points],
                     "overshoot": [point.get("overshoot") is True for point in points],
+                    "stepped": path["stepped"],
                 }
             )
         elif len(points) == len(path["rows"]):
@@ -915,7 +939,7 @@ def build_job(bundle):
                 "ops": [
                     op_inputs(bundle, setup, op, finishing, complete, coordinates.get(setup["id"]))
                     for op in setup["ops"]
-                    if cutting_action(op) is not False
+                    if cutting_action(op) is not False or op.get("do") in HAND_FINISH
                 ],
                 "stock_in": setup.get("stock_in", UNKNOWN),
                 "render": setup_annotations(bundle, setup, coordinates.get(setup["id"], {})),
@@ -1034,6 +1058,7 @@ _ENGINE_OP = (
     "z_from",
     "z_to",
     "angle_window_deg",
+    "max_filing_stock_mm",
     "to_dia_mm",
     *TURNING_TOOL_KEYS,
     *TURNING_HOLDER_KEYS,

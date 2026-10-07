@@ -222,7 +222,8 @@ position and angularity datums, coaxial feature and height-from feature.
 Reamed/bored/tapped datum finishing cuts replace pilots, including across that
 merged label/owner set; rough, manual (`inspect`, `deburr`, `coating`, `release`,
 `fit`, `scribe`) and other nonfinishing actions (`spot`, `transfer`, saw) never
-establish a final datum, whether named or owning. A datum name that
+establish a final datum, whether named or owning; a bench `file_to_line` is a
+finishing cut and does. A datum name that
 maps to no feature has no cuts. Every feature
 finishing-cut/datum-cut pair is evaluated. Same setup passes; an indicated
 transfer passes only when it names that feature/datum and originates at or

@@ -25,6 +25,7 @@ from ..model import tolerance_requirements
 from ._bench import manual_bench, not_applicable
 from .datum_consistency import _cuts
 from .resolution import (
+    HAND_FINISH,
     UNKNOWN,
     _citations,
     length_mm,
@@ -516,24 +517,6 @@ def cut_order(machine, op):
     return None, {"cut_order": UNKNOWN, "cut_order_reason": reason}
 
 
-def contouring(machine):
-    """(the machine's contouring, or None, and why it is unknown).
-
-    ``mdi`` types each arc or diagonal row as one coordinated MDI move; ``jog`` moves one
-    handwheel axis at a time. Only a bare value or a ``{value, measured}`` fact not flagged
-    ``verify`` declares it; anything else leaves arc and diagonal moves unproven.
-    """
-    value = mapping(machine).get("contouring", UNKNOWN)
-    flagged = isinstance(value, dict) and value.get("verify") is True
-    if isinstance(value, dict):
-        value = value.get("value", UNKNOWN)
-    if flagged:
-        return None, "flagged verify"
-    if value not in ("mdi", "jog"):
-        return None, "not declared"
-    return value, None
-
-
 def _reversal(a, b, normal, sense):
     """Whether travel a->b (setup XY) must reverse to cut with ``sense``, or None.
 
@@ -813,20 +796,26 @@ def _route_points(route):
 
 
 def _stair(printed, path, normal, walls, cutter, offset):
-    """(routes, cusp, None) or (None, None, why not): single-axis handwheel moves through
-    the ``printed`` points (setup XY).
+    """(steps, cusp, nearest, None) or (None, None, None, why not): single-axis handwheel
+    moves through the ``printed`` points (setup XY).
 
     Each route runs from one printed point to the next. Where they differ on both axes it
     turns one corner, (b.x, a.y) or (a.x, b.y): one whose legs come no nearer any wall
     (``walls``: point -> distance) than the cutter-centre ``offset`` (or than either end,
-    if that is nearer: :func:`_dro_xy`), the farther from the walls (the scrap side). The
-    cusp is the most material a target-surface point (``offset - cutter`` from a wall, so
-    none past a wall's end) keeps from the stepped cutter of radius ``cutter``:
+    if that is nearer: :func:`_dro_xy`), the farther from the walls (the scrap side).
+    Consecutive legs on one handwheel merge into one move, dropping the point between
+    them: an axis never reverses for a step inside one move (a concave arc's tangent row
+    is such a dip), which backlash makes unreliable, and the merged move lies on the legs
+    it replaces, so it comes no nearer a wall. ``steps`` are (point, axis moved, printed
+    row index or None for a corner) after the first printed point, in handwheel order.
+    The cusp is the most material a target-surface point (``offset - cutter`` from a
+    wall, so none past a wall's end) keeps from the stepped cutter of radius ``cutter``:
     ``path(k, t)`` is the exact cutter centre a fraction t from point k to k + 1 and
-    ``normal(k, xy)`` its unit normal from the wall toward the cutter.
+    ``normal(k, xy)`` its unit normal from the wall toward the cutter. ``nearest`` is the
+    least wall distance of any cutter centre on the moves.
     """
     if not walls or not number(cutter) or not all(_pair(p) for p in printed):
-        return None, None, "its printed points or walls are unknown"
+        return None, None, None, "its printed points or walls are unknown"
     routes = []
     for a, b in itertools.pairwise(printed):
         floors = [min(offset, wall(a), wall(b)) - _WALL_TOL for wall in walls]
@@ -845,11 +834,35 @@ def _stair(printed, path, normal, walls, cutter, offset):
             )
         ]
         if not clear:
-            return None, None, f"no single-axis step from {a} to {b} stays clear of the part"
+            return None, None, None, STAIR_BLOCKED.format(a=a, b=b)
         routes.append(max(clear, key=lambda route: min(wall(route[1]) for wall in walls)))
+    steps, spans = [], []  # spans: the first and last route each move steps
+    for k, route in enumerate(routes):
+        for p, q in itertools.pairwise(route):
+            if p == q:
+                continue
+            axis, index, first = "Y" if p[0] == q[0] else "X", None, k
+            if q is route[-1]:
+                index = k + 1
+            if steps and steps[-1][1] == axis:
+                first = spans.pop()[0]
+                steps.pop()
+                if q == (steps[-1][0] if steps else printed[0]):
+                    continue  # out and back to the same reading: no move at all
+            steps.append((q, axis, index))
+            spans.append((first, k))
+    points = [printed[0], *(step[0] for step in steps)]
+    moves = list(zip(itertools.pairwise(points), spans, strict=True))
+    nearest = min(
+        (wall(p) for move, _ in moves for p in _route_points(move) for wall in walls),
+        default=min(wall(printed[0]) for wall in walls),
+    )
     cusp = 0.0
     for k in range(len(routes)):
-        legs = [leg for route in routes[max(0, k - 1) : k + 2] for leg in itertools.pairwise(route)]
+        legs = [move for move, (first, last) in moves if first <= k + 1 and last >= k - 1]
+        legs = legs or [move for move, _ in moves]
+        if not legs:
+            continue
         for i in range(1, _STAIR_SAMPLES):
             xy = path(k, i / _STAIR_SAMPLES)
             n = normal(k, xy)
@@ -857,38 +870,20 @@ def _stair(printed, path, normal, walls, cutter, offset):
             if abs(min(wall(face) for wall in walls) - (offset - cutter)) > _JOIN_TOL:
                 continue  # past a wall's end (a join's miter run-out): no surface there
             cusp = max(cusp, min(_to_segment(face, p, q) for p, q in legs) - cutter)
-    return routes, cusp, None
+    return steps, cusp, nearest, None
 
 
-def _steps(routes):
-    """Each route's points after its first as (point, axis moved, printed row index or None
-    for a corner): the order the handwheel steps them."""
-    for k, route in enumerate(routes):
-        for p, q in itertools.pairwise(route):
-            yield q, "Y" if p[0] == q[0] else "X", k + 1 if q is route[-1] else None
-
-
-def _stair_band(feature, key, outward):
-    """The material a stair may leave on an arc wall: the feature's ``key`` band between
-    nominal and its limit on the material side (``outward``: the cutter runs outside the
-    wall radius, so material left grows it), halved for a diameter; else unknown."""
-    band, nominal = feature.get(key), _nominal(feature, key)
-    if not (
-        isinstance(band, list)
-        and len(band) == 2
-        and all(number(v) for v in band)
-        and number(nominal)
-    ):
-        return UNKNOWN
-    margin = band[1] - nominal if outward > 0 else nominal - band[0]
-    return margin / 2 if key == "dia" else margin
+# Why a stair cannot be stepped: every single-axis corner between two rows would bring the
+# cutter nearer the finished line than its rough offset (an error, never a debt).
+STAIR_BLOCKED = "no single-axis step from {a} to {b} stays outside the line"
 
 
 def _jog(arc, lines, centre, outward, walls, cutter, offset):
     """Step ``arc`` and its join ``lines`` in single-axis moves (:func:`_stair`, walls kept
     ``offset`` away): each row names the axis (``jog``) moved to reach it and each corner
-    is a row of its own (``corner``); each table records its ``stair_cusp_mm``, else its
-    ``stair_reason``."""
+    is a row of its own (``corner``); each table records its ``stair_cusp_mm`` and
+    ``line_clear_mm`` (the least gap from the stepped cutter's edge to the finished line),
+    else its ``stair_reason``."""
     rows = arc["rows"]
     exact = [row["setup_xy"] for row in rows]
     if not (_pair(centre) and all(_pair(p) for p in exact)):
@@ -906,14 +901,14 @@ def _jog(arc, lines, centre, outward, walls, cutter, offset):
         span = math.dist(xy, centre)
         return [outward * (xy[i] - centre[i]) / span for i in range(2)]
 
-    routes, cusp, why = _stair(
+    steps, cusp, nearest, why = _stair(
         [row["dro_xy"] for row in rows], along, radial, walls, cutter, offset
     )
     if why:
         arc["stair_reason"] = why
         return
     stepped = [rows[0]]
-    for point, axis, index in _steps(routes):
+    for point, axis, index in steps:
         row = rows[index] if index is not None else None
         if row is None:
             row = {
@@ -929,7 +924,7 @@ def _jog(arc, lines, centre, outward, walls, cutter, offset):
             }
         row["jog"] = axis
         stepped.append(row)
-    arc.update(rows=stepped, stair_cusp_mm=cusp)
+    arc.update(rows=stepped, stair_cusp_mm=cusp, line_clear_mm=nearest - cutter)
     for line in lines:
         exact = line["setup_xy"]
         if not all(_pair(p) for p in exact):
@@ -948,13 +943,13 @@ def _jog(arc, lines, centre, outward, walls, cutter, offset):
             behind = min(wall([xy[i] - 1e-3 * n[i] for i in range(2)]) for wall in walls)
             return n if ahead >= behind else [-n[0], -n[1]]
 
-        routes, cusp, why = _stair(line["dro_xy"], straight, away, walls, cutter, offset)
+        steps, cusp, nearest, why = _stair(line["dro_xy"], straight, away, walls, cutter, offset)
         if why:
             line["stair_reason"] = why
             continue
         columns = {key: [line[key][0]] for key in _LINE_COLUMNS}
         columns["jog"] = [None]
-        for point, axis, index in _steps(routes):
+        for point, axis, index in steps:
             corner = {
                 "model_xy": [UNKNOWN, UNKNOWN],
                 "setup_xy": list(point),
@@ -964,7 +959,56 @@ def _jog(arc, lines, centre, outward, walls, cutter, offset):
             for key in _LINE_COLUMNS:
                 columns[key].append(corner[key] if index is None else line[key][index])
             columns["jog"].append(axis)
-        line.update(columns, stair_cusp_mm=cusp)
+        line.update(columns, stair_cusp_mm=cusp, line_clear_mm=nearest - cutter)
+
+
+def _stair_angles(start, end, forced, at, centre, outward, cusp, cutter):
+    """Feature angles from ``start`` to ``end`` (through every ``forced`` angle, the
+    setup-axis tangents of :func:`_axis_tangents`) spaced as far apart as a single-axis
+    stair between neighbours keeps the material it leaves on the wall within ``cusp``:
+    ``at(angle)`` is the setup XY of the cutter centre there, the stair's corner is the
+    one on the scrap side (``outward``: away from ``centre`` when the cutter runs outside
+    the wall) and the wall sits ``cutter`` (the cutter radius; 0 when unknown) inside the
+    cutter-centre arc. :func:`_stair` measures the printed stair's actual cusp."""
+    span = abs(end - start)
+    radius = math.dist(at(start), centre)
+    reach = cutter if number(cutter) else 0.0
+    count = min(_STAIR_CANDIDATES, max(8, math.ceil(math.radians(span) * radius / (cusp / 4))))
+    stops = sorted({start, end, *forced}, reverse=end < start)
+    angles = [stops[0]]
+    for a, b in itertools.pairwise(stops):
+        pieces = max(1, math.ceil(count * abs(b - a) / span))
+        candidates = [a + (b - a) * i / pieces for i in range(pieces + 1)]
+        points = [at(angle) for angle in candidates]
+        faces = []
+        for p in points:
+            gap = math.dist(p, centre) or 1.0
+            faces.append([p[k] - reach * outward * (p[k] - centre[k]) / gap for k in range(2)])
+
+        def fits(i, j, points=points, faces=faces):
+            p, q = points[i], points[j]
+            corners = ([q[0], p[1]], [p[0], q[1]])
+            corner = (max if outward > 0 else min)(corners, key=lambda c: math.dist(c, centre))
+            middle = range(i + 1, j, max(1, (j - i) // _STAIR_SAMPLES))
+            return all(
+                min(_to_segment(faces[m], p, corner), _to_segment(faces[m], corner, q)) - reach
+                <= cusp
+                for m in middle
+            )
+
+        i = 0
+        while i < pieces:
+            low, high = i + 1, pieces
+            while low < high:  # the farthest candidate whose stair still fits
+                middle = (low + high + 1) // 2
+                low, high = (middle, high) if fits(i, middle) else (low, middle - 1)
+            angles.append(candidates[low])
+            i = low
+    return angles
+
+
+# The most candidate angles one stair table is spaced from.
+_STAIR_CANDIDATES = 20000
 
 
 def _arc(
@@ -978,20 +1022,27 @@ def _arc(
     sense,
     order,
     grid,
-    capability=None,
+    method,
     cutter=UNKNOWN,
 ):
-    """([the arc table], join lines) in cutting order for ``sense`` (see cut_order).
+    """([the arc table], join lines, walls) in cutting order for ``sense`` (cut_order).
 
     The cutter-side wall normal is radial: outward when the cutter centre runs outside the
     wall radius, inward on a concave wall. A join's normal is its offset land's normal.
     Every row and join point carries the value the DRO prints on ``grid``
     (:func:`dro_grid`), never nearer the feature's walls (:func:`_printed`); each join's
     corner miter, the run-out past its land and taper walls, is flagged ``overshoot``. A
-    bounded op's tables are whole here: the kernel clips them (:func:`_kernel_clip`). On a
-    ``jog`` machine (``capability``) the rows include each setup-axis tangent and step in
-    single-axis moves of a cutter of radius ``cutter`` (:func:`_jog`), with the band its
-    stair is held to (``stair_band_mm``, :func:`_stair_band`).
+    bounded op's tables are whole here: the kernel clips them (:func:`_kernel_clip`).
+    ``walls`` (point -> distance to each feature wall, setup XY) is empty when unknown.
+
+    The ``method`` spaces the rows: ``stairs`` rows are spaced through each setup-axis
+    tangent so each printed stair stays within the contour's ``cusp_mm``
+    (:func:`_stair_angles`, :func:`_respaced`; joins are split likewise) and step in
+    single-axis moves of a cutter of radius ``cutter`` (:func:`_jog`, which drops a
+    tangent row a move runs through); ``chain_drill`` rows are hole centres no more than
+    ``pitch_mm`` apart along the path; ``rotary_table`` rows sample the cutter-centre arc
+    every ``step_deg``; ``chords`` rows are the ``count + 1`` chord vertices
+    :func:`_chords` replaces.
     """
     radius = _nominal(feature, "radius")
     centre = feature.get("arc_centre", feature.get("at"))
@@ -1009,7 +1060,7 @@ def _arc(
         and len(centre) == 3
         and all(number(v) for v in centre)
     ):
-        return [], []
+        return [], [], []
     cutter_radius = radius + offset
     start, end = 0.0, 360.0 if full else 180.0
     vertical_angle = False
@@ -1021,7 +1072,7 @@ def _arc(
             top = mapping(features.get(feature.get("top_edge_feature")))
             joins = _joins(top, feature, offset)
             if joins is None:
-                return [], []
+                return [], [], []
             endpoint = joins[2] if joins else feature.get("bottom_end")
         else:
             cutter_radius = radius - offset
@@ -1029,10 +1080,10 @@ def _arc(
             endpoints = [_top_join(feature, linked_feature, offset) for linked_feature in linked]
             if linked:
                 if any(point is None for point in endpoints):
-                    return [], []
+                    return [], [], []
                 endpoint = endpoints[0]
                 if any(math.dist(endpoint, point) > 1e-9 for point in endpoints[1:]):
-                    return [], []
+                    return [], [], []
                 # Each land as _top_join takes it, on both halves of the mirrored top arc.
                 lands = [
                     [
@@ -1045,29 +1096,28 @@ def _arc(
             else:
                 endpoint = feature.get("end")
         if not isinstance(endpoint, list) or not all(number(v) for v in endpoint):
-            return [], []
+            return [], [], []
         half = math.degrees(math.atan2(endpoint[0] - centre[0], centre[1] - endpoint[1]))
         start, end = -half, half
     elif not full and feature.get("arc") != "upper_semicircle":
-        return [], []
+        return [], [], []
     if cutter_radius <= 0:
-        return [], []
-    step = mapping(op.get("contour")).get("step_deg", UNKNOWN)
-    angles = _samples(start, end, step)
+        return [], [], []
+    contour = mapping(op.get("contour"))
+    model_centre = model_point(centre, frames.get(feature.get("frame", "model")))
+    centre_xy = frame_point(model_centre, frame)[:2]
+
+    def setup_xy(point):
+        return frame_point(_xy_model(point, feature, frames), frame)[:2]
+
+    def unit(angle):
+        theta = math.radians(angle)
+        if vertical_angle:
+            return [math.sin(theta), -math.cos(theta)]
+        return [math.cos(theta), math.sin(theta)]
 
     def row_at(angle):
-        theta = math.radians(angle)
-        xy = (
-            [
-                centre[0] + cutter_radius * math.sin(theta),
-                centre[1] - cutter_radius * math.cos(theta),
-            ]
-            if vertical_angle
-            else [
-                centre[0] + cutter_radius * math.cos(theta),
-                centre[1] + cutter_radius * math.sin(theta),
-            ]
-        )
+        xy = [centre[i] + cutter_radius * unit(angle)[i] for i in range(2)]
         local = frame_point(_xy_model(xy, feature, frames), frame)
         return {
             "angle_deg": angle,
@@ -1078,52 +1128,79 @@ def _arc(
             "tip_z": op.get("to_z", UNKNOWN),
         }
 
-    model_centre = model_point(centre, frames.get(feature.get("frame", "model")))
-    centre_xy = frame_point(model_centre, frame)[:2]
-    if capability == "jog" and len(angles) >= 2 and _pair(centre_xy):
-        probe = [row_at(angles[0] + delta)["setup_xy"] for delta in (0.0, 1.0)]
-        if all(_pair(point) for point in probe):
+    outward = 1 if cutter_radius > radius else -1
+    span = math.radians(abs(end - start)) * cutter_radius
+    step = UNKNOWN
+    angles, space = [], None
+    if method == "rotary_table":
+        step = contour.get("step_deg", UNKNOWN)
+        angles = _samples(start, end, step)
+    elif method == "chords" and isinstance(contour.get("count"), int) and contour["count"] > 0:
+        angles = [start + (end - start) * i / contour["count"] for i in range(contour["count"] + 1)]
+    elif method == "chain_drill" and number(contour.get("pitch_mm")) and contour["pitch_mm"] > 0:
+        pieces = max(1, math.ceil(span / contour["pitch_mm"]))
+        angles = [start + (end - start) * i / pieces for i in range(pieces + 1)]
+    elif method == "stairs" and number(contour.get("cusp_mm")) and contour["cusp_mm"] > 0:
+        base = setup_xy(centre[:2])
+        axes = [setup_xy([centre[0] + (i == 0), centre[1] + (i == 1)]) for i in range(2)]
+        if _pair(base) and all(_pair(p) for p in axes):
+            basis = [[p[j] - base[j] for j in range(2)] for p in axes]
+
+            def at(angle):
+                u = unit(angle)
+                return [
+                    base[j] + cutter_radius * (u[0] * basis[0][j] + u[1] * basis[1][j])
+                    for j in range(2)
+                ]
+
             first, second = (
-                math.degrees(math.atan2(p[1] - centre_xy[1], p[0] - centre_xy[0])) for p in probe
+                math.degrees(math.atan2(p[1] - base[1], p[0] - base[0]))
+                for p in (at(start), at(start + 1.0))
             )
             hand = 1 if (second - first + 180) % 360 - 180 > 0 else -1
-            angles = _axis_tangents(angles, first, hand)
-    rows = [row_at(angle) for angle in angles]
-    outward = 1 if cutter_radius > radius else -1
-    reverse, arc_side = None, UNKNOWN
-    if len(rows) >= 2 and cutter_radius != radius and all(number(v) for v in centre_xy):
-        a, b = rows[len(rows) // 2 - 1]["setup_xy"], rows[len(rows) // 2]["setup_xy"]
-        if all(number(v) for v in (*a, *b)):
-            normal = [outward * ((a[i] + b[i]) / 2 - centre_xy[i]) for i in range(2)]
-            reverse = _reversal(a, b, normal, sense)
-            arc_side = _side(a, b, normal, reverse)
-    arc = {
-        "feature": feature_name,
-        "op": op["op"],
-        "method": "arc_table",
-        "step_deg": step,
-        "centre_model_xy": model_centre[:2],
-        "centre_setup_xy": centre_xy,
-        "cutter_centre_radius_mm": cutter_radius,
-        "radius_mm": cutter_radius,
-        "full_circle": full,
-        "tip_z": op.get("to_z", UNKNOWN),
-        "rows": rows,
-        "basis": (
-            "nominal selected cutter size; measured geometry and frame binding "
-            + "govern readiness"
-        ),
-    }
-    _ordered(arc, reverse, order, ("rows",))
-    arc["cutter_side"] = arc_side
-    if capability == "jog":
-        key = "dia" if full else "bottom_radius" if bottom else "radius"
-        arc["stair_band_mm"] = _stair_band(feature, key, outward)
+            forced = _axis_tangents([start, end], first, hand)
+
+            def space(target):
+                return _stair_angles(start, end, forced, at, base, outward, target, cutter)
+
+            angles = space(contour["cusp_mm"])
+
+    def table(angles):
+        rows = [row_at(angle) for angle in angles]
+        reverse, arc_side = None, UNKNOWN
+        if len(rows) >= 2 and cutter_radius != radius and all(number(v) for v in centre_xy):
+            a, b = rows[len(rows) // 2 - 1]["setup_xy"], rows[len(rows) // 2]["setup_xy"]
+            if all(number(v) for v in (*a, *b)):
+                normal = [outward * ((a[i] + b[i]) / 2 - centre_xy[i]) for i in range(2)]
+                reverse = _reversal(a, b, normal, sense)
+                arc_side = _side(a, b, normal, reverse)
+        arc = {
+            "feature": feature_name,
+            "op": op["op"],
+            "method": method,
+            **({"step_deg": step} if method == "rotary_table" else {}),
+            **({"cusp_mm": contour["cusp_mm"]} if method == "stairs" and angles else {}),
+            "centre_model_xy": model_centre[:2],
+            "centre_setup_xy": centre_xy,
+            "wall_radius_mm": radius,
+            "cutter_radius_mm": cutter,
+            "cutter_centre_radius_mm": cutter_radius,
+            "radius_mm": cutter_radius,
+            "full_circle": full,
+            "tip_z": op.get("to_z", UNKNOWN),
+            "rows": rows,
+            "basis": (
+                "nominal selected cutter size; measured geometry and frame binding "
+                + "govern readiness"
+            ),
+        }
+        _ordered(arc, reverse, order, ("rows",))
+        arc["cutter_side"] = arc_side
+        return arc
+
+    arc = table(angles)
     walls, miters = [], []  # point -> distance to each feature wall; join miter points
     known = all(number(v) for v in centre_xy)  # else no wall is placed and no DRO value
-
-    def setup_xy(point):
-        return frame_point(_xy_model(point, feature, frames), frame)[:2]
 
     def rim(wall_radius, end_xy):
         """point -> distance to the wall arc of ``wall_radius`` about the centre: mirrored
@@ -1185,16 +1262,76 @@ def _arc(
             reverse = _reversal(local[0], local[1], normal, sense)
             lines.append(_ordered(line, reverse, order, ("model_xy", "setup_xy")))
             line["cutter_side"] = _side(local[0], local[1], normal, reverse)
-    if not rows:
-        return [], []
-    _printed([arc], lines, grid, walls if known else [], offset)
+    if not angles:
+        return [], [], []
+    if method == "stairs":
+        for line in lines:
+            _split(line, contour["cusp_mm"])
+    walls = walls if known else []
+    if space is not None and walls:
+
+        def measure(angles):
+            trial = table(angles)
+            _printed([trial], [], grid, walls, offset)
+            _jog(trial, [], centre_xy, outward, walls, cutter, offset)
+            return trial.get("stair_cusp_mm")
+
+        arc = table(_respaced(angles, space, contour["cusp_mm"], measure))
+    _printed([arc], lines, grid, walls, offset)
     for line in lines:
         line["overshoot"] = [any(p is m for m in miters) for p in line["model_xy"]]
         if any(line["overshoot"]):
             line["overshoot_note"] = OVERSHOOT_NOTE
-    if capability == "jog":
-        _jog(arc, lines, centre_xy, outward, walls if known else [], cutter, offset)
-    return [arc], lines
+    if method == "stairs":
+        _jog(arc, lines, centre_xy, outward, walls, cutter, offset)
+        if arc.get("stair_cusp_mm", 0.0) > contour["cusp_mm"] + _JOIN_TOL:
+            arc["stair_reason"] = STAIR_SPACING.format(
+                cusp=round(arc["stair_cusp_mm"], 4), target=contour["cusp_mm"]
+            )
+    return [arc], lines, walls
+
+
+def _respaced(angles, space, cusp, measure):
+    """Stair ``angles`` respaced (``space(target)``: :func:`_stair_angles`) until the
+    printed stair through them keeps within ``cusp`` (``measure(angles)``: the printed
+    stair's cusp, None when it cannot be stepped). The DRO grid moves each printed row a
+    little outside the exact point the spacing fits, so the target shrinks by each excess,
+    at most :data:`_STAIR_RESPACINGS` times; :func:`_arc` measures the result again."""
+    target = cusp
+    for _ in range(_STAIR_RESPACINGS):
+        measured = measure(angles)
+        if measured is None or measured <= cusp:
+            return angles
+        target -= measured - cusp
+        if target <= 0:
+            return angles
+        angles = space(target)
+    return angles
+
+
+# The most times a stair table is respaced to keep its printed cusp within ``cusp_mm``.
+_STAIR_RESPACINGS = 6
+# Why a stair table is unproven: no spacing kept its printed stair within ``cusp_mm``.
+STAIR_SPACING = "its printed stairs leave {cusp} mm on the wall, more than cusp_mm {target}"
+
+
+def _split(line, cusp):
+    """Split each leg of a join ``line`` into equal pieces whose single-axis stair keeps
+    within ``cusp`` of it (a stair across a leg of run dx, rise dy over n pieces leaves
+    |dx·dy| / (n·length))."""
+    model, setup = [line["model_xy"][0]], [line["setup_xy"][0]]
+    for k in range(1, len(line["setup_xy"])):
+        a, b = line["setup_xy"][k - 1], line["setup_xy"][k]
+        pieces = 1
+        if _pair(a) and _pair(b) and math.dist(a, b) > 0:
+            corner = abs((b[0] - a[0]) * (b[1] - a[1])) / math.dist(a, b)
+            pieces = max(1, math.ceil(corner / cusp))
+        for i in range(1, pieces):
+            model.append(_between(line["model_xy"][k - 1], line["model_xy"][k], i / pieces))
+            setup.append(_between(a, b, i / pieces))
+        model.append(line["model_xy"][k])
+        setup.append(b)
+    line.update(model_xy=model, setup_xy=setup)
 
 
 def _boundary(feature, frame, frames):
@@ -1937,9 +2074,10 @@ def checkpoints(subject, numbers, op):
 
     A table is its ``name`` and ``kind`` (:func:`row_id`), its ``rows`` of (row id,
     printed setup XY ``dro_xy``, printed tip Z ``dro_tip_z``, corner overshoot?) in plan
-    units, whether the kernel must clip it at its op's stock_removal_bounds (``bounded``)
-    and the side of its travel its cutter clears from (``cutter_side``). What the DRO
-    shows is what the kernel clips and checks.
+    units, whether the kernel must clip it at its op's stock_removal_bounds (``bounded``),
+    the side of its travel its cutter clears from (``cutter_side``) and whether its rows
+    are single-axis stair steps (``stepped``: keyed at its ends and miters, not every
+    step). What the DRO shows is what the kernel clips and checks.
     """
     result = []
     for kind in ("arc_table", "line_table"):
@@ -1971,6 +2109,7 @@ def checkpoints(subject, numbers, op):
                     "bounded": table.get("kernel_clip") is True,
                     "cutter_side": table.get("cutter_side", UNKNOWN),
                     "directed": table.get("cut_order") in _CUT_SENSE,
+                    "stepped": "stair_cusp_mm" in table,
                 }
             )
     return result
@@ -2215,99 +2354,542 @@ def _diagonal(points):
     )
 
 
-def _moves(arcs, lines, capability, incapable, name, finish, decimals):
-    """(why one stage's arc moves are unproven, its stair error, whether its tables are
-    withheld), stamping each table's ``contouring`` and each arc's ``interpolation``.
-
-    An arc needs the machine's declared contouring (:func:`contouring`): ``mdi`` types
-    each row's move; ``jog`` steps one axis at a time (:func:`_jog`) and a finish stage
-    holds the stair's cusp to the feature's band. A rough stage's cusp is recorded, not
-    held: the finish pass removes it. Rows that cannot be stepped, or whose stair leaves
-    more than the band, are withheld."""
-    if not arcs:
-        return None, None, False
-    for table in (*arcs, *lines):
-        table["contouring"] = capability or UNKNOWN
-    for arc in arcs:
-        arc["interpolation"] = (
-            f"checkpoints only: the machine's contouring is {incapable}"
-            if capability is None
-            else "one handwheel axis per row"
-            if capability == "jog"
-            else "continuous circle: one G2/G3 MDI move per row"
-            if arc["full_circle"]
-            else "one G2/G3 MDI move per row"
-        )
-    if capability is None:
-        return f"needs arc moves and the machine's contouring is {incapable}", None, False
-    if capability == "mdi":
-        return None, None, False
-    debt = next((t["stair_reason"] for t in (*arcs, *lines) if "stair_reason" in t), None)
-    if debt:
-        return f"cannot be stepped in single-axis moves: {debt}", None, True
-    cusp = max(table["stair_cusp_mm"] for table in (*arcs, *lines))
-    band = arcs[0].get("stair_band_mm", UNKNOWN)
-    if not finish:
-        return None, None, False
-    if not number(band):
-        return (
-            f"leaves a {cusp:.{decimals}f} single-axis stair and {name} has no tolerance "
-            "band to hold it to",
-            None,
-            False,
-        )
-    if cusp > band + _WALL_TOL:
-        return (
-            None,
-            f"single-axis steps leave {cusp:.{decimals}f} on {name}, more than its {band:g} band",
-            True,
-        )
-    return None, None, False
+# The manual-mill arc methods (docs/plan.md "Manual arcs"): rough outside the scribed line
+# in single-axis stairs or a chain of drilled holes and file to it (rules/manual_arc.py),
+# or finish it as straight chords or on a rotary table. No method moves two axes at once.
+ROUGH_METHODS = frozenset({"stairs", "chain_drill"})
+FINISH_METHODS = frozenset({"chords", "rotary_table"})
+ARC_METHODS = ROUGH_METHODS | FINISH_METHODS
+REMOVED_ARC_TABLE = (
+    "contour method arc_table moves two handwheels at once, which a manual mill cannot: "
+    "rough the arc in stairs or chain_drill and file it to the line, or cut it as chords "
+    "or on a rotary_table"
+)
+DIAGONAL_OUTLINE = (
+    "needs diagonal moves: a manual mill moves one handwheel at a time and single-axis "
+    "stairs along an outline are not computed"
+)
+# Plan units a cutter edge or drilled hole may reach past the finished line before it
+# counts as cutting into the part.
+_INSIDE_TOL = 1e-6
+# What makes a centre feature a hole to pin or indicate the rotary table on.
+_CENTRE_FORMS = frozenset({"drill", "ream", "bore"})
+# How a chain-drilled line opens: the webs break along the hole centres, so the file
+# meets up to the allowance plus a drill radius.
+CHAIN_BREAK_OUT = "chisel the webs out along the hole centres"
 
 
-def _mdi(arcs, lines):
-    """Stamp each printed row with the MDI move that reaches it (``mdi``): G1 to a table's
-    first row, to and from a clip point and along a join; between arc rows G2 (clockwise)
-    or G3 (counterclockwise) with I, J from the previous printed row to the arc centre."""
-    for arc in arcs:
-        centre, rows = arc["centre_setup_xy"], arc["rows"]
-        known = _pair(centre) and all(_pair(row["dro_xy"]) for row in rows)
-        turn = (
-            sum(
-                (a["dro_xy"][0] - centre[0]) * (b["dro_xy"][1] - centre[1])
-                - (a["dro_xy"][1] - centre[1]) * (b["dro_xy"][0] - centre[0])
-                for a, b in itertools.pairwise(rows)
+def filing_cap(bundle):
+    """The shop policy ``numbers.max_filing_stock_mm``: the most stock a rough stair or a
+    drilled chain may leave the file; unknown when absent, negative, uncited or not
+    explicitly verified (``numbers_verify`` false for it)."""
+    cap = mapping(bundle.policy.get("numbers")).get("max_filing_stock_mm", UNKNOWN)
+    verify = bundle.policy.get("numbers_verify", False)
+    if isinstance(verify, dict):
+        verify = verify.get("max_filing_stock_mm", False)
+    cited = _citations(mapping(bundle.policy.get("numbers_cite")).get("max_filing_stock_mm"))
+    known = number(cap) and cap >= 0 and verify is False and bool(cited)
+    return cap if known else UNKNOWN
+
+
+def _filed(stock, cap, label):
+    """(errors, debts) for a rough method leaving up to ``stock`` for the file."""
+    if not number(cap):
+        return [], [
+            f"{label} leaves up to {stock:.3f} for the file and the shop policy sets no "
+            "max_filing_stock_mm"
+        ]
+    if stock > cap + _WALL_TOL:
+        return [
+            f"{label} leaves up to {stock:.3f} for the file, more than the shop's {cap:g} cap"
+        ], []
+    return [], []
+
+
+def _stairs(tables, allowance, cap, label, recut=None):
+    """(errors, debts): rough stairs stay outside the finished line and leave at most the
+    filing ``cap``: the allowance plus the stairs' measured cusp; a rough a later rough
+    ``recut`` cuts again (:func:`_recut_by`) leaves its stock to that op, not the file. A
+    stair no single-axis corner can step outside the line is an error; unknown inputs are
+    debt."""
+    errors, debts = [], []
+    for table in tables:
+        reason = table.get("stair_reason")
+        if reason is not None:
+            blocked = reason.startswith(STAIR_BLOCKED.split("{")[0])
+            (errors if blocked else debts).append(f"{label}: {reason}")
+    if errors or debts:
+        return errors, debts
+    inside = min(table["line_clear_mm"] for table in tables)
+    if inside < -_INSIDE_TOL:
+        errors.append(f"{label}: a stair's cutter edge reaches {-inside:.3f} past the line")
+    stock = allowance + max(table["stair_cusp_mm"] for table in tables)
+    for table in tables:
+        table.update(stock_left_mm=stock, **_leaves(cap, recut))
+    if recut:
+        return errors, debts
+    more, debts = _filed(stock, cap, f"{label} stairs")
+    return errors + more, debts
+
+
+def _leaves(cap, recut):
+    """Who takes a rough's leftover stock: a later rough (``recut_by``) or the file (cap)."""
+    return {"recut_by": recut} if recut else {"stock_cap_mm": cap}
+
+
+def _holes(arc, walls, drill, allowance, cap, label, recut=None):
+    """(errors, debts): a drilled chain keeps every hole's full diameter outside the line,
+    a web between neighbours and at most ``cap`` for the file once the webs are broken
+    out along the hole centres (the allowance plus a drill radius)."""
+    holes = [row["dro_xy"] for row in arc["rows"]]
+    if not walls or not number(drill) or not all(_pair(p) for p in holes):
+        return [], [f"{label}: its hole centres or the finished line are unknown"]
+    errors = []
+    clear = [min(wall(p) for wall in walls) - drill for p in holes]
+    for k, gap in enumerate(clear, start=1):
+        if gap < -_INSIDE_TOL:
+            errors.append(f"{label}: hole {k} reaches {-gap:.3f} past the line")
+    for k, (a, b) in enumerate(itertools.pairwise(holes), start=1):
+        if math.dist(a, b) <= 2 * drill + _WALL_TOL:
+            errors.append(
+                f"{label}: holes {k} and {k + 1} are {math.dist(a, b):.3f} apart, no web for "
+                f"a {2 * drill:g} drill to run against"
             )
-            if known
-            else UNKNOWN
-        )
-        for k, row in enumerate(rows):
-            if k == 0 or "clipped_at" in row or "clipped_at" in rows[k - 1]:
-                row["mdi"] = {"g": "G1"}
-            elif not known:
-                row["mdi"] = {"g": UNKNOWN, "i": UNKNOWN, "j": UNKNOWN}
-            else:
-                start = rows[k - 1]["dro_xy"]
-                row["mdi"] = {
-                    "g": "G3" if turn > 0 else "G2",
-                    "i": centre[0] - start[0],
-                    "j": centre[1] - start[1],
-                }
-    for line in lines:
-        line["mdi"] = [{"g": "G1"} for _ in line["setup_xy"]]
+    stock = allowance + drill
+    arc.update(
+        drill_dia_mm=2 * drill,
+        pitch_mm=max(math.dist(a, b) for a, b in itertools.pairwise(holes)),
+        hole_clear_mm=min(clear),
+        stock_left_mm=stock,
+        break_out=CHAIN_BREAK_OUT,
+        **_leaves(cap, recut),
+    )
+    if recut:
+        return errors, []
+    more, debts = _filed(stock, cap, f"{label} chain drill")
+    return errors + more, debts
 
 
-def _outline_moves(profile, capability, incapable):
-    """Why a closed outline's diagonal edges are unproven, or None, stamping its
-    ``contouring`` and, on an ``mdi`` machine, each vertex's G1 move (``mdi``). Single-axis
-    stairs along an outline are not computed: no outline band holds their cusp."""
-    profile["contouring"] = capability or UNKNOWN
-    if capability == "mdi":
-        profile["mdi"] = [{"g": "G1"} for _ in profile["cutter_centre"]]
+def _rotate(point, degrees):
+    """``point`` turned ``degrees`` counterclockwise (viewed from above) about X0 Y0."""
+    c, s = math.cos(math.radians(degrees)), math.sin(math.radians(degrees))
+    return [c * point[0] - s * point[1], s * point[0] + c * point[1]]
+
+
+def _turn(reading, increases):
+    """The counterclockwise work turn (degrees) of a table dial ``reading`` from zero on
+    a dial whose readings rise turning ``increases``."""
+    return -reading if increases == "clockwise" else reading
+
+
+def _reading(turn, increases):
+    """The dial reading (0 to 360) that turns the work ``turn`` degrees counterclockwise."""
+    return _turn(turn, increases) % 360.0
+
+
+def _band_radius(feature, key):
+    """A feature's radial band for ``key`` (a diameter band halved), or None."""
+    band = feature.get(key)
+    if not _band(band):
         return None
-    if capability is None:
-        return f"needs diagonal moves and the machine's contouring is {incapable}"
-    return "needs diagonal moves and single-axis stairs along an outline are not computed"
+    return sorted(v / 2 for v in band) if key == "dia" else sorted(band)
+
+
+def _towards(a, b):
+    """The XY unit direction from ``a`` to ``b`` (``_unit`` scales one 3D vector)."""
+    span = math.dist(a, b)
+    return [(b[i] - a[i]) / span for i in range(2)]
+
+
+def _chords(arc, band, offset, grid, table, label):
+    """(errors, debts): cut ``arc`` (rows: its chord vertices) as straight chords.
+
+    The chord ends sit on the edge radius that centres each chord's sagitta in the
+    feature's radial ``band``; a sagitta wider than the band is an error. Each chord is
+    cut along one table axis: as it lies, else with the work indexed square to X on the
+    setup's rotary ``table`` (the dial rounded to its resolution); with no table a slanted
+    chord is an error. The fixed axis is printed on the DRO grid on the scrap side; the
+    fed axis runs to the cutter-centre corner, past it on a convex arc (the run-out is
+    scrap) and short of it on a concave one. The proof rebuilds every chord face from
+    the printed cuts and holds its nearest and farthest points inside the band. Rows
+    become the printed cutter-centre corners in the unindexed setup frame."""
+    centre, rows = arc["centre_setup_xy"], arc["rows"]
+    if band is None or not _pair(centre) or not all(_pair(row["setup_xy"]) for row in rows):
+        return [], [f"{label}: its arc centre, chord ends or radial band are unknown"]
+    lo, hi = band
+    step, decimals = grid
+    convex = arc["cutter_centre_radius_mm"] > arc["wall_radius_mm"]
+    count = len(rows) - 1
+    closed = arc["full_circle"]
+    thetas = [math.atan2(r["setup_xy"][1] - centre[1], r["setup_xy"][0] - centre[0]) for r in rows]
+    delta = (thetas[1] - thetas[0] + math.pi) % math.tau - math.pi
+    half = math.cos(abs(delta) / 2)
+    edge = (lo + hi) / (1 + half)
+    sagitta = edge * (1 - half)
+    arc.update(edge_radius_mm=edge, band_mm=[lo, hi], sagitta_mm=sagitta, indexed=bool(table))
+    if sagitta > hi - lo + _WALL_TOL:
+        return [
+            f"{label}: {count} chords leave a {sagitta:.3f} sagitta, more than the "
+            f"{hi - lo:g} radial band"
+        ], []
+    vertices = [
+        [centre[i] + edge * (math.cos, math.sin)[i](thetas[0] + k * delta) for i in range(2)]
+        for k in range(count + 1)
+    ]
+    normals = []
+    for a, b in itertools.pairwise(vertices):
+        mid = [(a[i] + b[i]) / 2 for i in range(2)]
+        normals.append(_towards(centre, mid) if convex else _towards(mid, centre))
+    cuts = [
+        [[v[i] + offset * n[i] for i in range(2)] for v in (a, b)]
+        for a, b, n in zip(vertices, vertices[1:], normals, strict=False)
+    ]
+
+    def corners(lines, ends):
+        """Where neighbouring ``lines`` meet; an open arc's ends at ``ends`` (k -> point)."""
+        points = []
+        for k in range(count + 1):
+            if 0 < k < count or closed:
+                before, after = lines[(k - 1) % count], lines[k % count]
+                points.append(_line_join(before[0], _towards(*before), after[0], _towards(*after)))
+            else:
+                points.append(ends(k))
+        return points
+
+    designed = corners(cuts, lambda k: cuts[0][0] if k == 0 else cuts[-1][1])
+    errors, debts, chords, actual = [], [], [], []
+    for k in range(count):
+        p, q = designed[k], designed[k + 1]
+        angle = math.degrees(math.atan2(q[1] - p[1], q[0] - p[0]))
+        square = (angle + 90.0) % 180.0 - 90.0  # the chord's slant from X, -90 to 90
+        along = "X" if abs(square) < 1e-9 else "Y" if abs(abs(square) - 90.0) < 1e-9 else None
+        index, turn = None, 0.0
+        if along is None and table is None:
+            errors.append(
+                f"{label}: chord {k + 1} runs {square:.1f}° from X: a manual mill feeds one "
+                "handwheel at a time, so index each chord square to X on a rotary table"
+            )
+            continue
+        if along is None:
+            resolution, increases = table["resolution_deg"], table["dial_increases"]
+            if not number(resolution) or increases not in ("clockwise", "counterclockwise"):
+                return [], [f"{label}: the rotary table's dial resolution or direction is unknown"]
+            index = round(_reading(-square, increases) / resolution) * resolution % 360.0
+            turn, along = _turn(index, increases), "X"
+        fixed = 1 if along == "X" else 0  # the locked axis; the other is fed
+        p, q, n = _rotate(p, turn), _rotate(q, turn), _rotate(normals[k], turn)
+        scrap = 1 if n[fixed] > 0 else -1
+        level = _grid((max if scrap > 0 else min)(p[fixed], q[fixed]), step, decimals, scrap > 0)
+        ends = [
+            _grid(a[1 - fixed], step, decimals, (a[1 - fixed] > b[1 - fixed]) == convex)
+            for a, b in ((p, q), (q, p))
+        ]
+        chords.append(
+            {
+                "from": k,
+                "to": k + 1,
+                "angle_deg": angle,
+                "length_mm": math.dist(vertices[k], vertices[k + 1]),
+                "sagitta_mm": sagitta,
+                "cut": {
+                    "index_deg": index,
+                    "along": along,
+                    "at": level,
+                    "from": ends[0],
+                    "to": ends[1],
+                },
+            }
+        )
+        line, face = [], []
+        for value in ends:
+            point = [0.0, 0.0]
+            point[fixed], point[1 - fixed] = level, value
+            line.append(_rotate(point, -turn))
+            point = list(point)
+            point[fixed] = level - scrap * offset
+            face.append(_rotate(point, -turn))
+        actual.append((line, face))
+    if errors:
+        return errors, debts
+
+    def radial(lines, k):
+        theta = thetas[k]
+        line = lines[0 if k == 0 else -1]
+        return _line_join(line[0], _towards(*line), centre, [math.cos(theta), math.sin(theta)])
+
+    paths = corners(
+        [a for a, _ in actual], lambda k: actual[0 if k == 0 else -1][0][0 if k == 0 else 1]
+    )
+    faces = corners([f for _, f in actual], lambda k: radial([f for _, f in actual], k))
+    if any(point is None for point in (*paths, *faces)):
+        return [f"{label}: two neighbouring chords run parallel"], []
+    for k, chord in enumerate(chords):
+        a, b = faces[k], faces[k + 1]
+        reach = [_to_segment(centre, a, b), max(math.dist(a, centre), math.dist(b, centre))]
+        chord["face_radius_mm"] = reach
+        if reach[0] < lo - _WALL_TOL or reach[1] > hi + _WALL_TOL:
+            errors.append(
+                f"{label}: chord {k + 1}'s face runs R{reach[0]:.3f} to R{reach[1]:.3f}, "
+                f"outside its R{lo:g} to R{hi:g} band"
+            )
+    for row, point in zip(rows, paths, strict=True):
+        printed = [round(v, decimals) for v in point]
+        row.update(setup_xy=point, x=point[0], y=point[1], dro_xy=printed, model_xy=[UNKNOWN] * 2)
+    arc["chords"] = chords
+    return errors, debts
+
+
+def rotary_table(bundle, setup):
+    """The setup's rotary table (inventory fixture ``kind = "rotary_table"`` named by
+    ``hold.fixture``): ``id``, ``name``, ``resolution_deg`` (vernier, else graduation),
+    ``dial_increases`` and ``max_work_mm``; None when it holds none."""
+    reference = mapping(setup.get("hold")).get("fixture")
+    fixture = resolve(bundle, "fixtures", reference) if isinstance(reference, str) else None
+    if not isinstance(fixture, dict) or fixture.get("kind") != "rotary_table":
+        return None
+    resolution = fixture.get("vernier_deg", fixture.get("graduation_deg", UNKNOWN))
+    return {
+        "id": reference,
+        "name": fixture.get("name", reference),
+        "resolution_deg": resolution if number(resolution) and resolution > 0 else UNKNOWN,
+        "dial_increases": fixture.get("dial_increases", UNKNOWN),
+        "max_work_mm": length_mm(fixture, "max_work"),
+    }
+
+
+def _made_before(bundle, op, name):
+    """Whether a drill, ream or bore op forms feature ``name`` before ``op`` in plan order."""
+    for setup in bundle.plan["setups"]:
+        for other in setup["ops"]:
+            if other is op:
+                return False
+            if other.get("feature") == name and other.get("do") in _CENTRE_FORMS:
+                return True
+    return False
+
+
+def arc_layout(bundle, setup, name):
+    """The line a layout scribes for arc feature ``name``, in ``setup``'s frame, or None
+    when it is no arc or its geometry is unknown: ``centre_setup_xy``, ``radius_mm``
+    (nominal), ``convex`` (the part inside the circle), ``full_circle``, ``ends_setup_xy``
+    (None for a full circle) and ``centre_on``, the hole whose axis is the arc centre."""
+    features = bundle.feature_definitions
+    feature = mapping(features.get(name))
+    frames = mapping(bundle.features.get("frames"))
+    frame = setup_frame(bundle, setup)
+    grid = dro_grid(bundle, setup)
+    probe = {"op": UNKNOWN, "contour": {"step_deg": 360.0}}
+    found = []
+    for offset in (0.0, 1.0):  # the line itself, then which side a cutter clears it
+        arcs, _, _ = _arc(
+            name, feature, probe, offset, frame, frames, features, None, {}, grid, "rotary_table"
+        )
+        if not arcs or not all(number(v) for v in arcs[0]["centre_setup_xy"]):
+            return None
+        found.append(arcs[0])
+    line, side = found
+    centre = line["centre_setup_xy"]
+    centre_on = None
+    for other, item in features.items():
+        locator, locator_frame, _ = located_by(features, other, mapping(item))
+        at = locator.get("at")
+        placed = isinstance(at, list) and len(at) == 3 and all(number(v) for v in at)
+        if mapping(item).get("kind") != "hole" or not placed:
+            continue
+        axis = frame_point(model_point(at, frames.get(locator_frame)), frame)[:2]
+        if _pair(axis) and math.dist(axis, centre) <= _JOIN_TOL:
+            centre_on = other
+            break
+    full = line["full_circle"]
+    return {
+        "centre_setup_xy": centre,
+        "radius_mm": line["wall_radius_mm"],
+        "convex": side["cutter_centre_radius_mm"] > side["wall_radius_mm"],
+        "full_circle": full,
+        "ends_setup_xy": None
+        if full
+        else [line["rows"][0]["setup_xy"], line["rows"][-1]["setup_xy"]],
+        "centre_on": centre_on,
+    }
+
+
+def _swing(bundle, setup):
+    """The farthest setup-entry stock corner (mm) from the setup's X0 Y0, from the
+    kernel's ``stock_bbox_mm``; None without one."""
+    kernel = getattr(bundle, "kernel", None)
+    if not isinstance(kernel, dict) or kernel.get("status") != "ok":
+        return None
+    box = mapping(mapping(kernel.get("setups")).get(setup["id"])).get("stock_bbox_mm")
+    if not (isinstance(box, list) and len(box) == 6 and all(number(v) for v in box)):
+        return None
+    return max(math.hypot(x, y) for x in (box[0], box[3]) for y in (box[1], box[4]))
+
+
+def _rotary(bundle, setup, op, arc, table, features, frame, frames, label):
+    """(errors, debts): the rotary-table recipe for ``arc`` (its rows the cutter-centre
+    arc in cutting order), stamped as ``rotary``.
+
+    The arc centre is the table axis at setup X0 Y0, located by a pin through, or by
+    indicating, ``contour.centre_feature``: a hole on that axis an earlier drill, ream or
+    bore made. The spindle is locked at X = the cutter-centre radius, Y0; the table turns
+    the work against the cutter's path from the start reading to the stop reading, both
+    rounded inward to the dial's resolution, and the setup-entry stock must swing inside
+    the table's ``max_work``."""
+    if table is None:
+        return [f"{label}: rotary_table needs the work held on a rotary table (hold.fixture)"], []
+    contour = mapping(op.get("contour"))
+    errors, debts = [], []
+    centre = arc["centre_setup_xy"]
+    if not _pair(centre):
+        return [], [f"{label}: its arc centre is unknown"]
+    if math.hypot(*centre) > _JOIN_TOL:
+        errors.append(
+            f"{label}: the arc centre sits at X{centre[0]:g} Y{centre[1]:g}, off the table "
+            "axis at setup X0 Y0"
+        )
+    by, name = contour.get("centre_by", UNKNOWN), contour.get("centre_feature", UNKNOWN)
+    if by not in ("pin", "indicate"):
+        debts.append(f"{label}: contour.centre_by is neither pin nor indicate")
+    hub = mapping(features.get(name)) if isinstance(name, str) else {}
+    pin = UNKNOWN
+    if not hub:
+        debts.append(f"{label}: contour.centre_feature names no feature")
+    else:
+        locator, locator_frame, _ = located_by(features, name, hub)
+        at = locator.get("at")
+        placed = isinstance(at, list) and len(at) == 3 and all(number(v) for v in at)
+        axis = (
+            frame_point(model_point(at, frames.get(locator_frame)), frame)[:2] if placed else None
+        )
+        if not _pair(axis):
+            debts.append(f"{label}: {name}'s axis is unknown")
+        elif math.dist(axis, centre) > _JOIN_TOL:
+            errors.append(f"{label}: {name}'s axis is not the arc centre")
+        if not _made_before(bundle, op, name):
+            errors.append(f"{label}: no earlier drill, ream or bore makes {name} to centre on")
+        size = hub.get("dia")
+        pin = min(size) if _band(size) else size if number(size) else UNKNOWN
+        if by == "pin" and not number(pin):
+            debts.append(f"{label}: {name}'s diameter is unknown, so no centre pin is sized")
+    resolution, increases = table["resolution_deg"], table["dial_increases"]
+    if not number(resolution) or increases not in ("clockwise", "counterclockwise"):
+        debts.append(f"{label}: the rotary table's dial resolution or direction is unknown")
+    points = [row["setup_xy"] for row in arc["rows"]]
+    if arc["cut_order"] == UNKNOWN or len(points) < 2 or not all(_pair(p) for p in points):
+        debts.append(f"{label}: its cutting order or cutter path is unknown")
+    reach, capacity = _swing(bundle, setup), table["max_work_mm"]
+    if reach is None or not number(capacity):
+        debts.append(f"{label}: the stock's swing or the table's max_work is unknown")
+    elif 2 * reach > capacity + _WALL_TOL:
+        errors.append(
+            f"{label}: the stock swings {2 * reach:.1f} mm across, more than the table's "
+            f"{capacity:g} mm"
+        )
+    record = {
+        "table": table["id"],
+        "table_name": table["name"],
+        "centre_by": by,
+        "centre_feature": name,
+        "pin_dia_mm": pin if by == "pin" else None,
+        "convex": arc["cutter_centre_radius_mm"] > arc["wall_radius_mm"],
+        "radius_mm": arc["wall_radius_mm"],
+        "cutter_radius_mm": arc["cutter_radius_mm"],
+        "offset_axis": "X",
+        "offset_mm": arc["cutter_centre_radius_mm"],
+        "resolution_deg": resolution,
+        "dial_increases": increases,
+        "work_radius_mm": reach if reach is not None else UNKNOWN,
+        "max_work_radius_mm": capacity / 2 if number(capacity) else UNKNOWN,
+        "start_deg": UNKNOWN,
+        "stop_deg": UNKNOWN,
+        "sweep_deg": UNKNOWN,
+        "rotation": UNKNOWN,
+    }
+    arc["rotary"] = record
+    if debts:
+        return errors, debts
+    thetas = [math.degrees(math.atan2(p[1], p[0])) for p in points]
+    travel = sum((b - a + 180.0) % 360.0 - 180.0 for a, b in itertools.pairwise(thetas))
+    rotation = "clockwise" if travel > 0 else "counterclockwise"  # the work turns back
+    rising = rotation == increases  # the dial reading grows through the cut
+    start, stop = (_reading(-theta, increases) / resolution for theta in (thetas[0], thetas[-1]))
+    if arc["full_circle"]:
+        start = stop = round(start) * resolution % 360.0
+        sweep = 360.0
+    else:
+        sign = 1 if rising else -1  # inward: start forward, stop back, along the turn
+        start = sign * math.ceil(sign * start - 1e-9) * resolution % 360.0
+        stop = sign * math.floor(sign * stop + 1e-9) * resolution % 360.0
+        sweep = (sign * (stop - start)) % 360.0
+    record.update(start_deg=start, stop_deg=stop, sweep_deg=sweep, rotation=rotation)
+    return errors, []
+
+
+# The contour input each manual-arc method spaces its rows by.
+_NEEDS = {
+    "stairs": "cusp_mm",
+    "chain_drill": "pitch_mm",
+    "chords": "count",
+    "rotary_table": "step_deg",
+}
+
+
+def _recut_by(bundle, op):
+    """The last later manual-arc op ("S4 op 27") that cuts all of ``op``'s claimed faces
+    again before any file reaches them, else None: then ``op``'s leftover stock is not the
+    file's. The last such op hands the faces to the file, so it names the leftover's taker:
+    an op between them may claim the faces from the other side (a half-depth rough from
+    the opposite face), and the face claim does not compare depth. A claim without
+    ``faces`` is the whole feature."""
+    name, faces = op.get("feature"), op.get("faces")
+    passed, last = False, None
+    for setup in bundle.plan["setups"]:
+        for other in setup["ops"]:
+            if other is op:
+                passed = True
+                continue
+            if not passed or other.get("feature") != name:
+                continue
+            if other.get("do") in HAND_FINISH:
+                return last
+            later = other.get("faces")
+            covers = later is None or (faces is not None and set(faces) <= set(later))
+            if mapping(other.get("contour")).get("method") in ARC_METHODS and covers:
+                last = f"{setup['id']} op {other.get('op', UNKNOWN)}"
+    return last
+
+
+def _manual(bundle, setup, op, stage, allowance, arcs, lines, walls, label):
+    """(errors, debts) of one arc stage cut by its manual method (:data:`ARC_METHODS`)."""
+    arc = arcs[0]
+    method = arc["method"]
+    if method in ROUGH_METHODS and stage != "rough":
+        return [f"{label}: {method} only roughs outside the line; file_to_line finishes it"], []
+    if method != "stairs" and lines:
+        return [], [f"{label}: {method} along the arc's straight joins is not computed"]
+    if method in FINISH_METHODS and "stock_removal_bounds" in op:
+        return [], [f"{label}: {method} cuts its whole arc; stock_removal_bounds cannot clip it"]
+    cap = filing_cap(bundle)
+    recut = _recut_by(bundle, op)
+    if method == "stairs":
+        return _stairs([*arcs, *lines], allowance, cap, label, recut)
+    if method == "chain_drill":
+        return _holes(arc, walls, arc["cutter_radius_mm"], allowance, cap, label, recut)
+    features, frames = bundle.feature_definitions, mapping(bundle.features.get("frames"))
+    feature = mapping(features.get(arc["feature"]))
+    table = rotary_table(bundle, setup)
+    if method == "chords":
+        key = (
+            "dia"
+            if arc["full_circle"]
+            else "bottom_radius"
+            if "bottom_radius" in feature
+            else "radius"
+        )
+        band = _band_radius(feature, key)
+        return _chords(arc, band, arc["offset_mm"], dro_grid(bundle, setup), table, label)
+    frame = setup_frame(bundle, setup)
+    return _rotary(bundle, setup, op, arc, table, features, frame, frames, label)
 
 
 def evaluate(bundle, *, pre_kernel=False):
@@ -2339,9 +2921,9 @@ def evaluate(bundle, *, pre_kernel=False):
         lathe = machine.get("kind") == "lathe"
         unordered = set()  # why a contour table's cutting order is unknown
         clip_debts = []  # why a clipped contour path is split, empty or unclipped
-        capability, incapable = contouring(machine)
-        unproven = []  # why a contour's arc or diagonal moves are not proven cuttable
-        stairs = []  # single-axis stairs that leave more than their band on the wall
+        unproven = []  # why a contour's diagonal moves are not proven cuttable
+        arc_errors = []  # manual-arc plans that cut into the part or cannot be cut
+        arc_debts = []  # manual-arc plans whose inputs are unknown
         numbers = {
             "frame": setup.get("frame", UNKNOWN),
             "binding": frame.get("binding", "nominal"),
@@ -2560,8 +3142,13 @@ def evaluate(bundle, *, pre_kernel=False):
                     "tool_dia_basis": "selected member nominal, not measured",
                 }
                 generated = refused = False
-                if contour.get("method") == "arc_table":
-                    arcs, lines = _arc(
+                method = contour.get("method")
+                label = f"op {op['op']} {stage}"
+                if method == "arc_table":
+                    arc_errors.append(f"{label}: {REMOVED_ARC_TABLE}")
+                    refused = True
+                elif method in ARC_METHODS:
+                    arcs, lines, walls = _arc(
                         name,
                         feature,
                         op,
@@ -2572,22 +3159,23 @@ def evaluate(bundle, *, pre_kernel=False):
                         sense,
                         order,
                         grid,
-                        capability,
+                        method,
                         radius,
                     )
                     for table in (*arcs, *lines):
                         table.update(stage=stage, allowance_mm=allowance, offset_mm=offset)
-                    label = f"op {op['op']} {stage}"
-                    why, stair, refused = _moves(
-                        arcs, lines, capability, incapable, name, stage == "finish", grid[1]
-                    )
-                    if why:
-                        unproven.append(f"{label} {why}")
-                    if stair:
-                        stairs.append(f"{label}: {stair}")
-                    if refused:
-                        profile["stair_reason"] = stair or why
-                        arcs, lines = [], []
+                    errors, debts = [], []
+                    if arcs:
+                        errors, debts = _manual(
+                            bundle, setup, op, stage, allowance, arcs, lines, walls, label
+                        )
+                    elif number(offset):
+                        debts = [f"{label}: no {method} rows: contour.{_NEEDS[method]} is unknown"]
+                    arc_errors.extend(errors)
+                    arc_debts.extend(debts)
+                    if errors or any("stair_reason" in t for t in (*arcs, *lines)):
+                        profile["arc_reason"] = (errors + debts)[0]
+                        refused, arcs, lines = True, [], []
                     debt = None
                     if bounded and (arcs or lines) and pre_kernel:
                         for table in (*arcs, *lines):
@@ -2604,8 +3192,6 @@ def evaluate(bundle, *, pre_kernel=False):
                         clip_debts.append(f"op {op['op']} {stage}: {debt}")
                     if arcs or lines:
                         _sequence([*arcs, *lines])
-                        if capability == "mdi":
-                            _mdi(arcs, lines)
                         numbers["arc_table"].extend(arcs)
                         numbers["line_table"].extend(lines)
                         # Clip pieces stay separate lists: nothing reconnects them.
@@ -2615,7 +3201,7 @@ def evaluate(bundle, *, pre_kernel=False):
                         unordered.update(
                             item["cut_order_reason"]
                             for item in (*arcs, *lines)
-                            if item["cut_order"] == UNKNOWN
+                            if item["cut_order"] == UNKNOWN and item.get("method") != "chain_drill"
                         )
                         generated = True
                 elif contour.get("method") == "linear_table" and op.get("do") in RASTER_OPS:
@@ -2661,9 +3247,7 @@ def evaluate(bundle, *, pre_kernel=False):
                             if profile["cut_order"] == UNKNOWN:
                                 unordered.add(profile["cut_order_reason"])
                             if _diagonal(path):
-                                why = _outline_moves(profile, capability, incapable)
-                                if why:
-                                    unproven.append(f"op {op['op']} {stage} {why}")
+                                unproven.append(f"op {op['op']} {stage} {DIAGONAL_OUTLINE}")
                         generated = True
                 elif contour.get("method") == "axial_table" and stage == "rough":
                     stair = _dome_stair(
@@ -2699,9 +3283,9 @@ def evaluate(bundle, *, pre_kernel=False):
                 unknown |= not number(length_mm(tool, "nose_radius"))
         status = (
             "error"
-            if residuals or stairs or plunge_errors or grid_errors or band_errors
+            if residuals or arc_errors or plunge_errors or grid_errors or band_errors
             else "unknown"
-            if unknown or unordered or clip_debts or unproven or plan_debts
+            if unknown or unordered or clip_debts or unproven or arc_debts or plan_debts
             else "pass"
         )
         sentence = (
@@ -2731,13 +3315,14 @@ def evaluate(bundle, *, pre_kernel=False):
             sentence += " Located target band error: " + "; ".join(band_errors) + "."
         if unproven:
             sentence += " Moves between rows are unproven: " + "; ".join(unproven) + "."
-        if stairs:
-            numbers["stair_errors"] = stairs
-            sentence += " Single-axis stair error: " + "; ".join(stairs) + "."
-        contoured = any(
-            "contouring" in table
-            for table in (*numbers["arc_table"], *numbers["line_table"], *numbers["profiles"])
-        )
+        if arc_errors:
+            numbers["arc_errors"] = arc_errors
+            sentence += " Manual arc error: " + "; ".join(arc_errors) + "."
+        if arc_debts:
+            numbers["arc_debts"] = arc_debts
+            sentence += " Manual arc debt: " + "; ".join(arc_debts) + "."
+        methods = {table.get("method") for table in numbers["arc_table"]}
+        tables = [table.get("rotary", {}).get("table") for table in numbers["arc_table"]]
         result.append(
             Finding(
                 "coordinates",
@@ -2754,9 +3339,19 @@ def evaluate(bundle, *, pre_kernel=False):
                     *dict.fromkeys(aim_cites),
                     *axis_cites,
                     *(
-                        ["inventory machine contouring (mdi or jog)"]
-                        if contoured or unproven or stairs
+                        ["docs/plan.md Manual arcs: stairs, chain drill, chords, rotary table"]
+                        if methods or arc_errors or arc_debts
                         else []
+                    ),
+                    *(
+                        ["policy numbers.max_filing_stock_mm: most stock left for the file"]
+                        if methods & ROUGH_METHODS
+                        else []
+                    ),
+                    *(
+                        f"inventory fixtures.{t}: rotary table dial"
+                        for t in dict.fromkeys(tables)
+                        if t
                     ),
                 ],
                 sentence,

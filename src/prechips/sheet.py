@@ -71,6 +71,7 @@ td .box { display: block; border: 1.5px solid #000; font-weight: bold; padding: 
 margin-top: 1pt; }
 .keep { break-inside: avoid; page-break-inside: avoid; }
 .contours { columns: 3; column-gap: 8pt; }
+.contours.wide { columns: auto; }
 .contour { break-inside: avoid; page-break-inside: avoid; margin-bottom: 4pt; }
 .contour.wide { column-span: all; }
 h4 { font-size: 8pt; margin: 3pt 0 1pt; break-after: avoid; page-break-after: avoid; }
@@ -105,6 +106,7 @@ display: block; }
 .contour-row > .contour { flex: 0 0 calc((100% - 16pt) / 3); min-width: 0; }
 .contour-row > .contour.wide { flex: 1 1 100%; }
 .contour-row.tall { display: block; }
+.contours.wide .contour-row { display: block; }
 .blank-side { padding-top: 4in; text-align: center; font-weight: bold; }
 @media screen { body { max-width: 7.7in; margin: 12pt auto; } .page { margin-bottom: 24pt; } \
 .blank-side { display: none; } }
@@ -528,6 +530,12 @@ def _supply(solid):
     return solid.get("supply", "made")
 
 
+def _make_notes(notes):
+    """``upper button, lower button: O1, hardened; stud: drill rod`` from ``{note:
+    [component, ...]}``: rows sharing one make note are named together before it."""
+    return "; ".join(f"{', '.join(components)}: {note}" for note, components in notes.items())
+
+
 # A shop-made fixture value authored as an example: the job page explains the mark once.
 EXAMPLE_MARK = "†"
 EXAMPLE_LEGEND = (
@@ -700,6 +708,15 @@ def _number(value, precision=None):
         return "?"
     result = f"{value:.{precision}f}" if isinstance(precision, int) else f"{round(value, 6):g}"
     return result.removeprefix("-") if float(result) == 0 else result
+
+
+def _leftover(arc):
+    """Where a manual-arc rough's leftover stock goes: a later rough, else the file."""
+    left = _number(arc.get("stock_left_mm"), 3)
+    recut = arc.get("recut_by")
+    if isinstance(recut, str) and recut:
+        return f"leaving at most {left} mm for {recut}"
+    return f"leaving at most {left} mm for the file (cap {_number(arc.get('stock_cap_mm'))} mm)"
 
 
 def _places(value):
@@ -1737,9 +1754,10 @@ class _Traveler:
     def shop_made_table(self, setup, reference, placements):
         """The item's made solids as make-and-set rows; identical solids share a row (an
         authored ``label`` names the group), each row lists every setup-frame position
-        and the holes cut in it. Bought hardware is one line under the table; solids
-        already in the shop (``supply = "existing"``, such as machine vise jaws drawn
-        for clearance) are not listed."""
+        and the holes cut in it. Bought hardware is one line under the table, and each
+        made row's ``note`` (material, heat treatment, finish) one "Make:" entry under
+        that; solids already in the shop (``supply = "existing"``, such as machine vise
+        jaws drawn for clearance) are not listed."""
         sid = setup["id"]
         item = self.shop_made(reference)
         solids = [s for s in item.get("solids") or [] if isinstance(s, dict)]
@@ -1784,6 +1802,7 @@ class _Traveler:
                 solid.get("length_mm"),
                 solid.get("locates"),
                 solid.get("fastener"),
+                solid.get("note"),
             )
             groups.setdefault(key, []).append(solid)
 
@@ -1792,7 +1811,7 @@ class _Traveler:
             prefix = " ".join(part for part in parts if part)
             return f"{prefix}: {where}" if prefix else where
 
-        rows = []
+        rows, notes = [], {}
         for (label, *_), members in groups.items():
             names = [_solid_name(solid.get("name", "?")) for solid in members]
             stem, tags = _name_group(names)
@@ -1801,6 +1820,8 @@ class _Traveler:
             if _supply(members[0]) == "existing":
                 component += " (existing part: make the holes only)"
             first = members[0]
+            if first.get("note"):
+                notes.setdefault(self.bench(first["note"]).rstrip("."), []).append(component)
             fit = id(first) in fits
             if id(first) in withheld:
                 where = f"? not set: {withheld[id(first)]}; verify before making"
@@ -1893,6 +1914,7 @@ class _Traveler:
                 else ""
             )
             + (_p(f"Bought hardware (not made): {hardware}.") if hardware else "")
+            + (_p(f"Make: {_make_notes(notes)}.") if notes else "")
         )
 
     def hardware(self, solids, uses):
@@ -3476,6 +3498,79 @@ class _Traveler:
                 parts.append(f"{depth} radial per pass")
         return parts
 
+    def manual_arc_lines(self, setup, op):
+        """Layout and bench-filing instructions computed for this manual operation."""
+        numbers = _mapping(self.records.get(("manual_arc", f"{setup['id']}:{op['op']}")))
+        if not numbers:
+            return []
+        o = self.operative
+        if op.get("do") == "scribe":
+            centre = numbers.get("centre_setup_xy") or ["unknown", "unknown"]
+            axis = numbers.get("centre_on")
+            layout = numbers.get("layout")
+            instrument = (
+                self.reference(numbers.get("template"), "gauges")
+                if layout == "template"
+                else _text(layout)
+            )
+            line = (
+                f"Layout: blue the part; scribe R{_number(numbers.get('radius_mm'))} mm "
+                f"about the centre X {o(centre[0])}, Y {o(centre[1])}"
+            )
+            if axis:
+                line += f", on the axis of {self.feature_name(axis)}"
+            line += f", with {instrument}"
+            ends = numbers.get("ends_setup_xy")
+            if isinstance(ends, list) and len(ends) == 2:
+                line += (
+                    f"; arc ends X {o(ends[0][0])}, Y {o(ends[0][1])} and "
+                    f"X {o(ends[1][0])}, Y {o(ends[1][1])}"
+                )
+            elif ends is None:
+                line += "; scribe the full circle"
+            return [_Plain(line + ".")]
+        if op.get("do") != "file_to_line":
+            return []
+        guide = _mapping(numbers.get("guide"))
+        target = "file to the scribed line"
+        if guide.get("kind") == "buttons":
+            target = "file down to the hardened button rims"
+            guide_text = (
+                f"{self.reference(guide.get('kit'), 'fixtures')} "
+                f"(Ø{_number(guide.get('button_dia_mm'))} mm buttons clamped on a "
+                f"Ø{_number(guide.get('pin_dia_mm'))} mm pin through "
+                f"{self.feature_name(guide.get('bore'))}"
+            )
+            reach = guide.get("files_to_mm")
+            if isinstance(reach, list) and len(reach) == 2 and all(map(_known, reach)):
+                guide_text += f"; they file R{_number(reach[0], 3)} to R{_number(reach[1], 3)} mm"
+            guide_text += ")"
+        elif guide.get("kind") == "template":
+            guide_text = self.reference(guide.get("kit"), "gauges")
+            layout = numbers.get("layout_op")
+            if isinstance(layout, str) and layout:
+                target += f" laid out in {layout.replace(':', ' op ')}"
+        else:
+            guide_text = "STOP: filing guide not established"
+        gauge = _mapping(numbers.get("gauge"))
+        line = (
+            f"Bench filing: {target}; guide: "
+            + guide_text
+            + "; check with "
+            + self.reference(gauge.get("ref"), "gauges")
+        )
+        rough = numbers.get("rough_op")
+        cap = numbers.get("stock_cap_mm")
+        if isinstance(rough, str) and rough not in ("", "unknown"):
+            line += f"; file off the stock left by {rough}"
+            if _known(cap):
+                line += f" (at most {_number(cap)} mm)"
+            else:
+                line += "; STOP: filing stock limit not established"
+        else:
+            line += "; STOP: roughing operation not established"
+        return [_Plain(line + ".")]
+
     def operations(self, setup, tool_numbers, sheets):
         """The op table for the front sheet and the inspection notes for sheet 2.
 
@@ -3573,6 +3668,7 @@ class _Traveler:
                     for prefix in (subject + ":", subject.replace(":", " ") + ":"):
                         message = message.removeprefix(prefix).strip()
                     boxes.append(_Box("CAUTION: " + self.bench(message)))
+            boxes.extend(self.manual_arc_lines(setup, op))
             # Crash and status warnings print full width under the op so the narrow
             # action column keeps its line height; the op's own note follows them there.
             note = op.get("note")
@@ -3753,7 +3849,7 @@ class _Traveler:
             and all(isinstance(s, list) and len(s) == 2 and all(map(_known, s)) for s in spans)
         ):
             return part
-        rank, description, headings, rows = part
+        rank, description, headings, rows, after = part
         clear = sorted(
             {
                 row[0] or f"row {index}"
@@ -3772,7 +3868,7 @@ class _Traveler:
                 f"; {', '.join(clear)} stand wholly clear of the stock: intentional cutter "
                 "clearance for entry, exit and overtravel, not material"
             )
-        return rank, description, headings, rows
+        return rank, description, headings, rows, after
 
     def contours(self, setup, tools):
         """One block per contour op; both sides of a symmetric profile print explicitly."""
@@ -3794,63 +3890,151 @@ class _Traveler:
             sequence = table.get("sequence")
             return (stage, sequence if isinstance(sequence, int) else -1, len(entry["parts"]))
 
-        def moves(op):
-            """(row) -> the typed MDI move or handwheel axis reaching that row, if any."""
-            speeds = self.records.get(("speeds_feeds", f"{setup['id']}:{op}"), {})
-            rate = speeds.get("feed_mm_min") if isinstance(speeds, dict) else None
-            rate = _number(rate, 0) if _known(rate) else "?"
-
-            def move(mdi, jog, xy, first):
-                if isinstance(mdi, dict):
-                    word = f"{_text(mdi.get('g'))} X{o(xy[0])} Y{o(xy[1])}"
-                    if "i" in mdi:
-                        word += f" I{o(mdi['i'])} J{o(mdi['j'])}"
-                    return word + f" F{rate}"
-                return _text(jog) if jog in ("X", "Y") and not first else ""
-
-            return move
-
         for arc in (
             numbers.get("arc_table", []) if isinstance(numbers.get("arc_table"), list) else []
         ):
             entry = block(arc.get("op"))
-            rows = []
+            method = arc.get("method")
+            samples = arc.get("rows", [])
             subject = f"{setup['id']}:{arc.get('op')}"
-            move = moves(arc.get("op"))
-            stepped = arc.get("contouring") == "jog"
-            for index, record in enumerate(arc.get("rows", [])):
-                printed = record.get("dro_xy") or ["unknown", "unknown"]
-                z = record.get("dro_tip_z", arc.get("dro_tip_z"))
-                entry["z"].add(o(z))
+            points, labels = [], []
+            for index, record in enumerate(samples):
+                points.append(record.get("dro_xy") or ["unknown", "unknown"])
+                entry["z"].add(o(record.get("dro_tip_z", arc.get("dro_tip_z"))))
                 key = row_id(subject, "arc_table", arc, index)
-                angle = record.get("angle_deg")
-                rows.append(
-                    [
-                        self.waypoint(waypoints, arc.get("op"), None, key),
-                        "" if stepped and not _known(angle) else self.angle(angle),
-                        o(printed[0]),
-                        o(printed[1]),
-                        o(z),
-                        move(record.get("mdi"), record.get("jog"), printed, index == 0),
-                    ]
-                )
+                labels.append(self.waypoint(waypoints, arc.get("op"), None, key))
             centre = arc.get("centre_setup_xy") or ["unknown", "unknown"]
             description = (
-                f"Cutter-centre arc R{o(arc.get('cutter_centre_radius_mm', arc.get('radius_mm')))} "
+                f"Cutter-centre arc R{o(arc.get('cutter_centre_radius_mm'))} "
                 f"about X {o(centre[0])}, Y {o(centre[1])}"
             )
-            if _known(arc.get("step_deg")):
-                description += f"; checkpoints every {_number(arc['step_deg'])}°"
-            if arc.get("interpolation"):
-                description += "; " + self.bench(arc["interpolation"])
-            if _known(arc.get("stair_cusp_mm")):
-                cusp = _number(arc["stair_cusp_mm"], self.decimals + 1)
-                description += f"; the stair leaves ≤ {cusp} on the wall"
+            rows = []
+            after = None
+            if method == "stairs":
+                headings = ["P", "X", "Y", "Z", "handwheel axis"]
+                for label, xy, record in zip(labels, points, samples, strict=True):
+                    if record.get("corner"):
+                        label = f"{label} (corner)" if label else "corner"
+                    rows.append(
+                        [
+                            label,
+                            o(xy[0]),
+                            o(xy[1]),
+                            o(record.get("dro_tip_z", arc.get("dro_tip_z"))),
+                            _text(record["jog"]) if record.get("jog") in ("X", "Y") else "",
+                        ]
+                    )
+                description += (
+                    "; rough stairs kept outside the scribed line, one handwheel axis per row, "
+                    + _leftover(arc)
+                )
+            elif method == "chain_drill":
+                headings = ["hole #", "P", "X", "Y"]
+                rows = [
+                    [str(index), label, o(xy[0]), o(xy[1])]
+                    for index, (label, xy) in enumerate(zip(labels, points, strict=True), 1)
+                ]
+                description = (
+                    f"Chain drill: drill Ø{_number(arc.get('drill_dia_mm'))} mm, "
+                    f"pitch {_number(arc.get('pitch_mm'))} mm; every hole outside the scribed "
+                    "line"
+                )
+                after = f"After drilling, {_text(arc.get('break_out'))}; " + _leftover(arc) + "."
+            elif method == "chords":
+                headings = [
+                    "chord #",
+                    "from P",
+                    "from X",
+                    "from Y",
+                    "to P",
+                    "to X",
+                    "to Y",
+                    "length mm",
+                    "sagitta mm",
+                    "index °",
+                    "handwheel cut",
+                ]
+                for index, chord in enumerate(arc.get("chords", []), 1):
+                    start, stop = chord["from"], chord["to"]
+                    cut = _mapping(chord.get("cut"))
+                    index_angle = cut.get("index_deg")
+                    along = cut.get("along")
+                    if (
+                        along in ("X", "Y")
+                        and all(_known(cut.get(key)) for key in ("at", "from", "to"))
+                        and (index_angle is None or _known(index_angle))
+                    ):
+                        fixed = "Y" if along == "X" else "X"
+                        handwheel = [
+                            f"lock {fixed} at {o(cut['at'])}",
+                            f"feed {along} {o(cut['from'])} → {o(cut['to'])}",
+                        ]
+                    else:
+                        handwheel = _Box("STOP: chord handwheel cut not established")
+                    rows.append(
+                        [
+                            str(index),
+                            labels[start],
+                            o(points[start][0]),
+                            o(points[start][1]),
+                            labels[stop],
+                            o(points[stop][0]),
+                            o(points[stop][1]),
+                            _number(chord.get("length_mm")),
+                            _number(chord.get("sagitta_mm")),
+                            _number(index_angle) if index_angle is not None else "",
+                            handwheel,
+                        ]
+                    )
+                band = arc.get("band_mm") or ["unknown", "unknown"]
+                description += (
+                    f"; straight chords: chord ends sit on R {_number(arc.get('edge_radius_mm'))} "
+                    f"mm and every chord stays inside R {_number(band[0])}–{_number(band[1])} mm"
+                    "; index the table to the listed angle where present; lock the fixed "
+                    "axis and feed only the listed handwheel"
+                )
+            elif method == "rotary_table":
+                rotary = _mapping(arc.get("rotary"))
+                feature = self.feature_name(rotary.get("centre_feature"))
+                if rotary.get("centre_by") == "pin":
+                    locate = (
+                        f"a pin of Ø{_number(rotary.get('pin_dia_mm'))} mm through {feature} "
+                        "into the table's centre bore"
+                    )
+                elif rotary.get("centre_by") == "indicate":
+                    locate = f"indicate {feature}"
+                else:
+                    locate = "STOP: arc-centre location method not established"
+                if rotary.get("convex") is True:
+                    side, sign = "convex", "plus"
+                elif rotary.get("convex") is False:
+                    side, sign = "concave", "minus"
+                else:
+                    side, sign = "? unknown cutter side", "?"
+                description = [
+                    f"{_text(rotary.get('table_name'))}: centre the table under the spindle "
+                    "by indicating its centre bore, then set DRO X0 Y0.",
+                    f"Put the arc centre on the table axis: {locate}.",
+                    f"For this {side} arc, offset the table to "
+                    f"X {_number(rotary.get('offset_mm'))} "
+                    f"mm (R {_number(rotary.get('radius_mm'))} mm {sign} cutter radius "
+                    f"{_number(rotary.get('cutter_radius_mm'))} mm).",
+                    f"Lock X and Y; set Z {o(arc.get('dro_tip_z'))}; turn the table "
+                    f"{_text(rotary.get('rotation'))} from {_number(rotary.get('start_deg'))}° "
+                    f"to {_number(rotary.get('stop_deg'))}° (sweep "
+                    f"{_number(rotary.get('sweep_deg'))}°), reading the dial to "
+                    f"{_number(rotary.get('resolution_deg'))}°; this is the conventional-cut "
+                    "direction, viewed from above.",
+                ]
+                entry["parts"].append((order(entry, arc), description, [], [], None))
+                continue
+            else:
+                entry["stops"].append("manual arc method not established")
+                continue
             description += self.cut_order(arc) + self.clip(
-                arc, [row.get("clipped_at") for row in arc.get("rows", [])], rows
+                arc, [row.get("clipped_at") for row in samples], rows
             )
-            headings = ["P", "angle °", "X", "Y", "Z", "handwheel" if stepped else "MDI"]
-            entry["parts"].append((order(entry, arc), description, headings, rows))
+            entry["parts"].append((order(entry, arc), description, headings, rows, after))
         for line in numbers.get("line_table", []):
             entry = block(line.get("op"))
             rows = []
@@ -3859,9 +4043,7 @@ class _Traveler:
             proven = proven.get("checkpoint_overshoot_ok") if isinstance(proven, dict) else None
             proven = set(proven) if isinstance(proven, list) else set()
             printed, flags = line.get("dro_xy") or [], line.get("overshoot") or []
-            move = moves(line.get("op"))
-            stepped = line.get("contouring") == "jog"
-            words, axes = line.get("mdi") or [], line.get("jog") or []
+            axes = line.get("jog") or []
             for index in range(len(line.get("setup_xy", []))):
                 dro = printed[index] if index < len(printed) else ["unknown", "unknown"]
                 key = row_id(subject, "line_table", line, index)
@@ -3874,26 +4056,25 @@ class _Traveler:
                         o(dro[0]),
                         o(dro[1]),
                         o(line.get("dro_tip_z")),
-                        move(
-                            words[index] if index < len(words) else None,
-                            axes[index] if index < len(axes) else None,
-                            dro,
-                            index == 0,
-                        ),
+                        _text(axes[index])
+                        if index < len(axes) and axes[index] in ("X", "Y")
+                        else "",
                     ]
                 )
             side = _text(line.get("side"))
             description = f"Straight joins on the {side} side" + self.cut_order(line)
             description += self.clip(line, line.get("clipped_at") or [], rows)
-            if stepped and _known(line.get("stair_cusp_mm")):
-                cusp = _number(line["stair_cusp_mm"], self.decimals + 1)
-                description += f"; one handwheel axis per row, the stair leaves ≤ {cusp}"
-            headings = ["P", "", "X", "Y", "Z", "handwheel" if stepped else "MDI"]
-            entry["parts"].append((order(entry, line), description, headings, rows))
+            if axes:
+                description += "; one handwheel axis per row"
+                if _known(line.get("stair_cusp_mm")):
+                    cusp = _number(line["stair_cusp_mm"], self.decimals + 1)
+                    description += f", the stair leaves ≤ {cusp}"
+            headings = ["P", "", "X", "Y", "Z", "handwheel axis"]
+            entry["parts"].append((order(entry, line), description, headings, rows, None))
         arc_ops = {str(arc.get("op")) for arc in numbers.get("arc_table", []) or []}
         for profile in numbers.get("profiles", []):
             op = str(profile.get("op"))
-            if op in arc_ops and _mapping(profile.get("contour")).get("method") == "arc_table":
+            if op in arc_ops:
                 continue
             points = profile.get("cutter_centre")
             entry = block(op)
@@ -3906,8 +4087,8 @@ class _Traveler:
             z = o(profile.get("dro_to_z", profile.get("to_z")))
             entry["z"].add(z)
             rows = []
-            headings = ["P", "angle °", "X", "Y", "Z", "MDI"]
-            move, words = moves(op), profile.get("mdi") or []
+            headings = ["P", "angle °", "X", "Y", "Z", "handwheel axis"]
+            axes = profile.get("jog") or []
             for point in points:
                 if isinstance(point, dict):
                     xy = [point.get("x"), point.get("y")]
@@ -3918,14 +4099,14 @@ class _Traveler:
                             o(xy[0]),
                             o(xy[1]),
                             z,
-                            "",
+                            _text(point["jog"]) if point.get("jog") in ("X", "Y") else "",
                         ]
                     )
                 elif len(point) == 2 and all(isinstance(p, list) for p in point):
                     headings = ["pass", "X from", "Y from", "X to", "Y to", "Z"]
                     rows.append([str(len(rows) + 1), *(o(v) for p in point for v in p), z])
                 else:
-                    word = words[len(rows)] if len(rows) < len(words) else None
+                    index = len(rows)
                     rows.append(
                         [
                             self.waypoint(waypoints, op, point[:2]),
@@ -3933,7 +4114,9 @@ class _Traveler:
                             o(point[0]),
                             o(point[1]),
                             z,
-                            move(word, None, point, not rows),
+                            _text(axes[index])
+                            if index < len(axes) and axes[index] in ("X", "Y")
+                            else "",
                         ]
                     )
             description = "Cutter-centre checkpoints" + self.cut_order(profile)
@@ -3949,7 +4132,7 @@ class _Traveler:
                 if not entry.get("ends"):
                     entry["ends"] = self.raster_clearance(raster, operations.get(op, {}))
                     description += entry["ends"]
-            entry["parts"].append((order(entry), description, headings, rows))
+            entry["parts"].append((order(entry), description, headings, rows, None))
             if not isinstance(raster, dict):
                 entry["parts"][-1] = self.outline_clearance(
                     operations.get(op, {}), profile, entry["parts"][-1]
@@ -4027,7 +4210,9 @@ class _Traveler:
                     "past centre)"
                 )
             # The finished surface: the finish pass after any rough stair of its op.
-            entry["parts"].append((order(entry, {"stage": "finish"}), description, headings, rows))
+            entry["parts"].append(
+                (order(entry, {"stage": "finish"}), description, headings, rows, None)
+            )
         for stair in numbers.get("stair_tables", []):
             entry = block(stair.get("op"))
             x_unit = "radius" if _mapping(self.plan.get("dro")).get("radius_mode") is True else "Ø"
@@ -4044,7 +4229,7 @@ class _Traveler:
             if not rows:
                 description += "; no row cuts: the allowance already covers the work"
             entry["parts"].append(
-                (order(entry, stair), description, ["row", "Z", f"in to X ({x_unit})"], rows)
+                (order(entry, stair), description, ["row", "Z", f"in to X ({x_unit})"], rows, None)
             )
         # The op rows on the front sheet point at these blocks.
         self.contour_ops = set(blocks)
@@ -4091,8 +4276,14 @@ class _Traveler:
                 content += _p(f"STOP: contour points not computed{reasons} — do not run.", "stop")
             else:
                 pieces = []
-                for rank, description, headings, rows in sorted(entry["parts"], key=lambda p: p[0]):
-                    single = len(entry["z"]) == 1
+                for rank, description, headings, rows, after in sorted(
+                    entry["parts"], key=lambda p: p[0]
+                ):
+                    if isinstance(description, list):
+                        pieces.append(_list(description))
+                        continue
+                    # A handwheel-axis table keeps its Z: each row is one axis move at it.
+                    single = len(entry["z"]) == 1 and "handwheel axis" not in headings
                     columns = [
                         i
                         for i, h in enumerate(headings)
@@ -4111,6 +4302,7 @@ class _Traveler:
                             repeat=title,
                             strong=[i for i, h in enumerate(shown) if h.startswith("tool ")],
                         )
+                        + (_p(after) if after else "")
                     )
                 if wide and len(pieces) > 1:
                     content += (
@@ -4132,7 +4324,9 @@ class _Traveler:
                 "Rasters: feed each pass from → to, lift to the op's lift Z, rapid back to the "
                 "next pass's start."
             )
-        return heading + '<div class="contours">' + "".join(html) + "</div>"
+        wide = any(arc.get("method") == "chords" for arc in numbers.get("arc_table", []) or [])
+        css = "contours wide" if wide else "contours"
+        return heading + f'<div class="{css}">' + "".join(html) + "</div>"
 
     # ---------------------------------------------------------------- picture
     def arrival(self, setup):

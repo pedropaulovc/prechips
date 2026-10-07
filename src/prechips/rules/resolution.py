@@ -26,7 +26,10 @@ SET_KINDS = {
     "micrometer_set",
     "lathe_tool_bits",
 }
-MANUAL = {"inspect", "deburr", "coating", "release", "fit", "scribe"}
+# Bench filing to a scribed line: hand work (no spindle, cutter or DRO) that still finishes
+# its feature's faces: the kernel models its removal and coverage credits its claims.
+HAND_FINISH = frozenset({"file_to_line"})
+MANUAL = {"inspect", "deburr", "coating", "release", "fit", "scribe"} | HAND_FINISH
 SAW_OPS = frozenset({"saw_cut", "cut_off"})
 HOLE_KINDS = frozenset({"hole", "counterbore", "thread", "threaded_hole"})
 # The hole actions whose cut can form a hole's claimed point cap.

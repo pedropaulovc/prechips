@@ -84,9 +84,10 @@ A name already in that feature's exported requirements is `BadInput` in
 `missing_requirements`; use `checks` so actual requirements cannot be bypassed.
 
 `to_z` is an authored endpoint;
-`to_z_band` is a range, not a substitute for measured setup binding. An
-`arc_table` contour needs explicit nominal geometry and positive angular steps;
-finite bounds come from that geometry, not an invented full circle. Linear
+`to_z_band` is a range, not a substitute for measured setup binding. An arc
+contour needs explicit nominal geometry and one of the manual-arc methods
+([Manual arcs](#manual-arcs)); finite bounds come from that geometry, not an
+invented full circle. Linear
 pockets and faces may declare `sweep_bounds`, `sweep_frame`, `open_side`, and
 circular `keep_out` islands; their rasters need `step_mm`
 (see [rules-coordinates](rules-coordinates.md)).
@@ -844,6 +845,8 @@ travel and taps the work, not the table, until the reading is within the limit.
 | `holder` | `str` |
 | `direction` | `str` |
 | `note` | `str` |
+| `layout` | `str` (`scribe` only: `dividers`, `trammel` or `template`) |
+| `guide` | `Guide` (`scribe` with a template, `file_to_line`) |
 | `inspection_note` | `str \| list[str]` (numbered steps; see above) |
 | `process` | `str \| list[str]` (`coating` only: a `services` or `consumables` id) |
 | `process_holds` | `list[ProcessHold]` |
@@ -1018,13 +1021,18 @@ the other spans; see [M5 measured setup screens](rules-setup.md#m5-measured-inve
 
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
-| `method` | `str` |
+| `method` | `str`: `linear_table`, or a manual-arc method `stairs`, `chain_drill`, `chords`, `rotary_table` |
 | `sweep_frame` | `str` |
 | `open_side` | `str` |
-| `step_deg` | `float` |
-| `step_mm` | `float` |
+| `step_deg` | `float` (`rotary_table` row spacing) |
+| `step_mm` | `float` (raster step) |
 | `start_deg` | `float` |
 | `end_deg` | `float` |
+| `cusp_mm` | `float` (`stairs`: most material a stair may leave on the wall) |
+| `pitch_mm` | `float` (`chain_drill`: largest hole-centre spacing) |
+| `count` | `int` (`chords`: number of chords) |
+| `centre_by` | `str` (`rotary_table`: `pin` or `indicate`) |
+| `centre_feature` | `str` (`rotary_table`: the hole on the arc axis the table centres on) |
 | `sweep_bounds` | `Bounds` |
 | `keep_out` | list of `{ at = [x, y], dia_mm = d }` circles |
 
@@ -1035,6 +1043,55 @@ positive-length pieces in feed order, each with its own feed/lift/rapid cycle;
 each cut point lies on the DRO grid, rounded away from the island.
 The raster record reports setup-frame circles in `raster.keep_out` and counts
 pieces in `raster.passes`.
+
+## Guide
+
+| Field | Type (also accepts `"unknown"`) |
+|---|---|
+| `buttons` | `str`: an inventory `fixtures` kit of `kind = "filing_buttons"` |
+| `bore` | `str`: the plan feature the buttons' pin goes through |
+| `template` | `str`: an inventory `gauges` radius or profile template |
+| `gauge` | `str`: the inventory radius or profile gauge that checks the filed arc |
+
+## Manual arcs
+
+The PM-30MV is a manual mill with a DRO: one handwheel moves at a time, so an arc
+is never one move of two axes (no MDI, G-code or continuous circle). The plan
+uses the 1898 manual arc method:
+
+1. **Lay out** (optional with buttons): `do = "scribe"` on the arc feature with
+   `layout = "dividers" | "trammel" | "template"` (`guide.template` names the
+   template). The `manual_arc` rule prints the centre (setup X/Y, and the hole on
+   its axis), the nominal radius and the arc ends; an unknown layout is unknown.
+2. **Rough outside the line**: a `rough_*` op with
+   `contour = { method = "stairs", cusp_mm = … }` (single-axis stair corners on
+   the DRO grid) or `{ method = "chain_drill", pitch_mm = … }` (drilled holes,
+   webs chiselled out), plus `rough_allowance_mm`. Every stair corner and every
+   full hole must stay outside the finished line, and the stock left for the file
+   (allowance + stair cusp, or allowance + drill radius) must not exceed the shop
+   policy `numbers.max_filing_stock_mm` unless a later rough cuts the same faces
+   again ([coordinates](rules-coordinates.md#coordinates)).
+3. **File to the line**: `do = "file_to_line"` with a `guide`: hardened filing
+   `buttons` (an inventory `fixtures` kit with `kind = "filing_buttons"`,
+   `dia_mm` and pin `bore_dia_mm`, held by the setup as its `hold.fixture` or a
+   clamp) pinned through `bore`, a hole on the arc's axis drilled, reamed or
+   bored to size earlier; or a `template` checked against a scribed layout. A
+   `gauge` (inventory `radius_gauge`/`profile_gauge` whose `range_mm` covers R)
+   checks the arc. The buttons file R from `dia/2 − play` to `dia/2 + play`
+   (play = (largest bore − pin)/2), which must sit inside the radial band. No
+   guide, no gauge, buttons not held, no earlier rough or no established cap is
+   unknown; a gauge range that misses R, buttons on a concave arc, a bore off the
+   axis or not yet made, a pin larger than the bore or a filed radius outside the
+   band is an error. `scribe` and `file_to_line` are manual: they need no tool
+   and may stand in a bench setup (`machines.<id>.kind = "bench"`).
+4. **Or finish on the mill**: `{ method = "chords", count = … }` cuts straight
+   chords whose sagitta `c²/8R` fits the band, each fed along one axis (a slanted
+   chord indexed square on a rotary table); `{ method = "rotary_table",
+   step_deg = …, centre_by = "pin" | "indicate", centre_feature = … }` turns the
+   work on an inventory `rotary_table` fixture (`hold.fixture`) under a cutter
+   locked at the cutter-centre radius, between dial readings on its resolution.
+
+The former `method = "arc_table"` is an error.
 
 ## Bounds
 

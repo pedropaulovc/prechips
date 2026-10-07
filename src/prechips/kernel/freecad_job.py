@@ -232,6 +232,9 @@ STOCK_AZIMUTHS = 6  # meridian sections (0..150 deg) that must agree for a stock
 STOCK_ROUND_MM = 2e-3  # mm: radius disagreement between them that still counts as round
 TURNING = "turning"
 ROTARY = "rotary"
+# A bench file to the line: no machine cutter; it takes at most the op's
+# max_filing_stock_mm off its claimed faces (:meth:`_Setup._hand_removal`).
+HAND = "hand"
 SAW_ACTIONS = {"saw_cut", "cut_off"}
 # Facing-type turning actions sweep their claims along +Z (toward the free end).
 AXIAL_TURNING = {"face", "cut_to_fit", "part_off"}
@@ -274,6 +277,10 @@ def _turned(op):
 
 def _rotary(op):
     return op.get("approach") == ROTARY
+
+
+def _hand(op):
+    return op.get("approach") == HAND
 
 
 def _sawn(op):
@@ -657,19 +664,21 @@ def _box_within(inner, outer):
     )
 
 
-def _common(solid, shape):
+def _common(solid, shape, boxes=None):
     """``solid`` ∩ ``shape`` when it holds more than HIT_MM3, else None; only boxes that do
-    not even touch skip the boolean."""
-    a, b = _bbox(solid), _bbox(shape)
+    not even touch skip the boolean. ``boxes``: their bounding boxes (each no smaller than
+    :func:`_bbox`) when the caller already has them, since an optimal box of a complex
+    shape costs more than most booleans."""
+    a, b = boxes or (_bbox(solid), _bbox(shape))
     if any(a[i] > b[i + 3] or b[i] > a[i + 3] for i in range(3)):
         return None
     common = solid.common(shape)
     return common if common.Volume > HIT_MM3 else None
 
 
-def _shared(solid, shape):
+def _shared(solid, shape, boxes=None):
     """The common volume of ``solid`` and ``shape`` above HIT_MM3, else 0."""
-    common = _common(solid, shape)
+    common = _common(solid, shape, boxes)
     return 0.0 if common is None else common.Volume
 
 
@@ -1652,6 +1661,57 @@ def _tube(edge, radius):
     return tube
 
 
+def _overrun(face, edge, radius):
+    """The quarter of ``edge``'s ``radius`` tube a file stroke along ``face`` runs on into,
+    or None.
+
+    A stroke that files ``face`` runs past its edge in the face's tangent plane, so it
+    takes what lies beyond the edge and outside that plane within ``radius`` of the edge.
+    Only a straight edge along which the tangent plane is constant (a plane, a cylinder on
+    a parallel axis, a cone through its apex) has one such quarter; a seam, with face on
+    both sides, has none.
+    """
+    curve = edge.Curve
+    if not isinstance(curve, Part.Line) or not _invariant(face.Surface, curve):
+        return None
+    start, along = edge.valueAt(edge.FirstParameter), edge.tangentAt(edge.FirstParameter)
+    along.normalize()
+    middle = edge.valueAt((edge.FirstParameter + edge.LastParameter) / 2)
+    normal = _normal_at(face, middle)
+    beyond = along.cross(normal)
+    beyond.normalize()
+    step = 10 * STOCK_TOL
+    ahead = face.distToShape(Part.Vertex(middle + beyond * step))[0]
+    behind = face.distToShape(Part.Vertex(middle - beyond * step))[0]
+    if min(ahead, behind) > STOCK_TOL or max(ahead, behind) <= STOCK_TOL:
+        return None
+    if ahead < behind:
+        beyond = -beyond
+    x, y = (beyond, normal) if beyond.cross(normal).dot(along) > 0 else (normal, beyond)
+    quarter = Part.makeCylinder(radius, edge.Length, V(0, 0, 0), V(0, 0, 1), 90)
+    quarter.transformShape(
+        FreeCAD.Matrix(
+            x.x,
+            y.x,
+            along.x,
+            start.x,
+            x.y,
+            y.y,
+            along.y,
+            start.y,
+            x.z,
+            y.z,
+            along.z,
+            start.z,
+            0,
+            0,
+            0,
+            1,
+        )
+    )
+    return quarter
+
+
 def _dihedral(edge, first, second):
     """``"tangent"``, ``"convex"`` or ``"concave"`` where two faces meet along ``edge``, or
     None unless that is provably the same all along it.
@@ -1756,6 +1816,14 @@ def _cleared(original, rest, group):
     return left == 0.0 or (within(original) or 0.0) > HIT_MM3
 
 
+def _solids(shape):
+    """``shape``'s solids as one flat shape. A Boolean result can come back as a compound
+    nested in a compound, and FreeCAD 1.1 then refuses the next Boolean on it with ``Null
+    shape`` though its one solid cuts cleanly."""
+    solids = shape.Solids
+    return solids[0] if len(solids) == 1 else Part.makeCompound(solids)
+
+
 def _breaking(original, applied):
     """Label of the first ``(label, removal)`` pair of ``applied`` that leaves ``original``
     invalid when they are cut from it in order. Only an explanation of stock already found
@@ -1763,7 +1831,7 @@ def _breaking(original, applied):
     rest = original
     try:
         for label, removal in applied:
-            rest = rest.cut(removal)
+            rest = _solids(rest.cut(removal))
             if not rest.isValid():
                 return label
     except Exception as exc:
@@ -3300,6 +3368,8 @@ class _Setup:
         # None, why that stock is unknown); the facts of each saw it reached; and (end
         # stock, None) or (None, why it stopped).
         self.cuts = {}
+        # id(op) of each bench file whose removal the stock builder accepted.
+        self.filed = set()
         # Each printed-checkpoint op awaiting the later setups (:meth:`_checkpoint_facts`).
         self.checkpoint_jobs = []
         self.run_outs = {}  # id(op) -> (its printed run-out sweep or None, why unknown)
@@ -3324,6 +3394,7 @@ class _Setup:
         # the fixture obstacle. ``possible`` are (name, box) regions a jaw may also occupy.
         self.fixture = []
         self.fixture_possible = []
+        self.hold_solids = []  # an authored holding body's placed solids (``_place_solids``)
         self.fixture_ready = False  # the holding itself is placed, so hit counts can be made
         self.fixture_debts = []  # scene-only debts (supports below the seat, poses to check)
         self.fixture_gaps = []  # undrawn components that could be obstacles
@@ -3478,7 +3549,7 @@ class _Setup:
         for op in self.ops:
             with _timed(op_clocks, self._subject(op)):
                 result = self._op(op)
-                if self.stock_reason is not None and not _sawn(op):
+                if self.stock_reason is not None and not _sawn(op) and not _hand(op):
                     self._unproven(result, self.stock_reason)
                 self._checkpoint_facts(op, result)
                 if self._subject(op) in self.split_holds:
@@ -3913,6 +3984,8 @@ class _Setup:
                 if stopped is None and after is not stock:
                     stock = after
                     self.stock_states.append(stock)
+                if stopped is None and _hand(op):
+                    self.filed.add(id(op))
             except Exception as exc:
                 stopped = f"in-process stock boolean failed ({exc}); {where}"
             finally:
@@ -3934,7 +4007,7 @@ class _Setup:
         """
         rest, applied = original, []
         if own is not None:
-            rest = rest.cut(own)
+            rest = _solids(rest.cut(own))
             applied.append(("its own clearance", own))
         for number, group in enumerate(groups, 1):
             if not rest.Solids:
@@ -3944,7 +4017,7 @@ class _Setup:
                 continue
             for piece in group:
                 if rest.Solids:
-                    rest = rest.cut(piece)
+                    rest = _solids(rest.cut(piece))
                     applied.append((f"cut group {number}", piece))
         kept = [piece for piece in rest.Solids if piece.Volume > STOCK_MM3]
         if len(kept) > 1:
@@ -3969,7 +4042,8 @@ class _Setup:
         """(the cut ``op`` makes in ``stock``, or None, and why it cannot be derived).
 
         A cut is ``(own clearance or None, connected band groups)``, each group a list of
-        solids; ``(None, [])`` removes nothing. A joint op (``joint_cut``) removes its
+        solids; ``(None, [])`` removes nothing. A bench file takes only the stock near its
+        claims (:meth:`_hand_removal`). A joint op (``joint_cut``) removes its
         analytic transient cylinder (:meth:`_joint_removal`) and a turning op its revolved
         stock (:meth:`_turn_removal`); a rotary op its independent window-clipped cutting
         volumes (:meth:`_rotary_removal`), each its own one-volume group cut in order and
@@ -3996,6 +4070,8 @@ class _Setup:
         if isinstance(process, dict) and not _turned(op):
             removal, why = self._process_removal(op, stock)
             return (None, why) if why is not None else ((removal, []), None)
+        if _hand(op):
+            return self._hand_removal(op, valid, stock)
         to_z = op.get("to_z")
         if to_z is not None and not _number(to_z):
             return None, "to_z is unknown"
@@ -4041,6 +4117,84 @@ class _Setup:
         if why is not None:
             return None, why
         return (removal, band or []), None
+
+    def _hand_removal(self, op, valid, stock):
+        """(the cut a bench file makes in ``stock``, or None, and why it is not derived).
+
+        A file takes the stock within the op's ``max_filing_stock_mm`` of its claimed faces,
+        from any side: ``stock`` within their :meth:`_skin` at that depth (plus
+        ``COVER_MM``) and within each stroke's :func:`_overrun` past a straight edge no other
+        claimed face shares, less the protected finished material, each piece its own
+        group, never fused. The overrun takes the corner between two faces filed in
+        different ops, as a shared convex edge's tube does within one op. Stock that, once
+        those pieces go (:meth:`_remove`), still borders a claimed face's interior past that
+        depth is more than a file takes, so the cut is not derived; it is never filed away.
+        """
+        cap = op.get("max_filing_stock_mm")
+        if not _number(cap) or cap < 0:
+            return None, "max_filing_stock_mm is unknown, so the stock a file takes is unknown"
+        if not valid:
+            return (None, []), None
+        depth = cap + COVER_MM
+        primitives, why = self._skin(valid, depth)
+        if why is not None:
+            return None, why
+        shared = [edge for edge, _, _ in _shared_edges(self.faces, valid)]
+        overruns = []
+        for index in valid:
+            face = self.faces[index]
+            for edge in face.Edges:
+                if any(edge.isSame(other) for other in shared):
+                    continue
+                try:
+                    quarter = _overrun(face, edge, depth)
+                except Exception as exc:
+                    return None, (
+                        f"the file's overrun past an edge of {self.owner.labels[index]} is not "
+                        f"derivable ({exc})"
+                    )
+                if quarter is not None:
+                    overruns.append(quarter)
+        pieces = []
+        try:
+            for primitive in primitives + overruns:
+                piece = _material(stock.common(primitive), "stock within the file's reach")
+                if piece is not None:
+                    piece, why = self._protect(piece, 0.0, None)
+                    if why is not None:
+                        return None, why
+                    piece = _material(piece, "that stock outside the finished part")
+                if piece is not None:
+                    pieces.extend(solid for solid in piece.Solids if solid.Volume > 0)
+        except ValueError as exc:
+            return None, f"the stock within its {_r(cap)} mm filing depth is not derivable ({exc})"
+        groups = [[piece] for piece in pieces]
+        rest = []
+        for original in stock.Solids:
+            kept, why = self._remove(original, None, groups, lambda kept: self._held(op, kept))
+            if why is not None:
+                return None, why
+            rest.extend(kept)
+        reach = depth + COVER_MM
+        window = _box_shape(self._claim_window(valid, reach))
+        overstock, why = self._protect(Part.makeCompound(rest).common(window), 0.0, None)
+        if why is not None:
+            return None, why
+        deep = (
+            sorted(
+                self.owner.labels[index]
+                for index in valid
+                if self._interior_contact(self.faces[index], overstock, reach)
+            )
+            if overstock.Volume > HIT_MM3
+            else []
+        )
+        if deep:
+            return None, (
+                f"stock deeper than its {_r(cap)} mm max_filing_stock_mm still borders claimed "
+                f"face(s) {', '.join(deep)}; a file takes no more"
+            )
+        return (None, groups), None
 
     def _finish(self, ops):
         """(model-frame stock this setup leaves, or None, and why it cannot be derived).
@@ -5062,7 +5216,8 @@ class _Setup:
         )
 
     def _claims(self, op):
-        """(direction-valid indices or unknown, labels facing away, reason) for an op."""
+        """(direction-valid indices or unknown, labels facing away, reason) for an op; a bench
+        file reaches its claims from any side."""
         if isinstance(op.get("joint_cut"), dict):
             try:
                 self._joint_check(op)
@@ -5073,6 +5228,8 @@ class _Setup:
         indices = self._indices(op)
         if indices == UNKNOWN:
             return UNKNOWN, [], "claimed face references are unknown or unmapped"
+        if _hand(op):
+            return sorted(indices), [], None
         labels = self.owner.labels
         internal = []
         if _rotary(op):
@@ -5334,16 +5491,12 @@ class _Setup:
             )
 
     def _place_solids(self, hold, facts):
-        """An authored fixture body (angle plate, custom nest) at its declared pose."""
+        """An authored fixture body (angle plate, custom nest) at its declared pose. Whether
+        it reaches the stock is judged once the clamps are posed (:meth:`_accessories`)."""
         matrix = _pose_matrix(hold["pose"])
-        self._add_owned(hold.get("solids", []), "fixture", matrix, "fixture")
+        self.hold_solids = self._add_owned(hold.get("solids", []), "fixture", matrix, "fixture")
         if not self.fixture:
             return "no fixture solid is declared free of measurement debt"
-        if all(c["solid"].distToShape(self.part)[0] > STOCK_TOL for c in self.fixture):
-            self.fixture_debts.append(
-                f"{hold.get('fixture_kind')} fixture solids do not touch the stock at the "
-                "declared pose"
-            )
         return None
 
     def _place_clamps(self, hold):
@@ -5408,9 +5561,24 @@ class _Setup:
                     f"{component['name']} intersects the setup-entry stock "
                     f"({_r(common.Volume)} mm^3) at the declared pose"
                 )
+        bearing = []
         for name, parts in clamps:
             if all(part.distToShape(self.part)[0] > STOCK_TOL for part in parts):
                 self.fixture_debts.append(f"{name} does not bear on the stock at its pose")
+                continue
+            bearing.extend(parts)
+        # An authored body holds the work directly or through a clamp that bears on it (a
+        # bench vise gripping the stud of filing buttons pressed on the work).
+        reached = [self.part, *bearing]
+        if self.hold_solids and all(
+            solid.distToShape(other)[0] > STOCK_TOL
+            for solid in self.hold_solids
+            for other in reached
+        ):
+            self.fixture_debts.append(
+                f"{hold.get('fixture_kind')} fixture solids touch neither the stock nor a clamp "
+                "bearing on it at the declared pose"
+            )
 
     def _place_steady_rests(self, hold):
         """A steady rest is a static ring at ``at_z_mm``, ``body_length_mm`` long: from the
@@ -6477,8 +6645,9 @@ class _Setup:
     def _clipped_sketch(self, annotation):
         """(sketch paths, waypoints, render debts): the annotation's sketch plus each bounded
         op's clipped printed paths (:meth:`_clip_checkpoints`), keyed like the tables by
-        their row ``rows`` ids: an arc piece at its ends and apex, a join at every point. A
-        bounded op whose clip is unknown draws no path, only a debt; no unclipped path."""
+        their row ``rows`` ids: an arc piece at its ends and apex, a stair-stepped join at
+        its ends and miters, any other join at every point. A bounded op whose clip is
+        unknown draws no path, only a debt; no unclipped path."""
         paths = list(annotation.get("paths", []))
         waypoints = [dict(waypoint) for waypoint in annotation.get("waypoints", [])]
         debts = []
@@ -6496,8 +6665,13 @@ class _Setup:
                     continue
                 paths.append({"op": name, "xy": points, "directed": path.get("directed") is True})
                 count = len(points)
-                arc = path["kind"] == "arc_table"
-                keys = sorted({0, count // 2, count - 1}) if arc else range(count)
+                if path["kind"] == "arc_table":
+                    keys = sorted({0, count // 2, count - 1})
+                elif path.get("stepped") is True:
+                    miters = (i for i, flag in enumerate(path["overshoot"]) if flag)
+                    keys = sorted({0, count - 1, *miters})
+                else:
+                    keys = range(count)
                 for index in keys:
                     point = points[index]
                     match = next(
@@ -6604,9 +6778,11 @@ class _Setup:
 
     def _render_tool(self, annotation, lathe):
         """Selected primary cutter's actual silhouette at an illustrative approach pose."""
-        if not self.ops:
+        # A bench file has no cutter to draw: the primary cutter is the first machine op's.
+        ops = [op for op in self.ops if not _hand(op)]
+        if not ops:
             return None, None
-        op = self.ops[0]
+        op = ops[0]
         label = annotation.get("tools", {}).get(str(op.get("subject", "").rsplit(":", 1)[-1]))
         op_number = str(op.get("subject", "")).rsplit(":", 1)[-1]
         label = label or "selected tool"
@@ -6833,6 +7009,11 @@ class _Setup:
         if _sawn(op):
             return self._saw_facts(op, reason)
         facts = {"reason": reason, "reasons": {}}
+        if _hand(op):
+            # A file has no cutter to sample: only its claims are facts.
+            facts.update(approach=HAND, claimed_indices=UNKNOWN)
+            facts["reasons"]["claimed_indices"] = reason
+            return facts
         if _turned(op):
             facts["approach"] = TURNING
         elif _rotary(op):
@@ -7174,14 +7355,22 @@ class _Setup:
             why.append(f"fixture solids unresolved ({self.fixture_reason})")
         top = self.box[5] + COVER_MM
         gapped, extended, unguarded = 0, 0, 0
+        # The op's obstacles are the same for every row: box each once (see _common).
+        boxes = {id(s): _bbox(s) for s in (before, self.finished, retained) if s is not None}
+        for _, pieces in guard or []:
+            boxes.update((id(piece), _bbox(piece)) for piece in pieces)
         for row in rows:
             (x, y), z0 = row["xy_mm"], row["tip_z_mm"] + LIFT
             if z0 >= top:
                 continue
             cylinder = (x, y, radius - LIFT, z0, top)
             tool = Part.makeCylinder(radius - LIFT, top - z0, V(x, y, z0))
-            removed = None if before is None else _common(tool, before)
-            hits = [("finished part", _shared(tool, self.finished))]
+            reach = radius - LIFT + PLANE_TOL
+            near = (x - reach, y - reach, z0 - PLANE_TOL, x + reach, y + reach, top + PLANE_TOL)
+            removed = None if before is None else _common(tool, before, (near, boxes[id(before)]))
+            hits = [
+                ("finished part", _shared(tool, self.finished, (near, boxes[id(self.finished)])))
+            ]
             if removed is not None and guard is not None and leave:
                 box = _bbox(removed)
                 within = (s for w, s in guard if w is None or _box_within(box, w))
@@ -7191,19 +7380,20 @@ class _Setup:
                 else:
                     volume = 0.0
                     for piece in pieces:
-                        common = _common(removed, piece)
+                        common = _common(removed, piece, (box, boxes[id(piece)]))
                         volume += 0.0 if common is None else common.cut(self.finished).Volume
                     hits.append((f"its {_r(leave)} mm rough leave", volume))
             if retained is not None:
                 # The finished part inside the stock is its own obstacle, never stock.
-                common = _common(tool, retained)
+                common = _common(tool, retained, (near, boxes[id(retained)]))
                 hits.append((name, 0.0 if common is None else common.cut(self.finished).Volume))
             for component in self.fixture if self.fixture_ready else []:
                 subjects = component.get("subjects", "all")
                 if subjects != "all" and self._subject(op) not in subjects:
                     continue
                 if _cylinder_hits_box(*cylinder, component["envelope_bbox"]):
-                    hits.append((component["name"], _shared(tool, component["envelope"])))
+                    envelope = (near, component["envelope_bbox"])
+                    hits.append((component["name"], _shared(tool, component["envelope"], envelope)))
             hits = [(obstacle, volume) for obstacle, volume in hits if volume > HIT_MM3]
             job["errors"].extend(
                 {"row": row["id"], "obstacle": obstacle, "volume_mm3": _r(volume)}
@@ -7556,6 +7746,8 @@ class _Setup:
         indices = self._indices(op)
         if indices == UNKNOWN:
             return self._op_unknown(op, f"{what}: face references are unknown")
+        if _hand(op):
+            return self._hand_op(op, indices)
         if _turned(op):
             facts = self._turn_op(op, indices)
             if isinstance(op.get("joint_cut"), dict):
@@ -7645,6 +7837,24 @@ class _Setup:
         ]
         if unknown:
             facts["reason"] = unknown[0]
+        return facts
+
+    def _hand_op(self, op, indices):
+        """A bench file's facts: no cutter to sample; its claims count only once the stock
+        builder filed them (:meth:`_hand_removal`), else they stay unknown with why."""
+        facts = {"approach": HAND, "claim_errors": [], "reasons": {}}
+        if self.stock_reason is not None:
+            why = f"in-process stock unknown: {self.stock_reason}"
+        elif id(op) in self.filed:
+            why = None
+        else:
+            why = self.cuts.get(id(op), (None, None, None))[2] or self.built[1]
+            why = why or "the stock builder did not file it"
+        if why is None:
+            facts["claimed_indices"] = sorted(indices)
+        else:
+            facts["claimed_indices"] = UNKNOWN
+            facts["reasons"]["claimed_indices"] = facts["reason"] = why
         return facts
 
     def _corners(self, indices, hole=False):

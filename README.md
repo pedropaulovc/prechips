@@ -256,6 +256,17 @@ may move the target within the band for a stated process reason (the cone
 aims its crank bore at mid-band separation). It never moves geometry. A nonrough
 mill contour carrying `rough_allowance_mm` prints distinct rough and finish cutter
 tables, with the rough allowance added to the cutter radius.
+The PM-30MV is a manual mill: arcs follow the 1898 manual method
+([plan Manual arcs](docs/plan.md#manual-arcs)). A `scribe` op lays out the
+centre, radius and ends; a rough op steps single-axis `stairs` or drills a
+`chain_drill` outside the line, every corner and full hole proven outside it and
+the leftover held to the shop policy's cited `max_filing_stock_mm`; a
+`file_to_line` op at the bench files to hardened buttons pinned through the
+arc's bore (or a template) and checks R with a radius gauge whose range covers
+it. `chords` (sagitta proven inside the band, ends on the DRO grid) and a
+`rotary_table` recipe (inventory table, centre pin, offset and dial readings)
+finish arcs on the mill. No traveler prints MDI, G-code or a continuous circle;
+the former `arc_table` method and machine `contouring` are gone.
 Drawing dimensions retain their declared precision; when no precision is
 declared, known values still print their own digits rather than `?`. Operative
 targets, including operation-derived coordinate rows, and computed contours

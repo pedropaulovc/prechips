@@ -26,8 +26,10 @@ def contour_annotations(numbers, scale, setup_id):
 
     Arc and line tables draw the values the DRO prints (``dro_xy``); each of their keys
     lists the ``rows`` (:func:`row_id`) it labels, which is how the sheet finds it. A
-    bounded op's tables (``kernel_clip``) are not drawn here: the kernel draws its clip of
-    them (``FreeCAD job _clipped_sketch``), never the whole unclipped path.
+    stair-stepped line (``stair_cusp_mm``) is keyed at its ends and miters, not at every
+    single-axis step. A bounded op's tables (``kernel_clip``) are not drawn here: the
+    kernel draws its clip of them (``FreeCAD job _clipped_sketch``), never the whole
+    unclipped path.
     A path is ``directed`` (drawn with travel arrows) only when coordinates established
     its cutting order; otherwise its point order is geometric, not a travel claim.
     """
@@ -80,10 +82,15 @@ def contour_annotations(numbers, scale, setup_id):
             continue
         points = line.get("dro_xy", [])
         subject = f"{setup_id}:{line.get('op')}"
+        keys = range(len(points))
+        if "stair_cusp_mm" in line:
+            flags = line.get("overshoot") or []
+            miters = (i for i, flag in enumerate(flags) if flag is True and i < len(points))
+            keys = sorted({0, len(points) - 1, *miters})
         add_path(
             line.get("op"),
             points,
-            range(len(points)),
+            keys,
             _directed(line),
             [row_id(subject, "line_table", line, i) for i in range(len(points))],
         )

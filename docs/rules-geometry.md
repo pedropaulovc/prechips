@@ -1513,7 +1513,7 @@ thin_wall_under_clamp has no vise grip-zone facts for {kind} holding.`), as
 is a dividing head that names no chuck. The exception is a posed-solids fixture
 whose `hold.clamp` is `"none"` / `"not_applicable"`, with no clamp members or
 debts, in a setup whose every op is explicitly non-cutting (`inspect`, `fit`,
-`deburr`, `coating`, `release`, `scribe`, `transfer`): it is `not_applicable`,
+`deburr`, `coating`, `release`, `scribe`, `file_to_line`, `transfer`): it is `not_applicable`,
 never `pass`. This applies only after the kernel facts, assembly, holding
 identity, numeric frame, in-process stock and fixture pose resolve; each
 otherwise keeps its unknown/error row. Clamp prose (even "gravity only"), a
@@ -1705,6 +1705,7 @@ dividing head `jaws` is `exact` once placed; jawless kinds report
 `not_applicable`; an unplaced non-vise fixture is `absent` with debt
 `fixture not drawn: <reason>`. Further debts name an undrawn possible
 obstacle (`not drawn: …`), a strap that does not bear on the stock top, a
+fixture body that touches neither the stock nor a clamp bearing on it, a
 solid that intersects the entry stock, or unequal scroll-chuck contact
 radii. `fixture_rendered` is true only when the fixture is placed, at least
 one component is drawn, every component is exact and the debt list is
