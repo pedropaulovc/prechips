@@ -302,15 +302,33 @@ def test_a_hole_off_the_model_z_axis_is_held_by_its_entry_disc(tmp_path, x, entr
     assert after["entry_z"]["hole"] == pytest.approx(entry)
 
 
+C = math.sqrt(0.5)
+SETUP_AXES = {
+    "square": "x = [1.0, 0.0, 0.0]\ny = [0.0, 1.0, 0.0]\nz = [0.0, 0.0, 1.0]\n",
+    "turned 45": f"x = [{C}, {C}, 0.0]\ny = [{-C}, {C}, 0.0]\nz = [0.0, 0.0, 1.0]\n",
+    "tilted 45": f"x = [1.0, 0.0, 0.0]\ny = [0.0, {C}, {C}]\nz = [0.0, {-C}, {C}]\n",
+}
+
+
 @pytest.mark.parametrize(
-    ("strip", "entry", "tip"), [([0.0, 10.0], 0.0, -4.802), ([0.0, 20.0], -8.8, -13.602)]
+    ("axes", "hole_x", "strip", "entry", "tip"),
+    [
+        ("square", 8.5, [0.0, 10.0], 0.0, -4.802),
+        ("square", 8.5, [0.0, 20.0], -8.8, -13.602),
+        ("turned 45", 8.5, [0.0, 10.0], 0.0, -4.802),
+        ("turned 45", 5.0, [0.0, 10.0], -8.8, -13.602),
+        ("tilted 45", 5.0, [0.0, 10.0], "unknown", None),
+    ],
+    ids=["part out", "held", "turned part out", "turned held", "tilted"],
 )
 def test_an_unbounded_pocket_lowers_another_entry_only_where_its_feature_holds_it(
-    tmp_path, strip, entry, tip
+    tmp_path, axes, hole_x, strip, entry, tip
 ):
-    # Op 10 pockets all of 'strip' to -8.8 with no removal box; the Ø8 hole's entry disc
-    # (X 5-13) runs past a strip ending at X 10, so part of its entry still stands at 0.
-    hole = "kind = 'hole'\nat = [9.0, 5.0, 1.0]\naxis = [0.0, 0.0, 1.0]\ndia = 8.0\n"
+    # Op 10 pockets all of 'strip' to -8.8 with no removal box. The Ø6 hole's entry disc
+    # at X 8.5 (X 5.5-11.5) runs past a strip ending at X 10, so part of its entry still
+    # stands at 0, however the setup is turned about Z; at X 5 (X 2-8) the strip holds
+    # it. A setup Z oblique to the strip's frame proves neither.
+    hole = f"kind = 'hole'\nat = [{hole_x}, 5.0, 1.0]\naxis = [0.0, 0.0, 1.0]\ndia = 6.0\n"
     hole += "thru = false\ndepth = [2.9, 5.0]\n[features.strip]\nkind = 'plane'\n"
     hole += f"frame = 'model'\nrequirements = []\nbounds = {{ x = {strip}, y = [0.0, 10.0], "
     ops = "[[setups.ops]]\nop = 10\ndo = 'rough_pocket'\nfeature = 'strip'\ntool = 'cutter'\n"
@@ -322,11 +340,18 @@ def test_an_unbounded_pocket_lowers_another_entry_only_where_its_feature_holds_i
         "local_thickness = { target = 20.0 }\nentry_z = { target = 0.0 }",
     )
     plan.write_text(text, "utf-8")
+    features = plan.with_name("features.toml")
+    frame = "[frames.A]\norigin = [5.0, 2.0, 1.0]\n"
+    text = features.read_text(encoding="utf-8")
+    features.write_text(text.replace(frame + SETUP_AXES["square"], frame + SETUP_AXES[axes]))
     bundle = load_bundle(plan)
     setup = bundle.plan["setups"][0]
     (_, _, after), _ = stock_states(bundle, setup)
     source = after["entry_from"]["target"]
     assert after["entry_z"]["target"] == pytest.approx(entry)
+    if tip is None:
+        assert source == "unknown"
+        return
     assert operative_z(bundle, setup, entry, "target", 1, source) == pytest.approx(entry)
     (row,) = (r for r in tip_endpoints.evaluate(bundle) if r.subject == "target")
     (end,) = row.numbers["endpoints"]
