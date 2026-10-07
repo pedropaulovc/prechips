@@ -337,7 +337,9 @@ riser = "riserB"
 locator = "locator"
 jaw_protection = "soft_jaws"
 index = {fixture = "BS-0", angle_deg = "unknown", positions = "unknown"}
+align = {indicator = "dti", limit_mm = 0.0254, over_mm = 100.0, cite = "scratch"}
 """
+    # The align block's indicator is a gauge, never holding.
     expected = {
         "primary",
         "stop",
@@ -355,6 +357,7 @@ index = {fixture = "BS-0", angle_deg = "unknown", positions = "unknown"}
         f'\n[fixtures.{identity}]\nkind = "support"\nverify = false\n'
         for identity in sorted(expected - {"primary", "BS-0"})
     )
+    inventory += '\n[gauges.dti]\nkind = "dial_test_indicator"\nverify = false\n'
     plan = candidate(tmp_path / "inputs", "fixtures", hold=hold, inventory=inventory, setups=2)
     _, rows = compare([plan], tmp_path / "out")
     assert rows[0]["fixtures"] == sorted(expected)

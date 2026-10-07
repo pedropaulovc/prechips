@@ -604,10 +604,13 @@ feed, see [cutting data](cutting-data.md#plunge), which only a tool declared
 `center_cutting = true` has) and, when unknown, `plunge_reason`. Fixture and clamp
 heights are not in the box: a raise Z is never
 claimed clear of them.
-A single-level op whose level Z is the Z it starts from (a level at the stock top it
-meets, or an earlier op's cleared floor, `z_levels.start_cleared`) carries
-`lowered` (`top` or `cleared`): the cutter is lowered to that Z, never plunged, so it
-needs no plunge feed and the sheet prints no `plunge Z a → a`.
+A single-level op whose level Z is the Z it starts from carries `lowered = "top"`
+only when the setup-entry `stock_bbox_mm` puts that level at or above the stock top
+(within the kernel's 1e-3 mm tolerance): nothing stands above it at any entry, so
+the cutter is lowered to that Z, never plunged, and needs no plunge feed. An equal
+start Z alone proves nothing at the entry: a feature's declared `entry_z` or an
+earlier op's cleared floor is not the stock height where the cutter goes down, so
+that entry plunges (with its feed, or as debt without one).
 
 Each of these is pass-plan debt (unknown), appended as ` Pass plan unknown: … .`
 (`;`-joined with the other pass-plan debts):
@@ -619,7 +622,9 @@ Each of these is pass-plan debt (unknown), appended as ` Pass plan unknown: … 
 - `op {op} returns to its entry at Z {z}, not above the stock it receives`.
 
 The setup sheet prints each path's record above its table: a single level as
-`Enter at P1: plunge Z a → b at F mm/min.` (or `clear of the stock: lower to Z`);
+`Enter at P1: plunge Z a → b at F mm/min.` (`plunge to Z b at F mm/min` when it starts
+at b; `lower to Z b, the top of the stock this op meets` when `lowered`; or `clear of
+the stock: lower to Z`);
 several levels, whose Zs the block heading lists, as one statement of how each
 level gets down (`plunge from the level above (level 1 from Z a) at F mm/min`)
 and how it gets back between levels (`raise to Z R (above the stock), move back
