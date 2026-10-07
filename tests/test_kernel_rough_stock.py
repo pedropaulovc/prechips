@@ -146,10 +146,10 @@ def test_a_bounded_rough_leaves_a_flat_skin_before_its_wall_not_a_later_arch_or_
     step = solids["ear"]
     wall = engine.refs(step, (3, 20, 0), (17, 20, 26), kind="Plane")
     assert len(wall) == 1
-    blank = _blank((0.0, 0.0, 0.0), 20.0, (30.0, 28.0))
+    blank = _blank((3.0, 0.0, 0.0), 14.0, (30.0, 28.0))
     hold = _vise(5.0, centre=10.0)
     # The free run in front of the ear, up to its wall plane; the crown behind stays raw.
-    run = {"x": [0.0, 20.0], "y": [0.0, 20.0], "z": [0.0, 28.0]}
+    run = {"x": [3.0, 17.0], "y": [0.0, 20.0], "z": [0.0, 28.0]}
     rough = {**_rough("S1:10", "wall", 3.0, 30.0, 40.0), "do": "rough_pocket"}
     setups = [
         _setup([{**rough, "stock_removal_bounds": run}], hold, setup_id="S1"),
@@ -159,11 +159,42 @@ def test_a_bounded_rough_leaves_a_flat_skin_before_its_wall_not_a_later_arch_or_
     second = result["setups"]["S2"]
     assert "stock_reason" not in second, second.get("stock_reason")
     # Its passes stop the leave short of the wall plane across the whole raw crown behind
-    # it: one flat 20 x 28 skin. The finished face's arch outline and the bore no setup has
-    # drilled yet are not carved into it (that skin would hold about 63 mm^3, not 112).
-    flat = 20 * 28 * LEAVE
-    assert second["stock_volume_mm3"] == pytest.approx(20 * 10 * 28 + flat, abs=0.01)
-    assert second["stock_bbox_mm"] == [0.0, 20 - LEAVE, 0.0, 20.0, 30.0, 28.0]
+    # it: one flat 14 x 28 skin. The finished face's arch outline and the bore no setup has
+    # drilled yet are not carved into it (that skin would hold about 63 mm^3, not 78).
+    flat = 14 * 28 * LEAVE
+    assert second["stock_volume_mm3"] == pytest.approx(14 * 10 * 28 + flat, abs=0.01)
+    assert second["stock_bbox_mm"] == [3.0, 20 - LEAVE, 0.0, 17.0, 30.0, 28.0]
+
+
+def test_a_flat_skin_stops_at_its_walls_edge_where_the_next_box_turns_the_corner(engine, solids):
+    step = solids["ear"]
+    front = engine.refs(step, (3, 20, 0), (17, 20, 26), kind="Plane")
+    side = engine.refs(step, (3, 20, 0), (3, 26, 19), kind="Plane")
+    assert len(front) == 1 and len(side) == 1
+    blank = _blank((0.0, 0.0, 0.0), 20.0, (30.0, 28.0))
+    hold = _vise(5.0, centre=10.0)
+    rough = {**_rough("S1:10", "front", 3.0, 30.0, 40.0), "do": "rough_pocket"}
+    beside = {**_rough("S1:20", "side", 3.0, 30.0, 40.0), "do": "rough_pocket"}
+    setups = [
+        _setup(
+            [
+                {**rough, "stock_removal_bounds": {"x": [0, 20], "y": [0, 20], "z": [0, 28]}},
+                {**beside, "stock_removal_bounds": {"x": [0, 3], "y": [20, 30], "z": [0, 28]}},
+            ],
+            hold,
+            setup_id="S1",
+        ),
+        _setup([], hold, setup_id="S2"),
+    ]
+    features = {"front": front, "side": side}
+    result = engine.run(engine.job(step, features, setups, stock=blank))
+    second = result["setups"]["S2"]
+    assert "stock_reason" not in second, second.get("stock_reason")
+    # The front pass stops short of the front wall over its 14 mm width only. Past its
+    # edge the side box's cutter rounds the corner at the side wall's leave, so no front
+    # skin is left there for its flute to meet.
+    assert "part" not in result["ops"]["S1:20"]["obstacles"]["tool"], result["ops"]["S1:20"]
+    assert second["stock_bbox_mm"][0] == pytest.approx(3 - LEAVE)
 
 
 @pytest.mark.parametrize("action", ["mill", "finish_profile"])

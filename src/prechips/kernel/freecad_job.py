@@ -218,6 +218,7 @@ FACING_ACTIONS = {"face", "rough_face", "finish_face"}  # sweeps that span plana
 PROFILE_ACTIONS = {"profile", "rough_profile", "finish_profile"}  # walls clear a corridor
 # Curved analytic claims: a clearing box's leave before them is the guard's offset.
 _CURVED_ANALYTIC = (Part.Cylinder, Part.Cone, Part.Sphere, Part.Toroid)
+FLAT_CHORD = 1e-4  # mm, chord error measuring a claimed wall's width along its edges
 AREA_REL = AREA_ABS = 1e-6  # face-signature area tolerance (relative, absolute mm^2)
 BBOX_TOL = 1e-4  # mm, face-signature bbox tolerance
 PLANE_TOL = 1e-6  # mm, coplanarity of contact faces / interval ends
@@ -4929,10 +4930,14 @@ class _Setup:
         pass, not only over the finished face: wherever stock it may not enter stands
         behind the plane (stock outside the box, or a reserved not-yet-drilled bore column),
         the band ``leave`` deep in front of the plane stays, flat across the finished face's
-        outline and over the holes and edges later setups make in it. In front of open air
-        or of material this box clears, the guard's offset alone is the leave. A curved
-        analytic claim keeps the offset; a claim whose surface is neither analytic nor a
-        plane makes the leave, and so the stock, unknown.
+        outline and over the holes and edges later setups make in it. The band spans the
+        claimed face's own extent across the spindle axis; a wall's passes stack down the
+        axis, so its band runs through the box's whole depth there. Past the face's edges
+        no claim stops the passes, and a neighbouring box's cutter turning that corner sweeps
+        the stock in front of them. There, and in front of open air or of material this box
+        clears, the guard's offset alone is the leave. A curved analytic claim keeps the
+        offset; a claim whose surface is neither analytic nor a plane makes the leave, and so
+        the stock, unknown.
         """
         corners = [V(span[i], span[j], span[k]) for i in (0, 3) for j in (1, 4) for k in (2, 5)]
         box = _box_shape(span)
@@ -4949,17 +4954,30 @@ class _Setup:
                 )
             origin = surface.Position
             normal = _normal_at(face, origin)
-            across = normal.cross(V(1, 0, 0) if abs(normal.x) < 0.9 else V(0, 1, 0))
-            across.normalize()
+            # In the plane, ``across`` runs across the spindle axis and ``other`` along it as
+            # far as the plane allows; a floor's both run across it.
+            if abs(normal.z) >= PARALLEL:
+                across = V(1, 0, 0)
+            else:
+                across = normal.cross(V(0, 0, 1))
+                across.normalize()
             other = normal.cross(across)
-            us = [(corner - origin).dot(across) for corner in corners]
-            vs = [(corner - origin).dot(other) for corner in corners]
-            u0, u1, v0, v1 = min(us) - 1, max(us) + 1, min(vs) - 1, max(vs) + 1
+            points = [
+                point for edge in face.Edges for point in edge.discretize(Deflection=FLAT_CHORD)
+            ]
+            us = [(point - origin).dot(across) for point in points]
+            if abs(normal.z) <= 1 - PARALLEL:
+                vs = [(corner - origin).dot(other) for corner in corners]
+                v0, v1 = min(vs) - 1, max(vs) + 1
+            else:
+                vs = [(point - origin).dot(other) for point in points]
+                v0, v1 = min(vs), max(vs)
+            u0, u1 = min(us), max(us)
             outline = [
                 origin + across * u + other * v for u, v in ((u0, v0), (u1, v0), (u1, v1), (u0, v1))
             ]
             plane = Part.Face(Part.makePolygon([*outline, outline[0]]))
-            # The slab ``leave`` deep behind the wall plane, across the box's extent on it.
+            # The slab ``leave`` deep behind the wall plane over the face's width.
             behind = plane.extrude(normal * -leave)
             try:
                 backing = [_valid(stock.common(behind).cut(box), "stock behind a wall")]
@@ -6771,6 +6789,22 @@ class _Setup:
                         }
         return None
 
+    def _holding_middle(self, axis, default):
+        """The middle along ``axis`` of the placed holding solids that touch the work, when
+        it lies inside the work; else ``default``."""
+        low, high = math.inf, -math.inf
+        for component in self.fixture:
+            if _box_gap(self.box, component["bbox"]) > STOCK_TOL:
+                continue
+            if _distance(component["solid"], self.part)[0] > STOCK_TOL:
+                continue
+            low = min(low, component["bbox"][axis])
+            high = max(high, component["bbox"][axis + 3])
+        if low > high:
+            return default
+        middle = (low + high) / 2
+        return middle if self.box[axis] < middle < self.box[axis + 3] else default
+
     def _render(self):
         """Arriving stock, exact fixture, and this setup's derived removal, in setup axes."""
         size = max(self.box[3] - self.box[0], self.box[4] - self.box[1], self.box[5] - self.box[2])
@@ -6812,17 +6846,21 @@ class _Setup:
         )
         halfspace, section_view = None, None
         if view == "elevation":
-            # Section on the stock's centre plane across its longer horizontal side; the
-            # near half of every solid is removed so saddles, pins and stops show.
+            # Section across the stock's longer horizontal side, on the plane through the
+            # middle of the holding that touches the work (else the stock's centre), so
+            # the buttons, saddles and pins that hold it are cut and their contacts show;
+            # the near half of every solid is removed.
             centre = [(self.box[i] + self.box[i + 3]) / 2 for i in range(3)]
             big = 10 * max(size, 1.0) + 1000
-            if self.box[3] - self.box[0] >= self.box[4] - self.box[1]:
-                axis, keep = 1, 1  # view from -Y, keep y >= centre
+            axis = 1 if self.box[3] - self.box[0] >= self.box[4] - self.box[1] else 0
+            centre[axis] = self._holding_middle(axis, centre[axis])
+            if axis == 1:
+                keep = 1  # view from -Y, keep y >= the section
                 halfspace = Part.makeBox(2 * big, big, 2 * big, V(-big, centre[1], -big))
                 camera = [[1, 0, 0], [0, 0, 1], [0, -1, 0]]
                 note = f"SECTION AT SETUP Y {_r(centre[1])}  /  VIEW FROM -Y  /  X RIGHT, Z UP"
             else:
-                axis, keep = 0, -1  # view from +X, keep x <= centre
+                keep = -1  # view from +X, keep x <= the section
                 halfspace = Part.makeBox(big, 2 * big, 2 * big, V(centre[0] - big, -big, -big))
                 camera = [[0, 1, 0], [0, 0, 1], [1, 0, 0]]
                 note = f"SECTION AT SETUP X {_r(centre[0])}  /  VIEW FROM +X  /  Y RIGHT, Z UP"
@@ -7114,6 +7152,8 @@ class _Setup:
                 "jaw_front_oblique": jaw_front_oblique,
             }
         )
+        if section_view is not None:
+            scene["section"] = {"axis": "xy"[section_view[0]], "at_mm": _r(section_view[2])}
         details = [c for c in components if c["role"] == "detail"]
         if details:
             scene["fixture_detail_labels"] = details
@@ -8780,11 +8820,14 @@ class _Setup:
         elif thru is True:
             # Each axis exits where its own claimed bores end, not at the entry-stock
             # floor: finished material below the exit (a clevis's lower leg, a cross
-            # bore's far wall) is never on this tool's path.
-            bottoms = [
-                min(self._bore_span(self.faces[index], Z)[0] for index, _ in members) - point
-                for _, _, members in axes
-            ]
+            # bore's far wall) is never on this tool's path. A plan that runs the tool
+            # further (its exit face plus exit allowance) cuts the stock it carries past
+            # the finished bore end, so no skin is left over the bore's mouth.
+            planned = hole.get("exit_z_mm")
+            bottoms = []
+            for _, _, members in axes:
+                end = min(self._bore_span(self.faces[index], Z)[0] for index, _ in members)
+                bottoms.append((min(end, planned) if _number(planned) else end) - point)
             through = True
         else:
             return debt("hole thru is unknown and the op has no to_z; its bottom is unknown", axes)

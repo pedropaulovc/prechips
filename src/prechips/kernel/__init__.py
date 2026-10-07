@@ -265,6 +265,15 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
             "complete_form": subject
             in (complete_form_subjects(bundle) if complete is None else complete),
         }
+        if thru is True:
+            # As tip_endpoints: a through tool's full diameter runs to the exit face (entry
+            # less the authored local thickness) plus its exit allowance.
+            thickness = record(record(setup.get("stock_state")).get("local_thickness")).get(
+                op.get("feature")
+            )
+            allowance = op.get("exit_mm")
+            if number(entry) and number(thickness) and number(allowance) and allowance >= 0:
+                result["hole"]["exit_z_mm"] = entry - thickness - allowance
         if op.get("do") in {"spot", "drill"}:
             point = angle_fact(tool, "point_angle", require_measured=False)
             result["hole"]["point_angle_deg"] = point["value"] if point["verified"] else UNKNOWN

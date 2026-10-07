@@ -265,12 +265,12 @@ Hold = record(
         # kind round_bar with measured dia/length): the moving jaw closes on the bar, which
         # presses the work along one line so the fixed jaw seats its face square.
         "jaw_bar": str,
-        # Required where a mill setup mounts or turns a vise or angle plate (hold_fields).
-        "align": Align,
         # A vise's pair of jaw buttons (an inventory fixture of kind jaw_buttons with
         # measured dia, thickness, spigot_dia and spigot_length): one between each jaw and
         # the work, its spigot seated in the work's bore that opens on that jaw face.
         "jaw_buttons": str,
+        # Required where a mill setup mounts or turns a vise or angle plate (hold_fields).
+        "align": Align,
     },
 )
 # ``measure_before_hold``: a ``measure_then_set`` M read on the part before it is held (a

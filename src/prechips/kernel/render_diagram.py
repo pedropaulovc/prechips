@@ -44,6 +44,32 @@ _ARROWS = "ARROWS: POINT ORDER"
 # A raster of at most this many passes draws and labels every pass; a longer one is a band
 # with its first and last pass.
 _EVERY_PASS = 8
+# The legend a path sketch prints once it has drawn a raster's lifted return: the cycle
+# is one way (feed a pass, lift, rapid back to the next pass's start).
+_RETURNS = "DASHED: LIFTED RETURN"
+
+
+def _lifted_returns(paths):
+    """(from, to) XY of each rapid return between consecutive raster passes a sketch draws
+    whole: the end of pass n to the start of pass n + 1 of the same op, when both run in a
+    known direction. A band showing only its first and last pass draws none."""
+    returns = []
+    for op in dict.fromkeys(str(path.get("op", "")) for path in paths):
+        raster = sorted(
+            (p for p in paths if p.get("raster") and str(p.get("op", "")) == op),
+            key=lambda p: p["raster"]["pass"],
+        )
+        keep_out = any(path["raster"].get("keep_out") for path in raster)
+        if len(raster) > _EVERY_PASS and not keep_out:
+            continue
+        for before, after in zip(raster, raster[1:], strict=False):
+            if (
+                after["raster"]["pass"] == before["raster"]["pass"] + 1
+                and before.get("directed") is True
+                and after.get("directed") is True
+            ):
+                returns.append((before["xy"][-1], after["xy"][0]))
+    return returns
 
 
 def _labelled_passes(numbers):
@@ -574,6 +600,7 @@ class _Diagram:
         self.off_window_keys = []
         # Direction arrows drawn so far: a legend claims "ARROWS" only once one is drawn.
         self.arrows_drawn = 0
+        self.returns_drawn = 0
         self.shoulders = (
             _radial_steps(spec.get("lathe_profiles", [])) if self.view == "lathe" else []
         )
@@ -1581,15 +1608,19 @@ class _Diagram:
         content_top = top + 40
         ops = list(dict.fromkeys(str(p.get("op", "")) for p in paths + waypoints))
         before = self.arrows_drawn
+        # A raster's lifted returns need a second legend line above the arrows'.
+        legend = 26 if _lifted_returns(paths) else 0
         if len(ops) > 1:
-            self._operation_panels(left, right, content_top, bottom - 34, ops, paths, waypoints)
-            if self.arrows_drawn > before:
-                _text(c, left, bottom - 21, _ARROWS, _MUTED)
+            self._operation_panels(
+                left, right, content_top, bottom - 34 - legend, ops, paths, waypoints
+            )
+            self._sketch_legend(left, bottom - 21, before)
             return
         xmin, ymin, xmax, ymax = _bounds(points)
         ops = list(dict.fromkeys(_plain(path.get("op", "")) for path in paths))
         key_lines = [(op, line) for op in ops for line in _wrap(c, op, right - left - 36, scale=3)]
-        plot_top, plot_bottom = content_top + 14, bottom - 40 - 30 * len(key_lines)
+        plot_top = content_top + 14
+        plot_bottom = bottom - 40 - 30 * len(key_lines) - legend
         scale = min(
             (right - left - 74) / max(xmax - xmin, 1e-9),
             max(50, plot_bottom - plot_top - 28) / max(ymax - ymin, 1e-9),
@@ -1619,8 +1650,17 @@ class _Diagram:
             c.line((left, row + 10), (left + 23, row + 10), colours[op], width=3)
             _text(c, left + 32, row, line, colours[op])
             row += 30
-        if self.arrows_drawn > before:
-            _text(c, left, bottom - 22, _ARROWS, _MUTED)
+        self._sketch_legend(left, bottom - 22, before)
+
+    def _sketch_legend(self, left, top, arrows_before):
+        """The arrows legend at ``top`` once a direction arrow is drawn, and the lifted
+        returns' line above it once a return is dashed."""
+        row = top
+        if self.arrows_drawn > arrows_before:
+            _text(self.canvas, left, row, _ARROWS, _MUTED)
+            row -= 26
+        if self.returns_drawn:
+            _text(self.canvas, left, row, _RETURNS, _MUTED)
 
     def _operation_panels(self, left, right, top, bottom, ops, paths, waypoints):
         """Separate authored operations, not every raster pass or curve record."""
@@ -1776,6 +1816,11 @@ class _Diagram:
                 colour,
                 arrows=path.get("directed") is True,
             )
+        # The cycle is one way: each pass's lift and rapid back to the next pass's start is
+        # dashed, never drawn as a cut.
+        for start, end in _lifted_returns(raster):
+            _dashed(c, [[start, end]], project, colour)
+            self.returns_drawn += 1
         numbers = set(_labelled_passes([path["raster"]["pass"] for path in raster]))
         for path in raster:
             if path["raster"]["pass"] in numbers:
@@ -2052,7 +2097,9 @@ def _holding_details(meshes, spec, diagram):
     ``_DETAIL_MIN_PX`` (small beside its holding). One band is drawn when it draws that
     side at least ``_DETAIL_GAIN`` times larger. A plan view, which cannot show contact
     heights, always gets the detail's raised view, split along the work's length into the
-    fewest bands (at most ``_DETAIL_TILES``) that reach the gain, else the most."""
+    fewest bands (at most ``_DETAIL_TILES``) that reach the gain, else the most. Any other
+    view whose whole work cannot reach the gain is windowed on the holding that touches
+    it (:func:`_detail_frame`), when that reaches the gain."""
     frame = _detail_frame(spec)
     if frame is None or not diagram.stock_pixels:
         return []
@@ -2072,7 +2119,10 @@ def _holding_details(meshes, spec, diagram):
             break
     else:
         if spec["view"] != "plan":
-            return []
+            tiles = [_detail_frame(spec, window=True)]
+            scale = _fit_scale(_corners(tiles[0]), camera, _detail_viewport(tiles[0], camera))
+            if scale * across < _DETAIL_GAIN * drawn:
+                return []
     details = []
     for index, tile in enumerate(tiles, 1):
         extra = 0
@@ -2142,18 +2192,26 @@ def _fit_scale(points, camera, viewport):
     return min(scales) if scales else 1.0
 
 
-def _detail_frame(spec):
+def _detail_frame(spec, window=False):
     """The box a holding detail frames: the stock, its contact outlines and the closest
-    cut's ends, padded; None when nothing touches the stock."""
+    cut's ends, padded; None when nothing touches the stock. A ``window`` frames instead
+    the holding that touches the stock: its contact outlines and the whole of each
+    component making one (both buttons and the stud they hang on, a jaw and its grip)."""
     stock = spec.get("stock_box")
     contacts = spec.get("contacts") or []
     if stock is None or not contacts:
         return None
-    points = _corners(stock)
-    points += [p for contact in contacts for line in contact["lines_mm"] for p in line]
-    cut = spec.get("closest_cut")
-    if cut:
-        points += [cut["from_mm"], cut["to_mm"]]
+    points = [p for contact in contacts for line in contact["lines_mm"] for p in line]
+    if window:
+        tags = {contact["tag"] for contact in contacts}
+        for component in spec.get("components", []):
+            if tags.intersection(component.get("meshes", ())) and component.get("box_mm"):
+                points += _corners(component["box_mm"])
+    else:
+        points += _corners(stock)
+        cut = spec.get("closest_cut")
+        if cut:
+            points += [cut["from_mm"], cut["to_mm"]]
     low = [min(p[i] for p in points) for i in range(3)]
     high = [max(p[i] for p in points) for i in range(3)]
     pads = [0.05 * (high[i] - low[i]) + 2.0 for i in range(3)]
@@ -2275,9 +2333,13 @@ class _HoldingDetail(_Diagram):
         title = "HOLDING DETAIL" if count == 1 else f"HOLDING DETAIL {index} OF {count}"
         title += f" X{self.gain:.1f}"
         zero = self.spec.get("zero_mm")
-        if count == 1 or zero is None:
-            return title
         axis = max(range(3), key=lambda i: abs(self.camera[0][i]))
+        # A band or a window on the holding shows only a stretch of the work: say which.
+        whole = (
+            self.frame[axis] <= self.stock[axis] and self.stock[axis + 3] <= self.frame[axis + 3]
+        )
+        if (count == 1 and whole) or zero is None:
+            return title
         low, high = self.frame[axis] - zero[axis], self.frame[axis + 3] - zero[axis]
         return f"{title}  /  SETUP {'XYZ'[axis]} {_mm(low)} TO {_mm(high)}"
 

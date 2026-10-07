@@ -1196,7 +1196,11 @@ A spot's `depth_mm` is its apex tip depth below the entry. A drill's
 with nothing added. A through drill's full diameter exits each matched bore's
 actual axial bottom, so its tip is one point length (plus numerical lift)
 below that; other through actions end at the bore bottom plus numerical lift,
-not the raw-stock bounding-box bottom.
+not the raw-stock bounding-box bottom. When the plan runs the tool further, its
+full diameter reaches the planned exit instead: the received exit face
+(`entry_z - local_thickness[feature]`) less the op's `exit_mm`, both numeric and
+`exit_mm >= 0`. Stock carried past the finished bore's end (a cap left proud by
+a part-off) is cut through, so no skin stays over the bore's mouth.
 Spot and tap operations honor an explicit depth even when the feature declares
 `thru = true`; that feature fact does not extend their local removal past the
 authored endpoint. `stock_state.top_z` and `entry_z` are machine-frame
@@ -1705,7 +1709,11 @@ returns a PNG 1600 pixels wide and 1000 tall (taller with holding detail bands,
 below) suitable for a wide printed setup figure. The camera
 uses setup axes: a lathe elevation has +Z to the right, radial +X up and +Y
 away, with headstock/chuck left and tailstock right; a mill uses a front-right
-isometric view; a custom plate uses a plan view down setup -Z. The engine's
+isometric view; a custom plate uses a plan view down setup -Z, and a custom
+fixture on a bench or saw an elevation section across the stock's longer
+horizontal side, on the plane through the middle of the holding that touches
+the work (else the stock's centre), so the buttons, saddles and pins holding it
+are cut and their contacts show (`render_scene.section`: `axis`, `at_mm`). The engine's
 own orthographic z-buffer rasterizer, bundled bitmap font and PNG encoder
 use no installed fonts, timestamps or machine-specific metadata. Fresh runs
 and cache hits give identical bytes.
@@ -1790,9 +1798,16 @@ A path sketch draws every pass of a raster of
 at most eight passes, labelled `PASS 1` … `PASS n` as the pass table numbers
 them (a longer raster is a band with its first and last pass), each with a
 direction arrow when the table gives a cutting sense; its `ARROWS: POINT ORDER`
-legend prints only when an arrow is drawn. An
+legend prints only when an arrow is drawn. The raster cycle is one way, so
+each lift and rapid back from a drawn pass's end to the next pass's start is
+dashed in the op's colour under `DASHED: LIFTED RETURN`, and a return never
+reads as a cut; a band showing only its first and last pass draws none. An
 isometric or elevation view is detailed only when the band draws the stock at
-least 1.5 times larger; a lathe's meridian section gets no holding detail. A
+least 1.5 times larger; when framing the whole stock cannot, the band is a
+window on the holding that touches it (its contacts and the whole of each
+component making one: both of the rocker's hub buttons and the stud the vise
+grips), titled with the stretch of the work it shows (`SETUP X a TO b`), and is
+drawn when that reaches 1.5 times. A lathe's meridian section gets no holding detail. A
 plan view always gets the detail, drawn from 30° above the side so contact
 heights read, and long work is split along its length into at most two bands,
 each keying only the contacts in its share. Bands grow taller rather than
