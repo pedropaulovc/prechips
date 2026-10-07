@@ -6,7 +6,7 @@
 # plain carbon steel row. Diameter ranges are mm, inclusive at both ends, one row
 # per diameter within a (material, tool, operation); drill rows break at 1/8 in
 # (3.175 mm) and 1/2 in (12.7 mm), the handbook's drill-feed size steps.
-revision = 4
+revision = 5
 
 [aliases]
 "1018 CRS" = "low_carbon_steel"
@@ -206,6 +206,47 @@ sfm = 70
 feed_mm_rev = 0.025
 cite = "example (plausible, not measured); speed inside Machinery's Handbook 27th ed. (Industrial Press, 2004) Table 1 p.1027 HSS turning speeds for plain carbon steels 1006-1026, 70-120 fpm (70 at 225-275 HB), and below p.1132 automatic-screw-machine HSS cutoff/form-tool speed 150 fpm for mild steel; feed 0.025 mm/rev (.0010 in), inside p.1132 cutoff-tool feeds .0006-.0015 in/rev (angular .0006, stock under 1/8 in .0008, circular or straight 1/16-1/8 in wide .0015), hand-fed"
 # --- end pivot-shaft additions ---
+
+# --- pivot-shaft DataShaft4 additions ---
+# Lathe rows for the ground M42 cobalt HSS tool bit (inventory hss-toolbit-3-8-rh) on
+# 1018: at Ø6.35-10 the carbide rows' 300 fpm floor needs 2900-4500 rpm, past the
+# lathe's 2000 rpm top speed; Table 1's HSS speeds land at 850-1700 rpm.
+[[cut]]
+material_class = "low_carbon_steel"
+tool_material = "M42"
+operation = "face"
+diameter_range = [0.0, 25.4]
+sfm = 90
+feed_mm_rev = 0.08
+cite = "example (plausible, not measured); ground HSS tool bit: speed inside Machinery's Handbook 27th ed. (Industrial Press, 2004) Table 1 p.1027 HSS turning speeds for plain carbon steels 1006-1026, 70-120 fpm (120 at 100-125 HB, 110 at 125-175, 90 at 175-225, 70 at 225-275), which p.1026 bases on a .012 in/rev feed and .125 in depth of cut; Table 5c p.1036 HSS feed and depth factors only raise that speed for these lighter cuts (feed .002-.004 in/rev Ff 1.50; depth .010-.039 in Fd 1.42-1.15), so the starting value stays on the low side; feed 0.08 mm/rev (.0031 in), inside Table 5c's .002-.060 in/rev feed rows"
+
+[[cut]]
+material_class = "low_carbon_steel"
+tool_material = "M42"
+operation = "rough_turn"
+diameter_range = [0.0, 25.4]
+sfm = 90
+feed_mm_rev = 0.10
+cite = "example (plausible, not measured); ground HSS tool bit: speed inside Machinery's Handbook 27th ed. (Industrial Press, 2004) Table 1 p.1027 HSS turning speeds for plain carbon steels 1006-1026, 70-120 fpm (120 at 100-125 HB, 110 at 125-175, 90 at 175-225, 70 at 225-275), which p.1026 bases on a .012 in/rev feed and .125 in depth of cut; Table 5c p.1036 HSS feed and depth factors only raise that speed for these lighter cuts (feed .003-.004 in/rev Ff 1.50; depth .020 in between the .016 in Fd 1.33 and .031 in Fd 1.21 rows), so the starting value stays on the low side; feed 0.10 mm/rev (.0039 in), inside Table 5c's .002-.060 in/rev feed rows"
+
+[[cut]]
+material_class = "low_carbon_steel"
+tool_material = "M42"
+operation = "finish_turn"
+diameter_range = [0.0, 25.4]
+sfm = 110
+feed_mm_rev = 0.05
+cite = "example (plausible, not measured); ground HSS tool bit: speed inside Machinery's Handbook 27th ed. (Industrial Press, 2004) Table 1 p.1027 HSS turning speeds for plain carbon steels 1006-1026, 70-120 fpm (120 at 100-125 HB, 110 at 125-175, 90 at 175-225, 70 at 225-275), which p.1026 bases on a .012 in/rev feed and .125 in depth of cut; Table 5c p.1036 HSS factors for this light finish (feed .002 in/rev Ff 1.50; depth .004 in, at or under the .005 in row, Fd 1.50) raise even the 70 fpm hardest-band speed to 157 fpm, so 110 fpm stays inside the adjusted range for every hardness band; feed 0.05 mm/rev (.0020 in), the .002 in (0.05 mm) feed row of Table 5c"
+
+[[cut]]
+material_class = "low_carbon_steel"
+tool_material = "M42"
+operation = "form_dome"
+diameter_range = [0.0, 25.4]
+sfm = 90
+feed_mm_rev = 0.05
+cite = "example (plausible, not measured); ground HSS tool bit, hand-traversed dome: speed inside Machinery's Handbook 27th ed. (Industrial Press, 2004) Table 1 p.1027 HSS turning speeds for plain carbon steels 1006-1026, 70-120 fpm (120 at 100-125 HB, 110 at 125-175, 90 at 175-225, 70 at 225-275), which p.1026 bases on a .012 in/rev feed and .125 in depth of cut; Table 5c p.1036 HSS feed and depth factors only raise that speed for these lighter cuts (feed .002 in/rev Ff 1.50; depth .008 in Fd 1.42-1.50), so the starting value stays on the low side; feed 0.05 mm/rev (.0020 in), the .002 in (0.05 mm) feed row of Table 5c"
+# --- end pivot-shaft DataShaft4 additions ---
 
 # --- cone-pivot-post built-up additions ---
 [[cut]]

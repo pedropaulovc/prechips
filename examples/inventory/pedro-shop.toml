@@ -604,6 +604,32 @@ functional_width_mm = { value = 8.0, measured = { by = "example (plausible, not 
 "qctp-axa-lms-2280/2-boring-turning-facing" = { value = 20.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, holder face to insert nose" } }
 # --- end pivot-shaft additions ---
 
+# --- pivot-shaft DataShaft4 additions ---
+# Example purchase: a 3/8 in square M42 cobalt HSS tool bit, ground right-hand
+# turning/facing to the same turning geometry as the AR holder (93° entering, 60°
+# point, R0.4 nose), so the shaft's 1018 turning runs at Machinery's Handbook 27th ed.
+# Table 1 p.1027 HSS speeds inside the lathe's 2000 rpm top speed.
+# functional_width: nose centre to the bit's back side face, against the feed: the
+# side cutting edge is ground 1.0 proud of the front side face (9.525 + 1.0 - 0.4 nose).
+[tools.hss-toolbit-3-8-rh]
+kind = "lathe_tool_bit"
+name = "3/8 in HSS turning tool"
+material = "M42"
+size_in = "3/8 x 3/8 x 2-1/2"
+shank_in = "3/8"
+present = true               # example: on hand, mounted in the AXA #1 turning/facing holder
+note = "illustrative example item: 3/8 x 3/8 x 2-1/2 in M42 cobalt HSS tool bit, ground right-hand turning/facing: 93° entering (-3° lead), 60° point, R0.4 nose honed with a slip stone"
+hand = "right"
+nose_radius_mm = { value = 0.4, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "radius gauge" } }
+insert_angle_deg = { value = 60.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "bevel protractor, side to end cutting edge" } }
+entering_angle_deg = { value = 93.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "bevel protractor, side cutting edge to bit side" } }
+edge_len_mm = { value = 11.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, ground side cutting edge" } }
+head_len_mm = { value = 14.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, nose to the end of the ground faces" } }
+shank_width_mm = { value = 9.525, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+functional_width_mm = { value = 10.1, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, nose to the bit's back side face" } }
+projection_mm = { "qctp-axa-lms-2280/1-turning-facing" = { value = 20.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, holder face to tool nose" } } }
+# --- end pivot-shaft DataShaft4 additions ---
+
 # --- cone-pivot-post additions ---
 # Example purchase: a second AR-style right-hand holder carrying a TCMT 21.50 insert
 # (1/128 in, 0.2 mm nose), so a finishing pass leaves the cone post's R0.25-max
