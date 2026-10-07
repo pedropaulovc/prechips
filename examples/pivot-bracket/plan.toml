@@ -487,7 +487,7 @@ feature = "hold_down_b"
 tool = "bracket-spot-drill"
 holder = "drill-chuck-r8"
 approach_mm = 5.0                # author\'s choice: rapid plane above the current stock top
-depth_mm = 0.6
+depth_mm = 0.6                   # 2.08 mm spot diameter, smaller than the following #15 drill
 
 [[setups.ops]]
 op = 90

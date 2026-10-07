@@ -111,12 +111,16 @@ Shared inputs:
   `tool_resolves`, `sizing`, `op_chain`, `blind_depth`, `inspection`, `coordinates`
   and `zero_check` on `"*"`. Re-fixture, thin-wall and stick-out numbers and their
   citations are unknown and `numbers_verify` remains true.
-- `cutting-data.toml`: four HSS / low-carbon-steel rows (face, profile, drill,
-  ream), plus the material-force/modulus row. No Machinery's Handbook **31** page
-  was verified: the layout sketch is not evidence. Diameter ranges, sfm, chip
-  loads, K_c, E and citations are unknown. All dependent RPM/feed cells are `?`.
-  The generic `Plain Carbon Steel` alias is a candidate classification, not a
-  sourced grade or measured carbon content; no material-property claim follows.
+- `cutting-data.toml`: illustrative example rows for low-carbon steel (HSS, M2,
+  M42 and carbide tools; face, profile, spot, drill, ream, counterbore, bore,
+  turning, dome, relief, part-off and cut-to-fit, plus saw cut-off), the
+  material-force/modulus row and one deep-hole
+  drill derate. Every row is labelled `example (plausible, not measured)` and its
+  citation names the published range it sits inside (Machinery's Handbook
+  Pocket Companion, ISBN 978-0-8311-3095-4, Tables 1 and 10; tool-maker,
+  saw-maker and university charts). These are starting values, not shop
+  measurements. The generic `Plain Carbon Steel` alias is a candidate
+  classification, not a sourced grade or measured carbon content.
 
 Current expected consumer CLI exits are **0 / 0 / 0 / 0** for shaft,
 rocker, bracket and cone built-up respectively.
