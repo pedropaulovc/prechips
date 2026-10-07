@@ -1892,9 +1892,11 @@ An inspect op's `inspection_views` ([plan](plan.md)) are drawn as one set-up
 sketch per requirement, a band per view, on the stock the setup leaves and in the
 part model's own axes: `up` up the page, seen from `toward`. The bands are
 returned as `inspection_pngs_base64` keyed `<op>:<requirement>`, apart from the
-setup picture. Each band titles its view and draws a hatched `SURFACE PLATE` line
+setup picture. Each band titles its view, wrapping a title too long for one line
+and moving the band down under it, and draws a hatched `SURFACE PLATE` line
 under the lowest solid. It keys every aid by name, on the aid's own visible
-pixels, and every mark at its point. A `reads` mark is green with a `+` arrow up
+pixels (each aid is drawn under its own tag, so an aid named like the work never
+borrows the work's pixels), and every mark at its point. A `reads` mark is green with a `+` arrow up
 the page, the way that orientation's height reading rises, under the note
 `+ ARROW: THE WAY A READING RISES (A HIGHER CONTACT READS +)`; other marks are
 red contacts. What a sketch cannot show is a render debt on the setup's

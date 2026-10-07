@@ -7641,11 +7641,15 @@ class _Setup:
                             mesh(
                                 aid_solid(aid),
                                 _COLOURS["fixture" if aid["shape"] == "box" else "clamp"],
-                                aid["name"],
+                                f"aid {index}",
                             )
-                            for aid in aids
+                            for index, aid in enumerate(aids, 1)
                         ],
-                        "aids": [aid["name"] for aid in aids],
+                        # Each aid owns its pixels by its own tag, never by its printed
+                        # name: an aid called "part" is not the workpiece.
+                        "aids": [
+                            [f"aid {index}", aid["name"]] for index, aid in enumerate(aids, 1)
+                        ],
                         "marks": view["marks"],
                     }
                 )

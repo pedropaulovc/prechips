@@ -1633,14 +1633,14 @@ def test_an_inspection_sketch_stands_the_part_on_the_plate_and_points_each_readi
 
     meshes = [
         _block([0, 0, 0, 120, 20, 40], (164, 177, 189), "part"),
-        _block([100, -15, 15, 110, 35, 25], (164, 132, 64), "rod pin"),
+        _block([100, -15, 15, 110, 35, 25], (164, 132, 64), "aid 1"),
     ]
     views = [
         {
             "title": title,
             "camera": _view_camera(up, (0, -1, 0)),
             "meshes": meshes,
-            "aids": ["rod pin"],
+            "aids": [["aid 1", "rod pin"]],
             "marks": [
                 {"label": "C", "at_mm": [0, 10, 20]},
                 {"label": "H1", "at_mm": crown, "reads": True},
@@ -1665,7 +1665,7 @@ def test_an_inspection_sketch_stands_the_part_on_the_plate_and_points_each_readi
         assert set(leaders) == {"C", "H1", "ROD PIN", "SURFACE PLATE"}
         for mark in view["marks"]:
             assert leaders[mark["label"]][0] == pytest.approx(c.project(mark["at_mm"]), abs=1)
-        assert _tag_at(c, *leaders["ROD PIN"][0]) == "rod pin"
+        assert _tag_at(c, *leaders["ROD PIN"][0]) == "aid 1"
         lowest = max(c.project(p)[1] for mesh in meshes for p in mesh[0])
         assert 0 <= leaders["SURFACE PLATE"][0][1] - lowest <= 2
         x, y = (math.floor(v) for v in c.project(view["marks"][1]["at_mm"]))
@@ -1673,3 +1673,38 @@ def test_an_inspection_sketch_stands_the_part_on_the_plate_and_points_each_readi
         assert _pixel(c, x, y + 30) != _GREEN
     width, height, _ = _decode_png(png)
     assert (width, height) == (1600, sum(heights))
+
+
+def test_an_inspection_sketch_wraps_a_long_title_and_owns_each_aid_apart_from_the_part():
+    # A view title too long for one line wraps, and the band moves down under it. An aid
+    # whose printed name is "part", buried in the bar, is hidden: it is NOT SHOWN, never
+    # keyed on the workpiece's pixels.
+    from prechips.kernel.render_diagram import _InspectionSketch, render_inspection
+
+    title = (
+        "VIEW 2: STAND THE PART ON ITS WEST DATUM FACE WITH THE INSPECTION BOX ON ITS SIDE"
+        " AND READ THE EAST GAUGE PIN"
+    )
+    view = {
+        "title": title,
+        "camera": _view_camera((0, 0, 1), (0, -1, 0)),
+        "meshes": [
+            _block([0, 0, 0, 120, 20, 40], (164, 177, 189), "part"),
+            _block([50, 5, 10, 55, 15, 15], (164, 132, 64), "aid 1"),
+        ],
+        "aids": [["aid 1", "part"]],
+        "marks": [{"label": "H1", "at_mm": [60, 10, 40], "reads": True}],
+    }
+
+    png, debts = render_inspection([view])
+
+    assert debts == ["NOT SHOWN: PART is hidden in this view, so it has no leader."]
+    band = _InspectionSketch(view)
+    band.render()
+    lines = [box for box in band.canvas.text_boxes if box[0] in band.title_lines]
+    assert " ".join(box[0] for box in lines) == title
+    assert all(right <= 1592 for _, _, _, right, _ in lines)
+    note = next(box for box in band.canvas.text_boxes if box[0].startswith("+ ARROW"))
+    assert note[2] > max(bottom for *_, bottom in lines)
+    assert band.viewport[1] > note[4]
+    assert "PART" not in dict(band.leaders)
