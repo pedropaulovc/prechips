@@ -48,7 +48,8 @@ touch `z_gauge`, `z_measure`, `z_offset_mm`) sets a measured edge, M + offset +
 paper. On a mill setup's `top` the raw top then reads Z = M + offset while the ops'
 levels start from `stock_state.top_z`; the DRO ZERO prints that correction: face a
 higher top down to `top_z` first, no deeper per pass than the setup's least op
-`doc_mm`.
+`doc_mm`, in plan units rounded down onto the DRO grid (unknown plan units print
+no cap).
 
 `checks` maps requirement names to inventory gauge references. Every key must
 belong to the selected resolved feature's `requirements` list (exported or
@@ -744,8 +745,10 @@ still raw. Its fact-local measured `dia` holds the moving jaw off the work by
 that diameter, so the jaws open by the work's width plus that Ø; the kernel draws
 the bar along the jaws at the middle of the work held in the jaws and refuses a
 bar taller than that work, or one that bears on no jaw-held work along its length.
-The HOLD step prints the bar centre's height above the parallels. A bar that does
-not resolve to a `round_bar` with measured `dia` and `length` leaves the jaws
+The HOLD step prints the bar centre's height above the parallels in mm, like the
+jaw height: the work's height comes from `stock_state` in plan units, so unknown
+plan units leave the bar's height unknown. A bar that does not resolve to a
+`round_bar` with measured `dia` and `length` leaves the jaws
 unplaced (fixture debt), never drawn as closing on the work.
 
 Other holding kinds are drawn from their own declarations, never defaulted.
