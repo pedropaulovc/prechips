@@ -248,10 +248,19 @@ op's own feature for its start and end Z, a feature map row), an op on that
 feature or one whose feature's X/Y `bounds` hold its whole footprint (its own
 `bounds`, else a Z-axis round feature's `at` ± half its largest `dia`); overlap
 is not cover. An equal Z alone is never proof, and with no footprint to prove it
-there is no producer. An op whose setup-frame X/Y `stock_removal_bounds` do not
-hold the surface's whole footprint (for `top`, `top_feature`'s, else its own
-feature's) cut only part of it: it neither advances that top or entry nor
-produces it, so the surface keeps the uncut height its last whole producer left.
+there is no producer. A bounded op's coverage of the surface (for `top`,
+`top_feature`, else its own feature) is whole, partial or unknown. Its
+setup-frame X/Y `stock_removal_bounds` are compared with the surface's whole
+footprint. The footprint comes from the feature's own `bounds` (Z from `at` when
+they omit it), else from a round feature's `at` ± half its largest `dia` (else
+± its `radius`) across its principal `axis`. Only its `plane` value can supply an
+omitted axis. When the bounds hold the footprint, coverage is whole. When they
+miss part of it, coverage is partial: the op neither advances that top or entry
+nor produces the surface, which keeps the uncut height its last whole producer
+left. When the bounds or the footprint are unknown, omitted, empty or malformed,
+coverage is unknown: that top or entry, its producer and its operative Z stay
+unknown and are never credited. A faced surface therefore needs its footprint
+authored. An op without `stock_removal_bounds` cuts its whole feature.
 It counts only if it cut that face to that Z. Its
 value is its `dro_to_z` on its own setup's grid, re-rounded to the safe side on
 the consumer's grid, so a coarser producer's −2.270 stays −2.270. Any other
