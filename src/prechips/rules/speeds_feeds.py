@@ -80,19 +80,44 @@ def _cited(value):
     )
 
 
-def _bounds(machine):
+def spindle_ranges(machine):
+    """The spindle's speed bands ``[[lo, hi], ...]``, slowest first: its ``ranges_rpm``
+    (each clipped to a known ``rpm_min``/``rpm_max``), else ``[[rpm_min, rpm_max]]``.
+    Unknown unless every endpoint is a known number; the gaps between bands are speeds the
+    spindle does not turn."""
     spindle = mapping(machine.get("spindle"))
     low, high = spindle.get("rpm_min", UNKNOWN), spindle.get("rpm_max", UNKNOWN)
-    ranges = [
-        band
-        for band in records(spindle.get("ranges_rpm"))
-        if isinstance(band, list) and len(band) == 2 and all(number(v) for v in band)
-    ]
-    if not number(low) and ranges:
-        low = min(band[0] for band in ranges)
-    if not number(high) and ranges:
-        high = max(band[1] for band in ranges)
-    return low, high
+    bands = spindle["ranges_rpm"] if "ranges_rpm" in spindle else [[low, high]]
+    if not isinstance(bands, list) or not bands:
+        return UNKNOWN
+    clipped = []
+    for band in bands:
+        if not (isinstance(band, list) and len(band) == 2 and all(number(v) for v in band)):
+            return UNKNOWN
+        lo = max(band[0], low) if number(low) else band[0]
+        hi = min(band[1], high) if number(high) else band[1]
+        if lo <= hi:
+            clipped.append([lo, hi])
+    return sorted(clipped) or UNKNOWN
+
+
+def spindle_bounds(machine):
+    """The machine's ``(slowest, fastest)`` rpm, each a number or unknown."""
+    bands = spindle_ranges(machine)
+    if bands == UNKNOWN:
+        return UNKNOWN, UNKNOWN
+    return bands[0][0], max(hi for _, hi in bands)
+
+
+def turnable(rpm, bands):
+    """``rpm`` where a spindle band turns it; in a gap between bands, the top of the band
+    below (slower, never a speed the spindle cannot select)."""
+    if not number(rpm) or bands == UNKNOWN:
+        return UNKNOWN
+    if any(lo <= rpm <= hi for lo, hi in bands):
+        return rpm
+    below = [hi for _, hi in bands if hi < rpm]
+    return max(below) if below else UNKNOWN
 
 
 # Facing-type lathe actions (face, cut to fit, part off) start at the held stock O.D.
@@ -305,7 +330,8 @@ def evaluate(bundle):
     for setup in bundle.plan["setups"]:
         machine = resolve(bundle, "machines", setup.get("machine")) or {}
         lathe = machine.get("kind") == "lathe"
-        low, high = _bounds(machine)
+        bands = spindle_ranges(machine)
+        low, high = spindle_bounds(machine)
         for op in setup["ops"]:
             subject = f"{setup['id']}:{op['op']}"
             if op["do"] in MANUAL:
@@ -380,7 +406,7 @@ def evaluate(bundle):
                 if number(speed) and speed > 0 and number(diameter_in)
                 else UNKNOWN
             )
-            rpm = nearest50(raw, low, high)
+            rpm = turnable(nearest50(raw, low, high), bands)
             flutes = tool.get("flutes", UNKNOWN)
             if lathe:
                 # A turning tool advances feed_mm_rev per spindle revolution.

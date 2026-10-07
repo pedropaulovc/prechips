@@ -276,6 +276,122 @@ def workholding_category(bundle_or_inventory, reference):
     return inventory_category(bundle_or_inventory, reference, WORKHOLDING_CATEGORIES) or "fixtures"
 
 
+# The hold's item slots, in the order the HOLD uses them.
+_HOLD_ITEMS = ("fixture", "chuck", "parallels", "riser", "jaw_bar", "jaw_buttons", "support")
+
+
+def setup_item_refs(setup):
+    """Every inventory reference a setup puts its hands on, first use first: the hold's
+    fixture, chuck, parallels, riser, jaw bar / buttons, support, clamps, stop, supports
+    and alignment indicator; the zero's tools, holders and gauges (a tool touch's Z
+    measuring gauge, the transfer's tool and gauge); then each op's filing guide and its
+    gauge, tool, holder, inspection gauges and process-hold gauges."""
+    hold = record(setup.get("hold"))
+    refs = [hold.get(key) for key in _HOLD_ITEMS]
+    refs += [record(clamp).get("ref") for clamp in hold.get("clamps") or [] if clamp]
+    refs.append(hold.get("stop_fixture"))
+    supports = hold.get("supports")
+    for support in supports if isinstance(supports, list) else [supports]:
+        refs.append(record(support).get("ref") if isinstance(support, dict) else support)
+    refs.append(record(hold.get("align")).get("indicator"))
+    zero = record(setup.get("zero"))
+    touches = zero.get("tool_touches") if isinstance(zero.get("tool_touches"), list) else []
+    for touch in [*(zero.get(axis) for axis in "xyz"), *touches]:
+        refs += [record(touch).get(key) for key in ("tool", "holder", "gauge", "z_gauge")]
+    refs += [record(zero.get("transfer")).get(key) for key in ("tool", "gauge")]
+    for op in setup.get("ops") or []:
+        op = record(op)
+        guide = record(op.get("guide"))
+        refs += [guide.get(key) for key in ("buttons", "template", "gauge")]
+        refs += [op.get("tool"), op.get("holder")]
+        refs += list(record(op.get("checks")).values())
+        process_holds = op.get("process_holds")
+        for held in process_holds if isinstance(process_holds, list) else []:
+            refs.append(record(held).get("gauge"))
+    seen = []
+    for ref in refs:
+        if isinstance(ref, str) and ref not in {UNKNOWN, "none", "not_applicable", *seen}:
+            seen.append(ref)
+    return seen
+
+
+def shop_made_item(bundle, reference):
+    """The inventory record of a shop-made holding item (``kind = "custom"`` or flagged
+    ``shop_made``) with something to make, else None: an item whose every solid is bought
+    or existing (a plain ground plate) has no make table."""
+    if not isinstance(reference, str) or reference in (UNKNOWN, "none", "not_applicable"):
+        return None
+    category = inventory_category(bundle, reference, WORKHOLDING_CATEGORIES)
+    item = record(resolve(bundle, category or "fixtures", reference))
+    if not (item.get("kind") == "custom" or item.get("shop_made") is True):
+        return None
+    solids = [s for s in item.get("solids") or [] if isinstance(s, dict)]
+    if solids and not any(s.get("supply", "made") == "made" for s in solids):
+        return None
+    return item
+
+
+# An inventory item named in prose (a make note, a plan note): ``<category>.<key>`` with an
+# optional ``/<member>``, as in ``gauges.granite-surface-plate`` or ``tools.ring-laps/6.49mm``.
+NAMED_REFERENCE = re.compile(
+    r"\b(machines|tools|holders|fixtures|gauges|services)\.([A-Za-z0-9][\w-]*(?:/[\w.-]*\w)?)"
+)
+
+
+def named_references(bundle):
+    """``{"<category>.<key>": [where, ...]}``: every inventory item the traveler's prose
+    names (:data:`NAMED_REFERENCE`) in the plan, and in the solid notes of the shop-made
+    items the setups use, plus each record blank's gauge (``gauges.<gauge>``)."""
+    named = {}
+
+    def add(name, where):
+        places = named.setdefault(name, [])
+        if where not in places:
+            places.append(where)
+
+    def scan(value, where):
+        if isinstance(value, dict):
+            for child in value.values():
+                scan(child, where)
+        elif isinstance(value, list):
+            for child in value:
+                scan(child, where)
+        elif isinstance(value, str):
+            for category, key in NAMED_REFERENCE.findall(value):
+                add(f"{category}.{key}", where)
+
+    setups = bundle.plan.get("setups") or []
+    scan({key: value for key, value in bundle.plan.items() if key != "setups"}, "plan")
+    used = []
+    for setup in setups:
+        scan(setup, f"Setup {record(setup).get('id', '?')}")
+        used += [ref for ref in setup_item_refs(record(setup)) if ref not in used]
+    for ref in used:
+        item = shop_made_item(bundle, ref)
+        for solid in (item or {}).get("solids") or []:
+            where = f"{ref} {record(solid).get('name', '?')}"
+            scan(record(solid).get("note"), f"{where} note")
+            for blank in record(solid).get("records") or []:
+                scan([record(blank).get("check"), record(blank).get("how")], f"{where} record")
+                gauge = record(blank).get("gauge")
+                if isinstance(gauge, str) and gauge not in ("none", "not_applicable"):
+                    add(f"gauges.{gauge}", f"{where} record")
+    return named
+
+
+def named_item(bundle, name):
+    """The inventory record a :data:`NAMED_REFERENCE` ``<category>.<key>`` names, else
+    None. A whole set (``tools.reamers-metric``) is named as itself; a member is resolved."""
+    category, _, reference = name.partition(".")
+    if "/" in reference:
+        return resolve(bundle, category, reference)
+    inventory = getattr(bundle, "inventory", bundle)
+    item = record(inventory.get(category)).get(reference)
+    if not isinstance(item, dict) or item.get("present") is False:
+        return None
+    return item
+
+
 def resolve(bundle_or_inventory, category, reference):
     inventory = getattr(bundle_or_inventory, "inventory", bundle_or_inventory)
     if not isinstance(reference, str) or reference in {UNKNOWN, "none", "not_applicable"}:

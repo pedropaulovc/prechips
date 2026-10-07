@@ -542,11 +542,19 @@ vendor = "LittleMachineShop"
 sku = 3662
 by = "photo"
 
+# EngProc7 (r7): finder_type and rpm_range feed the traveler's one EDGE FINDER box
+# (docs/inventory.md "Edge finder"); the tip Ø is the contact diameter the offset halves.
 [tools.edge-finder]
 kind = "edge_finder"
 make = "Starrett 827A (illustrative example identity)"
 shank_in = "3/8"
 tip_in = 0.2
+finder_type = "mechanical"
+rpm_range = [750, 1500]
+cite = [
+  "Starrett 827A: mechanical edge finder, .200 in contact Ø, .375 in body, single end (starrett.com Edge & Center Finders listing)",
+  "750-1500 rpm for a .200 in mechanical edge finder; tip centres then breaks away at the edge (Travers Tool Co., How to Use a .200 in Edge Finder, solutions.travers.com, 2025)",
+]
 note = "LMS packages ship Starrett 827A or Fisher; example value: 0.200 in tip, 3/8 in shank"
 
 [tools.turning-tools-warner-lms-4132]
@@ -1003,8 +1011,8 @@ kind = "strap_clamp"
 shop_made = true
 note = "illustrative shop-made two-stud bridge bar on 3/8-16 studs; cylindrical nut envelopes are conservative, not actual hex geometry or purchase/measurement evidence"
 solids = [
-  # DataBracket4: make note. Drill speed: 1018 (125-175 HB) HSS drilling 90 fpm, Machinery's Handbook 27th ed. Table 17, p.1061 -> 866 rpm for 0.397 in; 750 rpm is under it.
-  { name = "beam", shape = "box", at_mm = [-31.75, -6.35, 0.0], size_mm = [63.5, 12.7, 9.525], locates = "presses the finished foot top toward the plate", note = "1018 cold-rolled 1/2 × 3/8 in flat bar. Saw 2-1/2 in (63.5 mm) long and file the ends square. On the PM-30MV, spot and drill the two letter X (0.397 in) stud holes through the 3/8 in thickness, 40 mm apart and centred, at 750 rpm, hand feed, cutting oil. Break every edge", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } },
+  # DataBracket4: make note. Drill speed: 1018 (125-175 HB) HSS drilling 90 fpm, Machinery's Handbook 27th ed. Table 17, p.1061 -> 866 rpm for 0.397 in; 750 rpm is under it. Feeds: p.1060 drill feed 0.004-0.010 in/rev for 1/4-1/2 in drills; spot drill per examples/cutting-data.toml (Table 17 p.1061).
+  { name = "beam", shape = "box", at_mm = [-31.75, -6.35, 0.0], size_mm = [63.5, 12.7, 9.525], locates = "presses the finished foot top toward the plate", note = "1018 cold-rolled 1/2 × 3/8 in flat bar. Saw 2-1/2 in (63.5 mm) long and file the ends square. Lay out the two letter X (0.397 in) stud holes 40 mm apart and centred. On the PM-30MV, clamp the bar flat (3/8 in thickness upright) in the vise on parallels clear of the holes. Spot both holes 1.0 mm deep (a Ø3.5 cone) with the 3/8 in 120° cobalt spot drill at 700 rpm, hand-fed at about 0.04 mm/rev (about 2 s). Drill both through the 3/8 in thickness at 750 rpm and about 0.13 mm/rev (0.005 in/rev, about 6 s through), with cutting oil, feeding the quill by hand at a steady rate. Break every edge", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } },
   { name = "left-stud", supply = "bought", shape = "cylinder", at_mm = [-20.0, 0.0, -31.0], axis = [0.0, 0.0, 1.0], dia_mm = 9.525, length_mm = 54.0, fastener = "3/8-16 x 2-1/8 in stud through the upright", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } },
   { name = "left-front-washer", supply = "bought", fastener = "3/8 in flat washer", shape = "cylinder", at_mm = [-20.0, 0.0, 9.525], axis = [0.0, 0.0, 1.0], dia_mm = 20.64, length_mm = 1.6, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } },
   { name = "left-front-nut", supply = "bought", fastener = "3/8-16 hex nut", shape = "cylinder", at_mm = [-20.0, 0.0, 11.125], axis = [0.0, 0.0, 1.0], dia_mm = 16.5, length_mm = 8.33, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } },
@@ -1042,10 +1050,10 @@ height_in = { value = 3.5, measured = { by = "example (plausible, not measured)"
 bed_height_mm = { value = 66.7, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "height gauge, table to held foot bottom" } }
 solids = [
   { name = "base", supply = "existing", shape = "box", at_mm = [-63.5, 0.0, -90.9], size_mm = [127.0, 101.6, 12.7], fastener = "two 1/2-13 T-bolts with flange nuts through the base slots into the table T-slots", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers and height gauge" } },
-  # DataBracket4: make note. Gray cast iron (ASTM Class 30 assumed) HSS drilling 80 fpm, Machinery's Handbook 27th ed. Table 20, p.1068 -> 1922 rpm for the #21 (0.159 in) and 770 rpm for the letter X (0.397 in); 1800 and 750 rpm are under them.
-  { name = "upright", supply = "existing", shape = "box", at_mm = [-63.5, 0.0, -78.2], size_mm = [127.0, 12.7, 76.2], locates = "finished seat face (datum A)", note = "cast iron as bought. Lay out from the upright's top edge and centreline: ledge screws 32.2 mm below the edge at ±4 mm, studs 14 mm below the edge at ±20 mm. Stand the plate on its front face on 1 in parallels clear of the holes, clamp it to the PM-30MV table and spot each hole. Drill #21 (0.159 in) through at 1800 rpm and letter X (0.397 in) through at 750 rpm, hand feed, dry. Start the #10-32 plug tap square from the drill chuck, spindle off, and tap through by hand with tapping fluid. Deburr and stone the front face", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers and height gauge" } },
-  # DataBracket4: make note. 1018 (125-175 HB) HSS drilling 90 fpm, Machinery's Handbook 27th ed. Table 17, p.1061 -> 1710 rpm for the #7 (0.201 in); 1500 rpm is under it. End-mill speed and feed are the S1 T1 values (examples/cutting-data.toml).
-  { name = "bolted foot-end ledge", shape = "box", at_mm = [-8.0, -6.0, -40.2], size_mm = [16.0, 6.0, 16.0], locates = "foot free end", fastener = "two #10-32 x 5/8 in SHCS into the tapped upright", note = "1018 cold-rolled 3/4 × 1/4 in flat bar. Saw 19 mm off and mill it to 16 × 16 × 6 thick in the vise with the 3/8 in end mill at 900 rpm, 90 mm/min, 1 mm per pass. Spot and drill the two #7 (0.201 in) holes through at 1500 rpm, hand feed, cutting oil, 4 mm either side of centre and 10 mm below the top face. Break the edges. Screw it on with its top face square to the upright and 22.2 mm below the upright's top edge", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers and height gauge, ledge top at TC Z=-24.2" } },
+  # DataBracket4: make note. Gray cast iron (ASTM Class 30 assumed) HSS drilling 80 fpm, Machinery's Handbook 27th ed. Table 20, p.1068 -> 1922 rpm for the #21 (0.159 in) and 770 rpm for the letter X (0.397 in); 1800 and 750 rpm are under them. Feeds: p.1060 drill feeds 0.002-0.006 in/rev (1/8-1/4 in) and 0.004-0.010 in/rev (1/4-1/2 in).
+  { name = "upright", supply = "existing", shape = "box", at_mm = [-63.5, 0.0, -78.2], size_mm = [127.0, 12.7, 76.2], locates = "finished seat face (datum A)", note = "cast iron as bought. Lay out from the upright's top edge and centreline: ledge screws 32.2 mm below the edge at ±4 mm, studs 14 mm below the edge at ±20 mm. Stand the plate on its front face on 1 in parallels clear of the holes and clamp it to the PM-30MV table. Spot each hole 1.0 mm deep (a Ø3.5 cone) with the 3/8 in 120° cobalt spot drill at 700 rpm, hand-fed at about 0.04 mm/rev (about 2 s). Drill #21 (0.159 in) through at 1800 rpm and about 0.08 mm/rev (0.003 in/rev, about 6 s through the 12.7 mm upright), and letter X (0.397 in) through at 750 rpm and about 0.13 mm/rev (0.005 in/rev, about 8 s through), dry, feeding the quill by hand at a steady rate. Start the #10-32 plug tap square from the drill chuck, spindle off, and tap through by hand with tapping fluid. Deburr and stone the front face", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers and height gauge" } },
+  # DataBracket4: make note. 1018 (125-175 HB) HSS drilling 90 fpm, Machinery's Handbook 27th ed. Table 17, p.1061 -> 1710 rpm for the #7 (0.201 in); 1500 rpm is under it. End-mill speed and feed are the S1 T1 values (examples/cutting-data.toml). Feed: p.1060 drill feed 0.002-0.006 in/rev for 1/8-1/4 in drills.
+  { name = "bolted foot-end ledge", shape = "box", at_mm = [-8.0, -6.0, -40.2], size_mm = [16.0, 6.0, 16.0], locates = "foot free end", fastener = "two #10-32 x 5/8 in SHCS into the tapped upright", note = "1018 cold-rolled 3/4 × 1/4 in flat bar. Saw 19 mm off and mill it to 16 × 16 × 6 thick in the vise with the 3/8 in end mill at 900 rpm, 90 mm/min, 1 mm per pass. Lay out the two #7 (0.201 in) holes 4 mm either side of centre and 10 mm below the top face. Clamp the block in the vise on parallels clear of the holes. Spot both holes 1.0 mm deep (a Ø3.5 cone) with the 3/8 in 120° cobalt spot drill at 700 rpm, hand-fed at about 0.04 mm/rev (about 2 s). Drill both through at 1500 rpm and about 0.08 mm/rev (0.003 in/rev, about 3 s through the 6 mm), with cutting oil, feeding the quill by hand at a steady rate. Break the edges. Screw it on with its top face square to the upright and 22.2 mm below the upright's top edge", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers and height gauge, ledge top at TC Z=-24.2" } },
   { name = "left-ledge-screw", supply = "bought", shape = "cylinder", at_mm = [-4.0, -6.0, -34.2], axis = [0.0, 1.0, 0.0], dia_mm = 4.826, length_mm = 15.875, fastener = "#10-32 x 5/8 in SHCS", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, #10-32 x 5/8 in SHCS" } },
   { name = "left-ledge-screw-head", supply = "existing", shape = "cylinder", at_mm = [-4.0, -10.826, -34.2], axis = [0.0, 1.0, 0.0], dia_mm = 7.938, length_mm = 4.826, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, #10-32 SHCS head" } },
   { name = "right-ledge-screw", supply = "bought", shape = "cylinder", at_mm = [4.0, -6.0, -34.2], axis = [0.0, 1.0, 0.0], dia_mm = 4.826, length_mm = 15.875, fastener = "#10-32 x 5/8 in SHCS", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, #10-32 x 5/8 in SHCS" } },
@@ -2346,27 +2354,51 @@ length_mm = 304.8
 on_hand = true
 cite = ["McMaster-Carr 1018 rectangular bar https://www.mcmaster.com/products/1018-carbon-steel-bars/"]
 
+# DataBracket5 (r6): the shop has no hardening or precision grinding, so the bracket kit
+# is bought finished from a tooling catalogue that sells configurable hardened and ground
+# collars and stepped shafts, and checked on receipt (S4F note). Local frame: stud axis
+# Z, Z0 on the outer ear face. Receipt limits for R6.90-7.10: button OD 13.95-14.03,
+# button bore 6.500 GO / 6.530 NO-GO, stud 6.475-6.495 in the 6.50-6.53 cross bore, button
+# OD runout 0.01 TIR on its bore: worst case R6.915 (13.95/2 - 0.060) to R7.075
+# (14.03/2 + 0.060), centre shift 0.0275 + 0.0275 + 0.01/2.
 [fixtures.bracket-arch-filing-buttons]
 name = "bracket arch filing buttons"
 kind = "filing_buttons"
-shop_made = true
-note = "illustrative example shop-made kit: two hardened and ground 14.00 mm buttons 4 mm thick, bored 6.50, on a headed 6.49 mm ground stud (the lower button seats on its Ø12 head) with an M6 top thread, nut and long tail for the bench vise; the buttons seat on the two ear faces (6.0 apart)"
-dia_mm = { value = 14.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, button OD" } }
-bore_dia_mm = { value = 6.49, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, ground stud" } }
+note = "illustrative example purchase, bought finished: two bearing-steel precision collars through-hardened 58-62 HRC, OD 14 g6 (13.983-13.994) and faces ground, bore 6.5 H7, 4 mm thick, as the buttons; one stepped stud ground 6.49 h6 (6.481-6.490) with a Ø12 x 5 collar head, hardened 58-62 HRC on the ground diameters, upper end an M6x1 thread 10 mm long left soft; one ISO 4032 M6 nut; the buttons seat on the two ear faces (6.0 apart)"
 button_dia_limits_mm = { value = [13.95, 14.03], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "receipt acceptance limits: 0-1 in micrometer on each button OD (bought Ø14 g6, ground)" } }
 button_bore_limits_mm = { value = [6.500, 6.530], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "receipt acceptance limits: 6.500 GO / 6.530 NO-GO pins in each button bore (bought 6.5 H7)" } }
 pin_dia_limits_mm = { value = [6.475, 6.495], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "receipt acceptance limits: 0-1 in micrometer on the stud tail and body (bought 6.49 h6)" } }
 button_runout_mm = { value = 0.01, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "receipt acceptance limit: DTI on each button OD turned on the 6.500 GO pin held in a V-block, 0.01 TIR max" } }
-solids = [
-  { name = "upper-button", shape = "cylinder", at_mm = [0.0, 0.0, 0.0], axis = [0.0, 0.0, 1.0], dia_mm = 14.0, length_mm = 4.0, locates = "outer ear face; its hardened rim is the filing line", note = "O1 tool steel, hardened 58-62 HRC, OD and faces ground", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, OD and thickness" } },
-  { name = "upper-button-bore", void = true, cuts = ["upper-button"], shape = "cylinder", at_mm = [0.0, 0.0, -0.5], axis = [0.0, 0.0, 1.0], dia_mm = 6.5, length_mm = 5.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "pin gauges" } },
-  { name = "lower-button", shape = "cylinder", at_mm = [0.0, 0.0, -10.0], axis = [0.0, 0.0, 1.0], dia_mm = 14.0, length_mm = 4.0, locates = "inner ear face; its hardened rim is the filing line", note = "O1 tool steel, hardened 58-62 HRC, OD and faces ground", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, OD and thickness" } },
-  { name = "lower-button-bore", void = true, cuts = ["lower-button"], shape = "cylinder", at_mm = [0.0, 0.0, -10.5], axis = [0.0, 0.0, 1.0], dia_mm = 6.5, length_mm = 5.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "pin gauges" } },
-  { name = "nut", supply = "bought", fastener = "M6 hex nut", shape = "cylinder", at_mm = [0.0, 0.0, 4.0], axis = [0.0, 0.0, 1.0], dia_mm = 11.0, length_mm = 5.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, M6 nut across corners and height" } },
-  { name = "nut-bore", void = true, cuts = ["nut"], shape = "cylinder", at_mm = [0.0, 0.0, 3.5], axis = [0.0, 0.0, 1.0], dia_mm = 6.5, length_mm = 6.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "M6 thread drawn at the stud diameter" } },
-  { name = "stud", shape = "cylinder", at_mm = [0.0, 0.0, -60.0], axis = [0.0, 0.0, 1.0], dia_mm = 6.49, length_mm = 70.0, locates = "reamed cross bore", fastener = "6.49 ground stud, M6 top thread", note = "turned with its head from Ø13 O1 drill rod, hardened 50-55 HRC, body ground to 6.49", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, ground stud; steel rule, length" } },
-  { name = "stud-head", shape = "cylinder", at_mm = [0.0, 0.0, -13.0], axis = [0.0, 0.0, 1.0], dia_mm = 12.0, length_mm = 3.0, locates = "lower button's seat: the nut's reaction", note = "integral with the stud; top face square to the stud axis, ground", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, head OD and thickness" } },
+# EngProc7 (r7): what is bought and its receipt checks, printed as the traveler's
+# PURCHASED TOOLING / RECEIPT CHECK table (docs/inventory.md "Purchased tooling").
+purchase = "two bearing-steel collars hardened 58-62 HRC, OD 14 g6 ground, bore 6.5 H7, 4 thick (the buttons); one stepped stud hardened and ground 6.49 h6 with a Ø12 x 5 head and an M6x1 x 10 soft thread; one ISO 4032 M6 nut"
+acceptance = [
+  { check = "each button OD", gauge = "micrometers/0-1in", limits = "button_dia_limits_mm" },
+  { check = "each button bore", gauge = "bracket-cross-bore-pins", limits = "button_bore_limits_mm", accept = "6.500 GO pin enters, 6.530 NO-GO does not" },
+  { check = "stud tail and ground body", gauge = "micrometers/0-1in", limits = "pin_dia_limits_mm" },
+  { check = "each button OD runout", gauge = "rocker-datum-indicator", how = "button on the 6.500 GO pin in a V-block, one full turn", limits = "button_runout_mm", accept = "TIR" },
+  { check = "each button rim hard", gauge = "none", how = "smooth file, light stroke on the rim", accept = "the file skates without biting" },
+  { check = "stud thread", gauge = "none", accept = "the M6 nut runs the full thread by hand" },
 ]
+solids = [
+  { name = "upper-button", supply = "bought", shape = "cylinder", at_mm = [0.0, 0.0, 0.0], axis = [0.0, 0.0, 1.0], dia_mm = 14.0, length_mm = 4.0, locates = "outer ear face; its hardened rim is the filing line", fastener = "hardened ground Ø14 g6 x 4 button collar, bore 6.5 H7", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, OD and thickness on receipt" } },
+  { name = "upper-button-bore", void = true, supply = "bought", cuts = ["upper-button"], shape = "cylinder", at_mm = [0.0, 0.0, -0.5], axis = [0.0, 0.0, 1.0], dia_mm = 6.5, length_mm = 5.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "6.500 GO / 6.530 NO-GO bore pins on receipt" } },
+  { name = "lower-button", supply = "bought", shape = "cylinder", at_mm = [0.0, 0.0, -10.0], axis = [0.0, 0.0, 1.0], dia_mm = 14.0, length_mm = 4.0, locates = "inner ear face; its hardened rim is the filing line", fastener = "hardened ground Ø14 g6 x 4 button collar, bore 6.5 H7", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, OD and thickness on receipt" } },
+  { name = "lower-button-bore", void = true, supply = "bought", cuts = ["lower-button"], shape = "cylinder", at_mm = [0.0, 0.0, -10.5], axis = [0.0, 0.0, 1.0], dia_mm = 6.5, length_mm = 5.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "6.500 GO / 6.530 NO-GO bore pins on receipt" } },
+  { name = "nut", supply = "bought", fastener = "ISO 4032 M6 hex nut", shape = "cylinder", at_mm = [0.0, 0.0, 4.0], axis = [0.0, 0.0, 1.0], dia_mm = 11.05, length_mm = 5.2, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, M6 nut across corners and height" } },
+  { name = "nut-bore", void = true, supply = "bought", cuts = ["nut"], shape = "cylinder", at_mm = [0.0, 0.0, 3.5], axis = [0.0, 0.0, 1.0], dia_mm = 6.0, length_mm = 6.2, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "M6 thread drawn at its major diameter" } },
+  { name = "stud-tail", supply = "bought", shape = "cylinder", at_mm = [0.0, 0.0, -60.0], axis = [0.0, 0.0, 1.0], dia_mm = 6.49, length_mm = 45.0, locates = "bench-vise jaws", fastener = "hardened ground stepped button stud, 6.49 h6, Ø12 x 5 head, M6x1 x 10 thread", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, tail diameter; steel rule, length" } },
+  { name = "stud-head", supply = "bought", shape = "cylinder", at_mm = [0.0, 0.0, -15.0], axis = [0.0, 0.0, 1.0], dia_mm = 12.0, length_mm = 5.0, locates = "lower button's seat: the nut's reaction", fastener = "hardened ground stepped button stud, 6.49 h6, Ø12 x 5 head, M6x1 x 10 thread", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, head OD and thickness" } },
+  { name = "stud-body", supply = "bought", shape = "cylinder", at_mm = [0.0, 0.0, -10.0], axis = [0.0, 0.0, 1.0], dia_mm = 6.49, length_mm = 13.5, locates = "reamed cross bore and both button bores", fastener = "hardened ground stepped button stud, 6.49 h6, Ø12 x 5 head, M6x1 x 10 thread", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, ground body on receipt" } },
+  { name = "stud-thread", supply = "bought", shape = "cylinder", at_mm = [0.0, 0.0, 3.5], axis = [0.0, 0.0, 1.0], dia_mm = 6.0, length_mm = 10.0, fastener = "hardened ground stepped button stud, 6.49 h6, Ø12 x 5 head, M6x1 x 10 thread", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "M6x1 nut run on by hand; steel rule, thread length" } },
+]
+
+# DataBracket5 (r6): the click torque wrench the bracket's hand-tightened clamps are
+# torqued with (S4 bridge nuts 15 N·m, S4F button nut 4 N·m).
+[tools.torque-wrench-1-4in]
+name = "1/4 in drive torque wrench"
+kind = "torque_wrench"
+note = "illustrative example item: 1/4 in square-drive click torque wrench, 2-24 N·m (example range, not measured), with 10 mm and 9/16 in sockets"
 
 # A thin outline template the rocker's top edge and bottom arc are scribed from: it
 # drops over the ground shoulder-screw head (coaxial with bore A) in the S4 fixture.

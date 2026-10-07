@@ -276,8 +276,120 @@ def test_made_parts_print_their_make_notes_and_differing_notes_stay_apart():
     assert "button ×2" in made, "identical parts with one note share a row"
     # Rows sharing a make note are named together before it.
     assert f"Make: button ×2, collar: {hard}; button C: mild steel." in table
-    # Bought hardware is not made, so its note is no make instruction.
-    assert "zinc" not in bridge_page(cylinder("bolt", 0, 0, 6, 20, supply="bought", note="zinc"))
+    # Bought hardware is not made, so its note is no make instruction: it prints apart.
+    table = bridge_page(cylinder("bolt", 0, 0, 6, 20, supply="bought", note="zinc plated"))
+    assert "Notes: bolt: zinc plated." in table
+    assert "zinc" not in table.split("Notes:")[0]
+
+
+def test_notes_on_holes_and_on_bought_and_existing_parts_print():
+    window = cylinder("window", 0, -1, 5, 10, void=True, cuts=["beam"], note="mill it light")
+    shell = {
+        "name": "shell",
+        "shape": "box",
+        "at_mm": [-40, -40, -20],
+        "size_mm": [5, 5, 5],
+        "supply": "existing",
+        "note": "the bought box parallel, as sold",
+    }
+    table = bridge_page(window, shell)
+    make = table[table.index("Make:") :]
+    # A made hole's note is how it is made; an existing part's note is not.
+    assert "window: mill it light" in make
+    assert "Notes: shell: the bought box parallel, as sold." in table
+    assert "box parallel" not in make.split("Notes:")[0]
+
+
+RECORD = {
+    "check": "head-to-shoulder TIR",
+    "gauge": "dti",
+    "how": "shoulder rolled in the V-block",
+    "max_mm": 0.01,
+    "goal_mm": 0.003,
+}
+
+
+def record_page(*records, gauges=None):
+    head = cylinder("head", 0, 8.26, 8, 4, records=list(records))
+    data = bundle([{"fixture": "bridge", "pose": IDENTITY}])
+    data.inventory["gauges"] = {"dti": {"kind": "dti", "name": "0.0005 in test indicator"}}
+    data.inventory["gauges"].update(gauges or {})
+    data.inventory["fixtures"]["bridge"] = {
+        "kind": "custom",
+        "solids": [
+            {"name": "beam", "shape": "box", "at_mm": [-30, -5, 0], "size_mm": [60, 10, 8.26]},
+            head,
+        ],
+    }
+    return data, sheets(data)[0]
+
+
+def test_a_measured_and_recorded_value_prints_as_a_fill_in():
+    square = {"check": "base-to-right squareness by reversal", "over_mm": 100}
+    _, page = record_page(RECORD, square)
+    tir = page[page.index("head-to-shoulder TIR") :].split("|")[0]
+    assert "0.0005 in test indicator" in tir and "shoulder rolled in the V-block" in tir
+    assert "≤ 0.010 mm" in tir and "goal ≤ 0.003 mm" in tir
+    assert re.search(r"measured _{4,}", tir)
+    # A record with no spec is a characterisation: written down, not judged.
+    square_line = page[page.index("base-to-right squareness") :].split("|")[0]
+    assert re.search(r"measured _{4,} mm over 100 mm", square_line)
+    assert "≤" not in square_line
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        {**RECORD, "check": " "},
+        {**RECORD, "goal_mm": 0.02},
+        {**RECORD, "max_mm": "unknown"},
+        {**RECORD, "max_mm": -0.01},
+    ],
+)
+def test_malformed_record_blanks_are_rejected(bad):
+    from pydantic import ValidationError
+
+    from prechips.model import Inventory
+
+    def screw(record):
+        head = cylinder("head", 0, 0, 8, 4, records=[record])
+        return {"fixtures": {"screw": {"kind": "custom", "solids": [head]}}}
+
+    Inventory.model_validate(screw(RECORD))
+    with pytest.raises(ValidationError):
+        Inventory.model_validate(screw(bad))
+
+
+def test_inventory_keys_named_in_make_notes_print_as_the_item():
+    from prechips.rules import tool_resolves
+
+    note = "lap it with gauges.dti on gauges.granite-plate, then gauges.dti/0.5in."
+    head = cylinder("head", 0, 8.26, 8, 4, note=note)
+    data = bundle([{"fixture": "bridge", "pose": IDENTITY}])
+    data.inventory["gauges"] = {"dti": {"kind": "dti", "name": "test indicator"}}
+    data.inventory["fixtures"]["bridge"] = {
+        "kind": "custom",
+        "solids": [
+            {"name": "beam", "shape": "box", "at_mm": [-30, -5, 0], "size_mm": [60, 10, 8.26]},
+            head,
+        ],
+    }
+    page = sheets(data)[0]
+    assert "with test indicator on" in page and "gauges." not in page
+    assert "? granite-plate" in page
+    named = {f.subject: f.status for f in tool_resolves.evaluate(data) if f.numbers.get("named_in")}
+    assert named["gauges.dti"] == "pass"
+    assert named["gauges.granite-plate"] == "unknown"
+    assert named["gauges.dti/0.5in"] == "unknown"
+
+
+def test_a_record_gauge_must_be_in_the_shop_list():
+    from prechips.rules import tool_resolves
+
+    data, page = record_page({**RECORD, "gauge": "no-such-gauge"})
+    assert "? no-such-gauge" in page
+    named = {f.subject: f.status for f in tool_resolves.evaluate(data) if f.numbers.get("named_in")}
+    assert named["gauges.no-such-gauge"] == "unknown"
 
 
 def test_bought_part_drawn_as_head_and_shank_counts_once():
@@ -484,3 +596,64 @@ def test_oblique_hole_without_cuts_withholds_the_part_it_may_cross():
     # Named in cuts, the hole prints in the plate's row.
     table = bridge_page(plate, {**hole, "cuts": ["plate"]})
     assert "X 60…70, Y -5…5, Z 0…0.1|with 1 × Ø1 hole" in table
+
+
+# A soft-jaw plate bolted to a vise jaw, drawn in its own frame: the vise places it.
+SOFT_JAWS = {
+    "kind": "vise",
+    "shop_made": True,
+    "solids": [
+        {"name": "jaw-plate", "shape": "box", "at_mm": [0, 0, 0], "size_mm": [150, 20, 60]},
+        {
+            "name": "bolt-hole",
+            "shape": "cylinder",
+            "at_mm": [25, 0, 30],
+            "axis": [0, 1, 0],
+            "dia_mm": 11,
+            "length_mm": 20,
+            "void": True,
+            "fastener": "M10 jaw bolt",
+        },
+    ],
+}
+BUTTONS = {
+    "kind": "jaw_buttons",
+    "shop_made": True,
+    "solids": [
+        {
+            "name": "button",
+            "shape": "cylinder",
+            "at_mm": [0, 0, 0],
+            "axis": [0, 0, 1],
+            "dia_mm": 20,
+            "length_mm": 6,
+        },
+    ],
+}
+
+
+def loose_page(hold, **items):
+    data = bundle([hold])
+    data.inventory["fixtures"].update(items)
+    page = sheets(data)[0]
+    return page, page[page.index("SHOP-MADE FIXTURE —") :]
+
+
+def test_an_item_the_hold_places_prints_its_make_table_in_its_own_frame():
+    _, table = loose_page({"fixture": "soft-jaws", "jaws_along": "x"}, **{"soft-jaws": SOFT_JAWS})
+    assert "loose: placed as the HOLD says" in table
+    assert "? not posed" not in table
+    # Sizes and the bolt hole stand where the make table draws them, in the item frame.
+    assert "150 × 20 × 60" in table and "X 0…150, Y 0…20, Z 0…60" in table
+    assert "M10 jaw bolt" in table and "axis at X 25, Z 30" in table
+
+
+def test_jaw_buttons_get_a_make_table_and_the_hold_points_to_it():
+    page, table = loose_page({"fixture": "angle", "jaw_buttons": "buttons"}, buttons=BUTTONS)
+    assert "Jaw buttons: " in page and "(shop-made: SHOP-MADE FIXTURE table, sheet 2)" in page
+    assert "Ø20 × 6" in table and "loose: placed as the HOLD says" in table
+
+
+def test_a_fixture_placed_by_its_pose_still_stops_without_one():
+    _, table = loose_page({"fixture": "plate"})
+    assert "? not posed" in table and "loose" not in table

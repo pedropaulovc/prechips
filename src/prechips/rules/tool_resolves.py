@@ -13,6 +13,8 @@ from .resolution import (
     UNKNOWN,
     coating_process,
     length_mm,
+    named_item,
+    named_references,
     number,
     operations,
     resolve,
@@ -131,6 +133,37 @@ def evaluate(bundle):
                     if item is None
                     else "listed; presence or catalogue identity needs verification."
                     if uncertain(item)
+                    else "listed inventory identity resolves."
+                ),
+            )
+        )
+    # An item the prose names (``gauges.granite-surface-plate`` in a make note, a record
+    # blank's gauge) must be in the shop list: the traveler prints its name, and a name it
+    # cannot find, or an item still to verify, is unknown, never a pass.
+    for name, where in sorted(named_references(bundle).items()):
+        category, _, reference = name.partition(".")
+        item = named_item(bundle, name)
+        verified = item is not None and not uncertain(item)
+        places = "; ".join(where)
+        findings.append(
+            Finding(
+                "tool_resolves",
+                name,
+                "pass" if verified else "unknown",
+                {
+                    "reference": reference,
+                    "category": category,
+                    "present": item is not None,
+                    "verified": verified,
+                    "named_in": where,
+                },
+                ["inventory item named in prose", "docs/inventory.md Shop-made fixtures"],
+                f"{name}: named in {places}; "
+                + (
+                    "not listed in the inventory: list it or name a listed item."
+                    if item is None
+                    else "listed; presence or catalogue identity needs verification."
+                    if not verified
                     else "listed inventory identity resolves."
                 ),
             )
