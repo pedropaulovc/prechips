@@ -288,7 +288,7 @@ def test_rounded_up_through_tip_that_stops_short_is_a_stop(tmp_path, exit_mm, st
     """A DRO tip rounded up off a zero break-through stops the drill point short of the
     exit face, so the drill row stops; one grid step of authored break-through clears it."""
     _, _, html = traveler(plan(tmp_path, exit_mm), tmp_path / "out", setup=SYNTHETIC_KERNEL)
-    (cell,) = re.findall(r"<td>(Z -2\.275 → .*?)</td>", html)
+    (cell,) = re.findall(r"<td>(?:tool axis [^<]*<br>)?(Z -2\.275 → .*?)</td>", html)
     assert ("STOP" in cell) is stopped
 
 
@@ -316,6 +316,6 @@ def test_rounded_up_depth_outside_its_depth_band_is_a_stop(tmp_path, do, drilled
     ]
     shown = endpoint["dro_depth_mm"]
     assert drilled - STEP < shown < drilled
-    (cell,) = re.findall(r"<td>(Z -2\.275 → .*?)</td>", html)
+    (cell,) = re.findall(r"<td>(?:tool axis [^<]*<br>)?(Z -2\.275 → .*?)</td>", html)
     assert f"depth {shown:.3f}" in cell
     assert ("STOP" in cell) is stopped

@@ -7,7 +7,11 @@ import pytest
 from test_cli import ROOT, SYNTHETIC_KERNEL, copy_examples, traveler
 from test_sheet_precision import sections, text
 
-EXAMPLE = "plausible, not measured"
+from prechips.sheet import EXAMPLE_LEGEND
+
+# Authored inspection notes may themselves say "plausible, not measured" about a
+# shop-made gauge; the legend is the one sentence that explains the † mark.
+EXAMPLE = EXAMPLE_LEGEND
 
 
 def pages(html):
