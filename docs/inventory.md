@@ -269,8 +269,8 @@ Other holding solids come from the same accepted-fact rule, never defaults:
   the holes only)" with size "—").
   Sizes and positions print on the DRO grid they are made on (the shop's mill:
   every machine of kind `mill` reading one grid, else the setup machine's), at
-  shop policy `numbers.fixture_make_decimals`; the fit of a primitive with
-  `locates` (the bore cut in it, else the primitive itself) and shim nominals
+  shop policy `numbers.fixture_make_decimals`; a primitive with `locates` and
+  every bore cut in it (either may be the locating surface) and shim nominals
   print at the drawing precision, and either one undeclared, finer than the
   grid or off it at the grid step. A position at the place of a fit on the same
   sheet (a hole a locating pin stands in, a bolt hole over a locating pad)
