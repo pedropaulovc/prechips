@@ -329,7 +329,7 @@ def test_manual_layout_and_filing_attach_to_their_operation_even_at_the_bench(
         "R10 filing buttons (Ø20 mm buttons clamped on a Ø4 mm pin through centre bore; "
         "they file R9.980 to R10.020 mm)"
     ) in printed
-    assert "check with gauge radius gauge" in printed
+    assert "check with radius gauge" in printed
     assert "file off the stock left by S1:20 (at most 0.5 mm)" in printed
     assert "STOP: no tool" not in printed
 
@@ -357,6 +357,6 @@ def test_template_guide_and_unknown_stock_do_not_claim_a_filing_allowance(
     html = "".join(sum(sheet.setup_section(setup), []))
     printed = text(html)
     no_programming(html)
-    assert "guide: template arc template" in printed
+    assert "guide: arc template" in printed
     assert f"STOP: {stop}" in printed
     assert "at most" not in printed

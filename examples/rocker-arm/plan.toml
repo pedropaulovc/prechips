@@ -717,7 +717,7 @@ grip_mm = "not_applicable"
 jaw_above_parallels_mm = "not_applicable"
 stop = "shoulder screw locates A; preload counterclockwise against the diamond pin before tightening; its radial flats allow centre-distance variation"
 clamp = "washer and shoulder screw prevent hub lift; pads carry Z; separate toe clamps retain both scrap rails on matched shimmed rests"
-note = "The part and scrap frame are held independently. The web transmits early profile loads to the clamped frame; the hardened diamond pin is the positive tangential stop during and after the closing cut in op 40. Keep every scrap clamp tight through op 40. The pin's clearance in the rod hole (S2 op 34 process hold) is part of the clocking budget."
+note = "The part and scrap frame are held independently. The web transmits early profile loads to the clamped frame; the hardened diamond pin is the positive tangential stop during and after the closing cut in op 27. Keep every scrap clamp tight through op 27. The pin's clearance in the rod hole (S2 op 34 process hold) is part of the clocking budget."
 
 [setups.zero]
 tool_touches = []
@@ -830,7 +830,7 @@ bottom_arc_len = "rocker-profile-template"
 op = 43
 do = "inspect"
 feature = "tip_land_pos_x"
-note = "After op 40 releases the outline, check the rod-hole-end land width and its 90° angle to the top edge."
+note = "After the op 40 filing, check the rod-hole-end land width and its 90° angle to the top edge."
 [setups.ops.checks]
 tip_land = "calipers" # author's choice
 land_angle_deg = "rocker-profile-template" # 90° land template against the drawing's title-block ±1° band

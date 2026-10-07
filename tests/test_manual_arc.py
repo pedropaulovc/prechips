@@ -260,6 +260,19 @@ def test_filing_stock_over_the_cap_is_an_error_unless_a_later_rough_recuts_it(tm
     assert second["stock_left_mm"] <= second["stock_cap_mm"] == CAP
 
 
+def test_leftover_goes_to_the_rough_that_hands_the_faces_to_the_file(tmp_path):
+    # Two coarse roughs (one from each face of a part, say), then a fine one: the file
+    # meets what the fine rough leaves, so it takes both coarse leftovers.
+    coarse = [
+        op(n, "rough_profile", "{ method = 'stairs', cusp_mm = 0.4 }", allowance=0.45)
+        for n in (20, 25)
+    ]
+    fine = op(30, "rough_profile", "{ method = 'stairs', cusp_mm = 0.1 }", allowance=0.2)
+    row = coordinates_row(scratch(tmp_path, "".join(coarse) + fine))
+    assert row.status == "pass", row.sentence
+    assert [arcs(row, n)[0]["recut_by"] for n in (20, 25)] == ["S1 op 30", "S1 op 30"]
+
+
 @pytest.mark.parametrize(
     "policy",
     [

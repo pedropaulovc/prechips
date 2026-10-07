@@ -193,7 +193,9 @@ A rough stage's leftover (`stock_left_mm`) goes to the file
 unknown, never zero or a pass, when absent, negative, uncited or not marked
 `numbers_verify.max_filing_stock_mm = false`. A rough whose claimed faces a
 later `stairs`/`chain_drill`/`chords`/`rotary_table` op cuts again before any
-file reaches them leaves its stock to that op (`recut_by`) instead of the cap.
+file reaches them leaves its stock to the last such op, the one that hands the
+faces to the file (`recut_by`), instead of the cap. The claim test does not
+compare depth: an op between them may cut the same faces from the other side.
 Rough methods on a finish stage are an error (`file_to_line` finishes them);
 finish methods cannot be clipped by `stock_removal_bounds` (unknown); methods
 other than `stairs` along straight joins are unknown. A diagonal edge on a

@@ -259,6 +259,22 @@ def test_existing_shop_parts_drawn_for_clearance_are_not_made():
     assert "vise" not in bridge_page()
 
 
+def test_made_parts_print_their_make_notes_and_differing_notes_stay_apart():
+    hard = "O1 drill rod, hardened 58-60 HRC, OD ground"
+    buttons = [
+        cylinder(f"button-{s}", x, 8.26, 14, 4, note=note)
+        for s, x, note in (("l", -20, hard), ("r", 20, hard), ("c", 0, "mild steel"))
+    ]
+    collar = cylinder("collar", 40, 8.26, 10, 3, note=hard)
+    table = bridge_page(*buttons, collar)
+    made = table[table.index("Component") : table.index("Bought hardware")]
+    assert "button ×2" in made, "identical parts with one note share a row"
+    # Rows sharing a make note are named together before it.
+    assert f"Make: button ×2, collar: {hard}; button C: mild steel." in table
+    # Bought hardware is not made, so its note is no make instruction.
+    assert "zinc" not in bridge_page(cylinder("bolt", 0, 0, 6, 20, supply="bought", note="zinc"))
+
+
 def test_bought_part_drawn_as_head_and_shank_counts_once():
     screw = {"supply": "bought", "fastener": "M8 SHCS"}
     parts = [

@@ -648,7 +648,7 @@ frame = "TC"                     # outer face up on the button stud, stud tail d
 stock_in = "S4"
 coolant = "none: bench filing"
 deburr_mm = 0.25                 # example (plausible): title-block edge break
-note = "AUTHOR'S CHOICE: file the arch to filing buttons because the reamed cross bore is their pin, so the R7 comes out concentric with the bore without a second mill setup; a rotary table would need a plug, a spacer and two indications on this L-shaped part. Off the angle plate, clamp the buttons on both ear faces through the cross bore and grip the stud tail upright in the bench vise."
+note = "AUTHOR'S CHOICE: file the arch to filing buttons because the reamed cross bore is their pin, so the R7 comes out concentric with the bore without a second mill setup. Off the angle plate, clamp the buttons on both ear faces through the cross bore and grip the stud tail upright in the bench vise."
 
 [setups.stock_state]             # frame TC
 top_feature = "outer_face"

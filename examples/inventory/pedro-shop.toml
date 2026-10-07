@@ -1937,47 +1937,51 @@ solids = [
   { name = "body", supply = "existing", shape = "box", at_mm = [-60.0, -50.0, -85.0], size_mm = [120.0, 100.0, 60.0], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule and height gauge" } },
 ]
 
-# Filing buttons: hardened ground collars clamped on a ground stud through a reamed
-# bore, one on each face of the boss; the file stops on their rims, so the boss is filed
+# Filing buttons: hardened ground collars clamped on a headed ground stud through a
+# reamed bore, one on each face of the boss; the lower button seats on the stud head and
+# the top nut presses the upper one, so the file stops on their rims and the boss is filed
 # round about the bore. Local frame: stud axis Z, Z0 on the upper face the top button
 # seats on; the lower button seats on the opposite face (hub length or ear thickness).
 [fixtures.rocker-hub-filing-buttons]
 name = "rocker hub filing buttons"
 kind = "filing_buttons"
 shop_made = true
-note = "illustrative example shop-made kit: two hardened and ground 10.20 mm buttons 4 mm thick, bored 6.50, on a 6.49 mm ground stud with an M6 top thread, nut and 45 mm tail for the bench vise; the buttons seat on the two hub faces (7.0565 apart)"
+note = "illustrative example shop-made kit: two hardened and ground 10.20 mm buttons 4 mm thick, bored 6.50, on a headed 6.49 mm ground stud (the lower button seats on its Ø9 head) with an M6 top thread, nut and 42 mm tail for the bench vise; the buttons seat on the two hub faces (7.0565 apart)"
 dia_mm = { value = 10.2, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, button OD" } }
 bore_dia_mm = { value = 6.49, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, ground stud" } }
 solids = [
-  { name = "upper-button", shape = "cylinder", at_mm = [0.0, 0.0, 0.0], axis = [0.0, 0.0, 1.0], dia_mm = 10.2, length_mm = 4.0, locates = "upper hub face; its hardened rim is the filing line", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, OD and thickness" } },
+  { name = "upper-button", shape = "cylinder", at_mm = [0.0, 0.0, 0.0], axis = [0.0, 0.0, 1.0], dia_mm = 10.2, length_mm = 4.0, locates = "upper hub face; its hardened rim is the filing line", note = "O1 tool steel, hardened 58-62 HRC, OD and faces ground", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, OD and thickness" } },
   { name = "upper-button-bore", void = true, cuts = ["upper-button"], shape = "cylinder", at_mm = [0.0, 0.0, -0.5], axis = [0.0, 0.0, 1.0], dia_mm = 6.5, length_mm = 5.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "pin gauges" } },
-  { name = "lower-button", shape = "cylinder", at_mm = [0.0, 0.0, -11.0565], axis = [0.0, 0.0, 1.0], dia_mm = 10.2, length_mm = 4.0, locates = "lower hub face; its hardened rim is the filing line", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, OD and thickness" } },
+  { name = "lower-button", shape = "cylinder", at_mm = [0.0, 0.0, -11.0565], axis = [0.0, 0.0, 1.0], dia_mm = 10.2, length_mm = 4.0, locates = "lower hub face; its hardened rim is the filing line", note = "O1 tool steel, hardened 58-62 HRC, OD and faces ground", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, OD and thickness" } },
   { name = "lower-button-bore", void = true, cuts = ["lower-button"], shape = "cylinder", at_mm = [0.0, 0.0, -11.5565], axis = [0.0, 0.0, 1.0], dia_mm = 6.5, length_mm = 5.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "pin gauges" } },
   { name = "nut", supply = "bought", fastener = "M6 hex nut", shape = "cylinder", at_mm = [0.0, 0.0, 4.0], axis = [0.0, 0.0, 1.0], dia_mm = 11.0, length_mm = 5.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, M6 nut across corners and height" } },
   { name = "nut-bore", void = true, cuts = ["nut"], shape = "cylinder", at_mm = [0.0, 0.0, 3.5], axis = [0.0, 0.0, 1.0], dia_mm = 6.5, length_mm = 6.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "M6 thread drawn at the stud diameter" } },
-  { name = "stud", shape = "cylinder", at_mm = [0.0, 0.0, -56.0], axis = [0.0, 0.0, 1.0], dia_mm = 6.49, length_mm = 66.0, locates = "reamed pivot bore", fastener = "6.49 ground stud, M6 top thread", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, ground stud; steel rule, length" } },
+  { name = "stud", shape = "cylinder", at_mm = [0.0, 0.0, -56.0], axis = [0.0, 0.0, 1.0], dia_mm = 6.49, length_mm = 66.0, locates = "reamed pivot bore", fastener = "6.49 ground stud, M6 top thread", note = "turned with its head from Ø10 O1 drill rod, hardened 50-55 HRC, body ground to 6.49", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, ground stud; steel rule, length" } },
+  { name = "stud-head", shape = "cylinder", at_mm = [0.0, 0.0, -14.0565], axis = [0.0, 0.0, 1.0], dia_mm = 9.0, length_mm = 3.0, locates = "lower button's seat: the nut's reaction", note = "integral with the stud; top face square to the stud axis, ground", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, head OD and thickness" } },
 ]
 
 [fixtures.bracket-arch-filing-buttons]
 name = "bracket arch filing buttons"
 kind = "filing_buttons"
 shop_made = true
-note = "illustrative example shop-made kit: two hardened and ground 14.00 mm buttons 4 mm thick, bored 6.50, on a 6.49 mm ground stud with an M6 top thread, nut and long tail for the bench vise; the buttons seat on the two ear faces (6.0 apart)"
+note = "illustrative example shop-made kit: two hardened and ground 14.00 mm buttons 4 mm thick, bored 6.50, on a headed 6.49 mm ground stud (the lower button seats on its Ø12 head) with an M6 top thread, nut and long tail for the bench vise; the buttons seat on the two ear faces (6.0 apart)"
 dia_mm = { value = 14.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, button OD" } }
 bore_dia_mm = { value = 6.49, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, ground stud" } }
 solids = [
-  { name = "upper-button", shape = "cylinder", at_mm = [0.0, 0.0, 0.0], axis = [0.0, 0.0, 1.0], dia_mm = 14.0, length_mm = 4.0, locates = "outer ear face; its hardened rim is the filing line", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, OD and thickness" } },
+  { name = "upper-button", shape = "cylinder", at_mm = [0.0, 0.0, 0.0], axis = [0.0, 0.0, 1.0], dia_mm = 14.0, length_mm = 4.0, locates = "outer ear face; its hardened rim is the filing line", note = "O1 tool steel, hardened 58-62 HRC, OD and faces ground", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, OD and thickness" } },
   { name = "upper-button-bore", void = true, cuts = ["upper-button"], shape = "cylinder", at_mm = [0.0, 0.0, -0.5], axis = [0.0, 0.0, 1.0], dia_mm = 6.5, length_mm = 5.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "pin gauges" } },
-  { name = "lower-button", shape = "cylinder", at_mm = [0.0, 0.0, -10.0], axis = [0.0, 0.0, 1.0], dia_mm = 14.0, length_mm = 4.0, locates = "inner ear face; its hardened rim is the filing line", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, OD and thickness" } },
+  { name = "lower-button", shape = "cylinder", at_mm = [0.0, 0.0, -10.0], axis = [0.0, 0.0, 1.0], dia_mm = 14.0, length_mm = 4.0, locates = "inner ear face; its hardened rim is the filing line", note = "O1 tool steel, hardened 58-62 HRC, OD and faces ground", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, OD and thickness" } },
   { name = "lower-button-bore", void = true, cuts = ["lower-button"], shape = "cylinder", at_mm = [0.0, 0.0, -10.5], axis = [0.0, 0.0, 1.0], dia_mm = 6.5, length_mm = 5.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "pin gauges" } },
   { name = "nut", supply = "bought", fastener = "M6 hex nut", shape = "cylinder", at_mm = [0.0, 0.0, 4.0], axis = [0.0, 0.0, 1.0], dia_mm = 11.0, length_mm = 5.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, M6 nut across corners and height" } },
   { name = "nut-bore", void = true, cuts = ["nut"], shape = "cylinder", at_mm = [0.0, 0.0, 3.5], axis = [0.0, 0.0, 1.0], dia_mm = 6.5, length_mm = 6.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "M6 thread drawn at the stud diameter" } },
-  { name = "stud", shape = "cylinder", at_mm = [0.0, 0.0, -60.0], axis = [0.0, 0.0, 1.0], dia_mm = 6.49, length_mm = 70.0, locates = "reamed cross bore", fastener = "6.49 ground stud, M6 top thread", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, ground stud; steel rule, length" } },
+  { name = "stud", shape = "cylinder", at_mm = [0.0, 0.0, -60.0], axis = [0.0, 0.0, 1.0], dia_mm = 6.49, length_mm = 70.0, locates = "reamed cross bore", fastener = "6.49 ground stud, M6 top thread", note = "turned with its head from Ø13 O1 drill rod, hardened 50-55 HRC, body ground to 6.49", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, ground stud; steel rule, length" } },
+  { name = "stud-head", shape = "cylinder", at_mm = [0.0, 0.0, -13.0], axis = [0.0, 0.0, 1.0], dia_mm = 12.0, length_mm = 3.0, locates = "lower button's seat: the nut's reaction", note = "integral with the stud; top face square to the stud axis, ground", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, head OD and thickness" } },
 ]
 
 # A thin outline template the rocker's top edge and bottom arc are scribed from: it
 # drops over the ground shoulder-screw head (coaxial with bore A) in the S4 fixture.
 [gauges.rocker-outline-template]
+name = "rocker outline template"
 kind = "profile_gauge"
 shop_made = true
 note = "illustrative example toolroom-made 1.5 mm ground sheet-steel template of the finished rocker outline (top edge R800 and bottom arc R816 about the centre 808 above bore A, both tip lands), with a 14 mm hub clearance hole bridged by a bush whose 8.0 H7 bore drops over the ground shoulder-screw head, and a 2.0 mm sight hole at the rod-hole centre for clocking"

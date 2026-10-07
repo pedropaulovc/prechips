@@ -2273,11 +2273,14 @@ _NEEDS = {
 
 
 def _recut_by(bundle, op):
-    """The later manual-arc op ("S4 op 30") that cuts all of ``op``'s claimed faces again
-    before any file reaches them, else None: then ``op``'s leftover stock is that op's, not
-    the file's. A claim without ``faces`` is the whole feature."""
+    """The last later manual-arc op ("S4 op 27") that cuts all of ``op``'s claimed faces
+    again before any file reaches them, else None: then ``op``'s leftover stock is not the
+    file's. The last such op hands the faces to the file, so it names the leftover's taker:
+    an op between them may claim the faces from the other side (a half-depth rough from
+    the opposite face), and the face claim does not compare depth. A claim without
+    ``faces`` is the whole feature."""
     name, faces = op.get("feature"), op.get("faces")
-    passed = False
+    passed, last = False, None
     for setup in bundle.plan["setups"]:
         for other in setup["ops"]:
             if other is op:
@@ -2286,12 +2289,12 @@ def _recut_by(bundle, op):
             if not passed or other.get("feature") != name:
                 continue
             if other.get("do") in HAND_FINISH:
-                return None
+                return last
             later = other.get("faces")
             covers = later is None or (faces is not None and set(faces) <= set(later))
             if mapping(other.get("contour")).get("method") in ARC_METHODS and covers:
-                return f"{setup['id']} op {other.get('op', UNKNOWN)}"
-    return None
+                last = f"{setup['id']} op {other.get('op', UNKNOWN)}"
+    return last
 
 
 def _manual(bundle, setup, op, stage, allowance, arcs, lines, walls, label):

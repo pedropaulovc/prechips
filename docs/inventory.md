@@ -230,7 +230,9 @@ Other holding solids come from the same accepted-fact rule, never defaults:
   `locates = "<part face>"` and `fastener = "<thread / fastener>"` fill the
   Locates and Fastener columns; `shim = true` marks an adjustable shim stack
   whose drawn thickness HOLD prints as the nominal to fit with feeler gauges,
-  one stack per shim primitive per placement of its item.
+  one stack per shim primitive per placement of its item. A made primitive's
+  `note` (material, heat treatment, finish) prints once per row in a "Make:"
+  line under the table; primitives with different notes do not share a row.
   An angle plate's (or posed shop-made fixture's) lowest box that is not bought
   is its base: HOLD prints its underside Z, an angle plate's working face (local
   y = 0, facing local -y) and the base's `fastener` as the hold-down; with any

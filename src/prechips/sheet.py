@@ -495,6 +495,12 @@ def _supply(solid):
     return solid.get("supply", "made")
 
 
+def _make_notes(notes):
+    """``upper button, lower button: O1, hardened; stud: drill rod`` from ``{note:
+    [component, ...]}``: rows sharing one make note are named together before it."""
+    return "; ".join(f"{', '.join(components)}: {note}" for note, components in notes.items())
+
+
 # A shop-made fixture value authored as an example: the job page explains the mark once.
 EXAMPLE_MARK = "†"
 EXAMPLE_LEGEND = (
@@ -1667,9 +1673,10 @@ class _Traveler:
     def shop_made_table(self, setup, reference, placements):
         """The item's made solids as make-and-set rows; identical solids share a row (an
         authored ``label`` names the group), each row lists every setup-frame position
-        and the holes cut in it. Bought hardware is one line under the table; solids
-        already in the shop (``supply = "existing"``, such as machine vise jaws drawn
-        for clearance) are not listed."""
+        and the holes cut in it. Bought hardware is one line under the table, and each
+        made row's ``note`` (material, heat treatment, finish) one "Make:" entry under
+        that; solids already in the shop (``supply = "existing"``, such as machine vise
+        jaws drawn for clearance) are not listed."""
         sid = setup["id"]
         item = self.shop_made(reference)
         solids = [s for s in item.get("solids") or [] if isinstance(s, dict)]
@@ -1714,6 +1721,7 @@ class _Traveler:
                 solid.get("length_mm"),
                 solid.get("locates"),
                 solid.get("fastener"),
+                solid.get("note"),
             )
             groups.setdefault(key, []).append(solid)
 
@@ -1722,7 +1730,7 @@ class _Traveler:
             prefix = " ".join(part for part in parts if part)
             return f"{prefix}: {where}" if prefix else where
 
-        rows = []
+        rows, notes = [], {}
         for (label, *_), members in groups.items():
             names = [_solid_name(solid.get("name", "?")) for solid in members]
             stem, tags = _name_group(names)
@@ -1731,6 +1739,8 @@ class _Traveler:
             if _supply(members[0]) == "existing":
                 component += " (existing part: make the holes only)"
             first = members[0]
+            if first.get("note"):
+                notes.setdefault(self.bench(first["note"]).rstrip("."), []).append(component)
             fit = id(first) in fits
             if id(first) in withheld:
                 where = f"? not set: {withheld[id(first)]}; verify before making"
@@ -1823,6 +1833,7 @@ class _Traveler:
                 else ""
             )
             + (_p(f"Bought hardware (not made): {hardware}.") if hardware else "")
+            + (_p(f"Make: {_make_notes(notes)}.") if notes else "")
         )
 
     def hardware(self, solids, uses):
@@ -3054,7 +3065,7 @@ class _Traveler:
             axis = numbers.get("centre_on")
             layout = numbers.get("layout")
             instrument = (
-                "template " + self.reference(numbers.get("template"), "gauges")
+                self.reference(numbers.get("template"), "gauges")
                 if layout == "template"
                 else _text(layout)
             )
@@ -3091,7 +3102,7 @@ class _Traveler:
                 guide_text += f"; they file R{_number(reach[0], 3)} to R{_number(reach[1], 3)} mm"
             guide_text += ")"
         elif guide.get("kind") == "template":
-            guide_text = "template " + self.reference(guide.get("kit"), "gauges")
+            guide_text = self.reference(guide.get("kit"), "gauges")
             layout = numbers.get("layout_op")
             if isinstance(layout, str) and layout:
                 target += f" laid out in {layout.replace(':', ' op ')}"
@@ -3101,7 +3112,7 @@ class _Traveler:
         line = (
             f"Bench filing: {target}; guide: "
             + guide_text
-            + "; check with gauge "
+            + "; check with "
             + self.reference(gauge.get("ref"), "gauges")
         )
         rough = numbers.get("rough_op")
