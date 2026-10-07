@@ -298,7 +298,9 @@ retouch_after = []
 
 [[setups.zero.tool_touches]]
 tool = "parting-blade-lms-1728"
-x_method = "spindle stopped: mic the bearing Ø next to the thrust face (op 30 just finished it; one diameter, so the anvils sit anywhere on it); bring the blade tip in on that same spot through cigarette paper (0.05) until the paper drags; Axis Set X = your mic reading + 0.10 (the paper once on the radius, twice on the diameter)"  # AUTHOR'S CHOICE: a paper touch on the measured finished bearing, because a cut ring inside the 2 mm relief could not be mic'd apart from the bearing and a cut on the bearing would mark it; D2 zero on the surface touched, measured where it is touched
+x_method = "spindle stopped: mic the bearing Ø next to the thrust face (op 30 just finished it; one diameter, so the anvils sit anywhere on it); bring the blade tip in on that same spot through cigarette paper (0.05) until the paper drags"  # AUTHOR'S CHOICE: a paper touch on the measured finished bearing, because a cut ring inside the 2 mm relief could not be mic'd apart from the bearing and a cut on the bearing would mark it; D2 zero on the surface touched, measured where it is touched
+x_face = "pivot_bearing"
+x_paper_mm = 0.05            # cigarette paper
 gauge = "micrometers/0-1in"
 z_face = "shoulder_thrust"
 edge_mm = 0.0
@@ -445,7 +447,9 @@ retouch_after = []
 
 [[setups.zero.tool_touches]]
 tool = "parting-blade-lms-1728"
-x_method = "spindle stopped: mic the journal Ø next to the shoulder north face (op 30 just finished it; one diameter, so the anvils sit anywhere on it); bring the blade tip in on that same spot through cigarette paper (0.05) until the paper drags; Axis Set X = your mic reading + 0.10 (the paper once on the radius, twice on the diameter)"  # AUTHOR'S CHOICE: a paper touch on the measured finished journal, because a cut ring inside the 2 mm relief could not be mic'd apart from the journal and a cut on the journal would mark it; D2 zero on the surface touched, measured where it is touched
+x_method = "spindle stopped: mic the journal Ø next to the shoulder north face (op 30 just finished it; one diameter, so the anvils sit anywhere on it); bring the blade tip in on that same spot through cigarette paper (0.05) until the paper drags"  # AUTHOR'S CHOICE: a paper touch on the measured finished journal, because a cut ring inside the 2 mm relief could not be mic'd apart from the journal and a cut on the journal would mark it; D2 zero on the surface touched, measured where it is touched
+x_face = "pivot_journal"
+x_paper_mm = 0.05            # cigarette paper
 gauge = "micrometers/0-1in"
 z_face = "shoulder_north_face"
 edge_mm = -7.5
@@ -459,7 +463,9 @@ before_ops = [40]
 # finished journal keeps no touch mark.
 [[setups.zero.tool_touches]]
 tool = "hss-toolbit-3-8-rh"
-x_method = "spindle stopped: mic the stub Ø between Z0 and Z5 (op 30 turned it with the journal; op 50 faces it off); bring the tool nose in on the stub through cigarette paper (0.05) until the paper drags; Axis Set X = your mic reading + 0.10 (the paper once on the radius, twice on the diameter)"  # AUTHOR'S CHOICE: the stub still stands before op 50 and is mic'd where it is touched; D2 zero on the surface touched, measured where it is touched
+x_method = "spindle stopped: mic the stub Ø between Z0 and Z5 (op 30 turned it with the journal; op 50 faces it off); bring the tool nose in on the stub through cigarette paper (0.05) until the paper drags"  # AUTHOR'S CHOICE: the stub still stands before op 50 and is mic'd where it is touched; D2 zero on the surface touched, measured where it is touched
+x_face = "pivot_journal"     # the stub is the journal Ø, turned with it in op 30
+x_paper_mm = 0.05            # cigarette paper
 gauge = "micrometers/0-1in"
 z_face = "shoulder_north_face"
 edge_mm = -7.5
@@ -658,7 +664,9 @@ retouch_after = []
 
 [[setups.zero.tool_touches]]
 tool = "parting-blade-lms-1728"
-x_method = "spindle stopped: mic the T3 trial-cut land again, anvils between Z7 and the end (the land stands until op 10 cuts it off); bring the blade tip in on that land through cigarette paper (0.05) until the paper drags; Axis Set X = your mic reading + 0.10 (the paper once on the radius, twice on the diameter)"  # AUTHOR'S CHOICE: the zero's own trial-cut land is the one measured surface that stands before op 10; D2 zero on the surface touched, measured where it is touched
+x_method = "spindle stopped: mic the T3 trial-cut land again, anvils between Z7 and the end (the land stands until op 10 cuts it off); bring the blade tip in on that land through cigarette paper (0.05) until the paper drags"  # AUTHOR'S CHOICE: the zero's own trial-cut land is the one measured surface that stands before op 10; D2 zero on the surface touched, measured where it is touched
+x_face = "x_zero"
+x_paper_mm = 0.05            # cigarette paper
 gauge = "micrometers/0-1in"
 z_face = "scribe"
 edge_mm = 0.0
@@ -672,7 +680,9 @@ before_ops = [10]
 # the body Ø left past the scribe, which ops 20 and 30 cut away.
 [[setups.zero.tool_touches]]
 tool = "hss-toolbit-3-8-rh"
-x_method = "spindle stopped: mic the body Ø between the jaw fronts and the parted end (Z-7 to Z2: one finished diameter, so the anvils sit anywhere on it); bring the tool nose in on the stub past the scribe, Z1 to Z2, through cigarette paper (0.05) until the paper drags; Axis Set X = your mic reading + 0.10 (the paper once on the radius, twice on the diameter)"  # AUTHOR'S CHOICE: the trial-cut land is gone after op 10; the body stub past the scribe still stands, is the same diameter the micrometer reads, and ops 20 and 30 cut it away; D2 zero on the surface touched, measured where it is touched
+x_method = "spindle stopped: mic the body Ø between the jaw fronts and the parted end (Z-7 to Z2: one finished diameter, so the anvils sit anywhere on it); bring the tool nose in on the stub past the scribe, Z1 to Z2, through cigarette paper (0.05) until the paper drags"  # AUTHOR'S CHOICE: the trial-cut land is gone after op 10; the body stub past the scribe still stands, is the same diameter the micrometer reads, and ops 20 and 30 cut it away; D2 zero on the surface touched, measured where it is touched
+x_face = "pivot_bearing"
+x_paper_mm = 0.05            # cigarette paper
 gauge = "micrometers/0-1in"
 z_face = "scribe"
 edge_mm = 0.0
