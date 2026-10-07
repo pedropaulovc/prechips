@@ -2055,19 +2055,26 @@ class _Diagram:
         waypoints = [p for p in self.spec.get("waypoints", []) if "xy" in p]
         ops = list(dict.fromkeys(str(p.get("op", "")) for p in paths + waypoints))
         _text(c, left, top, "PROFILE SKETCH / XY", scale=_TITLE_SCALE)
-        _text(
-            c,
-            right,
-            top + _LEADING + 8,
-            f"SETUP {self.spec['setup_id']} / DIMENSIONS IN mm",
-            _MUTED,
-            align="right",
-        )
+        caption = _wrap(c, f"SETUP {self.spec['setup_id']} / DIMENSIONS IN mm", right - left)
+        for index, line in enumerate(caption):
+            _text(
+                c,
+                right,
+                top + _LEADING + 8 + index * _LEADING,
+                line,
+                _MUTED,
+                align="right",
+            )
         before = self.arrows_drawn
         legend = _LEADING if _lifted_returns(paths) else 0
         self._operation_panels(
-            left, right, top + 2 * _LEADING + 28, bottom - 2 * _LEADING - legend,
-            ops, paths, waypoints,
+            left,
+            right,
+            top + (1 + len(caption)) * _LEADING + 28,
+            bottom - 2 * _LEADING - legend,
+            ops,
+            paths,
+            waypoints,
         )
         self._sketch_legend(left, bottom - _TEXT_HEIGHT, before)
         if self.nominal:

@@ -1884,6 +1884,9 @@ Every label is at least bitmap body scale 5 (35-pixel cap height, approximately
 printer certification. The renderer refuses smaller text. Setup notes come from the setup's declared ops,
 bench actions included, so a deburr/coating/inspect setup says it has no
 machine cutting rather than "no material removed".
+Existing sketch captions wrap within their measured owner width at the same
+body type size, with line-height space reserved for every caption line. This
+changes layout only, not caption wording, coordinates, units or schema.
 
 A leader that names a drawn solid (the stock, a jaw, a parallel, a clamp, a
 numbered clamp or pad badge) ends on that solid's own visible pixels, never on
