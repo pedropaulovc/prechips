@@ -249,9 +249,17 @@ Other holding solids come from the same accepted-fact rule, never defaults:
   in the shop, such as a machine's vise jaws drawn for clearance: not listed,
   unless holes are made in it here, when its row reads "(existing part: make
   the holes only)" with size "—").
-  Sizes and positions print at shop policy `numbers.fixture_make_decimals`; the
-  fit of a primitive with `locates` (the bore cut in it, else the primitive
-  itself) and shim nominals print at the drawing precision. Optional texts
+  Sizes and positions print on the DRO grid they are made on (the shop's mill:
+  every machine of kind `mill` reading one grid, else the setup machine's), at
+  shop policy `numbers.fixture_make_decimals`; the fit of a primitive with
+  `locates` (the bore cut in it, else the primitive itself) and shim nominals
+  print at the drawing precision, and either one undeclared, finer than the
+  grid or off it at the grid step. A position at the place of a fit on the same
+  sheet (a hole a locating pin stands in, a bolt hole over a locating pad)
+  prints the fit's value: one place, one value. A fit the grid moves beyond the
+  drawing's general tolerance at its precision (`general_tolerances.linear_<n>pl`),
+  or with that tolerance undeclared, prints `?` with the reason under the table;
+  the hole is never moved silently. Optional texts
   `locates = "<part face>"` and `fastener = "<thread / fastener>"` fill the
   Locates and Fastener columns; `shim = true` marks an adjustable shim stack
   whose drawn thickness HOLD prints as the nominal to fit with feeler gauges,

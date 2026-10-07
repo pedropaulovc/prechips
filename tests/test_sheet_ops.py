@@ -785,7 +785,7 @@ def test_a_bench_finishing_setup_prints_a_finishing_table_not_empty_machining_co
         [{**paint, "note": PAINT_NOTE}, {"op": 20, "do": "deburr", "feature": "body"}]
     )
     headings = re.findall(r"<th>([^<]*)</th>", html)
-    assert "<h2>FINISHING</h2>" in html and "<h2>OPERATIONS</h2>" not in html
+    assert "<h2>ASSEMBLY / FINISHING</h2>" in html and "<h2>OPERATIONS</h2>" not in html
     assert headings == [
         "step",
         "feature",
@@ -806,5 +806,5 @@ def test_a_bench_finishing_setup_prints_a_finishing_table_not_empty_machining_co
 def test_a_setup_with_any_cutting_op_keeps_the_machining_table():
     paint = {"op": 10, "do": "coating", "feature": "body", "process": "ral-6005"}
     html = _bench_sheet([paint, {"op": 20, "do": "drill", "feature": "body"}])
-    assert "<h2>OPERATIONS</h2>" in html and "<h2>FINISHING</h2>" not in html
+    assert "<h2>OPERATIONS</h2>" in html and "FINISHING" not in html
     assert "rpm" in re.findall(r"<th>([^<]*)</th>", html)

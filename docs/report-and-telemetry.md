@@ -360,7 +360,7 @@ Front sheet (sheet 1), in this order:
    cited as `[S2 sheet 2 note 1]`. An op row with its boxed lines and note
    never splits across the front and back. A setup whose ops are all bench
    steps (`inspect`, `deburr`, `coating`, `fit`, `scribe`, `release`, hand
-   finishing) prints **FINISHING** instead: step, feature, material /
+   finishing) prints **ASSEMBLY / FINISHING** instead: step, feature, material /
    consumable (a coating's in-house consumable or outside service), action (the
    op's own instruction, else its action) and inspection, with no empty
    machining columns.

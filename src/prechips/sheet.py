@@ -969,6 +969,11 @@ class _Traveler:
         self.contour_ops = set()
         # (shop-made reference, its poses) -> the setup whose sheet 2 prints its table.
         self.shop_made_homes = {}
+        # Setup-frame places (axis -> values) of the fits on the shop-made tables being
+        # written: a position at one of them prints as that fit (shop_made_tables).
+        self.fit_places = {}
+        # Why a fit position printed ``?`` on the shop-made table being written.
+        self.fixture_unknowns = set()
         # Shop policy decimals for making and setting fixtures; a verify flag withholds it.
         decimals = _mapping(bundle.policy.get("numbers")).get("fixture_make_decimals")
         verify = bundle.policy.get("numbers_verify", False)
@@ -1694,16 +1699,58 @@ class _Traveler:
         where = "sheet 2" if home == setup["id"] else f"Setup {home} sheet 2"
         return f" (shop-made: SHOP-MADE FIXTURE table, {where})"
 
-    def fixture_number(self, value, fit=False):
-        """A fixture size or position at the shop policy's make precision
-        (``numbers.fixture_make_decimals``); a fit that locates the part at the drawing's
-        precision. Either undeclared: DRO resolution. No trailing zeros: a make sheet."""
+    @functools.cached_property
+    def mill_grid(self):
+        """(step, decimals) of the shop's mill DRO (:func:`dro_grid`) when every inventory
+        machine of kind ``mill`` reads on one grid, else None."""
+        machines = _mapping(self.bundle.inventory.get("machines"))
+        grids = {
+            dro_grid(self.bundle, {"machine": name})
+            for name, machine in machines.items()
+            if _mapping(machine).get("kind") == "mill"
+        }
+        return next(iter(grids)) if len(grids) == 1 else None
+
+    def fixture_number(self, value, fit=False, axis=None):
+        """A shop-made fixture size or position on the DRO grid it is made and set on (the
+        shop's mill, :attr:`mill_grid`, else the setup's own): at the shop policy's make
+        precision (``numbers.fixture_make_decimals``), a fit that locates the part at the
+        drawing's precision, and either undeclared, finer than the grid or off it at the
+        grid step. A position on ``axis`` at the place of a fit on this sheet
+        (:attr:`fit_places`) prints as that fit: one place, one value. A fit the grid moves
+        beyond the drawing's general tolerance at its precision, or with that tolerance
+        undeclared, prints ``?``: the hole is never moved silently. No trailing zeros: a
+        make sheet."""
         if not _known(value):
             return "?"
-        decimals = self.general_precision if fit else self.make_decimals
-        if not isinstance(decimals, int) or isinstance(decimals, bool) or decimals < 0:
-            decimals = self.decimals
-        return _number(round(value, decimals))
+        if not fit and axis is not None:
+            fit = any(abs(value - place) <= 1e-6 for place in self.fit_places.get(axis, ()))
+        step, decimals = self.mill_grid or dro_grid(self.bundle, self.setup or {})
+        places = self.general_precision if fit else self.make_decimals
+        declared = isinstance(places, int) and not isinstance(places, bool) and places >= 0
+        wanted = 10.0**-places if declared else None
+        coarser = declared and abs(wanted / step - round(wanted / step)) <= 1e-9 * wanted / step
+        if coarser and wanted >= step * (1 - 1e-9):
+            step, decimals = wanted, places
+        # Half a grid step rounds away from zero; float noise in the quotient does not count.
+        quotient = round(value / step, 6)
+        steps = math.copysign(math.floor(abs(quotient) + 0.5), quotient)
+        printed = round(steps * step, decimals)
+        moved = abs(printed - value)
+        if fit and declared and step != wanted and moved > 1e-9:
+            key = f"linear_{places}pl"
+            tolerance = _mapping(self.bundle.features.get("general_tolerances")).get(key)
+            known = isinstance(tolerance, (int, float)) and not isinstance(tolerance, bool)
+            if not (known and moved <= tolerance):
+                state = f"{_number(tolerance)} mm" if known else "not declared"
+                self.fixture_unknowns.add(
+                    f"? — the {_number(step)} mm grid it is made on cannot hold a fit drawn "
+                    f"to {places} places within the drawing's general tolerance "
+                    f"(general_tolerances.{key}: {state}); put the fit on the grid in the "
+                    "fixture design or declare the tolerance."
+                )
+                return "?"
+        return _number(printed)
 
     def fixture_setting(self, setup, hold, uses):
         """Placement of a posed angle plate or shop-made fixture body: the base on the
@@ -1846,10 +1893,13 @@ class _Traveler:
         extents = _solid_extents(solid, axes) if axes else None
         if extents is None:
             return "? not posed"
-        f = functools.partial(self.fixture_number, fit=fit)
+
+        def f(value, axis):
+            return self.fixture_number(value, fit=fit, axis=axis)
+
         first, second = extents
         if solid.get("shape") == "box":
-            return ", ".join(f"{a} {f(first[i])}…{f(second[i])}" for i, a in enumerate("XYZ"))
+            return ", ".join(f"{a} {f(first[i], i)}…{f(second[i], i)}" for i, a in enumerate("XYZ"))
         direction = _place(axes, solid["axis"], translate=False)
         along = _setup_axis(direction)
         if along:
@@ -1857,42 +1907,53 @@ class _Traveler:
             j, k = (n for n in range(3) if n != i)
             low, high = sorted((first[i], second[i]))
             return (
-                f"axis at {'XYZ'[j]} {f(first[j])}, {'XYZ'[k]} {f(first[k])}; "
-                f"{'XYZ'[i]} {f(low)}…{f(high)}"
+                f"axis at {'XYZ'[j]} {f(first[j], j)}, {'XYZ'[k]} {f(first[k], k)}; "
+                f"{'XYZ'[i]} {f(low, i)}…{f(high, i)}"
             )
         nearest = max(range(3), key=lambda n: abs(direction[n]))
         tilt = math.degrees(math.acos(min(1.0, abs(direction[nearest]))))
         sign = "+" if direction[nearest] > 0 else "−"
         return (
-            f"axis from ({', '.join(f(v) for v in first)}) to "
-            f"({', '.join(f(v) for v in second)}), {self.angle(tilt)}° off {sign}{'XYZ'[nearest]}"
+            f"axis from ({', '.join(f(v, n) for n, v in enumerate(first))}) to "
+            f"({', '.join(f(v, n) for n, v in enumerate(second))}), "
+            f"{self.angle(tilt)}° off {sign}{'XYZ'[nearest]}"
         )
 
     def shop_made_tables(self, setup):
         """One SHOP-MADE FIXTURE table per shop-made item first used (at these poses) in
-        this setup; a later setup using it at the same poses points back here."""
+        this setup; a later setup using it at the same poses points back here. Every fit
+        on the sheet's items marks its setup-frame places first, so a hole or mating part
+        at one of them prints the same value in every table."""
         uses = self.shop_made_uses(setup)
-        return "".join(
+        self.fit_places = {}
+        for reference, placements in uses.items():
+            solids, _, withheld, _, _, fits = self.shop_made_parts(reference)
+            for solid in solids:
+                if id(solid) not in fits or id(solid) in withheld:
+                    continue
+                for _, pose in placements:
+                    axes = _pose_axes(pose)
+                    for point in (_solid_extents(solid, axes) if axes else None) or ():
+                        for axis, value in enumerate(point):
+                            if _known(value):
+                                self.fit_places.setdefault(axis, set()).add(value)
+        tables = "".join(
             self.shop_made_table(setup, reference, placements)
             for reference, placements in uses.items()
             if self.shop_made_home(setup, reference, uses) == setup["id"]
         )
+        self.fit_places = {}
+        return tables
 
-    def shop_made_table(self, setup, reference, placements):
-        """The item's made solids as make-and-set rows; identical solids share a row (an
-        authored ``label`` names the group), each row lists every setup-frame position
-        and the holes cut in it. Bought hardware is one line under the table, and each
-        made row's ``note`` (material, heat treatment, finish) one "Make:" entry under
-        that; solids already in the shop (``supply = "existing"``, such as machine vise
-        jaws drawn for clearance) are not listed."""
-        sid = setup["id"]
+    def shop_made_parts(self, reference):
+        """The item's solids, made solids, withheld solids (id -> why), holes per parent
+        solid id, drilled parent ids and fit ids: a locating solid's fit is the bore cut in
+        it, else the solid itself. Like the kernel, an unverified primitive gives no
+        numbers, and an unverified hole withholds the solids it would cut."""
         item = self.shop_made(reference)
         solids = [s for s in item.get("solids") or [] if isinstance(s, dict)]
-        placed = [(label, _pose_axes(pose)) for label, pose in placements]
         # Made solids, and existing parts (a bought angle plate) only for holes cut here.
         made = [s for s in solids if not s.get("void") and _supply(s) != "bought"]
-        # Like the kernel: an unverified primitive gives no numbers, and an unverified
-        # hole withholds the solids it would cut.
         withheld = {
             id(s): "unverified" for s in solids if not record_trusted(s, require_measured=False)[0]
         }
@@ -1911,10 +1972,24 @@ class _Traveler:
                     withheld.setdefault(id(parent), f"its hole {name} is unverified")
                 else:
                     holes.setdefault(id(parent), []).append(void)
-        # A locating solid's fit is the bore cut in it, else the solid itself.
         fits = set()
         for solid in (s for s in made if s.get("locates")):
             fits.update(id(v) for v in holes.get(id(solid), [solid]))
+        return solids, made, withheld, holes, drilled, fits
+
+    def shop_made_table(self, setup, reference, placements):
+        """The item's made solids as make-and-set rows; identical solids share a row (an
+        authored ``label`` names the group), each row lists every setup-frame position
+        and the holes cut in it. Bought hardware is one line under the table, and each
+        made row's ``note`` (material, heat treatment, finish) one "Make:" entry under
+        that; solids already in the shop (``supply = "existing"``, such as machine vise
+        jaws drawn for clearance) are not listed. A fit position printed ``?`` says why
+        under the table."""
+        sid = setup["id"]
+        item = self.shop_made(reference)
+        placed = [(label, _pose_axes(pose)) for label, pose in placements]
+        solids, made, withheld, holes, drilled, fits = self.shop_made_parts(reference)
+        self.fixture_unknowns = set()
         groups = {}
         for solid in made:
             if _supply(solid) == "existing" and id(solid) not in drilled:
@@ -2042,6 +2117,7 @@ class _Traveler:
             )
             + (_p(f"Bought hardware (not made): {hardware}.") if hardware else "")
             + (_p(f"Make: {_make_notes(notes)}.") if notes else "")
+            + "".join(_p(reason) for reason in sorted(self.fixture_unknowns))
         )
 
     def hardware(self, solids, uses):
@@ -3925,7 +4001,7 @@ class _Traveler:
         ``sheets`` maps "notes" and "contours" to the attached sheet numbers that carry
         them; an op's own note prints under its row, and the row names the sheet that
         carries its inspection procedure or contour table. A setup of bench steps only
-        (no op cuts) prints a FINISHING table instead: step, feature, material /
+        (no op cuts) prints an ASSEMBLY / FINISHING table instead: step, feature, material /
         consumable, action (the op's own instruction) and inspection, with no machining
         columns left empty.
         """
@@ -4069,7 +4145,7 @@ class _Traveler:
                 )
             )
         if finishing:
-            title = "finishing"
+            title = "assembly / finishing"
             headings = ["step", "feature", "material / consumable", "action"]
             widths = [5, 12, 20, 41, 22]
         else:
