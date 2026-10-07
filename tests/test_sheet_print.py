@@ -193,3 +193,26 @@ def test_a_contour_heading_and_its_raster_line_print_with_the_first_contour_bloc
         assert "contour-row-1" in page, page
         moved += page is not run[0]
     assert moved
+
+
+@pytest.mark.parametrize("count", [4, 10])
+def test_a_table_split_across_pages_never_strands_one_or_two_rows(tmp_path, count):
+    # A table as the sheet writes it (one body per row) after a filler of every height
+    # around a page end. Each page it prints on carries at least three of its rows; a
+    # table too short to leave three on both sides moves whole with its heading.
+    from prechips.sheet import _table
+
+    rows = [(str(n), f"row-{n}-end") for n in range(1, count + 1)]
+    block = "<h2>CHECK THE BLANK</h2>" + _table(["#", "check"], rows)
+    fillers = range(700, 961, 12)
+    texts = printed_pages(_sections([(filler, block) for filler in fillers]), tmp_path)
+    split = 0
+    for run in _runs(texts, len(fillers)):
+        counts = [len(re.findall(r"row-\d+-end", text)) for text in run]
+        printed = [n for n in counts if n]
+        assert sum(printed) == count and all(n >= 3 for n in printed), counts
+        heading = next(text for text in run if "row-1-end" in text)
+        assert "CHECK THE BLANK" in heading
+        split += len(printed) > 1
+    # The boundary itself: the long table does split at some filler heights.
+    assert split if count == 10 else not split

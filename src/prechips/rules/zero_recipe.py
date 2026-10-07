@@ -518,9 +518,12 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
     unknown tool leaves the DRO's setter unknown; an incoming tool that does not
     resolve unflagged keeps its touch unknown, as an authored touch is. A touch naming
     none of the setup's ops serves none. Returns (derived touches, missing touches,
-    unknown, readings): ``readings`` maps each cutting op to the Z touch record its DRO Z
-    reads (the zero's recipe, a tool touch, a derived re-touch or a listed retouch of the
-    top), None when no touch of its tool set Z."""
+    unknown, readings, served): ``readings`` maps each cutting op to the Z touch record its
+    DRO Z reads (the zero's recipe, a tool touch, a derived re-touch or a listed retouch of
+    the top), None when no touch of its tool set Z; ``served`` maps each listed retouch's
+    op to the cutting op that reads it (``next_op``), that op's tool (``next_tool``) and
+    whether it is another tool than the last one that cut (``tool_change``: it goes in
+    before the touch); a cut by an unknown tool leaves both unknown."""
     ops = records(setup.get("ops"))
     states = list(stock_states(bundle, setup))
     features = mapping(bundle.feature_definitions)
@@ -544,8 +547,8 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
     set_x, x_gauge = (None, None)
     if lathe and x_recipe:
         set_x, x_gauge = x_recipe.get("tool", UNKNOWN), x_recipe.get("gauge")
-    # The top a listed retouch touches, for the next cutting tool.
-    pending = None
+    # The top a listed retouch touches, for the next cutting tool; the tool that last cut.
+    pending, spindle, served = None, None, {}
 
     def z_event(index, surface, z, touch_paper, source, touch=None, made=False):
         event = {
@@ -598,11 +601,22 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
         )
         if cuts and tool in (None, UNKNOWN):
             # Whether an unknown tool takes the DRO over from its setter is unknown.
-            unknown, pending = True, None
+            if pending:
+                served[str(pending["after_op"])] = {
+                    "next_op": op["op"],
+                    "next_tool": UNKNOWN,
+                    "tool_change": UNKNOWN,
+                }
+            unknown, pending, spindle = True, None, UNKNOWN
             set_z = None if set_z is None else UNKNOWN
             set_x = None if set_x is None else UNKNOWN
         cutting = cuts and tool not in (None, UNKNOWN)
         if cutting and pending:
+            served[str(pending["after_op"])] = {
+                "next_op": op["op"],
+                "next_tool": tool,
+                "tool_change": UNKNOWN if spindle == UNKNOWN else spindle != tool,
+            }
             set_z, z_by, pending = tool, {"tool": tool, **pending}, None
         changed = [
             axis for axis, current in (("x", set_x), ("z", set_z)) if current not in (None, tool)
@@ -666,6 +680,7 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
             set_x = tool if "x" in changed else set_x
         if cutting:
             readings[str(op["op"])] = z_by if set_z == tool else None
+            spindle = tool
         if str(op.get("op")) in listed:
             top = tops[index + 1][0]
             pending = {
@@ -686,7 +701,7 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
         if lathe and op.get("do") in TURNED:
             for name in sorted(_features(op) or ()):
                 x_events.append({"x_face": name, "gauge": x_gauge, "index": index + 1})
-    return derived, missing, unknown, readings
+    return derived, missing, unknown, readings, served
 
 
 def lathe_setup(bundle, setup):
@@ -704,7 +719,7 @@ def z_readings(bundle, setup):
     zero = mapping(setup.get("zero"))
     touches = [touch for touch in records(zero.get("tool_touches")) if isinstance(touch, dict)]
     lathe = lathe_setup(bundle, setup)
-    *_, readings = tool_changes(bundle, setup, zero, lathe, UNKNOWN, touches)
+    _, _, _, readings, _ = tool_changes(bundle, setup, zero, lathe, UNKNOWN, touches)
     return readings
 
 
@@ -1134,10 +1149,15 @@ def evaluate(bundle):
             touches.append(row)
             unknown |= x_set == UNKNOWN or z_set == UNKNOWN or not tool or uncertain(tool)
         unknown |= bool(x_unknowns)
-        derived, missing, changes_unknown, _ = tool_changes(
+        derived, missing, changes_unknown, _, served = tool_changes(
             bundle, setup, zero, lathe, x_scale, touches
         )
         unknown |= changes_unknown
+        # A listed retouch names the op that reads it and the tool that goes in first;
+        # one no later cutting op reads serves no tool.
+        idle = {"next_op": "not_applicable", "next_tool": "not_applicable", "tool_change": False}
+        for row in retouch:
+            row.update(served.get(str(row["op"]), idle))
         for row in derived:
             who = f"the {row.get('tool', UNKNOWN)} re-touch"
             blade_corner(row, row, row.get("z_face"), row.get("edge_mm"), who)

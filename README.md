@@ -381,24 +381,35 @@ setup DRO grid; contour rows round to the side that leaves material, and a
 finish row with no safe grid point inside its feature's band is an error. Raster
 and outline rows that run past the stock are labelled cutter clearance only when
 the cutter stands a radius outside the stock the kernel modelled entering the
-setup; a raster's pass ends always print, and are called in air only on that
-proof (an op's removal box never proves an end in air or in material); every
+setup; a raster's pass ends print in its table, and its note (the lift after each
+pass, with no pass count, stepover, stage or order the table and op row already
+give) names an end in air, by its side, only on that proof (an op's removal box
+never proves an end in air or in material); every
 pass is said to run in and out clear only when each emitted piece's start and
 end is, so pieces a keep-out splits are proven one by one. A
 through hole's breakthrough note gives the run-out its printed DRO tip leaves,
-cut down to the DRO decimals, not the authored `exit_mm`. A contour cut in
-several depth levels lists every level's Z once, in its heading, and says once
+cut down to the DRO decimals, not the authored `exit_mm`, and repeats no Z the
+op row's tip column already prints. A contour cut in
+several depth levels lists every level's Z once, in its heading, gives a box to
+tick as each level is done, and says once
 above its rows how each level goes down (in air only when the kernel's stock box
 proves it, else a plunge from the level above at the op's cited plunge feed from
-`[[plunge]]` cutting data, a STOP without one) and how it gets back for the next
+`[[plunge]]` cutting data, a STOP without one; a level at the Z the op starts at is
+lowered to only when the stock box puts it at or above the stock top, else fed down
+to it, never `plunge Z a → a`) and how it gets back for the next
 level (straight down for a closed path, else raise to a Z called above the stock
 only on that proof). Contour tables
-repeat their op, tool and Z on a continued page and never wrap a coordinate.
+repeat their op, tool and Z on a continued page and never wrap a coordinate; a Z
+every row shares prints only there, never as a column, and the point rows are
+numbered on through the op's tables.
 The mill CLEARANCE section prints a short stack/travel verdict and a per-op table
 of the closest obstacle (headroom, jaw tops, holder face above the stock beside
-the tool, or a reach finding's declared clearances) with the clearance and the
-action; an unknown clearance is a check-at-the-machine action, a negative one a
-STOP. The section prints on one page, moved whole rather than split. Every
+the tool, a reach finding's declared clearances, or the holding solid the kernel
+measures nearest the op's own cut, named as the HOLD names it, e.g. `LOC2 collar`)
+with the clearance and the action; an unknown clearance is a check-at-the-machine
+action, a negative one a STOP. A holding solid within the 3 mm crash zone of the
+cut is a hand-feed check in the table (with its distance when another obstacle is
+closer) and a boxed line on the op row. The section prints on one page, moved whole rather than split. Every
 kernel Z it prints is that surface's one DRO Z: kernel noise within 1e-3 mm of a
 grid line is that line, a bench setup prints on the grid of the machine setup the
 part arrives from, and an op table moved whole to the next page leaves an

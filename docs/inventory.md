@@ -736,6 +736,14 @@ flagged `verify = true` counts as undeclared. With an op's `direction`
 (`conventional`/`climb`) it fixes the cutting order of contour tables
 (see [coordinates](rules-coordinates.md)); absent, that order stays unknown.
 
+A lathe spindle's turn comes from the op's tool, not from `rotation`: the traveler
+prints FORWARD (the top of the work turns toward the operator) in the rpm cell of
+each lathe op whose tool declares `hand = "right"` or `"left"` (a turning, facing,
+grooving or boring tool of either hand is set edge up, as the turning model poses
+it), REVERSE for a left-hand-cut tailstock tool (centre drill, drill, reamer, tap),
+and a STOP when the tool declares no `hand`. The op table's heading says once what
+each printed word means.
+
 ## Length and angle facts
 
 There are no `Travel` or `Table` records: travel and spindle-to-table limits
