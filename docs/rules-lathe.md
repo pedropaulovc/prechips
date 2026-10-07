@@ -136,7 +136,9 @@ emits the profile only when every state's sections at six meridians agree (a
 solid of revolution about setup Z), else `stock_profile_reason`. Each such span
 must be covered end to end; its pieces join the exposed segments with
 `source = "kernel_stock"` (`stock_segments`) and can set D
-(`diameter_features` names `kernel stock`). A span the profile does not cover,
+(`diameter_features` names `kernel stock`). A span the profile wholly fills (a
+stock-preparation setup that holds no finished feature yet) is known the same
+way. A span the profile does not cover,
 or any span without a kernel run, stays in `uncovered_z_mm` with
 `stock_reason`, and D stays `unknown`: the stock state's `od_mm` cannot show
 that no op reduced that span. `turned_profile` ignores stock segments.

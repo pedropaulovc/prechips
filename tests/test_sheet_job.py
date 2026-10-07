@@ -124,7 +124,7 @@ def test_mill_xy_check_jogs_are_made_raised_clear_of_the_work(bracket, shaft):
 def test_job_page_stock_sizes_print_on_the_receiving_machine_grid(shaft, rocker):
     # The shaft bar goes to the 0.01 lathe; the rocker blank to the 0.005 mill.
     stock = re.search(r"Stock: [^|]*", text(sections(shaft[1], "STOCK AND ROUTE")[0]))[0]
-    assert "Ø10.00 × 180.00 long" in stock, stock
+    assert "Ø10.00 × 180.50 long" in stock, stock
     assert not re.search(r"\d\.\d{3}", stock), stock
     stock = re.search(r"Stock: [^|]*", text(sections(rocker[1], "STOCK AND ROUTE")[0]))[0]
     assert "65.000 × 16.000 × 340.000 long" in stock, stock

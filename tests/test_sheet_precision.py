@@ -156,11 +156,9 @@ def test_shaft_missing_length_prints_as_a_normal_unknown_inspection_row(tmp_path
 
 
 def test_lathe_feed_prints_per_revolution_with_the_true_value(tmp_path):
-    _, report, html = traveler(
-        ROOT / "examples" / "pivot-shaft" / "plan.toml",
-        tmp_path / "out",
-        setup=SYNTHETIC_KERNEL,
-    )
+    plan = ROOT / "examples" / "pivot-shaft" / "plan.toml"
+    _, report, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
+    ids = [setup["id"] for setup in tomllib.loads(plan.read_text(encoding="utf-8"))["setups"]]
     per_rev = {}
     for finding in findings(report, "speeds_feeds"):
         setup, _, op = finding["subject"].partition(":")
@@ -169,9 +167,9 @@ def test_lathe_feed_prints_per_revolution_with_the_true_value(tmp_path):
             per_rev[setup, op] = value
     assert per_rev
     pages = sections(html, "OPERATIONS")
-    for index, page in enumerate(pages, start=1):
+    for setup, page in zip(ids, pages, strict=True):
         for op, cells in op_rows(page):
-            value = per_rev.get((f"S{index}", op))
+            value = per_rev.get((setup, op))
             if value is None:
                 continue
             printed = re.findall(r"([\d.]+) mm/rev", text(cells))
@@ -365,7 +363,7 @@ def test_job_status_lists_stock_to_obtain_before_the_first_setup(tmp_path):
     plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
     _, _, html = traveler(plan, tmp_path / "missing", setup=SYNTHETIC_KERNEL)
     job = text(sections(html, "JOB STATUS")[0])
-    assert "Before S1: obtain the stock" in job and "NOT APPROVED" in job
+    assert "Before S0: obtain the stock" in job and "NOT APPROVED" in job
     assert "No stops, cautions" not in job
     authored = plan.read_text(encoding="utf-8")
     plan.write_text(authored.replace("on_hand = false", "on_hand = true", 1), encoding="utf-8")
@@ -427,7 +425,8 @@ def test_follow_rest_hold_prints_its_jaw_lead_as_a_distance_not_a_diameter(side,
     assert count == 1
     plan.write_text(edited, encoding="utf-8")
     _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
-    hold = text(sections(html, "HOLD")[0])
+    front = html.split('data-sheet="SETUP S1 sheet 1"')[1].split("</section>")[0]
+    hold = text(sections(front, "HOLD")[0])
     (line,) = [part for part in hold.split("|") if part.startswith("Support: follow")]
     assert f"9.50 mm {where}" in line
     assert not re.search(r"Ø\s*9\.50*\b", line)

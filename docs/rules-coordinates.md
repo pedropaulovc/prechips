@@ -234,7 +234,10 @@ Face ops without a contour print no raster: a box raster could cross retained
 material inside the box. Tables are numeric nominal geometry, not cutter
 accessibility, fixtures, wall thickness or collision proof; raster passes are
 not kernel checkpoints. Unknown/unverified cutter or frame binding keeps status
-unknown. M2 lathe feasibility remains unimplemented even where nominal
+unknown. A lathe setup with an unknown DRO controller, or a turning tool whose
+nose radius is unknown, is unknown; a tailstock tool on the spindle axis
+(`spot`, `drill`, `ream`, `tap`, `center`, `center_drill`) has no nose to
+compensate and is exempt. M2 lathe feasibility remains unimplemented even where nominal
 stations/dome tables are displayed.
 
 **Z levels.** A milling pocket, face or profile op that authors `doc_mm` (mm)

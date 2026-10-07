@@ -218,8 +218,8 @@ tool = "turning-tools-warner-lms-4132/AR"
 holder = "qctp-axa-lms-2280/1-turning-facing"
 to_z = 0.0                    # the supply station
 to_dia = 0.0                  # face right across the centre: no pip for the centre drill
-doc_mm = 0.25               # two passes of 0.25; example (plausible, not measured), below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.040 in (1.0 mm) DOC
-feed_mm_rev = 0.05          # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.004 in/rev (0.10 mm)
+doc_mm = 0.25               # two passes of 0.25; example (plausible, not measured); a light facing skim, below the smallest depth Machinery's Handbook 27th ed. Table 5a p.1035 tabulates, 0.04 in (1.0 mm)
+feed_mm_rev = 0.05          # example (plausible, not measured); .0020 in/rev, feed ratio 0.12 of the uncoated-carbide optimum .017 in/rev for 1018 at 125-175 HB (Table 1 p.1027), inside Table 5a p.1035's 0.10-1.00 feed-ratio rows
 direction = "radially_inward"  # author's choice: O.D. to centre
 note = "Two passes of 0.25 from the O.D. to the centre, the second to Z0. The tool point must be on centre height: a pip left at the centre makes the centre drill wander."
 

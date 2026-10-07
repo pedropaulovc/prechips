@@ -167,6 +167,7 @@ def test_unbound_shaft_frame_keeps_model_z_unknown_and_records_the_local_station
     plan.write_text(head + "[frames.T3]\n" + t3, encoding="utf-8")
     found = by_setup(coordinates.evaluate(load_bundle(plan)))
     assert {sid: f.numbers["binding"] for sid, f in found.items()} == {
+        "S0": "nominal",
         "S1": "nominal",
         "S2": "nominal",
         "S3": "unknown",

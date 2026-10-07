@@ -56,7 +56,8 @@ Evidence: support, centre, the ops that drill it before and after, mouth and
 seat diameters, and the Table 6 depth arithmetic (`drill_length_mm`,
 `countersink_depth_mm`, `depth_mm`). The kernel separately seats the centre in
 the cut countersink and checks it against the setup-entry stock; that check is
-a fixture render debt, not this rule.
+a fixture render debt, not this rule. Like `hold_fields`, its unknown blocks
+(exit 4) only where the shop policy requires it; an error always exits 2.
 
 ## `headroom`
 

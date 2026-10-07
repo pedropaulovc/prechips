@@ -403,7 +403,7 @@ def test_undeclared_routing_leaves_a_stop_face_unknown_not_missing(tmp_path):
     stop_on(plan, "S2", "shoulder_thrust")
     assert evaluate("hold_fields", load_bundle(plan))["S2"].status == "pass"
     drop_setup_key(plan, "S2", "stock_in")
-    assert "stock_in" not in setups(plan)[1]
+    assert "stock_in" not in next(setup for setup in setups(plan) if setup["id"] == "S2")
     row = evaluate("hold_fields", load_bundle(plan))["S2"]
     assert row.status == "unknown"
     assert row.numbers["stop_face"]["cut_later"] == []
