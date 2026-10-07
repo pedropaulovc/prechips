@@ -1779,6 +1779,7 @@ name = "0.1872 in chucking reamer"
 dia_mm = { value = 4.755, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the lands" } }
 
 [tools.cone-fixture-boring-head]
+name = "2 in R8 boring head (job purchase)"
 kind = "boring_head"
 material = "carbide"
 note = "AUTHOR'S CHOICE: illustrative example purchase for the cone fixture seats: a 2 in R8 boring head with a 1/2 in carbide-tipped boring bar, bought for this job because the shop's photo-identified head (tools.boring-head-lms-3662) is unverified; plausible catalogue values, not measured"
@@ -1787,7 +1788,6 @@ drawbar = "7/16-20"
 head_in = 2
 max_offset_in = 0.625
 dial_in = 0.001
-dia_mm = { value = 42.01, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "the bore it is set to: inside micrometer on the trial bore" } }
 purchase = "one 2 in R8 boring head with a 7/16-20 drawbar thread, 0.001 in dial, 0.625 in offset travel, and one 1/2 in shank carbide-tipped boring bar reaching 38 mm"
 acceptance = [
   { check = "R8 shank fit", gauge = "none", how = "shank into the PM-30MV spindle, drawbar pulled tight", accept = "the shank keyway takes the spindle key and the head seats with no rock" },
