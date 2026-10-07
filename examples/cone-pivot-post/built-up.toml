@@ -844,8 +844,8 @@ coolant = "none: bench assembly"
 deburr_mm = 0.0
 deburr_cite = ["AUTHOR'S CHOICE: bench assembly cuts no edges; wipe the compound fillet flush"]
 [setups.stock_state]
-top_z = 22.375
-bottom_z = -22.375
+top_z = 22.4141 # kernel setup-entry box: the cone-sleeve cap rims of the 42.04-42.08 sleeve (S2 op 50 hold)
+bottom_z = -22.3767
 note = "AUTHOR'S CHOICE: post horizontal on the cradle, crank socket axis vertical; the cone-sleeve cap rims are the highest and lowest points."
 [setups.joint]
 kind = "cylindrical"
@@ -902,7 +902,7 @@ deburr_mm = 0.0
 deburr_cite = ["AUTHOR'S CHOICE: bench assembly cuts no edges; wipe the compound fillet flush"]
 [setups.stock_state]
 top_z = 50.66
-bottom_z = -22.375
+bottom_z = -22.3767
 note = "AUTHOR'S CHOICE: unchanged cradle position; the crank sleeve stands 50.66 mm above the post axis."
 [setups.joint]
 kind = "cylindrical"
@@ -959,11 +959,11 @@ coolant = "CRC cutting oil brushed on"
 deburr_mm = 0.1
 deburr_cite = ["AUTHOR'S CHOICE: light edge break on the reamed crank bore"]
 [setups.stock_state]
-top_z = 0.9949
+top_z = 1.0014 # kernel setup-entry box
 bottom_z = -72.0344
 entry_z = { crank_bore = 0.0 }
 local_thickness = { crank_bore = 72.0344 }
-note = "AUTHOR'S CHOICE: post turned crank-sleeve north face up; the sleeve is solid, so the drill goes through its full 72.03 mm length. The edge of the north cone cap stands 0.99 mm above the sleeve face."
+note = "AUTHOR'S CHOICE: post turned crank-sleeve north face up; the sleeve is solid, so the drill goes through its full 72.03 mm length. The edge of the north cone cap stands 1.00 mm above the sleeve face."
 [setups.hold]
 fixture = "BS-0"
 chuck = "chuck-4jaw-5-bs0"
@@ -1054,8 +1054,8 @@ coolant = "CRC cutting oil brushed on"
 deburr_mm = 0.1
 deburr_cite = ["harmonic-analyzer/cad/scripts/cone_gear_shaft_spec.py:79-97,111-113", "harmonic-analyzer/cad/scripts/draw_cone_pivot_post.py:254-264"]
 [setups.stock_state]
-top_z = 23.245
-bottom_z = -51.835
+top_z = 23.2525 # kernel setup-entry box
+bottom_z = -51.8315
 entry_z = { journal_bore = 21.0055 }
 local_thickness = { journal_bore = 42.08 } # AUTHOR'S CHOICE: Z is set on the north cap, and the longest sleeve the S2 op 50 hold allows puts the south cap at Z-21.0745, so the full diameter breaks through on any sleeve
 note = "AUTHOR'S CHOICE: the same chucking turned 12.5182 degrees so the north cone cap is up; the edge of the crank sleeve north face is the highest point. Break-through depths are set for the longest sleeve the S2 op 50 hold allows (42.08 cap to cap), so the exit Zs in the operations sit below the feature map's nominal south-cap face."
@@ -1152,9 +1152,9 @@ deburr_mm = 0.1
 deburr_cite = ["AUTHOR'S CHOICE: retain the finished journal's 0.1 mm maximum rim break"]
 note = "AUTHOR'S CHOICE: the post lies in a shop-made saw cradle gripped by the bandsaw vise; the raw tail overhangs the cradle end and falls clear after the cut."
 [setups.stock_state]
-top_z = 51.835
-bottom_z = -23.245
-note = "AUTHOR'S CHOICE: post horizontal, cone cross-bore vertical; the crank sleeve's far end rim is the highest point and the low rim of its north face the lowest, 6.76 mm above the cradle base."
+top_z = 51.8315 # kernel setup-entry box
+bottom_z = -23.2525
+note = "AUTHOR'S CHOICE: post horizontal, cone cross-bore vertical; the crank sleeve's far end rim is the highest point and the low rim of its north face the lowest, 6.75 mm above the cradle base."
 [setups.hold]
 fixture = "cone-saw-cradle"
 pose = { origin_mm = [0.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
@@ -1431,7 +1431,7 @@ deburr_cite = ["AUTHOR'S CHOICE: S11 already broke every machined edge; finishin
 note = "AUTHOR'S CHOICE: paint and oil the finished post on the assembly bench, resting in the bonding cradle, to the built-up finish note on the job page."
 [setups.stock_state]
 top_z = 50.66
-bottom_z = -22.375
+bottom_z = -22.3767
 note = "AUTHOR'S CHOICE: the finished post in the S7 cradle position, crank sleeve up."
 [setups.hold]
 fixture = "cone-bond-cradle"
