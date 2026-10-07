@@ -180,6 +180,23 @@ stepping from `open_side`, else from the low side of the shorter span. Every
 pass runs one cutter radius past both ends of the area. The cycle is one way:
 feed the pass, lift to the op's retract Z (its entry stock top plus
 `approach_mm`, unknown without it) and rapid back to the next pass's start.
+Every raster value sits on the DRO grid on the safe side: pass ends and a
+face's edge passes round outward; a pocket's first pass rounds further outside
+its open side and its last away from the far wall, and the material that rounding
+leaves on the far wall is the profile's `grid_residual_mm`; passes between step a
+whole number of grid steps no larger than `step_mm` (a `step_mm` finer than one
+grid step is unknown). The raster record carries `run_axis`, `area_ends`, the
+pass `ends`, `clearance_mm` (the cutter radius they run past the area) and a
+pocket's `entry_pass`; the traveler names those rows intentional cutter
+clearance for entry, exit and overtravel. A closed outline's rows are on the
+grid too: each vertex is the nearest grid point at least its offset outside
+both wall lines it joins (a corner of its grid cell, else up to two steps out);
+`grid_residual_mm` is the most any vertex stands further off a wall than its
+offset. The traveler likewise names outline rows standing wholly outside the
+op's `stock_removal_bounds` (by the cutter radius) as cutter clearance.
+A finish raster or outline whose `grid_residual_mm` exceeds its feature's
+narrowest numeric tolerance band, or that has no safe grid point, is an error
+(`dro_xy_residual_errors`).
 Face ops without a contour print no raster: a box raster could cross retained
 material inside the box. Tables are numeric nominal geometry, not cutter
 accessibility, fixtures, wall thickness or collision proof; raster passes are
@@ -196,7 +213,14 @@ ending at its `dro_to_z`. A wall-finishing op (`pocket`, `finish_pocket`,
 `entry_z`, never one an earlier op's floor advanced, else the current top,
 since its flank engages the whole wall; any other op starts at its feature's
 current entry, else the current top. The traveler prints `Z start → depth in
-N levels of doc max`.
+N levels of doc max` on the op row; the contour block heading lists every level
+and says to run the complete path at the first and repeat it at each level in
+order.
+
+**Hole targets.** Each located mill row (`rows`) carries `dro_xy`, its setup
+X/Y at the nearest DRO grid point (a hole axis has no safe side). A centre,
+spot, drill, ream, tap, counterbore or bore op whose feature has exactly one
+located row prints that tool-axis X/Y on its op row; an unknown one prints a STOP.
 
 **Cutting order.** Arc rows, each join fragment and a closed `linear_table`
 outline are listed in the real traverse, judged in the setup top view (setup

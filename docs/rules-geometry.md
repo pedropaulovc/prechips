@@ -1229,7 +1229,15 @@ axis, and reports the largest such height above a sample as
 `reach_depth_mm`; `holder_wall_hits` counts samples whose holder cylinder
 (starting `projection_mm` above the tip) intersects the part, and needs the
 holder radius, gauge length and projection. Numbers: `reach_depth_mm`,
-`flute_len_mm`, `oal_mm`, `holder_wall_hits`.
+`flute_len_mm`, `oal_mm`, `holder_wall_hits`, and on a milling or axial joint
+sample `reach_top_z_mm`, the setup Z of that highest material (the reach
+reference; `"not_applicable"` when no material stands beside the tool).
+
+The traveler's CLEARANCE line keeps the cut and the reach apart. The cut is the
+op row's own start Z to its printed tip Z. The reach is from `reach_top_z_mm`
+down to that same printed tip, against the flute, with the holder-clearance
+verdict past the flute and the holder face's height above that stock
+(`projection_mm` less the reach). Reach is never printed as a cut depth.
 
 - depth ≤ flute: `entry-to-floor depth is within the selected flute length.` (pass)
 - depth > OAL: `entry-to-floor depth exceeds the selected tool OAL.` (error)

@@ -153,8 +153,9 @@ def test_face_raster_clears_its_box_edge_to_edge_no_wider_than_its_step(tmp_path
     )
     assert row.status == "pass", row.sentence
     passes = profile["cutter_centre"]
-    # Ø6 cutter: passes run along the longer X span, centre-on-edge in Y, <= 4 apart.
-    assert [a[1] for a, _ in passes] == pytest.approx([0.0, 10 / 3, 20 / 3, 10.0])
+    # Ø6 cutter: passes run along the longer X span, centre-on-edge in Y, <= 4 apart, each on
+    # the default 0.001 DRO grid (evenly spaced 3.334, rounded up, then the far edge).
+    assert [a[1] for a, _ in passes] == pytest.approx([0.0, 3.334, 6.668, 10.0])
     assert all(a == pytest.approx([-3.0, a[1]]) and b[0] == 23.0 for a, b in passes)
     assert profile["cut_order"] == "conventional"
     # One way: lift to the entry top (Z 0) plus approach_mm, rapid back.

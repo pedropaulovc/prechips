@@ -29,6 +29,9 @@ def evaluate(bundle):
             "projection_mm": inputs.get("projection_mm", "unknown"),
             "holder_wall_hits": hits,
         }
+        if "reach_top_z_mm" in detail:
+            # The Z of the highest stock the reach is measured from (milling ops).
+            values["reach_top_z_mm"] = detail["reach_top_z_mm"]
         holder_keys = (
             (*TURNING_HOLDER_KEYS, "projection_mm", "shank_width_mm", "head_len_mm")
             if inputs.get("approach") == TURNING
