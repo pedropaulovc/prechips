@@ -65,14 +65,23 @@ verbatim — `fixture_kind` (the inventory holding kind), `jaws` (`absent` /
 `exact` / `not_modelled`), `components` (`{name, role, exact}` per drawn
 solid) and `debts` (a list of sentences naming what the picture does not
 establish), empty `{}` when the kernel returned none.
+An inspect op's set-up sketches (`inspection_views`, [plan](plan.md)) come back
+as `inspection_pngs_base64` keyed `<op>:<requirement>` and are written as
+`setup-S<n>-op<op>-<requirement>.png`; `renders.<setup id>.inspections` maps each
+key to its `{path, sha256}`, and the same record is added to `inputs` under
+`render:<setup id>:<op>:<requirement>`, so a sketch binds to approval like the
+setup picture. The traveler prints the sketch at the head of the requirement's
+worksheet or inspection note; a declared sketch the run did not return prints
+`NOT SHOWN: the set-up sketches for this check could not be drawn.`
 Bytes that are not a PNG signature are
 a prechips failure (exit 1), not bad input. `check` records the same
 `renders` / `render:<setup id>` entries (its report hash matches the
 traveler's) but writes only `report.json`; the PNG file appears only with
 `traveler`. The PNG filenames are preflighted with
 the other outputs: an input at `setup-S1.png` is a collision (exit 3).
-Both verbs remove prior setup images not returned by the current run, including
-images from a longer route or an unavailable kernel. `check` also removes a
+Both verbs remove prior setup images and inspection sketches not returned by
+the current run, including images from a longer route or an unavailable
+kernel. `check` also removes a
 same-named PNG unless its bytes match the current render, and removes any
 prior `traveler.html` so no old sheet accompanies the new report. It does not
 create PNGs or a sheet. Replacement and removal share the report transaction;
