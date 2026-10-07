@@ -7,7 +7,8 @@ import pytest
 from test_headroom import coordinate_bundle
 
 from prechips.inputs import load_bundle
-from prechips.rules import coordinates
+from prechips.rules import coordinates, zero_recipe
+from prechips.rules.tip_endpoints import _producer, operative_z
 
 ROCKER = Path(__file__).resolve().parents[1] / "examples/rocker-arm/plan.toml"
 BOSS = "kind = 'boss'\nat = [20.0, 10.0, 0.0]\ndia = 20.0\n"
@@ -120,7 +121,7 @@ def test_raster_passes_each_cut_the_op_direction_with_the_spindle(tmp_path, side
     row, profile = raster(
         tmp_path,
         f"do = 'rough_pocket'\ntool = 'cutter'\nto_z = -1.0\ndirection = '{direction}'\n"
-        "rough_allowance_mm = 0.2\n"
+        "rough_allowance_mm = 0.2\napproach_mm = 5.0\n"
         f"contour = {{ method = 'linear_table', step_mm = 1.0, open_side = '{side}' }}\n",
     )
     assert row.status == "pass", (row.sentence, profile.get("raster_reason"))
@@ -159,6 +160,87 @@ def test_face_raster_clears_its_box_edge_to_edge_no_wider_than_its_step(tmp_path
     assert profile["cut_order"] == "conventional"
     # One way: lift to the entry top (Z 0) plus approach_mm, rapid back.
     assert profile["raster"]["cycle"] == "one_way" and profile["raster"]["lift_z"] == 5.0
+
+
+FACE = (
+    "do = 'face'\ntool = 'cutter'\nto_z = -1.0\ndirection = 'conventional'\n"
+    "stock_removal_bounds = { x = [0.0, 20.0], y = [0.0, 10.0], z = [-1.0, 1.0] }\n"
+    "contour = { method = 'linear_table', step_mm = 4.0 }\n"
+)
+
+
+def test_a_raster_with_no_lift_height_is_unknown(tmp_path):
+    # Every pass lifts before its rapid return: with no approach_mm there is no lift Z.
+    row, profile = raster(tmp_path, FACE)
+    assert profile["raster"]["lift_z"] == "unknown" and row.status == "unknown"
+    assert "lift Z is unknown" in row.sentence
+
+
+def test_a_doc_finer_than_the_dro_grid_leaves_the_axial_levels_unknown(tmp_path):
+    # 0.0001 mm per level cannot stand on the 0.001 DRO grid: no level plan, no pass.
+    row, _ = raster(tmp_path, FACE + "approach_mm = 5.0\ndoc_mm = 0.0001\n")
+    (entry,) = row.numbers["operations"]
+    assert entry["z_levels"]["levels"] == "unknown" and row.status == "unknown"
+    assert "op 20 axial levels" in row.sentence
+
+
+def test_an_inch_plan_face_raster_steps_and_overruns_in_inches(tmp_path):
+    plan = coordinate_bundle(
+        tmp_path,
+        SLAB,
+        "[[setups.ops]]\nop = 20\nfeature = 'target'\n"
+        + FACE.replace("x = [0.0, 20.0], y = [0.0, 10.0]", "x = [0.0, 2.0], y = [0.0, 1.0]")
+        + "approach_mm = 5.0\n",
+    )
+    bundle = load_bundle(plan)
+    bundle.features["units"] = "in"
+    row = next(row for row in coordinates.evaluate(bundle) if row.subject == "S1")
+    (profile,) = row.numbers["profiles"]
+    passes = profile["cutter_centre"]
+    # A 2 in x 1 in face, Ø6 mm cutter, 4 mm step: passes no more than 4/25.4 in apart
+    # across the 1 in span, each running 3/25.4 in past both ends of the 2 in span.
+    assert len(passes) == 8 and row.status == "pass", row.sentence
+    assert [a[1] for a, _ in passes] == pytest.approx([i / 7 for i in range(8)])
+    assert all(a[0] == pytest.approx(-3 / 25.4) for a, _ in passes)
+    assert all(b[0] == pytest.approx(2 + 3 / 25.4) for _, b in passes)
+
+
+def left_strip_faced(tmp_path):
+    """Op 10 faces the left strip of 'target' to -8.8, op 20 the right; no top_feature."""
+    ops = "".join(
+        f"[[setups.ops]]\nop = {op}\ndo = '{do}'\nfeature = 'target'\ntool = 'cutter'\n"
+        f"to_z = {to_z}\ndoc_mm = 3.0\ndirection = 'conventional'\n"
+        f"stock_removal_bounds = {{ x = {x}, y = [0.0, 10.0], z = [-10.0, 1.0] }}\n"
+        for op, do, to_z, x in (
+            (10, "rough_face", -8.8, [0.0, 10.0]),
+            (20, "finish_face", -9.0, [10.0, 20.0]),
+        )
+    )
+    bundle = load_bundle(coordinate_bundle(tmp_path, SLAB, ops))
+    return bundle, bundle.plan["setups"][0]
+
+
+def test_a_face_over_part_of_the_top_never_lowers_the_next_ops_start(tmp_path):
+    bundle, _ = left_strip_faced(tmp_path)
+    row = next(row for row in coordinates.evaluate(bundle) if row.subject == "S1")
+    right = row.numbers["operations"][1]["z_levels"]
+    # The right strip still stands at the stock top Z 0: three levels down to -9.
+    assert right["start_z"] == 0.0 and right["levels"] == [-3.0, -6.0, -9.0]
+
+
+def test_a_face_over_part_of_a_surface_never_produces_its_zero_or_operative_z(tmp_path):
+    bundle, setup = left_strip_faced(tmp_path)
+    # The top stays the uncut stock's: a Z touch on it after op 10 reads Z 0 plus paper.
+    assert operative_z(bundle, setup, 0.0, "top", done=1) == 0.0
+    bundle.plan["dro"] = {"controller": "EL400", "radius_mode": False, "mode": "abs"}
+    bundle.plan["dro"]["direction"] = {"x": "right", "y": "away", "z": "up"}
+    setup["zero"] = {"z": {"face": "top", "from": "+z", "after_op": 10, "paper_mm": 0.1}}
+    setup["zero"]["z"].update(tool="cutter", check_jog_mm=1.0, retouch_after=[10])
+    recipe = zero_recipe.evaluate(bundle)[0].numbers
+    assert recipe["axes"]["z"]["axis_set"] == pytest.approx(0.1)
+    assert recipe["retouch"][0]["axis_set"] == pytest.approx(0.1)
+    # Nor does the partial op produce the whole named surface.
+    assert _producer(bundle, setup, -8.8, "target", 1, None) is None
 
 
 def test_z_levels_start_on_an_earlier_floor_only_where_its_bounds_cover_the_op(tmp_path):

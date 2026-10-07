@@ -166,7 +166,7 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
     none of the setup's ops serves none. Returns (derived touches, missing touches,
     unknown)."""
     ops = records(setup.get("ops"))
-    states = list(stock_states(setup, bundle.feature_definitions))
+    states = list(stock_states(bundle, setup))
     recipe, x_recipe = mapping(zero.get("z")), mapping(zero.get("x"))
     paper = recipe.get("paper_mm", UNKNOWN)
     face = recipe.get("face", recipe.get("feature"))
@@ -367,7 +367,7 @@ def evaluate(bundle):
                 # The top as the ops up to and including after_op left it, not the
                 # incoming stock top.
                 edge = mapping(setup.get("stock_state")).get("top_z", UNKNOWN)
-                for op, _, after in stock_states(setup, bundle.feature_definitions):
+                for op, _, after in stock_states(bundle, setup):
                     if str(op.get("op")) == str(recipe.get("after_op")):
                         edge = after["top_z"]
             # Only an authored radius/diameter display fixes the lathe X jog scale.
@@ -464,7 +464,7 @@ def evaluate(bundle):
         unknown |= (
             recipe.get("retouch_after", UNKNOWN) == UNKNOWN or zero.get("tool_touches") == UNKNOWN
         )
-        for op, _, after in stock_states(setup, bundle.feature_definitions):
+        for op, _, after in stock_states(bundle, setup):
             if op["op"] in records(recipe.get("retouch_after")):
                 top = after["top_z"]
                 touch = top + paper if number(top) and number(paper) else UNKNOWN

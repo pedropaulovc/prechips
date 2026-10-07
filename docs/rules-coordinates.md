@@ -177,9 +177,11 @@ sweeps `sweep_bounds`, else its setup-frame `stock_removal_bounds`, with
 passes evenly spaced no more than `step_mm` apart centre-on-edge to
 centre-on-edge (one central pass when the area is no wider than the step),
 stepping from `open_side`, else from the low side of the shorter span. Every
-pass runs one cutter radius past both ends of the area. The cycle is one way:
-feed the pass, lift to the op's retract Z (its entry stock top plus
-`approach_mm`, unknown without it) and rapid back to the next pass's start.
+pass runs one cutter radius past both ends of the area. `step_mm` and the
+cutter radius are millimetres, converted to plan units before the passes are
+placed. The cycle is one way: feed the pass, lift to the op's retract Z (its
+entry stock top plus `approach_mm`) and rapid back to the next pass's start; a
+raster with no known lift Z keeps status unknown.
 Face ops without a contour print no raster: a box raster could cross retained
 material inside the box. Tables are numeric nominal geometry, not cutter
 accessibility, fixtures, wall thickness or collision proof; raster passes are
@@ -191,12 +193,15 @@ stations/dome tables are displayed.
 carries `z_levels` on its `operations` entry: levels on the DRO grid, each no
 more than `doc_mm` below the one before (the first rounded up from the start
 less `doc_mm`, the rest a whole number of grid steps no deeper than `doc_mm`),
-ending at its `dro_to_z`. A wall-finishing op (`pocket`, `finish_pocket`,
-`profile`, `finish_profile`) starts at its feature's declared setup
-`entry_z`, never one an earlier op's floor advanced, else the current top,
-since its flank engages the whole wall; any other op starts at its feature's
-current entry, else the current top. The traveler prints `Z start → depth in
-N levels of doc max`.
+ending at its `dro_to_z`. Each starts at its feature's declared setup
+`entry_z`, else the current top. A wall-finishing op (`pocket`,
+`finish_pocket`, `profile`, `finish_profile`) keeps that start, since its flank
+engages the whole wall; any other op starts lower only on the floor of an
+earlier face or pocket op whose setup-frame X/Y `stock_removal_bounds` hold all
+of its own and that produced its surface (its feature, or a feature whose X/Y
+`bounds` hold its feature's whole footprint). Levels that cannot be placed (an
+unknown start or a `doc_mm` finer than one DRO step) keep status unknown. The
+traveler prints `Z start → depth in N levels of doc max`.
 
 **Cutting order.** Arc rows, each join fragment and a closed `linear_table`
 outline are listed in the real traverse, judged in the setup top view (setup
@@ -277,7 +282,10 @@ op's own feature for its start and end Z, a feature map row), an op on that
 feature or one whose feature's X/Y `bounds` hold its whole footprint (its own
 `bounds`, else a Z-axis round feature's `at` ± half its largest `dia`); overlap
 is not cover. An equal Z alone is never proof, and with no footprint to prove it
-there is no producer.
+there is no producer. An op whose setup-frame X/Y `stock_removal_bounds` do not
+hold the surface's whole footprint (for `top`, `top_feature`'s, else its own
+feature's) cut only part of it: it neither advances that top or entry nor
+produces it, so the surface keeps the uncut height its last whole producer left.
 It counts only if it cut that face to that Z. Its
 value is its `dro_to_z` on its own setup's grid, re-rounded to the safe side on
 the consumer's grid, so a coarser producer's −2.270 stays −2.270. Any other

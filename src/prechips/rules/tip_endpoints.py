@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import itertools
 import math
 import re
 
 from prechips.measurements import nominal_angle_deg
 
 from ..findings import Finding
-from .resolution import UNKNOWN, length_mm, number, resolve, uncertain
+from .resolution import UNKNOWN, length_mm, number, resolve, setup_frame, uncertain
 
 FACING = {"face", "rough_face", "finish_face"}
 POCKETING = {"pocket", "rough_pocket", "finish_pocket"}
@@ -146,14 +147,53 @@ def _footprint(target):
     return {name: [at[i] - half, at[i] + half] for i, name in enumerate(("x", "y"))}
 
 
-def stock_states(setup, features=None):
+def _setup_footprint(bundle, setup, target):
+    """``target``'s whole footprint (:func:`_footprint`) as setup-frame X/Y spans, else
+    None when its footprint, Z, source frame or the setup frame is not numeric."""
+    from .coordinates import frame_point, model_point
+
+    footprint, at = _footprint(target), target.get("at")
+    zs = mapping(target.get("bounds")).get("z") or (
+        [at[2]] if isinstance(at, list) and len(at) == 3 else None
+    )
+    if not ("x" in footprint and "y" in footprint and isinstance(zs, list)):
+        return None
+    source = mapping(mapping(bundle.features.get("frames")).get(target.get("frame", "model")))
+    frame = setup_frame(bundle, setup)
+    points = [
+        frame_point(model_point(list(p), source), frame)[:2]
+        for p in itertools.product(footprint["x"], footprint["y"], zs)
+    ]
+    if not all(number(v) for p in points for v in p):
+        return None
+    return [[min(p[i] for p in points), max(p[i] for p in points)] for i in range(2)]
+
+
+def partial_cut(bundle, setup, op, target):
+    """Whether ``op`` provably cut only part of surface ``target``: its setup-frame X/Y
+    ``stock_removal_bounds`` and ``target``'s whole footprint (:func:`_setup_footprint`)
+    are both known and the bounds do not hold it. An op without bounds cuts its feature."""
+    box = mapping(op.get("stock_removal_bounds"))
+    region = [box.get("x"), box.get("y")]
+    if not all(isinstance(s, list) and len(s) == 2 and all(number(v) for v in s) for s in region):
+        return False
+    held = _setup_footprint(bundle, setup, target)
+    return held is not None and not all(
+        region[i][0] - SAME_Z <= held[i][0] and held[i][1] <= region[i][1] + SAME_Z
+        for i in range(2)
+    )
+
+
+def stock_states(bundle, setup):
     """Yield (op, before, after); profiles never move the touched top surface.
 
     Entry values are separate from the setup's touched top. Explicit pocket/face
-    footprints may advance entry planes inside the cut, not adjoining strips.
+    footprints may advance entry planes inside the cut, not adjoining strips, and an op
+    that cut only part of a surface (:func:`partial_cut`) advances neither it nor the
+    top: the surface keeps the uncut height its last whole producer left.
     Local thickness is authored at the eventual hole entry, not raw stock height.
     """
-    features = mapping(features)
+    features = mapping(bundle.feature_definitions)
     stock = mapping(setup.get("stock_state"))
     top = stock.get("top_z", UNKNOWN)
     entries = dict(mapping(stock.get("entry_z")))
@@ -170,11 +210,17 @@ def stock_states(setup, features=None):
             name = op.get("feature")
             cut = mapping(features.get(name))
             for target in entries:
-                if target == name or _covers(cut, mapping(features.get(target))):
+                surface = mapping(features.get(target))
+                if (target == name or _covers(cut, surface)) and not partial_cut(
+                    bundle, setup, op, surface
+                ):
                     entries[target] = op["to_z"]
                     origins[target] = f"{setup['id']} op {op['op']} to_z"
-            if op.get("do") in FACING and (
-                stock.get("top_feature") is None or name == stock["top_feature"]
+            faced = mapping(features.get(stock.get("top_feature") or name))
+            if (
+                op.get("do") in FACING
+                and (stock.get("top_feature") is None or name == stock["top_feature"])
+                and not partial_cut(bundle, setup, op, faced)
             ):
                 top = op["to_z"]
                 top_from = f"{setup['id']} op {op['op']} to_z"
@@ -242,7 +288,7 @@ def _producer(bundle, setup, value, face, done, source):
     ops = setup.get("ops", [])
     features = bundle.feature_definitions
     if source is None and face == "top" and done:
-        states = list(stock_states(setup, features))[:done]
+        states = list(stock_states(bundle, setup))[:done]
         source = states[-1][2]["top_from"] if states else None
     match = re.fullmatch(r"(\S+) op (\S+) to_z", source) if isinstance(source, str) else None
     if match and match[1] == setup.get("id"):
@@ -269,7 +315,10 @@ def _producer(bundle, setup, value, face, done, source):
             hit = name == face or _covers_xy(
                 mapping(features.get(name)), mapping(features.get(face))
             )
-        if hit:
+        surface = mapping(features.get(top or name if face == "top" else face))
+        # An op that cut only part of the surface did not produce it: the uncut part
+        # still stands where its last whole producer left it.
+        if hit and not partial_cut(bundle, cut_setup, op, surface):
             return (cut_setup, op) if abs(to_z - value) <= SAME_Z else None
     return None
 
@@ -281,7 +330,7 @@ def evaluate(bundle):
     errors = set()
     negative_exit = set()
     for setup in bundle.plan["setups"]:
-        for op, before, _ in stock_states(setup, features):
+        for op, before, _ in stock_states(bundle, setup):
             name = op.get("feature")
             if op.get("do") not in HOLE_OPS or name not in features:
                 continue
