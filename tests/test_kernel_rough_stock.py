@@ -38,8 +38,15 @@ step = step.cut(Part.makeBox(8, 20, 7, V(8, 10, 14)))
 tip = R / math.tan(math.radians(59.0))
 drill = Part.makeCylinder(R, 6, V(45, 20, 5)).fuse(Part.makeCone(0, R, tip, V(45, 20, 5 - tip)))
 save("stepcone", step.cut(drill).removeSplitter())
+# A 14 wide, 6 thick ear standing 26 tall: an R7 arch crown and an R3 cross bore through
+# its thickness, both made after the wall in front of it is roughed.
+ear = Part.makeBox(14, 6, 19, V(3, 20, 0))
+ear = ear.fuse(Part.makeCylinder(7, 6, V(10, 20, 19), V(0, 1, 0)))
+save("ear", ear.cut(Part.makeCylinder(3, 8, V(10, 19, 19), V(0, 1, 0))).removeSplitter())
+# A 14 wide, 6 thick plain wall standing the blank's whole 28 mm height.
+save("wall", Part.makeBox(14, 6, 28, V(3, 20, 0)))
 """
-_AUTHORED = 4
+_AUTHORED = 6
 LEAVE = 0.2
 R = 3.25
 CONE = math.pi * R**2 * (R / math.tan(math.radians(59.0))) / 3
@@ -133,6 +140,133 @@ def test_rough_profile_leaves_its_normal_stock_and_a_finish_removes_it_from_its_
     assert "stock_reason" not in third, third.get("stock_reason")
     skin = 20 * (LEAVE * (40 + 60) + 3 * math.pi * LEAVE**2 / 4)
     assert third["stock_volume_mm3"] == pytest.approx(leave - skin, abs=0.01)
+
+
+def test_a_bounded_rough_leaves_a_flat_skin_before_its_wall_not_a_later_arch_or_bore(
+    engine, solids
+):
+    step = solids["ear"]
+    wall = engine.refs(step, (3, 20, 0), (17, 20, 26), kind="Plane")
+    assert len(wall) == 1
+    blank = _blank((3.0, 0.0, 0.0), 14.0, (30.0, 28.0))
+    hold = _vise(5.0, centre=10.0)
+    # The free run in front of the ear, up to its wall plane; the crown behind stays raw.
+    run = {"x": [3.0, 17.0], "y": [0.0, 20.0], "z": [0.0, 28.0]}
+    rough = {**_rough("S1:10", "wall", 3.0, 30.0, 40.0), "do": "rough_pocket"}
+    setups = [
+        _setup([{**rough, "stock_removal_bounds": run}], hold, setup_id="S1"),
+        _setup([], hold, setup_id="S2"),
+    ]
+    result = engine.run(engine.job(step, {"wall": wall}, setups, stock=blank))
+    second = result["setups"]["S2"]
+    assert "stock_reason" not in second, second.get("stock_reason")
+    # Its passes stop the leave short of the wall plane across the whole raw crown behind
+    # it: one flat 14 x 28 skin. The finished face's arch outline and the bore no setup has
+    # drilled yet are not carved into it (that skin would hold about 63 mm^3, not 78).
+    flat = 14 * 28 * LEAVE
+    assert second["stock_volume_mm3"] == pytest.approx(14 * 10 * 28 + flat, abs=0.01)
+    assert second["stock_bbox_mm"] == [3.0, 20 - LEAVE, 0.0, 17.0, 30.0, 28.0]
+
+
+def _end_section(radius, leave):
+    """Area in front of a wall plane, beyond one end of its flat skin, that a bounded
+    rough keeps when raw stock stands behind the plane past that end: the union of the
+    guard's quarter disc round the wall's convex edge (radius ``leave``) and the cusp no
+    radius-``radius`` cutter reaches between the skin's end and the plane. That cutter
+    touches the plane no nearer the end than ``reach``, its edge through the skin's outer
+    corner. Midpoint-integrated across the end, independent of the kernel."""
+    depth = min(leave, radius)
+    reach = math.sqrt(radius**2 - (radius - depth) ** 2)
+    span, steps = max(reach, leave), 200_000
+    total = 0.0
+    for i in range(steps):
+        x = (i + 0.5) * span / steps  # distance beyond the skin's end
+        cusp = radius - math.sqrt(radius**2 - (reach - x) ** 2) if x < reach else 0.0
+        guard = math.sqrt(leave**2 - x**2) if x < leave else 0.0
+        total += max(cusp, guard)
+    return total * span / steps
+
+
+@pytest.mark.parametrize(
+    "radius",
+    [
+        # The cutter leaves a 1.08 mm cusp past each end of the skin.
+        3.0,
+        # A cutter this small reaches inside the guard's own rounding: no cusp beyond it.
+        0.15,
+    ],
+)
+def test_a_bounded_rough_keeps_the_cusp_its_cutter_leaves_past_the_ends_of_a_flat_skin(
+    engine, solids, radius
+):
+    step = solids["wall"]
+    wall = engine.refs(step, (3, 20, 0), (17, 20, 28), kind="Plane")
+    assert len(wall) == 1
+    # Raw stock stands behind the wall plane past both of the wall's ends.
+    blank = _blank((0.0, 0.0, 0.0), 20.0, (30.0, 28.0))
+    run = {"x": [0.0, 20.0], "y": [0.0, 20.0], "z": [0.0, 28.0]}
+    rough = {**_rough("S1:10", "wall", radius, 30.0, 40.0), "do": "rough_pocket"}
+    setups = [
+        _setup([{**rough, "stock_removal_bounds": run}], _vise(5.0, centre=10.0), setup_id="S1"),
+        _setup([], _vise(5.0, centre=10.0), setup_id="S2"),
+    ]
+    result = engine.run(engine.job(step, {"wall": wall}, setups, stock=blank))
+    second = result["setups"]["S2"]
+    assert "stock_reason" not in second, second.get("stock_reason")
+    # The raw stock behind the plane, the flat skin over the wall's 14 mm and, past each
+    # end, what no pass of this op's cutter reaches. No later op is credited with it.
+    kept = 20 * 10 * 28 + 14 * LEAVE * 28 + 2 * 28 * _end_section(radius, LEAVE)
+    assert second["stock_volume_mm3"] == pytest.approx(kept, abs=1e-3)
+
+
+@pytest.mark.parametrize(
+    ("start", "met"),
+    [
+        # The side box stands behind the front wall's plane: never credited with the cusp
+        # the front cutter leaves past the wall's edge, its flute meets it at the corner.
+        (20.0, True),
+        # Its author declares it reaching in front of the plane by the leave, so it clears
+        # that cusp as its cutter turns the corner.
+        (20.0 - LEAVE, False),
+    ],
+)
+def test_a_flat_skin_stops_at_its_walls_edge_and_only_a_box_covering_its_cusp_clears_it(
+    engine, solids, start, met
+):
+    step = solids["ear"]
+    front = engine.refs(step, (3, 20, 0), (17, 20, 26), kind="Plane")
+    side = engine.refs(step, (3, 20, 0), (3, 26, 19), kind="Plane")
+    assert len(front) == 1 and len(side) == 1
+    blank = _blank((0.0, 0.0, 0.0), 20.0, (30.0, 28.0))
+    hold = _vise(5.0, centre=10.0)
+    rough = {**_rough("S1:10", "front", 3.0, 30.0, 40.0), "do": "rough_pocket"}
+    beside = {**_rough("S1:20", "side", 3.0, 30.0, 40.0), "do": "rough_pocket"}
+    setups = [
+        _setup(
+            [
+                {**rough, "stock_removal_bounds": {"x": [0, 20], "y": [0, 20], "z": [0, 28]}},
+                {
+                    **beside,
+                    "stock_removal_bounds": {"x": [0, 3], "y": [start, 30], "z": [0, 28]},
+                },
+            ],
+            hold,
+            setup_id="S1",
+        ),
+        _setup([], hold, setup_id="S2"),
+    ]
+    features = {"front": front, "side": side}
+    result = engine.run(engine.job(step, features, setups, stock=blank))
+    second = result["setups"]["S2"]
+    assert "stock_reason" not in second, second.get("stock_reason")
+    # The front pass stops short of the front wall over its 14 mm width only, so no front
+    # skin runs on past its edge. There the front cutter's own sweep leaves the cusp
+    # between the skin's end and the raw stock behind the plane, reaching this far past it.
+    reach = math.sqrt(3.0**2 - (3.0 - LEAVE) ** 2)
+    side_op = result["ops"]["S1:20"]
+    assert ("part" in side_op["obstacles"]["tool"]) is met, side_op
+    # Left in place, the cusp is the work's edge; cleared, the side box's own skin is.
+    assert second["stock_bbox_mm"][0] == pytest.approx(3 - reach if met else 3 - LEAVE, abs=1e-4)
 
 
 @pytest.mark.parametrize("action", ["mill", "finish_profile"])

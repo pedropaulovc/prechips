@@ -117,6 +117,25 @@ def test_unserved_op_sees_the_rest_parked_and_a_missing_jaw_dimension_is_named(e
     assert not any(c["role"] == "follow_rest" for c in setup["render_scene"]["components"])
 
 
+def test_a_follow_rest_is_drawn_where_its_jaws_go_on_beside_the_tool(engine, shaft):
+    """The pass feeds z 40 -> 20; the trailing 10 mm jaw is centred 5 mm behind the cut.
+    Declared to go on once the tool passes z 30, it is drawn there, riding the just-turned
+    8 mm journal over z 30..40, never at whichever sample the pass checks first. An engage
+    Z with no work to ride is not drawn, and the picture says so."""
+    holds = [
+        _chuck(face_z=10.0, follow_rests=[_follow(5.0, engage_at_z_mm=engage)])
+        for engage in (30.0, 45.0)
+    ]
+    drawn, beyond = (result["setups"]["T1"] for result in _run(engine, shaft, holds, _ops()))
+    (rest,) = [c for c in drawn["render_scene"]["components"] if c["role"] == "follow_rest"]
+    assert "cutting at z 30.0 mm" in rest["pose"], rest["pose"]
+    assert rest["box_mm"] == pytest.approx([4.0, -6.0, 30.0, 50.0, 6.0, 40.0], abs=1e-6)
+    scene = beyond["render_scene"]
+    assert not any(c["role"] == "follow_rest" for c in scene["components"])
+    debt = f"{REST} not drawn for T1:10: no work diameter at its engage z 45.0 mm to ride"
+    assert debt in scene["debts"], scene["debts"]
+
+
 def test_steady_rest_ring_obstructs_the_ops_it_serves_and_is_drawn(engine, shaft):
     steady = {
         "name": "sr",
