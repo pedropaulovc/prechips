@@ -1492,6 +1492,14 @@ def check_cone_facts(plan: dict, features: dict) -> None:
         features["construction"] == "built_up_permitted",
         "cone drawing lost its approved built-up permission",
     )
+    # Example divergence (examples/README.md, HA #1215 comment): the built-up variant's
+    # paint/mask split replaces only MASK MACHINED FACES; the coating spec stays exported.
+    require(
+        features["material"]["finish"]
+        == "RAL 6005 ALKYD; SSPC-SP 3; 50-75 um DFT; built-up variant: paint RAL 6005 on "
+        "non-functional turned ODs; mask bores, faces and joint surfaces; OIL BARE FACES ISO VG 32",
+        "cone finish divergence drifted from the approved built-up paint/mask text",
+    )
     for field, expected in (
         ("linear_1pl", 0.8),
         ("linear_2pl", 0.51),
