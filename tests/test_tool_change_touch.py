@@ -352,9 +352,9 @@ def test_a_zero_on_an_unnamed_face_is_no_proven_surface(face):
 
 
 def deck_bundle(face, cuts, footprint=True):
-    """A deck X 0..20, Y 0..10 at Z 10 (its footprint unresolved unless ``footprint``),
-    touched as ``face`` by the mill, faced to Z 5 over each X span of ``cuts``, then
-    drilled."""
+    """A deck X 0..20, Y 0..10 at Z 10 (its footprint unresolved unless ``footprint``, then
+    the kernel's one plane face filling it), touched as ``face`` by the mill, faced to Z 5
+    over each X span of ``cuts``, then drilled."""
     zero = mill_zero({"face": face, "edge_mm": 10.0, "method": "touch", "tool": "mill"})
     ops = [
         op(10 + 10 * i, "face", "deck", "mill", to_z=5.0, stock_removal_bounds=bounds)
@@ -365,9 +365,13 @@ def deck_bundle(face, cuts, footprint=True):
     identity = {"origin": [0.0, 0.0, 0.0], "x": [1.0, 0.0, 0.0], "y": [0.0, 1.0, 0.0]}
     identity["z"] = [0.0, 0.0, 1.0]
     data.features["frames"] = {"F": {**identity, "binding": "nominal"}, "model": identity}
-    deck = {"frame": "model", "kind": "plane"}
+    data.features["units"] = "mm"
+    deck = {"frame": "model", "kind": "plane", "faces": ["#1/FACE"]}
     if footprint:
         deck["bounds"] = {"x": [0.0, 20.0], "y": [0.0, 10.0], "z": [10.0, 10.0]}
+        box = [0.0, 0.0, 10.0, 20.0, 10.0, 10.0]
+        plane = {"index": 0, "ref": "#1/FACE", "kind": "Plane", "area_mm2": 200.0, "bbox_mm": box}
+        data.kernel = {"status": "ok", "mapping": {"#1/FACE": 0}, "faces": [plane]}
     data.features["features"]["deck"] = deck
     return data
 
@@ -432,6 +436,23 @@ def test_a_datum_not_known_to_fill_its_box_is_not_spared_by_its_corners(deck):
     assert touch["z_axis_set"] == "unknown"
 
 
+@pytest.mark.parametrize("kernel", ["L-shaped", "none"])
+def test_a_plane_face_not_shown_to_fill_its_box_is_not_spared_by_its_corners(kernel):
+    # The deck's one plane face is an L (X 0..20 at Y 0..5 and X 0..5 at Y 5..10, 125 of
+    # its box's 200 mm^2), or no kernel result shows its shape. Faced over X 0..5, then
+    # over X 5..20 at Y 0..5, the only uncut part of its box is the empty corner.
+    data = deck_bundle("deck", [[0.0, 5.0], [5.0, 20.0]])
+    data.plan["setups"][0]["ops"][1]["stock_removal_bounds"]["y"] = [0.0, 5.0]
+    if kernel == "none":
+        del data.kernel
+    else:
+        data.kernel["faces"][0]["area_mm2"] = 125.0
+    finding = evaluate(data)[0]
+    assert finding.status == "unknown"
+    [touch] = finding.numbers["derived_touches"]
+    assert touch["z_axis_set"] == "unknown"
+
+
 def retouch_deck(data, retouch):
     """Re-touch ``data``'s deck after op 10: a listed top retouch, else a touch authored
     for the centre drill before op 20."""
@@ -463,15 +484,17 @@ def test_a_datum_re_touched_after_a_cut_of_unknown_extent_stays_unproven(retouch
     [({"to_z": 5.0}, "pass", 5.05), ({}, "unknown", "unknown")],
     ids=["to-z-5", "omitted"],
 )
-def test_a_touch_at_a_z_its_surface_was_not_made_at_is_not_repeated(depth, status, axis_set):
-    # Op 10 faces the whole deck (to Z 5, or to no stated depth), then the centre drill is
-    # touched off on the deck as if still at Z 10: the drill repeats the deck op 10 made,
-    # not the touch's Z 10.
+@pytest.mark.parametrize("face", ["deck", "top"])
+def test_a_touch_at_a_z_its_surface_was_not_made_at_is_not_repeated(face, depth, status, axis_set):
+    # Op 10 faces the whole deck, the stock top (to Z 5, or to no stated depth), then the
+    # centre drill is touched off on the deck or the top as if still at Z 10: the drill
+    # repeats the deck op 10 made, not the touch's Z 10.
     data = deck_bundle("deck", [[0.0, 20.0]])
     ops = data.plan["setups"][0]["ops"]
     ops[0] = op(10, "face", "deck", "mill", **depth)
     ops[1:] = [op(20, "spot", "hole", "centre"), op(30, "drill", "hole", "drill")]
     retouch_deck(data, "authored")
+    data.plan["setups"][0]["zero"]["tool_touches"][0]["z_face"] = face
     finding = evaluate(data)[0]
     assert finding.status == status
     [touch] = finding.numbers["derived_touches"]

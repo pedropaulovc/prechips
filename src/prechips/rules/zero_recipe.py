@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from itertools import pairwise
+from itertools import pairwise, product
 
 from ..findings import Finding
 from ._bench import manual_bench, not_applicable
@@ -139,25 +139,41 @@ def _top_cut(op, names, top_feature):
 
 def _rectangle(bundle, setup, target):
     """``target``'s setup-frame X/Y footprint (:func:`_setup_footprint`) when the surface
-    is known to fill it: a ``kind = "plane"`` feature on at most one face, nothing round
-    about it (no ``dia`` or ``radius``), with numeric X/Y ``bounds`` square to the setup
-    axes (the box keeps their area). Else None: a round feature, a face known only by
-    its box or a turned rectangle may not reach the box's corners."""
-    spans = [mapping(target.get("bounds")).get(axis) for axis in ("x", "y")]
+    is known to fill it, else None. The evidence is the kernel's one STEP face for it
+    (``faces``): a plane, flat in setup Z, whose X/Y box is the footprint and whose area
+    is that box's. Without a kernel result, or for a face set of other than one face, a
+    round, holed or L-shaped face, the box's corners may hold no surface at all."""
+    from .coordinates import frame_point
+
+    footprint = _setup_footprint(bundle, setup, target)
+    kernel, refs = mapping(getattr(bundle, "kernel", None)), records(target.get("faces"))
+    scale = {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units"))
+    if footprint is None or kernel.get("status") != "ok" or len(refs) != 1 or scale is None:
+        return None
+    index = mapping(kernel.get("mapping")).get(refs[0])
+    faces = [mapping(f) for f in records(kernel.get("faces"))]
+    face = next((f for f in faces if index is not None and f.get("index") == index), {})
+    box, area = face.get("bbox_mm"), face.get("area_mm2")
     if not (
-        target.get("kind") == "plane"
-        and "dia" not in target
-        and "radius" not in target
-        and len(records(target.get("faces"))) <= 1
-        and all(isinstance(s, list) and len(s) == 2 and all(number(v) for v in s) for s in spans)
+        face.get("kind") == "Plane"
+        and isinstance(box, list)
+        and len(box) == 6
+        and all(number(v) for v in [*box, area])
     ):
         return None
-    footprint = _setup_footprint(bundle, setup, target)
-    if footprint is None:
+    frame = setup_frame(bundle, setup)
+    ends = [[box[i] / scale, box[i + 3] / scale] for i in range(3)]
+    corners = [frame_point(list(p), frame) for p in product(*ends)]
+    if not all(number(v) for p in corners for v in p):
         return None
-    (x0, x1), (y0, y1) = footprint
-    area, box = (spans[0][1] - spans[0][0]) * (spans[1][1] - spans[1][0]), (x1 - x0) * (y1 - y0)
-    return footprint if abs(box - area) <= LENGTH_TOLERANCE_MM * (x1 - x0 + y1 - y0) else None
+    (x0, x1), (y0, y1), (z0, z1) = [
+        [min(p[i] for p in corners), max(p[i] for p in corners)] for i in range(3)
+    ]
+    tolerance = LENGTH_TOLERANCE_MM
+    filled = abs(area / scale**2 - (x1 - x0) * (y1 - y0)) <= tolerance * (x1 - x0 + y1 - y0)
+    (fx0, fx1), (fy0, fy1) = footprint
+    same = max(abs(a - b) for a, b in [(x0, fx0), (x1, fx1), (y0, fy0), (y1, fy1)]) <= tolerance
+    return footprint if z1 - z0 <= tolerance and filled and same else None
 
 
 def _uncut(footprint, regions):
@@ -327,13 +343,15 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
             "made": made,
         }
         # A touch on a surface made earlier carries what the ops since left of it, and
-        # repeats it only at the Z that op made.
+        # repeats it only at the Z that op made; on the top, at the tracked top's Z.
         maker = [e for e in z_events if e["made"] and e["face"] == surface]
-        if made or event["top"] or not maker:
-            since, agrees = (index if made else tops[index][1] if event["top"] else 0), True
+        if event["top"]:
+            since, at = tops[index][1], tops[index][0]
+        elif maker and not made:
+            since, at = maker[-1]["index"], maker[-1]["z"]
         else:
-            since, agrees = maker[-1]["index"], number(maker[-1]["z"]) and number(z)
-            agrees = agrees and abs(maker[-1]["z"] - z) <= LENGTH_TOLERANCE_MM
+            since, at = (index if made else 0), z
+        agrees = number(at) and number(z) and abs(at - z) <= LENGTH_TOLERANCE_MM
         state, event["scars"] = _cuts(bundle, setup, event, states, since, index)
         event["proven"] = state is True and agrees
         z_events.append(event)
