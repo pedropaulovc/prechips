@@ -23,7 +23,11 @@ exported manifest frame of that name, otherwise the plan-owned
 A plan-owned setup frame adds `plan.frames.<name>: author-declared setup frame`
 and its own citations to the finding, and its stated `binding` decides whether
 the transform is nominal or unbound exactly as for an exported frame.
-Unknown components propagate only through nonzero coefficients. Tolerance-band
+Unknown components propagate only through nonzero coefficients. Loading checks
+the basis of a fully known frame only, so in a frame with an unknown axis each
+numeric axis counts only if it is finite and, within `1e-9`, unit and orthogonal
+to the frame's other numeric axes; otherwise it is unknown, and so is every
+coordinate along it and every direction compared with it. Tolerance-band
 midpoints never define nominal geometry: explicit `*_nominal` values take
 precedence, otherwise only scalar dimensions are usable as nominal geometry.
 
@@ -54,14 +58,21 @@ also carries `dro`: that point at the nearest step of the setup machine's DRO gr
 (`dro_grid`), at most half a step away, which the sheet's feature map prints and a
 hole op dials (`dro_xy`). When the feature declares a height-like band
 (`height_above_pivot`, `height` or `separation`, the first one present) from a
-`height_from` reference, the row's `band_check` measures the DRO target from that
-reference: along a reference plane's normal, otherwise from the reference's own
-printed DRO target when this setup locates it too (else its planned model point)
-along the common normal of both declared axes, square to the one declared axis,
-else point to point when neither declares an axis. A declared axis that is
-`"unknown"` (or whose frame is) leaves the distance unmeasured; a kernel span's two
-ends must stand at one distance, else the band names neither. The band is the one
-the sheet prints, rounded inward at its drawing precision. A target outside it is
+`height_from` reference, the row's `band_check` measures where the feature stands
+from where that reference stands. A feature this setup machines (a centre op —
+a hole op or `center` — names it) stands at its DRO target; one it only inspects
+or otherwise works without dialling it, or machines through a child or in
+another setup, stands at its planned point (its aimed model point, unrounded),
+whatever its row prints. The distance runs along a reference plane's normal,
+otherwise from the located reference along the common normal of both measuring
+axes, square to the one axis, else point to point when neither has one. A
+feature without its own `axis` that names a parent hole (`hole`, else `parent`)
+or is drawn `coaxial_to` another takes that feature's axis, in that feature's
+frame, whether or not it has its own `at`. An axis that is `"unknown"` (or whose
+frame is), or that comes from an undeclared feature, leaves the distance
+unmeasured; a kernel span's two ends must stand at one distance, else the band
+names neither. The band is the one the sheet prints, rounded inward at its
+drawing precision. A target outside it is
 an error (`Located target band error: …`, value in mm). A distance that cannot be
 measured, a band that is not two numbers, feature units other than mm or in, or a
 provisional DRO grid — the machine's `resolution` unknown or not qualified by its
@@ -74,13 +85,16 @@ the `aim` (owner `feature`, requirement, value in mm and in manifest units, reas
 source, printed band, nominal value and shift in mm), and the finding cites
 `plan.aims.<name>`; the feature map adds a sentence that gives the aimed target,
 the drawing nominal and the reason. A child located by its parent's `at` dials its
-parent's aimed target and carries the parent's aim; an aim of the child's own would
-take it off that axis and is refused (unknown, reason in `aim.why`). An aim never
+parent's target, aimed or not, and carries the parent's `aim`; an aim of the
+child's own would take it off that axis: it is refused (unknown, reason in
+`refused_aim.why`, cited too) and moves nothing. An aim never
 changes geometry, a claim, a kernel input or another feature's target. A
 `value_mm` outside its printed band is refused before any rounding: bad input on
 load, an error in the rule, and the target stays nominal. An aim whose feature
+no mill setup's centre op names (only inspected, faced or profiled, cut through a
+child or drilled on a lathe, so no cut stands at the aimed target), whose feature
 holds no such band, whose band or units are unknown, or whose distance cannot be
-measured stays unknown with the reason in `aim.why`.
+measured stays unknown with the reason in `aim.why` and the target stays nominal.
 
 **Kernel revolved location, any setup.** The kernel request lists, per setup,
 its located features with neither `at` nor a parent (`locate_revolved`); the
@@ -262,13 +276,21 @@ leaves on the far wall is the profile's `grid_residual_mm`; passes between step 
 whole number of grid steps no larger than `step_mm` (a `step_mm` finer than one
 grid step is unknown). The raster record carries `run_axis`, `area_ends`, the
 pass `ends`, `clearance_mm` (the cutter radius they run past the area) and a
-pocket's `entry_pass`; the traveler names those rows intentional cutter
-clearance for entry, exit and overtravel. A closed outline's rows are on the
-grid too: each vertex is the nearest grid point at least its offset outside
+pocket's `entry_pass`. The traveler always prints the pass ends, and calls an
+end (or the entry pass, on its open side) in air only when it stands a cutter
+radius outside the stock the kernel modelled entering the setup (its
+`stock_bbox_mm`, which holds every op's stock); the op's `stock_removal_bounds`
+is what it may remove, not where stock ends, so it proves neither air nor
+material and an unproven end carries no claim. A `keep_out` splits passes into
+pieces that also start and stop between the outer `ends`; the traveler then
+prints those as the outer ends and says every pass runs in and out clear only
+when each emitted piece's start and end is proven so, stage by stage. A closed
+outline's rows are on the grid too: each vertex is the nearest grid point at
+least its offset outside
 both wall lines it joins (a corner of its grid cell, else up to two steps out);
 `grid_residual_mm` is the most any vertex stands further off a wall than its
-offset. The traveler likewise names outline rows standing wholly outside the
-op's `stock_removal_bounds` (by the cutter radius) as cutter clearance.
+offset. The traveler likewise names outline rows whose cutter stands wholly
+outside that entry stock as cutter clearance.
 A finish raster or outline whose `grid_residual_mm` exceeds its feature's
 narrowest numeric tolerance band, or that has no safe grid point, is an error
 (`dro_xy_residual_errors`).
@@ -399,8 +421,9 @@ there is no producer. A bounded op's coverage of the surface (for `top`,
 setup-frame X/Y `stock_removal_bounds` are compared with the surface's whole
 footprint. The footprint comes from the feature's own `bounds` (Z from `at` when
 they omit it), else from a round feature's `at` ± half its largest `dia` (else
-± its `radius`) across its principal `axis`. Only its `plane` value can supply an
-omitted axis. When the bounds hold the footprint, coverage is whole. When they
+± its `radius`) across its principal `axis`, which must be a unit vector within
+`1e-6`: a scaled or zero `axis` has no known footprint. Only its `plane` value
+can supply an omitted axis. When the bounds hold the footprint, coverage is whole. When they
 miss part of it, coverage is partial: the op neither advances that top or entry
 nor produces the surface, which keeps the uncut height its last whole producer
 left. When the bounds or the footprint are unknown, omitted, empty or malformed,
@@ -411,8 +434,8 @@ surface, containment is proven in that feature's own frame, where its box is
 exact: the setup Z must run along one of the frame's axes, and the box enclosing
 the surface there must lie within the feature's spans on the other two. Overlap
 or a held `at` point is partial, never whole; a setup Z oblique to the feature's
-frame leaves coverage unknown. A setup-frame box enclosing a turned feature is
-never taken as its cut.
+frame, or not a known unit axis (above), leaves coverage unknown. A setup-frame box
+enclosing a turned feature is never taken as its cut.
 It counts only if it cut that face to that Z. Its
 value is its `dro_to_z` on its own setup's grid, re-rounded to the safe side on
 the consumer's grid, so a coarser producer's −2.270 stays −2.270. Any other
@@ -420,7 +443,10 @@ surface Z prints on the grid by `dro_z`. Hole endpoints
 carry `dro_entry_z`, `dro_exit_face` and `dro_tip_z`, the tip worked from the
 printed entry (through: exit face) and rounded up again, and the `dro_depth_mm`
 or `dro_exit_mm` that leaves; a through tip short of the exit face prints a
-STOP. Every row that prints a rounded depth carries `depth_floor_mm`: the lower
+STOP. The traveler's breakthrough note gives as the run-out the lower of
+`dro_exit_mm` and the same past `dro_exit_face`, cut down to the DRO decimals,
+and claims none when it is unknown or negative. Every row that prints a
+rounded depth carries `depth_floor_mm`: the lower
 end of the feature's `depth` band, or for a tap its `thread_depth` (else `depth`)
 band. Any other kind of row, and a bare `depth` (an upper limit only), has an
 unknown floor. A `dro_depth_mm` below its floor prints a STOP, and so does a depth
@@ -664,25 +690,40 @@ source's recipe names its own tool's edge, so the re-touch is tool-neutral:
   of it (the top: faces the stock's `top_feature`, or any face op when there is
   none) to another Z or to no stated Z (`to_z` omitted or `"unknown"`), or cuts it
   other than by facing/pocketing. Ops that each cut only part of it leave it at
-  its uncut Z only while some of its footprint lies outside all of their
-  `stock_removal_bounds`. That needs a surface shown to fill its footprint: the
-  kernel's one STEP face for the feature (`faces`) is a plane, flat in setup Z,
-  whose setup X/Y box is the footprint and whose area is that box's. Without a
-  kernel result, or for a round, holed or L-shaped face, the box's corners may
-  hold no surface. A touch on a surface, whether a zero, a tool touch or a listed
-  retouch, is a paper touch at a nominal Z. It does not show what the ops since
-  the surface was made left of it, so it carries their partial cuts and any doubt
-  about them. A touch on a surface an op in the setup made is proven only at the
-  Z that op made, and a touch on the top only at the tracked top's Z. Only a
-  whole cut makes a new surface. The top a zero `after_op`, a listed retouch or a
-  tool touch touches is the top so tracked, so a face that states no depth leaves
-  it unknown. A surface is not proven while:
+  its uncut Z only while a land of it lies outside all of their
+  `stock_removal_bounds`: a square `TOUCH_LAND_MM` (0.5 mm) on a side, AUTHOR'S
+  CHOICE. A paper touch needs a patch the operator can see, set the tool end over
+  and slide paper under; a narrower sliver may hold no flat surface once the burrs
+  of the cuts beside it are counted, and whether it is there at all can rest on
+  geometry no operator can check. The value is illustrative, not measured; a
+  larger one only leaves more Z unknown, and a narrower land is unknown, never
+  pass. The land must lie on surface shown to be there: the kernel's one STEP
+  face for the feature (`faces`) is a plane that fills its own box (`fills_bbox`:
+  one wire, each edge a straight segment within the kernel's 1e-6 mm side
+  tolerance of a side of the box, more area than that band), flat in setup Z,
+  with each box corner on a corner of its setup X/Y box, which is the footprint.
+  Within `FILL_MARGIN_MM` (1.5e-6 mm: that side tolerance plus the 5e-7 mm the
+  record's 6-decimal rounding may move each side) and the 1e-6 corner tolerance of
+  a side of the box, a notch may still run, so no land counts there. Without a
+  kernel result, or for a round, holed, notched or L-shaped face or one turned
+  against the setup axes, the box's corners may hold no surface, however little
+  of its area the face lacks: a 0.005 mm hole can be the only part of the box
+  every cut spares. A touch on a surface, whether a zero, a tool touch or a
+  listed retouch, is a paper touch at
+  a nominal Z. It does not show what the ops since the surface was made left of
+  it, so it carries their partial cuts and any doubt about them. A touch on a
+  surface an op in the setup made is proven only at the Z that op made, and a
+  touch on the top only at the tracked top's Z. Only a whole cut makes a new
+  surface. The top a zero `after_op`, a listed retouch or a tool touch touches is
+  the top so tracked, so a face that states no depth leaves it unknown. A surface
+  is not proven while:
   - it is unnamed (a zero with no `face`);
   - an op on a feature the plan does not name has run since it was made, or a
     face op while the stock's `top_feature` is unresolved (the top);
   - an op's coverage of it is unknown, it may be gone, or a touch on it disagrees
     with (or cannot be checked against) the Z its op made or the tracked top's;
-  - partial cuts together cover it, or it is not shown to fill its footprint.
+  - partial cuts together leave no land of it, or it is not shown to fill its
+    footprint.
 
   With no proven surface, the latest one not shown gone is repeated with Z and
   Axis Set unknown (unknown). A measured Z (`trial_cut_measure`,

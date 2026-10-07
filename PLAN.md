@@ -1282,12 +1282,18 @@ sheet.
    `process_features` (`end_face`, `centre_hole`) are stock preparation the
    kernel cuts through transient faces and later stock states carry; they earn
    no finished-face or finish coverage and print no drawing-requirement row. A
-   hold's `centre_hole` binds the dead centre to a centre an earlier setup in
-   its `stock_in` lineage drills (`centre_support`: error when contradicted,
-   unknown when undeclared), seated in the cut countersink. Centre depth is
-   Table 6 drill length C plus the countersink to the mouth, printed on the
-   tailstock quill. The pivot-shaft S0 faces and centre-drills the plain end;
-   the saw cut stays a stock prerequisite (the bar it is cut from is not
+   hold's `centre_hole` binds the dead or live centre to a centre an earlier
+   setup in its `stock_in` lineage drills (`centre_support`, always required
+   wherever a hold uses a centre: error when contradicted, unknown and blocking
+   when undeclared, when any lineage routing or the maker's own `blind_depth`
+   centre row is unresolved, or when a further support may be a centre),
+   seated in the cut countersink. Centre depth is Table 6 drill
+   length C plus the countersink to the mouth, printed on the tailstock quill,
+   and only for the selected centre drill's own accepted D, C, angle, body and
+   point angle with the mouth on the touched entry surface; the kernel cuts only
+   that centre and refuses a buried mouth. The pivot-shaft S0 faces and
+   centre-drills the plain end; the saw cut stays a stock prerequisite (the bar
+   it is cut from is not
    declared). The catalogue gains `centre_support`; `rules_version` is unchanged
    until the integrator refreezes goldens.
 

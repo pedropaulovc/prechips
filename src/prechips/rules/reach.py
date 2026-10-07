@@ -36,6 +36,8 @@ def _clearances(detail, inputs):
     rows = []
     for key, part, body in (
         ("body_clear_mm", "tool body", cutter),
+        # A cone has no single radius: its gap names no distance from the axis.
+        ("seat_clear_mm", "seat cone", None),
         ("shank_clear_mm", "tool shank", shank),
     ):
         gap = detail.get(key, "not_applicable")
@@ -79,7 +81,7 @@ def evaluate(bundle):
             values["shank_dia_mm"] = 2 * radius if number(radius) else "unknown"
             values["shank_from_mm"] = inputs.get("shank_from_mm", "unknown")
             values["shank_hits"] = shank
-            for key in ("body_clear_mm", "shank_clear_mm", "holder_clear_mm"):
+            for key in ("body_clear_mm", "seat_clear_mm", "shank_clear_mm", "holder_clear_mm"):
                 if key in detail:
                     values[key] = detail[key]
             values["clearances"] = _clearances(detail, inputs)
@@ -106,20 +108,22 @@ def evaluate(bundle):
                     "error",
                     "the tool shank past its flutes meets the retained stock",
                 )
-            elif within:
+            elif within and (turning or number(shank)):
                 status, message = "pass", "entry-to-floor depth is within the selected flute length"
-            elif holder_known and number(hits) and hits > 0:
+            elif not within and holder_known and number(hits) and hits > 0:
                 status, message = (
                     "error",
                     "depth exceeds flute length and the holder intersects walls",
                 )
             elif not turning and not number(shank):
+                # An unresolved shank never passes, at any depth: a short spot still sinks
+                # the shank beside a retained wall the cut never reaches.
                 status, message = (
                     "unknown",
                     fact_reason(
                         detail,
                         ("shank_hits",),
-                        "depth exceeds flute length and the shank past the flutes is unresolved",
+                        "the shank past the flutes is unresolved against the retained stock",
                     ),
                 )
             elif (

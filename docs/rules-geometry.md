@@ -149,6 +149,13 @@ report, every rule that needs the feature is `error` with
 rows `unknown` (`feature face references are unknown or unmapped`). Imported
 faces that no reference names are labelled `imported face index <n>`
 (0-based) wherever the kernel has to name them, for example in `coverage`.
+Each imported face's record in `faces` gives its `index`, `ref`, surface
+`kind`, `area_mm2`, `bbox_mm` and `fills_bbox`: true only for a plane with one
+wire whose every edge is a straight segment within the kernel's 1e-6 mm side
+tolerance of a side of its flat box, and with more area than that band along the
+sides, so the face is that whole rectangle but for the band; a hole of any size,
+or a notch reaching further in, however little area it takes, makes it false, as
+does a face lying wholly in the band (a rim along three sides).
 
 Plan-owned joint cylinders are separate analytic targets, labelled with their
 `plan.joint_features.<id>` provenance. They are never assigned synthetic STEP
@@ -185,11 +192,21 @@ claim. A `center_drill` op removes the analytic centre (countersink of
 `countersink_angle_deg` to `mouth_dia_mm`, pilot of `drill_dia_mm` and
 `drill_length_mm`, point cone from the tool's verified `point_angle`) led 1 mm
 out of the face, minus protected finished material, along setup -Z through the
-spindle axis; an unknown point angle, a centre not wholly inside the stock, or a
-feed off setup -Z or the spindle axis is a reason, not a removal. Accessibility,
-reach and later stock states then see the cut centre, and a later setup's hold
-`centre_hole` seats its dead centre in that countersink instead of cutting a seat
-from `centre_hole_dia_mm`.
+spindle axis. It removes only the centre the selected tool cuts: the sizes and
+point must be that tool's own accepted Table 6 D, C, angle, body and
+`point_angle`, on a tool record that is confirmed, by the same check as the
+[`blind_depth`](rules-operations.md#blind_depth-tip-endpoints) centre row. It then
+measures the whole combined drill and countersink (point, pilot, countersink
+opening on to the body diameter, body up to the holder's projection) and the
+holder. An unknown or unaccepted tool fact or point angle, an unconfirmed tool
+record, sizes the selected tool does not cut, a centre
+not wholly inside the stock, a mouth with stock over it within the 1 mm lead
+(not on the exposed surface of the stock the op meets after this setup's
+earlier cuts, where the quill is touched), or a feed off setup -Z or the
+spindle axis is a reason, not a removal. Accessibility, reach and later stock
+states then see the cut centre, and a later setup's hold `centre_hole` seats its
+dead centre in that countersink instead of cutting a seat from
+`centre_hole_dia_mm`.
 
 
 ## Approach models
@@ -1266,17 +1283,33 @@ inventory (a `{ value, measured }` record, halved to the engine's
 `shank_radius_mm`) running from `shank_from_mm` above the tip to the holder
 face. `shank_from_mm` is the flute length, or for a combined drill and
 countersink (`angle_deg`) the flute plus its seat cone out to the shank
-diameter. `shank_hits` counts the samples whose shank cylinder meets the stock
-the op leaves: the shank trails the flutes through the op's own cut (down its
-bore, or pass by pass down a milled wall), so the finished bore or wall counts
-and the op's own allowance does not. An unknown shank diameter or start leaves
-`shank_hits` unknown.
+diameter. That seat cone, from the flute radius at the flute end to the shank
+radius at `shank_from_mm`, is cutting body, not shank: it is part of the tool
+solid whose hits `accessibility` counts, and a spot or drill removes it with
+its own cut: the cone at its final pose and, above it, the shank-diameter bore
+its widest edge sweeps on the way down. So a spot deeper than its pilot
+countersinks its own mouth, one deeper than the whole cone bores it out to the
+shank diameter, and finished material in that path (a retained shoulder
+inside the cone, a narrower finished bore) stays a tool hit. `shank_hits`
+counts the samples whose shank cylinder meets the stock the op leaves: the
+shank trails the flutes through the op's own cut (down its bore, or pass by
+pass down a milled wall), so the finished bore or wall counts and the op's own
+allowance does not. An unknown shank diameter or start leaves `shank_hits`
+unknown.
 
-On a hole op's own axis the kernel also reports three clearances, each the
+On a hole op's own axis the kernel also reports four clearances, each the
 least over its axes, measured within the holder radius:
 
 - `body_clear_mm`: the flute body's radial gap above its own cut's mouth to the
   stock the op leaves (a crown, ear or wall beside the spot);
+- `seat_clear_mm`: the seat cone's radial gap to that stock (at each height,
+  the stock's distance from the axis less the cone's radius there). A cone
+  that meets no stock is measured above the countersink it cuts itself, as
+  the body is above its mouth; one that meets it reports the interference
+  from the flute end up, exact down to minus the pilot radius and unknown
+  deeper; `"not_applicable"` for a tool without a seat cone, and unknown, as
+  the shank, when the shank radius is: only that radius tells a seat cone from
+  none;
 - `shank_clear_mm`: the shank's radial gap to that stock (the finished bore wall
   for a reamer past its flutes);
 - `holder_clear_mm`: the holder face's height above the highest stock the op
@@ -1291,10 +1324,11 @@ Numbers: `reach_depth_mm`, `flute_len_mm`, `oal_mm`, `projection_mm`,
 `holder_wall_hits`, on a milling or axial joint sample `reach_top_z_mm` (the
 setup Z of that highest material, the reach reference; `"not_applicable"` when
 no material stands beside the tool), and off the turning model `shank_dia_mm`,
-`shank_from_mm`, `shank_hits`, any of `body_clear_mm`, `shank_clear_mm`,
-`holder_clear_mm` the kernel reported and `clearances`: one
+`shank_from_mm`, `shank_hits`, any of `body_clear_mm`, `seat_clear_mm`,
+`shank_clear_mm`, `holder_clear_mm` the kernel reported and `clearances`: one
 `{ part, obstacle, mm }` per reported clearance other than
-`"not_applicable"`, with `part` `tool body`, `tool shank` or `holder face`;
+`"not_applicable"`, with `part` `tool body`, `seat cone`, `tool shank` or
+`holder face`;
 `obstacle` `the Ø<d> bore this op cuts` when the gap is the op's own bore,
 `stock <r> from the tool axis`, `stock under the holder at Z<z>` or, when
 unmeasured, `stock beside the tool`/`stock under the holder`.
@@ -1311,11 +1345,13 @@ printed as a cut depth.
 - depth > OAL: `entry-to-floor depth exceeds the selected tool OAL.` (error)
 - shank hits: `the tool shank past its flutes meets the retained stock.`
   (error, at any depth)
-- depth ≤ flute: `entry-to-floor depth is within the selected flute length.` (pass)
+- depth ≤ flute with zero shank hits (turning: no shank check):
+  `entry-to-floor depth is within the selected flute length.` (pass)
 - depth > flute with holder wall hits: `depth exceeds flute length and the holder intersects walls.` (error)
-- depth > flute with the shank unknown: the kernel's `shank_hits` reason, or
-  `depth exceeds flute length and the shank past the flutes is unresolved.`
-  (unknown)
+- the shank unknown, at any depth: the kernel's `shank_hits` reason, or
+  `the shank past the flutes is unresolved against the retained stock.`
+  (unknown). A shallow cut does not prove the shank clear: a spot 0.5 mm deep
+  still sinks the shank beside a retained wall the flutes never reach.
 - depth > flute, ≤ OAL, zero holder and shank hits and every holder dimension
   known: `depth exceeds flute length but fits OAL with the shank and holder clear
   of the retained stock.` (pass; turning: `… with the holder cylinder clear of
@@ -1678,7 +1714,11 @@ distance; it outlines each contact (solid where seen, dashed where hidden),
 keys it with its holding name and the setup coordinate of its plane (a support
 whose solids lie on different planes, such as the rocker's hub stand and rail
 shims, is keyed plane by plane, and same-named solids share a key only on one
-plane), and dimensions the closest cut in amber. An
+plane). A numbered support (a coded clamp such as `SUP1`, or a pad) on one plane
+keeps its position badge; one whose solids seat the work on several planes keys
+each solid with its code, its own name and its plane, led to its own contact,
+and pad keys at several heights name the pads each keys. It dimensions the
+closest cut in amber. An
 isometric or elevation view is detailed only when the band draws the stock at
 least 1.5 times larger; a lathe's meridian section gets no holding detail. A
 plan view always gets the detail, drawn from 30° above the side so contact

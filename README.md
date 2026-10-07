@@ -379,9 +379,14 @@ support.
 Every cutter-centre contour row and every hole op's tool-axis X/Y prints on the
 setup DRO grid; contour rows round to the side that leaves material, and a
 finish row with no safe grid point inside its feature's band is an error. Raster
-and outline rows that run past the stock are labelled cutter clearance; a
-raster's pass ends are called clear air when they stand a cutter radius past the
-op's stock box, or walled (plunge in material) when inside it. A contour cut in
+and outline rows that run past the stock are labelled cutter clearance only when
+the cutter stands a radius outside the stock the kernel modelled entering the
+setup; a raster's pass ends always print, and are called in air only on that
+proof (an op's removal box never proves an end in air or in material); every
+pass is said to run in and out clear only when each emitted piece's start and
+end is, so pieces a keep-out splits are proven one by one. A
+through hole's breakthrough note gives the run-out its printed DRO tip leaves,
+cut down to the DRO decimals, not the authored `exit_mm`. A contour cut in
 several depth levels lists every level once, in its heading. Contour tables
 repeat their op, tool and Z on a continued page and never wrap a coordinate.
 The mill CLEARANCE section prints a short stack/travel verdict and a per-op table
@@ -441,10 +446,16 @@ Plan-owned `process_features` describe stock preparation a later setup relies
 on — a faced `end_face` or a combined drill and countersink `centre_hole` — and
 are never drawing dimensions or coverage. The kernel cuts them, so the picture
 and the next setup's stock show the centre; a hold's `centre_hole` names the
-centre its dead centre rides in, and `centre_support` refuses one that no
-earlier setup in the stock lineage drills, or whose drilled mouth differs from
-the seat. The centre depth is the Machinery's Handbook Table 6 drill length plus
-the countersink to the mouth, printed as a tailstock-quill depth.
+centre its dead or live centre rides in. `centre_support` is always required
+wherever a hold uses a centre (no shop-policy entry needed): it refuses one that
+no earlier setup in the stock lineage drills, whose drilled mouth differs from
+the seat, or whose maker's `blind_depth` row is an error, and stays unknown
+(blocking) while that row, any lineage routing, or whether a further support is
+a centre (unknown, uninventoried or of unknown kind, or a second centre) is
+unresolved. A tailstock drill chuck or a rest is not a centre. The centre depth
+is the Machinery's Handbook Table 6 drill length plus the countersink to the mouth,
+printed as a tailstock-quill depth, and only for the selected centre drill's
+own accepted D, C, angle, body and point with the mouth on the touched end.
 A mill route squares a sawn rectangular bar the same way: each blank face is
 an `end_face` that a face op cuts flat, or a side-milling profile cuts on an end
 overhanging the vise. The kernel removes each as a planar slab, so later pictures

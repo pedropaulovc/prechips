@@ -2153,9 +2153,11 @@ class _HoldingDetail(_Diagram):
     def _contact_groups(self):
         """[(label, plane, [(member name or None, badge code or None, lines)])]: each
         contacting solid under the holding name it is printed with and the setup-axis plane
-        it lies on (None when unknown). Solids of one name on different planes are keyed
-        plane by plane; a component whose contacting solids lie on different planes is
-        named solid by solid."""
+        it lies on (None when unknown). A component's contacting solids are split by plane
+        first: on one plane it is keyed once (a pad or a coded clamp by its badge); on
+        several, each solid is keyed by its own name and plane, under the component's
+        label when that carries a pad or clamp code. Solids of one name on different planes
+        are keyed plane by plane."""
         contacts = {contact["tag"]: contact for contact in self.spec["contacts"]}
         planes = {tag: _contact_plane(contact) for tag, contact in contacts.items()}
         groups, named, loose = [], set(), []
@@ -2167,17 +2169,43 @@ class _HoldingDetail(_Diagram):
                     return
             groups.append((label, plane, [(member, code, lines)]))
 
+        def add_solid(prefix, tag):
+            # Twins named "<stem> <short member>" (rail shims LU, RU) share their stem's key.
+            name = _solid_name(tag)
+            stem, _, member = name.rpartition(" ")
+            if stem and len(member) <= 2:
+                add(prefix + stem, planes[tag], member, None, contacts[tag]["lines_mm"])
+            else:
+                add(prefix + name, planes[tag], None, None, contacts[tag]["lines_mm"])
+
         for component in self.components:
             tags = [tag for tag in component.get("meshes", ()) if tag in contacts]
             if not tags:
                 continue
             named.update(tags)
             label = self._component_label(component)
+            numbered = _is_pad(component, label) or component.get("code")
+            parts = []
+            for tag in tags:
+                part = next((p for p in parts if _same_plane(p[0], planes[tag])), None)
+                if part is None:
+                    parts.append((planes[tag], [tag]))
+                else:
+                    part[1].append(tag)
+            if len(parts) > 1:
+                if numbered:
+                    # Its badge would key several heights at once: each solid is keyed and
+                    # led to on its own plane, under the label that carries its code.
+                    for tag in tags:
+                        add_solid(label + " ", tag)
+                else:
+                    loose.extend(tags)
+                continue
+            ((plane, _),) = parts
             lines = [line for tag in tags for line in contacts[tag]["lines_mm"]]
-            plane = _shared_plane([planes[tag] for tag in tags])
             if _is_pad(component, label):
                 add("SUPPORT PADS", plane, None, _pad_code(component, 1), lines)
-            elif component.get("code"):
+            elif numbered:
                 add(label, plane, None, _plain(component["code"]), lines)
             elif len(tags) == 1 or plane is not None:
                 add(label, plane, None, None, lines)
@@ -2185,12 +2213,7 @@ class _HoldingDetail(_Diagram):
                 loose.extend(tags)
         loose.extend(tag for tag in contacts if tag not in named)
         for tag in loose:
-            name = _solid_name(tag)
-            stem, _, member = name.rpartition(" ")
-            if stem and len(member) <= 2:
-                add(stem, planes[tag], member, None, contacts[tag]["lines_mm"])
-            else:
-                add(name, planes[tag], None, None, contacts[tag]["lines_mm"])
+            add_solid("", tag)
         return groups
 
     def render(self):
@@ -2199,6 +2222,7 @@ class _HoldingDetail(_Diagram):
         _text(c, 32, 22, self._title(), scale=4)
         _text(c, 34, 62, "CONTACT FACES: SOLID WHERE SEEN, DASHED WHERE HIDDEN", _CONTACT)
         groups = self._contact_groups()
+        keyed = []
         for label, plane, members in groups:
             for _, _, lines in members:
                 self._contact_outline(lines)
@@ -2207,9 +2231,16 @@ class _HoldingDetail(_Diagram):
                 for member, code, lines in members
                 if self._in_tile(self._contact_anchor(lines))
             ]
-            if not shown:
-                continue
+            if shown:
+                keyed.append((label, plane, shown))
+        labels = [label for label, _, _ in keyed]
+        for label, plane, shown in keyed:
             names = [member for member, _, _, _ in shown if member]
+            codes = [code for _, code, _, _ in shown]
+            if not names and labels.count(label) > 1:
+                # One name keyed at several heights (pads on two planes): each key names
+                # the badges it keys, so each badge reads its own height.
+                names = list(dict.fromkeys(code for code in codes if code))
             text = label
             if len(names) == 1:
                 text += f" {names[0]}"
@@ -2217,7 +2248,6 @@ class _HoldingDetail(_Diagram):
                 text += f" ({', '.join(names)})"
             text += f" CONTACT{self._plane_text(plane)}"
             points = [point for _, _, _, point in shown]
-            codes = [code for _, code, _, _ in shown]
             if not any(codes):
                 self.callouts.append(_Callout(text, points, _CONTACT))
                 continue
