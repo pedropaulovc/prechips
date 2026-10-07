@@ -1607,22 +1607,12 @@ def _inventory_checks(item: Any, where: str) -> None:
         for index, check in enumerate(checks):
             if isinstance(check, dict):
                 _acceptance_check(check, f"{where}.acceptance[{index}]")
-    made_here = item.get("shop_made") is True or item.get("kind") == "custom"
-    if "make_ops" in item:
-        _make_ops(item["make_ops"], f"{where}.make_ops", made_here)
+    _make_ops_checks(item, where)
     solids = item.get("solids")
     for solid in solids if isinstance(solids, list) else ():
         if not isinstance(solid, dict):
             continue
         name = solid.get("name", "?")
-        if "make_ops" in solid:
-            supply = solid.get("supply", "made")
-            if supply != "made":
-                raise ValueError(
-                    f"{where} solid {name}: a {supply} primitive is not made here; give the "
-                    "make_ops to the hole made in it, or to the item."
-                )
-            _make_ops(solid["make_ops"], f"{where} solid {name}.make_ops", made_here)
         if "records" not in solid:
             continue
         records = solid["records"]
@@ -1635,7 +1625,64 @@ def _inventory_checks(item: Any, where: str) -> None:
                 _record_blank(blank, f"{where} solid {name}.records[{index}]")
     members = item.get("members")
     for name, member in members.items() if isinstance(members, dict) else ():
+        if _declares_make_ops(member):
+            # A member is its set's record with its own keys over it: its make operations
+            # would replace the set's, or print nowhere when the set is held whole.
+            raise ValueError(f"{where}/{name}: a set member has no make_ops of its own.")
         _inventory_checks(member, f"{where}/{name}")
+        if isinstance(member, dict) and _declares_make_ops({**item, "members": {}}):
+            # The member as the traveler reads it (the set's keys, its own over them) keeps
+            # the set's make operations: they must still be made here and print.
+            try:
+                _make_ops_checks({**item, **member}, f"{where}/{name}")
+            except ValueError as error:
+                kept = f"{error} (the make_ops are {where}'s, kept by its member)"
+                raise ValueError(kept) from None
+
+
+def _make_ops_checks(item: dict, where: str) -> None:
+    """Make operations only where a make table prints them: on a shop-made item with a
+    solid made here (or none drawn), and on a made primitive."""
+    made_here = item.get("shop_made") is True or item.get("kind") == "custom"
+    solids = item.get("solids")
+    shapes = [s for s in solids if isinstance(s, dict)] if isinstance(solids, list) else []
+    if "make_ops" in item:
+        _make_ops(item["make_ops"], f"{where}.make_ops", made_here)
+        # The traveler prints make operations on the item's make table, and an item none
+        # of whose solids is made here has none: never accepted, then left off.
+        if shapes and not any(s.get("supply", "made") == "made" for s in shapes):
+            raise ValueError(
+                f"{where}.make_ops: every solid is bought or existing, so nothing is made "
+                "here; state what is made, or drop make_ops."
+            )
+    for solid in shapes:
+        if "make_ops" in solid:
+            name = solid.get("name", "?")
+            supply = solid.get("supply", "made")
+            if supply != "made":
+                raise ValueError(
+                    f"{where} solid {name}: a {supply} primitive is not made here; give the "
+                    "make_ops to the hole made in it, or to the item."
+                )
+            _make_ops(solid["make_ops"], f"{where} solid {name}.make_ops", made_here)
+
+
+# The categories whose shop-made items print a make table, so their make operations: the
+# items a hold or an op's holder holds the work with.
+_MADE_CATEGORIES = ("fixtures", "holders", "machines")
+
+
+def _declares_make_ops(item: Any) -> bool:
+    """Whether ``item`` states ``make_ops``: its own, a solid's or a member's."""
+    if not isinstance(item, dict):
+        return False
+    solids = item.get("solids") if isinstance(item.get("solids"), list) else []
+    members = item.get("members") if isinstance(item.get("members"), dict) else {}
+    return (
+        "make_ops" in item
+        or any(isinstance(s, dict) and "make_ops" in s for s in solids)
+        or any(map(_declares_make_ops, members.values()))
+    )
 
 
 # A make operation's feed: a number or a low-high range, then its unit.
@@ -1759,6 +1806,11 @@ class Inventory(InputModel):
                         where = f"{category}.{identity}"
                         _inventory_lengths(item, where, tool=category == "tools")
                         _inventory_checks(item, where)
+                        if category not in _MADE_CATEGORIES and _declares_make_ops(item):
+                            raise ValueError(
+                                f"{where}: make_ops print on a holding item's make table; "
+                                f"only {', '.join(_MADE_CATEGORIES)} items have one."
+                            )
         return values
 
 

@@ -61,8 +61,12 @@ clamp, stop, locator and jaw-protection values that resolve to inventory fixture
 are included even when their names do not use the selected-reference spelling.
 Explicit `none` and `not_applicable` are not fixtures. Unknown primary fixtures
 or explicitly unknown support/index references remain unknown; missing optional
-supports are not invented. Identities are de-duplicated and sorted, without
-claiming presence or measurement: the normal rule findings decide those facts.
+supports are not invented. Each identity is the `(category, key)` the reference
+selects, so two spellings of one item list it once. It lists by key alone,
+unless another listed item has the same key in another category (a
+`holders.holder` collet and a `fixtures.holder` plate); then each prints as
+`category.key`. The list is sorted, without claiming presence or measurement:
+the normal rule findings decide those facts.
 
 ## Volume arithmetic and numerical provenance
 

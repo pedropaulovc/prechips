@@ -18,6 +18,7 @@ from .resolution import (
     record,
     resolve,
     same_length,
+    select,
     uncertain,
 )
 from .stickout import support_state
@@ -140,6 +141,7 @@ def _rest(bundle, setup, op, turned, debts, cite):
         kind = kinds[0] if len(kinds) == 1 else UNKNOWN
         row = {"reference": reference, "kind": kind, "ops": ops}
         evidence.append(row)
+        category, key, _ = select(bundle, reference, "fixtures")
         item = resolve(bundle, "fixtures", reference)
         cite.append(f"plan.setups[{setup['id']}].hold.supports[{reference}]")
         if (
@@ -152,8 +154,8 @@ def _rest(bundle, setup, op, turned, debts, cite):
             row["status"] = "unknown"
             missing.append(f"one resolved verified follow_rest/steady_rest for '{reference}'")
             continue
-        low = fact(item, "capacity_min", "fixtures", reference, debts, cite)
-        high = fact(item, "capacity_max", "fixtures", reference, debts, cite)
+        low = fact(item, "capacity_min", category, key, debts, cite)
+        high = fact(item, "capacity_max", category, key, debts, cite)
         row.update(capacity_min_mm=low["value"], capacity_max_mm=high["value"])
         if kind == "follow_rest":
             lead = entry.get("jaw_lead_mm", UNKNOWN)

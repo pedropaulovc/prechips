@@ -38,7 +38,7 @@ def evaluate(bundle):
     }
     findings = []
     for setup in bundle.plan["setups"]:
-        machine, _ = machine_envelope(bundle, setup)
+        machine_ref, machine = machine_envelope(bundle, setup)
         cite = ["PLAN.md §8 M5; docs/rules-setup.md envelope: conservative setup stack"]
         if saw_setup(setup):
             findings.append(
@@ -66,10 +66,10 @@ def evaluate(bundle):
             continue
         debts, missing, errors = {}, [], []
         maximum = fact(
-            machine, "envelope.spindle_to_table_max", "machines", setup["machine"], debts, cite
+            machine, "envelope.spindle_to_table_max", "machines", machine_ref, debts, cite
         )
         minimum = fact(
-            machine, "envelope.spindle_to_table_min", "machines", setup["machine"], debts, cite
+            machine, "envelope.spindle_to_table_min", "machines", machine_ref, debts, cite
         )
         extents, extent_cite = stock_extents(bundle, setup)
         if maximum["verified"] and minimum["verified"]:

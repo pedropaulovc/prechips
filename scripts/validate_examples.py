@@ -1821,10 +1821,15 @@ def derive_zero(setup: dict, own, entries: dict) -> tuple:
         face_check(record, record.get("z_face"), edge, zero_rules._position(ops, record) or 0, who)
         touches.append(row)
         unknown |= "unknown" in (x_set, z_set) or not ready(record.get("tool"))
-    derived, missing, changes_unknown, _ = zero_rules.tool_changes(
+    derived, missing, changes_unknown, _, served = zero_rules.tool_changes(
         own, setup, zero, lathe, x_scale, touches
     )
     unknown |= changes_unknown
+    # A listed retouch names the op that reads it and the tool that goes in first; one no
+    # later cutting op reads serves no tool.
+    idle = {"next_op": "not_applicable", "next_tool": "not_applicable", "tool_change": False}
+    for row in retouch:
+        row.update(served.get(str(row["op"]), idle))
     for row in derived:
         who = f"the {row.get('tool', 'unknown')} re-touch"
         blade_corner(row, row, row.get("z_face"), row.get("edge_mm"), who)

@@ -1155,9 +1155,16 @@ def _aimed_solid(solid, specs, mapping, labels):
     naming a ``face``) make it. Each aimed face, a plane on one of its feature's declared
     planes (``lower_mm``/``upper_mm`` along ``axis``), moves ``delta_mm`` along its outward
     normal, away from the other plane, so the faced length reads the aimed value; every
-    other face keeps its index (:func:`_moved_face`). The STEP stays as exported; this is
-    the part the plan cuts. Raises :class:`_Unknown` when an aim cannot be placed."""
-    facts = []
+    other face keeps its index (:func:`_moved_face`). A zero move leaves the face where it
+    stands. The STEP stays as exported; this is the part the plan cuts.
+
+    The aims compose: on the part they make together, each aimed face must stand on its
+    aimed plane and every face on its other plane facing the other way, the length's
+    other end, must still stand there, so each length measured between them reads its
+    ``value_mm`` inside its ``band_mm`` (:func:`_aimed_lengths`). Raises :class:`_Unknown`
+    when an aim cannot be placed or one aim moves another's face or other end."""
+    facts, ends = [], []
+    exported = solid
     for spec in specs:
         if not isinstance(spec, dict):
             raise ValueError("job aimed_faces holds a non-record")
@@ -1169,7 +1176,7 @@ def _aimed_solid(solid, specs, mapping, labels):
         if index is None:
             raise _Unknown(f"{what}.face {ref} is not mapped to a STEP face")
         label = labels[index]
-        face = solid.Faces[index]
+        face = exported.Faces[index]
         normal = _common_normal([face])
         axis = V(*spec["axis"])
         if normal is None or abs(normal.dot(axis)) < PARALLEL:
@@ -1183,18 +1190,68 @@ def _aimed_solid(solid, specs, mapping, labels):
                 f"{'up' if outward else 'down'} the feature's Z but is not its "
                 f"{'upper' if outward else 'lower'} plane ({_r(upper if outward else lower)} mm)"
             )
+        other = lower if outward else upper
+        # The length's other end: every face on the other plane, facing the other way.
+        held = [
+            i
+            for i, wall in enumerate(exported.Faces)
+            if (here := _common_normal([wall])) is not None
+            and here.dot(axis) * (1 if outward else -1) <= -PARALLEL
+            and abs(wall.Vertexes[0].Point.dot(axis) - other) <= STOCK_TOL
+        ]
+        if not held:
+            raise _Unknown(
+                f"{what}: no face stands on its {'lower' if outward else 'upper'} plane "
+                f"({_r(other)} mm) facing away from {label}, so its length has no other end"
+            )
         delta = spec["delta_mm"]
-        solid = _moved_face(solid, index, normal, delta, f"{what}.face {label}")
+        if abs(delta) > PLANE_TOL:
+            solid = _moved_face(solid, index, normal, delta, f"{what}.face {label}")
+        aimed = at + (delta if outward else -delta)
+        ends.append((spec, what, index, axis, aimed, other, held))
         facts.append(
             {
                 "feature": spec.get("feature"),
                 "face": ref,
                 "index": index,
                 "delta_mm": _r(delta),
-                "plane_mm": [_r(at), _r(at + (delta if outward else -delta))],
+                "plane_mm": [_r(at), _r(aimed)],
             }
         )
+    _aimed_lengths(solid, ends, labels)
     return solid, facts
+
+
+def _aimed_lengths(solid, ends, labels):
+    """Raise :class:`_Unknown` unless, on the part every faced aim made (``solid``), each
+    aim's face stands on its aimed plane, every face of its other end stands where it was,
+    and the length between them reads its ``value_mm`` inside its ``band_mm``: one aim
+    moving a face another aims or holds as its other end meets neither length."""
+    for spec, what, index, axis, aimed, other, held in ends:
+        label = labels[index]
+        here = solid.Faces[index].Vertexes[0].Point.dot(axis)
+        if abs(here - aimed) > STOCK_TOL:
+            raise _Unknown(
+                f"{what}.face {label} stands at {_r(here)} mm, not its aimed {_r(aimed)} mm: "
+                "another aim moves it too"
+            )
+        for i in held:
+            there = solid.Faces[i].Vertexes[0].Point.dot(axis)
+            if abs(there - other) > STOCK_TOL:
+                raise _Unknown(
+                    f"{what}: another aim moves {labels[i]}, the other end of its length, "
+                    f"from {_r(other)} to {_r(there)} mm"
+                )
+        length = abs(here - other)
+        low, high = spec["band_mm"]
+        if (
+            abs(length - spec["value_mm"]) > STOCK_TOL
+            or not low - STOCK_TOL <= length <= high + STOCK_TOL
+        ):
+            raise _Unknown(
+                f"{what}: the aimed part measures {_r(length)} mm, not its "
+                f"{_r(spec['value_mm'])} mm aim inside {_r(low)}-{_r(high)} mm"
+            )
 
 
 def _square_to(face, normal):

@@ -212,19 +212,33 @@ guide or its gauge, tool, holder, inspection gauge or process-hold gauge; any
 item named in the setup's prose or in the notes and record blanks of the
 shop-made items it uses, the job page's prose counting as the first setup's:
 see the key syntax under shop-made solids) that carries the list. An item is its
-category and key: a slot selects its own kind first (a hold slot workholding:
-fixtures, holders, machines; an indicator, inspection, process-hold or guide
-gauge a gauge; a tool slot a tool; a holder slot a holder), and prose names the
-category, so `fixtures.pins` and `gauges.pins` are two items, each with its own
+category and key, and one selection reads it. A reference that names its
+category (`gauges.pins` in prose) reads that category alone. A slot reads its
+own categories in order: a hold's fixture or dividing head is workholding
+(fixtures, holders, machines); its chuck, parallels, riser, jaw bar or buttons,
+supports, clamps, stop and support blocks are fixtures; a zero's or tool
+touch's tool and the transfer's tool are a tool, then a gauge (an indicator in
+the spindle); an indicator, inspection, process-hold or guide gauge is a gauge;
+an op's tool a tool; a holder a holder; the setup's machine a machine. The
+first of those categories that lists the key, or is stated `"unknown"` as a
+whole, is final: a same-key item in another category is never read. Only a
+bare key with no slot (a bare key in prose) reads the categories in the
+default order (machines, tools, holders, fixtures, gauges). So `fixtures.pins`
+and `gauges.pins` are two items, each with its own
 checks, table and first setup. Everything after the selection reads that item
 only: its receipt, its `tool_resolves` finding (the gauge a slot reads is
 checked even when a fixture of that key is listed), the notes and record blanks
 of a shop-made holder or fixture, and every name the traveler prints for it. A
-bare key in prose that two categories list names no one item and prints as
-written; name it `<category>.<key>`. The selected category is authoritative: an
-item it lists as `"unknown"` or with nothing about it (`{}`), or a category
-stated `"unknown"`, is unknown to every rule and prints `? <category>.<key>`;
-it never borrows a same-key item's name or record. Unknown is
+bare key in prose prints as a slot's item only when every slot using it selects
+that one item and a bare key selects it too; otherwise it names no one item and
+prints as written: name it `<category>.<key>`. An item the selection finds
+stated `"unknown"` or listed with nothing about it (`{}`), or a category stated
+`"unknown"`, is unknown to every rule and prints `? <category>.<key>`;
+it never borrows a same-key item's name or record. A `<category>.<key>` and the
+key it selects are one item everywhere after the selection: a member's own size
+or capacity (`holders.collets/1/4` grips 1/4 in only), the holder a projection
+map names, and every citation and measurement request read the selected key,
+never the reference as spelled. Unknown is
 never an acceptance: an `acceptance` or `purchase` stated
 `"unknown"`; a `check`, `how` or `accept` that is blank or unknown; a gauge that
 is unknown, not listed or not verified; a `limits_mm` that is not two known
@@ -382,12 +396,31 @@ Other holding solids come from the same accepted-fact rule, never defaults:
   first, then each primitive's (after its row name), in `solids` order, a list
   shared by primitives of one `label` once: `1. hold:
   vise on parallels; T: <tool's shop name>; 600 rpm; 0.05 mm/rev; 0.5 mm/pass;
-  MH 31st Table 17 p.1061`. An unknown fact prints `?`, a tool the shop's tools
-  do not list `? <key>`, and the line ends in a STOP naming them; `make_ops =
-  "unknown"` prints one STOP line. The tool is a slot like an op's tool: its
-  receipt checks print with the setup's (`purchased_tooling`) and `tool_resolves`
-  checks each operation (docs/rules-tools.md). A bought item or bought or
-  existing primitive has none.
+  MH 31st Table 17 p.1061`. `hold` and `cite` print as written, a link or path
+  in them too; an item they name (`fixtures.vise-pm-6`, also next to
+  punctuation or in quotes: `fixtures.a,gauges.dti`, `` `gauges.dti` ``) prints
+  as its shop name, but nothing inside a link or path is read as a name: a URL
+  (`scheme://…`), a drive-letter (`C:\…`), UNC (`\\server\…`), relative
+  (`./…`, `../…`) or rooted (`/srv/…/…`) path, up to the next space. An
+  unknown fact prints `?`, a tool the shop's tools do not list (only
+  `tools` counts: no other category's item or machine accessory of that key)
+  `? <key>`, a listed tool still to verify `? <tool's shop name>`, and the line
+  ends in a STOP naming them; `make_ops = "unknown"` prints one STOP line. The
+  tool is a slot like an op's tool: its receipt checks print with the setup's
+  (`purchased_tooling`) and `tool_resolves` checks each operation
+  (docs/rules-tools.md). The item is made once, before the first setup holding
+  with it through any slot, and its make operations print there only: in its
+  make table when that setup prints one, else under its own SHOP-MADE FIXTURE
+  heading on that setup's sheet 2, pointing to the later table (a chuck,
+  parallels, a jaw bar or single support, an op's holder, a guide's buttons
+  have none). A later table says "Make before" that first setup and points
+  back to the operations. Declared operations always print, so where they
+  could not they are refused: on a bought item, a bought or existing
+  primitive, an item every solid of which is bought or existing (nothing is
+  made: no make table), a set member (its record replaces its set's), a member
+  that keeps its set's operations but, read with its own keys over the set's,
+  is not shop-made or makes no solid here, and any item outside `fixtures`,
+  `holders` and `machines`.
   `records = [{ check, gauge, how, max_mm, goal_mm, over_mm }]` on any
   primitive are values measured and written down when the part is made or
   received (a head-to-shoulder TIR, a squareness by reversal). Each prints
@@ -540,7 +573,12 @@ spindle/chuck stack, so no separate stack height is recorded or added.
 Projection is **holder exit face to installed tool tip** and belongs to one
 (tool, holder, insertion) triple: it lives on the tool as
 `tools.<tool>.projection_mm` (or `_in`), a map keyed by the full exact holder
-reference the operation selects (for example `"r8-collets-lms-4860/3-8in"`).
+reference the operation selects (for example `"r8-collets-lms-4860/3-8in"`; a
+key and a holder reference spelled with or without `holders.` match when they
+select the same holder). Two keys that select the same holder (`holder` and
+`holders.holder`) state its projection twice: the projection is unknown, with
+both keys named, whichever values they carry and in whatever order; neither is
+read and it never falls back to OAL − grip. State it once.
 A holder, fixture, machine or gauge never carries projection, and a tool never
 carries a holder-wide or tool-wide scalar projection: the schema rejects
 `projection_mm`/`projection_in` outside `tools` and rejects a tool whose
