@@ -112,16 +112,18 @@ def arc_record(method):
     }
 
 
-def contour_sheet(tmp_path, arc, line=None):
+def contour_sheet(tmp_path, arc, line=None, scribed=False):
     method = arc["method"]
     numbers = {
         "arc_table": [arc],
         "profiles": [{"op": 20, "contour": {"method": method}, "cutter_centre": [[99, 88]]}],
         "line_table": [line] if line else [],
     }
+    # Laying the arc out is optional: a scribe op before the rough names its line.
+    scribe = [{"op": 10, "do": "scribe", "feature": "arc"}] if scribed else []
     sheet, setup = traveler(
         tmp_path,
-        [{"op": 20, "do": "rough_profile", "feature": "arc", "tool": "cutter"}],
+        [*scribe, {"op": 20, "do": "rough_profile", "feature": "arc", "tool": "cutter"}],
         numbers,
     )
     html = sheet.contours(setup, {"cutter": "6 mm endmill"})
@@ -142,14 +144,25 @@ def test_stairs_print_every_corner_and_single_handwheel_axis(tmp_path):
         "dro_tip_z": -2.125,
         "jog": [None, "Y"],
     }
+    line["stair_cusp_mm"] = 0.1272
     html, printed = contour_sheet(tmp_path, arc, line)
-    assert "rough stairs" in printed.lower() and "outside the scribed line" in printed
+    # The cusp bound prints on the 0.001 DRO grid, rounded up: never finer, never less.
+    assert "the stair leaves ≤ 0.128" in printed and "0.1272" not in printed
+    # Nothing scribed the arc: the rough stays outside the finished outline, not a line
+    # no step drew.
+    assert "rough stairs" in printed.lower() and "outside the finished outline" in printed
+    assert "scribed" not in printed
     assert "one handwheel axis per row" in printed
     assert "at most 0.420 mm for the file" in printed and "cap 0.5 mm" in printed
-    assert re.search(r"P1\s+15\.200\s+-3\.000\s+-2\.125\s+X", printed)
-    assert re.search(r"P2.*corner.*15\.200\s+1\.500\s+-2\.125\s+Y", printed)
-    assert re.search(r"P3\s+12\.800\s+1\.500\s+-2\.125\s+X", printed)
-    assert re.search(r"P5\s+12\.800\s+4\.000\s+-2\.125\s+Y", printed)
+    # Every move is at one Z: it heads the block and each table's continued-page heading
+    # (one per table), and no row repeats it.
+    assert "S1 op 20 — arc · 6 mm endmill · Z -2.125" in printed
+    assert "<th>Z</th>" not in html and printed.count("-2.125") == 3, printed
+    # The moves are numbered on through the op's tables: the joins carry on from the arc.
+    assert re.search(r"\b1\s+P1\s+15\.200\s+-3\.000\s+X", printed)
+    assert re.search(r"\b2\s+P2.*corner.*15\.200\s+1\.500\s+Y", printed)
+    assert re.search(r"\b3\s+P3\s+12\.800\s+1\.500\s+X", printed)
+    assert re.search(r"\b5\s+P5\s+12\.800\s+4\.000\s+Y", printed)
     assert "<th>handwheel axis</th>" in html
 
 
@@ -161,7 +174,7 @@ def test_chain_drill_prints_holes_then_breakout_and_filing_stock(tmp_path):
         hole_clear_mm=0.1,
         break_out="chisel the webs out along the hole line",
     )
-    html, printed = contour_sheet(tmp_path, arc)
+    html, printed = contour_sheet(tmp_path, arc, scribed=True)
     assert "<th>hole #</th>" in html
     assert "drill Ø3.5 mm" in printed and "pitch 3.2 mm" in printed
     assert "every hole outside the scribed line" in printed

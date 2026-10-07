@@ -301,7 +301,9 @@ every sheet on load and again just before printing. It measures the sheet at the
 printed width, places each page break itself (headings and a table's caption
 stay with what follows, also when the heading opens a sheet and its first block
 is a row of contours; the sign-off stays with the last op row; a table that
-runs over is split into a copy with the same column headings), opens every page
+runs over is split into a copy with the same column headings, leaving at least
+three rows on each page: rows carry over to the next page, and a table too short
+for that moves whole with its heading, never shrinking the type), opens every page
 after a sheet's first with `SETUP S2 — sheet 3 (continued) · page 2 of 3`, and
 adds a `This side intentionally blank — SETUP S2 sheet 1 back` page after any
 sheet with an odd page count, the job page included. Every sheet therefore
@@ -333,7 +335,8 @@ Front sheet (sheet 1), in this order:
    job page; a setup whose `deburr_mm` differs from it prints its own limit
    with the author's reason (`Break edges 0.100 mm max in this setup, not the
    drawing's 0.25: small socket edge break keeps the bonded length.`).
-4. **TOOLS FOR THIS SETUP**: `T#`, tool, insert / size / material, holder or
+4. **TOOLS FOR THIS SETUP**: `T#`, tool, insert / size / material (with the
+   shank, `shank Ø12.700`, when it differs from the cutting diameter), holder or
    QCTP station and the ops that use it. Op rows carry only the `T#`.
 5. **DRO ZERO** (not on bench setups — a machine of kind `bench` or `manual`
    running only fit and inspect ops has no spindle, DRO or axes — nor on a saw
@@ -401,7 +404,9 @@ and inspection notes*):
    the drawing nominal and the band to inspect it to. Feature locations, not tool
    tips.
 4. **INSPECTION NOTES**: numbered inspection procedures, each starting with its
-   setup and op (`S2 op 30: …`).
+   setup and op (`S2 op 30: …`). A procedure that works its readings through two
+   or more calculation lines is not a note but a worksheet on a sheet of its own
+   (see below).
 
 Sheet 3, *contours* (only when the setup has contour ops): **CONTOURS**, one
 block per contour op titled with its setup, op, tool and direction (`S2 op 50
@@ -415,6 +420,11 @@ is not computed. A table the kernel clipped at the op's stock-removal bounds
 names the printed point it starts or stops at (`stops at P7: the stock past it
 is outside this op's area`). Long contour tables may run onto more pages
 ("paper is cheap"); every block still names its setup.
+
+Worksheets, one sheet each after the contours (`SETUP S11 — sheet 4 of 4:
+worksheet, S11 op 110 angularity Ø`): the numbered steps, each naming the reading
+it takes (`[rJ1]`), a READINGS table (step, reading, a blank value cell) and the
+calculation lines with their blanks.
 
 The job page and each front sheet end with the sign-off line. Setup
 coordinates, Z targets and DRO values print at the DRO's display

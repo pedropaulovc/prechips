@@ -281,6 +281,7 @@ kind = "center_drill_set"
 material = "M42"
 sizes = [1, 2, 3, 4, 5]
 angle_deg = 60
+hand = "right"  # standard right-hand-cut combined drills and countersinks: FORWARD in the tailstock
 
 [tools.center-drills-lms-4859.source]
 vendor = "LittleMachineShop"
