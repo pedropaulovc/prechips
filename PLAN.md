@@ -526,9 +526,12 @@ page-cited from Machinery's Handbook 31 Table 1 or left `"unknown"`; a row
 is added when a shipped route first needs it.
 Status: the shipped example `cutting-data.toml` (revision 5) carries labelled
 illustrative example rows, each inside a range cited by table and printed page
-from Machinery's Handbook 27th edition, and a third table,
-`[[deep_hole]]`, derates an operation's sfm once the hole's depth exceeds a
-cited depth/diameter threshold ([docs/cutting-data.md](docs/cutting-data.md)).
+from Machinery's Handbook 27th edition, a third table,
+`[[deep_hole]]`, that derates an operation's sfm once the hole's depth exceeds a
+cited depth/diameter threshold, and a fourth, `[[plunge]]`, giving the end-mill
+plunge feed each milled path needs where it goes down into material; a plunge
+without one is coordinates debt and a sheet STOP
+([docs/cutting-data.md](docs/cutting-data.md)).
 
 ## 4. What the checker validates (the rule catalogue)
 
@@ -1418,7 +1421,11 @@ sheet.
    coaxial concave cone/sphere cap no wider than the bore, with numerical
    lift at either end, not entry-stock height; wider back countersinks are
    not reserved, blind columns stop at their caps, and pins/rods outside the
-   hole remain material.
+   hole remain material. A face raster's `contour.keep_out` islands, and the
+   cusps its split passes leave between piece ends, keep their stock (a later
+   op's rough leave on a hub; nothing its printed pieces do not sweep, lineage
+   leave band included) and keep that op's floor poses one cutter radius outside
+   them; unmapped islands or split passes leave the cut unknown.
    Current-setup cuts shape output stock and, in op order, the stock each
    later milling or hole flute of the setup meets (never a later cut's); the
    flute also excludes its own op's accepted cut, never the failed clearance of

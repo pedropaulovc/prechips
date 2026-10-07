@@ -44,7 +44,7 @@ hold geometry and cutting dimensions/endpoints), sends every job that is
 not already cached to **one** `freecadcmd.exe <freecad_job.py> -- INPUT_JSON
 OUTPUT_JSON` subprocess as a batch (`compare` therefore spawns one process for
 all its candidates), and memoizes each result on its bundle so the eight rules
-read the same facts. The subprocess has a 300 s limit, reads its input file,
+read the same facts. The subprocess has a 600 s limit, reads its input file,
 writes its output file and prints nothing. No network activity is involved;
 the STEP is the bundle's own file.
 
@@ -412,7 +412,9 @@ the feed and inside the op window (its plan-unit `z_to` scaled to mm), is an
 clear Z was computed, or when the plan units are unknown. The traveler prints it
 on the DRO grid rounded along the feed (the clear side) and rechecks the printed
 Z against the clear Z and `z_to`; with no such grid position it prints a STOP
-box. A blade's `blade_z_mm` is its axial extent over its cutting poses; the
+box. The Z sits in the op's coordinate cell; the per-pass set-on and pass-end
+release sequence prints once, full width ([plan](plan.md#reference)). A blade's
+`blade_z_mm` is its axial extent over its cutting poses; the
 traveler's jaw distance uses its chuck-side face (in plan units, rounded toward
 the jaws), not only the Z its op names. A facing/parting op posed at its `to_z`
 also records `faced_side`, the claimed faces' outward axial normal (+1 toward the
@@ -1235,6 +1237,32 @@ For milling, a far-side face (outward normal opposing setup +Z by more than
 90°) is an invalid cutting claim, reported as an error naming the face before
 tool-dimension debt can hide it.
 
+A face raster's `contour.keep_out` islands reach the kernel as the setup-frame
+circles the coordinates rule mapped (`raster.keep_out`), with the passes it split:
+the printed cutter-centre pieces and the parts of the island-free passes the
+circles removed (`raster.keep_out_skipped`). Its passes keep the whole cutter
+outside each circle, and each piece's round cutter end leaves a cusp between
+adjacent piece ends, so the op takes only what its printed pieces sweep there:
+no stock inside an island, and none within one cutter radius of a skipped part
+that is farther than one cutter radius from every printed piece. Away from the
+skipped parts the pieces sweep what the whole passes would. That kept stock
+stays whatever else the op would remove there, its clearing box or claim sweep
+and the lineage leave band it cuts off claimed walls alike; a later op (a hub's
+stairs) or the bench must clear it. A claimed-face sample inside or on a circle,
+or in that kept stock, is not that op's and is not posed, and a floor sample's
+legal centre nearer a circle than one cutter radius beyond it moves straight out
+from the circle's centre until the cutter edge touches it. The stock an island
+keeps (a later op's rough leave on a boss) still meets the flute and holder at
+every other pose. An op that authors `keep_out` without mapped circles or split
+passes, or without a cutter radius, leaves its cut and accessibility unknown.
+The kernel tests pin it: a rough and a finish face raster at a cutter-diameter
+step round a boss keep the island and the cusps between their piece ends over
+the boss height, the volume an independent strip integration of what the
+printed pieces miss gives, and clear it at every pose; a finish pocket claiming
+the boss wall inside its keep-out leaves the rough's leave on it, as one
+claiming only the floor does; and the finisher with unmapped circles or passes
+leaves its cut and accessibility unknown.
+
 The kernel tests pin the discriminations: a plate-top sample within a cutter
 radius of a boss stands at its nearest legal centre and clears, as do samples
 near an R10 or exactly cutter-sized circular pocket wall, an arc/chord corner,
@@ -1335,8 +1363,9 @@ no material stands beside the tool), and off the turning model `shank_dia_mm`,
 `"not_applicable"`, with `part` `tool body`, `seat cone`, `tool shank` or
 `holder face`;
 `obstacle` `the Ø<d> bore this op cuts` when the gap is the op's own bore,
-`stock <r> from the tool axis`, `stock under the holder at Z<z>` or, when
-unmeasured, `stock beside the tool`/`stock under the holder`.
+`stock <r> from the tool axis`, `stock under the holder` or, when
+unmeasured, `stock beside the tool`. The holder face's entry also carries
+`z_mm`, the kernel's `holder_clear_top_z_mm`, when that Z is measured.
 
 The traveler's mill CLEARANCE table takes the reach finding's holder clearance:
 the holder face's height above the highest stock beside the tool, `projection_mm`
@@ -1344,8 +1373,13 @@ less the reach from `reach_top_z_mm` (as that surface's DRO Z) down to the op
 row's printed tip. A holder face below that stock prints its depth below it, with
 the wall verdict; past the flute, holder wall hits are a STOP and unknown hits a
 check-at-the-machine action. Each `clearances` entry (`part`, `obstacle`, `mm`)
-competes for the op's closest obstacle; a negative one is a STOP. Reach is never
-printed as a cut depth.
+competes for the op's closest obstacle; a negative one is a STOP; an entry with
+`z_mm` names that stock's Z. Every kernel Z the table prints (`reach_top_z_mm`,
+`z_mm`) is that surface's one DRO Z: a value within the kernel's as-is face
+tolerance (1e-3 mm, `FACE_Z_TOL_MM`) of a DRO grid line is that line, kernel
+noise; any other value rounds up on the grid as every surface does, so the
+same stock top prints the same Z in the table, the op rows and the zero recipe.
+Reach is never printed as a cut depth.
 
 - depth > OAL: `entry-to-floor depth exceeds the selected tool OAL.` (error)
 - shank hits: `the tool shank past its flutes meets the retained stock.`
@@ -1672,7 +1706,13 @@ difference between actual entry and derived exit stock. When exit stock is
 unresolved, only the arriving stock is drawn and the missing cuts are named
 plainly. Fixture role colours, labels, setup X/Y/Z, Z0, named datum ends,
 jaw-front Z, stickout and a selected-tool approach illustration accompany the
-geometry. Steady rest rings are drawn as fixture solids; each follow rest's
+geometry. The footer sizes the arriving stock: round stock (a solid of
+revolution about setup Z on a lathe, else about a box axis with a square
+cross-section, checked at six meridians) prints `STOCK Ø` its largest diameter,
+its length left to the stock dimension; only other stock prints `STOCK BOX: X / Y
+/ Z`. A stickout from a measured fit-up (`hold.stickout_fit` with a stated
+reading) is labelled `NOMINAL STICKOUT … (SET = MEASURED + N)`. Steady rest
+rings are drawn as fixture solids; each follow rest's
 jaws are drawn and labelled posed for the first cutting sample of the first
 op it serves. An exposed-end detail makes short lathe stickouts legible; when
 its point keys would sit closer than their badges need (a jaw-end dome), it is

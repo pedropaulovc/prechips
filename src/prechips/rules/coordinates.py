@@ -710,12 +710,30 @@ def dro_grid(bundle, setup):
     """(step, decimals): the setup machine's DRO grid in plan units.
 
     The step is the inventory machine's declared ``resolution`` when it is a positive
-    length, else :data:`DRO_DEFAULT_STEP`; the decimals print one step exactly.
+    length, else :data:`DRO_DEFAULT_STEP`; the decimals print one step exactly. A bench
+    (``kind`` bench or manual) declaring none has no DRO of its own: its surfaces are the
+    ones the nearest machine setup in its stock lineage left, so they print on that
+    machine's grid, one surface one value.
     """
+    from ._bench import BENCH_KINDS
+    from .tip_endpoints import lineage
+
     units = bundle.features.get("units")
     scale = {"mm": 1.0, "in": 25.4}.get(units)
     machine = resolve(bundle, "machines", setup.get("machine")) or {}
     declared = length_mm(machine, "resolution") if scale else UNKNOWN
+    if not (number(declared) and declared > 0) and machine.get("kind") in BENCH_KINDS:
+        source = next(
+            (
+                s
+                for s in reversed(lineage(bundle, setup))
+                if (resolve(bundle, "machines", s.get("machine")) or {}).get("kind")
+                not in BENCH_KINDS
+            ),
+            None,
+        )
+        if source is not None:
+            return dro_grid(bundle, source)
     step = declared / scale if number(declared) and declared > 0 else DRO_DEFAULT_STEP
     decimals = next((d for d in range(9) if abs(round(step, d) - step) <= 1e-12), 9)
     return step, decimals
@@ -1725,36 +1743,41 @@ def _rastered(op, contour):
 
 
 def _outside_circle(segment, circle, radius, grid, scale):
-    """Keep the positive-length pieces of an axis-parallel pass, in feed order. Each cut
-    point lies on the DRO ``grid`` (:func:`dro_grid`), rounded away from the island, so
-    the printed piece never reaches nearer than the island radius plus ``radius``. The
-    island's ``dia_mm`` is millimetres; ``segment``, ``radius`` and ``grid`` are plan units
+    """(The positive-length pieces of an axis-parallel pass, in feed order, and the part of
+    it the island removed, or None). Each cut point lies on the DRO ``grid``
+    (:func:`dro_grid`), rounded away from the island, so the printed piece never reaches
+    nearer than the island radius plus ``radius``; the removed part runs from the entry to
+    the exit cut point, or to the pass's own end where no piece is left there. The island's
+    ``dia_mm`` is millimetres; ``segment``, ``radius`` and ``grid`` are plan units
     (``scale`` mm per plan unit)."""
     a, b = segment
     axis = 0 if a[0] != b[0] else 1
     across = 1 - axis
     centre = circle["at"]
     island = circle["dia_mm"] / 2 / scale
+    whole = [segment] if math.dist(a, b) > 1e-9 else []
     reach_squared = (island + radius) ** 2 - (a[across] - centre[across]) ** 2
     if reach_squared <= 0:  # tangent or outside: no interior crossing
-        return [segment] if math.dist(a, b) > 1e-9 else []
+        return whole, None
     reach = math.sqrt(reach_squared)
     low, high = centre[axis] - reach, centre[axis] + reach
     if max(a[axis], b[axis]) <= low or min(a[axis], b[axis]) >= high:
-        return [segment] if math.dist(a, b) > 1e-9 else []
+        return whole, None
     low, high = _grid(low, *grid, False), _grid(high, *grid, True)
     forward = b[axis] > a[axis]
     entry, exit = (low, high) if forward else (high, low)
-    pieces = []
+    pieces, removed = [], [list(a), list(b)]
     if (entry - a[axis]) * (1 if forward else -1) > 1e-9:
         point = list(a)
         point[axis] = entry
         pieces.append([a, point])
+        removed[0] = point
     if (b[axis] - exit) * (1 if forward else -1) > 1e-9:
         point = list(b)
         point[axis] = exit
         pieces.append([point, b])
-    return pieces
+        removed[1] = point
+    return pieces, removed
 
 
 def _raster(feature, op, offset, radius, frame, frames, sense, order, lift_z, grid, scale):
@@ -1864,12 +1887,15 @@ def _raster(feature, op, offset, radius, frame, frames, sense, order, lift_z, gr
     reverse = _reversal(*passes[0], _OPEN_SIDES[side], sense)
     if reverse:
         passes = [list(reversed(segment)) for segment in passes]
+    skipped = []
     for circle in keep_out:
-        passes = [
-            piece
-            for segment in passes
-            for piece in _outside_circle(segment, circle, radius, grid, scale)
-        ]
+        split = []
+        for segment in passes:
+            pieces, removed = _outside_circle(segment, circle, radius, grid, scale)
+            split.extend(pieces)
+            if removed is not None:
+                skipped.append(removed)
+        passes = split
     record = {
         "cutter_centre": passes,
         "grid_residual_mm": residual,
@@ -1894,6 +1920,9 @@ def _raster(feature, op, offset, radius, frame, frames, sense, order, lift_z, gr
     }
     if "keep_out" in contour:
         record["raster"]["keep_out"] = keep_out
+        # The parts of the island-free passes the circles removed: with the printed pieces
+        # they make up every whole pass, so the kernel knows what no printed piece sweeps.
+        record["raster"]["keep_out_skipped"] = skipped
     return _ordered(record, None if reverse is None else False, order, ()), None
 
 
@@ -3744,6 +3773,15 @@ def evaluate(bundle, *, pre_kernel=False):
                 unknown |= (not generated and not refused) or not tool or uncertain(tool)
             if lathe:
                 unknown |= not number(length_mm(tool, "nose_radius"))
+        if not lathe:
+            from .level_entry import level_paths
+
+            paths, path_debts = level_paths(
+                bundle, setup, numbers, stock_states(bundle, setup), grid, units, dro_z
+            )
+            if paths:
+                numbers["level_paths"] = paths
+            plan_debts.extend(path_debts)
         status = (
             "error"
             if residuals

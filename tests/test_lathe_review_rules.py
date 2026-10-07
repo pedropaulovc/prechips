@@ -371,10 +371,7 @@ def test_millimetre_start_and_engagement_facts_print_in_inch_dro_coordinates():
     assert sheet.posed_start(setup, op) == (
         "START Z 2.000: 0.050 CLEAR OF dead centre — start no further out than Z 2.050"
     )
-    assert sheet.rest_engagement(setup, op) == [
-        "each pass, at Z 2.000: stop the feed, then the spindle; set the follow-rest jaws "
-        "on the diameter just turned and lock them; restart the spindle, then resume the feed"
-    ]
+    assert sheet.rest_steps(setup, op)[0] == ["follow rest on: Z 2.000"]
 
 
 def test_a_follow_rest_z_is_printed_on_the_clear_side_of_the_dro_grid():
@@ -382,10 +379,7 @@ def test_a_follow_rest_z_is_printed_on_the_clear_side_of_the_dro_grid():
     # to the 0.1 grid prints 155.5, where the jaws still meet the centre.
     engage = {"declared_z_mm": 155.46, "engage_z_mm": 155.47}
     sheet, setup, op = _sheet("mm", 0.1, {"rest_engagement": [engage], "feed_z": -1}, 166.0, 0.2)
-    assert sheet.rest_engagement(setup, op) == [
-        "each pass, at Z 155.4: stop the feed, then the spindle; set the follow-rest jaws "
-        "on the diameter just turned and lock them; restart the spindle, then resume the feed"
-    ]
+    assert sheet.rest_steps(setup, op)[0] == ["follow rest on: Z 155.4"]
     # Feeding away from the chuck the clear side is up the grid.
     sheet, setup, op = _sheet(
         "mm",
@@ -394,10 +388,7 @@ def test_a_follow_rest_z_is_printed_on_the_clear_side_of_the_dro_grid():
         0.0,
         50.0,
     )
-    assert sheet.rest_engagement(setup, op) == [
-        "each pass, at Z 10.1: stop the feed, then the spindle; set the follow-rest jaws "
-        "on the diameter just turned and lock them; restart the spindle, then resume the feed"
-    ]
+    assert sheet.rest_steps(setup, op)[0] == ["follow rest on: Z 10.1"]
     # No grid position between the clear Z and the op's end is refused, not rounded in.
     sheet, setup, op = _sheet(
         "mm",
@@ -406,8 +397,63 @@ def test_a_follow_rest_z_is_printed_on_the_clear_side_of_the_dro_grid():
         166.0,
         0.22,
     )
-    [line] = sheet.rest_engagement(setup, op)
+    [line] = sheet.rest_steps(setup, op)[0]
     assert line.startswith("STOP")
+
+
+def _rest_steps(side, lead=8.0, engage=True):
+    """The follow-rest cells and full-width lines of a rough turn fed toward the chuck,
+    the jaws on ``side`` ``lead`` mm from the tool; ``engage``: set on once past Z152."""
+    numbers = {"feed_z": -1}
+    if engage:
+        numbers["rest_engagement"] = [{**_ENGAGE, "engage_z_mm": 155.474, "declared_z_mm": 152.0}]
+    sheet, setup, op = _sheet("mm", 0.01, numbers, 166.0, 0.2)
+    support = {"ref": "follow_rest", "ops": [10], "jaw_side": side}
+    if lead is not None:
+        support["jaw_lead_mm"] = lead
+    setup["hold"]["supports"] = [support]
+    return sheet.rest_steps(setup, op)
+
+
+_PASS_END = [
+    "stop the feed, then the spindle",
+    "back the follow-rest jaws off",
+    "withdraw the tool along X",
+    "return the carriage",
+]
+
+
+@pytest.mark.parametrize("engage", [True, False])
+def test_a_follow_rest_on_the_turned_diameter_is_backed_off_before_every_return(engage):
+    # The return carries trailing jaws back past the pass start onto stock this pass never
+    # cut: they come off first, the spindle stopped, then the tool, then the carriage.
+    cells, lines = _rest_steps("turned", engage=engage)
+    [line] = lines
+    end = line[line.index("Pass end") :]
+    found = [end.find(words) for words in _PASS_END]
+    assert -1 not in found and found == sorted(found), end
+    # The sequence prints once, full width; the coordinate cell keeps only the Z.
+    assert cells == (["follow rest on: Z 152.00"] if engage else [])
+    assert ("at Z 152.00: stop the feed, then the spindle; set the follow-rest jaws" in line) is (
+        engage
+    )
+
+
+def test_a_follow_rest_riding_the_uncut_stock_is_not_released_for_the_return():
+    # Leading jaws return over the diameter just cut, smaller than their setting.
+    cells, lines = _rest_steps("uncut")
+    assert cells == ["follow rest on: Z 152.00"]
+    assert not any("back the follow-rest jaws off" in line for line in lines)
+    assert any("on the uncut stock ahead of the tool" in line for line in lines)
+
+
+@pytest.mark.parametrize(
+    ("side", "lead"), [("turned", None), ("turned", "unknown"), ("turned", 0.0), ("unknown", 8.0)]
+)
+def test_a_follow_rest_with_unknown_geometry_stops_and_never_prints_a_checked_return(side, lead):
+    _, lines = _rest_steps(side, lead=lead)
+    assert any(line.startswith("STOP") for line in lines)
+    assert not any("return the carriage" in line for line in lines)
 
 
 def test_an_inch_relief_is_plunged_in_millimetres_and_printed_in_inches():
@@ -526,8 +572,9 @@ def test_the_follow_rest_goes_on_with_the_spindle_stopped_and_it_restarts_before
         [],
         "S1:10.",
     )
-    html = unescape(re.sub(r"<[^>]+>", " ", render_traveler(bundle, [clear], {})))
-    step = re.search(r"each pass, at Z 152\.00:[^.]*", html).group(0)
+    page = render_traveler(bundle, [clear], {})
+    html = unescape(re.sub(r"<[^>]+>", " ", page))
+    step = re.search(r"at Z 152\.00: [^.]*", html).group(0)
     # Hands go near the work only once it has stopped, and the cut resumes on a running spindle.
     order = [
         "stop the feed, then the spindle",
@@ -538,6 +585,13 @@ def test_the_follow_rest_goes_on_with_the_spindle_stopped_and_it_restarts_before
     ]
     found = [step.find(words) for words in order]
     assert -1 not in found and found == sorted(found), step
+    # Ops 10 and 30 each print the sequence once, in the full-width line under the row;
+    # the narrow coordinate cell keeps only the Z.
+    full_width = re.findall(r'<span class="see">([^<]*)</span>', page)
+    assert sum("set the follow-rest jaws" in line for line in full_width) == 2
+    assert unescape(page).count("set the follow-rest jaws") == 2
+    # Only op 10 has the engagement fact here: its cell alone prints the Z.
+    assert unescape(page).count("follow rest on: Z 152.00") == 1
 
 
 def test_each_op_sets_the_follow_rest_on_the_side_its_own_support_entry_declares(tmp_path):
@@ -580,8 +634,8 @@ def test_each_op_sets_the_follow_rest_on_the_side_its_own_support_entry_declares
         for op, z in ((10, 152.0), (30, 151.0))
     ]
     html = unescape(re.sub(r"<[^>]+>", " ", render_traveler(bundle, findings, {})))
-    op10 = re.search(r"each pass, at Z 152\.00:[^;]*;[^;]*", html).group(0)
-    op30 = re.search(r"each pass, at Z 151\.00:[^;]*;[^;]*", html).group(0)
+    op10 = re.search(r"at Z 152\.00: [^;]*;[^;]*", html).group(0)
+    op30 = re.search(r"at Z 151\.00: [^;]*;[^;]*", html).group(0)
     assert "on the diameter just turned" in op10, op10
     assert "on the uncut stock ahead of the tool" in op30, op30
 

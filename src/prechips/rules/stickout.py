@@ -114,6 +114,45 @@ def support_state(bundle, setup):
     return ("unknown" if unresolved else "not_applicable"), evidence
 
 
+def fit_state(hold, length):
+    """(status, numbers, why) for a stickout set from a measured fit-up
+    (``hold.stickout_fit = {measure, nominal_mm, add_mm}``): the printed ``stickout_mm``
+    is the nominal setting, ``nominal_mm + add_mm``, and the operator sets the measured
+    reading plus ``add_mm``. A sum that disagrees is an error; an unstated reading or an
+    unknown number is unknown. ``None`` when the stickout is not from a fit-up."""
+    fit = record(hold.get("stickout_fit"))
+    if not fit:
+        return None
+    measure = fit.get("measure", UNKNOWN)
+    nominal, add = fit.get("nominal_mm", UNKNOWN), fit.get("add_mm", UNKNOWN)
+    stated = isinstance(measure, str) and measure.strip() and measure != UNKNOWN
+    numbers = {"measure": measure, "nominal_mm": nominal, "add_mm": add, "stickout_mm": length}
+    if (
+        number(nominal)
+        and number(add)
+        and number(length)
+        and not same_length(nominal + add, length)
+    ):
+        return (
+            "error",
+            numbers,
+            (
+                f"stickout_mm {length:g} is not the fit-up nominal {nominal:g} + {add:g}: "
+                "make hold.stickout_fit and stickout_mm agree"
+            ),
+        )
+    if not (stated and number(nominal) and number(add) and number(length)):
+        return (
+            "unknown",
+            numbers,
+            (
+                "the stickout follows a fit-up whose reading, nominal or allowance is not "
+                "stated: complete hold.stickout_fit"
+            ),
+        )
+    return "pass", numbers, ""
+
+
 def evaluate(bundle):
     findings = []
     for setup in bundle.plan["setups"]:
@@ -201,6 +240,14 @@ def evaluate(bundle):
                 "stick-out exceeds the unsupported shop limit; "
                 "add a listed tailstock/steady support",
             )
+        fit = fit_state(record(setup.get("hold")), length)
+        if fit is not None and status != "not_applicable":
+            fit_status, numbers["stickout_fit"], why = fit
+            rank = {"pass": 0, "unknown": 1, "error": 2}
+            if fit_status != "pass":
+                message += "; " + why
+                if rank[fit_status] > rank[status]:
+                    status = fit_status
         findings.append(
             Finding(
                 "stickout",

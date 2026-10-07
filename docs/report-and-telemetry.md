@@ -119,7 +119,9 @@ Setup notes derive from every declared op, including bench ones the kernel does
 not cut: a setup with no machine-cutting action lists its actions (`No machine
 cutting: op 10 deburr, op 20 coating, op 30 inspect.`). "No material removed in
 this setup." prints only when the kernel derives no removed volume and no op
-deburrs.
+deburrs. The notes never repeat the selected tool and op: the tool and op tables
+name them and the picture labels the primary tool; a setup with no notes prints
+no SETUP NOTES heading.
 
 
 `scene` additionally records `view`, `width_px`, `height_px`, plain-language

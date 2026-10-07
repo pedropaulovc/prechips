@@ -686,11 +686,9 @@ class _Diagram:
         return framed
 
     def _notes(self):
+        # The tool and op tables name the selected tool; the picture labels it, so the
+        # notes do not repeat it on every setup.
         notes = [_plain(note) for note in self.spec.get("notes", [])]
-        if self.tool:
-            notes.append(
-                f"Selected tool: {self.tool['label']} / op {self.tool.get('op', 'not declared')}"
-            )
         if self.spec.get("zero_mm") is None:
             notes.append("Z0: not declared")
         if "datums" not in self.spec:
@@ -1052,7 +1050,14 @@ class _Diagram:
             return
         box = self.stock
         sizes = [box[i + 3] - box[i] for i in range(3)]
-        stock_text = f"STOCK BOX: X {_mm(sizes[0])}  /  Y {_mm(sizes[1])}  /  Z {_mm(sizes[2])} mm"
+        # Round stock is its diameter (the stock dimension gives its length); a bounding box
+        # describes only prismatic stock.
+        round_dia = self.spec.get("stock_round_dia_mm")
+        stock_text = (
+            f"STOCK Ø {_mm(round_dia)} mm"
+            if round_dia is not None
+            else f"STOCK BOX: X {_mm(sizes[0])}  /  Y {_mm(sizes[1])}  /  Z {_mm(sizes[2])} mm"
+        )
         _text(c, 32, self.footer_top - 36, stock_text)
         axis = (
             2
@@ -1090,6 +1095,10 @@ class _Diagram:
         stickout = self.spec.get("stickout_mm")
         if stickout is not None:
             label = f"STICKOUT {_mm(stickout)} mm"
+            add = self.spec.get("stickout_add_mm")
+            if add is not None:
+                # Set from a measured fit-up: the drawn value is the nominal.
+                label = f"NOMINAL {label} (SET = MEASURED + {_mm(add)})"
             if jaw_marker is not None and self.view == "lathe":
                 # The declared distance runs from the jaw-front marker itself, on its own
                 # row, never from the stock-length extension line.
@@ -1866,6 +1875,8 @@ class _Diagram:
             elif kind == "nominal":
                 c.line((274, y + 10), (301, y + 10), _BLUE, width=2, dashed=True)
             _text(c, 318, y, label, _MUTED if kind == "text" else _INK)
+        if not self.note_lines:
+            return
         _text(c, 840, self.footer_top + 23, "SETUP NOTES")
         note_start = self.footer_top + 57
         for index, line in enumerate(self.note_lines):

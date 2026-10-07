@@ -816,3 +816,65 @@ def test_a_mill_tool_touch_is_z_only_and_may_be_measured(measure, axis_set, stat
     [row] = finding.numbers["tool_touches"]
     assert (row["x_axis_set"], row["z_axis_set"]) == ("not_applicable", axis_set)
     assert finding.numbers["derived_touches"] == []
+
+
+def sheet_of(data):
+    finding = evaluate(data)[0]
+    return _Traveler(data, [finding], {}, {}), data.plan["setups"][0]
+
+
+def test_the_datum_transfer_prints_before_the_zero_it_sets_up():
+    transfer = {"from": "S0", "indicate": "journal", "gauge": "mic", "runout_limit_mm": 0.02}
+    data = bundle(
+        "lathe", {**lathe_zero([]), "transfer": transfer}, [op(10, "turn", "j", "turner")]
+    )
+    sheet, setup = sheet_of(data)
+    html = sheet.dro(setup, {"turner": "T1 turner"})
+    # Indicate, then touch off: the sweep comes before the zero table and its tool setting.
+    assert html.index("Before zeroing: indicate the") < html.index("<table")
+    assert html.index("Before zeroing: indicate the") < html.index("Before touching off")
+
+
+def measured_hold(before_hold):
+    zero = lathe_zero([])
+    zero["z"] = {
+        "face": "stub end",
+        "edge_mm": 5.0,
+        "from": "+z",
+        "method": "measure_then_set",
+        "gauge": "mic",
+        "measure": "length from the thrust face to the stub end",
+        "offset_mm": -9.0,
+        "tool": "turner",
+        "paper_mm": 0.0,
+        "check_jog_mm": 10.0,
+        "retouch_after": [],
+    }
+    if before_hold is not None:
+        zero["z"]["measure_before_hold"] = before_hold
+    data = bundle("lathe", zero, [op(10, "face", "stub end", "turner", to_z=0.0)])
+    data.plan["setups"][0]["hold"] = {
+        "fixture": "chuck",
+        "stop": "thrust face seated on the jaw fronts",
+        "clamp": "tighten the chuck at all three pinions",
+    }
+    return sheet_of(data)
+
+
+def test_a_zero_measured_before_the_hold_is_measured_before_clamping():
+    sheet, setup = measured_hold(True)
+    steps, _ = sheet.hold(setup)
+    measure = steps.index("length from the thrust face to the stub end")
+    assert measure < steps.index("thrust face seated") < steps.index("Tighten the chuck")
+    assert "measure Z M = length from the thrust face" in steps
+    # The zero row then refers back to that reading instead of introducing M itself.
+    row = sheet.dro(setup, {"turner": "T1 turner"})
+    assert "length from the thrust face" not in row and "M measured before clamping" in row
+
+
+@pytest.mark.parametrize("before_hold", [None, False])
+def test_a_zero_measured_at_the_machine_stays_in_the_zero_table(before_hold):
+    sheet, setup = measured_hold(before_hold)
+    steps, _ = sheet.hold(setup)
+    assert "length from the thrust face" not in steps
+    assert "M = length from the thrust face" in sheet.dro(setup, {"turner": "T1 turner"})

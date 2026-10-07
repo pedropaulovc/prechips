@@ -202,6 +202,9 @@ ClampPlacement = record(
     },
 )
 type PlanCentres = list[Annotated[list[Number], Field(min_length=2, max_length=2)]]
+# A stickout set from a measured fit-up: the printed ``stickout_mm`` is the nominal
+# ``nominal_mm + add_mm``; the operator sets the ``measure`` reading plus ``add_mm``.
+StickoutFit = record("StickoutFit", {"measure": str, **numbers("nominal_mm add_mm")})
 Hold = record(
     "Hold",
     {
@@ -213,6 +216,7 @@ Hold = record(
         "grip_mm": Number | Literal["not_applicable"],
         "jaw_above_parallels_mm": Number | Literal["not_applicable"],
         "stickout_mm": Number,
+        "stickout_fit": StickoutFit,
         "jaw_center_along_mm": Number,
         "parallels_centres_mm": Annotated[PlanCentres, Field(min_length=2, max_length=2)],
         "riser_centres_mm": Annotated[PlanCentres, Field(min_length=1)],
@@ -244,6 +248,8 @@ Hold = record(
         "jaw_bar": str,
     },
 )
+# ``measure_before_hold``: a ``measure_then_set`` M read on the part before it is held (a
+# span the hold then covers): the HOLD prints the reading before the clamping.
 AxisZero = record(
     "AxisZero",
     {
@@ -252,8 +258,12 @@ AxisZero = record(
         **numbers("edge_mm radius_mm paper_mm check_jog_mm offset_mm"),
         "retouch_after": list[int],
         "after_op": int,
+        "measure_before_hold": bool,
     },
 )
+# ``keep_clamped``: the hold must not be loosened to realign the work (an indexed setup
+# that keeps the earlier chucking); ``recovery`` is then the plan's sequence for a sweep
+# that reads over the limit, printed in place of the loosen-and-tap advice.
 Transfer = record(
     "Transfer",
     {
@@ -263,6 +273,8 @@ Transfer = record(
         "gauge": str,
         "runout_limit_mm": Number,
         "reindicate_after": list[int],
+        "keep_clamped": bool,
+        "recovery": str,
     },
 )
 ToolTouch = record(
@@ -1400,6 +1412,17 @@ DeepHole = record(
     "DeepHole",
     {"operation": str, **numbers("depth_over_dia sfm_factor"), "cite": Citations},
 )
+# An end mill fed straight down its own axis into the stock: feed per spindle revolution,
+# selected like a cut row by material class, tool material and tool diameter.
+Plunge = record(
+    "Plunge",
+    {
+        **texts("material_class tool_material"),
+        "diameter_range": Vector,
+        "feed_mm_rev": float,
+        "cite": Citations,
+    },
+)
 
 
 class CuttingData(InputModel):
@@ -1408,3 +1431,4 @@ class CuttingData(InputModel):
     cut: list[Cut] | Unknown = UNKNOWN
     material: list[CutMaterial] | Unknown = UNKNOWN
     deep_hole: list[DeepHole] | Unknown = UNKNOWN
+    plunge: list[Plunge] | Unknown = UNKNOWN

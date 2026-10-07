@@ -387,13 +387,22 @@ pass is said to run in and out clear only when each emitted piece's start and
 end is, so pieces a keep-out splits are proven one by one. A
 through hole's breakthrough note gives the run-out its printed DRO tip leaves,
 cut down to the DRO decimals, not the authored `exit_mm`. A contour cut in
-several depth levels lists every level once, in its heading. Contour tables
+several depth levels lists every level's Z once, in its heading, and says once
+above its rows how each level goes down (in air only when the kernel's stock box
+proves it, else a plunge from the level above at the op's cited plunge feed from
+`[[plunge]]` cutting data, a STOP without one) and how it gets back for the next
+level (straight down for a closed path, else raise to a Z called above the stock
+only on that proof). Contour tables
 repeat their op, tool and Z on a continued page and never wrap a coordinate.
 The mill CLEARANCE section prints a short stack/travel verdict and a per-op table
 of the closest obstacle (headroom, jaw tops, holder face above the stock beside
 the tool, or a reach finding's declared clearances) with the clearance and the
 action; an unknown clearance is a check-at-the-machine action, a negative one a
-STOP. The FEATURE MAP names what each mill row stands on (hole axis, arc centre,
+STOP. The section prints on one page, moved whole rather than split. Every
+kernel Z it prints is that surface's one DRO Z: kernel noise within 1e-3 mm of a
+grid line is that line, a bench setup prints on the grid of the machine setup the
+part arrives from, and an op table moved whole to the next page leaves an
+`Operations continue on reverse, op N` pointer. The FEATURE MAP names what each mill row stands on (hole axis, arc centre,
 face) and gives a lathe row's drawing Ø limits apart from the size turned to. A
 surface-alignment sweep tells the operator to tap the work, not move the table;
 the job page's abbreviation key lists only abbreviations the sheets print.
@@ -590,7 +599,9 @@ finite bounds, stock intersection, finished protection, exact claim/piece
 contact, future hole columns and no split of an original solid still apply.
 Generic bounded clearing preserves known
 unclaimed planned-hole columns for their own future hole operations, not all
-concave cylindrical faces.
+concave cylindrical faces (a face raster's `contour.keep_out` islands, and the cusps
+its split passes leave between piece ends round them, likewise keep their stock,
+and that op's floor poses stand one cutter radius outside the islands).
 Those reserved columns span the actual matched bore plus any adjacent coaxial
 concave cone/sphere cap no wider than the bore, using exact axial spans and
 numerical lift at either end, not the entry-stock height. Wider back

@@ -407,6 +407,35 @@ def test_stickout_dimension_starts_at_the_jaw_front_marker_not_the_stock_end():
     assert diagram.dimensions["STOCK Z 100 mm"][0][0] < start[0] - 10
 
 
+def test_a_stickout_from_a_fit_up_is_labelled_nominal_with_its_setting():
+    spec = {
+        "setup_id": "S1",
+        "view": "lathe",
+        "stock_box": [-10, -10, -60, 10, 10, 40],
+        "jaw_front_z_mm": -40,
+        "stickout_mm": 80,
+        "stickout_add_mm": 8,
+    }
+    diagram = _Diagram([], spec)
+    diagram.render()
+    assert "NOMINAL STICKOUT 80 mm (SET = MEASURED + 8)" in diagram.dimensions
+    assert not any(label.startswith("STICKOUT") for label in diagram.dimensions)
+
+
+@pytest.mark.parametrize(("round_dia", "printed"), [(20, "STOCK DIA 20 MM"), (None, "STOCK BOX")])
+def test_round_stock_prints_its_diameter_not_a_bounding_box(round_dia, printed):
+    spec = {"setup_id": "S1", "view": "lathe", "stock_box": [-10, -10, -60, 10, 10, 40]}
+    if round_dia is not None:
+        spec["stock_round_dia_mm"] = round_dia
+    diagram = _Diagram([], spec)
+    diagram.render()
+    texts = [box[0] for box in diagram.canvas.text_boxes]
+    assert any(text.startswith(printed) for text in texts), texts
+    # Round stock: the box would only repeat the length the stock dimension already gives.
+    assert any(text.startswith("STOCK BOX") for text in texts) is (round_dia is None)
+    assert "STOCK Z 100 mm" in diagram.dimensions
+
+
 def test_arc_apex_below_its_ends_keys_below_and_no_leader_grazes_another_point():
     diagram = _Diagram([], {"view": "plan", "stock_box": [0, 0, 0, 10, 10, 1]})
     # A semicircle sagging below its ends, keyed end, apex, end as the table lists it.

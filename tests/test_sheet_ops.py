@@ -31,6 +31,35 @@ def test_printed_band_never_wider_than_the_drawing(band, precision, printed):
     assert bare(precision).band(band, None, None) == printed
 
 
+def _hold_facts(hold):
+    sheet = bare(2)
+    sheet.operative = lambda value: f"{value:.2f}"
+    sheet.jaw_front_z = lambda setup: None
+    sheet.bench = lambda text, setup=None: text
+    return dict(sheet.hold_facts({"id": "S3"}, hold, True))
+
+
+def test_a_stickout_from_a_measured_fit_up_prints_as_nominal_with_its_setting():
+    fit = {"measure": "trial-fit scribe to the plain end", "nominal_mm": 16.83, "add_mm": 8.0}
+    facts = _hold_facts({"stickout_mm": 24.83, "stickout_fit": fit})
+    assert "stickout mm" not in facts
+    assert facts["nominal stickout mm"] == "24.83"
+    assert facts["set stickout"] == "measured trial-fit scribe to the plain end + 8.00"
+
+
+@pytest.mark.parametrize("fit", [None, {}])
+def test_a_plain_stickout_prints_as_the_setting(fit):
+    hold = {"stickout_mm": 24.83} | ({"stickout_fit": fit} if fit is not None else {})
+    facts = _hold_facts(hold)
+    assert facts["stickout mm"] == "24.83" and "set stickout" not in facts
+
+
+def test_a_fit_up_stickout_with_an_unstated_reading_is_not_printed_as_a_setting():
+    fit = {"measure": "unknown", "nominal_mm": 16.83, "add_mm": 8.0}
+    facts = _hold_facts({"stickout_mm": 24.83, "stickout_fit": fit})
+    assert facts["set stickout"].startswith("?")
+
+
 def test_band_narrower_than_its_precision_prints_declared_limits():
     assert bare(2).band([3.001, 3.004], None, None) == "3.001–3.004"
 
@@ -73,7 +102,7 @@ def shop(records, kind="mill"):
     sheet = bare(3)
     sheet.records = records
     sheet.report = {}
-    sheet.bundle = SimpleNamespace()
+    sheet.bundle = SimpleNamespace(features={"units": "mm"}, inventory={}, plan={"setups": []})
     sheet.units = "mm"
     sheet.bench = lambda text, setup=None: text
     sheet.machine = lambda setup: {"kind": kind}
@@ -612,6 +641,30 @@ def test_an_alignment_sweep_moves_the_work_and_a_centring_sweep_moves_the_table(
         assert "move the table" not in line and "tap the" in line and "re-clamp" in line
     else:
         assert "move the table" in line and "re-clamp" not in line
+
+
+@pytest.mark.parametrize("kind", ["mill", "lathe"])
+def test_a_hold_that_must_stay_clamped_prints_its_recovery_never_the_loosen_advice(kind):
+    sheet, transfer = transfer_sheet(["face_a", "bore"], kind)
+    sheet.machine = lambda setup: {"kind": kind}
+    recovery = "index back to 0 and indicate the reamed socket; re-tram the head if it holds"
+    line = sheet.transfer_line(
+        {"id": "S5"}, {**transfer, "keep_clamped": True, "recovery": recovery}
+    )
+    assert recovery in line and "0.0254" in line
+    assert not re.search(r"loosen the clamping|tap the|tap true|re-clamp", line)
+    assert "do not loosen" in line.lower()
+
+
+@pytest.mark.parametrize("recovery", [None, "unknown", "  "])
+def test_a_hold_that_must_stay_clamped_without_a_recovery_is_a_stop(recovery):
+    sheet, transfer = transfer_sheet(["face_a", "bore"], "mill")
+    transfer = {**transfer, "keep_clamped": True}
+    if recovery is not None:
+        transfer["recovery"] = recovery
+    line = sheet.transfer_line({"id": "S5"}, transfer)
+    assert line.startswith("STOP") and "recovery" in line
+    assert not re.search(r"loosen the clamping|tap the|re-clamp", line)
 
 
 def test_a_procedure_authored_as_steps_prints_numbered_with_fields_and_its_calculation():
