@@ -134,7 +134,7 @@ method = "paper"
 paper_mm = 0.05 # author's choice
 tool = "endmills-lms-6784/3-8in-2fl" # op 5 rougher touches the raw top first
 check_jog_mm = 10.0 # author's choice
-retouch_after = [5, 10, 20, 25, 40, 50, 60] # op 10 makes the hub face Z0; each op listed is followed by a tool change
+retouch_after = [5, 10, 20, 25, 30, 32, 40, 50, 60] # op 10 makes the hub face Z0; each op listed is followed by a tool change
 
 # Op 5 and op 10 face the walled internal field: the lower rail is Y -28..-20,
 # the upper rail Y 31.7..37 and the ears lie outside X ±160. The raster's cutter
@@ -182,7 +182,7 @@ rough_allowance_mm = 0.20 # author's choice, restored rev-3 allowance
 direction = "conventional" # author's choice
 doc_mm = 1.5 # author's choice, largest step per pass over the 2.07825 mm below Z0
 approach_mm = 5.0
-note = "Field raster round the hub island: the same passes as op 5 at each level. The Ø11.0 island keep-out (hub Ø10.2 plus 0.20 rough allowance and 0.20 clearance a side) splits each pass that crosses it: stop at the listed end, lift over the island, rapid to the next piece and plunge again. Op 30 removes the cusps left round the island; they lie within R7.4 of the pivot axis, inside its cutter sweep."
+note = "Field raster round the hub island: the same passes as op 5 at each level. The Ø11.0 island keep-out (hub Ø10.2 plus 0.20 rough allowance and 0.20 clearance a side) splits each pass that crosses it: stop at the listed end, lift over the island, rapid to the next piece and plunge again. The corners left round the island lie within R7.4 of the pivot axis: the op 30 stairs rough them and op 32 finishes them down to the strap face."
 contour = { method = "linear_table", sweep_frame = "A", sweep_bounds = { x = [-150.2375, 150.2375], y = [-15.225, 26.935], z = [-2.27825, 5.0] }, open_side = "-y", step_mm = 6.0, keep_out = [{ at = [0.0, 0.0], dia_mm = 11.0 }] } # AUTHOR'S CHOICE: op 5 rows; island keep-out about the pivot axis
 stock_removal_bounds = { x = [-160.0, 160.0], y = [-20.0, 31.7], z = [-2.27825, 5.0] }
 
@@ -198,8 +198,8 @@ doc_mm = 0.2 # author's choice: one level removes the 0.20 mm left by op 20
 to_z_cite = "harmonic-analyzer/cad/scripts/build_rocker_arm.py:122"
 direction = "conventional" # author's choice
 approach_mm = 5.0
-note = "Finish raster: the op 20 rows at one depth, removing the 0.20 mm left by op 20; plunge at each piece start. Its Ø10.6 island keep-out (hub Ø10.2 plus the 0.20 rough allowance a side) ends each piece 0.20 nearer the hub than op 20, so the finisher also takes op 20's 0.20 clearance ring down to this face. The corners left round the island, within R7.3 of the pivot axis, are cleared down to this face by the op 30 hub stairs."
-contour = { method = "linear_table", sweep_frame = "A", sweep_bounds = { x = [-150.2375, 150.2375], y = [-15.225, 26.935], z = [-2.27825, 5.0] }, open_side = "-y", step_mm = 6.0, keep_out = [{ at = [0.0, 0.0], dia_mm = 10.6 }] } # AUTHOR'S CHOICE: op 20 rows, island at the hub's 0.20 leave so no stock outside the leave stays at the strap face for the op 30 stairs
+note = "Finish raster: the op 20 rows at one depth, removing the 0.20 mm left by op 20; plunge at each piece start. Its Ø10.6 island keep-out (hub Ø10.2 plus the 0.20 rough allowance a side) ends each piece 0.20 nearer the hub than op 20, so the finisher also takes op 20's 0.20 clearance ring down to this face. It leaves corners round the island, within R7.3 of the pivot axis, standing to the hub face: the op 30 stairs rough them to 0.20 above this face and the op 32 clean-up finishes them."
+contour = { method = "linear_table", sweep_frame = "A", sweep_bounds = { x = [-150.2375, 150.2375], y = [-15.225, 26.935], z = [-2.27825, 5.0] }, open_side = "-y", step_mm = 6.0, keep_out = [{ at = [0.0, 0.0], dia_mm = 10.6 }] } # AUTHOR'S CHOICE: op 20 rows, island at the hub's 0.20 leave so the finisher never cuts the allowance the S3F file takes
 stock_removal_bounds = { x = [-160.0, 160.0], y = [-20.0, 31.7], z = [-2.27825, 5.0] }
 
 [[setups.ops]]
@@ -209,13 +209,29 @@ feature = "hub_od"
 faces = ["#75/ADVANCED_FACE[3]/HAF_HUB_OD__P02", "#464/ADVANCED_FACE[10]/HAF_HUB_OD__P02"] # upper hub patches
 tool = "endmills-lms-6784/3-8in-2fl"
 holder = "r8-collets-lms-4860/3-8in"
-to_z = -2.27825 # AUTHOR'S CHOICE: down to the finished strap face Z-2.27825 because these stairs also clear the island corners the op 20/25 rasters leave within R7.4; the 0.20 allowance stays radial on the hub wall
+to_z = -2.07825 # AUTHOR'S CHOICE: 0.20 above the finished strap face Z-2.27825, because a rough op leaves its 0.20 allowance on the strap face as on the hub wall; op 32 finishes the strap face round the hub
 doc_mm = 1.5 # author's choice, same axial step as the op 20 face rough
-rough_allowance_mm = 0.20 # author's choice, radial allowance restored from rev 3
+rough_allowance_mm = 0.20 # author's choice, allowance restored from rev 3
 direction = "conventional" # author's choice
 approach_mm = 5.0
 contour = { method = "stairs", cusp_mm = 0.25 } # AUTHOR'S CHOICE: stairs because a manual mill moves one handwheel at a time; 0.20 allowance + 0.25 cusp leaves 0.45, inside the 0.5 filing cap for the S3F buttons
-note = "Upper hub island about the pivot axis; filed round to the buttons in S3F after the bore is reamed."
+note = "Upper hub island about the pivot axis; filed round to the buttons in S3F after the bore is reamed. The stairs also rough the corners the op 20/25 rasters leave round the island, within R7.4 of the pivot axis, down to 0.20 above the strap face."
+
+[[setups.ops]]
+op = 32
+do = "finish_face"
+feature = "strap_datum_b"
+faces = ["#118/ADVANCED_FACE[5]/HAF_STRAP_DATUM_B__P01"] # exported +Z broad strap face (datum B)
+tool = "endmills-lms-6784/3-8in-4fl"
+holder = "r8-collets-lms-4860/3-8in"
+to_z = -2.27825 # upper strap face, as op 25
+doc_mm = 0.2 # author's choice: one level removes the 0.20 mm the op 30 stairs leave on the strap face
+to_z_cite = "harmonic-analyzer/cad/scripts/build_rocker_arm.py:122"
+direction = "conventional" # author's choice
+approach_mm = 5.0
+note = "Corner clean-up round the hub: rows along Y at the strap face, 1.95 mm apart, each split round the same Ø10.6 island as op 25 (stop at the listed end, lift over the island, rapid to the next piece and plunge again). They cross the op 25 rows and finish the corners op 25 left round the island, which the op 30 stairs roughed to 0.20 above this face."
+contour = { method = "linear_table", sweep_frame = "A", sweep_bounds = { x = [-11.7, 11.7], y = [-8.0, 8.0], z = [-2.27825, 5.0] }, open_side = "-x", step_mm = 2.0, keep_out = [{ at = [0.0, 0.0], dia_mm = 10.6 }] } # AUTHOR'S CHOICE: rows along Y because they cross the op 25 X rows, and 13 rows X -11.7..11.7 at 1.95 because a straight raster round a round island leaves corners between its piece ends; with op 25 these rows leave stock outside the island only within R5.50 of the pivot axis, inside the 0.5 filing cap the S3F file takes off the hub
+stock_removal_bounds = { x = [-8.0, 8.0], y = [-8.0, 8.0], z = [-2.27825, 5.0] } # the op 25 corners lie within R7.3; outside this box op 25 already finished the face
 
 [[setups.ops]]
 op = 40
@@ -370,7 +386,7 @@ method = "paper"
 paper_mm = 0.05 # author's choice
 tool = "endmills-lms-6784/3-8in-2fl" # op 5 rougher touches the raw top first
 check_jog_mm = 10.0 # author's choice
-retouch_after = [10, 15, 20, 28, 32, 33, 34, 40] # retouch before each changed cutting tool, including every rod-hole tool, the return to the rougher and the 1/4 in top-edge rougher; op 10's tool is set by the measured touch above
+retouch_after = [10, 15, 20, 28, 29, 32, 33, 34, 40] # retouch before each changed cutting tool, including every rod-hole tool, the return to the rougher and the 1/4 in top-edge rougher; op 10's tool is set by the measured touch above
 
 # Frame B reverses Y: op 5 and op 10 face the walled internal field between the
 # lower rail Y 20..28 and the upper rail Y -37..-31.7, inside the ears outside
@@ -420,7 +436,7 @@ rough_allowance_mm = 0.20
 direction = "conventional"
 doc_mm = 1.5 # author's choice, largest step per pass over the 2.07825 mm below Z0
 approach_mm = 5.0
-note = "Field raster round the hub island on the supported lower strap: the same passes as op 5 at each level, leaving 0.20 mm for the finish pass. The Ø11.0 island keep-out (hub Ø10.2 plus 0.20 rough allowance and 0.20 clearance a side) splits each pass that crosses it: stop at the listed end, lift over the island, rapid to the next piece and plunge again. Op 28 removes the cusps left round the island; they lie within R7.4 of the pivot axis, inside its cutter sweep."
+note = "Field raster round the hub island on the supported lower strap: the same passes as op 5 at each level, leaving 0.20 mm for the finish pass. The Ø11.0 island keep-out (hub Ø10.2 plus 0.20 rough allowance and 0.20 clearance a side) splits each pass that crosses it: stop at the listed end, lift over the island, rapid to the next piece and plunge again. The corners left round the island lie within R7.4 of the pivot axis: the op 28 stairs rough them and op 29 finishes them down to the strap face."
 contour = { method = "linear_table", sweep_frame = "B", sweep_bounds = { x = [-150.2375, 150.2375], y = [-26.935, 15.225], z = [-2.27825, 5.0] }, open_side = "-y", step_mm = 6.0, keep_out = [{ at = [0.0, 0.0], dia_mm = 11.0 }] } # AUTHOR'S CHOICE: op 5 rows; island keep-out about the pivot axis
 stock_removal_bounds = { x = [-160.0, 160.0], y = [-31.7, 20.0], z = [-2.27825, 5.0] }
 
@@ -435,12 +451,9 @@ doc_mm = 0.2 # author's choice: one level removes the 0.20 mm left by op 15
 to_z_cite = "harmonic-analyzer/cad/scripts/build_rocker_arm.py:122"
 direction = "conventional" # author's choice
 approach_mm = 5.0
-note = "Finish raster: the op 15 rows at one depth, removing the 0.20 mm left by op 15; plunge at each piece start. Its Ø10.6 island keep-out (hub Ø10.2 plus the 0.20 rough allowance a side) ends each piece 0.20 nearer the hub than op 15, so the finisher also takes op 15's 0.20 clearance ring down to this face. The corners left round the island, within R7.3 of the pivot axis, are cleared down to this face by the op 28 hub stairs."
-contour = { method = "linear_table", sweep_frame = "B", sweep_bounds = { x = [-150.2375, 150.2375], y = [-26.935, 15.225], z = [-2.27825, 5.0] }, open_side = "-y", step_mm = 6.0, keep_out = [{ at = [0.0, 0.0], dia_mm = 10.6 }] } # AUTHOR'S CHOICE: op 15 rows, island at the hub's 0.20 leave so no stock outside the leave stays at the strap face for the op 28 stairs
+note = "Finish raster: the op 15 rows at one depth, removing the 0.20 mm left by op 15; plunge at each piece start. Its Ø10.6 island keep-out (hub Ø10.2 plus the 0.20 rough allowance a side) ends each piece 0.20 nearer the hub than op 15, so the finisher also takes op 15's 0.20 clearance ring down to this face. It leaves corners round the island, within R7.3 of the pivot axis, standing to the hub face: the op 28 stairs rough them to 0.20 above this face and the op 29 clean-up finishes them."
+contour = { method = "linear_table", sweep_frame = "B", sweep_bounds = { x = [-150.2375, 150.2375], y = [-26.935, 15.225], z = [-2.27825, 5.0] }, open_side = "-y", step_mm = 6.0, keep_out = [{ at = [0.0, 0.0], dia_mm = 10.6 }] } # AUTHOR'S CHOICE: op 15 rows, island at the hub's 0.20 leave so the finisher never cuts the allowance the S3F file takes
 stock_removal_bounds = { x = [-160.0, 160.0], y = [-31.7, 20.0], z = [-2.27825, 5.0] }
-
-[setups.ops.checks]
-thickness = "micrometers/0-1in"
 
 [[setups.ops]]
 op = 25
@@ -457,13 +470,31 @@ feature = "hub_od"
 faces = ["#518/ADVANCED_FACE[16]/HAF_HUB_OD__P01", "#539/ADVANCED_FACE[17]/HAF_HUB_OD__P01"]
 tool = "endmills-lms-6784/3-8in-2fl"
 holder = "r8-collets-lms-4860/3-8in"
-to_z = -2.27825 # AUTHOR'S CHOICE: down to the finished strap face because these stairs also clear the island corners the op 15/20 rasters leave within R7.4; the 0.20 allowance stays radial on the hub wall
+to_z = -2.07825 # AUTHOR'S CHOICE: 0.20 above the finished strap face Z-2.27825, because a rough op leaves its 0.20 allowance on the strap face as on the hub wall; op 29 finishes the strap face round the hub
 doc_mm = 1.5 # author's choice, same axial step as the op 15 face rough
 rough_allowance_mm = 0.20
 direction = "conventional"
 approach_mm = 5.0
 contour = { method = "stairs", cusp_mm = 0.25 } # AUTHOR'S CHOICE: stairs because a manual mill moves one handwheel at a time; 0.20 allowance + 0.25 cusp leaves 0.45, inside the 0.5 filing cap for the S3F buttons
-note = "Lower hub island about the transferred pilot axis; filed round to the buttons in S3F after the bore is reamed."
+note = "Lower hub island about the transferred pilot axis; filed round to the buttons in S3F after the bore is reamed. The stairs also rough the corners the op 15/20 rasters leave round the island, within R7.4 of the pivot axis, down to 0.20 above the strap face."
+
+[[setups.ops]]
+op = 29
+do = "finish_face"
+feature = "strap_faces"
+tool = "endmills-lms-6784/3-8in-4fl"
+holder = "r8-collets-lms-4860/3-8in"
+to_z = -2.27825 # lower strap face, as op 20
+doc_mm = 0.2 # author's choice: one level removes the 0.20 mm the op 28 stairs leave on the strap face
+to_z_cite = "harmonic-analyzer/cad/scripts/build_rocker_arm.py:122"
+direction = "conventional" # author's choice
+approach_mm = 5.0
+note = "Corner clean-up round the hub: rows along Y at the strap face, 1.95 mm apart, each split round the same Ø10.6 island as op 20 (stop at the listed end, lift over the island, rapid to the next piece and plunge again). They cross the op 20 rows and finish the corners op 20 left round the island, which the op 28 stairs roughed to 0.20 above this face. Then mic the strap thickness clear of the hub."
+contour = { method = "linear_table", sweep_frame = "B", sweep_bounds = { x = [-11.7, 11.7], y = [-8.0, 8.0], z = [-2.27825, 5.0] }, open_side = "-x", step_mm = 2.0, keep_out = [{ at = [0.0, 0.0], dia_mm = 10.6 }] } # AUTHOR'S CHOICE: rows along Y because they cross the op 20 X rows, and 13 rows X -11.7..11.7 at 1.95 because a straight raster round a round island leaves corners between its piece ends; with op 20 these rows leave stock outside the island only within R5.50 of the pivot axis, inside the 0.5 filing cap the S3F file takes off the hub
+stock_removal_bounds = { x = [-8.0, 8.0], y = [-8.0, 8.0], z = [-2.27825, 5.0] } # the op 20 corners lie within R7.3; outside this box op 20 already finished the face
+
+[setups.ops.checks]
+thickness = "micrometers/0-1in"
 
 [[setups.ops]]
 op = 32
