@@ -113,6 +113,20 @@ reproduces the same facts and the same render bytes as the run that produced
 it. The cache is a local convenience, not an input: it is not part of the
 hashed bundle.
 
+### Worker processes
+
+Booleans whose operands are known before the loop that needs them (each printed
+checkpoint row, each culled reach or pose cylinder against its stock) run in
+`PRECHIPS_KERNEL_WORKERS` extra `freecadcmd` processes: by default one per spare
+CPU, at most 8; `0` keeps every boolean in the engine. A worker runs the engine's
+own function on binary B-rep copies of the operands, which keep every double and
+their mutual sharing, so its answer is the engine's. Operands carrying a
+triangulation (a boolean reads it) and a row removal sharing a face or edge with
+its stock (a later render's mesh would reach it) stay in the engine. A call no
+worker has started yet is the engine's own; `PRECHIPS_KERNEL_POOL_WAIT=1` takes
+every pooled call from a worker, for tests. Facts do not depend on the worker
+count, which is not part of the cache key.
+
 ## Face identity
 
 Feature `faces` and `stock.as_is_faces` are STEP face references in the
