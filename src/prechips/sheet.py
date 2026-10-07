@@ -2200,8 +2200,9 @@ class _Traveler:
         made row's or made hole's ``note`` (material, heat treatment, finish, how it is
         cut) one "Make:" entry under that; solids already in the shop (``supply =
         "existing"``, such as machine vise jaws drawn for clearance) are not rows. A
-        bought or existing part's note prints on a "Notes:" line after the Make entries.
-        A fit position printed ``?`` says why
+        bought or existing part's note prints on a "Notes:" line after the Make entries,
+        and every solid's ``records`` print as fill-ins (:meth:`record_blank`) under
+        "Measure and record before first use:". A fit position printed ``?`` says why
         under the table. An item only the HOLD places (:data:`LOOSE`) gives its positions
         in its own frame, the one its solids are drawn in."""
         sid = setup["id"]
@@ -2306,6 +2307,12 @@ class _Traveler:
             entry = (notes if made_hole else others).setdefault(self.bench(note).rstrip("."), [])
             if name not in entry:
                 entry.append(name)
+        records = [
+            self.record_blank(solid, blank)
+            for solid in solids
+            for blank in solid.get("records") or []
+            if isinstance(blank, dict)
+        ]
         if not solids:
             dims = [_amount(item.get(f"{edge}_mm")) for edge in ("length", "width", "height")]
             size = (
@@ -2361,8 +2368,37 @@ class _Traveler:
             + (_p(f"Bought hardware (not made): {hardware}.") if hardware else "")
             + (_p(f"Make: {_make_notes(notes)}.") if notes else "")
             + (_p(f"Notes: {_make_notes(others)}.") if others else "")
+            + (_p("Measure and record before first use:") if records else "")
+            + "".join(_p(line) for line in records)
             + "".join(_p(reason) for reason in sorted(self.fixture_unknowns))
         )
+
+    def record_blank(self, solid, blank):
+        """One record blank as a fill-in: ``head: head-to-shoulder TIR — 0.0005 in test
+        indicator, rolled in the V-block: accept ≤ 0.010 mm, goal ≤ 0.003 mm; measured
+        ________ mm``. The spec and goal print rounded down (never looser); a gauge the
+        shop list does not have prints ``? <key>``; no spec is recorded, not judged."""
+        component = self.bench(solid.get("label") or _solid_name(solid.get("name", "?")))
+        line = f"{component}: {self.bench(blank['check'])}"
+        tools = []
+        gauge = blank.get("gauge")
+        if isinstance(gauge, str) and gauge not in ("none", "not_applicable"):
+            present = resolve(self.bundle, "gauges", gauge) is not None
+            tools.append(self.reference(gauge, "gauges") if present else f"? {gauge}")
+        if _stated(blank.get("how")):
+            tools.append(self.bench(blank["how"]))
+        if tools:
+            line += " — " + ", ".join(tools)
+        limits = [
+            f"{word}≤ {_inward(0, blank[key])[1]} mm"
+            for key, word in (("max_mm", "accept "), ("goal_mm", "goal "))
+            if _known(blank.get(key))
+        ]
+        if limits:
+            line += ": " + ", ".join(limits)
+        over = blank.get("over_mm")
+        span = f" over {over:g} mm" if _known(over) else ""
+        return f"{line}; measured ________ mm{span}"
 
     def hardware(self, solids, uses):
         """Bought solids as ``2 × 3/8-16 stud; 2 × washer Ø20.6 × 1.6``: the declared

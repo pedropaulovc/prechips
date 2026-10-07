@@ -354,6 +354,16 @@ Other holding solids come from the same accepted-fact rule, never defaults:
   or name; a bought or existing primitive's `note` (its state as bought, what
   to leave alone) prints on a "Notes:" line after them, so a bought shell whose
   windows are made here states its whole route.
+  `records = [{ check, gauge, how, max_mm, goal_mm, over_mm }]` on any
+  primitive are values measured and written down when the part is made or
+  received (a head-to-shoulder TIR, a squareness by reversal). Each prints
+  under "Measure and record before first use:" as a fill-in: what, the gauge's
+  shop name and how, `accept ≤ max_mm`, `goal ≤ goal_mm` (both rounded down),
+  then `measured ________ mm`, `over over_mm mm` when given. `check` must be
+  stated; each length, when given, is a known length ≥ 0 (`over_mm` > 0) and
+  the goal lies inside the max. A record without `max_mm` is a characterisation:
+  recorded, not judged. A record's `gauge` is a `gauges` key; one the shop list
+  does not have prints `? <key>`.
   An angle plate's (or posed shop-made fixture's) lowest box that is not bought
   is its base: HOLD prints its underside Z, an angle plate's working face (local
   y = 0, facing local -y) and the base's `fastener` as the hold-down; with any

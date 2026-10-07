@@ -300,6 +300,66 @@ def test_notes_on_holes_and_on_bought_and_existing_parts_print():
     assert "box parallel" not in make.split("Notes:")[0]
 
 
+RECORD = {
+    "check": "head-to-shoulder TIR",
+    "gauge": "dti",
+    "how": "shoulder rolled in the V-block",
+    "max_mm": 0.01,
+    "goal_mm": 0.003,
+}
+
+
+def record_page(*records, gauges=None):
+    head = cylinder("head", 0, 8.26, 8, 4, records=list(records))
+    data = bundle([{"fixture": "bridge", "pose": IDENTITY}])
+    data.inventory["gauges"] = {"dti": {"kind": "dti", "name": "0.0005 in test indicator"}}
+    data.inventory["gauges"].update(gauges or {})
+    data.inventory["fixtures"]["bridge"] = {
+        "kind": "custom",
+        "solids": [
+            {"name": "beam", "shape": "box", "at_mm": [-30, -5, 0], "size_mm": [60, 10, 8.26]},
+            head,
+        ],
+    }
+    return data, sheets(data)[0]
+
+
+def test_a_measured_and_recorded_value_prints_as_a_fill_in():
+    square = {"check": "base-to-right squareness by reversal", "over_mm": 100}
+    _, page = record_page(RECORD, square)
+    tir = page[page.index("head-to-shoulder TIR") :].split("|")[0]
+    assert "0.0005 in test indicator" in tir and "shoulder rolled in the V-block" in tir
+    assert "≤ 0.010 mm" in tir and "goal ≤ 0.003 mm" in tir
+    assert re.search(r"measured _{4,}", tir)
+    # A record with no spec is a characterisation: written down, not judged.
+    square_line = page[page.index("base-to-right squareness") :].split("|")[0]
+    assert re.search(r"measured _{4,} mm over 100 mm", square_line)
+    assert "≤" not in square_line
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        {**RECORD, "check": " "},
+        {**RECORD, "goal_mm": 0.02},
+        {**RECORD, "max_mm": "unknown"},
+        {**RECORD, "max_mm": -0.01},
+    ],
+)
+def test_malformed_record_blanks_are_rejected(bad):
+    from pydantic import ValidationError
+
+    from prechips.model import Inventory
+
+    def screw(record):
+        head = cylinder("head", 0, 0, 8, 4, records=[record])
+        return {"fixtures": {"screw": {"kind": "custom", "solids": [head]}}}
+
+    Inventory.model_validate(screw(RECORD))
+    with pytest.raises(ValidationError):
+        Inventory.model_validate(screw(bad))
+
+
 def test_bought_part_drawn_as_head_and_shank_counts_once():
     screw = {"supply": "bought", "fastener": "M8 SHCS"}
     parts = [

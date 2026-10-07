@@ -1173,6 +1173,15 @@ Bars = record(
 # adjustable shim stack whose drawn thickness is the nominal (traveler fixture table).
 # ``supply``: made with its owner (default), ``bought`` hardware, or ``existing`` in the
 # shop (a machine's vise jaw drawn for clearance); only made solids are make-table rows.
+# ``records``: values measured and written down when the part is made or received (a
+# head-to-shoulder TIR, a squareness by reversal), printed as fill-ins under the table.
+# A record says what is measured (``check``), optionally with which inventory ``gauge``
+# and ``how``; ``max_mm`` is its spec (reject over), ``goal_mm`` a tighter aim, and
+# ``over_mm`` the length the value is taken over. No spec: a characterisation, recorded only.
+RecordBlank = record(
+    "RecordBlank",
+    {**texts("check gauge how"), **numbers("max_mm goal_mm over_mm")},
+)
 FixtureSolid = record(
     "FixtureSolid",
     {
@@ -1185,6 +1194,7 @@ FixtureSolid = record(
         "shim": bool,
         "supply": Literal["made", "bought", "existing"],
         "cuts": list[str],
+        "records": list[RecordBlank],
         "measured": Measurement,
         "verify": bool,
     },
@@ -1463,9 +1473,34 @@ def _inventory_checks(item: Any, where: str) -> None:
         for index, check in enumerate(checks):
             if isinstance(check, dict):
                 _acceptance_check(check, f"{where}.acceptance[{index}]")
+    solids = item.get("solids")
+    for solid in solids if isinstance(solids, list) else ():
+        records = solid.get("records") if isinstance(solid, dict) else None
+        for index, blank in enumerate(records if isinstance(records, list) else ()):
+            if isinstance(blank, dict):
+                name = solid.get("name", "?")
+                _record_blank(blank, f"{where} solid {name}.records[{index}]")
     members = item.get("members")
     for name, member in members.items() if isinstance(members, dict) else ():
         _inventory_checks(member, f"{where}/{name}")
+
+
+def _record_blank(blank: dict, where: str) -> None:
+    """A record blank says what is measured; its spec, goal and span are known lengths
+    (an unknown spec would print a fill-in nobody can judge), the goal inside the spec."""
+    check = blank.get("check")
+    if not isinstance(check, str) or check.strip() in ("", UNKNOWN):
+        raise ValueError(f"{where}: check must say what is measured and recorded.")
+    for key in ("max_mm", "goal_mm", "over_mm"):
+        value = blank.get(key)
+        if key in blank and (
+            not isinstance(value, int | float) or isinstance(value, bool) or value < 0
+        ):
+            raise ValueError(f"{where}: {key} must be a known length >= 0, or omitted.")
+    if "goal_mm" in blank and "max_mm" in blank and blank["goal_mm"] > blank["max_mm"]:
+        raise ValueError(f"{where}: goal_mm must lie inside the max_mm spec.")
+    if blank.get("over_mm") == 0:
+        raise ValueError(f"{where}: over_mm must be a length > 0.")
 
 
 def _acceptance_check(check: dict, where: str) -> None:
