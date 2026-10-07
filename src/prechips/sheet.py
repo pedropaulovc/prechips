@@ -374,6 +374,7 @@ _TOPICS = {
     "indexing": "indexing",
     "hold_fields": "holding details",
     "centre_support": "tailstock centre",
+    "prepared_blank": "squared blank size",
     "order": "op order",
     "op_chain": "op sequence",
     "construction": "construction",
@@ -428,6 +429,7 @@ _METHODS = {
 _CORNERS = {"chuck_side": "chuck-side", "tailstock_side": "tailstock-side"}
 _STOCK_FORMS = {
     "round_bar": "round bar",
+    "flat_bar": "flat bar",
     "rectangular_blank": "rectangular blank",
     "prepared_blank": "prepared blank",
 }
@@ -1394,6 +1396,12 @@ class _Traveler:
             if stated("support_orientation"):
                 line += f" ({_text(hold['support_orientation'])} up)"
             steps.append(line + ".")
+        if stated("jaw_bar") and hold["jaw_bar"] != "unknown":
+            steps.append(
+                "Round bar: "
+                + self.reference(hold["jaw_bar"], "fixtures")
+                + " between the work and the moving jaw, level with the work's middle."
+            )
         supports = hold.get("supports")
         if isinstance(supports, str) and supports not in ("none", "not_applicable", "unknown"):
             if not (stated("riser") and supports == hold.get("riser")):
@@ -1476,6 +1484,38 @@ class _Traveler:
             _table([name for name, _ in facts], [[value for _, value in facts]]) if facts else ""
         )
         return "<h2>HOLD</h2>" + _list(steps), below + self.indexing(setup)
+
+    def blank_checks(self, setup):
+        """The squared blank's checks, on the sheet of the setup that hands it on."""
+        prepared = _mapping(_mapping(self.plan.get("stock")).get("prepared"))
+        receiver = prepared.get("setup")
+        setups = {s["id"]: s for s in self.plan.get("setups", [])}
+        if receiver not in setups or setups[receiver].get("stock_in") != setup["id"]:
+            return ""
+        checks, methods = _mapping(prepared.get("checks")), _mapping(prepared.get("methods"))
+        section = prepared.get("section_mm")
+        section = section if isinstance(section, list) and len(section) == 2 else [None] * 2
+        sizes = [prepared.get("length_mm"), *section]
+        tolerance = prepared.get("tolerance_mm")
+        tolerance = tolerance if isinstance(tolerance, list) and len(tolerance) == 3 else []
+        allowed = [tolerance[2], tolerance[0], tolerance[1]] if tolerance else [None] * 3
+
+        def gauge(key):
+            ref = checks.get(key, "unknown")
+            return "? not chosen" if ref == "unknown" else self.reference(ref, "gauges")
+
+        rows = []
+        for key, size, tol in zip(
+            ("length", "section_0", "section_1"), sizes, allowed, strict=True
+        ):
+            limit = f"{size:g} ±{tol:g} mm" if _known(size) and _known(tol) else "? not set"
+            rows.append(("size", limit, gauge(key)))
+        for key in ("flat", "square", "parallel"):
+            method = methods.get(key)
+            rows.append((key, self.bench(method, setup) if method else "? not written", gauge(key)))
+        return f"<h2>CHECK THE BLANK — before SETUP {escape(receiver)}</h2>" + _table(
+            ["check", "limit or method", "gauge"], rows, widths=[10, 65, 25]
+        )
 
     def hold_facts(self, setup, hold, lathe):
         o = self.operative
@@ -4823,6 +4863,7 @@ class _Traveler:
         sheets = {"notes": 2, "contours": 3 if contours else None}
         ops_html, notes_html, op_stops = self.operations(setup, tool_numbers, sheets)
         details["inspection notes"] = notes_html
+        details["blank check"] = self.blank_checks(setup)
         details = {subject: block for subject, block in details.items() if block}
         if not details and contours:
             # Nothing for sheet 2: the contours are sheet 2.

@@ -58,7 +58,7 @@ def _operative(plan: dict, features: dict) -> dict[str, dict]:
     from prechips import joint_features, process_features
 
     return process_features.feature_definitions(
-        plan, joint_features.feature_definitions(plan, features)
+        plan, joint_features.feature_definitions(plan, features), features.get("units", "unknown")
     )
 
 
@@ -72,6 +72,23 @@ def _span(kind: str, path: Path):
 def _exported(feature: dict) -> list:
     requirements = feature.get("requirements")
     return requirements if isinstance(requirements, list) else []
+
+
+def _prepared_blank(plan: dict, ids: list[str]) -> None:
+    """A prepared blank names a known receiving setup and is cut from one rectangular root
+    stock; its size check (rule ``prepared_blank``) has no other root to trim."""
+    stock = plan.get("stock")
+    prepared = stock.get("prepared") if isinstance(stock, dict) else None
+    if prepared is None:
+        return
+    receiver = prepared.get("setup", "unknown")
+    if receiver != "unknown" and receiver not in ids:
+        raise BadInput(f"stock.prepared.setup {receiver!r} is not a plan setup.")
+    if stock.get("components") or "dia_mm" in stock:
+        raise BadInput(
+            "stock.prepared squares one rectangular root stock; a round or built-up "
+            "stock has no box to trim."
+        )
 
 
 def _load(path: Path, model: type[InputModel], kind: str) -> tuple[dict, str]:
@@ -147,6 +164,7 @@ def load_bundle(
     ids = [setup.get("id", "unknown") for setup in setups]
     if "unknown" in ids or len(set(ids)) != len(ids):
         raise BadInput("Setup ids must be known and unique.")
+    _prepared_blank(plan, ids)
     planned_frames = plan.get("frames") if isinstance(plan.get("frames"), dict) else {}
     for name, aim in plan.get("aims", {}).items():
         if aim["requirement"] not in _exported(definitions.get(name, {})):

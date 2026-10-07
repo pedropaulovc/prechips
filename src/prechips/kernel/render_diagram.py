@@ -61,7 +61,8 @@ class _Callout:
     points: list
     colour: tuple = _INK
     # "line": a leader from the lane to the point; "keyed": the point carries its own
-    # position badge, so the lane entry is the badge's key and draws no leader.
+    # position badge, so the lane entry is the badge's key and draws no leader; "hidden":
+    # a leader to an open ring on the dashed outline of a solid hidden in this view.
     leader: str = "line"
     # Mesh tags of the drawn solids the label names: its leader must end on one of them.
     targets: tuple = ()
@@ -882,6 +883,19 @@ class _Diagram:
                 point = self._anchor(tags, near)
                 if point is not None:
                     points.append(point)
+            if not points and all(
+                item.get("role") in ("fixed_jaw", "moving_jaw") and item.get("box_mm")
+                for item in components
+            ):
+                # A vise jaw hidden behind the work is still the face the work seats on:
+                # its box is drawn as a dashed hidden-position outline, its leader
+                # stopping there, never on the work in front of it.
+                points = [
+                    _nearest_on_outline(self._box_outline(item), c.project(item["center_mm"]))
+                    for item in components
+                ]
+                self.callouts.append(_Callout(label.upper(), points, _FIXTURE, leader="hidden"))
+                continue
             if not points:
                 self._hidden(label.upper())
                 continue
@@ -1193,13 +1207,17 @@ class _Diagram:
             for item, row_y in zip(callouts, rows, strict=True):
                 lines = wrapped[(id(item), side)]
                 target_y = row_y + ((len(lines) - 1) * pitch + 21) / 2
-                for point in item.points if item.leader == "line" else []:
+                for point in item.points if item.leader in ("line", "hidden") else []:
                     end = (edge, target_y)
                     path = [point, end]
                     if not blocked(item, point, side):
                         path = [point, (edge + (14 if side == 0 else -14), point[1]), end]
                     for a, b in zip(path, path[1:], strict=False):
                         c.line(a, b, item.colour, width=2)
+                    if item.leader == "hidden":
+                        c.circle(*point, 4, fill=_WHITE, outline=item.colour)
+                        self.hidden_leaders.append((item.label, path))
+                        continue
                     c.circle(*point, 3, fill=item.colour)
                     self.leaders.append((item.label, path))
                 for index, line in enumerate(lines):

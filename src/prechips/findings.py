@@ -43,9 +43,10 @@ class Finding:
         }
 
 
-# Joint rules gate physical assembly, and manual_arc gates the layout and filing a
-# planned hand-finished arc needs: no policy omission can waive them.
-ALWAYS_REQUIRED = frozenset({"joint_fit", "joint_assembly", "manual_arc"})
+# Joint rules gate physical assembly, manual_arc gates the layout and filing a planned
+# hand-finished arc needs, and prepared_blank gates the size of the blank a declared
+# preparation hands the first machining setup: no policy omission can waive them.
+ALWAYS_REQUIRED = frozenset({"joint_fit", "joint_assembly", "manual_arc", "prepared_blank"})
 
 
 def is_required(finding: Finding, policy: dict, bundle: Bundle | None = None) -> bool:

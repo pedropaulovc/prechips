@@ -107,6 +107,30 @@ class StockComponent(InputModel):
         return self
 
 
+# The squared blank's acceptance checks: one gauge per size (``length``, ``section_0``,
+# ``section_1``, read against size ± tolerance) and one per form check, each form check
+# with its written method in ``methods``.
+PreparedChecks = record(
+    "PreparedChecks",
+    {**texts("length section_0 section_1 flat square parallel")},
+)
+PreparedMethods = record("PreparedMethods", {**texts("flat square parallel")})
+# The squared blank the route's first machining setup receives (docs/plan.md "Prepared
+# blank"): a box on the root stock's own axes, made from the rectangular root stock by
+# plan process end faces in the receiving setup's earlier stock lineage.
+PreparedBlank = record(
+    "PreparedBlank",
+    {
+        "setup": str,
+        "origin_mm": Vector,
+        "section_mm": Vector,
+        "length_mm": float,
+        "tolerance_mm": Vector,
+        "checks": PreparedChecks,
+        "methods": PreparedMethods,
+        "cite": Citations,
+    },
+)
 Stock = record(
     "Stock",
     {
@@ -120,6 +144,7 @@ Stock = record(
         "section_axis": Vector,
         "as_is_faces": list[str],
         "components": list[StockComponent],
+        "prepared": PreparedBlank,
         "cite": Citations,
     },
 )
@@ -210,6 +235,10 @@ Hold = record(
         # the stock's own end. Checked against the arriving stock by hold_fields.
         "stop_face": str,
         "stop_pose": Pose,
+        # A vise's round bar between the work and the moving jaw (an inventory fixture of
+        # kind round_bar with measured dia/length): the moving jaw closes on the bar, which
+        # presses the work along one line so the fixed jaw seats its face square.
+        "jaw_bar": str,
     },
 )
 AxisZero = record(

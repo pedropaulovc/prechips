@@ -23,9 +23,12 @@ LABEL_PREFIX = "plan.process_features."
 # The one public name for plan-authored stock preparation, kept apart from drawing acceptance.
 PROCESS_PREP_LABEL = "STOCK PREPARATION — plan only, not a drawing dimension"
 # The actions that make each kind. A centre is drilled with a combined drill and
-# countersink; an end face is faced to the axis.
+# countersink; an end face is faced to the axis, or on a mill side-milled with the
+# cutter's periphery (a blank end overhanging the vise).
 ACTIONS = {
-    "end_face": frozenset({"face", "rough_face", "finish_face"}),
+    "end_face": frozenset(
+        {"face", "rough_face", "finish_face", "profile", "rough_profile", "finish_profile"}
+    ),
     "centre_hole": frozenset({"center_drill"}),
 }
 _CENTRE_KEYS = ("drill_dia_mm", "drill_length_mm", "mouth_dia_mm", "countersink_angle_deg")
@@ -55,10 +58,58 @@ def _number(value: Any) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool)
 
 
-def feature_definitions(plan: dict, definitions: dict) -> dict[str, dict]:
+def _stock_box(plan: dict, scale: float | None) -> list[list[float]] | None:
+    """The rectangular root stock's model-axis box in manifest units, else None (round,
+    built-up, unknown or not aligned with the model axes)."""
+    stock = plan.get("stock") if isinstance(plan.get("stock"), dict) else {}
+    origin, section = stock.get("origin_mm"), stock.get("section_mm")
+    axis, across, length = stock.get("axis"), stock.get("section_axis"), stock.get("length_mm")
+    vectors = (origin, axis, across)
+    if scale is None or stock.get("components") or "dia_mm" in stock:
+        return None
+    if not all(isinstance(v, list) and len(v) == 3 and all(map(_number, v)) for v in vectors):
+        return None
+    if not (isinstance(section, list) and len(section) == 2 and all(map(_number, section))):
+        return None
+    if not _number(length):
+        return None
+    third = [
+        axis[1] * across[2] - axis[2] * across[1],
+        axis[2] * across[0] - axis[0] * across[2],
+        axis[0] * across[1] - axis[1] * across[0],
+    ]
+    box = [[origin[i], origin[i]] for i in range(3)]
+    for vector, size in zip((axis, across, third), (length, *section), strict=True):
+        hits = [i for i in range(3) if abs(abs(vector[i]) - 1.0) <= 1e-9]
+        if len(hits) != 1:
+            return None
+        i = hits[0]
+        box[i][0 if vector[i] < 0 else 1] += vector[i] * size
+    return [[low / scale, high / scale] for low, high in box]
+
+
+def _planar_bounds(feature: dict, box: list[list[float]] | None) -> dict | None:
+    """An end face's footprint: the root stock box collapsed onto its plane, for a plane
+    square to a model axis; else None (the footprint stays unknown)."""
+    at, axis = feature.get("at"), feature.get("axis")
+    if box is None or feature["kind"] != "end_face":
+        return None
+    if not all(isinstance(v, list) and len(v) == 3 and all(map(_number, v)) for v in (at, axis)):
+        return None
+    hits = [i for i in range(3) if abs(axis[i]) > 1e-9]
+    if len(hits) != 1:
+        return None
+    bounds = {key: list(span) for key, span in zip("xyz", box, strict=True)}
+    bounds["xyz"[hits[0]]] = [at[hits[0]], at[hits[0]]]
+    return bounds
+
+
+def feature_definitions(plan: dict, definitions: dict, units: str = UNKNOWN) -> dict[str, dict]:
     """``definitions`` (exported plus joint features) plus resolved plan process features.
 
-    Without process features this is ``definitions`` itself (no copy).
+    Without process features this is ``definitions`` itself (no copy). A planar end face
+    of a rectangular root stock carries ``bounds``: that stock's section in its plane, the
+    most its face op can be asked to cover.
     """
     declared = plan.get("process_features") or {}
     if not declared:
@@ -70,6 +121,7 @@ def feature_definitions(plan: dict, definitions: dict) -> dict[str, dict]:
             "or plan.joint_features names."
         )
     merged = dict(definitions)
+    box = _stock_box(plan, _SCALE.get(units))
     for name, feature in declared.items():
         process = {"id": name, "kind": feature["kind"], "label": label(name)}
         process.update({key: feature[key] for key in _CENTRE_KEYS if key in feature})
@@ -83,11 +135,50 @@ def feature_definitions(plan: dict, definitions: dict) -> dict[str, dict]:
             "cite": feature["cite"],
             "preparation": process,
         }
+        bounds = _planar_bounds(feature, box)
+        if bounds is not None:
+            definition["bounds"] = bounds
         for key in ("size", "note"):
             if key in feature:
                 definition[key] = feature[key]
         merged[name] = definition
     return merged
+
+
+def arriving_bounds(bundle, setup: dict, definition: dict) -> dict | None:
+    """A process end face's footprint on the stock ``setup`` receives: its root-stock
+    ``bounds`` trimmed by each process end face an earlier setup of that stock lineage
+    faced on a model-axis plane. Faces it cannot place leave the larger, root footprint."""
+    bounds, own = definition.get("bounds"), process_of(definition)
+    if not bounds or not own:
+        return bounds
+    trimmed = {key: list(span) for key, span in bounds.items()}
+    earlier = _lineage(bundle.plan, setup["id"]) - {setup["id"]}
+    for other in bundle.plan["setups"]:
+        if other["id"] not in earlier:
+            continue
+        for op in other["ops"]:
+            made = bundle.feature_definitions.get(op.get("feature"))
+            process = process_of(made)
+            if not process or process["kind"] != "end_face" or process["id"] == own["id"]:
+                continue
+            axis, at = made["axis"], made["at"]
+            vectors = (axis, at)
+            if op.get("do") not in ACTIONS["end_face"] or not all(
+                isinstance(v, list) and len(v) == 3 and all(map(_number, v)) for v in vectors
+            ):
+                continue
+            hits = [i for i in range(3) if abs(axis[i]) > 1e-9]
+            if len(hits) != 1:
+                continue
+            span = trimmed["xyz"[hits[0]]]
+            if span[0] == span[1]:
+                continue  # the face's own plane axis: nothing to trim
+            if axis[hits[0]] > 0:
+                span[0] = max(span[0], at[hits[0]])
+            else:
+                span[1] = min(span[1], at[hits[0]])
+    return trimmed
 
 
 def centre_depth_mm(definition: Any) -> dict:

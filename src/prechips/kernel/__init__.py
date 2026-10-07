@@ -562,10 +562,30 @@ def _vise_inputs(bundle, hold, fixture, result):
             result["parallels_height_mm"] = height
         else:
             missing.append("parallels_height_mm")
+    _jaw_bar_inputs(bundle, hold, result)
     if missing:
         result["reason"] = "Fixture pose/dimensions unmeasured or unavailable: " + ", ".join(
             missing
         )
+
+
+def _jaw_bar_inputs(bundle, hold, result):
+    """A declared round bar between the work and the moving jaw, or why it is unplaceable.
+
+    The moving jaw's position depends on the bar, so an unresolved bar leaves the jaws
+    unplaced (``jaw_bar_reason``), never drawn as if the jaw closed on the work.
+    """
+    bar = hold.get("jaw_bar")
+    if bar is None:
+        return
+    item = measurement_item(bundle, "fixtures", bar) if bar != UNKNOWN else {}
+    dims = {key: _measured_length(item, key) for key in ("dia", "length")}
+    missing = [] if record(item).get("kind") == "round_bar" else [f"{bar!r} as a round_bar"]
+    missing.extend(f"{key}_mm (measured)" for key, value in dims.items() if value == UNKNOWN)
+    if missing:
+        result["jaw_bar_reason"] = "jaw_bar unresolved: " + ", ".join(missing)
+        return
+    result["jaw_bar"] = {"name": bar, "dia_mm": dims["dia"], "length_mm": dims["length"]}
 
 
 def _centres(value, minimum, maximum=None):
@@ -1079,6 +1099,7 @@ _ENGINE_HOLD = (
     "parallels_width_mm",
     "parallels_along",
     "riser",
+    "jaw_bar",
 )
 # Vise inputs whose absence stops jaw placement in the engine.
 _ENGINE_HOLD_REQUIRED = (
@@ -1130,6 +1151,8 @@ def _engine_hold(hold):
             result["reason"] = "Fixture pose/dimensions unmeasured or unavailable: " + ", ".join(
                 missing
             )
+        elif "jaw_bar_reason" in hold:
+            result["reason"] = hold["jaw_bar_reason"]
         return result
     if kind in _CHUCK_JAWS or kind == "dividing_head":
         result = {"kind": "chuck", "fixture_kind": kind, **common}

@@ -775,6 +775,50 @@ def test_a_numbered_position_badge_never_leads_to_the_solid_in_front_of_it(kind,
     assert (120, 98, 76) in inked
 
 
+@pytest.mark.parametrize("hidden", [True, False], ids=["behind_the_work", "beside_the_work"])
+def test_a_vise_jaw_hidden_by_the_work_is_a_dashed_outline_with_its_leader_not_a_debt(hidden):
+    # Plan view from +Z: a bar standing taller than its jaws hides the jaw behind it, as a
+    # tall bar held on edge hides the rear jaw from the isometric camera. The jaw is the
+    # face the work seats on, so its position is still drawn.
+    box = [2, 2, 0, 8, 8, 1] if hidden else [12, 2, 0, 18, 8, 1]
+    meshes = [
+        _slab(0, 0, 10, 10, 2, (160, 175, 185), "part"),
+        _slab(box[0], box[1], box[3], box[4], 1, (120, 98, 76), "fixed_jaw"),
+    ]
+    spec = {
+        "setup_id": "S1",
+        "view": "plan",
+        "stock_box": [0, 0, 0, 10, 10, 2],
+        "components": [
+            {
+                "name": "fixed_jaw",
+                "role": "fixed_jaw",
+                "box_mm": box,
+                "center_mm": [(box[i] + box[i + 3]) / 2 for i in range(3)],
+                "meshes": ["fixed_jaw"],
+            }
+        ],
+    }
+    diagram = _Diagram(meshes, spec)
+    diagram.render()
+
+    assert diagram.render_debts == []
+    seen = [path for label, path in diagram.leaders if label == "FIXED JAW"]
+    if not hidden:
+        assert [_tag_at(diagram.canvas, *path[0]) for path in seen] == ["fixed_jaw"]
+        return
+    assert seen == []
+    # Its leader stops at an open ring on the dashed outline of its box, never on the
+    # work in front of it.
+    (path,) = [path for label, path in diagram.hidden_leaders if label == "FIXED JAW"]
+    left, top = diagram.canvas.project((box[0], box[4], 0))
+    right, bottom = diagram.canvas.project((box[3], box[1], 0))
+    x, y = path[0]
+    assert left - 1 <= x <= right + 1 and top - 1 <= y <= bottom + 1
+    assert min(abs(x - left), abs(x - right), abs(y - top), abs(y - bottom)) < 1
+    assert _pixel(diagram.canvas, math.floor(x), math.floor(y)) == _WHITE
+
+
 def _block(box, colour, tag):
     """A tagged box solid: its six faces as twelve triangles."""
     x0, y0, z0, x1, y1, z1 = box

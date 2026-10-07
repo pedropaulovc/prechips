@@ -226,7 +226,12 @@ def _frame(bundle, feature):
 def _setup_footprint(bundle, setup, target):
     """The setup-frame X/Y box enclosing ``target``'s footprint (:func:`_corners`), else
     None. Turned against the setup it holds more than the feature, so it can prove a
-    surface held, never a cut."""
+    surface held, never a cut. A process end face's footprint is its section of the stock
+    this setup receives (:func:`prechips.process_features.arriving_bounds`)."""
+    from prechips.process_features import arriving_bounds, process_of
+
+    if process_of(target) and target.get("bounds"):
+        target = {**target, "bounds": arriving_bounds(bundle, setup, target)}
     points = _corners(bundle, target, setup_frame(bundle, setup))
     if points is None:
         return None

@@ -3388,6 +3388,7 @@ class _Setup:
         self.box = None  # bounding box of the stock as held (seat, top)
         # certain jaw boxes {"fixed", "moving"} plus "possible": [(fixed side?, box)] once placed
         self.jaws = None
+        self.jaw_bar = None  # a vise's placed round bar between the work and the moving jaw
         self.hold = None  # the declared hold, once it is declared without a reason
         self.fixture_reason = None
         # Placed fixture components: {name, role, solid, bbox, box, rotating}; their union is
@@ -3752,13 +3753,15 @@ class _Setup:
             return None, str(exc)
 
     def _process_removal(self, op, stock):
-        """(the analytic centre an axial process op drills in ``stock``, or None, and why
-        it is unknown). Finished material stays, so a tool reaching it hits the part."""
+        """(the analytic stock a non-turning process op removes from ``stock``, or None, and
+        why it is unknown). A centre drill removes its centre; a milled end face removes the
+        whole slab of ``stock`` beyond its plane, which must spare every finished target.
+        Finished material stays, so a tool reaching it hits the part."""
         cut = op["process_cut"]
         if cut.get("reason"):
             return None, cut["reason"]
-        if cut.get("kind") != "centre_hole":
-            return None, f"{cut['label']}: only a lathe facing op cuts a process end face"
+        if cut.get("kind") == "end_face":
+            return self._slab_removal(cut, stock)
         try:
             angle = cut.get("point_angle_deg")
             exact, led = (_centre_solids(cut, angle, lead) for lead in (0.0, 1.0))
@@ -3774,6 +3777,33 @@ class _Setup:
         removal = stock.common(led)
         if self.protected.Volume > HIT_MM3:
             removal = removal.cut(self.protected)
+        if removal.isNull() or removal.Volume <= HIT_MM3:
+            return None, None
+        return removal, None
+
+    def _slab_removal(self, cut, stock):
+        """(the stock beyond a milled process end face, or None, and why it is unknown).
+
+        The half-space on the far side of the plane from ``axis`` (into the kept material)
+        is removed whole: a squaring cut faces the entire section. Cutting into finished
+        target material is never stock preparation, so it leaves the stock unknown with the
+        volume it would spoil.
+        """
+        try:
+            at, axis = _process_place(cut)
+        except _Unknown as exc:
+            return None, str(exc)
+        centre = self.matrix.inverse().multVec(stock.BoundBox.Center)
+        reach = stock.BoundBox.DiagonalLength + 10.0 + (centre - at).Length
+        beyond = self._placed(Part.makeCylinder(reach, reach, at - axis * reach, axis))
+        removal = stock.common(beyond)
+        if self.protected.Volume > HIT_MM3:
+            spoiled = removal.common(self.protected).Volume
+            if spoiled > HIT_MM3:
+                return None, (
+                    f"{cut['label']} plane cuts {_r(spoiled)} mm^3 of finished target "
+                    "material; the prepared blank is smaller than the part"
+                )
         if removal.isNull() or removal.Volume <= HIT_MM3:
             return None, None
         return removal, None
@@ -5278,6 +5308,8 @@ class _Setup:
             if hold["kind"] == "vise":
                 for side in ("fixed", "moving"):
                     self._add(side + "_jaw", "jaw", _box_shape(self.jaws[side]), self.jaws[side])
+                if self.jaw_bar is not None:
+                    self._add("jaw_bar " + self.hold["jaw_bar"]["name"], "fixture", self.jaw_bar)
                 self.fixture_possible = [
                     (("fixed" if fixed else "moving") + "_jaw_possible", box)
                     for fixed, box in self.jaws["possible"]
@@ -5761,9 +5793,16 @@ class _Setup:
             lo_corner[c_axis], hi_corner[c_axis] = c0, c1
             return (lo_corner[0], lo_corner[1], top - height, hi_corner[0], hi_corner[1], top)
 
-        high, low = (hi, hi + depth), (lo - depth, lo)
-        fixed_c, moving_c = (high, low) if sign > 0 else (low, high)
+        # A round bar between the work and the moving jaw holds that jaw off by its Ø.
+        bar = hold.get("jaw_bar")
+        gap = bar["dia_mm"] if bar else 0.0
+        fixed_c = (hi, hi + depth) if sign > 0 else (lo - depth, lo)
+        moving_c = (lo - gap - depth, lo - gap) if sign > 0 else (hi + gap, hi + gap + depth)
         jaw_a = (centre - width / 2, centre + width / 2) if exact else (a_lo, a_hi)
+        if bar:
+            reason = self._jaw_bar(bar, sign, a_axis, c_axis, lo if sign > 0 else hi, jaw_a)
+            if reason:
+                return reason
         self.jaws = {
             "fixed": box(*jaw_a, *fixed_c),
             "moving": box(*jaw_a, *moving_c),
@@ -5811,6 +5850,26 @@ class _Setup:
         else:
             facts["claimed_in_jaws"] = self._in_jaws(claimed)
         self._walls(facts)
+        return None
+
+    def _jaw_bar(self, bar, sign, a_axis, c_axis, plane, jaw_a):
+        """The round bar on the work's moving-jaw face, level with the middle of the work
+        held in the jaws and centred on them, or why it does not fit there."""
+        seat, upper = (
+            self.box[2],
+            min(self.box[2] + self.hold["jaw_above_parallels_mm"], self.box[5]),
+        )
+        radius, length = bar["dia_mm"] / 2, bar["length_mm"]
+        if 2 * radius > upper - seat + PLANE_TOL:
+            return (
+                f"jaw_bar {bar['name']} Ø{_r(2 * radius)} mm is taller than the "
+                f"{_r(upper - seat)} mm of work held in the jaws"
+            )
+        base, direction = [0.0, 0.0, (seat + upper) / 2], [0.0, 0.0, 0.0]
+        base[a_axis] = (jaw_a[0] + jaw_a[1]) / 2 - length / 2
+        base[c_axis] = plane - sign * radius
+        direction[a_axis] = 1.0
+        self.jaw_bar = Part.makeCylinder(radius, length, V(*base), V(*direction))
         return None
 
     def _contact(self, zone, c_axis, plane, outward, seat, top):
@@ -7715,7 +7774,12 @@ class _Setup:
             if not _turned(op):
                 if self.stock_reason is not None:
                     return self._op_unknown(op, self.stock_reason)
-                return self._process_axial_op(op)
+                if process.get("kind") != "end_face":
+                    return self._process_axial_op(op)
+                # A milled end face is sampled like any milled claim: its transient section.
+                _, reason = self._process_removal(op, self.part)
+                if reason is not None:
+                    return self._op_unknown(op, reason)
         if isinstance(op.get("joint_cut"), dict):
             if self.stock_reason is not None:
                 return self._op_unknown(op, self.stock_reason)
@@ -7863,7 +7927,9 @@ class _Setup:
         A hole op's own tool-axis bores are not internal corners: sizing owns their diameter.
         Nor are those bores' own matched caps (:meth:`_own_caps`), which its tool cuts.
         """
-        if any(index >= len(self.finished.Faces) for index in indices):
+        # A process face (a planar blank face) is one analytic plane: no corner of its own.
+        transient = {index for index in indices if index >= len(self.finished.Faces)}
+        if transient - self.owner.process_planes:
             return "transient joint targets do not establish finished-part corner topology"
         part, faces, labels = self.finished, self.faces, self.owner.labels
         radii, problems = set(), []
