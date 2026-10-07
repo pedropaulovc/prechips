@@ -502,9 +502,11 @@ Not covered (never read, so never an error):
   a size with an angle on any edge (`0.5 x 45°`, `45 deg`, `45 (degrees)`), a
   size a feature verb governs (`drill`, `bore`, `ream`, `tap`, `counterbore`,
   `countersink`, `spot`, `spotface`, `chamfer` or `bevel` nearest before `the
-  <row>` in its clause: `drill and tap the stud to Ø4 x 8 deep` is the hole's),
-  a bought or existing part's note, and a shop-made item's positions, fits and
-  fasteners restated in text;
+  <row>` in its clause: `drill and tap the stud to Ø4 x 8 deep` is the hole's;
+  before a tool or stock noun, as in `drill rod` or `tap wrench`, the word is
+  no verb), a bought or existing part's note, and a shop-made item's
+  positions, fits and fasteners restated in text. The governing verb is found
+  by that nearest-verb rule, not by a parse;
 - picture labels other than the cut (contact coordinates, stock sizes, jaw and
   Z labels), the picture's holder name against the CLEARANCE row's, and a
   clearance restated in op text.

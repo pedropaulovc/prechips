@@ -882,11 +882,25 @@ def test_a_box_size_not_given_as_the_named_row_s_whole_size_is_not_read(note):
         "Drill Ø4 x 8 deep in the stud",
         "Drill and tap the stud to Ø4 x 8 deep",
         "spot-drill, then drill the stud Ø4 x 8 and counterbore the stud Ø6 x 3",
+        "Drill a hole in the stud to Ø4 x 8 deep",
     ],
 )
 def test_a_cylinder_size_not_given_as_the_named_row_s_whole_size_is_not_read(note):
     row = rows(jig(rod("stud", 6.49, 76.5, note)))["S1"]
     assert (row.status, row.numbers["claims"]) == ("not_applicable", 0)
+
+
+@pytest.mark.parametrize(
+    "note",
+    [
+        "turn from drill rod the stud Ø10 x 50",
+        "drill rod the stud Ø10 x 50",
+        "tap stock the stud 10 x 50",
+    ],
+)
+def test_a_feature_word_naming_a_tool_or_stock_governs_no_size(note):
+    row = rows(jig(rod("stud", 10, 50, note)))["S1"]
+    assert (row.status, row.numbers["claims"]) == ("error", 1)
 
 
 def test_a_bought_or_existing_part_s_note_restates_no_printed_size():

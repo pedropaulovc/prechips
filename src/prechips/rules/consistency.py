@@ -30,9 +30,10 @@ not matter: the fact has one source, and the text may only leave it to that sour
   ``x`` or unit follows. An angle on any edge (``°``, ``deg``, ``degrees``, bare or in
   parentheses) makes it no size, and so does a feature verb (drill, bore, ream, tap,
   counterbore, countersink, spot, spotface, chamfer, bevel) nearest before ``the <row>`` in
-  its clause: that is the hole's or chamfer's size. The row's Size mm prints the size; each
-  row the name denotes is its own finding, whatever its numbers or unit (a size before a
-  finishing step is an allowance over the printed one).
+  its clause (not one before a tool or stock noun, ``drill rod``): that is the hole's or
+  chamfer's size. The row's Size mm prints the size; each row the name denotes is its own
+  finding, whatever its numbers or unit (a size before a finishing step is an allowance over
+  the printed one).
 
 Compared. A ``T<n>`` in a setup's or op's text names that setup's TOOLS row:
 
@@ -125,11 +126,15 @@ _ANGLE = frozenset({"°", "deg", "degs", "degree", "degrees"})
 _EDGE_WORDS = frozenset({"wide", "high", "thick", "long", "deep"})
 _CLAUSE = frozenset({";", ",", ":", ".", "!"})
 # The verb nearest before ``the <row>`` in its clause: one that makes a feature on the row (a
-# hole or a chamfer) gives that feature's size, one that shapes the row its own.
+# hole or a chamfer) gives that feature's size, one that shapes the row its own. A feature
+# word before a tool or stock noun names the tool or stock (``drill rod``), not the verb.
 _FEATURE_VERB = re.compile(
     r"drill(?:s|ed|ing)?|bor(?:e|es|ed|ing)|ream(?:s|ed|ing)?|tap(?:s|ped|ping)?"
     r"|counterbor(?:e|es|ed|ing)|countersink(?:s|ing)?|countersunk|spot(?:s|ted|ting)?"
     r"|spotfac(?:e|es|ed|ing)|chamfer(?:s|ed|ing)?|bevel(?:s|ed|led|ing|ling)?"
+)
+_TOOL_NOUNS = frozenset(
+    {"rod", "bit", "bits", "press", "chuck", "wrench", "bar", "gauge", "gage", "blank", "stock"}
 )
 _SHAPE_VERB = re.compile(
     r"turn(?:s|ed|ing)?|mill(?:s|ed|ing)?|fac(?:e|es|ed|ing)|saw(?:s|n|ed|ing)?|cut(?:s|ting)?"
@@ -604,12 +609,17 @@ def _size_at(tokens, i):
 
 def _feature_verb(tokens, i):
     """Whether the verb nearest before ``tokens[i]`` in its clause makes a feature."""
-    for kind, value, *_ in reversed(tokens[:i]):
+    for j in range(i - 1, -1, -1):
+        kind, value = tokens[j][:2]
         if value in _CLAUSE:
             return False
-        if kind == "word" and _FEATURE_VERB.fullmatch(value):
+        if kind != "word":
+            continue
+        if _FEATURE_VERB.fullmatch(value):
+            if j + 1 < i and tokens[j + 1][1] in _TOOL_NOUNS:
+                continue
             return True
-        if kind == "word" and _SHAPE_VERB.fullmatch(value):
+        if _SHAPE_VERB.fullmatch(value):
             return False
     return False
 
