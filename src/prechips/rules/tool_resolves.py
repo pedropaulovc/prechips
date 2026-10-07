@@ -2,7 +2,8 @@
 
 A saw cut has no spindle, collet or holder: its assembly is a ``bandsaw`` blade on
 a mill, bench or bandsaw machine, and the cut is located by ``cut_plane``. A coating
-op has no tool: it names its process, an outside service or in-house consumables.
+op has no tool: it names its process, an outside service or in-house consumables. A
+shop-made item's make operation names a ``tools`` key and states its cutting data.
 """
 
 from ..findings import Finding
@@ -11,9 +12,13 @@ from .resolution import (
     MANUAL,
     SAW_OPS,
     UNKNOWN,
+    WORKHOLDING_CATEGORIES,
     coating_process,
-    inventory_category,
+    identity,
     length_mm,
+    make_op_unknowns,
+    make_ops,
+    make_tool,
     named_item,
     named_references,
     number,
@@ -21,8 +26,9 @@ from .resolution import (
     record,
     resolve,
     same_length,
-    selected_references,
+    select,
     setup_items,
+    shop_made_item,
     uncertain,
 )
 
@@ -108,13 +114,72 @@ def _coating(subject, op, bundle):
     )
 
 
+def _make_ops(bundle):
+    """One finding per make operation (:func:`make_ops`) of each shop-made item a setup
+    holds with: its ``tool`` must be a ``tools`` key the shop list has (:func:`make_tool`:
+    no other category or machine accessory stands in) and trusts, and every fact its line
+    prints known; anything else is never a pass."""
+    findings, done = [], set()
+    for setup in bundle.plan.get("setups") or []:
+        for category, ref, *_ in setup_items(bundle, setup):
+            if category not in WORKHOLDING_CATEGORIES or (category, ref) in done:
+                continue
+            done.add((category, ref))
+            item = f"{category}.{ref}"
+            ops = make_ops(shop_made_item(bundle, ref, category))
+            for index, (solid, op) in enumerate(ops, 1):
+                subject = f"{item} make op {index}"
+                unknowns = make_op_unknowns(op)
+                reference = record(op).get("tool", UNKNOWN)
+                tool = None if "tool" in unknowns else make_tool(bundle, reference)
+                if tool is not None and uncertain(tool):
+                    unknowns.append("tool verification")
+                unlisted = tool is None and "tool" not in unknowns
+                status = "error" if unlisted else "unknown" if unknowns else "pass"
+                reason = (
+                    f"tool {reference} is not in the shop's tools"
+                    if unlisted
+                    else f"{', '.join(unknowns)} not known"
+                    if unknowns
+                    else "its tool resolves and its cutting data is stated"
+                )
+                findings.append(
+                    Finding(
+                        "tool_resolves",
+                        subject,
+                        status,
+                        {
+                            "item": item,
+                            "make_op": index,
+                            "solid": record(solid).get("name"),
+                            "tool": reference,
+                            "present": tool is not None,
+                            "unknown": unknowns,
+                        },
+                        ["inventory make_ops", "docs/inventory.md Shop-made fixtures"],
+                        f"{subject}: {reason}.",
+                    )
+                )
+    return findings
+
+
 def evaluate(bundle):
     findings = []
-    for ref in sorted(selected_references(bundle.plan)):
-        item = resolve(bundle, None, ref)
+    # Each item a slot selects (setup_items), once: under its bare key when a bare reference
+    # reads the same category, else as ``<category>.<key>`` (a ``checks`` gauge ``pins``
+    # is ``gauges.pins`` when a fixture ``pins`` is listed first). Read as the rules read
+    # it, so a whole set with no member is not a tool.
+    selected = {}
+    for setup in bundle.plan.get("setups") or []:
+        for category, ref, _ in setup_items(bundle, setup):
+            bare = select(bundle, ref)[0] in (None, category)
+            selected.setdefault(ref if bare else f"{category}.{ref}", (category, ref))
+    for subject, (category, ref) in sorted(selected.items()):
+        item = resolve(bundle, category, ref)
         status = "error" if item is None else "unknown" if uncertain(item) else "pass"
         numbers = {
             "reference": ref,
+            "category": category,
             "present": item is not None,
             "verified": item is not None and not uncertain(item),
         }
@@ -126,11 +191,11 @@ def evaluate(bundle):
         findings.append(
             Finding(
                 "tool_resolves",
-                ref,
+                subject,
                 status,
                 numbers,
                 ["inventory selected identity/declared member coverage", "PLAN.md §3.3"],
-                f"{ref}: "
+                f"{subject}: "
                 + (
                     "not listed in the inventory."
                     if item is None
@@ -142,19 +207,13 @@ def evaluate(bundle):
         )
     # An item the prose names (``gauges.granite-surface-plate`` in a make note, a record
     # blank's gauge) must be in the shop list: the traveler prints its name, and a name it
-    # cannot find, or an item still to verify, is unknown, never a pass. So must the item a
-    # slot reads when another category lists the same key first: a ``checks`` gauge
-    # ``pins`` is ``gauges.pins``, not the ``fixtures.pins`` resolved above.
-    named = named_references(bundle)
-    for setup in bundle.plan.get("setups") or []:
-        for category, ref in setup_items(bundle, setup):
-            if category and category != inventory_category(bundle, ref.partition("/")[0]):
-                places = named.setdefault(f"{category}.{ref}", [])
-                where = f"Setup {record(setup).get('id', '?')}"
-                if where not in places:
-                    places.append(where)
+    # cannot find, or an item still to verify, is unknown, never a pass.
+    # One item is one finding, however it is spelled: a slot's ``tools.drills/#61`` and its
+    # bare ``drills/#61`` select the same item.
+    chosen = set(selected.values())
+    named = {k: v for k, v in named_references(bundle).items() if identity(bundle, k) not in chosen}
     for name, where in sorted(named.items()):
-        category, _, reference = name.partition(".")
+        category, reference, _ = select(bundle, name)
         item = named_item(bundle, name)
         verified = item is not None and not uncertain(item)
         places = "; ".join(where)
@@ -181,6 +240,7 @@ def evaluate(bundle):
                 ),
             )
         )
+    findings += _make_ops(bundle)
     for setup, op in operations(bundle):
         subject = f"{setup['id']}:{op['op']}"
         if op["do"] == "coating":

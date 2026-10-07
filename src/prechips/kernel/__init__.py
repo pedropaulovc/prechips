@@ -22,8 +22,7 @@ from prechips.rules.geometry_common import (
 )
 from prechips.rules.resolution import (
     HAND_FINISH,
-    WORKHOLDING_CATEGORIES,
-    inventory_category,
+    identity,
     number,
     record,
     resolve,
@@ -714,8 +713,9 @@ def _solids(item, owner):
             primitive["label"] = caption.strip()
         locates = solid.get("locates")
         if isinstance(locates, str) and locates.strip() and locates != UNKNOWN:
-            # The locating element: a locate clamp must prove it bears on the stock.
-            primitive["locates"] = True
+            # The locating element: a locate clamp proves it bears the way it declares.
+            bears = solid.get("bears")
+            primitive["locates"] = bears if bears in ("bore", "face") else UNKNOWN
         if void:
             primitive["void"] = True
             if cuts is not None:
@@ -1093,10 +1093,12 @@ def _supports_inputs(bundle, setup, hold, result, debts, gaps):
     supports = hold.get("supports")
     values = supports if isinstance(supports, list) else [supports]
     drawn = record(result.get("riser")).get("name")
+    # The riser drawn from ``supports`` is that item however the entry spells it.
+    riser = identity(bundle, drawn, "fixtures") if drawn is not None else None
     follow, steady = [], []
     for value in values:
         reference = record(value).get("ref", UNKNOWN) if isinstance(value, dict) else value
-        if reference in _ABSENT or reference == drawn:
+        if reference in _ABSENT or identity(bundle, reference, "fixtures") == riser:
             continue
         if isinstance(value, dict) and ("jaw_lead_mm" in value or "at_z_mm" in value):
             item = measurement_item(bundle, "fixtures", reference) if reference != UNKNOWN else {}
@@ -1126,8 +1128,7 @@ def _supports_inputs(bundle, setup, hold, result, debts, gaps):
 
 def hold_inputs(bundle, setup):
     hold = record(setup.get("hold"))
-    category = inventory_category(bundle, hold.get("fixture"), WORKHOLDING_CATEGORIES)
-    fixture = measurement_item(bundle, category, hold.get("fixture")) if category else {}
+    fixture = measurement_item(bundle, "workholding", hold.get("fixture"))
     kind = record(fixture).get("kind", UNKNOWN)
     result = {"kind": kind, "method": hold.get("method", UNKNOWN)}
     # Scene-only debts (supports below the seat) and gaps (undrawn possible obstacles).
@@ -1181,11 +1182,25 @@ def hold_inputs(bundle, setup):
     return result
 
 
+def _inspections_after(setup, sent, render):
+    """``render`` with each inspection's route ``position`` replaced by ``after``: the
+    subject of the last op sent to the kernel (``sent``) before it in the setup's route,
+    or None when none precedes it. The kernel draws the stock as it stands there."""
+    for inspection in render.get("inspections", []):
+        before = [
+            op
+            for op in setup["ops"][: inspection.pop("position")]
+            if any(op is other for other in sent)
+        ]
+        inspection["after"] = f"{setup['id']}:{before[-1]['op']}" if before else None
+    return render
+
+
 def build_job(bundle):
     from prechips.joint_features import primitives_mm, setup_joint
     from prechips.process_features import primitives_mm as process_primitives_mm
     from prechips.rules.coordinates import evaluate as coordinate_findings
-    from prechips.rules.coordinates import revolved_located
+    from prechips.rules.coordinates import faced_aims, revolved_located
     from prechips.rules.geometry_common import (
         complete_form_subjects,
         cutting_action,
@@ -1210,6 +1225,11 @@ def build_job(bundle):
             transformed = UNKNOWN
         elif units == "in":
             transformed["origin"] = [value * 25.4 for value in transformed["origin"]]
+        sent = [
+            op
+            for op in setup["ops"]
+            if cutting_action(op) is not False or op.get("do") in HAND_FINISH
+        ]
         setups.append(
             {
                 "id": setup["id"],
@@ -1217,11 +1237,12 @@ def build_job(bundle):
                 "hold": hold_inputs(bundle, setup),
                 "ops": [
                     op_inputs(bundle, setup, op, finishing, complete, coordinates.get(setup["id"]))
-                    for op in setup["ops"]
-                    if cutting_action(op) is not False or op.get("do") in HAND_FINISH
+                    for op in sent
                 ],
                 "stock_in": setup.get("stock_in", UNKNOWN),
-                "render": setup_annotations(bundle, setup, coordinates.get(setup["id"], {})),
+                "render": _inspections_after(
+                    setup, sent, setup_annotations(bundle, setup, coordinates.get(setup["id"], {}))
+                ),
                 "joint": setup_joint(bundle, setup),
                 # A lathe setup's spindle axis is setup Z: rotating fixture solids revolve.
                 "machine_kind": record(resolve(bundle, "machines", setup.get("machine"))).get(
@@ -1231,8 +1252,21 @@ def build_job(bundle):
                 # measures their faces of revolution about setup Z in any setup (a turning
                 # setup measures every feature) so the axis through X0 Y0 can locate them.
                 "locate_revolved": revolved_located(setup, bundle.feature_definitions),
+                # The features whose faces stock_state's top_z / bottom_z name: the engine
+                # gives their heights and the entering stock's over them (consistency).
+                "stock_features": sorted(
+                    {
+                        name
+                        for name in (
+                            record(setup.get("stock_state")).get(key)
+                            for key in ("top_feature", "bottom_feature")
+                        )
+                        if isinstance(name, str) and name not in ("", UNKNOWN)
+                    }
+                ),
             }
         )
+    aimed = faced_aims(bundle)
     return {
         "version": 1,
         "step_path": str(Path(bundle.paths["step"]).resolve())
@@ -1246,6 +1280,8 @@ def build_job(bundle):
         "joint_features": primitives_mm(bundle),
         "process_features": process_primitives_mm(bundle),
         "as_is_faces": record(bundle.plan.get("stock")).get("as_is_faces", UNKNOWN),
+        # The part the plan cuts: its faced aims move those finished faces.
+        **({"aimed_faces": aimed} if aimed else {}),
         "stock": stock_inputs(bundle),
         "setups": setups,
     }
@@ -1444,6 +1480,7 @@ def engine_job(job):
         "joint_features": job.get("joint_features", {}),
         "process_features": job.get("process_features", {}),
         "as_is_faces": job["as_is_faces"],
+        **({"aimed_faces": job["aimed_faces"]} if job.get("aimed_faces") else {}),
         "stock": job["stock"],
         "setups": [
             {
@@ -1456,6 +1493,7 @@ def engine_job(job):
                 "machine_kind": setup["machine_kind"],
                 "locate_revolved": setup["locate_revolved"],
                 "render": setup.get("render", {}),
+                "stock_features": setup.get("stock_features", []),
             }
             for setup in job["setups"]
         ],

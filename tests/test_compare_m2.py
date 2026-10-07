@@ -5,6 +5,9 @@ import math
 
 import pytest
 from test_cli import run_cli
+from test_envelope_m5 import review_bundle
+
+from prechips import cli
 
 STOCK = """[stock]
 form = "flat_bar"
@@ -362,6 +365,37 @@ align = {indicator = "dti", limit_mm = 0.0254, over_mm = 100.0, cite = "scratch"
     _, rows = compare([plan], tmp_path / "out")
     assert rows[0]["fixtures"] == sorted(expected)
     assert rows[0]["setups"] == 2
+
+
+# A holding item is the (category, key) it selects: two spellings of one item list it
+# once, and one key in two categories (a collet and a plate) lists both, each named by
+# its category, through the hold's slots and its prose fields alike.
+@pytest.mark.parametrize(
+    ("hold", "listed"),
+    [
+        ({"fixture": "fixtures.holder", "locator": "holder"}, ["holder"]),
+        ({"fixture": "holder", "locator": "fixtures.holder"}, ["holder"]),
+        (
+            {"fixture": "holders.holder", "locator": "fixtures.holder"},
+            ["fixtures.holder", "holders.holder"],
+        ),
+        (
+            {"fixture": "holders.holder", "parallels": "fixtures.holder"},
+            ["fixtures.holder", "holders.holder"],
+        ),
+    ],
+    ids=["same-item-slot-first", "same-item-prose-first", "two-items-prose", "two-items-slots"],
+)
+def test_compare_lists_each_holding_item_once_by_the_item_it_selects(hold, listed, capsys):
+    data = review_bundle()
+    data.plan["part"] = "identity"
+    data.inventory["fixtures"]["holder"] = {"kind": "custom", "name": "drill-location plate"}
+    data.plan["setups"][0]["hold"] = hold
+    report = {"findings": [], "expected_exit": 0, "inputs": {}}
+    row = cli._comparison_row(data, report, "plan.toml")
+    assert row["fixtures"] == listed
+    cli._print_comparison([row])
+    assert f"| {', '.join(listed)} |" in capsys.readouterr().out
 
 
 @pytest.mark.parametrize(

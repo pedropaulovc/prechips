@@ -366,7 +366,10 @@ Front sheet (sheet 1), in this order:
    it print one line naming that table's sheet.
 4. **TOOLS FOR THIS SETUP**: `T#`, tool, insert / size / material (with the
    shank, `shank Ø12.700`, when it differs from the cutting diameter), holder or
-   QCTP station and the ops that use it. Op rows carry only the `T#`.
+   QCTP station and the ops that use it. Op rows carry only the `T#`. One `T#`
+   per tool + holder pair, as the items they select: `tools.drill` and `drill`
+   are one drill, `holders.er20` and `er20` one holder. A lathe's pairs keep
+   their numbers on every setup on that machine, however the setups spell it.
 5. **DRO ZERO** (not on bench setups — a machine of kind `bench` or `manual`
    running only fit and inspect ops has no spindle, DRO or axes — nor on a saw
    cut-off setup, located by the cut plane in its op row): positive

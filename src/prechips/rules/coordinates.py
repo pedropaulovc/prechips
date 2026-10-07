@@ -5,7 +5,8 @@ components propagate only through nonzero basis coefficients. Local authored Z
 can substitute only an unknown model transform in an unbound frame, retaining
 local_from operation provenance. No tolerance-band midpoint defines geometry: a plan
 ``aims`` entry moves only a located feature's DRO target along its height-like band to a
-stated value, and the geometry stays nominal.
+stated value, and the geometry stays nominal; one naming a ``face`` instead moves that
+faced plane of the part the kernel cuts (:func:`faced_aims`), never the STEP.
 A basis axis is known only when orthonormal with its frame's other numeric axes
 (:func:`frame_axes`): loading checks only a complete frame.
 
@@ -40,7 +41,15 @@ from .resolution import (
     setup_frame,
     uncertain,
 )
-from .tip_endpoints import FACING, HOLE_OPS, POCKETING, _covers_xy, forms_face, stock_states
+from .tip_endpoints import (
+    FACING,
+    HOLE_OPS,
+    POCKETING,
+    _covers_xy,
+    forms_face,
+    stock_states,
+    top_reader,
+)
 
 AXES = ("x", "y", "z")
 CENTRE_OPS = HOLE_OPS | {"center"}
@@ -215,6 +224,102 @@ def aim_band_error(manifest, name, feature, aim):
     )
 
 
+def faced_aim_error(plan, manifest, name, aim):
+    """Why plan ``aims.<name>`` naming a ``face`` names no faced length (bad input), else
+    None: the face must be one of the exported feature's own ``faces``, the feature must
+    declare the ``lower_z`` and ``upper_z`` planes its length runs between, and a facing op
+    (:data:`FACING`) on the feature must claim the face (it names no ``faces``, or names
+    that one): an aim moves only a plane the plan cuts."""
+    face = aim.get("face")
+    if face is None:
+        return None
+    feature = mapping(mapping(manifest.get("features")).get(name))
+    faces = feature.get("faces")
+    if not isinstance(faces, list) or face not in faces:
+        return f"aims.{name}.face {face} is not one of features.{name}.faces"
+    missing = [key for key in ("lower_z", "upper_z") if key not in feature]
+    if missing:
+        return (
+            f"aims.{name}.face moves a plane of the length between features.{name}.lower_z "
+            f"and upper_z; the feature declares no {' or '.join(missing)}"
+        )
+    if not faced_aim_claims(plan, name, face):
+        return f"no facing op claims aims.{name}.face {face}, so the aim moves no cut"
+    return None
+
+
+def faced_aim_claims(plan, name, face):
+    """The facing ops (:data:`FACING`) on feature ``name`` that claim ``face`` (they name no
+    ``faces``, or name that one), in plan order."""
+    return [
+        op
+        for setup in plan.get("setups", [])
+        for op in setup.get("ops", [])
+        if op.get("do") in FACING
+        and name in op_features(op)
+        and (not isinstance(op.get("faces"), list) or face in op["faces"])
+    ]
+
+
+def faced_aims(bundle):
+    """The kernel's faced-aim inputs: for each plan aim naming a ``face``
+    (:func:`faced_aim_error` holds at load), that face, the model unit ``axis`` of its
+    feature's frame Z, the feature's ``lower_z``/``upper_z`` planes as mm offsets along it,
+    the aimed ``value_mm``, the requirement's printed band in mm (``band_mm``,
+    :func:`printed_band`) and ``delta_mm``: the aimed ``value_mm`` less their separation,
+    the distance the face moves outward so the faced length reads the aim. The kernel cuts
+    that part, so every setup's stock, frame heights and checks stand on one face position,
+    and measures every aimed length on it. A record carries a ``reason`` instead when units,
+    the printed band, the planes or the frame are unknown, or the requirement's declared
+    nominal is not the planes' separation (the length they bound is not the one the band
+    holds): no known band authorizes a move."""
+    manifest = bundle.features
+    scale = UNIT_MM.get(manifest.get("units"))
+    frames = mapping(manifest.get("frames"))
+    result = []
+    for name, aim in mapping(bundle.plan.get("aims")).items():
+        if aim.get("face") is None:
+            continue
+        requirement = aim["requirement"]
+        record = {"feature": name, "face": aim["face"], "requirement": requirement}
+        feature = mapping(mapping(manifest.get("features")).get(name))
+        lower, upper = feature.get("lower_z"), feature.get("upper_z")
+        frame = mapping(frames.get(feature.get("frame", "model")))
+        axis = frame_axes(frame)[2]
+        origin = mapping_vector(frame.get("origin"))
+        nominal = feature.get(f"{requirement}_nominal", UNKNOWN)
+        band = printed_band(manifest, feature, requirement)
+        if scale is None:
+            record["reason"] = "feature units are not mm or in, so the aim moves no face"
+        elif band == UNKNOWN:
+            record["reason"] = (
+                f"features.{name}.{requirement} has no known printed band, so the aim moves no face"
+            )
+        elif not (number(lower) and number(upper) and lower < upper):
+            record["reason"] = f"features.{name}.lower_z/upper_z are not two ordered planes"
+        elif not all(number(v) for v in (*axis, *origin)):
+            record["reason"] = f"features.{name}'s frame is not fully declared"
+        elif f"{requirement}_nominal" in feature and not (
+            number(nominal) and abs(nominal - (upper - lower)) <= _JOIN_TOL
+        ):
+            record["reason"] = (
+                f"features.{name}.{requirement}_nominal is not the lower_z-upper_z "
+                "separation, so moving one of those planes does not set it"
+            )
+        else:
+            base = _dot(origin, axis)
+            record.update(
+                axis=axis,
+                lower_mm=round((base + lower) * scale, 9),
+                upper_mm=round((base + upper) * scale, 9),
+                value_mm=aim["value_mm"],
+                band_mm=[round(limit * scale, 9) for limit in band],
+                delta_mm=round(aim["value_mm"] - (upper - lower) * scale, 9),
+            )
+        result.append(record)
+    return result
+
+
 def _dot(a, b):
     return sum(x * y for x, y in zip(a, b, strict=True))
 
@@ -352,9 +457,10 @@ def _measure(bundle, name, points, seen=(), targets=None):
 
 
 def _plan_aim(bundle, name):
-    """``name``'s own plan ``aims`` record (owner, requirement, value, reason), else None."""
+    """``name``'s own plan ``aims`` record (owner, requirement, value, reason), else None;
+    a faced aim (one naming a ``face``, :func:`faced_aims`) moves the part, no DRO target."""
     aim = mapping(mapping(bundle.plan.get("aims")).get(name))
-    if not aim:
+    if not aim or aim.get("face") is not None:
         return None
     return {
         "feature": name,
@@ -462,11 +568,14 @@ def planned_point(bundle, name, seen=()):
 
 def dro_point(point, grid):
     """A located target as the DRO prints it on ``grid`` (:func:`dro_grid`): each axis at
-    its nearest grid step, so it moves at most half a step; unknown unless all known."""
+    its nearest grid step (:func:`dro_steps`: half a step away from zero), so it moves at
+    most half a step; unknown unless all known."""
     if not all(number(v) for v in point):
         return [UNKNOWN] * 3
+    from prechips.kernel.render_diagram import dro_steps
+
     step, decimals = grid
-    return [round(round(v / step) * step, decimals) + 0.0 for v in point]
+    return [round(dro_steps(v, step) * step, decimals) + 0.0 for v in point]
 
 
 def _planned_rows(rows, planned, aims, frame, grid):
@@ -774,9 +883,12 @@ def dro_z(value, grid):
 
 def dro_nearest(value, grid):
     """A position as the DRO dials it on ``grid``: the nearest grid point (a hole axis has
-    no safe side); an unknown stays unknown."""
+    no safe side), half a step away from zero (:func:`dro_steps`); an unknown stays
+    unknown."""
+    from prechips.kernel.render_diagram import dro_steps
+
     step, decimals = grid
-    return round(round(value / step) * step, decimals) if number(value) else UNKNOWN
+    return round(dro_steps(value, step) * step, decimals) if number(value) else UNKNOWN
 
 
 def _to_segment(point, a, b):
@@ -1955,7 +2067,7 @@ def _cleared_floor(op, cleared, features):
     return min(floors) if floors else None
 
 
-def _z_levels(op, before, declared, cleared, features, grid, units):
+def _z_levels(op, before, declared, cleared, features, grid, units, printed_top):
     """The axial Z levels of a milling op that authors ``doc_mm``, else None.
 
     Levels step from the op's start surface down to its DRO depth, each on the DRO grid and
@@ -1963,7 +2075,9 @@ def _z_levels(op, before, declared, cleared, features, grid, units):
     starts at its feature's declared setup ``entry_z``, else the current top. A
     wall-finishing op keeps that start, as its flank engages the whole wall; any other op
     starts lower only on an earlier face or pocket op's floor that provably cleared all of
-    its region (:func:`_cleared_floor`).
+    its region (:func:`_cleared_floor`). A start on the top prints as the setup prints the
+    top before the op (``printed_top()``, :func:`~.tip_endpoints.operative_z`), any other
+    on the grid (``dro_z``), and the levels step down from it.
     """
     if op.get("do") not in _LEVEL_OPS or "doc_mm" not in op or "to_z" not in op:
         return None
@@ -1974,17 +2088,21 @@ def _z_levels(op, before, declared, cleared, features, grid, units):
     if floor is not None and number(start) and floor < start:
         start, basis = floor, "floor of an earlier op that cleared this op's whole region"
     end, doc = dro_z(op["to_z"], grid), op["doc_mm"]
-    record = {"start_z": start, "start_basis": basis, "dro_start_z": dro_z(start, grid)}
+    if basis == "setup top_z":
+        printed = printed_top() if number(start) else UNKNOWN
+    else:
+        printed = dro_z(start, grid) if number(start) else UNKNOWN
+    record = {"start_z": start, "start_basis": basis, "dro_start_z": printed}
     record.update(dro_to_z=end, doc_mm=doc)
     scale = {"mm": 1.0, "in": 25.4}.get(units)
     step, decimals = grid
     depth = doc / scale if scale and number(doc) and doc > 0 else UNKNOWN
     lattice = math.floor(depth / step + 1e-6) * step if number(depth) else 0
-    if not (number(start) and number(end)) or lattice <= 0:
+    if not (number(printed) and number(end)) or lattice <= 0:
         record.update(levels=UNKNOWN, count=UNKNOWN)
         record["reason"] = "its start Z, DRO depth, plan units or doc_mm is unknown"
         return record
-    levels, z = [], _grid(start - depth, step, decimals, True)
+    levels, z = [], _grid(printed - depth, step, decimals, True)
     while z > end + _WALL_TOL:
         levels.append(z)
         z = round(z - lattice, decimals)
@@ -3436,6 +3554,9 @@ def evaluate(bundle, *, pre_kernel=False):
         grid = dro_grid(bundle, setup)
         numbers["dro_grid"] = {"step": grid[0], "decimals": grid[1]}
         declared = mapping(mapping(setup.get("stock_state")).get("entry_z"))
+        # The stock top before op ``done`` as the setup prints it: a path starts or lifts
+        # from that surface.
+        top = top_reader(bundle, setup)
         states, cleared, plan_debts = stock_states(bundle, setup), [], []
         # The corner each blade op's DRO Z reads (the Z touch in effect when it cuts).
         readings = {}
@@ -3445,7 +3566,9 @@ def evaluate(bundle, *, pre_kernel=False):
             readings = blade_readings(bundle, setup)
         blade_unknown = False
         allowed_errors = []  # blade targets forming their face outside the op's to_z_band
-        for entry, (op, before, _) in zip(numbers["operations"], states, strict=True):
+        for done, (entry, (op, before, _)) in enumerate(
+            zip(numbers["operations"], states, strict=True)
+        ):
             if "to_z" in entry:
                 # The depth the DRO shows: rounded up, never deeper than authored.
                 entry["dro_to_z"] = dro_z(entry["to_z"], grid)
@@ -3461,7 +3584,8 @@ def evaluate(bundle, *, pre_kernel=False):
                         allowed_errors.append(error)
             levels = None
             if not lathe:
-                levels = _z_levels(op, before, declared, cleared, features, grid, units)
+                printed = functools.partial(top, before["top_z"], done=done)
+                levels = _z_levels(op, before, declared, cleared, features, grid, units, printed)
             if levels is not None:
                 entry["z_levels"] = levels
                 if levels["levels"] == UNKNOWN:
@@ -3595,7 +3719,7 @@ def evaluate(bundle, *, pre_kernel=False):
             for key in ("aim", "refused_aim"):
                 if key in rows[0]:
                     aim_cites.append(f"plan.aims.{rows[0][key]['feature']}")
-        for op, before, after in stock_states(bundle, setup):
+        for done, (op, before, after) in enumerate(stock_states(bundle, setup)):
             numbers["entry_surfaces"].append({"op": op["op"], **after["entry_z"]})
             contour = mapping(op.get("contour"))
             unknown |= op.get("contour") == UNKNOWN
@@ -3718,9 +3842,10 @@ def evaluate(bundle, *, pre_kernel=False):
                 elif contour.get("method") == "linear_table" and _rastered(op, contour):
                     approach = op.get("approach_mm", UNKNOWN)
                     scale = {"mm": 1.0, "in": 25.4}.get(units)
+                    printed_top = top(before["top_z"], done=done)
                     lift = (
-                        dro_z(before["top_z"] + approach / scale, grid)
-                        if scale and number(approach) and number(before["top_z"])
+                        dro_z(printed_top + approach / scale, grid)
+                        if scale and number(approach) and number(printed_top)
                         else UNKNOWN
                     )
                     raster, why = _raster(
@@ -3796,7 +3921,7 @@ def evaluate(bundle, *, pre_kernel=False):
             from .level_entry import level_paths
 
             paths, path_debts = level_paths(
-                bundle, setup, numbers, stock_states(bundle, setup), grid, units, dro_z
+                bundle, setup, numbers, stock_states(bundle, setup), grid, units, dro_z, top
             )
             if paths:
                 numbers["level_paths"] = paths

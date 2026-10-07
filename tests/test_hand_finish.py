@@ -145,10 +145,10 @@ def test_a_guided_file_stops_on_its_buttons_and_dimensions_the_holding_it_must_c
     # top: its button's rim is the west wall line, its stud stands 15 mm in. Filing the
     # west wall's leave reaches the button: guided, that is where the file stops, and the
     # holding the file must clear is the plate; unguided, it is a zero clearance. Only a
-    # button of the kit's declared OD whose rim lies on the filed face is a stop: a kit
-    # solid touching the unfiled wall, or a square block, is holding to clear. A setup that
-    # also machines has a CLEARANCE row for the file and one for the cutter, and its
-    # picture dimensions the least of them.
+    # button of the kit's declared OD whose rim lies on the filed face is a stop: one whose
+    # rim stands over the unfiled wall (X 4.8), a kit solid touching that wall, or a square
+    # block is holding to clear. A setup that also machines has a CLEARANCE row for the file
+    # and one for the cutter, and its picture dimensions the least of them.
     step = solids["island"]
     walls = _island_walls(engine, step)
     features = {"all": sum(walls.values(), []), "west": walls["west"], "east": walls["east"]}
@@ -199,9 +199,10 @@ def test_a_guided_file_stops_on_its_buttons_and_dimensions_the_holding_it_must_c
         return engine.job(step, features, setups, stock=ISLAND_BLANK)
 
     block = _box("clamp 1 kit:button", [5.0, 20.0, 20.0], [10.0, 10.0, 4.0])
+    over = {**disc, "at_mm": [9.8, 25.0, 20.0]}
     jobs = [job(True, disc), job(False, disc), job(True, disc, tangent), job(True, block)]
-    jobs.append(job(False, disc, machined=True))
-    guided, unguided, beside, square, mixed = (
+    jobs += [job(False, disc, machined=True), job(True, over)]
+    guided, unguided, beside, square, mixed, overhung = (
         result["setups"]["S2"]["render_scene"] for result in engine.run({"jobs": jobs})["results"]
     )
 
@@ -234,6 +235,9 @@ def test_a_guided_file_stops_on_its_buttons_and_dimensions_the_holding_it_must_c
     assert filed["mm"] == pytest.approx(0.0, abs=1e-6)
     assert finished == {"op": "20", "mm": "unknown", "tag": "unknown"}
     assert mixed["closest_cut"] is None
+    assert overhung["guide_stops"] == []
+    assert overhung["closest_cut"]["tag"] == "clamp 1 kit:button"
+    assert overhung["closest_cut"]["mm"] == pytest.approx(0.0, abs=1e-6)
 
 
 def _filed(data, claim):

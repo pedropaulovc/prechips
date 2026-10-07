@@ -184,7 +184,7 @@ def test_the_clearance_section_never_leaves_its_travel_lines_apart_from_its_tabl
     )
     sheet.surface_z = lambda setup, value, *args, **kwargs: value
     sheet.lathe = lambda setup: False
-    clearance = sheet.clearance(SPOT, {("c", None): "T4"})
+    clearance = sheet.clearance(SPOT, {(("tools", "c"), ("holders", None)): "T4"})
     texts = printed_pages(_sections([(filler, clearance) for filler in FILLERS]), tmp_path)
     moved = 0
     for run in _runs(texts, len(FILLERS)):

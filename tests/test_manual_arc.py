@@ -792,7 +792,7 @@ def test_a_negative_rough_leave_prints_a_stop_and_no_table_offset(tmp_path):
     kernel = {"status": "ok", "setups": {"S1": {"stock_bbox_mm": SWING}}}
     bundle = dataclasses.replace(load_bundle(plan), kernel=kernel)
     row = next(row for row in coordinates.evaluate(bundle) if row.subject == "S1")
-    tools = {"cutter": "6 mm endmill", "bore-drill": "6 mm drill"}
+    tools = {("tools", "cutter"): "6 mm endmill", ("tools", "bore-drill"): "6 mm drill"}
     html = _Traveler(bundle, [row], {}, None).contours(bundle.plan["setups"][0], tools)
     printed = " ".join(unescape(re.sub(r"<[^>]+>", " ", html)).split())
     assert "STOP" in printed and "do not run" in printed
@@ -865,6 +865,22 @@ def test_filing_to_buttons_through_the_axis_bore_files_inside_the_band(tmp_path)
     assert guide["files_to_mm"] == pytest.approx([9.963, 10.032])
     assert row.numbers["rough_op"] == "S1 op 20" and row.numbers["stock_cap_mm"] == CAP
     assert row.numbers["gauge"]["range_mm"] == [1.0, 25.0]
+
+
+# The guide's kit and the hold's fixture are one item however each spells it: the kit is
+# held, so the band is proven, never a "not in the hold" debt.
+@pytest.mark.parametrize(
+    ("guide", "hold"),
+    [
+        (BUTTONS.replace("'buttons'", "'fixtures.buttons'"), "fixture = 'buttons'"),
+        (BUTTONS, "fixture = 'fixtures.buttons'"),
+    ],
+    ids=["guide-qualified", "hold-qualified"],
+)
+def test_filing_buttons_are_held_however_the_guide_and_hold_spell_them(tmp_path, guide, hold):
+    row = filing(tmp_path, guide, hold=hold)
+    assert row.status == "pass", row.sentence
+    assert row.numbers["guide"]["files_to_mm"] == pytest.approx([9.963, 10.032])
 
 
 # Each element of the stack, given more tolerance, widens the worst-case filed band.

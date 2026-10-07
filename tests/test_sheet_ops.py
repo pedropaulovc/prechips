@@ -115,6 +115,9 @@ def shop(records, kind="mill"):
 
 
 SPOT = {"id": "S1", "ops": [{"op": 60, "do": "spot", "feature": "hole", "tool": "c"}]}
+# The setup's T-numbers by tool + holder identity, and its tool names by tool identity.
+T4 = {(("tools", "c"), ("holders", None)): "T4"}
+T1 = {("tools", "c"): "T1"}
 
 
 def reach_records(top="unset", projection=27.0, hits=0):
@@ -149,7 +152,7 @@ def headroom(margin=None, tip_above_jaws=None, jaw_top_z=None):
 
 
 def clearance_row(records, numbers):
-    rows = clearance_sheet(records).clearance_rows(SPOT, numbers, {("c", None): "T4"})
+    rows = clearance_sheet(records).clearance_rows(SPOT, numbers, T4)
     assert len(rows) == 1, rows
     return rows[0]
 
@@ -203,7 +206,7 @@ def test_ops_with_one_tool_obstacle_clearance_and_action_share_a_row():
     records = reach_records(top="not_applicable")
     setup = {"id": "S1", "ops": [{**SPOT["ops"][0]}, {**SPOT["ops"][0], "op": 70}]}
     numbers = {"stacks": [{"op": 60, "margin_mm": 5.0}, {"op": 70, "margin_mm": 5.0}]}
-    rows = clearance_sheet(records).clearance_rows(setup, numbers, {("c", None): "T4"})
+    rows = clearance_sheet(records).clearance_rows(setup, numbers, T4)
     assert [row[0] for row in rows] == ["60, 70"]
 
 
@@ -300,7 +303,7 @@ POCKET = {"id": "S1", "ops": [{"op": 10, "do": "pocket", "feature": "ear", "tool
 
 
 def test_a_stepped_contour_lists_its_levels_once_in_the_heading():
-    html = shop(contour_records([-0.25, -0.5, -0.6])).contours(POCKET, {"c": "T1"})
+    html = shop(contour_records([-0.25, -0.5, -0.6])).contours(POCKET, T1)
     assert "S1 op 10 — ear · T1 · Z -0.250, -0.500, -0.600" in html
     assert "3 depth levels" in html
     # The repeat row prints only on a continued page; the first page shows the levels once.
@@ -310,7 +313,7 @@ def test_a_stepped_contour_lists_its_levels_once_in_the_heading():
 
 def test_a_single_level_contour_heading_keeps_its_one_z():
     for levels in (None, [-0.6]):
-        html = shop(contour_records(levels)).contours(POCKET, {"c": "T1"})
+        html = shop(contour_records(levels)).contours(POCKET, T1)
         assert "S1 op 10 — ear · T1 · Z -0.600" in html
         assert "depth levels" not in html
 
@@ -343,26 +346,27 @@ def test_an_op_whose_levels_start_at_its_depth_prints_one_pass_at_that_depth(sta
 def test_a_floor_already_at_depth_is_one_pass_only_when_its_levels_are_established(
     doc, established
 ):
-    from prechips.rules.coordinates import _z_levels
+    from prechips.rules.coordinates import _z_levels, dro_z
 
     op = {**POCKET["ops"][0], "to_z": -0.6, "doc_mm": doc}
     records = contour_records([-0.6])
+    grid = (0.001, 3)
     records[("coordinates", "S1")]["operations"][0]["z_levels"] = _z_levels(
-        op, {"top_z": -0.6}, {}, [], {}, (0.001, 3), "mm"
+        op, {"top_z": -0.6}, {}, [], {}, grid, "mm", lambda: dro_z(-0.6, grid)
     )
     parts = [str(part) for part in shop(records).tip(POCKET, op)]
     assert any("STOP" in part for part in parts) is not established, parts
 
 
 def test_each_depth_level_has_a_place_to_mark_it_done():
-    html = shop(contour_records([-0.25, -0.5, -0.6])).contours(POCKET, {"c": "T1"})
+    html = shop(contour_records([-0.25, -0.5, -0.6])).contours(POCKET, T1)
     assert re.findall(r'<span class="tick"></span>level (\d) of 3', html) == ["1", "2", "3"]
     # One level: the op row is the only mark it needs.
-    assert "tick" not in shop(contour_records([-0.6])).contours(POCKET, {"c": "T1"})
+    assert "tick" not in shop(contour_records([-0.6])).contours(POCKET, T1)
 
 
 def test_a_raster_block_says_how_to_lift_not_what_its_table_already_shows():
-    html = shop(contour_records(None)).contours(POCKET, {"c": "T1"})
+    html = shop(contour_records(None)).contours(POCKET, T1)
     block = html.split("</h3>", 1)[1].split("<table", 1)[0]
     assert "Lift to Z 5.000 after each pass." in block, block
     for narration in ("passes", "stepover", "stage", "cutting order", "pass ends", "13.765"):
@@ -389,7 +393,7 @@ def raster_note(bundle, units="mm", removal=None, records=None):
     op = {**POCKET["ops"][0]}
     if removal is not None:
         op["stock_removal_bounds"] = removal
-    (note,) = raster_notes(sheet.contours({"id": "S1", "ops": [op]}, {"c": "T1"}))
+    (note,) = raster_notes(sheet.contours({"id": "S1", "ops": [op]}, T1))
     # The table prints the pass ends: the note names an end by its side only.
     assert "13.765" not in note
     return note
@@ -482,7 +486,7 @@ def face_notes(box_mm, *profiles):
     records = {("coordinates", "S1"): {"operations": [{"op": 10}], "profiles": list(profiles)}}
     sheet = shop(records)
     sheet.bundle = kernel_stock(box_mm)
-    html = sheet.contours(POCKET, {"c": "T1"})
+    html = sheet.contours(POCKET, T1)
     return raster_notes(html)
 
 
@@ -556,7 +560,7 @@ def outline_note(bundle):
     sheet = shop(records)
     sheet.bundle = bundle
     op = {**POCKET["ops"][0], "stock_removal_bounds": {"x": [-9.0, 9.0], "y": [-9.0, 9.0]}}
-    html = sheet.contours({"id": "S1", "ops": [op]}, {"c": "T1"})
+    html = sheet.contours({"id": "S1", "ops": [op]}, T1)
     return html.split("Cutter-centre checkpoints", 1)[1].split("</p>", 1)[0]
 
 
@@ -578,7 +582,7 @@ def test_outline_rows_are_cutter_clearance_only_wholly_outside_the_kernel_entry_
 
 
 def test_a_contour_table_repeats_its_op_on_continued_pages_and_never_wraps_a_number():
-    html = shop(contour_records(None)).contours(POCKET, {"c": "T1"})
+    html = shop(contour_records(None)).contours(POCKET, T1)
     assert '<tr class="repeat"><th colspan=' in html
     repeat = html.split('<tr class="repeat">', 1)[1].split("</tr>", 1)[0]
     assert "op 10" in repeat and "T1" in repeat
@@ -840,7 +844,8 @@ def test_a_breakthrough_note_claims_no_run_out_the_endpoint_leaves_unknown():
 
 def transfer_sheet(indicate, kind):
     sheet = mapped({}, {"face_a": {"kind": "face"}, "bore": {"kind": "hole"}})
-    sheet.reference = lambda gauge, category=None: "dial test indicator"
+    # The sheet names an item by its reference and the slot that selects it.
+    sheet.reference = lambda gauge, slot=None: "dial test indicator"
     return sheet, {"from": "S1", "indicate": indicate, "tool": "dti", "runout_limit_mm": 0.0254}
 
 

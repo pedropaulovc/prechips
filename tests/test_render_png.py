@@ -1006,6 +1006,40 @@ def _stock_short_side(canvas, box):
     return min(max(p[i] for p in points) - min(p[i] for p in points) for i in (0, 1))
 
 
+def test_a_footer_raised_by_a_long_legend_lifts_the_stock_dimension_above_it():
+    # Fourteen legend rows raise the footer far above its usual place: the stock
+    # dimension rises with it, above the STOCK BOX line, never into the legend rows.
+    meshes, spec = _vise_spec(150)
+    spec["legend"] = [f"SOURCE NOTE {index}" for index in range(12)]
+    diagram = _Diagram(meshes, spec)
+    diagram.render()
+    (y,) = {y for (_, y), _ in diagram.dimensions.values()}
+    assert diagram.footer_top < 600
+    assert y < diagram.footer_top - 36
+
+
+def test_a_clearance_no_detail_band_keys_is_dimensioned_on_the_setup_picture(monkeypatch):
+    # Work larger than its jaws draws no holding detail; the kit-free obstruction the
+    # kernel measured (0 mm to the fixed jaw) is still printed, on the setup picture.
+    meshes, spec = _vise_spec(150)
+    spec["closest_cut"] = {
+        "mm": 0.0,
+        "tag": "fixed_jaw",
+        "from_mm": [0, 75, 5],
+        "to_mm": [0, 75, 5],
+    }
+    drawn = []
+    main = render_module._main_diagram
+    monkeypatch.setattr(
+        render_module, "_main_diagram", lambda *a: drawn.append(main(*a)) or drawn[-1]
+    )
+    png, _ = render_module.render_diagram(meshes, spec)
+    diagram, printed = drawn[-1]
+    assert printed == png
+    text = " ".join(box[0] for box in diagram.canvas.text_boxes)
+    assert "CUT 0 MM FROM FIXED JAW" in text, text
+
+
 @pytest.mark.parametrize(
     ("size", "touching", "detailed"),
     [(12, True, True), (150, True, False), (12, False, False)],
@@ -1066,6 +1100,29 @@ def test_picture_coordinates_and_clearances_print_as_the_setup_tables_print_them
     assert f"JAW FRONT Z -{cut} MM" in text, text
     assert f"CUT {cut} MM FROM" in text, text
     assert f"CONTACT AT X {plane}" in text, text
+
+
+def test_a_half_way_value_prints_as_its_written_decimal_in_the_picture_and_its_table():
+    # 2.8045 is stored as 2.80449999…: the shop rounds the written 2.8045 half up, away
+    # from zero, so the picture's CUT and JAW FRONT and the sheet's table all read 2.805.
+    from prechips.sheet import _number
+
+    meshes, spec = _vise_spec(12)
+    spec["decimals"] = 3
+    spec["jaw_front_z_mm"] = -2.8045
+    spec["closest_cut"] = {
+        "mm": 2.8045,
+        "tag": "fixed_jaw",
+        "from_mm": [0, 6, 10],
+        "to_mm": [0, 6, 10 - 2.8045],
+    }
+    main = _Diagram(meshes, spec)
+    main.render()
+    (detail,) = _holding_details(meshes, spec, main)
+    text = " ".join(box[0] for drawn in (main, detail) for box in drawn.canvas.text_boxes)
+    assert "CUT 2.805 MM FROM" in text, text
+    assert "JAW FRONT Z -2.805 MM" in text, text
+    assert (_number(2.8045, 3), _number(-2.8045, 3)) == ("2.805", "-2.805")
 
 
 def _button_kit():
@@ -1266,6 +1323,30 @@ def test_picture_contact_coordinates_print_on_the_setup_dro_grid_and_clearances_
     assert "FIXED JAW CONTACT AT X 0.005" in labels, labels
     assert "MOVING JAW CONTACT AT X 12.005" in labels, labels
     assert "CUT 6.653 mm FROM FIXED JAW" in labels, labels
+
+
+@pytest.mark.parametrize(
+    ("zero_x", "fixed", "moving"),
+    [
+        (-0.0025, "0.005", "12.005"),
+        (0.0025, "-0.005", "12.000"),
+        (-0.0074999999, "0.010", "12.010"),
+    ],
+)
+def test_a_contact_half_a_dro_step_off_rounds_as_the_fixture_tables_set_it(zero_x, fixed, moving):
+    # The fixture tables set half a 0.005 step away from zero (0.0025 -> 0.005, -0.0025 ->
+    # -0.005), float noise in the quotient not counting; the picture must name the same
+    # setting, never the even neighbour one step away.
+    meshes, spec = _vise_spec(12)
+    spec["decimals"] = 3
+    spec["dro_step_mm"] = 0.005
+    spec["zero_mm"] = [zero_x, 0, 0]
+    main = _Diagram(meshes, spec)
+    main.render()
+    (detail,) = _holding_details(meshes, spec, main)
+    labels = [label for label, _ in detail.leaders]
+    assert f"FIXED JAW CONTACT AT X {fixed}" in labels, labels
+    assert f"MOVING JAW CONTACT AT X {moving}" in labels, labels
 
 
 def test_keys_too_many_for_their_lanes_move_the_footer_down_never_across_it():
@@ -1609,14 +1690,14 @@ def test_an_inspection_sketch_stands_the_part_on_the_plate_and_points_each_readi
 
     meshes = [
         _block([0, 0, 0, 120, 20, 40], (164, 177, 189), "part"),
-        _block([100, -15, 15, 110, 35, 25], (164, 132, 64), "rod pin"),
+        _block([100, -15, 15, 110, 35, 25], (164, 132, 64), "aid 1"),
     ]
     views = [
         {
             "title": title,
             "camera": _view_camera(up, (0, -1, 0)),
             "meshes": meshes,
-            "aids": ["rod pin"],
+            "aids": [["aid 1", "rod pin"]],
             "marks": [
                 {"label": "C", "at_mm": [0, 10, 20]},
                 {"label": "H1", "at_mm": crown, "reads": True},
@@ -1641,7 +1722,7 @@ def test_an_inspection_sketch_stands_the_part_on_the_plate_and_points_each_readi
         assert set(leaders) == {"C", "H1", "ROD PIN", "SURFACE PLATE"}
         for mark in view["marks"]:
             assert leaders[mark["label"]][0] == pytest.approx(c.project(mark["at_mm"]), abs=1)
-        assert _tag_at(c, *leaders["ROD PIN"][0]) == "rod pin"
+        assert _tag_at(c, *leaders["ROD PIN"][0]) == "aid 1"
         lowest = max(c.project(p)[1] for mesh in meshes for p in mesh[0])
         assert 0 <= leaders["SURFACE PLATE"][0][1] - lowest <= 2
         x, y = (math.floor(v) for v in c.project(view["marks"][1]["at_mm"]))
@@ -1649,3 +1730,38 @@ def test_an_inspection_sketch_stands_the_part_on_the_plate_and_points_each_readi
         assert _pixel(c, x, y + 30) != _GREEN
     width, height, _ = _decode_png(png)
     assert (width, height) == (1600, sum(heights))
+
+
+def test_an_inspection_sketch_wraps_a_long_title_and_owns_each_aid_apart_from_the_part():
+    # A view title too long for one line wraps, and the band moves down under it. An aid
+    # whose printed name is "part", buried in the bar, is hidden: it is NOT SHOWN, never
+    # keyed on the workpiece's pixels.
+    from prechips.kernel.render_diagram import _InspectionSketch, render_inspection
+
+    title = (
+        "VIEW 2: STAND THE PART ON ITS WEST DATUM FACE WITH THE INSPECTION BOX ON ITS SIDE"
+        " AND READ THE EAST GAUGE PIN"
+    )
+    view = {
+        "title": title,
+        "camera": _view_camera((0, 0, 1), (0, -1, 0)),
+        "meshes": [
+            _block([0, 0, 0, 120, 20, 40], (164, 177, 189), "part"),
+            _block([50, 5, 10, 55, 15, 15], (164, 132, 64), "aid 1"),
+        ],
+        "aids": [["aid 1", "part"]],
+        "marks": [{"label": "H1", "at_mm": [60, 10, 40], "reads": True}],
+    }
+
+    png, debts = render_inspection([view])
+
+    assert debts == ["NOT SHOWN: PART is hidden in this view, so it has no leader."]
+    band = _InspectionSketch(view)
+    band.render()
+    lines = [box for box in band.canvas.text_boxes if box[0] in band.title_lines]
+    assert " ".join(box[0] for box in lines) == title
+    assert all(right <= 1592 for _, _, _, right, _ in lines)
+    note = next(box for box in band.canvas.text_boxes if box[0].startswith("+ ARROW"))
+    assert note[2] > max(bottom for *_, bottom in lines)
+    assert band.viewport[1] > note[4]
+    assert "PART" not in dict(band.leaders)

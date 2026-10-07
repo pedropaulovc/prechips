@@ -126,7 +126,7 @@ def contour_sheet(tmp_path, arc, line=None, scribed=False):
         [*scribe, {"op": 20, "do": "rough_profile", "feature": "arc", "tool": "cutter"}],
         numbers,
     )
-    html = sheet.contours(setup, {"cutter": "6 mm endmill"})
+    html = sheet.contours(setup, {("tools", "cutter"): "6 mm endmill"})
     no_programming(html)
     assert "99.000" not in html, "the generic arc profile must not print a second table"
     return html, text(html)
