@@ -183,3 +183,29 @@ def test_host_hole_depth_and_entry_reach_the_engine_in_machine_mm(
     assert result["setups"]["S2"]["stock_volume_mm3"] == pytest.approx(
         48000.0 - math.pi * 3.0**2 * depth
     )
+
+
+@pytest.mark.parametrize(
+    "stock_state, exit_mm, cut_height",
+    [
+        # The plan runs the tool out of the 22 mm stock: no skin stays over the bore mouth.
+        ({"local_thickness": {"bore": 22.0}}, 0.5, 22.0),
+        # No planned exit: the tool stops where the finished bore ends, 2 mm of stock on.
+        ({}, None, 20.0),
+    ],
+)
+def test_a_through_hole_runs_out_of_the_stock_it_carries_past_the_finished_bore(
+    engine, solids, tmp_path, stock_state, exit_mm, cut_height
+):
+    step = solids["hole"]
+    bore = engine.refs(step, (26.75, 16.75, 0), (33.25, 23.25, 20))
+    op = {"do": "bore"} if exit_mm is None else {"do": "bore", "exit_mm": exit_mm}
+    bundle = _host(tmp_path, step, "mm", {"kind": "hole", "thru": True, "faces": bore}, op)
+    # The stock stands 2 mm below the part's bottom face, z -2..20.
+    bundle.plan["stock"].update(origin_mm=[0.0, 0.0, -2.0], section_mm=[40.0, 22.0])
+    bundle.plan["setups"][0]["stock_state"].update(stock_state)
+    result = engine.run(kernel.engine_job(kernel.build_job(bundle)))
+    assert result["setups"]["S1"]["stock_volume_mm3"] == pytest.approx(60.0 * 40.0 * 22.0)
+    assert result["setups"]["S2"]["stock_volume_mm3"] == pytest.approx(
+        60.0 * 40.0 * 22.0 - math.pi * 3.0**2 * cut_height
+    )

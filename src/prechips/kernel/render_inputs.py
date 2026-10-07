@@ -5,7 +5,7 @@ this boundary. Display annotations never certify a holding or a toolpath.
 """
 
 from prechips.clamp_labels import clamp_labels
-from prechips.rules.coordinates import row_id
+from prechips.rules.coordinates import dro_grid, row_id
 from prechips.rules.geometry_common import cutting_action
 from prechips.rules.resolution import number, op_feature, record, resolve, workholding_category
 from prechips.sheet import tool_label
@@ -252,6 +252,9 @@ def setup_annotations(bundle, setup, numbers):
         "holding_name": _holding_name(bundle, hold.get("fixture")),
         "chuck_name": _holding_name(bundle, hold.get("chuck")),
         "target": _target(setup),
+        # The setup's DRO decimals: picture coordinates and clearances print as the
+        # traveler's tables print them (``_Traveler.operative``), one value one text.
+        "decimals": dro_grid(bundle, setup)[1],
     }
     result["notes"], result["nothing_removed_note"] = _setup_notes(setup)
     index = record(hold.get("index"))
