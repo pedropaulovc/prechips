@@ -928,6 +928,98 @@ def test_coordinate_oracle_ends_a_kernel_span_where_its_own_kernel_run_measures_
         check()
 
 
+def blank_inputs():
+    """The rocker-arm plan, whose prepared blank is checked with gauges no setup names,
+    its inventory, and the ``prepared_blank`` finding the engine reports once the received
+    blank fits: every check read through the plan's gauge and passing."""
+    folder = ROOT / "examples" / "rocker-arm"
+    plan = tomllib.loads((folder / "plan.toml").read_text(encoding="utf-8"))
+    inventory = tomllib.loads((folder / plan["paths"]["inventory"]).read_text(encoding="utf-8"))
+    prepared = plan["stock"]["prepared"]
+    bands = {"length": [339.8, 340.2], "section_0": [64.9, 65.1], "section_1": [15.95, 16.05]}
+    rows = {
+        key: {"gauge": prepared["checks"][key], "limits_mm": band, "status": "pass"}
+        for key, band in bands.items()
+    }
+    for key in ("flat", "square", "parallel"):
+        method = prepared["methods"][key]
+        rows[key] = {"gauge": "dti", "limit_mm": 0.05, "method": method, "status": "pass"}
+    finding = {"status": "pass", "numbers": {"checks": rows}}
+    return plan, inventory, {("prepared_blank", "stock.prepared"): finding}
+
+
+@pytest.mark.parametrize("case", ["as_planned", "missing_gauge", "undeclared_gauge"])
+def test_prepared_blank_gauges_resolve_through_their_own_finding(case):
+    plan, inventory, findings = blank_inputs()
+    finding = findings["prepared_blank", "stock.prepared"]
+    rows = finding["numbers"]["checks"]
+    checks = plan["stock"]["prepared"]["checks"]
+    if case == "missing_gauge":
+        checks["length"] = "calipers-36in"
+        rows["length"] = {"gauge": "calipers-36in", "status": "error"}
+        finding["status"] = "error"
+    elif case == "undeclared_gauge":
+        del checks["flat"]
+        rows["flat"].update(gauge="unknown", status="unknown")
+        finding["status"] = "unknown"
+    entries = VALIDATOR["entries_for"](inventory)
+    # No setup names them, so no tool_resolves finding reads them.
+    assert VALIDATOR["check_references"]({"stock": plan["stock"], "setups": []}, entries, {}) == []
+    missing = VALIDATOR["check_prepared_blank"](plan, inventory, findings)
+    assert missing == (["calipers-36in"] if case == "missing_gauge" else [])
+
+
+@pytest.mark.parametrize(
+    "corruption",
+    [
+        "other_gauge",
+        "missing_gauge_passed",
+        "undeclared_gauge_passed",
+        "unverified_gauge_passed",
+        "size_band",
+        "form_limit",
+        "method",
+        "verdict_better_than_row",
+        "checks_never_read",
+        "dropped_row",
+        "no_finding",
+        "approved_without_blank",
+    ],
+)
+def test_prepared_blank_verdict_holds_to_the_plan_gauges_and_inventory(corruption):
+    plan, inventory, findings = blank_inputs()
+    finding = findings["prepared_blank", "stock.prepared"]
+    rows = finding["numbers"]["checks"]
+    prepared = plan["stock"]["prepared"]
+    if corruption == "other_gauge":
+        rows["length"]["gauge"] = "calipers"
+    elif corruption == "missing_gauge_passed":
+        prepared["checks"]["length"] = rows["length"]["gauge"] = "calipers-36in"
+    elif corruption == "undeclared_gauge_passed":
+        del prepared["checks"]["flat"]
+        rows["flat"]["gauge"] = "unknown"
+    elif corruption == "unverified_gauge_passed":
+        inventory["gauges"]["dti"]["verify"] = True
+    elif corruption == "size_band":
+        rows["length"]["limits_mm"] = [339.0, 341.0]
+    elif corruption == "form_limit":
+        rows["flat"]["limit_mm"] = 0.5
+    elif corruption == "method":
+        rows["square"]["method"] = prepared["methods"]["flat"]
+    elif corruption == "verdict_better_than_row":
+        rows["square"]["status"] = "unknown"
+    elif corruption == "checks_never_read":
+        del finding["numbers"]["checks"]
+    elif corruption == "dropped_row":
+        del rows["parallel"]
+    elif corruption == "no_finding":
+        findings.clear()
+    elif corruption == "approved_without_blank":
+        del plan["stock"]["prepared"]
+    with pytest.raises(ValueError):
+        VALIDATOR["check_prepared_blank"](plan, inventory, findings)
+
+
 def test_validator_rejects_a_check_without_its_feature_requirement():
     plan = {
         "setups": [

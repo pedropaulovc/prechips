@@ -354,6 +354,10 @@ def uncertain(ref: str, entries: dict, seen: tuple = ()) -> bool:
 
 
 def selected_refs(plan: dict):
+    """Every inventory identity the plan selects that its ``tool_resolves`` findings
+    resolve: all of the plan but the prepared blank's gauges, which its
+    ``prepared_blank`` finding reads instead (:func:`check_prepared_blank`)."""
+
     def walk(value):
         if isinstance(value, dict):
             if "ref" in value:
@@ -374,6 +378,9 @@ def selected_refs(plan: dict):
             for child in value:
                 yield from walk(child)
 
+    stock = plan.get("stock")
+    if isinstance(stock, dict):
+        plan = {**plan, "stock": {k: v for k, v in stock.items() if k != "prepared"}}
     return set(walk(plan))
 
 
@@ -914,6 +921,104 @@ def check_references(plan: dict, entries: dict, findings: dict) -> list:
         else:
             require(finding["status"] == "pass", f"{ref}: available identity must resolve")
     return missing
+
+
+PREPARED_SIZE_CHECKS = ("length", "section_0", "section_1")
+PREPARED_FORM_CHECKS = ("flat", "square", "parallel")
+STATUS_RANK = {"pass": 0, "unknown": 1, "error": 2}
+
+
+def check_prepared_blank(plan: dict, inventory: dict, findings: dict) -> list:
+    """The prepared blank's gauges (``stock.prepared.checks``), read as the engine reads
+    them: by the one ``prepared_blank`` finding, never ``tool_resolves``, and only from
+    the inventory's gauges. Once the finding reads the checks (the received blank fits
+    the declared one), each row carries the plan's gauge, the plan's size band (size ±
+    tolerance, the tolerance in ``[section[0], section[1], length]`` order) or form limit
+    and method: an undeclared gauge stays unknown, one the inventory's gauges lack is an
+    error, an unverified one never passes, and the finding is no better than its worst
+    row. A finding that never read the checks cannot pass. Returns the missing gauges the
+    finding names."""
+    entries = entries_for(inventory)
+    # resolve(bundle, "gauges", ref): the gauges table, then a machine's own accessories.
+    gauges = dict(inventory.get("gauges", {}))
+    for name, machine in inventory.get("machines", {}).items():
+        for accessory in machine.get("standard_accessories", []) + machine.get("included", []):
+            gauges.setdefault(accessory, {"ref": name})
+    stock = plan.get("stock")
+    declared = "prepared" in stock if isinstance(stock, dict) else False
+    finding = findings.get(("prepared_blank", "stock.prepared"))
+    if not declared:
+        require(
+            finding is None or finding["status"] == "not_applicable",
+            "stock.prepared: a plan with no prepared blank has nothing to approve",
+        )
+        return []
+    require(finding is not None, "missing finding prepared_blank:stock.prepared")
+    prepared = stock["prepared"]
+    if not isinstance(prepared, dict):
+        require(finding["status"] == "unknown", "stock.prepared: an unknown blank stays unknown")
+        return []
+    require(finding["status"] in STATUS_RANK, "stock.prepared: a declared blank has a verdict")
+    rows = finding["numbers"].get("checks")
+    if rows is None:
+        require(finding["status"] != "pass", "stock.prepared: blank checks never read cannot pass")
+        return []
+    keys = (*PREPARED_SIZE_CHECKS, *PREPARED_FORM_CHECKS)
+    require(
+        isinstance(rows, dict) and set(rows) == set(keys),
+        "stock.prepared: every blank check is read",
+    )
+
+    def plan_record(name):
+        value = prepared.get(name, {})
+        return value if isinstance(value, dict) else {}
+
+    checks, methods, limits = plan_record("checks"), plan_record("methods"), plan_record("form_mm")
+    section, length = prepared.get("section_mm"), prepared.get("length_mm")
+    tolerance = prepared.get("tolerance_mm")
+    sizes = [length, *section] if isinstance(section, list) and len(section) == 2 else []
+    allowed = (
+        [tolerance[2], tolerance[0], tolerance[1]]
+        if isinstance(tolerance, list) and len(tolerance) == 3
+        else []
+    )
+    require(
+        len(sizes) == 3 and len(allowed) == 3 and all(numeric(v) for v in sizes + allowed),
+        "stock.prepared: blank checks read without a declared size and tolerance",
+    )
+    missing, worst = [], "pass"
+    for key in keys:
+        row, ref, where = rows[key], checks.get(key, "unknown"), f"stock.prepared.checks.{key}"
+        require(isinstance(row, dict) and row.get("status") in STATUS_RANK, f"{where}: verdict")
+        require(row.get("gauge") == ref, f"{where}: gauge differs from the plan")
+        if ref != "unknown" and not resolves(ref, gauges):
+            # The engine reads nothing more through a gauge the inventory lacks.
+            require(row["status"] == "error", f"{where}: missing gauge must be an error")
+            missing.append(ref)
+        elif key in PREPARED_SIZE_CHECKS:
+            size, tol = sizes[keys.index(key)], allowed[keys.index(key)]
+            band = [round(size - tol, 6), round(size + tol, 6)]
+            require(row.get("limits_mm") == band, f"{where}: size band differs from the plan")
+        else:
+            limit = limits.get(key, "unknown")
+            require(
+                row.get("limit_mm") == (limit if numeric(limit) else "unknown"),
+                f"{where}: form limit differs from the plan",
+            )
+            require(
+                row.get("method") == methods.get(key, "unknown"),
+                f"{where}: method differs from the plan",
+            )
+        if ref == "unknown":
+            require(row["status"] == "unknown", f"{where}: an undeclared gauge stays unknown")
+        elif resolves(ref, gauges) and uncertain(ref, entries):
+            require(row["status"] != "pass", f"{where}: an unverified gauge cannot pass")
+        worst = max(worst, row["status"], key=STATUS_RANK.get)
+    require(
+        STATUS_RANK[finding["status"]] >= STATUS_RANK[worst],
+        f"stock.prepared: verdict {finding['status']} is better than its {worst} check",
+    )
+    return sorted(set(missing))
 
 
 def check_zero(setup: dict, finding: dict, entries: dict, dro: dict) -> None:
@@ -2986,6 +3091,7 @@ def validate_fixture(
     kernel = independent_kernel(folder / plan_filename)
     check_joint_declarations(plan, features, findings, kernel)
     missing = check_references(plan, entries, findings)
+    missing += check_prepared_blank(plan, inventory, findings)
     depths = check_endpoints(plan, features, findings, entries)
     definitions = operative_definitions(plan, features)
     for setup in plan["setups"]:
