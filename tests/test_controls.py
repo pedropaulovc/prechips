@@ -5,7 +5,7 @@ import re
 import tomllib
 
 import pytest
-from test_cli import SYNTHETIC_KERNEL, copy_examples, traveler
+from test_cli import SYNTHETIC_KERNEL, copy_examples, rocker_s1_alone, traveler
 
 
 def finding(report, rule, subject):
@@ -83,8 +83,12 @@ def test_reversed_dro_direction_swaps_expected_and_mirrored_readings(tmp_path):
     assert result.returncode == 2
 
 
-# A whole key/value line, including a multiline basic or literal string value.
-POSITION_CHECK = re.compile(r'(?ms)^position_dia = (?:""".*?"""|\'\'\'.*?\'\'\'|[^\n]*)[^\n]*\n')
+# A whole key/value line, including a multiline basic or literal string value or an array
+# of strings over one or more lines.
+POSITION_CHECK = re.compile(
+    r'(?ms)^position_dia = (?:""".*?"""|\'\'\'.*?\'\'\''
+    r'|\[(?:"(?:[^"\\\n]|\\.)*"|\'[^\'\n]*\'|[^\]"\'])*\]|[^\n]*)[^\n]*\n'
+)
 
 
 def test_removed_position_check_is_named_error_not_size_coverage(tmp_path):
@@ -132,7 +136,7 @@ def test_removed_position_check_is_named_error_not_size_coverage(tmp_path):
 def clean_inspection_bundle(tmp_path):
     examples = copy_examples(tmp_path)
     plan = examples / "rocker-arm" / "plan.toml"
-    prefix = plan.read_text(encoding="utf-8").split("[[setups.ops]]", 1)[0]
+    prefix = rocker_s1_alone(plan.read_text(encoding="utf-8"))
     prefix, schedules = re.subn(r"(?m)^retouch_after = .*$", "retouch_after = []", prefix)
     assert schedules == 1, "the clean bundle pins the copied S1 retouch schedule"
     plan.write_text(

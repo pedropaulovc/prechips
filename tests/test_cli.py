@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -68,6 +69,24 @@ def copy_examples(tmp_path):
     return Path(shutil.copytree(ROOT / "examples", tmp_path / "examples"))
 
 
+# The rocker's prep: [stock.prepared] and the process faces and frames only P1-P5 use.
+_ROCKER_PREP = re.compile(
+    r"(?ms)^\[(?:stock\.prepared|process_features\.|frames\.P)[^\n]*\n.*?(?=^\[|\Z)"
+)
+
+
+def rocker_s1_alone(text):
+    """The rocker plan with S1, up to its first op, as its only setup. The prep setups
+    (P1-P5) and the tables only they use go, so S1 receives the plan [stock] itself."""
+    start = text.index('[[setups]]\nid = "S1"\n')
+    header = _ROCKER_PREP.sub("", text[: text.index("[[setups]]")])
+    s1, count = re.subn(
+        r"(?m)^stock_in = .*$", 'stock_in = "stock"', text[start:].split("[[setups.ops]]", 1)[0]
+    )
+    assert count == 1, "S1 names the stock it receives"
+    return header + s1
+
+
 def traveler(plan, out, *args, setup=""):
     result = run_cli("traveler", plan, "--out", out, *args, setup=setup)
     assert result.returncode in {0, 2, 4}, result.stderr
@@ -88,8 +107,8 @@ def test_empty_operations_rejects_before_outputs(tmp_path):
     examples = copy_examples(tmp_path)
     plan = examples / "rocker-arm" / "plan.toml"
     text = plan.read_text(encoding="utf-8")
-    # Keep a complete first setup, but remove every operation and later setup.
-    plan.write_text(text.split("[[setups.ops]]", 1)[0], encoding="utf-8")
+    # Keep a complete S1 as the only setup, but remove every operation.
+    plan.write_text(rocker_s1_alone(text), encoding="utf-8")
     out = tmp_path / "out"
     result = run_cli("traveler", plan, "--out", out)
     assert result.returncode == 3, result.stderr

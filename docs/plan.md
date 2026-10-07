@@ -431,7 +431,10 @@ BLANK**, each form row with its limit and method.
 read once in radius mode and twice in diameter mode. It does not change a known
 mill's linear axes. In a mixed-machine route, the traveler labels the actual
 setup machine's display convention rather than applying the lathe label to all
-setups. Unknown controller/install facts remain unresolved independently.
+setups. Omitted or unknown on a lathe, no X reading is printed: the feature map,
+part-off X and dome tables stop rather than assume a display
+([coordinates](rules-coordinates.md#coordinates)). Unknown controller/install
+facts remain unresolved independently.
 
 ## Direction
 
@@ -935,7 +938,7 @@ STOP and [zero_check](rules-coordinates.md#zero_check) is `unknown`.
 | `tool` | `str` |
 | `x_method` | `str` (the operator's words; `"trial_cut_measure"`: the touch trial-cuts its own diameter) |
 | `x_face` | `str`: the plan feature whose measured diameter a lathe X touch is set on, or `"x_zero"` for this setup's X-zero trial-cut land; must stand where it touches ([zero_check](rules-coordinates.md#zero_check)) |
-| `x_paper_mm` | `float`: paper between the tool and that diameter; Axis Set X = measured D + 2×paper on a diameter display (D/2 + paper on radius) |
+| `x_paper_mm` | `float`: paper between the tool and that diameter; Axis Set X = measured D + 2×paper on a diameter display (D/2 + paper on radius). The traveler prints the surface and this paper (`no paper` at 0, `paper ?` unknown) with the `x_method` words |
 | `gauge` | `str` |
 | `z_face` | `str` |
 | `method` | `str` |
