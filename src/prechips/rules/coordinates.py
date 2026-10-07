@@ -251,12 +251,14 @@ def faced_aims(bundle):
     """The kernel's faced-aim inputs: for each plan aim naming a ``face``
     (:func:`faced_aim_error` holds at load), that face, the model unit ``axis`` of its
     feature's frame Z, the feature's ``lower_z``/``upper_z`` planes as mm offsets along it,
-    and ``delta_mm``: the aimed ``value_mm`` less their separation, the distance the face
-    moves outward so the faced length reads the aim. The kernel cuts that part, so every
-    setup's stock, frame heights and checks stand on one face position. A record carries
-    a ``reason`` instead when units, the planes or the frame are unknown, or the
-    requirement's declared nominal is not the planes' separation (the length they bound is
-    not the one the band holds)."""
+    the aimed ``value_mm``, the requirement's printed band in mm (``band_mm``,
+    :func:`printed_band`) and ``delta_mm``: the aimed ``value_mm`` less their separation,
+    the distance the face moves outward so the faced length reads the aim. The kernel cuts
+    that part, so every setup's stock, frame heights and checks stand on one face position,
+    and measures every aimed length on it. A record carries a ``reason`` instead when units,
+    the printed band, the planes or the frame are unknown, or the requirement's declared
+    nominal is not the planes' separation (the length they bound is not the one the band
+    holds): no known band authorizes a move."""
     manifest = bundle.features
     scale = UNIT_MM.get(manifest.get("units"))
     frames = mapping(manifest.get("frames"))
@@ -272,8 +274,13 @@ def faced_aims(bundle):
         axis = frame_axes(frame)[2]
         origin = mapping_vector(frame.get("origin"))
         nominal = feature.get(f"{requirement}_nominal", UNKNOWN)
+        band = printed_band(manifest, feature, requirement)
         if scale is None:
             record["reason"] = "feature units are not mm or in, so the aim moves no face"
+        elif band == UNKNOWN:
+            record["reason"] = (
+                f"features.{name}.{requirement} has no known printed band, so the aim moves no face"
+            )
         elif not (number(lower) and number(upper) and lower < upper):
             record["reason"] = f"features.{name}.lower_z/upper_z are not two ordered planes"
         elif not all(number(v) for v in (*axis, *origin)):
@@ -291,6 +298,8 @@ def faced_aims(bundle):
                 axis=axis,
                 lower_mm=round((base + lower) * scale, 9),
                 upper_mm=round((base + upper) * scale, 9),
+                value_mm=aim["value_mm"],
+                band_mm=[round(limit * scale, 9) for limit in band],
                 delta_mm=round(aim["value_mm"] - (upper - lower) * scale, 9),
             )
         result.append(record)
