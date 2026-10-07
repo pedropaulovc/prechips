@@ -298,8 +298,8 @@ CENTRE_CASES = [
 
 
 def centre_findings(tmp_path, where=None, key=None, value=None):
-    """The engine's own blind_depth findings for a changed pivot-shaft centre, and a
-    validator call that checks them."""
+    """The engine's own blind_depth findings for a changed pivot-shaft centre: its endpoint
+    row, a validator call that checks them, and the centre's finding."""
     plan = shaft(tmp_path)
     if where == "plan":
         set_process_key(plan, "plain_end_centre", key, value)
@@ -308,9 +308,12 @@ def centre_findings(tmp_path, where=None, key=None, value=None):
     bundle = load_bundle(plan)
     findings = {(f.rule, f.subject): f.to_dict() for f in endpoint_findings(bundle)}
     entries = VALIDATOR["entries_for"](bundle.inventory)
-    (row,) = findings["blind_depth", "plain_end_centre"]["numbers"]["endpoints"]
-    return row, lambda: VALIDATOR["check_endpoints"](
-        bundle.plan, bundle.features, findings, entries
+    finding = findings["blind_depth", "plain_end_centre"]
+    (row,) = finding["numbers"]["endpoints"]
+    return (
+        row,
+        lambda: VALIDATOR["check_endpoints"](bundle.plan, bundle.features, findings, entries),
+        finding,
     )
 
 
@@ -318,7 +321,7 @@ def centre_findings(tmp_path, where=None, key=None, value=None):
 def test_centre_oracle_prints_a_quill_depth_only_for_the_centre_its_tool_cuts(
     tmp_path, where, key, value
 ):
-    row, check = centre_findings(tmp_path, where, key, value)
+    row, check, _ = centre_findings(tmp_path, where, key, value)
     check()
     # A quill depth the inputs do not derive: one printed for a centre that is not the
     # selected tool's own on the touched end, or a prepared one moved.
@@ -343,7 +346,7 @@ def test_centre_oracle_prints_a_quill_depth_only_for_the_centre_its_tool_cuts(
     ],
 )
 def test_centre_oracle_rejects_a_centre_row_its_inputs_do_not_derive(tmp_path, field, value):
-    row, check = centre_findings(tmp_path)
+    row, check, _ = centre_findings(tmp_path)
     check()
     row[field] = value
     with pytest.raises(ValueError):
@@ -352,9 +355,102 @@ def test_centre_oracle_rejects_a_centre_row_its_inputs_do_not_derive(tmp_path, f
 
 @pytest.mark.parametrize("fact", ["drill_dia_mm", "drill_length_mm", "point_angle_deg"])
 def test_centre_oracle_holds_the_reported_tool_facts_to_the_inventory(tmp_path, fact):
-    row, check = centre_findings(tmp_path)
+    row, check, _ = centre_findings(tmp_path)
     check()
     row["tool_centre"][fact] += 1.0
+    with pytest.raises(ValueError):
+        check()
+
+
+def test_centre_oracle_takes_the_touched_surface_from_the_plan_not_the_report(tmp_path):
+    # The centre misplaced 0.25 into the end that S0 op 10 faces to setup Z 0: the engine
+    # errors and prints no quill depth. Made self-consistent, the report claims the
+    # touched surface is where the buried mouth lies and passes the prepared depth.
+    row, check, finding = centre_findings(tmp_path, "plan", "at", "[0.0, 0.0, -173.25]")
+    check()
+    row["entry_z"] = row["mouth_z"]
+    row["depth_mm"] = row["drill_length_mm"] + row["countersink_depth_mm"]
+    row["tip_z"] = row["entry_z"] - row["depth_mm"]
+    finding["status"] = "pass"
+    with pytest.raises(ValueError):
+        check()
+
+
+@pytest.mark.parametrize("corruption", ["surface", "source"])
+def test_endpoint_oracle_takes_a_blind_hole_entry_from_the_plan(corruption):
+    data = drill_bundle(depth_mm=40.0)
+    findings = {(f.rule, f.subject): f.to_dict() for f in endpoint_findings(data)}
+    entries = VALIDATOR["entries_for"](data.inventory)
+    VALIDATOR["check_endpoints"](data.plan, data.features, findings, entries)
+    (row,) = findings["blind_depth", "hole"]["numbers"]["endpoints"]
+    if corruption == "surface":
+        # The whole hole moved 1 mm into the part, its depth unchanged: self-consistent.
+        for field in ("entry_z", "tip_z", "dro_entry_z", "dro_tip_z"):
+            row[field] -= 1.0
+    else:
+        # The right Z, credited to a surface the plan never leaves there.
+        row["entry_from"] = "S1 op 10 to_z"
+    with pytest.raises(ValueError):
+        VALIDATOR["check_endpoints"](data.plan, data.features, findings, entries)
+
+
+def printed_endpoint(data):
+    """The engine's one endpoint row for ``data``'s hole and a validator call on it."""
+    findings = {(f.rule, f.subject): f.to_dict() for f in endpoint_findings(data)}
+    entries = VALIDATOR["entries_for"](data.inventory)
+    (row,) = findings["blind_depth", "hole"]["numbers"]["endpoints"]
+
+    def check():
+        VALIDATOR["check_endpoints"](data.plan, data.features, findings, entries)
+
+    check()
+    return row, check
+
+
+@pytest.mark.parametrize(
+    ("thickness", "forged"),
+    [
+        # The printed blind tip 1 mm deeper than the planned one; every analytical Z intact.
+        (None, {"dro_tip_z": -1.0}),
+        # The printed entry and tip both 1 mm into the part: the same depth, self-consistent.
+        (None, {"dro_entry_z": -1.0, "dro_tip_z": -1.0}),
+        # The depth the printed tip leaves claimed 1 mm deeper than it is.
+        (None, {"dro_depth_mm": 1.0}),
+        # A through hole's printed exit face and tip moved together.
+        (20.0, {"dro_exit_face": -1.0, "dro_tip_z": -1.0}),
+        # The break-through the printed tip leaves claimed 1 mm longer.
+        (20.0, {"dro_exit_mm": 1.0}),
+    ],
+)
+def test_endpoint_oracle_holds_the_printed_endpoint_to_the_plan_on_the_grid(thickness, forged):
+    row, check = printed_endpoint(
+        drill_bundle(depth_mm=None if thickness else 40.0, thickness=thickness)
+    )
+    for field, delta in forged.items():
+        row[field] += delta
+    with pytest.raises(ValueError):
+        check()
+
+
+def test_endpoint_oracle_holds_the_depth_band_floor_the_traveler_stops_on():
+    # A 38-42 depth band: the printed floor is what the traveler's STOP box compares the
+    # printed depth against. Reported unknown, the box can never print.
+    data = drill_bundle(depth_mm=40.0)
+    data.features["features"]["hole"]["depth"] = [38.0, 42.0]
+    row, check = printed_endpoint(data)
+    assert row["depth_floor_mm"] == 38.0
+    row["depth_floor_mm"] = "unknown"
+    with pytest.raises(ValueError):
+        check()
+
+
+def test_centre_oracle_holds_the_printed_quill_endpoint(tmp_path):
+    # The prepared pivot-shaft centre, its printed tip 0.5 mm deeper and its printed
+    # depth to match: the traveler would send the quill past the Table 6 depth.
+    row, check, _ = centre_findings(tmp_path)
+    check()
+    row["dro_tip_z"] -= 0.5
+    row["dro_depth_mm"] += 0.5
     with pytest.raises(ValueError):
         check()
 
@@ -364,25 +460,27 @@ DEEPER = {**DEEP, "depth_over_dia": 8.0, "sfm_factor": 0.3, "cite": "deeper row"
 
 def speed_finding(data):
     """The engine's speeds_feeds finding for ``data``'s one drill op, and a validator call
-    that checks it against the endpoint depths the validator has held to the plan."""
+    that checks it against the hole depths the validator derives from the plan."""
     findings = {
         (f.rule, f.subject): f.to_dict()
         for f in [*endpoint_findings(data), *speeds_feeds.evaluate(data)]
     }
     entries = VALIDATOR["entries_for"](data.inventory)
-    VALIDATOR["check_endpoints"](data.plan, data.features, findings, entries)
+    depths = VALIDATOR["check_endpoints"](data.plan, data.features, findings, entries)
     setup = data.plan["setups"][0]
     finding = findings["speeds_feeds", "S1:10"]
 
     def check():
         VALIDATOR["check_speeds"](
+            data.plan,
+            data.features,
             setup,
             setup["ops"][0],
             finding,
             entries,
             data.cutting_data,
             data.feature_definitions,
-            VALIDATOR["hole_depths"](findings),
+            depths,
         )
 
     return finding, check
@@ -441,10 +539,148 @@ def test_speed_oracle_never_passes_a_derate_it_cannot_resolve(depth_mm, deep):
         check()
 
 
-def aimed_bore(tmp_path, aim=None):
-    """The engine's S8 coordinates for the cone's aimed crank bore (plan ``aims.crank_bore``
-    asks 39.517 of its 39.34-39.70 printed separation; ``aim`` replaces that requirement
-    and value), its crank_bore row and a validator call that checks them against a plan."""
+def resped(row, sfm):
+    """Recompute ``row``'s derated RPM and feed per tooth from ``sfm`` and its own spindle
+    range, diameter, flutes and chip load: a self-consistent report."""
+    raw = 12 * sfm * row["deep_hole_sfm_factor"] / (math.pi * row["diameter_in"])
+    row["sfm"] = sfm
+    row["rpm"] = round(max(row["rpm_min"], min(row["rpm_max"], raw)) / 50) * 50
+    row["feed_mm_min"] = row["rpm"] * row["flutes"] * row["chip_load_mm_per_tooth"]
+
+
+UNRELATED = {
+    "material_class": "low_carbon_steel",
+    "tool_material": "HSS",
+    "operation": "drill",
+    "diameter_range": [3.0, 13.0],
+    "sfm": 350.0,
+    "chip_load_mm_per_tooth": 0.05,
+    "cite": "unrelated row",
+}
+
+
+@pytest.mark.parametrize(
+    "corruption",
+    [
+        # The spindle floor raised to 800 so the 750 rpm drill is clamped up to it.
+        "machine_bound",
+        # A cited 350 sfm row for another operation, or for another tool material.
+        "other_operation",
+        "other_tool_material",
+        # One more flute than the inventory drill has, its feed recomputed.
+        "flutes",
+        # The inventory drill's diameter is now unknown, the formerly valid row kept.
+        "unknown_diameter",
+    ],
+)
+def test_speed_oracle_takes_every_operand_from_the_inputs_not_the_report(corruption):
+    data = drill_bundle(depth_mm=40.0)
+    finding, check = speed_finding(data)
+    check()
+    row = finding["numbers"]
+    if corruption == "machine_bound":
+        row["rpm_min"] = 800
+        resped(row, row["sfm"])
+        assert row["rpm"] == 800
+    elif corruption in {"other_operation", "other_tool_material"}:
+        key, value = {"other_operation": ("operation", "ream")}.get(
+            corruption, ("tool_material", "carbide")
+        )
+        data.cutting_data["cut"].append({**UNRELATED, key: value})
+        resped(row, UNRELATED["sfm"])
+    elif corruption == "flutes":
+        row["flutes"] += 1
+        resped(row, row["sfm"])
+    else:
+        data.inventory["tools"]["drill"]["dia_mm"] = "unknown"
+    with pytest.raises(ValueError):
+        check()
+
+
+@pytest.mark.parametrize("debt", ["machine", "tool", "material"])
+def test_speed_oracle_never_passes_a_row_on_unverified_inputs(debt):
+    # The engine leaves the derated 750 rpm unknown; the report claims a pass and drops
+    # the verification flags it prints.
+    data = drill_bundle(depth_mm=40.0)
+    if debt == "material":
+        data.plan["stock"]["material_verify"] = True
+    else:
+        data.inventory[f"{debt}s"][{"machine": "mill", "tool": "drill"}[debt]]["verify"] = True
+    finding, check = speed_finding(data)
+    check()
+    assert finding["status"] == "unknown"
+    finding["status"] = "pass"
+    finding["numbers"].update(material_verify=False, rpm_range_verify=False)
+    with pytest.raises(ValueError):
+        check()
+
+
+def saw_finding(data):
+    """The engine's speeds_feeds finding for ``data``'s one saw cut and a validator call."""
+    findings = {(f.rule, f.subject): f.to_dict() for f in speeds_feeds.evaluate(data)}
+    setup = data.plan["setups"][0]
+    finding = findings["speeds_feeds", "S1:10"]
+
+    def check():
+        VALIDATOR["check_speeds"](
+            data.plan,
+            data.features,
+            setup,
+            setup["ops"][0],
+            finding,
+            VALIDATOR["entries_for"](data.inventory),
+            data.cutting_data,
+            data.feature_definitions,
+            {},
+        )
+
+    return finding, check
+
+
+SAW_ROW = {
+    "material_class": "low_carbon_steel",
+    "tool_material": "bimetal",
+    "operation": "saw_cut",
+    "sfm": 150.0,
+    "feed_mm_min": 20.0,
+    "cite": "test saw row",
+}
+
+
+@pytest.mark.parametrize("corruption", ["material_class", "source", "unverified_machine"])
+def test_saw_speed_oracle_takes_its_row_from_the_plan_material_not_the_report(corruption):
+    data = drill_bundle()
+    data.plan["setups"][0].update(machine="saw", ops=[{"op": 10, "do": "saw_cut", "tool": "blade"}])
+    data.inventory["machines"]["saw"] = {"kind": "saw", "blade_speed_sfm": [50, 300]}
+    data.inventory["tools"]["blade"] = {"kind": "saw_blade", "material": "bimetal"}
+    other = {**SAW_ROW, "material_class": "aluminium", "sfm": 280.0, "cite": "aluminium row"}
+    data.cutting_data["cut"] += [SAW_ROW, other]
+    data.cutting_data["aliases"]["6061"] = "aluminium"
+    if corruption == "unverified_machine":
+        data.inventory["machines"]["saw"]["verify"] = True
+    finding, check = saw_finding(data)
+    check()
+    row = finding["numbers"]
+    if corruption == "material_class":
+        # The report claims the stock is aluminium and takes that class's faster row,
+        # self-consistently: the plan's 1018 selects the 150 sfm steel row.
+        row.update(material="6061", material_class="aluminium", cutting_data_row=other["cite"])
+        row.update(sfm=280.0, blade_speed_sfm=280.0)
+    elif corruption == "source":
+        row["cutting_data_row"] = "aluminium row"
+    else:
+        assert finding["status"] == "unknown"
+        finding["status"] = "pass"
+        row["blade_speed_range_verify"] = False
+    with pytest.raises(ValueError):
+        check()
+
+
+def cone_coordinates(tmp_path, setup_id, aim=None):
+    """The engine's coordinates finding for one setup of the built-up cone (``aim``
+    replaces the requirement and value of plan ``aims.crank_bore``, which asks 39.517 of
+    its 39.34-39.70 printed separation), and a validator call that checks it against a
+    plan."""
     plan_path = copy_examples(tmp_path) / "cone-pivot-post" / "built-up.toml"
     if aim is not None:
         text = plan_path.read_text(encoding="utf-8")
@@ -452,9 +688,8 @@ def aimed_bore(tmp_path, aim=None):
         assert authored in text
         plan_path.write_text(text.replace(authored, aim), encoding="utf-8")
     bundle = load_bundle(plan_path)
-    setup = next(setup for setup in bundle.plan["setups"] if setup["id"] == "S8")
-    finding = next(f for f in coordinates.evaluate(bundle) if f.subject == "S8").to_dict()
-    (row,) = (row for row in finding["numbers"]["rows"] if row["feature"] == "crank_bore")
+    setup = next(setup for setup in bundle.plan["setups"] if setup["id"] == setup_id)
+    finding = next(f for f in coordinates.evaluate(bundle) if f.subject == setup_id).to_dict()
     entries = VALIDATOR["entries_for"](bundle.inventory)
 
     def check(plan=bundle.plan):
@@ -462,6 +697,14 @@ def aimed_bore(tmp_path, aim=None):
             setup, bundle.features, finding, plan, entries, bundle.inventory
         )
 
+    return bundle, setup, finding, check
+
+
+def aimed_bore(tmp_path, aim=None):
+    """The S8 coordinates of the cone's aimed crank bore (:func:`cone_coordinates`), its
+    crank_bore row and the validator call."""
+    bundle, _, finding, check = cone_coordinates(tmp_path, "S8", aim)
+    (row,) = (row for row in finding["numbers"]["rows"] if row["feature"] == "crank_bore")
     return bundle, finding, row, check
 
 
@@ -527,6 +770,84 @@ def test_coordinate_oracle_holds_an_aim_its_band_cannot_place_to_its_nominal_tar
         row["aim"].pop("why")
     else:
         finding["status"] = "pass"
+    with pytest.raises(ValueError):
+        check()
+
+
+@pytest.mark.parametrize(
+    "corruption",
+    [
+        # The aim dropped from what the machinist reads: the feature map's DRO stop and
+        # the hole op's dialled X/Y, together or alone, at the bore's CAD station.
+        "dro_and_xy",
+        "dro",
+        "dro_xy",
+        # Every stop re-rounded to a 0.01 grid the machine's 0.005 resolution never shows.
+        "grid",
+        # A station label (which skipped the at check) on the bore, moved along its axis
+        # with its setup and nominal targets: self-consistent.
+        "station",
+        # The same, as if the kernel's faces of revolution placed this at-located bore.
+        "kernel_span",
+    ],
+)
+def test_coordinate_oracle_holds_the_printed_dro_target_to_the_aimed_point_on_the_grid(
+    tmp_path, corruption
+):
+    bundle, finding, row, check = aimed_bore(tmp_path)
+    check()
+    nominal = row["nominal_setup"]
+    if corruption in {"dro_and_xy", "dro"}:
+        row["dro"][0] = nominal[0]
+    if corruption in {"dro_and_xy", "dro_xy"}:
+        row["dro_xy"][0] = nominal[0]
+    if corruption == "grid":
+        finding["numbers"]["dro_grid"] = {"step": 0.01, "decimals": 2}
+        for other in finding["numbers"]["rows"]:
+            if "dro" in other:
+                other["dro"] = [round(value, 2) + 0.0 for value in other["setup"]]
+                other["dro_xy"] = other["dro"][:2]
+        assert row["dro"][0] != -72.885
+    if corruption in {"station", "kernel_span"}:
+        row["point"] = "station" if corruption == "station" else "setup Z axis, kernel span start"
+        setup = next(s for s in bundle.plan["setups"] if s["id"] == "S8")
+        frame = VALIDATOR["setup_frame"](setup, bundle.plan, bundle.features)
+        axis = bundle.feature_definitions["crank_bore"]["axis"]
+        model = [value + step for value, step in zip(row["model"], axis, strict=True)]
+        delta = [
+            moved - placed
+            for moved, placed in zip(
+                VALIDATOR["frame_point"](model, frame),
+                VALIDATOR["frame_point"](row["model"], frame),
+                strict=True,
+            )
+        ]
+        row["model"] = model
+        for key in ("setup", "nominal_setup"):
+            row[key] = [value + step for value, step in zip(row[key], delta, strict=True)]
+    with pytest.raises(ValueError):
+        check()
+
+
+@pytest.mark.parametrize("corruption", ["x_target", "station_z"])
+def test_coordinate_oracle_holds_a_lathe_station_to_the_manifest_and_its_op(tmp_path, corruption):
+    bundle, setup, finding, check = cone_coordinates(tmp_path, "S1")
+    check()
+    row = next(
+        row
+        for row in finding["numbers"]["rows"]
+        if row.get("point", "").startswith("op ") and isinstance(row.get("dia_nominal"), float)
+    )
+    if corruption == "x_target":
+        # The feature map's "turn to" diameter 1 mm over the manifest's nominal.
+        ratio = row["x_target_mm"] / row["dia_nominal"]
+        row["dia_nominal"] += 1.0
+        row["x_target_mm"] = row["dia_nominal"] * ratio
+    else:
+        # The op's Z end 1 mm off its authored value, model and setup moved together.
+        frame = VALIDATOR["setup_frame"](setup, bundle.plan, bundle.features)
+        row["setup"][2] += 1.0
+        row["model"] = VALIDATOR["model_point"](row["setup"], frame)
     with pytest.raises(ValueError):
         check()
 
