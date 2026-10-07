@@ -2643,9 +2643,11 @@ class _Traveler:
         lathe = numbers.get("x_display") == "diameter" or self.lathe(setup)
         o = self.operative
         grouped = {}
+        aims = []
         for record in numbers.get("rows", []):
             feature = record.get("feature")
-            coordinates = record.get("setup")
+            # A mill target prints where the DRO stops: on its grid, aims applied.
+            coordinates = record.get("dro", record.get("setup"))
             if not isinstance(coordinates, (list, tuple)) or len(coordinates) != 3:
                 continue
             if lathe:
@@ -2661,6 +2663,7 @@ class _Traveler:
                 entry["z"].append(coordinates[2])
             elif all(_known(v) for v in coordinates):
                 grouped.setdefault((feature, tuple(coordinates)), {})
+                aims.append(self.aim_note(record))
         if not grouped:
             return ""
         if lathe:
@@ -2692,7 +2695,31 @@ class _Traveler:
                 "middle (a hole's point may sit on its entry or exit face); the op table gives "
                 "the tool targets."
             )
+            note += "".join(f" {text}" for text in dict.fromkeys(filter(None, aims)))
         return f"<h2>FEATURE MAP — {escape(self.zero_name(setup))}</h2>" + table + _p(note)
+
+    def aim_note(self, record):
+        """A located target moved off its drawing nominal: where it now stands, from what,
+        and why (plan ``aims``); empty for an unaimed target."""
+        aim = record.get("aim") or {}
+        nominal = record.get("nominal_setup")
+        if "shift_mm" not in aim or not isinstance(nominal, list):
+            return ""
+        feature, source = record["feature"], aim["source"]
+        requirement = aim["requirement"]
+        o = self.operative
+        moved = ", ".join(
+            f"{axis} {o(target)} (drawing nominal {o(drawn)})"
+            for axis, target, drawn in zip("XYZ", record["dro"], nominal, strict=True)
+            if o(target) != o(drawn)
+        )
+        reason = self.bench(aim["reason"]).rstrip(".")
+        return (
+            f"{self.feature_name(feature)} is aimed at {moved} so its "
+            f"{_REQUIREMENT_NAMES.get(requirement, requirement)} from the "
+            f"{self.feature_name(source)} reads {_number(aim['value_mm'])} inside "
+            f"{self.band(aim['printed_band'], feature, requirement)}: {reason}."
+        )
 
     # ------------------------------------------------------------------ tools
     def tool_table(self, setup):
@@ -3049,9 +3076,14 @@ class _Traveler:
         gauge = resolve(self.bundle, "gauges", hold["gauge"]) or {}
         resolution = length_mm(gauge, "resolution")
         precision = self.precision(feature, requirement)
+        # The decimals that show one gauge step: 0.001 mm reads 3, and 0.0001 in (0.00254 mm)
+        # also reads 3, not the five places of its mm conversion.
+        step = 0
+        if _known(resolution) and resolution > 0:
+            step = math.ceil(-math.log10(resolution) - 1e-9)
         places = max(
             *(_places(limit) for limit in hold["band"]),
-            _places(resolution) if _known(resolution) and resolution > 0 else 0,
+            min(max(step, 0), 6),
             precision if isinstance(precision, int) else 0,
         )
         band = "–".join(_number(limit, places) for limit in hold["band"])

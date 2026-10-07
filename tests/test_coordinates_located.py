@@ -58,13 +58,15 @@ def test_parent_located_counterbore_resolves_identically_in_coordinates_and_trav
     targets = coordinates.evaluate(data)[0]
     assert targets.status == "pass"
     (cbore,) = _rows(targets, "cbore")
-    # drawing (0, 90, 4) -> model (10, 50, 4) -> setup (10 - 5, -(4 - 3), 50 - 0).
+    # drawing (0, 90, 4) -> model (10, 50, 4) -> setup (10 - 5, -(4 - 3), 50 - 0), already
+    # on the default 0.001 DRO grid.
     assert cbore == {
         "feature": "cbore",
         "model": [10, 50, 4],
         "setup": [5.0, -1.0, 50.0],
         "dro_xy": [5.0, -1.0],
         "located_by": "right",
+        "dro": [5.0, -1.0, 50.0],
     }
     assert "features.features.right.at" in targets.cite
     assert "drawing right hole" in targets.cite

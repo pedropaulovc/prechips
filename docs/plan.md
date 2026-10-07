@@ -124,6 +124,7 @@ of geometric validity; rules perform the applicable checks.
 | `stock` | `Stock \| Unknown` | Optional |
 | `dro` | `Dro \| Unknown` | Optional |
 | `frames` | `dict[str, PlanFrame] \| Unknown` | Optional |
+| `aims` | `dict[str, Aim]` | Optional |
 | `joint_features` | `dict[str, JointFeature]` | Optional |
 | `setups` | `list[Setup]` | Required |
 
@@ -150,6 +151,28 @@ manifest-only. Plan frames are never merged into the manifest or its hash; rule
 citations carry `plan.frames.<name>: author-declared setup frame` followed by
 the frame's own `cite`, while exported setup frames keep their manifest
 provenance.
+
+## Aims
+
+`[aims.<feature>]` moves one located feature's DRO target off its drawing
+nominal so that a height-like band it holds from its `height_from` reference
+(`height_above_pivot`, `height` or `separation`) reads a stated value. It is a
+process choice on the printed target, never a change to the STEP, the manifest,
+a cutting claim or a kernel input.
+
+| Field | Meaning |
+|---|---|
+| `requirement` | The height-like requirement the aim sets; it must be one of the feature's exported drawing requirements |
+| `value_mm` | The value that requirement reads at the aimed target |
+| `reason` | Known text; the bundled examples begin it with `AUTHOR'S CHOICE` |
+
+The `<feature>` must be a manifest feature that exports `requirement`; anything
+else is bad input. The [`coordinates`](rules-coordinates.md#coordinates) rule
+moves the target along the band's measuring direction in every setup that
+locates the feature. It then checks the DRO-rounded target against the printed
+band and cites `plan.aims.<feature>`. The sheet's feature map prints the aimed
+target together with the drawing nominal and the reason. An aim on a feature
+without that band, or one whose distance cannot be measured, stays unknown.
 
 ## Joint features
 

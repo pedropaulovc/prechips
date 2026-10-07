@@ -1029,6 +1029,11 @@ sheet.
    manifest with one `"unknown"` tolerance among known ones → `?` and exit
    4; editing `features.toml` after approval → `PLANNED` naming the input;
    an empty ops list → exit 3; the report byte-repeatable.
+   **Mill located targets (2026-10-06, r3):** off a lathe, `coordinates` prints
+   each located target on the setup's DRO grid. It checks that target against
+   the printed height-like band it holds from `height_from`; a target outside the
+   band is `✗`. A plan `aims` entry may move the target inside its band for a
+   stated reason (the cone crank bore at 39.517 separation) without moving geometry.
 2. **M2 — local declared-input implementation completed 2026-10-03.**
    Turned-profile monotonicity,
    supported stick-out, collet/chuck diameter capacity, exact-first indexing,

@@ -71,6 +71,11 @@ x = "away_from_spindle_axis"
 y = "away" # AUTHOR'S CHOICE: EL400 positive mill-Y convention
 z = "toward_exposed_end"
 
+[aims.crank_bore]
+requirement = "separation"
+value_mm = 39.517
+reason = "AUTHOR'S CHOICE: the CAD stations give 39.332, below the band. The sleeve stays at its CAD station, so the bore sits 0.185 off the sleeve centre toward the head top (wall 5.07 at its thinnest)."
+
 # Plan-owned, nominally indicated setup frames in model coordinates.
 # AUTHOR'S CHOICE: example setup positions, not measurements of a real chucking.
 [frames.T1]
@@ -123,34 +128,34 @@ binding = "nominal"
 note = "AUTHOR'S CHOICE: dividing head at the left end of the table, post axis along table X; foot B is X0, the head top X-86 and the tail end X-125; the crank socket axis is vertical."
 cite = ["AUTHOR'S CHOICE", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-33,49-57"]
 
-# Origin = exported journal_bore at; setup +Z = outward normal of the south cap.
+# Origin = foot B on the post axis (model origin); setup +Z = outward normal of the south cap.
 [frames.JS]
-origin = [0.0, 33.368, 0.0]
+origin = [0.0, 0.0, 0.0]
 x = [0.0, -1.0, 0.0]
 y = [0.9762272058393484, 0.0, -0.21674972336567902]
 z = [0.21674972336567902, 0.0, 0.9762272058393484]
 binding = "nominal"
-note = "AUTHOR'S CHOICE: RH turned 12.5182 degrees about the post axis (table X) so the cone cross-bore axis is vertical; foot B is X33.368 and the south tangent point of the body is Z21.0055."
+note = "AUTHOR'S CHOICE: RH turned 12.5182 degrees about the post axis (table X) so the cone cross-bore axis is vertical; foot B is X0, the cross-bore X-33.368 and the south tangent point of the body Z21.0055."
 cite = ["AUTHOR'S CHOICE", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:59-67"]
 
-# Origin = exported crank_bore at; setup +Z = crank sleeve north face normal, post along table X.
+# Origin = foot B on the post axis, at the crank sleeve north face height; setup +Z = crank sleeve north face normal, post along table X.
 [frames.CH]
-origin = [0.0, 72.7, -21.3753]
+origin = [0.0, 0.0, -21.3753]
 x = [0.0, -1.0, 0.0]
 y = [-1.0, 0.0, 0.0]
 z = [0.0, 0.0, -1.0]
 binding = "nominal"
-note = "AUTHOR'S CHOICE: dividing head at the left end of the table, post axis along table X, crank sleeve north face Z0 up; foot B is X72.7 and the far sleeve end Z-72.0344."
+note = "AUTHOR'S CHOICE: dividing head at the left end of the table, post axis along table X, crank sleeve north face Z0 up; foot B is X0, the aimed crank bore X-72.885 and the far sleeve end Z-72.0344."
 cite = ["AUTHOR'S CHOICE", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57"]
 
-# Origin = exported journal_bore at; setup +Z = outward normal of the north cap, post along table X.
+# Origin = foot B on the post axis (model origin); setup +Z = outward normal of the north cap, post along table X.
 [frames.JH]
-origin = [0.0, 33.368, 0.0]
+origin = [0.0, 0.0, 0.0]
 x = [0.0, -1.0, 0.0]
 y = [-0.9762272058393484, 0.0, 0.21674972336567902]
 z = [-0.21674972336567902, 0.0, -0.9762272058393484]
 binding = "nominal"
-note = "AUTHOR'S CHOICE: CH turned 12.5182 degrees about the post axis (table X) so the journal axis is vertical, north cap up at Z21.0055; foot B is X33.368."
+note = "AUTHOR'S CHOICE: CH turned 12.5182 degrees about the post axis (table X) so the journal axis is vertical, north cap up at Z21.0055; foot B is X0 and the journal X-33.368."
 cite = ["AUTHOR'S CHOICE", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:59-67"]
 
 [frames.B6]
@@ -359,6 +364,7 @@ doc_mm = 0.15 # example (plausible, not measured); below littlemachineshop.com/p
 feed_mm_rev = 0.05 # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.004 in/rev (0.10 mm)
 approach_mm = 3.0
 note = "Hand-feed the last 1 mm to the Z DRO reading, then withdraw radially up the shoulder; the R0.2 nose leaves the corner. Mic at three stations for taper."
+process_holds = [{ feature = "body", requirement = "dia", band = [41.99, 42.03], gauge = "micrometers/1-2in", reason = "AUTHOR'S CHOICE: the S6, S7, S10 and S12 cradle saddles are bored 42.011, and their cone pins, crank pins and cap pad are set for that body; 41.99-42.03 keeps the body axis within 0.022 of that height in the shallow saddles" }]
 [setups.ops.checks]
 dia = "micrometers/1-2in"
 [[setups.ops]]
@@ -474,7 +480,7 @@ feature = "cone_boss_south_face"
 faces = ["#1234/ADVANCED_FACE[30]/HAF_CONE_BOSS_SOUTH_FACE__P01"]
 tool = "parting-blade-lms-1728"
 holder = "qctp-axa-lms-2280/7-parting"
-to_z = -21.0055 # 42.011 mm sleeve length from the north cap
+to_z = -21.0505 # AUTHOR'S CHOICE: part the sleeve 42.056 long, 0.045 over the CAD 42.011 and inside the drawing's 41.50-42.52, so both caps stand flush or proud on any body inside the S1 hold
 to_dia = 0.0
 direction = "radially_inward"
 approach_mm = 3.0
@@ -486,6 +492,7 @@ op = 50
 do = "inspect"
 feature = "cone_boss_north_face"
 note = "Stone the parting burr without shortening the sleeve, then measure cap to cap."
+process_holds = [{ feature = "cone_boss_north_face", requirement = "length", band = [42.04, 42.08], gauge = "micrometers/1-2in", reason = "AUTHOR'S CHOICE: with the body held to 41.99-42.03 in S1 op 50, a 42.04-42.08 sleeve leaves both caps flush to 0.09 proud of the body, so the S10 bridge and the S11 soft jaws bear on the caps" }]
 [setups.ops.checks]
 length = "calipers"
 
@@ -642,7 +649,7 @@ jaw_above_parallels_mm = "not_applicable"
 pose = { origin_mm = [-105.0, 0.0, 0.0], x = [0.0, 0.0, 1.0], z = [1.0, 0.0, 0.0] }
 jaw_clock_deg = 0.0
 stop = "AUTHOR'S CHOICE: tail end against the chuck body face, 105 mm of post out of the jaws. Indicate the turned head and body to run true within 0.02 mm, then indicate foot B square to the head axis."
-clamp = "AUTHOR'S CHOICE: tighten each independent jaw a little at a time while indicating; remove the key and lock the spindle before drilling."
+clamp = "AUTHOR'S CHOICE: tighten each independent jaw a little at a time while indicating. Then align the head with the table: with the DTI in the spindle, sweep the top of the body along X from foot B to the shoulder, then its side; tap the head on the table until each sweep reads within 0.01 mm, tighten the head bolts and re-check both sweeps and the runout. Remove the key and lock the spindle before drilling."
 [setups.hold.index]
 fixture = "BS-0"
 feature = "crank_bore"
@@ -740,7 +747,7 @@ fixed_jaw = "not_applicable"
 jaws_along = "not_applicable"
 parallels = "not_applicable"
 jaw_above_parallels_mm = "not_applicable"
-pose = { origin_mm = [-71.632, 0.0, 0.0], x = [0.0, 0.0, 1.0], z = [1.0, 0.0, 0.0] }
+pose = { origin_mm = [-105.0, 0.0, 0.0], x = [0.0, 0.0, 1.0], z = [1.0, 0.0, 0.0] }
 jaw_clock_deg = 12.5182
 stop = "AUTHOR'S CHOICE: same chucking as S4; do not loosen the jaws."
 clamp = "AUTHOR'S CHOICE: unlock the spindle and index 12.5182 degrees, cranking in the same direction as the index for the final approach so the worm backlash is taken up; then lock the spindle before drilling."
@@ -763,7 +770,7 @@ tool = "dti"
 check_jog_mm = 10.0
 [setups.zero.x]
 edge = "foot_seat"
-edge_mm = 33.368
+edge_mm = 0.0
 from = "+x"
 tool = "edge-finder"
 check_jog_mm = 10.0
@@ -784,7 +791,7 @@ tool = "center-drills-lms-4859/2"
 holder = "drill-chuck-r8"
 depth_mm = 2.0 # example (plausible, not measured); Machinery's Handbook Pocket Companion (ISBN 978-0-8311-3095-4) p.113 Table 3a size 2 combined drill and countersink: 5/64 in (1.98 mm) drill, 1.98 mm drill length, so the 60° countersink just starts
 approach_mm = 5.0
-note = "Spot on the top of the body, 33.37 mm from foot B."
+note = "Spot at X-33.37 Y0 on the top of the body."
 [[setups.ops]]
 op = 20
 do = "drill"
@@ -837,9 +844,9 @@ spigot = "cone_spigot"
 fit = "clearance"
 clearance_mm = [0.044, 0.076]
 method = "retaining_compound"
-process = "AUTHOR'S CHOICE: Loctite 638 retaining compound. Confirm from the measured socket and sleeve sizes that the clearance is inside the band. Apply a continuous bead around the leading end of the sleeve and wet the socket bore, then push the sleeve in with a turning motion until its north cap seats on both cradle pins. Wipe off the excess at both mouths."
+process = "AUTHOR'S CHOICE: Loctite 638 retaining compound, applied in op 20"
 cure_time_min = 1440
-surface_prep = "AUTHOR'S CHOICE: degrease the socket and the sleeve outside with a residue-free solvent cleaner and let them dry; no oil or cutting fluid on either surface."
+surface_prep = "AUTHOR'S CHOICE: solvent-degreased and dry, op 10."
 cite = ["AUTHOR'S CHOICE: example retaining-compound process (Loctite 638 class), clearance band and 24 h room-temperature cure; not a product datasheet claim", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:349-355"]
 [setups.hold]
 fixture = "cone-bond-cradle"
@@ -853,19 +860,23 @@ jaw_above_parallels_mm = "not_applicable"
 pose = { origin_mm = [0.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
 stop = "AUTHOR'S CHOICE: the foot stop locates foot B; the two cone pins carry the north cap, which centres the sleeve on the post axis."
 clamp = "none"
-note = "Seating check after op 10, before the cure: a 0.05 mm feeler must not enter under the north cap at either pin."
 [[setups.ops]]
 op = 10
+do = "inspect"
+feature = "cone_boss"
+note = "Degrease the cross-bore and the sleeve outside with a residue-free solvent cleaner and let them dry; keep oil and cutting fluid off both. Bore-gauge the cross-bore at both mouths with the 10-18 mm bore gauge and mic the sleeve at both ends: bore minus sleeve must read 0.044-0.076. Stop if it does not."
+[[setups.ops]]
+op = 20
 do = "fit"
 feature = "cone_boss"
-note = "Slide the sleeve into the cross-bore with compound until the north cap sits on both pins; leave it undisturbed through the cure."
+note = "With both op 10 readings in band, run a continuous bead of compound round the leading end of the sleeve and wet the bore. Push the sleeve in with a turning motion until the north cap sits on both cone pins; a 0.05 mm feeler must not enter under the cap at either pin. Wipe the excess off both mouths, then leave the post undisturbed for the 24 h cure."
 [setups.ops.checks]
 dia = "micrometers/0-1in"
 [[setups.ops]]
-op = 20
+op = 30
 do = "inspect"
 feature = "cone_boss_north_face"
-note = "After cure, caliper the sleeve cap to cap: 41.50-42.52."
+note = "After the cure, caliper the sleeve cap to cap."
 [setups.ops.checks]
 length = "calipers"
 
@@ -890,9 +901,9 @@ spigot = "crank_spigot"
 fit = "clearance"
 clearance_mm = [0.064, 0.096]
 method = "retaining_compound"
-process = "AUTHOR'S CHOICE: Loctite 638 retaining compound. Confirm from the measured socket and sleeve sizes that the clearance is inside the band. Apply a continuous bead around the north end of the sleeve and wet the socket bore, then push the sleeve down from above with a turning motion until its north face seats on both crank pins. Wipe off the excess at both mouths."
+process = "AUTHOR'S CHOICE: Loctite 638 retaining compound, applied in op 20"
 cure_time_min = 1440
-surface_prep = "AUTHOR'S CHOICE: degrease and dry as for the cone sleeve in S6."
+surface_prep = "AUTHOR'S CHOICE: solvent-degreased and dry, op 10."
 cite = ["AUTHOR'S CHOICE: example retaining-compound process (Loctite 638 class), clearance band and 24 h room-temperature cure; not a product datasheet claim", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:349-355"]
 [setups.hold]
 fixture = "cone-bond-cradle"
@@ -906,19 +917,23 @@ jaw_above_parallels_mm = "not_applicable"
 pose = { origin_mm = [0.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
 stop = "AUTHOR'S CHOICE: the two crank pins set the sleeve north face flush with the bottom of the head."
 clamp = "none"
-note = "Seating check after op 10, before the cure: a 0.05 mm feeler must not enter under the sleeve north face at either pin."
 [[setups.ops]]
 op = 10
+do = "inspect"
+feature = "crank_boss"
+note = "Degrease the head socket and the sleeve outside as in S6 op 10 and let them dry. Bore-gauge the socket at both mouths with the 18-35 mm bore gauge and mic the sleeve at both ends: socket minus sleeve must read 0.064-0.096. Stop if it does not."
+[[setups.ops]]
+op = 20
 do = "fit"
 feature = "crank_boss"
-note = "Slide the sleeve into the head socket with compound until its north face sits on both pins; leave it undisturbed through the cure."
+note = "With both op 10 readings in band, run a continuous bead of compound round the north end of the sleeve and wet the socket. Push the sleeve down from above with a turning motion until its north face sits on both crank pins; a 0.05 mm feeler must not enter under the face at either pin. Wipe the excess off both mouths, then leave the post undisturbed for the 24 h cure."
 [setups.ops.checks]
 dia = "micrometers/0-1in"
 [[setups.ops]]
-op = 20
+op = 30
 do = "inspect"
 feature = "crank_boss_faces"
-note = "After cure, caliper from the sleeve north face over the far side of the head diameter. Station = reading - (measured head diameter)/2; accept 20.87-21.89. Caliper the sleeve end to end for its length."
+note = "After the cure, caliper from the sleeve north face over the far side of the head diameter: station = reading - (measured head diameter)/2. Caliper the sleeve end to end for its length."
 [setups.ops.checks]
 length = "calipers"
 station = "calipers"
@@ -950,17 +965,22 @@ fixed_jaw = "not_applicable"
 jaws_along = "not_applicable"
 parallels = "not_applicable"
 jaw_above_parallels_mm = "not_applicable"
-pose = { origin_mm = [-32.3, 0.0, -21.3753], x = [0.0, 0.0, 1.0], z = [1.0, 0.0, 0.0] }
+pose = { origin_mm = [-105.0, 0.0, -21.3753], x = [0.0, 0.0, 1.0], z = [1.0, 0.0, 0.0] }
 jaw_clock_deg = 0.0
-stop = "AUTHOR'S CHOICE: tail end against the chuck body face, 105 mm of post out of the jaws. Indicate the head and body to run true within 0.02 mm and foot B square, then turn the head until the crank sleeve indicates vertical."
-clamp = "AUTHOR'S CHOICE: tighten each independent jaw a little at a time while indicating; remove the key and lock the spindle before drilling."
+stop = "AUTHOR'S CHOICE: tail end against the chuck body face, 105 mm of post out of the jaws, index pin in the zero hole. Before the final tightening, turn the post in the jaws until the crank sleeve indicates vertical, then indicate the head and body to run true within 0.02 mm and foot B square."
+clamp = "AUTHOR'S CHOICE: tighten each independent jaw a little at a time while indicating. If the head was moved since S5, re-align it as in S4: sweep the top and the side of the body along X with the DTI in the spindle, each within 0.01 mm, tighten the head bolts and re-check. Remove the key and lock the spindle before drilling."
+[setups.hold.index]
+fixture = "BS-0"
+feature = "crank_bore"
+angle_deg = 0.0
+positions = 1
 [setups.zero.transfer]
 from = "S7"
 indicate = ["head", "foot_seat", "crank_boss"]
 gauge = "dti"
 runout_limit_mm = 0.02
 [setups.zero.y]
-feature = "crank_boss"
+feature = "body"
 edge_mm = 0.0
 from = "indicated"
 method = "indicate_axis"
@@ -968,7 +988,7 @@ tool = "dti"
 check_jog_mm = 10.0
 [setups.zero.x]
 edge = "foot_seat"
-edge_mm = 72.7
+edge_mm = 0.0
 from = "+x"
 tool = "edge-finder"
 check_jog_mm = 10.0
@@ -989,7 +1009,7 @@ tool = "center-drills-lms-4859/2"
 holder = "drill-chuck-r8"
 depth_mm = 2.0 # example (plausible, not measured); Machinery's Handbook Pocket Companion (ISBN 978-0-8311-3095-4) p.113 Table 3a size 2 combined drill and countersink: 5/64 in (1.98 mm) drill, 1.98 mm drill length, so the 60° countersink just starts
 approach_mm = 5.0
-note = "Spot the centre of the sleeve north face."
+note = "Spot at X-72.885 Y0 on the sleeve north face, 0.185 toward the head top from the sleeve centre."
 [[setups.ops]]
 op = 20
 do = "drill"
@@ -1038,7 +1058,7 @@ fixed_jaw = "not_applicable"
 jaws_along = "not_applicable"
 parallels = "not_applicable"
 jaw_above_parallels_mm = "not_applicable"
-pose = { origin_mm = [-71.632, 0.0, 0.0], x = [0.0, 0.0, 1.0], z = [1.0, 0.0, 0.0] }
+pose = { origin_mm = [-105.0, 0.0, 0.0], x = [0.0, 0.0, 1.0], z = [1.0, 0.0, 0.0] }
 jaw_clock_deg = 12.5182
 stop = "AUTHOR'S CHOICE: same chucking as S8; do not loosen the jaws."
 clamp = "AUTHOR'S CHOICE: unlock the spindle and index 12.5182 degrees, cranking in the same direction as the index for the final approach so the worm backlash is taken up; then lock the spindle before drilling."
@@ -1053,7 +1073,7 @@ indicate = ["head", "foot_seat", "cone_boss_north_face"]
 gauge = "dti"
 runout_limit_mm = 0.02
 [setups.zero.y]
-feature = "cone_boss"
+feature = "body"
 edge_mm = 0.0
 from = "indicated"
 method = "indicate_axis"
@@ -1061,7 +1081,7 @@ tool = "dti"
 check_jog_mm = 10.0
 [setups.zero.x]
 edge = "foot_seat"
-edge_mm = 33.368
+edge_mm = 0.0
 from = "+x"
 tool = "edge-finder"
 check_jog_mm = 10.0
@@ -1082,7 +1102,7 @@ tool = "center-drills-lms-4859/2"
 holder = "drill-chuck-r8"
 depth_mm = 2.0 # example (plausible, not measured); Machinery's Handbook Pocket Companion (ISBN 978-0-8311-3095-4) p.113 Table 3a size 2 combined drill and countersink: 5/64 in (1.98 mm) drill, 1.98 mm drill length, so the 60° countersink just starts
 approach_mm = 5.0
-note = "Spot the centre of the north cap."
+note = "Spot at X-33.37 Y0, the centre of the north cap: Y0 is the post axis from the body crest, and the journal axis crosses it."
 [[setups.ops]]
 op = 20
 do = "drill"
@@ -1124,10 +1144,10 @@ note = "AUTHOR'S CHOICE: post horizontal, cone cross-bore vertical; the crank sl
 fixture = "cone-saw-cradle"
 pose = { origin_mm = [0.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
 clamps = [
-  { ref = "cone-cap-bridge", restraint = "press", pose = { origin_mm = [52.632, 0.0, 21.0055], x = [0.0, 1.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "brass pad on the south cap annulus; the load runs down the cone sleeve onto the north-cap pad, not through the bonded joint; studs at Y+-30 clear the body" },
+  { ref = "cone-cap-bridge", restraint = "press", pose = { origin_mm = [52.632, 0.0, 21.0505], x = [0.0, 1.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "brass pad on the south cap annulus, which S2 op 40 leaves 0.045 proud; tighten both nuts evenly. The load runs down the cone sleeve onto the north-cap pad, not through the bonded joint; studs at Y+-30 clear the body" },
 ]
 clamp_order = [1]
-locate = "body in both cradle saddles, north cap annulus on the cap pad; the cap faces square the cone cross-bore to the saw bed"
+locate = "first scribe a line round the post 87.75 mm from foot B for the blade centre (foot B down on the surface plate, height gauge). Lay the post in both cradle saddles with the crank sleeve up and turn it until the north cap annulus sits flat on the cap pad; the cap faces square the cone cross-bore to the saw bed"
 supports = "not_applicable"
 support = "none"
 grip_on = "AUTHOR'S CHOICE: finished body in the two cradle saddles, 6-20 mm and 44-58 mm from foot B, north cap on the 16 mm pad, south cap under the bridge pad; no load on the head, the crank sleeve or the raw tail"
@@ -1136,14 +1156,14 @@ fixed_jaw = "not_applicable"
 jaws_along = "not_applicable"
 parallels = "not_applicable"
 jaw_above_parallels_mm = "not_applicable"
-stop = "AUTHOR'S CHOICE: scribe a line round the post 87.75 mm from foot B for the blade centre; slide the cradle in the saw vise until the blade touches the scribed line, then close the vise. The 1.5 mm kerf leaves the head 87 mm tall, and the cradle base ends 3 mm on the kept side of the kerf."
-clamp = "AUTHOR'S CHOICE: lay the post in the saddles with the crank sleeve up and the north cap on the pad; turn it until the south cap sits flat under the bridge pad, then tighten both bridge nuts evenly. Grip the cradle base in the saw vise. Set the blade guides outside the 44.45 mm tail; let the tail drop clear as the cut breaks through."
+stop = "AUTHOR'S CHOICE: no end stop along the post: the north cap on its pad and the bridge on the south cap fix it in the cradle, and op 10 sets the blade to the scribed line."
+clamp = "AUTHOR'S CHOICE: clamp the post with the cap bridge (C1) while the saw vise is still open; the cradle is moved and gripped only in op 10."
 [[setups.ops]]
 op = 10
 do = "saw_cut"
 tool = "bandsaw-blade-10-14"
 cut_plane = { axis = "x", value = -1.75, keep = "above" }
-note = "Saw the tail off with the blade centred on the scribed line; this leaves 1 mm on the head top for S11."
+note = "With the post clamped, slide the cradle in the open saw vise until the blade touches the scribed line, then close the vise on the cradle base; the 1.5 mm kerf leaves the head 87 mm tall and the cradle base ends 3 mm on the kept side of the kerf. Set the blade guides outside the 44.45 mm tail. Saw with the blade centred on the line; the tail drops clear as the cut breaks through, leaving 1 mm on the head top for S11."
 
 # ======================================================================= S11
 [[setups]]
@@ -1163,7 +1183,7 @@ note = "AUTHOR'S CHOICE: foot B down after the saw cut; 1 mm facing allowance ab
 [setups.hold]
 fixture = "vise-pm-6-tall-soft-jaws"
 support = "none"
-grip_on = "AUTHOR'S CHOICE: the two flush cone-sleeve caps, Z24.77..41.97 above foot B, faced square to the cross-bore; foot B seated on parallels"
+grip_on = "AUTHOR'S CHOICE: the two cone-sleeve caps, Z24.77..41.97 above foot B, faced square to the cross-bore: both caps flush to 0.09 proud of the body, set by the S1 op 50 and S2 op 50 process holds; foot B seated on parallels"
 grip_mm = 17.2
 fixed_jaw = "rear"
 jaws_along = "x"
@@ -1196,10 +1216,12 @@ tool = "dti"
 check_jog_mm = 10.0
 [setups.zero.z]
 face = "top"
-edge_mm = 87.0
+edge_mm = 87.0 # nominal sawn top; the Axis Set uses the measured height M
 from = "+z"
-method = "touch_then_set"
+method = "measure_then_set" # AUTHOR'S CHOICE: a bandsawn top is not reliably 87.0, so its high spot is measured from foot B
 gauge = "height-gauge"
+measure = "before clamping: stand the part foot B down on the surface plate and height-gauge the sawn top at its high spot (nominal 87.0); touch T1 on that high spot in the vise"
+offset_mm = 0.0
 tool = "endmills-lms-6784/3-4in-4fl"
 paper_mm = 0.0
 check_jog_mm = 10.0
@@ -1217,7 +1239,7 @@ approach_mm = 5.0
 direction = "conventional"
 stock_removal_bounds = { x = [-26.2, 26.2], y = [-26.2, 26.2], z = [86.0, 87.0] }
 contour = { method = "linear_table", step_mm = 12.7, open_side = "+y" } # AUTHOR'S CHOICE: 0.67 x cutter dia stepover, stepping from the rear, away from the crank sleeve over the front jaw
-note = "Before clamping, stand the part foot B down on the surface plate and height-gauge the sawn top at its high spot. In the vise, touch T1 on that high spot and set Z to the reading."
+note = "Run the sheet 3 raster once per 0.5 mm level from the measured top M down to Z86.000: Z86.500 then Z86.000 when M reads 87.0, plus one level for each 0.5 mm that M stands higher."
 [setups.ops.checks]
 height = "height-gauge"
 [[setups.ops]]
@@ -1286,6 +1308,11 @@ approach_mm = 5.0
 dia = "calipers"
 depth = "calipers"
 [[setups.ops]]
+op = 75
+do = "deburr"
+feature = "head"
+note = "Off the vise, by hand with a file, a stone and a hand countersink: break the head-top rim, both counterbore rims, both mount-hole exits at foot B and the foot B rim to R0.25 or 0.25 chamfer max. Leave the reamed bore walls alone; their rims keep the 0.1 mm breaks from S8 and S9. Blow out the mount holes."
+[[setups.ops]]
 op = 80
 do = "inspect"
 feature = "body"
@@ -1321,8 +1348,8 @@ separation = "height-gauge"
 angularity_dia = "height-gauge"
 finish_ra = "roughness-comparator"
 [setups.ops.inspection_methods]
-separation = "AUTHOR'S CHOICE: stand the post on foot B on the surface plate. With the DTI on the height gauge, read the top and bottom of each bore at both mouths; each bore centre is the mean of its top and bottom readings. Separation = crank centre - journal centre, accept 39.33-39.70."
-angularity_dia = "AUTHOR'S CHOICE: (1) Foot B on the plate: the crank bore centre heights at its two mouths must read equal, so its axis is parallel to B. (2) Clamp foot B to the angle plate with the post horizontal and turn the post until the journal bore centres at both mouths read equal. (3) The crank bore centres at its two mouths must then differ by 72.03 x sin 12.52 deg = 15.61, each mouth within 0.05 of its nominal height (the 0.1 diameter zone)."
+separation = "AUTHOR'S CHOICE: stand the post on foot B on the surface plate. With the DTI on the height gauge, read the top and bottom of each bore at both mouths; each bore centre is the mean of its top and bottom readings. Separation = crank centre - journal centre, accept 39.34-39.70."
+angularity_dia = "AUTHOR'S CHOICE: the crank axis must lie in a Ø0.10 cylinder over its 72.03 bore, at 12.5182 deg to journal axis A and parallel to foot B. Read the bottom of each bore with the DTI on the height gauge. Slide the gauge base along a parallel clamped in line with the bore and step it by setting a 1-2-3 block between a stop block and the base: 1 in face (25.4) for the journal, 2 in face (50.8) for the crank. A rise is the reading change over that step, taken toward the south-cap and projecting crank-sleeve side for both bores. (1) Foot B on the plate: read journal rise rJ1 and crank rise rC1 on the DTI; e1 = 1.418 x rC1 - 2.768 x rJ1. (2) Lay the post on the plate on its head and body, chocked with the 1-2-3 blocks, and roll it until the journal rise reads within 0.05 with the projecting crank-sleeve end rising. Read journal rise rJ2 on the DTI; for crank rise rC2 raise the height gauge until the DTI returns to its first reading (ideal 50.8 x tan 12.5182 deg = 11.279); e2 = 1.351 x (rC2 - 11.279) - 2.836 x rJ2. Accept sqrt(e1^2 + e2^2) <= 0.10."
 
 # ======================================================================= S12
 # Drawing finish: SSPC-SP 3 clean, mask machined faces, RAL 6005 alkyd 50-75 um DFT, oil bare faces.
@@ -1356,10 +1383,11 @@ op = 10
 do = "coating"
 feature = "body"
 process = "ral-6005-alkyd"
-note = "SSPC-SP 3: power-tool clean the unmachined surfaces to bright metal and blow off the dust. Mask every machined face and both bores. Brush RAL 6005 alkyd to 50-75 um dry film and let it cure as the can states. Check the dry film with the coating-thickness gauge at five places; then unmask."
+# AUTHOR'S CHOICE: paint the non-functional turned surfaces because the all-turned built-up post has no unmachined surface for the finish note's paint and mask split.
+note = "Paint the non-functional turned surfaces; they stand in for the unmachined surfaces the finish note assumes: the body diameter from 21 mm above foot B to the head shoulder, the shoulder, the head diameter and the projecting length of the crank sleeve. SSPC-SP 3: power-tool clean those areas to bright, scuffed metal and blow off the dust. Mask foot B and the first 21 mm of the body (it sits in the cradle saddle), the head top, both cone caps, both crank-sleeve end faces, both bores and the two mount holes with their counterbores. Brush RAL 6005 alkyd to 50-75 um dry film and let it cure as the can states. Check the dry film with the coating-thickness gauge at five places on the paint; then unmask."
 [[setups.ops]]
 op = 20
 do = "coating"
 feature = "body"
 process = "oil-iso-vg32"
-note = "Wipe a thin film of ISO VG 32 oil on every bare machined face and into both bores."
+note = "After unmasking, wipe a thin film of ISO VG 32 oil on every masked face: foot B and the saddle band, the head top, the cone caps, the crank-sleeve end faces, into both bores and the mount holes."
