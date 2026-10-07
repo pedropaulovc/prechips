@@ -335,14 +335,23 @@ leaves its face at its `to_z` (`forms_face`), or a facing or pocketing op whose
 feature's X/Y `bounds` hold its whole footprint (its own `bounds`, else a Z-axis
 round feature's `at` ± half its largest `dia`); overlap is not cover. An op
 leaves its feature's face at `to_z` when it is a facing or pocketing op, or a
-lathe turning op the kernel poses on that plane (`faced_side`: its claimed
-faces all face one way along Z, as a face, part-off, cut-to-fit, groove wall or
-turned shoulder does). A turning op the kernel sampled with no such face (a
-diameter alone), an op without `to_z`, and a manual, saw or transfer step leave
-none. A turning op with a `to_z` the kernel has not sampled, or an op on the
-face with an unknown `to_z`, is a producer whose face stands at an unknown Z,
-never raw stock. An equal Z alone is never proof, and with no footprint to
-prove it there is no producer.
+lathe turning op the kernel poses on its numeric `to_z` plane (`faced_side`: its
+claimed faces all face one way along Z, as a face, part-off, cut-to-fit, groove
+wall or turned shoulder does). An op leaves none only where that is known: a
+manual or transfer step cuts nothing; a saw face is located by its `cut_plane`,
+never a DRO Z; off the turning approach only a facing or pocketing op leaves a
+Z face (a hole's `to_z` is its tip, a milled wall's its foot); a turning op
+without `to_z`, other than a part-off or cut-to-fit, cuts over its `z_from` to
+`z_to` window and names no face; and a turning op the kernel sampled at its
+numeric `to_z` over claimed faces that are all cylinders leaves a diameter alone.
+Any other op on the face is a producer whose face stands at an unknown Z, never
+raw stock: one whose action is unknown; a facing, pocketing, part-off or
+cut-to-fit op without `to_z`; a turning op with an unknown `to_z` (the kernel
+poses no plane without a number, so its samples prove no face absent), one the
+kernel has not sampled, or one whose sampled claims it posed on no one side yet
+are not all cylinders (they face both ways, or their kind is unknown); and a
+lathe action off a lathe. An equal Z alone is never proof, and with no
+footprint to prove it there is no producer.
 A known producer counts only if it cut that face to that Z. Its
 value is its `dro_to_z` on its own setup's grid (for a grooving/parting blade, the
 `formed_z` its rounded corner reading leaves), re-rounded to the safe side on
@@ -600,10 +609,12 @@ standing off this DRO's grid (a blade's off-grid width, a finer producer grid)
 is set where it is not, so every Z the tool then cuts to lands off by the
 difference: an `error`
 (`{who} sets {face} as Z {shown}, which stands at {formed_z}`), whatever cut
-reads the touch next. A face standing at an unknown Z (`formed_z` unknown) is
-`unknown`, and the sheet prints its Axis Set as `?`. A measured touch reads its
-face and is not checked; a face no op produced (the stock, or a face only a
-saw, a manual step or a diameter cut touched) stands where the touch sets it.
+reads the touch next. A face standing at an unknown Z (`formed_z` unknown,
+including an op that may have left it, `forms_face` unknown) is `unknown`, and
+the sheet prints its Axis Set as `?`. A measured touch reads its face and is
+not checked; a face no op produced (the stock, or a face only a saw, a manual
+step or a cut proven to leave none, such as a diameter alone, touched) stands
+where the touch sets it.
 
 Templates:
 

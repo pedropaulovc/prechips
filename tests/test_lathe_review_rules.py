@@ -963,15 +963,15 @@ def test_a_later_setup_zeroed_on_a_blade_face_reads_where_it_stands(do, width, s
         ({"faced_side": 1, "sample_count": 3}, -9.95, "error"),
         ({"faced_side": 1, "sample_count": 3}, -9.9, "pass"),
         ({}, -9.95, "unknown"),
-        ({"sample_count": 3}, -9.95, "pass"),
+        ({"sample_count": 3, "claimed_indices": [0]}, -9.95, "pass"),
     ],
 )
 def test_a_later_setup_zeroed_on_a_turned_shoulder_reads_where_it_stands(fact, to_z, status):
     # S1 turns the end's shoulder to to_z with the turner on a 0.01 lathe; S2's 0.1 DRO
     # can only set -9.95 as -9.9, so its zero on that shoulder is refused, and an on-grid
     # -9.9 shoulder passes. The kernel pose decides whether the turn left a face there:
-    # unsampled, it is unknown, never stock; sampled with no axial face (a diameter
-    # alone), the end is stock its touch sets.
+    # unsampled, it is unknown, never stock; sampled over a cylinder alone (a diameter),
+    # the end is stock its touch sets.
     bundle = _retouched(1.6)
     lathe = bundle.inventory["machines"]["lathe"]
     bundle.inventory["machines"]["fine_lathe"] = {**lathe, "resolution_mm": 0.01}
@@ -979,10 +979,80 @@ def test_a_later_setup_zeroed_on_a_turned_shoulder_reads_where_it_stands(fact, t
     first["machine"] = "fine_lathe"
     first["ops"][0] = {"op": 40, "do": "turn", "feature": "end", "tool": "turner", "to_z": to_z}
     bundle.kernel["ops"]["S1:40"] = fact
+    bundle.kernel["faces"] = [{"index": 0, "kind": "Cylinder"}]
     bundle = _zeroed_on_the_end(bundle)
     bundle.plan["setups"][1]["zero"]["z"]["edge_mm"] = to_z
     zeros = {f.subject: f.status for f in zero_recipe.evaluate(bundle)}
     assert zeros == {"S1": "pass", "S2": status}
+
+
+_END_TOUCH = {
+    "tool": "turner",
+    "z_face": "end",
+    "edge_mm": -10.0,
+    "paper_mm": 0.0,
+    "before_ops": [50],
+    "gauge": "mic",
+    "x_method": "touch bar diameter",
+    "method": "touch",
+}
+
+
+@pytest.mark.parametrize("route", ["authored", "later_setup"])
+@pytest.mark.parametrize(
+    ("do", "to_z", "kinds", "count", "status"),
+    [
+        # The real kernel samples a planar end its op cuts to an unknown target, but
+        # poses no plane there (no faced_side): the end stands at an unknown Z.
+        ("part_off", "unknown", ["Plane"], 6, "unknown"),
+        ("cut_to_fit", "unknown", ["Plane"], 6, "unknown"),
+        ("turn", "unknown", ["Plane"], 6, "unknown"),
+        ("finish_turn", "unknown", ["Plane"], 6, "unknown"),
+        # A facing or parting op with no target leaves its face at an unknown Z.
+        ("part_off", None, ["Plane"], 6, "unknown"),
+        ("face", None, ["Plane"], 6, "unknown"),
+        # A known target whose claims face both ways is posed on no one side, yet cuts
+        # faces; with nothing sampled, nothing is known of its claims.
+        ("turn", -10.0, ["Plane", "Plane"], 6, "unknown"),
+        ("turn", -10.0, ["Cylinder"], 0, "unknown"),
+        # The diameter-only control: a known target sampled over a cylinder alone.
+        ("turn", -10.0, ["Cylinder"], 6, "pass"),
+        ("part_off", -10.0, ["Cylinder"], 6, "pass"),
+    ],
+)
+def test_a_touch_on_a_face_a_sampled_cut_may_have_left_is_never_stock(
+    route, do, to_z, kinds, count, status
+):
+    # S1's op 40 cuts the end; the turner then zeros on it at -10, re-touched in S1
+    # before op 50 or as S2's Z zero. A sampled cut the kernel did not pose on one side
+    # proves no face absent unless its target is known and its claims are diameters
+    # alone: else the touch meets a face standing at an unknown Z, never the nominal.
+    from prechips.rules.tip_endpoints import operative_z
+
+    bundle = _retouched(1.6)
+    first = bundle.plan["setups"][0]
+    first["ops"][0]["do"] = do
+    if to_z is None:
+        del first["ops"][0]["to_z"]
+    else:
+        first["ops"][0]["to_z"] = to_z
+    bundle.kernel["faces"] = [{"index": i, "kind": kind} for i, kind in enumerate(kinds)]
+    bundle.kernel["ops"]["S1:40"] = {
+        "approach": "turning",
+        "sample_count": count,
+        "claimed_indices": list(range(len(kinds))),
+    }
+    if route == "authored":
+        first["zero"]["tool_touches"].append(dict(_END_TOUCH))
+        setup, done = first, 1
+    else:
+        bundle = _zeroed_on_the_end(bundle)
+        setup, done = bundle.plan["setups"][1], 0
+    zeros = {f.subject: f.status for f in zero_recipe.evaluate(bundle)}
+    assert zeros[setup["id"]] == status
+    # The Axis Set the sheet prints for the end.
+    stands = operative_z(bundle, setup, -10.0, face="end", done=done)
+    assert stands == ("unknown" if status == "unknown" else pytest.approx(-10.0))
 
 
 def test_each_toolpost_tool_is_set_on_centre_before_its_first_touch_off():

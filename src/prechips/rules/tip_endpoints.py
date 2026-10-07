@@ -13,6 +13,8 @@ from .resolution import MANUAL, SAW_OPS, UNKNOWN, length_mm, number, resolve, un
 FACING = {"face", "rough_face", "finish_face"}
 POCKETING = {"pocket", "rough_pocket", "finish_pocket"}
 HOLE_OPS = {"spot", "drill", "ream", "tap", "counterbore", "bore"}
+# Lathe actions that, as a facing op does, leave their feature's face at their to_z.
+_PARTING = {"part_off", "cut_to_fit"}
 # Plan units of float residue within which two authored Zs are one surface.
 SAME_Z = 1e-9
 
@@ -222,9 +224,10 @@ def operative_z(bundle, setup, value, face=None, done=0, source=None):
     leaves its face at its ``to_z`` (:func:`forms_face`: a facing or pocketing op, a
     part-off, cut-to-fit, groove or turned shoulder the kernel poses on that plane), or a
     facing or pocketing op whose feature's XY footprint covers it (:func:`_covers_xy`).
-    An op on it whose face is unknown (:func:`forms_face` unknown, or an unknown
-    ``to_z``) is its producer, so the surface is unknown, never its nominal. An equal Z
-    alone is never proof; no ``face`` names no producer."""
+    An op on it that may have left its face at an unknown Z (:func:`forms_face` unknown:
+    an unknown or missing ``to_z``, an unsampled or unproven kernel pose) is its
+    producer, so the surface is unknown, never its nominal; an op proven to leave no face
+    there is passed over. An equal Z alone is never proof; no ``face`` names no producer."""
     from .coordinates import dro_grid, dro_z, formed_z
 
     if not number(value):
@@ -244,29 +247,54 @@ def _covers_xy(cut, target):
 
 
 def forms_face(bundle, setup, op):
-    """Whether ``op``'s cut leaves its feature's face at its ``to_z``: True for a facing or
-    pocketing op, and for a lathe turning-approach op the geometry kernel poses on its
-    ``to_z`` plane (``faced_side``: its claimed faces all face one way along Z, as a face,
-    part-off, cut-to-fit, groove wall or turned shoulder does); False for an op without a
-    ``to_z``, a manual, saw or transfer step, any other off-lathe op, and a turning op the
-    kernel sampled without one-sided axial faces (an outside diameter alone). Unknown for
-    a turning op with a ``to_z`` the kernel has not sampled (no run, or no sample count),
-    so a face it may have left is never taken for stock."""
+    """Whether ``op``'s cut leaves its feature's face at its ``to_z``, from known facts
+    only. True for a facing or pocketing op with a ``to_z``, and for a lathe
+    turning-approach op the geometry kernel poses on its numeric ``to_z`` plane
+    (``faced_side``: its claimed faces all face one way along Z, as a face, part-off,
+    cut-to-fit, groove wall or turned shoulder does).
+
+    False only where it is known to leave none: a manual or transfer step cuts nothing; a
+    saw face is located by its ``cut_plane`` and kerf, never a DRO Z; off the turning
+    approach only a facing or pocketing op leaves a Z face (:func:`stock_states`: a hole
+    op's ``to_z`` is its tip, a milled wall's its foot); a turning op without ``to_z``,
+    other than a part-off or cut-to-fit, cuts over its ``z_from``..``z_to`` window and
+    names no face; and a turning op the kernel sampled at its numeric ``to_z`` whose
+    claimed faces are all cylinders leaves diameters alone.
+
+    Unknown otherwise, so a face it may have left is never taken for stock: an op whose
+    action is unknown; a facing, pocketing, part-off or cut-to-fit op without ``to_z``;
+    a turning op with an unknown ``to_z`` (the kernel poses no plane without a number,
+    so its samples prove no face absent), with no kernel run or sample, or whose sampled
+    claims it posed on no one side yet are not all cylinders (they face both ways, or
+    their kind is unknown); and a lathe action off a lathe (no approach model)."""
     from .geometry_common import TURNING, approach
 
-    if "to_z" not in op or op.get("do") in MANUAL | SAW_OPS | {"transfer"}:
+    action = op.get("do")
+    if action in MANUAL | SAW_OPS | {"transfer"}:
         return False
-    if op.get("do") in FACING | POCKETING:
-        return True
-    if approach(bundle, setup, op) != TURNING:
-        return False
+    if not isinstance(action, str) or action == UNKNOWN:
+        return UNKNOWN
+    if action in FACING | POCKETING:
+        return True if "to_z" in op else UNKNOWN
+    model = approach(bundle, setup, op)
+    if model != TURNING:
+        return UNKNOWN if model is None else False
+    if "to_z" not in op:
+        return UNKNOWN if action in _PARTING else False
     kernel = mapping(getattr(bundle, "kernel", None))
     fact = mapping(mapping(kernel.get("ops")).get(f"{setup.get('id')}:{op.get('op')}"))
-    if kernel.get("status") != "ok":
+    if not number(op["to_z"]) or kernel.get("status") != "ok":
         return UNKNOWN
     if fact.get("faced_side") in (1, -1):
         return True
-    return False if number(fact.get("sample_count")) else UNKNOWN
+    # Only a cylinder about setup Z (every claim the kernel samples is turned about it)
+    # has no axial normal: any other claim may be a face it left on both sides.
+    faces = map(mapping, records(kernel.get("faces")))
+    kinds = {face.get("index"): face.get("kind") for face in faces}
+    count, claims = fact.get("sample_count"), records(fact.get("claimed_indices"))
+    if number(count) and count > 0 and claims and all(kinds.get(i) == "Cylinder" for i in claims):
+        return False
+    return UNKNOWN
 
 
 def _producer(bundle, setup, value, face, done, source):
