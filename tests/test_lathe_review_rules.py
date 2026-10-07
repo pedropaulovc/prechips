@@ -486,7 +486,14 @@ def test_the_follow_rest_goes_on_with_the_spindle_stopped_and_it_restarts_before
 
     bundle = load_bundle(copy_examples(tmp_path) / "pivot-shaft" / "plan.toml")
     engage = {**_ENGAGE, "engage_z_mm": 155.474, "declared_z_mm": 152.0}
-    clear = Finding("accessibility", "S1:10", "pass", {"rest_engagement": [engage]}, [], "S1:10.")
+    clear = Finding(
+        "accessibility",
+        "S1:10",
+        "pass",
+        {"rest_engagement": [engage], "feed_z": -1},
+        [],
+        "S1:10.",
+    )
     html = unescape(re.sub(r"<[^>]+>", " ", render_traveler(bundle, [clear], {})))
     step = re.search(r"each pass, at Z 152\.00:[^.]*", html).group(0)
     # Hands go near the work only once it has stopped, and the cut resumes on a running spindle.
@@ -531,7 +538,10 @@ def test_each_op_sets_the_follow_rest_on_the_side_its_own_support_entry_declares
             "accessibility",
             f"S1:{op}",
             "pass",
-            {"rest_engagement": [{**_ENGAGE, "engage_z_mm": 151.0, "declared_z_mm": z}]},
+            {
+                "rest_engagement": [{**_ENGAGE, "engage_z_mm": 155.474, "declared_z_mm": z}],
+                "feed_z": -1,
+            },
             [],
             f"S1:{op}.",
         )

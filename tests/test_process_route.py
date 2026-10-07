@@ -626,8 +626,6 @@ def built_up(tmp_path, order=None):
     by_id = {setup["id"]: setup for setup in bundle.plan["setups"]}
     for setup in by_id.values():
         setup["ops"] = [op for op in setup["ops"] if op["do"] != "coating"]
-    # A coating-only setup (the bonded assembly's finish) has nothing left to route.
-    by_id = {sid: setup for sid, setup in by_id.items() if setup["ops"]}
     bundle.plan["setups"] = [by_id[sid] for sid in order or by_id]
     return bundle, by_id
 
