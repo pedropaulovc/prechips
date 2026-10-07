@@ -162,7 +162,7 @@ def test_face_raster_clears_its_box_edge_to_edge_no_wider_than_its_step(tmp_path
     assert profile["raster"]["cycle"] == "one_way" and profile["raster"]["lift_z"] == 5.0
 
 
-def keep_out_face(tmp_path, circles, direction="conventional", sweep_frame="A"):
+def keep_out_face(tmp_path, circles, direction="conventional", sweep_frame="A", resolution=None):
     plan = coordinate_bundle(
         tmp_path,
         SLAB,
@@ -182,6 +182,12 @@ def keep_out_face(tmp_path, circles, direction="conventional", sweep_frame="A"):
                 "x = [1.0, 0.0, 0.0]\ny = [0.0, -1.0, 0.0]\nz = [0.0, 0.0, -1.0]\n"
                 "binding = 'measured'\n"
             )
+    if resolution is not None:
+        inventory = plan.with_name("inventory.toml")
+        text = inventory.read_text(encoding="utf-8").replace(
+            "kind = 'mill'\n", f"kind = 'mill'\nresolution_mm = {resolution}\n", 1
+        )
+        inventory.write_text(text, encoding="utf-8")
     row = next(row for row in coordinates.evaluate(load_bundle(plan)) if row.subject == "S1")
     (profile,) = row.numbers["profiles"]
     return row, profile
@@ -192,10 +198,12 @@ def test_raster_keep_out_splits_in_feed_order_and_preserves_clear_passes(tmp_pat
     row, profile = keep_out_face(tmp_path, "[{ at = [10.0, 5.0], dia_mm = 2.0 }]", direction)
     assert row.status == "pass", row.sentence
     expected = []
+    # Cut points 10 -/+ sqrt(16 - dy^2) print on the default 0.001 grid, rounded outward.
+    cuts = {1: (6.127, 13.873), 3: (7.354, 12.646)}
     for y in range(0, 11, 2):
         if abs(y - 5) < 4:  # island radius 1 plus cutter radius 3
-            dx = math.sqrt(4**2 - (y - 5) ** 2)
-            pieces = [[[-3.0, y], [10 - dx, y]], [[10 + dx, y], [23.0, y]]]
+            low, high = cuts[abs(y - 5)]
+            pieces = [[[-3.0, y], [low, y]], [[high, y], [23.0, y]]]
         else:
             pieces = [[[-3.0, y], [23.0, y]]]
         if direction == "climb":
@@ -204,7 +212,7 @@ def test_raster_keep_out_splits_in_feed_order_and_preserves_clear_passes(tmp_pat
     assert len(profile["cutter_centre"]) == 10
     for actual, wanted in zip(profile["cutter_centre"], expected, strict=True):
         for point, target in zip(actual, wanted, strict=True):
-            assert point == pytest.approx(target)
+            assert point == pytest.approx(target, abs=1e-12)
         # The nearest centre on the segment, not just its endpoints, clears the island.
         a, b = actual
         nearest_x = min(max(10.0, min(a[0], b[0])), max(a[0], b[0]))
@@ -225,11 +233,34 @@ def test_raster_keep_out_maps_from_sweep_frame_to_setup(tmp_path):
     row, profile = keep_out_face(tmp_path, "[{ at = [10.0, 3.0], dia_mm = 2.0 }]", sweep_frame="B")
     assert row.status == "pass", row.sentence
     assert profile["raster"]["keep_out"] == [{"at": [5.0, 3.0], "dia_mm": 2.0}]
-    # B's Y=4 maps to setup Y=2; the cuts flank setup X=5 by sqrt(16 - 1).
+    # B's Y=4 maps to setup Y=2; the cuts flank setup X=5 by sqrt(16 - 1), rounded outward.
     pieces = [piece for piece in profile["cutter_centre"] if piece[0][1] == 2.0]
     assert len(pieces) == 2
-    assert pieces[0][1] == pytest.approx([5 - math.sqrt(15), 2])
-    assert pieces[1][0] == pytest.approx([5 + math.sqrt(15), 2])
+    assert pieces[0][1] == pytest.approx([1.127, 2], abs=1e-12)
+    assert pieces[1][0] == pytest.approx([8.873, 2], abs=1e-12)
+
+
+@pytest.mark.parametrize("direction", ["conventional", "climb"])
+def test_raster_keep_out_cut_points_print_on_the_dro_grid_away_from_the_island(tmp_path, direction):
+    # A 0.005 mm DRO cannot show 10 -/+ sqrt(15): each cut point rounds outward, away from
+    # the island, so the printed pass never reaches nearer than island plus cutter radius.
+    row, profile = keep_out_face(
+        tmp_path, "[{ at = [10.0, 5.0], dia_mm = 2.0 }]", direction, resolution=0.005
+    )
+    assert row.status == "pass", row.sentence
+    cuts = sorted(
+        point[0]
+        for piece in profile["cutter_centre"]
+        if piece[0][1] == 4.0
+        for point in piece
+        if 0.0 < point[0] < 20.0
+    )
+    assert cuts == pytest.approx([6.125, 13.875], abs=1e-12)
+    for a, b in profile["cutter_centre"]:
+        for x in (a[0], b[0]):
+            assert abs(x / 0.005 - round(x / 0.005)) < 1e-9
+        nearest_x = min(max(10.0, min(a[0], b[0])), max(a[0], b[0]))
+        assert math.dist([nearest_x, a[1]], [10, 5]) >= 4 - 1e-9
 
 
 def test_raster_keep_out_tangent_outside_and_zero_length_pieces(tmp_path):
@@ -270,6 +301,7 @@ def test_raster_invalid_keep_out_is_unknown_with_reason(circle):
         1,
         {},
         5.0,
+        (0.001, 3),
     )
     assert record is None
     assert "keep_out" in reason
@@ -306,8 +338,8 @@ def test_raster_overlapping_keep_out_circles_remove_the_union(tmp_path):
     pieces = [p for p in profile["cutter_centre"] if p[0][1] == 4.0]
     assert len(pieces) == 2
     assert pieces[0][0] == [-3.0, 4.0]
-    assert pieces[0][1] == pytest.approx([10 - math.sqrt(15), 4])
-    assert pieces[1][0] == pytest.approx([14 + math.sqrt(15), 4])
+    assert pieces[0][1] == pytest.approx([6.127, 4], abs=1e-12)
+    assert pieces[1][0] == pytest.approx([17.873, 4], abs=1e-12)
     assert pieces[1][1] == [23.0, 4.0]
 
 

@@ -184,7 +184,9 @@ Optional `contour.keep_out = [{ at = [x, y], dia_mm = d }]` declares circular
 islands in `sweep_frame` (default: the feature's frame), with positive diameter.
 The whole cutter stays outside them: centre clearance is island radius plus
 cutter radius. After feed direction is established, crossing passes split into
-pieces in cutting order; pieces no longer than 1e-9 mm are dropped. Each piece
+pieces in cutting order. Each cut point lies on the setup machine's DRO grid,
+rounded away from the island, so a printed piece never reaches nearer than that
+clearance; pieces no longer than 1e-9 mm are dropped. Each piece
 is a separate `cutter_centre` entry with the same feed/lift/rapid cycle.
 `raster.keep_out` records the circles in setup XY and `raster.passes` counts
 pieces. Diagrams draw these pieces separately, not as a continuous swept band.

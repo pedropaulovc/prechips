@@ -933,8 +933,10 @@ _LEVEL_OPS = RASTER_OPS | {"profile", "rough_profile", "finish_profile"}
 _WALL_OPS = {"pocket", "finish_pocket", "profile", "finish_profile"}
 
 
-def _outside_circle(segment, circle, radius):
-    """Keep the positive-length pieces of an axis-parallel pass, in feed order."""
+def _outside_circle(segment, circle, radius, grid):
+    """Keep the positive-length pieces of an axis-parallel pass, in feed order. Each cut
+    point lies on the DRO ``grid`` (:func:`dro_grid`), rounded away from the island, so
+    the printed piece never reaches nearer than the island radius plus ``radius``."""
     a, b = segment
     axis = 0 if a[0] != b[0] else 1
     across = 1 - axis
@@ -946,6 +948,7 @@ def _outside_circle(segment, circle, radius):
     low, high = centre[axis] - reach, centre[axis] + reach
     if max(a[axis], b[axis]) <= low or min(a[axis], b[axis]) >= high:
         return [segment] if math.dist(a, b) > 1e-9 else []
+    low, high = _grid(low, *grid, False), _grid(high, *grid, True)
     forward = b[axis] > a[axis]
     entry, exit = (low, high) if forward else (high, low)
     pieces = []
@@ -960,7 +963,7 @@ def _outside_circle(segment, circle, radius):
     return pieces
 
 
-def _raster(feature, op, offset, radius, frame, frames, sense, order, lift_z):
+def _raster(feature, op, offset, radius, frame, frames, sense, order, lift_z, grid):
     """(One stage's raster record in cutting order, None) or (None, why it is unknown).
 
     Passes stand at positions across the area, stepping from its open side
@@ -1048,7 +1051,9 @@ def _raster(feature, op, offset, radius, frame, frames, sense, order, lift_z):
     if reverse:
         passes = [list(reversed(segment)) for segment in passes]
     for circle in keep_out:
-        passes = [piece for segment in passes for piece in _outside_circle(segment, circle, radius)]
+        passes = [
+            piece for segment in passes for piece in _outside_circle(segment, circle, radius, grid)
+        ]
     record = {
         "cutter_centre": passes,
         "raster": {
@@ -2060,7 +2065,7 @@ def evaluate(bundle, *, pre_kernel=False):
                         else UNKNOWN
                     )
                     raster, why = _raster(
-                        feature, op, offset, radius, frame, frames, sense, order, lift
+                        feature, op, offset, radius, frame, frames, sense, order, lift, grid
                     )
                     if raster is None:
                         profile["raster_reason"] = why

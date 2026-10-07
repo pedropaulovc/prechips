@@ -914,7 +914,8 @@ the other spans; see [M5 measured setup screens](rules-setup.md#m5-measured-inve
 `keep_out` centres use `sweep_frame`, defaulting to the feature's frame.
 Positive `dia_mm` islands exclude the whole cutter: pass centres clear each
 island radius plus cutter radius. Crossing passes split into independent,
-positive-length pieces in feed order, each with its own feed/lift/rapid cycle.
+positive-length pieces in feed order, each with its own feed/lift/rapid cycle;
+each cut point lies on the DRO grid, rounded away from the island.
 The raster record reports setup-frame circles in `raster.keep_out` and counts
 pieces in `raster.passes`.
 
