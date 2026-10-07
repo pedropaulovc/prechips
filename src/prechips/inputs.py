@@ -51,10 +51,11 @@ class Bundle:
 
         ``features`` stays the original exported document (hash, faces and coverage).
         """
-        return _operative(self.plan, self.features)
+        return operative_definitions(self.plan, self.features)
 
 
-def _operative(plan: dict, features: dict) -> dict[str, dict]:
+def operative_definitions(plan: dict, features: dict) -> dict[str, dict]:
+    """The exported manifest plus resolved plan joint and process features."""
     from prechips import joint_features, process_features
 
     return process_features.feature_definitions(
@@ -147,7 +148,7 @@ def load_bundle(
         raise BadInput("The feature manifest has no features.")
     from prechips import joint_features, process_features
 
-    definitions = _operative(plan, features)
+    definitions = operative_definitions(plan, features)
     for name, feature in features["features"].items():
         faces = feature.get("faces")
         for prefix, what in (

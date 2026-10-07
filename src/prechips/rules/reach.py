@@ -31,7 +31,9 @@ def _obstacle(gap, body, cutter):
 
 def _clearances(detail, inputs):
     """Each measured tool-part clearance as ``{part, obstacle, mm}``; a negative ``mm`` is
-    an interference and ``unknown`` is unmeasured. No such stock: no entry."""
+    an interference and ``unknown`` is unmeasured. No such stock: no entry. The holder
+    face's entry carries the kernel Z (mm) of the stock under it as ``z_mm``, for the
+    sheet to print as that surface's DRO Z."""
     cutter, shank = inputs.get("radius_mm"), inputs.get("shank_radius_mm")
     rows = []
     for key, part, body in (
@@ -45,10 +47,10 @@ def _clearances(detail, inputs):
             rows.append({"part": part, "obstacle": _obstacle(gap, body, cutter), "mm": gap})
     gap, top = detail.get("holder_clear_mm", "not_applicable"), detail.get("holder_clear_top_z_mm")
     if gap != "not_applicable":
-        obstacle = "stock under the holder"
+        row = {"part": "holder face", "obstacle": "stock under the holder", "mm": gap}
         if number(top):
-            obstacle += f" at Z{_mm(top)}"
-        rows.append({"part": "holder face", "obstacle": obstacle, "mm": gap})
+            row["z_mm"] = top
+        rows.append(row)
     return rows
 
 

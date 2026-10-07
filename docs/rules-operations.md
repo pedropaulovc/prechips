@@ -174,7 +174,8 @@ declared (the feed `turning_deflection` loads the cut with; a planned
 `"unknown"` stays unknown), else the one from the same
 cited `[[cut]]` row (or the tool's cited `chart`) as `sfm`, under the same
 citation/verify rules as the mill chip load; the lathe diameter is the turned
-feature's `dia_nominal` (plus `rough_allowance_mm` for `rough_turn`). A dome
+feature's `dia_nominal` (plus, for `rough_turn`, its `rough_allowance_mm`, else
+`stock_to_leave_mm`; a negative leave makes the diameter unknown). A dome
 uses its widest (base) diameter: `2 * base_radius`, else `2 * sqrt(h (2R - h))`
 from its declared `sphere_radius` R and nominal height h (2R once h exceeds R),
 else the kernel-measured base from `turned_profile.feature_span`. A face, cut to
@@ -185,6 +186,14 @@ diameter, as on a mill; a centre drill's is its pilot drill, matching the
 Machinery's Handbook 27th ed. p.1132 centre-drill feeds by drill size. A mill op has no feed override. Lathe rows
 report the `feed_mm_rev` evaluated, the one the sheet prints. Verified material,
 tool and machine facts are needed.
+
+A non-lathe op that cuts a `contour` also reports its plunge feed: `plunge_mm_rev`
+from the one matching cited `[[plunge]]` row (material class, tool material, tool
+diameter; see [cutting data](cutting-data.md#plunge)) for a tool declared
+`center_cutting = true` (any other has none), `plunge_mm_min = RPM *
+plunge_mm_rev`, and `plunge_reason` when it is unknown. It does not change the
+finding's status: whether the op plunges at all is the coordinates rule's
+`level_paths`, which makes a plunge without a known feed debt.
 
 Saw cut-off uses only a cited canonical `operation = "saw_cut"` row (for either
 `saw_cut` or `cut_off`), keyed by material class and blade material without a

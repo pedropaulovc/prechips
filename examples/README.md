@@ -33,6 +33,7 @@ unchanged: anything still `unknown` keeps its finding unknown.
 | `cone-pivot-post/features.toml` | `features.body.corner_radius_max_design` | absent → `0.25` | the CAD body/head step corner is sharp and the cone spec states no step-corner limit; the example applies the title-block `R0.25 MAX` edge break HA uses for step corners elsewhere (`pivot_shaft_spec.py:73`, `crankshaft_spec.py:110`), so the bonded route's turned shoulder has a limit to check ([HA #1215](https://github.com/pedropaulovc/harmonic-analyzer/issues/1215)) |
 | `cone-pivot-post/features.toml` | `features.cone_boss_south_face.length`, `length_nominal`, `precision.length` | absent → `[41.5, 42.52]`, `42.011`, `2` | the export attaches the 42.011 cap-to-cap length band only to the north cap; the example copies the same band onto the south cap that terminates it, without adding a requirement ([HA #1215](https://github.com/pedropaulovc/harmonic-analyzer/issues/1215)) |
 | `cone-pivot-post/features.toml` | `features.foot_seat.height`, `height_nominal`, `precision.height` | absent → `[85.2, 86.8]`, `86.0`, `1` | the export attaches the 86.0 foot-to-top band only to `body`; the example copies the same band onto datum face B that terminates it, without adding a requirement ([HA #1215](https://github.com/pedropaulovc/harmonic-analyzer/issues/1215)) |
+| `cone-pivot-post/features.toml` | `material.finish` | `"...; 50-75 um DFT; MASK MACHINED FACES; OIL BARE FACES ISO VG 32"` → `"...; 50-75 um DFT; built-up variant: paint RAL 6005 on non-functional turned ODs; mask bores, faces and joint surfaces; OIL BARE FACES ISO VG 32"` | binding author decision: the built-up post is turned all over, so masking every machined face would leave nothing to paint; `built-up.toml` S12 paints the body, shoulder, head and projecting crank-sleeve ODs and masks the bores, faces and joint surfaces by name ([HA #1215 comment](https://github.com/pedropaulovc/harmonic-analyzer/issues/1215#issuecomment-6030603028)) |
 | `rocker-arm/features.toml` | `features.tip_land_pos_x.land_angle_deg`, `features.tip_land_neg_x.land_angle_deg` | `"unknown"` → `[89.0, 91.0]` | nominal 90° with the title-block angular ±1° (`title_block.yaml angular.value_deg`); export left the limit unknown |
 | `rocker-arm/features.toml` | `precision.land_angle_deg` (both lands) | `"unknown"` → `0` | matches the ±1° whole-degree display |
 | `rocker-arm/features.toml` | `material.thickness` | `"unknown"` → `2.5` | drawing manufacturing note 2 states `STRAP 2.50 THICK`; this is the nominal strap, not the integral hub length or supplied blank thickness |
@@ -103,10 +104,11 @@ Shared inputs:
   (2.886 in). Each value carries its own `measured` record; the vendor
   nominals stay beside it as comments, and the item's `verify = true`
   identity flag is kept. The rocker and bracket plans' jaw-overlap arithmetic
-  now uses the measured jaw height. Bracket S1/S2 use 19.5453 / 3.6703 mm
-  engagement with labelled illustrative parallels and no stale verify flags.
-  The bracket's S2 tall narrow pair replaces the former 1-2-3-block stack:
-  a 50.8 mm-wide block cannot fit between jaws closed on a 16 mm foot.
+  now uses the measured jaw height. Bracket S1/S2/S3 use 19.5453 / 10.3703 /
+  3.6703 mm engagement on the 1 in set pair and the labelled illustrative
+  1-1/8 in and 1-5/8 in tall narrow pairs, with no stale verify flags. The
+  tall narrow pairs replace the former 1-2-3-block stack: a 50.8 mm-wide block
+  cannot fit between jaws closed on a 16 mm foot.
 - `shop-policy.toml`: shop-owned, not copied into plans. The default requires
   `tool_resolves`, `sizing`, `op_chain`, `blind_depth`, `inspection`, `coordinates`
   and `zero_check` on `"*"`. Re-fixture, thin-wall and stick-out numbers and their
@@ -1144,6 +1146,16 @@ separate steps; the X/Y pickup positions live in the DRO zero rows. The S4
 outer-face raster uses a 4.0 mm stepover so its five passes print on the
 0.005 mm DRO grid. The S4 bridge member is named `two-stud bridge clamp` in
 the shared inventory.
+Bracket S2 sits on the 1-1/8 in tall narrow pair, so its jaw tops (Z +10.37)
+stand 5.63 mm below the Z +16 roughing floor. The S2/S3 X/Y pickups name where
+the raw faces survive: S2 touches the raw left side and free end at Z +20,
+above the jaws; S3 touches them at Z +8, between the jaw tops (Z −2.33) and the
+Z +16 step S2 left, after a preliminary edge-finder Z on the top. The S4
+angle-plate and bridge make rows print each hole as a drill size (#21 tap drill
+for #10-32, #7 and letter X free-fit clearances, Machinery's Handbook 27th ed.
+Table 4, p.1934), and each made or drilled part has a Make note: material,
+stock, sizes, drill speeds under Table 17 (p.1061, 1018) and Table 20 (p.1068,
+gray iron) and assembly. These are example values, not measured fixtures.
 
 The plan and manifest use revision `example-v39` for this local illustrative
 contract, explicitly **not** a certified dimensioned drawing revision. All setup

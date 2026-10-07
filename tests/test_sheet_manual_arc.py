@@ -246,11 +246,14 @@ def test_rotary_recipe_prints_centring_offset_dial_and_conventional_direction(
         "centre_by": centre_by,
         "centre_feature": "centre_bore",
         "pin_dia_mm": 4,
+        "table_bore_dia_mm": 4.01,
+        "centre_play_mm": 0.015,
         "convex": convex,
-        "radius_mm": 10,
+        "radius_mm": 9.99,
+        "cut_radius_mm": 10,
         "cutter_radius_mm": 3,
         "offset_axis": "X",
-        "offset_mm": offset,
+        "offset_x": offset,
         "start_deg": 12.5,
         "stop_deg": 102.5,
         "sweep_deg": 90,
@@ -261,10 +264,13 @@ def test_rotary_recipe_prints_centring_offset_dial_and_conventional_direction(
     assert "<ol>" in html and "<table" not in html
     assert "indicating its centre bore" in printed and "DRO X0 Y0" in printed
     if centre_by == "pin":
-        assert "pin of Ø4 mm through centre bore into the table's centre bore" in printed
+        # The pin, the table bore it fits and the centre's play are all on the sheet.
+        assert "Ø4 mm through centre bore" in printed and "Ø4.01 mm" in printed
+        assert "0.015 mm" in printed
     else:
         assert "indicate centre bore" in printed
-    assert f"offset the table to X {offset} mm" in printed
+    # The printed X is explained by the radius it cuts (the DRO grid moved it off R9.99).
+    assert f"offset the table to X {offset}.000 " in printed
     assert f"R 10 mm {formula} cutter radius 3 mm" in printed
     assert ("convex" if convex else "concave") in printed
     assert "lock x and y" in printed.lower() and "set Z -2.125" in printed

@@ -12,6 +12,8 @@ from ..findings import Finding
 from ..model import UNIT_TOLERANCE
 from .resolution import (
     LENGTH_TOLERANCE_MM,
+    MANUAL,
+    SAW_OPS,
     UNKNOWN,
     length_mm,
     number,
@@ -28,6 +30,8 @@ POCKETING = {"pocket", "rough_pocket", "finish_pocket"}
 AXES = ("x", "y", "z")
 HOLE_OPS = {"spot", "drill", "ream", "tap", "counterbore", "bore"}
 _HOLE_KINDS = {"hole", "counterbore", "thread", "threaded_hole"}
+# Lathe actions that, as a facing op does, leave their feature's face at their to_z.
+_PARTING = {"part_off", "cut_to_fit"}
 # Plan units of float residue within which two authored Zs are one surface.
 SAME_Z = 1e-9
 
@@ -382,31 +386,45 @@ def lineage(bundle, setup):
     return chain
 
 
-def operative_z(bundle, setup, value, face=None, done=0, source=None):
+def operative_z(bundle, setup, value, face=None, done=0, source=None, path=False):
     """One printed Z for the surface at nominal ``value`` in ``setup``: the ``dro_to_z``
-    of the op that produced it, on that op's own setup grid, then as this setup's DRO
-    shows it (``dro_z``: rounded up on its grid; a value on both grids stays); with no
-    producer, ``dro_z`` of ``value``. An unknown stays unknown.
+    of the op that produced it, on that op's own setup grid (:func:`formed_z`: for a
+    grooving/parting blade, the face its rounded corner reading leaves, unknown when that
+    blade's corner, side or width is), then as this setup's DRO shows it (``dro_z``:
+    rounded up on its grid; a value on both grids stays); with no producer, ``dro_z`` of
+    ``value``. An unknown stays unknown.
 
     The producer is the op ``source`` names in this setup (``"S2 op 20 to_z"``,
     :func:`stock_states`). Else, for the stock ``"top"``, the op that last faced it in
-    this setup's first ``done`` ops (:func:`stock_states`). Else the last facing or
-    pocketing op proven to cut feature ``face`` in the same-frame setups of this setup's
-    :func:`lineage` (and, for a feature, this setup's first ``done`` ops), when it cut it
-    to ``value``: for ``"top"`` a facing op on ``top_feature`` (any, if none is named),
-    for a feature an op on it or whose feature's XY footprint covers it
-    (:func:`_covers_xy`). An equal Z alone is never proof; no ``face`` names no
-    producer. A partial cut (:func:`cut_coverage`) never produces the surface; one of
-    unknown coverage leaves its producer, and so the Z, unknown."""
-    from .coordinates import dro_grid, dro_z
+    this setup's first ``done`` ops (:func:`stock_states`). Else the last op proven to cut
+    feature ``face`` in the same-frame setups of this setup's :func:`lineage` (and, for a
+    feature, this setup's first ``done`` ops), when it cut it to ``value``: for ``"top"``
+    a facing op on ``top_feature`` (any, if none is named); for a feature an op on it that
+    leaves its face at its ``to_z`` (:func:`forms_face`: a facing or pocketing op, a
+    part-off, cut-to-fit, groove or turned shoulder the kernel poses on that plane), or a
+    facing or pocketing op whose feature's XY footprint covers it (:func:`_covers_xy`).
+    An op on it that may have left its face at an unknown Z (:func:`forms_face` unknown:
+    an unknown or missing ``to_z``, an unsampled or unproven kernel pose, a turning window
+    claiming a face that is not a cylinder) is its producer, so the surface is unknown,
+    never its nominal; an op proven to leave no face there is passed over. An equal Z
+    alone is never proof; no ``face`` names no producer. A partial cut
+    (:func:`cut_coverage`) never produces the surface; one of unknown coverage leaves its
+    producer, and so the Z, unknown.
+
+    ``path`` reads an op's own path end (its ``z_from``/``z_to``, a feature map's cut
+    from/to), not a face a touch or a hole entry meets: a turning window op on ``face``
+    (:func:`_turning_window`) is passed over there. It places no face on a ``to_z`` a
+    path end could print, so as its producer it could only blank it; a touch read keeps
+    it as its producer."""
+    from .coordinates import dro_grid, dro_z, formed_z
 
     if not number(value):
         return value
-    producer = _producer(bundle, setup, value, face, done, source)
+    producer = _producer(bundle, setup, value, face, done, source, path)
     if producer == UNKNOWN:
         return UNKNOWN
     if producer:
-        value = dro_z(producer[1]["to_z"], dro_grid(bundle, producer[0]))
+        value = formed_z(bundle, *producer)
     return dro_z(value, dro_grid(bundle, setup))
 
 
@@ -418,7 +436,77 @@ def _covers_xy(cut, target):
     return _covers({**cut, "bounds": bounds}, target, whole=True)
 
 
-def _producer(bundle, setup, value, face, done, source):
+def _turning_window(bundle, setup, op):
+    """Whether ``op`` is a lathe turning-approach cut over its ``z_from``..``z_to``
+    window: no ``to_z``, and not a manual, transfer, saw, facing, pocketing, part-off or
+    cut-to-fit step."""
+    from .geometry_common import TURNING, approach
+
+    action = op.get("do")
+    return (
+        "to_z" not in op
+        and isinstance(action, str)
+        and action != UNKNOWN
+        and action not in MANUAL | SAW_OPS | FACING | POCKETING | _PARTING | {"transfer"}
+        and approach(bundle, setup, op) == TURNING
+    )
+
+
+def forms_face(bundle, setup, op):
+    """Whether ``op``'s cut leaves its feature's face at its ``to_z``, from known facts
+    only. True for a facing or pocketing op with a ``to_z``, and for a lathe
+    turning-approach op the geometry kernel poses on its numeric ``to_z`` plane
+    (``faced_side``: its claimed faces all face one way along Z, as a face, part-off,
+    cut-to-fit, groove wall or turned shoulder does).
+
+    False only where it is known to leave none: a manual or transfer step cuts nothing; a
+    saw face is located by its ``cut_plane`` and kerf, never a DRO Z; off the turning
+    approach only a facing or pocketing op leaves a Z face (:func:`stock_states`: a hole
+    op's ``to_z`` is its tip, a milled wall's its foot); and a turning op the kernel
+    sampled, at its numeric ``to_z`` or over its ``z_from``..``z_to`` window, whose
+    claimed faces are all cylinders leaves diameters alone.
+
+    Unknown otherwise, so a face it may have left is never taken for stock: an op whose
+    action is unknown; a facing, pocketing, part-off or cut-to-fit op without ``to_z``;
+    a turning op with an unknown ``to_z`` (the kernel poses no plane without a number,
+    so its samples prove no face absent), with no kernel run or sample, or whose sampled
+    claims it posed on no one side yet are not all cylinders (they face both ways, or
+    their kind is unknown); a turning window op (no ``to_z``) whose claims are not all
+    cylinders: the kernel cuts a claimed axial face (a shoulder or groove wall) out to
+    its window end yet poses it on no Z plane, so that face stands at an unknown Z; and a
+    lathe action off a lathe (no approach model)."""
+    from .geometry_common import TURNING, approach
+
+    action = op.get("do")
+    if action in MANUAL | SAW_OPS | {"transfer"}:
+        return False
+    if not isinstance(action, str) or action == UNKNOWN:
+        return UNKNOWN
+    if action in FACING | POCKETING:
+        return True if "to_z" in op else UNKNOWN
+    model = approach(bundle, setup, op)
+    if model != TURNING:
+        return UNKNOWN if model is None else False
+    window = "to_z" not in op
+    if (window and action in _PARTING) or not (window or number(op["to_z"])):
+        return UNKNOWN
+    kernel = mapping(getattr(bundle, "kernel", None))
+    if kernel.get("status") != "ok":
+        return UNKNOWN
+    fact = mapping(mapping(kernel.get("ops")).get(f"{setup.get('id')}:{op.get('op')}"))
+    if not window and fact.get("faced_side") in (1, -1):
+        return True
+    # Only a cylinder about setup Z (every claim the kernel samples is turned about it)
+    # has no axial normal: any other claim may be a face it left on both sides.
+    faces = map(mapping, records(kernel.get("faces")))
+    kinds = {face.get("index"): face.get("kind") for face in faces}
+    count, claims = fact.get("sample_count"), records(fact.get("claimed_indices"))
+    if number(count) and count > 0 and claims and all(kinds.get(i) == "Cylinder" for i in claims):
+        return False
+    return UNKNOWN
+
+
+def _producer(bundle, setup, value, face, done, source, path=False):
     ops = setup.get("ops", [])
     features = bundle.feature_definitions
     if source is None and face == "top" and done:
@@ -443,15 +531,22 @@ def _producer(bundle, setup, value, face, done, source):
     top = mapping(setup.get("stock_state")).get("top_feature")
     for cut_setup, op in reversed(cuts):
         name, to_z = op.get("feature"), op.get("to_z")
-        if op.get("do") not in FACING | POCKETING or not number(to_z):
-            continue
         if face == "top":
-            hit = op["do"] in FACING and top in (None, name)
-        else:
-            hit = name == face or _covers_xy(
-                mapping(features.get(name)), mapping(features.get(face))
+            # The stock top only a facing op moves (:func:`stock_states`).
+            forms = op.get("do") in FACING and "to_z" in op and top in (None, name)
+        elif name == face:
+            # A path end passes over a turning window (:func:`operative_z`).
+            forms = not (path and _turning_window(bundle, cut_setup, op)) and forms_face(
+                bundle, cut_setup, op
             )
-        if not hit:
+        else:
+            # A facing or pocketing cut clears its whole footprint at its to_z.
+            forms = (
+                op.get("do") in FACING | POCKETING
+                and "to_z" in op
+                and _covers_xy(mapping(features.get(name)), mapping(features.get(face)))
+            )
+        if not forms:
             continue
         surface = mapping(features.get(top or name if face == "top" else face))
         # An op that cut only part of the surface did not produce it: the uncut part
@@ -460,8 +555,13 @@ def _producer(bundle, setup, value, face, done, source):
         coverage = cut_coverage(bundle, cut_setup, op, surface)
         if coverage == UNKNOWN:
             return UNKNOWN
-        if coverage == "whole":
-            return (cut_setup, op) if abs(to_z - value) <= SAME_Z else None
+        if coverage != "whole":
+            continue
+        if forms is True and number(to_z) and abs(to_z - value) > SAME_Z:
+            # It left this face at another Z: the face at value is not its.
+            return None
+        # Where it left the face; unknown when that is (:func:`formed_z`).
+        return cut_setup, op
     return None
 
 

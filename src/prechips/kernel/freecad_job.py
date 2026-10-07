@@ -5733,10 +5733,22 @@ class _Setup:
                 )
         bearing = []
         for name, parts in clamps:
-            if all(part.distToShape(self.part)[0] > STOCK_TOL for part in parts):
+            # A clamp bears through its members that touch the stock and those joined to
+            # them member to member; one cut off from them by air carries none of its load.
+            reached = {
+                i for i, part in enumerate(parts) if part.distToShape(self.part)[0] <= STOCK_TOL
+            }
+            if not reached:
                 self.fixture_debts.append(f"{name} does not bear on the stock at its pose")
                 continue
-            bearing.extend(parts)
+            frontier = list(reached)
+            while frontier:
+                touched = parts[frontier.pop()]
+                for i, part in enumerate(parts):
+                    if i not in reached and part.distToShape(touched)[0] <= STOCK_TOL:
+                        reached.add(i)
+                        frontier.append(i)
+            bearing.extend(parts[i] for i in sorted(reached))
         # An authored body holds the work directly or through a clamp that bears on it (a
         # bench vise gripping the stud of filing buttons pressed on the work).
         reached = [self.part, *bearing]

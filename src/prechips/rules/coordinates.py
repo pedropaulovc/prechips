@@ -35,10 +35,11 @@ from .resolution import (
     op_features,
     plan_frame_cite,
     resolve,
+    rough_leave,
     setup_frame,
     uncertain,
 )
-from .tip_endpoints import FACING, HOLE_OPS, POCKETING, _covers_xy, stock_states
+from .tip_endpoints import FACING, HOLE_OPS, POCKETING, _covers_xy, forms_face, stock_states
 
 AXES = ("x", "y", "z")
 CENTRE_OPS = HOLE_OPS | {"center"}
@@ -709,12 +710,30 @@ def dro_grid(bundle, setup):
     """(step, decimals): the setup machine's DRO grid in plan units.
 
     The step is the inventory machine's declared ``resolution`` when it is a positive
-    length, else :data:`DRO_DEFAULT_STEP`; the decimals print one step exactly.
+    length, else :data:`DRO_DEFAULT_STEP`; the decimals print one step exactly. A bench
+    (``kind`` bench or manual) declaring none has no DRO of its own: its surfaces are the
+    ones the nearest machine setup in its stock lineage left, so they print on that
+    machine's grid, one surface one value.
     """
+    from ._bench import BENCH_KINDS
+    from .tip_endpoints import lineage
+
     units = bundle.features.get("units")
     scale = {"mm": 1.0, "in": 25.4}.get(units)
     machine = resolve(bundle, "machines", setup.get("machine")) or {}
     declared = length_mm(machine, "resolution") if scale else UNKNOWN
+    if not (number(declared) and declared > 0) and machine.get("kind") in BENCH_KINDS:
+        source = next(
+            (
+                s
+                for s in reversed(lineage(bundle, setup))
+                if (resolve(bundle, "machines", s.get("machine")) or {}).get("kind")
+                not in BENCH_KINDS
+            ),
+            None,
+        )
+        if source is not None:
+            return dro_grid(bundle, source)
     step = declared / scale if number(declared) and declared > 0 else DRO_DEFAULT_STEP
     decimals = next((d for d in range(9) if abs(round(step, d) - step) <= 1e-12), 9)
     return step, decimals
@@ -780,6 +799,122 @@ def _to_arc(point, centre, radius, a, b, middle):
     if (angle(point) - angle(a)) % math.tau <= sweep:
         return abs(math.dist(point, centre) - radius)
     return min(math.dist(point, a), math.dist(point, b))
+
+
+def _ray_capsule(origin, direction, a, b, radius):
+    """How far along the unit ``direction`` from ``origin`` the ray first meets the sweep
+    of a cutter of ``radius`` moved from ``a`` to ``b`` (the capsule about that segment):
+    0 when ``origin`` lies inside it, None when the ray misses it."""
+    (ox, oy), (dx, dy), (ax, ay) = origin, direction, a
+    best = None
+    for ex, ey in (a, b):
+        qx, qy = ox - ex, oy - ey
+        dot = qx * dx + qy * dy
+        disc = dot * dot - (qx * qx + qy * qy) + radius * radius
+        if disc >= 0 and math.sqrt(disc) - dot >= 0:
+            hit = max(0.0, -dot - math.sqrt(disc))
+            best = hit if best is None else min(best, hit)
+    span = math.dist(a, b)
+    if span > 0:
+        ux, uy = (b[0] - ax) / span, (b[1] - ay) / span
+        low, high = 0.0, math.inf
+        for vx, vy, lo, hi in ((ux, uy, 0.0, span), (-uy, ux, -radius, radius)):
+            start = (ox - ax) * vx + (oy - ay) * vy  # the band beside the segment: two slabs
+            speed = dx * vx + dy * vy
+            if abs(speed) < 1e-15:
+                if not lo <= start <= hi:
+                    low = math.inf
+                continue
+            t0, t1 = (lo - start) / speed, (hi - start) / speed
+            t0, t1 = (t0, t1) if t0 <= t1 else (t1, t0)
+            low, high = max(low, t0), min(high, t1)
+        if low <= high:
+            best = low if best is None else min(best, low)
+    return best
+
+
+def _segment_cross(a, b):
+    """Where segments ``a`` and ``b`` (point pairs) cross, as a list of at most one point."""
+    d, e = [a[1][i] - a[0][i] for i in range(2)], [b[1][i] - b[0][i] for i in range(2)]
+    divisor = _cross(d, e)
+    if abs(divisor) < 1e-15:
+        return []
+    w = [b[0][i] - a[0][i] for i in range(2)]
+    s, t = _cross(w, e) / divisor, _cross(w, d) / divisor
+    if -1e-12 <= s <= 1 + 1e-12 and -1e-12 <= t <= 1 + 1e-12:
+        return [[a[0][i] + s * d[i] for i in range(2)]]
+    return []
+
+
+def _segment_circle(segment, centre, radius):
+    """Where ``segment`` (a point pair) crosses the circle of ``radius`` about ``centre``."""
+    p, d = segment[0], [segment[1][i] - segment[0][i] for i in range(2)]
+    f = [p[i] - centre[i] for i in range(2)]
+    a = d[0] ** 2 + d[1] ** 2
+    b = 2 * (f[0] * d[0] + f[1] * d[1])
+    disc = b * b - 4 * a * (f[0] ** 2 + f[1] ** 2 - radius * radius)
+    if a == 0 or disc < 0:
+        return []
+    roots = ((-b - math.sqrt(disc)) / (2 * a), (-b + math.sqrt(disc)) / (2 * a))
+    return [[p[i] + t * d[i] for i in range(2)] for t in roots if -1e-12 <= t <= 1 + 1e-12]
+
+
+def _circle_cross(a, b, radius):
+    """Where two circles of one ``radius`` about ``a`` and ``b`` cross."""
+    span = math.dist(a, b)
+    if span == 0 or span > 2 * radius:
+        return []
+    rise = math.sqrt(max(0.0, radius * radius - span * span / 4)) / span
+    middle = [(a[i] + b[i]) / 2 for i in range(2)]
+    across = [a[1] - b[1], b[0] - a[0]]
+    return [[middle[i] + side * rise * across[i] for i in range(2)] for side in (-1, 1)]
+
+
+def _sweep_vertices(legs, radius, focus=None):
+    """Where the material a stair leaves on a target surface can peak, against the
+    capsules a cutter of ``radius`` sweeps along ``legs``: every point where two capsule
+    outlines cross, each outline's straight-to-round junctions and, when the surface's
+    normals all meet at ``focus`` (an arc's centre), the foot of the perpendicular from
+    ``focus`` to each straight side (where a concave surface sits farthest from it).
+    Between these points, measured along the surface normal, the material is monotone."""
+    outlines, points = [], []
+    for p, q in legs:
+        span = math.dist(p, q)
+        sides = []
+        if span > 0:
+            n = [(p[1] - q[1]) / span * radius, (q[0] - p[0]) / span * radius]
+            sides = [
+                [[p[i] + s * n[i] for i in range(2)], [q[i] + s * n[i] for i in range(2)]]
+                for s in (-1, 1)
+            ]
+            points.extend(end for side in sides for end in side)
+            if focus is not None:
+                for a, b in sides:
+                    t = sum((focus[i] - a[i]) * (b[i] - a[i]) for i in range(2)) / span**2
+                    if 0 < t < 1:
+                        points.append([a[i] + t * (b[i] - a[i]) for i in range(2)])
+        outlines.append((sides, [p] if span == 0 else [p, q]))
+    for (sides, ends), (others, centres) in itertools.combinations(outlines, 2):
+        for side in sides:
+            for other in others:
+                points.extend(_segment_cross(side, other))
+            for centre in centres:
+                points.extend(_segment_circle(side, centre, radius))
+        for end in ends:
+            for other in others:
+                points.extend(_segment_circle(other, end, radius))
+            for centre in centres:
+                points.extend(_circle_cross(end, centre, radius))
+    return points
+
+
+def _material(face, normal, legs, radius):
+    """How far the material on a target surface at ``face`` runs along its unit
+    ``normal`` (toward the cutter) before the cut: the ray's first entry into any capsule a
+    cutter of ``radius`` sweeps along ``legs``; None when it meets none."""
+    hits = [_ray_capsule(face, normal, p, q, radius) for p, q in legs]
+    hits = [hit for hit in hits if hit is not None]
+    return min(hits) if hits else None
 
 
 def _dro_xy(xy, grid, walls, offset):
@@ -856,7 +991,7 @@ def _route_points(route):
             yield [a[i] + k / _STAIR_SAMPLES * (b[i] - a[i]) for i in range(2)]
 
 
-def _stair(printed, path, normal, walls, cutter, offset):
+def _stair(printed, path, normal, locate, walls, cutter, offset, focus=None):
     """(steps, cusp, nearest, None) or (None, None, None, why not): single-axis handwheel
     moves through the ``printed`` points (setup XY).
 
@@ -870,10 +1005,15 @@ def _stair(printed, path, normal, walls, cutter, offset):
     it replaces, so it comes no nearer a wall. ``steps`` are (point, axis moved, printed
     row index or None for a corner) after the first printed point, in handwheel order.
     The cusp is the most material a target-surface point (``offset - cutter`` from a
-    wall, so none past a wall's end) keeps from the stepped cutter of radius ``cutter``:
-    ``path(k, t)`` is the exact cutter centre a fraction t from point k to k + 1 and
-    ``normal(k, xy)`` its unit normal from the wall toward the cutter. ``nearest`` is the
-    least wall distance of any cutter centre on the moves.
+    wall, so none past a wall's end) keeps from the stepped cutter of radius ``cutter``,
+    measured along the wall normal (the radius of an arc), never the shorter distance to
+    the nearest cutter edge: :func:`_material` from 15 points along each route and from
+    every point where it can peak (:func:`_sweep_vertices`; ``focus`` is an arc's
+    centre). ``path(k, t)`` is the exact cutter centre a fraction t from point k to
+    k + 1, ``normal(k, xy)`` its unit normal from the wall toward the cutter and
+    ``locate(k, point)`` the fraction t whose normal runs through ``point``, None when
+    none on route k does. ``nearest`` is the least wall distance of any cutter centre on
+    the moves.
     """
     if not walls or not number(cutter) or not all(_pair(p) for p in printed):
         return None, None, None, "its printed points or walls are unknown"
@@ -919,30 +1059,45 @@ def _stair(printed, path, normal, walls, cutter, offset):
         default=min(wall(printed[0]) for wall in walls),
     )
     cusp = 0.0
+    every = [move for move, _ in moves]
     for k in range(len(routes)):
         legs = [move for move, (first, last) in moves if first <= k + 1 and last >= k - 1]
-        legs = legs or [move for move, _ in moves]
+        legs = legs or every
         if not legs:
             continue
-        for i in range(1, _STAIR_SAMPLES):
-            xy = path(k, i / _STAIR_SAMPLES)
+        spots = [i / _STAIR_SAMPLES for i in range(_STAIR_SAMPLES + 1)]
+        for point in _sweep_vertices(legs, cutter, focus):
+            t = locate(k, point)
+            if t is not None:
+                spots.append(t)
+        for t in set(spots):
+            xy = path(k, t)
             n = normal(k, xy)
             face = [xy[j] - cutter * n[j] for j in range(2)]
+            left = _material(face, n, legs, cutter)
+            if left is not None and left <= cusp:
+                continue  # raises no cusp, on the surface or not
             if abs(min(wall(face) for wall in walls) - (offset - cutter)) > _JOIN_TOL:
                 continue  # past a wall's end (a join's miter run-out): no surface there
-            cusp = max(cusp, min(_to_segment(face, p, q) for p, q in legs) - cutter)
+            left = left if left is not None else _material(face, n, every, cutter)
+            if left is None:
+                return None, None, None, STAIR_UNMEASURED
+            cusp = max(cusp, left)
     return steps, cusp, nearest, None
 
 
 # Why a stair cannot be stepped: every single-axis corner between two rows would bring the
 # cutter nearer the finished line than its rough offset (an error, never a debt).
 STAIR_BLOCKED = "no single-axis step from {a} to {b} stays outside the line"
+# Why a stair's cusp is unknown: a wall normal meets no cutter sweep (a debt).
+STAIR_UNMEASURED = "a wall normal meets none of its stair's cutter sweeps"
 
 
-def _jog(arc, lines, centre, outward, walls, cutter, offset):
+def _jog(arc, lines, centre, outward, walls, cutter, offset, scale):
     """Step ``arc`` and its join ``lines`` in single-axis moves (:func:`_stair`, walls kept
-    ``offset`` away): each row names the axis (``jog``) moved to reach it and each corner
-    is a row of its own (``corner``); each table records its ``stair_cusp_mm`` and
+    ``offset`` away; the geometry, ``cutter`` and ``offset`` in plan units, ``scale`` mm
+    per unit): each row names the axis (``jog``) moved to reach it and each corner is a
+    row of its own (``corner``); each table records, in mm, its ``stair_cusp_mm`` and
     ``line_clear_mm`` (the least gap from the stepped cutter's edge to the finished line),
     else its ``stair_reason``."""
     rows = arc["rows"]
@@ -953,17 +1108,33 @@ def _jog(arc, lines, centre, outward, walls, cutter, offset):
     turns = [math.atan2(p[1] - centre[1], p[0] - centre[0]) for p in exact]
     radius = arc["cutter_centre_radius_mm"]
 
+    def sweep(k):
+        return (turns[k + 1] - turns[k] + math.pi) % math.tau - math.pi
+
     def along(k, t):
-        sweep = (turns[k + 1] - turns[k] + math.pi) % math.tau - math.pi
-        angle = turns[k] + t * sweep
+        angle = turns[k] + t * sweep(k)
         return [centre[0] + radius * math.cos(angle), centre[1] + radius * math.sin(angle)]
 
     def radial(k, xy):
         span = math.dist(xy, centre)
         return [outward * (xy[i] - centre[i]) / span for i in range(2)]
 
+    def round_about(k, point):
+        """The fraction of route k whose radius runs through ``point``."""
+        if sweep(k) == 0 or math.dist(point, centre) == 0:
+            return None
+        turn = math.atan2(point[1] - centre[1], point[0] - centre[0]) - turns[k]
+        return _fraction(((turn + math.pi) % math.tau - math.pi) / sweep(k))
+
     steps, cusp, nearest, why = _stair(
-        [row["dro_xy"] for row in rows], along, radial, walls, cutter, offset
+        [row["dro_xy"] for row in rows],
+        along,
+        radial,
+        round_about,
+        walls,
+        cutter,
+        offset,
+        centre,
     )
     if why:
         arc["stair_reason"] = why
@@ -985,7 +1156,7 @@ def _jog(arc, lines, centre, outward, walls, cutter, offset):
             }
         row["jog"] = axis
         stepped.append(row)
-    arc.update(rows=stepped, stair_cusp_mm=cusp, line_clear_mm=nearest - cutter)
+    arc.update(rows=stepped, stair_cusp_mm=cusp * scale, line_clear_mm=(nearest - cutter) * scale)
     for line in lines:
         exact = line["setup_xy"]
         if not all(_pair(p) for p in exact):
@@ -1004,7 +1175,17 @@ def _jog(arc, lines, centre, outward, walls, cutter, offset):
             behind = min(wall([xy[i] - 1e-3 * n[i] for i in range(2)]) for wall in walls)
             return n if ahead >= behind else [-n[0], -n[1]]
 
-        steps, cusp, nearest, why = _stair(line["dro_xy"], straight, away, walls, cutter, offset)
+        def across(k, point, exact=exact):
+            """The fraction of leg k whose normal runs through ``point``."""
+            delta = [exact[k + 1][i] - exact[k][i] for i in range(2)]
+            span = delta[0] ** 2 + delta[1] ** 2
+            if span == 0:
+                return None
+            return _fraction(sum((point[i] - exact[k][i]) * delta[i] for i in range(2)) / span)
+
+        steps, cusp, nearest, why = _stair(
+            line["dro_xy"], straight, away, across, walls, cutter, offset
+        )
         if why:
             line["stair_reason"] = why
             continue
@@ -1020,7 +1201,12 @@ def _jog(arc, lines, centre, outward, walls, cutter, offset):
             for key in _LINE_COLUMNS:
                 columns[key].append(corner[key] if index is None else line[key][index])
             columns["jog"].append(axis)
-        line.update(columns, stair_cusp_mm=cusp, line_clear_mm=nearest - cutter)
+        line.update(columns, stair_cusp_mm=cusp * scale, line_clear_mm=(nearest - cutter) * scale)
+
+
+def _fraction(t):
+    """``t`` when it lies on a route (0 to 1, to rounding), else None."""
+    return min(1.0, max(0.0, t)) if -1e-9 <= t <= 1 + 1e-9 else None
 
 
 def _stair_angles(start, end, forced, at, centre, outward, cusp, cutter):
@@ -1030,12 +1216,16 @@ def _stair_angles(start, end, forced, at, centre, outward, cusp, cutter):
     ``at(angle)`` is the setup XY of the cutter centre there, the stair's corner is the
     one on the scrap side (``outward``: away from ``centre`` when the cutter runs outside
     the wall) and the wall sits ``cutter`` (the cutter radius; 0 when unknown) inside the
-    cutter-centre arc. :func:`_stair` measures the printed stair's actual cusp."""
+    cutter-centre arc. A concave arc's tangent stop (not an end) is a dip the handwheel
+    would run down to and straight back up from: :func:`_stair` merges that into one move
+    that stops short of it, so the leg into or out of a dip is not counted and the dip's
+    own face is measured. :func:`_stair` measures the printed stair's actual cusp."""
     span = abs(end - start)
     radius = math.dist(at(start), centre)
     reach = cutter if number(cutter) else 0.0
     count = min(_STAIR_CANDIDATES, max(8, math.ceil(math.radians(span) * radius / (cusp / 4))))
     stops = sorted({start, end, *forced}, reverse=end < start)
+    dips = set(forced) - {start, end} if outward < 0 else set()
     angles = [stops[0]]
     for a, b in itertools.pairwise(stops):
         pieces = max(1, math.ceil(count * abs(b - a) / span))
@@ -1044,18 +1234,23 @@ def _stair_angles(start, end, forced, at, centre, outward, cusp, cutter):
         faces = []
         for p in points:
             gap = math.dist(p, centre) or 1.0
-            faces.append([p[k] - reach * outward * (p[k] - centre[k]) / gap for k in range(2)])
+            n = [outward * (p[k] - centre[k]) / gap for k in range(2)]
+            faces.append(([p[k] - reach * n[k] for k in range(2)], n))
 
-        def fits(i, j, points=points, faces=faces):
+        def fits(i, j, points=points, faces=faces, pieces=pieces, a=a, b=b):
             p, q = points[i], points[j]
             corners = ([q[0], p[1]], [p[0], q[1]])
             corner = (max if outward > 0 else min)(corners, key=lambda c: math.dist(c, centre))
-            middle = range(i + 1, j, max(1, (j - i) // _STAIR_SAMPLES))
-            return all(
-                min(_to_segment(faces[m], p, corner), _to_segment(faces[m], corner, q)) - reach
-                <= cusp
-                for m in middle
-            )
+            samples = list(range(i + 1, j, max(1, (j - i) // _STAIR_SAMPLES)))
+            legs = [(p, corner), (corner, q)]
+            if a in dips and i == 0:
+                legs, samples = legs[1:], [i, *samples]
+            if b in dips and j == pieces:
+                legs, samples = legs[:-1], [*samples, j]
+            if not legs:
+                return False
+            left = (_material(*faces[m], legs, reach) for m in samples)
+            return all(gap is not None and gap <= cusp for gap in left)
 
         i = 0
         while i < pieces:
@@ -1085,6 +1280,7 @@ def _arc(
     grid,
     method,
     cutter=UNKNOWN,
+    scale=1.0,
 ):
     """([the arc table], join lines, walls) in cutting order for ``sense`` (cut_order).
 
@@ -1096,14 +1292,16 @@ def _arc(
     bounded op's tables are whole here: the kernel clips them (:func:`_kernel_clip`).
     ``walls`` (point -> distance to each feature wall, setup XY) is empty when unknown.
 
-    The ``method`` spaces the rows: ``stairs`` rows are spaced through each setup-axis
-    tangent so each printed stair stays within the contour's ``cusp_mm``
-    (:func:`_stair_angles`, :func:`_respaced`; joins are split likewise) and step in
-    single-axis moves of a cutter of radius ``cutter`` (:func:`_jog`, which drops a
-    tangent row a move runs through); ``chain_drill`` rows are hole centres no more than
-    ``pitch_mm`` apart along the path; ``rotary_table`` rows sample the cutter-centre arc
-    every ``step_deg``; ``chords`` rows are the ``count + 1`` chord vertices
-    :func:`_chords` replaces.
+    The geometry, the cutter-centre ``offset`` and the ``cutter`` radius are plan units;
+    ``scale`` is mm per unit, for the contour's mm inputs (``cusp_mm``, ``pitch_mm``) and
+    the table's ``cutter_radius_mm`` and stair measures. The ``method`` spaces the rows:
+    ``stairs`` rows are spaced through each setup-axis tangent so each printed stair stays
+    within the contour's ``cusp_mm`` (:func:`_stair_angles`, :func:`_respaced`; joins are
+    split likewise) and step in single-axis moves of a cutter of radius ``cutter``
+    (:func:`_jog`, which drops a tangent row a move runs through); ``chain_drill`` rows
+    are hole centres no more than ``pitch_mm`` apart along the path; ``rotary_table`` rows
+    sample the cutter-centre arc every ``step_deg``; ``chords`` rows are the ``count + 1``
+    chord vertices :func:`_chords` replaces.
     """
     radius = _nominal(feature, "radius")
     centre = feature.get("arc_centre", feature.get("at"))
@@ -1199,7 +1397,7 @@ def _arc(
     elif method == "chords" and isinstance(contour.get("count"), int) and contour["count"] > 0:
         angles = [start + (end - start) * i / contour["count"] for i in range(contour["count"] + 1)]
     elif method == "chain_drill" and number(contour.get("pitch_mm")) and contour["pitch_mm"] > 0:
-        pieces = max(1, math.ceil(span / contour["pitch_mm"]))
+        pieces = max(1, math.ceil(span / (contour["pitch_mm"] / scale)))
         angles = [start + (end - start) * i / pieces for i in range(pieces + 1)]
     elif method == "stairs" and number(contour.get("cusp_mm")) and contour["cusp_mm"] > 0:
         base = setup_xy(centre[:2])
@@ -1221,8 +1419,8 @@ def _arc(
             hand = 1 if (second - first + 180) % 360 - 180 > 0 else -1
             forced = _axis_tangents([start, end], first, hand)
 
-            def space(target):
-                return _stair_angles(start, end, forced, at, base, outward, target, cutter)
+            def space(target):  # target: the cusp in mm
+                return _stair_angles(start, end, forced, at, base, outward, target / scale, cutter)
 
             angles = space(contour["cusp_mm"])
 
@@ -1244,7 +1442,7 @@ def _arc(
             "centre_model_xy": model_centre[:2],
             "centre_setup_xy": centre_xy,
             "wall_radius_mm": radius,
-            "cutter_radius_mm": cutter,
+            "cutter_radius_mm": cutter * scale if number(cutter) else UNKNOWN,
             "cutter_centre_radius_mm": cutter_radius,
             "radius_mm": cutter_radius,
             "full_circle": full,
@@ -1327,14 +1525,14 @@ def _arc(
         return [], [], []
     if method == "stairs":
         for line in lines:
-            _split(line, contour["cusp_mm"])
+            _split(line, contour["cusp_mm"] / scale)
     walls = walls if known else []
     if space is not None and walls:
 
         def measure(angles):
             trial = table(angles)
             _printed([trial], [], grid, walls, offset)
-            _jog(trial, [], centre_xy, outward, walls, cutter, offset)
+            _jog(trial, [], centre_xy, outward, walls, cutter, offset, scale)
             return trial.get("stair_cusp_mm")
 
         arc = table(_respaced(angles, space, contour["cusp_mm"], measure))
@@ -1344,7 +1542,7 @@ def _arc(
         if any(line["overshoot"]):
             line["overshoot_note"] = OVERSHOOT_NOTE
     if method == "stairs":
-        _jog(arc, lines, centre_xy, outward, walls, cutter, offset)
+        _jog(arc, lines, centre_xy, outward, walls, cutter, offset, scale)
         if arc.get("stair_cusp_mm", 0.0) > contour["cusp_mm"] + _JOIN_TOL:
             arc["stair_reason"] = STAIR_SPACING.format(
                 cusp=round(arc["stair_cusp_mm"], 4), target=contour["cusp_mm"]
@@ -1357,16 +1555,24 @@ def _respaced(angles, space, cusp, measure):
     printed stair through them keeps within ``cusp`` (``measure(angles)``: the printed
     stair's cusp, None when it cannot be stepped). The DRO grid moves each printed row a
     little outside the exact point the spacing fits, so the target shrinks by each excess,
-    at most :data:`_STAIR_RESPACINGS` times; :func:`_arc` measures the result again."""
+    at most :data:`_STAIR_RESPACINGS` times; :func:`_arc` measures the result again. A
+    shrink that moves no row is doubled until one moves: an excess finer than the
+    spacing's step would otherwise respace the same rows every time."""
     target = cusp
     for _ in range(_STAIR_RESPACINGS):
         measured = measure(angles)
         if measured is None or measured <= cusp:
             return angles
-        target -= measured - cusp
-        if target <= 0:
-            return angles
-        angles = space(target)
+        shrink = measured - cusp
+        while True:
+            target -= shrink
+            if target <= 0:
+                return angles
+            spaced = space(target)
+            if spaced != angles:
+                break
+            shrink *= 2
+        angles = spaced
     return angles
 
 
@@ -2074,8 +2280,12 @@ def _blade_target(bundle, setup, op, reading, grid):
     its tailstock-side corner (``forming_corner``). The DRO reads the corner its Z touch
     set (``reading_corner``); when that is the other corner, its reading lies a blade
     width beyond ``to_z``. ``corner_dro_z`` is that reading on the DRO grid, rounded up
-    like ``dro_to_z`` so the face it leaves is the one ``dro_to_z`` prints. Unknown, with
-    its ``reason``, when the corner, the side or the blade width is."""
+    like ``dro_z``; ``formed_z`` is the face that rounded reading leaves, a blade width
+    back from it (off the grid when the width is), never below ``to_z``. A ``to_z_band``
+    is in face coordinates too: ``corner_dro_band`` is the same band as readings of the
+    reading corner, rounded inward onto the grid so every reading in it leaves the face
+    inside the band (an unknown end stays unknown). Unknown, with its ``reason``, when the
+    corner, the side or the blade width is."""
     from .geometry_common import TURNING_BLADE_KINDS
     from .turned_profile import GROOVE_OPS
 
@@ -2111,8 +2321,70 @@ def _blade_target(bundle, setup, op, reading, grid):
     if result["reading_corner"] != result["forming_corner"]:
         # Formed by the chuck-side corner, the blade spans to_z..to_z + width.
         offset = (width if result["forming_corner"] == "chuck_side" else -width) / scale
-    result["corner_dro_z"] = dro_z(op["to_z"] + offset, grid)
+    corner = dro_z(op["to_z"] + offset, grid)
+    # Rounded to float residue: an on-grid width forms dro_z(to_z) exactly.
+    result.update(corner_dro_z=corner, formed_z=round(corner - offset, 9))
+    ends = _band_ends(op)
+    if ends is not None:
+        low, high = ends
+        result["corner_dro_band"] = [
+            _grid(low + offset, *grid, True) if number(low) else UNKNOWN,
+            _grid(high + offset, *grid, False) if number(high) else UNKNOWN,
+        ]
     return result
+
+
+def _band_ends(op):
+    """``op``'s ``to_z_band`` as (low, high), an unknown end kept in place; None without
+    a two-ended band."""
+    band = op.get("to_z_band")
+    if not (isinstance(band, list) and len(band) == 2):
+        return None
+    return tuple(sorted(band)) if all(number(v) for v in band) else tuple(band)
+
+
+def _allowed_error(op, target):
+    """Why ``op``'s blade target forms its face outside the op's own ``to_z_band``, else
+    None: rounding a reading through an off-grid blade width can carry the face past a
+    band end, so the printed target falls outside the readings printed as allowed."""
+    ends, formed = _band_ends(op), target.get("formed_z")
+    if ends is None or not number(formed):
+        return None
+    low, high = ends
+    if (number(low) and formed < low - 1e-9) or (number(high) and formed > high + 1e-9):
+        return (
+            f"op {op['op']} prints Z {target['corner_dro_z']:g} for its "
+            f"{target['reading_corner'].replace('_', '-')} corner, which forms its face at "
+            f"{formed:g}, outside its allowed {_text_z(low)} to {_text_z(high)}"
+        )
+    return None
+
+
+def _text_z(value):
+    return f"{value:g}" if number(value) else UNKNOWN
+
+
+def formed_z(bundle, setup, op):
+    """The Z the face ``op`` leaves stands at once the DRO reads its printed target: a
+    lathe grooving/parting blade op's ``formed_z`` from the rounded reading of the corner
+    its Z touch set (:func:`_blade_target`); else ``dro_z(to_z)`` on ``setup``'s grid.
+    Unknown, never its nominal ``to_z``, when the blade's corner, side or width is, when
+    whether it leaves a face at ``to_z`` is (:func:`~.tip_endpoints.forms_face`), or when
+    the DRO Z it cuts on was set at an unknown place (:func:`reads_unknown`).
+    Coordinates records it as the op's ``dro_to_z``."""
+    from .zero_recipe import blade, blade_readings, reads_unknown, z_readings
+
+    grid = dro_grid(bundle, setup)
+    readings = z_readings(bundle, setup)
+    if forms_face(bundle, setup, op) == UNKNOWN or reads_unknown(bundle, setup, op, readings):
+        return UNKNOWN
+    if blade(bundle, op.get("tool")):
+        # Empty off a lathe, where no blade corner reads the DRO.
+        reading = blade_readings(bundle, setup, readings).get(str(op.get("op")))
+        target = reading and _blade_target(bundle, setup, op, reading, grid)
+        if target:
+            return target.get("formed_z", UNKNOWN)
+    return dro_z(op.get("to_z", UNKNOWN), grid)
 
 
 def _band(value):
@@ -2367,10 +2639,12 @@ def _sequence(tables):
         tables[index]["sequence"] = position
 
 
-def _z_residuals(bundle, setup, grid, features):
+def _z_residuals(bundle, setup, grid, features, entries):
     """Each finish op whose DRO depth misses its finished face by more than its feature's
     narrowest numeric tolerance band: a final forming cut (``_cuts``) whose ``to_z`` ends
-    on that face (no ``exit_mm`` run-out past it) stops :func:`dro_z` above it."""
+    on that face (no ``exit_mm`` run-out past it) leaves it at its operation entry's
+    ``dro_to_z`` (``entries`` by op): :func:`dro_z` above it, or for a blade the face its
+    rounded corner reading forms (``blade`` ``formed_z``)."""
     errors = []
     for op in setup["ops"]:
         to_z = op.get("to_z")
@@ -2380,10 +2654,20 @@ def _z_residuals(bundle, setup, grid, features):
             continue
         feature = mapping(features.get(op.get("feature")))
         band = _narrowest_band(feature)
-        residual = dro_z(to_z, grid) - to_z
+        entry = mapping(entries.get(str(op["op"])))
+        face = entry.get("dro_to_z", dro_z(to_z, grid))
+        blade = mapping(entry.get("blade"))
+        printed = f"Z {face:.{grid[1]}f}"
+        if number(blade.get("formed_z")):
+            corner = blade["reading_corner"].replace("_", "-")
+            printed = (
+                f"Z {blade['corner_dro_z']:.{grid[1]}f} for its {corner} corner, forming "
+                f"its face at {face:g},"
+            )
+        residual = face - to_z
         if band is not None and residual > band + _WALL_TOL:
             errors.append(
-                f"op {op['op']} prints Z {dro_z(to_z, grid):.{grid[1]}f} for to_z {to_z:g}: "
+                f"op {op['op']} prints {printed} for to_z {to_z:g}: "
                 f"{residual:.{grid[1] + 1}g} above its finished face, more than the "
                 f"{band:g} tolerance band of {op.get('feature')}"
             )
@@ -2446,8 +2730,8 @@ DIAGONAL_OUTLINE = (
 _INSIDE_TOL = 1e-6
 # What makes a centre feature a hole to pin or indicate the rotary table on.
 _CENTRE_FORMS = frozenset({"drill", "ream", "bore"})
-# How a chain-drilled line opens: the webs break along the hole centres, so the file
-# meets up to the allowance plus a drill radius.
+# How a chain-drilled line opens: the webs break along the straight runs between hole
+# centres, so the file meets whatever lies between the line and those runs (_holes).
 CHAIN_BREAK_OUT = "chisel the webs out along the hole centres"
 
 
@@ -2509,29 +2793,45 @@ def _leaves(cap, recut):
     return {"recut_by": recut} if recut else {"stock_cap_mm": cap}
 
 
-def _holes(arc, walls, drill, allowance, cap, label, recut=None):
+def _holes(arc, walls, drill, allowance, cap, label, scale, recut=None):
     """(errors, debts): a drilled chain keeps every hole's full diameter outside the line,
-    a web between neighbours and at most ``cap`` for the file once the webs are broken
-    out along the hole centres (the allowance plus a drill radius)."""
+    a web between neighbours and, once the webs are broken out along the straight runs
+    between hole centres, every run outside the line (a convex arc's run dips toward its
+    centre) and at most ``cap`` for the file: the most material between the line and a
+    run along the arc's radius (a concave arc's run bulges away from the line), never
+    less than the allowance plus a drill radius. Geometry and the ``drill`` radius are
+    plan units, the allowance and recorded measures mm (``scale`` mm per unit)."""
     holes = [row["dro_xy"] for row in arc["rows"]]
-    if not walls or not number(drill) or not all(_pair(p) for p in holes):
+    centre, radius = arc["centre_setup_xy"], arc["wall_radius_mm"]
+    known = _pair(centre) and number(radius) and all(_pair(p) for p in holes)
+    if not walls or not number(drill) or not known:
         return [], [f"{label}: its hole centres or the finished line are unknown"]
+    convex = arc["cutter_centre_radius_mm"] > radius
     errors = []
     clear = [min(wall(p) for wall in walls) - drill for p in holes]
     for k, gap in enumerate(clear, start=1):
         if gap < -_INSIDE_TOL:
-            errors.append(f"{label}: hole {k} reaches {-gap:.3f} past the line")
+            errors.append(f"{label}: hole {k} reaches {-gap * scale:.3f} past the line")
+    deepest = 0.0
     for k, (a, b) in enumerate(itertools.pairwise(holes), start=1):
         if math.dist(a, b) <= 2 * drill + _WALL_TOL:
             errors.append(
-                f"{label}: holes {k} and {k + 1} are {math.dist(a, b):.3f} apart, no web for "
-                f"a {2 * drill:g} drill to run against"
+                f"{label}: holes {k} and {k + 1} are {math.dist(a, b) * scale:.3f} mm apart, "
+                f"no web for a {2 * drill * scale:g} mm drill to run against"
             )
-    stock = allowance + drill
+        near, far = _to_segment(centre, a, b), max(math.dist(a, centre), math.dist(b, centre))
+        least, most = (near - radius, far - radius) if convex else (radius - far, radius - near)
+        if least < -_INSIDE_TOL:
+            errors.append(
+                f"{label}: the break-out between holes {k} and {k + 1} runs "
+                f"{-least * scale:.3f} past the line"
+            )
+        deepest = max(deepest, most)
+    stock = max(allowance + drill * scale, deepest * scale)
     arc.update(
-        drill_dia_mm=2 * drill,
-        pitch_mm=max(math.dist(a, b) for a, b in itertools.pairwise(holes)),
-        hole_clear_mm=min(clear),
+        drill_dia_mm=2 * drill * scale,
+        pitch_mm=max(math.dist(a, b) for a, b in itertools.pairwise(holes)) * scale,
+        hole_clear_mm=min(clear) * scale,
         stock_left_mm=stock,
         break_out=CHAIN_BREAK_OUT,
         **_leaves(cap, recut),
@@ -2573,18 +2873,21 @@ def _towards(a, b):
     return [(b[i] - a[i]) / span for i in range(2)]
 
 
-def _chords(arc, band, offset, grid, table, label):
+def _chords(arc, band, offset, grid, table, label, scale):
     """(errors, debts): cut ``arc`` (rows: its chord vertices) as straight chords.
 
     The chord ends sit on the edge radius that centres each chord's sagitta in the
-    feature's radial ``band``; a sagitta wider than the band is an error. Each chord is
-    cut along one table axis: as it lies, else with the work indexed square to X on the
-    setup's rotary ``table`` (the dial rounded to its resolution); with no table a slanted
-    chord is an error. The fixed axis is printed on the DRO grid on the scrap side; the
-    fed axis runs to the cutter-centre corner, past it on a convex arc (the run-out is
-    scrap) and short of it on a concave one. The proof rebuilds every chord face from
-    the printed cuts and holds its nearest and farthest points inside the band. Rows
-    become the printed cutter-centre corners in the unindexed setup frame."""
+    feature's radial ``band``; a sagitta wider than the band is an error, as is a full
+    circle in fewer than three chords. Each chord is cut along one table axis: as it
+    lies, else with the work indexed square to X on the setup's rotary ``table`` (the
+    dial rounded to its resolution; a table flagged to verify is a debt); with no table a
+    slanted chord is an error. The fixed axis is printed on the DRO grid on the scrap
+    side; the fed axis runs to the cutter-centre corner, past it on a convex arc (the
+    run-out is scrap) and short of it on a concave one. The proof rebuilds every chord
+    face from the printed cuts and holds its nearest and farthest points inside the band.
+    Rows become the printed cutter-centre corners in the unindexed setup frame. The band,
+    cutter-centre ``offset`` and rows are plan units; the recorded lengths are mm
+    (``scale`` mm per unit)."""
     centre, rows = arc["centre_setup_xy"], arc["rows"]
     if band is None or not _pair(centre) or not all(_pair(row["setup_xy"]) for row in rows):
         return [], [f"{label}: its arc centre, chord ends or radial band are unknown"]
@@ -2593,16 +2896,23 @@ def _chords(arc, band, offset, grid, table, label):
     convex = arc["cutter_centre_radius_mm"] > arc["wall_radius_mm"]
     count = len(rows) - 1
     closed = arc["full_circle"]
+    if closed and count < 3:
+        return [f"{label}: {count} chords cannot cut a full circle; it takes at least 3"], []
     thetas = [math.atan2(r["setup_xy"][1] - centre[1], r["setup_xy"][0] - centre[0]) for r in rows]
     delta = (thetas[1] - thetas[0] + math.pi) % math.tau - math.pi
     half = math.cos(abs(delta) / 2)
     edge = (lo + hi) / (1 + half)
     sagitta = edge * (1 - half)
-    arc.update(edge_radius_mm=edge, band_mm=[lo, hi], sagitta_mm=sagitta, indexed=bool(table))
+    arc.update(
+        edge_radius_mm=edge * scale,
+        band_mm=[lo * scale, hi * scale],
+        sagitta_mm=sagitta * scale,
+        indexed=bool(table),
+    )
     if sagitta > hi - lo + _WALL_TOL:
         return [
-            f"{label}: {count} chords leave a {sagitta:.3f} sagitta, more than the "
-            f"{hi - lo:g} radial band"
+            f"{label}: {count} chords leave a {sagitta * scale:.3f} mm sagitta, more than the "
+            f"{(hi - lo) * scale:g} mm radial band"
         ], []
     vertices = [
         [centre[i] + edge * (math.cos, math.sin)[i](thetas[0] + k * delta) for i in range(2)]
@@ -2629,6 +2939,8 @@ def _chords(arc, band, offset, grid, table, label):
         return points
 
     designed = corners(cuts, lambda k: cuts[0][0] if k == 0 else cuts[-1][1])
+    if any(point is None for point in designed):
+        return [f"{label}: two neighbouring chords run parallel"], []
     errors, debts, chords, actual = [], [], [], []
     for k in range(count):
         p, q = designed[k], designed[k + 1]
@@ -2644,6 +2956,8 @@ def _chords(arc, band, offset, grid, table, label):
             continue
         if along is None:
             resolution, increases = table["resolution_deg"], table["dial_increases"]
+            if table["uncertain"]:
+                return [], [f"{label}: the rotary table {table['id']} is flagged to verify"]
             if not number(resolution) or increases not in ("clockwise", "counterclockwise"):
                 return [], [f"{label}: the rotary table's dial resolution or direction is unknown"]
             index = round(_reading(-square, increases) / resolution) * resolution % 360.0
@@ -2661,8 +2975,8 @@ def _chords(arc, band, offset, grid, table, label):
                 "from": k,
                 "to": k + 1,
                 "angle_deg": angle,
-                "length_mm": math.dist(vertices[k], vertices[k + 1]),
-                "sagitta_mm": sagitta,
+                "length_mm": math.dist(vertices[k], vertices[k + 1]) * scale,
+                "sagitta_mm": sagitta * scale,
                 "cut": {
                     "index_deg": index,
                     "along": along,
@@ -2698,11 +3012,12 @@ def _chords(arc, band, offset, grid, table, label):
     for k, chord in enumerate(chords):
         a, b = faces[k], faces[k + 1]
         reach = [_to_segment(centre, a, b), max(math.dist(a, centre), math.dist(b, centre))]
-        chord["face_radius_mm"] = reach
+        chord["face_radius_mm"] = [v * scale for v in reach]
         if reach[0] < lo - _WALL_TOL or reach[1] > hi + _WALL_TOL:
             errors.append(
-                f"{label}: chord {k + 1}'s face runs R{reach[0]:.3f} to R{reach[1]:.3f}, "
-                f"outside its R{lo:g} to R{hi:g} band"
+                f"{label}: chord {k + 1}'s face runs R{reach[0] * scale:.3f} to "
+                f"R{reach[1] * scale:.3f} mm, outside its R{lo * scale:g} to R{hi * scale:g} mm "
+                "band"
             )
     for row, point in zip(rows, paths, strict=True):
         printed = [round(v, decimals) for v in point]
@@ -2714,7 +3029,8 @@ def _chords(arc, band, offset, grid, table, label):
 def rotary_table(bundle, setup):
     """The setup's rotary table (inventory fixture ``kind = "rotary_table"`` named by
     ``hold.fixture``): ``id``, ``name``, ``resolution_deg`` (vernier, else graduation),
-    ``dial_increases`` and ``max_work_mm``; None when it holds none."""
+    ``dial_increases``, ``max_work_mm``, its centre ``bore_dia_mm`` and whether it is
+    flagged to verify (``uncertain``); None when it holds none."""
     reference = mapping(setup.get("hold")).get("fixture")
     fixture = resolve(bundle, "fixtures", reference) if isinstance(reference, str) else None
     if not isinstance(fixture, dict) or fixture.get("kind") != "rotary_table":
@@ -2726,6 +3042,8 @@ def rotary_table(bundle, setup):
         "resolution_deg": resolution if number(resolution) and resolution > 0 else UNKNOWN,
         "dial_increases": fixture.get("dial_increases", UNKNOWN),
         "max_work_mm": length_mm(fixture, "max_work"),
+        "bore_dia_mm": length_mm(fixture, "bore_dia"),
+        "uncertain": uncertain(fixture),
     }
 
 
@@ -2797,20 +3115,28 @@ def _swing(bundle, setup):
     return max(math.hypot(x, y) for x in (box[0], box[3]) for y in (box[1], box[4]))
 
 
-def _rotary(bundle, setup, op, arc, table, features, frame, frames, label):
+def _rotary(bundle, setup, op, arc, table, band, features, frame, frames, label, scale):
     """(errors, debts): the rotary-table recipe for ``arc`` (its rows the cutter-centre
     arc in cutting order), stamped as ``rotary``.
 
     The arc centre is the table axis at setup X0 Y0, located by a pin through, or by
     indicating, ``contour.centre_feature``: a hole on that axis an earlier drill, ream or
-    bore made. The spindle is locked at X = the cutter-centre radius, Y0; the table turns
-    the work against the cutter's path from the start reading to the stop reading, both
-    rounded inward to the dial's resolution, and the setup-entry stock must swing inside
-    the table's ``max_work``."""
+    bore made. A pin sized to the hole's smallest diameter must enter the table's known
+    centre bore. The spindle is locked at X = the cutter-centre radius on the DRO grid
+    (off the line), Y0, and that printed offset's cut radius, widened by a pin's centre
+    play (half each bore's clearance over the pin), must lie inside the feature's radial
+    ``band`` (plan units; a rough stage's moved off the line by its allowance) however the
+    centre is found. The table turns the work against the cutter's path from the start
+    reading to the stop reading, both rounded inward to the dial's resolution: an arc
+    shorter than that leaves no reading inside it, an error. A table flagged to verify is
+    a debt, and the setup-entry stock must swing inside the table's ``max_work``.
+    Geometry is plan units, ``scale`` mm per unit."""
     if table is None:
         return [f"{label}: rotary_table needs the work held on a rotary table (hold.fixture)"], []
     contour = mapping(op.get("contour"))
     errors, debts = [], []
+    if table["uncertain"]:
+        debts.append(f"{label}: the rotary table {table['id']} is flagged to verify")
     centre = arc["centre_setup_xy"]
     if not _pair(centre):
         return [], [f"{label}: its arc centre is unknown"]
@@ -2823,7 +3149,8 @@ def _rotary(bundle, setup, op, arc, table, features, frame, frames, label):
     if by not in ("pin", "indicate"):
         debts.append(f"{label}: contour.centre_by is neither pin nor indicate")
     hub = mapping(features.get(name)) if isinstance(name, str) else {}
-    pin = UNKNOWN
+    pin, seat, play = UNKNOWN, table["bore_dia_mm"], UNKNOWN
+    convex = arc["cutter_centre_radius_mm"] > arc["wall_radius_mm"]
     if not hub:
         debts.append(f"{label}: contour.centre_feature names no feature")
     else:
@@ -2840,9 +3167,20 @@ def _rotary(bundle, setup, op, arc, table, features, frame, frames, label):
         if not _made_before(bundle, op, name):
             errors.append(f"{label}: no earlier drill, ream or bore makes {name} to centre on")
         size = hub.get("dia")
-        pin = min(size) if _band(size) else size if number(size) else UNKNOWN
-        if by == "pin" and not number(pin):
+        hole = sorted(size) if _band(size) else [size, size] if number(size) else None
+        hole = [v * scale for v in hole] if hole else None
+        pin = hole[0] if hole else UNKNOWN
+        if by == "pin" and hole is None:
             debts.append(f"{label}: {name}'s diameter is unknown, so no centre pin is sized")
+        elif by == "pin" and not number(seat):
+            debts.append(f"{label}: the rotary table's centre bore is unknown, so no pin fits it")
+        elif by == "pin" and pin > seat + _WALL_TOL:
+            errors.append(
+                f"{label}: the Ø{pin:g} mm centre pin does not enter the table's Ø{seat:g} mm "
+                "centre bore"
+            )
+        elif by == "pin":
+            play = (hole[1] - pin) / 2 + (seat - pin) / 2  # the arc centre's worst shift
     resolution, increases = table["resolution_deg"], table["dial_increases"]
     if not number(resolution) or increases not in ("clockwise", "counterclockwise"):
         debts.append(f"{label}: the rotary table's dial resolution or direction is unknown")
@@ -2857,17 +3195,50 @@ def _rotary(bundle, setup, op, arc, table, features, frame, frames, label):
             f"{label}: the stock swings {2 * reach:.1f} mm across, more than the table's "
             f"{capacity:g} mm"
         )
+    step, decimals = dro_grid(bundle, setup)
+    offset = _grid(arc["cutter_centre_radius_mm"], step, decimals, convex)  # off the line
+    cutter = arc["cutter_radius_mm"] / scale if number(arc["cutter_radius_mm"]) else UNKNOWN
+    cut = (offset - cutter if convex else offset + cutter) if number(cutter) else UNKNOWN
+    # The printed offset, not the exact one, sets the cut, however the centre is found: a
+    # rough stage's band is the drawing band moved off the line by its allowance, and only
+    # a pin's play (an unknown one leaves its own debt) widens the cut about the centre.
+    allowance = arc.get("allowance_mm", 0.0)
+    shift = (allowance if convex else -allowance) / scale if number(allowance) else UNKNOWN
+    widen = play / scale if number(play) else 0.0
+    if not number(cut) or not number(shift):
+        debts.append(f"{label}: its cutter radius or allowance is unknown, so no cut is proven")
+    elif band is None:
+        debts.append(f"{label}: its radial band is unknown, so the cut radius is unproven")
+    else:
+        low, high = cut - widen, cut + widen
+        lo, hi = band[0] + shift, band[1] + shift
+        if low < lo - _WALL_TOL or high > hi + _WALL_TOL:
+            reach = f"R{low * scale:.3f}" + (f" to R{high * scale:.3f}" if widen else "")
+            why = (
+                f"a Ø{pin:g} mm pin in {name} and the table's Ø{seat:g} mm bore lets the centre "
+                f"shift {play:.3f} mm, so "
+                if widen
+                else ""
+            )
+            errors.append(
+                f"{label}: {why}the table offset X{offset:.{decimals}f} cuts {reach} mm, "
+                f"outside the R{lo * scale:g} to R{hi * scale:g} mm band"
+            )
     record = {
         "table": table["id"],
         "table_name": table["name"],
         "centre_by": by,
         "centre_feature": name,
         "pin_dia_mm": pin if by == "pin" else None,
-        "convex": arc["cutter_centre_radius_mm"] > arc["wall_radius_mm"],
-        "radius_mm": arc["wall_radius_mm"],
+        "table_bore_dia_mm": seat if by == "pin" else None,
+        "centre_play_mm": play if by == "pin" else None,
+        "convex": convex,
+        "radius_mm": arc["wall_radius_mm"] * scale,
+        "cut_radius_mm": cut * scale if number(cut) else UNKNOWN,
         "cutter_radius_mm": arc["cutter_radius_mm"],
         "offset_axis": "X",
-        "offset_mm": arc["cutter_centre_radius_mm"],
+        "offset_x": offset,
+        "offset_mm": offset * scale,
         "resolution_deg": resolution,
         "dial_increases": increases,
         "work_radius_mm": reach if reach is not None else UNKNOWN,
@@ -2883,16 +3254,26 @@ def _rotary(bundle, setup, op, arc, table, features, frame, frames, label):
     thetas = [math.degrees(math.atan2(p[1], p[0])) for p in points]
     travel = sum((b - a + 180.0) % 360.0 - 180.0 for a, b in itertools.pairwise(thetas))
     rotation = "clockwise" if travel > 0 else "counterclockwise"  # the work turns back
-    rising = rotation == increases  # the dial reading grows through the cut
-    start, stop = (_reading(-theta, increases) / resolution for theta in (thetas[0], thetas[-1]))
+    start = _reading(-thetas[0], increases) / resolution
     if arc["full_circle"]:
         start = stop = round(start) * resolution % 360.0
         sweep = 360.0
     else:
-        sign = 1 if rising else -1  # inward: start forward, stop back, along the turn
-        start = sign * math.ceil(sign * start - 1e-9) * resolution % 360.0
-        stop = sign * math.floor(sign * stop + 1e-9) * resolution % 360.0
-        sweep = (sign * (stop - start)) % 360.0
+        # The reading runs on from the start by the work's turn (-travel), unwrapped: only
+        # rounding both ends inward (start forward, stop back) on that interval keeps the
+        # cut inside the arc; ends that cross leave no reading inside it.
+        stop = start + _turn(-travel, increases) / resolution
+        sign = 1 if stop > start else -1
+        start = sign * math.ceil(sign * start - 1e-9)
+        stop = sign * math.floor(sign * stop + 1e-9)
+        if sign * (stop - start) <= 0:
+            errors.append(
+                f"{label}: the arc turns {abs(travel):.3f}°, too short for the dial's "
+                f"{resolution:g}° readings to start and stop inside it"
+            )
+            return errors, []
+        sweep = sign * (stop - start) * resolution
+        start, stop = start * resolution % 360.0, stop * resolution % 360.0
     record.update(start_deg=start, stop_deg=stop, sweep_deg=sweep, rotation=rotation)
     return errors, []
 
@@ -2931,8 +3312,9 @@ def _recut_by(bundle, op):
     return last
 
 
-def _manual(bundle, setup, op, stage, allowance, arcs, lines, walls, label):
-    """(errors, debts) of one arc stage cut by its manual method (:data:`ARC_METHODS`)."""
+def _manual(bundle, setup, op, stage, allowance, arcs, lines, walls, label, scale):
+    """(errors, debts) of one arc stage cut by its manual method (:data:`ARC_METHODS`); the
+    tables' geometry is plan units, ``scale`` mm per unit."""
     arc = arcs[0]
     method = arc["method"]
     if method in ROUGH_METHODS and stage != "rough":
@@ -2946,22 +3328,20 @@ def _manual(bundle, setup, op, stage, allowance, arcs, lines, walls, label):
     if method == "stairs":
         return _stairs([*arcs, *lines], allowance, cap, label, recut)
     if method == "chain_drill":
-        return _holes(arc, walls, arc["cutter_radius_mm"], allowance, cap, label, recut)
+        drill = arc["cutter_radius_mm"]
+        drill = drill / scale if number(drill) else UNKNOWN
+        return _holes(arc, walls, drill, allowance, cap, label, scale, recut)
     features, frames = bundle.feature_definitions, mapping(bundle.features.get("frames"))
     feature = mapping(features.get(arc["feature"]))
     table = rotary_table(bundle, setup)
+    key = "radius" if "bottom_radius" not in feature else "bottom_radius"
+    key = "dia" if arc["full_circle"] else key
+    band = _band_radius(feature, key)
     if method == "chords":
-        key = (
-            "dia"
-            if arc["full_circle"]
-            else "bottom_radius"
-            if "bottom_radius" in feature
-            else "radius"
-        )
-        band = _band_radius(feature, key)
-        return _chords(arc, band, arc["offset_mm"], dro_grid(bundle, setup), table, label)
+        offset = arc["offset_mm"] / scale if number(arc["offset_mm"]) else UNKNOWN
+        return _chords(arc, band, offset, dro_grid(bundle, setup), table, label, scale)
     frame = setup_frame(bundle, setup)
-    return _rotary(bundle, setup, op, arc, table, features, frame, frames, label)
+    return _rotary(bundle, setup, op, arc, table, band, features, frame, frames, label, scale)
 
 
 def evaluate(bundle, *, pre_kernel=False):
@@ -2995,6 +3375,7 @@ def evaluate(bundle, *, pre_kernel=False):
         clip_debts = []  # why a clipped contour path is split, empty or unclipped
         unproven = []  # why a contour's diagonal moves are not proven cuttable
         arc_errors = []  # manual-arc plans that cut into the part or cannot be cut
+        leave_errors = []  # rough stages whose leave would cut into the finished part
         arc_debts = []  # manual-arc plans whose inputs are unknown
         numbers = {
             "frame": setup.get("frame", UNKNOWN),
@@ -3037,6 +3418,7 @@ def evaluate(bundle, *, pre_kernel=False):
 
             readings = blade_readings(bundle, setup)
         blade_unknown = False
+        allowed_errors = []  # blade targets forming their face outside the op's to_z_band
         for entry, (op, before, _) in zip(numbers["operations"], states, strict=True):
             if "to_z" in entry:
                 # The depth the DRO shows: rounded up, never deeper than authored.
@@ -3045,6 +3427,12 @@ def evaluate(bundle, *, pre_kernel=False):
             if lathe and target is not None:
                 entry["blade"] = target
                 blade_unknown |= target["corner_dro_z"] == UNKNOWN
+                if "formed_z" in target:
+                    # The face the printed corner reading leaves (:func:`formed_z`).
+                    entry["dro_to_z"] = target["formed_z"]
+                    error = _allowed_error(op, target)
+                    if error:
+                        allowed_errors.append(error)
             levels = None
             if not lathe:
                 levels = _z_levels(op, before, declared, cleared, features, grid, units)
@@ -3054,7 +3442,8 @@ def evaluate(bundle, *, pre_kernel=False):
                     plan_debts.append(f"op {op['op']} axial levels: {levels['reason']}")
             if op.get("do") in RASTER_OPS and number(op.get("to_z")) and _xy_box(op):
                 cleared.append((op.get("feature"), _xy_box(op), op["to_z"]))
-        residuals = _z_residuals(bundle, setup, grid, features)
+        entries = {str(entry.get("op")): entry for entry in numbers["operations"]}
+        residuals = _z_residuals(bundle, setup, grid, features, entries)
         unknown = not frame or frame.get("binding") == UNKNOWN or blade_unknown
         if lathe:
             from .geometry_common import _AXIAL_LATHE_ACTIONS
@@ -3180,6 +3569,11 @@ def evaluate(bundle, *, pre_kernel=False):
             numbers["entry_surfaces"].append({"op": op["op"], **after["entry_z"]})
             contour = mapping(op.get("contour"))
             unknown |= op.get("contour") == UNKNOWN
+            leave, refusal = rough_leave(op)
+            if refusal:
+                # However the op is cut (contour, pocket, turn, joint), a rough leave
+                # inside the finished part spoils it, and no stage of it is proven.
+                leave_errors.append(f"op {op['op']}: {refusal}")
             if not contour:
                 continue
             name = op.get("feature")
@@ -3187,14 +3581,12 @@ def evaluate(bundle, *, pre_kernel=False):
             tool = resolve(bundle, "tools", op.get("tool")) or {}
             diameter = length_mm(tool, "dia")
             radius = diameter / 2 if number(diameter) else UNKNOWN
-            rough = op.get("do", "").startswith("rough")
-            paired = not rough and "rough_allowance_mm" in op
             stages = (
-                [("rough", op.get("rough_allowance_mm", op.get("stock_to_leave_mm", UNKNOWN)))]
-                if rough
-                else [("rough", op["rough_allowance_mm"]), ("finish", 0)]
-                if paired
-                else [("finish", 0)]
+                [("finish", 0)]
+                if leave is None
+                else [("rough", leave)]
+                if op.get("do", "").startswith("rough_")
+                else [("rough", leave), ("finish", 0)]
             )
             sense, order = cut_order(machine, op)
             bounded = "stock_removal_bounds" in op
@@ -3220,30 +3612,43 @@ def evaluate(bundle, *, pre_kernel=False):
                 generated = refused = False
                 method = contour.get("method")
                 label = f"op {op['op']} {stage}"
+                if refusal:
+                    # No stage is printed: the rough spoils the part, and its paired
+                    # finish alone is not the planned cut.
+                    profile.update(cutter_centre=UNKNOWN, allowance_reason=refusal)
+                    numbers["profiles"].append(profile)
+                    continue
                 if method == "arc_table":
                     arc_errors.append(f"{label}: {REMOVED_ARC_TABLE}")
                     refused = True
                 elif method in ARC_METHODS:
-                    arcs, lines, walls = _arc(
-                        name,
-                        feature,
-                        op,
-                        offset,
-                        frame,
-                        frames,
-                        features,
-                        sense,
-                        order,
-                        grid,
-                        method,
-                        radius,
-                    )
+                    # The arc's geometry is plan units; the cutter and allowance are mm.
+                    scale = {"mm": 1.0, "in": 25.4}.get(units)
+                    arcs, lines, walls = [], [], []
+                    if scale is not None:
+                        arcs, lines, walls = _arc(
+                            name,
+                            feature,
+                            op,
+                            offset / scale if number(offset) else UNKNOWN,
+                            frame,
+                            frames,
+                            features,
+                            sense,
+                            order,
+                            grid,
+                            method,
+                            radius / scale if number(radius) else UNKNOWN,
+                            scale,
+                        )
                     for table in (*arcs, *lines):
                         table.update(stage=stage, allowance_mm=allowance, offset_mm=offset)
                     errors, debts = [], []
-                    if arcs:
+                    if scale is None:
+                        debts = [f"{label}: the feature units are not mm or in"]
+                    elif arcs:
                         errors, debts = _manual(
-                            bundle, setup, op, stage, allowance, arcs, lines, walls, label
+                            bundle, setup, op, stage, allowance, arcs, lines, walls, label, scale
                         )
                     elif number(offset):
                         debts = [f"{label}: no {method} rows: contour.{_NEEDS[method]} is unknown"]
@@ -3357,9 +3762,24 @@ def evaluate(bundle, *, pre_kernel=False):
                 unknown |= (not generated and not refused) or not tool or uncertain(tool)
             if lathe:
                 unknown |= not number(length_mm(tool, "nose_radius"))
+        if not lathe:
+            from .level_entry import level_paths
+
+            paths, path_debts = level_paths(
+                bundle, setup, numbers, stock_states(bundle, setup), grid, units, dro_z
+            )
+            if paths:
+                numbers["level_paths"] = paths
+            plan_debts.extend(path_debts)
         status = (
             "error"
-            if residuals or arc_errors or plunge_errors or grid_errors or band_errors
+            if residuals
+            or arc_errors
+            or plunge_errors
+            or grid_errors
+            or band_errors
+            or allowed_errors
+            or leave_errors
             else "unknown"
             if unknown or unordered or clip_debts or unproven or arc_debts or plan_debts
             else "pass"
@@ -3381,6 +3801,9 @@ def evaluate(bundle, *, pre_kernel=False):
         if residuals:
             numbers["dro_z_residual_errors"] = residuals
             sentence += " DRO depth rounding error: " + "; ".join(residuals) + "."
+        if leave_errors:
+            numbers["allowance_errors"] = leave_errors
+            sentence += " Rough allowance error: " + "; ".join(leave_errors) + "."
         if plunge_errors:
             sentence += " Relief plunge error: " + "; ".join(plunge_errors) + "."
         if grid_errors:
@@ -3389,6 +3812,9 @@ def evaluate(bundle, *, pre_kernel=False):
         if band_errors:
             numbers["band_errors"] = band_errors
             sentence += " Located target band error: " + "; ".join(band_errors) + "."
+        if allowed_errors:
+            numbers["blade_band_errors"] = allowed_errors
+            sentence += " Blade target band error: " + "; ".join(allowed_errors) + "."
         if unproven:
             sentence += " Moves between rows are unproven: " + "; ".join(unproven) + "."
         if arc_errors:

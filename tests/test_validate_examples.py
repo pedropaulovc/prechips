@@ -2,28 +2,45 @@
 
 import copy
 import json
+import math
 import runpy
 import tomllib
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from test_cli import copy_examples
+from test_deep_hole_speed import DEEP, drill_bundle
+from test_process_features import set_process_key, set_tool_fact, shaft
 
+from prechips.inputs import load_bundle
+from prechips.rules import coordinates, speeds_feeds
 from prechips.rules.tip_endpoints import evaluate as endpoint_findings
 
 ROOT = Path(__file__).resolve().parents[1]
 VALIDATOR = runpy.run_path(str(ROOT / "scripts" / "validate_examples.py"))
 
 
+def shifted(value):
+    """``value`` moved 1 mm: a number, or a measured-edge ``M ±n`` reading's offset."""
+    if isinstance(value, str):
+        offset = float(value.removeprefix("M ")) + 1.0
+        return "M " + f"{offset:+.6f}".rstrip("0").rstrip(".")
+    return value + 1.0
+
+
 @pytest.mark.parametrize(
-    ("part", "setup_id"),
+    ("part", "setup_id", "reason"),
     [
-        ("pivot-bracket", "S2"),  # Raw top, not the finished foot top.
-        ("pivot-bracket", "S4"),  # Ear inner face, not the raised stock top.
-        ("pivot-shaft", "S2"),  # Named shoulder face, not the blank end.
+        ("pivot-bracket", "S2", "touched edge"),  # Raw top, not the finished foot top.
+        ("pivot-bracket", "S4", "touched edge"),  # Ear inner face, not the raised stock top.
+        ("pivot-shaft", "S1", "touched edge"),  # The prepared plain end, not the blank end.
+        # A bench-measured edge: the shoulder-to-stub reading M sets the axis, so a
+        # consistent shift of its offset and every reading is still the wrong edge.
+        ("pivot-shaft", "S2", "measured-edge"),
     ],
 )
-def test_rejects_self_consistent_wrong_z_edge(part, setup_id):
+def test_rejects_self_consistent_wrong_z_edge(part, setup_id, reason):
     folder = ROOT / "examples" / part
     plan = tomllib.loads((folder / "plan.toml").read_text(encoding="utf-8"))
     inventory = tomllib.loads((folder / plan["paths"]["inventory"]).read_text(encoding="utf-8"))
@@ -37,10 +54,13 @@ def test_rejects_self_consistent_wrong_z_edge(part, setup_id):
 
     corrupted = copy.deepcopy(finding)
     row = corrupted["numbers"]["axes"]["z"]
-    for field in ("edge_mm", "axis_set", "check_reading", "mirrored_reading"):
-        row[field] += 1.0
+    fields = ("edge_mm", "offset_mm", "axis_set", "check_reading", "mirrored_reading")
+    fields += ("check_expression", "mirrored_expression")
+    for field in fields:
+        if field in row:
+            row[field] = shifted(row[field])
 
-    with pytest.raises(ValueError, match="touched edge"):
+    with pytest.raises(ValueError, match=reason):
         VALIDATOR["check_zero"](setup, corrupted, entries, plan["dro"])
 
 
@@ -259,6 +279,256 @@ def test_endpoint_oracle_checks_member_facts_units_and_action_specific_depth(act
         row["tip_z"] -= 1.0
     with pytest.raises(ValueError):
         VALIDATOR["check_endpoints"](bundle.plan, bundle.features, findings, entries)
+
+
+# The pivot-shaft centre as the engine reports it: prepared, contradicted (plan or tool),
+# unconfirmed, misplaced or unplaced.
+CENTRE_CASES = [
+    (None, None, None),
+    ("plan", "drill_length_mm", "2.48"),
+    ("plan", "mouth_dia_mm", "5.0"),
+    ("tool", "point_angle", "40"),
+    ("tool", "point_angle", "{ value = 118, verify = true }"),
+    ("tool", "verify", "true"),
+    ("plan", "at", "[0.0, 0.0, -173.25]"),
+    ("plan", "at", "[0.5, 0.0, -173.5]"),
+    ("plan", "axis", "[0.0, 0.0, -1.0]"),
+    ("plan", "at", '"unknown"'),
+]
+
+
+def centre_findings(tmp_path, where=None, key=None, value=None):
+    """The engine's own blind_depth findings for a changed pivot-shaft centre, and a
+    validator call that checks them."""
+    plan = shaft(tmp_path)
+    if where == "plan":
+        set_process_key(plan, "plain_end_centre", key, value)
+    elif where == "tool":
+        set_tool_fact(plan, key, value)
+    bundle = load_bundle(plan)
+    findings = {(f.rule, f.subject): f.to_dict() for f in endpoint_findings(bundle)}
+    entries = VALIDATOR["entries_for"](bundle.inventory)
+    (row,) = findings["blind_depth", "plain_end_centre"]["numbers"]["endpoints"]
+    return row, lambda: VALIDATOR["check_endpoints"](
+        bundle.plan, bundle.features, findings, entries
+    )
+
+
+@pytest.mark.parametrize(("where", "key", "value"), CENTRE_CASES)
+def test_centre_oracle_prints_a_quill_depth_only_for_the_centre_its_tool_cuts(
+    tmp_path, where, key, value
+):
+    row, check = centre_findings(tmp_path, where, key, value)
+    check()
+    # A quill depth the inputs do not derive: one printed for a centre that is not the
+    # selected tool's own on the touched end, or a prepared one moved.
+    if row["depth_mm"] == "unknown":
+        row["depth_mm"] = 1.98 + (3.0 - 1.98) / 2 / math.tan(math.radians(30.0))
+    else:
+        row["depth_mm"] += 1.0
+    row["tip_z"] = row["entry_z"] - row["depth_mm"]
+    with pytest.raises(ValueError):
+        check()
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("countersink_depth_mm", 0.9),
+        ("drill_length_mm", 2.48),
+        ("mouth_z", 1.0),
+        ("depth_scale", "dro"),
+        # Table 6 C already includes the pilot point: no drill-point lead is added.
+        ("point_mm", 0.0),
+    ],
+)
+def test_centre_oracle_rejects_a_centre_row_its_inputs_do_not_derive(tmp_path, field, value):
+    row, check = centre_findings(tmp_path)
+    check()
+    row[field] = value
+    with pytest.raises(ValueError):
+        check()
+
+
+@pytest.mark.parametrize("fact", ["drill_dia_mm", "drill_length_mm", "point_angle_deg"])
+def test_centre_oracle_holds_the_reported_tool_facts_to_the_inventory(tmp_path, fact):
+    row, check = centre_findings(tmp_path)
+    check()
+    row["tool_centre"][fact] += 1.0
+    with pytest.raises(ValueError):
+        check()
+
+
+DEEPER = {**DEEP, "depth_over_dia": 8.0, "sfm_factor": 0.3, "cite": "deeper row"}
+
+
+def speed_finding(data):
+    """The engine's speeds_feeds finding for ``data``'s one drill op, and a validator call
+    that checks it against the endpoint depths the validator has held to the plan."""
+    findings = {
+        (f.rule, f.subject): f.to_dict()
+        for f in [*endpoint_findings(data), *speeds_feeds.evaluate(data)]
+    }
+    entries = VALIDATOR["entries_for"](data.inventory)
+    VALIDATOR["check_endpoints"](data.plan, data.features, findings, entries)
+    setup = data.plan["setups"][0]
+    finding = findings["speeds_feeds", "S1:10"]
+
+    def check():
+        VALIDATOR["check_speeds"](
+            setup,
+            setup["ops"][0],
+            finding,
+            entries,
+            data.cutting_data,
+            data.feature_definitions,
+            VALIDATOR["hole_depths"](findings),
+        )
+
+    return finding, check
+
+
+@pytest.mark.parametrize(
+    ("depth_mm", "thickness", "deep", "corruption", "wrong_rpm"),
+    [
+        # 6.3 x D blind: the derated 750 rpm, reported as the un-derated 1550.
+        (40.0, None, (DEEP,), "rpm", 1550),
+        # The same, made self-consistent: no derate row, factor or ratio reported.
+        (40.0, None, (DEEP,), "fields", 1550),
+        # The same, dodging the row by naming an operation no deep-hole row names.
+        (40.0, None, (DEEP,), "operation", 1550),
+        # 3.1 x D through, by local thickness rather than the tip.
+        (None, 20.0, (DEEP,), "rpm", 1550),
+        # 9.4 x D: the deepest exceeded tier (450 rpm) governs, not the shallower one.
+        (60.0, None, (DEEP, DEEPER), "rpm", 750),
+        # Exactly 3 x D is not deeper: the un-derated 1550 stands; a derated one is wrong.
+        (3.0 * 6.35, None, (DEEP,), "rpm", 750),
+    ],
+)
+def test_speed_oracle_holds_rpm_to_the_governing_deep_hole_derate(
+    depth_mm, thickness, deep, corruption, wrong_rpm
+):
+    finding, check = speed_finding(drill_bundle(depth_mm=depth_mm, thickness=thickness, deep=deep))
+    check()
+    row = finding["numbers"]
+    if corruption in {"fields", "operation"}:
+        for field in ("depth_over_dia", "deep_hole_row", "deep_hole_sfm_factor"):
+            row.pop(field)
+    if corruption == "operation":
+        row["operation"] = "ream"
+    row["rpm"] = wrong_rpm
+    row["feed_mm_min"] = wrong_rpm * row["flutes"] * row["chip_load_mm_per_tooth"]
+    with pytest.raises(ValueError):
+        check()
+
+
+@pytest.mark.parametrize(
+    ("depth_mm", "deep"),
+    [
+        # No planned depth: no ratio, so no derate and no RPM.
+        (None, (DEEP,)),
+        # Two rows claim the same threshold: no one governs.
+        (40.0, (DEEP, {**DEEP, "sfm_factor": 0.7, "cite": "tied row"})),
+        # The governing row is marked for verification: it derates, but proves nothing.
+        (40.0, ({**DEEP, "verify": True},)),
+    ],
+)
+def test_speed_oracle_never_passes_a_derate_it_cannot_resolve(depth_mm, deep):
+    finding, check = speed_finding(drill_bundle(depth_mm=depth_mm, deep=deep))
+    check()
+    finding["status"] = "pass"
+    with pytest.raises(ValueError):
+        check()
+
+
+def aimed_bore(tmp_path, aim=None):
+    """The engine's S8 coordinates for the cone's aimed crank bore (plan ``aims.crank_bore``
+    asks 39.517 of its 39.34-39.70 printed separation; ``aim`` replaces that requirement
+    and value), its crank_bore row and a validator call that checks them against a plan."""
+    plan_path = copy_examples(tmp_path) / "cone-pivot-post" / "built-up.toml"
+    if aim is not None:
+        text = plan_path.read_text(encoding="utf-8")
+        authored = 'requirement = "separation"\nvalue_mm = 39.517\n'
+        assert authored in text
+        plan_path.write_text(text.replace(authored, aim), encoding="utf-8")
+    bundle = load_bundle(plan_path)
+    setup = next(setup for setup in bundle.plan["setups"] if setup["id"] == "S8")
+    finding = next(f for f in coordinates.evaluate(bundle) if f.subject == "S8").to_dict()
+    (row,) = (row for row in finding["numbers"]["rows"] if row["feature"] == "crank_bore")
+    entries = VALIDATOR["entries_for"](bundle.inventory)
+
+    def check(plan=bundle.plan):
+        VALIDATOR["check_coordinates"](
+            setup, bundle.features, finding, plan, entries, bundle.inventory
+        )
+
+    return bundle, finding, row, check
+
+
+def move(row, distance_mm):
+    """Stand the aimed row ``distance_mm`` further along its aim's own direction."""
+    nominal, aimed, shift = row["nominal_setup"], row["setup"], row["aim"]["shift_mm"]
+    row["setup"] = [a + (a - n) / shift * distance_mm for n, a in zip(nominal, aimed, strict=True)]
+    row["aim"]["shift_mm"] += distance_mm
+
+
+@pytest.mark.parametrize(
+    "corruption",
+    [
+        # The aim dropped: the bore printed at its CAD station.
+        "nominal",
+        # Moved the same 0.185 mm, away from the band's reference instead of toward it.
+        "reversed",
+        # Self-consistent: a CAD separation 0.1 mm short, so the bore moved 0.1 mm further.
+        "nominal_distance",
+        # Self-consistent: the report asks 39.6 where the plan asks 39.517.
+        "asked_value",
+        # A target the plan never aimed: the plan names no aim for it.
+        "unaimed_plan",
+    ],
+)
+def test_coordinate_oracle_stands_an_aimed_target_where_plan_aims_and_its_band_put_it(
+    tmp_path, corruption
+):
+    bundle, finding, row, check = aimed_bore(tmp_path)
+    check()
+    aim, plan = row["aim"], bundle.plan
+    if corruption == "nominal":
+        row["setup"] = row.pop("nominal_setup")
+        row.pop("aim")
+    elif corruption == "reversed":
+        move(row, -2 * aim["shift_mm"])
+    elif corruption == "nominal_distance":
+        move(row, 0.1)
+        aim["nominal_mm"] -= 0.1
+    elif corruption == "asked_value":
+        move(row, 39.6 - aim["value_mm"])
+        aim["value_mm"] = aim["value"] = 39.6
+    else:
+        plan = {key: value for key, value in plan.items() if key != "aims"}
+    with pytest.raises(ValueError):
+        check(plan)
+
+
+@pytest.mark.parametrize("corruption", ["moved", "passed"])
+def test_coordinate_oracle_holds_an_aim_its_band_cannot_place_to_its_nominal_target(
+    tmp_path, corruption
+):
+    # An in-band diameter aim: the bore holds its separation, not its diameter, from
+    # height_from, so the aim names no direction to move the target in.
+    _, finding, row, check = aimed_bore(tmp_path, 'requirement = "dia"\nvalue_mm = 11.43\n')
+    check()
+    # Left at its CAD station the bore's 39.332 separation is also below the printed band.
+    assert finding["status"] == "error" and "nominal_setup" not in row
+    if corruption == "moved":
+        # Moved anyway, as if it were the separation it does not name.
+        row["nominal_setup"] = list(row["setup"])
+        row["setup"][0] -= 0.185
+        row["aim"].pop("why")
+    else:
+        finding["status"] = "pass"
+    with pytest.raises(ValueError):
+        check()
 
 
 def test_validator_rejects_a_check_without_its_feature_requirement():

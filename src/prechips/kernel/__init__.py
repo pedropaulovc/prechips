@@ -27,6 +27,7 @@ from prechips.rules.resolution import (
     number,
     record,
     resolve,
+    rough_leave,
     setup_frame,
 )
 
@@ -230,11 +231,9 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
         # The op's floor in its setup frame bounds the material it removes from the stock.
         result["to_z"] = op["to_z"] * scale if number(op["to_z"]) and scale else UNKNOWN
     if not turned and str(op.get("do", "")).startswith("rough_"):
-        allowance = op.get("rough_allowance_mm", op.get("stock_to_leave_mm"))
-        # This field is always machine mm per side, independent of feature units.
-        result["rough_allowance_mm"] = (
-            allowance if number(allowance) and allowance >= 0 else UNKNOWN
-        )
+        # Always machine mm per side, independent of feature units; a negative leave is
+        # unknown here (the coordinates rule reports it as an error).
+        result["rough_allowance_mm"] = rough_leave(op)[0]
     feature = record(bundle.feature_definitions.get(op.get("feature")))
     # Joint cuts use transient geometry, never the ordinary finished-face bore path.
     if (
