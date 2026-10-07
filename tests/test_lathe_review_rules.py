@@ -647,6 +647,150 @@ def test_a_sleeve_parted_after_a_touch_on_its_far_end_comes_out_full_length():
     assert "Z now reads the chuck-side corner" in text
 
 
+def _traveler(bundle):
+    """(zero_check, coordinates, sheet, setup) for a one-setup bundle, records loaded."""
+    from prechips.sheet import _Traveler
+
+    [zero] = zero_recipe.evaluate(bundle)
+    [finding] = coordinates.evaluate(bundle)
+    sheet = _Traveler(bundle, [], {}, None)
+    setup = sheet.setup = bundle.plan["setups"][0]
+    sheet.records[("zero_check", "S1")] = zero.numbers
+    sheet.records[("coordinates", "S1")] = finding.numbers
+    return zero, finding, sheet, setup
+
+
+def _allowed(parts):
+    """The two readings a printed op row's ``allowed lo to hi`` interval names."""
+    import re
+
+    [text] = [part for part in parts if "allowed" in part]
+    return [float(v) for v in re.findall(r"-?\d+\.\d+|-?\d+", text.split("allowed", 1)[1])[:2]]
+
+
+@pytest.mark.parametrize(
+    ("width", "band", "readings"),
+    [
+        # A 1.6 blade reading its chuck-side corner forms the -Z face with its
+        # tailstock-side corner: face -5.1..-4.9 is read -6.7..-6.5.
+        (1.6, [-5.1, -4.9], [-6.7, -6.5]),
+        # Off the 0.01 grid (1.605) the readings round inward: -6.705 up, -6.505 down.
+        (1.605, [-5.1, -4.9], [-6.7, -6.51]),
+    ],
+)
+def test_a_banded_part_off_prints_its_allowed_band_as_readings_of_the_same_corner(
+    width, band, readings
+):
+    bundle = _parted(_FACE_TOUCH, [{"z_mm": 0.0, "normal_z": 1}], -1)
+    bundle.inventory["tools"]["blade"]["blade_width_mm"] = width
+    op = bundle.plan["setups"][0]["ops"][0]
+    op["to_z_band"] = band
+    _, finding, sheet, setup = _traveler(bundle)
+    assert finding.status == "pass"
+    [entry] = finding.numbers["operations"]
+    corner = entry["blade"]["corner_dro_z"]
+    printed = _allowed(sheet.tip(setup, op))
+    assert printed == pytest.approx(readings)
+    assert printed[0] <= corner <= printed[1]
+    # Every reading in the printed interval leaves the formed face inside the band.
+    for reading in printed:
+        assert band[0] - 1e-9 <= reading + width <= band[1] + 1e-9
+
+
+def test_a_blade_target_whose_formed_face_leaves_its_allowed_band_is_an_error():
+    # to_z -4.9 is the band's high end: the 1.605 blade's chuck-side reading rounds up to
+    # -6.50, so its tailstock-side corner forms -4.895, outside -5.1..-4.9.
+    bundle = _parted(_FACE_TOUCH, [{"z_mm": 0.0, "normal_z": 1}], -1, to_z=-4.9)
+    bundle.inventory["tools"]["blade"]["blade_width_mm"] = 1.605
+    bundle.plan["setups"][0]["ops"][0]["to_z_band"] = [-5.1, -4.9]
+    finding, entry = _blade_entry(bundle)
+    assert entry["dro_to_z"] == pytest.approx(-4.895)
+    assert finding.status == "error"
+    # The 1.6 blade forms -4.9 exactly: inside.
+    bundle.inventory["tools"]["blade"]["blade_width_mm"] = 1.6
+    assert _blade_entry(bundle)[0].status == "pass"
+
+
+@pytest.mark.parametrize(("normal", "axis_set"), [(-1, -0.05), (1, 0.05)])
+def test_paper_stands_a_blade_off_its_face_on_the_side_it_touches_from(normal, axis_set):
+    # Through 0.05 paper a -Z-facing shoulder at Z0 is met from -Z: the tailstock-side
+    # corner stands at Z-0.05, so the Axis Set is -0.05 (+0.05 put the reference 0.1 off
+    # and cut -5.00 at -5.10). A +Z face is met from +Z: +0.05.
+    touch = {**_FACE_TOUCH, "paper_mm": 0.05, "x_method": "touch the bar diameter"}
+    bundle = _parted(touch, [{"z_mm": 0.0, "normal_z": normal}], -1)
+    setup = bundle.plan["setups"][0]
+    setup["ops"].append({"op": 50, "do": "rough_turn", "feature": "body", "tool": "turner"})
+    bundle.inventory["tools"]["turner"] = dict(_AR)
+    [zero] = zero_recipe.evaluate(bundle)
+    [row] = zero.numbers["tool_touches"]
+    assert row["paper_mm"] == 0.05
+    assert row["z_axis_set"] == pytest.approx(axis_set)
+    # The turner re-touches the same shoulder from the same side.
+    [derived] = zero.numbers["derived_touches"]
+    assert derived["z_face"] == "shoulder"
+    assert derived["z_axis_set"] == pytest.approx(axis_set)
+    # The blade as the setup's Z zero on that shoulder.
+    bundle.plan["dro"]["direction"] = {"z": "toward_exposed_end"}
+    setup["zero"] = {
+        "z": {
+            "face": "shoulder",
+            "edge_mm": 0.0,
+            "paper_mm": 0.05,
+            "method": "touch_then_set",
+            "tool": "blade",
+            "check_jog_mm": 10.0,
+            "retouch_after": [],
+        }
+    }
+    [zero] = zero_recipe.evaluate(bundle)
+    assert zero.numbers["axes"]["z"]["axis_set"] == pytest.approx(axis_set)
+    assert zero.numbers["axes"]["z"]["check_reading"] == pytest.approx(axis_set + 10.0)
+
+
+def test_a_blade_touch_through_paper_with_no_known_side_has_no_axis_set():
+    # No face normal and no authored corner: which side the paper is on is unknown.
+    touch = {**_FACE_TOUCH, "paper_mm": 0.05}
+    [zero] = zero_recipe.evaluate(_parted(touch, [], -1))
+    assert zero.numbers["tool_touches"][0]["z_axis_set"] == "unknown"
+    # Without paper the side does not matter.
+    [zero] = zero_recipe.evaluate(_parted(_FACE_TOUCH, [], -1))
+    assert zero.numbers["tool_touches"][0]["z_axis_set"] == 0.0
+
+
+@pytest.mark.parametrize(
+    ("width", "face", "status"), [(1.605, -9.995, "error"), (1.6, -10.0, "pass")]
+)
+def test_a_blade_face_is_checked_where_its_rounded_corner_reading_forms_it(width, face, status):
+    # The chuck-side reading of a 1.605 blade forming -10 with its tailstock-side corner
+    # rounds -11.605 up to -11.60, so the face forms at -9.995: a 9.995 sleeve, outside
+    # its 9.999..10.001 length. The on-grid 1.6 blade forms -10 exactly.
+    bundle = _parted(_FACE_TOUCH, [{"z_mm": 0.0, "normal_z": 1}], -1, to_z=-10.0)
+    bundle.inventory["tools"]["blade"]["blade_width_mm"] = width
+    bundle.plan["setups"][0]["ops"][0]["feature"] = "sleeve"
+    bundle.features["features"]["sleeve"] = {
+        "kind": "shaft",
+        "length": [9.999, 10.001],
+        "requirements": ["length"],
+    }
+    finding, entry = _blade_entry(bundle)
+    assert entry["blade"]["corner_dro_z"] == pytest.approx(-11.6)
+    assert entry["dro_to_z"] == pytest.approx(face)
+    assert finding.status == status
+
+
+@pytest.mark.parametrize(("width", "printed"), [(1.605, -9.99), (1.6, -10.0)])
+def test_a_surface_a_blade_faced_prints_where_its_rounded_corner_reading_left_it(width, printed):
+    # A blade facing op leaves its face where its rounded reading puts the forming corner:
+    # a later touch on that face sees -9.995 (on the grid, -9.99), not the authored -10.
+    from prechips.rules.tip_endpoints import operative_z
+
+    bundle = _parted(_FACE_TOUCH, [{"z_mm": 0.0, "normal_z": 1}], -1, to_z=-10.0)
+    bundle.inventory["tools"]["blade"]["blade_width_mm"] = width
+    setup = bundle.plan["setups"][0]
+    setup["ops"][0].update(do="face", feature="end")
+    assert operative_z(bundle, setup, -10.0, face="end", done=1) == pytest.approx(printed)
+
+
 def test_each_toolpost_tool_is_set_on_centre_before_its_first_touch_off():
     from prechips.sheet import _Traveler
 

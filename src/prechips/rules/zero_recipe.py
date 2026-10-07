@@ -38,8 +38,10 @@ def axis_recipe(edge_mm, radius_mm, approach, axis, jog_mm, sign=1, scale=1, pap
     """Return nominal Axis Set/check/mirror; jog is physically along frame +axis.
 
     A finder approaching from -axis subtracts its radius regardless of DRO
-    direction. ``scale`` is the display scale: a lathe diameter display shows
-    twice the physical X position, so the contact and the jog both double.
+    direction. ``paper_mm`` is a Z touch's signed paper stand-off
+    (:func:`paper_offset`: negative for a face met from -Z). ``scale`` is the display
+    scale: a lathe diameter display shows twice the physical X position, so the
+    contact and the jog both double.
     """
     if paper_mm is not None:
         contact = edge_mm + paper_mm if number(edge_mm) and number(paper_mm) else UNKNOWN
@@ -81,7 +83,8 @@ def measured_edge(base):
 
 def measured_z(bundle, gauge, measure, offset_mm, paper_mm):
     """A ``measure_then_set`` Z: Axis Set M + offset + paper, where M is read at the
-    machine with a ready gauge; the returned offset + paper is unknown until the gauge
+    machine with a ready gauge and ``paper_mm`` is the paper's signed stand-off
+    (:func:`paper_offset`); the returned offset + paper is unknown until the gauge
     resolves unflagged and the measurement is named."""
     named = isinstance(measure, str) and bool(measure.strip())
     if not (named and gauge_ready(bundle, gauge) and number(offset_mm) and number(paper_mm)):
@@ -93,6 +96,8 @@ def measured_z(bundle, gauge, measure, offset_mm, paper_mm):
 # along setup Z: a face toward the free end (+1) is met from +Z by the blade's chuck-side
 # corner, a face toward the chuck (-1) by its tailstock-side corner.
 CORNERS = {1: "chuck_side", -1: "tailstock_side"}
+# The side of its face (along setup Z) a blade corner meets it from: the inverse of CORNERS.
+SIDES = {corner: normal for normal, corner in CORNERS.items()}
 _NAMED_CORNER = re.compile(r"\b(chuck|tailstock)-side\s+corner\b", re.IGNORECASE)
 # Millimetres within which a kernel end face stands at a touch's plan Z.
 FACE_Z_TOL_MM = 1e-3
@@ -159,6 +164,34 @@ def touch_corner(bundle, setup, touch, face, edge):
     return {"reference_corner": UNKNOWN, "corner_from": UNKNOWN}
 
 
+def touch_side(bundle, setup, touch, face, edge, lathe):
+    """The side of ``face`` along setup Z (+1 toward the free end or up, -1 toward the
+    chuck) a Z touch at plan ``edge`` meets it from, where its paper lies. Off a lathe a Z
+    touch comes down on its face: +1. On a lathe it is the face's measured outward normal
+    (:func:`face_normal_z`); without one a grooving/parting blade meets it on the side of
+    the corner it sets (:func:`touch_corner`: its authored corner), unknown when that is,
+    and any other tool from +Z."""
+    if not lathe:
+        return 1
+    normal = face_normal_z(bundle, setup, face, edge)
+    if normal != UNKNOWN:
+        return normal
+    corner = touch_corner(bundle, setup, touch, face, edge)
+    return 1 if corner is None else SIDES.get(corner["reference_corner"], UNKNOWN)
+
+
+def paper_offset(paper_mm, side):
+    """Where a Z touch through ``paper_mm`` of paper stands off its face along setup Z: the
+    paper lies on the ``side`` (:func:`touch_side`) the tool meets the face from, so the
+    contact is ``edge + side * paper``. No paper needs no side; an unknown side or paper
+    otherwise leaves it unknown. The paper itself is never negative."""
+    if not number(paper_mm):
+        return UNKNOWN
+    if paper_mm == 0:
+        return paper_mm
+    return side * paper_mm if side in (1, -1) else UNKNOWN
+
+
 def _position(ops, record):
     """The index of the op a touch is made before: the first of its ``before_ops``, else
     the op after its ``after_op``; None when neither names one of ``ops``."""
@@ -195,7 +228,8 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
     The DRO reads the tool that last set it: the zero, a tool touch or a listed retouch
     (which serves the next tool only). A cutting op with another tool is touched off
     first, derived here: Z on the latest touched or faced surface still standing at a
-    plan Z (its paper; a faced surface takes the zero's), never a measured one; on a
+    plan Z (its paper, on the side the surface was met from: :func:`touch_side`; a faced
+    surface takes the zero's paper), never a measured one; on a
     lathe, X on the latest diameter turned in the setup, else a touch's own X surface,
     set as the measured diameter. Tailstock tools on a lathe never read the carriage
     DRO; a touch naming none of the setup's ops serves none. Returns (derived touches,
@@ -228,7 +262,7 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
     )
     pending = False
 
-    def z_event(index, surface, z, touch_paper, source):
+    def z_event(index, surface, z, touch_paper, source, touch=None):
         if number(z):
             z_events.append(
                 {
@@ -236,6 +270,7 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
                     "face": surface,
                     "z": z,
                     "paper": touch_paper,
+                    "side": touch_side(bundle, setup, touch or {}, surface, z, lathe),
                     "top": surface == "top",
                     "source": source,
                 }
@@ -246,7 +281,7 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
             set_z = recipe.get("tool", UNKNOWN)
             z_by = {**recipe, "tool": set_z, "z_face": face, "edge_mm": zero_z}
             if recipe.get("method") not in MEASURED:
-                z_event(index, face, zero_z, paper, "zero")
+                z_event(index, face, zero_z, paper, "zero", z_by)
         for touch in placed.get(index, []):
             if touch.get("z_face"):
                 set_z, z_by = touch.get("tool", UNKNOWN), touch
@@ -257,6 +292,7 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
                         touch.get("edge_mm"),
                         touch.get("paper_mm", UNKNOWN),
                         f"tool touch before op {op['op']}",
+                        touch,
                     )
             if lathe:
                 set_x, x_gauge = touch.get("tool", UNKNOWN), touch.get("gauge", x_gauge)
@@ -282,14 +318,16 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
                 if source is None:
                     lost.append("z")
                 else:
-                    edge, touch_paper = source["z"], source["paper"]
+                    edge = source["z"]
+                    offset = paper_offset(source["paper"], source["side"])
                     # The source's own recipe names its tool's edge (a blade corner);
-                    # the incoming tool repeats the surface in tool-neutral words.
+                    # the incoming tool repeats the surface in tool-neutral words, from
+                    # the same side through the same paper.
                     record.update(
                         z_face=source["face"],
                         edge_mm=edge,
-                        paper_mm=touch_paper,
-                        z_axis_set=edge + touch_paper if number(touch_paper) else UNKNOWN,
+                        paper_mm=source["paper"],
+                        z_axis_set=edge + offset if number(offset) else UNKNOWN,
                         method="edge_then_set" if lathe else "touch_then_set",
                         repeats=source["source"],
                     )
@@ -512,6 +550,12 @@ def evaluate(bundle):
                 for op, _, after in stock_states(setup, bundle.feature_definitions):
                     if str(op.get("op")) == str(recipe.get("after_op")):
                         edge = after["top_z"]
+            # Paper stands the tool off its face on the side it meets the face from.
+            face = recipe.get("face", recipe.get("feature"))
+            stand_off = None
+            if axis == "z":
+                side = touch_side(bundle, setup, recipe, face, edge, lathe)
+                stand_off = paper_offset(paper, side)
             # Only an authored radius/diameter display fixes the lathe X jog scale.
             scale = (
                 {True: 1, False: 2}.get(dro.get("radius_mode"), UNKNOWN)
@@ -526,7 +570,7 @@ def evaluate(bundle):
                 recipe.get("check_jog_mm", UNKNOWN),
                 sign,
                 scale,
-                paper,
+                stand_off,
             )
             gauge = gauge_ready(bundle, recipe.get("gauge"))
             if method == "trial_cut_measure":
@@ -555,7 +599,7 @@ def evaluate(bundle):
                         recipe.get("gauge"),
                         recipe.get("measure"),
                         recipe.get("offset_mm", UNKNOWN),
-                        paper,
+                        stand_off,
                     )
                     if axis == "z"
                     else UNKNOWN
@@ -596,7 +640,6 @@ def evaluate(bundle):
                 ) or not bool(tool)
             axes[axis] = row
             if axis == "z":
-                face = recipe.get("face", recipe.get("feature"))
                 blade_corner(row, recipe, face, edge, "the Z zero touch")
             unknown |= (
                 any(values[k] == UNKNOWN for k in ("axis_set", "check_reading", "mirrored_reading"))
@@ -619,6 +662,8 @@ def evaluate(bundle):
         x_scale = {True: 1, False: 2}.get(dro.get("radius_mode"), UNKNOWN) if lathe else UNKNOWN
         for record in records(zero.get("tool_touches")):
             edge, paper = record.get("edge_mm", UNKNOWN), record.get("paper_mm", UNKNOWN)
+            side = touch_side(bundle, setup, record, record.get("z_face"), edge, lathe)
+            stand_off = paper_offset(paper, side)
             tool = resolve(bundle, None, record.get("tool")) or {}
             # A mill's X/Y read the spindle axis whatever the tool: its touches set Z only.
             x_set = (
@@ -635,11 +680,11 @@ def evaluate(bundle):
                         record.get("z_gauge"),
                         record.get("z_measure"),
                         record.get("z_offset_mm", UNKNOWN),
-                        paper,
+                        stand_off,
                     )
                 )
             else:
-                z_set = edge + paper if number(edge) and number(paper) else UNKNOWN
+                z_set = edge + stand_off if number(edge) and number(stand_off) else UNKNOWN
             row = {**record, "x_axis_set": x_set, "z_axis_set": z_set}
             who = f"the {record.get('tool', UNKNOWN)} touch"
             blade_corner(row, record, record.get("z_face"), edge, who)

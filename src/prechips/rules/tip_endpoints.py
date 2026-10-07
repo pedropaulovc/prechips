@@ -207,9 +207,10 @@ def lineage(bundle, setup):
 
 def operative_z(bundle, setup, value, face=None, done=0, source=None):
     """One printed Z for the surface at nominal ``value`` in ``setup``: the ``dro_to_z``
-    of the op that produced it, on that op's own setup grid, then as this setup's DRO
-    shows it (``dro_z``: rounded up on its grid; a value on both grids stays); with no
-    producer, ``dro_z`` of ``value``. An unknown stays unknown.
+    of the op that produced it, on that op's own setup grid (:func:`formed_z`: for a
+    grooving/parting blade, the face its rounded corner reading leaves), then as this
+    setup's DRO shows it (``dro_z``: rounded up on its grid; a value on both grids
+    stays); with no producer, ``dro_z`` of ``value``. An unknown stays unknown.
 
     The producer is the op ``source`` names in this setup (``"S2 op 20 to_z"``,
     :func:`stock_states`). Else, for the stock ``"top"``, the op that last faced it in
@@ -220,13 +221,13 @@ def operative_z(bundle, setup, value, face=None, done=0, source=None):
     for a feature an op on it or whose feature's XY footprint covers it
     (:func:`_covers_xy`). An equal Z alone is never proof; no ``face`` names no
     producer."""
-    from .coordinates import dro_grid, dro_z
+    from .coordinates import dro_grid, dro_z, formed_z
 
     if not number(value):
         return value
     producer = _producer(bundle, setup, value, face, done, source)
     if producer:
-        value = dro_z(producer[1]["to_z"], dro_grid(bundle, producer[0]))
+        value = formed_z(bundle, *producer)
     return dro_z(value, dro_grid(bundle, setup))
 
 

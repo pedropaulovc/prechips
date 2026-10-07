@@ -79,6 +79,8 @@ def lathe_zero(touches):
     }
 
 
+# The shoulder faces the free end (the turner faced it from +Z): the blade meets it with
+# its chuck-side corner, from +Z, so its paper stands it off toward the free end.
 BLADE = {
     "tool": "parter",
     "x_method": "touch the journal just measured",
@@ -87,6 +89,7 @@ BLADE = {
     "edge_mm": -7.5,
     "paper_mm": 0.05,
     "method": "paper",
+    "corner": "chuck_side",
     "before_ops": [40],
 }
 LATHE_OPS = [

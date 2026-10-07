@@ -2849,8 +2849,7 @@ class _Traveler:
         if "exit_mm" in op:
             parts.append(f"exit {o(op['exit_mm'])}")
         if isinstance(op.get("to_z_band"), list):
-            low, high = op["to_z_band"][0], op["to_z_band"][-1]
-            parts.append(f"allowed {_number(low)} to {_number(high)}")
+            parts.append(self.allowed(setup, op))
         for key, value in (("z_from", start), ("z_to", end)):
             if key in op and not ("z_from" in op and "z_to" in op):
                 parts.append(f"{'from' if key == 'z_from' else 'to'} Z {o(value)}")
@@ -2925,6 +2924,22 @@ class _Traveler:
                 return "Z → ? (blade corner not set)"
             return f"Z → {o(blade['corner_dro_z'])} ({corner} corner)"
         return f"Z → {o(self.dro_to_z(setup, op))}"
+
+    def allowed(self, setup, op):
+        """An op's ``to_z_band`` as ``allowed low to high``, in the terms of its Z target: a
+        grooving/parting blade's as readings of the corner its target reads (coordinates
+        ``blade`` ``corner_dro_band``, rounded inward on the DRO grid), named, and ``?``
+        while that corner or band is unknown; any other op's as authored."""
+        blade = _mapping(self.coordinates_entry(setup, op).get("blade"))
+        if not blade:
+            low, high = op["to_z_band"][0], op["to_z_band"][-1]
+            return f"allowed {_number(low)} to {_number(high)}"
+        corner = _CORNERS.get(blade.get("reading_corner"))
+        band = blade.get("corner_dro_band")
+        if corner is None or not isinstance(band, list):
+            return "allowed ? (blade corner not set)"
+        o = self.operative
+        return f"allowed {o(band[0])} to {o(band[1])} ({corner} corner)"
 
     def relief_plunges(self, setup, op):
         """A blade groove's plunges (coordinates ``plunges``): the reading corner's Z for
