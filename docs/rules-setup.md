@@ -209,7 +209,12 @@ widths: widely separated holes need the distance between their centres. Point
 and hole operations (`spot`, `drill`, `ream`, `tap`, `counterbore`, `center`)
 are their centres with no cutter-radius padding, because the spindle sits on
 the hole; only outside-profile extents carry the selected cutter radius;
-face/pocket declared extents are used as authored.
+face/pocket declared extents are used as authored. A rough stage pads each side
+by the stock it leaves: an explicit `rough_*` op by its `rough_allowance_mm`
+(else `stock_to_leave_mm`), and a contour finish by the `rough_allowance_mm` of
+the rough stage the coordinates rule prints with it; a finish without a contour
+cuts at the line. An unknown leave a rough stage needs is debt; a negative leave
+on any operation is an error (it would cut into the finished part).
 Broad face/profile/pocket operations without complete extents use a
 conservative stock-span screen without inventing a stock origin. Z is the
 union of each operation's **spindle-nose** positions, `tip + holder gauge +
@@ -249,7 +254,8 @@ position and angularity datums, coaxial feature and height-from feature.
 Reamed/bored/tapped datum finishing cuts replace pilots, including across that
 merged label/owner set; rough, manual (`inspect`, `deburr`, `coating`, `release`,
 `fit`, `scribe`) and other nonfinishing actions (`spot`, `transfer`, saw) never
-establish a final datum, whether named or owning. A datum name that
+establish a final datum, whether named or owning; a bench `file_to_line` is a
+finishing cut and does. A datum name that
 maps to no feature has no cuts. Every feature
 finishing-cut/datum-cut pair is evaluated. Same setup passes; an indicated
 transfer passes only when it names that feature/datum and originates at or
@@ -290,5 +296,6 @@ Closure against a whole revolution is checked **only for a full pattern**:
 pattern: every position is checked against `angle_tol_deg`, with no closure.
 `positions = 1` is one angular setting, such as the cone journal's 12.5182°
 inclination, with no closure. The traveler prints plate, circle, turns and hole
-**spaces**, even when that arithmetic remains tentative because inventory
-confirmation is missing.
+**spaces**, then the angle that setting actually turns, its difference from the
+planned angle and the allowance, even when that arithmetic remains tentative
+because inventory confirmation is missing.

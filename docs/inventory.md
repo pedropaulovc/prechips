@@ -58,6 +58,13 @@ a plan centre must carry its own Table 6 geometry: pilot `dia` (D), `pilot_len`
 shorter than `pilot_len`; `flute_len` stays the cutting length reach compares.
 `chart` is a source citation, never a downloaded chart.
 
+A limit-gauge set (`pin_gauge`, `pin_gauge_set` or `plug_gauge` for holes;
+`ring_gauge` or `snap_gauge` for a boss or shaft) lists the sizes it physically
+holds in `sizes_mm`. A plan GO / NO-GO pair may only name listed sizes: an unlisted
+size is an inspection error, and a set with no `sizes_mm` leaves the pair unknown
+([inspection](rules-inspection.md#go--no-go-limit-checks)). `range_mm` stays the
+span the set covers for ordinary span/resolution checks.
+
 M2 holding checks use explicitly declared `sizes_mm` / `sizes_in` or a two-ended
 `range_mm` / `range_in` for the held stock diameter. A six-inch chuck body
 (`diameter_in`) says nothing about jaw capacity. Tailstock/steady exceptions
@@ -115,6 +122,29 @@ actual blade-speed range for a sourced speed recommendation. The hold resolves
 an ordinary fixture; no machine identity silently supplies an integral vise.
 See [plan saw cut-off](plan.md#saw-cut-off) for the plane and keep-side contract.
 
+
+## Manual-arc kit
+
+The mill is manual ([plan Manual arcs](plan.md#manual-arcs)); no machine field
+declares MDI, G-code or contouring. The kit for laying out, filing and indexing
+arcs is ordinary inventory:
+
+- A fitting bench is a `machines.<id>` with `kind = "bench"`: a setup on it
+  holds only manual ops (`scribe`, `file_to_line`, `deburr`, `inspect`, …) and
+  its work-holding (a bench vise, filing buttons) is drawn like any fixture.
+- Filing buttons are a `fixtures.<id>` with `kind = "filing_buttons"`: the
+  hardened button diameter `dia_mm` and the pin diameter `bore_dia_mm` they
+  are clamped on, plus `solids` (buttons, nut, stud) so the setup render can draw
+  them. A plan names the kit in `guide.buttons` and holds it (`hold.fixture` or a
+  clamp `ref`).
+- A rotary table is a `fixtures.<id>` with `kind = "rotary_table"`:
+  `graduation_deg`, `vernier_deg`, `dial_increases`, `t_slots`, `max_work`,
+  `t_slot_width` and the centre bore `bore_dia` a `centre_by = "pin"` pin must
+  enter (unknown leaves the pin unproven), plus `solids` (table, slots, worm
+  housing) so the setup render draws it modeled. A `rotary_table` contour or an
+  indexed chord reads it from `hold.fixture`.
+- Templates and radius gauges are `gauges.<id>` with `kind = "radius_gauge"` or
+  `"profile_gauge"` and the `range_mm` of radii they read.
 
 ## Kernel geometry facts (M4)
 
@@ -178,6 +208,9 @@ Other holding solids come from the same accepted-fact rule, never defaults:
   slot void (`cuts = ["beam"]`), stud, heel, nut and washer (washer bore with
   `cuts = ["washer"]`). Primitives of one list are one part and never checked
   against each other; each posed clamp's list must touch the stock to bear.
+  The holding fixture's own solids must touch the stock or a clamp member that
+  reaches it member to member (a bench vise gripping the stud of filing buttons
+  on the work); a member cut off from the bearing ones by air carries no load.
 - A trusted void in the holding fixture may carry an optional shop-caption
   `label = "Strap stud holes"`. The setup render places its leader at the void's
   centre after applying `hold.pose`, and records the label and posed centre in
@@ -219,7 +252,9 @@ Other holding solids come from the same accepted-fact rule, never defaults:
   `locates = "<part face>"` and `fastener = "<thread / fastener>"` fill the
   Locates and Fastener columns; `shim = true` marks an adjustable shim stack
   whose drawn thickness HOLD prints as the nominal to fit with feeler gauges,
-  one stack per shim primitive per placement of its item.
+  one stack per shim primitive per placement of its item. A made primitive's
+  `note` (material, heat treatment, finish) prints once per row in a "Make:"
+  line under the table; primitives with different notes do not share a row.
   An angle plate's (or posed shop-made fixture's) lowest box that is not bought
   is its base: HOLD prints its underside Z, an angle plate's working face (local
   y = 0, facing local -y) and the base's `fastener` as the hold-down; with any
@@ -569,7 +604,7 @@ on hand.
 | `feed_mm_rev` | `float` |
 | `dia_mm` | `MeasuredLength` |
 | `dia_in` | `MeasuredLength` |
-| `shank_mm` | `float` |
+| `shank_mm` | `MeasuredLength` (the tool body past its flutes: [`reach`](rules-geometry.md#reach) checks it against the retained stock) |
 | `flute_len_mm` | `MeasuredLength` |
 | `flute_len_in` | `MeasuredLength` |
 | `pilot_len` / `pilot_len_mm` / `pilot_len_in` | `MeasuredLength` (combined drill and countersink: Table 6 drill length C, countersink start to point tip) |
@@ -598,7 +633,7 @@ on hand.
 | `nose_radius_mm` | `float` |
 | `reach_mm` | `float` |
 | `dia` | `MeasuredLength` |
-| `shank_in` | `float \| str \| dict[str, list[str]]` |
+| `shank_in` | `MeasuredLength \| str \| dict[str, list[str]]` (as `shank_mm` on a tool; a string or size map on a set) |
 | `flutes` | `int \| list[int]` |
 | `source` | `str \| Source` |
 | `cite` | `Citations` |
@@ -621,7 +656,11 @@ on hand.
 | `standard_accessories` | `list[str]` |
 | `included` | `list[str]` |
 | `spindle` | `Spindle` |
-| `contouring` | `"mdi"` / `"jog"` / `{value, measured, verify}` (a machine's way of cutting an arc or diagonal contour row: `mdi` types one coordinated `G1`/`G2`/`G3` MDI move per row at the op's feed; `jog` moves one handwheel axis at a time, so the sheet prints single-axis stair rows and a finish stair must leave no more than the feature's band. Absent, `"unknown"` or `verify = true` leaves every arc and diagonal row unproven, never pass: [rules-coordinates](rules-coordinates.md)) |
+| `graduation_deg` / `vernier_deg` | `float` (`rotary_table`: dial graduation and vernier; the vernier, else the graduation, is the resolution every printed reading rounds to) |
+| `dial_increases` | `"clockwise"` / `"counterclockwise"` (`rotary_table`: the table turn that raises the dial reading) |
+| `t_slots` | `float` (`rotary_table`: number of T-slots) |
+| `max_work_mm` / `max_work_in` | `MeasuredLength` (`rotary_table`: largest work diameter the stock's swing must fit) |
+| `t_slot_width_mm` / `t_slot_width_in` | `MeasuredLength` (`rotary_table`) |
 | `leadscrew` | `LeadScrew` |
 | `capacity_in` | `float \| list[Number] \| Capacity` |
 | `tailstock` | `Tailstock` |
@@ -706,6 +745,9 @@ block, a `source` or a member; the only measurement evidence is the
 | `note` | `str` |
 | `holders` | `int` |
 | `included` | `bool` |
+| `centre_height` | `str`: how a tool is set on spindle centre height before its first touch-off in a lathe setup (printed as that step; without it the sheet states the requirement alone) |
+| `square_blade` | `str`: how a grooving/parting blade is squared to the spindle axis in the same step |
+| `cite` | `Citations` for those words |
 
 ## DirectIndex
 

@@ -15,6 +15,7 @@ from prechips.rules.geometry_common import (
     unavailable,
 )
 from prechips.rules.resolution import (
+    HAND_FINISH,
     SAW_OPS,
     claim_refs,
     known_refs,
@@ -61,7 +62,7 @@ def evaluate(bundle):
             # A saw cut removes stock; its kerf face is not credit toward target faces.
             continue
         action = cutting_action(op)
-        if action is False:
+        if action is False and op.get("do") not in HAND_FINISH:
             continue
         if action is None:
             debt = True

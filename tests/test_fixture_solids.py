@@ -204,6 +204,49 @@ def test_cutter_beside_a_strap_hits_the_clamp_and_debts_misplaced_straps(engine,
     )
 
 
+def _gripped_hold(clamp_z=10.0, clamps=True):
+    """A body gripping the strap's free end 5 mm off the plate, as a bench vise grips the
+    stud of filing buttons pressed on the work; it never touches the plate itself."""
+    return {
+        "kind": "solids",
+        "fixture_kind": "custom",
+        "pose": {"origin_mm": [0.0, 0.0, 0.0], **UP},
+        "solids": [_box("vise:jaws", [-15.0, 4.0, clamp_z], [10.0, 12.0, 8.0])],
+        "clamps": [_strap([20.0, 10.0, clamp_z])] if clamps else [],
+        "debts": [],
+        "gaps": [],
+    }
+
+
+def test_a_holding_body_reaches_the_work_through_a_clamp_that_bears_on_it(engine, parts):
+    step = parts["plate"]
+    # One clamp's heel touches the body and its strap the plate, 8 mm of air between them:
+    # members of one clamp carry no load across a gap.
+    split = _gripped_hold()
+    split["clamps"][0]["solids"] = [
+        _box("kit/strap:heel", [-25.0, -6.0, 0.0], [2.0, 12.0, 8.0]),
+        _box("kit/strap:strap", [-15.0, -6.0, 0.0], [40.0, 12.0, 8.0]),
+    ]
+    holds = [_gripped_hold(), _gripped_hold(clamp_z=12.0), _gripped_hold(clamps=False), split]
+    gripped, floating, alone, apart = (
+        _scene(result)
+        for result in engine.run(
+            {"jobs": [engine.job(step, setups=[_setup([], hold)]) for hold in holds]}
+        )["results"]
+    )
+    assert gripped["render_scene"]["debts"] == []
+    assert gripped["fixture_rendered"] is True
+    # Gripping a strap that bears on nothing, nothing at all, or a member cut off from the
+    # one that bears does not hold the work.
+    debt = (
+        "custom fixture solids touch neither the stock nor a clamp bearing on it at the "
+        "declared pose"
+    )
+    for setup in (floating, alone, apart):
+        assert debt in setup["render_scene"]["debts"]
+        assert setup["fixture_rendered"] is False
+
+
 def test_undrawn_fixture_components_leave_clear_samples_unknown(engine, parts):
     step = parts["plate"]
     top = engine.refs(step, (0, 0, 10), (40, 20, 10))

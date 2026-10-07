@@ -397,7 +397,7 @@ def joint_operation(bundle, op: dict, finishing: bool) -> dict | None:
     """
     from prechips.rules._envelope import measurement_item
     from prechips.rules.geometry_common import cutting_action
-    from prechips.rules.resolution import op_feature
+    from prechips.rules.resolution import op_feature, rough_leave
 
     joint = joint_of(bundle.feature_definitions.get(op_feature(op)))
     if joint is None or cutting_action(op) is False:
@@ -416,7 +416,7 @@ def joint_operation(bundle, op: dict, finishing: bool) -> dict | None:
         if key in op:
             result[key] = _scaled(op[key], scale) if _number(op[key]) else UNKNOWN
     action = op.get("do", UNKNOWN)
-    allowance = op.get("rough_allowance_mm", UNKNOWN)
+    allowance, refusal = rough_leave(op)
     nominal = target["nominal_dia_mm"]
     diameter, reason = UNKNOWN, None
     kind = target["kind"]
@@ -453,7 +453,7 @@ def joint_operation(bundle, op: dict, finishing: bool) -> dict | None:
         diameter = nominal
         if nominal == UNKNOWN:
             reason = f"{label(joint['id'])}.nominal_dia is unknown"
-    elif _number(allowance) and allowance >= 0:
+    elif _number(allowance):
         if nominal == UNKNOWN:
             reason = f"{label(joint['id'])}.nominal_dia is unknown"
         else:
@@ -461,7 +461,7 @@ def joint_operation(bundle, op: dict, finishing: bool) -> dict | None:
             sign = -1.0 if target["kind"] == "cylinder_bore" else 1.0
             diameter = nominal + sign * allowance
     else:
-        reason = "a non-finishing joint cut needs an authored rough_allowance_mm"
+        reason = refusal or "a non-finishing joint cut needs an authored rough_allowance_mm"
     result["diameter_mm"] = diameter
     if reason is not None:
         result["reason"] = reason

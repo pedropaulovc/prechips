@@ -298,8 +298,8 @@ holder = "qctp-axa-lms-2280/1-turning-facing"
 to_z = 0.0
 to_dia = 0.0
 direction = "radially_inward"
-doc_mm = 0.5 # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.040 in (1.0 mm) DOC
-feed_mm_rev = 0.08 # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.004 in/rev (0.10 mm)
+doc_mm = 0.5 # example (plausible, not measured); below the 0.04 in (1.0 mm) smallest depth column of Machinery's Handbook 27th ed. Table 5a p.1035, whose depth factor only raises speed for lighter cuts (Table 1 p.1027 carbide basis 0.1 in depth, p.1026)
+feed_mm_rev = 0.08 # example (plausible, not measured); .0031 in/rev, inside Machinery's Handbook 27th ed. Table 5a p.1035 feed ratios 0.1-1.0 of Table 1 p.1027 optimum feed .017 in/rev (.0017-.017 in/rev)
 approach_mm = 3.0
 note = "This face is datum B. Finish with a light pass for the Ra."
 [setups.ops.checks]
@@ -315,8 +315,8 @@ z_from = 0.0
 z_to = -95.0 # AUTHOR'S CHOICE: 9 mm past the head top, 5 mm short of the jaws
 rough_allowance_mm = 0.4 # AUTHOR'S CHOICE on DIAMETER
 direction = "toward_chuck"
-doc_mm = 0.35 # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.040 in (1.0 mm) DOC
-feed_mm_rev = 0.1 # example (plausible, not measured); at littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.004 in/rev (0.10 mm)
+doc_mm = 0.35 # example (plausible, not measured); below the 0.04 in (1.0 mm) smallest depth column of Machinery's Handbook 27th ed. Table 5a p.1035, whose depth factor only raises speed for lighter cuts (Table 1 p.1027 carbide basis 0.1 in depth, p.1026)
+feed_mm_rev = 0.1 # example (plausible, not measured); .0039 in/rev, inside Machinery's Handbook 27th ed. Table 5a p.1035 feed ratios 0.1-1.0 of Table 1 p.1027 optimum feed .017 in/rev (.0017-.017 in/rev)
 approach_mm = 3.0
 note = "Two passes, stopping 5 mm short of the jaws."
 [[setups.ops]]
@@ -329,8 +329,8 @@ holder = "qctp-axa-lms-2280/1-turning-facing"
 z_from = 0.0
 z_to = -95.0
 direction = "toward_chuck"
-doc_mm = 0.2 # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.040 in (1.0 mm) DOC
-feed_mm_rev = 0.05 # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.004 in/rev (0.10 mm)
+doc_mm = 0.2 # example (plausible, not measured); below the 0.04 in (1.0 mm) smallest depth column of Machinery's Handbook 27th ed. Table 5a p.1035, whose depth factor only raises speed for lighter cuts (Table 1 p.1027 carbide basis 0.1 in depth, p.1026)
+feed_mm_rev = 0.05 # example (plausible, not measured); .0020 in/rev, inside Machinery's Handbook 27th ed. Table 5a p.1035 feed ratios 0.1-1.0 of Table 1 p.1027 optimum feed .017 in/rev (.0017-.017 in/rev)
 approach_mm = 3.0
 note = "The head keeps this diameter; ops 40-50 then turn the body down to the shoulder."
 [setups.ops.checks]
@@ -346,8 +346,8 @@ z_from = 0.0
 z_to = -59.4 # AUTHOR'S CHOICE: run the rough pass to the shoulder plane so the claimed body face is turned over its whole length; op 50 cuts the corner
 rough_allowance_mm = 0.3 # AUTHOR'S CHOICE on DIAMETER
 direction = "toward_chuck"
-doc_mm = 0.25 # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.040 in (1.0 mm) DOC
-feed_mm_rev = 0.1 # example (plausible, not measured); at littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.004 in/rev (0.10 mm)
+doc_mm = 0.25 # example (plausible, not measured); below the 0.04 in (1.0 mm) smallest depth column of Machinery's Handbook 27th ed. Table 5a p.1035, whose depth factor only raises speed for lighter cuts (Table 1 p.1027 carbide basis 0.1 in depth, p.1026)
+feed_mm_rev = 0.1 # example (plausible, not measured); .0039 in/rev, inside Machinery's Handbook 27th ed. Table 5a p.1035 feed ratios 0.1-1.0 of Table 1 p.1027 optimum feed .017 in/rev (.0017-.017 in/rev)
 approach_mm = 3.0
 note = "Rough the body to the shoulder, disengaging the feed early and hand-feeding the last 1 mm to the Z DRO reading; withdraw radially up the shoulder."
 [[setups.ops]]
@@ -360,8 +360,8 @@ holder = "qctp-axa-lms-2280/1-turning-facing"
 z_from = 0.0
 z_to = -59.4 # AUTHOR'S CHOICE: the R0.2 nose forms the body-to-head corner inside the R0.25 maximum
 direction = "toward_chuck"
-doc_mm = 0.15 # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.040 in (1.0 mm) DOC
-feed_mm_rev = 0.05 # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.004 in/rev (0.10 mm)
+doc_mm = 0.15 # example (plausible, not measured); below the 0.04 in (1.0 mm) smallest depth column of Machinery's Handbook 27th ed. Table 5a p.1035, whose depth factor only raises speed for lighter cuts (Table 1 p.1027 carbide basis 0.1 in depth, p.1026)
+feed_mm_rev = 0.05 # example (plausible, not measured); .0020 in/rev, inside Machinery's Handbook 27th ed. Table 5a p.1035 feed ratios 0.1-1.0 of Table 1 p.1027 optimum feed .017 in/rev (.0017-.017 in/rev)
 approach_mm = 3.0
 note = "Hand-feed the last 1 mm to the Z DRO reading, then withdraw radially up the shoulder; the R0.2 nose leaves the corner. Mic at three stations for taper."
 process_holds = [{ feature = "body", requirement = "dia", band = [41.99, 42.03], gauge = "micrometers/1-2in", reason = "AUTHOR'S CHOICE: the S6, S7, S10 and S12 cradle saddles are bored 42.011, and their cone pins, crank pins and cap pad are set for that body; 41.99-42.03 keeps the body axis within 0.022 of that height in the shallow saddles" }]
@@ -439,8 +439,8 @@ holder = "qctp-axa-lms-2280/1-turning-facing"
 to_z = 21.0055
 to_dia = 0.0 # AUTHOR'S CHOICE: face the solid blank to the centre; the journal bore is drilled after bonding
 direction = "radially_inward"
-doc_mm = 0.25 # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.040 in (1.0 mm) DOC
-feed_mm_rev = 0.05 # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.004 in/rev (0.10 mm)
+doc_mm = 0.25 # example (plausible, not measured); below the 0.04 in (1.0 mm) smallest depth column of Machinery's Handbook 27th ed. Table 5a p.1035, whose depth factor only raises speed for lighter cuts (Table 1 p.1027 carbide basis 0.1 in depth, p.1026)
+feed_mm_rev = 0.05 # example (plausible, not measured); .0020 in/rev, inside Machinery's Handbook 27th ed. Table 5a p.1035 feed ratios 0.1-1.0 of Table 1 p.1027 optimum feed .017 in/rev (.0017-.017 in/rev)
 approach_mm = 3.0
 note = "Finish with a light pass for the Ra. This cap ends up on the outside of the post."
 [setups.ops.checks]
@@ -455,8 +455,8 @@ z_from = 21.0055
 z_to = -23.0 # AUTHOR'S CHOICE: 2 mm past the parting plane, 5 mm short of the jaws
 rough_allowance_mm = 0.2 # AUTHOR'S CHOICE on DIAMETER
 direction = "toward_chuck"
-doc_mm = 0.4 # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.040 in (1.0 mm) DOC
-feed_mm_rev = 0.08 # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.004 in/rev (0.10 mm)
+doc_mm = 0.4 # example (plausible, not measured); below the 0.04 in (1.0 mm) smallest depth column of Machinery's Handbook 27th ed. Table 5a p.1035, whose depth factor only raises speed for lighter cuts (Table 1 p.1027 carbide basis 0.1 in depth, p.1026)
+feed_mm_rev = 0.08 # example (plausible, not measured); .0031 in/rev, inside Machinery's Handbook 27th ed. Table 5a p.1035 feed ratios 0.1-1.0 of Table 1 p.1027 optimum feed .017 in/rev (.0017-.017 in/rev)
 approach_mm = 3.0
 [[setups.ops]]
 op = 30
@@ -467,8 +467,8 @@ holder = "qctp-axa-lms-2280/1-turning-facing"
 z_from = 21.0055
 z_to = -23.0
 direction = "toward_chuck"
-doc_mm = 0.1 # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.040 in (1.0 mm) DOC
-feed_mm_rev = 0.03 # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.004 in/rev (0.10 mm)
+doc_mm = 0.1 # example (plausible, not measured); below the 0.04 in (1.0 mm) smallest depth column of Machinery's Handbook 27th ed. Table 5a p.1035, whose depth factor only raises speed for lighter cuts (Table 1 p.1027 carbide basis 0.1 in depth, p.1026)
+feed_mm_rev = 0.045 # example (plausible, not measured); .0018 in/rev, inside Machinery's Handbook 27th ed. Table 5a p.1035 feed ratios 0.1-1.0 of Table 1 p.1027 optimum feed .017 in/rev (.0017-.017 in/rev)
 approach_mm = 3.0
 note = "Finish to the bonding size. Mic both ends and the middle."
 [setups.ops.checks]
@@ -484,9 +484,9 @@ to_z = -21.0505 # AUTHOR'S CHOICE: part the sleeve 42.056 long, 0.045 over the C
 to_dia = 0.0
 direction = "radially_inward"
 approach_mm = 3.0
-doc_mm = 0.25 # example (plausible, not measured); radial hand peck, UFL 'Parting on Lathe' Step 6: feed by hand, never power feed, and peck to break up the chips
-feed_mm_rev = 0.025 # example (plausible, not measured); UFL 'Speeds and Feeds' Example 5 tip parting 0.001 in/rev (0.025 mm) for steels, hand-fed
-note = "Before parting, lay a folded rag in the chip tray under the cut. Keep the blade width on the chuck side of the line. Let the sleeve drop onto the rag, stop the spindle, then pick it up. Never reach under turning work."
+doc_mm = 0.25 # example (plausible, not measured); radial hand peck: the handbook gives cutoff feed (p.1132), not a peck depth; UFL 'Parting on Lathe' Step 6: feed by hand, never power feed, and peck to break up the chips
+feed_mm_rev = 0.025 # example (plausible, not measured); .0010 in/rev, inside Machinery's Handbook 27th ed. p.1132 cutoff-tool feeds .0006-.0015 in/rev, hand-fed
+note = "Before parting, lay a folded rag in the chip tray under the cut. Let the sleeve drop onto the rag, stop the spindle, then pick it up. Never reach under turning work."
 [[setups.ops]]
 op = 50
 do = "inspect"
@@ -562,8 +562,8 @@ holder = "qctp-axa-lms-2280/1-turning-facing"
 to_z = 0.0
 to_dia = 0.0 # AUTHOR'S CHOICE: face the solid blank to the centre; the crank bore is drilled after bonding
 direction = "radially_inward"
-doc_mm = 0.25 # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.040 in (1.0 mm) DOC
-feed_mm_rev = 0.05 # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.004 in/rev (0.10 mm)
+doc_mm = 0.25 # example (plausible, not measured); below the 0.04 in (1.0 mm) smallest depth column of Machinery's Handbook 27th ed. Table 5a p.1035, whose depth factor only raises speed for lighter cuts (Table 1 p.1027 carbide basis 0.1 in depth, p.1026)
+feed_mm_rev = 0.05 # example (plausible, not measured); .0020 in/rev, inside Machinery's Handbook 27th ed. Table 5a p.1035 feed ratios 0.1-1.0 of Table 1 p.1027 optimum feed .017 in/rev (.0017-.017 in/rev)
 approach_mm = 3.0
 note = "Face the 1 mm allowance off the north face."
 [[setups.ops]]
@@ -576,8 +576,8 @@ z_from = 0.0
 z_to = -73.0 # AUTHOR'S CHOICE: 1 mm past the parting plane, 6 mm short of the jaws
 rough_allowance_mm = 0.2 # AUTHOR'S CHOICE on DIAMETER
 direction = "toward_chuck"
-doc_mm = 0.25 # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.040 in (1.0 mm) DOC
-feed_mm_rev = 0.05 # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.004 in/rev (0.10 mm)
+doc_mm = 0.25 # example (plausible, not measured); below the 0.04 in (1.0 mm) smallest depth column of Machinery's Handbook 27th ed. Table 5a p.1035, whose depth factor only raises speed for lighter cuts (Table 1 p.1027 carbide basis 0.1 in depth, p.1026)
+feed_mm_rev = 0.05 # example (plausible, not measured); .0020 in/rev, inside Machinery's Handbook 27th ed. Table 5a p.1035 feed ratios 0.1-1.0 of Table 1 p.1027 optimum feed .017 in/rev (.0017-.017 in/rev)
 approach_mm = 3.0
 [[setups.ops]]
 op = 30
@@ -588,8 +588,8 @@ holder = "qctp-axa-lms-2280/1-turning-facing"
 z_from = 0.0
 z_to = -73.0
 direction = "toward_chuck"
-doc_mm = 0.1 # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.040 in (1.0 mm) DOC
-feed_mm_rev = 0.03 # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.004 in/rev (0.10 mm)
+doc_mm = 0.1 # example (plausible, not measured); below the 0.04 in (1.0 mm) smallest depth column of Machinery's Handbook 27th ed. Table 5a p.1035, whose depth factor only raises speed for lighter cuts (Table 1 p.1027 carbide basis 0.1 in depth, p.1026)
+feed_mm_rev = 0.045 # example (plausible, not measured); .0018 in/rev, inside Machinery's Handbook 27th ed. Table 5a p.1035 feed ratios 0.1-1.0 of Table 1 p.1027 optimum feed .017 in/rev (.0017-.017 in/rev)
 approach_mm = 3.0
 note = "Finish to the bonding size. Mic both ends and the middle."
 [setups.ops.checks]
@@ -605,9 +605,9 @@ to_z = -72.0344 # source boss length, spec:55-56
 to_dia = 0.0
 direction = "radially_inward"
 approach_mm = 3.0
-doc_mm = 0.25 # example (plausible, not measured); radial hand peck, UFL 'Parting on Lathe' Step 6: feed by hand, never power feed, and peck to break up the chips
-feed_mm_rev = 0.025 # example (plausible, not measured); UFL 'Speeds and Feeds' Example 5 tip parting 0.001 in/rev (0.025 mm) for steels, hand-fed
-note = "Before parting, lay a folded rag in the chip tray under the cut. Keep the blade width on the chuck side of the line. Let the sleeve drop onto the rag, stop the spindle, then pick it up. Never reach under turning work."
+doc_mm = 0.25 # example (plausible, not measured); radial hand peck: the handbook gives cutoff feed (p.1132), not a peck depth; UFL 'Parting on Lathe' Step 6: feed by hand, never power feed, and peck to break up the chips
+feed_mm_rev = 0.025 # example (plausible, not measured); .0010 in/rev, inside Machinery's Handbook 27th ed. p.1132 cutoff-tool feeds .0006-.0015 in/rev, hand-fed
+note = "Before parting, lay a folded rag in the chip tray under the cut. Let the sleeve drop onto the rag, stop the spindle, then pick it up. Never reach under turning work."
 [setups.ops.checks]
 length = "calipers"
 [[setups.ops]]
@@ -688,7 +688,7 @@ do = "spot"
 feature = "crank_socket"
 tool = "center-drills-lms-4859/2"
 holder = "drill-chuck-r8"
-depth_mm = 2.0 # example (plausible, not measured); Machinery's Handbook Pocket Companion (ISBN 978-0-8311-3095-4) p.113 Table 3a size 2 combined drill and countersink: 5/64 in (1.98 mm) drill, 1.98 mm drill length, so the 60° countersink just starts
+depth_mm = 2.0 # example (plausible, not measured); Machinery's Handbook 27th ed. Table 6 p.873 size 2 combined drill and countersink: 5/64 in (1.98 mm) drill diameter, 5/64 in (1.98 mm) drill length, so the 60° countersink just starts
 approach_mm = 5.0
 note = "Spot at X-72.7 Y0 on the top of the head."
 [[setups.ops]]
@@ -704,16 +704,16 @@ note = "Pilot through the head, pecking every 6 mm to clear chips."
 op = 30
 do = "drill"
 feature = "crank_socket"
-tool = "cone-joint-drill-21p5"
+tool = "cone-joint-drill-21p8" # 21.8 leaves 0.21 diametral (0.105 mm, .0041 in, radial) for the 22.01 reamer: inside Machinery's Handbook 27th ed. p.833 reaming allowance 0.005-0.010 in (0.127-0.254 mm) and p.1133 reamer depth of cut .004-.008 in for holes over 1/8 in
 holder = "drill-chuck-r8"
 exit_mm = 0.5
 approach_mm = 5.0
-note = "Open the pilot; this leaves 0.51 mm on diameter for the reamer."
+note = "Open the pilot; this leaves 0.21 mm on diameter for the reamer."
 [[setups.ops]]
 op = 40
 do = "ream"
 feature = "crank_socket"
-tool = "cone-joint-reamer-22p01"
+tool = "cone-joint-reamer-22p01" # 45 fpm (200 rpm) from cutting-data.toml: inside Machinery's Handbook 27th ed. Table 17 p.1061 HSS reaming 40-65 fpm for plain carbon steels 1006-1026; p.1063 no diameter adjustment
 holder = "drill-chuck-r8"
 exit_mm = 0.5
 approach_mm = 5.0
@@ -750,7 +750,7 @@ jaw_above_parallels_mm = "not_applicable"
 pose = { origin_mm = [-105.0, 0.0, 0.0], x = [0.0, 0.0, 1.0], z = [1.0, 0.0, 0.0] }
 jaw_clock_deg = 12.5182
 stop = "AUTHOR'S CHOICE: same chucking as S4; do not loosen the jaws."
-clamp = "AUTHOR'S CHOICE: unlock the spindle and index 12.5182 degrees, cranking in the same direction as the index for the final approach so the worm backlash is taken up; then lock the spindle before drilling."
+clamp = "AUTHOR'S CHOICE: unlock the spindle and index by the plate setting on the Index line below; then lock the spindle before drilling."
 [setups.hold.index]
 fixture = "BS-0"
 feature = "crank_bore"
@@ -789,7 +789,7 @@ do = "spot"
 feature = "cone_socket"
 tool = "center-drills-lms-4859/2"
 holder = "drill-chuck-r8"
-depth_mm = 2.0 # example (plausible, not measured); Machinery's Handbook Pocket Companion (ISBN 978-0-8311-3095-4) p.113 Table 3a size 2 combined drill and countersink: 5/64 in (1.98 mm) drill, 1.98 mm drill length, so the 60° countersink just starts
+depth_mm = 2.0 # example (plausible, not measured); Machinery's Handbook 27th ed. Table 6 p.873 size 2 combined drill and countersink: 5/64 in (1.98 mm) drill diameter, 5/64 in (1.98 mm) drill length, so the 60° countersink just starts
 approach_mm = 5.0
 note = "Spot at X-33.37 Y0 on the top of the body."
 [[setups.ops]]
@@ -805,16 +805,16 @@ note = "Pilot through the body, pecking every 6 mm to clear chips."
 op = 30
 do = "drill"
 feature = "cone_socket"
-tool = "cone-sleeve-drill-17p0"
+tool = "cone-sleeve-drill-17p05" # 17.05 leaves 0.21 diametral (0.105 mm, .0041 in, radial) for the 17.26 reamer: inside Machinery's Handbook 27th ed. p.833 reaming allowance 0.005-0.010 in (0.127-0.254 mm) and p.1133 reamer depth of cut .004-.008 in for holes over 1/8 in
 holder = "drill-chuck-r8"
 exit_mm = 0.5
 approach_mm = 5.0
-note = "Open the pilot; this leaves 0.26 mm on diameter for the reamer."
+note = "Open the pilot; this leaves 0.21 mm on diameter for the reamer."
 [[setups.ops]]
 op = 40
 do = "ream"
 feature = "cone_socket"
-tool = "cone-sleeve-reamer-17p26"
+tool = "cone-sleeve-reamer-17p26" # 45 fpm (250 rpm) from cutting-data.toml: inside Machinery's Handbook 27th ed. Table 17 p.1061 HSS reaming 40-65 fpm for plain carbon steels 1006-1026; p.1063 no diameter adjustment
 holder = "drill-chuck-r8"
 exit_mm = 0.5
 approach_mm = 5.0
@@ -860,6 +860,7 @@ jaw_above_parallels_mm = "not_applicable"
 pose = { origin_mm = [0.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
 stop = "AUTHOR'S CHOICE: the foot stop locates foot B; the two cone pins carry the north cap, which centres the sleeve on the post axis."
 clamp = "none"
+note = "Cradle assembly, once before first use: screw the body saddle, tail saddle and foot stop to the base with the M5 screws from below, snug. Ream each pair of Ø4 dowel holes through the base and 7 mm into the part above, press the dowels in flush with the base underside, then tighten the screws. With the cradle clamped flat on the mill, bore the body and tail seats in one setting on one axis and face the foot stop square to that axis, so the locating surfaces are cut after the parts are pinned. Last, ream the crank-pin holes square to the base and the cone-pin holes tilted 12.52° (square to the cone cap) and press each pin until its top reaches the drawn height, checked with the height gauge from the base top"
 [[setups.ops]]
 op = 10
 do = "inspect"
@@ -1007,23 +1008,23 @@ do = "spot"
 feature = "crank_bore"
 tool = "center-drills-lms-4859/2"
 holder = "drill-chuck-r8"
-depth_mm = 2.0 # example (plausible, not measured); Machinery's Handbook Pocket Companion (ISBN 978-0-8311-3095-4) p.113 Table 3a size 2 combined drill and countersink: 5/64 in (1.98 mm) drill, 1.98 mm drill length, so the 60° countersink just starts
+depth_mm = 2.0 # example (plausible, not measured); Machinery's Handbook 27th ed. Table 6 p.873 size 2 combined drill and countersink: 5/64 in (1.98 mm) drill diameter, 5/64 in (1.98 mm) drill length, so the 60° countersink just starts
 approach_mm = 5.0
 note = "Spot at X-72.885 Y0 on the sleeve north face, 0.185 toward the head top from the sleeve centre."
 [[setups.ops]]
 op = 20
 do = "drill"
 feature = "crank_bore"
-tool = "drill-index-115/7-16in"
+tool = "cone-crank-drill-11p2" # 11.2 leaves 0.23 diametral (0.115 mm, .0045 in, radial) for the 11.430 reamer: inside Machinery's Handbook 27th ed. p.833 reaming allowance 0.005-0.010 in (0.127-0.254 mm) and p.1133 reamer depth of cut .004-.008 in for holes over 1/8 in
 holder = "drill-chuck-r8"
 exit_mm = 0.5
 approach_mm = 5.0
-note = "Drill through the solid sleeve, pecking every 6 mm and clearing chips fully."
+note = "Drill through the solid sleeve, pecking every 6 mm and clearing chips fully; this leaves 0.23 mm on diameter for the reamer."
 [[setups.ops]]
 op = 30
 do = "ream"
 feature = "crank_bore"
-tool = "reamers-decimal/0.4500in"
+tool = "reamers-decimal/0.4500in" # 45 fpm (400 rpm) from cutting-data.toml: inside Machinery's Handbook 27th ed. Table 17 p.1061 HSS reaming 40-65 fpm for plain carbon steels 1006-1026; p.1063 no diameter adjustment
 holder = "drill-chuck-r8"
 exit_mm = 0.5
 approach_mm = 5.0
@@ -1061,7 +1062,7 @@ jaw_above_parallels_mm = "not_applicable"
 pose = { origin_mm = [-105.0, 0.0, 0.0], x = [0.0, 0.0, 1.0], z = [1.0, 0.0, 0.0] }
 jaw_clock_deg = 12.5182
 stop = "AUTHOR'S CHOICE: same chucking as S8; do not loosen the jaws."
-clamp = "AUTHOR'S CHOICE: unlock the spindle and index 12.5182 degrees, cranking in the same direction as the index for the final approach so the worm backlash is taken up; then lock the spindle before drilling."
+clamp = "AUTHOR'S CHOICE: unlock the spindle and index by the plate setting on the Index line below; then lock the spindle before drilling."
 [setups.hold.index]
 fixture = "BS-0"
 feature = "crank_bore"
@@ -1100,23 +1101,23 @@ do = "spot"
 feature = "journal_bore"
 tool = "center-drills-lms-4859/2"
 holder = "drill-chuck-r8"
-depth_mm = 2.0 # example (plausible, not measured); Machinery's Handbook Pocket Companion (ISBN 978-0-8311-3095-4) p.113 Table 3a size 2 combined drill and countersink: 5/64 in (1.98 mm) drill, 1.98 mm drill length, so the 60° countersink just starts
+depth_mm = 2.0 # example (plausible, not measured); Machinery's Handbook 27th ed. Table 6 p.873 size 2 combined drill and countersink: 5/64 in (1.98 mm) drill diameter, 5/64 in (1.98 mm) drill length, so the 60° countersink just starts
 approach_mm = 5.0
 note = "Spot at X-33.37 Y0, the centre of the north cap: Y0 is the post axis from the body crest, and the journal axis crosses it."
 [[setups.ops]]
 op = 20
 do = "drill"
 feature = "journal_bore"
-tool = "drill-index-115/15-32in"
+tool = "cone-journal-drill-12p05" # 12.05 leaves 0.231 diametral (0.116 mm, .0045 in, radial) for the 12.281 reamer: inside Machinery's Handbook 27th ed. p.833 reaming allowance 0.005-0.010 in (0.127-0.254 mm) and p.1133 reamer depth of cut .004-.008 in for holes over 1/8 in
 holder = "drill-chuck-r8"
 exit_mm = 0.5
 approach_mm = 5.0
-note = "Drill through the solid sleeve cap to cap, pecking every 8 mm; this leaves about 0.375 mm on diameter."
+note = "Drill through the solid sleeve cap to cap, pecking every 8 mm; this leaves 0.23 mm on diameter for the reamer."
 [[setups.ops]]
 op = 30
 do = "ream"
 feature = "journal_bore"
-tool = "reamers-decimal/0.4835in"
+tool = "reamers-decimal/0.4835in" # 45 fpm (350 rpm) from cutting-data.toml: inside Machinery's Handbook 27th ed. Table 17 p.1061 HSS reaming 40-65 fpm for plain carbon steels 1006-1026; p.1063 no diameter adjustment
 holder = "drill-chuck-r8"
 exit_mm = 0.5
 approach_mm = 5.0
@@ -1158,10 +1159,11 @@ parallels = "not_applicable"
 jaw_above_parallels_mm = "not_applicable"
 stop = "AUTHOR'S CHOICE: no end stop along the post: the north cap on its pad and the bridge on the south cap fix it in the cradle, and op 10 sets the blade to the scribed line."
 clamp = "AUTHOR'S CHOICE: clamp the post with the cap bridge (C1) while the saw vise is still open; the cradle is moved and gripped only in op 10."
+note = "Cradle assembly, once before first use: screw both saddles and the cap pad to the base with the 1/4-20 screws from below, snug. Ream each pair of 3/16 in dowel holes through the base and 7 mm into the saddle, press the dowels in flush with the base underside, then tighten. With the base clamped flat on the mill, bore both seats in one setting and grind the pad top flush with the seat bottoms, so the locating surfaces are cut after pinning. Screw the brass pad to the bridge beam, square to it. Saw load: about 0.3 kN along the blade (MH 27th Table 3b p.1086 Kp 0.74 × feed factor 1.6 × wear factor 1.3, Tables 4-5 p.1087, × 0.26 in³/min = 0.41 hp at 200 ft/min); each saddle's two hardened dowels carry 2 × 3,600 lb in single shear (MH 27th Table 1 p.1670), over 100 times that. The feed thrust at the cut, 30 mm outside the head-side saddle, lifts the foot end with about 0.4 kN at the bridge: tighten the bridge nuts wrench-tight"
 [[setups.ops]]
 op = 10
 do = "saw_cut"
-tool = "bandsaw-blade-10-14"
+tool = "bandsaw-blade-4-6"
 cut_plane = { axis = "x", value = -1.75, keep = "above" }
 note = "With the post clamped, slide the cradle in the open saw vise until the blade touches the scribed line, then close the vise on the cradle base; the 1.5 mm kerf leaves the head 87 mm tall and the cradle base ends 3 mm on the kept side of the kerf. Set the blade guides outside the 44.45 mm tail. Saw with the blade centred on the line; the tail drops clear as the cut breaks through, leaving 1 mm on the head top for S11."
 
@@ -1234,7 +1236,7 @@ faces = ["#431/ADVANCED_FACE[12]/HAF_HEAD__P02"]
 tool = "endmills-lms-6784/3-4in-4fl"
 holder = "r8-collets-lms-4860/3-4in"
 to_z = 86.0
-doc_mm = 0.5 # AUTHOR'S CHOICE: the 3/4 cutter projects about 3xD from the collet; example (plausible, not measured), lighter than the .050 in (1.27 mm) depth-of-cut end-mill column of Machinery's Handbook Pocket Companion (ISBN 978-0-8311-3095-4) p.137 Table 10
+doc_mm = 0.5 # AUTHOR'S CHOICE: the 3/4 cutter projects about 3xD from the collet; example (plausible, not measured), lighter than the .050 in (1.27 mm) depth-of-cut end-mill column of Machinery's Handbook 27th ed. Table 15a p.1054
 approach_mm = 5.0
 direction = "conventional"
 stock_removal_bounds = { x = [-26.2, 26.2], y = [-26.2, 26.2], z = [86.0, 87.0] }
@@ -1248,7 +1250,7 @@ do = "spot"
 feature = "mount_west"
 tool = "center-drills-lms-4859/2"
 holder = "drill-chuck-r8"
-depth_mm = 2.0 # example (plausible, not measured); Machinery's Handbook Pocket Companion (ISBN 978-0-8311-3095-4) p.113 Table 3a size 2 combined drill and countersink: 5/64 in (1.98 mm) drill, 1.98 mm drill length, so the 60° countersink just starts
+depth_mm = 2.0 # example (plausible, not measured); Machinery's Handbook 27th ed. Table 6 p.873 size 2 combined drill and countersink: 5/64 in (1.98 mm) drill diameter, 5/64 in (1.98 mm) drill length, so the 60° countersink just starts
 approach_mm = 5.0
 [[setups.ops]]
 op = 30
@@ -1256,7 +1258,7 @@ do = "spot"
 feature = "mount_east"
 tool = "center-drills-lms-4859/2"
 holder = "drill-chuck-r8"
-depth_mm = 2.0 # example (plausible, not measured); Machinery's Handbook Pocket Companion (ISBN 978-0-8311-3095-4) p.113 Table 3a size 2 combined drill and countersink: 5/64 in (1.98 mm) drill, 1.98 mm drill length, so the 60° countersink just starts
+depth_mm = 2.0 # example (plausible, not measured); Machinery's Handbook 27th ed. Table 6 p.873 size 2 combined drill and countersink: 5/64 in (1.98 mm) drill diameter, 5/64 in (1.98 mm) drill length, so the 60° countersink just starts
 approach_mm = 5.0
 [[setups.ops]]
 op = 40
@@ -1289,7 +1291,7 @@ feature = "mount_west_counterbore"
 tool = "endmills-lms-6784/7-16in-2fl"
 holder = "r8-collets-lms-4860/3-8in"
 depth_mm = 6.0198
-doc_mm = 0.5 # example (plausible, not measured); plunge step lighter than the .050 in (1.27 mm) depth-of-cut end-mill column of Machinery's Handbook Pocket Companion (ISBN 978-0-8311-3095-4) p.137 Table 10
+doc_mm = 0.5 # example (plausible, not measured); plunge step lighter than the .050 in (1.27 mm) depth-of-cut end-mill column of Machinery's Handbook 27th ed. Table 15a p.1054
 approach_mm = 5.0
 note = "Plunge the centre-cutting 7/16 in end mill to a flat seat 6.02 mm below the head top; the 11.11 mm cutter is inside the 11.0-12.02 mm band."
 [setups.ops.checks]
@@ -1302,7 +1304,7 @@ feature = "mount_east_counterbore"
 tool = "endmills-lms-6784/7-16in-2fl"
 holder = "r8-collets-lms-4860/3-8in"
 depth_mm = 6.0198
-doc_mm = 0.5 # example (plausible, not measured); plunge step lighter than the .050 in (1.27 mm) depth-of-cut end-mill column of Machinery's Handbook Pocket Companion (ISBN 978-0-8311-3095-4) p.137 Table 10
+doc_mm = 0.5 # example (plausible, not measured); plunge step lighter than the .050 in (1.27 mm) depth-of-cut end-mill column of Machinery's Handbook 27th ed. Table 15a p.1054
 approach_mm = 5.0
 [setups.ops.checks]
 dia = "calipers"
@@ -1349,10 +1351,31 @@ angularity_dia = "height-gauge"
 finish_ra = "roughness-comparator"
 [setups.ops.inspection_methods]
 separation = "AUTHOR'S CHOICE: stand the post on foot B on the surface plate. With the DTI on the height gauge, read the top and bottom of each bore at both mouths; each bore centre is the mean of its top and bottom readings. Separation = crank centre - journal centre, accept 39.34-39.70."
-angularity_dia = "AUTHOR'S CHOICE: the crank axis must lie in a Ø0.10 cylinder over its 72.03 bore, at 12.5182 deg to journal axis A and parallel to foot B. Read the bottom of each bore with the DTI on the height gauge. Slide the gauge base along a parallel clamped in line with the bore and step it by setting a 1-2-3 block between a stop block and the base: 1 in face (25.4) for the journal, 2 in face (50.8) for the crank. A rise is the reading change over that step, taken toward the south-cap and projecting crank-sleeve side for both bores. (1) Foot B on the plate: read journal rise rJ1 and crank rise rC1 on the DTI; e1 = 1.418 x rC1 - 2.768 x rJ1. (2) Lay the post on the plate on its head and body, chocked with the 1-2-3 blocks, and roll it until the journal rise reads within 0.05 with the projecting crank-sleeve end rising. Read journal rise rJ2 on the DTI; for crank rise rC2 raise the height gauge until the DTI returns to its first reading (ideal 50.8 x tan 12.5182 deg = 11.279); e2 = 1.351 x (rC2 - 11.279) - 2.836 x rJ2. Accept sqrt(e1^2 + e2^2) <= 0.10."
+# AUTHOR'S CHOICE: the crank axis must lie in a Ø0.10 cylinder over its 72.03 bore, at 12.5182 deg
+# to journal axis A and parallel to foot B. Gauge rods resting in the bores carry each axis outside
+# the part, so the DTI never reaches into a bore. With rise r over step S and L = 72.0344:
+# e1 = (L / S_crank) r_C1 - (L / S_journal) cos(12.5182) r_J1;
+# e2 = (L / S_crank) cos^2(12.5182) (r_C2 - S_crank tan(12.5182)) - (L / S_journal) r_J2.
+# S_crank 76.2 (3 in face), S_journal 50.8 (2 in face): 0.945, 1.384, 0.901, 16.918, 1.418.
+# (The former 50.8 / 25.4 steps give the former 1.418, 2.768, 1.351, 11.279, 2.836.)
+angularity_dia = [
+  "AUTHOR'S CHOICE: slide the Ø11.405 gauge rod through the crank bore and the Ø12.250 gauge rod through the journal bore, each with about 40 mm out of both ends; each rod rests on the bottom of its bore under its own weight.",
+  "Mount the DTI on the height gauge, tip on top of the rod with the lever lifted to mid-travel (about 0.015 in of its 0.030 in); a higher rod reads +. At each position sweep the tip across the rod and take the highest reading. Write every reading in mm: inch dial × 25.4.",
+  "Lay a parallel on the plate in line with the rod and stand the second 1-2-3 block at its end as the stop. Position A: height-gauge base against the stop. Position B: the first 1-2-3 block between stop and base, 2 in face (50.8) for the journal rod, 3 in face (76.2) for the crank rod. Rise = reading at B − reading at A.",
+  "Place the stop so position A puts the tip about 4 mm outside the north cap on the journal rod, or about 2 mm outside the flush crank-sleeve end on the crank rod; position B then lands just outside the south cap, or just outside the projecting crank-sleeve end.",
+  "Orientation 1, foot B on the plate. Journal rod rise: {rJ1}",
+  "Orientation 1, foot B on the plate. Crank rod rise: {rC1}",
+  "Orientation 2: lay the post on the plate on its head and body, chocked with a 1 in parallel each side, and wrap tape round the crank rod at its lower mouth so it cannot slide. Roll the post until the journal rod rise reads within ±0.05 with the projecting crank-sleeve end rising. Journal rod rise: {rJ2}",
+  "Orientation 2, crank rod: set the DTI to zero at A, move to B and raise the height gauge until the DTI reads zero again. Height-gauge rise (ideal 76.2 × tan 12.5182° = 16.918): {rC2}",
+  "Calculate: 0.945 × rC1 − 1.384 × rJ1 = {e1}",
+  "Calculate: 0.901 × (rC2 − 16.918) − 1.418 × rJ2 = {e2}",
+  "Calculate: √(e1² + e2²) = {result}; accept 0.10 or less.",
+]
 
 # ======================================================================= S12
-# Drawing finish: SSPC-SP 3 clean, mask machined faces, RAL 6005 alkyd 50-75 um DFT, oil bare faces.
+# Drawing finish (built-up variant, example divergence in features.toml material.finish, HA #1215
+# comment): SSPC-SP 3 clean, paint RAL 6005 alkyd 50-75 um DFT on the non-functional turned ODs,
+# mask bores, faces and joint surfaces, oil the bare faces ISO VG 32.
 [[setups]]
 id = "S12"
 machine = "cone-bond-bench"
@@ -1361,7 +1384,7 @@ stock_in = "S11"
 coolant = "none: bench finishing"
 deburr_mm = 0.0
 deburr_cite = ["AUTHOR'S CHOICE: S11 already broke every machined edge; finishing cuts no edges"]
-note = "AUTHOR'S CHOICE: paint and oil the finished post on the assembly bench, resting in the bonding cradle."
+note = "AUTHOR'S CHOICE: paint and oil the finished post on the assembly bench, resting in the bonding cradle, to the built-up finish note on the job page."
 [setups.stock_state]
 top_z = 50.6591
 bottom_z = -22.3702
@@ -1376,18 +1399,18 @@ jaws_along = "not_applicable"
 parallels = "not_applicable"
 jaw_above_parallels_mm = "not_applicable"
 pose = { origin_mm = [0.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
-stop = "AUTHOR'S CHOICE: the foot stop locates foot B; the cone pins carry the north cap."
+stop = "AUTHOR'S CHOICE: the foot stop locates foot B; the cone pins carry the north cap. Op 10 ends with the post standing on masked foot B on a clean sheet so the saddle band can be painted."
 clamp = "none"
 [[setups.ops]]
 op = 10
 do = "coating"
 feature = "body"
 process = "ral-6005-alkyd"
-# AUTHOR'S CHOICE: paint the non-functional turned surfaces because the all-turned built-up post has no unmachined surface for the finish note's paint and mask split.
-note = "Paint the non-functional turned surfaces; they stand in for the unmachined surfaces the finish note assumes: the body diameter from 21 mm above foot B to the head shoulder, the shoulder, the head diameter and the projecting length of the crank sleeve. SSPC-SP 3: power-tool clean those areas to bright, scuffed metal and blow off the dust. Mask foot B and the first 21 mm of the body (it sits in the cradle saddle), the head top, both cone caps, both crank-sleeve end faces, both bores and the two mount holes with their counterbores. Brush RAL 6005 alkyd to 50-75 um dry film and let it cure as the can states. Check the dry film with the coating-thickness gauge at five places on the paint; then unmask."
+# AUTHOR'S CHOICE: the built-up finish note (features.toml material.finish divergence) names the paint/mask split; the saddle band is painted last, off the cradle, so every non-functional OD is painted.
+note = "Finish note, built-up variant: paint RAL 6005 on the non-functional turned ODs; mask bores, faces and joint surfaces. Paint areas: the body OD from foot B to the shoulder, the head OD, and the crank-sleeve OD where it projects from the head. Mask the faces: foot B, the head top, the 0.37 mm shoulder step between body and head (tape edge on the shoulder corner), both cone caps and both crank-sleeve end faces. Mask the bores: plug the crank bore, the journal bore and both mount holes with their counterbores. Mask the joint surfaces: a 2 mm ring round the crank sleeve where it leaves the head, its bond line. SSPC-SP 3: power-tool clean the paint areas to bright, scuffed metal and blow off the dust. Brush RAL 6005 alkyd to 50-75 um dry film on the paint areas except the body band 10-20 mm from foot B that rests in the cradle saddle. When dry to handle, lift the post out by the masked head top, stand it on masked foot B on a clean sheet, brush the saddle band to the same film and leave it standing to cure as the can states. Check the dry film with the coating-thickness gauge at five places, one on the saddle band: each 50-75 um."
 [[setups.ops]]
 op = 20
 do = "coating"
 feature = "body"
 process = "oil-iso-vg32"
-note = "After unmasking, wipe a thin film of ISO VG 32 oil on every masked face: foot B and the saddle band, the head top, the cone caps, the crank-sleeve end faces, into both bores and the mount holes."
+note = "After the paint cures, unmask and wipe a thin film of ISO VG 32 oil on every masked surface: foot B, the head top, the shoulder step, both cone caps, both crank-sleeve end faces and the sleeve's bond-line ring, into the crank and journal bores, and the mount holes and counterbores."

@@ -796,7 +796,7 @@ def check_zero(setup: dict, finding: dict, entries: dict, dro: dict) -> None:
                 and isinstance(gauge, str)
                 and resolves(gauge, entries)
                 and not uncertain(gauge, entries)
-                and bool(str(recipe.get("measure", "")).strip())
+                and str(recipe.get("measure", "")).strip() not in {"", "unknown"}
                 and all(numeric(v) for v in (base, paper, jog))
             )
             for field, step in (("axis_set", 0), ("check_reading", 1), ("mirrored_reading", -1)):
@@ -1491,6 +1491,14 @@ def check_cone_facts(plan: dict, features: dict) -> None:
     require(
         features["construction"] == "built_up_permitted",
         "cone drawing lost its approved built-up permission",
+    )
+    # Example divergence (examples/README.md, HA #1215 comment): the built-up variant's
+    # paint/mask split replaces only MASK MACHINED FACES; the coating spec stays exported.
+    require(
+        features["material"]["finish"]
+        == "RAL 6005 ALKYD; SSPC-SP 3; 50-75 um DFT; built-up variant: paint RAL 6005 on "
+        "non-functional turned ODs; mask bores, faces and joint surfaces; OIL BARE FACES ISO VG 32",
+        "cone finish divergence drifted from the approved built-up paint/mask text",
     )
     for field, expected in (
         ("linear_1pl", 0.8),

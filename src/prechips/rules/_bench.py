@@ -1,17 +1,19 @@
-"""Manual bench setups: fit, join, finishing and inspection work with no DRO, spindle or table.
+"""Manual bench setups: fit, join, layout, filing, finishing and inspection work with no
+DRO, spindle or table.
 
 A setup is manual bench work only when its machine is declared ``kind = "bench"`` or
 ``"manual"``, it has at least one operation, and every operation is ``fit``, ``inspect``,
-``deburr`` or ``coating``; the joint a ``fit`` makes (silver braze, retaining compound,
-press or weld) is its declared ``joint.method``.  Any other or unknown action keeps every
-machine screen in force: the bench kind alone waives nothing.
+``deburr``, ``coating``, ``scribe`` or ``file_to_line``; the joint a ``fit`` makes (silver
+braze, retaining compound, press or weld) is its declared ``joint.method``. Layout and
+filing to a line are checked by the ``manual_arc`` rule. Any other or unknown action keeps
+every machine screen in force: the bench kind alone waives nothing.
 """
 
 from prechips.findings import Finding
 from prechips.rules.resolution import UNKNOWN, record, resolve
 
 BENCH_KINDS = frozenset({"bench", "manual"})
-BENCH_ACTIONS = frozenset({"fit", "inspect", "deburr", "coating"})
+BENCH_ACTIONS = frozenset({"fit", "inspect", "deburr", "coating", "scribe", "file_to_line"})
 
 
 def manual_bench(bundle, setup):
@@ -44,7 +46,7 @@ def not_applicable(rule, setup, bench, section, absent):
         [
             f"PLAN.md §4.1 {section}",
             f"inventory.machines.{bench['machine']}: kind {bench['machine_kind']}",
-            f"plan.setups.{sid}.ops: manual fit/inspect/deburr/coating actions only",
+            f"plan.setups.{sid}.ops: manual bench actions only",
         ],
         f"{sid}: manual bench work has no {absent}.",
     )

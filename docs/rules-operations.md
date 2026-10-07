@@ -153,7 +153,7 @@ an unknown status is not a verified cut instruction.
 ## `speeds_feeds`
 
 One subject per `setup:op`, including explicit not-applicable manual operations
-(`inspect`, `deburr`, `coating`, `release`, `fit`, `scribe`). For spindle cuts,
+(`inspect`, `deburr`, `coating`, `release`, `fit`, `scribe`, `file_to_line`). For spindle cuts,
 tool chart citation wins over table rows; otherwise match material alias, tool
 material, normalized action and inclusive mm diameter range. Exactly one cited
 row is needed. Ambiguous overlap or unknown range stays unresolved. No chart
@@ -174,7 +174,8 @@ declared (the feed `turning_deflection` loads the cut with; a planned
 `"unknown"` stays unknown), else the one from the same
 cited `[[cut]]` row (or the tool's cited `chart`) as `sfm`, under the same
 citation/verify rules as the mill chip load; the lathe diameter is the turned
-feature's `dia_nominal` (plus `rough_allowance_mm` for `rough_turn`). A dome
+feature's `dia_nominal` (plus, for `rough_turn`, its `rough_allowance_mm`, else
+`stock_to_leave_mm`; a negative leave makes the diameter unknown). A dome
 uses its widest (base) diameter: `2 * base_radius`, else `2 * sqrt(h (2R - h))`
 from its declared `sphere_radius` R and nominal height h (2R once h exceeds R),
 else the kernel-measured base from `turned_profile.feature_span`. A face, cut to

@@ -26,7 +26,10 @@ SET_KINDS = {
     "micrometer_set",
     "lathe_tool_bits",
 }
-MANUAL = {"inspect", "deburr", "coating", "release", "fit", "scribe"}
+# Bench filing to a scribed line: hand work (no spindle, cutter or DRO) that still finishes
+# its feature's faces: the kernel models its removal and coverage credits its claims.
+HAND_FINISH = frozenset({"file_to_line"})
+MANUAL = {"inspect", "deburr", "coating", "release", "fit", "scribe"} | HAND_FINISH
 SAW_OPS = frozenset({"saw_cut", "cut_off"})
 HOLE_KINDS = frozenset({"hole", "counterbore", "thread", "threaded_hole"})
 # The hole actions whose cut can form a hole's claimed point cap.
@@ -75,6 +78,54 @@ def uncertain(item):
 
 def record(value):
     return value if isinstance(value, dict) else {}
+
+
+def drawing_precision(bundle, feature, requirement):
+    """The decimals the drawing prints ``requirement`` of ``feature`` at: the feature's own
+    ``precision`` entry, else the manifest's general precision."""
+    general = bundle.features.get("precision")
+    overrides = record(bundle.feature_definitions.get(feature)).get("precision", {})
+    return overrides.get(requirement, general) if isinstance(overrides, dict) else overrides
+
+
+def printed_band(limits, precision):
+    """A two-sided band as the traveler prints it: at the drawing's integer precision, rounded
+    inward (low up, high down) so printing never loosens it. None when the limits or the
+    precision are unknown, or the band is too narrow for that precision (it then prints, and
+    is held, at its declared limits)."""
+    if not (isinstance(limits, (list, tuple)) and len(limits) == 2 and all(map(number, limits))):
+        return None
+    if not (isinstance(precision, int) and not isinstance(precision, bool)):
+        return None
+    scale = 10**precision
+    low = math.ceil(round(limits[0] * scale, 6)) / scale
+    high = math.floor(round(limits[1] * scale, 6)) / scale
+    return [low, high] if low <= high else None
+
+
+def rough_leave(op):
+    """(leave, refusal): the stock per side, in mm, a rough stage of ``op`` leaves.
+
+    A ``rough_*`` op leaves its ``rough_allowance_mm``, else its ``stock_to_leave_mm``; on
+    any other op ``rough_allowance_mm`` is the leave its finish removes (a contour finish
+    also prints the rough stage that leaves it). ``leave`` is None when the op names no
+    leave and UNKNOWN when it is unknown. A negative leave puts the rough inside the
+    finished part, which no finish restores: it is never offset by (``leave`` is UNKNOWN)
+    and ``refusal`` says why; every rule that offsets a cut or a band by it is an error."""
+    if str(op.get("do", "")).startswith("rough_"):
+        key = "rough_allowance_mm" if "rough_allowance_mm" in op else "stock_to_leave_mm"
+    elif "rough_allowance_mm" in op:
+        key = "rough_allowance_mm"
+    else:
+        return None, None
+    value = op.get(key, UNKNOWN)
+    if not number(value) or not math.isfinite(value):
+        return UNKNOWN, None
+    if value < 0:
+        return UNKNOWN, (
+            f"{key} {value:g} is negative: the rough would cut {-value:g} mm into the finished part"
+        )
+    return value, None
 
 
 def op_features(op):

@@ -238,6 +238,9 @@ ToolTouch = record(
     {
         **texts("tool x_method gauge z_face method z_gauge z_measure"),
         **numbers("edge_mm paper_mm z_offset_mm"),
+        # The blade corner a grooving/parting blade's Z touch sets, where the touched
+        # face's normal cannot give it (a scribe): docs/rules-coordinates.md.
+        "corner": Literal["chuck_side", "tailstock_side"],
         "before_ops": list[int],
         "after_op": int,
     },
@@ -254,19 +257,42 @@ Zero = record(
 )
 Bounds = record("Bounds", {"x": Vector, "y": Vector, "z": Vector})
 KeepOut = record("KeepOut", {"at": Vector, **numbers("dia_mm")})
+# A manual-mill arc method (docs/plan.md): ``stairs`` and ``chain_drill`` rough outside the
+# line, ``chords`` mill straight chords, ``rotary_table`` turns the work under the cutter.
 Contour = record(
     "Contour",
     {
-        **texts("method sweep_frame open_side"),
-        **numbers("step_deg step_mm start_deg end_deg"),
+        **texts("method sweep_frame open_side centre_by centre_feature"),
+        **numbers("step_deg step_mm start_deg end_deg pitch_mm cusp_mm"),
+        "count": int,
         "sweep_bounds": Bounds,
         "keep_out": list[KeepOut],
     },
 )
+# A layout or bench filing guide: ``buttons`` (an inventory ``fixtures`` kit of kind
+# ``filing_buttons``) pinned through the plan feature ``bore``, or a radius ``template``
+# (an inventory gauge); the ``gauge`` (an inventory radius or profile gauge) checks the arc.
+Guide = record("Guide", texts("buttons bore template gauge"))
 SawPlane = record(
     "SawPlane",
     {"axis": Literal["x", "y", "z"], "value": Number, "keep": Literal["below", "above"]},
 )
+
+
+class GoNoGo(InputModel):
+    """The two limit-gauge sizes (mm) a go/no-go check uses: the GO size must pass the
+    work (enter a hole, slip over a shaft) and the NO-GO size must not."""
+
+    go: float
+    no_go: float
+
+    @model_validator(mode="after")
+    def sized(self) -> GoNoGo:
+        if not (self.go > 0 and self.no_go > 0):
+            raise ValueError("GO and NO-GO gauge sizes must be positive.")
+        if self.go == self.no_go:
+            raise ValueError("GO and NO-GO gauge sizes must differ.")
+        return self
 
 
 class ProcessHold(InputModel):
@@ -278,6 +304,8 @@ class ProcessHold(InputModel):
     band: Annotated[list[float], Field(min_length=2, max_length=2)]
     gauge: str
     reason: str
+    # The GO / NO-GO sizes the hold's gauge reads the hold band with, when it is a limit check.
+    go_no_go: GoNoGo | None = None
 
     @model_validator(mode="after")
     def stated(self) -> ProcessHold:
@@ -322,7 +350,7 @@ Operation = record(
         # One manifest feature; an inspect op may name several (one drawing dimension
         # split across features is read once).
         "feature": str | Annotated[list[str], Field(min_length=2)],
-        **texts("tool holder direction note"),
+        **texts("tool holder direction note layout"),
         "inspection_note": Procedure,
         # A coating op's process: an outside ``services`` entry or in-house ``consumables``.
         "process": str | Annotated[list[str], Field(min_length=1)],
@@ -335,10 +363,14 @@ Operation = record(
         "note_cite": Citations,
         "faces": Annotated[list[str], Field(min_length=1)],
         "checks": dict[str, str],
+        # Requirement -> the GO / NO-GO sizes its `checks` gauge uses (a limit check), or
+        # "unknown" when the pair is undecided.
+        "go_no_go": dict[str, GoNoGo | Unknown],
         "missing_requirements": dict[str, str],
         "inspection_methods": dict[str, Procedure],
         "to_z_band": Vector,
         "contour": Contour,
+        "guide": Guide,
         # Setup-frame volume (plan units) the op clears down to the finished part.
         "stock_removal_bounds": Bounds,
         # Mill op on a horizontal dividing head: each face sample turned under the spindle;
@@ -996,14 +1028,6 @@ class SpindleRotation(InputModel):
     verify: bool | Unknown = UNKNOWN
 
 
-class Contouring(InputModel):
-    """A labelled contouring capability: only its own measured/verify qualify it."""
-
-    value: Literal["mdi", "jog"]
-    measured: Measurement | Unknown = UNKNOWN
-    verify: bool | Unknown = UNKNOWN
-
-
 Spindle = record(
     "Spindle",
     {
@@ -1028,7 +1052,17 @@ Tailstock = record(
     },
 )
 Threads = record("Threads", {"inch_tpi": Vector, "metric_pitch_mm": Vector})
-Toolpost = record("Toolpost", {**texts("series type note"), "holders": int, "included": bool})
+# ``centre_height`` / ``square_blade``: how each tool is set on spindle centre height and a
+# blade squared to the spindle axis before its first touch-off (docs/inventory.md).
+Toolpost = record(
+    "Toolpost",
+    {
+        **texts("series type note centre_height square_blade"),
+        "holders": int,
+        "included": bool,
+        "cite": Citations,
+    },
+)
 DirectIndex = record("DirectIndex", numbers("positions step_deg"))
 Tilt = record("Tilt", numbers("down up"))
 Bars = record(
@@ -1069,14 +1103,15 @@ InventoryItem = record(
         ),
         "sku": str | int,
         **flags("verify present center_cutting swivel_base scroll independent shop_made"),
+        **texts("dial_increases"),
         **numbers(
             "headstock_tilt_deg swing_over_bed_in between_centres_in "
             "cross_slide_travel_in compound_travel_in weight_lb worm_ratio centre_height_in "
             "swing_in plates pieces angle_deg head_in max_offset_in "
             "dial_in min_bore_in tip_in "
             "diameter_in thickness_in runout_max_in "
-            "max_shank_in sfm chip_load_mm_per_tooth feed_mm_rev "
-            "shank_mm capacity_mm"
+            "max_shank_in sfm chip_load_mm_per_tooth feed_mm_rev capacity_mm "
+            "t_slots graduation_deg vernier_deg"
         ),
         "point_angle": MeasuredAngle,
         "blade_speed_sfm": Annotated[list[Number], Field(min_length=2, max_length=2)],
@@ -1123,6 +1158,12 @@ InventoryItem = record(
                 "resolution_in",
                 "kerf_mm",
                 "kerf_in",
+                # The tool body past its cutting length (docs/rules-geometry.md#reach).
+                "shank_mm",
+                "max_work_mm",
+                "max_work_in",
+                "t_slot_width_mm",
+                "t_slot_width_in",
             ),
             MeasuredLength,
         ),
@@ -1153,7 +1194,8 @@ InventoryItem = record(
         "projection_mm": ProjectionMap,
         "projection_in": ProjectionMap,
         "envelope": MachineEnvelope,
-        "shank_in": float | str | dict[str, list[str]],
+        # A tool's own shank, or an end-mill set's {shank: [sizes]} map.
+        "shank_in": MeasuredLength | str | dict[str, list[str]],
         "flutes": int | list[int],
         "source": str | Source,
         "cite": Citations,
@@ -1176,9 +1218,6 @@ InventoryItem = record(
         "standard_accessories": list[str],
         "included": list[str],
         "spindle": Spindle,
-        # How a mill moves off a single axis: ``mdi`` types each arc or diagonal row as one
-        # coordinated move; ``jog`` steps it one handwheel axis at a time.
-        "contouring": Literal["mdi", "jog"] | Contouring | Unknown,
         "leadscrew": LeadScrew,
         "capacity_in": float | list[Number] | Capacity,
         "tailstock": Tailstock,
@@ -1235,6 +1274,8 @@ _INVENTORY_LENGTH_STEMS |= {"body_dia", "body_length", "bore_dia"}
 _INVENTORY_LENGTH_STEMS |= {"capacity_min", "capacity_max"}
 # Grooving/parting blade front-edge width.
 _INVENTORY_LENGTH_STEMS |= {"blade_width"}
+# Rotary table work capacity and T-slot width.
+_INVENTORY_LENGTH_STEMS |= {"max_work", "t_slot_width"}
 # Combined drill and countersink pilot length (Table 6 C).
 _INVENTORY_LENGTH_STEMS |= {"pilot_len"}
 

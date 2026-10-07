@@ -98,8 +98,9 @@ and head, a cone sleeve bonded in a cross-bore and a crank sleeve bonded in a
 head socket with retaining compound, both running bores reamed after cure.
 Drawing permission alone does not prepare or assemble material: plan-only
 socket/spigot features, each joint's clearance band and cure, and assembly
-remain checked. Its 12.5182° settings print BS-0 plate/circle, turns and
-spaces. No shaft cross-hole is invented, and unknown physical or cutting facts
+remain checked. Its planned 12.5182° settings print the BS-0 plate/circle, turns and
+spaces, and the 12.5217° that plate setting gives: 0.0035° off, inside the crank
+bore's 0.0795° angle tolerance. No shaft cross-hole is invented, and unknown physical or cutting facts
 are never numerical machining claims.
 
 ## CLI: five noninteractive verbs
@@ -200,6 +201,12 @@ not apply. Dividing-head headroom uses centre height and the posed axis offset,
 and child hole operations inherit a missing travel centre from their named
 parent/hole while explicit unknown locations remain debt.
 
+On the lathe, a parting/grooving blade's Z touch names the blade corner it sets
+(the touched face's normal decides it; a scribe touch states it), and every blade
+op row prints Z as that corner's reading. Each toolpost tool's first touch-off in
+a setup is preceded by setting it on centre height, and squaring a blade to the
+spindle axis ([zero_check](docs/rules-coordinates.md#zero_check)).
+
 The literal `"unknown"` never means zero, absence, approval or a pass. A
 `verify = true` inventory entry is verification debt, not certified geometry:
 on an item it leaves that identity unresolved for the declared-input rules,
@@ -249,6 +256,17 @@ may move the target within the band for a stated process reason (the cone
 aims its crank bore at mid-band separation). It never moves geometry. A nonrough
 mill contour carrying `rough_allowance_mm` prints distinct rough and finish cutter
 tables, with the rough allowance added to the cutter radius.
+The PM-30MV is a manual mill: arcs follow the 1898 manual method
+([plan Manual arcs](docs/plan.md#manual-arcs)). A `scribe` op lays out the
+centre, radius and ends; a rough op steps single-axis `stairs` or drills a
+`chain_drill` outside the line, every corner and full hole proven outside it and
+the leftover held to the shop policy's cited `max_filing_stock_mm`; a
+`file_to_line` op at the bench files to hardened buttons pinned through the
+arc's bore (or a template) and checks R with a radius gauge whose range covers
+it. `chords` (sagitta proven inside the band, ends on the DRO grid) and a
+`rotary_table` recipe (inventory table, centre pin, offset and dial readings)
+finish arcs on the mill. No traveler prints MDI, G-code or a continuous circle;
+the former `arc_table` method and machine `contouring` are gone.
 Drawing dimensions retain their declared precision; when no precision is
 declared, known values still print their own digits rather than `?`. Operative
 targets, including operation-derived coordinate rows, and computed contours
@@ -312,15 +330,23 @@ missing `jaw_depth` or a debt-carrying jaw fact is debt and the setup picture
 is a labelled part-only view; an
 undeclared jaw centre draws only the certain jaw material plus a pale
 possible-jaw envelope and keeps samples inside it `?`. Setup diagrams are
-1600×1000 deterministic PNGs with an engine-bundled bitmap font: lathe side
-elevations, mill isometric views and custom-plate plan views, with labelled
-axes, Z0, datums, holding, stickout and the selected tool's approach. Amber
-hatching shows this setup's derived material removal (entry minus exit stock);
-profile sketches share waypoint keys with the traveler tables. Authored clamp
-order and posed inventory stops are shown explicitly. Dashed machine-context
-outlines are schematic, not measured fixture geometry, and unresolved drawing
-items remain plain-language warnings. The image is hashed into `report.json`
-with its scene record so an approval binds to it; it is not a toolpath.
+deterministic PNGs 1600 pixels wide and 1000 tall with an engine-bundled bitmap
+font: lathe side elevations, mill isometric views and custom-plate plan views,
+with labelled axes, Z0, datums, holding, stickout and the selected tool's
+approach. Amber hatching shows this setup's derived material removal (entry
+minus exit stock); profile sketches share waypoint keys with the traveler
+tables. Authored clamp order and posed inventory stops are shown explicitly.
+When the work is small beside its holding, or a plan view hides contact
+heights, a holding detail band below the picture (making the PNG taller) shows
+each holding contact face keyed with its setup coordinate and the closest cut to
+the holding. A leader that names a solid ends on that solid's visible pixels;
+a hidden numbered clamp or pad is drawn as a dashed outline of its position,
+and any other leader that cannot end on its solid is a printed `NOT SHOWN`
+render debt. Datum labels state their axis words in the setup's axes and mark
+an underside or hidden face. Dashed machine-context outlines are schematic, not
+measured fixture geometry, and unresolved drawing items remain plain-language
+warnings. The image is hashed into `report.json` with its scene record so an
+approval binds to it; it is not a toolpath.
 Before encoding, every setup diagram checks its rounded bitmap-text bounds:
 labels must keep an 8-pixel canvas margin and a 4-pixel gap from other labels,
 and no label may print below body size (21-pixel cap height, about 7 pt on
@@ -352,11 +378,25 @@ support.
 Every cutter-centre contour row and every hole op's tool-axis X/Y prints on the
 setup DRO grid; contour rows round to the side that leaves material, and a
 finish row with no safe grid point inside its feature's band is an error. Raster
-and outline rows that run past the stock are labelled cutter clearance. A contour
-cut in several depth levels lists every level in its heading and says to repeat
-the complete path at each, in order. The CLEARANCE line prints the op's cut
-(start Z to tip Z, as on its op row) apart from its reach below the highest stock
-beside the tool. Inspection procedures may be authored as step lists that print
+and outline rows that run past the stock are labelled cutter clearance only when
+the cutter stands a radius outside the stock the kernel modelled entering the
+setup; a raster's pass ends always print, and are called in air only on that
+proof (an op's removal box never proves an end in air or in material); every
+pass is said to run in and out clear only when each emitted piece's start and
+end is, so pieces a keep-out splits are proven one by one. A
+through hole's breakthrough note gives the run-out its printed DRO tip leaves,
+cut down to the DRO decimals, not the authored `exit_mm`. A contour cut in
+several depth levels lists every level once, in its heading. Contour tables
+repeat their op, tool and Z on a continued page and never wrap a coordinate.
+The mill CLEARANCE section prints a short stack/travel verdict and a per-op table
+of the closest obstacle (headroom, jaw tops, holder face above the stock beside
+the tool, or a reach finding's declared clearances) with the clearance and the
+action; an unknown clearance is a check-at-the-machine action, a negative one a
+STOP. The FEATURE MAP names what each mill row stands on (hole axis, arc centre,
+face) and gives a lathe row's drawing Ø limits apart from the size turned to. A
+surface-alignment sweep tells the operator to tap the work, not move the table;
+the job page's abbreviation key lists only abbreviations the sheets print.
+Inspection procedures may be authored as step lists that print
 numbered, with recording blanks and a separate calculation line
 ([plan format](docs/plan.md)).
 Each setup is checked and drawn on the input explicitly selected by `stock_in`:
@@ -526,10 +566,12 @@ solid. If both fail on the whole part, each consumer of the guard uses the
 exact arc-join offset of the finished part within its own box (that box
 grown by `2a`, then cropped), and lineage bands use exact claimed-face
 skin primitives that are cut one by one. Any failure is named offset debt.
-Holding, rendering, reach and holder obstacles still use actual setup-entry
-stock; a flute is never credited with a later op's removal. Missing surface
-normals or unresolved pose facts never become
-clearance or reach passes.
+Holding, rendering and accessibility holder obstacles still use actual
+setup-entry stock; reach and the holder-wall check meet the stock the op's
+earlier cuts leave, and a tool's shank past its flutes must clear the stock
+its own cut leaves (an unknown shank diameter is `?`, a clash an error). A flute
+is never credited with a later op's removal. Missing surface normals or
+unresolved pose facts never become clearance or reach passes.
 Facing uses a planar outer-wire sweep to clear raw caps over hole mouths
 while preserving finished islands. `stock_removal_bounds` is an authored
 cleared footprint (possibly several passes), not capped to the claims' XY

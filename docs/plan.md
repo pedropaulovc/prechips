@@ -84,9 +84,10 @@ A name already in that feature's exported requirements is `BadInput` in
 `missing_requirements`; use `checks` so actual requirements cannot be bypassed.
 
 `to_z` is an authored endpoint;
-`to_z_band` is a range, not a substitute for measured setup binding. An
-`arc_table` contour needs explicit nominal geometry and positive angular steps;
-finite bounds come from that geometry, not an invented full circle. Linear
+`to_z_band` is a range, not a substitute for measured setup binding. An arc
+contour needs explicit nominal geometry and one of the manual-arc methods
+([Manual arcs](#manual-arcs)); finite bounds come from that geometry, not an
+invented full circle. Linear
 pockets and faces may declare `sweep_bounds`, `sweep_frame`, `open_side`, and
 circular `keep_out` islands; their rasters need `step_mm`
 (see [rules-coordinates](rules-coordinates.md)).
@@ -164,16 +165,25 @@ a cutting claim or a kernel input.
 | Field | Meaning |
 |---|---|
 | `requirement` | The height-like requirement the aim sets; it must be one of the feature's exported drawing requirements |
-| `value_mm` | The value that requirement reads at the aimed target |
+| `value_mm` | The value, in mm, that requirement reads at the aimed target; it must lie inside the printed band |
 | `reason` | Known text; the bundled examples begin it with `AUTHOR'S CHOICE` |
 
-The `<feature>` must be a manifest feature that exports `requirement`; anything
-else is bad input. The [`coordinates`](rules-coordinates.md#coordinates) rule
-moves the target along the band's measuring direction in every setup that
-locates the feature. It then checks the DRO-rounded target against the printed
-band and cites `plan.aims.<feature>`. The sheet's feature map prints the aimed
-target together with the drawing nominal and the reason. An aim on a feature
-without that band, or one whose distance cannot be measured, stays unknown.
+The `<feature>` must be a manifest feature that exports `requirement`, and
+`value_mm` (converted to the manifest units) must lie inside that requirement's
+band as the sheet prints it; anything else is bad input. The
+[`coordinates`](rules-coordinates.md#coordinates) rule moves the feature's own
+target along the band's measuring direction in every setup that locates it. It
+then checks the target against the printed band where the features stand: the
+DRO-rounded target where that setup machines the feature (a centre op names
+it), the planned point where it only inspects it, measured from the
+reference's own printed target when the same setup machines it (else the
+reference's planned point), and cites `plan.aims.<feature>`. The sheet's
+feature map prints the aimed target together with the drawing nominal and the
+reason. An aim on a feature without that band, on one no mill setup's centre op
+(a hole op or `center`) names, under unknown units, or one whose distance cannot
+be measured stays unknown and moves nothing. An aim on a child located by its
+parent's `at` is refused (unknown); the child still dials its parent's target,
+aimed or not.
 
 ## Joint features
 
@@ -764,6 +774,11 @@ reset them on every pass once the tool passes Z 152.00` (trailing jaws ride each
 pass's new diameter; `engage_at_z_mm`, when declared, is the Z), or `jaws … mm
 ahead of the tool, on the uncut stock`.
 
+Where an op's start would foul the rest, the op row prints the engagement step at
+`engage_at_z_mm`: each pass, stop the feed, then the spindle; set the jaws and lock
+them; restart the spindle, then resume the feed. Hands never set a rest on a
+turning spindle, and the cut never resumes on a stopped one.
+
 ## Zero
 
 | Field | Type (also accepts `"unknown"`) |
@@ -806,6 +821,12 @@ ahead of the tool, on the uncut stock`.
 | `runout_limit_mm` | `Number` |
 | `reindicate_after` | `list[int]` |
 
+The setup sheet prints the transfer by what `indicate` names: on a lathe, tap true
+to the limit; on a mill, one hole, bore or boss (or a named item that is not a
+feature, such as a pin head) is centred on by moving the table; surfaces, or
+several features, are an alignment, so the operator sweeps each surface by table
+travel and taps the work, not the table, until the reading is within the limit.
+
 ## ToolTouch
 
 | Field | Type (also accepts `"unknown"`) |
@@ -820,6 +841,7 @@ ahead of the tool, on the uncut stock`.
 | `z_gauge` | `str` (`measure_then_set`) |
 | `z_measure` | `str` (`measure_then_set`: what M is) |
 | `z_offset_mm` | `float` (`measure_then_set`: Axis Set Z = M + offset + paper) |
+| `corner` | `"chuck_side" \| "tailstock_side"`: a grooving/parting blade's Z touch corner where the touched face gives no measured normal (a scribe); a face normal that contradicts it is an error ([zero_check](rules-coordinates.md#zero_check)) |
 | `before_ops` | `list[int]` |
 | `after_op` | `int` |
 
@@ -835,6 +857,8 @@ ahead of the tool, on the uncut stock`.
 | `holder` | `str` |
 | `direction` | `str` |
 | `note` | `str` |
+| `layout` | `str` (`scribe` only: `dividers`, `trammel` or `template`) |
+| `guide` | `Guide` (`scribe` with a template, `file_to_line`) |
 | `inspection_note` | `str \| list[str]` (numbered steps; see above) |
 | `process` | `str \| list[str]` (`coating` only: a `services` or `consumables` id) |
 | `process_holds` | `list[ProcessHold]` |
@@ -854,6 +878,7 @@ ahead of the tool, on the uncut stock`.
 | `to_z_cite` | `Citations` |
 | `note_cite` | `Citations` |
 | `checks` | `dict[str, str]` |
+| `go_no_go` | `dict[str, GoNoGo \| Unknown]` (each key also in `checks`) |
 | `missing_requirements` | `dict[str, str]` |
 | `inspection_methods` | `dict[str, str \| list[str]]` |
 | `to_z_band` | `Vector` |
@@ -878,13 +903,24 @@ unknown in `tool_resolves`, and an unlisted one is an error. A drawing
 (`finish_route`, [inspection rules](rules-inspection.md)).
 
 A `ProcessHold` is `{ feature, requirement, band = [lo, hi], gauge, reason }`, all
-required: a shop limit tighter than the drawing, held for a stated process reason
+required, plus an optional `go_no_go`: a shop limit tighter than the drawing, held for a stated process reason
 (a downstream fit, a pin that clocks a later setup). `requirement` must be one the
 feature exports (else `BadInput`), and `band` is in the drawing's units. The
 inspection rule errors when the band reaches outside the drawing band (limits
 included, a scalar zone `v` read as [0, v]). The sheet prints it in the op's
 inspection cell as `PROCESS HOLD — not a drawing limit: <reason>`, never as a
 drawing limit.
+
+A `GoNoGo` is `{ go = <mm>, no_go = <mm> }`, both positive and different: the two
+limit-gauge sizes a limit check uses. The GO size must pass the work (enter a hole,
+pass over a boss or shaft) and the NO-GO size must not. An op's
+`go_no_go.<requirement>` is the pair its `checks.<requirement>` gauge uses for the
+drawing band; a `process_holds` entry's `go_no_go` is the pair for the hold band.
+Both sizes must be listed in the gauge's `sizes_mm` and lie inside the band they
+accept, the drawing band as printed (rounded inward) or the hold band; see
+[inspection rules](rules-inspection.md#go--no-go-limit-checks). The op row prints
+`GO <go> enters, NO-GO <no_go> does not`, so `inspection_methods` need not repeat
+the sizes.
 
 `faces` explicitly declares this operation's cutting claims using bound STEP
 references. Omission uses the feature's default `faces`; `"unknown"` means
@@ -936,7 +972,8 @@ of the same setup keep only certain finished-material flute hits, with tool hits
 unknown), while genuine collisions with finished material remain independent
 errors. It shapes the stock later flutes of this setup and later setups meet,
 and excludes this operation's own derivable allowance from its flute obstacles;
-holder, reach and holding facts still use setup-entry stock. This is an
+accessibility holder obstacles and holding facts still use setup-entry stock,
+while reach, holder-wall and shank screens see it ([`reach`](rules-geometry.md#reach)). This is an
 authored process/fixture volume, not a
 measured toolpath or proof that the whole toolpath is safe. Without it, any claimed wall
 whose interior still touches overstock above `to_z` (including a drafted wall)
@@ -974,8 +1011,9 @@ vertical cutter columns at concave wall-tangent sample poses. Each volume is
 clipped to the axial/angular window, the finished solid is subtracted, and the
 volumes are cut from the stock one by one in order, never fused: finished
 bosses/pads and material outside that derivable allowance remain obstacles.
-Only the flute meets the stock left after this removal; an underivable removal
-credits none of it. Holder and reach screens retain setup-entry stock. This is
+The flute meets the stock left after this removal; an underivable removal
+credits none of it. Accessibility holder obstacles retain setup-entry stock;
+reach, holder-wall and shank screens meet the stock earlier ops leave. This is
 one top-dead-centre pose per sample,
 not a continuous toolpath or proof of clearance while rotating between poses.
 
@@ -995,13 +1033,18 @@ the other spans; see [M5 measured setup screens](rules-setup.md#m5-measured-inve
 
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
-| `method` | `str` |
+| `method` | `str`: `linear_table`, or a manual-arc method `stairs`, `chain_drill`, `chords`, `rotary_table` |
 | `sweep_frame` | `str` |
 | `open_side` | `str` |
-| `step_deg` | `float` |
-| `step_mm` | `float` |
+| `step_deg` | `float` (`rotary_table` row spacing) |
+| `step_mm` | `float` (raster step) |
 | `start_deg` | `float` |
 | `end_deg` | `float` |
+| `cusp_mm` | `float` (`stairs`: most material a stair may leave on the wall) |
+| `pitch_mm` | `float` (`chain_drill`: largest hole-centre spacing) |
+| `count` | `int` (`chords`: number of chords) |
+| `centre_by` | `str` (`rotary_table`: `pin` or `indicate`) |
+| `centre_feature` | `str` (`rotary_table`: the hole on the arc axis the table centres on) |
 | `sweep_bounds` | `Bounds` |
 | `keep_out` | list of `{ at = [x, y], dia_mm = d }` circles |
 
@@ -1012,6 +1055,65 @@ positive-length pieces in feed order, each with its own feed/lift/rapid cycle;
 each cut point lies on the DRO grid, rounded away from the island.
 The raster record reports setup-frame circles in `raster.keep_out` and counts
 pieces in `raster.passes`.
+
+## Guide
+
+| Field | Type (also accepts `"unknown"`) |
+|---|---|
+| `buttons` | `str`: an inventory `fixtures` kit of `kind = "filing_buttons"` |
+| `bore` | `str`: the plan feature the buttons' pin goes through |
+| `template` | `str`: an inventory `gauges` radius or profile template |
+| `gauge` | `str`: the inventory radius or profile gauge that checks the filed arc |
+
+## Manual arcs
+
+The PM-30MV is a manual mill with a DRO: one handwheel moves at a time, so an arc
+is never one move of two axes (no MDI, G-code or continuous circle). The plan
+uses the 1898 manual arc method:
+
+1. **Lay out** (optional with buttons): `do = "scribe"` on the arc feature with
+   `layout = "dividers" | "trammel" | "template"` (`guide.template` names the
+   template). The `manual_arc` rule prints the centre (setup X/Y, and the hole on
+   its axis), the nominal radius and the arc ends; an unknown layout is unknown.
+2. **Rough outside the line**: a `rough_*` op with
+   `contour = { method = "stairs", cusp_mm = … }` (single-axis stair corners on
+   the DRO grid) or `{ method = "chain_drill", pitch_mm = … }` (drilled holes,
+   webs chiselled out along the hole centres), plus a nonnegative
+   `rough_allowance_mm` (a negative leave, here or on any op, is an error: the
+   rough would cut into the finished part). Every
+   stair corner, every full hole and every break-out between neighbouring holes
+   must stay outside the finished line, and the stock left for the file
+   (allowance + the stair cusp measured along the wall normal, or the larger of
+   allowance + drill radius and the deepest break-out material) must not exceed
+   the shop policy `numbers.max_filing_stock_mm` unless a later rough cuts the
+   same faces again ([coordinates](rules-coordinates.md#coordinates)).
+3. **File to the line**: `do = "file_to_line"` with a `guide`: hardened filing
+   `buttons` (an inventory `fixtures` kit with `kind = "filing_buttons"`,
+   `dia_mm` and pin `bore_dia_mm`, held by the setup as its `hold.fixture` or a
+   clamp) pinned through `bore`, a hole on the arc's axis drilled, reamed or
+   bored to size earlier; or a `template` checked against a scribed layout. A
+   `gauge` (inventory `radius_gauge`/`profile_gauge` whose `range_mm` covers R)
+   checks the arc. The buttons file R from `dia/2 − play` to `dia/2 + play`
+   (play = (largest bore − pin)/2), which must sit inside the radial band. No
+   guide, no gauge, buttons not held or flagged to verify, an unknown bore size or
+   radius band, no earlier rough or no established cap is
+   unknown; a gauge range that misses R, buttons on a concave arc, a bore off the
+   axis or not yet made, a pin larger than the bore or a filed radius outside the
+   band is an error. `scribe` and `file_to_line` are manual: they need no tool
+   and may stand in a bench setup (`machines.<id>.kind = "bench"`).
+4. **Or finish on the mill**: `{ method = "chords", count = … }` cuts straight
+   chords whose sagitta `c²/8R` fits the band, each fed along one axis (a slanted
+   chord indexed square on a rotary table; a full circle takes at least three);
+   `{ method = "rotary_table", step_deg = …, centre_by = "pin" | "indicate",
+   centre_feature = … }` turns the work on an inventory `rotary_table` fixture
+   (`hold.fixture`, its centre bore `bore_dia_mm` for a pin) under a cutter
+   locked at the cutter-centre radius on the DRO grid, between dial readings
+   rounded inward on its resolution; a pin that misses the table bore, a printed
+   offset whose cut (widened by a pin's play) leaves the band, and an arc too
+   short for one dial step are errors.
+   Manual-arc features are cut in `mm` or `in`; other units are unknown.
+
+The former `method = "arc_table"` is an error.
 
 ## Bounds
 

@@ -64,6 +64,7 @@ requirements = []                # datum plane only
 datum = "A"
 faces = ["#473/ADVANCED_FACE[16]/NONE"]
 plane = { frame = "model", axis = "y", value = 0.0 }
+bounds = { x = [-8.0, 8.0], y = [0.0, 0.0], z = [-3.0, 21.2] } # STEP face #473 bbox (kernel faces[].bbox_mm): its whole footprint
 cite = ["example (plausible, no dimensioned drawing)"]
 
 [features.foot_profile]
@@ -86,6 +87,7 @@ frame = "model"
 requirements = []                # flat outer face, no own size beyond foot_profile length / ear thickness
 faces = ["#103/ADVANCED_FACE[8]/NONE"]
 plane = { frame = "model", axis = "z", value = -3.0 }
+bounds = { x = [-8.0, 8.0], y = [0.0, 32.2], z = [-3.0, -3.0] } # STEP face #103 bbox (kernel faces[].bbox_mm): its whole footprint
 cite = ["example (plausible, no dimensioned drawing)"]
 
 [features.foot_top]
