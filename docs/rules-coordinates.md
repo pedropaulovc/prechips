@@ -732,7 +732,9 @@ circle). Unknown geometry is unknown.
   element limit unknown (absent, not two positive ordered numbers, a negative
   runout, a bore `dia` that is not a known pair of numbers) is unknown, and so
   is an unknown radius band. The traveler prints every element's limits and the
-  worst-case band rounded outward to 0.001 mm with its shift basis, else a STOP.
+  worst-case band rounded outward to 0.001 mm (the shift basis stays in the
+  report's `centre_shift_mm`), marked `not proven` unless the finding passes, or
+  a STOP when the band itself is not established.
   `guide.template` instead files to a line an earlier `scribe` op laid out
   (`layout_op`; none is
   unknown). `guide.gauge` must be a radius or profile gauge covering R (no gauge
@@ -750,6 +752,11 @@ share, and, past a straight claimed-face edge that no other claimed face shares
 and along which the face's tangent plane is constant, the quarter the stroke runs
 on into beyond the edge and outside that plane. The last takes the corner nib
 between faces filed in different ops; the finished part is never filed.
+
+On the traveler, a `manual_arc` finding left unknown stops its op: the op's row
+prints a STOP with the finding's reasons (`debts`), and the setup's STOP list
+names the op, so no unproven layout or filing reads as an established step. An
+error stops it the same way through the op's error box.
 
 ## `zero_check`
 
