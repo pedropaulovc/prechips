@@ -423,8 +423,10 @@ Two checks need no prose:
     whenever it differs from the box bottom. A named seat never exempts a rail:
     the rail keeps its own comparison.
   - A named seat proves only its own face. When it is the lowest authored point
-    and the box shows stock below it, the stock's lowest point is not authored,
-    which is wrong.
+    and the kernel measures the stock under that face above the box bottom,
+    other stock hangs below it that nothing authored reaches, which is wrong.
+    When the face is the box bottom, its face verdict alone judges the seat, so
+    a displacement its band permits passes.
   - A rail with no `bottom_z` is wrong only below the box bottom, since the seat
     may be the stock's lowest point.
 
@@ -437,7 +439,8 @@ A compared fact that cannot be proved is `unknown`, never `pass`:
 - a `top_z` below the box top under an `"unknown"` `top_feature`;
 - a `top_z` or `bottom_z` whose named face the kernel did not measure (no
   horizontal face on that side, finished material beyond it, or a face the
-  entering stock does not carry), whatever the box shows;
+  entering stock does not carry), whatever the box shows, stock below it
+  included;
 - a cut named face off its CAD Z whose feature has no band proved to be its
   faces' separation;
 - an unnamed `bottom_z` or a rail above the lowest authored point;
