@@ -317,15 +317,24 @@ outlines are schematic, not measured fixture geometry, and unresolved drawing
 items remain plain-language warnings. The image is hashed into `report.json`
 with its scene record so an approval binds to it; it is not a toolpath.
 Before encoding, every setup diagram checks its rounded bitmap-text bounds:
-labels must keep an 8-pixel canvas margin and a 4-pixel gap from other labels.
-An overlap or clipped annotation refuses the render rather than shipping an
-unreadable picture. Footer space is reserved for every legend and note row.
-A posed chuck front that is tilted relative to setup Z is labelled as a tilted
-plane, not reported as a missing single jaw-front Z.
+labels must keep an 8-pixel canvas margin and a 4-pixel gap from other labels,
+and no label may print below body size (21-pixel cap height, about 7 pt on
+Letter). Dense callout lanes rebalance and tighten their leading instead of
+shrinking type. An overlap, clipped or undersized annotation refuses the render
+rather than shipping an unreadable picture. Footer space is reserved for every
+legend and note row. A posed chuck front that is tilted relative to setup Z
+draws no single jaw-front Z; `scene.jaw_front_oblique` records it, and the
+picture prints no commentary about it.
+Setup notes come from the declared ops: a setup without a machine-cutting op
+lists its bench actions (for example deburr, coating, inspect), and a deburr
+setup is never labelled "no material removed".
 Shallow contour insets explicitly label Y-only graphic magnification; their
 coordinate tables and the setup view remain unchanged. Custom-fixture pad and
-clamp badges sit outside the projected fixture and part outline, with leaders
-to their actual positions. Optional authored void labels identify mounting holes.
+clamp badges sit outside the projected fixture and part outline, in x order with
+uncrossed leaders to their actual positions; a badged clamp or pad group's lane
+entry is its key and draws no second leader. A lane leader's elbow never runs
+along an axis through another callout's point. Optional authored void labels
+identify mounting holes.
 The lathe's filled meridian section keeps the retained core visible inside the
 removed annulus; its jaw-end inset magnifies nearby shoulders and reliefs.
 Dashed nominal part outlines locate mill/custom-fixture targets without

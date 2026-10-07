@@ -171,6 +171,31 @@ def test_clamp_badges_keep_the_declared_index_and_never_count_a_locator_as_a_cla
     assert [clamp["code"] for clamp in clamps] == ["C1", "LOC2", "C3", "C4", "C5", "C6"]
 
 
+@pytest.mark.parametrize(
+    ("actions", "notes", "nothing_removed"),
+    [
+        # A bench finish setup is neither fit-up only nor free of material removal.
+        (
+            ["deburr", "coating", "inspect"],
+            ["No machine cutting: op 10 deburr, op 20 coating, op 30 inspect."],
+            None,
+        ),
+        (["fit", "inspect"], ["No machine cutting: op 10 fit, op 20 inspect."], "default"),
+        (["face", "deburr"], [], None),
+        (["face", "inspect"], [], "default"),
+    ],
+)
+def test_setup_notes_follow_every_declared_action(actions, notes, nothing_removed):
+    setup = _setup()
+    setup["ops"] = [{"op": 10 * (i + 1), "do": action} for i, action in enumerate(actions)]
+
+    annotation = setup_annotations(_bundle(), setup, {})
+
+    assert annotation["notes"] == notes
+    expected = "No material removed in this setup." if nothing_removed else None
+    assert annotation["nothing_removed_note"] == expected
+
+
 @pytest.mark.parametrize("unknown_middle", [False, True])
 def test_raster_passes_remain_independent_and_keep_their_table_pass_numbers(unknown_middle):
     first = [[0, 0], [10, 0]]

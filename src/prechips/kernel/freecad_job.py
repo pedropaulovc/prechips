@@ -5929,13 +5929,11 @@ class _Setup:
                         "point_mm": [(box[i] + box[i + 3]) / 2 for i in range(3)],
                     }
                 )
-        notes = []
-        if jaw_front_oblique:
-            notes.append("Chuck front is tilted: no single setup Z.")
-        if not self.ops:
-            notes.append("Holding/fit-up only: no cutting operation in this setup.")
-        if removal is not None and removal.Volume <= STOCK_MM3:
-            notes.append("No material removed in this setup.")
+        # The host derives the action notes from every declared op, bench ones included.
+        notes = list(annotation.get("notes", []))
+        nothing_removed = annotation.get("nothing_removed_note")
+        if nothing_removed and removal is not None and removal.Volume <= STOCK_MM3:
+            notes.append(nothing_removed)
         if lathe and self.hold and _number(jaw_z):
             back = jaw_z - self.hold.get("jaw_depth_mm", 0) - self.hold.get("body_length_mm", 0)
             if self.box[2] < back - STOCK_TOL:
