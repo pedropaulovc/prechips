@@ -274,7 +274,7 @@ def test_lathe_x_readings_are_in_the_dro_display_and_unknown_without_one(radius_
 def test_a_dome_table_prints_x_in_the_dro_display_or_withholds_it(radius_mode, shown):
     bundle = _on_display(_dome_bundle(rough_allowance_mm=0.2), radius_mode)
     _, _, sheet, setup = _traveler(bundle)
-    html = unescape(sheet.contours(setup, {"ar": "T1 AR"}))
+    html = unescape(sheet.contours(setup, {("tools", "ar"): "T1 AR"}))
     if shown:
         unit = "Ø" if shown == "diameter" else shown
         assert f"X is {shown}" in html
@@ -855,7 +855,7 @@ def test_a_sleeve_parted_after_a_touch_on_its_far_end_comes_out_full_length():
     assert sheet.z_target(setup, bundle.plan["setups"][0]["ops"][0]) == (
         "Z → -22.65 (chuck-side corner)"
     )
-    text = sheet.dro(setup, {"blade": "T3 blade"})
+    text = sheet.dro(setup, {("tools", "blade"): "T3 blade"})
     assert "Z — chuck-side corner on the north" in text
     assert "Z now reads the chuck-side corner" in text
 
@@ -1471,7 +1471,7 @@ def test_each_toolpost_tool_is_set_on_centre_before_its_first_touch_off():
     sheet = _Traveler(bundle, [], {}, None)
     setup = sheet.setup = bundle.plan["setups"][0]
     sheet.records[("zero_check", "S1")] = finding.numbers
-    text = sheet.dro(setup, {"blade": "T3 blade", "turner": "T1 turner"})
+    text = sheet.dro(setup, {("tools", "blade"): "T3 blade", ("tools", "turner"): "T1 turner"})
     blade = "Before touching off T3 blade: shim it level with the tailstock point; then square"
     assert text.count(blade) == 1
     assert text.index(blade) < text.index("Before op 40, touch off T3 blade")

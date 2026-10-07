@@ -68,7 +68,8 @@ def evaluate(bundle):
         oal, grip = length_mm(tool, "oal"), length_mm(holder, "grip")
         projection_fact = tool_projection(bundle, op, {}, cite, require_measured=False)
         projection = projection_fact["value"]
-        explicit = projection_holder(bundle, tool, holder_ref) is not None
+        pair, conflict = projection_holder(bundle, tool, holder_ref)
+        explicit = pair is not None or conflict is not None
         basis = "selected tool/holder projection" if explicit else "tool OAL - selected holder grip"
         doc = op.get("doc_mm", UNKNOWN)
         missing = []
@@ -82,7 +83,9 @@ def evaluate(bundle):
             missing.append("resolved/verified selected holder")
         if not _positive(diameter):
             missing.append("explicit-unit tool diameter")
-        if not _positive(projection) or not projection_fact["verified"]:
+        if conflict:
+            missing.append(conflict)
+        elif not _positive(projection) or not projection_fact["verified"]:
             missing.append("positive selected tool/holder projection or OAL minus holder grip")
 
         ratio = projection / diameter if not missing else UNKNOWN

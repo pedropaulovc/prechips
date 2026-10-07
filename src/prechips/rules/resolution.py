@@ -288,7 +288,8 @@ def select(bundle_or_inventory, reference, slot=None):
     listed with nothing about it (``{}``); None when nothing in order lists it (a machine's
     standard accessory of that name excepted), it is not present, or its member is not one
     it declares. A same-key item in another category is never read."""
-    inventory = getattr(bundle_or_inventory, "inventory", bundle_or_inventory)
+    # A bundle with no shop list lists nothing.
+    inventory = record(getattr(bundle_or_inventory, "inventory", bundle_or_inventory))
     qualified = _QUALIFIED.fullmatch(reference) if isinstance(reference, str) else None
     if qualified:
         order, reference = (qualified[1],), qualified[2]
@@ -319,6 +320,14 @@ def select(bundle_or_inventory, reference, slot=None):
     return first, reference, None
 
 
+def identity(bundle_or_inventory, reference, slot=None):
+    """``(category, key)``: the one item ``reference`` names in ``slot`` (:func:`select`),
+    however it is spelled (``tools.drill`` and ``drill``; a member's key keeps its member).
+    Every map, set and comparison of items downstream keys on this, never on a spelling;
+    the spelling is kept only to print."""
+    return select(bundle_or_inventory, reference, slot)[:2]
+
+
 def authored(bundle_or_inventory, category, reference):
     """The record the shop list states for a selected ``(category, reference)``
     (:func:`select`), as written: a member's set's own; {} when that category lists none."""
@@ -328,15 +337,26 @@ def authored(bundle_or_inventory, category, reference):
 
 
 def projection_holder(bundle_or_inventory, tool, holder):
-    """The key of ``tool``'s projection map (``projection_mm``/``projection_in``) that names
-    the holder ``holder`` selects, or None: a key and a holder reference are the same holder
-    when they select the same ``(category, reference)``, however each is spelled."""
-    selected = select(bundle_or_inventory, holder, "holders")[:2]
-    for field in ("projection_mm", "projection_in"):
-        for key in record(record(tool).get(field)):
-            if select(bundle_or_inventory, key, "holders")[:2] == selected:
-                return key
-    return None
+    """``(key, conflict)``: the key of ``tool``'s projection map (``projection_mm`` /
+    ``projection_in``) that names the holder ``holder`` selects. A key and a holder
+    reference are one holder when they select the same ``(category, reference)``, however
+    each is spelled. ``(None, None)`` when no key names it. When more than one key names it
+    (``holder`` and ``holders.holder``, or one key in both maps) the map states one
+    projection twice: ``(None, reason)``, and the projection is unknown, never the entry
+    dictionary order puts first."""
+    selected = identity(bundle_or_inventory, holder, "holders")
+    keys = [
+        f"{field}.{key}"
+        for field in ("projection_mm", "projection_in")
+        for key in record(record(tool).get(field))
+        if identity(bundle_or_inventory, key, "holders") == selected
+    ]
+    if len(keys) > 1:
+        return None, (
+            f"{' and '.join(keys)} each state the projection in {selected[0]}.{selected[1]}; "
+            "state it once"
+        )
+    return (keys[0].partition(".")[2] if keys else None), None
 
 
 # The hold's item slots after its fixture, in the order the HOLD uses them: each a fixture.

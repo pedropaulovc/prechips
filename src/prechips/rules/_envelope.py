@@ -54,7 +54,12 @@ def tool_projection(bundle, op, debts, cite, *, require_measured=True):
     holder_category, holder_ref, holder = selected_item(
         bundle, "holders", op.get("holder", UNKNOWN)
     )
-    pair = projection_holder(bundle, tool, op.get("holder", UNKNOWN))
+    pair, conflict = projection_holder(bundle, tool, op.get("holder", UNKNOWN))
+    if conflict:
+        citation = f"inventory.{tool_category}.{tool_ref}.projection"
+        cite.append(citation)
+        authoring_entry(debts, f"{tool_category}.{tool_ref}.projection", conflict, citation)
+        return {"value": UNKNOWN, "verified": False, "cite": [citation], "reason": conflict}
     for field in ("projection_mm", "projection_in") if pair is not None else ():
         if pair in record(tool.get(field)):
             result = length_fact(tool, ("projection", pair), require_measured=require_measured)

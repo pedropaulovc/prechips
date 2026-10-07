@@ -502,7 +502,7 @@ def _stock_piece_volume(piece: dict, subject: str) -> dict:
 
 
 def _comparison_row(bundle: Bundle, report: dict, plan_label: str) -> dict:
-    from prechips.rules.resolution import number, record, resolve, setup_items
+    from prechips.rules.resolution import number, record, resolve, select, setup_items
 
     stock = record(bundle.plan.get("stock"))
     components = stock.get("components")
@@ -560,11 +560,12 @@ def _comparison_row(bundle: Bundle, report: dict, plan_label: str) -> dict:
                 fixture_refs.add("unknown")
         if "index" in hold and record(hold["index"]).get("fixture", "unknown") == "unknown":
             fixture_refs.add("unknown")
-        # These fields can also be prose. Count them only when they name a declared fixture.
+        # These fields can also be prose. Count them only when they name a declared fixture,
+        # by the key it selects (as setup_items does), however the hold spells it.
         for key in ("clamp", "stop", "locator", "jaw_protection"):
             reference = hold.get(key)
             if resolve(bundle, "fixtures", reference):
-                fixture_refs.add(reference)
+                fixture_refs.add(select(bundle, reference, "fixtures")[1])
     counts = {}
     for finding in report["findings"]:
         counts[finding["status"]] = counts.get(finding["status"], 0) + 1

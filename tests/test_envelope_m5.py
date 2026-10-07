@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import pytest
 
 from prechips.findings import exit_code
-from prechips.rules import envelope
+from prechips.rules import engagement, envelope, headroom
 
 MEASURED = {"by": "synthetic operator", "date": "2026-10-03", "instrument": "synthetic steel rule"}
 
@@ -400,6 +400,33 @@ def test_member_tool_projection_requires_exact_full_selected_holder_key(
     debt = next(entry for entry in row.numbers["measurements"] if ".projection." in entry["id"])
     assert debt["id"] == "tools.mills/selected.projection.collets/3-8in"
     assert debt["cite"] == ["inventory.tools.mills/selected.projection_mm.collets/3-8in"]
+
+
+# Two spellings of one holder in a tool's projection map state its projection twice. The
+# projection is unknown, with both keys named, never the entry dictionary order puts first:
+# 5 mm alone passes and 55 mm alone errors (envelope) or halves the DOC (engagement).
+@pytest.mark.parametrize("op_holder", ["holder", "holders.holder"])
+@pytest.mark.parametrize("first", ["holder", "holders.holder"])
+@pytest.mark.parametrize("values", [(5, 55), (55, 5), (5, "unknown"), ("unknown", 5)])
+def test_two_spellings_of_one_holder_in_a_projection_map_leave_it_unknown(op_holder, first, values):
+    data = review_bundle()
+    second = "holders.holder" if first == "holder" else "holder"
+    stated = [value if value == "unknown" else measured(value) for value in values]
+    data.inventory["tools"]["cutter"]["projection_mm"] = {first: stated[0], second: stated[1]}
+    data.plan["setups"][0]["ops"][0].update(holder=op_holder, doc_mm=1)
+    keys = {"projection_mm.holder", "projection_mm.holders.holder"}
+    row = envelope.evaluate(data)[0]
+    assert row.status == "unknown"
+    assert row.numbers["stacks"][0]["tool_projection_mm"] == "unknown"
+    debt = next(e for e in row.numbers["measurements"] if e["id"] == "tools.cutter.projection")
+    assert all(key in debt["instruction"] for key in keys), debt
+    [use] = engagement.evaluate(data)
+    assert use.status == "unknown" and use.numbers["projection_mm"] == "unknown"
+    assert any(all(key in text for key in keys) for text in use.numbers["missing_inputs"])
+    [room] = headroom.evaluate(data)
+    assert room.status == "unknown"
+    assert room.numbers["stacks"][0]["tool_projection_mm"] == "unknown"
+    assert all(key in room.numbers["stacks"][0]["projection_conflict"] for key in keys)
 
 
 def test_tool_wide_scalar_and_wrong_pair_cannot_replace_selected_oal_grip():

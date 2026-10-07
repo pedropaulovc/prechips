@@ -533,7 +533,10 @@ Projection is **holder exit face to installed tool tip** and belongs to one
 `tools.<tool>.projection_mm` (or `_in`), a map keyed by the full exact holder
 reference the operation selects (for example `"r8-collets-lms-4860/3-8in"`; a
 key and a holder reference spelled with or without `holders.` match when they
-select the same holder).
+select the same holder). Two keys that select the same holder (`holder` and
+`holders.holder`) state its projection twice: the projection is unknown, with
+both keys named, whichever values they carry and in whatever order; neither is
+read and it never falls back to OAL − grip. State it once.
 A holder, fixture, machine or gauge never carries projection, and a tool never
 carries a holder-wide or tool-wide scalar projection: the schema rejects
 `projection_mm`/`projection_in` outside `tools` and rejects a tool whose

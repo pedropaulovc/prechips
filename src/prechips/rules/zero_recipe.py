@@ -14,13 +14,13 @@ from .resolution import (
     MANUAL,
     SAW_OPS,
     UNKNOWN,
+    identity,
     known_refs,
     length_mm,
     number,
     plan_frame_cite,
     resolve,
     saw_setup,
-    select,
     setup_frame,
     uncertain,
 )
@@ -557,6 +557,16 @@ def x_face_state(bundle, setup, touch, x_recipe, states, index):
     return "error", f"touches {face} before any op turns it"
 
 
+def same_tool(bundle, first, second):
+    """Whether two tool references name one spindle tool (:func:`identity`): ``turner`` on a
+    touch and ``tools.turner`` on an op are one tool. None (no tool) is never a tool."""
+    return (
+        first is not None
+        and second is not None
+        and identity(bundle, first, "spindle") == identity(bundle, second, "spindle")
+    )
+
+
 def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
     """One DRO per setup: each cutting op runs on Axis Sets its own tool made.
 
@@ -672,11 +682,15 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
             served[str(pending["after_op"])] = {
                 "next_op": op["op"],
                 "next_tool": tool,
-                "tool_change": UNKNOWN if spindle == UNKNOWN else spindle != tool,
+                "tool_change": UNKNOWN
+                if spindle == UNKNOWN
+                else not same_tool(bundle, spindle, tool),
             }
             set_z, z_by, pending = tool, {"tool": tool, **pending}, None
         changed = [
-            axis for axis, current in (("x", set_x), ("z", set_z)) if current not in (None, tool)
+            axis
+            for axis, current in (("x", set_x), ("z", set_z))
+            if current is not None and not same_tool(bundle, current, tool)
         ]
         if cutting and changed:
             resolved = resolve(bundle, "tools", tool)
@@ -736,7 +750,7 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
             set_z = tool if "z" in changed else set_z
             set_x = tool if "x" in changed else set_x
         if cutting:
-            readings[str(op["op"])] = z_by if set_z == tool else None
+            readings[str(op["op"])] = z_by if same_tool(bundle, set_z, tool) else None
             spindle = tool
         if str(op.get("op")) in listed:
             top = tops[index + 1][0]
@@ -857,9 +871,9 @@ def tool_setting(bundle, setup, zero, touches, derived):
     setup machine's toolpost ``centre_height`` / ``square_blade``, else the requirement
     alone."""
     ops = records(setup.get("ops"))
-    # A tool is its category and key (:func:`select`), however the op or touch spells it.
+    # A tool is the item it selects (:func:`identity`), however the op or touch spells it.
     carriage = {
-        select(bundle, op.get("tool"), "tools")[:2]
+        identity(bundle, op.get("tool"), "spindle")
         for op in ops
         if approach(bundle, setup, op) != "axial"
     }
@@ -875,10 +889,10 @@ def tool_setting(bundle, setup, zero, touches, derived):
             events.append((at, rank, {"touch": kind, "index": index}, row.get("tool")))
     result, seen = [], set()
     for *_, where, tool in sorted(events, key=lambda event: event[:2]):
-        identity = select(bundle, tool, "spindle")[:2]
-        if identity in seen or tool in (None, UNKNOWN) or identity not in carriage:
+        key = identity(bundle, tool, "spindle")
+        if key in seen or tool in (None, UNKNOWN) or key not in carriage:
             continue
-        seen.add(identity)
+        seen.add(key)
         result.append(
             {
                 **where,

@@ -17,11 +17,11 @@ from ..measurements import nominal_limits_mm
 from .resolution import (
     UNKNOWN,
     authored,
+    identity,
     length_mm,
     number,
     record,
     resolve,
-    select,
     setup_items,
     setup_named_references,
     uncertain,
@@ -41,7 +41,7 @@ def acceptance_items(bundle, setup, job=False):
     key: a ``fixtures.pins`` and a ``gauges.pins`` are two items, each with its own checks."""
     uses = [(category, ref) for category, ref, _ in setup_items(bundle, setup)]
     named = setup_named_references(bundle, setup, job=job)
-    uses += [select(bundle, name)[:2] for name in named]
+    uses += [identity(bundle, name) for name in named]
     found = []
     for category, ref in uses:
         root, _, member = ref.partition("/")

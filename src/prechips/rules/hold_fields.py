@@ -17,6 +17,7 @@ from prechips.rules.resolution import (
     MANUAL,
     SAW_OPS,
     UNKNOWN,
+    identity,
     known_refs,
     op_feature,
     owns_feature,
@@ -49,11 +50,13 @@ def align_due(bundle):
         hold = record(setup.get("hold"))
         ref = hold.get("fixture")
         kind = record(resolve(bundle, "workholding", ref)).get("kind")
-        mounted = (ref, hold.get("jaws_along"), hold.get("pose"))
-        before, last[machine] = last.get(machine), mounted
+        # The machine and the fixture are the items they select, however a setup spells them.
+        mounted = (identity(bundle, ref, "workholding"), hold.get("jaws_along"), hold.get("pose"))
+        key = identity(bundle, machine, "machines")
+        before, last[key] = last.get(key), mounted
         if kind not in ALIGNED_FIXTURES:
             continue
-        if before is None or before[0] != ref:
+        if before is None or before[0] != mounted[0]:
             due[setup["id"]] = "mounted"
         elif kind == "vise" and before[1] != mounted[1]:
             due[setup["id"]] = "jaws turned"

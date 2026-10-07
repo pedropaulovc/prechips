@@ -151,6 +151,24 @@ def test_one_edge_finder_box_per_traveler_and_every_zero_points_to_it():
     assert second.count("EDGE FINDER box, Setup S1 sheet 1") == 2
 
 
+# The finder and the mill are the items they select: a setup spelling them ``tools.finder``
+# and ``machines.mill`` (or one axis spelling the finder so) reuses the one box, and the
+# mill's DRO grid prints once.
+def test_one_edge_finder_box_however_setups_spell_the_finder_or_the_mill():
+    data = mill_bundle(setups=2)
+    first, second = data.plan["setups"]
+    first["zero"]["y"]["tool"] = "tools." + first["zero"]["y"]["tool"]
+    second["machine"] = "machines." + second["machine"]
+    for axis in ("x", "y"):
+        second["zero"][axis]["tool"] = "tools." + second["zero"][axis]["tool"]
+    sheet = _Traveler(data, evaluate(data), {}, {})
+    one, two = (sheet.dro(setup, {}) for setup in data.plan["setups"])
+    assert one.count("<h3>EDGE FINDER") == 1 and two.count("<h3>EDGE FINDER") == 0
+    assert one.count("EDGE FINDER box") == 2
+    assert two.count("EDGE FINDER box, Setup S1 sheet 1") == 2
+    assert sheet.dro_resolution(data.plan["setups"]).count("default grid") == 1
+
+
 def test_the_edge_finder_box_stops_on_a_missing_field():
     finder = {key: value for key, value in FINDER.items() if key != "rpm_range"}
     data = mill_bundle(finder)

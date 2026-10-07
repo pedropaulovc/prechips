@@ -12,6 +12,7 @@ from .resolution import (
     SAW_OPS,
     UNKNOWN,
     coating_process,
+    identity,
     length_mm,
     named_item,
     named_references,
@@ -154,9 +155,7 @@ def evaluate(bundle):
     # One item is one finding, however it is spelled: a slot's ``tools.drills/#61`` and its
     # bare ``drills/#61`` select the same item.
     chosen = set(selected.values())
-    named = {
-        k: v for k, v in named_references(bundle).items() if select(bundle, k)[:2] not in chosen
-    }
+    named = {k: v for k, v in named_references(bundle).items() if identity(bundle, k) not in chosen}
     for name, where in sorted(named.items()):
         category, reference, _ = select(bundle, name)
         item = named_item(bundle, name)
