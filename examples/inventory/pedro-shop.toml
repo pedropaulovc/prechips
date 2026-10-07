@@ -1403,6 +1403,7 @@ length_mm = { value = 150.0, measured = { by = "example (plausible, not measured
 kind = "jaw_buttons"
 name = "cone cap jaw buttons, 6061 aluminium, pair"
 present = true
+shop_made = true
 note = "Illustrative example item, shop-made: two 6061 aluminium buttons turned from the Ø3/4 in 6061 round (stock) on the PM-1127VF-LB: face Ø16.0 x 3.0 thick with a Ø12.2 x 2.0 spigot on one side (0.06-0.09 loose in the 12.256-12.286 mm journal bore, so it drops in by hand), both faces flat and parallel, edges broken, parted off; plausible values, not measured."
 dia_mm = { value = 16.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, button face" } }
 thickness_mm = { value = 3.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, face to shoulder" } }
@@ -1547,6 +1548,8 @@ solids = [
 # (Z61.7). Body facts are the vise-pm-6 readings; the opening loses the thicker plates.
 [fixtures.vise-pm-6-tall-soft-jaws]
 kind = "vise"
+shop_made = true
+name = "PM 6 in vise with 6061 soft jaws"
 note = "AUTHOR'S CHOICE: illustrative example: vise-pm-6 fitted with shop-made 158.67 x 63.5 x 19.05 mm 6061 aluminium soft-jaw plates on the M10 jaw bolts"
 jaw_width_mm = { value = 158.67, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, along the soft-jaw face" } }
 opening_mm = { value = 153.3, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, soft jaws fully open" } }
