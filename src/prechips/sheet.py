@@ -16,7 +16,7 @@ from html import escape
 from .clamp_labels import clamp_labels
 from .joint_features import JOINT_PREP_LABEL, setup_ancestry
 from .measurements import record_trusted
-from .model import tolerance_requirements
+from .model import reference_only, tolerance_requirements
 from .rules._bench import manual_bench
 from .rules.coordinates import CENTRE_OPS, OVERSHOOT_NOTE, dro_grid, dro_z, row_id
 from .rules.inspection import go_no_go_pair
@@ -364,6 +364,7 @@ _ABBREVIATIONS = (
     (r"\bDTI\b", "DTI = test indicator."),
     (r"\bmic\b", "mic = micrometer."),
 )
+PROCESS_HOLDS_LABEL = "PROCESS HOLDS — in-process limits, not drawing limits"
 _REQUIREMENT_NAMES = {
     "dia": "Ø",
     "position_dia": "position Ø",
@@ -3759,26 +3760,52 @@ class _Traveler:
         return rows or ["—"]
 
     def process_hold(self, hold):
-        """A shop limit inside the drawing band, printed apart from the drawing's own."""
-        feature, requirement = hold["feature"], hold["requirement"]
-        places = self.gauge_places(hold["band"], feature, requirement, hold["gauge"])
-        band = "–".join(_number(limit, places) for limit in hold["band"])
-        name = _REQUIREMENT_NAMES.get(requirement, _text(requirement))
-        line = (
-            f"PROCESS HOLD — not a drawing limit: {self.bench(hold['reason'])} — "
-            f"{self.feature_name(feature)} {name} {band}: "
-            f"{self.short_reference(hold['gauge'], 'gauges')}"
+        """A shop limit inside the drawing band, printed apart from the drawing's own; a hold
+        on a reference-only span also names the REF it sets, since the drawing has no limit."""
+        reading, gauge, drawing, reference = self.process_hold_parts(hold)
+        return (
+            f"PROCESS HOLD — not a drawing limit: {self.bench(hold['reason'])} — {reading}"
+            + (f" (drawing: {drawing})" if reference else "")
+            + f": {gauge}"
         )
+
+    def process_hold_parts(self, hold):
+        """``(reading, gauge, drawing, reference)`` of one process hold: what the gauge reads
+        at the hold band, the gauge (with its GO / NO-GO sizes), the drawing's own limit, and
+        whether that is a reference-only span. Such a hold reads its stated ``measure``; the
+        drawing gives the span only as REF, with no limit."""
+        feature, requirement = hold["feature"], hold["requirement"]
+        definition = _mapping(self.features.get(feature))
+        reference = reference_only(definition, requirement)
+        places = self.gauge_places(hold["band"], feature, requirement, hold["gauge"])
+        if reference:
+            name = self.bench(hold["measure"])
+            base = requirement.removesuffix("_ref")
+            drawing = (
+                f"{_REQUIREMENT_NAMES.get(base, _text(base))} "
+                f"REF {_number(definition[requirement])}, no limit"
+            )
+        else:
+            name = _REQUIREMENT_NAMES.get(requirement, _text(requirement))
+            drawing = f"{name} {self.band(definition.get(requirement), feature, requirement)}"
+        band = "–".join(_number(limit, places) for limit in hold["band"])
+        gauge = self.short_reference(hold["gauge"], "gauges")
         if hold.get("go_no_go"):
-            line += self.go_no_go(hold["go_no_go"], feature, requirement, hold["gauge"])
-        return line
+            gauge += self.go_no_go(hold["go_no_go"], feature, requirement, hold["gauge"])
+        return f"{self.feature_name(feature)} {name} {band}", gauge, drawing, reference
 
     def gauge_places(self, sizes, feature, requirement, reference):
         """Decimals a gauge reading prints at: the sizes' own digits, one gauge step and the
-        drawing precision, whichever is finest."""
+        drawing precision, whichever is finest. A reference-only span has no drawing limit,
+        so no drawing precision applies to it."""
         gauge = resolve(self.bundle, "gauges", reference) or {}
         resolution = length_mm(gauge, "resolution")
-        precision = self.precision(feature, requirement)
+        definition = _mapping(self.features.get(feature))
+        precision = (
+            None
+            if reference_only(definition, requirement)
+            else self.precision(feature, requirement)
+        )
         # The decimals that show one gauge step: 0.001 mm reads 3, and 0.0001 in (0.00254 mm)
         # also reads 3, not the five places of its mm conversion.
         step = 0
@@ -5083,8 +5110,15 @@ class _Traveler:
             return "Turn the part end for end. "
         top = _mapping(setup.get("stock_state")).get("top_feature")
         up = f"{self.feature_name(top)} up" if top else "the other face up"
-        kept = sum(a * b for a, b in zip(x, x_before, strict=True)) > 0.5
-        ends = "the +X end stays at +X" if kept else "the +X end moves to −X"
+        # Where the old +X end lands in this setup's frame: along X, or (turned a quarter
+        # turn as well) along Y = Z × X. A unit X in the XY plane is within 45° of one.
+        y = [z[1] * x[2] - z[2] * x[1], z[2] * x[0] - z[0] * x[2], z[0] * x[1] - z[1] * x[0]]
+        along_x = sum(a * b for a, b in zip(x, x_before, strict=True))
+        along_y = sum(a * b for a, b in zip(y, x_before, strict=True))
+        if abs(along_x) >= abs(along_y):
+            ends = "the +X end stays at +X" if along_x > 0 else "the +X end moves to −X"
+        else:
+            ends = f"the +X end moves to {'+' if along_y > 0 else '−'}Y"
         return f"Turn the part over: {up}, {ends}. "
 
     def stock_state(self, setup):
@@ -5198,6 +5232,25 @@ class _Traveler:
                 ["plan feature", "limits"], joint_prep, widths=[30, 70]
             )
         return html
+
+    def process_holds(self, setups):
+        """Every op's in-process holds, gathered on the job page under their own heading so
+        they are never read as drawing limits: where, what the gauge reads at the hold band,
+        the gauge, the drawing's own limit (REF for a reference-only span) and why."""
+        rows = []
+        for setup in setups:
+            for op in setup.get("ops", []):
+                for hold in op.get("process_holds", []):
+                    reading, gauge, drawing, _ = self.process_hold_parts(hold)
+                    where = f"{setup['id']} op {op['op']}"
+                    rows.append((where, reading, gauge, drawing, self.bench(hold["reason"])))
+        if not rows:
+            return ""
+        return f"<h2>{escape(PROCESS_HOLDS_LABEL)}</h2>" + _table(
+            ["setup / op", "hold", "gauge", "drawing", "why"],
+            rows,
+            widths=[10, 26, 18, 18, 28],
+        )
 
     def edge_break(self):
         """The drawing's edge break, printed once for the whole job."""
@@ -5379,6 +5432,7 @@ class _Traveler:
             widths=[8, 32, 25, 35],
         )
         html += self.requirements()
+        html += self.process_holds(setups)
         html += _p(" ".join([*self.abbreviations(html), "Keep the drawing at the bench."]))
         return html
 

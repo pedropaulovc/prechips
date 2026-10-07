@@ -167,12 +167,23 @@ check against the hold band, by the rules above. A hold reaching outside the dra
 (`process hold band outside the drawing band (…)`), and so is a gauge that cannot
 read it (`process hold gauge cannot hold the band (…)`). An unresolved drawing
 band, or an unknown, unlisted or unverified gauge, is `unknown`. Otherwise it is
-`pass`. Evidence: each hold's band, drawing band, gauge, reason,
-`inside_drawing_band`, `gauge_status` and `gauge_message`. The sheet prints it as
+`pass`. A hold on a reference-only dimension (`length_ref`, with its `measure` and
+`cite`, see [plan](plan.md)) has no drawing band: `inside_drawing_band` is
+`not_applicable`, never `unknown`, and its gauge is graded against the hold band
+for the dimension it refers to (`length_ref` as a `length`). A `dro_scale` gauge (a
+machine axis read-out) reads only a length along its axis (`length`, `depth`,
+`height`, `thickness`, `station`); naming it for a diameter or a form is `error`.
+Evidence: each hold's band, drawing band, gauge, reason, `measure` and `cite` when
+given, `inside_drawing_band`, `gauge_status` and `gauge_message`. The sheet prints it as
 `PROCESS HOLD — not a drawing limit: <reason> — <feature> <requirement> <band>:
-<gauge>`, followed by its GO / NO-GO pair when declared. The band prints with the
-most decimals among its own limits, the drawing precision and one gauge step in mm: a 0.001 mm or a 0.0001 in
-(0.00254 mm) gauge reads 3 places, not the five of the inch conversion.
+<gauge>`, followed by its GO / NO-GO pair when declared. A reference-only hold prints
+its `measure` for the requirement and adds `(drawing: <dimension> REF <value>, no
+limit)`. The band prints with the
+most decimals among its own limits, the drawing precision (none for a REF span) and
+one gauge step in mm: a 0.001 mm or a 0.0001 in
+(0.00254 mm) gauge reads 3 places, not the five of the inch conversion. The job page
+gathers every hold in **PROCESS HOLDS — in-process limits, not drawing limits**:
+setup / op, hold, gauge, the drawing's own limit and why.
 
 ## `finish_route`
 

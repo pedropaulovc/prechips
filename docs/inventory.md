@@ -145,6 +145,11 @@ arcs is ordinary inventory:
   indexed chord reads it from `hold.fixture`.
 - Templates and radius gauges are `gauges.<id>` with `kind = "radius_gauge"` or
   `"profile_gauge"` and the `range_mm` of radii they read.
+- A machine's own axis read-out, used as a gauge (a lathe tool touched through
+  paper on a scribe, then on a faced end), is a `gauges.<id>` with
+  `kind = "dro_scale"`, its `resolution_mm` and the `range_mm` of the axis travel.
+  It reads a length along that axis (`length`, `depth`, `height`, `thickness`,
+  `station`, or a reference-only `length_ref`) and never a diameter or a form.
 
 ## Kernel geometry facts (M4)
 

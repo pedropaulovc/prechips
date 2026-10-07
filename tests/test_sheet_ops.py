@@ -808,3 +808,40 @@ def test_a_setup_with_any_cutting_op_keeps_the_machining_table():
     html = _bench_sheet([paint, {"op": 20, "do": "drill", "feature": "body"}])
     assert "<h2>OPERATIONS</h2>" in html and "FINISHING" not in html
     assert "rpm" in re.findall(r"<th>([^<]*)</th>", html)
+
+
+@pytest.mark.parametrize(
+    ("x_after", "ends"),
+    [
+        ([1, 0, 0], "the +X end stays at +X"),
+        ([-1, 0, 0], "the +X end moves to −X"),
+        # Turned over about X and a quarter turn: the old +X end now lies along Y.
+        ([0, 1, 0], "the +X end moves to +Y"),
+        ([0, -1, 0], "the +X end moves to −Y"),
+    ],
+)
+def test_a_turn_over_names_where_the_old_plus_x_end_goes(x_after, ends):
+    from prechips.inputs import Bundle
+
+    frames = {
+        "first": {"origin": [0, 0, 0], "x": [1, 0, 0], "z": [0, 0, 1]},
+        "turned": {"origin": [0, 0, 0], "x": x_after, "z": [0, 0, -1]},
+    }
+    setups = [
+        {"id": "S1", "machine": "mill", "frame": "first", "ops": []},
+        {"id": "S2", "machine": "mill", "frame": "turned", "stock_in": "S1", "ops": []},
+    ]
+    data = Bundle(
+        plan={"setups": setups},
+        inventory={"machines": {"mill": {"kind": "mill"}}},
+        features={"features": {}, "frames": frames},
+        policy={},
+        cutting_data={},
+        paths={},
+        hashes={},
+        root=Path("."),
+        kernel={"status": "ok", "ops": {}},
+    )
+    assert _Traveler(data, [], {}, None).flip(setups[1]) == (
+        f"Turn the part over: the other face up, {ends}. "
+    )
