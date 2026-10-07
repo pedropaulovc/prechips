@@ -974,7 +974,16 @@ def _table(headings, rows, css="", widths=None, continued=None, repeat=None, str
 
 
 class _Steps(tuple):
-    """An inspection note authored as a list of steps: (heading, steps, calculations)."""
+    """An inspection note authored as a list of steps: (heading, steps, calculations).
+    ``sketch`` is the set-up sketch figure printed with it, if any."""
+
+    sketch = ""
+
+
+class _Note(str):
+    """An inspection note authored as one text, printed with its set-up ``sketch``."""
+
+    sketch = ""
 
 
 # A step's ``{name}`` recording field: printed as a labelled blank to write the reading in.
@@ -1006,6 +1015,7 @@ def _worksheet(item):
 
     return (
         _p("Take each reading at its step and write it in the READINGS table.")
+        + item.sketch
         + '<ol class="steps">'
         + "".join(f"<li>{named(step)}</li>" for step in steps)
         + "</ol><h2>READINGS</h2>"
@@ -1021,10 +1031,11 @@ def _worksheet(item):
 
 def _item(item):
     if not isinstance(item, _Steps):
-        return escape(str(item))
+        return escape(str(item)) + getattr(item, "sketch", "")
     head, steps, calculations = item
     return (
         escape(head)
+        + item.sketch
         + '<ol class="steps">'
         + "".join(f"<li>{_fields(step)}</li>" for step in steps)
         + "</ol>"
@@ -4347,7 +4358,12 @@ class _Traveler:
             method = methods.get(requirement)
             if method and method != "unknown":
                 head = f"{sid} op {op['op']} {name}"
-                line += f" [{place(self.note(head, method))}]"
+                item = self.note(head, method)
+                sketch = self.inspection_sketch(setup, op, requirement)
+                if sketch:
+                    item = item if isinstance(item, _Steps) else _Note(item)
+                    item.sketch = sketch
+                line += f" [{place(item)}]"
             rows.append(line)
         for hold in op.get("process_holds", []):
             rows.append(self.process_hold(hold))
@@ -4359,6 +4375,23 @@ class _Traveler:
             )
             rows.append(f"see {place(item)}")
         return rows or ["—"]
+
+    def inspection_sketch(self, setup, op, requirement):
+        """The figure of the set-up sketches an inspect op declares for ``requirement``
+        (``inspection_views``), drawn by the kernel; a NOT SHOWN line when declared but not
+        drawn; else empty."""
+        if requirement not in _mapping(op.get("inspection_views")):
+            return ""
+        render = _mapping(self.report.get("renders", {}).get(setup["id"]))
+        sketch = _mapping(render.get("inspections")).get(f"{op['op']}:{requirement}")
+        if not sketch:
+            return _p("NOT SHOWN: the set-up sketches for this check could not be drawn.")
+        alt = f"Setup {setup['id']} op {op['op']} {requirement} set-up sketches"
+        return (
+            '<figure class="fixture-render inspection-sketch">'
+            f'<img src="{escape(sketch["path"], quote=True)}" alt="{escape(alt, quote=True)}">'
+            "</figure>"
+        )
 
     def process_hold(self, hold):
         """A shop limit inside the drawing band, printed apart from the drawing's own; a hold

@@ -159,6 +159,42 @@ def test_only_a_coating_op_names_a_process(tmp_path):
         load_bundle(plan)
 
 
+_VIEW = """[[setups.ops.inspection_views.dia]]
+title = "ON V-BLOCKS"
+up = [1.0, 0.0, 0.0]
+toward = [0.0, -1.0, 0.0]
+marks = [{label = "N", at_mm = [6.0, 0.0, 10.0], reads = true}]
+"""
+
+
+@pytest.mark.parametrize(
+    ("op", "error"),
+    [
+        ('do = "inspect"\n', None),
+        ('do = "coating"\nprocess = "cutting-oil"\n', "only an inspect op declares"),
+        ('do = "inspect"\n', "views for dia illustrate no stated inspection method"),
+    ],
+    ids=["illustrating_its_method", "on_a_coating_op", "without_a_method"],
+)
+def test_inspection_views_illustrate_an_inspect_ops_stated_method(tmp_path, op, error):
+    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
+    method = "" if error and "method" in error else 'dia = "Read it {N}."\n'
+    body = (
+        f'{op}feature = "pivot_bearing"\n[setups.ops.checks]\ndia = "micrometers/0-1in"\n'
+        f"[setups.ops.inspection_methods]\n{method}{_VIEW}"
+    )
+    append_op(plan, body)
+    if error is None:
+        (setup,) = [
+            s for s in load_bundle(plan).plan["setups"] if s["id"] == setups(plan)[-1]["id"]
+        ]
+        (view,) = setup["ops"][-1]["inspection_views"]["dia"]
+        assert view["marks"] == [{"label": "N", "at_mm": [6.0, 0.0, 10.0], "reads": True}]
+        return
+    with pytest.raises(BadInput, match=error):
+        load_bundle(plan)
+
+
 # ------------------------------------------------------- multi-feature inspection
 
 SHOULDER = ("shoulder_north_face", "shoulder_thrust")

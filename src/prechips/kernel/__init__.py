@@ -166,7 +166,7 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
             "cut_plane": saw_plane(op.get("cut_plane"), bundle.features.get("units", UNKNOWN)),
         }
     if op.get("do") in HAND_FINISH:
-        return _hand_inputs(bundle, op, subject, finishing)
+        return _hand_inputs(bundle, setup, op, subject, finishing)
     model = approach(bundle, setup, op)
     turned = model == TURNING
     if turned:
@@ -364,9 +364,11 @@ def face_sweep(op, tables, units):
     return {"sweep": {"paths": paths, "to_z_mm": to_z * scale}}
 
 
-def _hand_inputs(bundle, op, subject, finishing):
+def _hand_inputs(bundle, setup, op, subject, finishing):
     """A bench file's kernel inputs: its claims and the policy's ``max_filing_stock_mm``,
-    the most stock a file takes off its claimed faces; it has no machine cutter or holder."""
+    the most stock a file takes off its claimed faces; it has no machine cutter or holder.
+    A file guided by filing buttons held in this setup names the kit's solids by their
+    kernel owner (``guide_owner``): where its cut reaches them is where the file stops."""
     from prechips.rules.coordinates import filing_cap
     from prechips.rules.geometry_common import HAND, finishing_subjects
 
@@ -380,7 +382,25 @@ def _hand_inputs(bundle, op, subject, finishing):
     }
     if "faces" in op:
         result["faces"] = op["faces"]
+    kit = record(op.get("guide")).get("buttons")
+    hold = record(setup.get("hold"))
+    clamps = hold.get("clamps") if isinstance(hold.get("clamps"), list) else []
+    owner = next(
+        (
+            _clamp_owner(index, kit)
+            for index, clamp in enumerate(clamps, start=1)
+            if record(clamp).get("ref") == kit
+        ),
+        kit if hold.get("fixture") == kit else None,
+    )
+    if isinstance(kit, str) and kit != UNKNOWN and owner is not None:
+        result["guide_owner"] = owner
     return result
+
+
+def _clamp_owner(index, reference):
+    """The kernel owner of clamp ``index``'s solids: their tags are ``<owner>:<name>``."""
+    return f"clamp {index} {reference}"
 
 
 def raster_keep_out(tables, op, units):
@@ -868,12 +888,12 @@ def _clamp_inputs(bundle, hold, result, gaps):
         if pose is None:
             debts.append(f"clamp {index} {reference!r} pose is undeclared or not orthonormal")
             continue
-        solids, missing = _solids(item, f"clamp {index} {reference}")
+        solids, missing = _solids(item, _clamp_owner(index, reference))
         debts.extend(missing)
         if solids:
             placed.append(
                 {
-                    "name": f"clamp {index} {reference}",
+                    "name": _clamp_owner(index, reference),
                     "pose": pose,
                     "solids": solids,
                     # Undeclared is no restraint; a press is credited only by the kernel's
@@ -1214,6 +1234,7 @@ _ENGINE_OP = (
     "z_to",
     "angle_window_deg",
     "max_filing_stock_mm",
+    "guide_owner",
     "to_dia_mm",
     *TURNING_TOOL_KEYS,
     *TURNING_HOLDER_KEYS,
