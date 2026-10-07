@@ -101,7 +101,26 @@ field is present; an explicitly unknown operation depth does not fall back.
   the mouth; `tip_z = entry_z - depth_mm`, with `countersink_depth_mm` and
   `drill_length_mm` recorded and `depth_scale = "quill"`. The tailstock quill
   feeds it, so the sheet prints the depth past touching the end on the quill
-  scale, not a carriage DRO Z. An unknown size leaves the depth unknown.
+  scale, not a carriage DRO Z. The depth is only ever the selected tool's own
+  centre, built from every fact the kernel cuts it from (`tool_centre` records
+  the accepted ones): `drill_dia_mm` must equal the tool's `dia` (Table 6 D),
+  `drill_length_mm` its `pilot_len` (Table 6 C, countersink start to point tip)
+  and `countersink_angle_deg` its `angle_deg` (a centre-drill set's centre-seat
+  angle, which a member may override), within 1e-6 mm / 1e-9°; `mouth_dia_mm`
+  must not exceed its body (`shank`, Table 6 A); and its pilot `point_angle`
+  must be an included angle whose point (`dia / 2 / tan(point_angle / 2)`) is
+  shorter than `pilot_len`. The mouth must also be where the quill is touched:
+  `at`, transformed into the setup frame, must lie on the entry surface `entry_z`
+  (1e-6 mm), `axis` must be the setup -Z feed and, on a lathe, the mouth must
+  sit on the spindle axis (setup X = Y = 0, 1e-6 mm) the tailstock quill feeds
+  along (`mouth_z` is recorded). A mismatch is an error; an unknown or
+  unaccepted size, tool fact, mouth or entry surface is unknown (its
+  measurement debt is listed), as is a tool that is not in the inventory or
+  whose record is unconfirmed (`verify` or an unknown flag anywhere on it, as
+  for every endpoint). Either leaves `depth_mm` and `tip_z` unknown, so the
+  sheet prints no quill depth, and the kernel cuts no centre. This row's verdict
+  is the one [`centre_support`](rules-setup.md#centre_support) reads for the
+  centre's maker.
 
 The geometry kernel's spot and drill cutters use the same depth semantics:
 spot depth is the apex tip depth, and drill depth is the full-diameter depth

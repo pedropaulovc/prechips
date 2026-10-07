@@ -49,7 +49,14 @@ series. Collet capacity, range and maximum shank checks are separate. Drill poin
 angle, reamer lead, flute length, projection, holder gauge length and fixture bed
 height are operative geometry, not values to infer from unrelated angles or
 overall dimensions. A centre drill's centre-seat angle is not its drill-point
-angle. `chart` is a source citation, never a downloaded chart.
+angle. A combined drill and countersink (`center_drill_set` member) that drills
+a plan centre must carry its own Table 6 geometry: pilot `dia` (D), `pilot_len`
+(drill length C, countersink start to point tip, point included), countersink
+`angle_deg` (the set's centre-seat angle unless the member overrides it), body
+`shank` (A) and the pilot `point_angle`, all accepted, on a record with no
+`verify` or unknown flag. The plan centre must equal them, and the point must be
+shorter than `pilot_len`; `flute_len` stays the cutting length reach compares.
+`chart` is a source citation, never a downloaded chart.
 
 A limit-gauge set (`pin_gauge`, `pin_gauge_set` or `plug_gauge` for holes;
 `ring_gauge` or `snap_gauge` for a boss or shaft) lists the sizes it physically
@@ -62,7 +69,13 @@ M2 holding checks use explicitly declared `sizes_mm` / `sizes_in` or a two-ended
 `range_mm` / `range_in` for the held stock diameter. A six-inch chuck body
 (`diameter_in`) says nothing about jaw capacity. Tailstock/steady exceptions
 must resolve to actual inventory or a named machine accessory; an unconfirmed
-accessory does not certify support.
+accessory does not certify support. A support's `kind` also says whether it
+carries the work on a centre (`centre_support`): a kind with a whole `centre` /
+`center` word or a `tailstock` is one, and an accessory, which has no record,
+is one when its name has such a word (`tailstock_drill_chuck` is not). A
+support declared `"unknown"`, of unknown kind, or not in the inventory may be
+one, so it is never taken as proof that no centre is used; a known non-centre
+kind stays one whatever `verify` or measurement debt its record carries.
 A `follow_rest` / `steady_rest` fixture that a plan `hold.supports` table
 selects (`{ ref, ops, jaw_lead_mm }` / `{ ref, ops, at_z_mm }`) declares its jaw
 capacity as fact-local measured `capacity_min_mm` / `capacity_max_mm` (or
@@ -592,6 +605,7 @@ on hand.
 | `shank_mm` | `MeasuredLength` (the tool body past its flutes: [`reach`](rules-geometry.md#reach) checks it against the retained stock) |
 | `flute_len_mm` | `MeasuredLength` |
 | `flute_len_in` | `MeasuredLength` |
+| `pilot_len` / `pilot_len_mm` / `pilot_len_in` | `MeasuredLength` (combined drill and countersink: Table 6 drill length C, countersink start to point tip) |
 | `oal_mm` | `MeasuredLength` |
 | `oal_in` | `MeasuredLength` |
 | `gauge_len_mm` | `MeasuredLength` |

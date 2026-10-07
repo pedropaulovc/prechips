@@ -288,13 +288,15 @@ sku = 4859
 by = "lms-package"
 
 # #2 combined drill and countersink: 5/64 in pilot, 3/16 in body. Spots stay
-# shallower than the pilot, so the pilot is the cutting diameter.
+# shallower than the pilot, so the pilot is the cutting diameter. pilot_len is the
+# Table 6 drill length C (countersink start to point tip) a drilled centre's depth uses.
 [tools.center-drills-lms-4859.members."2"]
 dia_mm = { value = 1.98, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the pilot" } }
 shank_in = { value = 0.1875, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer on the body" } }
 flutes = 2
 point_angle = { value = 118, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "drill point gauge" } }
 flute_len_mm = { value = 1.9, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, pilot length" } }
+pilot_len_mm = { value = 1.98, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, countersink start to pilot point tip" } }
 oal_mm = { value = 47.6, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
 
 [tools.center-drills-lms-4859.members."2".projection_mm]

@@ -192,11 +192,21 @@ claim. A `center_drill` op removes the analytic centre (countersink of
 `countersink_angle_deg` to `mouth_dia_mm`, pilot of `drill_dia_mm` and
 `drill_length_mm`, point cone from the tool's verified `point_angle`) led 1 mm
 out of the face, minus protected finished material, along setup -Z through the
-spindle axis; an unknown point angle, a centre not wholly inside the stock, or a
-feed off setup -Z or the spindle axis is a reason, not a removal. Accessibility,
-reach and later stock states then see the cut centre, and a later setup's hold
-`centre_hole` seats its dead centre in that countersink instead of cutting a seat
-from `centre_hole_dia_mm`.
+spindle axis. It removes only the centre the selected tool cuts: the sizes and
+point must be that tool's own accepted Table 6 D, C, angle, body and
+`point_angle`, on a tool record that is confirmed, by the same check as the
+[`blind_depth`](rules-operations.md#blind_depth-tip-endpoints) centre row. It then
+measures the whole combined drill and countersink (point, pilot, countersink
+opening on to the body diameter, body up to the holder's projection) and the
+holder. An unknown or unaccepted tool fact or point angle, an unconfirmed tool
+record, sizes the selected tool does not cut, a centre
+not wholly inside the stock, a mouth with stock over it within the 1 mm lead
+(not on the exposed surface of the stock the op meets after this setup's
+earlier cuts, where the quill is touched), or a feed off setup -Z or the
+spindle axis is a reason, not a removal. Accessibility, reach and later stock
+states then see the cut centre, and a later setup's hold `centre_hole` seats its
+dead centre in that countersink instead of cutting a seat from
+`centre_hole_dia_mm`.
 
 
 ## Approach models

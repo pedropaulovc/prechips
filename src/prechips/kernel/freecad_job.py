@@ -132,8 +132,11 @@ Measurement conventions (setup frame, tool axis +Z):
   claim); a ``centre_hole`` is its exact countersink, pilot and point faces about
   ``axis`` (into the kept material), and its op removes that analytic revolved solid
   (the countersink extended 1 mm out of the face) less component-owned finished material,
-  then measures its pointed pilot and holder like any axial tool on the setup -Z axis.
-  A centre not wholly inside the stock it is drilled in leaves that stock unknown.
+  then measures the whole combined drill and countersink (point, pilot, countersink on to
+  its body, body up to the holder) and its holder like any axial tool on the setup -Z axis.
+  The op inputs carry only a centre the selected tool's own facts make. A centre not
+  wholly inside the stock it is drilled in, or whose mouth has stock over it (not on the
+  exposed surface the quill touches), leaves that stock unknown.
 * Rotary (mill ops with ``approach = "rotary"``; dividing-head setups): the head
   axis is the chuck pose z through its origin and must be perpendicular to setup Z
   (otherwise the op is unsupported). Claimable portions are the positive-area
@@ -1509,6 +1512,30 @@ def _plunge(x, y, tip, radius, slope, top, seat=None):
         return _cutter(x, y, tip, radius, slope, top - tip)
     flute, shank, rise = seat
     return _cutter(x, y, tip, radius, slope, flute, (shank, rise), top - tip - flute - rise)
+
+
+def _centre_drill_cutter(cut, x, y, tip, length):
+    """The whole combined drill and countersink of centre ``cut`` on vertical axis (x, y),
+    its point at ``tip`` and ``length`` mm long: the pilot point and pilot, the countersink
+    opening on through the mouth to the body diameter, then the body. Every surface sits
+    ``LIFT`` inside the centre it cuts, so only stock outside that centre registers."""
+    drill, body = cut["drill_dia_mm"] / 2, cut["body_dia_mm"] / 2
+    slope = math.tan(math.radians(cut["countersink_angle_deg"] / 2))
+    point = drill / math.tan(math.radians(cut["point_angle_deg"] / 2))
+    shoulder = tip + cut["drill_length_mm"]  # the pilot meets the countersink
+    body_z = shoulder + (body - drill) / slope
+    top = tip + length
+    if top <= body_z + LIFT:
+        raise _Unknown(f"{cut['label']}: the tool projection ends inside its countersink")
+    profile = [
+        V(x, y, tip + LIFT),
+        V(x + drill - LIFT, y, tip + point + LIFT),
+        V(x + drill - LIFT, y, shoulder + LIFT),
+        V(x + body - LIFT, y, body_z + LIFT),
+        V(x + body - LIFT, y, top),
+        V(x, y, top),
+    ]
+    return Part.Face(Part.makePolygon(profile + profile[:1])).revolve(V(x, y, tip), Z, 360)
 
 
 def _tool_hits_box(cylinder, box, solid=None):
@@ -3832,9 +3859,15 @@ class _Setup:
             self.joint_errors[self._subject(op)] = str(exc)
             return None, str(exc)
 
-    def _process_removal(self, op, stock):
+    def _process_removal(self, op, stock, meets=None):
         """(the analytic centre an axial process op drills in ``stock``, or None, and why
-        it is unknown). Finished material stays, so a tool reaching it hits the part."""
+        it is unknown). Finished material stays, so a tool reaching it hits the part.
+
+        The centre must lie wholly inside the stock with its mouth on the exposed surface
+        of the stock the op meets (``meets``, default ``stock``): the quill depth is fed
+        from touching that surface, so stock over the mouth, inside the cone the
+        countersink leads 1 mm out of the face along, is a buried mouth the tool would
+        reach only by cutting a different centre."""
         cut = op["process_cut"]
         if cut.get("reason"):
             return None, cut["reason"]
@@ -3851,6 +3884,12 @@ class _Setup:
             return None, (
                 f"{cut['label']} is not wholly inside the stock it is drilled in "
                 f"({_r(outside)} mm^3 outside)"
+            )
+        buried = (stock if meets is None else meets).common(led.cut(exact)).Volume
+        if buried > HIT_MM3:
+            return None, (
+                f"{cut['label']} mouth is not on the stock's exposed surface "
+                f"({_r(buried)} mm^3 of stock over it within 1 mm)"
             )
         removal = stock.common(led)
         if self.protected.Volume > HIT_MM3:
@@ -7684,10 +7723,15 @@ class _Setup:
         return self._axial_facts(op, after, entry, tip, slope)
 
     def _process_axial_op(self, op):
-        """A centre drill's pointed pilot and holder, fed along setup -Z to the centre's
-        full depth (``process_cut``); on a lathe the centre lies on the spindle axis."""
+        """A centre drill fed along setup -Z to the centre's full depth (``process_cut``):
+        the whole combined drill and countersink (point, pilot, countersink, body) up to its
+        holder, then the holder; on a lathe the centre lies on the spindle axis. Its mouth
+        must be on the surface of the stock this setup's earlier cuts leave."""
         cut = op["process_cut"]
-        removal, reason = self._process_removal(op, self.part)
+        before, why = self._checkpoint_before(op)
+        if why is not None:
+            return self._op_unknown(op, why)
+        removal, reason = self._process_removal(op, self.part, before)
         if reason:
             return self._op_unknown(op, reason)
         after = self.part if removal is None else self.part.cut(removal)
@@ -7702,11 +7746,21 @@ class _Setup:
             return self._op_unknown(
                 op, f"{cut['label']} is off the spindle axis the tailstock tool feeds along"
             )
-        slope = math.tan(math.radians(cut["point_angle_deg"] / 2))
-        return self._axial_facts(op, after, entry, entry.z - cut["depth_mm"], slope)
+        tip = entry.z - cut["depth_mm"]
+        projection = _positive(op, "projection_mm")
+        try:
+            if projection is None:
+                raise _Unknown("axial tool projection is unmeasured")
+            tool = _centre_drill_cutter(cut, entry.x, entry.y, tip, projection)
+        except _Unknown as exc:
+            tool = str(exc)
+        return self._axial_facts(op, after, entry, tip, None, tool)
 
-    def _axial_facts(self, op, after, entry, tip, slope):
-        """Centred axial tool (pointed when ``slope``) and holder hits on ``after`` stock."""
+    def _axial_facts(self, op, after, entry, tip, slope, tool=None):
+        """Centred axial tool (pointed when ``slope``) and holder hits on ``after`` stock.
+
+        ``tool`` is a whole cutter solid that replaces the radius/flute model, or why that
+        solid is unknown."""
         radius = _positive(op, "radius_mm")
         flute = _positive(op, "flute_len_mm")
         facts = {
@@ -7720,7 +7774,11 @@ class _Setup:
             "min_hits": {"tool": 0, "holder": 0},
         }
         solids = {}
-        if radius is not None and flute is not None:
+        if isinstance(tool, str):
+            facts["reasons"]["tool_hits"] = tool
+        elif tool is not None:
+            solids["tool"] = tool
+        elif radius is not None and flute is not None:
             if radius <= LIFT:
                 facts["reasons"]["tool_hits"] = "axial tool radius is below modelling clearance"
             else:

@@ -198,8 +198,8 @@ Hold = record(
         # The countersink mouth of the work's centre hole at its end face: the dead centre
         # seats in a cone of its own point angle that opens to this diameter.
         "centre_hole_dia_mm": Number,
-        # The plan.process_features centre_hole the dead centre rides in, made by an op of
-        # an earlier setup in this setup's stock_in lineage (checked by centre_support).
+        # The plan.process_features centre_hole the dead or live centre rides in, made by an
+        # op of an earlier setup in this setup's stock_in lineage (checked by centre_support).
         "centre_hole": str,
         "clamps": list[ClampPlacement],
         # Diagram annotations: action order references the 1-based clamps array.
@@ -1134,6 +1134,11 @@ InventoryItem = record(
                 "flute_len",
                 "flute_len_mm",
                 "flute_len_in",
+                # Combined drill and countersink pilot length, countersink start to point
+                # tip (Machinery's Handbook Table 6 drill length C).
+                "pilot_len",
+                "pilot_len_mm",
+                "pilot_len_in",
                 "gauge_dia",
                 "gauge_dia_mm",
                 "gauge_dia_in",
@@ -1271,6 +1276,8 @@ _INVENTORY_LENGTH_STEMS |= {"capacity_min", "capacity_max"}
 _INVENTORY_LENGTH_STEMS |= {"blade_width"}
 # Rotary table work capacity and T-slot width.
 _INVENTORY_LENGTH_STEMS |= {"max_work", "t_slot_width"}
+# Combined drill and countersink pilot length (Table 6 C).
+_INVENTORY_LENGTH_STEMS |= {"pilot_len"}
 
 
 def _inventory_lengths(

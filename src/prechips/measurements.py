@@ -200,6 +200,12 @@ def measurement_entry(category, identity, field):
         description = "installed tool insertion from holder exit face"
     elif field == "lead":
         description = "reamer lead length"
+    elif field == "pilot_len":
+        description = "centre drill pilot length, countersink start to point tip (Table 6 C)"
+        instrument = "calipers"
+    elif field == "angle_deg":
+        description = "centre drill countersink included angle"
+        instrument, units = "protractor", "degrees"
     return {
         "id": identity_field,
         "instruction": f"measure: {identity} {description}, {instrument}, {units}",
