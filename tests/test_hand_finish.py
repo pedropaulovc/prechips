@@ -127,26 +127,32 @@ def test_a_filed_face_is_covered_and_finished_only_once_the_kernel_filed_it(
         assert row.status == status, (rule.__name__, row.sentence)
 
 
+CITED = {"max_filing_stock_mm": "example filing cap"}
+
+
 @pytest.mark.parametrize(
-    "numbers,verify,cap",
+    "numbers,verify,cite,cap",
     [
-        ({"max_filing_stock_mm": CAP}, {"max_filing_stock_mm": False}, CAP),
-        ({"max_filing_stock_mm": CAP}, {"max_filing_stock_mm": True}, "unknown"),
-        ({"max_filing_stock_mm": 0.0}, {}, 0.0),
-        ({"max_filing_stock_mm": -0.1}, {}, "unknown"),
-        ({}, {}, "unknown"),
+        ({"max_filing_stock_mm": CAP}, {"max_filing_stock_mm": False}, CITED, CAP),
+        ({"max_filing_stock_mm": CAP}, {"max_filing_stock_mm": True}, CITED, "unknown"),
+        ({"max_filing_stock_mm": CAP}, {"max_filing_stock_mm": False}, {}, "unknown"),
+        ({"max_filing_stock_mm": 0.0}, {}, CITED, 0.0),
+        ({"max_filing_stock_mm": -0.1}, {}, CITED, "unknown"),
+        ({}, {}, {}, "unknown"),
     ],
-    ids=["verified", "to-verify", "zero", "negative", "absent"],
+    ids=["verified", "to-verify", "uncited", "zero", "negative", "absent"],
 )
 def test_the_kernel_bounds_a_file_by_the_verified_policy_cap(
     bundle,  # noqa: F811
     numbers,
     verify,
+    cite,
     cap,
 ):
     _filed(bundle, {})
     bundle.policy["numbers"] = numbers
     bundle.policy["numbers_verify"] = verify
+    bundle.policy["numbers_cite"] = cite
     [setup] = build_job(bundle)["setups"]
     [op] = setup["ops"]
     assert op["approach"] == "hand" and op["finishing"] is True

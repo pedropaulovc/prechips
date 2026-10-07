@@ -6211,8 +6211,9 @@ class _Setup:
     def _clipped_sketch(self, annotation):
         """(sketch paths, waypoints, render debts): the annotation's sketch plus each bounded
         op's clipped printed paths (:meth:`_clip_checkpoints`), keyed like the tables by
-        their row ``rows`` ids: an arc piece at its ends and apex, a join at every point. A
-        bounded op whose clip is unknown draws no path, only a debt; no unclipped path."""
+        their row ``rows`` ids: an arc piece at its ends and apex, a stair-stepped join at
+        its ends and miters, any other join at every point. A bounded op whose clip is
+        unknown draws no path, only a debt; no unclipped path."""
         paths = list(annotation.get("paths", []))
         waypoints = [dict(waypoint) for waypoint in annotation.get("waypoints", [])]
         debts = []
@@ -6230,8 +6231,13 @@ class _Setup:
                     continue
                 paths.append({"op": name, "xy": points, "directed": path.get("directed") is True})
                 count = len(points)
-                arc = path["kind"] == "arc_table"
-                keys = sorted({0, count // 2, count - 1}) if arc else range(count)
+                if path["kind"] == "arc_table":
+                    keys = sorted({0, count // 2, count - 1})
+                elif path.get("stepped") is True:
+                    miters = (i for i, flag in enumerate(path["overshoot"]) if flag)
+                    keys = sorted({0, count - 1, *miters})
+                else:
+                    keys = range(count)
                 for index in keys:
                     point = points[index]
                     match = next(

@@ -19,18 +19,17 @@ from test_headroom import coordinate_bundle
 from prechips.inputs import load_bundle
 from prechips.rules import coordinates
 
-# A concave R10 arc about the model origin ending at (+-6, -8): the 6 mm cutter runs its
-# centre on R7 from (-4.2, -5.6) through (0, -7) to (4.2, -5.6). Frame A puts setup XY at
-# model XY - (5, 2): the path spans setup x -9.2..-0.8, y -9..-7.6, about (-5, -2).
+# A concave R10 arc about the model origin ending at (+-6, -8). Rough stairs leave
+# 0.2 mm radial allowance with the 6 mm cutter; frame A subtracts (5, 2) from model XY.
 ARC = "kind = 'profile'\nradius = 10.0\narc_centre = [0.0, 0.0, 0.0]\nend = [6.0, -8.0, 0.0]\n"
 CENTRE = (-5.0, -2.0)
 ROCKER = Path(__file__).resolve().parents[1] / "examples/rocker-arm/plan.toml"
 SUBJECT = "S1:20"
-TABLE = "S1:20 finish arc"
+TABLE = "S1:20 rough arc"
 CONTACT = "first contact with stock outside stock_removal_bounds"
 
 
-def plan(tmp_path, bounded=True, do="finish_profile", resolution=None, band=None):
+def plan(tmp_path, bounded=True, do="rough_profile", resolution=None, band=None):
     """S1 op 20 cutting the arc to Z -2.07825, bounded by a box unless ``bounded`` is
     False; the mill declares ``resolution`` mm and the arc a thickness ``band``."""
     bounds = (
@@ -40,10 +39,18 @@ def plan(tmp_path, bounded=True, do="finish_profile", resolution=None, band=None
     )
     path = coordinate_bundle(
         tmp_path,
-        ARC,
+        ARC
+        if do == "rough_profile"
+        else "kind = 'plane'\nbounds = { x = [0.0, 20.0], y = [0.0, 10.0], z = [-5.0, 0.0] }\n",
         f"[[setups.ops]]\nop = 20\ndo = '{do}'\nfeature = 'target'\n"
         "tool = 'cutter'\nto_z = -2.07825\ndirection = 'conventional'\n"
-        "contour = { method = 'arc_table', step_deg = 5.0 }\n" + bounds,
+        "rough_allowance_mm = 0.2\n"
+        + (
+            "contour = { method = 'stairs', cusp_mm = 0.1 }\n"
+            if do == "rough_profile"
+            else "contour = { method = 'linear_table' }\n"
+        )
+        + bounds,
     )
     root = path.parent
     if band is not None:
@@ -115,7 +122,7 @@ def wall_distance(xy):
 def test_without_a_kernel_clip_a_bounded_table_prints_nothing_and_is_unknown(tmp_path, result, why):
     row = finding(plan(tmp_path), kernel=result)
     assert row.status == "unknown"
-    assert f"op 20 finish: its bounds clip is unknown: {why}" in row.sentence, row.sentence
+    assert f"op 20 rough: its bounds clip is unknown: {why}" in row.sentence, row.sentence
     assert row.numbers["arc_table"] == [] and row.numbers["line_table"] == []
     assert coordinates.checkpoints(SUBJECT, row.numbers, 20) == []
     (profile,) = row.numbers["profiles"]
@@ -177,7 +184,7 @@ def test_a_path_the_clip_splits_is_fragments_and_debt_never_reconnected(tmp_path
         [f"{TABLE} fragment 2 row {i}" for i in range(count - 10)],
     ]
     for piece in (first, second):
-        assert (piece["stage"], piece["allowance_mm"], piece["offset_mm"]) == ("finish", 0, 3.0)
+        assert (piece["stage"], piece["allowance_mm"], piece["offset_mm"]) == ("rough", 0.2, 3.2)
 
 
 def test_a_clip_with_no_legal_part_prints_nothing_and_is_unknown(tmp_path):
@@ -240,7 +247,7 @@ def test_a_finish_depth_the_dro_leaves_above_its_face_past_its_band_is_an_error(
 def test_rocker_join_records_carry_their_stage_allowance_and_offset():
     bundle = load_bundle(ROCKER)
     for row in coordinates.evaluate(bundle, pre_kernel=True):
-        for table in (*row.numbers["arc_table"], *row.numbers["line_table"]):
+        for table in (*row.numbers.get("arc_table", []), *row.numbers.get("line_table", [])):
             radius = next(
                 p["cutter_radius_mm"]
                 for p in row.numbers["profiles"]
@@ -254,15 +261,6 @@ def test_rocker_join_records_carry_their_stage_allowance_and_offset():
             assert table["offset_mm"] == pytest.approx(radius + allowance), table
 
 
-def _to_model(point, setup, model):
-    """``point`` (setup XY) in model XY by the affine map three point pairs fix."""
-    (a, b, c), (p, q, r) = setup, model
-    e, f, d = ([w[i] - a[i] for i in range(2)] for w in (b, c, point))
-    det = e[0] * f[1] - e[1] * f[0]
-    u, v = (d[0] * f[1] - d[1] * f[0]) / det, (e[0] * d[1] - e[1] * d[0]) / det
-    return [p[i] + u * (q[i] - p[i]) + v * (r[i] - p[i]) for i in range(2)]
-
-
 def _to_segment(point, a, b):
     delta = [b[i] - a[i] for i in range(2)]
     t = sum((point[i] - a[i]) * delta[i] for i in range(2)) / (delta[0] ** 2 + delta[1] ** 2)
@@ -273,13 +271,15 @@ def _to_segment(point, a, b):
 def test_printed_join_points_keep_the_authored_offset_from_every_land_and_taper():
     bundle = load_bundle(ROCKER)
     features = bundle.feature_definitions
+    frames = bundle.features["frames"]
+    setups = {setup["id"]: setup for setup in bundle.plan["setups"]}
     lines = [
-        line
+        (line, coordinates.setup_frame(bundle, setups[row.subject]))
         for row in coordinates.evaluate(bundle, pre_kernel=True)
         for line in row.numbers.get("line_table", [])
     ]
     assert lines
-    for line in lines:
+    for line, frame in lines:
         outer = features[line["feature"]]
         top = features[outer["top_edge_feature"]]
         side, x0 = (1 if line["side"] == "+X" else -1), outer["arc_centre"][0]
@@ -288,6 +288,7 @@ def test_printed_join_points_keep_the_authored_offset_from_every_land_and_taper(
             for p in (top["end"], outer["radial_tip_end"], outer["bottom_end"])
         ]
         for printed in line["dro_xy"]:
-            at = _to_model(printed, line["setup_xy"], line["model_xy"])
+            world = coordinates.model_point([*printed, 0.0], frame)
+            at = coordinates.frame_point(world, frames[outer["frame"]])[:2]
             for a, b in zip(ends, ends[1:], strict=False):
                 assert _to_segment(at, a, b) >= line["offset_mm"] - 1e-9, (line, printed)

@@ -479,7 +479,7 @@ def coordinate_bundle(tmp_path, feature, operations):
         encoding="utf-8",
     )
     (root / "inventory.toml").write_text(
-        "[machines.mill]\nkind = 'mill'\nverify = false\ncontouring = 'mdi'\n"
+        "[machines.mill]\nkind = 'mill'\nverify = false\n"
         "[machines.mill.spindle]\nrotation = 'cw'\n"
         "[tools.cutter]\nkind = 'endmill'\ndia_mm = 6.0\nverify = false\n"
         "[tools.spot]\nkind = 'center_drill'\ndia_mm = 6.0\npoint_angle = 90.0\n"
@@ -488,7 +488,13 @@ def coordinate_bundle(tmp_path, feature, operations):
         "verify = false\n",
         encoding="utf-8",
     )
-    (root / "policy.toml").write_text('[required]\ncoordinates = "*"\n', encoding="utf-8")
+    (root / "policy.toml").write_text(
+        '[required]\ncoordinates = "*"\n'
+        "[numbers]\nmax_filing_stock_mm = 0.5\n"
+        "[numbers_cite]\nmax_filing_stock_mm = 'scratch shop filing limit'\n"
+        "[numbers_verify]\nmax_filing_stock_mm = false\n",
+        encoding="utf-8",
+    )
     (root / "cutting.toml").write_text("revision = 1\n", encoding="utf-8")
     return plan
 
@@ -542,23 +548,31 @@ def test_worked_located_feature_needs_complete_reference_point(
     assert "PLANNED" in html
 
 
-@pytest.mark.parametrize("method", ["arc_table", "linear_table"])
 @pytest.mark.parametrize(
-    "action,allowance_field,allowances",
+    "method,action,allowance_field,allowances",
     [
-        ("profile", "rough_allowance_mm = 0.3\n", [0.3, 0.0]),
-        ("rough_profile", "rough_allowance_mm = 0.3\n", [0.3]),
-        ("rough_profile", "stock_to_leave_mm = 0.3\n", [0.3]),
-        ("finish_profile", "", [0.0]),
+        ("linear_table", "profile", "rough_allowance_mm = 0.3\n", [0.3, 0.0]),
+        ("linear_table", "rough_profile", "rough_allowance_mm = 0.3\n", [0.3]),
+        ("linear_table", "rough_profile", "stock_to_leave_mm = 0.3\n", [0.3]),
+        ("linear_table", "finish_profile", "", [0.0]),
+        ("stairs", "rough_profile", "rough_allowance_mm = 0.3\n", [0.3]),
+        ("stairs", "rough_profile", "stock_to_leave_mm = 0.3\n", [0.3]),
     ],
-    ids=["combined", "rough", "rough-stock-to-leave", "finish"],
+    ids=[
+        "combined",
+        "rough",
+        "rough-stock-to-leave",
+        "finish",
+        "stairs-rough",
+        "stairs-stock-to-leave",
+    ],
 )
 def test_contour_allowances_produce_actual_rough_and_finish_targets(
     tmp_path, freecad_kernel, method, action, allowance_field, allowances
 ):
     feature = (
         "kind = 'boss'\nat = [20.0, 10.0, 0.0]\ndia = 20.0\n"
-        if method == "arc_table"
+        if method == "stairs"
         else "kind = 'plane'\nbounds = { x = [0.0, 20.0], y = [0.0, 10.0], z = [0.0, 1.0] }\n"
     )
     plan = coordinate_bundle(
@@ -567,7 +581,7 @@ def test_contour_allowances_produce_actual_rough_and_finish_targets(
         f"[[setups.ops]]\nop = 20\ndo = '{action}'\nfeature = 'target'\n"
         "tool = 'cutter'\nto_z = -1.0\ndirection = 'conventional'\n"
         + allowance_field
-        + f"contour = {{ method = '{method}', step_deg = 90.0 }}\n",
+        + f"contour = {{ method = '{method}', cusp_mm = 0.1 }}\n",
     )
     result, report, html = traveler(plan, tmp_path / "out")
     finding = coordinate_finding(report)
@@ -581,7 +595,7 @@ def test_contour_allowances_produce_actual_rough_and_finish_targets(
         assert profile["tool_nominal_dia_mm"] == 6.0
         assert profile["cutter_radius_mm"] == 3.0
         assert profile["rough_allowance_mm"] == (allowance if allowance else "not_applicable")
-        if method == "arc_table":
+        if method == "stairs":
             arc = next(arc for arc in numbers["arc_table"] if arc["allowance_mm"] == allowance)
             assert arc["cutter_centre_radius_mm"] == pytest.approx(13.0 + allowance)
             assert arc["rows"][0]["model_xy"] == pytest.approx([33.0 + allowance, 10.0])
@@ -607,9 +621,7 @@ def test_contour_allowances_produce_actual_rough_and_finish_targets(
         first_row = re.search(r"<tbody><tr>(.*?)</tr>", table, re.DOTALL).group(1)
         cells = dict(zip(headings, re.findall(r"<td[^>]*>(.*?)</td>", first_row), strict=True))
         assert [float(cells["X"]), float(cells["Y"])] == pytest.approx(
-            [28.0 + allowance, 8.0]
-            if method == "arc_table"
-            else [-8.0 - allowance, -5.0 - allowance]
+            [28.0 + allowance, 8.0] if method == "stairs" else [-8.0 - allowance, -5.0 - allowance]
         )
 
 
@@ -637,21 +649,22 @@ kind = "profile"
 top_edge_feature = "target"
 radial_tip_end = [-10.0, -8.0, 0.0]
 """,
-        "[[setups.ops]]\nop = 20\ndo = 'finish_profile'\nfeature = 'target'\n"
+        "[[setups.ops]]\nop = 20\ndo = 'rough_profile'\nfeature = 'target'\n"
         "tool = 'cutter'\nto_z = -1.0\ndirection = 'conventional'\n"
-        "contour = { method = 'arc_table', step_deg = 5.0 }\n",
+        "rough_allowance_mm = 0.2\ncontour = { method = 'stairs', cusp_mm = 0.1 }\n",
     )
     data = load_bundle(plan)
     known = coordinates.evaluate(data)[0]
     assert known.status == "pass"
     (arc,) = known.numbers["arc_table"]
-    # The 6 mm cutter offsets the R10 arc to R7 and the horizontal lands to Y-5.
-    assert arc["cutter_centre_radius_mm"] == pytest.approx(7.0)
+    # The 6 mm cutter with 0.2 mm allowance offsets R10 to R6.8, lands to Y-4.8.
+    assert arc["cutter_centre_radius_mm"] == pytest.approx(6.8)
     # Endpoints are the land intersections; which comes first is the cutting order.
     ends = sorted([arc["rows"][0], arc["rows"][-1]], key=lambda row: row["model_xy"][0])
-    assert ends[0]["model_xy"] == pytest.approx([-(24.0**0.5), -5.0])
-    assert ends[1]["model_xy"] == pytest.approx([24.0**0.5, -5.0])
-    assert ends[0]["setup_xy"] == pytest.approx([-(24.0**0.5) - 5.0, -7.0])
+    endpoint = (6.8**2 - 4.8**2) ** 0.5
+    assert ends[0]["model_xy"] == pytest.approx([-endpoint, -4.8])
+    assert ends[1]["model_xy"] == pytest.approx([endpoint, -4.8])
+    assert ends[0]["setup_xy"] == pytest.approx([-endpoint - 5.0, -6.8])
     linked = data.features["features"][linked_feature]
     if corruption == "missing":
         linked["radial_tip_end"] = "unknown"
@@ -661,5 +674,5 @@ radial_tip_end = [-10.0, -8.0, 0.0]
     assert finding.status == "unknown"
     assert finding.numbers["arc_table"] == []
     (top,) = finding.numbers["profiles"]
-    assert top["offset_mm"] == pytest.approx(3.0)
+    assert top["offset_mm"] == pytest.approx(3.2)
     assert top["cutter_centre"] == "unknown"

@@ -118,11 +118,11 @@ table. Each profile, arc and exact line-join record names its `stage` (`rough`
 or `finish`), so the report and traveler distinguish the two paths even when
 they share one operation number. Axial dome samples remain nominal profiles,
 not an allowance/tool-nose-compensated rough path.
-`arc_table` uses explicit centres, nominal radii and known finite geometry:
+Arc contours use explicit centres, nominal radii and known finite geometry:
 a boss is a full circle, a declared upper semicircle is 0–180°, and finite
 rocker arcs derive endpoint angles.
-Internal/top arcs subtract offset; outside/bottom arcs add it. Samples include
-exact endpoints and angular grid checkpoints. `start_deg`/`end_deg` are accepted
+Internal/top arcs subtract offset; outside/bottom arcs add it. Rows include
+exact endpoints. `start_deg`/`end_deg` are accepted
 schema fields but the current rule derives bounds from geometry rather than
 using those fields to override the arc. Finite arc records include exact offset
 joins. Every feature linked through `top_edge_feature` contributes its upper
@@ -132,41 +132,74 @@ unknown or inconsistent linked join leaves the top table unknown. The lower
 outline also supplies its line-line miter and bottom line-circle intersection,
 with mirrored sides explicit. Degenerate joins do not become invented paths.
 
-**Machine contouring.** A row reached by an arc or a diagonal move (both axes
-at once) is cut the way the setup machine's inventory `contouring` says
-([inventory](inventory.md)):
+**Manual arcs.** The mill is manual: one handwheel moves at a time, so no
+printed move turns two axes together (no MDI, no G-code, no continuous
+circle). An arc is cut by one of four `contour.method`s
+([plan](plan.md#manual-arcs)); authoring the former `arc_table` is an error
+naming them. Each table is recorded under `arc_table` (its joins under
+`line_table`) with its `method`.
 
-- `mdi`: each printed row carries the one MDI move that reaches it (`mdi`),
-  printed beside the row with the op's `speeds_feeds` feed: `G1 X.. Y.. F..` to
-  a table's first row, to and from a kernel clip point and along each join or
-  outline edge; between arc rows `G2` (clockwise in the setup top view) or `G3`
-  (counterclockwise) `X.. Y.. I.. J.. F..`, with I and J the arc centre less
-  the previous printed row. Only an `mdi` full circle is called a continuous
-  circle.
-- `jog`: one handwheel axis per row. Arc rows add each angle at which the arc
-  is tangent to a setup axis, so every step between rows is monotone, and a
-  corner row (no angle) between two rows that differ on both axes turns one
-  axis, then the other: `(b.x, a.y)` or `(a.x, b.y)`, whichever keeps both legs
-  no nearer any wall than the cutter-centre offset (or than the rows it joins,
-  if nearer) and lies farther from the walls; neither keeping clear leaves the
-  stage unknown and unprinted. Each row names the axis moved to reach it
-  (`jog`). The record's `stair_cusp_mm` is the most material a point of the
-  stage's target surface (its allowance off a wall, never past a wall's end)
-  keeps from the stepped cutter; a diagonal join steps once per printed point,
-  so a long join leaves a large cusp. A finish stage holds its largest cusp,
-  arc or join, to the arc feature's band on the material side
-  (`stair_band_mm`): `dia` (halved) for a full circle, `bottom_radius` or
-  `radius` otherwise, from nominal to the upper limit when the cutter runs
-  outside the wall radius, else to the lower limit. More than the band is an
-  error and withholds the stage's rows; no numeric band leaves it unknown. A
-  rough stage's cusp is recorded but not held: its finish pass removes it.
-  Single-axis stairs along a diagonal `linear_table` outline edge are not
-  computed and stay unknown.
-- absent, `"unknown"` or `verify = true`: the rows are checkpoints only and
-  the finding is unknown, never pass.
+- `stairs` (rough only; spaced by `cusp_mm`): rows include each angle at which
+  the arc is tangent to a setup axis, so every step between rows is monotone,
+  and are spaced as far apart as keeps the material the stepped cutter leaves
+  on the wall within `cusp_mm`, measured on the printed DRO values: when
+  rounding to the DRO grid leaves more, the rows are respaced closer (a stair
+  still over `cusp_mm` is unknown). A corner row (no angle) between two rows
+  that differ on both axes turns one axis, then the other: `(b.x, a.y)` or
+  `(a.x, b.y)`, whichever keeps both legs no nearer any wall than the
+  cutter-centre offset (or than the rows it joins, if nearer) and lies farther
+  from the walls. Consecutive legs on one axis are one move, so each move turns
+  the other handwheel and no handwheel reverses inside a move: a tangent row in
+  the middle of a move (a concave arc's lowest point, which the move then stops
+  short of) is not printed. Each row names the axis moved to reach it (`jog`).
+  Straight joins are split so their stairs keep the same cusp. The record
+  carries `stair_cusp_mm` (the most material a target-surface point keeps from
+  the stepped cutter), `line_clear_mm` (the least gap from the stepped cutter's
+  edge to the finished line) and `stock_left_mm` (allowance + cusp). No corner
+  that keeps outside the line, or a `line_clear_mm` below zero, is an error
+  and withholds the stage's rows.
+- `chain_drill` (rough only; holes no more than `pitch_mm` apart along the
+  rough path, drilled with the op's drill): every hole's full diameter must stay
+  outside the line (`hole_clear_mm` ≥ 0) and neighbours must leave a web
+  (centres more than a drill diameter apart); either failure is an error. The
+  webs are broken out along the hole centres (`break_out`), so the file meets
+  `stock_left_mm` = allowance + drill radius.
+- `chords` (finish; `count` straight chords): the chord ends sit on the edge
+  radius that centres each chord's sagitta `c²/8R` in the feature's radial band
+  (`dia` halved for a full circle, `bottom_radius` or `radius` otherwise); a
+  sagitta wider than the band is an error. Each chord is fed along one table
+  axis: as it lies when it is square to X or Y, else with the work indexed
+  square to X on the setup's rotary table (`index_deg`, rounded to the dial's
+  resolution); a slanted chord with no rotary table is an error. Each `cut`
+  locks one axis `at` a DRO-grid value on the scrap side and feeds the other
+  `from`/`to` grid values; the rule rebuilds every chord face from those printed
+  cuts and holds its nearest and farthest points (`face_radius_mm`) inside the
+  band, else an error.
+- `rotary_table` (finish; rows every `step_deg`): the setup holds the work on
+  an inventory `rotary_table` fixture (`hold.fixture`), with the arc centre on
+  the table axis at setup X0 Y0, located by a pin through (`centre_by = "pin"`)
+  or by indicating (`"indicate"`) `contour.centre_feature`, a hole on that axis
+  an earlier drill, ream or bore makes. The spindle locks at X = the
+  cutter-centre radius, Y0 (`offset_axis`, `offset_mm`); the table turns the
+  work against the cutter from the `start_deg` to the `stop_deg` dial reading,
+  both rounded inward to the vernier (else graduation) resolution, and the
+  setup-entry stock (kernel `stock_bbox_mm`) must swing inside the table's
+  `max_work`. Off-axis centres, no table, no earlier centre hole or a swing over
+  `max_work` are errors; unknown dial, centre or swing facts are unknown.
 
-Rasters and outlines whose edges are all axis-parallel need no declared
-contouring.
+A rough stage's leftover (`stock_left_mm`) goes to the file
+(`rules/manual_arc.py`, `file_to_line`) and must not exceed the shop policy
+`numbers.max_filing_stock_mm` (`stock_cap_mm`), else an error. The cap is
+unknown, never zero or a pass, when absent, negative, uncited or not marked
+`numbers_verify.max_filing_stock_mm = false`. A rough whose claimed faces a
+later `stairs`/`chain_drill`/`chords`/`rotary_table` op cuts again before any
+file reaches them leaves its stock to that op (`recut_by`) instead of the cap.
+Rough methods on a finish stage are an error (`file_to_line` finishes them);
+finish methods cannot be clipped by `stock_removal_bounds` (unknown); methods
+other than `stairs` along straight joins are unknown. A diagonal edge on a
+`linear_table` outline is unknown: single-axis stairs along an outline are not
+computed. Rasters and outlines whose edges are all axis-parallel need no
+manual-arc method.
 
 `linear_table` transforms explicit box bounds (or `sweep_bounds` in
 `sweep_frame`). Exterior rectangular paths expand by offset. Pockets and faces
@@ -330,18 +363,22 @@ A finish depth the DRO leaves above its face past the feature's band appends:
 
 ` DRO depth rounding error: op {op} prints Z {dro} for to_z {to_z}: … .`
 
-An arc stage, or a closed outline with a diagonal edge, on a machine whose
-`contouring` is not proven (or a diagonal outline on a `jog` machine), a `jog`
-arc whose rows cannot be stepped, or a `jog` finish stair with no numeric band
-appends (unknown):
+A closed `linear_table` outline with a diagonal edge appends (unknown):
 
-` Moves between rows are unproven: op {op} {stage} {reason}.` (`;`-joined)
+` Moves between rows are unproven: op {op} {stage} needs diagonal moves: … .`
 
-A `jog` finish stair that leaves more than the feature's band appends (error;
-the stage's rows are withheld and its `stair_reason` prints as the contour
-STOP):
+A manual arc that cuts into the part or cannot be cut (a stair or hole inside the
+line, leftover over the filing cap, a sagitta or chord face outside the band, a
+slanted chord without a rotary table, a rotary-table recipe off its axis, or an
+authored `arc_table`) appends (error; the stage's rows are withheld, numbers
+`arc_errors`):
 
-` Single-axis stair error: op {op} finish: single-axis steps leave {cusp} on {feature}, more than its {band} band.`
+` Manual arc error: op {op} {stage}: … .` (`;`-joined)
+
+Unknown manual-arc inputs (cutter, cusp/pitch/count/step, filing cap, rotary
+dial, centre or swing) append (unknown; numbers `arc_debts`):
+
+` Manual arc debt: op {op} {stage}: … .` (`;`-joined)
 
 Blade grooves: a `form_*`/groove op whose tool is a grooving/parting blade gets
 `plunges` numbers: the corner the DRO reads (a right-hand blade's chuck-side
@@ -366,8 +403,43 @@ Evidence groups: frame/binding, reference rows, operation targets, profiles,
 arc/line/axial tables and advanced entry surfaces. Citations: PLAN §4.1,
 manifest frames/nominal geometry, plan-owned setup frames, authored contour
 steps/targets/allowances,
-and selected inventory cutter nominal diameter; with any arc or diagonal
-contour, the inventory machine's `contouring`.
+and selected inventory cutter nominal diameter; with any manual arc, docs/plan.md
+Manual arcs and, when a rough leaves stock to the file, the policy
+`numbers.max_filing_stock_mm`.
+
+## `manual_arc`
+
+One finding per `scribe` or `file_to_line` op on an arc feature (a boss, a
+radiused end or a declared semicircle), subject `S<n>:<op>`; always required
+([plan](plan.md#manual-arcs)). It reads the arc's layout in the op's setup:
+`centre_setup_xy`, `centre_on` (the hole whose axis is the centre), nominal
+`radius_mm`, `radius_band_mm`, `convex` and `ends_setup_xy` (none for a full
+circle). Unknown geometry is unknown.
+
+- `scribe`: `layout` must be `dividers`, `trammel` or `template` (else
+  unknown); a template (`guide.template`) must be an inventory radius or profile
+  gauge whose `range_mm` covers R (a range miss or another kind is an error; an
+  unknown range or `verify = true` is unknown).
+- `file_to_line`: `guide.buttons` names an inventory `fixtures` kit of
+  `kind = "filing_buttons"` (`dia_mm`, pin `bore_dia_mm`) that the setup holds
+  (`hold.fixture` or a clamp `ref`), pinned through `guide.bore`. The bore must
+  be the hole on the arc's axis, sized by a drill, ream or bore op before the
+  filing, and the pin must enter its smallest size; the buttons only guide a
+  convex arc. They file from `dia/2 − play` to `dia/2 + play`
+  (`files_to_mm`, play = (largest bore − pin)/2), which must sit inside the
+  radial band. Any of those failing is an error; a kit missing from the
+  inventory, not held, or unknown sizes are unknown. `guide.template` instead
+  files to a line an earlier `scribe` op laid out (`layout_op`; none is
+  unknown). `guide.gauge` must be a radius or profile gauge covering R (no gauge
+  is unknown). `rough_op` names the earlier `stairs`/`chain_drill` roughs that
+  leave their stock to this file (none is unknown); `stock_cap_mm` is the policy
+  `numbers.max_filing_stock_mm` (unknown unless cited, nonnegative and
+  `numbers_verify` false).
+
+`scribe` and `file_to_line` are manual actions: they need no tool, count as hand
+finishing (a `file_to_line` is a finishing cut for coverage and inspection), and
+a bench setup holding only manual ops is `not_applicable` for `coordinates`. The
+kernel removes the filed stock within the cap from the setup's stock model.
 
 ## `zero_check`
 

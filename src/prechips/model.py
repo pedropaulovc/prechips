@@ -261,9 +261,9 @@ Contour = record(
         "sweep_bounds": Bounds,
     },
 )
-# A layout or bench filing guide: ``buttons`` (an inventory filing-button kit) pinned
-# through the plan feature ``bore``, or a radius ``template`` (an inventory gauge); the
-# ``gauge`` (an inventory radius or profile gauge) checks the filed arc.
+# A layout or bench filing guide: ``buttons`` (an inventory ``fixtures`` kit of kind
+# ``filing_buttons``) pinned through the plan feature ``bore``, or a radius ``template``
+# (an inventory gauge); the ``gauge`` (an inventory radius or profile gauge) checks the arc.
 Guide = record("Guide", texts("buttons bore template gauge"))
 SawPlane = record(
     "SawPlane",

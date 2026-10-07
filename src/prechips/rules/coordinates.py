@@ -443,22 +443,27 @@ def _route_points(route):
 
 
 def _stair(printed, path, normal, walls, cutter, offset):
-    """(routes, cusp, nearest, None) or (None, None, None, why not): single-axis handwheel
+    """(steps, cusp, nearest, None) or (None, None, None, why not): single-axis handwheel
     moves through the ``printed`` points (setup XY).
 
     Each route runs from one printed point to the next. Where they differ on both axes it
     turns one corner, (b.x, a.y) or (a.x, b.y): one whose legs come no nearer any wall
     (``walls``: point -> distance) than the cutter-centre ``offset`` (or than either end,
-    if that is nearer: :func:`_dro_xy`), the farther from the walls (the scrap side). The
-    cusp is the most material a target-surface point (``offset - cutter`` from a wall, so
-    none past a wall's end) keeps from the stepped cutter of radius ``cutter``:
+    if that is nearer: :func:`_dro_xy`), the farther from the walls (the scrap side).
+    Consecutive legs on one handwheel merge into one move, dropping the point between
+    them: an axis never reverses for a step inside one move (a concave arc's tangent row
+    is such a dip), which backlash makes unreliable, and the merged move lies on the legs
+    it replaces, so it comes no nearer a wall. ``steps`` are (point, axis moved, printed
+    row index or None for a corner) after the first printed point, in handwheel order.
+    The cusp is the most material a target-surface point (``offset - cutter`` from a
+    wall, so none past a wall's end) keeps from the stepped cutter of radius ``cutter``:
     ``path(k, t)`` is the exact cutter centre a fraction t from point k to k + 1 and
     ``normal(k, xy)`` its unit normal from the wall toward the cutter. ``nearest`` is the
-    least wall distance of any cutter centre on the chosen legs.
+    least wall distance of any cutter centre on the moves.
     """
     if not walls or not number(cutter) or not all(_pair(p) for p in printed):
         return None, None, None, "its printed points or walls are unknown"
-    routes, nearest = [], math.inf
+    routes = []
     for a, b in itertools.pairwise(printed):
         floors = [min(offset, wall(a), wall(b)) - _WALL_TOL for wall in walls]
         options = (
@@ -477,12 +482,34 @@ def _stair(printed, path, normal, walls, cutter, offset):
         ]
         if not clear:
             return None, None, None, STAIR_BLOCKED.format(a=a, b=b)
-        route = max(clear, key=lambda route: min(wall(route[1]) for wall in walls))
-        routes.append(route)
-        nearest = min(nearest, *(wall(p) for p in _route_points(route) for wall in walls))
+        routes.append(max(clear, key=lambda route: min(wall(route[1]) for wall in walls)))
+    steps, spans = [], []  # spans: the first and last route each move steps
+    for k, route in enumerate(routes):
+        for p, q in itertools.pairwise(route):
+            if p == q:
+                continue
+            axis, index, first = "Y" if p[0] == q[0] else "X", None, k
+            if q is route[-1]:
+                index = k + 1
+            if steps and steps[-1][1] == axis:
+                first = spans.pop()[0]
+                steps.pop()
+                if q == (steps[-1][0] if steps else printed[0]):
+                    continue  # out and back to the same reading: no move at all
+            steps.append((q, axis, index))
+            spans.append((first, k))
+    points = [printed[0], *(step[0] for step in steps)]
+    moves = list(zip(itertools.pairwise(points), spans, strict=True))
+    nearest = min(
+        (wall(p) for move, _ in moves for p in _route_points(move) for wall in walls),
+        default=min(wall(printed[0]) for wall in walls),
+    )
     cusp = 0.0
     for k in range(len(routes)):
-        legs = [leg for route in routes[max(0, k - 1) : k + 2] for leg in itertools.pairwise(route)]
+        legs = [move for move, (first, last) in moves if first <= k + 1 and last >= k - 1]
+        legs = legs or [move for move, _ in moves]
+        if not legs:
+            continue
         for i in range(1, _STAIR_SAMPLES):
             xy = path(k, i / _STAIR_SAMPLES)
             n = normal(k, xy)
@@ -490,20 +517,12 @@ def _stair(printed, path, normal, walls, cutter, offset):
             if abs(min(wall(face) for wall in walls) - (offset - cutter)) > _JOIN_TOL:
                 continue  # past a wall's end (a join's miter run-out): no surface there
             cusp = max(cusp, min(_to_segment(face, p, q) for p, q in legs) - cutter)
-    return routes, cusp, nearest, None
+    return steps, cusp, nearest, None
 
 
 # Why a stair cannot be stepped: every single-axis corner between two rows would bring the
 # cutter nearer the finished line than its rough offset (an error, never a debt).
 STAIR_BLOCKED = "no single-axis step from {a} to {b} stays outside the line"
-
-
-def _steps(routes):
-    """Each route's points after its first as (point, axis moved, printed row index or None
-    for a corner): the order the handwheel steps them."""
-    for k, route in enumerate(routes):
-        for p, q in itertools.pairwise(route):
-            yield q, "Y" if p[0] == q[0] else "X", k + 1 if q is route[-1] else None
 
 
 def _jog(arc, lines, centre, outward, walls, cutter, offset):
@@ -529,14 +548,14 @@ def _jog(arc, lines, centre, outward, walls, cutter, offset):
         span = math.dist(xy, centre)
         return [outward * (xy[i] - centre[i]) / span for i in range(2)]
 
-    routes, cusp, nearest, why = _stair(
+    steps, cusp, nearest, why = _stair(
         [row["dro_xy"] for row in rows], along, radial, walls, cutter, offset
     )
     if why:
         arc["stair_reason"] = why
         return
     stepped = [rows[0]]
-    for point, axis, index in _steps(routes):
+    for point, axis, index in steps:
         row = rows[index] if index is not None else None
         if row is None:
             row = {
@@ -571,13 +590,13 @@ def _jog(arc, lines, centre, outward, walls, cutter, offset):
             behind = min(wall([xy[i] - 1e-3 * n[i] for i in range(2)]) for wall in walls)
             return n if ahead >= behind else [-n[0], -n[1]]
 
-        routes, cusp, nearest, why = _stair(line["dro_xy"], straight, away, walls, cutter, offset)
+        steps, cusp, nearest, why = _stair(line["dro_xy"], straight, away, walls, cutter, offset)
         if why:
             line["stair_reason"] = why
             continue
         columns = {key: [line[key][0]] for key in _LINE_COLUMNS}
         columns["jog"] = [None]
-        for point, axis, index in _steps(routes):
+        for point, axis, index in steps:
             corner = {
                 "model_xy": [UNKNOWN, UNKNOWN],
                 "setup_xy": list(point),
@@ -590,15 +609,17 @@ def _jog(arc, lines, centre, outward, walls, cutter, offset):
         line.update(columns, stair_cusp_mm=cusp, line_clear_mm=nearest - cutter)
 
 
-def _stair_angles(start, end, forced, at, centre, outward, cusp):
+def _stair_angles(start, end, forced, at, centre, outward, cusp, cutter):
     """Feature angles from ``start`` to ``end`` (through every ``forced`` angle, the
-    setup-axis tangents of :func:`_axis_tangents`) spaced so a single-axis stair between
-    neighbours stays within ``cusp`` of the cutter-centre arc: ``at(angle)`` is the
-    setup XY there and the stair's corner is the one on the scrap side (``outward``: away
-    from ``centre`` when the cutter runs outside the wall). :func:`_stair` measures the
-    printed stair's actual cusp."""
+    setup-axis tangents of :func:`_axis_tangents`) spaced as far apart as a single-axis
+    stair between neighbours keeps the material it leaves on the wall within ``cusp``:
+    ``at(angle)`` is the setup XY of the cutter centre there, the stair's corner is the
+    one on the scrap side (``outward``: away from ``centre`` when the cutter runs outside
+    the wall) and the wall sits ``cutter`` (the cutter radius; 0 when unknown) inside the
+    cutter-centre arc. :func:`_stair` measures the printed stair's actual cusp."""
     span = abs(end - start)
     radius = math.dist(at(start), centre)
+    reach = cutter if number(cutter) else 0.0
     count = min(_STAIR_CANDIDATES, max(8, math.ceil(math.radians(span) * radius / (cusp / 4))))
     stops = sorted({start, end, *forced}, reverse=end < start)
     angles = [stops[0]]
@@ -606,14 +627,19 @@ def _stair_angles(start, end, forced, at, centre, outward, cusp):
         pieces = max(1, math.ceil(count * abs(b - a) / span))
         candidates = [a + (b - a) * i / pieces for i in range(pieces + 1)]
         points = [at(angle) for angle in candidates]
+        faces = []
+        for p in points:
+            gap = math.dist(p, centre) or 1.0
+            faces.append([p[k] - reach * outward * (p[k] - centre[k]) / gap for k in range(2)])
 
-        def fits(i, j, points=points):
+        def fits(i, j, points=points, faces=faces):
             p, q = points[i], points[j]
             corners = ([q[0], p[1]], [p[0], q[1]])
             corner = (max if outward > 0 else min)(corners, key=lambda c: math.dist(c, centre))
             middle = range(i + 1, j, max(1, (j - i) // _STAIR_SAMPLES))
             return all(
-                min(_to_segment(points[m], p, corner), _to_segment(points[m], corner, q)) <= cusp
+                min(_to_segment(faces[m], p, corner), _to_segment(faces[m], corner, q)) - reach
+                <= cusp
                 for m in middle
             )
 
@@ -656,12 +682,14 @@ def _arc(
     bounded op's tables are whole here: the kernel clips them (:func:`_kernel_clip`).
     ``walls`` (point -> distance to each feature wall, setup XY) is empty when unknown.
 
-    The ``method`` spaces the rows: ``stairs`` rows include each setup-axis tangent, sit
-    so each stair stays within the contour's ``cusp_mm`` (:func:`_stair_angles`; joins are
-    split likewise) and step in single-axis moves of a cutter of radius ``cutter``
-    (:func:`_jog`); ``chain_drill`` rows are hole centres no more than ``pitch_mm`` apart
-    along the path; ``rotary_table`` rows sample the cutter-centre arc every ``step_deg``;
-    ``chords`` rows are the ``count + 1`` chord vertices :func:`_chords` replaces.
+    The ``method`` spaces the rows: ``stairs`` rows are spaced through each setup-axis
+    tangent so each printed stair stays within the contour's ``cusp_mm``
+    (:func:`_stair_angles`, :func:`_respaced`; joins are split likewise) and step in
+    single-axis moves of a cutter of radius ``cutter`` (:func:`_jog`, which drops a
+    tangent row a move runs through); ``chain_drill`` rows are hole centres no more than
+    ``pitch_mm`` apart along the path; ``rotary_table`` rows sample the cutter-centre arc
+    every ``step_deg``; ``chords`` rows are the ``count + 1`` chord vertices
+    :func:`_chords` replaces.
     """
     radius = _nominal(feature, "radius")
     centre = feature.get("arc_centre", feature.get("at"))
@@ -750,7 +778,7 @@ def _arc(
     outward = 1 if cutter_radius > radius else -1
     span = math.radians(abs(end - start)) * cutter_radius
     step = UNKNOWN
-    angles = []
+    angles, space = [], None
     if method == "rotary_table":
         step = contour.get("step_deg", UNKNOWN)
         angles = _samples(start, end, step)
@@ -778,37 +806,46 @@ def _arc(
             )
             hand = 1 if (second - first + 180) % 360 - 180 > 0 else -1
             forced = _axis_tangents([start, end], first, hand)
-            angles = _stair_angles(start, end, forced, at, base, outward, contour["cusp_mm"])
-    rows = [row_at(angle) for angle in angles]
-    reverse, arc_side = None, UNKNOWN
-    if len(rows) >= 2 and cutter_radius != radius and all(number(v) for v in centre_xy):
-        a, b = rows[len(rows) // 2 - 1]["setup_xy"], rows[len(rows) // 2]["setup_xy"]
-        if all(number(v) for v in (*a, *b)):
-            normal = [outward * ((a[i] + b[i]) / 2 - centre_xy[i]) for i in range(2)]
-            reverse = _reversal(a, b, normal, sense)
-            arc_side = _side(a, b, normal, reverse)
-    arc = {
-        "feature": feature_name,
-        "op": op["op"],
-        "method": method,
-        **({"step_deg": step} if method == "rotary_table" else {}),
-        **({"cusp_mm": contour["cusp_mm"]} if method == "stairs" and angles else {}),
-        "centre_model_xy": model_centre[:2],
-        "centre_setup_xy": centre_xy,
-        "wall_radius_mm": radius,
-        "cutter_radius_mm": cutter,
-        "cutter_centre_radius_mm": cutter_radius,
-        "radius_mm": cutter_radius,
-        "full_circle": full,
-        "tip_z": op.get("to_z", UNKNOWN),
-        "rows": rows,
-        "basis": (
-            "nominal selected cutter size; measured geometry and frame binding "
-            + "govern readiness"
-        ),
-    }
-    _ordered(arc, reverse, order, ("rows",))
-    arc["cutter_side"] = arc_side
+
+            def space(target):
+                return _stair_angles(start, end, forced, at, base, outward, target, cutter)
+
+            angles = space(contour["cusp_mm"])
+
+    def table(angles):
+        rows = [row_at(angle) for angle in angles]
+        reverse, arc_side = None, UNKNOWN
+        if len(rows) >= 2 and cutter_radius != radius and all(number(v) for v in centre_xy):
+            a, b = rows[len(rows) // 2 - 1]["setup_xy"], rows[len(rows) // 2]["setup_xy"]
+            if all(number(v) for v in (*a, *b)):
+                normal = [outward * ((a[i] + b[i]) / 2 - centre_xy[i]) for i in range(2)]
+                reverse = _reversal(a, b, normal, sense)
+                arc_side = _side(a, b, normal, reverse)
+        arc = {
+            "feature": feature_name,
+            "op": op["op"],
+            "method": method,
+            **({"step_deg": step} if method == "rotary_table" else {}),
+            **({"cusp_mm": contour["cusp_mm"]} if method == "stairs" and angles else {}),
+            "centre_model_xy": model_centre[:2],
+            "centre_setup_xy": centre_xy,
+            "wall_radius_mm": radius,
+            "cutter_radius_mm": cutter,
+            "cutter_centre_radius_mm": cutter_radius,
+            "radius_mm": cutter_radius,
+            "full_circle": full,
+            "tip_z": op.get("to_z", UNKNOWN),
+            "rows": rows,
+            "basis": (
+                "nominal selected cutter size; measured geometry and frame binding "
+                + "govern readiness"
+            ),
+        }
+        _ordered(arc, reverse, order, ("rows",))
+        arc["cutter_side"] = arc_side
+        return arc
+
+    arc = table(angles)
     walls, miters = [], []  # point -> distance to each feature wall; join miter points
     known = all(number(v) for v in centre_xy)  # else no wall is placed and no DRO value
 
@@ -872,12 +909,21 @@ def _arc(
             reverse = _reversal(local[0], local[1], normal, sense)
             lines.append(_ordered(line, reverse, order, ("model_xy", "setup_xy")))
             line["cutter_side"] = _side(local[0], local[1], normal, reverse)
-    if not rows:
+    if not angles:
         return [], [], []
     if method == "stairs":
         for line in lines:
             _split(line, contour["cusp_mm"])
     walls = walls if known else []
+    if space is not None and walls:
+
+        def measure(angles):
+            trial = table(angles)
+            _printed([trial], [], grid, walls, offset)
+            _jog(trial, [], centre_xy, outward, walls, cutter, offset)
+            return trial.get("stair_cusp_mm")
+
+        arc = table(_respaced(angles, space, contour["cusp_mm"], measure))
     _printed([arc], lines, grid, walls, offset)
     for line in lines:
         line["overshoot"] = [any(p is m for m in miters) for p in line["model_xy"]]
@@ -885,7 +931,35 @@ def _arc(
             line["overshoot_note"] = OVERSHOOT_NOTE
     if method == "stairs":
         _jog(arc, lines, centre_xy, outward, walls, cutter, offset)
+        if arc.get("stair_cusp_mm", 0.0) > contour["cusp_mm"] + _JOIN_TOL:
+            arc["stair_reason"] = STAIR_SPACING.format(
+                cusp=round(arc["stair_cusp_mm"], 4), target=contour["cusp_mm"]
+            )
     return [arc], lines, walls
+
+
+def _respaced(angles, space, cusp, measure):
+    """Stair ``angles`` respaced (``space(target)``: :func:`_stair_angles`) until the
+    printed stair through them keeps within ``cusp`` (``measure(angles)``: the printed
+    stair's cusp, None when it cannot be stepped). The DRO grid moves each printed row a
+    little outside the exact point the spacing fits, so the target shrinks by each excess,
+    at most :data:`_STAIR_RESPACINGS` times; :func:`_arc` measures the result again."""
+    target = cusp
+    for _ in range(_STAIR_RESPACINGS):
+        measured = measure(angles)
+        if measured is None or measured <= cusp:
+            return angles
+        target -= measured - cusp
+        if target <= 0:
+            return angles
+        angles = space(target)
+    return angles
+
+
+# The most times a stair table is respaced to keep its printed cusp within ``cusp_mm``.
+_STAIR_RESPACINGS = 6
+# Why a stair table is unproven: no spacing kept its printed stair within ``cusp_mm``.
+STAIR_SPACING = "its printed stairs leave {cusp} mm on the wall, more than cusp_mm {target}"
 
 
 def _split(line, cusp):
@@ -1461,9 +1535,10 @@ def checkpoints(subject, numbers, op):
 
     A table is its ``name`` and ``kind`` (:func:`row_id`), its ``rows`` of (row id,
     printed setup XY ``dro_xy``, printed tip Z ``dro_tip_z``, corner overshoot?) in plan
-    units, whether the kernel must clip it at its op's stock_removal_bounds (``bounded``)
-    and the side of its travel its cutter clears from (``cutter_side``). What the DRO
-    shows is what the kernel clips and checks.
+    units, whether the kernel must clip it at its op's stock_removal_bounds (``bounded``),
+    the side of its travel its cutter clears from (``cutter_side``) and whether its rows
+    are single-axis stair steps (``stepped``: keyed at its ends and miters, not every
+    step). What the DRO shows is what the kernel clips and checks.
     """
     result = []
     for kind in ("arc_table", "line_table"):
@@ -1495,6 +1570,7 @@ def checkpoints(subject, numbers, op):
                     "bounded": table.get("kernel_clip") is True,
                     "cutter_side": table.get("cutter_side", UNKNOWN),
                     "directed": table.get("cut_order") in _CUT_SENSE,
+                    "stepped": "stair_cusp_mm" in table,
                 }
             )
     return result

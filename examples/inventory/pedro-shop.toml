@@ -1955,7 +1955,7 @@ solids = [
   { name = "lower-button-bore", void = true, cuts = ["lower-button"], shape = "cylinder", at_mm = [0.0, 0.0, -11.5565], axis = [0.0, 0.0, 1.0], dia_mm = 6.5, length_mm = 5.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "pin gauges" } },
   { name = "nut", supply = "bought", fastener = "M6 hex nut", shape = "cylinder", at_mm = [0.0, 0.0, 4.0], axis = [0.0, 0.0, 1.0], dia_mm = 11.0, length_mm = 5.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, M6 nut across corners and height" } },
   { name = "nut-bore", void = true, cuts = ["nut"], shape = "cylinder", at_mm = [0.0, 0.0, 3.5], axis = [0.0, 0.0, 1.0], dia_mm = 6.5, length_mm = 6.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "M6 thread drawn at the stud diameter" } },
-  { name = "stud", shape = "cylinder", at_mm = [0.0, 0.0, -56.0565], axis = [0.0, 0.0, 1.0], dia_mm = 6.49, length_mm = 66.0565, locates = "reamed pivot bore", fastener = "6.49 ground stud, M6 top thread", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, ground stud; steel rule, length" } },
+  { name = "stud", shape = "cylinder", at_mm = [0.0, 0.0, -56.0], axis = [0.0, 0.0, 1.0], dia_mm = 6.49, length_mm = 66.0, locates = "reamed pivot bore", fastener = "6.49 ground stud, M6 top thread", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, ground stud; steel rule, length" } },
 ]
 
 [fixtures.bracket-arch-filing-buttons]

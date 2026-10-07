@@ -126,7 +126,7 @@ an unknown status is not a verified cut instruction.
 ## `speeds_feeds`
 
 One subject per `setup:op`, including explicit not-applicable manual operations
-(`inspect`, `deburr`, `coating`, `release`, `fit`, `scribe`). For spindle cuts,
+(`inspect`, `deburr`, `coating`, `release`, `fit`, `scribe`, `file_to_line`). For spindle cuts,
 tool chart citation wins over table rows; otherwise match material alias, tool
 material, normalized action and inclusive mm diameter range. Exactly one cited
 row is needed. Ambiguous overlap or unknown range stays unresolved. No chart

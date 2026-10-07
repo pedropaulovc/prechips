@@ -1428,7 +1428,7 @@ thin_wall_under_clamp has no vise grip-zone facts for {kind} holding.`), as
 is a dividing head that names no chuck. The exception is a posed-solids fixture
 whose `hold.clamp` is `"none"` / `"not_applicable"`, with no clamp members or
 debts, in a setup whose every op is explicitly non-cutting (`inspect`, `fit`,
-`deburr`, `coating`, `release`, `scribe`, `transfer`): it is `not_applicable`,
+`deburr`, `coating`, `release`, `scribe`, `file_to_line`, `transfer`): it is `not_applicable`,
 never `pass`. This applies only after the kernel facts, assembly, holding
 identity, numeric frame, in-process stock and fixture pose resolve; each
 otherwise keeps its unknown/error row. Clamp prose (even "gravity only"), a

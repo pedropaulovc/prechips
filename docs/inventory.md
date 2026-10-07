@@ -103,6 +103,28 @@ an ordinary fixture; no machine identity silently supplies an integral vise.
 See [plan saw cut-off](plan.md#saw-cut-off) for the plane and keep-side contract.
 
 
+## Manual-arc kit
+
+The mill is manual ([plan Manual arcs](plan.md#manual-arcs)); no machine field
+declares MDI, G-code or contouring. The kit for laying out, filing and indexing
+arcs is ordinary inventory:
+
+- A fitting bench is a `machines.<id>` with `kind = "bench"`: a setup on it
+  holds only manual ops (`scribe`, `file_to_line`, `deburr`, `inspect`, …) and
+  its work-holding (a bench vise, filing buttons) is drawn like any fixture.
+- Filing buttons are a `fixtures.<id>` with `kind = "filing_buttons"`: the
+  hardened button diameter `dia_mm` and the pin diameter `bore_dia_mm` they
+  are clamped on, plus `solids` (buttons, nut, stud) so the setup render can draw
+  them. A plan names the kit in `guide.buttons` and holds it (`hold.fixture` or a
+  clamp `ref`).
+- A rotary table is a `fixtures.<id>` with `kind = "rotary_table"`:
+  `graduation_deg`, `vernier_deg`, `dial_increases`, `t_slots`, `max_work` and
+  `t_slot_width`, plus `solids` (table, slots, worm housing) so the setup render
+  draws it modeled. A `rotary_table` contour or an indexed chord reads it from
+  `hold.fixture`.
+- Templates and radius gauges are `gauges.<id>` with `kind = "radius_gauge"` or
+  `"profile_gauge"` and the `range_mm` of radii they read.
+
 ## Kernel geometry facts (M4)
 
 M4 kernel geometry reads explicit-unit length facts through the same
@@ -607,7 +629,11 @@ on hand.
 | `standard_accessories` | `list[str]` |
 | `included` | `list[str]` |
 | `spindle` | `Spindle` |
-| `contouring` | `"mdi"` / `"jog"` / `{value, measured, verify}` (a machine's way of cutting an arc or diagonal contour row: `mdi` types one coordinated `G1`/`G2`/`G3` MDI move per row at the op's feed; `jog` moves one handwheel axis at a time, so the sheet prints single-axis stair rows and a finish stair must leave no more than the feature's band. Absent, `"unknown"` or `verify = true` leaves every arc and diagonal row unproven, never pass: [rules-coordinates](rules-coordinates.md)) |
+| `graduation_deg` / `vernier_deg` | `float` (`rotary_table`: dial graduation and vernier; the vernier, else the graduation, is the resolution every printed reading rounds to) |
+| `dial_increases` | `"clockwise"` / `"counterclockwise"` (`rotary_table`: the table turn that raises the dial reading) |
+| `t_slots` | `float` (`rotary_table`: number of T-slots) |
+| `max_work_mm` / `max_work_in` | `MeasuredLength` (`rotary_table`: largest work diameter the stock's swing must fit) |
+| `t_slot_width_mm` / `t_slot_width_in` | `MeasuredLength` (`rotary_table`) |
 | `leadscrew` | `LeadScrew` |
 | `capacity_in` | `float \| list[Number] \| Capacity` |
 | `tailstock` | `Tailstock` |

@@ -130,8 +130,8 @@ PLAN §8 M3.
 | Part | What it demonstrates | Current exit |
 |---|---|---|
 | `pivot-shaft` | Three-jaw drive with a tailstock dead centre and follow rest, journals/shoulder/both reliefs/both domes, then indicated rechucks and assembly-dependent plain-end fitting. No final hole, flat or indexing. | **0**: every required subject passes; all three setups render with their fixtures modeled. |
-| `rocker-arm` | Four setups: bounded rough/finish facing inside a retained rail frame, modeled magnetic end stop, permanent rod-hole pin and supported hub ream, then shoulder-screw profiling with independently held scrap. | **0 (native CLI proof)**: check and traveler have no error, unknown, warning or unsupported findings; all four native fixture scenes are modeled with no fixture or render debts. Printed contour targets are checked against the actual material and holding geometry. |
-| `pivot-bracket` | Seat-up, foot-top-up and side-on ear setups; full raw-top facing, walls-first/floor-last L-foot relief, arched ear, reamed cross-bore and two hold-down holes. The v39 STEP is bound; bands remain explicitly illustrative without a dimensioned drawing. | **0 (composed native CLI proof)**: check and traveler have no error, unknown or unsupported findings; all three native fixture scenes are modeled with no fixture or render debts. |
+| `rocker-arm` | Bounded rough/finish facing inside a retained rail frame, modeled magnetic end stop, permanent rod-hole pin and supported hub ream, the hub filed round to buttons on the pivot bore at the bench (S3F), then shoulder-screw profiling roughed in single-axis stairs and filed to a scribed template, with independently held scrap. | **0 (native CLI proof)**: check and traveler have no error, unknown, warning or unsupported findings; every native fixture scene is modeled with no fixture or render debts. Printed contour targets are checked against the actual material and holding geometry. |
+| `pivot-bracket` | Seat-up, foot-top-up and side-on ear setups; full raw-top facing, walls-first/floor-last L-foot relief, arched ear (single-axis stairs, then filed to buttons on the cross bore at the bench), reamed cross-bore and two hold-down holes. The v39 STEP is bound; bands remain explicitly illustrative without a dimensioned drawing. | **0 (composed native CLI proof)**: check and traveler have no error, unknown or unsupported findings; every native fixture scene is modeled with no fixture or render debts. |
 | `cone-pivot-post/built-up.toml` | Eleven setups: a turned body and head plus cone and crank sleeves bonded into reamed sockets, with dividing-head, bench-cradle, saw-cradle and soft-jaw holds. | **0 (native CLI proof)**: check and traveler have no error, unknown or unsupported findings; all eleven fixture scenes are modeled with exact components and no fixture or render debts. |
 
 ### Rocker-arm supported route
@@ -146,6 +146,18 @@ findings**, with no errors, unknowns, warnings or unsupported findings. The
 rendered traveler has no unresolved question-mark captions or stop symbols.
 The integration coordinator regenerates the checked-in goldens from actual
 composed-source CLI output; the acceptance numbers are not hand-edited targets.
+
+**Manual arcs (D1).** The mill is manual, so the hub and outline arcs use the
+1898 method ([plan Manual arcs](../docs/plan.md#manual-arcs)), each choice cited
+`AUTHOR'S CHOICE: <method> because <reason>` in the plan. S1/S2 rough the hub,
+top edge and outline in single-axis stairs; S2's mill finish of the hub and S3's
+hub finish are gone. Bench setup S3F files the hub to Ø10.20 hardened buttons
+on a ground stud through the reamed pivot bore and checks it with the radius
+gauge. S4 scribes the R800 top edge and R816 outline from the toolroom outline
+template (ops 10/20), re-roughs them in stairs at cusp 0.25 mm (ops 25/27, the
+former op 30 cutting values) and files both to the line (ops 30/40), checked on
+the profile template. Every rough leaves at most the shop policy's
+`max_filing_stock_mm` (0.5 mm, example value) where the file takes over.
 
 | Setup | Native fixture scene | Exact components | Fixture debts | Render debts |
 |---|---|---:|---|---|
@@ -1073,6 +1085,10 @@ S3 likewise faces the full actual entry top, including the retained rectangular
 crown, before profiling the arch. After the shared outer face is finished,
 S3:11 checks the final 6 mm ear thickness (the S2 in-process ear was still 7 mm).
 The R7 arch gets a radius-gauge check.
+Under the manual-arc method the arch is roughed in single-axis stairs outside
+the line (S4 op 15, cusp 0.15 mm), then filed at the bench (S4F) to Ø14.00
+hardened buttons on a ground stud through the reamed cross bore and checked with
+the radius gauge; the former mill finish (S4 op 20) is gone.
 The crown's explicit S3 clearance box removes the retained cap without using
 the earlier straight side slots to fabricate an arched form from above.
 The reamed bore uses paired metric 6.500 mm go / 6.530 mm no-go pins rather than

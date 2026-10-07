@@ -286,7 +286,8 @@ def table_checkpoints(subject, tables, op, units):
     """An op's printed DRO cutter-centre checkpoints in setup-frame mm: ``rows`` of id,
     ``xy_mm`` and ``tip_z_mm`` (the values the DRO shows, ``overshoot`` on a corner miter),
     each printed table's ``paths`` (``xy_mm`` in cutting order, its ``tip_z_mm``, row
-    ``ids`` and ``overshoot`` flags), and why any is unknown; None when it prints none.
+    ``ids``, ``overshoot`` flags and ``stepped``), and why any is unknown; None when it
+    prints none.
 
     A bounded op's tables (``bounded``) are whole: the kernel clips them where the cutter
     first meets stock outside the op's stock_removal_bounds. Each path then carries its
@@ -327,6 +328,7 @@ def table_checkpoints(subject, tables, op, units):
                     "tip_z_mm": points[0]["tip_z_mm"],
                     "ids": [point["id"] for point in points],
                     "overshoot": [point.get("overshoot") is True for point in points],
+                    "stepped": path["stepped"],
                 }
             )
         elif len(points) == len(path["rows"]):
