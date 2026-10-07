@@ -822,7 +822,21 @@ such claim's for a column several share, and
 only inside its box, guard window and own outer-loop sweep; the column below,
 other bores, and the core outside that scope stay reserved, while the flute and
 holder checks still meet them); and
-the removal must not split an original input solid. A violation is not an
+the removal must not split an original input solid. Before a claimed planar wall
+the protected leave is flat: wherever stock outside the box or a reserved column
+stands behind the wall's plane, a skin `a` thick stays in front of the plane across
+the claimed face's own width (along the spindle axis, through the box's whole
+depth), over the finished face's holes and edges too. Past each end of that
+width, where such stock also stands behind the plane, the op's own cutter of
+radius r steps from the plane up onto the skin and leaves the cusp of that step:
+before a vertical wall, the region under the arc of radius r tangent to the
+plane `sqrt(r² − (r − min(a, r))²)` past the end and through the skin's outer
+corner (when r ≤ a, tangent to its end face at height r), at the heights where
+both that stock and the skin's backing stand. No other op, earlier or later, is
+credited with clearing it. A flat-bottomed cutter steps square onto a floor's
+skin and leaves no cusp; a step past the end of an inclined planar claim's skin,
+or a claim on a surface neither planar nor curved analytic, makes the leave, and
+so the stock, unknown. A violation is not an
 error verdict: it is named stock debt (the stock reason names the failed
 guard), so stock-dependent results for that setup and later setups selecting
 its output stay `unknown`, never clearance. Genuine collisions with finished
@@ -1196,7 +1210,17 @@ A spot's `depth_mm` is its apex tip depth below the entry. A drill's
 with nothing added. A through drill's full diameter exits each matched bore's
 actual axial bottom, so its tip is one point length (plus numerical lift)
 below that; other through actions end at the bore bottom plus numerical lift,
-not the raw-stock bounding-box bottom.
+not the raw-stock bounding-box bottom. A planned exit governs instead, never
+deepened to the CAD: the received exit face
+(`entry_z - local_thickness[feature]`) less the op's `exit_mm`, both numeric and
+`exit_mm >= 0`, is where the tool's full diameter stops on every matched bore. Below
+a bore's end it cuts the stock carried past it (a cap left proud by a part-off),
+so no skin stays over the bore's mouth. More than 1e-4 mm above a bore's end the
+plan contradicts the finished through bore: the tool still stops at the planned
+exit (no lift, so the bore keeps its unfinished floor), and the op's
+`stock_removal_error` names the planned exit Z and each bore end it stops short
+of, so its [`accessibility`](#accessibility), [`reach`](#reach) and
+[`internal_corner_radius`](#internal_corner_radius) rows are errors.
 Spot and tap operations honor an explicit depth even when the feature declares
 `thru = true`; that feature fact does not extend their local removal past the
 authored endpoint. `stock_state.top_z` and `entry_z` are machine-frame
@@ -1566,16 +1590,26 @@ One row per setup. Non-vise holding (`kind` ≠ `vise`) is `not_applicable`
 holding identity or any missing pose/dimension is `unknown` with the job's
 reason. With the jaws placed the kernel reports `width_mm` (part extent
 between the inner jaw planes), `jaw_separation_mm` (how far the jaws stand apart
-closed on it: `width_mm` plus a `jaw_bar` round bar's Ø), `contact_grip_mm` (per
+closed on it: `width_mm` plus a `jaw_bar` round bar's Ø, plus twice a
+`jaw_buttons` button's thickness), `contact_grip_mm` (per
 jaw, the merged length of planar part faces lying in that jaw plane within the
-zone; a line contact is measured when no planar face touches), `parallel_pair`
+zone; where `jaw_buttons` stand between, only the area those faces share with
+the button's face, within the jaw's height, measured from the shared area itself
+rather than the faces' extents; a line contact is measured when no planar face
+lies in that plane), `parallel_pair`
 (both jaw planes have planar contact faces) and `claimed_in_jaws` (claimed faces
 sharing area with a jaw box). A `jaw_bar` that bears on no jaw-held work along its
-length leaves the jaws unplaced. Numbers: those plus `opening_mm`,
+length leaves the jaws unplaced. Each `jaw_buttons` button is centred on the one
+bore of the work that opens on its jaw face at least as wide as its spigot, its
+spigot in that bore; no such bore (or several), a spigot the bore does not take
+whole, a button meeting the work beyond the face, a jaw that misses the button,
+or a button that bears on no jaw-held work within the jaw's height (a face no
+wider than the bore's mouth shares no area with the work round it; touching only
+the mouth's edge is not bearing) leaves the jaws unplaced. Numbers: those plus `opening_mm`,
 `required_grip_mm`, `parallels_height_mm`. Errors join with `; `:
 
 - `gripped faces are not a parallel pair`
-- `jaw separation (part width plus any round bar) exceeds vise opening`
+- `jaw separation (part width plus any round bar or jaw buttons) exceeds vise opening`
 - `both jaws do not provide the declared grip`
 - `claimed faces enter jaw solids: <refs>`
 - pass: `parallel gripped faces, opening, both-jaw grip and claimed-face exclusion fit declared parallels.`
@@ -1699,7 +1733,11 @@ returns a PNG 1600 pixels wide and 1000 tall (taller with holding detail bands,
 below) suitable for a wide printed setup figure. The camera
 uses setup axes: a lathe elevation has +Z to the right, radial +X up and +Y
 away, with headstock/chuck left and tailstock right; a mill uses a front-right
-isometric view; a custom plate uses a plan view down setup -Z. The engine's
+isometric view; a custom plate uses a plan view down setup -Z, and a custom
+fixture on a bench or saw an elevation section across the stock's longer
+horizontal side, on the plane through the middle of the holding that touches
+the work (else the stock's centre), so the buttons, saddles and pins holding it
+are cut and their contacts show (`render_scene.section`: `axis`, `at_mm`). The engine's
 own orthographic z-buffer rasterizer, bundled bitmap font and PNG encoder
 use no installed fonts, timestamps or machine-specific metadata. Fresh runs
 and cache hits give identical bytes.
@@ -1743,7 +1781,8 @@ leader ending on the outline at an open ring, so its position still shows
 without pointing at the solid in front. A hidden parallel stays a render debt.
 An isometric view calls out the holding that touches the stock; a vise jaw
 that presses the work through it (the moving jaw behind a `jaw_bar` round bar,
-called out as `ROUND BAR`) is holding too.
+called out as `ROUND BAR`) is holding too, as are `jaw_buttons` (called out as
+`JAW BUTTONS`), each between the work and a jaw.
 Triangles that share an edge cover every pixel centre on it exactly
 once, so a solid wholly behind another never shows through its seams. A datum's
 authored face name keeps its words but its axis words are restated in the
@@ -1787,9 +1826,16 @@ A path sketch draws every pass of a raster of
 at most eight passes, labelled `PASS 1` … `PASS n` as the pass table numbers
 them (a longer raster is a band with its first and last pass), each with a
 direction arrow when the table gives a cutting sense; its `ARROWS: POINT ORDER`
-legend prints only when an arrow is drawn. An
+legend prints only when an arrow is drawn. The raster cycle is one way, so
+each lift and rapid back from a drawn pass's end to the next pass's start is
+dashed in the op's colour under `DASHED: LIFTED RETURN`, and a return never
+reads as a cut; a band showing only its first and last pass draws none. An
 isometric or elevation view is detailed only when the band draws the stock at
-least 1.5 times larger; a lathe's meridian section gets no holding detail. A
+least 1.5 times larger; when framing the whole stock cannot, the band is a
+window on the holding that touches it (its contacts and the whole of each
+component making one: both of the rocker's hub buttons and the stud the vise
+grips), titled with the stretch of the work it shows (`SETUP X a TO b`), and is
+drawn when that reaches 1.5 times. A lathe's meridian section gets no holding detail. A
 plan view always gets the detail, drawn from 30° above the side so contact
 heights read, and long work is split along its length into at most two bands,
 each keying only the contacts in its share. Bands grow taller rather than

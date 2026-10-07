@@ -14,6 +14,7 @@ from prechips.kernel.render_diagram import (
     _corners,
     _Diagram,
     _holding_details,
+    _main_diagram,
     _tag_at,
     render_diagram,
 )
@@ -265,8 +266,8 @@ def test_typographic_label_equivalents_and_unknown_characters_are_deterministic(
     assert typographic.text_width("A\nABC", scale=2) == typographic.text_width("ABC", scale=2)
 
 
-@pytest.mark.parametrize("failure", ["clipping", "overlap"])
-def test_setup_png_refuses_unreadable_annotations(failure):
+def test_setup_png_refuses_clipped_annotations():
+    # A title wider than the canvas cannot print; the renderer refuses it.
     spec = {
         "setup_id": "S1",
         "view": "lathe",
@@ -278,10 +279,7 @@ def test_setup_png_refuses_unreadable_annotations(failure):
     }
     width, height, _ = _decode_png(render_diagram([], spec)[0])
     assert (width, height) == (1600, 1000)
-    if failure == "clipping":
-        spec["setup_id"] = "LONG-NAME-" * 30
-    else:
-        spec["datums"] = [{"label": f"DATUM {index}", "point_mm": [0, 0, 1]} for index in range(80)]
+    spec["setup_id"] = "LONG-NAME-" * 30
     with pytest.raises(ValueError):
         render_diagram([], spec)
 
@@ -496,8 +494,7 @@ def test_text_layout_rejects_type_below_the_minimum_print_scale():
 @pytest.mark.parametrize("name", ["shaft-s1", "cone-s1", "rocker-s3", "rocker-s4"])
 def test_dense_setup_pictures_print_every_label_at_body_size(name):
     # Letter print: scale 3 (21 px) is about 7 pt cap height; scale 2 is under 5 pt.
-    diagram = _Diagram([], _example_spec(name))
-    diagram.render()
+    diagram, _ = _main_diagram([], _example_spec(name))
 
     assert [box for box in diagram.canvas.text_boxes if box[4] - box[2] < 21] == []
 
@@ -579,8 +576,7 @@ def test_bar_end_labels_key_their_own_end_and_never_lead_along_the_axis_past_ano
 def test_plan_view_pad_and_clamp_badges_have_separate_uncrossed_leaders(name):
     # Twelve pads under a thin strap plus straps, a pivot screw and a clocking pin.
     spec = _example_spec(name)
-    diagram = _Diagram([], spec)
-    diagram.render()
+    diagram, _ = _main_diagram([], spec)
     targets, keyed = {}, {"SUPPORT PADS"}
     for component in spec["components"]:
         label = component["label"].upper()
@@ -664,7 +660,8 @@ def test_raster_keep_out_draws_independent_segments_without_filling_clearance(ke
 def test_a_raster_sketch_draws_every_pass_and_claims_arrows_only_when_drawn(order):
     """The cone's S11 sketch: six passes, every one drawn and labelled as the pass table
     numbers them, each with its cutting direction when the table gives one; the legend
-    names arrows only when arrows are drawn."""
+    names arrows only when arrows are drawn. A known one-way cycle dashes each lift and
+    rapid back to the next pass's start, so a return never reads as a cut."""
     segments = [[[0, y], [40, y]] for y in range(0, 12, 2)]
     profile = {"op": "40", "cutter_centre": segments, "raster": {}, "cut_order": order}
     paths, waypoints = contour_annotations({"profiles": [profile]}, 1.0, "S1")
@@ -675,6 +672,9 @@ def test_a_raster_sketch_draws_every_pass_and_claims_arrows_only_when_drawn(orde
     assert [f"PASS {n}" for n in range(1, 7)] == [t for t in texts if t.startswith("PASS")]
     assert (diagram.arrows_drawn >= 6) is (order == "climb")
     assert ("ARROWS: POINT ORDER" in texts) is (order == "climb")
+    assert diagram.returns_drawn == (5 if order == "climb" else 0)
+    assert ("DASHED: LIFTED RETURN" in texts) is (order == "climb")
+    diagram.canvas.assert_text_layout(min_scale=3)
 
 
 def _slab(x0, y0, x1, y1, z, colour, tag):
@@ -994,6 +994,133 @@ def test_small_work_in_its_holding_gets_an_enlarged_contact_detail(size, touchin
     first, second = ends.values()
     assert math.dist(first, second) > 20
     detail.canvas.assert_text_layout(min_scale=3)
+
+
+@pytest.mark.parametrize(
+    ("decimals", "cut", "plane"), [(3, "6.655", "12.000"), (4, "6.6547", "12.0000")]
+)
+def test_picture_coordinates_and_clearances_print_as_the_setup_tables_print_them(
+    decimals, cut, plane
+):
+    # The kernel measures the jaw tops 6.6547 below the cut; the setup's tables print that
+    # at its DRO decimals, and so must the picture: never 6.65 beside a table's 6.655.
+    meshes, spec = _vise_spec(12)
+    spec["decimals"] = decimals
+    spec["jaw_front_z_mm"] = -6.6547
+    spec["closest_cut"] = {
+        "mm": 6.6547,
+        "tag": "fixed_jaw",
+        "from_mm": [0, 6, 10],
+        "to_mm": [0, 6, 10 - 6.6547],
+    }
+    main = _Diagram(meshes, spec)
+    main.render()
+    (detail,) = _holding_details(meshes, spec, main)
+    text = " ".join(box[0] for drawn in (main, detail) for box in drawn.canvas.text_boxes)
+    assert f"JAW FRONT Z -{cut} MM" in text, text
+    assert f"CUT {cut} MM FROM" in text, text
+    assert f"CONTACT AT X {plane}" in text, text
+
+
+def test_long_work_held_at_a_small_hub_gets_a_detail_windowed_on_its_holding():
+    # A 340 mm arm sectioned on its long side, held at its hub between two 10 mm buttons
+    # on a stud: framing the whole arm draws the buttons no larger, so the detail frames
+    # the holding that touches the work and says which stretch of the work it shows.
+    stock = [0, 0, 0, 340, 40, 16]
+    solids = {
+        "kit:upper-button": [165, 15, 16, 175, 25, 20],
+        "kit:lower-button": [165, 15, -4, 175, 25, 0],
+        "kit:stud": [168, 18, -60, 172, 22, 24],
+    }
+    meshes = [_block(stock, (160, 175, 185), "part")]
+    meshes += [_block(box, (120, 98, 76), name) for name, box in solids.items()]
+    contacts = [
+        {"tag": tag, "lines_mm": [[[165, 15, z], [175, 15, z], [175, 25, z], [165, 25, z]]]}
+        for tag, z in (("kit:upper-button", 16), ("kit:lower-button", 0))
+    ]
+    spec = {
+        "setup_id": "S1",
+        "view": "elevation",
+        "camera": [[1, 0, 0], [0, 0, 1], [0, -1, 0]],
+        "stock_box": stock,
+        "zero_mm": [170, 20, 16],
+        "contacts": contacts,
+        "components": [
+            {
+                "name": "clamp 1 kit",
+                "label": "C1: kit",
+                "role": "clamp",
+                "code": "C1",
+                "box_mm": [165, 15, -60, 175, 25, 24],
+                "center_mm": [170, 20, -18],
+                "meshes": list(solids),
+            }
+        ],
+    }
+    main = _Diagram(meshes, spec)
+    main.render()
+    (detail,) = _holding_details(meshes, spec, main)
+
+    drawn = _stock_short_side(main.canvas, stock)
+    assert _stock_short_side(detail.canvas, stock) >= 1.5 * drawn
+    # Both button seats and the stud they hang on are inside the window.
+    left, top, right, bottom = detail.viewport
+    for box in solids.values():
+        for point in _corners(box):
+            x, y = detail.canvas.project(point)
+            assert left <= x <= right and top <= y <= bottom, point
+    text = " ".join(box[0] for box in detail.canvas.text_boxes)
+    assert "SETUP X -" in text and " TO " in text, text
+    assert text.count("CONTACT AT Z") == 2, text
+
+
+def test_keys_too_many_for_their_lanes_move_the_footer_down_never_across_it():
+    # Thirty datum keys on small work: the lanes beside the scene cannot hold them at
+    # body size above the divider. The picture grows; no key runs into the key below.
+    spec = {
+        "setup_id": "S1",
+        "view": "isometric",
+        "stock_box": [0, 0, 0, 40, 20, 10],
+        "zero_mm": [0, 0, 0],
+        "datums": [
+            {"label": f"F{index}", "point_mm": [40 * (index % 2), index * 0.6, 10]}
+            for index in range(30)
+        ],
+    }
+    fixed = _Diagram([], spec)
+    fixed.grows_to_fit = True
+    fixed.render()
+    assert fixed.lane_overflow > 0  # the 1000 px picture cannot hold them
+
+    diagram, png = _main_diagram([], spec)
+    keys = [box for box in diagram.canvas.text_boxes if box[0].startswith("DATUM F")]
+    assert len(keys) == 30
+    assert all(bottom + 4 <= diagram.footer_top for *_, bottom in keys), diagram.footer_top
+    assert all(bottom - top >= 21 for _, _, top, _, bottom in keys)
+    assert _decode_png(render_diagram([], spec)[0])[:2] == _decode_png(png)[:2]
+
+
+def test_a_label_naming_points_on_both_sides_leads_from_each_lane_to_its_own_side():
+    # One fixture name on both ends of long work: a single key would fan a leader from
+    # one lane across the whole picture to the far end.
+    spec = {
+        "setup_id": "S4",
+        "view": "plan",
+        "stock_box": [0, 0, 0, 200, 20, 10],
+        "zero_mm": [0, 0, 0],
+        "components": [
+            {"name": "rest slot", "role": "fixture", "center_mm": [x, 10, 0]} for x in (5, 195)
+        ],
+    }
+    diagram, _ = _main_diagram([], spec)
+
+    keys = [box for box in diagram.canvas.text_boxes if box[0] == "REST SLOT"]
+    assert sorted(box[1] < diagram.lane_split for box in keys) == [False, True]
+    leaders = [points for label, points in diagram.leaders if label == "REST SLOT"]
+    assert len(leaders) == 2
+    for points in leaders:
+        sides = {x < diagram.lane_split for x, _ in points}
+        assert len(sides) == 1, points
 
 
 def test_long_thin_plan_work_gets_split_details_that_key_each_contact_height_once():
