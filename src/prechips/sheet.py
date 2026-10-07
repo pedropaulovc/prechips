@@ -19,15 +19,18 @@ from .measurements import record_trusted
 from .model import tolerance_requirements
 from .rules._bench import manual_bench
 from .rules.coordinates import CENTRE_OPS, OVERSHOOT_NOTE, dro_grid, dro_z, row_id
+from .rules.inspection import go_no_go_pair
 from .rules.resolution import (
     MANUAL,
     SAW_OPS,
     WORKHOLDING_CATEGORIES,
     coating_process,
+    drawing_precision,
     inventory_category,
     length_mm,
     op_feature,
     op_features,
+    printed_band,
     resolve,
     saw_setup,
     selected_references,
@@ -674,6 +677,12 @@ def _places(value):
     return next((d for d in range(7) if abs(round(value, d) - value) < 1e-9), 6)
 
 
+def _angle(value):
+    """A dividing-head angle: four decimals, or two significant digits below 0.001°."""
+    small = value and abs(value) < 1e-3
+    return _number(value, 1 - math.floor(math.log10(abs(value))) if small else 4)
+
+
 def _sentence(text):
     """Shouted drawing text (``LOW-CARBON STEEL``) reads as ordinary words."""
     text = str(text)
@@ -882,10 +891,7 @@ class _Traveler:
 
     # ------------------------------------------------------------------ numbers
     def precision(self, feature=None, dimension=None):
-        overrides = self.features.get(feature, {}).get("precision", {})
-        if isinstance(overrides, dict):
-            return overrides.get(dimension, self.general_precision)
-        return overrides
+        return drawing_precision(self.bundle, feature, dimension)
 
     def feature_label(self, feature, marked=True):
         """An exported feature prints its shop name; a plan joint feature is marked as joint
@@ -1077,17 +1083,11 @@ class _Traveler:
         rounded inward (low limit up, high limit down) so printing never loosens it; a band
         too narrow for that precision prints its limits as declared."""
         precision = self.precision(feature, dimension)
-        if (
-            isinstance(value, (list, tuple))
-            and len(value) == 2
-            and all(_known(v) for v in value)
-            and isinstance(precision, int)
-        ):
-            scale = 10**precision
-            low = math.ceil(round(value[0] * scale, 6)) / scale
-            high = math.floor(round(value[1] * scale, 6)) / scale
-            if low <= high:
-                return f"{_number(low, precision)}–{_number(high, precision)}"
+        printed = printed_band(value, precision)
+        if printed is not None:
+            return "–".join(_number(limit, precision) for limit in printed)
+        known = isinstance(value, (list, tuple)) and len(value) == 2 and all(map(_known, value))
+        if known and isinstance(precision, int):
             return f"{_number(value[0])}–{_number(value[1])}"
         return self.value(value, feature, dimension).replace(" / ", "–")
 
@@ -1451,7 +1451,10 @@ class _Traveler:
             if isinstance(points, list) and points and all(isinstance(p, list) for p in points):
                 facts.append((label, "; ".join(f"({o(p[0])}, {o(p[1])})" for p in points)))
         clock = hold.get("jaw_clock_deg")
-        if _known(clock) and clock and not lathe:
+        # An indexed hold's jaw clock is whatever its Index line's plate setting turns: that
+        # line prints the angle it gives against the planned one, so no second angle here.
+        indexed = _known(_mapping(hold.get("index")).get("angle_deg"))
+        if _known(clock) and clock and not lathe and not indexed:
             facts.append(("jaw 1 clocked °", _number(clock)))
         return facts
 
@@ -1949,6 +1952,7 @@ class _Traveler:
             + ("" if positions == 1 else f"; repeat for each of the {r(positions)} positions")
             + "."
         ]
+        parts.append(self.index_angle(numbers))
         if numbers["method"] == "worm":
             parts.append(
                 "Take up the worm backlash: always crank so the work turns that same way; if "
@@ -1956,6 +1960,39 @@ class _Traveler:
             )
         parts.append(lock)
         return _p(self.bench(" ".join(parts)))
+
+    @staticmethod
+    def index_angle(numbers):
+        """The angle the printed plate setting actually turns, against the planned angle and
+        the allowance: one executable value, with its difference from the plan stated."""
+        planned, actual = numbers.get("requested_angle_deg"), numbers.get("actual_angle_deg")
+        error = numbers.get("step_error_deg")
+        if not (_known(planned) and _known(actual) and _known(error)):
+            return "Angle this setting gives: ? (not computed)."
+        step = "Each step" if numbers.get("positions") != 1 else "This setting"
+        planned = _number(planned) if _places(planned) <= 4 else _angle(planned)
+        if (
+            numbers.get("exact") is True
+            and numbers.get("requested_angle_source") == "360/positions"
+        ):
+            return f"{step} is exactly 1/{numbers.get('positions')} turn."
+        if numbers.get("exact") is True:
+            return f"{step} is exactly the planned {planned}°."
+        text = (
+            f"{step} turns the work {_angle(actual)}°, {_angle(abs(error))}° off the planned "
+            f"{planned}°"
+        )
+        worst = numbers.get("max_position_error_deg")
+        errors = numbers.get("position_errors_deg") or []
+        if len(errors) > 1 and _known(worst):
+            landing = 1 + max(range(len(errors)), key=lambda i: abs(errors[i]))
+            text += f"; landing {landing} ends {_angle(worst)}° off"
+        tolerance = numbers.get("tolerance_deg")
+        if not _known(tolerance):
+            return text + " (allowance ? — not known)."
+        if numbers.get("failed"):
+            return text + f": OUTSIDE the ±{_number(tolerance)}° allowed."
+        return text + f" (allowed ±{_number(tolerance)}°)."
 
     @staticmethod
     def index_sense(hold):
@@ -2267,10 +2304,19 @@ class _Traveler:
     def rest_engagement(self, setup, op):
         """Where each follow rest the op's start would foul goes on (``engage_at_z_mm``),
         on the DRO grid toward the clear side (along the feed), rechecked as printed: past
-        the Z where the jaws clear the fixture and not past the op's end."""
+        the Z where the jaws clear the fixture and not past the op's end. Hands set the jaws
+        only once the feed and then the spindle have stopped, and the spindle runs again
+        before the feed resumes."""
         numbers = _mapping(self.records.get(("accessibility", f"{setup['id']}:{op['op']}")))
         feed, end = numbers.get("feed_z"), op.get("z_to")
         scale = {"mm": 1.0, "in": 25.4}.get(self.units)
+        supports = _mapping(setup.get("hold")).get("supports")
+        # The op's own support entries: one rest may ride a different side in another op.
+        applicable = [
+            support
+            for support in map(_mapping, supports if isinstance(supports, list) else [])
+            if not isinstance(support.get("ops"), list) or op.get("op") in support["ops"]
+        ]
         lines = []
         for entry in map(_mapping, numbers.get("rest_engagement") or []):
             declared, clear = entry.get("declared_z_mm"), entry.get("engage_z_mm")
@@ -2284,10 +2330,19 @@ class _Traveler:
                 and (printed - clear / scale) * feed >= -1e-9
                 and (not _known(end) or (printed - end) * feed <= 1e-9)
             )
+            if not fits:
+                lines.append(_Box("STOP: no follow-rest position on the DRO grid is checked clear"))
+                continue
+            rest = entry.get("rest")
+            side = next(
+                (s.get("jaw_side", "turned") for s in applicable if s.get("ref") == rest),
+                "turned",
+            )
+            ridden = "uncut stock ahead of the tool" if side == "uncut" else "diameter just turned"
             lines.append(
-                f"set the follow rest at Z {self.operative(printed)} once the tool passes it"
-                if fits
-                else _Box("STOP: no follow-rest position on the DRO grid is checked clear")
+                f"each pass, at Z {self.operative(printed)}: stop the feed, then the "
+                f"spindle; set the follow-rest jaws on the {ridden} and lock them; restart "
+                "the spindle, then resume the feed"
             )
         return lines
 
@@ -3041,11 +3096,20 @@ class _Traveler:
                 if reference in (None, "unknown")
                 else self.short_reference(reference, "gauges")
             )
-            unresolved = requirement in missing or any(
-                finding is None or _status(finding) in ("unknown", "unsupported")
-                for finding in findings
+            pair = go_no_go_pair(op, requirement)
+            unresolved = (
+                requirement in missing
+                or pair == "unknown"
+                or any(
+                    finding is None or _status(finding) in ("unknown", "unsupported")
+                    for finding in findings
+                )
             )
             line = f"{'? ' if unresolved else ''}{name} {target}: {gauge}"
+            if pair == "unknown":
+                line += ", GO / NO-GO sizes not set"
+            elif pair:
+                line += self.go_no_go(pair, owners[0], requirement, reference)
             datums = [
                 self.features.get(feature, {}).get("position_datums")
                 for feature in owners
@@ -3073,7 +3137,22 @@ class _Traveler:
     def process_hold(self, hold):
         """A shop limit inside the drawing band, printed apart from the drawing's own."""
         feature, requirement = hold["feature"], hold["requirement"]
-        gauge = resolve(self.bundle, "gauges", hold["gauge"]) or {}
+        places = self.gauge_places(hold["band"], feature, requirement, hold["gauge"])
+        band = "–".join(_number(limit, places) for limit in hold["band"])
+        name = _REQUIREMENT_NAMES.get(requirement, _text(requirement))
+        line = (
+            f"PROCESS HOLD — not a drawing limit: {self.bench(hold['reason'])} — "
+            f"{self.feature_name(feature)} {name} {band}: "
+            f"{self.short_reference(hold['gauge'], 'gauges')}"
+        )
+        if hold.get("go_no_go"):
+            line += self.go_no_go(hold["go_no_go"], feature, requirement, hold["gauge"])
+        return line
+
+    def gauge_places(self, sizes, feature, requirement, reference):
+        """Decimals a gauge reading prints at: the sizes' own digits, one gauge step and the
+        drawing precision, whichever is finest."""
+        gauge = resolve(self.bundle, "gauges", reference) or {}
         resolution = length_mm(gauge, "resolution")
         precision = self.precision(feature, requirement)
         # The decimals that show one gauge step: 0.001 mm reads 3, and 0.0001 in (0.00254 mm)
@@ -3081,18 +3160,23 @@ class _Traveler:
         step = 0
         if _known(resolution) and resolution > 0:
             step = math.ceil(-math.log10(resolution) - 1e-9)
-        places = max(
-            *(_places(limit) for limit in hold["band"]),
+        return max(
+            *(_places(size) for size in sizes),
             min(max(step, 0), 6),
             precision if isinstance(precision, int) else 0,
         )
-        band = "–".join(_number(limit, places) for limit in hold["band"])
-        name = _REQUIREMENT_NAMES.get(requirement, _text(requirement))
-        return (
-            f"PROCESS HOLD — not a drawing limit: {self.bench(hold['reason'])} — "
-            f"{self.feature_name(feature)} {name} {band}: "
-            f"{self.short_reference(hold['gauge'], 'gauges')}"
+
+    def go_no_go(self, pair, feature, requirement, reference):
+        """A limit check's two sizes and what each must do: plugs enter a hole, rings pass
+        over a boss or shaft."""
+        sizes = [pair["go"], pair["no_go"]]
+        go, no_go = (
+            _number(size, self.gauge_places(sizes, feature, requirement, reference))
+            for size in sizes
         )
+        kind = self.features.get(feature, {}).get("kind")
+        verb = "passes over" if kind in ("boss", "shaft") else "enters"
+        return f", GO {go} {verb}, NO-GO {no_go} does not"
 
     def coating(self, op):
         """A coating op's tool cell: its outside service or in-house consumables."""

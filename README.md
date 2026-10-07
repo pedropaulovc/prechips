@@ -98,8 +98,9 @@ and head, a cone sleeve bonded in a cross-bore and a crank sleeve bonded in a
 head socket with retaining compound, both running bores reamed after cure.
 Drawing permission alone does not prepare or assemble material: plan-only
 socket/spigot features, each joint's clearance band and cure, and assembly
-remain checked. Its 12.5182° settings print BS-0 plate/circle, turns and
-spaces. No shaft cross-hole is invented, and unknown physical or cutting facts
+remain checked. Its planned 12.5182° settings print the BS-0 plate/circle, turns and
+spaces, and the 12.5217° that plate setting gives: 0.0035° off, inside the crank
+bore's 0.0795° angle tolerance. No shaft cross-hole is invented, and unknown physical or cutting facts
 are never numerical machining claims.
 
 ## CLI: five noninteractive verbs

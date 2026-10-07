@@ -77,6 +77,29 @@ def record(value):
     return value if isinstance(value, dict) else {}
 
 
+def drawing_precision(bundle, feature, requirement):
+    """The decimals the drawing prints ``requirement`` of ``feature`` at: the feature's own
+    ``precision`` entry, else the manifest's general precision."""
+    general = bundle.features.get("precision")
+    overrides = record(bundle.feature_definitions.get(feature)).get("precision", {})
+    return overrides.get(requirement, general) if isinstance(overrides, dict) else overrides
+
+
+def printed_band(limits, precision):
+    """A two-sided band as the traveler prints it: at the drawing's integer precision, rounded
+    inward (low up, high down) so printing never loosens it. None when the limits or the
+    precision are unknown, or the band is too narrow for that precision (it then prints, and
+    is held, at its declared limits)."""
+    if not (isinstance(limits, (list, tuple)) and len(limits) == 2 and all(map(number, limits))):
+        return None
+    if not (isinstance(precision, int) and not isinstance(precision, bool)):
+        return None
+    scale = 10**precision
+    low = math.ceil(round(limits[0] * scale, 6)) / scale
+    high = math.floor(round(limits[1] * scale, 6)) / scale
+    return [low, high] if low <= high else None
+
+
 def op_features(op):
     """Every feature an op names: its one feature, or an inspect op's list; none if absent."""
     feature = op.get("feature")

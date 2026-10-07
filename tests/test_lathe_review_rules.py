@@ -1,5 +1,7 @@
 """Lathe op starts, relief plunges and dome roughing as the rules derive them."""
 
+import re
+from html import unescape
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -339,7 +341,8 @@ def test_millimetre_start_and_engagement_facts_print_in_inch_dro_coordinates():
         "START Z 2.000: 0.050 CLEAR OF dead centre — start no further out than Z 2.050"
     )
     assert sheet.rest_engagement(setup, op) == [
-        "set the follow rest at Z 2.000 once the tool passes it"
+        "each pass, at Z 2.000: stop the feed, then the spindle; set the follow-rest jaws "
+        "on the diameter just turned and lock them; restart the spindle, then resume the feed"
     ]
 
 
@@ -349,7 +352,8 @@ def test_a_follow_rest_z_is_printed_on_the_clear_side_of_the_dro_grid():
     engage = {"declared_z_mm": 155.46, "engage_z_mm": 155.47}
     sheet, setup, op = _sheet("mm", 0.1, {"rest_engagement": [engage], "feed_z": -1}, 166.0, 0.2)
     assert sheet.rest_engagement(setup, op) == [
-        "set the follow rest at Z 155.4 once the tool passes it"
+        "each pass, at Z 155.4: stop the feed, then the spindle; set the follow-rest jaws "
+        "on the diameter just turned and lock them; restart the spindle, then resume the feed"
     ]
     # Feeding away from the chuck the clear side is up the grid.
     sheet, setup, op = _sheet(
@@ -360,7 +364,8 @@ def test_a_follow_rest_z_is_printed_on_the_clear_side_of_the_dro_grid():
         50.0,
     )
     assert sheet.rest_engagement(setup, op) == [
-        "set the follow rest at Z 10.1 once the tool passes it"
+        "each pass, at Z 10.1: stop the feed, then the spindle; set the follow-rest jaws "
+        "on the diameter just turned and lock them; restart the spindle, then resume the feed"
     ]
     # No grid position between the clear Z and the op's end is refused, not rounded in.
     sheet, setup, op = _sheet(
@@ -468,3 +473,72 @@ def test_an_unknown_later_band_does_not_hide_a_known_band_holding_the_start():
     row = _chain([{**_PART, "to_z_band": [1.5, 2.0]}, later, _FORM])
     assert row.status == "error"
     assert "which op 10 leaves anywhere in 1.5 to 2;" in row.sentence
+
+
+def test_the_follow_rest_goes_on_with_the_spindle_stopped_and_it_restarts_before_the_cut(
+    tmp_path,
+):
+    from test_cli import copy_examples
+
+    from prechips.findings import Finding
+    from prechips.inputs import load_bundle
+    from prechips.sheet import render_traveler
+
+    bundle = load_bundle(copy_examples(tmp_path) / "pivot-shaft" / "plan.toml")
+    engage = {**_ENGAGE, "engage_z_mm": 155.474, "declared_z_mm": 152.0}
+    clear = Finding("accessibility", "S1:10", "pass", {"rest_engagement": [engage]}, [], "S1:10.")
+    html = unescape(re.sub(r"<[^>]+>", " ", render_traveler(bundle, [clear], {})))
+    step = re.search(r"each pass, at Z 152\.00:[^.]*", html).group(0)
+    # Hands go near the work only once it has stopped, and the cut resumes on a running spindle.
+    order = [
+        "stop the feed, then the spindle",
+        "set the follow-rest jaws",
+        "lock them",
+        "restart the spindle",
+        "then resume the feed",
+    ]
+    found = [step.find(words) for words in order]
+    assert -1 not in found and found == sorted(found), step
+
+
+def test_each_op_sets_the_follow_rest_on_the_side_its_own_support_entry_declares(tmp_path):
+    from test_cli import copy_examples
+
+    from prechips.findings import Finding
+    from prechips.inputs import load_bundle
+    from prechips.sheet import render_traveler
+
+    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
+    text = plan.read_text(encoding="utf-8")
+    one = (
+        'supports = [{ ref = "follow_rest", ops = [10, 30], jaw_lead_mm = 8.0, '
+        'jaw_side = "turned", engage_at_z_mm = 152.0 }]'
+    )
+    assert text.count(one) == 1
+    # The same rest, ridden behind the tool on op 10 and ahead of it on op 30.
+    plan.write_text(
+        text.replace(
+            one,
+            'supports = [{ ref = "follow_rest", ops = [10], jaw_lead_mm = 8.0, '
+            'jaw_side = "turned", engage_at_z_mm = 152.0 }, { ref = "follow_rest", '
+            'ops = [30], jaw_lead_mm = 8.0, jaw_side = "uncut", engage_at_z_mm = 151.0 }]',
+        ),
+        encoding="utf-8",
+    )
+    bundle = load_bundle(plan)
+    findings = [
+        Finding(
+            "accessibility",
+            f"S1:{op}",
+            "pass",
+            {"rest_engagement": [{**_ENGAGE, "engage_z_mm": 151.0, "declared_z_mm": z}]},
+            [],
+            f"S1:{op}.",
+        )
+        for op, z in ((10, 152.0), (30, 151.0))
+    ]
+    html = unescape(re.sub(r"<[^>]+>", " ", render_traveler(bundle, findings, {})))
+    op10 = re.search(r"each pass, at Z 152\.00:[^;]*;[^;]*", html).group(0)
+    op30 = re.search(r"each pass, at Z 151\.00:[^;]*;[^;]*", html).group(0)
+    assert "on the diameter just turned" in op10, op10
+    assert "on the uncut stock ahead of the tool" in op30, op30
