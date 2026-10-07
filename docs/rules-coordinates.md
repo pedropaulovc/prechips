@@ -55,7 +55,9 @@ requirement.
 **Mill DRO targets, aims and printed bands.** Off a lathe, a located row with a
 known setup point — an `at` or parent row, or each end of a kernel span (below) —
 also carries `dro`: that point at the nearest step of the setup machine's DRO grid
-(`dro_grid`), at most half a step away, which the sheet's feature map prints and a
+(`dro_grid`), at most half a step away (exactly half a step rounds away from zero,
+as the fixture tables and holding details round: `render_diagram.dro_steps`),
+which the sheet's feature map prints and a
 hole op dials (`dro_xy`). When the feature declares a height-like band
 (`height_above_pivot`, `height` or `separation`, the first one present) from a
 `height_from` reference, the row's `band_check` measures where the feature stands
@@ -372,7 +374,8 @@ contour block heading lists every level and says to run the complete path at
 the first and repeat it at each level in order.
 
 **Hole targets.** Each located mill row (`rows`) carries `dro_xy`, its setup
-X/Y at the nearest DRO grid point (a hole axis has no safe side). A centre,
+X/Y at the nearest DRO grid point (a hole axis has no safe side; half a step
+rounds away from zero, as `dro` does). A centre,
 spot, drill, ream, tap, counterbore or bore op whose feature has exactly one
 located row prints that tool-axis X/Y on its op row; an unknown one prints a STOP.
 

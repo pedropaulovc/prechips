@@ -828,7 +828,7 @@ def test_a_breakthrough_note_claims_no_run_out_the_endpoint_leaves_unknown():
 
 def transfer_sheet(indicate, kind):
     sheet = mapped({}, {"face_a": {"kind": "face"}, "bore": {"kind": "hole"}})
-    sheet.reference = lambda gauge: "dial test indicator"
+    sheet.reference = lambda gauge, category=None: "dial test indicator"
     return sheet, {"from": "S1", "indicate": indicate, "tool": "dti", "runout_limit_mm": 0.0254}
 
 

@@ -374,9 +374,10 @@ def setup_items(bundle, setup):
     tool touch's Z measuring gauge too), the transfer's tool (spindle) and gauge; then each
     op's filing guide (its buttons a fixture, its template and gauge gauges), tool,
     holder, inspection gauges (``checks`` and ``missing_requirements``) and process-hold
-    gauges. One reference two kinds of slot select in two categories is two items. An item
-    is its category and reference from here on: every reader uses that pair, never the
-    bare key again."""
+    gauges. A shop-made holding item is followed by the tool of each of its make
+    operations (:func:`make_ops`), a ``tools`` item only (:func:`make_tool`). One reference
+    two kinds of slot select in two categories is two items. An item is its category and
+    reference from here on: every reader uses that pair, never the bare key again."""
     hold = record(setup.get("hold"))
     uses = [("workholding", hold.get("fixture"))]
     uses += [("fixtures", hold.get(key)) for key in _HOLD_ITEMS]
@@ -416,11 +417,23 @@ def setup_items(bundle, setup):
         uses.append(("fixtures", clamp))
     items, seen = [], set()
     for slot, ref in uses:
-        if isinstance(ref, str) and ref not in _NO_ITEM:
-            category, reference, item = select(bundle, ref, slot)
-            if (category, reference) not in seen:
-                seen.add((category, reference))
-                items.append((category, reference, item))
+        if not isinstance(ref, str) or ref in _NO_ITEM:
+            continue
+        category, reference, item = select(bundle, ref, slot)
+        made = (
+            shop_made_item(bundle, reference, category)
+            if category in WORKHOLDING_CATEGORIES
+            else None
+        )
+        found = [(category, reference, item)] + [
+            ("tools", tool, make_tool(bundle, tool))
+            for tool in (record(op).get("tool") for _, op in make_ops(made))
+            if isinstance(tool, str) and tool not in _NO_ITEM
+        ]
+        for entry in found:
+            if entry[:2] not in seen:
+                seen.add(entry[:2])
+                items.append(entry)
     return items
 
 
@@ -439,6 +452,65 @@ def shop_made_item(bundle, reference, slot):
     return item
 
 
+def make_ops(item):
+    """``[(solid, op)]``: the make operations of a shop-made item (:func:`shop_made_item`)
+    in the order they are run: the item's own ``make_ops`` (solid ``None``), then each
+    primitive's, in ``solids`` order. Primitives sharing a ``label`` (one make-table row)
+    with the same list give it once. A list stated ``unknown`` is one ``(solid,
+    "unknown")`` entry: unknown, never no operation."""
+    item = record(item)
+    found = []
+    seen = set()
+    for solid in [None, *(s for s in item.get("solids") or [] if isinstance(s, dict))]:
+        owner = item if solid is None else solid
+        if "make_ops" not in owner:
+            continue
+        ops = owner["make_ops"]
+        key = (record(solid).get("label"), repr(ops))
+        if solid is not None and key[0] is not None and key in seen:
+            continue
+        seen.add(key)
+        found += [(solid, op) for op in ops] if isinstance(ops, list) else [(solid, UNKNOWN)]
+    return found
+
+
+# What one make-operation line states, in print order.
+MAKE_OP_FIELDS = ("hold", "tool", "rpm", "feed", "doc_mm", "cite")
+
+
+def make_op_unknowns(op):
+    """The fields of a make operation (:func:`make_ops`) its line cannot state: all of an
+    unknown list's; else each text (hold, tool, feed, cite) omitted, blank or ``unknown``
+    and each number (``rpm`` a number or [low, high] range, ``doc_mm``) not known. An
+    omitted field is no more known than an ``unknown`` one."""
+    if not isinstance(op, dict):
+        return list(MAKE_OP_FIELDS)
+
+    def known(key, value):
+        if key == "rpm" and isinstance(value, list):
+            return len(value) == 2 and all(map(number, value))
+        if key in ("rpm", "doc_mm"):
+            return number(value)
+        return isinstance(value, str) and value.strip() not in ("", UNKNOWN)
+
+    return [key for key in MAKE_OP_FIELDS if not known(key, op.get(key))]
+
+
+def make_tool(bundle, reference):
+    """The ``tools`` record a make operation's ``tool`` names: read in ``tools`` only, never
+    a same-key item of another category or a machine's standard accessory. ``{"kind":
+    "unknown", "verify": True}`` when the tools list or the item is stated unknown; None when
+    the tools do not list it, it is not present or it is no member its set declares."""
+    if not isinstance(reference, str) or reference in (UNKNOWN, "none", "not_applicable"):
+        return None
+    tools = getattr(bundle, "inventory", bundle).get("tools", {})
+    if tools == UNKNOWN:
+        return {"kind": UNKNOWN, "verify": True}
+    if reference.partition("/")[0] not in record(tools):
+        return None
+    return resolve(bundle, "tools", reference)
+
+
 # An inventory item named in prose (a make note, a plan note): ``<category>.<key>`` with an
 # optional ``/<member>``, as in ``gauges.granite-surface-plate`` or ``tools.drills/#61``.
 # The member is everything :func:`resolve` reads as one (``#61``, ``1/4``, ``1-4in``,
@@ -449,11 +521,35 @@ NAMED_REFERENCE = re.compile(
     r"\.([A-Za-z0-9](?:[\w-]*\w)?(?:/[\w#./-]*[\w#])?)"
 )
 
+# A link or path in authored text, taken literally to the next whitespace: a URL
+# (``scheme://…``), a drive-letter path (``C:\…``, ``C:/…``), a UNC path (``\\server\…``), a
+# relative path (``./…``, ``../…``) or a rooted one (``/srv/…/…``). Nothing in it is a name.
+LITERAL_SPAN = re.compile(
+    r"(?<![\w.+-])[A-Za-z][A-Za-z0-9+.-]*://\S*"
+    r"|(?<![\w\\])[A-Za-z]:[\\/]\S*"
+    r"|(?<![\w\\])\\\\[^\s\\]+\\\S*"
+    r"|(?<![\w./\\])\.{1,2}[\\/]\S*"
+    r"|(?<![\w./\\:])/[^\s/]+/\S*"
+)
+
+
+def authored_names(text):
+    """``[(start, end, "<category>.<key>")]``: each inventory item authored text (a make
+    operation's hold or source, printed as written) names (:data:`NAMED_REFERENCE`),
+    outside its links and paths (:data:`LITERAL_SPAN`): a name next to punctuation or in
+    quotes is a name, nothing inside ``https://tools.example.com/x`` or
+    ``C:\\shop\\tools.chart.pdf`` is."""
+    text = text if isinstance(text, str) else ""
+    prose = LITERAL_SPAN.sub(lambda span: " " * len(span[0]), text)
+    return [(m.start(), m.end(), m[0]) for m in NAMED_REFERENCE.finditer(prose)]
+
 
 def setup_named_references(bundle, setup, job=False):
     """``{"<category>.<key>": [where, ...]}`` for one setup: every inventory item named
-    (:data:`NAMED_REFERENCE`) in the setup's own prose and in the solid notes and record
-    blanks of the shop-made items it uses, each record's gauge as ``gauges.<gauge>``.
+    (:data:`NAMED_REFERENCE`) in the setup's own prose and in the solid notes, record
+    blanks and make operations' hold and source (:func:`authored_names`: never inside a
+    link or path) of the shop-made items it uses, each record's gauge as
+    ``gauges.<gauge>``.
     With ``job``, the plan's prose outside its setups (the job page's, before the first
     setup) too."""
     named = {}
@@ -491,6 +587,11 @@ def setup_named_references(bundle, setup, job=False):
                 gauge = record(blank).get("gauge")
                 if isinstance(gauge, str) and gauge not in ("none", "not_applicable"):
                     add(f"gauges.{gauge}", f"{where} record")
+        for solid, op in make_ops(item):
+            where = f"{ref} {record(solid).get('name', 'item')} make op"
+            for text in (record(op).get("hold"), record(op).get("cite")):
+                for *_, name in authored_names(text):
+                    add(name, where)
     return named
 
 
