@@ -72,7 +72,8 @@ is not a centre (`tailstock_drill_chuck`, `tailstock_quill`), nor is a kind
 such as `self_centering_steady_rest`. A support of a known non-centre kind stays
 one whatever `verify` or measurement debt its record carries; that debt is its
 own checks' (`stickout`, `turning_deflection`). A hold with no centre is not
-applicable and never blocks.
+applicable and never blocks. A centre is the fixture its reference selects:
+`support = "x"` with `supports = ["fixtures.x"]` is one centre, not two.
 The hold's `centre_hole` must name a plan
 [process feature](plan.md#process-features) `centre_hole`; a `center_drill`
 op of an earlier setup in this setup's `stock_in` lineage must drill it, that
