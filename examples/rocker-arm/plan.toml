@@ -565,7 +565,7 @@ coolant = "cutting_oil_brush" # author's choice
 deburr_mm = 0.25
 deburr_cite = "harmonic-analyzer/cad/config/title_block.yaml:43-45"
 stock_in = "S2"
-note = "Strap-held hub setup: indicate the empty plate bore before loading. Lower the blank straight down over the permanent rod-hole diamond pin onto the lower-strap support pads, then match the rail-rest shims without lifting the part. Indicate the D pilot and confirm its centre is within 0.20 mm radial of the empty plate-bore reference before tightening. If the rod hole will not drop over the pin with the pilot inside 0.20 mm, stop and inspect S2 hole spacing; do not force it. Re-indicate the pilot as working A, then finish the upper hub OD and ream without relocating. The fixture's Z figures are drawn for the CAD part at the bottom of the hub-length band; the 7.080 part sits 0.0235 higher on the same pads and stand, so touch Z on its upper hub face, never on the plate. Remote studs and stepped straps clear the raw rails; do not profile across these straps. The pin stays fitted for S4."
+note = "Strap-held hub setup: tram the plate and indicate the empty plate bore before loading. Lower the blank straight down over the permanent rod-hole diamond pin onto the lower-strap support pads, then match the rail-rest shims without lifting the part. Indicate the D pilot and confirm its centre is within 0.20 mm radial of the empty plate-bore reference before tightening. If the rod hole will not drop over the pin with the pilot inside 0.20 mm, stop and inspect S2 hole spacing; do not force it. Re-indicate the pilot as working A, then finish the upper hub OD and ream without relocating. The fixture's Z figures are drawn for the CAD part at the bottom of the hub-length band; the 7.080 part sits 0.0235 higher on the same pads and stand, so touch Z on its upper hub face, never on the plate. Remote studs and stepped straps clear the raw rails; do not profile across these straps. The pin stays fitted for S4."
 
 [setups.stock_state]
 top_feature = "hub_faces" # Z touches the upper hub face
@@ -592,7 +592,7 @@ clamps = [
   { ref = "rocker-rod-diamond-pin", restraint = "locate", pose = { origin_mm = [133.06740213488345, 8.456064115939025, -4.77825], x = [0.9979869699018047, 0.06341930231573287, 0.0], z = [0.0, 0.0, -1.0] }, note = "permanently fitted in-process orientation locator in the rod hole, unchanged for S4; not datum C; no clamp or lift load" },
 ]
 clamp_order = [1, 2] # only the two hub straps tighten; the permanent pin is a locator
-locate = "first indicate the empty plate bore and retain its X/Y reference; lower the blank straight down over the permanent rod-hole pin onto the pads and indicate the D pilot"
+locate = "first tram the plate with its hold-down screws snug: sweep a dial test indicator along its ground -Y reference edge (the edge its bore and pin hole were positioned from) from X -150 to X 150, tap it until the reading varies by no more than 0.01 mm, tighten the four hold-down screws and re-check; then indicate the empty plate bore and retain its X/Y reference; lower the blank straight down over the permanent rod-hole pin onto the pads and indicate the D pilot"
 supports = "not_applicable" # the fixture's own support pads carry the strap
 fixed_jaw = "not_applicable"
 jaws_along = "not_applicable"
@@ -773,8 +773,8 @@ height_above_pivot = "rocker-profile-template" # final bench inspection on a 6.5
 radius = "rocker-profile-template"
 arc_len = "rocker-profile-template" # engraved arc-length limit lines on the template's top blade
 [setups.ops.inspection_methods]
-height_above_pivot = "After op 40, with the part on the profile template as in the S4 op 43 inspection note: feeler the top-blade gap at its engraved stations X 0, ±50, ±100 and ±140. Every gap must read 0.50 to 1.00 (top edge 8.00 to 8.50 over the pivot). Record the gaps ______."
-radius = "Same template readings: every top-blade gap 0.50 to 1.00 keeps the R800 edge inside its band from tip to tip. Record OK / not OK ______."
+height_above_pivot = "After op 40, with the part on the profile template as in the S4 op 43 inspection note: feeler the top-blade gap at its engraved stations X 0, ±50, ±100 and ±140. The X 0 gap must read 0.50 to 1.00 (top edge 8.00 to 8.50 over the pivot). Record the gaps ______."
+radius = "R799.49 to R800.51 is a radius tolerance zone (title-block ±0.51 on R800, no CR): the edge must lie between those two arcs about the template centre. Same template set-up: slide a 0.49 feeler along the whole top blade from tip to tip; it must enter everywhere. Then slide a 1.52 stack (1.00 + 0.50 + 0.02); it must enter nowhere. Record OK / not OK ______."
 arc_len = "Same template set-up: each top-edge tip corner must lie between the top blade's two engraved arc-length lines at that end. Record +X ______ and -X ______."
 
 [[setups.ops]]
@@ -797,7 +797,7 @@ note = "Cut the contour tables in this order: -X join, bottom arc, +X join; the 
 bottom_radius = "rocker-profile-template"
 bottom_arc_len = "rocker-profile-template"
 [setups.ops.inspection_methods]
-bottom_radius = "After op 40, with the part on the profile template as in the S4 op 43 inspection note: feeler the bottom-blade gap at its engraved stations X 0, ±50, ±100 and ±125. Every gap must read 0.49 to 1.51 (R815.49 to R816.51). Record the gaps ______."
+bottom_radius = "After op 40, with the part on the profile template as in the S4 op 43 inspection note: R815.49 to R816.51 is a radius tolerance zone (title-block ±0.51 on R816, no CR): the edge must lie between those two arcs about the template centre. Slide a 0.49 feeler along the whole bottom blade from end to end; it must enter everywhere. Then slide a 1.52 stack (1.00 + 0.50 + 0.02); it must enter nowhere. Record OK / not OK ______."
 bottom_arc_len = "Same template set-up: each bottom-arc end must lie between the bottom blade's two engraved arc-length lines at that end. Record +X ______ and -X ______."
 
 [[setups.ops]]
@@ -807,14 +807,14 @@ feature = "tip_land_pos_x"
 note = "After op 40 releases the outline, check the rod-hole-end land width and its 90° angle to the top edge."
 [setups.ops.checks]
 tip_land = "calipers" # author's choice
-land_angle_deg = "rocker-profile-template" # 90° land template against the drawing's title-block ±1° band
+land_angle_deg = "rocker-profile-template" # the kit's loose land square, bedded on the part's own top edge, against the title-block ±1° band
 [setups.ops.inspection_methods]
 land_angle_deg = """
-Profile template (toolroom-made; example dimensions, plausible, not measured): a 380 x 110 x 12.7 mm ground steel base plate with a pressed 6.500 h6 pivot pin, a 2.000 diamond pin (flats radial) at the nominal rod hole X 133.067, Y 8.456 from the pivot pin, and a 14 mm diameter x 3 mm deep relief under the hub. Four 2.0 mm ground blades are doweled and screwed round the part position, each working edge 1.00 mm outside the nominal outline: top blade R799.00 and bottom blade R817.00 about the arc centre 808.00 above the pivot pin, and one blade parallel to each tip land. Gap stations and the arc-length limit lines are engraved on the blades; a 0.02 to 1.00 mm feeler set stays with the template.
+Profile template (toolroom-made; example dimensions, plausible, not measured): a 380 x 110 x 12.7 mm ground steel base plate with a pressed 6.500 h6 pivot pin, a 2.000 diamond pin (flats radial) at the nominal rod hole X 133.067, Y 8.456 from the pivot pin, and a 14 mm diameter x 3 mm deep relief under the hub. Two 2.0 mm ground blades are doweled and screwed round the part position, each working edge 1.00 mm outside the nominal outline: top blade R799.00 and bottom blade R817.00 about the arc centre 808.00 above the pivot pin. Gap stations and the arc-length limit lines are engraved on the blades. The kit also holds a loose land square (a ground steel block with a 40 mm long convex R800.00 stock face, ground with the top blade, and a 12 mm blade square to the stock face at its end within 0.01 mm over 10 mm) and a 0.02 to 1.00 mm feeler set.
 
 Set-up: after op 40, clean the part and the template. Lower the part over both pins onto its lower strap face with the hub in the relief, turn it counterclockwise against the diamond pin and hold it down by hand.
 
-Feeler the +X tip-land blade gap at both ends of the land. The two readings must differ by no more than 0.08 (89° to 91° over the shortest 5.08 land). Record ______ and ______.
+Land angle, with the part off the template on a clean bench: bed the land square's R800 stock face on the part's top edge with the blade end at the +X tip corner and the blade across the +X land. The square registers on the top edge itself, so the reading does not depend on how the holes clock the part. Feeler the gap between blade and land at both ends of the land. The two readings must differ by no more than 0.08 (89° to 91° over the shortest 5.08 land). Record ______ and ______.
 """
 
 [[setups.ops]]
@@ -826,7 +826,7 @@ note = "After op 40, check the opposite end land width and its 90° angle; inspe
 tip_land = "calipers"
 land_angle_deg = "rocker-profile-template"
 [setups.ops.inspection_methods]
-land_angle_deg = "Same template set-up as op 43: feeler the -X tip-land blade gap at both ends of the land; the two readings must differ by no more than 0.08. Record ______ and ______."
+land_angle_deg = "Same land square as op 43, off the template: bed its R800 stock face on the top edge with the blade end at the -X tip corner and the blade across the -X land; feeler the gap at both ends of the land. The two readings must differ by no more than 0.08. Record ______ and ______."
 
 [[setups.ops]]
 op = 50
