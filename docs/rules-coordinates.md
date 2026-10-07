@@ -568,6 +568,54 @@ dial, centre or swing) append (unknown; numbers `arc_debts`):
 
 ` Manual arc debt: op {op} {stage}: … .` (`;`-joined)
 
+**Depth levels: entry and return (`level_paths`).** For every mill setup, each op
+with a printed cutter path (stair and chord arc tables, join tables, outlines,
+raster passes; rotary-table and chain-drill tables are no end-mill path) gets one
+`level_paths` record: `op`, `levels` (each depth level's DRO Z, top first; one
+level for a single-depth op; `unknown` when coordinates could not compute the
+levels or the depth, never one level at the op's depth), `from_z` (level 1's start
+Z), `entries` (each place
+the cutter goes down, in the order the sheet prints the path: `xy`, `air`, `pass`
+for a raster pass), `raster` and `closed` (one piece that ends where it starts).
+An entry is in `air` only when the cutter stands a radius plus the kernel's 1e-3
+mm tolerance outside the setup-entry `stock_bbox_mm` in X or Y; anything else
+plunges into material, level `k` from level `k-1`'s Z, which the same path cut
+at that spot. A raster, a path in several pieces or an open path in several
+levels returns to an entry (an unknown level count claims no return between levels):
+`raise_z` is `approach_mm` above the current top on
+the DRO grid (a raster's lift), and `raise_clear` is true only when the stock box
+proves it above the stock (unknown without a box; the sheet then claims nothing
+about it). An op with any plunge carries `plunge_mm_rev` (the cited `[[plunge]]`
+feed, see [cutting data](cutting-data.md#plunge), which only a tool declared
+`center_cutting = true` has) and, when unknown, `plunge_reason`. Fixture and clamp
+heights are not in the box: a raise Z is never
+claimed clear of them.
+
+Each of these is pass-plan debt (unknown), appended as ` Pass plan unknown: … .`
+(`;`-joined with the other pass-plan debts):
+
+- `op {op} plunges into the stock but its plunge feed is unknown: {reason}` (also
+  for a tool not declared centre-cutting);
+- `op {op} returns to its entry but its raise Z is unknown: it needs approach_mm
+  above a known top` (not a raster, whose unknown lift is its own debt);
+- `op {op} returns to its entry at Z {z}, not above the stock it receives`.
+
+The setup sheet prints each path's record above its table: a single level as
+`Enter at P1: plunge Z a → b at F mm/min.` (or `clear of the stock: lower to Z`);
+several levels, whose Zs the block heading lists, as one statement of how each
+level gets down (`plunge from the level above (level 1 from Z a) at F mm/min`)
+and how it gets back between levels (`raise to Z R (above the stock), move back
+to P1`, `stay at P1: the path ends where it starts`, or a raster's `lift to Z R,
+rapid back to pass 1`). Unknown levels print no statement: the block keeps its
+`? Depth levels not computed` line. The op row's feed cell adds `plunge F mm/min`; a
+plunge without one is `STOP: plunge feed not set — {plunge_reason}`, and the
+statement's plunge carries the same STOP instead of a feed. The contour heading and its
+raster line print on the page of the first block, never alone.
+
+A bench setup (machine `kind` bench or manual, no declared `resolution`) has no DRO
+of its own: `dro_grid` gives it the grid of the nearest machine setup in its
+`stock_in` lineage, so a surface arriving from that setup prints the same Z.
+
 Blade grooves: a `form_*`/groove op whose tool is a grooving/parting blade gets
 `plunges` numbers: the corner the DRO reads (`reading_corner`, the corner the Z
 touch in effect when the op cuts set; see `zero_check` blade corners, never the

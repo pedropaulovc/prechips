@@ -2102,6 +2102,9 @@ note = 'Illustrative paired metric bore-limit pins: 6.500 mm go and 6.530 mm no-
 [tools.bracket-long-endmill]
 kind = "endmill"
 material = "HSS"
+# example (plausible, not measured): centre-cutting end teeth, as a stock four-flute HSS end
+# mill has; pivot-bracket S2 op 30 and S3 ops 45/55 plunge it into the stock.
+center_cutting = true
 shank_in = { value = 0.375, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer" } }
 flutes = 4
 dia_mm = { value = 9.525, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the flutes" } }

@@ -1400,6 +1400,17 @@ DeepHole = record(
     "DeepHole",
     {"operation": str, **numbers("depth_over_dia sfm_factor"), "cite": Citations},
 )
+# An end mill fed straight down its own axis into the stock: feed per spindle revolution,
+# selected like a cut row by material class, tool material and tool diameter.
+Plunge = record(
+    "Plunge",
+    {
+        **texts("material_class tool_material"),
+        "diameter_range": Vector,
+        "feed_mm_rev": float,
+        "cite": Citations,
+    },
+)
 
 
 class CuttingData(InputModel):
@@ -1408,3 +1419,4 @@ class CuttingData(InputModel):
     cut: list[Cut] | Unknown = UNKNOWN
     material: list[CutMaterial] | Unknown = UNKNOWN
     deep_hole: list[DeepHole] | Unknown = UNKNOWN
+    plunge: list[Plunge] | Unknown = UNKNOWN

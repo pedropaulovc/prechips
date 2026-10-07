@@ -710,12 +710,30 @@ def dro_grid(bundle, setup):
     """(step, decimals): the setup machine's DRO grid in plan units.
 
     The step is the inventory machine's declared ``resolution`` when it is a positive
-    length, else :data:`DRO_DEFAULT_STEP`; the decimals print one step exactly.
+    length, else :data:`DRO_DEFAULT_STEP`; the decimals print one step exactly. A bench
+    (``kind`` bench or manual) declaring none has no DRO of its own: its surfaces are the
+    ones the nearest machine setup in its stock lineage left, so they print on that
+    machine's grid, one surface one value.
     """
+    from ._bench import BENCH_KINDS
+    from .tip_endpoints import lineage
+
     units = bundle.features.get("units")
     scale = {"mm": 1.0, "in": 25.4}.get(units)
     machine = resolve(bundle, "machines", setup.get("machine")) or {}
     declared = length_mm(machine, "resolution") if scale else UNKNOWN
+    if not (number(declared) and declared > 0) and machine.get("kind") in BENCH_KINDS:
+        source = next(
+            (
+                s
+                for s in reversed(lineage(bundle, setup))
+                if (resolve(bundle, "machines", s.get("machine")) or {}).get("kind")
+                not in BENCH_KINDS
+            ),
+            None,
+        )
+        if source is not None:
+            return dro_grid(bundle, source)
     step = declared / scale if number(declared) and declared > 0 else DRO_DEFAULT_STEP
     decimals = next((d for d in range(9) if abs(round(step, d) - step) <= 1e-12), 9)
     return step, decimals
@@ -3744,6 +3762,15 @@ def evaluate(bundle, *, pre_kernel=False):
                 unknown |= (not generated and not refused) or not tool or uncertain(tool)
             if lathe:
                 unknown |= not number(length_mm(tool, "nose_radius"))
+        if not lathe:
+            from .level_entry import level_paths
+
+            paths, path_debts = level_paths(
+                bundle, setup, numbers, stock_states(bundle, setup), grid, units, dro_z
+            )
+            if paths:
+                numbers["level_paths"] = paths
+            plan_debts.extend(path_debts)
         status = (
             "error"
             if residuals
