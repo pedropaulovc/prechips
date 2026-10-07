@@ -1153,9 +1153,13 @@ above the jaws; S3 touches them at Z +8, between the jaw tops (Z −2.33) and th
 Z +16 step S2 left, after a preliminary edge-finder Z on the top. The S4
 angle-plate and bridge make rows print each hole as a drill size (#21 tap drill
 for #10-32, #7 and letter X free-fit clearances, Machinery's Handbook 27th ed.
-Table 4, p.1934), and each made or drilled part has a Make note: material,
-stock, sizes, drill speeds under Table 17 (p.1061, 1018) and Table 20 (p.1068,
-gray iron) and assembly. These are example values, not measured fixtures.
+Table 4, p.1934), and each made or drilled part has a numbered Make note:
+material, stock, sizes, hole positions from named datum edges, the work-holding,
+drill speeds under Table 17 (p.1061, 1018) and Table 20 (p.1068, gray iron),
+feeds from p.1060, cast iron drilled and tapped dry (p.1147), and the fit: the
+15.9 mm ledge stands on a 2 in 1-2-3 block while its screws are tightened, so its
+top lands at the S4 foot-end rest (66.7 mm above the table) and is swept flat
+with the DTI. These are example values, not measured fixtures.
 
 The plan and manifest use revision `example-v39` for this local illustrative
 contract, explicitly **not** a certified dimensioned drawing revision. All setup
