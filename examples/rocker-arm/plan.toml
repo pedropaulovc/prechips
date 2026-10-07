@@ -1414,6 +1414,42 @@ position_dia = [
   "Calculate: Y corrected = Y - E_box x X / 100 = {Y corrected}. View 2 reads square to the right side, which leans E_box per 100 from square to the base, so over the X lever between the pins it adds E_box x X / 100 to Y.",
   "Calculate: position Ø = 2 × √((X - 132.391)² + (Y corrected - 15.843)²) = {position Ø}; compare it with the drawing limit on the op row (RFS, no bonus). 132.391 and 15.843 are the CAD nominals for this inspection set-up, not the milling X/Y.",
 ]
+# Set-up sketches of op 50 (part model axes; EngRender7 r7 views, box resized by DataRocker7 to the
+# 127 mm BXP box): X = outward C normal (0.98338, 0.18155, 0); Y = B cross C. The box's left
+# face passes through pivot A, its base 159.392 out along X from A (the bar top, C, at 12.70);
+# the box stands behind the B face (+Z), the bar projects 12.7 in front of it (-Z).
+[[setups.ops.inspection_views.position_dia]]
+title = "VIEW 1 (STEPS 8-11): BOX ON ITS BASE, LAND C DOWN ON THE STOP BAR"
+up = [-0.9833816999, -0.1815500823, 0.0]
+toward = [0.0, 0.0, -1.0]
+aids = [
+  { name = "INSPECTION BOX", shape = "box", at_mm = [156.743, 36.938, 128.25], size_mm = [127.0, 127.0, 127.0], axes = [[0.1815500823, -0.9833816999, 0.0], [-0.9833816999, -0.1815500823, 0.0]] },
+  { name = "C STOP BAR", shape = "box", at_mm = [156.743, 36.938, 1.25], size_mm = [40.0, 12.7, 12.7], axes = [[0.1815500823, -0.9833816999, 0.0], [-0.9833816999, -0.1815500823, 0.0]] },
+  { name = "A: GAUGE PIN IN BORE A", shape = "cylinder", at_mm = [0.0, 8.0, -30.0], axis = [0.0, 0.0, 1.0], dia_mm = 6.5, length_mm = 50.0 },
+  { name = "ROD GAUGE PIN", shape = "cylinder", at_mm = [133.067, 16.456, -25.0], axis = [0.0, 0.0, 1.0], dia_mm = 1.994, length_mm = 26.2 },
+]
+marks = [
+  { label = "H1: HUB PIN TOP", at_mm = [-3.196, 7.41, -5.0], reads = true },
+  { label = "R1: ROD PIN TOP", at_mm = [132.087, 16.275, -5.0], reads = true },
+  { label = "C: LAND C ON THE STOP BAR", at_mm = [145.747, 26.547, 0.0] },
+  { label = "B: STRAP FACE ON THE BOX FRONT", at_mm = [60.0, 10.0, 1.25] },
+]
+[[setups.ops.inspection_views.position_dia]]
+title = "VIEW 2 (STEPS 12-14): BOX TIPPED A QUARTER TURN CLOCKWISE ONTO ITS RIGHT SIDE"
+up = [-0.1815500823, 0.9833816999, 0.0]
+toward = [0.0, 0.0, -1.0]
+aids = [
+  { name = "INSPECTION BOX", shape = "box", at_mm = [156.743, 36.938, 128.25], size_mm = [127.0, 127.0, 127.0], axes = [[0.1815500823, -0.9833816999, 0.0], [-0.9833816999, -0.1815500823, 0.0]] },
+  { name = "C STOP BAR", shape = "box", at_mm = [156.743, 36.938, 1.25], size_mm = [40.0, 12.7, 12.7], axes = [[0.1815500823, -0.9833816999, 0.0], [-0.9833816999, -0.1815500823, 0.0]] },
+  { name = "A: GAUGE PIN IN BORE A", shape = "cylinder", at_mm = [0.0, 8.0, -30.0], axis = [0.0, 0.0, 1.0], dia_mm = 6.5, length_mm = 50.0 },
+  { name = "ROD GAUGE PIN", shape = "cylinder", at_mm = [133.067, 16.456, -25.0], axis = [0.0, 0.0, 1.0], dia_mm = 1.994, length_mm = 26.2 },
+]
+marks = [
+  { label = "H2, H3: HUB PIN TOP", at_mm = [-0.59, 11.196, -5.0], reads = true },
+  { label = "R2, R3: ROD PIN TOP", at_mm = [132.886, 17.436, -5.0], reads = true },
+  { label = "C: LAND C ON THE STOP BAR", at_mm = [145.747, 26.547, 0.0] },
+  { label = "B: STRAP FACE ON THE BOX FRONT", at_mm = [60.0, 10.0, 1.25] },
+]
 
 [[setups.ops]]
 op = 60
