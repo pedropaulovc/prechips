@@ -371,8 +371,8 @@ def test_joint_identity_and_exported_face_contract_remain_strict(corruption):
         VALIDATOR["check_subjects"](plan, features, findings, inventory)
 
 
-@pytest.mark.parametrize("rule", ["joint_fit", "joint_assembly"])
-def test_unresolved_joint_is_required_without_shop_policy_permission(rule):
+@pytest.mark.parametrize("rule", ["joint_fit", "joint_assembly", "centre_support"])
+def test_unresolved_always_required_rule_needs_no_shop_policy_permission(rule):
     plan, features, _, _, _ = cone_inputs()
     report = {"findings": [{"rule": rule, "subject": "S7", "status": "unknown", "numbers": {}}]}
     assert VALIDATOR["report_exit"](report, {"required": {}}, plan, features) == 4

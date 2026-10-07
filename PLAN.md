@@ -565,7 +565,7 @@ not exist.
 | order: rough→finish, drill→ream/tap, face→spot, release last | plan.ops | M1 | "Op 40 reams before op 30 drills." |
 | tip endpoints from stock state: the setup's `stock_state` advances per op (`to_z`); a through hole's tip endpoint = exit face − point length (`point_angle`, D) − `exit_mm`, reamer: − `lead_mm` − `exit_mm`; blind: depth + point ≤ `features.depth`; tap flute ≥ thread depth; exit face from `local_thickness[feature]`, never the stock section | plan.setups.stock_state, plan.ops.exit_mm/depth_mm/to_z, features.thru/depth, inventory.tools.point_angle/lead_mm/flute_len | M1 | fills the Z column; "6.2 drill to −2.0 leaves 0.14 of cone in the bore; go to −3.86." |
 | speeds/feeds from cutting-data, rounded, then clamped | plan.ops, inventory.tools (material, flutes, chart), machine rpm range, cutting-data | M1 | fills the columns; "? no row for O1 hardened" |
-| zero recipe: for each axis, contact reading = (edge coordinate in frame A) + side·(finder radius), side = −1 when the finder approaches from the negative side of the edge, +1 from the positive side; paper: edge + paper; the Axis Set value is that reading; the check reading = Axis Set value + sign·`check_jog_mm` where sign = +1 if `dro.direction` agrees with the frame axis, else −1; the mirrored reading = Axis Set value − sign·jog; the retouch value after each `retouch_after` op from the advanced stock state | plan.dro, plan.setups.zero (edge, approach side), plan.setups.stock_state, features.frames, inventory.tools (finder dia) | M1 | fills the DRO block; "Y direction is set 'toward' but frame A's Y points away: the sheet would mirror every Y." |
+| zero recipe: for each axis, contact reading = (edge coordinate in frame A) + side·(finder radius), side = −1 when the finder approaches from the negative side of the edge, +1 from the positive side; paper: edge + side·paper, side the side of the face the tool meets it from (its outward normal on a lathe); the Axis Set value is that reading; the check reading = Axis Set value + sign·`check_jog_mm` where sign = +1 if `dro.direction` agrees with the frame axis, else −1; the mirrored reading = Axis Set value − sign·jog; the retouch value after each `retouch_after` op from the advanced stock state | plan.dro, plan.setups.zero (edge, approach side), plan.setups.stock_state, features.frames, inventory.tools (finder dia) | M1 | fills the DRO block; "Y direction is set 'toward' but frame A's Y points away: the sheet would mirror every Y." |
 | coordinates: feature centre → setup frame → cutter centre (tool radius for profiles; rough and finish offsets both; manual-arc tables for `contour.method` `stairs`/`chain_drill`/`chords`/`rotary_table`, docs/plan.md Manual arcs) | features.at/frames, plan.setups.frame, plan.ops.contour, inventory.tools.dia, policy.numbers.max_filing_stock_mm | M1 | silent when right; prints sheet 3a |
 | inspection per requirement: every entry in a feature's `requirements` that is a tolerance (any `*_dia`, `dia`, `finish_ra`, `depth`, `coaxiality_dia` — every requirement that carries a band, not a fixed list) has a `checks.<requirement>` on the op that finishes it, and the named gauge exists and spans the band | features.requirements, plan.ops.checks, inventory.gauges | M1 | "Rod hole position Ø0.20 has no check; the 2.00 pin proves size only." |
 | hold fields complete: fixed jaw, stop, grip, clamp, coolant, deburr, direction per cutting op, holder per op, stock state per setup | plan.setups.hold/coolant/deburr_mm/stock_state, plan.ops.direction/holder | M1 | "S3 does not say which jaw is fixed." |
@@ -1282,12 +1282,18 @@ sheet.
    `process_features` (`end_face`, `centre_hole`) are stock preparation the
    kernel cuts through transient faces and later stock states carry; they earn
    no finished-face or finish coverage and print no drawing-requirement row. A
-   hold's `centre_hole` binds the dead centre to a centre an earlier setup in
-   its `stock_in` lineage drills (`centre_support`: error when contradicted,
-   unknown when undeclared), seated in the cut countersink. Centre depth is
-   Table 6 drill length C plus the countersink to the mouth, printed on the
-   tailstock quill. The pivot-shaft S0 faces and centre-drills the plain end;
-   the saw cut stays a stock prerequisite (the bar it is cut from is not
+   hold's `centre_hole` binds the dead or live centre to a centre an earlier
+   setup in its `stock_in` lineage drills (`centre_support`, always required
+   wherever a hold uses a centre: error when contradicted, unknown and blocking
+   when undeclared, when any lineage routing or the maker's own `blind_depth`
+   centre row is unresolved, or when a further support may be a centre),
+   seated in the cut countersink. Centre depth is Table 6 drill
+   length C plus the countersink to the mouth, printed on the tailstock quill,
+   and only for the selected centre drill's own accepted D, C, angle, body and
+   point angle with the mouth on the touched entry surface; the kernel cuts only
+   that centre and refuses a buried mouth. The pivot-shaft S0 faces and
+   centre-drills the plain end; the saw cut stays a stock prerequisite (the bar
+   it is cut from is not
    declared). The catalogue gains `centre_support`; `rules_version` is unchanged
    until the integrator refreezes goldens.
 

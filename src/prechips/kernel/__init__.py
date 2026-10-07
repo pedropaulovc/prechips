@@ -145,7 +145,7 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
     """One op's kernel inputs; ``tables`` is its setup's coordinates numbers, whose printed
     cutter-centre checkpoints the kernel checks against the stock model (``checkpoints``)."""
     from prechips.joint_features import joint_operation
-    from prechips.process_features import process_operation
+    from prechips.process_features import centre_tool, process_operation
     from prechips.rules.geometry_common import (
         ROTARY,
         TURNING,
@@ -206,19 +206,17 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
     process_cut = process_operation(bundle, op)
     if process_cut is not None:
         if op.get("do") == "center_drill" and "reason" not in process_cut:
-            # The pilot's point closes the centre: its angle is the tool's, never assumed.
-            point = angle_fact(
-                measurement_item(bundle, "tools", op.get("tool")),
-                "point_angle",
-                require_measured=False,
-            )
-            if point["verified"] and number(point["value"]) and 0 < point["value"] < 180:
-                process_cut["point_angle_deg"] = point["value"]
-            else:
+            # The kernel cuts only the centre the selected tool itself makes, closed by its
+            # own accepted pilot point: never an assumed angle.
+            binding = centre_tool(bundle, op)
+            if binding["status"] != "pass":
                 process_cut["reason"] = (
-                    f"{process_cut['label']} pilot point angle of tool {op.get('tool')!r} "
-                    "is unknown"
+                    f"{process_cut['label']} is not the centre tool {op.get('tool')!r} cuts: "
+                    + "; ".join(binding["reasons"])
                 )
+            else:
+                process_cut["point_angle_deg"] = binding["tool"]["point_angle_deg"]
+                process_cut["body_dia_mm"] = binding["tool"]["body_dia_mm"]
         result["process_cut"] = process_cut
     if "faces" in op:
         result["faces"] = op["faces"]
