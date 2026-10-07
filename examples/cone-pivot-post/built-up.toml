@@ -744,7 +744,7 @@ top_z = 22.225
 bottom_z = -22.225
 entry_z = { cone_socket = 21.0055 }
 local_thickness = { cone_socket = 42.03 } # AUTHOR'S CHOICE: the largest body the S1 op 50 hold allows, so the full diameter breaks through on any body
-note = "AUTHOR'S CHOICE: the same chucking turned 12.5182 degrees; the cross-bore enters at the top of the body. Break-through depths are set for the thickest body the S1 op 50 hold allows (42.03), so the exit Zs in the operations sit below the feature map's nominal body face."
+note = "AUTHOR'S CHOICE: the post turned 12.5182 degrees on the index; the cross-bore enters at the top of the body. Break-through depths are set for the thickest body the S1 op 50 hold allows (42.03), so the exit Zs in the operations sit below the feature map's nominal body face."
 [setups.hold]
 fixture = "BS-0"
 chuck = "chuck-4jaw-5-bs0"
@@ -758,7 +758,7 @@ parallels = "not_applicable"
 jaw_above_parallels_mm = "not_applicable"
 pose = { origin_mm = [-105.0, 0.0, 0.0], x = [0.0, 0.0, 1.0], z = [1.0, 0.0, 0.0] }
 jaw_clock_deg = 12.5182
-stop = "AUTHOR'S CHOICE: same chucking as S4; do not loosen the jaws in normal indexing (the only exception is DRO ZERO recovery step 4)."
+stop = "AUTHOR'S CHOICE: the tail end stays against the chuck body face as set in S4; do not loosen the jaws in normal indexing (the only exception is DRO ZERO recovery step 4)."
 note = "AUTHOR'S CHOICE: the chucking stays as S4 left it while the head indexes, because the S4 crank socket fixes the post's turn about its axis. The one exception is step 4 of the recovery under DRO ZERO, which applies only if the post has turned in the jaws."
 clamp = "AUTHOR'S CHOICE: unlock the spindle and index by the plate setting on the Index line below; then lock the spindle before drilling."
 [setups.hold.index]
@@ -1058,7 +1058,7 @@ top_z = 23.2525 # kernel setup-entry box
 bottom_z = -51.8315
 entry_z = { journal_bore = 21.0055 }
 local_thickness = { journal_bore = 42.08 } # AUTHOR'S CHOICE: Z is set on the north cap, and the longest sleeve the S2 op 50 hold allows puts the south cap at Z-21.0745, so the full diameter breaks through on any sleeve
-note = "AUTHOR'S CHOICE: the same chucking turned 12.5182 degrees so the north cone cap is up; the edge of the crank sleeve north face is the highest point. Break-through depths are set for the longest sleeve the S2 op 50 hold allows (42.08 cap to cap), so the exit Zs in the operations sit below the feature map's nominal south-cap face."
+note = "AUTHOR'S CHOICE: the post turned 12.5182 degrees on the index so the north cone cap is up; the edge of the crank sleeve north face is the highest point. Break-through depths are set for the longest sleeve the S2 op 50 hold allows (42.08 cap to cap), so the exit Zs in the operations sit below the feature map's nominal south-cap face."
 [setups.hold]
 fixture = "BS-0"
 chuck = "chuck-4jaw-5-bs0"
@@ -1072,7 +1072,7 @@ parallels = "not_applicable"
 jaw_above_parallels_mm = "not_applicable"
 pose = { origin_mm = [-105.0, 0.0, 0.0], x = [0.0, 0.0, 1.0], z = [1.0, 0.0, 0.0] }
 jaw_clock_deg = 12.5182
-stop = "AUTHOR'S CHOICE: same chucking as S8; do not loosen the jaws in normal indexing (the only exception is DRO ZERO recovery step 4)."
+stop = "AUTHOR'S CHOICE: the tail end stays against the chuck body face as set in S8; do not loosen the jaws in normal indexing (the only exception is DRO ZERO recovery step 4)."
 note = "AUTHOR'S CHOICE: the chucking stays as S8 left it while the head indexes, because the S8 crank bore fixes the post's turn about its axis. The one exception is step 4 of the recovery under DRO ZERO, which applies only if the post has turned in the jaws."
 clamp = "AUTHOR'S CHOICE: unlock the spindle and index by the plate setting on the Index line below; then lock the spindle before drilling."
 [setups.hold.index]
