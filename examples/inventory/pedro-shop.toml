@@ -2136,9 +2136,9 @@ note = "Illustrative stiff 3/8 in cobalt 120-degree spotting drill. At 0.6 mm ti
 [gauges.bracket-cross-bore-pins]
 kind = "pin_gauge_set"
 range_mm = [6.49, 6.54]
-sizes_mm = [6.5, 6.53]
+sizes_mm = [6.5, 6.515, 6.53]
 resolution_mm = 0.005
-note = 'Illustrative paired metric bore-limit pins: 6.500 mm go and 6.530 mm no-go, with 0.005 mm comparison capability. Provenance: measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "bench micrometer against a gauge block stack" }. Not the shared inch-increment pin set.'
+note = 'Illustrative metric bore-limit pins: 6.500 mm go, 6.515 mm no-go for the filing-button bores (6.5 H7) and 6.530 mm no-go for the reamed cross bore, with 0.005 mm comparison capability. Provenance: measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "bench micrometer against a gauge block stack" }. Not the shared inch-increment pin set.'
 
 # --- pivot-bracket additions ---
 [tools.bracket-long-endmill]
@@ -2242,32 +2242,49 @@ solids = [
   { name = "stud-head", shape = "cylinder", at_mm = [0.0, 0.0, -14.0565], axis = [0.0, 0.0, 1.0], dia_mm = 9.0, length_mm = 3.0, locates = "lower button's seat: the nut's reaction", note = "integral with the stud; top face square to the stud axis, ground", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, head OD and thickness" } },
 ]
 
-# DataBracket5 (r6): the shop has no hardening or precision grinding, so the bracket kit
-# is bought finished from a tooling catalogue that sells configurable hardened and ground
-# collars and stepped shafts, and checked on receipt (acceptance below; the S4F front
-# sheet prints it as the PURCHASED TOOLING / RECEIPT CHECK table). Local frame: stud axis
-# Z, Z0 on the outer ear face. Receipt limits for R6.90-7.10: button OD 13.95-14.03,
-# button bore 6.500 GO / 6.530 NO-GO, stud 6.475-6.495 in the 6.50-6.53 cross bore, button
-# OD runout 0.01 TIR on its bore: worst case R6.915 (13.95/2 - 0.060) to R7.075
-# (14.03/2 + 0.060), centre shift 0.0275 + 0.0275 + 0.01/2.
+# DataBracket5 (r6) / DataBracket7 (r7): the shop has no hardening or precision grinding,
+# so the bracket kit is bought finished from a tooling catalogue that sells configurable
+# hardened and ground collars and stepped shafts, and checked on receipt (acceptance below;
+# the S4F front sheet prints it as the PURCHASED TOOLING / RECEIPT CHECK table). Local frame:
+# stud axis Z, Z0 on the outer ear face.
+# DataBracket7 (r7, blind round 4 BR-B2): each locating diameter is bought to one ISO 286
+# band and accepted on that same band, Machinery's Handbook 27th ed. Table 4 p.684 (IT6 =
+# 0.009 for 6-10 mm, 0.011 for 10-18; IT7 = 0.015 for 6-10) and Table 5 p.685 (shaft
+# deviation g = -0.005 for 6-10, -0.006 for 10-18; hole H = 0):
+#   button OD 14 g6 = 13.983-13.994; button bore 6.5 H7 = 6.500-6.515; stud body and tail
+#   6.5 g6 = 6.486-6.495; OD runout to bore 0.010 TIR (catalogue concentricity option).
+# Radius stack against the part's reamed cross bore 6.500-6.530: centre shift
+#   (6.515-6.486)/2 + (6.530-6.486)/2 + 0.010/2 = 0.0145 + 0.022 + 0.005 = 0.0415, so the
+#   filed arch is R6.950 (13.983/2 - 0.0415) to R7.0385 (13.994/2 + 0.0415), inside R6.90-7.10.
+# BR-B3, stud lengths (example, plausible, not measured; also on the solids below), from the
+# head's upper face: locating body 13.5 +0/-0.2 to the thread shoulder, then a DIN 76 thread
+# undercut so the nut runs free to the shoulder, then M6x1 x 10; head Ø12 x 5; tail 45 below
+# the head. Stack it clamps: two buttons 4.00 ±0.02 + ear 5.9-6.1 = 13.86-14.14, at least
+# 0.36 longer than the body, so the nut seats on the upper button before the shoulder;
+# the M6 nut (5.2) on that stack ends at most 19.34 above the head, inside the thread end
+# (23.3-23.5). In the S4F bench vise (jaws 25 deep) the tail shows 20 between the jaw tops
+# and the head and the other 25 is gripped the full jaw depth.
 [fixtures.bracket-arch-filing-buttons]
 name = "bracket arch filing buttons"
 kind = "filing_buttons"
-note = "illustrative example purchase, bought finished: two bearing-steel precision collars through-hardened 58-62 HRC, OD 14 g6 (13.983-13.994) and faces ground, bore 6.5 H7, 4 mm thick, as the buttons; one stepped stud ground 6.49 h6 (6.481-6.490) with a Ø12 x 5 collar head, hardened 58-62 HRC on the ground diameters, upper end an M6x1 thread 10 mm long left soft; one ISO 4032 M6 nut; the buttons seat on the two ear faces (6.0 apart)"
-button_dia_limits_mm = { value = [13.95, 14.03], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "receipt acceptance limits: 0-1 in micrometer on each button OD (bought Ø14 g6, ground)" } }
-button_bore_limits_mm = { value = [6.500, 6.530], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "receipt acceptance limits: 6.500 GO / 6.530 NO-GO pins in each button bore (bought 6.5 H7)" } }
-pin_dia_limits_mm = { value = [6.475, 6.495], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "receipt acceptance limits: 0-1 in micrometer on the stud tail and body (bought 6.49 h6)" } }
-button_runout_mm = { value = 0.01, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "receipt acceptance limit: DTI on each button OD turned on the 6.500 GO pin held in a V-block, 0.01 TIR max" } }
+note = "illustrative example purchase, bought finished: two bearing-steel precision collars through-hardened 58-62 HRC, OD 14 g6 (13.983-13.994) and faces ground, bore 6.5 H7 (6.500-6.515), 4.00 ±0.02 thick, as the buttons; one stepped stud ground 6.5 g6 (6.486-6.495) on body and tail with a Ø12 x 5 collar head, hardened 58-62 HRC on the ground diameters, body 13.5 +0/-0.2 from the head to the thread shoulder, M6x1 thread 10 mm long beyond a thread undercut, left soft, tail 45 below the head; one ISO 4032 M6 nut; the buttons seat on the two ear faces (6.0 apart)"
+button_dia_limits_mm = { value = [13.983, 13.994], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "receipt acceptance limits: 0-1 in micrometer on each button OD, bought Ø14 g6 (MH 27th Tables 4-5, pp.684-685)" } }
+button_bore_limits_mm = { value = [6.500, 6.515], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "receipt acceptance limits: 6.500 GO / 6.515 NO-GO pins in each button bore, bought 6.5 H7 (MH 27th Table 4, p.684)" } }
+pin_dia_limits_mm = { value = [6.486, 6.495], measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "receipt acceptance limits: 0-1 in micrometer on the stud tail and body, bought 6.5 g6 (MH 27th Tables 4-5, pp.684-685)" } }
+button_runout_mm = { value = 0.01, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "receipt acceptance limit: DTI on each button OD turned on the 6.500 GO pin held in a V-block, 0.01 TIR max, as bought" } }
 # EngProc7 (r7): what is bought and its receipt checks, printed as the traveler's
 # PURCHASED TOOLING / RECEIPT CHECK table (docs/inventory.md "Purchased tooling").
-purchase = "two bearing-steel collars hardened 58-62 HRC, OD 14 g6 ground, bore 6.5 H7, 4 thick (the buttons); one stepped stud hardened and ground 6.49 h6 with a Ø12 x 5 head and an M6x1 x 10 soft thread; one ISO 4032 M6 nut"
+# DataBracket7 (r7): purchase bands and acceptance limits are the same ISO 286 bands.
+purchase = "two bearing-steel collars hardened 58-62 HRC, OD 14 g6 ground (13.983-13.994), bore 6.5 H7 (6.500-6.515), OD runout to bore 0.01 TIR, 4.00 ±0.02 thick (the buttons); one stepped stud hardened and ground 6.5 g6 (6.486-6.495) on body and tail: Ø12 x 5 head, body 13.5 +0/-0.2 from the head to the thread shoulder (shorter than the 13.86 minimum button/ear/button stack, so the nut clamps the stack before the shoulder), DIN 76 thread undercut, M6x1 x 10 soft thread, tail 45 below the head (20 shows above the bench-vise jaws, 25 gripped); one ISO 4032 M6 nut"
 acceptance = [
   { check = "each button OD", gauge = "micrometers/0-1in", limits = "button_dia_limits_mm" },
-  { check = "each button bore", gauge = "bracket-cross-bore-pins", limits = "button_bore_limits_mm", accept = "6.500 GO pin enters, 6.530 NO-GO does not" },
+  { check = "each button bore", gauge = "bracket-cross-bore-pins", limits = "button_bore_limits_mm", accept = "6.500 GO pin enters, 6.515 NO-GO does not" },
   { check = "stud tail and ground body", gauge = "micrometers/0-1in", limits = "pin_dia_limits_mm" },
+  { check = "stud body length, head upper face to thread shoulder", gauge = "calipers", limits_mm = [13.3, 13.5] },  # example (plausible, not measured): body 13.5 +0/-0.2 as bought; stud-body solid
+  { check = "stud tail length, head underside to tail end", gauge = "calipers", limits_mm = [44.5, 45.5] },  # example (plausible, not measured): tail 45 ±0.5 as bought; stud-tail solid
   { check = "each button OD runout", gauge = "rocker-datum-indicator", how = "button on the 6.500 GO pin in a V-block, one full turn", limits = "button_runout_mm", accept = "TIR" },
   { check = "each button rim hard", gauge = "none", how = "smooth file, light stroke on the rim", accept = "the file skates without biting" },
-  { check = "stud thread", gauge = "none", accept = "the M6 nut runs the full thread by hand" },
+  { check = "stud thread", gauge = "none", accept = "the M6 nut runs the full thread by hand, down to the shoulder" },
 ]
 solids = [
   { name = "upper-button", supply = "bought", shape = "cylinder", at_mm = [0.0, 0.0, 0.0], axis = [0.0, 0.0, 1.0], dia_mm = 14.0, length_mm = 4.0, locates = "outer ear face; its hardened rim is the filing line", fastener = "hardened ground Ø14 g6 x 4 button collar, bore 6.5 H7", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, OD and thickness on receipt" } },
@@ -2276,10 +2293,10 @@ solids = [
   { name = "lower-button-bore", void = true, supply = "bought", cuts = ["lower-button"], shape = "cylinder", at_mm = [0.0, 0.0, -10.5], axis = [0.0, 0.0, 1.0], dia_mm = 6.5, length_mm = 5.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "6.500 GO / 6.530 NO-GO bore pins on receipt" } },
   { name = "nut", supply = "bought", fastener = "ISO 4032 M6 hex nut", shape = "cylinder", at_mm = [0.0, 0.0, 4.0], axis = [0.0, 0.0, 1.0], dia_mm = 11.05, length_mm = 5.2, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, M6 nut across corners and height" } },
   { name = "nut-bore", void = true, supply = "bought", cuts = ["nut"], shape = "cylinder", at_mm = [0.0, 0.0, 3.5], axis = [0.0, 0.0, 1.0], dia_mm = 6.0, length_mm = 6.2, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "M6 thread drawn at its major diameter" } },
-  { name = "stud-tail", supply = "bought", shape = "cylinder", at_mm = [0.0, 0.0, -60.0], axis = [0.0, 0.0, 1.0], dia_mm = 6.49, length_mm = 45.0, locates = "bench-vise jaws", fastener = "hardened ground stepped button stud, 6.49 h6, Ø12 x 5 head, M6x1 x 10 thread", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, tail diameter; steel rule, length" } },
-  { name = "stud-head", supply = "bought", shape = "cylinder", at_mm = [0.0, 0.0, -15.0], axis = [0.0, 0.0, 1.0], dia_mm = 12.0, length_mm = 5.0, locates = "lower button's seat: the nut's reaction", fastener = "hardened ground stepped button stud, 6.49 h6, Ø12 x 5 head, M6x1 x 10 thread", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, head OD and thickness" } },
-  { name = "stud-body", supply = "bought", shape = "cylinder", at_mm = [0.0, 0.0, -10.0], axis = [0.0, 0.0, 1.0], dia_mm = 6.49, length_mm = 13.5, locates = "reamed cross bore and both button bores", fastener = "hardened ground stepped button stud, 6.49 h6, Ø12 x 5 head, M6x1 x 10 thread", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, ground body on receipt" } },
-  { name = "stud-thread", supply = "bought", shape = "cylinder", at_mm = [0.0, 0.0, 3.5], axis = [0.0, 0.0, 1.0], dia_mm = 6.0, length_mm = 10.0, fastener = "hardened ground stepped button stud, 6.49 h6, Ø12 x 5 head, M6x1 x 10 thread", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "M6x1 nut run on by hand; steel rule, thread length" } },
+  { name = "stud-tail", supply = "bought", shape = "cylinder", at_mm = [0.0, 0.0, -60.0], axis = [0.0, 0.0, 1.0], dia_mm = 6.49, length_mm = 45.0, locates = "bench-vise jaws", fastener = "hardened ground stepped button stud, 6.5 g6 body and tail, Ø12 x 5 head, body 13.5 +0/-0.2 to the thread shoulder, M6x1 x 10 thread beyond an undercut, tail 45", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, tail diameter; steel rule, length" } },
+  { name = "stud-head", supply = "bought", shape = "cylinder", at_mm = [0.0, 0.0, -15.0], axis = [0.0, 0.0, 1.0], dia_mm = 12.0, length_mm = 5.0, locates = "lower button's seat: the nut's reaction", fastener = "hardened ground stepped button stud, 6.5 g6 body and tail, Ø12 x 5 head, body 13.5 +0/-0.2 to the thread shoulder, M6x1 x 10 thread beyond an undercut, tail 45", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, head OD and thickness" } },
+  { name = "stud-body", supply = "bought", shape = "cylinder", at_mm = [0.0, 0.0, -10.0], axis = [0.0, 0.0, 1.0], dia_mm = 6.49, length_mm = 13.5, locates = "reamed cross bore and both button bores", fastener = "hardened ground stepped button stud, 6.5 g6 body and tail, Ø12 x 5 head, body 13.5 +0/-0.2 to the thread shoulder, M6x1 x 10 thread beyond an undercut, tail 45", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer, ground body on receipt" } },
+  { name = "stud-thread", supply = "bought", shape = "cylinder", at_mm = [0.0, 0.0, 3.5], axis = [0.0, 0.0, 1.0], dia_mm = 6.0, length_mm = 10.0, fastener = "hardened ground stepped button stud, 6.5 g6 body and tail, Ø12 x 5 head, body 13.5 +0/-0.2 to the thread shoulder, M6x1 x 10 thread beyond an undercut, tail 45", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "M6x1 nut run on by hand; steel rule, thread length" } },
 ]
 
 # DataBracket5 (r6): the click torque wrench the bracket's hand-tightened clamps are
