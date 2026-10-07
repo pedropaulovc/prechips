@@ -6,9 +6,12 @@ aliases. Category maps use authored identity keys. `members` is a recursively
 modeled InventoryItem map. `source` may be a source string or Source record.
 `services` are outside processes the shop sends work to (a coating vendor), not
 shop-owned kit; a plan `coating` op's `process` names a `services` item or a
-`consumables` entry. A `consumables` entry is an id mapping to the in-house
-product names; an unknown or empty product list, or a blank or `"unknown"`
-product, leaves that process unresolved.
+`consumables` entry. A `[consumables.<id>]` entry is a `Consumable` table:
+`products`, the in-house product names (an unknown or empty list, or a blank or
+`"unknown"` product, leaves that process unresolved), and an optional `name`,
+the display name the traveler's coating tool cell prints. A service prints its
+`name` the same way (`outside: black-oxide finisher (hot black oxide, matte)`);
+an entry with no `name` prints its identity key, never invented wording.
 Named set members/coverage may resolve without pretending an unlisted member
 was measured or purchased. Explicit `present = false` means missing;
 an item-level `verify = true`, an unverified `source`, or explicitly unknown
@@ -186,6 +189,10 @@ Other holding solids come from the same accepted-fact rule, never defaults:
   hardware is not listed. A primitive whose own `verify`/`measured` leaves it
   untrusted, or that an untrusted void cuts, prints "? not set: … verify before
   making" instead of a size and position, as the setup render leaves it out.
+  A row whose primitive or hole carries an example measurement (`measured.by`
+  starting `example`) is marked `†` after its component name; the job page then
+  prints the one legend for the mark (`† example fixture dimensions (plausible,
+  not measured): confirm before making`) instead of a sentence on every table.
   Per-primitive `supply` is `made` (default), `bought` (hardware: one "Bought
   hardware (not made)" line under the table, named by its `fastener` or its
   name and size; primitives with one `fastener` text that touch or overlap,
@@ -421,8 +428,11 @@ not proof of geometric validity; rules perform the applicable checks.
 | `fixtures` | `dict[str, InventoryItem \| Unknown] \| Unknown` | Optional |
 | `gauges` | `dict[str, InventoryItem \| Unknown] \| Unknown` | Optional |
 | `services` | `dict[str, InventoryItem \| Unknown] \| Unknown` | Optional |
-| `consumables` | `dict[str, list[str] \| Unknown] \| Unknown` | Optional |
+| `consumables` | `dict[str, Consumable \| Unknown] \| Unknown` | Optional |
 | `stock` | `list[Stock] \| Unknown` | Optional |
+
+`Consumable` fields (each also accepts `"unknown"`): `name: str`,
+`products: list[str]`.
 
 ## Stock
 

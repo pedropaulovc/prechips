@@ -31,7 +31,11 @@ numeric `z_from` is a face an earlier op in the same setup leaves only within a
 `to_z_band` is an `error` on its feature: `{sid} op {n} starts at Z {z}, which
 op {m} leaves anywhere in {lo} to {hi}; an op must leave that face at a
 deterministic to_z first`. The last earlier op whose `to_z` is that Z (or whose
-band holds it) decides, so an unbanded facing op between them clears it.
+band holds it) decides, so an unbanded facing op between them clears it. An
+unknown band end prints as `an unknown Z`: it still makes the op's own `to_z`
+a banded face (`error`). Whether it holds a different start is `unknown`
+(`unknown_starts`: `…, which may hold it`), and the scan goes on to earlier ops:
+an earlier band that holds the start makes it an `error` either way.
 
 Evidence: feature kind, route operation ids and actions, expected/selected tap
  drill mm. Citations: PLAN §4.1 op chain, authored route, declared process/thread.
