@@ -579,7 +579,7 @@ not exist.
 | rule | inputs | tier | on the sheet |
 |---|---|---|---|
 | accessibility: sample each claimed face with the prescribed cutter/holder pose below. Obstacles are stock minus a 0.001 mm inward shell of this sampled face (an own matched point cap uses unmodified stock instead), plus fixture solids: holders see setup-entry stock; a milling or hole flute sees the stock left by the setup's earlier derived cuts (never a later cut's) and excludes this op's derivable outside-finished allowance or own hole cutter volume (spot/drill: point cone and body). After an underivable earlier cut, a flute keeps only certain finished-material hits and its tool hits are unknown. Other finished faces and holder obstacles remain. A hit means this prescribed pose is occluded, not that no pose cuts the point. Missing pose/stock/inputs prevent passes, but observed certain hits remain errors; far-side claims error by name, and invalid clearing removals are named stock debt | STEP faces, stock/setup order/op face claims, five cutter/holder dimensions (not OAL), spot/drill `point_angle`, rough `rough_allowance_mm`, fixture dimensions and pose, authored op depth/entry/through extent | M4 | "Ø10 cutter intersects the opposite wall of a 6 mm groove." |
-| reach: floor depth below the face the tool enters ≤ flute length, else ≤ OAL with the holder cylinder clear of walls | features.faces, inventory.tools (flute_len, OAL, holder dia) | M4 | "Pocket floor is 28 mm down; 3/8 EM has 19 mm of flute." |
+| reach: floor depth below the highest stock the op meets ≤ flute length, else ≤ OAL with the holder cylinder clear of that stock; at any depth the shank past the flutes clears the stock the op leaves (a reamer's own finished bore included); body, shank and holder-face clearances are reported numbers | features.faces, inventory.tools (flute_len, OAL, shank dia, holder dia) | M4 | "The 0.4500 in reamer's Ø10.05 shank clears the Ø11.43 bore it leaves by 0.69 mm; the 3/8 in spotter's chuck face stops 3.2 mm above the Z27.2 crown." |
 | internal corner radius: concave edges ⟂ tool axis between faces one op claims: r ≥ r_tool | features.faces, plan.ops.tool | M4 | "Slot corners are sharp; a 1/4 EM leaves R3.2." |
 | coverage: ⋃ direction-valid faces claimed by ops ∪ faces declared as-stock = all faces; optional op `faces` explicitly overrides the feature default; a rotary-claimed face counts only when the exact union of its rotary window portions covers it (a named-span gap errors, an undecided union is `?`) | features.faces, plan.ops.faces, plan.stock.as_is_faces, kernel rotary_coverage.cut | M4 | "Face 23 (the ear's back) is machined by no valid op." |
 | finish coverage: every `finish_ra` face is claimed by a direction-valid finishing cut (nonrough/nonmanual; drill → ream/bore/tap precedence); rotary finishing windows count only when their exact union covers the face, and as-stock never finishes; a claimed hole cap counts only once its complete-form cut's setup leaves it clear of stock | features.finish_ra/faces, plan.ops.faces, kernel rotary_coverage.finish | M4 | "Ra 1.6 on the bore; no finishing op touches it." |
@@ -700,9 +700,10 @@ unmeasurable completion leaves that credit unknown.
 is millimetres even for inch-unit features, and tap fallback feature-depth
 bands are converted to millimetres.
 Unrelated finished material and holder obstacles are not cleared. Holding,
-rendering, reach and holder obstacles still use actual setup-entry stock; a
-flute meets only material the setup's earlier derived cuts leave, and no op is
-credited with a later op's removal.
+rendering and accessibility holder obstacles still use actual setup-entry
+stock; a flute, the reach and the holder-wall check meet only material the
+setup's earlier derived cuts leave, a tool's shank past its flutes the
+stock its own cut leaves, and no op is credited with a later op's removal.
 
 The default −setup-Z approach model applies to milling and spindle-axis lathe actions
 (`spot`, `drill`, `ream`, `tap`, `center`, `center_drill`). Other cutting
@@ -736,7 +737,7 @@ corners unchanged; axial milling keeps its incident-wall convention).
 Own-removal combines radial sweep with the vertical cutter columns at
 concave wall-tangent poses, clipped to the window and cut against the finished
 solid. Finished bosses/pads and stock outside that allowance remain obstacles;
-only the flute excludes its own allowance, not holder or reach screens.
+only the flute excludes its own allowance, not holder, reach or shank screens.
 This is one static pose per sample, not continuous rotation, simultaneous
 rotary-plus-linear motion or a toolpath proof.
 
@@ -1258,6 +1259,14 @@ sheet.
    kernel yields one console `?` line and unknown geometry, not fabricated
    passes; named mapping and directional-claim errors remain errors.
 
+   **Retained-stock reach and shank clearance shipped (2026-10-06, round 4):**
+   reach and holder-wall hits are measured on the stock each op meets, not the
+   setup-entry block. A tool's shank past its flutes, from the inventory
+   `shank_mm`/`shank_in` measurement, must clear the stock its own cut leaves:
+   a clash is an error and a missing shank diameter is `?`. Axial hole ops
+   report body, shank and holder-face clearances in millimetres; no minimum
+   clearance is enforced.
+
    **Saw cut-off shipped (2026-10-06, `m5-rev9`):** `saw_cut` / `cut_off`
    on mill, bench or bandsaw removes a setup-plane slab including the selected
    blade's kerf, preserving the finished target and routing the retained stock.
@@ -1381,7 +1390,9 @@ sheet.
    Current-setup cuts shape output stock and, in op order, the stock each
    later milling or hole flute of the setup meets (never a later cut's); the
    flute also excludes its own op's accepted cut, never the failed clearance of
-   the op that stops the pass; holder, reach, holding and image facts still use
+   the op that stops the pass; reach and holder-wall screens meet the same
+   before-op stock (the shank past the flutes its own after-op stock), while
+   accessibility holder obstacles, holding and image facts still use
    setup-entry stock. After an underivable earlier cut, later flutes keep only
    certain finished hits and their tool hits are unknown; final wall/cap debts
    never change a before-op stock.
@@ -1449,8 +1460,8 @@ sheet.
    surface (`r + a` planar floor clearance); an explicit `to_z` caps the
    endpoint without a second leave, and any milling op's numeric `to_z`
    above its face is its actual tip.
-   Holder obstacles, reach, holding and rendering keep actual setup-entry
-   stock; no flute is credited with a later op's removal.
+   Accessibility holder obstacles, holding and rendering keep actual
+   setup-entry stock; no flute is credited with a later op's removal.
    OpenCASCADE distance extrema that fail with `StdFail_NotDone` retry with
    the operands swapped: this measures the same geometric distance rather than
    suppressing the failed guard. Other native exceptions still propagate.

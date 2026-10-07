@@ -1109,8 +1109,7 @@ InventoryItem = record(
             "swing_in plates pieces angle_deg head_in max_offset_in "
             "dial_in min_bore_in tip_in "
             "diameter_in thickness_in runout_max_in "
-            "max_shank_in sfm chip_load_mm_per_tooth feed_mm_rev "
-            "shank_mm capacity_mm"
+            "max_shank_in sfm chip_load_mm_per_tooth feed_mm_rev capacity_mm"
         ),
         "point_angle": MeasuredAngle,
         "blade_speed_sfm": Annotated[list[Number], Field(min_length=2, max_length=2)],
@@ -1152,6 +1151,8 @@ InventoryItem = record(
                 "resolution_in",
                 "kerf_mm",
                 "kerf_in",
+                # The tool body past its cutting length (docs/rules-geometry.md#reach).
+                "shank_mm",
             ),
             MeasuredLength,
         ),
@@ -1182,7 +1183,8 @@ InventoryItem = record(
         "projection_mm": ProjectionMap,
         "projection_in": ProjectionMap,
         "envelope": MachineEnvelope,
-        "shank_in": float | str | dict[str, list[str]],
+        # A tool's own shank, or an end-mill set's {shank: [sizes]} map.
+        "shank_in": MeasuredLength | str | dict[str, list[str]],
         "flutes": int | list[int],
         "source": str | Source,
         "cite": Citations,

@@ -563,7 +563,7 @@ on hand.
 | `feed_mm_rev` | `float` |
 | `dia_mm` | `MeasuredLength` |
 | `dia_in` | `MeasuredLength` |
-| `shank_mm` | `float` |
+| `shank_mm` | `MeasuredLength` (the tool body past its flutes: [`reach`](rules-geometry.md#reach) checks it against the retained stock) |
 | `flute_len_mm` | `MeasuredLength` |
 | `flute_len_in` | `MeasuredLength` |
 | `oal_mm` | `MeasuredLength` |
@@ -591,7 +591,7 @@ on hand.
 | `nose_radius_mm` | `float` |
 | `reach_mm` | `float` |
 | `dia` | `MeasuredLength` |
-| `shank_in` | `float \| str \| dict[str, list[str]]` |
+| `shank_in` | `MeasuredLength \| str \| dict[str, list[str]]` (as `shank_mm` on a tool; a string or size map on a set) |
 | `flutes` | `int \| list[int]` |
 | `source` | `str \| Source` |
 | `cite` | `Citations` |
