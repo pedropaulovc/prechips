@@ -71,6 +71,26 @@ def _measured_length(item, field):
     return value if number(value) and value > 0 else UNKNOWN
 
 
+def _shank_from(tool, values):
+    """Height above the tip where the tool's full shank diameter begins, or unknown.
+
+    That is the flute end, except on a combined drill and countersink: its ``angle_deg``
+    seat cone cuts from the pilot out to a wider body, so its shank begins where that
+    cone reaches the shank diameter. An unknown shank keeps the flute end, which only
+    lowers the start of a body whose diameter is itself unknown.
+    """
+    flute, cutter = values["flute_len_mm"], values["radius_mm"]
+    shank = values["shank_radius_mm"]
+    if not (number(flute) and flute > 0):
+        return UNKNOWN
+    seat = _accepted_angle(tool, "angle_deg")
+    if not (number(seat) and number(cutter) and number(shank)) or shank <= cutter:
+        return flute
+    if not 0 < seat < 180:
+        return UNKNOWN
+    return flute + (shank - cutter) / math.tan(math.radians(seat / 2))
+
+
 def _turning_values(bundle, op):
     """Insert, head, shank and toolpost-body facts in mm/degrees, or what is missing."""
     tool = measurement_item(bundle, "tools", op.get("tool"))
@@ -158,14 +178,18 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
             "holder_radius_mm": _accepted_length(holder, "gauge_dia"),
             "holder_gauge_len_mm": _accepted_length(holder, "gauge_len"),
             "projection_mm": projection["value"] if projection["verified"] else UNKNOWN,
+            # The tool body past its cutting length: only a reach past the flute needs it.
+            "shank_radius_mm": _accepted_length(tool, "shank"),
         }
-        for key in ("radius_mm", "holder_radius_mm"):
+        for key in ("radius_mm", "holder_radius_mm", "shank_radius_mm"):
             if number(values[key]):
                 values[key] /= 2
+        values["shank_from_mm"] = _shank_from(tool, values)
         missing = [
             key
             for key, value in values.items()
-            if not (number(value) and value > 0) and key != "oal_mm"
+            if not (number(value) and value > 0)
+            and key not in {"oal_mm", "shank_radius_mm", "shank_from_mm"}
         ]
     result = {
         "subject": subject,
@@ -1000,6 +1024,8 @@ _ENGINE_OP = (
     "holder_radius_mm",
     "holder_gauge_len_mm",
     "projection_mm",
+    "shank_radius_mm",
+    "shank_from_mm",
     "to_z",
     "checkpoints",
     "rough_allowance_mm",

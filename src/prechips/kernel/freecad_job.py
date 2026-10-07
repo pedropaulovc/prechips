@@ -33,21 +33,26 @@ Measurement conventions (setup frame, tool axis +Z):
   floor's pose undefined: its poses drop, every other face's certain hits stay,
   and the op's measured facts become unknown with the reason. Only the section
   at z steers the axis; overhangs, leave below z, future hole cores and unclaimed
-  raw do not, but the full flute (accepted after-op stock) and setup-entry
-  holder checks still meet them at the chosen axis.
+  raw do not, but the full flute and the reach (the stock earlier ops leave) and the
+  setup-entry holder obstacles still meet them at the chosen axis.
   Milling tips (rough or finish) stand at their numeric to_z when above the finished
   face, and hole tools follow their geometry-matched axis to their declared depth
   or through extent. Spot/drill flutes use their point cone plus full-radius body;
-  flat tools use an r x flute_len cylinder. The holder starts at tip + projection.
-  Both shrink/lift by ``LIFT``.
+  flat tools use an r x flute_len cylinder. The shank (radius ``shank_radius_mm``)
+  runs from tip + ``shank_from_mm`` (the flute end, or the top of a centre drill's
+  seat cone) to the holder, which starts at tip + projection. All shrink/lift by
+  ``LIFT``.
   Far-side faces cannot be claimed from that setup; undefined normals remain debt.
 * Obstacles: stock minus the sampled face's ``LIFT``-thick inward shell, plus
   placed fixture solids. A hole's known matched cap keeps unmodified stock instead
   of an unrepresentable apex shell. The flute meets the stock this setup's earlier
   ops leave, derived once in op order before measuring, less its own actual cut;
   later cuts are never credited, and after an underivable earlier cut only
-  finished material counts and tool hits stay unknown. Holders and reach retain
-  all setup-entry stock. Unrelated component-owned finished features remain
+  finished material counts and tool hits stay unknown. Accessibility's holder
+  obstacles retain all setup-entry stock; the reach and the holder-wall check meet
+  the stock earlier ops leave, the shank past the flutes and the axial clearances
+  the stock the op itself leaves, and all are unknown when that stock is. Unrelated
+  component-owned finished features remain
   obstacles. Milling only: turning keeps its own turned-profile obstacle. A hole's
   own bore radius is sizing, not a corner.
   Supply and earlier setups' removals determine the held stock and holder/reach
@@ -198,6 +203,8 @@ STOCK_MM3 = 1e-3  # mm^3: finished material outside the envelope, or a detached 
 TUBE_REL = 1e-3  # pipe volume vs pi r^2 L: a lineage-skin edge tube must be whole
 CONTACT_MM2 = 1e-6  # face/jaw common area that counts as a face inside a jaw
 REACH_BAND = 0.05  # mm beyond the cutter radius in which walls set reach depth
+# Axial ops' radial flute/shank clearance and holder-face clearance (:meth:`_clearances`).
+CLEARANCE_KEYS = ("body_clear_mm", "shank_clear_mm", "holder_clear_mm")
 FACING_ACTIONS = {"face", "rough_face", "finish_face"}  # sweeps that span planar inner loops
 PROFILE_ACTIONS = {"profile", "rough_profile", "finish_profile"}  # walls clear a corridor
 AREA_REL = AREA_ABS = 1e-6  # face-signature area tolerance (relative, absolute mm^2)
@@ -3258,6 +3265,7 @@ class _Setup:
         self.centre_seat = None  # the work's declared centre-hole countersink, else None
         self.regions = {}
         self.culled_part = None
+        self.op_culled = {}  # id(stock an op meets or leaves) -> its _Culled (:meth:`_op_stock`)
         self.directions = {}  # finished face index -> direction verdict cache
         self.revolutions = {}  # finished face index -> turning verdict cache
         # Turning op subject -> (profile after it, or None, and (failing op, why) or None).
@@ -3390,8 +3398,10 @@ class _Setup:
         elif isinstance(located, list) and located:
             self._revolution_facts(facts, located)
         # The stock builder derives every op's before-op stock, the saw facts and the end stock
-        # once, before measuring: a flute meets the stock this setup's earlier cuts leave, while
-        # holders, reach, fixtures and the render see the stock as it enters the setup.
+        # once, before measuring: a flute, the reach and the holder-wall check meet the stock
+        # this setup's earlier cuts leave, and the shank past the flutes and a hole tool's
+        # clearances what the op itself leaves (:meth:`_op_stock`), while accessibility's
+        # holder obstacles, fixtures and the render see the stock as it enters the setup.
         if self.stock_reason is None:
             with _timed(phases, "stock_states"):
                 self.built = self._build()
@@ -4902,12 +4912,15 @@ class _Setup:
             value = facts.get(kind + "_hits")
             if _number(value):
                 facts.setdefault("min_hits", {}).setdefault(kind, value)
+        clearances = (key for key in (*CLEARANCE_KEYS, "holder_clear_top_z_mm") if key in facts)
         for key in (
             "tool_hits",
             "holder_hits",
             "reach_depth_mm",
             "reach_top_z_mm",
             "holder_wall_hits",
+            "shank_hits",
+            *clearances,
         ):
             facts[key] = UNKNOWN
             reasons[key] = why
@@ -7235,8 +7248,6 @@ class _Setup:
             "claim_errors": [],
             "sample_count": 1,
             "corner_radii_mm": [],
-            "reach_depth_mm": _r(max(entry.z, self.box[5]) - tip),
-            "reach_top_z_mm": _r(max(entry.z, self.box[5])),
             "obstacles": {"tool": [], "holder": []},
             "hit_refs": {"tool": [], "holder": []},
             "min_hits": {"tool": 0, "holder": 0},
@@ -7271,9 +7282,6 @@ class _Setup:
             solid = solids.get(kind)
             if solid is None:
                 facts[kind + "_hits"] = UNKNOWN
-                if kind == "holder":
-                    facts["holder_wall_hits"] = UNKNOWN
-                    facts["reasons"]["holder_wall_hits"] = facts["reasons"]["holder_hits"]
                 continue
             hit = solid.common(after).Volume > HIT_MM3
             obstacles = set(self._fixture_hits(solid)) if self.fixture_ready else set()
@@ -7282,8 +7290,6 @@ class _Setup:
             certain = int(bool(obstacles))
             facts["min_hits"][kind] = certain
             facts["obstacles"][kind] = sorted(obstacles)
-            if kind == "holder":
-                facts["holder_wall_hits"] = int(hit)
             if not self.fixture_ready or self.fixture_gaps or self.fixture_possible:
                 facts[kind + "_hits"] = UNKNOWN
                 facts["reasons"][kind + "_hits"] = (
@@ -7291,8 +7297,20 @@ class _Setup:
                 )
             else:
                 facts[kind + "_hits"] = certain
-        if facts["reasons"]:
-            facts["reason"] = next(iter(facts["reasons"].values()))
+        pose = (entry.x, entry.y, tip + LIFT)
+        self._kept_facts(
+            op,
+            [(0, *pose)],
+            radius,
+            facts,
+            "axial tool radius is unmeasured" if radius is None else None,
+            [pose],
+        )
+        reasons = facts["reasons"]
+        measured = ("tool_hits", "holder_hits", "reach_depth_mm", "holder_wall_hits")
+        unknown = [reasons[key] for key in measured if key in reasons]
+        if unknown:
+            facts["reason"] = unknown[0]
         return facts
 
     def _op(self, op):
@@ -7856,8 +7874,8 @@ class _Setup:
         its whole before-op stock. A milling op with a claim facing away from the approach
         is credited no removal either; a hole op always is. Once an earlier cut is
         underivable the stock before this op is unknown: only finished material, present in
-        any real stock, remains a flute obstacle. Holder obstacles and reach never see this;
-        they keep the setup-entry ``regions``.
+        any real stock, remains a flute obstacle. Accessibility's holder obstacles never see
+        this; they keep the setup-entry ``regions``.
         """
         if self.stock_reason is not None:
             return regions
@@ -8349,41 +8367,16 @@ class _Setup:
         if hole_cut is not None:
             for centre in hole_cut["centres"]:
                 placed.append((indices[0], centre, centre.x, centre.y, centre.z + LIFT, False))
-        top = self.box[5]
-        part = self._culled_part()
-        # Reach: highest material within r + band of the tool axis above each sample; its
-        # top Z is the reference surface the reach is measured from.
-        reach, reach_top = 0.0, None
-        for _, _, ax, ay, tip, downward in sorted(
-            placed, key=lambda item: (item[4], item[0], item[2], item[3])
-        ):
-            if downward:
-                continue
-            if top - (tip - LIFT) <= reach:
-                break
-            common = part.common(ax, ay, radius + REACH_BAND, tip, top + 1.0)
-            if common is not None and _bbox(common)[5] - (tip - LIFT) > reach:
-                reach_top = _bbox(common)[5]
-                reach = reach_top - (tip - LIFT)
-        facts["reach_depth_mm"] = UNKNOWN if sample_reason else _r(reach)
-        facts["reach_top_z_mm"] = (
-            UNKNOWN if sample_reason else "not_applicable" if reach_top is None else _r(reach_top)
+        self._kept_facts(
+            op,
+            [(index, ax, ay, tip) for index, _, ax, ay, tip, downward in placed if not downward],
+            radius,
+            facts,
+            sample_reason,
+            None
+            if hole_cut is None
+            else [(centre.x, centre.y, centre.z + LIFT) for centre in hole_cut["centres"]],
         )
-        if sample_reason:
-            reasons["reach_depth_mm"] = sample_reason
-            reasons["reach_top_z_mm"] = sample_reason
-        if holder_missing:
-            facts["holder_wall_hits"] = UNKNOWN
-            reasons["holder_wall_hits"] = "op lacks " + ", ".join(holder_missing)
-        else:
-            facts["holder_wall_hits"] = sum(
-                1
-                for _, _, ax, ay, tip, downward in placed
-                if not downward and part.hits(*self._holder(ax, ay, tip, holder))
-            )
-        if sample_reason:
-            facts["holder_wall_hits"] = UNKNOWN
-            reasons["holder_wall_hits"] = sample_reason
         # A hole op's tool stands on its bore axis LIFT narrower and LIFT higher than any
         # sample, so its own matched caps need no own-face shell (a cone apex has no
         # offset): unmodified stock keeps every wrong profile's or depth's real hit. The
@@ -8544,6 +8537,163 @@ class _Setup:
         if self.culled_part is None:
             self.culled_part = _Culled(self.part)
         return self.culled_part
+
+    def _op_stock(self, op, side):
+        """(the culled stock ``op`` meets (``side`` 0) or leaves (1), or None, and why it is
+        unknown), from the builder's pass (:meth:`_build`).
+
+        The stock an op meets has lost every earlier op's accepted cut; the stock it leaves
+        has also lost its own, as at the machine behind a hole tool's flutes. An underivable
+        stock leaves the facts measured on it unknown, never the setup-entry stock.
+        """
+        if self.stock_reason is not None:
+            return None, f"in-process stock unknown: {self.stock_reason}"
+        entry = self.cuts.get(id(op), (None, None, "the stock builder skipped it"))
+        if entry[2] is not None:
+            return None, f"the stock this op meets is unknown ({entry[2]})"
+        stock = entry[side]
+        if stock is self.part:
+            return self._culled_part(), None
+        if id(stock) not in self.op_culled:
+            self.op_culled[id(stock)] = _Culled(stock)
+        return self.op_culled[id(stock)], None
+
+    def _kept_facts(self, op, poses, radius, facts, why=None, axial=None):
+        """The reach, holder-wall hits and shank hits of ``op``'s upward ``poses`` ((face
+        index, ax, ay, tip)), unknown with ``why`` (or why the stock is) instead; ``axial``
+        poses ((ax, ay, tip)) of a tool on its own bore axis also get the clearances
+        (:meth:`_clearances`).
+
+        Reach is the highest material the op meets (:meth:`_op_stock`) within
+        r + REACH_BAND of an axis above its tip, so its own depth of cut counts; its top Z
+        is the reference surface the reach is measured from. The holder meets that same
+        stock. The shank past the flutes trails them through the op's own cut (down a
+        bore, or pass by pass down a wall), so it and the clearances meet the stock the op
+        leaves.
+        """
+        reasons = facts["reasons"]
+        meets, unknown = self._op_stock(op, 0)
+        leaves, _ = self._op_stock(op, 1)
+        why = why or unknown
+        keys = ("holder_radius_mm", "holder_gauge_len_mm", "projection_mm")
+        holder = {key: _positive(op, key) for key in keys}
+        holder_missing = sorted(key for key, value in holder.items() if value is None)
+        if why is not None:
+            for key in ("reach_depth_mm", "reach_top_z_mm", "holder_wall_hits", "shank_hits"):
+                facts[key], reasons[key] = UNKNOWN, why
+            for key in (*CLEARANCE_KEYS, "holder_clear_top_z_mm") if axial is not None else ():
+                facts[key], reasons[key] = UNKNOWN, why
+            return
+        top = self.box[5]
+        reach, reach_top = 0.0, None
+        for _, ax, ay, tip in sorted(poses, key=lambda item: (item[3], item[0], item[1], item[2])):
+            if top - (tip - LIFT) <= reach:
+                break
+            common = meets.common(ax, ay, radius + REACH_BAND, tip, top + 1.0)
+            if common is not None and _bbox(common)[5] - (tip - LIFT) > reach:
+                reach_top = _bbox(common)[5]
+                reach = reach_top - (tip - LIFT)
+        facts["reach_depth_mm"] = _r(reach)
+        facts["reach_top_z_mm"] = "not_applicable" if reach_top is None else _r(reach_top)
+        if holder_missing:
+            facts["holder_wall_hits"] = UNKNOWN
+            reasons["holder_wall_hits"] = "op lacks " + ", ".join(holder_missing)
+        else:
+            facts["holder_wall_hits"] = sum(
+                1 for _, ax, ay, tip in poses if meets.hits(*self._holder(ax, ay, tip, holder))
+            )
+        facts["shank_hits"], shank_why = self._shank_hits(
+            op,
+            [(ax, ay, tip) for _, ax, ay, tip in poses],
+            lambda pose, shank, start, end: leaves.hits(
+                pose[0], pose[1], shank, pose[2] + start, pose[2] + end
+            ),
+        )
+        if shank_why is not None:
+            reasons["shank_hits"] = shank_why
+        if axial is not None:
+            clearances, why_not = self._clearances(op, meets, leaves, axial, radius)
+            facts.update(clearances)
+            reasons.update(why_not)
+
+    @staticmethod
+    def _shank_hits(op, poses, hit):
+        """(how many distinct ``poses`` put the shank into the stock, or unknown, and
+        why). ``hit(pose, radius, start, end)`` tests a shank cylinder (radius less LIFT)
+        from tip + ``shank_from_mm`` to the holder face at tip + ``projection_mm``."""
+        start, projection = _positive(op, "shank_from_mm"), _positive(op, "projection_mm")
+        if start is None or projection is None:
+            return UNKNOWN, "op lacks " + ("shank_from_mm" if start is None else "projection_mm")
+        if projection <= start:
+            # The holder grips the whole body past the cutting length.
+            return 0, None
+        shank = _positive(op, "shank_radius_mm")
+        if shank is None:
+            return UNKNOWN, "op lacks shank_radius_mm"
+        if shank <= LIFT:
+            return UNKNOWN, "shank radius is below modelling clearance"
+        poses = dict.fromkeys(poses)
+        return sum(1 for pose in poses if hit(pose, shank - LIFT, start, projection)), None
+
+    def _clearances(self, op, meets, leaves, poses, radius):
+        """({key: value}, {key: why unknown}) of an axial op's clearances over its axis
+        ``poses`` ((ax, ay, tip)), each the least over them: ``body_clear_mm``, the flute
+        above the highest material within the reach band of the axis (its own cut's mouth),
+        and ``shank_clear_mm``, the shank past the flute, are radial gaps to the nearest
+        material the op ``leaves`` within the holder radius; ``holder_clear_mm`` is the
+        holder face's height above the highest material it ``meets`` under the holder, whose
+        Z is ``holder_clear_top_z_mm``. ``not_applicable``: no such material, or that part
+        of the tool is buried or held."""
+        values, reasons = {key: None for key in CLEARANCE_KEYS}, {}
+        holder, projection = _positive(op, "holder_radius_mm"), _positive(op, "projection_mm")
+        lacking = [
+            key
+            for key, value in (("holder_radius_mm", holder), ("projection_mm", projection))
+            if value is None
+        ]
+        if lacking:
+            why = "op lacks " + ", ".join(lacking)
+            return dict.fromkeys(CLEARANCE_KEYS, UNKNOWN), dict.fromkeys(CLEARANCE_KEYS, why)
+        flute, start = _positive(op, "flute_len_mm"), _positive(op, "shank_from_mm")
+        shank = _positive(op, "shank_radius_mm")
+        if flute is None:
+            reasons["body_clear_mm"] = "op lacks flute_len_mm"
+        if start is None:
+            reasons["shank_clear_mm"] = "op lacks shank_from_mm"
+        elif start < projection and shank is None:
+            reasons["shank_clear_mm"] = "op lacks shank_radius_mm"
+        top_z = None
+        z0, z1 = self.box[2] - 1.0, self.box[5] + 1.0
+        for ax, ay, tip in dict.fromkeys(poses):
+            base, face = tip - LIFT, tip - LIFT + projection
+            under = meets.common(ax, ay, holder, z0, z1)
+            if under is not None:
+                high = _bbox(under)[5]
+                if values["holder_clear_mm"] is None or face - high < values["holder_clear_mm"]:
+                    values["holder_clear_mm"], top_z = face - high, high
+            # (key, body radius, span): the flute above its own cut's mouth, the shank
+            # from where it begins; neither inside the holder.
+            spans = []
+            if "body_clear_mm" not in reasons:
+                mouth = leaves.common(ax, ay, radius + REACH_BAND, base, z1)
+                low = base if mouth is None else _bbox(mouth)[5]
+                spans.append(("body_clear_mm", radius, low + LIFT, min(base + flute, face)))
+            if "shank_clear_mm" not in reasons:
+                spans.append(("shank_clear_mm", shank, base + start, face))
+            for key, body, bottom, top in spans:
+                band = leaves.common(ax, ay, holder, bottom, top) if top > bottom else None
+                if band is None:
+                    continue
+                axis = Part.LineSegment(V(ax, ay, bottom), V(ax, ay, top)).toShape()
+                gap = axis.distToShape(band)[0] - body
+                if values[key] is None or gap < values[key]:
+                    values[key] = gap
+        facts = {
+            key: UNKNOWN if key in reasons else "not_applicable" if value is None else _r(value)
+            for key, value in values.items()
+        }
+        facts["holder_clear_top_z_mm"] = "not_applicable" if top_z is None else _r(top_z)
+        return facts, reasons
 
     def _ref_candidates(self, cylinder, own, known):
         """(index, face) of each finished face that may bound a hit in ``cylinder``: not
@@ -9940,7 +10090,8 @@ class _Setup:
         flute_reason = (
             "; ".join(reason for _, reason in flute_regions.values() if reason is not None) or None
         )
-        part = self._culled_part()
+        meets, meets_reason = self._op_stock(op, 0)
+        leaves, _ = self._op_stock(op, 1)
         counters = {"tool": [0, set(), set()], "holder": [0, set(), set()]}
         uncertain = {"tool": 0, "holder": 0}
         wall_hits = 0
@@ -9969,7 +10120,7 @@ class _Setup:
                     if common is not None:
                         labels.add("part")
                         counter[2].update(self._turn_hit_refs(common, back, index))
-                if kind == "holder" and part.common_solid(back) is not None:
+                if kind == "holder" and meets is not None and meets.common_solid(back) is not None:
                     wall_hits += 1
                 if self.fixture_ready:
                     labels.update(self._rotary_fixture_hits(presented, back))
@@ -9978,29 +10129,43 @@ class _Setup:
                     counter[1].update(labels)
                 elif not self.fixture_ready or self.fixture_gaps:
                     uncertain[kind] += 1
-        # Reach: highest material within r + band of the tool axis above each sample.
+        # Reach: highest material the op meets within r + band of the tool axis above each
+        # sample (:meth:`_kept_facts`).
+        known = sample_reason or meets_reason
         top = head.origin.z + head.extent(self.box)[2]
         reach = 0.0
         for _, phi, ax, ay, tip, downward in sorted(placed, key=lambda item: item[4]):
-            if downward:
+            if downward or known:
                 continue
             if top - (tip - LIFT) <= reach:
                 break
             column = Part.makeCylinder(radius + REACH_BAND, top + 1.0 - tip, V(ax, ay, tip))
-            common = part.common_solid(head.rotated(column, -phi))
+            common = meets.common_solid(head.rotated(column, -phi))
             if common is not None:
                 reach = max(reach, _bbox(head.rotated(common, phi))[5] - (tip - LIFT))
-        facts["reach_depth_mm"] = UNKNOWN if sample_reason else _r(reach)
-        if sample_reason:
-            reasons["reach_depth_mm"] = sample_reason
+        facts["reach_depth_mm"] = UNKNOWN if known else _r(reach)
+        if known:
+            reasons["reach_depth_mm"] = known
         holder_reason = (
             ("op lacks " + ", ".join(holder_missing)) if holder_missing else region_reason
         )
-        if holder_missing or sample_reason:
+        if holder_missing or known:
             facts["holder_wall_hits"] = UNKNOWN
-            reasons["holder_wall_hits"] = sample_reason or holder_reason
+            reasons["holder_wall_hits"] = known or holder_reason
         else:
             facts["holder_wall_hits"] = wall_hits
+
+        def shank_meets(pose, shank, start, end):
+            phi, ax, ay, tip = pose
+            column = Part.makeCylinder(shank, end - start, V(ax, ay, tip + start))
+            return leaves.common_solid(head.rotated(column, -phi)) is not None
+
+        upward = [(phi, ax, ay, tip) for _, phi, ax, ay, tip, downward in placed if not downward]
+        facts["shank_hits"], shank_why = (
+            (UNKNOWN, known) if known else self._shank_hits(op, upward, shank_meets)
+        )
+        if shank_why is not None:
+            reasons["shank_hits"] = shank_why
         facts["obstacles"] = {kind: sorted(counters[kind][1]) for kind in counters}
         facts["hit_refs"] = {kind: sorted(counters[kind][2]) for kind in counters}
         facts["min_hits"] = {kind: counters[kind][0] for kind in counters}

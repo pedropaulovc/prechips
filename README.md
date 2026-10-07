@@ -527,10 +527,12 @@ solid. If both fail on the whole part, each consumer of the guard uses the
 exact arc-join offset of the finished part within its own box (that box
 grown by `2a`, then cropped), and lineage bands use exact claimed-face
 skin primitives that are cut one by one. Any failure is named offset debt.
-Holding, rendering, reach and holder obstacles still use actual setup-entry
-stock; a flute is never credited with a later op's removal. Missing surface
-normals or unresolved pose facts never become
-clearance or reach passes.
+Holding, rendering and accessibility holder obstacles still use actual
+setup-entry stock; reach and the holder-wall check meet the stock the op's
+earlier cuts leave, and a tool's shank past its flutes must clear the stock
+its own cut leaves (an unknown shank diameter is `?`, a clash an error). A flute
+is never credited with a later op's removal. Missing surface normals or
+unresolved pose facts never become clearance or reach passes.
 Facing uses a planar outer-wire sweep to clear raw caps over hole mouths
 while preserving finished islands. `stock_removal_bounds` is an authored
 cleared footprint (possibly several passes), not capped to the claims' XY

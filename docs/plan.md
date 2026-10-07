@@ -951,7 +951,8 @@ of the same setup keep only certain finished-material flute hits, with tool hits
 unknown), while genuine collisions with finished material remain independent
 errors. It shapes the stock later flutes of this setup and later setups meet,
 and excludes this operation's own derivable allowance from its flute obstacles;
-holder, reach and holding facts still use setup-entry stock. This is an
+accessibility holder obstacles and holding facts still use setup-entry stock,
+while reach, holder-wall and shank screens see it ([`reach`](rules-geometry.md#reach)). This is an
 authored process/fixture volume, not a
 measured toolpath or proof that the whole toolpath is safe. Without it, any claimed wall
 whose interior still touches overstock above `to_z` (including a drafted wall)
@@ -989,8 +990,9 @@ vertical cutter columns at concave wall-tangent sample poses. Each volume is
 clipped to the axial/angular window, the finished solid is subtracted, and the
 volumes are cut from the stock one by one in order, never fused: finished
 bosses/pads and material outside that derivable allowance remain obstacles.
-Only the flute meets the stock left after this removal; an underivable removal
-credits none of it. Holder and reach screens retain setup-entry stock. This is
+The flute meets the stock left after this removal; an underivable removal
+credits none of it. Accessibility holder obstacles retain setup-entry stock;
+reach, holder-wall and shank screens meet the stock earlier ops leave. This is
 one top-dead-centre pose per sample,
 not a continuous toolpath or proof of clearance while rotating between poses.
 

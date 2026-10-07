@@ -293,7 +293,7 @@ by = "lms-package"
 # shallower than the pilot, so the pilot is the cutting diameter.
 [tools.center-drills-lms-4859.members."2"]
 dia_mm = { value = 1.98, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the pilot" } }
-shank_in = "3/16"
+shank_in = { value = 0.1875, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer on the body" } }
 flutes = 2
 point_angle = { value = 118, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "drill point gauge" } }
 flute_len_mm = { value = 1.9, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, pilot length" } }
@@ -458,8 +458,7 @@ note = "illustrative example item: 6.5 mm H7 HSS machine (chucking) reamer, DIN 
 
 [tools.reamers-metric.members."6.5mm"]
 dia_mm = { value = 6.512, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the lands" } }
-# measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer on shank" } (shank_mm is a plain number in the schema)
-shank_mm = 6.3
+shank_mm = { value = 6.3, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer on shank" } }
 # measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "visual flute count" } (flutes is a plain integer in the schema)
 flutes = 6
 lead_mm = { value = 1.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "optical comparator, 45° bevel lead" } }
@@ -480,7 +479,7 @@ note = "illustrative example item: 0.4500 in and 0.4835 in straight-flute HSS ch
 [tools.reamers-decimal.members."0.4500in"]
 name = "0.4500 in chucking reamer"
 dia_mm = { value = 11.430, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the lands" } }
-shank_mm = 10.05
+shank_mm = { value = 10.05, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer on shank" } }
 flutes = 6
 lead_mm = { value = 1.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "optical comparator, 45° bevel lead" } }
 flute_len_mm = { value = 44.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
@@ -492,7 +491,7 @@ oal_mm = { value = 177.8, measured = { by = "example (plausible, not measured)",
 [tools.reamers-decimal.members."0.4835in"]
 name = "0.4835 in chucking reamer"
 dia_mm = { value = 12.281, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the lands" } }
-shank_mm = 11.06
+shank_mm = { value = 11.06, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer on shank" } }
 flutes = 6
 lead_mm = { value = 1.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "optical comparator, 45° bevel lead" } }
 flute_len_mm = { value = 44.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
@@ -1247,7 +1246,7 @@ material = "HSS"
 present = true
 note = "example purchase: 17.26 mm straight-flute machine reamer with reduced 1/2 in shank; finishes the 17.250-17.270 mm cone cross-bore"
 dia_mm = { value = 17.26, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer across opposed reamer lands" } }
-shank_in = "1/2"
+shank_in = { value = 0.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer on shank" } }
 flutes = 6
 lead_mm = { value = 1.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "optical comparator, lead to full diameter" } }
 flute_len_mm = { value = 60.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule" } }
@@ -1273,7 +1272,7 @@ material = "HSS"
 present = true
 note = "example purchase: 22.01 mm straight-flute machine reamer with reduced 1/2 in shank; finish the 22.000-22.020 mm socket"
 dia_mm = { value = 22.01, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer across opposed reamer lands" } }
-shank_in = "1/2"
+shank_in = { value = 0.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer on shank" } }
 flutes = 6
 lead_mm = { value = 1.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "optical comparator, lead to full diameter" } }
 flute_len_mm = { value = 60.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule" } }
@@ -1751,8 +1750,7 @@ resolution_mm = 0.001
 # Letter D jobber drill (0.246 in) from the 115-pc index: the 6.5 reamer's pilot.
 [tools.drill-index-115.members."D"]
 dia_mm = { value = 6.2484, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the margins" } }
-# measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer on shank" } (shank_mm is a plain number in the schema)
-shank_mm = 6.2484
+shank_mm = { value = 6.2484, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer on shank" } }
 # measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "visual flute count" } (flutes is a plain integer in the schema)
 flutes = 2
 point_angle = { value = 118, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "drill point gauge" } }
@@ -1793,8 +1791,7 @@ note = "illustrative example item: HSS 2.00 mm machine (chucking) reamer, DIN 21
 
 [tools.rocker-rod-reamer.members."2.0mm"]
 dia_mm = { value = 2.004, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the lands" } }
-# measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer on shank" } (shank_mm is a plain number in the schema)
-shank_mm = 2.0
+shank_mm = { value = 2.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer on shank" } }
 # measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "visual flute count" } (flutes is a plain integer in the schema)
 flutes = 4
 lead_mm = { value = 0.4, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "optical comparator, 45° bevel lead" } }
@@ -1958,13 +1955,13 @@ height_mm = { value = 41.275, measured = { by = "example (plausible, not measure
 [tools.bracket-spot-drill]
 kind = "spot_drill"
 material = "M42"
-shank_in = "3/8"
+shank_in = { value = 0.375, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer on shank" } }
 flutes = 2
 dia_mm = { value = 9.525, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer" } }
 point_angle = { value = 120, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "optical comparator" } }
 flute_len_mm = { value = 15.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
 oal_mm = { value = 50.8, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
-note = "Illustrative stiff 3/8 in cobalt 120-degree spotting drill; 31 mm projection keeps the R8 chuck above the 27.2 mm ear. At 0.6 mm tip depth the conical spot is only 2.08 mm in diameter."
+note = "Illustrative stiff 3/8 in cobalt 120-degree spotting drill. At 0.6 mm tip depth the conical spot is only 2.08 mm in diameter."
 
 [tools.bracket-spot-drill.projection_mm]
 "drill-chuck-r8" = { value = 31.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, chuck nose to tool tip" } }
@@ -1981,12 +1978,12 @@ note = 'Illustrative paired metric bore-limit pins: 6.500 mm go and 6.530 mm no-
 [tools.bracket-long-endmill]
 kind = "endmill"
 material = "HSS"
-shank_in = "3/8"
+shank_in = { value = 0.375, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer" } }
 flutes = 4
 dia_mm = { value = 9.525, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the flutes" } }
 flute_len_mm = { value = 31.75, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
 oal_mm = { value = 63.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
-note = 'Illustrative long-flute 3/8 in HSS four-flute end mill for the S2 26.2 mm inner wall; the existing cutter has only 22.2 mm flutes and does not reach it. Shank provenance: measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer" }; shank_in is the plain fractional identity required by the inventory schema, not a LengthMeasurement field. Paired illustrative installation: 37.0 mm projection exposes 31.75 mm flutes plus 5.25 mm shank, with 26.5 mm insertion from the 63.5 mm OAL, exceeding the nominal 25 mm collet grip; projection/diameter = 3.884, below 4.'
+note = 'Illustrative long-flute 3/8 in HSS four-flute end mill for the S2 26.2 mm inner wall; the existing cutter has only 22.2 mm flutes and does not reach it. Paired illustrative installation: 37.0 mm projection exposes 31.75 mm flutes plus 5.25 mm shank, with 26.5 mm insertion from the 63.5 mm OAL, exceeding the nominal 25 mm collet grip; projection/diameter = 3.884, below 4.'
 
 [tools.bracket-long-endmill.projection_mm]
 "r8-collets-lms-4860/3-8in" = { value = 37.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, collet nose to tool tip" } }
@@ -2010,3 +2007,20 @@ bed_height_mm = { value = 12.7, measured = { by = "example (plausible, not measu
 solids = [
   { name = "plate", supply = "existing", shape = "box", at_mm = [-75.0, -50.0, -12.7], size_mm = [150.0, 100.0, 12.7], locates = "rests the part by its own weight", measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } },
 ]
+
+# --- EngReach additions ---
+# Long-series 1/4 in spotter for the S3 hold-down spots: the slim body and long
+# projection clear the ear relief wall and the ear crown beside those holes.
+[tools.bracket-long-spot-drill]
+kind = "spot_drill"
+material = "M42"
+shank_in = { value = 0.25, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer on shank" } }
+flutes = 2
+dia_mm = { value = 6.35, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer" } }
+point_angle = { value = 120, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "optical comparator" } }
+flute_len_mm = { value = 19.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+oal_mm = { value = 76.2, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+note = "Illustrative long-series 1/4 in cobalt 120-degree spotting drill. At 0.6 mm tip depth the conical spot is 2.08 mm in diameter."
+
+[tools.bracket-long-spot-drill.projection_mm]
+"drill-chuck-r8" = { value = 50.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, chuck nose to tool tip" } }
