@@ -113,7 +113,12 @@ or, if that field is absent, `stock_to_leave_mm`. A non-rough arc or linear
 contour carrying `rough_allowance_mm` produces both rough and finish tables:
 rough offset = cutter radius + allowance; finish offset = cutter radius. An
 unknown authored allowance leaves the rough path unresolved rather than using
-zero. Operations without an authored rough allowance keep their finish-only
+zero. A negative leave (`rough_allowance_mm`, or a rough op's `stock_to_leave_mm`)
+on any operation, contour or not, is an error (`allowance_errors`): its rough
+would cut into the finished part, so no stage of that op is offset, printed or
+proven (the traveler prints a STOP), and the kernel, travel, joint and speeds
+rules read it as unknown or an error, never as a shifted band or cut. Operations
+without an authored rough allowance keep their finish-only
 table. Each profile, arc and exact line-join record names its `stage` (`rough`
 or `finish`), so the report and traveler distinguish the two paths even when
 they share one operation number. Axial dome samples remain nominal profiles,
@@ -387,6 +392,11 @@ A finish depth the DRO leaves above its face past the feature's band appends:
 A closed `linear_table` outline with a diagonal edge appends (unknown):
 
 ` Moves between rows are unproven: op {op} {stage} needs diagonal moves: … .`
+
+A negative rough leave on any op appends (error; every stage of that op is
+withheld, numbers `allowance_errors`):
+
+` Rough allowance error: op {op}: {rough_allowance_mm|stock_to_leave_mm} {value} is negative: the rough would cut {-value} mm into the finished part.` (`;`-joined)
 
 A manual arc that cuts into the part or cannot be cut (a stair or hole inside the
 line, leftover over the filing cap, a sagitta or chord face outside the band, a

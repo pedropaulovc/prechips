@@ -3568,9 +3568,10 @@ class _Traveler:
             entry = block(op)
             if not isinstance(points, list) or not points:
                 entry.setdefault("unresolved", True)
-                for reason in ("clip_reason", "stair_reason"):
-                    if profile.get(reason):
-                        entry["stops"].append(_text(profile[reason]))
+                for reason in ("clip_reason", "stair_reason", "allowance_reason"):
+                    stop = _text(profile.get(reason)) if profile.get(reason) else None
+                    if stop and stop not in entry["stops"]:
+                        entry["stops"].append(stop)
                 continue
             z = o(profile.get("dro_to_z", profile.get("to_z")))
             entry["z"].add(z)

@@ -939,7 +939,9 @@ uses the 1898 manual arc method:
 2. **Rough outside the line**: a `rough_*` op with
    `contour = { method = "stairs", cusp_mm = … }` (single-axis stair corners on
    the DRO grid) or `{ method = "chain_drill", pitch_mm = … }` (drilled holes,
-   webs chiselled out along the hole centres), plus `rough_allowance_mm`. Every
+   webs chiselled out along the hole centres), plus a nonnegative
+   `rough_allowance_mm` (a negative leave, here or on any op, is an error: the
+   rough would cut into the finished part). Every
    stair corner, every full hole and every break-out between neighbouring holes
    must stay outside the finished line, and the stock left for the file
    (allowance + the stair cusp measured along the wall normal, or the larger of

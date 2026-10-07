@@ -29,6 +29,7 @@ from .resolution import (
     op_features,
     plan_frame_cite,
     resolve,
+    rough_leave,
     setup_frame,
     uncertain,
 )
@@ -2644,6 +2645,7 @@ def evaluate(bundle, *, pre_kernel=False):
         clip_debts = []  # why a clipped contour path is split, empty or unclipped
         unproven = []  # why a contour's diagonal moves are not proven cuttable
         arc_errors = []  # manual-arc plans that cut into the part or cannot be cut
+        leave_errors = []  # rough stages whose leave would cut into the finished part
         arc_debts = []  # manual-arc plans whose inputs are unknown
         numbers = {
             "frame": setup.get("frame", UNKNOWN),
@@ -2770,6 +2772,11 @@ def evaluate(bundle, *, pre_kernel=False):
             numbers["entry_surfaces"].append({"op": op["op"], **after["entry_z"]})
             contour = mapping(op.get("contour"))
             unknown |= op.get("contour") == UNKNOWN
+            leave, refusal = rough_leave(op)
+            if refusal:
+                # However the op is cut (contour, pocket, turn, joint), a rough leave
+                # inside the finished part spoils it, and no stage of it is proven.
+                leave_errors.append(f"op {op['op']}: {refusal}")
             if not contour:
                 continue
             name = op.get("feature")
@@ -2777,14 +2784,12 @@ def evaluate(bundle, *, pre_kernel=False):
             tool = resolve(bundle, "tools", op.get("tool")) or {}
             diameter = length_mm(tool, "dia")
             radius = diameter / 2 if number(diameter) else UNKNOWN
-            rough = op.get("do", "").startswith("rough")
-            paired = not rough and "rough_allowance_mm" in op
             stages = (
-                [("rough", op.get("rough_allowance_mm", op.get("stock_to_leave_mm", UNKNOWN)))]
-                if rough
-                else [("rough", op["rough_allowance_mm"]), ("finish", 0)]
-                if paired
-                else [("finish", 0)]
+                [("finish", 0)]
+                if leave is None
+                else [("rough", leave)]
+                if op.get("do", "").startswith("rough_")
+                else [("rough", leave), ("finish", 0)]
             )
             sense, order = cut_order(machine, op)
             bounded = "stock_removal_bounds" in op
@@ -2810,6 +2815,12 @@ def evaluate(bundle, *, pre_kernel=False):
                 generated = refused = False
                 method = contour.get("method")
                 label = f"op {op['op']} {stage}"
+                if refusal:
+                    # No stage is printed: the rough spoils the part, and its paired
+                    # finish alone is not the planned cut.
+                    profile.update(cutter_centre=UNKNOWN, allowance_reason=refusal)
+                    numbers["profiles"].append(profile)
+                    continue
                 if method == "arc_table":
                     arc_errors.append(f"{label}: {REMOVED_ARC_TABLE}")
                     refused = True
@@ -2943,7 +2954,7 @@ def evaluate(bundle, *, pre_kernel=False):
                 unknown |= not number(length_mm(tool, "nose_radius"))
         status = (
             "error"
-            if residuals or arc_errors or plunge_errors
+            if residuals or arc_errors or plunge_errors or leave_errors
             else "unknown"
             if unknown or unordered or clip_debts or unproven or arc_debts
             else "pass"
@@ -2963,6 +2974,9 @@ def evaluate(bundle, *, pre_kernel=False):
         if residuals:
             numbers["dro_z_residual_errors"] = residuals
             sentence += " DRO depth rounding error: " + "; ".join(residuals) + "."
+        if leave_errors:
+            numbers["allowance_errors"] = leave_errors
+            sentence += " Rough allowance error: " + "; ".join(leave_errors) + "."
         if plunge_errors:
             sentence += " Relief plunge error: " + "; ".join(plunge_errors) + "."
         if unproven:

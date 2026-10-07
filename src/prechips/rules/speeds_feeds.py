@@ -29,6 +29,7 @@ from .resolution import (
     manifest_mm,
     number,
     resolve,
+    rough_leave,
     uncertain,
 )
 from .tip_endpoints import mapping, records
@@ -99,7 +100,8 @@ def _diameter(bundle, setup, op, tool, lathe):
     if not number(diameter) and op.get("do") in AXIAL_FACING:
         diameter = mapping(setup.get("stock_state")).get("od_mm", UNKNOWN)
     if op.get("do") == "rough_turn":
-        allowance = op.get("rough_allowance_mm", UNKNOWN)
+        # A negative leave is unknown here (the coordinates rule reports it as an error).
+        allowance = rough_leave(op)[0]
         diameter = diameter + allowance if number(diameter) and number(allowance) else UNKNOWN
     return diameter
 

@@ -11,11 +11,14 @@ input stays unknown, never a pass.
 import dataclasses
 import itertools
 import math
+import re
+from html import unescape
 
 import pytest
 
 from prechips.inputs import load_bundle
 from prechips.rules import coordinates, manual_arc
+from prechips.sheet import _Traveler
 
 # A Ø19.8-20.2 boss about model (20, 10): frame A puts its centre at setup (15, 8); the
 # rotary frame puts it on the table axis at setup X0 Y0. Its R9.9-R10.1 band is 0.2 wide.
@@ -295,21 +298,72 @@ def test_a_stair_never_steps_one_handwheel_twice_running(tmp_path, target):
     assert table["stair_cusp_mm"] <= table["cusp_mm"]
 
 
+STAIR_CONTOUR = "{ method = 'stairs', cusp_mm = 0.25 }"
+
+
+def leave_errors(row):
+    return row.numbers.get("allowance_errors", [])
+
+
+@pytest.mark.parametrize("key", ["rough_allowance_mm", "stock_to_leave_mm"])
+@pytest.mark.parametrize(("leave", "status"), [(-0.2, "error"), (0.0, "pass"), (0.2, "pass")])
+def test_a_rough_stair_stands_off_the_line_by_a_nonnegative_leave(tmp_path, key, leave, status):
+    # The stair cutter centre rides R10 + 3 + leave; a negative leave would put every stair
+    # corner inside the finished line, so it is refused and nothing is printed.
+    stairs = op(20, "rough_profile", STAIR_CONTOUR, **{key: leave})
+    row = coordinates_row(scratch(tmp_path, stairs))
+    assert row.status == status, row.sentence
+    assert bool(leave_errors(row)) == (leave < 0)
+    if status == "error":
+        assert not arcs(row, 20), "a refused rough prints no table"
+        return
+    (table,) = arcs(row, 20)
+    assert table["cutter_centre_radius_mm"] == pytest.approx(13.0 + leave)
+
+
 @pytest.mark.parametrize(
-    ("contour", "tool", "message"),
+    ("ops", "kwargs"),
     [
-        ("{ method = 'stairs', cusp_mm = 0.25 }", "cutter", "past the line"),
-        ("{ method = 'chain_drill', pitch_mm = 5.0 }", "drill", "past the line"),
+        (
+            op(20, "rough_profile", "{ method = 'chain_drill', pitch_mm = 5.0 }", tool="drill"),
+            {},
+        ),
+        (op(20, "finish_profile", "{ method = 'chords', count = 24 }"), {}),
+        (
+            DRILL_BORE
+            + op(
+                20,
+                "finish_profile",
+                "{ method = 'rotary_table', step_deg = 30.0, centre_by = 'pin', "
+                "centre_feature = 'bore' }",
+            ),
+            {"origin": ON_AXIS},
+        ),
+        (op(20, "rough_pocket"), {}),
+        (op(20, "finish_pocket"), {}),
     ],
-    ids=["stair", "hole"],
+    ids=["chain-drill", "chords-paired-rough", "rotary-paired-rough", "pocket", "finish-pocket"],
 )
-def test_a_stair_corner_or_hole_inside_the_line_is_an_error(tmp_path, contour, tool, message):
+@pytest.mark.parametrize("leave", [-0.3, 0.0, 0.3])
+def test_a_leave_inside_the_finished_part_is_an_error_however_the_op_cuts(
+    tmp_path, ops, kwargs, leave
+):
+    # Whatever cuts the op (a drilled chain, chords or the rotary table with their paired
+    # rough, a pocket roughing or finishing off a leave), a negative leave is a cut into
+    # the finished part: an error, never a shifted band or cut, and no stage of it prints.
+    ops = ops.replace("feature = 'target'\n", f"feature = 'target'\nrough_allowance_mm = {leave}\n")
     row = coordinates_row(
-        scratch(tmp_path, op(20, "rough_profile", contour, tool=tool, allowance=-0.3))
+        scratch(tmp_path, ops, hold="fixture = 'table'", **kwargs), stock_bbox=SWING
     )
-    assert row.status == "error"
-    assert message in errors(row)
-    assert not arcs(row, 20), "a refused manual arc prints no table"
+    assert bool(leave_errors(row)) == (leave < 0)
+    if leave < 0:
+        assert row.status == "error", row.sentence
+        assert not arcs(row, 20)
+        assert not [
+            p
+            for p in row.numbers["profiles"]
+            if p["op"] == 20 and isinstance(p["cutter_centre"], list)
+        ]
 
 
 CHAIN = op(
@@ -687,23 +741,53 @@ def test_the_printed_table_offset_cuts_inside_the_band_however_the_centre_is_fou
 
 
 @pytest.mark.parametrize("by", ["pin", "indicate"])
-def test_a_rough_rotary_stage_leaves_its_allowance_off_the_band(tmp_path, by):
-    # A finish paired with a 0.2 rough allowance turns the boss twice: the rough cuts
-    # R10.2, its band (R9.9 to R10.1) moved off the line by the allowance, then the finish.
+@pytest.mark.parametrize(
+    ("leave", "status", "offsets"),
+    [(-0.2, "error", []), (0.0, "pass", [13.0, 13.0]), (0.2, "pass", [13.0, 13.2])],
+)
+def test_a_rough_rotary_stage_leaves_its_allowance_off_the_band(
+    tmp_path, by, leave, status, offsets
+):
+    # A finish paired with a rough allowance turns the boss twice: the rough at R10 + leave
+    # (its band, R9.9 to R10.1, moved off the line by the leave), then the finish. A
+    # negative leave would turn the rough inside the finished boss (Ø19.6 for -0.2): it is
+    # an error and no offset for either stage is printed.
     contour = (
         f"{{ method = 'rotary_table', step_deg = 30.0, centre_by = '{by}', "
         "centre_feature = 'bore' }"
     )
     plan = scratch(
         tmp_path,
-        DRILL_BORE + op(20, "finish_profile", contour, allowance=0.2),
+        DRILL_BORE + op(20, "finish_profile", contour, allowance=leave),
         origin=ON_AXIS,
         hold="fixture = 'table'",
     )
     row = coordinates_row(plan, stock_bbox=SWING)
-    assert row.status == "pass", row.sentence
-    offsets = sorted(table["rotary"]["offset_x"] for table in arcs(row, 20))
-    assert offsets == pytest.approx([13.0, 13.2])
+    assert row.status == status, row.sentence
+    printed = sorted(table["rotary"]["offset_x"] for table in arcs(row, 20))
+    assert printed == pytest.approx(offsets)
+
+
+def test_a_negative_rough_leave_prints_a_stop_and_no_table_offset(tmp_path):
+    # The machinist reads the traveler: a refused leave must stop the op there, not print
+    # the X 12.8 offset that would turn the Ø19.8-20.2 boss to Ø19.6.
+    contour = (
+        "{ method = 'rotary_table', step_deg = 30.0, centre_by = 'pin', centre_feature = 'bore' }"
+    )
+    plan = scratch(
+        tmp_path,
+        DRILL_BORE + op(20, "finish_profile", contour, allowance=-0.2),
+        origin=ON_AXIS,
+        hold="fixture = 'table'",
+    )
+    kernel = {"status": "ok", "setups": {"S1": {"stock_bbox_mm": SWING}}}
+    bundle = dataclasses.replace(load_bundle(plan), kernel=kernel)
+    row = next(row for row in coordinates.evaluate(bundle) if row.subject == "S1")
+    tools = {"cutter": "6 mm endmill", "bore-drill": "6 mm drill"}
+    html = _Traveler(bundle, [row], {}, None).contours(bundle.plan["setups"][0], tools)
+    printed = " ".join(unescape(re.sub(r"<[^>]+>", " ", html)).split())
+    assert "STOP" in printed and "do not run" in printed
+    assert "offset the table" not in printed and "12.8" not in printed
 
 
 @pytest.mark.parametrize("by", ["pin", "indicate"])

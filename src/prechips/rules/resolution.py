@@ -80,6 +80,31 @@ def record(value):
     return value if isinstance(value, dict) else {}
 
 
+def rough_leave(op):
+    """(leave, refusal): the stock per side, in mm, a rough stage of ``op`` leaves.
+
+    A ``rough_*`` op leaves its ``rough_allowance_mm``, else its ``stock_to_leave_mm``; on
+    any other op ``rough_allowance_mm`` is the leave its finish removes (a contour finish
+    also prints the rough stage that leaves it). ``leave`` is None when the op names no
+    leave and UNKNOWN when it is unknown. A negative leave puts the rough inside the
+    finished part, which no finish restores: it is never offset by (``leave`` is UNKNOWN)
+    and ``refusal`` says why; every rule that offsets a cut or a band by it is an error."""
+    if str(op.get("do", "")).startswith("rough_"):
+        key = "rough_allowance_mm" if "rough_allowance_mm" in op else "stock_to_leave_mm"
+    elif "rough_allowance_mm" in op:
+        key = "rough_allowance_mm"
+    else:
+        return None, None
+    value = op.get(key, UNKNOWN)
+    if not number(value) or not math.isfinite(value):
+        return UNKNOWN, None
+    if value < 0:
+        return UNKNOWN, (
+            f"{key} {value:g} is negative: the rough would cut {-value:g} mm into the finished part"
+        )
+    return value, None
+
+
 def op_features(op):
     """Every feature an op names: its one feature, or an inspect op's list; none if absent."""
     feature = op.get("feature")
