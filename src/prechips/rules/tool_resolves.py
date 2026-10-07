@@ -120,7 +120,7 @@ def _make_ops(bundle):
     a pass."""
     findings, done = [], set()
     for setup in bundle.plan.get("setups") or []:
-        for category, ref in setup_items(bundle, setup):
+        for category, ref, *_ in setup_items(bundle, setup):
             if category not in WORKHOLDING_CATEGORIES or (category, ref) in done:
                 continue
             done.add((category, ref))
