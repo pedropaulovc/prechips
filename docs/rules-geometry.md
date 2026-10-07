@@ -38,6 +38,7 @@ measurements only; it never emits citations.
 
 A run evaluates geometry at most once per bundle. The CLI builds a canonical
 JSON job per candidate (STEP path/digest, feature and explicit op face claims,
+the faces plan faced aims move ([plan aims](plan.md#aims)),
 authored stock envelope and `stock.as_is_faces`, normalized transient joint
 primitives and assembly declarations, setup order/frames/stock chain,
 hold geometry and cutting dimensions/endpoints), sends every job that is

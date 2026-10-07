@@ -87,8 +87,10 @@ source, printed band, nominal value and shift in mm), and the finding cites
 the drawing nominal and the reason. A child located by its parent's `at` dials its
 parent's target, aimed or not, and carries the parent's `aim`; an aim of the
 child's own would take it off that axis: it is refused (unknown, reason in
-`refused_aim.why`, cited too) and moves nothing. An aim never
-changes geometry, a claim, a kernel input or another feature's target. A
+`refused_aim.why`, cited too) and moves nothing. Such a target aim never
+changes geometry, a claim, a kernel input or another feature's target. A faced
+aim (one naming a `face`) moves no target here; the kernel cuts the part it
+makes ([plan aims](plan.md#aims)). A
 `value_mm` outside its printed band is refused before any rounding: bad input on
 load, an error in the rule, and the target stays nominal. An aim whose feature
 no mill setup's centre op names (only inspected, faced or profiled, cut through a

@@ -5,7 +5,8 @@ components propagate only through nonzero basis coefficients. Local authored Z
 can substitute only an unknown model transform in an unbound frame, retaining
 local_from operation provenance. No tolerance-band midpoint defines geometry: a plan
 ``aims`` entry moves only a located feature's DRO target along its height-like band to a
-stated value, and the geometry stays nominal.
+stated value, and the geometry stays nominal; one naming a ``face`` instead moves that
+faced plane of the part the kernel cuts (:func:`faced_aims`), never the STEP.
 A basis axis is known only when orthonormal with its frame's other numeric axes
 (:func:`frame_axes`): loading checks only a complete frame.
 
@@ -215,6 +216,87 @@ def aim_band_error(manifest, name, feature, aim):
     )
 
 
+def faced_aim_error(plan, manifest, name, aim):
+    """Why plan ``aims.<name>`` naming a ``face`` names no faced length (bad input), else
+    None: the face must be one of the exported feature's own ``faces``, the feature must
+    declare the ``lower_z`` and ``upper_z`` planes its length runs between, and a facing op
+    (:data:`FACING`) on the feature must claim the face (it names no ``faces``, or names
+    that one): an aim moves only a plane the plan cuts."""
+    face = aim.get("face")
+    if face is None:
+        return None
+    feature = mapping(mapping(manifest.get("features")).get(name))
+    faces = feature.get("faces")
+    if not isinstance(faces, list) or face not in faces:
+        return f"aims.{name}.face {face} is not one of features.{name}.faces"
+    missing = [key for key in ("lower_z", "upper_z") if key not in feature]
+    if missing:
+        return (
+            f"aims.{name}.face moves a plane of the length between features.{name}.lower_z "
+            f"and upper_z; the feature declares no {' or '.join(missing)}"
+        )
+    claimed = any(
+        op.get("do") in FACING
+        and name in op_features(op)
+        and (not isinstance(op.get("faces"), list) or face in op["faces"])
+        for setup in plan.get("setups", [])
+        for op in setup.get("ops", [])
+    )
+    if not claimed:
+        return f"no facing op claims aims.{name}.face {face}, so the aim moves no cut"
+    return None
+
+
+def faced_aims(bundle):
+    """The kernel's faced-aim inputs: for each plan aim naming a ``face``
+    (:func:`faced_aim_error` holds at load), that face, the model unit ``axis`` of its
+    feature's frame Z, the feature's ``lower_z``/``upper_z`` planes as mm offsets along it,
+    and ``delta_mm``: the aimed ``value_mm`` less their separation, the distance the face
+    moves outward so the faced length reads the aim. The kernel cuts that part, so every
+    setup's stock, frame heights and checks stand on one face position. A record carries
+    a ``reason`` instead when units, the planes or the frame are unknown, or the
+    requirement's declared nominal is not the planes' separation (the length they bound is
+    not the one the band holds)."""
+    manifest = bundle.features
+    scale = UNIT_MM.get(manifest.get("units"))
+    frames = mapping(manifest.get("frames"))
+    result = []
+    for name, aim in mapping(bundle.plan.get("aims")).items():
+        if aim.get("face") is None:
+            continue
+        requirement = aim["requirement"]
+        record = {"feature": name, "face": aim["face"], "requirement": requirement}
+        feature = mapping(mapping(manifest.get("features")).get(name))
+        lower, upper = feature.get("lower_z"), feature.get("upper_z")
+        frame = mapping(frames.get(feature.get("frame", "model")))
+        axis = frame_axes(frame)[2]
+        origin = mapping_vector(frame.get("origin"))
+        nominal = feature.get(f"{requirement}_nominal", UNKNOWN)
+        if scale is None:
+            record["reason"] = "feature units are not mm or in, so the aim moves no face"
+        elif not (number(lower) and number(upper) and lower < upper):
+            record["reason"] = f"features.{name}.lower_z/upper_z are not two ordered planes"
+        elif not all(number(v) for v in (*axis, *origin)):
+            record["reason"] = f"features.{name}'s frame is not fully declared"
+        elif f"{requirement}_nominal" in feature and not (
+            number(nominal) and abs(nominal - (upper - lower)) <= _JOIN_TOL
+        ):
+            record["reason"] = (
+                f"features.{name}.{requirement}_nominal is not the lower_z-upper_z "
+                "separation, so moving one of those planes does not set it"
+            )
+        else:
+            base = _dot(origin, axis)
+            record.update(
+                axis=axis,
+                lower_mm=round((base + lower) * scale, 9),
+                upper_mm=round((base + upper) * scale, 9),
+                delta_mm=round(aim["value_mm"] - (upper - lower) * scale, 9),
+            )
+        result.append(record)
+    return result
+
+
 def _dot(a, b):
     return sum(x * y for x, y in zip(a, b, strict=True))
 
@@ -352,9 +434,10 @@ def _measure(bundle, name, points, seen=(), targets=None):
 
 
 def _plan_aim(bundle, name):
-    """``name``'s own plan ``aims`` record (owner, requirement, value, reason), else None."""
+    """``name``'s own plan ``aims`` record (owner, requirement, value, reason), else None;
+    a faced aim (one naming a ``face``, :func:`faced_aims`) moves the part, no DRO target."""
     aim = mapping(mapping(bundle.plan.get("aims")).get(name))
-    if not aim:
+    if not aim or aim.get("face") is not None:
         return None
     return {
         "feature": name,
