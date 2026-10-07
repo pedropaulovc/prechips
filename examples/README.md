@@ -774,13 +774,18 @@ equivalence; no values or tolerances were normalized or waived.
 
 All 528 page images were reviewed individually across 13 ranges: five CLEAR
 and eight FIX. Subsequent context, finishing-hierarchy and minor presentation
-repairs were committed at `2a332ab`. The subsequent boundary-layout repairs
-have also landed; source is again frozen for parent verification, not approved.
-The subsequent pre-freeze gate was cancelled after partial output, not passed.
-Those earlier range verdicts are not approval of the repaired package.
-The latest focused run had 577 passed and three failed;
-three test migrations have since been settled but are not yet verified.
-Final layout approval, golden regeneration and the full gate remain pending.
+repairs were committed at `2a332ab`, followed by boundary-layout fixes. The
+latest seven-family run (operations, print, render, report, fixture, manual arcs
+and precision) had 372 passed and two failed in 595.17 seconds: a local
+test-ownership mismatch and a genuine narrow-table word split. After the local
+selector and column-room repairs, the targeted rerun of exactly those failed
+function cases had three passed in 5.10 seconds. This does not combine into a
+374-pass broader run: the runs used different source states. Ruff and formatting
+checks passed again (185 files). Source is frozen while actual R7 generation
+runs; no R7 CLI/PDF outcome is yet reported. The full gate remains pending.
+The earlier pre-freeze gate was cancelled after partial output, not passed.
+Earlier image-range verdicts are not approval of subsequent repairs. Native R7,
+golden regeneration, final image approval and the full suite remain pending.
 Physical printer/pen/operator rehearsal is unobserved; this evidence establishes
 neither machining nor farm acceptance.
 

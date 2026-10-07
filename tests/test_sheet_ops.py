@@ -2779,6 +2779,8 @@ def test_printed_contour_fragments_keep_their_exact_local_introduction(printed_s
         ): content(original.find("table-context", table)[0])
         for table in original.find("coords")
     }
+    op_notes = [content(note) for note in original.find("contour-context")]
+    assert op_notes
     printed, _ = printed_sheet(source, "() => null")
     tables = printed.find("coords")
     assert len(tables) > 2
@@ -2786,9 +2788,14 @@ def test_printed_contour_fragments_keep_their_exact_local_introduction(printed_s
     assert len(set(introductions.values())) == 3
     for table in tables:
         first = next(node for node in printed.find("num", table) if content(node))
-        assert (
-            content(printed.find("table-context", table)[0]) == introductions[float(content(first))]
-        )
+        local = introductions[float(content(first))]
+        contexts = [content(node) for node in printed.find("table-context", table)]
+        assert contexts.count(local) == 1
+        assert set(contexts).intersection(introductions.values()) == {local}
+        if "data-duplex-split" in table["attrs"]:
+            for note in op_notes:
+                assert contexts.count(note) == 1
+                assert contexts.index(note) < contexts.index(local)
         assert content(printed.find("repeat", table)[0]) == content(original.find("repeat")[0])
 
 
