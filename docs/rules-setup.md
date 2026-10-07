@@ -59,6 +59,35 @@ the cut countersink and checks it against the setup-entry stock; that check is
 a fixture render debt, not this rule. Like `hold_fields`, its unknown blocks
 (exit 4) only where the shop policy requires it; an error always exits 2.
 
+## `prepared_blank`
+
+One subject, `stock.prepared`; not applicable without a
+[`[stock.prepared]`](plan.md#prepared-blank). The stock the receiving setup
+gets is the root stock box trimmed, plane by plane, by every plan process
+`end_face` made by an op in an earlier setup of its `stock_in` lineage
+(analytic, kernel-free). Each declared size (section 0, section 1, length) must
+lie within its ± `tolerance_mm` of that received box, at the declared
+`origin_mm`.
+
+Once the size passes, each blank check resolves: `length`, `section_0` and
+`section_1` through the [inspection](rules-inspection.md) gauge capability
+against the size ± tolerance band (`limits_mm`); `flat`, `square` and
+`parallel` need a dial indicator, dial test indicator, height gauge or CMM from
+inventory and a written `methods` procedure.
+
+- **error:** a blank face is made outside the receiving setup's lineage or after
+  it, a received size is outside its band, or a check's gauge is missing from
+  inventory or cannot measure the band;
+- **unknown:** a lineage setup lacks `stock_in`, a size, origin, tolerance or
+  root-stock fact is unknown, or a check or method is undeclared;
+- **pass:** otherwise, naming the ops that made each face.
+
+Evidence: received and declared boxes and sizes, the ops that made each face,
+faces made outside the lineage, and one `checks` row per check. A process face
+never earns drawing coverage, so the blank is checked here, not by a drawing
+requirement. Its unknown blocks (exit 4) like every always-required rule; an
+error exits 2.
+
 ## `headroom`
 
 One subject per setup. Mill stack in mm is
@@ -90,9 +119,14 @@ declared head axis does not by itself replace a known axis-origin Z with debt.
 The report/traveler expose centre height, axis Z and work-top height separately.
 
 Jaw height is not a stack layer: `jaw_top_z = bottom + jaw_height -
-(parallels + supports)`; cut clearance is `to_z - jaw_top_z`. Below-jaw cuts
-require geometric path checks and therefore remain unknown rather than being
-invented collision errors. Travel uses transformed stock box extents
+(parallels + supports)`; cut clearance is `to_z - jaw_top_z`. A below-jaw cut is
+clear of the jaws only when its cutter (printed cutter-centre path, else
+`stock_removal_bounds`, widened by the cutter radius) stays more than 3 mm
+inside both jaw faces along the clamp axis, or more than 3 mm beyond the jaws'
+ends along the axis they run (the declared `jaw_center_along_mm` ± half the
+vise's accepted `jaw_width`: a blank end overhanging the vise). Other below-jaw
+cuts require geometric path checks and therefore remain unknown rather than
+being invented collision errors. Travel uses transformed stock box extents
 (`stock_extent_x_mm`/`stock_extent_y_mm`)
 `sum(abs(setup_axis[i])*stock_extent[i])`, and per axis `travel_checks` requires
 `max(stock_extent, fixture_extent) <= machine_travel`; no separate radial tip

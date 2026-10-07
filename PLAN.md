@@ -1291,6 +1291,19 @@ sheet.
    declared). The catalogue gains `centre_support`; `rules_version` is unchanged
    until the integrator refreezes goldens.
 
+   **Mill blank preparation shipped (2026-10-07, round-5 MillPrep):** a
+   rectangular root stock's planar `end_face`s are the six blank faces a mill
+   squares before S1, made by face ops or (ends overhanging the vise) by
+   side-milling profiles with an `open_side` raster. The kernel removes each as
+   a planar slab; footprints are the root section trimmed by earlier lineage
+   faces. `[stock.prepared]` declares the blank; `prepared_blank` (always
+   required) checks the faced size within tolerance and resolves the blank's
+   size/flat/square/parallel checks, printed as CHECK THE BLANK. A hold's
+   `jaw_bar` round bar offsets the moving jaw; `headroom` clears a below-jaw
+   cut wholly beyond the jaw ends. Rocker P1-P5 and bracket P1-P6 prepare
+   their blanks. Goldens are stale until the integrator refreezes them;
+   `rules_version` is unchanged.
+
    **Setup-picture details shipped (2026-10-07, review round 4):** a leader
    naming a solid ends on that solid's visible pixels or becomes a printed
    `NOT SHOWN` render debt; a crowded lathe exposed-end detail enlarges until

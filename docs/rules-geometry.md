@@ -1649,10 +1649,12 @@ numbered clamp or pad badge) ends on that solid's own visible pixels, never on
 its bounding box or on whatever lies in front of it. When no pixel of the named
 solid is visible the leader is not drawn and the picture carries the render
 debt `NOT SHOWN: <label> is hidden in this view, so it has no leader.`, printed
-in its own notes; a hidden numbered clamp or pad with a known box is instead
-drawn as a dashed outline of that box, its badge's leader ending on the outline
-at an open ring, so its position still shows without pointing at the solid in
-front. Triangles that share an edge cover every pixel centre on it exactly
+in its own notes; a hidden numbered clamp or pad, or a hidden vise jaw (a bar
+held on edge stands above its jaws and hides the rear jaw from the isometric
+camera), with a known box is instead drawn as a dashed outline of that box, its
+leader ending on the outline at an open ring, so its position still shows
+without pointing at the solid in front. A hidden parallel stays a render debt.
+Triangles that share an edge cover every pixel centre on it exactly
 once, so a solid wholly behind another never shows through its seams. A datum's
 authored face name keeps its words but its axis words are restated in the
 setup's axes through the setup placement (the rocker's model "+Z broad strap

@@ -241,7 +241,11 @@ manual-arc method.
 `sweep_frame`). Exterior rectangular paths expand by offset. Pockets and faces
 are rasters and need a positive `step_mm` no wider than the cutter; a pocket
 also needs an explicit open side and enters wholly outside it, stepping
-`step_mm` toward its far wall and stopping the offset short of it. A face
+`step_mm` toward its far wall and stopping the offset short of it. A profile
+(`profile`, `rough_profile`, `finish_profile`) with a declared `open_side` is a
+one-sided side-mill, such as a blank end overhanging the vise: it is rastered as
+a pocket over `sweep_bounds`, else its setup-frame `stock_removal_bounds`, so its
+last pass leaves the cutter flank on the retained wall. A face
 sweeps `sweep_bounds`, else its setup-frame `stock_removal_bounds`, with
 passes evenly spaced no more than `step_mm` apart centre-on-edge to
 centre-on-edge (one central pass when the area is no wider than the step),
