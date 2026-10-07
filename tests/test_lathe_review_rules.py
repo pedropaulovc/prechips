@@ -998,6 +998,33 @@ _END_TOUCH = {
 }
 
 
+def _claims(bundle, kinds, count):
+    """The kernel samples S1's op 40 ``count`` times over claimed faces of ``kinds``,
+    posing it on no plane (no ``faced_side``)."""
+    bundle.kernel["faces"] = [{"index": i, "kind": kind} for i, kind in enumerate(kinds)]
+    bundle.kernel["ops"]["S1:40"] = {
+        "approach": "turning",
+        "sample_count": count,
+        "claimed_indices": list(range(len(kinds))),
+    }
+
+
+def _touched_end(bundle, route):
+    """The turner touched on the end at -10 after S1's op 40, re-touched in S1 before op
+    50 (``authored``) or as S2's Z zero (``later_setup``): that setup's zero_check status
+    and the Axis Set the sheet prints for the end."""
+    from prechips.rules.tip_endpoints import operative_z
+
+    if route == "authored":
+        bundle.plan["setups"][0]["zero"]["tool_touches"].append(dict(_END_TOUCH))
+        setup, done = bundle.plan["setups"][0], 1
+    else:
+        bundle = _zeroed_on_the_end(bundle)
+        setup, done = bundle.plan["setups"][1], 0
+    zeros = {f.subject: f.status for f in zero_recipe.evaluate(bundle)}
+    return zeros[setup["id"]], operative_z(bundle, setup, -10.0, face="end", done=done)
+
+
 @pytest.mark.parametrize("route", ["authored", "later_setup"])
 @pytest.mark.parametrize(
     ("do", "to_z", "kinds", "count", "status"),
@@ -1027,8 +1054,6 @@ def test_a_touch_on_a_face_a_sampled_cut_may_have_left_is_never_stock(
     # before op 50 or as S2's Z zero. A sampled cut the kernel did not pose on one side
     # proves no face absent unless its target is known and its claims are diameters
     # alone: else the touch meets a face standing at an unknown Z, never the nominal.
-    from prechips.rules.tip_endpoints import operative_z
-
     bundle = _retouched(1.6)
     first = bundle.plan["setups"][0]
     first["ops"][0]["do"] = do
@@ -1036,23 +1061,62 @@ def test_a_touch_on_a_face_a_sampled_cut_may_have_left_is_never_stock(
         del first["ops"][0]["to_z"]
     else:
         first["ops"][0]["to_z"] = to_z
-    bundle.kernel["faces"] = [{"index": i, "kind": kind} for i, kind in enumerate(kinds)]
-    bundle.kernel["ops"]["S1:40"] = {
-        "approach": "turning",
-        "sample_count": count,
-        "claimed_indices": list(range(len(kinds))),
-    }
-    if route == "authored":
-        first["zero"]["tool_touches"].append(dict(_END_TOUCH))
-        setup, done = first, 1
-    else:
-        bundle = _zeroed_on_the_end(bundle)
-        setup, done = bundle.plan["setups"][1], 0
-    zeros = {f.subject: f.status for f in zero_recipe.evaluate(bundle)}
-    assert zeros[setup["id"]] == status
-    # The Axis Set the sheet prints for the end.
-    stands = operative_z(bundle, setup, -10.0, face="end", done=done)
+    _claims(bundle, kinds, count)
+    zero, stands = _touched_end(bundle, route)
+    assert zero == status
     assert stands == ("unknown" if status == "unknown" else pytest.approx(-10.0))
+
+
+@pytest.mark.parametrize("route", ["authored", "later_setup"])
+@pytest.mark.parametrize(
+    ("do", "tool", "window", "kinds", "count", "status"),
+    [
+        # A finish turn over Z0..-10 cuts the sleeve's diameter and the shoulder its
+        # window ends on; a blade relief over Z-8..-10 cuts both groove walls. The kernel
+        # samples each over its claims, but poses neither on a plane.
+        ("finish_turn", "turner", (0.0, -10.0), ["Plane", "Cylinder"], 20, "unknown"),
+        ("form_relief", "blade", (-8.0, -10.0), ["Plane", "Plane"], 8, "unknown"),
+        # Unsampled, a window proves no face absent.
+        ("finish_turn", "turner", (0.0, -10.0), ["Cylinder"], 0, "unknown"),
+        # The diameter-only control: a window sampled over cylinders alone.
+        ("finish_turn", "turner", (0.0, -10.0), ["Cylinder", "Cylinder"], 20, "pass"),
+        ("form_relief", "blade", (-8.0, -10.0), ["Cylinder"], 8, "pass"),
+    ],
+)
+def test_a_touch_on_a_face_a_turning_window_may_have_left_is_never_stock(
+    route, do, tool, window, kinds, count, status
+):
+    # S1's op 40 cuts the end over a z_from..z_to window with no to_z; the turner then
+    # zeros on the end at -10. No to_z places a face, yet a shoulder or groove wall the
+    # window claims is a face it cut: unless the kernel sampled it over diameters alone,
+    # the touch meets a face standing at an unknown Z, never the nominal.
+    bundle = _retouched(1.6)
+    op = bundle.plan["setups"][0]["ops"][0]
+    del op["to_z"]
+    op.update(do=do, tool=tool, z_from=window[0], z_to=window[1])
+    _claims(bundle, kinds, count)
+    zero, stands = _touched_end(bundle, route)
+    assert zero == status
+    assert stands == ("unknown" if status == "unknown" else pytest.approx(-10.0))
+
+
+def test_a_turning_window_prints_its_own_ends_whatever_an_earlier_window_left():
+    # S1's rough window may have left the end's shoulder at an unknown Z: a touch on the
+    # end has no Axis Set, yet the finish window after it prints the ends it is authored
+    # to (its path, not a face it touches), with no STOP.
+    bundle = _retouched(1.6)
+    first = bundle.plan["setups"][0]
+    rough = first["ops"][0]
+    del rough["to_z"]
+    rough.update(do="rough_turn", tool="turner", z_from=0.0, z_to=-10.0)
+    finish = {**rough, "op": 45, "do": "finish_turn"}
+    first["ops"].insert(1, finish)
+    _claims(bundle, ["Plane", "Cylinder"], 20)
+    bundle.kernel["ops"]["S1:45"] = dict(bundle.kernel["ops"]["S1:40"])
+    zero, finding, sheet, setup = _traveler(bundle)
+    assert sheet.datum_z(setup, "end", -10.0, done=2) == "unknown"
+    assert [sheet.op_z(setup, finish, key) for key in ("z_from", "z_to")] == [0.0, -10.0]
+    assert not any("STOP" in part for part in sheet.tip(setup, finish))
 
 
 def test_each_toolpost_tool_is_set_on_centre_before_its_first_touch_off():

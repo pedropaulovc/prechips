@@ -2302,9 +2302,10 @@ class _Traveler:
 
     def op_z(self, setup, op, key):
         """``op``'s ``key`` Z (``z_from``/``z_to``) on its feature's surface as the op that
-        cut that feature before it left it (:meth:`surface_z`)."""
+        cut that feature before it left it (:meth:`surface_z`), read as a path end: a
+        turning window cut before it never blanks it (:func:`operative_z` ``path``)."""
         done = self.ops_done(setup, before=op.get("op"))
-        return self.surface_z(setup, op.get(key), face=op.get("feature"), done=done)
+        return self.surface_z(setup, op.get(key), face=op.get("feature"), done=done, path=True)
 
     @property
     def near_jaw_mm(self):
@@ -2710,8 +2711,10 @@ class _Traveler:
                 (
                     self.feature_name(feature),
                     "Ø" + self.value(entry["dia"], feature, "dia"),
-                    o(self.surface_z(setup, max(entry["z"]), face=feature, done=entry["done"])),
-                    o(self.surface_z(setup, min(entry["z"]), face=feature, done=entry["done"])),
+                    *(
+                        o(self.surface_z(setup, z, face=feature, done=entry["done"], path=True))
+                        for z in (max(entry["z"]), min(entry["z"]))
+                    ),
                 )
                 for feature, entry in grouped.items()
             ]
@@ -2978,11 +2981,12 @@ class _Traveler:
         parts.append(f"groove Z {o(low)} to {o(high)}")
         return parts
 
-    def surface_z(self, setup, value, source=None, face=None, done=0):
+    def surface_z(self, setup, value, source=None, face=None, done=0, path=False):
         """One surface, one printed Z (:func:`operative_z`): the checked depth of the op
         that produced it, on its own setup's grid, as this setup's DRO shows it; else
-        ``value`` on this grid, rounded up. An unknown stays unknown."""
-        return operative_z(self.bundle, setup, value, face, done, source)
+        ``value`` on this grid, rounded up. An unknown stays unknown. ``path``: an op's
+        own path end, not a touched face."""
+        return operative_z(self.bundle, setup, value, face, done, source, path)
 
     def datum_z(self, setup, face, edge, done=0):
         """A touched Z datum at nominal ``edge`` once ``setup``'s first ``done`` ops have

@@ -340,18 +340,23 @@ claimed faces all face one way along Z, as a face, part-off, cut-to-fit, groove
 wall or turned shoulder does). An op leaves none only where that is known: a
 manual or transfer step cuts nothing; a saw face is located by its `cut_plane`,
 never a DRO Z; off the turning approach only a facing or pocketing op leaves a
-Z face (a hole's `to_z` is its tip, a milled wall's its foot); a turning op
-without `to_z`, other than a part-off or cut-to-fit, cuts over its `z_from` to
-`z_to` window and names no face; and a turning op the kernel sampled at its
-numeric `to_z` over claimed faces that are all cylinders leaves a diameter alone.
+Z face (a hole's `to_z` is its tip, a milled wall's its foot); and a turning op
+the kernel sampled, at its numeric `to_z` or over its `z_from` to `z_to`
+window, over claimed faces that are all cylinders leaves a diameter alone.
 Any other op on the face is a producer whose face stands at an unknown Z, never
 raw stock: one whose action is unknown; a facing, pocketing, part-off or
 cut-to-fit op without `to_z`; a turning op with an unknown `to_z` (the kernel
 poses no plane without a number, so its samples prove no face absent), one the
 kernel has not sampled, or one whose sampled claims it posed on no one side yet
-are not all cylinders (they face both ways, or their kind is unknown); and a
-lathe action off a lathe. An equal Z alone is never proof, and with no
-footprint to prove it there is no producer.
+are not all cylinders (they face both ways, or their kind is unknown); a
+turning window op (no `to_z`) claiming any face that is not a cylinder (the
+kernel cuts a claimed shoulder or groove wall out to its window end, yet poses
+it on no Z plane); and a lathe action off a lathe. An equal Z alone is never
+proof, and with no footprint to prove it there is no producer.
+An op's own start and end Z and a feature map row are path ends, not touched
+faces: they pass over a turning window op on their feature. It places no face
+on a `to_z` they could print, so as their producer it could only blank them. A
+Z zero, a tool touch and a hole entry keep it as their producer.
 A known producer counts only if it cut that face to that Z. Its
 value is its `dro_to_z` on its own setup's grid (for a grooving/parting blade, the
 `formed_z` its rounded corner reading leaves), re-rounded to the safe side on
