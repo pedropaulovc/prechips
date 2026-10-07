@@ -1772,7 +1772,14 @@ plane). A numbered support (a coded clamp such as `SUP1`, or a pad) on one plane
 keeps its position badge; one whose solids seat the work on several planes keys
 each solid with its code, its own name and its plane, led to its own contact,
 and pad keys at several heights name the pads each keys. It dimensions the
-closest cut in amber. An
+closest cut in amber (`render_scene.closest_cut`: `mm`, the holding `tag`, the
+two end points): from this setup's removal, or on a saw setup from the blade's
+path (each saw op's kerf slab on its cut plane, across the stock and holding),
+never from the falling offcut. A path sketch draws every pass of a raster of
+at most eight passes, labelled `PASS 1` … `PASS n` as the pass table numbers
+them (a longer raster is a band with its first and last pass), each with a
+direction arrow when the table gives a cutting sense; its `ARROWS: POINT ORDER`
+legend prints only when an arrow is drawn. An
 isometric or elevation view is detailed only when the band draws the stock at
 least 1.5 times larger; a lathe's meridian section gets no holding detail. A
 plan view always gets the detail, drawn from 30° above the side so contact

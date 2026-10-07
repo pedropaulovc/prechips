@@ -6942,22 +6942,44 @@ class _Setup:
         if details:
             scene["fixture_detail_labels"] = details
         possible_names = {name for name, _ in self.fixture_possible}
+        held = [(name, shape) for name, shape, _ in solids if name not in possible_names]
+        # A saw's cut is its blade's path, not the offcut that falls away.
+        blade = self._blade_path(held)
         # A lathe picture is a meridian section: its contacts are not the drawn faces.
         spec["contacts"], spec["closest_cut"] = (
             ([], None)
             if lathe
             else self._render_contacts(
-                [(name, shape) for name, shape, _ in solids if name not in possible_names],
-                removal,
-                tolerance,
-                section_view,
+                held, removal if blade is None else blade, tolerance, section_view
             )
         )
+        scene["closest_cut"] = spec["closest_cut"]
         png, drawn_debts = render_diagram(meshes, spec)
         render_debts.extend(drawn_debts)
         # A holding detail band below the picture makes it taller than the default.
         scene["height_px"] = int.from_bytes(png[20:24], "big")
         return png, scene
+
+    def _blade_path(self, solids):
+        """The setup's saw blade paths in setup axes, or None when it saws nothing: each
+        saw op's kerf slab on its cut plane, across the stock and its holding on the other
+        two axes (the blade passes down through the whole section and on past it)."""
+        boxes = [self.box] + [_bbox(shape) for _, shape in solids]
+        bounds = [min(b[i] for b in boxes) - 1.0 for i in range(3)]
+        bounds += [max(b[i + 3] for b in boxes) + 1.0 for i in range(3)]
+        path = None
+        for op in self.ops:
+            plane, kerf = op.get("cut_plane"), _positive(op, "kerf_mm")
+            if not (_sawn(op) and kerf is not None and isinstance(plane, dict)):
+                continue
+            axis = {"x": 0, "y": 1, "z": 2}.get(plane.get("axis"))
+            if axis is None or not _number(plane.get("value")):
+                continue
+            slab = list(bounds)
+            slab[axis], slab[axis + 3] = plane["value"] - kerf / 2, plane["value"] + kerf / 2
+            shape = _box_shape(slab)
+            path = shape if path is None else path.fuse(shape)
+        return path
 
     def _render_contacts(self, solids, removal, tolerance, section_view):
         """The holding solids touching the arriving stock, each with its contact outlines
