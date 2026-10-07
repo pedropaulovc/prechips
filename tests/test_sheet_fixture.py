@@ -606,6 +606,19 @@ ITEM_PATHS = [
     ("shop-made holder", "holders", _put("ops", lambda k: [{**INSPECT, "holder": k}]), True),
 ]
 CATEGORY_STATES = ("listed", "item unknown", "item {}", "category unknown", "category absent")
+# How the slot spells the item: its key or a set's member, bare or with its category.
+REF_FORMS = ("key", "category.key", "key/member", "category.key/member")
+MEMBER = "small"
+
+
+def _forms(path, shop_made):
+    """The spellings a path can hold. Prose is bare or qualified by the path itself; a
+    ``hold.clamp`` names an item only as a slug key; a shop-made item is one solid, no set."""
+    if path == "hold.clamp":
+        return ("key",)
+    if path.startswith("prose"):
+        return ("key", "key/member")
+    return ("key", "category.key") if shop_made else REF_FORMS
 
 
 def _decoy_category(kind, placement):
@@ -618,10 +631,13 @@ def _decoy_category(kind, placement):
 
 
 ITEM_CASES = [
-    pytest.param(path, kind, use, shop_made, state, placement, id=f"{path}|{state}|{placement}")
+    pytest.param(
+        path, kind, use, shop_made, state, placement, form, id=f"{path}|{state}|{placement}|{form}"
+    )
     for path, kind, use, shop_made in ITEM_PATHS
     for state in CATEGORY_STATES
     for placement in ("none", "earlier", "later")
+    for form in _forms(path, shop_made)
     if placement == "none" or _decoy_category(kind, placement)
 ]
 # Paths this bare setup does not print by name (no align step due, no stop pointer, no
@@ -644,23 +660,29 @@ UNPRINTED_HERE = {
 BARE_ONLY = {"hold.support_blocks", "hold.clamp"}
 
 
-@pytest.mark.parametrize(("path", "kind", "use", "shop_made", "state", "placement"), ITEM_CASES)
+@pytest.mark.parametrize(
+    ("path", "kind", "use", "shop_made", "state", "placement", "form"), ITEM_CASES
+)
 def test_every_item_path_reads_only_the_item_its_slot_selects(
-    path, kind, use, shop_made, state, placement
+    path, kind, use, shop_made, state, placement, form
 ):
     """An item is its category and key. A slot reads its own categories in order and the
-    first that lists the key or is stated unknown is final; a ``<category>.<key>`` in prose
-    reads that category alone. The selected item is listed (unverified, receipt unknown),
-    stated unknown, listed with nothing about it, its category is stated unknown, or the
-    category is absent; a category the slot never reads, before or after it in the default
-    order, lists the same key verified with a passing receipt. Receipt checks, resolution
-    and every printed name read the selected item; the other is never read."""
+    first that lists the key or is stated unknown is final; a ``<category>.<key>`` reads
+    that category alone, and is the same item as its key there. The selected item (a key,
+    or a set's member) is listed (unverified, receipt unknown), stated unknown, listed with
+    nothing about it, its category is stated unknown, or the category is absent; a
+    category the slot never reads, before or after it in the default order, lists the same
+    key verified with a passing receipt. Receipt checks, resolution and every printed name
+    read the selected item; the other is never read."""
     from prechips.rules import purchased_tooling, tool_resolves
 
     data = record_bundle()
     order = SLOT_ORDER.get(kind, (kind,))
     real = order[0]
     decoy = _decoy_category(kind, placement) if placement != "none" else None
+    member = form.endswith("/member")
+    key = f"{KEY}/{MEMBER}" if member else KEY
+    reference = f"{real}.{key}" if form.startswith("category.") else key
     data.inventory["fixtures"]["par"] = {"kind": "parallels"}
     data.plan["setups"][0]["hold"]["parallels"] = "par"
     item = {"kind": "accessory", "name": "REAL item", "acceptance": "unknown", "verify": True}
@@ -672,6 +694,11 @@ def test_every_item_path_reads_only_the_item_its_slot_selects(
             "solids": [cylinder("head", 0, 0, 8, 4, records=[RECORD])],
         }
         data.inventory["gauges"]["dti"]["acceptance"] = "unknown"
+    unknown = "unknown"
+    if member:
+        # The set is listed; its member is the item (or is stated unknown).
+        item = {**item, "name": "REAL set", "members": {MEMBER: {"name": "REAL item"}}}
+        unknown = {**item, "members": {MEMBER: "unknown"}}
     for category in order:
         data.inventory.setdefault(category, {})
     if state == "category unknown":
@@ -679,12 +706,12 @@ def test_every_item_path_reads_only_the_item_its_slot_selects(
     elif state == "category absent":
         del data.inventory[real]
     else:
-        data.inventory[real][KEY] = {"listed": item, "item unknown": "unknown", "item {}": {}}[
-            state
-        ]
+        data.inventory[real][KEY] = {"listed": item, "item unknown": unknown, "item {}": {}}[state]
     if decoy:
-        listed = {**data.inventory.pop(decoy, {}), KEY: {"kind": "accessory", "name": "DECOY"}}
-        listed[KEY]["acceptance"] = PASSING_RECEIPT
+        other = {"kind": "accessory", "name": "DECOY", "acceptance": PASSING_RECEIPT}
+        if member:
+            other["members"] = {MEMBER: {"name": "DECOY"}}
+        listed = {**data.inventory.pop(decoy, {}), KEY: other}
         rest = dict(data.inventory)
         data.inventory.clear()
         # In the shop list's own order too, the decoy is where the placement says.
@@ -692,17 +719,17 @@ def test_every_item_path_reads_only_the_item_its_slot_selects(
             {decoy: listed, **rest} if placement == "earlier" else {**rest, decoy: listed}
         )
     setup = data.plan["setups"][0]
-    use(setup, KEY)
+    use(setup, reference)
 
     receipts = purchased_tooling.evaluate(data)
     owners = [(row["category"], row["ref"]) for f in receipts for row in f.numbers["items"]]
-    assert (decoy, KEY) not in owners
+    assert not {(decoy, KEY), (decoy, key)} & set(owners)
     if state == "listed" and kind is not None:
         (receipt,) = receipts
         assert receipt.status == "unknown"
         assert (("gauges", "dti") if shop_made else (real, KEY)) in owners
-    resolved = [f for f in tool_resolves.evaluate(data) if f.numbers.get("reference") == KEY]
-    assert {f.subject for f in resolved} <= {KEY, f"{real}.{KEY}"}
+    resolved = [f for f in tool_resolves.evaluate(data) if f.numbers.get("reference") == key]
+    assert {f.subject for f in resolved} <= {key, f"{real}.{key}"}
     assert {f.numbers["category"] for f in resolved} <= {real}
     if kind is None:
         assert not resolved  # a bare key in prose is no slot: it selects nothing
@@ -713,7 +740,7 @@ def test_every_item_path_reads_only_the_item_its_slot_selects(
         assert {f.status for f in resolved} == {absent if state == "category absent" else "unknown"}
 
     # The dividing head names the hold's fixture; touch-offs name their tool.
-    index = Finding("indexing", "S1", "pass", {"rotation": True, "fixture": KEY}, [], ".")
+    index = Finding("indexing", "S1", "pass", {"rotation": True, "fixture": reference}, [], ".")
     traveler = _Traveler(data, [*receipts, index], {}, None)
     printed = traveler.purchased_tooling(setup)
     if path != "op.process_holds":  # an inspect op without its hold feature does not render
@@ -721,19 +748,19 @@ def test_every_item_path_reads_only_the_item_its_slot_selects(
     if kind == "workholding" and not shop_made:
         printed += traveler.indexing({**setup, "hold": {"index": {}, **setup["hold"]}})
     if kind in ("spindle", "tools"):
-        printed += traveler.touched_tool(KEY, {}, kind)
-    bare = traveler.bench(f"Use the {KEY}.", setup)
+        printed += traveler.touched_tool(reference, {}, kind)
+    bare = traveler.bench(f"Use the {key}.", setup)
     printed += bare
     assert "DECOY" not in printed
     if kind is None or placement == "earlier":
         # A bare key reads the decoy's category first, or names no slot: it names no one
         # item and prints as written.
-        assert bare == f"Use the {KEY}."
+        assert bare == f"Use the {key}."
     if state == "listed" and path not in ("prose, bare", "shop-made holder"):
         assert "REAL" in printed  # (a shop-made holder prints its record's gauge)
     unprinted = path in UNPRINTED_HERE or (path in BARE_ONLY and placement == "earlier")
     if state in ("item unknown", "item {}", "category unknown") and not unprinted:
-        assert f"? {real}.{KEY}" in printed
+        assert f"? {real}.{key}" in printed
 
 
 def drill_note(note):

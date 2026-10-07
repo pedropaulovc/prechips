@@ -59,7 +59,9 @@ def test_unknown_inventory_category_still_renders_its_references(tmp_path):
     gauges = [row for row in findings(report, "tool_resolves") if "micrometers" in row["subject"]]
     assert gauges and all(row["status"] == "unknown" for row in gauges)
     # The unresolved gauge stays on the sheet and its check is marked unknown, not passed.
-    assert re.search(r"\? Ø [^|]*: 0-1 in mic", text(html))
+    # It is named by its whole inventory identity: no item of a category stated unknown
+    # is named, and table abbreviations never rewrite a key.
+    assert re.search(r"\? Ø [^|]*: \? gauges\.micrometers/0-1in\b", text(html))
 
 
 def op_rows(html):

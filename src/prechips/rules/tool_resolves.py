@@ -151,9 +151,14 @@ def evaluate(bundle):
     # An item the prose names (``gauges.granite-surface-plate`` in a make note, a record
     # blank's gauge) must be in the shop list: the traveler prints its name, and a name it
     # cannot find, or an item still to verify, is unknown, never a pass.
-    named = {k: v for k, v in named_references(bundle).items() if k not in selected}
+    # One item is one finding, however it is spelled: a slot's ``tools.drills/#61`` and its
+    # bare ``drills/#61`` select the same item.
+    chosen = set(selected.values())
+    named = {
+        k: v for k, v in named_references(bundle).items() if select(bundle, k)[:2] not in chosen
+    }
     for name, where in sorted(named.items()):
-        category, _, reference = name.partition(".")
+        category, reference, _ = select(bundle, name)
         item = named_item(bundle, name)
         verified = item is not None and not uncertain(item)
         places = "; ".join(where)

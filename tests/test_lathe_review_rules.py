@@ -1404,6 +1404,28 @@ def test_a_turning_window_prints_its_own_ends_whatever_an_earlier_window_left():
     assert not any("STOP" in part for part in sheet.tip(setup, finish))
 
 
+@pytest.mark.parametrize("op_spelling,touch_spelling", [("tools.", ""), ("", "tools.")])
+def test_a_toolpost_tool_is_one_tool_however_op_and_touch_spell_it(op_spelling, touch_spelling):
+    ops = [
+        {"op": 10, "do": "rough_turn", "feature": "body", "tool": op_spelling + "turner"},
+        {"op": 40, "do": "part_off", "tool": op_spelling + "blade", "to_z": -5.0},
+    ]
+    touch = {**_FACE_TOUCH, "corner": "chuck_side", "before_ops": [40]}
+    zero = {
+        "x": {"feature": "spindle_axis", "method": "trial_cut_measure", "tool": "turner"},
+        "z": {"face": "end", "edge_mm": 0.0, "method": "touch", "tool": "turner"},
+        "tool_touches": [{**touch, "tool": touch_spelling + touch["tool"]}],
+    }
+    zero["x"]["tool"] = zero["z"]["tool"] = touch_spelling + "turner"
+    bundle = _lathe(ops, {}, {"blade": _blade(), "turner": dict(_AR)}, zero=zero)
+    [finding] = zero_recipe.evaluate(bundle)
+    # Each toolpost tool is set once, before its first touch-off.
+    assert [(row["touch"], row["square_blade"]) for row in finding.numbers["tool_setting"]] == [
+        ("zero", "not_applicable"),
+        ("tool_touches", zero_recipe.SQUARE_BLADE),
+    ]
+
+
 def test_each_toolpost_tool_is_set_on_centre_before_its_first_touch_off():
     from prechips.sheet import _Traveler
 

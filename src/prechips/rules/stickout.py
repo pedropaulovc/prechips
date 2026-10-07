@@ -9,6 +9,7 @@ from .resolution import (
     record,
     resolve,
     same_length,
+    select,
     uncertain,
 )
 from .turned_profile import exposed_profile
@@ -72,21 +73,18 @@ def support_state(bundle, setup):
     )
     evidence = []
     for reference in sorted(refs):
+        category, key, _ = select(bundle, reference, "fixtures")
         item = resolve(bundle, "fixtures", reference)
         if item is not None and item.get("kind") == "accessory":
             item = None
-        if (
-            item is None
-            and reference in accessories
-            and not authored(bundle, "fixtures", reference)
-        ):
+        if item is None and key in accessories and not authored(bundle, category, key):
             item = {
                 "kind": "accessory",
                 "verify": machine is None or uncertain(machine),
                 "source": "inventory selected machine accessories",
             }
         kind = record(item).get("kind", UNKNOWN)
-        accessory_name = reference.lower().replace("-", "_")
+        accessory_name = key.lower().replace("-", "_")
         capable = kind in SUPPORT_KINDS or (
             kind in {"accessory", "dead_centre", "dead_center", "live_centre", "live_center"}
             and ("tailstock" in accessory_name.split("_") or accessory_name == "steady_rest")

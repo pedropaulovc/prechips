@@ -327,6 +327,18 @@ def authored(bundle_or_inventory, category, reference):
     return record(record(inventory.get(category)).get(root)) if category else {}
 
 
+def projection_holder(bundle_or_inventory, tool, holder):
+    """The key of ``tool``'s projection map (``projection_mm``/``projection_in``) that names
+    the holder ``holder`` selects, or None: a key and a holder reference are the same holder
+    when they select the same ``(category, reference)``, however each is spelled."""
+    selected = select(bundle_or_inventory, holder, "holders")[:2]
+    for field in ("projection_mm", "projection_in"):
+        for key in record(record(tool).get(field)):
+            if select(bundle_or_inventory, key, "holders")[:2] == selected:
+                return key
+    return None
+
+
 # The hold's item slots after its fixture, in the order the HOLD uses them: each a fixture.
 _HOLD_ITEMS = ("chuck", "parallels", "riser", "jaw_bar", "jaw_buttons", "support")
 # A ``hold.clamp`` is prose unless it is a slug (``toe-clamps``): then it names a fixture.

@@ -234,7 +234,11 @@ that one item and a bare key selects it too; otherwise it names no one item and
 prints as written: name it `<category>.<key>`. An item the selection finds
 stated `"unknown"` or listed with nothing about it (`{}`), or a category stated
 `"unknown"`, is unknown to every rule and prints `? <category>.<key>`;
-it never borrows a same-key item's name or record. Unknown is
+it never borrows a same-key item's name or record. A `<category>.<key>` and the
+key it selects are one item everywhere after the selection: a member's own size
+or capacity (`holders.collets/1/4` grips 1/4 in only), the holder a projection
+map names, and every citation and measurement request read the selected key,
+never the reference as spelled. Unknown is
 never an acceptance: an `acceptance` or `purchase` stated
 `"unknown"`; a `check`, `how` or `accept` that is blank or unknown; a gauge that
 is unknown, not listed or not verified; a `limits_mm` that is not two known
@@ -527,7 +531,9 @@ spindle/chuck stack, so no separate stack height is recorded or added.
 Projection is **holder exit face to installed tool tip** and belongs to one
 (tool, holder, insertion) triple: it lives on the tool as
 `tools.<tool>.projection_mm` (or `_in`), a map keyed by the full exact holder
-reference the operation selects (for example `"r8-collets-lms-4860/3-8in"`).
+reference the operation selects (for example `"r8-collets-lms-4860/3-8in"`; a
+key and a holder reference spelled with or without `holders.` match when they
+select the same holder).
 A holder, fixture, machine or gauge never carries projection, and a tool never
 carries a holder-wide or tool-wide scalar projection: the schema rejects
 `projection_mm`/`projection_in` outside `tools` and rejects a tool whose

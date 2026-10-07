@@ -20,6 +20,7 @@ from .resolution import (
     plan_frame_cite,
     resolve,
     saw_setup,
+    select,
     setup_frame,
     uncertain,
 )
@@ -856,7 +857,12 @@ def tool_setting(bundle, setup, zero, touches, derived):
     setup machine's toolpost ``centre_height`` / ``square_blade``, else the requirement
     alone."""
     ops = records(setup.get("ops"))
-    carriage = {op.get("tool") for op in ops if approach(bundle, setup, op) != "axial"}
+    # A tool is its category and key (:func:`select`), however the op or touch spells it.
+    carriage = {
+        select(bundle, op.get("tool"), "tools")[:2]
+        for op in ops
+        if approach(bundle, setup, op) != "axial"
+    }
     words = toolpost(bundle, setup)
     events = [
         (-1, 0, {"touch": "zero", "axis": axis}, mapping(zero.get(axis)).get("tool"))
@@ -869,9 +875,10 @@ def tool_setting(bundle, setup, zero, touches, derived):
             events.append((at, rank, {"touch": kind, "index": index}, row.get("tool")))
     result, seen = [], set()
     for *_, where, tool in sorted(events, key=lambda event: event[:2]):
-        if tool in seen or tool in (None, UNKNOWN) or tool not in carriage:
+        identity = select(bundle, tool, "spindle")[:2]
+        if identity in seen or tool in (None, UNKNOWN) or identity not in carriage:
             continue
-        seen.add(tool)
+        seen.add(identity)
         result.append(
             {
                 **where,

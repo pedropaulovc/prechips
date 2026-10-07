@@ -34,6 +34,7 @@ from .rules.resolution import (
     op_feature,
     op_features,
     printed_band,
+    projection_holder,
     resolve,
     saw_setup,
     select,
@@ -1396,8 +1397,9 @@ class _Traveler:
             if isinstance(item.get(key), str) and item[key] != "unknown":
                 detail.append(item[key])
         # Installed projection of this exact tool/holder pair, as the inventory measured it.
+        pair = projection_holder(self.bundle, item, holder)
         for field, scale in (("projection_mm", 1.0), ("projection_in", 25.4)):
-            projection = _amount(_mapping(item.get(field)).get(holder))
+            projection = _amount(_mapping(item.get(field)).get(pair))
             if projection is not None:
                 detail.append(f"projection {self.operative(projection * scale)} from holder face")
                 break
@@ -6400,8 +6402,11 @@ def reference_label(bundle, reference, slot=None) -> str:
 
 
 def short_reference_label(bundle, reference, slot=None) -> str:
-    """`reference_label` with the long tool words cut for table cells."""
+    """`reference_label` with the long tool words cut for table cells. An unknown item's
+    ``? <category>.<key>`` is its inventory identity and is printed whole."""
     label = reference_label(bundle, reference, slot)
+    if isinstance(reference, str) and select(bundle, reference, slot)[2] == UNKNOWN:
+        return label
     for full, short in (
         ("4-flute", "4fl"),
         ("2-flute", "2fl"),
@@ -6422,7 +6427,7 @@ def tool_label(bundle, reference) -> str:
     item = resolve(bundle, "tools", reference)
     if not item:
         return short_reference_label(bundle, reference, "tools")
-    member = reference.partition("/")[2]
+    member = select(bundle, reference, "tools")[1].partition("/")[2]
     kind = item.get("kind")
     if kind == "insert_holders":
         entering = _amount(item.get("entering_angle_deg"))

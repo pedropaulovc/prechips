@@ -36,8 +36,10 @@ from prechips.rules.resolution import (
     MANUAL,
     SAW_OPS,
     length_mm,
+    projection_holder,
     resolve,
     saw_setup,
+    select,
     setup_frame,
     uncertain,
 )
@@ -265,8 +267,8 @@ def evaluate(bundle):
                 )
             )
             continue
-        machine_ref = setup["machine"]
-        machine = resolve(bundle, "machines", machine_ref) or {}
+        machine = resolve(bundle, "machines", setup["machine"]) or {}
+        machine_ref = select(bundle, setup["machine"], "machines")[1]
         if machine.get("kind") == "lathe":
             findings.append(_lathe(bundle, setup, machine, machine_ref))
             continue
@@ -372,11 +374,9 @@ def evaluate(bundle):
             tool = resolve(bundle, "tools", op.get("tool")) or {}
             holder = resolve(bundle, "holders", holder_ref) or {}
             oal, gauge = length_mm(tool, "oal"), length_mm(holder, "gauge_len")
-            declared = any(
-                holder_ref in _mapping(tool.get(field))
-                for field in ("projection_mm", "projection_in")
-            )
-            projection = length_mm(tool, ("projection", holder_ref)) if holder else _UNKNOWN
+            pair = projection_holder(bundle, tool, holder_ref)
+            declared = pair is not None
+            projection = length_mm(tool, ("projection", pair)) if holder and declared else _UNKNOWN
             if holder and not declared:
                 grip = length_mm(holder, "grip")
                 projection = oal - grip if _numeric(oal) and _numeric(grip) else _UNKNOWN

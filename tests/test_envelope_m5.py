@@ -364,7 +364,13 @@ def test_through_drill_entry_exit_and_measured_point_set_minimum_nose_floor():
     assert envelope.evaluate(data)[0].status == "error"
 
 
-def test_member_tool_projection_requires_exact_full_selected_holder_key():
+# A selected tool or holder is the same item spelled with its category: its projection,
+# measurement debt and citation name the item's key.
+@pytest.mark.parametrize("tool_spelling", ["", "tools."])
+@pytest.mark.parametrize("holder_spelling", ["", "holders."])
+def test_member_tool_projection_requires_exact_full_selected_holder_key(
+    tool_spelling, holder_spelling
+):
     data = review_bundle()
     data.inventory["holders"]["collets"] = {
         "kind": "collet_set",
@@ -380,7 +386,9 @@ def test_member_tool_projection_requires_exact_full_selected_holder_key():
             }
         },
     }
-    data.plan["setups"][0]["ops"][0].update(tool="mills/selected", holder="collets/3-8in")
+    data.plan["setups"][0]["ops"][0].update(
+        tool=tool_spelling + "mills/selected", holder=holder_spelling + "collets/3-8in"
+    )
     row = envelope.evaluate(data)[0]
     assert row.status == "error"
     assert row.numbers["stacks"][0]["tool_projection_mm"] == 55

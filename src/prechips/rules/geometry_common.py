@@ -160,10 +160,10 @@ def provenance(bundle, rule, setup=None, op=None, feature=None):
             ("workholding", hold.get("fixture")),
             ("fixtures", hold.get("parallels")),
         ):
-            category = select(bundle, reference, slot)[0]
+            category, key, _ = select(bundle, reference, slot)
             item = record(resolve(bundle, slot, reference))
             if item:
-                cite.append(f"inventory.{category}.{reference}: declared dimensions")
+                cite.append(f"inventory.{category}.{key}: declared dimensions")
                 cite.extend(_citations(item.get("cite")))
                 cite.extend(_citations(record(item.get("source")).get("cite")))
                 cite.extend(
@@ -175,10 +175,11 @@ def provenance(bundle, rule, setup=None, op=None, feature=None):
         )
     if op is not None:
         cite.append(f"plan.setups.{setup['id']}.ops.{op['op']}: selected action/tool/holder")
-        for category, reference in (("tools", op.get("tool")), ("holders", op.get("holder"))):
-            item = record(resolve(bundle, category, reference))
+        for slot, reference in (("tools", op.get("tool")), ("holders", op.get("holder"))):
+            category, key, _ = select(bundle, reference, slot)
+            item = record(resolve(bundle, slot, reference))
             if item:
-                cite.append(f"inventory.{category}.{reference}: explicit-unit verified dimensions")
+                cite.append(f"inventory.{category}.{key}: explicit-unit verified dimensions")
                 cite.extend(_citations(item.get("cite")))
                 cite.extend(_citations(item.get("dia_cite")))
                 cite.extend(_citations(record(item.get("source")).get("cite")))

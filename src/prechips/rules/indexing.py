@@ -27,12 +27,12 @@ def _nearest(value):
 
 
 def _fixture(bundle, reference):
-    """The dividing head a hold names, as its fixture slot reads it (:func:`select`), and its
-    category (``unknown`` when that is stated unknown)."""
-    category, _, item = select(bundle, reference, "workholding")
+    """The dividing head a hold names, as its fixture slot reads it (:func:`select`), its
+    category (``unknown`` when that is stated unknown) and its key there."""
+    category, key, item = select(bundle, reference, "workholding")
     if item == UNKNOWN:
-        return {"kind": UNKNOWN, "verify": True}, UNKNOWN
-    return resolve(bundle, category, reference), category
+        return {"kind": UNKNOWN, "verify": True}, UNKNOWN, key
+    return resolve(bundle, "workholding", reference), category, key
 
 
 def _candidates(item, requested, source):
@@ -124,14 +124,14 @@ def _continuous(bundle, setup, declaration):
         invalid.append(f"{source}.rotation must be 'continuous'")
     if any(key in declaration for key in ("positions", "angle_deg")):
         invalid.append(f"{source}: continuous rotation declares no positions or angle_deg")
-    fixture, category = _fixture(bundle, reference)
+    fixture, category, key = _fixture(bundle, reference)
     if fixture is None:
         if reference == UNKNOWN:
             unresolved.append(f"{source}.fixture")
         else:
             invalid.append(f"{reference}: indexing fixture is not listed or present")
     else:
-        fixture_source = f"inventory.{category}.{reference}"
+        fixture_source = f"inventory.{category}.{key}"
         cite.append(fixture_source)
         cite.extend(_citations(fixture.get("cite"), "indexing"))
         kind = fixture.get("kind", UNKNOWN)
@@ -269,14 +269,14 @@ def evaluate(bundle):
         else:
             numbers["tolerance_deg"] = float(tolerance)
 
-        fixture, category = _fixture(bundle, reference)
+        fixture, category, key = _fixture(bundle, reference)
         if fixture is None:
             if reference == UNKNOWN:
                 unresolved.append(f"{source}.fixture")
             else:
                 invalid.append(f"{reference}: indexing fixture is not listed or present")
         else:
-            fixture_source = f"inventory.{category}.{reference}"
+            fixture_source = f"inventory.{category}.{key}"
             cite.append(fixture_source)
             cite.extend(_citations(fixture.get("cite"), "indexing"))
             inventory_source = fixture.get("source")
