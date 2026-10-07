@@ -1889,7 +1889,9 @@ of the stock to file off, so the near button does not hide the work and the cut
 face shows what the file takes; the band notes `SECTION BETWEEN THE RIMS`.
 
 An inspect op's `inspection_views` ([plan](plan.md)) are drawn as one set-up
-sketch per requirement, a band per view, on the stock the setup leaves and in the
+sketch per requirement, a band per view, on the stock the setup leaves (only the
+pieces of it that hold the part: scrap a cut released, such as a rail frame, is
+off the part when it is inspected) and in the
 part model's own axes: `up` up the page, seen from `toward`. The bands are
 returned as `inspection_pngs_base64` keyed `<op>:<requirement>`, apart from the
 setup picture. Each band titles its view, wrapping a title too long for one line

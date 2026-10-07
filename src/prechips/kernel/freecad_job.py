@@ -7582,10 +7582,11 @@ class _Setup:
     def _inspection_sketches(self):
         """The labelled set-up sketches of this setup's inspect ops (the render annotation's
         ``inspections``: op, requirement, views) as ``({"<op>:<requirement>": png},
-        debts)``. Each view draws the stock this setup leaves and the gauges and holding it
-        names (``aids``) in the part model's axes, seen from ``toward`` with ``up`` up off
-        the plate, and its ``marks``. Without that stock no sketch is drawn: its NOT SHOWN
-        line is the debt."""
+        debts)``. Each view draws the stock this setup leaves (the pieces of it that hold
+        the part: scrap a cut released is off the part when it is inspected) and the
+        gauges and holding it names (``aids``) in the part model's axes, seen from
+        ``toward`` with ``up`` up off the plate, and its ``marks``. Without that stock no
+        sketch is drawn: its NOT SHOWN line is the debt."""
         inspections = self.setup.get("render", {}).get("inspections") or []
         sketches, debts = {}, []
         if not inspections:
@@ -7621,7 +7622,7 @@ class _Setup:
             )
             return solid
 
-        part = mesh(self.stock_out, _COLOURS["part"], "part")
+        part = mesh(self._inspected(self.stock_out), _COLOURS["part"], "part")
         for inspection in inspections:
             views = []
             for view in inspection["views"]:
@@ -7658,6 +7659,21 @@ class _Setup:
             name = f"op {inspection['op']} {inspection['requirement']} sketch"
             debts += [f"{name}: {debt}" for debt in drawn]
         return sketches, debts
+
+    def _inspected(self, stock):
+        """The model-frame ``stock`` pieces that hold the finished part; ``stock`` itself
+        when it is one piece, none holds the part, or a boolean fails."""
+        if len(stock.Solids) < 2:
+            return stock
+        try:
+            finished = self.finished.copy()
+            finished.transformShape(self.matrix.inverse())
+            kept = [s for s in stock.Solids if s.common(finished).Volume > STOCK_MM3]
+        except Exception:
+            return stock
+        if not kept:
+            return stock
+        return kept[0] if len(kept) == 1 else Part.makeCompound(kept)
 
     def _guide_stops(self, solids, section_view=None):
         """The rims a guided bench file rides on: each button of a hand op's guide kit (its
