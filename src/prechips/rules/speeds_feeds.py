@@ -80,7 +80,8 @@ def _cited(value):
     )
 
 
-def _bounds(machine):
+def spindle_bounds(machine):
+    """The machine's ``(rpm_min, rpm_max)``, each a number or unknown."""
     spindle = mapping(machine.get("spindle"))
     low, high = spindle.get("rpm_min", UNKNOWN), spindle.get("rpm_max", UNKNOWN)
     ranges = [
@@ -305,7 +306,7 @@ def evaluate(bundle):
     for setup in bundle.plan["setups"]:
         machine = resolve(bundle, "machines", setup.get("machine")) or {}
         lathe = machine.get("kind") == "lathe"
-        low, high = _bounds(machine)
+        low, high = spindle_bounds(machine)
         for op in setup["ops"]:
             subject = f"{setup['id']}:{op['op']}"
             if op["do"] in MANUAL:

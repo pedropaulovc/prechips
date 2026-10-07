@@ -169,6 +169,47 @@ arcs is ordinary inventory:
   It reads a length along that axis (`length`, `depth`, `height`, `thickness`,
   `station`, or a reference-only `length_ref`) and never a diameter or a form.
 
+## Edge finder
+
+A `tools.<id>` with `kind = "edge_finder"` that picks up a mill X or Y zero
+(`zero.x/y.tool`, not `from = "indicated"`) states `finder_type`
+(`"mechanical"`, run spinning, or `"electronic"`, run with the spindle stopped),
+its tip diameter `tip_in` / `tip_mm` (else `dia`) and, when mechanical,
+`rpm_range`, the maker's speed band, with a `cite`. The zero check
+([rules-coordinates](rules-coordinates.md)) records these on each pick-up row
+as `finder`: the radius (half the tip Ø), and the speed it runs at here, the
+finder's band clipped to the setup machine's `spindle` `rpm_min`/`rpm_max`. A
+missing fact, or an unknown spindle range, leaves the zero unknown; a band the
+spindle cannot turn is an error. The traveler prints one EDGE FINDER box per
+finder, in the DRO ZERO block of the first setup that picks up with it — the
+speed, how the contact shows (a mechanical tip runs true, then kicks sideways;
+an electronic one lights), and the offset, Axis Set edge − r coming from the −
+side and edge + r from the + side — and every X/Y row names the box.
+
+## Purchased tooling
+
+An item bought finished (any category, not shop-made) may state what is bought
+in `purchase` and its receipt checks in `acceptance`, a list of tables:
+
+| Field | Meaning |
+|---|---|
+| `check` | what is checked (`"each button OD"`) |
+| `gauge` | the `gauges.<id>` (or member path) that reads it, or `"none"` for a check by hand or eye |
+| `how` | optional: how the gauge is used (`"button on the GO pin in a V-block, one turn"`) |
+| `limits` | the name of a `[least, greatest]` limits field or single-length field on the same item (`"button_dia_limits_mm"`, `"button_runout_mm"`, printed lo–hi or ≤ value) |
+| `limits_mm` | or the `[least, greatest]` limits in mm, inline |
+| `accept` | the criterion in words (`"the nut runs on by hand"`); required where there is no numeric limit |
+
+A check states one numeric limit at most and needs a limit or `accept`; a
+`"none"` gauge takes no numeric limit; a shop-made item takes no `acceptance`.
+The `purchased_tooling` rule (always required) checks every item a setup uses
+(hold fixture, clamps, stop, riser, supports, an op's filing guide or tool) that
+carries the list: a gauge that is unknown, not listed or not verified, or a
+`limits` field the item does not state, leaves the setup unknown. The traveler
+prints one PURCHASED TOOLING / RECEIPT CHECK table per item on the front sheet
+of the first setup using it (inch gauges also get the limits in inches, rounded
+inward); later setups point back to it.
+
 ## Kernel geometry facts (M4)
 
 M4 kernel geometry reads explicit-unit length facts through the same
@@ -598,6 +639,10 @@ on hand.
 | `swivel_base` | `bool` |
 | `scroll` | `bool` |
 | `independent` | `bool` |
+| `finder_type` | `"mechanical"` / `"electronic"` (`edge_finder`: [Edge finder](#edge-finder)) |
+| `rpm_range` | `[Number, Number]` (`edge_finder`: the maker's spindle-speed band, low < high) |
+| `purchase` | `str` (bought-finished item: what is bought, printed over its receipt checks) |
+| `acceptance` | `list[AcceptanceCheck]` (bought-finished item's receipt checks: [Purchased tooling](#purchased-tooling)) |
 | `envelope` | `MachineEnvelope` |
 | `headstock_tilt_deg` | `float` |
 | `swing_over_bed_in` | `float` |

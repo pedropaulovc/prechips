@@ -236,6 +236,8 @@ def test_the_holding_nearest_the_cut_is_a_clearance_row_and_a_hand_feed_check_on
         # Past the crash zone: a clearance like any other, no check.
         (12.0, "profile-fixture:pad-r1", None, ""),
         (3.5, "profile-fixture:pad-r1", "pad r1 beside the cut", ""),
+        # A vise jaw's kernel tag reads as the jaw, never as an identifier.
+        (3.5, "fixed_jaw", "fixed jaw beside the cut", ""),
         # The kernel could not derive the op's cut: never a pass.
         ("unknown", "unknown", None, "holding beside the cut: not computed — check at"),
     ],

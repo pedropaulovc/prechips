@@ -127,28 +127,80 @@ def test_unknown_depth_levels_stay_unknown_never_one_level_at_the_depth(operatio
     assert record["entries"][0]["xy"] == [0.0, -5.0] and record["plunge_mm_rev"] == 0.05
 
 
-@pytest.mark.parametrize("cleared", [True, False], ids=["cleared-floor", "stock-top"])
-def test_a_level_at_the_ops_own_start_z_is_lowered_to_never_plunged(cleared):
-    # One level at the Z the op starts from: nothing stands above it where the cutter goes
-    # down, so it lowers there and no plunge feed is needed; the path cuts what is left
-    # along it.
-    operation = {
-        "op": 20,
-        "z_levels": {"levels": [-2.0], "dro_start_z": -2.0, "start_cleared": cleared},
-    }
-    [record], debts = open_path(box_top=1.0, plunge=False, operation=operation)
-    assert debts == [] and "plunge_mm_rev" not in record
-    assert record["lowered"] == ("cleared" if cleared else "top")
+def level_text(record, plunge_mm_min=None):
+    """The traveler's level-entry paragraph for op 20's ``record``; ``plunge_mm_min`` is its
+    speeds_feeds plunge feed."""
     bundle = SimpleNamespace(
         plan={"setups": [{"id": "S1"}]}, features={"units": "mm"}, inventory={}, policy={}
     )
     bundle.feature_definitions = {}
-    finding = SimpleNamespace(rule="coordinates", subject="S1", numbers={"level_paths": [record]})
-    sheet = _Traveler(bundle, [finding], {}, None)
-    text = page_text(sheet.level_entries({"id": "S1"}, {"op": 20}, []))
+    paths = {"level_paths": [record]}
+    findings = [SimpleNamespace(rule="coordinates", subject="S1", numbers=paths)]
+    if plunge_mm_min is not None:
+        feeds = {"plunge_mm_min": plunge_mm_min}
+        findings.append(SimpleNamespace(rule="speeds_feeds", subject="S1:20", numbers=feeds))
+    sheet = _Traveler(bundle, findings, {}, None)
+    return page_text(sheet.level_entries({"id": "S1"}, {"op": 20}, []))
+
+
+@pytest.mark.parametrize("box_top", [-2.0, -3.0], ids=["at-the-stock-top", "above-it"])
+def test_a_level_the_stock_box_puts_at_or_above_its_top_is_lowered_to_never_plunged(box_top):
+    # One level, at the Z the op starts from, and the stock the setup receives stands no
+    # higher: nothing is above that Z wherever the cutter goes down, so it lowers there and
+    # needs no plunge feed.
+    operation = {"op": 20, "z_levels": {"levels": [-2.0], "dro_start_z": -2.0}}
+    [record], debts = open_path(box_top=box_top, plunge=False, operation=operation)
+    assert debts == [] and "plunge_mm_rev" not in record
+    assert record["lowered"] == "top"
+    text = level_text(record)
     assert "plunge" not in text, text
-    where = "in the cleared area" if cleared else "the top of the stock this op meets"
-    assert f"lower to Z -2.000, {where}" in text, text
+    assert "lower to Z -2.000, the top of the stock this op meets" in text, text
+
+
+def test_a_level_at_its_own_start_z_inside_the_stock_box_still_plunges():
+    # The same op's start Z is an earlier floor or a declared entry_z, but the stock box
+    # stands to Z1 over the entry: equal numbers prove nothing clear there, so the cutter
+    # is fed down at the plunge feed, and without one its entry is debt.
+    operation = {"op": 20, "z_levels": {"levels": [-2.0], "dro_start_z": -2.0}}
+    [record], debts = open_path(box_top=1.0, operation=operation)
+    assert "lowered" not in record and debts == []
+    assert record["plunge_mm_rev"] == 0.05
+    text = level_text(record, plunge_mm_min=45.0)
+    # Fed down to the level, never "plunge Z -2.000 → -2.000" nor lowered to it.
+    assert "Enter at X 0.000, Y -5.000: plunge to Z -2.000 at 45 mm/min." in text, text
+    assert "lower to" not in text and "→" not in text, text
+    [record], debts = open_path(box_top=1.0, plunge=False, operation=operation)
+    assert "lowered" not in record and record["plunge_mm_rev"] == "unknown"
+    assert [debt.startswith("op 20 plunges into the stock") for debt in debts] == [True]
+    assert "STOP: plunge feed not set" in level_text(record)
+
+
+@pytest.mark.parametrize(
+    ("center_cutting", "status"),
+    [(True, "pass"), (False, "unknown")],
+    ids=["centre-cutting", "not-centre-cutting"],
+)
+def test_a_feature_entry_z_at_its_depth_does_not_prove_the_entry_clear(
+    tmp_path, center_cutting, status
+):
+    # The feature's own entry_z is its depth, Z -1, but the profile enters at X -8.3,
+    # Y -5.3, outside it, where the stock the kernel modelled stands to Z0: the cutter is
+    # fed down there, and an end mill not proven centre-cutting cannot be.
+    bundle = entering_inside_stock(tmp_path, center_cutting=center_cutting, to_z=-1.0)
+    bundle.plan["setups"][0]["stock_state"]["entry_z"] = {"target": -1.0}
+    findings = [*coordinates.evaluate(bundle), *speeds_feeds.evaluate(bundle)]
+    [row] = [f for f in findings if f.rule == "coordinates" and f.subject == "S1"]
+    assert row.status == status, row.sentence
+    [record] = row.numbers["level_paths"]
+    assert record["levels"] == [-1.0] and record["from_z"] == -1.0
+    assert "lowered" not in record
+    text = " ".join(page_text(_Traveler(bundle, findings, {}, None).render()).split())
+    assert "lower to Z -1.000" not in text, text
+    if center_cutting:
+        assert re.search(r"Enter at X -8\.300, Y -5\.300: plunge to Z -1\.000 at \d+ mm/min", text)
+    else:
+        assert "op 20 plunges into the stock but its plunge feed is unknown" in row.sentence
+        assert "STOP: plunge feed not set" in text
 
 
 def scratch_outline(tmp_path, plunge=True):

@@ -19,7 +19,7 @@ from .measurements import record_trusted
 from .model import reference_only, tolerance_requirements
 from .rules._bench import manual_bench
 from .rules.coordinates import CENTRE_OPS, OVERSHOOT_NOTE, dro_grid, dro_z, row_id
-from .rules.hold_fields import align_travel
+from .rules.hold_fields import align_indicator, align_travel
 from .rules.inspection import go_no_go_pair
 from .rules.resolution import (
     MANUAL,
@@ -431,6 +431,7 @@ _TOPICS = {
     "construction": "construction",
     "engagement": "cutter engagement",
     "saw_cut": "saw cut",
+    "purchased_tooling": "purchased tooling receipt check",
 }
 _DIRECTIONS = {
     "radially_inward": "face from OD to centre",
@@ -742,6 +743,12 @@ def _text(value):
 
 def _known(value):
     return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+
+
+def _inch(mm, up=False):
+    """``mm`` in inches to 0.0001, rounded up (a low limit) or down: never looser."""
+    tenths = round(mm / 25.4 * 1e4, 6)
+    return f"{(math.ceil(tenths) if up else math.floor(tenths)) / 1e4:.4f}"
 
 
 def _supply_name(root):
@@ -1680,7 +1687,7 @@ class _Traveler:
             name
             for name, known in (
                 ("the travel it runs along", axis in ("X", "Y")),
-                ("the indicator", isinstance(gauge, str) and gauge != "unknown"),
+                ("the indicator", align_indicator(self.bundle, gauge) not in (None, "unknown")),
                 ("the sweep length", _known(over)),
                 ("the limit", _known(limit)),
             )
@@ -2951,8 +2958,9 @@ class _Traveler:
         """``(mm, name)``: how near the material ``op`` cuts comes to the holding, from the
         kernel's setup picture (its ``cut_clearances``; the picture dimensions the least of
         the setup's), and the holding solid it is, as the HOLD names it
-        (:meth:`holding_name`); ``unknown`` where the kernel could not derive the cut; None
-        when the kernel measured nothing for the op (no picture, or no cut)."""
+        (:meth:`holding_name`); ``unknown`` where the kernel could not derive the cut or the
+        holding is not drawn whole; None when the kernel measured nothing for the op (no
+        picture, or no cut)."""
         render = _mapping(_mapping(self.report.get("renders")).get(setup["id"]))
         for row in _mapping(render.get("scene")).get("cut_clearances") or []:
             row = _mapping(row)
@@ -2968,7 +2976,7 @@ class _Traveler:
         ``hold.clamps`` entry ``clamp <i> <ref>`` by its label and solid (``LOC2 collar``),
         any other by its solid's own name."""
         owner, _, solid = str(tag).rpartition(":")
-        solid = solid.replace("-", " ")
+        solid = solid.replace("-", " ").replace("_", " ")
         match = re.fullmatch(r"clamp (\d+) .+", owner)
         labels = clamp_labels(_mapping(setup.get("hold")))
         if match and 0 < int(match.group(1)) <= len(labels):
@@ -3168,6 +3176,10 @@ class _Traveler:
             radius = touch.get("radius_mm")
             if _known(radius) and radius and touch.get("from") != "indicated":
                 contact.append(f"edge-finder radius {o(radius)}")
+            if computed.get("finder"):
+                contact.append(
+                    "speed, kick-out and offset: " + self.finder_pointer(setup, touch.get("tool"))
+                )
             paper = touch.get("paper_mm")
             if _known(paper):
                 contact.append(f"paper {o(paper)}" if paper else "direct contact, no paper")
@@ -3227,6 +3239,15 @@ class _Traveler:
                     ordered=True,
                 )
             )
+        for reference, home in self.finder_homes.items():
+            if home == setup["id"]:
+                finder = next(
+                    computed["finder"]
+                    for axis, computed in axes.items()
+                    if computed.get("finder")
+                    and _mapping(authored.get(axis)).get("tool") == reference
+                )
+                pieces.append(self.finder_box(reference, finder))
         correction = self.measured_top(setup)
         if correction:
             pieces.append(_p(correction))
@@ -3299,6 +3320,161 @@ class _Traveler:
             if record.get("note"):
                 pieces.append(_p(self.bench(record["note"])))
         return "".join(pieces)
+
+    @functools.cached_property
+    def finder_homes(self):
+        """``{edge-finder reference: setup id}``: the first setup whose DRO zero picks up
+        with it prints the traveler's one EDGE FINDER box for it."""
+        homes = {}
+        for setup in self.plan.get("setups", []):
+            axes = _mapping(self.records.get(("zero_check", setup["id"]))).get("axes")
+            zero = _mapping(setup.get("zero"))
+            for axis in ("x", "y"):
+                if _mapping(_mapping(axes).get(axis)).get("finder"):
+                    homes.setdefault(_mapping(zero.get(axis)).get("tool"), setup["id"])
+        return homes
+
+    def finder_pointer(self, setup, reference):
+        """``EDGE FINDER box`` with the sheet that prints it when another setup's does."""
+        home = self.finder_homes.get(reference, setup["id"])
+        return "EDGE FINDER box" + ("" if home == setup["id"] else f", Setup {home} sheet 1")
+
+    def finder_box(self, reference, finder):
+        """The one edge-finding procedure every X/Y pick-up with ``reference`` follows: the
+        speed it runs at on this mill, how its contact shows and how half its tip Ø is
+        applied by the side it comes from (``zero_recipe.finder_procedure`` facts)."""
+        o = self.operative
+        kind = finder.get("finder_type")
+        lines = []
+        names = {"finder_type": "type", "tip_in / tip_mm": "tip Ø", "rpm_range": "rpm range"}
+        missing = [names.get(name, name) for name in finder.get("missing") or []]
+        if missing:
+            lines.append(
+                _p(
+                    f"STOP: the shop list gives no {' or '.join(missing)} for this finder — "
+                    "its speed, contact and offset are not known. Do not pick up with it.",
+                    "stop",
+                )
+            )
+        rpm, band, spindle = finder.get("rpm"), finder.get("finder_rpm_range"), None
+        if isinstance(finder.get("machine_rpm"), list):
+            spindle = "–".join(_number(v) for v in finder["machine_rpm"])
+        if kind == "electronic":
+            lines.append(_p("Speed: spindle stopped — the finder does not turn."))
+        elif finder.get("status") == "error":
+            lines.append(
+                _p(
+                    f"STOP: the finder's {'–'.join(_number(v) for v in band)} rpm lies outside "
+                    f"the mill's {spindle} rpm.",
+                    "stop",
+                )
+            )
+        elif isinstance(rpm, list):
+            lines.append(
+                _p(
+                    f"Speed: {_number(rpm[0])}–{_number(rpm[1])} rpm, in the spindle range that "
+                    f"covers it (finder {'–'.join(_number(v) for v in band)} rpm; mill "
+                    f"{spindle} rpm)."
+                )
+            )
+        elif "rpm range" not in missing:
+            lines.append(_p("STOP: the mill's rpm range is not known — no speed.", "stop"))
+        if kind == "mechanical":
+            lines.append(
+                _p(
+                    "Kick-out: spindle stopped, push the tip a little off centre by hand. Run "
+                    "the spindle: the tip wobbles. Feed toward the edge by handwheel, in the "
+                    "smallest steps once close: the tip touches and runs true with the body, "
+                    "and at the next small step it kicks sharply sideways. Stop at the kick. "
+                    "Back off, re-approach in the smallest steps and stop at the first kick "
+                    "again: that position is the pick-up."
+                )
+            )
+        elif kind == "electronic":
+            lines.append(
+                _p(
+                    "Contact: the finder's light comes on the moment the tip touches the "
+                    "work. Feed in the smallest steps once close and stop at the first light; "
+                    "back off and re-approach once: that position is the pick-up."
+                )
+            )
+        tip, radius = finder.get("tip_dia_mm"), finder.get("radius_mm")
+        if _known(radius):
+            lines.append(
+                _p(
+                    f"Offset: at the pick-up the spindle axis is half the tip Ø ({o(tip)}) off "
+                    f"the edge, r = {o(radius)}. Coming from the − side (moving + onto the "
+                    f"edge): Axis Set edge − {o(radius)}. Coming from the + side: Axis Set edge "
+                    f"+ {o(radius)}. Each DRO ZERO row prints its signed Axis Set."
+                )
+            )
+        cite = finder.get("cite")
+        cites = [cite] if isinstance(cite, str) and cite != "unknown" else cite
+        if isinstance(cites, list) and cites:
+            lines.append(_p("Finder data: " + "; ".join(str(c) for c in cites) + "."))
+        title = f"EDGE FINDER — {self.reference(reference, 'tools')}"
+        return f'<div class="keep"><h3>{escape(title)}</h3>{"".join(lines)}</div>'
+
+    @functools.cached_property
+    def receipt_homes(self):
+        """``{bought item reference: setup id}``: the first setup using an item with
+        receipt checks prints its PURCHASED TOOLING / RECEIPT CHECK table."""
+        homes = {}
+        for setup in self.plan.get("setups", []):
+            numbers = _mapping(self.records.get(("purchased_tooling", setup["id"])))
+            for item in numbers.get("items", []):
+                homes.setdefault(item["ref"], setup["id"])
+        return homes
+
+    def purchased_tooling(self, setup):
+        """Each bought-finished item the setup uses that carries receipt checks: its
+        table where first used, a pointer to that table after."""
+        numbers = _mapping(self.records.get(("purchased_tooling", setup["id"])))
+        html = []
+        for item in numbers.get("items", []):
+            name = self.reference(item["ref"])
+            home = self.receipt_homes.get(item["ref"], setup["id"])
+            if home != setup["id"]:
+                html.append(
+                    _p(
+                        f"{name}: bought finished, accepted on receipt — PURCHASED TOOLING / "
+                        f"RECEIPT CHECK table, Setup {home} sheet 1."
+                    )
+                )
+                continue
+            rows = []
+            for check in item["checks"]:
+                gauge = check["gauge"]
+                tool = "by hand / eye" if gauge == "none" else self.short_reference(gauge, "gauges")
+                if check["how"] != "not_applicable":
+                    tool += f"; {check['how']}"
+                accept = []
+                limits, most = check.get("limits_mm"), check.get("max_mm")
+                # An inch gauge reads the limits in inches, rounded inward: never looser.
+                reads = _mapping(resolve(self.bundle, "gauges", gauge))
+                inch = any(key.endswith("_in") for key in reads)
+                if isinstance(limits, list) and all(_known(v) for v in limits):
+                    text = f"{limits[0]:.3f}–{limits[1]:.3f} mm"
+                    if inch:
+                        text += f" ({_inch(limits[0], up=True)}–{_inch(limits[1])} in)"
+                    accept.append(text)
+                elif _known(most):
+                    text = f"≤ {most:.3f} mm"
+                    accept.append(text + (f" (≤ {_inch(most)} in)" if inch else ""))
+                if check["accept"] != "not_applicable":
+                    accept.append(check["accept"])
+                if check["status"] != "pass":
+                    accept.append(f"STOP: {check['reason']}")
+                rows.append([check["check"], tool, "; ".join(accept)])
+            purchase = item.get("purchase")
+            html.append(
+                f'<div class="keep"><h3>PURCHASED TOOLING / RECEIPT CHECK — {escape(name)}</h3>'
+                + (_p(f"Bought finished: {purchase}.") if purchase != "unknown" else "")
+                + _p("Check on receipt, before first use; return the item if any check fails.")
+                + _table(["check", "gauge", "accept"], rows, widths=[30, 35, 35])
+                + "</div>"
+            )
+        return "".join(html)
 
     def measured_top(self, setup):
         """A mill Z zero set from a bench-measured M on the raw top (``measure_then_set`` on
@@ -4778,21 +4954,21 @@ class _Traveler:
             at = f" — {feed}" if feed else ""
         start, several = record.get("from_z"), len(depths) > 1
         plunge = f"plunge Z {o(start)} → {o(depths[0])}{at}"
+        if o(start) == o(depths[0]):
+            # The op starts at its only level, but nothing proves that entry clear: fed
+            # down to it, never "plunge Z a → a".
+            plunge = f"plunge to Z {o(depths[0])}{at}"
         lower = f"lower to Z {o(depths[0])}"
         if several:
             plunge = f"plunge from the level above (level 1 from Z {o(start)}){at}"
             lower = "lower to the level's Z"
-        # The op starts at its only level: the cutter lowers to it at every entry, above
-        # nothing, and only the path cuts: never a plunge from a Z to itself.
-        lowered = record.get("lowered") if not several else None
-        if lowered in ("cleared", "top"):
-            place = (
-                "in the cleared area"
-                if lowered == "cleared"
-                else "the top of the stock this op meets"
-            )
-            lower = f"lower to Z {o(depths[0])}, {place}; the path then cuts the stock left "
-            lower += "along it"
+        # The op starts at its only level and the stock box puts that level at or above
+        # the stock top: the cutter lowers to it at every entry, above nothing, and only
+        # the path cuts.
+        lowered = record.get("lowered") == "top" and not several
+        if lowered:
+            lower = f"lower to Z {o(depths[0])}, the top of the stock this op meets; the path "
+            lower += "then cuts the stock left along it"
 
         def where(down):
             xy = down.get("xy") or ["unknown", "unknown"]
@@ -5916,6 +6092,7 @@ class _Traveler:
             status,
             f'<div class="hold-row"><div class="hold-steps">{steps}</div>'
             f"{unpictured}</div>{hold_below}{coolant}",
+            self.purchased_tooling(setup),
             tool_html,
             None if bench else self.dro(setup, tools),
             ops_html,
