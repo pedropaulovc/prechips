@@ -7,7 +7,7 @@ import pytest
 from test_headroom import coordinate_bundle
 
 from prechips.inputs import load_bundle
-from prechips.rules import coordinates, zero_recipe
+from prechips.rules import coordinates, tip_endpoints, zero_recipe
 from prechips.rules.tip_endpoints import _producer, operative_z, stock_states
 
 ROCKER = Path(__file__).resolve().parents[1] / "examples/rocker-arm/plan.toml"
@@ -300,6 +300,39 @@ def test_a_hole_off_the_model_z_axis_is_held_by_its_entry_disc(tmp_path, x, entr
     setup["ops"][0]["feature"] = "hole"
     (_, _, after), *_ = stock_states(bundle, setup)
     assert after["entry_z"]["hole"] == pytest.approx(entry)
+
+
+@pytest.mark.parametrize(
+    ("strip", "entry", "tip"), [([0.0, 10.0], 0.0, -4.802), ([0.0, 20.0], -8.8, -13.602)]
+)
+def test_an_unbounded_pocket_lowers_another_entry_only_where_its_feature_holds_it(
+    tmp_path, strip, entry, tip
+):
+    # Op 10 pockets all of 'strip' to -8.8 with no removal box; the Ø8 hole's entry disc
+    # (X 5-13) runs past a strip ending at X 10, so part of its entry still stands at 0.
+    hole = "kind = 'hole'\nat = [9.0, 5.0, 1.0]\naxis = [0.0, 0.0, 1.0]\ndia = 8.0\n"
+    hole += "thru = false\ndepth = [2.9, 5.0]\n[features.strip]\nkind = 'plane'\n"
+    hole += f"frame = 'model'\nrequirements = []\nbounds = {{ x = {strip}, y = [0.0, 10.0], "
+    ops = "[[setups.ops]]\nop = 10\ndo = 'rough_pocket'\nfeature = 'strip'\ntool = 'cutter'\n"
+    ops += "holder = 'unknown'\nto_z = -8.8\ndoc_mm = 3.0\ndirection = 'conventional'\n"
+    ops += "[[setups.ops]]\nop = 20\ndo = 'drill'\nfeature = 'target'\ntool = 'drill'\n"
+    plan = coordinate_bundle(tmp_path, hole + "z = [0.0, 1.0] }\n", ops + "depth_mm = 3.0\n")
+    text = plan.read_text(encoding="utf-8").replace(
+        "local_thickness = { target = 10.0 }",
+        "local_thickness = { target = 20.0 }\nentry_z = { target = 0.0 }",
+    )
+    plan.write_text(text, "utf-8")
+    bundle = load_bundle(plan)
+    setup = bundle.plan["setups"][0]
+    (_, _, after), _ = stock_states(bundle, setup)
+    source = after["entry_from"]["target"]
+    assert after["entry_z"]["target"] == pytest.approx(entry)
+    assert operative_z(bundle, setup, entry, "target", 1, source) == pytest.approx(entry)
+    (row,) = (r for r in tip_endpoints.evaluate(bundle) if r.subject == "target")
+    (end,) = row.numbers["endpoints"]
+    assert row.status == "pass"
+    assert end["dro_entry_z"] == pytest.approx(entry)
+    assert end["dro_tip_z"] == pytest.approx(tip)
 
 
 def test_z_levels_start_on_an_earlier_floor_only_where_its_bounds_cover_the_op(tmp_path):
