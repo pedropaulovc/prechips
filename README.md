@@ -414,7 +414,7 @@ kernel Z it prints is that surface's one DRO Z: kernel noise within 1e-3 mm of a
 grid line is that line, a bench setup prints on the grid of the machine setup the
 part arrives from, and an op table moved whole to the next page leaves an
 `Operations continue on reverse, op N` pointer. The FEATURE MAP names what each mill row stands on (hole axis, arc centre,
-face) and gives a lathe row's drawing Ø limits apart from the size turned to. A
+face), leaves off a face square to setup Z (its centre is no DRO stop), and gives a lathe row's drawing Ø limits apart from the size turned to. A
 surface-alignment sweep tells the operator to tap the work, not move the table;
 the job page's abbreviation key lists only abbreviations the sheets print.
 Inspection procedures may be authored as step lists that print
