@@ -264,6 +264,9 @@ def test_a_floor_re_pocketed_to_an_unknown_depth_falls_back_to_a_face_still_stan
 
 
 @pytest.mark.parametrize(
+    "top_feature", [{"top_feature": "deck"}, {}, {"top_feature": "unknown"}], ids=str
+)
+@pytest.mark.parametrize(
     "depth, status, axis_set",
     [
         ({}, "unknown", "unknown"),
@@ -272,17 +275,44 @@ def test_a_floor_re_pocketed_to_an_unknown_depth_falls_back_to_a_face_still_stan
     ],
     ids=["omitted", "unknown", "known"],
 )
-def test_a_top_faced_to_no_stated_depth_is_no_known_z_to_re_touch(depth, status, axis_set):
-    # The zero touched the top, the deck. Facing the deck leaves the top wherever that op
-    # took it: a depth left out states it no more than an explicit "unknown" does.
+def test_a_top_faced_to_no_stated_depth_is_no_known_z_to_re_touch(
+    depth, status, axis_set, top_feature
+):
+    # The zero touched the top. Facing the deck leaves the top wherever that op took it
+    # when the deck is (or may be: no or an unknown top feature) the top: a depth left
+    # out states it no more than an explicit "unknown" does.
     zero = mill_zero({"face": "top", "tool": "mill"})
     ops = [op(10, "face", "deck", "mill", **depth), op(20, "drill", "hole", "drill")]
-    finding = evaluate(bundle("mill", zero, ops, {"top_z": 10.0, "top_feature": "deck"}))[0]
+    finding = evaluate(bundle("mill", zero, ops, {"top_z": 10.0, **top_feature}))[0]
     assert finding.status == status
     assert finding.numbers["missing_touches"] == []
     [touch] = finding.numbers["derived_touches"]
     assert touch["z_face"] == "deck"
     assert touch["z_axis_set"] == (axis_set if axis_set == "unknown" else pytest.approx(axis_set))
+
+
+@pytest.mark.parametrize("depth", [{}, {"to_z": "unknown"}], ids=["omitted", "unknown"])
+@pytest.mark.parametrize("producer", ["retouch_after", "after_op"])
+def test_a_top_touched_after_a_face_to_no_stated_depth_is_unknown(producer, depth):
+    # The top is touched again after op 10 faced it (a listed retouch), or first touched
+    # then (a zero after op 10): no stated depth leaves that top's Z unknown, not the
+    # incoming Z 10.
+    z = {"face": "top", "tool": "mill"}
+    zero = mill_zero(z, [10]) if producer == "retouch_after" else mill_zero({**z, "after_op": 10})
+    ops = [
+        op(10, "face", "deck", "mill", **depth),
+        op(20, "spot", "hole", "centre"),
+        op(30, "drill", "hole", "drill"),
+    ]
+    finding = evaluate(bundle("mill", zero, ops, {"top_z": 10.0, "top_feature": "deck"}))[0]
+    assert finding.status == "unknown"
+    assert finding.numbers["missing_touches"] == []
+    derived = [t["z_axis_set"] for t in finding.numbers["derived_touches"]]
+    assert derived and set(derived) == {"unknown"}
+    if producer == "retouch_after":
+        assert [r["axis_set"] for r in finding.numbers["retouch"]] == ["unknown"]
+    else:
+        assert finding.numbers["axes"]["z"]["axis_set"] == "unknown"
 
 
 @pytest.mark.parametrize("cut", ["deck", "unknown"])
@@ -321,30 +351,100 @@ def test_a_zero_on_an_unnamed_face_is_no_proven_surface(face):
     assert touch["z_axis_set"] == "unknown"
 
 
-@pytest.mark.parametrize(
-    "x, edge", [([0.0, 10.0], 10.0), ([0.0, 20.0], 5.0)], ids=["part", "whole"]
-)
-@pytest.mark.parametrize("face", ["deck", "top"])
-def test_a_face_over_part_of_the_datum_leaves_it_standing_at_its_uncut_z(face, x, edge):
-    # Facing only half the deck to Z 5 leaves the rest of it at Z 10, where the drill is
-    # touched off; facing the whole deck moves the touch surface to Z 5.
+def deck_bundle(face, cuts, footprint=True):
+    """A deck X 0..20, Y 0..10 at Z 10 (its footprint unresolved unless ``footprint``),
+    touched as ``face`` by the mill, faced to Z 5 over each X span of ``cuts``, then
+    drilled."""
     zero = mill_zero({"face": face, "edge_mm": 10.0, "method": "touch", "tool": "mill"})
-    bounds = {"x": x, "y": [0.0, 10.0], "z": [5.0, 10.0]}
     ops = [
-        op(10, "face", "deck", "mill", to_z=5.0, stock_removal_bounds=bounds),
-        op(20, "drill", "hole", "drill"),
+        op(10 + 10 * i, "face", "deck", "mill", to_z=5.0, stock_removal_bounds=bounds)
+        for i, bounds in enumerate({"x": x, "y": [0.0, 10.0], "z": [5.0, 10.0]} for x in cuts)
     ]
+    ops.append(op(10 + 10 * len(cuts), "drill", "hole", "drill"))
     data = bundle("mill", zero, ops, {"top_z": 10.0, "top_feature": "deck"})
     identity = {"origin": [0.0, 0.0, 0.0], "x": [1.0, 0.0, 0.0], "y": [0.0, 1.0, 0.0]}
     identity["z"] = [0.0, 0.0, 1.0]
     data.features["frames"] = {"F": {**identity, "binding": "nominal"}, "model": identity}
-    deck = {"frame": "model", "kind": "plane", "bounds": {"x": [0.0, 20.0], "y": [0.0, 10.0]}}
-    data.features["features"]["deck"] = {**deck, "bounds": {**deck["bounds"], "z": [10.0, 10.0]}}
-    finding = evaluate(data)[0]
-    assert finding.status == "pass"
+    deck = {"frame": "model", "kind": "plane"}
+    if footprint:
+        deck["bounds"] = {"x": [0.0, 20.0], "y": [0.0, 10.0], "z": [10.0, 10.0]}
+    data.features["features"]["deck"] = deck
+    return data
+
+
+@pytest.mark.parametrize(
+    "cuts, status, edge",
+    [
+        ([[0.0, 10.0]], "pass", 10.0),
+        ([[0.0, 20.0]], "pass", 5.0),
+        ([[0.0, 10.0], [10.0, 20.0]], "unknown", "unknown"),
+        ([[0.0, 12.0], [8.0, 20.0]], "unknown", "unknown"),
+        ([[0.0, 8.0], [12.0, 20.0]], "pass", 10.0),
+    ],
+    ids=["part", "whole", "halves", "overlapping", "strip-left"],
+)
+@pytest.mark.parametrize("face", ["deck", "top"])
+def test_a_datum_faced_in_parts_stands_only_where_every_cut_spared_it(face, cuts, status, edge):
+    # Faces over part of the deck leave the rest of it at Z 10, where the drill is touched
+    # off, as long as some of it is outside every cut; faces that together cover it leave
+    # no Z 10 to touch, and no one of them made the Z 5 face. A whole face moves it to Z 5.
+    finding = evaluate(deck_bundle(face, cuts))[0]
+    assert finding.status == status
+    assert finding.numbers["missing_touches"] == []
     [touch] = finding.numbers["derived_touches"]
-    assert touch["edge_mm"] == pytest.approx(edge)
-    assert touch["z_axis_set"] == pytest.approx(edge + 0.05)
+    if status == "pass":
+        assert touch["edge_mm"] == pytest.approx(edge)
+        assert touch["z_axis_set"] == pytest.approx(edge + 0.05)
+    else:
+        assert (touch["edge_mm"], touch["z_axis_set"]) == ("unknown", "unknown")
+
+
+@pytest.mark.parametrize("face", ["deck", "top"])
+def test_a_bounded_face_over_a_datum_of_unknown_extent_neither_spares_nor_makes_it(face):
+    # Without the deck's footprint the bounded face may have cut all or part of it: the
+    # drill's touch is neither the old Z 10 nor the cut's Z 5.
+    finding = evaluate(deck_bundle(face, [[0.0, 10.0]], footprint=False))[0]
+    assert finding.status == "unknown"
+    [touch] = finding.numbers["derived_touches"]
+    assert touch["z_axis_set"] == "unknown"
+
+
+def test_a_round_datum_faced_in_parts_is_not_spared_by_its_box_corners():
+    # The deck is a dia 10 disc at X 10, Y 5, faced in two passes that between them cover
+    # all of it but not the corners of its square: no Z 10 is left for the drill.
+    data = deck_bundle("deck", [[5.0, 15.0], [6.4, 13.6]])
+    ops = data.plan["setups"][0]["ops"]
+    ops[0]["stock_removal_bounds"]["y"] = [1.5, 8.5]
+    data.features["features"]["deck"] = {"frame": "model", "at": [10.0, 5.0, 10.0], "dia": 10.0}
+    finding = evaluate(data)[0]
+    assert finding.status == "unknown"
+    [touch] = finding.numbers["derived_touches"]
+    assert touch["z_axis_set"] == "unknown"
+
+
+@pytest.mark.parametrize("retouch", ["listed", "authored"])
+def test_a_datum_re_touched_between_partial_faces_keeps_the_first_cut(retouch):
+    # Op 10 faces the left half of the deck, the deck is touched again at its uncut Z 10,
+    # then op 30 faces the right half: the re-touch does not undo op 10, so no Z 10 is
+    # left for the drill.
+    data = deck_bundle("deck", [[0.0, 10.0]])
+    ops = data.plan["setups"][0]["ops"]
+    right = {**ops[0], "op": 30, "stock_removal_bounds": {**ops[0]["stock_removal_bounds"]}}
+    right["stock_removal_bounds"]["x"] = [10.0, 20.0]
+    ops[1:] = [op(20, "spot", "hole", "centre"), right, op(40, "drill", "hole", "drill")]
+    zero = data.plan["setups"][0]["zero"]
+    if retouch == "listed":
+        zero["z"] = {**zero["z"], "face": "top", "retouch_after": [10]}
+    else:
+        touch = {"tool": "centre", "z_face": "deck", "edge_mm": 10.0, "paper_mm": 0.05}
+        zero["tool_touches"] = [{**touch, "method": "touch_then_set", "before_ops": [20]}]
+    finding = evaluate(data)[0]
+    assert finding.status == "unknown"
+    assert finding.numbers["missing_touches"] == []
+    before_30, before_40 = finding.numbers["derived_touches"]
+    assert before_30["before_ops"] == [30]
+    assert before_30["z_axis_set"] == pytest.approx(10.05)
+    assert (before_40["before_ops"], before_40["z_axis_set"]) == ([40], "unknown")
 
 
 @pytest.mark.parametrize("incoming", ["unknown", "not-in-inventory"])

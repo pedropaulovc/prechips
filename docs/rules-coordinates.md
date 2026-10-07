@@ -450,16 +450,28 @@ source's recipe names its own tool's edge, so the re-touch is tool-neutral:
 
 - Z on the latest touched or faced surface proven to stand at a known plan Z:
   the zero face, a tool-touch face, a listed retouch's top or a face/pocket op's
-  `to_z` (faced surfaces take the zero's paper). A surface ends when an op cuts
-  that feature (the top: faces the stock's `top_feature`, any face op without
-  one) to another Z or to no stated Z (`to_z` omitted or `"unknown"`), or cuts it
-  other than by facing/pocketing. An op that provably cuts only part of it
-  (`stock_removal_bounds` not holding its footprint) leaves it at its uncut Z and
-  makes no new surface. A surface is not proven while it is unnamed (a zero with
-  no `face`) or after any op on a feature the plan does not name. With no proven
-  surface, the latest one not shown gone is repeated with Z and Axis Set unknown
-  (unknown). A measured Z (`trial_cut_measure`, `measure_then_set`) is no plan
-  number to repeat.
+  `to_z` (faced surfaces take the zero's paper). The rule tracks each surface
+  across the ops since it was made, using each op's coverage of it
+  (`cut_coverage`: whole, partial or unknown). A surface ends when an op cuts all
+  of it (the top: faces the stock's `top_feature`, or any face op when there is
+  none) to another Z or to no stated Z (`to_z` omitted or `"unknown"`), or cuts it
+  other than by facing/pocketing. Ops that each cut only part of it leave it at
+  its uncut Z only while some of its footprint lies outside all of their
+  `stock_removal_bounds`. That footprint must be the surface's own X/Y `bounds`,
+  square to the setup axes, because a round feature's box has corners off the
+  surface. A touch on the surface does not reset the partial cuts it took
+  since it was made. Only a whole cut makes a new surface. The top a zero
+  `after_op` or a listed retouch touches is the top so tracked, so a face that
+  states no depth leaves it unknown. A surface is not proven while:
+  - it is unnamed (a zero with no `face`);
+  - an op on a feature the plan does not name has run since, or a face op while
+    the stock's `top_feature` is unresolved (the top);
+  - an op's coverage of it is unknown;
+  - partial cuts together cover it, or its footprint is not such a rectangle.
+
+  With no proven surface, the latest one not shown gone is repeated with Z and
+  Axis Set unknown (unknown). A measured Z (`trial_cut_measure`,
+  `measure_then_set`) is no plan number to repeat.
 - On a lathe, X on the latest diameter turned in the setup (`turn`,
   `rough_turn`, `finish_turn`) that still stands, measured with the latest X
   gauge, Axis Set the measured diameter. A turned diameter stands until an op
