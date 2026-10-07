@@ -155,6 +155,29 @@ def test_kernel_located_mill_rows_print_on_the_dro_grid():
     assert "59.405" in html and "59.403" not in html and "86.002" not in html
 
 
+def test_a_located_row_half_a_dro_step_off_rounds_as_the_shop_sets_it():
+    # Half a 0.005 step above 59.400 and 86.010: the DRO target is the step away from
+    # zero, as the fixture tables set theirs, never Python's half-to-even.
+    revolved = _revolved(head=(59.4025, 86.0125, 0.0, 21.4, 21.4, 21.4))
+    data = _mill_boss(revolved=revolved)
+    data.inventory["machines"]["mill"]["resolution_mm"] = measured(0.005)
+    finding = coordinates.evaluate(data)[0]
+    assert [row["dro"] for row in _rows(finding, "head")] == [
+        [0.0, 0.0, 59.405],
+        [0.0, 0.0, 86.015],
+    ]
+
+
+@pytest.mark.parametrize(
+    ("value", "dialled"),
+    [(0.0025, 0.005), (-0.0025, -0.005), (1.0125, 1.015), (-1.0125, -1.015), (0.0074, 0.005)],
+)
+def test_a_dro_position_half_a_step_off_rounds_away_from_zero(value, dialled):
+    grid = (0.005, 3)
+    assert coordinates.dro_nearest(value, grid) == dialled
+    assert coordinates.dro_point([value, 0.0, value], grid) == [dialled, 0.0, dialled]
+
+
 def test_an_aim_moves_both_kernel_span_ends_along_the_band():
     # Both span ends stand 5.0 from the foot plane (model X 0); the aim reads 5.2 where a
     # centre op cuts the boss at its target.

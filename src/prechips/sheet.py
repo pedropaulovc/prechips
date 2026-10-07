@@ -24,6 +24,7 @@ from .rules.coordinates import CENTRE_OPS, OVERSHOOT_NOTE, dro_grid, dro_z, row_
 from .rules.hold_fields import align_indicator, align_travel
 from .rules.inspection import ZONES, go_no_go_pair
 from .rules.resolution import (
+    MAKE_OP_FIELDS,
     MANUAL,
     NAMED_REFERENCE,
     SAW_OPS,
@@ -34,6 +35,8 @@ from .rules.resolution import (
     jaw_top_z,
     length_mm,
     listing_categories,
+    make_op_unknowns,
+    make_ops,
     named_item,
     op_feature,
     op_features,
@@ -634,6 +637,17 @@ def _make_notes(notes):
     """``upper button, lower button: O1, hardened; stud: drill rod`` from ``{note:
     [component, ...]}``: rows sharing one make note are named together before it."""
     return "; ".join(f"{', '.join(components)}: {note}" for note, components in notes.items())
+
+
+# A make operation's fields as a STOP names them (:meth:`_Traveler.make_lines`).
+_MAKE_OP_WORDS = {
+    "hold": "hold",
+    "tool": "tool",
+    "rpm": "speed",
+    "feed": "feed",
+    "doc_mm": "depth of cut",
+    "cite": "cutting-data source",
+}
 
 
 # A shop-made fixture value authored as an example: the job page explains the mark once.
@@ -2348,7 +2362,8 @@ class _Traveler:
         authored ``label`` names the group), each row lists every setup-frame position
         and the holes cut in it. Bought hardware is one line under the table, and each
         made row's or made hole's ``note`` (material, heat treatment, finish, how it is
-        cut) one "Make:" entry under that; solids already in the shop (``supply =
+        cut) one "Make:" entry under that, then its ``make_ops`` one cutting-data line
+        each (:meth:`make_lines`); solids already in the shop (``supply =
         "existing"``, such as machine vise jaws drawn for clearance) are not rows. A
         bought or existing part's note prints on a "Notes:" line after the Make entries,
         and every solid's ``records`` print as fill-ins (:meth:`record_blank`) under
@@ -2387,12 +2402,13 @@ class _Traveler:
             prefix = " ".join(part for part in parts if part)
             return f"{prefix}: {where}" if prefix else where
 
-        rows, notes = [], {}
+        rows, notes, components = [], {}, {}
         for (label, *_), members in groups.items():
             names = [_solid_name(solid.get("name", "?")) for solid in members]
             stem, tags = _name_group(names)
             component = f"{stem} ×{len(members)}" if stem else " / ".join(names)
             component = self.bench(label) if label else component
+            components.update(dict.fromkeys(map(id, members), component))
             if _supply(members[0]) == "existing":
                 component += " (existing part: make the holes only)"
             first = members[0]
@@ -2503,6 +2519,7 @@ class _Traveler:
         hardware = self.hardware(
             [s for s in solids if not s.get("void") and _supply(s) == "bought"], len(placed)
         )
+        operations = self.make_lines(item, components)
         return (
             f"<h2>{escape(title)}</h2>"
             + _p(intro)
@@ -2517,11 +2534,59 @@ class _Traveler:
             )
             + (_p(f"Bought hardware (not made): {hardware}.") if hardware else "")
             + (_p(f"Make: {_make_notes(notes)}.") if notes else "")
+            + (_p("Make operations, in order:") if operations else "")
+            + "".join(_p(line) for line in operations)
             + (_p(f"Notes: {_make_notes(others)}.") if others else "")
             + (_p("Measure and record before first use:") if records else "")
             + "".join(_p(line) for line in records)
             + "".join(_p(reason) for reason in sorted(self.fixture_unknowns))
         )
+
+    def make_lines(self, item, components):
+        """The item's make operations (:func:`make_ops`), one numbered line each in the
+        order they are run: ``1. hold: …; T: <tool>; 600 rpm; 0.05 mm/rev; 0.5 mm/pass;
+        <source>``, a primitive's own after its make-table component. A field not known
+        prints ``?`` (a tool the shop's tools do not list, ``? <key>``) and the line ends in
+        a STOP naming it: never left out."""
+        lines = []
+        for index, (solid, op) in enumerate(make_ops(item), 1):
+            head = f"{index}. "
+            if solid is not None:
+                name = solid.get("label") or _solid_name(solid.get("name", "?"))
+                head += f"{components.get(id(solid)) or self.bench(name)} — "
+            if not isinstance(op, dict):
+                lines.append(head + "? — STOP: make operations not established; do not make it.")
+                continue
+            tool, rpm = op.get("tool"), op.get("rpm")
+            missing = set(make_op_unknowns(op))
+            # A key the shop's tools do not list, or a tools list stated unknown.
+            found = resolve(self.bundle, "tools", tool)
+            if "tool" not in missing and (found is None or found.get("kind") == "unknown"):
+                missing.add("tool")
+            texts = {
+                "hold": f"hold: {self.bench(op.get('hold'))}",
+                "tool": f"T: {self.tool_name(tool)}",
+                "rpm": "–".join(map(_declared, rpm if isinstance(rpm, list) else [rpm])) + " rpm",
+                "feed": str(op.get("feed")).strip(),
+                "doc_mm": f"{_declared(op.get('doc_mm'))} mm/pass",
+                "cite": self.bench(op.get("cite")),
+            }
+            blanks = {
+                "hold": "hold: ?",
+                "tool": f"T: ? {tool}" if _stated(tool) else "T: ?",
+                "rpm": "? rpm",
+                "feed": "? feed",
+                "doc_mm": "? mm/pass",
+                "cite": "? cutting-data source",
+            }
+            line = head + "; ".join(
+                blanks[key] if key in missing else texts[key] for key in MAKE_OP_FIELDS
+            )
+            if missing:
+                named = [_MAKE_OP_WORDS[key] for key in MAKE_OP_FIELDS if key in missing]
+                line += f" — STOP: {', '.join(named)} not established; do not run it."
+            lines.append(line)
+        return lines
 
     def record_blank(self, solid, blank):
         """One record blank as a fill-in: ``head: head-to-shoulder TIR — 0.0005 in test

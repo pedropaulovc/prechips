@@ -370,6 +370,24 @@ Other holding solids come from the same accepted-fact rule, never defaults:
   or name; a bought or existing primitive's `note` (its state as bought, what
   to leave alone) prints on a "Notes:" line after them, so a bought shell whose
   windows are made here states its whole route.
+  `make_ops = [{ hold, tool, rpm, feed, doc_mm, cite }]` on a shop-made item, or
+  on one of its made primitives or holes, are the cutting operations that make
+  it: `hold` how the piece is held (text), `tool` a `tools` key, `rpm` a speed
+  > 0 or an ordered `[low, high]` range, `feed` a number (or `low-high`) with its
+  unit (`mm/rev`, `mm/min`, `mm/tooth`, `in/rev`, `in/min`, `in/tooth`; a bare
+  number is refused), `doc_mm` the depth of cut per pass (> 0) and `cite` the
+  source of the cutting data (`MH 31st Table 17 p.1061`). All six are stated on
+  every entry; a fact not yet known is `"unknown"`, never omitted or blank. Under
+  "Make operations, in order:" each prints as one numbered line, the item's own
+  first, then each primitive's (after its row name), in `solids` order, a list
+  shared by primitives of one `label` once: `1. hold:
+  vise on parallels; T: <tool's shop name>; 600 rpm; 0.05 mm/rev; 0.5 mm/pass;
+  MH 31st Table 17 p.1061`. An unknown fact prints `?`, a tool the shop's tools
+  do not list `? <key>`, and the line ends in a STOP naming them; `make_ops =
+  "unknown"` prints one STOP line. The tool is a slot like an op's tool: its
+  receipt checks print with the setup's (`purchased_tooling`) and `tool_resolves`
+  checks each operation (docs/rules-tools.md). A bought item or bought or
+  existing primitive has none.
   `records = [{ check, gauge, how, max_mm, goal_mm, over_mm }]` on any
   primitive are values measured and written down when the part is made or
   received (a head-to-shoulder TIR, a squareness by reversal). Each prints
@@ -382,7 +400,8 @@ Other holding solids come from the same accepted-fact rule, never defaults:
   the goal lies inside the max. A record without `max_mm` is a characterisation:
   recorded, not judged. A record's `gauge` is a `gauges` key; one the shop list
   does not have prints `? <key>`.
-  Any prose (a `note`, a record's `check` or `how`, a plan note) names an
+  Any prose (a `note`, a record's `check` or `how`, a make operation's `hold` or
+  `cite`, a plan note) names an
   inventory item as `<category>.<key>[/<member>]` (`gauges.granite-surface-plate`,
   `tools.drills/#61`, `tools.drills/1/4`, `tools.reamers-metric/6.49mm`), category
   one of `machines`, `tools`, `holders`, `fixtures`, `gauges`, `services`. The

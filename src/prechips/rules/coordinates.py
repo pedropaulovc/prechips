@@ -545,11 +545,14 @@ def planned_point(bundle, name, seen=()):
 
 def dro_point(point, grid):
     """A located target as the DRO prints it on ``grid`` (:func:`dro_grid`): each axis at
-    its nearest grid step, so it moves at most half a step; unknown unless all known."""
+    its nearest grid step (:func:`dro_steps`: half a step away from zero), so it moves at
+    most half a step; unknown unless all known."""
     if not all(number(v) for v in point):
         return [UNKNOWN] * 3
+    from prechips.kernel.render_diagram import dro_steps
+
     step, decimals = grid
-    return [round(round(v / step) * step, decimals) + 0.0 for v in point]
+    return [round(dro_steps(v, step) * step, decimals) + 0.0 for v in point]
 
 
 def _planned_rows(rows, planned, aims, frame, grid):
@@ -857,9 +860,12 @@ def dro_z(value, grid):
 
 def dro_nearest(value, grid):
     """A position as the DRO dials it on ``grid``: the nearest grid point (a hole axis has
-    no safe side); an unknown stays unknown."""
+    no safe side), half a step away from zero (:func:`dro_steps`); an unknown stays
+    unknown."""
+    from prechips.kernel.render_diagram import dro_steps
+
     step, decimals = grid
-    return round(round(value / step) * step, decimals) if number(value) else UNKNOWN
+    return round(dro_steps(value, step) * step, decimals) if number(value) else UNKNOWN
 
 
 def _to_segment(point, a, b):
