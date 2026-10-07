@@ -406,13 +406,32 @@ never a later recut. It then walks the selected stock ancestry: the setup's
 `stock_in` chain, the same one the kernel builds, joint branches included, and
 same-frame setups only. A setup outside that chain never counts, even if it cut
 the same nominal face. The producer is the op that advanced a stock-state top
-or entry, or the facing or pocketing op that last cut the face proven to be the
-one read: for `top`, a facing op on `top_feature`; for a feature (a zero face, an
-op's own feature for its start and end Z, a feature map row), an op on that
-feature or one whose feature's X/Y `bounds` hold its whole footprint (its own
-`bounds`, else a Z-axis round feature's `at` ± half its largest `dia`); overlap
-is not cover. An equal Z alone is never proof, and with no footprint to prove it
-there is no producer. A bounded op's coverage of the surface (for `top`,
+or entry, or the op that last cut the face proven to be the one read: for
+`top`, a facing op on `top_feature`; for a feature (a zero face, an op's own
+feature for its start and end Z, a feature map row), an op on that feature that
+leaves its face at its `to_z` (`forms_face`), or a facing or pocketing op whose
+feature's X/Y `bounds` hold its whole footprint (its own `bounds`, else a Z-axis
+round feature's `at` ± half its largest `dia`); overlap is not cover. An op
+leaves its feature's face at `to_z` when it is a facing or pocketing op, or a
+lathe turning op the kernel poses on its numeric `to_z` plane (`faced_side`: its
+claimed faces all face one way along Z, as a face, part-off, cut-to-fit, groove
+wall or turned shoulder does). An op leaves none only where that is known: a
+manual or transfer step cuts nothing; a saw face is located by its `cut_plane`,
+never a DRO Z; off the turning approach only a facing or pocketing op leaves a
+Z face (a hole's `to_z` is its tip, a milled wall's its foot); and a turning op
+the kernel sampled, at its numeric `to_z` or over its `z_from` to `z_to`
+window, over claimed faces that are all cylinders leaves a diameter alone.
+Any other op on the face is a producer whose face stands at an unknown Z, never
+raw stock: one whose action is unknown; a facing, pocketing, part-off or
+cut-to-fit op without `to_z`; a turning op with an unknown `to_z` (the kernel
+poses no plane without a number, so its samples prove no face absent), one the
+kernel has not sampled, or one whose sampled claims it posed on no one side yet
+are not all cylinders (they face both ways, or their kind is unknown); a
+turning window op (no `to_z`) claiming any face that is not a cylinder (the
+kernel cuts a claimed shoulder or groove wall out to its window end, yet poses
+it on no Z plane); and a lathe action off a lathe. An equal Z alone is never
+proof, and with no footprint to prove it there is no producer.
+A bounded op's coverage of the surface (for `top`,
 `top_feature`, else its own feature) is whole, partial or unknown. Its
 setup-frame X/Y `stock_removal_bounds` are compared with the surface's whole
 footprint. The footprint comes from the feature's own `bounds` (Z from `at` when
@@ -432,9 +451,20 @@ the surface there must lie within the feature's spans on the other two. Overlap
 or a held `at` point is partial, never whole; a setup Z oblique to the feature's
 frame, or not a known unit axis (above), leaves coverage unknown. A setup-frame box
 enclosing a turned feature is never taken as its cut.
-It counts only if it cut that face to that Z. Its
-value is its `dro_to_z` on its own setup's grid, re-rounded to the safe side on
-the consumer's grid, so a coarser producer's −2.270 stays −2.270. Any other
+An op's own start and end Z and a feature map row are path ends, not touched
+faces: they pass over a turning window op on their feature. It places no face
+on a `to_z` they could print, so as their producer it could only blank them. A
+Z zero, a tool touch and a hole entry keep it as their producer.
+A known producer counts only if it cut that face to that Z. Its
+value is its `dro_to_z` on its own setup's grid (for a grooving/parting blade, the
+`formed_z` its rounded corner reading leaves), re-rounded to the safe side on
+the consumer's grid, so a coarser producer's −2.270 stays −2.270. That value is
+unknown, never the nominal `to_z`, when the blade's reading corner, kernel side
+or width is unknown, when whether the op leaves a face at `to_z` is unknown, or
+when the Z touch the producer cut on has an unknown edge
+or paper stand-off or meets a face standing at an unknown Z (`reads_unknown`);
+the surface then prints `?`. A touch on a produced face standing off the
+consumer's grid is refused under `zero_check` (Touched faces, below). Any other
 surface Z prints on the grid by `dro_z`. Hole endpoints
 carry `dro_entry_z`, `dro_exit_face` and `dro_tip_z`, the tip worked from the
 printed entry (through: exit face) and rounded up again, and the `dro_depth_mm`
@@ -448,7 +478,8 @@ band. Any other kind of row, and a bare `depth` (an upper limit only), has an
 unknown floor. A `dro_depth_mm` below its floor prints a STOP, and so does a depth
 the rounding changed when the floor is unknown. A final forming cut whose `to_z`
 ends on its finished face (no `exit_mm`)
-and whose rounded-up depth leaves more skin than its feature's narrowest
+and whose `dro_to_z` (rounded-up depth; a blade's `formed_z`) leaves more skin
+than its feature's narrowest
 numeric tolerance band is an error (`dro_z_residual_errors`). Every join record
 carries its `stage`, `allowance_mm` (the rough leave, 0 for finish) and
 `offset_mm` (cutter radius plus allowance). The traveler prints these values;
@@ -517,17 +548,29 @@ and the sheet stops the op ("plunge positions not set").
 
 Blade `to_z` ops (a part-off or cut-to-fit with a grooving/parting blade): the
 operation entry gets `blade` = {`reading_corner`, `forming_corner`,
-`blade_width_mm`, `corner_dro_z`}. `to_z` stays the face the op leaves and
-`dro_to_z` its DRO Z; the blade stands on that face's outward side (kernel op
-`faced_side`), so a face toward the free end is formed by the chuck-side corner
-and one toward the chuck by the tailstock-side corner. When the corner the DRO
-reads is the other one, its reading is a blade width beyond `to_z`:
+`blade_width_mm`, `corner_dro_z`, `formed_z`}. `to_z` stays the face the op
+leaves; the blade stands on that face's outward side (kernel op `faced_side`), so
+a face toward the free end is formed by the chuck-side corner and one toward the
+chuck by the tailstock-side corner. When the corner the DRO reads is the other
+one, its reading is a blade width beyond `to_z`:
 `corner_dro_z = dro_z(to_z - w)` for a chuck-side reading forming a face toward
 the chuck, `dro_z(to_z + w)` for a tailstock-side reading forming one toward the
-free end, else `dro_z(to_z)`. The sheet's op row prints
-`Z → {corner_dro_z} ({corner} corner)`. An unknown reading corner, kernel side or
-blade width leaves `corner_dro_z` unknown with its `reason` and the setup
-`unknown` (exit 4); the sheet prints "blade corner not set" and stops.
+free end, else `dro_z(to_z)`. `formed_z` is the face that rounded reading
+leaves, `corner_dro_z ± w` back toward `to_z` (never below it; off the DRO grid
+when `w` is), and it is the op's `dro_to_z`: the face the residual check, the
+`to_z_band` check and every later Z read off that face (a touch on it, a surface
+it produced) use. A `to_z_band` is in face coordinates too: `corner_dro_band` is
+that band as readings of the reading corner, each end shifted like `to_z` and
+rounded inward on the grid (low up, high down), an unknown end kept unknown. A
+`formed_z` outside the op's numeric `to_z_band` is an `error`
+(`blade_band_errors`: `op {n} prints Z {corner_dro_z} for its {corner} corner,
+which forms its face at {formed_z}, outside its allowed {lo} to {hi}`). The
+sheet's op row prints `Z → {corner_dro_z} ({corner} corner)` and the band as
+`allowed {lo} to {hi} ({corner} corner)` from `corner_dro_band`. An unknown
+reading corner, kernel side or blade width leaves `corner_dro_z` unknown with its
+`reason` and the setup `unknown` (exit 4); the sheet prints "blade corner not set"
+for the target and the band and stops, and the face it leaves stands at an
+unknown Z for every later read (`formed_z` unknown), never at its nominal `to_z`.
 
 Dome roughing: the rough stage of an `axial_table` op (a `form_*` op with
 `rough_allowance_mm`, or a `rough_*` op) is a `stair_tables` entry, not the
@@ -596,7 +639,9 @@ recipes; an unknown action cannot establish the saw-only exemption.
 EL400 ABS Axis Set, not Preset. Approach side is independent of jog polarity.
 For edge finding, `contact=edge + side*finder_radius`, side -1 from negative
 axis and +1 from positive axis; indicated pickup uses radius 0. Paper Z uses
-`contact=edge + paper`; touching `top` takes the received/advanced stock top.
+`contact=edge + side*paper`, where side is the side of the face the tool meets
+it from (see "Paper side" below); touching `top` takes the received/advanced
+stock top.
 Physical positive-axis jog gives `check=shown + sign*scale*jog` and
 `mirror=shown - sign*scale*jog`, where `shown=scale*contact` is the displayed
 Axis Set. The sign comes from authored DRO direction; lathe diameter-mode X
@@ -623,7 +668,7 @@ resolve without a verify flag, `check_jog_mm` is numeric and the lathe
 
 Z `method = "measure_then_set"` touches a face whose position is measured at
 the machine (M, read with `gauge` as the stated `measure`) and Axis Sets
-`M + offset_mm + paper_mm`; check/mirror are `M ±j` on the same base. Like a
+`M + offset_mm + side*paper_mm`; check/mirror are `M ±j` on the same base. Like a
 trial cut it is complete when `gauge` resolves unflagged, `measure` is stated
 (`"unknown"` states nothing) and `offset_mm`, `paper_mm` and the jog are
 numeric; the rows show `M -9`, `M +1`. The same holds for a tool touch's
@@ -632,12 +677,24 @@ numeric; the rows show `M -9`, `M +1`. The same holds for a tool touch's
 Each `[[setups.zero.tool_touches]]` entry is complete when its `tool` and X
 `gauge` resolve without a verify flag and `edge_mm` and `paper_mm` are numeric:
 `x_axis_set` is the same measured-diameter expression and `z_axis_set` is
-`edge_mm + paper_mm`. A mill touch sets Z only (`x_axis_set = "not_applicable"`):
+`edge_mm + side*paper_mm`. A mill touch sets Z only (`x_axis_set = "not_applicable"`):
 the mill X/Y read the spindle axis whatever the tool. A touch with
-`method = "measure_then_set"` sets `M + z_offset_mm + paper_mm`, M read with
+`method = "measure_then_set"` sets `M + z_offset_mm + side*paper_mm`, M read with
 `z_gauge` as `z_measure`. Missing tools, unverified finder/gauge facts, missing
 recipes and unknown frame binding preserve unknown. A lathe does not require a
 Y zero recipe.
+
+Paper side: paper lies between the tool and the face, on the side the tool meets
+the face from, so a Z touch through `paper_mm` of paper (the zero, a tool touch or
+a derived re-touch, which repeats its source's paper from the same side) stands
+the tool `side*paper_mm` off its edge. Off a lathe the tool comes down on its
+face: +1. On a lathe the side is the touched face's outward normal along setup Z
+(as for blade corners below); without one, a grooving/parting blade meets the
+face on the side of the corner it sets (its authored `corner`: chuck-side +1,
+tailstock-side -1) and any other tool from +Z. A blade touch through nonzero paper
+whose side is unknown has an unknown Axis Set; with no paper the side does not
+matter. `paper_mm` itself is always printed as the positive thickness. A listed
+top `retouch_after` is `top + paper`.
 
 Blade corners: a Z touch (zero, tool touch or derived re-touch) by a
 grooving/parting blade sets one of its two corners. `reference_corner` comes
@@ -740,6 +797,25 @@ An axis with nothing to derive from is a `missing_touches` row
 another tool's Axis Set scraps the part. An authored tool touch for that tool
 before the op replaces the derivation.
 
+Touched faces: every non-measured Z touch (the zero, a tool touch, a derived
+re-touch or a listed top retouch) sets its Axis Set from its face as this
+setup's DRO shows it (the surface the sheet prints, `operative_z`). When an op
+cut that face under a set Z DRO, in this setup before the touch or in a
+same-frame setup of its `stock_in` lineage (the producer `operative_z` finds:
+any op that leaves the face at its `to_z`, `forms_face`, a facing op or a blade
+part-off alike; ops before their setup's Z zero do not count: the zero places
+their faces), the face stands at that op's `formed_z` (`face_stands`). A face
+standing off this DRO's grid (a blade's off-grid width, a finer producer grid)
+is set where it is not, so every Z the tool then cuts to lands off by the
+difference: an `error`
+(`{who} sets {face} as Z {shown}, which stands at {formed_z}`), whatever cut
+reads the touch next. A face standing at an unknown Z (`formed_z` unknown,
+including an op that may have left it, `forms_face` unknown) is `unknown`, and
+the sheet prints its Axis Set as `?`. A measured touch reads its face and is
+not checked; a face no op produced (the stock, or a face only a saw, a manual
+step or a cut proven to leave none, such as a diameter alone, touched) stands
+where the touch sets it.
+
 Templates:
 
 - `DRO direction or mode disagrees with the setup convention; stop and correct it before the check jog.`
@@ -748,8 +824,12 @@ Templates:
   ` Each tool change is touched off on the last touched or faced surface still standing.`
 - when a touch is missing:
   ` A tool cuts on a DRO another tool set and no standing plan surface is known to touch it off on: plan a tool touch before op {op}, ….`
-- and when unknown:
+- when unknown:
   ` Measured setup/tool or trial-cut verification remains unknown.`
+- then (after any blade-corner sentence), when a touch sets its DRO off its face:
+  ` A Z touch sets its DRO off where its face stands ({who} sets {face} as Z {shown}, which stands at {formed_z}; …): every Z the tool then cuts to lands off by the difference. Plan the face onto this DRO's grid, or set Z from a measured reading of it.`
+- when a touch meets a face standing at an unknown Z:
+  ` A Z touch meets a face its op left at an unknown Z ({who} on {face}; …): its Axis Set is not known.`
 
 Evidence: per-axis contact/set/check/mirror/sign, source edge, finder radius,
 paper, jog and DRO direction, retouch list, per-tool touches, derived and
