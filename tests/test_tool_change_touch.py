@@ -33,7 +33,7 @@ def bundle(machine, zero, ops, stock_state=None):
                 }
             ],
         },
-        features={"frames": {"F": {"binding": "nominal"}}, "features": {}},
+        features={"frames": {"F": {"binding": "nominal"}}, "features": {"journal": {}}},
         inventory={
             "machines": {"lathe": {"kind": "lathe"}, "mill": {"kind": "mill"}},
             "tools": {
@@ -85,10 +85,13 @@ def lathe_zero(touches):
 
 
 # The shoulder faces the free end (the turner faced it from +Z): the blade meets it with
-# its chuck-side corner, from +Z, so its paper stands it off toward the free end.
+# its chuck-side corner, from +Z, so its paper stands it off toward the free end. Its X
+# is on the journal the turner turned, through the same paper.
 BLADE = {
     "tool": "parter",
     "x_method": "touch the journal just measured",
+    "x_face": "journal",
+    "x_paper_mm": 0.05,
     "gauge": "mic",
     "z_face": "shoulder",
     "edge_mm": -7.5,
@@ -173,7 +176,8 @@ def test_a_diameter_a_touch_names_only_in_words_is_not_tracked_for_the_next_tool
         op(20, "form_relief", "relief", "parter"),
         op(30, "face", "dome", "turner", to_z=0.0),
     ]
-    finding = evaluate(bundle("lathe", lathe_zero([{**BLADE, "before_ops": [20]}]), ops))[0]
+    words = {key: value for key, value in BLADE.items() if key != "x_face"}
+    finding = evaluate(bundle("lathe", lathe_zero([{**words, "before_ops": [20]}]), ops))[0]
     assert finding.status == "error"
     assert finding.numbers["missing_touches"] == [
         {"before_op": 30, "tool": "turner", "axes": ["x"], "dro_set_by": "parter"}
@@ -816,3 +820,187 @@ def test_a_mill_tool_touch_is_z_only_and_may_be_measured(measure, axis_set, stat
     [row] = finding.numbers["tool_touches"]
     assert (row["x_axis_set"], row["z_axis_set"]) == ("not_applicable", axis_set)
     assert finding.numbers["derived_touches"] == []
+
+
+def sheet_of(data):
+    finding = evaluate(data)[0]
+    return _Traveler(data, [finding], {}, {}), data.plan["setups"][0]
+
+
+def test_the_datum_transfer_prints_before_the_zero_it_sets_up():
+    transfer = {"from": "S0", "indicate": "journal", "gauge": "mic", "runout_limit_mm": 0.02}
+    data = bundle(
+        "lathe", {**lathe_zero([]), "transfer": transfer}, [op(10, "turn", "j", "turner")]
+    )
+    sheet, setup = sheet_of(data)
+    html = sheet.dro(setup, {"turner": "T1 turner"})
+    # Indicate, then touch off: the sweep comes before the zero table and its tool setting.
+    assert html.index("Before zeroing: indicate the") < html.index("<table")
+    assert html.index("Before zeroing: indicate the") < html.index("Before touching off")
+
+
+def measured_hold(before_hold):
+    zero = lathe_zero([])
+    zero["z"] = {
+        "face": "stub end",
+        "edge_mm": 5.0,
+        "from": "+z",
+        "method": "measure_then_set",
+        "gauge": "mic",
+        "measure": "length from the thrust face to the stub end",
+        "offset_mm": -9.0,
+        "tool": "turner",
+        "paper_mm": 0.0,
+        "check_jog_mm": 10.0,
+        "retouch_after": [],
+    }
+    if before_hold is not None:
+        zero["z"]["measure_before_hold"] = before_hold
+    data = bundle("lathe", zero, [op(10, "face", "stub end", "turner", to_z=0.0)])
+    data.plan["setups"][0]["hold"] = {
+        "fixture": "chuck",
+        "stop": "thrust face seated on the jaw fronts",
+        "clamp": "tighten the chuck at all three pinions",
+    }
+    return sheet_of(data)
+
+
+def test_a_zero_measured_before_the_hold_is_measured_before_clamping():
+    sheet, setup = measured_hold(True)
+    steps, _ = sheet.hold(setup)
+    measure = steps.index("length from the thrust face to the stub end")
+    assert measure < steps.index("thrust face seated") < steps.index("Tighten the chuck")
+    assert "measure Z M = length from the thrust face" in steps
+    # The zero row then refers back to that reading instead of introducing M itself.
+    row = sheet.dro(setup, {"turner": "T1 turner"})
+    assert "length from the thrust face" not in row and "M measured before clamping" in row
+
+
+@pytest.mark.parametrize("before_hold", [None, False])
+def test_a_zero_measured_at_the_machine_stays_in_the_zero_table(before_hold):
+    sheet, setup = measured_hold(before_hold)
+    steps, _ = sheet.hold(setup)
+    assert "length from the thrust face" not in steps
+    assert "M = length from the thrust face" in sheet.dro(setup, {"turner": "T1 turner"})
+
+
+def x_touch(x_face, before, ops=LATHE_OPS, x_method="paper on the measured diameter", x=None):
+    """The blade's authored touch before op ``before`` with its X on ``x_face`` (None:
+    words only)."""
+    touch = {**BLADE, "x_method": x_method, "x_face": x_face, "before_ops": [before]}
+    if x_face is None:
+        del touch["x_face"]
+    zero = lathe_zero([touch])
+    zero["x"].update(x or {})
+    data = bundle("lathe", zero, ops)
+    data.plan["setups"][0]["stock_in"] = "stock"
+    return data
+
+
+def x_row(data, setup=0):
+    finding = evaluate(data)[setup]
+    [row] = finding.numbers["tool_touches"]
+    return finding, row
+
+
+FORMED = [*LATHE_OPS[:3], op(35, "form_dome", "journal", "turner"), LATHE_OPS[3]]
+
+
+@pytest.mark.parametrize(
+    ("x_face", "before", "ops", "x", "status"),
+    [
+        # Turned in ops 10 and 30, it stands at op 40.
+        ("journal", 40, LATHE_OPS, None, "pass"),
+        # Formed in op 35: the diameter the touch names is gone.
+        ("journal", 40, FORMED, None, "error"),
+        # Not yet turned when the blade touches it before op 10.
+        ("journal", 10, LATHE_OPS, None, "error"),
+        ("no_such_feature", 40, LATHE_OPS, None, "error"),
+        # The X zero's trial-cut land stands until a cut runs.
+        ("x_zero", 10, LATHE_OPS, None, "pass"),
+        ("x_zero", 40, LATHE_OPS, None, "unknown"),
+        # No trial cut, no land.
+        ("x_zero", 10, LATHE_OPS, {"method": "touch"}, "error"),
+        # Words alone name no surface the rule can follow.
+        (None, 40, LATHE_OPS, None, "unknown"),
+    ],
+)
+def test_an_authored_x_touch_is_on_a_surface_standing_where_it_touches(
+    x_face, before, ops, x, status
+):
+    finding, row = x_row(x_touch(x_face, before, ops, x=x))
+    assert row["x_face_status"] == status, row
+    if status == "error":
+        assert finding.status == "error" and "X touch" in finding.sentence
+    elif status == "unknown":
+        assert finding.status in ("unknown", "error")
+
+
+def test_a_blade_trial_cut_is_its_own_x_surface():
+    _, row = x_row(x_touch(None, 40, x_method="trial_cut_measure"))
+    assert row["x_face_status"] == "pass"
+
+
+@pytest.mark.parametrize(
+    ("earlier_op", "routed", "status"),
+    [
+        (op(10, "finish_turn", "journal", "turner"), True, "pass"),
+        # Formed after it was turned: no cylinder arrives.
+        (op(10, "form_dome", "journal", "turner"), True, "error"),
+        # Turned in a setup the plan does not route to this one.
+        (op(10, "finish_turn", "journal", "turner"), False, "unknown"),
+    ],
+)
+def test_a_diameter_turned_in_an_earlier_setup_stands_for_a_touch(earlier_op, routed, status):
+    data = x_touch("journal", 40, [op(40, "form_relief", "relief", "parter")])
+    earlier = {
+        "id": "S0",
+        "machine": "lathe",
+        "frame": "F",
+        "zero": {},
+        "stock_state": {},
+        "stock_in": "stock",
+        "ops": [earlier_op],
+    }
+    data.plan["setups"].insert(0, earlier)
+    if routed:
+        data.plan["setups"][1]["stock_in"] = "S0"
+    else:
+        del data.plan["setups"][1]["stock_in"]
+    _, row = x_row(data, setup=1)
+    assert row["x_face_status"] == status
+
+
+@pytest.mark.parametrize(
+    ("radius_mode", "paper", "axis_set"),
+    [
+        (False, 0.05, "measured D + 0.1"),
+        (True, 0.05, "measured D/2 + 0.05"),
+        (False, 0.0, "measured D"),
+        (False, "unknown", "unknown"),
+    ],
+)
+def test_an_x_touch_through_paper_sets_the_measured_diameter_plus_the_paper(
+    radius_mode, paper, axis_set
+):
+    data = x_touch("journal", 40)
+    data.plan["dro"] = {**DRO, "radius_mode": radius_mode}
+    data.plan["setups"][0]["zero"]["tool_touches"][0]["x_paper_mm"] = paper
+    _, row = x_row(data)
+    assert row["x_axis_set"] == axis_set
+
+
+@pytest.mark.parametrize(
+    ("x_face", "ops", "stop"),
+    [("journal", LATHE_OPS, False), ("journal", FORMED, True), (None, LATHE_OPS, True)],
+)
+def test_an_authored_x_touch_prints_its_axis_set_and_stops_on_a_diameter_not_shown_standing(
+    x_face, ops, stop
+):
+    sheet, setup = sheet_of(x_touch(x_face, 40, ops))
+    html = sheet.dro(setup, {"parter": "T4 blade", "turner": "T1 turner"})
+    start = html.index("touch off T4 blade")
+    line = html[start : html.index("Z —", start)]
+    # The paper counts once on the radius, twice on a diameter display.
+    assert "Axis Set X measured Ø + 0.10" in line, line
+    assert ("STOP" in line) is stop, line

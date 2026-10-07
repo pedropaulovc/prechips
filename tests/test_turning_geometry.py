@@ -332,6 +332,42 @@ def test_facing_reach_is_the_faced_profile_while_a_blade_plunge_is_the_bar_radiu
     assert parted["reach_depth_mm"] == pytest.approx(6.0, abs=1e-3)
 
 
+@pytest.mark.parametrize("head", [None, 12.7])
+def test_a_blade_set_shorter_than_its_head_or_without_one_is_a_finding_not_a_crash(
+    engine, shafts, head
+):
+    """A blade projected 12 mm, shorter than its 12.7 mm head (or with no head length at
+    all): its holder cannot be posed, so its wall clearance is unknown with the reason,
+    while its reach and the setup's other ops are still measured."""
+    step = shafts["shaft"]
+    end = engine.refs(step, (-4, -4, 40), (4, 4, 40), kind="Plane")
+    blade = {**_blade("S1:20", "end", 1.6, to_z=40.0, to_dia_mm=0.0), "do": "part_off"}
+    blade["projection_mm"] = 12.0
+    if head is None:
+        del blade["head_len_mm"]
+    else:
+        blade["head_len_mm"] = head
+    turn = _turn("S1:10", "end", to_z=40.0, to_dia_mm=0.0)
+    result = engine.run(
+        engine.job(
+            step,
+            {"end": end},
+            [_lathe([turn, blade]), {**_lathe([], "S2"), "hold": {"reason": "not modelled"}}],
+            stock=_bar(length=45.0),
+        )
+    )
+    assert result["status"] != "error", result.get("reason")
+    parted = result["ops"]["S1:20"]
+    assert result["ops"]["S1:10"]["reach_depth_mm"] == pytest.approx(0.0, abs=1e-3)
+    if head is None:
+        assert parted["reach_depth_mm"] == "unknown"
+        assert "head_len_mm" in parted["reason"]
+    else:
+        assert parted["reach_depth_mm"] == pytest.approx(6.0, abs=1e-3)
+        assert parted["holder_wall_hits"] == "unknown"
+        assert "projection_mm at least head_len_mm" in parted["reasons"]["holder_wall_hits"]
+
+
 def test_turned_and_faced_stock_is_what_the_next_setup_receives(engine, shafts):
     step = shafts["filleted"]
     features = _features(engine, step)

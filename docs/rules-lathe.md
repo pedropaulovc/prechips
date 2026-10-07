@@ -117,6 +117,12 @@ unverified ratio leaves the limit `unknown`. The source is
 whose example is “Ø6 × 40 past the chuck: add the tailstock centre.” This is
 not an unstated Handbook rule.
 
+A stickout set from a measured fit-up (`hold.stickout_fit`) must print as its
+nominal: `stickout_mm` equal to `nominal_mm + add_mm` (to the length tolerance)
+or the finding is an `error`; an unstated `measure` (missing, blank or
+`"unknown"`) or a non-numeric `nominal_mm`/`add_mm` is `unknown`. The finding's
+`stickout_fit` numbers carry the reading, nominal and allowance.
+
 **D is the smallest finished diameter in the unsupported exposed length, not
 the bar diameter held in the jaws.** It is the minimum of the finished profile
 segments along setup Z (declared, kernel-filled as described above), using
