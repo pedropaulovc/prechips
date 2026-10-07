@@ -2767,6 +2767,186 @@ pieces = 2
 dia_in = { value = 0.07821, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "certificate value, checked with the 1 µm test indicator against a gauge-block stack" } }
 length_in = { value = 2.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
 
+# Threading for shop-made fixtures (Main ruling, 2026-10: ANSI inch UNC, 2B internal;
+# M4 -> #8-32, M5 -> #10-24, M6 -> 1/4-20, larger as needed up to 3/8-16). Taps and dies are
+# Drill America / Tap America, from DrillsandCutters.com. All geometry is vendor-listed
+# nominal, labelled as example readings.
+# Drills: no new drills. tools.drill-index-115 (coverage "#1-60", "A-Z" and "1/16-1/2 by
+# 64ths") already resolves every tap and clearance drill below as drill-index-115/<size>,
+# e.g. drill-index-115/#25 or drill-index-115/F. The resolver's drill_index branch
+# (src/prechips/rules/resolution.py:363-383) covers this. The diameter is unknown unless
+# the index's nominal_dia_mm lists it.
+#   thread    tap drill: 75% / LMS steel   clearance: close / free (LMS chart)
+#   #8-32     #29 / #27                    #18 / #16
+#   #10-24    #25 / #20                    #9 / #7
+#   1/4-20    #7 / 7/32                    F / H
+#   5/16-18   F / J                        P / Q
+#   3/8-16    5/16 / Q                     W / X
+# Sources: the 75% drill is each tap's "Matching Drill Bit" on its vendor page. The LMS
+# steel drill and the close/free clearances are from the LittleMachineShop tap and
+# clearance drill chart, https://cdn.shopify.com/s/files/1/0671/3157/2405/files/tapdrillsizes.pdf
+[tools.taps-unc-hand]
+name = "UNC hand taps, plug and bottoming"
+kind = "tap_set"
+make = "Tap America (Drill America)"
+material = "HSS"
+standards = "ASME B1.1 UNC, H3 pitch-diameter limit (class 2B)"
+note = "illustrative example item: HSS hand taps #8-32 to 3/8-16 UNC, one plug (3-5 chamfered threads) and one bottoming (1-2 chamfered threads) per size. Start every hole with the plug tap and finish blind holes with the bottoming tap. The vendor's bottoming pages repeat the plug's 'Chamfered Threads: 3 to 5' field, so the bottoming chamfer is the style's, not a vendor figure."
+cite = ["https://drillsandcutters.com/taps-and-dies/"]
+# measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "visual flute count" } (flutes is a plain integer in the schema)
+flutes = 4
+
+[tools.taps-unc-hand.members."8-32-plug"]
+name = "#8-32 UNC plug tap"
+sku = "T/A54278"
+source = "https://drillsandcutters.com/8-32-hss-machine-and-fraction-hand-plug-tap-tap-america/"
+dia_in = { value = 0.164, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the thread crests" } }
+flute_len_in = { value = 0.75, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, thread length" } }
+oal_in = { value = 2.125, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+shank_in = { value = 0.168, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer on the shank (the vendor page's 0.131 is the drive square)" } }
+
+[tools.taps-unc-hand.members."8-32-bottoming"]
+name = "#8-32 UNC bottoming tap"
+sku = "T/A54279"
+source = "https://drillsandcutters.com/8-32-hss-machine-and-fraction-hand-bottoming-tap-tap-america/"
+dia_in = { value = 0.164, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the thread crests" } }
+flute_len_in = { value = 0.75, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, thread length" } }
+oal_in = { value = 2.125, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+shank_in = { value = 0.168, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer on the shank (the vendor page's 0.131 is the drive square)" } }
+
+[tools.taps-unc-hand.members."10-24-plug"]
+name = "#10-24 UNC plug tap"
+sku = "T/A54330"
+source = "https://drillsandcutters.com/10-24-hss-machine-and-fraction-hand-plug-tap-tap-america/"
+dia_in = { value = 0.19, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the thread crests" } }
+flute_len_in = { value = 0.875, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, thread length" } }
+oal_in = { value = 2.375, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+shank_in = { value = 0.194, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer on the shank" } }
+
+[tools.taps-unc-hand.members."10-24-bottoming"]
+name = "#10-24 UNC bottoming tap"
+sku = "T/A54331"
+source = "https://drillsandcutters.com/10-24-hss-machine-and-fraction-hand-bottoming-tap-tap-america/"
+dia_in = { value = 0.19, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the thread crests" } }
+flute_len_in = { value = 0.875, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, thread length" } }
+oal_in = { value = 2.375, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+shank_in = { value = 0.194, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer on the shank" } }
+
+[tools.taps-unc-hand.members."1-4-20-plug"]
+name = "1/4-20 UNC plug tap"
+sku = "T/A54454"
+source = "https://drillsandcutters.com/1-4-20-hss-machine-and-fraction-hand-plug-tap-tap-america/"
+dia_in = { value = 0.25, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the thread crests" } }
+flute_len_in = { value = 1.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, thread length" } }
+oal_in = { value = 2.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+shank_in = { value = 0.255, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer on the shank" } }
+
+[tools.taps-unc-hand.members."1-4-20-bottoming"]
+name = "1/4-20 UNC bottoming tap"
+sku = "T/A54455"
+source = "https://drillsandcutters.com/1-4-20-hss-machine-and-fraction-hand-bottoming-tap-tap-america/"
+dia_in = { value = 0.25, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the thread crests" } }
+flute_len_in = { value = 1.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, thread length" } }
+oal_in = { value = 2.5, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+shank_in = { value = 0.255, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer on the shank" } }
+
+[tools.taps-unc-hand.members."5-16-18-plug"]
+name = "5/16-18 UNC plug tap"
+sku = "T/A54505"
+source = "https://drillsandcutters.com/5-16-18-hss-machine-and-fraction-hand-plug-tap-tap-america/"
+dia_in = { value = 0.3125, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the thread crests" } }
+flute_len_in = { value = 1.125, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, thread length" } }
+oal_in = { value = 2.71875, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+shank_in = { value = 0.318, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer on the shank" } }
+
+[tools.taps-unc-hand.members."5-16-18-bottoming"]
+name = "5/16-18 UNC bottoming tap"
+sku = "T/A54506"
+source = "https://drillsandcutters.com/5-16-18-hss-machine-and-fraction-hand-bottoming-tap-tap-america/"
+dia_in = { value = 0.3125, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the thread crests" } }
+flute_len_in = { value = 1.125, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, thread length" } }
+oal_in = { value = 2.71875, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+shank_in = { value = 0.318, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer on the shank" } }
+
+[tools.taps-unc-hand.members."3-8-16-plug"]
+name = "3/8-16 UNC plug tap"
+sku = "T/A54583"
+source = "https://drillsandcutters.com/3-8-16-hss-machine-and-fraction-hand-plug-tap-tap-america/"
+dia_in = { value = 0.375, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the thread crests" } }
+flute_len_in = { value = 1.25, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, thread length" } }
+oal_in = { value = 2.9375, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+shank_in = { value = 0.381, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer on the shank" } }
+
+[tools.taps-unc-hand.members."3-8-16-bottoming"]
+name = "3/8-16 UNC bottoming tap"
+sku = "T/A54584"
+source = "https://drillsandcutters.com/3-8-16-hss-machine-and-fraction-hand-bottoming-tap-tap-america/"
+dia_in = { value = 0.375, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer over the thread crests" } }
+flute_len_in = { value = 1.25, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, thread length" } }
+oal_in = { value = 2.9375, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers" } }
+shank_in = { value = 0.381, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "micrometer on the shank" } }
+
+[tools.tap-wrench-t-1-16-1-4]
+name = "T-handle tap wrench, 1/16-1/4 in taps"
+kind = "tap_wrench"
+make = "Drill America"
+sku = "DWTD328"
+source = "https://drillsandcutters.com/1-16-1-4-t-handle-tap-wrench/"
+note = "illustrative example item: ratcheting T-handle tap wrench for the #8-32, #10-24 and 1/4-20 taps"
+
+[tools.tap-wrench-t-7-32-1-2]
+name = "long T-handle tap wrench, 7/32-1/2 in taps"
+kind = "tap_wrench"
+make = "Drill America"
+sku = "DWTD337"
+source = "https://drillsandcutters.com/7-32-1-2-long-t-handle-tap-wrench/"
+note = "illustrative example item: long T-handle tap wrench, 10-5/8 in OAL, for the 1/4-20, 5/16-18 and 3/8-16 taps"
+
+# Round split dies for shop-made studs and screw tails (Pedro ruling 2: the pivot-screw
+# thread is cut with a die or single-pointed). All are 1 in OD and fit the die stock below.
+[tools.dies-unc-round-1in]
+name = "UNC round adjustable dies, 1 in OD"
+kind = "die_set"
+make = "Drill America"
+series = "DWT"
+material = "HSS"
+standards = "ASME B1.1 UNC, class 2A external"
+note = "illustrative example item: HSS round adjustable (split) threading dies, 1 in OD, #8-32 to 3/8-16 UNC. Close the die with its adjusting screw for the first pass and open it for the finish pass, then check the thread with the mating tapped hole."
+cite = ["https://drillsandcutters.com/dies-stock-handle/"]
+
+[tools.dies-unc-round-1in.members."8-32"]
+name = "#8-32 UNC round die, 1 in OD"
+sku = "DWTH1-832"
+source = "https://www.newegg.com/p/2Z6-02FK-00562"
+
+[tools.dies-unc-round-1in.members."10-24"]
+name = "#10-24 UNC round die, 1 in OD"
+sku = "DWTH1-1024"
+source = "https://drillsandcutters.com/10-24-1od-hss-round-adjustable-die-standard/"
+
+[tools.dies-unc-round-1in.members."1-4-20"]
+name = "1/4-20 UNC round die, 1 in OD"
+sku = "DWTH1-1420"
+source = "https://drillsandcutters.com/1-4-20-1od-hss-round-adjustable-die-standard/"
+
+[tools.dies-unc-round-1in.members."5-16-18"]
+name = "5/16-18 UNC round die, 1 in OD"
+sku = "DWTH1-51618"
+source = "https://drillsandcutters.com/5-16-18-1od-hss-round-adjustable-die-standard/"
+
+[tools.dies-unc-round-1in.members."3-8-16"]
+name = "3/8-16 UNC round die, 1 in OD"
+sku = "DWTH1-3816"
+source = "https://drillsandcutters.com/3-8-16-1od-hss-round-adjustable-die-standard/"
+
+[tools.die-stock-1in]
+name = "1 in die stock"
+kind = "die_stock"
+make = "Drill America"
+sku = "DWTDS1INCH"
+source = "https://drillsandcutters.com/1-die-stocks/"
+note = "illustrative example item: die stock (handle) for the 1 in OD round dies"
+
 # Materials (shop-additions.md §7 and Pedro rulings 1-6). The stock schema has no SKU or
 # source field: each vendor and SKU is in `cite`. Bar sizes are example readings.
 [[stock]]
