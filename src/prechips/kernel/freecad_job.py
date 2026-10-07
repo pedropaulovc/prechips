@@ -1577,6 +1577,57 @@ def _tube(edge, radius):
     return tube
 
 
+def _overrun(face, edge, radius):
+    """The quarter of ``edge``'s ``radius`` tube a file stroke along ``face`` runs on into,
+    or None.
+
+    A stroke that files ``face`` runs past its edge in the face's tangent plane, so it
+    takes what lies beyond the edge and outside that plane within ``radius`` of the edge.
+    Only a straight edge along which the tangent plane is constant (a plane, a cylinder on
+    a parallel axis, a cone through its apex) has one such quarter; a seam, with face on
+    both sides, has none.
+    """
+    curve = edge.Curve
+    if not isinstance(curve, Part.Line) or not _invariant(face.Surface, curve):
+        return None
+    start, along = edge.valueAt(edge.FirstParameter), edge.tangentAt(edge.FirstParameter)
+    along.normalize()
+    middle = edge.valueAt((edge.FirstParameter + edge.LastParameter) / 2)
+    normal = _normal_at(face, middle)
+    beyond = along.cross(normal)
+    beyond.normalize()
+    step = 10 * STOCK_TOL
+    ahead = face.distToShape(Part.Vertex(middle + beyond * step))[0]
+    behind = face.distToShape(Part.Vertex(middle - beyond * step))[0]
+    if min(ahead, behind) > STOCK_TOL or max(ahead, behind) <= STOCK_TOL:
+        return None
+    if ahead < behind:
+        beyond = -beyond
+    x, y = (beyond, normal) if beyond.cross(normal).dot(along) > 0 else (normal, beyond)
+    quarter = Part.makeCylinder(radius, edge.Length, V(0, 0, 0), V(0, 0, 1), 90)
+    quarter.transformShape(
+        FreeCAD.Matrix(
+            x.x,
+            y.x,
+            along.x,
+            start.x,
+            x.y,
+            y.y,
+            along.y,
+            start.y,
+            x.z,
+            y.z,
+            along.z,
+            start.z,
+            0,
+            0,
+            0,
+            1,
+        )
+    )
+    return quarter
+
+
 def _dihedral(edge, first, second):
     """``"tangent"``, ``"convex"`` or ``"concave"`` where two faces meet along ``edge``, or
     None unless that is provably the same all along it.
@@ -1681,6 +1732,14 @@ def _cleared(original, rest, group):
     return left == 0.0 or (within(original) or 0.0) > HIT_MM3
 
 
+def _solids(shape):
+    """``shape``'s solids as one flat shape. A Boolean result can come back as a compound
+    nested in a compound, and FreeCAD 1.1 then refuses the next Boolean on it with ``Null
+    shape`` though its one solid cuts cleanly."""
+    solids = shape.Solids
+    return solids[0] if len(solids) == 1 else Part.makeCompound(solids)
+
+
 def _breaking(original, applied):
     """Label of the first ``(label, removal)`` pair of ``applied`` that leaves ``original``
     invalid when they are cut from it in order. Only an explanation of stock already found
@@ -1688,7 +1747,7 @@ def _breaking(original, applied):
     rest = original
     try:
         for label, removal in applied:
-            rest = rest.cut(removal)
+            rest = _solids(rest.cut(removal))
             if not rest.isValid():
                 return label
     except Exception as exc:
@@ -3733,7 +3792,7 @@ class _Setup:
         """
         rest, applied = original, []
         if own is not None:
-            rest = rest.cut(own)
+            rest = _solids(rest.cut(own))
             applied.append(("its own clearance", own))
         for number, group in enumerate(groups, 1):
             if not rest.Solids:
@@ -3743,7 +3802,7 @@ class _Setup:
                 continue
             for piece in group:
                 if rest.Solids:
-                    rest = rest.cut(piece)
+                    rest = _solids(rest.cut(piece))
                     applied.append((f"cut group {number}", piece))
         kept = [piece for piece in rest.Solids if piece.Volume > STOCK_MM3]
         if len(kept) > 1:
@@ -3843,10 +3902,12 @@ class _Setup:
 
         A file takes the stock within the op's ``max_filing_stock_mm`` of its claimed faces,
         from any side: ``stock`` within their :meth:`_skin` at that depth (plus
-        ``COVER_MM``), less the protected finished material, each piece its own group, never
-        fused. Stock that, once those pieces go (:meth:`_remove`), still borders a claimed
-        face's interior past that depth is more than a file takes, so the cut is not
-        derived; it is never filed away.
+        ``COVER_MM``) and within each stroke's :func:`_overrun` past a straight edge no other
+        claimed face shares, less the protected finished material, each piece its own
+        group, never fused. The overrun takes the corner between two faces filed in
+        different ops, as a shared convex edge's tube does within one op. Stock that, once
+        those pieces go (:meth:`_remove`), still borders a claimed face's interior past that
+        depth is more than a file takes, so the cut is not derived; it is never filed away.
         """
         cap = op.get("max_filing_stock_mm")
         if not _number(cap) or cap < 0:
@@ -3857,9 +3918,25 @@ class _Setup:
         primitives, why = self._skin(valid, depth)
         if why is not None:
             return None, why
+        shared = [edge for edge, _, _ in _shared_edges(self.faces, valid)]
+        overruns = []
+        for index in valid:
+            face = self.faces[index]
+            for edge in face.Edges:
+                if any(edge.isSame(other) for other in shared):
+                    continue
+                try:
+                    quarter = _overrun(face, edge, depth)
+                except Exception as exc:
+                    return None, (
+                        f"the file's overrun past an edge of {self.owner.labels[index]} is not "
+                        f"derivable ({exc})"
+                    )
+                if quarter is not None:
+                    overruns.append(quarter)
         pieces = []
         try:
-            for primitive in primitives:
+            for primitive in primitives + overruns:
                 piece = _material(stock.common(primitive), "stock within the file's reach")
                 if piece is not None:
                     piece, why = self._protect(piece, 0.0, None)

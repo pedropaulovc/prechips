@@ -68,9 +68,11 @@ def test_a_file_takes_the_leave_off_its_claims_only_up_to_the_policy_cap(engine,
     assert op["claimed_indices"] == sorted(index[ref] for ref in features["corner"]), op
     second, third = filed["setups"]["S2"], filed["setups"]["S3"]
     assert "stock_reason" not in third, third.get("stock_reason")
-    # The rough leave on the two claimed walls and their convex corner is filed away; the
-    # unclaimed walls and their corners keep theirs, and no finished material goes.
-    taken = 20 * (LEAVE * (60 + 40) + math.pi * LEAVE**2 / 4)
+    # The rough leave on the two claimed walls and their convex corner is filed away, and
+    # each stroke runs on past its wall's free end, taking the leave's rounded nib in the
+    # corner beyond it. The unclaimed walls keep their leave, the far corner keeps its, and
+    # no finished material goes.
+    taken = 20 * (LEAVE * (60 + 40) + 3 * math.pi * LEAVE**2 / 4)
     assert second["stock_volume_mm3"] - third["stock_volume_mm3"] == pytest.approx(taken, abs=0.01)
     # No cutter is drawn for a file.
     assert not any("cutter" in debt for debt in second["render_scene"]["render_debts"])
@@ -89,6 +91,45 @@ def test_a_file_takes_the_leave_off_its_claims_only_up_to_the_policy_cap(engine,
     assert op["claimed_indices"] == "unknown"
     assert "max_filing_stock_mm is unknown" in op["reasons"]["claimed_indices"], op
     assert "max_filing_stock_mm is unknown" in uncapped["setups"]["S3"]["stock_reason"]
+
+
+def test_walls_filed_in_turn_leave_no_crumb_in_their_corner(engine, solids):  # noqa: F811
+    # Filing the west wall and then the south wall leaves what filing both at once does:
+    # a stroke runs on past the corner, so the leave's rounded nib there is never
+    # stranded as a loose crumb that splits the stock.
+    step = solids["island"]
+    walls = _island_walls(engine, step)
+    features = {
+        "all": sum(walls.values(), []),
+        "west": walls["west"],
+        "south": walls["south"],
+        "corner": walls["west"] + walls["south"],
+    }
+
+    def job(*files):
+        rough = _rough("S1:10", "all", 3.0, 25.0, 30.0, LEAVE, stock_removal_bounds=ISLAND_BOUNDS)
+        setups = [
+            _setup([rough], ISLAND_HOLD, setup_id="S1"),
+            _setup(list(files), ISLAND_HOLD, setup_id="S2"),
+            _setup([], ISLAND_HOLD, setup_id="S3"),
+        ]
+        return engine.job(step, features, setups, stock=ISLAND_BLANK)
+
+    in_turn, at_once = engine.run(
+        {
+            "jobs": [
+                job(_file("S2:10", "west"), _file("S2:20", "south")),
+                job(_file("S2:10", "corner")),
+            ]
+        }
+    )["results"]
+
+    for subject in ("S2:10", "S2:20"):
+        assert isinstance(in_turn["ops"][subject]["claimed_indices"], list), in_turn["ops"][subject]
+    third = in_turn["setups"]["S3"]
+    assert "stock_reason" not in third, third.get("stock_reason")
+    expected = at_once["setups"]["S3"]["stock_volume_mm3"]
+    assert third["stock_volume_mm3"] == pytest.approx(expected, abs=0.01)
 
 
 def _filed(data, claim):

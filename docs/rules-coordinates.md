@@ -439,7 +439,12 @@ circle). Unknown geometry is unknown.
 `scribe` and `file_to_line` are manual actions: they need no tool, count as hand
 finishing (a `file_to_line` is a finishing cut for coverage and inspection), and
 a bench setup holding only manual ops is `not_applicable` for `coordinates`. The
-kernel removes the filed stock within the cap from the setup's stock model.
+kernel removes the filed stock within the cap from the setup's stock model: the
+stock within the cap of each claimed face, of each convex edge two claimed faces
+share, and, past a straight claimed-face edge that no other claimed face shares
+and along which the face's tangent plane is constant, the quarter the stroke runs
+on into beyond the edge and outside that plane. The last takes the corner nib
+between faces filed in different ops; the finished part is never filed.
 
 ## `zero_check`
 
