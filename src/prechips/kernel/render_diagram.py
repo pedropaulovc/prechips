@@ -855,13 +855,15 @@ class _Diagram:
     def _header(self):
         c = self.canvas
         _text(c, 32, 27, f"SETUP {self.spec['setup_id']}  /  {self.view.upper()} VIEW", scale=4)
+        # A subtitle states what the operator reads off the view; the isometric view's
+        # orientation is its axes key, so it has none.
         subtitles = {
             "lathe": "SPINDLE Z TO RIGHT  /  RADIAL X UP  /  FULL ARRIVING STOCK",
             "plan": "SETUP X TO RIGHT  /  Y UP  /  VIEW FROM +Z",
-            "isometric": "PLACED GEOMETRY IN THE SETUP FRAME",
             "elevation": self.spec.get("view_note", "SETUP Z UP"),
         }
-        _text(c, 34, 76, subtitles[self.view], _MUTED)
+        if self.view in subtitles:
+            _text(c, 34, 76, subtitles[self.view], _MUTED)
         _text(c, 1565, 77, "DIMENSIONS IN mm", _MUTED, align="right")
         c.line((32, 112), (1568, 112), _INK, width=2)
         _text(c, 32, 138, "PLACED STOCK + WORKHOLDING", _INK)
