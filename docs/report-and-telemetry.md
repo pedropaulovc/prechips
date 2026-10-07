@@ -326,6 +326,9 @@ and operative values retain their existing precision and units.
 Ordinary read-only tables use 4 pt vertical and 8 pt horizontal cell padding
 at unchanged 12 pt text and 1.4 line height. Operation and handwriting areas
 retain larger task-specific spacing.
+Thread designations, ranges, fractions and their units stay together without
+splitting neighboring words. Fixture/check tables wrap at word boundaries and
+give identified long cells more room; dimensions and instruction text are unchanged.
 
 Print the whole file double-sided. The deterministic inline script measures
 content at print width on load and again before printing, places page breaks,
@@ -343,6 +346,10 @@ of the break. Side-by-side blocks that are too tall stack before splitting.
 Continuation headings name the part, drawing/revision and logical section and
 show the physical page number and total. Moved or split operations leave a
 pointer to the next physical page. Blank backs contain no instructions or ink.
+Continuations retain the applicable original operation, table or worksheet title
+and units when they fit alongside original content advancing onto that page.
+Split fixture tables retain the original component/size context in their
+existing columns, not new assembly instructions.
 
 Operation groups retain authored order. A square beside the operation ID means
 **operation performed only — not inspection acceptance or clearance to proceed**.
@@ -355,7 +362,8 @@ when needed; no positions, reading counts, statistics or acceptance obligations
 are inferred. A true shared across-faces shoulder dimension remains one record;
 equal printed bands alone do not certify shared physical identity. Specifically
 named authored `{name}` procedure fields remain distinct, with a 35 × 10 mm
-clear interior floor. Existing standalone underscore recording prompts become
+clear interior floor. In prose, each named blank has its own line; worksheets
+and calculations retain their sole value fields. Existing standalone underscore recording prompts become
 full-width white fields at least 20 mm deep; their surrounding instruction text
 is unchanged. A typed coating operation without a genuine inspection record or
 authored recording prompt may carry **Additional writing space (optional)**.
@@ -461,6 +469,8 @@ Setup overview/operations section, in this order:
    Mixed machining/manual setups retain the machining ledger; manual-only
    groups preserve these five authored cells rather than inventing speeds,
    targets or additional checks.
+   Manual finishing uses a short Step heading followed by the unchanged action
+   in normal working text, grouped into sentences rather than a long heading.
 7. The existing sign-off follows the operations and has its own writing area.
    Neither that area nor a performed mark changes findings or approval state.
 

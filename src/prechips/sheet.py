@@ -155,7 +155,7 @@ margin: 0 2pt -1pt 6pt; } .levels .level:first-child .tick { margin-left: 2pt; }
 .reading, td.num { white-space: nowrap; overflow-wrap: normal; }
 table.fixture, table.blank-check { table-layout: auto; }
 table.fixture th, table.fixture td, table.blank-check th, table.blank-check td {
-overflow-wrap: normal; word-break: normal; hyphens: none; }
+overflow-wrap: anywhere; word-break: normal; hyphens: none; }
 @media screen and (max-width: 640px) {
 html:not(.print-measuring) table.fixture,
 html:not(.print-measuring) table.blank-check { table-layout: fixed; }

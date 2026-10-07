@@ -77,7 +77,8 @@ inspection_methods.position_dia = [
 ]
 ```
 
-`{name}` normally prints as a labelled blank to write the reading in. A step
+`{name}` normally prints as a labelled blank on its own line in prose. Worksheet
+and calculation fields remain single fields, not duplicate prose boxes. A step
 beginning `Calculate:` prints apart from the numbered steps. Only an authored
 step-list procedure with named brace readings in its steps and at least two
 calculation lines becomes a worksheet on an attached logical sheet after the

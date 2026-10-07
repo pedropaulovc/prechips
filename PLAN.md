@@ -65,8 +65,13 @@ brace readings and at least two calculations uses a worksheet: source steps
 reference READINGS value boxes and calculations print once. Explicit
 `measure_before_hold = true` with authored measurement text keeps pre-clamping
 M acquisition and pen room in the original HOLD step; otherwise it remains at
-the machine. Manual-only finishing retains its five authored cells; mixed
-setups keep the machining ledger. Optional writing space adds no checks.
+the machine. Manual-only finishing retains its five authored cells under short
+Step headings, with unchanged actions in normal body text; mixed setups keep the
+machining ledger. Prose blanks have dedicated lines without duplicating worksheet
+or calculation fields. Continuations retain applicable original titles/units
+when they fit beside advancing original content; fixture/check cells wrap at
+word boundaries and compound dimensions stay together. Optional writing space
+adds no checks.
 No reading positions, counts or statistics are inferred. An operation's
 performed mark is progress only, not acceptance, clearance or approval; no input
 schema field is added.

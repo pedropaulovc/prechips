@@ -440,6 +440,72 @@ def test_a_stickout_from_a_fit_up_is_labelled_nominal_with_its_setting():
     assert "STICKOUT 80 MM IS NOMINAL: SET IT AS THE MEASURED FIT-UP + 8 MM." in text, text
 
 
+@pytest.mark.parametrize(
+    "view,jaw", [("lathe", -40), ("lathe", None), ("plan", -40), ("plan", None)]
+)
+@pytest.mark.parametrize(
+    "add,expected_label", [(8, "NOM STICKOUT 80 MM"), (None, "STICKOUT 80 MM")]
+)
+def test_production_png_preserves_declared_stickout_qualification_with_or_without_a_jaw(
+    view, jaw, add, expected_label
+):
+    """Synthetic input: a missing jaw or another view never turns a nominal into a setpoint."""
+    spec = {
+        "setup_id": "S1",
+        "view": view,
+        "stock_box": [-10, -10, -60, 10, 10, 40],
+        "stickout_mm": 80,
+        "stickout_add_mm": add,
+    }
+    if jaw is not None:
+        spec["jaw_front_z_mm"] = jaw
+    supplied = json.dumps(spec, sort_keys=True)
+    png, debts, panels = render_diagram([], spec)
+    width, height, pixels = _decode_png(png)
+    assert width == 1600
+    cursor = 0
+    for panel in panels:
+        assert panel["top_px"] == cursor
+        assert 0 < panel["height_px"] / width * 7.5 <= 8.4
+        cursor += panel["height_px"]
+    assert cursor == height
+    diagram = _Diagram([], {**spec, "notes": list(spec.get("notes", [])) + debts})
+    scale = diagram.canvas.scale
+    diagram.render()
+    assert diagram.canvas.scale == scale
+    assert json.dumps(spec, sort_keys=True) == supplied
+    captions = [
+        box
+        for box in diagram.canvas.text_boxes
+        if box[0] in {"NOM STICKOUT 80 MM", "STICKOUT 80 MM"}
+    ]
+    assert len(captions) == 1
+    label, left, top, right, bottom = captions[0]
+    assert label == expected_label
+    glyph_scale = (bottom - top) // 7
+    reference = _canvas(width=right - left + 8, height=bottom - top + 6)
+    reference.text(4, 3, expected_label, colour=(35, 83, 147), scale=glyph_scale)
+    _, _, expected = _decode_png(reference.png())
+    actual = bytearray()
+    for y in range(top - 3, bottom + 3):
+        offset = (y * width + left - 4) * 3
+        actual.extend(pixels[offset : offset + reference.width * 3])
+    assert actual == expected
+    caption_key = expected_label.removesuffix("MM") + "mm"
+    if view == "lathe" and jaw is not None:
+        first, second = diagram.dimensions[caption_key]
+        assert first[0] == pytest.approx(diagram.canvas.project((-10, -10, -40))[0])
+        assert second[0] == pytest.approx(diagram.canvas.project((-10, -10, 40))[0])
+        assert first[1] == second[1]
+    else:
+        assert caption_key not in diagram.dimensions
+    stock_key = "STOCK Z 100 mm" if view == "lathe" else "STOCK X 20 mm"
+    stock_points = ((0, 0, -60), (0, 0, 40)) if view == "lathe" else ((-10, 0, -10), (10, 0, -10))
+    for endpoint, point in zip(diagram.dimensions[stock_key], stock_points, strict=True):
+        assert endpoint[0] == pytest.approx(diagram.canvas.project(point)[0])
+    diagram.canvas.assert_text_layout(min_scale=5)
+
+
 @pytest.mark.parametrize(("round_dia", "printed"), [(20, "STOCK DIA 20 MM"), (None, "STOCK BOX")])
 def test_round_stock_prints_its_diameter_not_a_bounding_box(round_dia, printed):
     spec = {"setup_id": "S1", "view": "lathe", "stock_box": [-10, -10, -60, 10, 10, 40]}

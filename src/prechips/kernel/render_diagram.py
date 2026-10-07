@@ -1526,10 +1526,10 @@ class _Diagram:
             self.callouts.append(_Callout(f"JAW FRONT Z {self._dro(jaw)} mm", [anchor], _BLUE))
         stickout = self.spec.get("stickout_mm")
         if stickout is not None:
-            label = f"STICKOUT {self._dro(stickout)} mm"
+            stickout_label = f"STICKOUT {self._dro(stickout)} mm"
             if self.spec.get("stickout_add_mm") is not None:
                 # Set from a measured fit-up: the drawn value is the nominal (see notes).
-                label = f"NOM {label}"
+                stickout_label = f"NOM {stickout_label}"
             if jaw_marker is not None and self.view == "lathe":
                 # The declared distance runs from the jaw-front marker itself, on its own
                 # row, never from the stock-length extension line.
@@ -1538,14 +1538,14 @@ class _Diagram:
                 dim_y = y - _LEADING - 16
                 c.line(a, (a[0], dim_y), _BLUE, width=2, dashed=True)
                 c.line(b, (b[0], dim_y), _BLUE, width=2, dashed=True)
-                dimensions.append((label, (a[0], dim_y), (b[0], dim_y), _BLUE))
+                dimensions.append((stickout_label, (a[0], dim_y), (b[0], dim_y), _BLUE))
         # Extension lines from either row may run through the other row's lettering.
         # Finish every extension first, then mask and paint the complete text boxes.
         for label, first, second, colour in dimensions:
             _dimension(c, first, second, label, colour)
             self.dimensions[label] = (first, second)
         if stickout is not None and (jaw_marker is None or self.view != "lathe"):
-            _text(c, 1568, y - _LEADING - 16, f"STICKOUT {_mm(stickout)} mm", _BLUE, align="right")
+            _text(c, 1568, y - _LEADING - 16, stickout_label, _BLUE, align="right", backing=True)
 
     def _labels(self):
         """Two lanes of print-size keys. Type never shrinks: lanes rebalance, then tighten

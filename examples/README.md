@@ -773,8 +773,11 @@ supplied geometry, not an established native cause, harmlessness or native-run
 equivalence; no values or tolerances were normalized or waived.
 
 All 528 page images were reviewed individually across 13 ranges: five CLEAR
-and eight FIX. Major context/finishing-hierarchy and minor presentation repairs
-remain active; these range verdicts are not final package approval.
+and eight FIX. Subsequent context, finishing-hierarchy and minor presentation
+repairs were committed at `2a332ab`. The subsequent boundary-layout repairs
+have also landed; source is again frozen for parent verification, not approved.
+The subsequent pre-freeze gate was cancelled after partial output, not passed.
+Those earlier range verdicts are not approval of the repaired package.
 The latest focused run had 577 passed and three failed;
 three test migrations have since been settled but are not yet verified.
 Final layout approval, golden regeneration and the full gate remain pending.

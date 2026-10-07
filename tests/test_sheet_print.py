@@ -837,3 +837,186 @@ def test_whole_table_moved_after_its_op_note_gets_context_with_original_rows(pri
             if content(_cells(printed, row)[0]).startswith("FollowingOriginalRow")
         ] == [f"FollowingOriginalRow{index}" for index in range(16)]
     assert moved, "Exercise an original table moved whole after its retained op paragraph"
+
+
+@pytest.mark.parametrize("component", ["Locator plate", "W" * 100], ids=["ordinary", "100W"])
+def test_fixture_and_blank_check_keep_intrinsic_width_inside_print_and_screen(
+    printed_sheet, component
+):
+    from prechips.sheet import _Note, _Row, _table
+
+    # Real five-column fixture cells: the long Component is a valid authored label,
+    # not a simulated table width. Each row has five production numeric compounds.
+    fixture_rows = [
+        _Row(
+            [
+                label,
+                "Ø6.475–6.495 mm",
+                "Seat into datum at 12.000 mm",
+                "Drill 3/8-16 then countersink",
+                "#10-32 x 5/8 in and M5x0.8",
+            ],
+            warnings=[_Note("Record existing observation: {observed}")] if index == 0 else [],
+        )
+        for index, label in enumerate([component, "Support plate", "Clamp plate"])
+    ]
+    source = _table(
+        ["Component", "Size", "Position", "Holes", "Fastener"],
+        fixture_rows,
+        css="fixture",
+    ) + _table(
+        ["Check", "Limit", "Method"],
+        [["parallel", "within 0.025 mm", "Sweep existing face"]],
+        css="blank-check",
+    )
+    original = Markup(source)
+    expected_cells = [content(node) for node in original.nodes if node["tag"] == "td"]
+    expected_readings = [content(node) for node in original.find("reading")]
+    assert len(original.find("writing-blank")) == 1
+    assert len(expected_readings) == 16  # fifteen fixture readings plus the blank limit
+    for compound in ("Ø6.475–6.495 mm", "#10-32 x 5/8 in", "M5x0.8", "3/8-16"):
+        assert expected_readings.count(compound) == 3
+
+    prepare = """() => {
+      window.intrinsicWidthSource = document.querySelector('section.page').innerHTML;
+    }"""
+    probe = r"""() => {
+      const capture = win => {
+        const doc = win.document, section = doc.querySelector('section.page');
+        const rect = box => ({
+          left: box.left, right: box.right, width: box.width, height: box.height
+        });
+        const measure = node => {
+          const style = win.getComputedStyle(node);
+          return {
+            text: node.textContent, ...rect(node.getBoundingClientRect()),
+            visible: style.display !== 'none' && style.visibility === 'visible',
+            font: parseFloat(style.fontSize),
+            owned: !node.closest('[data-duplex]')
+          };
+        };
+        const textRects = node => {
+          const range = doc.createRange();
+          range.selectNodeContents(node);
+          return [...range.getClientRects()].filter(box => box.width && box.height).map(rect);
+        };
+        const words = [];
+        const walker = doc.createTreeWalker(section, win.NodeFilter.SHOW_TEXT);
+        while (walker.nextNode()) {
+          const node = walker.currentNode;
+          if (!node.parentElement.closest('td')) continue;
+          for (const match of node.textContent.matchAll(/\b(?:into|countersink|parallel)\b/g)) {
+            const range = doc.createRange();
+            range.setStart(node, match.index);
+            range.setEnd(node, match.index + match[0].length);
+            words.push({
+              text: match[0],
+              rects: [...range.getClientRects()].map(rect),
+              font: parseFloat(win.getComputedStyle(node.parentElement).fontSize)
+            });
+          }
+        }
+        return {
+          innerWidth: win.innerWidth,
+          container: rect(doc.body.getBoundingClientRect()),
+          scrollWidth: doc.documentElement.scrollWidth,
+          tables: [...section.querySelectorAll('table')].map(table => ({
+            ...measure(table),
+            headings: [...table.querySelectorAll('thead th')].map(node => node.textContent),
+            rows: [...table.tBodies].flatMap(body => [...body.rows]
+              .filter(row => !row.classList.contains('warn'))
+              .map(row => [...row.cells].map(measure)))
+          })),
+          cells: [...section.querySelectorAll('td')].map(node => ({
+            ...measure(node), textRects: textRects(node)
+          })),
+          readings: [...section.querySelectorAll('.reading')].map(node => ({
+            ...measure(node), rects: textRects(node)
+          })),
+          fields: [...section.querySelectorAll('.field')].map(measure),
+          boxes: [...section.querySelectorAll('.writing-blank')].map(measure),
+          words
+        };
+      };
+      const printed = capture(window);
+      const screens = [320, 375, 414, 768].map(width => {
+        // Each iframe owns pristine Source, not paginated context or duplicate
+        // controls in the parent traveler. No script, external resource or CSS override.
+        const frame = document.createElement('iframe');
+        frame.style.cssText = `width:${width}px;height:2000px;border:0`;
+        document.body.append(frame);
+        try {
+          const doc = frame.contentDocument;
+          doc.open();
+          doc.write('<!doctype html><html><head><meta charset="utf-8"></head><body></body></html>');
+          doc.close();
+          const style = doc.createElement('style');
+          style.textContent = document.querySelector('head style').textContent;
+          doc.head.append(style);
+          const section = doc.createElement('section');
+          section.className = 'page';
+          section.innerHTML = window.intrinsicWidthSource;
+          doc.body.append(section);
+          void doc.body.offsetWidth;
+          return capture(frame.contentWindow);
+        } finally {
+          frame.remove();
+        }
+      });
+      return {printed, screens};
+    }"""
+    printed, details = printed_sheet(source, probe, prepare)
+    assert [content(node) for node in printed.nodes if node["tag"] == "td"] == expected_cells
+    (box,) = printed.find("writing-blank")
+    assert _original(box)
+
+    assert details["printed"]["container"]["width"] == pytest.approx(720, abs=0.1)
+    assert [screen["innerWidth"] for screen in details["screens"]] == [320, 375, 414, 768]
+    for view in [details["printed"], *details["screens"]]:
+        container = view["container"]
+        assert container["left"] >= -0.1
+        assert container["right"] <= view["innerWidth"] + 0.1
+        assert view["scrollWidth"] <= view["innerWidth"]
+        assert [cell["text"] for cell in view["cells"]] == expected_cells
+        assert [reading["text"] for reading in view["readings"]] == expected_readings
+        assert [table["headings"] for table in view["tables"]] == [
+            ["Component", "Size", "Position", "Holes", "Fastener"],
+            ["Check", "Limit", "Method"],
+        ]
+        assert [[len(row) for row in table["rows"]] for table in view["tables"]] == [
+            [5, 5, 5],
+            [3],
+        ]
+        assert len(view["fields"]) == len(view["boxes"]) == 1
+        assert view["fields"][0]["text"] == "observed"
+        assert [word["text"] for word in view["words"]] == [
+            "into",
+            "countersink",
+            "into",
+            "countersink",
+            "into",
+            "countersink",
+            "parallel",
+        ]
+        for node in [
+            *view["tables"],
+            *view["cells"],
+            *view["readings"],
+            *view["fields"],
+            *view["boxes"],
+        ]:
+            assert node["visible"] and node["owned"], node
+            assert node["width"] > 0 and node["height"] > 0, node
+            assert node["font"] == 16, node
+            assert node["left"] >= container["left"] - 0.1, node
+            assert node["right"] <= container["right"] + 0.1, node
+        for cell in view["cells"]:
+            assert cell["textRects"], cell
+            for rect in cell["textRects"]:
+                assert rect["left"] >= cell["left"] - 0.1, cell
+                assert rect["right"] <= cell["right"] + 0.1, cell
+        for node in [*view["words"], *view["readings"]]:
+            assert node["font"] == 16, node
+            assert len(node["rects"]) == 1, node
+            assert node["rects"][0]["left"] >= container["left"] - 0.1, node
+            assert node["rects"][0]["right"] <= container["right"] + 0.1, node

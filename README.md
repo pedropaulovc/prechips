@@ -441,7 +441,12 @@ interior floor. Pre-clamping M acquisition occurs only for explicit
 `measure_before_hold = true` with an authored `measure`; pen room stays in its
 original HOLD step, not a new section. Otherwise acquisition remains at the
 machine. Manual-only finishing retains step, feature, consumable, action and
-inspection content; optional writing space creates no additional checks. The
+inspection content: a short Step heading precedes the unchanged action in
+normal body text. Prose blanks get their own lines; worksheet/calculation
+fields are not duplicated. Continuations retain applicable original titles
+and units when they fit beside advancing content. Compound dimensions stay
+together, and fixture/check tables wrap at word boundaries. Optional writing
+space creates no additional checks. The
 operation-performed mark records progress only, not inspection acceptance,
 clearance to proceed or approval. Work text is 12 pt, metadata at least 10 pt,
 in familiar offline sans-serif type with 0.5-inch print margins. These dimensions
