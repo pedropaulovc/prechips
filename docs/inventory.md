@@ -102,6 +102,19 @@ projection whenever that entry exists: an entry that is `"unknown"` or
 carries its own debt keeps the op unresolved rather than falling back, and
 only an absent pair uses `oal - holder.grip`. Neither flute length nor holder
 gauge length substitutes for projection.
+
+A projection is one value per tool/holder pair for the whole shop; a plan has no
+per-job or per-setup override, on purpose. The projection is a measured inventory
+fact: its trust (`measured`, `verify`) and its measurement debt are keyed to the
+tool/holder pair, and an authored plan number would carry neither. Six readers
+take it from the inventory (envelope, headroom, engagement, accessibility, the
+kernel's tool stack and the sheet's tool table), so an override that reached some
+and not others would print one setting while the checks use another. A shop that
+sets a blade further out for one job declares that setting in the inventory and
+measures it, and every job is then checked at it: deflection and clearance at the
+longer setting, and a reach still too short is a finding naming the setting. A
+tool kept set at two projections is two inventory tools.
+
 Engagement uses only the resolved `endmill` / `endmill_set` family on cutting
 operations with authored DOC. Long drills, reamers, taps and lathe tools do not
 receive a milling DOC-halving recommendation.
