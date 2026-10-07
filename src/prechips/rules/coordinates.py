@@ -1623,8 +1623,9 @@ def _boundary(feature, frame, frames):
 
 def _sweep_area(feature, op, frame, frames):
     """Setup-XY corners of the area a ``linear_table`` sweeps, or None: ``contour.
-    sweep_bounds`` in ``sweep_frame``, else a face op's setup-frame
-    ``stock_removal_bounds``, else the feature's own bounds."""
+    sweep_bounds`` in ``sweep_frame``, else a face op's or side-milling profile's
+    (:func:`_rastered`) setup-frame ``stock_removal_bounds``, else the feature's own
+    bounds."""
     contour = mapping(op.get("contour"))
     if isinstance(contour.get("sweep_bounds"), dict):
         envelope = {
@@ -1634,7 +1635,8 @@ def _sweep_area(feature, op, frame, frames):
         }
         return _boundary(envelope, frame, frames)
     box = op.get("stock_removal_bounds")
-    if op.get("do") in FACING and isinstance(box, dict):
+    side_mill = op.get("do") in _PROFILE_OPS and "open_side" in contour
+    if (op.get("do") in FACING or side_mill) and isinstance(box, dict):
         spans = [box.get(axis) for axis in ("x", "y")]
         if not all(
             isinstance(span, list) and len(span) == 2 and all(number(v) for v in span)
@@ -1709,9 +1711,17 @@ RASTER_OPS = POCKETING | FACING
 # ahead of the stepping cutter back toward the cleared side it steps away from.
 _OPEN_SIDES = {"-x": (-1.0, 0.0), "+x": (1.0, 0.0), "-y": (0.0, -1.0), "+y": (0.0, 1.0)}
 # Milling ops whose authored ``doc_mm`` steps them down in axial levels.
-_LEVEL_OPS = RASTER_OPS | {"profile", "rough_profile", "finish_profile"}
+_PROFILE_OPS = {"profile", "rough_profile", "finish_profile"}
+_LEVEL_OPS = RASTER_OPS | _PROFILE_OPS
 # Wall-finishing ops: the cutter's flank engages the whole wall above its tip.
 _WALL_OPS = {"pocket", "finish_pocket", "profile", "finish_profile"}
+
+
+def _rastered(op, contour):
+    """Whether a ``linear_table`` op cuts in raster passes: a pocket or face, or a profile
+    with a declared ``open_side``: a one-sided side-mill (a blank end overhanging the vise)
+    whose passes step from clear air on the open side to the retained wall, as a pocket's."""
+    return op.get("do") in RASTER_OPS or (op.get("do") in _PROFILE_OPS and "open_side" in contour)
 
 
 def _outside_circle(segment, circle, radius, grid, scale):
@@ -3657,7 +3667,7 @@ def evaluate(bundle, *, pre_kernel=False):
                             if item["cut_order"] == UNKNOWN and item.get("method") != "chain_drill"
                         )
                         generated = True
-                elif contour.get("method") == "linear_table" and op.get("do") in RASTER_OPS:
+                elif contour.get("method") == "linear_table" and _rastered(op, contour):
                     approach = op.get("approach_mm", UNKNOWN)
                     scale = {"mm": 1.0, "in": 25.4}.get(units)
                     lift = (

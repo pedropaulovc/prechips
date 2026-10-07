@@ -192,6 +192,31 @@ def test_face_raster_clears_its_box_edge_to_edge_no_wider_than_its_step(tmp_path
     assert profile["raster"]["cycle"] == "one_way" and profile["raster"]["lift_z"] == 5.0
 
 
+@pytest.mark.parametrize(("open_side", "rastered"), [("-x", True), (None, False)])
+def test_a_profile_with_an_open_side_side_mills_its_wall_from_clear_air(
+    tmp_path, open_side, rastered
+):
+    # A blank end overhanging the vise: the 2.5 waste X -2.5..0 comes off the wall at X 0.
+    side = f", open_side = '{open_side}'" if open_side else ""
+    row, profile = raster(
+        tmp_path,
+        "do = 'profile'\ntool = 'cutter'\nto_z = -1.0\ndirection = 'conventional'\n"
+        "approach_mm = 5.0\n"
+        "stock_removal_bounds = { x = [-2.5, 0.0], y = [0.0, 10.0], z = [-1.0, 0.0] }\n"
+        f"contour = {{ method = 'linear_table', step_mm = 2.0{side} }}\n",
+    )
+    if not rastered:
+        # Without an open side the profile walks the closed outline: never one-sided.
+        assert "raster" not in profile
+        return
+    assert row.status == "pass", (row.sentence, profile.get("raster_reason"))
+    xs = [a[0] for a, _ in profile["cutter_centre"]]
+    # Ø6: the first pass stands wholly outside the open side, the last puts the cutter's
+    # flank on the retained wall at X 0; each runs a radius past both ends of the wall.
+    assert xs[0] == pytest.approx(-5.5) and xs[-1] == pytest.approx(-3.0)
+    assert all(sorted([a[1], b[1]]) == [-3.0, 13.0] for a, b in profile["cutter_centre"])
+
+
 def keep_out_face(tmp_path, circles, direction="conventional", sweep_frame="A", resolution=None):
     plan = coordinate_bundle(
         tmp_path,
