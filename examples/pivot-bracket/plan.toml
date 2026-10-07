@@ -54,9 +54,14 @@ square = "dti"
 parallel = "dti"
 
 [stock.prepared.methods]         # AUTHOR'S CHOICE: the DTI on the height gauge over the granite plate, because every blank face is under 35 mm and the plate is the shop's flat reference
-flat = "Lay each faced side on the granite plate; it must not rock. Sweep the DTI on the height gauge across the face above: the needle moves no more than 0.02."
-square = "Stand the blank on the granite against a 1-2-3 block's ground side; sweep the DTI up each faced edge and end: the needle moves no more than 0.02 over the face."
-parallel = "Lay the left side on the granite and sweep the DTI over the right side; then the outer end down and sweep the free end; then the crown end down and sweep the seat end. Each sweep moves no more than 0.02."
+flat = "Lay each faced side on the granite plate; it must not rock. Sweep the DTI on the height gauge across the face above and read the needle's total movement."
+square = "Stand the blank on the granite against a 1-2-3 block's ground side; sweep the DTI up each faced edge and end and read the needle's total movement over the face."
+parallel = "Lay the left side on the granite and sweep the DTI over the right side; then the outer end down and sweep the free end; then the crown end down and sweep the seat end. Read the needle's total movement on each sweep."
+
+[stock.prepared.form_mm]         # the most each methods sweep may move the needle
+flat = 0.02                      # AUTHOR'S CHOICE: S1-S4 seat and zero on these faces
+square = 0.02
+parallel = 0.02
 
 # Stock preparation (P1-P6): the six blank faces as plan process faces. Each is a planar
 # face of the squared blank; it earns no drawing coverage. at = a point on the face,
@@ -389,7 +394,7 @@ direction = "conventional"       # AUTHOR'S CHOICE: hand-fed mill
 doc_mm = 1.4                     # AUTHOR'S CHOICE: two passes of 1.4 and 1.375, inside the .250 in end-mill depth basis of Machinery's Handbook 27th ed. Table 15a p.1054
 stock_removal_bounds = { x = [-1.9, 36.1], y = [-18.525, 0.0], z = [0.0, 2.775] } # the whole raw free end
 contour = { method = "linear_table", step_mm = 12.7 } # AUTHOR'S CHOICE: 2/3 of the 19.05 cutter per pass
-note = "Face the free end to Z0, 26.2 over the outer end, in two passes. The raw end is at Z = M − 26.2: if that is above Z +2.775, first face it down to Z +2.775, no more than 1.4 per pass." # AUTHOR'S CHOICE: the levels assume the nominal end; the measured M sets the real one
+note = "Face the free end to Z0, 26.2 over the outer end, in two passes." # AUTHOR'S CHOICE: the levels assume the nominal end; the measured M sets the real one, and the sheet's DRO ZERO prints the raw-end correction from offset_mm and doc_mm
 
 [[setups]]
 id = "P4"
@@ -454,7 +459,7 @@ direction = "conventional"       # AUTHOR'S CHOICE: hand-fed mill
 doc_mm = 0.525                   # AUTHOR'S CHOICE: one 0.525 pass, inside the .250 in end-mill depth basis of Machinery's Handbook 27th ed. Table 15a p.1054
 stock_removal_bounds = { x = [-1.9, 36.1], y = [0.0, 26.2], z = [0.0, 0.525] } # the whole raw right side
 contour = { method = "linear_table", step_mm = 12.7 } # AUTHOR'S CHOICE: 2/3 of the 19.05 cutter per pass
-note = "Face the right side to Z0, 18.0 over the left side. The raw side is at Z = M − 18.0: if that is above Z +0.525, first face it down to Z +0.525, no more than 1.4 per pass." # AUTHOR'S CHOICE: the level assumes the nominal side; the measured M sets the real one
+note = "Face the right side to Z0, 18.0 over the left side." # AUTHOR'S CHOICE: the level assumes the nominal side; the measured M sets the real one, and the sheet's DRO ZERO prints the raw-side correction from offset_mm and doc_mm
 
 [[setups]]
 id = "P5"
@@ -583,7 +588,7 @@ direction = "conventional"       # AUTHOR'S CHOICE: hand-fed mill
 doc_mm = 1.9                     # AUTHOR'S CHOICE: one 1.9 pass, inside the .250 in end-mill depth basis of Machinery's Handbook 27th ed. Table 15a p.1054
 stock_removal_bounds = { x = [0.0, 26.2], y = [-18.0, 0.0], z = [0.0, 1.9] } # the whole sawn seat end
 contour = { method = "linear_table", step_mm = 9.0 } # AUTHOR'S CHOICE: two passes over the 18 mm end
-note = "Face the sawn seat end to Z0, 34.2 over the crown end. The sawn end is at Z = M − 34.2: if that is above Z +1.9, first face it down to Z +1.9, no more than 1.9 per pass." # AUTHOR'S CHOICE: the level assumes the nominal end; the measured M sets the real one
+note = "Face the sawn seat end to Z0, 34.2 over the crown end." # AUTHOR'S CHOICE: the level assumes the nominal end; the measured M sets the real one, and the sheet's DRO ZERO prints the sawn-end correction from offset_mm and doc_mm
 
 # ======================================================================= S1
 [[setups]]

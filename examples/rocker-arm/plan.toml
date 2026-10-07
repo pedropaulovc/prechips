@@ -54,9 +54,14 @@ square = "dti"
 parallel = "dti"
 
 [stock.prepared.methods] # AUTHOR'S CHOICE: the DTI on the height gauge over the granite plate, because the plate is the shop's flat reference
-flat = "Lay each broad face on the granite plate; it must not rock. Sweep the DTI on the height gauge along the face above at both edges and the middle: the needle moves no more than 0.05."
-square = "Stand the blank on the granite against a 1-2-3 block's ground side; sweep the DTI up each edge and each end: the needle moves no more than 0.05 over the face."
-parallel = "Lay the lower face on the granite and sweep the DTI on the height gauge along the upper face at both edges and the middle: the needle moves no more than 0.05. Stand it on the datum edge and sweep the opposite edge end to end: no more than 0.1."
+flat = "Lay each broad face on the granite plate; it must not rock. Sweep the DTI on the height gauge along the face above at both edges and the middle and read the needle's total movement."
+square = "Stand the blank on the granite against a 1-2-3 block's ground side; sweep the DTI up each edge and each end and read the needle's total movement over the face."
+parallel = "Lay the lower face on the granite and sweep the DTI on the height gauge along the upper face at both edges and the middle. Stand it on the datum edge and sweep the opposite edge end to end. Read the needle's total movement on each sweep."
+
+[stock.prepared.form_mm] # the most each methods sweep may move the needle
+flat = 0.05 # AUTHOR'S CHOICE: S1 and S2 face the hubs from both broad faces
+square = 0.05
+parallel = 0.05 # AUTHOR'S CHOICE: one limit for the faces and the edges, because one DTI sweep procedure reads both
 
 # Stock preparation (P1-P5): the six blank faces as plan process faces. Each is a planar
 # face of the squared blank; it earns no drawing coverage. at = a point on the face,
@@ -372,7 +377,7 @@ direction = "conventional" # AUTHOR'S CHOICE: hand-fed mill
 doc_mm = 2.8 # AUTHOR'S CHOICE: two passes of 2.8, inside the .250 in end-mill depth basis of Machinery's Handbook 27th ed. Table 15a p.1054
 stock_removal_bounds = { x = [-2.5, 342.5], y = [-17.525, 0.0], z = [0.0, 5.6] } # the whole raw opposite edge
 contour = { method = "linear_table", step_mm = 12.7 } # AUTHOR'S CHOICE: 2/3 of the 19.05 cutter per pass
-note = "Face the opposite edge to Z0, 65.0 over the datum edge, in two passes. The raw edge is at Z = M − 65.0: if that is above Z +5.6, first face it down to Z +5.6, no more than 2.8 per pass." # AUTHOR'S CHOICE: the levels assume the nominal edge; the measured M sets the real one
+note = "Face the opposite edge to Z0, 65.0 over the datum edge, in two passes." # AUTHOR'S CHOICE: the levels assume the nominal edge; the measured M sets the real one, and the sheet's DRO ZERO prints the raw-edge correction from offset_mm and doc_mm
 
 [[setups]]
 id = "P4"
@@ -437,7 +442,7 @@ direction = "conventional" # AUTHOR'S CHOICE: hand-fed mill
 doc_mm = 1.525 # AUTHOR'S CHOICE: one 1.525 pass, inside the .250 in end-mill depth basis of Machinery's Handbook 27th ed. Table 15a p.1054
 stock_removal_bounds = { x = [-2.5, 342.5], y = [-65.0, 0.0], z = [0.0, 1.525] } # the whole raw lower face
 contour = { method = "linear_table", step_mm = 12.7 } # AUTHOR'S CHOICE: 2/3 of the 19.05 cutter per pass
-note = "Face the lower face to Z0, 16.0 over the upper face. The raw face is at Z = M − 16.0: if that is above Z +1.525, first face it down to Z +1.525, no more than 1.525 per pass." # AUTHOR'S CHOICE: the level assumes the nominal face; the measured M sets the real one
+note = "Face the lower face to Z0, 16.0 over the upper face." # AUTHOR'S CHOICE: the level assumes the nominal face; the measured M sets the real one, and the sheet's DRO ZERO prints the raw-face correction from offset_mm and doc_mm
 
 [[setups]]
 id = "P5"
