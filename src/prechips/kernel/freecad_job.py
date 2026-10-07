@@ -7019,6 +7019,9 @@ class _Setup:
             )
         )
         scene["closest_cut"] = spec["closest_cut"]
+        # The CLEARANCE table's per-op fixture rows: the picture's dimension and every
+        # other cut's nearest holding, op by op.
+        scene["cut_clearances"] = [] if lathe else self._cut_clearances(held)
         png, drawn_debts = render_diagram(meshes, spec)
         render_debts.extend(drawn_debts)
         # A holding detail band below the picture makes it taller than the default.
@@ -7115,22 +7118,57 @@ class _Setup:
                         "plane": None if plane is None else list(plane),
                     }
                 )
+        return contacts, self._nearest_cut(removal, solids)
+
+    @staticmethod
+    def _nearest_cut(removal, solids):
+        """The holding solid nearest the material ``removal`` takes away, as ``{"mm",
+        "tag", "from_mm", "to_mm"}`` (the cut's point, then the solid's), or None for no
+        removal."""
         nearest = None
-        if removal is not None and removal.Volume > STOCK_MM3:
-            cut_box = _bbox(removal)
-            for name, solid in sorted(solids, key=lambda item: _box_gap(cut_box, _bbox(item[1]))):
-                if nearest is not None and _box_gap(cut_box, _bbox(solid)) >= nearest["mm"]:
-                    break
-                distance, pairs, _ = _distance(removal, solid)
-                if nearest is None or distance < nearest["mm"]:
-                    near, far = pairs[0]
-                    nearest = {
-                        "mm": distance,
-                        "tag": name,
-                        "from_mm": [near.x, near.y, near.z],
-                        "to_mm": [far.x, far.y, far.z],
-                    }
-        return contacts, nearest
+        if removal is None or removal.Volume <= STOCK_MM3:
+            return None
+        cut_box = _bbox(removal)
+        for name, solid in sorted(solids, key=lambda item: _box_gap(cut_box, _bbox(item[1]))):
+            if nearest is not None and _box_gap(cut_box, _bbox(solid)) >= nearest["mm"]:
+                break
+            distance, pairs, _ = _distance(removal, solid)
+            if nearest is None or distance < nearest["mm"]:
+                near, far = pairs[0]
+                nearest = {
+                    "mm": distance,
+                    "tag": name,
+                    "from_mm": [near.x, near.y, near.z],
+                    "to_mm": [far.x, far.y, far.z],
+                }
+        return nearest
+
+    def _cut_clearances(self, solids):
+        """Each cutting op's own cut against the holding ``solids``: ``[{"op", "mm",
+        "tag"}]`` in op order, ``mm`` the least distance from the material the op takes
+        away (its before-op stock less its after stock) to the nearest holding solid
+        ``tag``. An op whose cut the stock builder could not derive, or whose boolean
+        fails, is ``unknown`` (``mm`` and ``tag``), never left out; an op that removes
+        nothing, a hand op and a saw op (its blade path is the picture's) carry none. The
+        setup picture's ``closest_cut`` is the least over the whole setup's removal."""
+        rows = []
+        for op in self.ops:
+            if _hand(op) or _sawn(op):
+                continue
+            before, after, why = self.cuts.get(id(op), (None, None, "not built"))
+            if why is not None or before is None:
+                rows.append({"op": op.get("op"), "mm": UNKNOWN, "tag": UNKNOWN})
+                continue
+            if after is before:
+                continue
+            try:
+                nearest = self._nearest_cut(before.cut(after), solids)
+            except Exception:
+                rows.append({"op": op.get("op"), "mm": UNKNOWN, "tag": UNKNOWN})
+                continue
+            if nearest is not None:
+                rows.append({"op": op.get("op"), "mm": _r(nearest["mm"]), "tag": nearest["tag"]})
+        return rows
 
     def _index_arc(self, annotation, fixture_kind):
         """A dividing head's authored index: an arc about the head axis on the jaw face,

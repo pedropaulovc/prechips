@@ -171,6 +171,16 @@ def level_paths(bundle, setup, numbers, states, grid, units, dro_z):
             "raster": raster,
             "closed": closed,
         }
+        # One level at the op's own start Z: nothing stands above it where the cutter goes
+        # down (the start is the top of the stock it meets), so it lowers there and only
+        # the path cuts. Its start is an earlier op's cleared floor, else the stock top.
+        if (
+            isinstance(depths, list)
+            and len(depths) == 1
+            and number(start)
+            and abs(start - depths[0]) <= tolerance
+        ):
+            record["lowered"] = "cleared" if levels.get("start_cleared") is True else "top"
         # A return to an entry: between levels of an open path, between pieces, and
         # after every raster pass. An unknown level count claims no return between levels.
         several = isinstance(depths, list) and len(depths) > 1
@@ -199,7 +209,7 @@ def level_paths(bundle, setup, numbers, states, grid, units, dro_z):
                         f"op {record['op']} returns to its entry at Z {raised:g}, not above "
                         "the stock it receives"
                     )
-        if any(not down["air"] for down in downs):
+        if "lowered" not in record and any(not down["air"] for down in downs):
             feed, _, why = plunge_row(bundle, op)
             record["plunge_mm_rev"] = feed
             if not number(feed):

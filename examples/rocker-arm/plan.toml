@@ -204,6 +204,7 @@ bottom_z = -17.525 # raw lower face
 fixture = "vise-pm-6"
 jaws_along = "x" # AUTHOR'S CHOICE: jaws on the two raw edges, bar flat
 fixed_jaw = "rear"
+align = { indicator = "dti", limit_mm = 0.0254, over_mm = 100.0, cite = "AUTHOR'S CHOICE: the fixed jaw squared to 0.001 in (0.0254 mm) over 100 mm of the 6 in jaw because the shop test indicator (gauges.dti) reads 0.0005 in, so the limit is two graduations it resolves" }
 parallels = "parallels-lms-6745/1-1-4in"
 jaw_center_along_mm = 170.0 # AUTHOR'S CHOICE: the 345 mm bar centred in the jaws, 93.5 overhanging each side
 stop = "No end stop: centre the bar in the jaws on the parallels." # AUTHOR'S CHOICE
