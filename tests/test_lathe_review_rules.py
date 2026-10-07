@@ -835,67 +835,117 @@ def _retouched(width):
     return bundle
 
 
-@pytest.mark.parametrize(
-    ("width", "cut", "status"),
-    [(1.61, -8.09, "error"), (1.65, -8.05, "error"), (1.6, -8.0, "pass")],
-)
-def test_a_cut_after_a_retouch_on_a_rounded_blade_face_holds_its_length(width, cut, status):
-    # The 1.61 blade's chuck-side reading -11.6 forms the end at -9.99, which the turner's
-    # re-touch can only set as -9.9 on the 0.1 grid: its DRO then reads 0.09 above where
-    # it stands, so its face to Z -8.0 cuts at -8.09, an 8.09 sleeve outside 7.96..8.04.
-    # A 1.65 blade forms -9.95: 0.05 deeper than authored is refused too, though less
-    # than the band is wide (8.05 is outside it). The on-grid 1.6 blade forms -10.0 and
-    # the sleeve holds 8.00.
-    zero, finding, sheet, setup = _traveler(_retouched(width))
-    [retouch] = zero.numbers["derived_touches"]
-    assert (retouch["tool"], retouch["z_face"], retouch["before_ops"]) == ("turner", "end", [50])
-    faced, face = (next(e for e in finding.numbers["operations"] if e["op"] == n) for n in (40, 50))
-    # The re-touch's Axis Set is the end as the sheet shows it; the end stands where the
-    # blade formed it. The turner's DRO reads their difference above where it stands.
-    error = sheet.datum_z(setup, "end", -10.0, done=1) - faced["dro_to_z"]
-    assert face["dro_to_z"] == pytest.approx(-8.0)
-    assert face["dro_to_z"] - error == pytest.approx(cut)
-    assert finding.status == status
-    assert bool(finding.numbers.get("dro_z_residual_errors")) is (status == "error")
-    assert face.get("z_datum", {}).get("error_mm", 0.0) == pytest.approx(error)
-
-
-@pytest.mark.parametrize(
-    ("width", "face", "status"), [(1.61, -20.09, "error"), (1.6, -20.0, "pass")]
-)
-def test_a_blade_retouched_on_a_rounded_blade_face_holds_its_band_where_it_stands(
-    width, face, status
-):
-    # A 1.6 parter re-touched (chuck-side corner) on the end the first blade formed parts
-    # to -20 within -20.05..-19.95. Formed at -9.99 by the 1.61 blade but set as -9.9, its
-    # DRO reads 0.09 high: reading -21.6 forms -20.0 as the DRO shows it, -20.09 where it
-    # stands. Its allowed readings move up with the DRO.
-    bundle = _retouched(width)
+def _consumer(bundle, kind):
+    """``_retouched``'s op 50 as the cut that reads the re-touched end: the sleeve faced to
+    -8 for its length, the same face held by its own -8.04..-7.96 band (the sleeve length
+    unknown), a blind 2.0 bore from an entry at 0 held to 1.96..2.04 deep, or a 1.6 parter
+    re-touched (chuck-side corner) on the end to part at -20 within -20.05..-19.95."""
     setup = bundle.plan["setups"][0]
-    op = {"op": 60, "do": "part_off", "tool": "parter", "to_z": -20.0}
-    setup["ops"][1:] = [{**op, "to_z_band": [-20.05, -19.95]}]
-    bundle.inventory["tools"]["parter"] = _blade()
-    bundle.kernel["setups"]["S1"]["revolved"]["end"] = {
-        "end_faces": [{"z_mm": -10.0, "normal_z": 1}]
-    }
-    bundle.kernel["ops"]["S1:60"] = {"faced_side": -1}
+    features = bundle.features["features"]
+    if kind == "band":
+        setup["ops"][1]["to_z_band"] = [-8.04, -7.96]
+        features["sleeve"] = {"kind": "shaft", "length": "unknown", "requirements": ["length"]}
+    elif kind == "bore":
+        bundle.inventory["tools"]["turner"]["kind"] = "boring_bar"
+        setup["stock_state"]["entry_z"] = {"hole": 0.0}
+        setup["ops"][1] = {
+            "op": 50,
+            "do": "bore",
+            "feature": "hole",
+            "tool": "turner",
+            "depth_mm": 2.0,
+        }
+        features["hole"] = {
+            "kind": "hole",
+            "thru": False,
+            "depth": [1.96, 2.04],
+            "requirements": ["depth"],
+            "at": [0.0, 0.0, 0.0],
+            "dia": [4.0, 4.1],
+        }
+    elif kind == "blade":
+        op = {"op": 60, "do": "part_off", "tool": "parter", "to_z": -20.0}
+        setup["ops"][1:] = [{**op, "to_z_band": [-20.05, -19.95]}]
+        bundle.inventory["tools"]["parter"] = _blade()
+        bundle.kernel["setups"]["S1"]["revolved"]["end"] = {
+            "end_faces": [{"z_mm": -10.0, "normal_z": 1}]
+        }
+        bundle.kernel["ops"]["S1:60"] = {"faced_side": -1}
+    return bundle
+
+
+@pytest.mark.parametrize("kind", ["length", "band", "bore", "blade"])
+@pytest.mark.parametrize("width", [1.61, 1.6])
+def test_a_touch_on_a_blade_face_off_its_dro_grid_is_refused_whatever_cuts_next(kind, width):
+    # The 1.61 blade's chuck-side reading -11.6 forms the end at -9.99, which a re-touch
+    # on the 0.1 grid can only set as -9.9: every Z the re-touched tool then cuts to lands
+    # 0.09 deeper than printed (a 8.09 sleeve, a face at -8.09, a 2.09 bore, a part-off at
+    # -20.09). zero_check refuses the touch, whichever cut reads it. The on-grid 1.6 blade
+    # forms -10.0 where the re-touch sets it, and every cut holds.
+    from prechips.rules import tip_endpoints
+
+    bundle = _consumer(_retouched(width), kind)
     zero, finding, sheet, setup = _traveler(bundle)
     [retouch] = zero.numbers["derived_touches"]
-    assert (retouch["tool"], retouch["z_face"], retouch["reference_corner"]) == (
-        "parter",
-        "end",
-        "chuck_side",
-    )
-    operations = finding.numbers["operations"]
-    faced, entry = (next(e for e in operations if e["op"] == n) for n in (40, 60))
-    assert entry["blade"]["corner_dro_z"] == pytest.approx(-21.6)
-    shift = sheet.datum_z(setup, "end", -10.0, done=1) - faced["dro_to_z"]
-    assert entry["dro_to_z"] - shift == pytest.approx(face)
-    assert finding.status == status
-    # Every reading in the printed interval leaves the face, where it stands, in the band.
-    for reading in _allowed(sheet.tip(setup, setup["ops"][1])):
-        assert -20.05 - 1e-9 <= reading + 1.6 - shift <= -19.95 + 1e-9
-    assert entry.get("z_datum", {}).get("error_mm", 0.0) == pytest.approx(shift)
+    assert (retouch["z_face"], retouch["before_ops"][0]) == ("end", setup["ops"][1]["op"])
+    # The Axis Set the sheet prints for the end against where the blade left it.
+    stands = coordinates.formed_z(bundle, setup, setup["ops"][0])
+    off = sheet.datum_z(setup, "end", -10.0, done=1) != pytest.approx(stands)
+    assert off is (width == 1.61)
+    assert zero.status == ("error" if off else "pass")
+    if not off:
+        assert finding.status == "pass"
+        if kind == "bore":
+            [blind] = [f for f in tip_endpoints.evaluate(bundle) if f.subject == "hole"]
+            assert blind.status == "pass"
+
+
+@pytest.mark.parametrize("missing", ["width", "side", "edge"])
+def test_a_touch_on_a_blade_face_standing_at_an_unknown_z_is_unknown(missing):
+    # The on-grid blade's end stands at an unknown Z when its width, its forming side or
+    # the edge its own touch set the DRO on is unknown: the re-touch on that end has no
+    # known Axis Set, so it is never set from the nominal -10.
+    bundle = _retouched(1.6)
+    setup = bundle.plan["setups"][0]
+    if missing == "width":
+        bundle.inventory["tools"]["blade"]["blade_width_mm"] = "unknown"
+    elif missing == "side":
+        bundle.kernel["ops"]["S1:40"] = {}
+    else:
+        setup["zero"]["tool_touches"][0]["edge_mm"] = "unknown"
+    zero, finding, sheet, setup = _traveler(bundle)
+    assert coordinates.formed_z(bundle, setup, setup["ops"][0]) == "unknown"
+    assert sheet.datum_z(setup, "end", -10.0, done=1) == "unknown"
+    assert zero.status == "unknown"
+
+
+@pytest.mark.parametrize(
+    ("width", "status"), [("unknown", "unknown"), (1.61, "error"), (1.6, "pass")]
+)
+def test_a_later_setup_zeroed_on_a_blade_face_reads_where_it_stands(width, status):
+    # S2 takes S1's part in the same frame and zeros its turner on the end S1's blade
+    # formed, then faces the sleeve to -8. Its Z zero is set where that end stands: never
+    # from the nominal -10 when S1 left it at an unknown Z, refused when S1 left it off
+    # S2's 0.1 grid (-9.99, set as -9.9).
+    import copy
+
+    bundle = _retouched(1.6)
+    bundle.inventory["tools"]["blade"]["blade_width_mm"] = width
+    first = bundle.plan["setups"][0]
+    first["ops"] = first["ops"][:1]
+    second = copy.deepcopy(first)
+    second.update(id="S2", stock_in="S1")
+    second["ops"] = [{"op": 50, "do": "face", "feature": "sleeve", "tool": "turner", "to_z": -8.0}]
+    second["zero"]["tool_touches"] = []
+    second["zero"]["z"].update(face="end", edge_mm=-10.0, tool="turner", method="touch")
+    bundle.plan["setups"].append(second)
+    zeros = {f.subject: f.status for f in zero_recipe.evaluate(bundle)}
+    assert zeros == {"S1": "pass", "S2": status}
+    if status == "pass":
+        assert {f.subject: f.status for f in coordinates.evaluate(bundle)} == {
+            "S1": "pass",
+            "S2": "pass",
+        }
 
 
 def test_each_toolpost_tool_is_set_on_centre_before_its_first_touch_off():

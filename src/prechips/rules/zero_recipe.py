@@ -234,8 +234,8 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
     set as the measured diameter. Tailstock tools on a lathe never read the carriage
     DRO; a touch naming none of the setup's ops serves none. Returns (derived touches,
     missing touches, unknown, readings): ``readings`` maps each cutting op to the Z touch
-    record its DRO Z reads (the zero's recipe, a tool touch or a derived re-touch), None
-    when no touch of its tool set Z."""
+    record its DRO Z reads (the zero's recipe, a tool touch, a derived re-touch or a listed
+    retouch of the top), None when no touch of its tool set Z."""
     ops = records(setup.get("ops"))
     states = list(stock_states(setup, bundle.feature_definitions))
     recipe, x_recipe = mapping(zero.get("z")), mapping(zero.get("x"))
@@ -355,7 +355,15 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
         if cutting:
             readings[str(op["op"])] = z_by if set_z == tool else None
         if str(op.get("op")) in listed:
-            pending = {"z_face": "top", "edge_mm": after["top_z"], "after_op": op["op"]}
+            top = after["top_z"]
+            pending = {
+                "z_face": "top",
+                "edge_mm": top,
+                "paper_mm": paper,
+                # Its Axis Set, as the zero lists it: the top plus its paper.
+                "z_axis_set": top + paper if number(top) and number(paper) else UNKNOWN,
+                "after_op": op["op"],
+            }
             z_event(index + 1, "top", after["top_z"], paper, f"retouch after op {op['op']}")
         if op.get("do") in FACING | POCKETING and op.get("feature"):
             z_event(index + 1, op["feature"], op.get("to_z"), paper, f"op {op['op']} {op['do']}")
@@ -371,10 +379,9 @@ def lathe_setup(bundle, setup):
 
 
 def z_readings(bundle, setup):
-    """{op: Z touch record} for each cutting op of ``setup``: the zero's recipe, a tool
-    touch, a derived re-touch or a listed retouch of the top whose Axis Set its DRO Z reads
-    (:func:`tool_changes` ``readings``), None when no touch of its tool set Z. Empty for a
-    saw setup."""
+    """{op: Z touch record} for each cutting op of ``setup``: the touch whose Axis Set its
+    DRO Z reads (:func:`tool_changes` ``readings``), None when no touch of its tool set Z.
+    Empty for a saw setup."""
     if saw_setup(setup):
         return {}
     zero = mapping(setup.get("zero"))
@@ -382,6 +389,31 @@ def z_readings(bundle, setup):
     lathe = lathe_setup(bundle, setup)
     *_, readings = tool_changes(bundle, setup, zero, lathe, UNKNOWN, touches)
     return readings
+
+
+def reads_unknown(bundle, setup, op, readings=None):
+    """Whether ``op`` cuts on a DRO Z set at an unknown place: the Z touch it reads
+    (:func:`z_readings`, unless given) has an unknown plan edge or paper stand-off
+    (:func:`paper_offset`), or meets a face standing at an unknown Z (:func:`face_stands`).
+    A measured touch reads its face."""
+    readings = z_readings(bundle, setup) if readings is None else readings
+    touch = readings.get(str(op.get("op")))
+    if touch is None or touch.get("method") in MEASURED:
+        return False
+    face, edge = touch.get("z_face"), touch.get("edge_mm")
+    if not number(edge):
+        return True
+    if "z_axis_set" in touch:
+        # A derived re-touch or a listed retouch of the top carries its own Axis Set.
+        known = number(touch["z_axis_set"])
+    else:
+        side = touch_side(bundle, setup, touch, face, edge, lathe_setup(bundle, setup))
+        known = number(paper_offset(touch.get("paper_mm", UNKNOWN), side))
+    if not known:
+        return True
+    done = _position(records(setup.get("ops")), touch) or 0
+    stands = face_stands(bundle, setup, face, edge, done)
+    return stands is not None and not number(stands)
 
 
 def blade_readings(bundle, setup, readings=None):
@@ -405,60 +437,6 @@ def blade_readings(bundle, setup, readings=None):
             "corner_from": UNKNOWN,
             "reason": "no Z touch of this blade sets the DRO before it cuts",
         }
-    return result
-
-
-def z_datum(bundle, setup, touch):
-    """How a Z ``touch`` (a :func:`z_readings` record) sets the DRO against where its face
-    physically stands; None when it sets it on that face. Its Axis Set is the face as this
-    setup's DRO shows it (``shown_z``: :func:`operative_z`, the surface the sheet prints),
-    but the face stands where the op that produced it under a set Z DRO left it
-    (``formed_z``: :func:`formed_z`, off this grid when a blade's width or a finer
-    producer grid is). The DRO then reads ``error_mm`` (shown less formed) above where the
-    tool stands, so every absolute Z it cuts to lands that much lower. A measured touch
-    reads its face; a face no op produced under a set DRO stands at its plan Z, which the
-    touch makes the frame. An unknown edge or face Z leaves ``error_mm`` unknown."""
-    from .coordinates import dro_grid, dro_z, formed_z
-
-    if touch.get("method") in MEASURED or not touch.get("z_face"):
-        return None
-    face, edge = touch["z_face"], touch.get("edge_mm")
-    if not number(edge):
-        return {"face": face, "error_mm": UNKNOWN}
-    done = _position(records(setup.get("ops")), touch) or 0
-    producer = _producer(bundle, setup, edge, face, done, None)
-    if producer is None or not _framed(*producer):
-        return None
-    formed = formed_z(bundle, *producer)
-    shown = dro_z(formed, dro_grid(bundle, setup))
-    if not (number(formed) and number(shown)):
-        return {"face": face, "error_mm": UNKNOWN}
-    error = round(shown - formed, 9)
-    if not error:
-        return None
-    return {"face": face, "shown_z": shown, "formed_z": formed, "error_mm": error}
-
-
-def _framed(setup, op):
-    """Whether ``setup``'s ``op`` cut under its Z zero: ops before the zero's ``after_op``
-    run before any tool set the Z DRO, so the zero, not they, places their faces."""
-    ops = records(setup.get("ops"))
-    recipe = mapping(mapping(setup.get("zero")).get("z"))
-    start = _position(ops, {"after_op": recipe.get("after_op")}) or 0
-    return any(cut is op for cut in ops[start:])
-
-
-def z_datums(bundle, setup):
-    """{op: :func:`z_datum`} for each cutting op of ``setup`` whose DRO Z reads a touch
-    that sets it off where its face stands."""
-    datums, result = {}, {}
-    for name, touch in z_readings(bundle, setup).items():
-        if touch is None:
-            continue
-        if id(touch) not in datums:
-            datums[id(touch)] = z_datum(bundle, setup, touch)
-        if datums[id(touch)] is not None:
-            result[name] = datums[id(touch)]
     return result
 
 
@@ -536,6 +514,59 @@ def _corner_recorder(bundle, setup, lathe, errors):
     return record
 
 
+def face_stands(bundle, setup, face, edge, done=0, source=None):
+    """Where the ``face`` a Z touch at plan ``edge`` meets physically stands once
+    ``setup``'s first ``done`` ops have run, when an op cut it under a set Z DRO: that op's
+    :func:`formed_z` (unknown when a blade's corner, side or width is), found as the sheet
+    finds the face it prints (:func:`operative_z`: ``source``, this setup's ops and its
+    same-frame stock lineage). None for any other face: the stock, or a face cut before
+    its setup's Z zero, stands where the touch sets it."""
+    from .coordinates import formed_z
+
+    if not number(edge):
+        return None
+    producer = _producer(bundle, setup, edge, face, done, source)
+    if producer is None or not _framed(*producer):
+        return None
+    return formed_z(bundle, *producer)
+
+
+def _framed(setup, op):
+    """Whether ``setup``'s ``op`` cut under its Z zero: ops before the zero's ``after_op``
+    run before any tool set the Z DRO, so the zero, not they, places their faces."""
+    ops = records(setup.get("ops"))
+    recipe = mapping(mapping(setup.get("zero")).get("z"))
+    start = _position(ops, {"after_op": recipe.get("after_op")}) or 0
+    return any(cut is op for cut in ops[start:])
+
+
+def _face_checker(bundle, setup, errors, unknowns):
+    """A function checking that a Z touch sets its DRO where its face stands: the face as
+    the sheet prints it, on this setup's DRO grid (:func:`operative_z`), must be exactly
+    where it stands (:func:`face_stands`). A face standing off the grid is set where it
+    is not, and every Z the tool then cuts to lands off by the difference: it collects
+    into ``errors``. A face standing at an unknown Z collects into ``unknowns``. A
+    measured touch reads its face and is not checked."""
+    from .coordinates import dro_grid, dro_z
+
+    grid = dro_grid(bundle, setup)
+
+    def check(touch, face, edge, done, who, source=None):
+        if touch.get("method") in MEASURED or not face:
+            return
+        stands = face_stands(bundle, setup, face, edge, done, source)
+        if stands is None:
+            return
+        if not number(stands):
+            unknowns.append(f"{who} on {face}")
+            return
+        shown = dro_z(stands, grid)
+        if round(shown - stands, 9):
+            errors.append(f"{who} sets {face} as Z {shown:g}, which stands at {stands:g}")
+
+    return check
+
+
 def evaluate(bundle):
     result = []
     dro = mapping(bundle.plan.get("dro"))
@@ -568,6 +599,11 @@ def evaluate(bundle):
         # under coordinates instead.
         corner_errors = []
         blade_corner = _corner_recorder(bundle, setup, lathe, corner_errors)
+        # Z touches that set their DRO off where their face stands, or on a face standing
+        # at an unknown Z (:func:`_face_checker`).
+        face_errors, face_unknowns = [], []
+        face_check = _face_checker(bundle, setup, face_errors, face_unknowns)
+        ops = records(setup.get("ops"))
 
         unknown = (
             not frame
@@ -708,6 +744,8 @@ def evaluate(bundle):
             axes[axis] = row
             if axis == "z":
                 blade_corner(row, recipe, face, edge, "the Z zero touch")
+                done = _position(ops, {"after_op": recipe.get("after_op")}) or 0
+                face_check(recipe, face, edge, done, "the Z zero touch")
             unknown |= (
                 any(values[k] == UNKNOWN for k in ("axis_set", "check_reading", "mirrored_reading"))
                 or not tool
@@ -725,6 +763,8 @@ def evaluate(bundle):
                 touch = top + paper if number(top) and number(paper) else UNKNOWN
                 retouch.append({"op": op["op"], "top_z": top, "paper_mm": paper, "axis_set": touch})
                 unknown |= touch == UNKNOWN
+                who = f"the retouch after op {op['op']}"
+                face_check({}, "top", top, 0, who, after["top_from"])
         touches = []
         x_scale = {True: 1, False: 2}.get(dro.get("radius_mode"), UNKNOWN) if lathe else UNKNOWN
         for record in records(zero.get("tool_touches")):
@@ -755,6 +795,7 @@ def evaluate(bundle):
             row = {**record, "x_axis_set": x_set, "z_axis_set": z_set}
             who = f"the {record.get('tool', UNKNOWN)} touch"
             blade_corner(row, record, record.get("z_face"), edge, who)
+            face_check(record, record.get("z_face"), edge, _position(ops, record) or 0, who)
             touches.append(row)
             unknown |= x_set == UNKNOWN or z_set == UNKNOWN or not tool or uncertain(tool)
         derived, missing, changes_unknown, _ = tool_changes(
@@ -764,6 +805,9 @@ def evaluate(bundle):
         for row in derived:
             who = f"the {row.get('tool', UNKNOWN)} re-touch"
             blade_corner(row, row, row.get("z_face"), row.get("edge_mm"), who)
+            done = _position(ops, row) or 0
+            face_check(row, row.get("z_face"), row.get("edge_mm"), done, who)
+        unknown |= bool(face_unknowns)
         numbers = {
             "frame": setup.get("frame", UNKNOWN),
             "binding": frame.get("binding", "nominal"),
@@ -781,7 +825,8 @@ def evaluate(bundle):
             numbers["tool_setting"] = tool_setting(bundle, setup, zero, touches, derived)
         if "transfer" in zero:
             numbers["transfer"] = zero["transfer"]
-        status = "error" if bad or missing or corner_errors else "unknown" if unknown else "pass"
+        errors = bad or missing or corner_errors or face_errors
+        status = "error" if errors else "unknown" if unknown else "pass"
         sentence = (
             "DRO direction or mode disagrees with the setup convention; stop and correct it "
             "before the check jog."
@@ -815,6 +860,19 @@ def evaluate(bundle):
                 " A blade's Z touch names a corner its face cannot give ("
                 + "; ".join(corner_errors)
                 + "): plan its Zs from the corner the face gives."
+            )
+        if face_errors:
+            sentence += (
+                " A Z touch sets its DRO off where its face stands ("
+                + "; ".join(face_errors)
+                + "): every Z the tool then cuts to lands off by the difference. Plan the "
+                "face onto this DRO's grid, or set Z from a measured reading of it."
+            )
+        if face_unknowns:
+            sentence += (
+                " A Z touch meets a face its op left at an unknown Z ("
+                + "; ".join(face_unknowns)
+                + "): its Axis Set is not known."
             )
         result.append(
             Finding(
