@@ -127,9 +127,9 @@ def _turning_values(bundle, op):
     if number(insert) and number(entering) and insert + entering >= 180:
         # The minor (trailing) edge would lead the nose: no real insert has this shape.
         missing += ["insert_angle_deg", "entering_angle_deg"]
-    if number(values["head_len_mm"]) and number(values["projection_mm"]):
-        if values["head_len_mm"] > values["projection_mm"]:
-            missing.append("head_len_mm")
+    # A tool set out shorter than its head (holder on the head) is measured, not missing:
+    # both stay in the job, which leaves the holder unposed, and the rules say why
+    # (geometry_common.op_contexts).
     # Reach rule: the radial depth the cutting edge itself spans, else the declared reach.
     reach = _accepted_length(tool, "reach")
     if number(reach) and reach > 0:

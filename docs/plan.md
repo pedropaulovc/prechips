@@ -630,6 +630,7 @@ for collet/chuck capacity, not the unsupported-section diameter.
 | `grip_mm` | `Number \| Literal['not_applicable']` |
 | `jaw_above_parallels_mm` | `Number \| Literal['not_applicable']` |
 | `stickout_mm` | `Number` |
+| `stickout_fit` | `{ measure: str, nominal_mm: Number, add_mm: Number }`: a stickout set from a measured fit-up; `stickout_mm` is the nominal `nominal_mm + add_mm` ([stickout](rules-lathe.md#stickout)) and the operator sets the `measure` reading + `add_mm`. The HOLD table prints `nominal stickout mm` and `set stickout: measured … + N`; the picture dimensions `NOM STICKOUT …` and its notes say it is set as the measured fit-up + N |
 | `jaw_center_along_mm` | `Number` |
 | `jaw_bar` | `str` (fixtures `round_bar` between the work and the moving jaw) |
 | `parallels_centres_mm` | `list[[Number, Number]]` (exactly two) |
@@ -830,15 +831,23 @@ rest's `body_dia` and `body_length` ([inventory](inventory.md),
 [rules-geometry](rules-geometry.md#follow-and-steady-rests)). Example:
 `supports = ["dead_centre_tailstock_mt3", { ref = "follow-rest", ops = [10, 30], jaw_lead_mm = 8.0, jaw_side = "turned" }]`.
 The traveler's HOLD prints a follow rest's lead as a distance along the work,
-never beside a Ø sign: `jaws 8.00 mm behind the tool, on the diameter just turned:
-reset them on every pass once the tool passes Z 152.00` (trailing jaws ride each
-pass's new diameter; `engage_at_z_mm`, when declared, is the Z), or `jaws … mm
-ahead of the tool, on the uncut stock`.
+never beside a Ø sign: `jaws 8.00 mm behind the tool, on the diameter just turned;
+set on and backed off every pass as printed under each op` (trailing jaws ride
+each pass's new diameter), or `jaws … mm ahead of the tool, on the uncut stock`.
 
-Where an op's start would foul the rest, the op row prints the engagement step at
-`engage_at_z_mm`: each pass, stop the feed, then the spindle; set the jaws and lock
-them; restart the spindle, then resume the feed. Hands never set a rest on a
-turning spindle, and the cut never resumes on a stopped one.
+Each op the rest serves prints its pass sequence once, as a full-width line under
+the op row; the op's coordinate cell keeps only `follow rest on: Z …` where the
+op's start would foul the rest (`engage_at_z_mm`, on the DRO grid). The sequence:
+start with the jaws backed off; at that Z (or, with no engagement Z, once the tool
+has turned the jaw lead) stop the feed, then the spindle; set the jaws and lock
+them; restart the spindle, then resume the feed. Trailing (`turned`) jaws add the
+pass end: stop the feed, then the spindle; back the jaws off; withdraw the tool
+along X; return the carriage to the pass start — the return carries them back past
+the pass start by their lead onto stock that pass never cut. Leading (`uncut`)
+jaws return over the smaller cut diameter and get no release. Hands never set a
+rest on a turning spindle, and the cut never resumes on a stopped one. A rest
+whose `jaw_side` or positive `jaw_lead_mm` is not known prints a STOP box, never a
+pass sequence.
 
 ## Zero
 
@@ -870,6 +879,13 @@ turning spindle, and the cut never resumes on a stopped one.
 | `offset_mm` | `float` (`measure_then_set`: Axis Set M + offset + paper) |
 | `retouch_after` | `list[int]` |
 | `after_op` | `int` |
+| `measure_before_hold` | `bool` (`measure_then_set`: M is read on the part before it is held) |
+
+The setup sheet prints in the order the operator works: a `measure_before_hold`
+M is the first HOLD step (`Before clamping, measure Z M = …`), and its DRO row
+then reads `M measured before clamping (HOLD)`; the datum transfer prints before
+the DRO ZERO table and its tool settings, so the work is indicated true before any
+tool touches it.
 
 ## Transfer
 
@@ -881,19 +897,27 @@ turning spindle, and the cut never resumes on a stopped one.
 | `gauge` | `str` |
 | `runout_limit_mm` | `Number` |
 | `reindicate_after` | `list[int]` |
+| `keep_clamped` | `bool`: the hold must not be loosened to correct the work (an indexed setup keeping an earlier chucking) |
+| `recovery` | `str`: what to do when a `keep_clamped` sweep reads over the limit |
 
 The setup sheet prints the transfer by what `indicate` names: on a lathe, tap true
 to the limit; on a mill, one hole, bore or boss (or a named item that is not a
 feature, such as a pin head) is centred on by moving the table; surfaces, or
 several features, are an alignment, so the operator sweeps each surface by table
 travel and taps the work, not the table, until the reading is within the limit.
+With `keep_clamped = true` the work is never loosened or tapped: the sheet prints
+the sweep as a check (a centring still moves the table), `do not loosen`, and the
+plan's `recovery` for a reading over the limit. Without a `recovery` it prints a
+STOP and [zero_check](rules-coordinates.md#zero_check) is `unknown`.
 
 ## ToolTouch
 
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
 | `tool` | `str` |
-| `x_method` | `str` |
+| `x_method` | `str` (the operator's words; `"trial_cut_measure"`: the touch trial-cuts its own diameter) |
+| `x_face` | `str`: the plan feature whose measured diameter a lathe X touch is set on, or `"x_zero"` for this setup's X-zero trial-cut land; must stand where it touches ([zero_check](rules-coordinates.md#zero_check)) |
+| `x_paper_mm` | `float`: paper between the tool and that diameter; Axis Set X = measured D + 2×paper on a diameter display (D/2 + paper on radius) |
 | `gauge` | `str` |
 | `z_face` | `str` |
 | `method` | `str` |
@@ -970,7 +994,15 @@ feature exports (else `BadInput`), and `band` is in the drawing's units. The
 inspection rule errors when the band reaches outside the drawing band (limits
 included, a scalar zone `v` read as [0, v]). The sheet prints it in the op's
 inspection cell as `PROCESS HOLD — not a drawing limit: <reason>`, never as a
-drawing limit.
+drawing limit, and the job page gathers every hold in a **PROCESS HOLDS —
+in-process limits, not drawing limits** table, apart from DRAWING REQUIREMENTS.
+
+A hold may instead name a feature's reference-only dimension (`<name>_ref`, a
+number the drawing gives as REF or CUT TO FIT, such as an assembly fit-up span).
+The drawing sets no limit there, so the hold must also say what the gauge reads
+(`measure`, e.g. `"scribe to faced end"`) and where the band comes from (`cite`);
+missing either is `BadInput`. A `measure` on a hold of an exported requirement is
+`BadInput` too: that hold reads the requirement itself.
 
 A `GoNoGo` is `{ go = <mm>, no_go = <mm> }`, both positive and different: the two
 limit-gauge sizes a limit check uses. The GO size must pass the work (enter a hole,

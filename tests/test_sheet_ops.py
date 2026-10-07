@@ -31,6 +31,35 @@ def test_printed_band_never_wider_than_the_drawing(band, precision, printed):
     assert bare(precision).band(band, None, None) == printed
 
 
+def _hold_facts(hold):
+    sheet = bare(2)
+    sheet.operative = lambda value: f"{value:.2f}"
+    sheet.jaw_front_z = lambda setup: None
+    sheet.bench = lambda text, setup=None: text
+    return dict(sheet.hold_facts({"id": "S3"}, hold, True))
+
+
+def test_a_stickout_from_a_measured_fit_up_prints_as_nominal_with_its_setting():
+    fit = {"measure": "trial-fit scribe to the plain end", "nominal_mm": 16.83, "add_mm": 8.0}
+    facts = _hold_facts({"stickout_mm": 24.83, "stickout_fit": fit})
+    assert "stickout mm" not in facts
+    assert facts["nominal stickout mm"] == "24.83"
+    assert facts["set stickout"] == "measured trial-fit scribe to the plain end + 8.00"
+
+
+@pytest.mark.parametrize("fit", [None, {}])
+def test_a_plain_stickout_prints_as_the_setting(fit):
+    hold = {"stickout_mm": 24.83} | ({"stickout_fit": fit} if fit is not None else {})
+    facts = _hold_facts(hold)
+    assert facts["stickout mm"] == "24.83" and "set stickout" not in facts
+
+
+def test_a_fit_up_stickout_with_an_unstated_reading_is_not_printed_as_a_setting():
+    fit = {"measure": "unknown", "nominal_mm": 16.83, "add_mm": 8.0}
+    facts = _hold_facts({"stickout_mm": 24.83, "stickout_fit": fit})
+    assert facts["set stickout"].startswith("?")
+
+
 def test_band_narrower_than_its_precision_prints_declared_limits():
     assert bare(2).band([3.001, 3.004], None, None) == "3.001–3.004"
 
@@ -476,12 +505,41 @@ def test_a_lathe_feature_map_keeps_the_drawing_limits_apart_from_the_size_turned
         drawing={"head": {"kind": "cylinder", "dia": [42.0, 43.6]}},
         kind="lathe",
     )
-    html = sheet.feature_map({"id": "S1", "ops": []})
+    turned = [
+        {"op": 10, "do": "turn", "feature": "head"},
+        {"op": 20, "do": "turn", "feature": "spigot"},
+    ]
+    html = sheet.feature_map({"id": "S1", "ops": turned})
     head = html.split("<td>head</td>", 1)[1].split("</tr>", 1)[0]
     assert "Ø42.000–43.600" in head and "Ø42.750" in head
     # A process size (a joint spigot) has no drawing limits to print.
     spigot = html.split("<td>spigot</td>", 1)[1].split("</tr>", 1)[0]
     assert "<td>—</td>" in spigot and "Ø17.200" in spigot
+
+
+@pytest.mark.parametrize(
+    ("ops", "listed"),
+    [
+        # Mic'd as supplied, never cut: no size to turn to, no Z to cut from.
+        ([{"op": 5, "do": "inspect", "feature": "shoulder_od"}], False),
+        ([], False),
+        ([{"op": 10, "do": "turn", "feature": "shoulder_od"}], True),
+    ],
+)
+def test_a_lathe_feature_map_lists_only_surfaces_this_setup_cuts(ops, listed):
+    rows = [
+        {"feature": "shoulder_od", "setup": [5.0, 0.0, z], "x_target_mm": 10.0} for z in (0, -1.5)
+    ]
+    rows += [{"feature": "bearing", "setup": [3.2, 0.0, z], "x_target_mm": 6.35} for z in (0, -9)]
+    sheet = mapped(
+        {("coordinates", "S1"): {"x_display": "diameter", "rows": rows}},
+        {"shoulder_od": {"kind": "cylinder"}, "bearing": {"kind": "cylinder"}},
+        kind="lathe",
+    )
+    setup = {"id": "S1", "ops": [*ops, {"op": 20, "do": "finish_turn", "feature": "bearing"}]}
+    html = sheet.feature_map(setup)
+    assert "<td>bearing</td>" in html
+    assert ("<td>shoulder od</td>" in html) is listed
 
 
 def test_a_mill_feature_map_names_the_point_each_row_stands_on_from_the_feature_kind():
@@ -614,6 +672,30 @@ def test_an_alignment_sweep_moves_the_work_and_a_centring_sweep_moves_the_table(
         assert "move the table" in line and "re-clamp" not in line
 
 
+@pytest.mark.parametrize("kind", ["mill", "lathe"])
+def test_a_hold_that_must_stay_clamped_prints_its_recovery_never_the_loosen_advice(kind):
+    sheet, transfer = transfer_sheet(["face_a", "bore"], kind)
+    sheet.machine = lambda setup: {"kind": kind}
+    recovery = "index back to 0 and indicate the reamed socket; re-tram the head if it holds"
+    line = sheet.transfer_line(
+        {"id": "S5"}, {**transfer, "keep_clamped": True, "recovery": recovery}
+    )
+    assert recovery in line and "0.0254" in line
+    assert not re.search(r"loosen the clamping|tap the|tap true|re-clamp", line)
+    assert "do not loosen" in line.lower()
+
+
+@pytest.mark.parametrize("recovery", [None, "unknown", "  "])
+def test_a_hold_that_must_stay_clamped_without_a_recovery_is_a_stop(recovery):
+    sheet, transfer = transfer_sheet(["face_a", "bore"], "mill")
+    transfer = {**transfer, "keep_clamped": True}
+    if recovery is not None:
+        transfer["recovery"] = recovery
+    line = sheet.transfer_line({"id": "S5"}, transfer)
+    assert line.startswith("STOP") and "recovery" in line
+    assert not re.search(r"loosen the clamping|tap the|re-clamp", line)
+
+
 def test_a_procedure_authored_as_steps_prints_numbered_with_fields_and_its_calculation():
     from prechips.sheet import _list
 
@@ -670,3 +752,96 @@ def test_plans_author_inspection_procedures_as_strings_or_step_lists():
     assert op.model_dump()["inspection_methods"]["position_dia"] == steps
     with pytest.raises(ValidationError):
         Operation.model_validate({"op": 10, "do": "inspect", "inspection_note": []})
+
+
+PAINT_NOTE = "Mask the bores; brush RAL 6005 to 50-75 um dry film."
+
+
+def _bench_sheet(ops):
+    from prechips.inputs import Bundle
+
+    data = Bundle(
+        plan={"setups": [{"id": "S12", "machine": "bench", "ops": ops}]},
+        inventory={
+            "machines": {"bench": {"kind": "bench"}},
+            "consumables": {"ral-6005": {"name": "RAL 6005 alkyd"}},
+        },
+        features={"features": {"body": {"kind": "cylinder"}}},
+        policy={},
+        cutting_data={},
+        paths={},
+        hashes={},
+        root=Path("."),
+        kernel={"status": "ok", "ops": {}},
+    )
+    sheet = _Traveler(data, [], {}, None)
+    html, _, _ = sheet.operations(data.plan["setups"][0], {}, {"notes": 2})
+    return html
+
+
+def test_a_bench_finishing_setup_prints_a_finishing_table_not_empty_machining_columns():
+    paint = {"op": 10, "do": "coating", "feature": "body", "process": "ral-6005"}
+    html = _bench_sheet(
+        [{**paint, "note": PAINT_NOTE}, {"op": 20, "do": "deburr", "feature": "body"}]
+    )
+    headings = re.findall(r"<th>([^<]*)</th>", html)
+    assert "<h2>ASSEMBLY / FINISHING</h2>" in html and "<h2>OPERATIONS</h2>" not in html
+    assert headings == [
+        "step",
+        "feature",
+        "material / consumable",
+        "action",
+        "inspection: limit, gauge",
+    ]
+    painted = html.split("<td>10</td>", 1)[1].split("</tr>", 1)[0]
+    # The consumable sits in its own column and the op's instruction is its action, once.
+    cells = re.findall(r"<td>(.*?)</td>", painted, re.DOTALL)
+    assert cells[1] == "RAL 6005 alkyd (in-house)"
+    assert PAINT_NOTE in cells[2]
+    assert html.count("brush RAL 6005") == 1
+    deburred = html.split("<td>20</td>", 1)[1].split("</tr>", 1)[0]
+    assert "deburr" in deburred
+
+
+def test_a_setup_with_any_cutting_op_keeps_the_machining_table():
+    paint = {"op": 10, "do": "coating", "feature": "body", "process": "ral-6005"}
+    html = _bench_sheet([paint, {"op": 20, "do": "drill", "feature": "body"}])
+    assert "<h2>OPERATIONS</h2>" in html and "FINISHING" not in html
+    assert "rpm" in re.findall(r"<th>([^<]*)</th>", html)
+
+
+@pytest.mark.parametrize(
+    ("x_after", "ends"),
+    [
+        ([1, 0, 0], "the +X end stays at +X"),
+        ([-1, 0, 0], "the +X end moves to −X"),
+        # Turned over about X and a quarter turn: the old +X end now lies along Y.
+        ([0, 1, 0], "the +X end moves to +Y"),
+        ([0, -1, 0], "the +X end moves to −Y"),
+    ],
+)
+def test_a_turn_over_names_where_the_old_plus_x_end_goes(x_after, ends):
+    from prechips.inputs import Bundle
+
+    frames = {
+        "first": {"origin": [0, 0, 0], "x": [1, 0, 0], "z": [0, 0, 1]},
+        "turned": {"origin": [0, 0, 0], "x": x_after, "z": [0, 0, -1]},
+    }
+    setups = [
+        {"id": "S1", "machine": "mill", "frame": "first", "ops": []},
+        {"id": "S2", "machine": "mill", "frame": "turned", "stock_in": "S1", "ops": []},
+    ]
+    data = Bundle(
+        plan={"setups": setups},
+        inventory={"machines": {"mill": {"kind": "mill"}}},
+        features={"features": {}, "frames": frames},
+        policy={},
+        cutting_data={},
+        paths={},
+        hashes={},
+        root=Path("."),
+        kernel={"status": "ok", "ops": {}},
+    )
+    assert _Traveler(data, [], {}, None).flip(setups[1]) == (
+        f"Turn the part over: the other face up, {ends}. "
+    )
