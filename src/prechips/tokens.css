@@ -1,7 +1,9 @@
-/* Hallmark · macrostructure: Narrative Workflow · tone: utilitarian technical
- * typography: existing offline Arial; paper ledger, no display pairing or runtime fetching
- * Rendered execution/geometry critique is owned by the parent after PDF/browser verification.
+/* Hallmark · macrostructure: Narrative Workflow · tone: utilitarian technical · anchor hue: neutral
+ * theme: existing monochrome print · enrichment: existing kernel diagrams
+ * Preserve offline Arial and black/white paper; marketing hero/nav/footer gates do not apply.
+ * Physical pen floors use mm; print spacing uses named 4pt tokens. No blanket 58/58 claim.
  */
+/* Hallmark · pre-emit critique: P5 H4 E4 S5 R4 V4 */
 :root {
   --color-ink: oklch(0% 0 0);
   --color-paper: oklch(100% 0 0);

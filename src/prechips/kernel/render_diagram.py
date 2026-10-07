@@ -583,8 +583,8 @@ def _keys_crowd(points, scale):
     )
 
 
-def _dashed(canvas, polylines, project, colour, clip=None):
-    """Dashed polylines that keep dash phase across small tessellated chords of an edge."""
+def _dash_segments(polylines, project, clip=None):
+    """Clipped on-dash fragments, retaining phase across tessellated chords of an edge."""
     for polyline in polylines:
         pixels = [project(p) for p in polyline]
         phase = 0.0
@@ -607,9 +607,20 @@ def _dashed(canvas, polylines, project, colour, clip=None):
                     )
                     segment = _clip_segment(start, end, clip) if clip else (start, end)
                     if segment:
-                        canvas.line(*segment, colour, width=2)
+                        yield segment
                 distance += run
                 phase = (phase + run) % 14
+
+
+def _dashed(canvas, polylines, project, colour, clip=None, halo_width=0):
+    """Paint every halo before any ink, without filling the hidden edge's dash gaps."""
+    segments = _dash_segments(polylines, project, clip)
+    if halo_width:
+        segments = list(segments)
+        for segment in segments:
+            canvas.line(*segment, _WHITE, width=halo_width)
+    for segment in segments:
+        canvas.line(*segment, colour, width=2)
 
 
 def _visible(canvas, viewport):
@@ -1457,8 +1468,7 @@ class _Diagram:
         c.line(a, (a[0], y), _MUTED, width=2, dashed=True)
         c.line(b, (b[0], y), _MUTED, width=2, dashed=True)
         label = f"STOCK {'XYZ'[axis]} {_mm(sizes[axis])} mm"
-        _dimension(c, (a[0], y), (b[0], y), label)
-        self.dimensions[label] = ((a[0], y), (b[0], y))
+        dimensions = [(label, (a[0], y), (b[0], y), _INK)]
         jaw = self.spec.get("jaw_front_z_mm")
         jaw_marker = None
         if jaw is not None:
@@ -1493,10 +1503,14 @@ class _Diagram:
                 dim_y = y - _LEADING - 16
                 c.line(a, (a[0], dim_y), _BLUE, width=2, dashed=True)
                 c.line(b, (b[0], dim_y), _BLUE, width=2, dashed=True)
-                _dimension(c, (a[0], dim_y), (b[0], dim_y), label, _BLUE)
-                self.dimensions[label] = ((a[0], dim_y), (b[0], dim_y))
-            else:
-                _text(c, 1568, y - _LEADING - 16, label, _BLUE, align="right")
+                dimensions.append((label, (a[0], dim_y), (b[0], dim_y), _BLUE))
+        # Extension lines from either row may run through the other row's lettering.
+        # Finish every extension first, then mask and paint the complete text boxes.
+        for label, first, second, colour in dimensions:
+            _dimension(c, first, second, label, colour)
+            self.dimensions[label] = (first, second)
+        if stickout is not None and (jaw_marker is None or self.view != "lathe"):
+            _text(c, 1568, y - _LEADING - 16, f"STICKOUT {_mm(stickout)} mm", _BLUE, align="right")
 
     def _labels(self):
         """Two lanes of print-size keys. Type never shrinks: lanes rebalance, then tighten
@@ -1752,6 +1766,10 @@ class _Diagram:
                     elif height is not None:
                         step = [(point[0], height)] if height != point[1] else []
                         path = [point, *step, (bend_x, height), end]
+                    if item.colour == _CONTACT:
+                        for a, b in zip(path, path[1:], strict=False):
+                            c.line(a, b, _WHITE, width=6)
+                        c.circle(*point, 5, fill=_WHITE)
                     for a, b in zip(path, path[1:], strict=False):
                         c.line(a, b, item.colour, width=2)
                     if item.leader == "hidden":
@@ -2277,6 +2295,9 @@ class _Diagram:
             end = _nearest_on_outline(outline, badge) if outline else point
             placed.append((badge, label, end, item.get("colour", colour), bool(outline)))
         for badge, label, point, point_colour, hidden in placed:
+            if point_colour == _CONTACT:
+                c.line(point, badge, _WHITE, width=6)
+                c.circle(*point, 6 if hidden else 5, fill=_WHITE)
             c.line(point, badge, _MUTED, width=2)
             if hidden:
                 c.circle(*point, 4, fill=_WHITE, outline=point_colour)
@@ -2352,7 +2373,7 @@ class _Diagram:
         c = self.canvas
         c.line((32, self.footer_top), (1568, self.footer_top), _INK, width=2)
         self._triad(140, self.footer_top + 185)
-        _text(c, 350, self.footer_top + 23, "KEY")
+        _text(c, 380, self.footer_top + 23, "KEY")
         legend_start = self.footer_top + 88
         for index, (label, kind) in enumerate(self.legend_rows):
             y = legend_start + index * _LEADING
@@ -2431,7 +2452,10 @@ class _Diagram:
         else:
             c.circle(37, self.footer_top + 307, 6, fill=_WHITE, outline=_MUTED)
             c.circle(37, self.footer_top + 307, 2, fill=_MUTED)
-            _text(c, 49, self.footer_top + 290, "VIEW NORMAL", _MUTED)
+            # Keep the complete phrase inside the axes column, with a real gutter
+            # before the adjacent legend's samples (not only its text boxes).
+            for index, line in enumerate(_wrap(c, "VIEW NORMAL", 270)):
+                _text(c, 49, self.footer_top + 290 + index * _LEADING, line, _MUTED)
 
 
 def _append_panel(diagram, detail, role, label):
@@ -3033,10 +3057,11 @@ class _HoldingDetail(_Diagram):
         note_y = 22 + len(title_lines) * 9 * _TITLE_SCALE + 10
         _text(c, 34, note_y, "CONTACT FACES: SOLID WHERE SEEN, DASHED WHERE HIDDEN", _CONTACT)
         groups = self._contact_groups()
+        self._contact_outline(
+            [line for _, _, members in groups for _, _, lines in members for line in lines]
+        )
         keyed = []
         for label, plane, members in groups:
-            for _, _, lines in members:
-                self._contact_outline(lines)
             shown = [
                 (member, code, lines, c.project(self._contact_anchor(lines)))
                 for member, code, lines in members
@@ -3112,11 +3137,10 @@ class _HoldingDetail(_Diagram):
 
     def _contact_outline(self, lines):
         c = self.canvas
+        strokes, points = [], []
         for line in lines:
             if len(line) == 1:
-                point = c.project(line[0])
-                fill = _CONTACT if self._seen(line[0]) else _WHITE
-                c.circle(*point, 6, fill=fill, outline=_CONTACT)
+                points.append((c.project(line[0]), self._seen(line[0])))
                 continue
             runs = []
             for a, b in zip(line, line[1:], strict=False):
@@ -3127,12 +3151,26 @@ class _HoldingDetail(_Diagram):
                     runs.append((seen, [a, b]))
             for seen, run in runs:
                 if not seen:
-                    _dashed(c, [run], c.project, _CONTACT, clip=self.viewport)
+                    # The halo uses exactly the on-dash fragments, never a solid trace.
+                    strokes.extend(
+                        (segment, 4, 2)
+                        for segment in _dash_segments([run], c.project, self.viewport)
+                    )
                     continue
                 for a, b in zip(run, run[1:], strict=False):
                     segment = _clip_segment(c.project(a), c.project(b), self.viewport)
                     if segment:
-                        c.line(*segment, _CONTACT, width=3)
+                        strokes.append((segment, 7, 3))
+        # All contacts share one underlay pass: a later chord or neighbouring outline
+        # must not erase contact ink already painted at their joint.
+        for segment, halo_width, _ in strokes:
+            c.line(*segment, _WHITE, width=halo_width)
+        for point, _ in points:
+            c.circle(*point, 8, fill=_WHITE)
+        for segment, _, width in strokes:
+            c.line(*segment, _CONTACT, width=width)
+        for point, seen in points:
+            c.circle(*point, 6, fill=_CONTACT if seen else None, outline=_CONTACT)
 
     def _contact_anchor(self, lines):
         """The outline point nearest the contact's centre, in setup mm."""

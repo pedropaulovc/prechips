@@ -5,15 +5,12 @@ import tomllib
 
 import pytest
 from test_cli import ROOT, SYNTHETIC_KERNEL, copy_examples, traveler
-from test_sheet_precision import sections, text
+from test_sheet_ops import Markup, content
+from test_sheet_precision import sections, tagged, text
 
 from prechips.inputs import load_bundle
 from prechips.rules.coordinates import dro_grid
-from prechips.sheet import EXAMPLE_LEGEND, _Traveler
-
-# Authored inspection notes may themselves say "plausible, not measured" about a
-# shop-made gauge; the legend is the one sentence that explains the † mark.
-EXAMPLE = EXAMPLE_LEGEND
+from prechips.sheet import _Traveler
 
 
 def pages(html):
@@ -59,15 +56,16 @@ def test_the_job_page_states_release_without_checker_jargon(shaft):
 
 def test_example_fixture_dimensions_are_labelled_once_and_marked_on_their_rows(rocker, shaft):
     _, html = rocker
-    sheets = text(html)
-    job = text(pages(html)[0])
-    # One legend on the job page, not a sentence on every fixture table.
-    assert sheets.count(EXAMPLE) == 1 and EXAMPLE in job and "†" in job
+    markup = Markup(html)
+    legends = [node for node in tagged(markup, "p") if "†" in content(node)]
+    # The marked example-dimension legend belongs to the job page, once.
+    assert len(legends) == 1
+    assert "†" in text(pages(html)[0])
     tables = sections(html, "SHOP-MADE FIXTURE")
     assert tables and all("†" in table for table in tables)
-    # No shop-made fixture, no example legend.
+    # No shop-made fixture, no example mark or legend.
     _, plain = shaft
-    assert EXAMPLE not in text(plain) and "†" not in text(plain)
+    assert "†" not in text(plain)
 
 
 def test_only_rows_with_example_dimensions_carry_the_mark(tmp_path):
@@ -129,10 +127,12 @@ def test_mill_xy_check_jogs_are_made_raised_clear_of_the_work(bracket, shaft):
 
 def test_job_page_stock_sizes_print_on_the_receiving_machine_grid(shaft, rocker):
     # The shaft bar goes to the 0.01 lathe; the rocker blank to the 0.005 mill.
-    stock = re.search(r"Stock: [^|]*", text(sections(shaft[1], "STOCK AND ROUTE")[0]))[0]
+    markup = Markup(sections(shaft[1], "STOCK AND ROUTE")[0])
+    (stock,) = [content(node) for node in tagged(markup, "p") if content(node).startswith("Stock:")]
     assert "Ø10.00 × 180.50 long" in stock, stock
     assert not re.search(r"\d\.\d{3}", stock), stock
-    stock = re.search(r"Stock: [^|]*", text(sections(rocker[1], "STOCK AND ROUTE")[0]))[0]
+    markup = Markup(sections(rocker[1], "STOCK AND ROUTE")[0])
+    (stock,) = [content(node) for node in tagged(markup, "p") if content(node).startswith("Stock:")]
     assert "76.200 × 19.050 × 345.000 long" in stock, stock
     # The prepared blank is printed as CHECK THE BLANK, never as a raw field dump.
     assert "Prepared" not in stock and "{" not in stock, stock

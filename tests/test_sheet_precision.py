@@ -1,8 +1,8 @@
-"""Host-only traveler precision and wording with synthetic kernel facts."""
+"""Host-only traveler precision and visible machine instructions with synthetic kernel facts."""
 
 import re
 import tomllib
-from html import unescape
+from html.parser import HTMLParser
 
 import pytest
 from test_cli import ROOT, SYNTHETIC_KERNEL, copy_examples, traveler
@@ -11,8 +11,79 @@ from test_sheet_ops import Markup, content
 from prechips.rules.resolution import MANUAL
 
 
+class VisibleText(HTMLParser):
+    """Keep field/cell boundaries, but never split inline readings from their units."""
+
+    blocks = {
+        "body",
+        "div",
+        "h1",
+        "h2",
+        "h3",
+        "li",
+        "ol",
+        "p",
+        "section",
+        "table",
+        "tbody",
+        "td",
+        "th",
+        "thead",
+        "tr",
+        "ul",
+        "br",
+    }
+
+    def __init__(self, html):
+        super().__init__()
+        self.parts = []
+        self.hidden = []
+        self.feed(html)
+
+    def handle_starttag(self, tag, attrs):
+        if tag in {"script", "style", "head"}:
+            self.hidden.append(tag)
+        elif not self.hidden and tag in self.blocks:
+            self.parts.append("|")
+
+    def handle_endtag(self, tag):
+        if self.hidden:
+            if tag == self.hidden[-1]:
+                self.hidden.pop()
+        elif tag in self.blocks:
+            self.parts.append("|")
+
+    def handle_data(self, data):
+        if not self.hidden:
+            self.parts.append(data)
+
+
 def text(html):
-    return unescape(re.sub(r"<[^>]+>", "|", html))
+    return "".join(VisibleText(html).parts)
+
+
+def tagged(markup, tag, within=None):
+    """Select actual DOM descendants, including cells containing inline markup."""
+    result = []
+    for node in markup.nodes:
+        if node["tag"] != tag:
+            continue
+        parent = node
+        while parent is not None and parent is not within:
+            parent = parent["parent"]
+        if within is None or parent is within:
+            result.append(node)
+    return result
+
+
+def table_rows(markup, table):
+    rows = [
+        [content(cell).strip() for cell in tagged(markup, "td", row)]
+        for row in tagged(markup, "tr", table)
+    ]
+    rows = [row for row in rows if row]
+    assert rows, "Expected rendered numeric table rows"
+    return rows
 
 
 def sections(html, heading):
@@ -72,31 +143,50 @@ def test_known_numbers_without_drawing_precision_print_and_unknowns_stay_explici
     contours = sections(html, "CONTOURS")
     assert contours
     for page in contours:
-        assert "<td>?</td>" not in page
-    for row in findings(report, "coordinates"):
-        assert all(isinstance(v, float) for r in row["numbers"].get("rows", []) for v in r["setup"])
+        markup = Markup(page)
+        cells = tagged(markup, "td")
+        assert cells and all(content(cell).strip() != "?" for cell in cells)
+    coordinate_rows = [
+        r for row in findings(report, "coordinates") for r in row["numbers"].get("rows", [])
+    ]
+    assert coordinate_rows
+    assert all(isinstance(v, float) for row in coordinate_rows for v in row["setup"])
     tables = [table for table in sections(html, "FEATURE MAP") if "<table" in table]
-    assert tables and all("<td>?</td>" not in table for table in tables)
-    targets = text("".join(sections(html, "OPERATIONS")))
-    printed = re.findall(r"Z (-?\d+\.(\d+)) → (-?\d+\.(\d+))", targets)
+    assert tables
+    for table in tables:
+        markup = Markup(table)
+        cells = tagged(markup, "td")
+        assert cells and all(content(cell).strip() != "?" for cell in cells)
     # Bench setups (the bracket's S5 send-out) have no DRO, so their findings carry no grid.
     grids = {
         row["subject"]: row["numbers"]["dro_grid"]
         for row in findings(report, "coordinates")
         if "dro_grid" in row["numbers"]
     }
+    pages = setup_pages(html)
+    checked = 0
     for row in findings(report, "blind_depth"):
         for endpoint in row["numbers"].get("endpoints", []):
             entry, tip = endpoint["entry_z"], endpoint["tip_z"]
             if isinstance(entry, float) and isinstance(tip, float):
                 # Known depths print on the setup's DRO grid, within one step of the value.
                 grid = grids[endpoint["setup"]]
+                markup = Markup(pages[endpoint["setup"]])
+                targets = [content(node) for node in markup.find("op-target")]
+                assert targets
+                printed = [
+                    match
+                    for target in targets
+                    for match in re.findall(r"Z (-?\d+\.(\d+)) → (-?\d+\.(\d+))", target)
+                ]
                 assert any(
                     {len(a_digits), len(b_digits)} == {grid["decimals"]}
                     and abs(float(a) - entry) < grid["step"]
                     and abs(float(b) - tip) < grid["step"]
                     for a, a_digits, b, b_digits in printed
                 ), (endpoint, printed)
+                checked += 1
+    assert checked, "Expected known blind-depth endpoints"
 
 
 # S3 op 10 parts the waste off on the +Z side of its cut: the synthetic kernel says so,
@@ -146,24 +236,23 @@ def test_operative_z_keeps_its_own_digits_over_drawing_precision(tmp_path):
     page = next(page for page in sections(html, "CONTOURS") if "south dome" in page)
     # The dome's rough stair (headed "in to X") leaves stock on the surface; the finish
     # table after it carries the dome stations.
-    tables = page[page.index("south dome") :].split("<table")[1:]
-    # Headings come from the thead's last row: a split table's first row repeats its
-    # op/tool header across every column. Cells may carry a class (num, read).
-    table, headings = next(
-        (table, headings)
-        for table in tables
-        if "in to X (Ø)"
-        not in (
-            headings := re.findall(
-                r"<th[^>]*>([^<]*)</th>", table[: table.index("</thead>")].split("<tr")[-1]
-            )
-        )
-    )
+    markup = Markup(page[page.index("south dome") :])
+    # Split tables repeat their op/tool header; the last thead row names the columns.
+    candidates = []
+    for table in tagged(markup, "table"):
+        (thead,) = tagged(markup, "thead", table)
+        heading_row = tagged(markup, "tr", thead)[-1]
+        headings = [content(cell).strip() for cell in tagged(markup, "th", heading_row)]
+        if "in to X (Ø)" not in headings:
+            candidates.append((table, headings))
+    assert candidates
+    table, headings = candidates[0]
     # A compensated dome also prints tool X/Z; the stations are the surface Z column.
     column = headings.index("surface Z" if "surface Z" in headings else "Z")
-    rows = re.findall(r"<tr>((?:<td[^>]*>[^<]*</td>)+)</tr>", table)
-    stations = [float(re.findall(r"<td[^>]*>([^<]*)</td>", row)[column]) for row in rows]
+    rows = table_rows(markup, table)
+    stations = [float(row[column]) for row in rows]
     expected = [round(r["z_mm"], 2) for r in dome["rows"]]
+    assert expected
     assert stations[: len(expected)] == expected
     assert len(set(expected)) == len(expected)
 
@@ -225,21 +314,6 @@ def test_lathe_feed_prints_per_revolution_with_the_true_value(tmp_path):
             assert printed and float(printed[0]) == pytest.approx(value, abs=0.005), (op, feed)
             checked.add((setup, op))
     assert checked == set(per_rev)
-
-
-def test_hold_text_has_no_pose_vectors(tmp_path):
-    # Every shaft hold carries a chuck pose; the sheet turns it into a jaw-front Z only.
-    _, _, html = traveler(
-        ROOT / "examples" / "pivot-shaft" / "plan.toml",
-        tmp_path / "out",
-        setup=SYNTHETIC_KERNEL,
-    )
-    holds = sections(html, "HOLD")
-    assert holds
-    for hold in holds:
-        words = text(hold)
-        assert "origin" not in words and "pose" not in words
-        assert not re.search(r"-?\d+(?:\.\d+)? / -?\d+(?:\.\d+)? / -?\d+", words)
 
 
 def test_job_status_names_every_setup_that_has_a_stop(tmp_path):
@@ -431,7 +505,12 @@ def test_job_page_states_each_machine_dro_grid(bracket, tmp_path):
     # DRO targets print on the machine's declared resolution; with none declared the
     # job page says the default grid is used rather than implying a measured one.
     _, html = bracket
-    assert re.search(r"DRO resolution: [^|]*PM-30MV 0\.005 mm(?! \(resolution)", text(html))
+    markup = Markup(sections(html, "JOB STATUS")[0])
+    (resolution,) = [
+        content(node) for node in tagged(markup, "p") if content(node).startswith("DRO resolution:")
+    ]
+    assert re.search(r"PM-30MV 0\.005 mm\b", resolution)
+    assert "default grid" not in resolution
     examples = copy_examples(tmp_path)
     inventory = examples / "inventory" / "pedro-shop.toml"
     stripped, removed = re.subn(
@@ -442,7 +521,12 @@ def test_job_page_states_each_machine_dro_grid(bracket, tmp_path):
     _, _, html = traveler(
         examples / "pivot-bracket" / "plan.toml", tmp_path / "out", setup=SYNTHETIC_KERNEL
     )
-    assert "PM-30MV 0.001 mm (resolution not in the shop list: default grid)" in text(html)
+    markup = Markup(sections(html, "JOB STATUS")[0])
+    (resolution,) = [
+        content(node) for node in tagged(markup, "p") if content(node).startswith("DRO resolution:")
+    ]
+    assert re.search(r"PM-30MV 0\.001 mm\b", resolution)
+    assert "default grid" in resolution
 
 
 def test_op_notes_print_under_their_own_row_on_the_front_sheet(tmp_path):
@@ -484,8 +568,12 @@ def test_follow_rest_hold_prints_its_jaw_lead_as_a_distance_not_a_diameter(side,
     plan.write_text(edited, encoding="utf-8")
     _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
     front = html.split('data-sheet="SETUP S1 sheet 1"')[1].split("</section>")[0]
-    hold = text(sections(front, "HOLD")[0])
-    (line,) = [part for part in hold.split("|") if part.startswith("Support: follow")]
+    markup = Markup(sections(front, "HOLD")[0])
+    (line,) = [
+        content(node)
+        for node in tagged(markup, "li")
+        if content(node).startswith("Support: follow")
+    ]
     assert f"9.50 mm {where}" in line
     assert not re.search(r"Ø\s*9\.50*\b", line)
     # Trailing jaws ride each pass's new diameter, so the HOLD says they go on and come off

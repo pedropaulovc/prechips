@@ -15,9 +15,11 @@ from prechips.kernel.render_diagram import (
     _INK,
     _AnnotationDetail,
     _corners,
+    _dashed,
     _Diagram,
     _guide_view,
     _holding_details,
+    _HoldingDetail,
     _main_diagram,
     _solid_name,
     _tag_at,
@@ -488,6 +490,68 @@ _SPECS = Path(__file__).resolve().parent / "data" / "render"
 def _example_spec(name):
     """A setup picture spec the kernel built for a shipped example setup (meshes omitted)."""
     return json.loads((_SPECS / f"{name}.json").read_text(encoding="utf-8"))
+
+
+@pytest.mark.parametrize(
+    "name,stock,jaw,stickout",
+    [
+        ("cone-s1", None, None, None),
+        (None, [-9.525, -9.525, -52.99, 9.525, 9.525, 22.01], -27.99, 50),
+    ],
+)
+def test_lathe_dimension_png_keeps_extension_lines_out_of_complete_label_rectangles(
+    name, stock, jaw, stickout
+):
+    spec = (
+        _example_spec(name)
+        if name
+        else {
+            "setup_id": "S2",
+            "view": "lathe",
+            "stock_box": stock,
+            "jaw_front_z_mm": jaw,
+            "stickout_mm": stickout,
+        }
+    )
+    supplied = json.dumps(spec, sort_keys=True)
+    diagram = _Diagram([], spec)
+    scale = diagram.canvas.scale
+    diagram.render()
+    png, debts, panels = render_diagram([], spec)
+    width, height, pixels = _decode_png(png)
+    assert json.dumps(spec, sort_keys=True) == supplied
+    assert diagram.canvas.scale == scale
+    assert panels[0]["top_px"] == 0
+    assert panels[0] == diagram.print_panels[0]
+    assert panels[0]["role"] == "setup"
+    assert height == sum(panel["height_px"] for panel in panels)
+    assert debts == diagram.render_debts
+    for label, (first, second) in diagram.dimensions.items():
+        assert first[1] == second[1]
+        ((_, left, top, right, bottom),) = [
+            box for box in diagram.canvas.text_boxes if box[0] == label.upper()
+        ]
+        colour = (35, 83, 147) if label.startswith("STICKOUT ") else _INK
+        # Compare every glyph stroke, counter, inter-letter space and surrounding gutter
+        # in the actual composite PNG, not just a handful of unobstructed glyph pixels.
+        reference = _canvas(width=right - left + 8, height=bottom - top + 6)
+        reference.text(4, 3, label.upper(), colour=colour, scale=5)
+        _, _, expected = _decode_png(reference.png())
+        actual = bytearray()
+        for y in range(top - 3, bottom + 3):
+            offset = (y * width + left - 4) * 3
+            actual.extend(pixels[offset : offset + reference.width * 3])
+        assert actual == expected, label
+    start, end = next(
+        ends for label, ends in diagram.dimensions.items() if label.startswith("STICKOUT ")
+    )
+    assert start[0] == pytest.approx(diagram.jaw_marker[0])
+    assert end[0] == pytest.approx(diagram.canvas.project(spec["stock_box"][3:])[0])
+    stock_ends = next(
+        ends for label, ends in diagram.dimensions.items() if label.startswith("STOCK ")
+    )
+    assert stock_ends[0][0] < start[0]
+    diagram.canvas.assert_text_layout(min_scale=5)
 
 
 def _segments_cross(a, b, c, d):
@@ -1157,6 +1221,190 @@ def _vise_spec(size, touching=True):
         "contacts": contacts if touching else [],
     }
     return meshes, spec
+
+
+def test_isometric_axes_phrase_keeps_pixel_gutter_from_colored_legend_samples():
+    stock = [0, 0, 0, 18, 26.2, 34.2]
+    spec = {
+        "setup_id": "S1",
+        "view": "isometric",
+        "stock_box": stock,
+        "legend": ["retained", "removed", "holding", "tool"],
+        "nominal_outline_mm": [[[0, 0, 0], [18, 0, 0], [18, 26.2, 0], [0, 26.2, 0], [0, 0, 0]]],
+    }
+    diagram = _Diagram([], spec)
+    diagram.render()
+    axes_words = [box for box in diagram.canvas.text_boxes if box[0] in {"VIEW", "NORMAL"}]
+    assert [box[0] for box in axes_words] == ["VIEW", "NORMAL"]
+    for _, _, top, right, bottom in axes_words:
+        assert right + 32 < 350
+        assert {
+            _pixel(diagram.canvas, x, y)
+            for y in range(top - 4, bottom + 4)
+            for x in range(right + 4, 346)
+        } == {_WHITE}
+    for kind, color in (("tool", (24, 91, 58)), ("nominal", (35, 83, 147))):
+        index = next(i for i, (_, entry) in enumerate(diagram.legend_rows) if entry == kind)
+        y = diagram.footer_top + 88 + index * 45
+        samples = {
+            _pixel(diagram.canvas, x, row) for row in range(y, y + 35) for x in range(350, 375)
+        }
+        assert color in samples
+    width, height, pixels = _decode_png(diagram.canvas.png())
+    assert pixels == diagram.canvas.rgb
+    assert width == 1600 and height / width * 7.5 <= 8.4
+    diagram.canvas.assert_text_layout(min_scale=5)
+
+
+@pytest.mark.parametrize("surface_color", [(120, 98, 76), (160, 175, 185)])
+def test_contact_halos_contrast_with_meshes_without_changing_dashes_or_leader_anchors(
+    surface_color,
+):
+    frame = [-2, -2, 0, 22, 22, 4]
+    hidden = [[4, 10, 1], [16, 10, 1]]
+    seen = [[4, 14, 2], [16, 14, 2]]
+    meshes = [_slab(0, 0, 20, 20, 2, surface_color, "part")]
+    spec = {
+        "setup_id": "S11",
+        "view": "isometric",
+        "camera": _FRONT,
+        "stock_box": [0, 0, 0, 20, 20, 2],
+        "components": [
+            {
+                "name": "fixed_jaw",
+                "role": "fixed_jaw",
+                "center_mm": [10, 10, 0],
+                "box_mm": [0, 0, 0, 20, 20, 1],
+                "meshes": ["jaw"],
+            }
+        ],
+        "contacts": [{"tag": "jaw", "lines_mm": [hidden, seen]}],
+    }
+    supplied = json.dumps(spec, sort_keys=True)
+    detail = _HoldingDetail(meshes, spec, frame, _FRONT, 1.9)
+    original = bytearray(detail.canvas.rgb)
+    reference = RenderCanvas(
+        meshes, _FRONT, detail.viewport, height=detail.canvas.height, fit=_corners(frame)
+    )
+    _dashed(reference, [hidden], reference.project, _CONTACT, clip=detail.viewport)
+    detail.render()
+    assert detail._seen(hidden[0]) is False
+    assert detail._seen(seen[0]) is True
+    assert json.dumps(spec, sort_keys=True) == supplied
+    a, b = [detail.canvas.project(point) for point in hidden]
+    y = math.floor(a[1])
+    xs = range(math.ceil(a[0]) + 14, math.floor(b[0]) - 8)
+    assert [_pixel(detail.canvas, x, y) == _CONTACT for x in xs] == [
+        _pixel(reference, x, y) == _CONTACT for x in xs
+    ]
+    on = next(x for x in xs if _pixel(detail.canvas, x, y) == _CONTACT)
+    assert _pixel(detail.canvas, on, y + 1) == _WHITE
+    gaps = [x for x in xs if _pixel(reference, x, y) != _CONTACT]
+    assert any(_pixel(detail.canvas, x, y) != _WHITE for x in gaps)
+    start = detail.canvas.project(seen[0])
+    x, y = math.floor(start[0]) + 17, math.floor(start[1])
+    assert _pixel(detail.canvas, x, y) == _CONTACT
+    assert _pixel(detail.canvas, x, y + 2) == _WHITE
+    (path,) = [path for label, path in detail.leaders if label.startswith("FIXED JAW CONTACT")]
+    assert path[0] == detail.canvas.project(detail._contact_anchor([hidden, seen]))
+    assert path[0][1] == path[1][1]
+    mesh_left = detail.canvas.project((0, 0, 2))[0]
+    x, y = math.floor((path[0][0] + mesh_left) / 2), math.floor(path[0][1])
+    assert _pixel(detail.canvas, x, y) == _CONTACT
+    assert _pixel(detail.canvas, x, y + 2) == _WHITE
+    index = ((y + 4) * detail.canvas.width + x) * 3
+    assert detail.canvas.rgb[index : index + 3] == original[index : index + 3]
+    _, _, pixels = _decode_png(detail.canvas.png())
+    assert pixels == detail.canvas.rgb
+    detail.canvas.assert_text_layout(min_scale=5)
+
+
+@pytest.mark.parametrize("surface_color", [(120, 98, 76), (160, 175, 185)])
+@pytest.mark.parametrize("hidden", [False, True])
+@pytest.mark.parametrize("shape", ["multichord", "subpixel", "curved"])
+def test_contact_png_preserves_complete_tessellation_joint_ink_and_hidden_gaps(
+    surface_color, hidden, shape
+):
+    frame = [-2, -2, 0, 22, 22, 4]
+    meshes = [_slab(0, 0, 20, 20, 2, surface_color, "part")]
+    spec = {"setup_id": "S1", "view": "isometric", "stock_box": [0, 0, 0, 20, 20, 2]}
+    detail = _HoldingDetail(meshes, spec, frame, _FRONT, 1.9)
+    if shape == "multichord":
+        path = [(0, 0), (4, 0), (20, 0), (60, 0)]
+        joint = path[1]
+    else:
+        path = [
+            (index / 4, 8 * math.sin(index / 48) if shape == "curved" else 0)
+            for index in range(241)
+        ]
+        joint = path[16]
+    # A second edge meets the tessellated one: underlays must not erase earlier ink
+    # either within a polyline or between two contact-face boundaries.
+    paths = [path, [joint, (joint[0], joint[1] - 12), (joint[0] + 12, joint[1] - 12)]]
+    z = 1 if hidden else 2
+    lines = [
+        [(10 + x / detail.canvas.scale, 10 - y / detail.canvas.scale, z) for x, y in path]
+        for path in paths
+    ]
+    assert all(detail._seen(point) is not hidden for line in lines for point in line)
+    supplied = json.dumps(lines)
+    original = bytes(detail.canvas.rgb)
+    reference = RenderCanvas(
+        meshes, _FRONT, detail.viewport, height=detail.canvas.height, fit=_corners(frame)
+    )
+    dashed_pixels = None
+    if hidden:
+        _dashed(reference, lines, reference.project, _CONTACT, clip=detail.viewport)
+        dashed = RenderCanvas(
+            meshes, _FRONT, detail.viewport, height=detail.canvas.height, fit=_corners(frame)
+        )
+        _dashed(dashed, lines, dashed.project, _CONTACT, clip=detail.viewport, halo_width=4)
+        _, _, dashed_pixels = _decode_png(dashed.png())
+    else:
+        for line in lines:
+            for first, second in zip(line, line[1:], strict=False):
+                reference.line(
+                    reference.project(first), reference.project(second), _CONTACT, width=3
+                )
+    detail._contact_outline(lines)
+    assert json.dumps(lines) == supplied
+    width, height, actual = _decode_png(detail.canvas.png())
+    reference_width, reference_height, expected = _decode_png(reference.png())
+    assert (width, height) == (reference_width, reference_height)
+    projected = [detail.canvas.project(point) for line in lines for point in line]
+    left = math.floor(min(point[0] for point in projected)) - 5
+    right = math.ceil(max(point[0] for point in projected)) + 5
+    top = math.floor(min(point[1] for point in projected)) - 5
+    bottom = math.ceil(max(point[1] for point in projected)) + 5
+    actual_ink, expected_ink, dashed_ink = set(), set(), set()
+    for y in range(top, bottom + 1):
+        for x in range(left, right + 1):
+            offset = (y * width + x) * 3
+            if tuple(actual[offset : offset + 3]) == _CONTACT:
+                actual_ink.add((x, y))
+            if tuple(expected[offset : offset + 3]) == _CONTACT:
+                expected_ink.add((x, y))
+            if dashed_pixels is not None and tuple(dashed_pixels[offset : offset + 3]) == _CONTACT:
+                dashed_ink.add((x, y))
+    assert expected_ink
+    assert actual_ink == expected_ink
+    if hidden:
+        assert dashed_ink == expected_ink
+    # A real on-dash fragment has a visible white border, but a hidden dash's middle
+    # gap still shows the original stock/jaw surface rather than a solid white trace.
+    assert any(
+        tuple(actual[(y * width + x) * 3 : (y * width + x) * 3 + 3]) == _WHITE
+        and tuple(original[(y * width + x) * 3 : (y * width + x) * 3 + 3]) != _WHITE
+        for y in range(top, bottom + 1)
+        for x in range(left, right + 1)
+    )
+    if hidden and shape != "curved":
+        first = detail.canvas.project(lines[0][0])
+        x, y = math.floor(first[0] + 39), math.floor(first[1])
+        offset = (y * width + x) * 3
+        assert tuple(expected[offset : offset + 3]) != _CONTACT
+        assert actual[offset : offset + 3] == original[offset : offset + 3]
+        assert dashed_pixels[offset : offset + 3] == original[offset : offset + 3]
 
 
 def _stock_short_side(canvas, box):
