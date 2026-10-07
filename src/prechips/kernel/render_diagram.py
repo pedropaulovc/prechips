@@ -1602,6 +1602,8 @@ class _Diagram:
                 else:
                     hi = gap
             rows, _ = pack(callouts, side, pitch, lo)
+            # Rows on whole pixels, so a wrapped key's lines stay one pitch apart once printed.
+            rows = [math.floor(row_y) for row_y in rows]
             for item, row_y in zip(callouts, rows, strict=True):
                 lines = wrapped[(id(item), side)]
                 target_y = row_y + ((len(lines) - 1) * pitch + 21) / 2

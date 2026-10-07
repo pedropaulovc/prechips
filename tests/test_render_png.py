@@ -1294,6 +1294,41 @@ def test_keys_too_many_for_their_lanes_move_the_footer_down_never_across_it():
     assert _decode_png(render_diagram([], spec)[0])[:2] == _decode_png(png)[:2]
 
 
+@pytest.mark.parametrize("count", [14, 16])
+def test_a_wrapped_key_keeps_its_lines_apart_however_its_lane_spaces_the_rows(count):
+    # Pivot-shaft S1: the headstock pushes the lane's rows to half pixels, and the two
+    # lines of '3-JAW CHUCK BODY' printed 3 px apart once each was rounded.
+    spec = {
+        "setup_id": "S1",
+        "view": "lathe",
+        "stock_box": [-10, -10, -60, 10, 10, 40],
+        "zero_mm": [0, 0, 0],
+        "components": [
+            {
+                "name": "chuck",
+                "label": "3-jaw chuck body",
+                "role": "chuck_3jaw",
+                "box_mm": [-40, -40, -89, 40, 40, -59],
+                "center_mm": [0, 0, -74],
+            }
+        ],
+        "datums": [
+            {
+                "label": f"CHUCK JAW BODY {index}",
+                "point_mm": [-10 + 20 * index / count, 10, -50 + 90 * index / count],
+            }
+            for index in range(count)
+        ],
+    }
+    diagram, _ = _main_diagram([], spec)
+    lane = sorted(
+        (top, bottom) for _, left, top, _, bottom in diagram.canvas.text_boxes if left == 32
+    )
+    assert all(
+        after - bottom >= 4 for (_, bottom), (after, _) in zip(lane, lane[1:], strict=False)
+    ), lane
+
+
 def test_a_label_naming_points_on_both_sides_leads_from_each_lane_to_its_own_side():
     # One fixture name on both ends of long work: a single key would fan a leader from
     # one lane across the whole picture to the far end.
