@@ -592,12 +592,14 @@ Each of these is pass-plan debt (unknown), appended as ` Pass plan unknown: … 
 - `op {op} returns to its entry at Z {z}, not above the stock it receives`.
 
 The setup sheet prints each path's record above its table: a single level as
-`Enter at P1: plunge Z a → b at F mm/min.` (or `clear of the stock: lower to Z`),
-several levels as a table of level, Z, how it gets down and how it gets back
-(`raise to Z R (above the stock), move back to P1`, `stay at P1: the path ends
-where it starts`, or a raster's `lift to Z R, rapid back to pass 1`), so every
-level's Z is printed. The op row's feed cell adds `plunge F mm/min`; a plunge
-without one is `STOP: plunge feed not set`.
+`Enter at P1: plunge Z a → b at F mm/min.` (or `clear of the stock: lower to Z`);
+several levels, whose Zs the block heading lists, as one statement of how each
+level gets down (`plunge from the level above (level 1 from Z a) at F mm/min`)
+and how it gets back between levels (`raise to Z R (above the stock), move back
+to P1`, `stay at P1: the path ends where it starts`, or a raster's `lift to Z R,
+rapid back to pass 1`). The op row's feed cell adds `plunge F mm/min`; a plunge
+without one is `STOP: plunge feed not set`. The contour heading and its raster
+line print on the page of the first block, never alone.
 
 A bench setup (machine `kind` bench or manual, no declared `resolution`) has no DRO
 of its own: `dro_grid` gives it the grid of the nearest machine setup in its

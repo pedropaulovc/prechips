@@ -386,9 +386,9 @@ pass is said to run in and out clear only when each emitted piece's start and
 end is, so pieces a keep-out splits are proven one by one. A
 through hole's breakthrough note gives the run-out its printed DRO tip leaves,
 cut down to the DRO decimals, not the authored `exit_mm`. A contour cut in
-several depth levels lists every level once, in its heading, and prints a level
-table above its rows: each level's Z, where it goes down (in air only when the
-kernel's stock box proves it, else a plunge at the op's cited plunge feed from
+several depth levels lists every level's Z once, in its heading, and says once
+above its rows how each level goes down (in air only when the kernel's stock box
+proves it, else a plunge from the level above at the op's cited plunge feed from
 `[[plunge]]` cutting data, a STOP without one) and how it gets back for the next
 level (straight down for a closed path, else raise to a Z called above the stock
 only on that proof). Contour tables
