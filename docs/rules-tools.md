@@ -9,8 +9,9 @@ observed violation. Unknown or unverified geometry cannot establish a fit.
 ## `tool_resolves`
 
 Subjects: every selected inventory reference plus each nonmanual cutting
-assembly `setup:op`. References include machine, tool, holder, gauges, fixture,
-parallels and supports, including declared member references. Missing named
+assembly `setup:op`. References include machine, tool, holder, gauges (with a hold's
+`align.indicator`), fixture, parallels and supports, including declared member
+references. Missing named
 items are errors; unknown categories or unverified identities are unknown.
 Compatibility compares spindle taper or lathe toolpost series to holder
 interface; a lathe's spindle-axis action (`spot`, `drill`, `ream`, `tap`,
