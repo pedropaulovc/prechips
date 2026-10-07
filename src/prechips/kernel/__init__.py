@@ -462,9 +462,13 @@ def _hand_inputs(bundle, setup, op, subject, finishing):
     """A bench file's kernel inputs: its claims and the policy's ``max_filing_stock_mm``,
     the most stock a file takes off its claimed faces; it has no machine cutter or holder.
     A file guided by filing buttons held in this setup names the kit's solids by their
-    kernel owner (``guide_owner``): where its cut reaches them is where the file stops."""
+    kernel owner (``guide_owner``) and the kit's declared button OD limits
+    (``guide_rim_dia_mm``): only a button of the kit, a turned solid of that OD whose rim
+    lies on the filed surface, is where the file stops."""
+    from prechips.measurements import nominal_limits_mm
     from prechips.rules.coordinates import filing_cap
     from prechips.rules.geometry_common import HAND, finishing_subjects
+    from prechips.rules.resolution import resolve
 
     result = {
         "subject": subject,
@@ -489,6 +493,14 @@ def _hand_inputs(bundle, setup, op, subject, finishing):
     )
     if isinstance(kit, str) and kit != UNKNOWN and owner is not None:
         result["guide_owner"] = owner
+        item = resolve(bundle, "fixtures", kit)
+        limits = nominal_limits_mm(item, "button_dia_limits") if isinstance(item, dict) else None
+        if (
+            isinstance(limits, list)
+            and len(limits) == 2
+            and all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in limits)
+        ):
+            result["guide_rim_dia_mm"] = sorted(limits)
     return result
 
 
@@ -1330,6 +1342,7 @@ _ENGINE_OP = (
     "angle_window_deg",
     "max_filing_stock_mm",
     "guide_owner",
+    "guide_rim_dia_mm",
     "to_dia_mm",
     *TURNING_TOOL_KEYS,
     *TURNING_HOLDER_KEYS,

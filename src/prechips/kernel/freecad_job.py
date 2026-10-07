@@ -7782,19 +7782,25 @@ class _Setup:
         return sketches, debts
 
     def _guide_stops(self, solids, section_view=None):
-        """The rims a guided bench file rides on: each solid of a hand op's guide kit (its
+        """The rims a guided bench file rides on: each button of a hand op's guide kit (its
         ``guide_owner``, the prefix of the kit's solid tags) that the op's own cut reaches,
-        as ``{"tag", "at_mm", "rim_mm"}``. ``rim_mm`` holds the runs of the solid's edges
-        on the cut (:func:`_rim_runs`); ``at_mm`` is the rim point a picture keys: in a
-        section view the kept one nearest the section plane (the rim seen edge-on), else
-        the one nearest the rim's middle. A solid the cut reaches only off its edges is
-        keyed at its contact point nearest the contact's middle. A cut the stock builder
-        did not derive stops nowhere."""
+        as ``{"tag", "at_mm", "rim_mm"}``. A button is a kit solid with a cylindrical face
+        of the kit's declared button OD (``guide_rim_dia_mm``) that touches the stock the
+        op leaves without entering it: its rim lies on the filed surface. Any other kit
+        solid (a stud, a nut, a button standing off or buried in the work) is holding the
+        file must clear, so no stop; nor is anything without the declared OD. ``rim_mm``
+        holds the runs of the solid's edges on the cut (:func:`_rim_runs`); ``at_mm`` is the
+        rim point a picture keys: in a section view the kept one nearest the section plane
+        (the rim seen edge-on), else the one nearest the rim's middle. A solid the cut
+        reaches only off its edges is keyed at its contact point nearest the contact's
+        middle. A cut the stock builder did not derive stops nowhere."""
         stops = []
         for op in self.ops:
-            owner = op.get("guide_owner")
+            owner, rims = op.get("guide_owner"), op.get("guide_rim_dia_mm")
             before, after, why = self.cuts.get(id(op), (None, None, "not built"))
             if not (_hand(op) and isinstance(owner, str)) or why is not None or after is before:
+                continue
+            if not (isinstance(rims, list) and len(rims) == 2 and all(_number(v) for v in rims)):
                 continue
             try:
                 cut = before.cut(after)
@@ -7802,11 +7808,27 @@ class _Setup:
                 continue
             if cut.Volume <= STOCK_MM3:
                 continue
+            low, high = min(rims) - STOCK_TOL, max(rims) + STOCK_TOL
             for name, solid in solids:
                 if name.rsplit(":", 1)[0] != owner or any(s["tag"] == name for s in stops):
                     continue
+                if not any(
+                    isinstance(face.Surface, Part.Cylinder)
+                    and low <= 2 * face.Surface.Radius <= high
+                    for face in solid.Faces
+                ):
+                    continue
                 distance, pairs, _ = _distance(cut, solid)
                 if distance > STOCK_TOL or not pairs:
+                    continue
+                try:
+                    seated = (
+                        _distance(after, solid)[0] <= STOCK_TOL
+                        and solid.common(after).Volume <= STOCK_MM3
+                    )
+                except Exception:
+                    seated = False
+                if not seated:
                     continue
                 rim = _rim_runs(solid, cut)
                 points = [V(*p) for run in rim for p in run] or [far for _, far in pairs]
