@@ -335,6 +335,15 @@ def test_an_unbounded_pocket_lowers_another_entry_only_where_its_feature_holds_i
     assert end["dro_tip_z"] == pytest.approx(tip)
 
 
+def test_an_op_naming_a_feature_list_proves_no_cut_of_any_surface(tmp_path):
+    # Only an inspect op names a list; it cuts no one feature, so it covers nothing.
+    bundle, setup = left_strip_faced(tmp_path)
+    op = {**setup["ops"][0], "feature": ["target", "rim"]}
+    op.pop("stock_removal_bounds")
+    surface = bundle.feature_definitions["target"]
+    assert tip_endpoints.cut_coverage(bundle, setup, op, surface) == "unknown"
+
+
 def test_z_levels_start_on_an_earlier_floor_only_where_its_bounds_cover_the_op(tmp_path):
     ops = "".join(
         f"[[setups.ops]]\nop = {op}\ndo = '{do}'\nfeature = 'target'\ntool = 'cutter'\n"
