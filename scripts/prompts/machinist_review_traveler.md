@@ -23,10 +23,27 @@ THE SHOP AND THE BUILDER
 - Coordinates are in mm; drills, taps and some tooling are US customary
   (#2 centre drill, 1/16 x 1/2 blade). Do not flag that mix unless a specific
   value is genuinely ambiguous about its unit.
-- Speeds, feeds, stickouts, measured shop facts and the part data may be
-  illustrative example values. Do not judge whether a number is real,
-  measured or optimal. DO judge whether the numbers agree with each other,
-  with their units and with the pictures.
+- Speeds, feeds, depths of cut, stickouts, measured shop facts and the part
+  data may be example values rather than measured ones. Their source is not
+  your concern; whether they are realistic is. Judge every number against
+  common shop literature (Machinery's Handbook speed/feed tables, the tool
+  maker's charts, standard drill/tap/reamer tables) for that material, tool
+  material and size, operation and this class of machine:
+  - A value that would break or bury the tool, chatter it badly, stall or
+    exceed the machine, scrap the part or hurt the builder is a blocker:
+    rpm or surface speed several times the handbook range, a feed per tooth
+    or per rev far above it, a depth of cut a light machine cannot take, a
+    stickout far beyond what the tool or holder supports, a tap drill that
+    does not match the thread, a reamer allowance outside the usual range.
+  - A value well outside the usual range but survivable (badly slow, rubbing
+    feed, a roughing depth far too timid) is clarity: the builder will stop
+    and doubt it.
+  - A value inside the usual range is fine even if you would pick another.
+    Do not tune for optimum; a conservative choice inside the range a novice
+    should use is correct.
+  Say which literature range you compared against in the issue.
+  DO also judge whether the numbers agree with each other, with their units
+  and with the pictures.
 
 THE TRAVELER IS THE METHOD, NOT THE PART
 This is the opposite of a drawing. Process words ARE its content: grip, stop,

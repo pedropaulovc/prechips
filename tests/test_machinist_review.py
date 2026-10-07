@@ -98,13 +98,12 @@ def test_traveler_dir_without_traveler_html_is_refused(tmp_path: Path) -> None:
 
 
 def test_explicit_missing_chrome_is_not_replaced_by_another_browser(tmp_path: Path) -> None:
-    real = tmp_path / "chrome.exe"
+    real = tmp_path / "Google" / "Chrome" / "Application" / "chrome.exe"
+    real.parent.mkdir(parents=True)
     real.write_bytes(b"")
-    env = {
-        "PRECHIPS_CHROME": str(tmp_path / "missing" / "chrome.exe"),
-        "ProgramFiles": str(tmp_path),
-        "PATH": str(tmp_path),
-    }
+    fallback_env = {"ProgramFiles": str(tmp_path), "PATH": str(tmp_path / "empty")}
+    assert mr.find_chrome(fallback_env) == real
+    env = {**fallback_env, "PRECHIPS_CHROME": str(tmp_path / "missing" / "chrome.exe")}
     with pytest.raises(FileNotFoundError, match="PRECHIPS_CHROME"):
         mr.find_chrome(env)
     with pytest.raises(FileNotFoundError, match="PRECHIPS_CHROME"):

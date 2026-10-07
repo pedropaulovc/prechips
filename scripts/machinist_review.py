@@ -934,7 +934,9 @@ def review_package(
     if reviewer == "claude":
         tool_events, _ = _claude_event_evidence(events, allowed_images=allowed_images)
         _, read_images = _claude_event_evidence(success_events, allowed_images=verdict_images)
-        inspection_proven = bool(verdict_images) and set(verdict_images) == read_images
+        inspection_proven = (
+            bool(verdict_images) and {path.resolve() for path in verdict_images} == read_images
+        )
         extra: dict[str, Any] = {
             "image_read_events": len(read_images),
             "images_read": sorted(path.name for path in read_images),

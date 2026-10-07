@@ -501,6 +501,13 @@ and **nothing the operator doesn't need to run the job**. This is a developer
 tool that calls a hosted model. It is not part of `prechips check`, so the
 offline, no-network rule for checks is unchanged.
 
+The reviewer also judges whether speeds, feeds, depths of cut, stickouts and
+tool choices are realistic against common shop literature (Machinery's
+Handbook tables, tool makers' charts) for the material, tool and machine,
+even when they are example values. A value that would break the tool, exceed
+the machine or scrap the part is a blocker; one far outside the usual range
+but survivable is a clarity finding.
+
 ```sh
 uv run scripts/machinist_review.py --reviewer codex --traveler out/pivot-shaft
 uv run scripts/machinist_review.py --reviewer claude --bundle examples/rocker-arm/plan.toml
