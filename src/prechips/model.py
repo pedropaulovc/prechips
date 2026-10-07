@@ -203,6 +203,8 @@ type Point3 = Annotated[list[Number], Field(min_length=3, max_length=3)]
 Pose = record("Pose", {"origin_mm": Point3, "x": Point3, "z": Point3})
 # ``restraint``: press holds stock down onto the fixture; locate only positions it.
 # ``torque_nm``: the declared tightening torque the traveler prints in the clamp order.
+# ``tighten = "hand"``: tightened by hand only, never with a wrench; the traveler's clamp
+# order prints it, and free text calling a clamp hand tight must match it (consistency).
 ClampPlacement = record(
     "ClampPlacement",
     {
@@ -210,6 +212,7 @@ ClampPlacement = record(
         "pose": Pose,
         "restraint": Literal["press", "locate", "none"],
         "torque_nm": Number,
+        "tighten": Literal["hand"],
     },
 )
 type PlanCentres = list[Annotated[list[Number], Field(min_length=2, max_length=2)]]

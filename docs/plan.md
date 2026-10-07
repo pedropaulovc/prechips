@@ -668,7 +668,7 @@ for collet/chuck capacity, not the unsupported-section diameter.
 
 `Pose` is `{origin_mm, x, z}`, each `[Number, Number, Number]` in setup-frame
 mm: a fixture-local frame's origin and unit, orthogonal x and z axes. A
-`ClampPlacement` is `{ref, note, pose, restraint, torque_nm}`: `ref` names a fixture or a
+`ClampPlacement` is `{ref, note, pose, restraint, torque_nm, tighten}`: `ref` names a fixture or a
 `kit/member` such as a clamping-kit strap, and its authored `solids` are
 placed by `pose` (origin at the strap underside on the work). `restraint` is
 `press` (it holds the work down along pose -z), `locate` (it only positions
@@ -693,7 +693,11 @@ HOLD and the picture share one label per `clamps` entry, by its 1-based index:
 `clamp_order` or no order at all), `LOC<i>` for `locate`, `SUP<i>` otherwise.
 HOLD prints the order as "seat against the locators (turning in
 `preload_direction`), snug each in turn, then tighten each fully in the same
-order", to the entry's optional declared `torque_nm` when given.
+order", to the entry's optional declared `torque_nm` when given. An entry declared
+`tighten = "hand"` (a nut run down on a stud without a wrench) is printed as
+tightened "by hand only, no wrench" instead of fully; it takes no `torque_nm`. Plan
+text calling a clamp hand tight while its entry lacks `tighten = "hand"` is an error
+([consistency](rules-setup.md#consistency)).
 
 A physical stop uses `stop_fixture` plus `stop_pose`; its inventory solids
 follow the same dimension/measurement/void trust rules as other fixture bodies.
@@ -770,8 +774,11 @@ opening on that jaw face. Its fact-local measured `dia` (the button face),
 button on the one bore of the work opening on its jaw face that takes the spigot,
 and the jaws close on the buttons, each standing off the work by `thickness`.
 Any of those four unmeasured, or an item that is not `jaw_buttons`, leaves the
-jaws unplaced (fixture debt), as does a face with no such bore, or with several.
-The contacts drawn and measured are the button faces, not the jaws.
+jaws unplaced (fixture debt), as does a face with no such bore, or with several,
+or a button whose face shares no area with the work round that bore within the
+jaw's height (a button no wider than the bore's mouth bears on nothing). The
+contacts drawn are the button faces, not the jaws, and the grip measured is
+only where the work bears on them.
 
 Other holding kinds are drawn from their own declarations, never defaulted.
 A `chuck_3jaw` / `chuck_4jaw` (and the chuck a `dividing_head` names with

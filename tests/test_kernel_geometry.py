@@ -432,6 +432,41 @@ def test_jaw_buttons_stand_the_jaws_off_the_work_with_their_spigots_in_its_bore(
     ]
 
 
+@pytest.mark.parametrize(
+    ("dia", "grip"),
+    [
+        # The Ø16 face bears on the work around the Ø12.2 bore, Z 2 to the jaw top at 15.
+        (16.0, 13.0),
+        # A 0.1 mm land round the bore mouth still bears, Z 3.8 to 15.
+        (12.4, 11.2),
+        # A face only as wide as the bore touches its edge along a line of no area.
+        (12.2, None),
+        # A face inside the bore's mouth never touches the work.
+        (10.0, None),
+    ],
+)
+def test_a_jaw_button_must_bear_on_the_work_round_its_bore_or_the_jaws_stay_unplaced(
+    engine, solids, dia, grip
+):
+    buttons = {
+        "name": "jaw-buttons",
+        "dia_mm": dia,
+        "thickness_mm": 3.0,
+        "spigot_dia_mm": 6.0,
+        "spigot_length_mm": 2.0,
+    }
+    hold = {**_vise(15.0, centre=20.0), "jaw_buttons": buttons}
+    setup = engine.run(engine.job(solids["journal"], setups=[_setup([], hold)]))["setups"]["S1"]
+    if grip is None:
+        assert "jaw_buttons jaw-buttons" in setup["fixture_reason"], setup
+        assert setup["render_scene"]["jaws"] == "absent"
+        assert setup["contact_grip_mm"] == "unknown" and setup["parallel_pair"] == "unknown"
+        return
+    assert "fixture_reason" not in setup, setup["fixture_reason"]
+    assert setup["parallel_pair"] is True
+    assert setup["contact_grip_mm"] == [grip, grip]
+
+
 def test_jaw_centre_places_a_part_longer_than_the_jaws(engine, solids):
     step = solids["channel"]
     channel = engine.refs(step, (0, 5, 10), (60, 35, 20))
