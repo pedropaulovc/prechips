@@ -163,16 +163,20 @@ a cutting claim or a kernel input.
 | Field | Meaning |
 |---|---|
 | `requirement` | The height-like requirement the aim sets; it must be one of the feature's exported drawing requirements |
-| `value_mm` | The value that requirement reads at the aimed target |
+| `value_mm` | The value, in mm, that requirement reads at the aimed target; it must lie inside the printed band |
 | `reason` | Known text; the bundled examples begin it with `AUTHOR'S CHOICE` |
 
-The `<feature>` must be a manifest feature that exports `requirement`; anything
-else is bad input. The [`coordinates`](rules-coordinates.md#coordinates) rule
-moves the target along the band's measuring direction in every setup that
-locates the feature. It then checks the DRO-rounded target against the printed
-band and cites `plan.aims.<feature>`. The sheet's feature map prints the aimed
-target together with the drawing nominal and the reason. An aim on a feature
-without that band, or one whose distance cannot be measured, stays unknown.
+The `<feature>` must be a manifest feature that exports `requirement`, and
+`value_mm` (converted to the manifest units) must lie inside that requirement's
+band as the sheet prints it; anything else is bad input. The
+[`coordinates`](rules-coordinates.md#coordinates) rule moves the feature's own
+target along the band's measuring direction in every setup that locates it. It
+then checks the DRO-rounded target against the printed band, measured from the
+reference's own printed target when the same setup locates it, and cites
+`plan.aims.<feature>`. The sheet's feature map prints the aimed target together
+with the drawing nominal and the reason. An aim on a feature without that band,
+on a child located by its parent's `at`, under unknown units, or one whose
+distance cannot be measured stays unknown.
 
 ## Joint features
 
