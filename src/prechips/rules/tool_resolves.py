@@ -22,7 +22,7 @@ from .resolution import (
     resolve,
     same_length,
     selected_references,
-    setup_item_uses,
+    setup_items,
     uncertain,
 )
 
@@ -147,10 +147,8 @@ def evaluate(bundle):
     # ``pins`` is ``gauges.pins``, not the ``fixtures.pins`` resolved above.
     named = named_references(bundle)
     for setup in bundle.plan.get("setups") or []:
-        for categories, ref in setup_item_uses(setup):
-            root = ref.partition("/")[0]
-            category = inventory_category(bundle, root, categories)
-            if category and category != inventory_category(bundle, root):
+        for category, ref in setup_items(bundle, setup):
+            if category and category != inventory_category(bundle, ref.partition("/")[0]):
                 places = named.setdefault(f"{category}.{ref}", [])
                 where = f"Setup {record(setup).get('id', '?')}"
                 if where not in places:

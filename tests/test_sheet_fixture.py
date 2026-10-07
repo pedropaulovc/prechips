@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from prechips.findings import Finding
 from prechips.inputs import Bundle
 from prechips.sheet import _Traveler
 
@@ -496,6 +497,170 @@ def test_a_gauge_slot_resolves_the_gauge_not_a_same_key_fixture():
     data.inventory["gauges"]["pins"]["verify"] = False
     found = {f.subject: f.status for f in tool_resolves.evaluate(data)}
     assert found["gauges.pins"] == "pass"
+
+
+INSPECT = {"op": 10, "do": "inspect", "feature": "bore"}
+
+
+def _put(path, value):
+    """A setup mutation setting the ``path`` slot (``hold.parallels``) to ``value``."""
+
+    def put(setup, key):
+        *parents, leaf = path.split(".")
+        node = setup
+        for parent in parents:
+            node = node.setdefault(parent, {})
+        node[leaf] = value(key)
+
+    return put
+
+
+PASSING_RECEIPT = [{"check": "condition", "gauge": "none", "accept": "no visible damage"}]
+# Every way a setup reaches an inventory item: (slot, the category it selects, a category
+# the default key order reads first, the mutation using the slot, a shop-made item whose
+# record blank names the gauge). The decoy sits in that earlier category under the same key.
+ITEM_LOOKUPS = [
+    *(
+        (f"hold.{slot}", "fixtures", "tools", _put(f"hold.{slot}", lambda k: k), False)
+        for slot in (
+            "fixture",
+            "chuck",
+            "parallels",
+            "riser",
+            "jaw_bar",
+            "jaw_buttons",
+            "support",
+            "supports",
+            "stop_fixture",
+        )
+    ),
+    ("hold.clamps", "fixtures", "tools", _put("hold.clamps", lambda k: [{"ref": k}]), False),
+    ("hold.align.indicator", "gauges", "fixtures", _put("hold.align.indicator", str), False),
+    ("zero.x.gauge", "gauges", "fixtures", _put("zero.x.gauge", str), False),
+    ("zero.x.tool", "tools", "machines", _put("zero.x.tool", str), False),
+    ("zero.x.holder", "holders", "tools", _put("zero.x.holder", str), False),
+    (
+        "zero.z_gauge",
+        "gauges",
+        "fixtures",
+        _put("zero.tool_touches", lambda k: [{"z_gauge": k}]),
+        False,
+    ),
+    ("zero.transfer.tool", "tools", "machines", _put("zero.transfer.tool", str), False),
+    ("zero.transfer.gauge", "gauges", "fixtures", _put("zero.transfer.gauge", str), False),
+    ("op.tool", "tools", "machines", _put("ops", lambda k: [{**INSPECT, "tool": k}]), False),
+    ("op.holder", "holders", "tools", _put("ops", lambda k: [{**INSPECT, "holder": k}]), False),
+    (
+        "op.checks",
+        "gauges",
+        "fixtures",
+        _put("ops", lambda k: [{**INSPECT, "checks": {"d": k}}]),
+        False,
+    ),
+    (
+        "op.process_holds",
+        "gauges",
+        "fixtures",
+        _put("ops", lambda k: [{**INSPECT, "process_holds": [{"gauge": k}]}]),
+        False,
+    ),
+    *(
+        (
+            f"op.guide.{slot}",
+            real,
+            decoy,
+            _put("ops", lambda k, s=slot: [{**INSPECT, "guide": {s: k}}]),
+            False,
+        )
+        for slot, real, decoy in (
+            ("buttons", "fixtures", "tools"),
+            ("template", "gauges", "fixtures"),
+            ("gauge", "gauges", "fixtures"),
+        )
+    ),
+    ("prose", "gauges", "fixtures", _put("note", lambda k: f"Check with gauges.{k}."), False),
+    ("shop-made fixture", "fixtures", "tools", _put("hold.fixture", str), True),
+    (
+        "shop-made holder",
+        "holders",
+        "tools",
+        _put("ops", lambda k: [{**INSPECT, "holder": k}]),
+        True,
+    ),
+    (
+        "shop-made holder, fixture decoy",
+        "holders",
+        "fixtures",
+        _put("ops", lambda k: [{**INSPECT, "holder": k}]),
+        True,
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    ("slot", "real", "decoy", "use", "shop_made"),
+    ITEM_LOOKUPS,
+    ids=[row[0] for row in ITEM_LOOKUPS],
+)
+def test_every_item_lookup_reads_its_slots_category_never_a_same_key_decoy(
+    slot, real, decoy, use, shop_made
+):
+    """An item is its category and key. The item a slot selects has an unknown receipt and
+    is unverified; another category lists the same key with a passing receipt, verified.
+    Receipt checks, resolution and every printed name read the selected item."""
+    from prechips.rules import purchased_tooling, tool_resolves
+
+    data, _ = record_page()
+    # The decoy's category comes first in the shop list too: no lookup order finds the
+    # selected item by luck.
+    categories = {"tools": {}, "holders": {}, **data.inventory}
+    data.inventory.clear()
+    data.inventory.update({decoy: categories.pop(decoy), **categories})
+    data.inventory["fixtures"]["par"] = {"kind": "parallels"}
+    data.plan["setups"][0]["hold"]["parallels"] = "par"
+    item = {"kind": "accessory", "name": "REAL item", "acceptance": "unknown", "verify": True}
+    if shop_made:
+        item = {
+            "kind": "custom",
+            "name": "REAL item",
+            "verify": True,
+            "solids": [cylinder("head", 0, 0, 8, 4, records=[RECORD])],
+        }
+        data.inventory["gauges"]["dti"]["acceptance"] = "unknown"
+    data.inventory[real]["pins"] = item
+    data.inventory[decoy]["pins"] = {
+        "kind": "accessory",
+        "name": "DECOY",
+        "acceptance": PASSING_RECEIPT,
+    }
+    use(data.plan["setups"][0], "pins")
+
+    findings = purchased_tooling.evaluate(data)
+    (receipt,) = findings
+    owners = [(row["category"], row["ref"]) for row in receipt.numbers["items"]]
+    assert receipt.status == "unknown"
+    assert (("gauges", "dti") if shop_made else (real, "pins")) in owners
+    assert (decoy, "pins") not in owners
+    if not shop_made:
+        resolved = {f.subject: f.status for f in tool_resolves.evaluate(data)}
+        assert "unknown" in (resolved.get("pins"), resolved.get(f"{real}.pins"))
+        assert f"{decoy}.pins" not in resolved
+    setup = data.plan["setups"][0]
+    # The dividing head names the hold's fixture; touch-offs name their tool.
+    index = Finding("indexing", "S1", "pass", {"rotation": True, "fixture": "pins"}, [], ".")
+    traveler = _Traveler(data, [*findings, index], {}, None)
+    printed = traveler.purchased_tooling(setup)
+    if slot != "op.process_holds":  # an inspect op without its hold feature does not render
+        printed += sheets(data)[0]
+    if slot == "hold.fixture":
+        printed += traveler.indexing({**setup, "hold": {**setup["hold"], "index": "pins"}})
+    if real == "tools":
+        printed += traveler.touched_tool("pins", {})
+    # A bare key in prose names no one item when two categories list it: never the decoy.
+    printed += traveler.bench("Use the pins.", setup)
+    if not (shop_made and real == "holders"):  # here only its record's gauge is printed
+        assert "REAL" in printed
+    assert "DECOY" not in printed
 
 
 def drill_note(note):
