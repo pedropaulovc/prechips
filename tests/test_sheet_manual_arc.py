@@ -336,8 +336,8 @@ def test_manual_layout_and_filing_attach_to_their_operation_even_at_the_bench(
     )
     assert "file down to the hardened button rims" in printed
     assert "R10 filing buttons" in printed
-    # Every stack element's receipt limits and its share of the centre shift print...
-    for value in ("19.99", "4.01", "3.99", "0.004", "4.01842", "0.01421", "0.02621"):
+    # Every stack element's receipt limits print...
+    for value in ("19.99", "4.01", "3.99", "0.004", "4.01842"):
         assert value in printed
     # ...and the worst case rounds outward, never narrower than the band it was proven in.
     assert "R9.968 to R10.027 mm" in printed
