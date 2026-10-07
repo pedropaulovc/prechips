@@ -2197,9 +2197,11 @@ class _Traveler:
         """The item's made solids as make-and-set rows; identical solids share a row (an
         authored ``label`` names the group), each row lists every setup-frame position
         and the holes cut in it. Bought hardware is one line under the table, and each
-        made row's ``note`` (material, heat treatment, finish) one "Make:" entry under
-        that; solids already in the shop (``supply = "existing"``, such as machine vise
-        jaws drawn for clearance) are not listed. A fit position printed ``?`` says why
+        made row's or made hole's ``note`` (material, heat treatment, finish, how it is
+        cut) one "Make:" entry under that; solids already in the shop (``supply =
+        "existing"``, such as machine vise jaws drawn for clearance) are not rows. A
+        bought or existing part's note prints on a "Notes:" line after the Make entries.
+        A fit position printed ``?`` says why
         under the table. An item only the HOLD places (:data:`LOOSE`) gives its positions
         in its own frame, the one its solids are drawn in."""
         sid = setup["id"]
@@ -2291,6 +2293,19 @@ class _Traveler:
                     self.bench(first["fastener"]) if first.get("fastener") else "—",
                 ]
             )
+        # A made hole's note (how it is cut) is a Make entry; a bought or existing part's
+        # note (its state as bought, what to leave alone) prints apart, as Notes.
+        listed = {id(s) for members in groups.values() for s in members}
+        others = {}
+        for solid in solids:
+            note = solid.get("note")
+            name = self.bench(solid.get("label") or _solid_name(solid.get("name", "?")))
+            if not note or id(solid) in listed:
+                continue
+            made_hole = solid.get("void") and _supply(solid) == "made"
+            entry = (notes if made_hole else others).setdefault(self.bench(note).rstrip("."), [])
+            if name not in entry:
+                entry.append(name)
         if not solids:
             dims = [_amount(item.get(f"{edge}_mm")) for edge in ("length", "width", "height")]
             size = (
@@ -2345,6 +2360,7 @@ class _Traveler:
             )
             + (_p(f"Bought hardware (not made): {hardware}.") if hardware else "")
             + (_p(f"Make: {_make_notes(notes)}.") if notes else "")
+            + (_p(f"Notes: {_make_notes(others)}.") if others else "")
             + "".join(_p(reason) for reason in sorted(self.fixture_unknowns))
         )
 

@@ -350,6 +350,10 @@ Other holding solids come from the same accepted-fact rule, never defaults:
   one stack per shim primitive per placement of its item. A made primitive's
   `note` (material, heat treatment, finish) prints once per row in a "Make:"
   line under the table; primitives with different notes do not share a row.
+  A made hole's `note` (how it is cut) joins the Make entries under its `label`
+  or name; a bought or existing primitive's `note` (its state as bought, what
+  to leave alone) prints on a "Notes:" line after them, so a bought shell whose
+  windows are made here states its whole route.
   An angle plate's (or posed shop-made fixture's) lowest box that is not bought
   is its base: HOLD prints its underside Z, an angle plate's working face (local
   y = 0, facing local -y) and the base's `fastener` as the hold-down; with any

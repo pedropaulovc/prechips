@@ -276,8 +276,28 @@ def test_made_parts_print_their_make_notes_and_differing_notes_stay_apart():
     assert "button ×2" in made, "identical parts with one note share a row"
     # Rows sharing a make note are named together before it.
     assert f"Make: button ×2, collar: {hard}; button C: mild steel." in table
-    # Bought hardware is not made, so its note is no make instruction.
-    assert "zinc" not in bridge_page(cylinder("bolt", 0, 0, 6, 20, supply="bought", note="zinc"))
+    # Bought hardware is not made, so its note is no make instruction: it prints apart.
+    table = bridge_page(cylinder("bolt", 0, 0, 6, 20, supply="bought", note="zinc plated"))
+    assert "Notes: bolt: zinc plated." in table
+    assert "zinc" not in table.split("Notes:")[0]
+
+
+def test_notes_on_holes_and_on_bought_and_existing_parts_print():
+    window = cylinder("window", 0, -1, 5, 10, void=True, cuts=["beam"], note="mill it light")
+    shell = {
+        "name": "shell",
+        "shape": "box",
+        "at_mm": [-40, -40, -20],
+        "size_mm": [5, 5, 5],
+        "supply": "existing",
+        "note": "the bought box parallel, as sold",
+    }
+    table = bridge_page(window, shell)
+    make = table[table.index("Make:") :]
+    # A made hole's note is how it is made; an existing part's note is not.
+    assert "window: mill it light" in make
+    assert "Notes: shell: the bought box parallel, as sold." in table
+    assert "box parallel" not in make.split("Notes:")[0]
 
 
 def test_bought_part_drawn_as_head_and_shank_counts_once():
