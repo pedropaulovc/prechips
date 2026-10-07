@@ -804,8 +804,11 @@ opening on that jaw face. Its fact-local measured `dia` (the button face),
 button on the one bore of the work opening on its jaw face that takes the spigot,
 and the jaws close on the buttons, each standing off the work by `thickness`.
 Any of those four unmeasured, or an item that is not `jaw_buttons`, leaves the
-jaws unplaced (fixture debt), as does a face with no such bore, or with several.
-The contacts drawn and measured are the button faces, not the jaws.
+jaws unplaced (fixture debt), as does a face with no such bore, or with several,
+or a button whose face shares no area with the work round that bore within the
+jaw's height (a button no wider than the bore's mouth bears on nothing). The
+contacts drawn are the button faces, not the jaws, and the grip measured is
+only where the work bears on them.
 
 Other holding kinds are drawn from their own declarations, never defaulted.
 A `chuck_3jaw` / `chuck_4jaw` (and the chuck a `dividing_head` names with
