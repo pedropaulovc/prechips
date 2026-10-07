@@ -37,6 +37,7 @@ from .rules.resolution import (
     listing_categories,
     make_op_unknowns,
     make_ops,
+    make_tool,
     named_item,
     op_feature,
     op_features,
@@ -45,9 +46,11 @@ from .rules.resolution import (
     saw_setup,
     selected_references,
     setup_frame,
+    setup_items,
     shop_made_item,
     slot_category,
     tool_numbers,
+    uncertain,
     workholding_category,
 )
 from .rules.resolution import record as _mapping
@@ -1532,16 +1535,7 @@ class _Traveler:
             lambda m: self.feature_name(self.faces[m[0]]) if m[0] in self.faces else "a face",
             text,
         )
-        # An inventory item named in prose (``gauges.dti``) prints as its shop name; one
-        # the shop list does not have prints ``? <key>`` (tool_resolves reports it unknown).
-        text = NAMED_REFERENCE.sub(
-            lambda m: (
-                reference_label(self.bundle, m[2], m[1]).removesuffix(" (not in shop list)")
-                if named_item(self.bundle, m[0]) is not None
-                else f"? {m[2]}"
-            ),
-            text,
-        )
+        text = self.shop_names(text)
         for reference, label in sorted(self.references.items(), key=lambda pair: -len(pair[0])):
             text = text.replace(reference, label)
         for key in sorted(self.features, key=len, reverse=True):
@@ -1576,6 +1570,18 @@ class _Traveler:
             text = text.replace(rule, _text(rule))
         text = re.sub(r"(?<=[a-z])(?=\d+(?:\.\d+)?mm\b)|(?<=\d)(?=mm\b)", " ", text)
         return re.sub(r"\s{2,}", " ", _text(text)).strip()
+
+    def shop_names(self, text):
+        """``text`` with each inventory item it names (``gauges.dti``) as its shop name; one
+        the shop list does not have prints ``? <key>`` (tool_resolves reports it unknown)."""
+        return NAMED_REFERENCE.sub(
+            lambda m: (
+                reference_label(self.bundle, m[2], m[1]).removesuffix(" (not in shop list)")
+                if named_item(self.bundle, m[0]) is not None
+                else f"? {m[2]}"
+            ),
+            text,
+        )
 
     def paragraphs(self, mapping, formatter=None):
         parts = []
@@ -2296,7 +2302,8 @@ class _Traveler:
         """One SHOP-MADE FIXTURE table per shop-made item first used (at these poses) in
         this setup; a later setup using it at the same poses points back here. Every fit
         on the sheet's items marks its setup-frame places first, so a hole or mating part
-        at one of them prints the same value in every table."""
+        at one of them prints the same value in every table. Then the make operations of
+        each item no make table carries (:meth:`make_operation_lists`)."""
         uses = self.shop_made_uses(setup)
         self.fit_places = {}
         for reference, placements in uses.items():
@@ -2316,7 +2323,39 @@ class _Traveler:
             if self.shop_made_home(setup, reference, uses) == setup["id"]
         )
         self.fit_places = {}
-        return tables
+        return tables + self.make_operation_lists(setup)
+
+    @functools.cached_property
+    def tabled_items(self):
+        """``{(category, reference)}``: each shop-made item a make table prints on some
+        setup's sheet (:meth:`shop_made_uses`), in the category :meth:`shop_made` reads."""
+        return {
+            (workholding_category(self.bundle, reference), reference)
+            for setup in self.bundle.plan.get("setups") or []
+            for reference in self.shop_made_uses(setup)
+        }
+
+    def make_operation_lists(self, setup):
+        """The make operations (:meth:`make_lines`) of each shop-made item this setup is the
+        first to hold with through a slot no make table covers (a chuck, parallels, a jaw
+        bar or single support, an op's holder, a guide's buttons), under the item's name:
+        a declared operation always prints, once, where tool_resolves checks it."""
+        html = ""
+        for category, reference, *_ in setup_items(self.bundle, setup):
+            if category not in WORKHOLDING_CATEGORIES or (category, reference) in self.tabled_items:
+                continue
+            lines = self.make_lines(shop_made_item(self.bundle, reference, category), {})
+            home = self.shop_made_homes.setdefault(("make_ops", category, reference), setup["id"])
+            if not lines or home != setup["id"]:
+                continue
+            title = f"SHOP-MADE FIXTURE — {self.reference(reference, category)}"
+            html += (
+                f"<h2>{escape(title)}</h2>"
+                + _p(f"Make before Setup {setup['id']}.")
+                + _p("Make operations, in order:")
+                + "".join(_p(line) for line in lines)
+            )
+        return html
 
     def shop_made_parts(self, reference):
         """The item's solids, made solids, withheld solids (id -> why), holes per parent
@@ -2540,8 +2579,9 @@ class _Traveler:
         """The item's make operations (:func:`make_ops`), one numbered line each in the
         order they are run: ``1. hold: …; T: <tool>; 600 rpm; 0.05 mm/rev; 0.5 mm/pass;
         <source>``, a primitive's own after its make-table component. A field not known
-        prints ``?`` (a tool the shop's tools do not list, ``? <key>``) and the line ends in
-        a STOP naming it: never left out."""
+        prints ``?`` (a tool the shop's tools do not list, ``? <key>``; one still to verify,
+        ``? <tool>``) and the line ends in a STOP naming it: never left out. The hold and
+        the source print as written, an item they name as its shop name."""
         lines = []
         for index, (solid, op) in enumerate(make_ops(item), 1):
             head = f"{index}. "
@@ -2553,17 +2593,19 @@ class _Traveler:
                 continue
             tool, rpm = op.get("tool"), op.get("rpm")
             missing = set(make_op_unknowns(op))
-            # A key the shop's tools do not list, or a tools list stated unknown.
-            found = resolve(self.bundle, "tools", tool)
-            if "tool" not in missing and (found is None or found.get("kind") == "unknown"):
+            # The tools item only (:func:`make_tool`): one the tools do not list, or stated
+            # unknown, is not established; one still to verify prints its name, unknown.
+            found = None if "tool" in missing else make_tool(self.bundle, tool)
+            if found is None or found.get("kind") == "unknown":
                 missing.add("tool")
+            unverified = "tool" not in missing and uncertain(found)
             texts = {
-                "hold": f"hold: {self.bench(op.get('hold'))}",
-                "tool": f"T: {self.tool_name(tool)}",
+                "hold": f"hold: {self.authored(op.get('hold'))}",
+                "tool": f"T: {'? ' if unverified else ''}{self.tool_name(tool)}",
                 "rpm": "–".join(map(_declared, rpm if isinstance(rpm, list) else [rpm])) + " rpm",
                 "feed": str(op.get("feed")).strip(),
                 "doc_mm": f"{_declared(op.get('doc_mm'))} mm/pass",
-                "cite": self.bench(op.get("cite")),
+                "cite": self.authored(op.get("cite")),
             }
             blanks = {
                 "hold": "hold: ?",
@@ -2576,11 +2618,20 @@ class _Traveler:
             line = head + "; ".join(
                 blanks[key] if key in missing else texts[key] for key in MAKE_OP_FIELDS
             )
-            if missing:
-                named = [_MAKE_OP_WORDS[key] for key in MAKE_OP_FIELDS if key in missing]
+            named = [
+                _MAKE_OP_WORDS[key] if key in missing else "tool verification"
+                for key in MAKE_OP_FIELDS
+                if key in missing or (key == "tool" and unverified)
+            ]
+            if named:
                 line += f" — STOP: {', '.join(named)} not established; do not run it."
             lines.append(line)
         return lines
+
+    def authored(self, text):
+        """Authored text whole, as written (a link or path in it too), each inventory item
+        it names as its shop name (:meth:`shop_names`)."""
+        return " ".join(self.shop_names(str(text)).split())
 
     def record_blank(self, solid, blank):
         """One record blank as a fill-in: ``head: head-to-shoulder TIR — 0.0005 in test

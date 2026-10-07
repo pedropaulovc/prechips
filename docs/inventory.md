@@ -379,12 +379,22 @@ Other holding solids come from the same accepted-fact rule, never defaults:
   first, then each primitive's (after its row name), in `solids` order, a list
   shared by primitives of one `label` once: `1. hold:
   vise on parallels; T: <tool's shop name>; 600 rpm; 0.05 mm/rev; 0.5 mm/pass;
-  MH 31st Table 17 p.1061`. An unknown fact prints `?`, a tool the shop's tools
-  do not list `? <key>`, and the line ends in a STOP naming them; `make_ops =
-  "unknown"` prints one STOP line. The tool is a slot like an op's tool: its
-  receipt checks print with the setup's (`purchased_tooling`) and `tool_resolves`
-  checks each operation (docs/rules-tools.md). A bought item or bought or
-  existing primitive has none.
+  MH 31st Table 17 p.1061`. `hold` and `cite` print as written, a link or path
+  in them too, an item they name (`fixtures.vise-pm-6`) as its shop name. An
+  unknown fact prints `?`, a tool the shop's tools do not list (only `tools`
+  counts: no other category's item or machine accessory of that key) `? <key>`,
+  a listed tool still to verify `? <tool's shop name>`, and the line ends in a
+  STOP naming them; `make_ops = "unknown"` prints one STOP line. The tool is a
+  slot like an op's tool: its receipt checks print with the setup's
+  (`purchased_tooling`) and `tool_resolves` checks each operation
+  (docs/rules-tools.md). An item a setup holds with through a slot no make table
+  covers (a chuck, parallels, a jaw bar or single support, an op's holder, a
+  guide's buttons) prints its make operations under its own SHOP-MADE FIXTURE
+  heading on the first such setup's sheet 2. Declared operations always print,
+  so where they could not they are refused: on a bought item, a bought or
+  existing primitive, an item every solid of which is bought or existing
+  (nothing is made: no make table), a set member (its record replaces its
+  set's) and any item outside `fixtures`, `holders` and `machines`.
   `records = [{ check, gauge, how, max_mm, goal_mm, over_mm }]` on any
   primitive are values measured and written down when the part is made or
   received (a head-to-shoulder TIR, a squareness by reversal). Each prints

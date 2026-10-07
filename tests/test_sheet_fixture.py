@@ -1133,3 +1133,99 @@ def test_an_item_a_make_operation_names_in_its_hold_is_checked():
     assert "? granite-plate" in line and "gauges." not in line
     named = {f.subject: f.status for f in tool_resolves.evaluate(data) if f.numbers.get("named_in")}
     assert named["gauges.granite-plate"] == "unknown"
+
+
+def make_statuses(data):
+    from prechips.rules import tool_resolves
+
+    return [f.status for f in tool_resolves.evaluate(data) if f.numbers.get("make_op")]
+
+
+@pytest.mark.parametrize("supplies", [["bought"], ["existing"], ["bought", "existing"]])
+def test_make_operations_on_an_item_with_nothing_made_here_are_refused(supplies):
+    from pydantic import ValidationError
+
+    from prechips.model import Inventory
+
+    def plate(*supply):
+        solids = [cylinder(f"part-{n}", 10 * n, 0, 8, 4, supply=s) for n, s in enumerate(supply)]
+        return {"fixtures": {"plate": {"kind": "custom", "solids": solids, "make_ops": [MAKE_OP]}}}
+
+    # No solid is made here, so no make table prints: its operations are refused, never
+    # accepted and then left off the traveler.
+    Inventory.model_validate(plate(*supplies, "made"))
+    with pytest.raises(ValidationError):
+        Inventory.model_validate(plate(*supplies))
+
+
+@pytest.mark.parametrize("where", ["tools", "gauges", "services", "member"])
+def test_make_operations_go_only_where_a_make_table_prints_them(where):
+    from pydantic import ValidationError
+
+    from prechips.model import Inventory
+
+    item = {"kind": "custom", "solids": [cylinder("ring", 0, 0, 20, 6)], "make_ops": [MAKE_OP]}
+    for category in ("fixtures", "holders", "machines"):
+        Inventory.model_validate({category: {"lap": item}})
+    plain = {key: value for key, value in item.items() if key != "make_ops"}
+    bad = (
+        {"fixtures": {"laps": {**plain, "members": {"a": item}}}}
+        if where == "member"
+        else {where: {"lap": item}}
+    )
+    with pytest.raises(ValidationError):
+        Inventory.model_validate(bad)
+
+
+@pytest.mark.parametrize("slot", ["parallels", "jaw_bar", "support"])
+def test_a_held_item_without_a_make_table_still_prints_its_make_operations(slot):
+    data = bundle([{"fixture": "angle", slot: "rest"}, {"fixture": "angle", slot: "rest"}])
+    data.inventory["tools"] = {"endmill-6": dict(END_MILL)}
+    data.inventory["fixtures"]["rest"] = {
+        "kind": "custom",
+        "solids": [cylinder("rest", 0, 0, 20, 6)],
+        "make_ops": [MAKE_OP],
+    }
+    first, second = (page.partition("SHOP-MADE")[2] for page in sheets(data))
+    # Once, before the first setup holding with it; its finding is the line's.
+    (line,) = make_lines(first)
+    assert not make_lines(second)
+    assert "6 mm 3-flute end mill" in line and MAKE_OP["cite"] in line and "STOP" not in line
+    assert make_statuses(data) == ["pass"]
+
+
+@pytest.mark.parametrize("flag", [{"verify": True}, {"verify": "unknown"}, {"present": "unknown"}])
+def test_an_unverified_make_tool_prints_unknown_and_stops(flag):
+    data, table = make_page(item_ops=[MAKE_OP], tools={"endmill-6": {**END_MILL, **flag}})
+    (line,) = make_lines(table)
+    assert "? " in line and "STOP" in line and "6 mm 3-flute end mill" in line
+    assert make_statuses(data) == ["unknown"]
+
+
+@pytest.mark.parametrize("key", ["included", "standard_accessories"])
+def test_a_machine_accessory_the_tools_do_not_list_is_no_make_tool(key):
+    from prechips.rules.resolution import setup_items
+
+    data, _ = make_page(item_ops=[MAKE_OP], tools={})
+    data.inventory["machines"]["mill"][key] = ["endmill-6"]
+    page = sheets(data)[0]
+    (line,) = make_lines(page[page.index("SHOP-MADE FIXTURE") :])
+    assert "? endmill-6" in line and "STOP" in line
+    assert make_statuses(data) == ["error"]
+    # Its receipt slot is the tools item, never the accessory.
+    assert ("tools", "endmill-6") in setup_items(data, data.plan["setups"][0])
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("cite", "https://example.com/cutting-data"),
+        ("cite", "Vendor chart https://example.com/em.pdf p.3"),
+        ("hold", "as drawn in https://example.com/hold.png"),
+    ],
+)
+def test_authored_make_text_prints_whole(field, value):
+    data, table = make_page(item_ops=[{**MAKE_OP, field: value}])
+    (line,) = make_lines(table)
+    assert value in line and "STOP" not in line
+    assert make_statuses(data) == ["pass"]

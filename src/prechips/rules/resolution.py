@@ -299,9 +299,10 @@ def setup_items(bundle, setup):
     gauges (a tool touch's Z measuring gauge, the transfer's tool and gauge); then each
     op's filing guide (its buttons, template and gauge), tool, holder, inspection gauges
     and process-hold gauges. A shop-made holding item is followed by the tool of each of
-    its make operations (:func:`make_ops`), a ``tools`` slot. One reference selected in
-    two categories by two kinds of slot is two items. An item is its category and
-    reference from here on: every reader resolves that pair, never the bare key again."""
+    its make operations (:func:`make_ops`), a ``tools`` item only (:func:`make_tool`). One
+    reference selected in two categories by two kinds of slot is two items. An item is its
+    category and reference from here on: every reader resolves that pair, never the bare
+    key again."""
     hold = record(setup.get("hold"))
     uses = [("workholding", hold.get(key)) for key in _HOLD_ITEMS]
     uses += [("workholding", record(clamp).get("ref")) for clamp in hold.get("clamps") or []]
@@ -336,7 +337,7 @@ def setup_items(bundle, setup):
         made = shop_made_item(bundle, ref, category) if category in WORKHOLDING_CATEGORIES else None
         tools = [record(op).get("tool") for _, op in make_ops(made)]
         for item in [(category, ref)] + [
-            (slot_category(bundle, tool, "tools"), tool)
+            ("tools", tool)
             for tool in tools
             if isinstance(tool, str) and tool not in {UNKNOWN, "none", "not_applicable"}
         ]:
@@ -415,6 +416,21 @@ def make_op_unknowns(op):
         return isinstance(value, str) and value.strip() not in ("", UNKNOWN)
 
     return [key for key in MAKE_OP_FIELDS if not known(key, op.get(key))]
+
+
+def make_tool(bundle, reference):
+    """The ``tools`` record a make operation's ``tool`` names: read in ``tools`` only, never
+    a same-key item of another category or a machine's standard accessory. ``{"kind":
+    "unknown", "verify": True}`` when the tools list or the item is stated unknown; None when
+    the tools do not list it, it is not present or it is no member its set declares."""
+    if not isinstance(reference, str) or reference in (UNKNOWN, "none", "not_applicable"):
+        return None
+    tools = getattr(bundle, "inventory", bundle).get("tools", {})
+    if tools == UNKNOWN:
+        return {"kind": UNKNOWN, "verify": True}
+    if reference.partition("/")[0] not in record(tools):
+        return None
+    return resolve(bundle, "tools", reference)
 
 
 # An inventory item named in prose (a make note, a plan note): ``<category>.<key>`` with an

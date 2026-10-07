@@ -18,6 +18,7 @@ from .resolution import (
     length_mm,
     make_op_unknowns,
     make_ops,
+    make_tool,
     named_item,
     named_references,
     number,
@@ -115,9 +116,9 @@ def _coating(subject, op, bundle):
 
 def _make_ops(bundle):
     """One finding per make operation (:func:`make_ops`) of each shop-made item a setup
-    holds with: its ``tool`` must be a ``tools`` key the shop list has (no other category
-    stands in) and trusts, and every fact its line prints known; anything else is never
-    a pass."""
+    holds with: its ``tool`` must be a ``tools`` key the shop list has (:func:`make_tool`:
+    no other category or machine accessory stands in) and trusts, and every fact its line
+    prints known; anything else is never a pass."""
     findings, done = [], set()
     for setup in bundle.plan.get("setups") or []:
         for category, ref, *_ in setup_items(bundle, setup):
@@ -130,7 +131,7 @@ def _make_ops(bundle):
                 subject = f"{item} make op {index}"
                 unknowns = make_op_unknowns(op)
                 reference = record(op).get("tool", UNKNOWN)
-                tool = None if "tool" in unknowns else resolve(bundle, "tools", reference)
+                tool = None if "tool" in unknowns else make_tool(bundle, reference)
                 if tool is not None and uncertain(tool):
                     unknowns.append("tool verification")
                 unlisted = tool is None and "tool" not in unknowns

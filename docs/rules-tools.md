@@ -36,11 +36,13 @@ whole set is named by its key; a member must resolve as a member, read whole
 
 Each make operation (`make_ops`, docs/inventory.md) of a shop-made item a
 setup holds with is a subject of its own, `<category>.<key> make op <n>`
-numbered in print order. Its `tool` is a `tools` key, read in the tools only:
-a key the tools do not list is an error. It passes when the tool is listed and
-verified and the hold, speed, feed, depth of cut and source are known; an
-unknown fact, an unknown tool or tools list, or a tool still to verify is
-unknown, never a pass.
+numbered in print order. Its `tool` is a `tools` key, read in the tools only
+(a same-key item of another category or a machine's standard accessory never
+stands in): a key the tools do not list is an error. It passes when the tool
+is listed and verified and the hold, speed, feed, depth of cut and source are
+known; an unknown fact, an unknown tool or tools list, or a tool still to
+verify (flagged, or its verification or presence unknown) is unknown, never a
+pass, and its printed line stops on the same fact.
 
 Saw cut-off resolves the selected bandsaw blade and a `mill` / `bench` /
 `bandsaw` machine instead of a spindle/holder/shank assembly. No holder is
