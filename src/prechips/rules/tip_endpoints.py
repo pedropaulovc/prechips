@@ -424,11 +424,17 @@ def operative_z(bundle, setup, value, face=None, done=0, source=None, path=False
 
 def top_reader(bundle, setup):
     """``top(value, done=0)``: :func:`operative_z` of ``setup``'s stock ``"top"``, the Zs
-    it carries over (:func:`transfer`) found once for all of the setup's reads."""
-    carried = _carried(bundle, setup)
+    it carries over (:func:`transfer`) found once, and each read once, for the setup."""
+    carried, reads = _carried(bundle, setup), {}
 
     def top(value, done=0):
-        return _operative_z(bundle, setup, value, "top", done, None, False, carried)
+        if not number(value):
+            return value
+        if (value, done) not in reads:
+            reads[value, done] = _operative_z(
+                bundle, setup, value, "top", done, None, False, carried
+            )
+        return reads[value, done]
 
     return top
 

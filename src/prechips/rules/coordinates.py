@@ -2070,8 +2070,8 @@ def _z_levels(op, before, declared, cleared, features, grid, units, printed_top)
     wall-finishing op keeps that start, as its flank engages the whole wall; any other op
     starts lower only on an earlier face or pocket op's floor that provably cleared all of
     its region (:func:`_cleared_floor`). A start on the top prints as the setup prints the
-    top before the op (``printed_top``, :func:`~.tip_endpoints.operative_z`), any other on
-    the grid (``dro_z``), and the levels step down from it.
+    top before the op (``printed_top()``, :func:`~.tip_endpoints.operative_z`), any other
+    on the grid (``dro_z``), and the levels step down from it.
     """
     if op.get("do") not in _LEVEL_OPS or "doc_mm" not in op or "to_z" not in op:
         return None
@@ -2083,7 +2083,7 @@ def _z_levels(op, before, declared, cleared, features, grid, units, printed_top)
         start, basis = floor, "floor of an earlier op that cleared this op's whole region"
     end, doc = dro_z(op["to_z"], grid), op["doc_mm"]
     if basis == "setup top_z":
-        printed = printed_top if number(start) else UNKNOWN
+        printed = printed_top() if number(start) else UNKNOWN
     else:
         printed = dro_z(start, grid) if number(start) else UNKNOWN
     record = {"start_z": start, "start_basis": basis, "dro_start_z": printed}
@@ -3578,7 +3578,7 @@ def evaluate(bundle, *, pre_kernel=False):
                         allowed_errors.append(error)
             levels = None
             if not lathe:
-                printed = top(before["top_z"], done=done)
+                printed = functools.partial(top, before["top_z"], done=done)
                 levels = _z_levels(op, before, declared, cleared, features, grid, units, printed)
             if levels is not None:
                 entry["z_levels"] = levels

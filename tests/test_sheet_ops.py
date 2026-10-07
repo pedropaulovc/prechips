@@ -334,7 +334,7 @@ def test_a_floor_already_at_depth_is_one_pass_only_when_its_levels_are_establish
     records = contour_records([-0.6])
     grid = (0.001, 3)
     records[("coordinates", "S1")]["operations"][0]["z_levels"] = _z_levels(
-        op, {"top_z": -0.6}, {}, [], {}, grid, "mm", dro_z(-0.6, grid)
+        op, {"top_z": -0.6}, {}, [], {}, grid, "mm", lambda: dro_z(-0.6, grid)
     )
     parts = [str(part) for part in shop(records).tip(POCKET, op)]
     assert any("STOP" in part for part in parts) is not established, parts
