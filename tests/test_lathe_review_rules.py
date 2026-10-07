@@ -800,6 +800,38 @@ def test_a_sleeve_parted_after_a_touch_on_its_far_end_comes_out_full_length():
     assert "Z now reads the chuck-side corner" in text
 
 
+@pytest.mark.parametrize(
+    ("do", "extra", "depth", "expected"),
+    [
+        # The shaft's S3 op 10: the blade plunges a Ø6.4 bearing to the axis.
+        ("cut_to_fit", {"to_dia": 0.0}, 3.2, "X 6.40 → 0.00 (3.20 radial)"),
+        ("part_off", {}, 3.2, "X 6.40 → 0.00 (3.20 radial)"),
+        # Parted to a diameter (a sleeve left on an arbor): X stops there.
+        ("part_off", {"to_dia": 2.0}, 2.2, "X 6.40 → 2.00 (2.20 radial)"),
+        # The plunge is unmeasured: the endpoint still prints, the start does not.
+        ("cut_to_fit", {"to_dia": 0.0}, "unknown", "X → 0.00 (radial plunge unknown)"),
+    ],
+)
+def test_a_parting_row_prints_the_x_it_plunges_to_and_the_radial_plunge(do, extra, depth, expected):
+    touch = {"tool": "blade", "z_face": "shoulder", "edge_mm": 0.0, "paper_mm": 0.0}
+    bundle = _parted(touch, [{"z_mm": 0.0, "normal_z": 1}], -1)
+    op = bundle.plan["setups"][0]["ops"][0]
+    op.update(do=do, **extra)
+    _, _, sheet, setup = _traveler(bundle)
+    sheet.records[("reach", "S1:40")] = {"reach_depth_mm": depth}
+    parts = sheet.tip(setup, op)
+    assert expected in parts, parts
+
+
+def test_a_parting_row_with_an_unknown_endpoint_stops():
+    touch = {"tool": "blade", "z_face": "shoulder", "edge_mm": 0.0, "paper_mm": 0.0}
+    bundle = _parted(touch, [{"z_mm": 0.0, "normal_z": 1}], -1)
+    op = bundle.plan["setups"][0]["ops"][0]
+    op.update(do="cut_to_fit", to_dia="unknown")
+    _, _, sheet, setup = _traveler(bundle)
+    assert any("STOP" in str(part) and "X endpoint" in str(part) for part in sheet.tip(setup, op))
+
+
 def _traveler(bundle):
     """(zero_check, coordinates, sheet, setup) for a one-setup bundle, records loaded."""
     from prechips.sheet import _Traveler

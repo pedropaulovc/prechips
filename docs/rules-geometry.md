@@ -233,7 +233,10 @@ whose kind is `parting_blade` or `grooving_blade` is a blade instead: two
 `nose_radius` corners on a square front edge `blade_width` wide (inventory
 `blade_width_mm`/`blade_width_in`; job op `corners = 2`, `blade_width_mm`),
 entering angle 90°, sides running straight back to `head_len`; an unmeasured
-`blade_width` leaves the row `unknown`. Claimed
+`blade_width` leaves the row `unknown`. A tool set out of its holder by less
+than its `head_len` (projection shorter than the head) leaves the holder unposed:
+every turning rule on the op is `unknown` naming the setting ("set projection_mm
+at least head_len_mm"), never a crash or an "unmeasured" head. Claimed
 faces must be surfaces of revolution about setup Z on the outside; other faces
 are claim errors; internal (bore) claims stay `unknown`. Samples on the
 claimed meridians (a dome's pole included; a `to_z` op's samples moved onto
@@ -1769,7 +1772,14 @@ plane). A numbered support (a coded clamp such as `SUP1`, or a pad) on one plane
 keeps its position badge; one whose solids seat the work on several planes keys
 each solid with its code, its own name and its plane, led to its own contact,
 and pad keys at several heights name the pads each keys. It dimensions the
-closest cut in amber. An
+closest cut in amber (`render_scene.closest_cut`: `mm`, the holding `tag`, the
+two end points): from this setup's removal, or on a saw setup from the blade's
+path (each saw op's kerf slab on its cut plane, across the stock and holding),
+never from the falling offcut. A path sketch draws every pass of a raster of
+at most eight passes, labelled `PASS 1` … `PASS n` as the pass table numbers
+them (a longer raster is a band with its first and last pass), each with a
+direction arrow when the table gives a cutting sense; its `ARROWS: POINT ORDER`
+legend prints only when an arrow is drawn. An
 isometric or elevation view is detailed only when the band draws the stock at
 least 1.5 times larger; a lathe's meridian section gets no holding detail. A
 plan view always gets the detail, drawn from 30° above the side so contact

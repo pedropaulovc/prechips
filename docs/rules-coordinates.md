@@ -656,7 +656,12 @@ rounded inward on the grid (low up, high down), an unknown end kept unknown. A
 (`blade_band_errors`: `op {n} prints Z {corner_dro_z} for its {corner} corner,
 which forms its face at {formed_z}, outside its allowed {lo} to {hi}`). The
 sheet's op row prints `Z → {corner_dro_z} ({corner} corner)` and the band as
-`allowed {lo} to {hi} ({corner} corner)` from `corner_dro_band`. An unknown
+`allowed {lo} to {hi} ({corner} corner)` from `corner_dro_band`. A part-off or
+cut-to-fit row also prints its X: `X {start} → {end} ({r} radial)`, the end the
+authored `to_dia` (the axis, Ø0, unless authored) and the start that plus twice
+the reach finding's `reach_depth_mm`, in the setup's X display (diameter or
+radius); an unknown depth prints `X → {end} (radial plunge unknown)` and an
+unknown `to_dia` a STOP. An unknown
 reading corner, kernel side or blade width leaves `corner_dro_z` unknown with its
 `reason` and the setup `unknown` (exit 4); the sheet prints "blade corner not set"
 for the target and the band and stops, and the face it leaves stands at an

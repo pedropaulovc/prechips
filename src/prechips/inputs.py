@@ -13,7 +13,15 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from prechips.model import CuttingData, Features, InputModel, Inventory, Plan, Policy
+from prechips.model import (
+    CuttingData,
+    Features,
+    InputModel,
+    Inventory,
+    Plan,
+    Policy,
+    reference_only,
+)
 
 
 class BadInput(Exception):
@@ -188,10 +196,22 @@ def load_bundle(
         for op in ops:
             for hold in op.get("process_holds", []):
                 held = definitions.get(hold["feature"], {})
-                if hold["requirement"] not in _exported(held):
+                where = f"{setup['id']}:{op['op']}: process hold {hold['feature']}"
+                if reference_only(held, hold["requirement"]):
+                    if hold.get("measure") is None or hold.get("cite") is None:
+                        raise BadInput(
+                            f"{where} {hold['requirement']} is reference-only (the drawing "
+                            "sets no limit): name what the gauge reads (measure) and where "
+                            "the band comes from (cite)."
+                        )
+                elif hold["requirement"] not in _exported(held):
                     raise BadInput(
-                        f"{setup['id']}:{op['op']}: process hold {hold['feature']} "
-                        f"{hold['requirement']} is not an exported drawing requirement."
+                        f"{where} {hold['requirement']} is not an exported drawing requirement."
+                    )
+                elif hold.get("measure") is not None:
+                    raise BadInput(
+                        f"{where} {hold['requirement']}: only a hold on a reference-only "
+                        "dimension names a measure; this one reads its drawing requirement."
                     )
             if op.get("do") in SAW_OPS and "feature" not in op:
                 if op.get("checks") or op.get("missing_requirements"):
