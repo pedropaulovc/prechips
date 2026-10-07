@@ -30,6 +30,7 @@ from prechips.rules.resolution import (
     number,
     record,
     resolve,
+    uncertain,
 )
 
 LAYOUTS = ("dividers", "trammel", "template")
@@ -86,7 +87,7 @@ def _template(bundle, reference, radius, role, errors, debts):
         errors.append(
             f"the {role} {reference} is a {item.get('kind', UNKNOWN)}, not a radius gauge"
         )
-    elif span is None or item.get("verify") is True:
+    elif span is None or uncertain(item):
         debts.append(f"the {role} {reference} range is unknown")
     elif number(radius) and not span[0] - _TOL <= radius <= span[1] + _TOL:
         errors.append(
@@ -103,7 +104,8 @@ def _held(setup, kit):
 
 
 def _buttons(bundle, setup, op, guide, layout, band, scale, errors, debts):
-    """The filing-button guide record, its pin fit and the radius it files to."""
+    """The filing-button guide record, its pin fit and the radius it files to; a kit
+    flagged to verify (itself or any of its sizes) proves no radius."""
     kit, bore = guide.get("buttons"), guide.get("bore")
     record_ = {"kind": "buttons", "kit": kit, "bore": bore}
     item = resolve(bundle, "fixtures", kit)
@@ -120,9 +122,13 @@ def _buttons(bundle, setup, op, guide, layout, band, scale, errors, debts):
         errors.append(f"{bore} is not on the arc's axis, so buttons pinned through it miss R")
     elif not _sized_before(bundle, op, bore):
         errors.append(f"{bore} is not drilled, reamed or bored to size before this filing")
+    if uncertain(item):
+        debts.append(f"filing buttons {kit} are flagged to verify")
+        return record_
     hole = record(bundle.feature_definitions.get(bore)).get("dia")
-    hole = sorted(v * scale for v in hole) if isinstance(hole, list) and len(hole) == 2 else None
-    if not (number(button) and number(pin)) or hole is None or band is None:
+    known = isinstance(hole, list) and len(hole) == 2 and all(number(v) for v in hole)
+    hole = sorted(v * scale for v in hole) if known else None
+    if not (number(button) and number(pin)) or hole is None:
         debts.append(f"the button, pin or {bore} size is unknown")
         return record_
     if pin > hole[0] + _TOL:
@@ -131,7 +137,7 @@ def _buttons(bundle, setup, op, guide, layout, band, scale, errors, debts):
     play = (hole[1] - pin) / 2  # the button centre's worst radial shift in the bore
     reach = [button / 2 - play, button / 2 + play]
     record_["files_to_mm"] = reach
-    if reach[0] < band[0] - _TOL or reach[1] > band[1] + _TOL:
+    if band is not None and (reach[0] < band[0] - _TOL or reach[1] > band[1] + _TOL):
         errors.append(
             f"buttons Ø{button:g} on a Ø{pin:g} pin in {bore} file R{reach[0]:.3f} to "
             f"R{reach[1]:.3f}, outside the band R{band[0]:g} to R{band[1]:g}"
@@ -220,6 +226,8 @@ def evaluate(bundle):
                     _template(bundle, ref, radius, "layout template", errors, debts)
                     cite.append(f"inventory gauges.{ref}: layout template")
             else:
+                if layout and band is None:
+                    debts.append(f"{name}'s drawing radius band is unknown, so no line is proven")
                 buttons = guide.get("buttons") is not None
                 if buttons:
                     numbers["guide"] = _buttons(

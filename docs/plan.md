@@ -939,11 +939,13 @@ uses the 1898 manual arc method:
 2. **Rough outside the line**: a `rough_*` op with
    `contour = { method = "stairs", cusp_mm = … }` (single-axis stair corners on
    the DRO grid) or `{ method = "chain_drill", pitch_mm = … }` (drilled holes,
-   webs chiselled out), plus `rough_allowance_mm`. Every stair corner and every
-   full hole must stay outside the finished line, and the stock left for the file
-   (allowance + stair cusp, or allowance + drill radius) must not exceed the shop
-   policy `numbers.max_filing_stock_mm` unless a later rough cuts the same faces
-   again ([coordinates](rules-coordinates.md#coordinates)).
+   webs chiselled out along the hole centres), plus `rough_allowance_mm`. Every
+   stair corner, every full hole and every break-out between neighbouring holes
+   must stay outside the finished line, and the stock left for the file
+   (allowance + the stair cusp measured along the wall normal, or the larger of
+   allowance + drill radius and the deepest break-out material) must not exceed
+   the shop policy `numbers.max_filing_stock_mm` unless a later rough cuts the
+   same faces again ([coordinates](rules-coordinates.md#coordinates)).
 3. **File to the line**: `do = "file_to_line"` with a `guide`: hardened filing
    `buttons` (an inventory `fixtures` kit with `kind = "filing_buttons"`,
    `dia_mm` and pin `bore_dia_mm`, held by the setup as its `hold.fixture` or a
@@ -952,17 +954,22 @@ uses the 1898 manual arc method:
    `gauge` (inventory `radius_gauge`/`profile_gauge` whose `range_mm` covers R)
    checks the arc. The buttons file R from `dia/2 − play` to `dia/2 + play`
    (play = (largest bore − pin)/2), which must sit inside the radial band. No
-   guide, no gauge, buttons not held, no earlier rough or no established cap is
+   guide, no gauge, buttons not held or flagged to verify, an unknown bore size or
+   radius band, no earlier rough or no established cap is
    unknown; a gauge range that misses R, buttons on a concave arc, a bore off the
    axis or not yet made, a pin larger than the bore or a filed radius outside the
    band is an error. `scribe` and `file_to_line` are manual: they need no tool
    and may stand in a bench setup (`machines.<id>.kind = "bench"`).
 4. **Or finish on the mill**: `{ method = "chords", count = … }` cuts straight
    chords whose sagitta `c²/8R` fits the band, each fed along one axis (a slanted
-   chord indexed square on a rotary table); `{ method = "rotary_table",
-   step_deg = …, centre_by = "pin" | "indicate", centre_feature = … }` turns the
-   work on an inventory `rotary_table` fixture (`hold.fixture`) under a cutter
-   locked at the cutter-centre radius, between dial readings on its resolution.
+   chord indexed square on a rotary table; a full circle takes at least three);
+   `{ method = "rotary_table", step_deg = …, centre_by = "pin" | "indicate",
+   centre_feature = … }` turns the work on an inventory `rotary_table` fixture
+   (`hold.fixture`, its centre bore `bore_dia_mm` for a pin) under a cutter
+   locked at the cutter-centre radius, between dial readings rounded inward on
+   its resolution; a pin that misses the table bore, or whose play pushes the
+   cut outside the band, and an arc too short for one dial step are errors.
+   Manual-arc features are cut in `mm` or `in`; other units are unknown.
 
 The former `method = "arc_table"` is an error.
 

@@ -118,10 +118,11 @@ arcs is ordinary inventory:
   them. A plan names the kit in `guide.buttons` and holds it (`hold.fixture` or a
   clamp `ref`).
 - A rotary table is a `fixtures.<id>` with `kind = "rotary_table"`:
-  `graduation_deg`, `vernier_deg`, `dial_increases`, `t_slots`, `max_work` and
-  `t_slot_width`, plus `solids` (table, slots, worm housing) so the setup render
-  draws it modeled. A `rotary_table` contour or an indexed chord reads it from
-  `hold.fixture`.
+  `graduation_deg`, `vernier_deg`, `dial_increases`, `t_slots`, `max_work`,
+  `t_slot_width` and the centre bore `bore_dia` a `centre_by = "pin"` pin must
+  enter (unknown leaves the pin unproven), plus `solids` (table, slots, worm
+  housing) so the setup render draws it modeled. A `rotary_table` contour or an
+  indexed chord reads it from `hold.fixture`.
 - Templates and radius gauges are `gauges.<id>` with `kind = "radius_gauge"` or
   `"profile_gauge"` and the `range_mm` of radii they read.
 
