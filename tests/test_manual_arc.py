@@ -633,6 +633,85 @@ def test_a_centre_pin_locates_the_arc_only_in_a_table_bore_it_fits(tmp_path, bor
     assert row.status == status, row.sentence
 
 
+def banded_rotary(tmp_path, side, by, resolution, band):
+    """A rotary cut, centred ``by`` a pin with no play or by indicating, on a mill whose DRO
+    reads ``resolution`` mm: the convex Ø20.010 boss, or a concave R100.015 arc, of the
+    radial ``band`` (mm)."""
+    if side == "convex":
+        dia = f"[{2 * band[0]}, {2 * band[1]}]"
+        target = ARC.replace("[19.8, 20.2]", dia).replace("= 20.0\n", "= 20.010\n")
+        plan, swing = rotary_plan(tmp_path, by=by, target=target), SWING
+    else:
+        half = math.radians(1.2)
+        end = [20.0 + 100.0 * math.sin(half), 10.0 - 100.0 * math.cos(half)]
+        target = (
+            f"kind = 'profile'\nrequirements = ['radius']\nradius = {list(band)}\n"
+            f"radius_nominal = 100.015\narc_centre = [20.0, 10.0, 0.0]\nend = {end}\n"
+        )
+        plan = rotary_plan(tmp_path, by=by, step=1.0, target=target)
+        change(plan.with_name("inventory.toml"), "max_work_mm = 150.0", "max_work_mm = 300.0")
+        swing = [-2.0, -101.0, -10.0, 2.0, -99.0, 0.0]
+    inventory = plan.with_name("inventory.toml")
+    change(inventory, "kind = 'mill'", f"kind = 'mill'\nresolution_mm = {resolution}")
+    change(plan.with_name("features.toml"), "dia = [6.0, 6.03]", "dia = [6.0, 6.0]")
+    return coordinates_row(plan, stock_bbox=swing)
+
+
+@pytest.mark.parametrize("side", ["convex", "concave"])
+@pytest.mark.parametrize(
+    ("by", "resolution", "status"),
+    [
+        ("indicate", 0.02, "error"),
+        ("indicate", 0.005, "pass"),
+        ("pin", 0.02, "error"),
+        ("pin", 0.005, "pass"),
+    ],
+    ids=["indicated-coarse", "indicated-fine", "pinned-coarse", "pinned-fine"],
+)
+def test_the_printed_table_offset_cuts_inside_the_band_however_the_centre_is_found(
+    tmp_path, side, by, resolution, status
+):
+    # The exact cutter-centre radius (R±0.005 off a 0.01 band's middle) lies off a 0.02 mm
+    # DRO grid: the offset printed off the line cuts 0.005 past the band whether the centre
+    # is pinned or indicated; a 0.005 mm grid prints it exactly.
+    band = (10.0, 10.01) if side == "convex" else (100.01, 100.02)
+    row = banded_rotary(tmp_path, side, by, resolution, band)
+    assert row.status == status, row.sentence
+    if status == "error":
+        assert not arcs(row, 20)
+        return
+    recipe = arcs(row, 20)[0]["rotary"]
+    cutter = 3.0 if side == "convex" else -3.0
+    assert on_grid(recipe["offset_x"], resolution)
+    assert band[0] <= recipe["offset_x"] - cutter <= band[1]
+
+
+@pytest.mark.parametrize("by", ["pin", "indicate"])
+def test_a_rough_rotary_stage_leaves_its_allowance_off_the_band(tmp_path, by):
+    # A finish paired with a 0.2 rough allowance turns the boss twice: the rough cuts
+    # R10.2, its band (R9.9 to R10.1) moved off the line by the allowance, then the finish.
+    contour = (
+        f"{{ method = 'rotary_table', step_deg = 30.0, centre_by = '{by}', "
+        "centre_feature = 'bore' }"
+    )
+    plan = scratch(
+        tmp_path,
+        DRILL_BORE + op(20, "finish_profile", contour, allowance=0.2),
+        origin=ON_AXIS,
+        hold="fixture = 'table'",
+    )
+    row = coordinates_row(plan, stock_bbox=SWING)
+    assert row.status == "pass", row.sentence
+    offsets = sorted(table["rotary"]["offset_x"] for table in arcs(row, 20))
+    assert offsets == pytest.approx([13.0, 13.2])
+
+
+@pytest.mark.parametrize("by", ["pin", "indicate"])
+def test_a_rotary_cut_without_a_drawing_band_is_unknown(tmp_path, by):
+    row = rotary(tmp_path, by=by, target=ARC.replace("[19.8, 20.2]", "'unknown'"))
+    assert row.status == "unknown", row.sentence
+
+
 @pytest.mark.parametrize(
     ("case", "message"),
     [

@@ -3505,7 +3505,7 @@ class _Traveler:
                     f"Put the arc centre on the table axis: {locate}.",
                     f"For this {side} arc, offset the table to "
                     f"X {o(rotary.get('offset_x'))} "
-                    f"(R {_number(rotary.get('radius_mm'))} mm {sign} cutter radius "
+                    f"(R {_number(rotary.get('cut_radius_mm'))} mm {sign} cutter radius "
                     f"{_number(rotary.get('cutter_radius_mm'))} mm).",
                     f"Lock X and Y; set Z {o(arc.get('dro_tip_z'))}; turn the table "
                     f"{_text(rotary.get('rotation'))} from {_number(rotary.get('start_deg'))}° "

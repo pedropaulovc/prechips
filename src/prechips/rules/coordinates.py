@@ -2391,13 +2391,15 @@ def _rotary(bundle, setup, op, arc, table, band, features, frame, frames, label,
     The arc centre is the table axis at setup X0 Y0, located by a pin through, or by
     indicating, ``contour.centre_feature``: a hole on that axis an earlier drill, ream or
     bore made. A pin sized to the hole's smallest diameter must enter the table's known
-    centre bore, and the centre's play (half each bore's clearance over the pin) must keep
-    the cut radius inside the feature's radial ``band`` (plan units). The spindle is
-    locked at X = the cutter-centre radius on the DRO grid, Y0; the table turns the work
-    against the cutter's path from the start reading to the stop reading, both rounded
-    inward to the dial's resolution: an arc shorter than that leaves no reading inside
-    it, an error. A table flagged to verify is a debt, and the setup-entry stock must
-    swing inside the table's ``max_work``. Geometry is plan units, ``scale`` mm per unit."""
+    centre bore. The spindle is locked at X = the cutter-centre radius on the DRO grid
+    (off the line), Y0, and that printed offset's cut radius, widened by a pin's centre
+    play (half each bore's clearance over the pin), must lie inside the feature's radial
+    ``band`` (plan units; a rough stage's moved off the line by its allowance) however the
+    centre is found. The table turns the work against the cutter's path from the start
+    reading to the stop reading, both rounded inward to the dial's resolution: an arc
+    shorter than that leaves no reading inside it, an error. A table flagged to verify is
+    a debt, and the setup-entry stock must swing inside the table's ``max_work``.
+    Geometry is plan units, ``scale`` mm per unit."""
     if table is None:
         return [f"{label}: rotary_table needs the work held on a rotary table (hold.fixture)"], []
     contour = mapping(op.get("contour"))
@@ -2466,16 +2468,30 @@ def _rotary(bundle, setup, op, arc, table, band, features, frame, frames, label,
     offset = _grid(arc["cutter_centre_radius_mm"], step, decimals, convex)  # off the line
     cutter = arc["cutter_radius_mm"] / scale if number(arc["cutter_radius_mm"]) else UNKNOWN
     cut = (offset - cutter if convex else offset + cutter) if number(cutter) else UNKNOWN
-    if number(play) and band is None:
-        debts.append(f"{label}: its radial band is unknown, so the pin's play is unproven")
-    elif number(play) and number(cut):
-        low, high = cut - play / scale, cut + play / scale
-        if low < band[0] - _WALL_TOL or high > band[1] + _WALL_TOL:
+    # The printed offset, not the exact one, sets the cut, however the centre is found: a
+    # rough stage's band is the drawing band moved off the line by its allowance, and only
+    # a pin's play (an unknown one leaves its own debt) widens the cut about the centre.
+    allowance = arc.get("allowance_mm", 0.0)
+    shift = (allowance if convex else -allowance) / scale if number(allowance) else UNKNOWN
+    widen = play / scale if number(play) else 0.0
+    if not number(cut) or not number(shift):
+        debts.append(f"{label}: its cutter radius or allowance is unknown, so no cut is proven")
+    elif band is None:
+        debts.append(f"{label}: its radial band is unknown, so the cut radius is unproven")
+    else:
+        low, high = cut - widen, cut + widen
+        lo, hi = band[0] + shift, band[1] + shift
+        if low < lo - _WALL_TOL or high > hi + _WALL_TOL:
+            reach = f"R{low * scale:.3f}" + (f" to R{high * scale:.3f}" if widen else "")
+            why = (
+                f"a Ø{pin:g} mm pin in {name} and the table's Ø{seat:g} mm bore lets the centre "
+                f"shift {play:.3f} mm, so "
+                if widen
+                else ""
+            )
             errors.append(
-                f"{label}: a Ø{pin:g} mm pin in {name} and the table's Ø{seat:g} mm bore lets "
-                f"the centre shift {play:.3f} mm, cutting R{low * scale:.3f} to "
-                f"R{high * scale:.3f} mm, outside the R{band[0] * scale:g} to "
-                f"R{band[1] * scale:g} mm band"
+                f"{label}: {why}the table offset X{offset:.{decimals}f} cuts {reach} mm, "
+                f"outside the R{lo * scale:g} to R{hi * scale:g} mm band"
             )
     record = {
         "table": table["id"],
@@ -2487,6 +2503,7 @@ def _rotary(bundle, setup, op, arc, table, band, features, frame, frames, label,
         "centre_play_mm": play if by == "pin" else None,
         "convex": convex,
         "radius_mm": arc["wall_radius_mm"] * scale,
+        "cut_radius_mm": cut * scale if number(cut) else UNKNOWN,
         "cutter_radius_mm": arc["cutter_radius_mm"],
         "offset_axis": "X",
         "offset_x": offset,

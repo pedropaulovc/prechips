@@ -186,11 +186,14 @@ naming them. Each table is recorded under `arc_table` (its joins under
   the table axis at setup X0 Y0, located by a pin through (`centre_by = "pin"`)
   or by indicating (`"indicate"`) `contour.centre_feature`, a hole on that axis
   an earlier drill, ream or bore makes. A pin is the hole's smallest diameter: it
-  must enter the table's centre bore (`bore_dia`, else unknown), and the
-  centre's play (half each bore's clearance over the pin, `centre_play_mm`)
-  must keep the cut radius inside the feature's radial band, else an error. The
-  spindle locks at X = the cutter-centre radius on the DRO grid in plan units,
-  Y0 (`offset_axis`, `offset_x`; `offset_mm` the same in mm); the table turns
+  must enter the table's centre bore (`bore_dia`, else unknown), else an error.
+  The spindle locks at X = the cutter-centre radius on the DRO grid in plan
+  units, off the line, Y0 (`offset_axis`, `offset_x`; `offset_mm` the same in
+  mm). That printed offset's cut radius (`cut_radius_mm`), widened for a pin by
+  the centre's play (half each bore's clearance over the pin,
+  `centre_play_mm`), must lie inside the feature's radial band (a rough stage's
+  band moved off the line by its allowance), else an error, however the centre
+  is found; an unknown band is unknown. The table turns
   the work against the cutter from the `start_deg` to the `stop_deg` dial
   reading, both rounded inward along the turn to the vernier (else graduation)
   resolution: an arc too short to keep a reading inside it is an error. The

@@ -966,9 +966,10 @@ uses the 1898 manual arc method:
    `{ method = "rotary_table", step_deg = …, centre_by = "pin" | "indicate",
    centre_feature = … }` turns the work on an inventory `rotary_table` fixture
    (`hold.fixture`, its centre bore `bore_dia_mm` for a pin) under a cutter
-   locked at the cutter-centre radius, between dial readings rounded inward on
-   its resolution; a pin that misses the table bore, or whose play pushes the
-   cut outside the band, and an arc too short for one dial step are errors.
+   locked at the cutter-centre radius on the DRO grid, between dial readings
+   rounded inward on its resolution; a pin that misses the table bore, a printed
+   offset whose cut (widened by a pin's play) leaves the band, and an arc too
+   short for one dial step are errors.
    Manual-arc features are cut in `mm` or `in`; other units are unknown.
 
 The former `method = "arc_table"` is an error.

@@ -249,7 +249,8 @@ def test_rotary_recipe_prints_centring_offset_dial_and_conventional_direction(
         "table_bore_dia_mm": 4.01,
         "centre_play_mm": 0.015,
         "convex": convex,
-        "radius_mm": 10,
+        "radius_mm": 9.99,
+        "cut_radius_mm": 10,
         "cutter_radius_mm": 3,
         "offset_axis": "X",
         "offset_x": offset,
@@ -268,6 +269,7 @@ def test_rotary_recipe_prints_centring_offset_dial_and_conventional_direction(
         assert "0.015 mm" in printed
     else:
         assert "indicate centre bore" in printed
+    # The printed X is explained by the radius it cuts (the DRO grid moved it off R9.99).
     assert f"offset the table to X {offset}.000 " in printed
     assert f"R 10 mm {formula} cutter radius 3 mm" in printed
     assert ("convex" if convex else "concave") in printed
