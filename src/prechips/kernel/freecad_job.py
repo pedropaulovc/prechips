@@ -618,19 +618,21 @@ def _box_within(inner, outer):
     )
 
 
-def _common(solid, shape):
+def _common(solid, shape, boxes=None):
     """``solid`` ∩ ``shape`` when it holds more than HIT_MM3, else None; only boxes that do
-    not even touch skip the boolean."""
-    a, b = _bbox(solid), _bbox(shape)
+    not even touch skip the boolean. ``boxes``: their bounding boxes (each no smaller than
+    :func:`_bbox`) when the caller already has them, since an optimal box of a complex
+    shape costs more than most booleans."""
+    a, b = boxes or (_bbox(solid), _bbox(shape))
     if any(a[i] > b[i + 3] or b[i] > a[i + 3] for i in range(3)):
         return None
     common = solid.common(shape)
     return common if common.Volume > HIT_MM3 else None
 
 
-def _shared(solid, shape):
+def _shared(solid, shape, boxes=None):
     """The common volume of ``solid`` and ``shape`` above HIT_MM3, else 0."""
-    common = _common(solid, shape)
+    common = _common(solid, shape, boxes)
     return 0.0 if common is None else common.Volume
 
 
@@ -6912,14 +6914,22 @@ class _Setup:
             why.append(f"fixture solids unresolved ({self.fixture_reason})")
         top = self.box[5] + COVER_MM
         gapped, extended, unguarded = 0, 0, 0
+        # The op's obstacles are the same for every row: box each once (see _common).
+        boxes = {id(s): _bbox(s) for s in (before, self.finished, retained) if s is not None}
+        for _, pieces in guard or []:
+            boxes.update((id(piece), _bbox(piece)) for piece in pieces)
         for row in rows:
             (x, y), z0 = row["xy_mm"], row["tip_z_mm"] + LIFT
             if z0 >= top:
                 continue
             cylinder = (x, y, radius - LIFT, z0, top)
             tool = Part.makeCylinder(radius - LIFT, top - z0, V(x, y, z0))
-            removed = None if before is None else _common(tool, before)
-            hits = [("finished part", _shared(tool, self.finished))]
+            reach = radius - LIFT + PLANE_TOL
+            near = (x - reach, y - reach, z0 - PLANE_TOL, x + reach, y + reach, top + PLANE_TOL)
+            removed = None if before is None else _common(tool, before, (near, boxes[id(before)]))
+            hits = [
+                ("finished part", _shared(tool, self.finished, (near, boxes[id(self.finished)])))
+            ]
             if removed is not None and guard is not None and leave:
                 box = _bbox(removed)
                 within = (s for w, s in guard if w is None or _box_within(box, w))
@@ -6929,19 +6939,20 @@ class _Setup:
                 else:
                     volume = 0.0
                     for piece in pieces:
-                        common = _common(removed, piece)
+                        common = _common(removed, piece, (box, boxes[id(piece)]))
                         volume += 0.0 if common is None else common.cut(self.finished).Volume
                     hits.append((f"its {_r(leave)} mm rough leave", volume))
             if retained is not None:
                 # The finished part inside the stock is its own obstacle, never stock.
-                common = _common(tool, retained)
+                common = _common(tool, retained, (near, boxes[id(retained)]))
                 hits.append((name, 0.0 if common is None else common.cut(self.finished).Volume))
             for component in self.fixture if self.fixture_ready else []:
                 subjects = component.get("subjects", "all")
                 if subjects != "all" and self._subject(op) not in subjects:
                     continue
                 if _cylinder_hits_box(*cylinder, component["envelope_bbox"]):
-                    hits.append((component["name"], _shared(tool, component["envelope"])))
+                    envelope = (near, component["envelope_bbox"])
+                    hits.append((component["name"], _shared(tool, component["envelope"], envelope)))
             hits = [(obstacle, volume) for obstacle, volume in hits if volume > HIT_MM3]
             job["errors"].extend(
                 {"row": row["id"], "obstacle": obstacle, "volume_mm3": _r(volume)}
