@@ -297,8 +297,8 @@ process choices, not stock-on-hand or first-article evidence.
 
 | Setup | Machine / holding | Work |
 |---|---|---|
-| S1 | lathe, 3-jaw on the raw tail | face foot B; rough and finish head Ø42.7506 and body to the Ø41.95–41.99 process hold; r0.1 parting-blade corner pass leaves the body/head step at R0.25 max |
-| S2 | lathe, 3-jaw on a 25 mm grip | cone sleeve: face the north cap, turn the Ø17.194–17.206 spigot, spring pass, part off |
+| S1 | lathe, 3-jaw on the raw tail | face foot B; rough and finish head Ø42.7506 and body to the Ø41.99–42.03 process hold; r0.1 parting-blade corner pass leaves the body/head step at R0.25 max |
+| S2 | lathe, 3-jaw on a 25 mm grip | cone sleeve: face the north cap, turn the Ø17.194–17.206 spigot, spring pass, part off 0.045 long to the 42.04–42.08 process hold |
 | S3 | lathe, 3-jaw on a 25 mm grip | crank sleeve: face, turn the Ø21.924–21.936 spigot, spring pass, part off |
 | S4 | mill, BS-0 dividing head along table X, 4-jaw on the tail | spot, drill and ream the Ø22.000–22.020 crank socket through the head |
 | S5 | same chucking, indexed 12.5182° | spot, drill and ream the Ø17.250–17.270 cone socket through the body |
@@ -326,9 +326,11 @@ A plain vise on round stock has no parallel planar grip pair: S10 lays the post
 in a shop-made saw cradle under a cap bridge whose load runs down the cone
 sleeve onto a cap pad, and S11 grips the two cone-sleeve caps in tall soft
 jaws. Two process holds inside the drawing bands make those holds work for
-every accepted part. S1 turns the body to Ø41.95–41.99, clear of the Ø42.011
-cradle saddles. S2 holds the cone sleeve to 41.99–42.05 long, so the north
-cap sits flush with the body and the south cap 0–0.10 proud. All cradle,
+every accepted part. S1 turns the body to Ø41.99–42.03 around the printed
+Ø42.01, which keeps the body axis within 0.022 of the height the Ø42.011
+cradle saddles, pins and pad are set for. S2 parts the cone sleeve 0.045 longer
+than the CAD 42.011 and holds it to 42.04–42.08, so both caps sit flush to
+0.09 proud of the body; the S10 bridge pose rises by that 0.045. All cradle,
 bridge and soft-jaw dimensions are illustrative.
 
 The CAD stations give a crank-to-journal separation of 72.700 − 33.368 =
