@@ -148,7 +148,11 @@ replaces the span/resolution test for that check. The final check's pair grades
 band is graded the same way, recorded under `other_go_no_go`, and the worse status
 wins. Evidence adds `go_mm`, `no_go_mm`, `accept_band` and, when missing,
 `absent_sizes_mm`. The op row prints `<band>: <gauge>, GO <go> enters, NO-GO <no_go>
-does not` (`passes over` for a boss or shaft), at the gauge's digits.
+does not` (`passes over` for a boss or shaft), at the gauge's digits. A pair declared
+`"unknown"` — the op's whole `go_no_go = "unknown"` (every requirement it checks) or one
+entry `go_no_go = { <requirement> = "unknown" }` — is still a limit check, on the final
+or an earlier op: `unknown` (`the GO / NO-GO pair is explicitly unknown`), never the
+span/resolution test. Its row is flagged `?` and prints `GO / NO-GO sizes not set`.
 
 ## Process holds
 

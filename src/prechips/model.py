@@ -325,8 +325,9 @@ Operation = record(
         "note_cite": Citations,
         "faces": Annotated[list[str], Field(min_length=1)],
         "checks": dict[str, str],
-        # Requirement -> the GO / NO-GO sizes its `checks` gauge uses (a limit check).
-        "go_no_go": dict[str, GoNoGo],
+        # Requirement -> the GO / NO-GO sizes its `checks` gauge uses (a limit check), or
+        # "unknown" when the pair is undecided.
+        "go_no_go": dict[str, GoNoGo | Unknown],
         "missing_requirements": dict[str, str],
         "inspection_methods": dict[str, str],
         "to_z_band": Vector,

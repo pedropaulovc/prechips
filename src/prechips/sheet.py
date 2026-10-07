@@ -19,6 +19,7 @@ from .measurements import record_trusted
 from .model import tolerance_requirements
 from .rules._bench import manual_bench
 from .rules.coordinates import OVERSHOOT_NOTE, dro_grid, dro_z, row_id
+from .rules.inspection import go_no_go_pair
 from .rules.resolution import (
     MANUAL,
     SAW_OPS,
@@ -2162,20 +2163,23 @@ class _Traveler:
         spindle runs again before the feed resumes."""
         numbers = _mapping(self.records.get(("accessibility", f"{setup['id']}:{op['op']}")))
         supports = _mapping(setup.get("hold")).get("supports")
-        sides = {
-            support.get("ref"): support.get("jaw_side", "turned")
+        # The op's own support entries: one rest may ride a different side in another op.
+        applicable = [
+            support
             for support in map(_mapping, supports if isinstance(supports, list) else [])
-        }
+            if not isinstance(support.get("ops"), list) or op.get("op") in support["ops"]
+        ]
         o = self.operative
         steps = []
         for entry in map(_mapping, numbers.get("rest_engagement") or []):
             if not _known(entry.get("declared_z_mm")):
                 continue
-            ridden = (
-                "uncut stock ahead of the tool"
-                if sides.get(entry.get("rest")) == "uncut"
-                else "diameter just turned"
+            rest = entry.get("rest")
+            side = next(
+                (s.get("jaw_side", "turned") for s in applicable if s.get("ref") == rest),
+                "turned",
             )
+            ridden = "uncut stock ahead of the tool" if side == "uncut" else "diameter just turned"
             steps.append(
                 f"each pass, at Z {o(entry['declared_z_mm'])}: stop the feed, then the "
                 f"spindle; set the follow-rest jaws on the {ridden} and lock them; restart "
@@ -2834,13 +2838,19 @@ class _Traveler:
                 if reference in (None, "unknown")
                 else self.short_reference(reference, "gauges")
             )
-            unresolved = requirement in missing or any(
-                finding is None or _status(finding) in ("unknown", "unsupported")
-                for finding in findings
+            pair = go_no_go_pair(op, requirement)
+            unresolved = (
+                requirement in missing
+                or pair == "unknown"
+                or any(
+                    finding is None or _status(finding) in ("unknown", "unsupported")
+                    for finding in findings
+                )
             )
             line = f"{'? ' if unresolved else ''}{name} {target}: {gauge}"
-            pair = _mapping(op.get("go_no_go")).get(requirement)
-            if pair:
+            if pair == "unknown":
+                line += ", GO / NO-GO sizes not set"
+            elif pair:
                 line += self.go_no_go(pair, owners[0], requirement, reference)
             datums = [
                 self.features.get(feature, {}).get("position_datums")

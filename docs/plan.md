@@ -763,7 +763,7 @@ turning spindle, and the cut never resumes on a stopped one.
 | `to_z_cite` | `Citations` |
 | `note_cite` | `Citations` |
 | `checks` | `dict[str, str]` |
-| `go_no_go` | `dict[str, GoNoGo]` (each key also in `checks`) |
+| `go_no_go` | `dict[str, GoNoGo \| Unknown]` (each key also in `checks`) |
 | `missing_requirements` | `dict[str, str]` |
 | `inspection_methods` | `dict[str, str]` |
 | `to_z_band` | `Vector` |

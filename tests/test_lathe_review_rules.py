@@ -298,3 +298,46 @@ def test_the_follow_rest_goes_on_with_the_spindle_stopped_and_it_restarts_before
     ]
     found = [step.find(words) for words in order]
     assert -1 not in found and found == sorted(found), step
+
+
+def test_each_op_sets_the_follow_rest_on_the_side_its_own_support_entry_declares(tmp_path):
+    from test_cli import copy_examples
+
+    from prechips.findings import Finding
+    from prechips.inputs import load_bundle
+    from prechips.sheet import render_traveler
+
+    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
+    text = plan.read_text(encoding="utf-8")
+    one = (
+        'supports = [{ ref = "follow_rest", ops = [10, 30], jaw_lead_mm = 8.0, '
+        'jaw_side = "turned", engage_at_z_mm = 152.0 }]'
+    )
+    assert text.count(one) == 1
+    # The same rest, ridden behind the tool on op 10 and ahead of it on op 30.
+    plan.write_text(
+        text.replace(
+            one,
+            'supports = [{ ref = "follow_rest", ops = [10], jaw_lead_mm = 8.0, '
+            'jaw_side = "turned", engage_at_z_mm = 152.0 }, { ref = "follow_rest", '
+            'ops = [30], jaw_lead_mm = 8.0, jaw_side = "uncut", engage_at_z_mm = 151.0 }]',
+        ),
+        encoding="utf-8",
+    )
+    bundle = load_bundle(plan)
+    findings = [
+        Finding(
+            "accessibility",
+            f"S1:{op}",
+            "pass",
+            {"rest_engagement": [{**_ENGAGE, "engage_z_mm": 151.0, "declared_z_mm": z}]},
+            [],
+            f"S1:{op}.",
+        )
+        for op, z in ((10, 152.0), (30, 151.0))
+    ]
+    html = unescape(re.sub(r"<[^>]+>", " ", render_traveler(bundle, findings, {})))
+    op10 = re.search(r"each pass, at Z 152\.00:[^;]*;[^;]*", html).group(0)
+    op30 = re.search(r"each pass, at Z 151\.00:[^;]*;[^;]*", html).group(0)
+    assert "on the diameter just turned" in op10, op10
+    assert "on the uncut stock ahead of the tool" in op30, op30

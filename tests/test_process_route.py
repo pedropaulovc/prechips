@@ -489,6 +489,46 @@ def test_the_traveler_prints_which_pin_enters_and_which_does_not(tmp_path):
     assert "GO 2.000 enters, NO-GO 2.090 does not" in row
 
 
+@pytest.mark.parametrize("declared", ["unknown", {"dia": "unknown"}])  # whole op, one requirement
+@pytest.mark.parametrize("where", [-1, 0])  # the final check, an earlier check of the same band
+def test_an_explicitly_unknown_go_no_go_pair_is_not_an_ordinary_passing_check(
+    tmp_path, declared, where
+):
+    bundle = load_bundle(copy_examples(tmp_path) / "rocker-arm" / "plan.toml")
+    # The gauge spans the band at fine resolution and holds the printed GO / NO-GO pins, so
+    # an ordinary reading or the 2.00 / 2.09 pair would pass.
+    limit_gauge(bundle, "rocker-rod-limit-gauges", "pin_gauge_set", [2.0, 2.09])
+    bundle.inventory["gauges"]["rocker-rod-limit-gauges"]["range_mm"] = [1.99, 2.1]
+    ops = checks_of(bundle, "rocker-rod-limit-gauges")
+    assert len(ops) > 1
+    for op in ops:
+        op["go_no_go"] = {"dia": {"go": 2.0, "no_go": 2.09}}
+    assert evaluate("inspection", bundle)["rod_hole:dia"].status == "pass"
+    ops[where]["go_no_go"] = declared
+    row = evaluate("inspection", bundle)["rod_hole:dia"]
+    assert row.status == "unknown"
+    assert "GO / NO-GO pair is explicitly unknown" in row.sentence
+
+
+@pytest.mark.parametrize("declared", ['"unknown"', '{ dia = "unknown" }'])
+def test_the_traveler_prints_an_unknown_go_no_go_pair_as_unresolved(tmp_path, declared):
+    plan = copy_examples(tmp_path) / "rocker-arm" / "plan.toml"
+    sid, op = find_op(
+        plan,
+        lambda op: (
+            op["do"] == "inspect"
+            and isinstance(op.get("checks"), dict)
+            and op["checks"].get("dia") == "rocker-rod-limit-gauges"
+        ),
+    )
+    rewrite(plan, ("op", sid, op), "go_no_go", declared)
+    _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
+    (row,) = [row for row in op_rows(html, op) if "Ø 2.00–2.09" in row]
+    # The pins to use are not known: the row is flagged, never a bare gauge to read with.
+    assert "? Ø 2.00–2.09" in row and "GO / NO-GO sizes not set" in row
+    assert "enters" not in row
+
+
 @pytest.mark.parametrize(
     ("after", "status"),
     [

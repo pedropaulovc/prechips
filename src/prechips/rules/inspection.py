@@ -10,7 +10,8 @@ read with its own gauge, graded like a drawing check against the hold band.
 A ``go_no_go`` pair (an op's, per requirement, or a hold's) is a limit check: the GO size
 must pass the work and the NO-GO size must not, so both must lie inside the band they
 accept, the drawing check's band as printed, a hold's own band. Otherwise the gauge
-accepts work the band rejects.
+accepts work the band rejects. A pair declared ``"unknown"`` (the op's whole ``go_no_go``
+or one requirement's entry) is still a limit check, with sizes nobody has chosen: unknown.
 """
 
 from ..findings import Finding
@@ -50,6 +51,16 @@ def _drawing_band(requirement, value):
     return None
 
 
+def go_no_go_pair(op, requirement):
+    """The GO / NO-GO pair ``op`` declares for ``requirement``: its sizes, ``"unknown"``
+    when declared unknown (the whole ``go_no_go`` or that requirement's entry) for a
+    requirement the op checks, or None for no limit check."""
+    declared = op.get("go_no_go")
+    if declared == UNKNOWN:
+        return UNKNOWN if requirement in record(op.get("checks")) else None
+    return record(declared).get(requirement)
+
+
 def _go_no_go(bundle, feature, requirement, band, pair, gauge, nums):
     """``(status, message)`` of a declared GO / NO-GO pair against the band it accepts.
 
@@ -57,7 +68,8 @@ def _go_no_go(bundle, feature, requirement, band, pair, gauge, nums):
     GO at or above the low limit, NO-GO at or below the high one and above GO. A boss or
     shaft is mirrored (its gauge accepts (NO-GO, GO]). Both sizes must be listed sizes of
     the named gauge."""
-    go, no_go = pair["go"], pair["no_go"]
+    unknown = pair == UNKNOWN
+    go, no_go = (UNKNOWN, UNKNOWN) if unknown else (pair["go"], pair["no_go"])
     nums.update(go_mm=go, no_go_mm=no_go, accept_band=band if band is not None else UNKNOWN)
     kind = feature.get("kind", UNKNOWN)
     side = "internal" if kind in HOLE_KINDS else "external" if kind in EXTERNAL_KINDS else None
@@ -70,6 +82,8 @@ def _go_no_go(bundle, feature, requirement, band, pair, gauge, nums):
         return "unknown", "gauge identity or capability is explicitly unknown"
     if gauge_kind not in LIMIT_GAUGES[side]:
         return "error", "named gauge cannot make a GO / NO-GO check of this feature"
+    if unknown:
+        return "unknown", "the GO / NO-GO pair is explicitly unknown"
     if band is None or bundle.features.get("units") != "mm":
         return "unknown", "requirement limits or units are unresolved"
     low, high = band
@@ -169,8 +183,9 @@ def _nominal_band_error(feature, requirement):
 def _capability(bundle, feature, requirement, value, gauge_ref, op, nums, limits=None):
     """``(status, message)``: can the named gauge read ``value`` for ``requirement``.
 
-    ``limits`` is ``(GO / NO-GO pair or None, band the pair must accept)``: a declared pair
-    makes it a limit check, judged by :func:`_go_no_go` instead of span and resolution."""
+    ``limits`` is ``(pair, band the pair must accept)``, the GO / NO-GO pair being sizes,
+    ``"unknown"`` or None: a declared pair, even an unknown one, makes it a limit check,
+    judged by :func:`_go_no_go` instead of span and resolution."""
     pair, accept = limits or (None, None)
     status, message = "unknown", "explicit inspection method is unknown"
     gauge = resolve(bundle, "gauges", gauge_ref)
@@ -427,7 +442,7 @@ def evaluate(bundle):
                 setup, op = checks[-1]
                 gauge_ref = op["checks"][requirement]
                 nums.update(gauge=gauge_ref, op=f"{setup['id']}:{op['op']}")
-                pair = record(op.get("go_no_go")).get(requirement)
+                pair = go_no_go_pair(op, requirement)
                 status, message = _capability(
                     bundle, feature, requirement, value, gauge_ref, op, nums, (pair, accept)
                 )
@@ -436,7 +451,7 @@ def evaluate(bundle):
             final = checks[-1][1] if checks else None
             others = []
             for other_setup, other in route:
-                pair = record(other.get("go_no_go")).get(requirement)
+                pair = go_no_go_pair(other, requirement)
                 if pair is None or other is final:
                     continue
                 row = {
