@@ -47,8 +47,8 @@ from .tip_endpoints import (
     POCKETING,
     _covers_xy,
     forms_face,
-    operative_z,
     stock_states,
+    top_reader,
 )
 
 AXES = ("x", "y", "z")
@@ -3550,7 +3550,7 @@ def evaluate(bundle, *, pre_kernel=False):
         declared = mapping(mapping(setup.get("stock_state")).get("entry_z"))
         # The stock top before op ``done`` as the setup prints it: a path starts or lifts
         # from that surface.
-        top = functools.partial(operative_z, bundle, setup, face="top")
+        top = top_reader(bundle, setup)
         states, cleared, plan_debts = stock_states(bundle, setup), [], []
         # The corner each blade op's DRO Z reads (the Z touch in effect when it cuts).
         readings = {}

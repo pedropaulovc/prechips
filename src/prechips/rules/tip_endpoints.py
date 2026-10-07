@@ -422,6 +422,17 @@ def operative_z(bundle, setup, value, face=None, done=0, source=None, path=False
     return _operative_z(bundle, setup, value, face, done, source, path, None)
 
 
+def top_reader(bundle, setup):
+    """``top(value, done=0)``: :func:`operative_z` of ``setup``'s stock ``"top"``, the Zs
+    it carries over (:func:`transfer`) found once for all of the setup's reads."""
+    carried = _carried(bundle, setup)
+
+    def top(value, done=0):
+        return _operative_z(bundle, setup, value, "top", done, None, False, carried)
+
+    return top
+
+
 def _operative_z(bundle, setup, value, face, done, source, path, carried):
     """:func:`operative_z`, given ``setup``'s carried Zs (:func:`_carried`) when known."""
     from .coordinates import dro_grid, dro_z, formed_z
@@ -434,17 +445,21 @@ def _operative_z(bundle, setup, value, face, done, source, path, carried):
     if producer:
         value = formed_z(bundle, *producer)
     else:
-        if carried is None:
-            carried = _carried(bundle, setup)
         state = mapping(setup.get("stock_state"))
-        for key, (stated, printed) in carried.items():
-            named = state.get(ARRIVAL_ZS[key]) if ARRIVAL_ZS[key] else None
+        for key in ("top_z", "bottom_z"):
+            named = state.get(ARRIVAL_ZS[key])
             names = {"top"} if key == "top_z" else set()
             if isinstance(named, str) and named != UNKNOWN:
                 names.add(named)
             # The received surface itself, never another at an equal Z.
-            if face in names and abs(stated - value) <= SAME_Z:
-                return printed
+            if face not in names or not number(state.get(key)):
+                continue
+            if abs(state[key] - value) > SAME_Z:
+                continue
+            if carried is None:
+                carried = _carried(bundle, setup)
+            if key in carried:
+                return carried[key][1]
     return dro_z(value, dro_grid(bundle, setup))
 
 
