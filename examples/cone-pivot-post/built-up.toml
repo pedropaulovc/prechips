@@ -1161,7 +1161,7 @@ clamp = "AUTHOR'S CHOICE: clamp the post with the cap bridge (C1) while the saw 
 [[setups.ops]]
 op = 10
 do = "saw_cut"
-tool = "bandsaw-blade-10-14"
+tool = "bandsaw-blade-4-6"
 cut_plane = { axis = "x", value = -1.75, keep = "above" }
 note = "With the post clamped, slide the cradle in the open saw vise until the blade touches the scribed line, then close the vise on the cradle base; the 1.5 mm kerf leaves the head 87 mm tall and the cradle base ends 3 mm on the kept side of the kerf. Set the blade guides outside the 44.45 mm tail. Saw with the blade centred on the line; the tail drops clear as the cut breaks through, leaving 1 mm on the head top for S11."
 

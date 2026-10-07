@@ -248,8 +248,8 @@ material_class = "low_carbon_steel"
 tool_material = "M42"
 operation = "saw_cut"
 sfm = 200
-feed_mm_min = 25.0
-cite = "example (plausible, not measured); Machinery's Handbook 27th ed. (Industrial Press, 2004) p.1142 bimetal band-saw speed for 1018, 300 fpm (4 in material, 3/4 variable-tooth blade, cutting fluid); +10% for the about 1.4 in average length of cut through the 1-3/4 in bar (+10% at 1-1/4 in) = 330 fpm, then -30% to -50% for cutting dry = 165-231 fpm; 200 fpm is inside that range and is the 4x6 saw's top belt step (Harbor Freight item 93762 manual p.10 Fig. H, 80/120/200 FPM). 25 mm/min descent through the 1-3/4 in bar is about 1.7 sq in/min, below the p.1140 cutting-rate graph's finest line (8/12 pitch, about 2.4 sq in/min at 200 fpm; finer pitches cut slower and the graph has no 10/14 line), a starting rate p.1140 says to adjust from the chips"
+feed_mm_min = 65.0
+cite = "example (plausible, not measured); Machinery's Handbook 27th ed. (Industrial Press, 2004) p.1142 bimetal band-saw speed for 1018, 300 fpm (4 in material, 3/4 variable-tooth blade, cutting fluid); +10% for the about 1.4 in average length of cut through the 1-3/4 in bar (+10% at 1-1/4 in) = 330 fpm, then -30% to -50% for cutting dry = 165-231 fpm; 200 fpm is inside that range and is the 4x6 saw's top belt step (Harbor Freight item 93762 manual p.10 Fig. H, 80/120/200 FPM). Blade: p.1138 tooth selection chart, solid round 1-3/4 in (44.45 mm) length of cut = 4/6 variable pitch. Feed: p.1140 cutting-rate graph, 4/6 line at 200 fpm about 4.8 sq in/min; 65 mm/min (2.56 in/min) descent across the full 1.75 in width removes at most 4.5 sq in/min (about 3.5 average over the round), at the graph's starting rate, which p.1140 says to adjust from the chips"
 # --- end cone-pivot-post additions ---
 
 # --- pivot-bracket additions ---
