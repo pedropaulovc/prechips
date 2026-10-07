@@ -122,3 +122,18 @@ def test_lathe_rpm_clamps_to_the_slowest_band():
     bundle = lathe_bundle()
     bundle.cutting_data["cut"][0]["sfm"] = 5.0
     assert speeds_feeds.evaluate(bundle)[0].numbers["rpm"] == 70
+
+
+@pytest.mark.parametrize(
+    ("ranges", "rpm"),
+    [
+        # 763.9 rpm rounds to 750, inside the gap: the spindle turns 600 at most below it.
+        ([[70, 600], [1000, 2200]], 600),
+        ([[70, 600], "unknown"], "unknown"),
+        ([[70, 600], [1000, "unknown"]], "unknown"),
+    ],
+)
+def test_lathe_rpm_never_falls_in_a_gap_between_bands(ranges, rpm):
+    bundle = lathe_bundle()
+    bundle.inventory["machines"]["lathe"]["spindle"]["ranges_rpm"] = ranges
+    assert speeds_feeds.evaluate(bundle)[0].numbers["rpm"] == rpm

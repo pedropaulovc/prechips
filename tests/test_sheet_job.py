@@ -142,7 +142,9 @@ def test_the_abbreviation_key_lists_only_abbreviations_the_sheets_print(shaft, r
     keys = {"EM": r"\bEM\b", "CD": r"\bCD\b", "DTI": r"\bDTI\b", "mic": r"\bmic\b"}
     for _, html in (shaft, rocker):
         job, *setups = pages(html)
-        key = re.search(r"T# = [^<]*Keep the drawing at the bench\.", text(job))[0]
+        key = re.search(r"T# = [^<|]*", text(job))[0]
+        # The traveler is what the operator runs from: it never sends them to the drawing.
+        assert "Keep the drawing" not in text(job), key
         printed = text("".join(setups))
         for abbreviation, pattern in keys.items():
             used = re.search(pattern, printed) is not None

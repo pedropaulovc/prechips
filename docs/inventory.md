@@ -102,6 +102,19 @@ projection whenever that entry exists: an entry that is `"unknown"` or
 carries its own debt keeps the op unresolved rather than falling back, and
 only an absent pair uses `oal - holder.grip`. Neither flute length nor holder
 gauge length substitutes for projection.
+
+A projection is one value per tool/holder pair for the whole shop; a plan has no
+per-job or per-setup override, on purpose. The projection is a measured inventory
+fact: its trust (`measured`, `verify`) and its measurement debt are keyed to the
+tool/holder pair, and an authored plan number would carry neither. Six readers
+take it from the inventory (envelope, headroom, engagement, accessibility, the
+kernel's tool stack and the sheet's tool table), so an override that reached some
+and not others would print one setting while the checks use another. A shop that
+sets a blade further out for one job declares that setting in the inventory and
+measures it, and every job is then checked at it: deflection and clearance at the
+longer setting, and a reach still too short is a finding naming the setting. A
+tool kept set at two projections is two inventory tools.
+
 Engagement uses only the resolved `endmill` / `endmill_set` family on cutting
 operations with authored DOC. Long drills, reamers, taps and lathe tools do not
 receive a milling DOC-halving recommendation.
@@ -133,10 +146,15 @@ arcs is ordinary inventory:
   holds only manual ops (`scribe`, `file_to_line`, `deburr`, `inspect`, …) and
   its work-holding (a bench vise, filing buttons) is drawn like any fixture.
 - Filing buttons are a `fixtures.<id>` with `kind = "filing_buttons"`: the
-  hardened button diameter `dia_mm` and the pin diameter `bore_dia_mm` they
-  are clamped on, plus `solids` (buttons, nut, stud) so the setup render can draw
-  them. A plan names the kit in `guide.buttons` and holds it (`hold.fixture` or a
-  clamp `ref`).
+  declared `[least, greatest]` limits of every element between the rims and the
+  bore axis, `button_dia_limits_mm` (button OD), `button_bore_limits_mm` (the
+  button's bore) and `pin_dia_limits_mm` (the pin through the button bores and
+  the part's bore), each a plain pair or a `{ value = [least, greatest],
+  measured, verify }` fact (or `_in`, never both), plus `button_runout_mm`, the
+  OD's runout (TIR) about its own bore; and `solids` (buttons, nut, stud) so the
+  setup render can draw them. The part's bore limits come from the drawing. A
+  plan names the kit in `guide.buttons` and holds it (`hold.fixture` or a clamp
+  `ref`); an unknown limit leaves the filed radius unproven.
 - A rotary table is a `fixtures.<id>` with `kind = "rotary_table"`:
   `graduation_deg`, `vernier_deg`, `dial_increases`, `t_slots`, `max_work`,
   `t_slot_width` and the centre bore `bore_dia` a `centre_by = "pin"` pin must
@@ -145,6 +163,76 @@ arcs is ordinary inventory:
   indexed chord reads it from `hold.fixture`.
 - Templates and radius gauges are `gauges.<id>` with `kind = "radius_gauge"` or
   `"profile_gauge"` and the `range_mm` of radii they read.
+- A machine's own axis read-out, used as a gauge (a lathe tool touched through
+  paper on a scribe, then on a faced end), is a `gauges.<id>` with
+  `kind = "dro_scale"`, its `resolution_mm` and the `range_mm` of the axis travel.
+  It reads a length along that axis (`length`, `depth`, `height`, `thickness`,
+  `station`, or a reference-only `length_ref`) and never a diameter or a form.
+
+## Edge finder
+
+A `tools.<id>` with `kind = "edge_finder"` that picks up a mill X or Y zero
+(`zero.x/y.tool`, not `from = "indicated"`) states `finder_type`
+(`"mechanical"`, run spinning, or `"electronic"`, run with the spindle stopped),
+its tip diameter `tip_in` / `tip_mm` (else `dia`) and, when mechanical,
+`rpm_range`, the maker's speed band, with a `cite`. The zero check
+([rules-coordinates](rules-coordinates.md)) records these on each pick-up row
+as `finder`: the radius (half the tip Ø), and the speeds it runs at here, the
+finder's band intersected with each of the setup machine's spindle bands
+(`ranges_rpm`, else `rpm_min`–`rpm_max`); a speed between two bands is never
+offered. A missing fact, or any unknown endpoint of the finder's or the
+spindle's bands, leaves the zero unknown; a band no spindle band turns is an
+error. The traveler prints one EDGE FINDER box per finder and mill, in the DRO
+ZERO block of the first setup that picks up with it on that mill — the speed,
+how the contact shows (a mechanical tip runs true, then kicks sideways; an
+electronic one lights), and the offset, Axis Set edge − r coming from the −
+side and edge + r from the + side — and every X/Y row names the box.
+
+## Purchased tooling
+
+An item bought finished (any category, not shop-made) may state what is bought
+in `purchase` and its receipt checks in `acceptance`, a list of tables:
+
+| Field | Meaning |
+|---|---|
+| `check` | what is checked (`"each button OD"`) |
+| `gauge` | the `gauges.<id>` (or member path) that reads it, or `"none"` for a check by hand or eye |
+| `how` | optional: how the gauge is used (`"button on the GO pin in a V-block, one turn"`) |
+| `limits` | the name of a `[least, greatest]` limits field or single-length field on the same item (`"button_dia_limits_mm"`, `"button_runout_mm"`, printed lo–hi or ≤ value) |
+| `limits_mm` | or the `[least, greatest]` limits in mm, inline |
+| `accept` | the criterion in words (`"the nut runs on by hand"`); required where there is no numeric limit |
+
+A check states one numeric limit at most and needs a limit or `accept`; a
+`"none"` gauge takes no numeric limit; a shop-made item takes no `acceptance`.
+The `purchased_tooling` rule (always required) checks every item a setup uses
+(any hold slot — fixture, chuck, parallels, riser, jaw bar or buttons, support,
+clamps, stop, supports, alignment indicator — a zero's tool, holder or gauge,
+a tool touch's `z_gauge`, the transfer's tool or gauge, and an op's filing
+guide or its gauge, tool, holder, inspection gauge or process-hold gauge; any
+item named in the setup's prose or in the notes and record blanks of the
+shop-made items it uses, the job page's prose counting as the first setup's:
+see the key syntax under shop-made solids) that carries the list. An item is its
+category and key: a slot selects its own kind first (a hold slot workholding:
+fixtures, holders, machines; an indicator, inspection, process-hold or guide
+gauge a gauge; a tool slot a tool; a holder slot a holder), and prose names the
+category, so `fixtures.pins` and `gauges.pins` are two items, each with its own
+checks, table and first setup. Everything after the selection reads that item
+only: its receipt, its `tool_resolves` finding (the gauge a slot reads is
+checked even when a fixture of that key is listed), the notes and record blanks
+of a shop-made holder or fixture, and every name the traveler prints for it. A
+bare key in prose that two categories list names no one item and prints as
+written; name it `<category>.<key>`. Unknown is
+never an acceptance: an `acceptance` or `purchase` stated
+`"unknown"`; a `check`, `how` or `accept` that is blank or unknown; a gauge that
+is unknown, not listed or not verified; a `limits_mm` that is not two known
+lengths, low ≤ high; or a `limits` field the item does not state as known
+lengths leaves the setup unknown and prints `STOP:`. The traveler prints one
+PURCHASED TOOLING / RECEIPT CHECK table per item on the front sheet of the
+first setup using it, its limits rounded inward to 0.001 mm (inch gauges also
+get them in inches, rounded inward to 0.0001 in); later setups point back to
+it. A band too narrow for those decimals (or a cap that would round to zero)
+takes up to three more, never a reversed or empty band; past that the mm band
+prints exactly as declared and the inch band is left off.
 
 ## Kernel geometry facts (M4)
 
@@ -176,7 +264,10 @@ jaw-plate thickness along the gripping normal and is never synthesized from
 jaw width, jaw height, bed height or any other dimension. A `round_bar` item
 (the bar a plan's `hold.jaw_bar` lays between the work and the moving jaw)
 needs fact-local measured `dia` and `length`; its Ø holds the moving jaw off the
-work, and without both the jaws stay unplaced.
+work, and without both the jaws stay unplaced. A `jaw_buttons` item (the pair a
+plan's `hold.jaw_buttons` sets between each jaw and the work) needs fact-local
+measured `dia` (the button face), `thickness`, `spigot_dia` and `spigot_length`;
+without all four the jaws stay unplaced.
 
 Other holding solids come from the same accepted-fact rule, never defaults:
 
@@ -229,7 +320,13 @@ Other holding solids come from the same accepted-fact rule, never defaults:
   one `supply` group into one row, named by their shared `label` or the words
   their names share) with its size and setup-frame position (box X / Y / Z
   extents, cylinder axis), placed by `hold.pose`, the clamp entry's `pose` or
-  `stop_pose`. A void is listed, as "with N × <fastener or size>: positions",
+  `stop_pose`; a posed slot whose pose is missing prints "? not posed". An item
+  the HOLD places from its facts, which no pose places (a shop-made `vise`
+  fixture's jaw plates, `hold.riser`, `hold.supports`, `hold.jaw_buttons`), is
+  loose: its table gives positions in the item's own frame, the frame its
+  solids are drawn in, under "loose: placed as the HOLD says", and the HOLD
+  step naming it points to the table. A void is listed, as "with N × <fastener
+  or size>: positions",
   in the row of every made or existing primitive it cuts: every one `cuts`
   names, else every one it overlaps. Overlap is decided exactly for boxes,
   parallel cylinders and axis-aligned cylinders against boxes; a primitive an
@@ -249,20 +346,56 @@ Other holding solids come from the same accepted-fact rule, never defaults:
   in the shop, such as a machine's vise jaws drawn for clearance: not listed,
   unless holes are made in it here, when its row reads "(existing part: make
   the holes only)" with size "—").
-  Sizes and positions print at shop policy `numbers.fixture_make_decimals`; the
-  fit of a primitive with `locates` (the bore cut in it, else the primitive
-  itself) and shim nominals print at the drawing precision. Optional texts
+  Sizes and positions print on the DRO grid they are made on (the shop's mill:
+  every machine of kind `mill` reading one grid, else the setup machine's), at
+  shop policy `numbers.fixture_make_decimals`; a primitive with `locates` and
+  every bore cut in it (either may be the locating surface) and shim nominals
+  print at the drawing precision, and either one undeclared, finer than the
+  grid or off it at the grid step. A position at the place of a fit on the same
+  sheet (a hole a locating pin stands in, a bolt hole over a locating pad)
+  prints the fit's value: one place, one value. A fit the grid moves beyond the
+  drawing's general tolerance at its precision (`general_tolerances.linear_<n>pl`),
+  or with that tolerance undeclared, prints `?` with the reason under the table;
+  the hole is never moved silently. Optional texts
   `locates = "<part face>"` and `fastener = "<thread / fastener>"` fill the
   Locates and Fastener columns; `shim = true` marks an adjustable shim stack
   whose drawn thickness HOLD prints as the nominal to fit with feeler gauges,
   one stack per shim primitive per placement of its item. A made primitive's
   `note` (material, heat treatment, finish) prints once per row in a "Make:"
   line under the table; primitives with different notes do not share a row.
+  A made hole's `note` (how it is cut) joins the Make entries under its `label`
+  or name; a bought or existing primitive's `note` (its state as bought, what
+  to leave alone) prints on a "Notes:" line after them, so a bought shell whose
+  windows are made here states its whole route.
+  `records = [{ check, gauge, how, max_mm, goal_mm, over_mm }]` on any
+  primitive are values measured and written down when the part is made or
+  received (a head-to-shoulder TIR, a squareness by reversal). Each prints
+  under "Measure and record before first use:" as a fill-in: what, the gauge's
+  shop name and how, `accept ≤ max_mm`, `goal ≤ goal_mm` (both rounded down),
+  then `measured ________ mm`, `over over_mm mm` when given. `check` must be
+  stated, and `how` and `gauge`, when given (`records` itself must be a list:
+  a stated unknown would print nothing to fill in); each length, when given, is
+  a known length ≥ 0 (`over_mm` > 0) and
+  the goal lies inside the max. A record without `max_mm` is a characterisation:
+  recorded, not judged. A record's `gauge` is a `gauges` key; one the shop list
+  does not have prints `? <key>`.
+  Any prose (a `note`, a record's `check` or `how`, a plan note) names an
+  inventory item as `<category>.<key>[/<member>]` (`gauges.granite-surface-plate`,
+  `tools.drills/#61`, `tools.drills/1/4`, `tools.reamers-metric/6.49mm`), category
+  one of `machines`, `tools`, `holders`, `fixtures`, `gauges`, `services`. The
+  member runs to its last letter, digit or `#` (a sentence's full stop is not
+  part of it) and is read whole, as the slots read it: a member the item does
+  not have is not the item. The traveler prints the item's shop name in its
+  place, or `? <key>` when the shop list does not have it; `tool_resolves`
+  checks it (docs/rules-tools.md) and `purchased_tooling` reads its receipt
+  checks.
   An angle plate's (or posed shop-made fixture's) lowest box that is not bought
   is its base: HOLD prints its underside Z, an angle plate's working face (local
   y = 0, facing local -y) and the base's `fastener` as the hold-down; with any
   such box untrusted, HOLD prints no setting line. None of these texts creates
-  geometry or trust.
+  geometry or trust; `locates` only names, on a plan clamp with
+  `restraint = "locate"`, the drawn solid that must prove it bears on the work
+  (rules-geometry, `thin_wall_under_clamp`).
 
 For `approach = "rotary"`, the selected hold must resolve to a `dividing_head`;
 its plan `hold.chuck` names a dimensioned chuck as above. The plan supplies
@@ -436,6 +569,8 @@ unavailable physical facts remain unknown.
 | `Measurement` | Required strings `by`, ISO calendar `date` (`YYYY-MM-DD`), `instrument`; none may be blank or `"unknown"` |
 | `LengthMeasurement` | Required `value: Number`; optional `measured: Measurement`, `verify: bool` (each may be `"unknown"`); no `cite` |
 | `MeasuredLength` / `MeasuredAngle` | `Number` or `LengthMeasurement` (mm/in, or degrees for `point_angle`) |
+| `LimitsMeasurement` | Required `value: [Number, Number]` (`[least, greatest]`); optional `measured: Measurement`, `verify: bool` (each may be `"unknown"`); no `cite` |
+| `MeasuredLimits` | `[Number, Number]` or `LimitsMeasurement` (mm/in) |
 | `EnvelopeTravel` | `x`, `y`, `z: MeasuredLength`; no block metadata |
 | `MachineEnvelope` | `travel_mm` or `travel_in: EnvelopeTravel`; `spindle_to_table_max_mm/in`, `spindle_to_table_min_mm/in: MeasuredLength`; no block metadata |
 | `ProjectionMap` | `dict[full holder reference, MeasuredLength]`; tools only |
@@ -562,6 +697,10 @@ on hand.
 | `swivel_base` | `bool` |
 | `scroll` | `bool` |
 | `independent` | `bool` |
+| `finder_type` | `"mechanical"` / `"electronic"` (`edge_finder`: [Edge finder](#edge-finder)) |
+| `rpm_range` | `[Number, Number]` (`edge_finder`: the maker's spindle-speed band, low < high) |
+| `purchase` | `str` (bought-finished item: what is bought, printed over its receipt checks) |
+| `acceptance` | `list[AcceptanceCheck]` (bought-finished item's receipt checks: [Purchased tooling](#purchased-tooling)) |
 | `envelope` | `MachineEnvelope` |
 | `headstock_tilt_deg` | `float` |
 | `swing_over_bed_in` | `float` |
@@ -664,6 +803,10 @@ on hand.
 | `t_slots` | `float` (`rotary_table`: number of T-slots) |
 | `max_work_mm` / `max_work_in` | `MeasuredLength` (`rotary_table`: largest work diameter the stock's swing must fit) |
 | `t_slot_width_mm` / `t_slot_width_in` | `MeasuredLength` (`rotary_table`) |
+| `button_dia_limits_mm` / `button_dia_limits_in` | `MeasuredLimits` (`filing_buttons`: button OD) |
+| `button_bore_limits_mm` / `button_bore_limits_in` | `MeasuredLimits` (`filing_buttons`: button bore on the pin) |
+| `pin_dia_limits_mm` / `pin_dia_limits_in` | `MeasuredLimits` (`filing_buttons`: pin through the button bores and the part's bore) |
+| `button_runout_mm` / `button_runout_in` | `MeasuredLength` (`filing_buttons`: button OD runout, TIR, about its own bore) |
 | `leadscrew` | `LeadScrew` |
 | `capacity_in` | `float \| list[Number] \| Capacity` |
 | `tailstock` | `Tailstock` |
@@ -698,6 +841,16 @@ fact `{ value = "cw", measured = {by, date, instrument} }`; a labelled value
 flagged `verify = true` counts as undeclared. With an op's `direction`
 (`conventional`/`climb`) it fixes the cutting order of contour tables
 (see [coordinates](rules-coordinates.md)); absent, that order stays unknown.
+
+A lathe spindle's turn comes from the op's tool, not from `rotation`: the turn is
+FORWARD (the top of the work turns toward the operator) for a lathe op whose tool
+declares `hand = "right"` or `"left"` (a turning, facing, grooving or boring tool
+of either hand is set edge up, as the turning model poses it), REVERSE for a
+left-hand-cut tailstock tool (centre drill, drill, reamer, tap), and a STOP when
+the tool declares no `hand`. When every spindle op of the setup turns the same
+known way, the op table's heading says it once (`spindle FORWARD whenever it runs:
+…`) and the rpm cells carry only the speed; mixed turns print the word in each rpm
+cell, the heading saying once what each word means.
 
 ## Length and angle facts
 

@@ -4,20 +4,25 @@ An op's ``process_holds`` are shop limits tighter than the drawing, held for a s
 process reason (a downstream fit, a clocking stop). Each band must lie inside its drawing
 requirement's band, limits included; one reaching outside would pass parts the drawing
 rejects. Only a scalar zone/maximum (position, coaxiality, angularity, Ra) ``v`` reads as
-the band [0, v]; any other scalar is a nominal with no band to hold inside. Each hold is
-read with its own gauge, graded like a drawing check against the hold band.
+the band [0, v]; any other scalar is a nominal with no band to hold inside. A hold on a
+reference-only dimension (``<name>_ref``, a CUT TO FIT span) has no drawing band at all:
+``not_applicable``, its cited ``measure`` being the only limit. Each hold is read with its
+own gauge, graded like a drawing check against the hold band.
 
 A ``go_no_go`` pair (an op's, per requirement, or a hold's) is a limit check: the GO size
 must pass the work and the NO-GO size must not, so both must lie inside the band they
 accept, the drawing check's band as printed, a hold's own band. Otherwise the gauge
 accepts work the band rejects. A pair declared ``"unknown"`` (the op's whole ``go_no_go``
 or one requirement's entry) is still a limit check, with sizes nobody has chosen: unknown.
+
+A ``dro_scale`` gauge (a machine's own axis read-out) reads a length along that axis
+only, never a diameter or a form.
 """
 
 from ..findings import Finding
 from ..joint_features import source_cite
 from ..measurements import length_fact
-from ..model import tolerance_requirements
+from ..model import reference_only, tolerance_requirements
 from .resolution import (
     HOLE_KINDS,
     UNKNOWN,
@@ -34,6 +39,8 @@ from .resolution import (
 
 PROCESS_HOLD_CITE = ["PLAN.md §4.1 inspection", "plan process_holds", "features requirement band"]
 ZONES = frozenset({"position_dia", "coaxiality_dia", "angularity_dia", "finish_ra"})
+# The lengths a machine axis read-out measures, along its own axis.
+AXIAL_LENGTHS = frozenset({"length", "depth", "height", "thickness", "station"})
 # A limit check's gauge kinds: plugs/pins enter a hole; rings/snaps pass over a boss or shaft.
 LIMIT_GAUGES = {
     "internal": frozenset({"pin_gauge", "pin_gauge_set", "plug_gauge"}),
@@ -114,6 +121,8 @@ def process_holds(bundle, setup, op):
         drawing = _drawing_band(hold["requirement"], limits)
         low, high = hold["band"]
         inside = None if drawing is None else drawing[0] <= low and high <= drawing[1]
+        if reference_only(feature, hold["requirement"]):
+            inside = "not_applicable"
         row = {
             "feature": hold["feature"],
             "requirement": hold["requirement"],
@@ -123,12 +132,19 @@ def process_holds(bundle, setup, op):
             "reason": hold["reason"],
             "inside_drawing_band": UNKNOWN if inside is None else inside,
         }
+        for key in ("measure", "cite"):
+            if hold.get(key) is not None:
+                row[key] = hold[key]
         # The shop reads the hold with its gauge: it must measure that requirement at this band
-        # or, as a limit check, accept only the hold band.
+        # or, as a limit check, accept only the hold band. A REF span is read as its own
+        # dimension (``length_ref`` as a length).
+        requirement = hold["requirement"]
+        if inside == "not_applicable":
+            requirement = requirement.removesuffix("_ref")
         capability, reading = _capability(
             bundle,
             feature,
-            hold["requirement"],
+            requirement,
             hold["band"],
             hold["gauge"],
             op,
@@ -157,7 +173,11 @@ def process_holds(bundle, setup, op):
         if incapable
         else ("unknown", f"process hold band or gauge unresolved ({label(unresolved)})")
         if unresolved
-        else ("pass", "every process hold lies inside its drawing band, read by a capable gauge")
+        else (
+            "pass",
+            "every process hold lies inside its drawing band (a reference-only dimension "
+            "has none), read by a capable gauge",
+        )
     )
     return Finding(
         "inspection",
@@ -244,6 +264,8 @@ def _capability(bundle, feature, requirement, value, gauge_ref, op, nums, limits
             if geometric
             else kind in {"cmm", "profile_gauge", "radius_gauge", "angle_gauge"}
             if complex_shape
+            else requirement in AXIAL_LENGTHS
+            if kind == "dro_scale"
             else kind
             in {
                 "caliper",

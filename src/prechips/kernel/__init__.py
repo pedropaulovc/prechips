@@ -127,9 +127,9 @@ def _turning_values(bundle, op):
     if number(insert) and number(entering) and insert + entering >= 180:
         # The minor (trailing) edge would lead the nose: no real insert has this shape.
         missing += ["insert_angle_deg", "entering_angle_deg"]
-    if number(values["head_len_mm"]) and number(values["projection_mm"]):
-        if values["head_len_mm"] > values["projection_mm"]:
-            missing.append("head_len_mm")
+    # A tool set out shorter than its head (holder on the head) is measured, not missing:
+    # both stay in the job, which leaves the holder unposed, and the rules say why
+    # (geometry_common.op_contexts).
     # Reach rule: the radial depth the cutting edge itself spans, else the declared reach.
     reach = _accepted_length(tool, "reach")
     if number(reach) and reach > 0:
@@ -166,7 +166,7 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
             "cut_plane": saw_plane(op.get("cut_plane"), bundle.features.get("units", UNKNOWN)),
         }
     if op.get("do") in HAND_FINISH:
-        return _hand_inputs(bundle, op, subject, finishing)
+        return _hand_inputs(bundle, setup, op, subject, finishing)
     model = approach(bundle, setup, op)
     turned = model == TURNING
     if turned:
@@ -265,6 +265,15 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
             "complete_form": subject
             in (complete_form_subjects(bundle) if complete is None else complete),
         }
+        if thru is True:
+            # As tip_endpoints: a through tool's full diameter runs to the exit face (entry
+            # less the authored local thickness) plus its exit allowance.
+            thickness = record(record(setup.get("stock_state")).get("local_thickness")).get(
+                op.get("feature")
+            )
+            allowance = op.get("exit_mm")
+            if number(entry) and number(thickness) and number(allowance) and allowance >= 0:
+                result["hole"]["exit_z_mm"] = entry - thickness - allowance
         if op.get("do") in {"spot", "drill"}:
             point = angle_fact(tool, "point_angle", require_measured=False)
             result["hole"]["point_angle_deg"] = point["value"] if point["verified"] else UNKNOWN
@@ -355,9 +364,11 @@ def face_sweep(op, tables, units):
     return {"sweep": {"paths": paths, "to_z_mm": to_z * scale}}
 
 
-def _hand_inputs(bundle, op, subject, finishing):
+def _hand_inputs(bundle, setup, op, subject, finishing):
     """A bench file's kernel inputs: its claims and the policy's ``max_filing_stock_mm``,
-    the most stock a file takes off its claimed faces; it has no machine cutter or holder."""
+    the most stock a file takes off its claimed faces; it has no machine cutter or holder.
+    A file guided by filing buttons held in this setup names the kit's solids by their
+    kernel owner (``guide_owner``): where its cut reaches them is where the file stops."""
     from prechips.rules.coordinates import filing_cap
     from prechips.rules.geometry_common import HAND, finishing_subjects
 
@@ -371,7 +382,25 @@ def _hand_inputs(bundle, op, subject, finishing):
     }
     if "faces" in op:
         result["faces"] = op["faces"]
+    kit = record(op.get("guide")).get("buttons")
+    hold = record(setup.get("hold"))
+    clamps = hold.get("clamps") if isinstance(hold.get("clamps"), list) else []
+    owner = next(
+        (
+            _clamp_owner(index, kit)
+            for index, clamp in enumerate(clamps, start=1)
+            if record(clamp).get("ref") == kit
+        ),
+        kit if hold.get("fixture") == kit else None,
+    )
+    if isinstance(kit, str) and kit != UNKNOWN and owner is not None:
+        result["guide_owner"] = owner
     return result
+
+
+def _clamp_owner(index, reference):
+    """The kernel owner of clamp ``index``'s solids: their tags are ``<owner>:<name>``."""
+    return f"clamp {index} {reference}"
 
 
 def raster_keep_out(tables, op, units):
@@ -577,6 +606,10 @@ def _solids(item, owner):
         caption = solid.get("label")
         if isinstance(caption, str) and caption.strip() and caption != UNKNOWN:
             primitive["label"] = caption.strip()
+        locates = solid.get("locates")
+        if isinstance(locates, str) and locates.strip() and locates != UNKNOWN:
+            # The locating element: a locate clamp must prove it bears on the stock.
+            primitive["locates"] = True
         if void:
             primitive["void"] = True
             if cuts is not None:
@@ -655,6 +688,7 @@ def _vise_inputs(bundle, hold, fixture, result):
         else:
             missing.append("parallels_height_mm")
     _jaw_bar_inputs(bundle, hold, result)
+    _jaw_buttons_inputs(bundle, hold, result)
     if missing:
         result["reason"] = "Fixture pose/dimensions unmeasured or unavailable: " + ", ".join(
             missing
@@ -678,6 +712,29 @@ def _jaw_bar_inputs(bundle, hold, result):
         result["jaw_bar_reason"] = "jaw_bar unresolved: " + ", ".join(missing)
         return
     result["jaw_bar"] = {"name": bar, "dia_mm": dims["dia"], "length_mm": dims["length"]}
+
+
+_JAW_BUTTON_SIZES = ("dia", "thickness", "spigot_dia", "spigot_length")
+
+
+def _jaw_buttons_inputs(bundle, hold, result):
+    """Declared jaw buttons (one between each jaw and the work), or why they are unplaceable.
+
+    The jaws close on the buttons, so an unresolved button leaves the jaws unplaced
+    (``jaw_buttons_reason``): every size is a measured fact, never a default.
+    """
+    buttons = hold.get("jaw_buttons")
+    if buttons is None:
+        return
+    item = measurement_item(bundle, "fixtures", buttons) if buttons != UNKNOWN else {}
+    dims = {key: _measured_length(item, key) for key in _JAW_BUTTON_SIZES}
+    kind = record(item).get("kind")
+    missing = [] if kind == "jaw_buttons" else [f"{buttons!r} as jaw_buttons"]
+    missing.extend(f"{key}_mm (measured)" for key, value in dims.items() if value == UNKNOWN)
+    if missing:
+        result["jaw_buttons_reason"] = "jaw_buttons unresolved: " + ", ".join(missing)
+        return
+    result["jaw_buttons"] = {"name": buttons, **{key + "_mm": dims[key] for key in dims}}
 
 
 def _centres(value, minimum, maximum=None):
@@ -831,12 +888,12 @@ def _clamp_inputs(bundle, hold, result, gaps):
         if pose is None:
             debts.append(f"clamp {index} {reference!r} pose is undeclared or not orthonormal")
             continue
-        solids, missing = _solids(item, f"clamp {index} {reference}")
+        solids, missing = _solids(item, _clamp_owner(index, reference))
         debts.extend(missing)
         if solids:
             placed.append(
                 {
-                    "name": f"clamp {index} {reference}",
+                    "name": _clamp_owner(index, reference),
                     "pose": pose,
                     "solids": solids,
                     # Undeclared is no restraint; a press is credited only by the kernel's
@@ -877,6 +934,10 @@ def _follow_rest(setup, entry, item, reference):
         missing.append(f"plan hold.supports[{reference}].jaw_lead_mm (positive)")
     if rest["side"] not in _JAW_SIDES:
         missing.append(f"plan hold.supports[{reference}].jaw_side (turned or uncut)")
+    engage = entry.get("engage_at_z_mm", UNKNOWN)
+    if number(engage):
+        # Where the jaws go on: the picture poses them there, beside the tool.
+        rest["engage_at_z_mm"] = engage
     if record(item).get("kind") != "follow_rest":
         missing.append(f"fixtures.{reference} kind follow_rest")
     for dimension in ("jaw_width", "jaw_height", "jaw_depth"):
@@ -1173,6 +1234,7 @@ _ENGINE_OP = (
     "z_to",
     "angle_window_deg",
     "max_filing_stock_mm",
+    "guide_owner",
     "to_dia_mm",
     *TURNING_TOOL_KEYS,
     *TURNING_HOLDER_KEYS,
@@ -1194,6 +1256,7 @@ _ENGINE_HOLD = (
     "parallels_along",
     "riser",
     "jaw_bar",
+    "jaw_buttons",
 )
 # Vise inputs whose absence stops jaw placement in the engine.
 _ENGINE_HOLD_REQUIRED = (
@@ -1245,8 +1308,10 @@ def _engine_hold(hold):
             result["reason"] = "Fixture pose/dimensions unmeasured or unavailable: " + ", ".join(
                 missing
             )
-        elif "jaw_bar_reason" in hold:
-            result["reason"] = hold["jaw_bar_reason"]
+        elif "jaw_bar_reason" in hold or "jaw_buttons_reason" in hold:
+            result["reason"] = "; ".join(
+                hold[key] for key in ("jaw_bar_reason", "jaw_buttons_reason") if key in hold
+            )
         return result
     if kind in _CHUCK_JAWS or kind == "dividing_head":
         result = {"kind": "chuck", "fixture_kind": kind, **common}

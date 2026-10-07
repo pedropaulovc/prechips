@@ -10,6 +10,7 @@ from prechips.inputs import Bundle
 from prechips.rules import (
     accessibility,
     centre_support,
+    consistency,
     construction,
     coordinates,
     coverage,
@@ -29,6 +30,7 @@ from prechips.rules import (
     op_chain,
     op_order,
     prepared_blank,
+    purchased_tooling,
     reach,
     saw_cut,
     sizing,
@@ -70,6 +72,7 @@ RULES: list[Rule] = [
     Rule("manual_arc", manual_arc.evaluate),
     Rule("inspection", inspection.evaluate),
     Rule("hold_fields", hold_fields.evaluate),
+    Rule("purchased_tooling", purchased_tooling.evaluate),
     Rule("centre_support", centre_support.evaluate),
     Rule("prepared_blank", prepared_blank.evaluate),
     *MEASUREMENT_RULES,
@@ -83,6 +86,7 @@ RULES: list[Rule] = [
     Rule("construction", construction.evaluate),
     Rule("finish_route", finish_route.evaluate),
     Rule("joint_fit", joints.evaluate_fit),
+    Rule("consistency", consistency.evaluate),
 ]
 
 GEOMETRY_RULES = [

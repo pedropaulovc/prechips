@@ -214,6 +214,9 @@ naming them. Each table is recorded under `arc_table` (its joins under
   least gap from the stepped cutter's edge to the finished line) and
   `stock_left_mm` (allowance + cusp). No corner that keeps outside the line,
   or a `line_clear_mm` below zero, is an error and withholds the stage's rows.
+  The traveler prints the cusp rounded up onto the DRO grid, and says the
+  stairs (or a chain's holes) stay outside the scribed line only when a
+  `scribe` op on the feature runs before them, else outside the finished outline.
 - `chain_drill` (rough only; holes no more than `pitch_mm` apart along the
   rough path, drilled with the op's drill): every hole's full diameter must stay
   outside the line (`hole_clear_mm` ≥ 0) and neighbours must leave a web
@@ -300,14 +303,15 @@ leaves on the far wall is the profile's `grid_residual_mm`; passes between step 
 whole number of grid steps no larger than `step_mm` (a `step_mm` finer than one
 grid step is unknown). The raster record carries `run_axis`, `area_ends`, the
 pass `ends`, `clearance_mm` (the cutter radius they run past the area) and a
-pocket's `entry_pass`. The traveler always prints the pass ends, and calls an
-end (or the entry pass, on its open side) in air only when it stands a cutter
+pocket's `entry_pass`. The traveler prints the pass ends in the raster table; the
+note above it says to lift to the raster's lift Z after each pass and names an end
+(by its side), or the entry pass on its open side, in air only when it stands a cutter
 radius outside the stock the kernel modelled entering the setup (its
 `stock_bbox_mm`, which holds every op's stock); the op's `stock_removal_bounds`
 is what it may remove, not where stock ends, so it proves neither air nor
 material and an unproven end carries no claim. A `keep_out` splits passes into
-pieces that also start and stop between the outer `ends`; the traveler then
-prints those as the outer ends and says every pass runs in and out clear only
+pieces that also start and stop between the outer `ends`; the note then names
+those as the outer ends and says every pass runs in and out clear only
 when each emitted piece's start and end is proven so, stage by stage. A closed
 outline's rows are on the grid too: each vertex is the nearest grid point at
 least its offset outside
@@ -361,7 +365,9 @@ earlier face or pocket op whose setup-frame X/Y `stock_removal_bounds` hold all
 of its own and that produced its surface (its feature, or a feature whose X/Y
 `bounds` hold its feature's whole footprint). Levels that cannot be placed (an
 unknown start or a `doc_mm` finer than one DRO step) keep status unknown. The
-traveler prints `Z start → depth in N levels of doc max` on the op row; the
+traveler prints `Z start → depth in N levels of doc max` on the op row, or
+`Z → depth` when the levels are one pass that starts at the depth; levels left
+unknown print `?` for their count and the row's STOP stands. The
 contour block heading lists every level and says to run the complete path at
 the first and repeat it at each level in order.
 
@@ -508,7 +514,8 @@ printed entry (through: exit face) and rounded up again, and the `dro_depth_mm`
 or `dro_exit_mm` that leaves; a through tip short of the exit face prints a
 STOP. The traveler's breakthrough note gives as the run-out the lower of
 `dro_exit_mm` and the same past `dro_exit_face`, cut down to the DRO decimals,
-and claims none when it is unknown or negative. Every row that prints a
+and claims none when it is unknown or negative (the op row's Z column prints the
+tip and the exit face; the note repeats neither). Every row that prints a
 rounded depth carries `depth_floor_mm`: the lower
 end of the feature's `depth` band, or for a tap its `thread_depth` (else `depth`)
 band. Any other kind of row, and a bare `depth` (an upper limit only), has an
@@ -599,6 +606,13 @@ feed, see [cutting data](cutting-data.md#plunge), which only a tool declared
 `center_cutting = true` has) and, when unknown, `plunge_reason`. Fixture and clamp
 heights are not in the box: a raise Z is never
 claimed clear of them.
+A single-level op whose level Z is the Z it starts from carries `lowered = "top"`
+only when the setup-entry `stock_bbox_mm` puts that level at or above the stock top
+(within the kernel's 1e-3 mm tolerance): nothing stands above it at any entry, so
+the cutter is lowered to that Z, never plunged, and needs no plunge feed. An equal
+start Z alone proves nothing at the entry: a feature's declared `entry_z` or an
+earlier op's cleared floor is not the stock height where the cutter goes down, so
+that entry plunges (with its feed, or as debt without one).
 
 Each of these is pass-plan debt (unknown), appended as ` Pass plan unknown: … .`
 (`;`-joined with the other pass-plan debts):
@@ -610,7 +624,9 @@ Each of these is pass-plan debt (unknown), appended as ` Pass plan unknown: … 
 - `op {op} returns to its entry at Z {z}, not above the stock it receives`.
 
 The setup sheet prints each path's record above its table: a single level as
-`Enter at P1: plunge Z a → b at F mm/min.` (or `clear of the stock: lower to Z`);
+`Enter at P1: plunge Z a → b at F mm/min.` (`plunge to Z b at F mm/min` when it starts
+at b; `lower to Z b, the top of the stock this op meets` when `lowered`; or `clear of
+the stock: lower to Z`);
 several levels, whose Zs the block heading lists, as one statement of how each
 level gets down (`plunge from the level above (level 1 from Z a) at F mm/min`)
 and how it gets back between levels (`raise to Z R (above the stock), move back
@@ -656,7 +672,13 @@ rounded inward on the grid (low up, high down), an unknown end kept unknown. A
 (`blade_band_errors`: `op {n} prints Z {corner_dro_z} for its {corner} corner,
 which forms its face at {formed_z}, outside its allowed {lo} to {hi}`). The
 sheet's op row prints `Z → {corner_dro_z} ({corner} corner)` and the band as
-`allowed {lo} to {hi} ({corner} corner)` from `corner_dro_band`. An unknown
+`allowed {lo} to {hi} ({corner} corner)` from `corner_dro_band`. A part-off or
+cut-to-fit row also prints its X: `X {start} → {end} ({r} radial)`, the end the
+authored `to_dia` (the axis, Ø0, unless authored) and the start that plus twice
+the reach finding's `reach_depth_mm`, in the setup's X display (diameter or
+radius); an unknown depth prints `X → {end} (radial plunge unknown)` and an
+unknown `to_dia` or X display (`dro.radius_mode` omitted or unknown) a STOP with
+no X. An unknown
 reading corner, kernel side or blade width leaves `corner_dro_z` unknown with its
 `reason` and the setup `unknown` (exit 4); the sheet prints "blade corner not set"
 for the target and the band and stops, and the face it leaves stands at an
@@ -671,6 +693,13 @@ past the base radius are dropped. An apex toward the chuck, or a window whose
 base the sphere cannot reach (cap taller than its diameter), has no stair
 (`unknown`). The finish table prints its row-to-row order for an apex-to-base
 convex dome: X out to the next row first, then Z toward the chuck.
+
+Lathe X readings: every lathe row's `x_target_mm` (feature rows, kernel span ends,
+dome and stair rows, `setup_xz`, a dome's tool `x_tool_mm`) is the radius on a
+radius display (`dro.radius_mode = true`) and twice it on a diameter one
+(`false`). An omitted or unknown `radius_mode` leaves each of them unknown, never a
+default display, and the setup `unknown` (`dro.radius_mode not stated`); the
+sheet's feature map, part-off X and dome/stair tables then print no X and a STOP.
 
 Evidence groups: frame/binding, reference rows, operation targets, profiles,
 arc/line/axial tables and advanced entry surfaces. Citations: PLAN §4.1,
@@ -694,15 +723,25 @@ circle). Unknown geometry is unknown.
   gauge whose `range_mm` covers R (a range miss or another kind is an error; an
   unknown range or `verify = true` is unknown).
 - `file_to_line`: `guide.buttons` names an inventory `fixtures` kit of
-  `kind = "filing_buttons"` (`dia_mm`, pin `bore_dia_mm`) that the setup holds
-  (`hold.fixture` or a clamp `ref`), pinned through `guide.bore`. The bore must
-  be the hole on the arc's axis, sized by a drill, ream or bore op before the
-  filing, and the pin must enter its smallest size; the buttons only guide a
-  convex arc. They file from `dia/2 − play` to `dia/2 + play`
-  (`files_to_mm`, play = (largest bore − pin)/2), which must sit inside the
-  radial band. Any of those failing is an error; a kit missing from the
-  inventory, not held, flagged to verify, or unknown sizes (a bore `dia` that is
-  not a known pair of numbers) are unknown, and so is an unknown radius band.
+  `kind = "filing_buttons"` that the setup holds (`hold.fixture` or a clamp
+  `ref`), pinned through `guide.bore`. The bore must be the hole on the arc's
+  axis, sized by a drill, ream or bore op before the filing; the buttons only
+  guide a convex arc. The guide record carries every element's declared limits
+  in mm: `button_dia_mm`, `button_bore_mm` and `pin_dia_mm` (the kit's
+  `*_limits` pairs), `button_runout_mm` and the bore's drawing `bore_dia_mm`.
+  The pin's largest size must enter the smallest bore and button bore. The rim
+  centre then shifts off the bore axis by at most `centre_shift_mm`:
+  `pin_in_bore = (bore_max − pin_min)/2`, `button_on_pin = (button_bore_max −
+  pin_min)/2` and `runout = runout/2`, so the buttons file worst case from
+  `button_min/2 − shift` to `button_max/2 + shift` (`files_to_mm`), which must
+  sit inside the radial band. Any of those failing is an error; a kit missing
+  from the inventory, not held, flagged to verify (itself or any fact), or any
+  element limit unknown (absent, not two positive ordered numbers, a negative
+  runout, a bore `dia` that is not a known pair of numbers) is unknown, and so
+  is an unknown radius band. The traveler prints every element's limits and the
+  worst-case band rounded outward to 0.001 mm (the shift basis stays in the
+  report's `centre_shift_mm`), marked `not proven` unless the finding passes, or
+  a STOP when the band itself is not established.
   `guide.template` instead files to a line an earlier `scribe` op laid out
   (`layout_op`; none is
   unknown). `guide.gauge` must be a radius or profile gauge covering R (no gauge
@@ -720,6 +759,11 @@ share, and, past a straight claimed-face edge that no other claimed face shares
 and along which the face's tangent plane is constant, the quarter the stroke runs
 on into beyond the edge and outside that plane. The last takes the corner nib
 between faces filed in different ops; the finished part is never filed.
+
+On the traveler, a `manual_arc` finding left unknown stops its op: the op's row
+prints a STOP with the finding's reasons (`debts`), and the setup's STOP list
+names the op, so no unproven layout or filing reads as an established step. An
+error stops it the same way through the op's error box.
 
 ## `zero_check`
 
@@ -746,9 +790,26 @@ is positive. Reversed direction or a non-ABS known mode is an error.
 `face = "top"` substitutes the received stock top. Another named face (such as
 an ear's inner face) uses its own authored edge; stock top is not its fallback.
 
+An X/Y pick-up with an `edge_finder` tool (not `from = "indicated"`) records the
+finder's procedure facts on its row as `finder`: `finder_type`, `tip_dia_mm`
+(`tip_in`/`tip_mm`, else `dia`), `radius_mm`, the finder's `finder_rpm_range`,
+the setup machine's spindle bands `machine_rpm` (`[[lo, hi], …]`: `ranges_rpm`,
+each clipped to a stated `rpm_min`/`rpm_max`, else `[[rpm_min, rpm_max]]`) and
+`rpm`, the bands it runs at (the finder's band intersected with each spindle
+band; a gap between bands is never filled; an electronic finder runs with the
+spindle stopped, `not_applicable`). A missing type, tip or mechanical rpm
+range, or any unknown endpoint of either band, leaves the zero unknown; a
+finder band no spindle band turns is an error. The traveler prints these once
+per finder and mill as the EDGE FINDER box ([inventory](inventory.md#edge-finder)).
+
 For each authored Z `retouch_after`, the new set value is advanced top + paper.
 A profile does not move the touched top. A listed retouch sets Z for the next
-cutting tool only.
+cutting tool only: each `retouch` row carries `next_op`, `next_tool` and
+`tool_change` (true when that tool is not the one in the spindle, unknown when either
+tool is unknown; past the last cut `next_op`/`next_tool` are `not_applicable` and
+`tool_change` false). The sheet tells the operator to
+install the incoming tool, then touch the top and Axis Set Z; with no change, the tool
+stays in and only re-touches.
 
 X `method = "trial_cut_measure"` cuts a diameter, measures it at the machine
 with the declared `gauge` and Axis Sets that reading. Like paper thickness the
@@ -768,13 +829,38 @@ numeric; the rows show `M -9`, `M +1`. The same holds for a tool touch's
 
 Each `[[setups.zero.tool_touches]]` entry is complete when its `tool` and X
 `gauge` resolve without a verify flag and `edge_mm` and `paper_mm` are numeric:
-`x_axis_set` is the same measured-diameter expression and `z_axis_set` is
+`x_axis_set` is the measured-diameter expression plus the X paper
+(`x_paper_mm`, once on the radius: `measured D + 2p` on a diameter display,
+`measured D/2 + p` on radius; a `trial_cut_measure` touch makes its own
+diameter and takes none; unknown paper is unknown) and `z_axis_set` is
 `edge_mm + side*paper_mm`. A mill touch sets Z only (`x_axis_set = "not_applicable"`):
 the mill X/Y read the spindle axis whatever the tool. A touch with
 `method = "measure_then_set"` sets `M + z_offset_mm + side*paper_mm`, M read with
 `z_gauge` as `z_measure`. Missing tools, unverified finder/gauge facts, missing
 recipes and unknown frame binding preserve unknown. A lathe does not require a
 Y zero recipe.
+
+A lathe X touch is set on the diameter actually touched (D2), so `x_face_status`
+checks it stands where the touch is made. A `trial_cut_measure` touch passes.
+`x_face = "x_zero"` (this setup's X-zero trial-cut land) is an error when the X
+zero is no trial cut or comes after the touch, and `unknown` once a cutting op
+runs after the zero (the land is no feature the rule can follow). Any other
+`x_face` must be a plan feature (else error) whose latest naming op before the
+touch, in this setup then back through the earlier setups of its `stock_in`
+lineage, turns it (`turn`, `rough_turn`, `finish_turn`): an op that cuts it
+otherwise is an error, an op naming no feature `unknown`; never turned and not
+supplied as-is (`stock.as_is_faces`) is an error, or `unknown` when the lineage
+omits `stock_in`. No `x_face` names no surface: `unknown`. The traveler prints the
+touch's contact whatever its `x_method` words say: the surface (`on the {x_face}
+Ø, measured`) and the paper the Axis Set counts (`paper {x_paper_mm}`, `no paper`,
+or `paper ?` when unknown; a `trial_cut_measure` touch is its own surface and
+takes none), then the words, its Axis Set X and, for an error or unknown, a STOP.
+A derived X re-touch is a direct touch on the measured diameter (`x_paper_mm = 0`).
+
+A datum `transfer` with `keep_clamped = true` cannot be tapped true: a sweep over
+its `runout_limit_mm` needs the plan's `recovery`. Without a stated `recovery`
+(missing, blank or `"unknown"`) the finding is `unknown` (`state
+transfer.recovery`), and the traveler prints a STOP in place of the transfer.
 
 Paper side: paper lies between the tool and the face, on the side the tool meets
 the face from, so a Z touch through `paper_mm` of paper (the zero, a tool touch or

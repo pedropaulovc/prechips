@@ -159,6 +159,42 @@ def test_only_a_coating_op_names_a_process(tmp_path):
         load_bundle(plan)
 
 
+_VIEW = """[[setups.ops.inspection_views.dia]]
+title = "ON V-BLOCKS"
+up = [1.0, 0.0, 0.0]
+toward = [0.0, -1.0, 0.0]
+marks = [{label = "N", at_mm = [6.0, 0.0, 10.0], reads = true}]
+"""
+
+
+@pytest.mark.parametrize(
+    ("op", "error"),
+    [
+        ('do = "inspect"\n', None),
+        ('do = "coating"\nprocess = "cutting-oil"\n', "only an inspect op declares"),
+        ('do = "inspect"\n', "views for dia illustrate no stated inspection method"),
+    ],
+    ids=["illustrating_its_method", "on_a_coating_op", "without_a_method"],
+)
+def test_inspection_views_illustrate_an_inspect_ops_stated_method(tmp_path, op, error):
+    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
+    method = "" if error and "method" in error else 'dia = "Read it {N}."\n'
+    body = (
+        f'{op}feature = "pivot_bearing"\n[setups.ops.checks]\ndia = "micrometers/0-1in"\n'
+        f"[setups.ops.inspection_methods]\n{method}{_VIEW}"
+    )
+    append_op(plan, body)
+    if error is None:
+        (setup,) = [
+            s for s in load_bundle(plan).plan["setups"] if s["id"] == setups(plan)[-1]["id"]
+        ]
+        (view,) = setup["ops"][-1]["inspection_views"]["dia"]
+        assert view["marks"] == [{"label": "N", "at_mm": [6.0, 0.0, 10.0], "reads": True}]
+        return
+    with pytest.raises(BadInput, match=error):
+        load_bundle(plan)
+
+
 # ------------------------------------------------------- multi-feature inspection
 
 SHOULDER = ("shoulder_north_face", "shoulder_thrust")
@@ -287,9 +323,11 @@ def test_a_process_hold_prints_as_a_shop_limit_not_a_drawing_limit(tmp_path):
     plan = copy_examples(tmp_path) / "rocker-arm" / "plan.toml"
     _, op = hold_ream(plan, "[2.000, 2.010]")
     _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
-    (row,) = [row for row in op_rows(html, op) if REASON in row]
-    assert f"PROCESS HOLD — not a drawing limit: {REASON}" in row
-    assert "2.000–2.010" in row
+    (row,) = [row for row in op_rows(html, op) if "PROCESS HOLD" in row]
+    assert "PROCESS HOLD — not a drawing limit" in row and "2.000–2.010" in row
+    # Why it holds prints once, on the job page; the op row points there.
+    assert "see job page" in row and REASON not in row
+    assert unescape(html).count(REASON) == 1
 
 
 def test_a_process_hold_read_by_an_inch_gauge_prints_the_mm_digits_that_gauge_resolves(tmp_path):
@@ -297,7 +335,7 @@ def test_a_process_hold_read_by_an_inch_gauge_prints_the_mm_digits_that_gauge_re
     plan = copy_examples(tmp_path) / "rocker-arm" / "plan.toml"
     _, op = hold_ream(plan, "[2.000, 2.010]", gauge="micrometers/0-1in")
     _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
-    (row,) = [row for row in op_rows(html, op) if REASON in row]
+    (row,) = [row for row in op_rows(html, op) if "PROCESS HOLD" in row]
     assert "2.000–2.010" in row
 
 
@@ -306,6 +344,111 @@ def test_a_process_hold_names_an_exported_requirement(tmp_path):
     hold_ream(plan, "[2.000, 2.010]", requirement="depth")
     with pytest.raises(BadInput, match="process hold rod_hole depth"):
         load_bundle(plan)
+
+
+FIT_UP = "test hold: the assembly's fit-up note sets the end past the scribe"
+FIT_UP_CITE = '["assembly drawing fit-up note"]'
+
+
+def hold_span(
+    plan, gauge="calipers", extra=f'measure = "scribe to faced end", cite = {FIT_UP_CITE}'
+):
+    """A fit-up hold on the shaft's reference-only bearing span, on its last facing op."""
+    sid, op = [
+        (setup["id"], op["op"])
+        for setup in setups(plan)
+        for op in setup["ops"]
+        if op["do"] == "face"
+    ][-1]
+    rewrite(
+        plan,
+        ("op", sid, op),
+        "process_holds",
+        f'[{{ feature = "pivot_bearing", requirement = "length_ref", band = [1.5, 2.0], '
+        f'gauge = "{gauge}", reason = "{FIT_UP}"{", " + extra if extra else ""} }}]',
+    )
+    return sid, op
+
+
+def test_a_hold_on_a_reference_only_span_reads_its_measure_and_has_no_drawing_band(tmp_path):
+    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
+    sid, op = hold_span(plan)
+    row = evaluate("inspection", load_bundle(plan))[f"{sid}:{op}"]
+    (hold,) = row.numbers["process_holds"]
+    # A REF span carries no drawing limit: the hold is the only one, never "unknown".
+    assert hold["inside_drawing_band"] == "not_applicable"
+    assert hold["measure"] == "scribe to faced end"
+    assert row.status == "pass", row.sentence
+
+
+@pytest.mark.parametrize(
+    ("extra", "message"),
+    [
+        (f"cite = {FIT_UP_CITE}", "reference-only"),
+        ('measure = "scribe to faced end"', "reference-only"),
+        (None, "reference-only"),
+    ],
+)
+def test_a_hold_on_a_reference_only_span_states_what_it_reads_and_its_source(
+    tmp_path, extra, message
+):
+    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
+    hold_span(plan, extra=extra)
+    with pytest.raises(BadInput, match=message):
+        load_bundle(plan)
+
+
+def test_only_a_reference_only_hold_names_a_measure(tmp_path):
+    plan = copy_examples(tmp_path) / "rocker-arm" / "plan.toml"
+    sid, op = hold_ream(plan, "[2.000, 2.010]")
+    rewrite(
+        plan,
+        ("op", sid, op),
+        "process_holds",
+        f'[{{ feature = "rod_hole", requirement = "dia", band = [2.000, 2.010], '
+        f'gauge = "rocker-rod-limit-gauges", reason = "{REASON}", measure = "bore" }}]',
+    )
+    with pytest.raises(BadInput, match="measure"):
+        load_bundle(plan)
+
+
+@pytest.mark.parametrize(("requirement", "status"), [("length_ref", "pass"), ("dia", "error")])
+def test_a_dro_scale_reads_a_length_along_its_axis_never_a_diameter(tmp_path, requirement, status):
+    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
+    sid, op = hold_span(plan, gauge="test-z-dro")
+    bundle = load_bundle(plan)
+    bundle.inventory["gauges"]["test-z-dro"] = {
+        "kind": "dro_scale",
+        "resolution_mm": 0.005,
+        "range_mm": [0, 600],
+    }
+    (hold,) = next(
+        o["process_holds"]
+        for s in bundle.plan["setups"]
+        if s["id"] == sid
+        for o in s["ops"]
+        if o["op"] == op
+    )
+    if requirement == "dia":
+        hold.update(requirement="dia", band=[6.33, 6.35])
+        hold.pop("measure"), hold.pop("cite")
+    row = evaluate("inspection", bundle)[f"{sid}:{op}"]
+    assert row.numbers["process_holds"][0]["gauge_status"] == status
+
+
+def test_process_holds_reach_the_job_page_apart_from_the_drawing_limits(tmp_path):
+    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
+    sid, op = hold_span(plan)
+    _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
+    page = unescape(re.sub(r"<[^>]+>", "|", html))
+    job = page[: page.index("SETUP S")]
+    assert "PROCESS HOLDS — in-process limits, not drawing limits" in job
+    holds = job[job.index("PROCESS HOLDS") :]
+    for text in (f"{sid} op {op}", "scribe to faced end 1.50–2.00", "REF 156.67", FIT_UP):
+        assert text in holds, text
+    # The op row says what it reads and that the drawing gives the span only as REF.
+    (row,) = [row for row in op_rows(html, op) if "PROCESS HOLD" in row]
+    assert "scribe to faced end 1.50–2.00" in row and "REF 156.67" in row
 
 
 # ------------------------------------------------- review regressions (PR #90, round 1)

@@ -74,8 +74,47 @@ inspection_methods.position_dia = [
 ```
 
 `{name}` prints as a labelled blank to write the reading in. A step beginning
-`Calculate:` prints apart from the numbered steps as the calculation line. A list
+`Calculate:` prints apart from the numbered steps as the calculation line. A
+procedure whose readings are worked through two or more calculation lines is a
+worksheet: it prints on an attached sheet of its own after the contours (the op
+row names it, `[S11 sheet 4 worksheet]`), its steps naming each reading
+`[rJ1]` where it is taken, a READINGS table with one line to write each in and
+the step that takes it, then its calculation lines. A list
 is known only when every step is a non-empty string other than `"unknown"`.
+
+An inspect op may illustrate a stated procedure with set-up sketches:
+`inspection_views.<requirement>` is a non-empty list of views, one per way the
+part is set up on the surface plate for that check. Each view gives a `title`,
+`up` (a unit vector in the part model's axes pointing up off the plate, the way
+a height reading rises), `toward` (a unit vector square to `up`, from the part to
+the viewer), optional `aids` and at least one `mark`, all in part-model
+millimetres:
+
+```toml
+[[setups.ops.inspection_views.position_dia]]
+title = "VIEW 1: BOX ON ITS BASE, LAND C DOWN ON THE STOP BAR"
+up = [-0.9833816999, -0.1815500823, 0.0]
+toward = [0.0, 0.0, -1.0]
+aids = [
+  { name = "C STOP BAR", shape = "box", at_mm = [155.526, 40.78, 1.25], size_mm = [40.0, 12.2, 12.0], axes = [[0.1815500823, -0.9833816999, 0.0], [-0.9833816999, -0.1815500823, 0.0]] },
+  { name = "ROD GAUGE PIN", shape = "cylinder", at_mm = [133.067, 16.456, -25.0], axis = [0.0, 0.0, 1.0], dia_mm = 1.994, length_mm = 26.2 },
+]
+marks = [
+  { label = "R1: ROD PIN TOP", at_mm = [132.087, 16.275, -5.0], reads = true },
+  { label = "C: LAND C ON THE STOP BAR", at_mm = [145.747, 26.547, 0.0] },
+]
+```
+
+An aid is a `box` from its least corner `at_mm` by `size_mm` along its edge
+directions `axes` (unit x then y, square; the model's X and Y when absent), or a
+`cylinder` from its base centre `at_mm` along the unit `axis`, `dia_mm` across
+and `length_mm` long. A mark is a labelled point; `reads = true` marks where a
+height reading is taken. The kernel draws the sketch on the stock the op's setup
+leaves ([renders](rules-geometry.md#renders)) and the traveler prints it at the
+head of that requirement's worksheet or inspection note
+([report binding](report-and-telemetry.md#kernel-renders)). Views on an op that is
+not `inspect`, or for a requirement with no `inspection_methods` entry, are
+`BadInput`.
 
 When an inspection requirement has no exported owner/band, an explicit operation
 may declare `missing_requirements = { length = "calipers" }` and
@@ -426,7 +465,10 @@ BLANK**, each form row with its limit and method.
 read once in radius mode and twice in diameter mode. It does not change a known
 mill's linear axes. In a mixed-machine route, the traveler labels the actual
 setup machine's display convention rather than applying the lathe label to all
-setups. Unknown controller/install facts remain unresolved independently.
+setups. Omitted or unknown on a lathe, no X reading is printed: the feature map,
+part-off X and dome tables stop rather than assume a display
+([coordinates](rules-coordinates.md#coordinates)). Unknown controller/install
+facts remain unresolved independently.
 
 ## Direction
 
@@ -525,7 +567,8 @@ not an alternative bond process. Known physical refusals remain errors even
 when prep or cure is unknown; a later invalid join does not invalidate an
 earlier independent, valid assembly.
 The traveler prints the prep, cure time and **do not disturb until cured** before
-later machining. The process does not model cure kinetics or certify a product:
+later machining, once: on the setup's first `fit` op (the op that bonds), else in
+its "Starts from" line. The process does not model cure kinetics or certify a product:
 cite the author's source/choice for the declared band and cure conditions.
 These fields do not apply to `silver_braze` or `press`; their behavior is unchanged.
 Use the canonical noncutting bench action `do = "fit"`, not an undeclared
@@ -630,8 +673,11 @@ for collet/chuck capacity, not the unsupported-section diameter.
 | `grip_mm` | `Number \| Literal['not_applicable']` |
 | `jaw_above_parallels_mm` | `Number \| Literal['not_applicable']` |
 | `stickout_mm` | `Number` |
+| `stickout_fit` | `{ measure: str, nominal_mm: Number, add_mm: Number }`: a stickout set from a measured fit-up; `stickout_mm` is the nominal `nominal_mm + add_mm` ([stickout](rules-lathe.md#stickout)) and the operator sets the `measure` reading + `add_mm`. The HOLD table prints `nominal stickout mm` and `set stickout: measured … + N`; the picture dimensions `NOM STICKOUT …` and its notes say it is set as the measured fit-up + N |
 | `jaw_center_along_mm` | `Number` |
 | `jaw_bar` | `str` (fixtures `round_bar` between the work and the moving jaw) |
+| `jaw_buttons` | `str` (fixtures `jaw_buttons`: one button between each jaw and the work, its spigot in the work's bore) |
+| `align` | `{ indicator: str, limit_mm: Number, over_mm: Number, face: str, cite: str \| list[str] }`: how a mill vise's fixed jaw or angle plate's locating face is squared to the table travel; `indicator` is an inventory `dial_test_indicator` / `dial_indicator` gauge swept `over_mm` along the face, its reading changing no more than `limit_mm`; an angle plate's `face` names the fixture solid whose face is squared. Required where the setup mounts or turns the vise or plate ([hold_fields](rules-setup.md#hold_fields)) |
 | `parallels_centres_mm` | `list[[Number, Number]]` (exactly two) |
 | `parallels_along` | `str` (`x` / `y`; parallels under a non-vise hold) |
 | `riser_up` | `str` (riser dimension standing vertical: `length` / `width` / `height`) |
@@ -656,13 +702,16 @@ for collet/chuck capacity, not the unsupported-section diameter.
 
 `Pose` is `{origin_mm, x, z}`, each `[Number, Number, Number]` in setup-frame
 mm: a fixture-local frame's origin and unit, orthogonal x and z axes. A
-`ClampPlacement` is `{ref, note, pose, restraint, torque_nm}`: `ref` names a fixture or a
+`ClampPlacement` is `{ref, note, pose, restraint, torque_nm, tighten}`: `ref` names a fixture or a
 `kit/member` such as a clamping-kit strap, and its authored `solids` are
 placed by `pose` (origin at the strap underside on the work). `restraint` is
 `press` (it holds the work down along pose -z), `locate` (it only positions
 the work) or `none`; undeclared is `none`. Only a press clamp can hold a stock
 piece an op splits off, and only when the kernel proves the load path onto an
-anchored support (rules-geometry, held split).
+anchored support (rules-geometry, held split). A `locate` clamp must prove that
+its solids that declare `locates` bear on the stock by their own geometry: a
+pin's contact cylinder in the bore it locates, a flat locator's face
+(rules-geometry, `thin_wall_under_clamp`).
 
 `clamp` is the clamping instruction, or a declared clamp fixture's name. An
 explicit `clamp = "none"` or `"not_applicable"` with no `clamps` members
@@ -681,7 +730,11 @@ HOLD and the picture share one label per `clamps` entry, by its 1-based index:
 `clamp_order` or no order at all), `LOC<i>` for `locate`, `SUP<i>` otherwise.
 HOLD prints the order as "seat against the locators (turning in
 `preload_direction`), snug each in turn, then tighten each fully in the same
-order", to the entry's optional declared `torque_nm` when given.
+order", to the entry's optional declared `torque_nm` when given. An entry declared
+`tighten = "hand"` (a nut run down on a stud without a wrench) is printed as
+tightened "by hand only, no wrench" instead of fully; it takes no `torque_nm`. A
+clamp's note must not restate its tightening as hand or finger tight: the HOLD
+prints it from these fields ([consistency](rules-setup.md#consistency)).
 
 A physical stop uses `stop_fixture` plus `stop_pose`; its inventory solids
 follow the same dimension/measurement/void trust rules as other fixture bodies.
@@ -705,6 +758,11 @@ frame: `jaws_along` is the jaw length axis (`x` / `y`), `fixed_jaw` picks the
 jaw on the negative or positive side of the other axis, `grip_mm` is the depth
 of part inside the jaws and `jaw_above_parallels_mm` the jaw plate standing
 above the stock seat (support tops, or the bed without a lifting support).
+HOLD prints it and, from the same fields, `work top above jaw tops mm`
+(`stock_state.top_z` less the seated bottom, `retained_rail_bottom_z` when lower,
+and this height; `?` when any of them is unknown). A note in this hold must not
+give heights from the jaws: give them as Z values
+([consistency](rules-setup.md#consistency)).
 An explicit `parallels = "none"` or `"not_applicable"` means known zero parallel
 lift and no parallel solids or parallel-position debt. Without another lifting
 support the work seats on the bed. Omitted,
@@ -750,6 +808,21 @@ jaw height: the work's height comes from `stock_state` in plan units, so unknown
 plan units leave the bar's height unknown. A bar that does not resolve to a
 `round_bar` with measured `dia` and `length` leaves the jaws
 unplaced (fixture debt), never drawn as closing on the work.
+
+`jaw_buttons` names a fixtures `jaw_buttons` item: two shop-made buttons, one
+between each jaw and the work, each with a spigot that drops into the work's bore
+opening on that jaw face. Its fact-local measured `dia` (the button face),
+`thickness`, `spigot_dia` and `spigot_length` place them: the kernel centres each
+button on the one bore of the work opening on its jaw face that takes the spigot,
+and the jaws close on the buttons, each standing off the work by `thickness`.
+Any of those four unmeasured, or an item that is not `jaw_buttons`, leaves the
+jaws unplaced (fixture debt), as does a face with no such bore, or with several,
+or a button whose face shares no area with the work round that bore within the
+jaw's height (a button no wider than the bore's mouth bears on nothing). The
+contacts drawn are the button faces, not the jaws, and the grip measured is
+only where the work bears on them. The HOLD's jaw-button step prints the four
+measured sizes the jaws close on (face Ø, thickness, spigot Ø, spigot length);
+an unmeasured one prints `? not measured`.
 
 Other holding kinds are drawn from their own declarations, never defaulted.
 A `chuck_3jaw` / `chuck_4jaw` (and the chuck a `dividing_head` names with
@@ -830,15 +903,23 @@ rest's `body_dia` and `body_length` ([inventory](inventory.md),
 [rules-geometry](rules-geometry.md#follow-and-steady-rests)). Example:
 `supports = ["dead_centre_tailstock_mt3", { ref = "follow-rest", ops = [10, 30], jaw_lead_mm = 8.0, jaw_side = "turned" }]`.
 The traveler's HOLD prints a follow rest's lead as a distance along the work,
-never beside a Ø sign: `jaws 8.00 mm behind the tool, on the diameter just turned:
-reset them on every pass once the tool passes Z 152.00` (trailing jaws ride each
-pass's new diameter; `engage_at_z_mm`, when declared, is the Z), or `jaws … mm
-ahead of the tool, on the uncut stock`.
+never beside a Ø sign: `jaws 8.00 mm behind the tool, on the diameter just turned;
+set on and backed off every pass as printed under each op` (trailing jaws ride
+each pass's new diameter), or `jaws … mm ahead of the tool, on the uncut stock`.
 
-Where an op's start would foul the rest, the op row prints the engagement step at
-`engage_at_z_mm`: each pass, stop the feed, then the spindle; set the jaws and lock
-them; restart the spindle, then resume the feed. Hands never set a rest on a
-turning spindle, and the cut never resumes on a stopped one.
+Each op the rest serves prints its pass sequence once, as a full-width line under
+the op row; the op's coordinate cell keeps only `follow rest on: Z …` where the
+op's start would foul the rest (`engage_at_z_mm`, on the DRO grid). The sequence:
+start with the jaws backed off; at that Z (or, with no engagement Z, once the tool
+has turned the jaw lead) stop the feed, then the spindle; set the jaws and lock
+them; restart the spindle, then resume the feed. Trailing (`turned`) jaws add the
+pass end: stop the feed, then the spindle; back the jaws off; withdraw the tool
+along X; return the carriage to the pass start — the return carries them back past
+the pass start by their lead onto stock that pass never cut. Leading (`uncut`)
+jaws return over the smaller cut diameter and get no release. Hands never set a
+rest on a turning spindle, and the cut never resumes on a stopped one. A rest
+whose `jaw_side` or positive `jaw_lead_mm` is not known prints a STOP box, never a
+pass sequence.
 
 ## Zero
 
@@ -870,6 +951,13 @@ turning spindle, and the cut never resumes on a stopped one.
 | `offset_mm` | `float` (`measure_then_set`: Axis Set M + offset + paper) |
 | `retouch_after` | `list[int]` |
 | `after_op` | `int` |
+| `measure_before_hold` | `bool` (`measure_then_set`: M is read on the part before it is held) |
+
+The setup sheet prints in the order the operator works: a `measure_before_hold`
+M is the first HOLD step (`Before clamping, measure Z M = …`), and its DRO row
+then reads `M measured before clamping (HOLD)`; the datum transfer prints before
+the DRO ZERO table and its tool settings, so the work is indicated true before any
+tool touches it.
 
 ## Transfer
 
@@ -881,19 +969,27 @@ turning spindle, and the cut never resumes on a stopped one.
 | `gauge` | `str` |
 | `runout_limit_mm` | `Number` |
 | `reindicate_after` | `list[int]` |
+| `keep_clamped` | `bool`: the hold must not be loosened to correct the work (an indexed setup keeping an earlier chucking) |
+| `recovery` | `str`: what to do when a `keep_clamped` sweep reads over the limit |
 
 The setup sheet prints the transfer by what `indicate` names: on a lathe, tap true
 to the limit; on a mill, one hole, bore or boss (or a named item that is not a
 feature, such as a pin head) is centred on by moving the table; surfaces, or
 several features, are an alignment, so the operator sweeps each surface by table
 travel and taps the work, not the table, until the reading is within the limit.
+With `keep_clamped = true` the work is never loosened or tapped: the sheet prints
+the sweep as a check (a centring still moves the table), `do not loosen`, and the
+plan's `recovery` for a reading over the limit. Without a `recovery` it prints a
+STOP and [zero_check](rules-coordinates.md#zero_check) is `unknown`.
 
 ## ToolTouch
 
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
 | `tool` | `str` |
-| `x_method` | `str` |
+| `x_method` | `str` (the operator's words; `"trial_cut_measure"`: the touch trial-cuts its own diameter) |
+| `x_face` | `str`: the plan feature whose measured diameter a lathe X touch is set on, or `"x_zero"` for this setup's X-zero trial-cut land; must stand where it touches ([zero_check](rules-coordinates.md#zero_check)) |
+| `x_paper_mm` | `float`: paper between the tool and that diameter; Axis Set X = measured D + 2×paper on a diameter display (D/2 + paper on radius). The traveler prints the surface and this paper (`no paper` at 0, `paper ?` unknown) with the `x_method` words |
 | `gauge` | `str` |
 | `z_face` | `str` |
 | `method` | `str` |
@@ -942,6 +1038,7 @@ travel and taps the work, not the table, until the reading is within the limit.
 | `go_no_go` | `dict[str, GoNoGo \| Unknown]` (each key also in `checks`) |
 | `missing_requirements` | `dict[str, str]` |
 | `inspection_methods` | `dict[str, str \| list[str]]` |
+| `inspection_views` | `dict[str, list[InspectionView]]` |
 | `to_z_band` | `Vector` |
 | `contour` | `Contour` |
 | `stock_removal_bounds` | `Bounds` |
@@ -969,8 +1066,17 @@ required, plus an optional `go_no_go`: a shop limit tighter than the drawing, he
 feature exports (else `BadInput`), and `band` is in the drawing's units. The
 inspection rule errors when the band reaches outside the drawing band (limits
 included, a scalar zone `v` read as [0, v]). The sheet prints it in the op's
-inspection cell as `PROCESS HOLD — not a drawing limit: <reason>`, never as a
-drawing limit.
+inspection cell as `PROCESS HOLD — not a drawing limit (why: see job page): …`,
+never as a drawing limit, and the job page gathers every hold, with its reason, in
+a **PROCESS HOLDS — in-process limits, not drawing limits** table, apart from
+DRAWING REQUIREMENTS; the reason prints nowhere else.
+
+A hold may instead name a feature's reference-only dimension (`<name>_ref`, a
+number the drawing gives as REF or CUT TO FIT, such as an assembly fit-up span).
+The drawing sets no limit there, so the hold must also say what the gauge reads
+(`measure`, e.g. `"scribe to faced end"`) and where the band comes from (`cite`);
+missing either is `BadInput`. A `measure` on a hold of an exported requirement is
+`BadInput` too: that hold reads the requirement itself.
 
 A `GoNoGo` is `{ go = <mm>, no_go = <mm> }`, both positive and different: the two
 limit-gauge sizes a limit check uses. The GO size must pass the work (enter a hole,
@@ -1157,18 +1263,22 @@ uses the 1898 manual arc method:
    the shop policy `numbers.max_filing_stock_mm` unless a later rough cuts the
    same faces again ([coordinates](rules-coordinates.md#coordinates)).
 3. **File to the line**: `do = "file_to_line"` with a `guide`: hardened filing
-   `buttons` (an inventory `fixtures` kit with `kind = "filing_buttons"`,
-   `dia_mm` and pin `bore_dia_mm`, held by the setup as its `hold.fixture` or a
+   `buttons` (an inventory `fixtures` kit with `kind = "filing_buttons"` and the
+   declared limits of every element between its rims and the bore axis
+   ([inventory](inventory.md)), held by the setup as its `hold.fixture` or a
    clamp) pinned through `bore`, a hole on the arc's axis drilled, reamed or
    bored to size earlier; or a `template` checked against a scribed layout. A
    `gauge` (inventory `radius_gauge`/`profile_gauge` whose `range_mm` covers R)
-   checks the arc. The buttons file R from `dia/2 − play` to `dia/2 + play`
-   (play = (largest bore − pin)/2), which must sit inside the radial band. No
-   guide, no gauge, buttons not held or flagged to verify, an unknown bore size or
-   radius band, no earlier rough or no established cap is
-   unknown; a gauge range that misses R, buttons on a concave arc, a bore off the
-   axis or not yet made, a pin larger than the bore or a filed radius outside the
-   band is an error. `scribe` and `file_to_line` are manual: they need no tool
+   checks the arc. The buttons file R worst case from `button_min/2 − shift` to
+   `button_max/2 + shift`, where the rim centre's shift off the bore axis is
+   `(bore_max − pin_min)/2 + (button_bore_max − pin_min)/2 + runout/2`; that whole
+   band must sit inside the radial band. No guide, no gauge, buttons not held or
+   flagged to verify, any unknown element limit (button OD, button bore, pin,
+   runout or the bore's drawing size) or radius band, no earlier rough or no
+   established cap is unknown; a gauge range that misses R, buttons on a concave
+   arc, a bore off the axis or not yet made, a pin whose largest size exceeds the
+   smallest bore or button bore, or a worst-case filed radius outside the band is
+   an error. `scribe` and `file_to_line` are manual: they need no tool
    and may stand in a bench setup (`machines.<id>.kind = "bench"`).
 4. **Or finish on the mill**: `{ method = "chords", count = … }` cuts straight
    chords whose sagitta `c²/8R` fits the band, each fed along one axis (a slanted

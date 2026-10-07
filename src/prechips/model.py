@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from datetime import date
 from typing import Annotated, Any, Literal
 
@@ -39,6 +40,17 @@ def tolerance_requirements(feature: dict[str, Any]) -> list[str]:
         if requirement == UNKNOWN or requirement in TOLERANCE_REQUIREMENTS or band:
             result.append(requirement)
     return sorted(result)
+
+
+def reference_only(feature: dict[str, Any], requirement: str) -> bool:
+    """A drawing's reference dimension (``<name>_ref``, such as a CUT TO FIT span): a number
+    the drawing states with no limit, so no drawing band exists to hold inside."""
+    value = feature.get(requirement)
+    return (
+        requirement.endswith("_ref")
+        and isinstance(value, (int, float))
+        and not isinstance(value, bool)
+    )
 
 
 class InputModel(BaseModel):
@@ -192,6 +204,8 @@ type Point3 = Annotated[list[Number], Field(min_length=3, max_length=3)]
 Pose = record("Pose", {"origin_mm": Point3, "x": Point3, "z": Point3})
 # ``restraint``: press holds stock down onto the fixture; locate only positions it.
 # ``torque_nm``: the declared tightening torque the traveler prints in the clamp order.
+# ``tighten = "hand"``: tightened by hand only, never with a wrench; the traveler's clamp
+# order prints it, so a clamp note must not restate hand tightening (consistency).
 ClampPlacement = record(
     "ClampPlacement",
     {
@@ -199,9 +213,21 @@ ClampPlacement = record(
         "pose": Pose,
         "restraint": Literal["press", "locate", "none"],
         "torque_nm": Number,
+        "tighten": Literal["hand"],
     },
 )
 type PlanCentres = list[Annotated[list[Number], Field(min_length=2, max_length=2)]]
+# A stickout set from a measured fit-up: the printed ``stickout_mm`` is the nominal
+# ``nominal_mm + add_mm``; the operator sets the ``measure`` reading plus ``add_mm``.
+StickoutFit = record("StickoutFit", {"measure": str, **numbers("nominal_mm add_mm")})
+# The step that squares a mill vise's fixed jaw, or an angle plate's locating face (the
+# fixture solid ``face`` names), to the table travel before the work goes in: the
+# ``indicator`` (an inventory gauge) is swept ``over_mm`` along it and its reading may
+# change by at most ``limit_mm``.
+Align = record(
+    "Align",
+    {**texts("indicator face"), **numbers("limit_mm over_mm"), "cite": Citations},
+)
 Hold = record(
     "Hold",
     {
@@ -213,6 +239,7 @@ Hold = record(
         "grip_mm": Number | Literal["not_applicable"],
         "jaw_above_parallels_mm": Number | Literal["not_applicable"],
         "stickout_mm": Number,
+        "stickout_fit": StickoutFit,
         "jaw_center_along_mm": Number,
         "parallels_centres_mm": Annotated[PlanCentres, Field(min_length=2, max_length=2)],
         "riser_centres_mm": Annotated[PlanCentres, Field(min_length=1)],
@@ -242,8 +269,16 @@ Hold = record(
         # kind round_bar with measured dia/length): the moving jaw closes on the bar, which
         # presses the work along one line so the fixed jaw seats its face square.
         "jaw_bar": str,
+        # A vise's pair of jaw buttons (an inventory fixture of kind jaw_buttons with
+        # measured dia, thickness, spigot_dia and spigot_length): one between each jaw and
+        # the work, its spigot seated in the work's bore that opens on that jaw face.
+        "jaw_buttons": str,
+        # Required where a mill setup mounts or turns a vise or angle plate (hold_fields).
+        "align": Align,
     },
 )
+# ``measure_before_hold``: a ``measure_then_set`` M read on the part before it is held (a
+# span the hold then covers): the HOLD prints the reading before the clamping.
 AxisZero = record(
     "AxisZero",
     {
@@ -252,8 +287,12 @@ AxisZero = record(
         **numbers("edge_mm radius_mm paper_mm check_jog_mm offset_mm"),
         "retouch_after": list[int],
         "after_op": int,
+        "measure_before_hold": bool,
     },
 )
+# ``keep_clamped``: the hold must not be loosened to realign the work (an indexed setup
+# that keeps the earlier chucking); ``recovery`` is then the plan's sequence for a sweep
+# that reads over the limit, printed in place of the loosen-and-tap advice.
 Transfer = record(
     "Transfer",
     {
@@ -263,13 +302,18 @@ Transfer = record(
         "gauge": str,
         "runout_limit_mm": Number,
         "reindicate_after": list[int],
+        "keep_clamped": bool,
+        "recovery": str,
     },
 )
+# A lathe touch's X surface: ``x_face`` names the plan feature (or ``"x_zero"``, this
+# setup's X-zero trial-cut land) whose measured diameter the tool touches, through
+# ``x_paper_mm`` of paper; x_method keeps the operator's words.
 ToolTouch = record(
     "ToolTouch",
     {
-        **texts("tool x_method gauge z_face method z_gauge z_measure"),
-        **numbers("edge_mm paper_mm z_offset_mm"),
+        **texts("tool x_method x_face gauge z_face method z_gauge z_measure"),
+        **numbers("edge_mm paper_mm x_paper_mm z_offset_mm"),
         # The blade corner a grooving/parting blade's Z touch sets, where the touched
         # face's normal cannot give it (a scribe): docs/rules-coordinates.md.
         "corner": Literal["chuck_side", "tailstock_side"],
@@ -329,7 +373,11 @@ class GoNoGo(InputModel):
 
 class ProcessHold(InputModel):
     """A shop limit inside one drawing requirement band, held for a stated process reason
-    (a downstream fit, a clocking stop): printed as a process hold, never a drawing limit."""
+    (a downstream fit, a clocking stop): printed as a process hold, never a drawing limit.
+
+    On a reference-only dimension (``<name>_ref``, such as a CUT TO FIT span) the drawing
+    sets no limit: the hold then names what its gauge reads (``measure``) and where its
+    band comes from (``cite``)."""
 
     feature: str
     requirement: str
@@ -338,6 +386,8 @@ class ProcessHold(InputModel):
     reason: str
     # The GO / NO-GO sizes the hold's gauge reads the hold band with, when it is a limit check.
     go_no_go: GoNoGo | None = None
+    measure: str | None = None
+    cite: Citations | None = None
 
     @model_validator(mode="after")
     def stated(self) -> ProcessHold:
@@ -345,8 +395,12 @@ class ProcessHold(InputModel):
             (self.feature, "feature"),
             (self.requirement, "requirement"),
             (self.reason, "reason"),
+            *(((self.measure, "measure"),) if self.measure is not None else ()),
         ):
             _known_text(value, f"A process hold {what}")
+        cites = [self.cite] if isinstance(self.cite, str) else self.cite
+        if cites is not None and (not cites or any(not c.strip() or c == UNKNOWN for c in cites)):
+            raise ValueError("A process hold cite must name known, non-empty sources.")
         if not self.band[0] < self.band[1]:
             raise ValueError("A process hold band must be an ordered [lo, hi] band, lo < hi.")
         return self
@@ -371,6 +425,98 @@ class Aim(InputModel):
     def stated(self) -> Aim:
         _known_text(self.requirement, "An aim requirement")
         _known_text(self.reason, "An aim reason")
+        return self
+
+
+type KnownPoint3 = Annotated[list[float], Field(min_length=3, max_length=3)]
+# Authored unit vectors carry trig residue; the kernel's pose tolerance applies.
+UNIT_TOLERANCE = 1e-6
+
+
+def _unit(vector: list[float], what: str) -> None:
+    if abs(math.sqrt(sum(v * v for v in vector)) - 1.0) > UNIT_TOLERANCE:
+        raise ValueError(f"{what} must be a unit vector.")
+
+
+class InspectionAid(InputModel):
+    """A gauge, block or holding an inspection sketch draws, in the part model's own
+    coordinates (mm): a ``box`` from its least corner ``at_mm`` by ``size_mm`` along its
+    edge directions ``axes`` (unit x then y, square; the model's X and Y when absent), or a
+    ``cylinder`` (a gauge pin, a rod) from its base centre ``at_mm`` along the unit
+    ``axis``, ``dia_mm`` across and ``length_mm`` long."""
+
+    name: str
+    shape: Literal["box", "cylinder"]
+    at_mm: KnownPoint3
+    size_mm: KnownPoint3 | None = None
+    axes: Annotated[list[KnownPoint3], Field(min_length=2, max_length=2)] | None = None
+    axis: KnownPoint3 | None = None
+    dia_mm: float | None = None
+    length_mm: float | None = None
+
+    @model_validator(mode="after")
+    def sized(self) -> InspectionAid:
+        _known_text(self.name, "An inspection aid name")
+        turned = (self.axis, self.dia_mm, self.length_mm)
+        if self.shape == "box":
+            if self.size_mm is None or any(v is not None for v in turned):
+                raise ValueError(
+                    f"Inspection aid {self.name!r}: a box states size_mm and its axes only."
+                )
+            if min(self.size_mm) <= 0:
+                raise ValueError(f"Inspection aid {self.name!r}: a box size must be positive.")
+            if self.axes is not None:
+                x, y = self.axes
+                _unit(x, f"Inspection aid {self.name!r} x axis")
+                _unit(y, f"Inspection aid {self.name!r} y axis")
+                if abs(sum(a * b for a, b in zip(x, y, strict=True))) > UNIT_TOLERANCE:
+                    raise ValueError(f"Inspection aid {self.name!r}: its axes must be square.")
+            return self
+        if self.size_mm is not None or self.axes is not None or any(v is None for v in turned):
+            raise ValueError(
+                f"Inspection aid {self.name!r}: a cylinder states axis, dia_mm and length_mm."
+            )
+        _unit(self.axis, f"Inspection aid {self.name!r} axis")
+        if self.dia_mm <= 0 or self.length_mm <= 0:
+            raise ValueError(f"Inspection aid {self.name!r}: a cylinder size must be positive.")
+        return self
+
+
+class InspectionMark(InputModel):
+    """A labelled point of an inspection sketch, in the part model's coordinates (mm): a
+    datum contact, a stop, a gauge position. A ``reads`` mark is where a height reading is
+    taken; the sketch draws its + arrow up off the plate (a higher contact reads +)."""
+
+    label: str
+    at_mm: KnownPoint3
+    reads: bool = False
+
+    @model_validator(mode="after")
+    def named(self) -> InspectionMark:
+        _known_text(self.label, "An inspection mark label")
+        return self
+
+
+class InspectionView(InputModel):
+    """One labelled look at the part set up on the surface plate for an inspection: ``up``
+    (a unit vector in the part model's axes) points up off the plate, the way a height
+    reading rises, and ``toward`` points from the part to the viewer, square to ``up``.
+    The sketch draws the part as the inspection's setup leaves it, the ``aids`` and the
+    ``marks``."""
+
+    title: str
+    up: KnownPoint3
+    toward: KnownPoint3
+    aids: list[InspectionAid] = Field(default_factory=list)
+    marks: Annotated[list[InspectionMark], Field(min_length=1)]
+
+    @model_validator(mode="after")
+    def square(self) -> InspectionView:
+        _known_text(self.title, "An inspection view title")
+        _unit(self.up, f"Inspection view {self.title!r} up")
+        _unit(self.toward, f"Inspection view {self.title!r} toward")
+        if abs(sum(a * b for a, b in zip(self.up, self.toward, strict=True))) > UNIT_TOLERANCE:
+            raise ValueError(f"Inspection view {self.title!r}: toward must be square to up.")
         return self
 
 
@@ -400,6 +546,8 @@ Operation = record(
         "go_no_go": dict[str, GoNoGo | Unknown],
         "missing_requirements": dict[str, str],
         "inspection_methods": dict[str, Procedure],
+        # Requirement -> the labelled sketches its inspection method's worksheet prints.
+        "inspection_views": dict[str, Annotated[list[InspectionView], Field(min_length=1)]],
         "to_z_band": Vector,
         "contour": Contour,
         "guide": Guide,
@@ -414,10 +562,7 @@ Operation = record(
     },
     indexed=("do",),
 )
-type KnownPoint3 = Annotated[list[float], Field(min_length=3, max_length=3)]
 type KnownBand = Annotated[list[float], Field(min_length=2, max_length=2)]
-# Authored unit vectors carry trig residue; the kernel's pose tolerance applies.
-UNIT_TOLERANCE = 1e-6
 
 
 def _cited(value: Any) -> bool:
@@ -700,6 +845,20 @@ class Plan(InputModel):
                         raise ValueError(f"{where}: a feature list names distinct known features.")
                 if "process" in op.model_fields_set and op.do != "coating":
                     raise ValueError(f"{where}: only a coating op names a coating process.")
+                if isinstance(op.inspection_views, dict):
+                    if op.do != "inspect":
+                        raise ValueError(f"{where}: only an inspect op declares inspection views.")
+                    methods = op.inspection_methods
+                    unmatched = [
+                        requirement
+                        for requirement in op.inspection_views
+                        if not isinstance(methods, dict) or requirement not in methods
+                    ]
+                    if unmatched:
+                        raise ValueError(
+                            f"{where}: inspection views for {', '.join(unmatched)} illustrate "
+                            "no stated inspection method."
+                        )
         return self
 
     @model_validator(mode="after")
@@ -1020,6 +1179,20 @@ class LengthMeasurement(InputModel):
 
 
 type MeasuredLength = Number | LengthMeasurement
+# A declared tolerance zone [least, greatest] (a filing-button kit's receipt limits): a
+# plain pair, or one qualified only by its own measured/verify like a LengthMeasurement.
+type LimitPair = Annotated[list[Number], Field(min_length=2, max_length=2)]
+
+
+class LimitsMeasurement(InputModel):
+    """A fact-local [least, greatest] pair; only its own measured/verify qualify it."""
+
+    value: LimitPair
+    measured: Measurement | Unknown = UNKNOWN
+    verify: bool | Unknown = UNKNOWN
+
+
+type MeasuredLimits = LimitPair | LimitsMeasurement
 type MeasuredAngle = Number | LengthMeasurement
 EnvelopeTravel = record("EnvelopeTravel", dict.fromkeys(("x", "y", "z"), MeasuredLength))
 MachineEnvelope = record(
@@ -1109,6 +1282,15 @@ Bars = record(
 # adjustable shim stack whose drawn thickness is the nominal (traveler fixture table).
 # ``supply``: made with its owner (default), ``bought`` hardware, or ``existing`` in the
 # shop (a machine's vise jaw drawn for clearance); only made solids are make-table rows.
+# ``records``: values measured and written down when the part is made or received (a
+# head-to-shoulder TIR, a squareness by reversal), printed as fill-ins under the table.
+# A record says what is measured (``check``), optionally with which inventory ``gauge``
+# and ``how``; ``max_mm`` is its spec (reject over), ``goal_mm`` a tighter aim, and
+# ``over_mm`` the length the value is taken over. No spec: a characterisation, recorded only.
+RecordBlank = record(
+    "RecordBlank",
+    {**texts("check gauge how"), **numbers("max_mm goal_mm over_mm")},
+)
 FixtureSolid = record(
     "FixtureSolid",
     {
@@ -1121,9 +1303,20 @@ FixtureSolid = record(
         "shim": bool,
         "supply": Literal["made", "bought", "existing"],
         "cuts": list[str],
+        "records": list[RecordBlank],
         "measured": Measurement,
         "verify": bool,
     },
+)
+# One receipt check of a bought-finished item (docs/inventory.md "Purchased tooling"):
+# ``check`` says what is checked, ``gauge`` names an inventory gauge (``"none"`` for a
+# check by hand or eye, which then states its ``accept`` criterion), ``how`` the way the
+# gauge is used. The limit is ``limits`` (the name of a limits pair or single-length field
+# on the same item, printed lo–hi or ≤ value) or ``limits_mm`` [lo, hi], and/or ``accept``
+# in words (a GO / NO-GO result).
+AcceptanceCheck = record(
+    "AcceptanceCheck",
+    {**texts("check gauge how limits accept"), "limits_mm": LimitPair},
 )
 InventoryItem = record(
     "InventoryItem",
@@ -1136,6 +1329,13 @@ InventoryItem = record(
         "sku": str | int,
         **flags("verify present center_cutting swivel_base scroll independent shop_made"),
         **texts("dial_increases"),
+        # Edge finder (docs/inventory.md "Edge finder"): how its contact shows and the
+        # spindle speed band it is run at (with ``tip_in``/``tip_mm``, the tip Ø).
+        "finder_type": Literal["mechanical", "electronic"],
+        "rpm_range": LimitPair,
+        # Bought-finished tooling: what is bought, and its receipt checks.
+        "purchase": str,
+        "acceptance": Annotated[list[AcceptanceCheck], Field(min_length=1)],
         **numbers(
             "headstock_tilt_deg swing_over_bed_in between_centres_in "
             "cross_slide_travel_in compound_travel_in weight_lb worm_ratio centre_height_in "
@@ -1196,6 +1396,12 @@ InventoryItem = record(
                 "max_work_in",
                 "t_slot_width_mm",
                 "t_slot_width_in",
+                # Jaw buttons (a vise hold's jaw_buttons): face Ø (dia), thickness, spigot.
+                "thickness_mm",
+                "spigot_dia_mm",
+                "spigot_dia_in",
+                "spigot_length_mm",
+                "spigot_length_in",
             ),
             MeasuredLength,
         ),
@@ -1274,6 +1480,15 @@ InventoryItem = record(
         ),
         # Grooving/parting blade front-edge width (two-cornered blade): docs/rules-geometry.md.
         **dict.fromkeys(("blade_width_mm", "blade_width_in"), MeasuredLength),
+        # Filing buttons' receipt limits: button OD, button bore and pin diameters, and the
+        # button OD's runout about its bore (docs/inventory.md, docs/rules-coordinates.md).
+        **dict.fromkeys(
+            ("button_dia_limits_mm", "button_dia_limits_in")
+            + ("button_bore_limits_mm", "button_bore_limits_in")
+            + ("pin_dia_limits_mm", "pin_dia_limits_in"),
+            MeasuredLimits,
+        ),
+        **dict.fromkeys(("button_runout_mm", "button_runout_in"), MeasuredLength),
         # Follow rest jaw directions about the spindle axis, degrees from the cutting tool.
         "jaw_angles_deg": list[Number],
     },
@@ -1306,10 +1521,15 @@ _INVENTORY_LENGTH_STEMS |= {"body_dia", "body_length", "bore_dia"}
 _INVENTORY_LENGTH_STEMS |= {"capacity_min", "capacity_max"}
 # Grooving/parting blade front-edge width.
 _INVENTORY_LENGTH_STEMS |= {"blade_width"}
+# Filing buttons' runout and receipt limits: one fact each, in mm or in, never both.
+_INVENTORY_LENGTH_STEMS |= {"button_runout", "button_dia_limits", "button_bore_limits"}
+_INVENTORY_LENGTH_STEMS |= {"pin_dia_limits"}
 # Rotary table work capacity and T-slot width.
 _INVENTORY_LENGTH_STEMS |= {"max_work", "t_slot_width"}
 # Combined drill and countersink pilot length (Table 6 C).
 _INVENTORY_LENGTH_STEMS |= {"pilot_len"}
+# Jaw button thickness and spigot (a vise hold's jaw_buttons).
+_INVENTORY_LENGTH_STEMS |= {"thickness", "spigot_dia", "spigot_length"}
 
 
 def _inventory_lengths(
@@ -1347,6 +1567,90 @@ def _inventory_lengths(
         )
 
 
+def _inventory_checks(item: Any, where: str) -> None:
+    """Receipt checks belong to bought items, and an edge finder's speed band is ordered
+    (docs/inventory.md "Purchased tooling", "Edge finder")."""
+    if not isinstance(item, dict):
+        return
+    band = item.get("rpm_range")
+    if _numeric_pair(band):
+        _ordered(band, f"{where}: rpm_range", floor=0.0, inclusive=False)
+    checks = item.get("acceptance")
+    if isinstance(checks, list):
+        if item.get("shop_made") is True or item.get("kind") == "custom":
+            raise ValueError(f"{where}: acceptance is a bought item's receipt check.")
+        for index, check in enumerate(checks):
+            if isinstance(check, dict):
+                _acceptance_check(check, f"{where}.acceptance[{index}]")
+    solids = item.get("solids")
+    for solid in solids if isinstance(solids, list) else ():
+        if not isinstance(solid, dict) or "records" not in solid:
+            continue
+        name, records = solid.get("name", "?"), solid["records"]
+        if not isinstance(records, list):
+            raise ValueError(
+                f"{where} solid {name}: records must list what is measured (omit it for none)."
+            )
+        for index, blank in enumerate(records):
+            if isinstance(blank, dict):
+                _record_blank(blank, f"{where} solid {name}.records[{index}]")
+    members = item.get("members")
+    for name, member in members.items() if isinstance(members, dict) else ():
+        _inventory_checks(member, f"{where}/{name}")
+
+
+def _record_blank(blank: dict, where: str) -> None:
+    """A record blank says what is measured, and how and with which gauge when it says so
+    at all (a stated unknown would be dropped from the fill-in); its spec, goal and span
+    are known lengths (an unknown spec would print a fill-in nobody can judge), the goal
+    inside the spec. An unknown gauge stays allowed: tool_resolves reports it unknown."""
+    check = blank.get("check")
+    if not isinstance(check, str) or check.strip() in ("", UNKNOWN):
+        raise ValueError(f"{where}: check must say what is measured and recorded.")
+    how = blank.get("how")
+    if "how" in blank and (not isinstance(how, str) or how.strip() in ("", UNKNOWN)):
+        raise ValueError(f"{where}: how must say how it is measured, or be omitted.")
+    gauge = blank.get("gauge")
+    if "gauge" in blank and (not isinstance(gauge, str) or not gauge.strip()):
+        raise ValueError(f"{where}: gauge must name an inventory gauge, or be omitted.")
+    for key in ("max_mm", "goal_mm", "over_mm"):
+        value = blank.get(key)
+        if key in blank and (
+            not isinstance(value, int | float) or isinstance(value, bool) or value < 0
+        ):
+            raise ValueError(f"{where}: {key} must be a known length >= 0, or omitted.")
+    if "goal_mm" in blank and "max_mm" in blank and blank["goal_mm"] > blank["max_mm"]:
+        raise ValueError(f"{where}: goal_mm must lie inside the max_mm spec.")
+    if blank.get("over_mm") == 0:
+        raise ValueError(f"{where}: over_mm must be a length > 0.")
+
+
+def _acceptance_check(check: dict, where: str) -> None:
+    """A receipt check states what it checks, with a gauge (or ``none``) and a limit."""
+    for key in ("check", "gauge"):
+        value = check.get(key)
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(f"{where}: {key} must be stated (gauge may be unknown or none).")
+    numeric = [key for key in ("limits", "limits_mm") if key in check]
+    if len(numeric) > 1:
+        raise ValueError(f"{where}: state the limit once, as limits or limits_mm.")
+    if not numeric and "accept" not in check:
+        raise ValueError(f"{where}: a receipt check needs a limit or an accept criterion.")
+    if check["gauge"] == "none" and numeric:
+        raise ValueError(f"{where}: a numeric limit is read with a gauge, not by hand.")
+    band = check.get("limits_mm")
+    if _numeric_pair(band):
+        _ordered(band, f"{where}: limits_mm", floor=0.0, inclusive=True)
+
+
+def _numeric_pair(band: Any) -> bool:
+    return (
+        isinstance(band, list)
+        and len(band) == 2
+        and all(isinstance(v, int | float) and not isinstance(v, bool) for v in band)
+    )
+
+
 # An in-house consumable a coating op names: the shop's display name for the traveler and
 # the products on the shelf; an unknown, empty or blank product list leaves it unresolved.
 Consumable = record("Consumable", {"name": str, "products": list[str]})
@@ -1373,6 +1677,7 @@ class Inventory(InputModel):
                     for identity, item in items.items():
                         where = f"{category}.{identity}"
                         _inventory_lengths(item, where, tool=category == "tools")
+                        _inventory_checks(item, where)
         return values
 
 

@@ -221,6 +221,7 @@ bottom_z = -18.525               # raw right side
 fixture = "vise-pm-6"
 jaws_along = "x"                 # AUTHOR'S CHOICE: jaws on the two narrow edges, bar flat
 fixed_jaw = "rear"
+align = { indicator = "dti", limit_mm = 0.0254, over_mm = 100.0, cite = "AUTHOR'S CHOICE: the fixed jaw squared to 0.001 in (0.0254 mm) over 100 mm of the 6 in jaw because the shop test indicator (gauges.dti) reads 0.0005 in, so the limit is two graduations it resolves" }
 parallels = "parallels-lms-6745/1-1-4in"
 jaw_center_along_mm = 17.1        # AUTHOR'S CHOICE: the 38 mm bar centred in the jaws
 stop = "No end stop: centre the bar in the jaws on the parallels." # AUTHOR'S CHOICE
@@ -229,7 +230,7 @@ jaw_above_parallels_mm = 13.1953
 clamp = "hand plus quarter turn, then tap the bar down onto the parallels with a soft hammer" # AUTHOR'S CHOICE: seat the raw side before the first face
 parallels_along = "x"
 parallels_centres_mm = [[17.1, 0.5], [17.1, 25.7]] # AUTHOR'S CHOICE: under both edges of the bar
-note = "Bar flat on 1-1/4 in parallels, left side up; it stands 5.3 mm above the jaws. Face the left side just enough to clean up: it is the reference face for every later setup."
+note = "Bar flat on 1-1/4 in parallels, left side up; the jaw tops sit at Z -5.33, under the faced left side (Z0). Face the left side just enough to clean up: it is the reference face for every later setup."
 
 [setups.zero.x]
 edge = "sawn crown end"
@@ -289,10 +290,10 @@ jaw_center_along_mm = 17.1        # AUTHOR'S CHOICE: the 38 mm bar centred in th
 stop = "No end stop: centre the bar in the jaws on the parallels." # AUTHOR'S CHOICE
 grip_mm = 19.5453                # measured jaw 1.7695 in - 1 in parallels, x 25.4
 jaw_above_parallels_mm = 19.5453
-clamp = "hand plus quarter turn, then tap the bar down onto the parallels with a soft hammer" # AUTHOR'S CHOICE
+clamp = "hold the round bar level against the moving jaw by hand, its centre at the Round bar line's height above the parallels, by eye (3 mm either way still seats the work), and close the jaw until it pinches the bar; hand plus quarter turn; tap the work down onto the parallels with a soft hammer" # AUTHOR'S CHOICE: the round bar's height only needs to land inside the grip
 parallels_along = "x"
 parallels_centres_mm = [[17.1, -2.0], [17.1, -16.5]] # AUTHOR'S CHOICE: under both sides of the bar
-note = "Before clamping, file the burrs off the faced edges and wipe the bar, jaws and parallels. Bar on edge on 1 in parallels, the faced left side against the fixed jaw; it stands 12.2 mm above the jaws. The outer end comes out square to the left side."
+note = "Before clamping, file the burrs off the faced edges and wipe the bar, jaws and parallels. Bar on edge on 1 in parallels, the faced left side against the fixed jaw. The outer end comes out square to the left side."
 
 [setups.zero.x]
 edge = "sawn crown end"
@@ -352,7 +353,7 @@ jaw_center_along_mm = 17.1        # AUTHOR'S CHOICE: the 38 mm bar centred in th
 stop = "No end stop: centre the bar in the jaws on the parallels." # AUTHOR'S CHOICE
 grip_mm = 19.5453                # measured jaw 1.7695 in - 1 in parallels, x 25.4
 jaw_above_parallels_mm = 19.5453
-clamp = "hand plus quarter turn, then tap the bar down onto the parallels with a soft hammer" # AUTHOR'S CHOICE
+clamp = "hold the round bar level against the moving jaw by hand, its centre at the Round bar line's height above the parallels, by eye (3 mm either way still seats the work), and close the jaw until it pinches the bar; hand plus quarter turn; tap the work down onto the parallels with a soft hammer" # AUTHOR'S CHOICE: the round bar's height only needs to land inside the grip
 parallels_along = "x"
 parallels_centres_mm = [[17.1, -2.0], [17.1, -16.5]] # AUTHOR'S CHOICE: under both sides of the bar
 note = "Before clamping, file the burrs off the faced edges and wipe the bar, jaws and parallels. Bar on edge on 1 in parallels, the faced outer end down and the faced left side against the fixed jaw."
@@ -483,10 +484,10 @@ jaw_center_along_mm = 13.1        # the 26.2 run centred in the jaws
 stop = "No end stop: centre the bar in the jaws." # AUTHOR'S CHOICE
 grip_mm = 29.0703                # measured jaw 1.7695 in - 5/8 in parallels, x 25.4
 jaw_above_parallels_mm = 29.0703
-clamp = "snug, sweep the outer end with the DTI down its 30 mm, tap square, then hand plus quarter turn" # AUTHOR'S CHOICE: the end must come out square to both long faces
+clamp = "hold the round bar level against the moving jaw by hand, its centre at the Round bar line's height above the parallels, by eye (3 mm either way still seats the work), and close the jaw until it pinches the bar; snug, sweep the outer end with the DTI down its 30 mm and tap the work square; hand plus quarter turn" # AUTHOR'S CHOICE: the end must come out square to both long faces
 parallels_along = "x"
 parallels_centres_mm = [[13.1, -2.0], [13.1, -16.0]] # AUTHOR'S CHOICE: under both sides of the bar
-note = "Before clamping, file the burrs off the faced edges and wipe the bar, jaws and parallels. Bar standing on its sawn seat end on 5/8 in parallels, the faced left side against the fixed jaw; it stands 8.9 mm above the jaws."
+note = "Before clamping, file the burrs off the faced edges and wipe the bar, jaws and parallels. Bar standing on its sawn seat end on 5/8 in parallels, the faced left side against the fixed jaw."
 
 [setups.zero.x]
 edge = "blank_free_end"
@@ -546,10 +547,10 @@ jaw_center_along_mm = 13.1        # the 26.2 run centred in the jaws
 stop = "No end stop: centre the bar in the jaws, faced crown end down on the parallels." # AUTHOR'S CHOICE
 grip_mm = 29.0703                # measured jaw 1.7695 in - 5/8 in parallels, x 25.4
 jaw_above_parallels_mm = 29.0703
-clamp = "hand plus quarter turn, then tap the bar down until both parallels are pinned" # AUTHOR'S CHOICE: the faced crown end seats flat
+clamp = "hold the round bar level against the moving jaw by hand, its centre at the Round bar line's height above the parallels, by eye (3 mm either way still seats the work), and close the jaw until it pinches the bar; hand plus quarter turn; tap the work down until both parallels are pinned" # AUTHOR'S CHOICE: the faced crown end seats flat
 parallels_along = "x"
 parallels_centres_mm = [[13.1, -2.0], [13.1, -16.0]] # AUTHOR'S CHOICE: under both sides of the bar
-note = "Before clamping, file the burrs off the faced edges and wipe the bar, jaws and parallels. Bar standing on its faced crown end on 5/8 in parallels, the faced left side against the fixed jaw; it stands 7.0 mm above the jaws."
+note = "Before clamping, file the burrs off the faced edges and wipe the bar, jaws and parallels. Bar standing on its faced crown end on 5/8 in parallels, the faced left side against the fixed jaw."
 
 [setups.zero.x]
 edge = "blank_outer_end"
@@ -609,6 +610,7 @@ bottom_z = -33.2                 # author's choice: raw crown-side face at model
 fixture = "vise-pm-6"
 jaws_along = "y"                 # rev 3: jaws normal to X, gripping the unmachined body across X
 fixed_jaw = "left"               # author's choice: fixed jaw on -X, jaws run along Y
+align = { indicator = "dti", limit_mm = 0.0254, over_mm = 100.0, cite = "AUTHOR'S CHOICE: the vise turned a quarter for the jaws along Y, its fixed jaw squared again to 0.001 in (0.0254 mm) over 100 mm of the 6 in jaw because the shop test indicator (gauges.dti) reads 0.0005 in, so the limit is two graduations it resolves" }
 parallels = "parallels-lms-6745/1in"
 jaw_center_along_mm = 9.1         # author's choice: centre the 26.2 mm raw blank run in the jaws
 stop = "No end stop: clamp the blank centrally over the parallels, then edge-find its left face and outer end for this Setup's X/Y zeros." # author's choice
@@ -617,7 +619,7 @@ jaw_above_parallels_mm = 19.5453
 clamp = "hand plus quarter turn" # author's choice; verify actual grip before cutting
 parallels_along = "y"
 parallels_centres_mm = [[-6.5, 9.1], [6.5, 9.1]] # author's choice: under the blank edges
-note = "Seat side up on 1 in parallels; blank X -9..9 and Y -4..22.2 in this Setup. Raw seat is Z +1, finished seat Z0. Finish the foot boundary only down to Z -6, leaving the ear-side stock below for S2-S4. The foot-profile cut bottom stays 7.655 mm above the jaw tops." # DataBracket (r3): jaw tops print at Z -13.655
+note = "Seat side up on 1 in parallels; blank X -9..9 and Y -4..22.2 in this Setup. Raw seat is Z +1, finished seat Z0. Finish the foot boundary only down to Z -6, leaving the ear-side stock below for S2-S4. Op 30 finishes the 24.2 mm foot length: its outer end at Y -3 is the finished outer face, while the ear below Z -6 keeps 1 mm on the outer end (Y -4) for S4 op 10. The foot-profile cut bottom (Z -6) stays clear of the jaw tops at Z -13.655."
 
 [setups.zero.x]
 edge = "blank_left"
@@ -724,7 +726,7 @@ stop = "No end stop: seat the finished seat on the parallels, close the jaws on 
 clamp = "hand plus quarter turn" # author's choice
 parallels_along = "y"
 parallels_centres_mm = [[-6.25, -9.1], [6.25, -9.1]] # author's choice: under the 16 mm foot
-note = "Seat down on the 1-1/8 in parallels. The jaws grip the raw 18 mm overhang from the foot top up to Z +10.37; the finished 16 mm foot sits between the jaws without touching them. Rough only down to Z +16, 5.63 mm above the jaw tops. Before the X/Y pickups, touch the stationary edge-finder tip on the raw top (Z +27.2) with 0.05 paper and Axis Set Z 27.25 for a preliminary Z. Raise above Z +32 before every traverse between pickups. Touch the raw left side and free end with the tip at Z +20, 9.6 mm above the jaw tops."
+note = "Seat down on the 1-1/8 in parallels. The jaws grip the raw 18 mm overhang from the foot top up to Z +10.37; the finished 16 mm foot sits between the jaws without touching them. Rough only down to Z +16, clear of the jaw tops at Z +10.37. Before the X/Y pickups, touch the stationary edge-finder tip on the raw top (Z +27.2) with 0.05 paper and Axis Set Z 27.25 for a preliminary Z. Raise above Z +32 before every traverse between pickups. Touch the raw left side and free end with the tip at Z +20."
 
 [setups.zero.x]
 edge = "raw left side at Y -12, Z +20, above the fixed jaw"
@@ -776,7 +778,7 @@ direction = "conventional"       # author's choice
 doc_mm = 4.0                     # AUTHOR'S CHOICE: three axial levels at 1 mm radial step
 rough_allowance_mm = 0.3         # author's choice: radial ear-side stock
 contour = { method = "linear_table", step_mm = 1.0, sweep_frame = "model", sweep_bounds = { x = [-9.0, -7.0], y = [6.0, 33.2], z = [-4.0, 3.0] }, open_side = "-x" } # outside-in left-strip rasters
-stock_removal_bounds = { x = [-9.0, -7.0], y = [-3.0, 4.0], z = [16.0, 27.2] } # left strip above Z +16 only
+stock_removal_bounds = { x = [-9.0, -7.0], y = [-3.3, 4.0], z = [16.0, 27.2] } # left strip above Z +16 only; y reaches S2:10's 0.3 mm leave in front of the ear-wall plane, where its passes (run a cutter radius past y -3) take the cusp S2:10's cutter leaves past the ear's edge
 
 [[setups.ops]]
 op = 30
@@ -791,7 +793,7 @@ direction = "conventional"       # author's choice
 doc_mm = 4.0                     # AUTHOR'S CHOICE: three axial levels at 1 mm radial step
 rough_allowance_mm = 0.3         # author's choice: radial ear-side stock
 contour = { method = "linear_table", step_mm = 1.0, sweep_frame = "model", sweep_bounds = { x = [7.0, 9.0], y = [6.0, 33.2], z = [-4.0, 3.0] }, open_side = "+x" } # outside-in right-strip rasters
-stock_removal_bounds = { x = [7.0, 9.0], y = [-3.0, 4.0], z = [16.0, 27.2] } # right strip above Z +16 only
+stock_removal_bounds = { x = [7.0, 9.0], y = [-3.3, 4.0], z = [16.0, 27.2] } # right strip above Z +16 only; y reaches S2:10's 0.3 mm leave in front of the ear-wall plane, where its passes take the cusp S2:10's cutter leaves past the ear's edge
 
 # ======================================================================= S3
 [[setups]]
@@ -829,7 +831,8 @@ stop = "No end stop: seat the finished foot on the parallels and against the fix
 clamp = "hand plus quarter turn" # author's choice
 parallels_along = "y"
 parallels_centres_mm = [[-6.25, -9.1], [6.25, -9.1]]
-note = "Seat down on one pair of 1-5/8 in tall, 1/8 in thick ground parallels, keeping the X0 drilling line clear. Do not use 1-2-3 blocks between the jaws closed on this 16 mm foot. The jaws grip 3.67 mm of the foot; the foot top is 2.33 mm above the jaw tops. S2 already roughed everything above Z +16, so the roughing here stays within 18.33 mm of the jaw tops. Retain a straight rectangular crown for S4, not an arch sculpted from above. Before the X/Y pickups, touch the stationary edge-finder tip on the crown top (Z +27.2) with 0.05 paper and Axis Set Z 27.25 for a preliminary Z. Raise above Z +32 before every traverse between pickups. S2 left the raw left side and free end standing only from the foot top (Z0) up to its Z +16 step: touch them with the tip at Z +8, 10.3 mm above the jaw tops." # DataBracket (r3): 16 + 2.33 above the jaw tops at Z -2.330
+# AUTHOR'S CHOICE: 3.67 mm grip / 2.33 mm clearance on the 6 mm foot because clearance and grip sum to the foot height; a taller parallel (more clearance) would shorten the already shallow grip (review round3-d3f minor)
+note = "Seat down on one pair of 1-5/8 in tall, 1/8 in thick ground parallels, keeping the X0 drilling line clear. Do not use 1-2-3 blocks between the jaws closed on this 16 mm foot. The jaws grip the foot from its bottom (Z -6) up to the jaw tops at Z -2.33; the foot top is Z0. The 6 mm foot is all there is to share: any more jaw clearance would come straight out of the grip, so keep the cutter at the printed levels and read the jaw clearance on each op before cutting. S2 already roughed everything above Z +16, so the roughing here starts no higher than Z +16. Retain a straight rectangular crown for S4, not an arch sculpted from above. Before the X/Y pickups, touch the stationary edge-finder tip on the crown top (Z +27.2) with 0.05 paper and Axis Set Z 27.25 for a preliminary Z. Raise above Z +32 before every traverse between pickups. S2 left the raw left side and free end standing only from the foot top (Z0) up to its Z +16 step: touch them with the tip at Z +8, between the jaw tops (Z -2.33) and the Z +16 step." # DataBracket (r3): jaw tops at Z -2.330
 
 [setups.zero.transfer]
 from = "S1"
@@ -990,6 +993,7 @@ tool = "drill-index-115/#15"
 holder = "drill-chuck-r8"
 approach_mm = 5.0                # author\'s choice: rapid plane above the current stock top
 exit_mm = 2.0                    # author's choice: full diameter beyond local exit face
+note = "Station check: the drawing stations run from the ear mid-plane, 3.000 outside the ear inner face op 20 finished. Put the largest pin gauge that enters (Ø p) upright in the hole; with the caliper inside jaws read the gap G from the ear inner face to the pin. Station = 3.000 + G + p/2. With the 4.572 pin, accept G 2.814-3.014 (station 8.10-8.30)." # AUTHOR'S CHOICE: the finished ear inner face is the nearest finished surface parallel to the station datum; the largest entering pin leaves under one pin step of centre play
 
 [setups.ops.checks]
 dia = "pin-gauges"               # #8 clearance go/no-go
@@ -1014,6 +1018,7 @@ tool = "drill-index-115/#15"
 holder = "drill-chuck-r8"
 approach_mm = 5.0                # author\'s choice: rapid plane above the current stock top
 exit_mm = 2.0                    # author's choice
+note = "Station check, as op 70 from the ear inner face: largest entering pin (Ø p) in the hole, caliper inside jaws read the gap G from the ear inner face to the pin; station = 3.000 + G + p/2. With the 4.572 pin, accept G 10.614-10.814 (station 15.90-16.10)."
 
 [setups.ops.checks]
 dia = "pin-gauges"               # #8 clearance go/no-go
@@ -1049,10 +1054,11 @@ fixture = "angle-plate"
 pose = { origin_mm = [0.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] } # author's choice: plate frame = TC
 fixed_jaw = "not_applicable"
 jaws_along = "not_applicable"
+align = { indicator = "dti", face = "upright", limit_mm = 0.0254, over_mm = 100.0, cite = "AUTHOR'S CHOICE: the upright face that seats datum A squared to the X travel to 0.001 in (0.0254 mm) over 100 mm of its 127 mm length because the shop test indicator (gauges.dti) reads 0.0005 in, so the limit is two graduations it resolves" }
 parallels = "not_applicable"
 supports = "not_applicable"      # the plate assembly includes the load-bearing foot-end ledge
 clamps = [
-  { ref = "clamping-kit-lms-1144/bracket-bridge", pose = { origin_mm = [0.0, -6.0, -16.0], x = [1.0, 0.0, 0.0], z = [0.0, -1.0, 0.0] }, torque_nm = 15.0, note = "presses the foot toward the plate (+Y); bar top at Setup Z -9.65; studs, washers and nuts outside the foot width, clear of the foot-end ledge, arch and cross-bore" },
+  { ref = "clamping-kit-lms-1144/bracket-bridge", pose = { origin_mm = [0.0, -6.0, -16.0], x = [1.0, 0.0, 0.0], z = [0.0, -1.0, 0.0] }, torque_nm = 15.0, note = "presses the foot toward the plate (+Y); bar top at Setup Z -9.65; studs, washers and nuts outside the foot width, clear of the foot-end ledge, arch and cross-bore; torque the two front nuts alternately with the 1/4 in drive torque wrench and 9/16 in socket" },
 ]                                # torque_nm: AUTHOR'S CHOICE, firm hand torque on the 3/8-16 front nuts for a 6 mm foot
 clamp_order = [1]
 method = "strap_clamps"
@@ -1062,7 +1068,7 @@ clamp = "fit the two bridge studs through the upright at Setup X +/-20, with the
 grip_mm = "not_applicable"       # bridge contact, not vise jaws
 jaw_above_parallels_mm = "not_applicable"
 stop = "Rest the foot free end on the bolted plate ledge at Setup Z -24.2, which carries the downward facing and drilling load; align the finished left foot edge at Setup X -8 before clamping."
-note = "Recheck the seat lip with the DTI after full torque. Before the X/Y pickups, touch the stationary edge finder on the raw outer face (Z +1) with paper for a preliminary Z. Raise above Z +5 before every traverse between pickups."
+note = "Recheck the seat lip with the DTI after full torque. Before the X/Y pickups, touch the stationary edge finder on the raw outer face (Z +1) with paper for a preliminary Z. For the final Z touch, look along X before lowering: the end mill must overhang the plate side of the seat and stand clear of the raised ear; a touch on the ear reads 1 mm high. Raise above Z +5 before every traverse between pickups."
 
 [setups.zero.transfer]
 from = "S3"
@@ -1085,7 +1091,13 @@ tool = "edge-finder"
 check_jog_mm = 10.0              # author's choice
 
 [setups.zero.z]
-face = "top"
+# AUTHOR'S CHOICE: Z0 is touched on the foot's outer end that S1 op 30 finished, not on the
+# raw ear 1 mm above it, because then op 10 faces the ear down to exactly that plane and the
+# 24.2 mm foot length S1 checked is never cut again. The cutter centre at Y +1.5 puts 4.26 mm
+# of its Ø9.525 face on the foot end (Y 0..-6) and keeps its edge 2.74 mm clear of the raw ear
+# (Y -6 and beyond); the overhang past Y0 is 2 mm above the plate top (review DataBracket5-2).
+face = "finished foot outer end, cutter centre at X 0, Y +1.5 (cutter edge 2.74 mm clear of the raw ear at Y -6; it overhangs the plate side, 2 mm above the plate top) (S1 op 30)"
+edge_mm = 0.0
 method = "paper"
 paper_mm = 0.05                  # author's choice
 tool = "endmills-lms-6784/3-8in-4fl"
@@ -1104,7 +1116,7 @@ direction = "conventional"       # author's choice
 doc_mm = 1.0                     # AUTHOR'S CHOICE: the whole 1 mm skim in one axial pass
 stock_removal_bounds = { x = [-8.0, 8.0], y = [-33.2, 0.0], z = [0.0, 1.0] } # AUTHOR'S CHOICE: face full raw top
 contour = { method = "linear_table", step_mm = 4.0 } # AUTHOR'S CHOICE: 4.0 mm stepover (0.42 of the 9.525 cutter) so the five passes over X -8..8 land 4.000 apart on the 0.005 DRO grid
-note = "Face the complete top of the S4 entry stock, X -8..8 and Y -33.2..0, from Z +1 to Z0 before profiling the arch. Include the retained rectangular crown, not merely the finished outer-face outline."
+note = "Face the complete top of the S4 entry stock, X -8..8 and Y -33.2..0, from Z +1 to Z0 before profiling the arch. Include the retained rectangular crown, not merely the finished outer-face outline. S1 op 30 already finished the foot's outer end at Z0, so this pass takes the 1 mm off the ear only and just wipes the foot end; the foot stays 24.2 long (24.10-24.30)."
 
 [[setups.ops]]
 op = 11
@@ -1172,7 +1184,7 @@ frame = "TC"                     # outer face up on the button stud, stud tail d
 stock_in = "S4"
 coolant = "none: bench filing"
 deburr_mm = 0.25                 # example (plausible): title-block edge break
-note = "AUTHOR'S CHOICE: file the arch to filing buttons because the reamed cross bore is their pin, so the R7 comes out concentric with the bore without a second mill setup. Off the angle plate, clamp the buttons on both ear faces through the cross bore and grip the stud tail upright in the bench vise."
+note = "AUTHOR'S CHOICE: file the arch to filing buttons because the reamed cross bore is their pin, so the R7 comes out concentric with the bore without a second mill setup." # kit spec and receipt checks print from the inventory's purchase/acceptance (PURCHASED TOOLING / RECEIPT CHECK table)
 
 [setups.stock_state]             # frame TC
 top_feature = "outer_face"
@@ -1183,9 +1195,9 @@ bottom_z = -24.2                 # foot free end
 fixture = "bench-vise-4in"
 pose = { origin_mm = [0.0, -25.2, -35.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] } # AUTHOR'S CHOICE: jaw tops 10.8 mm below the foot end, closed on the stud tail
 clamps = [
-  { ref = "bracket-arch-filing-buttons", restraint = "press", pose = { origin_mm = [0.0, -25.2, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "stud through the reamed cross bore, one button on each ear face, nut tightened by hand" },
+  { ref = "bracket-arch-filing-buttons", restraint = "press", pose = { origin_mm = [0.0, -25.2, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, torque_nm = 4.0, note = "M6 nut on the stud's 10 mm thread presses the upper button; the lower button seats on the stud head; torque with the 1/4 in drive torque wrench and 10 mm socket while one hand holds the foot against the turn" },
 ]
-clamp_order = [1]
+clamp_order = [1]                # torque_nm: AUTHOR'S CHOICE, 4 N·m, firm enough that the buttons do not creep under the file and well under an M6 nut's working torque
 support = "none"
 grip_on = "AUTHOR'S CHOICE: the button stud tail in the vise jaws; the part is clamped between the buttons and never touches the jaws"
 grip_mm = "not_applicable"
@@ -1194,7 +1206,7 @@ jaws_along = "not_applicable"
 parallels = "not_applicable"
 jaw_above_parallels_mm = "not_applicable"
 stop = "AUTHOR'S CHOICE: none; steady the foot by hand against the file stroke"
-clamp = "M6 nut on the button stud, hand tight, pressing the buttons on the two ear faces"
+clamp = "close the bench vise on the stud tail, stud head up, with 20 mm of bare tail showing between the jaw tops and the head; drop the lower button over the stud onto the head; slide the cross bore over the stud, inner ear face down on the lower button; drop the upper button onto the outer face and run the M6 nut down by hand until it just seats the stack"
 
 [[setups.ops]]
 op = 10

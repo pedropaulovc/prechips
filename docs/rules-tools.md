@@ -9,8 +9,9 @@ observed violation. Unknown or unverified geometry cannot establish a fit.
 ## `tool_resolves`
 
 Subjects: every selected inventory reference plus each nonmanual cutting
-assembly `setup:op`. References include machine, tool, holder, gauges, fixture,
-parallels and supports, including declared member references. Missing named
+assembly `setup:op`. References include machine, tool, holder, gauges (with a hold's
+`align.indicator`), fixture, parallels and supports, including declared member
+references. Missing named
 items are errors; unknown categories or unverified identities are unknown.
 Compatibility compares spindle taper or lathe toolpost series to holder
 interface; a lathe's spindle-axis action (`spot`, `drill`, `ream`, `tap`,
@@ -23,6 +24,15 @@ mismatch conclusions and stay unknown. A missing item's error is owned by its
 reference finding; its assembly finding stays unknown.
 An explicitly unknown operation action also makes its assembly fit unknown.
 
+An inventory item named in prose as `<category>.<key>[/<member>]` (a plan note
+or cite, a make note, record check or `how` of a shop-made item a setup uses,
+and each record's `gauge` as `gauges.<gauge>`; docs/inventory.md) is a subject
+of its own, `<category>.<key>`, with `named_in` listing where. It passes when
+the item is listed and verified; missing or unverified, it is unknown (never a
+pass, and never printed as the bare key: the traveler prints `? <key>`). A
+whole set is named by its key; a member must resolve as a member, read whole
+(`tools.drills/#61` is unknown on a `#1-60` index, never the index itself).
+
 Saw cut-off resolves the selected bandsaw blade and a `mill` / `bench` /
 `bandsaw` machine instead of a spindle/holder/shank assembly. No holder is
 required; incompatible known machine/tool kinds are errors and unverified
@@ -34,6 +44,9 @@ Sentence templates:
 - `{ref}: not listed in the inventory.`
 - `{ref}: listed; presence or catalogue identity needs verification.`
 - `{ref}: listed inventory identity resolves.`
+- `{category.key}: named in {places}; not listed in the inventory: list it or name a listed item.`
+- `{category.key}: named in {places}; listed; presence or catalogue identity needs verification.`
+- `{category.key}: named in {places}; listed inventory identity resolves.`
 - `{setup:op}: holder interface and shank fit.`
 - `{setup:op}: assembly fit needs measured shank, holder and machine facts.`
 - `{setup:op}: {violations}.` Violations are `holder interface does not match

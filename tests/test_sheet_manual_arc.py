@@ -112,16 +112,18 @@ def arc_record(method):
     }
 
 
-def contour_sheet(tmp_path, arc, line=None):
+def contour_sheet(tmp_path, arc, line=None, scribed=False):
     method = arc["method"]
     numbers = {
         "arc_table": [arc],
         "profiles": [{"op": 20, "contour": {"method": method}, "cutter_centre": [[99, 88]]}],
         "line_table": [line] if line else [],
     }
+    # Laying the arc out is optional: a scribe op before the rough names its line.
+    scribe = [{"op": 10, "do": "scribe", "feature": "arc"}] if scribed else []
     sheet, setup = traveler(
         tmp_path,
-        [{"op": 20, "do": "rough_profile", "feature": "arc", "tool": "cutter"}],
+        [*scribe, {"op": 20, "do": "rough_profile", "feature": "arc", "tool": "cutter"}],
         numbers,
     )
     html = sheet.contours(setup, {"cutter": "6 mm endmill"})
@@ -142,14 +144,25 @@ def test_stairs_print_every_corner_and_single_handwheel_axis(tmp_path):
         "dro_tip_z": -2.125,
         "jog": [None, "Y"],
     }
+    line["stair_cusp_mm"] = 0.1272
     html, printed = contour_sheet(tmp_path, arc, line)
-    assert "rough stairs" in printed.lower() and "outside the scribed line" in printed
+    # The cusp bound prints on the 0.001 DRO grid, rounded up: never finer, never less.
+    assert "the stair leaves ≤ 0.128" in printed and "0.1272" not in printed
+    # Nothing scribed the arc: the rough stays outside the finished outline, not a line
+    # no step drew.
+    assert "rough stairs" in printed.lower() and "outside the finished outline" in printed
+    assert "scribed" not in printed
     assert "one handwheel axis per row" in printed
     assert "at most 0.420 mm for the file" in printed and "cap 0.5 mm" in printed
-    assert re.search(r"P1\s+15\.200\s+-3\.000\s+-2\.125\s+X", printed)
-    assert re.search(r"P2.*corner.*15\.200\s+1\.500\s+-2\.125\s+Y", printed)
-    assert re.search(r"P3\s+12\.800\s+1\.500\s+-2\.125\s+X", printed)
-    assert re.search(r"P5\s+12\.800\s+4\.000\s+-2\.125\s+Y", printed)
+    # Every move is at one Z: it heads the block and each table's continued-page heading
+    # (one per table), and no row repeats it.
+    assert "S1 op 20 — arc · 6 mm endmill · Z -2.125" in printed
+    assert "<th>Z</th>" not in html and printed.count("-2.125") == 3, printed
+    # The moves are numbered on through the op's tables: the joins carry on from the arc.
+    assert re.search(r"\b1\s+P1\s+15\.200\s+-3\.000\s+X", printed)
+    assert re.search(r"\b2\s+P2.*corner.*15\.200\s+1\.500\s+Y", printed)
+    assert re.search(r"\b3\s+P3\s+12\.800\s+1\.500\s+X", printed)
+    assert re.search(r"\b5\s+P5\s+12\.800\s+4\.000\s+Y", printed)
     assert "<th>handwheel axis</th>" in html
 
 
@@ -161,7 +174,7 @@ def test_chain_drill_prints_holes_then_breakout_and_filing_stock(tmp_path):
         hole_clear_mm=0.1,
         break_out="chisel the webs out along the hole line",
     )
-    html, printed = contour_sheet(tmp_path, arc)
+    html, printed = contour_sheet(tmp_path, arc, scribed=True)
     assert "<th>hole #</th>" in html
     assert "drill Ø3.5 mm" in printed and "pitch 3.2 mm" in printed
     assert "every hole outside the scribed line" in printed
@@ -294,9 +307,13 @@ def manual_record(op, action):
             "kind": "buttons",
             "kit": "buttons",
             "bore": "centre_bore",
-            "button_dia_mm": 20,
-            "pin_dia_mm": 4,
-            "files_to_mm": [9.98, 10.02],
+            "button_dia_mm": [19.99, 20.0],
+            "button_bore_mm": [4.0, 4.01],
+            "pin_dia_mm": [3.99, 4.0],
+            "button_runout_mm": 0.004,
+            "bore_dia_mm": [4.0, 4.01842],
+            "centre_shift_mm": {"pin_in_bore": 0.01421, "button_on_pin": 0.01, "runout": 0.002},
+            "files_to_mm": [9.96879, 10.02621],
         },
         "gauge": {"ref": "gauge", "range_mm": [9, 11]},
         "rough_op": "S1:20",
@@ -331,13 +348,15 @@ def test_manual_layout_and_filing_attach_to_their_operation_even_at_the_bench(
         "arc ends" in printed and "X 12.000, Y -3.000" in printed and "X 2.000, Y 7.000" in printed
     )
     assert "file down to the hardened button rims" in printed
-    assert (
-        "R10 filing buttons (Ø20 mm buttons clamped on a Ø4 mm pin through centre bore; "
-        "they file R9.980 to R10.020 mm)"
-    ) in printed
+    assert "R10 filing buttons" in printed
+    # Every stack element's receipt limits print...
+    for value in ("19.99", "4.01", "3.99", "0.004", "4.01842"):
+        assert value in printed
+    # ...and the worst case rounds outward, never narrower than the band it was proven in.
+    assert "R9.968 to R10.027 mm" in printed
     assert "check with radius gauge" in printed
     assert "file off the stock left by S1:20 (at most 0.5 mm)" in printed
-    assert "STOP: no tool" not in printed
+    assert "STOP" not in printed
 
 
 @pytest.mark.parametrize(
@@ -366,3 +385,20 @@ def test_template_guide_and_unknown_stock_do_not_claim_a_filing_allowance(
     assert "guide: arc template" in printed
     assert f"STOP: {stop}" in printed
     assert "at most" not in printed
+
+
+@pytest.mark.parametrize("missing", ["pin_dia_mm", "button_runout_mm", "files_to_mm"])
+def test_buttons_without_a_worst_case_band_print_a_stop(tmp_path, missing):
+    filing = manual_record(30, "file_to_line")
+    guide = filing["guide"]
+    guide.pop("files_to_mm")
+    guide[missing] = "unknown"
+    sheet, setup = traveler(
+        tmp_path,
+        [{"op": 30, "do": "file_to_line", "feature": "arc"}],
+        manual=[filing],
+        machine="bench",
+    )
+    printed = text("".join(sum(sheet.setup_section(setup), [])))
+    assert "STOP" in printed
+    assert not re.search(r"R\d+(\.\d+)? to R\d", printed)

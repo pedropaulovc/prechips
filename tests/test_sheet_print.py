@@ -33,8 +33,12 @@ def machinist_review():
 
 
 def printed_pages(html, tmp_path):
-    """Each physical page's text as Chrome prints ``html`` with its scripts run."""
+    """Each physical page's text as Chrome prints ``html`` with its scripts run: one line
+    per printed baseline, top to bottom, its characters left to right. Lines come from the
+    glyphs' own positions, not the PDF text heuristic, which can break a line between two
+    glyphs that print side by side."""
     import pypdfium2 as pdfium
+    import pypdfium2.raw as pdfium_raw
 
     review = machinist_review()
     try:
@@ -49,9 +53,26 @@ def printed_pages(html, tmp_path):
         texts = []
         for index in range(len(document)):
             page = document[index]
+            textpage = page.get_textpage()
             try:
-                texts.append(page.get_textpage().get_text_range())
+                lines = {}
+                for i in range(textpage.count_chars()):
+                    char = textpage.get_text_range(i, 1)
+                    if pdfium_raw.FPDFText_IsGenerated(textpage.raw, i) or char in "\r\n":
+                        continue
+                    left, bottom, right, _ = textpage.get_charbox(i, loose=True)
+                    lines.setdefault(round(bottom * 2), []).append((left, right, char))
+                page_lines = []
+                for key in sorted(lines, reverse=True):
+                    line, end = "", None
+                    for left, right, char in sorted(lines[key]):
+                        if end is not None and left - end > 1.0 and " " not in (line[-1:], char):
+                            line += " "
+                        line, end = line + char, right
+                    page_lines.append(line.strip())
+                texts.append("\n".join(page_lines))
             finally:
+                textpage.close()
                 page.close()
     finally:
         document.close()
@@ -193,3 +214,94 @@ def test_a_contour_heading_and_its_raster_line_print_with_the_first_contour_bloc
         assert "contour-row-1" in page, page
         moved += page is not run[0]
     assert moved
+
+
+@pytest.mark.parametrize("count", [4, 10])
+def test_a_table_split_across_pages_never_strands_one_or_two_rows(tmp_path, count):
+    # A table as the sheet writes it (one body per row) after a filler of every height
+    # around a page end. Each page it prints on carries at least three of its rows; a
+    # table too short to leave three on both sides moves whole with its heading.
+    from prechips.sheet import _table
+
+    rows = [(str(n), f"row-{n}-end") for n in range(1, count + 1)]
+    block = "<h2>CHECK THE BLANK</h2>" + _table(["#", "check"], rows)
+    fillers = range(700, 961, 12)
+    texts = printed_pages(_sections([(filler, block) for filler in fillers]), tmp_path)
+    split = 0
+    for run in _runs(texts, len(fillers)):
+        counts = [len(re.findall(r"row-\d+-end", text)) for text in run]
+        printed = [n for n in counts if n]
+        assert sum(printed) == count and all(n >= 3 for n in printed), counts
+        heading = next(text for text in run if "row-1-end" in text)
+        assert "CHECK THE BLANK" in heading
+        split += len(printed) > 1
+    # The boundary itself: the long table does split at some filler heights.
+    assert split if count == 10 else not split
+
+
+def test_a_table_that_ends_its_sheet_leaves_no_short_tail_on_its_last_page(tmp_path):
+    # A long table, last on its sheet, after a filler of every height: where it runs onto
+    # a second page, that page carries at least half as many rows as the page before it.
+    from prechips.sheet import _table
+
+    rows = [(str(n), f"row-{n}-end") for n in range(1, 61)]
+    block = "<h2>CONTOUR</h2>" + _table(["#", "move"], rows, css="coords")
+    fillers = range(0, 701, 50)
+    texts = printed_pages(_sections([(filler, block) for filler in fillers]), tmp_path)
+    for run in _runs(texts, len(fillers)):
+        printed = [n for n in (len(re.findall(r"row-\d+-end", t)) for t in run) if n]
+        assert sum(printed) == 60, printed
+        assert len(printed) == 1 or 2 * printed[-1] >= printed[-2], printed
+
+
+def test_a_lathe_rpm_cell_prints_its_spindle_turn_as_one_word(tmp_path):
+    # Ops that turn the spindle both ways: each rpm cell names its own turn, never broken
+    # across two lines.
+    from test_sheet_ops import _lathe_sheet
+
+    ops = [
+        {"op": 10, "do": "face", "feature": "body", "tool": "rh"},
+        {"op": 20, "do": "drill", "feature": "body", "tool": "lh"},
+    ]
+    html, _, _ = _lathe_sheet(ops, {"rh": "right", "lh": "left"})
+    (text,) = printed_pages(_sections([(0, html)]), tmp_path)[:1]
+    words = re.findall(r"\bFORW\w*|\bREVE\w*", text)
+    assert words.count("FORWARD") >= 2 and words.count("REVERSE") >= 2, words
+    assert set(words) == {"FORWARD", "REVERSE"}, words
+
+
+def test_contour_move_numbers_and_level_ticks_never_wrap_in_a_narrow_block(tmp_path):
+    # A contour block one third of the sheet wide: two-digit move numbers and each
+    # "level k of N" tick label print whole on one line.
+    from prechips.sheet import _levels, _table
+
+    points = {1: "P1", 13: "P2 (corner)"}
+    rows = [
+        (str(n), points.get(n, "corner" if n % 2 else ""), "-6.335", "-36.695", "XY"[n % 2])
+        for n in range(1, 20)
+    ]
+    block = (
+        '<div class="contours"><div class="contour"><h3>S4 op 15 — ear arch</h3>'
+        + _levels(3)
+        + _table(["#", "P", "X", "Y", "handwheel axis"], rows, css="coords")
+        + '</div><div class="contour"><h3>S4 op 20</h3></div>'
+        + '<div class="contour"><h3>S4 op 25</h3></div></div>'
+    )
+    text = printed_pages(_sections([(0, block)]), tmp_path)[0]
+    assert all(re.search(rf"(?m)^{n} ", text) for n in range(10, 20)), text
+    assert all(f"level {k} of 3" in text for k in (1, 2, 3)), text
+
+
+def test_the_check_jog_steps_print_on_the_page_of_their_heading(tmp_path):
+    # The DRO ZERO's X / Y check-jog line introduces its numbered steps: wherever the
+    # page ends, the line never stands at its foot with the steps on the next page.
+    from test_tool_change_touch import DECK, bundle, mill_zero, op, sheet_of
+
+    ops = [op(10, "spot", "hole", "centre"), op(20, "drill", "hole", "drill")]
+    sheet, setup = sheet_of(bundle("mill", mill_zero(DECK), ops))
+    dro = sheet.dro(setup, {"centre": "T1 centre drill", "drill": "T2 drill"})
+    fillers = range(560, 900, 12)
+    runs = _runs(printed_pages(_sections([(f, dro) for f in fillers]), tmp_path), len(fillers))
+    for filler, run in zip(fillers, runs, strict=True):
+        (page,) = [text for text in run if "X and Y check jog" in text]
+        assert "raise Z only" in page, (filler, run)

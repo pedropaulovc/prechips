@@ -27,10 +27,12 @@ it is a known empty requirement map, so nonrequired unknowns do not block the
 gate. Any error still yields exit 2. Policy cannot make an unimplemented required
 check silently pass.
 
-`joint_fit`, `joint_assembly` and `centre_support` are always required: their
+`joint_fit`, `joint_assembly`, `manual_arc`, `centre_support`, `prepared_blank`
+and `purchased_tooling` are always required (`findings.ALWAYS_REQUIRED`): their
 `warn`, `unknown` or `unsupported` rows yield 4 whatever `[required]` says, so a
 shop never lists them and an omission cannot waive them. A setup with no joint or
-no centre has only `not_applicable` rows for them, which never block.
+no centre has only `not_applicable` rows for them, which never block; a setup
+using no bought item with receipt checks has no `purchased_tooling` row.
 
 When no policy path is supplied, the loader requires `tool_resolves`, `sizing`,
 `op_chain`, `blind_depth`, `inspection`, `coordinates`, and `zero_check` on `"*"`.
@@ -66,7 +68,9 @@ readiness to exit 4 using the existing gate; proxy warnings never invent a
 hard physical limit. The traveler reads `fixture_make_decimals` (whole decimals)
 to print shop-made fixture sizes and positions; a fit that locates the part
 prints at the drawing precision instead, and an absent, unknown or flagged value
-falls back to the setup's DRO resolution. It is a print precision, never a
+falls back to the DRO grid the fixture is made on (the shop's mill, else the
+setup's machine). Every printed value lies on that grid
+([inventory](inventory.md)). It is a print precision, never a
 pass condition. Other number names are not read by any rule.
 The nine geometry rule names (`accessibility`, `reach`,
 `internal_corner_radius`, `coverage`, `finish_coverage`, `vise`,

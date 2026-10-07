@@ -7,6 +7,7 @@ import json
 import logging
 import math
 import os
+import re
 import sys
 import tomllib
 import uuid
@@ -15,8 +16,17 @@ from pathlib import Path
 from prechips import __version__, telemetry
 from prechips.findings import Finding, exit_code
 from prechips.inputs import BadInput, Bundle, load_bundle, load_inventory
-from prechips.report import build_report, canonical_bytes, render_assets, report_hash
+from prechips.report import (
+    build_report,
+    canonical_bytes,
+    inspection_sketch_names,
+    render_assets,
+    report_hash,
+)
 from prechips.rules.resolution import _citations
+
+# The picture files a run writes beside its report: a setup's, and its inspection sketches.
+_GENERATED_PNG = re.compile(r"setup-S\d+(?:-op\d+-[A-Za-z0-9_]+)?\.png")
 
 
 class Parser(argparse.ArgumentParser):
@@ -538,7 +548,10 @@ def _comparison_row(bundle: Bundle, report: dict, plan_label: str) -> dict:
             raise BadInput(f"{plan_label}: sourced net volume exceeds authored stock volume.")
         waste = (stock_volume - net_volume) / stock_volume
     holds = [record(setup.get("hold")) for setup in bundle.plan["setups"]]
-    fixture_refs = selected_references({"setups": [{"hold": hold} for hold in holds]})
+    # A hold's align block names a gauge, not holding.
+    fixture_refs = selected_references(
+        {"setups": [{"hold": {k: v for k, v in hold.items() if k != "align"}} for hold in holds]}
+    )
     for hold in holds:
         if hold.get("fixture", "unknown") == "unknown":
             fixture_refs.add("unknown")
@@ -635,12 +648,12 @@ def _run(args, tracing: telemetry.Telemetry) -> int:
         names += tuple(
             f"setup-S{ordinal}.png" for ordinal, _ in enumerate(bundles[0].plan["setups"], start=1)
         )
+        names += inspection_sketch_names(bundles[0].plan)
     if args.verb in {"traveler", "check"}:
         names += tuple(
             path.name
             for path in sorted(out.glob("setup-S*.png"))
-            if path.name not in names
-            and path.name.removeprefix("setup-S").removesuffix(".png").isdecimal()
+            if path.name not in names and _GENERATED_PNG.fullmatch(path.name)
         )
     all_inputs = [path for bundle in bundles for path in bundle.paths.values()]
     if getattr(args, "approval", None):

@@ -6,6 +6,7 @@ import re
 from itertools import pairwise, product
 
 from ..findings import Finding
+from ..joint_features import _lineage
 from ._bench import manual_bench, not_applicable
 from .geometry_common import TURNING_BLADE_KINDS, approach
 from .resolution import (
@@ -13,6 +14,7 @@ from .resolution import (
     MANUAL,
     SAW_OPS,
     UNKNOWN,
+    known_refs,
     length_mm,
     number,
     plan_frame_cite,
@@ -21,6 +23,7 @@ from .resolution import (
     setup_frame,
     uncertain,
 )
+from .speeds_feeds import spindle_ranges
 from .tip_endpoints import (
     FACING,
     POCKETING,
@@ -55,6 +58,61 @@ DIRECTIONS = {
 }
 
 
+def finder_procedure(bundle, setup, tool):
+    """The EDGE FINDER box's facts for an X/Y pick-up with ``tool``: its type, tip Ø and
+    radius, and the rpm bands it runs at on this setup's mill (its own band intersected
+    with each spindle band; the gaps between spindle bands are never filled).
+
+    ``status`` is unknown while a fact is missing or any band endpoint is unknown, and an
+    error where no spindle band turns any of the finder's band. An electronic finder
+    signals contact with the spindle stopped, so it needs no speed."""
+    kind = tool.get("finder_type", UNKNOWN)
+    tip = length_mm(tool, "tip")
+    if not number(tip):
+        tip = length_mm(tool, "dia")
+    band = tool.get("rpm_range", UNKNOWN)
+    missing = [
+        name
+        for name, value in (
+            ("finder_type", kind),
+            ("tip_in / tip_mm", tip),
+            ("rpm_range", band if kind != "electronic" else "not_applicable"),
+        )
+        if value == UNKNOWN
+    ]
+    rpm, machine_rpm, status = "not_applicable", "not_applicable", "pass"
+    if kind != "electronic":
+        machine = resolve(bundle, "machines", setup.get("machine")) or {}
+        machine_rpm = spindle_ranges(machine)
+        known = (
+            isinstance(band, list)
+            and len(band) == 2
+            and all(number(v) for v in band)
+            and machine_rpm != UNKNOWN
+        )
+        rpm = UNKNOWN
+        if known:
+            rpm = [
+                [max(band[0], lo), min(band[1], hi)]
+                for lo, hi in machine_rpm
+                if max(band[0], lo) <= min(band[1], hi)
+            ]
+            status = "pass" if rpm else "error"
+    if status == "pass" and (missing or rpm == UNKNOWN):
+        status = UNKNOWN
+    return {
+        "finder_type": kind,
+        "tip_dia_mm": tip,
+        "radius_mm": tip / 2 if number(tip) else UNKNOWN,
+        "finder_rpm_range": band,
+        "machine_rpm": machine_rpm,
+        "rpm": rpm,
+        "missing": missing,
+        "status": status,
+        "cite": tool.get("cite", UNKNOWN),
+    }
+
+
 def axis_recipe(edge_mm, radius_mm, approach, axis, jog_mm, sign=1, scale=1, paper_mm=None):
     """Return nominal Axis Set/check/mirror; jog is physically along frame +axis.
 
@@ -87,6 +145,19 @@ def axis_recipe(edge_mm, radius_mm, approach, axis, jog_mm, sign=1, scale=1, pap
 def measured(scale):
     """The bench expression a measured trial-cut diameter is set as on this display."""
     return {2: "D", 1: "D/2"}.get(scale, UNKNOWN)
+
+
+def x_touch_set(scale, paper_mm, trial_cut):
+    """The Axis Set of an authored lathe X touch: the measured diameter on this display,
+    plus the paper it touched through, once on the radius (twice on a diameter display);
+    a trial cut is its own surface and takes no paper. Unknown paper is unknown."""
+    shown = measured(scale)
+    if shown == UNKNOWN or trial_cut:
+        return UNKNOWN if shown == UNKNOWN else f"measured {shown}"
+    if not number(paper_mm) or paper_mm < 0:
+        return UNKNOWN
+    term = round(paper_mm * scale, 6) + 0.0
+    return f"measured {shown}" + (f" + {term:g}" if term else "")
 
 
 def gauge_ready(bundle, reference):
@@ -422,6 +493,69 @@ def _turned_standing(event, states, index):
     return True
 
 
+def _named(value):
+    return isinstance(value, str) and value.strip() not in {"", UNKNOWN}
+
+
+def x_face_state(bundle, setup, touch, x_recipe, states, index):
+    """(status, reason) of the diameter an authored lathe X touch measures, at op
+    ``index`` (D2: the zero is set on the surface actually touched; unknown is not pass).
+
+    A touch that trial-cuts (``x_method = "trial_cut_measure"``) makes its own diameter.
+    ``x_face = "x_zero"`` is this setup's X-zero trial-cut land: it needs a trial-cut X
+    zero made before the touch and stands until a cutting op runs after the zero, when
+    whether that cut took it is unknown (the land is no plan feature to follow). Any other
+    ``x_face`` is a plan feature: the latest op naming it before the touch (this setup,
+    then the earlier setups of its stock lineage) must turn it, or it must be supplied
+    as-is and never cut; an op naming no feature since leaves it unknown, and so does a
+    feature turned only upstream of an undeclared stock route. Without ``x_face`` the
+    words name no surface the rule can follow: unknown."""
+    if touch.get("x_method") == "trial_cut_measure":
+        return "pass", None
+    face = touch.get("x_face")
+    if not _named(face):
+        return UNKNOWN, "names no x_face"
+    if face == "x_zero":
+        ops = [op for op, _, _ in states]
+        made = _position(ops, {"after_op": x_recipe.get("after_op")}) or 0
+        if x_recipe.get("method") != "trial_cut_measure":
+            return "error", "touches the X zero's trial-cut land, but the X zero cuts none"
+        if index < made:
+            return "error", "touches the X zero's trial-cut land before the zero cuts it"
+        cut = next((op for op in ops[made:index] if op.get("do") not in MANUAL), None)
+        if cut is not None:
+            return UNKNOWN, f"touches the X zero's trial-cut land after op {cut['op']} cut"
+        return "pass", None
+    if face not in mapping(bundle.feature_definitions):
+        return "error", f"names x_face {face}, no plan feature"
+    lineage = _lineage(bundle.plan, setup["id"])
+    earlier = [
+        (other["id"], op)
+        for other in bundle.plan["setups"]
+        if other["id"] in lineage - {setup["id"]}
+        for op in records(other.get("ops"))
+    ]
+    history = earlier + [(setup["id"], op) for op, _, _ in states[:index]]
+    for owner, op in reversed(history):
+        if op.get("do") in MANUAL:
+            continue
+        names = _features(op)
+        where = f"{owner} op {op.get('op')}"
+        if names is None:
+            return UNKNOWN, f"touches {face} after {where}, which names no feature"
+        if face in names:
+            if op.get("do") in TURNED:
+                return "pass", None
+            return "error", f"touches {face} after {where} cut it other than by turning"
+    faces = mapping(bundle.feature_definitions.get(face)).get("faces", UNKNOWN)
+    as_is = mapping(bundle.plan.get("stock")).get("as_is_faces", UNKNOWN)
+    if known_refs(faces) and isinstance(as_is, list) and set(faces) <= set(as_is):
+        return "pass", None
+    if not all("stock_in" in other for other in bundle.plan["setups"] if other["id"] in lineage):
+        return UNKNOWN, f"touches {face}, whose turning upstream is not routed to this setup"
+    return "error", f"touches {face} before any op turns it"
+
+
 def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
     """One DRO per setup: each cutting op runs on Axis Sets its own tool made.
 
@@ -440,9 +574,12 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
     unknown tool leaves the DRO's setter unknown; an incoming tool that does not
     resolve unflagged keeps its touch unknown, as an authored touch is. A touch naming
     none of the setup's ops serves none. Returns (derived touches, missing touches,
-    unknown, readings): ``readings`` maps each cutting op to the Z touch record its DRO Z
-    reads (the zero's recipe, a tool touch, a derived re-touch or a listed retouch of the
-    top), None when no touch of its tool set Z."""
+    unknown, readings, served): ``readings`` maps each cutting op to the Z touch record its
+    DRO Z reads (the zero's recipe, a tool touch, a derived re-touch or a listed retouch of
+    the top), None when no touch of its tool set Z; ``served`` maps each listed retouch's
+    op to the cutting op that reads it (``next_op``), that op's tool (``next_tool``) and
+    whether it is another tool than the last one that cut (``tool_change``: it goes in
+    before the touch); a cut by an unknown tool leaves both unknown."""
     ops = records(setup.get("ops"))
     states = list(stock_states(bundle, setup))
     features = mapping(bundle.feature_definitions)
@@ -466,8 +603,8 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
     set_x, x_gauge = (None, None)
     if lathe and x_recipe:
         set_x, x_gauge = x_recipe.get("tool", UNKNOWN), x_recipe.get("gauge")
-    # The top a listed retouch touches, for the next cutting tool.
-    pending = None
+    # The top a listed retouch touches, for the next cutting tool; the tool that last cut.
+    pending, spindle, served = None, None, {}
 
     def z_event(index, surface, z, touch_paper, source, touch=None, made=False):
         event = {
@@ -520,11 +657,22 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
         )
         if cuts and tool in (None, UNKNOWN):
             # Whether an unknown tool takes the DRO over from its setter is unknown.
-            unknown, pending = True, None
+            if pending:
+                served[str(pending["after_op"])] = {
+                    "next_op": op["op"],
+                    "next_tool": UNKNOWN,
+                    "tool_change": UNKNOWN,
+                }
+            unknown, pending, spindle = True, None, UNKNOWN
             set_z = None if set_z is None else UNKNOWN
             set_x = None if set_x is None else UNKNOWN
         cutting = cuts and tool not in (None, UNKNOWN)
         if cutting and pending:
+            served[str(pending["after_op"])] = {
+                "next_op": op["op"],
+                "next_tool": tool,
+                "tool_change": UNKNOWN if spindle == UNKNOWN else spindle != tool,
+            }
             set_z, z_by, pending = tool, {"tool": tool, **pending}, None
         changed = [
             axis for axis, current in (("x", set_x), ("z", set_z)) if current not in (None, tool)
@@ -567,8 +715,10 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
                 else:
                     shown = measured(x_scale)
                     ready = shown != UNKNOWN and gauge_ready(bundle, source["gauge"])
+                    # A direct touch on the measured diameter: its Axis Set counts no paper.
                     record.update(
                         x_face=source["x_face"],
+                        x_paper_mm=0.0,
                         gauge=source["gauge"],
                         x_axis_set=f"measured {shown}" if ready else UNKNOWN,
                     )
@@ -586,6 +736,7 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
             set_x = tool if "x" in changed else set_x
         if cutting:
             readings[str(op["op"])] = z_by if set_z == tool else None
+            spindle = tool
         if str(op.get("op")) in listed:
             top = tops[index + 1][0]
             pending = {
@@ -606,7 +757,7 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
         if lathe and op.get("do") in TURNED:
             for name in sorted(_features(op) or ()):
                 x_events.append({"x_face": name, "gauge": x_gauge, "index": index + 1})
-    return derived, missing, unknown, readings
+    return derived, missing, unknown, readings, served
 
 
 def lathe_setup(bundle, setup):
@@ -624,7 +775,7 @@ def z_readings(bundle, setup):
     zero = mapping(setup.get("zero"))
     touches = [touch for touch in records(zero.get("tool_touches")) if isinstance(touch, dict)]
     lathe = lathe_setup(bundle, setup)
-    *_, readings = tool_changes(bundle, setup, zero, lathe, UNKNOWN, touches)
+    _, _, _, readings, _ = tool_changes(bundle, setup, zero, lathe, UNKNOWN, touches)
     return readings
 
 
@@ -848,6 +999,8 @@ def evaluate(bundle):
         # at an unknown Z (:func:`_face_checker`).
         face_errors, face_unknowns = [], []
         face_check = _face_checker(bundle, setup, face_errors, face_unknowns)
+        # The edge finder's procedure facts (:func:`finder_procedure`) of each pick-up.
+        finder_status = set()
 
         unknown = (
             not frame
@@ -982,6 +1135,10 @@ def evaluate(bundle):
                 row["indicator_verify" if indicated else "finder_verify"] = uncertain(
                     tool
                 ) or not bool(tool)
+                if not indicated and tool.get("kind") == "edge_finder":
+                    # The one EDGE FINDER box on the traveler prints these facts.
+                    finder = row["finder"] = finder_procedure(bundle, setup, tool)
+                    finder_status.add(finder["status"])
             axes[axis] = row
             if axis == "z":
                 blade_corner(row, recipe, face, edge, "the Z zero touch")
@@ -1008,17 +1165,24 @@ def evaluate(bundle):
                 face_check({}, "top", top, 0, who, after["top_from"])
         touches = []
         x_scale = {True: 1, False: 2}.get(dro.get("radius_mode"), UNKNOWN) if lathe else UNKNOWN
+        # Authored X touches on a diameter that is gone (errors) or not shown standing.
+        x_errors, x_unknowns = [], []
         for record in records(zero.get("tool_touches")):
             edge, paper = record.get("edge_mm", UNKNOWN), record.get("paper_mm", UNKNOWN)
             side = touch_side(bundle, setup, record, record.get("z_face"), edge, lathe)
             stand_off = paper_offset(paper, side)
             tool = resolve(bundle, None, record.get("tool")) or {}
+            who = f"the {record.get('tool', UNKNOWN)} touch"
             # A mill's X/Y read the spindle axis whatever the tool: its touches set Z only.
             x_set = (
                 "not_applicable"
                 if not lathe
-                else f"measured {measured(x_scale)}"
-                if measured(x_scale) != UNKNOWN and gauge_ready(bundle, record.get("gauge"))
+                else x_touch_set(
+                    x_scale,
+                    record.get("x_paper_mm", UNKNOWN),
+                    record.get("x_method") == "trial_cut_measure",
+                )
+                if gauge_ready(bundle, record.get("gauge"))
                 else UNKNOWN
             )
             if record.get("method") == "measure_then_set":
@@ -1034,15 +1198,28 @@ def evaluate(bundle):
             else:
                 z_set = edge + stand_off if number(edge) and number(stand_off) else UNKNOWN
             row = {**record, "x_axis_set": x_set, "z_axis_set": z_set}
-            who = f"the {record.get('tool', UNKNOWN)} touch"
+            if lathe:
+                at = _position(ops, record) or 0
+                state, reason = x_face_state(
+                    bundle, setup, record, mapping(zero.get("x")), states, at
+                )
+                row["x_face_status"] = state
+                if state != "pass":
+                    (x_errors if state == "error" else x_unknowns).append(f"{who} {reason}")
             blade_corner(row, record, record.get("z_face"), edge, who)
             face_check(record, record.get("z_face"), edge, _position(ops, record) or 0, who)
             touches.append(row)
             unknown |= x_set == UNKNOWN or z_set == UNKNOWN or not tool or uncertain(tool)
-        derived, missing, changes_unknown, _ = tool_changes(
+        unknown |= bool(x_unknowns)
+        derived, missing, changes_unknown, _, served = tool_changes(
             bundle, setup, zero, lathe, x_scale, touches
         )
         unknown |= changes_unknown
+        # A listed retouch names the op that reads it and the tool that goes in first;
+        # one no later cutting op reads serves no tool.
+        idle = {"next_op": "not_applicable", "next_tool": "not_applicable", "tool_change": False}
+        for row in retouch:
+            row.update(served.get(str(row["op"]), idle))
         for row in derived:
             who = f"the {row.get('tool', UNKNOWN)} re-touch"
             blade_corner(row, row, row.get("z_face"), row.get("edge_mm"), who)
@@ -1066,7 +1243,16 @@ def evaluate(bundle):
             numbers["tool_setting"] = tool_setting(bundle, setup, zero, touches, derived)
         if "transfer" in zero:
             numbers["transfer"] = zero["transfer"]
-        errors = bad or missing or corner_errors or face_errors
+        # A hold that must stay clamped cannot be tapped true: a sweep over its limit needs
+        # the plan's recovery, else what to do then is unknown.
+        transfer = mapping(zero.get("transfer"))
+        recovery = transfer.get("recovery")
+        unrecovered = transfer.get("keep_clamped") is True and not (
+            isinstance(recovery, str) and recovery.strip() and recovery != UNKNOWN
+        )
+        unknown |= unrecovered or UNKNOWN in finder_status
+        finder_error = "error" in finder_status
+        errors = bad or missing or corner_errors or face_errors or x_errors or finder_error
         status = "error" if errors else "unknown" if unknown else "pass"
         sentence = (
             "DRO direction or mode disagrees with the setup convention; stop and correct it "
@@ -1096,6 +1282,21 @@ def evaluate(bundle):
                 )
             )
         )
+        if finder_error:
+            sentence += (
+                " The edge finder's rpm range lies outside the spindle's: the mill cannot "
+                "run it at a speed its maker allows. Use a finder whose band the spindle turns."
+            )
+        elif UNKNOWN in finder_status:
+            sentence += (
+                " The edge finder's type, tip Ø, rpm range or the spindle's rpm range is not "
+                "stated: its procedure (speed, kick-out, tip-radius offset) cannot be printed."
+            )
+        if unrecovered:
+            sentence += (
+                " The datum transfer keeps the work clamped but plans no recovery for a sweep "
+                "over its limit: state transfer.recovery."
+            )
         if corner_errors:
             sentence += (
                 " A blade's Z touch names a corner its face cannot give ("
@@ -1114,6 +1315,18 @@ def evaluate(bundle):
                 " A Z touch meets a face its op left at an unknown Z ("
                 + "; ".join(face_unknowns)
                 + "): its Axis Set is not known."
+            )
+        if x_errors:
+            sentence += (
+                " An X touch measures a diameter that does not stand where it touches ("
+                + "; ".join(x_errors)
+                + "): touch X on a diameter standing then (D2), or trial-cut one."
+            )
+        if x_unknowns:
+            sentence += (
+                " An X touch's diameter is not shown standing where it touches ("
+                + "; ".join(x_unknowns)
+                + "): name it in x_face, on a diameter the rule can follow."
             )
         result.append(
             Finding(

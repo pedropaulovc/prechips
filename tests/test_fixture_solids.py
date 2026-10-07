@@ -10,7 +10,7 @@ import subprocess
 import pytest
 from test_kernel_geometry import Engine, _op, _setup, _vise
 
-from prechips.kernel import hold_inputs
+from prechips.kernel import _engine_hold, hold_inputs
 
 _AUTHOR = r"""
 import sys
@@ -24,6 +24,9 @@ Part.makeBox(40, 20, 10).exportStep(out + "/plate.step")
 # 60 x 20 x 3 web with a 20 x 20 boss standing 12 mm above it at x 40..60 (15 tall there).
 web = Part.makeBox(60, 20, 3).fuse(Part.makeBox(20, 20, 15, V(40, 0, 0))).removeSplitter()
 web.exportStep(out + "/web.step")
+# The plate with a vertical 4.004 bore through it at (30, 10).
+bored = Part.makeBox(40, 20, 10).cut(Part.makeCylinder(2.002, 12, V(30, 10, -1)))
+bored.exportStep(out + "/bored.step")
 """
 
 MEASURED = {"by": "test", "date": "2026-10-05", "instrument": "test fixture author"}
@@ -42,7 +45,7 @@ def parts(tmp_path_factory, freecad_kernel):
         timeout=300,
     )
     paths = {path.stem: path for path in directory.glob("*.step")}
-    assert len(paths) == 3, process.stdout[-2000:] + process.stderr[-2000:]
+    assert len(paths) == 4, process.stdout[-2000:] + process.stderr[-2000:]
     return paths
 
 
@@ -136,6 +139,31 @@ def test_each_holding_kind_renders_exact_components_without_debts(engine, parts)
         assert setup["fixture_rendered"] is True, kind
     roles = {c["name"]: c["role"] for c in scene["components"]}
     assert roles == {"angle:upright": "fixture", "kit/strap:strap": "clamp"}
+
+
+@pytest.mark.parametrize(("button_y", "section_y"), [((2.0, 6.0), 4.0), ((-8.0, 28.0), 10.0)])
+def test_a_bench_section_cuts_through_the_holding_that_touches_the_work(
+    engine, parts, button_y, section_y
+):
+    # The 40 x 20 plate sits on one button under it. A section on the plate's centre plane
+    # (Y 10) misses a button standing at Y 2..6, so the picture would draw no contact.
+    low, high = button_y
+    hold = {
+        "kind": "solids",
+        "fixture_kind": "custom",
+        "pose": {"origin_mm": [0.0, 0.0, 0.0], **UP},
+        "solids": [_box("rest:button", [15.0, low, -5.0], [10.0, high - low, 5.0])],
+        "debts": [],
+        "gaps": [],
+    }
+    setup = _scene(
+        engine.run(
+            engine.job(parts["plate"], setups=[{**_setup([], hold), "machine_kind": "bench"}])
+        )
+    )
+    scene = setup["render_scene"]
+    assert scene["view"] == "elevation"
+    assert scene["section"] == {"axis": "y", "at_mm": section_y}
 
 
 def test_chuck_jaws_close_on_the_stock_at_their_clock_angles(engine, parts):
@@ -261,6 +289,67 @@ def test_undrawn_fixture_components_leave_clear_samples_unknown(engine, parts):
     assert "not drawn: clamp 1 'kit/strap' pose is undeclared" in setup["render_scene"]["debts"]
 
 
+# The plate's raw stock is 2 mm taller: op S1:10 takes that layer off its top.
+_TALL = {
+    "shape": "box",
+    "origin_mm": [0.0, 0.0, 0.0],
+    "axis": [1.0, 0.0, 0.0],
+    "section_axis": [0.0, 1.0, 0.0],
+    "length_mm": 40.0,
+    "section_mm": [20.0, 12.0],
+}
+
+
+def _behind(**extra):
+    """An angle plate whose upright stands 10 mm behind the plate (y 30..35), on its base."""
+    return {
+        "kind": "solids",
+        "fixture_kind": "angle_plate",
+        "pose": {"origin_mm": [0.0, 0.0, 0.0], **UP},
+        "solids": [
+            _box("plate:upright", [0.0, 30.0, 0.0], [40.0, 5.0, 20.0]),
+            _box("plate:base", [0.0, 0.0, -5.0], [40.0, 35.0, 5.0]),
+        ],
+        "clamps": [],
+        "debts": [],
+        "gaps": [],
+        **extra,
+    }
+
+
+def _clearances(engine, step, ops, hold):
+    top = engine.refs(step, (0, 0, 10), (40, 20, 10))
+    job = engine.job(step, {"top": top}, [_setup(ops, hold)], stock=_TALL)
+    return _scene(engine.run(job))["render_scene"]["cut_clearances"]
+
+
+@pytest.mark.parametrize(
+    "hold",
+    [
+        _behind(gaps=["clamp 1 near-cut pose is undeclared"]),
+        {"kind": "unknown", "reason": "fixture dimensions unknown"},
+    ],
+    ids=["a-component-undrawn", "no-holding-drawn"],
+)
+def test_a_cut_beside_holding_not_wholly_drawn_has_an_unknown_clearance(engine, parts, hold):
+    ops = [_op("S1:10", "top", 3.0, 10.0, 40.0)]
+    # Wholly drawn, the upright is the holding nearest the layer the cut takes off.
+    expected = [{"op": "10", "mm": 10.0, "tag": "plate:upright"}]
+    assert _clearances(engine, parts["plate"], ops, _behind()) == expected
+    # An undrawn component may stand nearer; with none drawn, nothing is measured at all.
+    unknown = [{"op": "10", "mm": "unknown", "tag": "unknown"}]
+    assert _clearances(engine, parts["plate"], ops, hold) == unknown
+
+
+def test_the_first_cut_the_stock_builder_cannot_derive_has_an_unknown_clearance(engine, parts):
+    # Op 10's feature is undeclared: its cut, and so every later one, is unknown.
+    ops = [_op("S1:10", "missing", 3.0, 10.0, 40.0), _op("S1:20", "top", 3.0, 10.0, 40.0)]
+    assert _clearances(engine, parts["plate"], ops, _behind()) == [
+        {"op": "10", "mm": "unknown", "tag": "unknown"},
+        {"op": "20", "mm": "unknown", "tag": "unknown"},
+    ]
+
+
 def _web_hold(*origins):
     """The web part on a bare custom floor solid, one strap (along y) per footprint origin."""
     across = {"x": [0.0, 1.0, 0.0], "z": [0.0, 0.0, 1.0]}
@@ -313,6 +402,81 @@ def _cylinder(name, at, dia, length, **extra):
         "length_mm": length,
         **extra,
     }
+
+
+DOWN = {"x": [1.0, 0.0, 0.0], "z": [0.0, 0.0, -1.0]}
+_NEST = {"kind": "custom", "solids": [_box("floor", [-10.0, -10.0, -5.0], [60.0, 40.0, 5.0])]}
+_PRESS = {"kind": "strap_clamp", "solids": [_box("strap", [-5.0, -6.0, 0.0], [10.0, 12.0, 8.0])]}
+
+
+def _pinned(engine, parts, land=None, at=(30.0, 10.0)):
+    """Kernel facts of the bored plate on a floor nest, pressed by a strap on its top at x 10
+    and located by a pin hanging from the top at ``at``: a dia 4.003 land 6 long that
+    ``locates`` the dia 4.004 bore (``land`` overrides its fields) under a dia 8 collar that
+    rests on the top. The hold goes through the host inputs, as a plan's does."""
+    pin = {
+        "kind": "locating_pin",
+        "solids": [
+            {**_cylinder("land", [0.0, 0.0, 0.0], 4.003, 6.0, locates="the bore"), **(land or {})},
+            _cylinder("collar", [0.0, 0.0, -5.0], 8.0, 5.0),
+        ],
+    }
+    hold = {
+        "fixture": "nest",
+        "pose": {"origin_mm": [0.0, 0.0, 0.0], **UP},
+        "clamps": [
+            {"ref": "strap", "restraint": "press", "pose": {"origin_mm": [10.0, 10.0, 10.0], **UP}},
+            {"ref": "pin", "restraint": "locate", "pose": {"origin_mm": [*at, 10.0], **DOWN}},
+        ],
+    }
+    host = _hold({"nest": _NEST, "strap": _PRESS, "pin": pin}, hold)
+    job = engine.job(parts["bored"], setups=[_setup([], _engine_hold(host))])
+    return _scene(engine.run(job))
+
+
+def test_a_locating_pin_bears_in_the_bore_its_land_stands_in(engine, parts):
+    setup = _pinned(engine, parts)
+    assert setup["strap_wall_debts"] == []
+    # The pin carries no clamping load: the wall is the run under the press strap alone.
+    assert setup["min_wall_mm"] == pytest.approx(10.0, abs=1e-6)
+    (bearing,) = setup["locator_bearings"]
+    assert bearing["clamp"] == "clamp 2 pin" and bearing["solid"] == "clamp 2 pin:land"
+    assert bearing["bears"] == "bore"
+    assert bearing["pin_dia_mm"] == 4.003 and bearing["bore_dia_mm"] == 4.004
+    assert bearing["gap_mm"] == pytest.approx(0.0005, abs=1e-6)
+    assert bearing["axis_offset_mm"] == pytest.approx(0.0, abs=1e-6)
+    assert bearing["engaged_mm"] == pytest.approx(6.0, abs=1e-6)
+
+
+@pytest.mark.parametrize(
+    "land,at,debt",
+    [
+        # Beside the plate (x 0..40): the land stands in air.
+        (None, (45.0, 10.0), "stands in no bore of the stock and has no flat face bearing on it"),
+        # Oversize: it cannot enter the bore it is drawn in.
+        ({"dia_mm": 4.1}, (30.0, 10.0), "dia 4.1 is larger than the dia 4.004 bore it stands in"),
+        # Loose: the collar rests on the top, but the land itself touches nothing.
+        (
+            {"dia_mm": 3.9},
+            (30.0, 10.0),
+            "dia 3.9 comes no nearer than 0.052 to the wall of the dia 4.004 bore it stands in",
+        ),
+    ],
+)
+def test_a_locating_pin_that_does_not_bear_in_a_bore_is_a_wall_debt(engine, parts, land, at, debt):
+    setup = _pinned(engine, parts, land, at)
+    assert setup["locator_bearings"] == []
+    (named,) = setup["strap_wall_debts"]
+    assert named.startswith("clamp 2 pin:land " + debt), named
+
+
+def test_a_locating_pin_whose_land_is_unmeasured_stays_unproven(engine, parts):
+    setup = _pinned(engine, parts, {"dia_mm": "unknown"})
+    assert setup["locator_bearings"] == []
+    debts = setup["strap_wall_debts"]
+    assert any(debt.startswith("clamp 2 pin solid land: needs shape") for debt in debts), debts
+    # Its collar on the top is drawn, but it is not the solid that locates.
+    assert "clamp 2 pin draws no solid that declares what it locates" in debts
 
 
 def _stud_hold(stud_x, hole=True):
