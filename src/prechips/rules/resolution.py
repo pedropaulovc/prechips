@@ -332,16 +332,22 @@ def shop_made_item(bundle, reference):
 
 
 # An inventory item named in prose (a make note, a plan note): ``<category>.<key>`` with an
-# optional ``/<member>``, as in ``gauges.granite-surface-plate`` or ``tools.ring-laps/6.49mm``.
+# optional ``/<member>``, as in ``gauges.granite-surface-plate`` or ``tools.drills/#61``.
+# The member is everything :func:`resolve` reads as one (``#61``, ``1/4``, ``1-4in``,
+# ``6.49mm``, ``0-1in``), up to its last letter, digit or ``#``: a name is taken whole and
+# never cut back to a prefix that happens to resolve (``drills/#61`` is not ``drills``).
 NAMED_REFERENCE = re.compile(
-    r"\b(machines|tools|holders|fixtures|gauges|services)\.([A-Za-z0-9][\w-]*(?:/[\w.-]*\w)?)"
+    r"\b(machines|tools|holders|fixtures|gauges|services)"
+    r"\.([A-Za-z0-9](?:[\w-]*\w)?(?:/[\w#./-]*[\w#])?)"
 )
 
 
-def named_references(bundle):
-    """``{"<category>.<key>": [where, ...]}``: every inventory item the traveler's prose
-    names (:data:`NAMED_REFERENCE`) in the plan, and in the solid notes of the shop-made
-    items the setups use, plus each record blank's gauge (``gauges.<gauge>``)."""
+def setup_named_references(bundle, setup, job=False):
+    """``{"<category>.<key>": [where, ...]}`` for one setup: every inventory item named
+    (:data:`NAMED_REFERENCE`) in the setup's own prose and in the solid notes and record
+    blanks of the shop-made items it uses, each record's gauge as ``gauges.<gauge>``.
+    With ``job``, the plan's prose outside its setups (the job page's, before the first
+    setup) too."""
     named = {}
 
     def add(name, where):
@@ -360,22 +366,32 @@ def named_references(bundle):
             for category, key in NAMED_REFERENCE.findall(value):
                 add(f"{category}.{key}", where)
 
-    setups = bundle.plan.get("setups") or []
-    scan({key: value for key, value in bundle.plan.items() if key != "setups"}, "plan")
-    used = []
-    for setup in setups:
-        scan(setup, f"Setup {record(setup).get('id', '?')}")
-        used += [ref for ref in setup_item_refs(record(setup)) if ref not in used]
-    for ref in used:
+    setup = record(setup)
+    if job:
+        scan({key: value for key, value in bundle.plan.items() if key != "setups"}, "plan")
+    scan(setup, f"Setup {setup.get('id', '?')}")
+    for ref in setup_item_refs(setup):
         item = shop_made_item(bundle, ref)
         for solid in (item or {}).get("solids") or []:
             where = f"{ref} {record(solid).get('name', '?')}"
             scan(record(solid).get("note"), f"{where} note")
-            for blank in record(solid).get("records") or []:
+            blanks = record(solid).get("records")
+            for blank in blanks if isinstance(blanks, list) else []:
                 scan([record(blank).get("check"), record(blank).get("how")], f"{where} record")
                 gauge = record(blank).get("gauge")
                 if isinstance(gauge, str) and gauge not in ("none", "not_applicable"):
                     add(f"gauges.{gauge}", f"{where} record")
+    return named
+
+
+def named_references(bundle):
+    """``{"<category>.<key>": [where, ...]}``: :func:`setup_named_references` over every
+    setup, the plan's own prose with the first."""
+    named = {}
+    for index, setup in enumerate(bundle.plan.get("setups") or []):
+        for name, places in setup_named_references(bundle, setup, job=index == 0).items():
+            named.setdefault(name, [])
+            named[name] += [where for where in places if where not in named[name]]
     return named
 
 

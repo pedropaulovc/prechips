@@ -344,6 +344,12 @@ def test_a_measured_and_recorded_value_prints_as_a_fill_in():
         {**RECORD, "goal_mm": 0.02},
         {**RECORD, "max_mm": "unknown"},
         {**RECORD, "max_mm": -0.01},
+        # An explicitly unknown method or gauge, or an unknown list, is declared doubt:
+        # refused at validation, never dropped from the printed fill-in.
+        {**RECORD, "how": "unknown"},
+        {**RECORD, "how": " "},
+        {**RECORD, "gauge": " "},
+        "unknown",
     ],
 )
 def test_malformed_record_blanks_are_rejected(bad):
@@ -351,13 +357,14 @@ def test_malformed_record_blanks_are_rejected(bad):
 
     from prechips.model import Inventory
 
-    def screw(record):
-        head = cylinder("head", 0, 0, 8, 4, records=[record])
+    def screw(records):
+        head = cylinder("head", 0, 0, 8, 4, records=records)
         return {"fixtures": {"screw": {"kind": "custom", "solids": [head]}}}
 
-    Inventory.model_validate(screw(RECORD))
+    Inventory.model_validate(screw([RECORD]))
+    Inventory.model_validate(screw([{"check": "squareness", "over_mm": 100}]))
     with pytest.raises(ValidationError):
-        Inventory.model_validate(screw(bad))
+        Inventory.model_validate(screw(bad if bad == "unknown" else [bad]))
 
 
 def test_inventory_keys_named_in_make_notes_print_as_the_item():
@@ -381,6 +388,67 @@ def test_inventory_keys_named_in_make_notes_print_as_the_item():
     assert named["gauges.dti"] == "pass"
     assert named["gauges.granite-plate"] == "unknown"
     assert named["gauges.dti/0.5in"] == "unknown"
+
+
+@pytest.mark.parametrize("where", ["record", "make note", "setup note", "plan prerequisite"])
+def test_a_gauge_named_only_in_a_record_or_prose_gets_its_receipt_check(where):
+    from prechips.rules import purchased_tooling
+
+    data, _ = record_page(*([RECORD] if where == "record" else []))
+    data.inventory["gauges"]["dti"]["acceptance"] = "unknown"
+    data.plan["setups"].append({**data.plan["setups"][0], "id": "S2"})
+    text = "true the head on gauges.dti first"
+    if where == "make note":
+        data.inventory["fixtures"]["bridge"]["solids"][1]["note"] = text
+    elif where == "setup note":
+        data.plan["setups"][0]["note"] = text
+    elif where == "plan prerequisite":
+        data.plan["stock"] = {"prerequisite": text}
+    found = {f.subject: f.status for f in purchased_tooling.evaluate(data)}
+    # The setup that first uses the item owns its receipt check; job-level prose is the
+    # first setup's. Unknown receipt criteria are never a pass.
+    assert found["S1"] == "unknown"
+
+
+def drill_note(note):
+    from prechips.rules import tool_resolves
+
+    data, _ = record_page()
+    data.inventory["tools"] = {
+        "drills": {
+            "kind": "drill_index",
+            "name": "jobber drill index",
+            "coverage": "#1-60, A-Z, 1/16-1/2 by 64ths",
+        }
+    }
+    data.inventory["gauges"]["pins"] = {
+        "kind": "pin_gauge_set",
+        "name": "pin set",
+        "members": {
+            "1": {"kind": "pin_gauge", "name": "one-inch pin", "dia_mm": 25.4},
+            "1/4": {"kind": "pin_gauge", "name": "quarter-inch pin", "dia_mm": 6.35},
+        },
+    }
+    data.inventory["fixtures"]["bridge"]["solids"][1]["note"] = note
+    named = {f.subject: f.status for f in tool_resolves.evaluate(data) if f.numbers.get("named_in")}
+    return sheets(data)[0], named
+
+
+@pytest.mark.parametrize(
+    ("reference", "status", "printed"),
+    [
+        ("tools.drills/#7", "pass", "#7 drill index."),
+        ("tools.drills/#61", "unknown", "? drills/#61."),
+        ("tools.drills/1/4", "pass", "1/4 drill index."),
+        ("tools.drills/1-4", "pass", "1-4 drill index."),
+        ("gauges.pins/1/4", "pass", "quarter-inch pin."),
+        ("gauges.pins/1", "pass", "one-inch pin."),
+    ],
+)
+def test_a_named_member_is_the_whole_member_never_a_prefix(reference, status, printed):
+    page, named = drill_note(f"Use {reference}.")
+    assert named == {reference: status}
+    assert page[page.index("Use ") :].split("|")[0].endswith(printed)
 
 
 def test_a_record_gauge_must_be_in_the_shop_list():

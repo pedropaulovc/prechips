@@ -22,27 +22,34 @@ from .resolution import (
     record,
     resolve,
     setup_item_refs,
+    setup_named_references,
     uncertain,
 )
 
 CITE = "docs/inventory.md Purchased tooling: acceptance"
 
 
-def acceptance_items(bundle, setup):
+def acceptance_items(bundle, setup, job=False):
     """``[(reference, item, checks)]`` for each item the setup uses that declares receipt
     checks: a kit's own list once under its root, a member's own list under its path. An
-    explicitly unknown list (``acceptance = "unknown"``) is declared, not absent."""
+    explicitly unknown list (``acceptance = "unknown"``) is declared, not absent. A setup
+    uses the items its slots name (:func:`setup_item_refs`) and the items its prose and its
+    shop-made items' notes and record blanks name (:func:`setup_named_references`); with
+    ``job`` (the first setup) also the job page's."""
+    uses = [(None, ref) for ref in setup_item_refs(setup)]
+    uses += [tuple(name.split(".", 1)) for name in setup_named_references(bundle, setup, job=job)]
     found = []
-    for ref in setup_item_refs(setup):
+    for named, ref in uses:
         root, _, member = ref.partition("/")
-        category = inventory_category(bundle, root)
+        category = named or inventory_category(bundle, root)
         raw = record(record(bundle.inventory.get(category)).get(root)) if category else {}
         owners = [(root, raw)]
         if member:
             owners.append((ref, record(record(raw.get("members")).get(member))))
         for key, own in owners:
             if "acceptance" in own and key not in {k for k, _, _ in found}:
-                found.append((key, resolve(bundle, None, key) or own, own["acceptance"]))
+                item = resolve(bundle, named, key) or own
+                found.append((key, item, own["acceptance"]))
     return found
 
 
@@ -146,9 +153,9 @@ def item_checks(bundle, reference, item, checks):
 
 def evaluate(bundle):
     result = []
-    for setup in bundle.plan["setups"]:
+    for index, setup in enumerate(bundle.plan["setups"]):
         items, reasons = [], []
-        for reference, item, checks in acceptance_items(bundle, setup):
+        for reference, item, checks in acceptance_items(bundle, setup, job=index == 0):
             row, why = item_checks(bundle, reference, item, checks)
             items.append(row)
             reasons += why

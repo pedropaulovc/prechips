@@ -1475,10 +1475,15 @@ def _inventory_checks(item: Any, where: str) -> None:
                 _acceptance_check(check, f"{where}.acceptance[{index}]")
     solids = item.get("solids")
     for solid in solids if isinstance(solids, list) else ():
-        records = solid.get("records") if isinstance(solid, dict) else None
-        for index, blank in enumerate(records if isinstance(records, list) else ()):
+        if not isinstance(solid, dict) or "records" not in solid:
+            continue
+        name, records = solid.get("name", "?"), solid["records"]
+        if not isinstance(records, list):
+            raise ValueError(
+                f"{where} solid {name}: records must list what is measured (omit it for none)."
+            )
+        for index, blank in enumerate(records):
             if isinstance(blank, dict):
-                name = solid.get("name", "?")
                 _record_blank(blank, f"{where} solid {name}.records[{index}]")
     members = item.get("members")
     for name, member in members.items() if isinstance(members, dict) else ():
@@ -1486,11 +1491,19 @@ def _inventory_checks(item: Any, where: str) -> None:
 
 
 def _record_blank(blank: dict, where: str) -> None:
-    """A record blank says what is measured; its spec, goal and span are known lengths
-    (an unknown spec would print a fill-in nobody can judge), the goal inside the spec."""
+    """A record blank says what is measured, and how and with which gauge when it says so
+    at all (a stated unknown would be dropped from the fill-in); its spec, goal and span
+    are known lengths (an unknown spec would print a fill-in nobody can judge), the goal
+    inside the spec. An unknown gauge stays allowed: tool_resolves reports it unknown."""
     check = blank.get("check")
     if not isinstance(check, str) or check.strip() in ("", UNKNOWN):
         raise ValueError(f"{where}: check must say what is measured and recorded.")
+    how = blank.get("how")
+    if "how" in blank and (not isinstance(how, str) or how.strip() in ("", UNKNOWN)):
+        raise ValueError(f"{where}: how must say how it is measured, or be omitted.")
+    gauge = blank.get("gauge")
+    if "gauge" in blank and (not isinstance(gauge, str) or not gauge.strip()):
+        raise ValueError(f"{where}: gauge must name an inventory gauge, or be omitted.")
     for key in ("max_mm", "goal_mm", "over_mm"):
         value = blank.get(key)
         if key in blank and (
