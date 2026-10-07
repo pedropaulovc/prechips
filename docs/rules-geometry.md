@@ -1579,15 +1579,19 @@ between the inner jaw planes), `jaw_separation_mm` (how far the jaws stand apart
 closed on it: `width_mm` plus a `jaw_bar` round bar's Ø, plus twice a
 `jaw_buttons` button's thickness), `contact_grip_mm` (per
 jaw, the merged length of planar part faces lying in that jaw plane within the
-zone, inside the button's face where `jaw_buttons` stand between; a line contact
-is measured when no planar face touches), `parallel_pair`
+zone; where `jaw_buttons` stand between, only the area those faces share with
+the button's face, within the jaw's height, measured from the shared area itself
+rather than the faces' extents; a line contact is measured when no planar face
+lies in that plane), `parallel_pair`
 (both jaw planes have planar contact faces) and `claimed_in_jaws` (claimed faces
 sharing area with a jaw box). A `jaw_bar` that bears on no jaw-held work along its
 length leaves the jaws unplaced. Each `jaw_buttons` button is centred on the one
 bore of the work that opens on its jaw face at least as wide as its spigot, its
 spigot in that bore; no such bore (or several), a spigot the bore does not take
-whole, a button meeting the work beyond the face, or a jaw that misses the button
-leaves the jaws unplaced. Numbers: those plus `opening_mm`,
+whole, a button meeting the work beyond the face, a jaw that misses the button,
+or a button that bears on no jaw-held work within the jaw's height (a face no
+wider than the bore's mouth shares no area with the work round it; touching only
+the mouth's edge is not bearing) leaves the jaws unplaced. Numbers: those plus `opening_mm`,
 `required_grip_mm`, `parallels_height_mm`. Errors join with `; `:
 
 - `gripped faces are not a parallel pair`

@@ -3705,7 +3705,8 @@ class _Setup:
         # certain jaw boxes {"fixed", "moving"} plus "possible": [(fixed side?, box)] once placed
         self.jaws = None
         self.jaw_bar = None  # a vise's placed round bar between the work and the moving jaw
-        # a vise's placed jaw buttons {side: (solid, gripped Z span)}, one per jaw
+        # a vise's placed jaw buttons, one per jaw: {side: (solid, Z intervals where the work
+        # bears on its face, whether that bearing is planar)}
         self.jaw_buttons = None
         self.hold = None  # the declared hold, once it is declared without a reason
         self.fixture_reason = None
@@ -5760,7 +5761,7 @@ class _Setup:
                     self._add(side + "_jaw", "jaw", _box_shape(self.jaws[side]), self.jaws[side])
                 if self.jaw_bar is not None:
                     self._add("jaw_bar " + self.hold["jaw_bar"]["name"], "fixture", self.jaw_bar)
-                for side, (solid, _) in (self.jaw_buttons or {}).items():
+                for side, (solid, *_) in (self.jaw_buttons or {}).items():
                     name = self.hold["jaw_buttons"]["name"]
                     self._add(f"jaw_buttons {name} {side}", "fixture", solid)
                 self.fixture_possible = [
@@ -6284,7 +6285,7 @@ class _Setup:
                 return reason
         if buttons:
             jaw_z = (top - height, top)
-            reason = self._jaw_buttons(buttons, a_axis, c_axis, planes, outward, jaw_a, jaw_z)
+            reason = self._jaw_buttons(buttons, a_axis, c_axis, planes, outward, jaw_a, jaw_z, zone)
             if reason:
                 return reason
         self.jaws = {
@@ -6319,15 +6320,14 @@ class _Setup:
         grips, planar, contact_faces = [], [], {}
         for side in ("fixed", "moving"):
             intervals, labels = self._contact(zone, c_axis, planes[side], outward[side], seat, top)
+            flat = bool(intervals)
             if buttons:
-                # The work bears only on its button's face, not the jaw's.
-                intervals = _clipped(intervals, self.jaw_buttons[side][1])
-            planar.append(bool(intervals))
-            contact_faces[side] = labels
-            if not intervals:
+                # The work bears only where it touches its button's face, not the jaw's.
+                intervals, flat = self.jaw_buttons[side][1:]
+            elif not intervals:
                 intervals = self._line_contact(zone, c_axis, planes[side])
-                if buttons:
-                    intervals = _clipped(intervals, self.jaw_buttons[side][1])
+            planar.append(flat)
+            contact_faces[side] = labels
             grips.append(_r(_merged_length(intervals)))
         facts["parallel_pair"] = all(planar)
         facts["contact_grip_mm"] = grips
@@ -6377,12 +6377,14 @@ class _Setup:
         self.jaw_bar = solid
         return None
 
-    def _jaw_buttons(self, buttons, a_axis, c_axis, planes, outward, jaw_a, jaw_z):
+    def _jaw_buttons(self, buttons, a_axis, c_axis, planes, outward, jaw_a, jaw_z, zone):
         """Each jaw's button: centred on the one bore of the work that opens on that jaw
         face wide enough for its spigot, its face on the work and its spigot in the bore;
         else why it cannot be placed there. No such bore (or more than one), a spigot the
-        bore does not take whole, a button that meets the work beyond the face, or a jaw
-        that misses the button leaves the jaws unplaced."""
+        bore does not take whole, a button that meets the work beyond the face, a jaw that
+        misses the button, or a button that bears on none of the jaw-held work (``zone``)
+        within the jaw's height (:meth:`_bearing`: a face no wider than the bore's mouth)
+        leaves the jaws unplaced."""
         name, thick = buttons["name"], buttons["thickness_mm"]
         radius, spigot_r = buttons["dia_mm"] / 2, buttons["spigot_dia_mm"] / 2
         placed = {}
@@ -6436,13 +6438,25 @@ class _Setup:
                     f"jaw_buttons {name}: the {side} jaw (Z {_r(jaw_z[0])} to {_r(jaw_z[1])}) "
                     f"misses the button centred at Z {_r(centre[2])}"
                 )
-            placed[side] = (button.fuse(spigot), (max(span[0], jaw_z[0]), min(span[1], jaw_z[1])))
+            # Proven bearing, never the face's extent: a button inside the bore's mouth
+            # stands clear of the work however much of the face lies beside it.
+            disc = Part.Face(Part.Wire(Part.makeCircle(radius, V(*centre), V(*out))))
+            intervals, flat = self._bearing(zone, c_axis, plane, outward[side], disc, jaw_z)
+            if not intervals:
+                return (
+                    f"jaw_buttons {name}: the Ø{_r(2 * radius)} mm button centred at Z "
+                    f"{_r(centre[2])} on {where} bears on no jaw-held work within the jaw "
+                    f"(Z {_r(jaw_z[0])} to {_r(jaw_z[1])}), so the jaws are unplaced"
+                )
+            placed[side] = (button.fuse(spigot), intervals, flat)
         self.jaw_buttons = placed
         return None
 
-    def _contact(self, zone, c_axis, plane, outward, seat, top):
-        """z-intervals of planar zone faces on the jaw plane, and the part faces they come from."""
-        intervals, stock = [], False
+    @staticmethod
+    def _jaw_faces(zone, c_axis, plane, outward):
+        """Planar faces of ``zone`` over ``CONTACT_MM2`` lying on the jaw plane and facing
+        the jaw (``outward`` along ``c_axis``)."""
+        faces = []
         for face in zone.Faces:
             if not isinstance(face.Surface, Part.Plane):
                 continue
@@ -6453,10 +6467,14 @@ class _Setup:
             normal = face.normalAt((u0 + u1) / 2, (v0 + v1) / 2)
             if normal[c_axis] * outward < PARALLEL or face.Area <= CONTACT_MM2:
                 continue
-            intervals.append((box[2], box[5]))
-            if not stock and self._source(face) is None:
-                stock = True
-        labels = ["in-process stock"] if stock else []
+            faces.append(face)
+        return faces
+
+    def _contact(self, zone, c_axis, plane, outward, seat, top):
+        """z-intervals of planar zone faces on the jaw plane, and the part faces they come from."""
+        flats = self._jaw_faces(zone, c_axis, plane, outward)
+        intervals = [(_bbox(face)[2], _bbox(face)[5]) for face in flats]
+        labels = ["in-process stock"] if any(self._source(face) is None for face in flats) else []
         a_axis, (a0, a1) = self.clamp["a_axis"], self.clamp["jaw_a"]
         for index, face in enumerate(self.faces):
             if not isinstance(face.Surface, Part.Plane):
@@ -6481,7 +6499,30 @@ class _Setup:
                     return index
         return None
 
-    def _line_contact(self, zone, c_axis, plane):
+    def _bearing(self, zone, c_axis, plane, outward, face, span):
+        """(Z intervals within ``span`` where the jaw-held work ``zone`` bears on ``face``,
+        a button's face on the jaw plane, and whether that bearing is planar): the area
+        its planar faces on that plane share with ``face``, each connected piece one
+        interval; with no planar face there, the part of its section by the plane inside
+        ``face`` (a line contact). A face that meets the work only along an edge (one as
+        wide as the bore's mouth) shares no area and bears nowhere."""
+        flats = self._jaw_faces(zone, c_axis, plane, outward)
+        if flats:
+            pieces = [
+                piece
+                for flat in flats
+                for piece in flat.common(face).Faces
+                if piece.Area > CONTACT_MM2
+            ]
+            return _clipped([(_bbox(piece)[2], _bbox(piece)[5]) for piece in pieces], span), True
+        # A level line contact has no Z length; it bears when it lies inside the span.
+        lines = self._line_contact(zone, c_axis, plane, face)
+        inside = [(lo, hi) for lo, hi in lines if span[0] < hi and lo < span[1]]
+        return [(max(lo, span[0]), min(hi, span[1])) for lo, hi in inside], False
+
+    def _line_contact(self, zone, c_axis, plane, within=None):
+        """z-intervals of the edges of ``zone``'s section by the jaw plane, only their parts
+        inside the face ``within`` when given."""
         size = (
             4 * max(self.box[3] - self.box[0], self.box[4] - self.box[1], self.box[5] - self.box[2])
             + 10
@@ -6491,6 +6532,8 @@ class _Setup:
         # Explicit in-plane x so both plane directions run positive from ``corner``.
         normal, xdir = (V(1, 0, 0), V(0, 1, 0)) if c_axis == 0 else (V(0, 1, 0), V(0, 0, 1))
         section = zone.section(Part.makePlane(size, size, V(*corner), normal, xdir))
+        if within is not None:
+            section = section.common(within)
         return [(_bbox(edge)[2], _bbox(edge)[5]) for edge in section.Edges]
 
     def _in_jaws(self, claimed):
