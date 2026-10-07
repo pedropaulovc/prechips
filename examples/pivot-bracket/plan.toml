@@ -26,19 +26,82 @@ cutting_data = "../cutting-data.toml"
 [stock]
 material = "Plain Carbon Steel"
 material_cite = ["harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:3", "harmonic-analyzer/cad/scripts/build_pivot_bracket.py:74"]
-form = "prepared_blank"          # author's choice, restored from rev 3
-section_mm = [18.0, 26.2]        # author's choice: model X width / model Z run, 1 mm each side
-length_mm = 34.2                 # author's choice: model Y -1..33.2, seat/crown allowances
+form = "flat_bar"               # AUTHOR'S CHOICE: the sawn bar P1 receives; P1-P6 square it to [stock.prepared]
+section_mm = [19.05, 31.75]      # 3/4 x 1-1/4 in flat bar: model X thickness / model Z width
+length_mm = 38.0                 # AUTHOR'S CHOICE: sawn 1.9 mm over each 34.2 blank end
 on_hand = false                  # inventory stock = [] (pedro-shop.toml:7): known none on hand; no procurement claimed
-origin_mm = [9.0, -1.0, -4.0]    # author's choice: blank corner, model X 9..-9, Y -1..33.2, Z -4..22.2
-axis = [0.0, 1.0, 0.0]           # 34.2 length along model Y
-section_axis = [-1.0, 0.0, 0.0]  # 18 mm section along model -X; axis x section_axis = +Z (26.2 run)
+origin_mm = [9.525, -2.9, -6.775] # AUTHOR'S CHOICE: bar corner, model X 9.525..-9.525, Y -2.9..35.1, Z -6.775..24.975: 0.525 over each side, 2.775 over each edge
+axis = [0.0, 1.0, 0.0]           # 38 length along model Y
+section_axis = [-1.0, 0.0, 0.0]  # 19.05 thickness along model -X; axis x section_axis = +Z (31.75 width)
 as_is_faces = []                 # every finished face is cut
-# DataBracket (r3): the blank's preparation, before S1. The engine cannot route squaring
-# setups (every non-saw op must claim a manifest feature), so the steps are stock text.
-prerequisite = "saw and square the blank to 18.0 × 26.2 × 34.2 mm, as listed under STOCK AND ROUTE" # AUTHOR'S CHOICE: printed as the job page's Before S1 line
-note = "AUTHOR'S CHOICE: The blank is 1 mm over the finished part on every face. (1) Bandsaw 38 mm off 3/4 × 1-1/4 in flat bar. (2) Vise on parallels: face one wide side flat — the left side. (3) Left side to the fixed jaw: square one edge — the outer end. (4) Left side to the fixed jaw, outer end down: face the opposite edge to 26.2 — the free end. (5) Left side down: face the other wide side to 18.0. (6) Sawn end down, left side to the fixed jaw, outer end indicated square: face the crown end; flip it crown down and face the seat end to 34.2. (7) Mic 18.0 ±0.1, 26.2 and 34.2 ±0.02; mark the left side, outer end and crown end. S1 picks up the left side and outer end; S2/S3 pick up the left side and free end and touch Z on the crown end."
-cite = ["AUTHOR'S CHOICE: 3/4 x 1-1/4 in, a common flat-bar section over 18 x 26.2; 38 mm saws 1.9 mm over each 34.2 end", "AUTHOR'S CHOICE: six-face vise squaring with the left side as the reference face, because S1-S3 edge-find it", "AUTHOR'S CHOICE: 26.2 and 34.2 held to +/-0.02 because S2/S3 zero on the free and crown ends, opposite the S1 references"]
+prerequisite = "bandsaw 38 mm off 3/4 × 1-1/4 in flat bar" # AUTHOR'S CHOICE: printed as the job page's Before P1 line
+cite = ["AUTHOR'S CHOICE: 3/4 x 1-1/4 in, a common flat-bar section over 18 x 26.2, because it leaves a clean-up skim on every face; 38 mm saws 1.9 mm over each 34.2 end"]
+
+[stock.prepared]                 # the squared blank P1-P6 hand S1
+setup = "S1"
+origin_mm = [9.0, -1.0, -4.0]    # blank corner, model X 9..-9, Y -1..33.2, Z -4..22.2: 1 mm over the part on every face
+section_mm = [18.0, 26.2]        # model X width / model Z run
+length_mm = 34.2                 # model Y -1..33.2, seat/crown allowances
+tolerance_mm = [0.1, 0.02, 0.02] # AUTHOR'S CHOICE: 18.0 ±0.1; 26.2 and 34.2 ±0.02
+cite = ["AUTHOR'S CHOICE: the blank is 1 mm over the finished part on every face because S1-S4 each skim one blank face to a finished face", "AUTHOR'S CHOICE: 26.2 and 34.2 held to +/-0.02 because S2/S3 zero on the free and crown ends, opposite the S1 references"]
+
+[stock.prepared.checks]          # read after P6, before S1
+length = "micrometers/1-2in"     # 34.2 ±0.02 over the two faced ends
+section_0 = "micrometers/0-1in"  # 18.0 ±0.1 over the two wide sides
+section_1 = "micrometers/1-2in"  # 26.2 ±0.02 over the two edges
+flat = "dti"
+square = "dti"
+parallel = "dti"
+
+[stock.prepared.methods]         # AUTHOR'S CHOICE: the DTI on the height gauge over the granite plate, because every blank face is under 35 mm and the plate is the shop's flat reference
+flat = "Lay each faced side on the granite plate; it must not rock. Sweep the DTI on the height gauge across the face above: the needle moves no more than 0.02."
+square = "Stand the blank on the granite against a 1-2-3 block's ground side; sweep the DTI up each faced edge and end: the needle moves no more than 0.02 over the face."
+parallel = "Lay the left side on the granite and sweep the DTI over the right side; then the outer end down and sweep the free end; then the crown end down and sweep the seat end. Each sweep moves no more than 0.02."
+
+# Stock preparation (P1-P6): the six blank faces as plan process faces. Each is a planar
+# face of the squared blank; it earns no drawing coverage. at = a point on the face,
+# axis = toward the kept material.
+[process_features.blank_left]
+kind = "end_face"
+at = [-9.0, 16.1, 9.1]
+axis = [1.0, 0.0, 0.0]
+note = "the reference face: the left wide side, faced flat first"
+cite = ["AUTHOR'S CHOICE: the left side is the reference face because S1-S3 edge-find it"]
+
+[process_features.blank_outer_end]
+kind = "end_face"
+at = [0.0, 16.1, -4.0]
+axis = [0.0, 0.0, 1.0]
+note = "the first edge, square to the left side"
+cite = ["AUTHOR'S CHOICE: the outer end is the second reference because S1 edge-finds it"]
+
+[process_features.blank_free_end]
+kind = "end_face"
+at = [0.0, 16.1, 22.2]
+axis = [0.0, 0.0, -1.0]
+note = "the opposite edge, 26.2 from the outer end"
+cite = ["AUTHOR'S CHOICE: faced from the outer end because the 26.2 run is measured over the two edges"]
+
+[process_features.blank_right]
+kind = "end_face"
+at = [9.0, 16.1, 9.1]
+axis = [-1.0, 0.0, 0.0]
+note = "the opposite wide side, 18.0 from the left side"
+cite = ["AUTHOR'S CHOICE: faced last of the four long faces, on the left side, because it is sized from the reference"]
+
+[process_features.blank_crown_end]
+kind = "end_face"
+at = [0.0, 33.2, 9.1]
+axis = [0.0, -1.0, 0.0]
+note = "the first sawn end, square to the left side and the outer end"
+cite = ["AUTHOR'S CHOICE: the crown end is faced first because S2/S3 touch Z on it"]
+
+[process_features.blank_seat_end]
+kind = "end_face"
+at = [0.0, -1.0, 9.1]
+axis = [0.0, 1.0, 0.0]
+note = "the second sawn end, 34.2 from the crown end"
+cite = ["AUTHOR'S CHOICE: faced last because the 34.2 length is measured over both ends"]
 
 [dro]
 controller = "el400"
@@ -80,6 +143,448 @@ binding = "nominal"              # S4: Z0 the outer face faced by op 10
 note = "AUTHOR'S CHOICE: S4 outer face up, finished seat against the angle-plate upright at Y0, plate behind the part on +Y. In this Setup, the faced outer face is Z0, ear inner face Z -6 and foot free end Z -24.2."
 cite = ["AUTHOR'S CHOICE", "pivot-bracket.STEP"]
 
+# Stock-preparation frames (P1-P6). Each Z0 is the blank face the setup faces; X/Y
+# are picked up on the bar as it arrives in that setup.
+[frames.PA]
+origin = [-9.0, 33.2, -4.0]
+x = [0.0, -1.0, 0.0]
+y = [0.0, 0.0, 1.0]
+z = [-1.0, 0.0, 0.0]
+binding = "nominal"              # P1: Z0 the faced left side
+note = "AUTHOR'S CHOICE: P1 left side up, bar flat, crown end to the left. In this Setup, the faced left side is Z0; the bar is X -1.9..36.1 and Y -2.775..28.975."
+cite = ["AUTHOR'S CHOICE"]
+
+[frames.PB]
+origin = [-9.0, 33.2, -4.0]
+x = [0.0, -1.0, 0.0]
+y = [-1.0, 0.0, 0.0]
+z = [0.0, 0.0, -1.0]
+binding = "nominal"              # P2: Z0 the faced outer end, left side on the fixed jaw at Y0
+note = "AUTHOR'S CHOICE: P2 outer end up, left side against the fixed jaw. In this Setup, the faced outer end is Z0 and the left side is Y0."
+cite = ["AUTHOR'S CHOICE"]
+
+[frames.PC]
+origin = [-9.0, -1.0, 22.2]
+x = [0.0, 1.0, 0.0]
+y = [-1.0, 0.0, 0.0]
+z = [0.0, 0.0, 1.0]
+binding = "nominal"              # P3: Z0 the faced free end, 26.2 above the outer end
+note = "AUTHOR'S CHOICE: P3 free end up, outer end down, left side against the fixed jaw. In this Setup, the faced free end is Z0, the outer end Z -26.2 and the left side Y0."
+cite = ["AUTHOR'S CHOICE"]
+
+[frames.PD]
+origin = [9.0, 33.2, 22.2]
+x = [0.0, -1.0, 0.0]
+y = [0.0, 0.0, -1.0]
+z = [1.0, 0.0, 0.0]
+binding = "nominal"              # P4: Z0 the faced right side, 18.0 above the left side
+note = "AUTHOR'S CHOICE: P4 right side up, left side down, outer end against the fixed jaw. In this Setup, the faced right side is Z0, the left side Z -18.0 and the free end Y0."
+cite = ["AUTHOR'S CHOICE"]
+
+[frames.PE]
+origin = [-9.0, 33.2, 22.2]
+x = [0.0, 0.0, -1.0]
+y = [-1.0, 0.0, 0.0]
+z = [0.0, 1.0, 0.0]
+binding = "nominal"              # P5: Z0 the faced crown end
+note = "AUTHOR'S CHOICE: P5 crown end up, standing on the sawn seat end, left side against the fixed jaw. In this Setup, the faced crown end is Z0, the free end X0 and the left side Y0."
+cite = ["AUTHOR'S CHOICE"]
+
+[frames.PF]
+origin = [-9.0, -1.0, -4.0]
+x = [0.0, 0.0, 1.0]
+y = [-1.0, 0.0, 0.0]
+z = [0.0, -1.0, 0.0]
+binding = "nominal"              # P6: Z0 the faced seat end, 34.2 above the crown end
+note = "AUTHOR'S CHOICE: P6 seat end up, standing on the faced crown end, left side against the fixed jaw. In this Setup, the faced seat end is Z0, the crown end Z -34.2, the outer end X0 and the left side Y0."
+cite = ["AUTHOR'S CHOICE"]
+
+# ================================================================ P1-P6: square the blank
+[[setups]]
+id = "P1"
+machine = "PM-30MV"
+frame = "PA"
+coolant = "cutting-oil"           # AUTHOR'S CHOICE: brush cutting oil on the cut
+deburr_mm = 0.25                 # AUTHOR'S CHOICE: stone the faced edges so the next face seats flat
+stock_in = "stock"
+
+[setups.stock_state]             # frame PA, the sawn bar
+top_z = 0.525                    # raw left side, 0.525 over
+bottom_z = -18.525               # raw right side
+
+[setups.hold]
+fixture = "vise-pm-6"
+jaws_along = "x"                 # AUTHOR'S CHOICE: jaws on the two narrow edges, bar flat
+fixed_jaw = "rear"
+parallels = "parallels-lms-6745/1-1-4in"
+jaw_center_along_mm = 17.1        # AUTHOR'S CHOICE: the 38 mm bar centred in the jaws
+stop = "No end stop: centre the bar in the jaws on the parallels." # AUTHOR'S CHOICE
+grip_mm = 13.1953                # measured jaw 1.7695 in - 1-1/4 in parallels, x 25.4
+jaw_above_parallels_mm = 13.1953
+clamp = "hand plus quarter turn, then tap the bar down onto the parallels with a soft hammer" # AUTHOR'S CHOICE: seat the raw side before the first face
+parallels_along = "x"
+parallels_centres_mm = [[17.1, 0.5], [17.1, 25.7]] # AUTHOR'S CHOICE: under both edges of the bar
+note = "Bar flat on 1-1/4 in parallels, left side up; it stands 5.3 mm above the jaws. Face the left side just enough to clean up: it is the reference face for every later setup."
+
+[setups.zero.x]
+edge = "sawn crown end"
+edge_mm = -1.9                   # AUTHOR'S CHOICE: the sawn end, 1.9 over the crown end
+from = "-x"
+tool = "edge-finder"
+check_jog_mm = 10.0
+
+[setups.zero.y]
+edge = "front edge"
+edge_mm = -2.775                 # AUTHOR'S CHOICE: the bar's front edge above the jaw, 2.775 over the outer end
+from = "-y"
+tool = "edge-finder"
+check_jog_mm = 10.0
+
+[setups.zero.z]
+face = "top"
+method = "paper"
+paper_mm = 0.05                  # AUTHOR'S CHOICE; not an inventory measurement
+tool = "endmills-lms-6784/3-4in-4fl"
+check_jog_mm = 10.0
+retouch_after = [10]
+
+[[setups.ops]]
+op = 10
+do = "face"
+feature = "blank_left"
+tool = "endmills-lms-6784/3-4in-4fl"
+holder = "r8-collets-lms-4860/3-4in"
+approach_mm = 5.0                # AUTHOR'S CHOICE: rapid plane above the raw side
+to_z = 0.0
+direction = "conventional"       # AUTHOR'S CHOICE: hand-fed mill
+doc_mm = 0.525                   # AUTHOR'S CHOICE: one 0.525 pass, inside the .250 in end-mill depth basis of Machinery's Handbook 27th ed. Table 15a p.1054
+stock_removal_bounds = { x = [-1.9, 36.1], y = [-2.775, 28.975], z = [0.0, 0.525] } # the whole raw left side
+contour = { method = "linear_table", step_mm = 12.7 } # AUTHOR'S CHOICE: 2/3 of the 19.05 cutter per pass
+note = "Face the whole left side flat, X -1.9..36.1 and Y -2.775..28.975, from Z +0.525 to Z0. Mark it as the reference face."
+
+[[setups]]
+id = "P2"
+machine = "PM-30MV"
+frame = "PB"
+coolant = "cutting-oil"           # AUTHOR'S CHOICE
+deburr_mm = 0.25                 # AUTHOR'S CHOICE: stone the faced edges so the next face seats flat
+stock_in = "P1"
+
+[setups.stock_state]             # frame PB
+top_z = 2.775                    # raw outer end, 2.775 over
+bottom_z = -28.975               # raw free end
+
+[setups.hold]
+fixture = "vise-pm-6"
+jaws_along = "x"                 # AUTHOR'S CHOICE: bar on edge, jaws on the two wide sides
+fixed_jaw = "rear"               # the faced left side against the fixed jaw
+parallels = "parallels-lms-6745/1in"
+jaw_bar = "jaw-round-bar"        # AUTHOR'S CHOICE: round bar against the moving jaw because the raw right side is not square to the faced left side; the bar lets the left side seat flat on the fixed jaw
+jaw_center_along_mm = 17.1        # AUTHOR'S CHOICE: the 38 mm bar centred in the jaws
+stop = "No end stop: centre the bar in the jaws on the parallels." # AUTHOR'S CHOICE
+grip_mm = 19.5453                # measured jaw 1.7695 in - 1 in parallels, x 25.4
+jaw_above_parallels_mm = 19.5453
+clamp = "hand plus quarter turn, then tap the bar down onto the parallels with a soft hammer" # AUTHOR'S CHOICE
+parallels_along = "x"
+parallels_centres_mm = [[17.1, -2.0], [17.1, -16.5]] # AUTHOR'S CHOICE: under both sides of the bar
+note = "Bar on edge on 1 in parallels, the faced left side against the fixed jaw; it stands 12.2 mm above the jaws. The outer end comes out square to the left side."
+
+[setups.zero.x]
+edge = "sawn crown end"
+edge_mm = -1.9                   # AUTHOR'S CHOICE: the sawn end, 1.9 over the crown end
+from = "-x"
+tool = "edge-finder"
+check_jog_mm = 10.0
+
+[setups.zero.y]
+edge = "blank_left"
+edge_mm = 0.0                    # the faced left side, above the fixed jaw
+from = "+y"
+tool = "edge-finder"
+check_jog_mm = 10.0
+
+[setups.zero.z]
+face = "top"
+method = "paper"
+paper_mm = 0.05                  # AUTHOR'S CHOICE; not an inventory measurement
+tool = "endmills-lms-6784/3-4in-4fl"
+check_jog_mm = 10.0
+retouch_after = [10]
+
+[[setups.ops]]
+op = 10
+do = "face"
+feature = "blank_outer_end"
+tool = "endmills-lms-6784/3-4in-4fl"
+holder = "r8-collets-lms-4860/3-4in"
+approach_mm = 5.0                # AUTHOR'S CHOICE: rapid plane above the raw edge
+to_z = 0.0
+direction = "conventional"       # AUTHOR'S CHOICE: hand-fed mill
+doc_mm = 1.4                     # AUTHOR'S CHOICE: two passes of 1.4 and 1.375, inside the .250 in end-mill depth basis of Machinery's Handbook 27th ed. Table 15a p.1054
+stock_removal_bounds = { x = [-1.9, 36.1], y = [-18.525, 0.0], z = [0.0, 2.775] } # the whole raw outer end
+contour = { method = "linear_table", step_mm = 12.7 } # AUTHOR'S CHOICE: 2/3 of the 19.05 cutter per pass
+note = "Face the outer end from Z +2.775 to Z0 in two passes."
+
+[[setups]]
+id = "P3"
+machine = "PM-30MV"
+frame = "PC"
+coolant = "cutting-oil"           # AUTHOR'S CHOICE
+deburr_mm = 0.25                 # AUTHOR'S CHOICE: stone the faced edges so the next face seats flat
+stock_in = "P2"
+
+[setups.stock_state]             # frame PC
+top_z = 2.775                    # raw free end
+bottom_z = -26.2                 # the faced outer end
+
+[setups.hold]
+fixture = "vise-pm-6"
+jaws_along = "x"                 # AUTHOR'S CHOICE: bar on edge, jaws on the two wide sides
+fixed_jaw = "rear"               # the faced left side against the fixed jaw
+parallels = "parallels-lms-6745/1in"
+jaw_bar = "jaw-round-bar"        # AUTHOR'S CHOICE: round bar against the moving jaw because the raw right side is not square to the faced left side; the bar lets the left side seat flat on the fixed jaw
+jaw_center_along_mm = 17.1        # AUTHOR'S CHOICE: the 38 mm bar centred in the jaws
+stop = "No end stop: centre the bar in the jaws on the parallels." # AUTHOR'S CHOICE
+grip_mm = 19.5453                # measured jaw 1.7695 in - 1 in parallels, x 25.4
+jaw_above_parallels_mm = 19.5453
+clamp = "hand plus quarter turn, then tap the bar down onto the parallels with a soft hammer" # AUTHOR'S CHOICE
+parallels_along = "x"
+parallels_centres_mm = [[17.1, -2.0], [17.1, -16.5]] # AUTHOR'S CHOICE: under both sides of the bar
+note = "Bar on edge on 1 in parallels, the faced outer end down and the faced left side against the fixed jaw."
+
+[setups.zero.x]
+edge = "sawn seat end"
+edge_mm = -1.9                   # AUTHOR'S CHOICE: the sawn end, 1.9 over the seat end
+from = "-x"
+tool = "edge-finder"
+check_jog_mm = 10.0
+
+[setups.zero.y]
+edge = "blank_left"
+edge_mm = 0.0                    # the faced left side, above the fixed jaw
+from = "+y"
+tool = "edge-finder"
+check_jog_mm = 10.0
+
+[setups.zero.z]
+face = "top"
+method = "measure_then_set"      # AUTHOR'S CHOICE: the raw edge is not reliably 28.975 over the outer end
+gauge = "micrometers/1-2in"
+measure = "before clamping: mike the bar from the faced outer end to the raw free end"
+offset_mm = -26.2                # Axis Set Z = M - 26.2 + paper puts Z0 on the 26.2 face
+paper_mm = 0.05                  # AUTHOR'S CHOICE; not an inventory measurement
+tool = "endmills-lms-6784/3-4in-4fl"
+check_jog_mm = 10.0
+retouch_after = [10]
+
+[[setups.ops]]
+op = 10
+do = "face"
+feature = "blank_free_end"
+tool = "endmills-lms-6784/3-4in-4fl"
+holder = "r8-collets-lms-4860/3-4in"
+approach_mm = 5.0                # AUTHOR'S CHOICE: rapid plane above the raw edge
+to_z = 0.0
+direction = "conventional"       # AUTHOR'S CHOICE: hand-fed mill
+doc_mm = 1.4                     # AUTHOR'S CHOICE: two passes of 1.4 and 1.375, inside the .250 in end-mill depth basis of Machinery's Handbook 27th ed. Table 15a p.1054
+stock_removal_bounds = { x = [-1.9, 36.1], y = [-18.525, 0.0], z = [0.0, 2.775] } # the whole raw free end
+contour = { method = "linear_table", step_mm = 12.7 } # AUTHOR'S CHOICE: 2/3 of the 19.05 cutter per pass
+note = "Face the free end to Z0, 26.2 over the outer end, in two passes."
+
+[[setups]]
+id = "P4"
+machine = "PM-30MV"
+frame = "PD"
+coolant = "cutting-oil"           # AUTHOR'S CHOICE
+deburr_mm = 0.25                 # AUTHOR'S CHOICE: stone the faced edges so the next face seats flat
+stock_in = "P3"
+
+[setups.stock_state]             # frame PD
+top_z = 0.525                    # raw right side
+bottom_z = -18.0                 # the faced left side
+
+[setups.hold]
+fixture = "vise-pm-6"
+jaws_along = "x"                 # AUTHOR'S CHOICE: bar flat, jaws on the two faced edges
+fixed_jaw = "rear"               # the faced outer end against the fixed jaw
+parallels = "parallels-lms-6745/1-1-4in"
+jaw_center_along_mm = 17.1        # AUTHOR'S CHOICE: the 38 mm bar centred in the jaws
+stop = "No end stop: centre the bar in the jaws on the parallels." # AUTHOR'S CHOICE
+grip_mm = 13.1953                # measured jaw 1.7695 in - 1-1/4 in parallels, x 25.4
+jaw_above_parallels_mm = 13.1953
+clamp = "hand plus quarter turn, then tap the bar down until both parallels are pinned" # AUTHOR'S CHOICE: the left side seats flat on both parallels
+parallels_along = "x"
+parallels_centres_mm = [[17.1, 2.0], [17.1, 24.2]] # AUTHOR'S CHOICE: under both edges of the bar
+note = "Bar flat on 1-1/4 in parallels, the faced left side down. The right side comes out parallel to the left side."
+
+[setups.zero.x]
+edge = "sawn crown end"
+edge_mm = -1.9                   # AUTHOR'S CHOICE: the sawn end, 1.9 over the crown end
+from = "-x"
+tool = "edge-finder"
+check_jog_mm = 10.0
+
+[setups.zero.y]
+edge = "blank_free_end"
+edge_mm = 0.0                    # the faced free end, above the moving jaw
+from = "-y"
+tool = "edge-finder"
+check_jog_mm = 10.0
+
+[setups.zero.z]
+face = "top"
+method = "measure_then_set"      # AUTHOR'S CHOICE: the raw side is not reliably 18.525 over the left side
+gauge = "micrometers/0-1in"
+measure = "before clamping: mike the bar from the faced left side to the raw right side"
+offset_mm = -18.0                # Axis Set Z = M - 18.0 + paper puts Z0 on the 18.0 face
+paper_mm = 0.05                  # AUTHOR'S CHOICE; not an inventory measurement
+tool = "endmills-lms-6784/3-4in-4fl"
+check_jog_mm = 10.0
+retouch_after = [10]
+
+[[setups.ops]]
+op = 10
+do = "face"
+feature = "blank_right"
+tool = "endmills-lms-6784/3-4in-4fl"
+holder = "r8-collets-lms-4860/3-4in"
+approach_mm = 5.0                # AUTHOR'S CHOICE: rapid plane above the raw side
+to_z = 0.0
+direction = "conventional"       # AUTHOR'S CHOICE: hand-fed mill
+doc_mm = 0.525                   # AUTHOR'S CHOICE: one 0.525 pass, inside the .250 in end-mill depth basis of Machinery's Handbook 27th ed. Table 15a p.1054
+stock_removal_bounds = { x = [-1.9, 36.1], y = [0.0, 26.2], z = [0.0, 0.525] } # the whole raw right side
+contour = { method = "linear_table", step_mm = 12.7 } # AUTHOR'S CHOICE: 2/3 of the 19.05 cutter per pass
+note = "Face the right side to Z0, 18.0 over the left side."
+
+[[setups]]
+id = "P5"
+machine = "PM-30MV"
+frame = "PE"
+coolant = "cutting-oil"           # AUTHOR'S CHOICE
+deburr_mm = 0.25                 # AUTHOR'S CHOICE: stone the faced edges so the next face seats flat
+stock_in = "P4"
+
+[setups.stock_state]             # frame PE
+top_z = 1.9                      # sawn crown end
+bottom_z = -36.1                 # sawn seat end
+
+[setups.hold]
+fixture = "vise-pm-6"
+jaws_along = "x"                 # AUTHOR'S CHOICE: bar standing on end, jaws on the two wide sides
+fixed_jaw = "rear"               # the faced left side against the fixed jaw
+parallels = "parallels-lms-6745/5-8in"
+jaw_bar = "jaw-round-bar"        # AUTHOR'S CHOICE: round bar against the moving jaw because a tilted moving jaw would rock the bar; the bar presses on one line so only the faced left side on the fixed jaw sets the end square
+jaw_center_along_mm = 13.1        # the 26.2 run centred in the jaws
+stop = "No end stop: centre the bar in the jaws; stand the faced outer end square to the table with the DTI before tightening." # AUTHOR'S CHOICE
+grip_mm = 29.0703                # measured jaw 1.7695 in - 5/8 in parallels, x 25.4
+jaw_above_parallels_mm = 29.0703
+clamp = "snug, sweep the outer end with the DTI down its 30 mm, tap square, then hand plus quarter turn" # AUTHOR'S CHOICE: the end must come out square to both long faces
+parallels_along = "x"
+parallels_centres_mm = [[13.1, -2.0], [13.1, -16.0]] # AUTHOR'S CHOICE: under both sides of the bar
+note = "Bar standing on its sawn seat end on 5/8 in parallels, the faced left side against the fixed jaw; it stands 8.9 mm above the jaws. Before tightening, sweep the faced outer end square to the table with the DTI."
+
+[setups.zero.x]
+edge = "blank_free_end"
+edge_mm = 0.0                    # the faced free end, above the jaws
+from = "-x"
+tool = "edge-finder"
+check_jog_mm = 10.0
+
+[setups.zero.y]
+edge = "blank_left"
+edge_mm = 0.0                    # the faced left side, above the fixed jaw
+from = "+y"
+tool = "edge-finder"
+check_jog_mm = 10.0
+
+[setups.zero.z]
+face = "top"
+method = "paper"
+paper_mm = 0.05                  # AUTHOR'S CHOICE; not an inventory measurement
+tool = "endmills-lms-6784/3-4in-4fl"
+check_jog_mm = 10.0
+retouch_after = [10]
+
+[[setups.ops]]
+op = 10
+do = "face"
+feature = "blank_crown_end"
+tool = "endmills-lms-6784/3-4in-4fl"
+holder = "r8-collets-lms-4860/3-4in"
+approach_mm = 5.0                # AUTHOR'S CHOICE: rapid plane above the sawn end
+to_z = 0.0
+direction = "conventional"       # AUTHOR'S CHOICE: hand-fed mill
+doc_mm = 1.9                     # AUTHOR'S CHOICE: one 1.9 pass, inside the .250 in end-mill depth basis of Machinery's Handbook 27th ed. Table 15a p.1054
+stock_removal_bounds = { x = [0.0, 26.2], y = [-18.0, 0.0], z = [0.0, 1.9] } # the whole sawn crown end
+contour = { method = "linear_table", step_mm = 9.0 } # AUTHOR'S CHOICE: two passes over the 18 mm end
+note = "Face the sawn crown end from Z +1.9 to Z0."
+
+[[setups]]
+id = "P6"
+machine = "PM-30MV"
+frame = "PF"
+coolant = "cutting-oil"           # AUTHOR'S CHOICE
+deburr_mm = 0.25                 # AUTHOR'S CHOICE: stone the faced edges before S1
+stock_in = "P5"
+
+[setups.stock_state]             # frame PF
+top_z = 1.9                      # sawn seat end
+bottom_z = -34.2                 # the faced crown end
+
+[setups.hold]
+fixture = "vise-pm-6"
+jaws_along = "x"                 # AUTHOR'S CHOICE: bar standing on end, jaws on the two wide sides
+fixed_jaw = "rear"               # the faced left side against the fixed jaw
+parallels = "parallels-lms-6745/5-8in"
+jaw_bar = "jaw-round-bar"        # AUTHOR'S CHOICE: round bar against the moving jaw because a tilted moving jaw would rock the bar; the bar presses on one line so only the faced left side on the fixed jaw sets the end square
+jaw_center_along_mm = 13.1        # the 26.2 run centred in the jaws
+stop = "No end stop: centre the bar in the jaws, faced crown end down on the parallels." # AUTHOR'S CHOICE
+grip_mm = 29.0703                # measured jaw 1.7695 in - 5/8 in parallels, x 25.4
+jaw_above_parallels_mm = 29.0703
+clamp = "hand plus quarter turn, then tap the bar down until both parallels are pinned" # AUTHOR'S CHOICE: the faced crown end seats flat
+parallels_along = "x"
+parallels_centres_mm = [[13.1, -2.0], [13.1, -16.0]] # AUTHOR'S CHOICE: under both sides of the bar
+note = "Bar standing on its faced crown end on 5/8 in parallels, the faced left side against the fixed jaw; it stands 7.0 mm above the jaws."
+
+[setups.zero.x]
+edge = "blank_outer_end"
+edge_mm = 0.0                    # the faced outer end, above the jaws
+from = "-x"
+tool = "edge-finder"
+check_jog_mm = 10.0
+
+[setups.zero.y]
+edge = "blank_left"
+edge_mm = 0.0                    # the faced left side, above the fixed jaw
+from = "+y"
+tool = "edge-finder"
+check_jog_mm = 10.0
+
+[setups.zero.z]
+face = "top"
+method = "measure_then_set"      # AUTHOR'S CHOICE: the sawn end is not reliably 36.1 over the crown end
+gauge = "micrometers/1-2in"
+measure = "before clamping: mike the bar from the faced crown end to the sawn seat end"
+offset_mm = -34.2                # Axis Set Z = M - 34.2 + paper puts Z0 on the 34.2 face
+paper_mm = 0.05                  # AUTHOR'S CHOICE; not an inventory measurement
+tool = "endmills-lms-6784/3-4in-4fl"
+check_jog_mm = 10.0
+retouch_after = [10]
+
+[[setups.ops]]
+op = 10
+do = "face"
+feature = "blank_seat_end"
+tool = "endmills-lms-6784/3-4in-4fl"
+holder = "r8-collets-lms-4860/3-4in"
+approach_mm = 5.0                # AUTHOR'S CHOICE: rapid plane above the sawn end
+to_z = 0.0
+direction = "conventional"       # AUTHOR'S CHOICE: hand-fed mill
+doc_mm = 1.9                     # AUTHOR'S CHOICE: one 1.9 pass, inside the .250 in end-mill depth basis of Machinery's Handbook 27th ed. Table 15a p.1054
+stock_removal_bounds = { x = [0.0, 26.2], y = [-18.0, 0.0], z = [0.0, 1.9] } # the whole sawn seat end
+contour = { method = "linear_table", step_mm = 9.0 } # AUTHOR'S CHOICE: two passes over the 18 mm end
+note = "Face the sawn seat end to Z0, 34.2 over the crown end."
+
 # ======================================================================= S1
 [[setups]]
 id = "S1"
@@ -87,7 +592,7 @@ machine = "PM-30MV"
 frame = "TA"                     # seat up; frame x/y/z = machine +X/+Y/+Z
 coolant = "cutting-oil"           # author's choice: brush listed cutting oil on cuts
 deburr_mm = 0.25                 # example (plausible): title-block edge break R0.25 adopted
-stock_in = "stock"
+stock_in = "P6"
 
 [setups.stock_state]             # frame A, surfaces as S1 receives them
 top_z = 1.0                      # author's choice: raw seat at model Y = -1
