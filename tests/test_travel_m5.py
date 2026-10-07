@@ -431,6 +431,8 @@ def test_facing_advances_hole_entry_and_preserves_prior_safe_approach():
     setup(data)["stock_state"].update(top_z=5, entry_z={"through": 5}, top_feature="outline")
     setup(data)["ops"][0].update(do="face", to_z=0, approach_mm=2)
     add_hole(data, "through", [10, 10, 0], 20, approach=4)
+    # Its Ø6 entry disc lies inside the outline faced to Z0: a held centre alone is no proof.
+    data.features["features"]["through"]["dia"] = 6
     finding = evaluate(data)[0]
     assert finding.status == "pass"
     assert finding.numbers["operations"][1]["endpoint"]["entry_z"] == 0
@@ -443,6 +445,7 @@ def test_pocket_advances_local_entry_without_moving_current_stock_top():
     setup(data)["stock_state"].update(entry_z={"through": 0})
     setup(data)["ops"][0].update(do="pocket", to_z=-2, approach_mm=3)
     add_hole(data, "through", [10, 10, 0], 20, approach=4)
+    data.features["features"]["through"]["dia"] = 6
     finding = evaluate(data)[0]
     assert finding.status == "pass"
     endpoint = finding.numbers["operations"][1]["endpoint"]

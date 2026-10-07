@@ -223,13 +223,20 @@ def cut_region(op):
 
 def cut_coverage(bundle, setup, op, target):
     """How much of surface ``target`` the cut ``op`` made: ``"whole"``, ``"partial"`` or
-    ``UNKNOWN``. An op without ``stock_removal_bounds`` cuts its whole feature. Else its
-    :func:`cut_region` and ``target``'s footprint (:func:`_setup_footprint`) decide:
-    ``"whole"`` when the region holds it, ``"partial"`` when it does not. An unknown
-    region or footprint leaves it unknown, never whole."""
-    if "stock_removal_bounds" not in op:
+    ``UNKNOWN``. An op without ``stock_removal_bounds`` cuts its whole feature, so all of
+    that feature, and of another surface only what its feature's footprint holds. Else
+    its :func:`cut_region`. The region and ``target``'s footprint
+    (:func:`_setup_footprint`) decide: ``"whole"`` when the region holds it,
+    ``"partial"`` when it does not. An unknown region or footprint leaves it unknown,
+    never whole; overlap or a held ``at`` point is never whole."""
+    own = mapping(mapping(bundle.feature_definitions).get(op.get("feature")))
+    if "stock_removal_bounds" in op:
+        region = cut_region(op)
+    elif target == own:
         return "whole"
-    region, held = cut_region(op), _setup_footprint(bundle, setup, target)
+    else:
+        region = _setup_footprint(bundle, setup, own)
+    held = _setup_footprint(bundle, setup, target)
     if held is None or region is None:
         return UNKNOWN
     if all(
