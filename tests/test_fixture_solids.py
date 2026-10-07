@@ -25,7 +25,8 @@ Part.makeBox(40, 20, 10).exportStep(out + "/plate.step")
 web = Part.makeBox(60, 20, 3).fuse(Part.makeBox(20, 20, 15, V(40, 0, 0))).removeSplitter()
 web.exportStep(out + "/web.step")
 # The plate with a vertical 4.004 bore at (30, 10): through, blind from the top down to
-# z 4, and through under a 6 counterbore 2 deep.
+# z 4, through under a 6 counterbore 2 deep, and through with a 6 relief at (32, 10) that
+# cuts its mouth (blind, z 8..10) or runs beside it all the way (through).
 hole = Part.makeCylinder(2.002, 12, V(30, 10, -1))
 bored = Part.makeBox(40, 20, 10).cut(hole)
 bored.exportStep(out + "/bored.step")
@@ -33,6 +34,8 @@ Part.makeBox(40, 20, 10).cut(Part.makeCylinder(2.002, 7, V(30, 10, 4))).exportSt
     out + "/blind.step"
 )
 bored.cut(Part.makeCylinder(3, 3, V(30, 10, 8))).exportStep(out + "/counterbored.step")
+bored.cut(Part.makeCylinder(3, 3, V(32, 10, 8))).exportStep(out + "/relieved.step")
+bored.cut(Part.makeCylinder(3, 12, V(32, 10, -1))).exportStep(out + "/cross-relieved.step")
 """
 
 MEASURED = {"by": "test", "date": "2026-10-05", "instrument": "test fixture author"}
@@ -51,7 +54,7 @@ def parts(tmp_path_factory, freecad_kernel):
         timeout=300,
     )
     paths = {path.stem: path for path in directory.glob("*.step")}
-    assert len(paths) == 6, process.stdout[-2000:] + process.stderr[-2000:]
+    assert len(paths) == 8, process.stdout[-2000:] + process.stderr[-2000:]
     return paths
 
 
@@ -445,6 +448,10 @@ def _pinned(engine, parts, land=None, at=(30.0, 10.0), part="bored", locator=Non
         ("bored", 6.0),
         # Through a dia 6 counterbore 2 deep: clear of its wall, it bears in the bore below.
         ("counterbored", 4.0),
+        # A dia 6 relief beside the bore cuts its mouth: the pin stands in the relief's
+        # circle and runs past where its wall would be, but that wall is gone.
+        ("relieved", 6.0),
+        ("cross-relieved", 6.0),
     ],
 )
 def test_a_locating_pin_bears_in_the_bore_its_land_stands_in(engine, parts, part, engaged):
@@ -471,6 +478,14 @@ ON_TOP = {"at_mm": [0.0, 0.0, -6.0]}  # the land stands on the plate top, z 10..
         (None, (45.0, 10.0), "bored", "stands in no bore of the stock"),
         # Oversize: it cannot enter the bore it is drawn in.
         ({"dia_mm": 4.1}, (30.0, 10.0), "bored", "dia 4.1 is larger than the dia 4.004 bore"),
+        ({"dia_mm": 4.1}, (30.0, 10.0), "relieved", "dia 4.1 is larger than the dia 4.004 bore"),
+        # Half a millimetre off the bore's axis: it runs into the wall.
+        (
+            None,
+            (30.5, 10.0),
+            "bored",
+            "dia 4.003 stands 0.5 off the axis of the dia 4.004 bore it stands in and crosses its wall",
+        ),
         # Loose: the collar rests on the top, but the land itself touches nothing.
         (
             {"dia_mm": 3.9},
@@ -497,7 +512,7 @@ def test_a_locating_pin_that_does_not_bear_in_a_bore_is_a_wall_debt(
     setup = _pinned(engine, parts, land, at, part)
     assert setup["locator_bearings"] == []
     (named,) = setup["strap_wall_debts"]
-    assert named.startswith("clamp 2 pin:land " + debt), named
+    assert named.startswith("clamp 2 pin:land ") and debt in named, named
 
 
 def test_a_flat_locator_bears_with_its_face(engine, parts):

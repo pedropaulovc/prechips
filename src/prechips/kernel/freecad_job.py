@@ -6773,31 +6773,38 @@ class _Setup:
 
         ``bore`` (:meth:`_bore_bearing`): its contact cylinder in a bore of the stock.
         ``face`` (:meth:`_face_bearing`): a flat face on the stock. Either way the solid
-        shares no more than STOCK_MM3 with the stock.
+        shares no more than STOCK_MM3 with the stock; one that shares more is the fault,
+        named by each bore wall it runs past where the stock it occupies meets that wall.
         """
+        crossing = []
         if bears == "bore":
-            witness, faults = self._bore_bearing(solid, bores)
+            witness, faults, crossing = self._bore_bearing(solid, bores)
         elif bears == "face":
             witness, faults = self._face_bearing(solid)
         else:
             return None, "declares what it locates but not whether it bears in a bore or on a face"
-        shared = solid.common(self.part).Volume
-        if shared > STOCK_MM3:
-            faults = [*faults, f"shares {_r(shared)} mm^3 with the stock"]
+        common = solid.common(self.part)
+        if common.Volume > STOCK_MM3:
+            faults = [
+                *(why for why, bore in crossing if common.distToShape(bore)[0] <= STOCK_TOL),
+                f"shares {_r(common.Volume)} mm^3 with the stock",
+            ]
         if faults:
             return None, "; ".join(dict.fromkeys(faults))
         return witness, None
 
     def _bore_bearing(self, solid, bores):
-        """(witness, []) when a radial locator bears in a bore of the stock, else (None,
-        faults).
+        """(witness, faults, crossings) of a radial locator in the bores of the stock.
 
         A convex cylinder of the solid stands in a concave cylinder of the stock (``bores``)
         when the two axes are parallel, its axis lies inside the bore and they overlap along
-        it by more than STOCK_TOL. It must be no larger than every bore it stands in and lie
-        wholly inside it, and come within STOCK_TOL of the wall of one: it may pass clear
-        through a larger section of the same hole (a counterbore) but must touch the section
-        it locates in. Its flat faces prove nothing.
+        it by more than STOCK_TOL. It bears in one whose full circle contains it and whose
+        actual wall it comes within STOCK_TOL of: the witness. It may pass clear through a
+        larger section of the same hole (a counterbore). One it runs past the full circle of
+        is a (why, bore face) crossing, not a fault by itself: that part of the circle may be
+        a neighbouring hole (a relief) rather than stock, so only stock the solid occupies
+        (:meth:`_locator_bearing`) makes it one. With no witness the faults say why; its flat
+        faces prove nothing.
         """
         touching, crossing, clear = None, [], []
         for face in solid.Faces:
@@ -6816,11 +6823,16 @@ class _Setup:
                     continue  # not standing in this bore
                 pin, hole = _r(2 * surface.Radius), _r(2 * bore_radius)
                 if surface.Radius > bore_radius + PLANE_TOL:
-                    crossing.append(f"dia {pin} is larger than the dia {hole} bore it stands in")
+                    crossing.append(
+                        (f"dia {pin} is larger than the dia {hole} bore it stands in", bore)
+                    )
                 elif off_axis + surface.Radius > bore_radius + PLANE_TOL:
                     crossing.append(
-                        f"dia {pin} stands {_r(off_axis)} off the axis of the dia {hole} bore "
-                        "it stands in and crosses its wall"
+                        (
+                            f"dia {pin} stands {_r(off_axis)} off the axis of the dia {hole} "
+                            "bore it stands in and crosses its wall",
+                            bore,
+                        )
                     )
                 elif (gap := face.distToShape(bore)[0]) > STOCK_TOL:
                     clear.append(
@@ -6836,11 +6848,9 @@ class _Setup:
                         "gap_mm": _r(gap),
                         "engaged_mm": _r(engaged),
                     }
-        if crossing:
-            return None, crossing
         if touching is not None:
-            return touching, []
-        return None, clear or ["stands in no bore of the stock"]
+            return touching, [], crossing
+        return None, clear or ["stands in no bore of the stock"], crossing
 
     def _face_bearing(self, solid):
         """(witness, []) when a flat locator bears with a flat face within STOCK_TOL of the
