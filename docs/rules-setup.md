@@ -14,7 +14,7 @@ known end station; mill setups need top/bottom Z. Authored supports, orientation
 parallels, jaws direction and locator are checked when supplied. Every nonmanual
 cut needs `direction` (face, profile, pocket, turn, form and parting actions
 included) except point/hole actions (`spot`, `drill`, `ream`, `tap`,
-`counterbore`, `center`) and saw cut-off (its `cut_plane` defines the setting);
+`counterbore`, `center`, `center_drill`) and saw cut-off (its `cut_plane` defines the setting);
 an explicitly supplied point/hole direction is also checked, and
 an explicitly unknown action without one is unknown. Missing/empty
 fields are errors; explicit unknown values are unknown. It does not compare
@@ -35,6 +35,29 @@ Templates:
 Evidence: hold record, stock stations, coolant, deburr, cut directions and
 missing fields. Citation: PLAN §4.1 hold fields. No invented grip or deburr
 limit appears as a fallback.
+
+## `centre_support`
+
+One subject per setup. Not applicable unless the hold rides on a centre: a
+dead/live centre `support`, or a declared `centre_hole` / `centre_hole_dia_mm`.
+The hold's `centre_hole` must name a plan
+[process feature](plan.md#process-features) `centre_hole`; a `center_drill`
+op of an earlier setup in this setup's `stock_in` lineage must drill it, and
+its `mouth_dia_mm` must equal `centre_hole_dia_mm`.
+
+- **error:** the lineage is fully declared and no earlier setup in it drills
+  the centre (none does, or only this setup or a later one does), or the hold's
+  seat and the drilled mouth differ;
+- **unknown:** `centre_hole` is undeclared, a lineage setup lacks `stock_in`, or
+  the seat or mouth diameter is unknown;
+- **pass:** otherwise, naming the setup and op that drilled it.
+
+Evidence: support, centre, the ops that drill it before and after, mouth and
+seat diameters, and the Table 6 depth arithmetic (`drill_length_mm`,
+`countersink_depth_mm`, `depth_mm`). The kernel separately seats the centre in
+the cut countersink and checks it against the setup-entry stock; that check is
+a fixture render debt, not this rule. Like `hold_fields`, its unknown blocks
+(exit 4) only where the shop policy requires it; an error always exits 2.
 
 ## `headroom`
 

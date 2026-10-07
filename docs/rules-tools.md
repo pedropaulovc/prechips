@@ -13,7 +13,9 @@ assembly `setup:op`. References include machine, tool, holder, gauges, fixture,
 parallels and supports, including declared member references. Missing named
 items are errors; unknown categories or unverified identities are unknown.
 Compatibility compares spindle taper or lathe toolpost series to holder
-interface, then shank against collet capacity, maximum shank or a capacity
+interface; a lathe's spindle-axis action (`spot`, `drill`, `ream`, `tap`,
+`center`, `center_drill`) rides in the tailstock quill, so its holder must fit
+the tailstock `taper` instead. Then shank against collet capacity, maximum shank or a capacity
 range. Shank lengths compare in mm with an absolute 1e-6 mm tolerance and no
 relative tolerance: equal capacity, the maximum and both range ends count as a
 fit, so `3/8` in and `9.525` mm agree. Unverified assemblies clear dimensional

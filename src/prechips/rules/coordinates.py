@@ -2403,6 +2403,8 @@ def evaluate(bundle, *, pre_kernel=False):
         residuals = _z_residuals(bundle, setup, grid, features)
         unknown = not frame or frame.get("binding") == UNKNOWN or blade_unknown
         if lathe:
+            from .geometry_common import _AXIAL_LATHE_ACTIONS
+
             numbers["x_display"] = (
                 "radius"
                 if dro.get("radius_mode") is True
@@ -2410,10 +2412,12 @@ def evaluate(bundle, *, pre_kernel=False):
                 if dro.get("radius_mode") is False
                 else UNKNOWN
             )
+            # A turning tool's printed X/Z targets need its nose radius; a tailstock tool on
+            # the spindle axis (centre drill, drill, reamer, tap) has none to compensate.
             unknown |= dro.get("controller", UNKNOWN) == UNKNOWN or any(
                 not number(length_mm(resolve(bundle, "tools", op.get("tool")) or {}, "nose_radius"))
                 for op in setup["ops"]
-                if "tool" in op
+                if "tool" in op and op.get("do") not in _AXIAL_LATHE_ACTIONS
             )
         plunge_errors = []  # blade plunges leaving a groove outside its drawing width
         grid_errors = []  # finish rows whose safe-side DRO grid point leaves more than the band

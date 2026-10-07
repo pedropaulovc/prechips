@@ -23,6 +23,7 @@ FACING = {"face", "rough_face", "finish_face"}
 POCKETING = {"pocket", "rough_pocket", "finish_pocket"}
 AXES = ("x", "y", "z")
 HOLE_OPS = {"spot", "drill", "ream", "tap", "counterbore", "bore"}
+_HOLE_KINDS = {"hole", "counterbore", "thread", "threaded_hole"}
 # Plan units of float residue within which two authored Zs are one surface.
 SAME_Z = 1e-9
 
@@ -447,6 +448,8 @@ def _producer(bundle, setup, value, face, done, source):
 
 
 def evaluate(bundle):
+    from prechips.process_features import centre_depth_mm, source_cite
+
     features = bundle.feature_definitions
     endpoints = {name: [] for name in features}
     unresolved = set()
@@ -455,10 +458,15 @@ def evaluate(bundle):
     for setup in bundle.plan["setups"]:
         for op, before, _ in stock_states(bundle, setup):
             name = op.get("feature")
-            if op.get("do") not in HOLE_OPS or name not in features:
+            if not isinstance(name, str) or name not in features:
                 continue
             feature = features[name]
-            if feature.get("kind") not in {"hole", "counterbore", "thread", "threaded_hole"}:
+            # A plan centre hole is drilled by a combined drill and countersink fed from
+            # the tailstock quill: its depth is its own Table 6 geometry, read on the quill.
+            centre = op.get("do") == "center_drill" and feature.get("kind") == "centre_hole"
+            if not centre and (
+                op.get("do") not in HOLE_OPS or feature.get("kind") not in _HOLE_KINDS
+            ):
                 continue
             entry = before["entry_z"].get(name, before["top_z"])
             row = {
@@ -474,7 +482,17 @@ def evaluate(bundle):
                 length_mm(tool, "dia"),
                 nominal_angle_deg(tool, "point_angle"),
             )
-            if action == "spot":
+            if centre:
+                depth = centre_depth_mm(feature)
+                row.update(
+                    depth_mm=depth["depth_mm"],
+                    countersink_depth_mm=depth["countersink_depth_mm"],
+                    drill_length_mm=depth["drill_length_mm"],
+                    depth_scale="quill",
+                    exit_face="not_applicable",
+                    tip_z=_subtract(entry, depth["depth_mm"]),
+                )
+            elif action == "spot":
                 depth = hole_depth_mm(op, feature, bundle.features.get("units"))
                 row.update(
                     depth_mm=depth,
@@ -557,7 +575,7 @@ def evaluate(bundle):
     result = []
     for name, feature in features.items():
         rows = endpoints[name]
-        if feature.get("kind") not in {"hole", "counterbore", "thread", "threaded_hole"}:
+        if feature.get("kind") not in _HOLE_KINDS | {"centre_hole"}:
             status, sentence = "not_applicable", "Not a hole; no tip endpoint applies."
         elif name in errors or name in negative_exit:
             sentence = " ".join(
@@ -589,7 +607,11 @@ def evaluate(bundle):
                 {"kind": feature.get("kind", UNKNOWN), "endpoints": rows},
                 [
                     "PLAN.md §4.1 tip endpoints",
-                    "features manifest hole geometry",
+                    *(
+                        [*source_cite(feature), *records(feature.get("cite"))]
+                        if feature.get("kind") == "centre_hole"
+                        else ["features manifest hole geometry"]
+                    ),
                     "plan stock_state and operation depth/exit",
                     "inventory selected tool geometry",
                 ],

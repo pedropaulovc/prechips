@@ -1266,6 +1266,19 @@ sheet.
    not applicable; saw cuts earn no finished-face coverage. Fixture modeling
    and input debt semantics remain operative.
 
+   **Process features shipped (2026-10-06, round-4 ShaftPrep):** plan-owned
+   `process_features` (`end_face`, `centre_hole`) are stock preparation the
+   kernel cuts through transient faces and later stock states carry; they earn
+   no finished-face or finish coverage and print no drawing-requirement row. A
+   hold's `centre_hole` binds the dead centre to a centre an earlier setup in
+   its `stock_in` lineage drills (`centre_support`: error when contradicted,
+   unknown when undeclared), seated in the cut countersink. Centre depth is
+   Table 6 drill length C plus the countersink to the mouth, printed on the
+   tailstock quill. The pivot-shaft S0 faces and centre-drills the plain end;
+   the saw cut stays a stock prerequisite (the bar it is cut from is not
+   declared). The catalogue gains `centre_support`; `rules_version` is unchanged
+   until the integrator refreezes goldens.
+
    Geometry checks and rasterized pictures use **setup-entry stock** selected
    explicitly by `stock_in`: `"stock"` for one supply, `"stock.<id>"` for a
    built-up component, any earlier setup id (not just the previous setup), or an
