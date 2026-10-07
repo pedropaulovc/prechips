@@ -205,7 +205,7 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
     ):
         # stock_state entry/top heights are machine-frame mm, never scaled by feature units.
         entry = UNKNOWN
-        for stock_op, before, _ in stock_states(setup, bundle.feature_definitions):
+        for stock_op, before, _ in stock_states(bundle, setup):
             if stock_op is op or stock_op.get("op") == op["op"]:
                 entry = before["entry_z"].get(op.get("feature"), before["top_z"])
                 break

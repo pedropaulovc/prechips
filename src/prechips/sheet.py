@@ -1501,7 +1501,7 @@ class _Traveler:
             pieces.append(_p(line + "."))
         retouches = {}
         tops = {
-            str(op["op"]): after["top_from"] for op, _, after in stock_states(setup, self.features)
+            str(op["op"]): after["top_from"] for op, _, after in stock_states(self.bundle, setup)
         }
         for record in numbers.get("retouch", []):
             # The top as the op that last faced it left it, else as the DRO shows it.
