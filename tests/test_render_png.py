@@ -1006,6 +1006,18 @@ def _stock_short_side(canvas, box):
     return min(max(p[i] for p in points) - min(p[i] for p in points) for i in (0, 1))
 
 
+def test_a_footer_raised_by_a_long_legend_lifts_the_stock_dimension_above_it():
+    # Fourteen legend rows raise the footer far above its usual place: the stock
+    # dimension rises with it, above the STOCK BOX line, never into the legend rows.
+    meshes, spec = _vise_spec(150)
+    spec["legend"] = [f"SOURCE NOTE {index}" for index in range(12)]
+    diagram = _Diagram(meshes, spec)
+    diagram.render()
+    (y,) = {y for (_, y), _ in diagram.dimensions.values()}
+    assert diagram.footer_top < 600
+    assert y < diagram.footer_top - 36
+
+
 @pytest.mark.parametrize(
     ("size", "touching", "detailed"),
     [(12, True, True), (150, True, False), (12, False, False)],

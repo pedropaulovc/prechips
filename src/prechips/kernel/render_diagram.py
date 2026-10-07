@@ -797,6 +797,8 @@ class _Diagram:
         )
         self.footer_top = min(self.footer_top, 984 - footer_height)
         self.scene_bottom = min(self.scene_bottom, self.footer_top - 120)
+        # The stock dimension row sits 66 px above the footer: a longer footer lifts it.
+        self.dimension_y = min(674, self.footer_top - 66)
         self.footer_top += extra
         # Label lanes: the first row's top and the last row's bottom limit; each side's
         # (text left, text width, leader end x), and the x that splits points between them.
@@ -1323,7 +1325,7 @@ class _Diagram:
 
     def _measurements(self):
         c = self.canvas
-        y = 674
+        y = self.dimension_y
         if self.stock is None:
             _text(c, 285, y, "STOCK EXTENTS: NOT DECLARED", _MUTED)
             return
@@ -1382,7 +1384,7 @@ class _Diagram:
                 # row, never from the stock-length extension line.
                 a = jaw_marker
                 b = c.project((box[0], box[1], box[5]))
-                dim_y = 622
+                dim_y = y - 52
                 c.line(a, (a[0], dim_y), _BLUE, width=2, dashed=True)
                 c.line(b, (b[0], dim_y), _BLUE, width=2, dashed=True)
                 _dimension(c, (a[0], dim_y), (b[0], dim_y), label, _BLUE)
