@@ -156,6 +156,9 @@ margin: 0 2pt -1pt 6pt; } .levels .level:first-child .tick { margin-left: 2pt; }
 table.fixture, table.blank-check { table-layout: auto; }
 table.fixture th, table.fixture td, table.blank-check th, table.blank-check td {
 min-width: 12ch; overflow-wrap: anywhere; word-break: normal; hyphens: none; }
+table.fixture td[data-label="Fastener"] { min-width: 14ch; }
+.fixture-feature { display: inline-block; max-width: 100%;
+break-inside: avoid; page-break-inside: avoid; }
 @media screen and (max-width: 640px) {
 html:not(.print-measuring) table.fixture,
 html:not(.print-measuring) table.blank-check { table-layout: fixed; }
@@ -498,6 +501,23 @@ _DUPLEX_JS = r"""(() => {
           ".field, .result-field, .authored-blank, .performed-mark, .reading, "
             + ".record-continuation, .op-details dt, [" + ADDED + "]"
         )) continue;
+        const feature = node.parentElement.closest(".fixture-feature");
+        if (feature) {
+          if (!atomicContexts.has(feature)) {
+            const parent = feature.parentNode,
+              slot = [...parent.childNodes].indexOf(feature),
+              before = [parent, slot], after = [parent, slot + 1];
+            const prefix = originalText(contentsAt(el, before));
+            // First continue before a complete feature clause, never between its
+            // identity and coordinates. Only a clause that still cannot fit with
+            // no earlier original source may use the ordinary measured fallback.
+            const atomic = fits(sourceBottom(el, after)) || prefix;
+            atomicContexts.set(feature, atomic);
+            if (prefix) points.push(before);
+            if (atomic) points.push(after);
+          }
+          if (atomicContexts.get(feature)) continue;
+        }
         const context = node.parentElement.closest(".page-context");
         if (context) {
           if (!atomicContexts.has(context)) {
@@ -1587,6 +1607,10 @@ class _Box(str):
     """A table-cell line printed as a bold boxed warning."""
 
 
+class _FixtureFeature(str):
+    """One unchanged fixture-feature identity and its complete location/depth clause."""
+
+
 # Every lathe X reading is a radius or a diameter: unread, each number is half or twice
 # the cut on the other display, so none prints.
 _X_DISPLAY_STOP = "STOP: X display not set (dro.radius_mode): X reads radius or diameter"
@@ -1646,6 +1670,8 @@ def _p(text, css=""):
 def _cell_line(line):
     if isinstance(line, _Box):
         return f'<span class="box">{_numeric_html(line)}</span>'
+    if isinstance(line, _FixtureFeature):
+        return f'<span class="fixture-feature">{_numeric_html(line)}</span>'
     return _numeric_html(line)
 
 
@@ -3406,7 +3432,7 @@ class _Traveler:
                     for void, name in voids
                     for tag, axes in placed
                 )
-                positions.append(f"with {count} × {what}: {spots}")
+                positions.append(_FixtureFeature(f"with {count} × {what}: {spots}"))
             rows.append(
                 [
                     component,

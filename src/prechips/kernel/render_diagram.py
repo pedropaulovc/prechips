@@ -2503,7 +2503,7 @@ class _Diagram:
 def _append_panel(diagram, detail, role, label):
     """Append a complete independently laid-out canvas; metadata uses its actual extent."""
     canvas, source = diagram.canvas, detail.canvas
-    if source.width != canvas.width or source.height > _PANEL_MAX_HEIGHT:
+    if source.width != canvas.width or not 0 < source.height <= _PANEL_MAX_HEIGHT:
         raise ValueError("complete diagram band exceeds its printable width or height")
     top = canvas.height
     canvas.grow(source.height)
@@ -2686,13 +2686,33 @@ def render_diagram(meshes, spec):
         if found != debts:
             debts = found
             continue
-        if not details:
-            return png, debts, diagram.print_panels
-        for detail in details:
-            _append_panel(diagram, detail, "holding_detail", detail._title())
-        diagram.canvas.assert_text_layout(min_scale=_BODY_SCALE)
-        return diagram.canvas.png(), debts, diagram.print_panels
+        diagram, png = _compose_diagram(diagram, details)
+        return png, debts, diagram.print_panels
     raise ValueError(f"setup picture debts do not settle: {debts}")
+
+
+def _compose_diagram(diagram, holding_details):
+    """Return ``(diagram, png)`` for a settled main stage with all final print bands.
+
+    Annotation bands precede the measured holding bands, each appended exactly once.
+    The object retains the independent details and their original specs; its text boxes
+    and leaders include their shifted copies in the one canonical final canvas.
+    """
+    if diagram.lane_overflow > 0:
+        raise ValueError("a setup stage with overflowing label lanes cannot be composed")
+    if hasattr(diagram, "holding_details"):
+        raise ValueError("the setup stage has already been composed")
+    diagram.annotation_details = _annotation_details(diagram.spec, diagram.canvas.scale)
+    diagram.holding_details = list(holding_details)
+    for detail in diagram.annotation_details:
+        _append_panel(diagram, detail, detail.role, detail._title())
+    for detail in diagram.holding_details:
+        _append_panel(diagram, detail, "holding_detail", detail._title())
+    diagram.render_debts = [
+        debt for detail in diagram.holding_details for debt in detail.render_debts
+    ] + diagram.render_debts
+    diagram.canvas.assert_text_layout(min_scale=_BODY_SCALE)
+    return diagram, diagram.canvas.png()
 
 
 def _main_diagram(meshes, spec):
