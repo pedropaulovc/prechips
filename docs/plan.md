@@ -777,7 +777,7 @@ A list on any other action is `BadInput`.
 
 **Finishing route.** `deburr` and `coating` are manual bench actions. A
 `coating` op (black oxide, paint, oil) names its `process`: an outside
-`[services.<id>]` item or in-house `[consumables] <id>`. An absent process is
+`[services.<id>]` item or in-house `[consumables.<id>]`. An absent process is
 unknown in `tool_resolves`, and an unlisted one is an error. A drawing
 `material.finish` with no `coating` op in the route is a job caution
 (`finish_route`, [inspection rules](rules-inspection.md)).
