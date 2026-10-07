@@ -364,6 +364,12 @@ Other holding solids come from the same accepted-fact rule, never defaults:
   the goal lies inside the max. A record without `max_mm` is a characterisation:
   recorded, not judged. A record's `gauge` is a `gauges` key; one the shop list
   does not have prints `? <key>`.
+  Any prose (a `note`, a record's `check` or `how`, a plan note) names an
+  inventory item as `<category>.<key>[/<member>]` (`gauges.granite-surface-plate`,
+  `tools.reamers-metric/6.49mm`), category one of `machines`, `tools`,
+  `holders`, `fixtures`, `gauges`, `services`. The traveler prints the item's
+  shop name in its place, or `? <key>` when the shop list does not have it, and
+  `tool_resolves` checks it (docs/rules-tools.md).
   An angle plate's (or posed shop-made fixture's) lowest box that is not bought
   is its base: HOLD prints its underside Z, an angle plate's working face (local
   y = 0, facing local -y) and the base's `fastener` as the hold-down; with any

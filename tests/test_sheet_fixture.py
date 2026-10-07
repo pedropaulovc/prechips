@@ -360,6 +360,38 @@ def test_malformed_record_blanks_are_rejected(bad):
         Inventory.model_validate(screw(bad))
 
 
+def test_inventory_keys_named_in_make_notes_print_as_the_item():
+    from prechips.rules import tool_resolves
+
+    note = "lap it with gauges.dti on gauges.granite-plate, then gauges.dti/0.5in."
+    head = cylinder("head", 0, 8.26, 8, 4, note=note)
+    data = bundle([{"fixture": "bridge", "pose": IDENTITY}])
+    data.inventory["gauges"] = {"dti": {"kind": "dti", "name": "test indicator"}}
+    data.inventory["fixtures"]["bridge"] = {
+        "kind": "custom",
+        "solids": [
+            {"name": "beam", "shape": "box", "at_mm": [-30, -5, 0], "size_mm": [60, 10, 8.26]},
+            head,
+        ],
+    }
+    page = sheets(data)[0]
+    assert "with test indicator on" in page and "gauges." not in page
+    assert "? granite-plate" in page
+    named = {f.subject: f.status for f in tool_resolves.evaluate(data) if f.numbers.get("named_in")}
+    assert named["gauges.dti"] == "pass"
+    assert named["gauges.granite-plate"] == "unknown"
+    assert named["gauges.dti/0.5in"] == "unknown"
+
+
+def test_a_record_gauge_must_be_in_the_shop_list():
+    from prechips.rules import tool_resolves
+
+    data, page = record_page({**RECORD, "gauge": "no-such-gauge"})
+    assert "? no-such-gauge" in page
+    named = {f.subject: f.status for f in tool_resolves.evaluate(data) if f.numbers.get("named_in")}
+    assert named["gauges.no-such-gauge"] == "unknown"
+
+
 def test_bought_part_drawn_as_head_and_shank_counts_once():
     screw = {"supply": "bought", "fastener": "M8 SHCS"}
     parts = [

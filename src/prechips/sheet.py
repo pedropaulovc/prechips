@@ -23,12 +23,14 @@ from .rules.hold_fields import align_indicator, align_travel
 from .rules.inspection import go_no_go_pair
 from .rules.resolution import (
     MANUAL,
+    NAMED_REFERENCE,
     SAW_OPS,
     WORKHOLDING_CATEGORIES,
     coating_process,
     drawing_precision,
     inventory_category,
     length_mm,
+    named_item,
     op_feature,
     op_features,
     printed_band,
@@ -36,6 +38,7 @@ from .rules.resolution import (
     saw_setup,
     selected_references,
     setup_frame,
+    shop_made_item,
     workholding_category,
 )
 from .rules.resolution import record as _mapping
@@ -1413,6 +1416,16 @@ class _Traveler:
             lambda m: self.feature_name(self.faces[m[0]]) if m[0] in self.faces else "a face",
             text,
         )
+        # An inventory item named in prose (``gauges.dti``) prints as its shop name; one
+        # the shop list does not have prints ``? <key>`` (tool_resolves reports it unknown).
+        text = NAMED_REFERENCE.sub(
+            lambda m: (
+                reference_label(self.bundle, m[2], m[1]).removesuffix(" (not in shop list)")
+                if named_item(self.bundle, m[0]) is not None
+                else f"? {m[2]}"
+            ),
+            text,
+        )
         for reference, label in sorted(self.references.items(), key=lambda pair: -len(pair[0])):
             text = text.replace(reference, label)
         for key in sorted(self.features, key=len, reverse=True):
@@ -1859,19 +1872,8 @@ class _Traveler:
 
     # ------------------------------------------------------------ shop-made
     def shop_made(self, reference):
-        """The inventory record of a shop-made holding item (``kind = "custom"`` or flagged
-        ``shop_made``) with something to make, else None: an item whose every solid is
-        bought or existing (a plain ground plate) has no make table."""
-        if not isinstance(reference, str) or reference in ("unknown", "none", "not_applicable"):
-            return None
-        category = inventory_category(self.bundle, reference, WORKHOLDING_CATEGORIES)
-        item = _mapping(resolve(self.bundle, category or "fixtures", reference))
-        if not (item.get("kind") == "custom" or item.get("shop_made") is True):
-            return None
-        solids = [s for s in item.get("solids") or [] if isinstance(s, dict)]
-        if solids and not any(_supply(s) == "made" for s in solids):
-            return None
-        return item
+        """The shop-made holding item with something to make (:func:`shop_made_item`)."""
+        return shop_made_item(self.bundle, reference)
 
     def shop_made_uses(self, setup):
         """``{reference: [(label, pose)]}`` for each shop-made item the hold uses, in HOLD
@@ -2383,7 +2385,7 @@ class _Traveler:
         tools = []
         gauge = blank.get("gauge")
         if isinstance(gauge, str) and gauge not in ("none", "not_applicable"):
-            present = resolve(self.bundle, "gauges", gauge) is not None
+            present = named_item(self.bundle, f"gauges.{gauge}") is not None
             tools.append(self.reference(gauge, "gauges") if present else f"? {gauge}")
         if _stated(blank.get("how")):
             tools.append(self.bench(blank["how"]))
