@@ -912,7 +912,7 @@ stock_removal_bounds = { x = [-160.0, 160.0], y = [-31.7, 20.0], z = [-2.27825, 
 [[setups.ops]]
 op = 25
 do = "inspect"
-feature = "strap_datum_b"
+feature = "strap_faces"
 note = "Check the strap thickness with a micrometer after finishing both sides; measure clear of the hub, support contacts and edge burrs."
 [setups.ops.checks]
 thickness = "micrometers/0-1in"
