@@ -283,15 +283,18 @@ REQUIREMENTS** (feature → limits, ending with the drawing's edge break printed
 once for the job as `all edges`; two features on the same model faces carrying
 the same known limits and nominal print them once on one row naming both,
 `strap faces / strap (datum B)` — a shared citation or equal numbers alone never
-merge rows, nor does an unknown limit; a stock thickness prints only when no
+merge rows, nor does an unknown limit, nor a band whose nominal is unknown or
+omitted; a stock thickness prints only when no
 feature carries a thickness limit). Authored values keep their digits (a 1.9875
-mm pin, a 0.0254 mm runout limit); only computed numbers are cut to DRO
+mm pin, a 0.0254 mm runout limit, `allowed -1234.5675 to -1234.5671`); only
+computed numbers are cut to DRO
 resolution. A drawing limit printed at the drawing's precision rounds inward,
 never looser: a band's low limit up and high limit down, a zone or maximum
 (position, coaxiality, angularity, Ra, the edge break) down (`position Ø 0.045`
 at two places prints 0.04) and to more places rather than to nothing; a band too
-narrow for that precision, or with one limit unknown, prints each limit as
-declared.
+narrow for that precision, or with one limit unknown, prints each known limit
+exactly as declared, every digit it holds (`?–1234.567` at three places, never
+`?–1234.57`).
 
 Each setup then prints as one **front sheet** to run the setup from, followed
 by attached sheets the front sheet points to. Every sheet starts on a new

@@ -1,6 +1,7 @@
 """Operation-sheet wording a machinist acts on: printed bands and index directions."""
 
 import functools
+import random
 import re
 from html import unescape
 from pathlib import Path
@@ -1275,11 +1276,12 @@ def _strap(band=(1.99, 3.01), faces=("#410/ADVANCED_FACE[9]/STRAP",), nominal=2.
         "kind": "face",
         "requirements": ["thickness"],
         "thickness": list(band) if isinstance(band, tuple) else band,
-        "thickness_nominal": nominal,
         "precision": {"thickness": 2},
         # One cited drawing source: a sheet carries many dimensions, so it proves nothing.
         "cite": {"thickness": ["drawing.pdf page 1"]},
     }
+    if nominal is not None:
+        face["thickness_nominal"] = nominal
     return face if faces is None else {**face, "faces": list(faces)}
 
 
@@ -1298,6 +1300,8 @@ def _strap(band=(1.99, 3.01), faces=("#410/ADVANCED_FACE[9]/STRAP",), nominal=2.
         (_strap(band="unknown"), _strap(band="unknown"), False),
         (_strap(band=(1.99, "unknown")), _strap(band=(1.99, "unknown")), False),
         (_strap(nominal="unknown"), _strap(nominal="unknown"), False),
+        # An omitted nominal is no more known than one declared unknown.
+        (_strap(nominal=None), _strap(nominal=None), False),
     ],
 )
 def test_two_features_share_a_requirement_row_only_on_the_same_faces_and_known_limits(
@@ -1329,15 +1333,64 @@ def test_a_drawing_maximum_never_prints_looser_than_declared(requirement, limit,
     assert 0 < printed <= limit, limits
 
 
-@pytest.mark.parametrize("band", [[5.904, "unknown"], ["unknown", 6.096], [6.0, 6.004]])
-def test_a_band_not_printable_inward_keeps_each_declared_limit(band):
-    # One limit unknown, or too narrow for the drawing's two decimals: no known limit
-    # prints looser than declared, and the unknown one stays unknown.
-    bore = {"kind": "hole", "requirements": ["dia"], "dia": band, "precision": {"dia": 2}}
+@pytest.mark.parametrize(
+    ("band", "precision"),
+    [
+        ([5.904, "unknown"], 2),
+        (["unknown", 6.096], 2),
+        ([6.0, 6.004], 2),
+        # Rail-length magnitudes, where significant digits and decimal places differ.
+        ([1234.564, "unknown"], 3),
+        (["unknown", 1234.567], 3),
+        ([1234.5671, 1234.5674], 3),
+    ],
+)
+def test_a_band_not_printable_inward_keeps_each_declared_limit(band, precision):
+    # One limit unknown, or too narrow for the drawing's decimals: no known limit prints
+    # looser than declared, and the unknown one stays unknown.
+    bore = {"kind": "hole", "requirements": ["dia"], "dia": band, "precision": {"dia": precision}}
     ((_, limits),) = [row for row in _requirement_rows({"bore": bore}) if row[0] == "bore"]
     low, high = limits.removeprefix("Ø ").split("–")
     assert low == "?" if band[0] == "unknown" else float(low) >= band[0], limits
     assert high == "?" if band[1] == "unknown" else float(high) <= band[1], limits
+
+
+def test_a_printed_limit_never_lies_outside_its_declared_band():
+    # Known, half-known, too-narrow and maximum limits at any magnitude, any decimals and
+    # any drawing precision (or none): what prints lies inside or on the declared band.
+    rng = random.Random(140)
+    for _ in range(3000):
+        scale = rng.choice([1e-3, 0.1, 1.0, 10.0, 1000.0, 5000.0])
+        low = round(rng.uniform(-scale, scale), rng.randint(0, 6))
+        width = rng.choice([0.0, 1e-4, 4e-3, 0.03, 1.0, 50.0]) * rng.random()
+        high = max(low, round(low + width, rng.randint(0, 6)))
+        kind = rng.choice(["known", "low", "high", "max"])
+        declared = {
+            "known": [low, high],
+            "low": [low, "unknown"],
+            "high": ["unknown", high],
+            "max": abs(high) or 0.001,
+        }[kind]
+        precision = rng.choice([0, 1, 2, 3, 4, None, "unknown"])
+        dimension = "position_dia" if kind == "max" else "dia"
+        printed = bare(precision).band(declared, None, dimension)
+        case = (declared, precision, printed)
+        if kind == "max":
+            assert 0 < float(printed) <= declared, case
+            continue
+        ends = printed.split("–")
+        assert len(ends) == 2, case
+        texts = dict(zip(("low", "high"), ends, strict=True))
+        limits = dict(zip(("low", "high"), declared, strict=True))
+        for end, limit in limits.items():
+            if limit == "unknown":
+                assert texts[end] == "?", case
+        if limits["low"] != "unknown":
+            assert float(texts["low"]) >= limits["low"], case
+        if limits["high"] != "unknown":
+            assert float(texts["high"]) <= limits["high"], case
+        if kind == "known":
+            assert float(texts["low"]) <= float(texts["high"]), case
 
 
 def test_the_drawing_edge_break_never_prints_looser_than_declared():
@@ -1347,3 +1400,19 @@ def test_the_drawing_edge_break_never_prints_looser_than_declared():
     ((_, limits),) = [row for row in rows if row[0] == "all edges"]
     radius, chamfer = map(float, re.findall(r"\d+\.\d+", limits))
     assert 0 < radius <= 0.25 and 0 < chamfer <= 0.35, limits
+
+
+@pytest.mark.parametrize(("low", "high"), [(-6.0, -5.9), (-1234.5675, -1234.5671)])
+def test_an_authored_z_band_prints_its_limits_as_declared(low, high):
+    sheet = bare(2)
+    sheet.coordinates_entry = lambda setup, op: {}
+    printed = re.findall(r"-?\d+(?:\.\d+)?", sheet.allowed({}, {"to_z_band": [low, high]}))
+    assert list(map(float, printed)) == [low, high], printed
+
+
+@pytest.mark.parametrize("limit", [0.0254, 0.0000125])
+def test_a_runout_limit_prints_as_declared(limit):
+    sheet, transfer = transfer_sheet(["bore"], "mill")
+    line = sheet.transfer_line({"id": "S2"}, {**transfer, "runout_limit_mm": limit})
+    printed = re.search(r"(\d+(?:\.\d+)?) mm total indicator reading", line)
+    assert printed and float(printed.group(1)) == limit, line

@@ -797,6 +797,15 @@ def _inward(low, high, unit="mm", places=None):
     return (repr(float(low)), repr(float(high))) if unit == "mm" else None
 
 
+def _declared(value, places=0):
+    """A declared limit as written: at least ``places`` decimals and every digit it holds,
+    never rounded (:func:`_inward` states the one-point band ``[value, value]`` only
+    exactly); ``?`` while unknown."""
+    if not _known(value):
+        return _text(value)
+    return _inward(value, value, places=max(places, _places(value)))[0]
+
+
 def _stated(value):
     """A text the shop can act on: not blank and not the unknown sentinel."""
     return isinstance(value, str) and value.strip() not in ("", "unknown")
@@ -1389,15 +1398,17 @@ class _Traveler:
     def band(self, value, feature, dimension):
         """A drawing acceptance band (``6.330–6.350``) at the drawing's own precision,
         rounded inward (low limit up, high limit down) so printing never loosens it; a band
-        too narrow for that precision, or with a limit unknown, prints each limit as
-        declared. A zone or maximum (``position_dia = 0.045``) prints as its :meth:`cap`."""
+        too narrow for that precision, or with a limit unknown, prints each limit exactly as
+        declared (:func:`_declared`). A zone or maximum (``position_dia = 0.045``) prints as
+        its :meth:`cap`."""
         precision = self.precision(feature, dimension)
         printed = printed_band(value, precision)
         if printed is not None:
             return "–".join(_number(limit, precision) for limit in printed)
         pair = isinstance(value, (list, tuple)) and len(value) == 2
         if pair and all(_known(limit) or limit == "unknown" for limit in value):
-            return "–".join(_number(limit) for limit in value)
+            places = precision if isinstance(precision, int) else 0
+            return "–".join(_declared(limit, places) for limit in value)
         if dimension in ZONES:
             return self.cap(value, feature, dimension)
         return self.value(value, feature, dimension).replace(" / ", "–")
@@ -1405,12 +1416,12 @@ class _Traveler:
     def cap(self, value, feature=None, dimension=None):
         """A drawing maximum (a zone, an edge break), the band [0, value], at the drawing's
         precision rounded down so printing never loosens it, taking more decimals rather
-        than printing nothing (:func:`_inward`); as declared when that precision is not
-        stated."""
+        than printing nothing (:func:`_inward`); exactly as declared when that precision is
+        not stated."""
         precision = self.precision(feature, dimension)
         if _known(value) and value > 0 and isinstance(precision, int):
             return _inward(0, value, places=precision)[1]
-        return _number(value)
+        return _declared(value)
 
     @staticmethod
     def metadata(key):
@@ -1804,7 +1815,7 @@ class _Traveler:
             f"Square {face} to the {axis} travel: with the {self.reference(gauge, 'gauges')} "
             f"held from the spindle head on {face}, traverse {axis} {_number(over)} mm along "
             f"it; tap the {thing} round until the reading changes no more than "
-            f"{_number(limit)} mm ({_number(round(limit / 25.4, 5))} in) over that length, "
+            f"{_declared(limit)} mm ({_number(round(limit / 25.4, 5))} in) over that length, "
             f"tighten the {thing} to the table and sweep again."
         ]
 
@@ -3176,7 +3187,7 @@ class _Traveler:
         gauge = transfer.get("tool", transfer.get("gauge"))
         limit = transfer.get("runout_limit_mm")
         # A limit is never rounded: 0.0254 printed as 0.03 would loosen it.
-        reading = f"{_number(limit)} mm total indicator reading"
+        reading = f"{_declared(limit)} mm total indicator reading"
         with_gauge = " with the " + self.reference(gauge) if gauge not in (None, "unknown") else ""
         recovery = transfer.get("recovery")
         recovery = recovery.strip() if isinstance(recovery, str) and recovery != "unknown" else ""
@@ -4199,7 +4210,7 @@ class _Traveler:
         blade = _mapping(self.coordinates_entry(setup, op).get("blade"))
         if not blade:
             low, high = op["to_z_band"][0], op["to_z_band"][-1]
-            return f"allowed {_number(low)} to {_number(high)}"
+            return f"allowed {_declared(low)} to {_declared(high)}"
         corner = _CORNERS.get(blade.get("reading_corner"))
         band = blade.get("corner_dro_band")
         if corner is None or not isinstance(band, list):
@@ -6062,22 +6073,25 @@ class _Traveler:
     @staticmethod
     def drawing_dimensions(definition, limits):
         """What proves a feature's requirement row is another feature's: the same model
-        faces carrying the same printed limits, each requirement's band and nominal known
-        numbers. None when the faces are not declared or a requirement, band or nominal is
-        not known: a shared citation or equal numbers never show two features are one
-        dimension, as one drawing sheet carries many alike."""
+        faces carrying the same printed limits, each requirement's band and the nominal it
+        is drawn to known numbers (a maximum has no nominal; one stated must be known). None
+        when the faces are not declared or a requirement, band or nominal is not known (an
+        omitted nominal no more than an ``unknown`` one): a shared citation or equal numbers
+        never show two features are one dimension, as one drawing sheet carries many alike."""
         faces = definition.get("faces")
         if not (isinstance(faces, list) and faces and all(map(_stated, faces))):
             return None
         key = [limits, tuple(sorted(set(faces)))]
         for requirement in dict.fromkeys(tolerance_requirements(definition)):
-            band, nominal = definition.get(requirement), definition.get(f"{requirement}_nominal")
+            band = definition.get(requirement)
+            fields = (f"{requirement}_nominal", f"nominal_{requirement}")
+            nominals = [definition[field] for field in fields if field in definition]
             pair = isinstance(band, list) and len(band) == 2 and all(map(_known, band))
             if requirement == "unknown" or not (pair or _known(band)):
                 return None
-            if nominal is not None and not _known(nominal):
+            if not all(map(_known, nominals)) or (pair and not nominals):
                 return None
-            key.append((requirement, repr(band), repr(nominal)))
+            key.append((requirement, repr(band), repr(nominals)))
         return tuple(key) if len(key) > 2 else None
 
     def process_holds(self, setups):
