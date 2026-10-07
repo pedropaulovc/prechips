@@ -200,6 +200,10 @@ def test_a_guided_file_stops_on_its_buttons_and_dimensions_the_holding_it_must_c
     assert unguided["closest_cut"]["tag"] == "clamp 1 kit:button"
     assert unguided["closest_cut"]["mm"] == pytest.approx(0.0, abs=1e-6)
     assert unguided["guide_axis_mm"] is None
+    # The picture's dimension is a CLEARANCE table row: the file's own.
+    for scene, tag, mm in ((guided, "plate:top", 5.0), (unguided, "clamp 1 kit:button", 0.0)):
+        [row] = scene["cut_clearances"]
+        assert (row["op"], row["tag"], row["mm"]) == ("10", tag, pytest.approx(mm, abs=1e-3))
     assert turned["guide_stops"] == ["clamp 1 kit:button"]
     point, direction = turned["guide_axis_mm"]
     assert point[:2] == pytest.approx([10.0, 25.0], abs=1e-6)

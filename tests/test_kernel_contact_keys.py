@@ -47,7 +47,7 @@ supports = {
 result = {}
 for name, solid in supports.items():
     for view, section in (("whole", None), ("section", (1, 1, 0.0))):
-        contacts, _ = setup._render_contacts([("fx:" + name, solid)], None, 0.01, section)
+        contacts = setup._render_contacts([("fx:" + name, solid)], 0.01, section)
         result[name + " " + view] = contacts
 """
 
@@ -63,7 +63,7 @@ identity = job._pose_matrix({"origin_mm": [0, 0, 0], "x": [1, 0, 0], "z": [0, 0,
 setup._add_owned(args["solids"], args["role"], identity, args["owner"])
 components = setup._render_components(args["annotation"])
 solids = [(component["name"], component["solid"]) for component in setup.fixture]
-contacts, _ = setup._render_contacts(solids, None, 0.01, None)
+contacts = setup._render_contacts(solids, 0.01, None)
 meshes = []
 for tag, solid in [("part", setup.part)] + solids:
     points, triangles = solid.tessellate(0.01)
