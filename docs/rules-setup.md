@@ -27,6 +27,23 @@ or a later one is an error naming that op
 (`{setup}: the hold stops on {face}, which the arriving stock does not have yet; it is first cut in {setup} op {op}.`);
 an earlier cut of unknown action or unsettled as-is faces is unknown.
 
+A mill setup (machine kind `mill`) whose fixture is a `vise` or `angle_plate` needs
+`hold.align` where it mounts or turns that fixture: the first such setup on its
+machine, or one whose fixture, vise `jaws_along` or plate `pose` differs from the
+setup before it on that machine (a setup on another fixture between them took the vise
+or plate off). Its `indicator` must be an inventory gauge of kind
+`dial_test_indicator` or `dial_indicator`, `limit_mm` and `over_mm` must be
+positive, and an angle plate's `face` must name one of the plate's solids; a missing
+block or invalid value is an error, an explicit unknown is unknown. The face runs
+along the vise's `jaws_along`, or for an angle plate along the longer horizontal
+side of the `face` box solid, carried into the setup frame by `pose`; a run that is
+not X or Y is unknown (`hold.align.travel`). Evidence: `align_due` (`mounted`,
+`jaws turned`, `plate moved` or `not_applicable`). The HOLD prints the squaring step
+after the
+mount line: sweep the named indicator along the fixed jaw or locating face over
+`over_mm` of that travel and hold the reading change to `limit_mm`; any part not
+established prints as a STOP.
+
 Templates:
 
 - `{setup}: holding declarations need {comma-separated missing/unknown fields}.`

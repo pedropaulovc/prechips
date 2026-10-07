@@ -226,7 +226,7 @@ def test_saw_machine_settings_keep_their_digits_when_drawing_precision_is_coarse
     data.kernel["ops"]["S1:10"]["retained_boundary_mm"] = 87.05
     findings = evaluate(data) + speeds_feeds.evaluate(data)
     assert all(finding.status == "pass" for finding in findings)
-    html, _, _ = _Traveler(data, findings, {}, None).operations(setup, {}, {"notes": 2})
+    html, _, _, _ = _Traveler(data, findings, {}, None).operations(setup, {}, {"notes": 2})
     assert "87.8 mm" in html
     assert "87.05 mm" in html
     assert "100.25 sfm" in html

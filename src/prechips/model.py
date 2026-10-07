@@ -216,6 +216,14 @@ type PlanCentres = list[Annotated[list[Number], Field(min_length=2, max_length=2
 # A stickout set from a measured fit-up: the printed ``stickout_mm`` is the nominal
 # ``nominal_mm + add_mm``; the operator sets the ``measure`` reading plus ``add_mm``.
 StickoutFit = record("StickoutFit", {"measure": str, **numbers("nominal_mm add_mm")})
+# The step that squares a mill vise's fixed jaw, or an angle plate's locating face (the
+# fixture solid ``face`` names), to the table travel before the work goes in: the
+# ``indicator`` (an inventory gauge) is swept ``over_mm`` along it and its reading may
+# change by at most ``limit_mm``.
+Align = record(
+    "Align",
+    {**texts("indicator face"), **numbers("limit_mm over_mm"), "cite": Citations},
+)
 Hold = record(
     "Hold",
     {
@@ -257,6 +265,8 @@ Hold = record(
         # kind round_bar with measured dia/length): the moving jaw closes on the bar, which
         # presses the work along one line so the fixed jaw seats its face square.
         "jaw_bar": str,
+        # Required where a mill setup mounts or turns a vise or angle plate (hold_fields).
+        "align": Align,
     },
 )
 # ``measure_before_hold``: a ``measure_then_set`` M read on the part before it is held (a

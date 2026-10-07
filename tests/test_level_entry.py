@@ -127,6 +127,30 @@ def test_unknown_depth_levels_stay_unknown_never_one_level_at_the_depth(operatio
     assert record["entries"][0]["xy"] == [0.0, -5.0] and record["plunge_mm_rev"] == 0.05
 
 
+@pytest.mark.parametrize("cleared", [True, False], ids=["cleared-floor", "stock-top"])
+def test_a_level_at_the_ops_own_start_z_is_lowered_to_never_plunged(cleared):
+    # One level at the Z the op starts from: nothing stands above it where the cutter goes
+    # down, so it lowers there and no plunge feed is needed; the path cuts what is left
+    # along it.
+    operation = {
+        "op": 20,
+        "z_levels": {"levels": [-2.0], "dro_start_z": -2.0, "start_cleared": cleared},
+    }
+    [record], debts = open_path(box_top=1.0, plunge=False, operation=operation)
+    assert debts == [] and "plunge_mm_rev" not in record
+    assert record["lowered"] == ("cleared" if cleared else "top")
+    bundle = SimpleNamespace(
+        plan={"setups": [{"id": "S1"}]}, features={"units": "mm"}, inventory={}, policy={}
+    )
+    bundle.feature_definitions = {}
+    finding = SimpleNamespace(rule="coordinates", subject="S1", numbers={"level_paths": [record]})
+    sheet = _Traveler(bundle, [finding], {}, None)
+    text = page_text(sheet.level_entries({"id": "S1"}, {"op": 20}, []))
+    assert "plunge" not in text, text
+    where = "in the cleared area" if cleared else "the top of the stock this op meets"
+    assert f"lower to Z -2.000, {where}" in text, text
+
+
 def scratch_outline(tmp_path, plunge=True):
     """The scratch outline op 20 roughed in two levels (doc 1 to Z -2)."""
     allowance = "rough_allowance_mm = 0.3\ndoc_mm = 1.0\n"
