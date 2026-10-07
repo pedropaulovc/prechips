@@ -53,15 +53,21 @@ angle. A combined drill and countersink (`center_drill_set` member) that drills
 a plan centre must carry its own Table 6 geometry: pilot `dia` (D), `pilot_len`
 (drill length C, countersink start to point tip, point included), countersink
 `angle_deg` (the set's centre-seat angle unless the member overrides it), body
-`shank` (A) and the pilot `point_angle`. The plan centre must equal them;
-`flute_len` stays the cutting length reach compares. `chart` is a source
-citation, never a downloaded chart.
+`shank` (A) and the pilot `point_angle`, all accepted, on a record with no
+`verify` or unknown flag. The plan centre must equal them, and the point must be
+shorter than `pilot_len`; `flute_len` stays the cutting length reach compares.
+`chart` is a source citation, never a downloaded chart.
 
 M2 holding checks use explicitly declared `sizes_mm` / `sizes_in` or a two-ended
 `range_mm` / `range_in` for the held stock diameter. A six-inch chuck body
 (`diameter_in`) says nothing about jaw capacity. Tailstock/steady exceptions
 must resolve to actual inventory or a named machine accessory; an unconfirmed
-accessory does not certify support.
+accessory does not certify support. A support's `kind` also says whether it
+carries the work on a centre (`centre_support`): a dead, live or tailstock
+centre, a `tailstock`, or an accessory named a centre or tailstock is one. A
+support declared `"unknown"`, of unknown kind, or whose record carries `verify`
+or an unknown flag may be one, so it is never taken as proof that no centre is
+used.
 A `follow_rest` / `steady_rest` fixture that a plan `hold.supports` table
 selects (`{ ref, ops, jaw_lead_mm }` / `{ ref, ops, at_z_mm }`) declares its jaw
 capacity as fact-local measured `capacity_min_mm` / `capacity_max_mm` (or

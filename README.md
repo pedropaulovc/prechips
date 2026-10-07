@@ -408,11 +408,13 @@ and the next setup's stock show the centre; a hold's `centre_hole` names the
 centre its dead or live centre rides in. `centre_support` is always required
 wherever a hold uses a centre (no shop-policy entry needed): it refuses one that
 no earlier setup in the stock lineage drills, whose drilled mouth differs from
-the seat, or whose preparation is contradicted, and stays unknown (blocking)
-while any lineage routing, centre size or tool fact is. The centre depth is the
+the seat, or whose maker's `blind_depth` row is an error, and stays unknown
+(blocking) while that row, any lineage routing, or whether a further support is
+a centre (unknown, uninventoried, of unknown kind or unconfirmed, or a second
+centre) is unresolved. The centre depth is the
 Machinery's Handbook Table 6 drill length plus the countersink to the mouth,
 printed as a tailstock-quill depth, and only for the selected centre drill's
-own D, C and angle with the mouth on the touched end.
+own accepted D, C, angle, body and point with the mouth on the touched end.
 See [the plan format](docs/plan.md) for the authored fields.
 
 Cutter self-contact exclusion is only a thin shell of the sampled face;

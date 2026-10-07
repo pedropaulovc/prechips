@@ -326,11 +326,12 @@ def _centre_mouth(bundle, setup, feature, entry):
 
 def centre_endpoint(bundle, setup, op, feature, entry):
     """``(fields, status, reasons, measurement debt)`` of a quill-fed centre drilled from
-    ``entry``.
+    ``entry``: ``blind_depth``'s whole verdict on that centre's row.
 
     Its depth past touching the end is the Table 6 drill length C plus the countersink
     (``centre_depth_mm``), but only for the centre the selected tool's own facts cut
-    (``centre_tool``) with its mouth on the touched entry surface along the setup -Z
+    (``centre_tool``: every fact the kernel builds it from, under the endpoint's verify and
+    unknown handling) with its mouth on the touched entry surface along the setup -Z
     feed. A contradiction is ``error``, anything unresolved ``unknown``; either leaves the
     depth unknown, so the traveler prints no quill depth.
     """
@@ -357,13 +358,19 @@ def centre_endpoint(bundle, setup, op, feature, entry):
     return fields, status, errors or unknown, binding["measurements"]
 
 
+def _entry(before, name):
+    """The entry surface Z an op on ``name`` is touched on, from its stock state."""
+    return before["entry_z"].get(name, before["top_z"])
+
+
 def centre_check(bundle, setup, op):
-    """``centre_endpoint``'s ``(status, reasons)`` for centre op ``op`` of ``setup``."""
+    """``(status, reasons)``: ``blind_depth``'s verdict on centre op ``op`` of ``setup``."""
     features = bundle.feature_definitions
     name = op.get("feature")
     before = next(state for current, state, _ in stock_states(setup, features) if current is op)
-    entry = before["entry_z"].get(name, before["top_z"])
-    _, status, reasons, _ = centre_endpoint(bundle, setup, op, features.get(name, {}), entry)
+    _, status, reasons, _ = centre_endpoint(
+        bundle, setup, op, features.get(name, {}), _entry(before, name)
+    )
     return status, reasons
 
 
@@ -391,7 +398,7 @@ def evaluate(bundle):
                 op.get("do") not in HOLE_OPS or feature.get("kind") not in _HOLE_KINDS
             ):
                 continue
-            entry = before["entry_z"].get(name, before["top_z"])
+            entry = _entry(before, name)
             row = {
                 "setup": setup["id"],
                 "op": op["op"],
@@ -489,7 +496,9 @@ def evaluate(bundle):
                     unresolved.add(name)
                 elif total > limit and not uncertain(tool):
                     errors.add(name)
-            if row.get("tip_z") == UNKNOWN or not tool or uncertain(tool):
+            # A centre row's verdict is centre_endpoint's alone (it already holds the tool's
+            # presence and verify debt), which centre_support reads through centre_check.
+            if not centre and (row.get("tip_z") == UNKNOWN or not tool or uncertain(tool)):
                 unresolved.add(name)
             face = name if name in before["entry_z"] else "top"
             _operative(row, bundle, setup, face)

@@ -246,10 +246,12 @@ A `centre_hole` needs every centre field (each may be `"unknown"` debt); an
 `drill_length_mm + (mouth_dia_mm - drill_dia_mm) / 2 / tan(countersink_angle_deg / 2)`:
 the Machinery's Handbook Table 6 drill length C plus the countersink that opens to
 the mouth. The centre is its `center_drill` op's selected tool: D, C and the
-angle must be that tool's `dia`, `pilot_len` and `angle_deg`, and the mouth no
-wider than its body (`shank`); its mouth must lie on the surface the quill is
-touched on, fed along setup -Z ([`blind_depth`](rules-operations.md#blind_depth-tip-endpoints)).
-A mismatch is an error, and any unknown size or tool fact leaves the depth unknown.
+angle must be that tool's `dia`, `pilot_len` and `angle_deg`, the mouth no
+wider than its body (`shank`), and its pilot `point_angle` must give a point
+shorter than C; its mouth must lie on the surface the quill is touched on, fed
+along setup -Z ([`blind_depth`](rules-operations.md#blind_depth-tip-endpoints)).
+A mismatch is an error, and any unknown or unaccepted size or tool fact, or an
+unconfirmed tool record, leaves the depth unknown and the centre uncut.
 
 Only `face`, `rough_face` and `finish_face` prepare an `end_face`; only
 `center_drill` prepares a `centre_hole`. Such an op names exactly that one

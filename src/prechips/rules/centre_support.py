@@ -4,16 +4,20 @@ Always required (findings.ALWAYS_REQUIRED) wherever it applies: a hold whose ``s
 any ``supports`` entry is a dead or live centre, or that declares the centre it seats in,
 names the plan ``process_features`` centre the point rides in (``hold.centre_hole``). The
 centre must be made by a ``center_drill`` op of an earlier setup in this setup's
-``stock_in`` lineage, that op's preparation must be established (``tip_endpoints``: the
-selected tool's own centre, its mouth on the touched entry surface) and its countersink
+``stock_in`` lineage, that op's own ``blind_depth`` verdict must pass (``tip_endpoints``:
+the selected tool's own centre, its mouth on the touched entry surface) and its countersink
 mouth must be the ``centre_hole_dia_mm`` the hold seats the point in. An undeclared
 centre, mouth, routing anywhere in the lineage, or preparation is unknown; a centre no
 earlier lineage op makes, a preparation contradiction, or a mouth that differs is an
-error. A hold none of whose supports is (or may be) a centre is not applicable; one with an
-unknown or unresolvable support reference and no known centre is unknown. A wholly
-undeclared hold names no support to check: its debt is ``hold_fields``', as an unrouted
-setup's is stock routing's rather than ``joint_fit``'s. The kernel separately checks that
-the point touches the cut countersink without interpenetration.
+error. A support is a centre by its inventory kind (a dead, live or tailstock centre, or a
+tailstock) or, for a machine accessory, by its name. A support that is unknown, not in the
+inventory, of unknown kind or unconfirmed (verify) may be one; so may each centre beyond
+the one ``centre_hole`` a hold names. Any of those keeps the finding unknown unless an
+error is established. A hold none of whose supports is (or may be) a centre is not
+applicable. A wholly undeclared hold names no support to check: its debt is
+``hold_fields``', as an unrouted setup's is stock routing's rather than ``joint_fit``'s.
+The kernel separately checks that the point touches the cut countersink without
+interpenetration.
 """
 
 import re
@@ -27,13 +31,18 @@ from prechips.rules.resolution import (
     record,
     resolve,
     same_length,
+    uncertain,
     workholding_category,
 )
 from prechips.rules.tip_endpoints import centre_check
 
-CENTRE_KINDS = frozenset({"dead_centre", "dead_center", "live_centre", "live_center"})
+# A tailstock carries work only on a centre.
+CENTRE_KINDS = frozenset(
+    {"dead_centre", "dead_center", "live_centre", "live_center"}
+    | {"tailstock", "tailstock_centre", "tailstock_center"}
+)
 # A machine accessory has no fixture record: a centre is named as one.
-_CENTRE_NAME = re.compile(r"(?:^|[^a-z])(?:centre|center)(?:$|[^a-z])", re.IGNORECASE)
+_CENTRE_NAME = re.compile(r"(?:^|[^a-z])(?:centre|center|tailstock)(?:$|[^a-z])", re.IGNORECASE)
 # Declared no-support sentinels.
 _NO_SUPPORT = frozenset({"none", "not_applicable"})
 _CITE = "PLAN.md §4.1 hold fields: hold.centre_hole and centre_hole_dia_mm"
@@ -48,10 +57,11 @@ def _supports(hold):
 
 
 def _centres(bundle, hold):
-    """``(centres, unresolved)``: the ``hold`` supports that are dead or live centres (a
-    centre fixture kind, or a machine accessory named a centre), plus the hold's ``support``
-    if it declares the centre it seats in; and the unknown or unresolvable support
-    references, any of which may be a centre."""
+    """``(centres, unresolved)``: the distinct ``hold`` supports that are dead or live centres
+    (a centre kind, or a machine accessory named a centre), plus the hold's ``support`` if it
+    declares the centre it seats in; and the support references whose kind is unresolved
+    (unknown, not in the inventory, of unknown kind, or unconfirmed), any of which may be a
+    centre."""
     centres, unresolved = [], []
     for reference in _supports(hold):
         if not isinstance(reference, str) or reference in (UNKNOWN, ""):
@@ -60,14 +70,16 @@ def _centres(bundle, hold):
         if reference in _NO_SUPPORT:
             continue
         item = resolve(bundle, workholding_category(bundle, reference), reference)
-        kind = record(item).get("kind")
-        if kind in CENTRE_KINDS or (kind == "accessory" and _CENTRE_NAME.search(reference)):
+        kind = record(item).get("kind", UNKNOWN)
+        if item is None or not isinstance(kind, str) or kind == UNKNOWN:
+            unresolved.append(reference)
+        elif kind in CENTRE_KINDS or (kind == "accessory" and _CENTRE_NAME.search(reference)):
             centres.append(reference)
-        elif item is None:
+        elif uncertain(item):
             unresolved.append(reference)
     if not centres and any(key in hold for key in ("centre_hole", "centre_hole_dia_mm")):
         centres.append(hold.get("support", UNKNOWN))
-    return centres, unresolved
+    return list(dict.fromkeys(centres)), unresolved
 
 
 def _makers(bundle, setup, name):
@@ -145,6 +157,24 @@ def _evaluate(bundle, setup, hold, centres):
     return "pass", numbers, f"the centre rides in {name}, drilled in {made_by[-1]}"
 
 
+def _open(centres, unresolved):
+    """Why the hold's supports leave a seat unchecked beyond the one ``centre_hole`` names."""
+    reasons = []
+    if unresolved:
+        reasons.append(
+            "whether support "
+            + ", ".join(repr(reference) for reference in unresolved)
+            + " is a centre is unresolved: it is unknown, not in the inventory, of unknown "
+            "kind or unconfirmed"
+        )
+    if len(centres) > 1:
+        reasons.append(
+            f"the work rides on {len(centres)} centres ({', '.join(map(repr, centres))}) but "
+            "the hold names one centre_hole, so the seat of each other centre is unresolved"
+        )
+    return reasons
+
+
 def evaluate(bundle):
     findings = []
     for setup in bundle.plan["setups"]:
@@ -152,15 +182,16 @@ def evaluate(bundle):
         centres, unresolved = _centres(bundle, hold) if isinstance(hold, dict) else ([], [])
         if centres:
             status, numbers, why = _evaluate(bundle, setup, hold, centres)
-        elif unresolved:
-            status, numbers = "unknown", {"unresolved_supports": unresolved}
-            why = (
-                "whether the work rides on a centre is unresolved: support "
-                + ", ".join(repr(reference) for reference in unresolved)
-                + " is unknown or not in the inventory"
-            )
         else:
             status, numbers, why = "not_applicable", {}, "the work is not carried on a centre"
+        if unresolved:
+            numbers["unresolved_supports"] = unresolved
+        # An established contradiction stands; anything else a further support may be is
+        # unresolved debt, never a pass or a proof that no centre is used.
+        reasons = _open(centres, unresolved)
+        if reasons and status != "error":
+            why = "; ".join(reasons if status == "not_applicable" else [why, *reasons])
+            status = "unknown"
         findings.append(
             Finding(
                 "centre_support", setup["id"], status, numbers, [_CITE], f"{setup['id']}: {why}."

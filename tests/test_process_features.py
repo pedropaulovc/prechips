@@ -105,6 +105,14 @@ def set_tool_fact(plan, key, value):
         ("tool", "angle_deg", "90", "error"),
         # The tool's drill length C is not recorded: the depth cannot be bound.
         ("tool", "pilot_len_mm", None, "unknown"),
+        # The pilot point that closes the centre: unknown or unconfirmed, it is no centre the
+        # kernel can cut; so sharp that it is longer than C, no centre the tool can be.
+        ("tool", "point_angle", '"unknown"', "unknown"),
+        ("tool", "point_angle", "{ value = 118, verify = true }", "unknown"),
+        ("tool", "point_angle", "40", "error"),
+        # An unconfirmed tool record leaves every endpoint it cuts unknown, centres included.
+        ("tool", "oal_mm", "{ value = 47.6, verify = true }", "unknown"),
+        ("tool", "verify", "true", "unknown"),
     ],
 )
 def test_a_centre_is_the_shape_its_selected_tool_cuts(tmp_path, where, key, value, status):
@@ -121,6 +129,10 @@ def test_a_centre_is_the_shape_its_selected_tool_cuts(tmp_path, where, key, valu
     assert (row["depth_mm"] == "unknown") is (status != "pass")
     if status == "pass":
         assert row["depth_mm"] == pytest.approx(2.8633, abs=5e-5)
+    # The kernel cuts that same centre or none.
+    setup = bundle.plan["setups"][0]
+    op = next(op for op in setup["ops"] if op["do"] == "center_drill")
+    assert ("reason" in kernel.op_inputs(bundle, setup, op)["process_cut"]) is (status != "pass")
     # A centre its maker cannot be shown to cut is no seat for S1's dead centre.
     assert evaluate("centre_support", bundle)["S1"].status == status
 
@@ -201,6 +213,22 @@ def gate(bundle, row):
 
 
 LIVE_CENTRE = '\n[fixtures.live-centre-mt3]\nkind = "live_centre"\nfits = "PM-1127VF-LB"\n'
+# Supports whose kind leaves open whether they are centres, and a tailstock, which carries
+# work only on one.
+SUPPORTS = (
+    LIVE_CENTRE
+    + '\n[fixtures.kind-unknown]\nkind = "unknown"\n'
+    + '\n[fixtures.unconfirmed-rest]\nkind = "rest"\nverify = true\n'
+    + '\n[fixtures.tailstock-x]\nkind = "tailstock"\n'
+)
+
+
+def add_supports(plan):
+    """Add ``SUPPORTS`` and a fixture declared wholly ``"unknown"`` to the copied inventory."""
+    inventory = plan.parents[1] / "inventory" / "pedro-shop.toml"
+    text = inventory.read_text(encoding="utf-8")
+    text = text.replace("[fixtures]\n", '[fixtures]\ndeclared-unknown = "unknown"\n', 1)
+    inventory.write_text(text + SUPPORTS, "utf-8")
 
 
 @pytest.mark.parametrize(
@@ -211,9 +239,15 @@ LIVE_CENTRE = '\n[fixtures.live-centre-mt3]\nkind = "live_centre"\nfits = "PM-11
         ("supports", '["follow_rest", { ref = "live-centre-mt3" }]', "unknown"),
         # A machine's standard-accessory dead centre, with no fixture record of its own.
         ("support", '"dead_centre_headstock"', "unknown"),
+        # A tailstock carries the work on a centre.
+        ("support", '"tailstock-x"', "unknown"),
         # A support that is unknown, or that the inventory does not know, may be a centre.
         ("support", '"unknown"', "unknown"),
         ("support", '"tailstock-thing"', "unknown"),
+        # So may an inventory record declared unknown, of unknown kind, or unconfirmed.
+        ("support", '"declared-unknown"', "unknown"),
+        ("support", '"kind-unknown"', "unknown"),
+        ("supports", '["unconfirmed-rest"]', "unknown"),
         # No centre: the rest alone, or nothing.
         ("supports", '["follow_rest"]', "not_applicable"),
         ("support", '"none"', "not_applicable"),
@@ -223,8 +257,7 @@ def test_a_centre_with_no_prepared_seat_blocks_without_any_shop_policy_entry(
     tmp_path, key, value, status
 ):
     plan = shaft(tmp_path)
-    inventory = plan.parents[1] / "inventory" / "pedro-shop.toml"
-    inventory.write_text(inventory.read_text(encoding="utf-8") + LIVE_CENTRE, "utf-8")
+    add_supports(plan)
     # S2 carries no centre in the example; it now rides on one with no centre_hole.
     rewrite(plan, ("hold", "S2"), key, value)
     bundle = load_bundle(plan)
@@ -233,6 +266,33 @@ def test_a_centre_with_no_prepared_seat_blocks_without_any_shop_policy_entry(
     assert row.status == status
     assert is_required(row, bundle.policy, bundle)
     assert gate(bundle, row) == (0 if status == "not_applicable" else 4)
+
+
+@pytest.mark.parametrize(
+    ("supports", "seat", "status"),
+    [
+        ('["follow_rest"]', MOUTH, "pass"),
+        # Beside S1's prepared dead centre, a further support that may be a centre...
+        ('["unknown"]', MOUTH, "unknown"),
+        ('["missing-support"]', MOUTH, "unknown"),
+        ('["follow_rest", "kind-unknown"]', MOUTH, "unknown"),
+        # ...or a second centre, whose seat the one centre_hole cannot be.
+        ('["dead_centre_headstock"]', MOUTH, "unknown"),
+        # An established contradiction still stands.
+        ('["unknown"]', 4.0, "error"),
+    ],
+)
+def test_a_prepared_centre_never_hides_another_support_that_may_be_a_centre(
+    tmp_path, supports, seat, status
+):
+    plan = shaft(tmp_path)
+    add_supports(plan)
+    rewrite(plan, ("hold", "S1"), "supports", supports)
+    rewrite(plan, ("hold", "S1"), "centre_hole_dia_mm", repr(seat))
+    bundle = load_bundle(plan)
+    row = evaluate("centre_support", bundle)["S1"]
+    assert row.status == status
+    assert gate(bundle, row) == {"pass": 0, "unknown": 4, "error": 2}[status]
 
 
 @pytest.mark.parametrize(("seat", "status"), [(MOUTH, "pass"), (4.0, "error"), (2.5, "error")])

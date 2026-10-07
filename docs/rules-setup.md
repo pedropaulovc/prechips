@@ -41,29 +41,36 @@ limit appears as a fallback.
 One subject per setup. Always required wherever a centre carries the work: no
 shop-policy entry is needed and none can waive it (`findings.ALWAYS_REQUIRED`,
 like `joint_fit`/`joint_assembly`). A centre is a `support` or any `supports`
-entry whose fixture `kind` is a dead or live centre (`dead_centre`,
-`live_centre`, either spelling), a machine standard accessory named a centre
-(`dead_centre_headstock`), or a hold that declares `centre_hole` /
-`centre_hole_dia_mm`. A hold with no centre is not applicable and never blocks.
+entry whose inventory `kind` is a dead, live or tailstock centre (`dead_centre`,
+`live_centre`, `tailstock_centre`, either spelling) or a `tailstock`, a machine
+standard accessory named a centre or tailstock (`dead_centre_headstock`), or a
+hold that declares `centre_hole` / `centre_hole_dia_mm`. A hold with no centre
+is not applicable and never blocks.
 The hold's `centre_hole` must name a plan
 [process feature](plan.md#process-features) `centre_hole`; a `center_drill`
 op of an earlier setup in this setup's `stock_in` lineage must drill it, that
-op's preparation must be established (its [`blind_depth`](rules-operations.md#blind_depth-tip-endpoints)
-centre row: the selected tool's own centre, its mouth on the touched entry
-surface and, on a lathe, on the spindle axis), and its `mouth_dia_mm` must equal
-`centre_hole_dia_mm`.
+op's own [`blind_depth`](rules-operations.md#blind_depth-tip-endpoints) centre
+row must pass (the same verdict, so the two never disagree: the selected tool's
+own centre, every tool fact the kernel cuts it from accepted, its mouth on the
+touched entry surface and, on a lathe, on the spindle axis), and its
+`mouth_dia_mm` must equal `centre_hole_dia_mm`.
 
 - **error:** the lineage is fully declared and no earlier setup in it drills
   the centre (none does, or only this setup or a later one does), the maker's
-  preparation is contradicted (a centre size its selected tool does not cut,
-  or a mouth off the surface or axis its quill is touched on and fed along), or
-  the hold's seat and the drilled mouth differ;
+  `blind_depth` row is an error (a centre size its selected tool does not cut,
+  a tool point no shorter than its pilot, or a mouth off the surface or axis
+  its quill is touched on and fed along), or the hold's seat and the drilled
+  mouth differ. An error stands whatever else is unresolved;
 - **unknown:** `centre_hole` is undeclared; any setup in the lineage (this one
-  or one upstream) lacks `stock_in`; a centre size, a selected-tool fact or the
-  touched entry surface is unknown; the seat or mouth diameter is unknown; or
-  no centre is known but a support reference is unknown or not in the
-  inventory (it may be one). A wholly undeclared hold names no support: its
-  debt is `hold_fields`', and this rule is not applicable;
+  or one upstream) lacks `stock_in`; the maker's `blind_depth` row is unknown (a
+  centre size, a selected-tool fact such as its point angle, the tool's record
+  being unconfirmed, or the touched entry surface); the seat or mouth diameter
+  is unknown; a support's kind is unresolved (the reference is unknown, not in
+  the inventory, declared `"unknown"`, of unknown kind, or unconfirmed by
+  `verify`), with or without a known centre beside it, since it may be one; or
+  the work rides on more than one centre, since a hold names one `centre_hole`
+  and each other centre's seat is unchecked. A wholly undeclared hold names no
+  support: its debt is `hold_fields`', and this rule is not applicable;
 - **pass:** otherwise, naming the setup and op that drilled it.
 
 Evidence: support, the centres found, the centre, the ops that drill it before
