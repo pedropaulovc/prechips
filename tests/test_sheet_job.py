@@ -7,7 +7,11 @@ import pytest
 from test_cli import ROOT, SYNTHETIC_KERNEL, copy_examples, traveler
 from test_sheet_precision import sections, text
 
-EXAMPLE = "plausible, not measured"
+from prechips.sheet import EXAMPLE_LEGEND
+
+# Authored inspection notes may themselves say "plausible, not measured" about a
+# shop-made gauge; the legend is the one sentence that explains the † mark.
+EXAMPLE = EXAMPLE_LEGEND
 
 
 def pages(html):
@@ -124,7 +128,20 @@ def test_mill_xy_check_jogs_are_made_raised_clear_of_the_work(bracket, shaft):
 def test_job_page_stock_sizes_print_on_the_receiving_machine_grid(shaft, rocker):
     # The shaft bar goes to the 0.01 lathe; the rocker blank to the 0.005 mill.
     stock = re.search(r"Stock: [^|]*", text(sections(shaft[1], "STOCK AND ROUTE")[0]))[0]
-    assert "Ø10.00 × 180.00 long" in stock, stock
+    assert "Ø10.00 × 180.50 long" in stock, stock
     assert not re.search(r"\d\.\d{3}", stock), stock
     stock = re.search(r"Stock: [^|]*", text(sections(rocker[1], "STOCK AND ROUTE")[0]))[0]
     assert "65.000 × 16.000 × 340.000 long" in stock, stock
+
+
+def test_the_abbreviation_key_lists_only_abbreviations_the_sheets_print(shaft, rocker):
+    keys = {"EM": r"\bEM\b", "CD": r"\bCD\b", "DTI": r"\bDTI\b", "mic": r"\bmic\b"}
+    for _, html in (shaft, rocker):
+        job, *setups = pages(html)
+        key = re.search(r"T# = [^<]*Keep the drawing at the bench\.", text(job))[0]
+        printed = text("".join(setups))
+        for abbreviation, pattern in keys.items():
+            used = re.search(pattern, printed) is not None
+            assert (f"{abbreviation} = " in key) is used, (abbreviation, key)
+    # The shaft is turned: no endmill prints, so its key has no endmill entry.
+    assert "EM = " not in text(pages(shaft[1])[0])

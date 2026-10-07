@@ -23,7 +23,11 @@ exported manifest frame of that name, otherwise the plan-owned
 A plan-owned setup frame adds `plan.frames.<name>: author-declared setup frame`
 and its own citations to the finding, and its stated `binding` decides whether
 the transform is nominal or unbound exactly as for an exported frame.
-Unknown components propagate only through nonzero coefficients. Tolerance-band
+Unknown components propagate only through nonzero coefficients. Loading checks
+the basis of a fully known frame only, so in a frame with an unknown axis each
+numeric axis counts only if it is finite and, within `1e-9`, unit and orthogonal
+to the frame's other numeric axes; otherwise it is unknown, and so is every
+coordinate along it and every direction compared with it. Tolerance-band
 midpoints never define nominal geometry: explicit `*_nominal` values take
 precedence, otherwise only scalar dimensions are usable as nominal geometry.
 
@@ -49,26 +53,48 @@ face, rectangular profile and pocket features do not acquire an invented centre
 requirement.
 
 **Mill DRO targets, aims and printed bands.** Off a lathe, a located row with a
-known setup point also carries `dro`: that point at the nearest step of the setup
-machine's DRO grid (`dro_grid`), at most half a step away, which the sheet's
-feature map prints. When the feature declares a height-like band
+known setup point — an `at` or parent row, or each end of a kernel span (below) —
+also carries `dro`: that point at the nearest step of the setup machine's DRO grid
+(`dro_grid`), at most half a step away, which the sheet's feature map prints and a
+hole op dials (`dro_xy`). When the feature declares a height-like band
 (`height_above_pivot`, `height` or `separation`, the first one present) from a
-`height_from` reference, the row's `band_check` measures the DRO target from that
-reference: along a reference plane's normal, otherwise from the reference's own
-planned point along the common normal of both declared axes, square to the one
-declared axis, else point to point. The band is the one the sheet prints, rounded
-inward at its drawing precision. A target outside it is an error
-(`Located target band error: …`); a distance that cannot be measured, or a band
-that is not two numbers, keeps the setup unknown. A plan
-[`aims`](plan.md#aims) entry moves the feature's target along that same
-direction so its band reads `value_mm`, on every setup that locates it. The row
-keeps the unaimed point as `nominal_setup`, records the `aim` (requirement,
-value, reason, source, printed band, nominal value and shift), and the finding
-cites `plan.aims.<name>`; the feature map adds a sentence that gives the aimed
-target, the drawing nominal and the reason. An aim never changes geometry, a
-claim, a kernel input or another feature's target. An aim whose feature holds
-no such band, or whose distance cannot be measured, stays unknown with the
-reason in `aim.why`.
+`height_from` reference, the row's `band_check` measures where the feature stands
+from where that reference stands. A feature this setup machines (a centre op —
+a hole op or `center` — names it) stands at its DRO target; one it only inspects
+or otherwise works without dialling it, or machines through a child or in
+another setup, stands at its planned point (its aimed model point, unrounded),
+whatever its row prints. The distance runs along a reference plane's normal,
+otherwise from the located reference along the common normal of both measuring
+axes, square to the one axis, else point to point when neither has one. A
+feature without its own `axis` that names a parent hole (`hole`, else `parent`)
+or is drawn `coaxial_to` another takes that feature's axis, in that feature's
+frame, whether or not it has its own `at`. An axis that is `"unknown"` (or whose
+frame is), or that comes from an undeclared feature, leaves the distance
+unmeasured; a kernel span's two ends must stand at one distance, else the band
+names neither. The band is the one the sheet prints, rounded inward at its
+drawing precision. A target outside it is
+an error (`Located target band error: …`, value in mm). A distance that cannot be
+measured, a band that is not two numbers, feature units other than mm or in, or a
+provisional DRO grid — the machine's `resolution` unknown or not qualified by its
+own complete measurement, so `DRO_DEFAULT_STEP` stands in — keeps the setup
+unknown; the provisional grid still places the printed targets. A plan
+[`aims`](plan.md#aims) entry moves the feature's own target along that same
+direction so its band reads `value_mm`, converted to the manifest units, on every
+setup that locates it. The row keeps the unaimed point as `nominal_setup`, records
+the `aim` (owner `feature`, requirement, value in mm and in manifest units, reason,
+source, printed band, nominal value and shift in mm), and the finding cites
+`plan.aims.<name>`; the feature map adds a sentence that gives the aimed target,
+the drawing nominal and the reason. A child located by its parent's `at` dials its
+parent's target, aimed or not, and carries the parent's `aim`; an aim of the
+child's own would take it off that axis: it is refused (unknown, reason in
+`refused_aim.why`, cited too) and moves nothing. An aim never
+changes geometry, a claim, a kernel input or another feature's target. A
+`value_mm` outside its printed band is refused before any rounding: bad input on
+load, an error in the rule, and the target stays nominal. An aim whose feature
+no mill setup's centre op names (only inspected, faced or profiled, cut through a
+child or drilled on a lathe, so no cut stands at the aimed target), whose feature
+holds no such band, whose band or units are unknown, or whose distance cannot be
+measured stays unknown with the reason in `aim.why` and the target stays nominal.
 
 **Kernel revolved location, any setup.** The kernel request lists, per setup,
 its located features with neither `at` nor a parent (`locate_revolved`); the
@@ -140,11 +166,11 @@ table. Each profile, arc and exact line-join record names its `stage` (`rough`
 or `finish`), so the report and traveler distinguish the two paths even when
 they share one operation number. Axial dome samples remain nominal profiles,
 not an allowance/tool-nose-compensated rough path.
-`arc_table` uses explicit centres, nominal radii and known finite geometry:
+Arc contours use explicit centres, nominal radii and known finite geometry:
 a boss is a full circle, a declared upper semicircle is 0–180°, and finite
 rocker arcs derive endpoint angles.
-Internal/top arcs subtract offset; outside/bottom arcs add it. Samples include
-exact endpoints and angular grid checkpoints. `start_deg`/`end_deg` are accepted
+Internal/top arcs subtract offset; outside/bottom arcs add it. Rows include
+exact endpoints. `start_deg`/`end_deg` are accepted
 schema fields but the current rule derives bounds from geometry rather than
 using those fields to override the arc. Finite arc records include exact offset
 joins. Every feature linked through `top_edge_feature` contributes its upper
@@ -154,41 +180,76 @@ unknown or inconsistent linked join leaves the top table unknown. The lower
 outline also supplies its line-line miter and bottom line-circle intersection,
 with mirrored sides explicit. Degenerate joins do not become invented paths.
 
-**Machine contouring.** A row reached by an arc or a diagonal move (both axes
-at once) is cut the way the setup machine's inventory `contouring` says
-([inventory](inventory.md)):
+**Manual arcs.** The mill is manual: one handwheel moves at a time, so no
+printed move turns two axes together (no MDI, no G-code, no continuous
+circle). An arc is cut by one of four `contour.method`s
+([plan](plan.md#manual-arcs)); authoring the former `arc_table` is an error
+naming them. Each table is recorded under `arc_table` (its joins under
+`line_table`) with its `method`.
 
-- `mdi`: each printed row carries the one MDI move that reaches it (`mdi`),
-  printed beside the row with the op's `speeds_feeds` feed: `G1 X.. Y.. F..` to
-  a table's first row, to and from a kernel clip point and along each join or
-  outline edge; between arc rows `G2` (clockwise in the setup top view) or `G3`
-  (counterclockwise) `X.. Y.. I.. J.. F..`, with I and J the arc centre less
-  the previous printed row. Only an `mdi` full circle is called a continuous
-  circle.
-- `jog`: one handwheel axis per row. Arc rows add each angle at which the arc
-  is tangent to a setup axis, so every step between rows is monotone, and a
-  corner row (no angle) between two rows that differ on both axes turns one
-  axis, then the other: `(b.x, a.y)` or `(a.x, b.y)`, whichever keeps both legs
-  no nearer any wall than the cutter-centre offset (or than the rows it joins,
-  if nearer) and lies farther from the walls; neither keeping clear leaves the
-  stage unknown and unprinted. Each row names the axis moved to reach it
-  (`jog`). The record's `stair_cusp_mm` is the most material a point of the
-  stage's target surface (its allowance off a wall, never past a wall's end)
-  keeps from the stepped cutter; a diagonal join steps once per printed point,
-  so a long join leaves a large cusp. A finish stage holds its largest cusp,
-  arc or join, to the arc feature's band on the material side
-  (`stair_band_mm`): `dia` (halved) for a full circle, `bottom_radius` or
-  `radius` otherwise, from nominal to the upper limit when the cutter runs
-  outside the wall radius, else to the lower limit. More than the band is an
-  error and withholds the stage's rows; no numeric band leaves it unknown. A
-  rough stage's cusp is recorded but not held: its finish pass removes it.
-  Single-axis stairs along a diagonal `linear_table` outline edge are not
-  computed and stay unknown.
-- absent, `"unknown"` or `verify = true`: the rows are checkpoints only and
-  the finding is unknown, never pass.
+- `stairs` (rough only; spaced by `cusp_mm`): rows include each angle at which
+  the arc is tangent to a setup axis, so every step between rows is monotone,
+  and are spaced as far apart as keeps the material the stepped cutter leaves
+  on the wall within `cusp_mm`, measured on the printed DRO values: when
+  rounding to the DRO grid leaves more, the rows are respaced closer (a stair
+  still over `cusp_mm` is unknown). A corner row (no angle) between two rows
+  that differ on both axes turns one axis, then the other: `(b.x, a.y)` or
+  `(a.x, b.y)`, whichever keeps both legs no nearer any wall than the
+  cutter-centre offset (or than the rows it joins, if nearer) and lies farther
+  from the walls. Consecutive legs on one axis are one move, so each move turns
+  the other handwheel and no handwheel reverses inside a move: a tangent row in
+  the middle of a move (a concave arc's lowest point, which the move then stops
+  short of) is not printed. Each row names the axis moved to reach it (`jog`).
+  Straight joins are split so their stairs keep the same cusp. The record
+  carries `stair_cusp_mm` (the most material a target-surface point keeps from
+  the stepped cutter), `line_clear_mm` (the least gap from the stepped cutter's
+  edge to the finished line) and `stock_left_mm` (allowance + cusp). No corner
+  that keeps outside the line, or a `line_clear_mm` below zero, is an error
+  and withholds the stage's rows.
+- `chain_drill` (rough only; holes no more than `pitch_mm` apart along the
+  rough path, drilled with the op's drill): every hole's full diameter must stay
+  outside the line (`hole_clear_mm` ≥ 0) and neighbours must leave a web
+  (centres more than a drill diameter apart); either failure is an error. The
+  webs are broken out along the hole centres (`break_out`), so the file meets
+  `stock_left_mm` = allowance + drill radius.
+- `chords` (finish; `count` straight chords): the chord ends sit on the edge
+  radius that centres each chord's sagitta `c²/8R` in the feature's radial band
+  (`dia` halved for a full circle, `bottom_radius` or `radius` otherwise); a
+  sagitta wider than the band is an error. Each chord is fed along one table
+  axis: as it lies when it is square to X or Y, else with the work indexed
+  square to X on the setup's rotary table (`index_deg`, rounded to the dial's
+  resolution); a slanted chord with no rotary table is an error. Each `cut`
+  locks one axis `at` a DRO-grid value on the scrap side and feeds the other
+  `from`/`to` grid values; the rule rebuilds every chord face from those printed
+  cuts and holds its nearest and farthest points (`face_radius_mm`) inside the
+  band, else an error.
+- `rotary_table` (finish; rows every `step_deg`): the setup holds the work on
+  an inventory `rotary_table` fixture (`hold.fixture`), with the arc centre on
+  the table axis at setup X0 Y0, located by a pin through (`centre_by = "pin"`)
+  or by indicating (`"indicate"`) `contour.centre_feature`, a hole on that axis
+  an earlier drill, ream or bore makes. The spindle locks at X = the
+  cutter-centre radius, Y0 (`offset_axis`, `offset_mm`); the table turns the
+  work against the cutter from the `start_deg` to the `stop_deg` dial reading,
+  both rounded inward to the vernier (else graduation) resolution, and the
+  setup-entry stock (kernel `stock_bbox_mm`) must swing inside the table's
+  `max_work`. Off-axis centres, no table, no earlier centre hole or a swing over
+  `max_work` are errors; unknown dial, centre or swing facts are unknown.
 
-Rasters and outlines whose edges are all axis-parallel need no declared
-contouring.
+A rough stage's leftover (`stock_left_mm`) goes to the file
+(`rules/manual_arc.py`, `file_to_line`) and must not exceed the shop policy
+`numbers.max_filing_stock_mm` (`stock_cap_mm`), else an error. The cap is
+unknown, never zero or a pass, when absent, negative, uncited or not marked
+`numbers_verify.max_filing_stock_mm = false`. A rough whose claimed faces a
+later `stairs`/`chain_drill`/`chords`/`rotary_table` op cuts again before any
+file reaches them leaves its stock to the last such op, the one that hands the
+faces to the file (`recut_by`), instead of the cap. The claim test does not
+compare depth: an op between them may cut the same faces from the other side.
+Rough methods on a finish stage are an error (`file_to_line` finishes them);
+finish methods cannot be clipped by `stock_removal_bounds` (unknown); methods
+other than `stairs` along straight joins are unknown. A diagonal edge on a
+`linear_table` outline is unknown: single-axis stairs along an outline are not
+computed. Rasters and outlines whose edges are all axis-parallel need no
+manual-arc method.
 
 `linear_table` transforms explicit box bounds (or `sweep_bounds` in
 `sweep_frame`). Exterior rectangular paths expand by offset. Pockets and faces
@@ -199,9 +260,11 @@ sweeps `sweep_bounds`, else its setup-frame `stock_removal_bounds`, with
 passes evenly spaced no more than `step_mm` apart centre-on-edge to
 centre-on-edge (one central pass when the area is no wider than the step),
 stepping from `open_side`, else from the low side of the shorter span. Every
-pass runs one cutter radius past both ends of the area. The cycle is one way:
-feed the pass, lift to the op's retract Z (its entry stock top plus
-`approach_mm`, unknown without it) and rapid back to the next pass's start.
+pass runs one cutter radius past both ends of the area. `step_mm` and the
+cutter radius are millimetres, converted to plan units before the passes are
+placed. The cycle is one way: feed the pass, lift to the op's retract Z (its
+entry stock top plus `approach_mm`) and rapid back to the next pass's start; a
+raster with no known lift Z keeps status unknown.
 Every raster value sits on the DRO grid on the safe side: pass ends and a
 face's edge passes round outward; a pocket's first pass rounds further outside
 its open side and its last away from the far wall, and the material that rounding
@@ -209,18 +272,27 @@ leaves on the far wall is the profile's `grid_residual_mm`; passes between step 
 whole number of grid steps no larger than `step_mm` (a `step_mm` finer than one
 grid step is unknown). The raster record carries `run_axis`, `area_ends`, the
 pass `ends`, `clearance_mm` (the cutter radius they run past the area) and a
-pocket's `entry_pass`; the traveler names those rows intentional cutter
-clearance for entry, exit and overtravel. A closed outline's rows are on the
-grid too: each vertex is the nearest grid point at least its offset outside
+pocket's `entry_pass`. The traveler always prints the pass ends, and calls an
+end (or the entry pass, on its open side) in air only when it stands a cutter
+radius outside the stock the kernel modelled entering the setup (its
+`stock_bbox_mm`, which holds every op's stock); the op's `stock_removal_bounds`
+is what it may remove, not where stock ends, so it proves neither air nor
+material and an unproven end carries no claim. A `keep_out` splits passes into
+pieces that also start and stop between the outer `ends`; the traveler then
+prints those as the outer ends and says every pass runs in and out clear only
+when each emitted piece's start and end is proven so, stage by stage. A closed
+outline's rows are on the grid too: each vertex is the nearest grid point at
+least its offset outside
 both wall lines it joins (a corner of its grid cell, else up to two steps out);
 `grid_residual_mm` is the most any vertex stands further off a wall than its
-offset. The traveler likewise names outline rows standing wholly outside the
-op's `stock_removal_bounds` (by the cutter radius) as cutter clearance.
+offset. The traveler likewise names outline rows whose cutter stands wholly
+outside that entry stock as cutter clearance.
 A finish raster or outline whose `grid_residual_mm` exceeds its feature's
 narrowest numeric tolerance band, or that has no safe grid point, is an error
 (`dro_xy_residual_errors`).
 Optional `contour.keep_out = [{ at = [x, y], dia_mm = d }]` declares circular
-islands in `sweep_frame` (default: the feature's frame), with positive diameter.
+islands in `sweep_frame` (default: the feature's frame), with positive diameter
+in millimetres.
 The whole cutter stays outside them: centre clearance is island radius plus
 cutter radius. After feed direction is established, crossing passes split into
 pieces in cutting order. Each cut point lies on the setup machine's DRO grid,
@@ -234,21 +306,27 @@ Face ops without a contour print no raster: a box raster could cross retained
 material inside the box. Tables are numeric nominal geometry, not cutter
 accessibility, fixtures, wall thickness or collision proof; raster passes are
 not kernel checkpoints. Unknown/unverified cutter or frame binding keeps status
-unknown. M2 lathe feasibility remains unimplemented even where nominal
+unknown. A lathe setup with an unknown DRO controller, or a turning tool whose
+nose radius is unknown, is unknown; a tailstock tool on the spindle axis
+(`spot`, `drill`, `ream`, `tap`, `center`, `center_drill`) has no nose to
+compensate and is exempt. M2 lathe feasibility remains unimplemented even where nominal
 stations/dome tables are displayed.
 
 **Z levels.** A milling pocket, face or profile op that authors `doc_mm` (mm)
 carries `z_levels` on its `operations` entry: levels on the DRO grid, each no
 more than `doc_mm` below the one before (the first rounded up from the start
 less `doc_mm`, the rest a whole number of grid steps no deeper than `doc_mm`),
-ending at its `dro_to_z`. A wall-finishing op (`pocket`, `finish_pocket`,
-`profile`, `finish_profile`) starts at its feature's declared setup
-`entry_z`, never one an earlier op's floor advanced, else the current top,
-since its flank engages the whole wall; any other op starts at its feature's
-current entry, else the current top. The traveler prints `Z start → depth in
-N levels of doc max` on the op row; the contour block heading lists every level
-and says to run the complete path at the first and repeat it at each level in
-order.
+ending at its `dro_to_z`. Each starts at its feature's declared setup
+`entry_z`, else the current top. A wall-finishing op (`pocket`,
+`finish_pocket`, `profile`, `finish_profile`) keeps that start, since its flank
+engages the whole wall; any other op starts lower only on the floor of an
+earlier face or pocket op whose setup-frame X/Y `stock_removal_bounds` hold all
+of its own and that produced its surface (its feature, or a feature whose X/Y
+`bounds` hold its feature's whole footprint). Levels that cannot be placed (an
+unknown start or a `doc_mm` finer than one DRO step) keep status unknown. The
+traveler prints `Z start → depth in N levels of doc max` on the op row; the
+contour block heading lists every level and says to run the complete path at
+the first and repeat it at each level in order.
 
 **Hole targets.** Each located mill row (`rows`) carries `dro_xy`, its setup
 X/Y at the nearest DRO grid point (a hole axis has no safe side). A centre,
@@ -353,6 +431,26 @@ turning window op (no `to_z`) claiming any face that is not a cylinder (the
 kernel cuts a claimed shoulder or groove wall out to its window end, yet poses
 it on no Z plane); and a lathe action off a lathe. An equal Z alone is never
 proof, and with no footprint to prove it there is no producer.
+A bounded op's coverage of the surface (for `top`,
+`top_feature`, else its own feature) is whole, partial or unknown. Its
+setup-frame X/Y `stock_removal_bounds` are compared with the surface's whole
+footprint. The footprint comes from the feature's own `bounds` (Z from `at` when
+they omit it), else from a round feature's `at` ± half its largest `dia` (else
+± its `radius`) across its principal `axis`, which must be a unit vector within
+`1e-6`: a scaled or zero `axis` has no known footprint. Only its `plane` value
+can supply an omitted axis. When the bounds hold the footprint, coverage is whole. When they
+miss part of it, coverage is partial: the op neither advances that top or entry
+nor produces the surface, which keeps the uncut height its last whole producer
+left. When the bounds or the footprint are unknown, omitted, empty or malformed,
+coverage is unknown: that top or entry, its producer and its operative Z stay
+unknown and are never credited. A faced surface therefore needs its footprint
+authored. An op without `stock_removal_bounds` cuts its whole feature. For another
+surface, containment is proven in that feature's own frame, where its box is
+exact: the setup Z must run along one of the frame's axes, and the box enclosing
+the surface there must lie within the feature's spans on the other two. Overlap
+or a held `at` point is partial, never whole; a setup Z oblique to the feature's
+frame, or not a known unit axis (above), leaves coverage unknown. A setup-frame box
+enclosing a turned feature is never taken as its cut.
 An op's own start and end Z and a feature map row are path ends, not touched
 faces: they pass over a turning window op on their feature. It places no face
 on a `to_z` they could print, so as their producer it could only blank them. A
@@ -371,7 +469,10 @@ surface Z prints on the grid by `dro_z`. Hole endpoints
 carry `dro_entry_z`, `dro_exit_face` and `dro_tip_z`, the tip worked from the
 printed entry (through: exit face) and rounded up again, and the `dro_depth_mm`
 or `dro_exit_mm` that leaves; a through tip short of the exit face prints a
-STOP. Every row that prints a rounded depth carries `depth_floor_mm`: the lower
+STOP. The traveler's breakthrough note gives as the run-out the lower of
+`dro_exit_mm` and the same past `dro_exit_face`, cut down to the DRO decimals,
+and claims none when it is unknown or negative. Every row that prints a
+rounded depth carries `depth_floor_mm`: the lower
 end of the feature's `depth` band, or for a tap its `thread_depth` (else `depth`)
 band. Any other kind of row, and a bare `depth` (an upper limit only), has an
 unknown floor. A `dro_depth_mm` below its floor prints a STOP, and so does a depth
@@ -417,18 +518,22 @@ A finish depth the DRO leaves above its face past the feature's band appends:
 
 ` DRO depth rounding error: op {op} prints Z {dro} for to_z {to_z}: … .`
 
-An arc stage, or a closed outline with a diagonal edge, on a machine whose
-`contouring` is not proven (or a diagonal outline on a `jog` machine), a `jog`
-arc whose rows cannot be stepped, or a `jog` finish stair with no numeric band
-appends (unknown):
+A closed `linear_table` outline with a diagonal edge appends (unknown):
 
-` Moves between rows are unproven: op {op} {stage} {reason}.` (`;`-joined)
+` Moves between rows are unproven: op {op} {stage} needs diagonal moves: … .`
 
-A `jog` finish stair that leaves more than the feature's band appends (error;
-the stage's rows are withheld and its `stair_reason` prints as the contour
-STOP):
+A manual arc that cuts into the part or cannot be cut (a stair or hole inside the
+line, leftover over the filing cap, a sagitta or chord face outside the band, a
+slanted chord without a rotary table, a rotary-table recipe off its axis, or an
+authored `arc_table`) appends (error; the stage's rows are withheld, numbers
+`arc_errors`):
 
-` Single-axis stair error: op {op} finish: single-axis steps leave {cusp} on {feature}, more than its {band} band.`
+` Manual arc error: op {op} {stage}: … .` (`;`-joined)
+
+Unknown manual-arc inputs (cutter, cusp/pitch/count/step, filing cap, rotary
+dial, centre or swing) append (unknown; numbers `arc_debts`):
+
+` Manual arc debt: op {op} {stage}: … .` (`;`-joined)
 
 Blade grooves: a `form_*`/groove op whose tool is a grooving/parting blade gets
 `plunges` numbers: the corner the DRO reads (`reading_corner`, the corner the Z
@@ -481,8 +586,48 @@ Evidence groups: frame/binding, reference rows, operation targets, profiles,
 arc/line/axial tables and advanced entry surfaces. Citations: PLAN §4.1,
 manifest frames/nominal geometry, plan-owned setup frames, authored contour
 steps/targets/allowances,
-and selected inventory cutter nominal diameter; with any arc or diagonal
-contour, the inventory machine's `contouring`.
+and selected inventory cutter nominal diameter; with any manual arc, docs/plan.md
+Manual arcs and, when a rough leaves stock to the file, the policy
+`numbers.max_filing_stock_mm`.
+
+## `manual_arc`
+
+One finding per `scribe` or `file_to_line` op on an arc feature (a boss, a
+radiused end or a declared semicircle), subject `S<n>:<op>`; always required
+([plan](plan.md#manual-arcs)). It reads the arc's layout in the op's setup:
+`centre_setup_xy`, `centre_on` (the hole whose axis is the centre), nominal
+`radius_mm`, `radius_band_mm`, `convex` and `ends_setup_xy` (none for a full
+circle). Unknown geometry is unknown.
+
+- `scribe`: `layout` must be `dividers`, `trammel` or `template` (else
+  unknown); a template (`guide.template`) must be an inventory radius or profile
+  gauge whose `range_mm` covers R (a range miss or another kind is an error; an
+  unknown range or `verify = true` is unknown).
+- `file_to_line`: `guide.buttons` names an inventory `fixtures` kit of
+  `kind = "filing_buttons"` (`dia_mm`, pin `bore_dia_mm`) that the setup holds
+  (`hold.fixture` or a clamp `ref`), pinned through `guide.bore`. The bore must
+  be the hole on the arc's axis, sized by a drill, ream or bore op before the
+  filing, and the pin must enter its smallest size; the buttons only guide a
+  convex arc. They file from `dia/2 − play` to `dia/2 + play`
+  (`files_to_mm`, play = (largest bore − pin)/2), which must sit inside the
+  radial band. Any of those failing is an error; a kit missing from the
+  inventory, not held, or unknown sizes are unknown. `guide.template` instead
+  files to a line an earlier `scribe` op laid out (`layout_op`; none is
+  unknown). `guide.gauge` must be a radius or profile gauge covering R (no gauge
+  is unknown). `rough_op` names the earlier `stairs`/`chain_drill` roughs that
+  leave their stock to this file (none is unknown); `stock_cap_mm` is the policy
+  `numbers.max_filing_stock_mm` (unknown unless cited, nonnegative and
+  `numbers_verify` false).
+
+`scribe` and `file_to_line` are manual actions: they need no tool, count as hand
+finishing (a `file_to_line` is a finishing cut for coverage and inspection), and
+a bench setup holding only manual ops is `not_applicable` for `coordinates`. The
+kernel removes the filed stock within the cap from the setup's stock model: the
+stock within the cap of each claimed face, of each convex edge two claimed faces
+share, and, past a straight claimed-face edge that no other claimed face shares
+and along which the face's tangent plane is constant, the quarter the stroke runs
+on into beyond the edge and outside that plane. The last takes the corner nib
+between faces filed in different ops; the finished part is never filed.
 
 ## `zero_check`
 
@@ -524,8 +669,10 @@ resolve without a verify flag, `check_jog_mm` is numeric and the lathe
 Z `method = "measure_then_set"` touches a face whose position is measured at
 the machine (M, read with `gauge` as the stated `measure`) and Axis Sets
 `M + offset_mm + side*paper_mm`; check/mirror are `M ±j` on the same base. Like a
-trial cut it is complete when `gauge` resolves unflagged, `measure` is stated and
-`offset_mm`, `paper_mm` and the jog are numeric; the rows show `M -9`, `M +1`.
+trial cut it is complete when `gauge` resolves unflagged, `measure` is stated
+(`"unknown"` states nothing) and `offset_mm`, `paper_mm` and the jog are
+numeric; the rows show `M -9`, `M +1`. The same holds for a tool touch's
+`z_measure`.
 
 Each `[[setups.zero.tool_touches]]` entry is complete when its `tool` and X
 `gauge` resolve without a verify flag and `edge_mm` and `paper_mm` are numeric:
@@ -580,22 +727,70 @@ Fig. 6-7 and p147 Fig. 6-20, plus the toolpost's own `cite`.
 
 One DRO per setup: the DRO reads the tool that last set it, by the zero, a tool
 touch (made before the first of its `before_ops`, else after its `after_op`) or
-a listed retouch. Ops before the Z zero's `after_op` run before any tool set Z.
-Every cutting op whose tool did not make the latest Axis Set
+a listed retouch. Ops before the Z zero's `after_op` run before any tool set Z,
+and an axis with no zero recipe has no tool's Axis Set to change (the missing
+zero is unknown). Every cutting op whose tool did not make the latest Axis Set
 is touched off first (`derived_touches`, printed "re-touch" at that op). The
 source's recipe names its own tool's edge, so the re-touch is tool-neutral:
 `edge_then_set` on a lathe (Z-cutting edge to the surface, withdraw along X),
 `touch_then_set` on a mill:
 
-- Z on the latest touched or faced surface still standing at a plan Z: the zero
-  face, a tool-touch face, a listed retouch's top or a face/pocket op's `to_z`
-  (faced surfaces take the zero's paper). A surface stands until a face or
-  pocket op cuts that feature (the top: moves the top) to another Z. A measured
-  Z (`trial_cut_measure`, `measure_then_set`) is no plan number to repeat.
+- Z on the latest touched or faced surface proven to stand at a known plan Z:
+  the zero face, a tool-touch face, a listed retouch's top or a face/pocket op's
+  `to_z` (faced surfaces take the zero's paper). The rule tracks each surface
+  across the ops since it was made, using each op's coverage of it
+  (`cut_coverage`: whole, partial or unknown). A surface ends when an op cuts all
+  of it (the top: faces the stock's `top_feature`, or any face op when there is
+  none) to another Z or to no stated Z (`to_z` omitted or `"unknown"`), or cuts it
+  other than by facing/pocketing. Ops that each cut only part of it leave it at
+  its uncut Z only while a land of it lies outside all of their
+  `stock_removal_bounds`: a square `TOUCH_LAND_MM` (0.5 mm) on a side, AUTHOR'S
+  CHOICE. A paper touch needs a patch the operator can see, set the tool end over
+  and slide paper under; a narrower sliver may hold no flat surface once the burrs
+  of the cuts beside it are counted, and whether it is there at all can rest on
+  geometry no operator can check. The value is illustrative, not measured; a
+  larger one only leaves more Z unknown, and a narrower land is unknown, never
+  pass. The land must lie on surface shown to be there: the kernel's one STEP
+  face for the feature (`faces`) is a plane that fills its own box (`fills_bbox`:
+  one wire, each edge a straight segment within the kernel's 1e-6 mm side
+  tolerance of a side of the box, more area than that band), flat in setup Z,
+  with each box corner on a corner of its setup X/Y box, which is the footprint.
+  Within `FILL_MARGIN_MM` (1.5e-6 mm: that side tolerance plus the 5e-7 mm the
+  record's 6-decimal rounding may move each side) and the 1e-6 corner tolerance of
+  a side of the box, a notch may still run, so no land counts there. Without a
+  kernel result, or for a round, holed, notched or L-shaped face or one turned
+  against the setup axes, the box's corners may hold no surface, however little
+  of its area the face lacks: a 0.005 mm hole can be the only part of the box
+  every cut spares. A touch on a surface, whether a zero, a tool touch or a
+  listed retouch, is a paper touch at
+  a nominal Z. It does not show what the ops since the surface was made left of
+  it, so it carries their partial cuts and any doubt about them. A touch on a
+  surface an op in the setup made is proven only at the Z that op made, and a
+  touch on the top only at the tracked top's Z. Only a whole cut makes a new
+  surface. The top a zero `after_op`, a listed retouch or a tool touch touches is
+  the top so tracked, so a face that states no depth leaves it unknown. A surface
+  is not proven while:
+  - it is unnamed (a zero with no `face`);
+  - an op on a feature the plan does not name has run since it was made, or a
+    face op while the stock's `top_feature` is unresolved (the top);
+  - an op's coverage of it is unknown, it may be gone, or a touch on it disagrees
+    with (or cannot be checked against) the Z its op made or the tracked top's;
+  - partial cuts together leave no land of it, or it is not shown to fill its
+    footprint.
+
+  With no proven surface, the latest one not shown gone is repeated with Z and
+  Axis Set unknown (unknown). A measured Z (`trial_cut_measure`,
+  `measure_then_set`) is no plan number to repeat.
 - On a lathe, X on the latest diameter turned in the setup (`turn`,
-  `rough_turn`, `finish_turn`) measured with the latest X gauge, else the latest
-  touch's own `x_method` surface (not a trial cut), Axis Set the measured
-  diameter. Tailstock tools (axial actions) do not read the carriage DRO.
+  `rough_turn`, `finish_turn`) that still stands, measured with the latest X
+  gauge, Axis Set the measured diameter. A turned diameter stands until an op
+  cuts that feature other than by turning it (a dome formed on it) or cuts an
+  unnamed feature. A touch's own `x_method` surface is prose the rule cannot
+  follow past a cut, so it is never repeated. Tailstock tools (axial actions) do
+  not read the carriage DRO.
+- A cutting op whose tool is unknown leaves the setter unknown (unknown); an
+  incoming tool that does not resolve, or carries a verify flag, keeps its
+  derived touch unknown, as it keeps an authored touch.
 
 An axis with nothing to derive from is a `missing_touches` row
 (`before_op`, `tool`, `axes`, `dro_set_by`) and an error: a tool cutting on

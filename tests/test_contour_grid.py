@@ -101,7 +101,7 @@ def test_a_finish_row_the_grid_leaves_off_its_wall_past_its_band_is_an_error(
 def pocket(do, side="-x", allowance=""):
     return (
         f"[[setups.ops]]\nop = 20\ndo = '{do}'\nfeature = 'target'\ntool = 'cutter'\n"
-        f"to_z = -1.0\ndirection = 'conventional'\n{allowance}"
+        f"to_z = -1.0\ndirection = 'conventional'\napproach_mm = 5.0\n{allowance}"
         f"contour = {{ method = 'linear_table', step_mm = 1.0, open_side = '{side}' }}\n"
     )
 

@@ -24,7 +24,9 @@ that carries its own verification debt.
 The citation list of every geometry finding starts with that PLAN row, adds
 `kernel: STEP SHA-256 <digest>; FreeCAD B-rep measurements` when the manifest
 digest is known, then the feature (exported `features.<name>: faces and
-requirements` or author-owned `plan.joint_features.<name>` plus its citations),
+requirements`, author-owned `plan.joint_features.<name>`, or
+`plan.process_features.<name>: STOCK PREPARATION — plan only, not a drawing
+dimension`, each plus its citations),
 the setup (`plan.setups.<id>: frame and hold`, the resolved fixture/parallels
 rows and their citations, the frame citation) and the operation
 (`plan.setups.<id>.ops.<n>: selected
@@ -147,6 +149,13 @@ report, every rule that needs the feature is `error` with
 rows `unknown` (`feature face references are unknown or unmapped`). Imported
 faces that no reference names are labelled `imported face index <n>`
 (0-based) wherever the kernel has to name them, for example in `coverage`.
+Each imported face's record in `faces` gives its `index`, `ref`, surface
+`kind`, `area_mm2`, `bbox_mm` and `fills_bbox`: true only for a plane with one
+wire whose every edge is a straight segment within the kernel's 1e-6 mm side
+tolerance of a side of its flat box, and with more area than that band along the
+sides, so the face is that whole rectangle but for the band; a hole of any size,
+or a notch reaching further in, however little area it takes, makes it false, as
+does a face lying wholly in the band (a rim along three sides).
 
 Plan-owned joint cylinders are separate analytic targets, labelled with their
 `plan.joint_features.<id>` provenance. They are never assigned synthetic STEP
@@ -169,6 +178,35 @@ face at another diameter or about another axis and any transient index earn
 nothing. Earning
 nothing leaves the face's obligations open; it is never debt or
 `not_applicable`.
+
+Plan [process features](plan.md#process-features) (a faced `end_face`, a
+`centre_hole`) are analytic stock preparation labelled
+`plan.process_features.<id>`. The kernel adds them as transient faces after
+the STEP faces (an end face is the disc through `at` normal to `axis`,
+intersected with the stock; a centre is its reversed countersink cone and pilot
+cylinder), so they are never STEP indices and never enter final face, source,
+as-is, corner, `coverage` or `finish_coverage` mappings. A process op credits
+no imported face, even when its cut lies on a drawing plane, and is never
+claim debt. Facing an end face uses the turning model with the disc as its
+claim. A `center_drill` op removes the analytic centre (countersink of
+`countersink_angle_deg` to `mouth_dia_mm`, pilot of `drill_dia_mm` and
+`drill_length_mm`, point cone from the tool's verified `point_angle`) led 1 mm
+out of the face, minus protected finished material, along setup -Z through the
+spindle axis. It removes only the centre the selected tool cuts: the sizes and
+point must be that tool's own accepted Table 6 D, C, angle, body and
+`point_angle`, on a tool record that is confirmed, by the same check as the
+[`blind_depth`](rules-operations.md#blind_depth-tip-endpoints) centre row. It then
+measures the whole combined drill and countersink (point, pilot, countersink
+opening on to the body diameter, body up to the holder's projection) and the
+holder. An unknown or unaccepted tool fact or point angle, an unconfirmed tool
+record, sizes the selected tool does not cut, a centre
+not wholly inside the stock, a mouth with stock over it within the 1 mm lead
+(not on the exposed surface of the stock the op meets after this setup's
+earlier cuts, where the quill is touched), or a feed off setup -Z or the
+spindle axis is a reason, not a removal. Accessibility, reach and later stock
+states then see the cut centre, and a later setup's hold `centre_hole` seats its
+dead centre in that countersink instead of cutting a seat from
+`centre_hole_dia_mm`.
 
 
 ## Approach models
@@ -311,8 +349,9 @@ thin inward shell. The flute meets the stock its setup's one op-order pass
 accepts after this op, like any milling flute (see
 [In-process stock](#in-process-stock)): a rotary removal that cannot be
 derived stops that pass, so its own flute meets all of its before-op stock and
-later flutes keep only their certain finished hits. The holder retains
-setup-entry stock, and reach and holder-wall screens use setup-entry stock.
+later flutes keep only their certain finished hits. The holder obstacles retain
+setup-entry stock; reach, holder-wall and shank screens use the stock the op
+meets (see [`reach`](#reach)).
 Chuck jaws and body turn with the work; the head body, tailstock and clamps
 stay put and are checked at the presented pose.
 
@@ -524,7 +563,8 @@ shared supply ancestor. Independent forks may start from the same supply again
 as route alternatives, but cannot join that material lineage twice.
 Each setup output subtracts only that setup's derivable claimed removals from
 its selected input. Current-setup removals do not change current holding facts,
-image, reach or holder obstacles. A milling or hole flute instead meets the
+image or accessibility holder obstacles; the reach, holder-wall, shank and
+clearance facts of [`reach`](#reach) do see them. A milling or hole flute meets the
 stock its setup's earlier ops leave: before any op is measured, one pass in op
 order derives each op's before-op stock and the stock it accepts after that
 op's cut, so a flute never meets material an earlier derived cut removed and is
@@ -1083,8 +1123,8 @@ setup's earlier derived cuts leave (see [in-process stock](#in-process-stock)), 
 own derivable outside-finished allowance; the holder still sees both. The
 shell removes numerical self-contact, not a cutter-radius slab and not another
 finished face of the same feature. A cutter wider than a claimed groove
-therefore still intersects the opposite claimed wall. Holding, rendering,
-reach and holder obstacles use actual setup-entry stock, and no flute is
+therefore still intersects the opposite claimed wall. Holding, rendering and
+accessibility holder obstacles use actual setup-entry stock, and no flute is
 credited with a later op's removal.
 
 Claimed concave cone or sphere point caps are not blanket-exempt. Only a hole
@@ -1228,31 +1268,99 @@ or search-based reachability proof.
 
 ## `reach`
 
-Needs `flute_len_mm`. The kernel measures, for each upward-facing sample, the
-highest part material within the cutter radius + 0.05 mm of the offset tool
-axis, and reports the largest such height above a sample as
-`reach_depth_mm`; `holder_wall_hits` counts samples whose holder cylinder
-(starting `projection_mm` above the tip) intersects the part, and needs the
-holder radius, gauge length and projection. Numbers: `reach_depth_mm`,
-`flute_len_mm`, `oal_mm`, `holder_wall_hits`, and on a milling or axial joint
-sample `reach_top_z_mm`, the setup Z of that highest material (the reach
-reference; `"not_applicable"` when no material stands beside the tool).
+Needs `flute_len_mm`. The kernel measures reach on the stock the op meets: the
+setup-entry stock less every earlier op's accepted cut in that setup (see
+[in-process stock](#in-process-stock)). For each upward-facing sample it takes
+the highest such material within the cutter radius + 0.05 mm of the offset tool
+axis, and reports the largest such height above a sample as `reach_depth_mm`.
+`holder_wall_hits` counts samples whose holder cylinder (starting
+`projection_mm` above the tip) intersects that same stock, and needs the holder
+radius, gauge length and projection. A stock the builder cannot derive leaves
+all three unknown with its reason, never measured on the setup-entry stock.
 
-The traveler's CLEARANCE line keeps the cut and the reach apart. The cut is the
-op row's own start Z to its printed tip Z. The reach is from `reach_top_z_mm`
-down to that same printed tip, against the flute, with the holder-clearance
-verdict past the flute and the holder face's height above that stock
-(`projection_mm` less the reach). Reach is never printed as a cut depth.
+The tool past its flutes is the shank: `shank_mm`/`shank_in` from the
+inventory (a `{ value, measured }` record, halved to the engine's
+`shank_radius_mm`) running from `shank_from_mm` above the tip to the holder
+face. `shank_from_mm` is the flute length, or for a combined drill and
+countersink (`angle_deg`) the flute plus its seat cone out to the shank
+diameter. That seat cone, from the flute radius at the flute end to the shank
+radius at `shank_from_mm`, is cutting body, not shank: it is part of the tool
+solid whose hits `accessibility` counts, and a spot or drill removes it with
+its own cut: the cone at its final pose and, above it, the shank-diameter bore
+its widest edge sweeps on the way down. So a spot deeper than its pilot
+countersinks its own mouth, one deeper than the whole cone bores it out to the
+shank diameter, and finished material in that path (a retained shoulder
+inside the cone, a narrower finished bore) stays a tool hit. `shank_hits`
+counts the samples whose shank cylinder meets the stock the op leaves: the
+shank trails the flutes through the op's own cut (down its bore, or pass by
+pass down a milled wall), so the finished bore or wall counts and the op's own
+allowance does not. An unknown shank diameter or start leaves `shank_hits`
+unknown.
 
-- depth ≤ flute: `entry-to-floor depth is within the selected flute length.` (pass)
+On a hole op's own axis the kernel also reports four clearances, each the
+least over its axes, measured within the holder radius:
+
+- `body_clear_mm`: the flute body's radial gap above its own cut's mouth to the
+  stock the op leaves (a crown, ear or wall beside the spot);
+- `seat_clear_mm`: the seat cone's radial gap to that stock (at each height,
+  the stock's distance from the axis less the cone's radius there). A cone
+  that meets no stock is measured above the countersink it cuts itself, as
+  the body is above its mouth; one that meets it reports the interference
+  from the flute end up, exact down to minus the pilot radius and unknown
+  deeper; `"not_applicable"` for a tool without a seat cone, and unknown, as
+  the shank, when the shank radius is: only that radius tells a seat cone from
+  none;
+- `shank_clear_mm`: the shank's radial gap to that stock (the finished bore wall
+  for a reamer past its flutes);
+- `holder_clear_mm`: the holder face's height above the highest stock the op
+  meets under the holder, at `holder_clear_top_z_mm`.
+
+Each is `"not_applicable"` when no such stock stands beside that part of the
+tool, negative when the part is inside the stock, and unknown with the
+reason when an input is missing. They are reported numbers, not limits: no
+minimum clearance is enforced beyond the hit counts.
+
+Numbers: `reach_depth_mm`, `flute_len_mm`, `oal_mm`, `projection_mm`,
+`holder_wall_hits`, on a milling or axial joint sample `reach_top_z_mm` (the
+setup Z of that highest material, the reach reference; `"not_applicable"` when
+no material stands beside the tool), and off the turning model `shank_dia_mm`,
+`shank_from_mm`, `shank_hits`, any of `body_clear_mm`, `seat_clear_mm`,
+`shank_clear_mm`, `holder_clear_mm` the kernel reported and `clearances`: one
+`{ part, obstacle, mm }` per reported clearance other than
+`"not_applicable"`, with `part` `tool body`, `seat cone`, `tool shank` or
+`holder face`;
+`obstacle` `the Ø<d> bore this op cuts` when the gap is the op's own bore,
+`stock <r> from the tool axis`, `stock under the holder at Z<z>` or, when
+unmeasured, `stock beside the tool`/`stock under the holder`.
+
+The traveler's mill CLEARANCE table takes the reach finding's holder clearance:
+the holder face's height above the highest stock beside the tool, `projection_mm`
+less the reach from `reach_top_z_mm` (as that surface's DRO Z) down to the op
+row's printed tip. A holder face below that stock prints its depth below it, with
+the wall verdict; past the flute, holder wall hits are a STOP and unknown hits a
+check-at-the-machine action. Each `clearances` entry (`part`, `obstacle`, `mm`)
+competes for the op's closest obstacle; a negative one is a STOP. Reach is never
+printed as a cut depth.
+
 - depth > OAL: `entry-to-floor depth exceeds the selected tool OAL.` (error)
+- shank hits: `the tool shank past its flutes meets the retained stock.`
+  (error, at any depth)
+- depth ≤ flute with zero shank hits (turning: no shank check):
+  `entry-to-floor depth is within the selected flute length.` (pass)
 - depth > flute with holder wall hits: `depth exceeds flute length and the holder intersects walls.` (error)
-- depth > flute, ≤ OAL, zero holder hits and both holder dimensions known:
-  `depth exceeds flute length but fits OAL with the holder cylinder clear of walls.` (pass)
+- the shank unknown, at any depth: the kernel's `shank_hits` reason, or
+  `the shank past the flutes is unresolved against the retained stock.`
+  (unknown). A shallow cut does not prove the shank clear: a spot 0.5 mm deep
+  still sinks the shank beside a retained wall the flutes never reach.
+- depth > flute, ≤ OAL, zero holder and shank hits and every holder dimension
+  known: `depth exceeds flute length but fits OAL with the shank and holder clear
+  of the retained stock.` (pass; turning: `… with the holder cylinder clear of
+  walls.`)
 - otherwise `entry-to-floor depth or holder wall clearance is unresolved.` (unknown)
 
 The long-tool rescue therefore requires accepted holder gauge-diameter,
-gauge-length and projection facts; an unknown holder never passes a
+gauge-length and projection facts and, off the turning model, a measured shank
+clear of the retained stock; an unknown holder or shank never passes a
 beyond-flute depth.
 
 On the turning model, `reach_depth_mm` is the radial height of material beside the
@@ -1441,7 +1549,7 @@ thin_wall_under_clamp has no vise grip-zone facts for {kind} holding.`), as
 is a dividing head that names no chuck. The exception is a posed-solids fixture
 whose `hold.clamp` is `"none"` / `"not_applicable"`, with no clamp members or
 debts, in a setup whose every op is explicitly non-cutting (`inspect`, `fit`,
-`deburr`, `coating`, `release`, `scribe`, `transfer`): it is `not_applicable`,
+`deburr`, `coating`, `release`, `scribe`, `file_to_line`, `transfer`): it is `not_applicable`,
 never `pass`. This applies only after the kernel facts, assembly, holding
 identity, numeric frame, in-process stock and fixture pose resolve; each
 otherwise keeps its unknown/error row. Clamp prose (even "gravity only"), a
@@ -1543,7 +1651,8 @@ torque, or that the shop's real fixture matches its record.
 ## Renders
 
 For each setup with a numeric frame and derivable incoming stock the kernel
-returns a 1600×1000 PNG suitable for a wide printed setup figure. The camera
+returns a PNG 1600 pixels wide and 1000 tall (taller with holding detail bands,
+below) suitable for a wide printed setup figure. The camera
 uses setup axes: a lathe elevation has +Z to the right, radial +X up and +Y
 away, with headstock/chuck left and tailstock right; a mill uses a front-right
 isometric view; a custom plate uses a plan view down setup -Z. The engine's
@@ -1558,7 +1667,9 @@ plainly. Fixture role colours, labels, setup X/Y/Z, Z0, named datum ends,
 jaw-front Z, stickout and a selected-tool approach illustration accompany the
 geometry. Steady rest rings are drawn as fixture solids; each follow rest's
 jaws are drawn and labelled posed for the first cutting sample of the first
-op it serves. An exposed-end detail makes short lathe stickouts legible; contour
+op it serves. An exposed-end detail makes short lathe stickouts legible; when
+its point keys would sit closer than their badges need (a jaw-end dome), it is
+enlarged until they stand apart, as in the shaft's S2 and S3. Contour
 sketches show both sides and share `P` waypoint keys with the coordinate
 tables. Custom plates show pads, locators and authored clamp-action order.
 Table/vise-body/headstock/tailstock context outlines are marked schematic;
@@ -1568,6 +1679,50 @@ Every label prints at body size (21-pixel caps, about 7 pt on Letter); the
 renderer refuses smaller text. Setup notes come from the setup's declared ops,
 bench actions included, so a deburr/coating/inspect setup says it has no
 machine cutting rather than "no material removed".
+
+A leader that names a drawn solid (the stock, a jaw, a parallel, a clamp, a
+numbered clamp or pad badge) ends on that solid's own visible pixels, never on
+its bounding box or on whatever lies in front of it. When no pixel of the named
+solid is visible the leader is not drawn and the picture carries the render
+debt `NOT SHOWN: <label> is hidden in this view, so it has no leader.`, printed
+in its own notes; a hidden numbered clamp or pad with a known box is instead
+drawn as a dashed outline of that box, its badge's leader ending on the outline
+at an open ring, so its position still shows without pointing at the solid in
+front. Triangles that share an edge cover every pixel centre on it exactly
+once, so a solid wholly behind another never shows through its seams. A datum's
+authored face name keeps its words but its axis words are restated in the
+setup's axes through the setup placement (the rocker's model "+Z broad strap
+face" is "-Z broad strap face" in a setup that turns the part over; an axis
+that lies along no setup axis is dropped). A datum face whose normal points
+setup -Z is labelled `UNDERSIDE`; one turned away from the camera is labelled
+`HIDDEN` and drawn as a dashed outline with a dashed diamond marker, never as
+the face in front.
+
+When something touches the stock and the main picture draws the stock's
+narrower side under 200 pixels, a **holding detail** band is printed below the
+picture. The kernel computes the contacts from the exact solids: each holding
+solid within the stock tolerance of the work gives the outline of the shared
+face (or the section edges, else the nearest point). Its plane is measured on
+that whole contact before a section view cuts it: the outline is cut where it
+crosses the section plane and only the kept side is drawn, still keyed at the
+contact's own plane (a contact that is a point or a straight line names no
+plane). `closest_cut` is the smallest distance from this setup's
+removal to a holding solid. The detail frames the stock, the contacts and that
+distance; it outlines each contact (solid where seen, dashed where hidden),
+keys it with its holding name and the setup coordinate of its plane (a support
+whose solids lie on different planes, such as the rocker's hub stand and rail
+shims, is keyed plane by plane, and same-named solids share a key only on one
+plane). A numbered support (a coded clamp such as `SUP1`, or a pad) on one plane
+keeps its position badge; one whose solids seat the work on several planes keys
+each solid with its code, its own name and its plane, led to its own contact,
+and pad keys at several heights name the pads each keys. It dimensions the
+closest cut in amber. An
+isometric or elevation view is detailed only when the band draws the stock at
+least 1.5 times larger; a lathe's meridian section gets no holding detail. A
+plan view always gets the detail, drawn from 30° above the side so contact
+heights read, and long work is split along its length into at most two bands,
+each keying only the contacts in its share. Bands grow taller rather than
+shrink or drop a key; the scene's `height_px` is the delivered PNG's height.
 
 Alongside the image the engine returns `render_scene` with `fixture_kind`,
 `jaws`, `parallels`, `components`, `debts`, camera/resolution, plain-language
@@ -1590,6 +1745,7 @@ dividing head `jaws` is `exact` once placed; jawless kinds report
 `not_applicable`; an unplaced non-vise fixture is `absent` with debt
 `fixture not drawn: <reason>`. Further debts name an undrawn possible
 obstacle (`not drawn: …`), a strap that does not bear on the stock top, a
+fixture body that touches neither the stock nor a clamp bearing on it, a
 solid that intersects the entry stock, or unequal scroll-chuck contact
 radii. `fixture_rendered` is true only when the fixture is placed, at least
 one component is drawn, every component is exact and the debt list is

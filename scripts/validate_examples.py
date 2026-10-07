@@ -507,7 +507,7 @@ def input_paths(folder: Path, plan: dict, plan_filename: str = "plan.toml") -> d
 
 
 def required_finding(finding: dict, policy: dict, plan: dict, features: dict) -> bool:
-    """Match checker readiness, including non-waivable physical joint rules."""
+    """Match checker readiness, including non-waivable joint and centre-support rules."""
     if finding["rule"] in ALWAYS_REQUIRED:
         return True
     required = policy.get("required", "unknown")
@@ -796,7 +796,7 @@ def check_zero(setup: dict, finding: dict, entries: dict, dro: dict) -> None:
                 and isinstance(gauge, str)
                 and resolves(gauge, entries)
                 and not uncertain(gauge, entries)
-                and bool(str(recipe.get("measure", "")).strip())
+                and str(recipe.get("measure", "")).strip() not in {"", "unknown"}
                 and all(numeric(v) for v in (base, paper, jog))
             )
             for field, step in (("axis_set", 0), ("check_reading", 1), ("mirrored_reading", -1)):

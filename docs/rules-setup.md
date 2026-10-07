@@ -14,7 +14,7 @@ known end station; mill setups need top/bottom Z. Authored supports, orientation
 parallels, jaws direction and locator are checked when supplied. Every nonmanual
 cut needs `direction` (face, profile, pocket, turn, form and parting actions
 included) except point/hole actions (`spot`, `drill`, `ream`, `tap`,
-`counterbore`, `center`) and saw cut-off (its `cut_plane` defines the setting);
+`counterbore`, `center`, `center_drill`) and saw cut-off (its `cut_plane` defines the setting);
 an explicitly supplied point/hole direction is also checked, and
 an explicitly unknown action without one is unknown. Missing/empty
 fields are errors; explicit unknown values are unknown. It does not compare
@@ -35,6 +35,56 @@ Templates:
 Evidence: hold record, stock stations, coolant, deburr, cut directions and
 missing fields. Citation: PLAN §4.1 hold fields. No invented grip or deburr
 limit appears as a fallback.
+
+## `centre_support`
+
+One subject per setup. Always required wherever a centre carries the work: no
+shop-policy entry is needed and none can waive it (`findings.ALWAYS_REQUIRED`,
+like `joint_fit`/`joint_assembly`). A centre is a `support` or any `supports`
+entry whose inventory `kind` has a whole `centre` / `center` word (`dead_centre`,
+`live_center`, `tailstock_centre`, `pipe_center`) or is `tailstock` (a
+tailstock carries work only on its centre), a machine standard accessory whose
+name has such a word (`dead_centre_headstock`), or a hold that declares
+`centre_hole` / `centre_hole_dia_mm`. The word `tailstock` in an accessory name
+is not a centre (`tailstock_drill_chuck`, `tailstock_quill`), nor is a kind
+such as `self_centering_steady_rest`. A support of a known non-centre kind stays
+one whatever `verify` or measurement debt its record carries; that debt is its
+own checks' (`stickout`, `turning_deflection`). A hold with no centre is not
+applicable and never blocks.
+The hold's `centre_hole` must name a plan
+[process feature](plan.md#process-features) `centre_hole`; a `center_drill`
+op of an earlier setup in this setup's `stock_in` lineage must drill it, that
+op's own [`blind_depth`](rules-operations.md#blind_depth-tip-endpoints) centre
+row must pass (the same verdict, so the two never disagree: the selected tool's
+own centre, every tool fact the kernel cuts it from accepted, its mouth on the
+touched entry surface and, on a lathe, on the spindle axis), and its
+`mouth_dia_mm` must equal `centre_hole_dia_mm`.
+
+- **error:** the lineage is fully declared and no earlier setup in it drills
+  the centre (none does, or only this setup or a later one does), the maker's
+  `blind_depth` row is an error (a centre size its selected tool does not cut,
+  a tool point no shorter than its pilot, or a mouth off the surface or axis
+  its quill is touched on and fed along), or the hold's seat and the drilled
+  mouth differ. An error stands whatever else is unresolved;
+- **unknown:** `centre_hole` is undeclared; any setup in the lineage (this one
+  or one upstream) lacks `stock_in`; the maker's `blind_depth` row is unknown (a
+  centre size, a selected-tool fact such as its point angle, the tool's record
+  being unconfirmed, or the touched entry surface); the seat or mouth diameter
+  is unknown; a support's identity is unresolved (the reference is unknown, not
+  in the inventory, declared `"unknown"`, or of unknown kind), with or without a
+  known centre beside it, since it may be one; or
+  the work rides on more than one centre, since a hold names one `centre_hole`
+  and each other centre's seat is unchecked. A wholly undeclared hold names no
+  support: its debt is `hold_fields`', and this rule is not applicable;
+- **pass:** otherwise, naming the setup and op that drilled it.
+
+Evidence: support, the centres found, the centre, the ops that drill it before
+and after, whether the lineage is routed, each maker's preparation status,
+mouth and seat diameters, and the Table 6 depth arithmetic (`drill_length_mm`,
+`countersink_depth_mm`, `depth_mm`). The kernel separately seats the centre in
+the cut countersink and checks it against the setup-entry stock; that check is
+a fixture render debt, not this rule. Its unknown blocks (exit 4) under any
+shop policy; an error always exits 2.
 
 ## `headroom`
 
@@ -199,7 +249,8 @@ position and angularity datums, coaxial feature and height-from feature.
 Reamed/bored/tapped datum finishing cuts replace pilots, including across that
 merged label/owner set; rough, manual (`inspect`, `deburr`, `coating`, `release`,
 `fit`, `scribe`) and other nonfinishing actions (`spot`, `transfer`, saw) never
-establish a final datum, whether named or owning. A datum name that
+establish a final datum, whether named or owning; a bench `file_to_line` is a
+finishing cut and does. A datum name that
 maps to no feature has no cuts. Every feature
 finishing-cut/datum-cut pair is evaluated. Same setup passes; an indicated
 transfer passes only when it names that feature/datum and originates at or
@@ -240,5 +291,6 @@ Closure against a whole revolution is checked **only for a full pattern**:
 pattern: every position is checked against `angle_tol_deg`, with no closure.
 `positions = 1` is one angular setting, such as the cone journal's 12.5182°
 inclination, with no closure. The traveler prints plate, circle, turns and hole
-**spaces**, even when that arithmetic remains tentative because inventory
-confirmation is missing.
+**spaces**, then the angle that setting actually turns, its difference from the
+planned angle and the allowance, even when that arithmetic remains tentative
+because inventory confirmation is missing.

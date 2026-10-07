@@ -195,6 +195,7 @@ def evaluate(bundle):
             "requested_angle_fraction": str(requested) if requested is not None else UNKNOWN,
             "requested_angle_source": "360/positions" if derived else "declared",
             "actual_angle_deg": UNKNOWN,
+            "step_error_deg": UNKNOWN,
             "method": UNKNOWN,
             "plate": UNKNOWN,
             "circle": UNKNOWN,
@@ -311,6 +312,7 @@ def evaluate(bundle):
                     )
                     actual = selected["actual"]
                     numbers["actual_angle_deg"] = float(actual)
+                    numbers["step_error_deg"] = float(selected["error"])
                     if count_known:
                         landing_errors = [
                             selected["error"] * position for position in range(1, positions + 1)

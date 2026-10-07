@@ -21,6 +21,7 @@ from prechips.rules.geometry_common import (
     TURNING_TOOL_KEYS,
 )
 from prechips.rules.resolution import (
+    HAND_FINISH,
     WORKHOLDING_CATEGORIES,
     inventory_category,
     number,
@@ -69,6 +70,26 @@ def _measured_length(item, field):
     fact = length_fact(item, field, require_measured=True)
     value = fact["value"] if fact["verified"] else UNKNOWN
     return value if number(value) and value > 0 else UNKNOWN
+
+
+def _shank_from(tool, values):
+    """Height above the tip where the tool's full shank diameter begins, or unknown.
+
+    That is the flute end, except on a combined drill and countersink: its ``angle_deg``
+    seat cone cuts from the pilot out to a wider body, so its shank begins where that
+    cone reaches the shank diameter. An unknown shank keeps the flute end, which only
+    lowers the start of a body whose diameter is itself unknown.
+    """
+    flute, cutter = values["flute_len_mm"], values["radius_mm"]
+    shank = values["shank_radius_mm"]
+    if not (number(flute) and flute > 0):
+        return UNKNOWN
+    seat = _accepted_angle(tool, "angle_deg")
+    if not (number(seat) and number(cutter) and number(shank)) or shank <= cutter:
+        return flute
+    if not 0 < seat < 180:
+        return UNKNOWN
+    return flute + (shank - cutter) / math.tan(math.radians(seat / 2))
 
 
 def _turning_values(bundle, op):
@@ -124,6 +145,7 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
     """One op's kernel inputs; ``tables`` is its setup's coordinates numbers, whose printed
     cutter-centre checkpoints the kernel checks against the stock model (``checkpoints``)."""
     from prechips.joint_features import joint_operation
+    from prechips.process_features import centre_tool, process_operation
     from prechips.rules.geometry_common import (
         ROTARY,
         TURNING,
@@ -142,6 +164,8 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
             "kerf_mm": _accepted_length(tool, "kerf"),
             "cut_plane": saw_plane(op.get("cut_plane"), bundle.features.get("units", UNKNOWN)),
         }
+    if op.get("do") in HAND_FINISH:
+        return _hand_inputs(bundle, op, subject, finishing)
     model = approach(bundle, setup, op)
     turned = model == TURNING
     if turned:
@@ -157,14 +181,18 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
             "holder_radius_mm": _accepted_length(holder, "gauge_dia"),
             "holder_gauge_len_mm": _accepted_length(holder, "gauge_len"),
             "projection_mm": projection["value"] if projection["verified"] else UNKNOWN,
+            # The tool body past its cutting length: only a reach past the flute needs it.
+            "shank_radius_mm": _accepted_length(tool, "shank"),
         }
-        for key in ("radius_mm", "holder_radius_mm"):
+        for key in ("radius_mm", "holder_radius_mm", "shank_radius_mm"):
             if number(values[key]):
                 values[key] /= 2
+        values["shank_from_mm"] = _shank_from(tool, values)
         missing = [
             key
             for key, value in values.items()
-            if not (number(value) and value > 0) and key != "oal_mm"
+            if not (number(value) and value > 0)
+            and key not in {"oal_mm", "shank_radius_mm", "shank_from_mm"}
         ]
     result = {
         "subject": subject,
@@ -175,6 +203,21 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
     joint_cut = joint_operation(bundle, op, result["finishing"])
     if joint_cut is not None:
         result["joint_cut"] = joint_cut
+    process_cut = process_operation(bundle, op)
+    if process_cut is not None:
+        if op.get("do") == "center_drill" and "reason" not in process_cut:
+            # The kernel cuts only the centre the selected tool itself makes, closed by its
+            # own accepted pilot point: never an assumed angle.
+            binding = centre_tool(bundle, op)
+            if binding["status"] != "pass":
+                process_cut["reason"] = (
+                    f"{process_cut['label']} is not the centre tool {op.get('tool')!r} cuts: "
+                    + "; ".join(binding["reasons"])
+                )
+            else:
+                process_cut["point_angle_deg"] = binding["tool"]["point_angle_deg"]
+                process_cut["body_dia_mm"] = binding["tool"]["body_dia_mm"]
+        result["process_cut"] = process_cut
     if "faces" in op:
         result["faces"] = op["faces"]
     if model in (TURNING, ROTARY):
@@ -205,7 +248,7 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
     ):
         # stock_state entry/top heights are machine-frame mm, never scaled by feature units.
         entry = UNKNOWN
-        for stock_op, before, _ in stock_states(setup, bundle.feature_definitions):
+        for stock_op, before, _ in stock_states(bundle, setup):
             if stock_op is op or stock_op.get("op") == op["op"]:
                 entry = before["entry_z"].get(op.get("feature"), before["top_z"])
                 break
@@ -260,11 +303,31 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
     return result
 
 
+def _hand_inputs(bundle, op, subject, finishing):
+    """A bench file's kernel inputs: its claims and the policy's ``max_filing_stock_mm``,
+    the most stock a file takes off its claimed faces; it has no machine cutter or holder."""
+    from prechips.rules.coordinates import filing_cap
+    from prechips.rules.geometry_common import HAND, finishing_subjects
+
+    result = {
+        "subject": subject,
+        "feature": op.get("feature", UNKNOWN),
+        "do": op["do"],
+        "finishing": subject in (finishing_subjects(bundle) if finishing is None else finishing),
+        "approach": HAND,
+        "max_filing_stock_mm": filing_cap(bundle),
+    }
+    if "faces" in op:
+        result["faces"] = op["faces"]
+    return result
+
+
 def table_checkpoints(subject, tables, op, units):
     """An op's printed DRO cutter-centre checkpoints in setup-frame mm: ``rows`` of id,
     ``xy_mm`` and ``tip_z_mm`` (the values the DRO shows, ``overshoot`` on a corner miter),
     each printed table's ``paths`` (``xy_mm`` in cutting order, its ``tip_z_mm``, row
-    ``ids`` and ``overshoot`` flags), and why any is unknown; None when it prints none.
+    ``ids``, ``overshoot`` flags and ``stepped``), and why any is unknown; None when it
+    prints none.
 
     A bounded op's tables (``bounded``) are whole: the kernel clips them where the cutter
     first meets stock outside the op's stock_removal_bounds. Each path then carries its
@@ -305,6 +368,7 @@ def table_checkpoints(subject, tables, op, units):
                     "tip_z_mm": points[0]["tip_z_mm"],
                     "ids": [point["id"] for point in points],
                     "overshoot": [point.get("overshoot") is True for point in points],
+                    "stepped": path["stepped"],
                 }
             )
         elif len(points) == len(path["rows"]):
@@ -632,8 +696,9 @@ def _centre_inputs(bundle, machine, hold, result, gaps):
         gaps.append(f"dead centre {reference!r} not drawn: centre_hole_dia_mm is not positive")
         return
     result["centre"] = {"name": reference, **values}
-    if hole is not None:
-        # The work's centre-hole countersink: the stock the centre point seats in.
+    if hole is not None and "centre_hole" not in hold:
+        # The work's centre-hole countersink: the stock the centre point seats in. A named
+        # process centre is instead cut by its own earlier op into the stock received here.
         result["centre"]["hole_dia_mm"] = hole
 
 
@@ -837,6 +902,7 @@ def hold_inputs(bundle, setup):
 
 def build_job(bundle):
     from prechips.joint_features import primitives_mm, setup_joint
+    from prechips.process_features import primitives_mm as process_primitives_mm
     from prechips.rules.coordinates import evaluate as coordinate_findings
     from prechips.rules.coordinates import revolved_located
     from prechips.rules.geometry_common import (
@@ -871,7 +937,7 @@ def build_job(bundle):
                 "ops": [
                     op_inputs(bundle, setup, op, finishing, complete, coordinates.get(setup["id"]))
                     for op in setup["ops"]
-                    if cutting_action(op) is not False
+                    if cutting_action(op) is not False or op.get("do") in HAND_FINISH
                 ],
                 "stock_in": setup.get("stock_in", UNKNOWN),
                 "render": setup_annotations(bundle, setup, coordinates.get(setup["id"], {})),
@@ -897,6 +963,7 @@ def build_job(bundle):
             for name, feature in bundle.features["features"].items()
         },
         "joint_features": primitives_mm(bundle),
+        "process_features": process_primitives_mm(bundle),
         "as_is_faces": record(bundle.plan.get("stock")).get("as_is_faces", UNKNOWN),
         "stock": stock_inputs(bundle),
         "setups": setups,
@@ -971,6 +1038,7 @@ _ENGINE_OP = (
     "feature",
     "faces",
     "joint_cut",
+    "process_cut",
     "finishing",
     "hole",
     "radius_mm",
@@ -978,6 +1046,8 @@ _ENGINE_OP = (
     "holder_radius_mm",
     "holder_gauge_len_mm",
     "projection_mm",
+    "shank_radius_mm",
+    "shank_from_mm",
     "to_z",
     "checkpoints",
     "rough_allowance_mm",
@@ -986,6 +1056,7 @@ _ENGINE_OP = (
     "z_from",
     "z_to",
     "angle_window_deg",
+    "max_filing_stock_mm",
     "to_dia_mm",
     *TURNING_TOOL_KEYS,
     *TURNING_HOLDER_KEYS,
@@ -1079,6 +1150,7 @@ def engine_job(job):
         "step_sha256": job["step_sha256"],
         "features": job["features"],
         "joint_features": job.get("joint_features", {}),
+        "process_features": job.get("process_features", {}),
         "as_is_faces": job["as_is_faces"],
         "stock": job["stock"],
         "setups": [

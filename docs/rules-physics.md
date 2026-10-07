@@ -8,7 +8,11 @@ is `pass`, and missing or unverified necessary inputs remain `unknown` (`?`).
 
 Both rules use operation subjects such as `S1:10`. Manual operations are
 `not_applicable`; turning deflection is also not applicable to a known nonlathe
-machine. An unknown operation or applicable machine identity is not a pass.
+machine, to a lathe's spindle-axis tailstock action (`spot`, `drill`, `ream`,
+`tap`, `center`, `center_drill`: it loads the work axially, not as a turning
+cut) and to an op preparing a plan [process feature](plan.md#process-features),
+which has no drawing acceptance band to deflect out of. An unknown operation or
+applicable machine identity is not a pass.
 
 ## `turning_deflection`
 

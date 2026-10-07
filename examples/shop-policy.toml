@@ -3,7 +3,7 @@
 # ILLUSTRATIVE EXAMPLE NUMBERS: the shop limits below are plausible hobby-shop
 # values chosen for the pilot examples (AGENTS.md "Examples policy"), not
 # logbook measurements or transcribed handbook limits.
-revision = 7
+revision = 8
 
 [required]
 tool_resolves = "*"
@@ -20,6 +20,7 @@ thin_wall_floor_mm = 1.5     # example: thinnest wall the shop grips in vise jaw
 stickout_ld_max = 4.0        # example: unsupported stickout limit, length / diameter
 fixture_make_decimals = 1    # example: decimals a shop-made fixture is made and set to
 near_jaw_mm = 10.0           # example: a lathe cut ending this close to the spinning jaws carries its clearance on the op row
+max_filing_stock_mm = 0.5    # EngManualArc example: most radial stock a rough stair or chain drill leaves for the bench file
 
 [numbers_cite]
 refixture_budget_mm = "illustrative example value (plausible hobby-shop vise re-seat repeatability), not measured"
@@ -27,6 +28,7 @@ thin_wall_floor_mm = "illustrative example value (plausible hobby-shop grip floo
 stickout_ld_max = "illustrative example value (common 4:1 unsupported turning rule of thumb), not a transcribed limit"
 fixture_make_decimals = "AUTHOR'S CHOICE: shop-made fixtures are made and set to 0.1 mm; a fit that locates the part prints at drawing precision"
 near_jaw_mm = "AUTHOR'S CHOICE: illustrative example value (plausible hobby-lathe hand-feed margin before spinning jaws), not measured"
+max_filing_stock_mm = "AUTHOR'S CHOICE: illustrative example value (plausible radial stock a hand file takes down to a scribed line on steel after rough stairs or a chain drill), not measured"
 
 [numbers_verify]
 refixture_budget_mm = false
@@ -34,3 +36,4 @@ thin_wall_floor_mm = false
 stickout_ld_max = false
 fixture_make_decimals = false
 near_jaw_mm = false
+max_filing_stock_mm = false

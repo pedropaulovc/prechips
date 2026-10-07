@@ -2,17 +2,34 @@
 
 from __future__ import annotations
 
+import itertools
 import math
 import re
 
 from prechips.measurements import nominal_angle_deg
 
 from ..findings import Finding
-from .resolution import MANUAL, SAW_OPS, UNKNOWN, length_mm, number, resolve, uncertain
+from ..model import UNIT_TOLERANCE
+from .resolution import (
+    LENGTH_TOLERANCE_MM,
+    MANUAL,
+    SAW_OPS,
+    UNKNOWN,
+    length_mm,
+    number,
+    op_feature,
+    record,
+    resolve,
+    same_length,
+    setup_frame,
+    uncertain,
+)
 
 FACING = {"face", "rough_face", "finish_face"}
 POCKETING = {"pocket", "rough_pocket", "finish_pocket"}
+AXES = ("x", "y", "z")
 HOLE_OPS = {"spot", "drill", "ream", "tap", "counterbore", "bore"}
+_HOLE_KINDS = {"hole", "counterbore", "thread", "threaded_hole"}
 # Lathe actions that, as a facing op does, leave their feature's face at their to_z.
 _PARTING = {"part_off", "cut_to_fit"}
 # Plan units of float residue within which two authored Zs are one surface.
@@ -113,7 +130,7 @@ def _covers(cut, target, whole=False):
                 return False
         elif axis in other:
             interval = other[axis]
-            if not all(number(v) for v in interval):
+            if not _span(interval):
                 return False
             if whole and not band[0] <= interval[0] <= interval[1] <= band[1]:
                 return False
@@ -128,34 +145,182 @@ def _covers(cut, target, whole=False):
     return True
 
 
+def _axis(feature):
+    """``feature``'s ``axis`` (model Z when omitted) when it is a unit vector, to the
+    ``UNIT_TOLERANCE`` loading holds a joint axis to, else None: a scaled or zero vector's
+    components are no direction cosines, so no fixed residue tells what it runs along."""
+    axis = feature.get("axis", [0.0, 0.0, 1.0])
+    if not (isinstance(axis, list) and len(axis) == 3 and all(number(v) for v in axis)):
+        return None
+    return axis if abs(math.hypot(*axis) - 1.0) <= UNIT_TOLERANCE else None
+
+
 def _footprint(target):
-    """``target``'s explicit ``bounds``, else the X/Y square holding a round Z-axis
-    feature (its ``at`` plus or minus half its largest ``dia``); empty when unknown."""
+    """``target``'s explicit ``bounds``, else the X/Y square holding a round feature about
+    a unit Z :func:`_axis` (its ``at`` plus or minus half its largest ``dia``); empty when
+    unknown."""
     bounds = mapping(target.get("bounds"))
     if bounds:
         return bounds
-    at, dia, axis = target.get("at"), target.get("dia"), target.get("axis", [0.0, 0.0, 1.0])
+    at, dia, axis = target.get("at"), target.get("dia"), _axis(target)
     sizes = dia if isinstance(dia, list) else [dia]
     if not (isinstance(at, list) and len(at) == 3 and all(number(v) for v in at[:2])):
         return {}
     if not sizes or not all(number(v) for v in sizes):
         return {}
-    if not (isinstance(axis, list) and len(axis) == 3 and all(number(v) for v in axis)):
-        return {}
-    if abs(axis[0]) > 1e-9 or abs(axis[1]) > 1e-9:
+    if axis is None or abs(axis[0]) > 1e-9 or abs(axis[1]) > 1e-9:
         return {}
     half = max(sizes) / 2
     return {name: [at[i] - half, at[i] + half] for i, name in enumerate(("x", "y"))}
 
 
-def stock_states(setup, features=None):
+def _span(values):
+    """Whether ``values`` is a well-formed span: one or more numbers, ascending."""
+    return (
+        isinstance(values, list)
+        and bool(values)
+        and all(number(v) for v in values)
+        and values == sorted(values)
+    )
+
+
+def _disc(target):
+    """A round feature's box: ``at`` along its principal unit :func:`_axis`, ``at`` plus or
+    minus its largest radius (half its ``dia``, else its ``radius``) across it; None spans
+    unless all are numeric."""
+    at, axis = target.get("at"), _axis(target)
+    size = target.get("dia") if "dia" in target else target.get("radius")
+    sizes, per = size if isinstance(size, list) else [size], 2 if "dia" in target else 1
+    if not (
+        isinstance(at, list)
+        and len(at) == 3
+        and axis is not None
+        and sizes
+        and all(number(v) for v in [*at, *sizes])
+        and sum(abs(v) > 1e-9 for v in axis) == 1
+    ):
+        return dict.fromkeys(AXES)
+    half = max(sizes) / per
+    return {
+        name: [at[i]] if abs(axis[i]) > 1e-9 else [at[i] - half, at[i] + half]
+        for i, name in enumerate(AXES)
+    }
+
+
+def _corners(bundle, target, frame):
+    """The corners of ``target``'s footprint box in ``frame``, else None: its own
+    ``bounds`` (Z from ``at`` when they omit it), else a round feature's box
+    (:func:`_disc`), with an omitted axis taken only from its ``plane`` value. Unknown,
+    omitted, empty or malformed spans, or a non-numeric frame, give None."""
+    from .coordinates import frame_point, model_point
+
+    at, bounds, plane = (
+        target.get("at"),
+        mapping(target.get("bounds")),
+        mapping(target.get("plane")),
+    )
+    spans = {axis: bounds.get(axis) for axis in AXES} if bounds else _disc(target)
+    if bounds and "z" not in bounds and isinstance(at, list) and len(at) == 3:
+        spans["z"] = [at[2]]
+    for axis in AXES:
+        if spans[axis] is None and axis not in bounds and plane.get("axis") == axis:
+            spans[axis] = [plane.get("value")]
+    if not all(_span(span) for span in spans.values()):
+        return None
+    source = _frame(bundle, target)
+    points = [
+        frame_point(model_point(list(p), source), frame)
+        for p in itertools.product(spans["x"], spans["y"], spans["z"])
+    ]
+    return points if all(number(v) for p in points for v in p) else None
+
+
+def _frame(bundle, feature):
+    return mapping(mapping(bundle.features.get("frames")).get(feature.get("frame", "model")))
+
+
+def _setup_footprint(bundle, setup, target):
+    """The setup-frame X/Y box enclosing ``target``'s footprint (:func:`_corners`), else
+    None. Turned against the setup it holds more than the feature, so it can prove a
+    surface held, never a cut."""
+    points = _corners(bundle, target, setup_frame(bundle, setup))
+    if points is None:
+        return None
+    return [[min(p[i] for p in points), max(p[i] for p in points)] for i in range(2)]
+
+
+def _feature_holds(bundle, setup, own, target):
+    """Whether cutting all of feature ``own`` down the setup's Z cut all of ``target``:
+    ``"whole"``, ``"partial"`` or ``UNKNOWN``. Proven in ``own``'s frame, where its box
+    is exact: the setup Z must run along one of that frame's axes, and the box enclosing
+    ``target`` there must lie within ``own``'s spans on the other two. A setup Z oblique
+    to that frame or not a known unit vector (:func:`frame_axes`), or a footprint that
+    cannot be built, is unknown."""
+    from .coordinates import frame_axes
+
+    frame = _frame(bundle, own)
+    tool = frame_axes(setup_frame(bundle, setup))[2]
+    axes = frame_axes(frame)
+    box, held = _corners(bundle, own, frame), _corners(bundle, target, frame)
+    if box is None or held is None or not all(number(v) for v in [*tool, *sum(axes, [])]):
+        return UNKNOWN
+    dots = [sum(tool[i] * axis[i] for i in range(3)) for axis in axes]
+    across = [i for i, dot in enumerate(dots) if abs(dot) <= 1e-9]
+    if len(across) != 2:
+        return UNKNOWN
+    if all(
+        min(p[i] for p in box) - SAME_Z <= min(p[i] for p in held)
+        and max(p[i] for p in held) <= max(p[i] for p in box) + SAME_Z
+        for i in across
+    ):
+        return "whole"
+    return "partial"
+
+
+def cut_region(op):
+    """``op``'s setup-frame X/Y ``stock_removal_bounds`` as ``[[x0, x1], [y0, y1]]``, else
+    None when an axis is unknown, omitted or malformed."""
+    box = mapping(op.get("stock_removal_bounds"))
+    region = [box.get("x"), box.get("y")]
+    return region if all(_span(s) and len(s) == 2 for s in region) else None
+
+
+def cut_coverage(bundle, setup, op, target):
+    """How much of surface ``target`` the cut ``op`` made: ``"whole"``, ``"partial"`` or
+    ``UNKNOWN``. An op without ``stock_removal_bounds`` cuts all of its own feature, and
+    of another surface what its feature holds (:func:`_feature_holds`). Else its
+    :func:`cut_region` and ``target``'s footprint (:func:`_setup_footprint`) decide:
+    ``"whole"`` when the region holds it, ``"partial"`` when it does not. An unknown
+    region or footprint leaves it unknown, never whole; overlap or a held ``at`` point is
+    never whole."""
+    name = op_feature(op)  # None for an inspect op's feature list: it cuts no feature
+    own = mapping(mapping(bundle.feature_definitions).get(name))
+    if "stock_removal_bounds" not in op:
+        if name is not None and target == own:
+            return "whole"
+        return _feature_holds(bundle, setup, own, target)
+    region, held = cut_region(op), _setup_footprint(bundle, setup, target)
+    if held is None or region is None:
+        return UNKNOWN
+    if all(
+        region[i][0] - SAME_Z <= held[i][0] and held[i][1] <= region[i][1] + SAME_Z
+        for i in range(2)
+    ):
+        return "whole"
+    return "partial"
+
+
+def stock_states(bundle, setup):
     """Yield (op, before, after); profiles never move the touched top surface.
 
     Entry values are separate from the setup's touched top. Explicit pocket/face
-    footprints may advance entry planes inside the cut, not adjoining strips.
+    footprints may advance entry planes inside the cut, not adjoining strips. An op that
+    cut only part of a surface (:func:`cut_coverage`) advances neither it nor the top:
+    the surface keeps the uncut height its last whole producer left. One whose coverage
+    is unknown leaves that surface's Z, and its source, unknown.
     Local thickness is authored at the eventual hole entry, not raw stock height.
     """
-    features = mapping(features)
+    features = mapping(bundle.feature_definitions)
     stock = mapping(setup.get("stock_state"))
     top = stock.get("top_z", UNKNOWN)
     entries = dict(mapping(stock.get("entry_z")))
@@ -171,15 +336,24 @@ def stock_states(setup, features=None):
         if "to_z" in op and op.get("do") in FACING | POCKETING:
             name = op.get("feature")
             cut = mapping(features.get(name))
+            made = f"{setup['id']} op {op['op']} to_z"
             for target in entries:
-                if target == name or _covers(cut, mapping(features.get(target))):
-                    entries[target] = op["to_z"]
-                    origins[target] = f"{setup['id']} op {op['op']} to_z"
+                if target != name and not _covers(cut, mapping(features.get(target))):
+                    continue
+                coverage = cut_coverage(bundle, setup, op, mapping(features.get(target)))
+                if coverage != "partial":
+                    entries[target], origins[target] = (
+                        (op["to_z"], made) if coverage == "whole" else (UNKNOWN, UNKNOWN)
+                    )
+            faced = mapping(features.get(stock.get("top_feature") or name))
             if op.get("do") in FACING and (
                 stock.get("top_feature") is None or name == stock["top_feature"]
             ):
-                top = op["to_z"]
-                top_from = f"{setup['id']} op {op['op']} to_z"
+                coverage = cut_coverage(bundle, setup, op, faced)
+                if coverage != "partial":
+                    top, top_from = (
+                        (op["to_z"], made) if coverage == "whole" else (UNKNOWN, UNKNOWN)
+                    )
         after = {
             "top_z": top,
             "entry_z": dict(entries),
@@ -228,7 +402,9 @@ def operative_z(bundle, setup, value, face=None, done=0, source=None, path=False
     an unknown or missing ``to_z``, an unsampled or unproven kernel pose, a turning window
     claiming a face that is not a cylinder) is its producer, so the surface is unknown,
     never its nominal; an op proven to leave no face there is passed over. An equal Z
-    alone is never proof; no ``face`` names no producer.
+    alone is never proof; no ``face`` names no producer. A partial cut
+    (:func:`cut_coverage`) never produces the surface; one of unknown coverage leaves its
+    producer, and so the Z, unknown.
 
     ``path`` reads an op's own path end (its ``z_from``/``z_to``, a feature map's cut
     from/to), not a face a touch or a hole entry meets: a turning window op on ``face``
@@ -240,6 +416,8 @@ def operative_z(bundle, setup, value, face=None, done=0, source=None, path=False
     if not number(value):
         return value
     producer = _producer(bundle, setup, value, face, done, source, path)
+    if producer == UNKNOWN:
+        return UNKNOWN
     if producer:
         value = formed_z(bundle, *producer)
     return dro_z(value, dro_grid(bundle, setup))
@@ -327,8 +505,10 @@ def _producer(bundle, setup, value, face, done, source, path=False):
     ops = setup.get("ops", [])
     features = bundle.feature_definitions
     if source is None and face == "top" and done:
-        states = list(stock_states(setup, features))[:done]
+        states = list(stock_states(bundle, setup))[:done]
         source = states[-1][2]["top_from"] if states else None
+    if source == UNKNOWN:
+        return UNKNOWN
     match = re.fullmatch(r"(\S+) op (\S+) to_z", source) if isinstance(source, str) else None
     if match and match[1] == setup.get("id"):
         return next(((setup, op) for op in ops if str(op.get("op")) == match[2]), None)
@@ -363,6 +543,15 @@ def _producer(bundle, setup, value, face, done, source, path=False):
             )
         if not forms:
             continue
+        surface = mapping(features.get(top or name if face == "top" else face))
+        # An op that cut only part of the surface did not produce it: the uncut part
+        # still stands where its last whole producer left it. Unknown coverage proves
+        # neither.
+        coverage = cut_coverage(bundle, cut_setup, op, surface)
+        if coverage == UNKNOWN:
+            return UNKNOWN
+        if coverage != "whole":
+            continue
         if forms is True and number(to_z) and abs(to_z - value) > SAME_Z:
             # It left this face at another Z: the face at value is not its.
             return None
@@ -371,21 +560,120 @@ def _producer(bundle, setup, value, face, done, source, path=False):
     return None
 
 
+def _centre_mouth(bundle, setup, feature, entry):
+    """``(errors, unknown, mouth setup Z)``: a centre's mouth ``at`` must lie on the entry
+    surface ``entry`` the quill is touched on, its ``axis`` along the setup -Z feed and, on
+    a lathe, its mouth on the spindle axis the tailstock quill feeds along."""
+    from prechips.model import UNIT_TOLERANCE
+
+    from .coordinates import frame_point
+
+    frame = setup_frame(bundle, setup)
+    at, axis = feature.get("at"), feature.get("axis")
+    scale = {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units"))
+    if not all(isinstance(v, list) and len(v) == 3 and all(map(number, v)) for v in (at, axis)):
+        return [], ["its mouth position or axis is unknown"], UNKNOWN
+    mouth = frame_point(at, frame)
+    ahead = frame_point([a + d for a, d in zip(at, axis, strict=True)], frame)
+    if not all(map(number, mouth + ahead)) or scale is None:
+        return [], ["its mouth in the setup frame is unknown"], UNKNOWN
+    feed = [b - a for a, b in zip(mouth, ahead, strict=True)]
+    norm = math.sqrt(sum(v * v for v in feed))
+    errors, unknown = [], []
+    if norm == 0 or feed[2] / norm > -1 + UNIT_TOLERANCE:
+        errors.append("its axis is not the setup -Z the quill feeds along")
+    off = math.hypot(mouth[0], mouth[1]) * scale
+    if off > LENGTH_TOLERANCE_MM:
+        kind = record(resolve(bundle, "machines", setup.get("machine"))).get("kind")
+        if kind == "lathe":
+            errors.append(f"its mouth is {off:g} mm off the spindle axis the quill feeds along")
+        elif not isinstance(kind, str) or kind == UNKNOWN:
+            unknown.append("whether its off-axis mouth is on a lathe spindle axis is unknown")
+    if not number(entry):
+        unknown.append("the entry surface the quill is touched on is unknown")
+    elif not same_length(mouth[2] * scale, entry * scale):
+        errors.append(
+            f"its mouth lies at setup Z {mouth[2]:g}, not on the Z {entry:g} entry surface "
+            "the quill is touched on"
+        )
+    return errors, unknown, mouth[2]
+
+
+def centre_endpoint(bundle, setup, op, feature, entry):
+    """``(fields, status, reasons, measurement debt)`` of a quill-fed centre drilled from
+    ``entry``: ``blind_depth``'s whole verdict on that centre's row.
+
+    Its depth past touching the end is the Table 6 drill length C plus the countersink
+    (``centre_depth_mm``), but only for the centre the selected tool's own facts cut
+    (``centre_tool``: every fact the kernel builds it from, under the endpoint's verify and
+    unknown handling) with its mouth on the touched entry surface along the setup -Z
+    feed. A contradiction is ``error``, anything unresolved ``unknown``; either leaves the
+    depth unknown, so the traveler prints no quill depth.
+    """
+    from prechips.process_features import centre_depth_mm, centre_tool
+
+    depth = centre_depth_mm(feature)
+    binding = centre_tool(bundle, op)
+    errors, unknown, mouth_z = _centre_mouth(bundle, setup, feature, entry)
+    (errors if binding["status"] == "error" else unknown).extend(binding["reasons"])
+    if not number(depth["depth_mm"]):
+        unknown.append("a centre size is unknown")
+    status = "error" if errors else "unknown" if unknown else "pass"
+    known = depth["depth_mm"] if status == "pass" else UNKNOWN
+    fields = {
+        "depth_mm": known,
+        "countersink_depth_mm": depth["countersink_depth_mm"],
+        "drill_length_mm": depth["drill_length_mm"],
+        "depth_scale": "quill",
+        "exit_face": "not_applicable",
+        "tip_z": _subtract(entry, known),
+        "mouth_z": mouth_z,
+        "tool_centre": binding["tool"],
+    }
+    return fields, status, errors or unknown, binding["measurements"]
+
+
+def _entry(before, name):
+    """The entry surface Z an op on ``name`` is touched on, from its stock state."""
+    return before["entry_z"].get(name, before["top_z"])
+
+
+def centre_check(bundle, setup, op):
+    """``(status, reasons)``: ``blind_depth``'s verdict on centre op ``op`` of ``setup``."""
+    features = bundle.feature_definitions
+    name = op.get("feature")
+    before = next(state for current, state, _ in stock_states(bundle, setup) if current is op)
+    _, status, reasons, _ = centre_endpoint(
+        bundle, setup, op, features.get(name, {}), _entry(before, name)
+    )
+    return status, reasons
+
+
 def evaluate(bundle):
+    from prechips.process_features import source_cite
+
     features = bundle.feature_definitions
     endpoints = {name: [] for name in features}
     unresolved = set()
     errors = set()
     negative_exit = set()
+    # Per centre: why it is not the centre its selected tool cuts from the touched surface.
+    centre_errors = {}
+    debts = {}
     for setup in bundle.plan["setups"]:
-        for op, before, _ in stock_states(setup, features):
+        for op, before, _ in stock_states(bundle, setup):
             name = op.get("feature")
-            if op.get("do") not in HOLE_OPS or name not in features:
+            if not isinstance(name, str) or name not in features:
                 continue
             feature = features[name]
-            if feature.get("kind") not in {"hole", "counterbore", "thread", "threaded_hole"}:
+            # A plan centre hole is drilled by a combined drill and countersink fed from
+            # the tailstock quill: its depth is its own Table 6 geometry, read on the quill.
+            centre = op.get("do") == "center_drill" and feature.get("kind") == "centre_hole"
+            if not centre and (
+                op.get("do") not in HOLE_OPS or feature.get("kind") not in _HOLE_KINDS
+            ):
                 continue
-            entry = before["entry_z"].get(name, before["top_z"])
+            entry = _entry(before, name)
             row = {
                 "setup": setup["id"],
                 "op": op["op"],
@@ -399,7 +687,16 @@ def evaluate(bundle):
                 length_mm(tool, "dia"),
                 nominal_angle_deg(tool, "point_angle"),
             )
-            if action == "spot":
+            if centre:
+                fields, status, reasons, debt = centre_endpoint(bundle, setup, op, feature, entry)
+                row.update(fields)
+                debts.setdefault(name, {}).update((item["id"], item) for item in debt)
+                if status == "error":
+                    centre_errors.setdefault(name, []).extend(reasons)
+                elif status == "unknown":
+                    row["unknown"] = reasons
+                    unresolved.add(name)
+            elif action == "spot":
                 depth = hole_depth_mm(op, feature, bundle.features.get("units"))
                 row.update(
                     depth_mm=depth,
@@ -474,7 +771,9 @@ def evaluate(bundle):
                     unresolved.add(name)
                 elif total > limit and not uncertain(tool):
                     errors.add(name)
-            if row.get("tip_z") == UNKNOWN or not tool or uncertain(tool):
+            # A centre row's verdict is centre_endpoint's alone (it already holds the tool's
+            # presence and verify debt), which centre_support reads through centre_check.
+            if not centre and (row.get("tip_z") == UNKNOWN or not tool or uncertain(tool)):
                 unresolved.add(name)
             face = name if name in before["entry_z"] else "top"
             _operative(row, bundle, setup, face)
@@ -482,14 +781,19 @@ def evaluate(bundle):
     result = []
     for name, feature in features.items():
         rows = endpoints[name]
-        if feature.get("kind") not in {"hole", "counterbore", "thread", "threaded_hole"}:
+        if feature.get("kind") not in _HOLE_KINDS | {"centre_hole"}:
             status, sentence = "not_applicable", "Not a hole; no tip endpoint applies."
-        elif name in errors or name in negative_exit:
+        elif name in errors or name in negative_exit or name in centre_errors:
             sentence = " ".join(
                 text
                 for flagged, text in (
                     (negative_exit, "A through exit allowance is negative; exit_mm must be >= 0."),
                     (errors, "The blind tip or tap flute length exceeds the declared depth guard."),
+                    (
+                        centre_errors,
+                        "The centre is not the one its selected tool cuts from the touched "
+                        f"entry surface: {'; '.join(centre_errors.get(name, []))}.",
+                    ),
                 )
                 if name in flagged
             )
@@ -511,10 +815,22 @@ def evaluate(bundle):
                 "blind_depth",
                 name,
                 status,
-                {"kind": feature.get("kind", UNKNOWN), "endpoints": rows},
+                {
+                    "kind": feature.get("kind", UNKNOWN),
+                    "endpoints": rows,
+                    **(
+                        {"measurements": [debts[name][key] for key in sorted(debts[name])]}
+                        if debts.get(name)
+                        else {}
+                    ),
+                },
                 [
                     "PLAN.md §4.1 tip endpoints",
-                    "features manifest hole geometry",
+                    *(
+                        [*source_cite(feature), *records(feature.get("cite"))]
+                        if feature.get("kind") == "centre_hole"
+                        else ["features manifest hole geometry"]
+                    ),
                     "plan stock_state and operation depth/exit",
                     "inventory selected tool geometry",
                 ],

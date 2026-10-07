@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from itertools import pairwise, product
 
 from ..findings import Finding
 from ._bench import manual_bench, not_applicable
@@ -20,12 +21,32 @@ from .resolution import (
     setup_frame,
     uncertain,
 )
-from .tip_endpoints import FACING, POCKETING, _producer, mapping, records, stock_states
+from .tip_endpoints import (
+    FACING,
+    POCKETING,
+    _producer,
+    _setup_footprint,
+    cut_coverage,
+    cut_region,
+    mapping,
+    records,
+    stock_states,
+)
 
 # Set from a bench reading, not a plan number: a trial-cut diameter or a measured edge.
 MEASURED = {"trial_cut_measure", "measure_then_set"}
 # Lathe ops that leave a measurable diameter a later tool can be touched off on.
 TURNED = {"turn", "rough_turn", "finish_turn"}
+# AUTHOR'S CHOICE: the side of the smallest square of a partly cut surface credited as
+# left to touch off on. A paper touch needs a patch the operator can see, set the tool end
+# over and slide paper under; a narrower sliver may hold no flat surface once the burrs of
+# the cuts beside it are counted, and whether it is there at all can rest on geometry no
+# operator can check. Illustrative, not measured: larger only leaves more Z unknown.
+TOUCH_LAND_MM = 0.5
+# How far inside its recorded box a face that fills it (``fills_bbox``) is known to hold
+# surface: the kernel's 1e-6 mm side tolerance, within which a notch may run, plus the
+# 5e-7 mm by which the record's 6-decimal rounding may move each side of the box.
+FILL_MARGIN_MM = 1.5e-6
 
 DIRECTIONS = {
     "x": ({"right", "away_from_spindle_axis"}, {"left", "toward_spindle_axis"}),
@@ -85,8 +106,8 @@ def measured_z(bundle, gauge, measure, offset_mm, paper_mm):
     """A ``measure_then_set`` Z: Axis Set M + offset + paper, where M is read at the
     machine with a ready gauge and ``paper_mm`` is the paper's signed stand-off
     (:func:`paper_offset`); the returned offset + paper is unknown until the gauge
-    resolves unflagged and the measurement is named."""
-    named = isinstance(measure, str) and bool(measure.strip())
+    resolves unflagged and the measurement is named (``"unknown"`` names none)."""
+    named = isinstance(measure, str) and measure.strip() not in {"", UNKNOWN}
     if not (named and gauge_ready(bundle, gauge) and number(offset_mm) and number(paper_mm)):
         return UNKNOWN
     return offset_mm + paper_mm
@@ -208,16 +229,195 @@ def _position(ops, record):
     return names.index(after) + 1 if after in names else None
 
 
-def _standing(event, states, index):
-    """A touched or faced Z surface stands at op ``index`` unless an op since cut that
-    surface (the stock top: moved the top) to another Z."""
-    for op, before, after in states[event["index"] : index]:
-        if op.get("do") not in FACING | POCKETING or not number(op.get("to_z")):
+def _features(op):
+    """The features an op cuts; None when the plan does not name them."""
+    feature = op.get("feature")
+    names = feature if isinstance(feature, list) else [feature]
+    if not names or any(not isinstance(n, str) or n in {"", UNKNOWN} for n in names):
+        return None
+    return set(names)
+
+
+def _top_cut(op, names, top_feature):
+    """The feature through which face op ``op`` cuts the stock top: the stock's
+    ``top_feature`` when the op names it, else (no top feature: every face op is the
+    top's) the op's single feature, else None; False when it does not face the top and
+    UNKNOWN when the top's feature is unresolved."""
+    if op.get("do") not in FACING:
+        return False
+    if top_feature in {"", UNKNOWN}:
+        return UNKNOWN
+    if top_feature is not None:
+        return top_feature if top_feature in names else False
+    return min(names) if len(names) == 1 else None
+
+
+def _rectangle(bundle, setup, target):
+    """(rectangle, land) when ``target``'s surface is known to fill its setup-frame X/Y
+    footprint (:func:`_setup_footprint`), else None: the X/Y rectangle it is known to hold
+    surface over and :data:`TOUCH_LAND_MM`, both in plan units. The evidence is the
+    kernel's one STEP face for it (``faces``): a plane that fills its own box
+    (``fills_bbox``: one wire, every edge a straight segment within the kernel's side
+    tolerance of a side of the box, and more area than that band along its sides), flat in
+    setup Z, with each corner of the box on a corner of its setup X/Y box, which is the
+    footprint. The rectangle is that box less :data:`FILL_MARGIN_MM` and the corner
+    tolerance on every side, where a notch may still run. Without a kernel result, or for
+    a face set of other than one face, a round, holed, notched or L-shaped face, or one
+    turned against the setup axes, the box's corners may hold no surface at all, however
+    little area the face lacks."""
+    from .coordinates import frame_point
+
+    footprint = _setup_footprint(bundle, setup, target)
+    kernel, refs = mapping(getattr(bundle, "kernel", None)), records(target.get("faces"))
+    scale = {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units"))
+    if footprint is None or kernel.get("status") != "ok" or len(refs) != 1 or scale is None:
+        return None
+    index = mapping(kernel.get("mapping")).get(refs[0])
+    faces = [mapping(f) for f in records(kernel.get("faces"))]
+    face = next((f for f in faces if index is not None and f.get("index") == index), {})
+    box = face.get("bbox_mm")
+    if not (
+        face.get("kind") == "Plane"
+        and face.get("fills_bbox") is True
+        and isinstance(box, list)
+        and len(box) == 6
+        and all(number(v) for v in box)
+    ):
+        return None
+    frame = setup_frame(bundle, setup)
+    ends = [[box[i] / scale, box[i + 3] / scale] for i in range(3)]
+    corners = [frame_point(list(p), frame) for p in product(*ends)]
+    if not all(number(v) for p in corners for v in p):
+        return None
+    spans = [[min(p[i] for p in corners), max(p[i] for p in corners)] for i in range(3)]
+    tolerance = LENGTH_TOLERANCE_MM
+    square = all(min(abs(p[i] - v) for v in spans[i]) <= tolerance for p in corners for i in (0, 1))
+    same = all(
+        abs(a - b) <= tolerance
+        for span, side in zip(spans[:2], footprint, strict=True)
+        for a, b in zip(span, side, strict=True)
+    )
+    if spans[2][1] - spans[2][0] > tolerance or not square or not same:
+        return None
+    margin = FILL_MARGIN_MM / scale + tolerance
+    return [[low + margin, high - margin] for low, high in spans[:2]], TOUCH_LAND_MM / scale
+
+
+def _uncut(rectangle, land, regions):
+    """Whether a ``land`` by ``land`` square of X/Y ``rectangle`` lies outside every X/Y
+    region (it may touch one). Such a square's low corner lies in the rectangle less
+    ``land`` at its high ends, and overlaps a region when strictly inside it grown by
+    ``land`` at its low ends. The free corners, if any, include a crossing or midpoint of
+    the lines through all these ends."""
+    lows = [(low, high - land) for low, high in rectangle]
+    grown = [[(r[axis][0] - land, r[axis][1]) for axis in (0, 1)] for r in regions]
+    lines = []
+    for axis, (low, high) in enumerate(lows):
+        if high < low:
+            return False
+        ends = sorted({low, high, *(v for g in grown for v in g[axis] if low < v < high)})
+        lines.append({*ends, *((a + b) / 2 for a, b in pairwise(ends))})
+    return any(
+        not any(g[0][0] < x < g[0][1] and g[1][0] < y < g[1][1] for g in grown)
+        for x in lines[0]
+        for y in lines[1]
+    )
+
+
+def _cuts(bundle, setup, event, states, start, end):
+    """(state, scars) of a touched or faced Z surface over ops ``start`` to ``end``.
+
+    State is False once one of these ops cut it whole (:func:`cut_coverage`; the stock
+    top: faced the top feature) to another or no stated Z, or cut it other than by
+    facing/pocketing; None (unknown) when the surface is unnamed, an op cut a feature
+    the plan (or the stock's top feature) does not name, or a coverage is unknown; else
+    True. Scars are the (feature, X/Y region) of each op that cut only part of it."""
+    features = mapping(bundle.feature_definitions)
+    top_feature = mapping(setup.get("stock_state")).get("top_feature")
+    gone, unproven, scars = False, event["face"] in {None, "", UNKNOWN}, []
+    for op, _, _ in states[start:end]:
+        action = op.get("do")
+        if action in MANUAL:
             continue
-        moved = event["top"] and after["top_from"] != before["top_from"]
-        if (op.get("feature") == event["face"] or moved) and abs(
-            op["to_z"] - event["z"]
-        ) > LENGTH_TOLERANCE_MM:
+        names = _features(op)
+        if names is None:
+            unproven = True
+            continue
+        cut = event["face"] if event["face"] in names else False
+        if cut is False and event["top"]:
+            cut = _top_cut(op, names, top_feature)
+        if cut is False:
+            continue
+        if cut == UNKNOWN:
+            unproven = True
+            continue
+        to_z = op.get("to_z")
+        if action in FACING | POCKETING and number(to_z) and number(event["z"]):
+            if abs(to_z - event["z"]) <= LENGTH_TOLERANCE_MM:
+                continue
+        coverage = cut_coverage(bundle, setup, op, mapping(features.get(cut)))
+        if coverage == "partial":
+            scars.append((cut, cut_region(op)))
+        gone |= coverage == "whole"
+        unproven |= coverage not in {"whole", "partial"}
+    return (False if gone else None if unproven else True), scars
+
+
+def _standing(bundle, setup, event, states, index):
+    """Whether a touched or faced Z surface still stands at op ``index``.
+
+    The surface is tracked across the ops since the event (:func:`_cuts`). A touch
+    carries what the ops since its surface was made left of it: not ``proven`` when
+    those ops may have cut it away, and their partial cuts as ``scars``. Ops that each
+    cut only part of it, before or since the event, leave it at its uncut Z only while
+    a square land of the rectangle it is known to hold (:func:`_rectangle`) lies outside
+    all of their regions (:func:`_uncut`); else, or with more than one feature named for
+    it, None (unknown)."""
+    state, scars = _cuts(bundle, setup, event, states, event["index"], index)
+    # A touch does not prove what cuts before it left of its surface.
+    state = state if event["proven"] or state is False else None
+    scars = event["scars"] + scars
+    if scars and state:
+        names = {name for name, _ in scars}
+        target = mapping(mapping(bundle.feature_definitions).get(min(names)))
+        held = _rectangle(bundle, setup, target)
+        if len(names) > 1 or held is None or not _uncut(*held, [r for _, r in scars]):
+            return None
+    return state
+
+
+def _tops(bundle, setup, states):
+    """(Z, made) of the stock top before each op and after the last: the incoming top
+    (made before op 0), then each face op that wholly cuts the top feature makes a new
+    top at its ``to_z``; Z unknown when that top states no Z or is not proven still to
+    stand (:func:`_standing`)."""
+    stock = mapping(setup.get("stock_state"))
+    features = mapping(bundle.feature_definitions)
+    z = stock.get("top_z", UNKNOWN)
+    track = {"index": 0, "face": "top", "z": z, "top": True, "scars": [], "proven": True}
+    tops = []
+    for index in range(len(states) + 1):
+        standing = _standing(bundle, setup, track, states, index) is True
+        tops.append((track["z"] if number(track["z"]) and standing else UNKNOWN, track["index"]))
+        op = states[index][0] if index < len(states) else {}
+        names = _features(op)
+        cut = _top_cut(op, names, stock.get("top_feature")) if names else False
+        if cut not in {False, UNKNOWN}:
+            if cut_coverage(bundle, setup, op, mapping(features.get(cut))) == "whole":
+                z = op.get("to_z") if number(op.get("to_z")) else UNKNOWN
+                track = {**track, "index": index + 1, "z": z}
+    return tops
+
+
+def _turned_standing(event, states, index):
+    """A diameter turned before op ``event["index"]`` stands at op ``index`` unless an op
+    since cut that feature other than by turning it, or cut a feature the plan does not
+    name."""
+    for op, _, _ in states[event["index"] : index]:
+        if op.get("do") in MANUAL:
+            continue
+        names = _features(op)
+        if names is None or (event["x_face"] in names and op.get("do") not in TURNED):
             return False
     return True
 
@@ -226,28 +426,33 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
     """One DRO per setup: each cutting op runs on Axis Sets its own tool made.
 
     The DRO reads the tool that last set it: the zero, a tool touch or a listed retouch
-    (which serves the next tool only). A cutting op with another tool is touched off
-    first, derived here: Z on the latest touched or faced surface still standing at a
-    plan Z (its paper, on the side the surface was met from: :func:`touch_side`; a faced
-    surface takes the zero's paper), never a measured one; on a
-    lathe, X on the latest diameter turned in the setup, else a touch's own X surface,
-    set as the measured diameter. Tailstock tools on a lathe never read the carriage
-    DRO; a touch naming none of the setup's ops serves none. Returns (derived touches,
-    missing touches, unknown, readings): ``readings`` maps each cutting op to the Z touch
-    record its DRO Z reads (the zero's recipe, a tool touch, a derived re-touch or a listed
-    retouch of the top), None when no touch of its tool set Z."""
+    (which serves the next tool only); an axis with no zero recipe has no setter until a
+    touch. A cutting op with another tool is touched off
+    first, derived here: Z on the latest touched or wholly faced surface proven to stand
+    (:func:`_standing`) at a known plan Z (its paper, on the side the surface was met
+    from: :func:`touch_side`; a faced surface takes the zero's paper), never a measured
+    one, else on the latest surface not proven gone, with Z and Axis Set unknown
+    (unknown); a touched top is the top as the ops before it left it (:func:`_tops`). On a
+    lathe, X on
+    the latest diameter turned in the setup that still stands, set as the measured
+    diameter. A touch's X surface is prose the rule cannot follow past a cut, so it is
+    never repeated. Tailstock tools on a lathe never read the carriage DRO; a cut by an
+    unknown tool leaves the DRO's setter unknown; an incoming tool that does not
+    resolve unflagged keeps its touch unknown, as an authored touch is. A touch naming
+    none of the setup's ops serves none. Returns (derived touches, missing touches,
+    unknown, readings): ``readings`` maps each cutting op to the Z touch record its DRO Z
+    reads (the zero's recipe, a tool touch, a derived re-touch or a listed retouch of the
+    top), None when no touch of its tool set Z."""
     ops = records(setup.get("ops"))
-    states = list(stock_states(setup, bundle.feature_definitions))
+    states = list(stock_states(bundle, setup))
+    features = mapping(bundle.feature_definitions)
     recipe, x_recipe = mapping(zero.get("z")), mapping(zero.get("x"))
     paper = recipe.get("paper_mm", UNKNOWN)
     face = recipe.get("face", recipe.get("feature"))
     start = _position(ops, {"after_op": recipe.get("after_op")}) or 0
+    tops = _tops(bundle, setup, states)
     # A top pickup touches the top as the ops through its after_op left it.
-    zero_z = (
-        (states[start][1] if start < len(states) else {}).get("top_z", UNKNOWN)
-        if face == "top"
-        else recipe.get("edge_mm", UNKNOWN)
-    )
+    zero_z = tops[start][0] if face == "top" else recipe.get("edge_mm", UNKNOWN)
     placed, unknown = {}, False
     for touch in touches:
         placed.setdefault(_position(ops, touch), []).append(touch)
@@ -255,34 +460,46 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
     z_events, x_events, derived, missing = [], [], [], []
     # The Z touch the DRO reads (its tool, face and edge), per cutting op.
     z_by, readings = None, {}
-    # Ops before the zero's after_op run before any tool set the Z DRO.
+    # Ops before the zero's after_op run before any tool set the Z DRO; with no zero
+    # recipe no tool set it at all (the missing zero is reported, not a tool change).
     set_z = None
-    set_x, x_gauge = (
-        (x_recipe.get("tool", UNKNOWN), x_recipe.get("gauge")) if lathe else (None, None)
-    )
+    set_x, x_gauge = (None, None)
+    if lathe and x_recipe:
+        set_x, x_gauge = x_recipe.get("tool", UNKNOWN), x_recipe.get("gauge")
     # The top a listed retouch touches, for the next cutting tool.
     pending = None
 
-    def z_event(index, surface, z, touch_paper, source, touch=None):
-        if number(z):
-            z_events.append(
-                {
-                    "index": index,
-                    "face": surface,
-                    "z": z,
-                    "paper": touch_paper,
-                    "side": touch_side(bundle, setup, touch or {}, surface, z, lathe),
-                    "top": surface == "top",
-                    "source": source,
-                }
-            )
+    def z_event(index, surface, z, touch_paper, source, touch=None, made=False):
+        event = {
+            "index": index,
+            "face": surface,
+            "z": z if number(z) else UNKNOWN,
+            "paper": touch_paper,
+            "side": touch_side(bundle, setup, touch or {}, surface, z, lathe),
+            "top": surface == "top",
+            "source": source,
+            "made": made,
+        }
+        # A touch on a surface made earlier carries what the ops since left of it, and
+        # repeats it only at the Z that op made; on the top, at the tracked top's Z.
+        maker = [e for e in z_events if e["made"] and e["face"] == surface]
+        if event["top"]:
+            since, at = tops[index][1], tops[index][0]
+        elif maker and not made:
+            since, at = maker[-1]["index"], maker[-1]["z"]
+        else:
+            since, at = (index if made else 0), z
+        agrees = number(at) and number(z) and abs(at - z) <= LENGTH_TOLERANCE_MM
+        state, event["scars"] = _cuts(bundle, setup, event, states, since, index)
+        event["proven"] = state is True and agrees
+        z_events.append(event)
 
-    for index, (op, _, after) in enumerate(states):
-        if index == start:
+    for index, (op, _, _) in enumerate(states):
+        if index == start and recipe:
             set_z = recipe.get("tool", UNKNOWN)
             z_by = {**recipe, "tool": set_z, "z_face": face, "edge_mm": zero_z}
             if recipe.get("method") not in MEASURED:
-                z_event(index, face, zero_z, paper, "zero", z_by)
+                z_event(index, face or UNKNOWN, zero_z, paper, "zero", z_by)
         for touch in placed.get(index, []):
             if touch.get("z_face"):
                 set_z, z_by = touch.get("tool", UNKNOWN), touch
@@ -297,29 +514,38 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
                     )
             if lathe:
                 set_x, x_gauge = touch.get("tool", UNKNOWN), touch.get("gauge", x_gauge)
-                method = touch.get("x_method")
-                if isinstance(method, str) and method not in MEASURED:
-                    x_events.append({"x_method": method, "gauge": x_gauge})
         tool = op.get("tool", UNKNOWN)
-        cutting = (
-            tool not in (None, UNKNOWN)
-            and op.get("do") not in MANUAL | SAW_OPS
-            and not (lathe and approach(bundle, setup, op) == "axial")
+        cuts = op.get("do") not in MANUAL | SAW_OPS and not (
+            lathe and approach(bundle, setup, op) == "axial"
         )
+        if cuts and tool in (None, UNKNOWN):
+            # Whether an unknown tool takes the DRO over from its setter is unknown.
+            unknown, pending = True, None
+            set_z = None if set_z is None else UNKNOWN
+            set_x = None if set_x is None else UNKNOWN
+        cutting = cuts and tool not in (None, UNKNOWN)
         if cutting and pending:
             set_z, z_by, pending = tool, {"tool": tool, **pending}, None
         changed = [
             axis for axis, current in (("x", set_x), ("z", set_z)) if current not in (None, tool)
         ]
         if cutting and changed:
-            unknown |= UNKNOWN in (set_x, set_z)
+            resolved = resolve(bundle, None, tool)
+            unknown |= UNKNOWN in (set_x, set_z) or not resolved or uncertain(resolved)
             record, lost = {"before_ops": [op["op"]], "tool": tool}, []
             if "z" in changed:
-                source = next((e for e in reversed(z_events) if _standing(e, states, index)), None)
+                standing = [
+                    (e, s)
+                    for e in z_events
+                    if (s := _standing(bundle, setup, e, states, index)) is not False
+                ]
+                proven = [e for e, s in standing if s and number(e["z"])]
+                source = (proven or [e for e, _ in standing] or [None])[-1]
                 if source is None:
                     lost.append("z")
                 else:
-                    edge = source["z"]
+                    # A surface not proven to stand at a known Z repeats no number.
+                    edge = source["z"] if source in proven else UNKNOWN
                     offset = paper_offset(source["paper"], source["side"])
                     # The source's own recipe names its tool's edge (a blade corner);
                     # the incoming tool repeats the surface in tool-neutral words, from
@@ -328,19 +554,24 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
                         z_face=source["face"],
                         edge_mm=edge,
                         paper_mm=source["paper"],
-                        z_axis_set=edge + offset if number(offset) else UNKNOWN,
+                        z_axis_set=edge + offset if number(edge) and number(offset) else UNKNOWN,
                         method="edge_then_set" if lathe else "touch_then_set",
                         repeats=source["source"],
                     )
             if "x" in changed:
-                turned = [e for e in x_events if "x_face" in e]
-                source = (turned or x_events or [None])[-1]
+                source = next(
+                    (e for e in reversed(x_events) if _turned_standing(e, states, index)), None
+                )
                 if source is None:
                     lost.append("x")
                 else:
                     shown = measured(x_scale)
                     ready = shown != UNKNOWN and gauge_ready(bundle, source["gauge"])
-                    record.update(source, x_axis_set=f"measured {shown}" if ready else UNKNOWN)
+                    record.update(
+                        x_face=source["x_face"],
+                        gauge=source["gauge"],
+                        x_axis_set=f"measured {shown}" if ready else UNKNOWN,
+                    )
             if lost:
                 z_by = None if "z" in lost else z_by
                 by = set_z if "z" in lost else set_x
@@ -351,11 +582,12 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
                 derived.append(record)
                 z_by = record if "z" in changed and "z" not in lost else z_by
                 unknown |= UNKNOWN in (record.get("z_axis_set"), record.get("x_axis_set"))
-            set_z, set_x = tool, tool if lathe else None
+            set_z = tool if "z" in changed else set_z
+            set_x = tool if "x" in changed else set_x
         if cutting:
             readings[str(op["op"])] = z_by if set_z == tool else None
         if str(op.get("op")) in listed:
-            top = after["top_z"]
+            top = tops[index + 1][0]
             pending = {
                 "z_face": "top",
                 "edge_mm": top,
@@ -364,11 +596,16 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
                 "z_axis_set": top + paper if number(top) and number(paper) else UNKNOWN,
                 "after_op": op["op"],
             }
-            z_event(index + 1, "top", after["top_z"], paper, f"retouch after op {op['op']}")
-        if op.get("do") in FACING | POCKETING and op.get("feature"):
-            z_event(index + 1, op["feature"], op.get("to_z"), paper, f"op {op['op']} {op['do']}")
-        if lathe and op.get("do") in TURNED and op.get("feature"):
-            x_events.append({"x_face": op["feature"], "gauge": x_gauge})
+            z_event(index + 1, "top", top, paper, f"retouch after op {op['op']}")
+        if op.get("do") in FACING | POCKETING:
+            # Only a whole cut makes a surface: a partial one leaves it at its uncut Z.
+            for name in sorted(_features(op) or ()):
+                if cut_coverage(bundle, setup, op, mapping(features.get(name))) == "whole":
+                    source = f"op {op['op']} {op['do']}"
+                    z_event(index + 1, name, op.get("to_z"), paper, source, made=True)
+        if lathe and op.get("do") in TURNED:
+            for name in sorted(_features(op) or ()):
+                x_events.append({"x_face": name, "gauge": x_gauge, "index": index + 1})
     return derived, missing, unknown, readings
 
 
@@ -520,13 +757,16 @@ def face_stands(bundle, setup, face, edge, done=0, source=None):
     :func:`formed_z` (unknown when a blade's corner, side or width is, or whether it left
     a face there), found as the sheet finds the face it prints (:func:`operative_z`:
     ``source``, this setup's ops and its same-frame stock lineage; any op the kernel poses
-    on a face of the touched feature, :func:`forms_face`). None for any other face: the
-    stock, or a face cut before its setup's Z zero, stands where the touch sets it."""
+    on a face of the touched feature, :func:`forms_face`); unknown when whether that op
+    cut the whole face is (:func:`cut_coverage`). None for any other face: the stock, or
+    a face cut before its setup's Z zero, stands where the touch sets it."""
     from .coordinates import formed_z
 
     if not number(edge):
         return None
     producer = _producer(bundle, setup, edge, face, done, source)
+    if producer == UNKNOWN:
+        return UNKNOWN
     if producer is None or not _framed(*producer):
         return None
     return formed_z(bundle, *producer)
@@ -594,6 +834,10 @@ def evaluate(bundle):
         frame = setup_frame(bundle, setup)
         lathe = lathe_setup(bundle, setup)
         zero = mapping(setup.get("zero"))
+        ops = records(setup.get("ops"))
+        states = list(stock_states(bundle, setup))
+        # The top as each op left it, unknown where no stated depth proves it.
+        tops = [z for z, _ in _tops(bundle, setup, states)]
         axes = {}
         # Blade Z touches whose authored corner the touched face cannot give. An unknown
         # corner leaves the Axis Set known: the blade ops whose Zs it reads stay unknown
@@ -604,7 +848,6 @@ def evaluate(bundle):
         # at an unknown Z (:func:`_face_checker`).
         face_errors, face_unknowns = [], []
         face_check = _face_checker(bundle, setup, face_errors, face_unknowns)
-        ops = records(setup.get("ops"))
 
         unknown = (
             not frame
@@ -650,10 +893,7 @@ def evaluate(bundle):
             if axis == "z" and recipe.get("face") == "top":
                 # The top as the ops up to and including after_op left it, not the
                 # incoming stock top.
-                edge = mapping(setup.get("stock_state")).get("top_z", UNKNOWN)
-                for op, _, after in stock_states(setup, bundle.feature_definitions):
-                    if str(op.get("op")) == str(recipe.get("after_op")):
-                        edge = after["top_z"]
+                edge = tops[_position(ops, {"after_op": recipe.get("after_op")}) or 0]
             # Paper stands the tool off its face on the side it meets the face from.
             face = recipe.get("face", recipe.get("feature"))
             stand_off = None
@@ -758,9 +998,9 @@ def evaluate(bundle):
         unknown |= (
             recipe.get("retouch_after", UNKNOWN) == UNKNOWN or zero.get("tool_touches") == UNKNOWN
         )
-        for op, _, after in stock_states(setup, bundle.feature_definitions):
-            if op["op"] in records(recipe.get("retouch_after")):
-                top = after["top_z"]
+        for index, (op, _, after) in enumerate(states):
+            if op.get("op") in records(recipe.get("retouch_after")):
+                top = tops[index + 1]
                 touch = top + paper if number(top) and number(paper) else UNKNOWN
                 retouch.append({"op": op["op"], "top_z": top, "paper_mm": paper, "axis_set": touch})
                 unknown |= touch == UNKNOWN

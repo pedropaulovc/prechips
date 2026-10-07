@@ -198,6 +198,9 @@ Hold = record(
         # The countersink mouth of the work's centre hole at its end face: the dead centre
         # seats in a cone of its own point angle that opens to this diameter.
         "centre_hole_dia_mm": Number,
+        # The plan.process_features centre_hole the dead or live centre rides in, made by an
+        # op of an earlier setup in this setup's stock_in lineage (checked by centre_support).
+        "centre_hole": str,
         "clamps": list[ClampPlacement],
         # Diagram annotations: action order references the 1-based clamps array.
         "clamp_order": list[Annotated[int, Field(gt=0)]],
@@ -254,19 +257,42 @@ Zero = record(
 )
 Bounds = record("Bounds", {"x": Vector, "y": Vector, "z": Vector})
 KeepOut = record("KeepOut", {"at": Vector, **numbers("dia_mm")})
+# A manual-mill arc method (docs/plan.md): ``stairs`` and ``chain_drill`` rough outside the
+# line, ``chords`` mill straight chords, ``rotary_table`` turns the work under the cutter.
 Contour = record(
     "Contour",
     {
-        **texts("method sweep_frame open_side"),
-        **numbers("step_deg step_mm start_deg end_deg"),
+        **texts("method sweep_frame open_side centre_by centre_feature"),
+        **numbers("step_deg step_mm start_deg end_deg pitch_mm cusp_mm"),
+        "count": int,
         "sweep_bounds": Bounds,
         "keep_out": list[KeepOut],
     },
 )
+# A layout or bench filing guide: ``buttons`` (an inventory ``fixtures`` kit of kind
+# ``filing_buttons``) pinned through the plan feature ``bore``, or a radius ``template``
+# (an inventory gauge); the ``gauge`` (an inventory radius or profile gauge) checks the arc.
+Guide = record("Guide", texts("buttons bore template gauge"))
 SawPlane = record(
     "SawPlane",
     {"axis": Literal["x", "y", "z"], "value": Number, "keep": Literal["below", "above"]},
 )
+
+
+class GoNoGo(InputModel):
+    """The two limit-gauge sizes (mm) a go/no-go check uses: the GO size must pass the
+    work (enter a hole, slip over a shaft) and the NO-GO size must not."""
+
+    go: float
+    no_go: float
+
+    @model_validator(mode="after")
+    def sized(self) -> GoNoGo:
+        if not (self.go > 0 and self.no_go > 0):
+            raise ValueError("GO and NO-GO gauge sizes must be positive.")
+        if self.go == self.no_go:
+            raise ValueError("GO and NO-GO gauge sizes must differ.")
+        return self
 
 
 class ProcessHold(InputModel):
@@ -278,6 +304,8 @@ class ProcessHold(InputModel):
     band: Annotated[list[float], Field(min_length=2, max_length=2)]
     gauge: str
     reason: str
+    # The GO / NO-GO sizes the hold's gauge reads the hold band with, when it is a limit check.
+    go_no_go: GoNoGo | None = None
 
     @model_validator(mode="after")
     def stated(self) -> ProcessHold:
@@ -322,7 +350,7 @@ Operation = record(
         # One manifest feature; an inspect op may name several (one drawing dimension
         # split across features is read once).
         "feature": str | Annotated[list[str], Field(min_length=2)],
-        **texts("tool holder direction note"),
+        **texts("tool holder direction note layout"),
         "inspection_note": Procedure,
         # A coating op's process: an outside ``services`` entry or in-house ``consumables``.
         "process": str | Annotated[list[str], Field(min_length=1)],
@@ -335,10 +363,14 @@ Operation = record(
         "note_cite": Citations,
         "faces": Annotated[list[str], Field(min_length=1)],
         "checks": dict[str, str],
+        # Requirement -> the GO / NO-GO sizes its `checks` gauge uses (a limit check), or
+        # "unknown" when the pair is undecided.
+        "go_no_go": dict[str, GoNoGo | Unknown],
         "missing_requirements": dict[str, str],
         "inspection_methods": dict[str, Procedure],
         "to_z_band": Vector,
         "contour": Contour,
+        "guide": Guide,
         # Setup-frame volume (plan units) the op clears down to the finished part.
         "stock_removal_bounds": Bounds,
         # Mill op on a horizontal dividing head: each face sample turned under the spindle;
@@ -416,6 +448,57 @@ class JointFeature(InputModel):
             raise ValueError("A joint feature depth must be positive, also when thru.")
         if len(set(self.requirements)) != len(self.requirements):
             raise ValueError("A joint feature lists a requirement twice.")
+        return self
+
+
+class ProcessFeature(InputModel):
+    """A plan-owned transient feature the route makes on the stock, never a finished surface.
+
+    ``at`` (manifest units, model frame) lies on the stock end the feature is made in and
+    ``axis`` is that end's unit inward normal, pointing into the kept material. An
+    ``end_face`` is the plane through ``at``; facing it removes the stock beyond it. A
+    ``centre_hole`` is a combined drill and countersink centre whose mouth centre is ``at``:
+    the countersink of ``countersink_angle_deg`` (included) opens to ``mouth_dia_mm`` on the
+    face and the pilot (``drill_dia_mm``, ``drill_length_mm`` from the countersink to the
+    tip, point included) runs on along ``axis``. Centre sizes are mm, cited to their source.
+    """
+
+    kind: Literal["end_face", "centre_hole"]
+    at: KnownPoint3 | Unknown
+    axis: KnownPoint3 | Unknown
+    cite: Citations
+    size: str | Unknown = UNKNOWN
+    drill_dia_mm: float | Unknown = UNKNOWN
+    drill_length_mm: float | Unknown = UNKNOWN
+    mouth_dia_mm: float | Unknown = UNKNOWN
+    countersink_angle_deg: float | Unknown = UNKNOWN
+    note: str | Unknown = UNKNOWN
+
+    @model_validator(mode="after")
+    def known_geometry(self) -> ProcessFeature:
+        if not _cited(self.cite):
+            raise ValueError("A process feature must cite its author's geometry source.")
+        _unit(self.axis, "A process feature axis")
+        centre = ("size", "drill_dia_mm", "drill_length_mm", "mouth_dia_mm")
+        centre += ("countersink_angle_deg",)
+        if self.kind == "end_face":
+            authored = sorted(key for key in centre if key in self.model_fields_set)
+            if authored:
+                raise ValueError(f"An end_face process feature has no {', '.join(authored)}.")
+            return self
+        missing = sorted(key for key in centre if key not in self.model_fields_set)
+        if missing:
+            raise ValueError(f"A centre_hole process feature needs {', '.join(missing)}.")
+        for key in ("drill_dia_mm", "drill_length_mm", "mouth_dia_mm"):
+            value = getattr(self, key)
+            if value != UNKNOWN and value <= 0:
+                raise ValueError(f"A centre_hole {key} must be positive.")
+        angle = self.countersink_angle_deg
+        if angle != UNKNOWN and not 0 < angle < 180:
+            raise ValueError("A centre_hole countersink_angle_deg must lie between 0 and 180.")
+        if UNKNOWN not in (self.drill_dia_mm, self.mouth_dia_mm):
+            if self.mouth_dia_mm <= self.drill_dia_mm:
+                raise ValueError("A centre_hole mouth_dia_mm must exceed its drill_dia_mm.")
         return self
 
 
@@ -558,6 +641,9 @@ class Plan(InputModel):
     setups: list[Setup]
     # Plan-owned transient joint cylinders keyed by id; never exported finished features.
     joint_features: dict[str, JointFeature] = Field(default_factory=dict)
+    # Plan-owned transient stock-preparation features (end faces, centre holes) keyed by id;
+    # never exported finished features and never drawing coverage.
+    process_features: dict[str, ProcessFeature] = Field(default_factory=dict)
     # Plan-owned DRO aims keyed by located feature; never a change to its geometry.
     aims: dict[str, Aim] = Field(default_factory=dict)
 
@@ -942,14 +1028,6 @@ class SpindleRotation(InputModel):
     verify: bool | Unknown = UNKNOWN
 
 
-class Contouring(InputModel):
-    """A labelled contouring capability: only its own measured/verify qualify it."""
-
-    value: Literal["mdi", "jog"]
-    measured: Measurement | Unknown = UNKNOWN
-    verify: bool | Unknown = UNKNOWN
-
-
 Spindle = record(
     "Spindle",
     {
@@ -1025,14 +1103,15 @@ InventoryItem = record(
         ),
         "sku": str | int,
         **flags("verify present center_cutting swivel_base scroll independent shop_made"),
+        **texts("dial_increases"),
         **numbers(
             "headstock_tilt_deg swing_over_bed_in between_centres_in "
             "cross_slide_travel_in compound_travel_in weight_lb worm_ratio centre_height_in "
             "swing_in plates pieces angle_deg head_in max_offset_in "
             "dial_in min_bore_in tip_in "
             "diameter_in thickness_in runout_max_in "
-            "max_shank_in sfm chip_load_mm_per_tooth feed_mm_rev "
-            "shank_mm capacity_mm"
+            "max_shank_in sfm chip_load_mm_per_tooth feed_mm_rev capacity_mm "
+            "t_slots graduation_deg vernier_deg"
         ),
         "point_angle": MeasuredAngle,
         "blade_speed_sfm": Annotated[list[Number], Field(min_length=2, max_length=2)],
@@ -1055,6 +1134,11 @@ InventoryItem = record(
                 "flute_len",
                 "flute_len_mm",
                 "flute_len_in",
+                # Combined drill and countersink pilot length, countersink start to point
+                # tip (Machinery's Handbook Table 6 drill length C).
+                "pilot_len",
+                "pilot_len_mm",
+                "pilot_len_in",
                 "gauge_dia",
                 "gauge_dia_mm",
                 "gauge_dia_in",
@@ -1074,6 +1158,12 @@ InventoryItem = record(
                 "resolution_in",
                 "kerf_mm",
                 "kerf_in",
+                # The tool body past its cutting length (docs/rules-geometry.md#reach).
+                "shank_mm",
+                "max_work_mm",
+                "max_work_in",
+                "t_slot_width_mm",
+                "t_slot_width_in",
             ),
             MeasuredLength,
         ),
@@ -1104,7 +1194,8 @@ InventoryItem = record(
         "projection_mm": ProjectionMap,
         "projection_in": ProjectionMap,
         "envelope": MachineEnvelope,
-        "shank_in": float | str | dict[str, list[str]],
+        # A tool's own shank, or an end-mill set's {shank: [sizes]} map.
+        "shank_in": MeasuredLength | str | dict[str, list[str]],
         "flutes": int | list[int],
         "source": str | Source,
         "cite": Citations,
@@ -1127,9 +1218,6 @@ InventoryItem = record(
         "standard_accessories": list[str],
         "included": list[str],
         "spindle": Spindle,
-        # How a mill moves off a single axis: ``mdi`` types each arc or diagonal row as one
-        # coordinated move; ``jog`` steps it one handwheel axis at a time.
-        "contouring": Literal["mdi", "jog"] | Contouring | Unknown,
         "leadscrew": LeadScrew,
         "capacity_in": float | list[Number] | Capacity,
         "tailstock": Tailstock,
@@ -1186,6 +1274,10 @@ _INVENTORY_LENGTH_STEMS |= {"body_dia", "body_length", "bore_dia"}
 _INVENTORY_LENGTH_STEMS |= {"capacity_min", "capacity_max"}
 # Grooving/parting blade front-edge width.
 _INVENTORY_LENGTH_STEMS |= {"blade_width"}
+# Rotary table work capacity and T-slot width.
+_INVENTORY_LENGTH_STEMS |= {"max_work", "t_slot_width"}
+# Combined drill and countersink pilot length (Table 6 C).
+_INVENTORY_LENGTH_STEMS |= {"pilot_len"}
 
 
 def _inventory_lengths(

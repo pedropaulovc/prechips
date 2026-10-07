@@ -99,7 +99,7 @@ def evaluate(bundle):
                 f"plan.setups.{setup['id']}.stock_state",
             )
         stacks = []
-        for op, before, _ in tip_endpoints.stock_states(setup, features):
+        for op, before, _ in tip_endpoints.stock_states(bundle, setup):
             # Saw cuts have no spindle stack; the setup's other cutting ops are still assessed.
             if op.get("do") in MANUAL or op.get("do") in SAW_OPS:
                 continue

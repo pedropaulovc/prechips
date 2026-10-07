@@ -28,6 +28,7 @@ import math
 
 from ..findings import Finding
 from . import tip_endpoints
+from .geometry_common import _AXIAL_LATHE_ACTIONS
 from .resolution import (
     MANUAL,
     SAW_OPS,
@@ -91,7 +92,9 @@ AXIAL_FACING = {"face", "rough_face", "finish_face", "cut_to_fit", "part_off"}
 
 
 def _diameter(bundle, setup, op, tool, lathe):
-    if not lathe:
+    # A spindle-axis (tailstock) tool on a lathe cuts at its own diameter, as on a mill; a
+    # centre drill's is its pilot (Machinery's Handbook 27th ed. p.1132 by drill size).
+    if not lathe or op.get("do") in _AXIAL_LATHE_ACTIONS:
         return length_mm(tool, "dia")
     feature = bundle.feature_definitions.get(op.get("feature"), {})
     # Feature lengths are manifest units; convert once here, before mm allowance arithmetic.

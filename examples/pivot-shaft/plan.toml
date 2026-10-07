@@ -1,11 +1,13 @@
 # Hand-authored PLAN rev 7 reference plan for MHA-065 (pivot shaft).
-# Route (senior-machinist rework of the rev-3 fixture): S1 grips the short
-# north stub in the three-jaw chuck with the tailstock dead centre in the
-# plain (supply) end, so every shoulder S1 finishes faces the tailstock and a
-# right-hand AR tool turns into it; S2 reverses onto the finished body to turn
-# the journal side, plunge the north relief and form the north dome; S3 cuts
-# the plain end to fit after fit-up scribing and forms the south dome. The
-# DIN 509 reliefs are plunged with a square HSS parting blade, not profiled.
+# Route (senior-machinist rework of the rev-3 fixture): S0 grips the sawn
+# blank short at its plain (supply) end, faces that end and centre-drills it
+# from the tailstock; S1 grips the short north stub in the three-jaw chuck
+# with the tailstock dead centre in that centre, so every shoulder S1 finishes
+# faces the tailstock and a right-hand AR tool turns into it; S2 reverses onto
+# the finished body to turn the journal side, plunge the north relief and form
+# the north dome; S3 cuts the plain end to fit after fit-up scribing and forms
+# the south dome. The DIN 509 reliefs are plunged with a square HSS parting
+# blade, not profiled.
 # No lathe dog, drive plate or between-centres drive is claimed (the drawing
 # process line says "between centres", parts/pivot-shaft.yaml:9; this route
 # differs). No cross-hole, flat or indexing exists on the part ("NO FLATS.",
@@ -30,15 +32,16 @@ cutting_data = "../cutting-data.toml"
 form = "round_bar"
 material = "AISI 1018 cold-finished steel bar, Ø10"  # parts/pivot-shaft.yaml:4
 dia_mm = 10.0                # "STOCK 10 BAR" (pivot_shaft_spec.py:185); actual bar not measured
-length_mm = 180.0            # author's choice: prepared blank = north stub 5 + supply 175
+length_mm = 180.5            # author's choice: sawn blank = north stub 5 + supply 175 + 0.5 facing allowance on the plain end
 north_allowance_mm = 5.0     # author's choice: stub past the north apex, gripped in S1 with the journal length
 supply_length_mm = 175       # "SUPPLY 175 LONG, PLAIN END UNCUT." (pivot_shaft_spec.py:182,186)
 supply_datum = "north dome apex plane to south supply end"  # author's choice; drawing leaves datum unstated
 on_hand = false              # inventory stock = [] (pedro-shop.toml:7)
-prerequisite = "blank sawn and faced to 180, south (plain) end centre-drilled with a #2 centre drill to a Ø3.0 countersink (drawing: CENTRES OK)"  # AUTHOR'S CHOICE: Ø3.0, a shallow seat, so the dead-centre point sits 2.59 inside the end and the turning tool's trailing edge clears its cone by about 0.5 at the Z166.3 start
-# Model frame: the blank's south (plain) face centre, running +Z to the north stub end
-# (supply station = north apex 1.5 - 175 = -173.5; north end = apex + stub 5 = 6.5).
-origin_mm = [0.0, 0.0, -173.5]
+prerequisite = "blank sawn square to 180.5 long from the Ø10 bar"  # AUTHOR'S CHOICE: the saw cut stays a prerequisite because the bar it is sawn from is not declared (on_hand = false; no raw bar length), so a saw setup would have no stock to cut
+# Model frame: the sawn blank's south (plain) face centre, running +Z to the north stub end
+# (supply station = north apex 1.5 - 175 = -173.5, sawn 0.5 long = -174.0; north end =
+# apex + stub 5 = 6.5). S0 faces the plain end back to the supply station.
+origin_mm = [0.0, 0.0, -174.0]
 axis = [0.0, 0.0, 1.0]
 as_is_faces = ["#115/ADVANCED_FACE[5]/HAF_SHOULDER_OD__P01", "#414/ADVANCED_FACE[13]/HAF_SHOULDER_OD__P01"]  # Ø10 shoulder O.D. left as cold-finished bar (band 9.49–10.51); every other face is cut
 
@@ -63,6 +66,20 @@ z = "toward_exposed_end"     # author's choice: +Z away from the chuck in every 
 # manifest declares only `model` and an unknown `setup`. Origins and axes are
 # model coordinates; +Z always points away from the chuck. The frame choice is
 # the author's; the cited source geometry is CAD's.
+
+# S0: origin on the faced plain end (the supply station), model z = -173.5, +Z away from
+# the chuck toward the sawn end. Only waste is cut here; S3 removes it with the plain end.
+[frames.T0]
+origin = [0.0, 0.0, -173.5]
+x = [1.0, 0.0, 0.0]
+y = [0.0, -1.0, 0.0]
+z = [0.0, 0.0, -1.0]
+binding = "nominal"   # Z set on the sawn end, which op 10 then faces to Z0
+note = "AUTHOR'S CHOICE: the faced plain end; +Z toward the sawn end"
+cite = [
+  "AUTHOR'S CHOICE",
+  "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:182,186",
+]
 
 # S1: origin on the shoulder thrust (south) face, model z = -7.5, +Z toward the
 # plain end (exported shoulder_thrust plane z = -7.5).
@@ -111,6 +128,109 @@ cite = [
   "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:85,433",
 ]
 
+# Plan-owned stock preparation (docs/plan.md "Process features"): S0 faces the plain end
+# and centre-drills it for S1's dead centre. Neither is a drawing surface; S3 parts both
+# off with the waste end.
+[process_features.plain_end]
+kind = "end_face"
+at = [0.0, 0.0, -173.5]
+axis = [0.0, 0.0, 1.0]
+note = "the sawn plain end faced square at the supply station"
+cite = [
+  "AUTHOR'S CHOICE: face the plain end square at the supply station (north apex 1.5 - supply 175 = -173.5) because a centre drill wanders on a sawn end and the dead centre needs a square seat",
+  "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:182,186",
+]
+
+[process_features.plain_end_centre]
+kind = "centre_hole"
+at = [0.0, 0.0, -173.5]
+axis = [0.0, 0.0, 1.0]
+size = "#2 plain combined drill and countersink"
+drill_dia_mm = 1.98           # Table 6 size 2: drill D 5/64 in
+drill_length_mm = 1.98        # Table 6 size 2: drill length C 5/64 in, tip to the countersink, point included
+mouth_dia_mm = 3.0            # AUTHOR'S CHOICE: a shallow seat (see cite)
+countersink_angle_deg = 60.0  # Table 6: 60° countersink, the dead centre's point angle
+cite = [
+  "Machinery's Handbook 27th ed. p.873 Table 6 Combined Drills and Countersinks, plain type, size 2: body A 3/16 in, drill D 5/64 in, drill length C 5/64 in, overall L 1-7/8 in, 60° countersink",
+  "AUTHOR'S CHOICE: Ø3.0 mouth, a shallow seat, so the dead-centre point sits 2.60 inside the end and the turning tool's trailing edge clears its cone by about 0.5 at the S1 Z166.3 start",
+  "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:185 (CENTRES OK)",
+]
+
+# ---------------------------------------------------------------- S0
+# T0 stations: faced plain end 0, sawn end 0.5, jaw fronts -14.5; centre mouth Ø3.0
+# on Z0, pilot point 2.86 deep. The rest of the bar runs back through the spindle bore.
+[[setups]]
+id = "S0"
+machine = "PM-1127VF-LB"
+frame = "T0"                 # plan.frames.T0 (author's choice)
+coolant = "CRC cutting oil brushed on"  # author's choice; listed consumable, not a cutting-data claim
+deburr_mm = 0.25             # title block: break edges R0.25 OR CHAMFER 0.25 MAX (title_block.yaml:45)
+stock_in = "stock"
+
+[setups.stock_state]
+od_mm = 10.0                 # bar as bought, nominal; not measured
+north_end_z = -180.0         # sawn north end, inside the spindle bore
+south_end_z = 0.5            # sawn plain end, 0.5 proud of the faced end
+
+[setups.stock_state.local_thickness]
+# no holes on this part: nothing to pierce
+
+[setups.hold]
+fixture = "chuck-3jaw-6-d1-4"
+support = "none"             # the tailstock carries the drill chuck for op 20, not a centre
+grip_on = "AUTHOR'S CHOICE: 20 mm of plain bar behind the jaw fronts, near the sawn plain end; the rest of the blank runs back through the chuck and the spindle bore"
+grip_mm = 20.0
+fixed_jaw = "not_applicable"            # scroll chuck
+jaws_along = "not_applicable"
+parallels = "not_applicable"
+jaw_above_parallels_mm = "not_applicable"
+stop_face = "stock_end"     # the sawn plain end: nothing is cut yet
+stop = "feed the blank north end first through the chuck into the spindle bore until the sawn plain end stands 15 mm out of the jaw fronts; check that with a steel rule before tightening"  # AUTHOR'S CHOICE: a short stick-out, so the end faces and centre-drills without chatter
+clamp = "tighten the chuck key at all three pinions; remove key"  # author's choice
+stickout_mm = 15.0          # author's choice: jaw fronts Z-14.5 to the sawn end Z0.5
+pose = { origin_mm = [0.0, 0.0, -14.5], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
+jaw_clock_deg = 0.0
+
+[setups.zero.x]
+feature = "spindle_axis"
+edge_mm = 0.0
+from = "+x"
+method = "trial_cut_measure"            # EL400 §9.2.1 p62: skim the bar, measure, enter the diameter
+tool = "turning-tools-warner-lms-4132/AR"
+gauge = "micrometers/0-1in"
+check_jog_mm = 10.0         # author's choice: physical radial jog, +20 on diametric display
+
+[setups.zero.z]
+face = "plain end (sawn)"
+edge_mm = 0.5               # author's choice: the sawn end, 0.5 proud of the faced end
+from = "+z"
+method = "touch the sawn end with the spindle running until the first chip shows; no paper: the plain end is waste, parted off in S3"  # EL400 §9.2.1 p62: touch the end, withdraw without Z motion
+tool = "turning-tools-warner-lms-4132/AR"
+paper_mm = 0.0                          # direct touch on the waste plain end
+check_jog_mm = 10.0         # author's choice: physical axial jog, +10 on display
+retouch_after = []
+
+[[setups.ops]]
+op = 10
+do = "face"
+feature = "plain_end"
+tool = "turning-tools-warner-lms-4132/AR"
+holder = "qctp-axa-lms-2280/1-turning-facing"
+to_z = 0.0                    # the supply station
+to_dia = 0.0                  # face right across the centre: no pip for the centre drill
+doc_mm = 0.25               # two passes of 0.25; example (plausible, not measured); a light facing skim, below the smallest depth Machinery's Handbook 27th ed. Table 5a p.1035 tabulates, 0.04 in (1.0 mm)
+feed_mm_rev = 0.05          # example (plausible, not measured); .0020 in/rev, feed ratio 0.12 of the uncoated-carbide optimum .017 in/rev for 1018 at 125-175 HB (Table 1 p.1027), inside Table 5a p.1035's 0.10-1.00 feed-ratio rows
+direction = "radially_inward"  # author's choice: O.D. to centre
+note = "Two passes of 0.25 from the O.D. to the centre, the second to Z0. The tool point must be on centre height: a pip left at the centre makes the centre drill wander."
+
+[[setups.ops]]
+op = 20
+do = "center_drill"
+feature = "plain_end_centre"
+tool = "center-drills-lms-4859/2"
+holder = "drill-chuck-tailstock-mt3"
+note = "Lock the carriage clear of the end. Slide the tailstock up until the centre drill is about 5 mm off the faced end and lock it. Feed the quill by hand with oil on the drill; touch the end, then feed on the depth the quill scale shows, backing out twice to clear chips. The Ø3.0 mouth is the dead-centre seat for S1."  # AUTHOR'S CHOICE: the tailstock quill feeds the centre drill and its scale gives the depth, because the EL400 Z scale is on the carriage and cannot read the quill
+
 # ---------------------------------------------------------------- S1
 # T1 stations: shoulder north face -1.5, thrust face 0, south relief 0..2,
 # bearing 2..149.17 (finished) and on to the supply/plain end 166.
@@ -120,12 +240,12 @@ machine = "PM-1127VF-LB"
 frame = "T1"                 # plan.frames.T1 (author's choice; exported `setup` stays unknown)
 coolant = "CRC cutting oil brushed on"  # author's choice; listed consumable, not a cutting-data claim
 deburr_mm = 0.25             # title block: break edges R0.25 OR CHAMFER 0.25 MAX (title_block.yaml:45)
-stock_in = "stock"
+stock_in = "S0"
 
 [setups.stock_state]
 od_mm = 10.0                 # bar as bought, nominal; not measured
 north_end_z = -14.0          # author's choice: north apex -9 - stub 5
-south_end_z = 166.0          # author's choice: plain end = supply station, centre-drilled
+south_end_z = 166.0          # plain end = supply station, faced and centre-drilled in S0
 
 [setups.stock_state.local_thickness]
 # no holes on this part: nothing to pierce
@@ -152,8 +272,9 @@ centre_lubrication = "CRC cutting oil on dead-centre seat; replenish between cut
 stickout_mm = 167.5         # author's choice: jaw fronts Z-1.5 to plain end Z166, tailstock supported
 pose = { origin_mm = [0.0, 0.0, -1.5], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
 jaw_clock_deg = 0.0
-centre_hole_dia_mm = 3.0    # AUTHOR'S CHOICE: #2 centre drill sunk to a Ø3.0 countersink mouth (prerequisite)
-support_tip_mm = [0.0, 0.0, 163.402]  # the 60° point seated in the Ø3.0 countersink: 166 - 1.5 / tan 30° = 163.402 (to the micron, so the point bears on the seat)
+centre_hole = "plain_end_centre"  # made by S0 op 20
+centre_hole_dia_mm = 3.0    # the S0 centre's Ø3.0 countersink mouth
+support_tip_mm = [0.0, 0.0, 163.4019]  # the 60° point seated in the Ø3.0 countersink: 166 - 1.5 / tan 30° = 163.40192
 quill_extension_mm = 30.0   # author's choice: quill 30 mm out of the tailstock barrel
 
 [setups.zero.x]
@@ -161,16 +282,16 @@ feature = "spindle_axis"
 edge_mm = 0.0
 from = "+x"
 method = "trial_cut_measure"            # EL400 §9.2.1 p62: skim the bar, measure, enter the diameter
-tool = "turning-tools-warner-lms-4132/AR"
+tool = "hss-toolbit-3-8-rh"
 gauge = "micrometers/0-1in"
 check_jog_mm = 10.0         # author's choice: physical radial jog, +20 on diametric display
 
 [setups.zero.z]
-face = "plain end (prepared, centre-drilled)"
+face = "plain end (faced and centre-drilled in S0)"
 edge_mm = 166.0             # author's choice: plain end = thrust face + 166 (supply 175 - apex-to-thrust 9)
 from = "+z"
 method = "touch with the spindle running until the first chip shows; no paper: the plain end is waste, parted off in S3"  # EL400 §9.2.1 p62: touch the end before the centre goes in, withdraw without Z motion
-tool = "turning-tools-warner-lms-4132/AR"
+tool = "hss-toolbit-3-8-rh"
 paper_mm = 0.0                          # direct touch on the waste plain end
 check_jog_mm = 10.0         # author's choice: physical axial jog, +10 on display
 retouch_after = []
@@ -190,13 +311,13 @@ before_ops = [50]
 op = 10
 do = "rough_turn"
 feature = "pivot_bearing"
-tool = "turning-tools-warner-lms-4132/AR"
+tool = "hss-toolbit-3-8-rh"  # AUTHOR'S CHOICE: a ground HSS tool bit, not the carbide AR insert holder, for every turning, facing and dome cut on this Ø10 bar because carbide's Machinery's Handbook 27th ed. Table 1 p.1027 floor (300 fpm) needs 2900-4500 rpm at Ø6.35-10, past the lathe's 2000 rpm top speed, while the Table 1 HSS speeds (70-120 fpm) land at 850-1700 rpm
 holder = "qctp-axa-lms-2280/1-turning-facing"
 z_from = 166.3               # author's choice: start 0.3 clear of the plain end
 z_to = 0.2                    # stop 0.2 short of the thrust face for the facing pass
 rough_allowance_mm = 0.2    # on diameter: rough Ø6.55
-doc_mm = 0.5                # four light passes Ø10 → Ø6.55 on the slender between-centres body; example (plausible, not measured), below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.040 in (1.0 mm) DOC
-feed_mm_rev = 0.08          # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.004 in/rev (0.10 mm)
+doc_mm = 0.5                # four light passes Ø10 → Ø6.55 on the slender between-centres body; example (plausible, not measured), under the .125 in (3.2 mm) depth Machinery's Handbook 27th ed. bases its Table 1 p.1027 HSS speeds on (p.1026); the Table 5c p.1036 depth factor only raises speed for lighter cuts
+feed_mm_rev = 0.08          # example (plausible, not measured); .0031 in/rev, inside Machinery's Handbook 27th ed. Table 5c p.1036 HSS feed rows .002-.060 in/rev
 direction = "toward_chuck"  # author's choice: plain end to shoulder; cutting load pushes into the headstock
 note = "Four passes, Ø10 → Ø6.55; the rest jaws are reset on each new diameter. Each pass: open the follow-rest jaws wide, clear of the dead centre; start at Z166.3; at Z152 stop the feed and then the spindle (S3 cuts that end length off), bring both rest jaws onto the diameter just cut and lock them, restart the spindle and resume the feed to the shoulder. The Ø10 shoulder stays as bar."
 
@@ -204,11 +325,11 @@ note = "Four passes, Ø10 → Ø6.55; the rest jaws are reset on each new diamet
 op = 20
 do = "face"
 feature = "shoulder_thrust"
-tool = "turning-tools-warner-lms-4132/AR"
+tool = "hss-toolbit-3-8-rh"
 holder = "qctp-axa-lms-2280/1-turning-facing"
 to_z = 0.0                    # shoulder thrust face = T1 origin
-doc_mm = 0.2                # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.040 in (1.0 mm) DOC
-feed_mm_rev = 0.05          # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.004 in/rev (0.10 mm)
+doc_mm = 0.2                # example (plausible, not measured); under the .125 in (3.2 mm) depth Machinery's Handbook 27th ed. bases its Table 1 p.1027 HSS speeds on (p.1026); the Table 5c p.1036 depth factor only raises speed for lighter cuts
+feed_mm_rev = 0.05          # example (plausible, not measured); .0020 in/rev, the .002 in (0.05 mm) row of Machinery's Handbook 27th ed. Table 5c p.1036 HSS feeds
 direction = "radially_outward"  # author's choice: finish the face from the body out to the shoulder O.D.
 note = "Op 10 left the body at Ø6.55, 0.2 short of the shoulder: feed out from the Ø6.55 body to the Ø10 O.D. The tool starts in the corner, so the face meets the body square, and the burr goes over the O.D. edge; op 30 then finishes the body to Ø6.35 right up to this face."
 
@@ -219,12 +340,12 @@ finish_ra = "roughness-comparator"
 op = 30
 do = "finish_turn"
 feature = "pivot_bearing"
-tool = "turning-tools-warner-lms-4132/AR"
+tool = "hss-toolbit-3-8-rh"
 holder = "qctp-axa-lms-2280/1-turning-facing"
 z_from = 166.3               # author's choice: start 0.3 clear of the plain end
 z_to = 0.0
-doc_mm = 0.1                # Ø6.55 → Ø6.35; example (plausible, not measured), below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.040 in (1.0 mm) DOC
-feed_mm_rev = 0.05          # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.004 in/rev (0.10 mm)
+doc_mm = 0.1                # Ø6.55 → Ø6.35; example (plausible, not measured), under the .125 in (3.2 mm) depth Machinery's Handbook 27th ed. bases its Table 1 p.1027 HSS speeds on (p.1026); the Table 5c p.1036 depth factor only raises speed for lighter cuts
+feed_mm_rev = 0.05          # example (plausible, not measured); .0020 in/rev, the .002 in (0.05 mm) row of Machinery's Handbook 27th ed. Table 5c p.1036 HSS feeds
 direction = "toward_chuck"  # author's choice: plain end to the thrust face in one pass
 note = "One pass, Ø6.55 → Ø6.35, with the same rest sequence: jaws open at the start; at Z152 stop the feed and then the spindle, set the jaws on the finished diameter and lock them, restart the spindle and feed on to the thrust face. Mic at both ends and the middle for taper before moving on."
 
@@ -250,7 +371,7 @@ holder = "qctp-axa-lms-2280/7-parting"
 z_from = 0.0
 z_to = 2.0
 doc_mm = 0.33               # radial plunge depth Ø6.35 → Ø5.7
-feed_mm_rev = 0.02          # light plunge on the slender body; example (plausible, not measured), below UFL 'Speeds and Feeds' Example 5 tip parting 0.001 in/rev (0.025 mm) for steels
+feed_mm_rev = 0.02          # light plunge on the slender body; example (plausible, not measured); .0008 in/rev, inside Machinery's Handbook 27th ed. p.1132 circular form-tool feeds .0004-.0009 in/rev
 direction = "plunge_radial"  # author's choice: plunge flush at Z0..1.6, step to Z0.4..2.0, plunge again
 
 [setups.ops.checks]
@@ -310,7 +431,7 @@ feature = "spindle_axis"
 edge_mm = 0.0
 from = "+x"
 method = "trial_cut_measure"  # on the north stub, EL400 §9.2.1 p62
-tool = "turning-tools-warner-lms-4132/AR"
+tool = "hss-toolbit-3-8-rh"
 gauge = "micrometers/0-1in"
 check_jog_mm = 10.0         # author's choice: physical radial jog
 
@@ -322,7 +443,7 @@ method = "measure_then_set"  # the stub length carries the S1 bar placement and 
 gauge = "calipers"
 measure = "before chucking: outside caliper length from the shoulder thrust face to the north stub end (nominal 14.0)"
 offset_mm = -9.0              # thrust face (seated on the jaw fronts) is T2 Z-9
-tool = "turning-tools-warner-lms-4132/AR"
+tool = "hss-toolbit-3-8-rh"
 paper_mm = 0.0               # touch with the spindle running until the first chip shows: the stub end is waste, faced off in op 50
 check_jog_mm = 10.0         # author's choice: physical axial jog
 retouch_after = []
@@ -342,13 +463,13 @@ before_ops = [40]
 op = 10
 do = "rough_turn"
 feature = "pivot_journal"
-tool = "turning-tools-warner-lms-4132/AR"
+tool = "hss-toolbit-3-8-rh"
 holder = "qctp-axa-lms-2280/1-turning-facing"
 z_from = 5.0
 z_to = -7.3                   # stop 0.2 short of the shoulder north face
 rough_allowance_mm = 0.2    # on diameter: rough Ø6.55
-doc_mm = 0.5                # four passes; the short free stub stays stiff at this load; example (plausible, not measured), below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.040 in (1.0 mm) DOC
-feed_mm_rev = 0.10          # example (plausible, not measured); at littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.004 in/rev (0.10 mm)
+doc_mm = 0.5                # four passes; the short free stub stays stiff at this load; example (plausible, not measured), under the .125 in (3.2 mm) depth Machinery's Handbook 27th ed. bases its Table 1 p.1027 HSS speeds on (p.1026); the Table 5c p.1036 depth factor only raises speed for lighter cuts
+feed_mm_rev = 0.10          # example (plausible, not measured); .0039 in/rev, inside Machinery's Handbook 27th ed. Table 5c p.1036 HSS feed rows .002-.060 in/rev
 direction = "toward_chuck"  # author's choice: stub end to the shoulder
 note = "Rough the stub and journal together; the dome is formed from this O.D."
 
@@ -356,11 +477,11 @@ note = "Rough the stub and journal together; the dome is formed from this O.D."
 op = 20
 do = "face"
 feature = "shoulder_north_face"
-tool = "turning-tools-warner-lms-4132/AR"
+tool = "hss-toolbit-3-8-rh"
 holder = "qctp-axa-lms-2280/1-turning-facing"
 to_z = -7.5
-doc_mm = 0.2                # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.040 in (1.0 mm) DOC
-feed_mm_rev = 0.05          # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.004 in/rev (0.10 mm)
+doc_mm = 0.2                # example (plausible, not measured); under the .125 in (3.2 mm) depth Machinery's Handbook 27th ed. bases its Table 1 p.1027 HSS speeds on (p.1026); the Table 5c p.1036 depth factor only raises speed for lighter cuts
+feed_mm_rev = 0.05          # example (plausible, not measured); .0020 in/rev, the .002 in (0.05 mm) row of Machinery's Handbook 27th ed. Table 5c p.1036 HSS feeds
 direction = "radially_outward"  # author's choice
 note = "Feed out from the journal to the Ø10 O.D.: the tool starts in the corner, so the face meets the journal square, and the burr goes over the O.D. edge."
 
@@ -368,12 +489,12 @@ note = "Feed out from the journal to the Ø10 O.D.: the tool starts in the corne
 op = 30
 do = "finish_turn"
 feature = "pivot_journal"
-tool = "turning-tools-warner-lms-4132/AR"
+tool = "hss-toolbit-3-8-rh"
 holder = "qctp-axa-lms-2280/1-turning-facing"
 z_from = 5.0
 z_to = -7.5
-doc_mm = 0.1                # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.040 in (1.0 mm) DOC
-feed_mm_rev = 0.05          # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.004 in/rev (0.10 mm)
+doc_mm = 0.1                # example (plausible, not measured); under the .125 in (3.2 mm) depth Machinery's Handbook 27th ed. bases its Table 1 p.1027 HSS speeds on (p.1026); the Table 5c p.1036 depth factor only raises speed for lighter cuts
+feed_mm_rev = 0.05          # example (plausible, not measured); .0020 in/rev, the .002 in (0.05 mm) row of Machinery's Handbook 27th ed. Table 5c p.1036 HSS feeds
 direction = "toward_chuck"  # author's choice
 
 [setups.ops.checks]
@@ -389,7 +510,7 @@ holder = "qctp-axa-lms-2280/7-parting"
 z_from = -7.5
 z_to = -5.5
 doc_mm = 0.33               # radial plunge depth Ø6.35 → Ø5.7, as S1 op 50
-feed_mm_rev = 0.02          # example (plausible, not measured); below UFL 'Speeds and Feeds' Example 5 tip parting 0.001 in/rev (0.025 mm) for steels
+feed_mm_rev = 0.02          # example (plausible, not measured); .0008 in/rev, inside Machinery's Handbook 27th ed. p.1132 circular form-tool feeds .0004-.0009 in/rev
 direction = "plunge_radial"  # author's choice: plunge flush at Z-7.5..-5.9, step to -7.1..-5.5, plunge again
 
 [setups.ops.checks]
@@ -400,11 +521,11 @@ width = "calipers"
 op = 50
 do = "face"
 feature = "north_dome"
-tool = "turning-tools-warner-lms-4132/AR"
+tool = "hss-toolbit-3-8-rh"
 holder = "qctp-axa-lms-2280/1-turning-facing"
 to_z = 0.0                    # temporary face at the north apex plane
-doc_mm = 1.0                # five facing passes off the 5 mm stub; example (plausible, not measured), at littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.040 in (1.0 mm) DOC
-feed_mm_rev = 0.08          # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.004 in/rev (0.10 mm)
+doc_mm = 1.0                # five facing passes off the 5 mm stub; example (plausible, not measured), under the .125 in (3.2 mm) depth Machinery's Handbook 27th ed. bases its Table 1 p.1027 HSS speeds on (p.1026); the Table 5c p.1036 depth factor only raises speed for lighter cuts
+feed_mm_rev = 0.08          # example (plausible, not measured); .0031 in/rev, inside Machinery's Handbook 27th ed. Table 5c p.1036 HSS feed rows .002-.060 in/rev
 direction = "radially_inward"  # author's choice
 note = "Face the stub off to the apex plane, feeding toward the centre; stop at centre height and check for a pip."
 
@@ -412,12 +533,12 @@ note = "Face the stub off to the apex plane, feeding toward the centre; stop at 
 op = 60
 do = "form_dome"
 feature = "north_dome"
-tool = "turning-tools-warner-lms-4132/AR"   # 93° facing/turning tool reaches the near-axial apex faces the 60° E cannot
+tool = "hss-toolbit-3-8-rh"   # 93° turning/facing bit reaches the near-axial apex faces a 60° profiling tool cannot
 holder = "qctp-axa-lms-2280/1-turning-facing"
 z_from = 0.0
 z_to = -1.5                   # apex 0.0, base -1.5, sphere R 4.11 centred at -4.11
-doc_mm = 0.2                # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.040 in (1.0 mm) DOC
-feed_mm_rev = 0.04          # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.004 in/rev (0.10 mm)
+doc_mm = 0.2                # example (plausible, not measured); under the .125 in (3.2 mm) depth Machinery's Handbook 27th ed. bases its Table 1 p.1027 HSS speeds on (p.1026); the Table 5c p.1036 depth factor only raises speed for lighter cuts
+feed_mm_rev = 0.05          # example (plausible, not measured); .0020 in/rev, the .002 in (0.05 mm) row of Machinery's Handbook 27th ed. Table 5c p.1036 HSS feeds
 direction = "apex_to_base"  # author's choice: hand traverse from T2 Z0 to -1.5
 rough_allowance_mm = 0.2    # author's choice, on diameter: the rough stair leaves 0.1 normal to the sphere for the finish table
 contour = { method = "axial_table", step_mm = 0.1 }  # author's choice: rough stair rows, then the finish table (tool columns)
@@ -458,16 +579,18 @@ note = "Spindle stopped, lathe in neutral, carriage run back clear. Turn the chu
 # ---------------------------------------------------------------- S3
 # After fit-up scribes the shaft at the south ear's outer face
 # (draw_channel_assembly.py:101-110). The consumer comment names a saw cut
-# (draw_channel_assembly.py:78-79); no saw is in the inventory, so the plain
-# end is parted off long on the lathe, faced to the band with the turning tool
-# and the dome formed on the faced end.
+# (draw_channel_assembly.py:78-79). AUTHOR'S CHOICE: the plain end is parted off
+# long on the lathe rather than on the bandsaw, because the finished Ø6.35 body
+# would need a saw vise cradle and the lathe already holds it true for the facing
+# and dome that follow; it is then faced to the band with the turning tool and the
+# dome formed on the faced end. The parting removes S0's centre with the waste end.
 # T3 stations: scribe 0, plain end 16.83 (supply 175), north apex -158.17,
 # north dome base rim -156.67.
 [[setups]]
 id = "S3"
 machine = "PM-1127VF-LB"
 frame = "T3"                 # plan.frames.T3 (author's choice)
-note = "Before S3 (assembly trial fit, off the lathe): slide the shaft through both rocker-bank ears with the shoulder pushed against the north ear; scribe a light ring on the body at the south ear's outer face, then remove the shaft. The scribe is Z0, nominally 158.17 from the north apex (156.67 from the north dome base rim); if it measures more than ±0.5 off, stop and ask: the S3 numbers assume the nominal span."
+note = "Trial fit before S3, off the lathe. Fit: push the shaft through both rocker-bank ears, shoulder hard against the north ear; ink the body at the south ear's outer face and scribe a light ring through the ink; remove the shaft. Measure: calipers from the plain end to the scribe (loupe on the scribe); nominal 16.83. Then: 16.33 to 17.33, go on. Outside that, clean the ear bores and shoulder, refit, re-ink, scribe again and re-measure. Still outside but 11.50 or more: go on, with stickout = your reading + 8 (every other S3 number is set from the scribe and stays as printed). Under 11.50: do not cut; the bank's ears are more than 5 mm off and the S1 follow-rest mark would land on the finished bearing; keep the shaft until the bank is corrected."  # AUTHOR'S CHOICE: the S3 numbers are all set from the scribe, so only the waste past it depends on the span; 11.50 keeps the S1 follow-rest jaw band (jaws 8 mm behind the tool stopped at T1 Z152, 10 mm deep: T1 Z155-165, 1-11 mm in from the plain end) beyond the S3 dome base Z0.25
 coolant = "CRC cutting oil brushed on"  # author's choice
 deburr_mm = 0.25
 stock_in = "S2"
@@ -505,10 +628,11 @@ runout_limit_mm = 0.02        # author's choice: example limit next to the jaws
 
 [setups.zero.x]
 feature = "spindle_axis"
+edge = "spindle axis: trial cut only on the plain-end waste, Z6 to Z10 (past the parting line, cut off in op 10); never on the bearing"  # AUTHOR'S CHOICE: the arriving body is the finished Ø6.330-6.350 bearing; Z6-Z10 lies past the op 10 cut (Z2.25 plus the blade) and inside the shortest permitted span (11.50)
 edge_mm = 0.0
 from = "+x"
 method = "trial_cut_measure"  # on the excess past the scribe
-tool = "turning-tools-warner-lms-4132/AR"
+tool = "hss-toolbit-3-8-rh"
 gauge = "micrometers/0-1in"
 check_jog_mm = 10.0         # author's choice: physical radial jog
 
@@ -517,7 +641,7 @@ face = "scribe"
 edge_mm = 0.0
 from = "+z"
 method = "align_tool_point_to_scribe"  # author's choice: stationary spindle, align point to centre of actual scribe
-tool = "turning-tools-warner-lms-4132/AR"
+tool = "hss-toolbit-3-8-rh"
 paper_mm = 0.0             # author's choice: no paper at scribe
 check_jog_mm = 10.0        # author's choice: physical axial jog
 retouch_after = []
@@ -533,6 +657,19 @@ method = "spindle stopped; align the chuck-side corner to the scribe; withdraw a
 corner = "chuck_side"      # AUTHOR'S CHOICE: the chuck-side corner on the scribe because it forms the kept +Z dome end at Z2.25; a scribe has no face normal to give it
 before_ops = [10]
 
+# The blade's Axis Set replaced the T1 zero; put the HSS tool bit back in holder #1 and
+# re-touch it on the same body diameter and scribe before it faces and domes.
+[[setups.zero.tool_touches]]
+tool = "hss-toolbit-3-8-rh"
+x_method = "touch the body diameter just measured by micrometer; Axis Set its measured diameter"  # author's choice
+gauge = "micrometers/0-1in"
+z_face = "scribe"
+edge_mm = 0.0
+paper_mm = 0.0             # author's choice: tool nose aligned to the scribe, stationary spindle, as for the zero
+method = "spindle stopped; align the tool nose to the centre of the scribe; withdraw along X without moving Z"  # author's choice; the sheet prints the Axis Set value
+after_op = 10
+before_ops = [20]
+
 [[setups.ops]]
 op = 10
 do = "cut_to_fit"
@@ -541,7 +678,7 @@ tool = "parting-blade-lms-1728"
 holder = "qctp-axa-lms-2280/7-parting"
 to_z = 2.25                # AUTHOR'S CHOICE: part the waste off 0.5 long so op 20 faces the apex to a DRO-set Z
 doc_mm = 3.2               # radial plunge to the centre of Ø6.35
-feed_mm_rev = 0.025         # example (plausible, not measured); UFL 'Speeds and Feeds' Example 5 tip parting 0.001 in/rev (0.025 mm) for steels, hand-fed
+feed_mm_rev = 0.025         # example (plausible, not measured); .0010 in/rev, inside Machinery's Handbook 27th ed. p.1132 cutoff-tool feeds .0006-.0015 in/rev, hand-fed
 direction = "plunge_radial"  # author's choice
 note = "Part the waste off long, chuck-side blade corner at Z2.25. Let the waste offcut drop into the chip tray; pick it up only with the spindle stopped. Op 20 faces off the parting pip."
 
@@ -549,28 +686,28 @@ note = "Part the waste off long, chuck-side blade corner at Z2.25. Let the waste
 op = 20
 do = "face"
 feature = "south_dome"
-tool = "turning-tools-warner-lms-4132/AR"
+tool = "hss-toolbit-3-8-rh"
 holder = "qctp-axa-lms-2280/1-turning-facing"
 to_z = 1.75                # author's choice: midpoint of the sourced "CUT THE PLAIN END 1.5 TO 2.0 PAST THE SCRIBE" band; the apex of the dome. A DRO-set Z, not a band: op 30 starts its table here
-doc_mm = 0.25              # two facing passes, Z2.25 → 1.75; example (plausible, not measured), below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.040 in (1.0 mm) DOC
-feed_mm_rev = 0.05          # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.004 in/rev (0.10 mm)
+doc_mm = 0.25              # two facing passes, Z2.25 → 1.75; example (plausible, not measured), under the .125 in (3.2 mm) depth Machinery's Handbook 27th ed. bases its Table 1 p.1027 HSS speeds on (p.1026); the Table 5c p.1036 depth factor only raises speed for lighter cuts
+feed_mm_rev = 0.05          # example (plausible, not measured); .0020 in/rev, the .002 in (0.05 mm) row of Machinery's Handbook 27th ed. Table 5c p.1036 HSS feeds
 direction = "radially_inward"  # author's choice
 # Fit-up band source: harmonic-analyzer/cad/scripts/draw_channel_assembly.py:82,101-110 (channel
 # assembly fit-up note, "CUT THE PLAIN END 1.5 TO 2.0 PAST THE SCRIBE"); the shaft drawing
 # (features.toml) carries no such requirement, so this is a fit-up hold, not a drawing limit.
-inspection_note = "Fit-up hold from the channel assembly drawing's fit-up note, not a shaft-drawing limit: the faced end must stand 1.50 to 2.00 past the scribe. Measure it on the DRO with the spindle stopped and the lathe in neutral. Turn the chuck by hand until the scribe faces you, bring the T1 tool point back over the scribe under the 10x measuring loupe and read Z: it must read 0.00 ±0.05; if not, the part has moved: stop. Then bring the T1 Z-cutting edge onto the faced end with cigarette paper until the paper drags and read Z; that reading minus the 0.05 paper is the scribe-to-end distance. Outside 1.50 to 2.00, stop before doming."
+inspection_note = "Fit-up hold from the channel assembly drawing's fit-up note, not a shaft-drawing limit: the faced end must stand 1.50 to 2.00 past the scribe. Measure it on the DRO with the spindle stopped and the lathe in neutral. Turn the chuck by hand until the scribe faces you, bring the T1 tool point back over the scribe under the 10x measuring loupe and read Z: it must read 0.00 ±0.05. If not, the part has slipped: tighten the chuck at all three pinions, set Z on the scribe again as in the DRO ZERO box, then go on. Then bring the T1 Z-cutting edge onto the faced end with cigarette paper until the paper drags and read Z; that reading minus the 0.05 paper is the scribe-to-end distance. Over 2.00: face again to Z1.75 and measure again. Under 1.50: the end is too short for the fit-up and cannot be put back; do not form the dome. The shaft is scrap: make a new one from a fresh blank, from the first setup."
 note = "Face the parted end to Z1.75 in two passes, feeding toward the centre; stop at centre height and check that no pip is left."
 
 [[setups.ops]]
 op = 30
 do = "form_dome"
 feature = "south_dome"
-tool = "turning-tools-warner-lms-4132/AR"   # same 93° tool as the north dome; the 60° E cannot reach the near-axial apex faces
+tool = "hss-toolbit-3-8-rh"   # same 93° bit as the north dome; a 60° profiling tool cannot reach the near-axial apex faces
 holder = "qctp-axa-lms-2280/1-turning-facing"
 z_from = 1.75              # author's choice: the op 20 faced end (apex), a deterministic DRO Z
 z_to = 0.25                # author's choice: apex 1.75 - sourced dome height 1.5
-doc_mm = 0.2                # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.040 in (1.0 mm) DOC
-feed_mm_rev = 0.04          # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.004 in/rev (0.10 mm)
+doc_mm = 0.2                # example (plausible, not measured); under the .125 in (3.2 mm) depth Machinery's Handbook 27th ed. bases its Table 1 p.1027 HSS speeds on (p.1026); the Table 5c p.1036 depth factor only raises speed for lighter cuts
+feed_mm_rev = 0.05          # example (plausible, not measured); .0020 in/rev, the .002 in (0.05 mm) row of Machinery's Handbook 27th ed. Table 5c p.1036 HSS feeds
 direction = "apex_to_base"  # author's choice
 rough_allowance_mm = 0.2    # author's choice, on diameter: the rough stair leaves 0.1 normal to the sphere for the finish table
 contour = { method = "axial_table", step_mm = 0.1 }  # author's choice: rough stair rows, then the finish table (tool columns)

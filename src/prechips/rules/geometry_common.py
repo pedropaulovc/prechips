@@ -4,6 +4,7 @@ from prechips.findings import Finding
 from prechips.rules.datum_consistency import _cuts
 from prechips.rules.resolution import (
     COMPLETE_FORM,
+    HAND_FINISH,
     MANUAL,
     SAW_OPS,
     WORKHOLDING_CATEGORIES,
@@ -29,6 +30,9 @@ LATHE_APPROACH_REASON = (
 )
 TURNING = "turning"
 ROTARY = "rotary"
+# A bench file (``HAND_FINISH``): no machine cutter; the kernel removes at most the shop's
+# max_filing_stock_mm off its claimed faces.
+HAND = "hand"
 CHUCK_KINDS = {"chuck_3jaw", "chuck_4jaw"}
 # Shared profile/form/groove actions also occur on mills; resolve their machine kind.
 _TURNING_ACTIONS = (
@@ -65,8 +69,10 @@ def blade_keys(inputs):
 
 
 def approach(bundle, setup, op):
-    """'turning', 'rotary' (dividing-head milling), 'axial' (-Z cutter cylinders) or None
-    when no approach model applies."""
+    """'hand' (a bench file), 'turning', 'rotary' (dividing-head milling), 'axial' (-Z
+    cutter cylinders) or None when no approach model applies."""
+    if op.get("do") in HAND_FINISH:
+        return HAND
     machine = record(resolve(bundle, "machines", setup.get("machine")))
     kind, action = machine.get("kind"), op.get("do")
     if op.get("approach") == ROTARY and kind != "lathe" and action not in _TURNING_ACTIONS:
@@ -85,10 +91,10 @@ def approach_model_reason(bundle, setup, op):
 
 
 def approach_facts(bundle, facts, setup, op):
-    """Whether a turning/rotary op's kernel facts come from its own model (never raw -Z
+    """Whether a hand/turning/rotary op's kernel facts come from its own model (never raw -Z
     facts); axial ops always do."""
     model = approach(bundle, setup, op)
-    if model not in (TURNING, ROTARY):
+    if model not in (HAND, TURNING, ROTARY):
         return True
     detail = record(record(facts.get("ops")).get(f"{setup['id']}:{op['op']}"))
     return detail.get("approach") == model
@@ -103,12 +109,16 @@ def cutting_action(op):
 
 def finishing_subjects(bundle):
     # Reuse the existing final datum-cut semantics, including drill→ream/bore/tap.
-    # A saw cut removes stock but never finishes a target face.
+    # A saw cut removes stock but never finishes a target face; nor does stock
+    # preparation of a plan process feature (it has no drawing face to finish). A file to
+    # the line does.
     return {
         f"{setup['id']}:{op['op']}"
-        for name in bundle.feature_definitions
+        for name, definition in bundle.feature_definitions.items()
+        if not record(record(definition).get("preparation"))
         for _, setup, op in _cuts(bundle, name)
-        if cutting_action(op) is True and op.get("do") not in SAW_OPS | {"coating"}
+        if (cutting_action(op) is True or op.get("do") in HAND_FINISH)
+        and op.get("do") not in SAW_OPS | {"coating"}
     }
 
 
@@ -135,11 +145,14 @@ def provenance(bundle, rule, setup=None, op=None, feature=None):
     if feature is not None:
         entry = record(bundle.feature_definitions.get(feature))
         joint = record(entry.get("joint"))
-        cite.append(
-            f"plan.joint_features.{joint['id']}: analytic transient cylinder"
-            if joint
-            else f"features.{feature}: faces and requirements"
-        )
+        if joint:
+            cite.append(f"plan.joint_features.{joint['id']}: analytic transient cylinder")
+        elif record(entry.get("preparation")):
+            from prechips.process_features import source_cite
+
+            cite.extend(source_cite(entry))
+        else:
+            cite.append(f"features.{feature}: faces and requirements")
         cite.extend(_citations(entry.get("cite")))
     if setup is not None:
         cite.append(f"plan.setups.{setup['id']}: frame and hold")
@@ -192,6 +205,9 @@ def unavailable(bundle, rule, subject, facts, cite):
 
 def mapped_feature(bundle, facts, name):
     feature = record(bundle.feature_definitions.get(name))
+    if record(feature.get("preparation")):
+        # Stock preparation maps to no finished face: it is never drawing coverage.
+        return set(), []
     joint = record(feature.get("joint"))
     refs = [joint["label"]] if joint else feature.get("faces", UNKNOWN)
     errors = record(facts.get("mapping_errors"))
@@ -225,9 +241,12 @@ def op_claims(bundle, facts, setup, op):
 
     A transient joint-feature op's analytic claims never credit finished faces: it earns
     only the kernel's ``certified_indices``, the exported faces its accepted finishing cut
-    measurably leaves as its own surface, and otherwise an empty set (never debt).
+    measurably leaves as its own surface, and otherwise an empty set (never debt). A plan
+    process-feature op (stock preparation) credits no finished face at all.
     """
     refs = claim_refs(bundle, op)
+    if record(record(bundle.feature_definitions.get(op_feature(op))).get("preparation")):
+        return set(), [], []
     errors = record(facts.get("mapping_errors"))
     detail = record(record(facts.get("ops")).get(f"{setup['id']}:{op['op']}"))
     reported = detail.get("mapping_errors")
@@ -408,7 +427,9 @@ def op_contexts(bundle, rule, required=(), fixture=False, stock=True, turning=No
                     "not_applicable",
                     {},
                     cite,
-                    f"{subject}: {op['do']} does not cut geometry.",
+                    f"{subject}: {op['do']} is bench filing; no machine cutter reaches the part."
+                    if op.get("do") in HAND_FINISH
+                    else f"{subject}: {op['do']} does not cut geometry.",
                 )
             elif cutting_action(op) is None:
                 blocked = Finding(
