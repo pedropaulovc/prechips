@@ -212,11 +212,19 @@ guide or its gauge, tool, holder, inspection gauge or process-hold gauge; any
 item named in the setup's prose or in the notes and record blanks of the
 shop-made items it uses, the job page's prose counting as the first setup's:
 see the key syntax under shop-made solids) that carries the list. An item is its
-category and key: a slot reads its own kind first (a hold slot workholding, an
-indicator, inspection or process-hold gauge a gauge, a tool slot a tool), and
-prose names the category, so `fixtures.pins` and `gauges.pins` are two items,
-each with its own checks, table and first setup, and `tool_resolves` checks the
-gauge a slot reads even when a fixture of that key is listed. Unknown is
+category and key: a slot selects its own kind first (a hold slot workholding:
+fixtures, holders, machines; an indicator, inspection, process-hold or guide
+gauge a gauge; a tool slot a tool; a holder slot a holder), and prose names the
+category, so `fixtures.pins` and `gauges.pins` are two items, each with its own
+checks, table and first setup. Everything after the selection reads that item
+only: its receipt, its `tool_resolves` finding (the gauge a slot reads is
+checked even when a fixture of that key is listed), the notes and record blanks
+of a shop-made holder or fixture, and every name the traveler prints for it. A
+bare key in prose that two categories list names no one item and prints as
+written; name it `<category>.<key>`. The selected category is authoritative: an
+item it lists as `"unknown"` or with nothing about it (`{}`), or a category
+stated `"unknown"`, is unknown to every rule and prints `? <category>.<key>`;
+it never borrows a same-key item's name or record. Unknown is
 never an acceptance: an `acceptance` or `purchase` stated
 `"unknown"`; a `check`, `how` or `accept` that is blank or unknown; a gauge that
 is unknown, not listed or not verified; a `limits_mm` that is not two known

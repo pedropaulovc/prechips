@@ -16,12 +16,11 @@ from ..findings import Finding
 from ..measurements import nominal_limits_mm
 from .resolution import (
     UNKNOWN,
-    inventory_category,
     length_mm,
     number,
     record,
     resolve,
-    setup_item_uses,
+    setup_items,
     setup_named_references,
     uncertain,
 )
@@ -33,23 +32,16 @@ def acceptance_items(bundle, setup, job=False):
     """``[(category, reference, item, checks)]`` for each item the setup uses that declares
     receipt checks: a kit's own list once under its root, a member's own list under its
     path. An explicitly unknown list (``acceptance = "unknown"``) is declared, not absent.
-    A setup uses the items its slots name (:func:`setup_item_uses`, each in the first
-    category declaring it, the slot's own kind first: a ``checks`` gauge is a gauge) and the
-    items its prose and its shop-made items' notes and record blanks name
-    (:func:`setup_named_references`, in the category they name); with ``job`` (the first
-    setup) also the job page's. An item is its category and key: a ``fixtures.pins`` and a
-    ``gauges.pins`` are two items, each with its own checks."""
-    uses = list(setup_item_uses(setup))
-    uses += [
-        ((category,), ref)
-        for category, ref in (
-            name.split(".", 1) for name in setup_named_references(bundle, setup, job=job)
-        )
-    ]
+    A setup uses the items its slots select (:func:`setup_items`: each in its slot's
+    category, the slot's own kind first) and the items its prose and its shop-made items'
+    notes and record blanks name (:func:`setup_named_references`, in the category they
+    name); with ``job`` (the first setup) also the job page's. An item is its category and
+    key: a ``fixtures.pins`` and a ``gauges.pins`` are two items, each with its own checks."""
+    uses = setup_items(bundle, setup)
+    uses += [tuple(name.split(".", 1)) for name in setup_named_references(bundle, setup, job=job)]
     found = []
-    for categories, ref in uses:
+    for category, ref in uses:
         root, _, member = ref.partition("/")
-        category = inventory_category(bundle, root, categories)
         raw = record(record(bundle.inventory.get(category)).get(root)) if category else {}
         owners = [(root, raw)]
         if member:
