@@ -117,7 +117,10 @@ Shared inputs:
   material-force/modulus row and one deep-hole
   drill derate. Every row is labelled `example (plausible, not measured)` and its
   citation names the Machinery's Handbook 27th edition table, printed page and
-  range the value sits inside (revision 4); tool-maker, saw-maker and university
+  range the value sits inside (revision 5, which adds the M42 HSS lathe face,
+  turning and dome rows the pivot-shaft's 3/8 in HSS tool bit uses: carbide's
+  Table 1 floor is out of reach at the lathe's 2000 rpm top speed on a Ø6.35
+  shaft); tool-maker, saw-maker and university
   charts appear only as secondary citations. Reamer pre-drills leave radial
   stock inside the handbook's p.1133 reamer depth of cut (.003-.004 in for holes
   1/8 in or less, .004-.008 in over). These are starting values, not shop
