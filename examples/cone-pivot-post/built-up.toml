@@ -31,7 +31,7 @@ form = "built_up"
 material = "1018 low-carbon steel"
 on_hand = false
 as_is_faces = [] # AUTHOR'S CHOICE: every finished face is turned, faced, drilled or reamed; none is left as bar stock
-note = "AUTHOR'S CHOICE: a turned body and head from one round bar, plus two turned sleeves bonded in reamed bores with anaerobic retaining compound. The cone and crank bores are reamed only after the compound has cured. Also saw two 15 mm offcuts from the same bar stock for the S4 Ra witness bores, one of 25 mm round (crank) and one of 3/4 in round (cone). Stock sizes and placements are illustrative purchase/process choices, not on-hand measurements."
+note = "AUTHOR'S CHOICE: a turned body and head from one round bar, plus two turned sleeves bonded in reamed bores with anaerobic retaining compound. The cone and crank bores are reamed only after the compound has cured. Also saw two 15 mm offcuts from the same bar stock for the S4 reamer trial bores, one of 25 mm round (crank) and one of 3/4 in round (cone). Stock sizes and placements are illustrative purchase/process choices, not on-hand measurements."
 cite = ["AUTHOR'S CHOICE: illustrative bonded-sleeve construction permitted for this example", "harmonic-analyzer/cad/config/parts/cone-pivot-post.yaml:3,7", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:349-355"]
 [[stock.components]]
 id = "body"
@@ -652,7 +652,7 @@ pose = { origin_mm = [-105.0, 0.0, 0.0], x = [0.0, 0.0, 1.0], z = [1.0, 0.0, 0.0
 jaw_clock_deg = 0.0
 stop = "AUTHOR'S CHOICE: caliper the post from foot B to the raw tail end first: it must read 125.0, as S1 op 10 left it. Tail end against the chuck body face, so 105 mm of post stands out of the jaws. Indicate the turned head and body to run true within 0.02 mm, then indicate foot B square to the head axis."
 clamp = "AUTHOR'S CHOICE: tighten each independent jaw a little at a time while indicating. Then align the head with the table: with the DTI in the spindle, sweep the top of the body along X from foot B to the shoulder, then its side; tap the head on the table until each sweep reads within 0.01 mm, tighten the head bolts and re-check both sweeps and the runout. Remove the key and lock the spindle before drilling."
-note = "AUTHOR'S CHOICE: Ra witness bores, made once before the dividing head goes on the table, because the roughness comparator cannot reach inside the Ø11.4 crank and Ø12.3 journal bores (S8 op 30, S9 op 30 and S11 ops 100-110 compare against them). Saw two 1018 offcuts about 15 mm long, one from the 25 mm crank bar and one from the 3/4 in cone bar, and grip each in the mill vise on parallels with the bore line clear of them. Crank offcut: spot it with the #2 centre drill, drill 11.2 through at the S8 op 20 speed and feed, then ream it with the 0.4500 in reamer at the S8 op 30 speed and feed. Journal offcut: spot it, drill 12.05 through at the S9 op 20 speed and feed, then ream it with the 0.4835 in reamer at the S9 op 30 speed and feed. Use cutting oil and a steady quill feed; run each drill point and the reamer lead fully out of the far side. Mark them crank and journal and keep them with the job."
+note = "AUTHOR'S CHOICE: reamer trial bores, made once before the dividing head goes on the table, because a solid reamer has no size adjustment and the part is only reamed after the sleeves are bonded: the 0.4500 in reamer (11.430) sits 0.013 under the top of the 11.413-11.443 crank band, and the 0.4835 in reamer (12.281) only 0.005 under the top of the 12.256-12.286 journal band. Saw two 1018 offcuts about 15 mm long, one from the 25 mm crank bar and one from the 3/4 in cone bar, and grip each in the mill vise on parallels with the bore line clear of them. Crank offcut: spot it with the #2 centre drill, drill 11.2 through at the S8 op 20 speed and feed, then ream it with the 0.4500 in reamer at the S8 op 30 speed and feed. Journal offcut: spot it, drill 12.05 through at the S9 op 20 speed and feed, then ream it with the 0.4835 in reamer at the S9 op 30 speed and feed. Use cutting oil and a steady quill feed; run each drill point and the reamer lead fully out of the far side. Bore-gauge each trial bore at both mouths: the crank trial must read 11.413-11.443 and the journal trial 12.256-12.286. If either reads over, that reamer cuts oversize: do not take it to the part; replace it and ream a new trial."
 [setups.hold.index]
 fixture = "BS-0"
 feature = "crank_bore"
@@ -1030,19 +1030,12 @@ tool = "reamers-decimal/0.4500in" # 45 fpm (400 rpm) from cutting-data.toml: ins
 holder = "drill-chuck-r8"
 exit_mm = 0.5
 approach_mm = 5.0
-note = "Ream with cutting oil and a steady feed; run the lead out of the far end of the sleeve."
+note = "Use the reamer whose S4 trial bore read in the band. Ream with cutting oil and a steady feed; run the lead out of the far end of the sleeve."
 [setups.ops.checks]
 dia = "bore-gauge-small"
-finish_ra = "roughness-comparator"
-# AUTHOR'S CHOICE: Machinery's Handbook 27th ed. Table 1 p.730 puts Ra 1.6 (63 µin) inside reaming's
-# average-application band (Ra 3.2-0.8 µm); p.724 names roughness comparison specimens (ASME B46.1).
-# The comparator cannot enter a Ø11.4 bore, so a witness bore reamed the same way stands in for it.
-[setups.ops.inspection_methods]
-finish_ra = [
-  "AUTHOR'S CHOICE: take the crank witness reamed before S4 (S4 hold note). Hacksaw it along its bore axis, beside the bore, and break it open to expose half the bore wall without touching the wall.",
-  "Under the measuring loupe, in one light, lay the witness wall beside the comparator's turned Ra 1.6 and Ra 3.2 specimens and draw a fingernail across the lay of each: the witness must look and feel no rougher than Ra 1.6. Write yes or no: {witness}",
-  "Shine a light into the part bore and look along it with the loupe from each mouth: the wall must show the same even reamed lay as the witness, with no chatter bands, tears or scores. Write yes or no: {bore}",
-]
+# AUTHOR'S CHOICE: Ra is cast and judged once, at S11 op 110, off the machine with both mouths
+# free and after the last deburr; a finished reamed bore cannot be re-reamed, so an earlier cast
+# would change no step.
 
 # ======================================================================= S9
 [[setups]]
@@ -1135,19 +1128,11 @@ tool = "reamers-decimal/0.4835in" # 45 fpm (350 rpm) from cutting-data.toml: ins
 holder = "drill-chuck-r8"
 exit_mm = 0.5
 approach_mm = 5.0
-note = "Ream datum A through the sleeve cap to cap; run the lead out of the south cap. Break both rims 0.1 mm maximum by hand. Check the diameter at both ends and the height from foot B."
+note = "Use the reamer whose S4 trial bore read in the band. Ream datum A through the sleeve cap to cap; run the lead out of the south cap. Break both rims 0.1 mm maximum by hand. Check the diameter at both ends and the height from foot B."
 [setups.ops.checks]
 dia = "bore-gauge-small"
 height = "calipers"
-finish_ra = "roughness-comparator"
-# AUTHOR'S CHOICE: Ra by the journal witness bore, as S8 op 30 (Machinery's Handbook 27th ed.
-# Table 1 p.730 reaming; p.724 roughness comparison specimens).
-[setups.ops.inspection_methods]
-finish_ra = [
-  "AUTHOR'S CHOICE: take the journal witness reamed before S4 (S4 hold note). Hacksaw it along its bore axis, beside the bore, and break it open to expose half the bore wall without touching the wall.",
-  "Under the measuring loupe, in one light, lay the witness wall beside the comparator's turned Ra 1.6 and Ra 3.2 specimens and draw a fingernail across the lay of each: the witness must look and feel no rougher than Ra 1.6. Write yes or no: {witness}",
-  "Shine a light into the part bore and look along it with the loupe from each mouth: the wall must show the same even reamed lay as the witness, with no chatter bands, tears or scores. Write yes or no: {bore}",
-]
+# AUTHOR'S CHOICE: Ra is cast once, at S11 op 100, for the reason in the S8 op 30 comment.
 
 # ======================================================================= S10
 [[setups]]
@@ -1369,26 +1354,37 @@ height = "height-gauge"
 op = 100
 do = "inspect"
 feature = "journal_bore"
-note = "Deburr inside the journal bore without enlarging it; recheck diameter A, its height from B and Ra."
+note = "Deburr inside the journal bore without enlarging it; cast it for Ra, then recheck diameter A and its height from B."
 [setups.ops.checks]
+finish_ra = "bore-replica-kit"
 dia = "bore-gauge-small"
 height = "calipers"
-finish_ra = "roughness-comparator"
+# AUTHOR'S CHOICE: Machinery's Handbook 27th ed. Table 1 p.730 puts Ra 1.6 (63 µin) inside reaming's
+# average-application band (Ra 3.2-0.8 µm); p.724 names roughness comparison specimens (ASME B46.1).
+# No plate reaches inside a Ø12.3 bore, so the wall is cast in replica compound and the cast is compared.
 [setups.ops.inspection_methods]
-finish_ra = "AUTHOR'S CHOICE: after deburring, shine a light into the journal bore and look along it with the measuring loupe from each mouth, the split journal witness that passed S9 op 30 beside it: the wall must still show the same even reamed lay, with no new scratches, scores or burrs from deburring."
+finish_ra = [
+  "AUTHOR'S CHOICE: cast the journal bore before any gauge rod goes in. Swab the bore with isopropyl alcohol until the swab comes out clean, and let it dry: any oil spoils the cast.",
+  "Lay the post on its side on the bench, chocked with a parallel each side, so the bore lies level. Tape over the far mouth. Push a 150 mm length of M3 threaded rod in until it touches the tape, centred in the bore, as the pull handle. Fill the bore from the tape end back to the near mouth through the kit's mixing nozzle, withdrawing the nozzle as it fills.",
+  "Wait the kit's cure time (about 5 min). Peel the tape and draw the cast out by the rod in one steady pull.",
+  "Under the measuring loupe, in one light, lay the cast beside the kit plate's reamed Ra 1.6 and Ra 3.2 patches. Along its whole length the cast must look no rougher than the Ra 1.6 patch, with no chatter band, tear or score. Write yes or no: {cast}",
+]
 [[setups.ops]]
 op = 110
 do = "inspect"
 feature = "crank_bore"
-note = "Recheck crank bore size and Ra, then check the crank-to-journal separation and the crank-bore angularity on the surface plate."
+note = "Cast the crank bore for Ra first, then recheck its size, the crank-to-journal separation and the crank-bore angularity on the surface plate."
 [setups.ops.checks]
+finish_ra = "bore-replica-kit"
 dia = "bore-gauge-small"
 separation = "height-gauge"
 angularity_dia = "height-gauge"
-finish_ra = "roughness-comparator"
 [setups.ops.inspection_methods]
+finish_ra = [
+  "AUTHOR'S CHOICE: cast the crank bore as op 100 casts the journal bore, before the gauge rods go in: swab it clean and dry, lay the post with the bore level, tape the far mouth, centre the M3 pull rod, fill, cure, peel the tape and pull the cast.",
+  "Under the measuring loupe, in one light, lay the cast beside the kit plate's reamed Ra 1.6 and Ra 3.2 patches. Along its whole length the cast must look no rougher than the Ra 1.6 patch, with no chatter band, tear or score. Write yes or no: {cast}",
+]
 separation = "AUTHOR'S CHOICE: stand the post on foot B on the surface plate. With the DTI on the height gauge, read the top and bottom of each bore at both mouths; each bore centre is the mean of its top and bottom readings. Separation = crank centre - journal centre, accept 39.34-39.70."
-finish_ra = "AUTHOR'S CHOICE: shine a light into the crank bore and look along it with the measuring loupe from each mouth, the split crank witness that passed S8 op 30 beside it: the wall must still show the same even reamed lay, with no new scratches, scores or burrs since S8."
 # AUTHOR'S CHOICE: the crank axis must lie in a Ø0.10 cylinder over its 72.03 bore, at 12.5182 deg
 # to journal axis A and parallel to foot B. Gauge rods resting in the bores carry each axis outside
 # the part, so the DTI never reaches into a bore. With rise r over step S and L = 72.0344:

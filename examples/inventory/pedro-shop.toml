@@ -1135,6 +1135,14 @@ kind = "bore_gauge"
 note = "illustrative example item: 10-18 mm two-point dial bore gauge with a 0.001 mm indicator, zeroed in a setting ring or against the 0-1 in micrometer; reads the cone post's Ø11.4 crank and Ø12.3 journal bores"
 range_mm = [10.0, 18.0]
 resolution_mm = 0.001
+# Ra inside the Ø11.4 and Ø12.3 bores: no comparator plate or fingernail reaches the wall,
+# so the wall is cast in replica compound and the cast is compared with the plate.
+[gauges.bore-replica-kit]
+kind = "roughness_comparator"
+name = "bore replica kit (replica compound + Ra comparator plate)"
+note = "illustrative example item: Microset-type two-part silicone replica compound (101RF class, fast cure) in a dispensing gun with mixing nozzles, with its own Ra comparator plate of turned and reamed patches. Example (plausible, not measured): about 5 min cure at room temperature; the cast copies the wall finish to about 0.1 µm. The cast is the wall's negative, and Ra (the mean deviation from the mean line) reads the same on a negative profile, so the cast compares directly with the plate."
+ra_range = [0.4, 6.3] # example (plausible, not measured): the plate's patches, Ra 0.4, 0.8, 1.6, 3.2, 6.3 µm
+resolution_mm = { value = 0.0001, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "cast of a 0.1 µm reference step, read under a microscope" } }
 # --- end cone-pivot-post additions ---
 
 [gauges.dft-gauge]
