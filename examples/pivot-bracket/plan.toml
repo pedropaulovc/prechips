@@ -34,6 +34,11 @@ origin_mm = [9.0, -1.0, -4.0]    # author's choice: blank corner, model X 9..-9,
 axis = [0.0, 1.0, 0.0]           # 34.2 length along model Y
 section_axis = [-1.0, 0.0, 0.0]  # 18 mm section along model -X; axis x section_axis = +Z (26.2 run)
 as_is_faces = []                 # every finished face is cut
+# DataBracket (r3): the blank's preparation, before S1. The engine cannot route squaring
+# setups (every non-saw op must claim a manifest feature), so the steps are stock text.
+prerequisite = "saw and square the blank to 18.0 × 26.2 × 34.2 mm, as listed under STOCK AND ROUTE" # AUTHOR'S CHOICE: printed as the job page's Before S1 line
+note = "AUTHOR'S CHOICE: Prepare the blank 1 mm over the finished part on every face, because S1-S3 pick up these faces. (1) Bandsaw a 38 mm length off 3/4 × 1-1/4 in flat bar. (2) In the mill vise on parallels, face one wide side flat: the left side. (3) Left side against the fixed jaw, face one narrow edge square to it: the outer end. (4) Left side against the fixed jaw, outer end down on the parallels, face the other edge to 26.2: the free end. (5) Left side down on the parallels, face the other wide side to 18.0: the right side. (6) Stand the blank on a sawn end, left side against the fixed jaw and the outer end indicated square to the table, and face the top end: the crown end. Turn it end for end, crown down on the parallels, and face the seat end to 34.2. (7) Mic 18.0 within ±0.1 and 26.2 and 34.2 within ±0.02, then mark the left side, outer end and crown end. S1 edge-finds the left side and outer end; S2 and S3 edge-find the left side and free end and touch Z on the crown end, so a 26.2 or 34.2 error moves their cuts by the same amount."
+cite = ["AUTHOR'S CHOICE: 3/4 x 1-1/4 in, a common flat-bar section over 18 x 26.2; 38 mm saws 1.9 mm over each 34.2 end", "AUTHOR'S CHOICE: six-face vise squaring with the left side as the reference face, because S1-S3 edge-find it", "AUTHOR'S CHOICE: 26.2 and 34.2 held to +/-0.02 because S2/S3 zero on the free and crown ends, opposite the S1 references"]
 
 [dro]
 controller = "el400"
@@ -530,15 +535,17 @@ jaws_along = "not_applicable"
 parallels = "not_applicable"
 supports = "not_applicable"      # the plate assembly includes the load-bearing foot-end ledge
 clamps = [
-  { ref = "clamping-kit-lms-1144/bracket-bridge", pose = { origin_mm = [0.0, -6.0, -16.0], x = [1.0, 0.0, 0.0], z = [0.0, -1.0, 0.0] }, torque_nm = 15.0, note = "bridge underside on the finished foot top; force +Y toward the seat/angle plate, two studs at Setup X +/-20 through the upright, rear nuts behind it; bar maximum Setup Z -9.65" },
+  { ref = "clamping-kit-lms-1144/bracket-bridge", pose = { origin_mm = [0.0, -6.0, -16.0], x = [1.0, 0.0, 0.0], z = [0.0, -1.0, 0.0] }, torque_nm = 15.0, note = "presses the foot toward the plate (+Y); bar top at Setup Z -9.65; studs, washers and nuts outside the foot width, clear of the foot-end ledge, arch and cross-bore" },
 ]                                # torque_nm: AUTHOR'S CHOICE, firm hand torque on the 3/8-16 front nuts for a 6 mm foot
 clamp_order = [1]
 method = "strap_clamps"
-clamp = "shop-made two-stud bridge tightened on the free foot, reacting through rear washers and nuts against the angle plate"
+locate = "Seat the finished seat face flat against the angle-plate upright, outer face up and 2 mm proud of the plate top"
+# DataBracket (r3): one ordered HOLD step per ";" clause (the sheet splits clamp on ";").
+clamp = "fit the two bridge studs through the upright at Setup X +/-20, with the rear washers against the plate back and the rear nuts behind them; lay the bridge underside on the finished foot top at Setup Y -6, centred at Setup Z -16, and run the front washers and nuts down by hand until the bridge just holds the foot against the plate; indicate the exposed 2 mm seat lip with a small-ball DTI above the plate and tap the part until the lip sweeps flat"
 grip_mm = "not_applicable"       # bridge contact, not vise jaws
 jaw_above_parallels_mm = "not_applicable"
-stop = "Rest the foot free end on the bolted plate ledge at Setup Z -24.2; align the finished left foot edge at Setup X -8 before clamping."
-note = "Seat the finished seat face against the angle-plate upright, outer face up and 2 mm proud of the plate top. Coordinates below are relative to this Setup's zero. Rest the foot free end on the bolted ledge at Z -24.2 to take the downward facing/drilling load. The bridge underside bears on the finished foot top at Y -6, centred at Z -16, and presses the foot toward the plate (+Y); two studs at X +/-20 pass through the upright, with rear washers touching the plate back and rear nuts behind it. Indicate the exposed 2 mm seat lip with a small-ball DTI above the plate, then tighten and recheck. Establish a preliminary paper-Z reference with the stationary edge-finder on the raw outer face (Z +1) before the side pickups. Pick up the left foot face at Y -3, Z -4, above the bridge; pick up the common plate front from -Y at X +45, Z -5, clear of the bridge hardware. Retract above Z +5 before traversing between pickups, then paper-zero the cutting tool as specified. The bridge bar reaches maximum Z -9.65; studs, washers and nuts stay outside the foot width, clear of the foot-end ledge/base, arch and cross-bore."
+stop = "Rest the foot free end on the bolted plate ledge at Setup Z -24.2, which carries the downward facing and drilling load; align the finished left foot edge at Setup X -8 before clamping."
+note = "Recheck the seat lip with the DTI after full torque. Before the X/Y pickups, touch the stationary edge finder on the raw outer face (Z +1) with paper for a preliminary Z. Raise above Z +5 before every traverse between pickups."
 
 [setups.zero.transfer]
 from = "S3"
@@ -547,14 +554,14 @@ tool = "dti"
 runout_limit_mm = 0.0254          # author's choice: max 0.001 in TIR, two 0.0005 in DTI divisions; not a measured alignment
 
 [setups.zero.x]
-edge = "foot_left"
+edge = "foot left face at Y -3, Z -4, above the bridge"
 edge_mm = -8.0
 from = "-x"
 tool = "edge-finder"
 check_jog_mm = 10.0              # author's choice
 
 [setups.zero.y]
-edge = "plate_front_beside_part"  # exposed plate face at TC X = 45, Z = -5, clear of the bridge hardware
+edge = "plate front beside the part at X +45, Z -5, clear of the bridge hardware"
 edge_mm = 0.0                    # plate face and seated datum A share Y0
 from = "-y"
 tool = "edge-finder"
@@ -579,7 +586,7 @@ to_z = 0.0                       # outer face, model Z = -3
 direction = "conventional"       # author's choice
 doc_mm = 1.0                     # AUTHOR'S CHOICE: the whole 1 mm skim in one axial pass
 stock_removal_bounds = { x = [-8.0, 8.0], y = [-33.2, 0.0], z = [0.0, 1.0] } # AUTHOR'S CHOICE: face full raw top
-contour = { method = "linear_table", step_mm = 6.35 } # AUTHOR'S CHOICE: 2/3 of the 9.525 cutter per pass
+contour = { method = "linear_table", step_mm = 4.0 } # AUTHOR'S CHOICE: 4.0 mm stepover (0.42 of the 9.525 cutter) so the five passes over X -8..8 land 4.000 apart on the 0.005 DRO grid
 note = "Face the complete top of the S4 entry stock, X -8..8 and Y -33.2..0, from Z +1 to Z0 before profiling the arch. Include the retained rectangular crown, not merely the finished outer-face outline."
 
 [[setups.ops]]
@@ -664,7 +671,7 @@ frame = "TB"                     # seat down on the rest plate, foot top up
 stock_in = "S4"
 coolant = "none: bench finishing"
 deburr_mm = 0.25                 # example (plausible): title-block edge break
-note = "AUTHOR'S CHOICE: off the mill, break the edges, clean the part and send it out for black oxide with nothing masked; re-gauge the bore when it comes back."
+note = "AUTHOR'S CHOICE: Off the mill, break the edges, clean the part and send it out for black oxide with nothing masked; re-gauge the bore when it comes back."
 
 [setups.stock_state]             # frame B, the finished part
 top_z = 26.2                     # ear crown: bore axis (model Y 25.2) + R7, after S4 op 20

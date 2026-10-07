@@ -1079,6 +1079,20 @@ The reamed bore uses paired metric 6.500 mm go / 6.530 mm no-go pins rather than
 inch-increment pins; after release, the seat rests on the surface plate and a
 height gauge reads the go-pin top minus half its diameter for the bore height.
 
+The 18 × 26.2 × 34.2 mm prepared blank carries an authored preparation
+sequence in `stock.prerequisite` (the job page's `Before S1:` line) and
+`stock.note` (STOCK AND ROUTE): bandsaw 38 mm off 3/4 × 1-1/4 in flat bar,
+then square all six faces in the mill vise from the left side, holding 26.2
+and 34.2 to ±0.02 mm because S2/S3 zero on the free and crown ends opposite
+the S1 references. These are author's process choices, not on-hand stock.
+The squaring cannot be routed as setups: every non-saw op must claim a
+manifest feature, and the blank's faces are not finished features.
+S4's HOLD lists seating, stud and bridge fitting and seat-lip indication as
+separate steps; the X/Y pickup positions live in the DRO zero rows. The S4
+outer-face raster uses a 4.0 mm stepover so its five passes print on the
+0.005 mm DRO grid. The S4 bridge member is named `two-stud bridge clamp` in
+the shared inventory.
+
 The plan and manifest use revision `example-v39` for this local illustrative
 contract, explicitly **not** a certified dimensioned drawing revision. All setup
 frames are nominal, not physical alignments already performed.
