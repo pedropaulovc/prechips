@@ -32,6 +32,8 @@ from prechips.model import UNIT_TOLERANCE, Plan, tolerance_requirements
 from prechips.process_features import ACTIONS as PROCESS_ACTIONS
 from prechips.process_features import ANGLE_TOLERANCE_DEG
 from prechips.process_features import LABEL_PREFIX as PROCESS_PREFIX
+from prechips.rules import RULES as CHECKER_RULES
+from prechips.rules import tool_resolves as identity_rule
 from prechips.rules import zero_recipe as zero_rules
 from prechips.rules._bench import manual_bench
 from prechips.rules.coordinates import (
@@ -48,6 +50,7 @@ from prechips.rules.resolution import (
     LENGTH_TOLERANCE_MM,
     MANUAL,
     SAW_OPS,
+    named_item,
     op_features,
     rough_leave,
     same_length,
@@ -151,9 +154,6 @@ SETUP_RULES = {
     "stock_diameter",
     "indexing",
 }
-# An identity the inventory leaves explicitly "unknown", as the checker records one
-# (resolution.resolve): its every field unknown.
-UNKNOWN_ITEM = {"kind": "unknown", "verify": True}
 REFERENCE_KEYS = {
     "machine",
     "tool",
@@ -282,37 +282,35 @@ def fraction(value: str) -> Fraction | None:
         return None
 
 
-class Entries(dict):
-    """Every inventory identity by name (:func:`entries_for`), kept with the ``inventory``
-    it indexes: whether an identity resolves, and resolves unverified, is the checker's own
-    resolution of that inventory (:func:`resolves`, :func:`uncertain`)."""
+class Entries:
+    """The inventory as the checker reads it: the validator's one reader of an item by its
+    key. The item a reference names in a ``slot`` (a category, or a slot kind such as
+    ``workholding`` or ``spindle``) is the one resolution.select reads there, as the rules
+    use it (resolution.resolve); it is unverified as resolution.uncertain reads it."""
 
     def __init__(self, inventory: dict):
-        super().__init__()
         self.inventory = inventory
 
+    def item(self, ref, slot):
+        """The record ``slot`` selects for ``ref`` (a member's merged over its set's; an
+        item stated unknown ``{"kind": "unknown", "verify": True}``), None when it selects
+        none."""
+        return resolve_item(self.inventory, slot, ref) if isinstance(ref, str) else None
 
-def entries_for(inventory: dict) -> Entries:
-    """Every inventory identity by name, its fields read as authored; an identity the
-    inventory leaves "unknown" is :data:`UNKNOWN_ITEM`."""
-    entries = Entries(inventory)
-    for category in ("machines", "fixtures", "holders", "tools", "gauges"):
-        items = inventory.get(category, {})
-        for name, item in items.items() if isinstance(items, dict) else ():
-            require(name not in entries, f"duplicate inventory identity {name}")
-            entries[name] = UNKNOWN_ITEM if item == "unknown" else item
-    return entries
+    def record(self, ref, slot) -> dict:
+        """:meth:`item`, or {} when ``slot`` selects none."""
+        return self.item(ref, slot) or {}
 
+    def resolves(self, ref, slot) -> bool:
+        return self.item(ref, slot) is not None
 
-def resolves(ref, entries: Entries) -> bool:
-    """Whether the checker resolves ``ref`` (resolution.resolve) in the inventory."""
-    return resolve_item(entries.inventory, None, ref) is not None
+    def uncertain(self, ref, slot) -> bool:
+        return record_uncertain(self.item(ref, slot))
 
-
-def uncertain(ref, entries: Entries) -> bool:
-    """Whether the checker resolves ``ref`` (resolution.resolve) in the inventory to an
-    identity it reads as unverified (resolution.uncertain)."""
-    return record_uncertain(resolve_item(entries.inventory, None, ref))
+    def verified(self, ref, slot) -> bool:
+        """Whether ``ref`` resolves in ``slot`` to an item the checker does not read as
+        unverified: a flagged, unverified or explicitly unknown one is not ready."""
+        return self.resolves(ref, slot) and not self.uncertain(ref, slot)
 
 
 def selected_refs(plan: dict):
@@ -354,51 +352,27 @@ def selected_refs(plan: dict):
     return set(walk(plan))
 
 
-def tool_diameter(ref: str, entries: dict):
-    root, _, member = ref.partition("/")
-    entry = entries.get(root, {})
-    if entry.get("kind") == "endmill_set":
-        match = re.fullmatch(r"(.+in)-(2|4)fl", member)
-        size = fraction(match[1]) if match else None
-        return float(size) * 25.4 if size is not None else "unknown"
-    if entry.get("kind") == "drill_index":
-        # A declared nominal (letter, number or fractional) outranks the fraction's size.
-        size = fraction(member)
-        fallback = float(size) * 25.4 if size is not None else "unknown"
-        return entry.get("nominal_dia_mm", {}).get(member, fallback)
-    return tool_field(ref, "dia", entries)
+def tool_record(ref, key: str, entries: Entries, slot: str = "tools"):
+    """The authored ``key`` of the item ``slot`` selects for ``ref`` (:class:`Entries`: a
+    member's over its set's, a set member's generated size), unwrapped from neither
+    ``{value, ...}`` nor its units."""
+    return entries.record(ref, slot).get(key, "unknown")
 
 
-def tool_record(ref: str, key: str, entries: dict):
-    """The selected tool's own authored ``key`` (a member's over its set's), unwrapped
-    from neither ``{value, ...}`` nor its units."""
-    root, _, member = ref.partition("/")
-    entry = entries.get(root, {})
-    members = entry.get("members", {})
-    selected = members.get(member, {}) if isinstance(members, dict) else {}
-    if not isinstance(selected, dict):
-        return "unknown"
-    return selected.get(key, entry.get(key, "unknown"))
-
-
-def tool_field(ref: str, key: str, entries: dict):
-    root, _, member = ref.partition("/")
-    if key == "flutes" and entries.get(root, {}).get("kind") == "endmill_set":
-        match = re.fullmatch(r"(.+in)-(2|4)fl", member)
-        return int(match[2]) if match else "unknown"
-    value = tool_record(ref, key, entries)
+def tool_field(ref, key: str, entries: Entries, slot: str = "tools"):
+    value = tool_record(ref, key, entries, slot)
     return value.get("value", "unknown") if isinstance(value, dict) else value
 
 
-def tool_length_mm(ref: str, field: str, entries: dict):
-    value = tool_field(ref, f"{field}_mm", entries)
+def tool_length_mm(ref, field: str, entries: Entries, slot: str = "tools"):
+    value = tool_field(ref, f"{field}_mm", entries, slot)
     if numeric(value):
         return value
-    inches = fraction(str(tool_field(ref, f"{field}_in", entries)))
+    inches = fraction(str(tool_field(ref, f"{field}_in", entries, slot)))
     if inches is not None:
         return float(inches) * 25.4
-    value = tool_field(ref, field, entries)
-    units = tool_field(ref, "units", entries)
+    value = tool_field(ref, field, entries, slot)
+    units = tool_field(ref, "units", entries, slot)
     if numeric(value) and units in {"mm", "in", "inch"}:
         return value if units == "mm" else value * 25.4
     return "unknown"
@@ -422,7 +396,7 @@ def accepted(fact) -> bool:
         return False
 
 
-def centre_tool_facts(ref: str, entries: dict) -> dict:
+def centre_tool_facts(ref: str, entries: Entries) -> dict:
     """The selected centre drill's own accepted D, C, countersink angle, body and point
     (``CENTRE_TOOL_FACTS``) in mm and degrees; any other fact is unknown."""
     facts = {}
@@ -636,13 +610,17 @@ def inspection_subjects(plan: dict, definitions: dict) -> set:
     return subjects
 
 
-def rule_subjects(plan: dict, features: dict) -> dict:
+def rule_subjects(plan: dict, features: dict, entries: Entries, checked) -> dict:
     """``{rule: subjects}`` each supported rule evaluates for this plan, from the plan and
     the manifest alone: the setup, op, feature and part subjects of the checker's rule
     catalogue, the bundle binding's ``inputs``, the prepared blank's ``stock.prepared``,
     each joined setup (a cylindrical one's fit too), each saw cut, each scribed or filed
-    arc, every selected inventory identity and non-manual op, and the inspection subjects
-    (:func:`inspection_subjects`). A rule outside the catalogue evaluates nothing."""
+    arc, every inventory item the plan selects or names (:func:`identity_rows`) and
+    non-manual op, and the inspection subjects (:func:`inspection_subjects`). Any other
+    rule of the checker's catalogue (``prechips.rules.RULES``) evaluates the subjects its
+    own rule gives on the validator's own bundle load (``checked``,
+    :func:`checker_subjects`), so a rule the checker adds needs no validator edit; a rule
+    outside the catalogue evaluates nothing."""
     definitions = operative_definitions(plan, features)
     ops = [(setup, op) for setup in plan["setups"] for op in setup["ops"]]
     setups = {setup["id"] for setup in plan["setups"]}
@@ -671,11 +649,22 @@ def rule_subjects(plan: dict, features: dict) -> dict:
             )
         ),
         # A coating's process resolves as its op; other manual work selects no tool.
-        tool_resolves=set(selected_refs(plan))
+        tool_resolves=set(identity_rows(plan, entries))
         | op_ids(lambda op: op.get("do") == "coating" or op.get("do") not in MANUAL),
         inspection=inspection_subjects(plan, definitions),
     )
+    for rule in CHECKER_RULES:
+        if rule.name not in subjects:
+            subjects[rule.name] = checked(rule)
     return subjects
+
+
+def checker_subjects(plan_path: Path):
+    """``checked(rule)``: the subjects the checker's own ``rule`` (``prechips.rules.RULES``)
+    evaluates on this validator's own bundle load of the plan at ``plan_path``, made once
+    per rule. No report value enters it."""
+    bundle = functools.cache(lambda: load_bundle(plan_path))
+    return functools.cache(lambda rule: frozenset(f.subject for f in rule.evaluate(bundle())))
 
 
 def required_subjects(policy: dict, plan: dict, features: dict, rules: dict) -> dict:
@@ -717,13 +706,15 @@ def required_subjects(policy: dict, plan: dict, features: dict, rules: dict) -> 
     return result
 
 
-def check_required_coverage(policy: dict, plan: dict, features: dict, findings: dict) -> None:
+def check_required_coverage(
+    policy: dict, plan: dict, features: dict, findings: dict, entries: Entries, checked
+) -> None:
     """The report's subjects are exactly those its supported rules evaluate
     (:func:`rule_subjects`, from the validator's own inputs) plus the checker's coverage
     row for each required subject none of them covers (:func:`required_subjects`). Each
     coverage row stays unknown with the policy's selector: no supported check exists to
     approve or waive it, and no report row can stand in for one."""
-    domains = rule_subjects(plan, features)
+    domains = rule_subjects(plan, features, entries, checked)
     coverage = {
         (rule, subject): selector
         for rule, (selector, subjects) in required_subjects(policy, plan, features, domains).items()
@@ -850,7 +841,7 @@ def check_subjects(plan: dict, features: dict, findings: dict, inventory: dict) 
             )
         elif bench is None:
             require(isinstance(setup.get("zero"), dict), f"{sid}: missing zero")
-            lathe = machine_kind(setup, entries_for(inventory)) == "lathe"
+            lathe = machine_kind(setup, Entries(inventory)) == "lathe"
             axes = ("x", "z") if lathe else ("x", "y", "z")
             for axis in axes:
                 recipe = setup["zero"].get(axis)
@@ -1028,22 +1019,54 @@ def check_joint_declarations(plan: dict, features: dict, findings: dict, kernel)
             )
 
 
-def check_references(plan: dict, entries: dict, findings: dict) -> list:
-    missing = []
+def identity_rows(plan: dict, entries: Entries) -> dict:
+    """``{subject: (category, reference, named)}``: every inventory item the checker's
+    ``tool_resolves`` rule resolves on the validator's own plan and inventory, under the
+    subject that rule gives it: each item a slot selects (resolution.setup_items) under
+    its bare key, or as ``<category>.<key>`` where a bare key reads another category, and
+    each item the prose ``named`` (resolution.named_references)."""
+    data = SimpleNamespace(plan=plan, inventory=entries.inventory)
+    return {
+        row.subject: (row.numbers["category"], row.numbers["reference"], "named_in" in row.numbers)
+        for row in identity_rule.evaluate(data)
+        if "category" in row.numbers
+    }
+
+
+def check_references(plan: dict, entries: Entries, findings: dict) -> list:
+    """Every item the plan selects or names (:func:`identity_rows`) has its reference
+    finding, naming that category and reference, with the verdict of the item that
+    category selects (:class:`Entries`): one not listed an error naming it (a named one
+    unknown), one listed but unverified unknown, else pass. Every identity a plan slot
+    names (:func:`selected_refs`) is one of those items. Returns the subjects not listed."""
+    rows = identity_rows(plan, entries)
+    references = {reference for _, reference, _ in rows.values()}
     for ref in sorted(selected_refs(plan)):
-        key = "tool_resolves", ref
-        require(key in findings, f"missing reference finding for {ref}")
+        require(ref in references, f"{ref}: no reference finding resolves the identity it names")
+    missing = []
+    for subject, (category, ref, named) in sorted(rows.items()):
+        key = "tool_resolves", subject
+        require(key in findings, f"missing reference finding for {subject}")
         finding = findings[key]
-        if not resolves(ref, entries):
+        require(
+            (finding["numbers"].get("category"), finding["numbers"].get("reference"))
+            == (category, ref),
+            f"{subject}: reference finding names another item than {category}.{ref}",
+        )
+        if named:
+            item = named_item(entries.inventory, subject)
+            verified = item is not None and not record_uncertain(item)
             require(
-                finding["status"] == "error" and finding["numbers"].get("reference") == ref,
-                f"{ref}: missing item must have exact named error",
+                finding["status"] == ("pass" if verified else "unknown"),
+                f"{subject}: a named item resolves only listed and verified",
             )
-            missing.append(ref)
-        elif uncertain(ref, entries):
-            require(finding["status"] == "unknown", f"{ref}: inherited verify must be unknown")
+        elif not entries.resolves(ref, category):
+            require(finding["status"] == "error", f"{subject}: missing item must be an error")
+            missing.append(subject)
+        elif entries.uncertain(ref, category):
+            require(finding["status"] == "unknown", f"{subject}: inherited verify must be unknown")
         else:
-            require(finding["status"] == "pass", f"{ref}: available identity must resolve")
+            require(finding["status"] == "pass", f"{subject}: available identity must resolve")
     return missing
 
 
@@ -1434,11 +1457,28 @@ def zero_inputs(plan: dict, features: dict, inventory: dict, policy: dict, kerne
     )
 
 
-def verified_item(ref, entries: Entries) -> bool:
-    """Whether ``ref`` resolves (:func:`resolves`) to an identity the checker does not read
-    as unverified (:func:`uncertain`): a flagged, unverified or explicitly unknown one is
-    not ready."""
-    return resolves(ref, entries) and not uncertain(ref, entries)
+def checker_row(own, evaluate, subject: str, status: str, numbers: dict) -> tuple:
+    """``(status, numbers)`` of a finding the validator derives (``status``, ``numbers``)
+    with what only the checker's own rule derives (``evaluate`` run on the validator's
+    inputs ``own``, :func:`zero_inputs`): every value the validator derives stands (a
+    mapping key by key, a list of as many rows row by row), and a value it does not is the
+    checker's on those inputs, so a row the checker adds needs no validator edit and no
+    report value is ever an operand. The status is the worse of the two: an unknown or
+    error either derives is never a pass."""
+    row = next((f.to_dict() for f in evaluate(own) if f.subject == subject), None)
+    if row is None:
+        return status, numbers
+
+    def merge(theirs, ours):
+        if isinstance(theirs, dict) and isinstance(ours, dict):
+            return {**theirs, **{key: merge(theirs.get(key), v) for key, v in ours.items()}}
+        if isinstance(theirs, list) and isinstance(ours, list) and len(theirs) == len(ours):
+            return [merge(t, o) for t, o in zip(theirs, ours, strict=True)]
+        return ours
+
+    if row["status"] in STATUS_RANK and STATUS_RANK[row["status"]] > STATUS_RANK[status]:
+        status = row["status"]
+    return status, merge(row["numbers"], numbers)
 
 
 def paper_stand_off(paper, side):
@@ -1496,7 +1536,7 @@ def zero_readings(axis: str, recipe: dict, sign, scale, contact, stand_off, lath
     return {"axis_set": shown, "check_reading": shown + step, "mirrored_reading": shown - step}
 
 
-def derive_zero(setup: dict, own, entries: dict) -> tuple:
+def derive_zero(setup: dict, own, entries: Entries) -> tuple:
     """``(status, numbers)``: the ``zero_check`` finding of a setup that sets a DRO zero,
     from the validator's own inputs ``own`` (:func:`zero_inputs`) alone.
 
@@ -1507,13 +1547,17 @@ def derive_zero(setup: dict, own, entries: dict) -> tuple:
     less or plus its finder radius (half its resolved tip, else body, diameter) by the side
     it comes from, or for Z its edge plus its paper on the side the face is met from; the
     readings follow (:func:`zero_readings`). Readings, a tool or gauge that is not ready
-    (:func:`verified_item`: flagged, unverified or explicitly unknown), an unknown frame,
-    binding, controller, mode or radius mode, retouch list or touch list leave the zero
-    unknown. Where its surfaces stand (the top as each op leaves it, the side a face is met
-    from, which touched or faced surface a tool change is touched off on, a blade's corner,
-    where a touched face stands on the DRO grid) is plan and kernel geometry, read with the
-    checker's surface functions on these inputs; a missing touch, a blade corner its face
-    cannot give or a face set off the grid is an error."""
+    (:meth:`Entries.verified` in the slot the checker reads it in: flagged, unverified or
+    explicitly unknown), an unknown frame, binding, controller, mode or radius mode,
+    retouch list or touch list leave the zero unknown. Where its surfaces stand (the top as
+    each op leaves it, the side a face is met from, which touched or faced surface a tool
+    change is touched off on, a blade's corner, where a touched face stands on the DRO
+    grid) is plan and kernel geometry, read with the checker's surface functions on these
+    inputs; a missing touch, a blade corner its face cannot give or a face set off the
+    grid is an error. A lathe X touch's Axis Set is the checker's own expression of it
+    (``x_touch_set``). Every row or verdict only the checker derives (an edge finder's
+    procedure, where an X touch's diameter stands) is its own on these inputs
+    (:func:`checker_row`)."""
     plan = own.plan
     dro = plan.get("dro") if isinstance(plan.get("dro"), dict) else {}
     counts = dro.get("direction") if isinstance(dro.get("direction"), dict) else {}
@@ -1523,8 +1567,8 @@ def derive_zero(setup: dict, own, entries: dict) -> tuple:
     # A lathe as the checker resolves the setup's machine: present, lathe kind or type.
     lathe = zero_rules.lathe_setup(own, setup)
 
-    def ready(ref) -> bool:
-        return verified_item(ref, entries)
+    def ready(ref, slot) -> bool:
+        return entries.verified(ref, slot)
 
     zero, ops = setup["zero"], setup["ops"]
     states = list(stock_states(own, setup))
@@ -1549,7 +1593,8 @@ def derive_zero(setup: dict, own, entries: dict) -> tuple:
         sign = 1 if direction in up else -1 if direction in down else "unknown"
         bad |= sign == -1
         method, approach = recipe.get("method"), recipe.get("from")
-        tool_ok, gauge_ok = ready(recipe.get("tool")), ready(recipe.get("gauge"))
+        tool_ok = ready(recipe.get("tool"), "spindle")
+        gauge_ok = ready(recipe.get("gauge"), "gauges")
         edge = recipe.get("edge_mm", "unknown")
         face = recipe.get("face", recipe.get("feature"))
         done = zero_rules._position(ops, {"after_op": recipe.get("after_op")}) or 0
@@ -1559,9 +1604,9 @@ def derive_zero(setup: dict, own, entries: dict) -> tuple:
         elif approach == "indicated":
             radius = 0
         else:
-            # A finder's tip, else its body, diameter halved, as the item resolves (a set
-            # member's own or its set's, in mm or inches, as a fact or a bare length).
-            tool = resolve_item(own.inventory, None, recipe.get("tool")) or {}
+            # A finder's tip, else its body, diameter halved, as the spindle slot selects it
+            # (a set member's own or its set's, in mm or inches, as a fact or a bare length).
+            tool = entries.record(recipe.get("tool"), "spindle")
             tip = nominal_length_mm(tool, "tip")
             diameter = tip if numeric(tip) else nominal_length_mm(tool, "dia")
             radius = diameter / 2 if numeric(diameter) else "unknown"
@@ -1620,23 +1665,23 @@ def derive_zero(setup: dict, own, entries: dict) -> tuple:
             who = f"the retouch after op {op['op']}"
             face_check({}, "top", top, 0, who, after["top_from"])
     x_scale = {True: 1, False: 2}.get(radius_mode, "unknown") if lathe else "unknown"
-    display = {2: "D", 1: "D/2"}.get(x_scale, "unknown")
     touches = []
     for record in zero.get("tool_touches") if isinstance(zero.get("tool_touches"), list) else []:
         edge, paper = record.get("edge_mm", "unknown"), record.get("paper_mm", "unknown")
         side = zero_rules.touch_side(own, setup, record, record.get("z_face"), edge, lathe)
         stand_off = paper_stand_off(paper, side)
+        trial_cut = record.get("x_method") == "trial_cut_measure"
         x_set = (
             "not_applicable"
             if not lathe
-            else f"measured {display}"
-            if display != "unknown" and ready(record.get("gauge"))
+            else zero_rules.x_touch_set(x_scale, record.get("x_paper_mm", "unknown"), trial_cut)
+            if ready(record.get("gauge"), "gauges")
             else "unknown"
         )
         if record.get("method") == "measure_then_set":
             measure, offset = record.get("z_measure"), record.get("z_offset_mm", "unknown")
             named = isinstance(measure, str) and measure.strip() not in {"", "unknown"}
-            ready_z = named and ready(record.get("z_gauge"))
+            ready_z = named and ready(record.get("z_gauge"), "gauges")
             known = ready_z and numeric(offset) and numeric(stand_off)
             z_set = bench_edge(offset + stand_off) if known else "unknown"
         else:
@@ -1646,7 +1691,7 @@ def derive_zero(setup: dict, own, entries: dict) -> tuple:
         blade_corner(row, record, record.get("z_face"), edge, who)
         face_check(record, record.get("z_face"), edge, zero_rules._position(ops, record) or 0, who)
         touches.append(row)
-        unknown |= "unknown" in (x_set, z_set) or not ready(record.get("tool"))
+        unknown |= "unknown" in (x_set, z_set) or not ready(record.get("tool"), "spindle")
     derived, missing, changes_unknown, _, served = zero_rules.tool_changes(
         own, setup, zero, lathe, x_scale, touches
     )
@@ -1676,12 +1721,12 @@ def derive_zero(setup: dict, own, entries: dict) -> tuple:
         numbers["tool_setting"] = zero_rules.tool_setting(own, setup, zero, touches, derived)
     if "transfer" in zero:
         numbers["transfer"] = zero["transfer"]
-    if bad or missing or corner_errors or face_errors:
-        return "error", numbers
-    return ("unknown" if unknown else "pass"), numbers
+    status = "error" if bad or missing or corner_errors or face_errors else "pass"
+    status = "unknown" if status == "pass" and unknown else status
+    return checker_row(own, zero_rules.evaluate, setup["id"], status, numbers)
 
 
-def check_zero(setup: dict, finding: dict, entries: dict, own) -> None:
+def check_zero(setup: dict, finding: dict, entries: Entries, own) -> None:
     """The ``zero_check`` finding of a setup that sets a DRO zero carries the verdict and
     every row the validator derives from its own inputs (:func:`derive_zero`): the jog
     polarity, Axis Set and readings of each axis, each retouch, each tool touch, re-touch
@@ -1738,7 +1783,7 @@ def check_centre_endpoint(
     setup: dict,
     op: dict,
     row: dict,
-    entries: dict,
+    entries: Entries,
     entry,
 ) -> tuple:
     """A quill-fed drilled centre: its depth past touching the end is the Table 6 drill
@@ -1772,7 +1817,7 @@ def check_centre_endpoint(
     for key, value in tool.items():
         near(reported[key], value, f"{where} tool {key}")
     errors, unresolved = [], []
-    if not resolves(reference, entries) or uncertain(reference, entries):
+    if not entries.verified(reference, "tools"):
         unresolved.append("tool record")
     unresolved += [key for key, value in tool.items() if not numeric(value)]
     for key, size in (("drill_dia_mm", drill), ("drill_length_mm", length)):
@@ -1813,7 +1858,7 @@ def check_centre_endpoint(
             if norm == 0 or feed[2] / norm > -1 + UNIT_TOLERANCE:
                 errors.append("axis is not the setup -Z feed")
             if math.hypot(seat[0], seat[1]) * scale > LENGTH_TOLERANCE_MM:
-                kind = entries.get(setup.get("machine", "unknown"), {}).get("kind", "unknown")
+                kind = machine_record(setup, entries).get("kind", "unknown")
                 if kind == "lathe":
                     errors.append("mouth off the spindle axis")
                 elif not isinstance(kind, str) or kind == "unknown":
@@ -1895,12 +1940,16 @@ def difference(*values):
     return values[0] - sum(values[1:]) if all(map(numeric, values)) else "unknown"
 
 
-def machine_kind(setup: dict, entries: dict):
-    machine = setup.get("machine")
-    return entries.get(machine, {}).get("kind") if isinstance(machine, str) else None
+def machine_record(setup: dict, entries: Entries) -> dict:
+    """The setup's machine as its machine slot selects it (:class:`Entries`), else {}."""
+    return entries.record(setup.get("machine"), "machines")
 
 
-def leaves_face(setup: dict, op: dict, entries: dict):
+def machine_kind(setup: dict, entries: Entries):
+    return machine_record(setup, entries).get("kind")
+
+
+def leaves_face(setup: dict, op: dict, entries: Entries):
     """Whether ``op``, cut on ``setup``, leaves its own feature's face at its ``to_z``,
     from the plan and the inventory alone: True for a facing or pocketing op with a
     ``to_z`` (unknown without one); False for a manual, saw or transfer step and for an
@@ -1929,7 +1978,7 @@ def leaves_face(setup: dict, op: dict, entries: dict):
     return "unknown" if turning else False
 
 
-def entry_producer(stock: SimpleNamespace, setup: dict, entry, face: str, source, entries: dict):
+def entry_producer(stock: SimpleNamespace, setup: dict, entry, face: str, source, entries: Entries):
     """The plan op whose cut left the surface a hole op of ``setup`` enters at nominal
     ``entry`` (:func:`entry_surface`), as ``(setup, op)``; None when no op cut it, so the
     authored surface stands; unknown when one may have cut it to an unknown Z or over an
@@ -1982,7 +2031,7 @@ def entry_producer(stock: SimpleNamespace, setup: dict, entry, face: str, source
     return None
 
 
-def printed_entry(stock: SimpleNamespace, setup: dict, entry, face: str, source, entries: dict):
+def printed_entry(stock: SimpleNamespace, setup: dict, entry, face: str, source, entries: Entries):
     """The entry surface Z the traveler prints for a hole op of ``setup`` entering nominal
     ``entry``: the ``to_z`` its producer (:func:`entry_producer`) cut, where that op's DRO
     stopped (rounded up on its own setup's grid), then as this setup's DRO shows it
@@ -2046,7 +2095,7 @@ def check_printed_endpoint(row: dict, where: str, grid: tuple, planned: dict) ->
     same(row.get("depth_floor_mm", "unknown"), floor, f"{where}: depth band floor")
 
 
-def check_endpoints(plan: dict, features: dict, findings: dict, entries: dict) -> dict:
+def check_endpoints(plan: dict, features: dict, findings: dict, entries: Entries) -> dict:
     """Hold every ``blind_depth`` endpoint row to the plan, from its entry surface on,
     and the endpoint it prints to the setup's DRO grid (:func:`check_printed_endpoint`).
     The rows are exactly the plan's hole ops on the feature (a centre's, its
@@ -2102,7 +2151,7 @@ def check_endpoints(plan: dict, features: dict, findings: dict, entries: dict) -
             planned = {"entry": entry, "surface": surface, "exit_face": "not_applicable"}
             tool = op.get("tool", "unknown")
             # A missing tool resolves nothing; an unverified one proves no contradiction.
-            missing = not (isinstance(tool, str) and resolves(tool, entries))
+            missing = not entries.resolves(tool, "tools")
             unverified = tool_unverified(tool, entries)
             verdict = "pass"
             if action == "center_drill":
@@ -2139,8 +2188,6 @@ def check_endpoints(plan: dict, features: dict, findings: dict, entries: dict) -
                     lead_field = "lead_mm"
                 elif action == "drill":
                     diameter = tool_length_mm(tool, "dia", entries)
-                    if not numeric(diameter):
-                        diameter = tool_diameter(tool, entries)
                     angle = tool_field(tool, "point_angle", entries)
                     lead = (
                         diameter / (2 * math.tan(math.radians(angle / 2)))
@@ -2230,29 +2277,29 @@ def same(actual, expected, where: str) -> None:
         require(actual == expected, f"{where}: {actual!r} != {expected!r}")
 
 
-def selected_tool(ref, entries: dict, key: str):
+def selected_tool(ref, entries: Entries, key: str):
     """The selected tool's own authored ``key`` as the engine reads it (no fact record
     unwrapped); unknown for a reference that does not resolve to one tool."""
-    if not isinstance(ref, str) or not resolves(ref, entries):
+    if not entries.resolves(ref, "tools"):
         return "unknown"
     return tool_record(ref, key, entries)
 
 
-def tool_unverified(ref, entries: dict) -> bool:
+def tool_unverified(ref, entries: Entries) -> bool:
     """Whether the selected tool carries verification debt (any fact marked for
     verification, unknown presence or verify coverage, through the references it names):
     its cutting data then proves nothing, so the row cannot pass."""
-    return isinstance(ref, str) and resolves(ref, entries) and uncertain(ref, entries)
+    return entries.resolves(ref, "tools") and entries.uncertain(ref, "tools")
 
 
 def check_saw_speed(
-    plan: dict, setup: dict, op: dict, finding: dict, entries: dict, cutting: dict, material
+    plan: dict, setup: dict, op: dict, finding: dict, entries: Entries, cutting: dict, material
 ) -> None:
     """A saw row is blade linear speed and descent feed from the one cited ``saw_cut`` row
     the plan's material class and the blade's material select; no spindle maths."""
     where = f"{setup['id']}:{op['op']}"
     row = finding["numbers"]
-    machine = entries.get(setup.get("machine", "unknown"), {})
+    machine = machine_record(setup, entries)
     tool_material = selected_tool(op.get("tool", "unknown"), entries, "material")
     identities = (*material, tool_material)
     require(row.get("tool_material") == tool_material, f"{where}: saw blade material")
@@ -2407,7 +2454,7 @@ def dome_base_mm(definition: dict, scale):
     return 2 * math.sqrt(cap * (2 * radius - cap)) * scale
 
 
-def cutting_diameter_mm(setup: dict, op: dict, entries: dict, definitions: dict, units, lathe):
+def cutting_diameter_mm(setup: dict, op: dict, entries: Entries, definitions: dict, units, lathe):
     """The diameter an op's speed is figured at, in mm, from the inventory and manifest: a
     rotating tool's own (any mill op, a lathe spindle-axis op); a turned feature's nominal,
     else twice its base radius (a dome's declared base), else for a facing cut the held
@@ -2415,10 +2462,9 @@ def cutting_diameter_mm(setup: dict, op: dict, entries: dict, definitions: dict,
     if not lathe or op.get("do") in AXIAL_LATHE_ACTIONS:
         # A member's own (measured) diameter outranks the size its name implies.
         tool = op.get("tool", "unknown")
-        if not isinstance(tool, str) or not resolves(tool, entries):
+        if not entries.resolves(tool, "tools"):
             return "unknown"
-        diameter = tool_length_mm(tool, "dia", entries)
-        return diameter if numeric(diameter) else tool_diameter(tool, entries)
+        return tool_length_mm(tool, "dia", entries)
     feature = definitions.get(op.get("feature"), {})
     scale = UNIT_MM.get(units)
     nominal = feature.get("dia_nominal", "unknown")
@@ -2443,7 +2489,7 @@ def check_speeds(
     setup: dict,
     op: dict,
     finding: dict,
-    entries: dict,
+    entries: Entries,
     cutting: dict,
     definitions: dict,
     depths: dict,
@@ -2462,7 +2508,7 @@ def check_speeds(
     if op["do"] in SAW_OPS:
         check_saw_speed(plan, setup, op, finding, entries, cutting, material)
         return
-    machine = entries.get(setup.get("machine", "unknown"), {})
+    machine = machine_record(setup, entries)
     lathe = machine.get("kind") == "lathe"
     tool = op.get("tool", "unknown")
     diameter = cutting_diameter_mm(setup, op, entries, definitions, features.get("units"), lathe)
@@ -2500,7 +2546,7 @@ def check_speeds(
         per_rev = op["feed_mm_rev"]  # the op's planned feed overrides the row's
     diameter_in = diameter / 25.4 if numeric(diameter) and diameter > 0 else "unknown"
     low, high = spindle_range(machine)
-    flutes = tool_field(tool, "flutes", entries) if resolves(tool, entries) else "unknown"
+    flutes = tool_field(tool, "flutes", entries) if entries.resolves(tool, "tools") else "unknown"
     for field, expected in (
         ("cutting_data_row", source),
         ("sfm", sfm),
@@ -2625,7 +2671,7 @@ def sheet_band(features: dict, feature: dict, requirement: str):
 def dialled(context: SimpleNamespace, name: str) -> bool:
     """Whether a mill setup's hole or centre op cuts ``name`` at its DRO target."""
     for setup in context.plan["setups"]:
-        kind = context.entries.get(setup.get("machine", "unknown"), {}).get("kind")
+        kind = machine_record(setup, context.entries).get("kind")
         if kind == "lathe" or manual_bench(context.inventory, setup) is not None:
             continue
         if any(op.get("do") in CENTRE_OPS and op.get("feature") == name for op in setup["ops"]):
@@ -2758,7 +2804,7 @@ def check_aims(context: SimpleNamespace, setup: dict, finding: dict, frame, plac
     no reported coordinate is moved. Returns ``{id(row): model point the row stands at}``
     for the rows an aim moves."""
     aims = context.plan.get("aims", {})
-    lathe = context.entries.get(setup.get("machine", "unknown"), {}).get("kind") == "lathe"
+    lathe = machine_kind(setup, context.entries) == "lathe"
     groups = {}
     for row in finding["numbers"].get("rows", []):
         known = all(map(numeric, places[id(row)][1]))
@@ -2833,19 +2879,18 @@ def check_aims(context: SimpleNamespace, setup: dict, finding: dict, frame, plac
     return standing
 
 
-def dro_grid(setup: dict, features: dict, entries: dict) -> tuple:
+def dro_grid(setup: dict, features: dict, entries: Entries) -> tuple:
     """``(step, decimals)``: the setup machine's DRO grid in manifest units, from the
     inventory alone: its one authored positive ``resolution`` length, else
     ``DRO_DEFAULT_STEP`` (so too for units other than mm or in); the decimals print one
     step exactly."""
     scale = UNIT_MM.get(features.get("units"))
-    machine = setup.get("machine", "unknown")
-    record = entries.get(machine, {}) if isinstance(machine, str) else {}
+    record = machine_record(setup, entries)
     authored = [key for key in ("resolution_mm", "resolution_in") if key in record]
     authored += ["resolution"] if "resolution" in record and "units" in record else []
     resolution = "unknown"
     if scale is not None and len(authored) == 1:
-        resolution = tool_length_mm(machine, "resolution", entries)
+        resolution = tool_length_mm(setup.get("machine"), "resolution", entries, "machines")
     step = resolution / scale if positive(resolution) else DRO_DEFAULT_STEP
     decimals = next((d for d in range(9) if abs(round(step, d) - step) <= 1e-12), 9)
     return step, decimals
@@ -2872,7 +2917,7 @@ def coordinate_place(context: SimpleNamespace, setup: dict, frame, row: dict, lo
     diameter as the X target."""
     name, label = row["feature"], row.get("point")
     where = f"{setup['id']}: {name}"
-    lathe = context.entries.get(setup.get("machine", "unknown"), {}).get("kind") == "lathe"
+    lathe = machine_kind(setup, context.entries) == "lathe"
     feature = context.definitions[name]
     locator, model = located_point(context.definitions, context.frames, name)
     at = context.definitions.get(locator, {}).get("at")
@@ -2958,7 +3003,7 @@ def check_coordinates(
     features: dict,
     finding: dict,
     plan: dict,
-    entries: dict,
+    entries: Entries,
     inventory: dict,
     kernel,
 ) -> None:
@@ -2992,7 +3037,7 @@ def check_coordinates(
         finding["status"] in {"pass", "unknown", "error"}, f"{sid}: coordinates cannot be waived"
     )
     rows = numbers.get("rows", [])
-    lathe = entries.get(setup.get("machine", "unknown"), {}).get("kind") == "lathe"
+    lathe = machine_kind(setup, entries) == "lathe"
     grid = dro_grid(setup, features, entries)
     shown = numbers.get("dro_grid")
     require(isinstance(shown, dict) and set(shown) == {"step", "decimals"}, f"{sid}: DRO grid")
@@ -3139,7 +3184,7 @@ def check_construction(plan: dict, features: dict, finding: dict) -> None:
     require(finding["status"] == expected, "construction gate disagrees with drawing permission")
 
 
-def check_indexing(setup: dict, features: dict, entries: dict, finding: dict) -> None:
+def check_indexing(setup: dict, features: dict, entries: Entries, finding: dict) -> None:
     declaration = setup["hold"].get("index")
     if declaration is None:
         require(finding["status"] == "not_applicable", "undeclared indexing must be inapplicable")
@@ -3149,7 +3194,7 @@ def check_indexing(setup: dict, features: dict, entries: dict, finding: dict) ->
         if "angle_deg" not in declaration
         else Fraction(str(declaration["angle_deg"]))
     )
-    item = entries[declaration["fixture"]]
+    item = entries.record(declaration["fixture"], "workholding")
     ratio = Fraction(str(item["worm_ratio"]))
     # Independent exhaustive oracle: search complete turns and every space on
     # EVERY inventory circle, plus every direct slot near the desired setting.
@@ -3194,7 +3239,7 @@ def check_indexing(setup: dict, features: dict, entries: dict, finding: dict) ->
         "direction": "reverse" if signed_count < 0 else "forward",
         "exact": actual == requested,
         "selection_complete": True,
-        "verified": not uncertain(declaration["fixture"], entries),
+        "verified": not entries.uncertain(declaration["fixture"], "workholding"),
     }.items():
         require(row[key] == expected, f"{setup['id']}: indexing {key} disagrees with inventory")
     near(row["requested_angle_deg"], float(requested), "indexing requested angle")
@@ -3240,7 +3285,9 @@ def check_indexing(setup: dict, features: dict, entries: dict, finding: dict) ->
     limit = Fraction(str(tolerance)) if numeric(tolerance) else None
     if kind not in {"dividing_head", "unknown"} or (limit is not None and limit < 0):
         status = "error"
-    elif limit is None or kind == "unknown" or uncertain(declaration["fixture"], entries):
+    elif limit is None or kind == "unknown":
+        status = "unknown"
+    elif entries.uncertain(declaration["fixture"], "workholding"):
         status = "unknown"
     else:
         steps = [abs(position * (actual - requested)) for position in range(1, len(errors) + 1)]
@@ -3789,17 +3836,24 @@ def validate_fixture(
     inventory = documents[paths["inventory"]]
     policy = documents[paths["shop_policy"]]
     cutting = documents[paths["cutting_data"]]
-    entries = entries_for(inventory)
+    entries = Entries(inventory)
     report = read_report(folder / expected_subdir / "report.json")
     renders = report.get("renders", {})
-    render_inputs = {f"render:{sid}" for sid in renders}
-    require(set(report["inputs"]) == set(paths) | render_inputs, "report input bundle incomplete")
-    for sid, asset in renders.items():
+    # Every image the report binds: each setup's render and each inspection sketch it
+    # carries, a PNG in the expected folder under its own input key.
+    images = {f"render:{sid}": asset for sid, asset in renders.items()}
+    images |= {
+        f"render:{sid}:{key}": sketch
+        for sid, asset in renders.items()
+        for key, sketch in asset.get("inspections", {}).items()
+    }
+    require(set(report["inputs"]) == set(paths) | set(images), "report input bundle incomplete")
+    for key, asset in images.items():
         image = folder / expected_subdir / asset["path"]
         require(image.read_bytes().startswith(b"\x89PNG\r\n\x1a\n"), "invalid fixture PNG")
         require(asset["sha256"] == sha256(image), "fixture render hash mismatch")
         require(
-            report["inputs"][f"render:{sid}"] == {"path": asset["path"], "sha256": asset["sha256"]},
+            report["inputs"][key] == {"path": asset["path"], "sha256": asset["sha256"]},
             "fixture render not bound to the report",
         )
     for key, path in paths.items():
@@ -3816,7 +3870,8 @@ def validate_fixture(
         check_cone_facts(plan, features)
     check_frames(features, plan)
     check_subjects(plan, features, findings, inventory)
-    check_required_coverage(policy, plan, features, findings)
+    checked = checker_subjects(folder / plan_filename)
+    check_required_coverage(policy, plan, features, findings, entries, checked)
     check_inspection_declarations(plan, features, findings)
     kernel = independent_kernel(folder / plan_filename)
     check_joint_declarations(plan, features, findings, kernel)
@@ -3950,9 +4005,9 @@ def validate_geometry_fixture(case: tuple, documents: dict) -> None:
             f"{name}: render is not bound to the report",
         )
     policy = documents[paths["shop_policy"]]
-    check_required_coverage(
-        policy, plan, features, {(row["rule"], row["subject"]): row for row in report["findings"]}
-    )
+    findings = {(row["rule"], row["subject"]): row for row in report["findings"]}
+    checked = checker_subjects(folder / plan_filename)
+    check_required_coverage(policy, plan, features, findings, Entries(inventory), checked)
     require(
         report_exit(report, policy, plan, features) == report["expected_exit"] == expected_exit,
         "geometry exit",
