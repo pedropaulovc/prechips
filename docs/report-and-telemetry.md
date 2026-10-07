@@ -71,11 +71,22 @@ establish), empty `{}` when the kernel returned none.
 An inspect op's set-up sketches (`inspection_views`, [plan](plan.md)) come back
 as `inspection_pngs_base64` keyed `<op>:<requirement>` and are written as
 `setup-S<n>-op<op>-<requirement>.png`; `renders.<setup id>.inspections` maps each
-key to its `{path, sha256}`, and the same record is added to `inputs` under
-`render:<setup id>:<op>:<requirement>`, so a sketch binds to approval like the
-setup picture. The traveler prints the sketch at the head of the requirement's
-worksheet or inspection note; a declared sketch the run did not return prints
-`NOT SHOWN: the set-up sketches for this check could not be drawn.`
+key to its `{path, sha256, scene}`. The matching `inputs` entry under
+`render:<setup id>:<op>:<requirement>` remains `{path, sha256}`, so a sketch binds
+to approval like the setup picture. Native `inspection_scenes` uses the same
+exact `<op>:<requirement>` keys as `inspection_pngs_base64`; each scene supplies
+the actual `width_px`, `height_px` and ordered `print_panels`.
+Inspection panels have `{top_px, height_px, role, label, view_ordinal}`:
+`role` is `inspection`, `label` is the exact authored view title and
+`view_ordinal` is its 1-based list position. The 1600-pixel-wide bands cover the
+positive PNG height once, contiguously and in full authored order; each complete
+view is at most 1792 pixels high. This is visual output metadata, not a new input
+field or physical measurement.
+The traveler attaches each complete view figure once to the original
+requirement's worksheet or inspection note. Pagination moves figures whole,
+without splitting pictures, titles or captions. A returned PNG with missing or
+malformed panel metadata is refused; a declared sketch the run did not return
+prints `NOT SHOWN: the set-up sketches for this check could not be drawn.`
 Bytes that are not a PNG signature are
 a prechips failure (exit 1), not bad input. `check` records the same
 `renders` / `render:<setup id>` entries (its report hash matches the
@@ -147,6 +158,12 @@ exactly once, without gaps or repeated content. Roles are `setup`,
 semantic windows at a common print scale, preserving geometry, annotation units
 and visible debt. Each window retains setup/part/revision and panel-order context.
 There is no arbitrary whole-image crop, fit or downscale fallback.
+The main picture fits its measured callout lanes separately from annotation
+details. Each annotation detail renders and measures its own content, then grows
+within the whole-band bound or falls back from two operations to separate
+single-operation bands. A complete single-operation band that cannot fit is
+refused. Annotation, holding and guide bands are composed once after fitting;
+cut-clearance keys and rendering debt remain attached to their actual owner.
 Mill keys are `{label, op, xy}` in setup mm; axial lathe keys use `xz`, whose
 X is the declared radius/diameter DRO target and whose Z is the table station.
 The same `P1`, `P2`, … keys annotate the profile inset and traveler coordinate
@@ -529,6 +546,9 @@ Attached picture, clearance, feature-map and inspection-note section:
    when it fits beside original source progress on a continuation page.
    Only an authored step-list procedure with named brace readings and at least
    two calculation lines becomes a worksheet on its own logical sheet (see below).
+   Inspection view figures belong only to that original note or worksheet.
+   Continuation context does not copy them, reading boxes or calculation/result
+   fields. A figure-only continuation still carries original source content.
 
 The attached *contours* section (only when the setup has contour ops) has one
 block per contour op titled with setup, op, tool and direction (`S2 op 50

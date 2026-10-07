@@ -4521,12 +4521,13 @@ class _Setup:
                 self.fixture_ready and bool(scene["components"]) and not scene["debts"]
             )
             with _timed(phases, "inspection_sketches"):
-                sketches, sketch_debts = self._inspection_sketches()
+                sketches, inspection_scenes, sketch_debts = self._inspection_sketches()
             if sketches:
                 facts["inspection_pngs_base64"] = {
                     key: base64.b64encode(sketch).decode("ascii")
                     for key, sketch in sketches.items()
                 }
+                facts["inspection_scenes"] = inspection_scenes
             scene["render_debts"] = scene["render_debts"] + sketch_debts
             if any(_turned(op) for op in self.ops):
                 self._stock_profile(facts)
@@ -8426,15 +8427,16 @@ class _Setup:
 
     def _inspection_sketches(self):
         """The labelled set-up sketches of this setup's inspect ops (the render annotation's
-        ``inspections``: op, ``after``, requirement, views) as ``({"<op>:<requirement>":
-        png}, debts)``. Each view draws the stock as the route stands at the inspection
+        ``inspections``: op, ``after``, requirement, views) as ``(pngs, scenes, debts)``.
+        Both maps use the exact ``"<op>:<requirement>"`` key. Each view draws the stock
+        as the route stands at the inspection
         (:meth:`_stock_after`; the pieces of it that hold the part: scrap a cut before it
         released is off the part when it is inspected) and the gauges and holding it names
         (``aids``) in the part model's axes, seen from ``toward`` with ``up`` up off the
         plate, and its ``marks``. Without that stock no sketch is drawn: its NOT SHOWN line
         is the debt."""
         inspections = self.setup.get("render", {}).get("inspections") or []
-        sketches, debts = {}, []
+        sketches, scenes, debts = {}, {}, []
 
         def mesh(shape, colour, tag, tolerance):
             points, triangles = shape.tessellate(tolerance)
@@ -8498,9 +8500,15 @@ class _Setup:
                     }
                 )
             key = f"{inspection['op']}:{inspection['requirement']}"
-            sketches[key], drawn = render_inspection(views)
+            png, drawn, panels = render_inspection(views)
+            sketches[key] = png
+            scenes[key] = {
+                "width_px": int.from_bytes(png[16:20], "big"),
+                "height_px": int.from_bytes(png[20:24], "big"),
+                "print_panels": panels,
+            }
             debts += [f"{name}: {debt}" for debt in drawn]
-        return sketches, debts
+        return sketches, scenes, debts
 
     def _stock_after(self, inspection):
         """(model-frame stock an ``inspection`` draws, or None, and why it is unknown): the

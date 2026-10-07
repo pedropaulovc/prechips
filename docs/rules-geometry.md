@@ -1887,6 +1887,13 @@ machine cutting rather than "no material removed".
 Existing sketch captions wrap within their measured owner width at the same
 body type size, with line-height space reserved for every caption line. This
 changes layout only, not caption wording, coordinates, units or schema.
+Main-picture lane fitting and annotation-detail fitting have separate owners.
+An annotation detail measures its own rendered inset and callout overflow, grows
+that band within the 1792-pixel bound and retains the fallback from a two-op band
+to complete single-op bands. It never grows the main picture to fit detached
+annotations. An oversized complete single-op band is refused. Final composition
+adds fitted annotation, holding and guide bands once, preserving `CUT` keys and
+settled rendering debt.
 
 A leader that names a drawn solid (the stock, a jaw, a parallel, a clamp, a
 numbered clamp or pad badge) ends on that solid's own visible pixels, never on
@@ -2080,6 +2087,14 @@ the page, the way that orientation's height reading rises, under the note
 red contacts. What a sketch cannot show is a render debt on the setup's
 `render_debts` (`op <op> <requirement> sketch: NOT SHOWN: …`): an aid hidden in a
 view, or the whole sketch when the stock at its place in the route is unresolved.
+Each complete authored inspection view remains one 1600-pixel-wide band, at most
+1792 pixels high. Native `inspection_scenes` carries its canonical PNG's actual
+`width_px`, positive `height_px` and `print_panels` under the same exact
+`<op>:<requirement>` key. Each ordered panel records `top_px`, `height_px`,
+`role = "inspection"`, the exact authored title as `label` and its 1-based
+`view_ordinal`. Panels cover the PNG contiguously and retain all authored views.
+The traveler moves each view as a whole figure attached once to its original
+note or worksheet; it does not infer view boundaries from pixels.
 
 Alongside the image the engine returns `render_scene` with `fixture_kind`,
 `jaws`, `parallels`, `components`, `debts`, camera/resolution, plain-language

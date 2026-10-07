@@ -33,6 +33,13 @@ stock state per operation, the DRO recipe written against the EL400
 manual, inspection per requirement, one `unknown` contract, the
 error/warn/info vocabulary, and the telemetry requirements.
 
+Traveler readability work is limited to document structure and layout. It
+preserves machining facts, procedures, rule outcomes and declared input schemas.
+The current candidate's full validation, native capture comparison, all-page
+review and golden regeneration remain pending. Baseline and historical scoped
+observations are recorded in [examples/README.md](examples/README.md#dro-and-print-surfaces);
+they do not close physical paper/pen/operator or live-farm acceptance.
+
 ## 1. Who this is for
 
 A hobby machinist (initially: one person, one shop) making 1–20 of a part on a
@@ -72,6 +79,11 @@ or calculation fields. Continuations retain applicable original titles/units
 when they fit beside advancing original content; fixture/check cells wrap at
 word boundaries and compound dimensions stay together. Optional writing space
 adds no checks.
+Each authored inspection view keeps its title and order as a complete figure,
+attached once to the original note or worksheet. Continuations move whole figures
+and retain applicable context without copying reading/result fields. Main-picture
+lanes and annotation details fit separately before final band composition;
+layout fitting preserves cut-clearance keys and rendering debt.
 No reading positions, counts or statistics are inferred. An operation's
 performed mark is progress only, not acceptance, clearance or approval; no input
 schema field is added.

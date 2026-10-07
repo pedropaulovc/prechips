@@ -1088,12 +1088,12 @@ def test_profile_sketch_keys_sit_beside_the_paths_never_over_them(case, monkeypa
         }
     else:
         spec = _example_spec("rocker-s1")
-    keyed, _ = _main_diagram([], spec)
+    keyed, _ = _composed_diagram([], spec)
     keys = [box for box in keyed.canvas.text_boxes if re.fullmatch(r"P\d+|PASS \d+", box[0])]
     assert len(keys) >= 7
     # The same picture without the keys' boxes: what each box would have covered.
     monkeypatch.setattr(render_module, "_badge", lambda *args, **kwargs: None)
-    bare, _ = _main_diagram([], spec)
+    bare, _ = _composed_diagram([], spec)
     assert bare.canvas.height == keyed.canvas.height
     for label, x0, y0, x1, y1 in keys:
         covered = {
@@ -1210,6 +1210,12 @@ def test_a_named_solid_hidden_from_view_is_a_render_debt_not_a_leader():
     # The debt is printed in the picture's own notes, and the picture is the one returned.
     assert png == observed_png == diagram.canvas.png()
     assert panels == diagram.print_panels
+    assert diagram.render_debts == debts
+    printed = " ".join(box[0] for box in diagram.canvas.text_boxes)
+    assert printed.count(debts[0].upper()) == 1
+    with pytest.raises(ValueError):
+        _compose_diagram(diagram, [])
+    assert diagram.canvas.png() == png
     # Moved out from under the stock, the same parallel is drawn and keeps its leader.
     meshes[1] = _slab(12, 2, 18, 8, 1, (120, 98, 76), "parallel_1")
     spec["components"][0].update(box_mm=[12, 2, 0, 18, 8, 1], center_mm=[15, 5, 0.5])
@@ -1629,9 +1635,11 @@ def test_a_clearance_no_detail_band_keys_is_dimensioned_on_the_setup_picture(mon
     monkeypatch.setattr(
         render_module, "_main_diagram", lambda *a: drawn.append(main(*a)) or drawn[-1]
     )
-    png, _ = render_module.render_diagram(meshes, spec)
-    diagram, printed = drawn[-1]
-    assert printed == png
+    png, debts, panels = render_module.render_diagram(meshes, spec)
+    diagram, _ = drawn[-1]
+    assert diagram.canvas.png() == png
+    assert diagram.render_debts == debts
+    assert diagram.print_panels == panels
     text = " ".join(box[0] for box in diagram.canvas.text_boxes)
     assert "CUT 0 MM FROM FIXED JAW" in text, text
 
@@ -1909,8 +1917,7 @@ def test_a_guided_file_gets_a_view_along_its_guide_axis_showing_the_rims_it_stop
     # Looking down the stud: both rims (one over the other) are keyed once where the file
     # stops, the stock it files off is named, and the file comes in from outside the rims.
     meshes, spec, removal = _guided_buttons()
-    main = _Diagram(meshes, spec)
-    main.render()
+    main, _ = _main_diagram(meshes, spec)
     view = _guide_view(spec, main)
 
     assert view is not None
@@ -1939,9 +1946,21 @@ def test_a_guided_file_gets_a_view_along_its_guide_axis_showing_the_rims_it_stop
     view.canvas.assert_text_layout(min_scale=3)
 
     # The picture prints it below its holding detail.
-    png, _ = render_diagram(meshes, spec)
-    plain, _ = render_diagram(meshes, {k: v for k, v in spec.items() if k != "guide_view"})
-    assert _decode_png(png)[1] == _decode_png(plain)[1] + view.canvas.height
+    png, debts, panels = render_diagram(meshes, spec)
+    plain, _, plain_panels = render_diagram(
+        meshes, {k: v for k, v in spec.items() if k != "guide_view"}
+    )
+    width, height, pixels = _decode_png(png)
+    plain_height = _decode_png(plain)[1]
+    assert height == plain_height + view.canvas.height
+    assert sum(panel["height_px"] for panel in plain_panels) == plain_height
+    assert panels[-1]["top_px"] == plain_height
+    assert panels[-1]["height_px"] == view.canvas.height
+    assert 0 < panels[-1]["height_px"] <= 1792
+    assert pixels[plain_height * width * 3 :] == view.canvas.rgb
+    diagram, observed_png = _composed_diagram(meshes, spec, debts)
+    assert observed_png == png
+    assert diagram.print_panels == panels
 
     # A picture already looking along the axis needs no second look.
     spec["guide_view"]["axis_mm"][1] = [0, -1, 0]
@@ -2401,15 +2420,31 @@ def test_an_inspection_sketch_stands_the_part_on_the_plate_and_points_each_readi
         )
     ]
 
-    png, debts = render_inspection(views)
+    png, debts, panels = render_inspection(views)
 
     assert debts == []
     heights = []
-    for view in views:
+    width, height, pixels = _decode_png(png)
+    assert len(panels) == len(views)
+    cursor = 0
+    for ordinal, (view, panel) in enumerate(zip(views, panels, strict=True), 1):
         band = _InspectionSketch(view)
         band.render()
         c = band.canvas
         heights.append(c.height)
+        assert panel == {
+            "top_px": cursor,
+            "height_px": c.height,
+            "role": "inspection",
+            "label": view["title"],
+            "view_ordinal": ordinal,
+        }
+        assert 0 < c.height <= 1792
+        assert pixels[cursor * width * 3 : (cursor + c.height) * width * 3] == c.rgb
+        cursor += c.height
+        c.assert_text_layout(min_scale=5)
+        for _, _, top, _, bottom in c.text_boxes:
+            assert (bottom - top) / width * 7.5 * 72 >= 11
         leaders = dict(band.leaders)
         assert set(leaders) == {"C", "H1", "ROD PIN", "SURFACE PLATE"}
         for mark in view["marks"]:
@@ -2420,8 +2455,8 @@ def test_an_inspection_sketch_stands_the_part_on_the_plate_and_points_each_readi
         x, y = (math.floor(v) for v in c.project(view["marks"][1]["at_mm"]))
         assert _pixel(c, x, y - 30) == _GREEN
         assert _pixel(c, x, y + 30) != _GREEN
-    width, height, _ = _decode_png(png)
     assert (width, height) == (1600, sum(heights))
+    assert cursor == height
 
 
 def test_an_inspection_sketch_wraps_a_long_title_and_owns_each_aid_apart_from_the_part():
@@ -2445,7 +2480,7 @@ def test_an_inspection_sketch_wraps_a_long_title_and_owns_each_aid_apart_from_th
         "marks": [{"label": "H1", "at_mm": [60, 10, 40], "reads": True}],
     }
 
-    png, debts = render_inspection([view])
+    png, debts, panels = render_inspection([view])
 
     assert debts == ["NOT SHOWN: PART is hidden in this view, so it has no leader."]
     band = _InspectionSketch(view)
@@ -2457,3 +2492,150 @@ def test_an_inspection_sketch_wraps_a_long_title_and_owns_each_aid_apart_from_th
     assert note[2] > max(bottom for *_, bottom in lines)
     assert band.viewport[1] > note[4]
     assert "PART" not in dict(band.leaders)
+    width, height, pixels = _decode_png(png)
+    assert (width, height) == (1600, band.canvas.height)
+    assert 0 < height <= 1792
+    assert pixels == band.canvas.rgb
+    assert panels == [
+        {
+            "top_px": 0,
+            "height_px": height,
+            "role": "inspection",
+            "label": title,
+            "view_ordinal": 1,
+        }
+    ]
+
+
+def _numeric_key_sketch(count=2, digits=40, ops=("10",)):
+    waypoints = [
+        {"op": op, "label": f"P{int(op) * 1000 + index:0{digits}d}", "xy": [index, index % 2]}
+        for op in ops
+        for index in range(count)
+    ]
+    paths = [{"op": op, "xy": [[0, 0], [count - 1, 1]], "directed": True} for op in ops]
+    return {
+        "setup_id": "KEYS",
+        "view": "plan",
+        "stock_box": [0, 0, 0, count, 2, 1],
+        "paths": paths,
+        "waypoints": waypoints,
+    }
+
+
+def test_annotation_keys_grow_their_actual_owner_not_the_main_stage():
+    from prechips.kernel.render_diagram import _annotation_detail
+
+    # These full-width keys fit their measured owner, even though the former
+    # constructor's conservative key-row estimate exceeded one printable band.
+    spec = _numeric_key_sketch(count=20)
+    supplied = json.dumps(spec, sort_keys=True)
+    main, _ = _main_diagram([], spec)
+    main_height = main.canvas.height
+    labels = {point["label"] for point in spec["waypoints"]}
+    assert not labels & {box[0] for box in main.canvas.text_boxes}
+    fixed = _AnnotationDetail(spec, "path_detail", main.canvas.scale, 980)
+    fixed.render()
+    assert fixed.inset_overflow > 0
+    assert fixed.canvas.height == 980
+    detail = _annotation_detail(spec, "path_detail", main.canvas.scale, 980)
+    assert detail is not None
+    assert 980 < detail.canvas.height <= 1792
+    assert detail.inset_overflow == detail.width_overflow == detail.lane_overflow == 0
+    detail.canvas.assert_text_layout(min_scale=5)
+    assert detail.arrows_drawn > 0
+
+    png, debts, panels = render_diagram([], spec)
+    diagram, observed_png = _composed_diagram([], spec, debts)
+    assert debts == []
+    assert observed_png == png
+    assert panels == diagram.print_panels
+    assert panels[0]["height_px"] == main_height
+    (owner,) = diagram.annotation_details
+    assert owner.spec["paths"] == spec["paths"]
+    assert owner.spec["waypoints"] == spec["waypoints"]
+    assert owner.canvas.rgb == detail.canvas.rgb
+    width, height, pixels = _decode_png(png)
+    assert height == main_height + owner.canvas.height
+    assert pixels[main_height * width * 3 :] == owner.canvas.rgb
+    for label in labels:
+        assert sum(box[0] == label for box in diagram.canvas.text_boxes) == 1
+    for _, _, top, _, bottom in diagram.canvas.text_boxes:
+        assert (bottom - top) / width * 7.5 * 72 >= 11
+        assert (
+            sum(
+                panel["top_px"] <= top <= bottom <= panel["top_px"] + panel["height_px"]
+                for panel in panels
+            )
+            == 1
+        )
+    assert json.dumps(spec, sort_keys=True) == supplied
+
+
+def test_two_operations_that_need_full_width_keep_complete_separate_annotation_bands():
+    spec = _numeric_key_sketch(ops=("90", "10"))
+    main, _ = _main_diagram([], spec)
+    fixed = _AnnotationDetail(spec, "path_detail", main.canvas.scale, 980)
+    fixed.render()
+    assert fixed.width_overflow > 0
+
+    png, debts, panels = render_diagram([], spec)
+    diagram, observed_png = _composed_diagram([], spec, debts)
+    assert debts == []
+    assert observed_png == png
+    assert panels == diagram.print_panels
+    assert len(diagram.annotation_details) == 2
+    width, height, pixels = _decode_png(png)
+    cursor = panels[0]["height_px"]
+    for op, owner, panel in zip(("90", "10"), diagram.annotation_details, panels[1:], strict=True):
+        assert owner.spec["paths"] == [path for path in spec["paths"] if path["op"] == op]
+        assert owner.spec["waypoints"] == [
+            point for point in spec["waypoints"] if point["op"] == op
+        ]
+        assert owner.arrows_drawn > 0
+        assert panel["top_px"] == cursor
+        assert 0 < panel["height_px"] <= 1792
+        assert pixels[cursor * width * 3 : (cursor + panel["height_px"]) * width * 3] == (
+            owner.canvas.rgb
+        )
+        owner.canvas.assert_text_layout(min_scale=5)
+        cursor += panel["height_px"]
+    assert cursor == height
+
+
+@pytest.mark.parametrize(
+    ("count", "digits", "diagnostic"), [(40, 40, "inset_overflow"), (2, 60, "width_overflow")]
+)
+def test_an_oversized_single_annotation_operation_is_refused_without_cropping(
+    count, digits, diagnostic
+):
+    from prechips.kernel.render_diagram import _annotation_detail
+
+    spec = _numeric_key_sketch(count=count, digits=digits)
+    supplied = json.dumps(spec, sort_keys=True)
+    main, _ = _main_diagram([], spec)
+    fixed = _AnnotationDetail(spec, "path_detail", main.canvas.scale, 1792)
+    fixed.render()
+    assert getattr(fixed, diagnostic) > 0
+    assert _annotation_detail(spec, "path_detail", main.canvas.scale, 980) is None
+    with pytest.raises(ValueError):
+        render_diagram([], spec)
+    assert json.dumps(spec, sort_keys=True) == supplied
+
+
+def test_an_inspection_with_more_keys_than_one_complete_view_can_print_is_refused():
+    from prechips.kernel.render_diagram import render_inspection
+
+    view = {
+        "title": "VIEW 1: READ EVERY DECLARED POSITION",
+        "camera": _view_camera((0, 0, 1), (0, -1, 0)),
+        "meshes": [_block([0, 0, 0, 120, 20, 40], (164, 177, 189), "part")],
+        "aids": [],
+        "marks": [
+            {"label": f"H{index}", "at_mm": [index, 10, 40], "reads": False} for index in range(120)
+        ],
+    }
+    supplied = json.dumps(view, sort_keys=True)
+    with pytest.raises(ValueError):
+        render_inspection([view])
+    assert json.dumps(view, sort_keys=True) == supplied

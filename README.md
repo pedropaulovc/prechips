@@ -29,6 +29,12 @@ physical paper rehearsal and live prechips farm/App Insights acceptance remain
 pending. Exported CAD inputs are not evidence of those gates.
 See [PLAN.md](PLAN.md) for milestone status and unobserved acceptance work.
 
+The traveler readability work changes document structure and picture layout only;
+machining facts, authored procedures, rule outcomes and input schemas remain
+unchanged. Current-candidate validation, page review, native capture comparison
+and golden regeneration are pending. Earlier local checks are historical evidence,
+recorded separately in [examples/README.md](examples/README.md#dro-and-print-surfaces).
+
 ## Install and check
 
 Python 3.12 or newer; use [uv](https://docs.astral.sh/uv/).
@@ -360,9 +366,17 @@ and no label may print below body size (35-pixel bitmap cap height, approximatel
 lanes rebalance and tighten their leading instead of shrinking type. An overlap,
 clipped or undersized annotation refuses the render rather than shipping an
 unreadable picture. Footer space is reserved for every legend and note row.
+Main-picture lanes and annotation detail bands fit their own measured content.
+An annotation band grows from its own overflow; it does not enlarge or duplicate
+the main picture. Complete annotation, holding and guide bands are composed once
+after fitting, with cut-clearance keys and visible rendering debt retained.
 Semantic `scene.print_panels` partition the canonical PNG into complete,
 common-scale print windows; there is no arbitrary whole-image crop, fit or
 downscale fallback. See the [panel contract](docs/report-and-telemetry.md#kernel-renders).
+Inspection sketches retain every authored view in order, with its own title.
+Each complete view is one figure attached to the original requirement's note or
+worksheet. A continuation may move that figure whole; it never cuts through the
+picture or repeats its reading and calculation fields.
 A posed chuck front that is tilted relative to setup Z
 draws no single jaw-front Z; `scene.jaw_front_oblique` records it, and the
 picture prints no commentary about it.

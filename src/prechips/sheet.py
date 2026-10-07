@@ -366,7 +366,7 @@ _DUPLEX_JS = r"""(() => {
           return () => textBottom(el, contents);
         }
       }
-      if (fits(box(el).bottom)) return () => box(el).bottom;
+      if (originalText(el) && fits(box(el).bottom)) return () => box(el).bottom;
       return relax && prepareFields(el) ? pageProgress(el, false) : null;
     }
     function compactContext(el, suffix = "") {
@@ -494,9 +494,24 @@ _DUPLEX_JS = r"""(() => {
     }
     function pointsIn(el) {
       const points = [], atomicContexts = new Map();
-      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
+        acceptNode(node) {
+          // A whole canonical view is source, but none of its SVG, title, caption
+          // or text descendants is a legal pagination boundary.
+          if (node.parentElement?.closest("figure, [" + ADDED + "]")) {
+            return NodeFilter.FILTER_REJECT;
+          }
+          return node.nodeType === Node.TEXT_NODE || node.matches("figure")
+            ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
+        }
+      });
       let node;
       while ((node = walker.nextNode())) {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          const parent = node.parentNode, slot = [...parent.childNodes].indexOf(node);
+          points.push([parent, slot], [parent, slot + 1]);
+          continue;
+        }
         if (node.parentElement.closest(
           ".field, .result-field, .authored-blank, .performed-mark, .reading, "
             + ".record-continuation, .op-details dt, [" + ADDED + "]"
@@ -561,10 +576,14 @@ _DUPLEX_JS = r"""(() => {
       return range.cloneContents();
     }
     function originalText(contents) {
+      // Retained whole figures advance authored source even without any text;
+      // repeatable identity/context and recording marks never do so alone.
       const copy = contents.cloneNode(true);
+      if (copy.matches?.(".page-context, .record-continuation, [" + ADDED + "]")) return false;
       copy.querySelectorAll(".performed-mark, .writing-blank, .record-continuation, "
-        + ".op-number, [" + ADDED + "]").forEach((node) => node.remove());
-      return /[\p{L}\p{N}]/u.test(copy.textContent);
+        + ".op-number, .page-context, [" + ADDED + "]").forEach((node) => node.remove());
+      return !!copy.matches?.("figure") || !!copy.querySelector("figure")
+        || /[\p{L}\p{N}]/u.test(copy.textContent);
     }
     function sourceProgress(t, body, relax = true) {
       const row = [...body.rows].find((source) => !source.hasAttribute(ADDED));
@@ -574,7 +593,9 @@ _DUPLEX_JS = r"""(() => {
         if (!originalText(contents)) continue;
         if (fits(prefixBottom(t, row, contents))) return { row, point, contents };
       }
-      if (fits(prefixBottom(t, row))) return { row, point: null, contents: null };
+      if (originalText(row) && fits(prefixBottom(t, row))) {
+        return { row, point: null, contents: null };
+      }
       return relax && prepareFields(row) ? sourceProgress(t, body, false) : null;
     }
     function progressBottom(t, progress) {
@@ -643,9 +664,8 @@ _DUPLEX_JS = r"""(() => {
     // Only original source is fragmented. Repeated context is admitted whole,
     // and the writing box stays with the final measured source caption line.
     function fragment(el, relax = true) {
-      if (el.hasAttribute(ADDED)) return null;
-      const points = pointsIn(el), range = document.createRange();
-      range.selectNodeContents(el);
+      if (el.hasAttribute(ADDED) || el.matches(".page-context, .record-continuation")) return null;
+      const points = pointsIn(el);
       // A glyph Range is not the final line box or table row. Prove the cloned
       // prefix's real formatting footprint before accepting the split point.
       function bottomAt(point) {
@@ -659,15 +679,10 @@ _DUPLEX_JS = r"""(() => {
         } else high = middle - 1;
       }
       for (; best >= 0; best--) {
-        const suffix = document.createRange();
-        suffix.selectNodeContents(el);
-        suffix.setStart(...points[best]);
-        const remaining = suffix.cloneContents();
-        remaining.querySelectorAll(".writing-blank, .performed-mark, .record-continuation")
-          .forEach((blank) => blank.remove());
-        if (!/[\p{L}\p{N}]/u.test(remaining.textContent)) continue;
-        range.setEnd(...points[best]);
+        const remaining = contentsAt(el, points[best], true);
+        if (!originalText(remaining)) continue;
         const first = contentsAt(el, points[best]);
+        if (!originalText(first)) continue;
         const rest = el.cloneNode(false);
         rest.append(contentsAt(el, points[best], true));
         if (rest.dataset.rowContext) rest.dataset.rowContinuation = "";
@@ -702,13 +717,22 @@ _DUPLEX_JS = r"""(() => {
         }
         return rest;
       }
-      return relax && prepareFields(el) ? fragment(el, false) : null;
+      if (relax && prepareFields(el)) return fragment(el, false);
+      for (const figure of el.querySelectorAll("figure")) {
+        const parent = figure.parentNode, slot = [...parent.childNodes].indexOf(figure);
+        if (!originalText(contentsAt(el, [parent, slot]))
+            && !fits(sourceBottom(el, [parent, slot + 1]))) {
+          refuseFigure(figure, sourceBottom(el, [parent, slot + 1]) - pageTop);
+        }
+      }
+      return null;
     }
     function contextRow(source) {
       const row = source.cloneNode(true);
       row.classList.add("operation-continuation");
       row.setAttribute(ADDED, "");
-      row.querySelectorAll(".performed-mark, .writing-blank").forEach((mark) => mark.remove());
+      row.querySelectorAll(".performed-mark, .writing-blank, figure")
+        .forEach((mark) => mark.remove());
       row.querySelectorAll(".field, .result-field, .authored-blank").forEach((field) => {
         field.replaceWith(...[...(field.querySelector(".field-label")?.childNodes || [])]);
       });
@@ -751,7 +775,7 @@ _DUPLEX_JS = r"""(() => {
         if (optionalOnly && !source.hasAttribute("data-optional-context")) continue;
         const row = source.cloneNode(true);
         row.setAttribute(ADDED, "");
-        row.querySelectorAll(".performed-mark, .writing-blank, .tick")
+        row.querySelectorAll(".performed-mark, .writing-blank, .tick, figure")
           .forEach((mark) => mark.remove());
         row.querySelectorAll(".field, .result-field, .authored-blank").forEach((field) => {
           field.replaceWith(...[...(field.querySelector(".field-label")?.childNodes || [])]);
@@ -940,6 +964,16 @@ _DUPLEX_JS = r"""(() => {
       }
       if (j > 0 && j < t.tBodies.length) cut(t, j);
     }
+    function refuseFigure(figure, required = box(figure).bottom - pageTop) {
+      const height = box(figure).bottom - box(figure).top;
+      const label = figure.querySelector("figcaption")?.textContent
+        || figure.getAttribute("aria-label") || "Untitled figure";
+      throw new Error(
+        `A complete figure cannot fit on a print page: ${label} `
+        + `(${height.toFixed(1)}px high; ${required.toFixed(1)}px required; `
+        + `${CAP.toFixed(1)}px page capacity).`
+      );
+    }
     function walk(parent) {
       for (const el of [...parent.children]) {
         if (!el.isConnected || el.hasAttribute(ADDED)) continue;
@@ -956,6 +990,9 @@ _DUPLEX_JS = r"""(() => {
             CAP -= Math.max(b.bottom - box(prev).bottom, b.bottom - b.top);
             try { table(prev); } finally { CAP = capacity; }
           } else move(el);
+        } else if (el.tagName === "FIGURE") {
+          move(el);
+          if (!fits(box(el).bottom)) refuseFigure(el);
         } else if (b.bottom - b.top <= CAP && move(el) && fits(box(el).bottom)) {
           continue;
         } else if (el.children.length
@@ -1621,11 +1658,12 @@ class _Plain(str):
 
 
 class _Note(str):
-    """An op's own note, printed on its own line directly under the op's row."""
+    """An original note with repeatable identity and an optional requirement-owned sketch."""
 
-    def __new__(cls, text, context=None):
+    def __new__(cls, text, context=None, sketch=""):
         note = super().__new__(cls, text)
         note.context = context
+        note.sketch = sketch
         return note
 
 
@@ -1876,12 +1914,6 @@ def _levels(count):
 class _Steps(tuple):
     """An inspection note authored as a list of steps: (heading, steps, calculations).
     ``sketch`` is the set-up sketch figure printed with it, if any."""
-
-    sketch = ""
-
-
-class _Note(str):
-    """An inspection note authored as one text, printed with its set-up ``sketch``."""
 
     sketch = ""
 
@@ -5730,7 +5762,6 @@ class _Traveler:
                 item = self.note(head, method)
                 sketch = self.inspection_sketch(setup, op, requirement)
                 if sketch:
-                    item = item if isinstance(item, _Steps) else _Note(item)
                     item.sketch = sketch
                 line += f" [{place(item)}]"
             if requirement in missing or requirement == "unknown" or not owners:
@@ -5789,21 +5820,67 @@ class _Traveler:
         return rows or ["—"]
 
     def inspection_sketch(self, setup, op, requirement):
-        """The figure of the set-up sketches an inspect op declares for ``requirement``
-        (``inspection_views``), drawn by the kernel; a NOT SHOWN line when declared but not
-        drawn; else empty."""
+        """One indivisible original-PNG window per complete authored inspection view."""
         if requirement not in _mapping(op.get("inspection_views")):
             return ""
         render = _mapping(self.report.get("renders", {}).get(setup["id"]))
         sketch = _mapping(render.get("inspections")).get(f"{op['op']}:{requirement}")
         if not sketch:
             return _p("NOT SHOWN: the set-up sketches for this check could not be drawn.")
-        alt = f"Setup {setup['id']} op {op['op']} {requirement} set-up sketches"
-        return (
-            '<figure class="fixture-render inspection-sketch">'
-            f'<img src="{escape(sketch["path"], quote=True)}" alt="{escape(alt, quote=True)}">'
-            "</figure>"
-        )
+        scene = _mapping(sketch.get("scene"))
+        width, height = scene.get("width_px"), scene.get("height_px")
+        panels = scene.get("print_panels")
+        identity = f"Setup {setup['id']} op {op['op']} {requirement}"
+        if (
+            width != 1600
+            or type(width) is not int
+            or type(height) is not int
+            or height <= 0
+            or not isinstance(panels, list)
+            or not panels
+        ):
+            raise ValueError(f"{identity} has no complete printable inspection geometry")
+        path = escape(sketch["path"], quote=True)
+        result, next_top = [], 0
+        for ordinal, panel in enumerate(panels, start=1):
+            panel = _mapping(panel)
+            top, panel_height = panel.get("top_px"), panel.get("height_px")
+            label = panel.get("label")
+            if type(panel_height) is int and panel_height > 1792:
+                raise ValueError(
+                    f"{identity} inspection view {ordinal} is {panel_height}px high; "
+                    "a complete view must fit within 1792px"
+                )
+            if (
+                panel.get("role") != "inspection"
+                or type(panel.get("view_ordinal")) is not int
+                or panel["view_ordinal"] != ordinal
+                or not isinstance(label, str)
+                or not label.strip()
+                or type(top) is not int
+                or top != next_top
+                or type(panel_height) is not int
+                or not 0 < panel_height <= 1792
+                or top + panel_height > height
+            ):
+                raise ValueError(f"{identity} inspection panels omit or repeat complete views")
+            next_top += panel_height
+            caption = f"{identity} · view {ordinal} of {len(panels)} — {label}"
+            result.append(
+                f'<figure class="fixture-render inspection-sketch" data-panel="{ordinal}" '
+                f'data-panel-role="inspection" data-view-ordinal="{ordinal}" '
+                f'data-panel-top="{top}" data-panel-height="{panel_height}">'
+                f"<figcaption>{escape(caption)}</figcaption>"
+                f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 {top} {width} {panel_height}" '
+                f'width="{width}" height="{panel_height}" role="img" '
+                f'aria-label="{escape(caption)}">'
+                f"<title>{escape(caption)}</title>"
+                f'<image href="{path}" x="0" y="0" width="{width}" height="{height}" '
+                'preserveAspectRatio="none"></image></svg></figure>'
+            )
+        if next_top != height:
+            raise ValueError(f"{identity} inspection panels omit image content")
+        return "".join(result)
 
     def process_hold(self, hold):
         """A shop limit inside the drawing band, printed apart from the drawing's own; a hold

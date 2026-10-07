@@ -5,6 +5,8 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import struct
+import zlib
 from typing import Any
 
 from prechips import __version__
@@ -50,6 +52,126 @@ def _png(encoded: str) -> bytes:
     return png
 
 
+def _inspection_dimensions(png: bytes) -> tuple[int, int]:
+    """Decode the RGB8, unfiltered PNG raster emitted by ``RenderCanvas.png``."""
+    view = memoryview(png)
+    offset = 8
+    header = None
+    compressed = None
+    for expected in (b"IHDR", b"IDAT", b"IEND"):
+        if offset + 12 > len(view):
+            raise ValueError("The kernel returned an incomplete inspection PNG.")
+        length = struct.unpack_from(">I", view, offset)[0]
+        end = offset + 12 + length
+        if (
+            end > len(view)
+            or view[offset + 4 : offset + 8] != expected
+            or zlib.crc32(view[offset + 4 : end - 4]) != struct.unpack_from(">I", view, end - 4)[0]
+        ):
+            raise ValueError("The kernel returned an invalid inspection PNG chunk.")
+        payload = view[offset + 8 : end - 4]
+        if expected == b"IHDR":
+            if length != 13:
+                raise ValueError("The kernel returned an invalid inspection PNG header.")
+            header = struct.unpack(">IIBBBBB", payload)
+        elif expected == b"IDAT":
+            compressed = payload
+        elif length:
+            raise ValueError("The kernel returned an invalid inspection PNG end.")
+        offset = end
+    if offset != len(view) or header is None or compressed is None:
+        raise ValueError("The kernel returned an invalid inspection PNG.")
+    width, height, *encoding = header
+    if width != 1600 or height <= 0 or encoding != [8, 2, 0, 0, 0]:
+        raise ValueError("The kernel returned an invalid inspection PNG geometry or encoding.")
+    stride = width * 3 + 1
+    expected_size = stride * height
+    decoder = zlib.decompressobj()
+    try:
+        raster = decoder.decompress(compressed, expected_size + 1)
+    except zlib.error as exc:
+        raise ValueError("The kernel returned an invalid inspection PNG raster.") from exc
+    if (
+        len(raster) != expected_size
+        or not decoder.eof
+        or decoder.unused_data
+        or decoder.unconsumed_tail
+        or any(raster[row] != 0 for row in range(0, expected_size, stride))
+    ):
+        raise ValueError("The kernel returned an incomplete inspection PNG raster.")
+    return width, height
+
+
+def _inspection_pngs(setup: dict, facts: dict) -> dict[str, bytes]:
+    """Validate actual inspection assets against their authored owners and view bands."""
+    sketches = facts.get("inspection_pngs_base64", {})
+    scenes = facts.get("inspection_scenes", {})
+    if (
+        not isinstance(sketches, dict)
+        or not isinstance(scenes, dict)
+        or sketches.keys() != scenes.keys()
+    ):
+        raise ValueError(f"Setup {setup['id']} inspection images and scenes have different owners.")
+    if not sketches:
+        return {}
+    authored = {
+        f"{op['op']}:{requirement}": views
+        for op in setup["ops"]
+        if isinstance(op.get("inspection_views"), dict)
+        for requirement, views in op.get("inspection_views", {}).items()
+    }
+    result = {}
+    for key, encoded in sketches.items():
+        if key not in authored:
+            raise ValueError(
+                f"Setup {setup['id']} has an inspection image without an authored owner."
+            )
+        try:
+            png = _png(encoded)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"Setup {setup['id']} inspection {key} has an invalid PNG.") from exc
+        width, height = _inspection_dimensions(png)
+        scene = scenes[key]
+        if (
+            not isinstance(scene, dict)
+            or type(scene.get("width_px")) is not int
+            or type(scene.get("height_px")) is not int
+            or scene["width_px"] != width
+            or scene["height_px"] != height
+        ):
+            raise ValueError(
+                f"Setup {setup['id']} inspection {key} dimensions do not match its PNG."
+            )
+        panels = scene.get("print_panels")
+        views = authored[key]
+        if not isinstance(panels, list) or len(panels) != len(views) or not panels:
+            raise ValueError(
+                f"Setup {setup['id']} inspection {key} does not cover its authored views."
+            )
+        next_top = 0
+        for ordinal, (panel, authored_view) in enumerate(zip(panels, views, strict=True), start=1):
+            if (
+                not isinstance(panel, dict)
+                or panel.get("role") != "inspection"
+                or panel.get("label") != authored_view["title"]
+                or type(panel.get("view_ordinal")) is not int
+                or panel["view_ordinal"] != ordinal
+                or type(panel.get("top_px")) is not int
+                or panel["top_px"] != next_top
+                or type(panel.get("height_px")) is not int
+                or not 0 < panel["height_px"] <= 1792
+                or next_top + panel["height_px"] > height
+            ):
+                raise ValueError(
+                    f"Setup {setup['id']} inspection {key} has incomplete or unordered view bands."
+                )
+            next_top += panel["height_px"]
+        if next_top != height:
+            raise ValueError(f"Setup {setup['id']} inspection {key} view bands omit image content.")
+        result[key] = png
+    return result
+
+
 def render_assets(bundle: Bundle) -> dict[str, bytes]:
     """Decode only this run's kernel renders; generated assets bind to approval."""
     kernel = getattr(bundle, "kernel", None) or {}
@@ -57,12 +179,15 @@ def render_assets(bundle: Bundle) -> dict[str, bytes]:
     assets = {}
     for ordinal, setup in enumerate(bundle.plan["setups"], start=1):
         facts = setups.get(setup["id"], {})
+        sketches = _inspection_pngs(setup, facts)
         encoded = facts.get("render_png_base64")
         if encoded is None:
+            if sketches:
+                raise ValueError(f"Setup {setup['id']} inspection images have no setup render.")
             continue
         assets[f"setup-S{ordinal}.png"] = _png(encoded)
-        for key, sketch in sorted(facts.get("inspection_pngs_base64", {}).items()):
-            assets[inspection_sketch_name(ordinal, key)] = _png(sketch)
+        for key, png in sorted(sketches.items()):
+            assets[inspection_sketch_name(ordinal, key)] = png
     return assets
 
 
@@ -76,22 +201,32 @@ def build_report(
     kernel_setups = (getattr(bundle, "kernel", None) or {}).get("setups", {})
     inputs = dict(bundle.input_records)
     for ordinal, setup in enumerate(bundle.plan["setups"], start=1):
+        facts = kernel_setups.get(setup["id"], {})
+        sketches_pngs = _inspection_pngs(setup, facts)
+        for key, png in sketches_pngs.items():
+            name = inspection_sketch_name(ordinal, key)
+            if assets.get(name) != png:
+                raise ValueError(
+                    f"Setup {setup['id']} inspection {key} asset differs from its PNG."
+                )
         filename = f"setup-S{ordinal}.png"
         if filename not in assets:
+            if sketches_pngs:
+                raise ValueError(f"Setup {setup['id']} inspection images have no setup render.")
             continue
         record = {"path": filename, "sha256": hashlib.sha256(assets[filename]).hexdigest()}
         inputs[f"render:{setup['id']}"] = record
-        facts = kernel_setups[setup["id"]]
         renders[setup["id"]] = {
             **record,
             "fixture": "modeled" if facts.get("fixture_rendered") is True else "unresolved",
             "scene": facts.get("render_scene", {}),
         }
         sketches = {}
-        for key in sorted(facts.get("inspection_pngs_base64", {})):
+        for key in sorted(sketches_pngs):
             name = inspection_sketch_name(ordinal, key)
-            sketches[key] = {"path": name, "sha256": hashlib.sha256(assets[name]).hexdigest()}
-            inputs[f"render:{setup['id']}:{key}"] = sketches[key]
+            record = {"path": name, "sha256": hashlib.sha256(assets[name]).hexdigest()}
+            sketches[key] = {**record, "scene": facts["inspection_scenes"][key]}
+            inputs[f"render:{setup['id']}:{key}"] = dict(record)
         if sketches:
             renders[setup["id"]]["inspections"] = sketches
     report = {

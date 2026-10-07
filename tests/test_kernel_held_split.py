@@ -76,11 +76,14 @@ def _hold(strand, main="press", floor_from_y=-10.0):
     }
 
 
-def _run(engine, step, hold, bounds=BOUNDS, inspections=None, cut=True):
+def _run(engine, step, hold, bounds=BOUNDS, inspections=None, cut=True, cut_subject="S1:10"):
     south = engine.refs(step, (5, 5, 0), (65, 5, 20), kind="Plane")
     assert len(south) == 1
     setups = [
-        _setup([{**_rough(bounds), "feature": "south"}] if cut else [], hold),
+        _setup(
+            [{**_rough(bounds), "subject": cut_subject, "feature": "south"}] if cut else [],
+            hold,
+        ),
         _setup([], hold, setup_id="S2"),
     ]
     if inspections is not None:
@@ -137,12 +140,15 @@ def test_an_inspection_sketch_draws_the_piece_that_holds_the_part_not_the_scrap(
     inspections = [{"op": 20, "after": "S1:10", "requirement": "height", "views": [view]}]
     cleared = {**BOUNDS, "y": [-5.0, 5.0]}
     heights = []
+    pictures = []
     for bounds in (BOUNDS, cleared):
         result = _run(engine, solids["island"], _hold("press"), bounds, inspections)
         facts = result["setups"]["S1"]
         png = base64.b64decode(facts["inspection_pngs_base64"]["20:height"])
+        pictures.append(png)
         heights.append(struct.unpack(">II", png[16:24])[1])
     assert heights[0] == heights[1], heights
+    assert pictures[0] == pictures[1]
 
 
 def test_an_inspection_before_the_releasing_cut_draws_the_stock_as_it_stands_there(engine, solids):
@@ -166,3 +172,80 @@ def test_an_inspection_before_the_releasing_cut_draws_the_stock_as_it_stands_the
     ]
     assert sketches[0]["5:height"] == sketches[1]["5:height"]
     assert sketches[0]["20:height"] != sketches[0]["5:height"]
+
+
+def test_inspection_stock_follows_authored_route_order_not_operation_numbers(engine, solids):
+    from prechips.kernel import _inspections_after
+
+    views = [
+        {
+            "title": "VIEW 1: ON ITS BASE",
+            "up": [0.0, 0.0, 1.0],
+            "toward": [1.0, 0.0, 0.0],
+            "marks": [{"label": "A", "at_mm": [35.0, 25.0, 20.0]}],
+        },
+        {
+            "title": "VIEW 2: ON ITS END",
+            "up": [1.0, 0.0, 0.0],
+            "toward": [0.0, -1.0, 0.0],
+            "marks": [{"label": "H", "at_mm": [60.0, 25.0, 10.0], "reads": True}],
+        },
+    ]
+    entering, cut, released = {"op": 90}, {"op": 20}, {"op": 10}
+    route = {"id": "S1", "ops": [entering, cut, released]}
+    render = {
+        "inspections": [
+            {"op": 90, "position": 0, "requirement": "height", "views": views},
+            {"op": 10, "position": 2, "requirement": "height", "views": views},
+        ]
+    }
+    inspections = _inspections_after(route, [cut], render)["inspections"]
+    assert [inspection["after"] for inspection in inspections] == [None, "S1:20"]
+    uncut_inspections = _inspections_after(
+        route,
+        [],
+        {
+            "inspections": [
+                {**inspection, "position": position}
+                for inspection, position in zip(inspections, (0, 2), strict=True)
+            ]
+        },
+    )["inspections"]
+    assert all(inspection["after"] is None for inspection in uncut_inspections)
+    facts = [
+        _run(
+            engine,
+            solids["island"],
+            _hold("press"),
+            inspections=inspections if remove else uncut_inspections,
+            cut=remove,
+            cut_subject="S1:20",
+        )["setups"]["S1"]
+        for remove in (True, False)
+    ]
+    before, uncut = [result["inspection_pngs_base64"] for result in facts]
+    assert before["90:height"] == uncut["90:height"]
+    assert uncut["10:height"] == uncut["90:height"]
+    assert before["10:height"] != before["90:height"]
+    for result in facts:
+        assert set(result["inspection_scenes"]) == {"90:height", "10:height"}
+        for key, encoded in result["inspection_pngs_base64"].items():
+            width, height = struct.unpack(">II", base64.b64decode(encoded)[16:24])
+            scene = result["inspection_scenes"][key]
+            assert (scene["width_px"], scene["height_px"]) == (width, height)
+            assert width == 1600
+            cursor = 0
+            assert len(scene["print_panels"]) == len(views)
+            for ordinal, (view, panel) in enumerate(
+                zip(views, scene["print_panels"], strict=True), 1
+            ):
+                assert panel == {
+                    "top_px": cursor,
+                    "height_px": panel["height_px"],
+                    "role": "inspection",
+                    "label": view["title"],
+                    "view_ordinal": ordinal,
+                }
+                assert 0 < panel["height_px"] <= 1792
+                cursor += panel["height_px"]
+            assert cursor == height

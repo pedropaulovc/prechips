@@ -681,11 +681,14 @@ def _run(args, tracing: telemetry.Telemetry) -> int:
 
     run_geometries(bundles)
     findings = [_evaluate(bundle, tracing) for bundle in bundles]
-    assets = [render_assets(bundle) for bundle in bundles]
-    reports = [
-        build_report(bundle, rows, assets=images)
-        for bundle, rows, images in zip(bundles, findings, assets, strict=True)
-    ]
+    try:
+        assets = [render_assets(bundle) for bundle in bundles]
+        reports = [
+            build_report(bundle, rows, assets=images)
+            for bundle, rows, images in zip(bundles, findings, assets, strict=True)
+        ]
+    except ValueError as exc:
+        raise BadInput(f"Invalid kernel render output: {exc}") from exc
     if args.verb == "compare":
         try:
             comparison_root = Path(

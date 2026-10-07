@@ -3,10 +3,15 @@ match the physical pages (skipped where no Chrome or Edge is installed)."""
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import re
+import struct
 import sys
+import zlib
 from pathlib import Path
+from urllib.parse import urlsplit
+from urllib.request import url2pathname
 
 import pytest
 from test_sheet_ops import Markup, content
@@ -348,12 +353,13 @@ def _cells(markup, row):
 _SOURCE_PAGES = r"""pageOf => {
   const section = document.querySelector('section.page');
   const pages = new Set();
-  for (const node of section.querySelectorAll('tbody > tr, p, li')) {
+  for (const node of section.querySelectorAll('tbody > tr, p, li, figure')) {
     if (node.closest('[data-duplex], thead, .cont-head, .record-continuation')) continue;
     const own = node.cloneNode(true);
     own.querySelectorAll('[data-duplex], thead, .record-continuation')
       .forEach(copy => copy.remove());
-    if (/[\p{L}\p{N}]/u.test(own.textContent) || own.querySelector('.writing-blank')) {
+    if (own.matches('figure') || own.querySelector('figure')
+        || /[\p{L}\p{N}]/u.test(own.textContent) || own.querySelector('.writing-blank')) {
       pages.add(pageOf(node));
     }
   }
@@ -1128,3 +1134,342 @@ def test_fixture_and_blank_check_keep_intrinsic_width_inside_print_and_screen(
             assert len(node["rects"]) == 1, node
             assert node["rects"][0]["left"] >= container["left"] - 0.1, node
             assert node["rects"][0]["right"] <= container["right"] + 0.1, node
+
+
+def _inspection_asset(tmp_path, titles=("Datum A seated", "Read opposite face"), heights=None):
+    """An injected kernel's canonical RGB8 PNG and exact authored view-band sidecar."""
+    heights = heights or [1250] * len(titles)
+    assert len(titles) == len(heights)
+    width, height = 1600, sum(heights)
+
+    def chunk(kind, data):
+        return (
+            struct.pack(">I", len(data))
+            + kind
+            + data
+            + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
+        )
+
+    pixels = b"".join(
+        (b"\x00" + bytes((40 + ordinal * 30, 100, 180)) * width) * band_height
+        for ordinal, band_height in enumerate(heights)
+    )
+    png = (
+        b"\x89PNG\r\n\x1a\n"
+        + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
+        + chunk(b"IDAT", zlib.compress(pixels))
+        + chunk(b"IEND", b"")
+    )
+    path = tmp_path / "inspection-source.png"
+    path.write_bytes(png)
+    panels, top = [], 0
+    for ordinal, (title, band_height) in enumerate(zip(titles, heights, strict=True), start=1):
+        panels.append(
+            {
+                "role": "inspection",
+                "label": title,
+                "view_ordinal": ordinal,
+                "top_px": top,
+                "height_px": band_height,
+            }
+        )
+        top += band_height
+    return {
+        "path": path.as_uri(),
+        "sha256": hashlib.sha256(png).hexdigest(),
+        "scene": {"width_px": width, "height_px": height, "print_panels": panels},
+    }
+
+
+def _inspection_consumer(asset, method="Seat datum A; record {observed}.", op_number=20):
+    """Exercise the actual requirement-note/worksheet placement with no native kernel."""
+    from test_sheet_ops import shop
+
+    sheet = shop({})
+    sheet.features = {"bore": {"dia": [6.475, 6.495]}}
+    sheet.findings = []
+    setup = {"id": "S1"}
+    op = {
+        "op": op_number,
+        "do": "inspect",
+        "feature": "bore",
+        "checks": {"dia": "unknown"},
+        "inspection_methods": {"dia": method},
+        "inspection_views": {
+            "dia": [{"title": panel["label"]} for panel in asset["scene"]["print_panels"]]
+        },
+    }
+    sheet.report = {"renders": {"S1": {"inspections": {f"{op_number}:dia": asset}}}}
+    notes, worksheets = [], []
+    checks = sheet.inspection(setup, op, notes, worksheets, {"notes": 3, "worksheets": 4})
+    return sheet, setup, op, notes, worksheets, checks
+
+
+_INSPECTION_PAGES = _SOURCE_PAGES.replace(
+    "pages: Number(section.dataset.pages),",
+    r"""pages: Number(section.dataset.pages),
+    figures: [...section.querySelectorAll('figure')].map(figure => {
+      const svg = figure.querySelector('svg'), image = svg.querySelector('image');
+      const viewport = svg.viewBox.baseVal, bounds = figure.getBoundingClientRect();
+      const tops = [section.getBoundingClientRect().top,
+        ...[...section.querySelectorAll('.cont-head')]
+          .map(node => node.getBoundingClientRect().top)];
+      const page = pageOf(figure), item = figure.closest('li[data-page-context]');
+      return {
+        ordinal: Number(figure.dataset.viewOrdinal),
+        identity: svg.getAttribute('aria-label'),
+        page, top: bounds.top - tops[page], bottom: bounds.bottom - tops[page],
+        cap: Number(document.documentElement.dataset.pageCapacity),
+        owned: !figure.closest('[data-duplex]'),
+        noteOwner: item?.dataset.pageContext || null, noteNumber: item?.value || null,
+        worksheet: !!figure.closest('.worksheet'),
+        viewport: [viewport.x, viewport.y, viewport.width, viewport.height],
+        image: [image.x.baseVal.value, image.y.baseVal.value,
+          image.width.baseVal.value, image.height.baseVal.value],
+        asset: image.getAttribute('href'),
+        imageComplete: !!svg.querySelector('image'),
+        displayedRatio: svg.getBoundingClientRect().height / svg.getBoundingClientRect().width
+      };
+    }),
+    originalWords: (() => {
+      const copy = section.cloneNode(true);
+      copy.querySelectorAll('[data-duplex], .record-continuation').forEach(node => node.remove());
+      return [...copy.textContent.matchAll(/(?:BeforeWord|AfterWord)\d{4}/g)]
+        .map(match => match[0]);
+    })(),
+    originalFields: [...section.querySelectorAll('.field-label')]
+      .filter(node => !node.closest('[data-duplex]')).map(node => node.textContent),""",
+)
+
+
+def _assert_whole_inspection_views(details, asset):
+    figures = details["figures"]
+    scene = asset["scene"]
+    assert len(figures) == len(scene["print_panels"])
+    assert [figure["ordinal"] for figure in figures] == list(range(1, len(figures) + 1))
+    for figure, panel in zip(figures, scene["print_panels"], strict=True):
+        assert panel["label"] in figure["identity"]
+        assert figure["owned"] and figure["imageComplete"]
+        assert figure["top"] >= -0.1 and figure["bottom"] <= figure["cap"] + 0.1
+        assert figure["viewport"] == [0, panel["top_px"], 1600, panel["height_px"]]
+        assert figure["image"] == [0, 0, 1600, scene["height_px"]]
+        assert figure["asset"] == asset["path"]
+        assert figure["displayedRatio"] == pytest.approx(panel["height_px"] / 1600, abs=0.005)
+    assert [figure["page"] for figure in figures] == sorted(figure["page"] for figure in figures)
+    path = Path(url2pathname(urlsplit(asset["path"]).path))
+    assert hashlib.sha256(path.read_bytes()).hexdigest() == asset["sha256"]
+
+
+def test_note_before_whole_inspection_view_and_after_keeps_source_and_original_owner(
+    tmp_path, printed_sheet
+):
+    from prechips.sheet import _fields, _list, _Note
+
+    asset = _inspection_asset(tmp_path, ("Read A while B remains seated",), [1500])
+    sheet, setup, op, *_ = _inspection_consumer(asset)
+    context = "S1 op 20 diameter:"
+    before = [f"BeforeWord{index:04}" for index in range(180)]
+    after = [f"AfterWord{index:04}" for index in range(180)]
+    note = _Note(
+        context + " " + " ".join(before) + " Record {before}.",
+        context,
+        sheet.inspection_sketch(setup, op, "dia")
+        + f"<p>{_fields(' '.join(after) + ' Record {after}.')}</p>",
+    )
+    printed, details = printed_sheet(_list([note]), _INSPECTION_PAGES)
+    _assert_source_on_every_page(details)
+    _assert_whole_inspection_views(details, asset)
+    assert details["originalWords"] == before + after
+    assert details["originalFields"] == ["before", "after"]
+    assert details["figures"][0]["noteOwner"] == context
+    assert details["figures"][0]["noteNumber"] == 1
+    assert all(_original(field) for field in printed.find("writing-blank"))
+    assert len(printed.find("writing-blank")) == 2
+
+
+def test_multiple_complete_views_leave_figure_only_remainders_and_keep_note_number(
+    tmp_path, printed_sheet
+):
+    from prechips.sheet import _list
+
+    asset = _inspection_asset(
+        tmp_path, ("Seat A and B", "Read bore on C", "Read opposite face without releasing A")
+    )
+    _, _, _, notes, worksheets, _ = _inspection_consumer(asset)
+    assert not worksheets and len(notes) == 1
+    context = notes[0].context
+    printed, details = printed_sheet(_list(notes), _INSPECTION_PAGES)
+    _assert_source_on_every_page(details)
+    _assert_whole_inspection_views(details, asset)
+    assert len({figure["page"] for figure in details["figures"]}) == 3
+    assert all(figure["noteOwner"] == context for figure in details["figures"])
+    assert all(figure["noteNumber"] == 1 for figure in details["figures"])
+    assert details["originalFields"] == ["observed"]
+    assert len(printed.find("writing-blank")) == 1
+
+
+def test_textless_figure_is_original_progress_not_a_context_only_prefix(tmp_path, printed_sheet):
+    from prechips.sheet import _list, _Note
+
+    titles = ("Original textless view", "Second textless view")
+    asset = _inspection_asset(tmp_path, titles, [1500, 1500])
+    figures = "".join(
+        f'<figure class="fixture-render" aria-label="{title}">'
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 {top} 1600 1500" '
+        'width="1600" height="1500">'
+        f'<image href="{asset["path"]}" width="1600" height="3000"></image></svg></figure>'
+        for title, top in zip(titles, (0, 1500), strict=True)
+    )
+    context = "S1 op 20 textless view:"
+    note = _Note(context, context, figures)
+    _, details = printed_sheet(
+        '<p>Original preceding instruction.</p><div style="height:700px"></div>' + _list([note]),
+        _SOURCE_PAGES.replace(
+            "pages: Number(section.dataset.pages),",
+            """pages: Number(section.dataset.pages),
+            figurePages: [...section.querySelectorAll('figure')].map(pageOf),
+            notePages: [...section.querySelectorAll('li[data-page-context]')].map(pageOf),""",
+        ),
+    )
+    _assert_source_on_every_page(details)
+    assert details["figurePages"] == [1, 2]
+    assert details["notePages"] == [1, 2]
+
+
+def test_original_note_then_worksheet_views_keep_result_reading_and_calculation_fields_once(
+    tmp_path, printed_sheet
+):
+    from prechips.sheet import _list, _Row, _table, _worksheet
+
+    asset = _inspection_asset(tmp_path)
+    _, _, _, notes, _, note_checks = _inspection_consumer(asset, op_number=20)
+    method = [
+        "Write every reading in mm; 1 in = 25.4 mm.",
+        *(f"Record existing reading {{R{index:02}}}." for index in range(55)),
+        "Calculate: Difference = R00 − R01. Record {difference}.",
+        "Calculate: Result = difference / 2. Record {result}.",
+    ]
+    _, _, _, _, worksheets, worksheet_checks = _inspection_consumer(
+        asset, method=method, op_number=90
+    )
+    assert len(notes) == len(worksheets) == 1
+    headings = ["op", "action", "feature", "tool", "rpm", "feed", "Z", "direction", "inspect"]
+    source = (
+        _table(
+            headings,
+            [
+                _Row([str(op), "Inspect original bore", "bore", "—", "—", "—", "—", "—", checks])
+                for op, checks in ((20, note_checks), (90, worksheet_checks))
+            ],
+            css="operations",
+        )
+        + _list(notes)
+        + _worksheet(worksheets[0])
+    )
+    original = Markup(source)
+    expected_fields = [content(node) for node in original.find("field-label")]
+    expected_calculations = [content(node) for node in original.find("calc")]
+    printed, details = printed_sheet(source, _INSPECTION_PAGES)
+    _assert_source_on_every_page(details)
+    assert len(details["figures"]) == 4
+    assert [figure["worksheet"] for figure in details["figures"]] == [False, False, True, True]
+    assert [figure["ordinal"] for figure in details["figures"]] == [1, 2, 1, 2]
+    assert [figure["page"] for figure in details["figures"]] == sorted(
+        figure["page"] for figure in details["figures"]
+    )
+    assert len(printed.find("inspection-record")) == 2
+    assert len(printed.find("result-field")) == 2
+    assert len(printed.find("performed-mark")) == 2
+    assert details["originalFields"] == expected_fields
+    assert len(printed.find("writing-blank")) == len(original.find("writing-blank")) == 60
+    assert all(_original(node) for node in printed.find("writing-blank"))
+    assert [content(node) for node in printed.find("calc") if _original(node)] == (
+        expected_calculations
+    )
+    for table in printed.find("readings"):
+        assert not printed.find("inspection-sketch", table)
+        assert _body_rows(printed, table)
+
+
+@pytest.mark.parametrize("height", [1500, 2600], ids=["whole-fitting", "whole-oversize"])
+@pytest.mark.parametrize("inside_note", [False, True], ids=["direct", "note-owned"])
+def test_single_original_figure_fits_whole_or_refuses_with_measured_bounds(
+    tmp_path, printed_sheet, height, inside_note
+):
+    from prechips.sheet import _list, _Note
+
+    asset = _inspection_asset(tmp_path, ("AuthoredWholeView",), [height])
+    figure = (
+        '<figure class="fixture-render"><figcaption>AuthoredWholeView</figcaption>'
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 {height}" '
+        f'width="1600" height="{height}"><title>AuthoredWholeView</title>'
+        f'<image href="{asset["path"]}" width="1600" height="{height}"></image>'
+        "</svg></figure>"
+    )
+    source = (
+        _list([_Note("S1 op 20 whole view:", "S1 op 20 whole view:", figure)])
+        if inside_note
+        else figure
+    )
+    if height == 1500:
+        printed, details = printed_sheet(
+            source,
+            """pageOf => ({
+              figurePages: [...document.querySelectorAll('figure')].map(pageOf),
+              images: [...document.querySelectorAll('figure image')].length
+            })""",
+        )
+        assert details == {"figurePages": [0], "images": 1}
+        assert len(printed.find("fixture-render")) == 1
+    else:
+        texts = printed_pages(_sections([(0, source)]), tmp_path)
+        refusal = " ".join(" ".join(texts).split())
+        assert "PRINT LAYOUT ERROR" in refusal and "AuthoredWholeView" in refusal
+        measured = re.search(
+            r"([\d.]+)px high;\s*([\d.]+)px required;\s*([\d.]+)px page capacity", refusal
+        )
+        assert measured is not None, refusal
+        assert float(measured[1]) > float(measured[3])
+        assert float(measured[2]) > float(measured[3])
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("width_px", 800),
+        ("height_px", 0),
+        ("print_panels", []),
+        ("print_panels", None),
+        ("panel.top_px", 1),
+        ("panel.height_px", 1793),
+        ("panel.view_ordinal", 2),
+        ("panel.label", ""),
+        ("panel.role", "holding"),
+    ],
+)
+def test_inspection_scene_cannot_fallback_to_a_scaled_or_partial_image(tmp_path, field, value):
+    asset = _inspection_asset(tmp_path, ("Original view",), [1000])
+    sheet, setup, op, *_ = _inspection_consumer(asset)
+    if field.startswith("panel."):
+        asset["scene"]["print_panels"][0][field.removeprefix("panel.")] = value
+    else:
+        asset["scene"][field] = value
+    with pytest.raises(ValueError, match="inspection"):
+        sheet.inspection_sketch(setup, op, "dia")
+
+
+def test_existing_inspection_image_requires_its_complete_scene_sidecar(tmp_path):
+    asset = _inspection_asset(tmp_path, ("Declared view",), [1000])
+    sheet, setup, op, *_ = _inspection_consumer(asset)
+    del asset["scene"]
+    with pytest.raises(ValueError, match="complete printable inspection geometry"):
+        sheet.inspection_sketch(setup, op, "dia")
+
+
+def test_declared_missing_inspection_view_remains_visible_without_a_fake_figure(tmp_path):
+    asset = _inspection_asset(tmp_path, ("Declared view",), [1000])
+    sheet, setup, op, *_ = _inspection_consumer(asset)
+    sheet.report = {}
+    markup = Markup(sheet.inspection_sketch(setup, op, "dia"))
+    assert content(markup.nodes[0]).startswith("NOT SHOWN:")
+    assert not markup.find("inspection-sketch")

@@ -123,6 +123,12 @@ head of that requirement's worksheet or inspection note
 not `inspect`, or for a requirement with no `inspection_methods` entry, are
 `BadInput`.
 
+The traveler retains every authored view, in list order, with its own `title`.
+Each view prints as a complete figure attached once to the original requirement's
+worksheet or note. Continuations may move the figure whole and repeat applicable
+context, without duplicating reading or calculation fields. This layout adds no
+plan fields and changes no authored procedure.
+
 When an inspection requirement has no exported owner/band, an explicit operation
 may declare `missing_requirements = { length = "calipers" }` and
 `inspection_methods.length`. This uses the same gauge-reference mapping type as

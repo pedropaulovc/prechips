@@ -752,24 +752,30 @@ matching the then-logical sections. Those counts are history, not the current
 layout contract. Footers flow after instructions.
 
 Current immutable baseline
-`f0f765fb584235bc9d3836b7c82fface5569dddb`: the parent reported all four actual
-CLI runs exited 0, with 22 shaft, 94 rocker, 72 bracket and 56 cone even Letter
-pages (244 total). The initial runner inherited a cache; this is not fresh-cache
-guard proof. An empty per-pilot baseline run is now in progress: shaft exited 0
-with 22 pages in 44.254 seconds; the other three outcomes are pending.
-Rebased composition and caption repairs have passed static source review,
-not final print approval. Ruff and 185-file formatting checks passed. A
-three-family run had 158 passed and two failed in 94.63 seconds; after caption
+`a228104e90d2f63ce3b3363f45c8b741450b55b6`: four production runs with empty
+per-pilot caches completed with CLI exits **0 / 2 / 2 / 2** (shaft / rocker /
+bracket / cone) and **22 / 94 / 72 / 56** even Letter pages (244 total).
+Outputs are in `C:/src/prechips-readability-r7-base/out/readability/baseline-r7-cold`;
+the command record is
+`C:/src/dt-logs/readability-baseline-r7-cold-proof/command-log.json`.
+The baseline's consistency stops remain intentional; readability work does not
+alter source facts to recover an exit.
+
+Historical `f0f765fb584235bc9d3836b7c82fface5569dddb` baseline runs exited 0
+for all four pilots with the same page counts, but initially inherited a cache.
+At the earlier f62/f0 checkpoint, Ruff and 185-file formatting checks passed.
+A three-family run had 158 passed and two failed in 94.63 seconds; after caption
 repairs, exactly those two cases passed in 0.51 seconds. These different-source
 runs are not a combined 160-pass result or a clean full-family rerun.
 
-An actual production-render probe checked narrow captions in both operation
-orders, text bounds and the complete arrow caption. Its canonical PNG was
-1600 × 2464 pixels with 1484-pixel setup and 980-pixel path bands; endpoint
-order and waypoints were preserved. This is scoped render evidence, not
-all-bundle approval. Fresh candidate native/PDF and all-page review, completed
-fresh-cache proof, goldens and the full gate remain pending. Physical
-printer/pen/operator and live-farm acceptance remain unobserved.
+That checkpoint's production-render probe checked narrow captions in both
+operation orders, text bounds and the complete arrow caption. Its canonical PNG
+was 1600 × 2464 pixels with 1484-pixel setup and 980-pixel path bands; endpoint
+order and waypoints were preserved. Its four-width browser and field-containment
+controls also belong to that checkpoint. None proves the new merged candidate.
+Current-candidate validation, fresh native/PDF runs, native capture comparison,
+all-page review and golden regeneration remain pending. Physical
+printer/pen/operator, machining and live-farm acceptance remain unobserved.
 
 <details>
 <summary>Historical R6–R7 on the previous 1ef baseline (not f0 acceptance)</summary>

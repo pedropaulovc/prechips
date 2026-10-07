@@ -16,15 +16,21 @@ from prechips.report import build_report, render_assets
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def _png(color):
+def _png(color, *, width=1, height=1, raster_height=None):
     def chunk(kind, content):
         body = kind + content
         return struct.pack(">I", len(content)) + body + struct.pack(">I", zlib.crc32(body))
 
     return (
         b"\x89PNG\r\n\x1a\n"
-        + chunk(b"IHDR", struct.pack(">IIBBBBB", 1, 1, 8, 2, 0, 0, 0))
-        + chunk(b"IDAT", zlib.compress(b"\x00" + bytes(color)))
+        + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
+        + chunk(
+            b"IDAT",
+            zlib.compress(
+                (b"\x00" + bytes(color) * width)
+                * (height if raster_height is None else raster_height)
+            ),
+        )
         + chunk(b"IEND", b"")
     )
 
@@ -123,6 +129,44 @@ def test_kernel_absent_run_removes_stale_setup_images(tmp_path, verb):
     assert {path.name for path in out.iterdir()} == expected
 
 
+def _inspection_scene(first_height=512, second_height=512):
+    return {
+        "width_px": 1600,
+        "height_px": first_height + second_height,
+        "print_panels": [
+            {
+                "role": "inspection",
+                "label": "ON V-BLOCKS",
+                "view_ordinal": 1,
+                "top_px": 0,
+                "height_px": first_height,
+            },
+            {
+                "role": "inspection",
+                "label": "END READING",
+                "view_ordinal": 2,
+                "top_px": first_height,
+                "height_px": second_height,
+            },
+        ],
+    }
+
+
+def _setup_scene():
+    return {
+        "width_px": 1,
+        "height_px": 1,
+        "print_panels": [
+            {
+                "role": "setup",
+                "label": "Synthetic output-lifecycle image",
+                "top_px": 0,
+                "height_px": 1,
+            }
+        ],
+    }
+
+
 _SKETCHED_OP = """do = "inspect"
 feature = "pivot_bearing"
 [setups.ops.checks]
@@ -138,7 +182,31 @@ title = "ON V-BLOCKS"
 up = [1.0, 0.0, 0.0]
 toward = [0.0, -1.0, 0.0]
 marks = [{label = "N", at_mm = [6.0, 0.0, 10.0], reads = true}]
+[[setups.ops.inspection_views.dia]]
+title = "END READING"
+up = [0.0, 1.0, 0.0]
+toward = [0.0, 0.0, -1.0]
+marks = [{label = "S", at_mm = [6.0, 0.0, 20.0], reads = true}]
 """
+
+
+def _inspection_bundle(tmp_path, first_height=512, second_height=512):
+    from test_cli import copy_examples
+    from test_process_route import append_op
+
+    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
+    sid, op = append_op(plan, _SKETCHED_OP).split(":")
+    key = f"{op}:dia"
+    scene = _inspection_scene(first_height, second_height)
+    png = _png((90, 110, 70), width=1600, height=scene["height_px"])
+    facts = {
+        "render_png_base64": base64.b64encode(_png((80, 100, 120))).decode("ascii"),
+        "render_scene": _setup_scene(),
+        "inspection_pngs_base64": {key: base64.b64encode(png).decode("ascii")},
+        "inspection_scenes": {key: scene},
+    }
+    bundle = replace(load_bundle(plan), kernel={"status": "ok", "setups": {sid: facts}})
+    return bundle, sid, key, scene, png
 
 
 @pytest.mark.parametrize("changed", [True, False], ids=["changed-sketch", "matching-sketch"])
@@ -149,6 +217,7 @@ def test_an_inspection_sketch_is_written_bound_and_printed_on_its_worksheet(
 
     from test_cli import copy_examples
     from test_process_route import append_op
+    from test_sheet_ops import Markup
 
     import prechips.cli as cli
     import prechips.kernel as kernel
@@ -156,37 +225,63 @@ def test_an_inspection_sketch_is_written_bound_and_printed_on_its_worksheet(
     monkeypatch.setenv("OTEL_SDK_DISABLED", "true")
     plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
     sid, op = append_op(plan, _SKETCHED_OP).split(":")
-    sketch = _png((90, 110, 70))
+    sketch = _png((90, 110, 70), width=1600, height=1024)
+    scene = _inspection_scene()
 
     def render_bundles(bundles):
         for index, bundle in enumerate(bundles):
             facts = {
                 "render_png_base64": base64.b64encode(_png((80, 100, 120))).decode("ascii"),
+                "render_scene": _setup_scene(),
                 "inspection_pngs_base64": {
                     f"{op}:dia": base64.b64encode(sketch).decode("ascii"),
                 },
+                "inspection_scenes": {f"{op}:dia": scene},
             }
             bundles[index] = replace(bundle, kernel={"status": "ok", "setups": {sid: facts}})
         return [bundle.kernel for bundle in bundles]
 
     monkeypatch.setattr(kernel, "run_geometries", render_bundles)
     out = tmp_path / "out"
+    out.mkdir()
+    unrelated = out / "operator-note.png"
+    unrelated.write_bytes(b"operator-owned image")
+    stale = out / "setup-S9-op900-dia.png"
+    stale.write_bytes(_png((30, 60, 90)))
     args = [str(plan), "--out", str(out)]
     assert cli.main(["traveler", *args]) in {0, 2, 4}
     report = json.loads((out / "report.json").read_bytes())
     ordinal = 1 + [s["id"] for s in load_bundle(plan).plan["setups"]].index(sid)
     name = f"setup-S{ordinal}-op{op}-dia.png"
     record = {"path": name, "sha256": hashlib.sha256(sketch).hexdigest()}
-    assert report["renders"][sid]["inspections"] == {f"{op}:dia": record}
+    assert report["renders"][sid]["inspections"] == {f"{op}:dia": {**record, "scene": scene}}
     assert report["inputs"][f"render:{sid}:{op}:dia"] == record
     assert (out / name).read_bytes() == sketch
+    assert not stale.exists()
+    assert unrelated.read_bytes() == b"operator-owned image"
     html = (out / "traveler.html").read_text(encoding="utf-8")
-    # The figure heads the worksheet the check's readings are worked on.
-    worksheet = html[html.index("Take each reading at its step") :]
-    assert worksheet.index(f'<img src="{name}"') < worksheet.index('<ol class="steps">')
+    # Both complete authored views belong once to this check's original worksheet.
+    markup = Markup(html)
+    images = [
+        node
+        for node in markup.nodes
+        if node["tag"] == "image" and node["attrs"].get("href") == name
+    ]
+    assert len(images) == 2
+    owners = []
+    for image in images:
+        owner = image["parent"]
+        while owner is not None and "worksheet" not in owner["attrs"].get("class", "").split():
+            owner = owner["parent"]
+        assert owner is not None
+        assert f"{sid} op {op}" in owner["attrs"]["data-worksheet-title"]
+        owners.append(owner)
+    assert owners[0] is owners[1]
+    windows = [image["parent"]["attrs"]["viewbox"].split() for image in images]
+    assert windows == [["0", "0", "1600", "512"], ["0", "512", "1600", "512"]]
     prior_hash = report["hash"]
     if changed:
-        sketch = _png((70, 110, 90))
+        sketch = _png((70, 110, 90), width=1600, height=1024)
 
     assert cli.main(["check", *args]) in {0, 2, 4}
     report = json.loads((out / "report.json").read_bytes())
@@ -195,6 +290,7 @@ def test_an_inspection_sketch_is_written_bound_and_printed_on_its_worksheet(
     )
     assert (report["hash"] != prior_hash) is changed
     assert (out / name).exists() is not changed
+    assert unrelated.read_bytes() == b"operator-owned image"
 
 
 def test_an_inspection_sketch_is_sent_with_the_cut_it_follows_in_the_route(tmp_path):
@@ -223,19 +319,20 @@ def test_an_inspection_sketch_is_sent_with_the_cut_it_follows_in_the_route(tmp_p
     assert sent()[1]["after"] is None
 
 
-def test_refused_stale_image_deletion_restores_every_prior_output(tmp_path, monkeypatch):
+@pytest.mark.parametrize("stale", ["setup-S2.png", "setup-S2-op50-position_dia.png"])
+def test_refused_stale_image_deletion_restores_every_prior_output(tmp_path, monkeypatch, stale):
     from contextlib import nullcontext
     from pathlib import Path
     from types import SimpleNamespace
 
-    names = ("report.json", "traveler.html", "setup-S1.png", "setup-S2.png")
+    names = ("report.json", "traveler.html", "setup-S1.png", stale)
     prior = {tmp_path / name: f"old {name}".encode() for name in names}
     for path, data in prior.items():
         path.write_bytes(data)
     original_unlink = Path.unlink
 
     def refuse_image(path, *args, **kwargs):
-        if path.name == "setup-S2.png":
+        if path.name == stale:
             raise OSError("Synthetic refusal deleting stale geometry asset")
         return original_unlink(path, *args, **kwargs)
 
@@ -341,3 +438,71 @@ def test_check_after_traveler_removes_stale_assets_and_binds_current_render(
     else:
         assert prior_image.read_bytes() == current_png
     assert not (tmp_path / "traveler.html").exists()
+
+
+@pytest.mark.parametrize("verb", ["traveler", "check"])
+@pytest.mark.parametrize("failure", ["missing-scene", "invalid-raster", "band-gap", "wrong-owner"])
+def test_invalid_inspection_output_is_exit_three_before_any_transaction_write(
+    tmp_path, monkeypatch, verb, failure
+):
+    from copy import deepcopy
+
+    import prechips.cli as cli
+    import prechips.kernel as kernel
+
+    monkeypatch.setenv("OTEL_SDK_DISABLED", "true")
+    bundle, sid, key, scene, _ = _inspection_bundle(tmp_path)
+    facts = bundle.kernel["setups"][sid]
+    if failure == "missing-scene":
+        facts.pop("inspection_scenes")
+    elif failure == "invalid-raster":
+        facts["inspection_pngs_base64"][key] = base64.b64encode(
+            _png((90, 110, 70), width=1600, height=1024, raster_height=1023)
+        ).decode("ascii")
+    elif failure == "band-gap":
+        scene["print_panels"][1]["top_px"] += 1
+    else:
+        facts["inspection_scenes"]["999:dia"] = facts["inspection_scenes"].pop(key)
+    native = deepcopy(bundle.kernel)
+    monkeypatch.setattr(cli, "load_bundle", lambda *args: bundle)
+    monkeypatch.setattr(kernel, "run_geometries", lambda bundles: [bundle.kernel])
+    out = tmp_path / "out"
+    out.mkdir()
+    names = (
+        "report.json",
+        "traveler.html",
+        "setup-S1.png",
+        "setup-S7-op900-dia.png",
+        "operator-note.png",
+    )
+    prior = {name: f"prior {name}".encode() for name in names}
+    for name, data in prior.items():
+        (out / name).write_bytes(data)
+    assert cli.main([verb, str(bundle.paths["plan"]), "--out", str(out)]) == 3
+    assert {path.name: path.read_bytes() for path in out.iterdir()} == prior
+    assert bundle.kernel == native
+
+
+def test_declared_inspection_asset_collision_is_refused_before_kernel_execution(
+    tmp_path, monkeypatch
+):
+    import prechips.cli as cli
+    import prechips.kernel as kernel
+
+    monkeypatch.setenv("OTEL_SDK_DISABLED", "true")
+    bundle, sid, key, _, png = _inspection_bundle(tmp_path)
+    ordinal = 1 + [setup["id"] for setup in bundle.plan["setups"]].index(sid)
+    out = tmp_path / "out"
+    out.mkdir()
+    name = f"setup-S{ordinal}-op{key.replace(':', '-')}.png"
+    image = out / name
+    image.write_bytes(png)
+    bundle.paths["step"] = image
+    monkeypatch.setattr(cli, "load_bundle", lambda *args: bundle)
+
+    def never_run(bundles):
+        pytest.fail("The kernel ran before inspection output/input collision preflight.")
+
+    monkeypatch.setattr(kernel, "run_geometries", never_run)
+    assert cli.main(["traveler", str(bundle.paths["plan"]), "--out", str(out)]) == 3
+    assert {path.name: path.read_bytes() for path in out.iterdir()} == {name: png}

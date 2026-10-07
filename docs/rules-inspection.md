@@ -137,6 +137,10 @@ Unknown identities, bands and capability debts remain `?`; the layout invents
 neither a result nor a gauge. Named authored procedure fields remain distinct
 from freeform areas. An operation-performed mark is progress only,
 separate from inspection acceptance, GO / NO-GO outcomes and clearance to proceed.
+Authored inspection views stay in order as complete titled figures attached once
+to the original requirement's note or worksheet. Continuations retain applicable
+context without duplicating figures or reading/result fields. Moving a figure
+whole changes no inspection method, evidence, unknown or acceptance decision.
 
 ## GO / NO-GO limit checks
 

@@ -762,11 +762,9 @@ class _Diagram:
         """``value`` as the traveler's tables print it (:func:`_dro`)."""
         return _dro(value, self.spec.get("decimals"))
 
-    def __init__(self, meshes, spec, extra=0, lane_extra=None):
-        """``extra``: pixels the footer moves down (the canvas grows by as much) so the
-        label lanes hold every key and the profile sketch its keys and plots; the placed
-        scene keeps its size and place. ``lane_extra`` (default ``extra``) is the part the
-        lanes take: a picture grown for its sketch never spreads its keys into the room."""
+    def __init__(self, meshes, spec, extra=0):
+        """``extra`` grows only the main label lanes and moves their footer; the scene
+        keeps its size and place. Independent sketches own their separate band growth."""
         self.spec = spec
         self.input_meshes = list(meshes)
         self.extra = extra
@@ -801,8 +799,8 @@ class _Diagram:
         # Direction arrows drawn so far: a legend claims "ARROWS" only once one is drawn.
         self.arrows_drawn = 0
         self.returns_drawn = 0
-        # Pixels the profile sketch lacks for its keys and plots: the picture grows by it.
         self.inset_overflow = 0
+        self.width_overflow = 0
         self.shoulders = (
             _radial_steps(spec.get("lathe_profiles", [])) if self.view == "lathe" else []
         )
@@ -879,8 +877,7 @@ class _Diagram:
                 "complete setup panel exceeds the printable Letter height at body size"
             )
         self.dimension_y = self.footer_top - 146
-        lane_extra = extra if lane_extra is None else lane_extra
-        self.lanes = (290, self.footer_top - extra + lane_extra - 140)
+        self.lanes = (290, self.footer_top - 140)
         self.lane_specs = ((32, 360, 410), (1208, 360, 1190))
         self.lane_split = 800
         viewport = (440, 380, 1160, self.scene_bottom)
@@ -1750,7 +1747,7 @@ class _Diagram:
                 for group in groups:
                     part = item.part(group)
                     runs[id(part)] = [heights[i] for i in group]
-                    wrapped[(id(part), side)] = _wrap(c, part.label, lane_specs[side][1], scale=3)
+                    wrapped[(id(part), side)] = _wrap(c, part.label, lane_specs[side][1])
                     items.append(part)
         # A band that can grow (the holding detail) is redrawn taller instead of
         # printing keys past its edge.
@@ -2076,10 +2073,18 @@ class _Diagram:
             paths,
             waypoints,
         )
+        if self.inset_overflow > 0 or self.width_overflow > 0:
+            return
         self._sketch_legend(left, bottom - _TEXT_HEIGHT, before)
         if self.nominal:
-            _text(c, right, bottom - _TEXT_HEIGHT, "FINISHED OUTLINE, THIS SETUP",
-                  _BLUE, align="right")
+            _text(
+                c,
+                right,
+                bottom - _TEXT_HEIGHT,
+                "FINISHED OUTLINE, THIS SETUP",
+                _BLUE,
+                align="right",
+            )
 
     def _sketch_bands(self, width, points, keys):
         """A ``width``-wide sketch's vertical budget: ``(exaggeration lines, key rows
@@ -2091,15 +2096,19 @@ class _Diagram:
         factor = (width - 72) / max(span_x, 1e-9)
         lines = 0
         if 0 < span_y * factor < 24 and span_x * factor >= 60:
-            lines = len(_wrap(self.canvas, "Y EXAG x4", width - 16, scale=3))
+            lines = len(_wrap(self.canvas, "Y EXAG x4", width - 16))
         widths = [_badge_width(self.canvas, label) for label, _ in keys]
         up, down = _band_rows([(x, -y) for _, (x, y) in keys], widths, width - 12)
         return lines, up, down
 
     def _sketch_need(self, width, points, keys):
         """The least height of a sketch laid out by :meth:`_sketch_plot`."""
+        widest = max((_badge_width(self.canvas, label) for label, _ in keys), default=0)
+        self.width_overflow = max(self.width_overflow, widest - (width - 12))
+        if self.width_overflow > 0:
+            return _SKETCH_PLOT_MIN
         lines, up, down = self._sketch_bands(width, points, keys)
-        return 27 * lines + 41 * (up + down) + 12 + _SKETCH_PLOT_MIN
+        return _LEADING * lines + _BADGE_PITCH * (up + down) + 12 + _SKETCH_PLOT_MIN
 
     def _sketch_plot(self, box, points, keys, indent=8):
         """Lay one sketch out in ``box`` ``(left, top, right, bottom)``, at least
@@ -2113,8 +2122,9 @@ class _Diagram:
         bounds = _bounds(points)
         xmin, ymin, xmax, ymax = bounds
         span_x, span_y = xmax - xmin, ymax - ymin
-        band_top = top + 27 * lines
-        plot_top, plot_bottom = band_top + 41 * up + 6, bottom - 41 * down - 6
+        band_top = top + _LEADING * lines
+        plot_top = band_top + _BADGE_PITCH * up + 6
+        plot_bottom = bottom - _BADGE_PITCH * down - 6
         room = max(plot_bottom - plot_top, _SKETCH_PLOT_MIN)
         factor = min((width - 72) / max(span_x, 1e-9), room / max(span_y, 1e-9))
         factor_y = factor
@@ -2124,9 +2134,9 @@ class _Diagram:
             if stretch > 1:
                 factor_y = factor * stretch
                 exaggeration = f"Y EXAG x{_mm(stretch)}"
-                wrapped = _wrap(self.canvas, exaggeration, width - 16, scale=3)
+                wrapped = _wrap(self.canvas, exaggeration, width - 16)
                 for index, line in enumerate(wrapped):
-                    _text(self.canvas, left + indent, top + 27 * index, line, _MUTED)
+                    _text(self.canvas, left + indent, top + _LEADING * index, line, _MUTED)
         centre = ((left + right) / 2, (plot_top + plot_bottom) / 2)
         project = _xy_projector(bounds, centre, (factor, factor_y))
         return (
@@ -2147,11 +2157,11 @@ class _Diagram:
     def _operation_panels(self, left, right, top, bottom, ops, paths, waypoints):
         """Separate authored operations, not every raster pass or curve record."""
         c = self.canvas
-        columns = 2
+        columns = 2 if len(ops) > 1 else 1
         rows = math.ceil(len(ops) / columns)
         width = (right - left - 12 * (columns - 1)) / columns
         heights = self._panel_heights(ops, paths, waypoints, width, bottom - top, columns)
-        if self.inset_overflow > 0 and self.grows_to_fit:
+        if self.inset_overflow > 0 or self.width_overflow > 0:
             return
         tops = [top + sum(heights[:row]) + 12 * row for row in range(rows)]
         palette = (_BLUE, _GREEN, _AMBER, (113, 65, 137))
@@ -2338,6 +2348,8 @@ class _Diagram:
             cells = list(range(len(points)))
         else:
             available, cells = self._grid_cells(points, labels, plot, perimeter)
+        if getattr(self, "inset_overflow", 0) > 0 or getattr(self, "width_overflow", 0) > 0:
+            return []
         placed = []
         for item, label, point, cell in zip(waypoints, labels, points, cells, strict=True):
             badge, outline = available[cell], item.get("outline")
@@ -2374,7 +2386,16 @@ class _Diagram:
             if perimeter
             else max(required_rows, int((span_y + _BADGE_GAP) / _BADGE_PITCH))
         )
-        if cell_width > span_x or rows * cell_height + (rows - 1) * _BADGE_GAP > span_y:
+        if cell_width > span_x:
+            if isinstance(self, _AnnotationDetail):
+                self.width_overflow = max(self.width_overflow, cell_width - span_x)
+                return [], []
+            raise ValueError("point keys exceed their complete geometry panel at print size")
+        overflow = rows * cell_height + (rows - 1) * _BADGE_GAP - span_y
+        if overflow > 0:
+            if isinstance(self, _AnnotationDetail):
+                self.inset_overflow = max(self.inset_overflow, overflow)
+                return [], []
             raise ValueError("point keys exceed their complete geometry panel at print size")
         ys = (
             [top + cell_height / 2 + i * (span_y - cell_height) / (rows - 1) for i in range(rows)]
@@ -2510,6 +2531,11 @@ class _Diagram:
 def _append_panel(diagram, detail, role, label):
     """Append a complete independently laid-out canvas; metadata uses its actual extent."""
     canvas, source = diagram.canvas, detail.canvas
+    if any(
+        getattr(detail, name, 0) > 0
+        for name in ("lane_overflow", "inset_overflow", "width_overflow")
+    ):
+        raise ValueError("an overflowing diagram band cannot be appended")
     if source.width != canvas.width or not 0 < source.height <= _PANEL_MAX_HEIGHT:
         raise ValueError("complete diagram band exceeds its printable width or height")
     top = canvas.height
@@ -2548,6 +2574,8 @@ class _AnnotationDetail(_Diagram):
     def __init__(self, spec, role, main_scale, height):
         super().__init__([], spec)
         self.role = role
+        self.layout_height = height
+        self.lane_overflow = 0
         # Keep the established profile layout reference independent of bitmap height:
         # shortening its unused tail must never refit/recentre the window or local detail.
         self.footer_top = height - 16
@@ -2558,37 +2586,6 @@ class _AnnotationDetail(_Diagram):
         )
         # Shoulder visibility is judged at the main picture's geometry scale.
         self.canvas.scale = main_scale
-        if role == "path_detail":
-            ops = list(
-                dict.fromkeys(
-                    str(p.get("op", "")) for p in spec.get("paths", []) + spec.get("waypoints", [])
-                )
-            )
-            width = (1536 - 12) / 2 if len(ops) > 1 else 1536
-            for op in ops:
-                labels = [
-                    _plain(p["label"])
-                    for p in spec.get("waypoints", [])
-                    if str(p.get("op", "")) == op
-                ]
-                raster = sorted(
-                    p["raster"]["pass"]
-                    for p in spec.get("paths", [])
-                    if str(p.get("op", "")) == op and p.get("raster")
-                )
-                labels += [f"PASS {n}" for n in dict.fromkeys(raster[:1] + raster[-1:])]
-                if not labels:
-                    continue
-                cell = max(_badge_width(self.canvas, label) for label in labels)
-                columns = min(
-                    max(1, int((width - 12 + _BADGE_GAP) / (cell + _BADGE_GAP))),
-                    math.ceil(math.sqrt(len(labels))),
-                )
-                rows = math.ceil(len(labels) / columns)
-                needed = 400 + 2 * _LEADING + _TEXT_HEIGHT + rows * _BADGE_PITCH
-                if needed > self.canvas.height:
-                    self.canvas.grow(needed - self.canvas.height)
-            self.footer_top = self.canvas.height - 16
 
     def _title(self):
         return "JAW-END PROFILE" if self.role == "profile_detail" else "PROFILE SKETCH / XY"
@@ -2596,7 +2593,8 @@ class _AnnotationDetail(_Diagram):
     def render(self):
         if self.role == "profile_detail":
             self._lathe_detail(32, 1568, self.spec.get("lathe_profiles", []))
-            self.canvas.assert_text_layout(min_scale=_BODY_SCALE)
+            if self.width_overflow > 0:
+                return
             # Span coverage includes geometry, tint, samples, circles, backing rectangles,
             # leaders and arrow wings; text boxes also reserve complete character cells.
             content_bottom = max(
@@ -2604,8 +2602,9 @@ class _AnnotationDetail(_Diagram):
                 max((box[4] for box in self.canvas.text_boxes), default=0),
             )
             needed = content_bottom + _PROFILE_BOTTOM_PAD
-            if needed > _PANEL_MAX_HEIGHT:
-                raise ValueError("complete jaw-end profile and key exceed the printable band")
+            self.inset_overflow = max(self.inset_overflow, needed - self.layout_height)
+            if self.inset_overflow > 0:
+                return
             scale = self.canvas.scale
             self.canvas = RenderCanvas([], self.camera, (0, 0, 1, 1), height=needed)
             self.canvas.scale = scale
@@ -2616,7 +2615,25 @@ class _AnnotationDetail(_Diagram):
             self._lathe_detail(32, 1568, self.spec.get("lathe_profiles", []))
         else:
             self._path_inset(32, 1568, 22, self.canvas.height - 24)
+        if self.inset_overflow > 0 or self.width_overflow > 0 or self.lane_overflow > 0:
+            return
         self.canvas.assert_text_layout(min_scale=_BODY_SCALE)
+
+
+def _annotation_detail(spec, role, main_scale, height, colours=None):
+    """Settle the actual detail's measured layout; None means its whole band cannot fit."""
+    while height <= _PANEL_MAX_HEIGHT:
+        detail = _AnnotationDetail(spec, role, main_scale, height)
+        if colours is not None:
+            detail.operation_colours = colours
+        detail.render()
+        if detail.width_overflow > 0:
+            return None
+        overflow = max(detail.inset_overflow, detail.lane_overflow)
+        if overflow <= 0:
+            return detail
+        height += math.ceil(overflow)
+    return None
 
 
 def _annotation_details(spec, main_scale):
@@ -2626,8 +2643,9 @@ def _annotation_details(spec, main_scale):
         or spec.get("axial_paths")
         or any("xz" in p for p in spec.get("waypoints", []))
     ):
-        detail = _AnnotationDetail(spec, "profile_detail", main_scale, 1460)
-        detail.render()
+        detail = _annotation_detail(spec, "profile_detail", main_scale, 1460)
+        if detail is None:
+            raise ValueError("complete jaw-end profile and key exceed the printable band")
         details.append(detail)
     paths = spec.get("paths", [])
     waypoints = [p for p in spec.get("waypoints", []) if "xy" in p]
@@ -2644,16 +2662,14 @@ def _annotation_details(spec, main_scale):
             "paths": [p for p in paths if str(p.get("op", "")) in selected],
             "waypoints": [p for p in waypoints if str(p.get("op", "")) in selected],
         }
-        detail = _AnnotationDetail(local, "path_detail", main_scale, 980)
-        if detail.canvas.height > _PANEL_MAX_HEIGHT:
+        detail = _annotation_detail(local, "path_detail", main_scale, 980, colours)
+        if detail is None:
             if len(selected) == 2:
                 batches[:0] = [[selected[0]], [selected[1]]]
                 continue
             raise ValueError(
                 "one complete authored operation exceeds its printable band at body size"
             )
-        detail.operation_colours = colours
-        detail.render()
         details.append(detail)
     return details
 
@@ -2710,35 +2726,33 @@ def _compose_diagram(diagram, holding_details):
     if hasattr(diagram, "holding_details"):
         raise ValueError("the setup stage has already been composed")
     diagram.annotation_details = _annotation_details(diagram.spec, diagram.canvas.scale)
-    diagram.holding_details = list(holding_details)
+    diagram.holding_details = [d for d in holding_details if not isinstance(d, _GuideView)]
+    diagram.guide_details = [d for d in holding_details if isinstance(d, _GuideView)]
     for detail in diagram.annotation_details:
         _append_panel(diagram, detail, detail.role, detail._title())
     for detail in diagram.holding_details:
         _append_panel(diagram, detail, "holding_detail", detail._title())
+    for detail in diagram.guide_details:
+        _append_panel(diagram, detail, "guide_axis", detail._title())
     diagram.render_debts = [
-        debt for detail in diagram.holding_details for debt in detail.render_debts
+        debt
+        for detail in diagram.holding_details + diagram.guide_details
+        for debt in detail.render_debts
     ] + diagram.render_debts
     diagram.canvas.assert_text_layout(min_scale=_BODY_SCALE)
     return diagram, diagram.canvas.png()
 
 
 def _main_diagram(meshes, spec):
-    """``(diagram, png)``: the setup picture, its footer moved down (the canvas taller)
-    until every key fits its label lane, so no key runs past the divider into the key, and
-    the profile sketch keys every path beside it with room for its plots. The lanes take
-    only the room their keys need."""
-    lane_extra = sketch_extra = 0
+    """Return ``(diagram, png)`` with only the main label lanes measured to fit.
+    Independent annotation insets never consume the setup stage's height."""
+    extra = 0
     while True:
-        extra = max(lane_extra, sketch_extra)
-        diagram = _Diagram(meshes, spec, extra, lane_extra)
-        diagram.grows_to_fit = True
+        diagram = _Diagram(meshes, spec, extra)
         png = diagram.render()
-        if diagram.lane_overflow <= 0 and diagram.inset_overflow <= 0:
+        if diagram.lane_overflow <= 0:
             return diagram, png
-        if diagram.lane_overflow > 0:
-            lane_extra += math.ceil(diagram.lane_overflow)
-        if diagram.inset_overflow > 0:
-            sketch_extra = extra + math.ceil(diagram.inset_overflow)
+        extra += math.ceil(diagram.lane_overflow)
 
 
 def _holding_details(meshes, spec, diagram):
@@ -3019,6 +3033,8 @@ class _HoldingDetail(_Diagram):
         self.render_debts = []
         self._owned = None
         self.meshes = list(meshes)
+        title_rows = len(_wrap(_MEASURE, self._title(), 1536, _TITLE_SCALE))
+        top = max(top, 22 + title_rows * 9 * _TITLE_SCALE + 10 + _LEADING + _BADGE_PITCH)
         self.viewport = _detail_viewport(frame, camera, extra, top)
         self.footer_top = math.ceil(self.viewport[3]) + _BADGE_PITCH + 28
         if self.footer_top > _PANEL_MAX_HEIGHT:
@@ -3333,7 +3349,19 @@ class _GuideView(_HoldingDetail):
         pads = [0.05 * (high[i] - low[i]) + 1.0 for i in range(3)]
         frame = [low[i] - pads[i] for i in range(3)] + [high[i] + pads[i] for i in range(3)]
         meshes = [tuple(mesh) for mesh in guide["meshes"]]
-        super().__init__(meshes, spec, frame, camera, 1.0, (1, 1), extra)
+        # Header space belongs to this view, not to the setup's label lanes.
+        gain = (
+            _fit_scale(_corners(frame), camera, _detail_viewport(frame, camera, extra)) / main_scale
+        )
+        self.camera, self.gain = camera, gain
+        self.title_lines = _wrap(_MEASURE, self._title(), 1536, _TITLE_SCALE)
+        facing = self._facing()
+        if guide.get("section_mm"):
+            facing = "  /  ".join(filter(None, ("SECTION BETWEEN THE RIMS", facing)))
+        self.note_lines = _wrap(_MEASURE, facing, 1534) if facing else []
+        self.note_y = 22 + len(self.title_lines) * 9 * _TITLE_SCALE + 10
+        top = self.note_y + len(self.note_lines) * _LEADING + _BADGE_PITCH + 10
+        super().__init__(meshes, spec, frame, camera, gain, (1, 1), extra, top)
         self.gain = self.canvas.scale / main_scale
         self.nominal = [line for line in spec.get("nominal_outline_mm", []) if len(line) >= 2]
 
@@ -3357,13 +3385,10 @@ class _GuideView(_HoldingDetail):
     def render(self):
         c = self.canvas
         c.line((32, 8), (1568, 8), _INK, width=2)
-        _text(c, 32, 22, self._title(), scale=4)
-        facing = self._facing()
-        if self.spec["guide_view"].get("section_mm"):
-            # The kernel cut the near stop away: the work shows between the rims.
-            facing = "  /  ".join(filter(None, ("SECTION BETWEEN THE RIMS", facing)))
-        if facing:
-            _text(c, 34, 62, facing, _MUTED)
+        for index, line in enumerate(self.title_lines):
+            _text(c, 32, 22 + index * 9 * _TITLE_SCALE, line, scale=_TITLE_SCALE)
+        for index, line in enumerate(self.note_lines):
+            _text(c, 34, self.note_y + index * _LEADING, line, _MUTED)
         self._nominal_overlay(c.project, clip=self.viewport)
         if self.nominal:
             self.callouts.append(
@@ -3467,8 +3492,9 @@ class _GuideView(_HoldingDetail):
 
 
 def render_inspection(views):
-    """``(png, debts)``: an inspection's labelled set-up sketches as one PNG 1600 px wide,
-    a band per view, and the NOT SHOWN lines for what a band could not key truthfully.
+    """``(png, debts, print_panels)``: an inspection's labelled set-up sketches as one
+    canonical PNG 1600 px wide, with a complete authored-view band per print panel and
+    the NOT SHOWN lines for what a band could not key truthfully.
 
     Each view has a ``title`` (wrapped, the band moved down under it); a ``camera``
     [right, up, toward] in the part model's axes, ``up`` pointing up off the surface
@@ -3488,11 +3514,27 @@ def render_inspection(views):
                 break
             extra += math.ceil(band.lane_overflow)
         bands.append(band)
-    canvas = bands[0].canvas
-    for band in bands[1:]:
-        canvas.grow(band.canvas.height)
-        canvas.paste(band.canvas, 0, canvas.height - band.canvas.height)
-    return canvas.png(), [debt for band in bands for debt in band.render_debts]
+    if not bands:
+        raise ValueError("an inspection requires at least one complete authored view")
+    diagram = bands[0]
+    diagram.print_panels = [
+        {
+            "top_px": 0,
+            "height_px": diagram.canvas.height,
+            "role": "inspection",
+            "label": diagram._title(),
+            "view_ordinal": 1,
+        }
+    ]
+    for ordinal, band in enumerate(bands[1:], 2):
+        _append_panel(diagram, band, "inspection", band._title())
+        diagram.print_panels[-1]["view_ordinal"] = ordinal
+    diagram.canvas.assert_text_layout(min_scale=_BODY_SCALE)
+    return (
+        diagram.canvas.png(),
+        [debt for band in bands for debt in band.render_debts],
+        diagram.print_panels,
+    )
 
 
 class _InspectionSketch(_HoldingDetail):
@@ -3503,13 +3545,17 @@ class _InspectionSketch(_HoldingDetail):
     ARROW_PX = 48
     PLUS_PX = 7
 
-    # A title line's pitch at scale 4; a long title wraps and pushes the band down.
-    TITLE_PITCH = 40
+    # The title and reading hint reserve their actual wrapped height at the type floors.
+    TITLE_PITCH = 9 * _TITLE_SCALE
 
     def __init__(self, view, extra=0):
         self.sketch = view
-        self.title_lines = _wrap(_MEASURE, view["title"], 1536, scale=4)
-        self.header = (len(self.title_lines) - 1) * self.TITLE_PITCH
+        self.title_lines = _wrap(_MEASURE, view["title"], 1536, _TITLE_SCALE)
+        note = "+ ARROW: THE WAY A READING RISES (A HIGHER CONTACT READS +)"
+        reads = any(mark.get("reads") for mark in view["marks"])
+        self.note_lines = _wrap(_MEASURE, note, 1534) if reads else []
+        self.note_y = 22 + len(self.title_lines) * self.TITLE_PITCH + 10
+        top = self.note_y + len(self.note_lines) * _LEADING + _BADGE_PITCH + 10
         camera = tuple(tuple(axis) for axis in view["camera"])
         points = [p for mesh in view["meshes"] for p in mesh[0]]
         points += [mark["at_mm"] for mark in view["marks"]]
@@ -3518,17 +3564,18 @@ class _InspectionSketch(_HoldingDetail):
         pads = [0.08 * (high[i] - low[i]) + 1.0 for i in range(3)]
         frame = [low[i] - pads[i] for i in range(3)] + [high[i] + pads[i] for i in range(3)]
         spec = {"view": "elevation", "components": [], "stock_box": frame, "contacts": []}
-        super().__init__(view["meshes"], spec, frame, camera, 1.0, (1, 1), extra, 100 + self.header)
+        super().__init__(view["meshes"], spec, frame, camera, 1.0, (1, 1), extra, top)
+
+    def _title(self):
+        return self.sketch["title"]
 
     def render(self):
         c = self.canvas
         c.line((32, 8), (1568, 8), _INK, width=2)
         for index, line in enumerate(self.title_lines):
-            _text(c, 32, 22 + index * self.TITLE_PITCH, line, scale=4)
-        reads = any(mark.get("reads") for mark in self.sketch["marks"])
-        if reads:
-            note = "+ ARROW: THE WAY A READING RISES (A HIGHER CONTACT READS +)"
-            _text(c, 34, 62 + self.header, note, _MUTED)
+            _text(c, 32, 22 + index * self.TITLE_PITCH, line, scale=_TITLE_SCALE)
+        for index, line in enumerate(self.note_lines):
+            _text(c, 34, self.note_y + index * _LEADING, line, _MUTED)
         self._plate()
         for tag, name in self.sketch["aids"]:
             pixels = [c.project(p) for mesh in self.meshes if mesh[4] == tag for p in mesh[0]]
