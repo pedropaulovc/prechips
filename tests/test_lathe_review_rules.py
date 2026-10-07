@@ -199,6 +199,51 @@ def test_relief_plunges_wider_than_the_drawing_width_band_are_refused():
     assert narrow["corner_z_mm"] == [0.0] and narrow["width_mm"] == pytest.approx(1.6)
 
 
+@pytest.mark.parametrize(
+    ("checks", "z_to", "band", "groove"),
+    [
+        # Inspected for Ø and plunged over its own Z window: the row's inspection cell
+        # and Z window already print both, so the plunge lines add neither.
+        ({"dia": "caliper"}, 2.0, False, False),
+        # Not inspected for Ø in this op: the band rides with the plunge diameter.
+        ({}, 2.0, True, False),
+        # A blade wider than the authored span leaves a groove beyond the row's window.
+        ({"dia": "caliper"}, 1.0, False, True),
+    ],
+)
+def test_a_relief_row_prints_its_band_and_groove_extent_once(checks, z_to, band, groove):
+    from prechips.sheet import _Traveler
+
+    op = {"op": 50, "do": "form_relief", "feature": "relief", "tool": "blade"}
+    op.update(z_from=0.0, z_to=z_to, direction="plunge_radial", checks=checks)
+    tools = {"blade": _blade()}
+    bundle = _lathe([op], {"relief": dict(_RELIEF)}, tools, zero=_scribe_touch("chuck_side"))
+    sheet = _Traveler(bundle, [], {}, None)
+    setup = sheet.setup = bundle.plan["setups"][0]
+    sheet.records[("coordinates", "S1")] = coordinates.evaluate(bundle)[0].numbers
+    printed = sheet.relief_plunges(setup, op)
+    assert any(line.startswith("to Ø 5.700") or "each to Ø 5.700" in line for line in printed)
+    assert any("(5.57" in line for line in printed) is band, printed
+    assert any(line.startswith("groove Z") for line in printed) is groove, printed
+
+
+@pytest.mark.parametrize(("dia", "radial"), [(6.35, "3.18"), (6.33, "3.17"), (2.25, "1.13")])
+def test_a_half_way_travel_rounds_up_on_a_coarser_dro(dia, radial):
+    # Parting Ø6.35 to the axis plunges 3.175 radial; a 0.01 DRO prints that 3.18, the
+    # same as the hand rounding of half the drawing diameter, never a float's 3.17.
+    from prechips.sheet import _Traveler
+
+    op = {"op": 10, "do": "part_off", "feature": "relief", "tool": "blade", "to_z": 0.0}
+    bundle = _lathe([op], {"relief": dict(_RELIEF)}, {"blade": _blade()})
+    bundle.inventory["machines"]["lathe"]["resolution_mm"] = 0.01
+    sheet = _Traveler(bundle, [], {}, None)
+    setup = sheet.setup = bundle.plan["setups"][0]
+    sheet.records[("coordinates", "S1")] = {"x_display": "diameter"}
+    sheet.records[("reach", "S1:10")] = {"reach_depth_mm": dia / 2}
+    (line,) = sheet.plunge_x(setup, op)
+    assert line.endswith(f"→ 0.00 ({radial} radial)"), line
+
+
 _DOME = {"kind": "dome", "frame": "model", "height": [0.7, 2.3], "sphere_radius": 4.1102}
 _AR = {
     "kind": "turning_tool",
@@ -563,7 +608,9 @@ def test_an_inch_relief_is_plunged_in_millimetres_and_printed_in_inches():
         "plunge 1 chuck-side corner Z 0.000",
         "plunge 2 chuck-side corner Z 0.016",
     ]
-    assert printed[3] == "groove Z 0.000 to 0.079"
+    # The groove is the row's own Z window, printed there in inches.
+    assert "Z 0.000 → 0.079" in sheet.tip(setup, op)
+    assert not any(line.startswith("groove Z") for line in printed), printed
 
 
 def test_an_inch_dome_stair_keeps_half_the_millimetre_allowance_off_the_sphere():

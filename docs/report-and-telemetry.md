@@ -289,10 +289,21 @@ the setup that receives that stock, supply notes and a setup → machine → hol
 table, machines by display name: an inventory `name`, a maker's model number,
 or else the machine kind, never an inventory slug) and **DRAWING
 REQUIREMENTS** (feature → limits, ending with the drawing's edge break printed
-once for the job as `all edges`; a stock thickness prints only when no feature
-carries a thickness limit). Authored values keep their digits (a 1.9875 mm
-pin, a 0.0254 mm runout limit); only computed numbers are cut to DRO
-resolution.
+once for the job as `all edges`; two features on the same model faces carrying
+the same known limits and nominal print them once on one row naming both,
+`strap faces / strap (datum B)` — a shared citation or equal numbers alone never
+merge rows, nor does an unknown limit, nor a band whose nominal is unknown or
+omitted; a stock thickness prints only when no
+feature carries a thickness limit). Authored values keep their digits (a 1.9875
+mm pin, a 0.0254 mm runout limit, `allowed -1234.5675 to -1234.5671`); only
+computed numbers are cut to DRO
+resolution. A drawing limit printed at the drawing's precision rounds inward,
+never looser: a band's low limit up and high limit down, a zone or maximum
+(position, coaxiality, angularity, Ra, the edge break) down (`position Ø 0.045`
+at two places prints 0.04) and to more places rather than to nothing; a band too
+narrow for that precision, or with one limit unknown, prints each known limit
+exactly as declared, every digit it holds (`?–1234.567` at three places, never
+`?–1234.57`).
 
 Each setup then prints as one **front sheet** to run the setup from, followed
 by attached sheets the front sheet points to. Every sheet starts on a new
@@ -312,8 +323,12 @@ stay with what follows, also when the heading opens a sheet and its first block
 is a row of contours; the sign-off stays with the last op row; a table that
 runs over is split into a copy with the same column headings, leaving at least
 three rows on each page: rows carry over to the next page, and a table too short
-for that moves whole with its heading, never shrinking the type), opens every page
-after a sheet's first with `SETUP S2 — sheet 3 (continued) · page 2 of 3`, and
+for that moves whole with its heading, never shrinking the type; a table other
+than the op table whose last page would hold under half its rows splits at its
+middle instead when the rest then fits on one page, so its closing rows never
+stand alone; a heading's lead-in line stays with the block it introduces),
+opens every page after a sheet's first with `SETUP S2 — sheet 3 (continued) ·
+page 2 of 3`, and
 adds a `This side intentionally blank — SETUP S2 sheet 1 back` page after any
 sheet with an odd page count, the job page included. Every sheet therefore
 starts on a front side, and a single-page front sheet has a blank back. Contour
@@ -361,14 +376,20 @@ Front sheet (sheet 1), in this order:
    directions, then one row per axis — what to touch
    or pick up (tool, side, paper or edge-finder radius), the Axis Set value, a
    check jog, the value the display must read and the value it would read if
-   the axis were reversed — plus re-indicate and tool-change touch-offs. On a
+   the axis were reversed — plus re-indicate and tool-change touch-offs (several
+   changes to one touch print once, naming their ops: `Tool changes before ops
+   20, 30 and 40: install the op's tool (the T number in its row), then …`; the
+   tools themselves stay in the TOOLS table and the op rows). On a
    mill, an X or Y check jog from a side pickup would carry the finder over the
    work, so the sheet prints the check as steps: raise Z only, until the finder
    or indicator clears the work and everything clamped to it (checked by eye
    across the top); jog the table the printed distance and read it; jog back
    until the display shows the Axis Set value again, then lower. The picked-up
-   value is never set again. A lathe check jogs away from the work and has no
-   raise step. An edge-finder pick-up row names the **EDGE FINDER** box, which
+   value is never set again. The steps' lead-in line never ends a page without
+   them. A lathe check jogs away from the work and has no raise step. A lathe X
+   set from a trial cut (the zero's or a tool change's) reads `take a light trial
+   cut, withdraw along Z without moving X, stop the spindle, measure the
+   diameter`. An edge-finder pick-up row names the **EDGE FINDER** box, which
    prints once per finder and mill, in the DRO ZERO of the first setup picking
    up with it on that mill ([inventory](inventory.md#edge-finder)): the speed
    bands where the mill's ranges turn the finder (never a speed between them),
@@ -377,13 +398,21 @@ Front sheet (sheet 1), in this order:
    names `EDGE FINDER box, Setup S1 sheet 1`. A missing or unknown finder or
    spindle fact prints `STOP:`.
 6. **OPERATIONS**: op, action with depth of cut, feature, `T#` tool, rpm, feed,
-   Z target, cut direction and `limit: gauge` inspection. Lathe feed prints as
+   Z target, cut direction and `limit: gauge` inspection. A lathe table with any
+   op measured in the chuck adds to its heading `measure only with the spindle
+   stopped and the tool withdrawn`. Lathe feed prints as
    `mm/rev` with the resulting `mm/min` in brackets; mill and saw feeds print in
    `mm/min`. Crash-relevant numbers (jaw front within 3 mm of a tool stop, dead
    centre at the work end, tool tip within 3 mm of the jaw top) and per-op STOP
    or CAUTION findings print as boxed lines under the op row, followed by the
    op's own note (and the tip-depth derivation) on its own line and, for a
-   contour op, `See contour table on S2 sheet 3`. An inspection procedure is
+   contour op, `See contour table on S2 sheet 3`. A blade relief's Z cell gives
+   each plunge's corner Z and the diameter it plunges to; the groove's extent
+   prints only where it differs from the row's own Z window, and the diameter's
+   drawing limits only when the inspection cell does not carry them. A computed
+   number printed at fewer decimals than it holds rounds half-way values up
+   (3.175 at two places is 3.18); a drawing limit rounds inward (DRAWING
+   REQUIREMENTS above). An inspection procedure is
    cited as `[S2 sheet 2 note 1]`. An op row with its boxed lines and note
    never splits across the front and back. A setup whose ops are all bench
    steps (`inspect`, `deburr`, `coating`, `fit`, `scribe`, `release`, hand
@@ -424,7 +453,9 @@ and inspection notes*):
    when `dro.radius_mode` is not stated), and the Z the setup's cuts start
    and end at. Mill: feature, the reference point the X/Y/Z stand on (hole or boss
    axis, arc centre, face; at the entry or exit face, or on the Z0 surface), then
-   X / Y / Z. An aimed target adds one line: where to machine it, its offset from
+   X / Y / Z. A face square to setup Z is left off (its centre is no DRO stop and
+   its Z is the op row's) unless it carries an aim; a map with no row left is not
+   printed. An aimed target adds one line: where to machine it, its offset from
    the drawing nominal and the band to inspect it to. Feature locations, not tool
    tips.
 4. **INSPECTION NOTES**: numbered inspection procedures, each starting with its
@@ -443,7 +474,9 @@ the nose compensation is known; otherwise it says the nose radius compensation
 is not computed. A table the kernel clipped at the op's stock-removal bounds
 names the printed point it starts or stops at (`stops at P7: the stock past it
 is outside this op's area`). Long contour tables may run onto more pages
-("paper is cheap"); every block still names its setup.
+("paper is cheap"); every block still names its setup. A move number and each
+depth level's completion box with its `level k of N` print whole on one line,
+however narrow the block.
 
 Worksheets, one sheet each after the contours (`SETUP S11 — sheet 4 of 4:
 worksheet, S11 op 110 angularity Ø`): the numbered steps, each naming the reading
