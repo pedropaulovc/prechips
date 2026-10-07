@@ -26,7 +26,11 @@ geometry rules `?`. See [geometry rules](rules-geometry.md).
 
 Use `[[setups]]` and `[[setups.ops]]`. `stock_state` records received surfaces in
 the setup frame; `local_thickness` is per hole, not the whole bar thickness.
-`top_feature` identifies the touched face that facing advances. `entry_z` permits
+`top_feature` identifies the touched face that facing advances; `top_z` is then
+that feature's +Z face. `bottom_feature` likewise names the seated face: `bottom_z`
+is that feature's -Z face. The kernel gives each named face's height and the
+entering stock's over it, and [consistency](rules-setup.md#consistency) compares
+them with `top_z` / `bottom_z`. `entry_z` permits
 a separate local entry surface. `zero.transfer` describes a pickup from another
 setup, and `tool_touches` explicitly records tool changes. Neither invents a
 measured trial-cut diameter.
@@ -683,6 +687,7 @@ assembly. See [in-process stock](rules-geometry.md#in-process-stock).
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
 | `top_feature` | `str` |
+| `bottom_feature` | `str` |
 | `note` | `str` |
 | `top_z` | `float` |
 | `bottom_z` | `float` |
@@ -815,7 +820,8 @@ of part inside the jaws and `jaw_above_parallels_mm` the jaw plate standing
 above the stock seat (support tops, or the bed without a lifting support).
 HOLD prints it and, from the same fields, `work top above jaw tops mm`
 (`stock_state.top_z` less the seated bottom, `retained_rail_bottom_z` when lower,
-and this height; `?` when any of them is unknown). A note in this hold must not
+and this height; `?` when any of them is unknown, or when this height or the
+parallels are not inputs the kernel accepts below). A note in this hold must not
 give heights from the jaws: give them as Z values
 ([consistency](rules-setup.md#consistency)).
 An explicit `parallels = "none"` or `"not_applicable"` means known zero parallel

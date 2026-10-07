@@ -166,7 +166,7 @@ Stock = record(
 StockState = record(
     "StockState",
     {
-        **texts("top_feature note"),
+        **texts("top_feature bottom_feature note"),
         **numbers(
             "top_z bottom_z retained_rail_bottom_z od_mm north_end_z south_end_z plain_end_z"
         ),

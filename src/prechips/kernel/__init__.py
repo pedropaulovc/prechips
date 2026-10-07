@@ -1138,6 +1138,18 @@ def build_job(bundle):
                 # measures their faces of revolution about setup Z in any setup (a turning
                 # setup measures every feature) so the axis through X0 Y0 can locate them.
                 "locate_revolved": revolved_located(setup, bundle.feature_definitions),
+                # The features whose faces stock_state's top_z / bottom_z name: the engine
+                # gives their heights and the entering stock's over them (consistency).
+                "stock_features": sorted(
+                    {
+                        name
+                        for name in (
+                            record(setup.get("stock_state")).get(key)
+                            for key in ("top_feature", "bottom_feature")
+                        )
+                        if isinstance(name, str) and name not in ("", UNKNOWN)
+                    }
+                ),
             }
         )
     aimed = faced_aims(bundle)
@@ -1366,6 +1378,7 @@ def engine_job(job):
                 "machine_kind": setup["machine_kind"],
                 "locate_revolved": setup["locate_revolved"],
                 "render": setup.get("render", {}),
+                "stock_features": setup.get("stock_features", []),
             }
             for setup in job["setups"]
         ],

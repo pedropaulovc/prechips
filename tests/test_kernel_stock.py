@@ -167,6 +167,7 @@ def _host_only(bundle):
     yield "op reason", lambda: bundle.inventory["tools"]["em"].update(oal_mm="unknown")
     yield "holder grip", lambda: bundle.inventory["holders"]["holder"].update(grip_mm=12.0)
     yield "stock material", lambda: bundle.plan["stock"].update(material="6061")
+    yield "stock top_z", lambda: setup.setdefault("stock_state", {}).update(top_z=20.0)
     yield "tool metadata verification", lambda: bundle.inventory["tools"]["em"].update(verify=True)
     yield (
         "holder source verification",
@@ -200,6 +201,15 @@ def _consumed(bundle):
     bounds = {"x": [0.0, 30.0], "y": [0.0, 40.0], "z": [5.0, 20.0]}
     yield "op stock_removal_bounds", lambda: setup["ops"][0].update(stock_removal_bounds=bounds)
     yield "bounds span", lambda: bounds.update(z=[6.0, 20.0])
+    # The named faces' heights are engine facts, so naming another face reruns it.
+    yield (
+        "stock top_feature",
+        lambda: setup.setdefault("stock_state", {}).update(top_feature="pocket"),
+    )
+    yield (
+        "stock bottom_feature",
+        lambda: setup.setdefault("stock_state", {}).update(bottom_feature="seat"),
+    )
 
 
 def test_host_only_edits_reuse_the_cache_and_consumed_edits_rerun(tmp_path, monkeypatch):
@@ -344,6 +354,80 @@ def test_later_setup_sees_material_an_earlier_setup_removed(engine, solids):
     assert second["stock_volume_mm3"] == pytest.approx(48000.0 - 30 * 40 * 10)
     assert second["render_png_base64"] and "stock_reason" not in second
     assert result["ops"]["S2:10"]["tool_hits"] == finished
+
+
+def test_a_named_face_reports_its_height_and_the_entry_stock_over_it(engine, solids):
+    step = solids["step"]
+    features = {
+        "floor": engine.refs(step, (30, 0, 10), (60, 40, 10)),
+        "base": engine.refs(step, (0, 0, 0), (60, 40, 0)),
+        "wall": engine.refs(step, (30, 0, 10), (30, 40, 20)),
+    }
+    assert all(len(refs) == 1 for refs in features.values())
+    named = {"stock_features": sorted(features)}
+    setups = [
+        {**_setup("S1", [_floor_op("S1:10")]), **named},
+        {**_setup("S2", [_floor_op("S2:10")]), **named},
+    ]
+    rows = engine.run(engine.job(step, features, setups))["setups"]
+    first, second = rows["S1"]["stock_faces_mm"], rows["S2"]["stock_faces_mm"]
+    # S1 receives the raw block, 10 mm of stock over the floor; S2 receives it cut.
+    assert first["floor"]["up"] == {"face_z": 10.0, "stock_z": 20.0}
+    assert second["floor"]["up"] == {"face_z": 10.0, "stock_z": 10.0}
+    assert first["base"]["down"] == second["base"]["down"] == {"face_z": 0.0, "stock_z": 0.0}
+    # Only a horizontal face has a height: a side the feature lacks says why.
+    assert set(first["floor"]["down"]) == {"reason"} and set(first["wall"]["up"]) == {"reason"}
+    assert (
+        "stock_faces_mm"
+        not in engine.run(engine.job(step, features, [_setup("S1", [])]))["setups"]["S1"]
+    )
+
+
+def _thru_drill(subject, radius):
+    return {
+        **_op(subject, "hole", radius, 25.0, 30.0),
+        "do": "drill",
+        "hole": {"thru": True, "entry_z_mm": 10.0, "point_angle_deg": 118.0},
+    }
+
+
+def test_a_face_keeps_its_height_when_an_oversize_hole_shaves_its_edge(engine, solids):
+    # An R2.1 drill through the R2 hole of the faced floor takes a 0.1 mm ring from the
+    # floor and the base, as a reamer over the drawn bore does; both faces remain.
+    step = solids["step-hole"]
+    features = {
+        "floor": engine.refs(step, (30, 0, 10), (60, 40, 10), kind="Plane"),
+        "base": engine.refs(step, (0, 0, 0), (60, 40, 0), kind="Plane"),
+        "hole": engine.refs(step, (34, 18, 0), (38, 22, 10), kind="Cylinder"),
+    }
+    assert all(len(refs) == 1 for refs in features.values())
+    face = {**_floor_op("S1:10"), "do": "face"}
+    setups = [
+        _setup("S1", [face, _thru_drill("S1:20", 2.1)]),
+        {**_setup("S2", []), "stock_features": ["base", "floor"]},
+    ]
+    faces = engine.run(engine.job(step, features, setups))["setups"]["S2"]["stock_faces_mm"]
+    assert faces["floor"]["up"] == {"face_z": 10.0, "stock_z": 10.0}
+    assert faces["base"]["down"] == {"face_z": 0.0, "stock_z": 0.0}
+
+
+def test_a_face_the_entering_stock_has_lost_has_no_height(engine, solids):
+    # The R3 drill through the R2 neck removes the whole ring over the z8.5 shoulder.
+    step = solids["neck"]
+    features = {
+        "shoulder": engine.refs(step, (33, 17, 8.5), (39, 23, 8.5), kind="Plane"),
+        "hole": engine.refs(step, (34, 18, 8.5), (38, 22, 10), kind="Cylinder"),
+    }
+    assert all(len(refs) == 1 for refs in features.values())
+    named = {"stock_features": ["shoulder"]}
+    setups = [
+        {**_setup("S1", [_thru_drill("S1:10", 3.0)]), **named},
+        {**_setup("S2", []), **named},
+    ]
+    rows = engine.run(engine.job(step, features, setups, stock=PART))["setups"]
+    assert rows["S1"]["stock_faces_mm"]["shoulder"]["down"] == {"face_z": 8.5, "stock_z": 8.5}
+    lost = rows["S2"]["stock_faces_mm"]["shoulder"]["down"]
+    assert set(lost) == {"reason"} and "does not carry" in lost["reason"]
 
 
 def test_to_z_web_and_unclaimed_rails_stay_in_the_next_setup(engine, solids):
