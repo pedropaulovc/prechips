@@ -2289,18 +2289,15 @@ name = "1/4 in drive torque wrench"
 kind = "torque_wrench"
 note = "illustrative example item: 1/4 in square-drive click torque wrench, 2-24 N·m (example range, not measured), with 10 mm and 9/16 in sockets"
 
-# DataBracket7 (r7): hand-tapping kit for the S4 angle-plate ledge screws (#10-32 tapped
-# through the cast-iron upright from a #21 drill; Machinery's Handbook 27th ed. Table 4,
-# p.1934). Cast iron is tapped dry (p.1147).
+# DataBracket7 (r7): #10-32 tap for the S4 angle-plate ledge screws (tapped through the
+# cast-iron upright from a #21 drill; Machinery's Handbook 27th ed. Table 4, p.1934).
+# Cast iron is tapped dry (p.1147). It is turned in ShopKit7's T-handle tap wrench
+# tools.tap-wrench-t-1-16-1-4 (taps #0-1/4 in). #10-32 is UNF, kept by the r7 thread
+# ruling, so the UNC set tools.taps-unc-hand does not cover it.
 [tools.tap-10-32]
 name = "#10-32 UNF plug tap"
 kind = "tap"
 note = "illustrative example item: #10-32 UNF HSS plug tap, 3 flutes, H3 limit, 0.194 in shank with square drive"
-
-[tools.tap-wrench]
-name = "T-handle tap wrench"
-kind = "tap_wrench"
-note = "illustrative example item: ratcheting T-handle tap wrench for taps #0-1/4 in"
 
 # A thin outline template the rocker's top edge and bottom arc are scribed from: it
 # drops over the ground shoulder-screw head (coaxial with bore A) in the S4 fixture.
