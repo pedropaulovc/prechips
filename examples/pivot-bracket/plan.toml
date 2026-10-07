@@ -230,7 +230,7 @@ jaw_above_parallels_mm = 13.1953
 clamp = "hand plus quarter turn, then tap the bar down onto the parallels with a soft hammer" # AUTHOR'S CHOICE: seat the raw side before the first face
 parallels_along = "x"
 parallels_centres_mm = [[17.1, 0.5], [17.1, 25.7]] # AUTHOR'S CHOICE: under both edges of the bar
-note = "Bar flat on 1-1/4 in parallels, left side up; it stands 5.3 mm above the jaws. Face the left side just enough to clean up: it is the reference face for every later setup."
+note = "Bar flat on 1-1/4 in parallels, left side up; the raw bar stands 5.855 mm above the jaw tops, and the faced left side 5.33 mm. Face the left side just enough to clean up: it is the reference face for every later setup."
 
 [setups.zero.x]
 edge = "sawn crown end"
@@ -1068,7 +1068,7 @@ clamp = "fit the two bridge studs through the upright at Setup X +/-20, with the
 grip_mm = "not_applicable"       # bridge contact, not vise jaws
 jaw_above_parallels_mm = "not_applicable"
 stop = "Rest the foot free end on the bolted plate ledge at Setup Z -24.2, which carries the downward facing and drilling load; align the finished left foot edge at Setup X -8 before clamping."
-note = "Recheck the seat lip with the DTI after full torque. Before the X/Y pickups, touch the stationary edge finder on the raw outer face (Z +1) with paper for a preliminary Z. Raise above Z +5 before every traverse between pickups."
+note = "Recheck the seat lip with the DTI after full torque. Before the X/Y pickups, touch the stationary edge finder on the raw outer face (Z +1) with paper for a preliminary Z. For the final Z touch, look along X before lowering: the end mill must overhang the plate side of the seat and stand clear of the raised ear; a touch on the ear reads 1 mm high. Raise above Z +5 before every traverse between pickups."
 
 [setups.zero.transfer]
 from = "S3"
@@ -1093,10 +1093,10 @@ check_jog_mm = 10.0              # author's choice
 [setups.zero.z]
 # AUTHOR'S CHOICE: Z0 is touched on the foot's outer end that S1 op 30 finished, not on the
 # raw ear 1 mm above it, because then op 10 faces the ear down to exactly that plane and the
-# 24.2 mm foot length S1 checked is never cut again. The cutter centre at Y -1 keeps its
-# 4.76 mm radius clear of the raw ear (Y -6 and beyond); the overhang past Y0 is 2 mm above
-# the plate top.
-face = "finished foot outer end at X 0, Y -1, beside the raw ear (S1 op 30)"
+# 24.2 mm foot length S1 checked is never cut again. The cutter centre at Y +1.5 puts 4.26 mm
+# of its Ø9.525 face on the foot end (Y 0..-6) and keeps its edge 2.74 mm clear of the raw ear
+# (Y -6 and beyond); the overhang past Y0 is 2 mm above the plate top (review DataBracket5-2).
+face = "finished foot outer end, cutter centre at X 0, Y +1.5 (cutter edge 2.74 mm clear of the raw ear at Y -6; it overhangs the plate side, 2 mm above the plate top) (S1 op 30)"
 edge_mm = 0.0
 method = "paper"
 paper_mm = 0.05                  # author's choice
