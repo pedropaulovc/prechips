@@ -28,6 +28,7 @@ from prechips.rules.coordinates import (
 from prechips.rules.resolution import (
     HAND_FINISH,
     UNKNOWN,
+    identity,
     length_mm,
     number,
     record,
@@ -98,11 +99,15 @@ def _template(bundle, reference, radius, role, errors, debts):
     return {"ref": reference, "range_mm": span if span else UNKNOWN}
 
 
-def _held(setup, kit):
-    """Whether ``kit`` is this setup's hold fixture or one of its clamps."""
+def _held(bundle, setup, kit):
+    """Whether ``kit`` is this setup's hold fixture or one of its clamps: the item each
+    selects (:func:`identity`), however each spells it."""
     hold = record(setup.get("hold"))
     clamps = hold.get("clamps") if isinstance(hold.get("clamps"), list) else []
-    return kit == hold.get("fixture") or any(record(c).get("ref") == kit for c in clamps)
+    held = [(hold.get("fixture"), "workholding")]
+    held += [(record(clamp).get("ref"), "fixtures") for clamp in clamps]
+    key = identity(bundle, kit, "fixtures")
+    return any(ref is not None and identity(bundle, ref, slot) == key for ref, slot in held)
 
 
 # The filing-button stack between the rim and the bore axis, each element's declared
@@ -126,7 +131,7 @@ def _buttons(bundle, setup, op, guide, layout, band, scale, errors, debts):
     if not isinstance(item, dict) or item.get("kind") != BUTTON_KIND:
         debts.append(f"filing buttons {kit} are not a filing_buttons kit in the fixtures inventory")
         return record_
-    if not _held(setup, kit):
+    if not _held(bundle, setup, kit):
         debts.append(f"filing buttons {kit} are not in setup {setup['id']}'s hold")
     for stem, key, _ in _STACK:
         record_[key] = nominal_limits_mm(item, stem)

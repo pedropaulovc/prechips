@@ -52,7 +52,15 @@ import re
 from prechips.clamp_labels import clamp_labels
 from prechips.findings import Finding
 from prechips.rules.level_entry import STOCK_TOL_MM
-from prechips.rules.resolution import MANUAL, UNKNOWN, number, record, resolve, tool_numbers
+from prechips.rules.resolution import (
+    MANUAL,
+    UNKNOWN,
+    identity,
+    number,
+    record,
+    resolve,
+    tool_numbers,
+)
 
 _HOLD_TEXTS = ("stop", "grip_on", "clamp", "locate", "note")
 _ZERO_TEXTS = frozenset({"edge", "face", "method", "measure", "x_method", "note", "recovery"})
@@ -175,12 +183,14 @@ def _hand_tight(hold):
 
 
 def _incomplete(bundle, setup):
-    """Whether a cutting op the TOOLS table would number has no tool chosen yet."""
+    """Whether a cutting op the TOOLS table would number has no tool chosen yet (a lathe's
+    numbering spans every setup on that machine, by :func:`identity`)."""
     lathe = record(resolve(bundle, "machines", setup.get("machine"))).get("kind") == "lathe"
+    machine = identity(bundle, setup.get("machine"), "machines")
     setups = [
         s
         for s in bundle.plan.get("setups", [])
-        if s is setup or (lathe and s.get("machine") == setup.get("machine"))
+        if s is setup or (lathe and identity(bundle, s.get("machine"), "machines") == machine)
     ]
     return any(
         op.get("do") not in MANUAL and op.get("tool") in (None, UNKNOWN)
@@ -215,8 +225,8 @@ def _tool_claims(bundle, setup, texts, frames):
                 )
                 if m
             ]
-            reference = by_label[label][0]
-            actual = record(resolve(bundle, "tools", reference)).get("flutes")
+            category, reference = by_label[label][0]
+            actual = record(resolve(bundle, category, reference)).get("flutes")
             for flutes in bound:
                 if not (isinstance(actual, int) and not isinstance(actual, bool)):
                     unchecked.append(f"{label} ({reference}) has no inventory flute count")

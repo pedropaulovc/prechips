@@ -234,12 +234,12 @@ def centre_tool(bundle, op: dict) -> dict:
     accepted facts and ``measurements`` the debt behind each unaccepted one.
     """
     from prechips.measurements import angle_fact, length_fact, measurement_entry
-    from prechips.rules._envelope import measurement_item
+    from prechips.rules._envelope import selected_item
     from prechips.rules.resolution import LENGTH_TOLERANCE_MM, resolve, same_length, uncertain
 
     process = process_of(bundle.feature_definitions.get(op.get("feature"))) or {}
     reference = op.get("tool", UNKNOWN)
-    item = measurement_item(bundle, "tools", reference)
+    category, tool_key, item = selected_item(bundle, "tools", reference)
     resolved = resolve(bundle, "tools", reference)
     errors, unknown, measurements, tool = [], [], [], {}
     if not resolved:
@@ -253,7 +253,7 @@ def centre_tool(bundle, op: dict) -> dict:
         if not fact["verified"]:
             unknown.append(f"tool {reference!r} {field} is not accepted: {fact['reason']}")
             if item:
-                measurements.append(measurement_entry("tools", reference, field))
+                measurements.append(measurement_entry(category, tool_key, field))
     for key in ("drill_dia_mm", "drill_length_mm", "countersink_angle_deg"):
         declared, own = process.get(key, UNKNOWN), tool[key]
         if not _number(declared):

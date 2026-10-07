@@ -22,8 +22,7 @@ from prechips.rules.geometry_common import (
 )
 from prechips.rules.resolution import (
     HAND_FINISH,
-    WORKHOLDING_CATEGORIES,
-    inventory_category,
+    identity,
     number,
     record,
     resolve,
@@ -1000,10 +999,12 @@ def _supports_inputs(bundle, setup, hold, result, debts, gaps):
     supports = hold.get("supports")
     values = supports if isinstance(supports, list) else [supports]
     drawn = record(result.get("riser")).get("name")
+    # The riser drawn from ``supports`` is that item however the entry spells it.
+    riser = identity(bundle, drawn, "fixtures") if drawn is not None else None
     follow, steady = [], []
     for value in values:
         reference = record(value).get("ref", UNKNOWN) if isinstance(value, dict) else value
-        if reference in _ABSENT or reference == drawn:
+        if reference in _ABSENT or identity(bundle, reference, "fixtures") == riser:
             continue
         if isinstance(value, dict) and ("jaw_lead_mm" in value or "at_z_mm" in value):
             item = measurement_item(bundle, "fixtures", reference) if reference != UNKNOWN else {}
@@ -1033,8 +1034,7 @@ def _supports_inputs(bundle, setup, hold, result, debts, gaps):
 
 def hold_inputs(bundle, setup):
     hold = record(setup.get("hold"))
-    category = inventory_category(bundle, hold.get("fixture"), WORKHOLDING_CATEGORIES)
-    fixture = measurement_item(bundle, category, hold.get("fixture")) if category else {}
+    fixture = measurement_item(bundle, "workholding", hold.get("fixture"))
     kind = record(fixture).get("kind", UNKNOWN)
     result = {"kind": kind, "method": hold.get("method", UNKNOWN)}
     # Scene-only debts (supports below the seat) and gaps (undrawn possible obstacles).

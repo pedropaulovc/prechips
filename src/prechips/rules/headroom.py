@@ -36,11 +36,12 @@ from prechips.rules.resolution import (
     MANUAL,
     SAW_OPS,
     length_mm,
+    projection_holder,
     resolve,
     saw_setup,
+    select,
     setup_frame,
     uncertain,
-    workholding_category,
 )
 
 _UNKNOWN = "unknown"
@@ -244,7 +245,7 @@ def _clear_of_jaws(bundle, setup, op, faces, coordinates):
         return True
     hold = _mapping(setup.get("hold"))
     fixture_ref = hold.get("fixture")
-    fixture = resolve(bundle, workholding_category(bundle, fixture_ref), fixture_ref) or {}
+    fixture = resolve(bundle, "workholding", fixture_ref) or {}
     centre, width = hold.get("jaw_center_along_mm"), length_mm(fixture, "jaw_width")
     along = _span(op, coordinates, 1 - axis)
     if not (along and _numeric(centre) and _numeric(width)) or uncertain(fixture):
@@ -266,8 +267,8 @@ def evaluate(bundle):
                 )
             )
             continue
-        machine_ref = setup["machine"]
-        machine = resolve(bundle, "machines", machine_ref) or {}
+        machine = resolve(bundle, "machines", setup["machine"]) or {}
+        machine_ref = select(bundle, setup["machine"], "machines")[1]
         if machine.get("kind") == "lathe":
             findings.append(_lathe(bundle, setup, machine, machine_ref))
             continue
@@ -292,7 +293,7 @@ def evaluate(bundle):
         hold = _mapping(setup.get("hold"))
         state = _mapping(setup.get("stock_state"))
         fixture_ref = hold.get("fixture")
-        fixture = resolve(bundle, workholding_category(bundle, fixture_ref), fixture_ref) or {}
+        fixture = resolve(bundle, "workholding", fixture_ref) or {}
         parallels_ref = hold.get("parallels")
         parallels = resolve(bundle, "fixtures", parallels_ref) or {}
         parallel_height = (
@@ -365,7 +366,7 @@ def evaluate(bundle):
         errors = []
         if _numeric(stock_height) and stock_height <= 0:
             errors.append("supported stock height is not positive")
-        nominal_stacks, oals, gauges = [], [], []
+        nominal_stacks, oals, gauges, conflicts = [], [], [], []
         for op in setup["ops"]:
             if op["do"] in MANUAL or op["do"] in SAW_OPS:
                 continue
@@ -373,14 +374,17 @@ def evaluate(bundle):
             tool = resolve(bundle, "tools", op.get("tool")) or {}
             holder = resolve(bundle, "holders", holder_ref) or {}
             oal, gauge = length_mm(tool, "oal"), length_mm(holder, "gauge_len")
-            declared = any(
-                holder_ref in _mapping(tool.get(field))
-                for field in ("projection_mm", "projection_in")
+            pair, conflict = projection_holder(bundle, tool, holder_ref)
+            # Two spellings of the holder in the map state it twice: unknown, never OAL - grip.
+            declared = pair is not None or conflict is not None
+            projection = (
+                length_mm(tool, ("projection", pair)) if holder and pair is not None else _UNKNOWN
             )
-            projection = length_mm(tool, ("projection", holder_ref)) if holder else _UNKNOWN
             if holder and not declared:
                 grip = length_mm(holder, "grip")
                 projection = oal - grip if _numeric(oal) and _numeric(grip) else _UNKNOWN
+            if conflict:
+                conflicts.append(f"op {op['op']}: {conflict}")
             stack = _sum(work_top, projection, gauge, 25)
             margin = (
                 spindle["value"] - stack
@@ -401,6 +405,7 @@ def evaluate(bundle):
                     "sum_mm": stack,
                     "margin_mm": margin,
                     "verify": not (verified and spindle["verified"]),
+                    **({"projection_conflict": conflict} if conflict else {}),
                 }
             )
             unknown |= not verified or not spindle["verified"] or not _numeric(margin)
@@ -495,6 +500,7 @@ def evaluate(bundle):
                 "; ".join(errors)
                 if errors
                 else "headroom, travel or jaw-path geometry remains unmeasured or unresolved"
+                + "".join(f"; {conflict}" for conflict in conflicts)
                 if unknown
                 else "measured spindle stack and part/fixture travels fit"
             )
@@ -524,7 +530,7 @@ def _lathe(bundle, setup, machine, machine_ref):
     hold = _mapping(setup.get("hold"))
     state = _mapping(setup.get("stock_state"))
     fixture_ref = hold.get("fixture")
-    fixture = resolve(bundle, workholding_category(bundle, fixture_ref), fixture_ref) or {}
+    fixture = resolve(bundle, "workholding", fixture_ref) or {}
     scale = {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units"))
     od = state.get("od_mm", _UNKNOWN)
     north, south = state.get("north_end_z"), state.get("south_end_z")

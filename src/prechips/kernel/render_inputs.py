@@ -7,7 +7,7 @@ this boundary. Display annotations never certify a holding or a toolpath.
 from prechips.clamp_labels import clamp_labels
 from prechips.rules.coordinates import dro_grid, row_id
 from prechips.rules.geometry_common import cutting_action
-from prechips.rules.resolution import number, op_feature, record, resolve, workholding_category
+from prechips.rules.resolution import number, op_feature, record, resolve
 from prechips.sheet import tool_label
 
 
@@ -154,12 +154,11 @@ def _clamps(bundle, hold):
 _HOLDING_NAMES = {"chuck_3jaw": "3-JAW CHUCK", "chuck_4jaw": "4-JAW CHUCK"}
 
 
-def _holding_name(bundle, reference):
+def _holding_name(bundle, reference, slot):
     """The shop name of a holding item's kind ('DIVIDING HEAD', '4-JAW CHUCK'), or None."""
     if not isinstance(reference, str) or reference in ("unknown", "none", "not_applicable"):
         return None
-    category = workholding_category(bundle, reference)
-    kind = record(resolve(bundle, category, reference)).get("kind")
+    kind = record(resolve(bundle, slot, reference)).get("kind")
     if not isinstance(kind, str) or kind == "unknown":
         return None
     return _HOLDING_NAMES.get(kind, kind.replace("_", " ").upper())
@@ -249,8 +248,8 @@ def setup_annotations(bundle, setup, numbers):
             for op in setup["ops"]
             if isinstance(op.get("direction"), str) and op["direction"] != "unknown"
         },
-        "holding_name": _holding_name(bundle, hold.get("fixture")),
-        "chuck_name": _holding_name(bundle, hold.get("chuck")),
+        "holding_name": _holding_name(bundle, hold.get("fixture"), "workholding"),
+        "chuck_name": _holding_name(bundle, hold.get("chuck"), "fixtures"),
         "target": _target(setup),
         # The setup's DRO decimals: picture coordinates and clearances print as the
         # traveler's tables print them (``_Traveler.operative``), one value one text; its

@@ -14,6 +14,7 @@ from .resolution import (
     MANUAL,
     SAW_OPS,
     UNKNOWN,
+    identity,
     known_refs,
     length_mm,
     number,
@@ -23,6 +24,7 @@ from .resolution import (
     setup_frame,
     uncertain,
 )
+from .speeds_feeds import spindle_ranges
 from .tip_endpoints import (
     FACING,
     POCKETING,
@@ -55,6 +57,61 @@ DIRECTIONS = {
     "y": ({"away"}, {"toward"}),
     "z": ({"up", "toward_exposed_end"}, {"down", "toward_chuck"}),
 }
+
+
+def finder_procedure(bundle, setup, tool):
+    """The EDGE FINDER box's facts for an X/Y pick-up with ``tool``: its type, tip Ø and
+    radius, and the rpm bands it runs at on this setup's mill (its own band intersected
+    with each spindle band; the gaps between spindle bands are never filled).
+
+    ``status`` is unknown while a fact is missing or any band endpoint is unknown, and an
+    error where no spindle band turns any of the finder's band. An electronic finder
+    signals contact with the spindle stopped, so it needs no speed."""
+    kind = tool.get("finder_type", UNKNOWN)
+    tip = length_mm(tool, "tip")
+    if not number(tip):
+        tip = length_mm(tool, "dia")
+    band = tool.get("rpm_range", UNKNOWN)
+    missing = [
+        name
+        for name, value in (
+            ("finder_type", kind),
+            ("tip_in / tip_mm", tip),
+            ("rpm_range", band if kind != "electronic" else "not_applicable"),
+        )
+        if value == UNKNOWN
+    ]
+    rpm, machine_rpm, status = "not_applicable", "not_applicable", "pass"
+    if kind != "electronic":
+        machine = resolve(bundle, "machines", setup.get("machine")) or {}
+        machine_rpm = spindle_ranges(machine)
+        known = (
+            isinstance(band, list)
+            and len(band) == 2
+            and all(number(v) for v in band)
+            and machine_rpm != UNKNOWN
+        )
+        rpm = UNKNOWN
+        if known:
+            rpm = [
+                [max(band[0], lo), min(band[1], hi)]
+                for lo, hi in machine_rpm
+                if max(band[0], lo) <= min(band[1], hi)
+            ]
+            status = "pass" if rpm else "error"
+    if status == "pass" and (missing or rpm == UNKNOWN):
+        status = UNKNOWN
+    return {
+        "finder_type": kind,
+        "tip_dia_mm": tip,
+        "radius_mm": tip / 2 if number(tip) else UNKNOWN,
+        "finder_rpm_range": band,
+        "machine_rpm": machine_rpm,
+        "rpm": rpm,
+        "missing": missing,
+        "status": status,
+        "cite": tool.get("cite", UNKNOWN),
+    }
 
 
 def axis_recipe(edge_mm, radius_mm, approach, axis, jog_mm, sign=1, scale=1, paper_mm=None):
@@ -106,7 +163,7 @@ def x_touch_set(scale, paper_mm, trial_cut):
 
 def gauge_ready(bundle, reference):
     """A trial-cut diameter is a bench reading: it needs a resolved, unflagged gauge."""
-    gauge = resolve(bundle, None, reference)
+    gauge = resolve(bundle, "gauges", reference)
     return bool(gauge) and not uncertain(gauge)
 
 
@@ -500,6 +557,16 @@ def x_face_state(bundle, setup, touch, x_recipe, states, index):
     return "error", f"touches {face} before any op turns it"
 
 
+def same_tool(bundle, first, second):
+    """Whether two tool references name one spindle tool (:func:`identity`): ``turner`` on a
+    touch and ``tools.turner`` on an op are one tool. None (no tool) is never a tool."""
+    return (
+        first is not None
+        and second is not None
+        and identity(bundle, first, "spindle") == identity(bundle, second, "spindle")
+    )
+
+
 def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
     """One DRO per setup: each cutting op runs on Axis Sets its own tool made.
 
@@ -615,14 +682,18 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
             served[str(pending["after_op"])] = {
                 "next_op": op["op"],
                 "next_tool": tool,
-                "tool_change": UNKNOWN if spindle == UNKNOWN else spindle != tool,
+                "tool_change": UNKNOWN
+                if spindle == UNKNOWN
+                else not same_tool(bundle, spindle, tool),
             }
             set_z, z_by, pending = tool, {"tool": tool, **pending}, None
         changed = [
-            axis for axis, current in (("x", set_x), ("z", set_z)) if current not in (None, tool)
+            axis
+            for axis, current in (("x", set_x), ("z", set_z))
+            if current is not None and not same_tool(bundle, current, tool)
         ]
         if cutting and changed:
-            resolved = resolve(bundle, None, tool)
+            resolved = resolve(bundle, "tools", tool)
             unknown |= UNKNOWN in (set_x, set_z) or not resolved or uncertain(resolved)
             record, lost = {"before_ops": [op["op"]], "tool": tool}, []
             if "z" in changed:
@@ -679,7 +750,7 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
             set_z = tool if "z" in changed else set_z
             set_x = tool if "x" in changed else set_x
         if cutting:
-            readings[str(op["op"])] = z_by if set_z == tool else None
+            readings[str(op["op"])] = z_by if same_tool(bundle, set_z, tool) else None
             spindle = tool
         if str(op.get("op")) in listed:
             top = tops[index + 1][0]
@@ -800,7 +871,12 @@ def tool_setting(bundle, setup, zero, touches, derived):
     setup machine's toolpost ``centre_height`` / ``square_blade``, else the requirement
     alone."""
     ops = records(setup.get("ops"))
-    carriage = {op.get("tool") for op in ops if approach(bundle, setup, op) != "axial"}
+    # A tool is the item it selects (:func:`identity`), however the op or touch spells it.
+    carriage = {
+        identity(bundle, op.get("tool"), "spindle")
+        for op in ops
+        if approach(bundle, setup, op) != "axial"
+    }
     words = toolpost(bundle, setup)
     events = [
         (-1, 0, {"touch": "zero", "axis": axis}, mapping(zero.get(axis)).get("tool"))
@@ -813,9 +889,10 @@ def tool_setting(bundle, setup, zero, touches, derived):
             events.append((at, rank, {"touch": kind, "index": index}, row.get("tool")))
     result, seen = [], set()
     for *_, where, tool in sorted(events, key=lambda event: event[:2]):
-        if tool in seen or tool in (None, UNKNOWN) or tool not in carriage:
+        key = identity(bundle, tool, "spindle")
+        if key in seen or tool in (None, UNKNOWN) or key not in carriage:
             continue
-        seen.add(tool)
+        seen.add(key)
         result.append(
             {
                 **where,
@@ -943,6 +1020,8 @@ def evaluate(bundle):
         # at an unknown Z (:func:`_face_checker`).
         face_errors, face_unknowns = [], []
         face_check = _face_checker(bundle, setup, face_errors, face_unknowns)
+        # The edge finder's procedure facts (:func:`finder_procedure`) of each pick-up.
+        finder_status = set()
 
         unknown = (
             not frame
@@ -966,7 +1045,7 @@ def evaluate(bundle):
             bad |= sign == -1
             edge = recipe.get("edge_mm", UNKNOWN)
             paper = recipe.get("paper_mm", UNKNOWN) if axis == "z" else None
-            tool = resolve(bundle, None, recipe.get("tool")) or {}
+            tool = resolve(bundle, "spindle", recipe.get("tool")) or {}
             method = recipe.get("method")
             indicated = recipe.get("from") == "indicated"
             radius = (
@@ -1077,6 +1156,10 @@ def evaluate(bundle):
                 row["indicator_verify" if indicated else "finder_verify"] = uncertain(
                     tool
                 ) or not bool(tool)
+                if not indicated and tool.get("kind") == "edge_finder":
+                    # The one EDGE FINDER box on the traveler prints these facts.
+                    finder = row["finder"] = finder_procedure(bundle, setup, tool)
+                    finder_status.add(finder["status"])
             axes[axis] = row
             if axis == "z":
                 blade_corner(row, recipe, face, edge, "the Z zero touch")
@@ -1109,7 +1192,7 @@ def evaluate(bundle):
             edge, paper = record.get("edge_mm", UNKNOWN), record.get("paper_mm", UNKNOWN)
             side = touch_side(bundle, setup, record, record.get("z_face"), edge, lathe)
             stand_off = paper_offset(paper, side)
-            tool = resolve(bundle, None, record.get("tool")) or {}
+            tool = resolve(bundle, "spindle", record.get("tool")) or {}
             who = f"the {record.get('tool', UNKNOWN)} touch"
             # A mill's X/Y read the spindle axis whatever the tool: its touches set Z only.
             x_set = (
@@ -1188,8 +1271,9 @@ def evaluate(bundle):
         unrecovered = transfer.get("keep_clamped") is True and not (
             isinstance(recovery, str) and recovery.strip() and recovery != UNKNOWN
         )
-        unknown |= unrecovered
-        errors = bad or missing or corner_errors or face_errors or x_errors
+        unknown |= unrecovered or UNKNOWN in finder_status
+        finder_error = "error" in finder_status
+        errors = bad or missing or corner_errors or face_errors or x_errors or finder_error
         status = "error" if errors else "unknown" if unknown else "pass"
         sentence = (
             "DRO direction or mode disagrees with the setup convention; stop and correct it "
@@ -1219,6 +1303,16 @@ def evaluate(bundle):
                 )
             )
         )
+        if finder_error:
+            sentence += (
+                " The edge finder's rpm range lies outside the spindle's: the mill cannot "
+                "run it at a speed its maker allows. Use a finder whose band the spindle turns."
+            )
+        elif UNKNOWN in finder_status:
+            sentence += (
+                " The edge finder's type, tip Ø, rpm range or the spindle's rpm range is not "
+                "stated: its procedure (speed, kick-out, tip-radius offset) cannot be printed."
+            )
         if unrecovered:
             sentence += (
                 " The datum transfer keeps the work clamped but plans no recovery for a sweep "

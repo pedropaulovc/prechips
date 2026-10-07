@@ -169,6 +169,88 @@ arcs is ordinary inventory:
   It reads a length along that axis (`length`, `depth`, `height`, `thickness`,
   `station`, or a reference-only `length_ref`) and never a diameter or a form.
 
+## Edge finder
+
+A `tools.<id>` with `kind = "edge_finder"` that picks up a mill X or Y zero
+(`zero.x/y.tool`, not `from = "indicated"`) states `finder_type`
+(`"mechanical"`, run spinning, or `"electronic"`, run with the spindle stopped),
+its tip diameter `tip_in` / `tip_mm` (else `dia`) and, when mechanical,
+`rpm_range`, the maker's speed band, with a `cite`. The zero check
+([rules-coordinates](rules-coordinates.md)) records these on each pick-up row
+as `finder`: the radius (half the tip Ø), and the speeds it runs at here, the
+finder's band intersected with each of the setup machine's spindle bands
+(`ranges_rpm`, else `rpm_min`–`rpm_max`); a speed between two bands is never
+offered. A missing fact, or any unknown endpoint of the finder's or the
+spindle's bands, leaves the zero unknown; a band no spindle band turns is an
+error. The traveler prints one EDGE FINDER box per finder and mill, in the DRO
+ZERO block of the first setup that picks up with it on that mill — the speed,
+how the contact shows (a mechanical tip runs true, then kicks sideways; an
+electronic one lights), and the offset, Axis Set edge − r coming from the −
+side and edge + r from the + side — and every X/Y row names the box.
+
+## Purchased tooling
+
+An item bought finished (any category, not shop-made) may state what is bought
+in `purchase` and its receipt checks in `acceptance`, a list of tables:
+
+| Field | Meaning |
+|---|---|
+| `check` | what is checked (`"each button OD"`) |
+| `gauge` | the `gauges.<id>` (or member path) that reads it, or `"none"` for a check by hand or eye |
+| `how` | optional: how the gauge is used (`"button on the GO pin in a V-block, one turn"`) |
+| `limits` | the name of a `[least, greatest]` limits field or single-length field on the same item (`"button_dia_limits_mm"`, `"button_runout_mm"`, printed lo–hi or ≤ value) |
+| `limits_mm` | or the `[least, greatest]` limits in mm, inline |
+| `accept` | the criterion in words (`"the nut runs on by hand"`); required where there is no numeric limit |
+
+A check states one numeric limit at most and needs a limit or `accept`; a
+`"none"` gauge takes no numeric limit; a shop-made item takes no `acceptance`.
+The `purchased_tooling` rule (always required) checks every item a setup uses
+(any hold slot — fixture, chuck, parallels, riser, jaw bar or buttons, support,
+clamps, stop, supports, alignment indicator — a zero's tool, holder or gauge,
+a tool touch's `z_gauge`, the transfer's tool or gauge, and an op's filing
+guide or its gauge, tool, holder, inspection gauge or process-hold gauge; any
+item named in the setup's prose or in the notes and record blanks of the
+shop-made items it uses, the job page's prose counting as the first setup's:
+see the key syntax under shop-made solids) that carries the list. An item is its
+category and key, and one selection reads it. A reference that names its
+category (`gauges.pins` in prose) reads that category alone. A slot reads its
+own categories in order: a hold's fixture or dividing head is workholding
+(fixtures, holders, machines); its chuck, parallels, riser, jaw bar or buttons,
+supports, clamps, stop and support blocks are fixtures; a zero's or tool
+touch's tool and the transfer's tool are a tool, then a gauge (an indicator in
+the spindle); an indicator, inspection, process-hold or guide gauge is a gauge;
+an op's tool a tool; a holder a holder; the setup's machine a machine. The
+first of those categories that lists the key, or is stated `"unknown"` as a
+whole, is final: a same-key item in another category is never read. Only a
+bare key with no slot (a bare key in prose) reads the categories in the
+default order (machines, tools, holders, fixtures, gauges). So `fixtures.pins`
+and `gauges.pins` are two items, each with its own
+checks, table and first setup. Everything after the selection reads that item
+only: its receipt, its `tool_resolves` finding (the gauge a slot reads is
+checked even when a fixture of that key is listed), the notes and record blanks
+of a shop-made holder or fixture, and every name the traveler prints for it. A
+bare key in prose prints as a slot's item only when every slot using it selects
+that one item and a bare key selects it too; otherwise it names no one item and
+prints as written: name it `<category>.<key>`. An item the selection finds
+stated `"unknown"` or listed with nothing about it (`{}`), or a category stated
+`"unknown"`, is unknown to every rule and prints `? <category>.<key>`;
+it never borrows a same-key item's name or record. A `<category>.<key>` and the
+key it selects are one item everywhere after the selection: a member's own size
+or capacity (`holders.collets/1/4` grips 1/4 in only), the holder a projection
+map names, and every citation and measurement request read the selected key,
+never the reference as spelled. Unknown is
+never an acceptance: an `acceptance` or `purchase` stated
+`"unknown"`; a `check`, `how` or `accept` that is blank or unknown; a gauge that
+is unknown, not listed or not verified; a `limits_mm` that is not two known
+lengths, low ≤ high; or a `limits` field the item does not state as known
+lengths leaves the setup unknown and prints `STOP:`. The traveler prints one
+PURCHASED TOOLING / RECEIPT CHECK table per item on the front sheet of the
+first setup using it, its limits rounded inward to 0.001 mm (inch gauges also
+get them in inches, rounded inward to 0.0001 in); later setups point back to
+it. A band too narrow for those decimals (or a cap that would round to zero)
+takes up to three more, never a reversed or empty band; past that the mm band
+prints exactly as declared and the inch band is left off.
+
 ## Kernel geometry facts (M4)
 
 M4 kernel geometry reads explicit-unit length facts through the same
@@ -255,7 +337,13 @@ Other holding solids come from the same accepted-fact rule, never defaults:
   one `supply` group into one row, named by their shared `label` or the words
   their names share) with its size and setup-frame position (box X / Y / Z
   extents, cylinder axis), placed by `hold.pose`, the clamp entry's `pose` or
-  `stop_pose`. A void is listed, as "with N × <fastener or size>: positions",
+  `stop_pose`; a posed slot whose pose is missing prints "? not posed". An item
+  the HOLD places from its facts, which no pose places (a shop-made `vise`
+  fixture's jaw plates, `hold.riser`, `hold.supports`, `hold.jaw_buttons`), is
+  loose: its table gives positions in the item's own frame, the frame its
+  solids are drawn in, under "loose: placed as the HOLD says", and the HOLD
+  step naming it points to the table. A void is listed, as "with N × <fastener
+  or size>: positions",
   in the row of every made or existing primitive it cuts: every one `cuts`
   names, else every one it overlaps. Overlap is decided exactly for boxes,
   parallel cylinders and axis-aligned cylinders against boxes; a primitive an
@@ -292,6 +380,32 @@ Other holding solids come from the same accepted-fact rule, never defaults:
   one stack per shim primitive per placement of its item. A made primitive's
   `note` (material, heat treatment, finish) prints once per row in a "Make:"
   line under the table; primitives with different notes do not share a row.
+  A made hole's `note` (how it is cut) joins the Make entries under its `label`
+  or name; a bought or existing primitive's `note` (its state as bought, what
+  to leave alone) prints on a "Notes:" line after them, so a bought shell whose
+  windows are made here states its whole route.
+  `records = [{ check, gauge, how, max_mm, goal_mm, over_mm }]` on any
+  primitive are values measured and written down when the part is made or
+  received (a head-to-shoulder TIR, a squareness by reversal). Each prints
+  under "Measure and record before first use:" as a fill-in: what, the gauge's
+  shop name and how, `accept ≤ max_mm`, `goal ≤ goal_mm` (both rounded down),
+  then `measured ________ mm`, `over over_mm mm` when given. `check` must be
+  stated, and `how` and `gauge`, when given (`records` itself must be a list:
+  a stated unknown would print nothing to fill in); each length, when given, is
+  a known length ≥ 0 (`over_mm` > 0) and
+  the goal lies inside the max. A record without `max_mm` is a characterisation:
+  recorded, not judged. A record's `gauge` is a `gauges` key; one the shop list
+  does not have prints `? <key>`.
+  Any prose (a `note`, a record's `check` or `how`, a plan note) names an
+  inventory item as `<category>.<key>[/<member>]` (`gauges.granite-surface-plate`,
+  `tools.drills/#61`, `tools.drills/1/4`, `tools.reamers-metric/6.49mm`), category
+  one of `machines`, `tools`, `holders`, `fixtures`, `gauges`, `services`. The
+  member runs to its last letter, digit or `#` (a sentence's full stop is not
+  part of it) and is read whole, as the slots read it: a member the item does
+  not have is not the item. The traveler prints the item's shop name in its
+  place, or `? <key>` when the shop list does not have it; `tool_resolves`
+  checks it (docs/rules-tools.md) and `purchased_tooling` reads its receipt
+  checks.
   An angle plate's (or posed shop-made fixture's) lowest box that is not bought
   is its base: HOLD prints its underside Z, an angle plate's working face (local
   y = 0, facing local -y) and the base's `fastener` as the hold-down; with any
@@ -421,7 +535,12 @@ spindle/chuck stack, so no separate stack height is recorded or added.
 Projection is **holder exit face to installed tool tip** and belongs to one
 (tool, holder, insertion) triple: it lives on the tool as
 `tools.<tool>.projection_mm` (or `_in`), a map keyed by the full exact holder
-reference the operation selects (for example `"r8-collets-lms-4860/3-8in"`).
+reference the operation selects (for example `"r8-collets-lms-4860/3-8in"`; a
+key and a holder reference spelled with or without `holders.` match when they
+select the same holder). Two keys that select the same holder (`holder` and
+`holders.holder`) state its projection twice: the projection is unknown, with
+both keys named, whichever values they carry and in whatever order; neither is
+read and it never falls back to OAL − grip. State it once.
 A holder, fixture, machine or gauge never carries projection, and a tool never
 carries a holder-wide or tool-wide scalar projection: the schema rejects
 `projection_mm`/`projection_in` outside `tools` and rejects a tool whose
@@ -602,6 +721,10 @@ on hand.
 | `swivel_base` | `bool` |
 | `scroll` | `bool` |
 | `independent` | `bool` |
+| `finder_type` | `"mechanical"` / `"electronic"` (`edge_finder`: [Edge finder](#edge-finder)) |
+| `rpm_range` | `[Number, Number]` (`edge_finder`: the maker's spindle-speed band, low < high) |
+| `purchase` | `str` (bought-finished item: what is bought, printed over its receipt checks) |
+| `acceptance` | `list[AcceptanceCheck]` (bought-finished item's receipt checks: [Purchased tooling](#purchased-tooling)) |
 | `envelope` | `MachineEnvelope` |
 | `headstock_tilt_deg` | `float` |
 | `swing_over_bed_in` | `float` |

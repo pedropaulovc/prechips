@@ -88,6 +88,8 @@ verify = false
 [tools.finder]
 kind = "edge_finder"
 tip_in = 0.2
+finder_type = "mechanical"
+rpm_range = [750, 1500]
 verify = false
 [holders.collet10]
 kind = "collet"

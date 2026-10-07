@@ -229,6 +229,14 @@ def test_a_tool_number_beyond_a_table_with_an_unchosen_tool_is_unknown():
     assert rows(bundle([{"ops": ops}]))["S1:20"].status == "unknown"
 
 
+def test_one_tool_spelled_two_ways_is_one_tool_number_in_the_check_and_the_table():
+    # ``em4`` and ``tools.em4`` select one cutter: TOOLS prints one T1, so T2 is not a tool.
+    second = {**FACE, "op": 20, "tool": "tools.em4", "note": "Finish with T2."}
+    data = bundle([{"ops": [FACE, second]}])
+    assert "has T1" in errors(data)["S1:20"]
+    assert "T2" not in re.findall(r"\|(T\d+)\|", sheet(data))
+
+
 # ------------------------------------------------------------ jaw heights
 def bar(note, top=0.525, bottom=-18.525, jaw=13.1953):
     return {

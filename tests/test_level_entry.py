@@ -10,7 +10,7 @@ from types import SimpleNamespace
 import pytest
 from test_contour_grid import SLAB, outline
 from test_headroom import coordinate_bundle
-from test_sheet_ops import SPOT, reach_records, shop
+from test_sheet_ops import SPOT, T4, reach_records, shop
 
 from prechips.inputs import load_bundle
 from prechips.rules import coordinates, speeds_feeds
@@ -364,11 +364,11 @@ def test_the_clearance_table_prints_a_kernel_stock_z_as_that_surface_prints():
     sheet.surface_z = lambda setup, value, *args, **kwargs: coordinates.dro_z(value, (0.005, 3))
     setup = {**SPOT, "machine": "mill"}
     numbers = {"stacks": [{"op": 60, "margin_mm": 40.0}]}
-    [(_, _, obstacle, value, _)] = sheet.clearance_rows(setup, numbers, {("c", None): "T4"})
+    [(_, _, obstacle, value, _)] = sheet.clearance_rows(setup, numbers, T4)
     assert "stock under the holder at Z 4.475" in obstacle, obstacle
     # The holder face over the stock top: that top prints Z 0.000, not 0.005.
     records[("reach", "S1:60")]["clearances"] = []
-    [(_, _, obstacle, _, _)] = sheet.clearance_rows(setup, numbers, {("c", None): "T4"})
+    [(_, _, obstacle, _, _)] = sheet.clearance_rows(setup, numbers, T4)
     assert "(Z 0.000)" in obstacle, obstacle
 
 
@@ -388,7 +388,7 @@ def test_an_inch_plan_compares_its_reach_with_the_holder_in_millimetres():
         plan={"setups": []},
     )
     setup = {**SPOT, "machine": "mill"}
-    [(_, _, _, value, action)] = sheet.clearance_rows(setup, {}, {("c", None): "T4"})
+    [(_, _, _, value, action)] = sheet.clearance_rows(setup, {}, T4)
     assert value == "?" and action.startswith("STOP: the holder hits a wall"), (value, action)
     assert "holder 7.940 below the stock top beside the tool (Z 1.000)" in action, action
 

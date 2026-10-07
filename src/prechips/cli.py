@@ -247,10 +247,10 @@ def _tools(args, tracing: telemetry.Telemetry) -> int:
         measurement_checklist,
     )
     from prechips.rules.resolution import (
+        authored,
         candidate_refs,
         length_mm,
         number,
-        record,
         resolve,
         uncertain,
     )
@@ -317,7 +317,7 @@ def _tools(args, tracing: telemetry.Telemetry) -> int:
     for category, identity in candidate_refs(inventory):
         item = resolve(inventory, category, identity)
         if item is None:
-            item = record(record(inventory.get(category)).get(identity))
+            item = {} if "/" in identity else authored(inventory, category, identity)
         searchable = json.dumps({"id": identity, **item}, ensure_ascii=False).casefold()
         if text_words and not all(word in searchable for word in text_words):
             continue
@@ -368,9 +368,9 @@ def _tools(args, tracing: telemetry.Telemetry) -> int:
             "size_in": size_in,
             "holder_chain": item.get("standard", item.get("shank", item.get("series", "unknown"))),
         }
-        authored = record(record(inventory.get(category)).get(identity))
-        if category == "machines" and (authored.get("kind") == "mill" or "envelope" in authored):
-            row["envelope_measurements"] = envelope_measurements(authored)
+        stated = authored(inventory, category, identity) if "/" not in identity else {}
+        if category == "machines" and (stated.get("kind") == "mill" or "envelope" in stated):
+            row["envelope_measurements"] = envelope_measurements(stated)
             row["envelope_measurement_status"] = (
                 "measured"
                 if all(fact["verified"] for fact in row["envelope_measurements"].values())
@@ -512,7 +512,7 @@ def _stock_piece_volume(piece: dict, subject: str) -> dict:
 
 
 def _comparison_row(bundle: Bundle, report: dict, plan_label: str) -> dict:
-    from prechips.rules.resolution import number, record, resolve, selected_references
+    from prechips.rules.resolution import number, record, resolve, select, setup_items
 
     stock = record(bundle.plan.get("stock"))
     components = stock.get("components")
@@ -549,9 +549,13 @@ def _comparison_row(bundle: Bundle, report: dict, plan_label: str) -> dict:
         waste = (stock_volume - net_volume) / stock_volume
     holds = [record(setup.get("hold")) for setup in bundle.plan["setups"]]
     # A hold's align block names a gauge, not holding.
-    fixture_refs = selected_references(
-        {"setups": [{"hold": {k: v for k, v in hold.items() if k != "align"}} for hold in holds]}
-    )
+    fixture_refs = {
+        reference
+        for hold in holds
+        for _, reference, _ in setup_items(
+            bundle, {"hold": {k: v for k, v in hold.items() if k != "align"}}
+        )
+    }
     for hold in holds:
         if hold.get("fixture", "unknown") == "unknown":
             fixture_refs.add("unknown")
@@ -566,11 +570,12 @@ def _comparison_row(bundle: Bundle, report: dict, plan_label: str) -> dict:
                 fixture_refs.add("unknown")
         if "index" in hold and record(hold["index"]).get("fixture", "unknown") == "unknown":
             fixture_refs.add("unknown")
-        # These fields can also be prose. Count them only when they name a declared fixture.
+        # These fields can also be prose. Count them only when they name a declared fixture,
+        # by the key it selects (as setup_items does), however the hold spells it.
         for key in ("clamp", "stop", "locator", "jaw_protection"):
             reference = hold.get(key)
             if resolve(bundle, "fixtures", reference):
-                fixture_refs.add(reference)
+                fixture_refs.add(select(bundle, reference, "fixtures")[1])
     counts = {}
     for finding in report["findings"]:
         counts[finding["status"]] = counts.get(finding["status"], 0) + 1
