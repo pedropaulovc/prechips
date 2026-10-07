@@ -18,7 +18,7 @@ from .resolution import (
     setup_frame,
     uncertain,
 )
-from .tip_endpoints import FACING, POCKETING, mapping, partial_cut, records, stock_states
+from .tip_endpoints import FACING, POCKETING, cut_coverage, mapping, records, stock_states
 
 # Set from a bench reading, not a plan number: a trial-cut diameter or a measured edge.
 MEASURED = {"trial_cut_measure", "measure_then_set"}
@@ -117,7 +117,7 @@ def _standing(bundle, setup, event, states, index):
 
     False once an op since cut it (the stock top: faced the top feature) to another or
     an unknown Z, or cut it other than by facing/pocketing; an op that provably cut only
-    part of it (:func:`partial_cut`) leaves it at its uncut Z. None (unknown) when the
+    part of it (:func:`cut_coverage` partial) leaves it at its uncut Z. None (unknown) when the
     surface is unnamed or an op since cut a feature the plan does not name."""
     features = mapping(bundle.feature_definitions)
     top_feature = mapping(setup.get("stock_state")).get("top_feature")
@@ -136,7 +136,10 @@ def _standing(bundle, setup, event, states, index):
             cut = [top_feature] if top_feature else sorted(names)
         else:
             continue
-        if all(partial_cut(bundle, setup, op, mapping(features.get(name))) for name in cut):
+        if all(
+            cut_coverage(bundle, setup, op, mapping(features.get(name))) == "partial"
+            for name in cut
+        ):
             continue
         to_z = op.get("to_z")
         if not (action in FACING | POCKETING and number(to_z) and number(event["z"])):
@@ -307,7 +310,7 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
         if op.get("do") in FACING | POCKETING:
             # Only a whole cut makes a surface: a partial one leaves it at its uncut Z.
             for name in sorted(_features(op) or ()):
-                if not partial_cut(bundle, setup, op, mapping(features.get(name))):
+                if cut_coverage(bundle, setup, op, mapping(features.get(name))) != "partial":
                     z_event(index + 1, name, op.get("to_z"), paper, f"op {op['op']} {op['do']}")
         if lathe and op.get("do") in TURNED:
             for name in sorted(_features(op) or ()):

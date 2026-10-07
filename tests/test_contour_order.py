@@ -8,7 +8,7 @@ from test_headroom import coordinate_bundle
 
 from prechips.inputs import load_bundle
 from prechips.rules import coordinates, zero_recipe
-from prechips.rules.tip_endpoints import _producer, operative_z
+from prechips.rules.tip_endpoints import _producer, operative_z, stock_states
 
 ROCKER = Path(__file__).resolve().parents[1] / "examples/rocker-arm/plan.toml"
 BOSS = "kind = 'boss'\nat = [20.0, 10.0, 0.0]\ndia = 20.0\n"
@@ -205,19 +205,29 @@ def test_an_inch_plan_face_raster_steps_and_overruns_in_inches(tmp_path):
     assert all(b[0] == pytest.approx(2 + 3 / 25.4) for _, b in passes)
 
 
-def left_strip_faced(tmp_path):
-    """Op 10 faces the left strip of 'target' to -8.8, op 20 the right; no top_feature."""
+def left_strip_faced(tmp_path, feature=SLAB, box="x = [0.0, 10.0], y = [0.0, 10.0], "):
+    """Op 10 faces the left strip of 'target' to -8.8 (its X/Y ``box``), op 20 the right;
+    no top_feature."""
     ops = "".join(
         f"[[setups.ops]]\nop = {op}\ndo = '{do}'\nfeature = 'target'\ntool = 'cutter'\n"
         f"to_z = {to_z}\ndoc_mm = 3.0\ndirection = 'conventional'\n"
-        f"stock_removal_bounds = {{ x = {x}, y = [0.0, 10.0], z = [-10.0, 1.0] }}\n"
-        for op, do, to_z, x in (
-            (10, "rough_face", -8.8, [0.0, 10.0]),
-            (20, "finish_face", -9.0, [10.0, 20.0]),
+        f"stock_removal_bounds = {{ {xy}z = [-10.0, 1.0] }}\n"
+        for op, do, to_z, xy in (
+            (10, "rough_face", -8.8, box),
+            (20, "finish_face", -9.0, "x = [10.0, 20.0], y = [0.0, 10.0], "),
         )
     )
-    bundle = load_bundle(coordinate_bundle(tmp_path, SLAB, ops))
+    bundle = load_bundle(coordinate_bundle(tmp_path, feature, ops))
     return bundle, bundle.plan["setups"][0]
+
+
+def zero_after_first_face(bundle, setup):
+    """The setup's Z zero on the top as op 10 left it, retouched after op 10."""
+    bundle.plan["dro"] = {"controller": "EL400", "radius_mode": False, "mode": "abs"}
+    bundle.plan["dro"]["direction"] = {"x": "right", "y": "away", "z": "up"}
+    setup["zero"] = {"z": {"face": "top", "from": "+z", "after_op": 10, "paper_mm": 0.1}}
+    setup["zero"]["z"].update(tool="cutter", check_jog_mm=1.0, retouch_after=[10])
+    return zero_recipe.evaluate(bundle)[0]
 
 
 def test_a_face_over_part_of_the_top_never_lowers_the_next_ops_start(tmp_path):
@@ -232,15 +242,64 @@ def test_a_face_over_part_of_a_surface_never_produces_its_zero_or_operative_z(tm
     bundle, setup = left_strip_faced(tmp_path)
     # The top stays the uncut stock's: a Z touch on it after op 10 reads Z 0 plus paper.
     assert operative_z(bundle, setup, 0.0, "top", done=1) == 0.0
-    bundle.plan["dro"] = {"controller": "EL400", "radius_mode": False, "mode": "abs"}
-    bundle.plan["dro"]["direction"] = {"x": "right", "y": "away", "z": "up"}
-    setup["zero"] = {"z": {"face": "top", "from": "+z", "after_op": 10, "paper_mm": 0.1}}
-    setup["zero"]["z"].update(tool="cutter", check_jog_mm=1.0, retouch_after=[10])
-    recipe = zero_recipe.evaluate(bundle)[0].numbers
+    recipe = zero_after_first_face(bundle, setup).numbers
     assert recipe["axes"]["z"]["axis_set"] == pytest.approx(0.1)
     assert recipe["retouch"][0]["axis_set"] == pytest.approx(0.1)
     # Nor does the partial op produce the whole named surface.
     assert _producer(bundle, setup, -8.8, "target", 1, None) is None
+
+
+UNPROVEN = {
+    "cut X unknown": (SLAB, "x = 'unknown', y = [0.0, 10.0], "),
+    "cut Y omitted": (SLAB, "x = [0.0, 10.0], "),
+    "surface X unknown": (SLAB.replace("x = [0.0, 20.0]", "x = 'unknown'"), None),
+    "surface Z omitted": (SLAB.replace(", z = [0.0, 1.0]", ""), None),
+    "surface X empty": (SLAB.replace("x = [0.0, 20.0]", "x = []"), None),
+}
+
+
+@pytest.mark.parametrize("case", UNPROVEN)
+def test_a_face_of_unproven_coverage_leaves_the_surface_and_its_producer_unknown(tmp_path, case):
+    # Op 10 may have cut all of the top to -8.8 or only its left strip: never whole.
+    feature, box = UNPROVEN[case]
+    args = (tmp_path, feature) if box is None else (tmp_path, feature, box)
+    bundle, setup = left_strip_faced(*args)
+    row = next(row for row in coordinates.evaluate(bundle) if row.subject == "S1")
+    assert row.numbers["operations"][1]["z_levels"]["levels"] == "unknown"
+    assert row.status == "unknown"
+    assert operative_z(bundle, setup, 0.0, "top", done=1) == "unknown"
+    assert _producer(bundle, setup, -8.8, "target", 1, None) == "unknown"
+    recipe = zero_after_first_face(bundle, setup)
+    assert recipe.numbers["axes"]["z"]["axis_set"] == "unknown"
+    assert recipe.numbers["retouch"][0]["axis_set"] == "unknown"
+    assert recipe.status == "unknown"
+
+
+@pytest.mark.parametrize(("x", "top"), [([-6.0, 16.0], -8.8), ([-6.0, 10.0], 0.0)])
+def test_a_face_footprint_takes_its_plane_for_an_omitted_axis(tmp_path, x, top):
+    # X/Y bounds plus a Z plane is a whole footprint: bounds holding it face all of it,
+    # bounds missing part of it face part of it.
+    plane = SLAB.replace(", z = [0.0, 1.0]", "") + "plane = { axis = 'z', value = 0.0 }\n"
+    bundle, setup = left_strip_faced(tmp_path, plane, box=f"x = {x}, y = [-3.0, 9.0], ")
+    assert operative_z(bundle, setup, 0.0, "top", done=1) == pytest.approx(top)
+
+
+@pytest.mark.parametrize("size", [{"dia": 4.0}, {"radius": 2.0}])
+@pytest.mark.parametrize(("x", "entry"), [([-6.0, 16.0], -8.8), ([-6.0, 10.0], 1.0)])
+def test_a_hole_off_the_model_z_axis_is_held_by_its_entry_disc(tmp_path, x, entry, size):
+    # A model -Y hole: its disc spans ± radius in model X and Z, at its Y (setup X 11-15).
+    bundle, setup = left_strip_faced(tmp_path, box=f"x = {x}, y = [-3.0, 9.0], ")
+    bundle.feature_definitions["hole"] = {
+        "kind": "hole",
+        "frame": "model",
+        "at": [18.0, 1.0, 5.0],
+        "axis": [0.0, -1.0, 0.0],
+        **size,
+    }
+    setup["stock_state"]["entry_z"] = {"hole": 1.0}
+    setup["ops"][0]["feature"] = "hole"
+    (_, _, after), *_ = stock_states(bundle, setup)
+    assert after["entry_z"]["hole"] == pytest.approx(entry)
 
 
 def test_z_levels_start_on_an_earlier_floor_only_where_its_bounds_cover_the_op(tmp_path):
