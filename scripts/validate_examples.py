@@ -32,6 +32,7 @@ from prechips.model import UNIT_TOLERANCE, Plan, tolerance_requirements
 from prechips.process_features import ACTIONS as PROCESS_ACTIONS
 from prechips.process_features import ANGLE_TOLERANCE_DEG
 from prechips.process_features import LABEL_PREFIX as PROCESS_PREFIX
+from prechips.rules import zero_recipe as zero_rules
 from prechips.rules._bench import manual_bench
 from prechips.rules.coordinates import (
     CENTRE_OPS,
@@ -66,6 +67,27 @@ from prechips.rules.tip_endpoints import (
 )
 from prechips.rules.tip_endpoints import _covers_xy as covers_xy
 from prechips.rules.turned_profile import AXIAL_KINDS, PROFILE_OPS, RADIUS_TOL_MM
+
+# Each zero axis's DRO count direction, in the plan's words: counting up along setup +axis
+# (jog polarity +1) or down (-1, a reversed DRO to stop on).
+DRO_COUNTS = {
+    "x": ({"right", "away_from_spindle_axis"}, {"left", "toward_spindle_axis"}),
+    "y": ({"away"}, {"toward"}),
+    "z": ({"up", "toward_exposed_end"}, {"down", "toward_chuck"}),
+}
+# Zero methods whose Axis Set is a bench reading: a trial-cut diameter or a measured edge.
+MEASURED_ZERO = frozenset({"trial_cut_measure", "measure_then_set"})
+ZERO_READINGS = ("axis_set", "check_reading", "mirrored_reading")
+# The derived fields of a zero axis row, in the order they are checked, and their names.
+ZERO_FIELDS = (
+    ("sign", "jog polarity"),
+    ("dro_direction", "DRO direction"),
+    ("edge_mm", "touched edge"),
+    ("radius_mm", "finder radius"),
+    ("axis_set", "Axis Set"),
+    ("check_reading", "check reading"),
+    ("mirrored_reading", "mirrored reading"),
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES = ROOT / "examples"
@@ -107,6 +129,15 @@ GEOMETRY_CASES = (
 SETUP_GEOMETRY_RULES = {"vise", "thin_wall_under_clamp", "fixture_interference"}
 STATUSES = {"pass", "error", "warn", "info", "unknown", "unsupported", "not_applicable"}
 FEATURE_RULES = {"sizing", "op_chain", "blind_depth", "datum_consistency"}
+# Rules evaluating every op of every setup.
+OP_RULES = {
+    "speeds_feeds",
+    "turning_deflection",
+    "engagement",
+    "accessibility",
+    "reach",
+    "internal_corner_radius",
+}
 SETUP_RULES = {
     "order",
     "hold_fields",
@@ -144,11 +175,15 @@ REFERENCE_KEYS = {
     "fixture",
     "parallels",
     "support",
+    "supports",
     "clamps",
     "riser",
     "support_blocks",
+    "chuck",
     "ref",
 }
+# A hold's ``clamp`` names an inventory identity when it is one hyphenated word.
+CLAMP_IDENTITY = re.compile(r"\w+(?:-\w+)+")
 # These are plan-author decisions, not measurements awaiting an external source.
 # RPM is deliberately absent: it still depends on sourced cutting data.
 AUTHOR_CHOICE_FIELDS = {
@@ -375,9 +410,17 @@ def selected_refs(plan: dict):
                 if ref != "unknown":
                     yield ref
             for key, child in value.items():
-                if key in REFERENCE_KEYS - {"ref"} and isinstance(child, str):
-                    if child not in {"unknown", "not_applicable", "none"}:
-                        yield child
+                if key in REFERENCE_KEYS - {"ref"} and isinstance(child, (str, list)):
+                    for name in [child] if isinstance(child, str) else child:
+                        if isinstance(name, str) and name not in {
+                            "unknown",
+                            "not_applicable",
+                            "none",
+                        }:
+                            yield name
+                    yield from walk(child)
+                elif key == "clamp" and isinstance(child, str) and CLAMP_IDENTITY.fullmatch(child):
+                    yield child
                 elif key in {"checks", "missing_requirements"} and isinstance(child, dict):
                     yield from (v for v in child.values() if v != "unknown")
                 elif key not in {"ref", "item"}:
@@ -641,13 +684,89 @@ def required_finding(finding: dict, policy: dict, plan: dict, features: dict) ->
     return subject == selector or subject.startswith(selector + ":")
 
 
+def arc_feature(feature: dict) -> bool:
+    """Whether ``feature`` is an arc a manual layout scribes and files to (a boss or
+    cylinder, a bottom radius, or a radius with an end or an upper semicircle)."""
+    return (
+        feature.get("kind") in {"boss", "cylinder"}
+        or "bottom_radius" in feature
+        or ("radius" in feature and ("end" in feature or feature.get("arc") == "upper_semicircle"))
+    )
+
+
+def inspection_subjects(plan: dict, definitions: dict) -> set:
+    """Every subject the inspection rule evaluates: per operative feature, each requirement
+    an op of its route declares missing, each tolerance requirement (or the feature itself
+    when it has none, nor missing ones, or its kind or a route action is unknown), plus each
+    op that states process holds."""
+    ops = [(setup, op) for setup in plan["setups"] for op in setup["ops"]]
+    subjects = {f"{setup['id']}:{op['op']}" for setup, op in ops if "process_holds" in op}
+    for name, feature in definitions.items():
+        route = [op for _, op in ops if name in op_features(op)]
+        requirements = [f"{name}:{r}" for r in tolerance_requirements(feature)]
+        missing = {
+            f"{name}:{r}"
+            for op in route
+            if isinstance(op.get("missing_requirements"), dict)
+            for r in op["missing_requirements"]
+        }
+        subjects |= missing | set(requirements)
+        unknown = feature.get("kind") == "unknown" or any(op.get("do") == "unknown" for op in route)
+        if not requirements and (unknown or not missing):
+            subjects.add(name)
+    return subjects
+
+
+def rule_subjects(plan: dict, features: dict) -> dict:
+    """``{rule: subjects}`` each supported rule evaluates for this plan, from the plan and
+    the manifest alone: the setup, op, feature and part subjects of the checker's rule
+    catalogue, the bundle binding's ``inputs``, the prepared blank's ``stock.prepared``,
+    each joined setup (a cylindrical one's fit too), each saw cut, each scribed or filed
+    arc, every selected inventory identity and non-manual op, and the inspection subjects
+    (:func:`inspection_subjects`). A rule outside the catalogue evaluates nothing."""
+    definitions = operative_definitions(plan, features)
+    ops = [(setup, op) for setup in plan["setups"] for op in setup["ops"]]
+    setups = {setup["id"] for setup in plan["setups"]}
+
+    def op_ids(keep):
+        return {f"{setup['id']}:{op['op']}" for setup, op in ops if keep(op)}
+
+    joined = [setup for setup in plan["setups"] if isinstance(setup.get("stock_in"), list)]
+    subjects = {rule: setups for rule in SETUP_RULES | SETUP_GEOMETRY_RULES | {"centre_support"}}
+    subjects.update(dict.fromkeys(OP_RULES, op_ids(lambda op: True)))
+    subjects.update(dict.fromkeys(FEATURE_RULES - {"datum_consistency"}, set(definitions)))
+    manifest = set(features["features"])
+    subjects.update(dict.fromkeys(("datum_consistency", "finish_coverage"), manifest))
+    subjects.update(dict.fromkeys(("construction", "coverage", "finish_route"), {plan["part"]}))
+    subjects.update(
+        bundle_binding={"inputs"},
+        prepared_blank={"stock.prepared"},
+        joint_assembly={setup["id"] for setup in joined},
+        joint_fit={setup["id"] for setup in joined if setup["joint"]["kind"] == "cylindrical"},
+        saw_cut=op_ids(lambda op: op.get("do") in SAW_OPS),
+        manual_arc=op_ids(
+            lambda op: (
+                op.get("do") in {"scribe", "file_to_line"}
+                and isinstance(op.get("feature"), str)
+                and arc_feature(definitions.get(op["feature"], {}))
+            )
+        ),
+        # A coating's process resolves as its op; other manual work selects no tool.
+        tool_resolves=set(selected_refs(plan))
+        | op_ids(lambda op: op.get("do") == "coating" or op.get("do") not in MANUAL),
+        inspection=inspection_subjects(plan, definitions),
+    )
+    return subjects
+
+
 def required_subjects(policy: dict, plan: dict, features: dict, rules: dict) -> dict:
-    """``{rule: subjects}`` the policy's ``required`` selection must cover, as the checker
-    derives them (``rules.required_coverage``) from the plan, the manifest and the rules'
-    own subjects (``rules``: rule to the set of reported subjects): a list names its
-    subjects, ``setups`` every setup, ``holes``/``toleranced_features`` the operative
-    features of that kind, ``"*"`` (or a selection matching nothing) at least one subject,
-    else the selector itself. An unknown policy requires its ``required_policy`` row."""
+    """``{rule: (selector, subjects)}``: what the policy's ``required`` selection must
+    cover, as the checker derives it (``rules.required_coverage``) from the plan, the
+    manifest and the rules' own subjects (``rules``: rule to the set of subjects it
+    evaluates): a list names its subjects, ``setups`` every setup,
+    ``holes``/``toleranced_features`` the operative features of that kind, ``"*"`` (or a
+    selection matching nothing) at least one subject, else the selector itself. An unknown
+    policy requires its ``required_policy`` row."""
     required = policy.get("required", "unknown")
     if required == "unknown":
         required = {"required_policy": "*"}
@@ -675,26 +794,40 @@ def required_subjects(policy: dict, plan: dict, features: dict, rules: dict) -> 
             subjects = [selector]
         if not subjects and not actual:
             subjects = ["*"]
-        result[name] = subjects
+        result[name] = selector, subjects
     return result
 
 
-def check_required_coverage(policy: dict, plan: dict, features: dict, keys) -> None:
-    """Every subject the policy requires has a finding (itself, one of its requirements,
-    or the checker's unknown coverage row): a report cannot reach readiness by leaving a
-    required subject out."""
-    rules = {}
-    for rule, subject in keys:
-        rules.setdefault(rule, set()).add(subject)
-    for rule, subjects in required_subjects(policy, plan, features, rules).items():
-        for subject in subjects:
-            require(
-                any(
-                    value == subject or value.startswith(subject + ":")
-                    for value in rules.get(rule, ())
-                ),
-                f"{rule}:{subject}: the policy requires it and no finding covers it",
-            )
+def check_required_coverage(policy: dict, plan: dict, features: dict, findings: dict) -> None:
+    """The report's subjects are exactly those its supported rules evaluate
+    (:func:`rule_subjects`, from the validator's own inputs) plus the checker's coverage
+    row for each required subject none of them covers (:func:`required_subjects`). Each
+    coverage row stays unknown with the policy's selector: no supported check exists to
+    approve or waive it, and no report row can stand in for one."""
+    domains = rule_subjects(plan, features)
+    coverage = {
+        (rule, subject): selector
+        for rule, (selector, subjects) in required_subjects(policy, plan, features, domains).items()
+        for subject in subjects
+        if not any(
+            value == subject or value.startswith(subject + ":") for value in domains.get(rule, ())
+        )
+    }
+    evaluated = {(rule, subject) for rule, subjects in domains.items() for subject in subjects}
+    absent = sorted((evaluated | coverage.keys()) - findings.keys())
+    require(not absent, f"missing findings {absent}: evaluated or required subjects")
+    for key, finding in findings.items():
+        if key in evaluated:
+            continue
+        require(
+            key in coverage,
+            f"{key[0]}:{key[1]}: no supported check evaluates it and no required subject "
+            "calls for its coverage row",
+        )
+        require(
+            finding["status"] == "unknown" and finding["numbers"] == {"required": coverage[key]},
+            f"{key[0]}:{key[1]}: a required subject no supported check covers stays unknown",
+        )
 
 
 def report_exit(report: dict, policy: dict, plan: dict, features: dict) -> int:
@@ -798,7 +931,8 @@ def check_subjects(plan: dict, features: dict, findings: dict, inventory: dict) 
             )
         elif bench is None:
             require(isinstance(setup.get("zero"), dict), f"{sid}: missing zero")
-            axes = ("x", "z") if setup["machine"] == "PM-1127VF-LB" else ("x", "y", "z")
+            lathe = machine_kind(setup, entries_for(inventory)) == "lathe"
+            axes = ("x", "z") if lathe else ("x", "y", "z")
             for axis in axes:
                 recipe = setup["zero"].get(axis)
                 require(
@@ -1367,128 +1501,299 @@ def check_prepared_blank(
     return sorted(set(missing))
 
 
-def check_zero(setup: dict, finding: dict, entries: dict, dro: dict) -> None:
-    numbers = finding["numbers"]
-    mode = numbers.get("dro", numbers).get("radius_mode")
-    require(mode == dro["radius_mode"], f"{setup['id']}: DRO radius/diameter mode mismatch")
-    # The rows are the plan's: an axis row per authored recipe, a retouch row per listed
-    # retouch in op order; a report cannot drop one to leave it unchecked.
-    zero = setup["zero"]
-    require(
-        set(numbers.get("axes", {}))
-        == {a for a in ("x", "y", "z") if isinstance(zero.get(a), dict)},
-        f"{setup['id']}: zero rows are not the plan's axis recipes",
+def zero_inputs(plan: dict, features: dict, inventory: dict, policy: dict, kernel):
+    """The validator's own inputs a zero's surfaces are read from: the plan, manifest,
+    inventory and policy, with its own kernel run's facts (``kernel``,
+    :func:`independent_kernel`). No report value enters them."""
+    return SimpleNamespace(
+        plan=plan,
+        features=features,
+        inventory=inventory,
+        policy=policy,
+        feature_definitions=operative_definitions(plan, features),
+        kernel=kernel(),
     )
-    listed = zero["z"].get("retouch_after")
-    require(
-        [row.get("op") for row in numbers.get("retouch", [])]
-        == [op["op"] for op in setup["ops"] if isinstance(listed, list) and op["op"] in listed],
-        f"{setup['id']}: retouch rows are not the plan's listed retouches",
+
+
+def verified_item(ref, entries: dict) -> bool:
+    """Whether ``ref`` names an inventory identity that resolves unflagged."""
+    return isinstance(ref, str) and resolves(ref, entries) and not uncertain(ref, entries)
+
+
+def paper_stand_off(paper, side):
+    """Where paper of ``paper`` mm stands a Z touch off its face along setup Z, met from
+    ``side`` (+1/-1): no paper needs no side; an unknown side or paper leaves it unknown."""
+    if not numeric(paper):
+        return "unknown"
+    if paper == 0:
+        return paper
+    return side * paper if side in (1, -1) else "unknown"
+
+
+def bench_edge(value) -> str:
+    """A measured edge's bench expression: the reading M plus ``value`` mm."""
+    if not numeric(value):
+        return "unknown"
+    return "M " + f"{round(value, 6) + 0.0:+.6f}".rstrip("0").rstrip(".")
+
+
+def zero_readings(axis: str, recipe: dict, sign, scale, contact, stand_off, lathe, gauge_ok):
+    """The Axis Set, check and mirrored readings of one zero axis: a bench expression for a
+    trial-cut diameter (``D``/``D/2`` by the display ``scale``, with a ready gauge) or a
+    measured Z edge (M + offset + paper, a named measurement and a ready gauge), else the
+    display ``scale`` times the physical ``contact``; the check jogs ``sign`` × scale ×
+    jog from it (a measured edge's jog is physical) and the mirror the other way."""
+    jog = recipe.get("check_jog_mm", "unknown")
+    method = recipe.get("method")
+    polarised = sign in (-1, 1) and numeric(jog)
+    step = sign * scale * jog if polarised and numeric(scale) else "unknown"
+    if method == "trial_cut_measure":
+        display = {2: "D", 1: "D/2"}.get(scale, "unknown") if axis == "x" and lathe else "unknown"
+        if display == "unknown" or not numeric(step) or not gauge_ok:
+            return dict.fromkeys(ZERO_READINGS, "unknown")
+        return {
+            "axis_set": f"measured {display}",
+            "check_reading": f"{display} {step:+g}",
+            "mirrored_reading": f"{display} {-step:+g}",
+        }
+    if method == "measure_then_set":
+        measure, offset = recipe.get("measure"), recipe.get("offset_mm", "unknown")
+        named = isinstance(measure, str) and measure.strip() not in {"", "unknown"}
+        if not (axis == "z" and named and gauge_ok and numeric(offset) and numeric(stand_off)):
+            return dict.fromkeys(ZERO_READINGS, "unknown")
+        if not polarised:
+            return dict.fromkeys(ZERO_READINGS, "unknown")
+        base = offset + stand_off
+        return {
+            "axis_set": bench_edge(base),
+            "check_reading": bench_edge(base + sign * jog),
+            "mirrored_reading": bench_edge(base - sign * jog),
+        }
+    shown = contact * scale if numeric(contact) and numeric(scale) else "unknown"
+    if not (numeric(shown) and numeric(step)):
+        return {**dict.fromkeys(ZERO_READINGS, "unknown"), "axis_set": shown}
+    return {"axis_set": shown, "check_reading": shown + step, "mirrored_reading": shown - step}
+
+
+def derive_zero(setup: dict, own, entries: dict) -> tuple:
+    """``(status, numbers)``: the ``zero_check`` finding of a setup that sets a DRO zero,
+    from the validator's own inputs ``own`` (:func:`zero_inputs`) alone.
+
+    The DRO's jog polarity per axis is the plan's ``dro.direction`` (:data:`DRO_COUNTS`):
+    a reversed axis (-1), or a mode other than ABS, is the error to stop on. The display
+    scale is the plan's radius/diameter mode on a lathe's X, else 1. Each axis row's
+    contact is its edge, less or plus its finder radius by the side it comes from, or for
+    Z its edge plus its paper on the side the face is met from; the readings follow
+    (:func:`zero_readings`). Readings, a tool or gauge that does not resolve unflagged, an
+    unknown frame, binding, controller, mode or radius mode, retouch list or touch list
+    leave the zero unknown. Where its surfaces stand (the top as each op leaves it, the
+    side a face is met from, which touched or faced surface a tool change is touched off
+    on, a blade's corner, where a touched face stands on the DRO grid) is plan and kernel
+    geometry, read with the checker's surface functions on these inputs; a missing touch,
+    a blade corner its face cannot give or a face set off the grid is an error."""
+    plan = own.plan
+    dro = plan.get("dro") if isinstance(plan.get("dro"), dict) else {}
+    counts = dro.get("direction") if isinstance(dro.get("direction"), dict) else {}
+    radius_mode, mode = dro.get("radius_mode"), dro.get("mode", "unknown")
+    frame = setup_frame(setup, plan, own.features)
+    frame = frame if isinstance(frame, dict) else {}
+    lathe = machine_kind(setup, entries) == "lathe"
+    zero, ops = setup["zero"], setup["ops"]
+    states = list(stock_states(own, setup))
+    tops = [z for z, _ in zero_rules._tops(own, setup, states)]
+    corner_errors, face_errors, face_unknowns = [], [], []
+    blade_corner = zero_rules._corner_recorder(own, setup, lathe, corner_errors)
+    face_check = zero_rules._face_checker(own, setup, face_errors, face_unknowns)
+    unknown = (
+        not frame
+        or frame.get("binding") == "unknown"
+        or "unknown" in (dro.get("controller", "unknown"), radius_mode, mode)
     )
-    # Any reading the plan leaves unknown (or an unknown DRO mode or retouch list) is a
-    # zero the checker cannot certify.
-    unsettled = not isinstance(listed, list) or any(
-        dro.get(key, "unknown") == "unknown" for key in ("controller", "mode", "radius_mode")
-    )
-    for axis, row in numbers.get("axes", {}).items():
-        recipe = setup["zero"][axis]
-        edge = recipe.get("edge_mm", "unknown")
-        jog = recipe["check_jog_mm"]
-        sign = row.get("sign", "unknown")
-        require(sign in (-1, 1), f"{setup['id']}.{axis}: jog polarity must be ±1")
-        scale = 2 if axis == "x" and setup["machine"] == "PM-1127VF-LB" and mode is False else 1
-        if recipe.get("method") == "measure_then_set":
-            # A measured edge is a bench reading M: with a ready gauge, a stated
-            # measurement and numeric offset/paper/jog, Axis Set M + offset + paper.
-            gauge, base = recipe.get("gauge", "unknown"), recipe.get("offset_mm", "unknown")
-            paper = recipe.get("paper_mm", "unknown")
-            ready = (
-                axis == "z"
-                and isinstance(gauge, str)
-                and resolves(gauge, entries)
-                and not uncertain(gauge, entries)
-                and str(recipe.get("measure", "")).strip() not in {"", "unknown"}
-                and all(numeric(v) for v in (base, paper, jog))
-            )
-            unsettled |= not ready
-            for field, step in (("axis_set", 0), ("check_reading", 1), ("mirrored_reading", -1)):
-                text = "unknown"
-                if ready:
-                    value = round(base + paper + step * sign * jog, 6) + 0.0
-                    text = "M " + f"{value:+.6f}".rstrip("0").rstrip(".")
-                require(row.get(field) == text, f"{setup['id']}.{axis}: measured-edge {field}")
+    bad = mode not in {"abs", "unknown"}
+    axes = {}
+    for axis in ("x", "y", "z"):
+        recipe = zero.get(axis)
+        if not isinstance(recipe, dict):
+            unknown |= axis != "y" or not lathe
             continue
+        direction = counts.get(axis, "unknown")
+        up, down = DRO_COUNTS[axis]
+        sign = 1 if direction in up else -1 if direction in down else "unknown"
+        bad |= sign == -1
+        method, approach = recipe.get("method"), recipe.get("from")
+        tool_ok = verified_item(recipe.get("tool"), entries)
+        gauge_ok = verified_item(recipe.get("gauge"), entries)
+        edge = recipe.get("edge_mm", "unknown")
+        face = recipe.get("face", recipe.get("feature"))
+        done = zero_rules._position(ops, {"after_op": recipe.get("after_op")}) or 0
+        paper, stand_off, contact = "not_applicable", None, "unknown"
+        if axis == "z" or method == "trial_cut_measure":
+            radius = "not_applicable"
+        elif approach == "indicated":
+            radius = 0
+        else:
+            tool = recipe.get("tool")
+            tip = entries.get(tool, {}).get("tip_in") if isinstance(tool, str) else None
+            radius = tip * 25.4 / 2 if numeric(tip) else "unknown"
         if axis == "z":
             if recipe.get("face") == "top":
-                edge = setup["stock_state"].get("top_z", "unknown")
-            near(row.get("edge_mm", "unknown"), edge, f"{setup['id']}.{axis}: touched edge")
+                # The top as the ops through after_op left it, not the incoming top.
+                edge = tops[done]
             paper = recipe.get("paper_mm", "unknown")
-            expected = edge + paper if numeric(edge) and numeric(paper) else "unknown"
-        elif recipe.get("method") == "trial_cut_measure":
-            # The measured diameter is a bench reading: a ready gauge and jog complete it.
-            gauge = recipe.get("gauge", "unknown")
-            ready = (
-                isinstance(gauge, str)
-                and resolves(gauge, entries)
-                and not uncertain(gauge, entries)
-                and numeric(jog)
-            )
-            unsettled |= not ready
-            display = "D" if scale == 2 else "D/2"
-            step = sign * scale * jog if ready else 0
-            for field, text in (
-                ("axis_set", f"measured {display}"),
-                ("check_reading", f"{display} {step:+g}"),
-                ("mirrored_reading", f"{display} {-step:+g}"),
-            ):
-                require(
-                    row.get(field) == (text if ready else "unknown"),
-                    f"{setup['id']}.{axis}: trial-cut {field}",
-                )
-            continue
-        elif recipe.get("from") == "indicated":
-            near(row["radius_mm"], 0, "indicated axis has no finder correction")
-            expected = edge
-        else:
-            tip = entries.get(recipe.get("tool", ""), {}).get("tip_in", "unknown")
-            radius = tip * 25.4 / 2 if numeric(tip) else "unknown"
-            near(row.get("radius_mm", "unknown"), radius, f"{setup['id']}.{axis}: finder radius")
-            side = -1 if recipe.get("from") == f"-{axis}" else 1
-            expected = edge + side * radius if numeric(edge) and numeric(radius) else "unknown"
-        # The display shows scale × the physical contact (diameter mode doubles it).
-        expected = expected * scale if numeric(expected) else "unknown"
-        unsettled |= not (numeric(expected) and numeric(jog))
-        near(row.get("axis_set", "unknown"), expected, f"{setup['id']}.{axis}: Axis Set")
-        for field, factor in (("check_reading", 1), ("mirrored_reading", -1)):
-            result = (
-                expected + factor * sign * scale * jog
-                if all(numeric(v) for v in (expected, jog))
-                else "unknown"
-            )
-            near(row.get(field, "unknown"), result, f"{setup['id']}.{axis}: {field}")
-    top = setup["stock_state"].get("top_z", "unknown")
-    after = {}
-    for op in setup["ops"]:
-        top_feature = setup["stock_state"].get("top_feature")
-        if (
-            op["do"] in {"face", "finish_face", "rough_face"}
-            and "to_z" in op
-            and (top_feature is None or op["feature"] == top_feature)
+            side = zero_rules.touch_side(own, setup, recipe, face, edge, lathe)
+            stand_off = paper_stand_off(paper, side)
+            contact = edge + stand_off if numeric(edge) and numeric(stand_off) else "unknown"
+        elif (
+            numeric(edge) and numeric(radius) and approach in {f"-{axis}", f"+{axis}", "indicated"}
         ):
-            top = op["to_z"]
-        after[op["op"]] = top
-    for row in numbers.get("retouch", []):
-        top = after[row["op"]]
-        paper = setup["zero"]["z"].get("paper_mm", "unknown")
-        near(row["top_z"], top, f"{setup['id']}: advanced top")
-        expected = top + paper if numeric(top) and numeric(paper) else "unknown"
-        near(row["axis_set"], expected, f"{setup['id']}: retouch Axis Set")
-        unsettled |= not numeric(expected)
-    # Only a saw or manual bench setup waives its zero (check_subjects): any other zero is
-    # a verdict, and one its plan leaves unresolved is never approved.
+            contact = edge + (-1 if approach == f"-{axis}" else 1) * radius
+        scale = {True: 1, False: 2}.get(radius_mode, "unknown") if axis == "x" and lathe else 1
+        values = zero_readings(axis, recipe, sign, scale, contact, stand_off, lathe, gauge_ok)
+        row = {key: value for key, value in recipe.items() if key != "retouch_after"}
+        row.update(
+            values,
+            sign=sign,
+            edge_mm=edge,
+            radius_mm=radius,
+            paper_mm=paper,
+            jog_mm=recipe.get("check_jog_mm", "unknown"),
+            dro_direction=direction,
+            axis_set_status=(
+                "measured"
+                if method in MEASURED_ZERO and values["axis_set"] != "unknown"
+                else "computed"
+                if numeric(values["axis_set"])
+                else "unknown"
+            ),
+        )
+        if method in MEASURED_ZERO:
+            row["check_expression"] = values["check_reading"]
+            row["mirrored_expression"] = values["mirrored_reading"]
+            row["gauge_verify"] = not gauge_ok
+        elif axis != "z":
+            row["indicator_verify" if approach == "indicated" else "finder_verify"] = not tool_ok
+        if axis == "z":
+            blade_corner(row, recipe, face, edge, "the Z zero touch")
+            face_check(recipe, face, edge, done, "the Z zero touch")
+        axes[axis] = row
+        unknown |= "unknown" in values.values() or not tool_ok
+    z = zero["z"] if isinstance(zero.get("z"), dict) else {}
+    paper, listed = z.get("paper_mm", "unknown"), z.get("retouch_after", "unknown")
+    unknown |= listed == "unknown" or zero.get("tool_touches") == "unknown"
+    retouch = []
+    for index, (op, _, after) in enumerate(states):
+        if isinstance(listed, list) and op.get("op") in listed:
+            top = tops[index + 1]
+            axis_set = top + paper if numeric(top) and numeric(paper) else "unknown"
+            retouch.append({"op": op["op"], "top_z": top, "paper_mm": paper, "axis_set": axis_set})
+            unknown |= axis_set == "unknown"
+            who = f"the retouch after op {op['op']}"
+            face_check({}, "top", top, 0, who, after["top_from"])
+    x_scale = {True: 1, False: 2}.get(radius_mode, "unknown") if lathe else "unknown"
+    display = {2: "D", 1: "D/2"}.get(x_scale, "unknown")
+    touches = []
+    for record in zero.get("tool_touches") if isinstance(zero.get("tool_touches"), list) else []:
+        edge, paper = record.get("edge_mm", "unknown"), record.get("paper_mm", "unknown")
+        side = zero_rules.touch_side(own, setup, record, record.get("z_face"), edge, lathe)
+        stand_off = paper_stand_off(paper, side)
+        x_set = (
+            "not_applicable"
+            if not lathe
+            else f"measured {display}"
+            if display != "unknown" and verified_item(record.get("gauge"), entries)
+            else "unknown"
+        )
+        if record.get("method") == "measure_then_set":
+            measure, offset = record.get("z_measure"), record.get("z_offset_mm", "unknown")
+            named = isinstance(measure, str) and measure.strip() not in {"", "unknown"}
+            ready = named and verified_item(record.get("z_gauge"), entries)
+            known = ready and numeric(offset) and numeric(stand_off)
+            z_set = bench_edge(offset + stand_off) if known else "unknown"
+        else:
+            z_set = edge + stand_off if numeric(edge) and numeric(stand_off) else "unknown"
+        row = {**record, "x_axis_set": x_set, "z_axis_set": z_set}
+        who = f"the {record.get('tool', 'unknown')} touch"
+        blade_corner(row, record, record.get("z_face"), edge, who)
+        face_check(record, record.get("z_face"), edge, zero_rules._position(ops, record) or 0, who)
+        touches.append(row)
+        unknown |= "unknown" in (x_set, z_set) or not verified_item(record.get("tool"), entries)
+    derived, missing, changes_unknown, _ = zero_rules.tool_changes(
+        own, setup, zero, lathe, x_scale, touches
+    )
+    unknown |= changes_unknown
+    for row in derived:
+        who = f"the {row.get('tool', 'unknown')} re-touch"
+        blade_corner(row, row, row.get("z_face"), row.get("edge_mm"), who)
+        done = zero_rules._position(ops, row) or 0
+        face_check(row, row.get("z_face"), row.get("edge_mm"), done, who)
+    unknown |= bool(face_unknowns)
+    numbers = {
+        "frame": setup.get("frame", "unknown"),
+        "binding": frame.get("binding", "nominal"),
+        "dro": {"mode": mode, "radius_mode": dro.get("radius_mode", "unknown")},
+        "axes": axes,
+        "retouch": retouch,
+        "tool_touches": touches,
+        "derived_touches": derived,
+        "missing_touches": missing,
+    }
+    if lathe:
+        numbers["tool_setting"] = zero_rules.tool_setting(own, setup, zero, touches, derived)
+    if "transfer" in zero:
+        numbers["transfer"] = zero["transfer"]
+    if bad or missing or corner_errors or face_errors:
+        return "error", numbers
+    return ("unknown" if unknown else "pass"), numbers
+
+
+def check_zero(setup: dict, finding: dict, entries: dict, own) -> None:
+    """The ``zero_check`` finding of a setup that sets a DRO zero carries the verdict and
+    every row the validator derives from its own inputs (:func:`derive_zero`): the jog
+    polarity, Axis Set and readings of each axis, each retouch, each tool touch, re-touch
+    and missing touch, and the DRO mode it prints. No reported sign, mode, reading or
+    status is an operand: a report's rows can only repeat them."""
+    status, numbers = derive_zero(setup, own, entries)
+    sid, reported = setup["id"], finding["numbers"]
     require(
-        finding["status"] in ({"unknown", "error"} if unsettled else {"pass", "unknown", "error"}),
-        f"{setup['id']}: a zero its plan leaves unresolved cannot pass or be waived",
+        reported.get("dro") == numbers["dro"],
+        f"{sid}: DRO mode or radius/diameter mode is not the plan's",
+    )
+    # The rows are the plan's: an axis row per authored recipe, a retouch row per listed
+    # retouch in op order; a report cannot drop one to leave it unchecked.
+    require(
+        set(reported.get("axes", {})) == set(numbers["axes"]),
+        f"{sid}: zero rows are not the plan's axis recipes",
+    )
+    require(
+        [row.get("op") for row in reported.get("retouch", [])]
+        == [row["op"] for row in numbers["retouch"]],
+        f"{sid}: retouch rows are not the plan's listed retouches",
+    )
+    for axis, row in numbers["axes"].items():
+        got = reported["axes"][axis]
+        kind = {"measure_then_set": "measured-edge ", "trial_cut_measure": "trial-cut "}
+        what = kind.get(row.get("method"), "")
+        for field, name in ZERO_FIELDS:
+            require(
+                same_evidence(got.get(field), row[field]),
+                f"{sid}.{axis}: {what}{name} {got.get(field)!r} is not the {row[field]!r} "
+                "its plan derives",
+            )
+        require(same_evidence(got, row), f"{sid}.{axis}: zero row is not the one its plan derives")
+    for got, row in zip(reported["retouch"], numbers["retouch"], strict=True):
+        require(same_evidence(got.get("top_z"), row["top_z"]), f"{sid}: advanced top")
+        require(same_evidence(got, row), f"{sid}: retouch Axis Set")
+    for key in ("tool_touches", "derived_touches", "missing_touches", "tool_setting"):
+        require(
+            same_evidence(reported.get(key), numbers.get(key)),
+            f"{sid}: {key} are not the ones its plan derives",
+        )
+    require(same_evidence(reported, numbers), f"{sid}: zero evidence differs from its plan")
+    # Only a saw or manual bench setup waives its zero (check_subjects): any other zero is
+    # the verdict its plan decides.
+    require(
+        finding["status"] == status,
+        f"{sid}: zero verdict {finding['status']} is not the {status} its plan decides",
     )
 
 
@@ -3584,11 +3889,12 @@ def validate_fixture(
     missing += check_prepared_blank(plan, features, inventory, findings, kernel)
     depths = check_endpoints(plan, features, findings, entries)
     definitions = operative_definitions(plan, features)
+    own = functools.cache(lambda: zero_inputs(plan, features, inventory, policy, kernel))
     for setup in plan["setups"]:
         # check_subjects already holds bench and saw zero waivers to their facts.
         if manual_bench(inventory, setup) is None:
             if not saw_setup(setup):
-                check_zero(setup, findings["zero_check", setup["id"]], entries, plan["dro"])
+                check_zero(setup, findings["zero_check", setup["id"]], entries, own())
             check_coordinates(
                 setup,
                 features,
@@ -3710,7 +4016,7 @@ def validate_geometry_fixture(case: tuple, documents: dict) -> None:
         )
     policy = documents[paths["shop_policy"]]
     check_required_coverage(
-        policy, plan, features, [(row["rule"], row["subject"]) for row in report["findings"]]
+        policy, plan, features, {(row["rule"], row["subject"]): row for row in report["findings"]}
     )
     require(
         report_exit(report, policy, plan, features) == report["expected_exit"] == expected_exit,

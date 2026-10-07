@@ -16,7 +16,14 @@ from test_process_features import set_process_key, set_tool_fact, shaft
 
 from prechips.inputs import load_bundle
 from prechips.kernel import run_geometry
-from prechips.rules import coordinates, indexing, prepared_blank, speeds_feeds, stickout
+from prechips.rules import (
+    coordinates,
+    indexing,
+    prepared_blank,
+    speeds_feeds,
+    stickout,
+    zero_recipe,
+)
 from prechips.rules.tip_endpoints import evaluate as endpoint_findings
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -31,6 +38,25 @@ def shifted(value):
     return value + 1.0
 
 
+def zero_case(part, setup_id):
+    """``(setup, finding, entries, own)`` for ``check_zero`` on one example setup: the
+    plan's setup, its expected ``zero_check`` finding and the validator's own inputs
+    (plan, manifest, inventory, policy and its own kernel run)."""
+    folder = ROOT / "examples" / part
+    plan = tomllib.loads((folder / "plan.toml").read_text(encoding="utf-8"))
+    features = tomllib.loads((folder / "features.toml").read_text(encoding="utf-8"))
+    inventory = tomllib.loads((folder / plan["paths"]["inventory"]).read_text(encoding="utf-8"))
+    policy = tomllib.loads((folder / plan["paths"]["policy"]).read_text(encoding="utf-8"))
+    report = json.loads((folder / "expected" / "report.json").read_bytes())
+    setup = next(s for s in plan["setups"] if s["id"] == setup_id)
+    finding = next(
+        f for f in report["findings"] if f["rule"] == "zero_check" and f["subject"] == setup_id
+    )
+    kernel = VALIDATOR["independent_kernel"](folder / "plan.toml")
+    own = VALIDATOR["zero_inputs"](plan, features, inventory, policy, kernel)
+    return setup, finding, VALIDATOR["entries_for"](inventory), own
+
+
 @pytest.mark.parametrize(
     ("part", "setup_id", "reason"),
     [
@@ -42,17 +68,9 @@ def shifted(value):
         ("pivot-shaft", "S2", "measured-edge"),
     ],
 )
-def test_rejects_self_consistent_wrong_z_edge(part, setup_id, reason):
-    folder = ROOT / "examples" / part
-    plan = tomllib.loads((folder / "plan.toml").read_text(encoding="utf-8"))
-    inventory = tomllib.loads((folder / plan["paths"]["inventory"]).read_text(encoding="utf-8"))
-    report = json.loads((folder / "expected" / "report.json").read_bytes())
-    setup = next(s for s in plan["setups"] if s["id"] == setup_id)
-    finding = next(
-        f for f in report["findings"] if f["rule"] == "zero_check" and f["subject"] == setup_id
-    )
-    entries = VALIDATOR["entries_for"](inventory)
-    VALIDATOR["check_zero"](setup, finding, entries, plan["dro"])
+def test_rejects_self_consistent_wrong_z_edge(freecad_kernel, part, setup_id, reason):
+    setup, finding, entries, own = zero_case(part, setup_id)
+    VALIDATOR["check_zero"](setup, finding, entries, own)
 
     corrupted = copy.deepcopy(finding)
     row = corrupted["numbers"]["axes"]["z"]
@@ -63,7 +81,7 @@ def test_rejects_self_consistent_wrong_z_edge(part, setup_id, reason):
             row[field] = shifted(row[field])
 
     with pytest.raises(ValueError, match=reason):
-        VALIDATOR["check_zero"](setup, corrupted, entries, plan["dro"])
+        VALIDATOR["check_zero"](setup, corrupted, entries, own)
 
 
 def cone_inputs():
@@ -977,17 +995,11 @@ def test_indexing_verdict_is_the_one_its_head_and_tolerance_decide(tolerance, ve
         ("pivot-shaft", "S2", "drop_axis"),
     ],
 )
-def test_zero_rows_are_the_plans_and_an_unresolved_zero_cannot_pass(part, setup_id, corruption):
-    folder = ROOT / "examples" / part
-    plan = tomllib.loads((folder / "plan.toml").read_text(encoding="utf-8"))
-    inventory = tomllib.loads((folder / plan["paths"]["inventory"]).read_text(encoding="utf-8"))
-    report = json.loads((folder / "expected" / "report.json").read_bytes())
-    setup = next(s for s in plan["setups"] if s["id"] == setup_id)
-    finding = next(
-        f for f in report["findings"] if f["rule"] == "zero_check" and f["subject"] == setup_id
-    )
-    entries = VALIDATOR["entries_for"](inventory)
-    VALIDATOR["check_zero"](setup, finding, entries, plan["dro"])
+def test_zero_rows_are_the_plans_and_an_unresolved_zero_cannot_pass(
+    freecad_kernel, part, setup_id, corruption
+):
+    setup, finding, entries, own = zero_case(part, setup_id)
+    VALIDATOR["check_zero"](setup, finding, entries, own)
     numbers = finding["numbers"]
     if corruption == "drop_axis":
         del numbers["axes"]["x"]  # the X zero left unchecked
@@ -1005,25 +1017,150 @@ def test_zero_rows_are_the_plans_and_an_unresolved_zero_cannot_pass(part, setup_
     if ":" in corruption:
         finding["status"] = corruption.split(":")[1]
     with pytest.raises(ValueError):
-        VALIDATOR["check_zero"](setup, finding, entries, plan["dro"])
+        VALIDATOR["check_zero"](setup, finding, entries, own)
 
 
-def test_required_coverage_comes_from_the_policy_not_the_report():
-    plan, features, _, _, report = cone_inputs()
-    keys = [(row["rule"], row["subject"]) for row in report["findings"]]
-    # A required subject no rule reports (S99) has the checker's unknown coverage row;
-    # the report cannot drop it because another subject (S1) keeps the rule present.
-    policy = {"required": {"vise": ["S1", "S99"]}}
-    VALIDATOR["check_required_coverage"](policy, plan, features, [*keys, ("vise", "S99")])
+def native_zero(part, setup_id, dro_edit=None):
+    """The engine's ``zero_check`` finding for one example setup after ``dro_edit`` (a
+    callable on the plan's ``dro`` table), from a kernel run of the unedited plan (the
+    DRO table does not enter the kernel)."""
+    bundle = load_bundle(ROOT / "examples" / part / "plan.toml")
+    assert run_geometry(bundle)["status"] == "ok"
+    if dro_edit:
+        dro_edit(bundle.plan["dro"])
+    finding = next(f for f in zero_recipe.evaluate(bundle) if f.subject == setup_id)
+    return json.loads(json.dumps(finding.to_dict()))
+
+
+def set_key(path, value):
+    """A ``dro`` edit setting ``path`` (keys under ``dro``) to ``value``, or deleting it."""
+
+    def edit(dro):
+        *parents, key = path
+        for parent in parents:
+            dro = dro[parent]
+        if value is None:
+            del dro[key]
+        else:
+            dro[key] = value
+
+    return edit
+
+
+DRO_EDITS = [
+    # A reversed DRO count or a mode other than ABS is the error to stop on, on any axis
+    # of a mill or a lathe; one the plan leaves unstated is never settled.
+    ("pivot-bracket", "S2", ("direction", "x"), "left", "error"),
+    ("pivot-bracket", "S2", ("direction", "y"), "toward", "error"),
+    ("pivot-bracket", "S2", ("direction", "z"), "down", "error"),
+    ("pivot-bracket", "S2", ("mode",), "inc", "error"),
+    ("pivot-bracket", "S2", ("direction", "x"), None, "unknown"),
+    ("pivot-bracket", "S2", ("mode",), "unknown", "unknown"),
+    ("pivot-shaft", "S1", ("direction", "x"), "toward_spindle_axis", "error"),
+    ("pivot-shaft", "S1", ("direction", "z"), "toward_chuck", "error"),
+    ("pivot-shaft", "S1", ("radius_mode",), "unknown", "unknown"),
+    # The lathe X display scale is the plan's radius/diameter mode, not the report's.
+    ("pivot-shaft", "S1", ("radius_mode",), True, "pass"),
+]
+
+
+@pytest.mark.parametrize(("part", "setup_id", "path", "value", "verdict"), DRO_EDITS)
+def test_zero_polarity_scale_and_mode_come_from_the_plans_dro(
+    freecad_kernel, part, setup_id, path, value, verdict
+):
+    setup, _, entries, own = zero_case(part, setup_id)
+    before = native_zero(part, setup_id)
+    set_key(path, value)(own.plan["dro"])
+    native = native_zero(part, setup_id, set_key(path, value))
+    assert native["status"] == verdict
+    VALIDATOR["check_zero"](setup, copy.deepcopy(native), entries, own)
+    # The unedited plan's finding printing the edited plan's DRO modes (the reviewer's
+    # report): the polarity, scale, readings and verdict stay the plan's, not the report's.
+    stale = copy.deepcopy(before)
+    stale["numbers"]["dro"] = native["numbers"]["dro"]
     with pytest.raises(ValueError):
-        VALIDATOR["check_required_coverage"](policy, plan, features, keys)
+        VALIDATOR["check_zero"](setup, stale, entries, own)
+    for forged in sorted({"pass", "unknown", "error"} - {verdict}):
+        with pytest.raises(ValueError):
+            VALIDATOR["check_zero"](setup, {**native, "status": forged}, entries, own)
+
+
+@pytest.mark.parametrize(("part", "setup_id"), [("pivot-bracket", "S2"), ("pivot-shaft", "S1")])
+@pytest.mark.parametrize("status", ["pass", "error"])
+def test_zero_jog_polarity_is_never_the_reports(freecad_kernel, part, setup_id, status):
+    """A row printing a reversed X polarity with its readings swapped to match is still
+    the plan's DRO counting up: neither approved nor taken as the reversal to stop on."""
+    setup, _, entries, own = zero_case(part, setup_id)
+    native = native_zero(part, setup_id)
+    VALIDATOR["check_zero"](setup, copy.deepcopy(native), entries, own)
+    row = native["numbers"]["axes"]["x"]
+    row["sign"] = -row["sign"]
+    row["check_reading"], row["mirrored_reading"] = row["mirrored_reading"], row["check_reading"]
+    if "check_expression" in row:  # a measured axis prints its readings as expressions
+        row["check_expression"], row["mirrored_expression"] = (
+            row["mirrored_expression"],
+            row["check_expression"],
+        )
+    native["status"] = status
+    with pytest.raises(ValueError):
+        VALIDATOR["check_zero"](setup, native, entries, own)
+
+
+def coverage_case():
+    """The built-up cone's plan, manifest and report findings keyed by rule and subject."""
+    plan, features, _, _, report = cone_inputs()
+    return plan, features, {(row["rule"], row["subject"]): row for row in report["findings"]}
+
+
+def coverage_row(rule, subject, selector, status="unknown"):
+    return {"rule": rule, "subject": subject, "status": status, "numbers": {"required": selector}}
+
+
+@pytest.mark.parametrize(
+    ("rule", "selector", "subject"),
+    [
+        ("vise", ["S1", "S99"], "S99"),  # a setup the plan does not have
+        ("not_implemented_check", "*", "*"),  # a rule no supported check implements
+        ("not_implemented_check", [], "*"),  # an empty selection of one
+    ],
+)
+def test_required_coverage_comes_from_the_policy_not_the_report(rule, selector, subject):
+    plan, features, findings = coverage_case()
+    policy = {"required": {rule: selector}}
+    key = (rule, subject)
+    check = VALIDATOR["check_required_coverage"]
+    # A required subject no supported check covers has the checker's unknown coverage row.
+    check(policy, plan, features, {**findings, key: coverage_row(rule, subject, selector)})
+    # It cannot be dropped, approved or waived: no supported check exists to decide it.
+    with pytest.raises(ValueError):
+        check(policy, plan, features, findings)
+    for status in ("pass", "not_applicable", "info"):
+        row = coverage_row(rule, subject, selector, status)
+        with pytest.raises(ValueError):
+            check(policy, plan, features, {**findings, key: row})
+    # Nor can a fabricated subject of the rule, which no check evaluates, stand in for it.
+    fabricated = (rule, "S99:10" if subject == "S99" else "S1")
+    with pytest.raises(ValueError):
+        check(policy, plan, features, {**findings, fabricated: coverage_row(*fabricated, {})})
+    with pytest.raises(ValueError):
+        rows = {key: coverage_row(rule, subject, selector), fabricated: {"status": "pass"}}
+        check(policy, plan, features, {**findings, **rows})
+
+
+def test_required_coverage_row_carries_the_policys_selector():
+    plan, features, findings = coverage_case()
     # An empty selection's coverage row is required by the policy's selection of its
     # rule, never by the selector the report prints on it.
     policy = {"required": {"vise": []}}
-    star = {"rule": "vise", "subject": "*", "status": "unknown", "numbers": {"required": []}}
+    star = coverage_row("vise", "*", [])
     assert VALIDATOR["report_exit"]({"findings": [star]}, policy, plan, features) == 4
     star["numbers"]["required"] = "forged"
     assert VALIDATOR["report_exit"]({"findings": [star]}, policy, plan, features) == 4
+    policy = {"required": {"not_implemented_check": "*"}}
+    key = ("not_implemented_check", "*")
+    with pytest.raises(ValueError):
+        row = coverage_row(*key, "forged")
+        VALIDATOR["check_required_coverage"](policy, plan, features, {**findings, key: row})
 
 
 def cone_coordinates(tmp_path, setup_id, aim=None, measured=False):
