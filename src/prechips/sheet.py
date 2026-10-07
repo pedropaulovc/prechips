@@ -2105,7 +2105,9 @@ class _Traveler:
             numbers = _mapping(self.records.get(("accessibility", f"{setup['id']}:{op['op']}")))
             blade = numbers.get("blade_z_mm")
             if zs and isinstance(blade, list) and blade and all(_known(z) for z in blade):
-                zs = [*zs, min(blade)]
+                # Millimetre kernel fact; down-rounded so the jaw gap is never overstated.
+                face = self.mm_on_grid(setup, min(blade), up=False)
+                zs = [*zs, face] if _known(face) else zs
             if zs:
                 result[str(op["op"])] = min(zs) - jaw
         return result
@@ -2113,18 +2115,16 @@ class _Traveler:
     def posed_start(self, setup, op):
         """The kernel's pose of a turning op at its start (accessibility ``window_poses``)
         when a fixture component is within the crash zone of it: the clearance, and how
-        far out the start may go when that was found; None otherwise."""
+        far out the start may go when that was found; None otherwise. The start prints as
+        the DRO shows it (:meth:`surface_z`), off the posed one by the grid rounding: the
+        clearance loses that offset when it is outward (back against the feed), and a
+        printed start at or past the checked limit, or with no clearance left, is a STOP."""
         numbers = _mapping(self.records.get(("accessibility", f"{setup['id']}:{op['op']}")))
-        step, decimals = dro_grid(self.bundle, setup)
-
-        def snap(value, up):
-            """``value`` on the setup's DRO grid, rounded the safe way."""
-            steps = (math.ceil if up else math.floor)(value / step + (-1e-6 if up else 1e-6))
-            return _number(steps * step, decimals)
-
+        o = self.operative
+        scale = {"mm": 1.0, "in": 25.4}.get(self.units)
         for pose in numbers.get("window_poses") or []:
             pose = _mapping(pose)
-            clear, z = pose.get("clearance_mm"), pose.get("z_mm")
+            clear, z = pose.get("clearance_mm"), op.get("z_from")
             if pose.get("end") != "z_from" or not _known(clear) or clear > _CRASH_ZONE_MM:
                 continue
             # The kernel names a placed component "<role> <inventory ref>"; print the shop
@@ -2133,22 +2133,66 @@ class _Traveler:
             ref = name.rsplit(" ", 1)[-1]
             if resolve(self.bundle, "fixtures", ref):
                 name = "the " + self.short_reference(ref, "fixtures")
-            text = f"START Z {snap(z, False)}: {snap(clear, False)} CLEAR OF {name}"
-            start = pose.get("max_start_z_mm")
+            planned, posed = self.surface_z(setup, z), pose.get("z_mm")
+            start, feed = pose.get("max_start_z_mm"), numbers.get("feed_z")
+            out = -feed if feed in (-1, 1) else None
+            if out is None and _known(start) and _known(posed) and start != posed:
+                out = 1 if start > posed else -1
+            moved = planned * scale - posed if _known(planned) and scale and _known(posed) else 0
+            clear -= max(0.0, moved * out if out else abs(moved))
+            limit = "unknown"
             if _known(start) and _known(z):
-                text += f" — start no further out than Z {snap(start, start < z)}"
+                # Toward the planned start: never further out than the found limit.
+                limit = self.mm_on_grid(setup, start, up=start < pose.get("z_mm", start))
+            past = _known(limit) and out and (planned * scale - start) * out > -1e-9
+            if clear <= 0 or past:
+                stop = f"STOP: START Z {o(planned)} is not checked clear of {name}"
+                if _known(limit):
+                    stop += f": the checked start is no further out than Z {o(limit)}"
+                return _Box(stop)
+            gap = self.mm_on_grid(setup, clear, up=False)
+            text = f"START Z {o(planned)}: {o(gap)} CLEAR OF {name}"
+            if _known(limit):
+                text += f" — start no further out than Z {o(limit)}"
             return _Box(text)
         return None
 
+    def mm_on_grid(self, setup, value, up):
+        """A millimetre kernel fact in plan units on the setup's DRO grid, rounded up (True)
+        or down (False); unknown when the value or the plan units are."""
+        scale = {"mm": 1.0, "in": 25.4}.get(self.units)
+        if scale is None or not _known(value):
+            return "unknown"
+        step, decimals = dro_grid(self.bundle, setup)
+        steps = (math.ceil if up else math.floor)(value / scale / step + (-1e-6 if up else 1e-6))
+        return round(steps * step, decimals)
+
     def rest_engagement(self, setup, op):
-        """Where each follow rest the op's start would foul goes on (``engage_at_z_mm``)."""
+        """Where each follow rest the op's start would foul goes on (``engage_at_z_mm``),
+        on the DRO grid toward the clear side (along the feed), rechecked as printed: past
+        the Z where the jaws clear the fixture and not past the op's end."""
         numbers = _mapping(self.records.get(("accessibility", f"{setup['id']}:{op['op']}")))
-        o = self.operative
-        return [
-            f"set the follow rest at Z {o(entry['declared_z_mm'])} once the tool passes it"
-            for entry in map(_mapping, numbers.get("rest_engagement") or [])
-            if _known(entry.get("declared_z_mm"))
-        ]
+        feed, end = numbers.get("feed_z"), op.get("z_to")
+        scale = {"mm": 1.0, "in": 25.4}.get(self.units)
+        lines = []
+        for entry in map(_mapping, numbers.get("rest_engagement") or []):
+            declared, clear = entry.get("declared_z_mm"), entry.get("engage_z_mm")
+            if not _known(declared):
+                continue
+            printed = self.mm_on_grid(setup, declared, up=feed == 1)
+            fits = (
+                feed in (-1, 1)
+                and _known(printed)
+                and _known(clear)
+                and (printed - clear / scale) * feed >= -1e-9
+                and (not _known(end) or (printed - end) * feed <= 1e-9)
+            )
+            lines.append(
+                f"set the follow rest at Z {self.operative(printed)} once the tool passes it"
+                if fits
+                else _Box("STOP: no follow-rest position on the DRO grid is checked clear")
+            )
+        return lines
 
     def path_zs(self, setup, op):
         """The Z ends of an op's path as its op row prints them."""
@@ -2693,7 +2737,12 @@ class _Traveler:
         )
         if plunges is None:
             return []
-        o = self.operative
+        scale = {"mm": 1.0, "in": 25.4}.get(self.units)
+
+        def o(value):
+            """A millimetre plunge fact as the DRO shows it, in plan units."""
+            return self.operative(value / scale if scale and _known(value) else "unknown")
+
         corners = plunges.get("corner_z_mm")
         if not isinstance(corners, list):
             return [_Box("STOP: plunge positions not set — blade width or hand unknown")]
@@ -2701,8 +2750,9 @@ class _Traveler:
         parts = [f"plunge {index} {corner} corner Z {o(z)}" for index, z in enumerate(corners, 1)]
         feature = op.get("feature")
         size = f"Ø {o(plunges.get('diameter_mm'))}"
-        if isinstance(plunges.get("dia_band_mm"), list):
-            size += f" ({self.band(plunges['dia_band_mm'], feature, 'dia')})"
+        band = plunges.get("dia_band_mm")
+        if isinstance(band, list) and scale:
+            size += f" ({self.band([v / scale for v in band], feature, 'dia')})"
         parts.append(("each to " if len(corners) > 1 else "to ") + size)
         low, high = plunges.get("groove_z_mm", [None, None])
         parts.append(f"groove Z {o(low)} to {o(high)}")

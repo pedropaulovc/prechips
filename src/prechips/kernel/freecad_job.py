@@ -5075,13 +5075,32 @@ class _Setup:
                 swept=quill if lathe else None,
                 owner="tailstock",
             )
+        seated = self.part
         if centre.get("hole_dia_mm"):
-            # The work's centre hole: a countersink of the centre's own point angle from
-            # the tip out to its declared mouth, which the setup-entry stock lacks.
+            # The work's centre hole, which the setup-entry stock lacks: a countersink of
+            # the centre's own point angle whose declared mouth lies on the work face where
+            # the centre axis leaves the stock. The centre must touch that seat.
             mouth = centre["hole_dia_mm"] / 2
-            self.centre_seat = Part.makeCone(0, mouth, mouth / math.tan(half), tip, axis)
-        if point.distToShape(self.part)[0] > STOCK_TOL:
-            self.fixture_debts.append(f"{name} tip does not reach the stock")
+            box = self.part.BoundBox
+            span = box.DiagonalLength + (tip - box.Center).Length
+            line = Part.LineSegment(tip - axis * span, tip + axis * span).toShape()
+            ends = [(vertex.Point - tip).dot(axis) for vertex in self.part.common(line).Vertexes]
+            if not ends:
+                self.fixture_debts.append(f"{name} axis does not meet the stock's centre hole")
+            else:
+                depth = mouth / math.tan(half)
+                apex = tip + axis * (max(ends) - depth)
+                # Past the face by 1 mm, so the cut never leaves a coplanar skin.
+                self.centre_seat = Part.makeCone(
+                    0, (depth + 1.0) * math.tan(half), depth + 1.0, apex, axis
+                )
+                seated = self.part.cut(self.centre_seat)
+        if point.distToShape(seated)[0] > STOCK_TOL:
+            self.fixture_debts.append(
+                f"{name} tip does not reach the stock"
+                if seated is self.part
+                else f"{name} does not seat in the declared centre hole"
+            )
 
     def _place_solids(self, hold, facts):
         """An authored fixture body (angle plate, custom nest) at its declared pose."""
@@ -8923,17 +8942,9 @@ class _Setup:
                 if tool["corners"] == 2:
                     blade_z += [low, high]
             else:
-                # As a cut sample: a nose meeting the profile within twice its radius (a
-                # fillet or corner at the window end) stands at the nearest clear pose.
+                # Checked where commanded: a nose standing in finished material there
+                # (past a shoulder, inside a fillet) hits the part; nothing displaces it.
                 centre = window["centre"]
-                nose = tool["radius_mm"]
-
-                def free(c, nose=nose):
-                    return _disk_clear(c, nose - LIFT, segments)
-
-                if segments and not free(centre):
-                    centre = _nearest_free(free, centre, 2 * nose) or centre
-                window["centre"] = centre
                 window["meets"] = set()
             section, pieces = self._turn_sections(tool, centre, not holder_missing)
             solids = {"tool": _revolved(section)}
@@ -9054,18 +9065,28 @@ class _Setup:
             if abs(normal[1]) <= REVOLVED_TOL and normal[0] > 0
         ]
         nose, against = tool["radius_mm"], -tool["feed_z"]
+        # Claimed end faces the nose meets leading: a shoulder the op faces stops it there.
+        faces = [
+            (index, point)
+            for index, point, normal in samples
+            if abs(normal[0]) <= REVOLVED_TOL and normal[1] * against > 0
+        ]
         windows = []
         for end in ("z_from", "z_to"):
             if not radial or not _number(op.get(end)):
                 continue
             z = float(op[end])
             index, point = min(radial, key=lambda item: (abs(item[1][1] - z), item[1][0]))
+            # Riding the diameter, or on a claimed face at the commanded Z where the nose
+            # first reaches it from that diameter (past a fillet larger than the nose).
+            reach = [p[0] for _, p in faces if abs(p[1] - z) <= LIFT]
+            centre_s = max(point[0] + nose, min(reach)) if reach else point[0] + nose
             windows.append(
                 {
                     "end": end,
                     "index": index,
                     "point": (point[0], z),
-                    "centre": (point[0] + nose, z + against * nose),
+                    "centre": (centre_s, z + against * nose),
                     "sample_z": point[1],
                 }
             )

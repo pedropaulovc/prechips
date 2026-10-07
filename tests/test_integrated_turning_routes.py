@@ -37,8 +37,18 @@ filleted = sharp.makeFillet(1.0, corner)
 save("filleted", filleted)
 # A milled flat at model z = 3 across the 8 mm journal (x 55..65).
 save("flatted", filleted.cut(Part.makeBox(10, 10, 10, V(55, -5, 3))))
+# A shallow shoulder: a 9.4 mm journal (x 30..50) through an R0.5 fillet to the 8 mm one.
+shallow = Part.makeCylinder(4.7, 20, V(30, 0, 0), X).fuse(
+    Part.makeCylinder(4, 20, V(50, 0, 0), X)
+).removeSplitter()
+step = [
+    e for e in shallow.Edges
+    if abs(e.BoundBox.XMin - 50) < 1e-6 and abs(e.BoundBox.XMax - 50) < 1e-6
+    and abs(e.BoundBox.ZMax - 4) < 1e-6
+]
+save("shallow", shallow.makeFillet(0.5, step))
 """
-_AUTHORED = 2
+_AUTHORED = 3
 
 # Setup frame: x = model y, y = model z, z = model x - 30 (the spindle axis).
 TURN = {
@@ -265,3 +275,38 @@ def test_a_turning_op_is_posed_at_its_window_ends_so_overtravel_into_the_jaws_fa
     assert beyond["tool_hits"] > 0
     stop = next(w for w in beyond["window_poses"] if w["end"] == "z_to")
     assert stop["z_mm"] == 4.0 and set(JAWS) & set(stop["meets"])
+
+
+@pytest.mark.parametrize(
+    ("shaft", "stock", "clear_at", "inside"),
+    [("filleted", 12.0, 20.0, (19.7,)), ("shallow", 9.4, 20.0, (19.0,))],
+)
+def test_a_turning_stop_inside_finished_material_is_a_hit_where_it_is_commanded(
+    engine, shafts, shaft, stock, clear_at, inside
+):
+    # The op claims the 8 mm journal, its fillet and the shoulder face (z 20): stopped
+    # there the nose stands on that face, clear. Commanded past it, no claimed face is at
+    # that Z and the nose stands in the finished shoulder, however little it stands
+    # above the journal (0.7 mm on the shallow one, inside twice the nose radius).
+    step = shafts[shaft]
+    features = _journals(engine, step)
+    stops = (clear_at, *inside)
+    ops = [_turn("T1:10", "exposed", z_from=40.0, z_to=z_to) for z_to in stops]
+    results = engine.run(
+        {
+            "jobs": [
+                engine.job(
+                    step,
+                    features,
+                    [_lathe("T1", [op], _chuck(face_z=10.0))],
+                    stock={**BAR, "dia_mm": stock},
+                )
+                for op in ops
+            ]
+        }
+    )["results"]
+    clear, *hits = (result["ops"]["T1:10"] for result in results)
+    assert clear["tool_hits"] == 0
+    for z_to, fact in zip(inside, hits, strict=True):
+        stop = next(w for w in fact["window_poses"] if w["end"] == "z_to")
+        assert stop["z_mm"] == z_to and "part" in stop["meets"], z_to
