@@ -9,7 +9,9 @@ them and records, per piece the cutter has to go down at:
   else plunges into material, since nothing else proves the spot clear;
 * from where: level 1 from the op's DRO start Z, level ``k`` from level ``k-1``'s Z, which
   the same path already cut at that spot (each level runs the whole path). Levels
-  coordinates could not compute stay unknown, never one level at the op's depth;
+  coordinates could not compute stay unknown, never one level at the op's depth. One level
+  at the op's start Z that the stock box puts at or above the stock top is lowered to
+  (``lowered``), not plunged; an equal start Z alone proves nothing clear at the entry;
 * how it gets back: a path that ends where it starts goes straight down to the next level;
   otherwise the cutter raises to the op's raise Z (``approach_mm`` above the current top,
   on the DRO grid, as a raster's lift) before moving to the next entry. That height is
@@ -171,16 +173,20 @@ def level_paths(bundle, setup, numbers, states, grid, units, dro_z):
             "raster": raster,
             "closed": closed,
         }
-        # One level at the op's own start Z: nothing stands above it where the cutter goes
-        # down (the start is the top of the stock it meets), so it lowers there and only
-        # the path cuts. Its start is an earlier op's cleared floor, else the stock top.
+        # One level at the op's own start Z, which the setup-entry stock box puts at or
+        # above its top: nothing stands above it anywhere the cutter goes down, so it lowers
+        # there and only the path cuts. A start that is a feature's declared entry_z or an
+        # earlier op's floor proves nothing clear at the entry, so that entry plunges.
         if (
             isinstance(depths, list)
             and len(depths) == 1
             and number(start)
             and abs(start - depths[0]) <= tolerance
+            and box is not None
+            and scale
+            and depths[0] * scale >= box[5] - STOCK_TOL_MM
         ):
-            record["lowered"] = "cleared" if levels.get("start_cleared") is True else "top"
+            record["lowered"] = "top"
         # A return to an entry: between levels of an open path, between pieces, and
         # after every raster pass. An unknown level count claims no return between levels.
         several = isinstance(depths, list) and len(depths) > 1
