@@ -151,42 +151,9 @@ SETUP_RULES = {
     "stock_diameter",
     "indexing",
 }
-SET_KINDS = {
-    "endmill_set",
-    "collet_set",
-    "parallels_set",
-    "center_drill_set",
-    "drill_index",
-    "drill_set",
-    "tap_die_set",
-    "tap_set",
-    "reamers",
-    "countersink_set",
-    "qctp_set",
-    "insert_holders",
-    "micrometer_set",
-    "lathe_tool_bits",
-}
-# An identity the inventory leaves explicitly "unknown": present but unverified, as the
-# checker records one (resolution.resolve). A category it leaves "unknown" makes every
-# identity no other category declares one; ``entries`` notes it under a key no inventory
-# name can be.
+# An identity the inventory leaves explicitly "unknown", as the checker records one
+# (resolution.resolve): its every field unknown.
 UNKNOWN_ITEM = {"kind": "unknown", "verify": True}
-UNKNOWN_CATEGORY = ("unknown category",)
-# Collections an explicit "unknown" leaves empty and flags for verification
-# (resolution.inventory_record): a selected identity's own, or its set's.
-UNKNOWN_MAPS = ("members", "nominal_dia_mm", "nominal_dia_cite", "holders")
-UNKNOWN_LISTS = (
-    "standard_accessories",
-    "included",
-    "sizes",
-    "sizes_mm",
-    "sizes_in",
-    "styles",
-    "ranges_in",
-    "heights_in",
-    "flutes",
-)
 REFERENCE_KEYS = {
     "machine",
     "tool",
@@ -315,174 +282,37 @@ def fraction(value: str) -> Fraction | None:
         return None
 
 
-def entries_for(inventory: dict) -> dict:
-    """Every inventory identity by name, and each machine accessory as a reference to its
-    machine. An identity the inventory leaves "unknown" is :data:`UNKNOWN_ITEM`; a category
-    it leaves "unknown" stands under :data:`UNKNOWN_CATEGORY`."""
-    entries = {}
+class Entries(dict):
+    """Every inventory identity by name (:func:`entries_for`), kept with the ``inventory``
+    it indexes: whether an identity resolves, and resolves unverified, is the checker's own
+    resolution of that inventory (:func:`resolves`, :func:`uncertain`)."""
+
+    def __init__(self, inventory: dict):
+        super().__init__()
+        self.inventory = inventory
+
+
+def entries_for(inventory: dict) -> Entries:
+    """Every inventory identity by name, its fields read as authored; an identity the
+    inventory leaves "unknown" is :data:`UNKNOWN_ITEM`."""
+    entries = Entries(inventory)
     for category in ("machines", "fixtures", "holders", "tools", "gauges"):
         items = inventory.get(category, {})
-        if items == "unknown":
-            entries[UNKNOWN_CATEGORY] = UNKNOWN_ITEM
-            continue
-        for name, item in items.items():
+        for name, item in items.items() if isinstance(items, dict) else ():
             require(name not in entries, f"duplicate inventory identity {name}")
             entries[name] = UNKNOWN_ITEM if item == "unknown" else item
-    machines = inventory.get("machines", {})
-    for name, machine in machines.items() if isinstance(machines, dict) else ():
-        for key in ("standard_accessories", "included"):
-            for accessory in listed(machine, key):
-                entries.setdefault(accessory, {"ref": name})
     return entries
 
 
-def listed(item, key: str) -> list:
-    """``item``'s list ``key``; none where the item or the list is unknown."""
-    value = item.get(key, []) if isinstance(item, dict) else []
-    return value if isinstance(value, list) else []
+def resolves(ref, entries: Entries) -> bool:
+    """Whether the checker resolves ``ref`` (resolution.resolve) in the inventory."""
+    return resolve_item(entries.inventory, None, ref) is not None
 
 
-def inch_list(value) -> list:
-    """Declared inch sizes: a flat list, or every list group of a grouped mapping."""
-    groups = value.values() if isinstance(value, dict) else (value,)
-    return [size for group in groups if isinstance(group, list) for size in group]
-
-
-def accessory_of(entry) -> str | None:
-    """The machine an :func:`entries_for` accessory entry is listed by, else None."""
-    return entry.get("ref") if isinstance(entry, dict) else None
-
-
-def resolves(ref: str, entries: dict) -> bool:
-    """Whether ``ref`` names an identity the checker resolves (resolution.resolve): a
-    declared identity that is not absent and not a bare set, a declared member of one that
-    is not absent (an "unknown" member resolves unverified), a member its set's declared
-    sizes, flutes, styles, ranges, holders or coverage generate, a machine accessory, or
-    any identity where its category is unknown; an explicitly unknown identity resolves
-    unverified."""
-    root, separator, member = ref.partition("/")
-    entry = entries.get(root)
-    if entry is None or accessory_of(entry):
-        # Not a category identity: a machine accessory, else undeclared; an undeclared
-        # identity is missing unless a category the inventory leaves unknown may hold it.
-        return accessory_of(entries.get(ref)) is not None or UNKNOWN_CATEGORY in entries
-    if entry is UNKNOWN_ITEM:
-        return True
-    if entry.get("present") is False:
-        return False
-    if not separator:
-        return entry.get("kind") not in SET_KINDS
-    members = entry.get("members", {})
-    if isinstance(members, dict) and member in members:
-        # An explicitly declared member resolves by identity; an "unknown" member
-        # resolves to an unverified identity rather than a missing one.
-        selected = members[member]
-        return selected == "unknown" or not (
-            isinstance(selected, dict) and selected.get("present") is False
-        )
-    kind, size = entry.get("kind"), fraction(member)
-    if kind in {"collet_set", "parallels_set", "countersink_set"}:
-        choices = entry.get("sizes_in", entry.get("heights_in", []))
-        return size is not None and size in {fraction(str(v)) for v in inch_list(choices)}
-    if kind in {"reamers", "drill_set"}:
-        if member.endswith("mm"):
-            chosen = fraction(member.removesuffix("mm"))
-            return chosen is not None and chosen in {
-                fraction(str(v)) for v in listed(entry, "sizes_mm")
-            }
-        return (
-            member.endswith("in")
-            and size is not None
-            and size in {fraction(str(v)) for v in inch_list(entry.get("sizes_in"))}
-        )
-    if kind == "endmill_set":
-        match = re.fullmatch(r"(.+in)-(\d+)fl", member)
-        if not match:
-            return False
-        size, flutes = fraction(match[1]), entry.get("flutes")
-        counts = flutes if isinstance(flutes, list) else [flutes] if numeric(flutes) else []
-        return (
-            size is not None
-            and size in {fraction(str(v)) for v in inch_list(entry.get("sizes_in"))}
-            and int(match[2]) in counts
-        )
-    if kind == "center_drill_set":
-        number = member.removeprefix("#")
-        return number.isdigit() and int(number) in listed(entry, "sizes")
-    if kind == "drill_index":
-        # Only the series its coverage declares: numbers, letters, 64ths to 1/2 in.
-        coverage = str(entry.get("coverage", ""))
-        numbered = re.fullmatch(r"#(\d+)", member)
-        return bool(
-            (numbered and "#1-60" in coverage and 1 <= int(numbered[1]) <= 60)
-            or (re.fullmatch("[A-Z]", member) and "A-Z" in coverage)
-            or (
-                size is not None
-                and "1/16-1/2 by 64ths" in coverage
-                and Fraction(1, 16) <= size <= Fraction(1, 2)
-                and (size * 64).denominator == 1
-            )
-        )
-    if kind == "qctp_set":
-        choices = {
-            "1-turning-facing": "#1 turning/facing",
-            "2-boring-turning-facing": "#2 boring/turning/facing",
-            "4-heavy-boring": "#4 heavy boring",
-            "7-parting": "#7 parting (1/2 blade)",
-        }
-        holders = entry.get("holders", {})
-        return isinstance(holders, dict) and choices.get(member, member) in holders
-    if kind == "insert_holders":
-        return member in listed(entry, "styles")
-    if kind == "micrometer_set":
-        return member.removesuffix("in") in listed(entry, "ranges_in")
-    return False
-
-
-def unknown_collection(item) -> bool:
-    """Whether ``item`` leaves a collection it is read through explicitly unknown
-    (:data:`UNKNOWN_MAPS`, :data:`UNKNOWN_LISTS`): it is then flagged for verification."""
-    return isinstance(item, dict) and (
-        any(key in item and not isinstance(item[key], dict) for key in UNKNOWN_MAPS)
-        or any(item.get(key) == "unknown" for key in UNKNOWN_LISTS)
-    )
-
-
-def flagged(record) -> bool:
-    """Whether an inventory record declares verification debt as the checker reads it
-    (resolution.uncertain): ``verify`` true or unknown, ``present`` unknown or a coverage
-    still to verify, on it or on any record it holds as a value (a fact, a member, a
-    spindle). A record held in a list (a body's solids) carries its own debt, not its
-    owner's: it is not read."""
-    return isinstance(record, dict) and (
-        record.get("verify") is True
-        or record.get("verify") == "unknown"
-        or record.get("present") == "unknown"
-        or "verify" in str(record.get("coverage", "")).lower()
-        or any(flagged(value) for value in record.values())
-    )
-
-
-def uncertain(ref: str, entries: dict) -> bool:
-    """Whether ``ref`` resolves unverified, as the checker resolves and reads it
-    (resolution.resolve, resolution.uncertain): undeclared or explicitly unknown; a
-    machine accessory whose machine record is flagged; else its set's or its own record
-    is flagged (:func:`flagged`: so any declared member's debt is its whole set's), it
-    or its selected member leaves a collection it is read through unknown
-    (:func:`unknown_collection`), or the member it selects is left unknown."""
-    root, separator, member = ref.partition("/")
-    entry = entries.get(root)
-    if entry is None or accessory_of(entry):
-        machine = accessory_of(entries.get(ref))
-        return machine is None or uncertain(machine, entries)
-    members = entry.get("members", {})
-    selected = members.get(member) if separator and isinstance(members, dict) else None
-    return (
-        flagged(entry)
-        or unknown_collection(entry)
-        or selected == "unknown"
-        or unknown_collection(selected)
-    )
+def uncertain(ref, entries: Entries) -> bool:
+    """Whether the checker resolves ``ref`` (resolution.resolve) in the inventory to an
+    identity it reads as unverified (resolution.uncertain)."""
+    return record_uncertain(resolve_item(entries.inventory, None, ref))
 
 
 def selected_refs(plan: dict):
@@ -1604,15 +1434,11 @@ def zero_inputs(plan: dict, features: dict, inventory: dict, policy: dict, kerne
     )
 
 
-def verified_item(ref, entries: dict, inventory: dict) -> bool:
-    """Whether ``ref`` names an inventory identity that resolves unflagged both as the
-    validator reads the inventory (:func:`resolves`, :func:`uncertain`) and as the checker
-    resolves it: neither reading makes a flagged, unverified or explicitly unknown identity
-    ready."""
-    if not (isinstance(ref, str) and resolves(ref, entries) and not uncertain(ref, entries)):
-        return False
-    item = resolve_item(inventory, None, ref)
-    return bool(item) and not record_uncertain(item)
+def verified_item(ref, entries: Entries) -> bool:
+    """Whether ``ref`` resolves (:func:`resolves`) to an identity the checker does not read
+    as unverified (:func:`uncertain`): a flagged, unverified or explicitly unknown one is
+    not ready."""
+    return resolves(ref, entries) and not uncertain(ref, entries)
 
 
 def paper_stand_off(paper, side):
@@ -1698,7 +1524,7 @@ def derive_zero(setup: dict, own, entries: dict) -> tuple:
     lathe = zero_rules.lathe_setup(own, setup)
 
     def ready(ref) -> bool:
-        return verified_item(ref, entries, own.inventory)
+        return verified_item(ref, entries)
 
     zero, ops = setup["zero"], setup["ops"]
     states = list(stock_states(own, setup))

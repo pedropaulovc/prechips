@@ -854,10 +854,35 @@ def test_reference_oracle_reads_identity_verification_as_the_checker_does(path, 
     The engine's verdict is accepted, every other one rejected."""
     data = drill_bundle()
     set_key(path, value)(data.inventory)
+    check_reference_verdict(data, path[1] if len(path) > 1 else "drill", verdict)
+
+
+# A verification and its opposite: an unverified identity's is a verified one.
+OPPOSITE = {True: False, False: True, "unknown": False}
+
+
+@pytest.mark.parametrize("prefix", [False, True])
+@pytest.mark.parametrize("flag", [True, False, "unknown"])
+def test_reference_oracle_reads_an_accessory_as_the_machine_listing_it(flag, prefix):
+    """A machine accessory is as verified as the record of the machine listing it, under
+    whatever key: a slash-bearing key names that machine, not a member of an identity its
+    prefix names (here, one carrying the opposite verification)."""
+    data = drill_bundle()
+    machines = data.inventory["machines"]
+    machines["spare/mill"] = {"kind": "mill", "included": ["spare-vise"], "verify": flag}
+    if prefix:
+        machines["spare"] = {"kind": "mill", "verify": OPPOSITE[flag]}
+    data.plan["setups"][0].setdefault("hold", {})["fixture"] = "spare-vise"
+    check_reference_verdict(data, "spare-vise", "pass" if flag is False else "unknown")
+
+
+def check_reference_verdict(data, subject, verdict):
+    """The engine's ``tool_resolves`` finding on ``subject`` is ``verdict``: the validator
+    accepts it, and rejects it with any other status."""
     Inventory.model_validate(data.inventory)
     findings = {(f.rule, f.subject): f.to_dict() for f in tool_resolves.evaluate(data)}
     entries = VALIDATOR["entries_for"](data.inventory)
-    key = "tool_resolves", path[1] if len(path) > 1 else "drill"
+    key = "tool_resolves", subject
     assert findings[key]["status"] == verdict
     VALIDATOR["check_references"](data.plan, entries, findings)
     for forged in sorted({"pass", "unknown", "error"} - {verdict}):
@@ -874,6 +899,10 @@ PILOTS = [
     ROOT / "examples" / "cone-pivot-post" / "built-up.toml",
 ]
 CATEGORIES = ("machines", "tools", "holders", "fixtures", "gauges")
+# Collections an identity may leave "unknown" (resolution.inventory_record).
+COLLECTIONS = ("members", "nominal_dia_mm", "nominal_dia_cite", "holders", "sizes", "sizes_mm")
+COLLECTIONS += ("sizes_in", "styles", "ranges_in", "heights_in", "flutes")
+COLLECTIONS += ("standard_accessories", "included")
 # Members a drill index's declared coverage generates, or not, and a qctp set's holder slots.
 INDEX_MEMBERS = ("#1", "#60", "#61", "A", "Z", "1/16", "1/4", "33/64", "1/2", "17/32")
 QCTP_MEMBERS = ("1-turning-facing", "2-boring-turning-facing", "4-heavy-boring", "7-parting")
@@ -925,11 +954,7 @@ def declared_debts(item):
         *((f"present={flag}", {"present": flag}) for flag in (True, False, "unknown")),
         ("coverage", {"coverage": "verify on site"}),
         *((f"solid verify={flag}", {"solids": solids(flag)}) for flag in (True, False, "unknown")),
-        *(
-            (f"{key}=unknown", {key: "unknown"})
-            for key in VALIDATOR["UNKNOWN_MAPS"] + VALIDATOR["UNKNOWN_LISTS"]
-            if key in item
-        ),
+        *((f"{key}=unknown", {key: "unknown"}) for key in COLLECTIONS if key in item),
     ]
     if not any(key.startswith("body_dia") for key in item):
         edits += [
@@ -949,17 +974,39 @@ def declared_debts(item):
     return result
 
 
+def rekeyed(root, item):
+    """``[(label, {key: record})]``: ``item`` under the slash-bearing key ``root/owner``
+    with each verification, alone or beside an identity of its prefix key ``root``
+    carrying the opposite one."""
+    owner, result = f"{root}/owner", []
+    for flag in (True, False, "unknown"):
+        prefix = {key: item[key] for key in ("kind",) if key in item}
+        record = {**item, "verify": flag}
+        result += [
+            (f"as {owner} verify={flag}", {owner: record}),
+            (
+                f"as {owner} verify={flag} beside {root}",
+                {owner: record, root: {**prefix, "verify": OPPOSITE[flag]}},
+            ),
+        ]
+    return result
+
+
 def mutations(inventory):
-    """``(label, category, root or None, edited category)``: each category left unknown,
-    and each identity of it left unknown or carrying each of its :func:`declared_debts`."""
+    """``(label, category, keys, edited category)``: each category left unknown, and each
+    identity of it left unknown, carrying each of its :func:`declared_debts`, or re-keyed
+    (:func:`rekeyed`); ``keys`` are the identities the edit touches."""
     for category in CATEGORIES:
         items = inventory.get(category, {})
-        yield f"{category}=unknown", category, None, "unknown"
+        yield f"{category}=unknown", category, (), "unknown"
         for root, item in items.items():
-            edits = [("unknown", "unknown")]
-            edits += declared_debts(item) if isinstance(item, dict) else []
-            for label, edited in edits:
-                yield f"{root} {label}", category, root, {**items, root: edited}
+            edits = [("unknown", {root: "unknown"})]
+            if isinstance(item, dict):
+                edits += [(label, {root: edited}) for label, edited in declared_debts(item)]
+                edits += rekeyed(root, item)
+            rest = {key: value for key, value in items.items() if key != root}
+            for label, keyed in edits:
+                yield f"{root} {label}", category, (root, *keyed), {**rest, **keyed}
 
 
 def verdicts(inventory, loaded, refs):
@@ -982,10 +1029,11 @@ def verdicts(inventory, loaded, refs):
 
 def test_identity_oracle_resolves_and_verifies_every_identity_as_the_checker_does():
     """Differential: each identity of the pilots' inventory (selected, declared, member,
-    accessory, generated or undeclared) resolves through the validator's own reading to
-    the checker's verdict, as authored and with each category or identity left unknown or
-    carrying each declared, cleared or unknown verification, presence, coverage, fact,
-    listed solid, collection and member."""
+    accessory, generated or undeclared) resolves through the validator to the checker's
+    verdict on the inventory as the checker loads it: as authored, and with each category
+    or identity left unknown, re-keyed under a slash-bearing name (beside its prefix's
+    identity or not) or carrying each declared, cleared or unknown verification, presence,
+    coverage, fact, listed solid, collection and member."""
     compared, disagreements = 0, []
     for inventory, selected in pilot_inventories():
         base = Inventory.model_validate(inventory).model_dump(exclude_unset=True)
@@ -994,14 +1042,14 @@ def test_identity_oracle_resolves_and_verifies_every_identity_as_the_checker_doe
             for category in CATEGORIES
             for root, item in inventory[category].items()
         }
-        for label, category, root, edited in [(None, None, None, None), *mutations(inventory)]:
-            if root is None:
-                # The authored inventory, or a whole category left unknown: every identity.
-                scope = selected.union(*everything.values(), {"undeclared", "undeclared/x"})
-                edit = {} if category is None else {category: edited}
-            else:
-                scope = everything[root] | identities(root, edited[root])
-                edit = {category: edited}
+        for label, category, keys, edited in [("authored", None, (), None), *mutations(inventory)]:
+            edit = {} if category is None else {category: edited}
+            # The identities an edit touches, else (the authored inventory, or a whole
+            # category left unknown) every identity.
+            scope = set().union(
+                *(everything.get(key, set()) | identities(key, edited.get(key)) for key in keys)
+            )
+            scope = scope or selected.union(*everything.values(), {"undeclared", "undeclared/x"})
             loaded = {**base, **Inventory.model_validate(edit).model_dump(exclude_unset=True)}
             found = verdicts({**inventory, **edit}, loaded, scope)
             compared += len(found)
