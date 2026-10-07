@@ -46,13 +46,20 @@ class Bundle:
 
     @cached_property
     def feature_definitions(self) -> dict[str, dict]:
-        """Operative features: the exported manifest plus resolved plan joint features.
+        """Operative features: the exported manifest plus resolved plan joint and process
+        features.
 
         ``features`` stays the original exported document (hash, faces and coverage).
         """
-        from prechips.joint_features import feature_definitions
+        return _operative(self.plan, self.features)
 
-        return feature_definitions(self.plan, self.features)
+
+def _operative(plan: dict, features: dict) -> dict[str, dict]:
+    from prechips import joint_features, process_features
+
+    return process_features.feature_definitions(
+        plan, joint_features.feature_definitions(plan, features)
+    )
 
 
 def _span(kind: str, path: Path):
@@ -104,6 +111,7 @@ def load_bundle(
     policy: str | Path | None = None,
     cutting_data: str | Path | None = None,
 ) -> Bundle:
+    from prechips.rules.coordinates import aim_band_error
     from prechips.rules.resolution import SAW_OPS, op_features
 
     plan_path = Path(plan_path).resolve()
@@ -119,16 +127,20 @@ def load_bundle(
         raise BadInput("Plan and feature manifest name different parts.")
     if not features["features"]:
         raise BadInput("The feature manifest has no features.")
-    from prechips.joint_features import LABEL_PREFIX, feature_definitions
+    from prechips import joint_features, process_features
 
-    definitions = feature_definitions(plan, features)
+    definitions = _operative(plan, features)
     for name, feature in features["features"].items():
         faces = feature.get("faces")
-        if isinstance(faces, list) and any(str(face).startswith(LABEL_PREFIX) for face in faces):
-            raise BadInput(
-                f"features.{name}.faces names a synthetic {LABEL_PREFIX}* label; transient "
-                "joint geometry never maps to finished STEP faces."
-            )
+        for prefix, what in (
+            (joint_features.LABEL_PREFIX, "joint"),
+            (process_features.LABEL_PREFIX, "stock-preparation"),
+        ):
+            if isinstance(faces, list) and any(str(face).startswith(prefix) for face in faces):
+                raise BadInput(
+                    f"features.{name}.faces names a synthetic {prefix}* label; transient "
+                    f"{what} geometry never maps to finished STEP faces."
+                )
     setups = plan["setups"]
     if not isinstance(setups, list) or not setups:
         raise BadInput("The plan has no setups.")
@@ -142,6 +154,10 @@ def load_bundle(
                 f"aims.{name}: {aim['requirement']} is not an exported drawing requirement "
                 "of a manifest feature."
             )
+        # The aimed value itself, before any DRO rounding could bring its target back in.
+        error = aim_band_error(features, name, definitions[name], aim)
+        if error is not None:
+            raise BadInput(f"{error}.")
     for setup in setups:
         ops = setup.get("ops")
         if not isinstance(ops, list) or not ops:
@@ -166,9 +182,19 @@ def load_bundle(
             names = op_features(op)
             if not names or any(name not in definitions for name in names):
                 raise BadInput(
-                    f"{setup['id']}:{op['op']}: feature is neither in the manifest nor "
-                    "plan.joint_features."
+                    f"{setup['id']}:{op['op']}: feature is neither in the manifest, "
+                    "plan.joint_features nor plan.process_features."
                 )
+            preparing = [name for name in names if process_features.process_of(definitions[name])]
+            if preparing:
+                authored = [key for key in ("faces", "checks", "missing_requirements") if key in op]
+                if authored or len(names) != 1:
+                    raise BadInput(
+                        f"{setup['id']}:{op['op']}: plan.process_features.{preparing[0]} is "
+                        "stock preparation; its op works that one feature alone and claims "
+                        "no finished faces, checks or drawing requirements"
+                        + (f" (remove {', '.join(authored)})." if authored else ".")
+                    )
             label = "/".join(names)
             exported = {item for name in names for item in _exported(definitions[name])}
             checks = op.get("checks")
@@ -202,7 +228,14 @@ def load_bundle(
         if face not in (None, "unknown", "stock_end") and face not in definitions:
             raise BadInput(
                 f"{setup['id']}: hold.stop_face {face!r} is neither a manifest feature, "
-                'plan.joint_features nor "stock_end".'
+                'plan.joint_features, plan.process_features nor "stock_end".'
+            )
+        centre = hold.get("centre_hole") if isinstance(hold, dict) else None
+        made = process_features.process_of(definitions.get(centre)) if centre else None
+        if centre is not None and (made is None or made["kind"] != "centre_hole"):
+            raise BadInput(
+                f"{setup['id']}: hold.centre_hole {centre!r} is not a "
+                "plan.process_features centre_hole."
             )
         frame = setup.get("frame", "unknown")
         if (

@@ -98,24 +98,41 @@ def test_known_numbers_without_drawing_precision_print_and_unknowns_stay_explici
                 ), (endpoint, printed)
 
 
+# S3 op 10 parts the waste off on the +Z side of its cut: the synthetic kernel says so,
+# as the real one does, so the blade's chuck-side corner forms the kept face.
+_PARTED_TOWARD_FREE_END = (
+    SYNTHETIC_KERNEL
+    + """
+_faced = cli.load_bundle
+def _faced_bundle(*args, **kwargs):
+    bundle = _faced(*args, **kwargs)
+    bundle.kernel["ops"]["S3:10"] = {"faced_side": 1}
+    return bundle
+cli.load_bundle = _faced_bundle
+"""
+)
+
+
 def test_operative_z_keeps_its_own_digits_over_drawing_precision(tmp_path):
     _, report, html = traveler(
         ROOT / "examples" / "pivot-shaft" / "plan.toml",
         tmp_path / "out",
-        setup=SYNTHETIC_KERNEL,
+        setup=_PARTED_TOWARD_FREE_END,
     )
     coordinates = next(row for row in findings(report, "coordinates") if row["subject"] == "S3")
-    # S3 op 20 faces the parted end to the dome apex, a DRO-set local Z.
-    endpoint = next(
-        row for row in coordinates["numbers"]["rows"] if row.get("point") == "op 20 to_z"
-    )
+    endpoints = {row.get("point"): row for row in coordinates["numbers"]["rows"]}
     assert coordinates["status"] == "pass"
-    # Nominal frame T3 (z = -model Z from -156.67) maps the authored local endpoint.
-    assert endpoint["setup"] == [0.0, 0.0, 1.75]
-    assert endpoint["model"] == pytest.approx([0.0, 0.0, -158.42])
+    # Nominal frame T3 (z = -model Z from -156.67) maps the authored local endpoints:
+    # op 10 parts the waste long, op 20 faces the parted end to the dome apex.
+    assert endpoints["op 10 to_z"]["setup"] == [0.0, 0.0, 2.25]
+    assert endpoints["op 10 to_z"]["model"] == pytest.approx([0.0, 0.0, -158.92])
+    assert endpoints["op 20 to_z"]["setup"] == [0.0, 0.0, 1.75]
+    assert endpoints["op 20 to_z"]["model"] == pytest.approx([0.0, 0.0, -158.42])
     s3_ops = sections(html, "OPERATIONS")[-1]
     op20 = next(cells for number, cells in op_rows(s3_ops) if number == "20")
     assert "1.75" in text(op20)
+    op10 = next(cells for number, cells in op_rows(s3_ops) if number == "10")
+    assert "2.25 (chuck-side corner)" in text(op10)
     dome = next(
         contour
         for row in findings(report, "coordinates")
@@ -170,11 +187,9 @@ def test_shaft_missing_length_prints_as_a_normal_unknown_inspection_row(tmp_path
 
 
 def test_lathe_feed_prints_per_revolution_with_the_true_value(tmp_path):
-    _, report, html = traveler(
-        ROOT / "examples" / "pivot-shaft" / "plan.toml",
-        tmp_path / "out",
-        setup=SYNTHETIC_KERNEL,
-    )
+    plan = ROOT / "examples" / "pivot-shaft" / "plan.toml"
+    _, report, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
+    ids = [setup["id"] for setup in tomllib.loads(plan.read_text(encoding="utf-8"))["setups"]]
     per_rev = {}
     for finding in findings(report, "speeds_feeds"):
         setup, _, op = finding["subject"].partition(":")
@@ -183,9 +198,9 @@ def test_lathe_feed_prints_per_revolution_with_the_true_value(tmp_path):
             per_rev[setup, op] = value
     assert per_rev
     pages = sections(html, "OPERATIONS")
-    for index, page in enumerate(pages, start=1):
+    for setup, page in zip(ids, pages, strict=True):
         for op, cells in op_rows(page):
-            value = per_rev.get((f"S{index}", op))
+            value = per_rev.get((setup, op))
             if value is None:
                 continue
             printed = re.findall(r"([\d.]+) mm/rev", text(cells))
@@ -379,7 +394,7 @@ def test_job_status_lists_stock_to_obtain_before_the_first_setup(tmp_path):
     plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
     _, _, html = traveler(plan, tmp_path / "missing", setup=SYNTHETIC_KERNEL)
     job = text(sections(html, "JOB STATUS")[0])
-    assert "Before S1: obtain the stock" in job and "NOT APPROVED" in job
+    assert "Before S0: obtain the stock" in job and "NOT APPROVED" in job
     assert "No stops, cautions" not in job
     authored = plan.read_text(encoding="utf-8")
     plan.write_text(authored.replace("on_hand = false", "on_hand = true", 1), encoding="utf-8")
@@ -441,7 +456,8 @@ def test_follow_rest_hold_prints_its_jaw_lead_as_a_distance_not_a_diameter(side,
     assert count == 1
     plan.write_text(edited, encoding="utf-8")
     _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
-    hold = text(sections(html, "HOLD")[0])
+    front = html.split('data-sheet="SETUP S1 sheet 1"')[1].split("</section>")[0]
+    hold = text(sections(front, "HOLD")[0])
     (line,) = [part for part in hold.split("|") if part.startswith("Support: follow")]
     assert f"9.50 mm {where}" in line
     assert not re.search(r"Ø\s*9\.50*\b", line)

@@ -570,7 +570,14 @@ def exposed_profile(bundle, setup):
         ):
             uncovered.append([segments[-1]["z_mm"][1], exposure[1]])
     stock_segments, uncovered, stock_reason = _stock_fill(bundle, setup, uncovered)
-    complete = isinstance(exposure, list) and bool(segments) and not unresolved and not uncovered
+    # A span the kernel's stock profile wholly fills (stock preparation ahead of every
+    # finished feature) is as known as one finished features cover.
+    complete = (
+        isinstance(exposure, list)
+        and bool(segments or stock_segments)
+        and not unresolved
+        and not uncovered
+    )
     return {
         "names": exposed_names,
         "exposed_z_mm": exposure,

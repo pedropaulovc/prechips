@@ -21,7 +21,7 @@ from prechips.rules.resolution import (
 from prechips.rules.tip_endpoints import HOLE_OPS
 
 # Point/hole actions plunge on the spindle axis; every other machine cut needs a direction.
-_POINT = HOLE_OPS | {"center"}
+_POINT = HOLE_OPS | {"center", "center_drill"}
 STOCK_END = "stock_end"
 
 

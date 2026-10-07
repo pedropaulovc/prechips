@@ -1035,6 +1035,15 @@ sheet.
    the printed height-like band it holds from `height_from`; a target outside the
    band is `✗`. A plan `aims` entry may move the target inside its band for a
    stated reason (the cone crank bore at 39.517 separation) without moving geometry.
+   **Lathe blade corners and tool setting (2026-10-06, r4):** a grooving/parting
+   blade's Z touch sets the corner its touched face's kernel normal gives (+Z face:
+   chuck side, −Z face: tailstock side), else the touch's authored `corner`, else
+   `?`; a contradicting corner is `✗`. Blade op rows print Z as that corner's
+   reading, a blade width beyond `to_z` when the other corner forms the face
+   (cone S2/S3 part-offs at Z −22.65 / −73.63), while sweeps, clearances and jaw
+   distances keep the true blade extents. Each toolpost tool's first touch-off
+   in a lathe setup is preceded by setting it on centre height (and squaring a
+   blade), from the toolpost's cited words.
 2. **M2 — local declared-input implementation completed 2026-10-03.**
    Turned-profile monotonicity,
    supported stick-out, collet/chuck diameter capacity, exact-first indexing,
@@ -1256,6 +1265,19 @@ sheet.
    never spindle RPM. Axial/turning-cylinder accessibility is explicitly
    not applicable; saw cuts earn no finished-face coverage. Fixture modeling
    and input debt semantics remain operative.
+
+   **Process features shipped (2026-10-06, round-4 ShaftPrep):** plan-owned
+   `process_features` (`end_face`, `centre_hole`) are stock preparation the
+   kernel cuts through transient faces and later stock states carry; they earn
+   no finished-face or finish coverage and print no drawing-requirement row. A
+   hold's `centre_hole` binds the dead centre to a centre an earlier setup in
+   its `stock_in` lineage drills (`centre_support`: error when contradicted,
+   unknown when undeclared), seated in the cut countersink. Centre depth is
+   Table 6 drill length C plus the countersink to the mouth, printed on the
+   tailstock quill. The pivot-shaft S0 faces and centre-drills the plain end;
+   the saw cut stays a stock prerequisite (the bar it is cut from is not
+   declared). The catalogue gains `centre_support`; `rules_version` is unchanged
+   until the integrator refreezes goldens.
 
    Geometry checks and rasterized pictures use **setup-entry stock** selected
    explicitly by `stock_in`: `"stock"` for one supply, `"stock.<id>"` for a

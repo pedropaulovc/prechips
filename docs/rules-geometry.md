@@ -24,7 +24,9 @@ that carries its own verification debt.
 The citation list of every geometry finding starts with that PLAN row, adds
 `kernel: STEP SHA-256 <digest>; FreeCAD B-rep measurements` when the manifest
 digest is known, then the feature (exported `features.<name>: faces and
-requirements` or author-owned `plan.joint_features.<name>` plus its citations),
+requirements`, author-owned `plan.joint_features.<name>`, or
+`plan.process_features.<name>: STOCK PREPARATION — plan only, not a drawing
+dimension`, each plus its citations),
 the setup (`plan.setups.<id>: frame and hold`, the resolved fixture/parallels
 rows and their citations, the frame citation) and the operation
 (`plan.setups.<id>.ops.<n>: selected
@@ -169,6 +171,25 @@ face at another diameter or about another axis and any transient index earn
 nothing. Earning
 nothing leaves the face's obligations open; it is never debt or
 `not_applicable`.
+
+Plan [process features](plan.md#process-features) (a faced `end_face`, a
+`centre_hole`) are analytic stock preparation labelled
+`plan.process_features.<id>`. The kernel adds them as transient faces after
+the STEP faces (an end face is the disc through `at` normal to `axis`,
+intersected with the stock; a centre is its reversed countersink cone and pilot
+cylinder), so they are never STEP indices and never enter final face, source,
+as-is, corner, `coverage` or `finish_coverage` mappings. A process op credits
+no imported face, even when its cut lies on a drawing plane, and is never
+claim debt. Facing an end face uses the turning model with the disc as its
+claim. A `center_drill` op removes the analytic centre (countersink of
+`countersink_angle_deg` to `mouth_dia_mm`, pilot of `drill_dia_mm` and
+`drill_length_mm`, point cone from the tool's verified `point_angle`) led 1 mm
+out of the face, minus protected finished material, along setup -Z through the
+spindle axis; an unknown point angle, a centre not wholly inside the stock, or a
+feed off setup -Z or the spindle axis is a reason, not a removal. Accessibility,
+reach and later stock states then see the cut centre, and a later setup's hold
+`centre_hole` seats its dead centre in that countersink instead of cutting a seat
+from `centre_hole_dia_mm`.
 
 
 ## Approach models
@@ -370,7 +391,12 @@ on the DRO grid rounded along the feed (the clear side) and rechecks the printed
 Z against the clear Z and `z_to`; with no such grid position it prints a STOP
 box. A blade's `blade_z_mm` is its axial extent over its cutting poses; the
 traveler's jaw distance uses its chuck-side face (in plan units, rounded toward
-the jaws), not only the Z its op names.
+the jaws), not only the Z its op names. A facing/parting op posed at its `to_z`
+also records `faced_side`, the claimed faces' outward axial normal (+1 toward the
+free end, -1 toward the chuck): the blade stands on that side of `to_z`, so a
++1 face is formed by a blade's chuck-side corner and a -1 face by its
+tailstock-side corner ([coordinates](rules-coordinates.md#coordinates) blade
+`to_z` ops).
 
 ### Follow and steady rests
 

@@ -110,6 +110,18 @@ type = "wedge"
 holders = 5
 included = true
 note = "a second AXA QCTP (250-111) came off the JET"
+# --- EngBlade additions ---
+# How each toolpost tool is set before its first touch-off in a setup: on spindle centre
+# height, and a parting/grooving blade also squared to the spindle axis (docs/inventory.md).
+centre_height = "set its cutting edge on spindle centre height with the holder's height nut: level with the tailstock dead-centre point, or so a facing cut leaves no pip at the centre"
+square_blade = "square the blade to the spindle axis: spindle stopped, bring its side flat against the chuck face or a faced shoulder, swing the toolpost until no gap shows, then lock the toolpost"
+cite = [
+    "Moltrecht, Machining for Hobbyists: Getting Started (Industrial Press 2015) ch. 6 p136 Fig. 6-7: the nose of the cutting tool on centre, at the height of the lathe centers",
+    "Moltrecht, Machining for Hobbyists: Getting Started (Industrial Press 2015) ch. 6 p147 Fig. 6-20: a cut-off blade perpendicular to the workpiece axis, its end cutting edge on center",
+    "AUTHOR'S CHOICE: the AXA holder's height nut, checked against the tailstock dead-centre point or a pip-free facing cut, because both checks need no extra gauge",
+    "AUTHOR'S CHOICE: square the blade off the chuck face or a faced shoulder because both are square to the spindle axis and at hand in every lathe setup",
+]
+# --- end EngBlade additions ---
 
 # --- pivot-shaft additions ---
 # Lathe envelope read by the lathe headroom screen (swing values are diameters).
@@ -289,6 +301,9 @@ oal_mm = { value = 47.6, measured = { by = "example (plausible, not measured)", 
 
 [tools.center-drills-lms-4859.members."2".projection_mm]
 "drill-chuck-r8" = { value = 27.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, chuck nose to tool tip" } }
+# --- ShaftPrep additions ---
+"drill-chuck-tailstock-mt3" = { value = 27.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, chuck nose to tool tip" } }
+# --- end ShaftPrep additions ---
 
 [tools.drill-index-115]
 kind = "drill_index"
@@ -1129,6 +1144,20 @@ max_shank_in = 0.5
 gauge_len_mm = { value = 95.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, spindle nose to chuck nose, jaws closed" } }
 gauge_dia_mm = { value = 50.8, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, chuck body" } }
 grip_mm = { value = 20.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, jaw engagement" } }
+
+# --- ShaftPrep additions ---
+# Example purchase: MT3-arbor 1/2 in keyed drill chuck (JT33) for the PM-1127VF-LB
+# tailstock quill, so the lathe can centre-drill without the LMS 1660's 2MT sleeve.
+[holders.drill-chuck-tailstock-mt3]
+kind = "drill_chuck"
+taper = "MT3"
+note = "illustrative example item: 1/32-1/2 in keyed drill chuck on an MT3-JT33 arbor for the lathe tailstock"
+capacity_in = [0.03125, 0.5]
+max_shank_in = 0.5
+gauge_len_mm = { value = 85.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, quill face to chuck nose, jaws closed" } }
+gauge_dia_mm = { value = 50.8, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "calipers, chuck body" } }
+grip_mm = { value = 20.0, measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "steel rule, jaw engagement" } }
+# --- end ShaftPrep additions ---
 
 # --- cone-pivot-post additions ---
 # Example purchase: single R8 collet for the 9/32 in taper-length drill; a collet

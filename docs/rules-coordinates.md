@@ -49,26 +49,38 @@ face, rectangular profile and pocket features do not acquire an invented centre
 requirement.
 
 **Mill DRO targets, aims and printed bands.** Off a lathe, a located row with a
-known setup point also carries `dro`: that point at the nearest step of the setup
-machine's DRO grid (`dro_grid`), at most half a step away, which the sheet's
-feature map prints. When the feature declares a height-like band
+known setup point — an `at` or parent row, or each end of a kernel span (below) —
+also carries `dro`: that point at the nearest step of the setup machine's DRO grid
+(`dro_grid`), at most half a step away, which the sheet's feature map prints and a
+hole op dials (`dro_xy`). When the feature declares a height-like band
 (`height_above_pivot`, `height` or `separation`, the first one present) from a
 `height_from` reference, the row's `band_check` measures the DRO target from that
 reference: along a reference plane's normal, otherwise from the reference's own
-planned point along the common normal of both declared axes, square to the one
-declared axis, else point to point. The band is the one the sheet prints, rounded
-inward at its drawing precision. A target outside it is an error
-(`Located target band error: …`); a distance that cannot be measured, or a band
-that is not two numbers, keeps the setup unknown. A plan
-[`aims`](plan.md#aims) entry moves the feature's target along that same
-direction so its band reads `value_mm`, on every setup that locates it. The row
-keeps the unaimed point as `nominal_setup`, records the `aim` (requirement,
-value, reason, source, printed band, nominal value and shift), and the finding
-cites `plan.aims.<name>`; the feature map adds a sentence that gives the aimed
-target, the drawing nominal and the reason. An aim never changes geometry, a
-claim, a kernel input or another feature's target. An aim whose feature holds
-no such band, or whose distance cannot be measured, stays unknown with the
-reason in `aim.why`.
+printed DRO target when this setup locates it too (else its planned model point)
+along the common normal of both declared axes, square to the one declared axis,
+else point to point when neither declares an axis. A declared axis that is
+`"unknown"` (or whose frame is) leaves the distance unmeasured; a kernel span's two
+ends must stand at one distance, else the band names neither. The band is the one
+the sheet prints, rounded inward at its drawing precision. A target outside it is
+an error (`Located target band error: …`, value in mm). A distance that cannot be
+measured, a band that is not two numbers, feature units other than mm or in, or a
+provisional DRO grid — the machine's `resolution` unknown or not qualified by its
+own complete measurement, so `DRO_DEFAULT_STEP` stands in — keeps the setup
+unknown; the provisional grid still places the printed targets. A plan
+[`aims`](plan.md#aims) entry moves the feature's own target along that same
+direction so its band reads `value_mm`, converted to the manifest units, on every
+setup that locates it. The row keeps the unaimed point as `nominal_setup`, records
+the `aim` (owner `feature`, requirement, value in mm and in manifest units, reason,
+source, printed band, nominal value and shift in mm), and the finding cites
+`plan.aims.<name>`; the feature map adds a sentence that gives the aimed target,
+the drawing nominal and the reason. A child located by its parent's `at` dials its
+parent's aimed target and carries the parent's aim; an aim of the child's own would
+take it off that axis and is refused (unknown, reason in `aim.why`). An aim never
+changes geometry, a claim, a kernel input or another feature's target. A
+`value_mm` outside its printed band is refused before any rounding: bad input on
+load, an error in the rule, and the target stays nominal. An aim whose feature
+holds no such band, whose band or units are unknown, or whose distance cannot be
+measured stays unknown with the reason in `aim.why`.
 
 **Kernel revolved location, any setup.** The kernel request lists, per setup,
 its located features with neither `at` nor a parent (`locate_revolved`); the
@@ -199,9 +211,11 @@ sweeps `sweep_bounds`, else its setup-frame `stock_removal_bounds`, with
 passes evenly spaced no more than `step_mm` apart centre-on-edge to
 centre-on-edge (one central pass when the area is no wider than the step),
 stepping from `open_side`, else from the low side of the shorter span. Every
-pass runs one cutter radius past both ends of the area. The cycle is one way:
-feed the pass, lift to the op's retract Z (its entry stock top plus
-`approach_mm`, unknown without it) and rapid back to the next pass's start.
+pass runs one cutter radius past both ends of the area. `step_mm` and the
+cutter radius are millimetres, converted to plan units before the passes are
+placed. The cycle is one way: feed the pass, lift to the op's retract Z (its
+entry stock top plus `approach_mm`) and rapid back to the next pass's start; a
+raster with no known lift Z keeps status unknown.
 Every raster value sits on the DRO grid on the safe side: pass ends and a
 face's edge passes round outward; a pocket's first pass rounds further outside
 its open side and its last away from the far wall, and the material that rounding
@@ -220,7 +234,8 @@ A finish raster or outline whose `grid_residual_mm` exceeds its feature's
 narrowest numeric tolerance band, or that has no safe grid point, is an error
 (`dro_xy_residual_errors`).
 Optional `contour.keep_out = [{ at = [x, y], dia_mm = d }]` declares circular
-islands in `sweep_frame` (default: the feature's frame), with positive diameter.
+islands in `sweep_frame` (default: the feature's frame), with positive diameter
+in millimetres.
 The whole cutter stays outside them: centre clearance is island radius plus
 cutter radius. After feed direction is established, crossing passes split into
 pieces in cutting order. Each cut point lies on the setup machine's DRO grid,
@@ -234,21 +249,27 @@ Face ops without a contour print no raster: a box raster could cross retained
 material inside the box. Tables are numeric nominal geometry, not cutter
 accessibility, fixtures, wall thickness or collision proof; raster passes are
 not kernel checkpoints. Unknown/unverified cutter or frame binding keeps status
-unknown. M2 lathe feasibility remains unimplemented even where nominal
+unknown. A lathe setup with an unknown DRO controller, or a turning tool whose
+nose radius is unknown, is unknown; a tailstock tool on the spindle axis
+(`spot`, `drill`, `ream`, `tap`, `center`, `center_drill`) has no nose to
+compensate and is exempt. M2 lathe feasibility remains unimplemented even where nominal
 stations/dome tables are displayed.
 
 **Z levels.** A milling pocket, face or profile op that authors `doc_mm` (mm)
 carries `z_levels` on its `operations` entry: levels on the DRO grid, each no
 more than `doc_mm` below the one before (the first rounded up from the start
 less `doc_mm`, the rest a whole number of grid steps no deeper than `doc_mm`),
-ending at its `dro_to_z`. A wall-finishing op (`pocket`, `finish_pocket`,
-`profile`, `finish_profile`) starts at its feature's declared setup
-`entry_z`, never one an earlier op's floor advanced, else the current top,
-since its flank engages the whole wall; any other op starts at its feature's
-current entry, else the current top. The traveler prints `Z start → depth in
-N levels of doc max` on the op row; the contour block heading lists every level
-and says to run the complete path at the first and repeat it at each level in
-order.
+ending at its `dro_to_z`. Each starts at its feature's declared setup
+`entry_z`, else the current top. A wall-finishing op (`pocket`,
+`finish_pocket`, `profile`, `finish_profile`) keeps that start, since its flank
+engages the whole wall; any other op starts lower only on the floor of an
+earlier face or pocket op whose setup-frame X/Y `stock_removal_bounds` hold all
+of its own and that produced its surface (its feature, or a feature whose X/Y
+`bounds` hold its feature's whole footprint). Levels that cannot be placed (an
+unknown start or a `doc_mm` finer than one DRO step) keep status unknown. The
+traveler prints `Z start → depth in N levels of doc max` on the op row; the
+contour block heading lists every level and says to run the complete path at
+the first and repeat it at each level in order.
 
 **Hole targets.** Each located mill row (`rows`) carries `dro_xy`, its setup
 X/Y at the nearest DRO grid point (a hole axis has no safe side). A centre,
@@ -334,7 +355,25 @@ op's own feature for its start and end Z, a feature map row), an op on that
 feature or one whose feature's X/Y `bounds` hold its whole footprint (its own
 `bounds`, else a Z-axis round feature's `at` ± half its largest `dia`); overlap
 is not cover. An equal Z alone is never proof, and with no footprint to prove it
-there is no producer.
+there is no producer. A bounded op's coverage of the surface (for `top`,
+`top_feature`, else its own feature) is whole, partial or unknown. Its
+setup-frame X/Y `stock_removal_bounds` are compared with the surface's whole
+footprint. The footprint comes from the feature's own `bounds` (Z from `at` when
+they omit it), else from a round feature's `at` ± half its largest `dia` (else
+± its `radius`) across its principal `axis`. Only its `plane` value can supply an
+omitted axis. When the bounds hold the footprint, coverage is whole. When they
+miss part of it, coverage is partial: the op neither advances that top or entry
+nor produces the surface, which keeps the uncut height its last whole producer
+left. When the bounds or the footprint are unknown, omitted, empty or malformed,
+coverage is unknown: that top or entry, its producer and its operative Z stay
+unknown and are never credited. A faced surface therefore needs its footprint
+authored. An op without `stock_removal_bounds` cuts its whole feature. For another
+surface, containment is proven in that feature's own frame, where its box is
+exact: the setup Z must run along one of the frame's axes, and the box enclosing
+the surface there must lie within the feature's spans on the other two. Overlap
+or a held `at` point is partial, never whole; a setup Z oblique to the feature's
+frame leaves coverage unknown. A setup-frame box enclosing a turned feature is
+never taken as its cut.
 It counts only if it cut that face to that Z. Its
 value is its `dro_to_z` on its own setup's grid, re-rounded to the safe side on
 the consumer's grid, so a coarser producer's −2.270 stays −2.270. Any other
@@ -401,13 +440,29 @@ STOP):
 ` Single-axis stair error: op {op} finish: single-axis steps leave {cusp} on {feature}, more than its {band} band.`
 
 Blade grooves: a `form_*`/groove op whose tool is a grooving/parting blade gets
-`plunges` numbers: the corner the DRO reads (a right-hand blade's chuck-side
-corner, a left-hand blade's +Z corner) at each plunge, flush with the chuck-side
+`plunges` numbers: the corner the DRO reads (`reading_corner`, the corner the Z
+touch in effect when the op cuts set; see `zero_check` blade corners, never the
+blade's `hand`) at each plunge, flush with the chuck-side
 wall and stepping evenly, never more than a blade width, until the last plunge
 is flush with the far wall; the diameter each stops at; and the groove they
 leave (`max(span, blade_width)`). A groove outside the feature's `width` band
 is an `error` (`op {n} plunges leave a groove {w} wide, outside the drawing
-width {lo} to {hi}`); an unknown blade width or hand is `unknown`.
+width {lo} to {hi}`); an unknown blade width or reading corner is `unknown`,
+and the sheet stops the op ("plunge positions not set").
+
+Blade `to_z` ops (a part-off or cut-to-fit with a grooving/parting blade): the
+operation entry gets `blade` = {`reading_corner`, `forming_corner`,
+`blade_width_mm`, `corner_dro_z`}. `to_z` stays the face the op leaves and
+`dro_to_z` its DRO Z; the blade stands on that face's outward side (kernel op
+`faced_side`), so a face toward the free end is formed by the chuck-side corner
+and one toward the chuck by the tailstock-side corner. When the corner the DRO
+reads is the other one, its reading is a blade width beyond `to_z`:
+`corner_dro_z = dro_z(to_z - w)` for a chuck-side reading forming a face toward
+the chuck, `dro_z(to_z + w)` for a tailstock-side reading forming one toward the
+free end, else `dro_z(to_z)`. The sheet's op row prints
+`Z → {corner_dro_z} ({corner} corner)`. An unknown reading corner, kernel side or
+blade width leaves `corner_dro_z` unknown with its `reason` and the setup
+`unknown` (exit 4); the sheet prints "blade corner not set" and stops.
 
 Dome roughing: the rough stage of an `axial_table` op (a `form_*` op with
 `rough_allowance_mm`, or a `rough_*` op) is a `stair_tables` entry, not the
@@ -464,8 +519,10 @@ resolve without a verify flag, `check_jog_mm` is numeric and the lathe
 Z `method = "measure_then_set"` touches a face whose position is measured at
 the machine (M, read with `gauge` as the stated `measure`) and Axis Sets
 `M + offset_mm + paper_mm`; check/mirror are `M ±j` on the same base. Like a
-trial cut it is complete when `gauge` resolves unflagged, `measure` is stated and
-`offset_mm`, `paper_mm` and the jog are numeric; the rows show `M -9`, `M +1`.
+trial cut it is complete when `gauge` resolves unflagged, `measure` is stated
+(`"unknown"` states nothing) and `offset_mm`, `paper_mm` and the jog are
+numeric; the rows show `M -9`, `M +1`. The same holds for a tool touch's
+`z_measure`.
 
 Each `[[setups.zero.tool_touches]]` entry is complete when its `tool` and X
 `gauge` resolve without a verify flag and `edge_mm` and `paper_mm` are numeric:
@@ -477,24 +534,86 @@ the mill X/Y read the spindle axis whatever the tool. A touch with
 recipes and unknown frame binding preserve unknown. A lathe does not require a
 Y zero recipe.
 
+Blade corners: a Z touch (zero, tool touch or derived re-touch) by a
+grooving/parting blade sets one of its two corners. `reference_corner` comes
+from the touched face's outward normal along setup Z, read from the kernel's
+`revolved.<face>.end_faces` at the touch's `edge_mm` (all end faces when none is
+at that Z and they agree): a face toward the free end (+1) gives
+`chuck_side`, one toward the chuck (-1) `tailstock_side` (`corner_from = "face
+normal"`). Without a measured normal (a scribe, a stock end) the touch's
+authored `corner` is used (`corner_from = "authored"`), else the corner stays
+`unknown`; its Axis Set is still complete, while every blade op that reads it is
+`unknown` under `coordinates`. An authored `corner`, or a corner its `method`
+text names ("chuck-side corner", "tailstock-side corner"), that the face's
+normal contradicts, or a touch naming both, is `corner_error`: the corner stays
+unknown and the finding is an `error` (`A blade's Z touch names a corner its face
+cannot give (...)`). The sheet names the corner in the touch ("Z — chuck-side
+corner on the ...; Axis Set Z ...: Z now reads the chuck-side corner"), in the
+zero row and in a re-touch, and stops a blade touch whose corner is unknown.
+
+Tool setting: on a lathe, `tool_setting` lists one record per toolpost tool (a
+tool some non-axial op of the setup cuts with) at its first touch-off in the
+setup, in op order: the zero (`touch = "zero"`, `axis`), else its first
+`tool_touches` or `derived_touches` entry (`index`). Each carries
+`centre_height` and, for a grooving/parting blade, `square_blade` (otherwise
+`not_applicable`): the setup machine's `toolpost` words, else the requirement
+alone ("set its cutting edge on spindle centre height", "square the blade to the
+spindle axis"). The sheet prints "Before touching off {tool}: ..." before the
+zero table for the zero's tool and before each other tool's first touch. Cited
+to Moltrecht, *Machining for Hobbyists: Getting Started* (2015) ch. 6 p136
+Fig. 6-7 and p147 Fig. 6-20, plus the toolpost's own `cite`.
+
 One DRO per setup: the DRO reads the tool that last set it, by the zero, a tool
 touch (made before the first of its `before_ops`, else after its `after_op`) or
-a listed retouch. Ops before the Z zero's `after_op` run before any tool set Z.
-Every cutting op whose tool did not make the latest Axis Set
+a listed retouch. Ops before the Z zero's `after_op` run before any tool set Z,
+and an axis with no zero recipe has no tool's Axis Set to change (the missing
+zero is unknown). Every cutting op whose tool did not make the latest Axis Set
 is touched off first (`derived_touches`, printed "re-touch" at that op). The
 source's recipe names its own tool's edge, so the re-touch is tool-neutral:
 `edge_then_set` on a lathe (Z-cutting edge to the surface, withdraw along X),
 `touch_then_set` on a mill:
 
-- Z on the latest touched or faced surface still standing at a plan Z: the zero
-  face, a tool-touch face, a listed retouch's top or a face/pocket op's `to_z`
-  (faced surfaces take the zero's paper). A surface stands until a face or
-  pocket op cuts that feature (the top: moves the top) to another Z. A measured
-  Z (`trial_cut_measure`, `measure_then_set`) is no plan number to repeat.
+- Z on the latest touched or faced surface proven to stand at a known plan Z:
+  the zero face, a tool-touch face, a listed retouch's top or a face/pocket op's
+  `to_z` (faced surfaces take the zero's paper). The rule tracks each surface
+  across the ops since it was made, using each op's coverage of it
+  (`cut_coverage`: whole, partial or unknown). A surface ends when an op cuts all
+  of it (the top: faces the stock's `top_feature`, or any face op when there is
+  none) to another Z or to no stated Z (`to_z` omitted or `"unknown"`), or cuts it
+  other than by facing/pocketing. Ops that each cut only part of it leave it at
+  its uncut Z only while some of its footprint lies outside all of their
+  `stock_removal_bounds`. That needs a surface shown to fill its footprint: the
+  kernel's one STEP face for the feature (`faces`) is a plane, flat in setup Z,
+  whose setup X/Y box is the footprint and whose area is that box's. Without a
+  kernel result, or for a round, holed or L-shaped face, the box's corners may
+  hold no surface. A touch on a surface, whether a zero, a tool touch or a listed
+  retouch, is a paper touch at a nominal Z. It does not show what the ops since
+  the surface was made left of it, so it carries their partial cuts and any doubt
+  about them. A touch on a surface an op in the setup made is proven only at the
+  Z that op made, and a touch on the top only at the tracked top's Z. Only a
+  whole cut makes a new surface. The top a zero `after_op`, a listed retouch or a
+  tool touch touches is the top so tracked, so a face that states no depth leaves
+  it unknown. A surface is not proven while:
+  - it is unnamed (a zero with no `face`);
+  - an op on a feature the plan does not name has run since it was made, or a
+    face op while the stock's `top_feature` is unresolved (the top);
+  - an op's coverage of it is unknown, it may be gone, or a touch on it disagrees
+    with (or cannot be checked against) the Z its op made or the tracked top's;
+  - partial cuts together cover it, or it is not shown to fill its footprint.
+
+  With no proven surface, the latest one not shown gone is repeated with Z and
+  Axis Set unknown (unknown). A measured Z (`trial_cut_measure`,
+  `measure_then_set`) is no plan number to repeat.
 - On a lathe, X on the latest diameter turned in the setup (`turn`,
-  `rough_turn`, `finish_turn`) measured with the latest X gauge, else the latest
-  touch's own `x_method` surface (not a trial cut), Axis Set the measured
-  diameter. Tailstock tools (axial actions) do not read the carriage DRO.
+  `rough_turn`, `finish_turn`) that still stands, measured with the latest X
+  gauge, Axis Set the measured diameter. A turned diameter stands until an op
+  cuts that feature other than by turning it (a dome formed on it) or cuts an
+  unnamed feature. A touch's own `x_method` surface is prose the rule cannot
+  follow past a cut, so it is never repeated. Tailstock tools (axial actions) do
+  not read the carriage DRO.
+- A cutting op whose tool is unknown leaves the setter unknown (unknown); an
+  incoming tool that does not resolve, or carries a verify flag, keeps its
+  derived touch unknown, as it keeps an authored touch.
 
 An axis with nothing to derive from is a `missing_touches` row
 (`before_op`, `tool`, `axes`, `dro_set_by`) and an error: a tool cutting on

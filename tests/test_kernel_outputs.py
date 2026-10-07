@@ -213,14 +213,14 @@ def test_check_after_traveler_removes_stale_assets_and_binds_current_render(
     assert cli.main(["traveler", *args]) in {0, 2, 4}
     prior_report = json.loads((tmp_path / "report.json").read_bytes())
     assert (tmp_path / "traveler.html").is_file()
-    prior_image = tmp_path / prior_report["inputs"]["render:S1"]["path"]
+    prior_image = tmp_path / prior_report["inputs"]["render:S0"]["path"]
     assert prior_image.read_bytes() == current_png
     if changed:
         current_png = _png((120, 100, 80))
 
     assert cli.main(["check", *args]) in {0, 2, 4}
     report = json.loads((tmp_path / "report.json").read_bytes())
-    assert report["inputs"]["render:S1"]["sha256"] == hashlib.sha256(current_png).hexdigest()
+    assert report["inputs"]["render:S0"]["sha256"] == hashlib.sha256(current_png).hexdigest()
     if changed:
         assert report["hash"] != prior_report["hash"]
         assert not prior_image.exists()

@@ -40,7 +40,11 @@ not declare (a consumer export need not author `z_mm`). For every setup with a
 turning-model operation the kernel reports, per declared feature, its finished
 faces of revolution about setup Z through x = y = 0 as
 `setups.<id>.revolved.<feature> = { z_mm = [lo, hi], radii_mm = [r_min, r_max],
-end_radii_mm = [r at lo, r at hi], kinds = [...] }` in setup-frame mm; a
+end_radii_mm = [r at lo, r at hi], kinds = [...], end_faces = [{ z_mm, normal_z }] }`
+in setup-frame mm; `end_faces` are its planar faces square to setup Z with the
+sign of each one's outward normal along setup Z (+1 toward the free end, -1
+toward the chuck), which decides the corner a grooving/parting blade touches it
+with ([zero_check](rules-coordinates.md#zero_check)); a
 feature with unmapped references or any face that is not an external surface of
 revolution (a flat, a bore) is omitted with its reason under
 `revolved_reasons`. When none of its faces is revolved about setup Z and one is
@@ -136,7 +140,9 @@ emits the profile only when every state's sections at six meridians agree (a
 solid of revolution about setup Z), else `stock_profile_reason`. Each such span
 must be covered end to end; its pieces join the exposed segments with
 `source = "kernel_stock"` (`stock_segments`) and can set D
-(`diameter_features` names `kernel stock`). A span the profile does not cover,
+(`diameter_features` names `kernel stock`). A span the profile wholly fills (a
+stock-preparation setup that holds no finished feature yet) is known the same
+way. A span the profile does not cover,
 or any span without a kernel run, stays in `uncovered_z_mm` with
 `stock_reason`, and D stays `unknown`: the stock state's `od_mm` cannot show
 that no op reduced that span. `turned_profile` ignores stock segments.

@@ -198,6 +198,9 @@ Hold = record(
         # The countersink mouth of the work's centre hole at its end face: the dead centre
         # seats in a cone of its own point angle that opens to this diameter.
         "centre_hole_dia_mm": Number,
+        # The plan.process_features centre_hole the dead centre rides in, made by an op of
+        # an earlier setup in this setup's stock_in lineage (checked by centre_support).
+        "centre_hole": str,
         "clamps": list[ClampPlacement],
         # Diagram annotations: action order references the 1-based clamps array.
         "clamp_order": list[Annotated[int, Field(gt=0)]],
@@ -235,6 +238,9 @@ ToolTouch = record(
     {
         **texts("tool x_method gauge z_face method z_gauge z_measure"),
         **numbers("edge_mm paper_mm z_offset_mm"),
+        # The blade corner a grooving/parting blade's Z touch sets, where the touched
+        # face's normal cannot give it (a scribe): docs/rules-coordinates.md.
+        "corner": Literal["chuck_side", "tailstock_side"],
         "before_ops": list[int],
         "after_op": int,
     },
@@ -437,6 +443,57 @@ class JointFeature(InputModel):
         return self
 
 
+class ProcessFeature(InputModel):
+    """A plan-owned transient feature the route makes on the stock, never a finished surface.
+
+    ``at`` (manifest units, model frame) lies on the stock end the feature is made in and
+    ``axis`` is that end's unit inward normal, pointing into the kept material. An
+    ``end_face`` is the plane through ``at``; facing it removes the stock beyond it. A
+    ``centre_hole`` is a combined drill and countersink centre whose mouth centre is ``at``:
+    the countersink of ``countersink_angle_deg`` (included) opens to ``mouth_dia_mm`` on the
+    face and the pilot (``drill_dia_mm``, ``drill_length_mm`` from the countersink to the
+    tip, point included) runs on along ``axis``. Centre sizes are mm, cited to their source.
+    """
+
+    kind: Literal["end_face", "centre_hole"]
+    at: KnownPoint3 | Unknown
+    axis: KnownPoint3 | Unknown
+    cite: Citations
+    size: str | Unknown = UNKNOWN
+    drill_dia_mm: float | Unknown = UNKNOWN
+    drill_length_mm: float | Unknown = UNKNOWN
+    mouth_dia_mm: float | Unknown = UNKNOWN
+    countersink_angle_deg: float | Unknown = UNKNOWN
+    note: str | Unknown = UNKNOWN
+
+    @model_validator(mode="after")
+    def known_geometry(self) -> ProcessFeature:
+        if not _cited(self.cite):
+            raise ValueError("A process feature must cite its author's geometry source.")
+        _unit(self.axis, "A process feature axis")
+        centre = ("size", "drill_dia_mm", "drill_length_mm", "mouth_dia_mm")
+        centre += ("countersink_angle_deg",)
+        if self.kind == "end_face":
+            authored = sorted(key for key in centre if key in self.model_fields_set)
+            if authored:
+                raise ValueError(f"An end_face process feature has no {', '.join(authored)}.")
+            return self
+        missing = sorted(key for key in centre if key not in self.model_fields_set)
+        if missing:
+            raise ValueError(f"A centre_hole process feature needs {', '.join(missing)}.")
+        for key in ("drill_dia_mm", "drill_length_mm", "mouth_dia_mm"):
+            value = getattr(self, key)
+            if value != UNKNOWN and value <= 0:
+                raise ValueError(f"A centre_hole {key} must be positive.")
+        angle = self.countersink_angle_deg
+        if angle != UNKNOWN and not 0 < angle < 180:
+            raise ValueError("A centre_hole countersink_angle_deg must lie between 0 and 180.")
+        if UNKNOWN not in (self.drill_dia_mm, self.mouth_dia_mm):
+            if self.mouth_dia_mm <= self.drill_dia_mm:
+                raise ValueError("A centre_hole mouth_dia_mm must exceed its drill_dia_mm.")
+        return self
+
+
 class JointInterface(InputModel):
     """One planar rectangular contact patch: model-frame centre (manifest units)."""
 
@@ -576,6 +633,9 @@ class Plan(InputModel):
     setups: list[Setup]
     # Plan-owned transient joint cylinders keyed by id; never exported finished features.
     joint_features: dict[str, JointFeature] = Field(default_factory=dict)
+    # Plan-owned transient stock-preparation features (end faces, centre holes) keyed by id;
+    # never exported finished features and never drawing coverage.
+    process_features: dict[str, ProcessFeature] = Field(default_factory=dict)
     # Plan-owned DRO aims keyed by located feature; never a change to its geometry.
     aims: dict[str, Aim] = Field(default_factory=dict)
 
@@ -992,7 +1052,17 @@ Tailstock = record(
     },
 )
 Threads = record("Threads", {"inch_tpi": Vector, "metric_pitch_mm": Vector})
-Toolpost = record("Toolpost", {**texts("series type note"), "holders": int, "included": bool})
+# ``centre_height`` / ``square_blade``: how each tool is set on spindle centre height and a
+# blade squared to the spindle axis before its first touch-off (docs/inventory.md).
+Toolpost = record(
+    "Toolpost",
+    {
+        **texts("series type note centre_height square_blade"),
+        "holders": int,
+        "included": bool,
+        "cite": Citations,
+    },
+)
 DirectIndex = record("DirectIndex", numbers("positions step_deg"))
 Tilt = record("Tilt", numbers("down up"))
 Bars = record(

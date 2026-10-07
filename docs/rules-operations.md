@@ -67,7 +67,8 @@ setup/operation sequence plus `stock_in`/`zero.transfer`.
 ## `blind_depth` (tip endpoints)
 
 One subject per feature, with an `endpoints` array for spot, drill, ream, tap,
-counterbore and bore operations.
+counterbore and bore operations, and for `center_drill` on a plan
+[process](plan.md#process-features) `centre_hole`.
 Stock-state facing/pocketing advances only the named or explicitly covered
 same-frame entry surfaces. Profiles never move the touched top; `top_feature`
 restricts which facing operation moves that top. Each record preserves entry
@@ -94,6 +95,13 @@ field is present; an explicitly unknown operation depth does not fall back.
   `tip_z = entry_z - total_depth`; total must not exceed the feature's upper
   depth limit. Unknown thru/depth/tool geometry stays unknown.
 - Tap: `tip_z = entry_z - depth`; verified flute length must cover thread depth.
+- Centre hole (`center_drill` on a process `centre_hole`): `depth_mm =
+  drill_length_mm + (mouth_dia_mm - drill_dia_mm) / 2 / tan(countersink_angle_deg / 2)`,
+  the Table 6 drill length C (point included) plus the countersink that opens to
+  the mouth; `tip_z = entry_z - depth_mm`, with `countersink_depth_mm` and
+  `drill_length_mm` recorded and `depth_scale = "quill"`. The tailstock quill
+  feeds it, so the sheet prints the depth past touching the end on the quill
+  scale, not a carriage DRO Z. An unknown size leaves the depth unknown.
 
 The geometry kernel's spot and drill cutters use the same depth semantics:
 spot depth is the apex tip depth, and drill depth is the full-diameter depth
@@ -152,7 +160,10 @@ uses its widest (base) diameter: `2 * base_radius`, else `2 * sqrt(h (2R - h))`
 from its declared `sphere_radius` R and nominal height h (2R once h exceeds R),
 else the kernel-measured base from `turned_profile.feature_span`. A face, cut to
 fit or part off without a feature diameter uses the setup's `stock_state.od_mm`;
-otherwise the diameter stays unknown. A mill op has no feed override. Lathe rows
+otherwise the diameter stays unknown. A spindle-axis tailstock action on a lathe
+(`spot`, `drill`, `ream`, `tap`, `center`, `center_drill`) cuts at its own tool
+diameter, as on a mill; a centre drill's is its pilot drill, matching the
+Machinery's Handbook 27th ed. p.1132 centre-drill feeds by drill size. A mill op has no feed override. Lathe rows
 report the `feed_mm_rev` evaluated, the one the sheet prints. Verified material,
 tool and machine facts are needed.
 

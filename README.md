@@ -201,6 +201,12 @@ not apply. Dividing-head headroom uses centre height and the posed axis offset,
 and child hole operations inherit a missing travel centre from their named
 parent/hole while explicit unknown locations remain debt.
 
+On the lathe, a parting/grooving blade's Z touch names the blade corner it sets
+(the touched face's normal decides it; a scribe touch states it), and every blade
+op row prints Z as that corner's reading. Each toolpost tool's first touch-off in
+a setup is preceded by setting it on centre height, and squaring a blade to the
+spindle axis ([zero_check](docs/rules-coordinates.md#zero_check)).
+
 The literal `"unknown"` never means zero, absence, approval or a pass. A
 `verify = true` inventory entry is verification debt, not certified geometry:
 on an item it leaves that identity unresolved for the declared-input rules,
@@ -402,6 +408,14 @@ exactly two disjoint inputs: an existing assembly may receive one new component.
 Finite both-open cylindrical sockets accept turned sleeves; clearance joining
 fills the mating annulus, not a sleeve's intentional bore. Retaining-compound
 travelers state surface prep, cure time and do not disturb until cured.
+Plan-owned `process_features` describe stock preparation a later setup relies
+on — a faced `end_face` or a combined drill and countersink `centre_hole` — and
+are never drawing dimensions or coverage. The kernel cuts them, so the picture
+and the next setup's stock show the centre; a hold's `centre_hole` names the
+centre its dead centre rides in, and `centre_support` refuses one that no
+earlier setup in the stock lineage drills, or whose drilled mouth differs from
+the seat. The centre depth is the Machinery's Handbook Table 6 drill length plus
+the countersink to the mouth, printed as a tailstock-quill depth.
 See [the plan format](docs/plan.md) for the authored fields.
 
 Cutter self-contact exclusion is only a thin shell of the sampled face;

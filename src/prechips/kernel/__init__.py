@@ -124,6 +124,7 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
     """One op's kernel inputs; ``tables`` is its setup's coordinates numbers, whose printed
     cutter-centre checkpoints the kernel checks against the stock model (``checkpoints``)."""
     from prechips.joint_features import joint_operation
+    from prechips.process_features import process_operation
     from prechips.rules.geometry_common import (
         ROTARY,
         TURNING,
@@ -175,6 +176,23 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
     joint_cut = joint_operation(bundle, op, result["finishing"])
     if joint_cut is not None:
         result["joint_cut"] = joint_cut
+    process_cut = process_operation(bundle, op)
+    if process_cut is not None:
+        if op.get("do") == "center_drill" and "reason" not in process_cut:
+            # The pilot's point closes the centre: its angle is the tool's, never assumed.
+            point = angle_fact(
+                measurement_item(bundle, "tools", op.get("tool")),
+                "point_angle",
+                require_measured=False,
+            )
+            if point["verified"] and number(point["value"]) and 0 < point["value"] < 180:
+                process_cut["point_angle_deg"] = point["value"]
+            else:
+                process_cut["reason"] = (
+                    f"{process_cut['label']} pilot point angle of tool {op.get('tool')!r} "
+                    "is unknown"
+                )
+        result["process_cut"] = process_cut
     if "faces" in op:
         result["faces"] = op["faces"]
     if model in (TURNING, ROTARY):
@@ -205,7 +223,7 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
     ):
         # stock_state entry/top heights are machine-frame mm, never scaled by feature units.
         entry = UNKNOWN
-        for stock_op, before, _ in stock_states(setup, bundle.feature_definitions):
+        for stock_op, before, _ in stock_states(bundle, setup):
             if stock_op is op or stock_op.get("op") == op["op"]:
                 entry = before["entry_z"].get(op.get("feature"), before["top_z"])
                 break
@@ -632,8 +650,9 @@ def _centre_inputs(bundle, machine, hold, result, gaps):
         gaps.append(f"dead centre {reference!r} not drawn: centre_hole_dia_mm is not positive")
         return
     result["centre"] = {"name": reference, **values}
-    if hole is not None:
-        # The work's centre-hole countersink: the stock the centre point seats in.
+    if hole is not None and "centre_hole" not in hold:
+        # The work's centre-hole countersink: the stock the centre point seats in. A named
+        # process centre is instead cut by its own earlier op into the stock received here.
         result["centre"]["hole_dia_mm"] = hole
 
 
@@ -837,6 +856,7 @@ def hold_inputs(bundle, setup):
 
 def build_job(bundle):
     from prechips.joint_features import primitives_mm, setup_joint
+    from prechips.process_features import primitives_mm as process_primitives_mm
     from prechips.rules.coordinates import evaluate as coordinate_findings
     from prechips.rules.coordinates import revolved_located
     from prechips.rules.geometry_common import (
@@ -897,6 +917,7 @@ def build_job(bundle):
             for name, feature in bundle.features["features"].items()
         },
         "joint_features": primitives_mm(bundle),
+        "process_features": process_primitives_mm(bundle),
         "as_is_faces": record(bundle.plan.get("stock")).get("as_is_faces", UNKNOWN),
         "stock": stock_inputs(bundle),
         "setups": setups,
@@ -971,6 +992,7 @@ _ENGINE_OP = (
     "feature",
     "faces",
     "joint_cut",
+    "process_cut",
     "finishing",
     "hole",
     "radius_mm",
@@ -1079,6 +1101,7 @@ def engine_job(job):
         "step_sha256": job["step_sha256"],
         "features": job["features"],
         "joint_features": job.get("joint_features", {}),
+        "process_features": job.get("process_features", {}),
         "as_is_faces": job["as_is_faces"],
         "stock": job["stock"],
         "setups": [

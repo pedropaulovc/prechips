@@ -9,6 +9,7 @@ from prechips.findings import Finding, Status
 from prechips.inputs import Bundle
 from prechips.rules import (
     accessibility,
+    centre_support,
     construction,
     coordinates,
     coverage,
@@ -66,6 +67,7 @@ RULES: list[Rule] = [
     Rule("coordinates", coordinates.evaluate),
     Rule("inspection", inspection.evaluate),
     Rule("hold_fields", hold_fields.evaluate),
+    Rule("centre_support", centre_support.evaluate),
     *MEASUREMENT_RULES,
     Rule("datum_consistency", datum_consistency.evaluate),
     Rule("turned_profile", turned_profile.evaluate),
