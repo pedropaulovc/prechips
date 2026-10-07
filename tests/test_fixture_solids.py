@@ -4,6 +4,7 @@ Engine tests run ``freecad_job.py`` on solids authored here and read only its JS
 host tests check which declared fixture facts reach the engine.
 """
 
+import math
 import subprocess
 
 import pytest
@@ -533,21 +534,25 @@ def test_steady_rest_without_measured_body_is_a_gap_naming_both_dimensions():
     ]
 
 
+_CENTRE_3_IN = {
+    "name": "dead-centre",
+    "dia_mm": 20.0,
+    "length_mm": 40.0,
+    "point_angle_deg": 60.0,
+    "quill_dia_mm": 30.0,
+    "quill_extension_mm": 10.0,
+    "tip_mm": [0.0, 0.0, 27.0],
+}
+
+
 def test_a_dead_centre_seated_in_its_declared_centre_hole_is_not_a_stock_clash(engine, parts):
     # The tip sits 3 mm inside the bar's end face (z 30): the entry stock has no centre
-    # hole, so the point overlaps it unless the hold declares the hole the centre rides in.
-    centre = {
-        "name": "dead-centre",
-        "dia_mm": 20.0,
-        "length_mm": 40.0,
-        "point_angle_deg": 60.0,
-        "quill_dia_mm": 30.0,
-        "quill_extension_mm": 10.0,
-        "tip_mm": [0.0, 0.0, 27.0],
-    }
+    # hole, so the point overlaps it unless the hold declares the hole the centre rides in,
+    # a 60 degree countersink whose mouth on that face is 2 * 3 tan 30 = 3.464 across.
+    centre = _CENTRE_3_IN
     bare, seated = (
         _scene(engine.run(engine.job(parts["bar"], setups=[_setup([], _chuck(centre=c))])))
-        for c in (centre, {**centre, "hole_dia_mm": 5.0})
+        for c in (centre, {**centre, "hole_dia_mm": 2 * 3.0 * math.tan(math.radians(30))})
     )
     stock = "dead centre dead-centre intersects the setup-entry stock"
     assert any(debt.startswith(stock) for debt in bare["render_scene"]["debts"])
@@ -556,3 +561,13 @@ def test_a_dead_centre_seated_in_its_declared_centre_hole_is_not_a_stock_clash(e
     assert seated["render_scene"]["debts"] == []
     assert seated["fixture_rendered"] is True
     assert seated["fixture_clashes"] == []
+
+
+def test_a_centre_short_of_its_declared_centre_hole_seat_does_not_hold_the_work(engine, parts):
+    # A 5 mm mouth on the z 30 face puts the seat apex at z 25.67: the tip at z 27 stands
+    # 1.33 mm short of it, touching nothing, so the work is not held on the centre.
+    centre = {**_CENTRE_3_IN, "hole_dia_mm": 5.0}
+    scene = _scene(engine.run(engine.job(parts["bar"], setups=[_setup([], _chuck(centre=centre))])))
+    debts = scene["render_scene"]["debts"]
+    assert any("does not seat in the declared centre hole" in debt for debt in debts)
+    assert scene["fixture_rendered"] is False

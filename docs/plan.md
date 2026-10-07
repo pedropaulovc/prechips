@@ -494,7 +494,7 @@ for collet/chuck capacity, not the unsupported-section diameter.
 | `jaw_clock_deg` | `Number` |
 | `support_tip_mm` | `[Number, Number, Number]` |
 | `quill_extension_mm` | `Number` |
-| `centre_hole_dia_mm` | `Number` (> 0): the work's centre-hole countersink mouth at its end face; the kernel cuts a seat of the dead centre's own point angle from the tip out to it before checking the centre against the setup-entry stock |
+| `centre_hole_dia_mm` | `Number` (> 0): the work's centre-hole countersink mouth at its end face; the kernel cuts a seat of the dead centre's own point angle with that mouth on the face where the centre axis leaves the stock, and the centre must touch that seat (else a render debt) before it is checked against the setup-entry stock |
 | `clamps` | `list[ClampPlacement]` |
 | `clamp_order` | `list[positive int]` (1-based indices into `clamps`) |
 | `preload_direction` | `"clockwise"` / `"counterclockwise"` |
@@ -777,7 +777,7 @@ A list on any other action is `BadInput`.
 
 **Finishing route.** `deburr` and `coating` are manual bench actions. A
 `coating` op (black oxide, paint, oil) names its `process`: an outside
-`[services.<id>]` item or in-house `[consumables] <id>`. An absent process is
+`[services.<id>]` item or in-house `[consumables.<id>]`. An absent process is
 unknown in `tool_resolves`, and an unlisted one is an error. A drawing
 `material.finish` with no `coating` op in the route is a job caution
 (`finish_route`, [inspection rules](rules-inspection.md)).

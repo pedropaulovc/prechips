@@ -711,18 +711,30 @@ flutes = "unknown"
 dia = "unknown"
 shank = "unknown"
 
-[consumables]
-cutting-oil = ["CRC cutting oil", "Tap Magic ProTap"]
-ral-6005-alkyd = ["illustrative example item: RAL 6005 moss-green alkyd enamel, brush grade"]
-oil-iso-vg32 = ["illustrative example item: ISO VG 32 light machine oil"]
+# --- SheetJob: consumables are tables; `name` is the traveler's display name ---
+[consumables.cutting-oil]
+products = ["CRC cutting oil", "Tap Magic ProTap"]
+
+[consumables.ral-6005-alkyd]
+name = "RAL 6005 moss-green alkyd enamel"
+products = ["illustrative example item: RAL 6005 moss-green alkyd enamel, brush grade"]
+
+[consumables.oil-iso-vg32]
+name = "ISO VG 32 light machine oil"
+products = ["illustrative example item: ISO VG 32 light machine oil"]
+# --- end SheetJob ---
+
 # --- pivot-shaft additions ---
 # example (plausible, not measured): a can of light machine oil on the bench, for the
 # drawing's "turned, oiled" finish; the shop list does not name one.
-light-machine-oil = ["light machine oil, example (3-IN-ONE)"]
+[consumables.light-machine-oil]
+name = "light machine oil" # SheetJob: display name
+products = ["light machine oil, example (3-IN-ONE)"]
 # --- end pivot-shaft additions ---
 
 # Outside processes the shop sends work to, not shop-owned kit.
 [services.black-oxide-vendor]
+name = "black-oxide finisher" # SheetJob: display name
 kind = "outside_process"
 coating = "hot black oxide, matte"
 note = "illustrative example outside finisher: hot black oxide, matte, MIL-DTL-13924 class 1, with oil dip; adds about 1 µm or less. Example (plausible, not measured): confirm the vendor before quoting."

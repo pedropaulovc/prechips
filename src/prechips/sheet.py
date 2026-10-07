@@ -495,6 +495,19 @@ def _supply(solid):
     return solid.get("supply", "made")
 
 
+# A shop-made fixture value authored as an example: the job page explains the mark once.
+EXAMPLE_MARK = "†"
+EXAMPLE_LEGEND = (
+    f"{EXAMPLE_MARK} example fixture dimensions (plausible, not measured): confirm before making."
+)
+
+
+def _example(record):
+    """A primitive or length whose own measurement is labelled as an example value."""
+    by = _mapping(_mapping(record).get("measured")).get("by", "")
+    return isinstance(by, str) and by.startswith("example")
+
+
 def _void_parents(void, solids, made):
     """``(parents, unresolved)``: the solids a hole is cut in (made, or existing parts
     machined here), as the kernel cuts it: every such solid its ``cuts`` names, else
@@ -812,6 +825,9 @@ class _Traveler:
         )
         self.units = bundle.features.get("units", "unknown")
         self.pages = []
+        # Set while the setup sheets are written: a SHOP-MADE FIXTURE row printed example
+        # values, so the job page prints the one legend for its mark.
+        self.example_marks = False
         self.references = {}
         for reference in sorted(selected_references(self.plan)):
             if isinstance(reference, str) and reference not in ("unknown", "none"):
@@ -1027,13 +1043,14 @@ class _Traveler:
         declared resolution, else the default grid."""
         return dro_grid(self.bundle, self.setup or {})[1]
 
-    def operative(self, value):
-        """Machine targets (tips, stations, cutter centres) print at DRO resolution."""
+    def operative(self, value, decimals=None):
+        """Machine targets (tips, stations, cutter centres) print at DRO resolution: the
+        setup being written's, unless ``decimals`` names another machine's grid."""
         if isinstance(value, (list, tuple)):
-            return " / ".join(self.operative(v) for v in value)
+            return " / ".join(self.operative(v, decimals) for v in value)
         if isinstance(value, dict) and "value" in value:
             value = value["value"]
-        return _number(value, self.decimals)
+        return _number(value, self.decimals if decimals is None else decimals)
 
     def band(self, value, feature, dimension):
         """A drawing acceptance band (``6.330–6.350``) at the drawing's own precision,
@@ -1729,6 +1746,9 @@ class _Traveler:
                 for solid, name in zip(members, tags, strict=True)
                 for void in holes.get(id(solid), [])
             ]
+            if any(map(_example, members)) or any(_example(void) for void, _ in cut):
+                component += f" {EXAMPLE_MARK}"
+                self.example_marks = True
             kinds = {}
             for void, name in cut:
                 key = (
@@ -1764,7 +1784,11 @@ class _Traveler:
                 if None not in dims
                 else "? not declared"
             )
-            rows.append(["body", size, ["? not posed"], "—", "—"])
+            body = "body"
+            if any(_example(item.get(f"{edge}_mm")) for edge in ("length", "width", "height")):
+                body += f" {EXAMPLE_MARK}"
+                self.example_marks = True
+            rows.append([body, size, ["? not posed"], "—", "—"])
         headings = [
             "Component",
             "Size mm",
@@ -1783,10 +1807,6 @@ class _Traveler:
             f"Make before Setup {sid}. Positions are in the Setup {sid} frame: boxes give "
             "their X / Y / Z extents, cylinders their axis."
         )
-        if any(
-            str(_mapping(s.get("measured")).get("by", "")).startswith("example") for s in solids
-        ):
-            intro += " Example dimensions (plausible, not measured): confirm before making."
         hardware = self.hardware(
             [s for s in solids if not s.get("void") and _supply(s) == "bought"], len(placed)
         )
@@ -2096,7 +2116,9 @@ class _Traveler:
             numbers = _mapping(self.records.get(("accessibility", f"{setup['id']}:{op['op']}")))
             blade = numbers.get("blade_z_mm")
             if zs and isinstance(blade, list) and blade and all(_known(z) for z in blade):
-                zs = [*zs, min(blade)]
+                # Millimetre kernel fact; down-rounded so the jaw gap is never overstated.
+                face = self.mm_on_grid(setup, min(blade), up=False)
+                zs = [*zs, face] if _known(face) else zs
             if zs:
                 result[str(op["op"])] = min(zs) - jaw
         return result
@@ -2104,18 +2126,16 @@ class _Traveler:
     def posed_start(self, setup, op):
         """The kernel's pose of a turning op at its start (accessibility ``window_poses``)
         when a fixture component is within the crash zone of it: the clearance, and how
-        far out the start may go when that was found; None otherwise."""
+        far out the start may go when that was found; None otherwise. The start prints as
+        the DRO shows it (:meth:`surface_z`), off the posed one by the grid rounding: the
+        clearance loses that offset when it is outward (back against the feed), and a
+        printed start at or past the checked limit, or with no clearance left, is a STOP."""
         numbers = _mapping(self.records.get(("accessibility", f"{setup['id']}:{op['op']}")))
-        step, decimals = dro_grid(self.bundle, setup)
-
-        def snap(value, up):
-            """``value`` on the setup's DRO grid, rounded the safe way."""
-            steps = (math.ceil if up else math.floor)(value / step + (-1e-6 if up else 1e-6))
-            return _number(steps * step, decimals)
-
+        o = self.operative
+        scale = {"mm": 1.0, "in": 25.4}.get(self.units)
         for pose in numbers.get("window_poses") or []:
             pose = _mapping(pose)
-            clear, z = pose.get("clearance_mm"), pose.get("z_mm")
+            clear, z = pose.get("clearance_mm"), op.get("z_from")
             if pose.get("end") != "z_from" or not _known(clear) or clear > _CRASH_ZONE_MM:
                 continue
             # The kernel names a placed component "<role> <inventory ref>"; print the shop
@@ -2124,22 +2144,66 @@ class _Traveler:
             ref = name.rsplit(" ", 1)[-1]
             if resolve(self.bundle, "fixtures", ref):
                 name = "the " + self.short_reference(ref, "fixtures")
-            text = f"START Z {snap(z, False)}: {snap(clear, False)} CLEAR OF {name}"
-            start = pose.get("max_start_z_mm")
+            planned, posed = self.surface_z(setup, z), pose.get("z_mm")
+            start, feed = pose.get("max_start_z_mm"), numbers.get("feed_z")
+            out = -feed if feed in (-1, 1) else None
+            if out is None and _known(start) and _known(posed) and start != posed:
+                out = 1 if start > posed else -1
+            moved = planned * scale - posed if _known(planned) and scale and _known(posed) else 0
+            clear -= max(0.0, moved * out if out else abs(moved))
+            limit = "unknown"
             if _known(start) and _known(z):
-                text += f" — start no further out than Z {snap(start, start < z)}"
+                # Toward the planned start: never further out than the found limit.
+                limit = self.mm_on_grid(setup, start, up=start < pose.get("z_mm", start))
+            past = _known(limit) and out and (planned * scale - start) * out > -1e-9
+            if clear <= 0 or past:
+                stop = f"STOP: START Z {o(planned)} is not checked clear of {name}"
+                if _known(limit):
+                    stop += f": the checked start is no further out than Z {o(limit)}"
+                return _Box(stop)
+            gap = self.mm_on_grid(setup, clear, up=False)
+            text = f"START Z {o(planned)}: {o(gap)} CLEAR OF {name}"
+            if _known(limit):
+                text += f" — start no further out than Z {o(limit)}"
             return _Box(text)
         return None
 
+    def mm_on_grid(self, setup, value, up):
+        """A millimetre kernel fact in plan units on the setup's DRO grid, rounded up (True)
+        or down (False); unknown when the value or the plan units are."""
+        scale = {"mm": 1.0, "in": 25.4}.get(self.units)
+        if scale is None or not _known(value):
+            return "unknown"
+        step, decimals = dro_grid(self.bundle, setup)
+        steps = (math.ceil if up else math.floor)(value / scale / step + (-1e-6 if up else 1e-6))
+        return round(steps * step, decimals)
+
     def rest_engagement(self, setup, op):
-        """Where each follow rest the op's start would foul goes on (``engage_at_z_mm``)."""
+        """Where each follow rest the op's start would foul goes on (``engage_at_z_mm``),
+        on the DRO grid toward the clear side (along the feed), rechecked as printed: past
+        the Z where the jaws clear the fixture and not past the op's end."""
         numbers = _mapping(self.records.get(("accessibility", f"{setup['id']}:{op['op']}")))
-        o = self.operative
-        return [
-            f"set the follow rest at Z {o(entry['declared_z_mm'])} once the tool passes it"
-            for entry in map(_mapping, numbers.get("rest_engagement") or [])
-            if _known(entry.get("declared_z_mm"))
-        ]
+        feed, end = numbers.get("feed_z"), op.get("z_to")
+        scale = {"mm": 1.0, "in": 25.4}.get(self.units)
+        lines = []
+        for entry in map(_mapping, numbers.get("rest_engagement") or []):
+            declared, clear = entry.get("declared_z_mm"), entry.get("engage_z_mm")
+            if not _known(declared):
+                continue
+            printed = self.mm_on_grid(setup, declared, up=feed == 1)
+            fits = (
+                feed in (-1, 1)
+                and _known(printed)
+                and _known(clear)
+                and (printed - clear / scale) * feed >= -1e-9
+                and (not _known(end) or (printed - end) * feed <= 1e-9)
+            )
+            lines.append(
+                f"set the follow rest at Z {self.operative(printed)} once the tool passes it"
+                if fits
+                else _Box("STOP: no follow-rest position on the DRO grid is checked clear")
+            )
+        return lines
 
     def path_zs(self, setup, op):
         """The Z ends of an op's path as its op row prints them."""
@@ -2240,9 +2304,10 @@ class _Traveler:
                         for k, v in directions.items()
                         if not self.metadata(k) and not (lathe and k == "y")
                     )
-                    + ". Axis Set each axis (never Preset), then jog without touching: the "
-                    "display must show 'must read'; 'if reversed' means STOP, fix the axis "
-                    "direction and redo the zero."
+                    + ". Axis Set each axis (never Preset), then "
+                    + ("jog without touching" if lathe else "make the check jog")
+                    + ": the display must show 'must read'; 'if reversed' means STOP, fix "
+                    "the axis direction and redo the zero."
                 )
             )
         axes = numbers.get("axes", {})
@@ -2331,7 +2396,7 @@ class _Traveler:
                     "axis",
                     "touch / pick up",
                     "Axis Set",
-                    "jog, no touch",
+                    "check jog",
                     "must read",
                     "if reversed",
                 ],
@@ -2339,6 +2404,22 @@ class _Traveler:
                 widths=[5, 45, 13, 11, 13, 13],
             )
         )
+        if not lathe and any(row[0] in ("X", "Y") for row in rows):
+            # From a side pickup, +X / +Y runs the finder over the work at pickup height.
+            pieces.append(
+                _p("X and Y check jog, after each Axis Set:")
+                + _list(
+                    [
+                        "raise Z only (X and Y stay put) until the edge finder or indicator tip "
+                        "is above the work and everything clamped to it — look across the top "
+                        "for daylight under the tip;",
+                        "jog the table the check-jog distance and read 'must read';",
+                        "jog back until the display shows the Axis Set value again, then lower; "
+                        "do not Axis Set again: the picked-up value stays.",
+                    ],
+                    ordered=True,
+                )
+            )
         transfer = _mapping(authored.get("transfer"))
         if transfer:
             indicate = transfer.get("indicate")
@@ -2392,10 +2473,10 @@ class _Traveler:
             pieces.append(_p(self.tool_touch(setup, touch, tools)))
         for gap in numbers.get("missing_touches", []):
             name = tools.get(gap.get("tool")) or self.short_reference(gap.get("tool"))
-            axes = " and ".join(_text(axis).upper() for axis in gap.get("axes", []))
+            missing = " and ".join(_text(axis).upper() for axis in gap.get("axes", []))
             pieces.append(
                 _p(
-                    f"STOP: before op {_text(gap.get('before_op'))}, {name} has no {axes} "
+                    f"STOP: before op {_text(gap.get('before_op'))}, {name} has no {missing} "
                     "touch — the DRO reads another tool. Plan a tool touch."
                 )
             )
@@ -2667,7 +2748,12 @@ class _Traveler:
         )
         if plunges is None:
             return []
-        o = self.operative
+        scale = {"mm": 1.0, "in": 25.4}.get(self.units)
+
+        def o(value):
+            """A millimetre plunge fact as the DRO shows it, in plan units."""
+            return self.operative(value / scale if scale and _known(value) else "unknown")
+
         corners = plunges.get("corner_z_mm")
         if not isinstance(corners, list):
             return [_Box("STOP: plunge positions not set — blade width or hand unknown")]
@@ -2675,8 +2761,9 @@ class _Traveler:
         parts = [f"plunge {index} {corner} corner Z {o(z)}" for index, z in enumerate(corners, 1)]
         feature = op.get("feature")
         size = f"Ø {o(plunges.get('diameter_mm'))}"
-        if isinstance(plunges.get("dia_band_mm"), list):
-            size += f" ({self.band(plunges['dia_band_mm'], feature, 'dia')})"
+        band = plunges.get("dia_band_mm")
+        if isinstance(band, list) and scale:
+            size += f" ({self.band([v / scale for v in band], feature, 'dia')})"
         parts.append(("each to " if len(corners) > 1 else "to ") + size)
         low, high = plunges.get("groove_z_mm", [None, None])
         parts.append(f"groove Z {o(low)} to {o(high)}")
@@ -2842,17 +2929,21 @@ class _Traveler:
         cells = []
         for reference in process if isinstance(process, list) else [process]:
             category, item = coating_process(self.bundle, reference)
+            # The shop's display name; an unnamed entry keeps its identity visible.
+            name = _mapping(item).get("name")
+            name = name if isinstance(name, str) and name.strip() not in ("", "unknown") else None
+            shown = name or _text(reference)
             if reference == "unknown":
                 cells.append("? coating process not set")
             elif category == "services":
-                # Name what is sent out and to whom: the service id and the coating it applies.
+                # Name what is sent out and to whom: the service and the coating it applies.
                 applied = _mapping(item).get("coating")
                 cells.append(
-                    f"outside: {_text(reference)}"
+                    f"outside: {shown}"
                     + (f" ({_text(applied)})" if applied not in (None, "unknown") else "")
                 )
             elif category == "consumables":
-                cells.append(f"{_text(reference)} (in-house)")
+                cells.append(f"{shown} (in-house)")
             else:
                 cells.append(f"{_text(reference)} (not in shop list)")
         return ", ".join(cells)
@@ -3749,9 +3840,22 @@ class _Traveler:
                     result.append(finding)
         return result
 
-    def stock_line(self, stock):
+    def receiving_setup(self, ref):
+        """The first setup the stock ``ref`` (``stock`` or ``stock.<id>``) arrives in."""
+        for setup in self.plan.get("setups", []):
+            source = setup.get("stock_in")
+            if ref in (source if isinstance(source, list) else [source]):
+                return setup
+        return None
+
+    def stock_line(self, stock, ref="stock"):
+        """Stock size and supply notes on the DRO grid of the machine it first goes to."""
         stock = _mapping(stock)
-        o = self.operative
+        decimals = dro_grid(self.bundle, self.receiving_setup(ref) or {})[1]
+
+        def o(value):
+            return self.operative(value, decimals)
+
         form = stock.get("form")
         parts = []
         dims = ""
@@ -3788,7 +3892,7 @@ class _Traveler:
             name = _text(key)
             unit = " mm" if name.endswith(" mm") else ""
             name = name.removesuffix(" mm")
-            shown = self.operative(value) + unit if _known(value) else self.bench(value)
+            shown = o(value) + unit if _known(value) else self.bench(value)
             extras.append(f"{name[:1].upper() + name[1:]}: {shown}.")
         return " ".join([line, *extras])
 
@@ -3982,34 +4086,34 @@ class _Traveler:
         return revision if isinstance(revision, str) and revision != "unknown" else None
 
     def job_state(self, topics):
-        """The checker result, the release state the banner shows, and what must be in
-        hand before the first setup: the job page never reads clear beside NOT APPROVED."""
-        if self.report.get("verification") == "checked":
-            check = "Plan check: no rule fails"
-            check += f"; {len(topics)} check(s) not verified, listed above." if topics else "."
-        else:
-            check = "Plan check: not passed — clear the items above before running."
+        """What still stands in the way of running, the release state the banner shows, and
+        what must be in hand before the first setup: the job page never reads clear beside
+        NOT APPROVED. The checker's own result is not shop information."""
+        state = []
+        if self.report.get("verification") != "checked":
+            state.append("Not ready to run: clear the items above first.")
+        elif topics:
+            state.append(f"{len(topics)} check(s) not verified, listed above.")
         evidence = self.approval.get("first_article")
         recorded = isinstance(evidence, str) and evidence.strip().lower() not in ("", "unknown")
-        this_bundle = bool(self.approval) and self.approval.get("hash") == self.report.get("hash")
+        this_plan = bool(self.approval) and self.approval.get("hash") == self.report.get("hash")
         if self.checked:
-            approval = "Approved: hash-matched first article recorded for this input bundle."
-        elif recorded and this_bundle:
-            approval = (
-                "NOT APPROVED: a first article is recorded for this input bundle, but the plan "
-                "check has not passed and approval cannot waive it."
+            state.append("Approved: the first article is recorded against this exact plan.")
+        elif recorded and this_plan:
+            state.append(
+                "NOT APPROVED: a first article is recorded for this plan, but the plan has "
+                "open items above and approval cannot waive them."
             )
         else:
-            approval = (
+            state.append(
                 "NOT APPROVED: "
                 + (
-                    "the recorded first article is for other inputs"
+                    "the recorded first article was made to a different plan or drawing"
                     if recorded
-                    else "no first article is recorded for this input bundle"
+                    else "no first article is recorded"
                 )
                 + "; the first part made is the first article — sign it off below."
             )
-        state = [check, approval]
         stock = _mapping(self.plan.get("stock"))
         components = stock.get("components")
         pieces = [("stock", stock)] + [
@@ -4071,6 +4175,8 @@ class _Traveler:
         html += _list(self.job_state(topics), ordered=False)
         dro = _mapping(self.plan.get("dro"))
         lines = [self.material(), self.speeds_source()]
+        # The setup sheets are written first: a marked fixture row puts its legend here.
+        lines.append(EXAMPLE_LEGEND if self.example_marks else None)
         if dro.get("manual") or dro.get("controller") not in (None, "unknown"):
             name = dro.get("manual") if isinstance(dro.get("manual"), str) else dro["controller"]
             lines.append(
@@ -4084,7 +4190,11 @@ class _Traveler:
         components = stock.get("components")
         if isinstance(components, list) and components:
             html += _list(
-                [f"{_text(_mapping(c).get('id'))}: " + self.stock_line(c) for c in components],
+                [
+                    f"{_text(_mapping(c).get('id'))}: "
+                    + self.stock_line(c, f"stock.{_text(_mapping(c).get('id'))}")
+                    for c in components
+                ],
                 ordered=False,
             )
             stock = {k: v for k, v in stock.items() if k != "components"}
@@ -4207,11 +4317,7 @@ class _Traveler:
         drawing = self.plan.get("drawing", {})
         part = _text(self.plan.get("part"))
         revision = self.drawing_revision()
-        banner = (
-            "CHECKED — HASH-MATCHED FIRST ARTICLE RECORDED"
-            if self.checked
-            else "PLANNED — NOT APPROVED FOR THIS INPUT BUNDLE"
-        )
+        banner = "CHECKED — FIRST ARTICLE RECORDED" if self.checked else "PLANNED — NOT APPROVED"
         # The report binding is machine-readable only: hashes stay off the paper.
         result = [
             f'<!DOCTYPE html>\n<html lang="en"><head><meta charset="utf-8">'
