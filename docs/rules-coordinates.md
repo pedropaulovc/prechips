@@ -523,8 +523,10 @@ zero does not touch (no `top` zero, or one after an op) below its stated Z, the
 shift rises to the least grid value that keeps it at or above, so a tool clear
 of the printed top clears the stock. A top the Z zero touches prints carried
 even below its stated Z: the touch sets the DRO to read that number there. The
-"Starts from" line prints every carried Z and names the transform when the shift
-is not the exact offset. With no producer, `operative_z` reads a carried Z only
+"Starts from" line prints every carried Z and names the one transform (for
+example `top and rail bottoms Z = −(its Setup S1 Z) − 7.080`) when the shift is
+not the exact offset or a carried Z prints other than its stated Z would on the
+grid alone. With no producer, `operative_z` reads a carried Z only
 for the received surface itself: `top` or the `top_feature` at `top_z` (the Z
 zero's surface, a level start on the top, a raster lift and a path's raise
 above it), the `bottom_feature` at `bottom_z`; an equal Z on another face is no

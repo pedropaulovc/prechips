@@ -6095,8 +6095,13 @@ class _Traveler:
         line = self.flip(setup) + f"Starts from: {self.arrival(setup)}"
         if parts:
             line += " — " + ", ".join(parts)
-        if derived and abs(move["shift"] - move["offset"]) > SAME_Z:
-            # The transfer rounded its one offset: show the transform every carried Z took.
+        grid = dro_grid(self.bundle, setup)
+        if derived and (
+            abs(move["shift"] - move["offset"]) > SAME_Z
+            or any(z != dro_z(stated, grid) for stated, z in carried.values())
+        ):
+            # The transfer rounded its offset, or carried the sheet before's rounding: show
+            # the one transform every carried Z took.
             who = "each Z" if derived == stated else " and ".join(derived) + " Z"
             before = f"its Setup {move['before']['id']} Z"
             plus = "−" if move["shift"] < 0 else "+"
