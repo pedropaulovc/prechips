@@ -391,8 +391,11 @@ def operative_z(bundle, setup, value, face=None, done=0, source=None, path=False
     of the op that produced it, on that op's own setup grid (:func:`formed_z`: for a
     grooving/parting blade, the face its rounded corner reading leaves, unknown when that
     blade's corner, side or width is), then as this setup's DRO shows it (``dro_z``:
-    rounded up on its grid; a value on both grids stays); with no producer, ``dro_z`` of
-    ``value``. An unknown stays unknown.
+    rounded up on its grid; a value on both grids stays); with no producer, for the
+    surface a ``stock_state`` Z names that the setup receives from the setup before it
+    (``face`` ``"top"`` or the ``top_feature`` at ``top_z``, the ``bottom_feature`` at
+    ``bottom_z``), the Z that setup printed for it carried over (:func:`transfer`), else
+    ``dro_z`` of ``value``. An unknown stays unknown.
 
     The producer is the op ``source`` names in this setup (``"S2 op 20 to_z"``,
     :func:`stock_states`). Else, for the stock ``"top"``, the op that last faced it in
@@ -416,6 +419,11 @@ def operative_z(bundle, setup, value, face=None, done=0, source=None, path=False
     (:func:`_turning_window`) is passed over there. It places no face on a ``to_z`` a
     path end could print, so as its producer it could only blank it; a touch read keeps
     it as its producer."""
+    return _operative_z(bundle, setup, value, face, done, source, path, None)
+
+
+def _operative_z(bundle, setup, value, face, done, source, path, carried):
+    """:func:`operative_z`, given ``setup``'s carried Zs (:func:`_carried`) when known."""
     from .coordinates import dro_grid, dro_z, formed_z
 
     if not number(value):
@@ -425,7 +433,137 @@ def operative_z(bundle, setup, value, face=None, done=0, source=None, path=False
         return UNKNOWN
     if producer:
         value = formed_z(bundle, *producer)
+    else:
+        if carried is None:
+            carried = _carried(bundle, setup)
+        state = mapping(setup.get("stock_state"))
+        for key, (stated, printed) in carried.items():
+            named = state.get(ARRIVAL_ZS[key]) if ARRIVAL_ZS[key] else None
+            names = {"top"} if key == "top_z" else set()
+            if isinstance(named, str) and named != UNKNOWN:
+                names.add(named)
+            # The received surface itself, never another at an equal Z.
+            if face in names and abs(stated - value) <= SAME_Z:
+                return printed
     return dro_z(value, dro_grid(bundle, setup))
+
+
+# The stock_state Zs of the surfaces a setup receives, and the feature naming each, if any.
+ARRIVAL_ZS = {
+    "top_z": "top_feature",
+    "bottom_z": "bottom_feature",
+    "north_end_z": None,
+    "south_end_z": None,
+    "plain_end_z": None,
+    "retained_rail_bottom_z": None,
+}
+
+
+def transfer(bundle, setup):
+    """``{"before", "sign", "offset", "shift", "carried"}`` when ``setup`` receives the
+    part from one earlier setup ``before`` whose Z is this one's (``sign`` 1) or its reverse
+    (``sign`` -1, the part turned over), else None: from a supply or a joint, from a setup
+    whose Z lies along another of this one's axes, or with either frame's Z or origin
+    unknown.
+
+    The frames place every surface at ``Z = sign * Z_before + offset``. The setup prints
+    each ``stock_state`` Z it receives (:data:`ARRIVAL_ZS`) at ``sign *`` the Z the setup
+    before printed for that surface (:func:`_left_z`) plus one ``shift``: so the printed
+    numbers linking the two agree on the printed grid, two surfaces apart on one sheet
+    stay as far apart on the next, and the transfer rounds once. ``carried`` maps each
+    such key to ``(stated Z, printed Z)``. ``shift`` is the offset rounded up onto this
+    setup's DRO grid (``dro_z``). Where that would print the stock top below its stated Z
+    and the setup's Z zero does not touch that top (whose touch sets it where it prints),
+    the shift is the least grid value that keeps it at or above: a tool clear of the
+    printed top is clear of the stock."""
+    from .coordinates import dro_grid, dro_z, frame_axes, mapping_vector
+
+    source, before = setup.get("stock_in"), None
+    for other in bundle.plan.get("setups", []):
+        if other is setup:
+            break
+        if isinstance(source, str) and other.get("id") == source:
+            before = other
+    if before is None:
+        return None
+    here, there = setup_frame(bundle, setup), setup_frame(bundle, before)
+    z_here, z_there = frame_axes(here)[2], frame_axes(there)[2]
+    o_here, o_there = (mapping_vector(mapping(f).get("origin")) for f in (here, there))
+    if not all(number(v) for v in (*z_here, *z_there, *o_here, *o_there)):
+        return None
+    turn = sum(a * b for a, b in zip(z_here, z_there, strict=True))
+    if abs(abs(turn) - 1) > 1e-9:
+        return None
+    sign = 1 if turn > 0 else -1
+    offset = sum((a - b) * c for a, b, c in zip(o_there, o_here, z_here, strict=True))
+    grid = dro_grid(bundle, setup)
+    received = arrival_zs(bundle, before)
+    state, left = mapping(setup.get("stock_state")), {}
+    for key, named in ARRIVAL_ZS.items():
+        if number(state.get(key)):
+            feature = state.get(named) if named else None
+            z = _left_z(bundle, before, sign * (state[key] - offset), feature, received)
+            if number(z):
+                left[key] = sign * z
+    shift = dro_z(offset, grid)
+    zero = mapping(mapping(setup.get("zero")).get("z"))
+    touched = zero.get("face") == "top" and zero.get("after_op") is None
+    if "top_z" in left and not touched and left["top_z"] + shift < state["top_z"] - SAME_Z:
+        shift = dro_z(state["top_z"] - left["top_z"], grid)
+    carried = {key: (state[key], dro_z(z + shift, grid)) for key, z in left.items()}
+    return {"before": before, "sign": sign, "offset": offset, "shift": shift, "carried": carried}
+
+
+def _carried(bundle, setup):
+    """:func:`transfer`'s ``carried`` Zs; none when ``setup`` receives no transfer."""
+    move = transfer(bundle, setup)
+    return move["carried"] if move else {}
+
+
+def arrival_zs(bundle, setup):
+    """``{key: (stated Z, printed Z)}`` for each ``stock_state`` Z of ``setup``
+    (:data:`ARRIVAL_ZS`) as its sheet prints the surface it receives: the top as
+    :func:`operative_z` reads it before any op, any other carried over (:func:`transfer`),
+    else on its grid (``dro_z``)."""
+    from .coordinates import dro_grid, dro_z
+
+    carried = _carried(bundle, setup)
+    state, received = mapping(setup.get("stock_state")), {}
+    for key in ARRIVAL_ZS:
+        value = state.get(key)
+        if not number(value):
+            continue
+        if key == "top_z":
+            printed = _operative_z(bundle, setup, value, "top", 0, None, False, carried)
+        else:
+            printed = carried.get(key, (value, dro_z(value, dro_grid(bundle, setup))))[1]
+        received[key] = (value, printed)
+    return received
+
+
+def _left_z(bundle, setup, value, feature, received):
+    """The Z ``setup``'s sheet printed for the surface it leaves at ``value``: where the op
+    that last cut it there left it (:func:`formed_z`), the op found as
+    :func:`operative_z` finds it for ``feature`` (when named) or for the stock top (when
+    the setup leaves its top there); else the Z it printed for the surface it received
+    there (``received``, :func:`arrival_zs`); else None. A producer whose cut is unknown
+    carries nothing over."""
+    from .coordinates import formed_z
+
+    done = len(setup.get("ops", []))
+    faces = [feature] if isinstance(feature, str) and feature != UNKNOWN else []
+    states = list(stock_states(bundle, setup))
+    top = states[-1][2]["top_z"] if states else None
+    if number(top) and abs(top - value) <= SAME_Z:
+        faces.append("top")
+    for face in faces:
+        producer = _producer(bundle, setup, value, face, done, None)
+        if producer == UNKNOWN:
+            return None
+        if producer:
+            return formed_z(bundle, *producer)
+    printed = {z for exact, z in received.values() if abs(exact - value) <= SAME_Z}
+    return printed.pop() if len(printed) == 1 else None
 
 
 def _covers_xy(cut, target):

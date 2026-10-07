@@ -48,7 +48,14 @@ from .rules.resolution import (
     workholding_category,
 )
 from .rules.resolution import record as _mapping
-from .rules.tip_endpoints import FACING, SAME_Z, operative_z, stock_states
+from .rules.tip_endpoints import (
+    FACING,
+    SAME_Z,
+    arrival_zs,
+    operative_z,
+    stock_states,
+    transfer,
+)
 from .rules.zero_recipe import DIRECTIONS as _SIGNS
 from .rules.zero_recipe import FACE_Z_TOL_MM
 
@@ -6027,6 +6034,12 @@ class _Traveler:
         parts = []
         if _known(state.get("od_mm")):
             parts.append(f"Ø{o(state['od_mm'])}")
+        # Each arriving surface as the DRO shows it, as every other line prints it; the Zs
+        # carried over from the setup it arrives from, and that one transform.
+        arrival = arrival_zs(self.bundle, setup)
+        move = transfer(self.bundle, setup)
+        carried = move["carried"] if move else {}
+        stated, derived = [], []
         for key, label in (
             ("top_z", "top"),
             ("bottom_z", "bottom"),
@@ -6037,16 +6050,26 @@ class _Traveler:
         ):
             if key not in state:
                 continue
-            value = state[key]
             name = label
             if key == "top_z" and state.get("top_feature"):
                 name = f"top ({self.feature_name(state['top_feature'])})"
-            # Each arriving surface as the DRO shows it, as every other line prints it.
-            value = self.surface_z(setup, value, face="top" if key == "top_z" else None)
-            parts.append(f"{name} at Z {o(value)}" if _known(value) else f"{name} Z ? not set")
+            stated.append(label)
+            printed = arrival[key][1] if key in arrival else state[key]
+            if key in carried and printed == carried[key][1]:
+                derived.append(label)
+            parts.append(f"{name} at Z {o(printed)}" if _known(printed) else f"{name} Z ? not set")
         line = self.flip(setup) + f"Starts from: {self.arrival(setup)}"
         if parts:
             line += " — " + ", ".join(parts)
+        if derived and abs(move["shift"] - move["offset"]) > SAME_Z:
+            # The transfer rounded its one offset: show the transform every carried Z took.
+            who = "each Z" if derived == stated else " and ".join(derived) + " Z"
+            before = f"its Setup {move['before']['id']} Z"
+            plus = "−" if move["shift"] < 0 else "+"
+            line += (
+                f" ({who} = {f'−({before})' if move['sign'] < 0 else before} {plus} "
+                f"{o(abs(move['shift']))})"
+            )
         line += "." + self.joint_text(setup)
         if state.get("note"):
             line += " " + self.bench(state["note"], setup).rstrip(".") + "."

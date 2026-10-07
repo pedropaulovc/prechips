@@ -328,12 +328,13 @@ def test_an_op_whose_levels_start_at_its_depth_prints_one_pass_at_that_depth(sta
 def test_a_floor_already_at_depth_is_one_pass_only_when_its_levels_are_established(
     doc, established
 ):
-    from prechips.rules.coordinates import _z_levels
+    from prechips.rules.coordinates import _z_levels, dro_z
 
     op = {**POCKET["ops"][0], "to_z": -0.6, "doc_mm": doc}
     records = contour_records([-0.6])
+    grid = (0.001, 3)
     records[("coordinates", "S1")]["operations"][0]["z_levels"] = _z_levels(
-        op, {"top_z": -0.6}, {}, [], {}, (0.001, 3), "mm"
+        op, {"top_z": -0.6}, {}, [], {}, grid, "mm", dro_z(-0.6, grid)
     )
     parts = [str(part) for part in shop(records).tip(POCKET, op)]
     assert any("STOP" in part for part in parts) is not established, parts

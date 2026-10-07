@@ -41,7 +41,15 @@ from .resolution import (
     setup_frame,
     uncertain,
 )
-from .tip_endpoints import FACING, HOLE_OPS, POCKETING, _covers_xy, forms_face, stock_states
+from .tip_endpoints import (
+    FACING,
+    HOLE_OPS,
+    POCKETING,
+    _covers_xy,
+    forms_face,
+    operative_z,
+    stock_states,
+)
 
 AXES = ("x", "y", "z")
 CENTRE_OPS = HOLE_OPS | {"center"}
@@ -2047,7 +2055,7 @@ def _cleared_floor(op, cleared, features):
     return min(floors) if floors else None
 
 
-def _z_levels(op, before, declared, cleared, features, grid, units):
+def _z_levels(op, before, declared, cleared, features, grid, units, printed_top):
     """The axial Z levels of a milling op that authors ``doc_mm``, else None.
 
     Levels step from the op's start surface down to its DRO depth, each on the DRO grid and
@@ -2055,7 +2063,9 @@ def _z_levels(op, before, declared, cleared, features, grid, units):
     starts at its feature's declared setup ``entry_z``, else the current top. A
     wall-finishing op keeps that start, as its flank engages the whole wall; any other op
     starts lower only on an earlier face or pocket op's floor that provably cleared all of
-    its region (:func:`_cleared_floor`).
+    its region (:func:`_cleared_floor`). A start on the top prints as the setup prints the
+    top before the op (``printed_top``, :func:`~.tip_endpoints.operative_z`), any other on
+    the grid (``dro_z``), and the levels step down from it.
     """
     if op.get("do") not in _LEVEL_OPS or "doc_mm" not in op or "to_z" not in op:
         return None
@@ -2066,17 +2076,21 @@ def _z_levels(op, before, declared, cleared, features, grid, units):
     if floor is not None and number(start) and floor < start:
         start, basis = floor, "floor of an earlier op that cleared this op's whole region"
     end, doc = dro_z(op["to_z"], grid), op["doc_mm"]
-    record = {"start_z": start, "start_basis": basis, "dro_start_z": dro_z(start, grid)}
+    if basis == "setup top_z":
+        printed = printed_top if number(start) else UNKNOWN
+    else:
+        printed = dro_z(start, grid) if number(start) else UNKNOWN
+    record = {"start_z": start, "start_basis": basis, "dro_start_z": printed}
     record.update(dro_to_z=end, doc_mm=doc)
     scale = {"mm": 1.0, "in": 25.4}.get(units)
     step, decimals = grid
     depth = doc / scale if scale and number(doc) and doc > 0 else UNKNOWN
     lattice = math.floor(depth / step + 1e-6) * step if number(depth) else 0
-    if not (number(start) and number(end)) or lattice <= 0:
+    if not (number(printed) and number(end)) or lattice <= 0:
         record.update(levels=UNKNOWN, count=UNKNOWN)
         record["reason"] = "its start Z, DRO depth, plan units or doc_mm is unknown"
         return record
-    levels, z = [], _grid(start - depth, step, decimals, True)
+    levels, z = [], _grid(printed - depth, step, decimals, True)
     while z > end + _WALL_TOL:
         levels.append(z)
         z = round(z - lattice, decimals)
@@ -3528,6 +3542,9 @@ def evaluate(bundle, *, pre_kernel=False):
         grid = dro_grid(bundle, setup)
         numbers["dro_grid"] = {"step": grid[0], "decimals": grid[1]}
         declared = mapping(mapping(setup.get("stock_state")).get("entry_z"))
+        # The stock top before op ``done`` as the setup prints it: a path starts or lifts
+        # from that surface.
+        top = functools.partial(operative_z, bundle, setup, face="top")
         states, cleared, plan_debts = stock_states(bundle, setup), [], []
         # The corner each blade op's DRO Z reads (the Z touch in effect when it cuts).
         readings = {}
@@ -3537,7 +3554,9 @@ def evaluate(bundle, *, pre_kernel=False):
             readings = blade_readings(bundle, setup)
         blade_unknown = False
         allowed_errors = []  # blade targets forming their face outside the op's to_z_band
-        for entry, (op, before, _) in zip(numbers["operations"], states, strict=True):
+        for done, (entry, (op, before, _)) in enumerate(
+            zip(numbers["operations"], states, strict=True)
+        ):
             if "to_z" in entry:
                 # The depth the DRO shows: rounded up, never deeper than authored.
                 entry["dro_to_z"] = dro_z(entry["to_z"], grid)
@@ -3553,7 +3572,8 @@ def evaluate(bundle, *, pre_kernel=False):
                         allowed_errors.append(error)
             levels = None
             if not lathe:
-                levels = _z_levels(op, before, declared, cleared, features, grid, units)
+                printed = top(before["top_z"], done=done)
+                levels = _z_levels(op, before, declared, cleared, features, grid, units, printed)
             if levels is not None:
                 entry["z_levels"] = levels
                 if levels["levels"] == UNKNOWN:
@@ -3687,7 +3707,7 @@ def evaluate(bundle, *, pre_kernel=False):
             for key in ("aim", "refused_aim"):
                 if key in rows[0]:
                     aim_cites.append(f"plan.aims.{rows[0][key]['feature']}")
-        for op, before, after in stock_states(bundle, setup):
+        for done, (op, before, after) in enumerate(stock_states(bundle, setup)):
             numbers["entry_surfaces"].append({"op": op["op"], **after["entry_z"]})
             contour = mapping(op.get("contour"))
             unknown |= op.get("contour") == UNKNOWN
@@ -3810,9 +3830,10 @@ def evaluate(bundle, *, pre_kernel=False):
                 elif contour.get("method") == "linear_table" and _rastered(op, contour):
                     approach = op.get("approach_mm", UNKNOWN)
                     scale = {"mm": 1.0, "in": 25.4}.get(units)
+                    printed_top = top(before["top_z"], done=done)
                     lift = (
-                        dro_z(before["top_z"] + approach / scale, grid)
-                        if scale and number(approach) and number(before["top_z"])
+                        dro_z(printed_top + approach / scale, grid)
+                        if scale and number(approach) and number(printed_top)
                         else UNKNOWN
                     )
                     raster, why = _raster(
@@ -3888,7 +3909,7 @@ def evaluate(bundle, *, pre_kernel=False):
             from .level_entry import level_paths
 
             paths, path_debts = level_paths(
-                bundle, setup, numbers, stock_states(bundle, setup), grid, units, dro_z
+                bundle, setup, numbers, stock_states(bundle, setup), grid, units, dro_z, top
             )
             if paths:
                 numbers["level_paths"] = paths
