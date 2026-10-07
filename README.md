@@ -522,7 +522,7 @@ Nothing here is a toolpath or a certification of the physical setup. See
 
 M2 checks declared profile, stock holding, indexing and physics arithmetic;
 they do not confirm a measured setup. Lathe headroom checks stock/chuck swing
-and between-centres length; trial-cut measurements and example cutting data remain unknown. The
+and between-centres length; trial-cut measurements remain unknown and the example cutting data are labelled illustrative values, not shop measurements. The
 consumer's labelled manifests and adjacent STEP exports are consumed for all
 three drawn pilot parts (M3); pivot-bracket remains authored. Export delivery
 does not establish live prechips farm/trace acceptance or physical readiness.

@@ -118,8 +118,9 @@ Evidence names `acceptance_field`, `acceptance_band_mm`,
 
 Nonpositive DOC, feed, diameter, length, `K_c` or `E`, ambiguous material rows,
 unknown aliases and material/machine verification debt cannot establish a
-computed model. The examples' unsourced material coefficients remain unknown;
-these rules do not add a Machinery's Handbook 31 citation or material value.
+computed model. The examples' material coefficients are labelled illustrative
+example values (`example (plausible, not measured)`) inside the cited published
+ranges, not measured shop facts.
 
 Evidence includes force, inertia, converted modulus, deflection, coefficient,
 resolved support evidence, input material/class, cited acceptance band, derived

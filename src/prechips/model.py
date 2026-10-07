@@ -1227,6 +1227,10 @@ Cut = record(
 CutMaterial = record(
     "CutMaterial", {"material_class": str, **numbers("kc_n_per_mm2 e_gpa"), "cite": Citations}
 )
+DeepHole = record(
+    "DeepHole",
+    {"operation": str, **numbers("depth_over_dia sfm_factor"), "cite": Citations},
+)
 
 
 class CuttingData(InputModel):
@@ -1234,3 +1238,4 @@ class CuttingData(InputModel):
     aliases: dict[str, str] | Unknown = UNKNOWN
     cut: list[Cut] | Unknown = UNKNOWN
     material: list[CutMaterial] | Unknown = UNKNOWN
+    deep_hole: list[DeepHole] | Unknown = UNKNOWN

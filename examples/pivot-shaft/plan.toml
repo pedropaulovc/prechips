@@ -195,8 +195,8 @@ holder = "qctp-axa-lms-2280/1-turning-facing"
 z_from = 166.3               # author's choice: start 0.3 clear of the plain end
 z_to = 0.2                    # stop 0.2 short of the thrust face for the facing pass
 rough_allowance_mm = 0.2    # on diameter: rough Ø6.55
-doc_mm = 0.5                # four light passes Ø10 → Ø6.55 on the slender between-centres body
-feed_mm_rev = 0.08
+doc_mm = 0.5                # four light passes Ø10 → Ø6.55 on the slender between-centres body; example (plausible, not measured), below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.040 in (1.0 mm) DOC
+feed_mm_rev = 0.08          # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.004 in/rev (0.10 mm)
 direction = "toward_chuck"  # author's choice: plain end to shoulder; cutting load pushes into the headstock
 note = "Four passes, Ø10 → Ø6.55. Each pass: open the follow-rest jaws wide, clear of the dead centre; start at Z166.3; at Z152 stop the feed (S3 cuts that end length off), bring both rest jaws onto the diameter just cut and lock them; resume to the shoulder. The Ø10 shoulder stays as bar."
 
@@ -207,8 +207,8 @@ feature = "shoulder_thrust"
 tool = "turning-tools-warner-lms-4132/AR"
 holder = "qctp-axa-lms-2280/1-turning-facing"
 to_z = 0.0                    # shoulder thrust face = T1 origin
-doc_mm = 0.2
-feed_mm_rev = 0.05
+doc_mm = 0.2                # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.040 in (1.0 mm) DOC
+feed_mm_rev = 0.05          # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.004 in/rev (0.10 mm)
 direction = "radially_outward"  # author's choice: finish the face from the body out to the shoulder O.D.
 note = "Feed out from the Ø6.35 body to the Ø10 O.D.: the tool starts in the corner, so the face meets the body square, and the burr goes over the O.D. edge."
 
@@ -223,8 +223,8 @@ tool = "turning-tools-warner-lms-4132/AR"
 holder = "qctp-axa-lms-2280/1-turning-facing"
 z_from = 166.3               # author's choice: start 0.3 clear of the plain end
 z_to = 0.0
-doc_mm = 0.1                # Ø6.55 → Ø6.35
-feed_mm_rev = 0.05
+doc_mm = 0.1                # Ø6.55 → Ø6.35; example (plausible, not measured), below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.040 in (1.0 mm) DOC
+feed_mm_rev = 0.05          # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.004 in/rev (0.10 mm)
 direction = "toward_chuck"  # author's choice: plain end to the thrust face in one pass
 note = "One pass, Ø6.55 → Ø6.35, with the same rest sequence: jaws open at the start, feed stopped at Z152 to set them on the finished diameter, then on to the thrust face. Mic at both ends and the middle for taper before moving on."
 
@@ -250,7 +250,7 @@ holder = "qctp-axa-lms-2280/7-parting"
 z_from = 0.0
 z_to = 2.0
 doc_mm = 0.33               # radial plunge depth Ø6.35 → Ø5.7
-feed_mm_rev = 0.02          # light plunge on the slender body
+feed_mm_rev = 0.02          # light plunge on the slender body; example (plausible, not measured), below UFL 'Speeds and Feeds' Example 5 tip parting 0.001 in/rev (0.025 mm) for steels
 direction = "plunge_radial"  # author's choice: plunge flush at Z0..1.6, step to Z0.4..2.0, plunge again
 note = "DIN 509 relief: two square plunges with the 1/16 in blade, chuck-side corner flush to the thrust face."
 
@@ -342,8 +342,8 @@ holder = "qctp-axa-lms-2280/1-turning-facing"
 z_from = 5.0
 z_to = -7.3                   # stop 0.2 short of the shoulder north face
 rough_allowance_mm = 0.2    # on diameter: rough Ø6.55
-doc_mm = 0.5                # four passes; the short free stub stays stiff at this load
-feed_mm_rev = 0.10
+doc_mm = 0.5                # four passes; the short free stub stays stiff at this load; example (plausible, not measured), below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.040 in (1.0 mm) DOC
+feed_mm_rev = 0.10          # example (plausible, not measured); at littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.004 in/rev (0.10 mm)
 direction = "toward_chuck"  # author's choice: stub end to the shoulder
 note = "Rough the stub and journal together; the dome is formed from this O.D."
 
@@ -354,8 +354,8 @@ feature = "shoulder_north_face"
 tool = "turning-tools-warner-lms-4132/AR"
 holder = "qctp-axa-lms-2280/1-turning-facing"
 to_z = -7.5
-doc_mm = 0.2
-feed_mm_rev = 0.05
+doc_mm = 0.2                # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.040 in (1.0 mm) DOC
+feed_mm_rev = 0.05          # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.004 in/rev (0.10 mm)
 direction = "radially_outward"  # author's choice
 note = "Feed out from the journal to the Ø10 O.D.: the tool starts in the corner, so the face meets the journal square, and the burr goes over the O.D. edge."
 
@@ -367,8 +367,8 @@ tool = "turning-tools-warner-lms-4132/AR"
 holder = "qctp-axa-lms-2280/1-turning-facing"
 z_from = 5.0
 z_to = -7.5
-doc_mm = 0.1
-feed_mm_rev = 0.05
+doc_mm = 0.1                # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.040 in (1.0 mm) DOC
+feed_mm_rev = 0.05          # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.004 in/rev (0.10 mm)
 direction = "toward_chuck"  # author's choice
 
 [setups.ops.checks]
@@ -383,8 +383,8 @@ tool = "parting-blade-lms-1728"
 holder = "qctp-axa-lms-2280/7-parting"
 z_from = -7.5
 z_to = -5.5
-doc_mm = 0.33
-feed_mm_rev = 0.02
+doc_mm = 0.33               # radial plunge depth Ø6.35 → Ø5.7, as S1 op 50
+feed_mm_rev = 0.02          # example (plausible, not measured); below UFL 'Speeds and Feeds' Example 5 tip parting 0.001 in/rev (0.025 mm) for steels
 direction = "plunge_radial"  # author's choice: plunge flush at Z-7.5..-5.9, step to -7.1..-5.5, plunge again
 note = "DIN 509 relief: two square plunges, chuck-side corner flush to the shoulder north face."
 
@@ -399,8 +399,8 @@ feature = "north_dome"
 tool = "turning-tools-warner-lms-4132/AR"
 holder = "qctp-axa-lms-2280/1-turning-facing"
 to_z = 0.0                    # temporary face at the north apex plane
-doc_mm = 1.0                # five facing passes off the 5 mm stub
-feed_mm_rev = 0.08
+doc_mm = 1.0                # five facing passes off the 5 mm stub; example (plausible, not measured), at littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.040 in (1.0 mm) DOC
+feed_mm_rev = 0.08          # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.004 in/rev (0.10 mm)
 direction = "radially_inward"  # author's choice
 note = "Face the stub off to the apex plane, feeding toward the centre; stop at centre height and check for a pip."
 
@@ -412,8 +412,8 @@ tool = "turning-tools-warner-lms-4132/AR"   # 93° facing/turning tool reaches t
 holder = "qctp-axa-lms-2280/1-turning-facing"
 z_from = 0.0
 z_to = -1.5                   # apex 0.0, base -1.5, sphere R 4.11 centred at -4.11
-doc_mm = 0.2
-feed_mm_rev = 0.04
+doc_mm = 0.2                # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.040 in (1.0 mm) DOC
+feed_mm_rev = 0.04          # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.004 in/rev (0.10 mm)
 direction = "apex_to_base"  # author's choice: hand traverse from T2 Z0 to -1.5
 rough_allowance_mm = 0.2    # author's choice, on diameter: the rough stair leaves 0.1 normal to the sphere for the finish table
 contour = { method = "axial_table", step_mm = 0.1 }  # author's choice: rough stair rows, then the finish table (tool columns)
@@ -530,7 +530,7 @@ tool = "parting-blade-lms-1728"
 holder = "qctp-axa-lms-2280/7-parting"
 to_z = 2.25                # AUTHOR'S CHOICE: part the waste off 0.5 long so op 20 faces the apex to a DRO-set Z
 doc_mm = 3.2               # radial plunge to the centre of Ø6.35
-feed_mm_rev = 0.03
+feed_mm_rev = 0.025         # example (plausible, not measured); UFL 'Speeds and Feeds' Example 5 tip parting 0.001 in/rev (0.025 mm) for steels, hand-fed
 direction = "plunge_radial"  # author's choice
 note = "Part the waste off long, chuck-side blade corner at Z2.25. Let the waste offcut drop into the chip tray; pick it up only with the spindle stopped. Op 20 faces off the parting pip."
 
@@ -541,8 +541,8 @@ feature = "south_dome"
 tool = "turning-tools-warner-lms-4132/AR"
 holder = "qctp-axa-lms-2280/1-turning-facing"
 to_z = 1.75                # author's choice: midpoint of the sourced "CUT THE PLAIN END 1.5 TO 2.0 PAST THE SCRIBE" band; the apex of the dome. A DRO-set Z, not a band: op 30 starts its table here
-doc_mm = 0.25              # two facing passes, Z2.25 → 1.75
-feed_mm_rev = 0.05
+doc_mm = 0.25              # two facing passes, Z2.25 → 1.75; example (plausible, not measured), below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.040 in (1.0 mm) DOC
+feed_mm_rev = 0.05          # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.004 in/rev (0.10 mm)
 direction = "radially_inward"  # author's choice
 inspection_note = "Spindle stopped: caliper depth rod from the actual scribe to the faced end; the drawing allows 1.5 to 2.0 (cut the plain end 1.5 to 2.0 past the scribe). Outside that, stop before doming."
 note = "Face the parted end to Z1.75 in two passes, feeding toward the centre; stop at centre height and check that no pip is left."
@@ -555,8 +555,8 @@ tool = "turning-tools-warner-lms-4132/AR"   # same 93° tool as the north dome; 
 holder = "qctp-axa-lms-2280/1-turning-facing"
 z_from = 1.75              # author's choice: the op 20 faced end (apex), a deterministic DRO Z
 z_to = 0.25                # author's choice: apex 1.75 - sourced dome height 1.5
-doc_mm = 0.2
-feed_mm_rev = 0.04
+doc_mm = 0.2                # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.040 in (1.0 mm) DOC
+feed_mm_rev = 0.04          # example (plausible, not measured); below littlemachineshop.com/pages/cutting-speeds 1018 turning basis 0.004 in/rev (0.10 mm)
 direction = "apex_to_base"  # author's choice
 rough_allowance_mm = 0.2    # author's choice, on diameter: the rough stair leaves 0.1 normal to the sphere for the finish table
 contour = { method = "axial_table", step_mm = 0.1 }  # author's choice: rough stair rows, then the finish table (tool columns)
