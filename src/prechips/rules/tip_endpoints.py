@@ -9,7 +9,15 @@ import re
 from prechips.measurements import nominal_angle_deg
 
 from ..findings import Finding
-from .resolution import UNKNOWN, length_mm, number, resolve, setup_frame, uncertain
+from .resolution import (
+    UNKNOWN,
+    length_mm,
+    number,
+    op_feature,
+    resolve,
+    setup_frame,
+    uncertain,
+)
 
 FACING = {"face", "rough_face", "finish_face"}
 POCKETING = {"pocket", "rough_pocket", "finish_pocket"}
@@ -229,10 +237,11 @@ def cut_coverage(bundle, setup, op, target):
     (:func:`_setup_footprint`) decide: ``"whole"`` when the region holds it,
     ``"partial"`` when it does not. An unknown region or footprint leaves it unknown,
     never whole; overlap or a held ``at`` point is never whole."""
-    own = mapping(mapping(bundle.feature_definitions).get(op.get("feature")))
+    name = op_feature(op)  # None for an inspect op's feature list: it cuts no feature
+    own = mapping(mapping(bundle.feature_definitions).get(name))
     if "stock_removal_bounds" in op:
         region = cut_region(op)
-    elif target == own:
+    elif name is not None and target == own:
         return "whole"
     else:
         region = _setup_footprint(bundle, setup, own)
