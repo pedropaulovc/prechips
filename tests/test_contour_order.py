@@ -227,13 +227,15 @@ def keep_out_face(tmp_path, circles, direction="conventional", sweep_frame="A", 
 def test_raster_keep_out_splits_in_feed_order_and_preserves_clear_passes(tmp_path, direction):
     row, profile = keep_out_face(tmp_path, "[{ at = [10.0, 5.0], dia_mm = 2.0 }]", direction)
     assert row.status == "pass", row.sentence
-    expected = []
+    expected, skipped = [], []
     # Cut points 10 -/+ sqrt(16 - dy^2) print on the default 0.001 grid, rounded outward.
     cuts = {1: (6.127, 13.873), 3: (7.354, 12.646)}
     for y in range(0, 11, 2):
         if abs(y - 5) < 4:  # island radius 1 plus cutter radius 3
             low, high = cuts[abs(y - 5)]
             pieces = [[[-3.0, y], [low, y]], [[high, y], [23.0, y]]]
+            gap = [[low, y], [high, y]]
+            skipped.append(gap if direction == "conventional" else gap[::-1])
         else:
             pieces = [[[-3.0, y], [23.0, y]]]
         if direction == "climb":
@@ -248,6 +250,11 @@ def test_raster_keep_out_splits_in_feed_order_and_preserves_clear_passes(tmp_pat
         nearest_x = min(max(10.0, min(a[0], b[0])), max(a[0], b[0]))
         assert math.dist([nearest_x, a[1]], [10, 5]) >= 4 - 1e-9
         assert (b[0] - a[0]) * (1 if direction == "conventional" else -1) > 0
+    gaps = profile["raster"].pop("keep_out_skipped")
+    assert len(gaps) == len(skipped)
+    for actual, wanted in zip(gaps, skipped, strict=True):
+        for point, target in zip(actual, wanted, strict=True):
+            assert point == pytest.approx(target, abs=1e-12)
     assert profile["raster"] == {
         "open_side": "-y",
         "open_side_basis": "contour.open_side",
@@ -262,6 +269,32 @@ def test_raster_keep_out_splits_in_feed_order_and_preserves_clear_passes(tmp_pat
         "entry_pass": "not_applicable",
         "keep_out": [{"at": [10.0, 5.0], "dia_mm": 2.0}],
     }
+
+
+@pytest.mark.parametrize(
+    "circles",
+    [
+        "[{ at = [10.0, 5.0], dia_mm = 2.0 }]",
+        "[{ at = [10.0, 5.0], dia_mm = 2.0 }, { at = [14.0, 5.0], dia_mm = 2.0 }]",
+        # Island radius 15 plus the cutter's 3 reaches past both ends of every pass.
+        "[{ at = [10.0, 5.0], dia_mm = 30.0 }]",
+    ],
+    ids=["one", "overlapping", "whole-passes"],
+)
+def test_raster_keep_out_skipped_parts_and_printed_pieces_make_up_every_pass(tmp_path, circles):
+    # The kernel takes only what the printed pieces sweep near an island, so the parts a
+    # keep_out removes, wholly removed passes included, must be reported: on each pass line
+    # the printed pieces and skipped parts tile the whole pass X -3..23 without overlap.
+    _, profile = keep_out_face(tmp_path, circles)
+    lines = {}
+    for a, b in profile["cutter_centre"] + profile["raster"]["keep_out_skipped"]:
+        assert a[1] == b[1]
+        lines.setdefault(a[1], []).append(sorted((a[0], b[0])))
+    assert sorted(lines) == [0.0, 2.0, 4.0, 6.0, 8.0, 10.0]
+    for spans in lines.values():
+        spans.sort()
+        assert spans[0][0] == -3.0 and spans[-1][1] == 23.0
+        assert all(left[1] == right[0] for left, right in zip(spans, spans[1:], strict=False))
 
 
 def test_raster_keep_out_maps_from_sweep_frame_to_setup(tmp_path):

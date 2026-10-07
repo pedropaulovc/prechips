@@ -44,7 +44,7 @@ hold geometry and cutting dimensions/endpoints), sends every job that is
 not already cached to **one** `freecadcmd.exe <freecad_job.py> -- INPUT_JSON
 OUTPUT_JSON` subprocess as a batch (`compare` therefore spawns one process for
 all its candidates), and memoizes each result on its bundle so the eight rules
-read the same facts. The subprocess has a 300 s limit, reads its input file,
+read the same facts. The subprocess has a 600 s limit, reads its input file,
 writes its output file and prints nothing. No network activity is involved;
 the STEP is the bundle's own file.
 
@@ -1231,17 +1231,30 @@ For milling, a far-side face (outward normal opposing setup +Z by more than
 tool-dimension debt can hide it.
 
 A face raster's `contour.keep_out` islands reach the kernel as the setup-frame
-circles the coordinates rule mapped (`raster.keep_out`). Its passes keep the
-whole cutter outside each circle, so the op removes no stock inside one, a
-claimed-face sample inside or on a circle is not that op's and is not posed,
-and a floor sample's legal centre nearer a circle than one cutter radius
-beyond it moves straight out from the circle's centre until the cutter edge
-touches it. The stock an island keeps (a later op's rough leave on a boss)
-still meets the flute and holder at every other pose. An op that authors
-`keep_out` without mapped circles leaves its cut and accessibility unknown.
-The kernel test pins it: a rough and a finish face raster round a boss keep
-the island annulus over the boss height and clear it at every pose, and the
-finisher with an unmapped island leaves its cut and accessibility unknown.
+circles the coordinates rule mapped (`raster.keep_out`), with the passes it split:
+the printed cutter-centre pieces and the parts of the island-free passes the
+circles removed (`raster.keep_out_skipped`). Its passes keep the whole cutter
+outside each circle, and each piece's round cutter end leaves a cusp between
+adjacent piece ends, so the op takes only what its printed pieces sweep there:
+no stock inside an island, and none within one cutter radius of a skipped part
+that is farther than one cutter radius from every printed piece. Away from the
+skipped parts the pieces sweep what the whole passes would. That kept stock
+stays whatever else the op would remove there, its clearing box or claim sweep
+and the lineage leave band it cuts off claimed walls alike; a later op (a hub's
+stairs) or the bench must clear it. A claimed-face sample inside or on a circle,
+or in that kept stock, is not that op's and is not posed, and a floor sample's
+legal centre nearer a circle than one cutter radius beyond it moves straight out
+from the circle's centre until the cutter edge touches it. The stock an island
+keeps (a later op's rough leave on a boss) still meets the flute and holder at
+every other pose. An op that authors `keep_out` without mapped circles or split
+passes, or without a cutter radius, leaves its cut and accessibility unknown.
+The kernel tests pin it: a rough and a finish face raster at a cutter-diameter
+step round a boss keep the island and the cusps between their piece ends over
+the boss height, the volume an independent strip integration of what the
+printed pieces miss gives, and clear it at every pose; a finish pocket claiming
+the boss wall inside its keep-out leaves the rough's leave on it, as one
+claiming only the floor does; and the finisher with unmapped circles or passes
+leaves its cut and accessibility unknown.
 
 The kernel tests pin the discriminations: a plate-top sample within a cutter
 radius of a boss stands at its nearest legal centre and clears, as do samples

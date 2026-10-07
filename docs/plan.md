@@ -1053,10 +1053,12 @@ Positive `dia_mm` islands exclude the whole cutter: pass centres clear each
 island radius plus cutter radius. Crossing passes split into independent,
 positive-length pieces in feed order, each with its own feed/lift/rapid cycle;
 each cut point lies on the DRO grid, rounded away from the island.
-The raster record reports setup-frame circles in `raster.keep_out` and counts
-pieces in `raster.passes`. The geometry kernel honours the same circles: the op
-removes no stock inside an island, and its floor poses stand at least one cutter
-radius outside it (see [rules-geometry.md](rules-geometry.md)).
+The raster record reports setup-frame circles in `raster.keep_out`, the pass parts
+they removed in `raster.keep_out_skipped`, and counts pieces in `raster.passes`.
+The geometry kernel honours the same split: the op removes no stock inside an
+island or in the cusps its printed pieces leave between their ends, and its floor
+poses stand at least one cutter radius outside it (see
+[rules-geometry.md](rules-geometry.md)).
 
 ## Guide
 
