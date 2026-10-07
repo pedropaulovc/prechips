@@ -5,6 +5,7 @@ screen-space symbolism, deliberately separate from the modelled fixture geometry
 """
 
 import math
+import re
 from collections import defaultdict
 from dataclasses import dataclass, replace
 
@@ -44,6 +45,9 @@ _ARROWS = "ARROWS: POINT ORDER"
 # A raster of at most this many passes draws and labels every pass; a longer one is a band
 # with its first and last pass.
 _EVERY_PASS = 8
+# The least height a profile sketch's plot keeps between its key rows; a picture whose
+# sketches cannot all keep it grows taller.
+_SKETCH_PLOT_MIN = 30
 # The legend a path sketch prints once it has drawn a raster's lifted return: the cycle
 # is one way (feed a pass, lift, rapid back to the next pass's start).
 _RETURNS = "DASHED: LIFTED RETURN"
@@ -95,6 +99,9 @@ _PLANE_MM = 1e-3
 # The detail's view of a plan setup: from the long side, raised this far, so the contact
 # heights a plan view cannot show are seen.
 _DETAIL_RISE_DEG = 30
+# A setup picture whose view direction is within about 8 degrees of a guided file's
+# guide axis already looks along it: it gets no second look down that axis.
+_ALONG_COS = 0.99
 
 
 @dataclass
@@ -111,6 +118,23 @@ class _Callout:
     # A "hidden" callout's dashed outlines, one per point: each leader ends on its outline
     # where it faces the label.
     outlines: tuple = ()
+    # Points of a drawn line the leader may end on instead (the finished outline's): it
+    # ends on the one its lane reaches by the shortest clear run.
+    along: tuple = ()
+    # The label each point reads when it is keyed alone: a key naming several points
+    # together ("BOTH ... RIMS") that is split to keep its leaders apart names each one.
+    each: tuple = ()
+
+    def part(self, indices):
+        """This callout keyed at its points ``indices`` only."""
+        alone = len(indices) == 1 and self.each
+        return replace(
+            self,
+            label=self.each[indices[0]] if alone else self.label,
+            points=[self.points[i] for i in indices],
+            outlines=tuple(self.outlines[i] for i in indices) if self.outlines else (),
+            each=tuple(self.each[i] for i in indices) if self.each else (),
+        )
 
 
 def _plain(value):
@@ -163,6 +187,12 @@ def _bounds(points):
     )
 
 
+def _drawn_box(project, points):
+    """The pixel box of a sketch's projected ``points``, 2 px out: what its keys clear."""
+    xmin, ymin, xmax, ymax = _bounds([project(point) for point in points])
+    return (xmin - 2, ymin - 2, xmax + 2, ymax + 2)
+
+
 def _xy_projector(bounds, centre, scales):
     """Bind a panel's graphic transform without changing its physical XY data."""
     xmin, ymin, xmax, ymax = bounds
@@ -197,6 +227,33 @@ def _is_pad(component, label):
 def _pad_code(component, index):
     label = _plain(component.get("label") or component["name"]).upper()
     return label.removeprefix("PAD ").removeprefix("SUPPORT PAD ") or str(index)
+
+
+def _code_ranges(codes):
+    """Position codes as a drawing lists them: ``L1-L6, R1-R6``; a run of three or more
+    consecutive numbers under one prefix is a range, others are listed."""
+    groups = defaultdict(set)
+    for code in codes:
+        match = re.fullmatch(r"(.*?)(\d+)", code)
+        prefix, number = (match[1], int(match[2])) if match else (code, None)
+        groups[prefix].add(number)
+    parts = []
+    for prefix in sorted(groups):
+        numbers = sorted(n for n in groups[prefix] if n is not None)
+        if None in groups[prefix]:
+            parts.append(prefix)
+        runs = []
+        for number in numbers:
+            if runs and number == runs[-1][-1] + 1:
+                runs[-1].append(number)
+            else:
+                runs.append([number])
+        for run in runs:
+            if len(run) >= 3:
+                parts.append(f"{prefix}{run[0]}-{prefix}{run[-1]}")
+            else:
+                parts.extend(f"{prefix}{n}" for n in run)
+    return ", ".join(parts)
 
 
 def _dot3(a, b):
@@ -307,18 +364,11 @@ def _row_positions(targets, widths, left, right):
     ]
 
 
-def _band_cells(points, widths, plot, exclusion):
-    """Badge centres in rows wholly above and below ``exclusion``. Neighbouring points on
-    the geometry's mid band alternate between the bands; each row keeps its points' left
-    to right order directly above or below them, so the leaders fan out without crossing
-    and every badge stays beside its own support, clamp or pickup."""
-    left, top, right, bottom = plot
-    height, pitch = 33, 41
-    upper_bottom, lower_top = min(bottom, exclusion[1] - 8), max(top, exclusion[3] + 8)
-    capacity = {
-        -1: max(0, int((upper_bottom - top + 8) / pitch)),
-        1: max(0, int((bottom - lower_top + 8) / pitch)),
-    }
+def _band_sides(points, widths, span, capacity):
+    """Each point's band, -1 above the geometry or 1 below it (``points`` in pixels, y
+    down), and the points' left-to-right order. A point off the geometry's mid band keys
+    on its own side; mid-band neighbours alternate, then move to the other band while one
+    band needs more of its ``span``-wide rows than its ``capacity``."""
     middle = (min(p[1] for p in points) + max(p[1] for p in points)) / 2
     band = 0.1 * (max(p[1] for p in points) - min(p[1] for p in points))
     order = sorted(range(len(points)), key=lambda index: (points[index][0], points[index][1]))
@@ -335,7 +385,7 @@ def _band_cells(points, widths, plot, exclusion):
             sides[index] = -sides[index]
 
     def rows_needed(side):
-        return _rows_for([widths[index] for index in order if sides[index] == side], right - left)
+        return _rows_for([widths[index] for index in order if sides[index] == side], span)
 
     # Move mid-band points to the other band while one band needs more rows than it has.
     for _ in free:
@@ -350,10 +400,39 @@ def _band_cells(points, widths, plot, exclusion):
         if rows_needed(-side) > capacity[-side]:
             sides[moved] = side
             break
+    return sides, order
+
+
+def _band_rows(points, widths, span):
+    """``(rows above, rows below)`` :func:`_band_cells` prints ``points`` in when each
+    band has room for every row: what a sketch reserves before it scales its geometry."""
+    if not points:
+        return 0, 0
+    room = {-1: len(points), 1: len(points)}
+    sides, order = _band_sides(points, widths, span, room)
+    return tuple(
+        _rows_for([widths[index] for index in order if sides[index] == side], span)
+        for side in (-1, 1)
+    )
+
+
+def _band_cells(points, widths, plot, exclusion):
+    """Badge centres in rows wholly above and below ``exclusion``. Neighbouring points on
+    the geometry's mid band alternate between the bands; each row keeps its points' left
+    to right order directly above or below them, so the leaders fan out without crossing
+    and every badge stays beside its own support, clamp or pickup."""
+    left, top, right, bottom = plot
+    height, pitch = 33, 41
+    upper_bottom, lower_top = min(bottom, exclusion[1] - 8), max(top, exclusion[3] + 8)
+    capacity = {
+        -1: max(0, int((upper_bottom - top + 8) / pitch)),
+        1: max(0, int((bottom - lower_top + 8) / pitch)),
+    }
+    sides, order = _band_sides(points, widths, right - left, capacity)
     centres = [None] * len(points)
     for side, edge in ((-1, upper_bottom), (1, lower_top)):
         members = [index for index in order if sides[index] == side]
-        rows = rows_needed(side)
+        rows = _rows_for([widths[index] for index in members], right - left)
         for row in range(rows):
             # Row 0 is nearest the geometry; outer rows interleave between its badges.
             row_members = members[row::rows]
@@ -367,6 +446,34 @@ def _band_cells(points, widths, plot, exclusion):
             for index, x in zip(row_members, xs, strict=True):
                 centres[index] = (x, y)
     return centres
+
+
+def _sketch_keys(paths, waypoints):
+    """The profile sketch's keys for one operation's ``paths`` and ``waypoints``, as
+    ``[(label, xy)]`` in sketch XY: each point's P key and each labelled raster pass's
+    (:meth:`_Diagram._raster_band`), where the sketch prints them."""
+    keys = []
+    for item in waypoints:
+        label = _plain(item["label"])
+        keys.append((label if label.upper().startswith("P") else "P" + label, item["xy"]))
+    raster = [path for path in paths if path.get("raster")]
+    numbers = _labelled_passes([path["raster"]["pass"] for path in raster])
+    for path in sorted(raster, key=lambda p: p["raster"]["pass"]):
+        number = path["raster"]["pass"]
+        if number in numbers:
+            keys.append(
+                (f"PASS {number}", _pass_anchor(path["xy"], numbers.index(number), numbers))
+            )
+    return keys
+
+
+def _pass_anchor(xy, rank, numbers):
+    """Where a labelled raster pass's key leads: ``(rank + 1) / (len(numbers) + 1)`` along
+    the pass, so stacked passes' leaders reach them at staggered points, never one
+    leader running through the next pass's anchor."""
+    a, b = xy[0], xy[-1]
+    t = (rank + 1) / (len(numbers) + 1)
+    return (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t)
 
 
 def _dimension(canvas, first, second, label, colour=_INK):
@@ -566,9 +673,11 @@ class _Diagram:
         """``value`` as the traveler's tables print it (:func:`_dro`)."""
         return _dro(value, self.spec.get("decimals"))
 
-    def __init__(self, meshes, spec, extra=0):
+    def __init__(self, meshes, spec, extra=0, lane_extra=None):
         """``extra``: pixels the footer moves down (the canvas grows by as much) so the
-        label lanes hold every key; the placed scene keeps its size and place."""
+        label lanes hold every key and the profile sketch its keys and plots; the placed
+        scene keeps its size and place. ``lane_extra`` (default ``extra``) is the part the
+        lanes take: a picture grown for its sketch never spreads its keys into the room."""
         self.spec = spec
         self.view = spec["view"]
         self.camera = (
@@ -601,6 +710,8 @@ class _Diagram:
         # Direction arrows drawn so far: a legend claims "ARROWS" only once one is drawn.
         self.arrows_drawn = 0
         self.returns_drawn = 0
+        # Pixels the profile sketch lacks for its keys and plots: the picture grows by it.
+        self.inset_overflow = 0
         self.shoulders = (
             _radial_steps(spec.get("lathe_profiles", [])) if self.view == "lathe" else []
         )
@@ -672,7 +783,8 @@ class _Diagram:
         self.footer_top += extra
         # Label lanes: the first row's top and the last row's bottom limit; each side's
         # (text left, text width, leader end x), and the x that splits points between them.
-        self.lanes = (202, self.footer_top - 64)
+        lane_extra = extra if lane_extra is None else lane_extra
+        self.lanes = (202, self.footer_top - extra + lane_extra - 64)
         self.lane_specs = ((32, 214, 249), (928, 210, 916))
         self.lane_split = 590
         viewport = (278, 225, 900, self.scene_bottom)
@@ -695,6 +807,57 @@ class _Diagram:
         if self._owned is None:
             self._owned = _visible(self.canvas, self.viewport)
         return _anchor_on(self.canvas, self._owned, targets, near)
+
+    def _lane_anchor(self, point, side, blocked):
+        """A leader end moved, on the solid it lands on, to that solid's visible pixel
+        nearest lane ``side`` whose run to the lane crosses the least of the work and no
+        other key's point (``blocked``): a fixture's leader stops at its near edge instead
+        of running over the work to its middle. ``point`` when it is no drawn solid's."""
+        c = self.canvas
+        tag = _tag_at(c, *point)
+        if tag is None or self._owned is None:
+            return point
+        rows = {}
+        for x, y in self._owned.get(tag, ()):
+            near = rows.get(y)
+            if near is None or (x < near if side == 0 else x > near):
+                rows[y] = x
+        bend = self.lane_specs[side][2] + (14 if side == 0 else -14)
+        work = {"part", "removal"} - {tag}
+        inward = 4 if side == 0 else -4
+        steps = ((4, 0), (-4, 0), (0, 4), (0, -4))
+        width, owner, tags = c.width, c.owner, c.tags
+
+        def crossed(x, y):
+            low, high = sorted((int(x), int(bend)))
+            row = y * width
+            return sum(
+                1
+                for column in range(max(low, 0), min(high, width))
+                if owner[row + column] >= 0 and tags[owner[row + column]] in work
+            )
+
+        candidates = []
+        for y, x in rows.items():
+            spot = (x + inward + 0.5, y + 0.5)
+            if all(_tag_at(c, spot[0] + dx, spot[1] + dy) == tag for dx, dy in steps):
+                candidates.append(spot)
+        candidates.sort(key=lambda p: (abs(bend - p[0]), abs(p[1] - point[1])))
+        best = None
+        for spot in candidates:
+            if blocked(spot):
+                continue
+            score = crossed(*map(int, spot))
+            if best is None or score < best[0]:
+                best = (score, spot)
+            if score == 0:
+                break
+        if best is None:
+            return point
+        # The point stays only when its own run is clear and crosses less of the work.
+        if not blocked(point) and crossed(*map(int, point)) < best[0]:
+            return point
+        return best[1]
 
     def _hidden(self, label):
         self.render_debts.append(f"NOT SHOWN: {label} is hidden in this view, so it has no leader.")
@@ -816,7 +979,12 @@ class _Diagram:
         if self.nominal:
             self._nominal_overlay(self.canvas.project)
             self.callouts.append(
-                _Callout("FINISHED OUTLINE", [self.canvas.project(self.nominal[0][0])], _BLUE)
+                _Callout(
+                    "FINISHED OUTLINE",
+                    [self.canvas.project(self.nominal[0][0])],
+                    _BLUE,
+                    along=tuple(self.canvas.project(p) for line in self.nominal for p in line),
+                )
             )
         self._components()
         self._origin_datums_tool()
@@ -1009,6 +1177,23 @@ class _Diagram:
                 _Callout("SUPPORT PADS", [badges[0]["xy"]], _FIXTURE, leader="keyed")
             )
             self.position_badges.extend(badges)
+        # A named void at numbered positions (a slot under each pad) is keyed by their
+        # badges: its lane entry names them, and no second leader runs into a badged point.
+        badged = [(badge["xy"], badge["label"]) for badge in self.position_badges]
+        for index, callout in enumerate(self.callouts):
+            if callout.leader != "line" or callout.targets or not badged:
+                continue
+            codes = [
+                next((code for xy, code in badged if math.dist(xy, point) <= 3), None)
+                for point in callout.points
+            ]
+            if None not in codes:
+                self.callouts[index] = _Callout(
+                    f"{callout.label} AT {_code_ranges(codes)}",
+                    callout.points[:1],
+                    callout.colour,
+                    leader="keyed",
+                )
         self._stock_callout()
 
     def _numbered_badge(self, code, label, component, outline=None):
@@ -1198,12 +1383,16 @@ class _Diagram:
         kept = []
         for callout in self.callouts:
             if callout.leader == "line" and callout.targets:
-                callout.points = [
-                    point for point in callout.points if _lands_on(c, point, callout.targets)
+                landed = [
+                    index
+                    for index, point in enumerate(callout.points)
+                    if _lands_on(c, point, callout.targets)
                 ]
-                if not callout.points:
+                if not landed:
                     self._hidden(callout.label)
                     continue
+                if len(landed) < len(callout.points):
+                    callout = callout.part(landed)
             kept.append(callout)
         # A label naming points on both sides of the picture is keyed once in each lane,
         # each copy leading to its own side's points: no leader fans across the work. A
@@ -1217,15 +1406,7 @@ class _Diagram:
                 self.callouts.append(callout)
                 continue
             for indices in sides:
-                self.callouts.append(
-                    replace(
-                        callout,
-                        points=[callout.points[i] for i in indices],
-                        outlines=tuple(callout.outlines[i] for i in indices)
-                        if callout.outlines
-                        else (),
-                    )
-                )
+                self.callouts.append(callout.part(indices))
         lane_specs = self.lane_specs
         limit = self.lanes[1]
         anchors = [(callout, point) for callout in self.callouts for point in callout.points]
@@ -1270,8 +1451,15 @@ class _Diagram:
                 row_y += height + gap
             return rows, row_y - gap
 
+        runs = {}
+
         def ordered(items):
-            return sorted(items, key=lambda item: item.points[0][1])
+            def height(item):
+                ys = [y for y in runs.get(id(item), ()) if y is not None]
+                ys = ys or [point[1] for point in item.points]
+                return sum(ys) / len(ys)
+
+            return sorted(items, key=height)
 
         def overflow(items, side):
             return pack(ordered(items), side, 27, 5)[1] - limit
@@ -1301,6 +1489,92 @@ class _Diagram:
             )
             lanes[source].remove(moved)
             lanes[target].append(moved)
+
+        # Each leader takes the shortest clear way to its lane. One naming a drawn solid
+        # ends on that solid's pixels nearest the lane a clear run reaches, never across
+        # the work; a run that would pass another key's point steps square off it; and a
+        # key whose points lie either side of another key's run is keyed once per group of
+        # its points, so no leader fans across another.
+        def clear(item, point, side):
+            # Its own run passes no other key's point, nor does it sit on another's run.
+            bend = lane_specs[side][2] + (14 if side == 0 else -14)
+            return not blocked(item, point, side) and not any(
+                abs(other[1] - point[1]) < 6
+                and min(other[0], bend) < point[0] < max(other[0], bend)
+                and abs(other[0] - point[0]) > 1
+                for owner in lanes[side]
+                if owner is not item
+                for other in owner.points
+            )
+
+        for side, items in enumerate(lanes):
+            for item in items:
+                if item.leader == "line" and item.targets:
+                    item.points = [
+                        self._lane_anchor(point, side, lambda p, i=item, s=side: not clear(i, p, s))
+                        for point in item.points
+                    ]
+                elif item.leader == "line" and item.along and len(item.points) == 1:
+                    bend = lane_specs[side][2] + (14 if side == 0 else -14)
+                    here = item.points[0]
+                    item.points = [
+                        min(
+                            item.along,
+                            key=lambda p, i=item, s=side: (
+                                not clear(i, p, s),
+                                abs(bend - p[0]),
+                                abs(p[1] - here[1]),
+                            ),
+                        )
+                    ]
+        anchors = [(callout, point) for callout in self.callouts for point in callout.points]
+
+        def square_run(item, point, side):
+            # The run's height: the point's own, or the nearest clear one a short square
+            # step reaches; None when none does (the leader then runs straight).
+            if not blocked(item, point, side):
+                return point[1]
+            for step in range(8, 81, 2):
+                for y in (point[1] - step, point[1] + step):
+                    # The step passes no other key's point on its way to the run.
+                    near, far = (point[1] - 1, y - 6) if y < point[1] else (point[1] + 1, y + 6)
+                    low, high = sorted((near, far))
+                    if blocked(item, (point[0], y), side) or any(
+                        abs(other[0] - point[0]) < 6
+                        and low < other[1] < high
+                        and math.dist(other, point) > 1
+                        for owner, other in anchors
+                        if owner is not item
+                    ):
+                        continue
+                    return y
+            return None
+
+        for side, items in enumerate(lanes):
+            for item in items:
+                if item.leader == "line":
+                    runs[id(item)] = [square_run(item, point, side) for point in item.points]
+            for item in list(items):
+                heights = runs.get(id(item))
+                if not heights or len(heights) < 2 or None in heights:
+                    continue
+                others = [
+                    y for other in items if other is not item for y in runs.get(id(other), ())
+                ]
+                order = sorted(range(len(heights)), key=lambda i: heights[i])
+                groups = [[order[0]]]
+                for previous, index in zip(order, order[1:], strict=False):
+                    if any(heights[previous] < y < heights[index] for y in others if y):
+                        groups.append([])
+                    groups[-1].append(index)
+                if len(groups) == 1:
+                    continue
+                items.remove(item)
+                for group in groups:
+                    part = item.part(group)
+                    runs[id(part)] = [heights[i] for i in group]
+                    wrapped[(id(part), side)] = _wrap(c, part.label, lane_specs[side][1], scale=3)
+                    items.append(part)
         # A band that can grow (the holding detail) is redrawn taller instead of
         # printing keys past its edge.
         self.lane_overflow = max(
@@ -1333,14 +1607,20 @@ class _Diagram:
                 target_y = row_y + ((len(lines) - 1) * pitch + 21) / 2
                 drawn = item.points if item.leader in ("line", "hidden") else []
                 outlines = item.outlines or (None,) * len(drawn)
-                for point, outline in zip(drawn, outlines, strict=True):
+                heights = runs.get(id(item), [None] * len(drawn))
+                for point, outline, height in zip(drawn, outlines, heights, strict=True):
                     end = (edge, target_y)
+                    bend_x = edge + (14 if side == 0 else -14)
+                    path = [point, end]
                     if outline:
                         # The ring sits where the hidden outline faces its label.
                         point = _nearest_on_outline(outline, end)
-                    path = [point, end]
-                    if not blocked(item, point, side):
-                        path = [point, (edge + (14 if side == 0 else -14), point[1]), end]
+                        path = [point, end]
+                        if not blocked(item, point, side):
+                            path = [point, (bend_x, point[1]), end]
+                    elif height is not None:
+                        step = [(point[0], height)] if height != point[1] else []
+                        path = [point, *step, (bend_x, height), end]
                     for a, b in zip(path, path[1:], strict=False):
                         c.line(a, b, item.colour, width=2)
                     if item.leader == "hidden":
@@ -1618,27 +1898,20 @@ class _Diagram:
             )
             self._sketch_legend(left, bottom - 21, before)
             return
-        xmin, ymin, xmax, ymax = _bounds(points)
         ops = list(dict.fromkeys(_plain(path.get("op", "")) for path in paths))
         key_lines = [(op, line) for op in ops for line in _wrap(c, op, right - left - 36, scale=3)]
-        plot_top = content_top + 14
         plot_bottom = bottom - 40 - 30 * len(key_lines) - legend
-        scale = min(
-            (right - left - 74) / max(xmax - xmin, 1e-9),
-            max(50, plot_bottom - plot_top - 28) / max(ymax - ymin, 1e-9),
+        keys = _sketch_keys(paths, waypoints)
+        top = content_top + 14
+        need = self._sketch_need(right - left, points, keys)
+        self.inset_overflow = max(self.inset_overflow, need - (plot_bottom - top))
+        if self.inset_overflow > 0 and self.grows_to_fit:
+            return
+        project, plot, badges = self._sketch_plot(
+            (left, top, right, plot_bottom), points, keys, indent=0
         )
-        cx, cy = (left + right) / 2, (plot_top + plot_bottom) / 2
-
-        def project(point):
-            return (
-                cx + (point[0] - (xmin + xmax) / 2) * scale,
-                cy - (point[1] - (ymin + ymax) / 2) * scale,
-            )
-
         if self.nominal:
-            self._nominal_overlay(
-                lambda p: project(p[:2]), (left, plot_top, right, plot_bottom), faint=True
-            )
+            self._nominal_overlay(lambda p: project(p[:2]), plot, faint=True)
         palette = (_BLUE, _GREEN, _AMBER, (113, 65, 137))
         colours = {op: palette[index % len(palette)] for index, op in enumerate(ops)}
         labels = []
@@ -1646,13 +1919,69 @@ class _Diagram:
             op_paths = [path for path in paths if _plain(path.get("op", "")) == op]
             for path in self._raster_band(op_paths, project, colours[op], labels):
                 self._ordered_path([project(point) for point in path["xy"]], colours[op])
-        self._waypoint_badges(waypoints + labels, project, (left, plot_top, right, plot_bottom))
+        self._waypoint_badges(
+            waypoints + labels, project, badges, exclusion=_drawn_box(project, points)
+        )
         row = plot_bottom + 18
         for op, line in key_lines:
             c.line((left, row + 10), (left + 23, row + 10), colours[op], width=3)
             _text(c, left + 32, row, line, colours[op])
             row += 30
         self._sketch_legend(left, bottom - 22, before)
+
+    def _sketch_bands(self, width, points, keys):
+        """A ``width``-wide sketch's vertical budget: ``(exaggeration lines, key rows
+        above, key rows below)``. Its keys print in badge rows above and below the plotted
+        geometry (:func:`_band_cells`), never over a path; a shallow plot, under 24 px at
+        the scale its width allows, declares the Y exaggeration it is drawn at."""
+        xmin, ymin, xmax, ymax = _bounds(points)
+        span_x, span_y = xmax - xmin, ymax - ymin
+        factor = (width - 72) / max(span_x, 1e-9)
+        lines = 0
+        if 0 < span_y * factor < 24 and span_x * factor >= 60:
+            lines = len(_wrap(self.canvas, "Y EXAG x4", width - 16, scale=3))
+        widths = [_badge_width(self.canvas, label) for label, _ in keys]
+        up, down = _band_rows([(x, -y) for _, (x, y) in keys], widths, width - 12)
+        return lines, up, down
+
+    def _sketch_need(self, width, points, keys):
+        """The least height of a sketch laid out by :meth:`_sketch_plot`."""
+        lines, up, down = self._sketch_bands(width, points, keys)
+        return 27 * lines + 41 * (up + down) + 12 + _SKETCH_PLOT_MIN
+
+    def _sketch_plot(self, box, points, keys, indent=8):
+        """Lay one sketch out in ``box`` ``(left, top, right, bottom)``, at least
+        :meth:`_sketch_need` tall: its declared Y exaggeration (x2 to x4, whole steps) at
+        the top, then its keys' upper badge rows, the plot and the lower rows. Returns
+        ``(project, plot, badges)``: the XY projector, the plot's pixel box and the box its
+        keys print in."""
+        left, top, right, bottom = box
+        width = right - left
+        lines, up, down = self._sketch_bands(width, points, keys)
+        bounds = _bounds(points)
+        xmin, ymin, xmax, ymax = bounds
+        span_x, span_y = xmax - xmin, ymax - ymin
+        band_top = top + 27 * lines
+        plot_top, plot_bottom = band_top + 41 * up + 6, bottom - 41 * down - 6
+        room = max(plot_bottom - plot_top, _SKETCH_PLOT_MIN)
+        factor = min((width - 72) / max(span_x, 1e-9), room / max(span_y, 1e-9))
+        factor_y = factor
+        if lines:
+            # Limit graphic distortion even when the key bands leave ample space.
+            stretch = math.floor(min(room / (span_y * factor), 4))
+            if stretch > 1:
+                factor_y = factor * stretch
+                exaggeration = f"Y EXAG x{_mm(stretch)}"
+                wrapped = _wrap(self.canvas, exaggeration, width - 16, scale=3)
+                for index, line in enumerate(wrapped):
+                    _text(self.canvas, left + indent, top + 27 * index, line, _MUTED)
+        centre = ((left + right) / 2, (plot_top + plot_bottom) / 2)
+        project = _xy_projector(bounds, centre, (factor, factor_y))
+        return (
+            project,
+            (left + 7, plot_top, right - 7, plot_bottom),
+            (left + 6, band_top, right - 6, bottom),
+        )
 
     def _sketch_legend(self, left, top, arrows_before):
         """The arrows legend at ``top`` once a direction arrow is drawn, and the lifted
@@ -1667,10 +1996,12 @@ class _Diagram:
     def _operation_panels(self, left, right, top, bottom, ops, paths, waypoints):
         """Separate authored operations, not every raster pass or curve record."""
         c = self.canvas
-        columns = 2 if len(ops) > 1 else 1
+        columns = 2
         rows = math.ceil(len(ops) / columns)
         width = (right - left - 12 * (columns - 1)) / columns
         heights = self._panel_heights(ops, paths, waypoints, width, bottom - top, columns)
+        if self.inset_overflow > 0 and self.grows_to_fit:
+            return
         tops = [top + sum(heights[:row]) + 12 * row for row in range(rows)]
         palette = (_BLUE, _GREEN, _AMBER, (113, 65, 137))
         for index, op in enumerate(ops):
@@ -1691,47 +2022,11 @@ class _Diagram:
             points.extend(p["xy"] for p in op_waypoints)
             if not points:
                 continue
-            bounds = _bounds(points)
-            xmin, ymin, xmax, ymax = bounds
-            span_x, span_y = xmax - xmin, ymax - ymin
-            plot_top, plot_bottom = y + 66, y + height - 44
-            factor = min(
-                (width - 72) / max(span_x, 1e-9),
-                max(12, plot_bottom - plot_top) / max(span_y, 1e-9),
+            project, plot, badges = self._sketch_plot(
+                (x, y + 31, x + width, y + height), points, _sketch_keys(op_paths, op_waypoints)
             )
-            factor_y = factor
-            badge_top = y + 31
-            exclusion = None
-            # Keep the dense six-panel grid unchanged. Shallow wider panels can
-            # instead use a declared, unequal graphic scale and exterior P keys.
-            if rows <= 2 and 0 < span_y * factor < 24 and span_x * factor >= 60:
-                key_widths = [_badge_width(c, _plain(p["label"])) for p in op_waypoints]
-                # Either band may have to hold every key: a shallow arc's points can all
-                # sit on one side of it.
-                key_rows = max(1, _rows_for(key_widths, width - 12))
-                exaggeration_lines = (
-                    1 if c.text_width("Y EXAG x00.00", scale=3) <= width - 16 else 2
-                )
-                badge_top = y + 35 + 27 * exaggeration_lines
-                plot_top = badge_top + 41 * key_rows
-                plot_bottom = y + height - 6 - 41 * key_rows
-                if plot_bottom - plot_top >= 24:
-                    # Limit graphic distortion even when the key bands leave ample space.
-                    factor_y = min((plot_bottom - plot_top) / span_y, 4 * factor)
-                    exaggeration = f"Y EXAG x{_mm(factor_y / factor)}"
-                    for index, line in enumerate(_wrap(c, exaggeration, width - 16, scale=3)):
-                        _text(c, x + 8, y + 31 + 27 * index, line, _MUTED)
-                    exclusion = (x + 7, plot_top, x + width - 7, plot_bottom)
-                else:
-                    plot_top, plot_bottom = y + 66, y + height - 44
-                    badge_top = y + 31
-            cx, cy = x + width / 2, (plot_top + plot_bottom) / 2
-            project = _xy_projector(bounds, (cx, cy), (factor, factor_y))
-
             if self.nominal:
-                self._nominal_overlay(
-                    project, (x + 7, plot_top, x + width - 7, plot_bottom), faint=True
-                )
+                self._nominal_overlay(project, plot, faint=True)
             labels = []
             op_paths = self._raster_band(op_paths, project, colour, labels)
             direction_keys = {0, len(op_paths) // 2, len(op_paths) - 1}
@@ -1746,48 +2041,33 @@ class _Diagram:
             self._waypoint_badges(
                 op_waypoints + labels,
                 project,
-                (x + 6, badge_top, x + width - 6, y + height - 6),
+                badges,
                 colour=colour,
-                perimeter=True,
-                exclusion=exclusion,
+                exclusion=_drawn_box(project, points),
             )
 
     def _panel_heights(self, ops, paths, waypoints, width, span, columns):
-        """Each panel row's height: equal rows unless an operation's keys need more room.
-
-        A panel keys its points in perimeter cells (at most sqrt(n) columns, as in
-        :meth:`_grid_cells`) between its title band and its bottom edge; rows whose keys
-        would stack closer than one badge height plus a 4 px gap take height from rows
-        with spare room, so dense key sets never overprint."""
-        c = self.canvas
+        """Each panel row's height: equal rows when every panel fits one, else each row's
+        tallest need (its title band over :meth:`_sketch_need`) with the spare shared.
+        Rows that need more than ``span`` ask the picture to grow (``inset_overflow``)."""
         rows = math.ceil(len(ops) / columns)
         total = span - 12 * (rows - 1)
-        # Title band (31) and bottom margin (6) around one badge row (33 high).
-        needs = [37.0 + 33.0] * rows
+        needs = [31.0 + _SKETCH_PLOT_MIN + 12] * rows
         for index, op in enumerate(ops):
-            labels = [
-                label if label.upper().startswith("P") else "P" + label
-                for label in (_plain(p["label"]) for p in waypoints if str(p.get("op", "")) == op)
-            ]
-            raster = sorted(
-                p["raster"]["pass"] for p in paths if str(p.get("op", "")) == op and p.get("raster")
-            )
-            labels.extend(f"PASS {number}" for number in _labelled_passes(raster))
-            if not labels:
+            op_paths = [p for p in paths if str(p.get("op", "")) == op]
+            op_waypoints = [p for p in waypoints if str(p.get("op", "")) == op]
+            points = [p for path in op_paths for p in path["xy"]]
+            points.extend(p["xy"] for p in op_waypoints)
+            if not points:
                 continue
-            cell = max(_badge_width(c, label) for label in labels)
-            fit = max(1, int((width - 12 + 8) / (cell + 8)))
-            key_rows = math.ceil(len(labels) / min(fit, math.ceil(math.sqrt(len(labels)))))
-            # Further badge rows on a 37 px pitch (33 high plus a 4 px gap).
-            need = 37 + 33 + 37 * (key_rows - 1)
+            need = 31 + self._sketch_need(width, points, _sketch_keys(op_paths, op_waypoints))
             needs[index // columns] = max(needs[index // columns], need)
+        self.inset_overflow = max(self.inset_overflow, sum(needs) - total)
         equal = total / rows
         if all(need <= equal for need in needs):
             return [equal] * rows
-        if sum(needs) <= total:
-            spare = (total - sum(needs)) / rows
-            return [need + spare for need in needs]
-        return [total * need / sum(needs) for need in needs]
+        spare = max(0.0, total - sum(needs)) / rows
+        return [need + spare for need in needs]
 
     def _raster_band(self, paths, project, colour, labels):
         """Draw ordinary rasters as a band, but keep-out rasters as independent lines.
@@ -1823,12 +2103,7 @@ class _Diagram:
         for start, end in _lifted_returns(raster):
             _dashed(c, [[start, end]], project, colour)
             self.returns_drawn += 1
-        numbers = set(_labelled_passes([path["raster"]["pass"] for path in raster]))
-        for path in raster:
-            if path["raster"]["pass"] in numbers:
-                a, b = path["xy"][0], path["xy"][-1]
-                middle = ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)
-                labels.append({"label": f"PASS {path['raster']['pass']}", "xy": middle})
+        labels.extend({"label": label, "xy": xy} for label, xy in _sketch_keys(raster, []))
         return [p for p in paths if not p.get("raster")]
 
     def _ordered_path(self, pixels, colour, width=3, arrows=True, clip=None):
@@ -2050,14 +2325,18 @@ class _Diagram:
 
 def render_diagram(meshes, spec):
     """Return ``(png, debts)``: a setup PNG 1600 px wide (taller when holding detail bands
-    are printed below it), and the NOT SHOWN lines for what it could not draw truthfully
-    (a named solid hidden from its leader). Those lines are also printed in the picture's
-    own notes. No physical dimension is invented.
+    or a guided file's look along its guide axis are printed below it), and the NOT SHOWN
+    lines for what it could not draw truthfully (a named solid hidden from its leader).
+    Those lines are also printed in the picture's own notes. No physical dimension is
+    invented.
 
     ``meshes`` contain numeric setup-frame XYZ triples, triangle index triples,
     RGB, optionally a removal-hatch flag and the tag of the solid each draws. ``spec``
     is the kernel's plain JSON diagram record; optional ``lathe_profiles`` contain
-    exact [radius, Z] lines.
+    exact [radius, Z] lines, and an optional ``guide_view`` the guide axis
+    (``axis_mm``: [point, direction]), the meshes drawn along it and, when they are cut
+    between the rims so the near stop does not hide the work, a point on that plane
+    (``section_mm``).
     """
     debts, details = [], []
     # A debt found while laying out is printed in the notes, which can move the layout:
@@ -2066,6 +2345,9 @@ def render_diagram(meshes, spec):
         diagram, png = _main_diagram(meshes, {**spec, "notes": list(spec.get("notes", [])) + debts})
         if attempt == 0:
             details = _holding_details(meshes, spec, diagram)
+            guide = _guide_view(spec, diagram)
+            if guide is not None:
+                details.append(guide)
         found = [debt for detail in details for debt in detail.render_debts]
         found += diagram.render_debts
         if found != debts:
@@ -2082,15 +2364,21 @@ def render_diagram(meshes, spec):
 
 def _main_diagram(meshes, spec):
     """``(diagram, png)``: the setup picture, its footer moved down (the canvas taller)
-    until every key fits its label lane, so no key runs past the divider into the key."""
-    extra = 0
+    until every key fits its label lane, so no key runs past the divider into the key, and
+    the profile sketch keys every path beside it with room for its plots. The lanes take
+    only the room their keys need."""
+    lane_extra = sketch_extra = 0
     while True:
-        diagram = _Diagram(meshes, spec, extra)
+        extra = max(lane_extra, sketch_extra)
+        diagram = _Diagram(meshes, spec, extra, lane_extra)
         diagram.grows_to_fit = True
         png = diagram.render()
-        if diagram.lane_overflow <= 0:
+        if diagram.lane_overflow <= 0 and diagram.inset_overflow <= 0:
             return diagram, png
-        extra += math.ceil(diagram.lane_overflow)
+        if diagram.lane_overflow > 0:
+            lane_extra += math.ceil(diagram.lane_overflow)
+        if diagram.inset_overflow > 0:
+            sketch_extra = extra + math.ceil(diagram.inset_overflow)
 
 
 def _holding_details(meshes, spec, diagram):
@@ -2144,6 +2432,43 @@ def _holding_details(meshes, spec, diagram):
             extra += math.ceil(detail.lane_overflow)
         details.append(detail)
     return details
+
+
+def _guide_view(spec, diagram):
+    """The look along a guided file's guide axis printed below the holding detail, else
+    None: drawn when the kernel names the axis (``guide_view``) and the setup picture does
+    not already look along it. An edge-on section of a button sandwich shows neither the
+    rims the file rides on nor the way it comes in to them."""
+    guide = spec.get("guide_view")
+    if not guide or not spec.get("guide_stops"):
+        return None
+    camera = _axis_camera(guide["axis_mm"][1])
+    if abs(_dot3(diagram.camera[2], camera[2])) >= _ALONG_COS:
+        return None
+    extra = 0
+    while True:
+        view = _GuideView(spec, camera, diagram.canvas.scale, extra)
+        view.render()
+        if view.lane_overflow <= 0:
+            return view
+        extra += math.ceil(view.lane_overflow)
+
+
+def _axis_camera(direction):
+    """A camera looking down ``direction`` from its + end: right is the setup axis most
+    square to it (X first), up completes the right-handed frame."""
+    length = math.sqrt(_dot3(direction, direction))
+    toward = tuple(v / length for v in direction)
+    index = min(range(3), key=lambda i: abs(toward[i]))
+    right = [(1.0 if i == index else 0.0) - toward[index] * toward[i] for i in range(3)]
+    norm = math.sqrt(_dot3(right, right))
+    right = tuple(v / norm for v in right)
+    up = (
+        toward[1] * right[2] - toward[2] * right[1],
+        toward[2] * right[0] - toward[0] * right[2],
+        toward[0] * right[1] - toward[1] * right[0],
+    )
+    return (right, up, toward)
 
 
 def _tiles(frame, camera, count):
@@ -2223,6 +2548,23 @@ def _detail_frame(spec, window=False):
 def _solid_name(tag):
     """A fixture solid's own printed name: the part of its tag after the fixture's name."""
     return _plain(tag.rsplit(":", 1)[-1]).replace("-", " ").upper()
+
+
+def _nearest_on_segment(point, a, b):
+    """The point of segment ``a``-``b`` (setup mm) nearest ``point``."""
+    d = [b[i] - a[i] for i in range(3)]
+    span = _dot3(d, d)
+    t = 0.0 if span == 0 else _dot3([point[i] - a[i] for i in range(3)], d) / span
+    t = max(0.0, min(1.0, t))
+    return [a[i] + t * d[i] for i in range(3)]
+
+
+def _stop_key(names):
+    """The key of the rims a guided file stops on, by their solids' printed names."""
+    nouns = {name.rsplit(" ", 1)[-1] for name in names}
+    if len(names) == 2 and len(nouns) == 1:
+        return f"FILE STOPS ON BOTH {nouns.pop()} RIMS"
+    return f"FILE STOPS ON {' AND '.join(names)} RIM{'S' if len(names) > 1 else ''}"
 
 
 def _common_plane(lines):
@@ -2450,6 +2792,7 @@ class _HoldingDetail(_Diagram):
             self.position_badges.extend(
                 {"label": code, "xy": point} for code, point in zip(codes, points, strict=True)
             )
+        self._guide_stops()
         self._closest_cut()
         self._stock_callout()
         self._labels()
@@ -2538,7 +2881,30 @@ class _HoldingDetail(_Diagram):
         if zero is None or plane is None:
             return ""
         axis, value = plane
-        return f" AT {'XYZ'[axis]} {self._dro(value - zero[axis])}"
+        return f" AT {'XYZ'[axis]} {self._dro(self._on_grid(value - zero[axis]))}"
+
+    def _on_grid(self, value):
+        """A setup coordinate at the setup's nearest DRO step (``dro_step_mm``), as the
+        fixture tables print positions; unchanged when the spec names no step."""
+        step = self.spec.get("dro_step_mm")
+        if not isinstance(step, (int, float)) or isinstance(step, bool) or step <= 0:
+            return value
+        return round(value / step) * step
+
+    def _guide_stops(self):
+        """Where a guided file stops: each guide solid (a filing button) its cut reaches is
+        the rim the file rides on, keyed once with a leader to each rim (each rim by its
+        own name when the leaders must be keyed apart), never dimensioned as a zero
+        clearance (the kernel leaves it out of ``closest_cut``)."""
+        stops = [
+            stop for stop in self.spec.get("guide_stops") or [] if self._in_tile(stop["at_mm"])
+        ]
+        if not stops:
+            return
+        names = [_solid_name(stop["tag"]) for stop in stops]
+        points = [self.canvas.project(stop["at_mm"]) for stop in stops]
+        each = tuple(_stop_key([name]) for name in names)
+        self.callouts.append(_Callout(_stop_key(names), points, _GREEN, each=each))
 
     def _closest_cut(self):
         cut = self.spec.get("closest_cut")
@@ -2562,3 +2928,279 @@ class _HoldingDetail(_Diagram):
                 holder = f"{_plain(component['code'])} {holder}"
         label = f"CUT {self._dro(cut['mm'])} mm FROM {holder.upper()}"
         self.callouts.append(_Callout(label, [middle], _AMBER))
+
+
+class _GuideView(_HoldingDetail):
+    """A look down a guided file's guide axis (a filing-button kit's stud), printed below
+    the holding detail: the rims the file rides on outlined, the stock it files off
+    hatched inside the finished outline, the file drawn flat at its stop and an arrow the
+    way it comes in, from beyond the rims toward the axis. Framed on the guide solids the
+    file stops on, that stock and the approach."""
+
+    def __init__(self, spec, camera, main_scale, extra=0):
+        guide = spec["guide_view"]
+        stops = spec["guide_stops"]
+        self.names = [_solid_name(stop["tag"]) for stop in stops]
+        self.rims = [[run for run in stop.get("rim_mm") or ()] for stop in stops]
+        runs = [run for runs in self.rims for run in runs]
+        rim = [p for run in runs for p in run] or [stop["at_mm"] for stop in stops]
+        middle = [sum(p[i] for p in rim) / len(rim) for i in range(3)]
+        # Where the file is drawn at its stop: the rim's point nearest the rim's middle.
+        nearest = [
+            _nearest_on_segment(middle, a, b)
+            for run in runs
+            for a, b in zip(run, run[1:], strict=False)
+        ]
+        self.stop = min(nearest or rim, key=lambda p: math.dist(p, middle))
+        # The way in: square to the axis, from the axis out through the stop.
+        centre, toward = guide["axis_mm"][0], camera[2]
+        out = [self.stop[i] - centre[i] for i in range(3)]
+        depth = _dot3(out, toward)
+        out = [out[i] - depth * toward[i] for i in range(3)]
+        self.radius = math.sqrt(_dot3(out, out))
+        self.out = tuple(v / self.radius for v in out) if self.radius > 1e-6 else None
+        tags = {stop["tag"] for stop in stops} | {"removal"}
+        points = [p for mesh in guide["meshes"] if mesh[4] in tags for p in mesh[0]] + rim
+        self.tail = None
+        if self.out is not None:
+            # The approach starts beyond the stock the file takes off, coming in square.
+            removal = [p for mesh in guide["meshes"] if mesh[4] == "removal" for p in mesh[0]]
+            reach = max(
+                [_dot3([p[i] - self.stop[i] for i in range(3)], self.out) for p in removal] + [0.0]
+            )
+            run = reach + 0.35 * self.radius
+            self.tail = [self.stop[i] + run * self.out[i] for i in range(3)]
+            points.append(self.tail)
+        low = [min(p[i] for p in points) for i in range(3)]
+        high = [max(p[i] for p in points) for i in range(3)]
+        pads = [0.05 * (high[i] - low[i]) + 1.0 for i in range(3)]
+        frame = [low[i] - pads[i] for i in range(3)] + [high[i] + pads[i] for i in range(3)]
+        meshes = [tuple(mesh) for mesh in guide["meshes"]]
+        super().__init__(meshes, spec, frame, camera, 1.0, (1, 1), extra)
+        self.gain = self.canvas.scale / main_scale
+        self.nominal = [line for line in spec.get("nominal_outline_mm", []) if len(line) >= 2]
+
+    def _title(self):
+        nouns = {name.rsplit(" ", 1)[-1] for name in self.names}
+        noun = nouns.pop() if len(nouns) == 1 else "GUIDE"
+        return f"VIEW ALONG THE {noun} AXIS X{self.gain:.1f}"
+
+    def _facing(self):
+        """Where this view looks from and which setup axes it draws right and up, as the
+        section note prints them; empty when the axis is not a setup axis."""
+        names = []
+        for vector in self.camera:
+            index = max(range(3), key=lambda i: abs(vector[i]))
+            if abs(vector[index]) < 0.999:
+                return ""
+            names.append(("-" if vector[index] < 0 else "+") + "XYZ"[index])
+        right, up, toward = names
+        return f"VIEW FROM SETUP {toward}  /  {right.lstrip('+')} RIGHT, {up.lstrip('+')} UP"
+
+    def render(self):
+        c = self.canvas
+        c.line((32, 8), (1568, 8), _INK, width=2)
+        _text(c, 32, 22, self._title(), scale=4)
+        facing = self._facing()
+        if self.spec["guide_view"].get("section_mm"):
+            # The kernel cut the near stop away: the work shows between the rims.
+            facing = "  /  ".join(filter(None, ("SECTION BETWEEN THE RIMS", facing)))
+        if facing:
+            _text(c, 34, 62, facing, _MUTED)
+        self._nominal_overlay(c.project, clip=self.viewport)
+        if self.nominal:
+            self.callouts.append(
+                _Callout(
+                    "FINISHED OUTLINE",
+                    [c.project(self.nominal[0][0])],
+                    _BLUE,
+                    along=tuple(c.project(p) for line in self.nominal for p in line),
+                )
+            )
+        self._file()
+        self._rims()
+        self._holding()
+        removal = [p for mesh in self.meshes if mesh[4] == "removal" for p in mesh[0]]
+        if removal:
+            middle = [sum(p[i] for p in removal) / len(removal) for i in range(3)]
+            point = self._anchor(("removal",), c.project(middle))
+            if point is None:
+                self._hidden("STOCK TO FILE OFF")
+            else:
+                self.callouts.append(
+                    _Callout("STOCK TO FILE OFF", [point], _INK, targets=("removal",))
+                )
+        self._labels()
+        if self.lane_overflow > 0:
+            return
+        c.assert_text_layout(min_scale=_BODY_SCALE)
+
+    def _rims(self):
+        """Each stop's rim outlined; one key when the rims lie one over the other along
+        the axis (a button pair), else a key per rim."""
+        c = self.canvas
+        ends, along = [], []
+        for runs, stop in zip(self.rims, self.spec["guide_stops"], strict=True):
+            pixels = []
+            for run in runs:
+                drawn = [c.project(p) for p in run]
+                pixels += drawn
+                if len(drawn) == 1:
+                    c.circle(*drawn[0], 5, fill=_GREEN)
+                for a, b in zip(drawn, drawn[1:], strict=False):
+                    segment = _clip_segment(a, b, self.viewport)
+                    if segment:
+                        c.line(*segment, _GREEN, width=5)
+            pixels = pixels or [c.project(stop["at_mm"])]
+            here = c.project(self.stop)
+            ends.append(min(pixels, key=lambda p: math.dist(p, here)))
+            along += pixels
+        if all(math.dist(end, ends[0]) <= 3 for end in ends):
+            self.callouts.append(
+                _Callout(_stop_key(self.names), ends[:1], _GREEN, along=tuple(along))
+            )
+            return
+        each = tuple(_stop_key([name]) for name in self.names)
+        self.callouts.append(_Callout(_stop_key(self.names), ends, _GREEN, each=each))
+
+    def _file(self):
+        """The file flat on the rims at its stop, and an arrow from beyond them in."""
+        if self.out is None:
+            return
+        c = self.canvas
+        stop = c.project(self.stop)
+        beyond = c.project([self.stop[i] + self.out[i] for i in range(3)])
+        length = math.dist(stop, beyond)
+        o = ((beyond[0] - stop[0]) / length, (beyond[1] - stop[1]) / length)
+        t = (-o[1], o[0])
+        half = 0.7 * self.radius * c.scale
+        face = (stop[0] + 4 * o[0], stop[1] + 4 * o[1])
+        back = (face[0] + 10 * o[0], face[1] + 10 * o[1])
+        c.polygon(
+            [
+                (face[0] - half * t[0], face[1] - half * t[1]),
+                (face[0] + half * t[0], face[1] + half * t[1]),
+                (back[0] + half * t[0], back[1] + half * t[1]),
+                (back[0] - half * t[0], back[1] - half * t[1]),
+            ],
+            _RULE,
+            outline=_INK,
+        )
+        tail = c.project(self.tail)
+        c.arrow(tail, (back[0] + 3 * o[0], back[1] + 3 * o[1]), _GREEN, width=3)
+        self.callouts.append(_Callout("FILE APPROACH", [tail], _GREEN))
+        end = (face[0] + half * 0.8 * t[0] + 5 * o[0], face[1] + half * 0.8 * t[1] + 5 * o[1])
+        self.callouts.append(_Callout("FILE AT ITS STOP", [end], _INK))
+
+    def _holding(self):
+        """The guide kit, keyed as the setup picture names it."""
+        c = self.canvas
+        tags = {stop["tag"] for stop in self.spec["guide_stops"]}
+        for component in self.components:
+            meshes = tuple(component.get("meshes", ()))
+            if not tags.intersection(meshes):
+                continue
+            near = c.project(self.spec["guide_view"]["axis_mm"][0])
+            point = self._anchor(meshes, near)
+            label = self._component_label(component)
+            if point is None:
+                self._hidden(label)
+                continue
+            self.callouts.append(_Callout(label, [point], _FIXTURE, targets=meshes))
+
+
+def render_inspection(views):
+    """``(png, debts)``: an inspection's labelled set-up sketches as one PNG 1600 px wide,
+    a band per view, and the NOT SHOWN lines for what a band could not key truthfully.
+
+    Each view has a ``title``; a ``camera`` [right, up, toward] in the part model's axes,
+    ``up`` pointing up off the surface plate; ``meshes`` as :func:`render_diagram` takes
+    them, tagged ``part`` or with the name of the aid (gauge, block, holding) each draws;
+    ``aids``, those names, each keyed; and ``marks`` (``label``, ``at_mm``, ``reads``). The
+    plate is drawn under the lowest solid. Every mark is keyed with a leader; a reading
+    mark carries an arrow up off the plate with a + at its head, the way a higher contact
+    reads +. Nothing is drawn that the views do not state."""
+    bands = []
+    for view in views:
+        extra = 0
+        while True:
+            band = _InspectionSketch(view, extra)
+            band.render()
+            if band.lane_overflow <= 0:
+                break
+            extra += math.ceil(band.lane_overflow)
+        bands.append(band)
+    canvas = bands[0].canvas
+    for band in bands[1:]:
+        canvas.grow(band.canvas.height)
+        canvas.paste(band.canvas, 0, canvas.height - band.canvas.height)
+    return canvas.png(), [debt for band in bands for debt in band.render_debts]
+
+
+class _InspectionSketch(_HoldingDetail):
+    """One labelled look at the part set up on the surface plate for an inspection
+    (:func:`render_inspection`): framed on everything the view draws and marks."""
+
+    # A reading mark's arrow: its length up off the mark, and the + beside its head.
+    ARROW_PX = 48
+    PLUS_PX = 7
+
+    def __init__(self, view, extra=0):
+        self.sketch = view
+        camera = tuple(tuple(axis) for axis in view["camera"])
+        points = [p for mesh in view["meshes"] for p in mesh[0]]
+        points += [mark["at_mm"] for mark in view["marks"]]
+        low = [min(p[i] for p in points) for i in range(3)]
+        high = [max(p[i] for p in points) for i in range(3)]
+        pads = [0.08 * (high[i] - low[i]) + 1.0 for i in range(3)]
+        frame = [low[i] - pads[i] for i in range(3)] + [high[i] + pads[i] for i in range(3)]
+        spec = {"view": "elevation", "components": [], "stock_box": frame, "contacts": []}
+        super().__init__(view["meshes"], spec, frame, camera, 1.0, (1, 1), extra)
+
+    def render(self):
+        c = self.canvas
+        c.line((32, 8), (1568, 8), _INK, width=2)
+        title = self.sketch["title"]
+        _text(c, 32, 22, title, scale=4 if c.text_width(_plain(title), scale=4) <= 1536 else 3)
+        reads = any(mark.get("reads") for mark in self.sketch["marks"])
+        if reads:
+            _text(c, 34, 62, "+ ARROW: THE WAY A READING RISES (A HIGHER CONTACT READS +)", _MUTED)
+        self._plate()
+        for name in self.sketch["aids"]:
+            pixels = [c.project(p) for mesh in self.meshes if mesh[4] == name for p in mesh[0]]
+            near = (
+                sum(p[0] for p in pixels) / len(pixels),
+                sum(p[1] for p in pixels) / len(pixels),
+            )
+            point = self._anchor((name,), near)
+            if point is None:
+                self._hidden(_plain(name))
+                continue
+            self.callouts.append(_Callout(_plain(name), [point], _FIXTURE, targets=(name,)))
+        for mark in self.sketch["marks"]:
+            x, y = c.project(mark["at_mm"])
+            colour = _GREEN if mark.get("reads") else _CONTACT
+            c.circle(x, y, 6, fill=colour, outline=_WHITE)
+            if mark.get("reads"):
+                head = (x, y - self.ARROW_PX)
+                c.arrow((x, y - 8), head, _GREEN, width=3)
+                plus, arm = (x + 14, head[1] + 10), self.PLUS_PX
+                c.line((plus[0] - arm, plus[1]), (plus[0] + arm, plus[1]), _GREEN, width=3)
+                c.line((plus[0], plus[1] - arm), (plus[0], plus[1] + arm), _GREEN, width=3)
+            self.callouts.append(_Callout(_plain(mark["label"]), [(x, y)], colour))
+        self._labels()
+        if self.lane_overflow > 0:
+            return
+        c.assert_text_layout(min_scale=_BODY_SCALE)
+
+    def _plate(self):
+        """The surface plate: a hatched line under the lowest solid, the full drawing wide."""
+        c = self.canvas
+        up = self.camera[1]
+        lowest = min((p for mesh in self.meshes for p in mesh[0]), key=lambda p: _dot3(p, up))
+        y = c.project(lowest)[1] + 1
+        left, _, right, _ = self.viewport
+        c.line((left, y), (right, y), _INK, width=3)
+        for x in range(int(left) + 12, int(right), 18):
+            c.line((x, y + 2), (x - 9, y + 11), _INK, width=1)
+        self.callouts.append(_Callout("SURFACE PLATE", [(right - 24, y)], _INK))

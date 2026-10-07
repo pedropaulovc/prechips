@@ -520,6 +520,49 @@ def test_dense_contour_diagram_does_not_erase_geometry_facts(engine, solids):
     assert dense["render_png_base64"] != baseline["render_png_base64"]
 
 
+def test_an_inspect_ops_set_up_sketches_are_drawn_beside_the_setup_picture(engine, solids):
+    # Op 50 declares two set-ups for its position check: on its base, then tipped onto
+    # its side with a gauge pin through the part. Each is a band of the one sketch the
+    # kernel draws for "50:position_dia", in the part's axes; the setup picture is unchanged.
+    step = solids["pocket"]
+    hold = _vise(10.0, centre=35.0, parallels=(150.0, 6.0, [[35.0, 7.0], [35.0, 43.0]]))
+    setup = _setup([], hold)
+    baseline = engine.run(engine.job(step, setups=[setup]))["setups"]["S1"]
+    pin = {
+        "name": "gauge pin",
+        "shape": "cylinder",
+        "at_mm": [35.0, -20.0, 30.0],
+        "axis": [0.0, 1.0, 0.0],
+        "dia_mm": 6.0,
+        "length_mm": 90.0,
+    }
+    marks = [{"label": "A", "at_mm": [35.0, 25.0, 0.0]}]
+    views = [
+        {"title": "VIEW 1", "up": [0.0, 0.0, 1.0], "toward": [0.0, -1.0, 0.0], "marks": marks},
+        {
+            "title": "VIEW 2",
+            "up": [1.0, 0.0, 0.0],
+            "toward": [0.0, -1.0, 0.0],
+            "aids": [pin],
+            "marks": marks + [{"label": "H2", "at_mm": [38.0, 25.0, 30.0], "reads": True}],
+        },
+    ]
+    setup["render"] = {"inspections": [{"op": 50, "requirement": "position_dia", "views": views}]}
+    result = engine.run(engine.job(step, setups=[setup]))
+    assert result["status"] == "ok", result
+    facts = result["setups"]["S1"]
+    assert facts["render_png_base64"] == baseline["render_png_base64"]
+    assert facts["render_scene"]["render_debts"] == baseline["render_scene"]["render_debts"]
+    (key,) = facts["inspection_pngs_base64"]
+    assert key == "50:position_dia"
+    png = base64.b64decode(facts["inspection_pngs_base64"][key])
+    assert png[:8] == b"\x89PNG\r\n\x1a\n"
+    width, height = struct.unpack(">II", png[16:24])
+    # Two bands, each at least the 300 px drawing a band keeps.
+    assert width == 1600 and height >= 2 * 300
+    assert "inspection_pngs_base64" not in baseline
+
+
 def test_pocket_reach_needs_long_projection_and_reports_corner_radius(engine, solids):
     step = solids["pocket"]
     pocket = engine.refs(step, (15, 13, 15), (55, 37, 60))
