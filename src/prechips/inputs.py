@@ -104,6 +104,7 @@ def load_bundle(
     policy: str | Path | None = None,
     cutting_data: str | Path | None = None,
 ) -> Bundle:
+    from prechips.rules.coordinates import aim_band_error
     from prechips.rules.resolution import SAW_OPS, op_features
 
     plan_path = Path(plan_path).resolve()
@@ -142,6 +143,10 @@ def load_bundle(
                 f"aims.{name}: {aim['requirement']} is not an exported drawing requirement "
                 "of a manifest feature."
             )
+        # The aimed value itself, before any DRO rounding could bring its target back in.
+        error = aim_band_error(features, name, definitions[name], aim)
+        if error is not None:
+            raise BadInput(f"{error}.")
     for setup in setups:
         ops = setup.get("ops")
         if not isinstance(ops, list) or not ops:

@@ -2760,7 +2760,8 @@ class _Traveler:
         nominal = record.get("nominal_setup")
         if "shift_mm" not in aim or not isinstance(nominal, list):
             return ""
-        feature, source = record["feature"], aim["source"]
+        # An inherited aim is the parent's: name it, and its value in manifest units.
+        feature, source = aim["feature"], aim["source"]
         requirement = aim["requirement"]
         o = self.operative
         moved = ", ".join(
@@ -2772,7 +2773,7 @@ class _Traveler:
         return (
             f"{self.feature_name(feature)} is aimed at {moved} so its "
             f"{_REQUIREMENT_NAMES.get(requirement, requirement)} from the "
-            f"{self.feature_name(source)} reads {_number(aim['value_mm'])} inside "
+            f"{self.feature_name(source)} reads {_number(aim['value'])} inside "
             f"{self.band(aim['printed_band'], feature, requirement)}: {reason}."
         )
 

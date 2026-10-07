@@ -20,7 +20,7 @@ import itertools
 import math
 
 from ..findings import Finding
-from ..measurements import angle_fact
+from ..measurements import angle_fact, length_fact
 from ..model import tolerance_requirements
 from ._bench import manual_bench, not_applicable
 from .datum_consistency import _cuts
@@ -147,17 +147,20 @@ def frame_point(point, frame):
 # The height-like drawing band a located feature holds from its ``height_from`` feature or
 # plane: the first one it declares (datum_consistency reads the same one).
 HEIGHT_BANDS = ("height_above_pivot", "height", "separation")
+# Millimetres per manifest unit; any other ``units`` leaves a length conversion unknown.
+UNIT_MM = {"mm": 1.0, "in": 25.4}
 
 
-def printed_band(bundle, feature, requirement):
+def printed_band(manifest, feature, requirement):
     """``feature``'s ``requirement`` band as the sheet prints it: rounded inward at its
     drawing precision (low limit up, high limit down), as declared when no precision applies
-    or the band is too narrow for it; unknown unless both limits are numbers."""
+    or the band is too narrow for it; unknown unless both limits are numbers. ``manifest``
+    is the feature manifest (its general ``precision``)."""
     band = feature.get(requirement)
     if not (isinstance(band, list) and len(band) == 2 and all(number(v) for v in band)):
         return UNKNOWN
     overrides = feature.get("precision", {})
-    general = bundle.features.get("precision")
+    general = manifest.get("precision")
     places = overrides.get(requirement, general) if isinstance(overrides, dict) else overrides
     if not isinstance(places, int) or isinstance(places, bool):
         return list(band)
@@ -165,6 +168,26 @@ def printed_band(bundle, feature, requirement):
     low = math.ceil(round(band[0] * scale, 6)) / scale
     high = math.floor(round(band[1] * scale, 6)) / scale
     return [low, high] if low <= high else list(band)
+
+
+def aim_band_error(manifest, name, feature, aim):
+    """Why plan ``aims.<name>`` asks its requirement for a value outside the band the sheet
+    prints (:func:`printed_band`): ``value_mm`` itself, in manifest units, before any DRO
+    rounding. None when it lies inside, or when the units or the band are unknown (the
+    coordinates rule leaves those unknown)."""
+    units = manifest.get("units")
+    requirement = aim["requirement"]
+    band = printed_band(manifest, feature, requirement)
+    if units not in UNIT_MM or band == UNKNOWN:
+        return None
+    value = aim["value_mm"] / UNIT_MM[units]
+    if band[0] - _JOIN_TOL <= value <= band[1] + _JOIN_TOL:
+        return None
+    asked = f"{aim['value_mm']:g} mm" + ("" if units == "mm" else f" ({value:g} {units})")
+    return (
+        f"aims.{name} sets its {requirement} to {asked}, outside its printed band "
+        f"{band[0]:g}-{band[1]:g} {units}"
+    )
 
 
 def _dot(a, b):
@@ -179,28 +202,35 @@ def _unit(vector):
     return [v / length for v in vector] if length > 1e-6 else None
 
 
-def _model_axis(feature, frames):
-    """``feature``'s declared ``axis`` as a model unit vector, else None."""
-    axis = feature.get("axis")
+def _model_axis(name, feature, frames):
+    """``(vector, why)``: ``feature``'s declared ``axis`` as a model unit vector; (None,
+    None) when it declares none, (None, why) when the declared axis or its frame is not
+    known, so no measuring direction follows from it."""
+    if "axis" not in feature:
+        return None, None
+    axis = feature["axis"]
     frame = mapping(frames.get(feature.get("frame", "model")))
-    basis = [mapping_vector(frame.get(name)) for name in AXES]
+    basis = [mapping_vector(frame.get(axis_name)) for axis_name in AXES]
     if not (isinstance(axis, list) and len(axis) == 3 and all(number(v) for v in axis)):
-        return None
+        return None, f"{name}'s axis is unknown"
     if not all(number(v) for vector in basis for v in vector):
-        return None
-    return _unit([sum(axis[j] * basis[j][i] for j in range(3)) for i in range(3)])
+        return None, f"{name}'s axis frame is not fully declared"
+    vector = _unit([sum(axis[j] * basis[j][i] for j in range(3)) for i in range(3)])
+    return (vector, None) if vector else (None, f"{name}'s axis has no direction")
 
 
-def band_reference(bundle, name, point, seen=()):
+def band_reference(bundle, name, point, seen=(), targets=None):
     """Where model ``point`` stands on ``name``'s height-like band (:data:`HEIGHT_BANDS`)
     from its ``height_from`` reference; None when the feature declares no such band.
 
     A plane reference (``plane``: frame, axis, value) measures along the plane normal. A
-    located reference measures from its planned point (:func:`planned_point`) along the
-    common normal of both declared axes, else square to the one declared axis, else point
-    to point. The result names the requirement, the reference, the printed band
+    located reference measures from its model point in ``targets`` (its printed DRO target
+    in the setup that locates both), else its planned point (:func:`planned_point`), along
+    the common normal of both declared axes, else square to the one declared axis, else
+    point to point when neither declares one; a declared axis that is not known leaves the
+    distance unmeasured. The result names the requirement, the reference, the printed band
     (:func:`printed_band`), the unit ``direction`` from the reference toward ``point`` and
-    the distance ``value``, or a ``why`` when the distance cannot be measured.
+    the distance ``value`` in manifest units, or a ``why`` when it cannot be measured.
     """
     features = bundle.feature_definitions
     feature = mapping(features.get(name))
@@ -211,7 +241,7 @@ def band_reference(bundle, name, point, seen=()):
     result = {
         "requirement": requirement,
         "from": source,
-        "printed_band": printed_band(bundle, feature, requirement),
+        "printed_band": printed_band(bundle.features, feature, requirement),
     }
     frames = mapping(bundle.features.get("frames"))
     reference = mapping(features.get(source))
@@ -226,11 +256,17 @@ def band_reference(bundle, name, point, seen=()):
         if normal is None or not all(number(v) for v in base):
             return {**result, "why": f"the {source} plane is not fully declared"}
     else:
-        base, _, why = planned_point(bundle, source, (*seen, name))
+        if targets is not None and source in targets:
+            base, why = targets[source], None
+        else:
+            base, _, why = planned_point(bundle, source, (*seen, name))
         if why is not None:
             return {**result, "why": why}
         delta = [p - q for p, q in zip(point, base, strict=True)]
-        first, second = _model_axis(feature, frames), _model_axis(reference, frames)
+        first, why = _model_axis(name, feature, frames)
+        second, other = _model_axis(source, reference, frames)
+        if why or other:
+            return {**result, "why": why or other}
         normal = None
         if first and second:
             normal = _unit(
@@ -253,36 +289,116 @@ def band_reference(bundle, name, point, seen=()):
     return {**result, "direction": direction, "value": abs(signed)}
 
 
-def planned_point(bundle, name, seen=()):
-    """``(point, aim, why)``: ``name``'s planned model point, the plan aim that moved it (or
-    None) and why the point is unknown (or None).
+def _measure(bundle, name, points, seen=(), targets=None):
+    """:func:`band_reference` for every model point locating ``name`` (a kernel span's
+    two ends, else one point): they must stand at one distance in one direction, else the
+    band names no one of them and the result carries that ``why``."""
+    checks = [band_reference(bundle, name, point, seen, targets) for point in points]
+    if not checks or checks[0] is None:
+        return None
+    first = checks[0]
+    unmeasured = next((check for check in checks if "why" in check), None)
+    if unmeasured is not None:
+        return unmeasured
+    for check in checks[1:]:
+        if abs(check["value"] - first["value"]) > _JOIN_TOL or (
+            math.dist(check["direction"], first["direction"]) > 1e-9
+        ):
+            return {
+                **{key: first[key] for key in ("requirement", "from", "printed_band")},
+                "why": f"{name}'s located points stand at different distances from "
+                f"{first['from']}, so its band names no one of them",
+            }
+    return first
 
-    The point is where its locator places it (:func:`located_by`). A plan ``aims.<name>``
-    moves it along its height-like band (:func:`band_reference`) so that band reads
-    ``value_mm``: a process choice on the DRO target, never a change to the geometry.
+
+def _plan_aim(bundle, name):
+    """``name``'s own plan ``aims`` record (owner, requirement, value, reason), else None."""
+    aim = mapping(mapping(bundle.plan.get("aims")).get(name))
+    if not aim:
+        return None
+    return {
+        "feature": name,
+        "requirement": aim["requirement"],
+        "value_mm": aim["value_mm"],
+        "reason": aim["reason"],
+    }
+
+
+def _aimed(bundle, name, points, seen=()):
+    """``(points, aim, why)``: the model ``points`` locating ``name`` moved by its own plan
+    ``aims.<name>`` along its height-like band (:func:`_measure`) so that band reads
+    ``value_mm``, converted to manifest units: a process choice on the DRO target, never a
+    change to the geometry. ``aim`` is None without one. An aim that cannot be applied
+    leaves the points where they are and says ``why``: a value outside the printed band
+    (:func:`aim_band_error`) also carries it as ``error``; unknown units, a band the
+    feature does not hold, an unknown band or an unmeasurable distance leave it unknown.
+    """
+    aim = _plan_aim(bundle, name)
+    if aim is None:
+        return points, None, None
+
+    def refuse(why):
+        aim["why"] = why
+        return points, aim, why
+
+    requirement = aim["requirement"]
+    if name in seen:
+        return refuse(f"the aims of {', '.join((*seen, name))} depend on each other")
+    error = aim_band_error(bundle.features, name, bundle.feature_definitions.get(name, {}), aim)
+    if error is not None:
+        aim["error"] = error
+        return refuse(error)
+    scale = UNIT_MM.get(bundle.features.get("units"))
+    if scale is None:
+        return refuse(f"feature units are not mm or in, so aims.{name}.value_mm places nothing")
+    reference = _measure(bundle, name, points, seen)
+    if reference is None or reference["requirement"] != requirement:
+        return refuse(f"{name} holds no {requirement} band from height_from")
+    aim.update(source=reference["from"], printed_band=reference["printed_band"])
+    if reference["printed_band"] == UNKNOWN:
+        return refuse(f"{name}'s printed {requirement} band is unknown")
+    if "why" in reference:
+        return refuse(reference["why"])
+    value = aim["value_mm"] / scale
+    shift = value - reference["value"]
+    aim.update(
+        value=value,
+        nominal_mm=round(reference["value"] * scale, 6),
+        shift_mm=round(shift * scale, 6),
+    )
+    moved = [
+        [p + shift * d for p, d in zip(point, reference["direction"], strict=True)]
+        for point in points
+    ]
+    return moved, aim, None
+
+
+def planned_point(bundle, name, seen=()):
+    """``(point, aim, why)``: ``name``'s planned model point, the plan aim that placed it (or
+    None) and why the point is unknown or that aim unusable (or None).
+
+    The point is where its locator places it (:func:`located_by`), moved by that locator's
+    own aim (:func:`_aimed`). A child located by its parent's ``at`` therefore stands on
+    its parent's aimed target and reports the parent's aim; an aim of the child's own would
+    take it off the parent's axis, so it is refused with that reason and the point stays
+    on the parent.
     """
     features = bundle.feature_definitions
     frames = mapping(bundle.features.get("frames"))
-    locator, locator_frame, _ = located_by(features, name, mapping(features.get(name)))
+    locator, locator_frame, locator_name = located_by(features, name, mapping(features.get(name)))
     point = model_point(locator.get("at"), frames.get(locator_frame))
-    known = all(number(v) for v in point)
-    aim = mapping(mapping(bundle.plan.get("aims")).get(name))
-    if not aim:
-        return point, None, None if known else f"{name} has no known point"
-    numbers = {"requirement": aim["requirement"], "value_mm": aim["value_mm"]}
-    numbers["reason"] = aim["reason"]
-    if name in seen:
-        return point, numbers, f"the aims of {', '.join((*seen, name))} depend on each other"
-    reference = band_reference(bundle, name, point, seen)
-    if reference is None or reference["requirement"] != aim["requirement"]:
-        return point, numbers, f"{name} holds no {aim['requirement']} band from height_from"
-    numbers.update(source=reference["from"], printed_band=reference["printed_band"])
-    if "why" in reference:
-        return point, numbers, reference["why"]
-    shift = aim["value_mm"] - reference["value"]
-    numbers.update(nominal_mm=round(reference["value"], 6), shift_mm=round(shift, 6))
-    aimed = [p + shift * d for p, d in zip(point, reference["direction"], strict=True)]
-    return aimed, numbers, None
+    (point,), aim, why = _aimed(bundle, locator_name, [point], seen)
+    own = _plan_aim(bundle, name) if locator_name != name else None
+    if own is not None:
+        own["why"] = (
+            f"{name} is located on its parent {locator_name}'s at, so an aim of its own "
+            f"would take it off that axis; aim {locator_name} instead"
+        )
+        return point, own, own["why"]
+    if why is None and not all(number(v) for v in point):
+        why = f"{name} has no known point"
+    return point, aim, why
 
 
 def dro_point(point, grid):
@@ -294,39 +410,61 @@ def dro_point(point, grid):
     return [round(round(v / step) * step, decimals) + 0.0 for v in point]
 
 
-def _planned_row(bundle, row, locator, frame, grid):
-    """Stamp a mill located ``row`` with its plan aim, its DRO target and the check of its
-    height-like band at that target; returns ``(errors, unknown)``."""
-    planned, aim, why = planned_point(bundle, locator)
-    unknown = False
+def _planned_rows(rows, planned, aim, why, frame, grid):
+    """Stamp one feature's mill located ``rows`` with the ``aim`` that placed them (at
+    model ``planned``, :func:`planned_point` / :func:`_aimed`) and the DRO target the
+    feature map prints and its hole ops dial (``dro``, ``dro_xy``); returns ``(errors,
+    unknown)``: an aim outside its printed band is an error, any other unusable aim
+    unknown."""
+    errors, unknown = [], False
     if aim is not None:
-        row["aim"] = {**aim, **({"why": why} if why else {})}
-        unknown = why is not None
-        if why is None:
-            row["nominal_setup"] = row["setup"]
-            row["setup"] = frame_point(planned, frame)
-    if not all(number(v) for v in row["setup"]):
-        return [], unknown
-    row["dro"] = dro_point(row["setup"], grid)
-    check = band_reference(bundle, row["feature"], model_point(row["dro"], frame))
+        if "error" in aim:
+            errors.append(aim["error"])
+        else:
+            unknown = why is not None
+        for row, point in zip(rows, planned, strict=True):
+            row["aim"] = dict(aim)
+            if why is None:
+                row["nominal_setup"] = row["setup"]
+                row["setup"] = frame_point(point, frame)
+    for row in rows:
+        if all(number(v) for v in row["setup"]):
+            row["dro"] = dro_point(row["setup"], grid)
+            row["dro_xy"] = row["dro"][:2]
+    return errors, unknown
+
+
+def _band_rows(bundle, name, rows, frame, targets, debt):
+    """Stamp one feature's DRO-targeted ``rows`` with the check of its height-like band at
+    those targets, measured from the reference's DRO target in this setup when ``targets``
+    holds it (:func:`band_reference`); returns ``(errors, unknown)``. A provisional DRO
+    grid (``debt``, :func:`dro_grid_debt`) or unknown units never establish a pass."""
+    if not rows or not all(number(v) for row in rows for v in row.get("dro", [UNKNOWN])):
+        return [], False
+    points = [model_point(row["dro"], frame) for row in rows]
+    check = _measure(bundle, name, points, targets=targets)
     if check is None:
-        return [], unknown
+        return [], False
     band = check["printed_band"]
-    row["band_check"] = {
-        key: check[key] for key in ("requirement", "from", "printed_band", "why") if key in check
-    }
-    if "why" in check or band == UNKNOWN:
-        row["band_check"]["status"] = UNKNOWN
+    record = {key: check[key] for key in ("requirement", "from", "printed_band")}
+    scale = UNIT_MM.get(bundle.features.get("units"))
+    why = check.get("why") or (None if scale else "feature units are not mm or in") or debt
+    if why is not None or band == UNKNOWN:
+        record.update({"why": why} if why else {}, status=UNKNOWN)
+        for row in rows:
+            row["band_check"] = dict(record)
         return [], True
     value = check["value"]
     inside = band[0] - _JOIN_TOL <= value <= band[1] + _JOIN_TOL
-    row["band_check"].update(value_mm=round(value, 6), status="pass" if inside else "error")
+    record.update(value_mm=round(value * scale, 6), status="pass" if inside else "error")
+    for row in rows:
+        row["band_check"] = dict(record)
     if inside:
-        return [], unknown
+        return [], False
     return [
-        f"{row['feature']} at its DRO target stands {value:.3f} from {check['from']}, outside "
+        f"{name} at its DRO target stands {value:.3f} from {check['from']}, outside "
         f"its printed {check['requirement']} band {band[0]:g}-{band[1]:g}"
-    ], unknown
+    ], False
 
 
 def _nominal(feature, key):
@@ -536,6 +674,25 @@ def dro_grid(bundle, setup):
     step = declared / scale if number(declared) and declared > 0 else DRO_DEFAULT_STEP
     decimals = next((d for d in range(9) if abs(round(step, d) - step) <= 1e-12), 9)
     return step, decimals
+
+
+def dro_grid_debt(bundle, setup):
+    """Why the setup machine's DRO grid (:func:`dro_grid`) is provisional, else None.
+
+    The grid is a shop fact only when the manifest units are mm or in and the inventory
+    machine's ``resolution`` is a positive length qualified by its own complete
+    measurement. A provisional grid still places and prints the targets, but no band check
+    passes on it.
+    """
+    if bundle.features.get("units") not in UNIT_MM:
+        return "feature units are not mm or in, so the DRO grid is provisional"
+    name = setup.get("machine")
+    fact = length_fact(resolve(bundle, "machines", name) or {}, "resolution")
+    if not number(fact["value"]) or fact["value"] <= 0:
+        return f"machine {name} declares no DRO resolution, so its grid is provisional"
+    if not fact["verified"]:
+        return f"machine {name}'s DRO resolution is unverified: {fact['reason']}"
+    return None
 
 
 def _grid(value, step, decimals, up):
@@ -2206,7 +2363,8 @@ def evaluate(bundle, *, pre_kernel=False):
         located_names = set(_located_names(setup, features))
         revolved_names = set(revolved_located(setup, features))
         axis_cites, locator_cites, aim_cites = [], [], []
-        band_errors = []  # located DRO targets outside their printed height-like band
+        band_errors = []  # aims and located DRO targets outside their printed band
+        planned = []  # (feature, its mill rows, whether they stand at its locator's ``at``)
         for name in names:
             feature = mapping(features.get(name))
             locator, locator_frame, locator_name = located_by(features, name, feature)
@@ -2224,6 +2382,13 @@ def evaluate(bundle, *, pre_kernel=False):
                     numbers["rows"].extend(rows)
                     axis_cites.append(cite)
                     located = vector = False
+                    if not lathe:
+                        # The kernel's span ends take the same aim, grid and band check.
+                        points, aim, aimless = _aimed(bundle, name, [r["model"] for r in rows])
+                        errors, debt = _planned_rows(rows, points, aim, aimless, frame, grid)
+                        band_errors.extend(errors)
+                        unknown |= debt
+                        planned.append((name, rows, False))
             unknown |= located and not placed
             if located or vector:
                 model = model_point(at, frames.get(locator_frame))
@@ -2244,20 +2409,33 @@ def evaluate(bundle, *, pre_kernel=False):
                     # Lathe rows keep their established shape; elsewhere name the debt.
                     row["reason"] = why
                 if not lathe and UNKNOWN not in local:
-                    errors, debt = _planned_row(bundle, row, locator_name, frame, grid)
+                    point, aim, aimless = planned_point(bundle, name)
+                    errors, debt = _planned_rows([row], [point], aim, aimless, frame, grid)
                     band_errors.extend(errors)
                     unknown |= debt
-                    if "aim" in row:
-                        aim_cites.append(f"plan.aims.{locator_name}")
-                    if all(number(v) for v in row.get("dro", [UNKNOWN])):
-                        # The hole op dials the same (aimed) target the feature map prints.
-                        row["dro_xy"] = row["dro"][:2]
+                    planned.append((name, [row], True))
                 numbers["rows"].append(row)
                 unknown |= UNKNOWN in local
             if lathe:
                 numbers["rows"].extend(
                     _lathe_rows(name, feature, setup, frame, frames, dro.get("radius_mode") is True)
                 )
+        # Each band is measured between printed targets: a reference located in this setup
+        # stands at its own DRO target, any other at its planned model point.
+        targets = {}
+        for name, rows, at in planned:
+            if at and "dro" in rows[0]:
+                point = model_point(rows[0]["dro"], frame)
+                for located in (name, rows[0].get("located_by")):
+                    if located is not None:
+                        targets.setdefault(located, point)
+        grid_debt = dro_grid_debt(bundle, setup)
+        for name, rows, _ in planned:
+            errors, debt = _band_rows(bundle, name, rows, frame, targets, grid_debt)
+            band_errors.extend(errors)
+            unknown |= debt
+            if "aim" in rows[0]:
+                aim_cites.append(f"plan.aims.{rows[0]['aim']['feature']}")
         for op, before, after in stock_states(setup, features):
             numbers["entry_surfaces"].append({"op": op["op"], **after["entry_z"]})
             contour = mapping(op.get("contour"))

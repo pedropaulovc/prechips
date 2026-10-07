@@ -10,10 +10,11 @@ synthetic ``bundle.kernel``.
 """
 
 import pytest
-from test_travel_m5 import child_bundle, setup
+from test_travel_m5 import child_bundle, measured, setup
 from test_turned_profile_kernel import _boss_on_a_lathe, _revolved
 
 from prechips.rules import coordinates, travel
+from prechips.sheet import _Traveler
 
 UNKNOWN = ["unknown"] * 3
 # Model +Y stands along setup +Z (the cone post's S11 pose), shifted off the model origin.
@@ -119,15 +120,58 @@ def test_mill_boss_is_located_at_x0_y0_on_the_kernel_span_through_the_setup_pose
             "point": "setup Z axis, kernel span start",
             "model": [5.0, 59.4, 3.0],
             "setup": [0.0, 0.0, 59.4],
+            "dro": [0.0, 0.0, 59.4],
+            "dro_xy": [0.0, 0.0],
         },
         {
             "feature": "head",
             "point": "setup Z axis, kernel span end",
             "model": [5.0, 86.0, 3.0],
             "setup": [0.0, 0.0, 86.0],
+            "dro": [0.0, 0.0, 86.0],
+            "dro_xy": [0.0, 0.0],
         },
     ]
     assert any(text.startswith("kernel: setups.S1.revolved.head") for text in finding.cite)
+
+
+def _off_grid_boss():
+    data = _mill_boss(revolved=_revolved(head=(59.403, 86.002, 0.0, 21.4, 21.4, 21.4)))
+    data.inventory["machines"]["mill"]["resolution_mm"] = measured(0.005)
+    return data
+
+
+def test_kernel_located_mill_rows_print_on_the_dro_grid():
+    data = _off_grid_boss()
+    finding = coordinates.evaluate(data)[0]
+    assert finding.status == "pass"
+    assert [row["dro"] for row in _rows(finding, "head")] == [
+        [0.0, 0.0, 59.405],
+        [0.0, 0.0, 86.0],
+    ]
+    traveler = _Traveler(data, [finding], {}, None)
+    traveler.setup = setup(data)
+    html = traveler.feature_map(setup(data))
+    assert "59.405" in html and "59.403" not in html and "86.002" not in html
+
+
+def test_an_aim_moves_both_kernel_span_ends_along_the_band():
+    # Both span ends stand 5.0 from the foot plane (model X 0); the aim reads 5.2.
+    data = _off_grid_boss()
+    data.features["features"]["foot"] = {
+        "kind": "face",
+        "plane": {"frame": "model", "axis": "x", "value": 0.0},
+    }
+    data.features["features"]["head"].update(
+        requirements=["height"], height=[4.5, 5.5], height_from="foot", precision={"height": 2}
+    )
+    data.plan["aims"] = {"head": {"requirement": "height", "value_mm": 5.2, "reason": "x"}}
+    finding = coordinates.evaluate(data)[0]
+    assert finding.status == "pass"
+    rows = _rows(finding, "head")
+    assert [row["dro"] for row in rows] == [[0.2, 0.0, 59.405], [0.2, 0.0, 86.0]]
+    assert {row["band_check"]["value_mm"] for row in rows} == {5.2}
+    assert "plan.aims.head" in finding.cite
 
 
 @pytest.mark.parametrize(
