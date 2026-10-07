@@ -208,8 +208,11 @@ The `purchased_tooling` rule (always required) checks every item a setup uses
 (any hold slot — fixture, chuck, parallels, riser, jaw bar or buttons, support,
 clamps, stop, supports, alignment indicator — a zero's tool, holder or gauge,
 a tool touch's `z_gauge`, the transfer's tool or gauge, and an op's filing
-guide or its gauge, tool, holder, inspection gauge or process-hold gauge) that
-carries the list. Unknown is never an acceptance: an `acceptance` or `purchase` stated
+guide or its gauge, tool, holder, inspection gauge or process-hold gauge; any
+item named in the setup's prose or in the notes and record blanks of the
+shop-made items it uses, the job page's prose counting as the first setup's:
+see the key syntax under shop-made solids) that carries the list. Unknown is
+never an acceptance: an `acceptance` or `purchase` stated
 `"unknown"`; a `check`, `how` or `accept` that is blank or unknown; a gauge that
 is unknown, not listed or not verified; a `limits_mm` that is not two known
 lengths, low ≤ high; or a `limits` field the item does not state as known
@@ -360,16 +363,22 @@ Other holding solids come from the same accepted-fact rule, never defaults:
   under "Measure and record before first use:" as a fill-in: what, the gauge's
   shop name and how, `accept ≤ max_mm`, `goal ≤ goal_mm` (both rounded down),
   then `measured ________ mm`, `over over_mm mm` when given. `check` must be
-  stated; each length, when given, is a known length ≥ 0 (`over_mm` > 0) and
+  stated, and `how` and `gauge`, when given (`records` itself must be a list:
+  a stated unknown would print nothing to fill in); each length, when given, is
+  a known length ≥ 0 (`over_mm` > 0) and
   the goal lies inside the max. A record without `max_mm` is a characterisation:
   recorded, not judged. A record's `gauge` is a `gauges` key; one the shop list
   does not have prints `? <key>`.
   Any prose (a `note`, a record's `check` or `how`, a plan note) names an
   inventory item as `<category>.<key>[/<member>]` (`gauges.granite-surface-plate`,
-  `tools.reamers-metric/6.49mm`), category one of `machines`, `tools`,
-  `holders`, `fixtures`, `gauges`, `services`. The traveler prints the item's
-  shop name in its place, or `? <key>` when the shop list does not have it, and
-  `tool_resolves` checks it (docs/rules-tools.md).
+  `tools.drills/#61`, `tools.drills/1/4`, `tools.reamers-metric/6.49mm`), category
+  one of `machines`, `tools`, `holders`, `fixtures`, `gauges`, `services`. The
+  member runs to its last letter, digit or `#` (a sentence's full stop is not
+  part of it) and is read whole, as the slots read it: a member the item does
+  not have is not the item. The traveler prints the item's shop name in its
+  place, or `? <key>` when the shop list does not have it; `tool_resolves`
+  checks it (docs/rules-tools.md) and `purchased_tooling` reads its receipt
+  checks.
   An angle plate's (or posed shop-made fixture's) lowest box that is not bought
   is its base: HOLD prints its underside Z, an angle plate's working face (local
   y = 0, facing local -y) and the base's `fastener` as the hold-down; with any

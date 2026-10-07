@@ -30,7 +30,8 @@ and each record's `gauge` as `gauges.<gauge>`; docs/inventory.md) is a subject
 of its own, `<category>.<key>`, with `named_in` listing where. It passes when
 the item is listed and verified; missing or unverified, it is unknown (never a
 pass, and never printed as the bare key: the traveler prints `? <key>`). A
-whole set is named by its key; a member must resolve as a member.
+whole set is named by its key; a member must resolve as a member, read whole
+(`tools.drills/#61` is unknown on a `#1-60` index, never the index itself).
 
 Saw cut-off resolves the selected bandsaw blade and a `mill` / `bench` /
 `bandsaw` machine instead of a spindle/holder/shank assembly. No holder is
