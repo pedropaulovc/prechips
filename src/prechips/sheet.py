@@ -19,7 +19,7 @@ from .measurements import record_trusted
 from .model import reference_only, tolerance_requirements
 from .rules._bench import manual_bench
 from .rules.coordinates import CENTRE_OPS, OVERSHOOT_NOTE, dro_grid, dro_z, row_id
-from .rules.hold_fields import align_travel
+from .rules.hold_fields import align_indicator, align_travel
 from .rules.inspection import go_no_go_pair
 from .rules.resolution import (
     MANUAL,
@@ -783,6 +783,39 @@ def _leftover(arc):
 def _places(value):
     """The fewest decimals (0–6) that print ``value`` exactly."""
     return next((d for d in range(7) if abs(round(value, d) - value) < 1e-9), 6)
+
+
+def _limits(value):
+    """A declared ``[least, greatest]`` pair as ``19.99–20``, else None."""
+    if isinstance(value, list) and len(value) == 2 and all(map(_known, value)):
+        return "–".join(_number(v) for v in value)
+    return None
+
+
+def _buttons_text(guide, bore, proven):
+    """Filing buttons on the traveler: every stack element's receipt limits, then the
+    radius they file worst case (rounded outward to 0.001, so printing never narrows it),
+    which reads as an established result only when the rule ``proven`` it inside the
+    drawing band; else a STOP naming the unknown elements."""
+    runout = guide.get("button_runout_mm")
+    stack = [
+        ("button OD", "buttons Ø{} mm", _limits(guide.get("button_dia_mm"))),
+        ("button bore", "bored Ø{} mm", _limits(guide.get("button_bore_mm"))),
+        ("button runout", "OD runout {} mm TIR", _number(runout) if _known(runout) else None),
+        ("pin", "on a Ø{} mm pin", _limits(guide.get("pin_dia_mm"))),
+        (bore, f"through {bore} Ø{{}} mm", _limits(guide.get("bore_dia_mm"))),
+    ]
+    text = ", ".join(form.format(value) for _, form, value in stack if value is not None)
+    reach = guide.get("files_to_mm")
+    missing = [name for name, _, value in stack if value is None]
+    if missing or _limits(reach) is None:
+        unknown = f"{', '.join(missing)} limits unknown; " if missing else ""
+        return f"{text}; STOP: {unknown}worst-case filing radius not established"
+    low = math.floor(round(reach[0] * 1000, 6)) / 1000
+    high = math.ceil(round(reach[1] * 1000, 6)) / 1000
+    if not proven:
+        return f"{text}; not proven: worst case they would file R{low:.3f} to R{high:.3f} mm"
+    return f"{text}; worst case they file R{low:.3f} to R{high:.3f} mm"
 
 
 def _angle(value):
@@ -1658,7 +1691,7 @@ class _Traveler:
             name
             for name, known in (
                 ("the travel it runs along", axis in ("X", "Y")),
-                ("the indicator", isinstance(gauge, str) and gauge != "unknown"),
+                ("the indicator", align_indicator(self.bundle, gauge) not in (None, "unknown")),
                 ("the sweep length", _known(over)),
                 ("the limit", _known(limit)),
             )
@@ -2929,8 +2962,9 @@ class _Traveler:
         """``(mm, name)``: how near the material ``op`` cuts comes to the holding, from the
         kernel's setup picture (its ``cut_clearances``; the picture dimensions the least of
         the setup's), and the holding solid it is, as the HOLD names it
-        (:meth:`holding_name`); ``unknown`` where the kernel could not derive the cut; None
-        when the kernel measured nothing for the op (no picture, or no cut)."""
+        (:meth:`holding_name`); ``unknown`` where the kernel could not derive the cut or the
+        holding is not drawn whole; None when the kernel measured nothing for the op (no
+        picture, or no cut)."""
         render = _mapping(_mapping(self.report.get("renders")).get(setup["id"]))
         for row in _mapping(render.get("scene")).get("cut_clearances") or []:
             row = _mapping(row)
@@ -4267,11 +4301,33 @@ class _Traveler:
                 parts.append(f"{depth} radial per pass")
         return parts
 
-    def manual_arc_lines(self, setup, op):
-        """Layout and bench-filing instructions computed for this manual operation."""
-        numbers = _mapping(self.records.get(("manual_arc", f"{setup['id']}:{op['op']}")))
+    def manual_arc_lines(self, setup, op, stops):
+        """Layout and bench-filing instructions computed for this manual operation. A
+        finding the rule leaves unknown stops the op, in its row and in the setup's STOP
+        list, with the rule's reasons: no unproven layout or filing reads as established."""
+        subject = f"{setup['id']}:{op['op']}"
+        finding = next(
+            (
+                f
+                for f in self.findings
+                if _field(f, "rule") == "manual_arc" and _field(f, "subject") == subject
+            ),
+            None,
+        )
+        numbers = _mapping(_field(finding, "numbers", {})) if finding is not None else {}
         if not numbers:
             return []
+        status = _status(finding)
+        lines = self.manual_arc_steps(op, numbers, status == "pass")
+        if lines and status in ("unknown", "unsupported"):
+            debts = numbers.get("debts")
+            reasons = [self.bench(debt) for debt in debts] if isinstance(debts, list) else []
+            lines.append(_Box(f"STOP: {'; '.join(reasons) or 'not proven'} — do not run."))
+            stops.setdefault("manual arc not proven", []).append(str(op["op"]))
+        return lines
+
+    def manual_arc_steps(self, op, numbers, proven):
+        """The layout or bench-filing line itself; ``proven`` says whether the rule passed it."""
         o = self.operative
         if op.get("do") == "scribe":
             centre = numbers.get("centre_setup_xy") or ["unknown", "unknown"]
@@ -4306,14 +4362,8 @@ class _Traveler:
             target = "file down to the hardened button rims"
             guide_text = (
                 f"{self.reference(guide.get('kit'), 'fixtures')} "
-                f"(Ø{_number(guide.get('button_dia_mm'))} mm buttons clamped on a "
-                f"Ø{_number(guide.get('pin_dia_mm'))} mm pin through "
-                f"{self.feature_name(guide.get('bore'))}"
+                f"({_buttons_text(guide, self.feature_name(guide.get('bore')), proven)})"
             )
-            reach = guide.get("files_to_mm")
-            if isinstance(reach, list) and len(reach) == 2 and all(map(_known, reach)):
-                guide_text += f"; they file R{_number(reach[0], 3)} to R{_number(reach[1], 3)} mm"
-            guide_text += ")"
         elif guide.get("kind") == "template":
             guide_text = self.reference(guide.get("kit"), "gauges")
             layout = numbers.get("layout_op")
@@ -4452,7 +4502,7 @@ class _Traveler:
                     for prefix in (subject + ":", subject.replace(":", " ") + ":"):
                         message = message.removeprefix(prefix).strip()
                     boxes.append(_Box("CAUTION: " + self.bench(message)))
-            boxes.extend(self.manual_arc_lines(setup, op))
+            boxes.extend(self.manual_arc_lines(setup, op, stops))
             boxes.extend(rest_lines)
             # Crash and status warnings print full width under the op so the narrow
             # action column keeps its line height; the op's own note follows them there.
@@ -4762,21 +4812,21 @@ class _Traveler:
             at = f" — {feed}" if feed else ""
         start, several = record.get("from_z"), len(depths) > 1
         plunge = f"plunge Z {o(start)} → {o(depths[0])}{at}"
+        if o(start) == o(depths[0]):
+            # The op starts at its only level, but nothing proves that entry clear: fed
+            # down to it, never "plunge Z a → a".
+            plunge = f"plunge to Z {o(depths[0])}{at}"
         lower = f"lower to Z {o(depths[0])}"
         if several:
             plunge = f"plunge from the level above (level 1 from Z {o(start)}){at}"
             lower = "lower to the level's Z"
-        # The op starts at its only level: the cutter lowers to it at every entry, above
-        # nothing, and only the path cuts: never a plunge from a Z to itself.
-        lowered = record.get("lowered") if not several else None
-        if lowered in ("cleared", "top"):
-            place = (
-                "in the cleared area"
-                if lowered == "cleared"
-                else "the top of the stock this op meets"
-            )
-            lower = f"lower to Z {o(depths[0])}, {place}; the path then cuts the stock left "
-            lower += "along it"
+        # The op starts at its only level and the stock box puts that level at or above
+        # the stock top: the cutter lowers to it at every entry, above nothing, and only
+        # the path cuts.
+        lowered = record.get("lowered") == "top" and not several
+        if lowered:
+            lower = f"lower to Z {o(depths[0])}, the top of the stock this op meets; the path "
+            lower += "then cuts the stock left along it"
 
         def where(down):
             xy = down.get("xy") or ["unknown", "unknown"]

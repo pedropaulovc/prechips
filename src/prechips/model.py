@@ -1176,6 +1176,20 @@ class LengthMeasurement(InputModel):
 
 
 type MeasuredLength = Number | LengthMeasurement
+# A declared tolerance zone [least, greatest] (a filing-button kit's receipt limits): a
+# plain pair, or one qualified only by its own measured/verify like a LengthMeasurement.
+type LimitPair = Annotated[list[Number], Field(min_length=2, max_length=2)]
+
+
+class LimitsMeasurement(InputModel):
+    """A fact-local [least, greatest] pair; only its own measured/verify qualify it."""
+
+    value: LimitPair
+    measured: Measurement | Unknown = UNKNOWN
+    verify: bool | Unknown = UNKNOWN
+
+
+type MeasuredLimits = LimitPair | LimitsMeasurement
 type MeasuredAngle = Number | LengthMeasurement
 EnvelopeTravel = record("EnvelopeTravel", dict.fromkeys(("x", "y", "z"), MeasuredLength))
 MachineEnvelope = record(
@@ -1436,6 +1450,15 @@ InventoryItem = record(
         ),
         # Grooving/parting blade front-edge width (two-cornered blade): docs/rules-geometry.md.
         **dict.fromkeys(("blade_width_mm", "blade_width_in"), MeasuredLength),
+        # Filing buttons' receipt limits: button OD, button bore and pin diameters, and the
+        # button OD's runout about its bore (docs/inventory.md, docs/rules-coordinates.md).
+        **dict.fromkeys(
+            ("button_dia_limits_mm", "button_dia_limits_in")
+            + ("button_bore_limits_mm", "button_bore_limits_in")
+            + ("pin_dia_limits_mm", "pin_dia_limits_in"),
+            MeasuredLimits,
+        ),
+        **dict.fromkeys(("button_runout_mm", "button_runout_in"), MeasuredLength),
         # Follow rest jaw directions about the spindle axis, degrees from the cutting tool.
         "jaw_angles_deg": list[Number],
     },
@@ -1468,6 +1491,9 @@ _INVENTORY_LENGTH_STEMS |= {"body_dia", "body_length", "bore_dia"}
 _INVENTORY_LENGTH_STEMS |= {"capacity_min", "capacity_max"}
 # Grooving/parting blade front-edge width.
 _INVENTORY_LENGTH_STEMS |= {"blade_width"}
+# Filing buttons' runout and receipt limits: one fact each, in mm or in, never both.
+_INVENTORY_LENGTH_STEMS |= {"button_runout", "button_dia_limits", "button_bore_limits"}
+_INVENTORY_LENGTH_STEMS |= {"pin_dia_limits"}
 # Rotary table work capacity and T-slot width.
 _INVENTORY_LENGTH_STEMS |= {"max_work", "t_slot_width"}
 # Combined drill and countersink pilot length (Table 6 C).

@@ -548,7 +548,10 @@ def _comparison_row(bundle: Bundle, report: dict, plan_label: str) -> dict:
             raise BadInput(f"{plan_label}: sourced net volume exceeds authored stock volume.")
         waste = (stock_volume - net_volume) / stock_volume
     holds = [record(setup.get("hold")) for setup in bundle.plan["setups"]]
-    fixture_refs = selected_references({"setups": [{"hold": hold} for hold in holds]})
+    # A hold's align block names a gauge, not holding.
+    fixture_refs = selected_references(
+        {"setups": [{"hold": {k: v for k, v in hold.items() if k != "align"}} for hold in holds]}
+    )
     for hold in holds:
         if hold.get("fixture", "unknown") == "unknown":
             fixture_refs.add("unknown")

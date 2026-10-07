@@ -1245,18 +1245,22 @@ uses the 1898 manual arc method:
    the shop policy `numbers.max_filing_stock_mm` unless a later rough cuts the
    same faces again ([coordinates](rules-coordinates.md#coordinates)).
 3. **File to the line**: `do = "file_to_line"` with a `guide`: hardened filing
-   `buttons` (an inventory `fixtures` kit with `kind = "filing_buttons"`,
-   `dia_mm` and pin `bore_dia_mm`, held by the setup as its `hold.fixture` or a
+   `buttons` (an inventory `fixtures` kit with `kind = "filing_buttons"` and the
+   declared limits of every element between its rims and the bore axis
+   ([inventory](inventory.md)), held by the setup as its `hold.fixture` or a
    clamp) pinned through `bore`, a hole on the arc's axis drilled, reamed or
    bored to size earlier; or a `template` checked against a scribed layout. A
    `gauge` (inventory `radius_gauge`/`profile_gauge` whose `range_mm` covers R)
-   checks the arc. The buttons file R from `dia/2 − play` to `dia/2 + play`
-   (play = (largest bore − pin)/2), which must sit inside the radial band. No
-   guide, no gauge, buttons not held or flagged to verify, an unknown bore size or
-   radius band, no earlier rough or no established cap is
-   unknown; a gauge range that misses R, buttons on a concave arc, a bore off the
-   axis or not yet made, a pin larger than the bore or a filed radius outside the
-   band is an error. `scribe` and `file_to_line` are manual: they need no tool
+   checks the arc. The buttons file R worst case from `button_min/2 − shift` to
+   `button_max/2 + shift`, where the rim centre's shift off the bore axis is
+   `(bore_max − pin_min)/2 + (button_bore_max − pin_min)/2 + runout/2`; that whole
+   band must sit inside the radial band. No guide, no gauge, buttons not held or
+   flagged to verify, any unknown element limit (button OD, button bore, pin,
+   runout or the bore's drawing size) or radius band, no earlier rough or no
+   established cap is unknown; a gauge range that misses R, buttons on a concave
+   arc, a bore off the axis or not yet made, a pin whose largest size exceeds the
+   smallest bore or button bore, or a worst-case filed radius outside the band is
+   an error. `scribe` and `file_to_line` are manual: they need no tool
    and may stand in a bench setup (`machines.<id>.kind = "bench"`).
 4. **Or finish on the mill**: `{ method = "chords", count = … }` cuts straight
    chords whose sagitta `c²/8R` fits the band, each fed along one axis (a slanted
