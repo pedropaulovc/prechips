@@ -2220,8 +2220,9 @@ solids = [
 # is bought finished from a tooling catalogue that sells configurable hardened and ground
 # collars and stepped shafts, and checked on receipt (S4F note). Local frame: stud axis
 # Z, Z0 on the outer ear face. Receipt limits for R6.90-7.10: button OD 13.95-14.03,
-# button bore 6.500 GO / 6.530 NO-GO, stud 6.475-6.495 in the 6.50-6.53 cross bore:
-# worst case R6.920 (13.95/2 - 2 x 0.0275) to R7.070 (14.03/2 + 2 x 0.0275).
+# button bore 6.500 GO / 6.530 NO-GO, stud 6.475-6.495 in the 6.50-6.53 cross bore, button
+# OD runout 0.01 TIR on its bore: worst case R6.915 (13.95/2 - 0.060) to R7.075
+# (14.03/2 + 0.060), centre shift 0.0275 + 0.0275 + 0.01/2.
 [fixtures.bracket-arch-filing-buttons]
 name = "bracket arch filing buttons"
 kind = "filing_buttons"
