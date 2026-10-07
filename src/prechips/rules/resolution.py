@@ -443,12 +443,34 @@ NAMED_REFERENCE = re.compile(
     r"\.([A-Za-z0-9](?:[\w-]*\w)?(?:/[\w#./-]*[\w#])?)"
 )
 
+# Brackets, quotes and sentence punctuation around a name in authored text, not part of it.
+_NAME_OPENERS = "([{\"'"
+_NAME_CLOSERS = ")]}\"'.,;:!?"
+
+
+def authored_names(text):
+    """``[(start, end, "<category>.<key>")]``: each inventory item authored text (a make
+    operation's hold or source, printed as written) names, read token by token: a
+    whitespace-separated token that, less the brackets, quotes and sentence punctuation
+    around it, is a name (:data:`NAMED_REFERENCE`) and nothing more. A link or path
+    (``https://tools.example.com/x``, ``C:\\shop\\tools.chart.pdf``) is more than a name,
+    so nothing in it is read as one."""
+    found = []
+    for token in re.finditer(r"\S+", text if isinstance(text, str) else ""):
+        word = token[0].lstrip(_NAME_OPENERS)
+        start = token.end() - len(word)
+        word = word.rstrip(_NAME_CLOSERS)
+        if NAMED_REFERENCE.fullmatch(word):
+            found.append((start, start + len(word), word))
+    return found
+
 
 def setup_named_references(bundle, setup, job=False):
     """``{"<category>.<key>": [where, ...]}`` for one setup: every inventory item named
     (:data:`NAMED_REFERENCE`) in the setup's own prose and in the solid notes, record
-    blanks and make operations' hold and source of the shop-made items it uses, each
-    record's gauge as ``gauges.<gauge>``.
+    blanks and make operations' hold and source (:func:`authored_names`: never inside a
+    link or path) of the shop-made items it uses, each record's gauge as
+    ``gauges.<gauge>``.
     With ``job``, the plan's prose outside its setups (the job page's, before the first
     setup) too."""
     named = {}
@@ -488,7 +510,9 @@ def setup_named_references(bundle, setup, job=False):
                     add(f"gauges.{gauge}", f"{where} record")
         for solid, op in make_ops(item):
             where = f"{ref} {record(solid).get('name', 'item')} make op"
-            scan([record(op).get("hold"), record(op).get("cite")], where)
+            for text in (record(op).get("hold"), record(op).get("cite")):
+                for *_, name in authored_names(text):
+                    add(name, where)
     return named
 
 

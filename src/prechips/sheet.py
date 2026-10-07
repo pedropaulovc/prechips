@@ -29,6 +29,7 @@ from .rules.resolution import (
     NAMED_REFERENCE,
     SAW_OPS,
     WORKHOLDING_CATEGORIES,
+    authored_names,
     coating_process,
     drawing_precision,
     inventory_category,
@@ -2303,7 +2304,8 @@ class _Traveler:
         this setup; a later setup using it at the same poses points back here. Every fit
         on the sheet's items marks its setup-frame places first, so a hole or mating part
         at one of them prints the same value in every table. Then the make operations of
-        each item no make table carries (:meth:`make_operation_lists`)."""
+        each item this setup is the first to hold with and no table here carries
+        (:meth:`make_operation_lists`)."""
         uses = self.shop_made_uses(setup)
         self.fit_places = {}
         for reference, placements in uses.items():
@@ -2323,35 +2325,50 @@ class _Traveler:
             if self.shop_made_home(setup, reference, uses) == setup["id"]
         )
         self.fit_places = {}
-        return tables + self.make_operation_lists(setup)
+        return tables + self.make_operation_lists(setup, uses)
 
     @functools.cached_property
-    def tabled_items(self):
-        """``{(category, reference)}``: each shop-made item a make table prints on some
-        setup's sheet (:meth:`shop_made_uses`), in the category :meth:`shop_made` reads."""
-        return {
-            (workholding_category(self.bundle, reference), reference)
-            for setup in self.bundle.plan.get("setups") or []
-            for reference in self.shop_made_uses(setup)
-        }
+    def make_homes(self):
+        """``(first_use, first_table)``, each ``{(category, reference): setup id}``: the
+        first setup that holds with the item through any slot (:func:`setup_items`), its
+        make operations made before it and printed there only, and the first whose sheet
+        2 prints its make table (:meth:`shop_made_uses`, in :meth:`shop_made`'s category)."""
+        first_use, first_table = {}, {}
+        for setup in self.bundle.plan.get("setups") or []:
+            for category, reference, *_ in setup_items(self.bundle, setup):
+                first_use.setdefault((category, reference), setup.get("id"))
+            for reference in self.shop_made_uses(setup):
+                key = (workholding_category(self.bundle, reference), reference)
+                first_table.setdefault(key, setup.get("id"))
+        return first_use, first_table
 
-    def make_operation_lists(self, setup):
+    def make_operation_lists(self, setup, uses):
         """The make operations (:meth:`make_lines`) of each shop-made item this setup is the
-        first to hold with through a slot no make table covers (a chuck, parallels, a jaw
-        bar or single support, an op's holder, a guide's buttons), under the item's name:
-        a declared operation always prints, once, where tool_resolves checks it."""
+        first to hold with, through any slot, when no make table on this sheet carries them
+        (``uses``: this setup's :meth:`shop_made_uses`), under the item's name and a
+        pointer to its later make table, if any: a declared operation prints once, before
+        the item is first needed."""
+        first_use, first_table = self.make_homes
         html = ""
         for category, reference, *_ in setup_items(self.bundle, setup):
-            if category not in WORKHOLDING_CATEGORIES or (category, reference) in self.tabled_items:
+            key = (category, reference)
+            if category not in WORKHOLDING_CATEGORIES or first_use.get(key) != setup["id"]:
+                continue
+            if reference in uses and workholding_category(self.bundle, reference) == category:
                 continue
             lines = self.make_lines(shop_made_item(self.bundle, reference, category), {})
-            home = self.shop_made_homes.setdefault(("make_ops", category, reference), setup["id"])
-            if not lines or home != setup["id"]:
+            if not lines:
                 continue
+            table = first_table.get(key)
             title = f"SHOP-MADE FIXTURE — {self.reference(reference, category)}"
             html += (
                 f"<h2>{escape(title)}</h2>"
                 + _p(f"Make before Setup {setup['id']}.")
+                + (
+                    _p(f"Sizes and positions: SHOP-MADE FIXTURE table, Setup {table} sheet 2.")
+                    if table
+                    else ""
+                )
                 + _p("Make operations, in order:")
                 + "".join(_p(line) for line in lines)
             )
@@ -2396,7 +2413,8 @@ class _Traveler:
         and the holes cut in it. Bought hardware is one line under the table, and each
         made row's or made hole's ``note`` (material, heat treatment, finish, how it is
         cut) one "Make:" entry under that, then its ``make_ops`` one cutting-data line
-        each (:meth:`make_lines`); solids already in the shop (``supply =
+        each (:meth:`make_lines`) when this setup is the first to hold with it (else where
+        they print: :meth:`make_homes`); solids already in the shop (``supply =
         "existing"``, such as machine vise jaws drawn for clearance) are not rows. A
         bought or existing part's note prints on a "Notes:" line after the Make entries,
         and every solid's ``records`` print as fill-ins (:meth:`record_blank`) under
@@ -2539,8 +2557,12 @@ class _Traveler:
         users = [label for label, _ in placements if label and label != "stop"]
         title = f"SHOP-MADE FIXTURE — {self.reference(reference, 'fixtures')}"
         title += f" ({', '.join(users)})" if users else ""
+        # Its make operations print once, before the first setup holding with it (whichever
+        # slot): a later table names that setup and points back to them.
+        first = self.make_homes[0].get((workholding_category(self.bundle, reference), reference))
+        first = first if first and make_ops(item) else sid
         intro = (
-            f"Make before Setup {sid}. "
+            f"Make before Setup {first}. "
             + (
                 f"Nothing poses it in the Setup {sid} frame: set it where the HOLD says. "
                 "Positions are in the item's own frame"
@@ -2552,7 +2574,7 @@ class _Traveler:
         hardware = self.hardware(
             [s for s in solids if not s.get("void") and _supply(s) == "bought"], len(placed)
         )
-        operations = self.make_lines(item, components)
+        operations = self.make_lines(item, components) if first == sid else []
         return (
             f"<h2>{escape(title)}</h2>"
             + _p(intro)
@@ -2569,6 +2591,11 @@ class _Traveler:
             + (_p(f"Make: {_make_notes(notes)}.") if notes else "")
             + (_p("Make operations, in order:") if operations else "")
             + "".join(_p(line) for line in operations)
+            + (
+                _p(f"Make operations: Setup {first} sheet 2.")
+                if first != sid and make_ops(item)
+                else ""
+            )
             + (_p(f"Notes: {_make_notes(others)}.") if others else "")
             + (_p("Measure and record before first use:") if records else "")
             + "".join(_p(line) for line in records)
@@ -2629,9 +2656,14 @@ class _Traveler:
         return lines
 
     def authored(self, text):
-        """Authored text whole, as written (a link or path in it too), each inventory item
-        it names as its shop name (:meth:`shop_names`)."""
-        return " ".join(self.shop_names(str(text)).split())
+        """Authored text whole, as written (a link or path in it too), each inventory item it
+        names as a word of its own (:func:`authored_names`) as its shop name."""
+        text = " ".join(str(text).split())
+        printed, last = "", 0
+        for start, end, _ in authored_names(text):
+            printed += text[last:start] + self.shop_names(text[start:end])
+            last = end
+        return printed + text[last:]
 
     def record_blank(self, solid, blank):
         """One record blank as a fill-in: ``head: head-to-shoulder TIR — 0.0005 in test

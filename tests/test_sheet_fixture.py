@@ -1222,10 +1222,84 @@ def test_a_machine_accessory_the_tools_do_not_list_is_no_make_tool(key):
         ("cite", "https://example.com/cutting-data"),
         ("cite", "Vendor chart https://example.com/em.pdf p.3"),
         ("hold", "as drawn in https://example.com/hold.png"),
+        ("cite", "https://tools.example.com/cutting-data"),
+        ("cite", r"C:\shop\tools.cutting-data.pdf"),
+        ("hold", "per /srv/charts/fixtures.bridge.pdf"),
     ],
 )
 def test_authored_make_text_prints_whole(field, value):
+    from prechips.rules import tool_resolves
+
     data, table = make_page(item_ops=[{**MAKE_OP, field: value}])
     (line,) = make_lines(table)
     assert value in line and "STOP" not in line
     assert make_statuses(data) == ["pass"]
+    # A link or path is the source as written: nothing in it is read as an inventory name.
+    assert not [f for f in tool_resolves.evaluate(data) if f.numbers.get("named_in")]
+
+
+def test_a_name_beside_a_link_prints_as_its_shop_name():
+    hold = "clamped on gauges.granite-plate, (https://gauges.granite-plate.example/p.pdf)"
+    _, table = make_page(item_ops=[{**MAKE_OP, "hold": hold}])
+    (line,) = make_lines(table)
+    assert "hold: clamped on ? granite-plate, (https://gauges.granite-plate.example/p.pdf);" in line
+
+
+@pytest.mark.parametrize(
+    ("holds", "tabled"),
+    [
+        ([{"fixture": "angle", "support": "rest"}, {"fixture": "rest", "pose": IDENTITY}], [2]),
+        ([{"fixture": "rest", "pose": IDENTITY}, {"fixture": "rest", "pose": TURNED}], [1, 2]),
+        ([{"fixture": "rest", "pose": IDENTITY}, {"fixture": "angle", "support": "rest"}], [1]),
+    ],
+    ids=["support-then-table", "two-tables", "table-then-support"],
+)
+def test_make_operations_print_once_at_the_first_use(holds, tabled):
+    data = bundle(holds)
+    data.inventory["tools"] = {"endmill-6": dict(END_MILL)}
+    data.inventory["fixtures"]["rest"] = {
+        "kind": "custom",
+        "solids": [cylinder("rest", 0, 0, 20, 6)],
+        "make_ops": [MAKE_OP],
+    }
+    first, second = (page.partition("SHOP-MADE")[2] for page in sheets(data))
+    # Made before the first setup holding with it, whichever slot; never again later.
+    (line,) = make_lines(first)
+    assert MAKE_OP["cite"] in line and "STOP" not in line
+    assert not make_lines(second) and "Make before Setup S2" not in second
+    assert make_statuses(data) == ["pass"]
+    # A later make table and the operations before it each name the other's sheet.
+    if 2 in tabled:
+        assert "Setup S1 sheet 2" in second
+    if 1 not in tabled:
+        assert "Setup S2 sheet 2" in first
+
+
+@pytest.mark.parametrize(
+    "member", [{"supply": "bought"}, {"supply": "existing"}, {"kind": "plate"}]
+)
+def test_a_member_keeps_its_set_make_operations_only_where_it_is_made(member):
+    from pydantic import ValidationError
+
+    from prechips.model import Inventory
+
+    def bridge(own):
+        supply = {"supply": own["supply"]} if "supply" in own else {}
+        override = {key: value for key, value in own.items() if key != "supply"}
+        one = {"solids": [cylinder("one", 0, 0, 20, 6, **supply)], **override}
+        return {
+            "fixtures": {
+                "bridge": {
+                    "kind": "custom",
+                    "solids": [cylinder("head", 0, 0, 8, 4)],
+                    "make_ops": [MAKE_OP],
+                    "members": {"one": one},
+                }
+            }
+        }
+
+    # The member is the set's record with its own keys over it: the set's operations are
+    # its own, so a member that makes nothing here (no make table) is refused.
+    Inventory.model_validate(bridge({"supply": "made"}))
+    with pytest.raises(ValidationError):
+        Inventory.model_validate(bridge(member))
