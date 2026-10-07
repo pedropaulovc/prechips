@@ -97,7 +97,7 @@ def claim_refs(bundle, op):
     if "faces" in op:
         return op["faces"]
     feature = record(bundle.feature_definitions.get(op_feature(op)))
-    owner = record(feature.get("joint")) or record(feature.get("process"))
+    owner = record(feature.get("joint")) or record(feature.get("preparation"))
     return [owner["label"]] if owner else feature.get("faces", UNKNOWN)
 
 

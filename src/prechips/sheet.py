@@ -4096,7 +4096,7 @@ class _Traveler:
                 + self.band(definition.get(d), feature, d)
                 for d in dict.fromkeys(tolerance_requirements(definition))
             ]
-            if _mapping(definition.get("process")):
+            if _mapping(definition.get("preparation")):
                 # Plan stock preparation (a faced end, a centre): the route makes it, the
                 # drawing never asks for it, so it is no acceptance row.
                 continue

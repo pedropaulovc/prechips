@@ -37,8 +37,12 @@ def label(name: str) -> str:
 
 
 def process_of(definition: Any) -> dict | None:
-    """The process identity of an operative feature definition, or None otherwise."""
-    return definition.get("process") if isinstance(definition, dict) else None
+    """The process identity of an operative feature definition, or None otherwise.
+
+    It lives under ``preparation``: a manifest feature's own ``process`` (``"ream"``)
+    names how a drawing feature is finished, not plan stock preparation.
+    """
+    return definition.get("preparation") if isinstance(definition, dict) else None
 
 
 def source_cite(definition: Any) -> list[str]:
@@ -77,7 +81,7 @@ def feature_definitions(plan: dict, definitions: dict) -> dict[str, dict]:
             # Stock preparation is never a drawing requirement.
             "requirements": [],
             "cite": feature["cite"],
-            "process": process,
+            "preparation": process,
         }
         for key in ("size", "note"):
             if key in feature:
@@ -142,7 +146,7 @@ def primitive(bundle, name: str) -> dict:
     if feature["kind"] == "centre_hole":
         result.update({key: feature[key] for key in _CENTRE_KEYS})
         result["depth_mm"] = centre_depth_mm(
-            {"process": {key: feature[key] for key in _CENTRE_KEYS}}
+            {"preparation": {key: feature[key] for key in _CENTRE_KEYS}}
         )["depth_mm"]
     return result
 

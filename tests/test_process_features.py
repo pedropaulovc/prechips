@@ -12,6 +12,7 @@ from test_process_route import HEADER, blocks, drop_setup_key, evaluate, rewrite
 
 from prechips.inputs import load_bundle
 from prechips.rules import RULES
+from prechips.rules.resolution import claim_refs
 
 # Machinery's Handbook 27th ed. p.873 Table 6, plain size 2: drill D and drill length C
 # 5/64 in (as the example plan rounds them), 60° countersink, opened to the plan's Ø3.0.
@@ -88,6 +89,22 @@ def test_centre_depth_is_table_6_drill_length_plus_the_countersink_to_the_mouth(
     assert rows[0]["tip_z"] == pytest.approx(-(LENGTH + countersink))
     if mouth == MOUTH:
         assert rows[0]["depth_mm"] == pytest.approx(2.8633, abs=5e-5)
+
+
+def test_a_drawing_feature_finished_by_reaming_is_not_stock_preparation(tmp_path):
+    # The rocker's exported pivot bore carries its own drawing `process = "ream"`; that
+    # must neither refuse its inspected ream op nor turn its STEP faces into a plan label.
+    bundle = load_bundle(copy_examples(tmp_path) / "rocker-arm" / "plan.toml")
+    bore = bundle.feature_definitions["pivot_bore"]
+    assert bore["process"] == "ream"
+    ream = next(
+        op
+        for setup in bundle.plan["setups"]
+        for op in setup["ops"]
+        if op.get("feature") == "pivot_bore" and op["do"] == "ream"
+    )
+    assert claim_refs(bundle, ream) == bore["faces"]
+    assert set(ream["checks"]) == {"dia", "finish_ra"}
 
 
 def drop_checks(plan, block):

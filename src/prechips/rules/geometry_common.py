@@ -108,7 +108,7 @@ def finishing_subjects(bundle):
     return {
         f"{setup['id']}:{op['op']}"
         for name, definition in bundle.feature_definitions.items()
-        if not record(record(definition).get("process"))
+        if not record(record(definition).get("preparation"))
         for _, setup, op in _cuts(bundle, name)
         if cutting_action(op) is True and op.get("do") not in SAW_OPS | {"coating"}
     }
@@ -139,7 +139,7 @@ def provenance(bundle, rule, setup=None, op=None, feature=None):
         joint = record(entry.get("joint"))
         if joint:
             cite.append(f"plan.joint_features.{joint['id']}: analytic transient cylinder")
-        elif record(entry.get("process")):
+        elif record(entry.get("preparation")):
             from prechips.process_features import source_cite
 
             cite.extend(source_cite(entry))
@@ -197,7 +197,7 @@ def unavailable(bundle, rule, subject, facts, cite):
 
 def mapped_feature(bundle, facts, name):
     feature = record(bundle.feature_definitions.get(name))
-    if record(feature.get("process")):
+    if record(feature.get("preparation")):
         # Stock preparation maps to no finished face: it is never drawing coverage.
         return set(), []
     joint = record(feature.get("joint"))
@@ -237,7 +237,7 @@ def op_claims(bundle, facts, setup, op):
     process-feature op (stock preparation) credits no finished face at all.
     """
     refs = claim_refs(bundle, op)
-    if record(record(bundle.feature_definitions.get(op_feature(op))).get("process")):
+    if record(record(bundle.feature_definitions.get(op_feature(op))).get("preparation")):
         return set(), [], []
     errors = record(facts.get("mapping_errors"))
     detail = record(record(facts.get("ops")).get(f"{setup['id']}:{op['op']}"))
