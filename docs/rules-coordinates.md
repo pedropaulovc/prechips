@@ -161,7 +161,12 @@ or, if that field is absent, `stock_to_leave_mm`. A non-rough arc or linear
 contour carrying `rough_allowance_mm` produces both rough and finish tables:
 rough offset = cutter radius + allowance; finish offset = cutter radius. An
 unknown authored allowance leaves the rough path unresolved rather than using
-zero. Operations without an authored rough allowance keep their finish-only
+zero. A negative leave (`rough_allowance_mm`, or a rough op's `stock_to_leave_mm`)
+on any operation, contour or not, is an error (`allowance_errors`): its rough
+would cut into the finished part, so no stage of that op is offset, printed or
+proven (the traveler prints a STOP), and the kernel, travel, joint and speeds
+rules read it as unknown or an error, never as a shifted band or cut. Operations
+without an authored rough allowance keep their finish-only
 table. Each profile, arc and exact line-join record names its `stage` (`rough`
 or `finish`), so the report and traveler distinguish the two paths even when
 they share one operation number. Axial dome samples remain nominal profiles,
@@ -190,9 +195,11 @@ naming them. Each table is recorded under `arc_table` (its joins under
 - `stairs` (rough only; spaced by `cusp_mm`): rows include each angle at which
   the arc is tangent to a setup axis, so every step between rows is monotone,
   and are spaced as far apart as keeps the material the stepped cutter leaves
-  on the wall within `cusp_mm`, measured on the printed DRO values: when
-  rounding to the DRO grid leaves more, the rows are respaced closer (a stair
-  still over `cusp_mm` is unknown). A corner row (no angle) between two rows
+  on the wall within `cusp_mm` (beside a concave arc's tangent dip, without
+  the leg into the dip, which the merged move stops short of), measured on the
+  printed DRO values: when rounding to the DRO grid leaves more, the rows are
+  respaced closer, by at least enough to move a row (a stair still over
+  `cusp_mm` is unknown). A corner row (no angle) between two rows
   that differ on both axes turns one axis, then the other: `(b.x, a.y)` or
   `(a.x, b.y)`, whichever keeps both legs no nearer any wall than the
   cutter-centre offset (or than the rows it joins, if nearer) and lies farther
@@ -201,39 +208,56 @@ naming them. Each table is recorded under `arc_table` (its joins under
   the middle of a move (a concave arc's lowest point, which the move then stops
   short of) is not printed. Each row names the axis moved to reach it (`jog`).
   Straight joins are split so their stairs keep the same cusp. The record
-  carries `stair_cusp_mm` (the most material a target-surface point keeps from
-  the stepped cutter), `line_clear_mm` (the least gap from the stepped cutter's
-  edge to the finished line) and `stock_left_mm` (allowance + cusp). No corner
-  that keeps outside the line, or a `line_clear_mm` below zero, is an error
-  and withholds the stage's rows.
+  carries `stair_cusp_mm` (the most material the stepped cutter's swept legs
+  leave along any wall normal, measured from the wall out to the first leg the
+  normal meets; a normal that meets none is unknown), `line_clear_mm` (the
+  least gap from the stepped cutter's edge to the finished line) and
+  `stock_left_mm` (allowance + cusp). No corner that keeps outside the line,
+  or a `line_clear_mm` below zero, is an error and withholds the stage's rows.
 - `chain_drill` (rough only; holes no more than `pitch_mm` apart along the
   rough path, drilled with the op's drill): every hole's full diameter must stay
   outside the line (`hole_clear_mm` ≥ 0) and neighbours must leave a web
   (centres more than a drill diameter apart); either failure is an error. The
-  webs are broken out along the hole centres (`break_out`), so the file meets
-  `stock_left_mm` = allowance + drill radius.
+  webs are broken out along the hole centres (`break_out`): every centre-to-centre
+  segment must stay outside the line (it runs inside it is an error), and the
+  file meets `stock_left_mm` = the larger of allowance + drill radius and the
+  deepest material the break-out leaves off the line along a radius.
 - `chords` (finish; `count` straight chords): the chord ends sit on the edge
   radius that centres each chord's sagitta `c²/8R` in the feature's radial band
   (`dia` halved for a full circle, `bottom_radius` or `radius` otherwise); a
-  sagitta wider than the band is an error. Each chord is fed along one table
-  axis: as it lies when it is square to X or Y, else with the work indexed
-  square to X on the setup's rotary table (`index_deg`, rounded to the dial's
-  resolution); a slanted chord with no rotary table is an error. Each `cut`
+  sagitta wider than the band is an error, and so is a full circle cut in fewer
+  than three chords or two neighbouring chords that run parallel. Each chord is
+  fed along one table axis: as it lies when it is square to X or Y, else with the
+  work indexed square to X on the setup's rotary table (`index_deg`, rounded to
+  the dial's resolution); a slanted chord with no rotary table is an error. Each `cut`
   locks one axis `at` a DRO-grid value on the scrap side and feeds the other
   `from`/`to` grid values; the rule rebuilds every chord face from those printed
   cuts and holds its nearest and farthest points (`face_radius_mm`) inside the
-  band, else an error.
+  band, else an error. A rotary table flagged to verify is unknown.
 - `rotary_table` (finish; rows every `step_deg`): the setup holds the work on
   an inventory `rotary_table` fixture (`hold.fixture`), with the arc centre on
   the table axis at setup X0 Y0, located by a pin through (`centre_by = "pin"`)
   or by indicating (`"indicate"`) `contour.centre_feature`, a hole on that axis
-  an earlier drill, ream or bore makes. The spindle locks at X = the
-  cutter-centre radius, Y0 (`offset_axis`, `offset_mm`); the table turns the
-  work against the cutter from the `start_deg` to the `stop_deg` dial reading,
-  both rounded inward to the vernier (else graduation) resolution, and the
+  an earlier drill, ream or bore makes. A pin is the hole's smallest diameter: it
+  must enter the table's centre bore (`bore_dia`, else unknown), else an error.
+  The spindle locks at X = the cutter-centre radius on the DRO grid in plan
+  units, off the line, Y0 (`offset_axis`, `offset_x`; `offset_mm` the same in
+  mm). That printed offset's cut radius (`cut_radius_mm`), widened for a pin by
+  the centre's play (half each bore's clearance over the pin,
+  `centre_play_mm`), must lie inside the feature's radial band (a rough stage's
+  band moved off the line by its allowance), else an error, however the centre
+  is found; an unknown band is unknown. The table turns
+  the work against the cutter from the `start_deg` to the `stop_deg` dial
+  reading, both rounded inward along the turn to the vernier (else graduation)
+  resolution: an arc too short to keep a reading inside it is an error. The
   setup-entry stock (kernel `stock_bbox_mm`) must swing inside the table's
   `max_work`. Off-axis centres, no table, no earlier centre hole or a swing over
-  `max_work` are errors; unknown dial, centre or swing facts are unknown.
+  `max_work` are errors; unknown dial, centre or swing facts, or a table
+  flagged to verify, are unknown.
+
+Every manual-arc table is cut in the plan's feature units (`mm` or `in`, else
+unknown) and records its millimetre facts (`*_mm`) in millimetres: the cutter,
+drill, cusp, band and stock values are converted, never mixed.
 
 A rough stage's leftover (`stock_left_mm`) goes to the file
 (`rules/manual_arc.py`, `file_to_line`) and must not exceed the shop policy
@@ -522,6 +546,11 @@ A closed `linear_table` outline with a diagonal edge appends (unknown):
 
 ` Moves between rows are unproven: op {op} {stage} needs diagonal moves: … .`
 
+A negative rough leave on any op appends (error; every stage of that op is
+withheld, numbers `allowance_errors`):
+
+` Rough allowance error: op {op}: {rough_allowance_mm|stock_to_leave_mm} {value} is negative: the rough would cut {-value} mm into the finished part.` (`;`-joined)
+
 A manual arc that cuts into the part or cannot be cut (a stair or hole inside the
 line, leftover over the filing cap, a sagitta or chord face outside the band, a
 slanted chord without a rotary table, a rotary-table recipe off its axis, or an
@@ -650,8 +679,10 @@ circle). Unknown geometry is unknown.
   convex arc. They file from `dia/2 − play` to `dia/2 + play`
   (`files_to_mm`, play = (largest bore − pin)/2), which must sit inside the
   radial band. Any of those failing is an error; a kit missing from the
-  inventory, not held, or unknown sizes are unknown. `guide.template` instead
-  files to a line an earlier `scribe` op laid out (`layout_op`; none is
+  inventory, not held, flagged to verify, or unknown sizes (a bore `dia` that is
+  not a known pair of numbers) are unknown, and so is an unknown radius band.
+  `guide.template` instead files to a line an earlier `scribe` op laid out
+  (`layout_op`; none is
   unknown). `guide.gauge` must be a radius or profile gauge covering R (no gauge
   is unknown). `rough_op` names the earlier `stairs`/`chain_drill` roughs that
   leave their stock to this file (none is unknown); `stock_cap_mm` is the policy

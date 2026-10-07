@@ -4,6 +4,8 @@
 # crankshaft_spec.py:110); the cone spec states no step-corner value (HA #1215).
 # Example divergences (HA #1215): cone_boss_south_face carries the 42.011 cap-to-cap length band and
 # foot_seat the 86.0 height band; the export attaches each band to only one of its two terminating faces.
+# Example divergence (HA #1215, https://github.com/pedropaulovc/harmonic-analyzer/issues/1215#issuecomment-6030603028):
+# material.finish replaces MASK MACHINED FACES with the built-up variant's paint/mask split.
 "part" = "cone-pivot-post"
 "units" = "mm"
 "precision" = "unknown"
@@ -24,7 +26,7 @@
 ["material"]
 "spec" = "LOW-CARBON STEEL OR GRAY IRON"
 "name" = "LOW-CARBON STEEL OR GRAY IRON"
-"finish" = "RAL 6005 ALKYD; SSPC-SP 3; 50-75 um DFT; MASK MACHINED FACES; OIL BARE FACES ISO VG 32"
+"finish" = "RAL 6005 ALKYD; SSPC-SP 3; 50-75 um DFT; built-up variant: paint RAL 6005 on non-functional turned ODs; mask bores, faces and joint surfaces; OIL BARE FACES ISO VG 32" # example divergence (HA #1215 comment https://github.com/pedropaulovc/harmonic-analyzer/issues/1215#issuecomment-6030603028): export reads "...; MASK MACHINED FACES; ..."; the all-turned built-up post has no unmachined surface to paint
 "thickness" = "unknown"
 "cite" = ["harmonic-analyzer/cad/config/parts/cone-pivot-post.yaml:cone-pivot-post.material_family", "harmonic-analyzer/cad/config/parts/_defaults.yaml:material_families.ferrous_noncritical.material_specification", "harmonic-analyzer/cad/config/parts/_defaults.yaml:material_families.ferrous_noncritical.material", "harmonic-analyzer/cad/config/parts/cone-pivot-post.yaml:cone-pivot-post.finish"]
 

@@ -29,6 +29,7 @@ from prechips.rules.resolution import (
     UNKNOWN,
     _citations,
     record,
+    rough_leave,
     same_length,
     saw_setup,
     setup_frame_ref,
@@ -182,10 +183,17 @@ def evaluate(bundle):
                     + "/".join(invalid_stock)
                     + " dimensions in mm"
                 )
-            rough = action.startswith("rough_")
-            allowance = op.get("rough_allowance_mm", UNKNOWN) if rough else 0
-            allowance_known = _known(allowance) and allowance >= 0
-            if not allowance_known:
+            # A rough stage runs its leave farther out than the finished line: an explicit
+            # rough, or the rough a contour finish pairs with its rough_allowance_mm (the
+            # coordinates rule prints both). A negative leave anywhere is refused, never
+            # padded; an unknown one a rough stage needs stays debt.
+            leave, refusal = rough_leave(op)
+            staged = action.startswith("rough_") or "contour" in op
+            allowance = leave if staged and leave is not None else 0
+            allowance_known = _known(allowance)
+            if refusal:
+                errors.append(f"op {op['op']} {refusal}")
+            elif not allowance_known:
                 missing.append(
                     f"Measure and declare {label}.rough_allowance_mm >= 0 with calipers "
                     "or a micrometer in mm per side of the rough cut"
