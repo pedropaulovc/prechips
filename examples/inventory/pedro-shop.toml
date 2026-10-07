@@ -2244,7 +2244,8 @@ solids = [
 
 # DataBracket5 (r6): the shop has no hardening or precision grinding, so the bracket kit
 # is bought finished from a tooling catalogue that sells configurable hardened and ground
-# collars and stepped shafts, and checked on receipt (S4F note). Local frame: stud axis
+# collars and stepped shafts, and checked on receipt (acceptance below; the S4F front
+# sheet prints it as the PURCHASED TOOLING / RECEIPT CHECK table). Local frame: stud axis
 # Z, Z0 on the outer ear face. Receipt limits for R6.90-7.10: button OD 13.95-14.03,
 # button bore 6.500 GO / 6.530 NO-GO, stud 6.475-6.495 in the 6.50-6.53 cross bore, button
 # OD runout 0.01 TIR on its bore: worst case R6.915 (13.95/2 - 0.060) to R7.075
