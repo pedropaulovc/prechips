@@ -1276,7 +1276,7 @@ rough_allowance_mm = 0.20 # AUTHOR'S CHOICE: the 0.20 radial the earlier roughs 
 direction = "conventional" # author's choice
 approach_mm = 5.0
 contour = { method = "stairs", cusp_mm = 0.25 } # AUTHOR'S CHOICE: stairs because a manual mill moves one handwheel at a time; 0.20 allowance + 0.25 cusp leaves 0.45, inside the 0.5 filing cap
-note = "Rough the top arc outside the scribed line in stairs with light conventional passes. Its two endpoints are the joins for op 27; this cut does not complete the outline release. Keep every scrap-rail clamp tight for the closing stairs in op 27."
+note = "Rough the top arc outside the scribed line in stairs with light conventional passes. Its two endpoints are the joins for op 27; this cut does not complete the outline release. It passes more than 9 from the LOC2 rod-hole pin; the nearest cut to the pin is op 27's +X join. Keep every scrap-rail clamp tight for the closing stairs in op 27."
 
 [[setups.ops]]
 op = 27
@@ -1292,7 +1292,7 @@ rough_allowance_mm = 0.20 # AUTHOR'S CHOICE: the 0.20 radial the earlier roughs 
 direction = "conventional" # author's choice
 approach_mm = 5.0
 contour = { method = "stairs", cusp_mm = 0.25 } # AUTHOR'S CHOICE: stairs because a manual mill moves one handwheel at a time; 0.20 allowance + 0.25 cusp leaves 0.45, inside the 0.5 filing cap
-note = "Work the stair tables in this order: -X join, bottom arc, +X join; the joins meet the op 25 top-arc end points. The outline releases during this op. Enter each table from the scrap side; never plunge beside the part edge. Move one handwheel at a time at the listed Z, pushing into the counterclockwise-preloaded pin contact. Retract clear of stock and fixturing before moving to the next table. Keep every scrap-rail clamp tight until the op is complete and the cutter is retracted, then remove the scrap. The diamond pin takes the closing-cut load; the shoulder screw and washer prevent lift and the pads carry Z."
+note = "Work the stair tables in this order: -X join, bottom arc, +X join; the joins meet the op 25 top-arc end points. The outline releases during this op. Enter each table from the scrap side; never plunge beside the part edge. Move one handwheel at a time at the listed Z, pushing into the counterclockwise-preloaded pin contact. Retract clear of stock and fixturing before moving to the next table. LOC2 clearance: the +X join passes 2.32 from the pin's 3.0 neck at its closest, at nominal positions (the cutter at Z -6.025 stays 3.07 above the 4.5 collar). Before cutting the +X join, with the spindle stopped, jog the cutter at the listed Z to the rows nearest the pin and pass a 2.0 gauge pin between cutter and neck at each; if it does not pass, stop and re-check the zero. Keep every scrap-rail clamp tight until the op is complete and the cutter is retracted, then remove the scrap. The diamond pin takes the closing-cut load; the shoulder screw and washer prevent lift and the pads carry Z."
 
 [[setups.ops]]
 op = 30
@@ -1363,7 +1363,7 @@ land_angle_deg = [
   "Bed the land square's R800 stock face on the part's top edge, the blade end at the +X tip corner and the blade across the +X land. The square registers on the top edge, so hole clocking does not affect the reading.",
   "Feeler the gap between blade and land at the land's top-edge end {gap at top} and at its bottom-edge end {gap at bottom}.",
   "Calipers: measure the land length between those two feeler stations {L}.",
-  "Calculate: allowed = L x tan 1° = L x 0.01746 = {allowed} (the drawing's 89° to 91°).",
+  "Calculate: allowed = L x tan 1° = L / 57.29 = {allowed} (the drawing's 89° to 91°).",
   "Calculate: difference = gap at top - gap at bottom, ignoring sign = {difference}; the land passes if difference is no more than allowed.",
 ]
 
@@ -1380,7 +1380,7 @@ land_angle_deg = [
   "Off the template, bed the op 43 land square's R800 stock face on the part's top edge, the blade end at the -X tip corner and the blade across the -X land.",
   "Feeler the gap between blade and land at the land's top-edge end {gap at top} and at its bottom-edge end {gap at bottom}.",
   "Calipers: measure the land length between those two feeler stations {L}.",
-  "Calculate: allowed = L x tan 1° = L x 0.01746 = {allowed} (the drawing's 89° to 91°).",
+  "Calculate: allowed = L x tan 1° = L / 57.29 = {allowed} (the drawing's 89° to 91°).",
   "Calculate: difference = gap at top - gap at bottom, ignoring sign = {difference}; the land passes if difference is no more than allowed.",
 ]
 
