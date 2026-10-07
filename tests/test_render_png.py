@@ -9,7 +9,13 @@ from pathlib import Path
 
 import pytest
 
-from prechips.kernel.render_diagram import _Diagram, render_diagram
+from prechips.kernel.render_diagram import (
+    _CONTACT,
+    _corners,
+    _Diagram,
+    _holding_details,
+    render_diagram,
+)
 from prechips.kernel.render_inputs import contour_annotations
 from prechips.kernel.render_png import RenderCanvas
 
@@ -269,7 +275,7 @@ def test_setup_png_refuses_unreadable_annotations(failure):
         "stickout_mm": 2,
         "datums": [{"label": "END", "point_mm": [0, 0, 1]}],
     }
-    width, height, _ = _decode_png(render_diagram([], spec))
+    width, height, _ = _decode_png(render_diagram([], spec)[0])
     assert (width, height) == (1600, 1000)
     if failure == "clipping":
         spec["setup_id"] = "LONG-NAME-" * 30
@@ -474,6 +480,39 @@ def test_a_panel_with_many_point_keys_gets_the_height_to_print_them_apart():
             assert apart, (label, other)
 
 
+@pytest.mark.parametrize("keys", [("P1",), ("P2", "P3"), ("P1", "P2", "P3")])
+def test_lathe_point_keys_that_would_crowd_get_an_enlarged_detail_with_keys_apart(keys):
+    # Shaft S2's jaw-end dome: P2 and P3 are about 1 mm apart, under 20 px at the window's
+    # scale, so their keys cannot both sit beside them; a lone key never crowds.
+    spec = _example_spec("shaft-s2")
+    spec["waypoints"] = [point for point in spec["waypoints"] if point["label"] in keys]
+    diagram = _Diagram([], spec)
+    diagram.render()
+
+    details = [box[0] for box in diagram.canvas.text_boxes if box[0].startswith("DETAIL")]
+    if keys == ("P1",):
+        assert details == []
+        return
+    (detail,) = details
+    assert float(detail.split("X")[1]) >= 2
+    badges = {box[0]: box[1:] for box in diagram.canvas.text_boxes if box[0] in keys}
+    points = {label: path[0] for label, path in diagram.leaders if label in keys}
+    assert badges.keys() == points.keys() == set(keys)
+    for label, (x0, y0, x1, y1) in badges.items():
+        # No key covers a point, and no leader passes next to another point.
+        for other, point in points.items():
+            assert not (x0 - 4 <= point[0] <= x1 + 4 and y0 - 4 <= point[1] <= y1 + 4)
+            if other != label:
+                badge = ((x0 + x1) / 2, (y0 + y1) / 2)
+                assert _leader_clearance(point, points[label], badge) >= 9, (label, other)
+    for label, (x0, y0, x1, y1) in badges.items():
+        for other, (a0, b0, a1, b1) in badges.items():
+            if other != label:
+                assert x1 + 4 <= a0 or a1 + 4 <= x0 or y1 + 4 <= b0 or b1 + 4 <= y0
+    # Every printed label still keeps the print size and clearance rules.
+    diagram.canvas.assert_text_layout(min_scale=3)
+
+
 @pytest.mark.parametrize("name", ["shaft-s1", "cone-s1"])
 def test_bar_end_labels_key_their_own_end_and_never_lead_along_the_axis_past_another_point(name):
     spec = _example_spec(name)
@@ -582,3 +621,260 @@ def test_raster_keep_out_draws_independent_segments_without_filling_clearance(ke
     # printable PNG payload, not a recording or mocked drawing collaborator.
     _, _, pixels = _decode_png(diagram.canvas.png())
     assert pixels == diagram.canvas.rgb
+
+
+def _slab(x0, y0, x1, y1, z, colour, tag):
+    """A flat plan-view rectangle at height ``z``: the visible top of a tagged solid."""
+    points = ((x0, y0, z), (x1, y0, z), (x1, y1, z), (x0, y1, z))
+    return (points, ((0, 1, 2), (0, 2, 3)), colour, False, tag)
+
+
+def _leader_start(diagram, label):
+    (path,) = [path for leader, path in diagram.leaders if leader == label]
+    return path[0]
+
+
+def _inside(diagram, point, box):
+    """Whether a pixel point lies inside a plan-view XY rectangle's projection."""
+    left, top = diagram.canvas.project((box[0], box[3], 0))
+    right, bottom = diagram.canvas.project((box[2], box[1], 0))
+    return left < point[0] < right and top < point[1] < bottom
+
+
+@pytest.mark.parametrize(
+    "case",
+    ["box_top_in_air", "box_top_under_a_jaw"],
+)
+def test_stock_leader_ends_on_the_drawn_stock_not_its_bounding_box(case):
+    # The stock box's top edge is air beside a section, or a jaw stands over it.
+    stock = (0, 0, 10, 10)
+    meshes = [_slab(*stock, 1, (160, 175, 185), "part")]
+    box = [0, 0, 0, 10, 10, 1]
+    jaw = (-2, 7, 12, 12)
+    if case == "box_top_in_air":
+        box = [0, 0, 0, 10, 20, 1]
+    else:
+        meshes.append(_slab(*jaw, 5, (120, 98, 76), "moving_jaw"))
+    spec = {"setup_id": "S1", "view": "plan", "stock_box": box}
+    diagram = _Diagram(meshes, spec)
+    diagram.render()
+
+    start = _leader_start(diagram, "STOCK")
+    assert _inside(diagram, start, stock)
+    if case == "box_top_under_a_jaw":
+        assert not _inside(diagram, start, jaw)
+    assert diagram.render_debts == []
+
+
+def test_a_named_solid_hidden_from_view_is_a_render_debt_not_a_leader():
+    # Plan view from +Z: the parallel lies wholly under the stock, so no pixel shows it.
+    meshes = [
+        _slab(0, 0, 10, 10, 2, (160, 175, 185), "part"),
+        _slab(2, 2, 8, 8, 1, (120, 98, 76), "parallel_1"),
+    ]
+    spec = {
+        "setup_id": "S1",
+        "view": "plan",
+        "stock_box": [0, 0, 0, 10, 10, 2],
+        "components": [
+            {
+                "name": "parallel_1",
+                "role": "parallel",
+                "box_mm": [2, 2, 0, 8, 8, 1],
+                "center_mm": [5, 5, 0.5],
+                "meshes": ["parallel_1"],
+            }
+        ],
+    }
+    png, debts = render_diagram(meshes, spec)
+
+    assert debts == ["NOT SHOWN: PARALLELS is hidden in this view, so it has no leader."]
+    diagram = _Diagram(meshes, {**spec, "notes": debts})
+    diagram.render()
+    assert [label for label, _ in diagram.leaders if label == "PARALLELS"] == []
+    # The debt is printed in the picture's own notes, and the picture is the one returned.
+    assert png == diagram.canvas.png()
+    # Moved out from under the stock, the same parallel is drawn and keeps its leader.
+    meshes[1] = _slab(12, 2, 18, 8, 1, (120, 98, 76), "parallel_1")
+    spec["components"][0].update(box_mm=[12, 2, 0, 18, 8, 1], center_mm=[15, 5, 0.5])
+    spec["stock_box"] = [0, 0, 0, 18, 10, 2]
+    _, debts = render_diagram(meshes, spec)
+    assert debts == []
+
+
+def _block(box, colour, tag):
+    """A tagged box solid: its six faces as twelve triangles."""
+    x0, y0, z0, x1, y1, z1 = box
+    points = [(x, y, z) for x in (x0, x1) for y in (y0, y1) for z in (z0, z1)]
+    faces = ((0, 1, 3, 2), (4, 6, 7, 5), (0, 4, 5, 1), (2, 3, 7, 6), (0, 2, 6, 4), (1, 5, 7, 3))
+    triangles = [t for a, b, c, d in faces for t in ((a, b, c), (a, c, d))]
+    return (points, triangles, colour, False, tag)
+
+
+def _vise_spec(size, touching=True):
+    """Plan view of a ``size`` x ``size`` x 10 block between two 160 mm long vise jaws."""
+    stock = [0, 0, 0, size, size, 10]
+    jaws = {
+        "fixed_jaw": [-12, -74, -20, 0, 86, 10],
+        "moving_jaw": [size, -74, -20, size + 12, 86, 10],
+    }
+    meshes = [_block(stock, (160, 175, 185), "part")]
+    meshes += [_block(box, (120, 98, 76), name) for name, box in jaws.items()]
+    top = min(size, 86)
+    contacts = [
+        {"tag": name, "lines_mm": [[[x, 0, 0], [x, top, 0], [x, top, 10], [x, 0, 10], [x, 0, 0]]]}
+        for name, x in (("fixed_jaw", 0), ("moving_jaw", size))
+    ]
+    components = [
+        {
+            "name": name,
+            "role": name,
+            "box_mm": box,
+            "center_mm": [(box[i] + box[i + 3]) / 2 for i in range(3)],
+            "meshes": [name],
+        }
+        for name, box in jaws.items()
+    ]
+    spec = {
+        "setup_id": "S1",
+        "view": "plan",
+        "stock_box": stock,
+        "zero_mm": [0, 0, 0],
+        "components": components,
+        "contacts": contacts if touching else [],
+    }
+    return meshes, spec
+
+
+def _stock_short_side(canvas, box):
+    points = [canvas.project(p) for p in _corners(box)]
+    return min(max(p[i] for p in points) - min(p[i] for p in points) for i in (0, 1))
+
+
+@pytest.mark.parametrize(
+    ("size", "touching", "detailed"),
+    [(12, True, True), (150, True, False), (12, False, False)],
+    ids=["small_work_in_long_jaws", "work_larger_than_its_jaws", "small_work_nothing_touching"],
+)
+def test_small_work_in_its_holding_gets_an_enlarged_contact_detail(size, touching, detailed):
+    meshes, spec = _vise_spec(size, touching)
+    png, debts = render_diagram(meshes, spec)
+    _, height, _ = _decode_png(png)
+    main = _Diagram(meshes, spec)
+    main.render()
+    details = _holding_details(meshes, spec, main)
+
+    assert debts == []
+    if not detailed:
+        assert details == []
+        assert height == main.canvas.height
+        return
+    # The detail is printed below the setup picture and draws the work far larger.
+    (detail,) = details
+    assert height == main.canvas.height + detail.canvas.height
+    drawn = _stock_short_side(main.canvas, spec["stock_box"])
+    assert _stock_short_side(detail.canvas, spec["stock_box"]) >= 1.5 * drawn
+    # Each jaw's contact key leads to its own outlined contact face, apart from the other.
+    ends = {}
+    for label, path in detail.leaders:
+        x, y = (math.floor(v) for v in path[0])
+        near = {_pixel(detail.canvas, x + dx, y + dy) for dx in (-3, 0, 3) for dy in (-3, 0, 3)}
+        if _CONTACT in near:
+            ends[label] = path[0]
+    assert len(ends) == 2
+    first, second = ends.values()
+    assert math.dist(first, second) > 20
+    detail.canvas.assert_text_layout(min_scale=3)
+
+
+def test_long_thin_plan_work_gets_split_details_that_key_each_contact_height_once():
+    # A 300 x 12 mm bar seen from above: its holding heights cannot show in the plan, and
+    # one band across the whole length would draw the bar hardly larger than the plan.
+    stock = [0, 0, 10, 300, 12, 18]
+    solids = {
+        "fx:hub-stand": [20, -2, 0, 40, 14, 10],
+        "fx:rail-shim-lu": [250, -2, 0, 258, 4, 12],
+        "fx:rail-shim-ru": [270, -2, 0, 278, 4, 12],
+    }
+    meshes = [_block(stock, (160, 175, 185), "part")]
+    meshes += [_block(box, (120, 98, 76), tag) for tag, box in solids.items()]
+    contacts = [
+        {
+            "tag": tag,
+            "lines_mm": [
+                [[x0, y0, z1], [x1, y0, z1], [x1, min(y1, 12), z1], [x0, min(y1, 12), z1]]
+            ],
+        }
+        for tag, (x0, y0, _, x1, y1, z1) in solids.items()
+    ]
+    spec = {
+        "setup_id": "S3",
+        "view": "plan",
+        "stock_box": stock,
+        "zero_mm": [0, 0, 0],
+        "components": [
+            {
+                "name": "body_supports",
+                "role": "fixture",
+                "box_mm": [20, -2, 0, 278, 14, 12],
+                "center_mm": [149, 6, 6],
+                "meshes": list(solids),
+            }
+        ],
+        "contacts": contacts,
+    }
+    main = _Diagram(meshes, spec)
+    main.render()
+    details = _holding_details(meshes, spec, main)
+
+    assert len(details) == 2
+    drawn = _stock_short_side(main.canvas, stock)
+    keyed = []
+    for detail in details:
+        assert _stock_short_side(detail.canvas, stock) >= 1.5 * drawn
+        keyed.append(sorted(c.label for c in detail.callouts if c.colour == _CONTACT))
+        detail.canvas.assert_text_layout(min_scale=3)
+    # One support on two planes: each plane is keyed with its own height, in the band
+    # that holds it, exactly once.
+    (near,), (far,) = keyed
+    assert near.endswith("AT Z 10")
+    assert far.endswith("AT Z 12")
+    _, height, _ = _decode_png(render_diagram(meshes, spec)[0])
+    assert height == main.canvas.height + sum(d.canvas.height for d in details)
+
+
+@pytest.mark.parametrize(("normal", "hidden"), [((0, 0, -1), True), ((0, 0, 1), False)])
+def test_a_datum_face_turned_away_from_the_view_is_marked_hidden_not_drawn_in_front(normal, hidden):
+    # Isometric from +Z: a datum on the block's underside cannot be the face in front.
+    z = 0 if hidden else 10
+    outline = [[0, 0, z], [20, 0, z], [20, 20, z], [0, 20, z], [0, 0, z]]
+    spec = {
+        "setup_id": "S2",
+        "view": "isometric",
+        "stock_box": [0, 0, 0, 20, 20, 10],
+        "datums": [
+            {
+                "label": "B: strap face",
+                "point_mm": [10, 10, z],
+                "normal": list(normal),
+                "outline_mm": [outline],
+            },
+        ],
+    }
+    diagram = _Diagram([_block(spec["stock_box"], (160, 175, 185), "part")], spec)
+    diagram.render()
+
+    (label,) = [label for label, _ in diagram.leaders if label.startswith("DATUM B")]
+    x, y = (math.floor(v) for v in diagram.canvas.project([10, 10, z]))
+    # The marker's top: a hidden face's dashed diamond reaches it; a seen face's ring not.
+    marker_top = _pixel(diagram.canvas, x, y - 9)
+    if hidden:
+        assert "UNDERSIDE" in label and "HIDDEN" in label
+        assert marker_top == (30, 35, 40)
+        # The hidden face's edges are drawn dashed over the block.
+        edge = [diagram.canvas.project([t, 0, 0]) for t in range(2, 19)]
+        inked = [_pixel(diagram.canvas, math.floor(px), math.floor(py)) for px, py in edge]
+        assert (30, 35, 40) in inked
+    else:
+        assert "HIDDEN" not in label and "UNDERSIDE" not in label
+        assert marker_top != (30, 35, 40)

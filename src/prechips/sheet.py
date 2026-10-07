@@ -73,7 +73,8 @@ margin-top: 1pt; }
 .hold-steps { flex: 1 1 70%; min-width: 0; }
 .fixture-render { margin: 4pt 0; break-inside: avoid; page-break-inside: avoid; }
 .hold-row > .stop { flex: 0 0 30%; margin: 4pt 0 0; }
-.fixture-render img { display: block; width: 100%; object-fit: contain; border: 1px solid #999; }
+.fixture-render img { display: block; width: auto; max-width: 100%; max-height: 8.9in; \
+margin: 0 auto; border: 1px solid #999; }
 .see { font-style: italic; }
 .op-note { margin: 1pt 0; }
 .cont-head { font-size: 9pt; font-weight: bold; margin: 0 0 2pt; border-bottom: 1px solid #000; }

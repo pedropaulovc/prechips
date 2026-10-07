@@ -35,6 +35,22 @@ _CAMERAS = {
         (1 / math.sqrt(3), -1 / math.sqrt(3), 1 / math.sqrt(3)),
     ),
 }
+# Two point keys closer than two badge cells cannot both sit beside their points.
+_KEY_ROOM_PX = 66
+# Height of a lathe window shrunk to orientation so its crowded contour's detail has room.
+_ORIENTATION_PX = 70
+# A setup picture drawing the stock's narrower side under this many pixels shows it small
+# beside its holding; a holding detail is added when it draws that side at least
+# ``_DETAIL_GAIN`` times larger.
+_DETAIL_MIN_PX = 200
+_DETAIL_GAIN = 1.5
+# A long plan-view work's detail is split into at most this many bands along its length.
+_DETAIL_TILES = 2
+# Contact outlines in the holding detail.
+_CONTACT = (178, 34, 34)
+# The detail's view of a plan setup: from the long side, raised this far, so the contact
+# heights a plan view cannot show are seen.
+_DETAIL_RISE_DEG = 30
 
 
 @dataclass
@@ -45,6 +61,8 @@ class _Callout:
     # "line": a leader from the lane to the point; "keyed": the point carries its own
     # position badge, so the lane entry is the badge's key and draws no leader.
     leader: str = "line"
+    # Mesh tags of the drawn solids the label names: its leader must end on one of them.
+    targets: tuple = ()
 
 
 def _plain(value):
@@ -112,6 +130,19 @@ def _role(component):
     if name in ("fixed_jaw", "moving_jaw"):
         return name
     return role
+
+
+def _is_pad(component, label):
+    return "pad" in label.lower() and _role(component) in ("fixture", "support", "pad")
+
+
+def _pad_code(component, index):
+    label = _plain(component.get("label") or component["name"]).upper()
+    return label.removeprefix("PAD ").removeprefix("SUPPORT PAD ") or str(index)
+
+
+def _dot3(a, b):
+    return sum(x * y for x, y in zip(a, b, strict=True))
 
 
 def _wrap(canvas, text, width, scale=2):
@@ -336,6 +367,83 @@ def _segment_distance(point, a, b):
     return math.dist(point, (a[0] + t * dx, a[1] + t * dy))
 
 
+def _keys_crowd(points, scale):
+    """Whether two distinct points ``scale`` px/mm apart crowd their keys together."""
+    return any(
+        0 < math.dist(a, b) * scale < _KEY_ROOM_PX
+        for index, a in enumerate(points)
+        for b in points[index + 1 :]
+    )
+
+
+def _dashed(canvas, polylines, project, colour, clip=None):
+    """Dashed polylines that keep dash phase across small tessellated chords of an edge."""
+    for polyline in polylines:
+        pixels = [project(p) for p in polyline]
+        phase = 0.0
+        for a, b in zip(pixels, pixels[1:], strict=False):
+            length = math.dist(a, b)
+            if length == 0:
+                continue
+            distance = 0.0
+            while distance < length:
+                on = phase < 8
+                run = min(length - distance, (8 if on else 14) - phase)
+                if on and run > 0:
+                    start = (
+                        a[0] + (b[0] - a[0]) * distance / length,
+                        a[1] + (b[1] - a[1]) * distance / length,
+                    )
+                    end = (
+                        a[0] + (b[0] - a[0]) * (distance + run) / length,
+                        a[1] + (b[1] - a[1]) * (distance + run) / length,
+                    )
+                    segment = _clip_segment(start, end, clip) if clip else (start, end)
+                    if segment:
+                        canvas.line(*segment, colour, width=2)
+                distance += run
+                phase = (phase + run) % 14
+
+
+def _visible(canvas, viewport):
+    """Visible pixels per drawn-solid tag inside ``viewport``."""
+    owned = defaultdict(list)
+    left, top, right, bottom = (int(v) for v in viewport)
+    tags, owner, width = canvas.tags, canvas.owner, canvas.width
+    for y in range(max(0, top), min(canvas.height, bottom + 1)):
+        row = y * width
+        for x in range(max(0, left), min(width, right + 1)):
+            index = owner[row + x]
+            if index >= 0 and tags[index] is not None:
+                owned[tags[index]].append((x, y))
+    return owned
+
+
+def _tag_at(canvas, x, y):
+    x, y = math.floor(x), math.floor(y)
+    if not (0 <= x < canvas.width and 0 <= y < canvas.height):
+        return None
+    index = canvas.owner[y * canvas.width + x]
+    return canvas.tags[index] if index >= 0 else None
+
+
+def _lands_on(canvas, point, targets):
+    """Whether a leader ending at ``point`` ends on a visible pixel of a named solid."""
+    return _tag_at(canvas, *point) in targets
+
+
+def _anchor_on(canvas, owned, targets, near, inset=4):
+    """The visible pixel of a named solid nearest ``near``, preferring one ``inset`` pixels
+    inside its silhouette so the leader dot sits wholly on it; None when it is hidden."""
+    pixels = [pixel for tag in targets for pixel in owned.get(tag, ())]
+    pixels.sort(key=lambda p: (p[0] + 0.5 - near[0]) ** 2 + (p[1] + 0.5 - near[1]) ** 2)
+    steps = ((inset, 0), (-inset, 0), (0, inset), (0, -inset))
+    for x, y in pixels:
+        if all(_tag_at(canvas, x + dx, y + dy) in targets for dx, dy in steps):
+            return (x + 0.5, y + 0.5)
+    return (pixels[0][0] + 0.5, pixels[0][1] + 0.5) if pixels else None
+
+
 def _shoulder(z, small, large):
     return f"SHOULDER Z {_mm(z)}: DIA {_mm(2 * small)} / DIA {_mm(2 * large)}"
 
@@ -355,6 +463,8 @@ def _radial_steps(profiles):
 
 
 class _Diagram:
+    grows_to_fit = False
+
     def __init__(self, meshes, spec):
         self.spec = spec
         self.view = spec["view"]
@@ -376,6 +486,9 @@ class _Diagram:
         self.context_labels = []
         self.position_badges = []
         self.leaders = []  # printed leaders: (label, pixel polyline from the point)
+        # Operator-facing lines for what the picture could not show truthfully.
+        self.render_debts = []
+        self._owned = None
         self.dimensions = {}  # printed dimension label -> its two arrow ends (pixels)
         self.jaw_marker = None  # projected jaw-front marker, where stickout starts
         self.lathe_window = None
@@ -448,6 +561,11 @@ class _Diagram:
         )
         self.footer_top = min(self.footer_top, 984 - footer_height)
         self.scene_bottom = min(self.scene_bottom, self.footer_top - 120)
+        # Label lanes: the first row's top and the last row's bottom limit; each side's
+        # (text left, text width, leader end x), and the x that splits points between them.
+        self.lanes = (202, self.footer_top - 64)
+        self.lane_specs = ((32, 214, 249), (928, 210, 916))
+        self.lane_split = 590
         viewport = (278, 225, 900, self.scene_bottom)
         if self.view in ("plan", "elevation") and (
             any(component.get("code") for component in self.components)
@@ -462,6 +580,15 @@ class _Diagram:
             {"label": label, "xy": self.canvas.project(point), "colour": _BLUE}
             for label, point in self.off_window_keys
         )
+
+    def _anchor(self, targets, near):
+        """Leader end on the named solid's visible pixels nearest ``near``, or None."""
+        if self._owned is None:
+            self._owned = _visible(self.canvas, self.viewport)
+        return _anchor_on(self.canvas, self._owned, targets, near)
+
+    def _hidden(self, label):
+        self.render_debts.append(f"NOT SHOWN: {label} is hidden in this view, so it has no leader.")
 
     def _in_lathe_window(self, z):
         """Whether the jaw-end profile inset draws station ``z``."""
@@ -651,40 +778,10 @@ class _Diagram:
                 self.context_labels.append((x + 41, y - 26, "TAILSTOCK", 3))
 
     def _nominal_overlay(self, project, clip=None, faint=False):
-        """Keep dash phase across small tessellated chords of each exact edge."""
-        c = self.canvas
-        colour = _NOMINAL_FAINT if faint else _BLUE
-        for polyline in self.nominal:
-            pixels = [project(p) for p in polyline]
-            phase = 0.0
-            for a, b in zip(pixels, pixels[1:], strict=False):
-                length = math.dist(a, b)
-                if length == 0:
-                    continue
-                distance = 0.0
-                while distance < length:
-                    on = phase < 8
-                    run = min(length - distance, (8 if on else 14) - phase)
-                    if on and run > 0:
-                        start = (
-                            a[0] + (b[0] - a[0]) * distance / length,
-                            a[1] + (b[1] - a[1]) * distance / length,
-                        )
-                        end = (
-                            a[0] + (b[0] - a[0]) * (distance + run) / length,
-                            a[1] + (b[1] - a[1]) * (distance + run) / length,
-                        )
-                        segment = _clip_segment(start, end, clip) if clip else (start, end)
-                        if segment:
-                            c.line(*segment, colour, width=2)
-                    distance += run
-                    phase = (phase + run) % 14
+        _dashed(self.canvas, self.nominal, project, _NOMINAL_FAINT if faint else _BLUE, clip)
 
-    def _components(self):
-        c = self.canvas
-        groups = defaultdict(list)
-        pads = []
-        numbered = {}
+    def _component_label(self, component):
+        """A holding component's printed name: role groups, jaw names and plural kits."""
         chuck = _plain(self.spec.get("chuck_name") or "CHUCK")
         role_groups = {
             "parallel": "PARALLELS",
@@ -696,26 +793,28 @@ class _Diagram:
         if self.spec.get("holding_name"):
             # A dividing head's or rotary table's own solids carry its kind, not a part name.
             role_groups["head"] = _plain(self.spec["holding_name"])
+        role = _role(component)
+        label = _plain(component.get("label") or component["name"])
+        if role == "fixed_jaw":
+            fixed = _plain(self.spec.get("fixed_jaw_label") or "FIXED JAW")
+            return fixed if fixed.upper().startswith("FIXED JAW") else "FIXED JAW / " + fixed
+        if role == "moving_jaw":
+            return "MOVING JAW"
+        if role in role_groups:
+            return role_groups[role]
+        for prefix in ("RAIL REST", "SHIM", "HOLD-DOWN", "HOLD DOWN"):
+            if label.upper().startswith(prefix):
+                return prefix + "S"
+        return label
+
+    def _components(self):
+        c = self.canvas
+        groups = defaultdict(list)
+        pads = []
+        numbered = {}
         for component in self.components:
-            role = _role(component)
-            label = _plain(component.get("label") or component["name"])
-            if role == "fixed_jaw":
-                fixed = _plain(self.spec.get("fixed_jaw_label") or "FIXED JAW")
-                label = fixed if fixed.upper().startswith("FIXED JAW") else "FIXED JAW / " + fixed
-            elif role == "moving_jaw":
-                label = "MOVING JAW"
-            elif role in role_groups:
-                label = role_groups[role]
-            elif label.upper().startswith(("RAIL REST", "SHIM", "HOLD-DOWN", "HOLD DOWN")):
-                label = (
-                    next(
-                        prefix
-                        for prefix in ("RAIL REST", "SHIM", "HOLD-DOWN", "HOLD DOWN")
-                        if label.upper().startswith(prefix)
-                    )
-                    + "S"
-                )
-            if "pad" in label.lower() and role in ("fixture", "support", "pad"):
+            label = self._component_label(component)
+            if _is_pad(component, label):
                 pads.append(component)
                 continue
             if component.get("code"):
@@ -723,19 +822,33 @@ class _Diagram:
                 numbered[label] = _plain(component["code"])
             groups[label].append(component)
         for label, components in groups.items():
-            points = [c.project(item["center_mm"]) for item in components]
-            if label not in numbered:
-                self.callouts.append(_Callout(label.upper(), points, _FIXTURE))
+            if label in numbered:
+                # Each position carries its code badge; the lane entry is the badge's key.
+                points = [c.project(item["center_mm"]) for item in components]
+                self.callouts.append(_Callout(label.upper(), points, _FIXTURE, leader="keyed"))
+                for point in points:
+                    self.position_badges.append({"label": numbered[label], "xy": point})
                 continue
-            # Each position carries its code badge; the lane entry is the badge's key.
-            self.callouts.append(_Callout(label.upper(), points, _FIXTURE, leader="keyed"))
-            for point in points:
-                self.position_badges.append({"label": numbered[label], "xy": point})
+            points, targets = [], ()
+            for item in components:
+                near = c.project(item["center_mm"])
+                tags = tuple(item.get("meshes", ()))
+                if not tags:
+                    # Not a drawn solid (a named void in the fixture): its own point.
+                    points.append(near)
+                    continue
+                targets += tags
+                point = self._anchor(tags, near)
+                if point is not None:
+                    points.append(point)
+            if not points:
+                self._hidden(label.upper())
+                continue
+            self.callouts.append(_Callout(label.upper(), points, _FIXTURE, targets=targets))
         if pads:
             for index, component in enumerate(pads, 1):
                 point = c.project(component["center_mm"])
-                label = _plain(component.get("label") or component["name"]).upper()
-                code = label.removeprefix("PAD ").removeprefix("SUPPORT PAD ") or str(index)
+                code = _pad_code(component, index)
                 if self.view == "plan" and component.get("box_mm"):
                     left, top, right, bottom = _bounds(self._component_pixels([component]))
                     _outline(
@@ -751,9 +864,20 @@ class _Diagram:
                     "SUPPORT PADS", [c.project(pads[0]["center_mm"])], _FIXTURE, leader="keyed"
                 )
             )
-        if self.stock_pixels:
-            left, top, right, _ = _bounds(self.stock_pixels)
-            self.callouts.append(_Callout("STOCK", [((left + right) / 2, top)], _INK))
+        self._stock_callout()
+
+    def _stock_callout(self):
+        if not self.stock_pixels:
+            return
+        # The leader ends on the drawn stock nearest the top of its box, never on a
+        # jaw in front of it or in the air the box encloses beside a section.
+        left, top, right, _ = _bounds(self.stock_pixels)
+        targets = ("part", "removal")
+        point = self._anchor(targets, ((left + right) / 2, top))
+        if point is None:
+            self._hidden("STOCK")
+            return
+        self.callouts.append(_Callout("STOCK", [point], _INK, targets=targets))
 
     def _origin_datums_tool(self):
         c = self.canvas
@@ -765,11 +889,25 @@ class _Diagram:
             self.callouts.append(_Callout("Z0", [point], _BLUE))
         for datum in self.spec.get("datums", []):
             point = c.project(datum["point_mm"])
-            c.circle(*point, 5, fill=_WHITE, outline=_INK)
-            c.circle(*point, 2, fill=_INK)
             label = _plain(datum["label"]).upper()
             if datum.get("kind") != "end" and not label.startswith("DATUM "):
                 label = "DATUM " + label
+            facing = []
+            normal = datum.get("normal")
+            if normal is not None and normal[2] <= -0.99:
+                facing.append("UNDERSIDE")
+            if normal is not None and _dot3(normal, self.camera[2]) < -0.01:
+                # The face looks away from the viewer: its edges are dashed hidden lines
+                # and its marker a dashed diamond, never the ring of a face in front.
+                facing.append("HIDDEN")
+                _dashed(c, datum.get("outline_mm", []), c.project, _INK)
+                x, y = point
+                _outline(c, [(x, y - 9), (x + 9, y), (x, y + 9), (x - 9, y)], _INK, dashed=True)
+            else:
+                c.circle(*point, 5, fill=_WHITE, outline=_INK)
+                c.circle(*point, 2, fill=_INK)
+            if facing:
+                label += f" ({', '.join(facing)})"
             self.callouts.append(_Callout(label, [point]))
         target = self.spec.get("target")
         if target:
@@ -873,8 +1011,21 @@ class _Diagram:
         """Two lanes of print-size keys. Type never shrinks: lanes rebalance, then tighten
         their leading; a leader never runs along the axis through another callout."""
         c = self.canvas
-        lane_specs = ((32, 214, 249), (928, 210, 916))
-        limit = self.footer_top - 64
+        # A leader naming a drawn solid must end on that solid's visible pixels; one that
+        # cannot is a render debt, never a printed leader to the wrong thing.
+        kept = []
+        for callout in self.callouts:
+            if callout.leader == "line" and callout.targets:
+                callout.points = [
+                    point for point in callout.points if _lands_on(c, point, callout.targets)
+                ]
+                if not callout.points:
+                    self._hidden(callout.label)
+                    continue
+            kept.append(callout)
+        self.callouts = kept
+        lane_specs = self.lane_specs
+        limit = self.lanes[1]
         anchors = [(callout, point) for callout in self.callouts for point in callout.points]
         wrapped = {
             (id(item), side): _wrap(c, item.label, lane_specs[side][1], scale=3)
@@ -897,7 +1048,7 @@ class _Diagram:
 
         def pack(items, side, pitch, gap):
             x, width, _ = lane_specs[side]
-            rows, row_y = [], 202
+            rows, row_y = [], self.lanes[0]
             for item in items:
                 lines = wrapped[(id(item), side)]
                 span = max(c.text_width(line, scale=3) for line in lines) + 8
@@ -925,7 +1076,7 @@ class _Diagram:
 
         lanes = [[], []]
         for callout in self.callouts:
-            lanes[0 if callout.points[0][0] < 590 else 1].append(callout)
+            lanes[0 if callout.points[0][0] < self.lane_split else 1].append(callout)
         for _ in self.callouts:
             source = max((0, 1), key=lambda side: overflow(lanes[side], side))
             if overflow(lanes[source], source) <= 0:
@@ -944,10 +1095,17 @@ class _Diagram:
                 break
             moved = min(
                 candidates,
-                key=lambda item: (item.leader != "keyed", abs(item.points[0][0] - 590)),
+                key=lambda item: (item.leader != "keyed", abs(item.points[0][0] - self.lane_split)),
             )
             lanes[source].remove(moved)
             lanes[target].append(moved)
+        # A band that can grow (the holding detail) is redrawn taller instead of
+        # printing keys past its edge.
+        self.lane_overflow = max(
+            pack(ordered(items), side, 25, 0)[1] - limit for side, items in enumerate(lanes)
+        )
+        if self.lane_overflow > 0 and self.grows_to_fit:
+            return
         for side, items in enumerate(lanes):
             callouts = ordered(items)
             x, width, edge = lane_specs[side]
@@ -1064,14 +1222,19 @@ class _Diagram:
         window_label = f"Z {_mm(zmin)} TO {_mm(zmax)} MM"
         _text(c, left, 198, window_label, _MUTED)
         scale = min((right - left - 134) / max(zmax - zmin, 1e-9), 234 / max(rmax - rmin, 1e-9))
-        cx, cy = (left + right) / 2, 355
-        # A contour much smaller than the window gets its own enlarged local detail.
+        cy = 355
+        # A contour much smaller than the window, or whose point keys would crowd one
+        # another at the window's scale, gets its own enlarged local detail.
         local = None
         contour = [p for _, path in paths for p in path] + [p["xy"] for p in waypoints]
-        if contour and (rmax - rmin) * scale <= 80:
+        crowded = _keys_crowd([p["xy"] for p in waypoints], scale)
+        if contour and ((rmax - rmin) * scale <= 80 or crowded):
             bounds = _bounds([(p[1], p[0]) for p in contour])
             span = max(bounds[2] - bounds[0], bounds[3] - bounds[1], 1e-9)
-            if span * scale < 150:
+            if span * scale < 150 or crowded:
+                if crowded:
+                    # The window shrinks to an orientation strip; the detail takes the room.
+                    scale = min(scale, _ORIENTATION_PX / max(rmax - rmin, 1e-9))
                 margin = 0.15 * span
                 local = (
                     bounds[0] - margin,
@@ -1080,6 +1243,7 @@ class _Diagram:
                     bounds[3] + margin,
                 )
                 cy = 236 + (rmax - rmin) * scale / 2
+        cx = (left + right) / 2
 
         def project(point):
             return (
@@ -1101,28 +1265,18 @@ class _Diagram:
                 c.polygon([project(p) for p in line], _WHITE)
         if rmin <= 0 <= rmax:
             c.line(project((0, zmin)), project((0, zmax)), _RULE, width=2, dashed=True)
-        row = 510
+        # Key rows (text, colour, sample line): drawn last, below whatever detail is drawn.
+        rows = []
         for profile in profiles:
             colour = tuple(profile.get("colour", _INK))
+            dashed = profile["label"] == "arriving stock"
             for line in profile["lines"]:
                 for a, b in zip(line, line[1:], strict=False):
-                    c.line(
-                        project(a),
-                        project(b),
-                        colour,
-                        width=3,
-                        dashed=profile["label"] == "arriving stock",
-                    )
-            c.line(
-                (left, row + 10),
-                (left + 25, row + 10),
-                colour,
-                width=3,
-                dashed=profile["label"] == "arriving stock",
-            )
-            for line in _wrap(c, profile["label"].upper(), right - left - 34, scale=3):
-                _text(c, left + 34, row, line, colour)
-                row += 30
+                    c.line(project(a), project(b), colour, width=3, dashed=dashed)
+            for index, line in enumerate(
+                _wrap(c, profile["label"].upper(), right - left - 34, scale=3)
+            ):
+                rows.append((line, colour, (colour, dashed) if index == 0 else None, 34))
         for z, small, large in self.shoulders:
             step = large - small
             # The main view names no step inside this window; every step either view
@@ -1132,11 +1286,25 @@ class _Diagram:
             point = project((large, z))
             c.line((point[0], point[1] - 12), (point[0], point[1] + 12), _INK, width=2)
             for line in _wrap(c, _shoulder(z, small, large), right - left, scale=3):
-                _text(c, left, row, line, _INK)
-                row += 30
+                rows.append((line, _INK, None, 0))
+        for path, _ in paths:
+            for line in _wrap(c, f"OP {path['op']} SURFACE", right - left - 34, scale=3):
+                rows.append((line, _GREEN, (_GREEN, False), 34))
+        if paths:
+            rows.append(("ARROWS: POINT ORDER", _MUTED, None, 0))
+        if closed:
+            for line in _wrap(c, "TINT: PROFILE DIFFERENCE", right - left, scale=3):
+                rows.append((line, _AMBER, None, 0))
+        if self.off_window_keys:
+            for line in _wrap(c, "OFF-WINDOW P KEYS: FULL VIEW", right - left, scale=3):
+                rows.append((line, _MUTED, None, 0))
+        row = 510
+        if crowded and local is not None:
+            # The key rows end at the column foot so the detail gets every free row.
+            row = max(row, self.footer_top - 17 - 30 * len(rows))
         if local is not None:
             zlo, rlo, zhi, rhi = local
-            box = (left, cy + (rmax - rmin) * scale / 2 + 22, right, 493)
+            box = (left, cy + (rmax - rmin) * scale / 2 + 22, right, row - 17)
             frame = [project((rlo, zlo)), project((rhi, zhi))]
             _outline(
                 c,
@@ -1151,9 +1319,17 @@ class _Diagram:
                 dashed=True,
             )
             plot = (box[0] + 8, box[1] + 30, box[2] - 8, box[3] - 6)
-            detail = min(
-                (plot[2] - plot[0] - 40) / (zhi - zlo),
-                max(20, plot[3] - plot[1] - 2 * 31) / (rhi - rlo),
+            # Keys go above and below a wide contour, or beside a tall one.
+            cell = max((_badge_width(c, _plain(p["label"])) for p in waypoints), default=0)
+            detail = max(
+                min(
+                    (plot[2] - plot[0] - 40) / (zhi - zlo),
+                    max(20, plot[3] - plot[1] - 2 * 31) / (rhi - rlo),
+                ),
+                min(
+                    max(20, plot[2] - plot[0] - 2 * (cell + 16)) / (zhi - zlo),
+                    (plot[3] - plot[1] - 8) / (rhi - rlo),
+                ),
             )
             centre = ((plot[0] + plot[2]) / 2, (plot[1] + plot[3]) / 2)
 
@@ -1186,7 +1362,7 @@ class _Diagram:
             for _, points in paths:
                 self._ordered_path([enlarged(p) for p in points], _GREEN, clip=clip)
             self._waypoint_badges(waypoints, enlarged, plot, perimeter=True)
-        for path, points in paths:
+        for _, points in paths:
             window = (project((0, zmin))[0], 228, project((0, zmax))[0], 493)
             if local is None:
                 self._ordered_path([project(p) for p in points], _GREEN, clip=window)
@@ -1196,23 +1372,15 @@ class _Diagram:
                     segment = _clip_segment(a, b, window)
                     if segment:
                         c.line(*segment, _GREEN, width=3)
-            for line in _wrap(c, f"OP {path['op']} SURFACE", right - left - 34, scale=3):
-                c.line((left, row + 10), (left + 25, row + 10), _GREEN, width=3)
-                _text(c, left + 34, row, line, _GREEN)
-                row += 30
         if local is None:
             self._waypoint_badges(waypoints, project, (left, 205, right, 493))
-        if paths:
-            _text(c, left, row, "ARROWS: POINT ORDER", _MUTED)
+        for line, colour, sample, indent in rows:
+            if sample is not None:
+                c.line(
+                    (left, row + 10), (left + 25, row + 10), sample[0], width=3, dashed=sample[1]
+                )
+            _text(c, left + indent, row, line, colour)
             row += 30
-        if closed:
-            for line in _wrap(c, "TINT: PROFILE DIFFERENCE", right - left, scale=3):
-                _text(c, left, row, line, _AMBER)
-                row += 30
-        if self.off_window_keys:
-            for line in _wrap(c, "OFF-WINDOW P KEYS: FULL VIEW", right - left, scale=3):
-                _text(c, left, row, line, _MUTED)
-                row += 30
         return row
 
     def _path_inset(self, left, right, top, bottom):
@@ -1628,10 +1796,404 @@ class _Diagram:
 
 
 def render_diagram(meshes, spec):
-    """Return a 1600 x 1000 setup PNG without inventing physical dimensions.
+    """Return ``(png, debts)``: a setup PNG 1600 px wide (taller when holding detail bands
+    are printed below it), and the NOT SHOWN lines for what it could not draw truthfully
+    (a named solid hidden from its leader). Those lines are also printed in the picture's
+    own notes. No physical dimension is invented.
 
     ``meshes`` contain numeric setup-frame XYZ triples, triangle index triples,
-    RGB and optionally a removal-hatch flag. ``spec`` is the kernel's plain JSON
-    diagram record; optional ``lathe_profiles`` contain exact [radius, Z] lines.
+    RGB, optionally a removal-hatch flag and the tag of the solid each draws. ``spec``
+    is the kernel's plain JSON diagram record; optional ``lathe_profiles`` contain
+    exact [radius, Z] lines.
     """
-    return _Diagram(meshes, spec).render()
+    debts, details = [], []
+    # A debt found while laying out is printed in the notes, which can move the layout:
+    # redraw until the printed notes are exactly the debts of the picture they sit in.
+    for attempt in range(4):
+        diagram = _Diagram(meshes, {**spec, "notes": list(spec.get("notes", [])) + debts})
+        png = diagram.render()
+        if attempt == 0:
+            details = _holding_details(meshes, spec, diagram)
+        found = [debt for detail in details for debt in detail.render_debts]
+        found += diagram.render_debts
+        if found != debts:
+            debts = found
+            continue
+        if not details:
+            return png, debts
+        for detail in details:
+            diagram.canvas.grow(detail.canvas.height)
+            diagram.canvas.paste(detail.canvas, 0, diagram.canvas.height - detail.canvas.height)
+        return diagram.canvas.png(), debts
+    raise ValueError(f"setup picture debts do not settle: {debts}")
+
+
+def _holding_details(meshes, spec, diagram):
+    """The rendered holding detail bands for a setup picture, else []. They are drawn only
+    when something touches the stock and ``diagram`` draws the stock's narrower side under
+    ``_DETAIL_MIN_PX`` (small beside its holding). One band is drawn when it draws that
+    side at least ``_DETAIL_GAIN`` times larger. A plan view, which cannot show contact
+    heights, always gets the detail's raised view, split along the work's length into the
+    fewest bands (at most ``_DETAIL_TILES``) that reach the gain, else the most."""
+    frame = _detail_frame(spec)
+    if frame is None or not diagram.stock_pixels:
+        return []
+    drawn = _short_side(diagram.stock_pixels)
+    if drawn >= _DETAIL_MIN_PX:
+        return []
+    camera = _HoldingDetail.camera_for(spec)
+    stock = _corners(spec["stock_box"])
+    across = _short_side([(_dot3(p, camera[0]), _dot3(p, camera[1])) for p in stock])
+    counts = range(1, _DETAIL_TILES + 1) if spec["view"] == "plan" else (1,)
+    for count in counts:
+        tiles = _tiles(frame, camera, count)
+        scale = min(
+            _fit_scale(_corners(tile), camera, _detail_viewport(tile, camera)) for tile in tiles
+        )
+        if scale * across >= _DETAIL_GAIN * drawn:
+            break
+    else:
+        if spec["view"] != "plan":
+            return []
+    details = []
+    for index, tile in enumerate(tiles, 1):
+        extra = 0
+        while True:
+            detail = _HoldingDetail(
+                meshes,
+                spec,
+                tile,
+                camera,
+                scale / diagram.canvas.scale,
+                (index, len(tiles)),
+                extra,
+            )
+            detail.render()
+            if detail.lane_overflow <= 0:
+                break
+            extra += math.ceil(detail.lane_overflow)
+        details.append(detail)
+    return details
+
+
+def _tiles(frame, camera, count):
+    """``frame`` cut into ``count`` equal boxes along the setup axis the detail camera
+    draws left to right, in that order."""
+    if count == 1:
+        return [frame]
+    axis = max(range(3), key=lambda i: abs(camera[0][i]))
+    low, high = frame[axis], frame[axis + 3]
+    step = (high - low) / count
+    tiles = []
+    for index in range(count):
+        tile = list(frame)
+        tile[axis] = low + index * step
+        tile[axis + 3] = low + (index + 1) * step
+        tiles.append(tile)
+    if camera[0][axis] < 0:
+        tiles.reverse()
+    return tiles
+
+
+def _detail_viewport(frame, camera, extra=0):
+    """The detail band's viewport: full width, and only as tall as the framed geometry
+    needs at that width, between the room its keys need and the full band, plus
+    ``extra`` rows the keys turned out to need."""
+    left, top, right = 370, 100, 1230
+    xs = [_dot3(p, camera[0]) for p in _corners(frame)]
+    ys = [_dot3(p, camera[1]) for p in _corners(frame)]
+    needed = (max(ys) - min(ys)) * (right - left) / max(max(xs) - min(xs), 1e-9)
+    return (left, top, right, top + min(600, max(300, needed)) + extra)
+
+
+def _short_side(points):
+    left, top, right, bottom = _bounds(points)
+    return min(right - left, bottom - top)
+
+
+def _fit_scale(points, camera, viewport):
+    """The scale ``RenderCanvas`` fits ``points`` to ``viewport`` at, without drawing."""
+    xs = [_dot3(p, camera[0]) for p in points]
+    ys = [_dot3(p, camera[1]) for p in points]
+    left, top, far, bottom = viewport
+    scales = []
+    if max(xs) > min(xs):
+        scales.append(0.9 * (far - left) / (max(xs) - min(xs)))
+    if max(ys) > min(ys):
+        scales.append(0.9 * (bottom - top) / (max(ys) - min(ys)))
+    return min(scales) if scales else 1.0
+
+
+def _detail_frame(spec):
+    """The box a holding detail frames: the stock, its contact outlines and the closest
+    cut's ends, padded; None when nothing touches the stock."""
+    stock = spec.get("stock_box")
+    contacts = spec.get("contacts") or []
+    if stock is None or not contacts:
+        return None
+    points = _corners(stock)
+    points += [p for contact in contacts for line in contact["lines_mm"] for p in line]
+    cut = spec.get("closest_cut")
+    if cut:
+        points += [cut["from_mm"], cut["to_mm"]]
+    low = [min(p[i] for p in points) for i in range(3)]
+    high = [max(p[i] for p in points) for i in range(3)]
+    pads = [0.05 * (high[i] - low[i]) + 2.0 for i in range(3)]
+    return [low[i] - pads[i] for i in range(3)] + [high[i] + pads[i] for i in range(3)]
+
+
+def _solid_name(tag):
+    """A fixture solid's own printed name: the part of its tag after the fixture's name."""
+    return _plain(tag.rsplit(":", 1)[-1]).replace("-", " ").upper()
+
+
+def _common_plane(lines):
+    """(axis, value) of the one setup-axis plane every point of ``lines`` lies on, or None."""
+    points = [p for line in lines for p in line]
+    for axis in range(3):
+        values = [p[axis] for p in points]
+        if max(values) - min(values) <= 1e-3:
+            return axis, sum(values) / len(values)
+    return None
+
+
+class _HoldingDetail(_Diagram):
+    """A second, larger look at the work in its holding, printed below the setup picture:
+    the same placed solids framed on the stock and the holding that touches it. Each
+    contact is outlined (solid where seen, dashed where hidden) and keyed with the setup
+    coordinate of its plane, and the removal nearest the holding is dimensioned."""
+
+    @staticmethod
+    def camera_for(spec):
+        if spec["view"] != "plan":
+            return (
+                tuple(map(tuple, spec["camera"])) if spec.get("camera") else _CAMERAS[spec["view"]]
+            )
+        rise = math.radians(_DETAIL_RISE_DEG)
+        s, c = math.sin(rise), math.cos(rise)
+        box = spec["stock_box"]
+        if box[3] - box[0] >= box[4] - box[1]:
+            return ((1, 0, 0), (0, s, c), (0, -c, s))  # from -Y, raised
+        return ((0, 1, 0), (-s, 0, c), (c, 0, s))  # from +X, raised
+
+    grows_to_fit = True
+
+    def __init__(self, meshes, spec, frame, camera, gain, tile=(1, 1), extra=0):
+        self.spec = spec
+        self.view = spec["view"]
+        self.camera = camera
+        self.gain = gain
+        self.frame = frame
+        self.tile = tile
+        self.components = spec.get("components", [])
+        self.stock = spec.get("stock_box")
+        self.callouts = []
+        self.obstacles = []
+        self.position_badges = []
+        self.leaders = []
+        self.render_debts = []
+        self._owned = None
+        self.meshes = list(meshes)
+        self.viewport = _detail_viewport(frame, camera, extra)
+        self.footer_top = math.ceil(self.viewport[3]) + 28
+        self.lanes = (self.viewport[1], self.footer_top - 16)
+        self.lane_specs = ((32, 300, 344), (1268, 300, 1256))
+        self.lane_split = (self.viewport[0] + self.viewport[2]) / 2
+        self.canvas = RenderCanvas(
+            self.meshes,
+            camera,
+            self.viewport,
+            width=1600,
+            height=self.footer_top,
+            fit=_corners(frame),
+        )
+        self.stock_pixels = [self.canvas.project(p) for p in _corners(self.stock)]
+
+    def _title(self):
+        index, count = self.tile
+        title = "HOLDING DETAIL" if count == 1 else f"HOLDING DETAIL {index} OF {count}"
+        title += f" X{self.gain:.1f}"
+        zero = self.spec.get("zero_mm")
+        if count == 1 or zero is None:
+            return title
+        axis = max(range(3), key=lambda i: abs(self.camera[0][i]))
+        low, high = self.frame[axis] - zero[axis], self.frame[axis + 3] - zero[axis]
+        return f"{title}  /  SETUP {'XYZ'[axis]} {_mm(low)} TO {_mm(high)}"
+
+    def _contact_groups(self):
+        """{label: [(member name or None, badge code or None, lines)]}: each contacting
+        solid under the holding name it is printed with. A component whose contacting
+        solids lie on different planes is named solid by solid, so each plane is keyed."""
+        contacts = {contact["tag"]: contact["lines_mm"] for contact in self.spec["contacts"]}
+        groups, named = defaultdict(list), set()
+        loose = []
+        for component in self.components:
+            tags = [tag for tag in component.get("meshes", ()) if tag in contacts]
+            if not tags:
+                continue
+            named.update(tags)
+            label = self._component_label(component)
+            lines = [line for tag in tags for line in contacts[tag]]
+            if _is_pad(component, label):
+                groups["SUPPORT PADS"].append((None, _pad_code(component, 1), lines))
+            elif component.get("code"):
+                groups[label].append((None, _plain(component["code"]), lines))
+            elif len(tags) == 1 or _common_plane(lines) is not None:
+                groups[label].append((None, None, lines))
+            else:
+                loose.extend(tags)
+        loose.extend(tag for tag in contacts if tag not in named)
+        for tag in loose:
+            name = _solid_name(tag)
+            stem, _, member = name.rpartition(" ")
+            if stem and len(member) <= 2:
+                groups[stem].append((member, None, contacts[tag]))
+            else:
+                groups[name].append((None, None, contacts[tag]))
+        return groups
+
+    def render(self):
+        c = self.canvas
+        c.line((32, 8), (1568, 8), _INK, width=2)
+        _text(c, 32, 22, self._title(), scale=4)
+        _text(c, 34, 62, "CONTACT FACES: SOLID WHERE SEEN, DASHED WHERE HIDDEN", _CONTACT)
+        groups = self._contact_groups()
+        for label, members in groups.items():
+            for _, _, lines in members:
+                self._contact_outline(lines)
+            shown = [
+                (member, code, lines, c.project(self._contact_anchor(lines)))
+                for member, code, lines in members
+                if self._in_tile(self._contact_anchor(lines))
+            ]
+            if not shown:
+                continue
+            names = [member for member, _, _, _ in shown if member]
+            text = label
+            if len(names) == 1:
+                text += f" {names[0]}"
+            elif names:
+                text += f" ({', '.join(names)})"
+            text += f" CONTACT{self._plane_text([lines for _, _, lines, _ in shown])}"
+            points = [point for _, _, _, point in shown]
+            codes = [code for _, code, _, _ in shown]
+            if not any(codes):
+                self.callouts.append(_Callout(text, points, _CONTACT))
+                continue
+            self.callouts.append(_Callout(text, points[:1], _CONTACT, leader="keyed"))
+            self.position_badges.extend(
+                {"label": code, "xy": point} for code, point in zip(codes, points, strict=True)
+            )
+        self._closest_cut()
+        self._stock_callout()
+        self._labels()
+        if self.lane_overflow > 0:
+            return
+        if self.position_badges:
+            contact = [
+                c.project(p)
+                for members in groups.values()
+                for _, _, lines in members
+                for line in lines
+                for p in line
+            ]
+            exclusion = _bounds(self.stock_pixels + contact)
+            _, top, _, bottom = self.viewport
+            self._waypoint_badges(
+                self.position_badges,
+                lambda p: p,
+                self.viewport,
+                prefix="",
+                colour=_CONTACT,
+                exclusion=(
+                    exclusion[0],
+                    max(top, exclusion[1]),
+                    exclusion[2],
+                    min(bottom, exclusion[3]),
+                ),
+            )
+        self.canvas.assert_text_layout(min_scale=_BODY_SCALE)
+
+    def _seen(self, point):
+        """Whether a point on a contact face is the surface drawn at its pixel."""
+        c = self.canvas
+        x, y = (math.floor(v) for v in c.project(point))
+        depth = c.depth_of(point)
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                if not (0 <= x + dx < c.width and 0 <= y + dy < c.height):
+                    continue
+                if c.depth[(y + dy) * c.width + x + dx] <= depth + 0.3:
+                    return True
+        return False
+
+    def _contact_outline(self, lines):
+        c = self.canvas
+        for line in lines:
+            if len(line) == 1:
+                point = c.project(line[0])
+                fill = _CONTACT if self._seen(line[0]) else _WHITE
+                c.circle(*point, 6, fill=fill, outline=_CONTACT)
+                continue
+            runs = []
+            for a, b in zip(line, line[1:], strict=False):
+                seen = self._seen([(a[i] + b[i]) / 2 for i in range(3)])
+                if runs and runs[-1][0] == seen:
+                    runs[-1][1].append(b)
+                else:
+                    runs.append((seen, [a, b]))
+            for seen, run in runs:
+                if not seen:
+                    _dashed(c, [run], c.project, _CONTACT, clip=self.viewport)
+                    continue
+                for a, b in zip(run, run[1:], strict=False):
+                    segment = _clip_segment(c.project(a), c.project(b), self.viewport)
+                    if segment:
+                        c.line(*segment, _CONTACT, width=3)
+
+    def _contact_anchor(self, lines):
+        """The outline point nearest the contact's centre, in setup mm."""
+        points = [p for line in lines for p in line]
+        centre = [sum(p[i] for p in points) / len(points) for i in range(3)]
+        return min(points, key=lambda p: math.dist(p, centre))
+
+    def _in_tile(self, point):
+        """Whether a setup point is this band's to key: inside its share of the work's
+        length when the detail is split, else inside its picture."""
+        if self.tile[1] > 1:
+            axis = max(range(3), key=lambda i: abs(self.camera[0][i]))
+            return self.frame[axis] <= point[axis] <= self.frame[axis + 3]
+        left, top, right, bottom = self.viewport
+        x, y = self.canvas.project(point)
+        return left <= x <= right and top <= y <= bottom
+
+    def _plane_text(self, members):
+        zero = self.spec.get("zero_mm")
+        plane = _common_plane([line for lines in members for line in lines])
+        if zero is None or plane is None:
+            return ""
+        axis, value = plane
+        return f" AT {'XYZ'[axis]} {_mm(value - zero[axis])}"
+
+    def _closest_cut(self):
+        cut = self.spec.get("closest_cut")
+        if not cut:
+            return
+        c = self.canvas
+        a, b = c.project(cut["from_mm"]), c.project(cut["to_mm"])
+        middle = ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)
+        if not self._in_tile([(cut["from_mm"][i] + cut["to_mm"][i]) / 2 for i in range(3)]):
+            return
+        c.line(a, b, _AMBER, width=3)
+        for point in (a, b):
+            c.circle(*point, 4, fill=_AMBER)
+        holder = _solid_name(cut["tag"])
+        for component in self.components:
+            if cut["tag"] not in component.get("meshes", ()):
+                continue
+            if component.get("meshes") == [cut["tag"]]:
+                holder = self._component_label(component)
+            elif component.get("code"):
+                holder = f"{_plain(component['code'])} {holder}"
+        label = f"CUT {_mm(cut['mm'])} mm FROM {holder.upper()}"
+        self.callouts.append(_Callout(label, [middle], _AMBER))
