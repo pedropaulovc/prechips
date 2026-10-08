@@ -2187,10 +2187,15 @@ class _Traveler:
             and not solid.get("void")
             and _supply(solid) != "bought"
         ]
-        # An unverified base gives no placement numbers.
+        # An unverified base gives no placement numbers. Table-mount hardware (a T-nut
+        # under the base) is never the base, once its own record is trusted to say so.
         if any(not record_trusted(solid, require_measured=False)[0] for solid, _ in boxes):
             boxes = []
-        boxes = [(solid, extents) for solid, extents in boxes if extents]
+        boxes = [
+            (solid, extents)
+            for solid, extents in boxes
+            if extents and solid.get("table_mount") != "hardware"
+        ]
         if not boxes:
             return []
         f = self.fixture_number

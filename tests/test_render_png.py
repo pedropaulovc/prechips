@@ -608,8 +608,19 @@ def test_plan_view_pad_and_clamp_badges_have_separate_uncrossed_leaders(name):
     assert [label for label, _ in diagram.leaders if label in keyed] == []
 
 
-@pytest.mark.parametrize("name", ["rocker-s4", "rocker-s4f"])
-def test_position_badges_stay_clear_of_a_stock_dimension_a_long_footer_lifts(name):
+_PADS = {"R1", "L1", "R2", "L2", "R3", "L3", "R4", "L4", "R5", "L5", "R6", "L6"}
+
+
+@pytest.mark.parametrize(
+    ("name", "codes"),
+    [
+        # S4: twelve pads under the strap, five clamps and the pivot locator.
+        ("rocker-s4", _PADS | {"C1", "C3", "C4", "C5", "C6", "LOC2"}),
+        # S4F: the six rail pads, three clamps and the locator.
+        ("rocker-s4f", {"R4", "L4", "R5", "L5", "R6", "L6", "C1", "C3", "C4", "LOC2"}),
+    ],
+)
+def test_position_badges_stay_clear_of_a_stock_dimension_a_long_footer_lifts(name, codes):
     # Rocker S4F on the fitting bench: its no-machine-cutting note and NOT SHOWN lines
     # run to thirteen footer lines, which lift the footer and the stock dimension row into
     # the band the pad and clamp badges under the work were packed in.
@@ -621,11 +632,13 @@ def test_position_badges_stay_clear_of_a_stock_dimension_a_long_footer_lifts(nam
     boxes = {text: (x0, y0, x1, y1) for text, x0, y0, x1, y1 in diagram.canvas.text_boxes}
     (stock,) = [label.upper() for label in diagram.dimensions if label.startswith("STOCK ")]
     _, stock_top, _, _ = boxes[stock]
-    codes = {badge["label"] for badge in diagram.position_badges}
-    assert len(codes) >= 10
+    # The expected codes are the spec's own pads and numbered clamps, never the badges
+    # the picture kept: one the lifted band dropped is missing here.
+    assert {badge["label"] for badge in diagram.position_badges} == codes
     for code in codes:
         # Every badge is printed; its frame (6 px round its text) stays above the
         # stock dimension row and the footer, with the print gap to spare.
+        assert code in boxes, code
         _, _, _, bottom = boxes[code]
         assert bottom + 6 + 4 <= stock_top, (code, bottom, stock_top)
         assert bottom + 6 + 4 <= diagram.footer_top, (code, bottom, diagram.footer_top)
