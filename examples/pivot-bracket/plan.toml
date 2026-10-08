@@ -1058,13 +1058,17 @@ align = { indicator = "dti", face = "upright", limit_mm = 0.0254, over_mm = 100.
 parallels = "not_applicable"
 supports = "not_applicable"      # the plate assembly includes the load-bearing foot-end ledge
 clamps = [
-  { ref = "clamping-kit-lms-1144/bracket-bridge", pose = { origin_mm = [0.0, -6.0, -16.0], x = [1.0, 0.0, 0.0], z = [0.0, -1.0, 0.0] }, torque_nm = 15.0, note = "presses the foot toward the plate (+Y); bar top at Setup Z -9.65; studs, washers and nuts outside the foot width, clear of the foot-end ledge, arch and cross-bore; torque the two front nuts alternately with the 1/4 in drive torque wrench and 9/16 in socket" },
+  { ref = "clamping-kit-lms-1144/bracket-bridge", pose = { origin_mm = [0.0, -6.0, -17.5], x = [1.0, 0.0, 0.0], z = [0.0, -1.0, 0.0] }, torque_nm = 15.0, note = "presses the foot toward the plate (+Y); bar top at Setup Z -11.15; studs, washers and nuts outside the foot width, clear of the foot-end ledge, arch and cross-bore; torque the two front nuts alternately with the 1/4 in drive torque wrench and 9/16 in socket" },
 ]                                # torque_nm: AUTHOR'S CHOICE, firm hand torque on the 3/8-16 front nuts for a 6 mm foot
+# AUTHOR'S CHOICE (DataBracket7, r8 BR-B1): the bridge sits at Setup Z -17.5, its lower edge 0.35 above
+# the foot end, not at Z -16, because the whole-tool clearance measure put the right front nut
+# 1.956 from op 15's arch cutter at Z -6.3; 1.5 lower clears it by over 3, and the beam still bears
+# across its full 12.7 width on the foot top, just above the ledge. The upright stud holes move with it (13.5 below its top).
 clamp_order = [1]
 method = "strap_clamps"
-locate = "Seat the finished seat face flat against the angle-plate upright, outer face up and 2 mm proud of the plate top"
+locate = "Seat the finished seat face flat against the angle-plate upright, outer face up and 4 mm proud of the plate top"  # AUTHOR'S CHOICE (r8 BR-B1): 4 mm, not 2, so op 10's cutter overhanging the plate side at Z0 passes the upright with room; see the angle-plate note
 # DataBracket (r3): one ordered HOLD step per ";" clause (the sheet splits clamp on ";").
-clamp = "fit the two bridge studs through the upright at Setup X +/-20, with the rear washers against the plate back and the rear nuts behind them; lay the bridge underside on the finished foot top at Setup Y -6, centred at Setup Z -16, and run the front washers and nuts down by hand until the bridge just holds the foot against the plate; indicate the exposed 2 mm seat lip with a small-ball DTI above the plate and tap the part until the lip sweeps flat"
+clamp = "fit the two bridge studs through the upright at Setup X +/-20, with the rear washers against the plate back and the rear nuts behind them; lay the bridge underside on the finished foot top at Setup Y -6, centred at Setup Z -17.5, and run the front washers and nuts down by hand until the bridge just holds the foot against the plate; indicate the exposed 4 mm seat lip with a small-ball DTI above the plate and tap the part until the lip sweeps flat"
 grip_mm = "not_applicable"       # bridge contact, not vise jaws
 jaw_above_parallels_mm = "not_applicable"
 stop = "Rest the foot free end on the bolted plate ledge at Setup Z -24.2, which carries the downward facing and drilling load; align the finished left foot edge at Setup X -8 before clamping."
@@ -1084,7 +1088,7 @@ tool = "edge-finder"
 check_jog_mm = 10.0              # author's choice
 
 [setups.zero.y]
-edge = "plate front beside the part at X +45, Z -5, clear of the bridge hardware"
+edge = "plate front beside the part at X +45, Z -8, clear of the bridge hardware"
 edge_mm = 0.0                    # plate face and seated datum A share Y0
 from = "-y"
 tool = "edge-finder"
@@ -1095,8 +1099,8 @@ check_jog_mm = 10.0              # author's choice
 # raw ear 1 mm above it, because then op 10 faces the ear down to exactly that plane and the
 # 24.2 mm foot length S1 checked is never cut again. The cutter centre at Y +1.5 puts 4.26 mm
 # of its Ø9.525 face on the foot end (Y 0..-6) and keeps its edge 2.74 mm clear of the raw ear
-# (Y -6 and beyond); the overhang past Y0 is 2 mm above the plate top (review DataBracket5-2).
-face = "finished foot outer end, cutter centre at X 0, Y +1.5 (cutter edge 2.74 mm clear of the raw ear at Y -6; it overhangs the plate side, 2 mm above the plate top) (S1 op 30)"
+# (Y -6 and beyond); the overhang past Y0 is 4 mm above the plate top (review DataBracket5-2; r8 BR-B1).
+face = "finished foot outer end, cutter centre at X 0, Y +1.5 (cutter edge 2.74 mm clear of the raw ear at Y -6; it overhangs the plate side, 4 mm above the plate top) (S1 op 30)"
 edge_mm = 0.0
 method = "paper"
 paper_mm = 0.05                  # author's choice

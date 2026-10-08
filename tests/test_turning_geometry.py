@@ -235,6 +235,36 @@ def test_a_dome_form_is_posed_on_the_profile_after_its_own_and_earlier_removals(
     assert neutral["ops"]["S1:20"]["obstacles"]["tool"] == ["part"]
 
 
+def test_a_dome_forms_nose_reaches_past_the_z_its_op_names(engine, shafts):
+    # The dome ends at its equator, Z36: rounding it, the nose sits beside the equator, its
+    # chuck-side edge 0.4 below the Z the op names; the 93-degree insert's flanks and the
+    # shank (2 mm back from the nose centre) trail away from the chuck. The jaw clearance
+    # is the tool's own extent, not the named Z.
+    step = shafts["domed"]
+    facing = _turn("S1:10", "dome", to_z=40.0)
+    formed = _formed(engine, step, [facing, _turn("S1:20", "dome", z_from=40.0, z_to=36.0)])
+    assert formed["ops"]["S1:20"]["tool_z_mm"][0] == pytest.approx(35.6, abs=1e-3)
+    # The nose is the tool's lowest point here: its own extent starts there too.
+    assert formed["ops"]["S1:20"]["nose_z_mm"][0] == pytest.approx(35.6, abs=1e-3)
+    # A shank wider than the insert's functional width stands past the nose on the chuck
+    # side: 12 mm back from it, a 14 mm shank reaches 2 mm past the nose centre, 1.6 below
+    # the nose, which stays where it was.
+    wide = _turn("S1:20", "dome", z_from=40.0, z_to=36.0, shank_width_mm=14.0)
+    formed = _formed(engine, step, [facing, wide])
+    assert formed["ops"]["S1:20"]["tool_z_mm"][0] == pytest.approx(34.0, abs=1e-3)
+    assert formed["ops"]["S1:20"]["nose_z_mm"][0] == pytest.approx(35.6, abs=1e-3)
+
+
+def test_a_turning_tool_the_kernel_never_poses_has_an_unknown_reach(engine, shafts):
+    # Its claimed feature is undeclared: the kernel stops before posing the tool, so its
+    # reach along Z (the traveler's jaw distance) is unknown, never left out.
+    step = shafts["domed"]
+    detail = _formed(engine, step, [_turn("S1:10", "missing", z_from=40.0, z_to=36.0)])
+    detail = detail["ops"]["S1:10"]
+    assert detail["tool_z_mm"] == detail["nose_z_mm"] == "unknown"
+    assert detail["reasons"]["tool_z_mm"] == detail["reason"]
+
+
 def _blade(subject, feature, width, **extra):
     """A right-hand square-ended parting blade: two R0.1 corners on a front edge."""
     return {
