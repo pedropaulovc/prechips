@@ -36,6 +36,10 @@ _BADGE_GAP = 2 * _BODY_SCALE
 _BADGE_PITCH = _BADGE_HEIGHT + _BADGE_GAP
 # At 7.5 inches wide this leaves room for the traveler's continuation header and caption.
 _PANEL_MAX_HEIGHT = 1792
+_FOOTER_TEXT_TOP = 88
+_FOOTER_BOTTOM_PAD = 16
+# Legend text starts at 380; reserve a 60 px inner gutter before notes at 960.
+_FOOTER_LEGEND_WIDTH = 520
 # Same deliberate outer margin as the full-width panel's left and right content.
 _PROFILE_BOTTOM_PAD = 32
 _AXIS_COLOURS = ((160, 47, 43), (44, 104, 57), (42, 83, 158))
@@ -856,26 +860,30 @@ class _Diagram:
             self.meshes.append((points, [], _WHITE))
         self.components = framed
         self.canvas = RenderCanvas([], self.camera, (0, 0, 1, 1), width=1, height=1)
-        # The complete setup and its keys occupy one full-width print panel. Independent
-        # profile sketches get their own bands instead of shrinking in a third column.
+        # The complete setup and axes stay in one full-width print panel. Text-only
+        # footer overflow gets complete continuation bands, never a smaller scene.
         self.footer_top = 1060 + extra
         self.scene_bottom = 740
         self.note_lines = self._notes()
         self.legend_rows = self._legend()
-        footer_height = (
-            88
-            + max(
-                320,
-                max(0, len(self.legend_rows) - 1) * _LEADING + _TEXT_HEIGHT,
-                max(0, len(self.note_lines) - 1) * _LEADING + _TEXT_HEIGHT,
-            )
-            + 16
-        )
-        height = self.footer_top + footer_height
+        axes_height = _FOOTER_TEXT_TOP + 320 + _FOOTER_BOTTOM_PAD
+        height = self.footer_top + axes_height
         if height > _PANEL_MAX_HEIGHT:
             raise ValueError(
                 "complete setup panel exceeds the printable Letter height at body size"
             )
+        capacity = _footer_capacity(self.footer_top)
+        self.footer_legend_rows = len(self.legend_rows)
+        self.footer_note_rows = len(self.note_lines)
+        if max(self.footer_legend_rows, self.footer_note_rows) > capacity:
+            # Primitive sketch callers need no setup identity; only actual setup-text
+            # continuation needs the measured, setup-specific owner header.
+            _, continuation_top = _footer_header(spec)
+            whole_capacity = _footer_capacity(continuation_top)
+            self.footer_legend_rows = _footer_end(self.legend_ends, 0, capacity, whole_capacity)
+            self.footer_note_rows = _footer_end(self.note_ends, 0, capacity, whole_capacity)
+        self.footer_rows = max(self.footer_legend_rows, self.footer_note_rows)
+        height = self.footer_top + max(axes_height, _footer_height(self.footer_rows))
         self.dimension_y = self.footer_top - 146
         self.lanes = (290, self.footer_top - 140)
         self.lane_specs = ((32, 360, 410), (1208, 360, 1190))
@@ -1025,7 +1033,11 @@ class _Diagram:
                 f"Stickout {self._dro(self.spec['stickout_mm'])} mm is nominal: "
                 f"set it as the measured fit-up + {self._dro(add)} mm."
             )
-        return [line for note in notes for line in _wrap(self.canvas, note, 608)]
+        lines, self.note_ends = [], []
+        for note in notes:
+            lines.extend(_wrap(self.canvas, note, 608))
+            self.note_ends.append(len(lines))
+        return lines
 
     def _legend(self):
         rows = []
@@ -1048,7 +1060,7 @@ class _Diagram:
                     rows.append((label, kind))
                     kinds.add(kind)
             else:
-                rows.extend((line, "text") for line in _wrap(self.canvas, text, 568))
+                rows.append((text, "text"))
         required = [("ARRIVING STOCK", "stock"), ("WORKHOLDING", "fixture")]
         if any(len(mesh) > 3 and mesh[3] for mesh in self.meshes):
             required.append(("REMOVED THIS SETUP", "removal"))
@@ -1064,7 +1076,11 @@ class _Diagram:
             rows.append(("PAD BADGES: POSITIONS", "text"))
         if self.nominal and "nominal" not in kinds:
             rows.append(("FINISHED OUTLINE, THIS SETUP", "nominal"))
-        return [(line, kind) for label, kind in rows for line in _wrap(self.canvas, label, 568)]
+        wrapped, self.legend_ends = [], []
+        for label, kind in rows:
+            wrapped.extend((line, kind) for line in _wrap(self.canvas, label, _FOOTER_LEGEND_WIDTH))
+            self.legend_ends.append(len(wrapped))
+        return wrapped
 
     def render(self):
         self._header()
@@ -2443,43 +2459,14 @@ class _Diagram:
         c = self.canvas
         c.line((32, self.footer_top), (1568, self.footer_top), _INK, width=2)
         self._triad(140, self.footer_top + 185)
-        _text(c, 380, self.footer_top + 23, "KEY")
-        legend_start = self.footer_top + 88
-        for index, (label, kind) in enumerate(self.legend_rows):
-            y = legend_start + index * _LEADING
-            if kind == "stock":
-                c.rect(350, y + 8, 24, 24, (160, 174, 184), outline=_INK)
-            elif kind == "fixture":
-                c.rect(350, y + 8, 24, 24, _FIXTURE, outline=_INK)
-            elif kind == "removal":
-                c.rect(350, y + 8, 24, 24, _AMBER_LIGHT, outline=_AMBER)
-                for dx in (0, 7, 14):
-                    c.line((352 + dx, y + 30), (358 + dx, y + 10), _AMBER, width=2)
-            elif kind == "tool":
-                c.arrow((350, y + _TEXT_HEIGHT / 2), (374, y + _TEXT_HEIGHT / 2), _GREEN, width=3)
-            elif kind == "context":
-                c.line(
-                    (350, y + _TEXT_HEIGHT / 2),
-                    (374, y + _TEXT_HEIGHT / 2),
-                    _MUTED,
-                    width=2,
-                    dashed=True,
-                )
-            elif kind == "nominal":
-                c.line(
-                    (350, y + _TEXT_HEIGHT / 2),
-                    (374, y + _TEXT_HEIGHT / 2),
-                    _BLUE,
-                    width=2,
-                    dashed=True,
-                )
-            _text(c, 380, y, label, _MUTED if kind == "text" else _INK)
-        if not self.note_lines:
-            return
-        _text(c, 960, self.footer_top + 23, "SETUP NOTES")
-        note_start = self.footer_top + 88
-        for index, line in enumerate(self.note_lines):
-            _text(c, 960, note_start + index * _LEADING, line, _MUTED)
+        _footer_text(
+            c,
+            self.footer_top,
+            self.legend_rows[: self.footer_legend_rows],
+            self.note_lines[: self.footer_note_rows],
+            _footer_label(self.legend_ends, 0, self.footer_legend_rows, "KEY", "LEGEND ENTRY"),
+            _footer_label(self.note_ends, 0, self.footer_note_rows, "SETUP NOTES", "NOTE"),
+        )
 
     def _triad(self, x, y):
         c = self.canvas
@@ -2526,6 +2513,153 @@ class _Diagram:
             # before the adjacent legend's samples (not only its text boxes).
             for index, line in enumerate(_wrap(c, "VIEW NORMAL", 270)):
                 _text(c, 49, self.footer_top + 290 + index * _LEADING, line, _MUTED)
+
+
+def _footer_capacity(top, text_top=_FOOTER_TEXT_TOP):
+    """Complete body-size rows that fit below this footer's headers and bottom margin."""
+    return (_PANEL_MAX_HEIGHT - top - text_top - _TEXT_HEIGHT - _FOOTER_BOTTOM_PAD) // _LEADING + 1
+
+
+def _footer_height(rows, text_top=_FOOTER_TEXT_TOP):
+    return text_top + max(0, rows - 1) * _LEADING + _TEXT_HEIGHT + _FOOTER_BOTTOM_PAD
+
+
+def _footer_title(spec):
+    return f"SETUP {spec['setup_id']} / KEY + NOTES (CONTINUED)"
+
+
+def _footer_header(spec):
+    lines = _wrap(_MEASURE, _footer_title(spec), 1536, _TITLE_SCALE)
+    return lines, 22 + len(lines) * 9 * _TITLE_SCALE + 10
+
+
+def _footer_end(ends, first, capacity, whole_capacity):
+    """Keep entries whole when possible; only an oversized single entry is continued."""
+    if not ends or first >= ends[-1]:
+        return first
+    index = next(index for index, end in enumerate(ends) if end > first)
+    start = ends[index - 1] if index else 0
+    if first > start:
+        # A continuation's header names this entry alone, not the next whole entry.
+        return min(ends[index], first + capacity)
+    last = max((end for end in ends[index:] if end <= first + capacity), default=first)
+    if last > first:
+        return last
+    if ends[index] - first <= whole_capacity and capacity < whole_capacity:
+        return first  # This whole entry belongs in the next, full-height text band.
+    return min(ends[index], first + capacity)
+
+
+def _footer_label(ends, first, last, normal, entry):
+    if first == last:
+        return normal
+    index = next(index for index, end in enumerate(ends) if end > first)
+    start = ends[index - 1] if index else 0
+    if first > start or last < ends[index]:
+        continued = " (CONTINUED)" if first > start else ""
+        return f"{entry} {index + 1:02d}{continued}"
+    return normal
+
+
+def _footer_text_top(key_label, note_label):
+    rows = max(
+        len(_wrap(_MEASURE, key_label, _FOOTER_LEGEND_WIDTH)),
+        len(_wrap(_MEASURE, note_label, 608)),
+    )
+    return 23 + rows * _LEADING + 20
+
+
+def _footer_text(c, top, legend_rows, note_lines, key_label="KEY", note_label="SETUP NOTES"):
+    """Paint measured key/note rows with the setup footer's unchanged sample associations."""
+    text_top = _footer_text_top(key_label, note_label)
+    if legend_rows:
+        for index, line in enumerate(_wrap(c, key_label, _FOOTER_LEGEND_WIDTH)):
+            _text(c, 380, top + 23 + index * _LEADING, line)
+    for index, (label, kind) in enumerate(legend_rows):
+        y = top + text_top + index * _LEADING
+        if kind == "stock":
+            c.rect(350, y + 8, 24, 24, (160, 174, 184), outline=_INK)
+        elif kind == "fixture":
+            c.rect(350, y + 8, 24, 24, _FIXTURE, outline=_INK)
+        elif kind == "removal":
+            c.rect(350, y + 8, 24, 24, _AMBER_LIGHT, outline=_AMBER)
+            for dx in (0, 7, 14):
+                c.line((352 + dx, y + 30), (358 + dx, y + 10), _AMBER, width=2)
+        elif kind == "tool":
+            c.arrow((350, y + _TEXT_HEIGHT / 2), (374, y + _TEXT_HEIGHT / 2), _GREEN, width=3)
+        elif kind in ("context", "nominal"):
+            c.line(
+                (350, y + _TEXT_HEIGHT / 2),
+                (374, y + _TEXT_HEIGHT / 2),
+                _BLUE if kind == "nominal" else _MUTED,
+                width=2,
+                dashed=True,
+            )
+        _text(c, 380, y, label, _MUTED if kind == "text" else _INK)
+    if note_lines:
+        for index, line in enumerate(_wrap(c, note_label, 608)):
+            _text(c, 960, top + 23 + index * _LEADING, line)
+    for index, line in enumerate(note_lines):
+        _text(c, 960, top + text_top + index * _LEADING, line, _MUTED)
+
+
+class _FooterDetail:
+    """Text-only continuation owned by its original setup, without a new geometric view."""
+
+    role = "setup"
+
+    def __init__(self, diagram, legend_first, note_first):
+        self.spec = diagram.spec
+        title_lines, self.footer_top = _footer_header(self.spec)
+        key_label = _footer_label(
+            diagram.legend_ends, legend_first, len(diagram.legend_rows), "KEY", "LEGEND ENTRY"
+        )
+        note_label = _footer_label(
+            diagram.note_ends, note_first, len(diagram.note_lines), "SETUP NOTES", "NOTE"
+        )
+        self.text_top = _footer_text_top(key_label, note_label)
+        capacity = _footer_capacity(self.footer_top, self.text_top)
+        whole_capacity = _footer_capacity(self.footer_top)
+        legend_last = _footer_end(diagram.legend_ends, legend_first, capacity, whole_capacity)
+        note_last = _footer_end(diagram.note_ends, note_first, capacity, whole_capacity)
+        self.legend_range = (legend_first, legend_last)
+        self.note_range = (note_first, note_last)
+        self.legend_rows = diagram.legend_rows[legend_first:legend_last]
+        self.note_lines = diagram.note_lines[note_first:note_last]
+        rows = max(len(self.legend_rows), len(self.note_lines))
+        self.canvas = RenderCanvas(
+            [],
+            diagram.camera,
+            (0, 0, 1, 1),
+            height=self.footer_top + _footer_height(rows, self.text_top),
+        )
+        self.leaders = []
+        self.hidden_leaders = []
+        for index, line in enumerate(title_lines):
+            _text(self.canvas, 32, 22 + index * 9 * _TITLE_SCALE, line, scale=_TITLE_SCALE)
+        self.canvas.line((32, self.footer_top), (1568, self.footer_top), _INK, width=2)
+        _footer_text(
+            self.canvas,
+            self.footer_top,
+            self.legend_rows,
+            self.note_lines,
+            _footer_label(diagram.legend_ends, legend_first, legend_last, "KEY", "LEGEND ENTRY"),
+            _footer_label(diagram.note_ends, note_first, note_last, "SETUP NOTES", "NOTE"),
+        )
+        self.canvas.assert_text_layout(min_scale=_BODY_SCALE)
+
+    def _title(self):
+        return _footer_title(self.spec)
+
+
+def _footer_details(diagram):
+    details = []
+    legend_first, note_first = diagram.footer_legend_rows, diagram.footer_note_rows
+    while legend_first < len(diagram.legend_rows) or note_first < len(diagram.note_lines):
+        detail = _FooterDetail(diagram, legend_first, note_first)
+        details.append(detail)
+        legend_first, note_first = detail.legend_range[1], detail.note_range[1]
+    return details
 
 
 def _append_panel(diagram, detail, role, label):
@@ -2717,7 +2851,7 @@ def render_diagram(meshes, spec):
 def _compose_diagram(diagram, holding_details):
     """Return ``(diagram, png)`` for a settled main stage with all final print bands.
 
-    Annotation bands precede the measured holding bands, each appended exactly once.
+    Setup-footer continuations precede annotation and measured holding bands.
     The object retains the independent details and their original specs; its text boxes
     and leaders include their shifted copies in the one canonical final canvas.
     """
@@ -2725,9 +2859,12 @@ def _compose_diagram(diagram, holding_details):
         raise ValueError("a setup stage with overflowing label lanes cannot be composed")
     if hasattr(diagram, "holding_details"):
         raise ValueError("the setup stage has already been composed")
+    diagram.footer_details = _footer_details(diagram)
     diagram.annotation_details = _annotation_details(diagram.spec, diagram.canvas.scale)
     diagram.holding_details = [d for d in holding_details if not isinstance(d, _GuideView)]
     diagram.guide_details = [d for d in holding_details if isinstance(d, _GuideView)]
+    for detail in diagram.footer_details:
+        _append_panel(diagram, detail, detail.role, detail._title())
     for detail in diagram.annotation_details:
         _append_panel(diagram, detail, detail.role, detail._title())
     for detail in diagram.holding_details:
@@ -2745,7 +2882,7 @@ def _compose_diagram(diagram, holding_details):
 
 def _main_diagram(meshes, spec):
     """Return ``(diagram, png)`` with only the main label lanes measured to fit.
-    Independent annotation insets never consume the setup stage's height."""
+    Text-footer continuations and independent sketches never grow the setup's geometry."""
     extra = 0
     while True:
         diagram = _Diagram(meshes, spec, extra)

@@ -35,10 +35,13 @@ error/warn/info vocabulary, and the telemetry requirements.
 
 Traveler readability work is limited to document structure and layout. It
 preserves machining facts, procedures, rule outcomes and declared input schemas.
-The current candidate's full validation, native capture comparison, all-page
-review and golden regeneration remain pending. Baseline and historical scoped
-observations are recorded in [examples/README.md](examples/README.md#dro-and-print-surfaces);
-they do not close physical paper/pen/operator or live-farm acceptance.
+The current candidate's final all-page readability review and justified reference
+regeneration remain pending. Geometry and machining validation blockers are
+tracked separately in [issue 150](https://github.com/pedropaulovc/prechips/issues/150),
+not repaired through this layout work; a native geometry-comparison programme is
+outside this session's scope. Baseline and scoped observations are recorded in
+[examples/README.md](examples/README.md#dro-and-print-surfaces); they do not close
+physical paper/pen/operator or live-farm acceptance.
 
 ## 1. Who this is for
 
@@ -64,10 +67,13 @@ precision is absent; unrelated tolerance formatting must not change a cut target
 Letter portrait, with 0.5-inch margins, 12 pt working text and at least 10 pt
 metadata in familiar offline sans-serif type. Physical page counts vary with
 content; operation groups retain authored order and associated inspection
-writing areas: one full-width white freeform readings/observations area below
-each real requirement, at least 20 mm clear interior depth excluding labels,
-padding and borders. Known owners, bands, gauges and methods remain associated;
-named authored fields have a 35 × 10 mm clear floor. A step list with named
+writing destinations. A real requirement without its own authored recording
+destination has one full-width white freeform readings/observations area below
+it, at least 20 mm clear interior depth excluding labels, padding and borders.
+Authored fields for that exact read-once requirement are its sole destination;
+distinct requirements and separately banded groups retain their own fields.
+Known owners, bands, gauges and methods remain associated; named authored fields
+have a 35 × 10 mm clear floor. A step list with named
 brace readings and at least two calculations uses a worksheet: source steps
 reference READINGS value boxes and calculations print once. Explicit
 `measure_before_hold = true` with authored measurement text keeps pre-clamping
@@ -84,6 +90,9 @@ attached once to the original note or worksheet. Continuations move whole figure
 and retain applicable context without copying reading/result fields. Main-picture
 lanes and annotation details fit separately before final band composition;
 layout fitting preserves cut-clearance keys and rendering debt.
+Long setup key/note entries continue in measured, setup-owned text bands at the
+same readable scale, without splitting the geometric view or repeating the stock
+caption. A continuation identifies its source entry, not a new physical key.
 No reading positions, counts or statistics are inferred. An operation's
 performed mark is progress only, not acceptance, clearance or approval; no input
 schema field is added.

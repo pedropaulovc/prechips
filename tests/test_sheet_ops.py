@@ -1773,7 +1773,7 @@ def test_distinct_owner_bands_keep_their_result_and_method_associations():
                 "do": "inspect",
                 "feature": ["left", "right"],
                 "checks": {"dia": "mic"},
-                "inspection_methods": {"dia": "Use the micrometer."},
+                "inspection_methods": {"dia": "Use the micrometer. Record {method_reading}."},
             }
         ],
     )
@@ -1784,9 +1784,14 @@ def test_distinct_owner_bands_keep_their_result_and_method_associations():
         (records[1], "8.010–8.030", "6.330–6.350"),
     ):
         assert expected in content(node) and other not in content(node)
+        assert "? " in content(node)
         assert "S1 sheet 2 note 1" in content(node)
         assert len(markup.find("writing-blank", node)) == 1
     assert notes.count("Use the micrometer.") == 1
+    method = Markup(notes)
+    assert [content(label) for label in method.find("field-label")] == ["method_reading"]
+    assert len(method.find("writing-blank")) == 1
+    assert content(method.find("writing-blank")[0]) == ""
 
 
 def test_missing_requirements_identities_and_process_holds_do_not_get_fake_results():

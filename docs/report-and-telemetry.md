@@ -158,6 +158,14 @@ exactly once, without gaps or repeated content. Roles are `setup`,
 semantic windows at a common print scale, preserving geometry, annotation units
 and visible debt. Each window retains setup/part/revision and panel-order context.
 There is no arbitrary whole-image crop, fit or downscale fallback.
+Long setup keys and notes retain setup ownership. The complete geometric view,
+dimensions, leaders and axes stay in the first band; original text entries that
+do not fit continue in measured full-width `setup` bands labelled
+`KEY + NOTES (CONTINUED)`. Entries stay whole when they fit a continuation band;
+an individually oversized entry uses an explicit source-entry continuation
+header, not a new physical drawing key. Every original row is painted once at
+the same readable scale. The traveler reserves the stock caption for the first
+figure rather than repeating it on text continuations.
 The main picture fits its measured callout lanes separately from annotation
 details. Each annotation detail renders and measures its own content, then grows
 within the whole-band bound or falls back from two operations to separate
@@ -374,9 +382,14 @@ This fallback neither splits complete figures nor duplicates recording fields.
 
 Operation groups retain authored order. A square beside the operation ID means
 **operation performed only — not inspection acceptance or clearance to proceed**.
-It is not approval and adds no schema field. Each real inspection requirement
-has one full-width white freeform readings/observations area below it, with
-at least 20 mm clear interior depth excluding labels, padding and borders.
+It is not approval and adds no schema field. A real inspection requirement
+without its own authored recording destination has one full-width white
+freeform readings/observations area below it, with at least 20 mm clear interior
+depth excluding labels, padding and borders. When that exact read-once
+feature/requirement group already has named or underscore fields in its
+referenced procedure, those fields are the sole recording destination; the
+generated fallback box is omitted, not duplicated elsewhere. Distinct
+requirements and separately banded result groups keep their own destinations.
 Known owner(s), authored band, gauge, method reference, existing units where
 applicable and nearby authored context stay associated. Identify feature/location
 when needed; no positions, reading counts, statistics or acceptance obligations
@@ -393,6 +406,11 @@ obligation. Titles, source words, numbers and inspection methods are unchanged.
 Unknown requirement identities, bands and other debt stay visible and gain
 neither fabricated result data nor invented gauges.
 GO / NO-GO meaning and gauge/source ownership are unchanged.
+
+Terminal punctuation stays with the existing field caption rather than on an
+orphan line after its writing box. Calculation fields start on a shared left
+alignment below their unchanged equation/instruction text. These layout groups
+preserve the authored characters and order, labels and clear writing interiors.
 
 The layout targets follow print-form guidance on proximity, readable type and
 space to write: [NN/g proximity](https://www.nngroup.com/articles/gestalt-proximity/),

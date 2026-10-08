@@ -129,6 +129,7 @@ min-height: var(--writing-result-height); }
 table.readings .field { display: flex; }
 .calc { margin: var(--space-sm) 0; font-weight: bold; }
 .calc { break-inside: avoid; page-break-inside: avoid; }
+.calc .field { display: flex; width: fit-content; }
 table { width: 100%; border-collapse: collapse; margin: var(--space-sm) 0; table-layout: fixed; }
 th, td { border: var(--rule-thin) solid var(--color-rule); padding: var(--space-xs) var(--space-sm);
 text-align: left; vertical-align: top; overflow-wrap: anywhere; }
@@ -1686,6 +1687,7 @@ class _Inspection:
     requirement: str
     unit: str = ""
     qualitative: bool = False
+    recording_at: str = ""
 
 
 class _Row(tuple):
@@ -1723,8 +1725,10 @@ def _cell_line(line):
     return _numeric_html(line)
 
 
-def _writing_field(label, css="field"):
+def _writing_field(label, css="field", *, punctuation=""):
     caption = f'<span class="field-label">{_numeric_html(label)}</span>' if label else ""
+    if punctuation:
+        caption = f'<span class="field-caption">{caption}{_numeric_html(punctuation)}</span>'
     return (
         f'<span class="{css}">{caption}'
         '<span class="writing-blank" aria-hidden="true"></span></span>'
@@ -1815,7 +1819,11 @@ def _ledger_row(row, headings):
             '<div class="inspection-layout"><div class="inspection-requirement">'
             + _p(check.text)
             + "</div>"
-            + _writing_field(label, "result-field")
+            + (
+                _p(f"Record in {check.recording_at}.")
+                if check.recording_at
+                else _writing_field(label, "result-field")
+            )
             + "</div></td></tr>"
         )
     if (
@@ -1941,9 +1949,14 @@ def _fields(text, *, prose=True):
     parts, end = [], 0
     for field in _FIELD.finditer(text):
         prefix = text[end : field.start()]
+        # A following decimal stays with its numeric token, not the field caption.
+        following = re.match(r"[.,;:!?]+(?![\d.,;:!?])", text[field.end() :])
+        punctuation = following.group() if following else ""
         if field[1] is not None:
             css = "field prose-field" if prose else "field"
-            parts.extend((_numeric_html(prefix), _writing_field(field[1], css)))
+            parts.extend(
+                (_numeric_html(prefix), _writing_field(field[1], css, punctuation=punctuation))
+            )
         else:
             # Keep the authored sentence/calculation caption with its sole box.
             boundaries = list(re.finditer(r"[.!?;]\s+", prefix))
@@ -1951,10 +1964,10 @@ def _fields(text, *, prose=True):
             parts.extend(
                 (
                     _numeric_html(prefix[:start]),
-                    _writing_field(prefix[start:], "authored-blank"),
+                    _writing_field(prefix[start:], "authored-blank", punctuation=punctuation),
                 )
             )
-        end = field.end()
+        end = field.end() + len(punctuation)
     parts.append(_numeric_html(text[end:]))
     return "".join(parts)
 
@@ -5769,13 +5782,23 @@ class _Traveler:
             if datums:
                 line += " to " + "|".join(map(_text, datums))
             method = methods.get(requirement)
+            recording_at = ""
             if method and method != "unknown":
                 head = f"{sid} op {op['op']} {name}"
                 item = self.note(head, method)
                 sketch = self.inspection_sketch(setup, op, requirement)
                 if sketch:
                     item.sketch = sketch
-                line += f" [{place(item)}]"
+                destination = place(item)
+                line += f" [{destination}]"
+                has_fields = (
+                    any(_FIELD.search(step) for step in item[1])
+                    or any(_FIELD.search(step) for step in item[2])
+                    if isinstance(item, _Steps)
+                    else _FIELD.search(str(item))
+                )
+                if has_fields:
+                    recording_at = destination
             if requirement in missing or requirement == "unknown" or not owners:
                 rows.append(line)
                 continue
@@ -5818,6 +5841,9 @@ class _Traveler:
                         qualitative=bool(pair)
                         and pair != "unknown"
                         or any(isinstance(value, str) for value in values),
+                        # A method owns only its exact read-once requirement group;
+                        # unrelated or separately banded results keep their own box.
+                        recording_at=recording_at if len(groups) == 1 else "",
                     )
                 )
         for hold in op.get("process_holds", []):

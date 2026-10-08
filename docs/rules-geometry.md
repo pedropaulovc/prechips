@@ -1887,6 +1887,28 @@ machine cutting rather than "no material removed".
 Existing sketch captions wrap within their measured owner width at the same
 body type size, with line-height space reserved for every caption line. This
 changes layout only, not caption wording, coordinates, units or schema.
+The complete setup view, dimensions, leaders and setup-axes key remain together
+in the first band. If the measured key or setup-note rows exceed that band's
+remaining height, its fitting prefix stays there and the remaining rows continue
+in measured full-width bands owned by the same `setup` role, explicitly labelled
+`KEY + NOTES (CONTINUED)`. Legend text reserves a measured 60-pixel inner gutter
+before the notes column; body type, row order and key/sample associations are
+retained, with no row dropped, duplicated or cropped.
+These text-only continuations precede the independent sketches, holding and guide
+bands and share their 1792-pixel limit and exact-once canonical-image coverage.
+They do not invent another geometric view or repeat the first figure's stock
+caption. Setup geometry and label lanes that themselves exceed the printable
+bound are still refused truthfully.
+Band boundaries keep logical legend entries and notes whole whenever one entry
+fits a full text band. An entry longer than a whole band alone is continued at
+complete wrapped rows, identified by the source-entry ordinal (`LEGEND ENTRY 01`
+or `NOTE 01`, with `(CONTINUED)` on later fragments). These are layout identities,
+not new physical drawing keys. Their headers wrap with measured space reserved;
+substantive text still appears exactly once.
+The constructor measures a setup-specific continuation header only when the
+footer actually overflows. Primitive sketch callers whose text already fits keep
+their existing no-setup-identity construction contract; rendering a complete
+setup still requires its declared setup identity.
 Main-picture lane fitting and annotation-detail fitting have separate owners.
 An annotation detail measures its own rendered inset and callout overflow, grows
 that band within the 1792-pixel bound and retains the fallback from a two-op band

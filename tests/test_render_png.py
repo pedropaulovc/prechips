@@ -1652,6 +1652,197 @@ def test_a_long_legend_keeps_the_stock_dimension_above_the_actual_footer():
     diagram.canvas.assert_text_layout(min_scale=5)
 
 
+@pytest.mark.parametrize("overflow", ["notes", "key", "both"])
+@pytest.mark.parametrize("hidden_stock", [False, True])
+@pytest.mark.parametrize("size", [20, 150], ids=["with_holding_detail", "whole_work"])
+def test_setup_text_footer_continues_in_complete_readable_owned_bands(overflow, hidden_stock, size):
+    # Synthetic solid layout fixture, not a native geometry certification. The real
+    # public renderer must keep hidden-STOCK debt while continuing long setup text.
+    meshes, spec = _vise_spec(size)
+    spec.update(
+        paths=[
+            {
+                "op": "10",
+                "xy": [[size / 6, size / 6], [size * 5 / 6, size / 2]],
+                "directed": True,
+            }
+        ],
+        waypoints=[{"op": "10", "label": "P1", "xy": [size / 6, size / 6]}],
+    )
+    if hidden_stock:
+        meshes.append(_block([0, 0, 10, size, size, 20], (120, 98, 76), "occluder"))
+    baseline, _ = _composed_diagram(meshes, spec)
+    if overflow in ("notes", "both"):
+        spec["notes"] = [f"N{index:02d} verify reference before clamping" for index in range(1, 61)]
+    if overflow in ("key", "both"):
+        spec["legend"] = [f"K{index:02d} check zero" for index in range(1, 61)]
+
+    diagram, png = _composed_diagram(meshes, spec, baseline.render_debts)
+    width, height, pixels = _decode_png(png)
+    panels = diagram.print_panels
+    assert width == 1600
+    assert len(diagram.footer_details) >= 2
+    assert [panel["role"] for panel in panels] == (
+        ["setup"] * (1 + len(diagram.footer_details))
+        + [detail.role for detail in diagram.annotation_details]
+        + ["holding_detail"] * len(diagram.holding_details)
+        + ["guide_axis"] * len(diagram.guide_details)
+    )
+    # No geometry, dimension, leader or detached sketch is refitted by footer text.
+    assert diagram.footer_top == baseline.footer_top
+    assert diagram.viewport == baseline.viewport
+    assert diagram.canvas.scale == baseline.canvas.scale
+    assert diagram.dimensions == baseline.dimensions
+    main_leaders = [
+        (label, path)
+        for label, path in diagram.leaders
+        if all(y < panels[0]["height_px"] for _, y in path)
+    ]
+    assert main_leaders == [
+        (label, path)
+        for label, path in baseline.leaders
+        if all(y < baseline.print_panels[0]["height_px"] for _, y in path)
+    ]
+    end = diagram.footer_top * width * 3
+    assert pixels[:end] == baseline.canvas.rgb[:end]
+    assert [detail.canvas.rgb for detail in diagram.annotation_details] == [
+        detail.canvas.rgb for detail in baseline.annotation_details
+    ]
+    assert bool(diagram.holding_details) is (size == 20)
+    assert [detail.canvas.rgb for detail in diagram.holding_details] == [
+        detail.canvas.rgb for detail in baseline.holding_details
+    ]
+    assert [detail.leaders for detail in diagram.annotation_details + diagram.holding_details] == [
+        detail.leaders for detail in baseline.annotation_details + baseline.holding_details
+    ]
+    assert bool(diagram.render_debts) is hidden_stock
+    assert any(label == "STOCK" for label, _ in main_leaders) is not hidden_stock
+
+    numbered = {"N": [], "K": []}
+    cursor = 0
+    for panel in panels:
+        assert panel["top_px"] == cursor
+        assert 0 < panel["height_px"] <= 1792
+        cursor += panel["height_px"]
+    assert cursor == height
+    diagram.canvas.assert_text_layout(min_scale=5)
+    for label, left, top, right, bottom in diagram.canvas.text_boxes:
+        assert (
+            sum(
+                panel["top_px"] <= top < bottom <= panel["top_px"] + panel["height_px"]
+                for panel in panels
+            )
+            == 1
+        )
+        assert (bottom - top) / width * 7.5 * 72 >= 11
+        assert any(
+            tuple(pixels[(y * width + x) * 3 : (y * width + x) * 3 + 3]) != _WHITE
+            for y in range(top, bottom)
+            for x in range(left, right)
+        )
+        match = re.match(r"([NK])(\d{2})\b", label)
+        if match:
+            numbered[match[1]].append(int(match[2]))
+    assert numbered["N"] == (list(range(1, 61)) if overflow != "key" else [])
+    assert numbered["K"] == (list(range(1, 61)) if overflow != "notes" else [])
+    note_rows = 0
+    footer_panels = panels[1 : 1 + len(diagram.footer_details)]
+    owners = [(panels[0], diagram.footer_top, 88)] + [
+        (panel, detail.footer_top, detail.text_top)
+        for panel, detail in zip(footer_panels, diagram.footer_details, strict=True)
+    ]
+    for panel, footer_top, text_top in owners:
+        for _, left, top, right, bottom in diagram.canvas.text_boxes:
+            if (
+                left == 380
+                and panel["top_px"] + footer_top < top
+                and bottom <= panel["top_px"] + panel["height_px"]
+            ):
+                assert right + 56 <= 960
+        note_rows += sum(
+            left == 960
+            and panel["top_px"] + footer_top + text_top <= top
+            and bottom <= panel["top_px"] + panel["height_px"]
+            for _, left, top, _, bottom in diagram.canvas.text_boxes
+        )
+    assert note_rows == len(baseline.note_lines) + (120 if overflow != "key" else 0)
+    # Every ordinary multi-row note remains whole at the chosen band boundaries.
+    assert diagram.footer_note_rows in {0, *diagram.note_ends}
+    for detail in diagram.footer_details:
+        assert detail.note_range[0] in {0, *diagram.note_ends}
+        assert detail.note_range[1] in {0, *diagram.note_ends}
+    for panel, detail in zip(footer_panels, diagram.footer_details, strict=True):
+        first = panel["top_px"] * width * 3
+        last = (panel["top_px"] + panel["height_px"]) * width * 3
+        assert pixels[first:last] == detail.canvas.rgb
+        for index, (_, kind) in enumerate(detail.legend_rows):
+            if kind not in ("stock", "fixture"):
+                continue
+            y = panel["top_px"] + detail.footer_top + detail.text_top + index * 45 + 16
+            color = (160, 174, 184) if kind == "stock" else (120, 98, 76)
+            offset = (y * width + 362) * 3
+            assert tuple(pixels[offset : offset + 3]) == color
+
+
+@pytest.mark.parametrize("column", ["notes", "legend"])
+def test_one_overlong_footer_entry_continues_with_its_explicit_source_entry_identity(column):
+    meshes, spec = _vise_spec(150)
+    prefix = "N" if column == "notes" else "K"
+    # One logical entry longer than a whole print band: ordered layout tokens make
+    # loss/duplication observable in the real painted result, not copied source prose.
+    spec[column] = [" ".join(f"{prefix}{index:03d}" for index in range(1, 146))]
+    diagram, png = _composed_diagram(meshes, spec)
+    width, height, pixels = _decode_png(png)
+    assert width == 1600
+    actual = [
+        int(number)
+        for label, *_ in diagram.canvas.text_boxes
+        for number in re.findall(rf"\b{prefix}(\d{{3}})\b", label)
+    ]
+    assert actual == list(range(1, 146))
+    continued = [
+        detail
+        for detail in diagram.footer_details
+        if (detail.note_range if column == "notes" else detail.legend_range)[0] > 0
+        and (detail.note_range if column == "notes" else detail.legend_range)[0]
+        < (diagram.note_ends if column == "notes" else diagram.legend_ends)[0]
+    ]
+    assert continued
+    for detail in continued:
+        labels = [box[0] for box in detail.canvas.text_boxes]
+        if column == "notes":
+            assert "NOTE 01 (CONTINUED)" in labels
+        else:
+            assert "LEGEND ENTRY 01" in labels and "(CONTINUED)" in labels
+    assert not any(re.fullmatch(r"KEY\s*\d+", box[0]) for box in diagram.canvas.text_boxes)
+    cursor = 0
+    for panel in diagram.print_panels:
+        assert panel["top_px"] == cursor
+        assert 0 < panel["height_px"] <= 1792
+        cursor += panel["height_px"]
+    assert cursor == height
+    diagram.canvas.assert_text_layout(min_scale=5)
+    for _, left, top, right, bottom in diagram.canvas.text_boxes:
+        assert (
+            sum(
+                panel["top_px"] <= top < bottom <= panel["top_px"] + panel["height_px"]
+                for panel in diagram.print_panels
+            )
+            == 1
+        )
+        if left == 380 and any(
+            panel["role"] == "setup"
+            and panel["top_px"] <= top < bottom <= panel["top_px"] + panel["height_px"]
+            for panel in diagram.print_panels
+        ):
+            assert right + 56 <= 960
+        assert any(
+            tuple(pixels[(y * width + x) * 3 : (y * width + x) * 3 + 3]) != _WHITE
+            for y in range(top, bottom)
+            for x in range(left, right)
+        )
+
+
 def test_a_clearance_no_detail_band_keys_is_dimensioned_on_the_setup_picture(monkeypatch):
     # Work larger than its jaws draws no holding detail; the kit-free obstruction the
     # kernel measured (0 mm to the fixed jaw) is still printed, on the setup picture.

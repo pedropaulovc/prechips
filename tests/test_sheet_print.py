@@ -1369,6 +1369,12 @@ def test_original_note_then_worksheet_views_keep_result_reading_and_calculation_
     )
     original = Markup(source)
     expected_fields = [content(node) for node in original.find("field-label")]
+    assert expected_fields == [
+        "observed",
+        *(f"R{index:02}" for index in range(55)),
+        "difference",
+        "result",
+    ]
     expected_calculations = [content(node) for node in original.find("calc")]
     printed, details = printed_sheet(source, _INSPECTION_PAGES)
     _assert_source_on_every_page(details)
@@ -1378,11 +1384,19 @@ def test_original_note_then_worksheet_views_keep_result_reading_and_calculation_
     assert [figure["page"] for figure in details["figures"]] == sorted(
         figure["page"] for figure in details["figures"]
     )
-    assert len(printed.find("inspection-record")) == 2
-    assert len(printed.find("result-field")) == 2
+    records = printed.find("inspection-record")
+    assert len(records) == 2
+    assert all(not printed.find("writing-blank", record) for record in records)
+    assert [content(record) for record in records] == [
+        content(record) for record in original.find("inspection-record")
+    ]
     assert len(printed.find("performed-mark")) == 2
     assert details["originalFields"] == expected_fields
-    assert len(printed.find("writing-blank")) == len(original.find("writing-blank")) == 60
+    assert (
+        len(printed.find("writing-blank"))
+        == len(original.find("writing-blank"))
+        == len(expected_fields)
+    )
     assert all(_original(node) for node in printed.find("writing-blank"))
     assert [content(node) for node in printed.find("calc") if _original(node)] == (
         expected_calculations
