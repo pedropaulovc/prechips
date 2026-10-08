@@ -35,23 +35,90 @@ def forget_spindle_minimum(inventory):
     )
 
 
-def forget_to_z(plan, setup_id, op_id):
-    """Scratch defect: one op's commanded to_z becomes unknown, so its Z geometry is debt."""
-    text = plan.read_text(encoding="utf-8")
-    setups = re.split(r"(?m)^(?=\[\[setups\]\]$)", text)
-    changed = 0
-    for index, setup in enumerate(setups[1:], start=1):
-        own = re.search(r'(?m)^id = "([^"]*)"', setup)
-        if not own or own.group(1) != setup_id:
-            continue
-        blocks = re.split(r"(?m)^(?=\[\[setups\.ops\]\]$)", setup)
-        for position, block in enumerate(blocks):
-            if re.search(rf"(?m)^op = {op_id}\s*(?:#.*)?$", block):
-                blocks[position], count = re.subn(r"(?m)^to_z = .*$", 'to_z = "unknown"', block)
-                changed += count
-        setups[index] = "".join(blocks)
-    assert changed == 1, (plan, setup_id, op_id)
-    plan.write_text("".join(setups), encoding="utf-8")
+def checklist_plans(tmp_path, *, separate_inventories=False):
+    """Two authored mill consumers; unknown dimensions remain real measurement debt."""
+    inventory = tmp_path / "inventory.toml"
+    inventory.write_text(
+        """[machines.PM-30MV]
+kind = "mill"
+[machines.PM-30MV.envelope]
+spindle_to_table_max_mm = "unknown"
+spindle_to_table_min_mm = "unknown"
+travel_mm = { x = "unknown", y = "unknown", z = "unknown" }
+[tools.endmill]
+kind = "endmill"
+dia_mm = "unknown"
+oal_mm = "unknown"
+[holders.collet]
+kind = "collet"
+gauge_len_mm = "unknown"
+grip_mm = "unknown"
+[fixtures.vise]
+kind = "vise"
+bed_height_mm = "unknown"
+""",
+        encoding="utf-8",
+    )
+    other_inventory = (
+        inventory.with_name("other-inventory.toml") if separate_inventories else inventory
+    )
+    if separate_inventories:
+        other_inventory.write_bytes(inventory.read_bytes())
+    (tmp_path / "features.toml").write_text(
+        """part = "scratch"
+units = "mm"
+[frames.model]
+origin = [0, 0, 0]
+x = [1, 0, 0]
+y = [0, 1, 0]
+z = [0, 0, 1]
+[features.subject]
+kind = "face"
+frame = "model"
+requirements = []
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "policy.toml").write_text(
+        '[required]\ninspection = "*"\nop_chain = "*"\nheadroom = "*"\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "cutting.toml").write_text("revision = 1\n", encoding="utf-8")
+    plans = []
+    for name, source, z_field in (
+        ("first", inventory, "to_z"),
+        ("second", other_inventory, "z_to"),
+    ):
+        plan = tmp_path / f"{name}.toml"
+        plan.write_text(
+            f"""part = "scratch"
+features = "features.toml"
+[paths]
+inventory = "{source.name}"
+policy = "policy.toml"
+cutting_data = "cutting.toml"
+[[setups]]
+id = "S1"
+machine = "PM-30MV"
+frame = "model"
+coolant = "unknown"
+deburr_mm = "unknown"
+hold = {{ fixture = "vise" }}
+stock_state = {{ top_z = "unknown", bottom_z = "unknown" }}
+zero = "unknown"
+[[setups.ops]]
+op = 20
+do = "face"
+feature = "subject"
+tool = "endmill"
+holder = "collet"
+approach_mm = "unknown"
+{z_field} = "unknown"
+""",
+            encoding="utf-8",
+        )
+        plans.append(plan)
+    return (*plans, inventory, other_inventory)
 
 
 def measurement_ids(entries):
@@ -135,26 +202,26 @@ def test_repeated_plans_union_measurement_debt_without_adding_lathe_holder_gauge
 
 
 def test_shared_setup_and_operation_ids_keep_each_plans_authoring_debt(tmp_path):
-    examples = copy_examples(tmp_path)
-    rocker = examples / "rocker-arm" / "plan.toml"
-    bracket = examples / "pivot-bracket" / "plan.toml"
-    # Both plans share the S1 op 20 identity and one inventory; each gets explicit debt.
-    forget_to_z(rocker, "S1", 20)
-    forget_to_z(bracket, "S1", 20)
-    forget_spindle_minimum(examples / "inventory" / "pedro-shop.toml")
+    first, second, inventory, _ = checklist_plans(tmp_path)
+    # Same S1/op 20 identity, but independently unknown authored Z target fields.
     common = ("tools", "--measure", "--json")
-    result = run_cli(*common, "--plan", rocker, "--plan", bracket, setup=SYNTHETIC_KERNEL)
+    result = run_cli(*common, "--plan", first, "--plan", second, setup=SYNTHETIC_KERNEL)
     assert result.returncode == 0, result.stderr
     entries = json.loads(result.stdout)
     ids = measurement_ids(entries)
-    rocker_report = check_report(rocker, tmp_path / "rocker")
-    bracket_report = check_report(bracket, tmp_path / "bracket")
-    expected = unresolved_measurements(rocker_report, rocker)
-    expected |= unresolved_measurements(bracket_report, bracket)
+    first_report = check_report(first, tmp_path / "first-report")
+    second_report = check_report(second, tmp_path / "second-report")
+    expected = unresolved_measurements(first_report, first)
+    expected |= unresolved_measurements(second_report, second)
     assert ids == expected
+    assert [entry["id"] for entry in entries] == sorted(ids)
     by_id = {entry["id"]: entry for entry in entries}
     local_id = "plan.setups.S1.ops.20.z_geometry"
-    for plan, report in ((rocker, rocker_report), (bracket, bracket_report)):
+    instructions = []
+    for plan, report, z_field in (
+        (first, first_report, "to_z"),
+        (second, second_report, "z_to"),
+    ):
         report_entry = next(
             entry
             for finding in report["findings"]
@@ -164,53 +231,70 @@ def test_shared_setup_and_operation_ids_keep_each_plans_authoring_debt(tmp_path)
         )
         entry = by_id[f"{plan.as_posix()}:{local_id}"]
         assert entry["instruction"] == f"{plan.as_posix()}: {report_entry['instruction']}"
+        assert f"plan.setups.S1.ops.20.{z_field}" in report_entry["instruction"]
+        assert entry["units"] == report_entry["units"] == "mm"
+        assert entry["cite"] == report_entry["cite"] == ["plan.setups.S1.ops.20"]
+        instructions.append(report_entry["instruction"])
+    assert instructions[0] != instructions[1]
     assert sum(entry["id"] == SPINDLE_MIN for entry in entries) == 1
-    reversed_result = run_cli(*common, "--plan", bracket, "--plan", rocker, setup=SYNTHETIC_KERNEL)
+    assert by_id[SPINDLE_MIN]["units"] == "mm"
+    assert by_id[SPINDLE_MIN]["cite"] == [f"inventory.{SPINDLE_MIN}"]
+    assert not by_id[SPINDLE_MIN]["instruction"].startswith(f"{inventory.as_posix()}: ")
+    reversed_result = run_cli(*common, "--plan", second, "--plan", first, setup=SYNTHETIC_KERNEL)
     assert reversed_result.returncode == 0, reversed_result.stderr
     reversed_entries = json.loads(reversed_result.stdout)
     assert measurement_ids(reversed_entries) == ids
+    assert [entry["id"] for entry in reversed_entries] == sorted(ids)
     for entry in reversed_entries:
-        if entry["id"].startswith((f"{rocker.as_posix()}:", f"{bracket.as_posix()}:")):
+        if entry["id"].startswith((f"{first.as_posix()}:", f"{second.as_posix()}:")):
             assert entry == by_id[entry["id"]]
 
 
 @pytest.mark.parametrize("override", [False, True])
 def test_different_declared_inventories_scope_debt_unless_overridden(tmp_path, override):
-    examples = copy_examples(tmp_path)
-    rocker = examples / "rocker-arm" / "plan.toml"
-    bracket = examples / "pivot-bracket" / "plan.toml"
-    inventory = examples / "inventory" / "pedro-shop.toml"
-    forget_spindle_minimum(inventory)
-    other_inventory = inventory.with_name("other-shop.toml")
-    other_inventory.write_bytes(inventory.read_bytes())
-    bracket.write_text(
-        bracket.read_text(encoding="utf-8").replace("pedro-shop.toml", "other-shop.toml"),
-        encoding="utf-8",
-    )
+    first, second, inventory, other_inventory = checklist_plans(tmp_path, separate_inventories=True)
+    assert inventory != other_inventory
+    assert inventory.read_bytes() == other_inventory.read_bytes()
     common = ("tools", "--measure", "--json")
     inventory_args = ("--inventory", inventory) if override else ()
     common += inventory_args
-    bracket_report = check_report(bracket, tmp_path / "bracket", *inventory_args)
-    result = run_cli(*common, "--plan", rocker, "--plan", bracket, setup=SYNTHETIC_KERNEL)
+    first_report = check_report(first, tmp_path / "first-report", *inventory_args)
+    second_report = check_report(second, tmp_path / "second-report", *inventory_args)
+    result = run_cli(*common, "--plan", first, "--plan", second, setup=SYNTHETIC_KERNEL)
     assert result.returncode == 0, result.stderr
     entries = json.loads(result.stdout)
-    expected = unresolved_measurements(
-        check_report(rocker, tmp_path / "rocker"), rocker, None if override else inventory
-    )
+    expected = unresolved_measurements(first_report, first, None if override else inventory)
     expected |= unresolved_measurements(
-        bracket_report, bracket, None if override else other_inventory
+        second_report, second, None if override else other_inventory
     )
     assert measurement_ids(entries) == expected
+    assert [entry["id"] for entry in entries] == sorted(expected)
+    by_id = {entry["id"]: entry for entry in entries}
+    spindle_entry = next(
+        entry
+        for finding in first_report["findings"]
+        if finding["status"] == "unknown"
+        for entry in finding["numbers"].get("measurements", [])
+        if entry["id"] == SPINDLE_MIN
+    )
     if override:
         assert sum(entry["id"] == SPINDLE_MIN for entry in entries) == 1
+        assert not any(
+            f"{source.as_posix()}:{SPINDLE_MIN}" in by_id for source in (inventory, other_inventory)
+        )
+        assert by_id[SPINDLE_MIN] == spindle_entry
     else:
-        by_id = {entry["id"]: entry for entry in entries}
+        assert SPINDLE_MIN not in by_id
         for source in (inventory, other_inventory):
             entry = by_id[f"{source.as_posix()}:{SPINDLE_MIN}"]
-            assert entry["instruction"].startswith(f"{source.as_posix()}: ")
-    reversed_result = run_cli(*common, "--plan", bracket, "--plan", rocker, setup=SYNTHETIC_KERNEL)
+            assert entry["instruction"] == f"{source.as_posix()}: {spindle_entry['instruction']}"
+            assert entry["units"] == spindle_entry["units"] == "mm"
+            assert entry["cite"] == spindle_entry["cite"] == [f"inventory.{SPINDLE_MIN}"]
+    reversed_result = run_cli(*common, "--plan", second, "--plan", first, setup=SYNTHETIC_KERNEL)
     assert reversed_result.returncode == 0, reversed_result.stderr
-    assert measurement_ids(json.loads(reversed_result.stdout)) == expected
+    reversed_entries = json.loads(reversed_result.stdout)
+    assert measurement_ids(reversed_entries) == expected
+    assert reversed_entries == entries
 
 
 def test_default_examples_checklist_needs_no_native_geometry_or_warm_cache(tmp_path):
