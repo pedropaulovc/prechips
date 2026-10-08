@@ -145,6 +145,15 @@ def measure(shape, queries, raw_boolean=False):
             cylinder = Part.makeCylinder(radius, high - low, V(x, y, low))
             rows[name]["raw_volume"] = shape.common(cylinder).Volume
             rows[name]["raw_hit"] = rows[name]["raw_volume"] > 1e-6
+            rows[name]["certified"] = outcome(
+                lambda: engine._Culled(shape).certified(query, "native-witness")
+            )
+            rows[name]["explicit_hit"] = outcome(
+                lambda: engine._Culled(shape).common(*query, solid=cylinder) is not None
+            )
+            rows[name]["solid_hit"] = outcome(
+                lambda: engine._Culled(shape).common_solid(cylinder) is not None
+            )
     return rows
 
 # 60x40x20 plate: pockets x 10..29.99975 and 30.00025..45 (y 5..35, floor z=5) leave
@@ -204,14 +213,18 @@ rows["dimple"] = measure(dimple, {
     "bowl-bottom": (30.0, 20.0, 1.0, 12.0, 16.0),
     "beside-bowl": (25.2, 20.0, 0.15, 15.5, 16.0),
 })
-inverted = Part.makeBox(60, 40, 20).reversed()
+finite = Part.makeBox(60, 40, 20)
+inverted = finite.reversed()
 rows["inverted_volume"] = inverted.Volume
-rows["inverted"] = measure(inverted, {
+INVERTED_QUERIES = {
     "inside": (30.0, 20.0, 2.0, 5.0, 15.0),
     "crossing": (30.0, 20.0, 2.0, 15.0, 25.0),
     "above": (30.0, 20.0, 2.0, 20.02, 25.0),
     "outside": (70.0, 20.0, 2.0, 5.0, 15.0),
-}, raw_boolean=True)
+}
+rows["finite-controls"] = measure(finite, INVERTED_QUERIES, raw_boolean=True)
+rows["inverted"] = measure(inverted, INVERTED_QUERIES, raw_boolean=True)
+rows["inverted_volume_after"] = inverted.Volume
 overlap = Part.makeCompound([Part.makeBox(40, 40, 20), Part.makeBox(40, 40, 20, V(20, 0, 0))])
 rows["overlap"] = measure(overlap, {
     "both": (30.0, 20.0, 2.0, 5.0, 15.0),
@@ -499,10 +512,23 @@ def test_material_hit_respects_inner_shells_and_unanalysed_surfaces(
 def test_inverted_or_overlapping_stock_keeps_the_native_boolean_answer(certified, stock):
     for row in certified[stock].values():
         assert _answers(row) == {row["raw_hit"]}, row
+        assert {row["explicit_hit"], row["solid_hit"]} == {row["raw_hit"]}, row
+        assert row["certified"] is False, row
     if stock == "inverted":
         assert certified["inverted_volume"] < 0
-        # Reversed normals put a top-face candidate ball above the box, in air.
-        assert _answers(certified["inverted"]["above"]) == {False}
+        assert certified["inverted_volume_after"] == certified["inverted_volume"]
+        # The same cylinder above a finite box is air, but reversed orientation
+        # represents its occupied complement; only the native Boolean is authoritative.
+        finite = certified["finite-controls"]
+        for name, finite_hit, inverted_hit in (
+            ("inside", True, False),
+            ("crossing", True, True),
+            ("above", False, True),
+            ("outside", False, True),
+        ):
+            assert finite[name]["raw_hit"] is finite_hit
+            assert _answers(finite[name]) == {finite_hit}
+            assert certified["inverted"][name]["raw_hit"] is inverted_hit
     else:
         assert certified["overlap"]["air"]["legacy"] is False
         assert certified["overlap"]["single"]["legacy"] is True

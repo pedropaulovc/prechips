@@ -1741,6 +1741,7 @@ class _Culled:
     Cached shapes are read-only and expire with their stock/own-face region.
     Cap retained material shapes; cheap empty answers do not retain any B-rep.
     Hits proven without a boolean keep only their exact cylinder, never a shape.
+    Boundary-box shortcuts require the same sound finite stock as certified balls.
     A loop that knows its cylinders hands their booleans to the worker pool first
     (:meth:`ahead`); ``common`` takes each answer where it would run that boolean.
     """
@@ -1762,7 +1763,7 @@ class _Culled:
         self.balls = None  # lazy [centre, verified or None] lists; [] disables proofs
         self.tol = None  # the shape's maximum tolerance, read with the balls
         self.bounds = None  # per-face _face_bound, built with the balls
-        self.sound = None  # lazy _sound verdict, decided only for a proof about to be used
+        self.sound = None  # lazy _sound verdict for bounded culling or stock-ball proofs
         self.pending = {}  # (exact cylinder, id of its cutter solid or None) -> pool call
 
     def ahead(self, batch, cylinder, solid=None, recipe=None):
@@ -1776,7 +1777,10 @@ class _Culled:
         if solid is None and cylinder in self.answers:
             return
         if not any(_cylinder_hits_box(*cylinder, box, True) for box in self.boxes):
-            return
+            if self.sound is None:
+                self.sound = self._sound()
+            if self.sound:
+                return
         call = batch.submit([self.shape], "culled_common", cylinder, recipe)
         if call is not None:
             if not self.pending:
@@ -1796,8 +1800,11 @@ class _Culled:
         cacheable = solid is None
         if cacheable and key in self.answers:
             return self.answers[key]
-        if not any(_cylinder_hits_box(cx, cy, radius, z0, z1, box, True) for box in self.boxes):
-            # No face reaches the cylinder, so it lies wholly inside or wholly outside.
+        face_free = not any(_cylinder_hits_box(*key, box, True) for box in self.boxes)
+        if face_free and self.sound is None:
+            self.sound = self._sound()
+        if face_free and self.sound:
+            # Only sound finite stock is empty beyond its face bounds.
             middle = (z0 + z1) / 2
             outside = self.box is not None and (
                 cx < self.box[0] - 1e-6
