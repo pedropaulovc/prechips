@@ -1343,8 +1343,10 @@ class _Diagram:
         return left <= x <= right and top <= y <= bottom
 
     def _closest_cut(self):
-        """``closest_cut`` dimensioned and keyed ``CUT <mm> FROM <holder>`` when its middle
-        is this picture's to key (:meth:`_in_tile`); ``keyed_cut`` records that it was."""
+        """``closest_cut`` dimensioned and keyed ``CUT <mm> FROM <holder> (OP <op>)`` when its
+        middle is this picture's to key (:meth:`_in_tile`); ``keyed_cut`` records that it
+        was. The key names the op whose cut it is (a saw's blade path ``(SAW BLADE)`` when
+        its op has no number); one the kernel did not name names no op."""
         cut = self.spec.get("closest_cut")
         if not cut:
             return
@@ -1365,6 +1367,11 @@ class _Diagram:
             elif component.get("code"):
                 holder = f"{_plain(component['code'])} {holder}"
         label = f"CUT {self._dro(cut['mm'])} mm FROM {holder.upper()}"
+        op = cut.get("op")
+        if op not in (None, "", "unknown"):
+            label += f" (OP {_plain(op).upper()})"
+        elif cut.get("blade"):
+            label += " (SAW BLADE)"
         self.callouts.append(_Callout(label, [middle], _AMBER))
         self.keyed_cut = True
 
