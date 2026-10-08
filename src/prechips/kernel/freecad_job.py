@@ -321,6 +321,12 @@ def _sawn(op):
     return op.get("do") in SAW_ACTIONS
 
 
+def _op_number(op):
+    """An op's printed number: a kernel op carries its identity as the subject
+    ``"<setup>:<op>"``; ``unknown`` when it carries none."""
+    return str(op.get("subject", "")).partition(":")[2] or UNKNOWN
+
+
 def _internal_reason(labels, internal):
     return "internal turning (boring bar inside a bore) is not modelled: " + ", ".join(
         sorted(labels[index] for index in internal)
@@ -2294,7 +2300,9 @@ def _edge_band(edge, radius):
     sector beside an arc (a pie once ``radius`` passes the arc's own), the ring or disc round
     a circle, so that with discs of ``radius`` about an open edge's ends they hold exactly
     the points within ``radius`` of it. Each is built whole, with no Boolean and whatever
-    the edge's orientation; a line shorter than ``PLANE_TOL`` has none."""
+    the edge's orientation. An open line or arc shorter than ``PLANE_TOL`` has none: every
+    point of it lies within half its length of an end, so the discs about its ends miss at
+    most a sliver that narrow, and OCC cannot pass an arc through three points that close."""
     first, last = edge.FirstParameter, edge.LastParameter
     a, m, b = edge.valueAt(first), edge.valueAt((first + last) / 2), edge.valueAt(last)
 
@@ -2304,9 +2312,9 @@ def _edge_band(edge, radius):
     def line(start, end):
         return Part.LineSegment(start, end).toShape()
 
+    if not edge.isClosed() and edge.Length <= PLANE_TOL:
+        return []
     if type(edge.Curve).__name__ == "Line":
-        if edge.Length <= PLANE_TOL:
-            return []
         side = V(-(b - a).y, (b - a).x, 0).normalize() * radius
         corners = [a + side, b + side, b - side, a - side]
         return [Part.Face(Part.makePolygon([*corners, corners[0]]))]
@@ -8207,7 +8215,7 @@ class _Setup:
         possible_names = {name for name, _ in self.fixture_possible}
         held = [(name, shape) for name, shape, _ in solids if name not in possible_names]
         # A saw's cut is its blade's path, not the offcut that falls away.
-        blade = self._blade_path(held)
+        blades = self._blade_paths(held)
         # A lathe picture is a meridian section: its contacts are not the drawn faces. A
         # guided file's stops are the rims it rides on, not a clearance to dimension.
         stops = [] if lathe else self._guide_stops(held, section_view)
@@ -8220,7 +8228,7 @@ class _Setup:
         # The CLEARANCE table's per-op fixture rows and the picture's dimension, the least
         # of them; any holding debt leaves them unknown.
         scene["cut_clearances"], spec["closest_cut"] = (
-            ([], None) if lathe else self._cut_clearances(held, not debts, stops, blade)
+            ([], None) if lathe else self._cut_clearances(held, not debts, stops, blades)
         )
         scene["closest_cut"] = spec["closest_cut"]
         scene["guide_stops"] = [stop["tag"] for stop in stops]
@@ -8230,14 +8238,15 @@ class _Setup:
         scene["height_px"] = int.from_bytes(png[20:24], "big")
         return png, scene
 
-    def _blade_path(self, solids):
-        """The setup's saw blade paths in setup axes, or None when it saws nothing: each
-        saw op's kerf slab on its cut plane, across the stock and its holding on the other
-        two axes (the blade passes down through the whole section and on past it)."""
+    def _blade_paths(self, solids):
+        """The setup's saw blade paths in setup axes, ``[(op number, path)]`` in op order
+        (the number ``unknown`` when the op carries none): each saw op's kerf slab on its cut
+        plane, across the stock and its holding on the other two axes (the blade passes down
+        through the whole section and on past it)."""
         boxes = [self.box] + [_bbox(shape) for _, shape in solids]
         bounds = [min(b[i] for b in boxes) - 1.0 for i in range(3)]
         bounds += [max(b[i + 3] for b in boxes) + 1.0 for i in range(3)]
-        path = None
+        paths = []
         for op in self.ops:
             plane, kerf = op.get("cut_plane"), _positive(op, "kerf_mm")
             if not (_sawn(op) and kerf is not None and isinstance(plane, dict)):
@@ -8247,9 +8256,8 @@ class _Setup:
                 continue
             slab = list(bounds)
             slab[axis], slab[axis + 3] = plane["value"] - kerf / 2, plane["value"] + kerf / 2
-            shape = _box_shape(slab)
-            path = shape if path is None else path.fuse(shape)
-        return path
+            paths.append((_op_number(op), _box_shape(slab)))
+        return paths
 
     def _render_contacts(self, solids, tolerance, section_view):
         """The holding solids touching the arriving stock, each with its contact outlines
@@ -8611,7 +8619,7 @@ class _Setup:
         # Rounded as the CLEARANCE rows are: a picture prints the value its table prints.
         return nearest and {**nearest, "mm": _r(nearest["mm"])}
 
-    def _cut_clearances(self, solids, drawn, stops, blade):
+    def _cut_clearances(self, solids, drawn, stops, blades):
         """(the CLEARANCE table's rows, the picture's ``closest_cut``) against the holding
         ``solids``. A row ``{"op", "mm", "tag"}`` per op in op order: ``mm`` the least
         distance (:meth:`_nearest`) from what the op moves past the holding to its nearest
@@ -8625,15 +8633,16 @@ class _Setup:
         op that stopped it and every later one), a failed boolean, and every op when the
         holding is not ``drawn`` whole (unresolved, a component undrawn, a jaw extent
         undeclared), since what is not drawn may stand nearer than anything drawn. A saw's
-        ``blade`` path (:meth:`_blade_path`) carries no row. ``closest_cut`` is the least of
-        the rows and the blade path, with both points; None when any of them is unknown."""
+        ``blades`` paths (:meth:`_blade_paths`) carry no row. ``closest_cut`` is the least of
+        the rows and the blade paths, with both points and the ``op`` it is the cut of: the
+        row's op, else the saw op's (``unknown`` when the op carries no number) marked
+        ``"blade": True``; None when any of them is unknown."""
         rows, closest, known = [], None, True
         stopped = {stop["tag"] for stop in stops}
         for op in self.ops:
             if _sawn(op):
                 continue
-            # A kernel op carries its identity as the subject "<setup>:<op>".
-            number = str(op.get("subject", "")).partition(":")[2] or UNKNOWN
+            number = _op_number(op)
             try:
                 held, removal = solids, self._taken_off(op)
                 shapes = [] if removal is None else [removal]
@@ -8655,12 +8664,13 @@ class _Setup:
                 continue
             rows.append({"op": number, "mm": _r(near["mm"]), "tag": near["tag"]})
             if closest is None or near["mm"] < closest["mm"]:
-                closest = near
-        if blade is not None:
-            near = self._nearest([blade], solids) if drawn else None
+                closest = {**near, "op": number}
+        if blades:
             known = known and drawn
+        for number, blade in blades if drawn else []:
+            near = self._nearest([blade], solids)
             if near is not None and (closest is None or near["mm"] < closest["mm"]):
-                closest = near
+                closest = {**near, "op": number, "blade": True}
         return rows, closest if known else None
 
     def _taken_off(self, op):

@@ -1920,10 +1920,14 @@ keeps its position badge; one whose solids seat the work on several planes keys
 each solid with its code, its own name and its plane, led to its own contact,
 and pad keys at several heights name the pads each keys. It dimensions the
 closest cut in amber (`render_scene.closest_cut`: `mm`, the holding `tag`, the
-two end points), the same value the CLEARANCE table prints for its op: never
-from the falling offcut of a saw setup, whose blade path is each saw op's kerf
-slab on its cut plane, across the stock and holding. A mill or bench picture also
-carries `render_scene.cut_clearances`, one `{op, mm, tag}` per op, which the
+two end points and the `op` whose cut it is), the same value the CLEARANCE table
+prints for that op, keyed `CUT <mm> mm FROM <holder> (OP <op>)`: never from the
+falling offcut of a saw setup, whose blade path is each saw op's kerf slab on its
+cut plane, across the stock and holding (`blade: true`, its saw op named, else
+keyed `(SAW BLADE)`). A cut whose op is unknown or absent names no op (and its
+consistency check is unknown). A mill or
+bench picture also carries `render_scene.cut_clearances`, one `{op, mm, tag}` per
+op, which the
 CLEARANCE table prints op by op and each op's crash box checks within 3 mm (a file
 to keep clear of the solid, a cutter to hand feed past it). A machine op's is the
 nearer of two distances to the nearest holding solid. One is its whole tool (the

@@ -235,6 +235,8 @@ def test_a_saw_cut_is_measured_from_the_blade_path_to_the_holding(saw_engine, sa
     cut = result["setups"]["S1"]["render_scene"]["closest_cut"]
     assert cut["tag"] == "base"
     assert cut["mm"] == pytest.approx(3.0, abs=1e-6)
+    # The saw carries no CLEARANCE row: the picture names its op and marks its blade.
+    assert (cut["op"], cut["blade"]) == ("10", True)
 
 
 def test_later_mill_removal_uses_native_sawn_stock(saw_engine, saw_target):
