@@ -159,6 +159,42 @@ def test_only_a_coating_op_names_a_process(tmp_path):
         load_bundle(plan)
 
 
+_VIEW = """[[setups.ops.inspection_views.dia]]
+title = "ON V-BLOCKS"
+up = [1.0, 0.0, 0.0]
+toward = [0.0, -1.0, 0.0]
+marks = [{label = "N", at_mm = [6.0, 0.0, 10.0], reads = true}]
+"""
+
+
+@pytest.mark.parametrize(
+    ("op", "error"),
+    [
+        ('do = "inspect"\n', None),
+        ('do = "coating"\nprocess = "cutting-oil"\n', "only an inspect op declares"),
+        ('do = "inspect"\n', "views for dia illustrate no stated inspection method"),
+    ],
+    ids=["illustrating_its_method", "on_a_coating_op", "without_a_method"],
+)
+def test_inspection_views_illustrate_an_inspect_ops_stated_method(tmp_path, op, error):
+    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
+    method = "" if error and "method" in error else 'dia = "Read it {N}."\n'
+    body = (
+        f'{op}feature = "pivot_bearing"\n[setups.ops.checks]\ndia = "micrometers/0-1in"\n'
+        f"[setups.ops.inspection_methods]\n{method}{_VIEW}"
+    )
+    append_op(plan, body)
+    if error is None:
+        (setup,) = [
+            s for s in load_bundle(plan).plan["setups"] if s["id"] == setups(plan)[-1]["id"]
+        ]
+        (view,) = setup["ops"][-1]["inspection_views"]["dia"]
+        assert view["marks"] == [{"label": "N", "at_mm": [6.0, 0.0, 10.0], "reads": True}]
+        return
+    with pytest.raises(BadInput, match=error):
+        load_bundle(plan)
+
+
 # ------------------------------------------------------- multi-feature inspection
 
 SHOULDER = ("shoulder_north_face", "shoulder_thrust")
@@ -275,7 +311,10 @@ def hold_ream(plan, band, requirement="dia", gauge="rocker-rod-limit-gauges", fe
 def test_a_process_hold_must_lie_inside_its_drawing_band(tmp_path, band, status):
     plan = copy_examples(tmp_path) / "rocker-arm" / "plan.toml"
     sid, op = hold_ream(plan, band)
-    row = evaluate("inspection", load_bundle(plan))[f"{sid}:{op}"]
+    bundle = load_bundle(plan)
+    # A gauge that reads the whole drawing band: only the hold band is in question.
+    bundle.inventory["gauges"]["rocker-rod-limit-gauges"]["range_mm"] = [1.99, 2.1]
+    row = evaluate("inspection", bundle)[f"{sid}:{op}"]
     assert row.status == status
     assert row.numbers["process_holds"][0]["drawing_band"] == [1.994, 2.094]
 
@@ -284,8 +323,19 @@ def test_a_process_hold_prints_as_a_shop_limit_not_a_drawing_limit(tmp_path):
     plan = copy_examples(tmp_path) / "rocker-arm" / "plan.toml"
     _, op = hold_ream(plan, "[2.000, 2.010]")
     _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
-    (row,) = [row for row in op_rows(html, op) if REASON in row]
-    assert f"PROCESS HOLD — not a drawing limit: {REASON}" in row
+    (row,) = [row for row in op_rows(html, op) if "PROCESS HOLD" in row]
+    assert "PROCESS HOLD — not a drawing limit" in row and "2.000–2.010" in row
+    # Why it holds prints once, on the job page; the op row points there.
+    assert "see job page" in row and REASON not in row
+    assert unescape(html).count(REASON) == 1
+
+
+def test_a_process_hold_read_by_an_inch_gauge_prints_the_mm_digits_that_gauge_resolves(tmp_path):
+    # 0.0001 in is 0.00254 mm: the band reads to 0.001 mm, not to the conversion's five places.
+    plan = copy_examples(tmp_path) / "rocker-arm" / "plan.toml"
+    _, op = hold_ream(plan, "[2.000, 2.010]", gauge="micrometers/0-1in")
+    _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
+    (row,) = [row for row in op_rows(html, op) if "PROCESS HOLD" in row]
     assert "2.000–2.010" in row
 
 
@@ -296,13 +346,118 @@ def test_a_process_hold_names_an_exported_requirement(tmp_path):
         load_bundle(plan)
 
 
+FIT_UP = "test hold: the assembly's fit-up note sets the end past the scribe"
+FIT_UP_CITE = '["assembly drawing fit-up note"]'
+
+
+def hold_span(
+    plan, gauge="calipers", extra=f'measure = "scribe to faced end", cite = {FIT_UP_CITE}'
+):
+    """A fit-up hold on the shaft's reference-only bearing span, on its last facing op."""
+    sid, op = [
+        (setup["id"], op["op"])
+        for setup in setups(plan)
+        for op in setup["ops"]
+        if op["do"] == "face"
+    ][-1]
+    rewrite(
+        plan,
+        ("op", sid, op),
+        "process_holds",
+        f'[{{ feature = "pivot_bearing", requirement = "length_ref", band = [1.5, 2.0], '
+        f'gauge = "{gauge}", reason = "{FIT_UP}"{", " + extra if extra else ""} }}]',
+    )
+    return sid, op
+
+
+def test_a_hold_on_a_reference_only_span_reads_its_measure_and_has_no_drawing_band(tmp_path):
+    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
+    sid, op = hold_span(plan)
+    row = evaluate("inspection", load_bundle(plan))[f"{sid}:{op}"]
+    (hold,) = row.numbers["process_holds"]
+    # A REF span carries no drawing limit: the hold is the only one, never "unknown".
+    assert hold["inside_drawing_band"] == "not_applicable"
+    assert hold["measure"] == "scribe to faced end"
+    assert row.status == "pass", row.sentence
+
+
+@pytest.mark.parametrize(
+    ("extra", "message"),
+    [
+        (f"cite = {FIT_UP_CITE}", "reference-only"),
+        ('measure = "scribe to faced end"', "reference-only"),
+        (None, "reference-only"),
+    ],
+)
+def test_a_hold_on_a_reference_only_span_states_what_it_reads_and_its_source(
+    tmp_path, extra, message
+):
+    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
+    hold_span(plan, extra=extra)
+    with pytest.raises(BadInput, match=message):
+        load_bundle(plan)
+
+
+def test_only_a_reference_only_hold_names_a_measure(tmp_path):
+    plan = copy_examples(tmp_path) / "rocker-arm" / "plan.toml"
+    sid, op = hold_ream(plan, "[2.000, 2.010]")
+    rewrite(
+        plan,
+        ("op", sid, op),
+        "process_holds",
+        f'[{{ feature = "rod_hole", requirement = "dia", band = [2.000, 2.010], '
+        f'gauge = "rocker-rod-limit-gauges", reason = "{REASON}", measure = "bore" }}]',
+    )
+    with pytest.raises(BadInput, match="measure"):
+        load_bundle(plan)
+
+
+@pytest.mark.parametrize(("requirement", "status"), [("length_ref", "pass"), ("dia", "error")])
+def test_a_dro_scale_reads_a_length_along_its_axis_never_a_diameter(tmp_path, requirement, status):
+    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
+    sid, op = hold_span(plan, gauge="test-z-dro")
+    bundle = load_bundle(plan)
+    bundle.inventory["gauges"]["test-z-dro"] = {
+        "kind": "dro_scale",
+        "resolution_mm": 0.005,
+        "range_mm": [0, 600],
+    }
+    (hold,) = next(
+        o["process_holds"]
+        for s in bundle.plan["setups"]
+        if s["id"] == sid
+        for o in s["ops"]
+        if o["op"] == op
+    )
+    if requirement == "dia":
+        hold.update(requirement="dia", band=[6.33, 6.35])
+        hold.pop("measure"), hold.pop("cite")
+    row = evaluate("inspection", bundle)[f"{sid}:{op}"]
+    assert row.numbers["process_holds"][0]["gauge_status"] == status
+
+
+def test_process_holds_reach_the_job_page_apart_from_the_drawing_limits(tmp_path):
+    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
+    sid, op = hold_span(plan)
+    _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
+    page = unescape(re.sub(r"<[^>]+>", "|", html))
+    job = page[: page.index("SETUP S")]
+    assert "PROCESS HOLDS — in-process limits, not drawing limits" in job
+    holds = job[job.index("PROCESS HOLDS") :]
+    for text in (f"{sid} op {op}", "scribe to faced end 1.50–2.00", "REF 156.67", FIT_UP):
+        assert text in holds, text
+    # The op row says what it reads and that the drawing gives the span only as REF.
+    (row,) = [row for row in op_rows(html, op) if "PROCESS HOLD" in row]
+    assert "scribe to faced end 1.50–2.00" in row and "REF 156.67" in row
+
+
 # ------------------------------------------------- review regressions (PR #90, round 1)
 
 
 def test_a_nominal_scalar_gives_a_process_hold_no_band_but_a_zone_reads_from_zero(tmp_path):
     plan = copy_examples(tmp_path) / "rocker-arm" / "plan.toml"
-    # Inside the gauge's span and inside the invented [0, 2.0]: only the band is in question.
-    sid, op = hold_ream(plan, "[1.995, 1.999]")
+    # Inside the gauge's span: only the band is in question.
+    sid, op = hold_ream(plan, "[2.000, 2.005]")
     bundle = load_bundle(plan)
     bundle.feature_definitions["rod_hole"]["dia"] = 2.0  # a nominal, not a band
     row = evaluate("inspection", bundle)[f"{sid}:{op}"]
@@ -348,6 +503,184 @@ def test_a_process_hold_gauge_must_read_the_hold_band(tmp_path, band, status):
         assert "gauge resolution exceeds the requirement band" in row.sentence
 
 
+# ------------------------------------------------ GO / NO-GO limit checks (review round 3)
+
+
+def checks_of(bundle, gauge):
+    """Every op whose ``checks`` reads a diameter with ``gauge``."""
+    return [
+        op
+        for setup in bundle.plan["setups"]
+        for op in setup["ops"]
+        if isinstance(op.get("checks"), dict) and op["checks"].get("dia") == gauge
+    ]
+
+
+def limit_gauge(bundle, ref, kind, sizes):
+    bundle.inventory["gauges"][ref] = {"kind": kind, "sizes_mm": sizes, "resolution_mm": 0.001}
+
+
+@pytest.mark.parametrize(
+    ("go", "no_go", "status"),
+    [
+        (2.000, 2.090, "pass"),  # both on the printed limits 2.00–2.09
+        (2.010, 2.050, "pass"),
+        (1.994, 2.094, "error"),  # the exported limits: wider than the printed band
+        (1.990, 2.090, "error"),  # GO enters a hole below the low limit
+        (2.000, 2.094, "error"),  # NO-GO only stops a hole above the high limit
+        (2.090, 2.000, "error"),  # GO larger than NO-GO accepts nothing
+    ],
+)
+def test_a_hole_go_no_go_check_accepts_only_the_printed_drawing_band(tmp_path, go, no_go, status):
+    bundle = load_bundle(copy_examples(tmp_path) / "rocker-arm" / "plan.toml")
+    sizes = [1.99, 1.994, 2.0, 2.01, 2.05, 2.09, 2.094]
+    limit_gauge(bundle, "rocker-rod-limit-gauges", "pin_gauge_set", sizes)
+    for op in checks_of(bundle, "rocker-rod-limit-gauges"):
+        op["go_no_go"] = {"dia": {"go": go, "no_go": no_go}}
+        for hold in op.get("process_holds", []):
+            hold.pop("go_no_go", None)
+    row = evaluate("inspection", bundle)["rod_hole:dia"]
+    assert row.status == status
+    assert row.numbers["accept_band"] == [2.0, 2.09]
+
+
+@pytest.mark.parametrize(
+    ("go", "no_go", "kind", "status"),
+    [
+        (6.350, 6.330, "snap_gauge", "pass"),  # GO passes over the largest, NO-GO stops below
+        (6.352, 6.330, "snap_gauge", "error"),  # GO passes over a shaft above the high limit
+        (6.350, 6.328, "snap_gauge", "error"),  # NO-GO lets a shaft below the low limit pass
+        (6.330, 6.350, "snap_gauge", "error"),  # the hole's order accepts nothing on a shaft
+        (6.350, 6.330, "pin_gauge_set", "error"),  # a pin cannot gauge a shaft's outside
+    ],
+)
+def test_a_shaft_go_no_go_check_is_the_hole_check_mirrored(tmp_path, go, no_go, kind, status):
+    bundle = load_bundle(copy_examples(tmp_path) / "pivot-shaft" / "plan.toml")
+    final = evaluate("inspection", bundle)["pivot_bearing:dia"].numbers["op"]
+    sid, number = final.split(":")
+    (op,) = [
+        op
+        for setup in bundle.plan["setups"]
+        if setup["id"] == sid
+        for op in setup["ops"]
+        if op["op"] == int(number)
+    ]
+    limit_gauge(bundle, "bearing-snap", kind, [6.328, 6.33, 6.35, 6.352])
+    op["checks"]["dia"] = "bearing-snap"
+    op["go_no_go"] = {"dia": {"go": go, "no_go": no_go}}
+    row = evaluate("inspection", bundle)["pivot_bearing:dia"]
+    assert row.status == status
+
+
+@pytest.mark.parametrize(
+    ("sizes", "status"),
+    [
+        ([2.0, 2.01, 2.09], "pass"),
+        ([2.0, 2.01], "error"),  # no 2.09 pin in the set
+        (None, "unknown"),  # the set lists no sizes: the pins are unresolved, not a pass
+    ],
+)
+def test_go_no_go_sizes_must_be_pins_the_gauge_set_holds(tmp_path, sizes, status):
+    bundle = load_bundle(copy_examples(tmp_path) / "rocker-arm" / "plan.toml")
+    gauge = bundle.inventory["gauges"]["rocker-rod-limit-gauges"]
+    gauge.pop("sizes_mm", None)
+    if sizes is not None:
+        gauge["sizes_mm"] = sizes
+    for op in checks_of(bundle, "rocker-rod-limit-gauges"):
+        op["go_no_go"] = {"dia": {"go": 2.0, "no_go": 2.09}}
+        for hold in op.get("process_holds", []):
+            hold.pop("go_no_go", None)
+    assert evaluate("inspection", bundle)["rod_hole:dia"].status == status
+
+
+@pytest.mark.parametrize(
+    ("go", "no_go", "status"),
+    [
+        (2.000, 2.010, "pass"),  # the hold band 2.000–2.010, not the drawing band
+        (2.000, 2.090, "error"),  # the drawing NO-GO lets the hold band through
+    ],
+)
+def test_a_process_hold_go_no_go_pair_accepts_only_its_own_band(tmp_path, go, no_go, status):
+    plan = copy_examples(tmp_path) / "rocker-arm" / "plan.toml"
+    sid, op = hold_ream(plan, "[2.000, 2.010]")
+    bundle = load_bundle(plan)
+    limit_gauge(bundle, "rocker-rod-limit-gauges", "pin_gauge_set", [2.0, 2.01, 2.09])
+    (hold,) = next(
+        candidate["process_holds"]
+        for setup in bundle.plan["setups"]
+        if setup["id"] == sid
+        for candidate in setup["ops"]
+        if candidate["op"] == op
+    )
+    hold["go_no_go"] = {"go": go, "no_go": no_go}
+    row = evaluate("inspection", bundle)[f"{sid}:{op}"]
+    assert row.status == status
+
+
+def test_a_go_no_go_pair_needs_the_checks_gauge_that_carries_it(tmp_path):
+    plan = copy_examples(tmp_path) / "rocker-arm" / "plan.toml"
+    sid, op = find_op(plan, lambda op: op["do"] == "spot" and op.get("feature") == "rod_hole")
+    rewrite(plan, ("op", sid, op), "go_no_go", "{ dia = { go = 2.0, no_go = 2.09 } }")
+    with pytest.raises(BadInput, match="go_no_go.dia names no checks gauge"):
+        load_bundle(plan)
+
+
+def test_the_traveler_prints_which_pin_enters_and_which_does_not(tmp_path):
+    plan = copy_examples(tmp_path) / "rocker-arm" / "plan.toml"
+    sid, op = find_op(
+        plan,
+        lambda op: (
+            op["do"] == "inspect"
+            and isinstance(op.get("checks"), dict)
+            and op["checks"].get("dia") == "rocker-rod-limit-gauges"
+        ),
+    )
+    rewrite(plan, ("op", sid, op), "go_no_go", "{ dia = { go = 2.0, no_go = 2.09 } }")
+    _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
+    (row,) = [row for row in op_rows(html, op) if "Ø 2.00–2.09" in row]
+    assert "GO 2.000 enters, NO-GO 2.090 does not" in row
+
+
+@pytest.mark.parametrize("declared", ["unknown", {"dia": "unknown"}])  # whole op, one requirement
+@pytest.mark.parametrize("where", [-1, 0])  # the final check, an earlier check of the same band
+def test_an_explicitly_unknown_go_no_go_pair_is_not_an_ordinary_passing_check(
+    tmp_path, declared, where
+):
+    bundle = load_bundle(copy_examples(tmp_path) / "rocker-arm" / "plan.toml")
+    # The gauge spans the band at fine resolution and holds the printed GO / NO-GO pins, so
+    # an ordinary reading or the 2.00 / 2.09 pair would pass.
+    limit_gauge(bundle, "rocker-rod-limit-gauges", "pin_gauge_set", [2.0, 2.09])
+    bundle.inventory["gauges"]["rocker-rod-limit-gauges"]["range_mm"] = [1.99, 2.1]
+    ops = checks_of(bundle, "rocker-rod-limit-gauges")
+    assert len(ops) > 1
+    for op in ops:
+        op["go_no_go"] = {"dia": {"go": 2.0, "no_go": 2.09}}
+    assert evaluate("inspection", bundle)["rod_hole:dia"].status == "pass"
+    ops[where]["go_no_go"] = declared
+    row = evaluate("inspection", bundle)["rod_hole:dia"]
+    assert row.status == "unknown"
+    assert "GO / NO-GO pair is explicitly unknown" in row.sentence
+
+
+@pytest.mark.parametrize("declared", ['"unknown"', '{ dia = "unknown" }'])
+def test_the_traveler_prints_an_unknown_go_no_go_pair_as_unresolved(tmp_path, declared):
+    plan = copy_examples(tmp_path) / "rocker-arm" / "plan.toml"
+    sid, op = find_op(
+        plan,
+        lambda op: (
+            op["do"] == "inspect"
+            and isinstance(op.get("checks"), dict)
+            and op["checks"].get("dia") == "rocker-rod-limit-gauges"
+        ),
+    )
+    rewrite(plan, ("op", sid, op), "go_no_go", declared)
+    _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
+    (row,) = [row for row in op_rows(html, op) if "Ø 2.00–2.09" in row]
+    # The pins to use are not known: the row is flagged, never a bare gauge to read with.
+    assert "? Ø 2.00–2.09" in row and "GO / NO-GO sizes not set" in row
+    assert "enters" not in row
+
+
 @pytest.mark.parametrize(
     ("after", "status"),
     [
@@ -374,10 +707,8 @@ def test_a_consumable_without_known_products_does_not_resolve(tmp_path, products
     subject = append_op(plan, 'do = "coating"\nfeature = "pivot_bearing"\nprocess = "oxide-kit"\n')
     inventory = examples / "inventory" / "pedro-shop.toml"
     text = inventory.read_text(encoding="utf-8")
-    assert text.count("[consumables]\n") == 1
     inventory.write_text(
-        text.replace("[consumables]\n", f"[consumables]\noxide-kit = {products}\n"),
-        encoding="utf-8",
+        text + f"\n[consumables.oxide-kit]\nproducts = {products}\n", encoding="utf-8"
     )
     assert evaluate("tool_resolves", load_bundle(plan))[subject].status == "unknown"
 
@@ -396,7 +727,7 @@ def test_undeclared_routing_leaves_a_stop_face_unknown_not_missing(tmp_path):
     stop_on(plan, "S2", "shoulder_thrust")
     assert evaluate("hold_fields", load_bundle(plan))["S2"].status == "pass"
     drop_setup_key(plan, "S2", "stock_in")
-    assert "stock_in" not in setups(plan)[1]
+    assert "stock_in" not in next(setup for setup in setups(plan) if setup["id"] == "S2")
     row = evaluate("hold_fields", load_bundle(plan))["S2"]
     assert row.status == "unknown"
     assert row.numbers["stop_face"]["cut_later"] == []
@@ -438,23 +769,32 @@ def built_up(tmp_path, order=None):
     by_id = {setup["id"]: setup for setup in bundle.plan["setups"]}
     for setup in by_id.values():
         setup["ops"] = [op for op in setup["ops"] if op["do"] != "coating"]
-    if order:
-        bundle.plan["setups"] = [by_id[sid] for sid in order]
+    bundle.plan["setups"] = [by_id[sid] for sid in order or by_id]
     return bundle, by_id
 
 
-def coat(setup):
-    number = max(op["op"] for op in setup["ops"]) + 10
-    setup["ops"].append({"op": number, "do": "coating", "feature": setup["ops"][0]["feature"]})
+def coat(setup, feature=None):
+    number = max((op["op"] for op in setup["ops"]), default=0) + 10
+    feature = feature or setup["ops"][0]["feature"]
+    setup["ops"].append({"op": number, "do": "coating", "feature": feature})
 
 
 def test_one_coating_of_the_joined_assembly_after_its_last_cut_covers_every_component(
     tmp_path,
 ):
-    bundle, _ = built_up(tmp_path)
-    coat(bundle.plan["setups"][-1])
+    bundle, by_id = built_up(tmp_path)
+    # S12 is the bench finishing setup after S11's last cut; stripping its coatings empties it.
+    last = bundle.plan["setups"][-1]
+    assert last["id"] == "S12" and last["ops"] == []
+    coat(last, "body")
     row = evaluate("finish_route", bundle)["cone-pivot-post"]
     assert row.status == "pass", row.sentence
+    # The same single coating one setup earlier, before S11's cuts, leaves those cuts bare.
+    last["ops"] = []
+    coat(by_id["S10"], "body")
+    row = evaluate("finish_route", bundle)["cone-pivot-post"]
+    assert row.status == "warn", row.sentence
+    assert {cut.split(":")[0] for cut in row.numbers["uncoated_cuts"]} == {"S11"}
 
 
 # Body S1->S4->S5, cone S2, crank S3; S6 joins body+cone, S7 adds the crank; no later cut.

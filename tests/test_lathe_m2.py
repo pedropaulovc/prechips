@@ -502,6 +502,34 @@ def test_stickout_inclusive_policy_boundary_and_unknown_length(length, expected)
     assert "test shop measured L/D policy" in finding.cite
 
 
+_FIT = {"measure": "trial-fit scribe to the plain end", "nominal_mm": 16.0, "add_mm": 8.0}
+
+
+@pytest.mark.parametrize(
+    ("fit", "length", "expected"),
+    [
+        (_FIT, 24.0, "pass"),
+        # The printed stickout must be the fit-up nominal plus the jaw allowance.
+        (_FIT, 23.0, "error"),
+        ({**_FIT, "add_mm": 7.0}, 24.0, "error"),
+        ({**_FIT, "nominal_mm": "unknown"}, 24.0, "unknown"),
+        ({**_FIT, "measure": "unknown"}, 24.0, "unknown"),
+        ({**_FIT, "measure": " "}, 24.0, "unknown"),
+    ],
+)
+def test_a_stickout_set_from_a_measured_fit_up_is_its_nominal_plus_the_allowance(
+    fit, length, expected
+):
+    data = bundle()
+    data.features["features"]["far"]["z_mm"][1] = 50.0
+    setup(data)["stock_state"]["north_end_z"] = 50.0
+    setup(data)["hold"]["stickout_mm"] = length
+    setup(data)["hold"]["stickout_fit"] = fit
+    finding = stickout.evaluate(data)[0]
+    assert finding.status == expected
+    assert ("stickout_fit" in finding.sentence) == (expected != "pass")
+
+
 def test_zero_stickout_preserves_policy_debt_and_verified_support_exception():
     data = bundle()
     setup(data)["hold"]["stickout_mm"] = 0.0
@@ -675,9 +703,14 @@ def test_stock_diameter_uses_declared_sizes_or_explicit_two_endpoint_range(
     assert stock_diameter.evaluate(data)[0].status == expected
 
 
-def test_selected_collet_member_restricts_capacity_to_that_member():
+# A member is the same collet whether the plan names it bare or with its category.
+SPELLINGS = pytest.mark.parametrize("spelling", ["", "holders."])
+
+
+@SPELLINGS
+def test_selected_collet_member_restricts_capacity_to_that_member(spelling):
     data = bundle()
-    setup(data)["hold"]["fixture"] = "collets/8mm"
+    setup(data)["hold"]["fixture"] = spelling + "collets/8mm"
     setup(data)["stock_state"]["od_mm"] = 6.0
     data.inventory["holders"] = {
         "collets": {"kind": "collet_set", "sizes_mm": [6.0, 8.0], "verify": False}
@@ -687,20 +720,36 @@ def test_selected_collet_member_restricts_capacity_to_that_member():
     assert stock_diameter.evaluate(data)[0].status == "pass"
 
 
-def test_selected_inch_collet_matches_equivalent_mm_stock():
+@SPELLINGS
+@pytest.mark.parametrize(
+    "member,diameter,expected",
+    [
+        ("3-8in", 9.525, "pass"),
+        ("1/4", 6.35, "pass"),
+        # The set also holds 1/2 in, but the selected 1/4 in collet cannot.
+        ("1/4", 12.7, "error"),
+        ("1-4in", 12.7, "error"),
+    ],
+)
+def test_selected_inch_collet_holds_only_its_own_size(spelling, member, diameter, expected):
     data = bundle()
-    setup(data)["hold"]["fixture"] = "collets/3-8in"
-    setup(data)["stock_state"]["od_mm"] = 9.525
+    setup(data)["hold"]["fixture"] = f"{spelling}collets/{member}"
+    setup(data)["stock_state"]["od_mm"] = diameter
     data.inventory["holders"] = {
-        "collets": {"kind": "collet_set", "sizes_in": ["1/4", "3/8"], "verify": False}
+        "collets": {"kind": "collet_set", "sizes_in": ["1/4", "3/8", "1/2"], "verify": False}
     }
-    assert stock_diameter.evaluate(data)[0].status == "pass"
+    finding = stock_diameter.evaluate(data)[0]
+    assert finding.status == expected
+    member_mm = 9.525 if member == "3-8in" else 6.35
+    assert finding.numbers["sizes_mm"] == [pytest.approx(member_mm)]
 
 
-def test_selected_explicit_member_does_not_inherit_parent_set_sizes():
+@SPELLINGS
+@pytest.mark.parametrize("diameter,expected", [(6.0, "error"), (7.8, "pass"), (8.5, "error")])
+def test_selected_explicit_member_does_not_inherit_parent_set_sizes(spelling, diameter, expected):
     data = bundle()
-    setup(data)["hold"]["fixture"] = "collets/selected"
-    setup(data)["stock_state"]["od_mm"] = 6.0
+    setup(data)["hold"]["fixture"] = spelling + "collets/selected"
+    setup(data)["stock_state"]["od_mm"] = diameter
     data.inventory["holders"] = {
         "collets": {
             "kind": "collet_set",
@@ -709,7 +758,7 @@ def test_selected_explicit_member_does_not_inherit_parent_set_sizes():
             "members": {"selected": {"kind": "collet", "range_mm": [7.5, 8.0]}},
         }
     }
-    assert stock_diameter.evaluate(data)[0].status == "error"
+    assert stock_diameter.evaluate(data)[0].status == expected
 
 
 @pytest.mark.parametrize(

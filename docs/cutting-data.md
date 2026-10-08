@@ -12,9 +12,23 @@ range and selected diameter are also required. RPM is `12*sfm/(pi*D_in)`, rounde
 to nearest 50 (ties to even), then clamped to the actual machine limits.
 An actual nonmultiple-of-50 boundary is retained. Mill feed is
 `RPM*flutes*chip_load_mm_per_tooth`; lathe feed is `RPM*feed_mm_rev` with
-`feed_mm_rev` (mm/revolution) from the same cited row or tool chart, under the
+`feed_mm_rev` (mm/revolution) from the op's planned `feed_mm_rev` when declared,
+else from the same cited row or tool chart, under the
 same citation and verify rules as the chip load. Numbers are starting points,
 not cut-force or stability limits.
+
+`[[deep_hole]]` rows derate a spindle operation's starting speed in deep holes.
+A row names one `operation` (for example `drill`), a `depth_over_dia` threshold
+and an `sfm_factor` in `(0, 1]`. When the hole's depth is strictly more than
+`depth_over_dia` tool diameters, the row (or chart) `sfm` is multiplied by
+`sfm_factor` before the RPM is derived; the chip load or feed per revolution is
+unchanged, so the feed falls with the RPM. The depth is the material the full
+diameter cuts, from the `blind_depth` tip endpoints: a through hole's local
+thickness or a blind hole's planned `depth_mm`, never the point or exit lead.
+The deepest exceeded threshold governs. An operation no row names keeps its
+speed. For an operation a row names, an unknown depth, a non-positive threshold
+or factor, a factor above 1, an uncited row or two rows tied at the governing
+threshold leave the RPM and feed unknown.
 
 Saw actions `saw_cut` / `cut_off` both select `operation = "saw_cut"` by material
 class and blade material, **without** a rotating-tool `diameter_range`. Exactly
@@ -31,10 +45,12 @@ source cannot certify a saw speed/feed; a mixed list keeps its real citations.
 `[[material]]` carries material class, `kc_n_per_mm2`, `e_gpa`, and citations for
 M2 [turning deflection](rules-physics.md). Exactly one sourced material row is
 needed. `K_c` is N/mm² and `E` is GPa (converted explicitly to N/mm²); authored
-radial DOC and feed/revolution supply the force inputs. The shipped K_c/E values
-remain `"unknown"`: no verified Handbook 31 table/page is available. Missing
-sources, values, geometry or material verification remain unresolved, not zero
-deflection. Adding a numerical row requires real source evidence.
+radial DOC and feed/revolution supply the force inputs. The shipped example
+rows are illustrative example values, labelled `example (plausible, not
+measured)` and checked against the cited published ranges; they are not shop
+measurements. Missing sources, values, geometry or material verification remain
+unresolved, not zero deflection. Adding a numerical row requires real source
+evidence.
 
 Citation collection discards blank and `"unknown"` entries individually, so an
 incomplete list does not erase other known sources. The same collector handles
@@ -68,6 +84,8 @@ not proof of geometric validity; rules perform the applicable checks.
 | `aliases` | `dict[str, str] \| Unknown` | Optional |
 | `cut` | `list[Cut] \| Unknown` | Optional |
 | `material` | `list[CutMaterial] \| Unknown` | Optional |
+| `deep_hole` | `list[DeepHole] \| Unknown` | Optional |
+| `plunge` | `list[Plunge] \| Unknown` | Optional |
 
 ## Cut
 
@@ -91,3 +109,40 @@ not proof of geometric validity; rules perform the applicable checks.
 | `kc_n_per_mm2` | `float` |
 | `e_gpa` | `float` |
 | `cite` | `Citations` |
+
+## DeepHole
+
+| Field | Type (also accepts `"unknown"`) |
+|---|---|
+| `operation` | `str` |
+| `depth_over_dia` | `float` |
+| `sfm_factor` | `float` |
+| `cite` | `Citations` |
+
+## Plunge
+
+An end mill fed straight down its own axis into material, as a milled path does where
+it goes down at a depth level the stock box does not prove clear (see
+[coordinates](rules-coordinates.md#coordinates)). Only a centre-cutting end mill can: a
+tool whose inventory record does not declare `center_cutting = true` has no plunge feed,
+whatever the rows say (`false`: it cannot be fed down; absent or unknown: not proven).
+Otherwise a row is selected like a cut row, without an operation: the stock's material
+class (by `aliases`), the tool's `material` and its mm diameter inside the inclusive
+`diameter_range`. Exactly one cited, verified row with a positive `feed_mm_rev` gives the
+op's plunge feed, `rpm * feed_mm_rev` mm/min at the op's own starting RPM; no row,
+several rows or an uncited, unverified or non-positive row leaves it unknown, and a
+plunging op with no known plunge feed is coordinates debt and a STOP on the sheet.
+
+| Field | Type (also accepts `"unknown"`) |
+|---|---|
+| `material_class` | `str` |
+| `tool_material` | `str` |
+| `diameter_range` | `Vector` |
+| `feed_mm_rev` | `float` |
+| `cite` | `Citations` |
+
+The shipped example rows (`# --- SheetR5 additions ---`) are AUTHOR'S CHOICE values
+derived from Machinery's Handbook 27th ed.: half the low end of the p.1060 drill feed
+for the size band (1/8 to 1/4 in from exactly 3.175 mm, then to 1/2 in), which equals
+one or two teeth of the Table 15a (p.1054) end-mill feed per tooth. They are
+illustrative, not shop measurements.

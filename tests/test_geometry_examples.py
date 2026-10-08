@@ -294,7 +294,8 @@ def test_reference_rocker_arm_binds_the_labelled_export_and_models_each_setup(
         == hashlib.sha256(raw).hexdigest()
     )
     assert report["inputs"]["step"]["path"] == "examples/rocker-arm/rocker-arm.STEP"
-    assert set(report["renders"]) == {"S1", "S2", "S3", "S4"}
+    prep = {"P1", "P2", "P3", "P4", "P5"}
+    assert set(report["renders"]) == prep | {"S1", "S2", "S3", "S3F", "S4"}
     for _setup, render in report["renders"].items():
         assert render["fixture"] == "modeled"
         assert render["scene"]["debts"] == []
@@ -302,8 +303,8 @@ def test_reference_rocker_arm_binds_the_labelled_export_and_models_each_setup(
         image = (tmp_path / "ref" / render["path"]).read_bytes()
         assert image.startswith(b"\x89PNG\r\n\x1a\n")
         assert hashlib.sha256(image).hexdigest() == render["sha256"]
-    for setup in ("S2", "S3"):
-        assert finding(report, "accessibility", setup + ":10")["status"] != "unknown"
+    for subject in ("S2:10", "S3:20"):
+        assert finding(report, "accessibility", subject)["status"] != "unknown"
     coverage = finding(report, "coverage", "rocker-arm")
     assert coverage["numbers"]["claimed_face_count"] == coverage["numbers"]["face_count"]
     assert coverage["numbers"]["unclaimed_faces"] == []

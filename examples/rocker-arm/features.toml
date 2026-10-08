@@ -140,6 +140,7 @@
 "cite" = { "length" = ["harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117", "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:121-121", "harmonic-analyzer/cad/config/title_block.yaml:linear_3pl.display", "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg", "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm", "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm"], "length_nominal" = ["harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117"], "upper_z" = ["harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117"], "lower_z" = ["harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117"], "precision" = ["harmonic-analyzer/cad/scripts/rocker_arm_spec.py:1-11"], "precision.length" = ["harmonic-analyzer/cad/scripts/rocker_arm_notes.py:57-60", "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:56-56"], "faces" = ["harmonic-analyzer/cad/out/features/rocker_arm/rocker-arm.STEP"] }
 "precision" = { "length" = 3 }
 "faces" = ["#510/ADVANCED_FACE[15]/HAF_HUB_FACES__P01", "#374/ADVANCED_FACE[8]/HAF_HUB_FACES__P02"]
+"bounds" = { "x" = [-5.1, 5.1], "y" = [2.9, 13.1], "z" = [-3.52825, 3.52825] } # STEP faces #510/#374 bbox (kernel faces[].bbox_mm): their whole footprint
 
 ["features"."strap_faces"]
 "kind" = "face"
@@ -189,14 +190,12 @@
 ["features"."strap_datum_b"]
 "kind" = "face"
 "frame" = "model"
-"requirements" = ["thickness"]
-"thickness" = [1.99, 3.01]
-"thickness_nominal" = 2.5
+"requirements" = [] # the 1.99-3.01 strap thickness is one requirement between the two strap faces, stated once on strap_faces (checked in S2 ops 25 and 29)
 "plane" = { "frame" = "model", "axis" = "z", "value" = 1.25 }
 "datum" = "B"
-"cite" = { "thickness" = ["harmonic-analyzer/cad/scripts/rocker_arm_spec.py:28-28", "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:66-93", "harmonic-analyzer/cad/config/title_block.yaml:linear_2pl.display", "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg", "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.plus_mm", "harmonic-analyzer/cad/config/title_block.yaml:drilled_hole.minus_mm"], "thickness_nominal" = ["harmonic-analyzer/cad/scripts/rocker_arm_spec.py:28-28", "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:66-93"], "plane" = ["harmonic-analyzer/cad/scripts/rocker_arm_spec.py:28-28", "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:66-93", "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:1-11", "harmonic-analyzer/cad/scripts/build_rocker_arm.py:396-403", "harmonic-analyzer/cad/scripts/build_rocker_arm.py:424-434"], "datum" = ["harmonic-analyzer/cad/scripts/draw_rocker_arm.py:510-529", "harmonic-analyzer/cad/scripts/draw_pivot_shaft.py:66-70", "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:66-93"], "precision" = ["harmonic-analyzer/cad/scripts/rocker_arm_spec.py:1-11", "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:66-93"], "precision.thickness" = ["harmonic-analyzer/cad/scripts/rocker_arm_notes.py:57-60", "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:56-56"], "faces" = ["harmonic-analyzer/cad/out/features/rocker_arm/rocker-arm.STEP"] }
-"precision" = { "thickness" = 2 }
+"cite" = { "plane" = ["harmonic-analyzer/cad/scripts/rocker_arm_spec.py:28-28", "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:66-93", "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:1-11", "harmonic-analyzer/cad/scripts/build_rocker_arm.py:396-403", "harmonic-analyzer/cad/scripts/build_rocker_arm.py:424-434"], "datum" = ["harmonic-analyzer/cad/scripts/draw_rocker_arm.py:510-529", "harmonic-analyzer/cad/scripts/draw_pivot_shaft.py:66-70", "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:66-93"], "faces" = ["harmonic-analyzer/cad/out/features/rocker_arm/rocker-arm.STEP"] }
 "faces" = ["#118/ADVANCED_FACE[5]/HAF_STRAP_DATUM_B__P01"]
+"bounds" = { "x" = [-146.2546, 146.2546], "y" = [0.0, 29.2946], "z" = [1.25, 1.25] } # STEP face #118 bbox (kernel faces[].bbox_mm): its whole footprint
 
 ["features"."tip_land_pos_x"]
 "kind" = "face"

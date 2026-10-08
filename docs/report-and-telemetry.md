@@ -8,14 +8,17 @@ and, only when the kernel returned a setup render, `renders`.
 Findings sort lexicographically by `(rule, subject)` and contain `rule`,
 `subject`, `status`, `numbers`, `cite`, `message` (not `sentence` or a separate
 severity). No clock timestamp enters the report.
-The current catalogue is `rules_version = "m5-rev9"`: the M5 review cutover
+The current catalogue is `rules_version = "m5-rev10"`: the M5 review cutover
 (bed-height vise stack, per-pair tool projection, approach/floor-aware envelope,
 spindle-nose Z travel, unpadded hole centres, one `envelope` machine block,
-fact-local trust, no `holder_stack` rule), dividing-head/child-centre fixes and
+fact-local trust, no `holder_stack` rule), dividing-head/child-centre fixes,
 nine M4 kernel geometry rules including native saw cut-off with hash-bound setup
-renders. Changing the operative catalogue changes the bound report and
-invalidates prior approvals; reports from earlier catalogues, including
-`m5-rev8`, must be regenerated and reapproved.
+renders, and the examples-complete rules (identity-keyed tool selection, shop-made
+make operations, face aims, whole-tool clearance with guide stops and op-named
+picture cuts, one-fact consistency across tables and pictures). Changing the
+operative catalogue changes the bound report and invalidates prior approvals;
+reports from earlier catalogues, including `m5-rev9`, must be regenerated and
+reapproved.
 A finding's `numbers.measurements` lists the exact fact ids (set member or
 tool/holder pair included) whose measurement would resolve it; `tools --measure`
 is the sorted, deduplicated union of those lists over the current plans.
@@ -65,20 +68,30 @@ verbatim — `fixture_kind` (the inventory holding kind), `jaws` (`absent` /
 `exact` / `not_modelled`), `components` (`{name, role, exact}` per drawn
 solid) and `debts` (a list of sentences naming what the picture does not
 establish), empty `{}` when the kernel returned none.
+An inspect op's set-up sketches (`inspection_views`, [plan](plan.md)) come back
+as `inspection_pngs_base64` keyed `<op>:<requirement>` and are written as
+`setup-S<n>-op<op>-<requirement>.png`; `renders.<setup id>.inspections` maps each
+key to its `{path, sha256}`, and the same record is added to `inputs` under
+`render:<setup id>:<op>:<requirement>`, so a sketch binds to approval like the
+setup picture. The traveler prints the sketch at the head of the requirement's
+worksheet or inspection note; a declared sketch the run did not return prints
+`NOT SHOWN: the set-up sketches for this check could not be drawn.`
 Bytes that are not a PNG signature are
 a prechips failure (exit 1), not bad input. `check` records the same
 `renders` / `render:<setup id>` entries (its report hash matches the
 traveler's) but writes only `report.json`; the PNG file appears only with
 `traveler`. The PNG filenames are preflighted with
 the other outputs: an input at `setup-S1.png` is a collision (exit 3).
-Both verbs remove prior setup images not returned by the current run, including
-images from a longer route or an unavailable kernel. `check` also removes a
+Both verbs remove prior setup images and inspection sketches not returned by
+the current run, including images from a longer route or an unavailable
+kernel. `check` also removes a
 same-named PNG unless its bytes match the current render, and removes any
 prior `traveler.html` so no old sheet accompanies the new report. It does not
 create PNGs or a sheet. Replacement and removal share the report transaction;
 a refusal restores every prior output, even if a stale target has already
 disappeared. No stale fixture image survives a successful run.
-The render is a 1600×1000 deterministic software drawing of kernel geometry,
+The render is a deterministic software drawing of kernel geometry, 1600 pixels
+wide and 1000 tall plus any holding detail bands below (`scene.height_px`),
 with an engine-bundled bitmap font and the engine's own PNG encoder. No host
 font, clock, image service or machine-specific metadata participates in the
 bytes. Lathe views put the headstock/chuck on the left, the tailstock on the
@@ -101,13 +114,26 @@ An unresolved saw cut plane produces a plain STOP annotation and retains its
 downstream stock debt; it never prevents other geometry facts being returned.
 The final PNG layout checks every normalized bitmap-text line, including axes,
 coordinate badges, inset headings, dimensions, legends and setup notes. Rounded
-line bounds must stay 8 pixels inside the canvas and at least 4 pixels apart;
-any collision or clipping raises a render error. Footer height is reserved
-before fitting the setup view, so dense legends never compress into overlapping
-rows. These checks do not alter geometry or turn unresolved machining facts
-into passes. A checked, posed chuck front not parallel to setup Z is described
-as a tilted plane with no single Z; `scene.jaw_front_oblique` records that
-geometric distinction rather than manufacturing a missing-datum warning.
+line bounds must stay 8 pixels inside the canvas and at least 4 pixels apart,
+and every line prints at body size (bitmap scale 3: 21-pixel caps, about 7 pt on
+Letter); any collision, clipping or undersized text raises a render error.
+Callout lanes rebalance between sides and tighten their leading rather than
+shrinking type; footers grow to hold their notes. A lane leader whose
+horizontal elbow would run along an axis through another callout's point is
+drawn straight instead, and an end label stays in the lane on its own end's
+side. Footer height is reserved before fitting the setup view, so dense legends
+never compress into overlapping rows. These checks do not alter geometry or
+turn unresolved machining facts into passes. A checked, posed chuck front not
+parallel to setup Z has no single jaw-front Z; `scene.jaw_front_oblique`
+records that geometric distinction without a printed note or a missing-datum
+warning.
+Setup notes derive from every declared op, including bench ones the kernel does
+not cut: a setup with no machine-cutting action lists its actions (`No machine
+cutting: op 10 deburr, op 20 coating, op 30 inspect.`). "No material removed in
+this setup." prints only when the kernel derives no removed volume and no op
+deburrs. The notes never repeat the selected tool and op: the tool and op tables
+name them and the picture labels the primary tool; a setup with no notes prints
+no SETUP NOTES heading.
 
 
 `scene` additionally records `view`, `width_px`, `height_px`, plain-language
@@ -127,13 +153,15 @@ are not compensated tool-tip feed targets. If the contour table also gives
 tool X/Z columns, those columns control the feed, not the drawn surface line.
 Numbered custom-clamp badges follow authored `hold.clamp_order`, not an order
 inferred from prose; an explicit empty list means no accessory tightening
-actions. Holding/fit-up-only setups show no invented cutter.
+actions. Setups without a cutting op show no invented cutter.
 Fixture construction primitives remain visible as geometry and individually
 named in `scene.components`; printed callouts group body/support hardware so
 bolt and shim details do not force the pad, pin and clamp labels into tiny text.
 Custom-fixture badge boxes remain outside the projected stock, fixture plate,
-other fixture components and nominal part outline; leaders return to the
-unchanged physical component centres. A trusted, explicitly labelled fixture
+other fixture components and nominal part outline, in rows above and below it in
+the points' x order so their leaders never cross; leaders return to the
+unchanged physical component centres. A badged clamp or pad group's lane entry
+is the badges' key and draws no leader of its own. A trusted, explicitly labelled fixture
 void gets a shop-caption leader at its posed centre, with `{name, label, role,
 center_mm}` recorded separately in `scene.fixture_detail_labels`. These
 annotations do not create solids, change geometry checks or resolve measurement
@@ -155,7 +183,7 @@ Any error wins (exit 2). Required warn/unknown/unsupported or a missing required
 rule/subject yields 4; an explicitly unknown required policy also yields 4.
 Otherwise the report has exit 0 and `verification = "checked"`.
 The implemented gate does not block required `info` or `not_applicable`. Without
-approval the traveler still prints `PLANNED — NOT APPROVED FOR THIS INPUT BUNDLE`.
+approval the traveler still prints `PLANNED — NOT APPROVED`.
 No hash prints on the sheet. `traveler.html` carries the full report hash and the
 prechips version in `<meta name="prechips-report">` / `<meta name="prechips-version">`
 for tools; they are a lookup, never the approval's binding.
@@ -247,23 +275,38 @@ at the machine. A job page opens with the part, drawing number, revision (or
 `REV NOT CONFIRMED`, which is also a STOP line) and the `PLANNED` banner, then
 **JOB STATUS** (STOP / CAUTION / not-verified boxes; a setup with its own STOP
 items is named here too, so the job page never says "no stops" over a stopped
-setup; then, always, the plan-check result, the approval state matching the
-banner — `NOT APPROVED:` with what the approval record holds: no first article
-for this input bundle, one recorded for other inputs (both: the first part made
-is the first article), or one recorded for these inputs on a plan check that
-has not passed, which approval cannot waive — and each `Before S1:` stock
-prerequisite, such as `obtain the stock — not on hand`), the drawing material
-and finish, a one-line speeds/feeds source, the DRO manual named once, the
-`DRO resolution:` of each routed machine (its inventory `resolution`, or the
-default grid said as such; a lathe adds whether X reads diameter or radius),
-**STOCK AND ROUTE** (stock size, supply notes and a setup → machine → holding
+setup; then a `Not ready to run` line when the plan check has not passed, or the
+count of checks not verified — the checker's own pass is not printed — then,
+always, the approval state matching the banner in shop words — `NOT APPROVED:`
+with what the approval record holds: no first article recorded, one made to a
+different plan or drawing (both: the first part made is the first article), or
+one recorded for this plan while it still has open items, which approval cannot
+waive — and each `Before S1:` stock prerequisite, such as `obtain the stock —
+not on hand`), the drawing material and finish, a one-line speeds/feeds source,
+the legend `† example fixture dimensions (plausible, not measured): confirm
+before making` when a SHOP-MADE FIXTURE row carries the mark, the DRO manual
+named once, the `DRO resolution:` of each routed machine (its inventory
+`resolution`, or the default grid said as such; a lathe adds whether X reads
+diameter or radius), **STOCK AND ROUTE** (stock size at the DRO resolution of
+the setup that receives that stock, supply notes and a setup → machine → holding
 table, machines by display name: an inventory `name`, a maker's model number,
 or else the machine kind, never an inventory slug) and **DRAWING
 REQUIREMENTS** (feature → limits, ending with the drawing's edge break printed
-once for the job as `all edges`; a stock thickness prints only when no feature
-carries a thickness limit). Authored values keep their digits (a 1.9875 mm
-pin, a 0.0254 mm runout limit); only computed numbers are cut to DRO
-resolution.
+once for the job as `all edges`; two features on the same model faces carrying
+the same known limits and nominal print them once on one row naming both,
+`strap faces / strap (datum B)` — a shared citation or equal numbers alone never
+merge rows, nor does an unknown limit, nor a band whose nominal is unknown or
+omitted; a stock thickness prints only when no
+feature carries a thickness limit). Authored values keep their digits (a 1.9875
+mm pin, a 0.0254 mm runout limit, `allowed -1234.5675 to -1234.5671`); only
+computed numbers are cut to DRO
+resolution. A drawing limit printed at the drawing's precision rounds inward,
+never looser: a band's low limit up and high limit down, a zone or maximum
+(position, coaxiality, angularity, Ra, the edge break) down (`position Ø 0.045`
+at two places prints 0.04) and to more places rather than to nothing; a band too
+narrow for that precision, or with one limit unknown, prints each known limit
+exactly as declared, every digit it holds (`?–1234.567` at three places, never
+`?–1234.57`).
 
 Each setup then prints as one **front sheet** to run the setup from, followed
 by attached sheets the front sheet points to. Every sheet starts on a new
@@ -281,14 +324,23 @@ every sheet on load and again just before printing. It measures the sheet at the
 printed width, places each page break itself (headings and a table's caption
 stay with what follows, also when the heading opens a sheet and its first block
 is a row of contours; the sign-off stays with the last op row; a table that
-runs over is split into a copy with the same column headings), opens every page
-after a sheet's first with `SETUP S2 — sheet 3 (continued) · page 2 of 3`, and
+runs over is split into a copy with the same column headings, leaving at least
+three rows on each page: rows carry over to the next page, and a table too short
+for that moves whole with its heading, never shrinking the type; a table other
+than the op table whose last page would hold under half its rows splits at its
+middle instead when the rest then fits on one page, so its closing rows never
+stand alone; a heading's lead-in line stays with the block it introduces),
+opens every page after a sheet's first with `SETUP S2 — sheet 3 (continued) ·
+page 2 of 3`, and
 adds a `This side intentionally blank — SETUP S2 sheet 1 back` page after any
 sheet with an odd page count, the job page included. Every sheet therefore
 starts on a front side, and a single-page front sheet has a blank back. Contour
 blocks print in rows of three under the script and in three newspaper columns
-without it. With scripts disabled the same content prints without padding
-(sheets may then start on a back side, so print single-sided) and a running
+without it; a side-by-side row too tall for one page (contours, a lathe op's
+rough and finish tables, the hold picture beside its steps) is stacked before
+it is split, so every page it runs over is counted. With scripts disabled the
+same content prints without padding (sheets may then start on a back side, so
+print single-sided) and a running
 op table repeats `SETUP S2 — sheet 1 (continued): operations` with its column
 headings.
 
@@ -309,26 +361,70 @@ Front sheet (sheet 1), in this order:
 3. Coolant (not on bench setups). The drawing's edge break prints once on the
    job page; a setup whose `deburr_mm` differs from it prints its own limit
    with the author's reason (`Break edges 0.100 mm max in this setup, not the
-   drawing's 0.25: small socket edge break keeps the bonded length.`).
-4. **TOOLS FOR THIS SETUP**: `T#`, tool, insert / size / material, holder or
-   QCTP station and the ops that use it. Op rows carry only the `T#`.
+   drawing's 0.25: small socket edge break keeps the bonded length.`). Then a
+   **PURCHASED TOOLING / RECEIPT CHECK** table for each bought-finished item
+   with receipt checks ([inventory](inventory.md#purchased-tooling)) that this
+   setup is the first to use: what is bought, then check, gauge and accept
+   limit per row (an unresolved row prints `STOP:` and why); later setups using
+   it print one line naming that table's sheet.
+4. **TOOLS FOR THIS SETUP**: `T#`, tool, insert / size / material (with the
+   shank, `shank Ø12.700`, when it differs from the cutting diameter), holder or
+   QCTP station and the ops that use it. Op rows carry only the `T#`. One `T#`
+   per tool + holder pair, as the items they select: `tools.drill` and `drill`
+   are one drill, `holders.er20` and `er20` one holder. A lathe's pairs keep
+   their numbers on every setup on that machine, however the setups spell it.
 5. **DRO ZERO** (not on bench setups — a machine of kind `bench` or `manual`
    running only fit and inspect ops has no spindle, DRO or axes — nor on a saw
    cut-off setup, located by the cut plane in its op row): positive
    directions, then one row per axis — what to touch
    or pick up (tool, side, paper or edge-finder radius), the Axis Set value, a
-   no-touch jog, the value the display must read and the value it would read if
-   the axis were reversed — plus re-indicate and tool-change touch-offs.
+   check jog, the value the display must read and the value it would read if
+   the axis were reversed — plus re-indicate and tool-change touch-offs (several
+   changes to one touch print once, naming their ops: `Tool changes before ops
+   20, 30 and 40: install the op's tool (the T number in its row), then …`; the
+   tools themselves stay in the TOOLS table and the op rows). On a
+   mill, an X or Y check jog from a side pickup would carry the finder over the
+   work, so the sheet prints the check as steps: raise Z only, until the finder
+   or indicator clears the work and everything clamped to it (checked by eye
+   across the top); jog the table the printed distance and read it; jog back
+   until the display shows the Axis Set value again, then lower. The picked-up
+   value is never set again. The steps' lead-in line never ends a page without
+   them. A lathe check jogs away from the work and has no raise step. A lathe X
+   set from a trial cut (the zero's or a tool change's) reads `take a light trial
+   cut, withdraw along Z without moving X, stop the spindle, measure the
+   diameter`. An edge-finder pick-up row names the **EDGE FINDER** box, which
+   prints once per finder and mill, in the DRO ZERO of the first setup picking
+   up with it on that mill ([inventory](inventory.md#edge-finder)): the speed
+   bands where the mill's ranges turn the finder (never a speed between them),
+   how the contact shows, and the offset — half the tip Ø, Axis Set edge − r
+   from the − side and edge + r from the + side; a later setup on the same mill
+   names `EDGE FINDER box, Setup S1 sheet 1`. A missing or unknown finder or
+   spindle fact prints `STOP:`.
 6. **OPERATIONS**: op, action with depth of cut, feature, `T#` tool, rpm, feed,
-   Z target, cut direction and `limit: gauge` inspection. Lathe feed prints as
+   Z target, cut direction and `limit: gauge` inspection. A lathe table with any
+   op measured in the chuck adds to its heading `measure only with the spindle
+   stopped and the tool withdrawn`. Lathe feed prints as
    `mm/rev` with the resulting `mm/min` in brackets; mill and saw feeds print in
-   `mm/min`. Crash-relevant numbers (jaw front within 3 mm of a tool stop, dead
-   centre at the work end, tool tip within 3 mm of the jaw top) and per-op STOP
+   `mm/min`. Crash-relevant numbers (jaw front within 3 mm of a tool's nearest
+   approach, dead centre at the work end, tool tip within 3 mm of the jaw top,
+   holding within 3 mm of an op's tool sweep or of what a file takes off) and
+   per-op STOP
    or CAUTION findings print as boxed lines under the op row, followed by the
    op's own note (and the tip-depth derivation) on its own line and, for a
-   contour op, `See contour table on S2 sheet 3`. An inspection procedure is
+   contour op, `See contour table on S2 sheet 3`. A blade relief's Z cell gives
+   each plunge's corner Z and the diameter it plunges to; the groove's extent
+   prints only where it differs from the row's own Z window, and the diameter's
+   drawing limits only when the inspection cell does not carry them. A computed
+   number printed at fewer decimals than it holds rounds half-way values up
+   (3.175 at two places is 3.18); a drawing limit rounds inward (DRAWING
+   REQUIREMENTS above). An inspection procedure is
    cited as `[S2 sheet 2 note 1]`. An op row with its boxed lines and note
-   never splits across the front and back.
+   never splits across the front and back. A setup whose ops are all bench
+   steps (`inspect`, `deburr`, `coating`, `fit`, `scribe`, `release`, hand
+   finishing) prints **ASSEMBLY / FINISHING** instead: step, feature, material /
+   consumable (a coating's in-house consumable or outside service), action (the
+   op's own instruction, else its action) and inspection, with no empty
+   machining columns.
 7. The sign-off line, after the last op row (on the back when the ops run
    over).
 
@@ -342,16 +438,48 @@ and inspection notes*):
 2. **CLEARANCE** (not on bench or saw cut-off setups), machine specific. A lathe shows chuck
    Ø against swing, work Ø against swing over the cross-slide, length against
    between-centres, quill extension and the jaw-front distance to the closest
-   tool stop. A mill
-   shows the spindle-to-table stack for the tallest op (holding, work, tool
-   stickout, holder and the 25 mm tool-change room, adding up to the total),
-   per-op tool stickout and spare travel, jaw top Z and table travel.
-   Uncomputed items are grouped into one `Not computed — check at the machine`
-   line.
-3. **FEATURE MAP** (feature, Ø or X/Y, Z from/to in the setup zero). Feature
-   locations, not tool tips.
+   tool approach: the least of each op's planned Zs and its whole tool's
+   chuck-side extent over every pose the kernel stands it at (accessibility
+   `tool_z_mm`; for an op fed to a dome table's tool readings, its outline
+   carried to where those readings put the nose, `nose_z_mm`), the same number
+   the op's jaw box prints; a turning tool the kernel could not pose whole or
+   never posed, or a dome table printing no tool readings, makes it `not computed
+   — check at the machine`. A mill
+   shows one line for the tallest spindle-to-table stack
+   (with the 25 mm tool-change room) against the room available, one for X/Y
+   table travel, one `Not computed — check at the machine` line for uncomputed
+   items, then a table: op, tool, closest obstacle, clearance mm, action. Each
+   cutting op's row takes the smallest known of its headroom margin, its DRO tip
+   over the jaw tops, the holder face above the highest stock beside the tool
+   (`projection_mm` less the reach from that stock's DRO surface Z to the op's
+   printed tip), every `clearances` entry of its reach finding and the holding
+   solid nearest its whole tool over its commanded sweep or the material it takes
+   off, whichever is nearer
+   (`render_scene.cut_clearances`, the value the holding picture dimensions). A
+   bench file in a machine setup has a row of its own, with no tool: the holding
+   nearest what it files off. A negative
+   clearance or a holder past the flute that hits a wall is a STOP; an unknown one
+   or an unproven holder wall clearance is a check-at-the-machine action; a jaw
+   clearance within 3 mm asks for a hand-fed approach, holding within 3 mm of a
+   cutter `hand feed past the …`, of a file `keep the file clear of the …`. Ops
+   with the same tool, obstacle, clearance and action share a row.
+3. **FEATURE MAP**. Lathe: each surface the setup cuts (one it only inspects,
+   such as an as-supplied diameter, has no size to turn to and is left off):
+   feature, the drawing's Ø limits (`—` for a process
+   size such as a joint spigot), the X turned to as the DRO displays it (`turn to
+   Ø` on a diameter display, `turn to X (radius)` on a radius one; `?` and a STOP
+   when `dro.radius_mode` is not stated), and the Z the setup's cuts start
+   and end at. Mill: feature, the reference point the X/Y/Z stand on (hole or boss
+   axis, arc centre, face; at the entry or exit face, or on the Z0 surface), then
+   X / Y / Z. A face square to setup Z is left off (its centre is no DRO stop and
+   its Z is the op row's) unless it carries an aim; a map with no row left is not
+   printed. An aimed target adds one line: where to machine it, its offset from
+   the drawing nominal and the band to inspect it to. Feature locations, not tool
+   tips.
 4. **INSPECTION NOTES**: numbered inspection procedures, each starting with its
-   setup and op (`S2 op 30: …`).
+   setup and op (`S2 op 30: …`). A procedure that works its readings through two
+   or more calculation lines is not a note but a worksheet on a sheet of its own
+   (see below).
 
 Sheet 3, *contours* (only when the setup has contour ops): **CONTOURS**, one
 block per contour op titled with its setup, op, tool and direction (`S2 op 50
@@ -364,7 +492,14 @@ the nose compensation is known; otherwise it says the nose radius compensation
 is not computed. A table the kernel clipped at the op's stock-removal bounds
 names the printed point it starts or stops at (`stops at P7: the stock past it
 is outside this op's area`). Long contour tables may run onto more pages
-("paper is cheap"); every block still names its setup.
+("paper is cheap"); every block still names its setup. A move number and each
+depth level's completion box with its `level k of N` print whole on one line,
+however narrow the block.
+
+Worksheets, one sheet each after the contours (`SETUP S11 — sheet 4 of 4:
+worksheet, S11 op 110 angularity Ø`): the numbered steps, each naming the reading
+it takes (`[rJ1]`), a READINGS table (step, reading, a blank value cell) and the
+calculation lines with their blanks.
 
 The job page and each front sheet end with the sign-off line. Setup
 coordinates, Z targets and DRO values print at the DRO's display
@@ -374,6 +509,20 @@ inventory slugs, frame names and hashes are dropped, and frame `T1` reads as
 `Setup S1 zero`. Rule ids, source paths, uncertainty detail and hashes
 stay in `report.json` (and the page's machine-readable meta tags). Print CSS is
 not a physical dry run, and presentation never changes PLANNED readiness.
+
+The printed result can be given a blind senior-machinist review with
+`scripts/machinist_review.py` (see README, "Machinist review of a traveler").
+That script prints this HTML to Letter pages with headless Chrome, so the
+duplex padding above runs, and asks a reviewer from the other model family to
+judge every page against two tests: no questions, and nothing the operator
+doesn't need. Speeds, feeds, depths of cut, tap drills and reamer allowances
+are compared with Machinery's Handbook pages that the script embeds in the
+prompt from a local, never-vendored handbook corpus (`--handbook` or
+`PRECHIPS_HANDBOOK_DIR`; page numbers in `scripts/prompts/handbook_refs.toml`),
+and findings cite the table and printed page. Without a handbook the review
+runs from memory and records that. It is a developer tool that calls a hosted
+model. It is not part of `prechips check` or `traveler`, and it does not change
+their offline contract.
 
 
 ## Telemetry and console

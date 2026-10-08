@@ -36,11 +36,12 @@ from prechips.rules.resolution import (
     MANUAL,
     SAW_OPS,
     length_mm,
+    projection_holder,
     resolve,
     saw_setup,
+    select,
     setup_frame,
     uncertain,
-    workholding_category,
 )
 
 _UNKNOWN = "unknown"
@@ -160,8 +161,103 @@ def _entry_stock(bundle, setup, frame):
     return result
 
 
+# The tip-near-jaw-top crash zone the traveler boxes (sheet ``_CRASH_ZONE_MM``).
+CRASH_ZONE_MM = 3.0
+
+
+def _jaw_faces(bundle, setup):
+    """(clamp axis index, [low, high] setup coordinates of the vise jaw faces), or None.
+
+    The jaws grip the setup-entry stock across the axis they do not run along, so their
+    faces stand at the kernel's setup-entry stock box along that axis."""
+    axis = {"x": 1, "y": 0}.get(_mapping(setup.get("hold")).get("jaws_along"))
+    kernel = getattr(bundle, "kernel", None)
+    if axis is None or not isinstance(kernel, dict) or kernel.get("status") != "ok":
+        return None
+    bbox = _mapping(_mapping(kernel.get("setups")).get(setup["id"])).get("stock_bbox_mm")
+    if not (isinstance(bbox, list) and len(bbox) == 6 and all(_numeric(v) for v in bbox)):
+        return None
+    return axis, [bbox[axis], bbox[axis + 3]]
+
+
+def _setup_coordinates(bundle, setup, memo):
+    """The coordinates numbers (printed cutter-centre tables) of ``setup``; ``memo`` keeps
+    one coordinates pass per headroom evaluation."""
+    from .coordinates import evaluate as coordinates
+
+    if not memo:
+        memo.update({row.subject: row.numbers for row in coordinates(bundle)})
+    return _mapping(memo.get(setup["id"]))
+
+
+def _printed_xy(coordinates, op):
+    """Every cutter-centre XY the traveler prints for ``op`` (its setup's coordinates
+    numbers: arc rows, join lines and linear_table outlines/raster passes, as the kernel
+    clipped them), or None when it prints none or any is unknown."""
+    points = []
+    for arc in coordinates.get("arc_table", []):
+        if arc.get("op") == op:
+            points += [row.get("dro_xy") for row in arc.get("rows", [])]
+    for line in coordinates.get("line_table", []):
+        if line.get("op") == op:
+            points += list(line.get("dro_xy") or [])
+    for profile in coordinates.get("profiles", []):
+        path = profile.get("cutter_centre")
+        linear = _mapping(profile.get("contour")).get("method") == "linear_table"
+        if profile.get("op") == op and linear and isinstance(path, list):
+            points += [p for item in path for p in (item if isinstance(item[0], list) else [item])]
+    known = all(isinstance(p, list) and len(p) == 2 and all(_numeric(v) for v in p) for p in points)
+    return points if points and known else None
+
+
+def _span(op, coordinates, axis):
+    """[low, high] of ``op``'s cutter-centre sweep along setup ``axis`` (0 = X, 1 = Y): its
+    printed cutter-centre path (:func:`_printed_xy`), else its stock_removal_bounds."""
+    printed = _printed_xy(coordinates, op["op"])
+    span = (
+        [min(p[axis] for p in printed), max(p[axis] for p in printed)]
+        if printed
+        else _mapping(op.get("stock_removal_bounds")).get("xy"[axis])
+    )
+    if isinstance(span, list) and len(span) == 2 and all(_numeric(v) for v in span):
+        return span
+    return None
+
+
+def _clear_of_jaws(bundle, setup, op, faces, coordinates):
+    """Whether ``op``'s cutter stays more than :data:`CRASH_ZONE_MM` clear of the vise jaws:
+    inside both jaw faces along the clamp axis, or wholly beyond the jaws' ends along the
+    axis they run (a blank end overhanging the vise). The jaw ends stand at the declared
+    ``jaw_center_along_mm`` ± half the vise's jaw width. An underivable sweep or jaw never
+    is clear."""
+    if faces is None:
+        return False
+    dia = length_mm(resolve(bundle, "tools", op.get("tool")) or {}, "dia")
+    if not _numeric(dia):
+        return False
+    axis, (low, high) = faces
+    span = _span(op, coordinates, axis)
+    if (
+        span
+        and span[0] - dia / 2 > low + CRASH_ZONE_MM
+        and span[1] + dia / 2 < high - CRASH_ZONE_MM
+    ):
+        return True
+    hold = _mapping(setup.get("hold"))
+    fixture_ref = hold.get("fixture")
+    fixture = resolve(bundle, "workholding", fixture_ref) or {}
+    centre, width = hold.get("jaw_center_along_mm"), length_mm(fixture, "jaw_width")
+    along = _span(op, coordinates, 1 - axis)
+    if not (along and _numeric(centre) and _numeric(width)) or uncertain(fixture):
+        return False
+    ends = (centre - width / 2, centre + width / 2)
+    return (
+        along[1] + dia / 2 < ends[0] - CRASH_ZONE_MM or along[0] - dia / 2 > ends[1] + CRASH_ZONE_MM
+    )
+
+
 def evaluate(bundle):
-    findings = []
+    findings, coordinates = [], {}
     for setup in bundle.plan["setups"]:
         bench = manual_bench(bundle, setup)
         if bench is not None:
@@ -171,8 +267,8 @@ def evaluate(bundle):
                 )
             )
             continue
-        machine_ref = setup["machine"]
-        machine = resolve(bundle, "machines", machine_ref) or {}
+        machine = resolve(bundle, "machines", setup["machine"]) or {}
+        machine_ref = select(bundle, setup["machine"], "machines")[1]
         if machine.get("kind") == "lathe":
             findings.append(_lathe(bundle, setup, machine, machine_ref))
             continue
@@ -197,7 +293,7 @@ def evaluate(bundle):
         hold = _mapping(setup.get("hold"))
         state = _mapping(setup.get("stock_state"))
         fixture_ref = hold.get("fixture")
-        fixture = resolve(bundle, workholding_category(bundle, fixture_ref), fixture_ref) or {}
+        fixture = resolve(bundle, "workholding", fixture_ref) or {}
         parallels_ref = hold.get("parallels")
         parallels = resolve(bundle, "fixtures", parallels_ref) or {}
         parallel_height = (
@@ -270,7 +366,7 @@ def evaluate(bundle):
         errors = []
         if _numeric(stock_height) and stock_height <= 0:
             errors.append("supported stock height is not positive")
-        nominal_stacks, oals, gauges = [], [], []
+        nominal_stacks, oals, gauges, conflicts = [], [], [], []
         for op in setup["ops"]:
             if op["do"] in MANUAL or op["do"] in SAW_OPS:
                 continue
@@ -278,14 +374,17 @@ def evaluate(bundle):
             tool = resolve(bundle, "tools", op.get("tool")) or {}
             holder = resolve(bundle, "holders", holder_ref) or {}
             oal, gauge = length_mm(tool, "oal"), length_mm(holder, "gauge_len")
-            declared = any(
-                holder_ref in _mapping(tool.get(field))
-                for field in ("projection_mm", "projection_in")
+            pair, conflict = projection_holder(bundle, tool, holder_ref)
+            # Two spellings of the holder in the map state it twice: unknown, never OAL - grip.
+            declared = pair is not None or conflict is not None
+            projection = (
+                length_mm(tool, ("projection", pair)) if holder and pair is not None else _UNKNOWN
             )
-            projection = length_mm(tool, ("projection", holder_ref)) if holder else _UNKNOWN
             if holder and not declared:
                 grip = length_mm(holder, "grip")
                 projection = oal - grip if _numeric(oal) and _numeric(grip) else _UNKNOWN
+            if conflict:
+                conflicts.append(f"op {op['op']}: {conflict}")
             stack = _sum(work_top, projection, gauge, 25)
             margin = (
                 spindle["value"] - stack
@@ -306,6 +405,7 @@ def evaluate(bundle):
                     "sum_mm": stack,
                     "margin_mm": margin,
                     "verify": not (verified and spindle["verified"]),
+                    **({"projection_conflict": conflict} if conflict else {}),
                 }
             )
             unknown |= not verified or not spindle["verified"] or not _numeric(margin)
@@ -339,10 +439,15 @@ def evaluate(bundle):
             if head
             else _UNKNOWN
         )
+        faces = None if head else _jaw_faces(bundle, setup)
+        printed = _setup_coordinates(bundle, setup, coordinates) if faces else {}
         cuts = {
             str(op["op"]): op["to_z"] - jaw_top_z
             for op in setup["ops"]
-            if op["do"] not in SAW_OPS and _numeric(op.get("to_z")) and _numeric(jaw_top_z)
+            if op["do"] not in SAW_OPS
+            and _numeric(op.get("to_z"))
+            and _numeric(jaw_top_z)
+            and not _clear_of_jaws(bundle, setup, op, faces, printed)
         }
         numbers.update(
             {
@@ -395,6 +500,7 @@ def evaluate(bundle):
                 "; ".join(errors)
                 if errors
                 else "headroom, travel or jaw-path geometry remains unmeasured or unresolved"
+                + "".join(f"; {conflict}" for conflict in conflicts)
                 if unknown
                 else "measured spindle stack and part/fixture travels fit"
             )
@@ -424,7 +530,7 @@ def _lathe(bundle, setup, machine, machine_ref):
     hold = _mapping(setup.get("hold"))
     state = _mapping(setup.get("stock_state"))
     fixture_ref = hold.get("fixture")
-    fixture = resolve(bundle, workholding_category(bundle, fixture_ref), fixture_ref) or {}
+    fixture = resolve(bundle, "workholding", fixture_ref) or {}
     scale = {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units"))
     od = state.get("od_mm", _UNKNOWN)
     north, south = state.get("north_end_z"), state.get("south_end_z")

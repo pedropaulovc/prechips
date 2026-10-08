@@ -10,10 +10,11 @@ synthetic ``bundle.kernel``.
 """
 
 import pytest
-from test_travel_m5 import child_bundle, setup
+from test_travel_m5 import child_bundle, measured, setup
 from test_turned_profile_kernel import _boss_on_a_lathe, _revolved
 
 from prechips.rules import coordinates, travel
+from prechips.sheet import _Traveler
 
 UNKNOWN = ["unknown"] * 3
 # Model +Y stands along setup +Z (the cone post's S11 pose), shifted off the model origin.
@@ -58,12 +59,15 @@ def test_parent_located_counterbore_resolves_identically_in_coordinates_and_trav
     targets = coordinates.evaluate(data)[0]
     assert targets.status == "pass"
     (cbore,) = _rows(targets, "cbore")
-    # drawing (0, 90, 4) -> model (10, 50, 4) -> setup (10 - 5, -(4 - 3), 50 - 0).
+    # drawing (0, 90, 4) -> model (10, 50, 4) -> setup (10 - 5, -(4 - 3), 50 - 0), already
+    # on the default 0.001 DRO grid.
     assert cbore == {
         "feature": "cbore",
         "model": [10, 50, 4],
         "setup": [5.0, -1.0, 50.0],
+        "dro_xy": [5.0, -1.0],
         "located_by": "right",
+        "dro": [5.0, -1.0, 50.0],
     }
     assert "features.features.right.at" in targets.cite
     assert "drawing right hole" in targets.cite
@@ -116,15 +120,83 @@ def test_mill_boss_is_located_at_x0_y0_on_the_kernel_span_through_the_setup_pose
             "point": "setup Z axis, kernel span start",
             "model": [5.0, 59.4, 3.0],
             "setup": [0.0, 0.0, 59.4],
+            "dro": [0.0, 0.0, 59.4],
+            "dro_xy": [0.0, 0.0],
         },
         {
             "feature": "head",
             "point": "setup Z axis, kernel span end",
             "model": [5.0, 86.0, 3.0],
             "setup": [0.0, 0.0, 86.0],
+            "dro": [0.0, 0.0, 86.0],
+            "dro_xy": [0.0, 0.0],
         },
     ]
     assert any(text.startswith("kernel: setups.S1.revolved.head") for text in finding.cite)
+
+
+def _off_grid_boss():
+    data = _mill_boss(revolved=_revolved(head=(59.403, 86.002, 0.0, 21.4, 21.4, 21.4)))
+    data.inventory["machines"]["mill"]["resolution_mm"] = measured(0.005)
+    return data
+
+
+def test_kernel_located_mill_rows_print_on_the_dro_grid():
+    data = _off_grid_boss()
+    finding = coordinates.evaluate(data)[0]
+    assert finding.status == "pass"
+    assert [row["dro"] for row in _rows(finding, "head")] == [
+        [0.0, 0.0, 59.405],
+        [0.0, 0.0, 86.0],
+    ]
+    traveler = _Traveler(data, [finding], {}, None)
+    traveler.setup = setup(data)
+    html = traveler.feature_map(setup(data))
+    assert "59.405" in html and "59.403" not in html and "86.002" not in html
+
+
+def test_a_located_row_half_a_dro_step_off_rounds_as_the_shop_sets_it():
+    # Half a 0.005 step above 59.400 and 86.010: the DRO target is the step away from
+    # zero, as the fixture tables set theirs, never Python's half-to-even.
+    revolved = _revolved(head=(59.4025, 86.0125, 0.0, 21.4, 21.4, 21.4))
+    data = _mill_boss(revolved=revolved)
+    data.inventory["machines"]["mill"]["resolution_mm"] = measured(0.005)
+    finding = coordinates.evaluate(data)[0]
+    assert [row["dro"] for row in _rows(finding, "head")] == [
+        [0.0, 0.0, 59.405],
+        [0.0, 0.0, 86.015],
+    ]
+
+
+@pytest.mark.parametrize(
+    ("value", "dialled"),
+    [(0.0025, 0.005), (-0.0025, -0.005), (1.0125, 1.015), (-1.0125, -1.015), (0.0074, 0.005)],
+)
+def test_a_dro_position_half_a_step_off_rounds_away_from_zero(value, dialled):
+    grid = (0.005, 3)
+    assert coordinates.dro_nearest(value, grid) == dialled
+    assert coordinates.dro_point([value, 0.0, value], grid) == [dialled, 0.0, dialled]
+
+
+def test_an_aim_moves_both_kernel_span_ends_along_the_band():
+    # Both span ends stand 5.0 from the foot plane (model X 0); the aim reads 5.2 where a
+    # centre op cuts the boss at its target.
+    data = _off_grid_boss()
+    setup(data)["ops"].append({"op": 30, "do": "center", "feature": "head", "tool": "cutter"})
+    data.features["features"]["foot"] = {
+        "kind": "face",
+        "plane": {"frame": "model", "axis": "x", "value": 0.0},
+    }
+    data.features["features"]["head"].update(
+        requirements=["height"], height=[4.5, 5.5], height_from="foot", precision={"height": 2}
+    )
+    data.plan["aims"] = {"head": {"requirement": "height", "value_mm": 5.2, "reason": "x"}}
+    finding = coordinates.evaluate(data)[0]
+    assert finding.status == "pass"
+    rows = _rows(finding, "head")
+    assert [row["dro"] for row in rows] == [[0.2, 0.0, 59.405], [0.2, 0.0, 86.0]]
+    assert {row["band_check"]["value_mm"] for row in rows} == {5.2}
+    assert "plan.aims.head" in finding.cite
 
 
 @pytest.mark.parametrize(
@@ -164,7 +236,9 @@ def test_explicit_unknown_at_on_a_mill_boss_wins_over_the_kernel_axis():
     assert coordinates.revolved_located(setup(data), data.feature_definitions) == []
     finding = coordinates.evaluate(data)[0]
     assert finding.status == "unknown"
-    assert _rows(finding, "head") == [{"feature": "head", "model": UNKNOWN, "setup": UNKNOWN}]
+    assert _rows(finding, "head") == [
+        {"feature": "head", "model": UNKNOWN, "setup": UNKNOWN, "dro_xy": UNKNOWN[:2]}
+    ]
 
 
 def test_lathe_spindle_rows_and_unmeasured_rows_keep_their_shape():

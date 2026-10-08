@@ -42,6 +42,9 @@ def evaluate(bundle):
     mapping, op_facts = record(facts.get("mapping")), record(facts.get("ops"))
     for setup, op in operations(bundle):
         if record(record(bundle.feature_definitions.get(op_feature(op))).get("joint")):
+            # Transient preparation finishes only the final STEP faces the kernel certifies.
+            if f"{setup['id']}:{op['op']}" in finishers:
+                claimed.update(op_claims(bundle, facts, setup, op)[0] or ())
             continue
         if op.get("do") in SAW_OPS:
             # A saw cut is never a finishing claim on a target face.

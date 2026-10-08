@@ -5,8 +5,10 @@ from __future__ import annotations
 import math
 
 from ..findings import Finding
+from ..process_features import process_of
 from . import turned_profile
 from ._envelope import fact
+from .geometry_common import _AXIAL_LATHE_ACTIONS
 from .resolution import (
     MANUAL,
     UNKNOWN,
@@ -16,6 +18,7 @@ from .resolution import (
     record,
     resolve,
     same_length,
+    select,
     uncertain,
 )
 from .stickout import support_state
@@ -138,6 +141,7 @@ def _rest(bundle, setup, op, turned, debts, cite):
         kind = kinds[0] if len(kinds) == 1 else UNKNOWN
         row = {"reference": reference, "kind": kind, "ops": ops}
         evidence.append(row)
+        category, key, _ = select(bundle, reference, "fixtures")
         item = resolve(bundle, "fixtures", reference)
         cite.append(f"plan.setups[{setup['id']}].hold.supports[{reference}]")
         if (
@@ -150,8 +154,8 @@ def _rest(bundle, setup, op, turned, debts, cite):
             row["status"] = "unknown"
             missing.append(f"one resolved verified follow_rest/steady_rest for '{reference}'")
             continue
-        low = fact(item, "capacity_min", "fixtures", reference, debts, cite)
-        high = fact(item, "capacity_max", "fixtures", reference, debts, cite)
+        low = fact(item, "capacity_min", category, key, debts, cite)
+        high = fact(item, "capacity_max", category, key, debts, cite)
         row.update(capacity_min_mm=low["value"], capacity_max_mm=high["value"])
         if kind == "follow_rest":
             lead = entry.get("jaw_lead_mm", UNKNOWN)
@@ -205,7 +209,16 @@ def evaluate(bundle):
         kind = record(machine).get("kind", UNKNOWN)
         cite = [_PROXY_CITE]
         numbers = {"operation": action, "feature": op.get("feature", UNKNOWN)}
-        if action in MANUAL or (machine and kind not in {"lathe", UNKNOWN}):
+        reason = (
+            "the static turning proxy does not apply to this operation"
+            if action in MANUAL or (machine and kind not in {"lathe", UNKNOWN})
+            else "a tailstock tool on the spindle axis loads the work axially, not as a turning cut"
+            if kind == "lathe" and action in _AXIAL_LATHE_ACTIONS
+            else "stock preparation has no drawing acceptance band to deflect out of"
+            if process_of(bundle.feature_definitions.get(op.get("feature")))
+            else None
+        )
+        if reason:
             result.append(
                 Finding(
                     "turning_deflection",
@@ -213,7 +226,7 @@ def evaluate(bundle):
                     "not_applicable",
                     numbers,
                     cite,
-                    f"{subject}: the static turning proxy does not apply to this operation.",
+                    f"{subject}: {reason}.",
                 )
             )
             continue

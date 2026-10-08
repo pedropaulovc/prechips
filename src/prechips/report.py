@@ -25,19 +25,44 @@ def report_hash(report: dict) -> str:
     ).hexdigest()
 
 
+def inspection_sketch_name(ordinal: int, key: str) -> str:
+    """The file an inspection's set-up sketch is written to: ``key`` is the kernel's
+    ``"<op>:<requirement>"``."""
+    op, requirement = key.split(":", 1)
+    return f"setup-S{ordinal}-op{op}-{requirement}.png"
+
+
+def inspection_sketch_names(plan: dict) -> tuple[str, ...]:
+    """Every inspection sketch file ``plan`` asks for (its ops' ``inspection_views``)."""
+    return tuple(
+        inspection_sketch_name(ordinal, f"{op['op']}:{requirement}")
+        for ordinal, setup in enumerate(plan["setups"], start=1)
+        for op in setup["ops"]
+        if isinstance(op.get("inspection_views"), dict)
+        for requirement in op["inspection_views"]
+    )
+
+
+def _png(encoded: str) -> bytes:
+    png = base64.b64decode(encoded, validate=True)
+    if not png.startswith(b"\x89PNG\r\n\x1a\n"):
+        raise ValueError("The kernel returned an invalid PNG render.")
+    return png
+
+
 def render_assets(bundle: Bundle) -> dict[str, bytes]:
     """Decode only this run's kernel renders; generated assets bind to approval."""
     kernel = getattr(bundle, "kernel", None) or {}
     setups = kernel.get("setups", {})
     assets = {}
     for ordinal, setup in enumerate(bundle.plan["setups"], start=1):
-        encoded = setups.get(setup["id"], {}).get("render_png_base64")
+        facts = setups.get(setup["id"], {})
+        encoded = facts.get("render_png_base64")
         if encoded is None:
             continue
-        png = base64.b64decode(encoded, validate=True)
-        if not png.startswith(b"\x89PNG\r\n\x1a\n"):
-            raise ValueError("The kernel returned an invalid PNG render.")
-        assets[f"setup-S{ordinal}.png"] = png
+        assets[f"setup-S{ordinal}.png"] = _png(encoded)
+        for key, sketch in sorted(facts.get("inspection_pngs_base64", {}).items()):
+            assets[inspection_sketch_name(ordinal, key)] = _png(sketch)
     return assets
 
 
@@ -56,19 +81,25 @@ def build_report(
             continue
         record = {"path": filename, "sha256": hashlib.sha256(assets[filename]).hexdigest()}
         inputs[f"render:{setup['id']}"] = record
+        facts = kernel_setups[setup["id"]]
         renders[setup["id"]] = {
             **record,
-            "fixture": "modeled"
-            if kernel_setups[setup["id"]].get("fixture_rendered") is True
-            else "unresolved",
-            "scene": kernel_setups[setup["id"]].get("render_scene", {}),
+            "fixture": "modeled" if facts.get("fixture_rendered") is True else "unresolved",
+            "scene": facts.get("render_scene", {}),
         }
+        sketches = {}
+        for key in sorted(facts.get("inspection_pngs_base64", {})):
+            name = inspection_sketch_name(ordinal, key)
+            sketches[key] = {"path": name, "sha256": hashlib.sha256(assets[name]).hexdigest()}
+            inputs[f"render:{setup['id']}:{key}"] = sketches[key]
+        if sketches:
+            renders[setup["id"]]["inspections"] = sketches
     report = {
         "expected_exit": result,
         "findings": [f.to_dict() for f in sorted(findings, key=lambda f: (f.rule, f.subject))],
         "inputs": inputs,
         "prechips_version": __version__,
-        "rules_version": "m5-rev9",
+        "rules_version": "m5-rev10",
         "step_sha256": bundle.features.get("step_sha256", "unknown"),
         "verification": "checked" if result == 0 else "planned",
     }

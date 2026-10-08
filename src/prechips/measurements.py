@@ -106,6 +106,24 @@ def nominal_length_mm(item, field):
     return _resolve(item, field)[0]
 
 
+def nominal_limits_mm(item, field):
+    """A declared ``[least, greatest]`` diameter pair in mm, from ``<field>_mm`` or
+    ``<field>_in`` (a plain pair or a ``{value, measured, verify}`` fact), without imposing
+    measurement readiness; UNKNOWN unless one key authors two positive ordered numbers."""
+    from prechips.rules.resolution import number
+
+    keys = length_keys(item, field, None) if isinstance(item, dict) else []
+    if len(keys) != 1:
+        return UNKNOWN
+    raw = item[keys[0]]
+    raw = raw.get("value") if isinstance(raw, dict) else raw
+    if not (isinstance(raw, list) and len(raw) == 2 and all(number(v) for v in raw)):
+        return UNKNOWN
+    scale = 25.4 if keys[0].endswith("_in") else 1.0
+    low, high = raw[0] * scale, raw[1] * scale
+    return [low, high] if 0 < low <= high else UNKNOWN
+
+
 def _cites(item):
     """Inventory item and source citations; a measurement fact carries none of its own."""
     from prechips.rules.resolution import _citations
@@ -200,6 +218,12 @@ def measurement_entry(category, identity, field):
         description = "installed tool insertion from holder exit face"
     elif field == "lead":
         description = "reamer lead length"
+    elif field == "pilot_len":
+        description = "centre drill pilot length, countersink start to point tip (Table 6 C)"
+        instrument = "calipers"
+    elif field == "angle_deg":
+        description = "centre drill countersink included angle"
+        instrument, units = "protractor", "degrees"
     return {
         "id": identity_field,
         "instruction": f"measure: {identity} {description}, {instrument}, {units}",

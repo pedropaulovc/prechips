@@ -188,9 +188,17 @@ class RenderCanvas:
     the first triangle. Hatch stripes alternate on the pixel grid and obey
     exactly the same visibility test as solid faces. No geometry is redrawn
     by ``png()``, so repeated encoding is idempotent.
+
+    A mesh's optional fifth element is its tag (the solid it draws). ``depth`` and
+    ``owner`` keep, per pixel, the visible mesh depth and the index of the mesh
+    seen there (-1: none), so a caller can prove which solid a pixel shows.
     """
 
-    def __init__(self, meshes, camera, viewport=(180, 160, 1420, 730), width=1600, height=1000):
+    def __init__(
+        self, meshes, camera, viewport=(180, 160, 1420, 730), width=1600, height=1000, fit=None
+    ):
+        """``fit``: world points the view is scaled to; every mesh when None. Geometry
+        outside the fitted viewport is cropped at its edge."""
         if (
             isinstance(width, bool)
             or isinstance(height, bool)
@@ -206,6 +214,9 @@ class RenderCanvas:
         self.width, self.height = width, height
         self.rgb = bytearray(b"\xff") * (width * height * 3)
         self.text_boxes = []
+        self.depth = array("d", [-math.inf]) * (width * height)
+        self.owner = array("i", [-1]) * (width * height)
+        self.tags = [mesh[4] if len(mesh) > 4 else None for mesh in meshes]
         self._right, self._up, self._toward = camera
         self._pixel_centre = ((left + right) / 2, (top + bottom) / 2)
         self._world_centre = (0.0, 0.0)
@@ -224,6 +235,11 @@ class RenderCanvas:
                 xmin, xmax = min(xmin, x), max(xmax, x)
                 ymin, ymax = min(ymin, y), max(ymax, y)
             projected.append((points, screen, triangles, colour, hatch))
+        if fit is not None:
+            fitted = [(_dot(p, self._right), _dot(p, self._up)) for p in fit]
+            if fitted:
+                xmin, xmax = min(x for x, _ in fitted), max(x for x, _ in fitted)
+                ymin, ymax = min(y for _, y in fitted), max(y for _, y in fitted)
         if xmin == math.inf:
             return
         self._world_centre = ((xmin + xmax) / 2, (ymin + ymax) / 2)
@@ -240,8 +256,7 @@ class RenderCanvas:
             min(width - 1, math.ceil(right - 0.5) - 1),
             min(height - 1, math.ceil(bottom - 0.5) - 1),
         )
-        depth = array("d", [-math.inf]) * (width * height)
-        for points, screen, triangles, colour, hatch in projected:
+        for index, (points, screen, triangles, colour, hatch) in enumerate(projected):
             pix = [(*self._project_xy(x, y), d) for x, y, d in screen]
             for a, b, c in triangles:
                 p0, p1, p2 = points[a], points[b], points[c]
@@ -254,7 +269,7 @@ class RenderCanvas:
                 shade = 0.3 + 0.7 * min(1.0, abs(_dot(normal, _LIGHT)) / length)
                 pixel = bytes(min(255, max(0, int(channel * shade + 0.5))) for channel in colour)
                 stripe = bytes(int(channel * 0.55 + 0.5) for channel in pixel)
-                self._triangle(pix[a], pix[b], pix[c], pixel, stripe, hatch, depth, bounds)
+                self._triangle(pix[a], pix[b], pix[c], pixel, stripe, hatch, index, bounds)
 
     def _project_xy(self, x, y):
         cx, cy = self._world_centre
@@ -265,7 +280,34 @@ class RenderCanvas:
         """Return image x/y for a world-space point, including fitted translation."""
         return self._project_xy(_dot(xyz, self._right), _dot(xyz, self._up))
 
-    def _triangle(self, p0, p1, p2, pixel, stripe, hatch, depth, bounds):
+    def depth_of(self, xyz):
+        """Mesh depth of a world-space point, comparable with ``depth``."""
+        return _dot(xyz, self._toward)
+
+    def grow(self, rows):
+        """Append ``rows`` white rows below the canvas; drawn pixels keep their place."""
+        self.rgb.extend(b"\xff" * (self.width * rows * 3))
+        self.depth.extend(array("d", [-math.inf]) * (self.width * rows))
+        self.owner.extend(array("i", [-1]) * (self.width * rows))
+        self.height += rows
+
+    def paste(self, other, x, y):
+        """Copy another canvas's pixels with their upper-left corner at ``(x, y)``."""
+        for row in range(other.height):
+            target = y + row
+            if not 0 <= target < self.height:
+                continue
+            first = max(0, x)
+            last = min(self.width, x + other.width)
+            if first >= last:
+                continue
+            source = (row * other.width + first - x) * 3
+            start = (target * self.width + first) * 3
+            self.rgb[start : start + (last - first) * 3] = other.rgb[
+                source : source + (last - first) * 3
+            ]
+
+    def _triangle(self, p0, p1, p2, pixel, stripe, hatch, index, bounds):
         (x0, y0, d0), (x1, y1, d1), (x2, y2, d2) = p0, p1, p2
         area = (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0)
         if abs(area) < 1e-12:
@@ -281,20 +323,24 @@ class RenderCanvas:
         row_lo = max(top, math.ceil(min(y0, y1, y2) - 0.5))
         row_hi = min(bottom, math.floor(max(y0, y1, y2) - 0.5))
         left_bound, right_bound = min(x0, x1, x2), max(x0, x1, x2)
-        rgb, width = self.rgb, self.width
+        rgb, width, owner, depth = self.rgb, self.width, self.owner, self.depth
         for row in range(row_lo, row_hi + 1):
             yc = row + 0.5
             lo, hi = left_bound, right_bound
             for ax, ay, bx, by in edges:
-                slope = -(by - ay)
-                offset = (bx - ax) * (yc - ay) + (by - ay) * ax
-                if slope > 0:
-                    lo = max(lo, -offset / slope)
-                elif slope < 0:
-                    hi = min(hi, -offset / slope)
-                elif offset < 0:
-                    lo, hi = 1.0, 0.0
-                    break
+                if ay == by:
+                    if (bx - ax) * (yc - ay) < 0:
+                        lo, hi = 1.0, 0.0
+                        break
+                    continue
+                # Both triangles sharing an edge get the same crossing, whichever way each
+                # runs along it, so no pixel centre on the edge falls between them.
+                px, py, qx, qy = (ax, ay, bx, by) if (ay, ax) < (by, bx) else (bx, by, ax, ay)
+                crossing = px + (qx - px) * (yc - py) / (qy - py)
+                if ay > by:
+                    lo = max(lo, crossing)
+                else:
+                    hi = min(hi, crossing)
             first = max(left, math.ceil(lo - 0.5))
             last = min(right, math.floor(hi - 0.5))
             base = row * width
@@ -304,6 +350,7 @@ class RenderCanvas:
                 slot = base + column
                 if value > depth[slot]:
                     depth[slot] = value
+                    owner[slot] = index
                     colour = stripe if hatch and (column + row) % 12 < 3 else pixel
                     offset = slot * 3
                     rgb[offset : offset + 3] = colour
@@ -348,14 +395,19 @@ class RenderCanvas:
                                     top + row * scale + offset, first, first + scale - 1, pixel
                                 )
 
-    def assert_text_layout(self, *, margin=8, min_gap=4):
-        """Reject text outside the inset canvas or closer than ``min_gap`` pixels.
+    def assert_text_layout(self, *, margin=8, min_gap=4, min_scale=1):
+        """Reject text outside the inset canvas, closer than ``min_gap`` pixels, or painted
+        smaller than ``min_scale`` (a glyph is ``7 * scale`` pixels tall).
 
         ``text_boxes`` contains normalized, nonblank lines with exclusive right
         and bottom bounds; surrounding spaces do not contribute to the bounds.
         Checking is opt-in and never changes the painted pixels.
         """
         for index, (label, left, top, right, bottom) in enumerate(self.text_boxes):
+            if bottom - top < 7 * min_scale:
+                raise ValueError(
+                    f"Text {label!r} is painted below the minimum print scale {min_scale}"
+                )
             if (
                 left < margin
                 or top < margin

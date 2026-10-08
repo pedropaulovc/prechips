@@ -14,7 +14,7 @@ known end station; mill setups need top/bottom Z. Authored supports, orientation
 parallels, jaws direction and locator are checked when supplied. Every nonmanual
 cut needs `direction` (face, profile, pocket, turn, form and parting actions
 included) except point/hole actions (`spot`, `drill`, `ream`, `tap`,
-`counterbore`, `center`) and saw cut-off (its `cut_plane` defines the setting);
+`counterbore`, `center`, `center_drill`) and saw cut-off (its `cut_plane` defines the setting);
 an explicitly supplied point/hole direction is also checked, and
 an explicitly unknown action without one is unknown. Missing/empty
 fields are errors; explicit unknown values are unknown. It does not compare
@@ -27,6 +27,28 @@ or a later one is an error naming that op
 (`{setup}: the hold stops on {face}, which the arriving stock does not have yet; it is first cut in {setup} op {op}.`);
 an earlier cut of unknown action or unsettled as-is faces is unknown.
 
+A mill setup (machine kind `mill`) whose fixture is a `vise` or `angle_plate` needs
+`hold.align` where it mounts or turns that fixture: the first such setup on its
+machine, or one whose fixture, vise `jaws_along` or plate `pose` differs from the
+setup before it on that machine (a setup on another fixture between them took the vise
+or plate off). Its `indicator` must be an inventory gauge of kind
+`dial_test_indicator` or `dial_indicator`, `limit_mm` and `over_mm` must be
+positive, and an angle plate's `face` must name one of the plate's solids; a missing
+block or invalid value (a gauge not in the inventory, declared absent or of another
+kind) is an error, an explicit unknown is unknown. So is `align = "unknown"` (each
+member unknown) and an indicator whose kind, presence or verification is not
+established (`kind = "unknown"`, `present = "unknown"`, `verify = true`); the
+indicator is a selected inventory reference, so `tool_resolves` checks its identity
+like any tool or fixture. The face runs
+along the vise's `jaws_along`, or for an angle plate along the longer horizontal
+side of the `face` box solid, carried into the setup frame by `pose`; a run that is
+not X or Y is unknown (`hold.align.travel`). Evidence: `align_due` (`mounted`,
+`jaws turned`, `plate moved` or `not_applicable`). The HOLD prints the squaring step
+after the
+mount line: sweep the named indicator along the fixed jaw or locating face over
+`over_mm` of that travel and hold the reading change to `limit_mm`; any part not
+established prints as a STOP.
+
 Templates:
 
 - `{setup}: holding declarations need {comma-separated missing/unknown fields}.`
@@ -35,6 +57,98 @@ Templates:
 Evidence: hold record, stock stations, coolant, deburr, cut directions and
 missing fields. Citation: PLAN §4.1 hold fields. No invented grip or deburr
 limit appears as a fallback.
+
+## `centre_support`
+
+One subject per setup. Always required wherever a centre carries the work: no
+shop-policy entry is needed and none can waive it (`findings.ALWAYS_REQUIRED`,
+like `joint_fit`/`joint_assembly`). A centre is a `support` or any `supports`
+entry whose inventory `kind` has a whole `centre` / `center` word (`dead_centre`,
+`live_center`, `tailstock_centre`, `pipe_center`) or is `tailstock` (a
+tailstock carries work only on its centre), a machine standard accessory whose
+name has such a word (`dead_centre_headstock`), or a hold that declares
+`centre_hole` / `centre_hole_dia_mm`. The word `tailstock` in an accessory name
+is not a centre (`tailstock_drill_chuck`, `tailstock_quill`), nor is a kind
+such as `self_centering_steady_rest`. A support of a known non-centre kind stays
+one whatever `verify` or measurement debt its record carries; that debt is its
+own checks' (`stickout`, `turning_deflection`). A hold with no centre is not
+applicable and never blocks. A centre is the fixture its reference selects:
+`support = "x"` with `supports = ["fixtures.x"]` is one centre, not two.
+The hold's `centre_hole` must name a plan
+[process feature](plan.md#process-features) `centre_hole`; a `center_drill`
+op of an earlier setup in this setup's `stock_in` lineage must drill it, that
+op's own [`blind_depth`](rules-operations.md#blind_depth-tip-endpoints) centre
+row must pass (the same verdict, so the two never disagree: the selected tool's
+own centre, every tool fact the kernel cuts it from accepted, its mouth on the
+touched entry surface and, on a lathe, on the spindle axis), and its
+`mouth_dia_mm` must equal `centre_hole_dia_mm`.
+
+- **error:** the lineage is fully declared and no earlier setup in it drills
+  the centre (none does, or only this setup or a later one does), the maker's
+  `blind_depth` row is an error (a centre size its selected tool does not cut,
+  a tool point no shorter than its pilot, or a mouth off the surface or axis
+  its quill is touched on and fed along), or the hold's seat and the drilled
+  mouth differ. An error stands whatever else is unresolved;
+- **unknown:** `centre_hole` is undeclared; any setup in the lineage (this one
+  or one upstream) lacks `stock_in`; the maker's `blind_depth` row is unknown (a
+  centre size, a selected-tool fact such as its point angle, the tool's record
+  being unconfirmed, or the touched entry surface); the seat or mouth diameter
+  is unknown; a support's identity is unresolved (the reference is unknown, not
+  in the inventory, declared `"unknown"`, or of unknown kind), with or without a
+  known centre beside it, since it may be one; or
+  the work rides on more than one centre, since a hold names one `centre_hole`
+  and each other centre's seat is unchecked. A wholly undeclared hold names no
+  support: its debt is `hold_fields`', and this rule is not applicable;
+- **pass:** otherwise, naming the setup and op that drilled it.
+
+Evidence: support, the centres found, the centre, the ops that drill it before
+and after, whether the lineage is routed, each maker's preparation status,
+mouth and seat diameters, and the Table 6 depth arithmetic (`drill_length_mm`,
+`countersink_depth_mm`, `depth_mm`). The kernel separately seats the centre in
+the cut countersink and checks it against the setup-entry stock; that check is
+a fixture render debt, not this rule. Its unknown blocks (exit 4) under any
+shop policy; an error always exits 2.
+
+## `prepared_blank`
+
+One subject, `stock.prepared`; not applicable without a
+[`[stock.prepared]`](plan.md#prepared-blank), and `unknown` when it is declared
+`"unknown"` (a blank is prepared, and nothing says which). The receiving setup's
+box is first the root stock box trimmed, plane by plane, by every plan process
+`end_face` made by an op in an earlier setup of its `stock_in` lineage
+(analytic). Each declared size (section 0, section 1, length) must lie within
+its ± `tolerance_mm` of that box, at the declared `origin_mm`.
+
+The planes say only where the route means to face. What its generated passes cut
+is the kernel's stock handed on by the receiving setup's `stock_in` setup
+(`stock_out_bbox_mm`, `stock_out_volume_mm3`): read along the blank's axes, that
+box must lie within the same bands, and the stock must fill it (relative 1e-6), so a
+shallow, partial or missed face (its slab stays) or a pass cut inside the blank is an
+error. Without that stock (no kernel, or its stock unknown) the blank is unknown; a
+blank taken as supplied (`stock_in = "stock"`) is the root stock itself.
+
+Each blank check resolves too: `length`, `section_0` and `section_1` through the
+[inspection](rules-inspection.md) gauge capability against the size ± tolerance
+band (`limits_mm`); `flat`, `square` and `parallel` need a dial indicator, dial
+test indicator, height gauge or CMM from inventory, a written `methods`
+procedure, a positive `form_mm` limit and a verified gauge resolution no coarser
+than that limit. The worse of the cut and the checks stands.
+
+- **error:** a blank face is made outside the receiving setup's lineage or after
+  it, a received or cut size is outside its band, the cut stock does not fill its
+  box, a check's gauge is missing from inventory or cannot measure the band, or a
+  form gauge's resolution is coarser than its limit;
+- **unknown:** the blank is declared `"unknown"`, a lineage setup lacks `stock_in`,
+  a size, origin, tolerance or root-stock fact is unknown, the kernel's cut stock
+  is unknown, or a check, method, form limit or gauge resolution is undeclared or
+  unverified;
+- **pass:** otherwise, naming the ops that made each face.
+
+Evidence: received, declared and cut boxes, the cut volume, the received sizes, the
+ops that made each face, faces made outside the lineage, and one `checks` row per
+check (a form row with its `limit_mm` and `resolution_mm`). A process face never
+earns drawing coverage, so the blank is checked here, not by a drawing requirement.
+Its unknown blocks (exit 4) like every always-required rule; an error exits 2.
 
 ## `headroom`
 
@@ -67,9 +181,14 @@ declared head axis does not by itself replace a known axis-origin Z with debt.
 The report/traveler expose centre height, axis Z and work-top height separately.
 
 Jaw height is not a stack layer: `jaw_top_z = bottom + jaw_height -
-(parallels + supports)`; cut clearance is `to_z - jaw_top_z`. Below-jaw cuts
-require geometric path checks and therefore remain unknown rather than being
-invented collision errors. Travel uses transformed stock box extents
+(parallels + supports)`; cut clearance is `to_z - jaw_top_z`. A below-jaw cut is
+clear of the jaws only when its cutter (printed cutter-centre path, else
+`stock_removal_bounds`, widened by the cutter radius) stays more than 3 mm
+inside both jaw faces along the clamp axis, or more than 3 mm beyond the jaws'
+ends along the axis they run (the declared `jaw_center_along_mm` ± half the
+vise's accepted `jaw_width`: a blank end overhanging the vise). Other below-jaw
+cuts require geometric path checks and therefore remain unknown rather than
+being invented collision errors. Travel uses transformed stock box extents
 (`stock_extent_x_mm`/`stock_extent_y_mm`)
 `sum(abs(setup_axis[i])*stock_extent[i])`, and per axis `travel_checks` requires
 `max(stock_extent, fixture_extent) <= machine_travel`; no separate radial tip
@@ -159,7 +278,12 @@ widths: widely separated holes need the distance between their centres. Point
 and hole operations (`spot`, `drill`, `ream`, `tap`, `counterbore`, `center`)
 are their centres with no cutter-radius padding, because the spindle sits on
 the hole; only outside-profile extents carry the selected cutter radius;
-face/pocket declared extents are used as authored.
+face/pocket declared extents are used as authored. A rough stage pads each side
+by the stock it leaves: an explicit `rough_*` op by its `rough_allowance_mm`
+(else `stock_to_leave_mm`), and a contour finish by the `rough_allowance_mm` of
+the rough stage the coordinates rule prints with it; a finish without a contour
+cuts at the line. An unknown leave a rough stage needs is debt; a negative leave
+on any operation is an error (it would cut into the finished part).
 Broad face/profile/pocket operations without complete extents use a
 conservative stock-span screen without inventing a stock origin. Z is the
 union of each operation's **spindle-nose** positions, `tip + holder gauge +
@@ -199,7 +323,8 @@ position and angularity datums, coaxial feature and height-from feature.
 Reamed/bored/tapped datum finishing cuts replace pilots, including across that
 merged label/owner set; rough, manual (`inspect`, `deburr`, `coating`, `release`,
 `fit`, `scribe`) and other nonfinishing actions (`spot`, `transfer`, saw) never
-establish a final datum, whether named or owning. A datum name that
+establish a final datum, whether named or owning; a bench `file_to_line` is a
+finishing cut and does. A datum name that
 maps to no feature has no cuts. Every feature
 finishing-cut/datum-cut pair is evaluated. Same setup passes; an indicated
 transfer passes only when it names that feature/datum and originates at or
@@ -223,6 +348,215 @@ manifest datum/tolerance references, finishing cuts and transfer, plus shop
 budget citation. A nominal frame or a pickup of an earlier pilot never proves
 a later finished drawing datum.
 
+## `consistency`
+
+One fact, one source. Where the traveler prints a fact from a plan field or the
+kernel, the author's free text must leave it to that source, and two surfaces
+that print one fact must print one value. A fact that can be
+derived is derived: the TOOLS table's `T<n>` numbers come from one function
+(`resolution.tool_numbers`: first use in plan order, a lathe pair keeping its
+number across that machine's setups), a clamp's tightening from its `tighten` /
+`torque_nm` ([plan](plan.md#hold)), the DRO ZERO's kept clamping from
+`zero.transfer.keep_clamped`, the jaw tops and HOLD's `work top above jaw tops
+mm` from `resolution.jaw_top_z` (the seated bottom, `retained_rail_bottom_z` when
+lower, plus `jaw_above_parallels_mm`, from the inputs the kernel accepts for its
+vise), a SHOP-MADE FIXTURE row's Size mm from its solid at the make decimals, and
+each op's cut beside the holding from the kernel's `cut_clearances`. One subject
+per setup (hold, clamp notes, setup and stock notes, zero texts, stock heights,
+the make notes of the SHOP-MADE FIXTURE tables its sheet prints, its picture's
+cut) and one `{setup}:{op}` subject per op whose text the rule reads (note,
+`inspection_note`, `layout`, `inspection_methods`).
+
+The rule reads exactly the token patterns below; any other wording makes no
+claim, so it is never an error and never a pass.
+
+**Restated** facts are an `error` wherever the pattern occurs. Negation, time,
+tolerance and subject do not matter: the fact has one source, and the text may
+only leave it there.
+
+- `same chucking` in a setup's hold, clamp, stock, setup or zero text: the HOLD
+  prints the work holding, and the DRO ZERO whether the work stays clamped from
+  the transfer's setup (`zero.transfer.keep_clamped`).
+- `hand tight`, `hand-tighten[ed | ing]`, `tighten[ed | ing] by hand` or `finger
+  tight` in the note of a clamp listed in `clamp_order`: the HOLD prints its
+  tightening.
+- `N mm` or `N in` `above` or `below the [vise] jaw[s]` or `jaw top[s]`, in the
+  setup or op text of a hold that sets `jaw_above_parallels_mm`: the jaw tops are
+  derived, so other heights are given as Z values.
+- A made row's whole size in a make note it prints with, on a SHOP-MADE FIXTURE
+  table (read on the setup whose sheet prints the table): the row's Size mm prints
+  it. The contract is that only an unambiguous restatement is an error: a
+  statement in the closed grammar below, whose governing text is not ambiguous.
+  Any other wording, and any ambiguous text, makes no claim (never an error,
+  never a pass); those are the coverage limits listed under Not covered. The note
+  is NFKC-normalised, except the glyphs NFKC would turn into digits (a fraction
+  glyph, a superscript or subscript digit: `½` stays a fraction, `8²` is not
+  folded into `82`) or into no angle (`º`, `˚`); other superscripts and
+  subscripts (`ª`, `⁺`, `⁽`, `™`) fold. It is then split into tokens: whitespace
+  collapses, `x`, `X`, `×` and `*` are one separator, and a
+  number splits from its unit and from a glued separator (`65.2x11x10`, `4mmx8`,
+  `Øunknown`). The grammar:
+
+  ```text
+  statement  = "the" row ["to"] ["Ø"] edge "x" edge ["x" edge] terminator
+  edge       = (number | "?" | "unknown") [unit ["."]] [edge word] {parenthesis}
+  terminator = the note's end | a word | a mark
+  ```
+
+  The row is named word for word, by its solid's name or its `label`, and the
+  statement gives every edge the row prints: three for a box (a cut-out too), Ø
+  and length for a cylinder. A number is in digits; a fraction (`1/2`, `1 / 2`,
+  `½`, `1⁄2`) or a range (`8-10`, `8–10`, `8 - 10`) is not one. A unit is `mm`,
+  `in`, `inch`, `inches`, `"`, `″`, `'` or `′`, with its point (`mm.`) when the
+  size goes on after it. An edge word is `wide`, `high`, `thick`, `long` or
+  `deep`. A parenthesis that closes runs through its `)`, whatever it holds
+  (`4 (rough; finish later) x 8`); one never closed ends at its own `;`. The
+  terminator is not a number, fraction, range, name (`M6`), `x` or unit, nor a
+  comma or point glued to a digit (`8,5`).
+
+  The governing text is the statement's clause. Clauses split at `,`, `:`, `;`,
+  `!` and at a full stop before a capital or the note's end, but never inside a
+  parenthesis that closes. When the clause has no verb before `the <row>`
+  (`Drill, with care, the stud …`), the governing text is the whole sentence.
+  That text is ambiguous, and the statement is not read, when it holds any of
+  these anywhere:
+  - a feature verb: `drill`, `bore`, `ream`, `tap`, `counterbore`,
+    `countersink`, `spot`, `spotface`, `chamfer`, `bevel`, `thread`, `knurl`,
+    `groove`, `slot`, `pocket`, `notch`, `recess` or `undercut`. Inflections and
+    `c'bore` / `csk` count, and a hyphenated compound is read both split
+    (`spot-drill`) and joined (`counter-sink`). A word directly before a tool or
+    stock noun, with or without a hyphen between (`drill rod`, `drill-rod`,
+    `boring bar`, `tap wrench`), names that tool or stock and is not a verb;
+  - an angle unit: `°`, `º`, `˚`, `deg`, `degs`, `degree` or `degrees`;
+  - a fraction, or a glyph the normalisation keeps (`¹/₂`, `8²`).
+
+  The row's own name is not governing text, so a row named `thread` or `slot` is
+  read by its name.
+
+  Each row the name denotes is its own finding, including rows that share a label
+  or a note, and a withheld row (`?`). A size before a later finishing step is
+  still the row's size, so give it as an allowance over the printed size (`0.01
+  over`), not as a second size.
+
+**Compared** forms are an `error` when they disagree with the field. A `T<n>` in a
+setup's or op's text names that setup's TOOLS row.
+
+- A `T<n>` word (not inside a name such as `6061-T6`, not before a decimal point
+  or hyphen, not a plan frame's name) is not in this setup's TOOLS table.
+- A flute count in digits (any integer), bound to exactly one tool number as
+  `2-flute T1`, `T1 (2-flute …)` or `T1, the 2fl …`, differs from that tool's
+  inventory `flutes`.
+- On an op checked by a GO / NO-GO pair, an un-negated clause of its inspection
+  text sends the NO-GO through. Sentences split at `;`, `!`, `?` and full stops
+  (never a decimal point), and clauses at `,` and `:` too. Parenthesised text is
+  dropped. "Negated" means `not`, `never`, `no` (not `NO-GO`), `cannot`,
+  `without`, `unlike`, `instead` or `-n't` in the clause. The clause starts with
+  `push`, `pass`, `run` or `slide` (after `and`, `then`, `now`, `next`, `finally`,
+  `so` or `but`) and sends `the NO-GO [plug]`, `the GO and NO-GO plugs`, `each`,
+  `every`, `both` or `all [the] plug(s)`, or `the plugs` through.
+
+Three checks need no prose:
+
+- A `tighten = "hand"` clamp also declares `torque_nm`.
+- The setup picture's `CUT <mm> mm FROM <holder> (OP <op>)` (the kernel's
+  `closest_cut`) must print the CLEARANCE row of the op it names, beside the same
+  holding solid (the kernel's `cut_clearances`), each printed as its own surface
+  rounds it at the setup's DRO decimals; another op's row at the same value does
+  not stand in. The named op's row missing or not computed leaves the check
+  unknown, and so does a picture cut naming no op (its op unknown, empty or
+  absent): which row it restates cannot be checked. A saw's blade path carries
+  no row, so the cut it names restates none.
+- `stock_state` heights are checked against the kernel's setup-entry stock,
+  beyond its 0.001 mm stock tolerance. Each height is judged by the one evidence
+  source its declaration names, and no other source stands in for it.
+  - A `top_z` whose `top_feature` names a feature, or a `bottom_z` whose
+    `bottom_feature` does, is that feature's +Z (or -Z) face, judged by the
+    kernel's height of that face alone. The kernel gives
+    (`setups.<id>.stock_faces_mm`) the face's finished Z and the entering stock's
+    highest point over its footprint (lowest under it). While stock stands over
+    the face, the height must be that stock's. Once the face is cut, the height
+    may sit off the face's CAD Z only as far as the feature's band allows. The
+    band counts only when the feature has one requirement with a `[low, high]`
+    band and a `_nominal`, and the kernel puts its +Z and -Z faces that nominal
+    apart. A thicker feature then moves the face outward, the other face held at
+    its CAD Z. With both faces of one feature cut, `top_z - bottom_z` must lie in
+    the band, and each face may move at most the band's span.
+  - Otherwise the box gives only the stock's highest and lowest points. `top_z`
+    is the highest point; under an `"unknown"` `top_feature` it is wrong only
+    above the whole stock.
+  - The lower of an unnamed `bottom_z` and `retained_rail_bottom_z` is the lowest
+    point. When both are set, that lower one (both, when they tie) is wrong
+    whenever it differs from the box bottom. A named seat never exempts a rail:
+    the rail keeps its own comparison.
+  - A named seat proves only its own face. When it is the lowest authored point
+    and the kernel measures the stock under that face above the box bottom,
+    other stock hangs below it that nothing authored reaches, which is wrong.
+    When the face is the box bottom, its face verdict alone judges the seat, so
+    a displacement its band permits passes.
+  - A rail with no `bottom_z` is wrong only below the box bottom, since the seat
+    may be the stock's lowest point.
+
+A compared fact that cannot be proved is `unknown`, never `pass`:
+
+- a `T<n>` beyond a TOOLS table that still has an op with no tool chosen;
+- a flute count for a tool with no inventory `flutes`;
+- a picture cut that no computed CLEARANCE row of its holder prints, while
+  another op's row is not computed (that op's cut may be the picture's);
+- any authored stock height that is unknown, unknown plan units, or no kernel
+  stock box;
+- a `top_z` below the box top under an `"unknown"` `top_feature`;
+- a `top_z` or `bottom_z` whose named face the kernel did not measure (no
+  horizontal face on that side, finished material beyond it, or a face the
+  entering stock does not carry), whatever the box shows, stock below it
+  included;
+- a cut named face off its CAD Z whose feature has no band proved to be its
+  faces' separation;
+- an unnamed `bottom_z` or a rail above the lowest authored point;
+- a rail with no `bottom_z` that is not below the box bottom.
+
+An unknown rail, a jaw height that is negative, not a number or flagged
+`jaw_above_parallels_mm_verify` (anything but `false`), or parallels other than
+`"none"` / `"not_applicable"` that do not resolve, are uncertain or have no
+accepted positive `height` leave the jaw tops unknown, as they leave the kernel's
+vise unplaced. HOLD then prints `work top above jaw tops mm` as `?`. A subject the
+rule reads nothing in is `not_applicable`. An op
+subject is emitted only when its text is read. Evidence: `claims`,
+`contradictions` and `unchecked`.
+
+Not covered (never read, so never an error):
+
+- kept chucking in any other wording (`do not loosen the jaws`, `never loosen it`,
+  `without loosening`, `stays clamped`, `same chuck`), and `same chucking` in op
+  text;
+- hand tightening in any other wording, or in hold text rather than a clamp's own
+  note, or in the note of a clamp outside `clamp_order`;
+- a torque restated in text;
+- heights from the jaws in other wording (`within 18 mm of the jaw tops`, `proud
+  of the jaws`), or in a hold without `jaw_above_parallels_mm`;
+- flute counts in words (`four-flute`), or not bound to one tool number;
+- inspection text that sends a plug through in any other wording (`gently push
+  …`, `the NO-GO goes through`);
+- make-note sizes outside the grammar: sizes that do not name the row (`sawn
+  and milled to 11 x 10 x 65.2`, `turned Ø16 x 9.05`, `drill Ø4 x 8 deep in the
+  stud`), a part of a solid (`the thread portion Ø4.80 x 7.2`, `the arm's
+  nose`), only some of a row's edges (`the arm to 11 x 10`), a hole's Ø, edges in
+  fractions, ranges, words or other separators (`✕`), an edge annotated other
+  than in a parenthesis that closes (`4 [rough] x 8`, `4 (rough; x 8`), and a
+  bought or existing part's note;
+- make-note sizes in ambiguous governing text. This is a feature verb, angle
+  unit, fraction or kept glyph anywhere in the clause, even in parentheses,
+  before the row or after the size. Examples: `drill and tap the stud to Ø4 x 8
+  deep`, `Drill (use the mill) the stud …`, `turn the stud to Ø4 x 8 and drill
+  it`, `0.5 x 45 (nominal) (deg)`, `from ½ in rod`, `from ¹/₂ in rod`, `4 x 8
+  mm²`. It is also a clause with no verb of its own whose sentence holds one.
+  Two instructions that are not split into clauses, because they are joined by
+  `then` or by a full stop before a lower-case word, are one clause, so a
+  feature verb in either leaves the other unread;
+- a shop-made item's positions, fits and fasteners restated in text;
+- picture labels other than the cut (contact coordinates, stock sizes, jaw and
+  Z labels), the picture's holder name against the CLEARANCE row's, and a
+  clearance restated in op text.
+
 ## M2 declared workholding and indexing
 
 The [lathe rules](rules-lathe.md) check a turned profile from the actual chuck
@@ -240,5 +574,6 @@ Closure against a whole revolution is checked **only for a full pattern**:
 pattern: every position is checked against `angle_tol_deg`, with no closure.
 `positions = 1` is one angular setting, such as the cone journal's 12.5182°
 inclination, with no closure. The traveler prints plate, circle, turns and hole
-**spaces**, even when that arithmetic remains tentative because inventory
-confirmation is missing.
+**spaces**, then the angle that setting actually turns, its difference from the
+planned angle and the allowance, even when that arithmetic remains tentative
+because inventory confirmation is missing.

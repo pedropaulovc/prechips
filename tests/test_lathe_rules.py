@@ -107,7 +107,33 @@ def test_lathe_feed_without_a_cited_feed_per_rev_is_unknown(per_rev):
     assert row.status == "unknown" and row.numbers["feed_mm_min"] == "unknown"
 
 
+@pytest.mark.parametrize("planned,status", [(0.05, "pass"), ("unknown", "unknown")])
+def test_a_planned_feed_per_rev_is_the_feed_evaluated_not_the_table_row(planned, status):
+    # turning_deflection loads the cut with the op's feed_mm_rev: the row prints that feed.
+    bundle = lathe_bundle()
+    bundle.plan["setups"][0]["ops"][0]["feed_mm_rev"] = planned
+    row = speeds_feeds.evaluate(bundle)[0]
+    assert row.status == status and row.numbers["feed_mm_rev"] == planned
+    if status == "pass":
+        assert row.numbers["feed_mm_min"] == pytest.approx(750 * 0.05)
+
+
 def test_lathe_rpm_clamps_to_the_slowest_band():
     bundle = lathe_bundle()
     bundle.cutting_data["cut"][0]["sfm"] = 5.0
     assert speeds_feeds.evaluate(bundle)[0].numbers["rpm"] == 70
+
+
+@pytest.mark.parametrize(
+    ("ranges", "rpm"),
+    [
+        # 763.9 rpm rounds to 750, inside the gap: the spindle turns 600 at most below it.
+        ([[70, 600], [1000, 2200]], 600),
+        ([[70, 600], "unknown"], "unknown"),
+        ([[70, 600], [1000, "unknown"]], "unknown"),
+    ],
+)
+def test_lathe_rpm_never_falls_in_a_gap_between_bands(ranges, rpm):
+    bundle = lathe_bundle()
+    bundle.inventory["machines"]["lathe"]["spindle"]["ranges_rpm"] = ranges
+    assert speeds_feeds.evaluate(bundle)[0].numbers["rpm"] == rpm

@@ -8,7 +8,11 @@ is `pass`, and missing or unverified necessary inputs remain `unknown` (`?`).
 
 Both rules use operation subjects such as `S1:10`. Manual operations are
 `not_applicable`; turning deflection is also not applicable to a known nonlathe
-machine. An unknown operation or applicable machine identity is not a pass.
+machine, to a lathe's spindle-axis tailstock action (`spot`, `drill`, `ream`,
+`tap`, `center`, `center_drill`: it loads the work axially, not as a turning
+cut) and to an op preparing a plan [process feature](plan.md#process-features),
+which has no drawing acceptance band to deflect out of. An unknown operation or
+applicable machine identity is not a pass.
 
 ## `turning_deflection`
 
@@ -118,8 +122,9 @@ Evidence names `acceptance_field`, `acceptance_band_mm`,
 
 Nonpositive DOC, feed, diameter, length, `K_c` or `E`, ambiguous material rows,
 unknown aliases and material/machine verification debt cannot establish a
-computed model. The examples' unsourced material coefficients remain unknown;
-these rules do not add a Machinery's Handbook 31 citation or material value.
+computed model. The examples' material coefficients are labelled illustrative
+example values (`example (plausible, not measured)`) inside the cited published
+ranges, not measured shop facts.
 
 Evidence includes force, inertia, converted modulus, deflection, coefficient,
 resolved support evidence, input material/class, cited acceptance band, derived

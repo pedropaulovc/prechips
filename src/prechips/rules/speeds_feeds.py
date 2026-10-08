@@ -5,14 +5,28 @@ to the actual machine range. A boundary not divisible by 50 is retained rather
 than commanding an out-of-range speed.
 Cutting-table diameter_range is in millimetres, inclusive at both ends; an
 ambiguous overlapping pair of rows is unresolved rather than first-row wins.
-Mill feed is RPM x flutes x chip load; lathe feed is RPM x the same row's (or
-chart's) feed per revolution. Neither has an op-level override.
+Mill feed is RPM x flutes x chip load; lathe feed is RPM x the op's planned
+``feed_mm_rev`` when declared, else the same row's (or chart's) feed per
+revolution. A mill op has no feed override.
+
+A cited ``[[deep_hole]]`` row derates the sfm of its ``operation`` (row or
+chart) by ``sfm_factor`` before the RPM is derived, once the hole's depth is
+more than ``depth_over_dia`` diameters; the deepest such threshold governs. The
+depth is the material the full diameter cuts: a through hole's local thickness,
+a blind hole's planned depth, never the point or exit lead.
 
 A saw cut (``saw_cut``/``cut_off``) has no spindle: its one canonical
 ``operation = "saw_cut"`` row supplies blade linear speed (``sfm``) and descent
 feed (``feed_mm_min``) directly. There is no diameter band, tool chart or
 override; the sourced speed is clamped to the machine's inclusive
 ``blade_speed_sfm`` range and no RPM is derived.
+
+A mill op with a ``contour`` path also carries its plunge feed: the end mill fed
+straight down its own axis, ``RPM x feed_mm_rev`` of the one cited ``[[plunge]]`` row
+for its material class, tool material and tool diameter, and only for a tool declared
+``center_cutting = true``. It does not change this finding's status; the coordinates
+rule decides which ops plunge into the stock and leaves those without a known plunge
+feed unknown.
 """
 
 from __future__ import annotations
@@ -20,6 +34,8 @@ from __future__ import annotations
 import math
 
 from ..findings import Finding
+from . import tip_endpoints
+from .geometry_common import _AXIAL_LATHE_ACTIONS
 from .resolution import (
     MANUAL,
     SAW_OPS,
@@ -29,6 +45,7 @@ from .resolution import (
     manifest_mm,
     number,
     resolve,
+    rough_leave,
     uncertain,
 )
 from .tip_endpoints import mapping, records
@@ -63,19 +80,44 @@ def _cited(value):
     )
 
 
-def _bounds(machine):
+def spindle_ranges(machine):
+    """The spindle's speed bands ``[[lo, hi], ...]``, slowest first: its ``ranges_rpm``
+    (each clipped to a known ``rpm_min``/``rpm_max``), else ``[[rpm_min, rpm_max]]``.
+    Unknown unless every endpoint is a known number; the gaps between bands are speeds the
+    spindle does not turn."""
     spindle = mapping(machine.get("spindle"))
     low, high = spindle.get("rpm_min", UNKNOWN), spindle.get("rpm_max", UNKNOWN)
-    ranges = [
-        band
-        for band in records(spindle.get("ranges_rpm"))
-        if isinstance(band, list) and len(band) == 2 and all(number(v) for v in band)
-    ]
-    if not number(low) and ranges:
-        low = min(band[0] for band in ranges)
-    if not number(high) and ranges:
-        high = max(band[1] for band in ranges)
-    return low, high
+    bands = spindle["ranges_rpm"] if "ranges_rpm" in spindle else [[low, high]]
+    if not isinstance(bands, list) or not bands:
+        return UNKNOWN
+    clipped = []
+    for band in bands:
+        if not (isinstance(band, list) and len(band) == 2 and all(number(v) for v in band)):
+            return UNKNOWN
+        lo = max(band[0], low) if number(low) else band[0]
+        hi = min(band[1], high) if number(high) else band[1]
+        if lo <= hi:
+            clipped.append([lo, hi])
+    return sorted(clipped) or UNKNOWN
+
+
+def spindle_bounds(machine):
+    """The machine's ``(slowest, fastest)`` rpm, each a number or unknown."""
+    bands = spindle_ranges(machine)
+    if bands == UNKNOWN:
+        return UNKNOWN, UNKNOWN
+    return bands[0][0], max(hi for _, hi in bands)
+
+
+def turnable(rpm, bands):
+    """``rpm`` where a spindle band turns it; in a gap between bands, the top of the band
+    below (slower, never a speed the spindle cannot select)."""
+    if not number(rpm) or bands == UNKNOWN:
+        return UNKNOWN
+    if any(lo <= rpm <= hi for lo, hi in bands):
+        return rpm
+    below = [hi for _, hi in bands if hi < rpm]
+    return max(below) if below else UNKNOWN
 
 
 # Facing-type lathe actions (face, cut to fit, part off) start at the held stock O.D.
@@ -83,7 +125,9 @@ AXIAL_FACING = {"face", "rough_face", "finish_face", "cut_to_fit", "part_off"}
 
 
 def _diameter(bundle, setup, op, tool, lathe):
-    if not lathe:
+    # A spindle-axis (tailstock) tool on a lathe cuts at its own diameter, as on a mill; a
+    # centre drill's is its pilot (Machinery's Handbook 27th ed. p.1132 by drill size).
+    if not lathe or op.get("do") in _AXIAL_LATHE_ACTIONS:
         return length_mm(tool, "dia")
     feature = bundle.feature_definitions.get(op.get("feature"), {})
     # Feature lengths are manifest units; convert once here, before mm allowance arithmetic.
@@ -99,13 +143,103 @@ def _diameter(bundle, setup, op, tool, lathe):
     if not number(diameter) and op.get("do") in AXIAL_FACING:
         diameter = mapping(setup.get("stock_state")).get("od_mm", UNKNOWN)
     if op.get("do") == "rough_turn":
-        allowance = op.get("rough_allowance_mm", UNKNOWN)
+        # A negative leave is unknown here (the coordinates rule reports it as an error).
+        allowance = rough_leave(op)[0]
         diameter = diameter + allowance if number(diameter) and number(allowance) else UNKNOWN
     return diameter
 
 
 def _positive(value):
     return number(value) and math.isfinite(value) and value > 0
+
+
+def _hole_depths(bundle):
+    """Material depth each hole op's full diameter cuts, keyed ``(setup, op)``: a through
+    hole's local thickness, a blind hole's planned depth; the point and exit lead are
+    not hole depth."""
+    depths = {}
+    for finding in tip_endpoints.evaluate(bundle):
+        for row in records(finding.numbers.get("endpoints")):
+            through = row.get("exit_face", "not_applicable") != "not_applicable"
+            depth = row.get("local_thickness" if through else "depth_mm", UNKNOWN)
+            depths[(row["setup"], row["op"])] = depth if _positive(depth) else UNKNOWN
+    return depths
+
+
+def _deep_hole(cutting, action, depth, diameter):
+    """``(sfm_factor, numbers, unknown)`` from the governing cited ``[[deep_hole]]`` row,
+    the deepest ``depth_over_dia`` the hole's depth/diameter exceeds. An operation no row
+    names keeps its sfm and reports nothing; an unknown depth or a malformed, uncited or
+    tied row leaves the derate (and so the RPM) unknown."""
+    rows = [row for row in records(cutting.get("deep_hole")) if row.get("operation") == action]
+    if not rows:
+        return 1.0, {}, False
+    ratio = depth / diameter if number(depth) and _positive(diameter) else UNKNOWN
+    numbers = {"depth_over_dia": ratio, "deep_hole_row": UNKNOWN, "deep_hole_sfm_factor": UNKNOWN}
+    valid = all(
+        _positive(row.get("depth_over_dia"))
+        and _positive(row.get("sfm_factor"))
+        and row["sfm_factor"] <= 1
+        and _cited(row.get("cite"))
+        for row in rows
+    )
+    if not valid or not number(ratio):
+        return UNKNOWN, numbers, True
+    deeper = [row for row in rows if ratio > row["depth_over_dia"]]
+    if not deeper:
+        numbers.update(deep_hole_row="not_applicable", deep_hole_sfm_factor=1.0)
+        return 1.0, numbers, False
+    limit = max(row["depth_over_dia"] for row in deeper)
+    governing = [row for row in deeper if row["depth_over_dia"] == limit]
+    if len(governing) != 1:
+        return UNKNOWN, numbers, True
+    row = governing[0]
+    numbers.update(deep_hole_row=row["cite"], deep_hole_sfm_factor=row["sfm_factor"])
+    return row["sfm_factor"], numbers, uncertain(row)
+
+
+def stock_material_class(bundle):
+    """The cutting-data class the plan's stock material is aliased to, else unknown."""
+    stock = mapping(bundle.plan.get("stock"))
+    material = stock.get("material", mapping(bundle.features.get("material")).get("spec", UNKNOWN))
+    found = mapping(mapping(bundle.cutting_data).get("aliases")).get(material, UNKNOWN)
+    return found.get("material_class", UNKNOWN) if isinstance(found, dict) else found
+
+
+def plunge_row(bundle, op):
+    """``(feed_mm_rev, cite, why)`` of the one cited ``[[plunge]]`` row matching the stock's
+    material class, the op tool's material and its diameter (mm, inclusive range); the feed
+    is unknown, with why, when no row, several rows or an uncited, unverified or
+    non-positive row matches, and whatever the rows say for a tool not declared
+    ``center_cutting = true``: only a centre-cutting end mill can be fed down its axis."""
+    tool = resolve(bundle, "tools", op.get("tool")) or {}
+    centre = tool.get("center_cutting")
+    if centre is False:
+        return UNKNOWN, UNKNOWN, "the tool is not centre-cutting, so it cannot be fed down"
+    if centre is not True:
+        return UNKNOWN, UNKNOWN, "the tool is not declared centre-cutting (center_cutting)"
+    diameter = length_mm(tool, "dia")
+    key = (stock_material_class(bundle), tool.get("material", UNKNOWN))
+    if UNKNOWN in key or not number(diameter):
+        return UNKNOWN, UNKNOWN, "the material class, tool material or tool diameter is unknown"
+    matching = []
+    for row in records(mapping(bundle.cutting_data).get("plunge")):
+        band = row.get("diameter_range", UNKNOWN)
+        if (row.get("material_class"), row.get("tool_material")) != key:
+            continue
+        if not (isinstance(band, list) and len(band) == 2 and all(number(v) for v in band)):
+            return UNKNOWN, UNKNOWN, "a matching plunge row has no numeric diameter range"
+        if band[0] <= diameter <= band[1]:
+            matching.append(row)
+    if not matching:
+        return UNKNOWN, UNKNOWN, "no cutting-data plunge row matches this tool"
+    if len(matching) > 1:
+        return UNKNOWN, UNKNOWN, "several cutting-data plunge rows match this tool"
+    row = matching[0]
+    feed = row.get("feed_mm_rev", UNKNOWN)
+    if not _cited(row.get("cite")) or uncertain(row) or not _positive(feed):
+        return UNKNOWN, UNKNOWN, "the matching plunge row is uncited, unverified or not positive"
+    return feed, row["cite"], None
 
 
 def _blade_bounds(machine):
@@ -191,13 +325,13 @@ def evaluate(bundle):
     stock = mapping(bundle.plan.get("stock"))
     material = stock.get("material", mapping(bundle.features.get("material")).get("spec", UNKNOWN))
     cutting = mapping(bundle.cutting_data)
-    material_class = mapping(cutting.get("aliases")).get(material, UNKNOWN)
-    if isinstance(material_class, dict):
-        material_class = material_class.get("material_class", UNKNOWN)
+    material_class = stock_material_class(bundle)
+    depths = _hole_depths(bundle) if records(cutting.get("deep_hole")) else {}
     for setup in bundle.plan["setups"]:
         machine = resolve(bundle, "machines", setup.get("machine")) or {}
         lathe = machine.get("kind") == "lathe"
-        low, high = _bounds(machine)
+        bands = spindle_ranges(machine)
+        low, high = spindle_bounds(machine)
         for op in setup["ops"]:
             subject = f"{setup['id']}:{op['op']}"
             if op["do"] in MANUAL:
@@ -258,13 +392,21 @@ def evaluate(bundle):
                         selected.get("feed_mm_rev", UNKNOWN),
                     )
                     range_unknown |= uncertain(selected)
+            planned = lathe and "feed_mm_rev" in op
+            if planned:
+                # One feed: the op's planned feed per rev, the one turning_deflection
+                # loads the cut with, overrides the row's starting value.
+                per_rev = op["feed_mm_rev"]
             diameter_in = diameter / 25.4 if number(diameter) and diameter > 0 else UNKNOWN
+            depth = depths.get((setup["id"], op["op"]), UNKNOWN)
+            factor, deep, deep_unknown = _deep_hole(cutting, action, depth, diameter)
+            speed = sfm * factor if number(sfm) and number(factor) else UNKNOWN
             raw = (
-                12 * sfm / (math.pi * diameter_in)
-                if number(sfm) and sfm > 0 and number(diameter_in)
+                12 * speed / (math.pi * diameter_in)
+                if number(speed) and speed > 0 and number(diameter_in)
                 else UNKNOWN
             )
-            rpm = nearest50(raw, low, high)
+            rpm = turnable(nearest50(raw, low, high), bands)
             flutes = tool.get("flutes", UNKNOWN)
             if lathe:
                 # A turning tool advances feed_mm_rev per spindle revolution.
@@ -286,6 +428,7 @@ def evaluate(bundle):
                 "diameter_in": diameter_in,
                 "flutes": flutes,
                 "sfm": sfm,
+                **deep,
                 "chip_load_mm_per_tooth": chip,
                 **({"feed_mm_rev": per_rev} if lathe else {}),
                 "rpm_min": low,
@@ -295,6 +438,15 @@ def evaluate(bundle):
                 "cutting_data_row": source,
                 "rpm_range_verify": uncertain(machine),
             }
+            plunge_cite = UNKNOWN
+            if not lathe and isinstance(op.get("contour"), dict):
+                plunge, plunge_cite, why = plunge_row(bundle, op)
+                numbers["plunge_mm_rev"] = plunge
+                numbers["plunge_mm_min"] = (
+                    rpm * plunge if number(rpm) and number(plunge) else UNKNOWN
+                )
+                if why is not None:
+                    numbers["plunge_reason"] = why
             unknown = (
                 rpm == UNKNOWN
                 or feed == UNKNOWN
@@ -302,6 +454,7 @@ def evaluate(bundle):
                 or uncertain(machine)
                 or stock.get("material_verify", False)
                 or range_unknown
+                or deep_unknown
             )
             cite = [
                 "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 "
@@ -310,11 +463,30 @@ def evaluate(bundle):
                 "cutting-data aliases and rows",
             ]
             if lathe:
-                cite.append("lathe feed = RPM·feed_mm_rev from the same cited row or chart")
+                cite.append(
+                    f"lathe feed = RPM·feed_mm_rev from plan.setups[{setup['id']}].ops"
+                    f"[{op['op']}].feed_mm_rev"
+                    if planned
+                    else "lathe feed = RPM·feed_mm_rev from the same cited row or chart"
+                )
             if _cited(source):
                 cite.extend(source if isinstance(source, list) else [source])
+            deep_source = deep.get("deep_hole_row", UNKNOWN)
+            if deep_source != "not_applicable" and _cited(deep_source):
+                cite.append(
+                    "cutting-data deep_hole: sfm x sfm_factor past depth_over_dia diameters"
+                )
+                cite.extend(deep_source if isinstance(deep_source, list) else [deep_source])
+            if _cited(plunge_cite):
+                cite.append("cutting-data plunge: plunge feed = RPM x feed_mm_rev")
+                cite.extend(plunge_cite if isinstance(plunge_cite, list) else [plunge_cite])
             sentence = (
                 (
+                    "Starting RPM/feed cannot be certified: the hole depth or its governing "
+                    "deep-hole row is missing, ambiguous or unverified."
+                )
+                if deep_unknown
+                else (
                     "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, "
                     "material or machine range is missing or unverified."
                 )

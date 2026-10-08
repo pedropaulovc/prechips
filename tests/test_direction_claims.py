@@ -314,6 +314,7 @@ def _facts(claimed, errors):
         "holder_hits": 0,
         "reach_depth_mm": 8.0,
         "holder_wall_hits": 0,
+        "shank_hits": 0,
         "corner_radii_mm": [],
         "claimed_indices": claimed,
         "claim_errors": errors,
@@ -419,6 +420,7 @@ def bundle(tmp_path):
                 name: {
                     "parallel_pair": True,
                     "width_mm": 20.0,
+                    "jaw_separation_mm": 20.0,
                     "contact_grip_mm": [4.0, 4.0],
                     "claimed_in_jaws": [],
                     "min_wall_mm": 2.0,
@@ -547,7 +549,8 @@ def _unproven_stock(bundle):
     setup = bundle.kernel["setups"]["S1"]
     setup["stock_reason"] = setup["reason"] = STOCK_REASON
     setup["reasons"] = {}
-    for key in ("parallel_pair", "width_mm", "contact_grip_mm", "claimed_in_jaws", "min_wall_mm"):
+    vise_facts = ("parallel_pair", "width_mm", "jaw_separation_mm", "contact_grip_mm")
+    for key in (*vise_facts, "claimed_in_jaws", "min_wall_mm"):
         setup[key] = "unknown"
         setup["reasons"][key] = STOCK_REASON
     bundle.inventory["tools"]["em"]["verify"] = True
@@ -691,6 +694,25 @@ def test_turning_model_stays_unknown_without_every_tool_dimension(bundle):
     del bundle.inventory["tools"]["turn"]["head_len_mm"]
     row = _rows(accessibility, bundle)["S1:10"]
     assert row.status == "unknown" and "unmeasured" in row.sentence
+
+
+def test_a_tool_set_shorter_than_its_head_is_unknown_naming_the_setting_not_unmeasured(bundle):
+    from prechips.kernel import op_inputs
+
+    setup = _turning(bundle, _facts([1], []))
+    bundle.inventory["tools"]["turn"]["projection_mm"] = {"post": 10.0}
+    row = _rows(accessibility, bundle)["S1:10"]
+    assert row.status == "unknown" and "projection_mm at least head_len_mm" in row.sentence
+    assert "unmeasured" not in row.sentence
+    # A turned op the kernel never posed carries its tool extent unknown, never absent.
+    assert row.numbers == {
+        "projection_mm": 10.0,
+        "head_len_mm": 12.0,
+        "tool_z_mm": "unknown",
+        "nose_z_mm": "unknown",
+    }
+    # The head length is measured: the kernel gets it, to say why the holder is not posed.
+    assert op_inputs(bundle, setup, setup["ops"][0])["head_len_mm"] == 12.0
 
 
 @pytest.mark.parametrize(

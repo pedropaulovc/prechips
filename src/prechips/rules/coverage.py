@@ -15,6 +15,7 @@ from prechips.rules.geometry_common import (
     unavailable,
 )
 from prechips.rules.resolution import (
+    HAND_FINISH,
     SAW_OPS,
     claim_refs,
     known_refs,
@@ -52,14 +53,16 @@ def evaluate(bundle):
     unsupported = set()
     mapping = record(facts.get("mapping"))
     for setup, op in operations(bundle):
-        # Transient preparation, even with an explicit face override, never cuts the final STEP.
         if record(record(bundle.feature_definitions.get(op_feature(op))).get("joint")):
+            # Transient preparation, even with an explicit face override, credits only the
+            # final STEP faces the kernel certifies its accepted finishing cut leaves.
+            claimed.update(op_claims(bundle, facts, setup, op)[0] or ())
             continue
         if op.get("do") in SAW_OPS:
             # A saw cut removes stock; its kerf face is not credit toward target faces.
             continue
         action = cutting_action(op)
-        if action is False:
+        if action is False and op.get("do") not in HAND_FINISH:
             continue
         if action is None:
             debt = True

@@ -31,6 +31,8 @@ def setup(stock):
     instance.part = stock
     instance.hold = {}
     instance.clamp_parts = []
+    instance.clamp_restraints = {}
+    instance.clamp_locators = {}
     return instance
 
 
@@ -221,6 +223,8 @@ def broken_walls(stock, force):
     instance.part = stock
     instance.hold = {}
     instance.clamp_parts = [("broken", force, [])]
+    instance.clamp_restraints = {}
+    instance.clamp_locators = {}
     instance._strap_walls({"reasons": {}})
 
 

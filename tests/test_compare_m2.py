@@ -5,6 +5,9 @@ import math
 
 import pytest
 from test_cli import run_cli
+from test_envelope_m5 import review_bundle
+
+from prechips import cli
 
 STOCK = """[stock]
 form = "flat_bar"
@@ -337,7 +340,9 @@ riser = "riserB"
 locator = "locator"
 jaw_protection = "soft_jaws"
 index = {fixture = "BS-0", angle_deg = "unknown", positions = "unknown"}
+align = {indicator = "dti", limit_mm = 0.0254, over_mm = 100.0, cite = "scratch"}
 """
+    # The align block's indicator is a gauge, never holding.
     expected = {
         "primary",
         "stop",
@@ -355,28 +360,64 @@ index = {fixture = "BS-0", angle_deg = "unknown", positions = "unknown"}
         f'\n[fixtures.{identity}]\nkind = "support"\nverify = false\n'
         for identity in sorted(expected - {"primary", "BS-0"})
     )
+    inventory += '\n[gauges.dti]\nkind = "dial_test_indicator"\nverify = false\n'
     plan = candidate(tmp_path / "inputs", "fixtures", hold=hold, inventory=inventory, setups=2)
     _, rows = compare([plan], tmp_path / "out")
     assert rows[0]["fixtures"] == sorted(expected)
     assert rows[0]["setups"] == 2
 
 
+# A holding item is the (category, key) it selects: two spellings of one item list it
+# once, and one key in two categories (a collet and a plate) lists both, each named by
+# its category, through the hold's slots and its prose fields alike.
 @pytest.mark.parametrize(
-    "hold",
+    ("hold", "listed"),
     [
-        'fixture = "unknown"\nfixed_jaw = "not_applicable"\nstop = "none"\n'
-        'grip_mm = "not_applicable"\nclamp = "not_applicable"\n',
-        HOLD + 'support = "unknown"\n',
-        HOLD + 'supports = ["unknown", {ref = "unknown"}]\n',
-        HOLD + "supports = [{}]\n",
-        HOLD + 'index = "unknown"\n',
+        ({"fixture": "fixtures.holder", "locator": "holder"}, ["holder"]),
+        ({"fixture": "holder", "locator": "fixtures.holder"}, ["holder"]),
+        (
+            {"fixture": "holders.holder", "locator": "fixtures.holder"},
+            ["fixtures.holder", "holders.holder"],
+        ),
+        (
+            {"fixture": "holders.holder", "parallels": "fixtures.holder"},
+            ["fixtures.holder", "holders.holder"],
+        ),
+    ],
+    ids=["same-item-slot-first", "same-item-prose-first", "two-items-prose", "two-items-slots"],
+)
+def test_compare_lists_each_holding_item_once_by_the_item_it_selects(hold, listed, capsys):
+    data = review_bundle()
+    data.plan["part"] = "identity"
+    data.inventory["fixtures"]["holder"] = {"kind": "custom", "name": "drill-location plate"}
+    data.plan["setups"][0]["hold"] = hold
+    report = {"findings": [], "expected_exit": 0, "inputs": {}}
+    row = cli._comparison_row(data, report, "plan.toml")
+    assert row["fixtures"] == listed
+    cli._print_comparison([row])
+    assert f"| {', '.join(listed)} |" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    ("hold", "code"),
+    [
+        (
+            'fixture = "unknown"\nfixed_jaw = "not_applicable"\nstop = "none"\n'
+            'grip_mm = "not_applicable"\nclamp = "not_applicable"\n',
+            0,
+        ),
+        # An unresolved support may be a centre, so the always-required centre_support blocks.
+        (HOLD + 'support = "unknown"\n', 4),
+        (HOLD + 'supports = ["unknown", {ref = "unknown"}]\n', 4),
+        (HOLD + "supports = [{}]\n", 4),
+        (HOLD + 'index = "unknown"\n', 0),
     ],
 )
 def test_explicit_unknown_fixtures_remain_visible_without_none_sentinels(
-    tmp_path, freecad_kernel, hold
+    tmp_path, freecad_kernel, hold, code
 ):
     plan = candidate(tmp_path / "inputs", "unknown-fixture", hold=hold)
-    _, rows = compare([plan], tmp_path / "out")
+    _, rows = compare([plan], tmp_path / "out", code)
     assert "unknown" in rows[0]["fixtures"]
     assert "none" not in rows[0]["fixtures"]
     assert "not_applicable" not in rows[0]["fixtures"]

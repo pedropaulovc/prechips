@@ -33,6 +33,7 @@ unchanged: anything still `unknown` keeps its finding unknown.
 | `cone-pivot-post/features.toml` | `features.body.corner_radius_max_design` | absent → `0.25` | the CAD body/head step corner is sharp and the cone spec states no step-corner limit; the example applies the title-block `R0.25 MAX` edge break HA uses for step corners elsewhere (`pivot_shaft_spec.py:73`, `crankshaft_spec.py:110`), so the bonded route's turned shoulder has a limit to check ([HA #1215](https://github.com/pedropaulovc/harmonic-analyzer/issues/1215)) |
 | `cone-pivot-post/features.toml` | `features.cone_boss_south_face.length`, `length_nominal`, `precision.length` | absent → `[41.5, 42.52]`, `42.011`, `2` | the export attaches the 42.011 cap-to-cap length band only to the north cap; the example copies the same band onto the south cap that terminates it, without adding a requirement ([HA #1215](https://github.com/pedropaulovc/harmonic-analyzer/issues/1215)) |
 | `cone-pivot-post/features.toml` | `features.foot_seat.height`, `height_nominal`, `precision.height` | absent → `[85.2, 86.8]`, `86.0`, `1` | the export attaches the 86.0 foot-to-top band only to `body`; the example copies the same band onto datum face B that terminates it, without adding a requirement ([HA #1215](https://github.com/pedropaulovc/harmonic-analyzer/issues/1215)) |
+| `cone-pivot-post/features.toml` | `material.finish` | `"...; 50-75 um DFT; MASK MACHINED FACES; OIL BARE FACES ISO VG 32"` → `"...; 50-75 um DFT; built-up variant: paint RAL 6005 on non-functional turned ODs; mask bores, faces and joint surfaces; OIL BARE FACES ISO VG 32"` | binding author decision: the built-up post is turned all over, so masking every machined face would leave nothing to paint; `built-up.toml` S12 paints the body, shoulder, head and projecting crank-sleeve ODs and masks the bores, faces and joint surfaces by name ([HA #1215 comment](https://github.com/pedropaulovc/harmonic-analyzer/issues/1215#issuecomment-6030603028)) |
 | `rocker-arm/features.toml` | `features.tip_land_pos_x.land_angle_deg`, `features.tip_land_neg_x.land_angle_deg` | `"unknown"` → `[89.0, 91.0]` | nominal 90° with the title-block angular ±1° (`title_block.yaml angular.value_deg`); export left the limit unknown |
 | `rocker-arm/features.toml` | `precision.land_angle_deg` (both lands) | `"unknown"` → `0` | matches the ±1° whole-degree display |
 | `rocker-arm/features.toml` | `material.thickness` | `"unknown"` → `2.5` | drawing manufacturing note 2 states `STRAP 2.50 THICK`; this is the nominal strap, not the integral hub length or supplied blank thickness |
@@ -103,20 +104,30 @@ Shared inputs:
   (2.886 in). Each value carries its own `measured` record; the vendor
   nominals stay beside it as comments, and the item's `verify = true`
   identity flag is kept. The rocker and bracket plans' jaw-overlap arithmetic
-  now uses the measured jaw height. Bracket S1/S2 use 19.5453 / 3.6703 mm
-  engagement with labelled illustrative parallels and no stale verify flags.
-  The bracket's S2 tall narrow pair replaces the former 1-2-3-block stack:
-  a 50.8 mm-wide block cannot fit between jaws closed on a 16 mm foot.
+  now uses the measured jaw height. Bracket S1/S2/S3 use 19.5453 / 10.3703 /
+  3.6703 mm engagement on the 1 in set pair and the labelled illustrative
+  1-1/8 in and 1-5/8 in tall narrow pairs, with no stale verify flags. The
+  tall narrow pairs replace the former 1-2-3-block stack: a 50.8 mm-wide block
+  cannot fit between jaws closed on a 16 mm foot.
 - `shop-policy.toml`: shop-owned, not copied into plans. The default requires
   `tool_resolves`, `sizing`, `op_chain`, `blind_depth`, `inspection`, `coordinates`
   and `zero_check` on `"*"`. Re-fixture, thin-wall and stick-out numbers and their
   citations are unknown and `numbers_verify` remains true.
-- `cutting-data.toml`: four HSS / low-carbon-steel rows (face, profile, drill,
-  ream), plus the material-force/modulus row. No Machinery's Handbook **31** page
-  was verified: the layout sketch is not evidence. Diameter ranges, sfm, chip
-  loads, K_c, E and citations are unknown. All dependent RPM/feed cells are `?`.
-  The generic `Plain Carbon Steel` alias is a candidate classification, not a
-  sourced grade or measured carbon content; no material-property claim follows.
+- `cutting-data.toml`: illustrative example rows for low-carbon steel (HSS, M2,
+  M42 and carbide tools; face, profile, spot, drill, ream, counterbore, bore,
+  turning, dome, relief, part-off and cut-to-fit, plus saw cut-off), the
+  material-force/modulus row and one deep-hole
+  drill derate. Every row is labelled `example (plausible, not measured)` and its
+  citation names the Machinery's Handbook 27th edition table, printed page and
+  range the value sits inside (revision 5, which adds the M42 HSS lathe face,
+  turning and dome rows the pivot-shaft's 3/8 in HSS tool bit uses: carbide's
+  Table 1 floor is out of reach at the lathe's 2000 rpm top speed on a Ø6.35
+  shaft); tool-maker, saw-maker and university
+  charts appear only as secondary citations. Reamer pre-drills leave radial
+  stock inside the handbook's p.1133 reamer depth of cut (.003-.004 in for holes
+  1/8 in or less, .004-.008 in over). These are starting values, not shop
+  measurements. The generic `Plain Carbon Steel` alias is a candidate
+  classification, not a sourced grade or measured carbon content.
 
 Current expected consumer CLI exits are **0 / 0 / 0 / 0** for shaft,
 rocker, bracket and cone built-up respectively.
@@ -129,10 +140,10 @@ PLAN §8 M3.
 
 | Part | What it demonstrates | Current exit |
 |---|---|---|
-| `pivot-shaft` | Three-jaw drive with a tailstock dead centre and follow rest, journals/shoulder/both reliefs/both domes, then indicated rechucks and assembly-dependent plain-end fitting. No final hole, flat or indexing. | **0**: every required subject passes; all three setups render with their fixtures modeled. |
-| `rocker-arm` | Four setups: bounded rough/finish facing inside a retained rail frame, modeled magnetic end stop, permanent rod-hole pin and supported hub ream, then shoulder-screw profiling with independently held scrap. | **0 (native CLI proof)**: check and traveler have no error, unknown, warning or unsupported findings; all four native fixture scenes are modeled with no fixture or render debts. Printed contour targets are checked against the actual material and holding geometry. |
-| `pivot-bracket` | Seat-up, foot-top-up and side-on ear setups; full raw-top facing, walls-first/floor-last L-foot relief, arched ear, reamed cross-bore and two hold-down holes. The v39 STEP is bound; bands remain explicitly illustrative without a dimensioned drawing. | **0 (composed native CLI proof)**: check and traveler have no error, unknown or unsupported findings; all three native fixture scenes are modeled with no fixture or render debts. |
-| `cone-pivot-post/built-up.toml` | Eleven setups: a turned body and head plus cone and crank sleeves bonded into reamed sockets, with dividing-head, bench-cradle, saw-cradle and soft-jaw holds. | **0 (native CLI proof)**: check and traveler have no error, unknown or unsupported findings; all eleven fixture scenes are modeled with exact components and no fixture or render debts. |
+| `pivot-shaft` | A short-gripped prep setup (S0) faces the plain end and #2 centre-drills it from the tailstock; then three-jaw drive with the tailstock dead centre in that centre and a follow rest, journals/shoulder/both reliefs/both domes, then indicated rechucks and assembly-dependent plain-end fitting. No final hole, flat or indexing. | **0**: every required subject passes; all four setups render with their fixtures modeled. |
+| `rocker-arm` | Bounded rough/finish facing inside a retained rail frame, modeled magnetic end stop, permanent rod-hole pin and supported hub ream, the hub filed round to buttons on the pivot bore at the bench (S3F), then shoulder-screw profiling roughed in single-axis stairs and filed to a scribed template, with independently held scrap. | **0 (native CLI proof)**: check and traveler have no error, unknown, warning or unsupported findings; every native fixture scene is modeled with no fixture or render debts. Printed contour targets are checked against the actual material and holding geometry. |
+| `pivot-bracket` | Seat-up, foot-top-up and side-on ear setups; full raw-top facing, walls-first/floor-last L-foot relief, arched ear (single-axis stairs, then filed to buttons on the cross bore at the bench), reamed cross-bore and two hold-down holes. The v39 STEP is bound; bands remain explicitly illustrative without a dimensioned drawing. | **0 (composed native CLI proof)**: check and traveler have no error, unknown or unsupported findings; every native fixture scene is modeled with no fixture or render debts. |
+| `cone-pivot-post/built-up.toml` | Twelve setups: a turned body and head plus cone and crank sleeves bonded into reamed sockets, with dividing-head, bench-cradle, saw-cradle and soft-jaw holds. | **0 (native CLI proof)**: check and traveler have no error, unknown or unsupported findings; all twelve fixture scenes are modeled with exact components and no fixture or render debts. |
 
 ### Rocker-arm supported route
 
@@ -146,6 +157,18 @@ findings**, with no errors, unknowns, warnings or unsupported findings. The
 rendered traveler has no unresolved question-mark captions or stop symbols.
 The integration coordinator regenerates the checked-in goldens from actual
 composed-source CLI output; the acceptance numbers are not hand-edited targets.
+
+**Manual arcs (D1).** The mill is manual, so the hub and outline arcs use the
+1898 method ([plan Manual arcs](../docs/plan.md#manual-arcs)), each choice cited
+`AUTHOR'S CHOICE: <method> because <reason>` in the plan. S1/S2 rough the hub,
+top edge and outline in single-axis stairs; S2's mill finish of the hub and S3's
+hub finish are gone. Bench setup S3F files the hub to Ø10.20 hardened buttons
+on a ground stud through the reamed pivot bore and checks it with the radius
+gauge. S4 scribes the R800 top edge and R816 outline from the toolroom outline
+template (ops 10/20), re-roughs them in stairs at cusp 0.25 mm (ops 25/27, the
+former op 30 cutting values) and files both to the line (ops 30/40), checked on
+the profile template. Every rough leaves at most the shop policy's
+`max_filing_stock_mm` (0.5 mm, example value) where the file takes over.
 
 | Setup | Native fixture scene | Exact components | Fixture debts | Render debts |
 |---|---|---:|---|---|
@@ -194,7 +217,7 @@ halfway through a fixed setup:
   magnetic end stop touches the left blank end for positioning only; it carries
   no cutting load and does not modify Pedro's vise. S2 adds adjustable passive
   jacks under the S1-finished strap, set to just contact without lifting the
-  rails. The rod hole is spotted, drilled 1.90 mm and reamed 2.00 mm before the
+  rails. The rod hole is spotted, drilled 1.85 mm and reamed 2.00 mm before the
   outside pockets leave only the web. The visible process HOLD uses GO 2.000 /
   NO-GO 2.010; the wider drawing band alone does not authorize loading the pin.
 - **S3 — supported upper hub and ream.** Stepped padded straps press over the
@@ -288,7 +311,7 @@ the sheet. No operative asset lies outside the bundle.
 
 `cone-pivot-post/built-up.toml` is an authored manufacturing alternative, not a
 second consumer export. It uses the same v40 cone STEP and the example-only
-construction permission above. Its eleven setups turn the body and head in one
+construction permission above. Its twelve setups turn the body and head in one
 piece from 44.45 mm (1-3/4 in) 1018 round bar, turn the cone sleeve
 (Ø17.2 × 42.011) from 19.05 mm bar and the crank sleeve (Ø21.93 × 72.0344) from
 25 mm bar, and bond both sleeves into reamed cross-sockets with retaining
@@ -297,17 +320,18 @@ process choices, not stock-on-hand or first-article evidence.
 
 | Setup | Machine / holding | Work |
 |---|---|---|
-| S1 | lathe, 3-jaw on the raw tail | face foot B; rough and finish head Ø42.7506 and body Ø42.011; r0.1 parting-blade corner pass leaves the body/head step at R0.25 max |
-| S2 | lathe, 3-jaw on a 25 mm grip | cone sleeve: face the north cap, turn the Ø17.194–17.206 spigot, spring pass, part off |
+| S1 | lathe, 3-jaw on the raw tail | face foot B; rough and finish head Ø42.7506 and body to the Ø41.99–42.03 process hold; r0.1 parting-blade corner pass leaves the body/head step at R0.25 max |
+| S2 | lathe, 3-jaw on a 25 mm grip | cone sleeve: face the north cap, turn the Ø17.194–17.206 spigot, spring pass, part off 0.045 long to the 42.04–42.08 process hold |
 | S3 | lathe, 3-jaw on a 25 mm grip | crank sleeve: face, turn the Ø21.924–21.936 spigot, spring pass, part off |
 | S4 | mill, BS-0 dividing head along table X, 4-jaw on the tail | spot, drill and ream the Ø22.000–22.020 crank socket through the head |
 | S5 | same chucking, indexed 12.5182° | spot, drill and ream the Ø17.250–17.270 cone socket through the body |
 | S6 | bench, modeled `cone-bond-cradle` | bond the cone sleeve; 24 h cure |
 | S7 | bench, same cradle | bond the crank sleeve; 24 h cure |
-| S8 | mill, BS-0 along table X, tail re-chucked | spot, drill and ream crank bore Ø11.413–11.443 through the bonded sleeve |
+| S8 | mill, BS-0 along table X, tail re-chucked | spot, drill and ream crank bore Ø11.413–11.443 through the bonded sleeve, aimed at 39.517 separation (plan `aims`) |
 | S9 | same chucking, indexed 12.5182° | spot, drill and ream journal bore A through the bonded cone sleeve |
 | S10 | 4 × 6 bandsaw, shop-made `cone-saw-cradle` in the saw vise, `cone-cap-bridge` strap on the south cap | saw the tail off 1 mm above the head top |
-| S11 | mill, PM 6 in vise with tall aluminium soft jaws on the two cone caps, foot B on parallels | face the head top to Z86 with a 3/4 in end mill; spot, drill and counterbore both mounting holes |
+| S11 | mill, PM 6 in vise with tall aluminium soft jaws on the two cone caps, foot B on parallels | Z from the measured sawn top; face the head top to Z86 with a 3/4 in end mill; spot, drill and counterbore both mounting holes; break the edges by hand; inspect |
+| S12 | bench, modeled `cone-bond-cradle` | paint the non-functional turned surfaces RAL 6005, mask and oil the functional faces |
 
 The sleeve chuckings grip 25 mm of sacrificial bar. The crank sleeve leaves
 85 mm exposed, below the 87.72 mm four-diameter limit at its finished 21.930 mm
@@ -323,8 +347,24 @@ finish-turns the body to the head shoulder, so the claimed body face is turned
 over its whole length, and the parting-blade pass clears the R0.4 nose fillet.
 A plain vise on round stock has no parallel planar grip pair: S10 lays the post
 in a shop-made saw cradle under a cap bridge whose load runs down the cone
-sleeve onto a cap pad, and S11 grips the two flush cone-sleeve caps in tall soft
-jaws. All cradle, bridge and soft-jaw dimensions are illustrative.
+sleeve onto a cap pad, and S11 grips the two cone-sleeve caps in tall soft
+jaws. Two process holds inside the drawing bands make those holds work for
+every accepted part. S1 turns the body to Ø41.99–42.03 around the printed
+Ø42.01, which keeps the body axis within 0.022 of the height the Ø42.011
+cradle saddles, pins and pad are set for. S2 parts the cone sleeve 0.045 longer
+than the CAD 42.011 and holds it to 42.04–42.08, so both caps sit flush to
+0.09 proud of the body; the S10 bridge pose rises by that 0.045. All cradle,
+bridge and soft-jaw dimensions are illustrative.
+
+The CAD stations give a crank-to-journal separation of 72.700 − 33.368 =
+39.332, just under the printed 39.34–39.70. The plan's `aims.crank_bore`
+therefore moves the crank bore's DRO target to 39.517, near mid-band and on
+the 0.005 grid. The crank sleeve and its socket stay at the CAD station, so the
+bore sits 0.185 off the sleeve centre. The dividing-head setups zero X on foot B
+(Axis Set ± the edge-finder radius) and Y on the body crest. Both bore axes
+cross the post axis. S4 aligns the head to table X by sweeping the top and
+side of the turned body, and S8 re-checks that alignment. S11 sets Z from the
+sawn top's measured high spot, not from a nominal 87.0.
 
 The pre-bond sockets and spigots are plan-owned joint features, not invented
 STEP faces. The cone joint gives 0.044–0.076 mm diametral clearance inside its
@@ -340,9 +380,11 @@ structural-joint certification.
 Every declared holding item remains part of its setup scene, including the
 bonding cradle and the saw vise. The socket bore gauge keeps its fact-local
 illustrative measurement label; its 0.001 mm resolution is not flattened into
-an unlabeled number to get past the inventory schema. Final crank angularity and
-separation use the declared outsourced CMM method, not a caliper or a
-dividing-head angle as certification.
+an unlabeled number to get past the inventory schema. S11 op 110 checks the
+crank separation and its Ø0.10 angularity on the surface plate with the DTI on
+the height gauge. The angularity check reads bore slopes over 1-2-3 block steps
+in two orientations and combines them into one zone deviation. It is an
+illustrative hobby-gauge method, not certification.
 Generated built-up artifacts live in `cone-pivot-post/expected/built-up/`.
 Generated findings and scene debts, not the authorship of this section,
 determine readiness.
@@ -475,22 +517,30 @@ assumes the fit-up scribe landed at the REF span 156.67, so the S3 plain-end and
 north-end stations and stick-out are numeric.
 
 The shaft route (example plan) is: S1 grips the north stub in the three-jaw
-chuck, with the MT3 dead centre in the centre-drilled plain end and the follow rest
+chuck, with the MT3 dead centre in the centre-drilled plain end (Ø3.0 countersink,
+so the turning tool starts about 0.5 clear of the centre's cone) and the follow rest
 riding the 26:1 body on the turned side, 8 mm behind the tool (example jaw
-sizes 12 × 40 × 10 mm at 90° and 180°). It roughs and finishes the bearing toward the chuck,
+sizes 12 × 40 × 10 mm at 90° and 180°), its jaws reset with the spindle stopped
+on each newly turned diameter. It roughs and finishes the bearing toward the chuck,
 faces the thrust shoulder, mics the Ø10 shoulder left as cold-finished bar and
 plunges the south DIN 509 relief with the 1/16 in HSS parting blade. S2 reverses
 onto the finished body with the thrust face seated on the jaw fronts to turn the
 journal, face the shoulder's north face, plunge the north relief and form the
 north dome with the 93° AR tool (the 60° E gouges near the apex). S3 grips 8 mm
 north of the scribe, parts the plain end to the 1.5–2.0 past-scribe band with
-the blade and forms the south dome on the parted face with the AR tool.
+the blade and forms the south dome on the parted face with the AR tool. Each
+setup ends with a hand deburr (spindle stopped, needle file and slip stone) of
+the edges it made, checked to the drawing's R0.25 / 0.25 chamfer maximum under
+the example 10x measuring loupe (`gauges.measuring-loupe`), so every edge is
+broken before S3 op 40 oils the part.
 
 The shaft export's `pivot_bearing` has only the `CUT TO FIT` note and
-`length_ref = 156.67`, with no cut-to-fit length requirement. The plan therefore
-checks the cut-to-fit band through S3 op 10's `inspection_note` (caliper depth
-rod from the actual scribe) and does not claim a `pivot_bearing:length`
-inspection.
+`length_ref = 156.67`, with no cut-to-fit length requirement. The 1.5–2.0
+past-scribe band comes from the channel assembly drawing's fit-up note
+(`cad/scripts/draw_channel_assembly.py:82,101-110`), not the shaft drawing, so the
+plan prints it as a labelled fit-up hold in S3 op 20's `inspection_note`: the
+DRO, with the T1 tool point re-sighted on the scribe, measures the scribe-to-end
+distance. The plan does not claim a `pivot_bearing:length` inspection.
 
 The cone's indexing feature is now `crank_bore`, which owns
 `land_angle_nominal_deg = 12.5182` and the BASIC relationship. Its omitted
@@ -550,7 +600,7 @@ citation map for the generated exports. The bracket remains authored.
   geometry follows the STEP/spec: 16 mm foot width, 24.2 mm foot run, 6 mm foot
   height/ear thickness, 14 mm ear width, R7 crown, 4.572 mm hold-down holes and
   6.50 mm reamed cross-bore at 25.2 mm above the seat. The #15 drill and
-  1/4 in predrill have labelled illustrative dimensions in the inventory.
+  letter D predrill have labelled illustrative dimensions in the inventory.
 
 **Historical handwritten/general-band reconciliation:** the shaft/rocker M1
 bundles used title-block numeric inch rows ×25.4: 0.762 / 0.508 / 0.127 mm.
@@ -607,8 +657,8 @@ The historical M1 built-up candidate declared two **AUTHOR'S CHOICE** leaf
 blanks: a 46×50×92 rectangular body and a Ø25×100 boss, joined by a proposed
 pressed fit whose interface, interference, engagement, press/arbor and strength
 were unknown. The current bonded-sleeve route and its three leaf blanks are
-described under "Built-up cone route provenance". No blank is on hand
-(`inventory stock=[]`).
+described under "Built-up cone route provenance". No blank is on hand: none
+of the inventory's `[[stock]]` entries (the r7 shop-kit materials) is a cone blank.
 
 The BS-0 lives under inventory **machines**, with worm 40, direct 24×15° and all
 18 listed worm circles (`inventory/pedro-shop.toml:88–117`). The independent
@@ -1073,11 +1123,43 @@ S3 likewise faces the full actual entry top, including the retained rectangular
 crown, before profiling the arch. After the shared outer face is finished,
 S3:11 checks the final 6 mm ear thickness (the S2 in-process ear was still 7 mm).
 The R7 arch gets a radius-gauge check.
+Under the manual-arc method the arch is roughed in single-axis stairs outside
+the line (S4 op 15, cusp 0.15 mm), then filed at the bench (S4F) to Ø14.00
+hardened buttons on a ground stud through the reamed cross bore and checked with
+the radius gauge; the former mill finish (S4 op 20) is gone.
 The crown's explicit S3 clearance box removes the retained cap without using
 the earlier straight side slots to fabricate an arched form from above.
 The reamed bore uses paired metric 6.500 mm go / 6.530 mm no-go pins rather than
 inch-increment pins; after release, the seat rests on the surface plate and a
 height gauge reads the go-pin top minus half its diameter for the bore height.
+
+The 18 × 26.2 × 34.2 mm prepared blank carries an authored preparation
+sequence in `stock.prerequisite` (the job page's `Before S1:` line) and
+`stock.note` (STOCK AND ROUTE): bandsaw 38 mm off 3/4 × 1-1/4 in flat bar,
+then square all six faces in the mill vise from the left side, holding 26.2
+and 34.2 to ±0.02 mm because S2/S3 zero on the free and crown ends opposite
+the S1 references. These are author's process choices, not on-hand stock.
+The squaring cannot be routed as setups: every non-saw op must claim a
+manifest feature, and the blank's faces are not finished features.
+S4's HOLD lists seating, stud and bridge fitting and seat-lip indication as
+separate steps; the X/Y pickup positions live in the DRO zero rows. The S4
+outer-face raster uses a 4.0 mm stepover so its five passes print on the
+0.005 mm DRO grid. The S4 bridge member is named `two-stud bridge clamp` in
+the shared inventory.
+Bracket S2 sits on the 1-1/8 in tall narrow pair, so its jaw tops (Z +10.37)
+stand 5.63 mm below the Z +16 roughing floor. The S2/S3 X/Y pickups name where
+the raw faces survive: S2 touches the raw left side and free end at Z +20,
+above the jaws; S3 touches them at Z +8, between the jaw tops (Z −2.33) and the
+Z +16 step S2 left, after a preliminary edge-finder Z on the top. The S4
+angle-plate and bridge make rows print each hole as a drill size (#21 tap drill
+for #10-32, #7 and letter X free-fit clearances, Machinery's Handbook 27th ed.
+Table 4, p.1934), and each made or drilled part has a numbered Make note:
+material, stock, sizes, hole positions from named datum edges, the work-holding,
+drill speeds under Table 17 (p.1061, 1018) and Table 20 (p.1068, gray iron),
+feeds from p.1060, cast iron drilled and tapped dry (p.1147), and the fit: the
+17.9 mm ledge stands on a 2 in 1-2-3 block while its screws are tightened, so its
+top lands at the S4 foot-end rest (68.7 mm above the table) and is swept flat
+with the DTI. These are example values, not measured fixtures.
 
 The plan and manifest use revision `example-v39` for this local illustrative
 contract, explicitly **not** a certified dimensioned drawing revision. All setup

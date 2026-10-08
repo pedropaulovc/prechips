@@ -188,7 +188,9 @@ def test_pointed_drill_removes_its_body_and_point_and_clears_its_own_cone(engine
 def test_pointed_drill_claiming_its_own_point_cap_keeps_known_clear_facts(engine, solids):
     # The cap is the drill's own cut, not an internal corner or a null own-face offset.
     step = solids["drilled"]
-    result = _plate(engine, step, _drill(), {"hole": _drilled(engine, step) + _cone(engine, step)})
+    # A straight-shank drill: its body runs on past the flutes at the cutting diameter.
+    drill = {**_drill(), "shank_radius_mm": DRILL, "shank_from_mm": 25.0}
+    result = _plate(engine, step, drill, {"hole": _drilled(engine, step) + _cone(engine, step)})
     detail = result["ops"]["S1:10"]
     assert detail["tool_hits"] == 0 and detail["holder_hits"] == 0
     assert detail["corner_radii_mm"] == [] and detail["reasons"] == {}

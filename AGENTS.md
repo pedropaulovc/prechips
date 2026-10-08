@@ -217,3 +217,11 @@ milestone status lines when shipped behavior changes. Follow actual schema/rule
 sentences, not PLAN sketches' obsolete placeholder dimensions. Physical printed
 Letter clipping checks, operator dry-run and independent hand oracle remain
 separate acceptance work. Do not claim them complete without observation.
+After a change to what the traveler prints (layout, wording, pictures, tables),
+run the blind machinist review on each affected example traveler with the other
+model family from the author: `uv run scripts/machinist_review.py --reviewer
+<codex|claude> --traveler out/<bundle>` (or `--bundle examples/<b>/plan.toml`).
+It passes only on a blind `CLEAR` with no blocker, clutter or clarity finding;
+fix the plan or the traveler, never the prompt, to get there. It is a dev tool
+that calls a hosted model, not a check, so the no-network rule for checks above
+is untouched.

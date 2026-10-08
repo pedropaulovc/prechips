@@ -338,6 +338,34 @@ def test_rough_allowance_expands_each_side_only_for_rough_cut():
     assert check(data, "x")["required_mm"] == 46
 
 
+@pytest.mark.parametrize(
+    ("fields", "staged"),
+    [
+        ({"do": "rough_profile", "rough_allowance_mm": None}, True),
+        ({"do": "rough_profile", "stock_to_leave_mm": None}, True),
+        ({"rough_allowance_mm": None, "contour": {"method": "chords", "count": 24}}, True),
+        ({"rough_allowance_mm": None}, False),
+    ],
+    ids=["rough", "rough-stock-to-leave", "contour-finish-paired-rough", "finish-removing-leave"],
+)
+@pytest.mark.parametrize("leave", [-0.4, 0.0, 0.4])
+def test_every_rough_stage_runs_its_leave_out_and_a_negative_leave_is_an_error(
+    fields, staged, leave
+):
+    # A rough stage (an explicit rough, or the rough a contour finish pairs with its
+    # allowance) runs its cutter the leave farther out; a finish without one cuts the line.
+    # A negative leave cuts into the finished part however it is spelt: an error.
+    data = bundle()
+    setup(data)["ops"][0].update({k: leave if v is None else v for k, v in fields.items()})
+    finding = evaluate(data)[0]
+    if leave < 0:
+        assert finding.status == "error", finding.sentence
+        return
+    assert finding.status == "pass", finding.sentence
+    required = finding.numbers["travel_checks"]["x"]["required_mm"]
+    assert required == pytest.approx(46 + (2 * leave if staged else 0))
+
+
 @pytest.mark.parametrize("missing", ["bounds", "dia", "approach", "travel", "measurement"])
 def test_missing_declared_fact_stays_unknown_and_exposes_consumed_debt(missing):
     data = bundle()
@@ -431,6 +459,8 @@ def test_facing_advances_hole_entry_and_preserves_prior_safe_approach():
     setup(data)["stock_state"].update(top_z=5, entry_z={"through": 5}, top_feature="outline")
     setup(data)["ops"][0].update(do="face", to_z=0, approach_mm=2)
     add_hole(data, "through", [10, 10, 0], 20, approach=4)
+    # Its Ø6 entry disc lies inside the outline faced to Z0: a held centre alone is no proof.
+    data.features["features"]["through"]["dia"] = 6
     finding = evaluate(data)[0]
     assert finding.status == "pass"
     assert finding.numbers["operations"][1]["endpoint"]["entry_z"] == 0
@@ -443,6 +473,7 @@ def test_pocket_advances_local_entry_without_moving_current_stock_top():
     setup(data)["stock_state"].update(entry_z={"through": 0})
     setup(data)["ops"][0].update(do="pocket", to_z=-2, approach_mm=3)
     add_hole(data, "through", [10, 10, 0], 20, approach=4)
+    data.features["features"]["through"]["dia"] = 6
     finding = evaluate(data)[0]
     assert finding.status == "pass"
     endpoint = finding.numbers["operations"][1]["endpoint"]

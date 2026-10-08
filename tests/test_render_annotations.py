@@ -142,21 +142,63 @@ def test_only_an_established_cutting_order_draws_travel_arrows(order, directed):
         "line_table": [{"op": 20, "dro_xy": points, **table}],
         "profiles": [
             {"op": 30, "cutter_centre": points, **table},
-            # Raster passes are independent cuts, never a travel claim.
+            # Raster passes are independent cuts: each pass still runs in the table's
+            # cutting sense, so its own arrow is drawn only when that sense is established.
             {"op": 40, "cutter_centre": [[[0, 0], [0, 5]], [[1, 0], [1, 5]]], **table},
         ],
     }
     paths, _ = contour_annotations(numbers, 1.0, "S1")
-    assert {path["op"]: path["directed"] for path in paths if path["op"] != "40"} == {
+    assert {path["op"]: path["directed"] for path in paths} == {
         "10": directed,
         "20": directed,
         "30": directed,
+        "40": directed,
     }
-    assert not any(path["directed"] for path in paths if path["op"] == "40")
+
+
+def test_clamp_badges_keep_the_declared_index_and_never_count_a_locator_as_a_clamp():
+    setup = _setup()
+    setup["hold"] = {
+        "fixture": "none",
+        "clamps": [{"ref": "strap"}, {"ref": "pin", "restraint": "locate"}]
+        + [{"ref": "strap"} for _ in range(4)],
+        "clamp_order": [1, 3, 4, 5, 6],
+    }
+
+    clamps = setup_annotations(_bundle(), setup, {})["clamps"]
+
+    # The picture's badge is the HOLD text's code: entry 3 stays C3 although a locator
+    # sits between it and C1.
+    assert [clamp["code"] for clamp in clamps] == ["C1", "LOC2", "C3", "C4", "C5", "C6"]
+
+
+@pytest.mark.parametrize(
+    ("actions", "notes", "nothing_removed"),
+    [
+        # A bench finish setup is neither fit-up only nor free of material removal.
+        (
+            ["deburr", "coating", "inspect"],
+            ["No machine cutting: op 10 deburr, op 20 coating, op 30 inspect."],
+            None,
+        ),
+        (["fit", "inspect"], ["No machine cutting: op 10 fit, op 20 inspect."], "default"),
+        (["face", "deburr"], [], None),
+        (["face", "inspect"], [], "default"),
+    ],
+)
+def test_setup_notes_follow_every_declared_action(actions, notes, nothing_removed):
+    setup = _setup()
+    setup["ops"] = [{"op": 10 * (i + 1), "do": action} for i, action in enumerate(actions)]
+
+    annotation = setup_annotations(_bundle(), setup, {})
+
+    assert annotation["notes"] == notes
+    expected = "No material removed in this setup." if nothing_removed else None
+    assert annotation["nothing_removed_note"] == expected
 
 
 @pytest.mark.parametrize("unknown_middle", [False, True])
-def test_raster_passes_remain_independent_even_when_a_middle_pass_is_incomplete(unknown_middle):
+def test_raster_passes_remain_independent_and_keep_their_table_pass_numbers(unknown_middle):
     first = [[0, 0], [10, 0]]
     middle = [[10, 2], ["unknown", 2], [0, 2]] if unknown_middle else [[10, 2], [0, 2]]
     last = [[0, 4], [10, 4]]
@@ -169,8 +211,11 @@ def test_raster_passes_remain_independent_even_when_a_middle_pass_is_incomplete(
     assert all(path["op"] == "10" for path in paths)
     # A fabricated traverse between raster passes would change Y within a path.
     assert all(len({point[1] for point in path["xy"]}) == 1 for path in paths)
-    assert set(_point_keys(waypoints, 10)) == {(0, 0), (10, 0), (0, 4), (10, 4)}
-    _assert_table_keys(waypoints)
+    # The sheet numbers raster rows as passes, not P keys: the picture keys them the same way,
+    # an incomplete middle pass keeping its own number.
+    assert [path["raster"]["pass"] for path in paths] == ([1, 3] if unknown_middle else [1, 2, 3])
+    assert all(path["raster"]["of"] == 3 for path in paths)
+    assert waypoints == []
 
 
 @pytest.mark.parametrize("x_display", ["diameter", "radius"])

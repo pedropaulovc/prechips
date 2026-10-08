@@ -26,6 +26,17 @@ Templates:
   operation`, `counterbore operation absent`, `counterbore has no parent hole
   drill`, `selected tap drill differs from thread specification`.
 
+A contour/form op (a `contour` table, or `do` starting `form`/`profile`) whose
+numeric `z_from` is a face an earlier op in the same setup leaves only within a
+`to_z_band` is an `error` on its feature: `{sid} op {n} starts at Z {z}, which
+op {m} leaves anywhere in {lo} to {hi}; an op must leave that face at a
+deterministic to_z first`. The last earlier op whose `to_z` is that Z (or whose
+band holds it) decides, so an unbanded facing op between them clears it. An
+unknown band end prints as `an unknown Z`: it still makes the op's own `to_z`
+a banded face (`error`). Whether it holds a different start is `unknown`
+(`unknown_starts`: `…, which may hold it`), and the scan goes on to earlier ops:
+an earlier band that holds the start makes it an `error` either way.
+
 Evidence: feature kind, route operation ids and actions, expected/selected tap
  drill mm. Citations: PLAN §4.1 op chain, authored route, declared process/thread.
 
@@ -56,7 +67,8 @@ setup/operation sequence plus `stock_in`/`zero.transfer`.
 ## `blind_depth` (tip endpoints)
 
 One subject per feature, with an `endpoints` array for spot, drill, ream, tap,
-counterbore and bore operations.
+counterbore and bore operations, and for `center_drill` on a plan
+[process](plan.md#process-features) `centre_hole`.
 Stock-state facing/pocketing advances only the named or explicitly covered
 same-frame entry surfaces. Profiles never move the touched top; `top_feature`
 restricts which facing operation moves that top. Each record preserves entry
@@ -83,6 +95,32 @@ field is present; an explicitly unknown operation depth does not fall back.
   `tip_z = entry_z - total_depth`; total must not exceed the feature's upper
   depth limit. Unknown thru/depth/tool geometry stays unknown.
 - Tap: `tip_z = entry_z - depth`; verified flute length must cover thread depth.
+- Centre hole (`center_drill` on a process `centre_hole`): `depth_mm =
+  drill_length_mm + (mouth_dia_mm - drill_dia_mm) / 2 / tan(countersink_angle_deg / 2)`,
+  the Table 6 drill length C (point included) plus the countersink that opens to
+  the mouth; `tip_z = entry_z - depth_mm`, with `countersink_depth_mm` and
+  `drill_length_mm` recorded and `depth_scale = "quill"`. The tailstock quill
+  feeds it, so the sheet prints the depth past touching the end on the quill
+  scale, not a carriage DRO Z. The depth is only ever the selected tool's own
+  centre, built from every fact the kernel cuts it from (`tool_centre` records
+  the accepted ones): `drill_dia_mm` must equal the tool's `dia` (Table 6 D),
+  `drill_length_mm` its `pilot_len` (Table 6 C, countersink start to point tip)
+  and `countersink_angle_deg` its `angle_deg` (a centre-drill set's centre-seat
+  angle, which a member may override), within 1e-6 mm / 1e-9°; `mouth_dia_mm`
+  must not exceed its body (`shank`, Table 6 A); and its pilot `point_angle`
+  must be an included angle whose point (`dia / 2 / tan(point_angle / 2)`) is
+  shorter than `pilot_len`. The mouth must also be where the quill is touched:
+  `at`, transformed into the setup frame, must lie on the entry surface `entry_z`
+  (1e-6 mm), `axis` must be the setup -Z feed and, on a lathe, the mouth must
+  sit on the spindle axis (setup X = Y = 0, 1e-6 mm) the tailstock quill feeds
+  along (`mouth_z` is recorded). A mismatch is an error; an unknown or
+  unaccepted size, tool fact, mouth or entry surface is unknown (its
+  measurement debt is listed), as is a tool that is not in the inventory or
+  whose record is unconfirmed (`verify` or an unknown flag anywhere on it, as
+  for every endpoint). Either leaves `depth_mm` and `tip_z` unknown, so the
+  sheet prints no quill depth, and the kernel cuts no centre. This row's verdict
+  is the one [`centre_support`](rules-setup.md#centre_support) reads for the
+  centre's maker.
 
 The geometry kernel's spot and drill cutters use the same depth semantics:
 spot depth is the apex tip depth, and drill depth is the full-diameter depth
@@ -115,27 +153,50 @@ an unknown status is not a verified cut instruction.
 ## `speeds_feeds`
 
 One subject per `setup:op`, including explicit not-applicable manual operations
-(`inspect`, `deburr`, `coating`, `release`, `fit`, `scribe`). For spindle cuts,
+(`inspect`, `deburr`, `coating`, `release`, `fit`, `scribe`, `file_to_line`). For spindle cuts,
 tool chart citation wins over table rows; otherwise match material alias, tool
 material, normalized action and inclusive mm diameter range. Exactly one cited
 row is needed. Ambiguous overlap or unknown range stays unresolved. No chart
 URL is fetched.
 
-`D_in = D_mm/25.4`; `raw_RPM = 12*sfm/(pi*D_in)`. Round the raw RPM to nearest
+`D_in = D_mm/25.4`; `raw_RPM = 12*sfm/(pi*D_in)`. When a cited
+`[[deep_hole]]` row names the operation and the hole's depth (the `blind_depth`
+through-hole local thickness or blind `depth_mm`) is strictly more than its
+`depth_over_dia` diameters, `sfm` is first multiplied by that row's
+`sfm_factor`; the deepest exceeded threshold governs. An unknown depth or an
+invalid, uncited or tied governing row leaves the RPM and feed unknown (see
+[cutting data](cutting-data.md)). Round the raw RPM to nearest
 50 with ties-to-even, then clamp to the actual machine limits (which need not
-be multiples of 50; a lathe's `ranges_rpm` bands give its overall limits).
+be multiples of 50). A spindle's `ranges_rpm` bands (each clipped to a stated
+`rpm_min`/`rpm_max`) give those limits; an RPM in a gap between two bands
+drops to the top of the band below, never a speed the spindle cannot select,
+and any unknown band endpoint leaves the RPM unknown.
 Mill feed in mm/min is `RPM * flute_count * chip_load_mm_per_tooth`. Lathe
-feed in mm/min is `RPM * feed_mm_rev`, where `feed_mm_rev` comes from the same
+feed in mm/min is `RPM * feed_mm_rev`: the op's planned `feed_mm_rev` when
+declared (the feed `turning_deflection` loads the cut with; a planned
+`"unknown"` stays unknown), else the one from the same
 cited `[[cut]]` row (or the tool's cited `chart`) as `sfm`, under the same
 citation/verify rules as the mill chip load; the lathe diameter is the turned
-feature's `dia_nominal` (plus `rough_allowance_mm` for `rough_turn`). A dome
+feature's `dia_nominal` (plus, for `rough_turn`, its `rough_allowance_mm`, else
+`stock_to_leave_mm`; a negative leave makes the diameter unknown). A dome
 uses its widest (base) diameter: `2 * base_radius`, else `2 * sqrt(h (2R - h))`
 from its declared `sphere_radius` R and nominal height h (2R once h exceeds R),
 else the kernel-measured base from `turned_profile.feature_span`. A face, cut to
 fit or part off without a feature diameter uses the setup's `stock_state.od_mm`;
-otherwise the diameter stays unknown. There is no op-level feed override on
-either machine. Lathe rows report `feed_mm_rev`. Verified material, tool and
-machine facts are needed.
+otherwise the diameter stays unknown. A spindle-axis tailstock action on a lathe
+(`spot`, `drill`, `ream`, `tap`, `center`, `center_drill`) cuts at its own tool
+diameter, as on a mill; a centre drill's is its pilot drill, matching the
+Machinery's Handbook 27th ed. p.1132 centre-drill feeds by drill size. A mill op has no feed override. Lathe rows
+report the `feed_mm_rev` evaluated, the one the sheet prints. Verified material,
+tool and machine facts are needed.
+
+A non-lathe op that cuts a `contour` also reports its plunge feed: `plunge_mm_rev`
+from the one matching cited `[[plunge]]` row (material class, tool material, tool
+diameter; see [cutting data](cutting-data.md#plunge)) for a tool declared
+`center_cutting = true` (any other has none), `plunge_mm_min = RPM *
+plunge_mm_rev`, and `plunge_reason` when it is unknown. It does not change the
+finding's status: whether the op plunges at all is the coordinates rule's
+`level_paths`, which makes a plunge without a known feed debt.
 
 Saw cut-off uses only a cited canonical `operation = "saw_cut"` row (for either
 `saw_cut` or `cut_off`), keyed by material class and blade material without a
@@ -149,10 +210,14 @@ Exact templates:
 
 - `This manual operation has no cutting speed or feed.`
 - `Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.`
+- `Starting RPM/feed cannot be certified: the hole depth or its governing deep-hole row is missing, ambiguous or unverified.`
 - `Starting RPM and feed are sourced; raw RPM is rounded to nearest 50, then clamped to the actual machine range.`
 
 Evidence: material/class and verification, normalized operation, tool material,
 diameter in inches, flute count, sfm/chip load, range, RPM/feed and selected
-source. Citations carry PLAN §3.5's RPM/rounding equation, inventory spindle
-range, cutting aliases/rows and the actual selected chart/row citation. No
-verified example cutting numbers or Handbook page is implied by shipped rows.
+source; an operation a deep-hole row names adds `depth_over_dia`,
+`deep_hole_row` (the governing row's citation, or `not_applicable`) and
+`deep_hole_sfm_factor`. Citations carry PLAN §3.5's RPM/rounding equation,
+inventory spindle range, cutting aliases/rows, the actual selected chart/row
+citation and any governing deep-hole row. The shipped example rows are
+labelled illustrative example values, not shop measurements.

@@ -74,6 +74,7 @@ def bundle():
         },
         features={"frames": {"A": {"x": [1, 0, 0], "y": [0, 1, 0]}}, "features": {}},
         policy={},
+        cutting_data={},
     )
     data.feature_definitions = data.features["features"]
     return data
@@ -88,6 +89,79 @@ def test_stack_uses_physical_height_not_coordinate_or_jaw_height():
     assert finding.numbers["stacks"][0]["margin_mm"] == pytest.approx(18.6)
     assert finding.numbers["stock_top_above_jaws_mm"] == pytest.approx(11.4)
     assert finding.numbers["cut_tip_above_jaws_mm"]["10"] == pytest.approx(7.4)
+
+
+def test_tip_above_jaw_top_is_reported_only_for_a_sweep_within_the_crash_zone_of_a_jaw():
+    # Jaws run along X and grip the kernel's setup-entry stock faces at Y -15 / +15.
+    data = bundle()
+    setup = data.plan["setups"][0]
+    setup["hold"]["jaws_along"] = "x"
+    data.inventory["tools"]["cutter"]["dia_mm"] = 6
+    data.kernel = {"status": "ok", "setups": {"S1": {"stock_bbox_mm": [-50, -15, -12, 50, 15, 4]}}}
+    op = setup["ops"][0]
+    # A Ø6 cutter over Y -8..8 keeps its edge 4 mm inside both jaw faces: no bite point.
+    op["stock_removal_bounds"] = {"x": [-50, 50], "y": [-8, 8], "z": [0, 4]}
+    assert "10" not in evaluate(data)[0].numbers["cut_tip_above_jaws_mm"]
+    # Over Y -8..10 its edge comes within 2 mm of the +Y jaw face: still boxed.
+    op["stock_removal_bounds"]["y"] = [-8, 10]
+    assert evaluate(data)[0].numbers["cut_tip_above_jaws_mm"]["10"] == pytest.approx(7.4)
+
+
+def test_a_printed_cutter_path_sets_the_jaw_sweep_not_its_box_widened_by_the_radius():
+    # Jaws grip the kernel's setup-entry stock faces at Y -20 / +20; the op's box widened by
+    # the Ø6 radius reaches Y 22, but the cutter runs only its printed outline.
+    data = bundle()
+    setup = data.plan["setups"][0]
+    setup["hold"]["jaws_along"] = "x"
+    data.inventory["tools"]["cutter"]["dia_mm"] = 6
+    data.kernel = {"status": "ok", "setups": {"S1": {"stock_bbox_mm": [-50, -20, -12, 50, 20, 4]}}}
+    axes = {"x": [1.0, 0.0, 0.0], "y": [0.0, 1.0, 0.0], "z": [0.0, 0.0, 1.0]}
+    frame = {"origin": [0.0, 0.0, 0.0], **axes, "binding": "measured"}
+    slab = {"kind": "plane", "frame": "model", "bounds": {"x": [0, 20], "y": [0, 10], "z": [0, 1]}}
+    data.features = {"units": "mm", "frames": {"A": frame, "model": frame}}
+    data.features["features"] = {"target": slab}
+    data.feature_definitions = data.features["features"]
+    op = setup["ops"][0]
+    op.update(do="finish_profile", feature="target", contour={"method": "linear_table"})
+    op["stock_removal_bounds"] = {"x": [-10, 30], "y": [-8, 19], "z": [0, 4]}
+    # The outline's cutter centres run Y -3..13: its edge stays 4 mm inside the +Y jaw face.
+    assert "10" not in evaluate(data)[0].numbers["cut_tip_above_jaws_mm"]
+    # An outline whose centres reach Y 15 brings the edge within 2 mm of it: still boxed.
+    slab["bounds"]["y"] = [0, 12]
+    assert evaluate(data)[0].numbers["cut_tip_above_jaws_mm"]["10"] == pytest.approx(7.4)
+
+
+@pytest.mark.parametrize(
+    ("centre", "x_span", "boxed"),
+    [
+        # Jaws 80 wide centred at X 0 end at X ±40; a Ø6 cutter over X 44..50 keeps its
+        # edge 1 mm past the jaw end: inside the crash zone, still boxed.
+        (0.0, [44, 50], True),
+        # Over X 47..50 its edge stands 4 mm beyond the jaw end: clear.
+        (0.0, [47, 50], False),
+        # The same sweep with the jaws centred at X 10 (ends at -30 / 50) is under them.
+        (10.0, [47, 50], True),
+        # No declared jaw centre: the jaw ends are underivable.
+        (None, [47, 50], True),
+    ],
+)
+def test_a_below_jaw_cut_beyond_the_jaw_ends_is_clear_only_past_the_crash_zone(
+    centre, x_span, boxed
+):
+    # A blank end overhanging the vise: the cutter sweeps the whole clamp width (Y) but
+    # stands beyond the jaws along X, the axis they run.
+    data = bundle()
+    setup = data.plan["setups"][0]
+    setup["hold"]["jaws_along"] = "x"
+    if centre is not None:
+        setup["hold"]["jaw_center_along_mm"] = centre
+    data.inventory["fixtures"]["vise"]["jaw_width_mm"] = 80
+    data.inventory["tools"]["cutter"]["dia_mm"] = 6
+    data.kernel = {"status": "ok", "setups": {"S1": {"stock_bbox_mm": [-60, -15, -12, 60, 15, 4]}}}
+    op = setup["ops"][0]
+    op.update(to_z=-12, stock_removal_bounds={"x": x_span, "y": [-25, 25], "z": [-12, 4]})
+    cuts = evaluate(data)[0].numbers["cut_tip_above_jaws_mm"]
+    assert ("10" in cuts) is boxed
 
 
 def test_coordinate_translation_does_not_change_spindle_stack():
@@ -418,7 +492,7 @@ def coordinate_bundle(tmp_path, feature, operations):
     plan.write_text(
         'part = "coordinate-control"\nfeatures = "features.toml"\n'
         "[paths]\ninventory = 'inventory.toml'\npolicy = 'policy.toml'\n"
-        "cutting_data = 'cutting.toml'\n"
+        "cutting_data = 'cutting.toml'\n[stock]\nmaterial = 'scratch steel'\n"
         "[[setups]]\nid = 'S1'\nmachine = 'mill'\nframe = 'A'\n"
         "coolant = 'unknown'\ndeburr_mm = 'unknown'\n"
         "[setups.hold]\nfixture = 'unknown'\nstop = 'unknown'\ngrip_mm = 'unknown'\n"
@@ -439,16 +513,31 @@ def coordinate_bundle(tmp_path, feature, operations):
         encoding="utf-8",
     )
     (root / "inventory.toml").write_text(
-        "[machines.mill]\nkind = 'mill'\nverify = false\n[machines.mill.spindle]\nrotation = 'cw'\n"
-        "[tools.cutter]\nkind = 'endmill'\ndia_mm = 6.0\nverify = false\n"
+        "[machines.mill]\nkind = 'mill'\nverify = false\n"
+        "[machines.mill.spindle]\nrotation = 'cw'\n"
+        "[tools.cutter]\nkind = 'endmill'\ndia_mm = 6.0\nmaterial = 'HSS'\ncenter_cutting = true\n"
+        "verify = false\n"
         "[tools.spot]\nkind = 'center_drill'\ndia_mm = 6.0\npoint_angle = 90.0\n"
         "verify = false\n"
         "[tools.drill]\nkind = 'drill'\ndia_mm = 6.0\npoint_angle = 118.0\n"
         "verify = false\n",
         encoding="utf-8",
     )
-    (root / "policy.toml").write_text('[required]\ncoordinates = "*"\n', encoding="utf-8")
-    (root / "cutting.toml").write_text("revision = 1\n", encoding="utf-8")
+    (root / "policy.toml").write_text(
+        '[required]\ncoordinates = "*"\n'
+        "[numbers]\nmax_filing_stock_mm = 0.5\n"
+        "[numbers_cite]\nmax_filing_stock_mm = 'scratch shop filing limit'\n"
+        "[numbers_verify]\nmax_filing_stock_mm = false\n",
+        encoding="utf-8",
+    )
+    # Every end mill the scratch plans plunge is centre-cutting with a cited plunge feed
+    # (level_entry).
+    (root / "cutting.toml").write_text(
+        "revision = 1\n[aliases]\n'scratch steel' = 'steel'\n"
+        "[[plunge]]\nmaterial_class = 'steel'\ntool_material = 'HSS'\n"
+        "diameter_range = [0.0, 50.0]\nfeed_mm_rev = 0.05\ncite = 'scratch plunge feed'\n",
+        encoding="utf-8",
+    )
     return plan
 
 
@@ -501,32 +590,40 @@ def test_worked_located_feature_needs_complete_reference_point(
     assert "PLANNED" in html
 
 
-@pytest.mark.parametrize("method", ["arc_table", "linear_table"])
 @pytest.mark.parametrize(
-    "action,allowance_field,allowances",
+    "method,action,allowance_field,allowances",
     [
-        ("profile", "rough_allowance_mm = 0.3\n", [0.3, 0.0]),
-        ("rough_profile", "rough_allowance_mm = 0.3\n", [0.3]),
-        ("rough_profile", "stock_to_leave_mm = 0.3\n", [0.3]),
-        ("finish_profile", "", [0.0]),
+        ("linear_table", "profile", "rough_allowance_mm = 0.3\n", [0.3, 0.0]),
+        ("linear_table", "rough_profile", "rough_allowance_mm = 0.3\n", [0.3]),
+        ("linear_table", "rough_profile", "stock_to_leave_mm = 0.3\n", [0.3]),
+        ("linear_table", "finish_profile", "", [0.0]),
+        ("stairs", "rough_profile", "rough_allowance_mm = 0.3\n", [0.3]),
+        ("stairs", "rough_profile", "stock_to_leave_mm = 0.3\n", [0.3]),
     ],
-    ids=["combined", "rough", "rough-stock-to-leave", "finish"],
+    ids=[
+        "combined",
+        "rough",
+        "rough-stock-to-leave",
+        "finish",
+        "stairs-rough",
+        "stairs-stock-to-leave",
+    ],
 )
 def test_contour_allowances_produce_actual_rough_and_finish_targets(
     tmp_path, freecad_kernel, method, action, allowance_field, allowances
 ):
     feature = (
         "kind = 'boss'\nat = [20.0, 10.0, 0.0]\ndia = 20.0\n"
-        if method == "arc_table"
+        if method == "stairs"
         else "kind = 'plane'\nbounds = { x = [0.0, 20.0], y = [0.0, 10.0], z = [0.0, 1.0] }\n"
     )
     plan = coordinate_bundle(
         tmp_path,
         feature,
         f"[[setups.ops]]\nop = 20\ndo = '{action}'\nfeature = 'target'\n"
-        "tool = 'cutter'\nto_z = -1.0\ndirection = 'conventional'\n"
+        "tool = 'cutter'\nto_z = -1.0\ndirection = 'conventional'\napproach_mm = 2.0\n"
         + allowance_field
-        + f"contour = {{ method = '{method}', step_deg = 90.0 }}\n",
+        + f"contour = {{ method = '{method}', cusp_mm = 0.1 }}\n",
     )
     result, report, html = traveler(plan, tmp_path / "out")
     finding = coordinate_finding(report)
@@ -540,7 +637,7 @@ def test_contour_allowances_produce_actual_rough_and_finish_targets(
         assert profile["tool_nominal_dia_mm"] == 6.0
         assert profile["cutter_radius_mm"] == 3.0
         assert profile["rough_allowance_mm"] == (allowance if allowance else "not_applicable")
-        if method == "arc_table":
+        if method == "stairs":
             arc = next(arc for arc in numbers["arc_table"] if arc["allowance_mm"] == allowance)
             assert arc["cutter_centre_radius_mm"] == pytest.approx(13.0 + allowance)
             assert arc["rows"][0]["model_xy"] == pytest.approx([33.0 + allowance, 10.0])
@@ -562,13 +659,14 @@ def test_contour_allowances_produce_actual_rough_and_finish_targets(
     }
     for stage, allowance in (("rough", 0.3), ("finish", 0.0)):
         table = displayed[stage]
-        headings = re.findall(r"<th(?:\s[^>]*)?>(.*?)</th>", table)
+        # The column headings are the thead's last row; a first row repeats the op/tool
+        # header across all columns for a table split over pages.
+        thead = table[: table.index("</thead>")].split("<tr")[-1]
+        headings = re.findall(r"<th(?:\s[^>]*)?>(.*?)</th>", thead)
         first_row = re.search(r"<tbody><tr>(.*?)</tr>", table, re.DOTALL).group(1)
         cells = dict(zip(headings, re.findall(r"<td[^>]*>(.*?)</td>", first_row), strict=True))
         assert [float(cells["X"]), float(cells["Y"])] == pytest.approx(
-            [28.0 + allowance, 8.0]
-            if method == "arc_table"
-            else [-8.0 - allowance, -5.0 - allowance]
+            [28.0 + allowance, 8.0] if method == "stairs" else [-8.0 - allowance, -5.0 - allowance]
         )
 
 
@@ -596,21 +694,22 @@ kind = "profile"
 top_edge_feature = "target"
 radial_tip_end = [-10.0, -8.0, 0.0]
 """,
-        "[[setups.ops]]\nop = 20\ndo = 'finish_profile'\nfeature = 'target'\n"
+        "[[setups.ops]]\nop = 20\ndo = 'rough_profile'\nfeature = 'target'\n"
         "tool = 'cutter'\nto_z = -1.0\ndirection = 'conventional'\n"
-        "contour = { method = 'arc_table', step_deg = 5.0 }\n",
+        "rough_allowance_mm = 0.2\ncontour = { method = 'stairs', cusp_mm = 0.1 }\n",
     )
     data = load_bundle(plan)
     known = coordinates.evaluate(data)[0]
     assert known.status == "pass"
     (arc,) = known.numbers["arc_table"]
-    # The 6 mm cutter offsets the R10 arc to R7 and the horizontal lands to Y-5.
-    assert arc["cutter_centre_radius_mm"] == pytest.approx(7.0)
+    # The 6 mm cutter with 0.2 mm allowance offsets R10 to R6.8, lands to Y-4.8.
+    assert arc["cutter_centre_radius_mm"] == pytest.approx(6.8)
     # Endpoints are the land intersections; which comes first is the cutting order.
     ends = sorted([arc["rows"][0], arc["rows"][-1]], key=lambda row: row["model_xy"][0])
-    assert ends[0]["model_xy"] == pytest.approx([-(24.0**0.5), -5.0])
-    assert ends[1]["model_xy"] == pytest.approx([24.0**0.5, -5.0])
-    assert ends[0]["setup_xy"] == pytest.approx([-(24.0**0.5) - 5.0, -7.0])
+    endpoint = (6.8**2 - 4.8**2) ** 0.5
+    assert ends[0]["model_xy"] == pytest.approx([-endpoint, -4.8])
+    assert ends[1]["model_xy"] == pytest.approx([endpoint, -4.8])
+    assert ends[0]["setup_xy"] == pytest.approx([-endpoint - 5.0, -6.8])
     linked = data.features["features"][linked_feature]
     if corruption == "missing":
         linked["radial_tip_end"] = "unknown"
@@ -620,5 +719,5 @@ radial_tip_end = [-10.0, -8.0, 0.0]
     assert finding.status == "unknown"
     assert finding.numbers["arc_table"] == []
     (top,) = finding.numbers["profiles"]
-    assert top["offset_mm"] == pytest.approx(3.0)
+    assert top["offset_mm"] == pytest.approx(3.2)
     assert top["cutter_centre"] == "unknown"

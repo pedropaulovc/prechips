@@ -8,16 +8,19 @@ skip without ``freecadcmd``.
 
 import hashlib
 import json
+import math
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
+from test_geometry_rules import finding, rules_bundle
 from test_kernel_geometry import IDENTITY, Engine, _op, _vise
 
 from prechips import kernel
 from prechips.inputs import Bundle
 from prechips.model import Stock
+from prechips.rules import accessibility, reach
 
 ENGINE = Path(kernel.__file__).resolve().parent / "freecad_job.py"
 BOX = {
@@ -53,6 +56,17 @@ Part.makeBox(60, 40, 20).common(cut).exportStep(out + "/draftstep.step")
 Part.makeBox(60, 40, 20).cut(cut).exportStep(out + "/updraftstep.step")
 wide_cut = Part.Face(Part.makePolygon(points)).extrude(V(0, 200, 0))
 Part.makeBox(60, 200, 20).cut(wide_cut).exportStep(out + "/wideupdraftstep.step")
+# The stepped block with a 4 mm through hole in its floor, axis 6 mm from the x=30 wall.
+step = Part.makeBox(60, 40, 20).cut(Part.makeBox(31, 42, 11, V(30, -1, 10)))
+step.cut(Part.makeCylinder(2, 12, V(36, 20, -1))).exportStep(out + "/step-hole.step")
+# A z10 floor (x >= 30) beside a shoulder up to z13, its 2 mm through hole 1.5 mm from it.
+seat = Part.makeBox(60, 40, 13).cut(Part.makeBox(31, 42, 4, V(30, -1, 10)))
+seat.cut(Part.makeCylinder(1, 12, V(31.5, 20, -1))).exportStep(out + "/seat.step")
+# The stepped block's floor with a 6 mm through hole instead, its axis 6 mm from that wall.
+step.cut(Part.makeCylinder(3, 12, V(36, 20, -1))).exportStep(out + "/wide-hole.step")
+# A z10 plate whose 6 mm bore opens through a finished 4 mm neck from z8.5 up.
+neck = Part.makeBox(60, 40, 10).cut(Part.makeCylinder(3, 9.5, V(36, 20, -1)))
+neck.cut(Part.makeCylinder(2, 3, V(36, 20, 8))).exportStep(out + "/neck.step")
 """
 
 
@@ -153,6 +167,7 @@ def _host_only(bundle):
     yield "op reason", lambda: bundle.inventory["tools"]["em"].update(oal_mm="unknown")
     yield "holder grip", lambda: bundle.inventory["holders"]["holder"].update(grip_mm=12.0)
     yield "stock material", lambda: bundle.plan["stock"].update(material="6061")
+    yield "stock top_z", lambda: setup.setdefault("stock_state", {}).update(top_z=20.0)
     yield "tool metadata verification", lambda: bundle.inventory["tools"]["em"].update(verify=True)
     yield (
         "holder source verification",
@@ -186,6 +201,15 @@ def _consumed(bundle):
     bounds = {"x": [0.0, 30.0], "y": [0.0, 40.0], "z": [5.0, 20.0]}
     yield "op stock_removal_bounds", lambda: setup["ops"][0].update(stock_removal_bounds=bounds)
     yield "bounds span", lambda: bounds.update(z=[6.0, 20.0])
+    # The named faces' heights are engine facts, so naming another face reruns it.
+    yield (
+        "stock top_feature",
+        lambda: setup.setdefault("stock_state", {}).update(top_feature="pocket"),
+    )
+    yield (
+        "stock bottom_feature",
+        lambda: setup.setdefault("stock_state", {}).update(bottom_feature="seat"),
+    )
 
 
 def test_host_only_edits_reuse_the_cache_and_consumed_edits_rerun(tmp_path, monkeypatch):
@@ -268,7 +292,7 @@ def solids(tmp_path_factory, freecad_kernel):
         timeout=300,
     )
     paths = {path.stem: path for path in directory.glob("*.step")}
-    assert len(paths) == 6, process.stdout[-2000:] + process.stderr[-2000:]
+    assert len(paths) == 10, process.stdout[-2000:] + process.stderr[-2000:]
     return paths
 
 
@@ -332,6 +356,80 @@ def test_later_setup_sees_material_an_earlier_setup_removed(engine, solids):
     assert result["ops"]["S2:10"]["tool_hits"] == finished
 
 
+def test_a_named_face_reports_its_height_and_the_entry_stock_over_it(engine, solids):
+    step = solids["step"]
+    features = {
+        "floor": engine.refs(step, (30, 0, 10), (60, 40, 10)),
+        "base": engine.refs(step, (0, 0, 0), (60, 40, 0)),
+        "wall": engine.refs(step, (30, 0, 10), (30, 40, 20)),
+    }
+    assert all(len(refs) == 1 for refs in features.values())
+    named = {"stock_features": sorted(features)}
+    setups = [
+        {**_setup("S1", [_floor_op("S1:10")]), **named},
+        {**_setup("S2", [_floor_op("S2:10")]), **named},
+    ]
+    rows = engine.run(engine.job(step, features, setups))["setups"]
+    first, second = rows["S1"]["stock_faces_mm"], rows["S2"]["stock_faces_mm"]
+    # S1 receives the raw block, 10 mm of stock over the floor; S2 receives it cut.
+    assert first["floor"]["up"] == {"face_z": 10.0, "stock_z": 20.0}
+    assert second["floor"]["up"] == {"face_z": 10.0, "stock_z": 10.0}
+    assert first["base"]["down"] == second["base"]["down"] == {"face_z": 0.0, "stock_z": 0.0}
+    # Only a horizontal face has a height: a side the feature lacks says why.
+    assert set(first["floor"]["down"]) == {"reason"} and set(first["wall"]["up"]) == {"reason"}
+    assert (
+        "stock_faces_mm"
+        not in engine.run(engine.job(step, features, [_setup("S1", [])]))["setups"]["S1"]
+    )
+
+
+def _thru_drill(subject, radius):
+    return {
+        **_op(subject, "hole", radius, 25.0, 30.0),
+        "do": "drill",
+        "hole": {"thru": True, "entry_z_mm": 10.0, "point_angle_deg": 118.0},
+    }
+
+
+def test_a_face_keeps_its_height_when_an_oversize_hole_shaves_its_edge(engine, solids):
+    # An R2.1 drill through the R2 hole of the faced floor takes a 0.1 mm ring from the
+    # floor and the base, as a reamer over the drawn bore does; both faces remain.
+    step = solids["step-hole"]
+    features = {
+        "floor": engine.refs(step, (30, 0, 10), (60, 40, 10), kind="Plane"),
+        "base": engine.refs(step, (0, 0, 0), (60, 40, 0), kind="Plane"),
+        "hole": engine.refs(step, (34, 18, 0), (38, 22, 10), kind="Cylinder"),
+    }
+    assert all(len(refs) == 1 for refs in features.values())
+    face = {**_floor_op("S1:10"), "do": "face"}
+    setups = [
+        _setup("S1", [face, _thru_drill("S1:20", 2.1)]),
+        {**_setup("S2", []), "stock_features": ["base", "floor"]},
+    ]
+    faces = engine.run(engine.job(step, features, setups))["setups"]["S2"]["stock_faces_mm"]
+    assert faces["floor"]["up"] == {"face_z": 10.0, "stock_z": 10.0}
+    assert faces["base"]["down"] == {"face_z": 0.0, "stock_z": 0.0}
+
+
+def test_a_face_the_entering_stock_has_lost_has_no_height(engine, solids):
+    # The R3 drill through the R2 neck removes the whole ring over the z8.5 shoulder.
+    step = solids["neck"]
+    features = {
+        "shoulder": engine.refs(step, (33, 17, 8.5), (39, 23, 8.5), kind="Plane"),
+        "hole": engine.refs(step, (34, 18, 8.5), (38, 22, 10), kind="Cylinder"),
+    }
+    assert all(len(refs) == 1 for refs in features.values())
+    named = {"stock_features": ["shoulder"]}
+    setups = [
+        {**_setup("S1", [_thru_drill("S1:10", 3.0)]), **named},
+        {**_setup("S2", []), **named},
+    ]
+    rows = engine.run(engine.job(step, features, setups, stock=PART))["setups"]
+    assert rows["S1"]["stock_faces_mm"]["shoulder"]["down"] == {"face_z": 8.5, "stock_z": 8.5}
+    lost = rows["S2"]["stock_faces_mm"]["shoulder"]["down"]
+    assert set(lost) == {"reason"} and "does not carry" in lost["reason"]
+
+
 def test_to_z_web_and_unclaimed_rails_stay_in_the_next_setup(engine, solids):
     step = solids["channel"]
     floor = engine.refs(step, (0, 5, 10), (60, 35, 10))
@@ -365,6 +463,181 @@ def test_to_z_web_and_unclaimed_rails_stay_in_the_next_setup(engine, solids):
     assert s2["stock_volume_mm3"] == pytest.approx(48000.0 - 60 * 30 * 10)
     assert s2["width_mm"] == 40.0 and s2["min_wall_mm"] == 5.0
     assert cleared["ops"]["S2:10"]["tool_hits"] == finished["tool_hits"]
+
+
+@pytest.mark.parametrize(
+    "shank, clash, shank_clear, verdict",
+    [
+        (2.5, False, 3.5, "pass"),
+        (6.5, True, -0.5, "error"),
+        (None, "unknown", "unknown", "unknown"),
+    ],
+)
+def test_spot_reach_holder_and_shank_meet_the_stock_earlier_ops_leave(
+    engine, solids, tmp_path, shank, clash, shank_clear, verdict
+):
+    # The facing op clears the 10 mm over the floor, across its hole; the setup-entry
+    # block still holds it.
+    # The R2.5 spot stands 0.5 deep on the floor 6 mm from the retained x=30 wall (z20).
+    step = solids["step-hole"]
+    floor = engine.refs(step, (30, 0, 10), (60, 40, 10), kind="Plane")
+    hole = engine.refs(step, (34, 18, 0), (38, 22, 10), kind="Cylinder")
+    assert len(floor) == len(hole) == 1
+    face = {**_floor_op("S1:10"), "do": "face"}
+    spot = {
+        **_op("S1:20", "hole", 2.5, 6.0, 12.0, holder_radius=10.0),
+        "do": "spot",
+        "hole": {"thru": True, "depth_mm": 0.5, "entry_z_mm": 10.0, "point_angle_deg": 90.0},
+        "shank_from_mm": 6.0,
+    }
+    if shank is not None:
+        spot["shank_radius_mm"] = shank
+    result = engine.run(
+        engine.job(step, {"floor": floor, "hole": hole}, [_setup("S1", [face, spot])])
+    )
+    op = result["ops"]["S1:20"]
+    # Reach from the floor the facing op left, not the entry block's z20 top.
+    assert op["reach_depth_mm"] == pytest.approx(0.5, abs=0.01)
+    assert op["reach_top_z_mm"] == pytest.approx(10.0, abs=0.01)
+    # Holder face at 9.5 + 12 stands 1.5 above the retained wall; the flute body (to 15.5)
+    # and the shank past it pass that wall 6 mm from the axis.
+    assert op["holder_wall_hits"] == 0
+    assert op["holder_clear_mm"] == pytest.approx(1.5, abs=0.01)
+    assert op["holder_clear_top_z_mm"] == pytest.approx(20.0, abs=0.01)
+    assert op["body_clear_mm"] == pytest.approx(3.5, abs=0.01)
+    # Every spot pose's shank meets the retained wall, or none does.
+    assert op["shank_hits"] == clash if clash == "unknown" else (op["shank_hits"] > 0) == clash
+    assert op["shank_clear_mm"] == (
+        shank_clear if shank_clear == "unknown" else pytest.approx(shank_clear, abs=0.01)
+    )
+    if shank is None:
+        assert "shank_radius_mm" in op["reasons"]["shank_hits"]
+    # The reach rule on these native facts: the 0.5 mm spot is well within its 6 mm flute,
+    # yet only a resolved shank passes beside the retained wall; an unknown one never does.
+    rules = rules_bundle(tmp_path)
+    tool = rules.inventory["tools"]["em"]
+    tool.update(dia_mm=5.0, flute_len_mm=6.0, projection_mm={"holder": 12.0}, oal_mm=100.0)
+    if shank is not None:
+        tool["shank_mm"] = 2 * shank
+    rules.kernel["ops"]["S1:10"] = {**op, "claimed_indices": [1], "claim_errors": []}
+    assert finding(reach, rules).status == verdict
+
+
+# A combined drill and countersink's R1 pilot, 1.9 mm long, under its 60 degree seat cone.
+PILOT, PILOT_LEN, SEAT_SLOPE = 1.0, 1.9, math.tan(math.radians(30.0))
+
+
+@pytest.mark.parametrize(
+    "name, depth, shank, hits, seat_clear",
+    [
+        # 0.5 deep, 1.5 mm from the shoulder (z13): the cone (z11.4-13.79) widens past it.
+        ("seat", 0.5, 2.38125, True, 1.5 - (PILOT + (13.0 - 11.4) * SEAT_SLOPE)),
+        # A seat ending at R1.4 (z12.09) stays 0.1 mm off that shoulder.
+        ("seat", 0.5, 1.4, False, 0.1),
+        # 2 mm deep after facing: the cone sinks its own countersink into the mouth, which
+        # is its cut, not an obstacle; the retained x=30 wall stands 6 mm off its R2.38 top.
+        ("step-hole", 2.0, 2.38125, False, 6.0 - 2.38125),
+    ],
+)
+def test_centre_drill_seat_cone_is_cutting_body_checked_against_retained_stock(
+    engine, solids, name, depth, shank, hits, seat_clear
+):
+    step = solids[name]
+    centre = (31.5, 20) if name == "seat" else (36, 20)
+    hole = engine.refs(
+        step, (centre[0] - 2.5, 17.5, 0), (centre[0] + 2.5, 22.5, 10), kind="Cylinder"
+    )
+    spot = {
+        **_op("S1:20", "hole", PILOT, PILOT_LEN, 20.0),
+        "do": "spot",
+        "hole": {"thru": True, "depth_mm": depth, "entry_z_mm": 10.0, "point_angle_deg": 118.0},
+        "shank_from_mm": PILOT_LEN + (shank - PILOT) / SEAT_SLOPE,
+        "shank_radius_mm": shank,
+    }
+    if name == "seat":
+        job = engine.job(step, {"hole": hole}, [_setup("S1", [spot])], stock=PART)
+    else:
+        floor = engine.refs(step, (30, 0, 10), (60, 40, 10), kind="Plane")
+        face = {**_floor_op("S1:10"), "do": "face"}
+        job = engine.job(step, {"floor": floor, "hole": hole}, [_setup("S1", [face, spot])])
+    op = engine.run(job)["ops"]["S1:20"]
+    assert (op["tool_hits"] > 0) == hits, op
+    assert op["obstacles"]["tool"] == (["part"] if hits else [])
+    assert op["seat_clear_mm"] == pytest.approx(seat_clear, abs=1e-3)
+    # The pilot alone stands 0.5 mm off the shoulder; the shank starts at the seat's top.
+    if name == "seat":
+        assert op["body_clear_mm"] == pytest.approx(0.5, abs=1e-3)
+        assert op["shank_hits"] == 0
+
+
+# The size 2 centre drill's 3/16 in body: its seat top stands 1.9 + 2.392 mm over the tip.
+SHANK = 2.38125
+
+
+def _centre_spot(depth):
+    return {
+        **_op("S1:20", "hole", PILOT, PILOT_LEN, 20.0),
+        "do": "spot",
+        "hole": {"thru": True, "depth_mm": depth, "entry_z_mm": 10.0, "point_angle_deg": 118.0},
+        "shank_from_mm": PILOT_LEN + (SHANK - PILOT) / SEAT_SLOPE,
+        "shank_radius_mm": SHANK,
+    }
+
+
+@pytest.mark.parametrize("depth", [4.2, 4.4, 5.0])
+def test_seat_cone_feeds_down_its_own_shank_bore_to_its_final_pose(engine, solids, tmp_path, depth):
+    # After facing, the spot on the future 6 mm bore, 6 mm from the retained z20 wall.
+    # Past 4.292 mm deep the seat's widest edge has crossed the z10 entry, boring what it
+    # passed out to the shank radius; no pose on the way down meets stock it bored away.
+    step = solids["wide-hole"]
+    floor = engine.refs(step, (30, 0, 10), (60, 40, 10), kind="Plane")
+    hole = engine.refs(step, (33, 17, 0), (39, 23, 10), kind="Cylinder")
+    assert len(floor) == len(hole) == 1
+    face = {**_floor_op("S1:10"), "do": "face"}
+    setup = _setup("S1", [face, _centre_spot(depth)])
+    op = engine.run(engine.job(step, {"floor": floor, "hole": hole}, [setup]))["ops"]["S1:20"]
+    assert op["tool_hits"] == 0, op
+    assert op["obstacles"]["tool"] == []
+    assert op["shank_hits"] == 0
+    rules = rules_bundle(tmp_path)
+    tool = rules.inventory["tools"]["em"]
+    tool.update(
+        dia_mm=2 * PILOT,
+        flute_len_mm=PILOT_LEN,
+        projection_mm={"holder": 20.0},
+        oal_mm=100.0,
+        shank_mm=2 * SHANK,
+    )
+    rules.kernel["ops"]["S1:10"] = {**op, "claimed_indices": [1], "claim_errors": []}
+    assert finding(accessibility, rules).status == "pass"
+    assert finding(reach, rules).status == "pass"
+
+
+def test_seat_sweep_never_bores_finished_material_in_its_path(engine, solids):
+    # 6 mm deep in the plate's 6 mm bore the final seat cone (z5.9-8.29) clears the
+    # finished 4 mm neck above it (z8.5-10), but the seat passes through that neck on its
+    # way down: its bore is never credited with finished material, so the seat hits it.
+    step = solids["neck"]
+    hole = engine.refs(step, (33, 17, 0), (39, 23, 10), kind="Cylinder")
+    assert len(hole) == 2
+    job = engine.job(step, {"hole": hole}, [_setup("S1", [_centre_spot(6.0)])], stock=PART)
+    op = engine.run(job)["ops"]["S1:20"]
+    assert op["tool_hits"] > 0, op
+    assert op["obstacles"]["tool"] == ["part"]
+
+
+@pytest.mark.parametrize("shank, clash", [(3.0, False), (4.0, True)])
+def test_milling_shank_trails_its_own_cut_and_meets_only_the_retained_wall(
+    engine, solids, shank, clash
+):
+    # A 6 mm flute clears the 10 mm over the floor pass by pass: past the flute the shank
+    # meets the x=30 wall the op leaves, not the overstock its own passes remove first.
+    step = solids["step"]
+    floor = engine.refs(step, (30, 0, 10), (60, 40, 10), kind="Plane")
+    op = {**_op("S1:10", "floor", 3.0, 6.0, 30.0), "shank_radius_mm": shank, "shank_from_mm": 6.0}
+    facts = engine.run(engine.job(step, {"floor": floor}, [_setup("S1", [op])]))["ops"]["S1:10"]
+    assert facts["reach_depth_mm"] == pytest.approx(10.0, abs=0.01)
+    assert (facts["shank_hits"] > 0) == clash
 
 
 def test_unswept_profile_wall_makes_only_later_stock_unknown(engine, solids):

@@ -4,12 +4,11 @@ from prechips.findings import Finding
 from prechips.rules.datum_consistency import _cuts
 from prechips.rules.resolution import (
     COMPLETE_FORM,
+    HAND_FINISH,
     MANUAL,
     SAW_OPS,
-    WORKHOLDING_CATEGORIES,
     _citations,
     claim_refs,
-    inventory_category,
     known_refs,
     number,
     op_feature,
@@ -17,6 +16,7 @@ from prechips.rules.resolution import (
     plan_frame_cite,
     record,
     resolve,
+    select,
     setup_frame,
 )
 from prechips.rules.turned_profile import PROFILE_OPS
@@ -29,6 +29,9 @@ LATHE_APPROACH_REASON = (
 )
 TURNING = "turning"
 ROTARY = "rotary"
+# A bench file (``HAND_FINISH``): no machine cutter; the kernel removes at most the shop's
+# max_filing_stock_mm off its claimed faces.
+HAND = "hand"
 CHUCK_KINDS = {"chuck_3jaw", "chuck_4jaw"}
 # Shared profile/form/groove actions also occur on mills; resolve their machine kind.
 _TURNING_ACTIONS = (
@@ -65,8 +68,10 @@ def blade_keys(inputs):
 
 
 def approach(bundle, setup, op):
-    """'turning', 'rotary' (dividing-head milling), 'axial' (-Z cutter cylinders) or None
-    when no approach model applies."""
+    """'hand' (a bench file), 'turning', 'rotary' (dividing-head milling), 'axial' (-Z
+    cutter cylinders) or None when no approach model applies."""
+    if op.get("do") in HAND_FINISH:
+        return HAND
     machine = record(resolve(bundle, "machines", setup.get("machine")))
     kind, action = machine.get("kind"), op.get("do")
     if op.get("approach") == ROTARY and kind != "lathe" and action not in _TURNING_ACTIONS:
@@ -85,10 +90,10 @@ def approach_model_reason(bundle, setup, op):
 
 
 def approach_facts(bundle, facts, setup, op):
-    """Whether a turning/rotary op's kernel facts come from its own model (never raw -Z
+    """Whether a hand/turning/rotary op's kernel facts come from its own model (never raw -Z
     facts); axial ops always do."""
     model = approach(bundle, setup, op)
-    if model not in (TURNING, ROTARY):
+    if model not in (HAND, TURNING, ROTARY):
         return True
     detail = record(record(facts.get("ops")).get(f"{setup['id']}:{op['op']}"))
     return detail.get("approach") == model
@@ -103,12 +108,16 @@ def cutting_action(op):
 
 def finishing_subjects(bundle):
     # Reuse the existing final datum-cut semantics, including drill→ream/bore/tap.
-    # A saw cut removes stock but never finishes a target face.
+    # A saw cut removes stock but never finishes a target face; nor does stock
+    # preparation of a plan process feature (it has no drawing face to finish). A file to
+    # the line does.
     return {
         f"{setup['id']}:{op['op']}"
-        for name in bundle.feature_definitions
+        for name, definition in bundle.feature_definitions.items()
+        if not record(record(definition).get("preparation"))
         for _, setup, op in _cuts(bundle, name)
-        if cutting_action(op) is True and op.get("do") not in SAW_OPS | {"coating"}
+        if (cutting_action(op) is True or op.get("do") in HAND_FINISH)
+        and op.get("do") not in SAW_OPS | {"coating"}
     }
 
 
@@ -135,23 +144,26 @@ def provenance(bundle, rule, setup=None, op=None, feature=None):
     if feature is not None:
         entry = record(bundle.feature_definitions.get(feature))
         joint = record(entry.get("joint"))
-        cite.append(
-            f"plan.joint_features.{joint['id']}: analytic transient cylinder"
-            if joint
-            else f"features.{feature}: faces and requirements"
-        )
+        if joint:
+            cite.append(f"plan.joint_features.{joint['id']}: analytic transient cylinder")
+        elif record(entry.get("preparation")):
+            from prechips.process_features import source_cite
+
+            cite.extend(source_cite(entry))
+        else:
+            cite.append(f"features.{feature}: faces and requirements")
         cite.extend(_citations(entry.get("cite")))
     if setup is not None:
         cite.append(f"plan.setups.{setup['id']}: frame and hold")
         hold = record(setup.get("hold"))
-        fixture_category = inventory_category(bundle, hold.get("fixture"), WORKHOLDING_CATEGORIES)
-        for category, reference in (
-            (fixture_category, hold.get("fixture")),
+        for slot, reference in (
+            ("workholding", hold.get("fixture")),
             ("fixtures", hold.get("parallels")),
         ):
-            item = record(resolve(bundle, category, reference)) if category else {}
+            category, key, _ = select(bundle, reference, slot)
+            item = record(resolve(bundle, slot, reference))
             if item:
-                cite.append(f"inventory.{category}.{reference}: declared dimensions")
+                cite.append(f"inventory.{category}.{key}: declared dimensions")
                 cite.extend(_citations(item.get("cite")))
                 cite.extend(_citations(record(item.get("source")).get("cite")))
                 cite.extend(
@@ -163,10 +175,11 @@ def provenance(bundle, rule, setup=None, op=None, feature=None):
         )
     if op is not None:
         cite.append(f"plan.setups.{setup['id']}.ops.{op['op']}: selected action/tool/holder")
-        for category, reference in (("tools", op.get("tool")), ("holders", op.get("holder"))):
-            item = record(resolve(bundle, category, reference))
+        for slot, reference in (("tools", op.get("tool")), ("holders", op.get("holder"))):
+            category, key, _ = select(bundle, reference, slot)
+            item = record(resolve(bundle, slot, reference))
             if item:
-                cite.append(f"inventory.{category}.{reference}: explicit-unit verified dimensions")
+                cite.append(f"inventory.{category}.{key}: explicit-unit verified dimensions")
                 cite.extend(_citations(item.get("cite")))
                 cite.extend(_citations(item.get("dia_cite")))
                 cite.extend(_citations(record(item.get("source")).get("cite")))
@@ -192,6 +205,9 @@ def unavailable(bundle, rule, subject, facts, cite):
 
 def mapped_feature(bundle, facts, name):
     feature = record(bundle.feature_definitions.get(name))
+    if record(feature.get("preparation")):
+        # Stock preparation maps to no finished face: it is never drawing coverage.
+        return set(), []
     joint = record(feature.get("joint"))
     refs = [joint["label"]] if joint else feature.get("faces", UNKNOWN)
     errors = record(facts.get("mapping_errors"))
@@ -222,8 +238,15 @@ def op_claims(bundle, facts, setup, op):
     credited: milling faces that face -Z, lathe faces of revolution about setup Z;
     others are claim errors; unresolved directions leave the claim unknown. Lathe
     claims credit only turning-model facts, never raw -Z milling verdicts.
+
+    A transient joint-feature op's analytic claims never credit finished faces: it earns
+    only the kernel's ``certified_indices``, the exported faces its accepted finishing cut
+    measurably leaves as its own surface, and otherwise an empty set (never debt). A plan
+    process-feature op (stock preparation) credits no finished face at all.
     """
     refs = claim_refs(bundle, op)
+    if record(record(bundle.feature_definitions.get(op_feature(op))).get("preparation")):
+        return set(), [], []
     errors = record(facts.get("mapping_errors"))
     detail = record(record(facts.get("ops")).get(f"{setup['id']}:{op['op']}"))
     reported = detail.get("mapping_errors")
@@ -234,18 +257,33 @@ def op_claims(bundle, facts, setup, op):
     )
     if invalid or not known_refs(refs):
         return None, [], invalid
-    if approach_model_reason(bundle, setup, op):
-        return None, [], []
-    if not approach_facts(bundle, facts, setup, op):
-        return None, [], []
+    joint = bool(record(record(bundle.feature_definitions.get(op.get("feature"))).get("joint")))
+    if approach_model_reason(bundle, setup, op) or not approach_facts(bundle, facts, setup, op):
+        return (set() if joint else None), [], []
     away = detail.get("claim_errors")
     away = sorted(ref for ref in away if isinstance(ref, str)) if isinstance(away, list) else []
+    if joint:
+        return _certified(facts, detail), away, []
     indices = detail.get("claimed_indices", UNKNOWN)
     if not isinstance(indices, list) or not all(
         isinstance(i, int) and not isinstance(i, bool) and i >= 0 for i in indices
     ):
         return None, away, []
     return set(indices), away, []
+
+
+def _certified(facts, detail):
+    """A joint op's certified finished-face indices; any non-STEP index voids them all."""
+    indices = detail.get("certified_indices")
+    faces = facts.get("faces")
+    step = {
+        face.get("index")
+        for face in (faces if isinstance(faces, list) else [])
+        if isinstance(face, dict) and _face_index(face.get("index"))
+    }
+    if not isinstance(indices, list) or not all(_face_index(i) and i in step for i in indices):
+        return set()
+    return set(indices)
 
 
 def _face_index(value):
@@ -389,7 +427,9 @@ def op_contexts(bundle, rule, required=(), fixture=False, stock=True, turning=No
                     "not_applicable",
                     {},
                     cite,
-                    f"{subject}: {op['do']} does not cut geometry.",
+                    f"{subject}: {op['do']} is bench filing; no machine cutter reaches the part."
+                    if op.get("do") in HAND_FINISH
+                    else f"{subject}: {op['do']} does not cut geometry.",
                 )
             elif cutting_action(op) is None:
                 blocked = Finding(
@@ -521,6 +561,21 @@ def op_contexts(bundle, rule, required=(), fixture=False, stock=True, turning=No
                     blocked = Finding(
                         rule, subject, "unknown", {}, cite, holds[setup["id"]]["reason"]
                     )
+                elif turned and _clamped_head(inputs):
+                    blocked = Finding(
+                        rule,
+                        subject,
+                        "unknown",
+                        {
+                            "projection_mm": inputs["projection_mm"],
+                            "head_len_mm": inputs["head_len_mm"],
+                        },
+                        cite,
+                        f"{subject}: the tool is set {inputs['projection_mm']:g} mm out of its "
+                        f"holder, shorter than its {inputs['head_len_mm']:g} mm head, so the "
+                        "holder clamps the head and its clearance is not modelled: set "
+                        "projection_mm at least head_len_mm.",
+                    )
                 elif any(not number(inputs.get(key)) for key in keys):
                     blocked = Finding(
                         rule,
@@ -532,6 +587,12 @@ def op_contexts(bundle, rule, required=(), fixture=False, stock=True, turning=No
                         "or unavailable.",
                     )
         yield setup, op, facts, detail, inputs, cite, blocked
+
+
+def _clamped_head(inputs):
+    """A turning tool set out of its holder by less than its head length."""
+    projection, head = inputs.get("projection_mm"), inputs.get("head_len_mm")
+    return number(projection) and number(head) and projection < head
 
 
 def setup_contexts(bundle, rule):

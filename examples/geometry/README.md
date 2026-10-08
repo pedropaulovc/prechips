@@ -70,6 +70,10 @@ names `cuts = ["beam"]` so its stud, in the same assembly, stays whole.
   and places the parallels under its tips. These target scenes have exact
   brown jaws and green parallels. Preparation setups have unresolved
   holding, so their known-stock pictures do not claim a complete fixture.
+- Each target setup is the first on `test-mill` to mount its vise, so it
+  squares the fixed jaw to the X travel its jaws run along (`hold.align`)
+  with the synthetic `gauges.test-dti`. Its 0.0254 mm over 100 mm limit is
+  an authored test value, not a measured alignment.
 - Holding, renders, reach and holder obstacles use immutable **entry stock**.
   Only a cutter's flute excludes its own operation's derivable outside-finished
   allowance, never another operation's removal or a neighbouring finished wall.

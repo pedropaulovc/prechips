@@ -19,7 +19,10 @@ finished part, with partial-face windows whose exact per-face union decides
 coverage and finish coverage. This is not continuous toolpath proof; its
 combined integration gate remains unobserved. Physical paper rehearsal and
 live parented farm/App Insights acceptance remain pending/unobserved. Rev 6,
-2026-10-03.
+2026-10-03. Manual arcs (D1): the manual mill cuts arcs only by the 1898
+method (layout, single-axis stairs or a chain drill outside the line, bench
+filing to buttons or a template checked with a radius gauge, or chords / a
+rotary table); the MDI/`contouring` path and `arc_table` are removed.
 Sections below retain design intent; README and docs describe the shipped
 schema/CLI/rules. Rev 1 was traveler-first but promised geometric proofs
 it could not deliver. Revs 2–3 absorbed two adversarial
@@ -129,8 +132,8 @@ Rules for the sheet:
   deburr limit, cut direction, what the setup starts from, the tip endpoint
   of every hole (point length or reamer lead + exit allowance), the Z the
   top is at after each op and the number to set after each tool touch,
-  cutter-centre coordinates for a manual contour (the arc table on a
-  continuation sheet), the step that releases a held feature. Each comes
+  cutter-centre coordinates for a manual contour (stair, drill, chord or
+  rotary-table rows on a continuation sheet), the step that releases a held feature. Each comes
   from a `plan.toml` field (§3.1) or a rule's computation; none is free text
   the generator makes up. A field the author left blank is a `?` line, not
   a blank cell.
@@ -293,7 +296,7 @@ holder = "r8-3/8"
 to_z = 0.0
 direction = "climb"
 rough_allowance_mm = 0.3
-contour = { method = "arc_table", step_deg = 10 }
+contour = { method = "stairs", cusp_mm = 0.25 }
 checks = { dia = "caliper" }
 
 [[setups.ops]]
@@ -306,7 +309,7 @@ note = "lift onto the fixture plate before S4 cuts the rails free"
 The author writes the route and every holding/cutting decision above.
 prechips fills in RPM/feed, tip endpoints (from the stock state, the tool's
 point angle or reamer lead, and `exit_mm`), the Z of the top after each op
-and the per-tool touch value, cutter-centre coordinates and the arc table,
+and the per-tool touch value, cutter-centre coordinates and the stair table,
 holder clearance, and resolves tool, holder and fixture ids against the
 shop. `checks` is keyed by requirement (`dia`, `position`, `finish`,
 `depth`), one gauge per requirement, so a feature with two tolerances needs
@@ -521,6 +524,14 @@ routes that ship: rev 1 carries only the rows M1's rocker setup selects
 (HSS × low-carbon steel × face/profile/drill/ream), each transcribed and
 page-cited from Machinery's Handbook 31 Table 1 or left `"unknown"`; a row
 is added when a shipped route first needs it.
+Status: the shipped example `cutting-data.toml` (revision 5) carries labelled
+illustrative example rows, each inside a range cited by table and printed page
+from Machinery's Handbook 27th edition, a third table,
+`[[deep_hole]]`, that derates an operation's sfm once the hole's depth exceeds a
+cited depth/diameter threshold, and a fourth, `[[plunge]]`, giving the end-mill
+plunge feed each milled path needs where it goes down into material; a plunge
+without one is coordinates debt and a sheet STOP
+([docs/cutting-data.md](docs/cutting-data.md)).
 
 ## 4. What the checker validates (the rule catalogue)
 
@@ -557,8 +568,8 @@ not exist.
 | order: rough→finish, drill→ream/tap, face→spot, release last | plan.ops | M1 | "Op 40 reams before op 30 drills." |
 | tip endpoints from stock state: the setup's `stock_state` advances per op (`to_z`); a through hole's tip endpoint = exit face − point length (`point_angle`, D) − `exit_mm`, reamer: − `lead_mm` − `exit_mm`; blind: depth + point ≤ `features.depth`; tap flute ≥ thread depth; exit face from `local_thickness[feature]`, never the stock section | plan.setups.stock_state, plan.ops.exit_mm/depth_mm/to_z, features.thru/depth, inventory.tools.point_angle/lead_mm/flute_len | M1 | fills the Z column; "6.2 drill to −2.0 leaves 0.14 of cone in the bore; go to −3.86." |
 | speeds/feeds from cutting-data, rounded, then clamped | plan.ops, inventory.tools (material, flutes, chart), machine rpm range, cutting-data | M1 | fills the columns; "? no row for O1 hardened" |
-| zero recipe: for each axis, contact reading = (edge coordinate in frame A) + side·(finder radius), side = −1 when the finder approaches from the negative side of the edge, +1 from the positive side; paper: edge + paper; the Axis Set value is that reading; the check reading = Axis Set value + sign·`check_jog_mm` where sign = +1 if `dro.direction` agrees with the frame axis, else −1; the mirrored reading = Axis Set value − sign·jog; the retouch value after each `retouch_after` op from the advanced stock state | plan.dro, plan.setups.zero (edge, approach side), plan.setups.stock_state, features.frames, inventory.tools (finder dia) | M1 | fills the DRO block; "Y direction is set 'toward' but frame A's Y points away: the sheet would mirror every Y." |
-| coordinates: feature centre → setup frame → cutter centre (tool radius for profiles; rough and finish offsets both; the arc table for `contour.method = "arc_table"`) | features.at/frames, plan.setups.frame, plan.ops.contour, inventory.tools.dia | M1 | silent when right; prints sheet 3a |
+| zero recipe: for each axis, contact reading = (edge coordinate in frame A) + side·(finder radius), side = −1 when the finder approaches from the negative side of the edge, +1 from the positive side; paper: edge + side·paper, side the side of the face the tool meets it from (its outward normal on a lathe); the Axis Set value is that reading; the check reading = Axis Set value + sign·`check_jog_mm` where sign = +1 if `dro.direction` agrees with the frame axis, else −1; the mirrored reading = Axis Set value − sign·jog; the retouch value after each `retouch_after` op from the advanced stock state | plan.dro, plan.setups.zero (edge, approach side), plan.setups.stock_state, features.frames, inventory.tools (finder dia) | M1 | fills the DRO block; "Y direction is set 'toward' but frame A's Y points away: the sheet would mirror every Y." |
+| coordinates: feature centre → setup frame → cutter centre (tool radius for profiles; rough and finish offsets both; manual-arc tables for `contour.method` `stairs`/`chain_drill`/`chords`/`rotary_table`, docs/plan.md Manual arcs) | features.at/frames, plan.setups.frame, plan.ops.contour, inventory.tools.dia, policy.numbers.max_filing_stock_mm | M1 | silent when right; prints sheet 3a |
 | inspection per requirement: every entry in a feature's `requirements` that is a tolerance (any `*_dia`, `dia`, `finish_ra`, `depth`, `coaxiality_dia` — every requirement that carries a band, not a fixed list) has a `checks.<requirement>` on the op that finishes it, and the named gauge exists and spans the band | features.requirements, plan.ops.checks, inventory.gauges | M1 | "Rod hole position Ø0.20 has no check; the 2.00 pin proves size only." |
 | hold fields complete: fixed jaw, stop, grip, clamp, coolant, deburr, direction per cutting op, holder per op, stock state per setup | plan.setups.hold/coolant/deburr_mm/stock_state, plan.ops.direction/holder | M1 | "S3 does not say which jaw is fixed." |
 | headroom: bed-to-table height + parallels + stock height (`top_z − bottom_z` of the supported stock, never a coordinate) + tool projection + holder gauge length + 25 mm insertion ≤ spindle-to-table at full quill retract; jaw height is a separate obstruction check against the tool path, not a layer in the stack; part + fixture ≤ travel | inventory (vise bed height and jaw height, parallels, tool OAL/projection, holder gauge length, `machine.envelope` max and X/Y travel — unmeasured → `?`), plan.stock_state, plan.stock section | M1 | "Vise bed height not measured." |
@@ -568,13 +579,14 @@ not exist.
 | turned profile monotone from the chuck unless a grooving op | plan.ops (lathe), features (diameters along Z) | M2 | "Ø8 groove at Z−30 needs a grooving tool." |
 | stick-out: declared stick-out ≤ `stickout_ld_max`·D unless tailstock/steady listed; D is the smallest finished diameter in the unsupported length, from feature diameters along setup Z, not the bar held in the jaws. Unknown exposed profile remains unresolved | plan.setups.hold.stickout_mm, features (diameters along Z), policy.numbers, inventory | M2 | "Ø6 × 40 past the chuck: add the tailstock centre." |
 | joint_fit (always required): worst-case diametral clearance/interference interval lies inside the matching declared band, with collinear finite cylinder engagement; retaining-compound prep and positive cure time must be known | plan.joint_features (component, at, axis, dia, nominal_dia, depth), plan.setups.joint (fit, band, method/process/cite, retaining-compound surface_prep/cure_time_min), features.units | M2 | "Worst-case interference lies outside the declared fit; no union." |
+| consistency (one fact, one source): plan text leaves a derived fact to its one source and agrees with a field it names, and two printed surfaces of one fact agree. Restating "same chucking" (the HOLD and `zero.transfer.keep_clamped`), hand tightening in an ordered clamp's note (`tighten` / `torque_nm`, which the HOLD tightening line prints) a height from the jaws in a hold with `jaw_above_parallels_mm` (the HOLD derives the jaw tops and the work top above them, `?` from an unknown or unverified jaw height, parallels or seat) or, unambiguously, a made SHOP-MADE FIXTURE row's whole size in a make note it prints with (the closed grammar `the <row> [to] [Ø] A x B [x C]`, as many edges as the row prints, in any value, unit, spacing or `x` / `×` / `*`, or with an unknown edge, an edge's parenthesis that closes read through its `)` whatever it holds, in a clause holding, the row's own name aside, no feature verb, angle unit, fraction or superscript or subscript digit; ambiguous text makes no claim; the row's Size mm prints it, each row the name denotes its own finding) is an error. `T<n>` and digit flute counts are compared with the setup TOOLS table (`tool_numbers`), NO-GO "pushed through" with `go_no_go`, the setup picture's `CUT <mm> mm` with the CLEARANCE row of an op beside the same holding solid, each as its surface rounds it (an op's row not computed, unknown), `tighten = "hand"` with `torque_nm`, and each `stock_state` height with the one source its declaration names: a `top_z` / `bottom_z` that `top_feature` / `bottom_feature` names with the kernel's height of that face alone (the stock over it while uncut, else within the feature's band; unmeasured, unknown), any other top, seat or rail with the kernel setup-entry stock box. A named seat exempts no rail, and stock below every authored point is wrong unless it is the named seat's own measured face, which the face's band alone then judges. Only the exact token patterns in [rules-setup](docs/rules-setup.md#consistency) are read; other wording is not attributed. A compared fact with a missing field, inventory value, units, band or kernel value, or one the kernel cannot prove, is unknown | plan.setups (hold, clamps, zero, stock_state, notes), plan.ops (note, inspection text, go_no_go), inventory.tools.flutes, inventory.fixtures parallels height and shop-made solids (shape, note, label, supply), policy fixture_make_decimals, features requirement bands, kernel stock_bbox_mm / stock_faces_mm / render_scene closest_cut and cut_clearances | R7 | "A printed fact conflicts with its one source: the lower-side support jack make note gives a made row's size ("the screw Ø6.30 x 13.45"), but its SHOP-MADE FIXTURE table prints that size (screw Ø6.4 × 13.5; solid screw); leave it to the table and drop the restatement …" |
 
 ### 4.2 Setup geometry (on the B-rep — needs the kernel)
 
 | rule | inputs | tier | on the sheet |
 |---|---|---|---|
 | accessibility: sample each claimed face with the prescribed cutter/holder pose below. Obstacles are stock minus a 0.001 mm inward shell of this sampled face (an own matched point cap uses unmodified stock instead), plus fixture solids: holders see setup-entry stock; a milling or hole flute sees the stock left by the setup's earlier derived cuts (never a later cut's) and excludes this op's derivable outside-finished allowance or own hole cutter volume (spot/drill: point cone and body). After an underivable earlier cut, a flute keeps only certain finished-material hits and its tool hits are unknown. Other finished faces and holder obstacles remain. A hit means this prescribed pose is occluded, not that no pose cuts the point. Missing pose/stock/inputs prevent passes, but observed certain hits remain errors; far-side claims error by name, and invalid clearing removals are named stock debt | STEP faces, stock/setup order/op face claims, five cutter/holder dimensions (not OAL), spot/drill `point_angle`, rough `rough_allowance_mm`, fixture dimensions and pose, authored op depth/entry/through extent | M4 | "Ø10 cutter intersects the opposite wall of a 6 mm groove." |
-| reach: floor depth below the face the tool enters ≤ flute length, else ≤ OAL with the holder cylinder clear of walls | features.faces, inventory.tools (flute_len, OAL, holder dia) | M4 | "Pocket floor is 28 mm down; 3/8 EM has 19 mm of flute." |
+| reach: floor depth below the highest stock the op meets ≤ flute length, else ≤ OAL with the holder cylinder clear of that stock; at any depth the shank past the flutes clears the stock the op leaves (a reamer's own finished bore included); body, shank and holder-face clearances are reported numbers | features.faces, inventory.tools (flute_len, OAL, shank dia, holder dia) | M4 | "The 0.4500 in reamer's Ø10.05 shank clears the Ø11.43 bore it leaves by 0.69 mm; the 3/8 in spotter's chuck face stops 3.2 mm above the Z27.2 crown." |
 | internal corner radius: concave edges ⟂ tool axis between faces one op claims: r ≥ r_tool | features.faces, plan.ops.tool | M4 | "Slot corners are sharp; a 1/4 EM leaves R3.2." |
 | coverage: ⋃ direction-valid faces claimed by ops ∪ faces declared as-stock = all faces; optional op `faces` explicitly overrides the feature default; a rotary-claimed face counts only when the exact union of its rotary window portions covers it (a named-span gap errors, an undecided union is `?`) | features.faces, plan.ops.faces, plan.stock.as_is_faces, kernel rotary_coverage.cut | M4 | "Face 23 (the ear's back) is machined by no valid op." |
 | finish coverage: every `finish_ra` face is claimed by a direction-valid finishing cut (nonrough/nonmanual; drill → ream/bore/tap precedence); rotary finishing windows count only when their exact union covers the face, and as-stock never finishes; a claimed hole cap counts only once its complete-form cut's setup leaves it clear of stock | features.finish_ra/faces, plan.ops.faces, kernel rotary_coverage.finish | M4 | "Ra 1.6 on the bore; no finishing op touches it." |
@@ -695,9 +707,10 @@ unmeasurable completion leaves that credit unknown.
 is millimetres even for inch-unit features, and tap fallback feature-depth
 bands are converted to millimetres.
 Unrelated finished material and holder obstacles are not cleared. Holding,
-rendering, reach and holder obstacles still use actual setup-entry stock; a
-flute meets only material the setup's earlier derived cuts leave, and no op is
-credited with a later op's removal.
+rendering and accessibility holder obstacles still use actual setup-entry
+stock; a flute, the reach and the holder-wall check meet only material the
+setup's earlier derived cuts leave, a tool's shank past its flutes the
+stock its own cut leaves, and no op is credited with a later op's removal.
 
 The default −setup-Z approach model applies to milling and spindle-axis lathe actions
 (`spot`, `drill`, `ream`, `tap`, `center`, `center_drill`). Other cutting
@@ -731,7 +744,7 @@ corners unchanged; axial milling keeps its incident-wall convention).
 Own-removal combines radial sweep with the vertical cutter columns at
 concave wall-tangent poses, clipped to the window and cut against the finished
 solid. Finished bosses/pads and stock outside that allowance remain obstacles;
-only the flute excludes its own allowance, not holder or reach screens.
+only the flute excludes its own allowance, not holder, reach or shank screens.
 This is one static pose per sample, not continuous rotation, simultaneous
 rotary-plus-linear motion or a toolpath proof.
 
@@ -1025,6 +1038,20 @@ sheet.
    manifest with one `"unknown"` tolerance among known ones → `?` and exit
    4; editing `features.toml` after approval → `PLANNED` naming the input;
    an empty ops list → exit 3; the report byte-repeatable.
+   **Mill located targets (2026-10-06, r3):** off a lathe, `coordinates` prints
+   each located target on the setup's DRO grid. It checks that target against
+   the printed height-like band it holds from `height_from`; a target outside the
+   band is `✗`. A plan `aims` entry may move the target inside its band for a
+   stated reason (the cone crank bore at 39.517 separation) without moving geometry.
+   **Lathe blade corners and tool setting (2026-10-06, r4):** a grooving/parting
+   blade's Z touch sets the corner its touched face's kernel normal gives (+Z face:
+   chuck side, −Z face: tailstock side), else the touch's authored `corner`, else
+   `?`; a contradicting corner is `✗`. Blade op rows print Z as that corner's
+   reading, a blade width beyond `to_z` when the other corner forms the face
+   (cone S2/S3 part-offs at Z −22.65 / −73.63), while sweeps, clearances and jaw
+   distances keep the true blade extents. Each toolpost tool's first touch-off
+   in a lathe setup is preceded by setting it on centre height (and squaring a
+   blade), from the toolpost's cited words.
 2. **M2 — local declared-input implementation completed 2026-10-03.**
    Turned-profile monotonicity,
    supported stick-out, collet/chuck diameter capacity, exact-first indexing,
@@ -1239,6 +1266,14 @@ sheet.
    kernel yields one console `?` line and unknown geometry, not fabricated
    passes; named mapping and directional-claim errors remain errors.
 
+   **Retained-stock reach and shank clearance shipped (2026-10-06, round 4):**
+   reach and holder-wall hits are measured on the stock each op meets, not the
+   setup-entry block. A tool's shank past its flutes, from the inventory
+   `shank_mm`/`shank_in` measurement, must clear the stock its own cut leaves:
+   a clash is an error and a missing shank diameter is `?`. Axial hole ops
+   report body, shank and holder-face clearances in millimetres; no minimum
+   clearance is enforced.
+
    **Saw cut-off shipped (2026-10-06, `m5-rev9`):** `saw_cut` / `cut_off`
    on mill, bench or bandsaw removes a setup-plane slab including the selected
    blade's kerf, preserving the finished target and routing the retained stock.
@@ -1246,6 +1281,48 @@ sheet.
    never spindle RPM. Axial/turning-cylinder accessibility is explicitly
    not applicable; saw cuts earn no finished-face coverage. Fixture modeling
    and input debt semantics remain operative.
+
+   **Process features shipped (2026-10-06, round-4 ShaftPrep):** plan-owned
+   `process_features` (`end_face`, `centre_hole`) are stock preparation the
+   kernel cuts through transient faces and later stock states carry; they earn
+   no finished-face or finish coverage and print no drawing-requirement row. A
+   hold's `centre_hole` binds the dead or live centre to a centre an earlier
+   setup in its `stock_in` lineage drills (`centre_support`, always required
+   wherever a hold uses a centre: error when contradicted, unknown and blocking
+   when undeclared, when any lineage routing or the maker's own `blind_depth`
+   centre row is unresolved, or when a further support may be a centre),
+   seated in the cut countersink. Centre depth is Table 6 drill
+   length C plus the countersink to the mouth, printed on the tailstock quill,
+   and only for the selected centre drill's own accepted D, C, angle, body and
+   point angle with the mouth on the touched entry surface; the kernel cuts only
+   that centre and refuses a buried mouth. The pivot-shaft S0 faces and
+   centre-drills the plain end; the saw cut stays a stock prerequisite (the bar
+   it is cut from is not
+   declared). The catalogue gains `centre_support`; `rules_version` is unchanged
+   until the integrator refreezes goldens.
+
+   **Mill blank preparation shipped (2026-10-07, round-5 MillPrep):** a
+   rectangular root stock's planar `end_face`s are the six blank faces a mill
+   squares before S1, made by face ops or (ends overhanging the vise) by
+   side-milling profiles with an `open_side` raster. The kernel removes each as
+   a planar slab; footprints are the root section trimmed by earlier lineage
+   faces. `[stock.prepared]` declares the blank; `prepared_blank` (always
+   required) checks the faced size within tolerance and resolves the blank's
+   size/flat/square/parallel checks, printed as CHECK THE BLANK. A hold's
+   `jaw_bar` round bar offsets the moving jaw; `headroom` clears a below-jaw
+   cut wholly beyond the jaw ends. Rocker P1-P5 and bracket P1-P6 prepare
+   their blanks. Goldens are stale until the integrator refreezes them;
+   `rules_version` is unchanged.
+
+   **Setup-picture details shipped (2026-10-07, review round 4):** a leader
+   naming a solid ends on that solid's visible pixels or becomes a printed
+   `NOT SHOWN` render debt; a crowded lathe exposed-end detail enlarges until
+   its point keys stand apart; datum axis words are restated in setup axes and
+   underside/hidden datum faces are marked; small work and plan views get a
+   holding detail band with kernel-computed contact faces keyed by setup
+   coordinate and the closest cut to the holding. Pictures only; no rule or
+   exit code changed, and the new leader debt joins the annotation-only
+   `render_debts`. Machinist re-review is pending.
 
    Geometry checks and rasterized pictures use **setup-entry stock** selected
    explicitly by `stock_in`: `"stock"` for one supply, `"stock.<id>"` for a
@@ -1271,7 +1348,9 @@ sheet.
    cannot mask splitting another.
    **Joint-feature engine implemented:** plan-owned finite sockets and spigots
    resolve for operation/dimension rules without modifying the exported
-   manifest or earning final STEP coverage. Cylindrical joints check all
+   manifest. Their analytic claims never earn final STEP coverage; a finishing
+   spigot turn earns it only for exported faces the kernel certifies lie, over
+   their full area, on its accepted finite cut. Cylindrical joints check all
    diametral fit extremes, branch-specific preparation and actual geometry,
    finite engagement, actual overlap and straight-axis insertion. Surface joints
    require essentially full finite rectangle contact on both sides inside the
@@ -1343,11 +1422,17 @@ sheet.
    coaxial concave cone/sphere cap no wider than the bore, with numerical
    lift at either end, not entry-stock height; wider back countersinks are
    not reserved, blind columns stop at their caps, and pins/rods outside the
-   hole remain material.
+   hole remain material. A face raster's `contour.keep_out` islands, and the
+   cusps its split passes leave between piece ends, keep their stock (a later
+   op's rough leave on a hub; nothing its printed pieces do not sweep, lineage
+   leave band included) and keep that op's floor poses one cutter radius outside
+   them; unmapped islands or split passes leave the cut unknown.
    Current-setup cuts shape output stock and, in op order, the stock each
    later milling or hole flute of the setup meets (never a later cut's); the
    flute also excludes its own op's accepted cut, never the failed clearance of
-   the op that stops the pass; holder, reach, holding and image facts still use
+   the op that stops the pass; reach and holder-wall screens meet the same
+   before-op stock (the shank past the flutes its own after-op stock), while
+   accessibility holder obstacles, holding and image facts still use
    setup-entry stock. After an underivable earlier cut, later flutes keep only
    certain finished hits and their tool hits are unknown; final wall/cap debts
    never change a before-op stock.
@@ -1415,8 +1500,8 @@ sheet.
    surface (`r + a` planar floor clearance); an explicit `to_z` caps the
    endpoint without a second leave, and any milling op's numeric `to_z`
    above its face is its actual tip.
-   Holder obstacles, reach, holding and rendering keep actual setup-entry
-   stock; no flute is credited with a later op's removal.
+   Accessibility holder obstacles, holding and rendering keep actual
+   setup-entry stock; no flute is credited with a later op's removal.
    OpenCASCADE distance extrema that fail with `StdFail_NotDone` retry with
    the operands swapped: this measures the same geometric distance rather than
    suppressing the failed guard. Other native exceptions still propagate.

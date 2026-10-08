@@ -1,8 +1,14 @@
-"""Parallel gripping pair, opening, bilateral contact, jaw exclusion and parallels."""
+"""Parallel gripping pair, opening, bilateral contact, jaw exclusion and parallels.
+
+The opening the hold needs is the kernel's ``jaw_separation_mm``: the work's width
+between the jaw planes plus any round bar between the work and the moving jaw and
+both jaw buttons' thickness."""
 
 from prechips.findings import Finding
 from prechips.rules.geometry_common import fact_reason, setup_contexts
 from prechips.rules.resolution import number, same_length
+
+_FACTS = ("parallel_pair", "jaw_separation_mm", "contact_grip_mm", "claimed_in_jaws")
 
 
 def evaluate(bundle):
@@ -13,12 +19,14 @@ def evaluate(bundle):
             continue
         subject = setup["id"]
         width = detail.get("width_mm", "unknown")
+        separation = detail.get("jaw_separation_mm", "unknown")
         contacts = detail.get("contact_grip_mm", "unknown")
         parallel = detail.get("parallel_pair", "unknown")
         inside = detail.get("claimed_in_jaws", "unknown")
         opening, grip = inputs["opening_mm"], inputs["grip_mm"]
         values = {
             "width_mm": width,
+            "jaw_separation_mm": separation,
             "opening_mm": opening,
             "contact_grip_mm": contacts,
             "required_grip_mm": grip,
@@ -28,7 +36,7 @@ def evaluate(bundle):
         }
         known = (
             isinstance(parallel, bool)
-            and number(width)
+            and number(separation)
             and isinstance(contacts, list)
             and len(contacts) == 2
             and all(number(value) and value >= 0 for value in contacts)
@@ -38,8 +46,11 @@ def evaluate(bundle):
         if known:
             if not parallel:
                 errors.append("gripped faces are not a parallel pair")
-            if width > opening and not same_length(width, opening):
-                errors.append("part width exceeds vise opening")
+            if separation > opening and not same_length(separation, opening):
+                errors.append(
+                    "jaw separation (part width plus any round bar or jaw buttons) "
+                    "exceeds vise opening"
+                )
             if any(value < grip and not same_length(value, grip) for value in contacts):
                 errors.append("both jaws do not provide the declared grip")
             if inside:
@@ -51,11 +62,7 @@ def evaluate(bundle):
             else "parallel gripped faces, opening, both-jaw grip and claimed-face "
             "exclusion fit the declared vise hold"
             if known
-            else fact_reason(
-                detail,
-                ("parallel_pair", "width_mm", "contact_grip_mm", "claimed_in_jaws"),
-                "vise contact geometry is unresolved",
-            )
+            else fact_reason(detail, _FACTS, "vise contact geometry is unresolved")
         )
         rows.append(Finding("vise", subject, status, values, cite, f"{subject}: {message}."))
     return rows

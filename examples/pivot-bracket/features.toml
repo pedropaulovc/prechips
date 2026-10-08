@@ -64,6 +64,7 @@ requirements = []                # datum plane only
 datum = "A"
 faces = ["#473/ADVANCED_FACE[16]/NONE"]
 plane = { frame = "model", axis = "y", value = 0.0 }
+bounds = { x = [-8.0, 8.0], y = [0.0, 0.0], z = [-3.0, 21.2] } # STEP face #473 bbox (kernel faces[].bbox_mm): its whole footprint
 cite = ["example (plausible, no dimensioned drawing)"]
 
 [features.foot_profile]
@@ -86,6 +87,7 @@ frame = "model"
 requirements = []                # flat outer face, no own size beyond foot_profile length / ear thickness
 faces = ["#103/ADVANCED_FACE[8]/NONE"]
 plane = { frame = "model", axis = "z", value = -3.0 }
+bounds = { x = [-8.0, 8.0], y = [0.0, 32.2], z = [-3.0, -3.0] } # STEP face #103 bbox (kernel faces[].bbox_mm): its whole footprint
 cite = ["example (plausible, no dimensioned drawing)"]
 
 [features.foot_top]
@@ -134,7 +136,7 @@ drill = "#15"
 dia = [4.572, 4.672]             # #8 close clearance, drilled +0.10/0 (title_block.yaml:66)
 dia_nominal = 4.572
 hole_spec = "#8 clearance, close fit"
-station = [8.1, 8.3]             # example (plausible): 8.2 ±0.10
+station = [8.1, 8.3]             # example (plausible): 8.2 ±0.10 from the ear mid-plane (model Z0), 3.0 outside the ear inner face
 station_nominal = 8.2
 thru = true
 through_thickness = 6.0
@@ -152,7 +154,7 @@ drill = "#15"
 dia = [4.572, 4.672]             # #8 close clearance, drilled +0.10/0
 dia_nominal = 4.572
 hole_spec = "#8 clearance, close fit"
-station = [15.9, 16.1]           # example (plausible): 16 ±0.10
+station = [15.9, 16.1]           # example (plausible): 16 ±0.10 from the ear mid-plane (model Z0)
 station_nominal = 16.0
 thru = true
 through_thickness = 6.0
@@ -178,7 +180,7 @@ cite = ["example (plausible, no dimensioned drawing)"]
 [features.cross_bore]
 kind = "hole"
 frame = "model"
-at = [0.0, 25.2, -3.0]           # bore axis on the outer face (entry in S3)
+at = [0.0, 25.2, -3.0]           # bore axis on the outer face (entry in S4)
 axis = [0.0, 0.0, 1.0]
 requirements = ["dia", "height", "thru"]
 dia = [6.5, 6.53]                # example (plausible): reamed 6.50/6.53 pivot fit

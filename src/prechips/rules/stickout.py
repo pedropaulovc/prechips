@@ -4,10 +4,12 @@ from ..findings import Finding
 from .resolution import (
     UNKNOWN,
     _citations,
+    authored,
     number,
     record,
     resolve,
     same_length,
+    select,
     uncertain,
 )
 from .turned_profile import exposed_profile
@@ -70,23 +72,19 @@ def support_state(bundle, setup):
         "included", []
     )
     evidence = []
-    fixtures = record(bundle.inventory.get("fixtures"))
     for reference in sorted(refs):
+        category, key, _ = select(bundle, reference, "fixtures")
         item = resolve(bundle, "fixtures", reference)
         if item is not None and item.get("kind") == "accessory":
             item = None
-        if (
-            item is None
-            and reference in accessories
-            and reference.partition("/")[0] not in fixtures
-        ):
+        if item is None and key in accessories and not authored(bundle, category, key):
             item = {
                 "kind": "accessory",
                 "verify": machine is None or uncertain(machine),
                 "source": "inventory selected machine accessories",
             }
         kind = record(item).get("kind", UNKNOWN)
-        accessory_name = reference.lower().replace("-", "_")
+        accessory_name = key.lower().replace("-", "_")
         capable = kind in SUPPORT_KINDS or (
             kind in {"accessory", "dead_centre", "dead_center", "live_centre", "live_center"}
             and ("tailstock" in accessory_name.split("_") or accessory_name == "steady_rest")
@@ -112,6 +110,45 @@ def support_state(bundle, setup):
     if any(item["status"] == "pass" for item in evidence):
         return "pass", evidence
     return ("unknown" if unresolved else "not_applicable"), evidence
+
+
+def fit_state(hold, length):
+    """(status, numbers, why) for a stickout set from a measured fit-up
+    (``hold.stickout_fit = {measure, nominal_mm, add_mm}``): the printed ``stickout_mm``
+    is the nominal setting, ``nominal_mm + add_mm``, and the operator sets the measured
+    reading plus ``add_mm``. A sum that disagrees is an error; an unstated reading or an
+    unknown number is unknown. ``None`` when the stickout is not from a fit-up."""
+    fit = record(hold.get("stickout_fit"))
+    if not fit:
+        return None
+    measure = fit.get("measure", UNKNOWN)
+    nominal, add = fit.get("nominal_mm", UNKNOWN), fit.get("add_mm", UNKNOWN)
+    stated = isinstance(measure, str) and measure.strip() and measure != UNKNOWN
+    numbers = {"measure": measure, "nominal_mm": nominal, "add_mm": add, "stickout_mm": length}
+    if (
+        number(nominal)
+        and number(add)
+        and number(length)
+        and not same_length(nominal + add, length)
+    ):
+        return (
+            "error",
+            numbers,
+            (
+                f"stickout_mm {length:g} is not the fit-up nominal {nominal:g} + {add:g}: "
+                "make hold.stickout_fit and stickout_mm agree"
+            ),
+        )
+    if not (stated and number(nominal) and number(add) and number(length)):
+        return (
+            "unknown",
+            numbers,
+            (
+                "the stickout follows a fit-up whose reading, nominal or allowance is not "
+                "stated: complete hold.stickout_fit"
+            ),
+        )
+    return "pass", numbers, ""
 
 
 def evaluate(bundle):
@@ -201,6 +238,14 @@ def evaluate(bundle):
                 "stick-out exceeds the unsupported shop limit; "
                 "add a listed tailstock/steady support",
             )
+        fit = fit_state(record(setup.get("hold")), length)
+        if fit is not None and status != "not_applicable":
+            fit_status, numbers["stickout_fit"], why = fit
+            rank = {"pass": 0, "unknown": 1, "error": 2}
+            if fit_status != "pass":
+                message += "; " + why
+                if rank[fit_status] > rank[status]:
+                    status = fit_status
         findings.append(
             Finding(
                 "stickout",
