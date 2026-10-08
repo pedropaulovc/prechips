@@ -1,15 +1,54 @@
+# Translated from FreeBSD msun. The upstream notices of the files ported, verbatim from
+# freebsd-src lib/msun/src (main, c2b7fe4a9e94):
+#
+# k_sin.c, k_cos.c and e_atan2.c:
+#
+# ====================================================
+# Copyright (C) 1993 by Sun Microsystems, Inc. All rights reserved.
+#
+# Developed at SunSoft, a Sun Microsystems, Inc. business.
+# Permission to use, copy, modify, and distribute this
+# software is freely granted, provided that this notice
+# is preserved.
+# ====================================================
+#
+# e_rem_pio2.c:
+#
+# ====================================================
+# Copyright (C) 1993 by Sun Microsystems, Inc. All rights reserved.
+#
+# Developed at SunSoft, a Sun Microsystems, Inc. business.
+# Permission to use, copy, modify, and distribute this
+# software is freely granted, provided that this notice
+# is preserved.
+# ====================================================
+#
+# Optimized by Bruce D. Evans.
+#
+# s_sin.c, s_cos.c and s_atan.c:
+#
+# ====================================================
+# Copyright (C) 1993 by Sun Microsystems, Inc. All rights reserved.
+#
+# Developed at SunPro, a Sun Microsystems, Inc. business.
+# Permission to use, copy, modify, and distribute this
+# software is freely granted, provided that this notice
+# is preserved.
+# ====================================================
+
 """Sine, cosine and arc tangent that return the same double on every platform.
 
 ``math.sin``, ``math.cos`` and ``math.atan2`` call the platform's C library, and the C
 libraries of Windows and Linux round some results to neighbouring doubles: a table built
 from them, and the report that prints it, then differs in its last bits between platforms.
-These functions are fdlibm's algorithms (FreeBSD msun ``k_sin.c``, ``k_cos.c``,
-``e_rem_pio2.c``, ``s_atan.c`` and ``e_atan2.c``, whose coefficients and hexadecimal words
-they quote) in Python. They use only IEEE 754 double arithmetic, which rounds the same way
-on every platform Python runs on, and exact integer arithmetic, so each result is one
-double everywhere. Their error is fdlibm's: under one unit in the last place for sin and
-cos, under two for atan2. Arguments beyond 2**20 * pi/2 are reduced exactly on integers
-instead of by fdlibm's Payne-Hanek tables."""
+These functions are fdlibm's algorithms (FreeBSD msun ``s_sin.c``, ``s_cos.c``,
+``k_sin.c``, ``k_cos.c``, ``e_rem_pio2.c``, ``s_atan.c`` and ``e_atan2.c``, whose
+coefficients and hexadecimal words they quote, under the notices above) in Python. They
+use only IEEE 754 double arithmetic, which rounds the same way on every platform Python
+runs on, and exact integer arithmetic, so each result is one double everywhere. Their
+error is fdlibm's: under one unit in the last place for sin and cos, under two for atan2.
+Arguments beyond 2**20 * pi/2 are reduced exactly on integers instead of by fdlibm's
+Payne-Hanek tables."""
 
 from __future__ import annotations
 
