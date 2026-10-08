@@ -182,6 +182,8 @@ th.read { background: var(--color-reading-header); }
 tr.repeat th { background: var(--color-paper); font-weight: bold; }
 .paged table:not([data-duplex-split]) tr.repeat { display: none; }
 table:not([data-duplex-split]) tr.table-context { display: none; }
+.paged table thead tr.table-context[data-context-suppressed="same-page"] { display: none; }
+.paged table thead [data-title-repeat][data-title-suppressed] { display: none; }
 .hold-row { display: block; }
 .hold-steps { min-width: 0; }
 .fixture-render { margin: var(--space-sm) 0; break-inside: avoid; page-break-inside: avoid; }
@@ -264,6 +266,329 @@ _DUPLEX_JS = r"""(() => {
     const r = el.getBoundingClientRect(), s = getComputedStyle(el);
     return { top: r.top - parseFloat(s.marginTop), bottom: r.bottom + parseFloat(s.marginBottom) };
   }
+  const LOCATOR_TARGET = "data-locator-target", LOCATOR_REF = "data-locator-ref";
+  let locatorPass;
+  const locatorNodes = (root, selector) => [...root.querySelectorAll(selector)];
+  const locatorRect = (node) => {
+    const r = node.getBoundingClientRect();
+    return [r.left, r.top, r.right, r.bottom, r.width, r.height];
+  };
+  const locatorLines = (range) => [...range.getClientRects()].map(
+    (r) => [r.left, r.top, r.right, r.bottom, r.width, r.height]
+  );
+  function locatorVisible(node) {
+    for (let owner = node; owner; owner = owner.parentElement) {
+      const style = getComputedStyle(owner);
+      if (style.display === "none" || style.visibility === "hidden"
+          || style.visibility === "collapse") return false;
+    }
+    return node.getClientRects().length > 0;
+  }
+  const locatorStarts = (section) => [section, ...locatorNodes(section, ".cont-head")].map(
+    (node, index) => ({ node, page: index + 1, top: box(node).top })
+  );
+  function locatorPage(node) {
+    const section = node.closest("section.page[data-sheet]");
+    if (!section) throw new Error("A recording destination has no logical sheet.");
+    const start = locatorStarts(section).filter(
+      (entry) => entry.node === section || entry.node === node
+        || entry.node.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).at(-1);
+    const bounds = section.getBoundingClientRect();
+    return { sheet: section.dataset.sheet, identity: section.dataset.title || section.dataset.sheet,
+      page: start.page, top: start.top, bottom: start.top + CAP,
+      left: bounds.left, right: bounds.right };
+  }
+  const locatorWithin = (rect, bounds) => rect[0] >= bounds.left
+    && rect[2] <= bounds.right && rect[1] >= bounds.top && rect[3] <= bounds.bottom;
+  function cleanLocatorCopy(copy) {
+    for (const node of [copy, ...locatorNodes(copy, "*")]) {
+      node.removeAttribute(LOCATOR_TARGET);
+      node.removeAttribute("data-locator-group");
+    }
+    return copy;
+  }
+  function locatorReference(meta, instruction) {
+    const ref = document.createElement("span");
+    ref.setAttribute(LOCATOR_REF, meta.key);
+    ref.className = "fixed-locator-reference";
+    ref.append(instruction + " — " + meta.identity + ", page ");
+    const slot = document.createElement("span"), ink = document.createElement("span");
+    slot.className = "fixed-locator-digit";
+    slot.setAttribute("aria-readonly", "true");
+    ink.className = "fixed-locator-ink";
+    slot.append(ink);
+    ref.append(slot);
+    return ref;
+  }
+  function measureLocator(ref) {
+    const slot = ref.querySelector(".fixed-locator-digit"), style = getComputedStyle(ref);
+    const line = parseFloat(style.lineHeight);
+    if (!Number.isFinite(line) || line <= 0) {
+      throw new Error("A recording locator has no measured inherited line height.");
+    }
+    const probe = document.createElement("span");
+    probe.style.cssText = "position:absolute;visibility:hidden;white-space:nowrap;"
+      + "display:inline-block;padding:0;margin:0;border:0";
+    for (const property of ["font-family", "font-size", "font-weight", "font-style",
+      "font-stretch", "font-variant-numeric", "font-feature-settings",
+      "font-variation-settings", "font-kerning", "font-optical-sizing",
+      "letter-spacing", "word-spacing", "line-height"]) {
+      probe.style.setProperty(property, style.getPropertyValue(property));
+    }
+    document.body.append(probe);
+    let width;
+    try {
+      for (let digit = 0; digit <= 9; digit++) {
+        probe.textContent = String(digit).repeat(locatorPass.digits);
+        const measured = probe.getBoundingClientRect().width;
+        if (!Number.isFinite(measured) || measured <= 0
+            || !style.fontVariantNumeric.includes("tabular-nums")
+            || (width !== undefined && measured !== width)) {
+          throw new Error("A recording locator lacks measured tabular digit metrics.");
+        }
+        width = measured;
+      }
+    } finally { probe.remove(); }
+    // Empty reserved counters take exactly the same line box as the final ink.
+    slot.style.cssText = `display:inline-block;position:relative;width:${width}px;`
+      + `min-width:${width}px;max-width:${width}px;height:${line}px;min-height:${line}px;`
+      + `max-height:${line}px;line-height:${line}px;vertical-align:bottom;white-space:nowrap;`
+      + `flex:0 0 ${width}px;padding:0;margin:0;border:0`;
+    slot.firstElementChild.style.cssText = "position:absolute;left:0;top:0;display:block;"
+      + "white-space:nowrap;line-height:inherit;padding:0;margin:0;border:0";
+  }
+  function prepareLocators() {
+    locatorPass = { expected: new Map(), reservations: new Map() };
+    const sections = locatorNodes(document, "section.page[data-sheet]");
+    let units = 1n;
+    for (const section of sections) {
+      const walker = document.createTreeWalker(section, NodeFilter.SHOW_TEXT);
+      let node;
+      while ((node = walker.nextNode())) {
+        if (!node.parentElement.closest("script,style")) units += BigInt(node.length);
+      }
+      units += BigInt(locatorNodes(section,
+        "figure,.writing-blank,.tick,.performed-mark,input,select,textarea,button").length);
+      for (const owner of [section, ...locatorNodes(section, "*")]) {
+        for (const attribute of owner.attributes) {
+          if (attribute.name === "data-worksheet-title"
+              || attribute.name === "data-reading-context") units += BigInt(attribute.value.length);
+        }
+      }
+    }
+    if (units < 1n || units > BigInt(Number.MAX_SAFE_INTEGER)) {
+      throw new Error("The pristine recording-locator source bound is not integer-safe.");
+    }
+    locatorPass.bound = Number(units);
+    locatorPass.digits = String(locatorPass.bound).length;
+    for (const [sectionIndex, section] of sections.entries()) {
+      const identity = section.dataset.title || section.dataset.sheet;
+      if (!identity) throw new Error("A recording locator has no logical sheet identity.");
+      for (const [ordinal, blank] of locatorNodes(section, ".writing-blank").entries()) {
+        const field = blank.closest(".field,.result-field,.authored-blank");
+        if (!field) throw new Error("An original writing area has no structural owner.");
+        const name = field.querySelector(".field-label")?.textContent ?? "";
+        const key = JSON.stringify([section.dataset.sheet, sectionIndex, "field", ordinal, name]);
+        blank.setAttribute(LOCATOR_TARGET, key);
+        field.setAttribute("data-locator-field-key", key);
+        locatorPass.expected.set(key, { key, identity, section: section.dataset.sheet, name,
+          authored: field.classList.contains("authored-blank"), ordinal });
+      }
+      for (const [ordinal, group] of locatorNodes(section, ".path-progress").entries()) {
+        const children = locatorNodes(group, ".writing-blank");
+        if (children.length !== 2) {
+          throw new Error("A progress record must retain its level and last completed # together.");
+        }
+        const members = children.map((node) => node.getAttribute(LOCATOR_TARGET));
+        const key = JSON.stringify([section.dataset.sheet, sectionIndex, "progress pair", ordinal]);
+        const meta = { key, identity, section: section.dataset.sheet, members };
+        children.forEach((node) => node.setAttribute("data-locator-group", key));
+        locatorPass.expected.set(key, meta);
+        for (const locator of locatorNodes(group.closest(".contour"),
+          "[data-continuation-locator]")) {
+          const instruction = [...locator.childNodes].map((node) => node.cloneNode(true));
+          const ref = locatorReference(meta, "");
+          ref.firstChild.replaceWith(...instruction,
+            document.createTextNode(" — " + identity + ", page "));
+          locator.replaceChildren(ref);
+        }
+      }
+      for (const owner of locatorNodes(section, "[data-page-context]")) {
+        if (owner.matches(".contour")) continue;
+        const context = owner.querySelector(":scope > .page-context");
+        if (!context) continue;
+        for (const blank of locatorNodes(owner, ".writing-blank").filter(
+          (node) => node.closest("[data-page-context]") === owner
+        )) {
+          const meta = locatorPass.expected.get(blank.getAttribute(LOCATOR_TARGET));
+          const ref = locatorReference(meta, locatorInstruction(meta));
+          ref.prepend(" · ");
+          context.append(ref);
+        }
+      }
+      for (const note of locatorNodes(section, ".op-note,.op-action")) {
+        if (note.closest("[data-page-context]")) continue;
+        for (const blank of locatorNodes(note, ".writing-blank").filter(
+          (node) => node.closest(".op-note,.op-action") === note
+        )) {
+          const meta = locatorPass.expected.get(blank.getAttribute(LOCATOR_TARGET));
+          const ref = locatorReference(meta, locatorInstruction(meta));
+          ref.prepend(" · ");
+          note.append(ref);
+        }
+      }
+    }
+    locatorNodes(document, "[" + LOCATOR_REF + "]").forEach(measureLocator);
+    for (const meta of locatorPass.expected.values()) {
+      if (meta.members) continue;
+      const blank = locatorNodes(document, "[" + LOCATOR_TARGET + "]").find(
+        (node) => node.getAttribute(LOCATOR_TARGET) === meta.key
+      );
+      const ref = locatorReference(meta, locatorInstruction(meta));
+      ref.style.cssText = "position:absolute;visibility:hidden";
+      blank.parentElement.append(ref);
+      measureLocator(ref);
+      ref.remove();
+      ref.removeAttribute("style");
+      locatorPass.reservations.set(meta.key, ref);
+    }
+  }
+  const locatorInstruction = (meta) => meta.authored
+    ? "Original authored blank " + (meta.ordinal + 1) : "Original " + meta.name;
+  function locatorRegistry() {
+    for (const section of locatorNodes(document, "section.page[data-sheet]")) {
+      const actual = locatorStarts(section).length;
+      if (!Number.isSafeInteger(actual) || actual < 1 || actual > locatorPass.bound
+          || actual !== Number(section.dataset.pages)) {
+        throw new Error(
+          "Recording-locator local pages exceed or disagree with their source bound.");
+      }
+    }
+    const targets = locatorNodes(document, "[" + LOCATOR_TARGET + "]");
+    if (targets.some((node) => node.closest("[" + ADDED + "]"))) {
+      throw new Error("Generated context cannot own an original recording destination.");
+    }
+    const registry = [];
+    for (const meta of locatorPass.expected.values()) {
+      const places = [];
+      for (const member of meta.members ?? [meta.key]) {
+        const matches = targets.filter((node) => node.getAttribute(LOCATOR_TARGET) === member);
+        if (matches.length !== 1) {
+          throw new Error("An original recording destination is missing or duplicated.");
+        }
+        const blank = matches[0], page = locatorPage(blank),
+          field = blank.closest(".field,.result-field,.authored-blank");
+        if (!locatorVisible(blank) || !Number.isSafeInteger(page.page)
+            || page.page > locatorPass.bound || !locatorWithin(locatorRect(field), page)
+            || !locatorWithin(locatorRect(blank), page)) {
+          throw new Error("An original writing destination does not fit wholly on its local page.");
+        }
+        places.push({ member, page: page.page, sheet: page.sheet, identity: page.identity,
+          field: locatorRect(field), blank: locatorRect(blank),
+          top: page.top, bottom: page.bottom });
+      }
+      if (places.some((place) => place.sheet !== meta.section || place.identity !== meta.identity)
+          || (meta.members && new Set(places.map((place) => place.page)).size !== 1)) {
+        throw new Error(
+          "An original recording destination changed owner or split its progress pair.");
+      }
+      registry.push({ key: meta.key, page: places[0].page, places });
+    }
+    if (targets.some((node) => !locatorPass.expected.has(node.getAttribute(LOCATOR_TARGET)))) {
+      throw new Error("An original recording destination has an unknown identity.");
+    }
+    return registry;
+  }
+  function locatorLayout(registry) {
+    const nodes = locatorNodes(document, "section.page[data-sheet],section.page[data-sheet] *")
+      .filter((node) => locatorVisible(node)
+        && !node.matches(".fixed-locator-ink") && !node.closest(".fixed-locator-ink"));
+    const geometry = nodes.map((node) => [locatorRect(node), locatorLines(node)]);
+    const text = [], walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    let node;
+    while ((node = walker.nextNode())) {
+      if (node.parentElement.closest("script,style,.fixed-locator-ink")
+          || !locatorVisible(node.parentElement)) continue;
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      text.push([node.textContent, locatorLines(range)]);
+    }
+    const starts = locatorNodes(document, "section.page[data-sheet]").map(
+      (section) => [section.dataset.sheet, Number(section.dataset.pages),
+        locatorStarts(section).map((start) => [start.page, start.top]), locatorRect(section)]
+    );
+    return JSON.stringify([geometry, text, registry, CAP,
+      Number(document.documentElement.dataset.printWidth), starts]);
+  }
+  function finishLocators() {
+    const refs = locatorNodes(document, "[" + LOCATOR_REF + "]").filter(locatorVisible);
+    for (const ref of refs) {
+      const slot = ref.querySelector(".fixed-locator-digit"), style = slot.getAttribute("style");
+      measureLocator(ref);
+      if (slot.getAttribute("style") !== style) {
+        throw new Error("A recording locator changed its inherited reserved typography.");
+      }
+    }
+    const registry = locatorRegistry(), before = locatorLayout(registry),
+      byKey = new Map(registry.map((entry) => [entry.key, entry]));
+    for (const ref of refs) {
+      const target = byKey.get(ref.getAttribute(LOCATOR_REF));
+      const ink = ref.querySelector(".fixed-locator-digit")?.firstElementChild;
+      if (!target || !ink || ink.textContent !== "") {
+        throw new Error("A recording locator has no resolved original destination or empty slot.");
+      }
+      const value = String(target.page);
+      if (value.length > locatorPass.digits) {
+        throw new Error("A recording locator exceeds its source-bound digit reservation.");
+      }
+      ink.textContent = value;
+    }
+    if (before !== locatorLayout(locatorRegistry())) {
+      throw new Error("Recording-locator fill changed layout or the final destination registry.");
+    }
+    for (const ref of refs) {
+      const slot = ref.querySelector(".fixed-locator-digit"), ink = slot.firstElementChild,
+        page = locatorPage(ref), owner = ref.closest("tr,.cont-head,li,p,.op-action")
+          ?? ref.parentElement;
+      const ownerRect = locatorRect(owner), ownerBounds = { left: ownerRect[0],
+        top: ownerRect[1], right: ownerRect[2], bottom: ownerRect[3] },
+        refRects = locatorLines(ref), slotRect = locatorRect(slot);
+      if (!locatorWithin(slotRect, ownerBounds) || !locatorWithin(slotRect, page)) {
+        throw new Error("A recording-locator reservation escapes its owner or local print page.");
+      }
+      const walker = document.createTreeWalker(ref, NodeFilter.SHOW_TEXT);
+      let node;
+      while ((node = walker.nextNode())) {
+        for (let offset = 0; offset < node.length; offset++) {
+          const range = document.createRange();
+          range.setStart(node, offset);
+          range.setEnd(node, offset + 1);
+          for (const rect of locatorLines(range)) {
+            if (!rect[4] || !rect[5]) continue;
+            const containers = node.parentElement === ink ? [slotRect] : refRects;
+            if (!containers.some((bounds) => locatorWithin(rect,
+              { left: bounds[0], top: bounds[1], right: bounds[2], bottom: bounds[3] }))
+                || !locatorWithin(rect, ownerBounds) || !locatorWithin(rect, page)) {
+              throw new Error("A recording-locator glyph escapes its reservation or print owner.");
+            }
+          }
+        }
+      }
+    }
+  }
+  function locatorFieldContext(field) {
+    const meta = locatorPass.expected.get(field.getAttribute("data-locator-field-key"));
+    const nodes = [...(field.querySelector(".field-label")?.childNodes || [])];
+    if (!meta || locatorNodes(field.closest(".op-note,.op-action") ?? field,
+      "[" + LOCATOR_REF + "]").some((ref) => ref.getAttribute(LOCATOR_REF) === meta.key)) {
+      return nodes;
+    }
+    const ref = locatorPass.reservations.get(meta.key)?.cloneNode(true);
+    if (!ref) throw new Error("A recording reference lacks its pristine measured reservation.");
+    ref.prepend(" · ");
+    return [...nodes, ref];
+  }
   function paginate(section) {
     // Recompute roles at this print width; source continuations inherit them only
     // within this pass, never from an earlier pagination measurement.
@@ -275,6 +600,72 @@ _DUPLEX_JS = r"""(() => {
     const title = [section.dataset.part, section.dataset.drawing,
       section.dataset.revision ? "rev " + section.dataset.revision : "REV NOT CONFIRMED",
       section.dataset.title || section.dataset.sheet].filter(Boolean).join(" · ");
+    const titleOwners = new Map();
+    for (const source of section.querySelectorAll("h3.page-context > [data-title-source]")) {
+      const key = source.dataset.titleSource, units = new Map();
+      const walker = document.createTreeWalker(source, NodeFilter.SHOW_TEXT), nodes = [];
+      while (walker.nextNode()) nodes.push(walker.currentNode);
+      nodes.forEach((node, ordinal) => {
+        const identity = key + ":text:" + ordinal, span = document.createElement("span");
+        span.dataset.titleUnit = identity;
+        units.set(identity, node.length);
+        node.replaceWith(span);
+        span.append(node);
+      });
+      // DOM text lengths and Range offsets are UTF-16 units, including non-BMP titles.
+      titleOwners.set(key, { length: source.textContent.length, units });
+    }
+    for (const repeat of section.querySelectorAll("[data-title-repeat]")) {
+      const key = repeat.dataset.titleRepeat;
+      if (!titleOwners.has(key)) continue;
+      const walker = document.createTreeWalker(repeat, NodeFilter.SHOW_TEXT), nodes = [];
+      while (walker.nextNode()) nodes.push(walker.currentNode);
+      nodes.forEach((node, ordinal) => {
+        const span = document.createElement("span");
+        span.dataset.titleUnit = key + ":text:" + ordinal;
+        node.replaceWith(span);
+        span.append(node);
+      });
+    }
+    function fullTitleCanonicalOnPage(key) {
+      const owner = titleOwners.get(key);
+      if (!owner?.units.size) return false;
+      const left = section.getBoundingClientRect().left,
+        right = left + Number(document.documentElement.dataset.printWidth);
+      const within = (r) => r.left >= left - .01 && r.right <= right + .01
+        && r.top >= pageTop - .01 && r.bottom <= pageTop + CAP + .01;
+      for (const span of section.querySelectorAll("[data-title-source]")) {
+        if (span.dataset.titleSource !== key) continue;
+        const running = span.closest(".cont-context"), original = span.closest("h3.page-context");
+        if (!running && (!original || span.closest("[" + ADDED + "]"))) continue;
+        if (span.textContent.length !== owner.length) continue;
+        const units = [...span.querySelectorAll("[data-title-unit]")];
+        if (units.length !== owner.units.size || units.some((node) =>
+          !owner.units.has(node.dataset.titleUnit)
+            || node.textContent.length !== owner.units.get(node.dataset.titleUnit))) continue;
+        if (!span.getClientRects().length || !within(span.getBoundingClientRect())
+            || [...span.querySelectorAll("*")].some((node) =>
+              [...node.getClientRects()].some((rect) => !within(rect)))) continue;
+        if (units.some((node) => {
+          const range = document.createRange();
+          range.selectNodeContents(node);
+          return [...range.getClientRects()].some((rect) => !within(rect));
+        })) continue;
+        return true;
+      }
+      return false;
+    }
+    function refreshTitleCopies(t) {
+      for (const span of t.tHead?.querySelectorAll("[data-title-repeat]") || []) {
+        const key = span.dataset.titleRepeat, owner = titleOwners.get(key),
+          units = [...span.querySelectorAll("[data-title-unit]")];
+        const whole = owner && span.textContent.length === owner.length
+          && units.length === owner.units.size && units.every((node) =>
+            owner.units.has(node.dataset.titleUnit)
+              && node.textContent.length === owner.units.get(node.dataset.titleUnit));
+        span.toggleAttribute("data-title-suppressed", !!whole && fullTitleCanonicalOnPage(key));
+      }
+    }
     const contextHeads = new Map(
       [...section.querySelectorAll("[data-page-context]")].map((owner) => [
         owner.dataset.pageContext, owner.querySelector(":scope > .page-context")?.cloneNode(true)
@@ -287,9 +678,169 @@ _DUPLEX_JS = r"""(() => {
         ).map((row) => row.cloneNode(true))
       ])
     );
+    const instructionOwners = new Map();
+    function registerInstructionOwner(t, index) {
+      const intro = t.previousElementSibling,
+        mirror = t.tHead?.querySelector(":scope > tr.table-context");
+      if (!intro?.matches("p.table-intro") || !mirror
+          || intro.querySelector("figure,.field,.result-field,.authored-blank,"
+            + ".tick,.performed-mark,input")) return;
+      const key = "table:" + index + ":instruction", units = new Map();
+      intro.dataset.instructionSource = key;
+      mirror.dataset.instructionRef = key;
+      const walker = document.createTreeWalker(intro, NodeFilter.SHOW_TEXT), nodes = [];
+      while (walker.nextNode()) nodes.push(walker.currentNode);
+      nodes.forEach((node, ordinal) => {
+        const identity = key + ":text:" + ordinal, span = document.createElement("span");
+        span.dataset.instructionUnit = identity;
+        units.set(identity, node.length);
+        node.replaceWith(span);
+        span.append(node);
+      });
+      instructionOwners.set(key, units);
+    }
+    function fullInstructionOnPage(key) {
+      const units = instructionOwners.get(key);
+      if (!units?.size) return false;
+      const totals = new Map(), left = section.getBoundingClientRect().left,
+        right = left + Number(document.documentElement.dataset.printWidth);
+      const contained = (rect) => rect.left >= left - .01 && rect.right <= right + .01
+        && rect.top >= pageTop - .01 && rect.bottom <= pageTop + CAP + .01;
+      const fragments = [...section.querySelectorAll("[data-instruction-source]")].filter(
+        (node) => node.dataset.instructionSource === key && !node.closest("[" + ADDED + "]")
+      );
+      for (const fragment of fragments) {
+        const bounds = box(fragment);
+        if (bounds.top < pageTop - .01 || bounds.bottom > pageTop + CAP + .01
+            || !contained(fragment.getBoundingClientRect())
+            || [...fragment.querySelectorAll("*")].some((node) =>
+              !node.closest("[" + ADDED + "]")
+                && [...node.getClientRects()].some((rect) => !contained(rect)))) continue;
+        for (const unit of fragment.querySelectorAll("[data-instruction-unit]")) {
+          if (unit.closest("[" + ADDED + "]")) continue;
+          const identity = unit.dataset.instructionUnit;
+          if (!units.has(identity)) return false;
+          const range = document.createRange();
+          range.selectNodeContents(unit);
+          if ([...range.getClientRects()].some((rect) => !contained(rect))) continue;
+          totals.set(identity, (totals.get(identity) || 0) + unit.textContent.length);
+        }
+      }
+      return [...units].every(([identity, length]) => totals.get(identity) === length);
+    }
+    function refreshInstructionMirrors(t) {
+      for (const row of t.tHead?.querySelectorAll("[data-instruction-ref]") || []) {
+        if (fullInstructionOnPage(row.dataset.instructionRef)) {
+          row.dataset.contextSuppressed = "same-page";
+        } else row.removeAttribute("data-context-suppressed");
+      }
+    }
+    const ORDINARY_EXCLUSIONS = "figure,figcaption,.field,.result-field,.authored-blank,"
+      + ".writing-blank,.field-label,.tick,.performed-mark,input,textarea,select,button,svg,img,"
+      + ".record-continuation,.row-continuation,.page-context,.op-number,.op-details,"
+      + ".cont-head,[data-continuation-locator],.fixed-locator-reference,[" + ADDED + "]";
+    function ordinaryWholeCell(cell) {
+      if (cell?.nodeType !== Node.ELEMENT_NODE || !cell.matches("td,th")
+          || cell.closest("table.operations,[" + ADDED + "]")) return false;
+      const row = cell.parentElement;
+      if (row.matches(".operation-main,.inspection-record,.warn,.process-observations")
+          || cell.matches(ORDINARY_EXCLUSIONS) || cell.querySelector(ORDINARY_EXCLUSIONS)) {
+        return false;
+      }
+      if (cell.closest("table.fixture") && [...row.cells].indexOf(cell) < 2) return false;
+      for (const node of cell.querySelectorAll("*")) {
+        if (!/^(SPAN|BR|STRONG|B|EM|I)$/.test(node.tagName)
+            || [...node.classList].some(
+              (name) => !["reading", "fixture-feature"].includes(name)
+            )) return false;
+      }
+      const prose = cell.cloneNode(true);
+      prose.querySelectorAll(".reading").forEach((node) => node.remove());
+      return /\p{L}/u.test(prose.textContent);
+    }
+    function wholeCellPoints(el, points) {
+      if (el.tagName !== "TR" || el.closest("table.operations")) return points;
+      for (const cell of el.cells) {
+        if (ordinaryWholeCell(cell)) points.push([cell, cell.childNodes.length]);
+      }
+      return points.sort((a, b) => {
+        const left = document.createRange(), right = document.createRange();
+        left.setStart(...a);
+        left.collapse(true);
+        right.setStart(...b);
+        right.collapse(true);
+        return left.compareBoundaryPoints(Range.START_TO_START, right);
+      });
+    }
+    function residualSourcePayload(contents) {
+      const copy = contents.cloneNode(true);
+      copy.querySelectorAll("[" + ADDED + "],.record-continuation,.row-continuation,"
+        + ".fixed-locator-reference").forEach((node) => node.remove());
+      // Presence is not progress: whitespace and excluded original controls remain source.
+      return copy.textContent.length !== 0 || !!copy.querySelector(ORDINARY_EXCLUSIONS);
+    }
+    function cellColumnContains(cell) {
+      const rect = cell.getBoundingClientRect(), style = getComputedStyle(cell),
+        border = getComputedStyle(cell.closest("table")).borderCollapse === "collapse" ? .5 : 1;
+      const bounds = { left: rect.left + border * parseFloat(style.borderLeftWidth)
+          + parseFloat(style.paddingLeft),
+        right: rect.right - border * parseFloat(style.borderRightWidth)
+          - parseFloat(style.paddingRight),
+        top: rect.top + border * parseFloat(style.borderTopWidth) + parseFloat(style.paddingTop),
+        bottom: rect.bottom - border * parseFloat(style.borderBottomWidth)
+          - parseFloat(style.paddingBottom) };
+      const contained = (r) => r.left >= bounds.left - .1 && r.right <= bounds.right + .1
+        && r.top >= bounds.top - .1 && r.bottom <= bounds.bottom + .1;
+      const walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
+      while (walker.nextNode()) {
+        const node = walker.currentNode;
+        if (!node.textContent.trim() || node.parentElement.closest("[" + ADDED + "]")) continue;
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        if ([...range.getClientRects()].some(
+          (r) => r.width > 0 && r.height > 0 && !contained(r)
+        )) return false;
+      }
+      return [...cell.querySelectorAll(".reading,.fixture-feature")].every(
+        (node) => contained(node.getBoundingClientRect())
+      );
+    }
+    function admitWholeCells(el, point) {
+      let first = contentsAt(el, point), remaining = contentsAt(el, point, true);
+      const retained = [];
+      if (el.tagName === "TR" && ordinaryWholeCell(point[0])
+          && point[1] === point[0].childNodes.length) {
+        const slot = [...el.cells].indexOf(point[0]),
+          candidate = prefixBottom(el.closest("table"), el, first, [slot]);
+        if (!fits(candidate.bottom) || !candidate.contained) {
+          return { first, remaining, prefixCredit: false, tailCredit: originalText(remaining),
+            complete: false };
+        }
+        retained.push(slot);
+      }
+      if (el.tagName === "TR" && !el.closest("table.operations")) {
+        const original = [...el.cells];
+        for (let slot = 0; slot < original.length; slot++) {
+          if (first.children[slot].childNodes.length
+              || !remaining.children[slot].childNodes.length
+              || !ordinaryWholeCell(original[slot])) continue;
+          const contents = first.cloneNode(true);
+          contents.children[slot].replaceWith(original[slot].cloneNode(true));
+          const candidate = prefixBottom(el.closest("table"), el, contents, [...retained, slot]);
+          if (!fits(candidate.bottom) || !candidate.contained) continue;
+          first = contents;
+          remaining.children[slot].replaceChildren();
+          retained.push(slot);
+        }
+      }
+      const prefixCredit = originalText(first), tailCredit = originalText(remaining);
+      return { first, remaining, prefixCredit, tailCredit,
+        complete: prefixCredit && !residualSourcePayload(remaining) };
+    }
     const tableHeads = new Map(), fixtureRows = new Map();
     [...section.querySelectorAll("table")].forEach((t, index) => {
       t.dataset.tableContext = String(index);
+      registerInstructionOwner(t, index);
       const sources = [...t.querySelectorAll("thead > tr.repeat, "
         + "thead > tr.table-context")].map((row) => row.cloneNode(true));
       const candidate = (contents, css = "table-context") => {
@@ -361,7 +912,9 @@ _DUPLEX_JS = r"""(() => {
       (el) => !el.classList.contains("meta") && !el.classList.contains("banner")
     );
     const fits = (bottom) => bottom - pageTop <= CAP;
-    function prefixBottom(t, end, contents = null) {
+    function prefixBottom(t, end, contents = null, inspectSlots = null) {
+      refreshInstructionMirrors(t);
+      refreshTitleCopies(t);
       // Measure the actual retained table, including its closing rule and margin.
       // A same-slot probe preserves its columns, context and inherited typography.
       const probe = t.cloneNode(false), range = document.createRange();
@@ -380,7 +933,16 @@ _DUPLEX_JS = r"""(() => {
         probe.append(body);
       }
       t.before(probe);
-      try { return box(probe).bottom; }
+      try {
+        const bottom = box(probe).bottom;
+        if (inspectSlots === null) return bottom;
+        const row = [...probe.tBodies[probe.tBodies.length - 1].rows].at(-1),
+          bounds = probe.getBoundingClientRect(), left = section.getBoundingClientRect().left;
+        return { bottom, contained: [...new Set(inspectSlots)].every(
+          (slot) => cellColumnContains(row.cells[slot])
+        ) && bounds.left >= left - .1
+          && bounds.right <= left + Number(document.documentElement.dataset.printWidth) + .1 };
+      }
       finally { probe.remove(); }
     }
     function textBottom(el, contents) {
@@ -410,6 +972,8 @@ _DUPLEX_JS = r"""(() => {
       return relax && prepareFields(el) ? pageProgress(el, false) : null;
     }
     function compactContext(el, suffix = "") {
+      const references = locatorNodes(el, "[" + LOCATOR_REF + "]")
+        .map((ref) => ref.cloneNode(true));
       const identity = /^.*?\bop\s+\d+\b/.exec(el.textContent);
       if (!identity) return false;
       const range = document.createRange(),
@@ -419,7 +983,7 @@ _DUPLEX_JS = r"""(() => {
       while ((node = walker.nextNode())) {
         if (remaining <= node.length) {
           range.setEnd(node, remaining);
-          el.replaceChildren(range.cloneContents(), suffix);
+          el.replaceChildren(range.cloneContents(), suffix, ...references);
           return true;
         }
         remaining -= node.length;
@@ -467,6 +1031,7 @@ _DUPLEX_JS = r"""(() => {
         const context = document.createElement("span");
         context.className = "cont-context";
         context.append(...[...source.childNodes].map((node) => node.cloneNode(true)));
+        cleanLocatorCopy(context);
         head.append("\n", context);
         if (!fits(progress())) {
           if (!compactContext(context)) context.replaceChildren();
@@ -557,7 +1122,7 @@ _DUPLEX_JS = r"""(() => {
         }
         if (node.parentElement.closest(
           ".field, .result-field, .authored-blank, .performed-mark, .reading, "
-            + ".record-continuation, .op-details dt, [" + ADDED + "]"
+            + ".record-continuation, .fixed-locator-reference, .op-details dt, [" + ADDED + "]"
         )) continue;
         const feature = node.parentElement.closest(".fixture-feature");
         if (feature) {
@@ -593,7 +1158,7 @@ _DUPLEX_JS = r"""(() => {
           for (let offset = 1; offset < text.length; offset++) points.push([node, offset]);
         }
       }
-      return points;
+      return wholeCellPoints(el, points);
     }
     function rowContents(el, point, tail) {
       // A Range across a row omits cells outside the range. Clone every slot,
@@ -626,9 +1191,11 @@ _DUPLEX_JS = r"""(() => {
       // short repeatable identities and recording marks never do so alone.
       const copy = contents.cloneNode(true),
         identityOnly = '.page-context:not([' + CONTEXT_ROLE + '="source"])';
-      if (copy.matches?.(identityOnly + ", .record-continuation, [" + ADDED + "]")) return false;
+      if (copy.matches?.(identityOnly
+        + ", .record-continuation, .fixed-locator-reference, [" + ADDED + "]")) return false;
       copy.querySelectorAll(".performed-mark, .writing-blank, .record-continuation, "
-        + ".op-number, " + identityOnly + ", [" + ADDED + "]").forEach((node) => node.remove());
+        + ".fixed-locator-reference, .op-number, " + identityOnly + ", [" + ADDED + "]")
+        .forEach((node) => node.remove());
       return !!copy.matches?.("figure") || !!copy.querySelector("figure")
         || /[\p{L}\p{N}]/u.test(copy.textContent);
     }
@@ -726,12 +1293,16 @@ _DUPLEX_JS = r"""(() => {
         } else high = middle - 1;
       }
       for (; best >= 0; best--) {
-        const remaining = contentsAt(el, points[best], true);
-        if (!originalText(remaining)) continue;
-        const first = contentsAt(el, points[best]);
-        if (!originalText(first)) continue;
+        const candidate = admitWholeCells(el, points[best]);
+        if (!candidate.prefixCredit) continue;
+        const first = candidate.first, remaining = candidate.remaining;
+        if (candidate.complete && el.tagName === "TR") {
+          el.replaceChildren(first);
+          return el;
+        }
+        if (!candidate.tailCredit) continue;
         const rest = el.cloneNode(false);
-        rest.append(contentsAt(el, points[best], true));
+        rest.append(remaining);
         if (rest.dataset.rowContext) rest.dataset.rowContinuation = "";
         el.replaceChildren(first);
         el.after(rest);
@@ -775,13 +1346,13 @@ _DUPLEX_JS = r"""(() => {
       return null;
     }
     function contextRow(source) {
-      const row = source.cloneNode(true);
+      const row = cleanLocatorCopy(source.cloneNode(true));
       row.classList.add("operation-continuation");
       row.setAttribute(ADDED, "");
       row.querySelectorAll(".performed-mark, .writing-blank, figure")
         .forEach((mark) => mark.remove());
       row.querySelectorAll(".field, .result-field, .authored-blank").forEach((field) => {
-        field.replaceWith(...[...(field.querySelector(".field-label")?.childNodes || [])]);
+        field.replaceWith(...locatorFieldContext(field));
       });
       const number = row.querySelector(".op-number");
       if (number) number.append(" (continued)");
@@ -817,20 +1388,26 @@ _DUPLEX_JS = r"""(() => {
     }
     function tableContext(t, progress, optionalOnly = false) {
       if (!t.hasAttribute(SPLIT)) return;
+      refreshInstructionMirrors(t);
+      refreshTitleCopies(t);
       const budget = contextBudget(t, progress);
       for (const source of tableHeads.get(t.dataset.tableContext) || []) {
         if (optionalOnly && !source.hasAttribute("data-optional-context")) continue;
-        const row = source.cloneNode(true);
+        if (source.dataset.instructionRef && fullInstructionOnPage(source.dataset.instructionRef)) {
+          continue;
+        }
+        const row = cleanLocatorCopy(source.cloneNode(true));
         row.setAttribute(ADDED, "");
         row.querySelectorAll(".performed-mark, .writing-blank, .tick, figure")
           .forEach((mark) => mark.remove());
         row.querySelectorAll(".field, .result-field, .authored-blank").forEach((field) => {
-          field.replaceWith(...[...(field.querySelector(".field-label")?.childNodes || [])]);
+          field.replaceWith(...locatorFieldContext(field));
         });
         const columns = t.tHead.querySelector("tr:not(.repeat):not(.table-context)");
         const followingContext = optionalOnly && row.classList.contains("table-context")
           ? t.tHead.querySelector(`tr.table-context:not([${ADDED}])`) : null;
         (followingContext || columns).before(row);
+        refreshTitleCopies(t);
         if (fits(budget())) continue;
         if (row.hasAttribute("data-optional-context")) {
           row.remove();
@@ -904,7 +1481,10 @@ _DUPLEX_JS = r"""(() => {
         // row itself, never emit a page containing only a continuation label.
         const tail = fragment(rows[index]);
         if (!tail) return false;
+        const completed = tail === rows[index];
         index += 1;
+        // A complete original row has no fragment tail; following canonical rows still move.
+        if (completed && index >= body.rows.length) return true;
       }
       const rest = body.cloneNode(false);
       if (!t.classList.contains("operations")) rest.setAttribute("data-duplex-fragment", "");
@@ -976,6 +1556,8 @@ _DUPLEX_JS = r"""(() => {
     }
     function table(t) {
       const over = () => {
+        refreshInstructionMirrors(t);
+        refreshTitleCopies(t);
         const bodies = [...t.tBodies];
         if (!bodies.length) return -1;
         const ending = box(t).bottom - box(bodies[bodies.length - 1]).bottom;
@@ -1111,6 +1693,7 @@ _DUPLEX_JS = r"""(() => {
       root.dataset.pageCapacity = CAP;
       root.dataset.printWidth = measure.getBoundingClientRect().width;
       measure.remove();
+      prepareLocators();
       document.querySelectorAll("ol").forEach((list) => {
         [...list.children].filter((item) => item.tagName === "LI").forEach((item, index) => {
           item.value = list.start + index;
@@ -1123,6 +1706,7 @@ _DUPLEX_JS = r"""(() => {
         blank.setAttribute("aria-hidden", "true");
         section.after(blank);
       }
+      finishLocators();
     } catch (error) {
       reset();
       root.classList.remove("paged");
@@ -1134,6 +1718,7 @@ _DUPLEX_JS = r"""(() => {
       warning.textContent = "PRINT LAYOUT ERROR — " + error.message;
       body.prepend(warning);
     } finally {
+      locatorPass = null;
       root.classList.remove("print-measuring");
       if (saved === null) body.removeAttribute("style");
       else body.setAttribute("style", saved);
@@ -1160,7 +1745,8 @@ _WHOLE = re.compile(r"\d+")
 _READING_VALUE = r"[-−+±]?(?:(?:\d+\s+)?\d+/\d+|\d+(?:\.\d+)?|\.\d+)"
 _READING_UNITS = r"(?:\s*(?:(?:mm|in)(?:/(?:rev|min))?|rpm|sfm|°)(?!\w))?"
 _READING = re.compile(
-    rf"(?<![\w.])(?:M\d+(?:\.\d+)?(?:\s*[x×]\s*\d+(?:\.\d+)?)?"
+    rf"(?<![\w.])[-−+][XYZ] (?:{_READING_VALUE}{_READING_UNITS}|\?)(?!\w|\.\d)"
+    rf"|(?<![\w.])(?:M\d+(?:\.\d+)?(?:\s*[x×]\s*\d+(?:\.\d+)?)?"
     rf"|#\d+-\d+|\d+/\d+-\d+)"
     rf"(?:\s*[x×]\s*{_READING_VALUE}{_READING_UNITS})?(?!\w|\.\d)"
     rf"|(?<![\w.])(?:[XYZØRD]\s*(?:[→=]\s*)?)?{_READING_VALUE}"
@@ -1900,6 +2486,7 @@ def _table(
     strong=(),
     context=None,
     repeat_locator=None,
+    repeat_owner=None,
 ):
     """Repeat the table's context on continuations. Each body is one keep-together group;
     operations use full-width ledger rows instead of compressed columns. ``strong``
@@ -1923,8 +2510,15 @@ def _table(
                 if kind == "repeat" and repeat_locator
                 else ""
             )
+            rendered_title = _numeric_html(title)
+            if kind == "repeat" and repeat_owner:
+                rendered_title = (
+                    f'<span data-title-repeat="{escape(repeat_owner)}">'
+                    + rendered_title
+                    + "</span>"
+                )
             result.append(
-                f'<tr class="{kind}"><th colspan="{count}">{_numeric_html(title)}'
+                f'<tr class="{kind}"><th colspan="{count}">{rendered_title}'
                 + (" · " + locator if locator else "")
                 + "</th></tr>"
             )
@@ -4767,7 +5361,7 @@ class _Traveler:
                 ],
                 rows,
                 css="zero",
-                widths=[9, 41, 13, 11, 13, 13],
+                widths=[9, 38, 13, 14, 13, 13],
             )
         )
         pieces.extend(measurements)
@@ -7203,7 +7797,12 @@ class _Traveler:
                 title += f" · Z {next(iter(entry['z']))}"
             if op.get("direction"):
                 title += f" · {self.direction(op['direction'])}"
-            content = f'<h3 class="page-context">{_numeric_html(title)}</h3>'
+            title_owner = f"contour:{op_id}"
+            content = (
+                '<h3 class="page-context">'
+                f'<span data-title-source="{escape(title_owner)}">{_numeric_html(title)}</span>'
+                "</h3>"
+            )
             note = self.level_entries(setup, op, waypoints) if op else ""
             if note:
                 content += note
@@ -7293,6 +7892,7 @@ class _Traveler:
                             cells,
                             css="coords",
                             repeat=title,
+                            repeat_owner=title_owner,
                             repeat_locator=(
                                 f"Optional progress only: see {progress_owner}"
                                 if progress

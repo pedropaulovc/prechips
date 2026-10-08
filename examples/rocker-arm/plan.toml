@@ -1130,7 +1130,7 @@ tool = "reamers-metric/6.5mm"
 holder = "drill-chuck-r8"
 exit_mm = 2.0 # author's choice, past the 1.0 mm reamer lead
 approach_mm = 5.0
-note = "Indicate the pilot centre before reaming and record it; re-indicate the reamed bore after op 20 and record the centre shift ______. PROCESS STOP (not a drawing limit): if the reamed centre has moved more than 0.020 mm radially from the pilot, stop the batch; the shift would carry pilot error into datum A and the rod-hole position."
+note = "Indicate the pilot centre before reaming and record it {pilot centre}; re-indicate the reamed bore after op 20 and record the centre shift {centre shift}. PROCESS STOP (not a drawing limit): if the reamed centre has moved more than 0.020 mm radially from the pilot, stop the batch; the shift would carry pilot error into datum A and the rod-hole position."
 
 [setups.ops.checks]
 dia = "rocker-bore-limit-gauges" # calibrated example GO 6.500 / NO-GO 6.530 plugs

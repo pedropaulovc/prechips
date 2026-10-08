@@ -527,7 +527,10 @@ def test_continuations_repeat_full_applicable_contour_and_local_table_context(pr
     assert len(printed.find("tick")) == len(original.find("tick")) == 6
 
 
-def test_public_crowded_contour_continuations_keep_status_and_owned_progress_locator(printed_sheet):
+@pytest.mark.parametrize("crowded", [False, True], ids=["full-context", "crowded-context"])
+def test_public_crowded_contour_continuations_keep_status_and_owned_progress_locator(
+    printed_sheet, crowded
+):
     from types import SimpleNamespace
 
     from prechips.sheet import render_traveler
@@ -539,7 +542,8 @@ def test_public_crowded_contour_continuations_keep_status_and_owned_progress_loc
     bundle.plan["setups"][0]["ops"] = [
         op for op in bundle.plan["setups"][0]["ops"] if op["op"] in (30, 40)
     ]
-    depths = [-0.6 * (index + 1) / 240 for index in range(240)]
+    level_count = 240 if crowded else 4
+    depths = [-0.6 * (index + 1) / level_count for index in range(level_count)]
     depths[-1] = -0.6
     numbers = {"operations": [], "line_table": []}
     for op in (30, 40):
@@ -587,11 +591,71 @@ def test_public_crowded_contour_continuations_keep_status_and_owned_progress_loc
     prepare = r"""() => {
       const parsed = new DOMParser().parseFromString(__PUBLIC__, 'text/html');
       const sections = [...parsed.querySelectorAll('section.page[data-sheet]')];
+      window.expectedContourTitles = __TITLES__;
       window.originalStatuses = Object.fromEntries(sections.map(section =>
         [section.dataset.sheet, section.querySelector(':scope > .banner').textContent]));
       document.querySelector('section.page').replaceWith(...sections);
-    }""".replace("__PUBLIC__", json.dumps(html).replace("<", "\\u003c"))
-    probe = r"""() => ({
+    }""".replace("__PUBLIC__", json.dumps(html).replace("<", "\\u003c")).replace(
+        "__TITLES__", json.dumps(expected_titles).replace("<", "\\u003c")
+    )
+    probe = r"""() => {
+      const printedPage = node => {
+        const section = node.closest('section.page[data-sheet]');
+        const head = [...section.querySelectorAll('.cont-head')].filter(candidate =>
+          candidate.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING).at(-1);
+        const printed = head?.querySelector('.cont-count').textContent.match(/Page\s+(\d+)/i);
+        return {identity: section.dataset.title, page: printed ? Number(printed[1]) : 1};
+      };
+      const titlePresentations = [];
+      for (const container of document.querySelectorAll(
+          '.contour > h3.page-context, .cont-head .cont-context, table.coords thead .repeat')) {
+        const section = container.closest('section.page[data-sheet]');
+        const bounds = section.getBoundingClientRect();
+        const tops = [bounds.top, ...[...section.querySelectorAll('.cont-head')]
+          .map(head => head.getBoundingClientRect().top)];
+        const capacity = Number(document.documentElement.dataset.pageCapacity);
+        const width = Number(document.documentElement.dataset.printWidth);
+        const segments = [], walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+        let text = '';
+        while (walker.nextNode()) {
+          const node = walker.currentNode;
+          segments.push({node, start: text.length, end: text.length + node.length});
+          text += node.textContent;
+        }
+        for (const title of window.expectedContourTitles) {
+          const start = text.indexOf(title);
+          if (start < 0) continue;
+          const glyphs = [];
+          let complete = true;
+          for (let i = 0; i < title.length; i++) {
+            if (!title[i].trim()) continue;
+            const segment = segments.find(part => part.start <= start + i && part.end > start + i);
+            const range = document.createRange();
+            range.setStart(segment.node, start + i - segment.start);
+            range.setEnd(segment.node, start + i - segment.start + 1);
+            const rects = [...range.getClientRects()].filter(rect => rect.width && rect.height);
+            complete &&= rects.length > 0
+              && getComputedStyle(segment.node.parentElement).visibility === 'visible';
+            for (const rect of rects) {
+              const page = tops.findLastIndex(top => top <= rect.top + .01);
+              glyphs.push({page: page + 1, fits: page >= 0
+                && rect.left >= bounds.left - .01 && rect.right <= bounds.left + width + .01
+                && rect.top >= tops[page] - .01 && rect.bottom <= tops[page] + capacity + .01});
+            }
+          }
+          titlePresentations.push({title, identity: section.dataset.title,
+            repeated: container.closest('table') !== null,
+            full: complete && glyphs.length > 0 && glyphs.every(glyph => glyph.fits)
+              && new Set(glyphs.map(glyph => glyph.page)).size === 1,
+            page: glyphs[0]?.page ?? null});
+        }
+      }
+      return {
+      titlePresentations,
+      tablePages: [...document.querySelectorAll('table.coords')].map(table => ({
+        ...printedPage(table),
+        ownerTitle: table.closest('.contour').querySelector(':scope > h3').textContent
+      })),
       sourceHTML: [...document.querySelectorAll('section.page[data-sheet]')]
         .map(section => section.outerHTML).join(''),
       runningStatuses: [...document.querySelectorAll('.cont-head')].map(head => ({
@@ -600,7 +664,7 @@ def test_public_crowded_contour_continuations_keep_status_and_owned_progress_loc
       })),
       continuedHeaders: [...document.querySelectorAll('table.coords[data-duplex-split]')]
         .map(table => {
-        const repeat = table.querySelector('thead .repeat[data-duplex]');
+        const repeat = table.querySelector('thead .repeat');
         const section = table.closest('section.page'), sectionBox = section.getBoundingClientRect();
         const tops = [sectionBox.top, ...[...section.querySelectorAll('.cont-head')]
           .map(head => head.getBoundingClientRect().top)];
@@ -623,6 +687,11 @@ def test_public_crowded_contour_continuations_keep_status_and_owned_progress_loc
         const inside = box => box.left >= sectionBox.left-.01
           && box.right <= sectionBox.left+width+.01
           && box.top >= top-.01 && box.bottom <= top+capacity+.01;
+        const owner = table.closest('.contour');
+        const fields = [...owner.querySelectorAll('.path-progress .writing-blank')];
+        const destinations = fields.map(printedPage);
+        const locator = repeat?.querySelector('[data-continuation-locator]');
+        const pointedPage = locator?.textContent.match(/, page (\d+)\s*$/);
         return {
           text: repeat?.textContent ?? '',
           originalRows: [...table.tBodies].flatMap(body => [...body.rows]).length,
@@ -633,10 +702,15 @@ def test_public_crowded_contour_continuations_keep_status_and_owned_progress_loc
           glyphsFit: top !== null && glyphs.every(inside),
           headerFits: repeat ? inside(repeat.getBoundingClientRect()) : false,
           tableFits: table.getBoundingClientRect().bottom
-            + parseFloat(getComputedStyle(table).marginBottom) <= top+capacity+.01
+            + parseFloat(getComputedStyle(table).marginBottom) <= top+capacity+.01,
+          destinationCount: fields.length,
+          destinations,
+          pointer: locator?.textContent ?? '',
+          pointedPage: pointedPage ? Number(pointedPage[1]) : null,
         };
       })
-    })"""
+      };
+    }"""
     _, details = printed_sheet("", probe, prepare)
     printed = Markup(details["sourceHTML"])
     assert details["runningStatuses"]
@@ -664,9 +738,29 @@ def test_public_crowded_contour_continuations_keep_status_and_owned_progress_loc
         assert header["visible"] and header["originalRows"] and not header["writable"]
         assert header["glyphCount"] > 0 and header["glyphsFit"] and header["headerFits"]
         assert header["tableFits"]
+        assert header["destinationCount"] == 2
+        (destination,) = {(place["identity"], place["page"]) for place in header["destinations"]}
+        identity, page = destination
+        assert identity in header["pointer"]
+        assert header["pointedPage"] == page
         if expected_titles[(30, 40).index(op)] not in header["text"]:
             compact_owners.add(op)
-    assert compact_owners == {30, 40}
+    assert compact_owners == ({30, 40} if crowded else set())
+    qualified_pages = 0
+    for table in details["tablePages"]:
+        presentations = [
+            presentation
+            for presentation in details["titlePresentations"]
+            if presentation["title"] == table["ownerTitle"]
+            and presentation["identity"] == table["identity"]
+            and presentation["page"] == table["page"]
+            and presentation["full"]
+        ]
+        if any(not presentation["repeated"] for presentation in presentations):
+            qualified_pages += 1
+            assert len(presentations) == 1, (table, presentations)
+    if not crowded:
+        assert qualified_pages, "Exercise complete original or running owner title on a table page"
 
 
 def test_readings_continuations_repeat_only_their_own_title_and_original_units(printed_sheet):
@@ -729,27 +823,76 @@ def test_readings_continuations_repeat_only_their_own_title_and_original_units(p
 def test_fixture_position_fragments_repeat_component_and_size_in_the_same_slots(printed_sheet):
     from test_sheet_fixture import TURNED, bundle
 
+    from prechips.sheet import _fields
+
     data = bundle([{"fixture": "plate", "pose": TURNED}])
     fixture = data.inventory["fixtures"]["plate"]
-    fixture["solids"] = [fixture["solids"][0]]
+    first = {**fixture["solids"][0], "fastener": "M6 stud"}
+    fixture["solids"] = [
+        first,
+        {**first, "name": "following support", "size_mm": [12, 20, 5]},
+    ]
     sheet = _Traveler(data, [], {}, None)
     words = [f"OriginalPosition{index:04}" for index in range(500)]
-    sheet.solid_position = lambda *args, **kwargs: " ".join(words)
+    sheet.solid_position = lambda solid, *args, **kwargs: (
+        "  ".join(words) if solid["name"] == first["name"] else "Following original position"
+    )
     source = sheet.shop_made_table(data.plan["setups"][0], "plate", [("C1", TURNED)])
+    source += f"<p>{_fields('Record existing observation: {observed}')}</p>"
     original = Markup(source)
     (table,) = original.find("fixture")
-    (row,) = _body_rows(original, table)
+    row, following = _body_rows(original, table)
     values = [content(cell) for cell in _cells(original, row)]
-    printed, details = printed_sheet(source, _SOURCE_PAGES)
+    following_values = [content(cell) for cell in _cells(original, following)]
+    original_readings = [content(node) for node in original.find("reading")]
+    probe = _SOURCE_PAGES.replace(
+        "pages: Number(section.dataset.pages),",
+        """pages: Number(section.dataset.pages),
+        rows: [...section.querySelectorAll('table.fixture > tbody > tr')].map(row => {
+          const page = pageOf(row), box = row.getBoundingClientRect();
+          return {
+            fits: box.top >= tops[page] - .1 && box.bottom <= tops[page]
+              + Number(document.documentElement.dataset.pageCapacity) + .1,
+            slots: [...row.cells].map(cell => {
+              const box = cell.getBoundingClientRect(), glyphs = [];
+              const walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
+              while (walker.nextNode()) {
+                const node = walker.currentNode;
+                if (node.parentElement.closest('[data-duplex]')) continue;
+                const range = document.createRange(); range.selectNodeContents(node);
+                glyphs.push(...[...range.getClientRects()].filter(rect => rect.width && rect.height)
+                  .map(rect => ({left: rect.left, right: rect.right,
+                    top: rect.top, bottom: rect.bottom})));
+              }
+              return {text: cell.textContent, left: box.left, right: box.right,
+                top: box.top, bottom: box.bottom, glyphs};
+            })
+          };
+        }),""",
+    )
+    printed, details = printed_sheet(source, probe)
     _assert_source_on_every_page(details)
     tables = printed.find("fixture")
     assert len(tables) > 1
     reconstructed = [[] for _ in values]
     repeats = [0, 0]
+    assert all(row["fits"] for row in details["rows"])
+    first_fragment = details["rows"][0]
+    assert first_fragment["slots"][2]["text"] != values[2]
+    assert first_fragment["slots"][-1]["text"] == values[-1]
+    fastener = first_fragment["slots"][-1]
+    assert fastener["glyphs"]
+    for glyph in fastener["glyphs"]:
+        assert fastener["left"] - 0.1 <= glyph["left"] <= glyph["right"] <= fastener["right"] + 0.1
+        assert fastener["top"] - 0.1 <= glyph["top"] <= glyph["bottom"] <= fastener["bottom"] + 0.1
+    following_rows = []
     for table in tables:
         rows = _body_rows(printed, table)
         assert rows
         for row in rows:
+            if content(_cells(printed, row)[0]) == following_values[0]:
+                following_rows.append([content(cell) for cell in _cells(printed, row)])
+                continue
             cells = _cells(printed, row)
             assert len(cells) == len(values)
             assert all(cell["attrs"].get("colspan", "1") == "1" for cell in cells)
@@ -769,6 +912,13 @@ def test_fixture_position_fragments_repeat_component_and_size_in_the_same_slots(
                     reconstructed[index].append(content(cell))
     assert all(repeats)
     assert ["".join(parts) for parts in reconstructed] == values
+    assert following_rows == [following_values]
+    assert [
+        content(node) for node in printed.find("reading") if _original(node)
+    ] == original_readings
+    (field,) = printed.find("writing-blank")
+    assert _original(field)
+    assert len(printed.find("field")) == len(original.find("field")) == 1
     assert re.findall(r"OriginalPosition\d{4}", "".join(reconstructed[2])) == words
 
 
@@ -1052,6 +1202,7 @@ def test_whole_table_moved_after_its_op_note_gets_context_with_original_rows(pri
     )
     table_instruction = "Follow the original -X side in the listed row order."
     moved = 0
+    visible_original = visible_repeated = False
     for fraction in (0.45, 0.55, 0.65):
         source = (
             '<p>Original departing-page work</p><div class="boundary-filler"></div>'
@@ -1075,6 +1226,8 @@ def test_whole_table_moved_after_its_op_note_gets_context_with_original_rows(pri
             )
             + "</div>"
         )
+        original = Markup(source)
+        instructions = [content(node) for node in original.find("table-intro")]
         prepare = """() => {
           const root = document.documentElement, body = document.body;
           const saved = body.getAttribute('style');
@@ -1101,11 +1254,67 @@ def test_whole_table_moved_after_its_op_note_gets_context_with_original_rows(pri
                   .find(node => !node.closest('[data-duplex]'))),
                 rowPages: [...section.querySelectorAll('table.coords > tbody > tr')]
                   .filter(row => !row.closest('[data-duplex]')
-                    && row.cells[0].textContent.startsWith('MovedOriginalRow')).map(pageOf),""",
+                    && row.cells[0].textContent.startsWith('MovedOriginalRow')).map(pageOf),
+                tablePages: [...section.querySelectorAll('table.coords')].map(table =>
+                  [...table.tBodies].flatMap(body => [...body.rows]).map(row => ({
+                    text: row.cells[0].textContent, page: pageOf(row)
+                  }))),
+                instructions: [...section.querySelectorAll('p.table-intro, thead .table-context')]
+                  .map(node => {
+                    const glyphs = [],
+                      walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+                    const bounds = section.getBoundingClientRect();
+                    let expected = 0;
+                    while (walker.nextNode()) {
+                      const text = walker.currentNode;
+                      for (let i = 0; i < text.length; i++) {
+                        if (!text.textContent[i].trim()) continue;
+                        expected++;
+                        const range = document.createRange();
+                        range.setStart(text, i); range.setEnd(text, i + 1);
+                        const page = pageOf(range);
+                        const style = getComputedStyle(text.parentElement);
+                        if (style.visibility !== 'visible') continue;
+                        for (const rect of range.getClientRects()) {
+                          if (!rect.width || !rect.height) continue;
+                          glyphs.push({page, fits: rect.left >= bounds.left - .1
+                            && rect.right <= bounds.right + .1
+                            && rect.top >= tops[page] - .1 && rect.bottom <= tops[page]
+                              + Number(document.documentElement.dataset.pageCapacity) + .1});
+                        }
+                      }
+                    }
+                    return {text: node.textContent, original: node.tagName === 'P',
+                      expected, glyphs};
+                  }),""",
             ),
             prepare,
         )
         assert len(details["rowPages"]) == 4 and len(set(details["rowPages"])) == 1
+        assert [
+            content(node) for node in printed.find("table-intro") if _original(node)
+        ] == instructions
+        for instruction, prefix in zip(
+            instructions, ("MovedOriginalRow", "FollowingOriginalRow"), strict=True
+        ):
+            copies = [copy for copy in details["instructions"] if copy["text"] == instruction]
+            table_pages = {
+                row["page"]
+                for rows in details["tablePages"]
+                for row in rows
+                if row["text"].startswith(prefix)
+            }
+            assert table_pages
+            for page in table_pages:
+                full = [
+                    copy
+                    for copy in copies
+                    if len(copy["glyphs"]) == copy["expected"] > 0
+                    and all(glyph["fits"] and glyph["page"] == page for glyph in copy["glyphs"])
+                ]
+                assert len(full) == 1, (instruction, page, copies)
+                visible_original |= full[0]["original"]
+                visible_repeated |= not full[0]["original"]
         if details["notePage"] == details["rowPages"][0]:
             continue
         moved += 1
@@ -1135,6 +1344,8 @@ def test_whole_table_moved_after_its_op_note_gets_context_with_original_rows(pri
             if content(_cells(printed, row)[0]).startswith("FollowingOriginalRow")
         ] == [f"FollowingOriginalRow{index}" for index in range(16)]
     assert moved, "Exercise an original table moved whole after its retained op paragraph"
+    assert visible_original, "Exercise a complete original intro on its table's actual page"
+    assert visible_repeated, "Exercise a full repeated instruction with its original offpage"
 
 
 @pytest.mark.parametrize("component", ["Locator plate", "W" * 100], ids=["ordinary", "100W"])
@@ -1745,6 +1956,95 @@ def test_mixed_worksheet_prompts_keep_sole_named_table_field_and_clear_underscor
     assert underscore["label"] == authored[1].split("______")[0]
     assert underscore["clearWidth"] >= 20 * 96 / 25.4 - 0.05
     assert underscore["clearHeight"] >= 20 * 96 / 25.4 - 0.05
+
+    # Consume the real authored before/after reaming note, without a native kernel
+    # or invented measurement results. Its two destinations are not a worksheet.
+    bundle = load_bundle(ROOT / "examples" / "rocker-arm" / "plan.toml")
+    setup = next(setup for setup in bundle.plan["setups"] if setup["id"] == "S3")
+    (op,) = setup["ops"]
+    sheet = _Traveler(bundle, [], {}, None)
+    sheet.setup = setup
+    tool_numbers, _, _ = sheet.tool_table(setup)
+    source, _, _, _ = sheet.operations(
+        setup, tool_numbers, {"notes": 2, "contours": 3, "worksheets": 4}
+    )
+    original = Markup(source)
+    printed, note_details = printed_sheet(
+        source,
+        """pageOf => {
+        const note = [...document.querySelectorAll('.op-note')]
+          .find(node => !node.closest('[data-duplex]'));
+        const original = note.cloneNode(true);
+        original.querySelectorAll('.fixed-locator-reference').forEach(ref => ref.remove());
+        return {
+        originalNote: original.textContent,
+        pointers: [...note.querySelectorAll('.fixed-locator-reference')].map(ref => {
+          const range = document.createRange(); range.selectNodeContents(ref);
+          return {
+            text: ref.textContent,
+            identity: ref.closest('section.page').dataset.title
+              || ref.closest('section.page').dataset.sheet,
+            page: Number(ref.textContent.match(/, page (\\d+)\\s*$/)[1]),
+            visible: [...range.getClientRects()].some(box => box.width && box.height),
+            writable: ref.querySelectorAll('.writing-blank').length
+          };
+        }),
+        spaces: [...note.querySelectorAll('.writing-blank')].map(box => {
+          const field = box.closest('.field');
+          const label = field.querySelector('.field-label');
+          const style = getComputedStyle(box), bounds = box.getBoundingClientRect();
+          return {
+            label: label.textContent,
+            page: pageOf(box) + 1,
+            original: !box.closest('[data-duplex]'),
+            samePage: pageOf(label) === pageOf(box),
+            visible: style.display !== 'none' && style.visibility === 'visible',
+            clearWidth: bounds.width - parseFloat(style.borderLeftWidth)
+              - parseFloat(style.borderRightWidth) - parseFloat(style.paddingLeft)
+              - parseFloat(style.paddingRight),
+            clearHeight: bounds.height - parseFloat(style.borderTopWidth)
+              - parseFloat(style.borderBottomWidth) - parseFloat(style.paddingTop)
+              - parseFloat(style.paddingBottom)
+          };
+        })};
+        }""",
+    )
+    (note,) = [node for node in printed.find("op-note") if _original(node)]
+    assert note_details["originalNote"] == re.sub(r"\{([^{}]+)\}", r"\1", op["note"])
+    assert [content(label) for label in printed.find("field-label", note)] == [
+        "pilot centre",
+        "centre shift",
+    ]
+    assert len(printed.find("writing-blank", note)) == 2
+    assert not printed.find("authored-blank", note)
+    note_spaces = note_details["spaces"]
+    assert len(note_details["pointers"]) == len(note_spaces)
+    for pointer in note_details["pointers"]:
+        (destination,) = [
+            space
+            for space in note_spaces
+            if pointer["text"].startswith(f" · Original {space['label']} — ")
+        ]
+        assert pointer["visible"] and not pointer["writable"]
+        assert pointer["identity"] in pointer["text"]
+        assert pointer["page"] == destination["page"]
+    assert [space["label"] for space in note_spaces] == ["pilot centre", "centre shift"]
+    assert all(
+        space["original"]
+        and space["samePage"]
+        and space["visible"]
+        and space["clearWidth"] >= 35 * 96 / 25.4 - 0.05
+        and space["clearHeight"] >= 10 * 96 / 25.4 - 0.05
+        for space in note_spaces
+    )
+    # Criterion-owned and unresolved destinations stay separate from authored fields.
+    original_records = original.find("inspection-record")
+    printed_records = [node for node in printed.find("inspection-record") if _original(node)]
+    assert [(node["attrs"]["data-requirement"], content(node)) for node in printed_records] == [
+        (node["attrs"]["data-requirement"], content(node)) for node in original_records
+    ]
+    assert {node["attrs"]["data-requirement"] for node in printed_records} == set(op["checks"])
+    assert all(len(printed.find("writing-blank", node)) == 1 for node in printed_records)
 
 
 @pytest.mark.parametrize(

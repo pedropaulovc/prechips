@@ -2254,7 +2254,11 @@ def test_authored_step_fields_keep_numbered_order_and_existing_note_heading():
 def test_numeric_prose_table_cells_preserve_whole_signed_decimals_and_source_bytes():
     from prechips.sheet import _table
 
-    source = "Limit −1.9875/1.9850, ±0.0050 mm. R799.49 / .0020 in/rev."
+    jogs = ("+X 10.000", "−Y 0.020 mm", "+Z .0020 in", "−X 1/8 in", "+Y ?", "−Z ?")
+    controls = ("+X side", "−Y side", "+x 10.000", "+X unknown", "+X ?side")
+    source = "Limit −1.9875/1.9850, ±0.0050 mm. R799.49 / .0020 in/rev. " + "; ".join(
+        (*jogs, *controls)
+    )
     markup = Markup(_table(["fastener"], [[source]]))
     cell = next(node for node in markup.nodes if node["tag"] == "td")
     assert content(cell) == source
@@ -2263,6 +2267,8 @@ def test_numeric_prose_table_cells_preserve_whole_signed_decimals_and_source_byt
         value in readings
         for value in ("−1.9875", "1.9850", "±0.0050 mm", "R799.49", ".0020 in/rev")
     )
+    assert [value for value in readings if value in jogs] == list(jogs)
+    assert not any(value in readings for value in controls)
 
 
 def test_coating_optional_space_is_not_a_dimensional_inspection_record():
@@ -2456,28 +2462,70 @@ def test_printed_shaft_fit_up_field_has_its_own_line_before_the_next_sentence(pr
 
 
 @pytest.mark.parametrize(
-    "callout", ["Ø6.475–6.495 mm", "#10-32 x 5/8 in", "M5x0.8", "3/8-16", "3/8 in"]
+    "callout",
+    [
+        "Ø6.475–6.495 mm",
+        "#10-32 x 5/8 in",
+        "M5x0.8",
+        "3/8-16",
+        "3/8 in",
+        "+X 10.000",
+        "−Y 10.000",
+        "−Y 0.020 mm",
+        "+Z .0020 in",
+        "−X 1/8 in",
+        "+Y ?",
+        "−Z ?",
+    ],
 )
-def test_printed_compound_callouts_stay_whole_without_losing_source_text(printed_sheet, callout):
+def test_printed_compound_callouts_stay_whole_without_losing_source_text(
+    printed_sheet, callout, monkeypatch
+):
     from prechips.sheet import _table
 
     text = f"Use {callout}; retain the original callout."
     source = _table(["Component", "Size"], [["Authored component", text]], css="fixture")
+    jog = re.fullmatch(r"([+−])([XYZ]) (10\.000|\?)", callout)
+    if jog and (jog[3] != "?" or jog[1] == "+"):
+        monkeypatch.setattr("prechips.sheet.stock_states", lambda bundle, setup: [])
+        sheet = example_sheet("rocker-arm/plan.toml")
+        setup = next(setup for setup in sheet.plan["setups"] if setup["id"] == "P1")
+        sheet.setup = setup
+        sheet.records[("zero_check", "P1")] = {
+            "axes": {
+                jog[2].lower(): {
+                    "axis_set": 0.0,
+                    "check_reading": 10.0,
+                    "mirrored_reading": -10.0,
+                    "jog_mm": ("unknown" if jog[3] == "?" else -10.0 if jog[1] == "−" else 10.0),
+                }
+            }
+        }
+        _, tools, _ = sheet.tool_table(setup)
+        source = sheet.dro(setup, tools)
+        text = callout
     original = Markup(source)
     cell = next(node for node in original.nodes if node["tag"] == "td" and content(node) == text)
     assert callout in [content(node) for node in original.find("reading", cell)]
     printed, readings = printed_sheet(
         source,
-        """pageOf => [...document.querySelectorAll('.reading')].map(el => {
+        """pageOf => [...document.querySelectorAll('td .reading')].map(el => {
           const range = document.createRange(); range.selectNodeContents(el);
           const rects = [...range.getClientRects()].filter(r => r.width > 0);
-          const cell = el.closest('td').getBoundingClientRect();
+          const owner = el.closest('td'), cell = owner.getBoundingClientRect();
+          const style = getComputedStyle(owner);
+          const border = getComputedStyle(owner.closest('table')).borderCollapse === 'collapse'
+            ? .5 : 1;
+          const left = cell.left + border * parseFloat(style.borderLeftWidth)
+            + parseFloat(style.paddingLeft);
+          const right = cell.right - border * parseFloat(style.borderRightWidth)
+            - parseFloat(style.paddingRight);
           return {text:el.textContent, lines:[...new Set(rects.map(r => r.top))].length,
-            fits:rects.every(r => r.left >= cell.left - .5 && r.right <= cell.right + .5)};
+            fits:rects.every(r => r.left >= left - .5 && r.right <= right + .5)};
         })""",
         prepare="""() => {
           const table = document.querySelector('table');
-          table.style.width = '300px';
+          if (!table.classList.contains('zero')) table.style.width = '300px';
         }""",
     )
     assert [content(node) for node in printed.nodes if node["tag"] == "td"] == [
@@ -2889,9 +2937,41 @@ def test_printed_eight_column_row_fragments_preserve_all_slots(printed_sheet, co
     values = [f"Owned by column {index}" for index in range(8)]
     values[column] = " ".join(f"AuthoredWord{index:04}" for index in range(60))
     headings = [f"Column {index}" for index in range(8)]
-    printed, _ = printed_sheet(_table(headings, [values]), "() => null")
+    source = _table(headings, [values])
+    original = Markup(source)
+    expected_readings = [content(node) for node in original.find("reading")]
+    printed, fragments = printed_sheet(
+        source,
+        """pageOf => [...document.querySelectorAll('table > tbody > tr')].map(row => {
+          const page = pageOf(row), box = row.getBoundingClientRect();
+          return {
+            fits: box.top >= tops[page] - .1 && box.bottom <= tops[page]
+              + Number(document.documentElement.dataset.pageCapacity) + .1,
+            cells: [...row.cells].map(cell => {
+              const box = cell.getBoundingClientRect(), glyphs = [];
+              const walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
+              while (walker.nextNode()) {
+                const range = document.createRange(); range.selectNodeContents(walker.currentNode);
+                glyphs.push(...[...range.getClientRects()].filter(rect => rect.width && rect.height)
+                  .map(rect => ({left: rect.left, right: rect.right,
+                    top: rect.top, bottom: rect.bottom})));
+              }
+              return {text: cell.textContent, left: box.left, right: box.right,
+                top: box.top, bottom: box.bottom, glyphs};
+            })
+          };
+        })""",
+    )
     tables = [node for node in printed.nodes if node["tag"] == "table"]
     assert len(tables) > 1
+    assert fragments and all(fragment["fits"] for fragment in fragments)
+    for index in range(column + 1, len(values)):
+        cell = fragments[0]["cells"][index]
+        assert cell["text"] == values[index]
+        assert cell["glyphs"]
+        for glyph in cell["glyphs"]:
+            assert cell["left"] - 0.1 <= glyph["left"] <= glyph["right"] <= cell["right"] + 0.1
+            assert cell["top"] - 0.1 <= glyph["top"] <= glyph["bottom"] <= cell["bottom"] + 0.1
     reconstructed = [[] for _ in values]
     for table in tables:
         header = [
@@ -2916,6 +2996,7 @@ def test_printed_eight_column_row_fragments_preserve_all_slots(printed_sheet, co
             for target, cell in zip(reconstructed, cells, strict=True):
                 target.append(content(cell))
     assert ["".join(parts) for parts in reconstructed] == values
+    assert [content(node) for node in printed.find("reading")] == expected_readings
 
 
 @pytest.mark.parametrize("case", ["note", "main", "tool", "direction", "intro", "label"])
@@ -2991,6 +3072,25 @@ def test_printed_unbounded_authored_context_makes_finite_original_progress(print
             fieldLabels: [...section.querySelectorAll('.op-details > div')].filter(authored)
               .every(field => !field.querySelector('dd') || !!field.querySelector('dt')),
             intros: join('p.table-intro'),
+            introGlyphs: [...section.querySelectorAll('p.table-intro')].filter(authored)
+              .flatMap(intro => {
+                const glyphs = [], walker = document.createTreeWalker(intro, NodeFilter.SHOW_TEXT);
+                while (walker.nextNode()) {
+                  const node = walker.currentNode;
+                  if (!authored(node.parentElement)) continue;
+                  for (let i = 0; i < node.length; i++) {
+                    if (!node.textContent[i].trim()) continue;
+                    const range = document.createRange();
+                    range.setStart(node, i); range.setEnd(node, i + 1);
+                    const rects = [...range.getClientRects()]
+                      .filter(rect => rect.width && rect.height);
+                    glyphs.push({text: node.textContent[i], page: pageOf(range),
+                      visible: rects.length > 0
+                        && getComputedStyle(node.parentElement).visibility === 'visible'});
+                  }
+                }
+                return glyphs;
+              }),
             labels: join('.authored-label, .authored-blank .field-label'),
             fields: [...section.querySelectorAll('.authored-blank')].map(field => ({
               label: field.querySelector('.field-label').textContent,
@@ -3019,6 +3119,17 @@ def test_printed_unbounded_authored_context_makes_finite_original_progress(print
     assert len(printed.find("performed-mark")) == (case in {"note", "main", "tool", "direction"})
     assert len(printed.find("writing-blank")) == (case != "intro")
     assert details["fieldLabels"]
+    if case == "intro":
+        glyphs = details["introGlyphs"]
+        assert "".join(glyph["text"] for glyph in glyphs) == "".join(expected.split())
+        assert all(glyph["visible"] for glyph in glyphs)
+        assert [
+            content(node)
+            for node in printed.nodes
+            if node["tag"] == "td"
+            and node["parent"]["parent"]["tag"] == "tbody"
+            and node["parent"]["parent"]["parent"]["attrs"].get("class") == "coords"
+        ] == [value for index in range(70) for value in (str(index), "1.000", "-3.125")]
     if case == "label":
         (field,) = details["fields"]
         assert field["label"].strip()
@@ -3164,14 +3275,20 @@ def test_printed_near_cap_atomic_source_uses_its_actual_continuation_body(printe
           const original = el => !el.closest('[data-duplex], .record-continuation, .cont-head');
           const selector = window.nearCapInput.kind === 'caption'
             ? '.authored-label, .authored-blank .field-label' : '.page-context';
+          const sourceText = el => {
+            const copy = el.cloneNode(true);
+            copy.querySelectorAll('.fixed-locator-reference').forEach(node => node.remove());
+            return copy.textContent;
+          };
           const reconstructed = [...section.querySelectorAll(selector)].filter(original)
-            .map(el => el.textContent).join('');
+            .map(sourceText).join('');
           const fields = [...section.querySelectorAll('.authored-blank')];
           const sourcePages = new Set();
           for (const item of section.querySelectorAll('li')) {
             if (!original(item)) continue;
             const own = item.cloneNode(true);
-            own.querySelectorAll('[data-duplex], .record-continuation, .writing-blank')
+            own.querySelectorAll('[data-duplex], .record-continuation, .writing-blank, '
+              + '.fixed-locator-reference')
               .forEach(el => el.remove());
             if (/[\\p{L}\\p{N}]/u.test(own.textContent)) sourcePages.add(pageOf(item));
           }
@@ -3179,6 +3296,13 @@ def test_printed_near_cap_atomic_source_uses_its_actual_continuation_body(printe
             input: window.nearCapInput, reconstructed, pages: Number(section.dataset.pages),
             sourcePages: [...sourcePages].sort((a, b) => a - b),
             contextFont: getComputedStyle(section.querySelector('.page-context')).fontSize,
+            identity: section.dataset.title || section.dataset.sheet,
+            pointers: [...section.querySelectorAll('.fixed-locator-reference')].filter(ref =>
+              ref.getClientRects().length && getComputedStyle(ref).visibility !== 'hidden')
+              .map(ref => ({
+                text: ref.textContent,
+                page: Number(ref.textContent.match(/, page (\\d+)\\s*$/)?.[1])
+              })),
             heads: heads.map(head => ({
               font: getComputedStyle(head.querySelector('.cont-context')).fontSize,
               readings: [...head.querySelectorAll('.cont-context .reading')]
@@ -3190,6 +3314,7 @@ def test_printed_near_cap_atomic_source_uses_its_actual_continuation_body(printe
               const rect = field.getBoundingClientRect(), style = getComputedStyle(field);
               return {
                 label: label.textContent, boxes: field.querySelectorAll('.writing-blank').length,
+                page: pageOf(box) + 1,
                 samePage: pageOf(label) === pageOf(box),
                 fits: rect.bottom + parseFloat(style.marginBottom) - tops[pageOf(field)]
                   <= window.nearCapInput.cap + .01,
@@ -3213,6 +3338,11 @@ def test_printed_near_cap_atomic_source_uses_its_actual_continuation_body(printe
     assert details["input"]["height"] > field["available"]
     assert field["label"].strip()
     assert field["boxes"] == 1 and field["samePage"] and field["fits"]
+    assert details["pointers"]
+    assert all(
+        details["identity"] in pointer["text"] and pointer["page"] == field["page"]
+        for pointer in details["pointers"]
+    )
 
 
 def recording_traveler(relative, setup_ids, records=None, change=None):

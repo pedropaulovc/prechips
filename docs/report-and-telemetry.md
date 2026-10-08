@@ -369,14 +369,34 @@ stays with the last operation. Ordinary read-only tables preserve the base's
 three-row widow/orphan policy when those original row groups fit on each side
 of the break. Side-by-side blocks that are too tall stack before splitting.
 Continuation headings name the part, drawing/revision and logical section, retain
-the exact original printed status as a read-only reminder, and show the physical
-page number and total. They do not recompute approval or certify a new state.
+the exact original printed status as a read-only reminder, and show the local
+page number and total within that logical section. They do not recompute approval
+or certify a new state.
 Moved or split operations leave a pointer to the next physical page. Blank backs
 contain no instructions or ink.
 Continuations retain the applicable original operation, table or worksheet title
 and units when they fit alongside original content advancing onto that page.
 Split fixture tables retain the original component/size context in their
 existing columns, not new assembly instructions.
+When a table's original instruction paragraph is complete and entirely visible
+on the current page, its structurally paired repeated instruction is not printed
+a second time on that page. Partial, off-page, unpaired or overflowing original
+instructions retain the existing measured continuation-context admission policy;
+they do not qualify for this same-page suppression. This does not compare prose
+to infer ownership or omit an independent instruction.
+The contour title has the same explicit ownership in its original heading and
+repeated table-title prefix. A complete original heading or uncompacted running
+title entirely on the same page makes only the duplicate title prefix unnecessary;
+the repeat row, progress locator, procedure, depth values and local instruction
+remain. Partial, compact, unpaired or overflowing canonical titles do not
+qualify. The existing measured repeat-compaction policy is unchanged, so this
+does not promise a full repeated title on every arbitrarily crowded page.
+Long ordinary table cells can continue without withholding a later complete
+prose cell that fits its own column beside that original row fragment. Admission
+measures the composed row and every retained whole cell; an overflowing trial
+leaves the existing continuation behavior unchanged. Each cell preserves its
+original content, whitespace and order in its original column. Writing fields
+and controls are not copied or treated as these whole-cell completion candidates.
 An original note title that cannot fit in its actual continuation body may
 continue as authored source text, in order and at working type size. Short titles
 remain atomic; repeated identity alone never counts as original source progress.
@@ -441,6 +461,17 @@ it remains visible when crowded continuation context uses a compact setup/op
 identity. Both candidates are measured with original source progress; if even
 the compact identity and locator cannot fit, printing refuses instead of
 dropping the locator, duplicating fields or shrinking type.
+Recording-area pointers identify the actual printed setup/logical sheet and local
+page containing the sole original destination. Named procedure fields and
+unnamed authored recording areas remain distinct; progress pairs stay together.
+The paginator reserves an empty, measured read-only page counter before layout,
+using a conservative digit bound from the pristine source, not a guessed page.
+After all original content has been placed, it resolves each destination,
+fills the actual counter and verifies unchanged layout and complete containment.
+Missing or duplicated destinations, split progress pairs, changed reservations
+or escaped pointer text cause a truthful print-layout refusal. Each existing
+load/before-print pass restores the pristine source and rebuilds these pointers;
+generated context neither owns writing areas nor counts as source progress.
 
 Terminal punctuation stays with the existing field caption rather than on an
 orphan line after its writing box. Calculation fields start on a shared left
