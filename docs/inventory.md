@@ -450,6 +450,8 @@ Other holding solids come from the same accepted-fact rule, never defaults:
   place, or `? <key>` when the shop list does not have it; `tool_resolves`
   checks it (docs/rules-tools.md) and `purchased_tooling` reads its receipt
   checks.
+  Registered bare names match whole reference tokens. They do not replace letters
+  inside ordinary words or parts of qualified names and member references.
   An angle plate's (or posed shop-made fixture's) lowest box that is not bought
   is its base: HOLD prints its underside Z, an angle plate's working face (local
   y = 0, facing local -y) and the base's `fastener` as the hold-down; with any

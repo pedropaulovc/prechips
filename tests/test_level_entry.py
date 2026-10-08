@@ -390,10 +390,87 @@ def test_the_clearance_table_prints_a_kernel_stock_z_as_that_surface_prints(tmp_
     numbers = {"stacks": [{"op": 60, "margin_mm": 40.0}]}
     [(_, _, obstacle, value, _)] = sheet.clearance_rows(setup, numbers, T4)
     assert "stock under the holder at Z 4.475" in obstacle, obstacle
+    assert "holder face" in obstacle and "not in shop list" not in obstacle, obstacle
+    assert value == "19.750"
+    sheet.records[("headroom", "S1")] = numbers
+    markup = Markup(sheet.clearance(setup, T4))
+    [table] = markup.find("clearance")
+    cells = [
+        content(node)
+        for node in markup.nodes
+        if node["tag"] == "td" and node["parent"]["parent"]["parent"] is table
+    ]
+    assert cells[:2] == ["60", "T4"]
+    assert "holder face" in cells[2] and "stock under the holder" in cells[2], cells
+    assert re.findall(r"\bZ (-?\d+\.\d+)", cells[2]) == ["4.475"], cells
+    assert cells[3] == "19.750", cells
     # The holder face over the stock top: that top prints Z 0.000, not 0.005.
     records[("reach", "S1:60")]["clearances"] = []
     [(_, _, obstacle, _, _)] = sheet.clearance_rows(setup, numbers, T4)
     assert "(Z 0.000)" in obstacle, obstacle
+    markup = Markup(sheet.clearance(setup, T4))
+    [table] = markup.find("clearance")
+    obstacles = [
+        content(node)
+        for node in markup.nodes
+        if node["tag"] == "td" and node["parent"]["parent"]["parent"] is table
+    ]
+    assert re.findall(r"\bZ (-?\d+\.\d+)", obstacles[2]) == ["0.000"], obstacles
+
+
+@pytest.mark.parametrize(
+    ("note", "printed"),
+    [
+        ("holder face to stock under the holder", "holder face to stock under the holder"),
+        ("Use c.", "Use 3 mm spot drill."),
+        ("Use 'c', then tools.c.", "Use '3 mm spot drill', then 3 mm spot drill."),
+        ("Use drills/1/4.", "Use 1/4 drill index."),
+        ("Use tools.drills/1/4.", "Use 1/4 drill index."),
+        ("Use tools.drills/1/3.", "Use ? drills/1/3."),
+        ("Use tools.c/member.", "Use ? c/member."),
+        ("Keep c/member and c-extra.", "Keep c/member and c-extra."),
+    ],
+    ids=[
+        "ordinary-words",
+        "standalone",
+        "quoted-and-qualified",
+        "registered-fraction",
+        "qualified-fraction",
+        "missing-fraction-not-set-prefix",
+        "missing-member-not-root-prefix",
+        "unregistered-compounds",
+    ],
+)
+def test_bench_notes_replace_only_whole_registered_inventory_references(tmp_path, note, printed):
+    bundle = grid_bundle(tmp_path)
+    bundle.inventory["tools"].update(
+        {
+            "c": {"kind": "drill", "name": "spot drill", "dia_mm": 3.0, "verify": False},
+            "drills": {
+                "kind": "drill_index",
+                "coverage": "1/16-1/2 by 64ths",
+                "verify": False,
+            },
+        }
+    )
+    setup = bundle.plan["setups"][0]
+    setup["ops"] = [
+        *SPOT["ops"],
+        {"op": 70, "do": "drill", "feature": "hole", "tool": "drills/1/4"},
+    ]
+    sheet = _Traveler(bundle, [], {}, None)
+    assert sheet.bench(note, setup) == printed
+
+
+def test_bench_notes_keep_a_missing_standalone_inventory_reference_unknown(tmp_path):
+    bundle = grid_bundle(tmp_path)
+    setup = bundle.plan["setups"][0]
+    setup["ops"] = SPOT["ops"]
+    sheet = _Traveler(bundle, [], {}, None)
+    assert sheet.bench("Use c.", setup) == "Use c (not in shop list)."
+    note = "holder face to stock under the holder"
+    assert sheet.bench(note, setup) == note
+    assert sheet.bench("Use tools.c.", setup) == "Use ? c."
 
 
 def test_an_inch_plan_compares_its_reach_with_the_holder_in_millimetres():

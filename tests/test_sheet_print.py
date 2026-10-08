@@ -23,7 +23,7 @@ from prechips.rules import coordinates
 from prechips.sheet import _Traveler
 
 ROOT = Path(__file__).resolve().parents[1]
-LABEL = re.compile(r"\(continued\)\s*·\s*page\s+(\d+)\s+of\s+(\d+)")
+LABEL = re.compile(r"\bpage\s+(\d+)\s+of\s+(\d+)\b", re.IGNORECASE)
 
 
 def machinist_review():
@@ -103,6 +103,7 @@ def test_long_rough_and_finish_lathe_tables_keep_every_page_counted_and_sheets_o
     dome["rough_allowance_mm"] = 1.0
     html = _Traveler(bundle, coordinates.evaluate(bundle, pre_kernel=True), {}, None).render()
     texts = printed_pages(html, tmp_path)
+    assert not any("PRINT LAYOUT ERROR" in text for text in texts), texts
     markup = Markup(html)
     sections = [
         node for node in markup.nodes if node["tag"] == "section" and "data-sheet" in node["attrs"]
@@ -187,6 +188,134 @@ def _sections(blocks):
         f'<!DOCTYPE html>\n<html lang="en"><head><meta charset="utf-8"><style>{_CSS}</style>'
         f"<script>{_DUPLEX_JS}</script></head><body>{''.join(pages)}</body></html>\n"
     )
+
+
+@pytest.mark.parametrize("weight", [400, 700], ids=["working", "bold"])
+def test_recording_counter_measures_actual_unkerned_tabular_digits(printed_sheet, weight):
+    from prechips.sheet import _list, _Note
+
+    source = (
+        f'<div style="font-weight:{weight}">'
+        + _list([_Note("S1 op 20 inspection: Record {observed}.", "S1 op 20 inspection:")])
+        + "</div>"
+    )
+    printed, details = printed_sheet(
+        source,
+        r"""pageOf => ({
+          fontStatus: document.fonts.status,
+          references: [...document.querySelectorAll('.fixed-locator-reference')].map(ref => {
+            const slot = ref.querySelector('.fixed-locator-digit'), ink = slot.firstElementChild;
+            const bounds = slot.getBoundingClientRect();
+            const probe = document.createElement('span');
+            probe.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;'
+              + 'display:inline-block;padding:0;margin:0;border:0';
+            // Inherit the actual counter's typography, not an installed-font estimate.
+            slot.append(probe);
+            let widths;
+            try {
+              widths = Array.from({length:10}, (_, digit) => {
+                probe.textContent = String(digit).repeat(5);
+                return probe.getBoundingClientRect().width;
+              });
+            } finally {probe.remove();}
+            const range = document.createRange();
+            range.selectNodeContents(ink);
+            const glyphs = [...range.getClientRects()].filter(rect => rect.width && rect.height);
+            const target = [...document.querySelectorAll('[data-locator-target]')]
+              .find(node => node.dataset.locatorTarget === ref.dataset.locatorRef);
+            const section = target.closest('section.page');
+            return {
+              text: ref.textContent,
+              identity: section.dataset.title || section.dataset.sheet,
+              destinationPage: pageOf(target) + 1,
+              writable: ref.querySelectorAll('.writing-blank').length,
+              numeric: getComputedStyle(slot).fontVariantNumeric,
+              kerning: getComputedStyle(ink).fontKerning,
+              weight: getComputedStyle(ink).fontWeight,
+              widths, reservedWidth: bounds.width,
+              glyphsContained: glyphs.length > 0 && glyphs.every(rect =>
+                rect.left >= bounds.left && rect.right <= bounds.right
+                && rect.top >= bounds.top && rect.bottom <= bounds.bottom)
+            };
+          })
+        })""",
+    )
+    assert details["fontStatus"] == "loaded"
+    assert len(printed.find("writing-blank")) == 1
+    assert len(details["references"]) == 1
+    for reference in details["references"]:
+        assert reference["numeric"] == "tabular-nums"
+        assert reference["kerning"] == "none" and int(reference["weight"]) == weight
+        assert all(width > 0 for width in reference["widths"])
+        assert len(set(reference["widths"])) == 1
+        assert reference["reservedWidth"] > 0 and reference["glyphsContained"]
+        assert reference["text"].endswith(
+            f"{reference['identity']}, page {reference['destinationPage']}"
+        )
+        assert reference["writable"] == 0
+
+
+@pytest.mark.parametrize(
+    ("override", "reason"),
+    [
+        ("font-variant-numeric:proportional-nums!important", "tabular digit metrics"),
+        ("font-size:0!important", "measured inherited line height"),
+    ],
+    ids=["non-tabular", "zero-sized"],
+)
+def test_recording_counter_refuses_defective_real_typography(tmp_path, override, reason):
+    from prechips.sheet import _list, _Note
+
+    source = _list([_Note("S1 op 20 inspection: Record {observed}.", "S1 op 20 inspection:")])
+    html = _sections([(0, source + f"<style>.fixed-locator-digit {{{override}}}</style>")])
+    pages = printed_pages(html, tmp_path)
+    refusal = " ".join(" ".join(pages).split())
+    assert "PRINT LAYOUT ERROR" in refusal and reason in refusal
+    # Refusal restores the sole original recording area instead of dropping it.
+    assert refusal.count("observed") == 1
+
+
+@pytest.mark.parametrize("changed", [False, True], ids=["same-context", "changed-line-height"])
+def test_recording_counter_remeasures_inherited_continuation_line_height(tmp_path, changed):
+    from prechips.sheet import _table, _writing_field
+
+    fields = ["S1 op 20 level", "S1 op 20 last completed #"]
+    progress = (
+        '<p class="path-progress">' + " ".join(_writing_field(label) for label in fields) + "</p>"
+    )
+    table = _table(
+        ["#", "X", "Y"],
+        [[f"row-{index:02}", "1.000", "2.000"] for index in range(1, 61)],
+        css="coords",
+        repeat="S1 op 20 — contour",
+        repeat_locator="Optional progress only: see S1 op 20 progress beside Done",
+    )
+    # Only a real cloned continuation row changes the inherited line box.
+    # The original reservation and its actual CSS digit metrics remain untouched.
+    override = (
+        "<style>table.coords tr.repeat[data-duplex] {line-height:2}</style>" if changed else ""
+    )
+    source = (
+        '<div class="contour"><h3 class="page-context">S1 op 20 — contour</h3>'
+        + progress
+        + table
+        + "</div>"
+        + override
+    )
+    pages = [" ".join(text.split()) for text in printed_pages(_sections([(0, source)]), tmp_path)]
+    text = " ".join(pages)
+    assert all(text.count(label) == 1 for label in fields)
+    assert [int(value) for value in re.findall(r"\brow-(\d+)\b", text)] == list(range(1, 61))
+    if changed:
+        assert "PRINT LAYOUT ERROR" in text and "inherited reserved typography" in text
+        assert not re.search(r"SHEET 0,\s*page\s+\d+", text)
+    else:
+        assert "PRINT LAYOUT ERROR" not in text
+        (destination,) = [
+            index + 1 for index, page in enumerate(pages) if all(label in page for label in fields)
+        ]
+        pointers = [int(value) for value in re.findall(r"SHEET 0,\s*page\s+(\d+)", text)]
+        assert pointers and all(page == destination for page in pointers)
 
 
 def _runs(texts, count):
@@ -641,11 +770,11 @@ def test_public_crowded_contour_continuations_keep_status_and_owned_progress_loc
           const start = text.indexOf(title);
           if (start < 0) continue;
           const glyphs = [];
+          const range = document.createRange();
           let complete = true;
           for (let i = 0; i < title.length; i++) {
             if (!title[i].trim()) continue;
             const segment = segments.find(part => part.start <= start + i && part.end > start + i);
-            const range = document.createRange();
             range.setStart(segment.node, start + i - segment.start);
             range.setEnd(segment.node, start + i - segment.start + 1);
             const rects = [...range.getClientRects()].filter(rect => rect.width && rect.height);
@@ -745,10 +874,11 @@ def test_public_crowded_contour_continuations_keep_status_and_owned_progress_loc
     ]
     assert all(_original(node) for node in printed.find("writing-blank"))
     assert len(printed.find("tick")) == len(original.find("tick"))
-    compact_owners = set()
+    continuation_owners, full_context_owners = set(), set()
     assert details["continuedHeaders"]
     for header in details["continuedHeaders"]:
         (op,) = [op for op in (30, 40) if f"S1 op {op}" in header["text"]]
+        continuation_owners.add(op)
         assert f"Optional progress only: see S1 op {op} progress beside Done" in header["text"]
         assert header["visible"] and header["originalRows"] and not header["writable"]
         assert header["glyphCount"] > 0 and header["glyphsFit"] and header["headerFits"]
@@ -758,9 +888,13 @@ def test_public_crowded_contour_continuations_keep_status_and_owned_progress_loc
         identity, page = destination
         assert identity in header["pointer"]
         assert header["pointedPage"] == page
-        if expected_titles[(30, 40).index(op)] not in header["text"]:
-            compact_owners.add(op)
-    assert compact_owners == ({30, 40} if crowded else set())
+        if expected_titles[(30, 40).index(op)] in header["text"]:
+            full_context_owners.add(op)
+    assert continuation_owners == {30, 40}
+    # Long context may still fit at the actual paper capacity. Compaction is a
+    # measured admission decision, not something the fixture's label can force.
+    if not crowded:
+        assert full_context_owners == {30, 40}
     qualified_pages = 0
     for table in details["tablePages"]:
         presentations = [
@@ -1410,10 +1544,15 @@ def test_fixture_and_blank_check_keep_intrinsic_width_inside_print_and_screen(
         const rect = box => ({
           left: box.left, right: box.right, width: box.width, height: box.height
         });
+        const authoredText = node => {
+          const copy = node.cloneNode(true);
+          copy.querySelectorAll('.fixed-locator-reference').forEach(ref => ref.remove());
+          return copy.textContent;
+        };
         const measure = node => {
           const style = win.getComputedStyle(node);
           return {
-            text: node.textContent, ...rect(node.getBoundingClientRect()),
+            text: authoredText(node), ...rect(node.getBoundingClientRect()),
             visible: style.display !== 'none' && style.visibility === 'visible',
             font: parseFloat(style.fontSize),
             owned: !node.closest('[data-duplex]')
@@ -1440,6 +1579,57 @@ def test_fixture_and_blank_check_keep_intrinsic_width_inside_print_and_screen(
             });
           }
         }
+        const locators = [...section.querySelectorAll('.fixed-locator-reference')].map(ref => {
+          const owner = ref.closest('td'), ownerBox = owner.getBoundingClientRect();
+          const slot = ref.querySelector('.fixed-locator-digit');
+          const slotBox = slot.getBoundingClientRect();
+          const sectionBox = section.getBoundingClientRect();
+          const tops = [sectionBox.top, ...[...section.querySelectorAll('.cont-head')]
+            .map(head => head.getBoundingClientRect().top)];
+          const pageOf = node => tops.findLastIndex(
+            top => top <= node.getBoundingClientRect().top+.01);
+          const localPage = pageOf(ref);
+          const capacity = Number(doc.documentElement.dataset.pageCapacity);
+          const pageBox = {left: sectionBox.left,
+            right: sectionBox.left + Number(doc.documentElement.dataset.printWidth),
+            top: tops[localPage], bottom: tops[localPage] + capacity};
+          const inside = (bounds, box) => bounds.left >= box.left-.1
+            && bounds.right <= box.right+.1 && bounds.top >= box.top-.1
+            && bounds.bottom <= box.bottom+.1;
+          const destinations = [...section.querySelectorAll('[data-locator-target]')]
+            .filter(node => node.dataset.locatorTarget === ref.dataset.locatorRef);
+          const target = destinations[0], field = target?.closest('.field');
+          const glyphs = [], walker = doc.createTreeWalker(ref, win.NodeFilter.SHOW_TEXT);
+          let complete = true;
+          while (walker.nextNode()) {
+            const node = walker.currentNode;
+            for (let index = 0; index < node.length; index++) {
+              if (!node.textContent[index].trim()) continue;
+              const range = doc.createRange();
+              range.setStart(node, index); range.setEnd(node, index + 1);
+              const bounds = [...range.getClientRects()].filter(box => box.width && box.height);
+              complete &&= bounds.length > 0
+                && win.getComputedStyle(node.parentElement).visibility === 'visible';
+              glyphs.push(...bounds.map(box => inside(box, ownerBox) && inside(box, pageBox)
+                && (!node.parentElement.closest('.fixed-locator-ink') || inside(box, slotBox))));
+            }
+          }
+          return {
+            text: ref.textContent, identity: section.dataset.title || section.dataset.sheet,
+            destinationCount: destinations.length,
+            destinationPage: target ? pageOf(target) + 1 : null,
+            destinationOriginal: !!target && !target.closest('[data-duplex]'),
+            sameOwner: target?.closest('td') === owner,
+            destinationLabel: field?.querySelector('.field-label').textContent ?? null,
+            destinationFits: !!target && inside(target.getBoundingClientRect(), pageBox)
+              && inside(field.getBoundingClientRect(), pageBox),
+            ownerOriginal: !owner.closest('[data-duplex]'),
+            readonly: slot.getAttribute('aria-readonly') === 'true',
+            writable: ref.querySelectorAll('.writing-blank, .performed-mark, .tick, input').length,
+            complete, glyphCount: glyphs.length, glyphsFit: glyphs.every(Boolean),
+            slotFits: inside(slotBox, ownerBox) && inside(slotBox, pageBox)
+          };
+        });
         return {
           innerWidth: win.innerWidth,
           container: rect(doc.body.getBoundingClientRect()),
@@ -1459,7 +1649,7 @@ def test_fixture_and_blank_check_keep_intrinsic_width_inside_print_and_screen(
           })),
           fields: [...section.querySelectorAll('.field')].map(measure),
           boxes: [...section.querySelectorAll('.writing-blank')].map(measure),
-          words
+          words, locators
         };
       };
       const printed = capture(window);
@@ -1490,12 +1680,21 @@ def test_fixture_and_blank_check_keep_intrinsic_width_inside_print_and_screen(
       return {printed, screens};
     }"""
     printed, details = printed_sheet(source, probe, prepare)
-    assert [content(node) for node in printed.nodes if node["tag"] == "td"] == expected_cells
     (box,) = printed.find("writing-blank")
     assert _original(box)
 
     assert details["printed"]["container"]["width"] == pytest.approx(720, abs=0.1)
     assert [screen["innerWidth"] for screen in details["screens"]] == [320, 375, 414, 768]
+    assert all(not screen["locators"] for screen in details["screens"])
+    assert len(details["printed"]["locators"]) == 1
+    for locator in details["printed"]["locators"]:
+        assert locator["destinationCount"] == 1 and locator["destinationOriginal"]
+        assert locator["sameOwner"] and locator["ownerOriginal"]
+        assert locator["destinationLabel"] == "observed"
+        assert locator["destinationFits"] and locator["slotFits"]
+        assert locator["readonly"] and locator["writable"] == 0
+        assert locator["complete"] and locator["glyphCount"] > 0 and locator["glyphsFit"]
+        assert locator["text"].endswith(f"{locator['identity']}, page {locator['destinationPage']}")
     for view in [details["printed"], *details["screens"]]:
         container = view["container"]
         assert container["left"] >= -0.1

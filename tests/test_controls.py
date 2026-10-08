@@ -16,8 +16,8 @@ from prechips.sheet import _Traveler
 
 def control_rows(plan, rule):
     """Read the complete authored population through its actual rule consumer."""
-    # Full traveler/CLI integration remains in the native controls below; these
-    # local comparisons retain every authored setup, op and feature without running it twice.
+    # Byte-exact examples retain full CLI/rule integration; geometry examples check error exits.
+    # Each rule sees the authored population; sheet checks target affected setups.
     bundle = load_bundle(plan)
     rows = rule.evaluate(bundle)
     return bundle, rows, {"findings": [row.to_dict() for row in rows]}
@@ -65,11 +65,14 @@ def test_removed_reamer_is_named_inventory_error(tmp_path):
     assert row["status"] == "error"
     assert "reamer" in row["message"].lower()
     sheet = _Traveler(bundle, rows, {}, None)
+    checked = 0
     for setup in bundle.plan["setups"]:
         if any(op.get("tool") == "control-reamer-6.5" for op in setup.get("ops", [])):
+            checked += 1
             _, _, html = sheet.tool_table(setup)
             assert "reamer" in html.lower()
             assert "not in the shop tool list" in html
+    assert checked
 
 
 def test_reversed_dro_direction_swaps_expected_and_mirrored_readings(tmp_path):

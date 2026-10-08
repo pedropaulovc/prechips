@@ -39,6 +39,40 @@ def finder_row(data, setup=0, axis="x"):
     return evaluate(data)[setup].numbers["axes"][axis]
 
 
+def html_text(html):
+    return content(Markup("<div>" + html + "</div>").nodes[0])
+
+
+def table_rows(html):
+    """Consumer table cells, preserving row ownership across inline reading markup."""
+    markup = Markup(html)
+    return [
+        [content(cell) for cell in markup.nodes if cell["tag"] == "td" and cell["parent"] is row]
+        for row in markup.nodes
+        if row["tag"] == "tr"
+        and any(cell["tag"] == "td" and cell["parent"] is row for cell in markup.nodes)
+    ]
+
+
+def finder_boxes(html):
+    markup = Markup(html)
+    return [
+        node["parent"]
+        for node in markup.nodes
+        if node["tag"] == "h3" and content(node).startswith("EDGE FINDER")
+    ]
+
+
+def assert_finder_pointers(html, home=None):
+    rows = [row for row in table_rows(html) if row[0] in ("X", "Y")]
+    assert [row[0] for row in rows] == ["X", "Y"]
+    for row in rows:
+        assert row[1].count("EDGE FINDER box") == 1
+        assert re.findall(r"Setup (S\d+) sheet (\d+)", row[1]) == (
+            [] if home is None else [(home, "1")]
+        )
+
+
 # ------------------------------------------------------------------ edge finder
 
 
@@ -65,8 +99,19 @@ def test_a_finder_band_across_a_gap_between_spindle_ranges_runs_only_where_it_tu
     assert finder["rpm"] == [[800, 900], [1500, 1600]]
     data = mill_bundle(wide, spindle=gapped)
     html = _Traveler(data, evaluate(data), {}, {}).dro(data.plan["setups"][0], {})
-    box = html[html.index("<h3>EDGE FINDER") :]
-    assert "800–900 or 1500–1600 rpm" in box and "1000" not in box
+    # The first paragraph owns executable speeds, not the finder/mill context bands.
+    markup = Markup(html)
+    (box,) = [
+        node["parent"]
+        for node in markup.nodes
+        if node["tag"] == "h3" and content(node).startswith("EDGE FINDER")
+    ]
+    speed = next(node for node in markup.nodes if node["tag"] == "p" and node["parent"] is box)
+    executable = content(speed).split("rpm", 1)[0]
+    assert [(int(lo), int(hi)) for lo, hi in re.findall(r"(\d+)–(\d+)", executable)] == [
+        (800, 900),
+        (1500, 1600),
+    ]
 
 
 @pytest.mark.parametrize(
@@ -99,11 +144,12 @@ def test_each_mill_gets_the_finder_speed_it_can_turn():
     findings = evaluate(data)
     sheet = _Traveler(data, findings, {}, {})
     first, second = (sheet.dro(setup, {}) for setup in data.plan["setups"])
-    assert "750–900 rpm" in first[first.index("<h3>EDGE FINDER") :]
+    (first_box,) = finder_boxes(first)
+    assert "750–900 rpm" in content(first_box)
     # The second mill's speed is never the first mill's box.
-    box = second[second.index("<h3>EDGE FINDER") :]
-    assert "1200–1500 rpm" in box and "750–900" not in second
-    assert "Setup S1 sheet 1" not in second
+    (box,) = finder_boxes(second)
+    assert "1200–1500 rpm" in content(box) and "750–900" not in content(box)
+    assert_finder_pointers(second)
 
 
 @pytest.mark.parametrize("missing", ["finder_type", "rpm_range", "tip_in"])
@@ -140,16 +186,14 @@ def test_one_edge_finder_box_per_traveler_and_every_zero_points_to_it():
     findings = evaluate(data)
     sheet = _Traveler(data, findings, {}, {})
     first, second = (sheet.dro(setup, {}) for setup in data.plan["setups"])
-    assert first.count("<h3>EDGE FINDER") == 1
-    assert second.count("<h3>EDGE FINDER") == 0
-    box = first[first.index("<h3>EDGE FINDER") :]
-    assert "1000–1200 rpm" in box
-    assert "kick" in box
+    (box,) = finder_boxes(first)
+    assert not finder_boxes(second)
+    assert re.findall(r"(\d+)–(\d+) rpm", content(box))[0] == ("1000", "1200")
     # Half the tip Ø, signed by the side the finder comes from.
-    assert "2.540" in box and "edge − 2.540" in box and "edge + 2.540" in box
-    # Each X/Y row names the box; a later setup names where it is printed.
-    assert first.count("EDGE FINDER box") == 2
-    assert second.count("EDGE FINDER box, Setup S1 sheet 1") == 2
+    offsets = re.findall(r"Axis Set edge ([−+]) (\d+\.\d+)", content(box))
+    assert [(sign, float(value)) for sign, value in offsets] == [("−", 2.54), ("+", 2.54)]
+    assert_finder_pointers(first)
+    assert_finder_pointers(second, "S1")
 
 
 # The finder and the mill are the items they select: a setup spelling them ``tools.finder``
@@ -157,6 +201,8 @@ def test_one_edge_finder_box_per_traveler_and_every_zero_points_to_it():
 # mill's DRO grid prints once.
 def test_one_edge_finder_box_however_setups_spell_the_finder_or_the_mill():
     data = mill_bundle(setups=2)
+    data.features["units"] = "mm"
+    data.inventory["machines"]["mill"]["resolution_mm"] = 0.005
     first, second = data.plan["setups"]
     first["zero"]["y"]["tool"] = "tools." + first["zero"]["y"]["tool"]
     second["machine"] = "machines." + second["machine"]
@@ -164,10 +210,11 @@ def test_one_edge_finder_box_however_setups_spell_the_finder_or_the_mill():
         second["zero"][axis]["tool"] = "tools." + second["zero"][axis]["tool"]
     sheet = _Traveler(data, evaluate(data), {}, {})
     one, two = (sheet.dro(setup, {}) for setup in data.plan["setups"])
-    assert one.count("<h3>EDGE FINDER") == 1 and two.count("<h3>EDGE FINDER") == 0
-    assert one.count("EDGE FINDER box") == 2
-    assert two.count("EDGE FINDER box, Setup S1 sheet 1") == 2
-    assert sheet.dro_resolution(data.plan["setups"]).count("default grid") == 1
+    assert len(finder_boxes(one)) == 1 and not finder_boxes(two)
+    assert_finder_pointers(one)
+    assert_finder_pointers(two, "S1")
+    grid = html_text(sheet.dro_resolution(data.plan["setups"]))
+    assert [float(value) for value in re.findall(r"(\d+\.\d+) mm", grid)] == [0.005]
 
 
 def test_the_edge_finder_box_stops_on_a_missing_field():
@@ -244,21 +291,25 @@ def test_the_receipt_check_table_prints_once_where_the_item_is_first_used():
     data = kit_bundle(setups=2)
     sheet = _Traveler(data, purchased_tooling.evaluate(data), {}, {})
     first, second = (sheet.purchased_tooling(setup) for setup in data.plan["setups"])
-    assert "<h3>PURCHASED TOOLING / RECEIPT CHECK" in first
-    assert "13.950–14.030" in first and "≤ 0.010" in first
-    assert "the nut runs on by hand" in first
-    assert "two hardened ground" in first
-    assert "<h3>" not in second and "13.950" not in second
-    assert "RECEIPT CHECK table, Setup S1 sheet 1" in second
+    rows = table_rows(first)
+    assert [row[0] for row in rows] == [check["check"] for check in KIT["acceptance"]]
+    assert printed_band(rows[0][2], "mm") == [(13.95, 14.03)]
+    assert printed_caps(rows[1][2], "mm") == [0.01]
+    assert rows[2][2] == KIT["acceptance"][2]["accept"]
+    assert KIT["purchase"] in html_text(first)
+    assert not table_rows(second) and not printed_band(html_text(second), "mm")
+    assert re.findall(r"Setup (S\d+) sheet (\d+)", html_text(second)) == [("S1", "1")]
 
 
 def test_the_receipt_check_table_stops_on_an_unresolved_gauge():
     kit = copy.deepcopy(KIT)
     kit["acceptance"][0]["gauge"] = "no-such-gauge"
     data = kit_bundle(kit)
-    html = _Traveler(data, purchased_tooling.evaluate(data), {}, {}).purchased_tooling(
-        data.plan["setups"][0]
-    )
+    findings, html = receipt_html(data)
+    (finding,) = findings
+    check = finding.numbers["items"][0]["checks"][0]
+    assert finding.status == "unknown"
+    assert (check["gauge"], check["status"]) == ("no-such-gauge", "unknown")
     markup = Markup(html)
     (row,) = [
         node
@@ -275,8 +326,8 @@ def test_the_receipt_check_table_stops_on_an_unresolved_gauge():
         content(cell) for cell in markup.nodes if cell["tag"] == "td" and cell["parent"] is row
     ]
     assert len(cells) == 3
-    assert "?" in cells[1] and "no-such-gauge" in cells[1]
-    assert "STOP" in cells[2] and "gauge" in cells[2] and "no-such-gauge" in cells[2]
+    assert "STOP" in cells[2] and check["gauge"] in cells[2]
+    assert printed_band(cells[2], "mm") == [(13.95, 14.03)]
 
 
 def receipt_html(data):
@@ -369,14 +420,21 @@ def test_metric_receipt_limits_round_inward():
     kit["button_dia_limits_mm"] = [13.9504, 14.0296]
     kit["button_runout_mm"] = 0.0104
     _, html = receipt_html(kit_bundle(kit))
-    assert "13.951–14.029 mm" in html and "≤ 0.010 mm" in html
+    rows = table_rows(html)
+    assert printed_band(rows[0][2], "mm") == [(13.951, 14.029)]
+    assert printed_caps(rows[1][2], "mm") == [0.010]
 
 
 def printed_band(html, unit):
     """Every ``lo–hi unit`` band the receipt table prints, as numbers."""
     return [
-        (float(lo), float(hi)) for lo, hi in re.findall(rf"(\d+\.\d+)–(\d+\.\d+) {unit}\b", html)
+        (float(lo), float(hi))
+        for lo, hi in re.findall(rf"(\d+\.\d+)–(\d+\.\d+) {unit}\b", html_text(html))
     ]
+
+
+def printed_caps(html, unit):
+    return [float(value) for value in re.findall(rf"≤ (\d+\.\d+) {unit}\b", html_text(html))]
 
 
 @pytest.mark.parametrize(
@@ -389,16 +447,20 @@ def test_a_narrow_receipt_band_never_prints_reversed_or_wider(band, most):
     kit["button_runout_mm"] = most
     data = kit_bundle(kit)
     data.inventory["gauges"]["mic"] = {"kind": "micrometer", "range_in": [0, 1]}
+    data.inventory["gauges"]["dti"] = {"kind": "dti", "range_in": [0, 1]}
     _, html = receipt_html(data)
-    [(lo, hi)] = printed_band(html, "mm")
+    od, runout, _ = table_rows(html)
+    [(lo, hi)] = printed_band(od[2], "mm")
     assert band[0] <= lo <= hi <= band[1]
     # An inch band prints for an inch gauge unless no inch decimals fit inside the band.
-    inches = printed_band(html, "in")
+    inches = printed_band(od[2], "in")
     assert len(inches) == (band[0] < band[1])
     for lo_in, hi_in in inches:
         assert band[0] / 25.4 <= lo_in <= hi_in <= band[1] / 25.4
-    [cap] = [float(v) for v in re.findall(r"≤ (\d+\.\d+) mm", html)]
+    [cap] = printed_caps(runout[2], "mm")
     assert 0 < cap <= most
+    [inch_cap] = printed_caps(runout[2], "in")
+    assert 0 < inch_cap <= most / 25.4
 
 
 def validate(items, category="fixtures"):

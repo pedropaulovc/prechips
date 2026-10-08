@@ -453,6 +453,8 @@ page containing the sole original destination. Named procedure fields and
 unnamed authored recording areas remain distinct; progress pairs stay together.
 The paginator reserves an empty, measured read-only page counter before layout,
 using a conservative digit bound from the pristine source, not a guessed page.
+Page-counter digits disable pair kerning. The paginator measures repeated digit
+strings in the counter's inherited typography and requires equal, positive widths.
 After all original content has been placed, it resolves each destination,
 fills the actual counter and verifies unchanged layout and complete containment.
 Missing or duplicated destinations, split progress pairs, changed reservations

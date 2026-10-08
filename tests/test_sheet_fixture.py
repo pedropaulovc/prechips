@@ -399,7 +399,7 @@ def test_made_parts_print_their_make_notes_and_differing_notes_stay_apart():
     # Bought hardware is not made, so its note is no make instruction: it prints apart.
     table = bridge_page(cylinder("bolt", 0, 0, 6, 20, supply="bought", note="zinc plated"))
     assert "bolt: zinc plated" in table.line("Notes:")
-    assert all("zinc" not in line for line in table.paragraphs if not line.startswith("Notes:"))
+    assert table.text.count("zinc") == 1
 
 
 def test_notes_on_holes_and_on_bought_and_existing_parts_print():

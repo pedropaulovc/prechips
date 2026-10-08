@@ -198,6 +198,8 @@ margin: 0 0 var(--space-sm);
 border-bottom: var(--rule-thin) solid var(--color-ink); }
 .cont-count { display: block; white-space: nowrap; }
 .cont-context { display: block; font-size: var(--text-working); overflow-wrap: normal; }
+/* Counter reservations need equal digit advances even when a font kerns digit pairs. */
+.fixed-locator-digit { font-kerning: none; }
 .more { margin: var(--space-xs) 0 0; font-weight: bold; }
 table.operations { margin-top: 0; }
 table.operations > thead th { background: var(--color-paper); }
@@ -322,7 +324,7 @@ _DUPLEX_JS = r"""(() => {
     return ref;
   }
   function measureLocator(ref) {
-    const slot = ref.querySelector(".fixed-locator-digit"), style = getComputedStyle(ref);
+    const slot = ref.querySelector(".fixed-locator-digit"), style = getComputedStyle(slot);
     const line = parseFloat(style.lineHeight);
     if (!Number.isFinite(line) || line <= 0) {
       throw new Error("A recording locator has no measured inherited line height.");
@@ -506,11 +508,12 @@ _DUPLEX_JS = r"""(() => {
         && !node.matches(".fixed-locator-ink") && !node.closest(".fixed-locator-ink"));
     const geometry = nodes.map((node) => [locatorRect(node), locatorLines(node)]);
     const text = [], walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    // Range boundaries stay live until GC; reuse a local cursor and copy each result.
+    const range = document.createRange();
     let node;
     while ((node = walker.nextNode())) {
       if (node.parentElement.closest("script,style,.fixed-locator-ink")
           || !locatorVisible(node.parentElement)) continue;
-      const range = document.createRange();
       range.selectNodeContents(node);
       text.push([node.textContent, locatorLines(range)]);
     }
@@ -525,6 +528,8 @@ _DUPLEX_JS = r"""(() => {
     const refs = locatorNodes(document, "[" + LOCATOR_REF + "]").filter(locatorVisible);
     for (const ref of refs) {
       const slot = ref.querySelector(".fixed-locator-digit"), style = slot.getAttribute("style");
+      // Re-read live inherited CSS, not the line box pinned by the reservation.
+      slot.removeAttribute("style");
       measureLocator(ref);
       if (slot.getAttribute("style") !== style) {
         throw new Error("A recording locator changed its inherited reserved typography.");
@@ -558,10 +563,10 @@ _DUPLEX_JS = r"""(() => {
         throw new Error("A recording-locator reservation escapes its owner or local print page.");
       }
       const walker = document.createTreeWalker(ref, NodeFilter.SHOW_TEXT);
+      const range = document.createRange();
       let node;
       while ((node = walker.nextNode())) {
         for (let offset = 0; offset < node.length; offset++) {
-          const range = document.createRange();
           range.setStart(node, offset);
           range.setEnd(node, offset + 1);
           for (const rect of locatorLines(range)) {
@@ -646,8 +651,8 @@ _DUPLEX_JS = r"""(() => {
         if (!span.getClientRects().length || !within(span.getBoundingClientRect())
             || [...span.querySelectorAll("*")].some((node) =>
               [...node.getClientRects()].some((rect) => !within(rect)))) continue;
+        const range = document.createRange();
         if (units.some((node) => {
-          const range = document.createRange();
           range.selectNodeContents(node);
           return [...range.getClientRects()].some((rect) => !within(rect));
         })) continue;
@@ -716,11 +721,11 @@ _DUPLEX_JS = r"""(() => {
             || [...fragment.querySelectorAll("*")].some((node) =>
               !node.closest("[" + ADDED + "]")
                 && [...node.getClientRects()].some((rect) => !contained(rect)))) continue;
+        const range = document.createRange();
         for (const unit of fragment.querySelectorAll("[data-instruction-unit]")) {
           if (unit.closest("[" + ADDED + "]")) continue;
           const identity = unit.dataset.instructionUnit;
           if (!units.has(identity)) return false;
-          const range = document.createRange();
           range.selectNodeContents(unit);
           if ([...range.getClientRects()].some((rect) => !contained(rect))) continue;
           totals.set(identity, (totals.get(identity) || 0) + unit.textContent.length);
@@ -763,8 +768,8 @@ _DUPLEX_JS = r"""(() => {
       for (const cell of el.cells) {
         if (ordinaryWholeCell(cell)) points.push([cell, cell.childNodes.length]);
       }
+      const left = document.createRange(), right = document.createRange();
       return points.sort((a, b) => {
-        const left = document.createRange(), right = document.createRange();
         left.setStart(...a);
         left.collapse(true);
         right.setStart(...b);
@@ -792,10 +797,10 @@ _DUPLEX_JS = r"""(() => {
       const contained = (r) => r.left >= bounds.left - .1 && r.right <= bounds.right + .1
         && r.top >= bounds.top - .1 && r.bottom <= bounds.bottom + .1;
       const walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
+      const range = document.createRange();
       while (walker.nextNode()) {
         const node = walker.currentNode;
         if (!node.textContent.trim() || node.parentElement.closest("[" + ADDED + "]")) continue;
-        const range = document.createRange();
         range.selectNodeContents(node);
         if ([...range.getClientRects()].some(
           (r) => r.width > 0 && r.height > 0 && !contained(r)
@@ -2553,6 +2558,15 @@ def _table(
                 if parts and not isinstance(line, _Box):
                     parts.append("<br>")
                 parts.append(_cell_line(line))
+            if css == "zero" and index == 1 and getattr(row, "zero_surface", None):
+                axis, face, start, end = row.zero_surface
+                parts = [
+                    _numeric_html(cell[:start])
+                    + f'<span data-zero-axis="{escape(axis)}" data-zero-face="{escape(face)}">'
+                    + _numeric_html(cell[start:end])
+                    + "</span>"
+                    + _numeric_html(cell[end:])
+                ]
             if css == "readings" and index == 2:
                 parts = [_writing_field(str(cell))]
             names = ["read"] if index in strong else []
@@ -3120,7 +3134,8 @@ class _Traveler:
         return f"Setup {setup['id']} zero"
 
     def bench(self, text, setup=None):
-        """Plan / rule prose in shop words: no ids, files, hashes or long decimals."""
+        """Plan / rule prose in shop words: no ids, files, hashes or long decimals.
+        Registered bare names replace whole reference tokens, never a word's substring."""
         setup = setup or self.setup
         text = str(text) if text is not None else "?"
         text = re.sub(r"(?i)\bAUTHOR'S CHOICE\b\s*:?\s*", "", text)
@@ -3129,9 +3144,19 @@ class _Traveler:
             lambda m: self.feature_name(self.faces[m[0]]) if m[0] in self.faces else "a face",
             text,
         )
-        text = self.shop_names(text)
-        for reference, label in sorted(self.references.items(), key=lambda pair: -len(pair[0])):
-            text = text.replace(reference, label)
+        registered = "|".join(
+            re.escape(reference) for reference in sorted(self.references, key=len, reverse=True)
+        )
+        # Consume qualified references whole in the same pass: their printed unknown
+        # label must not be rewritten again as a registered bare key.
+        pattern = NAMED_REFERENCE.pattern + (
+            rf"|(?<![\w./-])(?:{registered})(?![\w/-]|\.[\w#])" if registered else ""
+        )
+        text = re.sub(
+            pattern,
+            lambda match: self.shop_names(match[0]) if match[1] else self.references[match[0]],
+            text,
+        )
         for key in sorted(self.features, key=len, reverse=True):
             if "_" in key:
                 text = re.sub(rf"\b{re.escape(key)}\b", self.feature_name(key), text)
@@ -5262,6 +5287,7 @@ class _Traveler:
                     touch[key] = computed[key]
             target = touch.get("edge", touch.get("face", touch.get("feature")))
             contact = [self.bench(target) if target else "? contact not set"]
+            zero_surface = None
             method = touch.get("method")
             indicate = method == "indicate_axis" or touch.get("from") == "indicated"
             tool = None
@@ -5303,7 +5329,11 @@ class _Traveler:
                 edge = surface
             measured = method in {"trial_cut_measure", "face_then_set", "measure_then_set"}
             if _known(edge) and touch.get("from") != "indicated" and not measured:
-                contact.append(f"surface at {o(edge)}")
+                shown_surface = f"surface at {o(edge)}"
+                start = len("; ".join(contact)) + 2
+                if isinstance(target, str) and target not in ("", "unknown"):
+                    zero_surface = (axis, target, start, start + len(shown_surface))
+                contact.append(shown_surface)
             radius = touch.get("radius_mm")
             if _known(radius) and radius and touch.get("from") != "indicated":
                 contact.append(f"edge-finder radius {o(radius)}")
@@ -5339,7 +5369,7 @@ class _Traveler:
             )
             jog = computed.get("jog_mm")
             jog_direction = "−" if _known(jog) and jog < 0 else "+"
-            rows.append(
+            row = _Row(
                 (
                     axis.upper(),
                     "; ".join(contact),
@@ -5349,6 +5379,8 @@ class _Traveler:
                     mirrored,
                 )
             )
+            row.zero_surface = zero_surface
+            rows.append(row)
         pieces.append(
             _table(
                 [
@@ -8155,13 +8187,13 @@ class _Traveler:
         o = self.operative
         parts = []
         if _known(state.get("od_mm")):
-            parts.append(f"Ø{o(state['od_mm'])}")
+            parts.append(_numeric_html(f"Ø{o(state['od_mm'])}"))
         # Each arriving surface as the DRO shows it, as every other line prints it; the Zs
         # carried over from the setup it arrives from, and that one transform.
         arrival = arrival_zs(self.bundle, setup)
         move = transfer(self.bundle, setup)
         carried = move["carried"] if move else {}
-        stated, derived = [], []
+        stated, derived, derived_keys = [], [], []
         for key, label in (
             ("top_z", "top"),
             ("bottom_z", "bottom"),
@@ -8179,8 +8211,15 @@ class _Traveler:
             printed = arrival[key][1] if key in arrival else state[key]
             if key in carried and printed == carried[key][1]:
                 derived.append(label)
-            parts.append(f"{name} at Z {o(printed)}" if _known(printed) else f"{name} Z ? not set")
-        line = self.flip(setup) + f"Starts from: {self.arrival(setup)}"
+                derived_keys.append(key)
+            surface = f"{name} at Z {o(printed)}" if _known(printed) else f"{name} Z ? not set"
+            parts.append(
+                f'<span data-stock-surface="{key}" '
+                f'data-stock-state="{"known" if _known(printed) else "unknown"}">'
+                + _numeric_html(surface)
+                + "</span>"
+            )
+        line = _numeric_html(self.flip(setup) + f"Starts from: {self.arrival(setup)}")
         if parts:
             line += " — " + ", ".join(parts)
         grid = dro_grid(self.bundle, setup)
@@ -8191,27 +8230,39 @@ class _Traveler:
             # The transfer rounded its offset, or carried the sheet before's rounding: show
             # the one transform every carried Z took, at every place it holds.
             who = "each Z" if derived == stated else " and ".join(derived) + " Z"
-            before = f"its Setup {move['before']['id']} Z"
+            before = _numeric_html(f"its Setup {move['before']['id']} Z")
             shift = o(abs(move["shift"]), max(self.decimals, _places(abs(move["shift"]))))
             if move["sign"] < 0:
                 # A flip: the shift first, so no reader takes the minus as covering it.
-                term = f"{'−' if move['shift'] < 0 else ''}{shift} − {before}"
+                shown_shift = ("−" if move["shift"] < 0 else "") + shift
+                term = f"<span data-transfer-shift>{_numeric_html(shown_shift)}</span> − {before}"
             else:
-                term = f"{before} {'−' if move['shift'] < 0 else '+'} {shift}"
-            line += f" ({who} = {term})"
+                shown_shift = ("−" if move["shift"] < 0 else "+") + " " + shift
+                term = f"{before} <span data-transfer-shift>{_numeric_html(shown_shift)}</span>"
+            line += (
+                f' <span data-transfer-state="linked" '
+                f'data-transfer-before="{escape(str(move["before"]["id"]))}" '
+                f'data-transfer-surfaces="{escape(json.dumps(derived_keys))}">'
+                f"({_numeric_html(who)} = {term})</span>"
+            )
         elif move and move["shift"] is None:
             # The Zs the sheet before printed are not whole steps of this DRO apart: say so,
             # rather than name a transform rounding each alone would break.
-            line += (
-                f" (each Z on this DRO's {o(grid[0])} steps by itself: Setup "
+            refusal = (
+                f"each Z on this DRO's {o(grid[0])} steps by itself: Setup "
                 f"{move['before']['id']}'s Zs are not whole steps apart, so no one shift "
-                "carries them)"
+                "carries them"
             )
-        line += "." + self.joint_text(setup)
+            line += (
+                f' <span data-transfer-state="refused" '
+                f'data-transfer-before="{escape(str(move["before"]["id"]))}">'
+                f"({_numeric_html(refusal)})</span>"
+            )
+        line += "." + _numeric_html(self.joint_text(setup))
         if state.get("note"):
-            line += " " + self.bench(state["note"], setup).rstrip(".") + "."
+            line += " " + _numeric_html(self.bench(state["note"], setup).rstrip(".") + ".")
         debt = self.joint_debt(setup)
-        return _p(line) + (_p(debt, "stop") if debt else "")
+        return f'<p class="stock-state">{line}</p>' + (_p(debt, "stop") if debt else "")
 
     def speeds_source(self):
         cites = []
