@@ -25,7 +25,6 @@ from prechips.rules import (
     coordinates,
     indexing,
     prepared_blank,
-    purchased_tooling,
     speeds_feeds,
     stickout,
     tool_resolves,
@@ -330,6 +329,27 @@ def test_stickout_cannot_call_a_lathe_hold_inapplicable(freecad_kernel):
     finding["status"] = "not_applicable"
     with pytest.raises(ValueError):
         VALIDATOR["check_stickout"](setup, plan, features, inventory, policy, finding, kernel)
+
+
+def test_stickout_reads_a_machine_selected_by_its_category_as_that_machine(freecad_kernel):
+    """A setup selecting its machine as ``machines.<key>`` is on that machine, as on its
+    bare key: the engine's stick-out finding (a lathe's verdict, another machine's
+    inapplicable) is accepted with its own status, and no other status is."""
+    plan_path = ROOT / "examples" / "pivot-shaft" / "plan.toml"
+    bundle = load_bundle(plan_path)
+    assert run_geometry(bundle)["status"] == "ok"
+    kernel = VALIDATOR["independent_kernel"](plan_path)
+    for setup in bundle.plan["setups"]:
+        setup["machine"] = f"machines.{setup['machine']}"
+    native = {f.subject: json.loads(json.dumps(f.to_dict())) for f in stickout.evaluate(bundle)}
+    assert {row["status"] for row in native.values()} - {"not_applicable"}
+    for setup in bundle.plan["setups"]:
+        args = (setup, bundle.plan, bundle.features, bundle.inventory, bundle.policy)
+        finding = native[setup["id"]]
+        VALIDATOR["check_stickout"](*args, finding, kernel)
+        for forged in sorted({"pass", "unknown", "error", "not_applicable"} - {finding["status"]}):
+            with pytest.raises(ValueError):
+                VALIDATOR["check_stickout"](*args, {**finding, "status": forged}, kernel)
 
 
 @pytest.fixture(scope="module")
@@ -880,25 +900,29 @@ def test_reference_oracle_reads_an_accessory_as_the_machine_listing_it(flag, pre
     check_reference_verdict(data, "spare-vise", "pass" if flag is False else "unknown")
 
 
+@pytest.mark.parametrize("qualified", [False, True])
 @pytest.mark.parametrize("slot", ["checks", "zero"])
 @pytest.mark.parametrize("flag", [True, False, "unknown"])
-def test_reference_oracle_reads_each_item_in_the_category_its_slot_selects(flag, slot):
+def test_reference_oracle_reads_each_item_in_the_category_its_slot_selects(flag, slot, qualified):
     """One key two categories list is two items: the fixture a hold selects, and the gauge
     an inspection check or a zero pick-up selects (a spindle slot reads gauges after
     tools), are each as verified as their own record, never the other's, under the
-    subject the checker gives each."""
+    subject the checker gives each. A selection naming its category (``gauges.pins``) is
+    that item, as its bare key in its slot is."""
     data = drill_bundle()
     data.inventory["fixtures"] = {"pins": {"kind": "fixture", "verify": OPPOSITE[flag]}}
     data.inventory["gauges"] = {"pins": {"kind": "pin_gauge", "verify": flag}}
+    fixture, gauge = ("fixtures.pins", "gauges.pins") if qualified else ("pins", "pins")
     setup = data.plan["setups"][0]
-    setup["hold"] = {"fixture": "pins"}
+    setup["hold"] = {"fixture": fixture}
     if slot == "checks":
-        setup["ops"][0]["checks"] = {"dia": "pins"}
+        setup["ops"][0]["checks"] = {"dia": gauge}
     else:
-        setup["zero"] = {"x": {"tool": "pins"}}
+        setup["zero"] = {"x": {"tool": gauge}}
     subjects = {
         (row.numbers.get("category"), row.numbers.get("reference")): row.subject
         for row in tool_resolves.evaluate(data)
+        if "named_in" not in row.numbers
     }
     for category, flagged in (("gauges", flag), ("fixtures", OPPOSITE[flag])):
         verdict = "pass" if flagged is False else "unknown"
@@ -919,6 +943,62 @@ def check_reference_verdict(data, subject, verdict):
             VALIDATOR["check_references"](
                 data.plan, entries, {**findings, key: {**findings[key], "status": forged}}
             )
+
+
+QUALIFIED_SELECTIONS = {
+    # slot: (category, key, its record, where the plan selects it)
+    "machine": ("machines", "mill", {"kind": "mill"}, lambda setup: (setup, "machine")),
+    "tool": ("tools", "drill", {"kind": "drill"}, lambda setup: (setup["ops"][0], "tool")),
+    "fixture": (
+        "fixtures",
+        "pins",
+        {"kind": "fixture"},
+        lambda setup: (setup.setdefault("hold", {}), "fixture"),
+    ),
+    "gauge": (
+        "gauges",
+        "pins",
+        {"kind": "pin_gauge"},
+        lambda setup: (setup["ops"][0].setdefault("checks", {}), "dia"),
+    ),
+}
+
+
+@pytest.mark.parametrize("qualified", [False, True])
+@pytest.mark.parametrize("flag", [True, False, "unknown", "absent"])
+@pytest.mark.parametrize("slot", sorted(QUALIFIED_SELECTIONS))
+def test_reference_coverage_reads_a_selection_as_the_item_it_selects(slot, flag, qualified):
+    """A machine, tool, fixture or gauge the plan selects by its bare key or by
+    ``<category>.<key>`` is the one item the checker selects: its native finding is
+    accepted with its own verdict (an item not listed an error), and no other status is."""
+    data = drill_bundle()
+    category, key, item, place = QUALIFIED_SELECTIONS[slot]
+    data.inventory.setdefault(category, {}).setdefault(key, item)
+    if flag == "absent":
+        key = "unlisted"
+    else:
+        data.inventory[category][key]["verify"] = flag
+    target, field = place(data.plan["setups"][0])
+    target[field] = f"{category}.{key}" if qualified else key
+    Inventory.model_validate(data.inventory)
+    findings = {(f.rule, f.subject): f.to_dict() for f in tool_resolves.evaluate(data)}
+    items = {name: row for name, row in findings.items() if "category" in row["numbers"]}
+    (selected,) = (
+        row
+        for row in items.values()
+        if (row["numbers"]["category"], row["numbers"]["reference"]) == (category, key)
+        and "named_in" not in row["numbers"]
+    )
+    verdict = "error" if flag == "absent" else "pass" if flag is False else "unknown"
+    assert selected["status"] == verdict
+    entries = VALIDATOR["Entries"](data.inventory)
+    VALIDATOR["check_references"](data.plan, entries, findings)
+    for name, row in items.items():
+        for forged in sorted({"pass", "unknown", "error"} - {row["status"]}):
+            with pytest.raises(ValueError):
+                VALIDATOR["check_references"](
+                    data.plan, entries, {**findings, name: {**row, "status": forged}}
+                )
 
 
 PILOTS = [
@@ -1513,7 +1593,7 @@ def coverage_case():
     and the validator's coverage check on its own inventory read and bundle load."""
     plan, features, inventory, _, report = cone_inputs()
     entries = VALIDATOR["Entries"](inventory)
-    checked = VALIDATOR["checker_subjects"](ROOT / "examples" / "cone-pivot-post" / "built-up.toml")
+    checked = VALIDATOR["checker_findings"](ROOT / "examples" / "cone-pivot-post" / "built-up.toml")
 
     def check(policy, plan, features, findings):
         VALIDATOR["check_required_coverage"](policy, plan, features, findings, entries, checked)
@@ -1572,43 +1652,69 @@ def test_required_coverage_row_carries_the_policys_selector():
         check(policy, plan, features, {**findings, key: row})
 
 
-def test_coverage_reads_every_rule_of_the_checkers_catalogue(freecad_kernel, monkeypatch):
+def test_rules_only_the_checker_models_are_its_own_rows_on_the_validators_inputs(
+    freecad_kernel, tmp_path, monkeypatch
+):
     """A rule of the checker's catalogue the validator does not model (consistency,
-    purchased_tooling, or one the checker adds later) evaluates the subjects its own rule
-    gives on the validator's own bundle load: each of its rows is required, and a row it
-    does not give is not evaluated by any supported check."""
-    plan_path = ROOT / "examples" / "pivot-bracket" / "plan.toml"
+    purchased_tooling, or one the checker adds later) is the rows its own rule gives on the
+    validator's own bundle load and kernel run: each is required with that rule's verdict
+    and evidence. A row dropped or fabricated, an unknown reported passed or waived, a
+    verdict moved either way, or one standing on other evidence is rejected. Here the shop
+    requires purchased tooling and the edge finder's receipt checks are unknown."""
+    examples = copy_examples(tmp_path)
+    for name, table, line in (
+        ("inventory/pedro-shop.toml", "[tools.edge-finder]\n", 'acceptance = "unknown"\n'),
+        ("shop-policy.toml", "[required]\n", 'purchased_tooling = "*"\n'),
+    ):
+        path = examples / name
+        text = path.read_text(encoding="utf-8")
+        assert table in text
+        path.write_text(text.replace(table, table + line, 1), encoding="utf-8")
+    plan_path = examples / "pivot-bracket" / "plan.toml"
     bundle = load_bundle(plan_path)
+    assert run_geometry(bundle)["status"] == "ok"
 
     def later(data):
-        return [Finding("later_rule", s["id"], "pass", {}, [], "") for s in data.plan["setups"]]
+        return [
+            Finding("later_rule", s["id"], "unknown", {"setup": s["id"]}, [], "")
+            for s in data.plan["setups"]
+        ]
 
     rule_subjects = VALIDATOR["rule_subjects"]
     rules = [*RULES, Rule("later_rule", later)]
     monkeypatch.setitem(rule_subjects.__globals__, "CHECKER_RULES", rules)
     entries = VALIDATOR["Entries"](bundle.inventory)
-    checked = VALIDATOR["checker_subjects"](plan_path)
+    checked = VALIDATOR["checker_findings"](plan_path)
     domains = rule_subjects(bundle.plan, bundle.features, entries, checked)
-    setups = {setup["id"] for setup in bundle.plan["setups"]}
-    assert domains["later_rule"] == setups
-    assert setups <= domains["consistency"]
-    expected = {f.subject for f in purchased_tooling.evaluate(bundle)}
-    assert expected and domains["purchased_tooling"] == expected
+    assert set(domains["later_rule"]) == {setup["id"] for setup in bundle.plan["setups"]}
+    native = {
+        (f.rule, f.subject): json.loads(json.dumps(f.to_dict()))
+        for rule in rules
+        for f in rule.evaluate(bundle)
+    }
     findings = {
-        (rule, subject): {"status": "pass", "numbers": {}}
+        (rule, subject): native.get((rule, subject), {"status": "pass", "numbers": {}})
         for rule, subjects in domains.items()
         for subject in subjects
     }
-    policy = {"required": {}}
+    receipts = {row["status"] for key, row in findings.items() if key[0] == "purchased_tooling"}
+    assert "unknown" in receipts
     check = VALIDATOR["check_required_coverage"]
-    check(policy, bundle.plan, bundle.features, findings, entries, checked)
+
+    def rejected(changed):
+        with pytest.raises(ValueError):
+            check(bundle.policy, bundle.plan, bundle.features, changed, entries, checked)
+
+    check(bundle.policy, bundle.plan, bundle.features, findings, entries, checked)
     for rule in ("later_rule", "consistency", "purchased_tooling"):
-        dropped = {key: row for key, row in findings.items() if key[0] != rule}
-        with pytest.raises(ValueError):
-            check(policy, bundle.plan, bundle.features, dropped, entries, checked)
-        fabricated = {**findings, (rule, "S99"): {"status": "pass", "numbers": {}}}
-        with pytest.raises(ValueError):
-            check(policy, bundle.plan, bundle.features, fabricated, entries, checked)
+        rejected({key: row for key, row in findings.items() if key[0] != rule})
+        rejected({**findings, (rule, "S99"): {"status": "pass", "numbers": {}}})
+        for key, row in findings.items():
+            if key[0] != rule:
+                continue
+            for status in sorted({"pass", "unknown", "error", "not_applicable"} - {row["status"]}):
+                rejected({**findings, key: {**row, "status": status}})
+            rejected({**findings, key: {**row, "numbers": {**row["numbers"], "forged": True}}})
 
 
 def cone_coordinates(tmp_path, setup_id, aim=None, measured=False):

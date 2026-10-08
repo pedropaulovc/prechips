@@ -50,6 +50,7 @@ from prechips.rules.resolution import (
     LENGTH_TOLERANCE_MM,
     MANUAL,
     SAW_OPS,
+    SLOT_CATEGORIES,
     named_item,
     op_features,
     rough_leave,
@@ -57,6 +58,7 @@ from prechips.rules.resolution import (
     saw_setup,
 )
 from prechips.rules.resolution import resolve as resolve_item
+from prechips.rules.resolution import select as select_item
 from prechips.rules.resolution import uncertain as record_uncertain
 from prechips.rules.speeds_feeds import AXIAL_FACING
 from prechips.rules.stickout import support_state
@@ -311,6 +313,14 @@ class Entries:
         """Whether ``ref`` resolves in ``slot`` to an item the checker does not read as
         unverified: a flagged, unverified or explicitly unknown one is not ready."""
         return self.resolves(ref, slot) and not self.uncertain(ref, slot)
+
+    def identities(self, ref) -> set:
+        """The ``(category, key)`` items ``ref`` names, as resolution.select selects it in
+        each slot kind and category: a reference naming its category (``tools.drill``) is
+        that one item; a bare key is the item each slot reads, so one key two categories
+        list is two."""
+        slots = [*SLOT_CATEGORIES, *(c for order in SLOT_CATEGORIES.values() for c in order)]
+        return {select_item(self.inventory, ref, slot)[:2] for slot in slots}
 
 
 def selected_refs(plan: dict):
@@ -617,10 +627,10 @@ def rule_subjects(plan: dict, features: dict, entries: Entries, checked) -> dict
     each joined setup (a cylindrical one's fit too), each saw cut, each scribed or filed
     arc, every inventory item the plan selects or names (:func:`identity_rows`) and
     non-manual op, and the inspection subjects (:func:`inspection_subjects`). Any other
-    rule of the checker's catalogue (``prechips.rules.RULES``) evaluates the subjects its
-    own rule gives on the validator's own bundle load (``checked``,
-    :func:`checker_subjects`), so a rule the checker adds needs no validator edit; a rule
-    outside the catalogue evaluates nothing."""
+    rule of the checker's catalogue (``prechips.rules.RULES``) is its own rows on the
+    validator's own bundle load and kernel run (``checked``, :func:`checker_findings`):
+    ``{subject: row}``, so a rule the checker adds needs no validator edit; a rule outside
+    the catalogue evaluates nothing."""
     definitions = operative_definitions(plan, features)
     ops = [(setup, op) for setup in plan["setups"] for op in setup["ops"]]
     setups = {setup["id"] for setup in plan["setups"]}
@@ -659,12 +669,22 @@ def rule_subjects(plan: dict, features: dict, entries: Entries, checked) -> dict
     return subjects
 
 
-def checker_subjects(plan_path: Path):
-    """``checked(rule)``: the subjects the checker's own ``rule`` (``prechips.rules.RULES``)
-    evaluates on this validator's own bundle load of the plan at ``plan_path``, made once
-    per rule. No report value enters it."""
-    bundle = functools.cache(lambda: load_bundle(plan_path))
-    return functools.cache(lambda rule: frozenset(f.subject for f in rule.evaluate(bundle())))
+def checker_findings(plan_path: Path):
+    """``checked(rule)``: ``{subject: row}``, the findings the checker's own ``rule``
+    (``prechips.rules.RULES``) gives on this validator's own bundle load and kernel run of
+    the plan at ``plan_path`` (geometry first, as the CLI runs it), made once per rule. No
+    report value enters it."""
+
+    @functools.cache
+    def bundle():
+        loaded = load_bundle(plan_path)
+        run_geometry(loaded)
+        return loaded
+
+    def rows(rule) -> dict:
+        return {f.subject: json.loads(json.dumps(f.to_dict())) for f in rule.evaluate(bundle())}
+
+    return functools.cache(rows)
 
 
 def required_subjects(policy: dict, plan: dict, features: dict, rules: dict) -> dict:
@@ -713,7 +733,9 @@ def check_required_coverage(
     (:func:`rule_subjects`, from the validator's own inputs) plus the checker's coverage
     row for each required subject none of them covers (:func:`required_subjects`). Each
     coverage row stays unknown with the policy's selector: no supported check exists to
-    approve or waive it, and no report row can stand in for one."""
+    approve or waive it, and no report row can stand in for one. A rule only the checker's
+    catalogue lists is its own rows on the validator's inputs (:func:`checker_findings`):
+    each report row is that row, verdict and evidence, never approved, waived or moved."""
     domains = rule_subjects(plan, features, entries, checked)
     coverage = {
         (rule, subject): selector
@@ -726,6 +748,12 @@ def check_required_coverage(
     evaluated = {(rule, subject) for rule, subjects in domains.items() for subject in subjects}
     absent = sorted((evaluated | coverage.keys()) - findings.keys())
     require(not absent, f"missing findings {absent}: evaluated or required subjects")
+    for rule, own in domains.items():
+        for subject, row in own.items() if isinstance(own, dict) else ():
+            require(
+                findings[rule, subject] == row,
+                f"{rule}:{subject}: not the checker's own row on the validator's inputs",
+            )
     for key, finding in findings.items():
         if key in evaluated:
             continue
@@ -1038,11 +1066,15 @@ def check_references(plan: dict, entries: Entries, findings: dict) -> list:
     finding, naming that category and reference, with the verdict of the item that
     category selects (:class:`Entries`): one not listed an error naming it (a named one
     unknown), one listed but unverified unknown, else pass. Every identity a plan slot
-    names (:func:`selected_refs`) is one of those items. Returns the subjects not listed."""
+    names (:func:`selected_refs`) is one of those items, as resolution.select names it
+    (:meth:`Entries.identities`). Returns the subjects not listed."""
     rows = identity_rows(plan, entries)
-    references = {reference for _, reference, _ in rows.values()}
+    items = {(category, reference) for category, reference, _ in rows.values()}
     for ref in sorted(selected_refs(plan)):
-        require(ref in references, f"{ref}: no reference finding resolves the identity it names")
+        require(
+            entries.identities(ref) & items,
+            f"{ref}: no reference finding resolves the identity it names",
+        )
     missing = []
     for subject, (category, ref, named) in sorted(rows.items()):
         key = "tool_resolves", subject
@@ -3679,9 +3711,7 @@ def check_stickout(
         row["support_status"] == support and row["supports"] == supports,
         "stick-out selected support differs from the plan's hold in the inventory",
     )
-    machines = inventory.get("machines", {})
-    machine = machines.get(setup.get("machine")) if isinstance(machines, dict) else None
-    kind = machine.get("kind", "unknown") if isinstance(machine, dict) else "unknown"
+    kind = machine_record(setup, Entries(inventory)).get("kind", "unknown")
     if kind != "lathe":
         status = "unknown" if kind == "unknown" else "not_applicable"
     elif not numeric(length) or length < 0 or not numeric(held):
@@ -3870,7 +3900,7 @@ def validate_fixture(
         check_cone_facts(plan, features)
     check_frames(features, plan)
     check_subjects(plan, features, findings, inventory)
-    checked = checker_subjects(folder / plan_filename)
+    checked = checker_findings(folder / plan_filename)
     check_required_coverage(policy, plan, features, findings, entries, checked)
     check_inspection_declarations(plan, features, findings)
     kernel = independent_kernel(folder / plan_filename)
@@ -3974,10 +4004,7 @@ def validate_geometry_fixture(case: tuple, documents: dict) -> None:
         if sid in modeled:
             # Every drawn component exact, no debt, and the scene names the held kind.
             fixture = holds[sid].get("fixture")
-            kinds = [
-                inventory.get(category, {}).get(fixture, {}).get("kind")
-                for category in ("fixtures", "machines")
-            ]
+            kinds = [Entries(inventory).record(fixture, "workholding").get("kind")]
             components = scene.get("components", [])
             require(
                 asset.get("fixture") == "modeled"
@@ -4006,7 +4033,7 @@ def validate_geometry_fixture(case: tuple, documents: dict) -> None:
         )
     policy = documents[paths["shop_policy"]]
     findings = {(row["rule"], row["subject"]): row for row in report["findings"]}
-    checked = checker_subjects(folder / plan_filename)
+    checked = checker_findings(folder / plan_filename)
     check_required_coverage(policy, plan, features, findings, Entries(inventory), checked)
     require(
         report_exit(report, policy, plan, features) == report["expected_exit"] == expected_exit,
