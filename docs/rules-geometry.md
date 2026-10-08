@@ -1905,7 +1905,8 @@ carries no row. `mm` and `tag` are `unknown` for a move or tool dimension the
 kernel is not told (an arc table that reaches it as no checkpoints, a raster or arc
 reason, a start Z the tables do not give, an unmeasured shank), for the cut that
 stopped the stock builder and every
-later one, and for every op while the holding is not drawn whole (any
+later one, for a guided file that reaches a kit solid it may stop on when the kit's
+rim band is unknown (below), and for every op while the holding is not drawn whole (any
 `render_scene.debts`: an unresolved fixture, an undrawn component, an undeclared
 jaw extent), since what is not drawn may stand nearer than anything drawn;
 `closest_cut` is then None, so the picture never dimensions a value the table calls
@@ -1955,19 +1956,27 @@ rounded away from zero (2.8045 at three places prints 2.805, never 2.804), so a
 picture and its table never print one value two ways.
 
 A guided bench file (a hand op whose `guide.buttons` kit is held in the setup,
-its solids named to the kernel by `guide_owner`, the kit's declared button OD by
-`guide_rim_dia_mm`) is not a cut to clear. A kit solid is a stop only when it is a
-button of that declared OD (a cylindrical face within the OD limits, widened by the
-stock tolerance), its cut reaches it, it is seated on the filed face (within the
-stock tolerance of the stock the file leaves, without biting into it), and that
-rim sets the filed boundary: the rim's cylinder, run along its axis, touches the
-cut where the cut meets the stock the file leaves and nowhere enters the cut. A
-button of the right OD whose rim stands over the unfiled wall is no stop. Those stops
-are named in `render_scene.guide_stops`, and the kernel leaves them out of the
-file's `cut_clearances` row and so out of `closest_cut`: no `CUT 0.000 mm FROM` a
-filing button prints. Any other kit solid the cut reaches (a stud, a tab touching
-the unfiled wall, a square block) is holding to clear and keeps its real `CUT`
-dimension. The detail keys
+its solids named to the kernel by `guide_owner`, the diameter band the kit's rims
+stand at by `guide_rim_dia_mm`) is not a cut to clear. That band is twice the radius
+band the buttons file to worst case over the kit's declared stack ([rules-coordinates
+filing buttons](rules-coordinates.md): the button OD limits widened by the rim
+centre's shift off the bore axis), the band the traveler prints; a button drawn at its
+nominal OD is in it even when its bought OD band (a fit class such as g6) excludes the
+nominal. A kit solid is a stop only when it is a button of that band (a cylindrical
+face within it, widened by the stock tolerance), its cut reaches it, it is seated on
+the filed face (within the stock tolerance of the stock the file leaves, without
+biting into it), and that rim sets the filed boundary: the rim's cylinder, run along
+its axis, touches the cut where the cut meets the stock the file leaves and nowhere
+enters the cut. A button of the band whose rim stands over the unfiled wall is no
+stop. Those stops are named in `render_scene.guide_stops`, and the kernel leaves them
+out of the file's `cut_clearances` row and so out of `closest_cut`: no `CUT 0.000 mm
+FROM` a filing button prints. Any other kit solid the cut reaches (a stud, a tab
+touching the unfiled wall, a square block, a cylinder outside the band) is holding to
+clear and keeps its real `CUT` dimension. When the band is unknown (any stack element
+unknown, or a pin that may not enter its seats), a kit solid that would be a stop but
+for the band, or whose seat test fails its boolean, may be the file's stop: whether
+the file bears on it is unknown, so the file's row is `unknown` and `closest_cut` None,
+never a pass and never 0 mm to a button. The detail keys
 them in green: `FILE STOPS ON BOTH BUTTON RIMS` for a matched pair, or one key
 per rim, `FILE STOPS ON UPPER BUTTON RIM`, when they lie apart. A real clearance
 to the rest of the kit (its stud) is still dimensioned: in the holding detail when

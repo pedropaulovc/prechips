@@ -17,6 +17,7 @@ from html import unescape
 import pytest
 
 from prechips.inputs import load_bundle
+from prechips.kernel import build_job
 from prechips.rules import coordinates, manual_arc
 from prechips.sheet import _Traveler
 
@@ -907,6 +908,34 @@ def test_every_stack_tolerance_widens_the_worst_case_filed_band(tmp_path, name, 
     row = manual_row(plan, 30)
     assert row.status == "pass", row.sentence
     assert row.numbers["guide"]["files_to_mm"] == pytest.approx(band)
+
+
+def _filing_input(plan):
+    [filed] = [
+        op
+        for setup in build_job(load_bundle(plan))["setups"]
+        for op in setup["ops"]
+        if op["do"] == "file_to_line"
+    ]
+    return filed
+
+
+# The kernel tells the buttons the file stops on from the rest of the kit (whose
+# clearances it dimensions) by the rim band the declared stack files to worst case, the
+# band the traveler prints: a button drawn at its Ø20 nominal is in it though the bought
+# OD band (Ø19.980-19.993, a fit class below the nominal) is not. A stack element unknown
+# leaves the band unknown, so whether the file bears on a kit solid stays unknown.
+def test_the_kernel_finds_the_buttons_by_the_rim_band_the_stack_files_to(tmp_path):
+    plan = scratch(tmp_path, FILE_BY_BUTTONS, hold="fixture = 'buttons'")
+    change(plan.with_name("inventory.toml"), "[19.99, 20.0]", "[19.98, 19.993]")
+    reach = manual_row(plan, 30).numbers["guide"]["files_to_mm"]
+    filed = _filing_input(plan)
+    assert filed["guide_owner"] == "buttons"
+    low, high = filed["guide_rim_dia_mm"]
+    assert [low / 2, high / 2] == pytest.approx(reach)
+    assert low < 20.0 < high
+    change(plan.with_name("inventory.toml"), "pin_dia_limits_mm = [5.99, 6.0]\n", "")
+    assert _filing_input(plan)["guide_rim_dia_mm"] == "unknown"
 
 
 @pytest.mark.parametrize(

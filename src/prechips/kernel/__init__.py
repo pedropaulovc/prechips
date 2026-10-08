@@ -477,12 +477,17 @@ def _hand_inputs(bundle, setup, op, subject, finishing):
     """A bench file's kernel inputs: its claims and the policy's ``max_filing_stock_mm``,
     the most stock a file takes off its claimed faces; it has no machine cutter or holder.
     A file guided by filing buttons held in this setup names the kit's solids by their
-    kernel owner (``guide_owner``) and the kit's declared button OD limits
-    (``guide_rim_dia_mm``): only a button of the kit, a turned solid of that OD whose rim
-    lies on the filed surface, is where the file stops."""
-    from prechips.measurements import nominal_limits_mm
+    kernel owner (``guide_owner``) and the diameter band its rims stand at
+    (``guide_rim_dia_mm``): twice the radius band the kit files to worst case over its
+    declared stack (:func:`prechips.rules.manual_arc.files_to`: the button OD limits
+    widened by the rim centre's shift off the bore axis), so a button drawn at its nominal
+    OD is one of them though its bought OD band excludes the nominal. Only a button of the
+    kit, a turned solid of that band whose rim lies on the filed surface, is where the file
+    stops; ``"unknown"`` when any stack element is unknown or a pin may not enter its
+    seats, so whether the file bears on a kit solid is unknown."""
     from prechips.rules.coordinates import filing_cap
     from prechips.rules.geometry_common import HAND, finishing_subjects
+    from prechips.rules.manual_arc import files_to, guide_stack
     from prechips.rules.resolution import resolve
 
     result = {
@@ -495,7 +500,8 @@ def _hand_inputs(bundle, setup, op, subject, finishing):
     }
     if "faces" in op:
         result["faces"] = op["faces"]
-    kit = record(op.get("guide")).get("buttons")
+    guide = record(op.get("guide"))
+    kit = guide.get("buttons")
     hold = record(setup.get("hold"))
     clamps = hold.get("clamps") if isinstance(hold.get("clamps"), list) else []
     owner = next(
@@ -509,13 +515,11 @@ def _hand_inputs(bundle, setup, op, subject, finishing):
     if isinstance(kit, str) and kit != UNKNOWN and owner is not None:
         result["guide_owner"] = owner
         item = resolve(bundle, "fixtures", kit)
-        limits = nominal_limits_mm(item, "button_dia_limits") if isinstance(item, dict) else None
-        if (
-            isinstance(limits, list)
-            and len(limits) == 2
-            and all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in limits)
-        ):
-            result["guide_rim_dia_mm"] = sorted(limits)
+        scale = {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units"))
+        known = isinstance(item, dict) and scale is not None
+        stack = guide_stack(bundle, item, guide.get("bore"), scale) if known else None
+        filed = files_to(stack) if stack else None
+        result["guide_rim_dia_mm"] = [2 * r for r in filed[1]] if filed else UNKNOWN
     return result
 
 

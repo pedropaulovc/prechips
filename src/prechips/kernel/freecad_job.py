@@ -8102,8 +8102,9 @@ class _Setup:
         # A saw's cut is its blade's path, not the offcut that falls away.
         blade = self._blade_path(held)
         # A lathe picture is a meridian section: its contacts are not the drawn faces. A
-        # guided file's stops are the rims it rides on, not a clearance to dimension.
-        stops = [] if lathe else self._guide_stops(held, section_view)
+        # guided file's stops are the rims it rides on, not a clearance to dimension; a rim
+        # it may ride on, its kit's rim band unknown, leaves that file's clearance unknown.
+        stops, undecided = ([], {}) if lathe else self._guide_stops(held, section_view)
         spec["guide_stops"] = stops
         guide = self._guide_view(stops, solids, drawn, removal)
         if guide is not None:
@@ -8113,7 +8114,9 @@ class _Setup:
         # The CLEARANCE table's per-op fixture rows and the picture's dimension, the least
         # of them; any holding debt leaves them unknown.
         scene["cut_clearances"], spec["closest_cut"] = (
-            ([], None) if lathe else self._cut_clearances(held, not debts, stops, blade)
+            ([], None)
+            if lathe
+            else self._cut_clearances(held, not debts, stops, blade, undecided)
         )
         scene["closest_cut"] = spec["closest_cut"]
         scene["guide_stops"] = [stop["tag"] for stop in stops]
@@ -8396,34 +8399,40 @@ class _Setup:
         return model, None
 
     def _guide_stops(self, solids, section_view=None):
-        """The rims a guided bench file rides on: each button of a hand op's guide kit (its
-        ``guide_owner``, the prefix of the kit's solid tags) that the op's own cut reaches,
-        as ``{"tag", "at_mm", "rim_mm"}``. A button is a kit solid with a cylindrical face
-        of the kit's declared button OD (``guide_rim_dia_mm``) that touches the stock the
-        op leaves without entering it, whose rim sets the filed boundary
-        (:meth:`_rim_sets_boundary`). Any other kit solid (a stud, a nut, a button standing
-        off, buried in the work or whose rim lies off the filed face) is holding the file
-        must clear, so no stop; nor is anything without the declared OD. ``rim_mm``
-        holds the runs of the solid's edges on the cut (:func:`_rim_runs`); ``at_mm`` is the
-        rim point a picture keys: in a section view the kept one nearest the section plane
-        (the rim seen edge-on), else the one nearest the rim's middle. A solid the cut
-        reaches only off its edges is keyed at its contact point nearest the contact's
-        middle. A cut the stock builder did not derive stops nowhere."""
-        stops = []
+        """(the rims a guided bench file rides on, the kit solids it may ride on). A rim is
+        each button of a hand op's guide kit (its ``guide_owner``, the prefix of the kit's
+        solid tags) that the op's own cut reaches, as ``{"tag", "at_mm", "rim_mm"}``. A
+        button is a kit solid with a cylindrical face whose diameter lies in the band the
+        kit's rims stand at (``guide_rim_dia_mm``: the declared stack's worst-case filed
+        band, so a button drawn at its nominal OD is one though its bought OD band excludes
+        the nominal) that touches the stock the op leaves without entering it, whose rim
+        sets the filed boundary (:meth:`_rim_sets_boundary`). Any other kit solid (a stud, a
+        nut, a button standing off, buried in the work or whose rim lies off the filed face)
+        is holding the file must clear, so no stop; nor is anything outside that band.
+        ``rim_mm`` holds the runs of the solid's edges on the cut (:func:`_rim_runs`);
+        ``at_mm`` is the rim point a picture keys: in a section view the kept one nearest
+        the section plane (the rim seen edge-on), else the one nearest the rim's middle. A
+        solid the cut reaches only off its edges is keyed at its contact point nearest the
+        contact's middle. A cut the stock builder did not derive stops nowhere.
+
+        The second is ``{id(op): [tag]}``: each kit solid an op's cut reaches that would be
+        a button but that the kit's rim band is unknown (``guide_rim_dia_mm`` no pair), or
+        whose seat test fails its boolean. Whether the file bears on it is unknown, so it is
+        neither a stop nor holding to clear."""
+        stops, undecided = [], {}
         for op in self.ops:
             owner, rims = op.get("guide_owner"), op.get("guide_rim_dia_mm")
             before, after, why = self.cuts.get(id(op), (None, None, "not built"))
             if not (_hand(op) and isinstance(owner, str)) or why is not None or after is before:
                 continue
-            if not (isinstance(rims, list) and len(rims) == 2 and all(_number(v) for v in rims)):
-                continue
+            known = isinstance(rims, list) and len(rims) == 2 and all(_number(v) for v in rims)
             try:
                 cut = before.cut(after)
             except Exception:
                 continue
             if cut.Volume <= STOCK_MM3:
                 continue
-            low, high = min(rims) - STOCK_TOL, max(rims) + STOCK_TOL
+            low, high = (min(rims) - STOCK_TOL, max(rims) + STOCK_TOL) if known else (0, 0)
             for name, solid in solids:
                 if name.rsplit(":", 1)[0] != owner or any(s["tag"] == name for s in stops):
                     continue
@@ -8436,13 +8445,16 @@ class _Setup:
                         and solid.common(after).Volume <= STOCK_MM3
                         and any(
                             isinstance(face.Surface, Part.Cylinder)
-                            and low <= 2 * face.Surface.Radius <= high
+                            and (not known or low <= 2 * face.Surface.Radius <= high)
                             and self._rim_sets_boundary(face, solid, cut, after)
                             for face in solid.Faces
                         )
                     )
                 except Exception:
-                    seated = False
+                    seated = None
+                if seated is None or (seated and not known):
+                    undecided.setdefault(id(op), []).append(name)
+                    continue
                 if not seated:
                     continue
                 rim = _rim_runs(solid, cut)
@@ -8456,7 +8468,7 @@ class _Setup:
                     middle = sum(points, V(0, 0, 0)) * (1.0 / len(points))
                     at = min(points, key=lambda p: (p - middle).Length)
                 stops.append({"tag": name, "at_mm": [at.x, at.y, at.z], "rim_mm": rim})
-        return stops
+        return stops, undecided
 
     @staticmethod
     def _rim_sets_boundary(face, solid, cut, after):
@@ -8504,7 +8516,7 @@ class _Setup:
         # Rounded as the CLEARANCE rows are: a picture prints the value its table prints.
         return nearest and {**nearest, "mm": _r(nearest["mm"])}
 
-    def _cut_clearances(self, solids, drawn, stops, blade):
+    def _cut_clearances(self, solids, drawn, stops, blade, undecided):
         """(the CLEARANCE table's rows, the picture's ``closest_cut``) against the holding
         ``solids``. A row ``{"op", "mm", "tag"}`` per op in op order: ``mm`` the least
         distance (:meth:`_nearest`) from what the op moves past the holding to its nearest
@@ -8515,11 +8527,13 @@ class _Setup:
         never its own guide stops (``stops``, :meth:`_guide_stops`), and one filing nothing
         carries no row. ``mm`` and ``tag`` are ``unknown``, never left out, for a move or
         tool dimension the kernel is not told, a cut the stock builder could not derive (the
-        op that stopped it and every later one), a failed boolean, and every op when the
-        holding is not ``drawn`` whole (unresolved, a component undrawn, a jaw extent
-        undeclared), since what is not drawn may stand nearer than anything drawn. A saw's
-        ``blade`` path (:meth:`_blade_path`) carries no row. ``closest_cut`` is the least of
-        the rows and the blade path, with both points; None when any of them is unknown."""
+        op that stopped it and every later one), a failed boolean, a file reaching a kit
+        solid it may ride on (``undecided``, :meth:`_guide_stops`: whether that contact is
+        its stop is unknown), and every op when the holding is not ``drawn`` whole
+        (unresolved, a component undrawn, a jaw extent undeclared), since what is not drawn
+        may stand nearer than anything drawn. A saw's ``blade`` path (:meth:`_blade_path`)
+        carries no row. ``closest_cut`` is the least of the rows and the blade path, with
+        both points; None when any of them is unknown."""
         rows, closest, known = [], None, True
         stopped = {stop["tag"] for stop in stops}
         for op in self.ops:
@@ -8535,6 +8549,9 @@ class _Setup:
                         continue
                     if isinstance(op.get("guide_owner"), str):
                         held = [item for item in solids if item[0] not in stopped]
+                    if undecided.get(id(op)):
+                        tags = ", ".join(undecided[id(op)])
+                        raise _Unknown(f"whether the file bears on {tags} is unknown")
                 if not drawn:
                     raise _Unknown("the holding is not drawn whole")
                 if not _hand(op):
