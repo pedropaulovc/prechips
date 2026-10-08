@@ -201,7 +201,7 @@
         "inputs": {
           "cutting_data": {
             "path": "examples/cutting-data.toml",
-            "sha256": "fccc2e77df569c590521faf0c746d0954a87b429994f2496a93668ff8f59fc34"
+            "sha256": "2bcf78c7e2b496eacbd3d13219cd59e42157aac332785fd97cc3b219ce96c8c1"
           },
           "features": {
             "path": "examples/geometry/fixture-holds/features.toml",
@@ -209,7 +209,7 @@
           },
           "inventory": {
             "path": "examples/geometry/inventory.toml",
-            "sha256": "c5d063179f78736d6cf6f7b00bdb71596dd98bd63635cae2a1976ea8f3cd4725"
+            "sha256": "4a218826e99747448c27b662cc66c7714cd15d4ea841502c63f32ef20e35cb09"
           },
           "plan": {
             "path": "examples/geometry/fixture-holds/plan.toml",
@@ -229,6 +229,163 @@
       "rule": "bundle_binding",
       "status": "pass",
       "subject": "inputs"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 hold fields: hold.centre_hole and centre_hole_dia_mm"
+      ],
+      "message": "S1: the work is not carried on a centre.",
+      "numbers": {},
+      "rule": "centre_support",
+      "status": "not_applicable",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 hold fields: hold.centre_hole and centre_hole_dia_mm"
+      ],
+      "message": "S2: the work is not carried on a centre.",
+      "numbers": {},
+      "rule": "centre_support",
+      "status": "not_applicable",
+      "subject": "S2"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 hold fields: hold.centre_hole and centre_hole_dia_mm"
+      ],
+      "message": "S3: the work is not carried on a centre.",
+      "numbers": {},
+      "rule": "centre_support",
+      "status": "not_applicable",
+      "subject": "S3"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 hold fields: hold.centre_hole and centre_hole_dia_mm"
+      ],
+      "message": "S4: which centre the work rides in is undeclared.",
+      "numbers": {
+        "centre_hole": "unknown",
+        "centres": [
+          "test-dead-centre"
+        ],
+        "hold_centre_hole_dia_mm": "unknown",
+        "support": "test-dead-centre"
+      },
+      "rule": "centre_support",
+      "status": "unknown",
+      "subject": "S4"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 hold fields: hold.centre_hole and centre_hole_dia_mm"
+      ],
+      "message": "S5: the work is not carried on a centre.",
+      "numbers": {},
+      "rule": "centre_support",
+      "status": "not_applicable",
+      "subject": "S5"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 hold fields: hold.centre_hole and centre_hole_dia_mm"
+      ],
+      "message": "S6: the work is not carried on a centre.",
+      "numbers": {},
+      "rule": "centre_support",
+      "status": "not_applicable",
+      "subject": "S6"
+    },
+    {
+      "cite": [
+        "plan setups S1: hold, zero, stock_state and notes",
+        "kernel setup-entry stock box"
+      ],
+      "message": "Every fact this rule reads agrees with its one source.",
+      "numbers": {
+        "claims": 1,
+        "contradictions": [],
+        "unchecked": []
+      },
+      "rule": "consistency",
+      "status": "pass",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "plan setups S2: hold, zero, stock_state and notes",
+        "kernel setup-entry stock box"
+      ],
+      "message": "Every fact this rule reads agrees with its one source.",
+      "numbers": {
+        "claims": 1,
+        "contradictions": [],
+        "unchecked": []
+      },
+      "rule": "consistency",
+      "status": "pass",
+      "subject": "S2"
+    },
+    {
+      "cite": [
+        "plan setups S3: hold, zero, stock_state and notes",
+        "kernel setup-entry stock box"
+      ],
+      "message": "Every fact this rule reads agrees with its one source.",
+      "numbers": {
+        "claims": 1,
+        "contradictions": [],
+        "unchecked": []
+      },
+      "rule": "consistency",
+      "status": "pass",
+      "subject": "S3"
+    },
+    {
+      "cite": [
+        "plan setups S4: hold, zero, stock_state and notes",
+        "kernel setup-entry stock box"
+      ],
+      "message": "Every fact this rule reads agrees with its one source.",
+      "numbers": {
+        "claims": 1,
+        "contradictions": [],
+        "unchecked": []
+      },
+      "rule": "consistency",
+      "status": "pass",
+      "subject": "S4"
+    },
+    {
+      "cite": [
+        "plan setups S5: hold, zero, stock_state and notes",
+        "kernel setup-entry stock box"
+      ],
+      "message": "Every fact this rule reads agrees with its one source.",
+      "numbers": {
+        "claims": 1,
+        "contradictions": [],
+        "unchecked": []
+      },
+      "rule": "consistency",
+      "status": "pass",
+      "subject": "S5"
+    },
+    {
+      "cite": [
+        "plan setups S6: hold, zero, stock_state and notes",
+        "kernel setup-entry stock box"
+      ],
+      "message": "Every fact this rule reads agrees with its one source.",
+      "numbers": {
+        "claims": 1,
+        "contradictions": [],
+        "unchecked": []
+      },
+      "rule": "consistency",
+      "status": "pass",
+      "subject": "S6"
     },
     {
       "cite": [
@@ -521,92 +678,218 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "inventory.tools.em-8-std.oal",
+        "inventory.holders.r8-collet-8mm.grip",
+        "inventory.tools.em-8-std: explicit-unit diameter/projection/OAL",
+        "inventory.holders.r8-collet-8mm: selected holder grip/verification",
+        "plan.setups[S1].ops[10].doc_mm",
+        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
+        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
       ],
-      "message": "S1:10: engagement applies only to an endmill cutting operation with an authored DOC.",
+      "message": "S1:10: Tool projection is 4.75×D, above 4×D; DOC reduction is unknown without a positive authored axial depth per pass.",
       "numbers": {
+        "diameter_mm": 8.0,
+        "doc_mm": "unknown",
+        "doc_scale": 0.5,
         "holder": "r8-collet-8mm",
+        "holder_grip_mm": 25.0,
+        "missing_inputs": [
+          "positive authored axial depth per pass (doc_mm)"
+        ],
         "operation": "finish_face",
+        "over_limit": true,
+        "projection_basis": "tool OAL - selected holder grip",
+        "projection_ld": 4.75,
+        "projection_ld_max": 4,
+        "projection_mm": 38.0,
+        "recommended_doc_mm": "unknown",
         "tool": "em-8-std",
-        "tool_kind": "endmill"
+        "tool_kind": "endmill",
+        "tool_oal_mm": 63.0
       },
       "rule": "engagement",
-      "status": "not_applicable",
+      "status": "unknown",
       "subject": "S1:10"
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "inventory.tools.em-8-std.oal",
+        "inventory.holders.r8-collet-8mm.grip",
+        "inventory.tools.em-8-std: explicit-unit diameter/projection/OAL",
+        "inventory.holders.r8-collet-8mm: selected holder grip/verification",
+        "plan.setups[S2].ops[10].doc_mm",
+        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
+        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
       ],
-      "message": "S2:10: engagement applies only to an endmill cutting operation with an authored DOC.",
+      "message": "S2:10: Tool projection is 4.75×D, above 4×D; DOC reduction is unknown without a positive authored axial depth per pass.",
       "numbers": {
+        "diameter_mm": 8.0,
+        "doc_mm": "unknown",
+        "doc_scale": 0.5,
         "holder": "r8-collet-8mm",
+        "holder_grip_mm": 25.0,
+        "missing_inputs": [
+          "positive authored axial depth per pass (doc_mm)"
+        ],
         "operation": "finish_face",
+        "over_limit": true,
+        "projection_basis": "tool OAL - selected holder grip",
+        "projection_ld": 4.75,
+        "projection_ld_max": 4,
+        "projection_mm": 38.0,
+        "recommended_doc_mm": "unknown",
         "tool": "em-8-std",
-        "tool_kind": "endmill"
+        "tool_kind": "endmill",
+        "tool_oal_mm": 63.0
       },
       "rule": "engagement",
-      "status": "not_applicable",
+      "status": "unknown",
       "subject": "S2:10"
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "inventory.tools.em-8-std.oal",
+        "inventory.holders.r8-collet-8mm.grip",
+        "inventory.tools.em-8-std: explicit-unit diameter/projection/OAL",
+        "inventory.holders.r8-collet-8mm: selected holder grip/verification",
+        "plan.setups[S3].ops[10].doc_mm",
+        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
+        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
       ],
-      "message": "S3:10: engagement applies only to an endmill cutting operation with an authored DOC.",
+      "message": "S3:10: Tool projection is 4.75×D, above 4×D; DOC reduction is unknown without a positive authored axial depth per pass.",
       "numbers": {
+        "diameter_mm": 8.0,
+        "doc_mm": "unknown",
+        "doc_scale": 0.5,
         "holder": "r8-collet-8mm",
+        "holder_grip_mm": 25.0,
+        "missing_inputs": [
+          "positive authored axial depth per pass (doc_mm)"
+        ],
         "operation": "finish_face",
+        "over_limit": true,
+        "projection_basis": "tool OAL - selected holder grip",
+        "projection_ld": 4.75,
+        "projection_ld_max": 4,
+        "projection_mm": 38.0,
+        "recommended_doc_mm": "unknown",
         "tool": "em-8-std",
-        "tool_kind": "endmill"
+        "tool_kind": "endmill",
+        "tool_oal_mm": 63.0
       },
       "rule": "engagement",
-      "status": "not_applicable",
+      "status": "unknown",
       "subject": "S3:10"
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "inventory.tools.em-8-std.oal",
+        "inventory.holders.r8-collet-8mm.grip",
+        "inventory.tools.em-8-std: explicit-unit diameter/projection/OAL",
+        "inventory.holders.r8-collet-8mm: selected holder grip/verification",
+        "plan.setups[S4].ops[10].doc_mm",
+        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
+        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
       ],
-      "message": "S4:10: engagement applies only to an endmill cutting operation with an authored DOC.",
+      "message": "S4:10: Tool projection is 4.75×D, above 4×D; DOC reduction is unknown without a positive authored axial depth per pass.",
       "numbers": {
+        "diameter_mm": 8.0,
+        "doc_mm": "unknown",
+        "doc_scale": 0.5,
         "holder": "r8-collet-8mm",
+        "holder_grip_mm": 25.0,
+        "missing_inputs": [
+          "positive authored axial depth per pass (doc_mm)"
+        ],
         "operation": "finish_face",
+        "over_limit": true,
+        "projection_basis": "tool OAL - selected holder grip",
+        "projection_ld": 4.75,
+        "projection_ld_max": 4,
+        "projection_mm": 38.0,
+        "recommended_doc_mm": "unknown",
         "tool": "em-8-std",
-        "tool_kind": "endmill"
+        "tool_kind": "endmill",
+        "tool_oal_mm": 63.0
       },
       "rule": "engagement",
-      "status": "not_applicable",
+      "status": "unknown",
       "subject": "S4:10"
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "inventory.tools.em-8-std.oal",
+        "inventory.holders.r8-collet-8mm.grip",
+        "inventory.tools.em-8-std: explicit-unit diameter/projection/OAL",
+        "inventory.holders.r8-collet-8mm: selected holder grip/verification",
+        "plan.setups[S5].ops[10].doc_mm",
+        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
+        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
       ],
-      "message": "S5:10: engagement applies only to an endmill cutting operation with an authored DOC.",
+      "message": "S5:10: Tool projection is 4.75×D, above 4×D; DOC reduction is unknown without a positive authored axial depth per pass.",
       "numbers": {
+        "diameter_mm": 8.0,
+        "doc_mm": "unknown",
+        "doc_scale": 0.5,
         "holder": "r8-collet-8mm",
+        "holder_grip_mm": 25.0,
+        "missing_inputs": [
+          "positive authored axial depth per pass (doc_mm)"
+        ],
         "operation": "finish_face",
+        "over_limit": true,
+        "projection_basis": "tool OAL - selected holder grip",
+        "projection_ld": 4.75,
+        "projection_ld_max": 4,
+        "projection_mm": 38.0,
+        "recommended_doc_mm": "unknown",
         "tool": "em-8-std",
-        "tool_kind": "endmill"
+        "tool_kind": "endmill",
+        "tool_oal_mm": 63.0
       },
       "rule": "engagement",
-      "status": "not_applicable",
+      "status": "unknown",
       "subject": "S5:10"
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "inventory.tools.em-8-std.oal",
+        "inventory.holders.r8-collet-8mm.grip",
+        "inventory.tools.em-8-std: explicit-unit diameter/projection/OAL",
+        "inventory.holders.r8-collet-8mm: selected holder grip/verification",
+        "plan.setups[S6].ops[10].doc_mm",
+        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
+        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
       ],
-      "message": "S6:10: engagement applies only to an endmill cutting operation with an authored DOC.",
+      "message": "S6:10: Tool projection is 4.75×D, above 4×D; DOC reduction is unknown without a positive authored axial depth per pass.",
       "numbers": {
+        "diameter_mm": 8.0,
+        "doc_mm": "unknown",
+        "doc_scale": 0.5,
         "holder": "r8-collet-8mm",
+        "holder_grip_mm": 25.0,
+        "missing_inputs": [
+          "positive authored axial depth per pass (doc_mm)"
+        ],
         "operation": "finish_face",
+        "over_limit": true,
+        "projection_basis": "tool OAL - selected holder grip",
+        "projection_ld": 4.75,
+        "projection_ld_max": 4,
+        "projection_mm": 38.0,
+        "recommended_doc_mm": "unknown",
         "tool": "em-8-std",
-        "tool_kind": "endmill"
+        "tool_kind": "endmill",
+        "tool_oal_mm": 63.0
       },
       "rule": "engagement",
-      "status": "not_applicable",
+      "status": "unknown",
       "subject": "S6:10"
     },
     {
@@ -1301,6 +1584,30 @@
       "rule": "finish_coverage",
       "status": "not_applicable",
       "subject": "top"
+    },
+    {
+      "cite": [
+        "features.material.finish",
+        "plan coating ops",
+        "PLAN.md §4.1 finishing route"
+      ],
+      "message": "fixture-puck: the drawing declares no finish.",
+      "numbers": {
+        "finish": "not_declared",
+        "ops": [],
+        "uncoated_cuts": [
+          "S1:10",
+          "S2:10",
+          "S3:10",
+          "S4:10",
+          "S5:10",
+          "S6:10"
+        ],
+        "unresolved_cuts": []
+      },
+      "rule": "finish_route",
+      "status": "not_applicable",
+      "subject": "fixture-puck"
     },
     {
       "cite": [
@@ -2014,8 +2321,9 @@
       "cite": [
         "PLAN.md §4.1 hold fields"
       ],
-      "message": "S1: holding and cutting decisions are declared; this does not approve measured fixture clearance.",
+      "message": "S1: holding declarations need hold.align.",
       "numbers": {
+        "align_due": "mounted",
         "coolant": "none",
         "cut_directions": {
           "10": "climb"
@@ -2056,20 +2364,23 @@
           "riser_up": "height",
           "stop": "none"
         },
-        "missing": [],
+        "missing": [
+          "hold.align"
+        ],
         "stock_bottom_z": 0.0,
         "stock_top_z": 20.0
       },
       "rule": "hold_fields",
-      "status": "pass",
+      "status": "error",
       "subject": "S1"
     },
     {
       "cite": [
         "PLAN.md §4.1 hold fields"
       ],
-      "message": "S2: holding and cutting decisions are declared; this does not approve measured fixture clearance.",
+      "message": "S2: holding declarations need hold.align.",
       "numbers": {
+        "align_due": "mounted",
         "coolant": "none",
         "cut_directions": {
           "10": "climb"
@@ -2122,12 +2433,14 @@
           },
           "stop": "upright face"
         },
-        "missing": [],
+        "missing": [
+          "hold.align"
+        ],
         "stock_bottom_z": 0.0,
         "stock_top_z": 20.0
       },
       "rule": "hold_fields",
-      "status": "pass",
+      "status": "error",
       "subject": "S2"
     },
     {
@@ -2136,6 +2449,7 @@
       ],
       "message": "S3: holding and cutting decisions are declared; this does not approve measured fixture clearance.",
       "numbers": {
+        "align_due": "not_applicable",
         "coolant": "none",
         "cut_directions": {
           "10": "climb"
@@ -2202,6 +2516,7 @@
       ],
       "message": "S4: holding and cutting decisions are declared; this does not approve measured fixture clearance.",
       "numbers": {
+        "align_due": "not_applicable",
         "coolant": "none",
         "cut_directions": {
           "10": "climb"
@@ -2255,6 +2570,7 @@
       ],
       "message": "S5: holding and cutting decisions are declared; this does not approve measured fixture clearance.",
       "numbers": {
+        "align_due": "not_applicable",
         "coolant": "none",
         "cut_directions": {
           "10": "climb"
@@ -2300,6 +2616,7 @@
       ],
       "message": "S6: holding and cutting decisions are declared; this does not approve measured fixture clearance.",
       "numbers": {
+        "align_due": "not_applicable",
         "coolant": "none",
         "cut_directions": {
           "10": "climb"
@@ -2668,6 +2985,16 @@
     },
     {
       "cite": [
+        "PLAN.md §4.1 stock: stock.prepared and plan.process_features end faces"
+      ],
+      "message": "stock.prepared: the plan declares no prepared blank.",
+      "numbers": {},
+      "rule": "prepared_blank",
+      "status": "not_applicable",
+      "subject": "stock.prepared"
+    },
+    {
+      "cite": [
         "PLAN.md §4.2 reach",
         "kernel: STEP SHA-256 cbcb933eb13cf48ffe8687036c7a805546f1589ee4199c7cd9ebfff47cff1fac; FreeCAD B-rep measurements",
         "features.top: faces and requirements",
@@ -2681,11 +3008,16 @@
       ],
       "message": "S1:10: entry-to-floor depth is within the selected flute length.",
       "numbers": {
+        "clearances": [],
         "flute_len_mm": 19.0,
         "holder_wall_hits": 0,
         "oal_mm": 63.0,
         "projection_mm": 38.0,
-        "reach_depth_mm": 0.0
+        "reach_depth_mm": 0.0,
+        "reach_top_z_mm": "not_applicable",
+        "shank_dia_mm": 8.0,
+        "shank_from_mm": 19.0,
+        "shank_hits": 0
       },
       "rule": "reach",
       "status": "pass",
@@ -2705,11 +3037,16 @@
       ],
       "message": "S2:10: entry-to-floor depth is within the selected flute length.",
       "numbers": {
+        "clearances": [],
         "flute_len_mm": 19.0,
         "holder_wall_hits": 0,
         "oal_mm": 63.0,
         "projection_mm": 38.0,
-        "reach_depth_mm": 0.0
+        "reach_depth_mm": 0.0,
+        "reach_top_z_mm": "not_applicable",
+        "shank_dia_mm": 8.0,
+        "shank_from_mm": 19.0,
+        "shank_hits": 0
       },
       "rule": "reach",
       "status": "pass",
@@ -2729,11 +3066,16 @@
       ],
       "message": "S3:10: entry-to-floor depth is within the selected flute length.",
       "numbers": {
+        "clearances": [],
         "flute_len_mm": 19.0,
         "holder_wall_hits": 0,
         "oal_mm": 63.0,
         "projection_mm": 38.0,
-        "reach_depth_mm": 0.0
+        "reach_depth_mm": 0.0,
+        "reach_top_z_mm": "not_applicable",
+        "shank_dia_mm": 8.0,
+        "shank_from_mm": 19.0,
+        "shank_hits": 0
       },
       "rule": "reach",
       "status": "pass",
@@ -2753,11 +3095,16 @@
       ],
       "message": "S4:10: entry-to-floor depth is within the selected flute length.",
       "numbers": {
+        "clearances": [],
         "flute_len_mm": 19.0,
         "holder_wall_hits": 0,
         "oal_mm": 63.0,
         "projection_mm": 38.0,
-        "reach_depth_mm": 0.0
+        "reach_depth_mm": 0.0,
+        "reach_top_z_mm": "not_applicable",
+        "shank_dia_mm": 8.0,
+        "shank_from_mm": 19.0,
+        "shank_hits": 0
       },
       "rule": "reach",
       "status": "pass",
@@ -2777,11 +3124,16 @@
       ],
       "message": "S5:10: entry-to-floor depth is within the selected flute length.",
       "numbers": {
+        "clearances": [],
         "flute_len_mm": 19.0,
         "holder_wall_hits": 0,
         "oal_mm": 63.0,
         "projection_mm": 38.0,
-        "reach_depth_mm": 0.0
+        "reach_depth_mm": 0.0,
+        "reach_top_z_mm": "not_applicable",
+        "shank_dia_mm": 8.0,
+        "shank_from_mm": 19.0,
+        "shank_hits": 0
       },
       "rule": "reach",
       "status": "pass",
@@ -2801,11 +3153,16 @@
       ],
       "message": "S6:10: entry-to-floor depth is within the selected flute length.",
       "numbers": {
+        "clearances": [],
         "flute_len_mm": 19.0,
         "holder_wall_hits": 0,
         "oal_mm": 63.0,
         "projection_mm": 38.0,
-        "reach_depth_mm": 0.0
+        "reach_depth_mm": 0.0,
+        "reach_top_z_mm": "not_applicable",
+        "shank_dia_mm": 8.0,
+        "shank_from_mm": 19.0,
+        "shank_hits": 0
       },
       "rule": "reach",
       "status": "pass",
@@ -3544,6 +3901,7 @@
       ],
       "message": "em-8-std: listed inventory identity resolves.",
       "numbers": {
+        "category": "tools",
         "dia_mm": 8.0,
         "kind": "endmill",
         "present": true,
@@ -3561,6 +3919,7 @@
       ],
       "message": "r8-collet-8mm: listed inventory identity resolves.",
       "numbers": {
+        "category": "holders",
         "kind": "collet",
         "present": true,
         "reference": "r8-collet-8mm",
@@ -3577,6 +3936,7 @@
       ],
       "message": "test-angle-plate: listed inventory identity resolves.",
       "numbers": {
+        "category": "fixtures",
         "kind": "angle_plate",
         "present": true,
         "reference": "test-angle-plate",
@@ -3593,6 +3953,7 @@
       ],
       "message": "test-chuck-3jaw: listed inventory identity resolves.",
       "numbers": {
+        "category": "fixtures",
         "kind": "chuck_3jaw",
         "present": true,
         "reference": "test-chuck-3jaw",
@@ -3609,6 +3970,7 @@
       ],
       "message": "test-chuck-4jaw: listed inventory identity resolves.",
       "numbers": {
+        "category": "fixtures",
         "kind": "chuck_4jaw",
         "present": true,
         "reference": "test-chuck-4jaw",
@@ -3625,6 +3987,7 @@
       ],
       "message": "test-chuck-head: listed inventory identity resolves.",
       "numbers": {
+        "category": "fixtures",
         "kind": "chuck_3jaw",
         "present": true,
         "reference": "test-chuck-head",
@@ -3641,6 +4004,7 @@
       ],
       "message": "test-clamp-kit/strap: listed inventory identity resolves.",
       "numbers": {
+        "category": "fixtures",
         "kind": "strap_clamp",
         "present": true,
         "reference": "test-clamp-kit/strap",
@@ -3657,6 +4021,7 @@
       ],
       "message": "test-dead-centre: listed inventory identity resolves.",
       "numbers": {
+        "category": "fixtures",
         "dia_mm": 18.0,
         "kind": "dead_centre",
         "present": true,
@@ -3674,6 +4039,7 @@
       ],
       "message": "test-head: listed inventory identity resolves.",
       "numbers": {
+        "category": "machines",
         "kind": "dividing_head",
         "present": true,
         "reference": "test-head",
@@ -3690,6 +4056,7 @@
       ],
       "message": "test-mill: listed inventory identity resolves.",
       "numbers": {
+        "category": "machines",
         "kind": "mill",
         "present": true,
         "reference": "test-mill",
@@ -3706,6 +4073,7 @@
       ],
       "message": "test-nest: listed inventory identity resolves.",
       "numbers": {
+        "category": "fixtures",
         "kind": "custom",
         "present": true,
         "reference": "test-nest",
@@ -3722,6 +4090,7 @@
       ],
       "message": "test-parallels-20: listed inventory identity resolves.",
       "numbers": {
+        "category": "fixtures",
         "kind": "parallels",
         "present": true,
         "reference": "test-parallels-20",
@@ -3738,6 +4107,7 @@
       ],
       "message": "test-riser-blocks: listed inventory identity resolves.",
       "numbers": {
+        "category": "fixtures",
         "kind": "blocks_123",
         "present": true,
         "reference": "test-riser-blocks",
@@ -3754,6 +4124,7 @@
       ],
       "message": "test-vise: listed inventory identity resolves.",
       "numbers": {
+        "category": "fixtures",
         "kind": "vise",
         "present": true,
         "reference": "test-vise",
@@ -4900,6 +5271,7 @@
           8.0,
           8.0
         ],
+        "jaw_separation_mm": 30.0,
         "opening_mm": 100.0,
         "parallel_pair": false,
         "parallels_height_mm": 20.0,
@@ -4985,11 +5357,13 @@
       "numbers": {
         "axes": {},
         "binding": "unknown",
+        "derived_touches": [],
         "dro": {
           "mode": "unknown",
           "radius_mode": "unknown"
         },
         "frame": "A",
+        "missing_touches": [],
         "retouch": [],
         "tool_touches": []
       },
@@ -5007,11 +5381,13 @@
       "numbers": {
         "axes": {},
         "binding": "unknown",
+        "derived_touches": [],
         "dro": {
           "mode": "unknown",
           "radius_mode": "unknown"
         },
         "frame": "A",
+        "missing_touches": [],
         "retouch": [],
         "tool_touches": []
       },
@@ -5029,11 +5405,13 @@
       "numbers": {
         "axes": {},
         "binding": "unknown",
+        "derived_touches": [],
         "dro": {
           "mode": "unknown",
           "radius_mode": "unknown"
         },
         "frame": "A",
+        "missing_touches": [],
         "retouch": [],
         "tool_touches": []
       },
@@ -5051,11 +5429,13 @@
       "numbers": {
         "axes": {},
         "binding": "unknown",
+        "derived_touches": [],
         "dro": {
           "mode": "unknown",
           "radius_mode": "unknown"
         },
         "frame": "A",
+        "missing_touches": [],
         "retouch": [],
         "tool_touches": []
       },
@@ -5073,11 +5453,13 @@
       "numbers": {
         "axes": {},
         "binding": "unknown",
+        "derived_touches": [],
         "dro": {
           "mode": "unknown",
           "radius_mode": "unknown"
         },
         "frame": "A",
+        "missing_touches": [],
         "retouch": [],
         "tool_touches": []
       },
@@ -5095,11 +5477,13 @@
       "numbers": {
         "axes": {},
         "binding": "unknown",
+        "derived_touches": [],
         "dro": {
           "mode": "unknown",
           "radius_mode": "unknown"
         },
         "frame": "A",
+        "missing_touches": [],
         "retouch": [],
         "tool_touches": []
       },
@@ -5108,11 +5492,11 @@
       "subject": "S6"
     }
   ],
-  "hash": "650fc0de2cb210abd0d2f299129d3360d51ae3d2fe4ec8384af2fef2c252f50a",
+  "hash": "61fe0ed9a29acfb0146ec6b17b335094b4e1f99ae524c9e2d61891045efb0fc6",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
-      "sha256": "fccc2e77df569c590521faf0c746d0954a87b429994f2496a93668ff8f59fc34"
+      "sha256": "2bcf78c7e2b496eacbd3d13219cd59e42157aac332785fd97cc3b219ce96c8c1"
     },
     "features": {
       "path": "examples/geometry/fixture-holds/features.toml",
@@ -5120,7 +5504,7 @@
     },
     "inventory": {
       "path": "examples/geometry/inventory.toml",
-      "sha256": "c5d063179f78736d6cf6f7b00bdb71596dd98bd63635cae2a1976ea8f3cd4725"
+      "sha256": "4a218826e99747448c27b662cc66c7714cd15d4ea841502c63f32ef20e35cb09"
     },
     "plan": {
       "path": "examples/geometry/fixture-holds/plan.toml",
@@ -5128,27 +5512,27 @@
     },
     "render:S1": {
       "path": "setup-S1.png",
-      "sha256": "c4ae68195057182f455f19aff241f78e5bb40b3efae747d8b90ca852d79b1c04"
+      "sha256": "6e9d2db5d39e5edfd5d65ca928afbb4f9ab9bb0aa2a85535cb7fc63cdd36863b"
     },
     "render:S2": {
       "path": "setup-S2.png",
-      "sha256": "584a57e86d09e0e4ccaad52d0b0074d4ceffacf7166771256cf6ad45ae2ffaab"
+      "sha256": "6893cce1cd5a650923cea73fc0456357119f32e66d5667da61527697f90ceab7"
     },
     "render:S3": {
       "path": "setup-S3.png",
-      "sha256": "534ae79dd64fad3d41d7bf598b057dfd31a4237d9963378da2bed9ab1c5f5989"
+      "sha256": "485d30012383e5b3dcd8d7d4d1bf0e8ac44289f7ce17c2e08afc53205bfa3e23"
     },
     "render:S4": {
       "path": "setup-S4.png",
-      "sha256": "0b1e2a060bc3a973185dafda36c7c1928982a3a3a7e04bf0cfba7f8971b242e0"
+      "sha256": "1e481143b3ad5edef191b96c6c144098833b3d17fb1cc6d8283436837b31bbdd"
     },
     "render:S5": {
       "path": "setup-S5.png",
-      "sha256": "d6b937ba60d5823f15285afbed64b2bfeec5d68de0a6ac64f05080949a45bc7e"
+      "sha256": "4838346bc56bee1352413ad7039a80cb67fe08e6fb52a56f65f5c9fe3d2c2f3c"
     },
     "render:S6": {
       "path": "setup-S6.png",
-      "sha256": "c8eb4a2c4b64ee8fde22f20ada1f7426886063f7de09bbb44796dc35774cc7e9"
+      "sha256": "adcaba960086add59afdea4306eb809ca951cfac7d22c3d28a82a310d675b792"
     },
     "shop_policy": {
       "path": "examples/geometry/shop-policy.toml",
@@ -5165,6 +5549,7 @@
       "fixture": "modeled",
       "path": "setup-S1.png",
       "scene": {
+        "closest_cut": null,
         "components": [
           {
             "exact": true,
@@ -5197,16 +5582,24 @@
             "role": "riser"
           }
         ],
+        "cut_clearances": [
+          {
+            "mm": "unknown",
+            "op": "10",
+            "tag": "unknown"
+          }
+        ],
         "debts": [],
         "fixture_kind": "vise",
+        "guide_axis_mm": null,
+        "guide_stops": [],
         "height_px": 1000,
+        "jaw_front_oblique": false,
         "jaws": "exact",
         "legend": [
           "Blue-grey: material retained after this setup.",
           "Amber hatch: material removed in this setup.",
-          "Brown/purple: holding. Green: selected tool and approach.",
-          "Dashed machine outlines: context only, not measured solids.",
-          "Dashed blue: nominal part outline, not proof that it has been cut."
+          "Brown/purple: holding. Green: selected tool and approach."
         ],
         "parallels": "exact",
         "primary_op": "10",
@@ -5221,12 +5614,13 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "c4ae68195057182f455f19aff241f78e5bb40b3efae747d8b90ca852d79b1c04"
+      "sha256": "6e9d2db5d39e5edfd5d65ca928afbb4f9ab9bb0aa2a85535cb7fc63cdd36863b"
     },
     "S2": {
       "fixture": "modeled",
       "path": "setup-S2.png",
       "scene": {
+        "closest_cut": null,
         "components": [
           {
             "exact": true,
@@ -5244,16 +5638,24 @@
             "role": "clamp"
           }
         ],
+        "cut_clearances": [
+          {
+            "mm": "unknown",
+            "op": "10",
+            "tag": "unknown"
+          }
+        ],
         "debts": [],
         "fixture_kind": "angle_plate",
+        "guide_axis_mm": null,
+        "guide_stops": [],
         "height_px": 1000,
+        "jaw_front_oblique": false,
         "jaws": "not_applicable",
         "legend": [
           "Blue-grey: material retained after this setup.",
           "Amber hatch: material removed in this setup.",
-          "Brown/purple: holding. Green: selected tool and approach.",
-          "Dashed machine outlines: context only, not measured solids.",
-          "Dashed blue: nominal part outline, not proof that it has been cut."
+          "Brown/purple: holding. Green: selected tool and approach."
         ],
         "parallels": "absent",
         "primary_op": "10",
@@ -5268,12 +5670,13 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "584a57e86d09e0e4ccaad52d0b0074d4ceffacf7166771256cf6ad45ae2ffaab"
+      "sha256": "6893cce1cd5a650923cea73fc0456357119f32e66d5667da61527697f90ceab7"
     },
     "S3": {
       "fixture": "modeled",
       "path": "setup-S3.png",
       "scene": {
+        "closest_cut": null,
         "components": [
           {
             "exact": true,
@@ -5296,16 +5699,24 @@
             "role": "clamp"
           }
         ],
+        "cut_clearances": [
+          {
+            "mm": "unknown",
+            "op": "10",
+            "tag": "unknown"
+          }
+        ],
         "debts": [],
         "fixture_kind": "custom",
-        "height_px": 1000,
+        "guide_axis_mm": null,
+        "guide_stops": [],
+        "height_px": 1728,
+        "jaw_front_oblique": false,
         "jaws": "not_applicable",
         "legend": [
           "Blue-grey: material retained after this setup.",
           "Amber hatch: material removed in this setup.",
-          "Brown/purple: holding. Green: selected tool and approach.",
-          "Dashed machine outlines: context only, not measured solids.",
-          "Dashed blue: nominal part outline, not proof that it has been cut."
+          "Brown/purple: holding. Green: selected tool and approach."
         ],
         "parallels": "absent",
         "primary_op": "10",
@@ -5322,12 +5733,13 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "534ae79dd64fad3d41d7bf598b057dfd31a4237d9963378da2bed9ab1c5f5989"
+      "sha256": "485d30012383e5b3dcd8d7d4d1bf0e8ac44289f7ce17c2e08afc53205bfa3e23"
     },
     "S4": {
       "fixture": "modeled",
       "path": "setup-S4.png",
       "scene": {
+        "closest_cut": null,
         "components": [
           {
             "exact": true,
@@ -5365,16 +5777,24 @@
             "role": "centre"
           }
         ],
+        "cut_clearances": [
+          {
+            "mm": "unknown",
+            "op": "10",
+            "tag": "unknown"
+          }
+        ],
         "debts": [],
         "fixture_kind": "dividing_head",
+        "guide_axis_mm": null,
+        "guide_stops": [],
         "height_px": 1000,
+        "jaw_front_oblique": false,
         "jaws": "exact",
         "legend": [
           "Blue-grey: material retained after this setup.",
           "Amber hatch: material removed in this setup.",
-          "Brown/purple: holding. Green: selected tool and approach.",
-          "Dashed machine outlines: context only, not measured solids.",
-          "Dashed blue: nominal part outline, not proof that it has been cut."
+          "Brown/purple: holding. Green: selected tool and approach."
         ],
         "parallels": "absent",
         "primary_op": "10",
@@ -5389,12 +5809,13 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "0b1e2a060bc3a973185dafda36c7c1928982a3a3a7e04bf0cfba7f8971b242e0"
+      "sha256": "1e481143b3ad5edef191b96c6c144098833b3d17fb1cc6d8283436837b31bbdd"
     },
     "S5": {
       "fixture": "modeled",
       "path": "setup-S5.png",
       "scene": {
+        "closest_cut": null,
         "components": [
           {
             "exact": true,
@@ -5422,16 +5843,24 @@
             "role": "chuck_body"
           }
         ],
+        "cut_clearances": [
+          {
+            "mm": "unknown",
+            "op": "10",
+            "tag": "unknown"
+          }
+        ],
         "debts": [],
         "fixture_kind": "chuck_4jaw",
+        "guide_axis_mm": null,
+        "guide_stops": [],
         "height_px": 1000,
+        "jaw_front_oblique": false,
         "jaws": "exact",
         "legend": [
           "Blue-grey: material retained after this setup.",
           "Amber hatch: material removed in this setup.",
-          "Brown/purple: holding. Green: selected tool and approach.",
-          "Dashed machine outlines: context only, not measured solids.",
-          "Dashed blue: nominal part outline, not proof that it has been cut."
+          "Brown/purple: holding. Green: selected tool and approach."
         ],
         "parallels": "absent",
         "primary_op": "10",
@@ -5446,12 +5875,13 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "d6b937ba60d5823f15285afbed64b2bfeec5d68de0a6ac64f05080949a45bc7e"
+      "sha256": "4838346bc56bee1352413ad7039a80cb67fe08e6fb52a56f65f5c9fe3d2c2f3c"
     },
     "S6": {
       "fixture": "modeled",
       "path": "setup-S6.png",
       "scene": {
+        "closest_cut": null,
         "components": [
           {
             "exact": true,
@@ -5474,16 +5904,24 @@
             "role": "chuck_body"
           }
         ],
+        "cut_clearances": [
+          {
+            "mm": "unknown",
+            "op": "10",
+            "tag": "unknown"
+          }
+        ],
         "debts": [],
         "fixture_kind": "chuck_3jaw",
+        "guide_axis_mm": null,
+        "guide_stops": [],
         "height_px": 1000,
+        "jaw_front_oblique": false,
         "jaws": "exact",
         "legend": [
           "Blue-grey: material retained after this setup.",
           "Amber hatch: material removed in this setup.",
-          "Brown/purple: holding. Green: selected tool and approach.",
-          "Dashed machine outlines: context only, not measured solids.",
-          "Dashed blue: nominal part outline, not proof that it has been cut."
+          "Brown/purple: holding. Green: selected tool and approach."
         ],
         "parallels": "absent",
         "primary_op": "10",
@@ -5498,10 +5936,10 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "c8eb4a2c4b64ee8fde22f20ada1f7426886063f7de09bbb44796dc35774cc7e9"
+      "sha256": "adcaba960086add59afdea4306eb809ca951cfac7d22c3d28a82a310d675b792"
     }
   },
-  "rules_version": "m5-rev9",
+  "rules_version": "m5-rev10",
   "step_sha256": "cbcb933eb13cf48ffe8687036c7a805546f1589ee4199c7cd9ebfff47cff1fac",
   "verification": "planned"
 }
