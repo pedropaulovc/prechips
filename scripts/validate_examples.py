@@ -51,11 +51,15 @@ from prechips.rules.resolution import (
     MANUAL,
     SAW_OPS,
     SLOT_CATEGORIES,
+    make_op_unknowns,
+    make_ops,
+    make_tool,
     named_item,
     op_features,
     rough_leave,
     same_length,
     saw_setup,
+    shop_made_item,
 )
 from prechips.rules.resolution import resolve as resolve_item
 from prechips.rules.resolution import select as select_item
@@ -625,7 +629,8 @@ def rule_subjects(plan: dict, features: dict, entries: Entries, checked) -> dict
     the manifest alone: the setup, op, feature and part subjects of the checker's rule
     catalogue, the bundle binding's ``inputs``, the prepared blank's ``stock.prepared``,
     each joined setup (a cylindrical one's fit too), each saw cut, each scribed or filed
-    arc, every inventory item the plan selects or names (:func:`identity_rows`) and
+    arc, every inventory item the plan selects or names (:func:`identity_rows`), each make
+    operation of a shop-made item a setup holds with (:func:`make_op_rows`) and each
     non-manual op, and the inspection subjects (:func:`inspection_subjects`). Any other
     rule of the checker's catalogue (``prechips.rules.RULES``) is its own rows on the
     validator's own bundle load and kernel run (``checked``, :func:`checker_findings`):
@@ -660,6 +665,7 @@ def rule_subjects(plan: dict, features: dict, entries: Entries, checked) -> dict
         ),
         # A coating's process resolves as its op; other manual work selects no tool.
         tool_resolves=set(identity_rows(plan, entries))
+        | set(make_op_rows(plan, entries))
         | op_ids(lambda op: op.get("do") == "coating" or op.get("do") not in MANUAL),
         inspection=inspection_subjects(plan, definitions),
     )
@@ -1061,13 +1067,31 @@ def identity_rows(plan: dict, entries: Entries) -> dict:
     }
 
 
+def make_op_rows(plan: dict, entries: Entries) -> dict:
+    """``{subject: numbers}``: the checker's ``tool_resolves`` evidence on each make
+    operation of each shop-made item a setup holds with (resolution.make_ops), on the
+    validator's own plan and inventory, under the subject that rule gives it
+    (``<category>.<key> make op <n>``)."""
+    data = SimpleNamespace(plan=plan, inventory=entries.inventory)
+    return {
+        row.subject: json.loads(json.dumps(row.numbers))
+        for row in identity_rule.evaluate(data)
+        if "make_op" in row.numbers
+    }
+
+
 def check_references(plan: dict, entries: Entries, findings: dict) -> list:
     """Every item the plan selects or names (:func:`identity_rows`) has its reference
     finding, naming that category and reference, with the verdict of the item that
     category selects (:class:`Entries`): one not listed an error naming it (a named one
     unknown), one listed but unverified unknown, else pass. Every identity a plan slot
     names (:func:`selected_refs`) is one of those items, as resolution.select names it
-    (:meth:`Entries.identities`). Returns the subjects not listed."""
+    (:meth:`Entries.identities`). Every make operation (:func:`make_op_rows`) has its
+    finding, naming that item, operation and tool, with the verdict its line earns: its
+    tool read in ``tools`` only (resolution.make_tool: never another category's item or
+    a machine's accessory), an error when not listed there, unknown when unverified or
+    when any fact the line prints is not known (resolution.make_op_unknowns), else pass.
+    Returns the subjects not listed."""
     rows = identity_rows(plan, entries)
     items = {(category, reference) for category, reference, _ in rows.values()}
     for ref in sorted(selected_refs(plan)):
@@ -1099,6 +1123,27 @@ def check_references(plan: dict, entries: Entries, findings: dict) -> list:
             require(finding["status"] == "unknown", f"{subject}: inherited verify must be unknown")
         else:
             require(finding["status"] == "pass", f"{subject}: available identity must resolve")
+    data = SimpleNamespace(plan=plan, inventory=entries.inventory)
+    for subject, numbers in sorted(make_op_rows(plan, entries).items()):
+        key = "tool_resolves", subject
+        require(key in findings, f"missing make operation finding for {subject}")
+        finding = findings[key]
+        require(finding["numbers"] == numbers, f"{subject}: make operation evidence differs")
+        category, _, ref = numbers["item"].partition(".")
+        _, op = make_ops(shop_made_item(data, ref, category))[numbers["make_op"] - 1]
+        unknown = make_op_unknowns(op)
+        tool = None if "tool" in unknown else make_tool(data, numbers["tool"])
+        status = (
+            "error"
+            if tool is None and "tool" not in unknown
+            else "unknown"
+            if unknown or record_uncertain(tool)
+            else "pass"
+        )
+        require(
+            finding["status"] == status,
+            f"{subject}: a make operation passes only on a listed, verified tool and known facts",
+        )
     return missing
 
 

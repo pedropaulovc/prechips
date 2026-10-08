@@ -704,7 +704,13 @@ def test_a_tool_set_shorter_than_its_head_is_unknown_naming_the_setting_not_unme
     row = _rows(accessibility, bundle)["S1:10"]
     assert row.status == "unknown" and "projection_mm at least head_len_mm" in row.sentence
     assert "unmeasured" not in row.sentence
-    assert row.numbers == {"projection_mm": 10.0, "head_len_mm": 12.0}
+    # A turned op the kernel never posed carries its tool extent unknown, never absent.
+    assert row.numbers == {
+        "projection_mm": 10.0,
+        "head_len_mm": 12.0,
+        "tool_z_mm": "unknown",
+        "nose_z_mm": "unknown",
+    }
     # The head length is measured: the kernel gets it, to say why the holder is not posed.
     assert op_inputs(bundle, setup, setup["ops"][0])["head_len_mm"] == 12.0
 
