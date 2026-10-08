@@ -1282,3 +1282,33 @@ def test_a_manual_arc_in_unknown_units_is_unknown(tmp_path):
     row = coordinates_row(inch(tmp_path, STAIRS, units="unknown"))
     assert row.status == "unknown", row.sentence
     assert not arcs(row, 20)
+
+
+@pytest.mark.parametrize(
+    "build",
+    [
+        lambda tmp_path: (scratch(tmp_path, STAIRS), None),
+        lambda tmp_path: (scratch(tmp_path, STAIRS, target=DISH), None),
+        lambda tmp_path: (
+            scratch(
+                tmp_path,
+                op(20, "finish_profile", "{ method = 'chords', count = 24 }"),
+                hold="fixture = 'table'",
+            ),
+            None,
+        ),
+        lambda tmp_path: (rotary_plan(tmp_path), SWING),
+    ],
+    ids=["convex stairs", "concave stairs", "chords", "rotary table"],
+)
+def test_cutter_centre_tables_read_the_same_whichever_last_bit_libm_rounds_to(
+    tmp_path, monkeypatch, build
+):
+    # The Windows CRT's sine is not correctly rounded, so it can land an ULP from glibc's:
+    # the rocker's report differed between Windows and Linux in those bits alone.
+    plan, swing = build(tmp_path)
+    exact = coordinates_row(plan, swing).numbers
+    for name in ("sin", "cos", "atan2"):
+        real = getattr(math, name)
+        monkeypatch.setattr(math, name, lambda *a, real=real: math.nextafter(real(*a), math.inf))
+    assert coordinates_row(plan, swing).numbers == exact

@@ -231,3 +231,43 @@ def test_numbered_supports_seating_the_work_at_two_heights_key_each_support_at_i
     # One key per seating height, each marking a support at that height.
     assert sorted(keyed) == sorted(set(heights))
     assert marked == set(heights)
+
+
+_ORDER_PROBE = r"""
+# A diamond pin in its bore, inside STOCK_TOL of the wall, is equally near it along each
+# land's edges; a block hovering over the work is equally near it at each corner.
+setup.part = Part.makeBox(10, 10, 10, V(-5, -5, 0)).cut(
+    Part.makeCylinder(1.00025, 30, V(0, 0, -10))
+)
+flats = Part.makeBox(0.6, 3, 20, V(0.7, -1.5, -5)).fuse(
+    Part.makeBox(0.6, 3, 20, V(-1.3, -1.5, -5))
+)
+held = {
+    "pin": Part.makeCylinder(1.0, 14, V(0, 0, -2)).cut(flats),
+    "block": Part.makeBox(4, 4, 4, V(-2, -2, 10.0002)),
+}
+result = {}
+for name, solid in held.items():
+    # The same solid with its faces listed the other way round.
+    for order, shape in (("built", solid), ("reversed", Part.Solid(Part.Shell(solid.Faces[::-1])))):
+        result[name + " " + order] = {
+            "contacts": setup._render_contacts([("fx:" + name, shape)], 0.01, None),
+            "nearest": job._Setup._nearest([shape], [("work", setup.part)]),
+        }
+"""
+
+
+def test_an_equally_near_contact_point_does_not_follow_the_order_occ_lists_faces_in(
+    tmp_path, freecad_kernel
+):
+    # OCC lists equally near solutions in sub-shape order, which a boolean's last bits
+    # change between runs: CI drew a rocker pin's contact at another land edge than Windows.
+    found = _probe(tmp_path, freecad_kernel, _ORDER_PROBE)
+
+    for name in ("pin", "block"):
+        assert found[f"{name} built"] == found[f"{name} reversed"], name
+    # The highest, then frontmost (least Y), then leftmost corner of the four.
+    (contact,) = found["block built"]["contacts"]
+    assert contact["lines_mm"] == [[[-2.0, -2.0, 10.0]]]
+    nearest = found["block built"]["nearest"]
+    assert (nearest["from_mm"], nearest["to_mm"]) == ([-2.0, -2.0, 10.0002], [-2.0, -2.0, 10.0])

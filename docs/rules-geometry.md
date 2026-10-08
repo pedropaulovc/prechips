@@ -1905,7 +1905,11 @@ When something touches the stock and the main picture draws the stock's
 narrower side under 200 pixels, a **holding detail** band is printed below the
 picture. The kernel computes the contacts from the exact solids: each holding
 solid within the stock tolerance of the work gives the outline of the shared
-face (or the section edges, else the nearest point). Its plane is measured on
+face (or the section edges, else the nearest point). Where several points are
+equally near (a diamond pin is as near its hole along each land's edges), OCC
+lists them in an order a boolean's last bits change between runs, so the kernel
+keeps the highest, then least Y, then least X, rounded to six places; the closest
+cut's end points are chosen and rounded the same way. Its plane is measured on
 that whole contact before a section view cuts it: the outline is cut where it
 crosses the section plane and only the kept side is drawn, still keyed at the
 contact's own plane (a contact that is a point or a straight line names no
@@ -1993,7 +1997,8 @@ Holding-detail keys print a contact's plane on the setup's DRO grid
 tables round (half a step away from zero, float noise in the quotient not
 counting; one shared rounding), so a key reads as the DRO is set and as the table
 prints it. Closest-cut and clearance distances are measured values and never snap
-to the grid; `closest_cut.mm` is rounded as the CLEARANCE rows are (six places).
+to the grid; `closest_cut.mm` and its end points are rounded as the CLEARANCE rows
+are (six places).
 Every decimal a picture prints (DRO values, clearances, sizes, a band's gain) and
 every fixed-decimal number on the sheet goes through one rounding,
 `render_diagram.decimal_text`: the float's written decimal, a half-way value

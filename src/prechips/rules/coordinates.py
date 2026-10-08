@@ -1341,7 +1341,9 @@ def _stair_angles(start, end, forced, at, centre, outward, cusp, cutter):
     dips = set(forced) - {start, end} if outward < 0 else set()
     angles = [stops[0]]
     for a, b in itertools.pairwise(stops):
-        pieces = max(1, math.ceil(count * abs(b - a) / span))
+        # Float noise in the quotient does not count: a tangent stop half way (a concave
+        # dip at 0.0, or 1e-14 off it as another libm rounds) splits the span evenly.
+        pieces = max(1, math.ceil(count * abs(b - a) / span - 1e-9))
         candidates = [a + (b - a) * i / pieces for i in range(pieces + 1)]
         points = [at(angle) for angle in candidates]
         faces = []
@@ -3488,6 +3490,21 @@ def _manual(bundle, setup, op, stage, allowance, arcs, lines, walls, label, scal
     return _rotary(bundle, setup, op, arc, table, band, features, frame, frames, label, scale)
 
 
+def _settled(value):
+    """``value`` with every float rounded to 9 decimal places (-0.0 read as 0.0). The
+    platform's libm leaves a sine, cosine or arctangent's last bit to the operating
+    system (the Windows CRT's sine is not correctly rounded), and cutter-centre tables
+    carry it; 1e-9 is far below every DRO step and tolerance, so a report reads alike on
+    every platform."""
+    if isinstance(value, float):
+        return round(value, 9) + 0.0
+    if isinstance(value, dict):
+        return {key: _settled(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return type(value)(_settled(item) for item in value)
+    return value
+
+
 def evaluate(bundle, *, pre_kernel=False):
     """Coordinates findings, one per setup.
 
@@ -3985,7 +4002,7 @@ def evaluate(bundle, *, pre_kernel=False):
                 "coordinates",
                 setup["id"],
                 status,
-                numbers,
+                _settled(numbers),
                 [
                     "PLAN.md §4.1 coordinates",
                     "features declared frames and nominal geometry",

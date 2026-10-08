@@ -2,7 +2,11 @@
 
 Both rules produce one subject per setup. Nominal numeric recipes and tables can
 remain useful while their status is unknown; they are not cleared toolpaths or
-measured first-article evidence. Report numbers retain precision. Bench drawing
+measured first-article evidence. Report numbers retain precision to 9 decimal
+places: every float in a coordinates finding is rounded there (-0.0 reads 0.0),
+because a sine, cosine or arctangent's last bit is the platform libm's (the
+Windows CRT's sine is not correctly rounded) and 1e-9 is far below every DRO
+step and tolerance, so the report reads alike on every platform. Bench drawing
 station/feature reference points use the dimension's declared drawing precision;
 a known number without one prints its own value (six significant digits) rather
 than `?`, which stays reserved for unknown values. Operation-derived rows,

@@ -152,7 +152,9 @@ def test_a_clip_point_ends_the_printed_path_at_the_kernels_dro_value(tmp_path):
     *kept, last = table["rows"]
     assert [item["setup_xy"] for item in kept] == [item["setup_xy"] for item in arc["rows"][:10]]
     assert last["clipped_at"] == CONTACT
-    assert last["setup_xy"] == end["exact_xy"] and last["dro_xy"] == [-3.5, -8.95]
+    # The kernel's exact clip point, at the report's 9-decimal resolution.
+    assert last["setup_xy"] == [round(v, 9) for v in end["exact_xy"]]
+    assert last["dro_xy"] == [-3.5, -8.95]
     assert table["dropped_rows"] == count - 10
     # The printed rows are renumbered as the kernel names them; the clip point prints its
     # DRO value at the op's tip.
