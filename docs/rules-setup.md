@@ -458,12 +458,14 @@ setup's or op's text names that setup's TOOLS row.
 Three checks need no prose:
 
 - A `tighten = "hand"` clamp also declares `torque_nm`.
-- The setup picture's `CUT <mm> mm FROM <holder>` (the kernel's `closest_cut`)
-  must be one op's CLEARANCE row beside the same holding solid (the kernel's
-  `cut_clearances`), each printed as its own surface rounds it at the setup's
-  DRO decimals. A picture cut beside a solid no CLEARANCE row names (a file's or
-  a saw's cut, which carries no row, or the other solid of a tie) restates
-  nothing.
+- The setup picture's `CUT <mm> mm FROM <holder> (OP <op>)` (the kernel's
+  `closest_cut`) must print the CLEARANCE row of the op it names, beside the same
+  holding solid (the kernel's `cut_clearances`), each printed as its own surface
+  rounds it at the setup's DRO decimals; another op's row at the same value does
+  not stand in. The named op's row missing or not computed leaves the check
+  unknown, and so does a picture cut naming no op (its op unknown, empty or
+  absent): which row it restates cannot be checked. A saw's blade path carries
+  no row, so the cut it names restates none.
 - `stock_state` heights are checked against the kernel's setup-entry stock,
   beyond its 0.001 mm stock tolerance. Each height is judged by the one evidence
   source its declaration names, and no other source stands in for it.
