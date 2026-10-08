@@ -1326,6 +1326,38 @@ def test_picture_contact_coordinates_print_on_the_setup_dro_grid_and_clearances_
 
 
 @pytest.mark.parametrize(
+    ("named", "label"),
+    [
+        ({"op": "40"}, "CUT 6.653 mm FROM FIXED JAW (OP 40)"),
+        ({"op": "10", "blade": True}, "CUT 6.653 mm FROM FIXED JAW (OP 10)"),
+        ({"op": "unknown", "blade": True}, "CUT 6.653 mm FROM FIXED JAW (SAW BLADE)"),
+        ({"op": "unknown"}, "CUT 6.653 mm FROM FIXED JAW"),
+        ({}, "CUT 6.653 mm FROM FIXED JAW"),
+    ],
+    ids=["op", "saw-op", "blade", "unknown-op", "no-op"],
+)
+def test_the_picture_cut_names_the_op_it_belongs_to_and_never_a_guessed_one(named, label):
+    # Rocker RK-B6: S4's least cut is op 40's, a bench file's; a reader checking op 27's
+    # CLEARANCE row must see whose cut the picture prints. An op the kernel did not name
+    # (an older scene, a cut of unknown op) prints none.
+    meshes, spec = _vise_spec(12)
+    spec["decimals"] = 3
+    spec["closest_cut"] = {
+        "mm": 6.6531,
+        "tag": "fixed_jaw",
+        "from_mm": [0, 6, 10],
+        "to_mm": [0, 6, 10 - 6.6531],
+        **named,
+    }
+    main = _Diagram(meshes, spec)
+    main.render()
+    (detail,) = _holding_details(meshes, spec, main)
+    cuts = [label for label, _ in detail.leaders if label.startswith("CUT ")]
+    assert cuts == [label], cuts
+    detail.canvas.assert_text_layout(min_scale=3)
+
+
+@pytest.mark.parametrize(
     ("zero_x", "fixed", "moving"),
     [
         (-0.0025, "0.005", "12.005"),

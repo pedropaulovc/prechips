@@ -399,6 +399,7 @@ def test_the_clearance_is_the_tools_whole_sweep_over_the_holding_not_the_materia
     # The picture dimensions that same sweep: one number in the picture and the table.
     cut = scene["closest_cut"]
     assert (cut["tag"], cut["mm"]) == ("plate:upright", pytest.approx(2.0, abs=1e-6))
+    assert cut["op"] == "10" and "blade" not in cut
     assert cut["from_mm"][2] == pytest.approx(10.0) and cut["to_mm"][2] == pytest.approx(8.0)
     # The holder rides 40 above the tip and 7 mm wider than the cutter: an upright at Y32
     # standing to Z55 is 8 from the cutter but 1 from the holder.
@@ -406,6 +407,19 @@ def test_the_clearance_is_the_tools_whole_sweep_over_the_holding_not_the_materia
     tall["solids"][0] = _box("plate:upright", [0.0, 32.0, -5.0], [40.0, 5.0, 60.0])
     [row] = _clearances(engine, parts["plate"], ops, tall)
     assert (row["tag"], row["mm"]) == ("plate:upright", pytest.approx(1.0, abs=1e-6))
+
+
+def test_the_picture_cut_names_the_op_whose_row_it_is(engine, parts):
+    # Rocker RK-B6: the picture's least cut is a later op's. Op 10 takes the top layer off
+    # (2.83 from the upright); op 20, cutting air, runs its cutter 2.0 over it.
+    ops = [_facing(tool_paths=_passes(3.0)), _facing("S1:20", tool_paths=_passes(21.0))]
+    scene = _clearances(engine, parts["plate"], ops, _ledge(), scene=True)
+    assert [(row["op"], row["mm"]) for row in scene["cut_clearances"]] == [
+        ("10", pytest.approx(2 * math.sqrt(2), abs=1e-6)),
+        ("20", pytest.approx(2.0, abs=1e-6)),
+    ]
+    cut = scene["closest_cut"]
+    assert (cut["op"], cut["mm"]) == ("20", pytest.approx(2.0, abs=1e-6))
 
 
 def test_a_cutter_goes_wherever_its_op_takes_material_off_printed_or_not(engine, parts):

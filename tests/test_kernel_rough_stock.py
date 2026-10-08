@@ -496,6 +496,112 @@ def test_a_skin_ends_cusp_is_certain_where_its_sections_faces_meet(freecad_kerne
     assert [s for s in samples if s["retained"] != s["kept"]] == []
 
 
+# A level face of legal cutter centres can carry a boundary arc shorter than PLANE_TOL:
+# the rocker arm's S1:40 cusp left one 6.2e-7 mm long on a circle of R4.9625. OCC cannot
+# pass an arc through three points that close, so the arc's band either raised there
+# ("Intersection cannot be computed") and left the stock unknown, or, as on this square
+# whose corner is such an arc, came out a stray sliver that left the discs grown back
+# from the legal centres short of the square grown by the radius. Grown by ``radius``,
+# the face is that grown square, to the sliver no wider than half the arc's length that
+# its ends' discs miss. The witness never asks the kernel: it grows the plain square with
+# rectangles and discs, and measures the growth as the cusp does, in one Boolean with
+# all its faces, and face by face.
+_SHORT_ARC = r"""
+import importlib.util, json, math, os, sys
+import FreeCAD, Part
+V = FreeCAD.Vector
+out = sys.argv[sys.argv.index("--") + 1]
+spec = importlib.util.spec_from_file_location("arc_kernel", os.environ["KERNEL_SOURCE"])
+kernel = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(kernel)
+with open(out + "/case.json", encoding="utf-8") as handle:
+    case = json.load(handle)
+size, length, radius = case["arc_radius"], case["arc_length"], case["radius"]
+# The 10 x 10 square's top right corner (10, 10) starts the short arc, centred inside.
+square = [V(0, 0, 0), V(10, 0, 0), V(10, 10, 0), V(0, 10, 0)]
+start = math.radians(45.0)
+sweep = length / size
+centre = square[2] - V(math.cos(start), math.sin(start), 0) * size
+arc = Part.ArcOfCircle(Part.Circle(centre, V(0, 0, 1), size), start, start + sweep).toShape()
+p, q = arc.Vertexes[0].Point, arc.Vertexes[1].Point
+line = lambda a, b: Part.LineSegment(a, b).toShape()
+edges = [line(square[0], square[1]), line(square[1], p), arc, line(q, square[3])]
+face = Part.Face(Part.Wire(edges + [line(square[3], square[0])]))
+case["arc_edge_mm"] = arc.Length
+case["corner_gap_mm"] = (p - square[2]).Length
+
+def disc(point, r):
+    return Part.Face(Part.Wire([Part.makeCircle(r, point)]))
+
+def stadium(a, b, r):
+    side = V(-(b - a).y, (b - a).x, 0).normalize() * r
+    points = [a + side, b + side, b - side, a - side]
+    return Part.Face(Part.makePolygon(points + points[:1]))
+
+ring = square + square[:1]
+witness = Part.Face(Part.makePolygon(ring)).fuse(
+    [stadium(a, b, radius) for a, b in zip(ring, ring[1:])] + [disc(c, radius) for c in square]
+).removeSplitter()
+middle = start + sweep / 2
+outward = V(math.cos(middle), math.sin(middle), 0)
+beside = centre + outward * (size + radius - 0.01)
+past = centre + outward * (size + radius + 0.01)
+for outer in (True, False):
+    key = "outer" if outer else "inner"
+    try:
+        grown = kernel._grown([face], radius, outer=outer)
+    except Exception as exc:
+        case[key] = {"reason": f"{type(exc).__name__}: {exc}"}
+        continue
+    case[key] = {
+        "reason": None,
+        "witness_uncovered": witness.Area - witness.common(grown).Area,
+        "witness_left": sum(piece.Area for piece in witness.cut(grown).Faces),
+        "grown_outside": sum(piece.Area - piece.common(witness).Area for piece in grown),
+        "beside_arc_inside": any(piece.isInside(beside, 1e-9, True) for piece in grown),
+        "past_arc_inside": any(piece.isInside(past, 1e-9, True) for piece in grown),
+    }
+case["witness_area"] = witness.Area
+with open(out + "/grown.json", "w", encoding="utf-8") as handle:
+    json.dump(case, handle)
+"""
+
+
+def test_a_face_whose_boundary_arc_is_shorter_than_plane_tol_grows_by_the_radius(
+    freecad_kernel, tmp_path
+):
+    radius = 4.7625
+    case = {"arc_radius": 4.9625, "arc_length": 6.2e-7, "radius": radius}
+    (tmp_path / "case.json").write_text(json.dumps(case), encoding="utf-8")
+    script = tmp_path / "short_arc.py"
+    script.write_text(_SHORT_ARC, encoding="utf-8")
+    process = subprocess.run(
+        [freecad_kernel, str(script), "--", str(tmp_path)],
+        capture_output=True,
+        text=True,
+        errors="replace",
+        timeout=300,
+        env={**os.environ, "KERNEL_SOURCE": str(ENGINE)},
+    )
+    report = tmp_path / "grown.json"
+    assert report.exists(), process.stdout[-2000:] + process.stderr[-2000:]
+    result = json.loads(report.read_text(encoding="utf-8"))
+    assert result["arc_edge_mm"] == pytest.approx(6.2e-7, rel=1e-3)
+    assert result["corner_gap_mm"] < 1e-12
+    # The 10 x 10 square grown by the radius: its sides' bands and corners' discs, to
+    # OCC's integration of the discs' areas.
+    area = 100 + 40 * radius + math.pi * radius**2
+    assert result["witness_area"] == pytest.approx(area, abs=1e-4)
+    for key in ("outer", "inner"):
+        grown = result[key]
+        assert grown["reason"] is None, grown
+        # None misses or adds more than the arc's sliver and OCC's integration of areas.
+        assert grown["witness_uncovered"] < 1e-4, grown
+        assert grown["witness_left"] < 1e-4, grown
+        assert grown["grown_outside"] < 1e-4, grown
+        assert grown["beside_arc_inside"] and not grown["past_arc_inside"], grown
+
+
 # The rocker arm's S2:40 bounded rough (leave 0.2, cutter radius 4.7625) as it met its
 # skins' eight ends: the stock and what its box removes before the cusp, dumped, with the
 # steps. Taking a level section of a prism swept down from a fillet face with the
