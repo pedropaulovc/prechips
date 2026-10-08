@@ -302,6 +302,10 @@ rows are `?` with one kernel-naming sentence on the console and exit 4; a
 kernel failure is `✗`. Successful facts are cached locally under
 `PRECHIPS_KERNEL_CACHE` (default `%LOCALAPPDATA%\prechips\geometry`) keyed by
 the STEP digest, consumed geometry inputs, engine source and kernel binary.
+Booleans known before the loop that needs them run in up to
+`PRECHIPS_KERNEL_WORKERS` extra `freecadcmd` processes (default one per spare CPU,
+at most 8; `0` keeps them in the job), with the same facts
+([worker processes](docs/rules-geometry.md#worker-processes)).
 Feature and explicit per-op `faces` are matched by each STEP `ADVANCED_FACE`'s
 own geometry, never import order; invalid or approach-invalid cutting claims are `✗`.
 Fixture solids come only from explicit inventory dimensions and plan poses:
