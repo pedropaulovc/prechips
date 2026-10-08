@@ -463,10 +463,9 @@ Three checks need no prose:
   holding solid (the kernel's `cut_clearances`), each printed as its own surface
   rounds it at the setup's DRO decimals; another op's row at the same value does
   not stand in. The named op's row missing or not computed leaves the check
-  unknown. A saw's blade path carries no row, so the cut it names restates none.
-  A picture cut naming no op (an older scene) must be one op's row beside the
-  same solid; one beside a solid no CLEARANCE row names (a file's or a saw's cut
-  alone, or the other solid of a tie) restates nothing.
+  unknown, and so does a picture cut naming no op (its op unknown, empty or
+  absent): which row it restates cannot be checked. A saw's blade path carries
+  no row, so the cut it names restates none.
 - `stock_state` heights are checked against the kernel's setup-entry stock,
   beyond its 0.001 mm stock tolerance. Each height is judged by the one evidence
   source its declaration names, and no other source stands in for it.

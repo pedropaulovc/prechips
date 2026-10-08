@@ -1088,23 +1088,28 @@ def pictured(cut, *clearances, resolution=None):
 
 def test_a_picture_cut_the_clearance_table_gives_otherwise_is_an_error():
     # Rocker RK-B6: the S4 picture's 1.568 against op 27's own cut beside the same collar.
-    data = pictured((1.5684, COLLAR), ("25", 4.79372, COLLAR), ("27", 2.056593, COLLAR))
+    data = pictured(
+        (1.5684, COLLAR, {"op": "27"}), ("25", 4.79372, COLLAR), ("27", 2.056593, COLLAR)
+    )
     found = errors(data)["S1"]
     assert "CUT 1.568 mm" in found and "op 27" in found and "2.057" in found
     assert "collar" in found
 
 
 @pytest.mark.parametrize(
-    ("cut", "resolution"),
+    ("cut", "op", "resolution"),
     [
-        (2.0566, None),  # 2.057 both: the least of the two ops' cuts
-        (4.7937, None),  # the other op's, at the same printed value
-        (2.0612, 0.01),  # 2.06 both on a 0.01 grid
+        (2.0566, "27", None),  # 2.057 both: the least of the two ops' cuts
+        (4.7937, "25", None),  # the other op's, at its printed value
+        (2.0612, "27", 0.01),  # 2.06 both on a 0.01 grid
     ],
 )
-def test_a_picture_cut_printed_as_one_op_s_row_passes(cut, resolution):
+def test_a_picture_cut_printed_as_its_op_s_row_passes(cut, op, resolution):
     data = pictured(
-        (cut, COLLAR), ("25", 4.79372, COLLAR), ("27", 2.056593, COLLAR), resolution=resolution
+        (cut, COLLAR, {"op": op}),
+        ("25", 4.79372, COLLAR),
+        ("27", 2.056593, COLLAR),
+        resolution=resolution,
     )
     row = rows(data)["S1"]
     assert (row.status, row.numbers["claims"]) == ("pass", 1)
@@ -1118,23 +1123,34 @@ def test_a_value_the_two_surfaces_round_apart_is_an_error():
 
 
 def test_a_picture_cut_beside_rows_not_computed_is_unknown():
-    row = rows(pictured((2.0566, COLLAR), ("27", "unknown", "unknown")))["S1"]
+    row = rows(pictured((2.0566, COLLAR, {"op": "27"}), ("27", "unknown", "unknown")))["S1"]
     assert row.status == "unknown" and "CUT 2.057 mm" in row.sentence
+
+
+@pytest.mark.parametrize(
+    "named",
+    [{}, {"op": "unknown"}, {"op": ""}, {"op": None}],
+    ids=["absent", "unknown", "empty", "none"],
+)
+def test_a_picture_cut_naming_no_op_is_unknown_even_beside_a_matching_row(named):
+    # Whose cut the picture prints is not known, so which row it restates cannot be
+    # checked: a row of the same value beside the same solid does not certify it.
+    data = pictured((2.817, "loc2", named), ("27", 2.817, "loc2"), ("40", 3.017, "loc2"))
+    row = rows(data)["S1"]
+    assert row.status == "unknown" and "names no op" in row.sentence, row.sentence
 
 
 @pytest.mark.parametrize(
     "data",
     [
-        # A tie: the picture names one parallel, the table the other, at one value.
-        pictured((11.4272, "parallel 1"), ("40", 11.427189, "parallel 2")),
-        # A file's or saw's cut alone: the table carries no row for it.
-        pictured((0.0, "clamp 1 kit:upper-button")),
+        # A saw's cut alone: the table carries no row for it.
+        pictured((0.0, "base", {"op": "10", "blade": True})),
         # No cut to dimension.
         pictured(None, ("27", 2.056593, COLLAR)),
     ],
-    ids=["other-holder", "no-rows", "no-picture-cut"],
+    ids=["blade-alone", "no-picture-cut"],
 )
-def test_a_picture_cut_with_no_row_of_its_holder_restates_nothing(data):
+def test_a_picture_cut_with_no_row_to_restate_restates_nothing(data):
     row = rows(data)["S1"]
     assert (row.status, row.numbers["claims"]) == ("not_applicable", 0)
 

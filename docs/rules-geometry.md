@@ -1883,7 +1883,8 @@ two end points and the `op` whose cut it is), the same value the CLEARANCE table
 prints for that op, keyed `CUT <mm> mm FROM <holder> (OP <op>)`: never from the
 falling offcut of a saw setup, whose blade path is each saw op's kerf slab on its
 cut plane, across the stock and holding (`blade: true`, its saw op named, else
-keyed `(SAW BLADE)`). A cut whose op is unknown or absent names no op. A mill or
+keyed `(SAW BLADE)`). A cut whose op is unknown or absent names no op (and its
+consistency check is unknown). A mill or
 bench picture also carries `render_scene.cut_clearances`, one `{op, mm, tag}` per
 op, which the
 CLEARANCE table prints op by op and each op's crash box checks within 3 mm (a file

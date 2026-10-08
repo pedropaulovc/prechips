@@ -70,7 +70,7 @@ Compared. A ``T<n>`` in a setup's or op's text names that setup's TOOLS row:
 Three checks need no prose: ``tighten = "hand"`` with a ``torque_nm``; the setup picture's
 ``CUT <mm> mm FROM <holder> (OP <op>)`` (the kernel's ``closest_cut``), which must print
 the CLEARANCE row of the op it names beside the same holding solid (its ``cut_clearances``;
-one naming no op, one op's row), each as its own surface rounds it at the setup's DRO
+a cut naming no op is unknown), each as its own surface rounds it at the setup's DRO
 decimals; and ``stock_state``
 against the kernel's setup-entry stock, each height judged by the one evidence source its
 declaration names, never another in its place. A ``top_z`` / ``bottom_z`` whose
@@ -842,14 +842,13 @@ def _restated_sizes(traveler, setup):
 
 
 def _picture_cut(bundle, setup):
-    """The setup picture's ``CUT <mm> mm FROM <holder>`` (the kernel's ``closest_cut``)
-    against the CLEARANCE table's per-op rows (its ``cut_clearances``), each printed as its
-    surface prints it at the setup's DRO decimals. A cut that names its op (``(OP <op>)``)
-    must print that op's row, its value beside the same holding solid; that op's row
-    missing or not computed leaves it unknown. A saw's blade path carries no row, so the
-    cut it names restates none. A cut naming no op (an older scene) must print one op's
-    row beside the same solid: rows not computed leave it unknown; a picture cut no row
-    names (a file's or saw's alone, a tie's other solid) restates nothing."""
+    """The setup picture's ``CUT <mm> mm FROM <holder> (OP <op>)`` (the kernel's
+    ``closest_cut``) against the CLEARANCE table's row of the op it names (its
+    ``cut_clearances``), each printed as its surface prints it at the setup's DRO decimals:
+    the picture must print that op's value beside the same holding solid. That op's row
+    missing or not computed leaves it unknown, as does a cut naming no op (unknown, empty
+    or absent): another op's row of the same value never stands in. A saw's blade path
+    carries no row, so the cut it names restates none."""
     from prechips.kernel import run_geometry
     from prechips.kernel.render_diagram import _dro
     from prechips.rules.coordinates import dro_grid
@@ -858,11 +857,9 @@ def _picture_cut(bundle, setup):
     facts = record(record(record(run_geometry(bundle)).get("setups")).get(setup["id"]))
     scene = record(facts.get("render_scene"))
     cut = record(scene.get("closest_cut"))
-    rows = [record(row) for row in scene.get("cut_clearances") or []]
-    op = cut.get("op")
-    named = op not in (None, "", UNKNOWN) and not cut.get("blade")
-    if not cut or not (rows or named):
+    if not cut:
         return 0, [], []
+    rows = [record(row) for row in scene.get("cut_clearances") or []]
     decimals = dro_grid(bundle, setup)[1]
     holder = _holder(cut.get("tag"))
     if not number(cut.get("mm")):
@@ -870,46 +867,26 @@ def _picture_cut(bundle, setup):
     if cut.get("blade"):
         return 0, [], []
     said = f'"CUT {_dro(cut["mm"], decimals)} mm" from the {holder}'
-    if named:
-        said += f" for op {op}"
-        row = next((row for row in rows if str(row.get("op")) == str(op)), None)
-        if row is None or not number(row.get("mm")):
-            state = "has no CLEARANCE row" if row is None else "CLEARANCE row is not computed"
-            return 1, [], [f"the setup picture prints {said}, but op {op} {state}"]
-        value = _number(row["mm"], decimals)
-        if row.get("tag") == cut.get("tag") and value == _dro(cut["mm"], decimals):
-            return 1, [], []
-        given = f"op {op}'s cut as {value} beside the {_holder(row.get('tag'))}"
-        return 1, [f"the setup picture prints {said}, but its CLEARANCE table gives {given}"], []
-    beside = {
-        str(row.get("op")): _number(row["mm"], decimals)
-        for row in rows
-        if row.get("tag") == cut.get("tag") and number(row.get("mm"))
-    }
-    if _dro(cut["mm"], decimals) in beside.values():
+    op = cut.get("op")
+    if op is None or str(op).strip() in ("", UNKNOWN):
+        return (
+            1,
+            [],
+            [
+                f"the setup picture prints {said}, but its cut names no op, so "
+                "which CLEARANCE row it restates cannot be checked"
+            ],
+        )
+    said += f" for op {op}"
+    row = next((row for row in rows if str(row.get("op")) == str(op)), None)
+    if row is None or not number(row.get("mm")):
+        state = "has no CLEARANCE row" if row is None else "CLEARANCE row is not computed"
+        return 1, [], [f"the setup picture prints {said}, but op {op} {state}"]
+    value = _number(row["mm"], decimals)
+    if row.get("tag") == cut.get("tag") and value == _dro(cut["mm"], decimals):
         return 1, [], []
-    # An op whose cut is not computed may be the one the picture dimensions.
-    pending = [str(row.get("op")) for row in rows if not number(row.get("mm"))]
-    if pending:
-        return (
-            1,
-            [],
-            [
-                f"the setup picture prints {said}, but the CLEARANCE rows of op "
-                f"{', '.join(pending)} are not computed, so whether one is its cut is unknown"
-            ],
-        )
-    if beside:
-        given = ", ".join(f"{value} (op {op})" for op, value in beside.items())
-        return (
-            1,
-            [
-                f"the setup picture prints {said}, but its CLEARANCE table gives the cut "
-                f"beside the {holder} as {given}"
-            ],
-            [],
-        )
-    return 0, [], []
+    given = f"op {op}'s cut as {value} beside the {_holder(row.get('tag'))}"
+    return 1, [f"the setup picture prints {said}, but its CLEARANCE table gives {given}"], []
 
 
 def _holder(tag):
