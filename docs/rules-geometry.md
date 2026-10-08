@@ -609,7 +609,8 @@ fields are listed in the job's reason text and the dependent rules are `?`.
     machine of kind `bench` or `manual` (no machine table) the hold's fixture
     (or dividing head) leaves out its `table_mount = "hardware"` primitives,
     the screws or bolts that fasten it to a table (docs/inventory.md): off the
-    fixture there, they are neither drawn nor an obstacle and owe no debt.
+    fixture there, they are neither drawn nor an obstacle and owe no debt. The
+    mark is part of the primitive's record: an untrusted one stays a debt.
     Unmarked or unknown, a primitive is drawn on every machine.
   - Any other kind (collet, a support without a `dead_centre` model) carries
     `Fixture solids are not declared for this holding kind.` or, for an

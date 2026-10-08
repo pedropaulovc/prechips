@@ -159,6 +159,40 @@ def test_a_table_hold_down_is_not_printed_on_a_bench(kind, mount, held):
     assert ("the base is not held down: its hold-down is for a machine table." in page) is not held
 
 
+@pytest.mark.parametrize(
+    ("kind", "verify", "setting"),
+    [
+        ("bench", False, "base flat on the bench, underside at Z -95; upright"),
+        ("mill", False, "base flat on the table, underside at Z -95; upright"),
+        # Unverified, the box may be no T-nut at all: no setting line, as for any such box.
+        ("bench", True, None),
+    ],
+)
+def test_table_mount_hardware_is_never_the_base(kind, verify, setting):
+    # An existing T-nut box hangs 20 below the plate's base, at Z -115…-95.
+    nut = {
+        "name": "t-nut",
+        "shape": "box",
+        "supply": "existing",
+        "at_mm": [-10, 30, -110],
+        "size_mm": [20, 10, 20],
+        "fastener": "9/16 T-nut",
+        "table_mount": "hardware",
+    }
+    pose = {"origin_mm": [10, 0, -5], "x": [0, 1, 0], "z": [0, 0, 1]}
+    data = bundle([{"fixture": "angle", "pose": pose}])
+    data.inventory["machines"]["mill"]["kind"] = kind
+    solids = data.inventory["fixtures"]["angle"]["solids"]
+    solids[0]["table_mount"] = "fastener"
+    solids.append({**nut, "verify": True} if verify else nut)
+    page = sheets(data)[0]
+    assert "9/16 T-nut" not in page
+    if setting is None:
+        assert "Angle plate: base" not in page
+    else:
+        assert f"Angle plate: {setting}" in page
+
+
 def test_later_setup_points_back_to_the_first_table_at_the_same_pose():
     first, later = sheets(bundle([{"fixture": "plate", "pose": TURNED}] * 2))
     assert "SHOP-MADE FIXTURE" in first

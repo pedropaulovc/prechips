@@ -709,7 +709,7 @@ def _solids(item, owner, bench=False):
     a solid whose void is untrusted or malformed is not drawn, since uncut it would read
     as material where the owner has a bore or slot. On a ``bench`` there is no machine
     table, so the hardware that fastens the item to one (``table_mount = "hardware"``) is
-    off it and not drawn.
+    off it and not drawn; an untrusted solid's mark is untrusted with it, a debt as anywhere.
     """
     solids = record(item).get("solids", UNKNOWN)
     if not isinstance(solids, list) or not solids:
@@ -717,8 +717,6 @@ def _solids(item, owner, bench=False):
     result, debts, bad_voids = [], [], []
     for index, solid in enumerate(solids, start=1):
         solid = record(solid)
-        if bench and solid.get("table_mount") == "hardware":
-            continue
         name = solid.get("name", UNKNOWN)
         name = name if name != UNKNOWN else f"#{index}"
         label = f"{owner} solid {name}"
@@ -730,6 +728,9 @@ def _solids(item, owner, bench=False):
             debts.append(f"{label}: {why}")
             if void:
                 bad_voids.append((name, cuts))
+            continue
+        if bench and solid.get("table_mount") == "hardware":
+            # Its own verify / measured qualify the mark too: only a trusted one is off.
             continue
         at, shape = solid.get("at_mm"), solid.get("shape")
         primitive = {"name": f"{owner}:{name}", "local": name, "shape": shape, "at_mm": at}

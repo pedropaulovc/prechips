@@ -952,6 +952,24 @@ def test_unresolved_void_withholds_the_solids_it_cuts(cuts, drawn):
     assert "base solid plate: not drawn, its void bore is unresolved" in hold["gaps"]
 
 
+def _screwed_plate(kind, **mark):
+    """Host hold inputs of a plate, on a machine of ``kind``, with a bought screw under it."""
+    screw = {
+        **_cylinder("screw", [0, 0, -2], 8, 12),
+        "supply": "bought",
+        "fastener": "M8 SHCS into a T-slot T-nut",
+        "measured": MEASURED,
+        **mark,
+    }
+    plate = {
+        "kind": "custom",
+        "solids": [{**_box("base", [-20, -20, 0], [40, 40, 10]), "measured": MEASURED}, screw],
+    }
+    bundle = _Inventory({"fixtures": {"plate": plate}, "machines": {"m": {"kind": kind}}})
+    pose = {"origin_mm": [0, 0, 0], **UP}
+    return hold_inputs(bundle, {"machine": "m", "hold": {"fixture": "plate", "pose": pose}})
+
+
 @pytest.mark.parametrize(
     ("kind", "mount", "drawn"),
     [
@@ -967,19 +985,18 @@ def test_unresolved_void_withholds_the_solids_it_cuts(cuts, drawn):
     ],
 )
 def test_table_mount_hardware_is_off_a_fixture_set_on_a_bench(kind, mount, drawn):
-    screw = {**_cylinder("screw", [0, 0, -2], 8, 12), "supply": "bought", "measured": MEASURED}
-    screw["fastener"] = "M8 SHCS into a T-slot T-nut"
-    if mount is not None:
-        screw["table_mount"] = mount
-    plate = {
-        "kind": "custom",
-        "solids": [{**_box("base", [-20, -20, 0], [40, 40, 10]), "measured": MEASURED}, screw],
-    }
-    bundle = _Inventory({"fixtures": {"plate": plate}, "machines": {"m": {"kind": kind}}})
-    pose = {"origin_mm": [0, 0, 0], **UP}
-    hold = hold_inputs(bundle, {"machine": "m", "hold": {"fixture": "plate", "pose": pose}})
+    hold = _screwed_plate(kind, **({} if mount is None else {"table_mount": mount}))
     assert [solid["name"] for solid in hold["solids"]] == drawn
     assert hold["gaps"] == []
+
+
+@pytest.mark.parametrize("kind", ["bench", "mill"])
+def test_an_unverified_table_mount_mark_leaves_its_solid_a_gap(kind):
+    # The solid's own verify qualifies its whole record, the mark with it: unverified, the
+    # screw is a gap on a bench as on a mill, never silently left out.
+    hold = _screwed_plate(kind, table_mount="hardware", verify=True)
+    assert [solid["name"] for solid in hold["solids"]] == ["plate:base"]
+    assert hold["gaps"] == ["plate solid screw: This fact explicitly requires verification."]
 
 
 def _measured(value):
