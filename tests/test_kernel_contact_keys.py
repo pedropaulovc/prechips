@@ -271,3 +271,11 @@ def test_an_equally_near_contact_point_does_not_follow_the_order_occ_lists_faces
     assert contact["lines_mm"] == [[[-2.0, -2.0, 10.0]]]
     nearest = found["block built"]["nearest"]
     assert (nearest["from_mm"], nearest["to_mm"]) == ([-2.0, -2.0, 10.0002], [-2.0, -2.0, 10.0])
+    # The pin is equally near its bore all along each land edge, from the work's floor Z0
+    # to its top Z10: the topmost, then frontmost, then leftmost of those points.
+    (contact,) = found["pin built"]["contacts"]
+    ((point,),) = contact["lines_mm"]
+    assert point == pytest.approx([-0.700175, -0.714321, 10.0], abs=1e-5)
+    nearest = found["pin built"]["nearest"]
+    assert nearest["from_mm"] == pytest.approx([-0.7, -0.714143, 10.0], abs=1e-5)
+    assert nearest["to_mm"] == pytest.approx(point, abs=1e-6)

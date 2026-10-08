@@ -152,9 +152,7 @@ def test_a_clip_point_ends_the_printed_path_at_the_kernels_dro_value(tmp_path):
     *kept, last = table["rows"]
     assert [item["setup_xy"] for item in kept] == [item["setup_xy"] for item in arc["rows"][:10]]
     assert last["clipped_at"] == CONTACT
-    # The kernel's exact clip point, at the report's 9-decimal resolution.
-    assert last["setup_xy"] == [round(v, 9) for v in end["exact_xy"]]
-    assert last["dro_xy"] == [-3.5, -8.95]
+    assert last["setup_xy"] == end["exact_xy"] and last["dro_xy"] == [-3.5, -8.95]
     assert table["dropped_rows"] == count - 10
     # The printed rows are renumbered as the kernel names them; the clip point prints its
     # DRO value at the op's tip.
@@ -224,6 +222,24 @@ def test_printed_values_round_to_the_safe_side_of_the_dro_grid(tmp_path, resolut
     (profile,) = row.numbers["profiles"]
     (operation,) = row.numbers["operations"]
     assert profile["dro_to_z"] == operation["dro_to_z"] == tip
+
+
+def test_the_kernel_stands_the_tool_up_to_the_entry_the_rule_computed_not_a_rounding(tmp_path):
+    # The tool stands at its pass ends from its level up to its entry Z, read up the DRO
+    # grid: 0.0001000004 on a 0.0001 grid reads 0.0002. The request the kernel sweeps is the
+    # rule's own numbers, so an entry rounded for print first (0.0001) would stand it a
+    # whole step short.
+    from prechips.kernel import tool_paths
+
+    path = plan(tmp_path, bounded=False, do="finish_profile", resolution=0.0001)
+    text = path.read_text(encoding="utf-8").replace("top_z = 0.0\n", "top_z = 0.0001000004\n")
+    path.write_text(text, encoding="utf-8")
+    numbers = finding(path, pre_kernel=True).numbers
+    assert [profile["entry_z"] for profile in numbers["profiles"]] == [0.0001000004] * 2
+    sweep = tool_paths({"op": 20}, numbers, "mm")
+    assert sweep["entry_z_mm"] == 0.0002
+    standing = [move["z_mm"] for move in sweep["paths"] if len(move["xy_mm"]) == 1]
+    assert standing == [[-2.0782, 0.0002]] * 2  # the rough pass's end, then the finish's
 
 
 @pytest.mark.parametrize(

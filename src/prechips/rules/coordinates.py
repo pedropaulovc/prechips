@@ -23,6 +23,7 @@ import functools
 import itertools
 import math
 
+from .. import trig
 from ..findings import Finding
 from ..measurements import angle_fact, length_fact
 from ..model import tolerance_requirements
@@ -899,19 +900,23 @@ def _to_segment(point, a, b):
     return math.dist(point, [a[i] + t * delta[i] for i in range(2)])
 
 
-def _to_arc(point, centre, radius, a, b, middle):
-    """Distance from ``point`` to the arc of ``radius`` about ``centre`` running from ``a``
-    through ``middle`` to ``b``: radial inside its sector, else to the nearer end."""
+def _to_arc(centre, radius, a, b, middle):
+    """point -> distance from ``point`` to the arc of ``radius`` about ``centre`` running
+    from ``a`` through ``middle`` to ``b``: radial inside its sector, else to the nearer end."""
 
     def angle(q):
-        return math.atan2(q[1] - centre[1], q[0] - centre[0])
+        return trig.atan2(q[1] - centre[1], q[0] - centre[0])
 
-    sweep = (angle(b) - angle(a)) % math.tau
-    if (angle(middle) - angle(a)) % math.tau > sweep:  # the arc runs the other way round
-        a, b, sweep = b, a, math.tau - sweep
-    if (angle(point) - angle(a)) % math.tau <= sweep:
-        return abs(math.dist(point, centre) - radius)
-    return min(math.dist(point, a), math.dist(point, b))
+    start, sweep = angle(a), (angle(b) - angle(a)) % math.tau
+    if (angle(middle) - start) % math.tau > sweep:  # the arc runs the other way round
+        start, sweep = angle(b), math.tau - sweep
+
+    def distance(point):
+        if (angle(point) - start) % math.tau <= sweep:
+            return abs(math.dist(point, centre) - radius)
+        return min(math.dist(point, a), math.dist(point, b))
+
+    return distance
 
 
 def _ray_capsule(origin, direction, a, b, radius):
@@ -1218,7 +1223,7 @@ def _jog(arc, lines, centre, outward, walls, cutter, offset, scale):
     if not (_pair(centre) and all(_pair(p) for p in exact)):
         arc["stair_reason"] = "its cutter-centre path is unknown"
         return
-    turns = [math.atan2(p[1] - centre[1], p[0] - centre[0]) for p in exact]
+    turns = [trig.atan2(p[1] - centre[1], p[0] - centre[0]) for p in exact]
     radius = arc["cutter_centre_radius_mm"]
 
     def sweep(k):
@@ -1226,7 +1231,7 @@ def _jog(arc, lines, centre, outward, walls, cutter, offset, scale):
 
     def along(k, t):
         angle = turns[k] + t * sweep(k)
-        return [centre[0] + radius * math.cos(angle), centre[1] + radius * math.sin(angle)]
+        return [centre[0] + radius * trig.cos(angle), centre[1] + radius * trig.sin(angle)]
 
     def radial(k, xy):
         span = math.dist(xy, centre)
@@ -1236,7 +1241,7 @@ def _jog(arc, lines, centre, outward, walls, cutter, offset, scale):
         """The fraction of route k whose radius runs through ``point``."""
         if sweep(k) == 0 or math.dist(point, centre) == 0:
             return None
-        turn = math.atan2(point[1] - centre[1], point[0] - centre[0]) - turns[k]
+        turn = trig.atan2(point[1] - centre[1], point[0] - centre[0]) - turns[k]
         return _fraction(((turn + math.pi) % math.tau - math.pi) / sweep(k))
 
     steps, cusp, nearest, why = _stair(
@@ -1342,7 +1347,7 @@ def _stair_angles(start, end, forced, at, centre, outward, cusp, cutter):
     angles = [stops[0]]
     for a, b in itertools.pairwise(stops):
         # Float noise in the quotient does not count: a tangent stop half way (a concave
-        # dip at 0.0, or 1e-14 off it as another libm rounds) splits the span evenly.
+        # dip at 0.0, or 1e-14 off it as a sine rounds) splits the span evenly.
         pieces = max(1, math.ceil(count * abs(b - a) / span - 1e-9))
         candidates = [a + (b - a) * i / pieces for i in range(pieces + 1)]
         points = [at(angle) for angle in candidates]
@@ -1471,7 +1476,7 @@ def _arc(
                 endpoint = feature.get("end")
         if not isinstance(endpoint, list) or not all(number(v) for v in endpoint):
             return [], [], []
-        half = math.degrees(math.atan2(endpoint[0] - centre[0], centre[1] - endpoint[1]))
+        half = math.degrees(trig.atan2(endpoint[0] - centre[0], centre[1] - endpoint[1]))
         start, end = -half, half
     elif not full and feature.get("arc") != "upper_semicircle":
         return [], [], []
@@ -1487,8 +1492,8 @@ def _arc(
     def unit(angle):
         theta = math.radians(angle)
         if vertical_angle:
-            return [math.sin(theta), -math.cos(theta)]
-        return [math.cos(theta), math.sin(theta)]
+            return [trig.sin(theta), -trig.cos(theta)]
+        return [trig.cos(theta), trig.sin(theta)]
 
     def row_at(angle):
         xy = [centre[i] + cutter_radius * unit(angle)[i] for i in range(2)]
@@ -1528,7 +1533,7 @@ def _arc(
                 ]
 
             first, second = (
-                math.degrees(math.atan2(p[1] - base[1], p[0] - base[0]))
+                math.degrees(trig.atan2(p[1] - base[1], p[0] - base[0]))
                 for p in (at(start), at(start + 1.0))
             )
             hand = 1 if (second - first + 180) % 360 - 180 > 0 else -1
@@ -1585,7 +1590,7 @@ def _arc(
         dip = -wall_radius if vertical_angle else wall_radius
         mirror = [2 * centre[0] - end_xy[0], end_xy[1]]
         a, b, m = (setup_xy(q) for q in (end_xy, mirror, [centre[0], centre[1] + dip]))
-        return lambda p: _to_arc(p, centre_xy, wall_radius, a, b, m)
+        return _to_arc(centre_xy, wall_radius, a, b, m)
 
     if known:
         if full:
@@ -2260,7 +2265,7 @@ def _dome(name, feature, op, radius_mode, nose=UNKNOWN, edges=None):
                 "diameter_mm": 2 * radius,
                 "x_target_mm": reading(radius),
                 "setup_xz": [reading(radius), z],
-                "normal_deg": math.degrees(math.atan2(normal_z, normal_r)),
+                "normal_deg": math.degrees(trig.atan2(normal_z, normal_r)),
             }
         )
     if why is None:
@@ -2274,8 +2279,8 @@ def _dome(name, feature, op, radius_mode, nose=UNKNOWN, edges=None):
     if why is None:
         for row in rows:
             normal = math.radians(row["normal_deg"])
-            row["x_tool_mm"] = reading(row["radius_mm"] + nose * (math.cos(normal) - 1))
-            row["z_tool_mm"] = row["z_mm"] + nose * (math.sin(normal) - 1)
+            row["x_tool_mm"] = reading(row["radius_mm"] + nose * (trig.cos(normal) - 1))
+            row["z_tool_mm"] = row["z_mm"] + nose * (trig.sin(normal) - 1)
     contour = {
         "feature": name,
         "op": op["op"],
@@ -2990,7 +2995,7 @@ def _holes(arc, walls, drill, allowance, cap, label, scale, recut=None):
 
 def _rotate(point, degrees):
     """``point`` turned ``degrees`` counterclockwise (viewed from above) about X0 Y0."""
-    c, s = math.cos(math.radians(degrees)), math.sin(math.radians(degrees))
+    c, s = trig.cos(math.radians(degrees)), trig.sin(math.radians(degrees))
     return [c * point[0] - s * point[1], s * point[0] + c * point[1]]
 
 
@@ -3044,9 +3049,9 @@ def _chords(arc, band, offset, grid, table, label, scale):
     closed = arc["full_circle"]
     if closed and count < 3:
         return [f"{label}: {count} chords cannot cut a full circle; it takes at least 3"], []
-    thetas = [math.atan2(r["setup_xy"][1] - centre[1], r["setup_xy"][0] - centre[0]) for r in rows]
+    thetas = [trig.atan2(r["setup_xy"][1] - centre[1], r["setup_xy"][0] - centre[0]) for r in rows]
     delta = (thetas[1] - thetas[0] + math.pi) % math.tau - math.pi
-    half = math.cos(abs(delta) / 2)
+    half = trig.cos(abs(delta) / 2)
     edge = (lo + hi) / (1 + half)
     sagitta = edge * (1 - half)
     arc.update(
@@ -3061,7 +3066,7 @@ def _chords(arc, band, offset, grid, table, label, scale):
             f"{(hi - lo) * scale:g} mm radial band"
         ], []
     vertices = [
-        [centre[i] + edge * (math.cos, math.sin)[i](thetas[0] + k * delta) for i in range(2)]
+        [centre[i] + edge * (trig.cos, trig.sin)[i](thetas[0] + k * delta) for i in range(2)]
         for k in range(count + 1)
     ]
     normals = []
@@ -3090,7 +3095,7 @@ def _chords(arc, band, offset, grid, table, label, scale):
     errors, debts, chords, actual = [], [], [], []
     for k in range(count):
         p, q = designed[k], designed[k + 1]
-        angle = math.degrees(math.atan2(q[1] - p[1], q[0] - p[0]))
+        angle = math.degrees(trig.atan2(q[1] - p[1], q[0] - p[0]))
         square = (angle + 90.0) % 180.0 - 90.0  # the chord's slant from X, -90 to 90
         along = "X" if abs(square) < 1e-9 else "Y" if abs(abs(square) - 90.0) < 1e-9 else None
         index, turn = None, 0.0
@@ -3147,7 +3152,7 @@ def _chords(arc, band, offset, grid, table, label, scale):
     def radial(lines, k):
         theta = thetas[k]
         line = lines[0 if k == 0 else -1]
-        return _line_join(line[0], _towards(*line), centre, [math.cos(theta), math.sin(theta)])
+        return _line_join(line[0], _towards(*line), centre, [trig.cos(theta), trig.sin(theta)])
 
     paths = corners(
         [a for a, _ in actual], lambda k: actual[0 if k == 0 else -1][0][0 if k == 0 else 1]
@@ -3397,7 +3402,7 @@ def _rotary(bundle, setup, op, arc, table, band, features, frame, frames, label,
     arc["rotary"] = record
     if debts:
         return errors, debts
-    thetas = [math.degrees(math.atan2(p[1], p[0])) for p in points]
+    thetas = [math.degrees(trig.atan2(p[1], p[0])) for p in points]
     travel = sum((b - a + 180.0) % 360.0 - 180.0 for a, b in itertools.pairwise(thetas))
     rotation = "clockwise" if travel > 0 else "counterclockwise"  # the work turns back
     start = _reading(-thetas[0], increases) / resolution
@@ -3488,21 +3493,6 @@ def _manual(bundle, setup, op, stage, allowance, arcs, lines, walls, label, scal
         return _chords(arc, band, offset, dro_grid(bundle, setup), table, label, scale)
     frame = setup_frame(bundle, setup)
     return _rotary(bundle, setup, op, arc, table, band, features, frame, frames, label, scale)
-
-
-def _settled(value):
-    """``value`` with every float rounded to 9 decimal places (-0.0 read as 0.0). The
-    platform's libm leaves a sine, cosine or arctangent's last bit to the operating
-    system (the Windows CRT's sine is not correctly rounded), and cutter-centre tables
-    carry it; 1e-9 is far below every DRO step and tolerance, so a report reads alike on
-    every platform."""
-    if isinstance(value, float):
-        return round(value, 9) + 0.0
-    if isinstance(value, dict):
-        return {key: _settled(item) for key, item in value.items()}
-    if isinstance(value, (list, tuple)):
-        return type(value)(_settled(item) for item in value)
-    return value
 
 
 def evaluate(bundle, *, pre_kernel=False):
@@ -4002,7 +3992,7 @@ def evaluate(bundle, *, pre_kernel=False):
                 "coordinates",
                 setup["id"],
                 status,
-                _settled(numbers),
+                numbers,
                 [
                     "PLAN.md §4.1 coordinates",
                     "features declared frames and nominal geometry",
