@@ -5,7 +5,9 @@ one version-1 job, or ``{"jobs": [job, ...]}`` answered by ``{"results": [...]}`
 in the same order; both go through :func:`run_job`.  Output is canonical JSON
 (sorted keys, floats rounded to 1e-6 mm) and nothing is printed.  Every number is
 measured on the imported B-rep in this run; a fact that cannot be measured is
-``"unknown"`` with its reason under ``reasons``, never a default.
+``"unknown"`` with its reason under ``reasons``, never a default.  Booleans known
+ahead of the loop needing them may run in this run's worker processes on exact copies
+of their shapes (``boolean_pool.py``, ``PRECHIPS_KERNEL_WORKERS``); facts are the same.
 
 Measurement conventions (setup frame, tool axis +Z):
 
@@ -182,6 +184,7 @@ from contextlib import contextmanager
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import boolean_pool  # noqa: E402
 import FreeCAD  # noqa: E402
 import Part  # noqa: E402
 from render_diagram import (  # noqa: E402
@@ -279,6 +282,19 @@ def _timed(records, key):
     finally:
         record["wall_ms"] = _r((time.perf_counter() - wall) * 1000)
         record["cpu_ms"] = _r((time.process_time() - cpu) * 1000)
+
+
+_POOL = None  # boolean_pool.Pool while main() runs the engine with worker processes
+
+
+@contextmanager
+def _ahead():
+    """A :class:`boolean_pool.Batch` for one loop's booleans, closed when the loop ends."""
+    batch = boolean_pool.Batch(_POOL)
+    try:
+        yield batch
+    finally:
+        batch.close()
 
 
 class _Unknown(Exception):
@@ -892,6 +908,64 @@ def _shared(solid, shape, boxes=None):
     """The common volume of ``solid`` and ``shape`` above HIT_MM3, else 0."""
     common = _common(solid, shape, boxes)
     return 0.0 if common is None else common.Volume
+
+
+def _checkpoint_row(shapes, boxes, guard, cylinder, tool=None):
+    """One printed checkpoint row's booleans (:meth:`_Setup._checkpoint_facts`).
+
+    ``shapes``: the op's before-op stock, finished part and bounded stock (None where
+    absent), then its rough-leave guard pieces; ``boxes`` their _bbox; ``guard`` the
+    (window, piece indices) list when the op's rough leave is checked, else None;
+    ``cylinder`` the row's (x, y, radius, z0, top) cutter, ``tool`` its solid. Returns the
+    row's removal of the before-op stock (or None); its volume shared with the finished
+    part; the rough leave its removal cuts in the first window holding it ("unguarded"
+    when none does, None unchecked); its bounded stock less the finished part (None
+    without one).
+    """
+    before, finished, retained = shapes[:3]
+    x, y, radius, z0, top = cylinder
+    if tool is None:
+        tool = Part.makeCylinder(radius, top - z0, V(x, y, z0))
+    reach = radius + PLANE_TOL
+    near = (x - reach, y - reach, z0 - PLANE_TOL, x + reach, y + reach, top + PLANE_TOL)
+    removed = None if before is None else _common(tool, before, (near, boxes[0]))
+    shared = _shared(tool, finished, (near, boxes[1]))
+    rough = None
+    if removed is not None and guard is not None:
+        box = _bbox(removed)
+        within = (pieces for w, pieces in guard if w is None or _box_within(box, w))
+        pieces = next(within, None)
+        if pieces is None:
+            rough = "unguarded"
+        else:
+            rough = 0.0
+            for piece in pieces:
+                common = _common(removed, shapes[piece], (box, boxes[piece]))
+                rough += 0.0 if common is None else common.cut(finished).Volume
+    stock = None
+    if retained is not None:
+        # The finished part inside the stock is its own obstacle, never stock.
+        common = _common(tool, retained, (near, boxes[2]))
+        stock = 0.0 if common is None else common.cut(finished).Volume
+    return removed, shared, rough, stock
+
+
+def _pooled_checkpoint_row(loaded, present, *args):
+    """:func:`_checkpoint_row` in a pool worker, ``present`` flagging which of its shapes
+    the token ``loaded``; also whether the removal shares no face or edge with the stock."""
+    shapes = iter(loaded)
+    shapes = [next(shapes) if here else None for here in present]
+    removed, *rest = _checkpoint_row(shapes, *args)
+    return (removed, removed is None or not _shares(removed, shapes[0]), *rest)
+
+
+def _shares(shape, other):
+    """Whether ``shape`` holds a face or edge of ``other``, so mesh data a tessellation of
+    ``other`` adds would reach it."""
+    both = Part.makeCompound([shape, other])
+    return len(both.Faces) < len(shape.Faces) + len(other.Faces) or len(both.Edges) < len(
+        shape.Edges
+    ) + len(other.Edges)
 
 
 def _distant_box(box, other):
@@ -1635,12 +1709,25 @@ def _clearance(point, bound, tol):
     return max(_surface_distance(point, kind, origin, axis, radius) - tol, boxed)
 
 
+def _culled_common(shape, cylinder, solid=None):
+    """``shape``'s material inside ``solid``, else inside the exact ``cylinder`` (cx, cy,
+    radius, z0, z1), or None within HIT_MM3: the boolean :meth:`_Culled.common` runs where
+    culling cannot decide, in the engine or in a pool worker."""
+    if solid is None:
+        cx, cy, radius, z0, z1 = cylinder
+        solid = Part.makeCylinder(radius, z1 - z0, V(cx, cy, z0))
+    common = shape.common(solid)
+    return common if common.Volume > HIT_MM3 else None
+
+
 class _Culled:
     """Cull and memoize cylinder intersections against one immutable stock solid.
 
     Cached shapes are read-only and expire with their stock/own-face region.
     Cap retained material shapes; cheap empty answers do not retain any B-rep.
     Hits proven without a boolean keep only their exact cylinder, never a shape.
+    A loop that knows its cylinders hands their booleans to the worker pool first
+    (:meth:`ahead`); ``common`` takes each answer where it would run that boolean.
     """
 
     KEEP = 256
@@ -1661,6 +1748,25 @@ class _Culled:
         self.tol = None  # the shape's maximum tolerance, read with the balls
         self.bounds = None  # per-face _face_bound, built with the balls
         self.sound = None  # lazy _sound verdict, decided only for a proof about to be used
+        self.pending = {}  # (exact cylinder, id of its cutter solid or None) -> pool call
+
+    def ahead(self, batch, cylinder, solid=None, recipe=None):
+        """Hand ``batch`` the boolean ``common(*cylinder, solid)`` would run, ``solid``
+        being ``_cutter(*recipe)``: none when a cached answer or the face culling decides
+        it. Answers enter ``answers`` only when ``common`` takes them, so the cache and its
+        KEEP cap evolve as without a pool."""
+        key = (cylinder, None if solid is None else id(solid))
+        if self.shape.isNull() or key in self.pending:
+            return
+        if solid is None and cylinder in self.answers:
+            return
+        if not any(_cylinder_hits_box(*cylinder, box, True) for box in self.boxes):
+            return
+        call = batch.submit([self.shape], "culled_common", cylinder, recipe)
+        if call is not None:
+            if not self.pending:
+                batch.on_close(self.pending.clear)
+            self.pending[key] = call
 
     def common(self, cx, cy, radius, z0, z1, solid=None):
         """The solid's material inside the cylinder, or None when there is none.
@@ -1695,10 +1801,9 @@ class _Culled:
                     else Part.makeCylinder(radius, z1 - z0, V(cx, cy, z0))
                 )
         else:
-            if solid is None:
-                solid = Part.makeCylinder(radius, z1 - z0, V(cx, cy, z0))
-            common = self.shape.common(solid)
-            answer = common if common.Volume > HIT_MM3 else None
+            call = self.pending.pop((key, None if solid is None else id(solid)), None)
+            taken = boolean_pool.answer(call)
+            answer = _culled_common(self.shape, key, solid) if taken is None else taken[0]
         if cacheable:
             if answer is None:
                 self.answers[key] = None
@@ -3277,6 +3382,8 @@ def run(payload):
             result = {"results": [run_job(job, timing) for job in jobs]}
         if timing:
             result["timing"] = measured["batch"]
+            # Non-operative: the booleans pool workers answered (see boolean_pool).
+            result["timing"]["pool_answers"] = 0 if _POOL is None else _POOL.answered
         return result
     return run_job(payload)
 
@@ -9446,54 +9553,72 @@ class _Setup:
         top = self.box[5] + COVER_MM
         gapped, extended, unguarded = 0, 0, 0
         # The op's obstacles are the same for every row: box each once (see _common).
-        boxes = {id(s): _bbox(s) for s in (before, self.finished, retained) if s is not None}
-        for _, pieces in guard or []:
-            boxes.update((id(piece), _bbox(piece)) for piece in pieces)
-        for row in rows:
-            (x, y), z0 = row["xy_mm"], row["tip_z_mm"] + LIFT
-            if z0 >= top:
-                continue
-            cylinder = (x, y, radius - LIFT, z0, top)
-            tool = Part.makeCylinder(radius - LIFT, top - z0, V(x, y, z0))
-            reach = radius - LIFT + PLANE_TOL
-            near = (x - reach, y - reach, z0 - PLANE_TOL, x + reach, y + reach, top + PLANE_TOL)
-            removed = None if before is None else _common(tool, before, (near, boxes[id(before)]))
-            hits = [
-                ("finished part", _shared(tool, self.finished, (near, boxes[id(self.finished)])))
-            ]
-            if removed is not None and guard is not None and leave:
-                box = _bbox(removed)
-                within = (s for w, s in guard if w is None or _box_within(box, w))
-                pieces = next(within, None)
-                if pieces is None:
-                    unguarded += 1
-                else:
-                    volume = 0.0
-                    for piece in pieces:
-                        common = _common(removed, piece, (box, boxes[id(piece)]))
-                        volume += 0.0 if common is None else common.cut(self.finished).Volume
-                    hits.append((f"its {_r(leave)} mm rough leave", volume))
-            if retained is not None:
-                # The finished part inside the stock is its own obstacle, never stock.
-                common = _common(tool, retained, (near, boxes[id(retained)]))
-                hits.append((name, 0.0 if common is None else common.cut(self.finished).Volume))
-            for component in self.fixture if self.fixture_ready else []:
-                subjects = component.get("subjects", "all")
-                if subjects != "all" and self._subject(op) not in subjects:
+        shapes, slots, windows = [before, self.finished, retained], {}, []
+        for window, pieces in guard or []:
+            for piece in pieces:
+                if id(piece) not in slots:
+                    slots[id(piece)] = len(shapes)
+                    shapes.append(piece)
+            windows.append((window, [slots[id(piece)] for piece in pieces]))
+        boxes = [None if s is None else _bbox(s) for s in shapes]
+        checked = windows if guard is not None and leave else None
+        present = [s is not None for s in shapes]
+        loaded = [s for s in shapes if s is not None]
+        with _ahead() as batch:
+            # The pool runs every row's booleans ahead; one token keeps their sharing.
+            calls = {}
+            for index, row in enumerate(rows):
+                (x, y), z0 = row["xy_mm"], row["tip_z_mm"] + LIFT
+                if z0 < top:
+                    cylinder = (x, y, radius - LIFT, z0, top)
+                    args = (present, boxes, checked, cylinder)
+                    calls[index] = batch.submit(loaded, "checkpoint_row", *args)
+            for index, row in enumerate(rows):
+                (x, y), z0 = row["xy_mm"], row["tip_z_mm"] + LIFT
+                if z0 >= top:
                     continue
-                if _cylinder_hits_box(*cylinder, component["envelope_bbox"]):
-                    envelope = (near, component["envelope_bbox"])
-                    hits.append((component["name"], _shared(tool, component["envelope"], envelope)))
-            hits = [(obstacle, volume) for obstacle, volume in hits if volume > HIT_MM3]
-            job["errors"].extend(
-                {"row": row["id"], "obstacle": obstacle, "volume_mm3": _r(volume)}
-                for obstacle, volume in hits
-            )
-            if not hits and self.fixture_ready:
-                gapped += bool(self.fixture_gaps)
-                extended += any(_tool_hits_box(cylinder, box) for _, box in self.fixture_possible)
-            if removed is not None:
-                job["removed"].append((row["id"], removed))
+                cylinder = (x, y, radius - LIFT, z0, top)
+                tool = Part.makeCylinder(radius - LIFT, top - z0, V(x, y, z0))
+                reach = radius - LIFT + PLANE_TOL
+                near = (x - reach, y - reach, z0 - PLANE_TOL, x + reach, y + reach, top + PLANE_TOL)
+                taken = boolean_pool.answer(calls.get(index))
+                if taken is None:
+                    removed, shared, rough, stock = _checkpoint_row(
+                        shapes, boxes, checked, cylinder, tool
+                    )
+                else:
+                    removed, detached, shared, rough, stock = taken
+                    if not detached:
+                        # A render's mesh of the stock reaches the engine's own removal only.
+                        removed = _common(tool, before, (near, boxes[0]))
+                hits = [("finished part", shared)]
+                if rough == "unguarded":
+                    unguarded += 1
+                elif rough is not None:
+                    hits.append((f"its {_r(leave)} mm rough leave", rough))
+                if retained is not None:
+                    hits.append((name, stock))
+                for component in self.fixture if self.fixture_ready else []:
+                    subjects = component.get("subjects", "all")
+                    if subjects != "all" and self._subject(op) not in subjects:
+                        continue
+                    if _cylinder_hits_box(*cylinder, component["envelope_bbox"]):
+                        envelope = (near, component["envelope_bbox"])
+                        hits.append(
+                            (component["name"], _shared(tool, component["envelope"], envelope))
+                        )
+                hits = [(obstacle, volume) for obstacle, volume in hits if volume > HIT_MM3]
+                job["errors"].extend(
+                    {"row": row["id"], "obstacle": obstacle, "volume_mm3": _r(volume)}
+                    for obstacle, volume in hits
+                )
+                if not hits and self.fixture_ready:
+                    gapped += bool(self.fixture_gaps)
+                    extended += any(
+                        _tool_hits_box(cylinder, box) for _, box in self.fixture_possible
+                    )
+                if removed is not None:
+                    job["removed"].append((row["id"], removed))
         if gapped:
             why.append(f"undrawn fixture components ({'; '.join(self.fixture_gaps)})")
         if extended:
@@ -10986,10 +11111,7 @@ class _Setup:
             # that exact recipe.
             solid = None
             if kind == "tool" and (slope is not None or seat is not None):
-                recipe = (ax, ay, tip, radius - LIFT, slope, flute, seat)
-                if recipe not in cutters:
-                    cutters[recipe] = _cutter(*recipe)
-                solid = cutters[recipe]
+                solid = cutter(ax, ay, tip)[1]
             common = None
             if (
                 obstacle is not None
@@ -11025,31 +11147,52 @@ class _Setup:
             )
             return frozenset(labels), refs, uncertain
 
+        def cutter(ax, ay, tip):
+            recipe = (ax, ay, tip, radius - LIFT, slope, flute, seat)
+            if recipe not in cutters:
+                cutters[recipe] = _cutter(*recipe)
+            return recipe, cutters[recipe]
+
+        def checks(ax, ay, tip):
+            found = []
+            if flute is not None:
+                found.append(("tool", (ax, ay, gross - LIFT, tip, tip + length)))
+            if not holder_missing:
+                found.append(("holder", self._holder(ax, ay, tip, holder)))
+            return found
+
         # Per kind: certain hits, hits only in the undeclared jaw extension, labels, refs.
         counters = {"tool": [0, 0, set(), set()], "holder": [0, 0, set(), set()]}
-        for index, _, ax, ay, tip, downward in placed:
-            checks = []
-            if flute is not None:
-                checks.append(("tool", (ax, ay, gross - LIFT, tip, tip + length)))
-            if not holder_missing:
-                checks.append(("holder", self._holder(ax, ay, tip, holder)))
-            for kind, cylinder in checks:
-                counter = counters[kind]
-                if downward:
-                    if kind == "tool":
+        with _ahead() as batch:
+            # The pool runs each new pose's boolean ahead, in the order classify needs them.
+            for index, _, ax, ay, tip, downward in placed:
+                for kind, cylinder in checks(ax, ay, tip) if not downward else ():
+                    obstacle = (flute_regions if kind == "tool" else regions)[index][0]
+                    if obstacle is None or (kind, index, cylinder) in outcomes:
+                        continue
+                    if kind == "tool" and (slope is not None or seat is not None):
+                        recipe, solid = cutter(ax, ay, tip)
+                        obstacle.ahead(batch, cylinder, solid, recipe)
+                    else:
+                        obstacle.ahead(batch, cylinder)
+            for index, _, ax, ay, tip, downward in placed:
+                for kind, cylinder in checks(ax, ay, tip):
+                    counter = counters[kind]
+                    if downward:
+                        if kind == "tool":
+                            counter[0] += 1
+                            counter[2].add("part")
+                        continue
+                    pose = (kind, index, cylinder)
+                    if pose not in outcomes:
+                        outcomes[pose] = classify(kind, index, ax, ay, tip, cylinder, counter[3])
+                    labels, refs, uncertain = outcomes[pose]
+                    counter[3].update(refs)
+                    if labels:
                         counter[0] += 1
-                        counter[2].add("part")
-                    continue
-                pose = (kind, index, cylinder)
-                if pose not in outcomes:
-                    outcomes[pose] = classify(kind, index, ax, ay, tip, cylinder, counter[3])
-                labels, refs, uncertain = outcomes[pose]
-                counter[3].update(refs)
-                if labels:
-                    counter[0] += 1
-                    counter[2].update(labels)
-                elif uncertain:
-                    counter[1] += 1
+                        counter[2].update(labels)
+                    elif uncertain:
+                        counter[1] += 1
         facts["obstacles"] = {kind: sorted(counters[kind][2]) for kind in counters}
         facts["hit_refs"] = {kind: sorted(counters[kind][3]) for kind in counters}
         facts["min_hits"] = {}
@@ -11160,13 +11303,19 @@ class _Setup:
             return
         top = self.box[5]
         reach, reach_top = 0.0, None
-        for _, ax, ay, tip in sorted(poses, key=lambda item: (item[3], item[0], item[1], item[2])):
-            if top - (tip - LIFT) <= reach:
-                break
-            common = meets.common(ax, ay, radius + REACH_BAND, tip, top + 1.0)
-            if common is not None and _bbox(common)[5] - (tip - LIFT) > reach:
-                reach_top = _bbox(common)[5]
-                reach = reach_top - (tip - LIFT)
+        order = sorted(poses, key=lambda item: (item[3], item[0], item[1], item[2]))
+        columns = [(ax, ay, radius + REACH_BAND, tip, top + 1.0) for _, ax, ay, tip in order]
+        with _ahead() as batch:
+            for column in columns:
+                meets.ahead(batch, column)
+            for column in columns:
+                tip = column[3]
+                if top - (tip - LIFT) <= reach:
+                    break
+                common = meets.common(*column)
+                if common is not None and _bbox(common)[5] - (tip - LIFT) > reach:
+                    reach_top = _bbox(common)[5]
+                    reach = reach_top - (tip - LIFT)
         facts["reach_depth_mm"] = _r(reach)
         facts["reach_top_z_mm"] = "not_applicable" if reach_top is None else _r(reach_top)
         if holder_missing:
@@ -13192,8 +13341,46 @@ class _Setup:
         facts["revolved_off_axis"] = off_axis
 
 
+WORKERS_ENV = "PRECHIPS_KERNEL_WORKERS"  # pool worker processes; 0 runs every boolean here
+WAIT_ENV = "PRECHIPS_KERNEL_POOL_WAIT"  # "1": take every pooled boolean from a worker
+
+# The engine functions pool workers run (boolean_pool.serve): each the engine's own.
+_POOL_FUNCTIONS = {
+    "checkpoint_row": _pooled_checkpoint_row,
+    "culled_common": lambda loaded, cylinder, recipe: (
+        _culled_common(loaded[0], cylinder, None if recipe is None else _cutter(*recipe)),
+    ),
+}
+
+
+def _pool(target):
+    """This run's worker pool: WORKERS_ENV processes, by default one per spare CPU up to
+    8, none when the value is not a whole number, and none unless this process is
+    freecadcmd (whose script can serve as a worker). Their files go beside ``target``, the
+    output file, in the host's job directory. WAIT_ENV makes which booleans workers answer
+    deterministic, for tests and audits."""
+    command = [sys.executable, os.path.abspath(__file__), "--"]
+    if not os.path.basename(sys.executable).lower().startswith("freecadcmd"):
+        return boolean_pool.Pool(0, command)
+    size = os.environ.get(WORKERS_ENV, "").strip()
+    if not size:
+        size = min(8, (os.cpu_count() or 1) - 1)
+    else:
+        try:
+            size = int(size)
+        except ValueError:  # not a whole number (str.isdigit() also admits "²")
+            size = 0
+    patient = os.environ.get(WAIT_ENV) == "1"
+    parent = os.path.dirname(os.path.abspath(target))
+    return boolean_pool.Pool(size, command, patient=patient, parent=parent)
+
+
 def main(argv):
+    global _POOL
     args = argv[argv.index("--") + 1 :] if "--" in argv else []
+    if len(args) == 3 and args[0] == "--pool":
+        boolean_pool.serve(args[1], args[2], _POOL_FUNCTIONS)
+        return
     if len(args) != 2:
         raise SystemExit("usage: freecadcmd freecad_job.py -- INPUT_JSON OUTPUT_JSON")
     source, target = args
@@ -13203,7 +13390,12 @@ def main(argv):
     except (OSError, ValueError) as exc:
         result = {"status": "error", "reason": f"kernel job input unreadable: {exc}"}
     else:
-        result = run(payload)
+        _POOL = _pool(target)
+        try:
+            result = run(payload)
+        finally:
+            _POOL.close()
+            _POOL = None
     text = json.dumps(result, sort_keys=True, separators=(",", ":"), allow_nan=False)
     with open(target, "w", encoding="utf-8", newline="\n") as handle:
         handle.write(text)

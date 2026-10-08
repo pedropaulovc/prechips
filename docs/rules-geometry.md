@@ -113,6 +113,47 @@ reproduces the same facts and the same render bytes as the run that produced
 it. The cache is a local convenience, not an input: it is not part of the
 hashed bundle.
 
+### Worker processes
+
+Booleans whose operands are known before the loop that needs them (each printed
+checkpoint row's removal, rough-leave and stock booleans; each culled reach column
+and tool or holder pose cylinder against its stock) may run in extra `freecadcmd`
+worker processes. `PRECHIPS_KERNEL_WORKERS` sets how many: unset or empty, one per
+spare CPU (CPU count − 1), at most 8; `0`, or anything but a whole number, runs
+none and keeps every boolean in the engine. Workers exist only when the engine
+itself runs under `freecadcmd`, start with the first loop that shares operands and
+stop when the job ends. A loop hands its booleans to the workers in the order it
+takes them and takes each answer where it would compute it; caches, cache caps and
+control flow are those of the engine alone, and a loop's calls it never takes are
+cancelled when it ends.
+
+No worker outlives the engine, however it ends, including when the host's
+600-second runaway guard kills it while a worker is inside a boolean. On Windows
+the engine puts itself in a job object set to kill every process in it when its
+only handle closes, which happens as the engine ends, and starts its workers in it;
+on Linux each worker asks the kernel to kill it when the engine dies and serves
+nothing if the engine is already gone. Where neither binding holds (Windows refuses
+the job, or another system), no worker starts. The workers' operand files live in a
+directory inside the host's job directory, beside the job's input and output, which
+the host removes after every run, a killed one included.
+
+A worker runs the engine's own function on OCC binary B-rep copies of the
+operands, which keep every double, tolerance and location and the sub-shapes the
+operands of one call share, so its answer is the engine's. Operands carrying a
+triangulation (a boolean reads it, and binary B-rep drops it) are never sent, and
+a row removal sharing a face or edge with its stock (a later render's mesh would
+reach it) is recomputed in the engine. A call no worker has started yet, or whose
+worker failed, raised or was lost, is computed by the engine itself, raising as
+before. Facts therefore do not depend on the worker count, which is not part of
+the cache key; batch timing reports the answers workers gave as the non-operative
+`pool_answers`.
+
+`PRECHIPS_KERNEL_POOL_WAIT=1` is the deterministic test mode: the engine waits for
+a worker's answer to every call it handed out while any worker can still answer,
+instead of computing a call no worker has started, so which booleans workers
+answer does not depend on timing. Tests and audits use it; checks and travelers
+leave it unset.
+
 ## Face identity
 
 Feature `faces` and `stock.as_is_faces` are STEP face references in the
