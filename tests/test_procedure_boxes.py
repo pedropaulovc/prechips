@@ -149,6 +149,13 @@ def test_each_mill_gets_the_finder_speed_it_can_turn():
     # The second mill's speed is never the first mill's box.
     (box,) = finder_boxes(second)
     assert "1200–1500 rpm" in content(box) and "750–900" not in content(box)
+    # Finder and mill context bands are legitimate; no RPM band anywhere on this
+    # page may reuse the first mill's executable 750–900 interval.
+    page_rpm_pairs = [
+        (int(lo), int(hi))
+        for lo, hi in re.findall(r"\b(\d+)\s*–\s*(\d+)\s+rpm\b", html_text(second), re.I)
+    ]
+    assert (750, 900) not in page_rpm_pairs
     assert_finder_pointers(second)
 
 

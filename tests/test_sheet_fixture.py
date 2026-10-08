@@ -941,7 +941,9 @@ def test_a_named_member_is_the_whole_member_never_a_prefix(reference, status, pr
     assert named == {reference: status}
     make = page.fixture().line("Make:")
     label = printed.rstrip(".")
-    assert label in make
+    assert f"{label}." in make
+    if status == "pass":
+        assert reference not in make
     if reference.startswith("gauges.pins/"):
         diameter = {"1/4": 6.35, "1": 25.4}[reference.removeprefix("gauges.pins/")]
         assert f"{diameter:g} mm {label}" in make

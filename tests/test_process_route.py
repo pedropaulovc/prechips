@@ -349,23 +349,27 @@ def test_a_process_hold_must_lie_inside_its_drawing_band(tmp_path, band, status)
 
 def printed_process_hold(plan, sid, op):
     bundle = load_bundle(plan)
-    finding = evaluate("inspection", bundle)[f"{sid}:{op}"]
-    (hold,) = next(
-        step["process_holds"]
-        for setup in bundle.plan["setups"]
-        if setup["id"] == sid
-        for step in setup["ops"]
-        if step["op"] == op
-    )
-    sheet = _Traveler(bundle, [finding], {}, {})
-    markup = Markup(f"<div>{sheet.process_hold(hold)}</div>")
-    return finding, markup, markup.nodes[0]
+    findings = evaluate("inspection", bundle)
+    setup = next(setup for setup in bundle.plan["setups"] if setup["id"] == sid)
+    sheet = _Traveler(bundle, list(findings.values()), {}, None)
+    numbers, _, _ = sheet.tool_table(setup)
+    rows, _, _, _ = sheet.operations(setup, numbers, {"notes": 2})
+    markup = Markup(rows)
+    (operation,) = [
+        node for node in markup.find("operation") if node["attrs"]["data-op"] == str(op)
+    ]
+    (hold,) = [
+        node
+        for node in markup.find("inspection-message", operation)
+        if "PROCESS HOLD" in content(node)
+    ]
+    return findings[f"{sid}:{op}"], markup, operation, hold
 
 
 def test_a_process_hold_prints_as_a_shop_limit_not_a_drawing_limit(tmp_path):
     plan = copy_examples(tmp_path) / "rocker-arm" / "plan.toml"
     sid, op = hold_ream(plan, "[2.000, 2.010]")
-    finding, markup, hold = printed_process_hold(plan, sid, op)
+    finding, markup, operation, hold = printed_process_hold(plan, sid, op)
     (numbers,) = finding.numbers["process_holds"]
     assert numbers["drawing_band"] == [1.994, 2.094]
     assert numbers["band"] == [2.000, 2.010]
@@ -373,6 +377,13 @@ def test_a_process_hold_prints_as_a_shop_limit_not_a_drawing_limit(tmp_path):
     words = content(hold)
     assert "PROCESS HOLD" in words
     assert "2.000–2.010" in words
+    # A shop hold must explicitly disavow drawing acceptance, not merely carry another band.
+    assert re.search(r"\bnot\b.*\bdrawing\b.*\blimit\b", words, re.IGNORECASE)
+    record = inspection_record(markup, operation, ["rod_hole"], "dia")
+    requirement = content(markup.find("inspection-requirement", record)[0])
+    (drawing_band,) = re.findall(r"(\d+\.\d+)–(\d+\.\d+)", requirement)
+    assert [float(value) for value in drawing_band] == [2.00, 2.09]
+    assert "2.000–2.010" not in requirement
     # Full job/op ownership is exercised by the CLI keeper below.
     assert REASON not in words
     assert "2.00–2.09" not in words
@@ -383,7 +394,7 @@ def test_a_process_hold_read_by_an_inch_gauge_prints_the_mm_digits_that_gauge_re
     # 0.0001 in is 0.00254 mm: the band reads to 0.001 mm, not to the conversion's five places.
     plan = copy_examples(tmp_path) / "rocker-arm" / "plan.toml"
     sid, op = hold_ream(plan, "[2.000, 2.010]", gauge="micrometers/0-1in")
-    finding, markup, hold = printed_process_hold(plan, sid, op)
+    finding, markup, _, hold = printed_process_hold(plan, sid, op)
     (numbers,) = finding.numbers["process_holds"]
     assert numbers["drawing_band"] == [1.994, 2.094]
     assert numbers["inside_drawing_band"] is True

@@ -144,12 +144,36 @@ def test_wide_risers_and_a_stud_through_the_part_are_fixture_interference_errors
         "S2": "error",  # the stud enters the puck and the plate where it has no hole
         "S3": "pass",  # stud through the tapped-hole void and the beam's slot, heel on plate
     }
+    bundle = load_bundle(examples / "geometry" / "fixture-holds" / "clash.toml")
+    stock = bundle.plan["stock"]
+    hold = next(setup["hold"] for setup in bundle.plan["setups"] if setup["id"] == "S1")
+    assert (hold["jaws_along"], hold["riser_up"], hold["riser_along"]) == (
+        "x",
+        "height",
+        "width",
+    )
+    # Width runs along X, so the inventory length spans Y; jaws close on the round stock.
+    riser_length = bundle.inventory["fixtures"][hold["riser"]]["length_mm"]
+    stock_y = stock["origin_mm"][1]
+    expected_opening = (stock_y - stock["dia_mm"] / 2, stock_y + stock["dia_mm"] / 2)
     risers = rows["S1"]["numbers"]["clashes"]
     assert len(risers) == 2
-    for n in (1, 2):
-        assert any(
-            f"riser {n} " in clash and "test-riser-blocks" in clash and "jaw opening" in clash
+    number = r"(-?\d+(?:\.\d+)?)"
+    for n, (_, riser_y) in enumerate(hold["riser_centres_mm"], 1):
+        matching = [
+            clash
             for clash in risers
+            if f"riser {n} " in clash and "test-riser-blocks" in clash and "jaw opening" in clash
+        ]
+        assert len(matching) == 1
+        span = re.search(rf"spans y\s+{number}\.\.{number}\s+mm", matching[0])
+        opening = re.search(rf"jaw opening y\s+{number}\.\.{number}\s+mm", matching[0])
+        assert span is not None and opening is not None
+        assert tuple(map(float, span.groups())) == pytest.approx(
+            (riser_y - riser_length / 2, riser_y + riser_length / 2), abs=1e-6, rel=0
+        )
+        assert tuple(map(float, opening.groups())) == pytest.approx(
+            expected_opening, abs=1e-6, rel=0
         )
     stud = "clamp 1 test-clamp-kit/stud-strap:stud"
     clashes = rows["S2"]["numbers"]["clashes"]

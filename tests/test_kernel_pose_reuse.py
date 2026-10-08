@@ -3,6 +3,8 @@
 Engine cases run ``freecad_job.py`` on solids authored here and read only its JSON. Cull
 cases load the engine under ``freecadcmd`` and query the culls of real stocks: their
 material answers and the part-hit counts that may skip the boolean, on real B-reps.
+The bounded-stock ball guard has a native-clearance witness and a same-ball positive
+control on certifiable stock; its boundary-crossing query cannot use face-free culling.
 FreeCAD-backed tests skip without ``freecadcmd``.
 """
 
@@ -195,6 +197,62 @@ def bounded_measure(shape, query):
         "native_common_calls": calls,
     }
 
+def ball_guard_measure(shape, query):
+    before = stock_snapshot(shape)
+    region = engine._Culled(shape)
+    x, y, radius, low, high = query
+    cylinder = Part.makeCylinder(radius, high - low, V(x, y, low))
+    # Inspect the actual production samples, but use native trimmed-face distances
+    # and classifiers to establish their physical ball interiors independently.
+    samples = region._ball_centres()
+    margin = engine.HIT_BALL_MM + engine.STOCK_TOL
+    candidates = []
+    for centre, verified in samples:
+        point = V(*centre)
+        vertex = Part.Vertex(point)
+        stock_clearance = min(face.distToShape(vertex)[0] for face in shape.Faces)
+        cylinder_clearance = min(face.distToShape(vertex)[0] for face in cylinder.Faces)
+        if (
+            shape.isInside(point, 1e-9, False)
+            and cylinder.isInside(point, 1e-9, False)
+            and stock_clearance > margin
+            and cylinder_clearance > margin
+        ):
+            candidates.append({
+                "centre": centre,
+                "stock_clearance": stock_clearance,
+                "cylinder_clearance": cylinder_clearance,
+            })
+    attempts = []
+    real_inside = region._ball_inside
+
+    def observed_inside(centre):
+        answer = real_inside(centre)
+        attempts.append({"centre": centre, "answer": answer})
+        return answer
+
+    region._ball_inside = observed_inside
+    # Certification uses its normal lazy sampler and verification path; the
+    # independently inspected samples above never become cached proof results.
+    certified_hit = region.certified(query, "native-ball-guard")
+    support = region.support.name
+    answers = measure(shape, {"crossing": query}, raw_boolean=True)["crossing"]
+    return {
+        "before": before,
+        "after": stock_snapshot(shape),
+        "query": query,
+        "selected_faces": sum(
+            engine._cylinder_hits_box(*query, box, True) for box in region.boxes
+        ),
+        "sample_count": len(samples),
+        "physical_candidates": candidates,
+        "attempts": attempts,
+        "support": support,
+        "certified": certified_hit,
+        "proven": query in region.proven,
+        "answers": answers,
+    }
+
 # 60x40x20 plate: pockets x 10..29.99975 and 30.00025..45 (y 5..35, floor z=5) leave
 # a 0.0005 mm web at x=30; an R3 through hole at (52, 20); solid strip x 0..10.
 plate = Part.makeBox(60, 40, 20)
@@ -276,6 +334,14 @@ rows["overlap"] = measure(overlap, {
 block = Part.makeBox(60, 40, 20)
 crossing = (30.0, 20.0, 2.0, 15.0, 25.0)
 floor = (30.0, 20.0, 2.0, 5.0, 12.0)
+# A remote closed R3 spherical cavity introduces native degenerated pole edges
+# without changing the top face or its sampled ball near (30, 20, 20).
+# NURBS conversion retains that topology while supplying supported positive-weight
+# face bounds: unlike the unconverted dimple, this stock reaches ball verification.
+ball_box = block.toNurbs()
+ball_bounded = block.cut(Part.makeSphere(3, V(10, 10, 10))).toNurbs()
+rows["ball-guard-certifiable"] = ball_guard_measure(ball_box, crossing)
+rows["ball-guard-bounded"] = ball_guard_measure(ball_bounded, crossing)
 # An old generation hits; the next stock cuts an R4 pocket from z=10 through that query.
 old = engine._Culled(block)
 before = old.hits(*crossing)
@@ -563,6 +629,61 @@ def test_material_hit_respects_inner_shells_and_unanalysed_surfaces(
         assert answers["raw_volume"] == pytest.approx(math.pi * 2.0**2 * 10.0, rel=1e-9)
         assert row["common_volume"] == pytest.approx(answers["raw_volume"], rel=1e-9)
         assert row["native_common_calls"] == 0
+
+
+def test_bounded_stock_withholds_a_sampled_ball_that_certifiable_stock_proves(certified):
+    bounded = certified["ball-guard-bounded"]
+    control = certified["ball-guard-certifiable"]
+    for row, support, expected_certificate in (
+        (bounded, "BOUNDED", False),
+        (control, "CERTIFIABLE", True),
+    ):
+        before = row["before"]
+        assert before["valid"] is True and before["solid_volumes"]
+        assert before["volume"] > 0
+        assert all(math.isfinite(volume) and volume > 0 for volume in before["solid_volumes"])
+        assert before["faces"] == before["owned_faces"] and all(before["shells_closed"])
+        assert row["after"] == before
+        assert row["selected_faces"] > 0 and row["sample_count"] > 0
+        assert row["support"] == support
+        assert row["certified"] is expected_certificate
+        assert row["proven"] is expected_certificate
+        assert row["physical_candidates"] and row["attempts"]
+        answers = row["answers"]
+        assert answers["raw_hit"] is True and answers["raw_volume"] > 1e-6
+        assert _answers(answers) == {True}
+        assert answers["explicit_hit"] is True and answers["solid_hit"] is True
+        assert answers["certified"] is expected_certificate
+        # Both cylinders cross z=20, far from the remote cavity; the independent
+        # native Boolean must retain exactly the same material in both stocks.
+        assert row["query"] == [30.0, 20.0, 2.0, 15.0, 25.0]
+    assert bounded["before"]["degenerated_edges"] > 0
+    assert control["before"]["degenerated_edges"] == 0
+    assert bounded["answers"]["raw_volume"] == pytest.approx(
+        control["answers"]["raw_volume"], rel=1e-9
+    )
+    assert all(attempt["answer"] is False for attempt in bounded["attempts"])
+    assert any(attempt["answer"] is True for attempt in control["attempts"])
+    # A real candidate attempted by both stocks must be the same physical ball,
+    # with its centre beneath the unchanged top and native clearance in each.
+    shared = [
+        candidate
+        for candidate in bounded["physical_candidates"]
+        if 19.9 < candidate["centre"][2] < 20.0
+        and candidate["centre"][0] == pytest.approx(30.0, abs=1e-9)
+        and candidate["centre"][1] == pytest.approx(20.0, abs=1e-9)
+        and any(
+            other["centre"] == pytest.approx(candidate["centre"], abs=1e-9)
+            for other in control["physical_candidates"]
+        )
+        and any(attempt["centre"] == candidate["centre"] for attempt in bounded["attempts"])
+        and any(
+            attempt["answer"] is True
+            and attempt["centre"] == pytest.approx(candidate["centre"], abs=1e-9)
+            for attempt in control["attempts"]
+        )
+    ]
+    assert shared, (bounded, control)
 
 
 @pytest.mark.parametrize("stock", ["inverted", "overlap"])
