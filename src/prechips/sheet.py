@@ -222,6 +222,7 @@ gap: var(--space-xs) var(--space-md); margin: var(--space-sm) 0 0; }
 .signoff { margin-top: var(--space-lg); break-before: avoid; page-break-before: avoid;
 display: flex; flex-wrap: wrap; gap: var(--space-md); }
 .signoff .field { flex: 1 1 52mm; }
+.signoff p { flex: 1 1 52mm; margin: 0; }
 .signoff .writing-blank { width: auto; }
 .contour-row, .contour-row.tall, [data-duplex-stacked] { display: block; }
 .contour-row > .contour { min-width: 0; }
@@ -7953,8 +7954,8 @@ class _Traveler:
         signoff = (
             '<div class="signoff">'
             + _writing_field("Sign off")
-            + _writing_field("First article / measured results")
-            + "</div>"
+            + "<p>First article: enter measured results in their labeled inspection fields "
+            "or worksheets.</p>" + "</div>"
         )
         for label, blocks, signed in pages:
             # Continuation pages open with the sheet's name: "SETUP S2 — sheet 3".

@@ -406,6 +406,10 @@ obligation. Titles, source words, numbers and inspection methods are unchanged.
 Unknown requirement identities, bands and other debt stay visible and gain
 neither fabricated result data nor invented gauges.
 GO / NO-GO meaning and gauge/source ownership are unchanged.
+The generated sign-off area keeps its independent signature field. Its
+first-article reading reminder is a read-only pointer to the labeled inspection
+fields or worksheets, not a second unqualified measured-results blank.
+Approval, first-article evidence and all authored recording fields are unchanged.
 
 Terminal punctuation stays with the existing field caption rather than on an
 orphan line after its writing box. Calculation fields start on a shared left

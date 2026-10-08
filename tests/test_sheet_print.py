@@ -107,6 +107,31 @@ def test_long_rough_and_finish_lathe_tables_keep_every_page_counted_and_sheets_o
     sections = [
         node for node in markup.nodes if node["tag"] == "section" and "data-sheet" in node["attrs"]
     ]
+    # Full travelers keep the independent signature, not another unqualified
+    # measurements destination at the end of the operation sequence.
+    signoffs = markup.find("signoff")
+    assert signoffs
+    for signoff in signoffs:
+        (signature,) = markup.find("field", signoff)
+        (label,) = markup.find("field-label", signature)
+        assert content(label) == "Sign off"
+        (blank,) = markup.find("writing-blank", signoff)
+        assert content(blank) == ""
+    # Diameter and roughness keep distinct criterion-owned recording areas;
+    # replacing the closing catchall must not suppress either real destination.
+    for feature in ("pivot_bearing", "pivot_journal"):
+        records = {
+            record["attrs"]["data-requirement"]: record
+            for record in markup.find("inspection-record")
+            if record["attrs"]["data-feature"] == feature
+            and record["attrs"]["data-requirement"] in ("dia", "finish_ra")
+        }
+        assert records.keys() == {"dia", "finish_ra"}
+        for record in records.values():
+            (requirement,) = markup.find("inspection-requirement", record)
+            assert feature.replace("_", " ") in content(requirement)
+            (blank,) = markup.find("writing-blank", record)
+            assert content(blank) == ""
     # Only the original front carries the section's approval banner. Continuations may
     # copy setup/operation identities, but those copies are not new logical sheets.
     banners = [content(markup.find("banner", section)[0]) for section in sections]
