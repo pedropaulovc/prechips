@@ -1960,23 +1960,29 @@ its solids named to the kernel by `guide_owner`, the diameter band the kit's rim
 stand at by `guide_rim_dia_mm`) is not a cut to clear. That band is twice the radius
 band the buttons file to worst case over the kit's declared stack ([rules-coordinates
 filing buttons](rules-coordinates.md): the button OD limits widened by the rim
-centre's shift off the bore axis), the band the traveler prints; a button drawn at its
-nominal OD is in it even when its bought OD band (a fit class such as g6) excludes the
-nominal. A kit solid is a stop only when it is a button of that band (a cylindrical
-face within it, widened by the stock tolerance), its cut reaches it, it is seated on
+centre's shift off the bore axis), the band the traveler prints, proven exactly as the
+manual-arc rule proves it; a button drawn at its nominal OD is in it even when its
+bought OD band (a fit class such as g6) excludes the nominal. A kit solid is a stop
+only when it is a button of that band (an external rim: a convex cylindrical face
+within the band, widened by the stock tolerance; a bore of the band, as in a nut, is
+no rim), its cut reaches it, it is seated on
 the filed face (within the stock tolerance of the stock the file leaves, without
 biting into it), and that rim sets the filed boundary: the rim's cylinder, run along
 its axis, touches the cut where the cut meets the stock the file leaves and nowhere
 enters the cut. A button of the band whose rim stands over the unfiled wall is no
-stop. Those stops are named in `render_scene.guide_stops`, and the kernel leaves them
-out of the file's `cut_clearances` row and so out of `closest_cut`: no `CUT 0.000 mm
+stop. Stops are classified per file: one file's stop never decides another's. Each
+file's stops are left out of its own `cut_clearances` row only; the picture keys every
+file's stops once, named in `render_scene.guide_stops`, and `closest_cut` is the least
+of the rows: no `CUT 0.000 mm
 FROM` a filing button prints. Any other kit solid the cut reaches (a stud, a tab
-touching the unfiled wall, a square block, a cylinder outside the band) is holding to
-clear and keeps its real `CUT` dimension. When the band is unknown (any stack element
-unknown, or a pin that may not enter its seats), a kit solid that would be a stop but
-for the band, or whose seat test fails its boolean, may be the file's stop: whether
-the file bears on it is unknown, so the file's row is `unknown` and `closest_cut` None,
-never a pass and never 0 mm to a button. The detail keys
+touching the unfiled wall, a square block, a nut whose bore stands on the filed face, a
+cylinder outside the band) is holding to clear and keeps its real `CUT` dimension.
+When the band is unknown (the kit or any stack fact flagged to verify, any stack
+element unknown, or a pin that may not enter its seats), a kit solid that would be a
+stop but for the band, or whose seat test fails its boolean, may be the file's stop:
+whether the file bears on it is unknown, so that file's row is `unknown` and
+`closest_cut` None, never a pass and never 0 mm to a button, even when an earlier file
+of known band stops on the same button. The detail keys
 them in green: `FILE STOPS ON BOTH BUTTON RIMS` for a matched pair, or one key
 per rim, `FILE STOPS ON UPPER BUTTON RIM`, when they lie apart. A real clearance
 to the rest of the kit (its stud) is still dimensioned: in the holding detail when

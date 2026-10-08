@@ -119,7 +119,7 @@ _STACK = (
 )
 
 
-def guide_stack(bundle, item, bore, scale):
+def _guide_stack(bundle, item, bore, scale):
     """The filing-button stack of the kit ``item`` pinned through the plan feature
     ``bore``, keyed as the guide record keys it: each element's declared ``[least,
     greatest]`` limits in mm (the button OD, its bore and the pin), the OD's runout
@@ -143,9 +143,9 @@ def _blocked(stack, bore):
     return [(name, seat) for name, seat in seats if pin[1] > seat[0] + _TOL]
 
 
-def files_to(stack):
+def _files_to(stack):
     """(the button centre's worst shift off the bore axis by element, the radius band
-    ``[least, greatest]`` mm the buttons file to worst case) over a :func:`guide_stack`,
+    ``[least, greatest]`` mm the buttons file to worst case) over a :func:`_guide_stack`,
     each element at its loosest limits: the rims from ``button_min/2 - shift`` to
     ``button_max/2 + shift``. None when an element is unknown or a pin may not enter its
     seats (:func:`_blocked`)."""
@@ -162,10 +162,22 @@ def files_to(stack):
     return shift, [button[0] / 2 - total, button[1] / 2 + total]
 
 
+def rim_band(bundle, item, bore, scale):
+    """The radius band ``[least, greatest]`` mm the filing-button kit ``item`` pinned through
+    the plan feature ``bore`` (feature units times ``scale``) files to worst case
+    (:func:`_files_to`), proven exactly as :func:`_buttons` proves it; None when that
+    proves no radius: ``item`` not a filing_buttons kit, flagged to verify (itself or any of
+    its facts), any stack element unknown, or a pin that may not enter its seats."""
+    if not isinstance(item, dict) or item.get("kind") != BUTTON_KIND or uncertain(item):
+        return None
+    found = _files_to(_guide_stack(bundle, item, bore, scale))
+    return found[1] if found else None
+
+
 def _buttons(bundle, setup, op, guide, layout, band, scale, errors, debts):
     """The filing-button guide record and the radius it files to, worst case over the
     declared limits of every element between the rim and the bore axis
-    (:func:`files_to`): the button OD, its runout about its own bore, the button bore on
+    (:func:`_files_to`): the button OD, its runout about its own bore, the button bore on
     the pin and the pin in the part's bore (the drawing's limits). A kit flagged to verify
     (itself or any of its facts), or any limit unknown, proves no radius."""
     kit, bore = guide.get("buttons"), guide.get("bore")
@@ -176,7 +188,7 @@ def _buttons(bundle, setup, op, guide, layout, band, scale, errors, debts):
         return record_
     if not _held(bundle, setup, kit):
         debts.append(f"filing buttons {kit} are not in setup {setup['id']}'s hold")
-    record_.update(guide_stack(bundle, item, bore, scale))
+    record_.update(_guide_stack(bundle, item, bore, scale))
     if layout.get("convex") is False:
         errors.append("filing buttons only guide a convex arc; this arc is concave")
     if layout and layout["centre_on"] != bore:
@@ -197,7 +209,7 @@ def _buttons(bundle, setup, op, guide, layout, band, scale, errors, debts):
         errors.append(f"a pin up to Ø{pin[1]:g} may not enter {name} (Ø{seat[0]:g} smallest)")
     if blocked:
         return record_
-    shift, reach = files_to(record_)
+    shift, reach = _files_to(record_)
     total = sum(shift.values())
     record_.update(centre_shift_mm=shift, files_to_mm=reach)
     button = record_["button_dia_mm"]

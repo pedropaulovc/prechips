@@ -479,15 +479,17 @@ def _hand_inputs(bundle, setup, op, subject, finishing):
     A file guided by filing buttons held in this setup names the kit's solids by their
     kernel owner (``guide_owner``) and the diameter band its rims stand at
     (``guide_rim_dia_mm``): twice the radius band the kit files to worst case over its
-    declared stack (:func:`prechips.rules.manual_arc.files_to`: the button OD limits
-    widened by the rim centre's shift off the bore axis), so a button drawn at its nominal
-    OD is one of them though its bought OD band excludes the nominal. Only a button of the
-    kit, a turned solid of that band whose rim lies on the filed surface, is where the file
-    stops; ``"unknown"`` when any stack element is unknown or a pin may not enter its
-    seats, so whether the file bears on a kit solid is unknown."""
+    declared stack, proven as the manual-arc rule proves it
+    (:func:`prechips.rules.manual_arc.rim_band`: the button OD limits widened by the rim
+    centre's shift off the bore axis), so a button drawn at its nominal OD is one of them
+    though its bought OD band excludes the nominal. Only a button of the kit, a turned
+    solid of that band whose rim lies on the filed surface, is where the file stops;
+    ``"unknown"`` when the rule proves no radius (the kit flagged to verify, any stack
+    element unknown, a pin that may not enter its seats) or the feature units are unknown,
+    so whether the file bears on a kit solid is unknown."""
     from prechips.rules.coordinates import filing_cap
     from prechips.rules.geometry_common import HAND, finishing_subjects
-    from prechips.rules.manual_arc import files_to, guide_stack
+    from prechips.rules.manual_arc import rim_band
     from prechips.rules.resolution import resolve
 
     result = {
@@ -516,10 +518,8 @@ def _hand_inputs(bundle, setup, op, subject, finishing):
         result["guide_owner"] = owner
         item = resolve(bundle, "fixtures", kit)
         scale = {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units"))
-        known = isinstance(item, dict) and scale is not None
-        stack = guide_stack(bundle, item, guide.get("bore"), scale) if known else None
-        filed = files_to(stack) if stack else None
-        result["guide_rim_dia_mm"] = [2 * r for r in filed[1]] if filed else UNKNOWN
+        reach = rim_band(bundle, item, guide.get("bore"), scale) if scale else None
+        result["guide_rim_dia_mm"] = [2 * r for r in reach] if reach else UNKNOWN
     return result
 
 

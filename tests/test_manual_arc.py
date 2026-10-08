@@ -938,6 +938,31 @@ def test_the_kernel_finds_the_buttons_by_the_rim_band_the_stack_files_to(tmp_pat
     assert _filing_input(plan)["guide_rim_dia_mm"] == "unknown"
 
 
+# The kernel's rim band is the rule's proof: a stack the rule proves no filed radius from
+# (a fact or the kit flagged to verify, a pin that may not enter its seats) gives the
+# kernel no band, so whether the file bears on a kit solid stays unknown.
+@pytest.mark.parametrize(
+    ("old", "new"),
+    [
+        ("button_runout_mm = 0.004", "button_runout_mm = { value = 0.004, verify = true }"),
+        (
+            "pin_dia_limits_mm = [5.99, 6.0]",
+            "pin_dia_limits_mm = { value = [5.99, 6.0], verify = true }",
+        ),
+        ("button_runout_mm = 0.004\nverify = false", "button_runout_mm = 0.004\nverify = true"),
+        ("[5.99, 6.0]", "[5.99, 6.02]"),
+    ],
+    ids=["runout-to-verify", "pin-to-verify", "kit-to-verify", "pin-blocked"],
+)
+def test_the_kernel_has_no_rim_band_where_the_rule_proves_no_filed_radius(tmp_path, old, new):
+    plan = scratch(tmp_path, FILE_BY_BUTTONS, hold="fixture = 'buttons'")
+    change(plan.with_name("inventory.toml"), old, new)
+    row = manual_row(plan, 30)
+    assert row.status in ("unknown", "error"), row.sentence
+    assert "files_to_mm" not in row.numbers["guide"]
+    assert _filing_input(plan)["guide_rim_dia_mm"] == "unknown"
+
+
 @pytest.mark.parametrize(
     ("name", "old", "new"),
     [
