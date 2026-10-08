@@ -1312,8 +1312,8 @@ def test_a_machine_accessory_the_tools_do_not_list_is_no_make_tool(key):
     (line,) = make_lines(page[page.index("SHOP-MADE FIXTURE") :])
     assert "? endmill-6" in line and "STOP" in line
     assert make_statuses(data) == ["error"]
-    # Its receipt slot is the tools item, never the accessory.
-    assert ("tools", "endmill-6") in setup_items(data, data.plan["setups"][0])
+    # Its receipt slot is the tools item, never the accessory: the tools list lacks it.
+    assert ("tools", "endmill-6", None) in setup_items(data, data.plan["setups"][0])
 
 
 @pytest.mark.parametrize(
