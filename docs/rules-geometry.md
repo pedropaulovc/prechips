@@ -73,10 +73,11 @@ The STEP must be bound before the kernel is called: an unknown `step_sha256`,
 no `step` asset, or bytes whose SHA-256 differs from the manifest value give
 `unknown` rows with `STEP bytes and their manifest SHA-256 are required for
 FreeCAD geometry.` or `STEP bytes do not match the manifest SHA-256; face
-identity is unresolved.` Only the hand-authored `examples/pivot-bracket` bundle
-has no STEP bytes, so every one of its geometry rows is `?` for this reason even
-with a kernel installed. `examples/rocker-arm`, `examples/pivot-shaft` and
-`examples/cone-pivot-post` bind the consumer's labelled exports
+identity is unresolved.` All four reference bundles bind adjacent consumer STEP
+exports. The bracket keeps a hand-authored manifest on the v39 STEP without
+feature labels; its illustrative acceptance bands are not drawing limits.
+`examples/rocker-arm`, `examples/pivot-shaft` and `examples/cone-pivot-post`
+bind the consumer's labelled exports
 (`HAF_<FEATURE>__P<nn>` labels; a periodic surface arrives as several
 `ADVANCED_FACE` patches under one feature label, each bound by its own
 entity/ordinal) with each feature's `faces` copied from that export. In the
@@ -110,8 +111,7 @@ of the canonical job without its `step_path` (the STEP digest and every
 numeric input are inside), the digest of the engine's own `kernel/*.py`
 sources, and the kernel executable's resolved path and freshly read byte SHA-256.
 Changing a consumed geometry input, the STEP, the engine or the kernel
-executable bytes therefore misses; moving the bundle does not. CI also namespaces
-its external cache by the pinned native AppImage SHA and engine source digest.
+executable bytes therefore misses; moving the bundle does not.
 Host-only action/finishing metadata
 that is not consumed by transient preparation, tool OAL after projection is resolved, protective hold-method text, and the
 item-level `verify` / `present` / `source` flags around a consumed fact (which
@@ -119,8 +119,15 @@ never enter the job) do not invalidate geometry. `unknown` and `error` results
 are never cached, and a cache that cannot be written leaves the returned facts
 unchanged. A hit returns the stored facts and render bytes of the run that
 produced it. Fresh native runs are not proven bit-repeatable; see the
-[dated native epsilon observation](../examples/README.md#native-epsilon-observation).
+[print and native acceptance limits](../examples/README.md#print-and-native-acceptance-limits).
 The cache is not part of the hashed bundle.
+
+CI persists this local result-cache directory in a separate external cache.
+Its namespace includes runner OS/architecture, the pinned FreeCAD AppImage
+SHA-256, cache epoch and the `kernel/*.py` source digest. Each save key adds the
+unique workflow run ID and attempt; restore uses the matching namespace prefix.
+The workflow saves only after the test job succeeds
+([CI cache policy](../.github/workflows/ci.yml)).
 
 ### Worker processes
 

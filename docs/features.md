@@ -137,16 +137,13 @@ child. Saw stock cuts may omit a feature entirely and never establish coverage
 or surface-finish credit for a manifest face.
 
 The optional root `volume_mm3` and `volume_cite` hold a sourced finished-part
-volume for stock comparison. Missing or unverified volume remains `"unknown"`;
+volume for the generic `compare` command's stock comparison. Missing or
+unverified volume remains `"unknown"`;
 prechips never substitutes a feature bounding box, guessed cone subtraction,
 or stock volume. Drawing `construction = "one_piece"` does not permit a
 built-up candidate; permission requires the literal `"built_up_permitted"`.
 Unknown or omitted drawing permission retains the one-piece-only restriction;
 it never permits built-up construction. A one-piece candidate needs no permission.
-
-In particular, the current cone export omits `volume_mm3` and `volume_cite`.
-Its finished volume/waste therefore stay unknown despite the older
-hand-authored fixture's analytic-volume citation.
 
 All five inputs are UTF-8 TOML, parsed by `tomllib` and strict Pydantic 2
 models in `src/prechips/model.py`. Unknown keys are forbidden at every modeled

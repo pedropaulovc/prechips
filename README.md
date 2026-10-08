@@ -16,22 +16,23 @@ measurement checklist. It checks declared facts and sampled B-rep measurements,
 not a CAM simulation or a CAD model's machinability, and does not generate
 toolpaths.
 
-The local M1 implementation, PR #5 review corrections, M2 declared-input
-feasibility rules, M3 consumer-export bundles, M4 kernel rules and M5
-measured-inventory screens are present. M4 also delivers `approach = "rotary"`:
-horizontal dividing-head samples presented at top dead centre to a vertical
+The reference bundles include consumer-exported geometry. With `approach = "rotary"`,
+M4 evaluates horizontal dividing-head samples presented at top dead centre to a vertical
 cutter, with window-bounded radial and wall-tangent cutter-column removal
 outside the finished part. Op windows may claim part of a face; coverage and
 finish coverage need the exact union of the claiming windows to cover the
-whole face. This is sampled geometry, not continuous toolpath
-proof. The combined integration gate remains unobserved for this delivery;
-physical paper rehearsal and live prechips farm/App Insights acceptance remain
-pending. Exported CAD inputs are not evidence of those gates.
-See [PLAN.md](PLAN.md) for milestone status and unobserved acceptance work.
+whole face. This is sampled geometry, not continuous toolpath proof.
+Local artifact validation ran all four reference travelers twice; all eight
+invocations exited 0, and the two generations produced 48 byte-identical output
+files. The example validator passed for 26 TOML inputs, four reference bundles
+and seven geometry controls. A final full-suite run and the combined ten-minute
+CI gate remain unobserved for this delivery. Physical paper rehearsal,
+first-article machining and live prechips farm/App Insights acceptance also
+remain unobserved. Exported CAD inputs and artifact validation do not establish
+those acceptances. See [PLAN.md](PLAN.md) for the current contract and remaining
+acceptance work.
 
-Traveler readability baselines and native comparison observations are recorded
-in the example guide's [dated readability baselines](examples/README.md#dated-readability-baselines)
-and [native epsilon observation](examples/README.md#native-epsilon-observation).
+See the example guide's [print and native acceptance limits](examples/README.md#print-and-native-acceptance-limits).
 
 ## Install and check
 
@@ -61,9 +62,10 @@ version and SHA-256 and extracted without FUSE. It runs the complete suite with
 two pytest workers and load-scope scheduling, caps extra native workers at one,
 records durations (complete in JUnit) and uploads the pytest log and JUnit
 results even on failure. Successful geometry results persist across runs in a
-cache namespaced by runner OS/architecture, pinned AppImage SHA-256, engine
-source digest and cache epoch. Only successful jobs publish an immutable
-per-run cache.
+cache namespaced by runner OS/architecture, pinned AppImage SHA-256, cache epoch
+and engine source digest. Each immutable save key also includes the run ID and
+attempt; restore uses the matching namespace prefix. Only successful test jobs
+publish the per-run cache.
 The product reports unknown geometry (`?`, exit 4) without FreeCAD;
 skips do not change that behavior.
 CI also sets `PRECHIPS_REQUIRE_PRINT_BROWSER=1`: a missing or unlaunchable
@@ -95,8 +97,9 @@ length/height-band divergences from the upstream export; these are not claims
 that the original drawing or export was corrected.
 Lathe geometry uses a radial sampled turning screen with modeled chuck obstacles;
 spindle-axis drilling actions retain the axial approach. Neither proves a toolpath.
-The upstream follow-ups identified at harmonic-analyzer `b11124ecf` and combined
-gate evidence are in PLAN §8 M3; current HA status is not observed.
+PLAN §8 M3 records the upstream follow-ups identified at harmonic-analyzer
+`b11124ecf`, local artifact/validator evidence and remaining acceptance gates;
+current HA status is not observed.
 Outputs are still written for exits 2 and 4.
 All example plans remain **authored** and their sheets **PLANNED**. The shaft
 and rocker consume harmonic-analyzer `features.toml` exports; the cone records
@@ -150,7 +153,7 @@ package version. `--json` and `--verbose` default off.
   Machine rows also show the envelope with measured/unmeasured markers.
   **tools --measure** lists the measurement debt behind the current reports:
   every `numbers.measurements` entry an unresolved finding emits for the given
-  `--plan` files (default: the five shipped example plans), sorted and
+  `--plan` files (default: the four shipped example plans), sorted and
   deduplicated by exact report id, set members and tool/holder pairs included,
   each with what to measure, instrument, units and citation. It is not an
   inventory-wide field walk: nothing no rule reads is listed, and it adds no
@@ -327,7 +330,7 @@ the STEP digest, consumed geometry inputs, engine source and kernel binary.
 A hit returns the stored facts of the
 run that produced it; the cache is not a bundle input. Fresh native runs are not
 proven bit-repeatable (see the
-[native epsilon observation](examples/README.md#native-epsilon-observation)).
+[print and native acceptance limits](examples/README.md#print-and-native-acceptance-limits)).
 See the [cache contract](docs/rules-geometry.md#cache).
 Booleans known before the loop that needs them run in up to
 `PRECHIPS_KERNEL_WORKERS` extra `freecadcmd` processes (default one per spare CPU,

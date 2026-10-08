@@ -113,7 +113,7 @@ For a lathe setup without a selected verified tailstock/steady exception:
 Equality passes. The ratio is read only from the policy, accompanied by
 `numbers_cite.stickout_ld_max`; a missing, unknown, nonpositive, uncited or
 unverified ratio leaves the limit `unknown`. The source is
-[PLAN §4.1 stick-out](../PLAN.md#41-plan-lint-declared-inputs-only) (line 541),
+[PLAN §4.1 stick-out](../PLAN.md#41-plan-lint-declared-inputs-only),
 whose example is “Ø6 × 40 past the chuck: add the tailstock centre.” This is
 not an unstated Handbook rule.
 
