@@ -1,5 +1,7 @@
 """Traveler HOLD and SHOP-MADE FIXTURE sheet facts from a synthetic bundle."""
 
+import re
+from html import unescape
 from pathlib import Path
 
 import pytest

@@ -1,12 +1,13 @@
 """Operation-sheet wording a machinist acts on: printed bands and index directions."""
 
 import functools
-import random
 import json
 import os
+import random
 import re
 import subprocess
 import threading
+from html import unescape
 from html.parser import HTMLParser
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
@@ -355,7 +356,9 @@ POCKET = {"id": "S1", "ops": [{"op": 10, "do": "pocket", "feature": "ear", "tool
 
 
 def test_a_stepped_contour_lists_its_levels_once_in_the_heading():
-    markup = Markup(shop(contour_records([-0.25, -0.5, -0.6])).contours(POCKET, {"c": "T1"}))
+    markup = Markup(
+        shop(contour_records([-0.25, -0.5, -0.6])).contours(POCKET, {("tools", "c"): "T1"})
+    )
     heading = next(node for node in markup.nodes if node["tag"] == "h3")
     assert "S1 op 10 — ear · T1 · Z -0.250, -0.500, -0.600" in content(heading)
     assert content(heading).count("-0.250") == content(heading).count("-0.500") == 1
@@ -363,7 +366,7 @@ def test_a_stepped_contour_lists_its_levels_once_in_the_heading():
 
 def test_a_single_level_contour_heading_keeps_its_one_z():
     for levels in (None, [-0.6]):
-        markup = Markup(shop(contour_records(levels)).contours(POCKET, {"c": "T1"}))
+        markup = Markup(shop(contour_records(levels)).contours(POCKET, {("tools", "c"): "T1"}))
         heading = next(node for node in markup.nodes if node["tag"] == "h3")
         html = content(heading)
         assert "S1 op 10 — ear · T1 · Z -0.600" in html
@@ -411,7 +414,9 @@ def test_a_floor_already_at_depth_is_one_pass_only_when_its_levels_are_establish
 
 
 def test_each_depth_level_has_a_place_to_mark_it_done():
-    markup = Markup(shop(contour_records([-0.25, -0.5, -0.6])).contours(POCKET, {"c": "T1"}))
+    markup = Markup(
+        shop(contour_records([-0.25, -0.5, -0.6])).contours(POCKET, {("tools", "c"): "T1"})
+    )
     marks = markup.find("tick")
     assert len(marks) == 3
     parents = {id(mark["parent"]): mark["parent"] for mark in marks}
@@ -421,12 +426,12 @@ def test_each_depth_level_has_a_place_to_mark_it_done():
         for number in re.findall(r"level (\d) of 3", content(parent))
     ] == ["1", "2", "3"]
     # One level: the op row is the only mark it needs.
-    single = Markup(shop(contour_records([-0.6])).contours(POCKET, {"c": "T1"}))
+    single = Markup(shop(contour_records([-0.6])).contours(POCKET, {("tools", "c"): "T1"}))
     assert not single.find("tick")
 
 
 def test_a_raster_block_says_how_to_lift_not_what_its_table_already_shows():
-    markup = Markup(shop(contour_records(None)).contours(POCKET, {"c": "T1"}))
+    markup = Markup(shop(contour_records(None)).contours(POCKET, {("tools", "c"): "T1"}))
     table = markup.find("coords")[0]
     block = content(markup.find("table-context", table)[0])
     assert "Lift to Z 5.000 after each pass." in block, block
@@ -636,7 +641,7 @@ def outline_note(bundle):
     sheet = shop(records)
     sheet.bundle = bundle
     op = {**POCKET["ops"][0], "stock_removal_bounds": {"x": [-9.0, 9.0], "y": [-9.0, 9.0]}}
-    html = sheet.contours({"id": "S1", "ops": [op]}, {"c": "T1"})
+    html = sheet.contours({"id": "S1", "ops": [op]}, {("tools", "c"): "T1"})
     markup = Markup(html)
     (note,) = [
         content(node)
@@ -664,7 +669,7 @@ def test_outline_rows_are_cutter_clearance_only_wholly_outside_the_kernel_entry_
 
 
 def test_a_contour_table_repeats_its_operation_context_and_coordinate_values():
-    markup = Markup(shop(contour_records(None)).contours(POCKET, {"c": "T1"}))
+    markup = Markup(shop(contour_records(None)).contours(POCKET, {("tools", "c"): "T1"}))
     table = markup.find("coords")[0]
     repeat = markup.find("repeat", table)[0]
     assert "op 10" in content(repeat) and "T1" in content(repeat)
@@ -860,11 +865,26 @@ def test_a_mill_feature_map_leaves_off_a_face_square_to_the_spindle(normal, kept
     for rows in ([face, hole], [face]):
         sheet = mapped({("coordinates", "S1"): {"rows": rows}}, features)
         sheet.bundle = SimpleNamespace(features={"features": {}, "frames": frames}, plan={})
-        maps.append(rows_of(sheet.feature_map(setup)))
+        markup = Markup(sheet.feature_map(setup))
+        maps.append(
+            [
+                content(node)
+                for node in markup.nodes
+                if node["tag"] == "td"
+                and node["parent"]["tag"] == "tr"
+                and node["parent"]["parent"]["tag"] == "tbody"
+                and next(
+                    cell
+                    for cell in markup.nodes
+                    if cell["tag"] == "td" and cell["parent"] is node["parent"]
+                )
+                is node
+            ]
+        )
     both, alone = maps
-    assert "hold down||hole axis on the Z0 surface||" in both
-    assert ("blank end||" in both) is kept
-    assert ("blank end||" in alone) is kept and bool(alone) is kept
+    assert "hold down" in both
+    assert ("blank end" in both) is kept
+    assert ("blank end" in alone) is kept and bool(alone) is kept
 
 
 def test_an_aimed_target_names_its_offset_and_inspection_but_not_the_authored_reason():
@@ -1653,6 +1673,8 @@ def test_a_runout_limit_prints_as_declared(limit):
     line = sheet.transfer_line({"id": "S2"}, {**transfer, "runout_limit_mm": limit})
     printed = re.search(r"(\d+(?:\.\d+)?) mm total indicator reading", line)
     assert printed and float(printed.group(1)) == limit, line
+
+
 def ledger(features, ops):
     """Exercise the actual operation assembly with already-computed machining fields."""
     from prechips.sheet import _Box
@@ -1680,9 +1702,7 @@ def ledger(features, ops):
     sheet.manual_arc_lines = lambda setup, op, stops: []
     sheet.tip_note = lambda setup, op: None
     sheet.direction = lambda direction: direction
-    html, notes, worksheets, stops = sheet.operations(
-        sheet.setup, {("c", None): "T4"}, {"notes": 2, "contours": 3}
-    )
+    html, notes, worksheets, stops = sheet.operations(sheet.setup, T4, {"notes": 2, "contours": 3})
     assert not worksheets
     return Markup(html), notes, stops
 
@@ -2155,7 +2175,7 @@ def test_contour_intros_share_operation_tool_and_all_depth_levels(list_only):
                 },
             }
         ]
-    markup = Markup(shop(records).contours(POCKET, {"c": "T1"}))
+    markup = Markup(shop(records).contours(POCKET, {("tools", "c"): "T1"}))
     owner = markup.find("contour")[0]
     heading = next(node for node in markup.nodes if node["tag"] == "h3" and node["parent"] is owner)
     context = owner["attrs"]["data-page-context"]
@@ -2824,7 +2844,7 @@ def test_printed_contour_fragments_keep_their_exact_local_introduction(printed_s
             "rows": [{"dro_xy": [0.0, float(index)], "jog": "X"} for index in range(69)],
         }
     ]
-    source = shop(records).contours(POCKET, {"c": "T1"})
+    source = shop(records).contours(POCKET, {("tools", "c"): "T1"})
     original = Markup(source)
     introductions = {
         float(

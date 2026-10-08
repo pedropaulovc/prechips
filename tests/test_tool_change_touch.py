@@ -957,7 +957,7 @@ def test_the_datum_transfer_prints_before_the_zero_it_sets_up():
         "lathe", {**lathe_zero([]), "transfer": transfer}, [op(10, "turn", "j", "turner")]
     )
     sheet, setup = sheet_of(data)
-    markup = Markup(sheet.dro(setup, {"turner": "T1 turner"}))
+    markup = Markup(sheet.dro(setup, {("tools", "turner"): "T1 turner"}))
     (transfer,) = markup.find("zero-transfer")
     axes = markup.find("zero")[0]
     setting = next(
@@ -1009,7 +1009,7 @@ def test_a_zero_measured_before_the_hold_is_measured_before_clamping():
     assert len(markup.find("writing-blank")) == 1
     assert [content(label) for label in markup.find("field-label", measure)] == ["Z M"]
     # The zero row refers back to that sole original acquisition.
-    row_html = sheet.dro(setup, {"turner": "T1 turner"})
+    row_html = sheet.dro(setup, {("tools", "turner"): "T1 turner"})
     row = Markup(row_html)
     assert "length from the thrust face" not in sheet_text(row_html)
     assert any("M measured before clamping" in content(node) for node in row.nodes)
@@ -1024,7 +1024,7 @@ def test_a_zero_measured_at_the_machine_stays_in_the_zero_table(before_hold):
     assert "length from the thrust face" not in sheet_text(steps)
     assert not markup.find("field") and not markup.find("writing-blank")
     assert "M = length from the thrust face" in sheet_text(
-        sheet.dro(setup, {"turner": "T1 turner"})
+        sheet.dro(setup, {("tools", "turner"): "T1 turner"})
     )
 
 

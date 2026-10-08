@@ -368,6 +368,8 @@ def test_the_check_jog_steps_print_on_the_page_of_their_heading(tmp_path):
     for filler, run in zip(fillers, runs, strict=True):
         (page,) = [text for text in run if "X and Y check jog" in text]
         assert "raise Z only" in page, (filler, run)
+
+
 def _original(node):
     """Continuation copies are context, never a second authored instruction or field."""
     while node is not None:
@@ -484,7 +486,7 @@ def _long_contours():
             for op, feature in ((10, "ear"), (20, "other ear"))
         ],
     }
-    return shop(records).contours(setup, {"c": "T1"})
+    return shop(records).contours(setup, {("tools", "c"): "T1"})
 
 
 def test_continuations_repeat_full_applicable_contour_and_local_table_context(printed_sheet):

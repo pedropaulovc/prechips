@@ -2324,11 +2324,6 @@ def test_built_up_joint_report_cannot_clear_numeric_debt_or_change_identity(corr
         # The shipped joint resolves, so declare numeric debt in the plan: the
         # report must then carry it and neither row may approve.
         setup["joint"]["clearance_mm"] = "unknown"
-        derived = next(
-            row.to_dict()
-            for row in joints.evaluate_fit(SimpleNamespace(plan=plan, features=features))
-            if row.subject == setup["id"]
-        )
         kernel = joined("S7")
         fit["status"], assembly["status"] = "unknown", "unknown"
         VALIDATOR["check_joint_declarations"](plan, features, findings, kernel)

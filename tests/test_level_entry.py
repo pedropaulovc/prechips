@@ -10,7 +10,7 @@ from types import SimpleNamespace
 import pytest
 from test_contour_grid import SLAB, outline
 from test_headroom import coordinate_bundle
-from test_sheet_ops import SPOT, Markup, content, reach_records, shop
+from test_sheet_ops import SPOT, T4, Markup, content, reach_records, shop
 
 from prechips.inputs import load_bundle
 from prechips.rules import coordinates, speeds_feeds
