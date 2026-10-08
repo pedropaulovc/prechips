@@ -14,6 +14,7 @@ from test_cli import copy_examples
 from test_deep_hole_speed import DEEP, drill_bundle
 from test_operative_surface import plan as surface_plan
 from test_process_features import set_process_key, set_tool_fact, shaft
+from test_sheet_fixture import END_MILL, MAKE_OP
 
 from prechips.findings import Finding
 from prechips.inputs import load_bundle
@@ -999,6 +1000,106 @@ def test_reference_coverage_reads_a_selection_as_the_item_it_selects(slot, flag,
                 VALIDATOR["check_references"](
                     data.plan, entries, {**findings, name: {**row, "status": forged}}
                 )
+
+
+@pytest.mark.parametrize(
+    ("listing", "fact", "verdict"),
+    [
+        ("listed", {}, "pass"),
+        ("unverified", {}, "unknown"),
+        ("listed", {"rpm": "unknown"}, "unknown"),
+        ("unlisted", {}, "error"),
+        ("accessory", {}, "error"),
+    ],
+)
+def test_make_operation_oracle_holds_each_row_to_its_own_verdict(listing, fact, verdict):
+    """Each make operation of a shop-made item a setup holds with is a ``tool_resolves``
+    subject of its own (``<category>.<key> make op <n>``). Its native finding is accepted
+    with its own verdict: a tool the shop's tools do not list an error, even one a machine
+    carries as an accessory; an unverified tool or an unstated fact unknown. A report
+    missing it, giving it any other status (alone, or with its unknowns and presence
+    restated to agree), or naming another tool, item, operation or solid, is not."""
+    data = drill_bundle()
+    if listing in ("listed", "unverified"):
+        data.inventory["tools"]["endmill-6"] = {**END_MILL, "verify": listing == "unverified"}
+    if listing == "accessory":
+        data.inventory["machines"]["mill"]["included"] = ["endmill-6"]
+    beam = {"name": "beam", "shape": "box", "at_mm": [0, 0, 0], "size_mm": [60, 10, 8]}
+    data.inventory["fixtures"] = {
+        "bridge": {"kind": "custom", "solids": [beam], "make_ops": [{**MAKE_OP, **fact}]}
+    }
+    data.plan["setups"][0]["hold"] = {"fixture": "bridge"}
+    Inventory.model_validate(data.inventory)
+    findings = {(f.rule, f.subject): f.to_dict() for f in tool_resolves.evaluate(data)}
+    key = "tool_resolves", "fixtures.bridge make op 1"
+    native = findings[key]
+    assert native["status"] == verdict
+    entries = VALIDATOR["Entries"](data.inventory)
+
+    def check(rows):
+        VALIDATOR["check_make_ops"](data.plan, entries, rows)
+
+    check(findings)
+    with pytest.raises(ValueError):
+        check({k: row for k, row in findings.items() if k != key})
+    agreeing = {
+        "pass": {"present": True, "unknown": []},
+        "unknown": {"present": True, "unknown": ["rpm"]},
+        "error": {"present": False, "unknown": []},
+    }
+    for forged in sorted({"pass", "unknown", "error"} - {verdict}):
+        for numbers in (native["numbers"], {**native["numbers"], **agreeing[forged]}):
+            with pytest.raises(ValueError):
+                check({**findings, key: {**native, "status": forged, "numbers": numbers}})
+    identities = {"tool": "endmill-8", "item": "fixtures.other", "make_op": 2, "solid": "head"}
+    for field, value in identities.items():
+        numbers = {**native["numbers"], field: value}
+        with pytest.raises(ValueError):
+            check({**findings, key: {**native, "numbers": numbers}})
+
+
+def test_geometry_validation_holds_a_make_operation_to_its_own_verdict(freecad_kernel, monkeypatch):
+    """A geometry bundle's report exits 2 on its expected fixture errors, so its exit
+    cannot speak for a make operation's verdict: the row is held to the verdict the
+    validator gives it, never forged from unknown to a pass or waived, nor restated with
+    evidence made to agree. Here the nest fixture-holds holds S3 with is shop-made by
+    one operation whose speed is unknown."""
+    examples = ROOT / "examples"
+    documents = {
+        path.resolve(): tomllib.loads(path.read_text(encoding="utf-8"))
+        for path in examples.rglob("*.toml")
+    }
+    case = next(c for c in VALIDATOR["GEOMETRY_CASES"] if c[:2] == ("fixture-holds", "plan.toml"))
+    folder = examples / "geometry" / "fixture-holds"
+    plan = documents[(folder / "plan.toml").resolve()]
+    inventory = documents[(examples / "geometry" / "inventory.toml").resolve()]
+    made = {**MAKE_OP, "tool": "em-8-std", "rpm": "unknown"}
+    inventory["fixtures"]["test-nest"]["make_ops"] = [made]
+    data = SimpleNamespace(plan=plan, inventory=inventory)
+    native = [json.loads(json.dumps(f.to_dict())) for f in tool_resolves.evaluate(data)]
+    subject = "fixtures.test-nest make op 1"
+    (row,) = (r for r in native if r["subject"] == subject)
+    assert (row["status"], row["numbers"]["unknown"]) == ("unknown", ["rpm"])
+    golden = json.loads((folder / "expected" / "report.json").read_bytes())
+    validate = VALIDATOR["validate_geometry_fixture"]
+
+    def check(make_row):
+        # The report re-hashed on the edited inventory: the checker's own tool_resolves
+        # rows, with the make operation's as given.
+        rows = [r for r in golden["findings"] if r["rule"] != "tool_resolves"]
+        rows += [make_row if r["subject"] == subject else r for r in native]
+        report = {**golden, "findings": rows}
+        monkeypatch.setitem(validate.__globals__, "read_report", lambda path: report)
+        validate(case, documents)
+
+    check(row)
+    for status, numbers in (
+        ("pass", row["numbers"]),
+        ("not_applicable", row["numbers"]),
+        ("pass", {**row["numbers"], "unknown": []}),
+    ):
+        with pytest.raises(ValueError, match="make op"):
+            check({**row, "status": status, "numbers": numbers})
 
 
 PILOTS = [
