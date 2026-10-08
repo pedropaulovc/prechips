@@ -224,10 +224,28 @@ def test_default_examples_checklist_shares_one_inventory_debt_across_default_pla
 def test_human_checklist_and_angle_units_match_the_current_measurement_debt(tmp_path):
     examples = copy_examples(tmp_path)
     plan = examples / "pivot-bracket" / "plan.toml"
+    inventory = examples / "inventory" / "pedro-shop.toml"
+    forget(inventory, 'tools.drill-index-115.members."#15"', "point_angle")
+    forget_spindle_minimum(inventory)
+    text = plan.read_text(encoding="utf-8")
+    owned_holder = 'holder = "r8-collets-lms-4860/3-8in"'
+    assert owned_holder in text
+    plan.write_text(
+        text.replace(owned_holder, 'holder = "inspection-unowned-holder"'), encoding="utf-8"
+    )
     common = ("tools", "--measure", "--plan", plan)
     result = run_cli(*common, "--json", setup=SYNTHETIC_KERNEL)
     assert result.returncode == 0, result.stderr
     entries = json.loads(result.stdout)
+    by_id = {entry["id"]: entry for entry in entries}
+    required_units = {
+        "tools.drill-index-115/#15.point_angle": "degrees",
+        "holders.inspection-unowned-holder.resolve": "identity",
+        SPINDLE_MIN: "mm",
+    }
+    assert required_units.keys() <= by_id.keys()
+    for identity, units in required_units.items():
+        assert by_id[identity]["units"] == units
     human = run_cli(*common, setup=SYNTHETIC_KERNEL)
     assert human.returncode == 0, human.stderr
     for entry in entries:

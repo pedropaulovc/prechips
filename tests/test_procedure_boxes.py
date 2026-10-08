@@ -6,6 +6,7 @@ import re
 
 import pytest
 from pydantic import ValidationError
+from test_sheet_ops import Markup, content
 from test_tool_change_touch import DECK, bundle, mill_zero, op
 
 from prechips.findings import is_required
@@ -139,8 +140,8 @@ def test_one_edge_finder_box_per_traveler_and_every_zero_points_to_it():
     findings = evaluate(data)
     sheet = _Traveler(data, findings, {}, {})
     first, second = (sheet.dro(setup, {}) for setup in data.plan["setups"])
-    assert first.count("EDGE FINDER") >= 1 and second.count("<h3>EDGE FINDER") == 0
-    assert "<h3>EDGE FINDER" in first
+    assert first.count("<h3>EDGE FINDER") == 1
+    assert second.count("<h3>EDGE FINDER") == 0
     box = first[first.index("<h3>EDGE FINDER") :]
     assert "1000–1200 rpm" in box
     assert "kick" in box
@@ -258,7 +259,24 @@ def test_the_receipt_check_table_stops_on_an_unresolved_gauge():
     html = _Traveler(data, purchased_tooling.evaluate(data), {}, {}).purchased_tooling(
         data.plan["setups"][0]
     )
-    assert "STOP" in html
+    markup = Markup(html)
+    (row,) = [
+        node
+        for node in markup.nodes
+        if node["tag"] == "tr"
+        and any(
+            cell["tag"] == "td"
+            and cell["parent"] is node
+            and content(cell).strip() == "each button OD"
+            for cell in markup.nodes
+        )
+    ]
+    cells = [
+        content(cell) for cell in markup.nodes if cell["tag"] == "td" and cell["parent"] is row
+    ]
+    assert len(cells) == 3
+    assert "?" in cells[1] and "no-such-gauge" in cells[1]
+    assert "STOP" in cells[2] and "gauge" in cells[2] and "no-such-gauge" in cells[2]
 
 
 def receipt_html(data):
@@ -398,14 +416,27 @@ def validate(items, category="fixtures"):
     ],
 )
 def test_malformed_receipt_checks_are_rejected(row):
-    with pytest.raises(ValidationError):
-        validate({"kit": {"kind": "filing_buttons", "acceptance": [row]}})
+    item = {"kind": "filing_buttons", "acceptance": [KIT["acceptance"][0]]}
+    validate({"kit": item})
+    with pytest.raises(ValidationError) as rejected:
+        validate({"kit": {**item, "acceptance": [row]}})
+    errors = rejected.value.errors()
+    assert len(errors) == 1
+    assert errors[0]["type"] == "value_error"
+    assert str(errors[0]["ctx"]["error"]).startswith("fixtures.kit.acceptance[0]:")
 
 
 def test_a_shop_made_item_has_no_receipt_check():
     row = {"check": "OD", "gauge": "mic", "limits_mm": [1.0, 2.0]}
-    with pytest.raises(ValidationError):
-        validate({"kit": {"kind": "filing_buttons", "shop_made": True, "acceptance": [row]}})
+    item = {"kind": "filing_buttons", "shop_made": True}
+    validate({"kit": item})
+    with pytest.raises(ValidationError) as rejected:
+        validate({"kit": {**item, "acceptance": [row]}})
+    errors = rejected.value.errors()
+    assert len(errors) == 1
+    assert errors[0]["type"] == "value_error"
+    error = str(errors[0]["ctx"]["error"])
+    assert error.startswith("fixtures.kit:") and "acceptance" in error
 
 
 def test_an_unaccepted_receipt_check_stops_whatever_the_shop_policy_lists():

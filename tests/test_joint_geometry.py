@@ -45,6 +45,7 @@ def joint_solids(tmp_path_factory, freecad_kernel):
         errors="replace",
         timeout=300,
     )
+    assert process.returncode == 0, process.stdout[-2000:] + process.stderr[-2000:]
     paths = {path.stem: path for path in directory.glob("*.step")}
     assert set(paths) == {"joined", "captive", "butt"}, (
         process.stdout[-2000:] + process.stderr[-2000:]
@@ -159,6 +160,10 @@ def _joint_job(engine, step, *, interference=False):
 @pytest.mark.parametrize("interference", [False, True])
 def test_worst_case_fit_limits_join_real_prepared_stock(engine, joint_solids, interference):
     job = _joint_job(engine, joint_solids["joined"], interference=interference)
+    joint = job["setups"][2]["joint"]
+    assert joint["method"] == ("press" if interference else "silver_braze")
+    assert "cure_time_min" not in joint
+    assert "surface_prep" not in joint
     facts = engine.run(job)
     assert facts["status"] == "ok", facts
     rows = facts["setups"]
@@ -355,10 +360,16 @@ def test_reversed_spigot_runout_uses_prior_facing_to_clear_start_shoulder(engine
 
 def test_blind_transient_floor_keeps_specific_tool_edge_debt(engine, joint_solids):
     job = _joint_job(engine, joint_solids["joined"])
+    through = engine.run(job)["ops"]["socket-cut:10"]
+    assert through["corner_radii_mm"] == []
+    assert "corner_radii_mm" not in through["reasons"]
     job["joint_features"]["socket"].update(depth_mm=5.0, thru=False)
     job["setups"][0]["ops"][0]["joint_cut"].update(depth_mm=5.0, thru=False)
     detail = engine.run(job)["ops"]["socket-cut:10"]
     assert detail["corner_radii_mm"] == "unknown"
+    reason = detail["reasons"]["corner_radii_mm"]
+    assert "plan.joint_features.socket" in reason
+    assert "blind-floor" in reason and "floor-edge geometry" in reason
 
 
 def test_incompatible_worst_case_band_withholds_join(engine, joint_solids):
@@ -866,11 +877,28 @@ def test_through_drill_follows_setup_feed_from_either_authored_cylinder_cap(
     assert "assembly_error" not in facts["setups"]["join"]
 
 
-def test_unknown_drill_point_is_geometry_debt_not_an_invented_flat_cut(engine, joint_solids):
+@pytest.mark.parametrize(
+    "point_angle, debt",
+    [
+        ("unknown", "point angle"),
+        (5e-324, "point cone"),
+        (1e-310, "point cone"),
+    ],
+)
+def test_unknown_drill_point_is_geometry_debt_not_an_invented_flat_cut(
+    engine, joint_solids, point_angle, debt
+):
     job = _joint_job(engine, joint_solids["joined"])
     op = job["setups"][0]["ops"][0]
     op["do"] = "drill"
-    op["joint_cut"].update(action="drill", point_angle_deg="unknown")
+    op["joint_cut"].update(action="drill", point_angle_deg=point_angle)
     facts = engine.run(job)
-    assert "stock_out_volume_mm3" not in facts["setups"]["socket-cut"]
+    assert facts["status"] == "ok", facts
+    socket = facts["setups"]["socket-cut"]
+    assert "stock_out_volume_mm3" not in socket
+    assert "socket" not in socket.get("completed_joint_features", [])
     assert "stock_out_volume_mm3" not in facts["setups"]["join"]
+    detail = facts["ops"]["socket-cut:10"]
+    for key in ("claimed_indices", "tool_hits", "holder_hits", "corner_radii_mm"):
+        assert detail[key] == "unknown"
+        assert debt in detail["reasons"][key]

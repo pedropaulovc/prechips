@@ -77,10 +77,13 @@ or machining approval.
 are not file assets fetched or opened during the check. Python citations use
 `file:line` or line ranges; YAML citations use `file:dotted.key.path`.
 M3 exports replace the three drawn pilots' handwritten manifests; the bracket's
-absence of a dimensioned drawing remains explicit. Preserve exports verbatim, including
-unknown requirements and omitted optional fields: do not backfill facts from
-the superseded hand-authored manifests. Delivery provenance belongs in
-[examples/README.md](../examples/README.md), not extra manifest keys.
+absence of a dimensioned drawing remains explicit. Preserve source exports,
+unknown requirements and omitted optional fields except for user-approved,
+labelled [example divergences](../examples/README.md#example-divergences-from-consumer-exports).
+These illustrative examples are not verbatim source manifests. Do not silently
+backfill facts from superseded handwritten manifests.
+Delivery provenance and divergence authority belong beside the examples, not
+in extra manifest keys.
 Citation collection discards blank and `"unknown"` entries individually, without
 losing other known sources in the list. A per-dimension citation map supplies only
 the requested fact; whole-record provenance is collected in sorted key order.

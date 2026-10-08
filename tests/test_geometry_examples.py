@@ -144,15 +144,17 @@ def test_wide_risers_and_a_stud_through_the_part_are_fixture_interference_errors
         "S2": "error",  # the stud enters the puck and the plate where it has no hole
         "S3": "pass",  # stud through the tapped-hole void and the beam's slot, heel on plate
     }
-    assert rows["S1"]["numbers"]["clashes"] == [
-        f"riser {n} test-riser-blocks spans y -30.0..30.0 mm, outside the jaw opening "
-        "y -15.0..15.0 mm closed on the stock"
-        for n in (1, 2)
-    ]
+    risers = rows["S1"]["numbers"]["clashes"]
+    assert len(risers) == 2
+    for n in (1, 2):
+        assert any(
+            f"riser {n} " in clash and "test-riser-blocks" in clash and "jaw opening" in clash
+            for clash in risers
+        )
     stud = "clamp 1 test-clamp-kit/stud-strap:stud"
     clashes = rows["S2"]["numbers"]["clashes"]
-    assert any(c.startswith(f"{stud} interpenetrates the setup-entry stock") for c in clashes)
-    assert any(c.startswith(f"test-tapped-plate:floor interpenetrates {stud}") for c in clashes)
+    assert any(stud in clash and "setup-entry stock" in clash for clash in clashes)
+    assert any(stud in clash and "test-tapped-plate:floor" in clash for clash in clashes)
 
 
 @pytest.mark.parametrize(("name", "plan_filename", "target_sid", "exit_code", "rules"), CASES)

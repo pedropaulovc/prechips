@@ -6,10 +6,14 @@ import re
 import shutil
 import subprocess
 import sys
+from contextlib import nullcontext
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
+from prechips.cli import _read_approval
+from prechips.inputs import BadInput
 from prechips.report import canonical_bytes, report_hash
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -47,6 +51,8 @@ def run_cli(*args, env=None, setup=""):
     elif "--out" in args:
         out = Path(args[args.index("--out") + 1])
         environment["PRECHIPS_KERNEL_CACHE"] = str(out.parent / "kernel-cache")
+    if "PRECHIPS_KERNEL_WORKERS" in os.environ:
+        environment["PRECHIPS_KERNEL_WORKERS"] = os.environ["PRECHIPS_KERNEL_WORKERS"]
     environment.update(env or {})
     entry = (
         ["-c", f"{setup}\nimport sys\nfrom prechips.cli import main\nsys.exit(main(sys.argv[1:]))"]
@@ -100,6 +106,141 @@ def traveler(plan, out, *args, setup=""):
     report = json.loads((out / "report.json").read_bytes())
     html = (out / "traveler.html").read_text(encoding="utf-8")
     return result, report, html
+
+
+def test_installed_artifact_console_script_matches_module(tmp_path):
+    artifact = os.environ.get("PRECHIPS_INSTALLED_ARTIFACT")
+    if not artifact:
+        pytest.skip("The packaging CI job supplies a built wheel or sdist.")
+    artifact = Path(artifact).resolve()
+    assert artifact.is_file(), artifact
+    environment = {
+        key: value
+        for key, value in os.environ.items()
+        if not key.startswith(("PRECHIPS_", "OTEL_"))
+        and key not in {"PYTHONPATH", "PYTHONHOME", "VIRTUAL_ENV"}
+    }
+    environment.update(
+        OTEL_SDK_DISABLED="true",
+        FREECAD_CMD=str(tmp_path / "unavailable-freecad"),
+        PRECHIPS_KERNEL_CACHE=str(tmp_path / "kernel-cache"),
+    )
+    if "PRECHIPS_KERNEL_WORKERS" in os.environ:
+        environment["PRECHIPS_KERNEL_WORKERS"] = os.environ["PRECHIPS_KERNEL_WORKERS"]
+    examples = copy_examples(tmp_path)
+    plan = examples / "pivot-shaft" / "plan.toml"
+    prefix = ["uv", "run", "--quiet", "--isolated", "--no-project", "--with", str(artifact)]
+
+    def invoke(entry, *args):
+        return subprocess.run(
+            [*prefix, *entry, *map(str, args)],
+            cwd=tmp_path,
+            env=environment,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=180,
+            check=False,
+        )
+
+    identity = invoke(
+        ["python"],
+        "-c",
+        "import pathlib, shutil, sys, prechips; "
+        "root = pathlib.Path(sys.prefix).resolve(); "
+        "assert pathlib.Path(prechips.__file__).resolve().is_relative_to(root); "
+        "assert pathlib.Path(shutil.which('prechips')).resolve().is_relative_to(root)",
+    )
+    assert identity.returncode == 0, identity.stderr
+
+    console = ["prechips"]
+    module = ["python", "-m", "prechips.cli"]
+    for args, expected_code in [(("--version",), 0), (("not-a-verb",), 3)]:
+        installed = invoke(console, *args)
+        equivalent = invoke(module, *args)
+        assert installed.returncode == equivalent.returncode == expected_code, installed.stderr
+        assert installed.stdout == equivalent.stdout
+        assert installed.stderr == equivalent.stderr
+        if expected_code == 0:
+            assert installed.stdout.startswith("prechips ")
+        else:
+            assert "usage" in (installed.stdout + installed.stderr).lower()
+
+    reports = []
+    travelers = []
+    for name, entry in [("console", console), ("module", module)]:
+        out = tmp_path / name
+        result = invoke(entry, "traveler", plan, "--out", out)
+        assert result.returncode == 4, result.stderr
+        report_bytes = (out / "report.json").read_bytes()
+        report = json.loads(report_bytes)
+        assert report["hash"] == report_hash(report)
+        assert report["expected_exit"] == 4
+        assert report["verification"] == "planned"
+        assert any(row["status"] == "unknown" for row in report["findings"])
+        html = (out / "traveler.html").read_text(encoding="utf-8")
+        assert html.strip()
+        reports.append(report_bytes)
+        travelers.append(html)
+    assert reports[0] == reports[1]
+    assert travelers[0] == travelers[1]
+
+
+@pytest.mark.parametrize(
+    ("record", "verification", "approved", "warning_count"),
+    [
+        ('hash = "current"\nfirst_article = "accepted"\n', "checked", True, 0),
+        ('hash = "current"\nfirst_article = "  "\n', "checked", False, 1),
+        ('hash = "current"\nfirst_article = "accepted"\n', "planned", False, 1),
+        (
+            'hash = "old"\nfirst_article = "accepted"\n'
+            '[inputs]\nfeatures = "prior"\nplan = "unchanged"\n',
+            "checked",
+            False,
+            1,
+        ),
+    ],
+    ids=["exact", "blank-evidence", "unresolved-checks", "stale-input"],
+)
+def test_approval_record_cannot_waive_report_binding(
+    tmp_path, record, verification, approved, warning_count
+):
+    path = tmp_path / "approval.toml"
+    path.write_text(record, encoding="utf-8")
+    report = {
+        "hash": "current",
+        "verification": verification,
+        "inputs": {"features": {"sha256": "changed"}, "plan": {"sha256": "unchanged"}},
+    }
+    logs = []
+    tracing = SimpleNamespace(
+        span=lambda *args, **kwargs: nullcontext(),
+        log=lambda severity, message: logs.append((severity, message)),
+    )
+    result = _read_approval(path, report, tracing)
+    assert result["approved"] is approved
+    assert len(result["warnings"]) == warning_count
+    assert len(logs) == warning_count
+    if record.startswith('hash = "old"'):
+        assert "features" in result["warnings"][0]
+        assert "plan" not in result["warnings"][0]
+
+
+@pytest.mark.parametrize(
+    "record",
+    [
+        '[[approvals]]\nhash = "current"\nfirst_article = "accepted"\n',
+        'hash = "current"\nfirst_article = "accepted"\n[inputs.features]\nsha256 = "changed"\n',
+    ],
+    ids=["history-array", "nested-digest"],
+)
+def test_approval_record_rejects_superseded_formats(tmp_path, record):
+    path = tmp_path / "approval.toml"
+    path.write_text(record, encoding="utf-8")
+    tracing = SimpleNamespace(span=lambda *args, **kwargs: nullcontext())
+    report = {"hash": "current", "verification": "checked", "inputs": {}}
+    with pytest.raises(BadInput):
+        _read_approval(path, report, tracing)
 
 
 @pytest.mark.parametrize("args", [(), ("not-a-verb",)])
@@ -252,8 +393,7 @@ def test_stale_approval_names_only_compared_input_changes(prior_inputs, changed,
         "empty": "\n[inputs]\n",
         "partial_unchanged": f'\n[inputs]\nplan = "{report["inputs"]["plan"]["sha256"]}"\n',
         "partial_changed": (
-            f'\n[inputs]\nplan = "{report["inputs"]["plan"]["sha256"]}"\n'
-            f'features = {{ sha256 = "{"0" * 64}" }}\n'
+            f'\n[inputs]\nplan = "{report["inputs"]["plan"]["sha256"]}"\nfeatures = "{"0" * 64}"\n'
         ),
         "unreferenced": f'\n[inputs]\nretired_asset = "{"0" * 64}"\n',
     }[prior_inputs]

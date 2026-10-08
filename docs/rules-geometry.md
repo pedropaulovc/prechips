@@ -109,15 +109,18 @@ Successful (`status = "ok"`) results are cached as JSON under
 of the canonical job without its `step_path` (the STEP digest and every
 numeric input are inside), the digest of the engine's own `kernel/*.py`
 sources, and the kernel executable's resolved path, SHA-256, size and mtime.
-Changing a consumed geometry input, the STEP, the engine or the FreeCAD build
-therefore misses; moving the bundle does not. Host-only action/finishing metadata
+Changing a consumed geometry input, the STEP, the engine or the kernel
+executable therefore misses; moving the bundle does not. CI also namespaces
+its external cache by the pinned native AppImage SHA and engine source digest.
+Host-only action/finishing metadata
 that is not consumed by transient preparation, tool OAL after projection is resolved, protective hold-method text, and the
 item-level `verify` / `present` / `source` flags around a consumed fact (which
 never enter the job) do not invalidate geometry. `unknown` and `error` results
-are never cached, and a cache that cannot be written changes nothing. A hit
-reproduces the same facts and the same render bytes as the run that produced
-it. The cache is a local convenience, not an input: it is not part of the
-hashed bundle.
+are never cached, and a cache that cannot be written leaves the returned facts
+unchanged. A hit returns the stored facts and render bytes of the run that
+produced it. Fresh native runs are not proven bit-repeatable; see the
+[dated native epsilon observation](../examples/README.md#native-epsilon-observation).
+The cache is not part of the hashed bundle.
 
 ### Worker processes
 
@@ -2071,7 +2074,14 @@ band the buttons file to worst case over the kit's declared stack ([rules-coordi
 filing buttons](rules-coordinates.md): the button OD limits widened by the rim
 centre's shift off the bore axis), the band the traveler prints, proven exactly as the
 manual-arc rule proves it; a button drawn at its nominal OD is in it even when its
-bought OD band (a fit class such as g6) excludes the nominal. A kit solid is a stop
+bought OD band (a fit class such as g6) excludes the nominal.
+
+Guide selection compares resolved kit identities, so a fully qualified
+`fixtures.<kit>` reference and its short identity select the same held kit.
+The emitted `guide_owner` retains the actual held fixture or clamp label;
+identity normalization does not rename the scene's component owners.
+
+A kit solid is a stop
 only when it is a button of that band (an external rim: a convex cylindrical face
 within the band, widened by the stock tolerance; a bore of the band, as in a nut, is
 no rim), its cut reaches it, it is seated on

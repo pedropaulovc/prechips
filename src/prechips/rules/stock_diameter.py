@@ -171,7 +171,7 @@ def evaluate(bundle):
                     "selected_size_mm": selected_size,
                 },
                 [
-                    "PLAN.md §4.3 collet/chuck (line 558)",
+                    "PLAN.md §4.3 collet/chuck",
                     held_diameter_source(setup),
                     "inventory selected workholding sizes_mm/sizes_in/range_mm/range_in; "
                     "25.4 mm/in",

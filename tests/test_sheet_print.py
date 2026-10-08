@@ -274,6 +274,7 @@ def test_a_contour_heading_and_its_raster_line_print_with_the_first_contour_bloc
     moved = 0
     for run in _runs(texts, len(fillers)):
         (page,) = [text for text in run if "Rasters:" in text]
+        assert "CONTOURS" in page and "S1 op 10" in page, page
         assert "contour-row-1" in page, page
         moved += page is not run[0]
     assert moved
@@ -311,10 +312,13 @@ def test_a_table_that_ends_its_sheet_leaves_no_short_tail_on_its_last_page(tmp_p
     block = "<h2>CONTOUR</h2>" + _table(["#", "move"], rows, css="coords")
     fillers = range(0, 701, 50)
     texts = printed_pages(_sections([(filler, block) for filler in fillers]), tmp_path)
+    split = 0
     for run in _runs(texts, len(fillers)):
         printed = [n for n in (len(re.findall(r"row-\d+-end", t)) for t in run) if n]
         assert sum(printed) == 60, printed
         assert len(printed) == 1 or 2 * printed[-1] >= printed[-2], printed
+        split += len(printed) == 2
+    assert split, "Expected at least one two-page table run"
 
 
 def test_a_lathe_rpm_cell_prints_its_spindle_turn_as_one_word(tmp_path):
@@ -365,9 +369,16 @@ def test_the_check_jog_steps_print_on_the_page_of_their_heading(tmp_path):
     dro = sheet.dro(setup, {"centre": "T1 centre drill", "drill": "T2 drill"})
     fillers = range(560, 900, 12)
     runs = _runs(printed_pages(_sections([(f, dro) for f in fillers]), tmp_path), len(fillers))
+    moved = 0
     for filler, run in zip(fillers, runs, strict=True):
         (page,) = [text for text in run if "X and Y check jog" in text]
-        assert "raise Z only" in page, (filler, run)
+        visible = " ".join(page.split())
+        for step, words in enumerate(("raise Z only", "jog the table", "jog back"), start=1):
+            assert re.search(rf"\b{step}\.\s+{words}", visible), (filler, run)
+        for words in ("must read", "Axis Set value again", "then lower", "do not Axis Set again"):
+            assert words in visible, (filler, run)
+        moved += page is not run[0]
+    assert moved, "Expected the complete check-jog procedure to move to a later page"
 
 
 def _original(node):

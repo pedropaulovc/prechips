@@ -127,7 +127,7 @@ def outcome(call):
     except Exception as exc:
         return "raises " + type(exc).__name__
 
-def measure(shape, queries):
+def measure(shape, queries, raw_boolean=False):
     rows = {}
     for name, query in queries.items():
         cold, warm = engine._Culled(shape), engine._Culled(shape)
@@ -140,6 +140,11 @@ def measure(shape, queries):
             "after_common": outcome(lambda: warm.hits(*query)),
             "legacy": outcome(lambda: engine._Culled(shape).common(*query) is not None),
         }
+        if raw_boolean:
+            x, y, radius, low, high = query
+            cylinder = Part.makeCylinder(radius, high - low, V(x, y, low))
+            rows[name]["raw_volume"] = shape.common(cylinder).Volume
+            rows[name]["raw_hit"] = rows[name]["raw_volume"] > 1e-6
     return rows
 
 # 60x40x20 plate: pockets x 10..29.99975 and 30.00025..45 (y 5..35, floor z=5) leave
@@ -206,13 +211,13 @@ rows["inverted"] = measure(inverted, {
     "crossing": (30.0, 20.0, 2.0, 15.0, 25.0),
     "above": (30.0, 20.0, 2.0, 20.02, 25.0),
     "outside": (70.0, 20.0, 2.0, 5.0, 15.0),
-})
+}, raw_boolean=True)
 overlap = Part.makeCompound([Part.makeBox(40, 40, 20), Part.makeBox(40, 40, 20, V(20, 0, 0))])
 rows["overlap"] = measure(overlap, {
     "both": (30.0, 20.0, 2.0, 5.0, 15.0),
     "single": (10.0, 20.0, 2.0, 15.0, 25.0),
     "air": (70.0, 20.0, 2.0, 5.0, 15.0),
-})
+}, raw_boolean=True)
 # A plain 60x40x20 block: its top face's UV centre (30, 20, 20) seeds a candidate ball
 # just below the top, inside a query crossing that face.
 block = Part.makeBox(60, 40, 20)
@@ -493,7 +498,7 @@ def test_material_hit_respects_inner_shells_and_unanalysed_surfaces(
 @pytest.mark.parametrize("stock", ["inverted", "overlap"])
 def test_inverted_or_overlapping_stock_keeps_the_native_boolean_answer(certified, stock):
     for row in certified[stock].values():
-        assert len(_answers(row)) == 1, row
+        assert _answers(row) == {row["raw_hit"]}, row
     if stock == "inverted":
         assert certified["inverted_volume"] < 0
         # Reversed normals put a top-face candidate ball above the box, in air.

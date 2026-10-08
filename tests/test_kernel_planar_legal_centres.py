@@ -31,6 +31,7 @@ def save(name, shape):
 
 block = Part.makeBox(60, 40, 20)
 save("sharp", Part.makeBox(40, 30, 8).cut(Part.makeBox(20, 20, 8, V(5, 5, 1))))
+save("slot", block.cut(Part.makeBox(30, 12, 7, V(15, 14, 14))))
 for name, radius in (("orbit", 5.1), ("circle", 3.0), ("small-circle", 2.9995)):
     save(name, block.cut(Part.makeCylinder(radius, 7, V(30, 20, 14))))
 save("blind-core", block.cut(Part.makeCylinder(3, 11, V(30, 20, 10))))
@@ -95,7 +96,7 @@ stepped = plate.cut(Part.makeBox(30, 40, 2, V(0, 0, 8)))
 save("multilevel-core", stepped.cut(Part.makeCylinder(2, 40, V(10, 20, 9), V(1, 0, 0))))
 """
 
-_PROBE = r"""
+_AXIS_PROBE = r"""
 import importlib.util, json, math, os, sys
 import FreeCAD, Part
 V = FreeCAD.Vector
@@ -152,11 +153,19 @@ def axis(name, bounds, point, radius, leave=0, z=None, flute=10):
     return {"axis": list(xy), "displacement": math.hypot(xy[0]-p.x, xy[1]-p.y),
         "clearance": distance, "centroid": list(runner.faces[index].CenterOfMass)[:2],
         "collision_mm3": Part.makeCylinder(radius, flute, tip).common(runner.certain).Volume}
+"""
+
+_PROBE = (
+    _AXIS_PROBE
+    + r"""
 
 result = {}
 result["sharp"] = axis("sharp", (5, 5, 1, 25, 25, 1), (5, 5, 1), 2)
 result["sharp-old"] = {"axis": [7, 7], "displacement": math.sqrt(8),
     "collision_mm3": Part.makeCylinder(2, 10, V(7, 7, 1 + job.LIFT)).common(read("sharp")).Volume}
+result["slot"] = axis("slot", (15, 14, 14, 45, 26, 14), (15, 14, 14), 1)
+result["slot-old"] = {"axis": [16, 15], "displacement": math.sqrt(2),
+    "collision_mm3": Part.makeCylinder(1, 10, V(16, 15, 14 + job.LIFT)).common(read("slot")).Volume}
 for index in range(8):
     angle = index * math.pi / 4
     point = (30 + 5.1 * math.cos(angle), 20 + 5.1 * math.sin(angle), 14)
@@ -331,9 +340,11 @@ result["core:tilted-blind-cap"] = bounded("tilted-blind-core",
 with open(out + "/native.json", "w") as handle:
     json.dump(result, handle)
 """
+)
 
 FLOORS = {
     "sharp": ((5, 5, 1), (25, 25, 1)),
+    "slot": ((15, 14, 14), (45, 26, 14)),
     "orbit": ((24.9, 14.9, 14), (35.1, 25.1, 14)),
     "circle": ((27, 17, 14), (33, 23, 14)),
     "small-circle": ((27.0005, 17.0005, 14), (32.9995, 22.9995, 14)),
@@ -410,20 +421,29 @@ def _floor(engine, solids, name, radius, **extra):
     assert len(refs) == 1
     op = {**_op("S1:10", "floor", radius, 10.0, 20.0), **extra}
     centre = 20.0 if name == "sharp" else 30.0
-    job = engine.job(step, {"floor": refs}, [_setup([op], _vise(0.5, centre=centre))])
+    job = engine.job(
+        step,
+        {"floor": refs},
+        [_setup([op], _vise(5.0 if name == "slot" else 0.5, centre=centre))],
+    )
     return engine.run(job)["ops"]["S1:10"]
 
 
+@pytest.mark.parametrize(
+    "name, radius, corner, old_axis",
+    [("sharp", 2, [5, 5], [7, 7]), ("slot", 1, [15, 14], [16, 15])],
+)
 def test_sharp_corner_keeps_uncovered_sample_and_public_engine_reports_physical_hit(
-    native, engine, solids
+    native, engine, solids, name, radius, corner, old_axis
 ):
-    old, new = native["sharp-old"], native["sharp"]
-    assert old["axis"] == [7, 7]
-    assert old["displacement"] == pytest.approx(math.sqrt(8))
-    assert old["displacement"] > 2 and old["collision_mm3"] == pytest.approx(0, abs=1e-9)
-    assert new["axis"] == pytest.approx([5, 5], rel=0, abs=1e-9)
+    old, new = native[name + "-old"], native[name]
+    assert old["axis"] == old_axis
+    assert old["displacement"] == pytest.approx(math.sqrt(2) * radius)
+    assert old["displacement"] > radius
+    assert old["collision_mm3"] == pytest.approx(0, abs=1e-9)
+    assert new["axis"] == pytest.approx(corner, rel=0, abs=1e-9)
     assert new["collision_mm3"] > 1
-    detail = _floor(engine, solids, "sharp", 2)
+    detail = _floor(engine, solids, name, radius)
     assert isinstance(detail["tool_hits"], int) and detail["tool_hits"] > 0, detail
     assert detail["obstacles"]["tool"] == ["part"], detail
 

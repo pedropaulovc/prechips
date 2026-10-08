@@ -820,27 +820,18 @@ def test_each_op_sets_the_follow_rest_on_the_side_its_own_support_entry_declares
     from prechips.inputs import load_bundle
     from prechips.sheet import render_traveler
 
-    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
-    text = plan.read_text(encoding="utf-8")
-    one = (
-        'supports = [{ ref = "follow_rest", ops = [10, 30], jaw_lead_mm = 8.0, '
-        'jaw_side = "turned", engage_at_z_mm = 152.0 }]'
-    )
-    assert text.count(one) == 1
-    # The same rest, ridden behind the tool on op 10 and ahead of it on op 30.
-    plan.write_text(
-        text.replace(
-            one,
-            'supports = [{ ref = "follow_rest", ops = [10], jaw_lead_mm = 8.0, '
-            'jaw_side = "turned", engage_at_z_mm = 152.0 }, { ref = "follow_rest", '
-            'ops = [30], jaw_lead_mm = 8.0, jaw_side = "uncut", engage_at_z_mm = 151.0 }]',
-        ),
-        encoding="utf-8",
-    )
     bundle = dataclasses.replace(
-        load_bundle(plan),
+        load_bundle(copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"),
         kernel={"status": "ok", "ops": {}, "setups": {}, "mapping": {}},
     )
+    # The same rest, ridden behind the tool on op 10 and ahead of it on op 30.
+    [setup] = [row for row in bundle.plan["setups"] if row["id"] == "S1"]
+    hold = setup["hold"]
+    [support] = [row for row in hold["supports"] if row["ref"] == "follow_rest"]
+    hold["supports"] = [row for row in hold["supports"] if row["ref"] != "follow_rest"] + [
+        {**support, "ops": [10], "jaw_side": "turned", "engage_at_z_mm": 152.0},
+        {**support, "ops": [30], "jaw_side": "uncut", "engage_at_z_mm": 151.0},
+    ]
     findings = [
         Finding(
             "accessibility",
@@ -1316,8 +1307,13 @@ def _consumer(bundle, kind):
 
 
 @pytest.mark.parametrize("kind", ["length", "band", "bore", "blade"])
-@pytest.mark.parametrize("width", [1.61, 1.6])
-def test_a_touch_on_a_blade_face_off_its_dro_grid_is_refused_whatever_cuts_next(kind, width):
+@pytest.mark.parametrize(
+    "width,expected_stands,expected_axis_set,expected_status",
+    [(1.61, -9.99, -9.9, "error"), (1.6, -10.0, -10.0, "pass")],
+)
+def test_a_touch_on_a_blade_face_off_its_dro_grid_is_refused_whatever_cuts_next(
+    kind, width, expected_stands, expected_axis_set, expected_status
+):
     # The 1.61 blade's chuck-side reading -11.6 forms the end at -9.99, which a re-touch
     # on the 0.1 grid can only set as -9.9: every Z the re-touched tool then cuts to lands
     # 0.09 deeper than printed (a 8.09 sleeve, a face at -8.09, a 2.09 bore, a part-off at
@@ -1329,15 +1325,37 @@ def test_a_touch_on_a_blade_face_off_its_dro_grid_is_refused_whatever_cuts_next(
     zero, finding, sheet, setup = _traveler(bundle)
     [retouch] = zero.numbers["derived_touches"]
     assert (retouch["z_face"], retouch["before_ops"][0]) == ("end", setup["ops"][2]["op"])
-    # The Axis Set the sheet prints for the end against where the blade left it.
+    # Independent values: the blade's printed -11.6 corner plus its physical width,
+    # then the 0.1-grid Axis Set. Neither evaluator selects the expected verdict.
     stands = coordinates.formed_z(bundle, setup, setup["ops"][1])
-    off = sheet.datum_z(setup, "end", -10.0, done=2) != pytest.approx(stands)
-    assert off is (width == 1.61)
-    assert zero.status == ("error" if off else "pass")
-    if not off:
+    axis_set = sheet.datum_z(setup, "end", -10.0, done=2)
+    assert stands == pytest.approx(expected_stands)
+    assert axis_set == pytest.approx(expected_axis_set)
+    assert zero.status == expected_status
+    if kind == "bore":
+        [blind] = [f for f in tip_endpoints.evaluate(bundle) if f.subject == "hole"]
+        [endpoint] = blind.numbers["endpoints"]
+        commanded = endpoint["dro_tip_z"]
+        assert commanded == pytest.approx(-2.0)
+    else:
+        [consumer] = [
+            row for row in finding.numbers["operations"] if row["op"] == setup["ops"][2]["op"]
+        ]
+        commanded = consumer["dro_to_z"]
+        assert commanded == pytest.approx(-20.0 if kind == "blade" else -8.0)
+    # If the refused recipe were followed, the printed command would physically land
+    # 0.09 deeper for every consumer, not just the length used to construct the fixture.
+    physical_z = commanded - (axis_set - stands)
+    expected_physical_z = {
+        "length": (-8.09, -8.0),
+        "band": (-8.09, -8.0),
+        "bore": (-2.09, -2.0),
+        "blade": (-20.09, -20.0),
+    }[kind][0 if width == 1.61 else 1]
+    assert physical_z == pytest.approx(expected_physical_z)
+    if expected_status == "pass":
         assert finding.status == "pass"
         if kind == "bore":
-            [blind] = [f for f in tip_endpoints.evaluate(bundle) if f.subject == "hole"]
             assert blind.status == "pass"
 
 
@@ -1576,12 +1594,51 @@ def test_a_toolpost_tool_is_one_tool_however_op_and_touch_spell_it(op_spelling, 
     }
     zero["x"]["tool"] = zero["z"]["tool"] = touch_spelling + "turner"
     bundle = _lathe(ops, {}, {"blade": _blade(), "turner": dict(_AR)}, zero=zero)
+    bundle.inventory["machines"]["lathe"]["toolpost"] = {
+        "centre_height": "shim it level with the tailstock point",
+        "square_blade": "square it off the chuck face",
+    }
     [finding] = zero_recipe.evaluate(bundle)
     # Each toolpost tool is set once, before its first touch-off.
-    assert [(row["touch"], row["square_blade"]) for row in finding.numbers["tool_setting"]] == [
-        ("zero", "not_applicable"),
-        ("tool_touches", zero_recipe.SQUARE_BLADE),
+    assert [
+        (row["tool"], row["touch"], row["centre_height"], row["square_blade"])
+        for row in finding.numbers["tool_setting"]
+    ] == [
+        ("turner", "zero", "shim it level with the tailstock point", "not_applicable"),
+        (
+            "blade",
+            "tool_touches",
+            "shim it level with the tailstock point",
+            "square it off the chuck face",
+        ),
     ]
+    # Advice reaches the traveler before the matching touch, independently of aliases.
+    from prechips.sheet import _Traveler
+
+    sheet = _Traveler(bundle, [], {}, None)
+    setup = sheet.setup = bundle.plan["setups"][0]
+    sheet.records[("zero_check", "S1")] = finding.numbers
+    markup = Markup(
+        sheet.dro(setup, {("tools", "blade"): "T3 blade", ("tools", "turner"): "T1 turner"})
+    )
+    paragraphs = [node for node in markup.nodes if node["tag"] == "p"]
+    [blade_setting] = [
+        node
+        for node in paragraphs
+        if "shim it level with the tailstock point; then square it off the chuck face"
+        in content(node)
+    ]
+    [blade_touch] = [
+        node for node in paragraphs if content(node).startswith("Before op 40, touch off T3 blade")
+    ]
+    assert markup.nodes.index(blade_setting) < markup.nodes.index(blade_touch)
+    [turner_setting] = [
+        node
+        for node in paragraphs
+        if content(node) == "Before touching off T1 turner: shim it level with the tailstock point."
+    ]
+    first_table = next(node for node in markup.nodes if node["tag"] == "table")
+    assert markup.nodes.index(turner_setting) < markup.nodes.index(first_table)
 
 
 def test_each_toolpost_tool_is_set_on_centre_before_its_first_touch_off():

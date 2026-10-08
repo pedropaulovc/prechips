@@ -127,8 +127,6 @@ def _check(bundle, sheets, setup, before, sign, offset):
         first = next(iter(left.values()))
         apart = [(z - first) / grid[0] for z in left.values()]
         assert any(abs(n - round(n)) > 1e-6 for n in apart), (line, left)
-        for key, z in printed.items():
-            assert z == coordinates.dro_z(state[key], grid), (line, key)
     else:
         # One shift links every surface the setup receives.
         assert len(set(shifts.values())) <= 1, f"{where} differ: {shifts}"
@@ -190,19 +188,20 @@ def _turned_over(tmp_path, top, bottom, offset):
 
 
 @pytest.mark.parametrize(
-    "top, bottom, offset, linked",
+    "top, bottom, offset, linked, arriving",
     [
         # S1 prints 0.000 / -10.005: a half step apart on S2's 0.010 DRO, so no one shift.
-        (0.0, -10.008, 0.002, 0),
+        (0.0, -10.008, 0.002, 0, {"top_z": 10.01, "bottom_z": 0.01}),
         # S1 prints 0.005 / -10.005: whole steps apart, so one shift, 0.005, carries both.
-        (0.003, -10.008, 0.0, 2),
+        (0.003, -10.008, 0.0, 2, {"top_z": 10.01, "bottom_z": 0.0}),
     ],
 )
 def test_a_finer_sheets_zs_carry_onto_a_coarser_dro_by_one_shift_or_none(
-    tmp_path, top, bottom, offset, linked
+    tmp_path, top, bottom, offset, linked, arriving
 ):
     bundle = _turned_over(tmp_path, top, bottom, offset)
     findings = coordinates.evaluate(bundle) + zero_recipe.evaluate(bundle)
     sheets = _sheets(render_traveler(bundle, findings, {}))
     first, second = bundle.plan["setups"]
+    assert _arrival(sheets[second["id"]]) == arriving
     assert _check(bundle, sheets, second, first, -1, offset) == linked

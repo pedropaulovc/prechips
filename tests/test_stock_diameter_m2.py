@@ -60,13 +60,24 @@ def test_known_dividing_head_machine_without_capacity_is_not_applicable(verify):
     assert result.numbers["fixture_kind"] == "dividing_head"
 
 
-@pytest.mark.parametrize("capacity", [{}, {"range_mm": [6.0, 14.0]}])
-def test_dividing_head_resolves_the_same_under_machines_or_fixtures(capacity):
+@pytest.mark.parametrize(
+    "capacity,expected_status,expected_ranges",
+    [({}, "not_applicable", []), ({"range_mm": [6.0, 14.0]}, "pass", [[6.0, 14.0]])],
+)
+def test_dividing_head_resolves_the_same_under_machines_or_fixtures(
+    capacity, expected_status, expected_ranges
+):
     head = {**DIVIDING_HEAD, **capacity}
     as_machine = finding(bundle(head))
     data = bundle(fixtures={"BS-0": head})
     data.inventory["machines"].pop("BS-0")
     as_fixture = finding(data)
+    for result in (as_machine, as_fixture):
+        assert result.status == expected_status
+        assert result.numbers["fixture_kind"] == "dividing_head"
+        assert result.numbers["diameter_mm"] == 12.0
+        assert result.numbers["sizes_mm"] == []
+        assert result.numbers["ranges_mm"] == expected_ranges
     assert (as_machine.status, as_machine.numbers) == (as_fixture.status, as_fixture.numbers)
 
 

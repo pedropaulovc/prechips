@@ -724,6 +724,54 @@ def test_an_unbounded_pocket_lowers_another_entry_only_where_its_feature_holds_i
     assert end["dro_tip_z"] == pytest.approx(tip)
 
 
+@pytest.mark.parametrize("feature_bounds", [False, True], ids=["op-box-only", "also-feature-box"])
+def test_an_operation_box_lowers_only_the_entries_it_wholly_cuts(tmp_path, feature_bounds):
+    box = {"x": [0.0, 10.0], "y": [0.0, 10.0], "z": [-4.0, 0.0]}
+    plan = coordinate_bundle(
+        tmp_path,
+        "kind = 'hole'\nat = [5.0, 5.0, 0.0]\ndia = [2.0, 2.0]\n"
+        "[features.pocket]\nkind = 'pocket'\nframe = 'model'\nrequirements = []\n",
+        "[[setups.ops]]\nop = 10\ndo = 'rough_pocket'\nfeature = 'pocket'\n"
+        "tool = 'cutter'\nto_z = -4.0\n"
+        "stock_removal_bounds = { x = [0.0, 10.0], y = [0.0, 10.0], z = [-4.0, 0.0] }\n"
+        "[[setups.ops]]\nop = 20\ndo = 'drill'\nfeature = 'target'\ntool = 'drill'\n",
+    )
+    bundle = load_bundle(plan)
+    setup = bundle.plan["setups"][0]
+    setup["frame"] = "model"
+    features = bundle.feature_definitions
+    if feature_bounds:
+        features["pocket"]["bounds"] = box
+    features.update(
+        edge={"kind": "hole", "frame": "model", "at": [9.5, 5.0, 0.0], "dia": [2.0, 2.0]},
+        outside={"kind": "hole", "frame": "model", "at": [20.0, 5.0, 0.0], "dia": [2.0, 2.0]},
+        unresolved={"kind": "hole", "frame": "model", "dia": [2.0, 2.0]},
+    )
+    setup["stock_state"]["entry_z"] = dict.fromkeys(
+        ("target", "edge", "outside", "unresolved"), 0.0
+    )
+    cut = setup["ops"][0]
+    assert {
+        name: tip_endpoints.cut_coverage(bundle, setup, cut, features[name])
+        for name in ("target", "edge", "outside", "unresolved")
+    } == {"target": "whole", "edge": "partial", "outside": "partial", "unresolved": "unknown"}
+    (_, _, after), (_, before_drill, _) = stock_states(bundle, setup)
+    assert after["entry_z"] == {
+        "target": -4.0,
+        "edge": 0.0,
+        "outside": 0.0,
+        "unresolved": "unknown",
+    }
+    assert after["entry_from"] == {
+        "target": "S1 op 10 to_z",
+        "edge": "S1 stock_state.entry_z.edge",
+        "outside": "S1 stock_state.entry_z.outside",
+        "unresolved": "unknown",
+    }
+    assert before_drill["entry_z"] == after["entry_z"]
+    assert after["top_z"] == 0.0 and after["top_from"] == "S1 stock_state.top_z"
+
+
 def test_an_op_naming_a_feature_list_proves_no_cut_of_any_surface(tmp_path):
     # Only an inspect op names a list; it cuts no one feature, so it covers nothing.
     bundle, setup = left_strip_faced(tmp_path)

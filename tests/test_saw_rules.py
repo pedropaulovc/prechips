@@ -117,17 +117,31 @@ def test_mixed_citation_list_keeps_only_its_real_citations():
 
 
 @pytest.mark.parametrize(
-    "rows",
+    ("rows", "matching", "source", "sfm", "speed", "feed"),
     [
-        [],
-        [ROW, {**ROW, "sfm": 150, "cite": "another chart"}],
-        [{**ROW, "cite": "unknown"}],
-        [{**ROW, "verify": True}],
-        [{**ROW, "feed_mm_min": 0}],
-        [{**ROW, "sfm": -5}],
-        [{key: value for key, value in ROW.items() if key != "feed_mm_min"}],
-        [{**ROW, "operation": "cut_off"}],
-        [{**ROW, "tool_material": "carbide"}],
+        ([], 0, "unknown", "unknown", "unknown", "unknown"),
+        (
+            [ROW, {**ROW, "sfm": 150, "cite": "another chart"}],
+            2,
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+        ),
+        ([{**ROW, "cite": "unknown"}], 1, "unknown", "unknown", "unknown", "unknown"),
+        ([{**ROW, "verify": True}], 1, ROW["cite"], 200, 200, 40),
+        ([{**ROW, "feed_mm_min": 0}], 1, ROW["cite"], 200, 200, "unknown"),
+        ([{**ROW, "sfm": -5}], 1, ROW["cite"], -5, "unknown", 40),
+        (
+            [{key: value for key, value in ROW.items() if key != "feed_mm_min"}],
+            1,
+            ROW["cite"],
+            200,
+            200,
+            "unknown",
+        ),
+        ([{**ROW, "operation": "cut_off"}], 0, "unknown", "unknown", "unknown", "unknown"),
+        ([{**ROW, "tool_material": "carbide"}], 0, "unknown", "unknown", "unknown", "unknown"),
     ],
     ids=[
         "missing",
@@ -141,9 +155,21 @@ def test_mixed_citation_list_keeps_only_its_real_citations():
         "other-blade-material",
     ],
 )
-def test_missing_ambiguous_or_unusable_saw_rows_are_debt(rows):
+def test_missing_ambiguous_or_unusable_saw_rows_are_debt(rows, matching, source, sfm, speed, feed):
     row = speeds(saw_bundle(rows=rows))
     assert row.status == "unknown"
+    assert row.numbers["matching_rows"] == matching
+    assert row.numbers["cutting_data_row"] == source
+    assert row.numbers["sfm"] == sfm
+    assert row.numbers["blade_speed_sfm"] == speed
+    assert row.numbers["feed_mm_min"] == feed
+    assert row.numbers["blade_speed_min_sfm"] == 80
+    assert row.numbers["blade_speed_max_sfm"] == 250
+    if source != "unknown":
+        assert source in row.cite
+    else:
+        assert ROW["cite"] not in row.cite
+        assert "another chart" not in row.cite
     assert not SPINDLE_KEYS & set(row.numbers)
 
 
@@ -314,12 +340,54 @@ def test_tool_cylinder_rules_skip_saw_even_without_kernel(bundle, rule, monkeypa
     assert rows["S1:10"].numbers["kernel_unavailable"] is True
 
 
-@pytest.mark.parametrize("rule", TOOL_CYLINDER_RULES)
-def test_mixed_setup_still_assesses_its_milling_op(bundle, rule):  # noqa: F811
-    expected = {row.subject: row.status for row in rule.evaluate(bundle)}
+@pytest.mark.parametrize(
+    ("rule", "expected_numbers"),
+    [
+        (
+            accessibility,
+            {
+                "sample_count": 4,
+                "tool_hits": 0,
+                "holder_hits": 0,
+                "radius_mm": 3.0,
+                "flute_len_mm": 10.0,
+                "projection_mm": 25.0,
+                "holder_radius_mm": 10.0,
+                "holder_gauge_len_mm": 15.0,
+            },
+        ),
+        (
+            reach,
+            {
+                "reach_depth_mm": 8.0,
+                "flute_len_mm": 10.0,
+                "oal_mm": 30.0,
+                "projection_mm": 25.0,
+                "holder_wall_hits": 0,
+                "shank_hits": 0,
+            },
+        ),
+        (
+            internal_corner_radius,
+            {
+                "corner_radii_mm": [3.0],
+                "tool_radius_mm": 3.0,
+                "minimum_corner_radius_mm": 3.0,
+                "cad_sharp_corners": 0,
+                "corner_radius_max_design_mm": "unknown",
+            },
+        ),
+    ],
+)
+def test_mixed_setup_still_assesses_its_milling_op(bundle, rule, expected_numbers):  # noqa: F811
     add_saw(bundle)
-    rows = {row.subject: row.status for row in rule.evaluate(bundle)}
-    assert rows == {**expected, "S1:20": "not_applicable"}
+    rows = {row.subject: row for row in rule.evaluate(bundle)}
+    assert set(rows) == {"S1:10", "S1:20"}
+    assert rows["S1:20"].status == "not_applicable"
+    milling = rows["S1:10"]
+    assert milling.status == "pass"
+    for key, expected in expected_numbers.items():
+        assert milling.numbers[key] == expected
 
 
 def test_saw_claim_earns_no_coverage_or_finishing_credit(bundle):  # noqa: F811

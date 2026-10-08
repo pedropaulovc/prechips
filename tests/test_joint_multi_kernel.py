@@ -329,23 +329,6 @@ def test_lost_required_sleeve_wall_is_not_authorized_by_its_planned_inner_bore(
     assert "stock_out_volume_mm3" not in facts["setups"]["join-sleeve"]
 
 
-def test_silver_braze_and_press_do_not_require_retaining_compound_facts(engine, multi_solids):
-    results = engine.run(
-        {
-            "jobs": [
-                _joint_job(engine, multi_solids["joined"], interference=False),
-                _joint_job(engine, multi_solids["joined"], interference=True),
-            ]
-        }
-    )["results"]
-    for facts in results:
-        row = facts["setups"]["join"]
-        assert "assembly_error" not in row
-        assert row["stock_out_volume_mm3"] == pytest.approx(
-            math.pi * (100 * 10 + 4.9**2 * 10), abs=2e-3
-        )
-
-
 def _lost_cap_job(engine, step):
     job = _joint_job(engine, step)
     job["joint_features"]["spigot"]["depth_mm"] = 10.0

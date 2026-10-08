@@ -208,14 +208,9 @@ def test_approval_stales_when_feature_input_changes(tmp_path, freecad_kernel):
         f'hash = "{baseline["hash"]}"',
         'first_article = "Control first article accepted"',
     ]
+    lines.append("[inputs]")
     for kind, record in baseline["inputs"].items():
-        lines.extend(
-            [
-                f'[inputs."{kind}"]',
-                f"path = {json.dumps(record['path'])}",
-                f'sha256 = "{record["sha256"]}"',
-            ]
-        )
+        lines.append(f'{json.dumps(kind)} = "{record["sha256"]}"')
     approval.write_text("\n".join(lines) + "\n", encoding="utf-8")
     result, _, html = traveler(plan, tmp_path / "approved", "--approval", approval)
     assert result.returncode == 0, result.stderr

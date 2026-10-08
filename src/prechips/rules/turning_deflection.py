@@ -24,7 +24,7 @@ from .resolution import (
 from .stickout import support_state
 from .turned_profile import exposed_profile, nominal_diameter
 
-_PROXY_CITE = "PLAN.md:563-568 (§4.4 physics proxies)"
+_PROXY_CITE = "PLAN.md §4.4 (Physics proxies)"
 # Actions whose cut runs across the work face: the loaded section is the workpiece
 # entering the setup and the acceptance band is the feature's axial size.
 AXIAL_OPS = {"face", "rough_face", "finish_face", "cut_to_fit", "part_off", "form_dome"}
@@ -352,8 +352,8 @@ def evaluate(bundle):
             numbers["measurements"] = list(debts.values())
         cite.extend(
             [
-                "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
-                "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; "
+                "PLAN.md §4.4 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
+                "PLAN.md §4.4 circular-section evaluation: I = π·D⁴/64; "
                 "GPa-to-N/mm² conversion E_gpa × 1000",
                 f"plan.setups[{setup['id']}].hold.stickout_mm; ops[{op['op']}].doc_mm/feed_mm_rev",
                 diameter_basis,

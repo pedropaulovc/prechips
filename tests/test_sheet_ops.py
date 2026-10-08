@@ -2011,6 +2011,85 @@ def example_sheet(relative):
     return _Traveler(bundle, [], {}, None)
 
 
+@pytest.mark.parametrize(
+    "instruction",
+    [
+        "Deburr top/bottom/sides then ship",
+        "Use S1/S2/S3 pickup",
+        "1/4-20 tap; use 1/4/20 chart",
+    ],
+)
+@pytest.mark.parametrize("field", ["operation.note", "operation.inspection_note", "hold.note"])
+def test_rendered_traveler_preserves_authored_slash_instructions(instruction, field):
+    from prechips.sheet import render_traveler
+
+    bundle = example_sheet("rocker-arm/plan.toml").bundle
+    setup = bundle.plan["setups"][0]
+    operation = setup["ops"][0]
+    repo_citation = "src/prechips/slash-fidelity.py:123"
+    url_citation = "https://example.invalid/slash-fidelity"
+    owner = setup["hold"] if field == "hold.note" else operation
+    owner[field.rsplit(".", 1)[-1]] = f"{instruction} {repo_citation} {url_citation}"
+    html = render_traveler(bundle, [], {})
+    markup = Markup(html)
+    setup_id, operation_id = setup["id"], str(operation["op"])
+    pages = [
+        page
+        for page in markup.find("page")
+        if page["attrs"]["data-sheet"].startswith(f"SETUP {setup_id} sheet ")
+    ]
+    if field == "operation.inspection_note":
+        blocks = [
+            node
+            for page in pages
+            for node in markup.find("keep", page)
+            if any(
+                child["parent"] is node and content(child) == "INSPECTION NOTES"
+                for child in markup.nodes
+            )
+        ]
+        prefix = f"{setup_id} op {operation_id}: "
+        notes = [
+            node
+            for block in blocks
+            for node in markup.nodes
+            if node["tag"] == "li"
+            and node["parent"]["parent"] is block
+            and content(node).startswith(prefix)
+        ]
+        assert [content(node).removeprefix(prefix) for node in notes] == [instruction]
+    elif field == "operation.note":
+        operations = [
+            node
+            for page in pages
+            for node in markup.find("operation", page)
+            if node["attrs"]["data-op"] == operation_id
+        ]
+        notes = [node for operation in operations for node in markup.find("op-note", operation)]
+        assert [content(node) for node in notes] == [instruction]
+    else:
+        blocks = [node for page in pages for node in markup.find("hold-steps", page)]
+        notes = [
+            node
+            for block in blocks
+            for node in markup.nodes
+            if node["tag"] == "li"
+            and node["parent"]["parent"] is block
+            and content(node).startswith("Note: ")
+        ]
+        assert [content(node).removeprefix("Note: ").removesuffix(".") for node in notes] == [
+            instruction
+        ]
+    instruction_blocks = [
+        node
+        for node in markup.nodes
+        if node["tag"] == "li" or "op-note" in node["attrs"].get("class", "").split()
+    ]
+    assert sum(content(node).count(instruction) for node in instruction_blocks) == 1
+    assert repo_citation not in html
+    assert url_citation not in html
+
+
 def test_explicit_before_hold_measurement_has_one_field_in_its_original_hold_step():
     sheet = example_sheet("pivot-shaft/plan.toml")
     setup = next(setup for setup in sheet.plan["setups"] if setup["id"] == "S2")
@@ -2854,7 +2933,32 @@ def test_printed_contour_fragments_keep_their_exact_local_introduction(printed_s
     }
     op_notes = [content(note) for note in original.find("contour-context")]
     assert op_notes
-    printed, _ = printed_sheet(source, "() => null")
+    printed, readings = printed_sheet(
+        source,
+        """pageOf => [...document.querySelectorAll('table.coords td.num')]
+          .filter(el => el.textContent.trim()).map(el => {
+            const range = document.createRange(); range.selectNodeContents(el);
+            const rects = [...range.getClientRects()].filter(r => r.width > 0);
+            const cell = el.getBoundingClientRect(), style = getComputedStyle(el);
+            const border = getComputedStyle(el.closest('table')).borderCollapse === 'collapse'
+              ? .5 : 1;
+            const left = cell.left + border * parseFloat(style.borderLeftWidth)
+              + parseFloat(style.paddingLeft);
+            const right = cell.right - border * parseFloat(style.borderRightWidth)
+              - parseFloat(style.paddingRight);
+            return {text: el.textContent, page: pageOf(el),
+              lines: [...new Set(rects.map(r => r.top))].length,
+              fits: rects.every(r => r.left >= left - .5 && r.right <= right + .5)};
+          })""",
+    )
+    assert readings and any(reading["page"] > 0 for reading in readings)
+    assert all(reading["lines"] == 1 and reading["fits"] for reading in readings)
+    assert [reading["text"] for reading in readings] == [
+        content(node)
+        for table in original.find("coords")
+        for node in original.find("num", table)
+        if node["tag"] == "td" and content(node).strip()
+    ]
     tables = printed.find("coords")
     assert len(tables) > 2
     assert len([node for node in printed.nodes if node["tag"] == "tbody"]) == 207

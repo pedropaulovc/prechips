@@ -535,7 +535,7 @@ def test_a_gauge_named_only_in_a_record_or_prose_gets_its_receipt_check(where):
     found = {f.subject: f.status for f in purchased_tooling.evaluate(data)}
     # The setup that first uses the item owns its receipt check; job-level prose is the
     # first setup's. Unknown receipt criteria are never a pass.
-    assert found["S1"] == "unknown"
+    assert found == {"S1": "unknown"}
 
 
 def same_key_receipts(s1_note, s2_note=None, s1_slots=None):

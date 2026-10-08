@@ -253,7 +253,7 @@ def evaluate(bundle):
                 status,
                 numbers,
                 [
-                    "PLAN.md §4.1 stick-out (line 541)",
+                    "PLAN.md §4.1 stick-out",
                     held_diameter_source(setup),
                     "plan.setups.hold.stickout_mm; "
                     "inventory selected support identity/verification",

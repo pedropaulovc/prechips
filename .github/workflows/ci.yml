@@ -27,13 +27,9 @@ jobs:
       PRECHIPS_REQUIRE_PRINT_BROWSER: "1"
       FREECAD_VERSION: "1.1.0"
       FREECAD_SHA256: ef85f171f2d09eec93f358bc49c1730d33f72bfbd353e6465609b30e45acf2f0
-      PRECHIPS_KERNEL_CACHE: ${{ runner.temp }}/prechips-kernel-cache
       PRECHIPS_KERNEL_CACHE_EPOCH: "1"
       PYTEST_WORKERS: "2"
       PRECHIPS_KERNEL_WORKERS: "1"
-      OMP_NUM_THREADS: "1"
-      OPENBLAS_NUM_THREADS: "1"
-      MKL_NUM_THREADS: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -44,7 +40,7 @@ jobs:
         id: freecad-cache
         with:
           path: ~/.cache/prechips-freecad
-          key: freecad-${{ runner.os }}-${{ runner.arch }}-${{ env.FREECAD_VERSION }}-${{ env.FREECAD_SHA256 }}-payload-v2
+          key: freecad-${{ runner.os }}-${{ runner.arch }}-${{ env.FREECAD_VERSION }}-${{ env.FREECAD_SHA256 }}
       - name: Install pinned FreeCAD kernel
         if: steps.freecad-cache.outputs.cache-hit != 'true'
         shell: bash
@@ -58,6 +54,7 @@ jobs:
           echo "${FREECAD_SHA256}  ${asset}" | sha256sum --check --strict
           chmod +x "$asset"
           "./$asset" --appimage-extract > /dev/null
+          rm "$asset"
           # AppRun sets the bundled Python environment only in the kernel process,
           # not in uv/pytest, which use the project's own Python environment.
           cat > freecadcmd <<'EOF'
@@ -71,15 +68,15 @@ jobs:
         shell: bash
         run: |
           echo "FREECAD_CMD=$HOME/.cache/prechips-freecad/freecadcmd" >> "$GITHUB_ENV"
-          echo "PRECHIPS_KERNEL_PAYLOAD_PATH=$HOME/.cache/prechips-freecad/FreeCAD_${FREECAD_VERSION}-Linux-x86_64-py311.AppImage" >> "$GITHUB_ENV"
+          echo "PRECHIPS_KERNEL_CACHE=$RUNNER_TEMP/prechips-kernel-cache" >> "$GITHUB_ENV"
           "$HOME/.cache/prechips-freecad/freecadcmd" --version
       - name: Restore successful geometry cache
         uses: actions/cache/restore@v4
         with:
           path: ${{ env.PRECHIPS_KERNEL_CACHE }}
-          key: kernel-${{ runner.os }}-${{ runner.arch }}-${{ env.FREECAD_SHA256 }}-epoch${{ env.PRECHIPS_KERNEL_CACHE_EPOCH }}-${{ github.run_id }}-${{ github.run_attempt }}
+          key: kernel-${{ runner.os }}-${{ runner.arch }}-${{ env.FREECAD_SHA256 }}-epoch${{ env.PRECHIPS_KERNEL_CACHE_EPOCH }}-${{ hashFiles('src/prechips/kernel/*.py') }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
-            kernel-${{ runner.os }}-${{ runner.arch }}-${{ env.FREECAD_SHA256 }}-epoch${{ env.PRECHIPS_KERNEL_CACHE_EPOCH }}-
+            kernel-${{ runner.os }}-${{ runner.arch }}-${{ env.FREECAD_SHA256 }}-epoch${{ env.PRECHIPS_KERNEL_CACHE_EPOCH }}-${{ hashFiles('src/prechips/kernel/*.py') }}-
       - name: Run full test suite with bounded workers
         shell: bash
         run: |
@@ -92,7 +89,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: ${{ env.PRECHIPS_KERNEL_CACHE }}
-          key: kernel-${{ runner.os }}-${{ runner.arch }}-${{ env.FREECAD_SHA256 }}-epoch${{ env.PRECHIPS_KERNEL_CACHE_EPOCH }}-${{ github.run_id }}-${{ github.run_attempt }}
+          key: kernel-${{ runner.os }}-${{ runner.arch }}-${{ env.FREECAD_SHA256 }}-epoch${{ env.PRECHIPS_KERNEL_CACHE_EPOCH }}-${{ hashFiles('src/prechips/kernel/*.py') }}-${{ github.run_id }}-${{ github.run_attempt }}
       - name: Upload test durations and logs
         if: always()
         uses: actions/upload-artifact@v4

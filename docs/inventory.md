@@ -120,9 +120,10 @@ measures it, and every job is then checked at it: deflection and clearance at th
 longer setting, and a reach still too short is a finding naming the setting. A
 tool kept set at two projections is two inventory tools.
 
-Engagement uses only the resolved `endmill` / `endmill_set` family on cutting
-operations with authored DOC. Long drills, reamers, taps and lathe tools do not
-receive a milling DOC-halving recommendation.
+Engagement uses the resolved `endmill` / `endmill_set` family on cutting
+operations; an omitted, unknown or nonpositive authored DOC leaves an eligible
+op unknown. Long drills, reamers, taps and lathe tools do not receive a milling
+DOC-halving recommendation.
 
 ## Bandsaw machines and blades
 

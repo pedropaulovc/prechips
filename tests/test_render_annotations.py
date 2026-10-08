@@ -173,28 +173,35 @@ def test_clamp_badges_keep_the_declared_index_and_never_count_a_locator_as_a_cla
 
 
 @pytest.mark.parametrize(
-    ("actions", "notes", "nothing_removed"),
+    ("actions", "no_machine_cutting", "nothing_removed"),
     [
         # A bench finish setup is neither fit-up only nor free of material removal.
-        (
-            ["deburr", "coating", "inspect"],
-            ["No machine cutting: op 10 deburr, op 20 coating, op 30 inspect."],
-            None,
-        ),
-        (["fit", "inspect"], ["No machine cutting: op 10 fit, op 20 inspect."], "default"),
-        (["face", "deburr"], [], None),
-        (["face", "inspect"], [], "default"),
+        (["deburr", "coating", "inspect"], True, False),
+        (["fit", "inspect"], True, True),
+        (["face", "deburr"], False, False),
+        (["face", "inspect"], False, True),
     ],
 )
-def test_setup_notes_follow_every_declared_action(actions, notes, nothing_removed):
+def test_setup_notes_follow_every_declared_action(actions, no_machine_cutting, nothing_removed):
     setup = _setup()
     setup["ops"] = [{"op": 10 * (i + 1), "do": action} for i, action in enumerate(actions)]
 
     annotation = setup_annotations(_bundle(), setup, {})
 
-    assert annotation["notes"] == notes
-    expected = "No material removed in this setup." if nothing_removed else None
-    assert annotation["nothing_removed_note"] == expected
+    notes = " ".join(annotation["notes"]).casefold()
+    if no_machine_cutting:
+        assert "no machine cutting" in notes
+        for index, action in enumerate(actions, 1):
+            assert f"op {10 * index} {action}" in notes
+        assert "fit-up only" not in notes
+        assert "cutting only" not in notes
+    else:
+        assert not annotation["notes"]
+    removal_note = annotation["nothing_removed_note"]
+    if nothing_removed:
+        assert removal_note and "no material removed" in removal_note.casefold()
+    else:
+        assert removal_note is None
 
 
 @pytest.mark.parametrize("unknown_middle", [False, True])

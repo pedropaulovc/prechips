@@ -6,6 +6,7 @@ engine records the host builds from measured inventory facts. Assertions read on
 JSON of ``freecad_job.py``.
 """
 
+import math
 import subprocess
 
 import pytest
@@ -165,10 +166,32 @@ def test_stock_profile_reports_the_least_radius_including_a_raw_collar(engine, s
     )
     assert "stock_profile_reason" not in plain
     profile = plain["stock_profile"]
-    # Entering Ø12 everywhere; after the pass the 8 mm journal is the least radius there,
-    # while r_hi keeps the entering bar.
+    # Entering Ø12 everywhere; after the pass the Ø8 journal is the least radius
+    # there, while r_hi keeps the entering bar. Do not pin meridian chord stations.
     assert profile[0] == [0.0, 20.0, 6.0, 6.0]
-    assert profile[-1] == [pytest.approx(20.972232, abs=1e-5), 40.0, 4.0, 6.0]
+    assert profile[-1][1:] == [40.0, 4.0, 6.0]
+    assert 20.0 < profile[-1][0] <= 21.0
     assert all(lo[1] == hi[0] for lo, hi in zip(profile, profile[1:], strict=False))
+
+    def least_radius_at(z):
+        (band,) = [row for row in profile if row[0] <= z < row[1]]
+        return band[2], band[3]
+
+    assert least_radius_at(10.0) == (6.0, 6.0)
+    assert least_radius_at(30.0) == (4.0, 6.0)
+
+    # R1 blends into the r4 journal at z21: (r - 5)^2 + (z - 21)^2 = 1.
+    # The profile reports a band's lower bound, not the radius at its midpoint.
+    def fillet_radius(z):
+        return 5.0 - math.sqrt(1.0 - (z - 21.0) ** 2) if z < 21.0 else 4.0
+
+    for z in (20.25, 20.5, 20.75):
+        (band,) = [row for row in profile if row[0] <= z < row[1]]
+        assert 4.0 < band[2] <= fillet_radius(z) + 0.01
+        assert band[3] == 6.0
+        assert fillet_radius(band[1]) - 0.01 <= band[2]
+        assert band[2] <= fillet_radius(band[0]) + 0.01
+    # The analytic fillet tangent, independent of chord segmentation, is r4 at z21.
+    assert least_radius_at(21.0) == (4.0, 6.0)
     assert collared["stock_profile"][0] == [-5.0, 20.0, 6.0, 6.0]
     assert collared["stock_profile"][1:] == profile[1:]

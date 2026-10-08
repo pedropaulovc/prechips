@@ -54,10 +54,11 @@ from `C:/src/dt-logs/features-bundles/`:
 | `pivot_shaft/` | `examples/pivot-shaft/` | `pivot-shaft.STEP` | `cc8d57b5c73d5de8f7cbcbd53e1fbee1f2a196e69267ecb19d5a23fe2c42d7bc` |
 | `cone_pivot_post/` | `examples/cone-pivot-post/` | `cone-pivot-post.STEP` | `5719f3f9ec779ae255f9c880a59c5eba338526576279b4f94a8c22e675e4aa1b` |
 
-Both files in each pair are consumer artifacts, not locally reconstructed
-manifests or re-exported solids. Preserve the raw STEP bytes (`.gitattributes
--text`) and generated manifests, including their citations and unknowns.
-Delivery metadata belongs here, never in locally added manifest keys.
+The delivered pairs were consumer artifacts, not locally reconstructed
+manifests or re-exported solids. Their raw STEP bytes remain unchanged
+(`.gitattributes -text`). The current manifests contain only the labelled
+example divergences listed above; preserve other source facts, citations and
+unknowns. Delivery metadata belongs here, never in locally added manifest keys.
 All three exports declare drawing revision `v40`, `construction = "one_piece"`,
 model coordinates in mm, and labelled `HAF_<FEATURE>__P<nn>` face references
 with STEP entity and ordinal identities. Revision metadata is not physical
@@ -94,8 +95,8 @@ Shared inputs:
   verification flag retained; YAML null becomes the string `"unknown"`. The
   category cutover is `workholding` → `fixtures`, `measuring` → `gauges`, and
   collet/QCTP sets → `holders`. No missing chuck, reamer or fixture was purchased
-  on paper. Rule-readable tool geometry and holder lengths are explicitly unknown
-  where the old inventory did not supply them. The centre-drill's 60° centre-seat
+  on paper. Tool and holder dimensions absent from the original inventory carry
+  plausible example values labelled not measured. The centre-drill's 60° centre-seat
   angle is **not** a drill-point angle. Only the PM 6 in vise carries shop
   measurements: on 2026-10-05 Pedro Paulo Vezza Campos measured its jaw
   height (1.7695 in), jaw width (6.247 in), jaw-plate depth (0.7005 / 0.7010 in;
@@ -111,8 +112,8 @@ Shared inputs:
   cannot fit between jaws closed on a 16 mm foot.
 - `shop-policy.toml`: shop-owned, not copied into plans. The default requires
   `tool_resolves`, `sizing`, `op_chain`, `blind_depth`, `inspection`, `coordinates`
-  and `zero_check` on `"*"`. Re-fixture, thin-wall and stick-out numbers and their
-  citations are unknown and `numbers_verify` remains true.
+  and `zero_check` on `"*"`. Re-fixture, thin-wall, stick-out and other policy
+  numbers are labelled illustrative example values with `numbers_verify = false`.
 - `cutting-data.toml`: illustrative example rows for low-carbon steel (HSS, M2,
   M42 and carbide tools; face, profile, spot, drill, ream, counterbore, bore,
   turning, dome, relief, part-off and cut-to-fit, plus saw cut-off), the
@@ -129,21 +130,23 @@ Shared inputs:
   measurements. The generic `Plain Carbon Steel` alias is a candidate
   classification, not a sourced grade or measured carbon content.
 
-Current expected consumer CLI exits are **0 / 0 / 0 / 0** for shaft,
-rocker, bracket and cone built-up respectively.
 Existing inspection choices follow the exported feature
 owners, using separate inspection steps where needed, without changing gauges or
-inventing methods. The earlier split-feature inspection errors were migration
-regressions, not legitimate new debt; they are corrected. Regenerated CLI
-outputs and combined gate evidence are recorded in
-PLAN §8 M3.
+inventing methods. Regenerated CLI outputs and dated combined gate evidence
+are recorded in [PLAN §8 M3](../PLAN.md#8-milestones).
 
-| Part | What it demonstrates | Current exit |
+### Expected consumer CLI exits
+
+The operative expectations are in [`tests/test_examples.py`](../tests/test_examples.py).
+The table describes the authored fixture contract. Integration proof and
+remaining acceptance are tracked in [PLAN §8 M3](../PLAN.md#8-milestones).
+
+| Part | What it demonstrates | Expected exit |
 |---|---|---|
-| `pivot-shaft` | A short-gripped prep setup (S0) faces the plain end and #2 centre-drills it from the tailstock; then three-jaw drive with the tailstock dead centre in that centre and a follow rest, journals/shoulder/both reliefs/both domes, then indicated rechucks and assembly-dependent plain-end fitting. No final hole, flat or indexing. | **0**: every required subject passes; all four setups render with their fixtures modeled. |
-| `rocker-arm` | Bounded rough/finish facing inside a retained rail frame, modeled magnetic end stop, permanent rod-hole pin and supported hub ream, the hub filed round to buttons on the pivot bore at the bench (S3F), then shoulder-screw profiling roughed in single-axis stairs and filed to a scribed template, with independently held scrap. | **0 (native CLI proof)**: check and traveler have no error, unknown, warning or unsupported findings; every native fixture scene is modeled with no fixture or render debts. Printed contour targets are checked against the actual material and holding geometry. |
-| `pivot-bracket` | Seat-up, foot-top-up and side-on ear setups; full raw-top facing, walls-first/floor-last L-foot relief, arched ear (single-axis stairs, then filed to buttons on the cross bore at the bench), reamed cross-bore and two hold-down holes. The v39 STEP is bound; bands remain explicitly illustrative without a dimensioned drawing. | **0 (composed native CLI proof)**: check and traveler have no error, unknown or unsupported findings; every native fixture scene is modeled with no fixture or render debts. |
-| `cone-pivot-post/built-up.toml` | Twelve setups: a turned body and head plus cone and crank sleeves bonded into reamed sockets, with dividing-head, bench-cradle, saw-cradle and soft-jaw holds. | **0 (native CLI proof)**: check and traveler have no error, unknown or unsupported findings; all twelve fixture scenes are modeled with exact components and no fixture or render debts. |
+| `pivot-shaft` | A short-gripped prep setup (S0) faces the plain end and #2 centre-drills it from the tailstock; then three-jaw drive with the tailstock dead centre in that centre and a follow rest, journals/shoulder/both reliefs/both domes, then indicated rechucks and assembly-dependent plain-end fitting. No final hole, flat or indexing. | **0** |
+| `rocker-arm` | Bounded rough/finish facing inside a retained rail frame, modeled magnetic end stop, permanent rod-hole pin and supported hub ream, the hub filed round to buttons on the pivot bore at the bench (S3F), then shoulder-screw profiling roughed in single-axis stairs and filed to a scribed template, with independently held scrap. | **0** |
+| `pivot-bracket` | Seat-up, foot-top-up and side-on ear setups; full raw-top facing, walls-first/floor-last L-foot relief, arched ear (single-axis stairs, then filed to buttons on the cross bore at the bench), reamed cross-bore and two hold-down holes. The v39 STEP is bound; bands remain explicitly illustrative without a dimensioned drawing. | **0** |
+| `cone-pivot-post/built-up.toml` | Twelve setups: a turned body and head plus cone and crank sleeves bonded into reamed sockets, with dividing-head, bench-cradle, saw-cradle and soft-jaw holds. | **0** |
 
 ### Rocker-arm supported route
 
@@ -151,12 +154,11 @@ The illustrative rocker plan binds the exported `v40` drawing revision and
 uses drawing note 2's nominal 2.50 mm strap thickness. Neither this binding nor
 a clean checker exit is released-plan approval or a measured first article.
 
-Actual required-kernel CLI output with the material-aware checkpoint contract
-records check and traveler exit **0**: **201 passes and 165 not-applicable
-findings**, with no errors, unknowns, warnings or unsupported findings. The
-rendered traveler has no unresolved question-mark captions or stop symbols.
-The integration coordinator regenerates the checked-in goldens from actual
-composed-source CLI output; the acceptance numbers are not hand-edited targets.
+The checked-in [`report.json`](rocker-arm/expected/report.json) and
+[`traveler.html`](rocker-arm/expected/traveler.html) hold the generated findings
+and rendered traveler. Finding counts change with the rule catalogue and route;
+the expected exit is listed above. Integration regeneration and native proof
+belong to [PLAN §8 M3](../PLAN.md#8-milestones).
 
 **Manual arcs (D1).** The mill is manual, so the hub and outline arcs use the
 1898 method ([plan Manual arcs](../docs/plan.md#manual-arcs)), each choice cited
@@ -279,12 +281,12 @@ criteria, not invented measured runout readings.
 
 Exit precedence is **3 > 2 > 4 > 0**: bad input prevents outputs; any error beats
 required unknown/unsupported/warn; only clean required subjects permit exit 0.
-The validator independently recomputes report exits and itself exits **0**
-when the intentionally stopped bundles agree. The historical pilot exits
+The validator recomputes report exits and itself exits **0** when the bundles,
+stopped or clean, agree with their expectations. The historical pilot exits
 were 4 / 2 / 2 / 4 / 2. The combined catalogue includes seven sampled geometry
 families, unknown when STEP bytes, stock, claims, normals or required fixture
-dimensions are unavailable. Current gate and regeneration evidence is recorded
-in PLAN §8 M3; do not preserve a historical exit by suppressing new findings.
+dimensions are unavailable. Gate and regeneration evidence is recorded in
+[PLAN §8 M3](../PLAN.md#8-milestones).
 
 | Historical plan literal `"unknown"` leaves | Before restoration | After restoration |
 |---|---:|---:|
@@ -296,8 +298,10 @@ Restored fields include stock/blank dimensions and placement, stock-state/edge
 offsets, grip/jaw projection/fixed jaw/stop/clamp, coolant, DRO direction and mode,
 check jogs and paper, cut directions, rough/finish Z and stock allowances,
 spot/exit depths, contour methods/steps and available-gauge inspection methods.
-Cutting-data-dependent RPM/feed, unmeasured tooling/holding facts, missing gauges,
-measured setup binding and the shaft's actual fitted span remain unresolved.
+At that restoration, cutting-data-dependent RPM/feed, tooling/holding facts,
+gauges, measured setup binding and the shaft's fitted span remained unresolved.
+The current examples use labelled plausible values for unmeasured shop facts;
+these do not establish real measurements or the assembly's actual fitted span.
 
 Each part directory contains `plan.toml`, `features.toml` and parent-regenerated
 `expected/report.json` / `expected/traveler.html`. The cone instead has
@@ -389,25 +393,28 @@ Generated built-up artifacts live in `cone-pivot-post/expected/built-up/`.
 Generated findings and scene debts, not the authorship of this section,
 determine readiness.
 
-### Historical M5 inventory and output reconciliation
+### M5 inventory provenance and measurement debt
 
-The original shared shop inventory numbers and `verify = true` flags are
-unchanged in value. The PM-30MV's spindle-to-table maximum (17 in) and X/Y/Z
-travel (23 / 8.75 / 14 in) now live only in `machines.PM-30MV.envelope`
-(`inventory/pedro-shop.toml:21–28`) as `{ value, verify = true }` vendor-copy
-debt; the former top-level `spindle_to_table_max_in`, `[travel_in]` and
-`[table_in]` copies are deleted rather than kept as a second, differently
-trusted source, and the unread table size, T-slot pitch, spindle taper and
-spindle-stack entries are not modeled at all (the taper remains vendor
-identity under `[machines.PM-30MV.spindle]`). Minimum spindle clearance
-(`spindle_to_table_min_mm`) and, at that cutover, the vise `bed_height_mm`
-were `"unknown"`; the vise bed height is now the measured `bed_height_in`
-described under shared inputs above.
-Every holder carries `gauge_len_mm = "unknown"` and `grip_mm = "unknown"`
-(one spelling each; the suffixless `gauge_len` and the holder-level
-`projection_mm` keys are gone), and no tool carries a `projection_mm` map yet:
-a projection is recorded per (tool, holder) pair on the tool once it is
-measured. No measured operator/date/instrument record is fabricated anywhere.
+The PM-30MV vendor nominals are spindle-to-table maximum 17 in and X/Y/Z
+travel 23 / 8.75 / 14 in. The original inventory cutover placed these in
+`machines.PM-30MV.envelope` (`inventory/pedro-shop.toml:21–28` at that
+revision), with `verify = true`; duplicate top-level travel/table/envelope
+fields are not a second source. Table size, T-slot pitch and spindle-stack
+entries are not modeled; taper remains vendor identity under
+`machines.PM-30MV.spindle`. The current fact-local measurement requirements
+are in [the inventory format](../docs/inventory.md). The measured vise bed
+height is documented under shared inputs; unmeasured dimensions follow the
+[examples policy](#examples-policy-plausible-labelled-values). Plausible records
+do not establish real operator/date/instrument measurements.
+
+Tool projection belongs to the selected tool/holder pair on the tool. Short
+and qualified holder spellings select the same identity; duplicate entries for
+that identity, including entries in both unit maps, leave projection unknown.
+See [installed tool stacks](../docs/inventory.md#measured-envelopes-and-installed-tool-stacks-m5).
+Holder-wide projections and suffixless legacy gauge fields are not accepted.
+The [engagement screen](../docs/rules-physics.md#engagement) requires positive
+authored DOC on eligible endmill cutting operations; omitted or nonpositive
+DOC leaves the operation unknown.
 
 The `envelope` and `travel` findings add concrete `measure:` instructions to
 the before-you-start lines, keyed by the exact fact consumed (set member or
@@ -415,14 +422,14 @@ tool/holder pair). The vise stack uses the vise bed height, never jaw
 height; Z travel is the per-op spindle-nose span (`tip + gauge + projection`),
 so it also waits on holder gauges and tool projections; hole and point
 centres carry no cutter-radius padding. Mill travel/envelope additionally
-need explicit safe `approach_mm` and complete feature/stock extents, which are
-plan-input debt; no approach is chosen on the operator's behalf. Lathe
-mill-envelope/travel rows are `not_applicable`, and no lathe operation is
-asked for a toolpost gauge length: there is no `holder_stack` rule. An
-operation naming a holder the inventory lacks (the bracket's and rocker's
-`drill-chuck-r8`) is told to add or resolve that holder, not to measure it.
+need explicit safe `approach_mm` and complete feature/stock extents. Missing
+inputs remain debt; the examples supply labelled authored approaches and
+plausible dimensions. Lathe mill-envelope/travel rows are `not_applicable`,
+and no lathe operation is asked for a toolpost gauge length: there is no
+`holder_stack` rule. A named holder absent from inventory must be added or
+resolved before its dimensions can be measured.
 Use `uv run prechips tools --measure` for the sorted, deduplicated list of
-exactly the `numbers.measurements` debt behind these five reports (add
+exactly the `numbers.measurements` debt behind these four consumer reports (add
 `--plan` to scope it, `--inventory` to override the plans' inventory).
 
 At the M5 cutover, all five report/traveler goldens and the cone comparison
@@ -481,8 +488,9 @@ authority; older line references below document the historical reconciliation.
 direction, jogs/paper, cut/exit allowances, contour steps and capable-gauge methods
 are **author's choices**, not facts requiring a source. Restored choices come from
 the rev-3 route or are marked `# author's choice`; they still require checker
-validation. Measurements, measured setup binding and cutting-data speeds remain
-unknown until evidence exists; exported drawing/STEP identities are now present.
+validation. Except for the documented vise measurements, the examples use
+labelled plausible shop values; these do not establish measured setup binding
+or shop-verified cutting data. Exported drawing/STEP identities are present.
 
 ### Current export contract changes
 
@@ -493,21 +501,22 @@ use the handwritten inch-conversion bands. The rocker and cone preserve the
 material choice `LOW-CARBON STEEL OR GRAY IRON`; the shaft specifies AISI 1018
 cold-finished Ø10 bar. No family label selects a verified cutting-data row.
 
-The rocker adds explicit `strap_datum_b`, `tip_land_pos_x` and `tip_land_neg_x`
-requirements to the former seven-feature map; the tip-land angular acceptance
-remains unknown. The shaft separates the shoulder's north and thrust faces and
-both relief/dome face sets. The cone exports `journal_bore`, separate mount
-holes/counterbores and both boss end faces. Its journal-bore requirements include
-an explicit `"unknown"` identity, while its crank bore carries `separation`,
-`angularity_dia` and `angularity_datums`. Current exported height limits are
-33.118–33.618 and separation limits 39.332–39.702 mm. Preserve these facts
-verbatim rather than rebasing them onto an older rounded handwritten target.
+The rocker export adds explicit `strap_datum_b`, `tip_land_pos_x` and
+`tip_land_neg_x` requirements to the former seven-feature map. Its exported
+tip-land angular acceptance is unknown; the example's labelled title-block
+divergence supplies the band. The shaft separates the shoulder's north and
+thrust faces and both relief/dome face sets. The cone export has `journal_bore`,
+separate mount holes/counterbores and both boss end faces, with an explicit
+unknown journal-bore requirement identity. The example records how the rim
+deburr requirement is handled. Its crank bore carries `separation`,
+`angularity_dia` and `angularity_datums`. Exported height limits are
+33.118–33.618 and separation limits 39.332–39.702 mm; these remain unchanged.
 
 The cone export has **no `volume_mm3` or `volume_cite`**. Finished volume and
-waste therefore remain unknown in current comparisons. The older analytic
+waste therefore remain unknown in any comparison. The older analytic
 volume below is historical context, not permission to modify the export.
-Setup bindings, missing inventory, material choice, inspection methods and
-physical readiness remain separate debt.
+The examples' authored setup bindings, illustrative inventory and inspection
+methods do not establish actual material grade or physical readiness.
 
 The shaft and cone exports carry `frames.setup = "unknown"`. Their plans restore
 the former shaft T1/T2/T3 and cone/built-up lathe and M2/J3/C4 transforms as
@@ -542,26 +551,23 @@ plan prints it as a labelled fit-up hold in S3 op 20's `inspection_note`: the
 DRO, with the T1 tool point re-sighted on the scribe, measures the scribe-to-end
 distance. The plan does not claim a `pivot_bearing:length` inspection.
 
-The cone's indexing feature is now `crank_bore`, which owns
-`land_angle_nominal_deg = 12.5182` and the BASIC relationship. Its omitted
-`angle_tol_deg` remains unresolved. The consumer does not apply the title-block
-±1° to a BASIC angle, and it does not convert the Ø0.10 angularity zone into
-degrees itself. HA does derive `CRANK_BORE_ANGLE_LIMIT_DEG` ≈ 0.0795°
-(`cad/scripts/cone_pivot_post_spec.py:373`), but it does not export that value.
-The exported `mount_west.station_nominal = -12.98` is signed, while its
-`station` band [12.47, 13.49] is absolute (`cad/scripts/export_features.py:566`).
-The consumer's generic nominal-within-band check reports `mount_west:station`
-as an `error`. This is an HA export follow-up.
-Prechips does not flip the sign or drop the field.
+The cone's indexing feature `crank_bore` owns
+`land_angle_nominal_deg = 12.5182` and the BASIC relationship. The source
+export omits `angle_tol_deg`; the example supplies the labelled 0.0795° bound
+from HA's `CRANK_BORE_ANGLE_LIMIT_DEG`
+(`cad/scripts/cone_pivot_post_spec.py:373`). This is not title-block ±1° or a
+conversion invented by the consumer. The source export's signed
+`mount_west.station_nominal = -12.98` conflicts with its absolute
+`station` band [12.47, 13.49] (`cad/scripts/export_features.py:566`).
+The example's documented sign correction addresses that inconsistency;
+the checker does not flip signs or drop fields to manufacture a pass.
 
-The far-side cone-boss claim errors on the retired milled-pad route's S2:50
-belonged to that route. The bonded route turns both sleeves on the lathe with
-the radial turning approach (PLAN §8 M3 integration status) and mills no
-cone-boss faces.
+The current bonded route turns both sleeves on the lathe with the radial
+turning approach and mills no cone-boss faces.
 
-These gaps and the missing HA `check:traveler_pivot_shaft` /
-`check:traveler_cone_pivot_post` tasks are listed as open HA items in PLAN §8 M3.
-Only the consumer side of M3 is done.
+Upstream follow-ups identified at `b11124ecf`, including the then-missing
+`check:traveler_pivot_shaft` / `check:traveler_cone_pivot_post` tasks, are recorded
+in [PLAN §8 M3](../PLAN.md#8-milestones). Current HA status was not observed.
 
 ### Historical M1 source reconciliation
 
@@ -615,7 +621,8 @@ Exported revision metadata is not a physical verification claim.
 
 These source readings describe the former hand-authored manifest, not the
 current exported field names or acceptance bands. Current facts come from the
-verbatim export above; the authored stock/route choices below remain distinct.
+source export and labelled example divergences above; authored stock/route
+choices remain distinct.
 
 - `cad/scripts/cone_pivot_post_spec.py:29–33,49–81`: body Ø42.011×86,
   head Ø42.7506×26.6, crank boss Ø21.93×72.0344 (the corrected 2.8360 in),
@@ -660,23 +667,22 @@ were unknown. The current bonded-sleeve route and its three leaf blanks are
 described under "Built-up cone route provenance". No blank is on hand: none
 of the inventory's `[[stock]]` entries (the r7 shop-kit materials) is a cone blank.
 
-The BS-0 lives under inventory **machines**, with worm 40, direct 24×15° and all
-18 listed worm circles (`inventory/pedro-shop.toml:88–117`). The independent
-validator searches every circle and direct setting: nearest for 12.5182° is
-**plate B /23, one crank turn +9 hole spaces**, actual 12.5217391304°,
-signed error +0.0035391304°. One setting means **no cycle closure**. Plate
-counts remain unverified and BASIC landing acceptance remains unknown, so the
-traveler must show a tentative `?`, not an approval.
+At the historical M2 checkpoint, the BS-0 lived under inventory **machines**,
+with worm 40, direct 24×15° and all 18 listed worm circles
+(`inventory/pedro-shop.toml:88–117` at that revision). Exhaustive enumeration
+found the nearest setting for 12.5182°: **plate B /23, one crank turn +9 hole
+spaces**, actual 12.5217391304°, signed error +0.0035391304°. One setting had
+**no cycle closure**. Plate counts were unverified and BASIC landing acceptance
+was unknown, so that traveler showed a tentative `?`.
 
-The STEP/drawing revision metadata and exported face sets are now supplied.
-Measured setup binding, actual blank grade, appropriate milling nests/adapters,
-cutter/holder reach, bore/height/roughness inspection and A/B angularity
-inspection methods remain unresolved. Existing lathe tool/chuck identities
-retain their verification debt; unknown mill/bore tools and holders remain
-unknown, not fictitious inventory. RPM/feed derivation, K_c/E and Machinery's
-Handbook 31 evidence are not supplied. The authored process makes **no physical
-machining, first-article or clearance-completion claim**. The producing CAD
-farm run is not the separate prechips parented farm-telemetry acceptance.
+That checkpoint lacked measured setup binding, actual blank grade, milling
+nests/adapters, cutter/holder reach and capable inspection methods, as well as
+RPM/feed, K_c/E and Handbook 31 evidence. The current bonded route uses
+labelled plausible inventory, policy and Handbook 27th-edition starting data,
+and the [export divergences](#example-divergences-from-consumer-exports) supply
+the angular bound. These inputs establish no physical machining, first-article
+or clearance-completion claim. The producing CAD farm run is separate from
+prechips parented farm-telemetry acceptance.
 
 ## Report binding and reference vocabulary
 
@@ -686,13 +692,13 @@ UTF-8, sorted-key JSON with two-space indentation, `ensure_ascii=False`, finite
 numbers only and one final LF. Findings are sorted lexicographically by
 `(rule, subject)`. To compute `hash`, remove only the `hash` member, serialize the
 remaining object **with the same canonical form including its final LF**, and
-SHA-256 those bytes. The traveler footer uses the first eight characters:
-`prechips 0.1 · report <id>`. HTML is an output, not an input to its own report.
+SHA-256 those bytes. The HTML carries the full report hash in
+`<meta name="prechips-report">`; no hash prints on the sheet.
+HTML is an output, not an input to its own report.
 `.gitattributes` pins fixture line endings to LF.
 The implemented rule vocabulary is `m5-rev9` (the combined M4 geometry and M5
-measured-inventory catalogue), as emitted by `report.py`. Earlier parent
-regeneration of `expected/` is historical evidence, not proof of the current
-readability changes; final all-bundle regeneration remains to be recorded.
+measured-inventory catalogue), as emitted by `report.py`. Regeneration and gate
+evidence belongs to [PLAN §8 M3](../PLAN.md#8-milestones).
 The report retains the reference ABI's `message` and `expected_exit` names.
 Finite floats use the JSON encoder's shortest round-trip representation, not drawing-format rounding. Drawing precision
 is applied only to the traveler.
@@ -743,191 +749,10 @@ retouch → expected/mirrored reading. Physical check jogs are 10 mm; paper touc
 use 0.05 mm. Lathe trial-cut X readings and installation stay unknown; an authored
 diametric X mode doubles a physical jog's displayed increment, not its distance.
 
-Travelers are Letter portrait with variable physical pagination, not one page
-per setup. Operation ledgers, inspection writing areas and semantic diagram
-panels flow onto continuations; duplex padding preserves front-side starts.
-Historically, CLI outputs rendered in Chromium after the main-line pickup
-correction had 7 physical pages for shaft, 10 for rocker and 10 for bracket,
-matching the then-logical sections. Those counts are history, not the current
-layout contract. Footers flow after instructions.
-
-Current immutable baseline
-`a228104e90d2f63ce3b3363f45c8b741450b55b6`: four production runs with empty
-per-pilot caches completed with CLI exits **0 / 2 / 2 / 2** (shaft / rocker /
-bracket / cone) and **22 / 94 / 72 / 56** even Letter pages (244 total).
-Outputs are in `C:/src/prechips-readability-r7-base/out/readability/baseline-r7-cold`;
-the command record is
-`C:/src/dt-logs/readability-baseline-r7-cold-proof/command-log.json`.
-The baseline's consistency stops remain intentional; readability work does not
-alter source facts to recover an exit.
-
-Historical `f0f765fb584235bc9d3836b7c82fface5569dddb` baseline runs exited 0
-for all four pilots with the same page counts, but initially inherited a cache.
-At the earlier f62/f0 checkpoint, Ruff and 185-file formatting checks passed.
-A three-family run had 158 passed and two failed in 94.63 seconds; after caption
-repairs, exactly those two cases passed in 0.51 seconds. These different-source
-runs are not a combined 160-pass result or a clean full-family rerun.
-
-That checkpoint's production-render probe checked narrow captions in both
-operation orders, text bounds and the complete arrow caption. Its canonical PNG
-was 1600 × 2464 pixels with 1484-pixel setup and 980-pixel path bands; endpoint
-order and waypoints were preserved. Its four-width browser and field-containment
-controls also belong to that checkpoint. None proves the new merged candidate.
-Current-candidate validation, fresh native/PDF runs, native capture comparison,
-all-page review and golden regeneration remain pending. Physical
-printer/pen/operator, machining and live-farm acceptance remain unobserved.
-
-<details>
-<summary>Historical R6–R7 on the previous 1ef baseline (not f0 acceptance)</summary>
-
-Historical parent-reported **R6**, integrated on baseline
-`1efbef15d9824a6438cdb636a9543509f194943f`: all four actual CLI runs exited 0.
-Letter PDFs had 52 shaft, 220 rocker, 138 bracket and 118 cone pages (528 total),
-all even. Minimum rendered metadata font was 9.997 pt; there were zero half-inch
-glyph-margin violations, setup starts on backs or header-only continuations.
-The same baseline's own PDFs had 22/94/72/56 pages; neither set is a fixed target.
-
-Headed-browser checks passed for all four at 320/375/414/768 px without root
-clipping or horizontal scroll; three `beforeprint` calls were stable without
-errors. Minimum working text was 16 px, the 90 broad fields had minimum clear
-interiors of 19.997 × 184.067 mm, DOM contrast was at least 14.167:1 and headers
-used roman type. These are browser/PDF observations, not PNG or physical proof.
-Three reports matched the baseline except declared visual fields. Bracket's nine
-0.000001 differences came from the genuine captured kernel values. Four direct
-controls used frozen R6/current-base hosts and both actual captures: for each
-same capture the hosts produced byte-identical complete reports/findings and
-reproduced that capture's preserved actual report exactly. Normalized source/job
-hashes and STEP bindings matched. This establishes host-report preservation for
-supplied geometry, not an established native cause, harmlessness or native-run
-equivalence; no values or tolerances were normalized or waived.
-
-All 528 page images were reviewed individually across 13 ranges: five CLEAR
-and eight FIX. Subsequent context, finishing-hierarchy and minor presentation
-repairs were committed at `2a332ab`, followed by boundary-layout fixes. The
-latest seven-family run (operations, print, render, report, fixture, manual arcs
-and precision) had 372 passed and two failed in 595.17 seconds: a local
-test-ownership mismatch and a genuine narrow-table word split. After the local
-selector and column-room repairs, the targeted rerun of exactly those failed
-function cases had three passed in 5.10 seconds. This does not combine into a
-374-pass broader run: the runs used different source states. Ruff and formatting
-checks passed again (185 files). The earlier pre-freeze gate was cancelled after
-partial output, not passed; no combined broader-pass claim was established.
-
-Subsequent actual **R7**, still on the previous baseline, exited 0 for all four
-CLI runs and produced 52 shaft, 224 rocker, 140 bracket and 118 cone even Letter
-pages (534 total). Shaft's 52 images were CLEAR; rocker had three CLEAR ranges
-and one FIX for word/feature-clause splits. Bracket and cone were not fully
-reviewed. A separate 82-page stress PDF retained all 1,400 NOTE and 1,400 RECORD
-entries in exact order, with minimum metadata font 9.997 pt and no margin,
-front-parity or header-only-continuation defects. These observations are historical
-pre-f0 evidence, not current acceptance or a gold freeze. Physical rehearsal
-was not performed.
-
-</details>
-
-<details>
-<summary>Historical old-base evidence (R1–R5 on d4b8826; statuses at observation time)</summary>
-
-Historical parent-reported normal run, **R5**: all four actual CLI runs exited 0.
-Letter PDFs had 52 shaft, 154 rocker, 76 bracket and 112 cone pages (394 total),
-all even. Minimum native text font was 9.997 pt; all four had zero half-inch
-glyph-margin violations, setup starts on backs or header-only continuations.
-Findings, input bindings, STEP and other nonvisual report fields matched the
-**original captured baseline `d4b8826`** exactly. All R1–R5 findings-preservation
-and print observations below belong to that old-base work, not the subsequently
-advanced `origin/review/compose-r5` at `1efbef15d9824a6438cdb636a9543509f194943f`.
-New-base integration and proof remain pending. Counts are observations, not fixed targets.
-
-Targeted image reviews cleared shaft A14's complete operation context and cone
-A13/A23's dimension-label obstruction, not the whole package. New local review
-findings concern progress/context handling for long authored notes, overlong
-underscore-caption atomic layout failure and browser-fixture network containment.
-Repairs, R6 regeneration, final image review and the full gate remain pending.
-Physical printer/pen/operator rehearsal is still unobserved.
-
-
-Readability prototype evidence reported by the integrating parent: actual CLI
-exit 0 for pivot-shaft, rocker, bracket and cone. First-round Letter PDFs had
-48 even pages for pivot-shaft, 134 for rocker and 70 for bracket; the parent also
-reported an even Letter PDF for cone. These are intermediate observations with layout
-fixes pending, not frozen reference page counts. All 48 pivot-shaft pages had
-text bounds within the 0.5-inch margins and an observed minimum font of about
-10 pt for metadata. Its HTML had no root overflow at 320/375/414/768 px;
-repeated `beforeprint` was stable with no layout error. These first-round counts
-are historical prototypes; the later R4 observations below do not yet establish
-final layout acceptance, the combined gate or physical rehearsal.
-
-Separate parent-reported semantic smoke used the same genuine captured bracket
-kernel result in both CLI `check` processes: both exited 0, made no native
-discovery calls and produced byte-identical reports. This demonstrates host
-checker/report preservation for identical supplied geometry, not new-painter or
-native-run equivalence. Independent baseline/candidate runs retained identical
-source-input and STEP hashes; shaft, rocker and cone findings were identical.
-Six bracket numbers differed by 0.000001 in native stock-cylinder highest-Z
-measurements.
-
-A separate fresh frozen-baseline positive control started with an empty isolated
-kernel cache and exited 0. With unchanged source/binary identities and the
-reconstructed original cache key, it reproduced the candidate's differing
-numbers while all six render PNG hashes matched the old baseline. Thus the
-numeric differences also occur under the frozen baseline's own keyed inputs;
-they are not uniquely attributable to the readability changes. Their ultimate
-native cause and harmlessness remain unproven. Independent findings are not
-claimed universally bit-identical, and no values or tolerances were rewritten.
-Neither control establishes final print acceptance or a physical
-printer/pen/operator trial.
-
-The subsequent parent comparison found all candidate-R2 findings exactly equal
-to the actual baseline, using the explicitly fresh frozen-source positive
-control for bracket. This separate result does not overwrite the original
-epsilon observation above or claim an established native-repeatability cause.
-
-Separate R3 long-content stress evidence reported by the parent: the actual
-Letter PDF had 72 pages and preserved all 2,800 ordered entries (1,400 NOTE and
-1,400 RECORD). Minimum native text font was 9.997 pt; no text violated the
-half-inch margins, every setup started on an odd page, and there were zero
-header-only continuations versus ten in R2. This is stress-layout evidence,
-not final normal-bundle acceptance or a physical trial. An R3 partial rocker
-PDF was invalid for approval after a 300-second FreeCAD timeout while geometry
-tests ran. No all-bundle R3 success is claimed.
-
-Normal R4 observations reported by the parent: all four actual CLI runs exited
-0. Serial rocker completed in 201.126 seconds; its success under changed
-conditions does not establish the cause of the concurrent R3 timeout. Actual
-Letter PDFs had 50 shaft, 146 rocker, 74 bracket and 112 cone pages (382 total),
-all even. Minimum native text font was 9.997 pt, all glyphs stayed within
-half-inch margins, all setup starts were odd, and no continuation had only a
-header. These are R4 observations, not frozen page-count targets.
-
-Headed-browser checks passed for all four bundles at 320/375/414/768 px:
-no root clipping, horizontal root scroll or oversized content; three
-`beforeprint` calls were stable, and numeric spans had no line breaks. Real
-recording areas had 184.067 × 19.997 mm clear interiors. Minimum native DOM text
-contrast ranged from 14.167 to 17.615 with no failures; that does not measure
-bitmap PNG contrast or physical print contrast.
-
-The R4 comparison against the **original captured baseline** exited 0 with
-exact findings, authored bindings, STEP and other nonvisual fields for all four
-bundles. Comparison against the separate fresh frozen-source bracket control
-instead shows the reverse six epsilon differences: R4 matches the older native
-cache values. Both referents remain explicit; this is not proof of native
-repeatability or painter equivalence, and no values were rewritten.
-
-The parent reported an R4 focused test run before the pending R5 repairs:
-`uv run pytest -q tests/test_sheet_ops.py tests/test_render_png.py tests/test_sheet_job.py tests/test_sheet_precision.py tests/test_process_route.py`
-exited 0 with 236 passed in 166.75 seconds. Earlier failures had been repaired
-before that run. This result covers the R4 tree only, not subsequent R5 repairs,
-final layout acceptance or the full gate.
-
-Review of all 382 page images returned three CLEAR ranges and nine FIX ranges.
-Remaining fixes concerned repeated table-specific notes, full operation context,
-check-jog lead-ins, the Y1 label/box, C1 fixture title and dimension text/line
-collisions; code review also requested cell-column alignment and joint-ink
-repairs. R4 is **not layout-approved or frozen**. R5 regeneration, repaired-page
-review and the full gate remain pending. Physical printer/pen/operator rehearsal
-is still unobserved.
-
-</details>
+Travelers are Letter portrait with variable physical pagination. Operation
+ledgers, inspection writing areas and semantic diagram panels flow onto
+continuations; duplex padding preserves front-side setup starts. Footers flow
+after instructions.
 
 Before-start lines use ✗ / ! / ?. Tables apply explicit drawing precision;
 known operative/manual targets retain their supplied numeric form when drawing
@@ -946,6 +771,49 @@ repeatability observations do not establish current outputs; see PLAN
 §8 M3 for the parent gate. A browser-rendered Letter PDF is a layout smoke
 proof, **not** the physical printed paper rehearsal or a first article.
 
+### Dated readability baselines
+
+At commit `a228104e90d2f63ce3b3363f45c8b741450b55b6`, the R7 cold baseline's
+four production runs used empty per-pilot caches and exited **0 / 2 / 2 / 2**
+(shaft / rocker / bracket / cone), with **22 / 94 / 72 / 56** even Letter
+pages (244 total). These exits belong to that revision, not the current
+[consumer expectations](#expected-consumer-cli-exits).
+The `f0f765fb584235bc9d3836b7c82fface5569dddb` baseline exited 0 for all four
+with the same page counts but initially inherited a cache.
+
+R1–R7 page reviews, intermediate gate results, command-log paths and repair
+rationale are retained in
+[`examples/README.md`, "DRO and print surfaces", at `dfcee1b4`](https://github.com/pedropaulovc/prechips/blob/dfcee1b4432dfa04c371620765bbc884754941a6/examples/README.md#dro-and-print-surfaces).
+Current integration evidence and physical/live acceptance belong to
+[PLAN §8 M3](../PLAN.md#8-milestones).
+
+### Native epsilon observation
+
+During the historical R1–R5 readability work against captured baseline
+`d4b8826`, the parent reported a semantic smoke using the same genuine bracket
+kernel capture in both CLI checks: both exited 0, made no native discovery
+calls and produced byte-identical reports. Separate baseline/candidate native
+runs retained identical source-input and STEP hashes; shaft, rocker and cone
+findings matched, but six bracket stock-cylinder highest-Z numbers differed
+by 0.000001.
+
+A fresh frozen-baseline control started with an empty isolated kernel cache
+and exited 0. With unchanged source/binary identities and the reconstructed
+original cache key, it reproduced the candidate's differing numbers while
+all six render PNG hashes matched the old baseline. The numeric differences
+therefore also occurred under the frozen baseline's own keyed inputs. Their
+ultimate native cause and harmlessness remain unproven; no values or
+tolerances were rewritten.
+
+The subsequent R2 comparison matched the fresh frozen-source bracket control.
+R4 instead matched the original captured baseline for all four bundles,
+including findings, authored bindings, STEP and other nonvisual fields; against
+the fresh bracket control it showed the reverse six epsilon differences.
+Both referents remain distinct. A cache hit returns the stored facts of the
+run that produced it; fresh native bit-repeatability is unproven. These
+controls do not establish painter equivalence, final print acceptance or a
+physical printer/pen/operator trial.
+
 ## Validation
 
 ```console
@@ -957,36 +825,33 @@ The standard-library validator parses **every example TOML** with `tomllib`,
 rejects `"unknown"` in its explicit author-choice field set (including nested
 direction/contour values), checks complete rule subjects, manifest/plan references,
 enumerated shop items, named missing findings and requirement-keyed inspection,
-verifies orthonormal frames and coordinate transforms, tip/exit, Axis Set/finder/
-paper/jog/mirror/retouch and speed/feed arithmetic, hashes/canonical JSON/footer
-binding and exit precedence. It rejects obsolete YAML/CSV fixtures. It validates
-these authored contracts; it is not another machining checker and does not assert
-geometry, material properties, gauge calibration, first-article evidence or telemetry.
-The cone extension also independently enumerates all inventory indexing settings,
-checks signed landing arithmetic and full-pattern-only closure, smallest finished
-exposed diameter/verified-ratio arithmetic separately from held OD, and explicit
-construction permission. Unbound or incomplete finished profiles stay unknown.
-Historically, the PR #6 review corrections regenerated only changed output:
-stick-out evidence, endmill-with-DOC engagement eligibility and machine-listed
-BS-0 hold resolution. That gate retained candidate exits 4 / 2 / 2 / 4 / 2 and
-comparison exit 2; it is not M3 export-consumption evidence.
+verifies orthonormal frames and coordinate transforms, tip/exit, speed/feed
+arithmetic, hashes/canonical JSON/metadata binding and exit precedence. It
+compares Axis Set/finder/paper/jog/mirror/retouch fields using the helper
+boundaries below. It rejects obsolete YAML/CSV fixtures and checks authored
+contracts without asserting geometry, material properties, gauge calibration,
+first-article evidence or telemetry.
+The cone checks signed landing arithmetic and full-pattern-only closure,
+smallest finished exposed diameter/verified-ratio arithmetic separately from
+held OD, and explicit construction permission. Unbound or incomplete finished
+profiles stay unknown.
+The validator recomputes clipped spindle RPM bands and slower gap endpoints,
+ordinary coordinate targets and complete lathe stations from authored inputs.
+It exhaustively enumerates indexing settings, including continuous/unknown
+modes, and compares stick-out fit-up arithmetic and debt with the plan.
+Support state, item resolution, tool compatibility, zero recipes and geometry
+reuse production helpers: `stickout.support_state`, resolution,
+`tool_resolves`, `zero_recipe` and `run_geometry`. Zero-recipe reuse includes
+lathe setup, touch side, X touch set, tool changes/setting and verdict evaluation.
+These comparisons are consistency checks, not independent oracles. They reject
+inconsistent report claims without authenticating measurements or certifying machining.
 Endpoint arithmetic distinguishes spot/tap depth, blind tip depth and its drawing
 guard, and through breakthrough allowance. Reamers use sourced axial lead,
 drills use the point cone, and boring/counterboring uses zero drill-cone length;
 blind counterbores never acquire a through exit allowance.
-Historically, the integrating parent regenerated report/HTML pairs and renders
-from the then-combined implementation. PLAN §8 M3 records that evidence;
-it is not the final readability regeneration. Documentation work did not run
-builds, lint, tests, formatting or golden generation.
-Historical M1 sheets rendered to four Letter pages for shaft/bracket and five
-for rocker before generated continuations. Historical scoped mutation smoke
-rejected all 26 named author-choice fields and nested direction/contour/section
-unknowns, while allowing RPM, drawing, installation and missing-gauge unknowns;
-it also rejected a radius-sized jog in lathe diametric X. Local-target smoke
-rejected a wrong endpoint, missing operation provenance and replacement of a
-known model transform with an authored local target. The historical M1 CLI
-rehearsal observed exits 4/2/2 and byte-identical reports/HTML on repeat runs;
-the numerical validator remains an independent arithmetic gate.
+Historical regeneration and scoped mutation evidence are retained in
+[`examples/README.md`, "Validation", at `dfcee1b4`](https://github.com/pedropaulovc/prechips/blob/dfcee1b4432dfa04c371620765bbc884754941a6/examples/README.md#validation).
+Current integration evidence belongs to [PLAN §8 M3](../PLAN.md#8-milestones).
 
 ## PLAN rev 6 authoring contracts resolved in M1
 
@@ -1014,13 +879,17 @@ the numerical validator remains an independent arithmetic gate.
    example adopts plausible bands and labels every feature's design provenance.
 9. Unknown STEP binding is permitted as a named unresolved finding. A known
    digest requires actual matching STEP bytes. Approval is separate evidence,
-   not an operative input to its own report hash; it needs a matching hash and
-   nonblank first-article evidence, and cannot waive required findings.
+   outside the operative report inputs: one root record must match the full
+   report hash and carry nonblank first-article evidence, and the report must
+   be eligible (`verification = "checked"`). Optional `[inputs]` digests help
+   identify changes; approval cannot waive required findings. See
+   [eligibility and approval](../docs/report-and-telemetry.md#eligibility-and-approval).
 10. The source shaft has no flat/cross-hole; none is invented to satisfy M2's
     obsolete pilot description.
-11. The rocker fixture remains absent/unvalidated. Rails release only under the
-    supported S3 route. The proposed stock and support state remains the author's,
-    not measured inventory or certified geometry.
+11. At M1 the rocker fixture remained absent/unvalidated and rails released only
+    under the then-supported S3 route. The current illustrative holding route
+    is described under [Rocker-arm supported route](#rocker-arm-supported-route);
+    its geometry is not measured inventory or physical fixture certification.
 12. The renderer uses row-safe natural overflow and bounded per-setup contour
     continuations rather than fixed-height clipping. Logical HTML sections are
     not claims about physical printed pages. Paper rehearsal remains outstanding.
@@ -1029,8 +898,8 @@ the numerical validator remains an independent arithmetic gate.
 
 The implementation does not read `expected/` at runtime. Historically, all three
 report/HTML pairs were regenerated by `prechips traveler` only after comparing
-the original targets with fresh computations and the contracts above; current
-all-bundle regeneration after readability fixes remains pending.
+the original targets with fresh computations and the contracts above. Current
+all-bundle regeneration evidence belongs to [PLAN §8 M3](../PLAN.md#8-milestones).
 
 - **`rocker-arm/features.toml`**: add `hub_od.dia_nominal = 10.20`,
   `top_edge.radius_nominal = 800`, `profile_outer.bottom_radius_nominal = 816`,
@@ -1077,9 +946,9 @@ all-bundle regeneration after readability fixes remains pending.
   the reports; escaped content and row-safe overflow replace hand-curated HTML.
 
 No inventory, policy, cutting-data number, tolerance band, feature or tool
-purchase was changed. Expected exits remain **4 / 2 / 2**. The generated reports
-contain 103 / 117 / 116 findings respectively; rocker and bracket each emit
-exactly three `✗` missing-reference lines.
+purchase was changed at that M1 checkpoint. Its expected exits were
+**4 / 2 / 2**, with 103 / 117 / 116 findings respectively; rocker and bracket
+each emitted exactly three `✗` missing-reference lines.
 
 ## Historical M1 `"unknown"` input ledger
 

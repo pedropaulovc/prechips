@@ -54,8 +54,13 @@ def _parent_in_a_rotated_frame():
     return data
 
 
-def test_parent_located_counterbore_resolves_identically_in_coordinates_and_travel():
+@pytest.mark.parametrize("conflicting_aliases", [False, True])
+def test_parent_located_counterbore_resolves_identically_in_coordinates_and_travel(
+    conflicting_aliases,
+):
     data = _parent_in_a_rotated_frame()
+    if conflicting_aliases:
+        data.features["features"]["cbore"].update(hole="right", parent="left")
     targets = coordinates.evaluate(data)[0]
     assert targets.status == "pass"
     (cbore,) = _rows(targets, "cbore")
@@ -75,6 +80,20 @@ def test_parent_located_counterbore_resolves_identically_in_coordinates_and_trav
     assert [spans[axis] for axis in ("x", "y")] == [[value, value] for value in cbore["setup"][:2]]
     # A parent-located child never asks the kernel to locate it.
     assert "cbore" not in coordinates.revolved_located(setup(data), data.feature_definitions)
+
+
+def test_explicit_child_point_overrides_both_conflicting_locator_aliases():
+    data = _parent_in_a_rotated_frame()
+    data.features["features"]["cbore"].update(
+        hole="right", parent="left", frame="model", at=[30, 2, 7]
+    )
+    (row,) = _rows(coordinates.evaluate(data)[0], "cbore")
+    assert row["model"] == [30, 2, 7]
+    assert row["setup"] == [25.0, -4.0, 2.0]
+    assert row["dro"] == [25.0, -4.0, 2.0]
+    assert "located_by" not in row
+    spans = travel.evaluate(data)[0].numbers["operations"][0]["extent_mm"]
+    assert spans["x"] == [25.0, 25.0] and spans["y"] == [-4.0, -4.0]
 
 
 @pytest.mark.parametrize("gap", ["explicit unknown at", "parent not declared", "parent without at"])

@@ -229,8 +229,8 @@ def faced_aim_error(plan, manifest, name, aim):
     """Why plan ``aims.<name>`` naming a ``face`` names no faced length (bad input), else
     None: the face must be one of the exported feature's own ``faces``, the feature must
     declare the ``lower_z`` and ``upper_z`` planes its length runs between, and a facing op
-    (:data:`FACING`) on the feature must claim the face (it names no ``faces``, or names
-    that one): an aim moves only a plane the plan cuts."""
+    (:data:`FACING`) on the feature must claim the face (it omits ``faces``, or its list
+    explicitly names that one): an aim moves only a plane the plan cuts."""
     face = aim.get("face")
     if face is None:
         return None
@@ -250,15 +250,15 @@ def faced_aim_error(plan, manifest, name, aim):
 
 
 def faced_aim_claims(plan, name, face):
-    """The facing ops (:data:`FACING`) on feature ``name`` that claim ``face`` (they name no
-    ``faces``, or name that one), in plan order."""
+    """The facing ops (:data:`FACING`) on feature ``name`` that claim ``face`` (they omit
+    ``faces``, or their list explicitly names that one), in plan order."""
     return [
         op
         for setup in plan.get("setups", [])
         for op in setup.get("ops", [])
         if op.get("do") in FACING
         and name in op_features(op)
-        and (not isinstance(op.get("faces"), list) or face in op["faces"])
+        and ("faces" not in op or isinstance(op["faces"], list) and face in op["faces"])
     ]
 
 

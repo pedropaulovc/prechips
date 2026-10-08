@@ -227,8 +227,8 @@ other than literal `unknown` (case-insensitive). These are renderer guards, not
 extra keys to write in the TOML approval record.
 
 
-Supply `--approval approvals.toml`. A normalized record permits only `hash`,
-`first_article`, and optional `inputs`:
+Supply `--approval approvals.toml` with one root record containing `hash`,
+`first_article`, and optional `[inputs]` digest strings:
 
 ```toml
 hash = "<full current report hash>"
@@ -236,34 +236,21 @@ first_article = "<actual logbook/evidence reference from the cut first article>"
 
 [inputs]
 plan = "<prior SHA-256>"
-features = { sha256 = "<prior SHA-256>" }
-```
-
-Alternatively use a history of array tables:
-
-```toml
-[[approvals]]
-hash = "<full report hash>"
-first_article = "<actual evidence reference>"
-
-[approvals.inputs]
-plan = "<prior SHA-256>"
+features = "<prior SHA-256>"
 ```
 
 These placeholder strings illustrate shape, not supplied approval evidence.
-`inputs` can contain digest strings or tables carrying `sha256` (report-style
-path metadata may accompany a digest table). The parser selects the first
-record with the exact current hash; if none match it uses the last record to
-explain changed inputs. `hash` and `first_article` must be strings. Only a full
-hash match, a **nonblank** first-article string, and an eligible report remove
-PLANNED. Neither a matching short id nor a stale record nor an empty evidence
-string suffices. Approval parsing does not authenticate evidence or perform
-the first article; the shop owns its truth.
+Approval histories (`[[approvals]]`) and report-style digest tables are not
+accepted. `hash` and `first_article` must be strings; every declared input
+digest must be a string. Only a full hash match, a nonblank first-article
+string, and an eligible report remove PLANNED. Neither a matching short id,
+a stale record nor an empty evidence string suffices. Approval parsing does
+not authenticate evidence or perform the first article; the shop owns its truth.
 
 Stale record warning: `Approval no longer matches: {changed input names} changed.
 Repeat the first article.` Only input names declared in the prior record and
 present in the current report are compared; an omitted prior input is never
-named as changed. Digest strings and digest tables follow the same comparison.
+named as changed.
 The warning names `the operative bundle` when prior `inputs` is absent or
 empty, there are no input names in common, or all compared digests are unchanged
 despite the stale report hash. A matching record for an ineligible report warns:

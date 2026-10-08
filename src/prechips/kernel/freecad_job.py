@@ -2936,7 +2936,8 @@ def _joint_cut_spec(cut, frame):
 
 def _joint_profile(spec, frame, top=None, seat=None):
     """The same pointed/flat axial tool profiles used by ordinary hole operations; a
-    ``seat`` (:func:`_seat`) adds the seat cone and the bore it sweeps (:func:`_plunge`)."""
+    ``seat`` (:func:`_seat`) adds the seat cone and the bore it sweeps (:func:`_plunge`).
+    An unrepresentable drill point leaves the cut unknown before its profile is built."""
     action = spec.get("action")
     if spec["kind"] == "cylinder_spigot":
         if action not in {"turn", "rough_turn", "finish_turn"}:
@@ -2967,7 +2968,12 @@ def _joint_profile(spec, frame, top=None, seat=None):
     if action in {"drill", "spot"}:
         slope = math.tan(math.radians(angle / 2))
         if action == "drill":
-            tip -= radius / slope
+            if slope <= 0:
+                raise _Unknown("drill joint cut point cone is unrepresentable")
+            point = radius / slope
+            if not _number(point):
+                raise _Unknown("drill joint cut point cone is unrepresentable")
+            tip -= point
     profile = _plunge(entry.x, entry.y, tip, radius, slope, ceiling, seat)
     profile.transformShape(matrix.inverse())
     return profile

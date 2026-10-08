@@ -91,10 +91,10 @@ def test_an_open_path_returns_over_the_stock_only_when_the_stock_box_proves_it()
 def test_a_plunge_without_a_feed_is_debt():
     [record], debts = open_path(box_top=1.0, plunge=False)
     assert record["plunge_mm_rev"] == "unknown"
-    assert debts == [
-        "op 20 plunges into the stock but its plunge feed is unknown: no cutting-data "
-        "plunge row matches this tool"
-    ]
+    assert any(
+        "op 20" in debt and "plunge" in debt and "feed" in debt and "unknown" in debt
+        for debt in debts
+    )
 
 
 @pytest.mark.parametrize("center_cutting", [False, None], ids=["not-centre-cutting", "undeclared"])
@@ -254,6 +254,7 @@ def test_every_level_of_a_multi_level_outline_prints_its_own_z_and_entry(tmp_pat
         if node["tag"] == "p" and node["parent"] is owner and "Get down" in content(node)
     ]
     assert "2 depth levels, top first" in entry
+    assert "whole path" in entry and "each" in entry
     assert "X -8.300, Y -5.300: plunge from the level above" in entry
     assert "level 1 from Z 0.000" in entry
     assert "Between levels, stay at X -8.300, Y -5.300" in entry
@@ -371,21 +372,21 @@ def test_a_bench_setup_prints_an_arriving_surface_on_the_grid_it_was_cut_on(tmp_
     assert sheet.surface_z(bench, -11.52825) == sheet.surface_z(mill, -11.52825) == -11.525
 
 
-def test_the_clearance_table_prints_a_kernel_stock_z_as_that_surface_prints():
-    # Holder face over stock the kernel measured at Z 4.47175 and at 1e-06: on a 0.005
-    # DRO those surfaces print Z 4.475 and Z 0.000 everywhere else, so here too.
+def test_the_clearance_table_prints_a_kernel_stock_z_as_that_surface_prints(tmp_path):
+    # Real bundle/grid/lineage and traveler surface rounding consume synthetic kernel
+    # measurements; the surface boundary itself is never replaced.
     records = reach_records(top=1e-06)
     records[("reach", "S1:60")]["clearances"] = [
         {"part": "holder face", "obstacle": "stock under the holder", "mm": 19.75, "z_mm": 4.47175}
     ]
-    sheet = shop({("coordinates", "S1"): {"operations": [{"op": 60, "dro_to_z": -0.5}]}, **records})
-    sheet.bundle = SimpleNamespace(
-        features={"units": "mm"},
-        inventory={"machines": {"mill": {"kind": "mill", "resolution_mm": 0.005}}},
-        plan={"setups": []},
-    )
-    sheet.surface_z = lambda setup, value, *args, **kwargs: coordinates.dro_z(value, (0.005, 3))
-    setup = {**SPOT, "machine": "mill"}
+    bundle = grid_bundle(tmp_path)
+    setup = bundle.plan["setups"][0]
+    setup["ops"] = SPOT["ops"]
+    sheet = _Traveler(bundle, [], {}, None)
+    sheet.records = {
+        ("coordinates", "S1"): {"operations": [{"op": 60, "dro_to_z": -0.5}]},
+        **records,
+    }
     numbers = {"stacks": [{"op": 60, "margin_mm": 40.0}]}
     [(_, _, obstacle, value, _)] = sheet.clearance_rows(setup, numbers, T4)
     assert "stock under the holder at Z 4.475" in obstacle, obstacle

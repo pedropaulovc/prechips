@@ -715,19 +715,56 @@ def test_declared_clearing_box_derives_the_next_setup_and_keeps_unclaimed_rails(
 
 def _refused(engine, step):
     wall = engine.refs(step, (30, 0, 10), (30, 40, 20))
+    floor = engine.refs(step, (30, 0, 10), (60, 40, 10))
     bottom = engine.refs(step, (0, 0, 0), (60, 40, 0))
-    yield _clearing({**CLEAR, "z": [22.0, 10.0]}), ALLOWED
-    yield _clearing({"x": [30.0, 60.0], "z": [10.0, 22.0]}), ALLOWED
-    yield _clearing("unknown"), ALLOWED
-    yield _clearing({"reason": "host named why"}), ALLOWED
-    yield _clearing(CLEAR, faces=["unknown"]), ALLOWED
-    yield _clearing(CLEAR, faces=wall + bottom), ALLOWED
-    yield _clearing({**CLEAR, "x": [40.0, 60.0]}), ALLOWED
-    # This disconnected end piece borders no claim, even though broad multipass bounds
-    # themselves are permitted with a measured cutter radius.
+    accepted = _clearing(CLEAR, faces=wall + floor)
+    for name, bounds, cause in (
+        ("reversed-z", {**CLEAR, "z": [22.0, 10.0]}, ("stock_removal_bounds z", "lo < hi")),
+        (
+            "missing-y",
+            {"x": [30.0, 60.0], "z": [10.0, 22.0]},
+            ("stock_removal_bounds y", "lo < hi"),
+        ),
+        ("unknown-bounds", "unknown", ("stock_removal_bounds is unknown",)),
+        ("host-debt", {"reason": "host named why"}, ("host named why",)),
+    ):
+        yield name, {**accepted, "stock_removal_bounds": bounds}, ALLOWED, cause, accepted
+    yield (
+        "unknown-face",
+        _clearing(CLEAR, faces=["unknown"]),
+        ALLOWED,
+        (
+            "claimed faces are unresolved",
+            "unknown",
+        ),
+        accepted,
+    )
+    yield (
+        "away-face",
+        _clearing(CLEAR, faces=wall + bottom),
+        ALLOWED,
+        (
+            "facing away",
+            bottom[0],
+        ),
+        accepted,
+    )
+    yield (
+        "outside-claim",
+        _clearing({**CLEAR, "x": [40.0, 60.0]}, faces=wall + floor),
+        ALLOWED,
+        (
+            "lie outside its stock_removal_bounds",
+            wall[0],
+        ),
+        accepted,
+    )
+    # The end piece borders no claim; repairing only X leaves that unclaimed end intact.
     end = {**BOX, "origin_mm": [-5.0, 0.0, 0.0], "length_mm": 65.0}
     box = {"x": [-5.0, 60.0], "y": [0.0, 40.0], "z": [10.0, 20.0]}
-    yield _clearing(box), end
+    invalid = _clearing(box, faces=wall + floor)
+    repaired = {**invalid, "stock_removal_bounds": {**box, "x": [30.0, 60.0]}}
+    yield "disconnected-end", invalid, end, ("bordering none of its claimed faces",), repaired
 
 
 def test_unknown_or_unclaimed_clearance_never_derives_the_next_setup(engine, solids):
@@ -743,37 +780,129 @@ def test_unknown_or_unclaimed_clearance_never_derives_the_next_setup(engine, sol
             (),
             stock,
         )
-        for op, stock in cases
+        for _, invalid, stock, _, repaired in cases
+        for op in (invalid, repaired)
     ]
     results = engine.run({"jobs": jobs})["results"]
-    for result in results:
+    assert len(results) == 2 * len(cases)
+    for index, (name, _, stock, causes, _) in enumerate(cases):
+        result, repaired = results[2 * index : 2 * index + 2]
         first, second = result["setups"]["S1"], result["setups"]["S2"]
         # S1's own facts stand on its known entry stock; only its output is unknown.
-        assert "stock_reason" not in first and first["render_png_base64"]
-        assert "S1:10" in second["stock_reason"] and "render_png_base64" not in second
+        assert "stock_reason" not in first and first["render_png_base64"], name
+        assert "S1:10" in second["stock_reason"], name
+        for cause in causes:
+            assert cause in second["stock_reason"], (name, second["stock_reason"])
+        assert "render_png_base64" not in second
         assert "stock_volume_mm3" not in second and "stock_out_volume_mm3" not in second
         assert result["ops"]["S2:10"]["tool_hits"] == "unknown"
+        control = repaired["setups"]["S2"]
+        removed_height = stock["section_mm"][1] - 10.0
+        supplied = stock["length_mm"] * math.prod(stock["section_mm"])
+        assert "stock_reason" not in control and control["render_png_base64"], name
+        assert control["stock_volume_mm3"] == pytest.approx(supplied - 30 * 40 * removed_height)
 
 
 def _variants(engine, step):
     top = engine.refs(step, (0, 0, 20), (30, 40, 20))
-    yield {"reason": "plan stock is unknown; in-process stock cannot be derived"}, (), {}
-    yield {**BOX, "section_mm": [40.0, 25.0]}, top, {}
-    yield {**BOX, "origin_mm": [0.0, 0.0, 1.0]}, (), {}
-    yield BOX, (), {"stock_in": "missing"}
+    yield (
+        "unknown-supply",
+        {"reason": "plan stock is unknown; in-process stock cannot be derived"},
+        (),
+        {},
+        (
+            "plan stock is unknown",
+            "in-process stock cannot be derived",
+        ),
+        BOX,
+        (),
+        {},
+    )
+    yield (
+        "as-is",
+        {**BOX, "section_mm": [40.0, 25.0]},
+        top,
+        {},
+        (
+            "as-is face(s) do not lie on the authored stock envelope",
+            top[0],
+        ),
+        BOX,
+        top,
+        {},
+    )
+    yield (
+        "containment",
+        {**BOX, "origin_mm": [0.0, 0.0, 1.0]},
+        (),
+        {},
+        (
+            "finished part extends",
+            "outside the authored stock envelope",
+        ),
+        BOX,
+        (),
+        {},
+    )
+    yield (
+        "missing-route",
+        BOX,
+        (),
+        {"stock_in": "missing"},
+        (
+            "stock_in reference 'missing'",
+            "not a supply or earlier",
+        ),
+        BOX,
+        (),
+        {"stock_in": "stock"},
+    )
 
 
 def test_unknown_supply_as_is_or_route_never_measures_or_renders(engine, solids):
     step = solids["step"]
     floor = engine.refs(step, (30, 0, 10), (60, 40, 10))
-    for stock, as_is, extra in _variants(engine, step):
-        setup = {**_setup("S1", [_floor_op("S1:10")]), **extra}
-        result = engine.run(engine.job(step, {"floor": floor}, [setup], as_is, stock))
+    cases = list(_variants(engine, step))
+    jobs = [
+        engine.job(
+            step,
+            {"floor": floor},
+            [{**_setup("S1", [_floor_op("S1:10")]), **extra}],
+            as_is,
+            stock,
+        )
+        for (
+            _,
+            invalid_stock,
+            invalid_as_is,
+            invalid_extra,
+            _,
+            fixed_stock,
+            fixed_as_is,
+            fixed_extra,
+        ) in cases
+        for stock, as_is, extra in (
+            (invalid_stock, invalid_as_is, invalid_extra),
+            (fixed_stock, fixed_as_is, fixed_extra),
+        )
+    ]
+    results = engine.run({"jobs": jobs})["results"]
+    assert len(results) == 2 * len(cases)
+    for index, (name, _, _, _, causes, _, _, _) in enumerate(cases):
+        result, repaired = results[2 * index : 2 * index + 2]
         assert result["status"] == "ok", result
         facts, op = result["setups"]["S1"], result["ops"]["S1:10"]
+        for cause in causes:
+            assert cause in facts["stock_reason"], (name, facts["stock_reason"])
         assert "render_png_base64" not in facts and facts["width_mm"] == "unknown"
         assert "stock_volume_mm3" not in facts and "stock_out_volume_mm3" not in facts
         assert op["tool_hits"] == op["holder_hits"] == op["reach_depth_mm"] == "unknown"
+        control, control_op = repaired["setups"]["S1"], repaired["ops"]["S1:10"]
+        assert "stock_reason" not in control and control["render_png_base64"], name
+        assert control["stock_volume_mm3"] == pytest.approx(60 * 40 * 20)
+        assert control_op["tool_hits"] != "unknown"
+        assert control_op["holder_hits"] != "unknown"
+        assert control_op["reach_depth_mm"] != "unknown"
 
 
 def test_authored_clearing_without_cutter_radius_keeps_later_stock_unknown(engine, solids):
@@ -827,19 +956,41 @@ def test_a_retained_ear_between_sample_rows_keeps_stock_unknown(engine, solids):
     step = solids["step"]
     wall = engine.refs(step, (30, 0, 10), (30, 40, 20))
     floor = engine.refs(step, (30, 0, 10), (60, 40, 10))
-    clear = _clearing({**CLEAR, "y": [3.0, 40.0]}, faces=wall + floor, subject="S1:20")
-    result = engine.run(
+    partial = _clearing({**CLEAR, "y": [3.0, 40.0]}, faces=wall + floor, subject="S1:20")
+    complete = {**partial, "stock_removal_bounds": CLEAR}
+    wall_op = _op("S1:10", "wall", 3.0, 15.0, 30.0)
+    jobs = [
         engine.job(
             step,
-            {"wall": wall},
+            {"wall": wall, "floor": floor},
             [
-                _setup("S1", [_op("S1:10", "wall", 3.0, 15.0, 30.0), clear]),
+                _setup("S1", ops),
                 _setup("S2", [_op("S2:10", "wall", 3.0, 15.0, 30.0)]),
             ],
         )
-    )
-    assert wall[0] in result["setups"]["S2"].get("stock_reason", "")
-    assert "stock_volume_mm3" not in result["setups"]["S2"]
+        for ops in ([wall_op, partial], [wall_op, complete], [partial])
+    ]
+    retained, cleared, witness = engine.run({"jobs": jobs})["results"]
+    first, second = retained["setups"]["S1"], retained["setups"]["S2"]
+    assert "stock_reason" not in first and first["render_png_base64"]
+    assert first["stock_volume_mm3"] == pytest.approx(60 * 40 * 20)
+    assert retained["ops"]["S1:10"]["tool_hits"] != "unknown"
+    assert retained["ops"]["S1:20"]["tool_hits"] != "unknown"
+    assert "S1:10" in second["stock_reason"] and wall[0] in second["stock_reason"]
+    assert "overstock still touches claimed wall" in second["stock_reason"]
+    assert "stock_volume_mm3" not in second and "render_png_base64" not in second
+    assert retained["ops"]["S2:10"]["tool_hits"] == "unknown"
+    control = cleared["setups"]["S2"]
+    assert "stock_reason" not in control and control["render_png_base64"]
+    finished_volume = 60 * 40 * 20 - 30 * 40 * 10
+    assert control["stock_volume_mm3"] == pytest.approx(finished_volume)
+    assert cleared["ops"]["S2:10"]["tool_hits"] != "unknown"
+    # Without the unbounded wall claim, the same partial box has known output:
+    # its omitted 3 mm strip is real retained material, not a drafted-wall failure.
+    strip = witness["setups"]["S2"]
+    assert "stock_reason" not in strip and strip["render_png_base64"]
+    assert strip["stock_volume_mm3"] == pytest.approx(finished_volume + 30 * 3 * 10)
+    assert strip["stock_volume_mm3"] - control["stock_volume_mm3"] == pytest.approx(900.0)
 
 
 def test_facing_own_allowance_is_not_a_flute_obstacle_but_still_hits_a_low_holder(engine, solids):

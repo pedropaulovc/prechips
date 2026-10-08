@@ -46,7 +46,7 @@ def records(value):
 
 
 def drill_point_mm(diameter_mm, point_angle_deg):
-    """Axial cone length: D / (2 tan(included angle / 2))."""
+    """Axial cone length: D / (2 tan(included angle / 2)); unrepresentable cones stay unknown."""
     if not (
         number(diameter_mm)
         and diameter_mm > 0
@@ -54,7 +54,11 @@ def drill_point_mm(diameter_mm, point_angle_deg):
         and 0 < point_angle_deg < 180
     ):
         return UNKNOWN
-    return diameter_mm / (2 * math.tan(math.radians(point_angle_deg / 2)))
+    tangent = math.tan(math.radians(point_angle_deg / 2))
+    if tangent <= 0:
+        return UNKNOWN
+    point = diameter_mm / (2 * tangent)
+    return point if math.isfinite(point) else UNKNOWN
 
 
 def _subtract(*values):
@@ -320,7 +324,8 @@ def stock_states(bundle, setup):
     """Yield (op, before, after); profiles never move the touched top surface.
 
     Entry values are separate from the setup's touched top. Explicit pocket/face
-    footprints may advance entry planes inside the cut, not adjoining strips. An op that
+    footprints (including an op's own clearing box) may advance entry planes inside the
+    cut, not adjoining strips. An op that
     cut only part of a surface (:func:`cut_coverage`) advances neither it nor the top:
     the surface keeps the uncut height its last whole producer left. One whose coverage
     is unknown leaves that surface's Z, and its source, unknown.
@@ -344,7 +349,11 @@ def stock_states(bundle, setup):
             cut = mapping(features.get(name))
             made = f"{setup['id']} op {op['op']} to_z"
             for target in entries:
-                if target != name and not _covers(cut, mapping(features.get(target))):
+                if (
+                    "stock_removal_bounds" not in op
+                    and target != name
+                    and not _covers(cut, mapping(features.get(target)))
+                ):
                     continue
                 coverage = cut_coverage(bundle, setup, op, mapping(features.get(target)))
                 if coverage != "partial":

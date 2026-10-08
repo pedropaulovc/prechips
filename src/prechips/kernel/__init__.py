@@ -80,7 +80,8 @@ def _shank_from(tool, values):
     That is the flute end, except on a combined drill and countersink: its ``angle_deg``
     seat cone cuts from the pilot out to a wider body, so its shank begins where that
     cone reaches the shank diameter. An unknown shank keeps the flute end, which only
-    lowers the start of a body whose diameter is itself unknown.
+    lowers the start of a body whose diameter is itself unknown. An unrepresentable seat
+    cone height stays unknown.
     """
     flute, cutter = values["flute_len_mm"], values["radius_mm"]
     shank = values["shank_radius_mm"]
@@ -91,7 +92,11 @@ def _shank_from(tool, values):
         return flute
     if not 0 < seat < 180:
         return UNKNOWN
-    return flute + (shank - cutter) / math.tan(math.radians(seat / 2))
+    tangent = math.tan(math.radians(seat / 2))
+    if tangent <= 0:
+        return UNKNOWN
+    shoulder = flute + (shank - cutter) / tangent
+    return shoulder if math.isfinite(shoulder) else UNKNOWN
 
 
 def _turning_values(bundle, op):
@@ -479,7 +484,8 @@ def _hand_inputs(bundle, setup, op, subject, finishing):
     """A bench file's kernel inputs: its claims and the policy's ``max_filing_stock_mm``,
     the most stock a file takes off its claimed faces; it has no machine cutter or holder.
     A file guided by filing buttons held in this setup names the kit's solids by their
-    kernel owner (``guide_owner``) and the diameter band its rims stand at
+    kernel owner (``guide_owner``), retaining the held item's spelling after resolved
+    identity selects it, and the diameter band its rims stand at
     (``guide_rim_dia_mm``): twice the radius band the kit files to worst case over its
     declared stack, proven as the manual-arc rule proves it
     (:func:`prechips.rules.manual_arc.rim_band`: the button OD limits widened by the rim
@@ -492,7 +498,7 @@ def _hand_inputs(bundle, setup, op, subject, finishing):
     from prechips.rules.coordinates import filing_cap
     from prechips.rules.geometry_common import HAND, finishing_subjects
     from prechips.rules.manual_arc import rim_band
-    from prechips.rules.resolution import resolve
+    from prechips.rules.resolution import identity, resolve
 
     result = {
         "subject": subject,
@@ -508,13 +514,18 @@ def _hand_inputs(bundle, setup, op, subject, finishing):
     kit = guide.get("buttons")
     hold = record(setup.get("hold"))
     clamps = hold.get("clamps") if isinstance(hold.get("clamps"), list) else []
+    key = identity(bundle, kit, "fixtures")
     owner = next(
         (
-            _clamp_owner(index, kit)
+            _clamp_owner(index, record(clamp).get("ref"))
             for index, clamp in enumerate(clamps, start=1)
-            if record(clamp).get("ref") == kit
+            if record(clamp).get("ref") is not None
+            and identity(bundle, record(clamp).get("ref"), "fixtures") == key
         ),
-        kit if hold.get("fixture") == kit else None,
+        hold.get("fixture")
+        if hold.get("fixture") is not None
+        and identity(bundle, hold.get("fixture"), "workholding") == key
+        else None,
     )
     if isinstance(kit, str) and kit != UNKNOWN and owner is not None:
         result["guide_owner"] = owner
@@ -1530,6 +1541,21 @@ def _engine_digest():
     return digest.hexdigest()
 
 
+def _kernel_identity(executable):
+    """Identify the executed launcher from its current bytes and file identity."""
+    executable = Path(executable)
+    stat = executable.stat()
+    with executable.open("rb") as stream:
+        executable_sha256 = hashlib.file_digest(stream, "sha256").hexdigest()
+    identity = {
+        "path": str(executable.resolve()),
+        "sha256": executable_sha256,
+        "size": stat.st_size,
+        "mtime_ns": stat.st_mtime_ns,
+    }
+    return identity
+
+
 def _cache_path(key):
     base = os.environ.get("PRECHIPS_KERNEL_CACHE")
     root = (
@@ -1724,14 +1750,8 @@ def run_geometries(bundles):
             identity = None
             try:
                 executable = Path(executable)
-                stat = executable.stat()
-                identity = {
-                    "path": str(executable.resolve()),
-                    "sha256": hashlib.sha256(executable.read_bytes()).hexdigest(),
-                    "size": stat.st_size,
-                    "mtime_ns": stat.st_mtime_ns,
-                }
                 engine = _engine_digest()
+                identity = _kernel_identity(executable)
             except OSError as exc:
                 for bundle in pending:
                     object.__setattr__(

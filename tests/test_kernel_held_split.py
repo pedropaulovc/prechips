@@ -14,6 +14,7 @@ import pytest
 import test_kernel_stock_prefix as prefix
 from test_kernel_geometry import Engine, _setup
 from test_kernel_stock_prefix import BLANK, _rough
+from test_render_png import _decode_png
 
 UP = {"x": [1.0, 0.0, 0.0], "z": [0.0, 0.0, 1.0]}
 # The box clears the strip south of the part and strands the blank's last 3 mm (y -5..-2).
@@ -139,15 +140,29 @@ def test_an_inspection_sketch_draws_the_piece_that_holds_the_part_not_the_scrap(
     }
     inspections = [{"op": 20, "after": "S1:10", "requirement": "height", "views": [view]}]
     cleared = {**BOUNDS, "y": [-5.0, 5.0]}
-    heights = []
     pictures = []
     for bounds in (BOUNDS, cleared):
         result = _run(engine, solids["island"], _hold("press"), bounds, inspections)
         facts = result["setups"]["S1"]
         png = base64.b64decode(facts["inspection_pngs_base64"]["20:height"])
         pictures.append(png)
-        heights.append(struct.unpack(">II", png[16:24])[1])
-    assert heights[0] == heights[1], heights
+        width, height, pixels = _decode_png(png)
+        # Looking along +X, the selected piece projects its independently authored
+        # y=5..55 by z=0..20 rectangle. Scrap alone is 3/20, the whole blank is
+        # 60/20, and the finished part is 40/20: none may masquerade as this piece.
+        # Select the blue-grey work fill, including its lighting shades, rather
+        # than labels, leaders or the surface plate.
+        body = [
+            (index % width, index // width)
+            for index in range(width * height)
+            for red, green, blue in [pixels[index * 3 : index * 3 + 3]]
+            if red >= 45 and 0.07 < (green - red) / red < 0.09 and 0.14 < (blue - red) / red < 0.17
+        ]
+        assert len(body) > 1000, "inspection must contain a nonempty work silhouette"
+        xs, ys = zip(*body, strict=True)
+        projected_width = max(xs) - min(xs) + 1
+        projected_height = max(ys) - min(ys) + 1
+        assert projected_width / projected_height == pytest.approx(50.0 / 20.0, abs=0.03)
     assert pictures[0] == pictures[1]
 
 

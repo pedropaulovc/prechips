@@ -1,5 +1,7 @@
 """Consumer boundaries of deterministic kernel facts, measurement debt and readiness."""
 
+import base64
+import hashlib
 import math
 import sys
 from copy import deepcopy
@@ -727,7 +729,7 @@ def test_two_cold_candidates_share_one_batch_and_content_cache_invalidates(
 def test_cache_reuses_content_at_different_step_path_and_rejects_digest_drift(
     bundle, monkeypatch, tmp_path
 ):
-    import hashlib
+    from prechips.report import render_assets
 
     original = tmp_path / "first.step"
     relocated = tmp_path / "second.step"
@@ -736,6 +738,8 @@ def test_cache_reuses_content_at_different_step_path_and_rejects_digest_drift(
     bundle.paths["step"] = original
     bundle.features["step_sha256"] = hashlib.sha256(original.read_bytes()).hexdigest()
     result = deepcopy(bundle.kernel)
+    png = b"\x89PNG\r\n\x1a\ncache render bytes\r\n"
+    result["setups"]["S1"]["render_png_base64"] = base64.b64encode(png).decode("ascii")
     object.__setattr__(bundle, "kernel", None)
     calls = []
     monkeypatch.setattr(kernel, "discover_kernel", lambda: Path(sys.executable))
@@ -750,11 +754,92 @@ def test_cache_reuses_content_at_different_step_path_and_rejects_digest_drift(
     kernel.run_geometry(moved)
     assert len(calls) == 1
     assert finding(coverage, moved).status == "pass"
+    for candidate, directory in ((bundle, "first-output"), (moved, "second-output")):
+        assets = render_assets(candidate)
+        assert assets == {"setup-S1.png": png}
+        output = tmp_path / directory
+        output.mkdir()
+        for name, raw in assets.items():
+            (output / name).write_bytes(raw)
+        assert (output / "setup-S1.png").read_bytes() == png
     relocated.write_bytes(b"unexpected drift")
     object.__setattr__(moved, "kernel", None)
     assert kernel.run_geometry(moved)["status"] == "unknown"
     assert finding(coverage, moved).status == "unknown"
     assert len(calls) == 1
+
+
+@pytest.fixture
+def cache_candidate(bundle, monkeypatch, tmp_path):
+    step = tmp_path / "part.step"
+    step.write_bytes(b"cache control STEP bytes")
+    bundle.paths["step"] = step
+    bundle.features["step_sha256"] = hashlib.sha256(step.read_bytes()).hexdigest()
+    result = deepcopy(bundle.kernel)
+    object.__setattr__(bundle, "kernel", None)
+    monkeypatch.setattr(kernel, "discover_kernel", lambda: Path(sys.executable))
+    monkeypatch.setenv("PRECHIPS_KERNEL_CACHE", str(tmp_path / "cache"))
+    return bundle, result
+
+
+@pytest.mark.parametrize("status", ["unknown", "error"])
+def test_unsuccessful_geometry_is_not_reused_from_persistent_cache(
+    cache_candidate, monkeypatch, tmp_path, status
+):
+    candidate, success = cache_candidate
+    calls = []
+
+    def execute(executable, batch):
+        calls.append(batch)
+        result = (
+            {"status": status, "reason": "deliberate test debt"} if len(calls) == 1 else success
+        )
+        return {"results": [deepcopy(result)]}
+
+    monkeypatch.setattr(kernel, "_execute", execute)
+    assert kernel.run_geometry(candidate)["status"] == status
+    assert not list((tmp_path / "cache").glob("*.json"))
+    object.__setattr__(candidate, "kernel", None)
+    assert kernel.run_geometry(candidate)["status"] == "ok"
+    object.__setattr__(candidate, "kernel", None)
+    assert kernel.run_geometry(candidate)["status"] == "ok"
+    assert len(calls) == 2
+    assert finding(coverage, candidate).status == "pass"
+
+
+@pytest.mark.parametrize(
+    "contents", ["not JSON", "[]", '{"status":"unknown"}', '{"status":"error"}']
+)
+def test_malformed_or_unsuccessful_cache_entry_is_a_miss(
+    cache_candidate, monkeypatch, tmp_path, contents
+):
+    candidate, result = cache_candidate
+    calls = []
+    monkeypatch.setattr(
+        kernel, "_execute", lambda executable, batch: calls.append(batch) or {"results": [result]}
+    )
+    kernel.run_geometry(candidate)
+    entries = list((tmp_path / "cache").glob("*.json"))
+    assert len(entries) == 1
+    entries[0].write_text(contents, encoding="utf-8")
+    object.__setattr__(candidate, "kernel", None)
+    assert kernel.run_geometry(candidate)["status"] == "ok"
+    assert len(calls) == 2
+    assert finding(coverage, candidate).status == "pass"
+
+
+def test_engine_identity_read_failure_returns_error_without_executing(cache_candidate, monkeypatch):
+    candidate, _ = cache_candidate
+    calls = []
+
+    def unavailable_engine():
+        raise OSError("test engine unavailable")
+
+    monkeypatch.setattr(kernel, "_engine_digest", unavailable_engine)
+    monkeypatch.setattr(kernel, "_execute", lambda *args: calls.append(args))
+    assert kernel.run_geometry(candidate)["status"] == "error"
+    assert calls == []
+    assert finding(coverage, candidate).status == "unknown"
 
 
 @pytest.mark.parametrize(

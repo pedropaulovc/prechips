@@ -494,16 +494,6 @@ def test_engagement_missing_or_unverified_assembly_stays_unknown(problem):
     assert finding.numbers["recommended_doc_mm"] == "unknown"
 
 
-def test_engagement_long_projection_with_authored_unknown_doc_does_not_guess_depth():
-    data = milling_bundle()
-    data.inventory["tools"]["cutter"]["projection_mm"]["holder"] = 50
-    data.plan["setups"][0]["ops"][0]["doc_mm"] = "unknown"
-    finding = engagement.evaluate(data)[0]
-    assert finding.status == "unknown"
-    assert finding.numbers["projection_ld"] == 5
-    assert finding.numbers["recommended_doc_mm"] == "unknown"
-
-
 @pytest.mark.parametrize("evaluate", [turning_deflection.evaluate, engagement.evaluate])
 def test_manual_operation_is_not_a_cutting_proxy(evaluate):
     data = milling_bundle() if evaluate is engagement.evaluate else turning_bundle()

@@ -1,6 +1,6 @@
 # Static physics proxies
 
-`turning_deflection` and `engagement` implement PLAN §4.4 (lines 563–568).
+`turning_deflection` and `engagement` implement [PLAN §4.4](../PLAN.md#44-physics-proxies--lines-only-policy-may-promote).
 They are deterministic screens of declared facts, not measured workholding,
 chatter, whip, cutter-life or final-size certification. They never emit a hard
 `error`: a resolved over-limit result is `warn`, a resolved within-limit result
@@ -33,7 +33,7 @@ For a nonmanual lathe operation, use only the declared:
 - exact authored stock-material alias and exactly one cited
   `cutting-data.[[material]]` row for `kc_n_per_mm2` and `e_gpa`.
 
-PLAN §4.4 line 567 supplies the static proxy:
+The PLAN §4.4 turning-deflection row supplies the static proxy:
 
 ```text
 F_N       = K_c_N/mm² × doc_mm × feed_mm/rev
@@ -92,8 +92,8 @@ Evidence: `span_mm`, `span_model` (`stickout`/`follow_rest`/`steady_rest`),
 
 ### Acceptance threshold
 
-The comparison follows PLAN line 567's ± tolerance wording against the
-operation's own acceptance:
+The comparison follows the PLAN §4.4 turning-deflection row's ± tolerance
+wording against the operation's own acceptance:
 
 ```text
 rough_* action:          acceptance_threshold_mm = rough_allowance_mm / 2
@@ -134,40 +134,40 @@ actual feature acceptance-band (or operation rough-allowance) source.
 
 ## `engagement`
 
-This is an **endmill-only** screen for cutting operations with an explicitly
-authored `doc_mm`. The selected resolved tool/member must have kind `endmill`
-or `endmill_set`. Known drill, reamer, tap, lathe-tool and other non-endmill
-families are `not_applicable`, even when the operation declares DOC; their
-geometry must not produce a milling DOC-halving recommendation.
-Noncutting/manual operations, including the manual joining action `fit` and `transfer`, and operations
-with omitted DOC are also `not_applicable`. Cutting actions use the existing
-face, profile, pocket, hole-making and turning action conventions; an endmill
-used for a counterbore with authored DOC remains eligible.
+This is an endmill-only screen for cutting operations. The selected resolved
+tool/member must have kind `endmill` or `endmill_set`. Known drill, reamer,
+tap, lathe-tool and other non-endmill families are `not_applicable`, even
+when the operation declares DOC; their geometry must not produce a milling
+DOC-halving recommendation. Known noncutting/manual operations, including
+the joining actions `fit` and `transfer`, are also `not_applicable`.
+Cutting actions use the existing face, profile, pocket, hole-making and
+turning action conventions; an endmill used for a counterbore is eligible.
 
-On an eligible cutting operation with authored DOC, an unresolved selected
-tool/member or unknown tool kind stays `unknown`, rather than establishing a
-non-endmill exclusion. An unknown action also stays unknown unless omitted DOC
-or a known non-endmill family independently establishes non-applicability.
+An eligible cutting operation needs a positive authored axial depth per pass,
+`doc_mm`. Omitted, unknown and nonpositive DOC remain `unknown`, including
+at or below 4×D. An unresolved tool/member, unknown tool kind or unknown
+action also stays unknown unless a known non-endmill family or known
+noncutting action independently establishes non-applicability.
 
 Resolve the operation's selected inventory tool **and** holder. Use the existing
 explicit-unit `length_mm` helper for tool diameter, projection/OAL and holder
 grip; a tool with a bare diameter and no units does not acquire an assumed unit.
 
-Projection uses explicit selected-tool geometry before OAL-minus-grip arithmetic:
+Projection uses the selected tool/holder pair before OAL-minus-grip arithmetic:
 
-1. Authored `projection_mm`, `projection_in`, or explicit-unit `projection` on
-   the resolved selected tool identity/member. An explicit unknown remains
-   unknown; it does not permit an OAL-minus-grip fallback.
-2. Only when all projection keys are absent, known tool OAL minus the selected
+1. The selected holder's entry in the tool/member's `projection_mm` or
+   `projection_in` map. A known entry supplies that pair's projection; an
+   explicit `"unknown"` entry stays unknown and forbids fallback.
+2. Only when that pair has no entry, known tool OAL minus the selected
    holder's known grip.
 
-The existing schema carries a scalar projection on the selected tool/member;
-there is no new per-holder projection mapping. Both the tool and holder must
-resolve and be verified even when explicit tool projection is available. No
-holder grip, tool diameter, OAL or projection is supplied for an absent tool.
-Nonpositive projection, diameter or required fallback dimensions remain unknown.
+Projection keys follow the [inventory pair-identity contract](inventory.md#measured-envelopes-and-installed-tool-stacks-m5).
+Both tool and holder must resolve and be verified even with an explicit pair
+projection. No holder grip, tool diameter, OAL or projection is supplied for an
+absent tool. Nonpositive projection, diameter or required fallback dimensions
+remain unknown.
 
-PLAN §4.4 line 568 supplies both the 4×D boundary and halving factor:
+The PLAN §4.4 engagement row supplies both the 4×D boundary and halving factor:
 
 ```text
 projection_ld = projection_mm / diameter_mm
@@ -180,15 +180,13 @@ Equality passes. The existing `resolution.same_length` precision convention
 `4 × D` despite inch-conversion residue; the report keeps the unrounded ratio.
 This is arithmetic equality handling, not a new shop-policy allowance.
 The recommendation never changes the authored operation.
-Unknown/nonpositive **authored** DOC keeps an eligible endmill result `unknown`
-at any projection ratio, including at or below 4×D. When the geometry is known,
-the report retains the projection ratio and prints `?`, but never guesses a
-recommended cut depth. This differs from omitted DOC, which is `not_applicable`.
+When geometry is known but DOC is unresolved, the report retains the projection
+ratio and prints `?` without a recommended cut depth.
 
 Evidence includes selected identities and tool kind, explicit-unit diameter, OAL, grip,
 projection and its source basis, ratio, PLAN limit, authored DOC, reduction
-factor, recommended DOC and missing-input reasons. Citations identify PLAN
-line 568 and the actual selected inventory/operation fields.
+factor, recommended DOC and missing-input reasons. Citations identify the PLAN
+§4.4 engagement row and the actual selected inventory/operation fields.
 
 ## Existing readiness gate
 
@@ -200,7 +198,7 @@ selectors decide whether either proxy must be clean:
 - Any rule's hard `error`: exit 2, taking precedence over required proxy debt.
 - Malformed input: exit 3 before rules or outputs.
 
-The existing precedence is **3 > 2 > 4 > 0** (PLAN lines 473–478 and 501–509).
+The existing precedence is **3 > 2 > 4 > 0** ([PLAN §4 exit precedence](../PLAN.md#4-what-the-checker-validates-the-rule-catalogue)).
 Isolated synthetic tests in `tests/test_physics_m2.py` cover the equations,
 support selection, explicit units, projection fallback/precedence, DOC halving,
 unknowns, deterministic nonmutating findings and these consumer-visible gates;

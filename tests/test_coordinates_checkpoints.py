@@ -264,8 +264,24 @@ def test_a_finish_depth_the_dro_leaves_above_its_face_past_its_band_is_an_error(
 
 def test_rocker_join_records_carry_their_stage_allowance_and_offset():
     bundle = load_bundle(ROCKER)
-    for row in coordinates.evaluate(bundle, pre_kernel=True):
-        for table in (*row.numbers.get("arc_table", []), *row.numbers.get("line_table", [])):
+    rows = coordinates.evaluate(bundle, pre_kernel=True)
+    assert rows
+    populations = {
+        (row.subject, table["op"], table["stage"], kind)
+        for row in rows
+        for kind in ("arc_table", "line_table")
+        for table in row.numbers[kind]
+    }
+    # The current manual recipe roughs these joined outlines; file_to_line finishes
+    # them, not a superseded finish arc-table operation.
+    assert {
+        (setup, op, "rough", kind)
+        for setup, op in (("S1", 40), ("S2", 40), ("S4", 27))
+        for kind in ("arc_table", "line_table")
+    } <= populations
+    for row in rows:
+        for table in (*row.numbers["arc_table"], *row.numbers["line_table"]):
+            assert table.get("rows") if "rows" in table else table["dro_xy"], table
             radius = next(
                 p["cutter_radius_mm"]
                 for p in row.numbers["profiles"]

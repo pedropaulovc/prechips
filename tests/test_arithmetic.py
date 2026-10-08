@@ -359,6 +359,13 @@ def test_drill_point(diameter, angle, expected):
     assert drill_point_mm(diameter, angle) == pytest.approx(expected)
 
 
+@pytest.mark.parametrize("angle", [float.fromhex("0x0.0000000000001p-1022"), 1e-310])
+def test_an_unrepresentable_drill_cone_stays_unknown(angle):
+    # These are positive finite angles, but the radian half-angle underflows to zero
+    # or the resulting cone depth exceeds the finite floating-point range.
+    assert drill_point_mm(6.0, angle) == "unknown"
+
+
 @pytest.mark.parametrize(
     "diameter,angle", [(0, 118), (6, 0), (6, 180), ("unknown", 118), (6, "unknown")]
 )
