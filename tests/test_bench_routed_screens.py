@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from prechips import kernel as native_kernel
 from prechips.rules import coordinates, headroom, zero_recipe
 
 MEASURED = {"by": "test", "date": "2026-10-05", "instrument": "steel rule"}
@@ -228,3 +229,80 @@ def test_absent_setup_entry_stock_stays_travel_debt_never_raw_blank(route, entry
     for axis in ("x", "y"):
         assert row.numbers["travel_checks"][axis]["required_mm"] == "unknown"
     assert (row.numbers.get("kernel_unavailable") is True) == (kernel is not None)
+
+
+@pytest.mark.parametrize("route", ROUTES)
+@pytest.mark.parametrize(
+    "memo",
+    ["absent", None, "unknown", {}],
+    ids=["no-kernel-attribute", "unpopulated-kernel", "malformed-kernel", "empty-kernel"],
+)
+def test_unpopulated_setup_entry_kernel_memo_remains_unknown_without_dispatch(
+    route, memo, monkeypatch
+):
+    data = routed_bundle(route, 1000, 1000)
+    if memo == "absent":
+        del data.kernel
+    else:
+        data.kernel = memo
+
+    def refuse_geometry(*args, **kwargs):
+        pytest.fail("Headroom must consume existing kernel facts, never dispatch geometry.")
+
+    monkeypatch.setattr(native_kernel, "run_geometry", refuse_geometry)
+    monkeypatch.setattr(native_kernel, "run_geometries", refuse_geometry)
+    row = row_for(data)
+    assert row.status == "unknown"
+    assert row.numbers["kernel_status"] == "unknown"
+    assert row.numbers["stock_entry_reason"]
+    assert row.numbers["stock_entry_basis"] == "kernel setup-entry stock"
+    assert "kernel.setups.S3.stock_bbox_mm: setup-entry stock in the setup frame" in row.cite
+    for axis in ("x", "y"):
+        assert row.numbers[f"stock_extent_{axis}_mm"] == "unknown"
+        assert row.numbers["travel_checks"][axis]["required_mm"] == "unknown"
+    assert row.numbers["measurements"] == []
+    assert getattr(data, "kernel", "absent") == memo
+
+
+@pytest.mark.parametrize("route", ROUTES)
+def test_failed_preloaded_kernel_cannot_certify_its_setup_entry_box(route):
+    facts = {
+        "status": "error",
+        "reason": "native geometry job failed",
+        "setups": {"S3": {"stock_bbox_mm": list(ENTRY_BBOX)}},
+    }
+    data = routed_bundle(route, 1000, 1000, kernel=facts)
+    row = row_for(data)
+    assert row.status == "unknown"
+    assert row.numbers["kernel_status"] == "error"
+    assert row.numbers["stock_entry_reason"] == facts["reason"]
+    assert "stock_entry_bbox_mm" not in row.numbers
+    for axis in ("x", "y"):
+        assert row.numbers[f"stock_extent_{axis}_mm"] == "unknown"
+        assert row.numbers["travel_checks"][axis]["required_mm"] == "unknown"
+    assert data.kernel is facts
+
+
+@pytest.mark.parametrize("route", ROUTES)
+@pytest.mark.parametrize(
+    "bbox",
+    [
+        "unknown",
+        ENTRY_BBOX[:5],
+        [*ENTRY_BBOX[:5], "unknown"],
+        [False, *ENTRY_BBOX[1:]],
+    ],
+    ids=["not-a-box", "short-box", "unknown-coordinate", "boolean-coordinate"],
+)
+def test_malformed_preloaded_setup_entry_box_cannot_certify_travel(route, bbox):
+    entry = {"stock_bbox_mm": bbox, "stock_reason": "setup-entry stock geometry unresolved"}
+    data = routed_bundle(route, 1000, 1000, entry=entry)
+    row = row_for(data)
+    assert row.status == "unknown"
+    assert row.numbers["stock_entry_reason"] == entry["stock_reason"]
+    assert "stock_entry_bbox_mm" not in row.numbers
+    assert "kernel.setups.S3.stock_bbox_mm: setup-entry stock in the setup frame" in row.cite
+    for axis in ("x", "y"):
+        assert row.numbers[f"stock_extent_{axis}_mm"] == "unknown"
+        assert row.numbers["travel_checks"][axis]["required_mm"] == "unknown"
+    assert row.numbers["measurements"] == []

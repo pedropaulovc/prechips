@@ -101,9 +101,9 @@ def _entry_stock(bundle, setup, frame):
     Only a raw single supply (no stock components; ``stock_in`` absent or ``"stock"``)
     keeps the authored blank's box.  Any derived or component route (``stock_in`` naming
     an earlier setup, a ``stock.<component>`` or a joined pair) exists only as the
-    kernel's setup-entry ``stock_bbox_mm``, already in this setup's frame: earlier cuts
-    can shrink it inside a blank that would not fit.  Without that box the extent stays
-    unknown debt.
+    already-present successful kernel's setup-entry ``stock_bbox_mm``, in this setup's
+    frame: earlier cuts can shrink it inside a blank that would not fit.  Without that
+    box the extent stays unknown debt; this rule never starts the kernel.
     """
     components = _mapping(bundle.plan.get("stock")).get("components")
     if setup.get("stock_in", "stock") == "stock" and not (
@@ -129,8 +129,6 @@ def _entry_stock(bundle, setup, frame):
             stock_x, stock_y = [sum(abs(axis[i]) * extents[i] for i in range(3)) for axis in axes]
         # Unchanged legacy evidence: the authored blank adds no route fields or cites.
         return {"x": stock_x, "y": stock_y, "cite": []}
-    from prechips.kernel import run_geometry
-
     sid = setup["id"]
     result = {
         "x": _UNKNOWN,
@@ -138,7 +136,7 @@ def _entry_stock(bundle, setup, frame):
         "stock_entry_basis": "kernel setup-entry stock",
         "cite": [f"kernel.setups.{sid}.stock_bbox_mm: setup-entry stock in the setup frame"],
     }
-    facts = _mapping(run_geometry(bundle))
+    facts = _mapping(getattr(bundle, "kernel", None))
     if facts.get("status") != "ok":
         result["kernel_status"] = facts.get("status", _UNKNOWN)
         if facts.get("kernel_unavailable") is True:

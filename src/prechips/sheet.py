@@ -8206,7 +8206,7 @@ class _Traveler:
         o = self.operative
         parts = []
         if _known(state.get("od_mm")):
-            parts.append(_numeric_html(f"Ø{o(state['od_mm'])}"))
+            parts.append(_numeric_html(f"held on Ø{o(state['od_mm'])}"))
         # Each arriving surface as the DRO shows it, as every other line prints it; the Zs
         # carried over from the setup it arrives from, and that one transform.
         arrival = arrival_zs(self.bundle, setup)

@@ -71,9 +71,20 @@ counterbore and bore operations, and for `center_drill` on a plan
 [process](plan.md#process-features) `centre_hole`.
 Stock-state facing/pocketing advances only the named or explicitly covered
 same-frame entry surfaces. A known setup-frame `stock_removal_bounds` that
-contains a feature's whole footprint can advance its seeded local entry without
-requiring a redundant bounds box on the cutting op's own feature. Partial
-coverage retains the uncut entry; unresolved coverage remains debt.
+contains a feature's whole X/Y footprint can advance its seeded local entry without
+requiring a redundant bounds box on the cutting op's own feature. For an operation
+with `stock_removal_bounds`, the box's Z interval must contain both the current entry
+and `to_z`. That boxed cut cannot numerically raise the entry; a higher floor outside
+the same-plane float tolerance (`SAME_Z`, 1e-9 plan units), or a box wholly above or
+below the entry, leaves its height and source unchanged. Unknown removal Z or an
+unknown entry remains debt for these boxed cuts, never a known entry inferred from
+X/Y coverage alone. A valid equal-Z boxed cut, including float residue within
+`SAME_Z`, still establishes its operation as the producer while keeping the lower
+numeric value of the current entry and `to_z`. These boxed constraints do not change
+the existing unboxed own-feature/explicit-footprint transitions.
+A seed can name the eventual hole-entry face, not the raw material
+boundary: the touched `top_z` of another feature does not replace that local entry.
+Partial coverage retains the uncut entry; unresolved coverage remains debt.
 Profiles never move the touched top; `top_feature` restricts which facing
 operation moves that top. An omitted local `entry_z` retains the existing
 stock-state top fallback. Each record preserves entry origin, setup/op,

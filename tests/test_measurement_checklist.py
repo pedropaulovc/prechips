@@ -1,4 +1,4 @@
-"""Host-only checklists name unresolved measurements using synthetic kernel facts."""
+"""Host-only checklists name unresolved measurements without dispatching native geometry."""
 
 import json
 import re
@@ -6,7 +6,13 @@ import re
 import pytest
 from test_cli import ROOT, SYNTHETIC_KERNEL, copy_examples, run_cli
 
+from prechips import kernel
+from prechips.inputs import load_bundle
+from prechips.measurements import measurement_checklist
+from prechips.rules import MEASUREMENT_RULES
+
 SPINDLE_MIN = "machines.PM-30MV.envelope.spindle_to_table_min"
+SPINDLE_MAX = "machines.PM-30MV.envelope.spindle_to_table_max"
 
 
 def forget(path, table, *keys):
@@ -207,12 +213,78 @@ def test_different_declared_inventories_scope_debt_unless_overridden(tmp_path, o
     assert measurement_ids(json.loads(reversed_result.stdout)) == expected
 
 
+def test_default_examples_checklist_needs_no_native_geometry_or_warm_cache(tmp_path):
+    cache = tmp_path / "fresh-kernel-cache"
+    result = run_cli(
+        "tools",
+        "--measure",
+        "--json",
+        env={
+            "FREECAD_CMD": str(tmp_path / "nonexistent-freecadcmd"),
+            "PRECHIPS_KERNEL_CACHE": str(cache),
+        },
+    )
+    assert result.returncode == 0, result.stderr
+    entries = json.loads(result.stdout)
+    assert isinstance(entries, list)
+    ids = [entry["id"] for entry in entries]
+    assert ids == sorted(set(ids))
+    assert not cache.exists()
+
+
+def test_unprewarmed_measurement_rules_keep_derived_geometry_unknown_and_fact_debt(
+    tmp_path, monkeypatch
+):
+    examples = copy_examples(tmp_path)
+    inventory = examples / "inventory" / "pedro-shop.toml"
+    forget(
+        inventory, "machines.PM-30MV.envelope", "spindle_to_table_max_in", "spindle_to_table_max_mm"
+    )
+    bundle = load_bundle(examples / "rocker-arm" / "plan.toml")
+    assert bundle.kernel is None
+
+    def refuse_geometry(*args, **kwargs):
+        pytest.fail("Measurement rules must not dispatch the native kernel.")
+
+    monkeypatch.setattr(kernel, "run_geometry", refuse_geometry)
+    monkeypatch.setattr(kernel, "run_geometries", refuse_geometry)
+    findings = [finding for rule in MEASUREMENT_RULES for finding in rule.evaluate(bundle)]
+    received = next(
+        finding for finding in findings if finding.rule == "headroom" and finding.subject == "P2"
+    )
+    assert received.status == "unknown"
+    assert bundle.kernel is None
+    assert received.numbers["stock_extent_x_mm"] == "unknown"
+    assert received.numbers["stock_extent_y_mm"] == "unknown"
+    assert received.numbers["kernel_status"] == "unknown"
+    assert received.numbers["stock_entry_reason"]
+    assert received.numbers["stock_entry_basis"] == "kernel setup-entry stock"
+    assert "kernel.setups.P2.stock_bbox_mm: setup-entry stock in the setup frame" in received.cite
+    assert measurement_ids(received.numbers["measurements"]) == {SPINDLE_MAX}
+    by_id = {entry["id"]: entry for entry in measurement_checklist(findings)}
+    debt = by_id[SPINDLE_MAX]
+    assert debt["units"] == "mm"
+    assert debt["instruction"].startswith("measure: PM-30MV ")
+    assert "spindle nose to table at full Z-up" in debt["instruction"]
+    assert "steel rule or height gauge" in debt["instruction"]
+    assert debt["cite"] == [f"inventory.{SPINDLE_MAX}"]
+    assert not any("stock_bbox" in identity or "stock_entry" in identity for identity in by_id)
+
+
 def test_default_examples_checklist_shares_one_inventory_debt_across_default_plans(tmp_path):
     inventory = tmp_path / "inventory.toml"
     inventory.write_bytes((ROOT / "examples" / "inventory" / "pedro-shop.toml").read_bytes())
     forget_spindle_minimum(inventory)
     result = run_cli(
-        "tools", "--measure", "--json", "--inventory", inventory, setup=SYNTHETIC_KERNEL
+        "tools",
+        "--measure",
+        "--json",
+        "--inventory",
+        inventory,
+        env={
+            "FREECAD_CMD": str(tmp_path / "nonexistent-freecadcmd"),
+            "PRECHIPS_KERNEL_CACHE": str(tmp_path / "fresh-kernel-cache"),
+        },
     )
     assert result.returncode == 0, result.stderr
     ids = [entry["id"] for entry in json.loads(result.stdout)]

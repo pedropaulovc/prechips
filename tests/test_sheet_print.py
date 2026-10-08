@@ -101,13 +101,31 @@ def test_long_rough_and_finish_lathe_tables_keep_every_page_counted_and_sheets_o
     )
     dome["contour"]["step_mm"] = 0.01
     dome["rough_allowance_mm"] = 1.0
-    html = _Traveler(bundle, coordinates.evaluate(bundle, pre_kernel=True), {}, None).render()
+    traveler = _Traveler(bundle, coordinates.evaluate(bundle, pre_kernel=True), {}, None)
+    html = traveler.render()
     texts = printed_pages(html, tmp_path)
     assert not any("PRINT LAYOUT ERROR" in text for text in texts), texts
     markup = Markup(html)
     sections = [
         node for node in markup.nodes if node["tag"] == "section" and "data-sheet" in node["attrs"]
     ]
+    # The authored diameter is the section gripped, not a claim that the entire
+    # arriving part has that diameter; retained shoulders may be larger.
+    held_diameter = re.compile(r"\bheld\s+on\s+Ø\s*([0-9]+(?:\.[0-9]+)?)")
+    arrivals = markup.find("stock-state")
+    assert len(arrivals) == len(bundle.plan["setups"])
+    for arrival, setup in zip(arrivals, bundle.plan["setups"], strict=True):
+        match = held_diameter.search(content(arrival))
+        assert match is not None, content(arrival)
+        assert float(match.group(1)) == setup["stock_state"]["od_mm"]
+    setup = next(setup for setup in bundle.plan["setups"] if setup["id"] == "S2")
+    for unknown in ("unknown", None):
+        state = {**setup["stock_state"], "od_mm": unknown}
+        if unknown is None:
+            state.pop("od_mm")
+        arrival = Markup(traveler.stock_state({**setup, "stock_state": state})).find("stock-state")
+        assert len(arrival) == 1
+        assert held_diameter.search(content(arrival[0])) is None
     # Full travelers keep the independent signature, not another unqualified
     # measurements destination at the end of the operation sequence.
     signoffs = markup.find("signoff")

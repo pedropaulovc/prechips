@@ -188,13 +188,19 @@ inside both jaw faces along the clamp axis, or more than 3 mm beyond the jaws'
 ends along the axis they run (the declared `jaw_center_along_mm` ± half the
 vise's accepted `jaw_width`: a blank end overhanging the vise). Other below-jaw
 cuts require geometric path checks and therefore remain unknown rather than
-being invented collision errors. Travel uses transformed stock box extents
-(`stock_extent_x_mm`/`stock_extent_y_mm`)
-`sum(abs(setup_axis[i])*stock_extent[i])`, and per axis `travel_checks` requires
+being invented collision errors. Travel screens the stock each setup receives.
+A raw single supply (`stock_in` absent or `"stock"`, with no stock components)
+uses the authored blank transformed into setup X/Y
+(`stock_extent_x_mm`/`stock_extent_y_mm`):
+`sum(abs(setup_axis[i])*stock_extent[i])`. Derived, component and joined routes
+use only an already-present successful kernel's setup-entry `stock_bbox_mm`,
+already in the setup frame, never the finished part or the raw supply.
+A missing, failed or malformed entry box leaves those extents unresolved;
+`headroom` never starts the kernel. Per axis, `travel_checks` requires
 `max(stock_extent, fixture_extent) <= machine_travel`; no separate radial tip
-envelope is computed. Inch inventory lengths
-convert explicitly by 25.4; no STEP bbox is extracted. Unverified dimensions
-cannot establish a verified stack/travel pass or measured clearance violation.
+envelope is computed. Inch inventory lengths convert explicitly by 25.4.
+Unverified dimensions cannot establish a verified stack/travel pass or measured
+clearance violation.
 
 For a lathe, `headroom` instead compares stock OD and chuck `body_dia` with
 `envelope.swing_over_bed`, stock OD with `envelope.swing_over_cross_slide`,
@@ -308,8 +314,10 @@ measurements remain unknown. Every unresolved applicable row carries concrete
 `measure:` instructions, keyed by the exact fact consumed (set member or
 tool/holder pair included); an operation whose holder does not resolve is told
 to add or resolve the holder, not to measure an unowned item.
-`numbers.measurements` carries those entries; `tools --measure` lists exactly
-the entries behind the current reports, sorted and deduplicated by id.
+`numbers.measurements` carries those entries; `tools --measure` lists the
+current plans' measurement debt, sorted and deduplicated by id, without starting
+a kernel. Geometry absent from the bundle remains unresolved and does not
+invent a shop measurement instruction for a derived stock box.
 
 ## `datum_consistency`
 
