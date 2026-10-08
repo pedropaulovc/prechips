@@ -1109,11 +1109,11 @@ def test_a_picture_cut_printed_as_one_op_s_row_passes(cut, resolution):
     assert (row.status, row.numbers["claims"]) == ("pass", 1)
 
 
-def test_a_value_the_two_surfaces_round_apart_is_an_error():
-    # One clearance, 2.8045: the picture rounds the binary float (2.804), the table the
-    # written decimal (2.805).
-    found = errors(pictured((2.8045, COLLAR), ("27", 2.8045, COLLAR)))["S1"]
-    assert "CUT 2.804 mm" in found and "2.805" in found
+def test_a_half_way_value_prints_one_way_on_both_surfaces():
+    # One clearance, 2.8045: the picture and the table both round the written decimal
+    # half up (2.805), not the binary float (2.804), so they restate one value.
+    row = rows(pictured((2.8045, COLLAR), ("27", 2.8045, COLLAR)))["S1"]
+    assert (row.status, row.numbers["claims"]) == ("pass", 1)
 
 
 def test_a_picture_cut_beside_rows_not_computed_is_unknown():
