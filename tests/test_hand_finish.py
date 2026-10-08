@@ -145,13 +145,19 @@ def test_a_guided_file_stops_on_its_buttons_and_dimensions_the_holding_it_must_c
     # top: its button's rim is the west wall line, its stud stands 15 mm in. Filing the
     # west wall's leave reaches the button: guided, that is where the file stops, and the
     # holding the file must clear is the plate; unguided, it is a zero clearance. Only a
-    # button of the kit's declared OD whose rim lies on the filed face is a stop: one whose
-    # rim stands over the unfiled wall (X 4.8), a kit solid touching that wall, or a square
-    # block is holding to clear. A setup that also machines has a CLEARANCE row for the file
-    # and one for the cutter, and its picture dimensions the least of them.
+    # button of the kit's declared rim band whose rim lies on the filed face is a stop: one
+    # whose rim stands over the unfiled wall (X 4.8), a kit solid touching that wall, a
+    # square block, or a nut whose bore of the band stands on the filed face is holding to
+    # clear (a bore is no rim). A rim band the kernel is not told leaves whether the file
+    # bears on the button unknown, so the file's row is unknown and the picture dimensions
+    # nothing, never 0 mm to the button; a square block is no button whatever the band. Each
+    # file's stops are its own: a button one file stops on leaves a later file of unknown
+    # band unknown. A setup that also machines has a CLEARANCE row for the file and one for
+    # the cutter, and its picture dimensions the least of them.
     step = solids["island"]
     walls = _island_walls(engine, step)
-    features = {"all": sum(walls.values(), []), "west": walls["west"], "east": walls["east"]}
+    features = {name: walls[name] for name in ("west", "south", "east")}
+    features["all"] = sum(walls.values(), [])
     origin = {"origin_mm": [0.0, 0.0, 0.0], "x": [1.0, 0.0, 0.0], "z": [0.0, 0.0, 1.0]}
     disc = {
         "name": "clamp 1 kit:button",
@@ -163,8 +169,15 @@ def test_a_guided_file_stops_on_its_buttons_and_dimensions_the_holding_it_must_c
     }
     # Its X 4.8 face touches the wall before filing, not the filed X 5 face.
     tangent = _box("clamp 1 kit:tab", [4.7, 30.0, 0.0], [0.1, 4.0, 24.0])
+    # A nut on the work: its Ø10 bore's wall is tangent to the filed X 5 face, its square
+    # body reaches over the unfiled wall.
+    nut = [
+        {**_box("clamp 1 kit:nut", [4.0, 32.0, 20.0], [12.0, 12.0, 4.0]), "local": "nut"},
+        {**disc, "name": "clamp 1 kit:nut-bore", "at_mm": [10.0, 38.0, 19.0], "length_mm": 6.0},
+    ]
+    nut[1].update(void=True, cuts=["nut"])
 
-    def job(guided, button, *extra, machined=False):
+    def job(guided, button, *extra, machined=False, rims=(9.99, 10.01), south=None):
         kit = {
             "name": "clamp 1 kit",
             "pose": origin,
@@ -187,8 +200,11 @@ def test_a_guided_file_stops_on_its_buttons_and_dimensions_the_holding_it_must_c
         filed = _file("S2:10", "west")
         if guided:
             filed["guide_owner"] = "clamp 1 kit"
-            filed["guide_rim_dia_mm"] = [9.99, 10.01]
+            filed["guide_rim_dia_mm"] = list(rims) if isinstance(rims, tuple) else rims
         ops = [filed]
+        if south is not None:
+            ops.append({**_file("S2:20", "south"), "guide_owner": "clamp 1 kit"})
+            ops[-1]["guide_rim_dia_mm"] = south
         if machined:
             finish = {**_op("S2:20", "east", 3.0, 25.0, 30.0), "do": "finish_profile"}
             ops.append({**finish, "rough_allowance_mm": LEAVE})
@@ -200,10 +216,15 @@ def test_a_guided_file_stops_on_its_buttons_and_dimensions_the_holding_it_must_c
 
     block = _box("clamp 1 kit:button", [5.0, 20.0, 20.0], [10.0, 10.0, 4.0])
     over = {**disc, "at_mm": [9.8, 25.0, 20.0]}
+    # On the west and south faces' corner: its rim is both filed lines.
+    corner = {**disc, "at_mm": [10.0, 10.0, 20.0]}
     jobs = [job(True, disc), job(False, disc), job(True, disc, tangent), job(True, block)]
     jobs += [job(False, disc, machined=True), job(True, over)]
-    guided, unguided, beside, square, mixed, overhung = (
-        result["setups"]["S2"]["render_scene"] for result in engine.run({"jobs": jobs})["results"]
+    jobs += [job(True, disc, rims="unknown"), job(True, block, rims="unknown")]
+    jobs += [job(True, disc, *nut), job(True, corner, south="unknown")]
+    results = engine.run({"jobs": jobs})["results"]
+    guided, unguided, beside, square, mixed, overhung, undecided, unbanded, bored, split = (
+        result["setups"]["S2"]["render_scene"] for result in results
     )
 
     assert guided["guide_stops"] == ["clamp 1 kit:button"]
@@ -238,6 +259,24 @@ def test_a_guided_file_stops_on_its_buttons_and_dimensions_the_holding_it_must_c
     assert overhung["guide_stops"] == []
     assert overhung["closest_cut"]["tag"] == "clamp 1 kit:button"
     assert overhung["closest_cut"]["mm"] == pytest.approx(0.0, abs=1e-6)
+    assert undecided["guide_stops"] == []
+    assert undecided["cut_clearances"] == [{"op": "10", "mm": "unknown", "tag": "unknown"}]
+    assert undecided["closest_cut"] is None
+    assert undecided["guide_axis_mm"] is None
+    assert unbanded["guide_stops"] == []
+    assert unbanded["closest_cut"]["tag"] == "clamp 1 kit:button"
+    assert unbanded["closest_cut"]["mm"] == pytest.approx(0.0, abs=1e-6)
+    assert bored["guide_stops"] == ["clamp 1 kit:button"]
+    [row] = bored["cut_clearances"]
+    assert (row["op"], row["tag"]) == ("10", "clamp 1 kit:nut")
+    assert row["mm"] == pytest.approx(0.0, abs=1e-6)
+    assert bored["closest_cut"]["tag"] == "clamp 1 kit:nut"
+    assert split["guide_stops"] == ["clamp 1 kit:button"]
+    west, south = split["cut_clearances"]
+    assert (west["op"], west["tag"]) == ("10", "plate:top")
+    assert west["mm"] == pytest.approx(5.0, abs=1e-3)
+    assert south == {"op": "20", "mm": "unknown", "tag": "unknown"}
+    assert split["closest_cut"] is None
 
 
 def _filed(data, claim):

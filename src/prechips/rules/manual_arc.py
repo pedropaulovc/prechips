@@ -119,12 +119,67 @@ _STACK = (
 )
 
 
+def _guide_stack(bundle, item, bore, scale):
+    """The filing-button stack of the kit ``item`` pinned through the plan feature
+    ``bore``, keyed as the guide record keys it: each element's declared ``[least,
+    greatest]`` limits in mm (the button OD, its bore and the pin), the OD's runout
+    (``button_runout_mm``, a TIR) and ``bore``'s drawing limits in feature units times
+    ``scale`` (``bore_dia_mm``). Each is read from its own fact, measurement not required;
+    UNKNOWN when it is not declared."""
+    stack = {key: nominal_limits_mm(item, stem) for stem, key, _ in _STACK}
+    runout = length_mm(item, "button_runout")
+    stack["button_runout_mm"] = runout if number(runout) and runout >= 0 else UNKNOWN
+    hole = record(bundle.feature_definitions.get(bore)).get("dia")
+    known = isinstance(hole, list) and len(hole) == 2 and all(number(v) for v in hole)
+    stack["bore_dia_mm"] = sorted(v * scale for v in hole) if known else UNKNOWN
+    return stack
+
+
+def _blocked(stack, bore):
+    """``[(seat name, seat limits)]`` a pin up to its largest size may not enter: the part's
+    ``bore`` or the button bore."""
+    pin = stack["pin_dia_mm"]
+    seats = ((bore, stack["bore_dia_mm"]), ("the button bore", stack["button_bore_mm"]))
+    return [(name, seat) for name, seat in seats if pin[1] > seat[0] + _TOL]
+
+
+def _files_to(stack):
+    """(the button centre's worst shift off the bore axis by element, the radius band
+    ``[least, greatest]`` mm the buttons file to worst case) over a :func:`_guide_stack`,
+    each element at its loosest limits: the rims from ``button_min/2 - shift`` to
+    ``button_max/2 + shift``. None when an element is unknown or a pin may not enter its
+    seats (:func:`_blocked`)."""
+    keys = [key for _, key, _ in _STACK] + ["button_runout_mm", "bore_dia_mm"]
+    if any(stack[key] == UNKNOWN for key in keys) or _blocked(stack, None):
+        return None
+    button, collar, pin = (stack[key] for _, key, _ in _STACK)
+    shift = {
+        "pin_in_bore": (stack["bore_dia_mm"][1] - pin[0]) / 2,
+        "button_on_pin": (collar[1] - pin[0]) / 2,
+        "runout": stack["button_runout_mm"] / 2,
+    }
+    total = sum(shift.values())
+    return shift, [button[0] / 2 - total, button[1] / 2 + total]
+
+
+def rim_band(bundle, item, bore, scale):
+    """The radius band ``[least, greatest]`` mm the filing-button kit ``item`` pinned through
+    the plan feature ``bore`` (feature units times ``scale``) files to worst case
+    (:func:`_files_to`), proven exactly as :func:`_buttons` proves it; None when that
+    proves no radius: ``item`` not a filing_buttons kit, flagged to verify (itself or any of
+    its facts), any stack element unknown, or a pin that may not enter its seats."""
+    if not isinstance(item, dict) or item.get("kind") != BUTTON_KIND or uncertain(item):
+        return None
+    found = _files_to(_guide_stack(bundle, item, bore, scale))
+    return found[1] if found else None
+
+
 def _buttons(bundle, setup, op, guide, layout, band, scale, errors, debts):
     """The filing-button guide record and the radius it files to, worst case over the
-    declared limits of every element between the rim and the bore axis: the button OD,
-    its runout about its own bore, the button bore on the pin and the pin in the part's
-    bore (the drawing's limits). A kit flagged to verify (itself or any of its facts), or
-    any limit unknown, proves no radius."""
+    declared limits of every element between the rim and the bore axis
+    (:func:`_files_to`): the button OD, its runout about its own bore, the button bore on
+    the pin and the pin in the part's bore (the drawing's limits). A kit flagged to verify
+    (itself or any of its facts), or any limit unknown, proves no radius."""
     kit, bore = guide.get("buttons"), guide.get("bore")
     record_ = {"kind": "buttons", "kit": kit, "bore": bore}
     item = resolve(bundle, "fixtures", kit)
@@ -133,13 +188,7 @@ def _buttons(bundle, setup, op, guide, layout, band, scale, errors, debts):
         return record_
     if not _held(bundle, setup, kit):
         debts.append(f"filing buttons {kit} are not in setup {setup['id']}'s hold")
-    for stem, key, _ in _STACK:
-        record_[key] = nominal_limits_mm(item, stem)
-    runout = length_mm(item, "button_runout")
-    record_["button_runout_mm"] = runout if number(runout) and runout >= 0 else UNKNOWN
-    hole = record(bundle.feature_definitions.get(bore)).get("dia")
-    known = isinstance(hole, list) and len(hole) == 2 and all(number(v) for v in hole)
-    record_["bore_dia_mm"] = sorted(v * scale for v in hole) if known else UNKNOWN
+    record_.update(_guide_stack(bundle, item, bore, scale))
     if layout.get("convex") is False:
         errors.append("filing buttons only guide a convex arc; this arc is concave")
     if layout and layout["centre_on"] != bore:
@@ -154,22 +203,16 @@ def _buttons(bundle, setup, op, guide, layout, band, scale, errors, debts):
     if missing:
         debts.append(f"the {', '.join(missing)} limits are unknown, so no filed radius is proven")
         return record_
-    button, collar, pin = (record_[key] for _, key, _ in _STACK)
-    seats = ((bore, record_["bore_dia_mm"]), ("the button bore", collar))
-    blocked = [(name, seat) for name, seat in seats if pin[1] > seat[0] + _TOL]
+    blocked = _blocked(record_, bore)
+    pin = record_["pin_dia_mm"]
     for name, seat in blocked:
         errors.append(f"a pin up to Ø{pin[1]:g} may not enter {name} (Ø{seat[0]:g} smallest)")
     if blocked:
         return record_
-    # The button centre's worst shift off the bore axis, each element at its loosest limits.
-    shift = {
-        "pin_in_bore": (record_["bore_dia_mm"][1] - pin[0]) / 2,
-        "button_on_pin": (collar[1] - pin[0]) / 2,
-        "runout": runout / 2,
-    }
+    shift, reach = _files_to(record_)
     total = sum(shift.values())
-    reach = [button[0] / 2 - total, button[1] / 2 + total]
     record_.update(centre_shift_mm=shift, files_to_mm=reach)
+    button = record_["button_dia_mm"]
     if band is not None and (reach[0] < band[0] - _TOL or reach[1] > band[1] + _TOL):
         errors.append(
             f"worst case the buttons file R{reach[0]:.3f} to R{reach[1]:.3f} (rims "
