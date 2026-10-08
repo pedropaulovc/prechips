@@ -1,97 +1,991 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8"><meta name="prechips-version" content="0.1"><meta name="prechips-report" content="6bb9a790a01d8170db96437345b0b087df38b1217189387261005e2412bc2cdc"><title>rocker-arm traveler</title><style>@page { size: Letter portrait; margin: .4in; }
+<html lang="en"><head><meta charset="utf-8"><meta name="prechips-version" content="0.1"><meta name="prechips-report" content="a2f670bdd155de7c6ec90c331fc21d46649b1b2183e149fc88686c5b61e99981"><title>rocker-arm traveler</title><style>/* Hallmark · macrostructure: Narrative Workflow · tone: utilitarian technical · anchor hue: neutral
+ * theme: existing monochrome print · enrichment: existing kernel diagrams
+ * Preserve offline Arial and black/white paper; marketing hero/nav/footer gates do not apply.
+ * Physical pen floors use mm; print spacing uses named 4pt tokens. No blanket 58/58 claim.
+ */
+/* Hallmark · pre-emit critique: P5 H4 E4 S5 R4 V4 */
+:root {
+  --color-ink: oklch(0% 0 0);
+  --color-paper: oklch(100% 0 0);
+  --color-rule: oklch(45% 0 0);
+  --color-header: oklch(94% 0 0);
+  --color-reading-header: oklch(87% 0 0);
+  --font-working: Arial, Helvetica, sans-serif;
+  --text-working: 12pt;
+  --text-running: 10pt;
+  --text-section: 16pt;
+  --text-operation: 15pt;
+  --text-title: 20pt;
+  --line-working: 1.4;
+  --space-xs: 4pt;
+  --space-sm: 8pt;
+  --space-md: 12pt;
+  --space-lg: 16pt;
+  --rule-thin: 1px;
+  --rule-warning: 2px;
+  --page-width: 8.5in;
+  --page-height: 11in;
+  --page-margin: 0.5in;
+  --page-content-width: calc(var(--page-width) - 2 * var(--page-margin));
+  --page-content-height: calc(var(--page-height) - 2 * var(--page-margin));
+  --page-rounding: 1px;
+  --writing-width: 35mm;
+  --writing-height: 10mm;
+  --writing-result-height: 20mm;
+  --performed-size: 5mm;
+}
+
+@page { size: Letter portrait; margin: var(--page-margin); }
 * { box-sizing: border-box; }
-body { margin: 0; color: #000; background: #fff; font: 8pt/1.25 Arial, sans-serif; }
-.page { break-after: page; page-break-after: always; }
+html, body { overflow-x: clip; }
+body { margin: 0; color: var(--color-ink); background: var(--color-paper);
+font: var(--text-working)/var(--line-working) var(--font-working);
+font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.page { break-after: page; page-break-after: always; min-width: 0; }
 .page:last-child { break-after: auto; page-break-after: auto; }
-h1 { margin: 0; font-size: 12pt; } h2 { font-size: 9pt; margin: 5pt 0 2pt; border-bottom: 1px solid #000; break-after: avoid; page-break-after: avoid; }
-h3 { font-size: 8pt; margin: 4pt 0 1pt; break-after: avoid; page-break-after: avoid; }
-p { margin: 2pt 0; } .meta { display: flex; justify-content: space-between; gap: 8pt; }
-.banner { border: 2px solid #000; text-align: center; font-weight: bold; padding: 1pt; margin: 3pt 0; }
-.stop { border: 2.5px solid #000; padding: 2pt 4pt; margin: 3pt 0; font-weight: bold; break-inside: avoid; }
-.unverified, .caution { border: 1px dashed #000; padding: 2pt 4pt; margin: 3pt 0; break-inside: avoid; }
+h1, h2, h3, h4 { font-style: normal; line-height: 1.35; overflow-wrap: anywhere; }
+h1 { margin: 0; font-size: var(--text-title); }
+h2 { font-size: var(--text-section); margin: var(--space-lg) 0 var(--space-sm);
+border-bottom: var(--rule-thin) solid var(--color-ink);
+break-after: avoid; page-break-after: avoid; }
+h3, h4 { font-size: var(--text-operation); margin: var(--space-md) 0 var(--space-xs);
+break-after: avoid; page-break-after: avoid; }
+p { margin: var(--space-xs) 0; }
+.meta { display: flex; justify-content: space-between; gap: var(--space-sm);
+align-items: flex-start; font-size: var(--text-running); }
+.meta > * { min-width: 0; }
+.banner { border: var(--rule-warning) solid var(--color-ink); font-weight: bold;
+padding: var(--space-xs) var(--space-sm); margin: var(--space-sm) 0; }
+.stop { border: var(--rule-warning) solid var(--color-ink);
+padding: var(--space-sm); margin: var(--space-sm) 0; font-weight: bold; break-inside: avoid; }
+.unverified, .caution { border: var(--rule-thin) dashed var(--color-ink);
+padding: var(--space-sm); margin: var(--space-sm) 0; break-inside: avoid; }
 .caution { border-style: solid; }
-.stop p, .unverified p, .caution p { margin: 1pt 0; }
-ol, ul { margin: 2pt 0 2pt 1.6em; padding: 0; } li { margin: 0 0 1pt; }
-ol.steps { list-style: decimal; } .field, .reading { white-space: nowrap; } .calc { margin: 1pt 0; font-weight: bold; } table.readings td { height: 16pt; }
-table { width: 100%; border-collapse: collapse; margin: 2pt 0; table-layout: fixed; }
-th, td { border: 1px solid #555; padding: 1pt 2pt; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
-th { background: #eee; } thead { display: table-header-group; }
+.stop p, .unverified p, .caution p { margin: var(--space-xs) 0; }
+ol, ul { margin: var(--space-xs) 0 var(--space-xs) 1.6em; padding: 0; }
+li { margin: 0 0 var(--space-xs); }
+ol.steps { list-style: decimal; }
+.tick { display: inline-block; width: var(--performed-size); height: var(--performed-size);
+border: var(--rule-thin) solid var(--color-ink); background: var(--color-paper);
+vertical-align: middle; margin-right: var(--space-xs); }
+.reading { white-space: nowrap; }
+.field, .result-field, .authored-blank { display: inline-flex; flex-direction: column;
+gap: var(--space-xs);
+max-width: 100%; vertical-align: top; break-inside: avoid; page-break-inside: avoid; }
+.writing-blank { display: block; box-sizing: content-box; min-width: var(--writing-width);
+min-height: var(--writing-height); padding: 0; border: var(--rule-thin) solid var(--color-ink);
+background: var(--color-paper); }
+.field { margin: var(--space-xs) var(--space-xs) var(--space-xs) 0; }
+.field.prose-field { display: flex; width: fit-content; }
+.result-field, .authored-blank { display: flex; width: 100%; margin-top: var(--space-sm); }
+.result-field .writing-blank, .authored-blank .writing-blank {
+min-height: var(--writing-result-height); }
+table.readings .field { display: flex; }
+.calc { margin: var(--space-sm) 0; font-weight: bold; }
+.calc { break-inside: avoid; page-break-inside: avoid; }
+.calc .field { display: flex; width: fit-content; }
+table { width: 100%; border-collapse: collapse; margin: var(--space-sm) 0; table-layout: fixed; }
+th, td { border: var(--rule-thin) solid var(--color-rule); padding: var(--space-xs) var(--space-sm);
+text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+th { background: var(--color-header); }
+.table-context th { font-weight: normal; background: var(--color-paper); }
+thead { display: table-header-group; }
 tr, tbody { break-inside: avoid; page-break-inside: avoid; }
-tr.warn td { border-top: 0; padding-left: 8pt; }
-tr.warn .box { display: inline-block; margin: 0 4pt 1pt 0; }
-td .box { display: block; border: 1.5px solid #000; font-weight: bold; padding: 0 2pt; margin-top: 1pt; }
+tr.warn td { border-top: 0; }
+tr.warn .box { display: block; margin: 0 0 var(--space-xs); }
+.box { display: block; border: var(--rule-warning) solid var(--color-ink); font-weight: bold;
+padding: var(--space-xs) var(--space-sm); margin-top: var(--space-xs); }
 .keep { break-inside: avoid; page-break-inside: avoid; }
-.contours { columns: 3; column-gap: 8pt; }
-.contours.wide { columns: auto; }
-.contour { break-inside: avoid; page-break-inside: avoid; margin-bottom: 4pt; }
+.contours, .contours.wide { columns: auto; }
+.contour { break-inside: avoid; page-break-inside: avoid; margin-bottom: var(--space-md); }
 .contour.wide { column-span: all; }
-h4 { font-size: 8pt; margin: 3pt 0 1pt; break-after: avoid; page-break-after: avoid; }
-.stages { display: flex; gap: 8pt; align-items: flex-start; }
-.stages > div { flex: 1 1 0; min-width: 0; }
+.stages { display: block; }
+.stages > div { min-width: 0; }
 table.coords { table-layout: auto; }
 table.coords th { overflow-wrap: normal; }
 table.coords td.num { white-space: nowrap; overflow-wrap: normal; }
-.tick { display: inline-block; width: 7pt; height: 7pt; border: 1px solid #000; margin: 0 2pt -1pt 6pt; } .levels .level:first-child .tick { margin-left: 2pt; }
+.tick { display: inline-block; width: 7pt; height: 7pt; border: 1px solid var(--color-ink); margin: 0 2pt -1pt 6pt; } .levels .level:first-child .tick { margin-left: 2pt; }
 .levels .level { white-space: nowrap; }
-th.read, td.read { font-weight: bold; } th.read { background: #ccc; }
-tr.repeat th { background: #fff; font-weight: bold; }
+.reading, td.num { white-space: nowrap; overflow-wrap: normal; }
+table.fixture, table.blank-check { table-layout: auto; }
+table.fixture th, table.fixture td, table.blank-check th, table.blank-check td {
+min-width: 12ch; overflow-wrap: anywhere; word-break: normal; hyphens: none; }
+table.fixture td[data-label="Fastener"] { min-width: 14ch; }
+.fixture-feature { display: inline-block; max-width: 100%;
+break-inside: avoid; page-break-inside: avoid; }
+@media screen and (max-width: 640px) {
+html:not(.print-measuring) table.fixture,
+html:not(.print-measuring) table.blank-check { table-layout: fixed; }
+html:not(.print-measuring) table.fixture thead tr:not(.repeat):not(.table-context),
+html:not(.print-measuring) table.blank-check thead tr:not(.repeat):not(.table-context),
+html:not(.print-measuring) table.fixture colgroup,
+html:not(.print-measuring) table.blank-check colgroup { display: none; }
+html:not(.print-measuring) table.fixture tbody,
+html:not(.print-measuring) table.blank-check tbody,
+html:not(.print-measuring) table.fixture tbody tr,
+html:not(.print-measuring) table.blank-check tbody tr { display: block; }
+html:not(.print-measuring) table.fixture td,
+html:not(.print-measuring) table.blank-check td { display: block; width: 100%; }
+html:not(.print-measuring) table.fixture td::before,
+html:not(.print-measuring) table.blank-check td::before {
+content: attr(data-label); display: block; font-weight: bold; }
+}
+th.read, td.read { font-weight: bold; }
+th.read { background: var(--color-reading-header); }
+tr.repeat th { background: var(--color-paper); font-weight: bold; }
 .paged table:not([data-duplex-split]) tr.repeat { display: none; }
-.hold-row { display: flex; gap: 8pt; align-items: flex-start; }
-.hold-steps { flex: 1 1 70%; min-width: 0; }
-.fixture-render { margin: 4pt 0; break-inside: avoid; page-break-inside: avoid; }
-.hold-row > .stop { flex: 0 0 30%; margin: 4pt 0 0; }
-.fixture-render img { display: block; width: auto; max-width: 100%; max-height: 8.9in; margin: 0 auto; border: 1px solid #999; }
-.see { font-style: italic; }
-.op-note { margin: 1pt 0; }
-.cont-head { font-size: 9pt; font-weight: bold; margin: 0 0 2pt; border-bottom: 1px solid #000; }
-.more { margin: 2pt 0 0; text-align: right; font-weight: bold; }
+table:not([data-duplex-split]) tr.table-context { display: none; }
+.paged table thead tr.table-context[data-context-suppressed="same-page"] { display: none; }
+.paged table thead [data-title-repeat][data-title-suppressed] { display: none; }
+.hold-row { display: block; }
+.hold-steps { min-width: 0; }
+.fixture-render { margin: var(--space-sm) 0; break-inside: avoid; page-break-inside: avoid; }
+.fixture-render svg { display: block; width: 100%; height: auto;
+border: var(--rule-thin) solid var(--color-rule); }
+.fixture-render { margin-left: 0; margin-right: 0; }
+.fixture-render figcaption { margin-bottom: var(--space-xs); }
+.see { display: block; }
+.op-note { margin: var(--space-xs) 0; }
+.cont-head, .compact-sheet-head { font-size: var(--text-running); font-weight: bold;
+margin: 0 0 var(--space-sm);
+border-bottom: var(--rule-thin) solid var(--color-ink); }
+.cont-count { display: block; white-space: nowrap; }
+.cont-context { display: block; font-size: var(--text-working); overflow-wrap: normal; }
+/* Counter reservations need equal digit advances even when a font kerns digit pairs. */
+.fixed-locator-digit { font-kerning: none; }
+.more { margin: var(--space-xs) 0 0; font-weight: bold; }
 table.operations { margin-top: 0; }
-tr.continued th { height: 14pt; padding: 0 0 1pt; font-size: 9pt; background: #fff; border: 0; border-bottom: 1px solid #000; vertical-align: bottom; }
-h2:has(+ table.operations) { position: relative; z-index: 1; height: 14pt; margin: 5pt 0 -14pt; background: #fff; display: flex; align-items: flex-end; }
+table.operations > thead th { background: var(--color-paper); }
+tr.continued th { background: var(--color-paper); font-size: var(--text-running); }
 .paged tr.continued { display: none; }
-.paged h2:has(+ table.operations) { position: static; height: auto; margin: 5pt 0 2pt; display: block; }
-.signoff { margin-top: 6pt; break-before: avoid; page-break-before: avoid; }
-.contour-row { display: flex; gap: 8pt; align-items: flex-start; }
-.contour-row > .contour { flex: 0 0 calc((100% - 16pt) / 3); min-width: 0; }
-.contour-row > .contour.wide { flex: 1 1 100%; }
-.contour-row.tall, [data-duplex-stacked] { display: block; }
-.contours.wide .contour-row { display: block; }
-.blank-side { padding-top: 4in; text-align: center; font-weight: bold; }
-@media screen { body { max-width: 7.7in; margin: 12pt auto; } .page { margin-bottom: 24pt; } .blank-side { display: none; } }
+.paged h2:has(+ table.operations) { position: static; height: auto;
+margin: var(--space-lg) 0 var(--space-sm); display: block; }
+.operation > tr > td { padding: var(--space-sm); border-left: 0; border-right: 0; }
+.op-head { display: flex; align-items: flex-start; gap: var(--space-sm); }
+.op-head h3 { margin: 0; min-width: 0; }
+.performed-mark { flex: 0 0 var(--performed-size); width: var(--performed-size);
+height: var(--performed-size); border: var(--rule-thin) solid var(--color-ink);
+background: var(--color-paper); margin-top: var(--space-xs); }
+.op-details { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+gap: var(--space-xs) var(--space-md); margin: var(--space-sm) 0 0; }
+.op-details > div { min-width: 0; }
+.op-details dt { font-weight: bold; }
+.op-details dd { margin: 0; }
+.inspection-layout { display: block; }
+.inspection-requirement { min-width: 0; }
+.inspection-requirement p { margin: 0; }
+.inspection-record > td { border-top-style: solid; }
+.operation-continuation .op-number { font-weight: bold; }
+.record-continuation { display: block; }
+.signoff { margin-top: var(--space-lg); break-before: avoid; page-break-before: avoid;
+display: flex; flex-wrap: wrap; gap: var(--space-md); }
+.signoff .field { flex: 1 1 52mm; }
+.signoff p { flex: 1 1 52mm; margin: 0; }
+.signoff .writing-blank { width: auto; }
+.contour-row, .contour-row.tall, [data-duplex-stacked] { display: block; }
+.contour-row > .contour { min-width: 0; }
+.blank-side { min-height: 1px; }
+@media screen {
+  body { max-width: var(--page-content-width); margin: var(--space-md) auto;
+  padding: 0 var(--space-sm); }
+  .page { margin-bottom: var(--space-lg); }
+  .blank-side { display: none; }
+  html:not(.print-measuring) table.coords { display: block; overflow-x: auto; }
+}
+@media screen and (max-width: 600px) {
+  html:not(.print-measuring) .meta { display: block; }
+  html:not(.print-measuring) .op-details { grid-template-columns: minmax(0, 1fr); }
+  html:not(.print-measuring) table:not(.operations) {
+  display: block; overflow-x: auto; table-layout: auto; }
+}
 </style><script>(() => {
-  // Letter 11 in less .4 in margins = 979 px at 96 px/in. The sheet is measured by the
-  // same engine at the printed width, so a small band covers rounding only.
-  const CAP = 975;
-  // The fewest table rows a page break leaves on either side of it.
+  // The fewest original ordinary-table row groups on either side of a feasible break.
   const KEEP = 3;
-  // Room for a continued page's "(continued) · page n" line above its first block, px.
-  const HEAD_ROOM = 24;
-  const ADDED = "data-duplex";
-  const SPLIT = "data-duplex-split";
-  const STACKED = "data-duplex-stacked";
+  const ADDED = "data-duplex", SPLIT = "data-duplex-split", STACKED = "data-duplex-stacked";
+  const CONTEXT_ROLE = "data-context-role";
+  const originals = new Map();
+  let CAP;
   const heading = (el) => el && /^H[1-6]$/.test(el.tagName);
   function box(el) {
     const r = el.getBoundingClientRect(), s = getComputedStyle(el);
     return { top: r.top - parseFloat(s.marginTop), bottom: r.bottom + parseFloat(s.marginBottom) };
   }
+  const LOCATOR_TARGET = "data-locator-target", LOCATOR_REF = "data-locator-ref";
+  let locatorPass;
+  const locatorNodes = (root, selector) => [...root.querySelectorAll(selector)];
+  const locatorRect = (node) => {
+    const r = node.getBoundingClientRect();
+    return [r.left, r.top, r.right, r.bottom, r.width, r.height];
+  };
+  const locatorLines = (range) => [...range.getClientRects()].map(
+    (r) => [r.left, r.top, r.right, r.bottom, r.width, r.height]
+  );
+  function locatorVisible(node) {
+    for (let owner = node; owner; owner = owner.parentElement) {
+      const style = getComputedStyle(owner);
+      if (style.display === "none" || style.visibility === "hidden"
+          || style.visibility === "collapse") return false;
+    }
+    return node.getClientRects().length > 0;
+  }
+  const locatorStarts = (section) => [section, ...locatorNodes(section, ".cont-head")].map(
+    (node, index) => ({ node, page: index + 1, top: box(node).top })
+  );
+  function locatorPage(node) {
+    const section = node.closest("section.page[data-sheet]");
+    if (!section) throw new Error("A recording destination has no logical sheet.");
+    const start = locatorStarts(section).filter(
+      (entry) => entry.node === section || entry.node === node
+        || entry.node.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).at(-1);
+    const bounds = section.getBoundingClientRect();
+    return { sheet: section.dataset.sheet, identity: section.dataset.title || section.dataset.sheet,
+      page: start.page, top: start.top, bottom: start.top + CAP,
+      left: bounds.left, right: bounds.right };
+  }
+  const locatorWithin = (rect, bounds) => rect[0] >= bounds.left
+    && rect[2] <= bounds.right && rect[1] >= bounds.top && rect[3] <= bounds.bottom;
+  function cleanLocatorCopy(copy) {
+    for (const node of [copy, ...locatorNodes(copy, "*")]) {
+      node.removeAttribute(LOCATOR_TARGET);
+      node.removeAttribute("data-locator-group");
+    }
+    return copy;
+  }
+  function locatorReference(meta, instruction) {
+    const ref = document.createElement("span");
+    ref.setAttribute(LOCATOR_REF, meta.key);
+    ref.className = "fixed-locator-reference";
+    ref.append(instruction + " — " + meta.identity + ", page ");
+    const slot = document.createElement("span"), ink = document.createElement("span");
+    slot.className = "fixed-locator-digit";
+    slot.setAttribute("aria-readonly", "true");
+    ink.className = "fixed-locator-ink";
+    slot.append(ink);
+    ref.append(slot);
+    return ref;
+  }
+  function measureLocator(ref) {
+    const slot = ref.querySelector(".fixed-locator-digit"), style = getComputedStyle(slot);
+    const line = parseFloat(style.lineHeight);
+    if (!Number.isFinite(line) || line <= 0) {
+      throw new Error("A recording locator has no measured inherited line height.");
+    }
+    const probe = document.createElement("span");
+    probe.style.cssText = "position:absolute;visibility:hidden;white-space:nowrap;"
+      + "display:inline-block;padding:0;margin:0;border:0";
+    for (const property of ["font-family", "font-size", "font-weight", "font-style",
+      "font-stretch", "font-variant-numeric", "font-feature-settings",
+      "font-variation-settings", "font-kerning", "font-optical-sizing",
+      "letter-spacing", "word-spacing", "line-height"]) {
+      probe.style.setProperty(property, style.getPropertyValue(property));
+    }
+    document.body.append(probe);
+    let width;
+    try {
+      for (let digit = 0; digit <= 9; digit++) {
+        probe.textContent = String(digit).repeat(locatorPass.digits);
+        const measured = probe.getBoundingClientRect().width;
+        if (!Number.isFinite(measured) || measured <= 0
+            || !style.fontVariantNumeric.includes("tabular-nums")
+            || (width !== undefined && measured !== width)) {
+          throw new Error("A recording locator lacks measured tabular digit metrics.");
+        }
+        width = measured;
+      }
+    } finally { probe.remove(); }
+    // Empty reserved counters take exactly the same line box as the final ink.
+    slot.style.cssText = `display:inline-block;position:relative;width:${width}px;`
+      + `min-width:${width}px;max-width:${width}px;height:${line}px;min-height:${line}px;`
+      + `max-height:${line}px;line-height:${line}px;vertical-align:bottom;white-space:nowrap;`
+      + `flex:0 0 ${width}px;padding:0;margin:0;border:0`;
+    slot.firstElementChild.style.cssText = "position:absolute;left:0;top:0;display:block;"
+      + "white-space:nowrap;line-height:inherit;padding:0;margin:0;border:0";
+  }
+  function prepareLocators() {
+    locatorPass = { expected: new Map(), reservations: new Map() };
+    const sections = locatorNodes(document, "section.page[data-sheet]");
+    let units = 1n;
+    for (const section of sections) {
+      const walker = document.createTreeWalker(section, NodeFilter.SHOW_TEXT);
+      let node;
+      while ((node = walker.nextNode())) {
+        if (!node.parentElement.closest("script,style")) units += BigInt(node.length);
+      }
+      units += BigInt(locatorNodes(section,
+        "figure,.writing-blank,.tick,.performed-mark,input,select,textarea,button").length);
+      for (const owner of [section, ...locatorNodes(section, "*")]) {
+        for (const attribute of owner.attributes) {
+          if (attribute.name === "data-worksheet-title"
+              || attribute.name === "data-reading-context") units += BigInt(attribute.value.length);
+        }
+      }
+    }
+    if (units < 1n || units > BigInt(Number.MAX_SAFE_INTEGER)) {
+      throw new Error("The pristine recording-locator source bound is not integer-safe.");
+    }
+    locatorPass.bound = Number(units);
+    locatorPass.digits = String(locatorPass.bound).length;
+    for (const [sectionIndex, section] of sections.entries()) {
+      const identity = section.dataset.title || section.dataset.sheet;
+      if (!identity) throw new Error("A recording locator has no logical sheet identity.");
+      for (const [ordinal, blank] of locatorNodes(section, ".writing-blank").entries()) {
+        const field = blank.closest(".field,.result-field,.authored-blank");
+        if (!field) throw new Error("An original writing area has no structural owner.");
+        const name = field.querySelector(".field-label")?.textContent ?? "";
+        const key = JSON.stringify([section.dataset.sheet, sectionIndex, "field", ordinal, name]);
+        blank.setAttribute(LOCATOR_TARGET, key);
+        field.setAttribute("data-locator-field-key", key);
+        locatorPass.expected.set(key, { key, identity, section: section.dataset.sheet, name,
+          authored: field.classList.contains("authored-blank"), ordinal });
+      }
+      for (const [ordinal, group] of locatorNodes(section, ".path-progress").entries()) {
+        const children = locatorNodes(group, ".writing-blank");
+        if (children.length !== 2) {
+          throw new Error("A progress record must retain its level and last completed # together.");
+        }
+        const members = children.map((node) => node.getAttribute(LOCATOR_TARGET));
+        const key = JSON.stringify([section.dataset.sheet, sectionIndex, "progress pair", ordinal]);
+        const meta = { key, identity, section: section.dataset.sheet, members };
+        children.forEach((node) => node.setAttribute("data-locator-group", key));
+        locatorPass.expected.set(key, meta);
+        for (const locator of locatorNodes(group.closest(".contour"),
+          "[data-continuation-locator]")) {
+          const instruction = [...locator.childNodes].map((node) => node.cloneNode(true));
+          const ref = locatorReference(meta, "");
+          ref.firstChild.replaceWith(...instruction,
+            document.createTextNode(" — " + identity + ", page "));
+          locator.replaceChildren(ref);
+        }
+      }
+      for (const owner of locatorNodes(section, "[data-page-context]")) {
+        if (owner.matches(".contour")) continue;
+        const context = owner.querySelector(":scope > .page-context");
+        if (!context) continue;
+        for (const blank of locatorNodes(owner, ".writing-blank").filter(
+          (node) => node.closest("[data-page-context]") === owner
+        )) {
+          const meta = locatorPass.expected.get(blank.getAttribute(LOCATOR_TARGET));
+          const ref = locatorReference(meta, locatorInstruction(meta));
+          ref.prepend(" · ");
+          context.append(ref);
+        }
+      }
+      for (const note of locatorNodes(section, ".op-note,.op-action")) {
+        if (note.closest("[data-page-context]")) continue;
+        for (const blank of locatorNodes(note, ".writing-blank").filter(
+          (node) => node.closest(".op-note,.op-action") === note
+        )) {
+          const meta = locatorPass.expected.get(blank.getAttribute(LOCATOR_TARGET));
+          const ref = locatorReference(meta, locatorInstruction(meta));
+          ref.prepend(" · ");
+          note.append(ref);
+        }
+      }
+    }
+    locatorNodes(document, "[" + LOCATOR_REF + "]").forEach(measureLocator);
+    for (const meta of locatorPass.expected.values()) {
+      if (meta.members) continue;
+      const blank = locatorNodes(document, "[" + LOCATOR_TARGET + "]").find(
+        (node) => node.getAttribute(LOCATOR_TARGET) === meta.key
+      );
+      const ref = locatorReference(meta, locatorInstruction(meta));
+      ref.style.cssText = "position:absolute;visibility:hidden";
+      blank.parentElement.append(ref);
+      measureLocator(ref);
+      ref.remove();
+      ref.removeAttribute("style");
+      locatorPass.reservations.set(meta.key, ref);
+    }
+  }
+  const locatorInstruction = (meta) => meta.authored
+    ? "Original authored blank " + (meta.ordinal + 1) : "Original " + meta.name;
+  function locatorRegistry() {
+    for (const section of locatorNodes(document, "section.page[data-sheet]")) {
+      const actual = locatorStarts(section).length;
+      if (!Number.isSafeInteger(actual) || actual < 1 || actual > locatorPass.bound
+          || actual !== Number(section.dataset.pages)) {
+        throw new Error(
+          "Recording-locator local pages exceed or disagree with their source bound.");
+      }
+    }
+    const targets = locatorNodes(document, "[" + LOCATOR_TARGET + "]");
+    if (targets.some((node) => node.closest("[" + ADDED + "]"))) {
+      throw new Error("Generated context cannot own an original recording destination.");
+    }
+    const registry = [];
+    for (const meta of locatorPass.expected.values()) {
+      const places = [];
+      for (const member of meta.members ?? [meta.key]) {
+        const matches = targets.filter((node) => node.getAttribute(LOCATOR_TARGET) === member);
+        if (matches.length !== 1) {
+          throw new Error("An original recording destination is missing or duplicated.");
+        }
+        const blank = matches[0], page = locatorPage(blank),
+          field = blank.closest(".field,.result-field,.authored-blank");
+        if (!locatorVisible(blank) || !Number.isSafeInteger(page.page)
+            || page.page > locatorPass.bound || !locatorWithin(locatorRect(field), page)
+            || !locatorWithin(locatorRect(blank), page)) {
+          throw new Error("An original writing destination does not fit wholly on its local page.");
+        }
+        places.push({ member, page: page.page, sheet: page.sheet, identity: page.identity,
+          field: locatorRect(field), blank: locatorRect(blank),
+          top: page.top, bottom: page.bottom });
+      }
+      if (places.some((place) => place.sheet !== meta.section || place.identity !== meta.identity)
+          || (meta.members && new Set(places.map((place) => place.page)).size !== 1)) {
+        throw new Error(
+          "An original recording destination changed owner or split its progress pair.");
+      }
+      registry.push({ key: meta.key, page: places[0].page, places });
+    }
+    if (targets.some((node) => !locatorPass.expected.has(node.getAttribute(LOCATOR_TARGET)))) {
+      throw new Error("An original recording destination has an unknown identity.");
+    }
+    return registry;
+  }
+  function locatorLayout(registry) {
+    const nodes = locatorNodes(document, "section.page[data-sheet],section.page[data-sheet] *")
+      .filter((node) => locatorVisible(node)
+        && !node.matches(".fixed-locator-ink") && !node.closest(".fixed-locator-ink"));
+    const geometry = nodes.map((node) => [locatorRect(node), locatorLines(node)]);
+    const text = [], walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    // Range boundaries stay live until GC; reuse a local cursor and copy each result.
+    const range = document.createRange();
+    let node;
+    while ((node = walker.nextNode())) {
+      if (node.parentElement.closest("script,style,.fixed-locator-ink")
+          || !locatorVisible(node.parentElement)) continue;
+      range.selectNodeContents(node);
+      text.push([node.textContent, locatorLines(range)]);
+    }
+    const starts = locatorNodes(document, "section.page[data-sheet]").map(
+      (section) => [section.dataset.sheet, Number(section.dataset.pages),
+        locatorStarts(section).map((start) => [start.page, start.top]), locatorRect(section)]
+    );
+    return JSON.stringify([geometry, text, registry, CAP,
+      Number(document.documentElement.dataset.printWidth), starts]);
+  }
+  function finishLocators() {
+    const refs = locatorNodes(document, "[" + LOCATOR_REF + "]").filter(locatorVisible);
+    for (const ref of refs) {
+      const slot = ref.querySelector(".fixed-locator-digit"), style = slot.getAttribute("style");
+      // Re-read live inherited CSS, not the line box pinned by the reservation.
+      slot.removeAttribute("style");
+      measureLocator(ref);
+      if (slot.getAttribute("style") !== style) {
+        throw new Error("A recording locator changed its inherited reserved typography.");
+      }
+    }
+    const registry = locatorRegistry(), before = locatorLayout(registry),
+      byKey = new Map(registry.map((entry) => [entry.key, entry]));
+    for (const ref of refs) {
+      const target = byKey.get(ref.getAttribute(LOCATOR_REF));
+      const ink = ref.querySelector(".fixed-locator-digit")?.firstElementChild;
+      if (!target || !ink || ink.textContent !== "") {
+        throw new Error("A recording locator has no resolved original destination or empty slot.");
+      }
+      const value = String(target.page);
+      if (value.length > locatorPass.digits) {
+        throw new Error("A recording locator exceeds its source-bound digit reservation.");
+      }
+      ink.textContent = value;
+    }
+    if (before !== locatorLayout(locatorRegistry())) {
+      throw new Error("Recording-locator fill changed layout or the final destination registry.");
+    }
+    for (const ref of refs) {
+      const slot = ref.querySelector(".fixed-locator-digit"), ink = slot.firstElementChild,
+        page = locatorPage(ref), owner = ref.closest("tr,.cont-head,li,p,.op-action")
+          ?? ref.parentElement;
+      const ownerRect = locatorRect(owner), ownerBounds = { left: ownerRect[0],
+        top: ownerRect[1], right: ownerRect[2], bottom: ownerRect[3] },
+        refRects = locatorLines(ref), slotRect = locatorRect(slot);
+      if (!locatorWithin(slotRect, ownerBounds) || !locatorWithin(slotRect, page)) {
+        throw new Error("A recording-locator reservation escapes its owner or local print page.");
+      }
+      const walker = document.createTreeWalker(ref, NodeFilter.SHOW_TEXT);
+      const range = document.createRange();
+      let node;
+      while ((node = walker.nextNode())) {
+        for (let offset = 0; offset < node.length; offset++) {
+          range.setStart(node, offset);
+          range.setEnd(node, offset + 1);
+          for (const rect of locatorLines(range)) {
+            if (!rect[4] || !rect[5]) continue;
+            const containers = node.parentElement === ink ? [slotRect] : refRects;
+            if (!containers.some((bounds) => locatorWithin(rect,
+              { left: bounds[0], top: bounds[1], right: bounds[2], bottom: bounds[3] }))
+                || !locatorWithin(rect, ownerBounds) || !locatorWithin(rect, page)) {
+              throw new Error("A recording-locator glyph escapes its reservation or print owner.");
+            }
+          }
+        }
+      }
+    }
+  }
+  function locatorFieldContext(field) {
+    const meta = locatorPass.expected.get(field.getAttribute("data-locator-field-key"));
+    const nodes = [...(field.querySelector(".field-label")?.childNodes || [])];
+    if (!meta || locatorNodes(field.closest(".op-note,.op-action") ?? field,
+      "[" + LOCATOR_REF + "]").some((ref) => ref.getAttribute(LOCATOR_REF) === meta.key)) {
+      return nodes;
+    }
+    const ref = locatorPass.reservations.get(meta.key)?.cloneNode(true);
+    if (!ref) throw new Error("A recording reference lacks its pristine measured reservation.");
+    ref.prepend(" · ");
+    return [...nodes, ref];
+  }
   function paginate(section) {
-    const title = section.getAttribute("data-title") || section.getAttribute("data-sheet");
+    // Recompute roles at this print width; source continuations inherit them only
+    // within this pass, never from an earlier pagination measurement.
+    section.querySelectorAll(".page-context").forEach((context) => {
+      context.removeAttribute(CONTEXT_ROLE);
+    });
+    const statusContents = [...(section.querySelector(":scope > .banner")?.childNodes || [])]
+      .map((node) => node.cloneNode(true));
+    const title = [section.dataset.part, section.dataset.drawing,
+      section.dataset.revision ? "rev " + section.dataset.revision : "REV NOT CONFIRMED",
+      section.dataset.title || section.dataset.sheet].filter(Boolean).join(" · ");
+    const titleOwners = new Map();
+    for (const source of section.querySelectorAll("h3.page-context > [data-title-source]")) {
+      const key = source.dataset.titleSource, units = new Map();
+      const walker = document.createTreeWalker(source, NodeFilter.SHOW_TEXT), nodes = [];
+      while (walker.nextNode()) nodes.push(walker.currentNode);
+      nodes.forEach((node, ordinal) => {
+        const identity = key + ":text:" + ordinal, span = document.createElement("span");
+        span.dataset.titleUnit = identity;
+        units.set(identity, node.length);
+        node.replaceWith(span);
+        span.append(node);
+      });
+      // DOM text lengths and Range offsets are UTF-16 units, including non-BMP titles.
+      titleOwners.set(key, { length: source.textContent.length, units });
+    }
+    for (const repeat of section.querySelectorAll("[data-title-repeat]")) {
+      const key = repeat.dataset.titleRepeat;
+      if (!titleOwners.has(key)) continue;
+      const walker = document.createTreeWalker(repeat, NodeFilter.SHOW_TEXT), nodes = [];
+      while (walker.nextNode()) nodes.push(walker.currentNode);
+      nodes.forEach((node, ordinal) => {
+        const span = document.createElement("span");
+        span.dataset.titleUnit = key + ":text:" + ordinal;
+        node.replaceWith(span);
+        span.append(node);
+      });
+    }
+    function fullTitleCanonicalOnPage(key) {
+      const owner = titleOwners.get(key);
+      if (!owner?.units.size) return false;
+      const left = section.getBoundingClientRect().left,
+        right = left + Number(document.documentElement.dataset.printWidth);
+      const within = (r) => r.left >= left - .01 && r.right <= right + .01
+        && r.top >= pageTop - .01 && r.bottom <= pageTop + CAP + .01;
+      for (const span of section.querySelectorAll("[data-title-source]")) {
+        if (span.dataset.titleSource !== key) continue;
+        const running = span.closest(".cont-context"), original = span.closest("h3.page-context");
+        if (!running && (!original || span.closest("[" + ADDED + "]"))) continue;
+        if (span.textContent.length !== owner.length) continue;
+        const units = [...span.querySelectorAll("[data-title-unit]")];
+        if (units.length !== owner.units.size || units.some((node) =>
+          !owner.units.has(node.dataset.titleUnit)
+            || node.textContent.length !== owner.units.get(node.dataset.titleUnit))) continue;
+        if (!span.getClientRects().length || !within(span.getBoundingClientRect())
+            || [...span.querySelectorAll("*")].some((node) =>
+              [...node.getClientRects()].some((rect) => !within(rect)))) continue;
+        const range = document.createRange();
+        if (units.some((node) => {
+          range.selectNodeContents(node);
+          return [...range.getClientRects()].some((rect) => !within(rect));
+        })) continue;
+        return true;
+      }
+      return false;
+    }
+    function refreshTitleCopies(t) {
+      for (const span of t.tHead?.querySelectorAll("[data-title-repeat]") || []) {
+        const key = span.dataset.titleRepeat, owner = titleOwners.get(key),
+          units = [...span.querySelectorAll("[data-title-unit]")];
+        const whole = owner && span.textContent.length === owner.length
+          && units.length === owner.units.size && units.every((node) =>
+            owner.units.has(node.dataset.titleUnit)
+              && node.textContent.length === owner.units.get(node.dataset.titleUnit));
+        span.toggleAttribute("data-title-suppressed", !!whole && fullTitleCanonicalOnPage(key));
+      }
+    }
+    const contextHeads = new Map(
+      [...section.querySelectorAll("[data-page-context]")].map((owner) => [
+        owner.dataset.pageContext, owner.querySelector(":scope > .page-context")?.cloneNode(true)
+      ])
+    );
+    const operationHeads = new Map(
+      [...section.querySelectorAll("tbody.operation")].map((body) => [
+        body.dataset.op, [...body.rows].filter(
+          (row) => row.classList.contains("operation-main") || row.querySelector(".op-note")
+        ).map((row) => row.cloneNode(true))
+      ])
+    );
+    const instructionOwners = new Map();
+    function registerInstructionOwner(t, index) {
+      const intro = t.previousElementSibling,
+        mirror = t.tHead?.querySelector(":scope > tr.table-context");
+      if (!intro?.matches("p.table-intro") || !mirror
+          || intro.querySelector("figure,.field,.result-field,.authored-blank,"
+            + ".tick,.performed-mark,input")) return;
+      const key = "table:" + index + ":instruction", units = new Map();
+      intro.dataset.instructionSource = key;
+      mirror.dataset.instructionRef = key;
+      const walker = document.createTreeWalker(intro, NodeFilter.SHOW_TEXT), nodes = [];
+      while (walker.nextNode()) nodes.push(walker.currentNode);
+      nodes.forEach((node, ordinal) => {
+        const identity = key + ":text:" + ordinal, span = document.createElement("span");
+        span.dataset.instructionUnit = identity;
+        units.set(identity, node.length);
+        node.replaceWith(span);
+        span.append(node);
+      });
+      instructionOwners.set(key, units);
+    }
+    function fullInstructionOnPage(key) {
+      const units = instructionOwners.get(key);
+      if (!units?.size) return false;
+      const totals = new Map(), left = section.getBoundingClientRect().left,
+        right = left + Number(document.documentElement.dataset.printWidth);
+      const contained = (rect) => rect.left >= left - .01 && rect.right <= right + .01
+        && rect.top >= pageTop - .01 && rect.bottom <= pageTop + CAP + .01;
+      const fragments = [...section.querySelectorAll("[data-instruction-source]")].filter(
+        (node) => node.dataset.instructionSource === key && !node.closest("[" + ADDED + "]")
+      );
+      for (const fragment of fragments) {
+        const bounds = box(fragment);
+        if (bounds.top < pageTop - .01 || bounds.bottom > pageTop + CAP + .01
+            || !contained(fragment.getBoundingClientRect())
+            || [...fragment.querySelectorAll("*")].some((node) =>
+              !node.closest("[" + ADDED + "]")
+                && [...node.getClientRects()].some((rect) => !contained(rect)))) continue;
+        const range = document.createRange();
+        for (const unit of fragment.querySelectorAll("[data-instruction-unit]")) {
+          if (unit.closest("[" + ADDED + "]")) continue;
+          const identity = unit.dataset.instructionUnit;
+          if (!units.has(identity)) return false;
+          range.selectNodeContents(unit);
+          if ([...range.getClientRects()].some((rect) => !contained(rect))) continue;
+          totals.set(identity, (totals.get(identity) || 0) + unit.textContent.length);
+        }
+      }
+      return [...units].every(([identity, length]) => totals.get(identity) === length);
+    }
+    function refreshInstructionMirrors(t) {
+      for (const row of t.tHead?.querySelectorAll("[data-instruction-ref]") || []) {
+        if (fullInstructionOnPage(row.dataset.instructionRef)) {
+          row.dataset.contextSuppressed = "same-page";
+        } else row.removeAttribute("data-context-suppressed");
+      }
+    }
+    const ORDINARY_EXCLUSIONS = "figure,figcaption,.field,.result-field,.authored-blank,"
+      + ".writing-blank,.field-label,.tick,.performed-mark,input,textarea,select,button,svg,img,"
+      + ".record-continuation,.row-continuation,.page-context,.op-number,.op-details,"
+      + ".cont-head,[data-continuation-locator],.fixed-locator-reference,[" + ADDED + "]";
+    function ordinaryWholeCell(cell) {
+      if (cell?.nodeType !== Node.ELEMENT_NODE || !cell.matches("td,th")
+          || cell.closest("table.operations,[" + ADDED + "]")) return false;
+      const row = cell.parentElement;
+      if (row.matches(".operation-main,.inspection-record,.warn,.process-observations")
+          || cell.matches(ORDINARY_EXCLUSIONS) || cell.querySelector(ORDINARY_EXCLUSIONS)) {
+        return false;
+      }
+      if (cell.closest("table.fixture") && [...row.cells].indexOf(cell) < 2) return false;
+      for (const node of cell.querySelectorAll("*")) {
+        if (!/^(SPAN|BR|STRONG|B|EM|I)$/.test(node.tagName)
+            || [...node.classList].some(
+              (name) => !["reading", "fixture-feature"].includes(name)
+            )) return false;
+      }
+      const prose = cell.cloneNode(true);
+      prose.querySelectorAll(".reading").forEach((node) => node.remove());
+      return /\p{L}/u.test(prose.textContent);
+    }
+    function wholeCellPoints(el, points) {
+      if (el.tagName !== "TR" || el.closest("table.operations")) return points;
+      for (const cell of el.cells) {
+        if (ordinaryWholeCell(cell)) points.push([cell, cell.childNodes.length]);
+      }
+      const left = document.createRange(), right = document.createRange();
+      return points.sort((a, b) => {
+        left.setStart(...a);
+        left.collapse(true);
+        right.setStart(...b);
+        right.collapse(true);
+        return left.compareBoundaryPoints(Range.START_TO_START, right);
+      });
+    }
+    function residualSourcePayload(contents) {
+      const copy = contents.cloneNode(true);
+      copy.querySelectorAll("[" + ADDED + "],.record-continuation,.row-continuation,"
+        + ".fixed-locator-reference").forEach((node) => node.remove());
+      // Presence is not progress: whitespace and excluded original controls remain source.
+      return copy.textContent.length !== 0 || !!copy.querySelector(ORDINARY_EXCLUSIONS);
+    }
+    function cellColumnContains(cell) {
+      const rect = cell.getBoundingClientRect(), style = getComputedStyle(cell),
+        border = getComputedStyle(cell.closest("table")).borderCollapse === "collapse" ? .5 : 1;
+      const bounds = { left: rect.left + border * parseFloat(style.borderLeftWidth)
+          + parseFloat(style.paddingLeft),
+        right: rect.right - border * parseFloat(style.borderRightWidth)
+          - parseFloat(style.paddingRight),
+        top: rect.top + border * parseFloat(style.borderTopWidth) + parseFloat(style.paddingTop),
+        bottom: rect.bottom - border * parseFloat(style.borderBottomWidth)
+          - parseFloat(style.paddingBottom) };
+      const contained = (r) => r.left >= bounds.left - .1 && r.right <= bounds.right + .1
+        && r.top >= bounds.top - .1 && r.bottom <= bounds.bottom + .1;
+      const walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
+      const range = document.createRange();
+      while (walker.nextNode()) {
+        const node = walker.currentNode;
+        if (!node.textContent.trim() || node.parentElement.closest("[" + ADDED + "]")) continue;
+        range.selectNodeContents(node);
+        if ([...range.getClientRects()].some(
+          (r) => r.width > 0 && r.height > 0 && !contained(r)
+        )) return false;
+      }
+      return [...cell.querySelectorAll(".reading,.fixture-feature")].every(
+        (node) => contained(node.getBoundingClientRect())
+      );
+    }
+    function admitWholeCells(el, point) {
+      let first = contentsAt(el, point), remaining = contentsAt(el, point, true);
+      const retained = [];
+      if (el.tagName === "TR" && ordinaryWholeCell(point[0])
+          && point[1] === point[0].childNodes.length) {
+        const slot = [...el.cells].indexOf(point[0]),
+          candidate = prefixBottom(el.closest("table"), el, first, [slot]);
+        if (!fits(candidate.bottom) || !candidate.contained) {
+          return { first, remaining, prefixCredit: false, tailCredit: originalText(remaining),
+            complete: false };
+        }
+        retained.push(slot);
+      }
+      if (el.tagName === "TR" && !el.closest("table.operations")) {
+        const original = [...el.cells];
+        for (let slot = 0; slot < original.length; slot++) {
+          if (first.children[slot].childNodes.length
+              || !remaining.children[slot].childNodes.length
+              || !ordinaryWholeCell(original[slot])) continue;
+          const contents = first.cloneNode(true);
+          contents.children[slot].replaceWith(original[slot].cloneNode(true));
+          const candidate = prefixBottom(el.closest("table"), el, contents, [...retained, slot]);
+          if (!fits(candidate.bottom) || !candidate.contained) continue;
+          first = contents;
+          remaining.children[slot].replaceChildren();
+          retained.push(slot);
+        }
+      }
+      const prefixCredit = originalText(first), tailCredit = originalText(remaining);
+      return { first, remaining, prefixCredit, tailCredit,
+        complete: prefixCredit && !residualSourcePayload(remaining) };
+    }
+    const tableHeads = new Map(), fixtureRows = new Map();
+    [...section.querySelectorAll("table")].forEach((t, index) => {
+      t.dataset.tableContext = String(index);
+      registerInstructionOwner(t, index);
+      const sources = [...t.querySelectorAll("thead > tr.repeat, "
+        + "thead > tr.table-context")].map((row) => row.cloneNode(true));
+      const candidate = (contents, css = "table-context") => {
+        const row = document.createElement("tr"), cell = document.createElement("th");
+        row.className = css;
+        row.dataset.optionalContext = "";
+        cell.colSpan = t.tHead.rows[t.tHead.rows.length - 1].cells.length;
+        cell.append(contents);
+        row.append(cell);
+        return row;
+      };
+      const op = t.closest(".contour")?.querySelector(":scope > .contour-context");
+      if (op) {
+        const copy = op.cloneNode(true);
+        const before = sources.findIndex((row) => row.classList.contains("table-context"));
+        sources.splice(before < 0 ? sources.length : before, 0, candidate(copy));
+      }
+      const worksheet = t.classList.contains("readings") ? t.closest(".worksheet") : null;
+      if (worksheet) {
+        for (const [html, css] of [
+          [worksheet.dataset.worksheetTitle, "repeat"],
+          ...JSON.parse(worksheet.dataset.readingContext).map((html) => [html, "table-context"])
+        ]) {
+          const contents = document.createElement("span");
+          contents.innerHTML = html;
+          sources.push(candidate(contents, css));
+        }
+      }
+      tableHeads.set(String(index), sources);
+      if (t.classList.contains("fixture")) {
+        [...t.tBodies].flatMap((body) => [...body.rows]).forEach((row, slot) => {
+          row.dataset.rowContext = index + ":" + slot;
+          fixtureRows.set(row.dataset.rowContext,
+            [...row.cells].slice(0, 2).map((cell) => cell.cloneNode(true)));
+        });
+      }
+    });
+    // Each print pass starts from pristine children. Only repeated logical-sheet
+    // identity may use the running-header hierarchy to keep its first figure whole.
+    if (section.dataset.sheetRole === "continuation") {
+      const [meta, banner, heading, figure] = [...section.children];
+      if (meta?.matches(".meta") && banner?.matches(".banner")
+          && heading?.tagName === "H2" && figure?.tagName === "FIGURE") {
+        const required = box(figure).bottom - box(section).top;
+        if (required > CAP) {
+          const head = document.createElement("div");
+          head.className = "compact-sheet-head lead-in";
+          const identity = document.createElement("span"), title = document.createElement("span");
+          identity.className = title.className = "cont-title";
+          for (const item of [...meta.children, banner]) {
+            if (identity.childNodes.length) {
+              const separator = document.createElement("span");
+              separator.className = "compact-identity-separator";
+              separator.textContent = " · ";
+              identity.append(separator);
+            }
+            identity.append(...[...item.childNodes]);
+          }
+          title.append(...[...heading.childNodes]);
+          head.append(identity, document.createElement("br"), title);
+          meta.before(head);
+          meta.remove(); banner.remove(); heading.remove();
+          // The unchanged figure/caption must still fit with this measured header.
+        }
+      }
+    }
     let pageTop = box(section).top, pages = 1;
     let pageStart = [...section.children].find(
       (el) => !el.classList.contains("meta") && !el.classList.contains("banner")
     );
     const fits = (bottom) => bottom - pageTop <= CAP;
+    function prefixBottom(t, end, contents = null, inspectSlots = null) {
+      refreshInstructionMirrors(t);
+      refreshTitleCopies(t);
+      // Measure the actual retained table, including its closing rule and margin.
+      // A same-slot probe preserves its columns, context and inherited typography.
+      const probe = t.cloneNode(false), range = document.createRange();
+      range.selectNodeContents(t);
+      if (contents) range.setEndBefore(end.parentElement);
+      else range.setEndAfter(end);
+      probe.append(range.cloneContents());
+      if (contents) {
+        const body = end.parentElement.cloneNode(false);
+        for (const row of end.parentElement.rows) {
+          const copy = row.cloneNode(row !== end);
+          if (row === end) copy.append(contents.cloneNode(true));
+          body.append(copy);
+          if (row === end) break;
+        }
+        probe.append(body);
+      }
+      t.before(probe);
+      try {
+        const bottom = box(probe).bottom;
+        if (inspectSlots === null) return bottom;
+        const row = [...probe.tBodies[probe.tBodies.length - 1].rows].at(-1),
+          bounds = probe.getBoundingClientRect(), left = section.getBoundingClientRect().left;
+        return { bottom, contained: [...new Set(inspectSlots)].every(
+          (slot) => cellColumnContains(row.cells[slot])
+        ) && bounds.left >= left - .1
+          && bounds.right <= left + Number(document.documentElement.dataset.printWidth) + .1 };
+      }
+      finally { probe.remove(); }
+    }
+    function textBottom(el, contents) {
+      const probe = el.cloneNode(false);
+      probe.append(contents.cloneNode(true));
+      el.before(probe);
+      try { return box(probe).bottom; }
+      finally { probe.remove(); }
+    }
+    function sourceBottom(el, point) {
+      const contents = contentsAt(el, point);
+      return el.tagName === "TR"
+        ? prefixBottom(el.closest("table"), el, contents) : textBottom(el, contents);
+    }
+    function pageProgress(el, relax = true) {
+      if (el.tagName === "TABLE") {
+        const progress = sourceProgress(el, el.tBodies[0]);
+        return progress ? () => prefixBottom(el, progress.row, progress.contents) : null;
+      }
+      for (const point of pointsIn(el)) {
+        const contents = contentsAt(el, point);
+        if (originalText(contents) && fits(textBottom(el, contents))) {
+          return () => textBottom(el, contents);
+        }
+      }
+      if (originalText(el) && fits(box(el).bottom)) return () => box(el).bottom;
+      return relax && prepareFields(el) ? pageProgress(el, false) : null;
+    }
+    function compactContext(el, suffix = "") {
+      const references = locatorNodes(el, "[" + LOCATOR_REF + "]")
+        .map((ref) => ref.cloneNode(true));
+      const identity = /^.*?\bop\s+\d+\b/.exec(el.textContent);
+      if (!identity) return false;
+      const range = document.createRange(),
+        walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      range.selectNodeContents(el);
+      let remaining = identity[0].length, node;
+      while ((node = walker.nextNode())) {
+        if (remaining <= node.length) {
+          range.setEnd(node, remaining);
+          el.replaceChildren(range.cloneContents(), suffix, ...references);
+          return true;
+        }
+        remaining -= node.length;
+      }
+      return false;
+    }
     function breakAt(el) {
       pages += 1;
       const head = document.createElement("p");
       head.className = "cont-head";
       head.setAttribute(ADDED, "");
-      head.textContent = title + " (continued) \u00b7 page " + pages;
+      const running = document.createElement("span");
+      running.className = "cont-title";
+      running.textContent = title + " (continued)";
+      if (statusContents.length) {
+        running.append(" · ", ...statusContents.map((node) => node.cloneNode(true)));
+      }
+      const count = document.createElement("span");
+      count.className = "cont-count";
+      count.append(" · page " + pages + " of ");
+      const total = document.createElement("span");
+      total.className = "cont-page-total";
+      total.textContent = "?";
+      count.append(total);
+      // The count line is present during every fit/progress measurement. Its final
+      // digits cannot change the title wrapping or the preserved working context.
+      head.append(running, "\n", count);
+      const owner = el.closest("[data-page-context]");
       el.before(head);
       head.style.breakBefore = "page";
       pageTop = box(head).top;
       pageStart = el;
+      const source = owner && contextHeads.get(owner.dataset.pageContext);
+      if (source) {
+        let progress = pageProgress(el);
+        if (!progress) {
+          // A repeated long note title is not original progress. Keep its stable
+          // setup/op identity when the full repeat blocks the original remainder.
+          for (const repeated of el.querySelectorAll(".record-continuation")) {
+            compactContext(repeated, " (continued)");
+          }
+          progress = pageProgress(el);
+        }
+        if (!progress) return;
+        const context = document.createElement("span");
+        context.className = "cont-context";
+        context.append(...[...source.childNodes].map((node) => node.cloneNode(true)));
+        cleanLocatorCopy(context);
+        head.append("\n", context);
+        if (!fits(progress())) {
+          if (!compactContext(context)) context.replaceChildren();
+          if (!context.textContent || !fits(progress())) context.remove();
+        }
+      }
     }
     // What must start a page with `el`: the headings (and a table's caption) right above
     // it, a heading's lead-in line, and, when `el` opens its parent, what must start a
@@ -100,7 +994,8 @@ h2:has(+ table.operations) { position: relative; z-index: 1; height: 14pt; margi
       let start = el;
       for (;;) {
         const prev = start.previousElementSibling;
-        const caption = prev && prev.tagName === "P" && start.tagName === "TABLE";
+        const caption = prev && prev.tagName === "P"
+          && /^(TABLE|OL|UL)$/.test(start.tagName) && !prev.hasAttribute(ADDED);
         if (heading(prev) || caption || (prev && prev.classList.contains("lead-in"))) {
           start = prev;
         } else if (!prev && start.parentElement !== section) {
@@ -119,12 +1014,16 @@ h2:has(+ table.operations) { position: relative; z-index: 1; height: 14pt; margi
         return false;
       }
       let more = null;
-      if (el.tagName === "TABLE" && el.classList.contains("operations") && el.tBodies.length) {
+      const operations = el.matches("table.operations") ? el
+        : heading(el) && el.nextElementSibling?.matches("table.operations")
+          ? el.nextElementSibling : null;
+      if (operations && operations.tBodies.length) {
         more = document.createElement("p");
         more.className = "more";
         more.setAttribute(ADDED, "");
         start.before(more);
-        const op = el.tBodies[0].rows[0].cells[0].textContent;
+        const op = operations.tBodies[0].dataset.op
+          || operations.tBodies[0].rows[0].cells[0].textContent;
         more.textContent = "Operations continue on reverse, op " + op;
         if (!fits(box(more).bottom)) {
           more.remove();
@@ -132,12 +1031,430 @@ h2:has(+ table.operations) { position: relative; z-index: 1; height: 14pt; margi
         }
       }
       breakAt(start);
+      const movedTable = el.tagName === "TABLE" ? el
+        : (heading(el) || el.classList.contains("table-intro"))
+          && el.nextElementSibling?.tagName === "TABLE" ? el.nextElementSibling : null;
+      if (movedTable && (tableHeads.get(movedTable.dataset.tableContext) || []).some(
+            (row) => row.hasAttribute("data-optional-context")
+          )) {
+        const progress = sourceProgress(movedTable, movedTable.tBodies[0]);
+        if (progress) {
+          movedTable.setAttribute(SPLIT, "");
+          tableContext(movedTable, progress, true);
+        }
+      }
       if (more && pages % 2 === 1) {
         more.textContent = more.textContent.replace("on reverse", "on the next sheet");
       }
       return true;
     }
-    // Rows from body `j` on go to a copy of `t` that starts the next page.
+    function pointsIn(el) {
+      const points = [], atomicContexts = new Map();
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
+        acceptNode(node) {
+          // A whole canonical view is source, but none of its SVG, title, caption
+          // or text descendants is a legal pagination boundary.
+          if (node.parentElement?.closest("figure, [" + ADDED + "]")) {
+            return NodeFilter.FILTER_REJECT;
+          }
+          return node.nodeType === Node.TEXT_NODE || node.matches("figure")
+            ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
+        }
+      });
+      let node;
+      while ((node = walker.nextNode())) {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          const parent = node.parentNode, slot = [...parent.childNodes].indexOf(node);
+          points.push([parent, slot], [parent, slot + 1]);
+          continue;
+        }
+        if (node.parentElement.closest(
+          ".field, .result-field, .authored-blank, .performed-mark, .reading, "
+            + ".record-continuation, .fixed-locator-reference, .op-details dt, [" + ADDED + "]"
+        )) continue;
+        const feature = node.parentElement.closest(".fixture-feature");
+        if (feature) {
+          if (!atomicContexts.has(feature)) {
+            const parent = feature.parentNode,
+              slot = [...parent.childNodes].indexOf(feature),
+              before = [parent, slot], after = [parent, slot + 1];
+            const prefix = originalText(contentsAt(el, before));
+            // First continue before a complete feature clause, never between its
+            // identity and coordinates. Only a clause that still cannot fit with
+            // no earlier original source may use the ordinary measured fallback.
+            const atomic = fits(sourceBottom(el, after)) || prefix;
+            atomicContexts.set(feature, atomic);
+            if (prefix) points.push(before);
+            if (atomic) points.push(after);
+          }
+          if (atomicContexts.get(feature)) continue;
+        }
+        const context = node.parentElement.closest(".page-context");
+        if (context) {
+          if (!atomicContexts.has(context)) {
+            const atomic = fits(sourceBottom(el, [context, context.childNodes.length]));
+            atomicContexts.set(context, atomic);
+            // A non-fitting original title must advance as source, not disappear
+            // from the progress test merely because its identity can be repeated.
+            if (!atomic) context.setAttribute(CONTEXT_ROLE, "source");
+          }
+          if (atomicContexts.get(context)) continue;
+        }
+        const text = node.textContent, matches = [...text.matchAll(/[ \t\r\n]+/g)];
+        for (const match of matches) points.push([node, match.index + match[0].length]);
+        if (!matches.length && text.length > 100) {
+          for (let offset = 1; offset < text.length; offset++) points.push([node, offset]);
+        }
+      }
+      return wholeCellPoints(el, points);
+    }
+    function rowContents(el, point, tail) {
+      // A Range across a row omits cells outside the range. Clone every slot,
+      // including empty ones, so later text stays beneath its original heading.
+      const index = [...el.cells].findIndex((cell) => cell.contains(point[0]));
+      const contents = document.createDocumentFragment();
+      for (const [slot, original] of [...el.cells].entries()) {
+        const copy = original.cloneNode(tail ? slot > index : slot < index);
+        if (slot === index) {
+          const part = document.createRange();
+          part.selectNodeContents(original);
+          if (tail) part.setStart(...point);
+          else part.setEnd(...point);
+          copy.append(part.cloneContents());
+        }
+        contents.append(copy);
+      }
+      return contents;
+    }
+    function contentsAt(el, point, tail = false) {
+      if (el.tagName === "TR") return rowContents(el, point, tail);
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      if (tail) range.setStart(...point);
+      else range.setEnd(...point);
+      return range.cloneContents();
+    }
+    function originalText(contents) {
+      // Retained whole figures and over-page original context advance source;
+      // short repeatable identities and recording marks never do so alone.
+      const copy = contents.cloneNode(true),
+        identityOnly = '.page-context:not([' + CONTEXT_ROLE + '="source"])';
+      if (copy.matches?.(identityOnly
+        + ", .record-continuation, .fixed-locator-reference, [" + ADDED + "]")) return false;
+      copy.querySelectorAll(".performed-mark, .writing-blank, .record-continuation, "
+        + ".fixed-locator-reference, .op-number, " + identityOnly + ", [" + ADDED + "]")
+        .forEach((node) => node.remove());
+      return !!copy.matches?.("figure") || !!copy.querySelector("figure")
+        || /[\p{L}\p{N}]/u.test(copy.textContent);
+    }
+    function sourceProgress(t, body, relax = true) {
+      const row = [...body.rows].find((source) => !source.hasAttribute(ADDED));
+      if (!row) return null;
+      for (const point of pointsIn(row)) {
+        const contents = contentsAt(row, point);
+        if (!originalText(contents)) continue;
+        if (fits(prefixBottom(t, row, contents))) return { row, point, contents };
+      }
+      if (originalText(row) && fits(prefixBottom(t, row))) {
+        return { row, point: null, contents: null };
+      }
+      return relax && prepareFields(row) ? sourceProgress(t, body, false) : null;
+    }
+    function progressBottom(t, progress) {
+      return prefixBottom(t, progress.row,
+        progress.point ? contentsAt(progress.row, progress.point) : progress.contents);
+    }
+    function contextBudget(t, progress) {
+      if (!t.classList.contains("operations")) {
+        const original = [...t.tBodies].filter(
+          (body) => !body.hasAttribute("data-duplex-fragment")
+        );
+        if (original.length >= KEEP && fits(prefixBottom(t, original[KEEP - 1]))) {
+          return () => prefixBottom(t, original[KEEP - 1]);
+        }
+      }
+      return () => progressBottom(t, progress);
+    }
+    function prepareFields(el) {
+      const selector = ".field, .result-field, .authored-blank";
+      const fields = el.matches(selector) ? [el] : [...el.querySelectorAll(selector)];
+      let changed = false;
+      for (const field of fields) {
+        if (field.closest("[" + ADDED + "]")
+            || fits(sourceBottom(el, [field, field.childNodes.length]))) continue;
+        const label = field.querySelector(".field-label");
+        if (!label) continue;
+        const range = document.createRange();
+        range.selectNodeContents(label);
+        const last = [...range.getClientRects()].filter((rect) => rect.width > 0).pop();
+        if (!last) continue;
+        const walker = document.createTreeWalker(label, NodeFilter.SHOW_TEXT);
+        let node, start = null;
+        while (!start && (node = walker.nextNode())) {
+          const offsets = [0];
+          if (!node.parentElement.closest(".reading")) {
+            for (const match of node.textContent.matchAll(/[ \t\r\n]+/g)) {
+              offsets.push(match.index + match[0].length);
+            }
+          }
+          for (const offset of offsets) {
+            if (offset >= node.textContent.length) continue;
+            range.setStart(node, offset);
+            range.setEnd(node, offset + 1);
+            if (range.getBoundingClientRect().top >= last.top) {
+              start = [node, offset]; break;
+            }
+          }
+        }
+        if (!start) continue;
+        range.selectNodeContents(label);
+        range.setEnd(...start);
+        const prose = document.createElement("span");
+        prose.className = "authored-label";
+        prose.append(range.cloneContents());
+        // Fitting short labels stay atomic; an empty prefix cannot advance source.
+        if (!/[\p{L}\p{N}]/u.test(prose.textContent)) continue;
+        range.selectNodeContents(label);
+        range.setStart(...start);
+        const caption = range.cloneContents();
+        field.before(prose);
+        label.replaceChildren(caption);
+        changed = true;
+      }
+      return changed;
+    }
+    // Only original source is fragmented. Repeated context is admitted whole,
+    // and the writing box stays with the final measured source caption line.
+    function fragment(el, relax = true) {
+      if (el.hasAttribute(ADDED) || el.matches(".record-continuation")) return null;
+      const points = pointsIn(el);
+      // A glyph Range is not the final line box or table row. Prove the cloned
+      // prefix's real formatting footprint before accepting the split point.
+      function bottomAt(point) {
+        return sourceBottom(el, point);
+      }
+      let low = 0, high = points.length - 1, best = -1;
+      while (low <= high) {
+        const middle = Math.floor((low + high) / 2);
+        if (bottomAt(points[middle]) <= pageTop + CAP) {
+          best = middle; low = middle + 1;
+        } else high = middle - 1;
+      }
+      for (; best >= 0; best--) {
+        const candidate = admitWholeCells(el, points[best]);
+        if (!candidate.prefixCredit) continue;
+        const first = candidate.first, remaining = candidate.remaining;
+        if (candidate.complete && el.tagName === "TR") {
+          el.replaceChildren(first);
+          return el;
+        }
+        if (!candidate.tailCredit) continue;
+        const rest = el.cloneNode(false);
+        rest.append(remaining);
+        if (rest.dataset.rowContext) rest.dataset.rowContinuation = "";
+        el.replaceChildren(first);
+        el.after(rest);
+        for (const field of rest.querySelectorAll(".op-details > div")) {
+          if (!field.querySelector("dd") || field.querySelector("dt")) continue;
+          const source = el.querySelector(".op-details > ." + field.className + " > dt");
+          if (source) {
+            const label = source.cloneNode(true);
+            label.setAttribute(ADDED, "");
+            field.prepend(label);
+          }
+        }
+        if (rest.classList.contains("inspection-record")) {
+          const identity = document.createElement("p");
+          identity.className = "record-continuation";
+          identity.textContent = rest.dataset.recordTitle + " (continued)";
+          rest.querySelector(".inspection-requirement").prepend(identity);
+        }
+        if (rest.tagName === "LI" && rest.dataset.pageContext) {
+          const identity = document.createElement("span");
+          identity.className = "record-continuation";
+          identity.textContent = rest.dataset.pageContext + " (continued)";
+          rest.prepend(identity);
+        }
+        const warning = rest.querySelector(".box")
+          || (rest.matches(".stop, .caution") ? rest : null);
+        if (warning) {
+          const word = /\b(STOP|HOLD|CAUTION)\b/.exec(el.textContent);
+          if (word) warning.prepend(word[1] + " (continued): ");
+        }
+        return rest;
+      }
+      if (relax && prepareFields(el)) return fragment(el, false);
+      for (const figure of el.querySelectorAll("figure")) {
+        const parent = figure.parentNode, slot = [...parent.childNodes].indexOf(figure);
+        if (!originalText(contentsAt(el, [parent, slot]))
+            && !fits(sourceBottom(el, [parent, slot + 1]))) {
+          refuseFigure(figure, sourceBottom(el, [parent, slot + 1]) - pageTop);
+        }
+      }
+      return null;
+    }
+    function contextRow(source) {
+      const row = cleanLocatorCopy(source.cloneNode(true));
+      row.classList.add("operation-continuation");
+      row.setAttribute(ADDED, "");
+      row.querySelectorAll(".performed-mark, .writing-blank, figure")
+        .forEach((mark) => mark.remove());
+      row.querySelectorAll(".field, .result-field, .authored-blank").forEach((field) => {
+        field.replaceWith(...locatorFieldContext(field));
+      });
+      const number = row.querySelector(".op-number");
+      if (number) number.append(" (continued)");
+      return row;
+    }
+    function operationContext(t, body, progress) {
+      const sources = operationHeads.get(body.dataset.op);
+      if (!sources || !body.hasAttribute("data-operation-continuation")) return;
+      const full = contextRow(sources[0]), identity = full.cloneNode(true);
+      identity.querySelector(".op-action").remove();
+      identity.querySelector(".op-head h3").replaceChildren(identity.querySelector(".op-number"));
+      identity.querySelector(".op-details").remove();
+      body.prepend(identity);
+      const accepted = () => fits(prefixBottom(t, progress.row, progress.contents));
+      if (!accepted()) {
+        identity.remove();
+        throw new Error("An operation identity cannot share a page with original source progress.");
+      }
+      identity.replaceWith(full);
+      if (!accepted()) {
+        full.replaceWith(identity);
+        const compact = full.querySelector(".op-details").cloneNode(true);
+        [...compact.children].forEach((field) => {
+          if (!field.matches(".op-tool, .op-target, .op-direction")) field.remove();
+        });
+        identity.cells[0].append(compact);
+        if (!accepted()) compact.remove();
+      }
+      const notes = sources.slice(1).map(contextRow);
+      const head = [...body.rows].find((row) => row.hasAttribute(ADDED));
+      head.after(...notes);
+      if (!accepted()) notes.forEach((row) => row.remove());
+    }
+    function tableContext(t, progress, optionalOnly = false) {
+      if (!t.hasAttribute(SPLIT)) return;
+      refreshInstructionMirrors(t);
+      refreshTitleCopies(t);
+      const budget = contextBudget(t, progress);
+      for (const source of tableHeads.get(t.dataset.tableContext) || []) {
+        if (optionalOnly && !source.hasAttribute("data-optional-context")) continue;
+        if (source.dataset.instructionRef && fullInstructionOnPage(source.dataset.instructionRef)) {
+          continue;
+        }
+        const row = cleanLocatorCopy(source.cloneNode(true));
+        row.setAttribute(ADDED, "");
+        row.querySelectorAll(".performed-mark, .writing-blank, .tick, figure")
+          .forEach((mark) => mark.remove());
+        row.querySelectorAll(".field, .result-field, .authored-blank").forEach((field) => {
+          field.replaceWith(...locatorFieldContext(field));
+        });
+        const columns = t.tHead.querySelector("tr:not(.repeat):not(.table-context)");
+        const followingContext = optionalOnly && row.classList.contains("table-context")
+          ? t.tHead.querySelector(`tr.table-context:not([${ADDED}])`) : null;
+        (followingContext || columns).before(row);
+        refreshTitleCopies(t);
+        if (fits(budget())) continue;
+        if (row.hasAttribute("data-optional-context")) {
+          row.remove();
+          continue;
+        }
+        const cell = row.cells[0];
+        const locator = cell.querySelector("[data-continuation-locator]")?.cloneNode(true);
+        const titleCell = cell.cloneNode(true);
+        titleCell.querySelectorAll("[data-continuation-locator]").forEach((node) => node.remove());
+        const text = titleCell.textContent;
+        const boundary = text.search(/[;.!?]\s/);
+        const identity = /^.*?\bop\s+\d+\b/.exec(text)
+          || /\([^()]*\)(?=\s+\(continued\)$)/.exec(text);
+        if (row.classList.contains("repeat")) {
+          cell.replaceChildren();
+          if (identity) cell.append(identity[0]);
+          if (locator) {
+            if (cell.textContent) cell.append(" · ");
+            cell.append(locator);
+          }
+        } else if (boundary >= 0) {
+          const range = document.createRange(), walker = document.createTreeWalker(
+            cell, NodeFilter.SHOW_TEXT
+          );
+          let remaining = boundary + 1, node;
+          range.selectNodeContents(cell);
+          while ((node = walker.nextNode())) {
+            if (remaining <= node.textContent.length) {
+              range.setEnd(node, remaining); break;
+            }
+            remaining -= node.textContent.length;
+          }
+          cell.replaceChildren(range.cloneContents());
+        } else cell.replaceChildren();
+        if (!cell.textContent || !fits(budget())) {
+          if (locator) {
+            throw new Error("A contour progress locator cannot share a page "
+              + "with original source progress.");
+          }
+          row.remove();
+        }
+      }
+    }
+    function fixtureContext(t, progress) {
+      const row = progress.row, source = fixtureRows.get(row.dataset.rowContext);
+      if (!source || !row.hasAttribute("data-row-continuation")) return;
+      const budget = contextBudget(t, progress), copies = [];
+      source.forEach((cell, slot) => {
+        if (originalText(row.cells[slot])) return;
+        const copy = document.createElement("span");
+        copy.className = "row-continuation";
+        copy.setAttribute(ADDED, "");
+        copy.append(...[...cell.childNodes].map((node) => node.cloneNode(true)));
+        copy.querySelectorAll(".performed-mark, .writing-blank, .tick")
+          .forEach((mark) => mark.remove());
+        if (slot === 0) copy.append(" (continued)");
+        row.cells[slot].prepend(copy);
+        copies.push(copy);
+      });
+      if (!fits(budget())) copies.forEach((copy) => copy.remove());
+    }
+    function splitBody(t, body) {
+      const rows = [...body.rows];
+      const ending = box(t).bottom - box(t.tBodies[t.tBodies.length - 1]).bottom;
+      let index = rows.findIndex((row) => !fits(box(row).bottom + ending));
+      while (index > 0 && !fits(prefixBottom(t, rows[index - 1]))) index -= 1;
+      if (index < 0) return false;
+      if (rows[index].hasAttribute(ADDED)) return false;
+      if (rows.slice(0, index).every((row) => row.hasAttribute(ADDED))) {
+        // No authored row fits beside the repeated heading: continue the oversized
+        // row itself, never emit a page containing only a continuation label.
+        const tail = fragment(rows[index]);
+        if (!tail) return false;
+        const completed = tail === rows[index];
+        index += 1;
+        // A complete original row has no fragment tail; following canonical rows still move.
+        if (completed && index >= body.rows.length) return true;
+      }
+      const rest = body.cloneNode(false);
+      if (!t.classList.contains("operations")) rest.setAttribute("data-duplex-fragment", "");
+      rest.append(...[...body.rows].slice(index));
+      body.after(rest);
+      if (rest.classList.contains("operation")) {
+        rest.setAttribute("data-operation-continuation", "");
+      }
+      return true;
+    }
+    function startTablePage(t) {
+      t.setAttribute(SPLIT, "");
+      t.tHead.querySelectorAll("tr.continued, tr.repeat, tr.table-context")
+        .forEach((row) => row.remove());
+      breakAt(t);
+      const progress = sourceProgress(t, t.tBodies[0]);
+      if (!progress) throw new Error("A continuation cannot advance its original source.");
+      operationContext(t, t.tBodies[0], progress);
+      tableContext(t, progress);
+      fixtureContext(t, progress);
+    }
+    // Bodies from j onward go to a copy with the same headings, on the next page.
     function cut(t, j) {
       const rest = t.cloneNode(false);
       rest.setAttribute(SPLIT, "");
@@ -145,13 +1462,15 @@ h2:has(+ table.operations) { position: relative; z-index: 1; height: 14pt; margi
         if (part.tagName !== "COLGROUP" && part.tagName !== "THEAD") continue;
         const copy = part.cloneNode(true);
         copy.querySelectorAll("tr.continued").forEach((row) => row.remove());
+        copy.querySelectorAll("tr.repeat, tr.table-context").forEach((row) => row.remove());
         rest.append(copy);
       }
       rest.append(...[...t.tBodies].slice(j));
       t.after(rest);
       let more = null;
       const pointer = (side) => {
-        const op = rest.tBodies[0].rows[0].cells[0].textContent;
+        const body = rest.tBodies[0];
+        const op = body.dataset.op || body.rows[0].cells[0].textContent;
         more.textContent = "Operations continue " + side + ", op " + op;
       };
       if (t.classList.contains("operations")) {
@@ -165,8 +1484,8 @@ h2:has(+ table.operations) { position: relative; z-index: 1; height: 14pt; margi
           pointer("on reverse");
         }
         if (!fits(box(more).bottom)) {
-          // One row and the pointer overflow: undo the split and start the table, with
-          // its heading, on the next page; at a page top already, drop the pointer.
+          // As in the base, move the table with its heading if even one group and
+          // the pointer cannot fit. At a page top, keep the group and omit the pointer.
           t.append(...[...rest.tBodies]);
           rest.remove();
           more.remove();
@@ -179,131 +1498,176 @@ h2:has(+ table.operations) { position: relative; z-index: 1; height: 14pt; margi
           more = null;
         }
       }
-      breakAt(rest);
+      startTablePage(rest);
       if (more) pointer(pages % 2 === 0 ? "on reverse" : "on the next sheet");
       table(rest);
     }
     function table(t) {
-      const over = () => [...t.tBodies].findIndex((tb) => !fits(box(tb).bottom));
+      const over = () => {
+        refreshInstructionMirrors(t);
+        refreshTitleCopies(t);
+        const bodies = [...t.tBodies];
+        if (!bodies.length) return -1;
+        const ending = box(t).bottom - box(bodies[bodies.length - 1]).bottom;
+        let index = bodies.findIndex((body) => !fits(box(body).bottom + ending));
+        while (index > 0 && !fits(prefixBottom(t, bodies[index - 1]))) index -= 1;
+        return index;
+      };
       let j = over();
       if (j === 0 && move(t)) j = over();
-      // A first row taller than the page stays with the table head: the browser splits it.
-      if (j === 0) j = 1;
-      const n = t.tBodies.length;
-      // Widow and orphan control: a split leaves at least KEEP rows on each page. Rows
-      // carry over to the next page; a table too short for KEEP on both sides moves
-      // whole with its heading (where moving gains a page top).
-      if (j > 0 && j < n && (j < KEEP || n - j < KEEP)) {
-        if (j >= KEEP && n - KEEP >= KEEP) {
-          j = n - KEEP;
-        } else if (move(t)) {
-          j = over();
-          if (j === 0) j = 1;
-          if (j > 0 && j < n && n - j < KEEP && n - KEEP >= KEEP) j = n - KEEP;
+      if (!t.classList.contains("operations")) {
+        const bodies = [...t.tBodies];
+        const authored = bodies.filter((body) => !body.hasAttribute("data-duplex-fragment"));
+        const countBefore = (index) => bodies.slice(0, index).filter(
+          (body) => !body.hasAttribute("data-duplex-fragment")
+        ).length;
+        // Only original ordinary-table groups count toward KEEP, never fragments
+        // or added context. Feasibility includes the retained table's closing geometry.
+        const tail = authored.length >= 2 * KEEP
+          ? bodies.indexOf(authored[authored.length - KEEP]) : -1;
+        if (j > 0 && j < bodies.length) {
+          const before = countBefore(j), after = authored.length - before;
+          if (before < KEEP || after < KEEP) {
+            if (before >= KEEP && tail > 0 && fits(prefixBottom(t, bodies[tail - 1]))) {
+              j = tail;
+            } else if (move(t)) {
+              j = over();
+              if (j > 0 && countBefore(j) >= KEEP && tail > 0
+                  && fits(prefixBottom(t, bodies[tail - 1]))) j = tail;
+            }
+          }
         }
       }
-      if (j > 0 && j < n) cut(t, balance(t, j));
+      // An authored caption may fit alone but not share even the first original row.
+      // Keep its words there, then admit bounded context beside real source progress.
+      if (j === 0 && t !== pageStart && !sourceProgress(t, t.tBodies[0])) {
+        startTablePage(t);
+        j = over();
+      }
+      if (j === 0) {
+        if (!splitBody(t, t.tBodies[0])) {
+          throw new Error(
+            "An over-page table record could not be continued without losing content."
+          );
+        }
+        j = 1;
+      }
+      if (j > 0 && j < t.tBodies.length) cut(t, j);
     }
-    // A table split at body `j` whose last rows, with all that follows them on the sheet,
-    // fit on the next page: that page would end the sheet, so the split shares the rows
-    // evenly rather than leave a short tail of closing rows on it alone. An op table keeps
-    // its own split (its pointer and sign-off place it).
-    function balance(t, j) {
-      const n = t.tBodies.length, half = Math.ceil(n / 2);
-      if (t.classList.contains("operations") || n - j >= n - half || n - half < KEEP) return j;
-      const head = t.tHead ? box(t.tHead).bottom - box(t.tHead).top : 0;
-      // The next page also opens with the continued-page line and the column headings
-      // (with the table's repeated name row, hidden on its first page).
-      const rest = box(section.lastElementChild).bottom - box(t.tBodies[half]).top;
-      return rest + 2 * head + HEAD_ROOM <= CAP ? half : j;
+    function refuseFigure(figure, required = box(figure).bottom - pageTop) {
+      const height = box(figure).bottom - box(figure).top;
+      const label = figure.querySelector("figcaption")?.textContent
+        || figure.getAttribute("aria-label") || "Untitled figure";
+      throw new Error(
+        `A complete figure cannot fit on a print page: ${label} `
+        + `(${height.toFixed(1)}px high; ${required.toFixed(1)}px required; `
+        + `${CAP.toFixed(1)}px page capacity).`
+      );
     }
     function walk(parent) {
       for (const el of [...parent.children]) {
+        if (!el.isConnected || el.hasAttribute(ADDED)) continue;
         const b = box(el);
         if (fits(b.bottom)) continue;
         if (el.tagName === "TABLE") {
           table(el);
         } else if (el.classList.contains("signoff")) {
-          // The sign-off never stands alone: take the last op row with it.
           const prev = el.previousElementSibling;
-          if (prev && prev.tagName === "TABLE" && prev.tBodies.length > 1) {
-            cut(prev, prev.tBodies.length - 1);
-          } else {
-            move(el);
-          }
+          if (prev && prev.tagName === "TABLE") {
+            // Reuse the table splitter with space reserved for the existing signoff,
+            // so even a one-operation continuation cannot leave it on a page alone.
+            const capacity = CAP;
+            CAP -= Math.max(b.bottom - box(prev).bottom, b.bottom - b.top);
+            try { table(prev); } finally { CAP = capacity; }
+          } else move(el);
+        } else if (el.tagName === "FIGURE") {
+          move(el);
+          if (!fits(box(el).bottom)) refuseFigure(el);
         } else if (b.bottom - b.top <= CAP && move(el) && fits(box(el).bottom)) {
           continue;
-        } else if (el.children.length) {
-          // Too tall to move whole: break inside it. Blocks standing side by side (a
-          // flex row: contour blocks, rough and finish stages) stack first, so the walk
-          // meets them one below another, each measured from where the last one ends.
+        } else if (el.children.length
+            && !el.matches("p, li, .page-context, .stop, .caution, .unverified")) {
           const s = getComputedStyle(el);
           if (s.display.endsWith("flex") && !s.flexDirection.startsWith("column")) {
             el.setAttribute(STACKED, "");
           }
           walk(el);
         } else {
-          // One unbreakable block taller than a page: the browser splits it.
-          const c = box(el), over = c.bottom - pageTop;
-          pages += Math.floor(over / CAP);
-          pageTop = c.bottom - (over % CAP);
+          move(el);
+          let current = el;
+          while (!fits(box(current).bottom)) {
+            const rest = fragment(current);
+            if (!rest) throw new Error(
+              "An over-page text block could not be continued without losing content."
+            );
+            breakAt(rest);
+            current = rest;
+          }
         }
       }
     }
     walk(section);
     section.querySelectorAll(".cont-head").forEach((head) => {
-      head.textContent += " of " + pages;
+      head.querySelector(".cont-page-total").textContent = String(pages);
     });
+    section.dataset.pages = pages;
     return pages;
   }
   function reset() {
     document.querySelectorAll(".blank-side, [" + ADDED + "]").forEach((el) => el.remove());
-    document.querySelectorAll("[" + STACKED + "]").forEach((el) => el.removeAttribute(STACKED));
-    // Re-join split tables, last piece first.
-    [...document.querySelectorAll("table[" + SPLIT + "]")].reverse().forEach((rest) => {
-      rest.previousElementSibling.append(...[...rest.tBodies]);
-      rest.remove();
-    });
+    // Restore the source DOM, not a second, partly split pagination layout. This also
+    // restores text fragments, stacked blocks and authored list numbering before print.
+    for (const [section, original] of originals) {
+      section.replaceChildren(...[...original.childNodes].map((node) => node.cloneNode(true)));
+      delete section.dataset.pages;
+    }
   }
   function run() {
-    const body = document.body, saved = body.getAttribute("style");
+    const body = document.body, root = document.documentElement, saved = body.getAttribute("style");
+    for (const section of document.querySelectorAll("section.page[data-sheet]")) {
+      if (!originals.has(section)) originals.set(section, section.cloneNode(true));
+    }
     try {
       reset();
-      // The script heads every page itself: the no-script repeated op heading goes.
-      document.documentElement.classList.add("paged");
-      // Contour blocks go in rows of three so each row is one measurable block; a wide
-      // block (a lathe profile) takes a row of its own.
-      document.querySelectorAll(".contours:not([data-rows])").forEach((c) => {
-        c.setAttribute("data-rows", "");
-        c.style.columns = "auto";
-        let row = null;
-        for (const block of [...c.children]) {
-          const wide = block.classList.contains("wide");
-          if (!row || wide || row.children.length === 3 || row.classList.contains("solo")) {
-            row = document.createElement("div");
-            row.className = wide ? "contour-row solo" : "contour-row";
-            c.append(row);
-          }
-          row.append(block);
-        }
-      });
-      // Measure at the printed width whatever the window size.
-      body.style.cssText = "max-width:none;width:7.7in;margin:0";
-      document.querySelectorAll(".contour-row").forEach((row) => {
-        row.classList.toggle("tall", row.getBoundingClientRect().height > CAP);
+      delete root.dataset.paginationError;
+      root.classList.add("paged", "print-measuring");
+      body.style.cssText = "max-width:none;width:var(--page-content-width);margin:0;padding:0";
+      const measure = document.createElement("div");
+      measure.style.cssText = "position:absolute;visibility:hidden;pointer-events:none;"
+        + "width:var(--page-content-width);height:var(--page-content-height)";
+      body.append(measure);
+      CAP = measure.getBoundingClientRect().height
+        - parseFloat(getComputedStyle(root).getPropertyValue("--page-rounding"));
+      root.dataset.pageCapacity = CAP;
+      root.dataset.printWidth = measure.getBoundingClientRect().width;
+      measure.remove();
+      prepareLocators();
+      document.querySelectorAll("ol").forEach((list) => {
+        [...list.children].filter((item) => item.tagName === "LI").forEach((item, index) => {
+          item.value = list.start + index;
+        });
       });
       for (const section of [...document.querySelectorAll("section.page[data-sheet]")]) {
         if (paginate(section) % 2 === 0) continue;
         const blank = document.createElement("section");
         blank.className = "page blank-side";
-        blank.textContent =
-          "This side intentionally blank \u2014 " + section.getAttribute("data-sheet") + " back";
+        blank.setAttribute("aria-hidden", "true");
         section.after(blank);
       }
+      finishLocators();
     } catch (error) {
       reset();
-      document.documentElement.classList.remove("paged");
+      root.classList.remove("paged");
+      root.dataset.paginationError = error.message;
+      console.error("Traveler print pagination:", error);
+      const warning = document.createElement("p");
+      warning.className = "caution";
+      warning.setAttribute(ADDED, "");
+      warning.textContent = "PRINT LAYOUT ERROR — " + error.message;
+      body.prepend(warning);
     } finally {
+      locatorPass = null;
+      root.classList.remove("print-measuring");
       if (saved === null) body.removeAttribute("style");
       else body.setAttribute("style", saved);
     }
@@ -312,58 +1676,58 @@ h2:has(+ table.operations) { position: relative; z-index: 1; height: 14pt; margi
   addEventListener("beforeprint", run);
 })();
 </script></head><body>
-<section class="page" data-sheet="job page" data-title="JOB PAGE">
+<section class="page" data-sheet="job page" data-title="JOB PAGE" data-part="rocker-arm" data-drawing="?" data-revision="" data-sheet-role="front">
 <div class="meta"><h1>ROCKER-ARM · ? · REV NOT CONFIRMED</h1><div>qty ?</div></div>
 <div class="banner">PLANNED — NOT APPROVED</div>
-<h2>JOB STATUS</h2><div class="stop"><p>✗ STOP — do not run until resolved:</p><p>Drawing revision not confirmed — match the print revision first.</p><p>Setups S1, S2, S3: STOP items on the setup page — do not run a setup until its STOPs are cleared.</p></div><ul><li>Not ready to run: clear the items above first.</li><li>NOT APPROVED: no first article is recorded; the first part made is the first article — sign it off below.</li></ul><p>Drawing material: ? not stated.</p><p>Speeds / feeds: no cited source — every op without a speed is a STOP.</p><p>DRO resolution: mill 0.001 mm (resolution not in the shop list: default grid). DRO targets print on this grid.</p><h2>STOCK AND ROUTE</h2><p>Stock: rectangular bar 292.509 × 29.295 × 9.057 long. Authored synthetic rectangular supply at the STEP&#x27;s measured global XY bbox, x +/-146.255, y 0..29.29464 mm, with 1 mm allowance beyond each hub end in Z (+/-4.528 mm). The preparation cutter&#x27;s authored 4 mm radius bounds clearance declarations; this supply adds no XY allowance. This is a fixture choice, not measured shop stock; curved and inset source faces are not declared as-is.</p><table><colgroup><col style="width:8%"><col style="width:32%"><col style="width:25%"><col style="width:35%"></colgroup><thead><tr><th>setup</th><th>starts from</th><th>machine</th><th>holding</th></tr></thead><tbody><tr><td>S1</td><td>the stock blank</td><td>mill</td><td>STOP: not chosen</td></tr></tbody><tbody><tr><td>S2</td><td>part as it arrives from Setup S1</td><td>mill</td><td>STOP: not chosen</td></tr></tbody><tbody><tr><td>S3</td><td>part as it arrives from Setup S2</td><td>mill</td><td>vise</td></tr></tbody></table><h2>DRAWING REQUIREMENTS</h2><table><colgroup><col style="width:30%"><col style="width:70%"></colgroup><thead><tr><th>feature</th><th>limits</th></tr></thead><tbody><tr><td>strap (datum B)</td><td>no toleranced requirement</td></tr></tbody><tbody><tr><td>strap faces</td><td>no toleranced requirement</td></tr></tbody><tbody><tr><td>hub faces</td><td>no toleranced requirement</td></tr></tbody><tbody><tr><td>hub od</td><td>no toleranced requirement</td></tr></tbody><tbody><tr><td>pivot bore</td><td>no toleranced requirement</td></tr></tbody><tbody><tr><td>rod hole</td><td>no toleranced requirement</td></tr></tbody><tbody><tr><td>top edge</td><td>no toleranced requirement</td></tr></tbody><tbody><tr><td>profile outer</td><td>no toleranced requirement</td></tr></tbody><tbody><tr><td>tip land (+X side)</td><td>no toleranced requirement</td></tr></tbody><tbody><tr><td>tip land (−X side)</td><td>no toleranced requirement</td></tr></tbody><tbody><tr><td>all edges</td><td>? edge break not on the drawing; plan breaks edges 0.000 mm max</td></tr></tbody></table><p>T# = tool number in that setup&#x27;s TOOLS table. EM = endmill.</p>
-<p class="signoff">Sign off: __________  First article / measured results: ____________________</p>
+<h2>JOB STATUS</h2><div class="stop"><p>✗ STOP — do not run until resolved:</p><p>Drawing revision not confirmed — match the print revision first.</p><p>Setups S1, S2, S3: STOP items on the setup page — do not run a setup until its STOPs are cleared.</p></div><ul><li>Not ready to run: clear the items above first.</li><li>NOT APPROVED: no first article is recorded; the first part made is the first article — sign it off below.</li></ul><p>Drawing material: ? not stated.</p><p>Speeds / feeds: no cited source — every op without a speed is a STOP.</p><p>DRO resolution: mill <span class="reading">0.001 mm</span> (resolution not in the shop list: default grid). DRO targets print on this grid.</p><h2>STOCK AND ROUTE</h2><p>Stock: rectangular bar <span class="reading">292.509 × 29.295 × 9.057</span> long. Authored synthetic rectangular supply at the STEP&#x27;s measured global XY bbox, x +/<span class="reading">-146.255</span>, y <span class="reading">0</span>..29.29464 mm, with <span class="reading">1 mm</span> allowance beyond each hub end in Z (+/<span class="reading">-4.528 mm</span>). The preparation cutter&#x27;s authored <span class="reading">4 mm</span> radius bounds clearance declarations; this supply adds no XY allowance. This is a fixture choice, not measured shop stock; curved and inset source faces are not declared as-is.</p><table><colgroup><col style="width:12%"><col style="width:30%"><col style="width:25%"><col style="width:33%"></colgroup><thead><tr><th>setup</th><th>starts from</th><th>machine</th><th>holding</th></tr></thead><tbody><tr><td>S1</td><td>the stock blank</td><td>mill</td><td>STOP: not chosen</td></tr></tbody><tbody><tr><td>S2</td><td>part as it arrives from Setup S1</td><td>mill</td><td>STOP: not chosen</td></tr></tbody><tbody><tr><td>S3</td><td>part as it arrives from Setup S2</td><td>mill</td><td>vise</td></tr></tbody></table><h2>DRAWING REQUIREMENTS</h2><table><colgroup><col style="width:30%"><col style="width:70%"></colgroup><thead><tr><th>feature</th><th>limits</th></tr></thead><tbody><tr><td>strap (datum B)</td><td>no toleranced requirement</td></tr></tbody><tbody><tr><td>strap faces</td><td>no toleranced requirement</td></tr></tbody><tbody><tr><td>hub faces</td><td>no toleranced requirement</td></tr></tbody><tbody><tr><td>hub od</td><td>no toleranced requirement</td></tr></tbody><tbody><tr><td>pivot bore</td><td>no toleranced requirement</td></tr></tbody><tbody><tr><td>rod hole</td><td>no toleranced requirement</td></tr></tbody><tbody><tr><td>top edge</td><td>no toleranced requirement</td></tr></tbody><tbody><tr><td>profile outer</td><td>no toleranced requirement</td></tr></tbody><tbody><tr><td>tip land (+X side)</td><td>no toleranced requirement</td></tr></tbody><tbody><tr><td>tip land (−X side)</td><td>no toleranced requirement</td></tr></tbody><tbody><tr><td>all edges</td><td>? edge break not on the drawing; plan breaks edges <span class="reading">0.000 mm</span> max</td></tr></tbody></table><p>T# = tool number in that setup&#x27;s TOOLS table. EM = endmill.</p>
+<div class="signoff"><span class="field"><span class="field-label">Sign off</span><span class="writing-blank" aria-hidden="true"></span></span><p>First article: enter measured results in their labeled inspection fields or worksheets.</p></div>
 </section>
-<section class="page" data-sheet="SETUP S1 sheet 1" data-title="SETUP S1 — sheet 1">
+<section class="page" data-sheet="SETUP S1 sheet 1" data-title="SETUP S1 — sheet 1" data-part="rocker-arm" data-drawing="?" data-revision="" data-sheet-role="front">
 <div class="meta"><h1>ROCKER-ARM · ? · REV NOT CONFIRMED</h1><div>qty ?</div></div>
 <div class="banner">PLANNED — NOT APPROVED</div>
-<h2>SETUP S1 — mill · sheet 1 of 2</h2><div class="stop"><p>✗ STOP — do not run until resolved:</p><p>Op 10 — a claimed internal corner is smaller than the selected cutter radius.</p><p>Op 10 — no starting speed / feed</p><p>Op 10 — no Z target</p></div><div class="unverified"><p>? Not verified by the planner — confirm at the machine:</p><p>tool access (op 10); consistency; coordinates; cutter engagement (op 10); machine envelope; holding clearance; headroom and clearance; holding details; tool reach (op 10); starting speeds / feeds (op 10); chuck / collet size; thin walls under clamping; tool / holder fit (op 10); axis travel; vise grip; DRO zero check.</p></div><p>Authored +Z half preparation. The preparation cutter diameter and authored zero leave are declared; its other dimensions, holder and holding remain measurement debt. The numeric clearance derives material for the next setup.</p><p>Starts from: the stock blank — top Z ? not set, bottom Z ? not set.</p>
+<h2>SETUP S1 — mill · sheet 1 of 2</h2><div class="stop"><p>✗ STOP — do not run until resolved:</p><p>Op <span class="reading">10</span> — a claimed internal corner is smaller than the selected cutter radius.</p><p>Op <span class="reading">10</span> — no starting speed / feed</p><p>Op <span class="reading">10</span> — no Z target</p></div><div class="unverified"><p>? Not verified by the planner — confirm at the machine:</p><p>tool access (op <span class="reading">10</span>); consistency; coordinates; cutter engagement (op <span class="reading">10</span>); machine envelope; holding clearance; headroom and clearance; holding details; tool reach (op <span class="reading">10</span>); starting speeds / feeds (op <span class="reading">10</span>); chuck / collet size; thin walls under clamping; tool / holder fit (op <span class="reading">10</span>); axis travel; vise grip; DRO zero check.</p></div><p>Authored +Z half preparation. The preparation cutter diameter and authored zero leave are declared; its other dimensions, holder and holding remain measurement debt. The numeric clearance derives material for the next setup.</p><p class="stock-state">Starts from: the stock blank — <span data-stock-surface="top_z" data-stock-state="unknown">top Z ? not set</span>, <span data-stock-surface="bottom_z" data-stock-state="unknown">bottom Z ? not set</span>.</p>
 <div class="hold-row"><div class="hold-steps"><h2>HOLD</h2><ol><li>STOP: holding not chosen — do not run.</li><li>Stop: ?.</li><li>?.</li></ol></div></div><table><thead><tr><th>grip length mm</th></tr></thead><tbody><tr><td>? not set</td></tr></tbody></table><p>Coolant: none.</p>
-<h2>TOOLS FOR THIS SETUP — pull before starting</h2><table><colgroup><col style="width:5%"><col style="width:22%"><col style="width:35%"><col style="width:26%"><col style="width:12%"></colgroup><thead><tr><th>T</th><th>tool</th><th>insert / size / material</th><th>holder / station</th><th>ops</th></tr></thead><tbody><tr><td>T1</td><td>8 mm EM</td><td>Ø8.000</td><td>—</td><td>10</td></tr></tbody></table>
-<h2>DRO ZERO — Setup S1 zero, mm, linear mode</h2><table><colgroup><col style="width:5%"><col style="width:45%"><col style="width:13%"><col style="width:11%"><col style="width:13%"><col style="width:13%"></colgroup><thead><tr><th>axis</th><th>touch / pick up</th><th>Axis Set</th><th>check jog</th><th>must read</th><th>if reversed</th></tr></thead></table>
-<h2>OPERATIONS</h2><table class="operations"><colgroup><col style="width:4%"><col style="width:16%"><col style="width:12%"><col style="width:7%"><col style="width:6%"><col style="width:9%"><col style="width:11%"><col style="width:9%"><col style="width:26%"></colgroup><thead><tr class="continued"><th colspan="9">SETUP S1 — sheet 1 (continued): operations</th></tr><tr><th>op</th><th>do</th><th>feature</th><th>tool</th><th>rpm</th><th>feed</th><th>Z tip</th><th>direction</th><th>inspection: limit, gauge</th></tr></thead><tbody class="op"><tr><td>10</td><td>rough profile, leave 0.000 mm per side</td><td>profile outer</td><td>T1</td><td>STOP</td><td>STOP</td><td><span class="box">STOP: Z target not set</span></td><td>?</td><td>—</td></tr><tr class="warn"><td colspan="9"><span class="box">STOP: a claimed internal corner is smaller than the selected cutter radius.</span><div class="op-note">Claim only +Z-facing planes and vertical faces touching this half. Separate bore/rod-hole removal pieces explicitly touch their own claims.</div></td></tr></tbody></table>
-<p class="signoff">Sign off: __________  First article / measured results: ____________________</p>
+<h2>TOOLS FOR THIS SETUP — pull before starting</h2><table><colgroup><col style="width:9%"><col style="width:21%"><col style="width:33%"><col style="width:25%"><col style="width:12%"></colgroup><thead><tr><th>T</th><th>tool</th><th>insert / size / material</th><th>holder / station</th><th>ops</th></tr></thead><tbody><tr><td>T1</td><td><span class="reading">8 mm</span> EM</td><td><span class="reading">Ø8.000</span></td><td>—</td><td><span class="reading">10</span></td></tr></tbody></table>
+<h2>DRO ZERO — Setup S1 zero, mm, linear mode</h2><table class="zero"><colgroup><col style="width:9%"><col style="width:38%"><col style="width:13%"><col style="width:14%"><col style="width:13%"><col style="width:13%"></colgroup><thead><tr><th>axis</th><th>touch / pick up</th><th>Axis Set</th><th>check jog</th><th>must read</th><th>if reversed</th></tr></thead></table>
+<h2>OPERATIONS</h2><table class="operations"><thead><tr class="continued"><th colspan="1">SETUP S1 — sheet <span class="reading">1</span> (continued): operations</th></tr><tr><th>Performed mark: operation performed only — not inspection acceptance or clearance to proceed.</th></tr></thead><tbody class="operation" data-op="10"><tr class="operation-main"><td><div class="op-head"><span class="performed-mark" role="img" aria-label="Operation 10 performed mark"></span><h3><span class="op-number">Op 10</span> — <span class="op-action">rough profile, leave <span class="reading">0.000 mm</span> per side</span></h3></div><dl class="op-details"><div class="op-feature"><dt>feature</dt><dd>profile outer</dd></div><div class="op-tool"><dt>tool</dt><dd>T1</dd></div><div class="op-speed"><dt>rpm</dt><dd>STOP</dd></div><div class="op-feed"><dt>feed</dt><dd>STOP</dd></div><div class="op-target"><dt>Z tip</dt><dd><span class="box">STOP: Z target not set</span></dd></div><div class="op-direction"><dt>direction</dt><dd>?</dd></div></dl></td></tr><tr class="warn"><td><span class="box">STOP: a claimed internal corner is smaller than the selected cutter radius.</span></td></tr><tr class="warn"><td><div class="op-note">Claim only +Z-facing planes and vertical faces touching this half. Separate bore/rod-hole removal pieces explicitly touch their own claims.</div></td></tr><tr class="inspection-message"><td>—</td></tr></tbody></table>
+<div class="signoff"><span class="field"><span class="field-label">Sign off</span><span class="writing-blank" aria-hidden="true"></span></span><p>First article: enter measured results in their labeled inspection fields or worksheets.</p></div>
 </section>
-<section class="page" data-sheet="SETUP S1 sheet 2" data-title="SETUP S1 — sheet 2">
+<section class="page" data-sheet="SETUP S1 sheet 2" data-title="SETUP S1 — sheet 2" data-part="rocker-arm" data-drawing="?" data-revision="" data-sheet-role="continuation">
 <div class="meta"><h1>ROCKER-ARM · ? · REV NOT CONFIRMED</h1><div>qty ?</div></div>
 <div class="banner">PLANNED — NOT APPROVED</div>
-<h2>SETUP S1 — sheet 2 of 2: holding picture and clearance</h2><figure class="fixture-render"><img src="setup-S1.png" alt="Setup S1 holding picture"><figcaption>Setup S1 — the stock blank, held in the ?.<br><b>NOT SHOWN: Fixture solids are not declared for this holding kind.</b><br><b>STOP: selected cutter dimensions are unresolved; do not run.</b></figcaption></figure>
-<div class="keep"><h2>CLEARANCE — mill</h2><p>? Not computed — check at the machine: spindle-to-table room (holding height not known); X travel; Y travel; tool stickout and headroom.</p><table class="clearance"><colgroup><col style="width:9%"><col style="width:6%"><col style="width:45%"><col style="width:11%"><col style="width:29%"></colgroup><thead><tr><th>op</th><th>tool</th><th>closest obstacle</th><th>clearance mm</th><th>action</th></tr></thead><tbody><tr><td>10</td><td>T1</td><td>—</td><td>?</td><td>holding beside the cut: not computed — check at the machine</td></tr></tbody></table></div>
+<h2>SETUP S1 — sheet 2 of 2: holding picture and clearance</h2><figure class="fixture-render" data-panel="1" data-panel-role="setup" data-panel-top="0" data-panel-height="1484"><figcaption><p>Setup S1 — the stock blank, held in the ?.</p>rocker-arm · Setup S1 · setup · panel 1 of 1 — SETUP S1  /  ISOMETRIC VIEW</figcaption><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1484" width="1600" height="1484" role="img" aria-label="rocker-arm · Setup S1 · setup · panel 1 of 1 — SETUP S1  /  ISOMETRIC VIEW"><title>rocker-arm · Setup S1 · setup · panel 1 of 1 — SETUP S1  /  ISOMETRIC VIEW</title><image href="setup-S1.png" x="0" y="0" width="1600" height="1484" preserveAspectRatio="none"></image></svg></figure><p class="render-debt">NOT SHOWN: Fixture solids are not declared for this holding kind.</p><p class="render-debt">STOP: selected cutter dimensions are unresolved; do not run.</p>
+<div class="keep"><h2>CLEARANCE — mill</h2><p>? Not computed — check at the machine: spindle-to-table room (holding height not known); X travel; Y travel; tool stickout and headroom.</p><table class="clearance"><colgroup><col style="width:12%"><col style="width:12%"><col style="width:55%"><col style="width:21%"></colgroup><thead><tr><th>op</th><th>tool</th><th>closest obstacle</th><th>clearance mm</th></tr></thead><tbody class="op"><tr><td><span class="reading">10</span></td><td>T1</td><td>—</td><td>?</td></tr><tr class="warn"><td colspan="4"><span class="see">action: holding beside the cut: not computed — check at the machine</span></td></tr></tbody></table></div>
 </section>
-<section class="page" data-sheet="SETUP S2 sheet 1" data-title="SETUP S2 — sheet 1">
+<section class="page" data-sheet="SETUP S2 sheet 1" data-title="SETUP S2 — sheet 1" data-part="rocker-arm" data-drawing="?" data-revision="" data-sheet-role="front">
 <div class="meta"><h1>ROCKER-ARM · ? · REV NOT CONFIRMED</h1><div>qty ?</div></div>
 <div class="banner">PLANNED — NOT APPROVED</div>
-<h2>SETUP S2 — mill · sheet 1 of 2</h2><div class="stop"><p>✗ STOP — do not run until resolved:</p><p>Op 10 — a claimed internal corner is smaller than the selected cutter radius.</p><p>Op 10 — no starting speed / feed</p><p>Op 10 — no Z target</p></div><div class="unverified"><p>? Not verified by the planner — confirm at the machine:</p><p>tool access (op 10); consistency; coordinates; cutter engagement (op 10); machine envelope; holding clearance; headroom and clearance; holding details; tool reach (op 10); starting speeds / feeds (op 10); chuck / collet size; thin walls under clamping; tool / holder fit (op 10); axis travel; vise grip; DRO zero check.</p></div><p>Opposed -Z half preparation, in authored Setup S2 zero, with the same cutter diameter and authored zero leave. Other preparation dimensions, holder and holding remain measurement debt; S3 uses the actual resulting material.</p><p>Turn the part over: the other face up, the +X end stays at +X. Starts from: part as it arrives from Setup S1 — top Z ? not set, bottom Z ? not set.</p>
+<h2>SETUP S2 — mill · sheet 1 of 2</h2><div class="stop"><p>✗ STOP — do not run until resolved:</p><p>Op <span class="reading">10</span> — a claimed internal corner is smaller than the selected cutter radius.</p><p>Op <span class="reading">10</span> — no starting speed / feed</p><p>Op <span class="reading">10</span> — no Z target</p></div><div class="unverified"><p>? Not verified by the planner — confirm at the machine:</p><p>tool access (op <span class="reading">10</span>); consistency; coordinates; cutter engagement (op <span class="reading">10</span>); machine envelope; holding clearance; headroom and clearance; holding details; tool reach (op <span class="reading">10</span>); starting speeds / feeds (op <span class="reading">10</span>); chuck / collet size; thin walls under clamping; tool / holder fit (op <span class="reading">10</span>); axis travel; vise grip; DRO zero check.</p></div><p>Opposed -Z half preparation, in authored Setup S2 zero, with the same cutter diameter and authored zero leave. Other preparation dimensions, holder and holding remain measurement debt; S3 uses the actual resulting material.</p><p class="stock-state">Turn the part over: the other face up, the +X end stays at +X. Starts from: part as it arrives from Setup S1 — <span data-stock-surface="top_z" data-stock-state="unknown">top Z ? not set</span>, <span data-stock-surface="bottom_z" data-stock-state="unknown">bottom Z ? not set</span>.</p>
 <div class="hold-row"><div class="hold-steps"><h2>HOLD</h2><ol><li>STOP: holding not chosen — do not run.</li><li>Stop: ?.</li><li>?.</li></ol></div></div><table><thead><tr><th>grip length mm</th></tr></thead><tbody><tr><td>? not set</td></tr></tbody></table><p>Coolant: none.</p>
-<h2>TOOLS FOR THIS SETUP — pull before starting</h2><table><colgroup><col style="width:5%"><col style="width:22%"><col style="width:35%"><col style="width:26%"><col style="width:12%"></colgroup><thead><tr><th>T</th><th>tool</th><th>insert / size / material</th><th>holder / station</th><th>ops</th></tr></thead><tbody><tr><td>T1</td><td>8 mm EM</td><td>Ø8.000</td><td>—</td><td>10</td></tr></tbody></table>
-<h2>DRO ZERO — Setup S2 zero, mm, linear mode</h2><table><colgroup><col style="width:5%"><col style="width:45%"><col style="width:13%"><col style="width:11%"><col style="width:13%"><col style="width:13%"></colgroup><thead><tr><th>axis</th><th>touch / pick up</th><th>Axis Set</th><th>check jog</th><th>must read</th><th>if reversed</th></tr></thead></table>
-<h2>OPERATIONS</h2><table class="operations"><colgroup><col style="width:4%"><col style="width:16%"><col style="width:12%"><col style="width:7%"><col style="width:6%"><col style="width:9%"><col style="width:11%"><col style="width:9%"><col style="width:26%"></colgroup><thead><tr class="continued"><th colspan="9">SETUP S2 — sheet 1 (continued): operations</th></tr><tr><th>op</th><th>do</th><th>feature</th><th>tool</th><th>rpm</th><th>feed</th><th>Z tip</th><th>direction</th><th>inspection: limit, gauge</th></tr></thead><tbody class="op"><tr><td>10</td><td>rough profile, leave 0.000 mm per side</td><td>profile outer</td><td>T1</td><td>STOP</td><td>STOP</td><td><span class="box">STOP: Z target not set</span></td><td>?</td><td>—</td></tr><tr class="warn"><td colspan="9"><span class="box">STOP: a claimed internal corner is smaller than the selected cutter radius.</span><div class="op-note">Frame B flips model Y/Z. Clear only outside-finished material in the remaining half, with -Z planes and vertical faces valid for this approach.</div></td></tr></tbody></table>
-<p class="signoff">Sign off: __________  First article / measured results: ____________________</p>
+<h2>TOOLS FOR THIS SETUP — pull before starting</h2><table><colgroup><col style="width:9%"><col style="width:21%"><col style="width:33%"><col style="width:25%"><col style="width:12%"></colgroup><thead><tr><th>T</th><th>tool</th><th>insert / size / material</th><th>holder / station</th><th>ops</th></tr></thead><tbody><tr><td>T1</td><td><span class="reading">8 mm</span> EM</td><td><span class="reading">Ø8.000</span></td><td>—</td><td><span class="reading">10</span></td></tr></tbody></table>
+<h2>DRO ZERO — Setup S2 zero, mm, linear mode</h2><table class="zero"><colgroup><col style="width:9%"><col style="width:38%"><col style="width:13%"><col style="width:14%"><col style="width:13%"><col style="width:13%"></colgroup><thead><tr><th>axis</th><th>touch / pick up</th><th>Axis Set</th><th>check jog</th><th>must read</th><th>if reversed</th></tr></thead></table>
+<h2>OPERATIONS</h2><table class="operations"><thead><tr class="continued"><th colspan="1">SETUP S2 — sheet <span class="reading">1</span> (continued): operations</th></tr><tr><th>Performed mark: operation performed only — not inspection acceptance or clearance to proceed.</th></tr></thead><tbody class="operation" data-op="10"><tr class="operation-main"><td><div class="op-head"><span class="performed-mark" role="img" aria-label="Operation 10 performed mark"></span><h3><span class="op-number">Op 10</span> — <span class="op-action">rough profile, leave <span class="reading">0.000 mm</span> per side</span></h3></div><dl class="op-details"><div class="op-feature"><dt>feature</dt><dd>profile outer</dd></div><div class="op-tool"><dt>tool</dt><dd>T1</dd></div><div class="op-speed"><dt>rpm</dt><dd>STOP</dd></div><div class="op-feed"><dt>feed</dt><dd>STOP</dd></div><div class="op-target"><dt>Z tip</dt><dd><span class="box">STOP: Z target not set</span></dd></div><div class="op-direction"><dt>direction</dt><dd>?</dd></div></dl></td></tr><tr class="warn"><td><span class="box">STOP: a claimed internal corner is smaller than the selected cutter radius.</span></td></tr><tr class="warn"><td><div class="op-note">Frame B flips model Y/Z. Clear only outside-finished material in the remaining half, with -Z planes and vertical faces valid for this approach.</div></td></tr><tr class="inspection-message"><td>—</td></tr></tbody></table>
+<div class="signoff"><span class="field"><span class="field-label">Sign off</span><span class="writing-blank" aria-hidden="true"></span></span><p>First article: enter measured results in their labeled inspection fields or worksheets.</p></div>
 </section>
-<section class="page" data-sheet="SETUP S2 sheet 2" data-title="SETUP S2 — sheet 2">
+<section class="page" data-sheet="SETUP S2 sheet 2" data-title="SETUP S2 — sheet 2" data-part="rocker-arm" data-drawing="?" data-revision="" data-sheet-role="continuation">
 <div class="meta"><h1>ROCKER-ARM · ? · REV NOT CONFIRMED</h1><div>qty ?</div></div>
 <div class="banner">PLANNED — NOT APPROVED</div>
-<h2>SETUP S2 — sheet 2 of 2: holding picture and clearance</h2><figure class="fixture-render"><img src="setup-S2.png" alt="Setup S2 holding picture"><figcaption>Setup S2 — part as it arrives from Setup S1, held in the ?.<br><b>NOT SHOWN: Fixture solids are not declared for this holding kind.</b><br><b>STOP: selected cutter dimensions are unresolved; do not run.</b></figcaption></figure>
-<div class="keep"><h2>CLEARANCE — mill</h2><p>? Not computed — check at the machine: spindle-to-table room (holding height not known); X travel; Y travel; tool stickout and headroom.</p><table class="clearance"><colgroup><col style="width:9%"><col style="width:6%"><col style="width:45%"><col style="width:11%"><col style="width:29%"></colgroup><thead><tr><th>op</th><th>tool</th><th>closest obstacle</th><th>clearance mm</th><th>action</th></tr></thead><tbody><tr><td>10</td><td>T1</td><td>—</td><td>?</td><td>holding beside the cut: not computed — check at the machine</td></tr></tbody></table></div>
+<h2>SETUP S2 — sheet 2 of 2: holding picture and clearance</h2><figure class="fixture-render" data-panel="1" data-panel-role="setup" data-panel-top="0" data-panel-height="1484"><figcaption><p>Setup S2 — part as it arrives from Setup S1, held in the ?.</p>rocker-arm · Setup S2 · setup · panel 1 of 1 — SETUP S2  /  ISOMETRIC VIEW</figcaption><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1484" width="1600" height="1484" role="img" aria-label="rocker-arm · Setup S2 · setup · panel 1 of 1 — SETUP S2  /  ISOMETRIC VIEW"><title>rocker-arm · Setup S2 · setup · panel 1 of 1 — SETUP S2  /  ISOMETRIC VIEW</title><image href="setup-S2.png" x="0" y="0" width="1600" height="1484" preserveAspectRatio="none"></image></svg></figure><p class="render-debt">NOT SHOWN: Fixture solids are not declared for this holding kind.</p><p class="render-debt">STOP: selected cutter dimensions are unresolved; do not run.</p>
+<div class="keep"><h2>CLEARANCE — mill</h2><p>? Not computed — check at the machine: spindle-to-table room (holding height not known); X travel; Y travel; tool stickout and headroom.</p><table class="clearance"><colgroup><col style="width:12%"><col style="width:12%"><col style="width:55%"><col style="width:21%"></colgroup><thead><tr><th>op</th><th>tool</th><th>closest obstacle</th><th>clearance mm</th></tr></thead><tbody class="op"><tr><td><span class="reading">10</span></td><td>T1</td><td>—</td><td>?</td></tr><tr class="warn"><td colspan="4"><span class="see">action: holding beside the cut: not computed — check at the machine</span></td></tr></tbody></table></div>
 </section>
-<section class="page" data-sheet="SETUP S3 sheet 1" data-title="SETUP S3 — sheet 1">
+<section class="page" data-sheet="SETUP S3 sheet 1" data-title="SETUP S3 — sheet 1" data-part="rocker-arm" data-drawing="?" data-revision="" data-sheet-role="front">
 <div class="meta"><h1>ROCKER-ARM · ? · REV NOT CONFIRMED</h1><div>qty ?</div></div>
 <div class="banner">PLANNED — NOT APPROVED</div>
-<h2>SETUP S3 — mill · sheet 1 of 2</h2><div class="stop"><p>✗ STOP — do not run until resolved:</p><p>Op 10 — tool or holder hits the part or the holding</p><p>Op 10 — no starting speed / feed</p><p>Op 10 — no Z target</p></div><div class="unverified"><p>? Not verified by the planner — confirm at the machine:</p><p>consistency; coordinates; cutter engagement (op 10); machine envelope; headroom and clearance; starting speeds / feeds (op 10); axis travel; DRO zero check.</p></div><p>Arm on its tips on 20 mm parallels, pivot axis horizontal across the jaws; jaws along X close across frame Y onto the hub faces (width 7.0565). Jaw tops 26 mm above the parallels: z = 4.705, 3.295 mm below the outer-arc apex. The parallel pair lies end to end along the jaws under both tips.</p><p>Starts from: part as it arrives from Setup S2 — top (profile outer) at Z 8.000, bottom at Z -21.294.</p>
-<div class="hold-row"><div class="hold-steps"><h2>HOLD</h2><ol><li>Mount the vise; jaws along X; fixed jaw rear.</li><li>Square the fixed jaw to the X travel: with the dial test indicator held from the spindle head on the fixed jaw, traverse X 100 mm along it; tap the vise round until the reading changes no more than 0.0254 mm (0.001 in) over that length, tighten the vise to the table and sweep again.</li><li>Parallels: parallels.</li><li>Grip on: hub faces.</li><li>Stop: rod-end tip against the fixed-jaw stop.</li><li>Hand snug, then quarter turn.</li></ol></div></div><table><thead><tr><th>grip length mm</th><th>jaw top above parallels mm</th><th>work top above jaw tops mm</th><th>jaw centre at X</th><th>parallels at (X, Y)</th></tr></thead><tbody><tr><td class="num">6.000</td><td class="num">26.000</td><td class="num">3.295</td><td class="num">0.000</td><td>(-75.000, 0.000); (75.000, 0.000)</td></tr></tbody></table><p>Coolant: none.</p>
-<h2>TOOLS FOR THIS SETUP — pull before starting</h2><table><colgroup><col style="width:5%"><col style="width:22%"><col style="width:35%"><col style="width:26%"><col style="width:12%"></colgroup><thead><tr><th>T</th><th>tool</th><th>insert / size / material</th><th>holder / station</th><th>ops</th></tr></thead><tbody><tr><td>T1</td><td>8 mm EM</td><td>Ø8.000, flute 19.000, 4 flutes, HSS</td><td>R8 collet</td><td>10</td></tr></tbody></table>
-<h2>DRO ZERO — Setup S3 zero, mm, linear mode</h2><table><colgroup><col style="width:5%"><col style="width:45%"><col style="width:13%"><col style="width:11%"><col style="width:13%"><col style="width:13%"></colgroup><thead><tr><th>axis</th><th>touch / pick up</th><th>Axis Set</th><th>check jog</th><th>must read</th><th>if reversed</th></tr></thead></table>
-<h2>OPERATIONS</h2><table class="operations"><colgroup><col style="width:4%"><col style="width:16%"><col style="width:12%"><col style="width:7%"><col style="width:6%"><col style="width:9%"><col style="width:11%"><col style="width:9%"><col style="width:26%"></colgroup><thead><tr class="continued"><th colspan="9">SETUP S3 — sheet 1 (continued): operations</th></tr><tr><th>op</th><th>do</th><th>feature</th><th>tool</th><th>rpm</th><th>feed</th><th>Z tip</th><th>direction</th><th>inspection: limit, gauge</th></tr></thead><tbody class="op"><tr><td>10</td><td>finish face</td><td>strap (datum B)</td><td>T1</td><td>STOP</td><td>STOP</td><td><span class="box">STOP: Z target not set</span></td><td>conventional</td><td>—</td></tr><tr class="warn"><td colspan="9"><span class="box">STOP: tool or holder hits the part or the holding</span><div class="op-note">Side-mill the +Z strap face (datum B, frame +Y side, the rear-jaw side) with the cutter axis vertical.</div></td></tr></tbody></table>
-<p class="signoff">Sign off: __________  First article / measured results: ____________________</p>
+<h2>SETUP S3 — mill · sheet 1 of 2</h2><div class="stop"><p>✗ STOP — do not run until resolved:</p><p>Op <span class="reading">10</span> — tool or holder hits the part or the holding</p><p>Op <span class="reading">10</span> — no starting speed / feed</p><p>Op <span class="reading">10</span> — no Z target</p></div><div class="unverified"><p>? Not verified by the planner — confirm at the machine:</p><p>consistency; coordinates; cutter engagement (op <span class="reading">10</span>); machine envelope; headroom and clearance; starting speeds / feeds (op <span class="reading">10</span>); axis travel; DRO zero check.</p></div><p>Arm on its tips on <span class="reading">20 mm</span> parallels, pivot axis horizontal across the jaws; jaws along X close across frame Y onto the hub faces (width <span class="reading">7.0565</span>). Jaw tops <span class="reading">26 mm</span> above the parallels: z = <span class="reading">4.705</span>, <span class="reading">3.295 mm</span> below the outer-arc apex. The parallel pair lies end to end along the jaws under both tips.</p><p class="stock-state">Starts from: part as it arrives from Setup S2 — <span data-stock-surface="top_z" data-stock-state="known">top (profile outer) at <span class="reading">Z 8.000</span></span>, <span data-stock-surface="bottom_z" data-stock-state="known">bottom at <span class="reading">Z -21.294</span></span>.</p>
+<div class="hold-row"><div class="hold-steps"><h2>HOLD</h2><ol><li>Mount the vise; jaws along X; fixed jaw rear.</li><li>Square the fixed jaw to the X travel: with the dial test indicator held from the spindle head on the fixed jaw, traverse <span class="reading">X 100 mm</span> along it; tap the vise round until the reading changes no more than <span class="reading">0.0254 mm</span> (<span class="reading">0.001 in</span>) over that length, tighten the vise to the table and sweep again.</li><li>Parallels: parallels.</li><li>Grip on: hub faces.</li><li>Stop: rod-end tip against the fixed-jaw stop.</li><li>Hand snug, then quarter turn.</li></ol></div></div><table><thead><tr><th>grip length mm</th><th>jaw top above parallels mm</th><th>work top above jaw tops mm</th><th>jaw centre at X</th><th>parallels at (X, Y)</th></tr></thead><tbody><tr><td class="num"><span class="reading">6.000</span></td><td class="num"><span class="reading">26.000</span></td><td class="num"><span class="reading">3.295</span></td><td class="num"><span class="reading">0.000</span></td><td>(<span class="reading">-75.000</span>, <span class="reading">0.000</span>); (<span class="reading">75.000</span>, <span class="reading">0.000</span>)</td></tr></tbody></table><p>Coolant: none.</p>
+<h2>TOOLS FOR THIS SETUP — pull before starting</h2><table><colgroup><col style="width:9%"><col style="width:21%"><col style="width:33%"><col style="width:25%"><col style="width:12%"></colgroup><thead><tr><th>T</th><th>tool</th><th>insert / size / material</th><th>holder / station</th><th>ops</th></tr></thead><tbody><tr><td>T1</td><td><span class="reading">8 mm</span> EM</td><td><span class="reading">Ø8.000</span>, flute <span class="reading">19.000</span>, <span class="reading">4</span> flutes, HSS</td><td><span class="reading">R8</span> collet</td><td><span class="reading">10</span></td></tr></tbody></table>
+<h2>DRO ZERO — Setup S3 zero, mm, linear mode</h2><table class="zero"><colgroup><col style="width:9%"><col style="width:38%"><col style="width:13%"><col style="width:14%"><col style="width:13%"><col style="width:13%"></colgroup><thead><tr><th>axis</th><th>touch / pick up</th><th>Axis Set</th><th>check jog</th><th>must read</th><th>if reversed</th></tr></thead></table>
+<h2>OPERATIONS</h2><table class="operations"><thead><tr class="continued"><th colspan="1">SETUP S3 — sheet <span class="reading">1</span> (continued): operations</th></tr><tr><th>Performed mark: operation performed only — not inspection acceptance or clearance to proceed.</th></tr></thead><tbody class="operation" data-op="10"><tr class="operation-main"><td><div class="op-head"><span class="performed-mark" role="img" aria-label="Operation 10 performed mark"></span><h3><span class="op-number">Op 10</span> — <span class="op-action">finish face</span></h3></div><dl class="op-details"><div class="op-feature"><dt>feature</dt><dd>strap (datum B)</dd></div><div class="op-tool"><dt>tool</dt><dd>T1</dd></div><div class="op-speed"><dt>rpm</dt><dd>STOP</dd></div><div class="op-feed"><dt>feed</dt><dd>STOP</dd></div><div class="op-target"><dt>Z tip</dt><dd><span class="box">STOP: Z target not set</span></dd></div><div class="op-direction"><dt>direction</dt><dd>conventional</dd></div></dl></td></tr><tr class="warn"><td><span class="box">STOP: tool or holder hits the part or the holding</span></td></tr><tr class="warn"><td><div class="op-note">Side-mill the +Z strap face (datum B, frame +Y side, the rear-jaw side) with the cutter axis vertical.</div></td></tr><tr class="inspection-message"><td>—</td></tr></tbody></table>
+<div class="signoff"><span class="field"><span class="field-label">Sign off</span><span class="writing-blank" aria-hidden="true"></span></span><p>First article: enter measured results in their labeled inspection fields or worksheets.</p></div>
 </section>
-<section class="page" data-sheet="SETUP S3 sheet 2" data-title="SETUP S3 — sheet 2">
+<section class="page" data-sheet="SETUP S3 sheet 2" data-title="SETUP S3 — sheet 2" data-part="rocker-arm" data-drawing="?" data-revision="" data-sheet-role="continuation">
 <div class="meta"><h1>ROCKER-ARM · ? · REV NOT CONFIRMED</h1><div>qty ?</div></div>
 <div class="banner">PLANNED — NOT APPROVED</div>
-<h2>SETUP S3 — sheet 2 of 2: holding picture and clearance</h2><figure class="fixture-render"><img src="setup-S3.png" alt="Setup S3 holding picture"><figcaption>Setup S3 — part as it arrives from Setup S2, held in the vise.<br><b>NOT SHOWN: PARALLELS is hidden in this view, so it has no leader.</b></figcaption></figure>
-<div class="keep"><h2>CLEARANCE — mill</h2><p>? Not computed — check at the machine: spindle-to-table room (holding height not known); X travel; Y travel; tool stickout and headroom.</p><table class="clearance"><colgroup><col style="width:9%"><col style="width:6%"><col style="width:45%"><col style="width:11%"><col style="width:29%"></colgroup><thead><tr><th>op</th><th>tool</th><th>closest obstacle</th><th>clearance mm</th><th>action</th></tr></thead><tbody><tr><td>10</td><td>T1</td><td>holder face to the stock top beside the tool (Z -2.849)</td><td class="num">21.673</td><td>holding beside the cut: not computed — check at the machine</td></tr></tbody></table></div>
+<h2>SETUP S3 — sheet 2 of 2: holding picture and clearance</h2><figure class="fixture-render" data-panel="1" data-panel-role="setup" data-panel-top="0" data-panel-height="1514"><figcaption><p>Setup S3 — part as it arrives from Setup S2, held in the vise.</p>rocker-arm · Setup S3 · setup · panel 1 of 1 — SETUP S3  /  ISOMETRIC VIEW</figcaption><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1514" width="1600" height="1514" role="img" aria-label="rocker-arm · Setup S3 · setup · panel 1 of 1 — SETUP S3  /  ISOMETRIC VIEW"><title>rocker-arm · Setup S3 · setup · panel 1 of 1 — SETUP S3  /  ISOMETRIC VIEW</title><image href="setup-S3.png" x="0" y="0" width="1600" height="1514" preserveAspectRatio="none"></image></svg></figure><p class="render-debt">NOT SHOWN: PARALLELS is hidden in this view, so it has no leader.</p>
+<div class="keep"><h2>CLEARANCE — mill</h2><p>? Not computed — check at the machine: spindle-to-table room (holding height not known); X travel; Y travel; tool stickout and headroom.</p><table class="clearance"><colgroup><col style="width:12%"><col style="width:12%"><col style="width:55%"><col style="width:21%"></colgroup><thead><tr><th>op</th><th>tool</th><th>closest obstacle</th><th>clearance mm</th></tr></thead><tbody class="op"><tr><td><span class="reading">10</span></td><td>T1</td><td>holder face to the stock top beside the tool (<span class="reading">Z -2.849</span>)</td><td class="num"><span class="reading">21.673</span></td></tr><tr class="warn"><td colspan="4"><span class="see">action: holding beside the cut: not computed — check at the machine</span></td></tr></tbody></table></div>
 </section>
 </body></html>
