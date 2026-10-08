@@ -769,13 +769,23 @@ def test_the_traveler_prints_an_unknown_go_no_go_pair_as_unresolved(tmp_path, de
         ),
     )
     rewrite(plan, ("op", sid, op), "go_no_go", declared)
-    _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
-    markup, node = operation(html, sid, op)
+    bundle = load_bundle(plan)
+    findings = evaluate("inspection", bundle)
+    assert findings["rod_hole:dia"].status == "unknown"
+    assert findings["rod_hole:dia"].numbers["limits"] == [1.994, 2.094]
+    setup = next(setup for setup in bundle.plan["setups"] if setup["id"] == sid)
+    sheet = _Traveler(bundle, list(findings.values()), {}, None)
+    numbers, _, _ = sheet.tool_table(setup)
+    rows, _, _, _ = sheet.operations(setup, numbers, {"notes": 2})
+    markup = Markup(rows)
+    (node,) = [node for node in markup.find("operation") if node["attrs"]["data-op"] == str(op)]
     record = inspection_record(markup, node, ["rod_hole"], "dia")
     requirement = content(markup.find("inspection-requirement", record)[0])
     # The pins to use are not known: the row is flagged, never a bare gauge to read with.
     assert "? Ø 2.00–2.09" in requirement and "GO / NO-GO sizes not set" in requirement
     assert "enters" not in requirement
+    (blank,) = markup.find("writing-blank", record)
+    assert content(blank).strip() == ""
 
 
 @pytest.mark.parametrize(

@@ -1205,6 +1205,7 @@ def test_real_cone_worksheet_keeps_source_steps_equations_and_attachment_order(d
     facts = re.compile(r"\d+(?:\.\d+)?|Ø|±|[+−×=°]|\b(?:mm|in|inch)\b")
     for row, source, required in zip(instruction_rows, source_steps, conditions, strict=True):
         text = content(row)
+        assert "?" not in text
         assert facts.findall(text) == facts.findall(source)
         assert set(required.split()) <= set(re.findall(r"[a-z]+", text.lower()))
         assert [
