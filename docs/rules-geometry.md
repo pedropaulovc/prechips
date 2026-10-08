@@ -47,11 +47,13 @@ OUTPUT_JSON` subprocess as a batch (`compare` therefore spawns one process for
 all its candidates), and memoizes each result on its bundle so the eight rules
 read the same facts. The subprocess has a 600 s limit, reads its input file,
 writes its output file and prints nothing. No network activity is involved;
-the STEP is the bundle's own file. The limit ends the whole run, not just the
-process `FREECAD_CMD` starts, which may be a launcher that runs `freecadcmd` as
-its child (the Linux AppImage's `AppRun` shell does): on POSIX the run gets its
-own session and the limit kills its process group, launcher, engine and pool
-workers alike.
+the STEP is the bundle's own file. No process of the run outlives the process
+`FREECAD_CMD` starts, which may be a launcher that runs `freecadcmd` as its
+child (the Linux AppImage's `AppRun` shell does). On POSIX the run gets its own
+session, and when that process ends, the limit expires or the host is
+interrupted, the run's process group (launcher, engine and pool workers alike)
+is killed before that process is reaped, so the group id cannot name another
+group.
 
 Kernel resolution: `FREECAD_CMD` when set (an override that does not exist is
 an unavailable kernel, not a fallback), otherwise

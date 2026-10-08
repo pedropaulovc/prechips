@@ -10,6 +10,7 @@ import shutil
 import signal
 import subprocess
 import tempfile
+import time
 from contextlib import nullcontext
 from pathlib import Path
 
@@ -1543,35 +1544,55 @@ def _valid_result(value):
     return isinstance(value, dict) and value.get("status") in {"ok", "unknown", "error"}
 
 
+def _await_launcher(process, timeout):
+    """Wait up to ``timeout`` seconds for ``process`` to end, else raise TimeoutExpired. On
+    POSIX the ended process stays unreaped (WNOWAIT), so its pid, which is also its process
+    group's id, cannot name another group until :func:`_run_kernel` has killed that group."""
+    if os.name != "posix":
+        process.wait(timeout)
+        return
+    deadline = time.monotonic() + timeout
+    delay = 0.0005
+    while os.waitid(os.P_PID, process.pid, os.WEXITED | os.WNOHANG | os.WNOWAIT) is None:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise subprocess.TimeoutExpired(process.args, timeout)
+        delay = min(delay * 2, remaining, 0.05)  # Popen.wait(timeout)'s own polling
+        time.sleep(delay)
+
+
 def _run_kernel(command):
-    """``command`` run to its end under the runaway guard, which ends the whole kernel run.
+    """``command`` run to its end under the runaway guard; no process of the run outlives it.
 
     ``command`` (FREECAD_CMD) may be a launcher that runs ``freecadcmd`` as its child
-    rather than replacing itself with it: the Linux AppImage's ``AppRun`` shell does. Killing
-    only the launcher, as :func:`subprocess.run` does on its timeout, would leave the engine
-    and its pool workers running. On POSIX the run therefore has its own session, whose
-    process group every process of the run inherits, and the guard kills that group; on
-    Windows ``command`` is the engine, and its job object ends its workers (boolean_pool)."""
+    rather than replacing itself with it: the Linux AppImage's ``AppRun`` shell does. Its
+    engine and pool workers can then outlive it, whether the guard or the host's interrupt
+    kills only the launcher or the launcher dies on its own. On POSIX the run therefore has
+    its own session, whose process group every process of the run inherits, and once the
+    launcher has ended, or the guard expires, or the host is interrupted, that group is
+    killed before the launcher is reaped. Output goes to files, so nothing reaps the launcher
+    while it is waited for. On Windows ``command`` is the engine, and its job object ends
+    its workers (boolean_pool)."""
     posix = os.name == "posix"
-    with subprocess.Popen(
-        command,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        errors="replace",
-        start_new_session=posix,
-    ) as process:
+    with (
+        tempfile.TemporaryFile("w+", errors="replace") as stdout,
+        tempfile.TemporaryFile("w+", errors="replace") as stderr,
+        subprocess.Popen(command, stdout=stdout, stderr=stderr, start_new_session=posix) as process,
+    ):
         try:
             # Runaway guard: about twice the heaviest example's cold batch.
-            stdout, stderr = process.communicate(timeout=600)
-        except BaseException:  # the guard expired or the host is interrupted: end the run
-            # Until it is reaped, the launcher's pid stays reserved and names the run's group.
-            if posix and process.returncode is None:
+            _await_launcher(process, 600)
+        finally:
+            if posix:
                 os.killpg(process.pid, signal.SIGKILL)
-            else:
+            elif process.returncode is None:
                 process.kill()
-            raise
-    return subprocess.CompletedProcess(process.args, process.returncode, stdout, stderr)
+        process.wait()
+        stdout.seek(0)
+        stderr.seek(0)
+        return subprocess.CompletedProcess(
+            process.args, process.returncode, stdout.read(), stderr.read()
+        )
 
 
 def _execute(executable, job):

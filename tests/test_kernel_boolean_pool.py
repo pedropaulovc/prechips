@@ -12,8 +12,10 @@ worker count that is not a whole number runs no workers. Runs ``freecad_job.py``
 import ctypes
 import json
 import os
+import signal
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -160,53 +162,99 @@ def _kill(pid):
             pass
 
 
-def test_the_hosts_runaway_guard_leaves_no_worker_or_pool_file_behind(
-    tmp_path, freecad_kernel, monkeypatch
-):
+def _blocking_run(tmp_path, monkeypatch):
+    """The blocking engine script, with one patient worker; its pids land in ``tmp_path``."""
     script = tmp_path / "blocking.py"
     script.write_text(_BLOCKING, encoding="utf-8")
     monkeypatch.setenv("PRECHIPS_KERNEL_WORKERS", "1")
     monkeypatch.setenv("PRECHIPS_KERNEL_POOL_WAIT", "1")
     monkeypatch.setenv("POOL_PROBE_DIR", str(tmp_path))
     monkeypatch.setenv("POOL_PROBE_ENGINE", str(ENGINE))
+    return script
 
-    class Guarded(subprocess.Popen):
-        # The host's real launch and kill, with its 600 s guard expiring while the worker is
-        # inside its boolean: the engine is FREECAD_CMD's process or, under a launcher such
-        # as the Linux AppImage's AppRun shell, that process's child.
-        def __init__(self, command, **options):
-            super().__init__([command[0], str(script), *command[2:]], **options)
 
-        def communicate(self, input=None, timeout=None):
-            assert timeout == 600
-            deadline = time.monotonic() + 300
-            while not (tmp_path / "worker.json").exists():
-                try:
-                    super().communicate(input, 0.1)
-                except subprocess.TimeoutExpired:
-                    pass
-                else:
-                    pytest.fail("the engine ended before its worker blocked")
-                assert time.monotonic() < deadline, "the worker never entered its boolean"
-            raise subprocess.TimeoutExpired(self.args, timeout)
-
-    monkeypatch.setattr(kernel.subprocess, "Popen", Guarded)
-    with pytest.raises(subprocess.TimeoutExpired):
-        kernel._execute(freecad_kernel, {"jobs": [], "timing": True})
-    monkeypatch.undo()
+def _assert_nothing_left(tmp_path):
     worker = json.loads((tmp_path / "worker.json").read_text())["pid"]
     engine = json.loads((tmp_path / "engine.json").read_text())
     try:
         assert worker != engine["pid"], "the engine ran the blocked boolean itself"
         directory = Path(engine["directory"])
-        # Before _execute raises, the guard has SIGKILLed the run's process group (POSIX) or
+        # Before _execute ends, the host has SIGKILLed the run's process group (POSIX) or
         # ended the engine, whose job then ends its workers (Windows); exits are asynchronous.
         deadline = time.monotonic() + 10
         while (_alive(engine["pid"]) or _alive(worker)) and time.monotonic() < deadline:
             time.sleep(0.1)
-        assert not _alive(engine["pid"]), "the runaway guard left the engine running"
+        assert not _alive(engine["pid"]), "the host left the engine running"
         assert not _alive(worker), "a busy worker outlived its killed engine"
         assert not directory.exists(), f"the pool's shape files outlived the run: {directory}"
     finally:
         _kill(worker)
         _kill(engine["pid"])
+
+
+def _launch(script, launched):
+    class Launch(subprocess.Popen):
+        # The host's real launch, of the blocking script in place of freecad_job.py.
+        def __init__(self, command, **options):
+            super().__init__([command[0], str(script), *command[2:]], **options)
+            launched.append(self.pid)
+
+    return Launch
+
+
+def test_the_hosts_runaway_guard_leaves_no_worker_or_pool_file_behind(
+    tmp_path, freecad_kernel, monkeypatch
+):
+    script = _blocking_run(tmp_path, monkeypatch)
+    wait = kernel._await_launcher
+
+    def guard(process, timeout):
+        # The host's 600 s guard expiring while the worker is inside its boolean, the real
+        # wait running until then. The engine is FREECAD_CMD's process or, under a launcher
+        # such as the Linux AppImage's AppRun shell, that process's child.
+        assert timeout == 600
+        deadline = time.monotonic() + 300
+        while not (tmp_path / "worker.json").exists():
+            try:
+                wait(process, 0.1)
+            except subprocess.TimeoutExpired:
+                pass
+            else:
+                pytest.fail("the engine ended before its worker blocked")
+            assert time.monotonic() < deadline, "the worker never entered its boolean"
+        raise subprocess.TimeoutExpired(process.args, timeout)
+
+    monkeypatch.setattr(kernel.subprocess, "Popen", _launch(script, []))
+    monkeypatch.setattr(kernel, "_await_launcher", guard)
+    with pytest.raises(subprocess.TimeoutExpired):
+        kernel._execute(freecad_kernel, {"jobs": [], "timing": True})
+    monkeypatch.undo()
+    _assert_nothing_left(tmp_path)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="a POSIX launcher and SIGINT")
+def test_an_interrupted_host_leaves_nothing_behind_when_its_launcher_died_first(
+    tmp_path, freecad_kernel, monkeypatch
+):
+    # FREECAD_CMD's process (the AppImage's AppRun shell on CI) ends on its own while the
+    # engine and its busy worker run on, then the host gets Ctrl-C.
+    script = _blocking_run(tmp_path, monkeypatch)
+    launched = []
+
+    def interrupt():
+        deadline = time.monotonic() + 300
+        while not (tmp_path / "worker.json").exists() and time.monotonic() < deadline:
+            time.sleep(0.01)
+        os.kill(launched[0], signal.SIGKILL)
+        os.kill(os.getpid(), signal.SIGINT)
+
+    monkeypatch.setattr(kernel.subprocess, "Popen", _launch(script, launched))
+    thread = threading.Thread(target=interrupt)
+    thread.start()
+    with pytest.raises(KeyboardInterrupt):
+        kernel._execute(freecad_kernel, {"jobs": [], "timing": True})
+        thread.join(330)  # a run that already ended takes the interrupt here
+        time.sleep(1)
+    thread.join()
+    monkeypatch.undo()
+    _assert_nothing_left(tmp_path)
