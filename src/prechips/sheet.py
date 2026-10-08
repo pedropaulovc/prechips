@@ -1974,10 +1974,12 @@ def _worksheet(item):
         text = str(text)
         parts, end = [], 0
         for field in _NAMED_FIELD.finditer(text):
-            parts.append(_numeric_html(text[end : field.start()]))
+            # Named readings refer to their sole table-owned box; all other
+            # source segments still receive the existing underscore pen space.
+            parts.append(_fields(text[end : field.start()]))
             parts.append(f'<b class="reading">[{escape(field[1])}]</b>')
             end = field.end()
-        parts.append(_numeric_html(text[end:]))
+        parts.append(_fields(text[end:]))
         return "".join(parts)
 
     return (
@@ -7252,7 +7254,7 @@ class _Traveler:
         part = _text(self.plan.get("part"))
         revision = self.drawing_revision()
         context = f"{part} · Setup {setup['id']}" + (f" · rev {revision}" if revision else "")
-        result = [_p(" ".join(caption))]
+        result = []
         next_top = 0
         for index, panel in enumerate(panels, start=1):
             top, panel_height = panel["top_px"], panel["height_px"]
@@ -7271,11 +7273,12 @@ class _Traveler:
                 f"{context} · {panel['role'].replace('_', ' ')} · panel {index} of {len(panels)}"
                 f" — {panel['label']}"
             )
+            stock_caption = _p(" ".join(caption)) if index == 1 else ""
             result.append(
                 f'<figure class="fixture-render" data-panel="{index}" '
                 f'data-panel-role="{escape(panel["role"])}" data-panel-top="{top}" '
                 f'data-panel-height="{panel_height}">'
-                f"<figcaption>{escape(label)}</figcaption>"
+                f"<figcaption>{stock_caption}{escape(label)}</figcaption>"
                 f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 {top} {width} {panel_height}" '
                 f'width="{width}" height="{panel_height}" role="img" aria-label="{escape(label)}">'
                 f"<title>{escape(label)}</title>"

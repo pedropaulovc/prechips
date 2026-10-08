@@ -370,6 +370,51 @@ def test_supplied_inspection_asset_cannot_replace_the_native_png_bytes(tmp_path)
         build_report(bundle, [], assets=assets)
 
 
+def test_supplied_assets_cannot_manufacture_an_inspection_parent_absent_from_native_output(
+    tmp_path,
+):
+    bundle, sid, _, _, _ = _inspection_bundle(tmp_path)
+    supplied = render_assets(bundle)
+    bundle.kernel["setups"][sid].pop("render_png_base64")
+    before = deepcopy(bundle.kernel)
+    # A formerly generated setup PNG is not provenance for this kernel result.
+    with pytest.raises(ValueError):
+        build_report(bundle, [], assets=supplied)
+    with pytest.raises(ValueError):
+        render_assets(bundle)
+    assert bundle.kernel == before
+
+
+def test_supplied_inspection_parent_must_match_this_runs_native_setup_png(tmp_path):
+    bundle, sid, _, _, _ = _inspection_bundle(tmp_path)
+    supplied = render_assets(bundle)
+    ordinal = 1 + [setup["id"] for setup in bundle.plan["setups"]].index(sid)
+    parent_name = f"setup-S{ordinal}.png"
+    actual = supplied[parent_name]
+    supplied[parent_name] = _png((120, 100, 80))
+    with pytest.raises(ValueError):
+        build_report(bundle, [], assets=supplied)
+    # Refusing a stale supplied parent does not change this run's canonical image.
+    assert render_assets(bundle)[parent_name] == actual
+
+
+def test_noninspection_supplied_setup_asset_retains_its_existing_binding_semantics(tmp_path):
+    bundle, sid, _, _, _ = _inspection_bundle(tmp_path)
+    supplied = render_assets(bundle)
+    facts = bundle.kernel["setups"][sid]
+    facts.pop("inspection_pngs_base64")
+    facts.pop("inspection_scenes")
+    facts.pop("render_png_base64")
+    ordinal = 1 + [setup["id"] for setup in bundle.plan["setups"]].index(sid)
+    name = f"setup-S{ordinal}.png"
+    report = build_report(bundle, [], assets=supplied)
+    assert report["inputs"][f"render:{sid}"] == {
+        "path": name,
+        "sha256": hashlib.sha256(supplied[name]).hexdigest(),
+    }
+    assert "inspections" not in report["renders"][sid]
+
+
 def test_unresolved_inspection_does_not_acquire_fake_image_geometry(tmp_path):
     bundle, sid, _, _, _ = _inspection_bundle(tmp_path)
     facts = bundle.kernel["setups"][sid]

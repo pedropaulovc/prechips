@@ -102,8 +102,8 @@ def _inspection_dimensions(png: bytes) -> tuple[int, int]:
     return width, height
 
 
-def _inspection_pngs(setup: dict, facts: dict) -> dict[str, bytes]:
-    """Validate actual inspection assets against their authored owners and view bands."""
+def _inspection_assets(setup: dict, facts: dict) -> tuple[bytes | None, dict[str, bytes]]:
+    """Validate inspection assets and their actual native parent against authored owners."""
     sketches = facts.get("inspection_pngs_base64", {})
     scenes = facts.get("inspection_scenes", {})
     if (
@@ -113,7 +113,16 @@ def _inspection_pngs(setup: dict, facts: dict) -> dict[str, bytes]:
     ):
         raise ValueError(f"Setup {setup['id']} inspection images and scenes have different owners.")
     if not sketches:
-        return {}
+        return None, {}
+    encoded_parent = facts.get("render_png_base64")
+    if encoded_parent is None:
+        raise ValueError(f"Setup {setup['id']} inspection images have no setup render.")
+    try:
+        parent_png = _png(encoded_parent)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            f"Setup {setup['id']} inspection images have an invalid setup PNG."
+        ) from exc
     authored = {
         f"{op['op']}:{requirement}": views
         for op in setup["ops"]
@@ -169,7 +178,7 @@ def _inspection_pngs(setup: dict, facts: dict) -> dict[str, bytes]:
         if next_top != height:
             raise ValueError(f"Setup {setup['id']} inspection {key} view bands omit image content.")
         result[key] = png
-    return result
+    return parent_png, result
 
 
 def render_assets(bundle: Bundle) -> dict[str, bytes]:
@@ -179,13 +188,11 @@ def render_assets(bundle: Bundle) -> dict[str, bytes]:
     assets = {}
     for ordinal, setup in enumerate(bundle.plan["setups"], start=1):
         facts = setups.get(setup["id"], {})
-        sketches = _inspection_pngs(setup, facts)
+        parent_png, sketches = _inspection_assets(setup, facts)
         encoded = facts.get("render_png_base64")
         if encoded is None:
-            if sketches:
-                raise ValueError(f"Setup {setup['id']} inspection images have no setup render.")
             continue
-        assets[f"setup-S{ordinal}.png"] = _png(encoded)
+        assets[f"setup-S{ordinal}.png"] = parent_png if parent_png is not None else _png(encoded)
         for key, png in sorted(sketches.items()):
             assets[inspection_sketch_name(ordinal, key)] = png
     return assets
@@ -202,7 +209,7 @@ def build_report(
     inputs = dict(bundle.input_records)
     for ordinal, setup in enumerate(bundle.plan["setups"], start=1):
         facts = kernel_setups.get(setup["id"], {})
-        sketches_pngs = _inspection_pngs(setup, facts)
+        parent_png, sketches_pngs = _inspection_assets(setup, facts)
         for key, png in sketches_pngs.items():
             name = inspection_sketch_name(ordinal, key)
             if assets.get(name) != png:
@@ -210,9 +217,9 @@ def build_report(
                     f"Setup {setup['id']} inspection {key} asset differs from its PNG."
                 )
         filename = f"setup-S{ordinal}.png"
+        if sketches_pngs and assets.get(filename) != parent_png:
+            raise ValueError(f"Setup {setup['id']} inspection parent asset differs from its PNG.")
         if filename not in assets:
-            if sketches_pngs:
-                raise ValueError(f"Setup {setup['id']} inspection images have no setup render.")
             continue
         record = {"path": filename, "sha256": hashlib.sha256(assets[filename]).hexdigest()}
         inputs[f"render:{setup['id']}"] = record

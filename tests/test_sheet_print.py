@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hashlib
 import importlib.util
+import json
 import re
 import struct
 import sys
@@ -1473,3 +1474,121 @@ def test_declared_missing_inspection_view_remains_visible_without_a_fake_figure(
     markup = Markup(sheet.inspection_sketch(setup, op, "dia"))
     assert content(markup.nodes[0]).startswith("NOT SHOWN:")
     assert not markup.find("inspection-sketch")
+
+
+def test_mixed_worksheet_prompts_keep_sole_named_table_field_and_clear_underscore_pen_space(
+    tmp_path, printed_sheet
+):
+    from prechips.sheet import _worksheet
+
+    authored = [
+        "Read {X1} at Z +1.250 mm.",
+        "Record the gap ______. Keep 0.025 mm allowance.",
+        "Calculate: Offset = X1 − 1.250 mm.",
+        "Calculate: Ratio = Offset / 2.",
+    ]
+    asset = _inspection_asset(tmp_path, ("Read with datum A seated",), [1000])
+    _, _, _, notes, worksheets, _ = _inspection_consumer(asset, method=authored)
+    assert not notes and len(worksheets) == 1
+    source = _worksheet(worksheets[0])
+    printed, spaces = printed_sheet(
+        source,
+        """pageOf => [...document.querySelectorAll('.worksheet .writing-blank')].map(box => {
+          const style = getComputedStyle(box), bounds = box.getBoundingClientRect();
+          const owner = box.closest('.authored-blank, .field');
+          return {
+            underscore: !!box.closest('.authored-blank'),
+            tableOwned: !!box.closest('table.readings'),
+            original: !box.closest('[data-duplex]'),
+            label: owner.querySelector('.field-label').textContent,
+            samePage: pageOf(owner.querySelector('.field-label')) === pageOf(box),
+            visible: style.display !== 'none' && style.visibility === 'visible',
+            clearWidth: bounds.width - parseFloat(style.borderLeftWidth)
+              - parseFloat(style.borderRightWidth) - parseFloat(style.paddingLeft)
+              - parseFloat(style.paddingRight),
+            clearHeight: bounds.height - parseFloat(style.borderTopWidth)
+              - parseFloat(style.borderBottomWidth) - parseFloat(style.paddingTop)
+              - parseFloat(style.paddingBottom)
+          };
+        })""",
+    )
+    (worksheet,) = printed.find("worksheet")
+    (steps,) = printed.find("steps", worksheet)
+    entries = [node for node in printed.nodes if node["tag"] == "li" and node["parent"] is steps]
+    assert [content(entry) for entry in entries] == [
+        re.sub(r"\{([^{}]+)\}", r"[\1]", step).replace("______", "") for step in authored[:2]
+    ]
+    assert not printed.find("field", steps)
+    (table,) = printed.find("readings", worksheet)
+    (row,) = _body_rows(printed, table)
+    cells = _cells(printed, row)
+    assert [content(cell) for cell in cells[:2]] == ["1", "[X1]"]
+    assert [content(label) for label in printed.find("field-label", cells[2])] == ["X1"]
+    assert [content(node) for node in printed.find("calc", worksheet)] == authored[2:]
+    assert len(printed.find("writing-blank")) == len(spaces) == 2
+    assert all(space["original"] and space["samePage"] and space["visible"] for space in spaces)
+    (named,) = [space for space in spaces if space["tableOwned"]]
+    assert named["label"] == "X1" and not named["underscore"]
+    (underscore,) = [space for space in spaces if space["underscore"]]
+    assert not underscore["tableOwned"]
+    assert underscore["label"] == authored[1].split("______")[0]
+    assert underscore["clearWidth"] >= 20 * 96 / 25.4 - 0.05
+    assert underscore["clearHeight"] >= 20 * 96 / 25.4 - 0.05
+
+
+def test_original_stock_fixture_caption_moves_with_first_complete_setup_figure(
+    tmp_path, printed_sheet
+):
+    from test_sheet_ops import picture_sheet
+
+    asset = _inspection_asset(tmp_path, ("Main setup", "Rear clamp"), [1400, 800])
+    panels = [
+        {"top_px": 0, "height_px": 1400, "role": "setup", "label": "Main setup"},
+        {"top_px": 1400, "height_px": 800, "role": "holding_detail", "label": "Rear clamp"},
+    ]
+    sheet = picture_sheet(panels)
+    sheet.arrival = lambda setup: "Ø12.000 × 35.000 mm stock blank"
+    render = sheet.report["renders"]["S1"]
+    render.update({"path": asset["path"], "sha256": asset["sha256"]})
+    render["scene"].update({"debts": [], "render_debts": []})
+    source = sheet.fixture_render({"id": "S1", "hold": {"fixture": "vise"}})
+    original = Markup(source)
+    (caption,) = [content(node) for node in original.nodes if node["tag"] == "p"]
+    probe = _SOURCE_PAGES.replace(
+        "pages: Number(section.dataset.pages),",
+        r"""pages: Number(section.dataset.pages),
+        captions: [...section.querySelectorAll('p')]
+          .filter(node => node.textContent === __CAPTION__).map(node => ({
+            page: pageOf(node), original: !node.closest('[data-duplex]'),
+            figure: [...section.querySelectorAll('figure')].indexOf(node.closest('figure'))
+          })),
+        figures: [...section.querySelectorAll('figure')].map(figure => {
+          const svg = figure.querySelector('svg'), view = svg.viewBox.baseVal;
+          const image = svg.querySelector('image');
+          return {
+            page: pageOf(figure), original: !figure.closest('[data-duplex]'),
+            viewport: [view.x, view.y, view.width, view.height],
+            asset: image.getAttribute('href'),
+            imageSize: [image.width.baseVal.value, image.height.baseVal.value]
+          };
+        }),""",
+    ).replace("__CAPTION__", json.dumps(caption))
+    printed, details = printed_sheet(
+        '<p>Original departing-page work.</p><div style="height:400px"></div>' + source,
+        probe,
+    )
+    _assert_source_on_every_page(details)
+    assert details["captions"] == [{"page": 1, "original": True, "figure": 0}]
+    assert len(details["figures"]) == 2 and details["figures"][0]["page"] == 1
+    assert all(figure["original"] for figure in details["figures"])
+    assert [figure["viewport"] for figure in details["figures"]] == [
+        [0, 0, 1600, 1400],
+        [0, 1400, 1600, 800],
+    ]
+    assert all(
+        figure["asset"] == asset["path"] and figure["imageSize"] == [1600, 2200]
+        for figure in details["figures"]
+    )
+    assert sum(content(node) == caption for node in printed.nodes if node["tag"] == "p") == 1
+    path = Path(url2pathname(urlsplit(asset["path"]).path))
+    assert hashlib.sha256(path.read_bytes()).hexdigest() == asset["sha256"]

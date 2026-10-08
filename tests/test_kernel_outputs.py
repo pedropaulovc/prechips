@@ -217,7 +217,7 @@ def test_an_inspection_sketch_is_written_bound_and_printed_on_its_worksheet(
 
     from test_cli import copy_examples
     from test_process_route import append_op
-    from test_sheet_ops import Markup
+    from test_sheet_ops import Markup, content
 
     import prechips.cli as cli
     import prechips.kernel as kernel
@@ -274,9 +274,22 @@ def test_an_inspection_sketch_is_written_bound_and_printed_on_its_worksheet(
         while owner is not None and "worksheet" not in owner["attrs"].get("class", "").split():
             owner = owner["parent"]
         assert owner is not None
-        assert f"{sid} op {op}" in owner["attrs"]["data-worksheet-title"]
         owners.append(owner)
     assert owners[0] is owners[1]
+    for image, panel in zip(images, scene["print_panels"], strict=True):
+        figure = image["parent"]
+        while figure is not None and figure["tag"] != "figure":
+            figure = figure["parent"]
+        assert figure is not None
+        captions = [
+            node
+            for node in markup.nodes
+            if node["tag"] == "figcaption" and node["parent"] is figure
+        ]
+        assert len(captions) == 1
+        visible = content(captions[0])
+        assert f"Setup {sid} op {op} dia" in visible
+        assert panel["label"] in visible
     windows = [image["parent"]["attrs"]["viewbox"].split() for image in images]
     assert windows == [["0", "0", "1600", "512"], ["0", "512", "1600", "512"]]
     prior_hash = report["hash"]

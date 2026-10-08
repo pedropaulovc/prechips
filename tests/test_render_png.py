@@ -37,11 +37,26 @@ def _canvas(meshes=(), camera=_FRONT, width=200, height=200):
     return RenderCanvas(meshes, camera, viewport=(0, 0, width, height), width=width, height=height)
 
 
-def _composed_diagram(meshes, spec, debts=()):
-    final_spec = {**spec, "notes": list(spec.get("notes", [])) + list(debts)}
-    main, _ = _main_diagram(meshes, final_spec)
-    details = _holding_details(meshes, spec, main)
-    return _compose_diagram(main, details)
+def _composed_diagram(meshes, spec, debts=None):
+    """Observe the real settled public result without reconstructing its pipeline."""
+    compose = render_module._compose_diagram
+    completed = []
+
+    def observe(*args, **kwargs):
+        result = compose(*args, **kwargs)
+        completed.append(result)
+        return result
+
+    with pytest.MonkeyPatch.context() as capture:
+        capture.setattr(render_module, "_compose_diagram", observe)
+        png, found, panels = render_diagram(meshes, spec)
+    ((diagram, composed_png),) = completed
+    assert composed_png == png
+    assert diagram.print_panels == panels
+    assert diagram.render_debts == found
+    if debts is not None:
+        assert found == debts
+    return diagram, png
 
 
 def _pixel(canvas, x, y):
@@ -612,15 +627,6 @@ def test_production_png_protects_nominal_dimension_text_from_a_plain_end_leader(
     (path,) = [path for text, path in diagram.leaders if text == "SOUTH END / PLAIN END"]
     assert path[0] == pytest.approx(diagram.canvas.project((0, 0, 16.83)))
     assert _tag_at(diagram.canvas, *path[0]) == "part"
-    a, b = path[-2:]
-
-    def crossing_x(y):
-        return a[0] + (b[0] - a[0]) * (y - a[1]) / (b[1] - a[1])
-
-    # Require the real routed leader to cross the last two glyph cells. A convenient
-    # non-overlapping fixture would otherwise pass without exercising the protection.
-    assert a[1] < top < bottom < b[1]
-    assert right - 60 < crossing_x((top + bottom) / 2) < right
     reference = _canvas(width=right - left + 8, height=bottom - top + 6)
     reference.text(4, 3, label, colour=(35, 83, 147), scale=5)
     _, _, expected = _decode_png(reference.png())
@@ -629,10 +635,6 @@ def test_production_png_protects_nominal_dimension_text_from_a_plain_end_leader(
         offset = (y * width + left - 4) * 3
         actual.extend(pixels[offset : offset + reference.width * 3])
     assert actual == expected
-    for y in (top - 7, bottom + 7):
-        x = math.floor(crossing_x(y))
-        offset = (y * width + x) * 3
-        assert tuple(pixels[offset : offset + 3]) == _INK
     first, second = diagram.dimensions["NOM STICKOUT 24.83 mm"]
     assert first[0] == pytest.approx(diagram.jaw_marker[0])
     assert second[0] == pytest.approx(diagram.canvas.project((-5, -5, 16.83))[0])
@@ -640,6 +642,28 @@ def test_production_png_protects_nominal_dimension_text_from_a_plain_end_leader(
     texts = {box[0] for box in diagram.canvas.text_boxes}
     assert {"NORTH END", "SOUTH END /", "PLAIN END", label, "STOCK Z 175 MM"} <= texts
     diagram.canvas.assert_text_layout(min_scale=5)
+
+
+def test_a_leader_crossing_a_nominal_label_preserves_every_glyph_and_its_gutter():
+    from prechips.kernel.render_diagram import _leader_segments
+
+    canvas = _canvas(width=800, height=150)
+    label = "NOM STICKOUT 24.83 MM"
+    canvas.text(50, 50, label, colour=(35, 83, 147), scale=5)
+    ((_, left, top, right, bottom),) = canvas.text_boxes
+    reserved = (left - 4, top - 3, right + 4, bottom + 3)
+    x = right - 30
+    path = [(x, top - 20), (x, bottom + 20)]
+    assert path[0][1] < top < bottom < path[1][1]
+    before = bytes(canvas.rgb)
+    for a, b in _leader_segments(path, [reserved], 1):
+        canvas.line(a, b, _INK, width=2)
+    for y in range(reserved[1], reserved[3]):
+        first = (y * canvas.width + reserved[0]) * 3
+        last = (y * canvas.width + reserved[2]) * 3
+        assert canvas.rgb[first:last] == before[first:last]
+    assert _pixel(canvas, x, top - 10) == _INK
+    assert _pixel(canvas, x, bottom + 10) == _INK
 
 
 @pytest.mark.parametrize(
@@ -1608,16 +1632,24 @@ def _stock_short_side(canvas, box):
     return min(max(p[i] for p in points) - min(p[i] for p in points) for i in (0, 1))
 
 
-def test_a_footer_raised_by_a_long_legend_lifts_the_stock_dimension_above_it():
-    # Fourteen legend rows raise the footer far above its usual place: the stock
-    # dimension rises with it, above the STOCK BOX line, never into the legend rows.
+def test_a_long_legend_keeps_the_stock_dimension_above_the_actual_footer():
     meshes, spec = _vise_spec(150)
+    baseline, _ = _composed_diagram(meshes, spec)
     spec["legend"] = [f"SOURCE NOTE {index}" for index in range(12)]
-    diagram = _Diagram(meshes, spec)
-    diagram.render()
-    (y,) = {y for (_, y), _ in diagram.dimensions.values()}
-    assert diagram.footer_top < 600
-    assert y < diagram.footer_top - 36
+    diagram, _ = _composed_diagram(meshes, spec)
+    assert len(diagram.legend_rows) > len(baseline.legend_rows)
+    assert diagram.canvas.height - diagram.footer_top > (
+        baseline.canvas.height - baseline.footer_top
+    )
+    assert diagram.dimensions.keys() == baseline.dimensions.keys()
+    for label, (start, end) in diagram.dimensions.items():
+        assert start[1] == end[1] < diagram.footer_top - 36
+        ((_, _, top, _, bottom),) = [
+            box for box in diagram.canvas.text_boxes if box[0] == label.upper()
+        ]
+        assert bottom < diagram.footer_top
+        assert (bottom - top) / diagram.canvas.width * 7.5 * 72 >= 11
+    diagram.canvas.assert_text_layout(min_scale=5)
 
 
 def test_a_clearance_no_detail_band_keys_is_dimensioned_on_the_setup_picture(monkeypatch):
@@ -2529,8 +2561,9 @@ def test_annotation_keys_grow_their_actual_owner_not_the_main_stage():
     # These full-width keys fit their measured owner, even though the former
     # constructor's conservative key-row estimate exceeded one printable band.
     spec = _numeric_key_sketch(count=20)
+    meshes = [_block(spec["stock_box"], (160, 175, 185), "part")]
     supplied = json.dumps(spec, sort_keys=True)
-    main, _ = _main_diagram([], spec)
+    main, _ = _main_diagram(meshes, spec)
     main_height = main.canvas.height
     labels = {point["label"] for point in spec["waypoints"]}
     assert not labels & {box[0] for box in main.canvas.text_boxes}
@@ -2545,8 +2578,8 @@ def test_annotation_keys_grow_their_actual_owner_not_the_main_stage():
     detail.canvas.assert_text_layout(min_scale=5)
     assert detail.arrows_drawn > 0
 
-    png, debts, panels = render_diagram([], spec)
-    diagram, observed_png = _composed_diagram([], spec, debts)
+    png, debts, panels = render_diagram(meshes, spec)
+    diagram, observed_png = _composed_diagram(meshes, spec, debts)
     assert debts == []
     assert observed_png == png
     assert panels == diagram.print_panels
@@ -2574,13 +2607,14 @@ def test_annotation_keys_grow_their_actual_owner_not_the_main_stage():
 
 def test_two_operations_that_need_full_width_keep_complete_separate_annotation_bands():
     spec = _numeric_key_sketch(ops=("90", "10"))
-    main, _ = _main_diagram([], spec)
+    meshes = [_block(spec["stock_box"], (160, 175, 185), "part")]
+    main, _ = _main_diagram(meshes, spec)
     fixed = _AnnotationDetail(spec, "path_detail", main.canvas.scale, 980)
     fixed.render()
     assert fixed.width_overflow > 0
 
-    png, debts, panels = render_diagram([], spec)
-    diagram, observed_png = _composed_diagram([], spec, debts)
+    png, debts, panels = render_diagram(meshes, spec)
+    diagram, observed_png = _composed_diagram(meshes, spec, debts)
     assert debts == []
     assert observed_png == png
     assert panels == diagram.print_panels
