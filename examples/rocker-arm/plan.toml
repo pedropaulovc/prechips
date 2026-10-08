@@ -1407,13 +1407,13 @@ note = "Work the stair tables in this order: -X join, bottom arc, +X join; the j
 # ---------------------------------------------------------------- S4F
 [[setups]]
 id = "S4F"
-machine = "PM-30MV"
+machine = "fitting-bench"
 frame = "TA"
 coolant = "none: bench filing"
 deburr_mm = 0.25
 deburr_cite = "harmonic-analyzer/cad/config/title_block.yaml:43-45"
 stock_in = "S4C"
-note = "Take off both closing straps; nothing else is loosened, and the part stays on the screw, pin and pads. The fixture plate stays bolted to the mill table. File the outline to the line (ops 30 and 40), inspect it, deburr it and send it out for coating."
+note = "Take off both closing straps; nothing else is loosened, and the part stays on the screw, pin and pads. Take out the four hold-down screws, lift the fixture plate off the mill table, part and all, and set it flat on the fitting bench. File the outline to the line (ops 30 and 40), inspect it, deburr it and send it out for coating."
 
 [setups.stock_state]
 top_feature = "hub_faces"
@@ -1452,41 +1452,6 @@ jaw_above_parallels_mm = "not_applicable"
 stop = "shoulder screw locates A; the rod hole stays where S4 turned it against the diamond pin by hand (orientation only); its radial flats allow centre-distance variation"
 clamp = "washer and shoulder screw prevent hub lift; pads carry Z; separate toe clamps retain both scrap rails on matched shimmed rests"
 note = "Filing, inspection and deburring only, with no machine cut: the diamond pin carries hand loads only (the file strokes and the hand that steadies the arm), never a clamp or cut load; the shoulder screw and washer hold the hub and the pads carry Z. The pin's clearance in the rod hole (S2 op 34 process hold) is part of the orientation budget."
-
-[setups.zero]
-tool_touches = []
-
-[setups.zero.transfer]
-from = "S4C"
-indicate = "lapped head of the shoulder screw" # re-indicated after the closing straps come off
-tool = "rocker-datum-indicator"
-runout_limit_mm = 0.01 # authored lapped-head axis pickup criterion; the 1 µm indicator is labelled illustrative inventory
-
-[setups.zero.x]
-edge = "lapped_shoulder_screw_head_axis"
-from = "indicated"
-tool = "rocker-datum-indicator"
-edge_mm = 0.0
-radius_mm = 0.0
-check_jog_mm = 10.0
-
-[setups.zero.y]
-edge = "lapped_shoulder_screw_head_axis"
-from = "indicated"
-tool = "rocker-datum-indicator"
-edge_mm = 0.0
-radius_mm = 0.0
-check_jog_mm = 10.0
-
-[setups.zero.z]
-face = "strap_datum_b"
-edge_mm = -2.27825 # source-backed upper strap station in frame A; the washer covers the hub touch face
-# Paper-touch a clear upper strap patch at X40, away from the hub washer and fixture hardware.
-method = "paper"
-paper_mm = 0.05
-tool = "endmills-lms-6784/1-4in-4fl"
-check_jog_mm = 10.0
-retouch_after = []
 
 [[setups.ops]]
 op = 30
