@@ -549,11 +549,11 @@ def test_the_commanded_sweep_is_every_pass_at_every_level_and_every_move_between
     rows = {"op": 10, "cutter_centre": [{"id": "A1", "x": 0.0, "y": 0.0}]}
     assert tool_paths({"op": 10}, {**tables, "profiles": [rows]}, "mm")["tables"] is True
     unknown = {**raster, "raster_reason": "open side unknown"}
-    assert "open side unknown" in tool_paths({"op": 10}, {**tables, "profiles": [unknown]}, "mm")[
-        "reason"
-    ]
+    assert (
+        "open side unknown"
+        in tool_paths({"op": 10}, {**tables, "profiles": [unknown]}, "mm")["reason"]
+    )
     assert tool_paths({"op": 30}, tables, "mm") is None
-
 
 
 def _web_hold(*origins):

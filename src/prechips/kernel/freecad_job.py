@@ -2146,7 +2146,7 @@ def _path_area(centre, radius):
             points = [vertex.Point for vertex in centre.OrderedVertexes]
             faces = [
                 face
-                for start, end in zip(points, points[1:] + points[:1])
+                for start, end in zip(points, points[1:] + points[:1], strict=True)
                 if (end - start).Length > PLANE_TOL
                 for face in _stadium(start, end, radius).Faces
             ]
