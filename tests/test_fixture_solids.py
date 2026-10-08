@@ -8,6 +8,7 @@ import math
 import subprocess
 
 import pytest
+from test_kernel_contact_keys import _probe
 from test_kernel_geometry import Engine, _op, _setup, _vise
 
 from prechips.kernel import _engine_hold, hold_inputs
@@ -326,10 +327,22 @@ def _behind(**extra):
     }
 
 
-def _clearances(engine, step, ops, hold):
+def _clearances(engine, step, ops, hold, scene=False):
     top = engine.refs(step, (0, 0, 10), (40, 20, 10))
     job = engine.job(step, {"top": top}, [_setup(ops, hold)], stock=_TALL)
-    return _scene(engine.run(job))["render_scene"]["cut_clearances"]
+    render = _scene(engine.run(job))["render_scene"]
+    return render if scene else render["cut_clearances"]
+
+
+def _passes(*ys):
+    """A facing raster at the plate's top, Z10: one pass along X per ``ys``."""
+    return {"paths": [{"xy_mm": [[-5.0, y], [45.0, y]], "z_mm": [10.0, 10.0]} for y in ys]}
+
+
+def _facing(subject="S1:10", feature="top", **extra):
+    """A 6 mm end mill, flutes 10 long, on a 6 mm shank, its holder face 40 above the tip."""
+    tool = {"shank_radius_mm": 3.0, "shank_from_mm": 10.0}
+    return {**_op(subject, feature, 3.0, 10.0, 40.0), **tool, **extra}
 
 
 @pytest.mark.parametrize(
@@ -341,9 +354,10 @@ def _clearances(engine, step, ops, hold):
     ids=["a-component-undrawn", "no-holding-drawn"],
 )
 def test_a_cut_beside_holding_not_wholly_drawn_has_an_unknown_clearance(engine, parts, hold):
-    ops = [_op("S1:10", "top", 3.0, 10.0, 40.0)]
-    # Wholly drawn, the upright is the holding nearest the layer the cut takes off.
-    expected = [{"op": "10", "mm": 10.0, "tag": "plate:upright"}]
+    # The last pass at Y19 runs the cutter out to Y22, 8 short of the upright (Y30).
+    ops = [_facing(tool_paths=_passes(3.0, 9.0, 15.0, 19.0))]
+    # Wholly drawn, the upright is the holding nearest the tool.
+    expected = [{"op": "10", "mm": 8.0, "tag": "plate:upright"}]
     assert _clearances(engine, parts["plate"], ops, _behind()) == expected
     # An undrawn component may stand nearer; with none drawn, nothing is measured at all.
     unknown = [{"op": "10", "mm": "unknown", "tag": "unknown"}]
@@ -351,12 +365,195 @@ def test_a_cut_beside_holding_not_wholly_drawn_has_an_unknown_clearance(engine, 
 
 
 def test_the_first_cut_the_stock_builder_cannot_derive_has_an_unknown_clearance(engine, parts):
-    # Op 10's feature is undeclared: its cut, and so every later one, is unknown.
-    ops = [_op("S1:10", "missing", 3.0, 10.0, 40.0), _op("S1:20", "top", 3.0, 10.0, 40.0)]
+    # Op 10's feature is undeclared: its cut, and so every later one, is unknown. Their
+    # commanded passes are known, but a cutter goes wherever its op takes material off,
+    # printed or not: with that unknown, so is how near the holding it goes.
+    passes = _passes(3.0, 9.0, 15.0, 19.0)
+    ops = [_facing(feature="missing", tool_paths=passes), _facing("S1:20", tool_paths=passes)]
     assert _clearances(engine, parts["plate"], ops, _behind()) == [
         {"op": "10", "mm": "unknown", "tag": "unknown"},
         {"op": "20", "mm": "unknown", "tag": "unknown"},
     ]
+
+
+def _ledge():
+    """An angle plate whose upright stands 2 mm past the plate (Y 22..27), its top at Z8."""
+    return {
+        **_behind(),
+        "solids": [
+            _box("plate:upright", [0.0, 22.0, -5.0], [40.0, 5.0, 13.0]),
+            _box("plate:base", [0.0, 0.0, -5.0], [40.0, 22.0, 5.0]),
+        ],
+    }
+
+
+def test_the_clearance_is_the_tools_whole_sweep_over_the_holding_not_the_material_cut(
+    engine, parts
+):
+    # The last pass at Y21 overhangs the plate's edge: the cutter sweeps Y18..24 at Z10,
+    # over the upright's top at Z8. The layer it takes off (Y0..20, Z10..12) is 2.83 from
+    # the upright; the cutter itself passes 2.0 over it, and that is the clearance.
+    ops = [_facing(tool_paths=_passes(3.0, 9.0, 15.0, 21.0))]
+    scene = _clearances(engine, parts["plate"], ops, _ledge(), scene=True)
+    assert scene["cut_clearances"] == [{"op": "10", "mm": 2.0, "tag": "plate:upright"}]
+    # The picture dimensions that same sweep: one number in the picture and the table.
+    cut = scene["closest_cut"]
+    assert (cut["tag"], cut["mm"]) == ("plate:upright", pytest.approx(2.0, abs=1e-6))
+    assert cut["from_mm"][2] == pytest.approx(10.0) and cut["to_mm"][2] == pytest.approx(8.0)
+    # The holder rides 40 above the tip and 7 mm wider than the cutter: an upright at Y32
+    # standing to Z55 is 8 from the cutter but 1 from the holder.
+    tall = _ledge()
+    tall["solids"][0] = _box("plate:upright", [0.0, 32.0, -5.0], [40.0, 5.0, 60.0])
+    [row] = _clearances(engine, parts["plate"], ops, tall)
+    assert (row["tag"], row["mm"]) == ("plate:upright", pytest.approx(1.0, abs=1e-6))
+
+
+def test_a_cutter_goes_wherever_its_op_takes_material_off_printed_or_not(engine, parts):
+    # The printed passes stop at Y3 (the cutter sweeps Y0..6, 10 over the base) yet the op
+    # takes the whole top layer off (Y0..20, Z10..12): its cutter must reach the layer's
+    # edge, 2.83 from the upright, whatever the table prints.
+    ops = [_facing(tool_paths=_passes(3.0))]
+    [row] = _clearances(engine, parts["plate"], ops, _ledge())
+    assert (row["tag"], row["mm"]) == ("plate:upright", pytest.approx(2 * math.sqrt(2), abs=1e-6))
+
+
+def test_a_closed_path_narrower_than_the_tool_is_swept_whole(engine, parts):
+    # A loop 10 x 4 at the plate's edge (X15..25, Y17..21): the cutter, shank and holder are
+    # each wider than it, so no wire is left offset inward of it. The sweep is still every
+    # point within each radius of the loop: the cutter overhangs to Y24, 2.0 over the
+    # upright's top, nearer than the layer the op takes off (2.83).
+    loop = [[15.0, 17.0], [25.0, 17.0], [25.0, 21.0], [15.0, 21.0], [15.0, 17.0]]
+    ops = [_facing(tool_paths={"paths": [{"xy_mm": loop, "z_mm": [10.0, 10.0]}]})]
+    assert _clearances(engine, parts["plate"], ops, _ledge()) == [
+        {"op": "10", "mm": 2.0, "tag": "plate:upright"}
+    ]
+
+
+def test_a_path_that_turns_back_along_its_line_is_swept_out_to_its_far_end(engine, parts):
+    # Out along X20 from Y0 to Y26 and back to Y10: the cutter reaches Y29, 1.0 from the
+    # upright (Y30), though neither end of the path comes nearer than Y10 (the cutter 17
+    # from it, the layer the op takes off 10).
+    path = {"xy_mm": [[20.0, 0.0], [20.0, 26.0], [20.0, 10.0]], "z_mm": [10.0, 10.0]}
+    expected = [{"op": "10", "mm": 1.0, "tag": "plate:upright"}]
+    for turned in (path, {**path, "xy_mm": path["xy_mm"][:2]}):
+        ops = [_facing(tool_paths={"paths": [turned]})]
+        assert _clearances(engine, parts["plate"], ops, _behind()) == expected
+
+
+def test_a_tool_stands_over_its_whole_plunge_from_the_z_its_op_starts_at(engine, parts):
+    # An outline at the plate's top, Z10, with no level plan: it starts from the surface its
+    # profile names, the raw stock's top Z12. Standing there the holder (40 above the tip,
+    # 30 long) reaches Z82, into an arm over the cut at Z81 that it misses by 1 at Z10.
+    from prechips.kernel import tool_paths
+
+    outline = {"op": 10, "cutter_centre": [[5.0, 10.0], [35.0, 10.0]], "entry_z": 12.0}
+    tables = {
+        "operations": [{"op": 10, "dro_to_z": 10.0}],
+        "profiles": [outline],
+        "dro_grid": {"step": 0.01, "decimals": 2},
+    }
+    hold = _behind()
+    hold["solids"] = [*hold["solids"], _box("plate:arm", [0.0, 9.5, 81.0], [10.0, 1.0, 1.0])]
+    ops = [_facing(tool_paths=tool_paths({"op": 10}, tables, "mm"))]
+    assert _clearances(engine, parts["plate"], ops, hold) == [
+        {"op": "10", "mm": 0.0, "tag": "plate:arm"}
+    ]
+    # Tables that give no start Z leave the plunge, and so the row, unknown: never the
+    # outline's own level.
+    unstarted = {**tables, "profiles": [{**outline, "entry_z": "unknown"}]}
+    ops = [_facing(tool_paths=tool_paths({"op": 10}, unstarted, "mm"))]
+    assert _clearances(engine, parts["plate"], ops, hold) == [
+        {"op": "10", "mm": "unknown", "tag": "unknown"}
+    ]
+
+
+_CENTRE_DRILL = r"""
+centre = {"label": "centre", "drill_dia_mm": 2.0, "body_dia_mm": 6.0, "drill_length_mm": 2.0,
+          "countersink_angle_deg": 60.0, "point_angle_deg": 118.0}
+tool = {"holder_radius_mm": 10.0, "holder_gauge_len_mm": 30.0, "projection_mm": 20.0}
+envelope = job._tool_envelope(tool, [([(0.0, 0.0)], 0.0, 10.0, {"centre": centre})])
+result = {}
+for x in args["faces"]:
+    block = Part.makeBox(1, 1, 1, V(x, -0.5, 8.0))
+    result[str(x)] = min(solid.distToShape(block)[0] for solid in envelope)
+"""
+
+
+def test_a_centre_drill_carries_its_whole_body_past_the_holding(tmp_path, freecad_kernel):
+    # A 6 mm body over a 2 mm pilot, its tip fed from Z10 to Z0: a block beside the body at
+    # Z8 whose face stands 0.0005 inside its radius (3) is met; 0.0005 outside, clear by that.
+    found = _probe(tmp_path, freecad_kernel, _CENTRE_DRILL, faces=[2.9995, 3.0005])
+    assert found["2.9995"] == pytest.approx(0.0, abs=1e-7)
+    assert found["3.0005"] == pytest.approx(0.0005, abs=1e-7)
+
+
+@pytest.mark.parametrize(
+    "op",
+    [
+        _facing(),
+        {**_op("S1:10", "top", 3.0, 10.0, 40.0), "tool_paths": _passes(3.0, 9.0, 15.0, 21.0)},
+    ],
+    ids=["no-commanded-path", "no-shank-dimensions"],
+)
+def test_a_tool_sweep_that_cannot_be_derived_is_an_unknown_clearance(engine, parts, op):
+    # The material cut is no stand-in for the tool: the row and the picture stay unknown.
+    scene = _clearances(engine, parts["plate"], [op], _ledge(), scene=True)
+    assert scene["cut_clearances"] == [{"op": "10", "mm": "unknown", "tag": "unknown"}]
+    assert scene["closest_cut"] is None
+
+
+def _moves(sweep):
+    paths = sweep["paths"]
+    return sorted((tuple(map(tuple, path["xy_mm"])), tuple(path["z_mm"])) for path in paths)
+
+
+def test_the_commanded_sweep_is_every_pass_at_every_level_and_every_move_between_them():
+    from prechips.kernel import tool_paths
+
+    levels = {"levels": [2.0, 0.0], "dro_start_z": 4.0}
+    operations = [{"op": 10, "dro_to_z": 0.0, "z_levels": levels}, {"op": 20, "dro_to_z": 0.0}]
+    passes = [[[0.0, 0.0], [10.0, 0.0]], [[0.0, 4.0], [10.0, 4.0]]]
+    raster = {"op": 10, "cutter_centre": passes, "raster": {"lift_z": 6.0}}
+    outline = {"op": 20, "cutter_centre": [[0.0, 0.0], [5.0, 0.0], [5.0, 5.0]]}
+    tables = {"operations": operations, "profiles": [raster, outline]}
+    # Each pass is cut at Z2 then Z0. After each the cutter lifts to Z6 and rapids to the
+    # next pass's start, the last back to the first for the next level: each pass end
+    # stands from the floor to the lift. Inch tables scale to millimetres.
+    sweep = tool_paths({"op": 10}, tables, "in")
+    assert (sweep["levels_mm"], sweep["entry_z_mm"]) == ([0.0, 50.8], 101.6)
+    assert _moves(tool_paths({"op": 10}, tables, "mm")) == sorted(
+        [
+            (((0.0, 0.0), (10.0, 0.0)), (0.0, 2.0)),
+            (((0.0, 4.0), (10.0, 4.0)), (0.0, 2.0)),
+            *(((end,), (0.0, 6.0)) for end in ((0.0, 0.0), (10.0, 0.0), (0.0, 4.0), (10.0, 4.0))),
+            (((10.0, 0.0), (0.0, 4.0)), (6.0, 6.0)),
+            (((10.0, 4.0), (0.0, 0.0)), (6.0, 6.0)),
+        ]
+    )
+    # An outline at its one level stands at its ends from there up to its profile's entry
+    # surface, as the DRO shows it (up the grid: 3.996 reads 4.00).
+    outlined = {**tables, "profiles": [raster, {**outline, "entry_z": 3.996}]}
+    outlined["dro_grid"] = {"step": 0.01, "decimals": 2}
+    assert _moves(tool_paths({"op": 20}, outlined, "mm")) == sorted(
+        [
+            (((0.0, 0.0), (5.0, 0.0), (5.0, 5.0)), (0.0, 0.0)),
+            (((0.0, 0.0),), (0.0, 4.0)),
+            (((5.0, 5.0),), (0.0, 4.0)),
+        ]
+    )
+    # Without that surface, or a DRO grid to read it on, its start is unknown: never the
+    # level itself.
+    for given in (tables, {**outlined, "dro_grid": {}}):
+        assert "start Z are unknown" in tool_paths({"op": 20}, given, "mm")["reason"]
+    # An arc table's rows reach the kernel as its checkpoints; an unknown pass is unknown.
+    rows = {"op": 10, "cutter_centre": [{"id": "A1", "x": 0.0, "y": 0.0}]}
+    assert tool_paths({"op": 10}, {**tables, "profiles": [rows]}, "mm")["tables"] is True
+    unknown = {**raster, "raster_reason": "open side unknown"}
+    assert "open side unknown" in tool_paths({"op": 10}, {**tables, "profiles": [unknown]}, "mm")[
+        "reason"
+    ]
+    assert tool_paths({"op": 30}, tables, "mm") is None
+
 
 
 def _web_hold(*origins):

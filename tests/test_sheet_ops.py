@@ -234,6 +234,21 @@ def test_the_holding_nearest_the_cut_is_a_clearance_row_and_a_hand_feed_check_on
     assert "jaw" in obstacle and "hand feed past the LOC2 collar (1.570 mm)" in action
 
 
+def test_a_file_near_the_holding_is_a_clearance_row_and_a_check_on_its_own_op():
+    # Filing the last of the profile brings the work 2.817 from the locator: the picture's
+    # dimension, so a row of the table and a box on the file's op, never a machine op's.
+    sheet, setup = near_holding(2.817, "clamp 2 diamond-pin:rodlocator")
+    scene = sheet.report["renders"]["S1"]["scene"]
+    scene["cut_clearances"][0]["op"] = 30
+    filed = {"op": 30, "do": "file_to_line", "feature": "hole"}
+    setup = {**setup, "ops": [filed]}
+    ((ops, tool, obstacle, value, action),) = sheet.clearance_rows(setup, {}, {})
+    assert (ops, tool, obstacle, value) == ("30", "", "LOC2 rodlocator beside the cut", "2.817")
+    assert action == "keep the file clear of the LOC2 rodlocator"
+    (box,) = sheet.crash_boxes(setup, filed)
+    assert box == "LOC2 RODLOCATOR 2.817 mm FROM THE CUT — keep the file clear of it"
+
+
 @pytest.mark.parametrize(
     ("mm", "tag", "obstacle", "action"),
     [

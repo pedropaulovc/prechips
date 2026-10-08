@@ -27,9 +27,11 @@ from .rules.coordinates import (
     faced_aim_claims,
     row_id,
 )
+from .rules.geometry_common import TURNING, approach
 from .rules.hold_fields import align_indicator, align_travel
 from .rules.inspection import ZONES, go_no_go_pair
 from .rules.resolution import (
+    HAND_FINISH,
     MAKE_OP_FIELDS,
     MANUAL,
     NAMED_REFERENCE,
@@ -2972,10 +2974,13 @@ class _Traveler:
             jaw = self.jaw_front_z(setup)
             approaches = self.lathe_approaches(setup)
             if jaw is not None:
-                closest = min(approaches.values(), default=None)
+                gaps = [gap for gap in approaches.values() if _known(gap)]
                 text = f"Jaw fronts at Z {o(jaw)}"
-                if closest is not None:
-                    text += f"; closest planned tool stop {o(closest)} mm from the jaws"
+                if len(gaps) < len(approaches):
+                    # A tool whose reach is unknown may stand nearer than any known one.
+                    text += "; closest tool approach not computed — check at the machine"
+                elif gaps:
+                    text += f"; closest planned tool stop {o(min(gaps))} mm from the jaws"
                 lines.append(text + ".")
             if not lines:
                 lines.append("? Lathe clearance not computed — check swing and tailstock room.")
@@ -3035,9 +3040,11 @@ class _Traveler:
         a row): the smallest known clearance among the head travel left above the work
         (headroom ``margin_mm``), the jaw tops (``cut_tip_above_jaws_mm``, as the op row's
         box measures it), the holder face above the highest stock beside the tool, any
-        reach ``clearances`` entry and the holding solid nearest the op's cut
+        reach ``clearances`` entry and the holding solid nearest the op's tool sweep
         (:meth:`cut_clearance`, a hand-feed check within the crash zone); an unknown one or
-        an unproven wall clearance is the action. Every Z printed is the surface's one DRO
+        an unproven wall clearance is the action. A bench file (``HAND_FINISH``) has no
+        tool, head or jaws: its row is the holding nearest the material it files, a check to
+        keep the file clear within the crash zone. Every Z printed is the surface's one DRO
         Z (:meth:`surface_z`)."""
         o = self.operative
         stacks = {str(s.get("op")): s for s in numbers.get("stacks", []) if isinstance(s, dict)}
@@ -3046,23 +3053,25 @@ class _Traveler:
         merged = {}
         for op in setup.get("ops", []):
             name = str(op.get("op"))
-            if op.get("do") in MANUAL or op.get("tool") in (None, "unknown"):
+            hand = op.get("do") in HAND_FINISH
+            if not hand and (op.get("do") in MANUAL or op.get("tool") in (None, "unknown")):
                 continue
             candidates, actions = [], []
-            margin = _mapping(stacks.get(name)).get("margin_mm")
-            if _known(margin):
-                candidates.append((margin, "spindle-to-table room spare, tool change allowed"))
-            planned = tips.get(name, tips.get(op.get("op")))
-            if _known(planned):
-                # The op row's own jaw box number: its DRO tip over the jaw tops.
-                tip = self.dro_to_z(setup, op)
-                value = tip - jaw if _known(tip) and _known(jaw) else planned
-                candidates.append((value, "jaw tops below the tool tip"))
-                if min(planned, value) < 0:
-                    actions.append("STOP: the tip goes below the jaw tops")
-                elif planned <= _CRASH_ZONE_MM:
-                    actions.append("hand feed; check the tip clears the jaws before plunging")
-            self.reach_candidates(setup, op, candidates, actions)
+            if not hand:
+                margin = _mapping(stacks.get(name)).get("margin_mm")
+                if _known(margin):
+                    candidates.append((margin, "spindle-to-table room spare, tool change allowed"))
+                planned = tips.get(name, tips.get(op.get("op")))
+                if _known(planned):
+                    # The op row's own jaw box number: its DRO tip over the jaw tops.
+                    tip = self.dro_to_z(setup, op)
+                    value = tip - jaw if _known(tip) and _known(jaw) else planned
+                    candidates.append((value, "jaw tops below the tool tip"))
+                    if min(planned, value) < 0:
+                        actions.append("STOP: the tip goes below the jaw tops")
+                    elif planned <= _CRASH_ZONE_MM:
+                        actions.append("hand feed; check the tip clears the jaws before plunging")
+                self.reach_candidates(setup, op, candidates, actions)
             cut = self.cut_clearance(setup, op)
             if cut is not None:
                 beside = f"{cut[1]} beside the cut"
@@ -3085,10 +3094,15 @@ class _Traveler:
             if cut is not None and _known(cut[0]) and cut[0] <= _CRASH_ZONE_MM:
                 # Named with its distance when another obstacle is the row's closest.
                 near = cut[1] if what == beside else f"{cut[1]} ({o(cut[0])} mm)"
-                actions.append(f"hand feed past the {near}; check the cutter clears it")
+                actions.append(
+                    f"keep the file clear of the {near}"
+                    if hand
+                    else f"hand feed past the {near}; check the cutter clears it"
+                )
             if _known(value) and value < 0 and not any(a.startswith("STOP") for a in actions):
                 actions.append("STOP: does not clear")
-            tool = tool_numbers.get(self.tool_pair(op.get("tool"), op.get("holder")), "")
+            pair = self.tool_pair(op.get("tool"), op.get("holder"))
+            tool = "" if hand else tool_numbers.get(pair, "")
             printed = o(value) if _known(value) else value
             key = (tool, what, printed, "; ".join(dict.fromkeys(actions)))
             merged.setdefault(key, []).append(name)
@@ -3166,26 +3180,89 @@ class _Traveler:
         return None, "unknown"
 
     def lathe_approaches(self, setup):
-        """Distance from each op's last planned Z to the jaw fronts (exposed side +Z); a
-        blade's own chuck-side face (accessibility ``blade_z_mm``) counts, not just the
-        Z its op names."""
+        """Distance from each op's nearest approach to the jaw fronts (exposed side +Z): the
+        least of its planned Zs and, for a turning op, the chuck-side extent of its whole
+        tool (accessibility ``tool_z_mm``: insert or blade, head, shank and body), not just
+        the Z its op names; ``"unknown"`` when the kernel could not pose the whole tool or
+        reported no extent for it.
+
+        The kernel stands the tool on the drawn profile. An op fed to the imaginary-tip
+        readings of its contour tables (:meth:`contour_tips`) stands where those put its
+        nose instead, its whole outline carried there rigidly (``tool_z_mm`` reaching
+        below ``nose_z_mm`` by as much as at every kernel pose): a profile the plan forms
+        elsewhere than drawn (a cut-to-fit end) moves the tool with it. An op whose
+        table prints no tool readings has an unknown approach."""
         jaw = self.jaw_front_z(setup)
         result = {}
         if jaw is None:
             return result
+        scale = {"mm": 1.0, "in": 25.4}.get(self.units)
         for op in setup.get("ops", []):
             if op.get("do") in MANUAL:
                 continue
             zs = self.path_zs(setup, op)
-            numbers = _mapping(self.records.get(("accessibility", f"{setup['id']}:{op['op']}")))
-            blade = numbers.get("blade_z_mm")
-            if zs and isinstance(blade, list) and blade and all(_known(z) for z in blade):
-                # Millimetre kernel fact; down-rounded so the jaw gap is never overstated.
-                face = self.mm_on_grid(setup, min(blade), up=False)
-                zs = [*zs, face] if _known(face) else zs
-            if zs:
-                result[str(op["op"])] = min(zs) - jaw
+            if not zs:
+                continue
+            if approach(self.bundle, setup, op) == TURNING:
+                key = ("accessibility", f"{setup['id']}:{op['op']}")
+                numbers = _mapping(self.records.get(key))
+                tool, nose = numbers.get("tool_z_mm", "unknown"), numbers.get("nose_z_mm")
+                known = isinstance(tool, list) and tool and all(_known(z) for z in tool)
+                posed = isinstance(nose, list) and nose and all(_known(z) for z in nose)
+                lowest = min(tool) if known else "unknown"
+                tips = self.contour_tips(setup, op)
+                named = min(zs) * scale if scale else None
+                if tips is not None:
+                    lowest = (
+                        min(tips) * scale - (nose[0] - tool[0])
+                        if known and posed and tips != "unknown" and scale
+                        else "unknown"
+                    )
+                elif (
+                    known
+                    and posed
+                    and named is not None
+                    and tool[0] == nose[0]
+                    and 0 <= named - nose[0] <= FACE_Z_TOL_MM
+                ):
+                    # The kernel poses the nose against the face at the op's named Z only to
+                    # its hit-test inset (LIFT, the 0.001 mm of FACE_Z_TOL_MM): a nose that
+                    # far past that Z, and the tool's lowest point, stands at it. Any other
+                    # part's reach past it (a shank, a blade's far face) is the tool's own.
+                    lowest = named
+                # Millimetres; down-rounded so the jaw gap is never overstated.
+                face = self.mm_on_grid(setup, lowest, up=False)
+                if not _known(face):
+                    result[str(op["op"])] = "unknown"
+                    continue
+                zs = [*zs, face]
+            result[str(op["op"])] = min(zs) - jaw
         return result
+
+    def contour_tips(self, setup, op):
+        """The imaginary-tip Zs (plan units) ``op``'s contour tables feed its tool to: every
+        row of its dome finish tables and their rough stairs, each touched off on a +Z end
+        face and so placing the nose's lowest point. None when the op has no finish table;
+        ``"unknown"`` when one prints no tool readings (only the surface, which the nose
+        does not stand on) or any reading is unknown."""
+        numbers = _mapping(self.records.get(("coordinates", setup["id"])))
+
+        def mine(key):
+            return [
+                table
+                for table in numbers.get(key) or []
+                if isinstance(table, dict) and str(table.get("op")) == str(op.get("op"))
+            ]
+
+        finish = [table for table in mine("contours") if table.get("method") == "axial_table"]
+        if not finish:
+            return None
+        if not all(_known(table.get("tool_nose_compensation_mm")) for table in finish):
+            return "unknown"
+        rows = [(row, "z_tool_mm") for table in finish for row in table.get("rows", [])]
+        rows += [(row, "z_mm") for table in mine("stair_tables") for row in table.get("rows", [])]
+        tips = [_mapping(row).get(key) for row, key in rows]
+        return tips if tips and all(_known(z) for z in tips) else "unknown"
 
     def posed_start(self, setup, op):
         """The kernel's pose of a turning op at its start (accessibility ``window_poses``)
@@ -3372,7 +3449,11 @@ class _Traveler:
         if self.lathe(setup):
             jaw = self.jaw_front_z(setup)
             gap = self.lathe_approaches(setup).get(str(op["op"]))
-            if gap is not None and gap < 0:
+            if gap is not None and not _known(gap):
+                boxes.append(
+                    _Box(f"JAWS Z {o(jaw)}: tool clearance not computed — hand feed to a stop")
+                )
+            elif gap is not None and gap < 0:
                 boxes.append(_Box(f"STOP: PATH ENDS {o(-gap)} INSIDE JAWS (Z {o(jaw)})"))
             elif gap is not None and gap <= _CRASH_ZONE_MM:
                 boxes.append(_Box(f"JAWS Z {o(jaw)}: {o(gap)} clear — hand feed to a stop"))
@@ -3395,7 +3476,9 @@ class _Traveler:
             return boxes
         cut = self.cut_clearance(setup, op)
         if cut is not None and _known(cut[0]) and cut[0] <= _CRASH_ZONE_MM:
-            boxes.append(_Box(f"{cut[1].upper()} {o(cut[0])} mm FROM THE CUT — hand feed past it"))
+            hand = op.get("do") in HAND_FINISH
+            check = "keep the file clear of it" if hand else "hand feed past it"
+            boxes.append(_Box(f"{cut[1].upper()} {o(cut[0])} mm FROM THE CUT — {check}"))
         numbers = self.records.get(("headroom", setup["id"]), {})
         cuts = _mapping(numbers.get("cut_tip_above_jaws_mm"))
         planned = cuts.get(str(op["op"]), cuts.get(op["op"]))
@@ -3414,10 +3497,11 @@ class _Traveler:
         return boxes
 
     def cut_clearance(self, setup, op):
-        """``(mm, name)``: how near the material ``op`` cuts comes to the holding, from the
-        kernel's setup picture (its ``cut_clearances``; the picture dimensions the least of
-        the setup's), and the holding solid it is, as the HOLD names it
-        (:meth:`holding_name`); ``unknown`` where the kernel could not derive the cut or the
+        """``(mm, name)``: how near ``op`` comes to the holding, from the kernel's setup
+        picture (its ``cut_clearances``: a machine op's whole tool, cutter to holder, over
+        its commanded sweep, a bench file's removal; the picture dimensions the least of the
+        setup's), and the holding solid it is, as the HOLD names it (:meth:`holding_name`);
+        ``unknown`` where the kernel could not derive the tool, its sweep or the cut, or the
         holding is not drawn whole; None when the kernel measured nothing for the op (no
         picture, or no cut)."""
         render = _mapping(_mapping(self.report.get("renders")).get(setup["id"]))

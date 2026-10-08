@@ -1910,11 +1910,12 @@ def _plunge(x, y, tip, radius, slope, top, seat=None):
     return _cutter(x, y, tip, radius, slope, flute, (shank, rise), top - tip - flute - rise)
 
 
-def _centre_drill_cutter(cut, x, y, tip, length):
+def _centre_drill_cutter(cut, x, y, tip, length, inset=LIFT):
     """The whole combined drill and countersink of centre ``cut`` on vertical axis (x, y),
     its point at ``tip`` and ``length`` mm long: the pilot point and pilot, the countersink
     opening on through the mouth to the body diameter, then the body. Every surface sits
-    ``LIFT`` inside the centre it cuts, so only stock outside that centre registers."""
+    ``inset`` inside the centre it cuts, ``LIFT`` by default so only stock outside that
+    centre registers; 0 is the tool's true outline, what it carries past the holding."""
     drill, body = cut["drill_dia_mm"] / 2, cut["body_dia_mm"] / 2
     slope = math.tan(math.radians(cut["countersink_angle_deg"] / 2))
     point = drill / math.tan(math.radians(cut["point_angle_deg"] / 2))
@@ -1924,11 +1925,11 @@ def _centre_drill_cutter(cut, x, y, tip, length):
     if top <= body_z + LIFT:
         raise _Unknown(f"{cut['label']}: the tool projection ends inside its countersink")
     profile = [
-        V(x, y, tip + LIFT),
-        V(x + drill - LIFT, y, tip + point + LIFT),
-        V(x + drill - LIFT, y, shoulder + LIFT),
-        V(x + body - LIFT, y, body_z + LIFT),
-        V(x + body - LIFT, y, top),
+        V(x, y, tip + inset),
+        V(x + drill - inset, y, tip + point + inset),
+        V(x + drill - inset, y, shoulder + inset),
+        V(x + body - inset, y, body_z + inset),
+        V(x + body - inset, y, top),
         V(x, y, top),
     ]
     return Part.Face(Part.makePolygon(profile + profile[:1])).revolve(V(x, y, tip), Z, 360)
@@ -2100,6 +2101,23 @@ def _level_offset(wire, distance):
     return moved
 
 
+def _span(wire):
+    """The two extreme vertices along the line of a level ``wire`` of straight edges whose
+    vertices all lie on that one line, else None: the whole span a path along it covers,
+    wherever it turns back between them (never just its first and last vertex)."""
+    if any(type(edge.Curve).__name__ != "Line" for edge in wire.Edges):
+        return None
+    points = [vertex.Point for vertex in wire.OrderedVertexes]
+    run = max(points, key=lambda point: (point - points[0]).Length) - points[0]
+    if run.Length <= PLANE_TOL:
+        return None
+    side = V(-run.y, run.x, 0).normalize()
+    if any(abs((point - points[0]).dot(side)) > PLANE_TOL for point in points):
+        return None
+    along = [(point - points[0]).dot(run) for point in points]
+    return points[along.index(min(along))], points[along.index(max(along))]
+
+
 def _stadium(start, end, radius):
     """The level region within ``radius`` of the segment ``start``-``end``."""
     run = end - start
@@ -2112,14 +2130,28 @@ def _stadium(start, end, radius):
 
 def _path_area(centre, radius):
     """The level region within ``radius`` of the level wire ``centre``: a 2r band round a
-    closed path, a sausage with r discs round an open path's ends."""
-    ends = _straight(centre)
+    closed path, a sausage with r discs round an open path's ends, the stadium round the
+    whole span of a path along one line. Its faces together cover the region (they may
+    overlap: each caller extrudes them one by one)."""
+    ends = _span(centre)
     if ends is not None:  # OCC finds no plane for a straight path
         return _stadium(*ends, radius)
     if centre.isClosed():
-        return centre.makeOffset2D(radius, 0, True, False, False).fuse(
-            centre.makeOffset2D(-radius, 0, True, False, False)
-        )
+        outside = centre.makeOffset2D(radius, 0, True, False, False)
+        try:
+            inside = centre.makeOffset2D(-radius, 0, True, False, False)
+        except FreeCAD.Base.CADKernelError:
+            # Inward the offset collapses where the loop is narrower than 2r, leaving OCC no
+            # wire: the region inside is each edge's own band and end discs, exactly.
+            points = [vertex.Point for vertex in centre.OrderedVertexes]
+            faces = [
+                face
+                for start, end in zip(points, points[1:] + points[:1])
+                if (end - start).Length > PLANE_TOL
+                for face in _stadium(start, end, radius).Faces
+            ]
+            return Part.Compound(outside.Faces + faces)
+        return outside.fuse(inside)
     return centre.makeOffset2D(radius, 0, True, False, False)
 
 
@@ -2306,11 +2338,11 @@ def _out_of_reach(obstacle, band, reach, centres, radius):
     ]
 
 
-def _centre_sweep(paths, radius, top):
-    """The solid a cutter of ``radius`` sweeps along level cutter-centre ``paths`` (each
-    ``(setup-frame xy points, tip z)``): every point within the radius of a path, standing
-    from its tip up to ``top``; None when every path stands at or above ``top``. OCC
-    failures raise."""
+def _centre_pieces(paths, radius, top):
+    """What a cutter of ``radius`` sweeps along level cutter-centre ``paths`` (each
+    ``(setup-frame xy points, tip z)``), as overlapping solids left unfused: together every
+    point within the radius of a path, standing from its tip up to ``top``. Empty when every
+    path stands at or above ``top``. OCC failures raise."""
     pieces = []
     for xy, z0 in paths:
         points = []
@@ -2328,9 +2360,75 @@ def _centre_sweep(paths, radius, top):
             area = _path_area(Part.makePolygon(points), radius)
         area.translate(V(0, 0, z0))
         pieces.extend(face.extrude(V(0, 0, top - z0)) for face in area.Faces)
+    return pieces
+
+
+def _centre_sweep(paths, radius, top):
+    """The solid a cutter of ``radius`` sweeps along level cutter-centre ``paths``: the
+    :func:`_centre_pieces` fused; None when every path stands at or above ``top``. OCC
+    failures raise."""
+    pieces = _centre_pieces(paths, radius, top)
     if not pieces:
         return None
     return (pieces[0].fuse(pieces[1:]) if len(pieces) > 1 else pieces[0]).removeSplitter()
+
+
+def _tool_envelope(op, moves):
+    """The solids a milling tool and its holder sweep over ``moves``, as a list of
+    overlapping pieces (their union is the sweep; a distance to it is the least to any).
+    Each move is ``(setup-frame xy points, lowest tip z, highest tip z, axial)``: the tip
+    anywhere from the lowest to the highest z along the points' polyline.
+
+    Each tool part is a cylinder about the tool axis, so its sweep is every point within
+    its radius of the polyline, standing from the lowest tip plus the part's start to the
+    highest tip plus its end: the cutter up its flutes, the body between the flute end
+    and the shank's start (``shank_from_mm``; the wider of the cutter and shank radii),
+    the shank (``shank_radius_mm``) on to the holder face, and the holder
+    (``holder_radius_mm``) over its gauge length above that face; the holder face cuts
+    off any part it reaches. An ``axial`` move is one plunge. ``{"slope": tan(point angle
+    / 2) or None}`` is a drill-like tool: its point at the lowest tip and, with a seat
+    cone (:func:`_seat`) below the holder face, that cone there and the bore its widest
+    edge sweeps above it (:func:`_plunge`). ``{"centre": process centre}`` is the whole
+    centre drill's true outline (:func:`_centre_drill_cutter`, no hit-test inset) up to the
+    holder face at the lowest tip, its body above. Raises :class:`_Unknown` naming
+    unmeasured dimensions."""
+    keys = ["holder_radius_mm", "holder_gauge_len_mm", "projection_mm"]
+    if any(axial is None or "centre" not in axial for *_, axial in moves):
+        keys += ["radius_mm", "flute_len_mm"]
+    holder, gauge, projection = (_positive(op, key) for key in keys[:3])
+    radius, flute = _positive(op, "radius_mm"), _positive(op, "flute_len_mm")
+    start, shank = _positive(op, "shank_from_mm"), _positive(op, "shank_radius_mm")
+    missing = [key for key in keys if _positive(op, key) is None]
+    if not missing and "flute_len_mm" in keys and flute < projection:
+        # Only a projection past the flutes exposes the body above them.
+        body = (("shank_from_mm", start), ("shank_radius_mm", shank))
+        missing = [key for key, value in body if value is None]
+    if missing:
+        raise _Unknown("the tool's " + ", ".join(missing) + " unmeasured")
+    seat = _seat(op)
+    solids = []
+    for xy, low, high, axial in moves:
+        pieces = [(holder, low + projection, high + projection + gauge)]
+        if axial is not None and "centre" in axial:
+            (x, y), centre = xy[0], axial["centre"]
+            solids.append(_centre_drill_cutter(centre, x, y, low, projection, inset=0.0))
+            pieces.append((centre["body_dia_mm"] / 2, low + projection, high + projection))
+        else:
+            seated = axial is not None and seat is not None and start <= projection
+            reach = start if seated else min(flute, projection)
+            if axial is None:
+                pieces.append((radius, low, high + reach))
+            else:
+                (x, y), cone = xy[0], seat if seated else None
+                solids.append(_plunge(x, y, low, radius, axial["slope"], high + reach, cone))
+            if flute < projection and start > flute and not seated:
+                body_top = high + min(start, projection)
+                pieces.append((max(radius, shank), low + flute, body_top))
+            if flute < projection and start < projection:
+                pieces.append((shank, low + start, high + projection))
+        for piece_radius, bottom, top in pieces:
+            solids += _centre_pieces([(xy, bottom)], piece_radius, top)
+    return solids
 
 
 def _sweep_window(sweep):
@@ -8011,18 +8109,14 @@ class _Setup:
         if guide is not None:
             spec["guide_view"] = guide
         scene["guide_axis_mm"] = guide["axis_mm"] if guide is not None else None
-        spec["contacts"], spec["closest_cut"] = (
-            ([], None)
-            if lathe
-            else self._render_contacts(
-                held, removal if blade is None else blade, tolerance, section_view, stops
-            )
+        spec["contacts"] = [] if lathe else self._render_contacts(held, tolerance, section_view)
+        # The CLEARANCE table's per-op fixture rows and the picture's dimension, the least
+        # of them; any holding debt leaves them unknown.
+        scene["cut_clearances"], spec["closest_cut"] = (
+            ([], None) if lathe else self._cut_clearances(held, not debts, stops, blade)
         )
         scene["closest_cut"] = spec["closest_cut"]
         scene["guide_stops"] = [stop["tag"] for stop in stops]
-        # The CLEARANCE table's per-op fixture rows: the picture's dimension and every
-        # other cut's nearest holding, op by op; any holding debt leaves them unknown.
-        scene["cut_clearances"] = [] if lathe else self._cut_clearances(held, not debts)
         png, drawn_debts = render_diagram(meshes, spec)
         render_debts.extend(drawn_debts)
         # A holding detail band below the picture makes it taller than the default.
@@ -8050,16 +8144,14 @@ class _Setup:
             path = shape if path is None else path.fuse(shape)
         return path
 
-    def _render_contacts(self, solids, removal, tolerance, section_view, stops=()):
+    def _render_contacts(self, solids, tolerance, section_view):
         """The holding solids touching the arriving stock, each with its contact outlines
-        and plane, and the cut nearest the holding, in setup axes: ``([{"tag", "lines_mm",
-        "plane"}], {"mm", "tag", "from_mm", "to_mm"} or None)``. A plane contact is the
+        and plane, in setup axes: ``[{"tag", "lines_mm", "plane"}]``. A plane contact is the
         common area of a holding face and an opposed stock face on one plane; a curved one
         is the solids' section, else their nearest point. A section view drops the half it
         removes, cutting each outline at its plane. ``plane`` is the one setup-axis plane
         ``[axis, value]`` of the contact pieces drawn, each measured whole, else None: a
-        seating face the section cuts to one edge keeps its height. A guided file's
-        ``stops`` (:meth:`_guide_stops`) are measured only against the other ops' cuts."""
+        seating face the section cuts to one edge keeps its height."""
         stock = self.part
         stock_box = _bbox(stock)
         contacts = []
@@ -8120,57 +8212,7 @@ class _Setup:
                         "plane": None if plane is None else list(plane),
                     }
                 )
-        return contacts, self._holding_cut(removal, solids, stops)
-
-    def _holding_cut(self, removal, solids, stops):
-        """The picture's ``closest_cut`` (:meth:`_nearest_cut`): the setup's ``removal``
-        against every holding solid but a guided file's stops, and each stop against the
-        cuts of the setup's other ops, so a machine cut reaching a button still reads (the
-        whole removal when one of those cuts fails its boolean). A setup that both files
-        and machines dimensions its machine cuts only, the CLEARANCE table's rows
-        (:meth:`_cut_clearances`): a hand stroke's reach beside them is not a cutter's."""
-        removal = self._machined(removal)
-        tags = {stop["tag"] for stop in stops}
-        nearest = self._nearest_cut(removal, [item for item in solids if item[0] not in tags])
-        pieces = []
-        for op in self.ops if tags else ():
-            before, after, why = self.cuts.get(id(op), (None, None, "not built"))
-            if isinstance(op.get("guide_owner"), str) or why is not None or after is before:
-                continue
-            try:
-                pieces.append(before.cut(after))
-            except Exception:
-                pieces = [removal]
-                break
-        if pieces and removal is not None:
-            other = pieces[0].fuse(pieces[1:]) if len(pieces) > 1 else pieces[0]
-            near = self._nearest_cut(other, [item for item in solids if item[0] in tags])
-            if near is not None and (nearest is None or near["mm"] < nearest["mm"]):
-                nearest = near
-        return nearest
-
-    def _machined(self, removal):
-        """The setup's ``removal`` less its hand ops' when it also has machine cuts: the
-        fuse of its machine ops' own cuts; ``removal`` itself when it has no hand removal,
-        no machine one, saws (its blade path is the picture's), or a boolean fails."""
-        machine, filed = [], False
-        for op in self.ops:
-            if _sawn(op):
-                return removal
-            before, after, why = self.cuts.get(id(op), (None, None, "not built"))
-            if why is not None or before is None or after is before:
-                continue
-            if _hand(op):
-                filed = True
-            else:
-                machine.append((before, after))
-        if not filed or not machine or removal is None:
-            return removal
-        try:
-            pieces = [before.cut(after) for before, after in machine]
-            return pieces[0].fuse(pieces[1:]) if len(pieces) > 1 else pieces[0]
-        except Exception:
-            return removal
+        return contacts
 
     def _guide_view(self, stops, solids, drawn, removal):
         """The look down a guided file's guide axis (spec ``guide_view``): ``axis_mm``,
@@ -8438,20 +8480,21 @@ class _Setup:
         )
 
     @staticmethod
-    def _nearest_cut(removal, solids):
-        """The holding solid nearest the material ``removal`` takes away, as ``{"mm",
-        "tag", "from_mm", "to_mm"}`` (the cut's point, then the solid's), or None for no
-        removal."""
+    def _nearest(shapes, solids):
+        """The holding solid nearest any of ``shapes``, as ``{"mm", "tag", "from_mm",
+        "to_mm"}`` (the shape's point, then the solid's), or None when there is no pair."""
+        boxes = [(name, solid, _bbox(solid)) for name, solid in solids]
+        pairs = []
+        for shape in shapes:
+            box = _bbox(shape)
+            pairs.extend((_box_gap(box, held), shape, name, solid) for name, solid, held in boxes)
         nearest = None
-        if removal is None or removal.Volume <= STOCK_MM3:
-            return None
-        cut_box = _bbox(removal)
-        for name, solid in sorted(solids, key=lambda item: _box_gap(cut_box, _bbox(item[1]))):
-            if nearest is not None and _box_gap(cut_box, _bbox(solid)) >= nearest["mm"]:
+        for gap, shape, name, solid in sorted(pairs, key=lambda pair: pair[0]):
+            if nearest is not None and gap >= nearest["mm"]:
                 break
-            distance, pairs, _ = _distance(removal, solid)
+            distance, points, _ = _distance(shape, solid)
             if nearest is None or distance < nearest["mm"]:
-                near, far = pairs[0]
+                near, far = points[0]
                 nearest = {
                     "mm": distance,
                     "tag": name,
@@ -8461,43 +8504,124 @@ class _Setup:
         # Rounded as the CLEARANCE rows are: a picture prints the value its table prints.
         return nearest and {**nearest, "mm": _r(nearest["mm"])}
 
-    def _cut_clearances(self, solids, drawn):
-        """Each cutting op's own cut against the holding ``solids``: ``[{"op", "mm",
-        "tag"}]`` in op order, ``mm`` the least distance from the material the op takes
-        away (its before-op stock less its after stock) to the nearest holding solid
-        ``tag``. An op whose cut the stock builder could not derive (the op that stopped it
-        and every later one), or whose boolean fails, is ``unknown`` (``mm`` and ``tag``),
-        never left out; so is every op that removes material when the holding is not
-        ``drawn`` whole (unresolved, a component undrawn, a jaw extent undeclared), since
-        what is not drawn may stand nearer than anything drawn. An op that removes
-        nothing, a hand op and a saw op (its blade path is the picture's) carry none. The
-        setup picture's ``closest_cut`` is the least over the whole setup's removal, or
-        over these rows' cuts when the setup also files (:meth:`_holding_cut`)."""
-        rows = []
+    def _cut_clearances(self, solids, drawn, stops, blade):
+        """(the CLEARANCE table's rows, the picture's ``closest_cut``) against the holding
+        ``solids``. A row ``{"op", "mm", "tag"}`` per op in op order: ``mm`` the least
+        distance (:meth:`_nearest`) from what the op moves past the holding to its nearest
+        solid ``tag``. A machine op moves its whole tool (:func:`_tool_envelope`: cutter,
+        shank and holder) over every move it is commanded through (:meth:`_tool_moves`), and
+        its cutter over all it takes off (:meth:`_taken_off`), which no printed path may leave
+        out: the row is the nearer of the two. A bench file moves over what it files off,
+        never its own guide stops (``stops``, :meth:`_guide_stops`), and one filing nothing
+        carries no row. ``mm`` and ``tag`` are ``unknown``, never left out, for a move or
+        tool dimension the kernel is not told, a cut the stock builder could not derive (the
+        op that stopped it and every later one), a failed boolean, and every op when the
+        holding is not ``drawn`` whole (unresolved, a component undrawn, a jaw extent
+        undeclared), since what is not drawn may stand nearer than anything drawn. A saw's
+        ``blade`` path (:meth:`_blade_path`) carries no row. ``closest_cut`` is the least of
+        the rows and the blade path, with both points; None when any of them is unknown."""
+        rows, closest, known = [], None, True
+        stopped = {stop["tag"] for stop in stops}
         for op in self.ops:
-            if _hand(op) or _sawn(op):
+            if _sawn(op):
                 continue
             # A kernel op carries its identity as the subject "<setup>:<op>".
             number = str(op.get("subject", "")).partition(":")[2] or UNKNOWN
-            unknown = {"op": number, "mm": UNKNOWN, "tag": UNKNOWN}
-            before, after, why = self.cuts.get(id(op), (None, None, "not built"))
-            if why is not None or before is None or id(op) == self.stopped_cut:
-                rows.append(unknown)
-                continue
-            if after is before:
-                continue
             try:
-                removal = before.cut(after)
-                cuts = removal.Volume > STOCK_MM3
-                nearest = self._nearest_cut(removal, solids) if cuts and drawn else None
+                held, removal = solids, self._taken_off(op)
+                shapes = [] if removal is None else [removal]
+                if _hand(op):
+                    if removal is None:
+                        continue
+                    if isinstance(op.get("guide_owner"), str):
+                        held = [item for item in solids if item[0] not in stopped]
+                if not drawn:
+                    raise _Unknown("the holding is not drawn whole")
+                if not _hand(op):
+                    shapes += _tool_envelope(op, self._tool_moves(op))
+                near = self._nearest(shapes, held)
             except Exception:
-                rows.append(unknown)
+                rows.append({"op": number, "mm": UNKNOWN, "tag": UNKNOWN})
+                known = False
                 continue
-            if cuts and not drawn:
-                rows.append(unknown)
-            elif nearest is not None:
-                rows.append({"op": number, "mm": nearest["mm"], "tag": nearest["tag"]})
-        return rows
+            if near is None:
+                continue
+            rows.append({"op": number, "mm": _r(near["mm"]), "tag": near["tag"]})
+            if closest is None or near["mm"] < closest["mm"]:
+                closest = near
+        if blade is not None:
+            near = self._nearest([blade], solids) if drawn else None
+            known = known and drawn
+            if near is not None and (closest is None or near["mm"] < closest["mm"]):
+                closest = near
+        return rows, closest if known else None
+
+    def _taken_off(self, op):
+        """What an op takes off (its before-op stock less its after stock), or None when it
+        takes nothing; raises :class:`_Unknown` when the stock builder could not derive it."""
+        before, after, why = self.cuts.get(id(op), (None, None, "not built"))
+        if why is not None or before is None or id(op) == self.stopped_cut:
+            raise _Unknown(f"its cut is unknown ({why})")
+        if after is before:
+            return None
+        removal = before.cut(after)
+        return removal if removal.Volume > STOCK_MM3 else None
+
+    def _tool_moves(self, op):
+        """Every move (:func:`_tool_envelope`) a machine op is commanded through, in setup
+        axes. Its ``tool_paths`` (``kernel.tool_paths``: each pass or outline at its levels,
+        each end standing to the entry or lift Z, a raster's rapids) are moves as given. Each
+        printed checkpoint path (``checkpoints``, clipped for a bounded op) is cut at every
+        level from its printed tip to the op's ``tool_paths`` ``levels_mm`` and its ends
+        stand to its ``entry_z_mm`` (above the setup-entry stock when not given). A hole,
+        a drill, spot or ream joint and a centre drill plunge on each axis from above the
+        setup-entry stock (or the joint's mouth when higher) to their tips. Raises
+        :class:`_Unknown` when any of them is unknown, when arc tables reach the kernel as
+        no checkpoints, or when the op is commanded through none of them."""
+        moves, top = [], self.box[5]
+        sweep = op.get("tool_paths")
+        if isinstance(sweep, dict):
+            if sweep.get("reason"):
+                raise _Unknown(f"its tool paths are unknown ({sweep['reason']})")
+            moves += [(path["xy_mm"], *path["z_mm"], None) for path in sweep.get("paths", [])]
+        else:
+            sweep = {}
+        table = op.get("checkpoints")
+        if isinstance(table, dict):
+            if table.get("reason"):
+                raise _Unknown(f"its printed checkpoints are unknown ({table['reason']})")
+            entry = sweep.get("entry_z_mm", top)
+            for path in table.get("paths", []):
+                tip = path["tip_z_mm"]
+                low, high = sweep.get("levels_mm", (tip, tip))
+                low, high = min(low, tip), max(high, tip)
+                moves.append((path["xy_mm"], low, high, None))
+                for end in (path["xy_mm"][0], path["xy_mm"][-1]):
+                    moves.append(([end], low, max(entry, high), None))
+        elif sweep.get("tables"):
+            raise _Unknown("its arc tables reached the kernel as no printed checkpoints")
+        if isinstance(op.get("hole"), dict):
+            valid, _, why = self._claims(op)
+            if not isinstance(valid, list):
+                raise _Unknown(f"its claimed faces are unresolved ({why})")
+            cut = self._hole_cut(op, valid, _positive(op, "radius_mm"))
+            if cut["reason"] is not None:
+                raise _Unknown(cut["reason"])
+            axial = {"slope": cut["cone_slope"]}
+            moves += [([(c.x, c.y)], c.z, max(c.z, top), axial) for c in cut["centres"]]
+        joint = op.get("joint_cut")
+        if isinstance(joint, dict) and joint.get("action") in {"drill", "spot", "ream"}:
+            entry, tip, slope = self._joint_axis(op)
+            moves.append(([(entry.x, entry.y)], tip, max(tip, entry.z, top), {"slope": slope}))
+        process = op.get("process_cut")
+        if isinstance(process, dict) and process.get("kind") != "end_face":
+            if process.get("reason"):
+                raise _Unknown(process["reason"])
+            entry, tip = self._process_axis(op)
+            moves.append(([(entry.x, entry.y)], tip, max(tip, entry.z, top), {"centre": process}))
+        if not moves:
+            raise _Unknown("the kernel is told no move its tool is commanded through")
+        return moves
 
     def _index_arc(self, annotation, fixture_kind):
         """A dividing head's authored index: an arc about the head axis on the jaw face,
@@ -8929,7 +9053,9 @@ class _Setup:
             facts["approach"] = TURNING
         elif _rotary(op):
             facts["approach"] = ROTARY
-        for key in ("claimed_indices", *self._MEASURED, "corner_radii_mm"):
+        # A turning tool never posed has no known reach along Z (the jaw clearance).
+        extent = ("tool_z_mm", "nose_z_mm") if _turned(op) else ()
+        for key in ("claimed_indices", *self._MEASURED, "corner_radii_mm", *extent):
             facts[key] = UNKNOWN
             facts["reasons"][key] = reason
         return facts
@@ -9499,11 +9625,18 @@ class _Setup:
 
     def _joint_axial_op(self, op):
         """Centred real axial tool/holder solids, never tangent offset cylinders on a cone."""
-        _, spec, _ = self._joint_check(op)
         removal, reason = self._joint_removal(op, self.part)
         if reason:
             return self._op_unknown(op, reason)
         after = self.part if removal is None else self.part.cut(removal)
+        entry, tip, slope = self._joint_axis(op)
+        return self._axial_facts(op, after, entry, tip, slope)
+
+    def _joint_axis(self, op):
+        """(setup-frame entry point, tip z, pointed tool's tan(point angle / 2) or None) of
+        a drill, spot or ream joint op fed down setup Z: a drill's tip is its point's apex,
+        past the joint's full-diameter depth."""
+        _, spec, _ = self._joint_check(op)
         entry = self.matrix.multVec(V(*spec["at_mm"]))
         tip = entry.z - spec["depth_mm"]
         slope = None
@@ -9511,7 +9644,7 @@ class _Setup:
             slope = math.tan(math.radians(spec["point_angle_deg"] / 2))
             if spec["action"] == "drill":
                 tip -= spec["diameter_mm"] / (2 * slope)
-        return self._axial_facts(op, after, entry, tip, slope)
+        return entry, tip, slope
 
     def _process_axial_op(self, op):
         """A centre drill fed along setup -Z to the centre's full depth (``process_cut``):
@@ -9526,18 +9659,10 @@ class _Setup:
         if reason:
             return self._op_unknown(op, reason)
         after = self.part if removal is None else self.part.cut(removal)
-        at, axis = _process_place(cut)
-        entry = self.matrix.multVec(at)
-        feed = self.matrix.multVec(at + axis) - entry
-        if feed.dot(Z) > -PARALLEL:
-            return self._op_unknown(
-                op, f"{cut['label']} axis is not the setup -Z feed of an axial tool"
-            )
-        if self.setup.get("machine_kind") == "lathe" and math.hypot(entry.x, entry.y) > AXIS_TOL:
-            return self._op_unknown(
-                op, f"{cut['label']} is off the spindle axis the tailstock tool feeds along"
-            )
-        tip = entry.z - cut["depth_mm"]
+        try:
+            entry, tip = self._process_axis(op)
+        except _Unknown as exc:
+            return self._op_unknown(op, str(exc))
         projection = _positive(op, "projection_mm")
         try:
             if projection is None:
@@ -9546,6 +9671,20 @@ class _Setup:
         except _Unknown as exc:
             tool = str(exc)
         return self._axial_facts(op, after, entry, tip, None, tool)
+
+    def _process_axis(self, op):
+        """(setup-frame entry point, tip z) of a centre drill (``process_cut``) fed down
+        setup Z to the centre's full depth; raises :class:`_Unknown` when its axis is not
+        that feed, or on a lathe is off the spindle axis."""
+        cut = op["process_cut"]
+        at, axis = _process_place(cut)
+        entry = self.matrix.multVec(at)
+        feed = self.matrix.multVec(at + axis) - entry
+        if feed.dot(Z) > -PARALLEL:
+            raise _Unknown(f"{cut['label']} axis is not the setup -Z feed of an axial tool")
+        if self.setup.get("machine_kind") == "lathe" and math.hypot(entry.x, entry.y) > AXIS_TOL:
+            raise _Unknown(f"{cut['label']} is off the spindle axis the tailstock tool feeds along")
+        return entry, entry.z - cut["depth_mm"]
 
     def _axial_facts(self, op, after, entry, tip, slope, tool=None):
         """Centred axial tool (pointed when ``slope``) and holder hits on ``after`` stock.
@@ -11493,12 +11632,13 @@ class _Setup:
         return tool, missing, holder
 
     @staticmethod
-    def _turn_sections(tool, centre, holder):
+    def _turn_sections(tool, centre, holder, inset=LIFT):
         """(insert/blade + head polygon, [shank, toolpost body] polygons or None) in (r, z)
-        for a nose (a blade's leading corner) centred at ``centre``."""
+        for a nose (a blade's leading corner) centred at ``centre``; the insert or blade
+        edges stand ``inset`` inside the tool (LIFT for hit tests, 0 for its true extent)."""
         nose = tool["radius_mm"]
         cr, cz = centre
-        inner = nose - LIFT
+        inner = nose - inset
         feed = tool["feed_z"]
         against = -feed
 
@@ -11537,6 +11677,16 @@ class _Setup:
             [(start, lead), (end, lead), (end, back), (start, back)],
             [(end, lead), (far, lead), (far, side), (end, side)],
         ]
+
+    @staticmethod
+    def _nose_z(tool, centre):
+        """(lowest, highest) Z of the nose arc centred at ``centre`` (a blade's both corner
+        arcs, :meth:`_turn_sections`): the part of the tool its imaginary-tip readings
+        place, which the rest of its outline stands rigidly about."""
+        nose, corners = tool["radius_mm"], [centre[1]]
+        if tool["corners"] == 2:
+            corners.append(centre[1] - tool["feed_z"] * (tool["blade_width_mm"] - 2 * nose))
+        return min(corners) - nose, max(corners) + nose
 
     def _turn_pose(self, tool, point, normal, segments):
         """(nose centre, axial extent) of the tool that cuts a meridian sample, posed on
@@ -11655,6 +11805,16 @@ class _Setup:
                         if facts.get(key) != UNKNOWN:
                             facts[key] = UNKNOWN
                             reasons[key] = reasons["claimed_indices"]
+        if undefined or internal or "tool_z_mm" not in facts:
+            # Posed at only some of its claims, or not posed whole, the tool's reach along
+            # Z is unknown: never the Z its op names.
+            facts["tool_z_mm"] = facts["nose_z_mm"] = UNKNOWN
+            reasons.setdefault(
+                "tool_z_mm",
+                reasons.get("claimed_indices")
+                or reasons.get("sample_count")
+                or "the tool is posed at no claimed face",
+            )
         unknown = [
             reasons[key]
             for key in ("claimed_indices", *self._MEASURED, "corner_radii_mm")
@@ -11715,19 +11875,23 @@ class _Setup:
         windows = [] if faced_feed else self._turn_windows(op, tool, samples)
         poses = [(index, point, normal, None) for index, point, normal in samples]
         poses += [(w["index"], w["point"], (1.0, 0.0), w) for w in windows]
-        blade_z = []
+        tool_z, nose_z = [], []
         for index, point, normal, window in poses:
             # Without a section (its reason keeps the hits unknown) the pose is nominal.
             if window is None:
                 centre, (low, high) = self._turn_pose(tool, point, normal, segments)
-                if tool["corners"] == 2:
-                    blade_z += [low, high]
             else:
                 # Checked where commanded: a nose standing in finished material there
                 # (past a shoulder, inside a fillet) hits the part; nothing displaces it.
                 centre = window["centre"]
                 window["meets"] = set()
             section, pieces = self._turn_sections(tool, centre, not holder_missing)
+            if not holder_missing:
+                # The whole tool's true outline at this pose: insert or blade, head, shank
+                # and toolpost body.
+                whole, rest = self._turn_sections(tool, centre, True, 0.0)
+                tool_z += [z for polygon in (whole, *rest) for _, z in polygon]
+                nose_z += self._nose_z(tool, centre)
             solids = {"tool": _revolved(section)}
             if pieces is not None:
                 parts = [solid for solid in map(_revolved, pieces) if solid is not None]
@@ -11774,10 +11938,17 @@ class _Setup:
                 common = band.common(reach_stock)
                 if common.Volume > HIT_MM3:
                     reach = max(reach, _max_radius(common) - point[0])
-        if blade_z:
-            # The blade's axial extent over its cutting poses: both faces, not the one Z
-            # the op names (a part-off's blade lies beyond the face it leaves).
-            facts["blade_z_mm"] = [_r(min(blade_z)), _r(max(blade_z))]
+        if holder_missing:
+            # The shank and toolpost body are not posed: the tool's reach is unknown.
+            facts["tool_z_mm"] = UNKNOWN
+            reasons["tool_z_mm"] = "op lacks " + ", ".join(holder_missing)
+        elif tool_z:
+            # The whole tool's axial extent over every pose it stands at: the nose posed on
+            # the profile and at its window ends, a blade's both faces, the shank and body,
+            # not the one Z the op names; and its nose's over the same poses, which the rest
+            # of the outline stands rigidly about.
+            facts["tool_z_mm"] = [_r(min(tool_z)), _r(max(tool_z))]
+            facts["nose_z_mm"] = [_r(min(nose_z)), _r(max(nose_z))]
         if windows:
             facts["window_poses"] = [
                 self._window_record(w, tool, holder_missing, subject)
