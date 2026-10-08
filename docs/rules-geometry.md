@@ -47,7 +47,13 @@ OUTPUT_JSON` subprocess as a batch (`compare` therefore spawns one process for
 all its candidates), and memoizes each result on its bundle so the eight rules
 read the same facts. The subprocess has a 600 s limit, reads its input file,
 writes its output file and prints nothing. No network activity is involved;
-the STEP is the bundle's own file.
+the STEP is the bundle's own file. No process of the run outlives the process
+`FREECAD_CMD` starts, which may be a launcher that runs `freecadcmd` as its
+child (the Linux AppImage's `AppRun` shell does). On POSIX the run gets its own
+session, and when that process ends, the limit expires or the host is
+interrupted, the run's process group (launcher, engine and pool workers alike)
+is killed before that process is reaped, so the group id cannot name another
+group.
 
 Kernel resolution: `FREECAD_CMD` when set (an override that does not exist is
 an unavailable kernel, not a fallback), otherwise
@@ -128,7 +134,8 @@ control flow are those of the engine alone, and a loop's calls it never takes ar
 cancelled when it ends.
 
 No worker outlives the engine, however it ends, including when the host's
-600-second runaway guard kills it while a worker is inside a boolean. On Windows
+600-second runaway guard kills it (on POSIX with the rest of the run's process
+group) while a worker is inside a boolean. On Windows
 the engine puts itself in a job object set to kill every process in it when its
 only handle closes, which happens as the engine ends, and starts its workers in it;
 on Linux each worker asks the kernel to kill it when the engine dies and serves

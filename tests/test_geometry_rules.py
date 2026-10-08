@@ -161,7 +161,7 @@ def test_missing_kernel_cannot_be_waived_and_does_not_spawn(bundle, monkeypatch)
     object.__setattr__(bundle, "kernel", None)
     monkeypatch.setenv("FREECAD_CMD", str(bundle.root / "not-installed.exe"))
     monkeypatch.setattr(
-        kernel.subprocess, "run", lambda *a, **k: pytest.fail("missing executable must not spawn")
+        kernel.subprocess, "Popen", lambda *a, **k: pytest.fail("missing executable must not spawn")
     )
     rows = [row for rule in GEOMETRY_RULES for row in rule.evaluate(bundle)]
     assert all(

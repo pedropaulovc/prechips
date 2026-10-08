@@ -7,8 +7,10 @@ import json
 import math
 import os
 import shutil
+import signal
 import subprocess
 import tempfile
+import time
 from contextlib import nullcontext
 from pathlib import Path
 
@@ -1542,23 +1544,70 @@ def _valid_result(value):
     return isinstance(value, dict) and value.get("status") in {"ok", "unknown", "error"}
 
 
+def _await_launcher(process, timeout):
+    """Wait up to ``timeout`` seconds for ``process`` to end, else raise TimeoutExpired. On
+    POSIX the ended process stays unreaped (WNOWAIT), so its pid, which is also its process
+    group's id, cannot name another group until :func:`_run_kernel` has killed that group."""
+    if os.name != "posix":
+        process.wait(timeout)
+        return
+    deadline = time.monotonic() + timeout
+    delay = 0.0005
+    while os.waitid(os.P_PID, process.pid, os.WEXITED | os.WNOHANG | os.WNOWAIT) is None:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise subprocess.TimeoutExpired(process.args, timeout)
+        delay = min(delay * 2, remaining, 0.05)  # Popen.wait(timeout)'s own polling
+        time.sleep(delay)
+
+
+def _run_kernel(command):
+    """``command`` run to its end under the runaway guard; no process of the run outlives it.
+
+    ``command`` (FREECAD_CMD) may be a launcher that runs ``freecadcmd`` as its child
+    rather than replacing itself with it: the Linux AppImage's ``AppRun`` shell does. Its
+    engine and pool workers can then outlive it, whether the guard or the host's interrupt
+    kills only the launcher or the launcher dies on its own. On POSIX the run therefore has
+    its own session, whose process group every process of the run inherits, and once the
+    launcher has ended, or the guard expires, or the host is interrupted, that group is
+    killed before the launcher is reaped. Output goes to files, so nothing reaps the launcher
+    while it is waited for. On Windows ``command`` is the engine, and its job object ends
+    its workers (boolean_pool)."""
+    posix = os.name == "posix"
+    with (
+        tempfile.TemporaryFile("w+", errors="replace") as stdout,
+        tempfile.TemporaryFile("w+", errors="replace") as stderr,
+        subprocess.Popen(command, stdout=stdout, stderr=stderr, start_new_session=posix) as process,
+    ):
+        try:
+            # Runaway guard: about twice the heaviest example's cold batch.
+            _await_launcher(process, 600)
+        finally:
+            if posix:
+                os.killpg(process.pid, signal.SIGKILL)
+            elif process.returncode is None:
+                process.kill()
+        process.wait()
+        stdout.seek(0)
+        stderr.seek(0)
+        return subprocess.CompletedProcess(
+            process.args, process.returncode, stdout.read(), stderr.read()
+        )
+
+
 def _execute(executable, job):
     with tempfile.TemporaryDirectory(prefix="prechips-kernel-") as directory:
         source = Path(directory) / "input.json"
         target = Path(directory) / "output.json"
         source.write_text(_json(job), encoding="utf-8")
-        process = subprocess.run(
+        process = _run_kernel(
             [
                 str(executable),
                 str(Path(__file__).with_name("freecad_job.py")),
                 "--",
                 str(source),
                 str(target),
-            ],
-            capture_output=True,
-            text=True,
-            errors="replace",
-            timeout=600,  # runaway guard: about twice the heaviest example's cold batch
+            ]
         )
         if process.returncode:
             detail = (process.stderr or process.stdout).strip()
