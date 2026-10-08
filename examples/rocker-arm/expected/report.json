@@ -2234,7 +2234,7 @@
           },
           "plan": {
             "path": "examples/rocker-arm/plan.toml",
-            "sha256": "adc0ee6a6f689eba7adb142b02fd77529b5cee710951fe3d26fa31db189ce4ef"
+            "sha256": "607f61caa6ddbdb24b8c16a8011ad15d1f1ff3bf4d9289caae131b13509c49c7"
           },
           "shop_policy": {
             "path": "examples/shop-policy.toml",
@@ -38044,7 +38044,7 @@
             "op": 27,
             "plunge_mm_rev": 0.025,
             "raise_clear": true,
-            "raise_z": 5.0,
+            "raise_z": 50.0,
             "raster": false
           }
         ],
@@ -46045,23 +46045,23 @@
         "spindle_to_table_min_mm": 60.959999999999994,
         "stacks": [
           {
-            "approach_mm": 5.0,
+            "approach_mm": 50.0,
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
             "lower_margin_mm": 11.161749999999998,
             "op": 27,
             "spindle_nose_table_band_mm": [
               72.12174999999999,
-              83.15
+              128.15
             ],
             "stack_mm": 78.15,
             "tip_z_bounds_mm": [
               -6.02825,
-              5.0
+              50.0
             ],
             "tool": "endmills-lms-6784/1-4in-4fl",
             "tool_projection_mm": 25.0,
-            "upper_margin_mm": 348.65,
+            "upper_margin_mm": 303.65,
             "verified": true
           }
         ]
@@ -63440,7 +63440,7 @@
         "measurements": [],
         "operations": [
           {
-            "approach_mm": 5.0,
+            "approach_mm": 50.0,
             "conservative_stock_spans_mm": {
               "x": 292.509136,
               "y": 29.29464,
@@ -63456,7 +63456,7 @@
             "rough_allowance_mm": 0.2,
             "tip_z_bounds_mm": [
               -6.02825,
-              5.0
+              50.0
             ],
             "tool": "endmills-lms-6784/1-4in-4fl",
             "tool_projection_mm": 25.0,
@@ -63468,7 +63468,7 @@
             },
             "z_bounds_mm": [
               24.97175,
-              36.0
+              81.0
             ],
             "z_verified": true
           }
@@ -63495,11 +63495,11 @@
             "travel_verified": true
           },
           "z": {
-            "located_span_mm": 11.02825,
-            "lower_bound_margin_mm": 344.57174999999995,
-            "margin_mm": 344.57174999999995,
-            "minimum_required_mm": 11.02825,
-            "required_mm": 11.02825,
+            "located_span_mm": 56.02825,
+            "lower_bound_margin_mm": 299.57174999999995,
+            "margin_mm": 299.57174999999995,
+            "minimum_required_mm": 56.02825,
+            "required_mm": 56.02825,
             "required_verified": true,
             "travel_mm": 355.59999999999997,
             "travel_verified": true
@@ -66146,7 +66146,7 @@
       "subject": "S4F"
     }
   ],
-  "hash": "71fcaf3657687316da64d54ce1d0c45fbf0f4456fff10944ed46f730167fd2ef",
+  "hash": "e2791d2ae4af07ec9ba0f0548c99a709f78c89d78ef0b6d3460109bb2aa3dc0e",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -66162,7 +66162,7 @@
     },
     "plan": {
       "path": "examples/rocker-arm/plan.toml",
-      "sha256": "adc0ee6a6f689eba7adb142b02fd77529b5cee710951fe3d26fa31db189ce4ef"
+      "sha256": "607f61caa6ddbdb24b8c16a8011ad15d1f1ff3bf4d9289caae131b13509c49c7"
     },
     "render:P1": {
       "path": "setup-S1.png",
