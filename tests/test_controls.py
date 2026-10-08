@@ -148,6 +148,8 @@ def clean_inspection_bundle(tmp_path):
     examples = copy_examples(tmp_path)
     plan = examples / "rocker-arm" / "plan.toml"
     prefix = rocker_s1_alone(plan.read_text(encoding="utf-8"))
+    # The synthetic manifest below replaces the export whose faces the plan's aims name.
+    prefix = re.sub(r"(?ms)^\[aims\.[^\n]*\n.*?(?=^\[|\Z)", "", prefix)
     prefix, schedules = re.subn(r"(?m)^retouch_after = .*$", "retouch_after = []", prefix)
     assert schedules == 1, "the clean bundle pins the copied S1 retouch schedule"
     plan.write_text(

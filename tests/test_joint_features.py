@@ -569,7 +569,10 @@ binding = "nominal"
         assert geometry_common.mapped_feature(bundle, bundle.kernel, feature) == (None, [label])
     row = next(row for row in accessibility.evaluate(bundle) if row.subject == f"{sid}:10")
     assert row.status == "error"
-    assert row.numbers == {"mapping_errors" if failure == "mapping" else "claim_errors": [label]}
+    # A turned op the kernel never posed carries its tool extent unknown, never absent.
+    extent = {"tool_z_mm": "unknown", "nose_z_mm": "unknown"} if sid == "P" else {}
+    claim = "mapping_errors" if failure == "mapping" else "claim_errors"
+    assert row.numbers == {claim: [label], **extent}
 
 
 @pytest.mark.parametrize("unit, factor", [("mm", 1.0), ("in", 25.4)])
