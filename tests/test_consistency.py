@@ -1,10 +1,13 @@
 """One fact, one source: free text must not restate a derived fact, nor contradict a field."""
 
+import itertools
 import re
+import sys
 from copy import deepcopy
 from dataclasses import replace
 from html import unescape
 from pathlib import Path
+from unicodedata import category, decomposition, normalize
 
 import pytest
 
@@ -227,6 +230,14 @@ def test_a_t_number_inside_a_name_or_naming_a_frame_is_not_a_tool(note):
 def test_a_tool_number_beyond_a_table_with_an_unchosen_tool_is_unknown():
     ops = [FACE, {**DRILL, "tool": "unknown", "note": "Drill with T2."}]
     assert rows(bundle([{"ops": ops}]))["S1:20"].status == "unknown"
+
+
+def test_one_tool_spelled_two_ways_is_one_tool_number_in_the_check_and_the_table():
+    # ``em4`` and ``tools.em4`` select one cutter: TOOLS prints one T1, so T2 is not a tool.
+    second = {**FACE, "op": 20, "tool": "tools.em4", "note": "Finish with T2."}
+    data = bundle([{"ops": [FACE, second]}])
+    assert "has T1" in errors(data)["S1:20"]
+    assert "T2" not in re.findall(r"\|(T\d+)\|", sheet(data))
 
 
 # ------------------------------------------------------------ jaw heights
@@ -494,14 +505,21 @@ def test_a_named_seat_at_the_stock_bottom_is_judged_by_its_band_and_one_above_it
 # Each authored height is judged by the one evidence source its declaration designates: a
 # named face by the kernel's height of that face (unmeasured: unknown, the box never
 # standing in), an unnamed seat and a rail by the stock box's lowest point. The box also
-# proves the stock's lowest point is authored: a named seat proves only its own face.
-# A plate between faces at Z -10 (the box bottom) and Z 0, drawn 10-10.05 thick: "outside"
-# is its seat grown 0.025 below the box, inside that band; "inside" a step face at Z -8.
-SEAT = {"extreme": (-10.0, -10.0), "inside": (-8.0, -8.0), "outside": (-10.0, -10.025)}
+# proves the stock's lowest point is authored: a named seat whose measured face is not the
+# box's lowest point leaves stock below it that nothing authored reaches.
+# A plate between faces at Z -10 (the box bottom) and Z 0, drawn 9.95-10.05 thick:
+# "outside" is its seat grown 0.025 below the box and "shrunk" 0.025 inward, both inside
+# that band; "inside" a step face at Z -8.
+SEAT = {
+    "extreme": (-10.0, -10.0),
+    "inside": (-8.0, -8.0),
+    "outside": (-10.0, -10.025),
+    "shrunk": (-10.0, -9.975),
+}
 PLATE = {
     "kind": "face",
     "requirements": ["length"],
-    "length": [10.0, 10.05],
+    "length": [9.95, 10.05],
     "length_nominal": 10.0,
 }
 SEAT_VERDICTS = {
@@ -510,38 +528,51 @@ SEAT_VERDICTS = {
         "extreme": ("pass", "pass", "unknown", "error"),
         "inside": ("error", "error", "error", "pass"),
         "outside": ("pass", "error", "unknown", "error"),
+        "shrunk": ("pass", "error", "unknown", "pass"),
     },
     "unresolved": {
         "extreme": ("unknown", "unknown", "unknown", "error"),
-        "inside": ("error", "error", "error", "unknown"),
+        "inside": ("unknown", "error", "unknown", "unknown"),
         "outside": ("unknown", "error", "unknown", "error"),
+        "shrunk": ("unknown", "error", "unknown", "unknown"),
     },
     "unnamed": {
         "extreme": ("pass", "pass", "unknown", "error"),
         "inside": ("error", "error", "error", "unknown"),
         "outside": ("error", "error", "error", "error"),
+        "shrunk": ("error", "error", "error", "unknown"),
     },
 }
 RAILS = ("none", "equal", "above", "below")
 
 
-def plate(state, *, up=0.0, down=-10.0, measured=True):
-    """``state`` against the box (-50, -50, -10, 50, 50, 0) and a kernel that measures the
-    plate's cut faces at Z ``up`` and ``down``, or gives the reason it could not."""
+def plate(state, *, up=0.0, down=-10.0, measured=True, units="mm", feature=PLATE):
+    """``state`` (mm) against the box (-50, -50, -10, 50, 50, 0) and a kernel that measures
+    the plate's cut faces at Z ``up`` and ``down``, or gives the reason it could not; the
+    plan states the heights and the plate's band in ``units``."""
     cut = {"up": {"face_z": up, "stock_z": up}, "down": {"face_z": down, "stock_z": down}}
     unmeasured = {side: {"reason": "no planar face of plate faces that way"} for side in cut}
     facts = {
         "stock_bbox_mm": [-50, -50, -10.0, 50, 50, 0.0],
         "stock_faces_mm": {"plate": cut if measured else unmeasured},
     }
+    scale = {"mm": 1.0, "in": 25.4}[units]
+    state = {key: v / scale if isinstance(v, float) else v for key, v in state.items()}
+    feature = dict(feature)
+    if "length" in feature:
+        feature["length"] = [v / scale for v in feature["length"]]
+        feature["length_nominal"] /= scale
     data = bundle([{"stock_state": state}], kernel={"status": "ok", "setups": {"S1": facts}})
-    return replace(data, features={"units": "mm", "features": {"plate": PLATE}})
+    return replace(data, features={"units": units, "features": {"plate": feature}})
 
 
+@pytest.mark.parametrize("units", ["mm", "in"])
 @pytest.mark.parametrize("declared", [*SEAT_VERDICTS, "unnamed, plate measured"])
 @pytest.mark.parametrize("height", list(SEAT))
 @pytest.mark.parametrize("rail", RAILS)
-def test_each_low_height_is_judged_by_the_one_source_its_declaration_names(declared, height, rail):
+def test_each_low_height_is_judged_by_the_one_source_its_declaration_names(
+    declared, height, rail, units
+):
     face, seat = SEAT[height]
     state = {"bottom_z": seat}
     if declared in ("named", "unresolved"):
@@ -552,9 +583,34 @@ def test_each_low_height_is_judged_by_the_one_source_its_declaration_names(decla
             "above": seat + 1.0,
             "below": -10.0 if seat > -10.0 else seat - 1.0,
         }[rail]
-    data = plate(state, down=face, measured=declared != "unresolved")
+    data = plate(state, down=face, measured=declared != "unresolved", units=units)
     expected = SEAT_VERDICTS[declared.partition(",")[0]][height][RAILS.index(rail)]
     assert rows(data)["S1"].status == expected
+
+
+@pytest.mark.parametrize("units", ["mm", "in"])
+@pytest.mark.parametrize(
+    ("top", "bottom", "feature", "status"),
+    [
+        # Both cut faces moved up together, 10 apart: 0.025, and 0.1, the band's span, are
+        # inside it; 0.2 is past it.
+        (0.025, -9.975, PLATE, "pass"),
+        (0.1, -9.9, PLATE, "pass"),
+        (0.2, -9.8, PLATE, "error"),
+        # The seat alone moved 0.025 inward with no band to judge it by, and 0.1 inward,
+        # past its band's 0.05 shrink.
+        (None, -9.975, {"kind": "face"}, "unknown"),
+        (None, -9.9, PLATE, "error"),
+    ],
+)
+def test_a_seat_moved_inward_from_the_box_bottom_is_judged_by_its_band_alone(
+    top, bottom, feature, status, units
+):
+    # The seat's measured face is the stock's lowest point: no other stock hangs below it.
+    state = {"bottom_feature": "plate", "bottom_z": bottom}
+    if top is not None:
+        state.update(top_feature="plate", top_z=top)
+    assert rows(plate(state, units=units, feature=feature))["S1"].status == status
 
 
 @pytest.mark.parametrize(
@@ -638,3 +694,445 @@ def test_text_passing_the_no_go_plug_through_contradicts_the_go_no_go_check(meth
 )
 def test_a_no_go_plug_that_does_not_enter_is_not_an_error(method):
     assert errors(bundle([{"ops": [gauged(method)]}])) == {}
+
+
+# ------------------------------------------------------------ shop-made make notes
+def jig(*solids, decimals=1):
+    """A setup held on a shop-made jig of ``solids``, made to ``decimals`` places."""
+    pose = {"origin_mm": [0, 0, 0], "x": [1, 0, 0], "z": [0, 0, 1]}
+    data = bundle([{"hold": {"fixture": "jig", "pose": pose}}])
+    fixtures = {**INVENTORY["fixtures"], "jig": {"kind": "custom", "solids": list(solids)}}
+    return replace(
+        data,
+        inventory={**INVENTORY, "fixtures": fixtures},
+        policy={"numbers": {"fixture_make_decimals": decimals}},
+    )
+
+
+def block(name, size, note=None, **extra):
+    solid = {"name": name, "shape": "box", "at_mm": [0, 0, 0], "size_mm": size, **extra}
+    return {**solid, "note": note} if note else solid
+
+
+def rod(name, dia, length, note=None, **extra):
+    solid = {
+        "name": name,
+        "shape": "cylinder",
+        "at_mm": [0, 0, 20],
+        "axis": [0, 0, 1],
+        "dia_mm": dia,
+        "length_mm": length,
+        **extra,
+    }
+    return {**solid, "note": note} if note else solid
+
+
+ARM = "1/2 x 3/8 in bar (bought), sawn, then mill the arm to {}; drill the stop hole"
+
+
+@pytest.mark.parametrize(
+    "size",
+    [
+        "11 x 10 x 65.16",
+        "65.2 × 11 × 10",
+        "11.0 wide x 10 high x 65.20 long (±0.1)",
+        "158.67 (the plate's length) x 11 x 10",
+        "65.2 x 11 x 10 (±0.1 (approx))",
+        "65.2 x 11 x 10 (approx",
+        "65.2 x 11 x 10' long",
+        "65.16 mm x 11 mm x 10 mm",
+        "2.57 x 0.43 x 0.39 inches",
+        "2.57 x 0.43 x 0.39 (in)",
+        "2.57 x 0.43 x 0.39 in",
+        '2.57" x 0.43" x 0.39"',
+        "11 x 10 x unknown",
+        "11 x 10 x ?",
+        "unknown x 11 x 10",
+    ],
+)
+def test_a_make_note_giving_a_named_made_row_s_size_restates_it(size):
+    # The table prints the arm 65.2 × 11 × 10: in any value, unit or order, or with an
+    # unknown edge, the note restates it.
+    row = rows(jig(block("arm", [65.1631, 11, 10], ARM.format(size))))["S1"]
+    assert (row.status, row.numbers["claims"]) == ("error", 1)
+    assert f'"the arm to {size}"' in row.sentence and "arm 65.2 × 11 × 10" in row.sentence
+    assert "drop the restatement" in row.sentence
+
+
+@pytest.mark.parametrize(
+    "note",
+    [
+        "3/4 in round (bought): turn the screw Ø6.4 x 13.5, cut 1/4-20",
+        "turned the screw Ø6.30 x 13.45 on the lathe",
+        "turn the screw to 6.35 x 13.5",
+        "turn the screw to Ø6.4 mm x 13.5 mm",
+        # A feature verb or a fraction in another clause or sentence governs nothing here.
+        "drill the bore, then turn the screw to Ø6.4 x 13.5",
+        "Drill the 1/4 bore. Turn the screw Ø6.4 x 13.5",
+        "Turn the screw Ø6.4 x 13.5 mm. Drill the bore",
+    ],
+)
+def test_a_named_cylinder_s_diameter_and_length_restate_its_size(note):
+    row = rows(jig(rod("screw", 6.35, 13.45, note)))["S1"]
+    assert (row.status, row.numbers["claims"]) == ("error", 1)
+    assert "screw Ø6.4 × 13.5" in row.sentence
+
+
+SPACINGS = ("{a} {by} {b}", "{a}{by}{b}", "{a} {by}{b}", "{a}{by} {b}")
+SEPARATORS = ("x", "X", "×", "*")
+UNITS = ("", "mm", " in", " (inches)", " mm.")
+SHAPING = ("turn", "mill", "finish")
+FEATURE = ("drill", "bore", "ream", "tap", "counterbore", "countersink", "spot", "chamfer")
+ANGLES = ("", "°", " deg", " degrees", " (deg)", " (°)", "º", " (nominal) (deg)", " mm. (deg)")
+
+
+def test_a_named_cylinder_size_is_restated_in_every_spacing_separator_unit_and_verb():
+    # The stud prints Ø10 × 50. Only a feature verb (a hole or a chamfer) governing the
+    # statement, or an angle on either edge, makes it something other than the size.
+    wrong = []
+    for spacing, by, unit, verb, angle, first in itertools.product(
+        SPACINGS, SEPARATORS, UNITS, SHAPING + FEATURE, ANGLES, (True, False)
+    ):
+        a, b = ("4" + angle, "8" + unit) if first else ("4" + unit, "8" + angle)
+        note = f"{verb.title()} the stud to Ø" + spacing.format(a=a, by=by, b=b)
+        row = rows(jig(rod("stud", 10, 50, note)))["S1"]
+        expected = ("error", 1) if verb in SHAPING and not angle else ("not_applicable", 0)
+        if (row.status, row.numbers["claims"]) != expected:
+            wrong.append((note, row.status))
+    assert wrong == []
+
+
+TOOLING = (
+    "",
+    " from drill rod",
+    " from drill-rod",
+    " from drill - rod",
+    " using a boring bar",
+    " using a bore gauge",
+    " using a boring tool",
+    " with a tap wrench",
+    " on the mill",
+    " (use the mill)",
+    " (use a sharp bit, lubricate well)",
+    " with a 4 mm. bit",
+)
+
+
+def test_the_verb_governs_a_named_size_whatever_tooling_text_its_clause_holds():
+    # A feature verb anywhere in the clause, a hyphenated one or one in parentheses
+    # included, makes the size its feature's; a feature word before a tool or stock noun
+    # (drill rod, drill-rod, boring bar) is that noun's, and no verb.
+    wrong = []
+    verbs = SHAPING + FEATURE + ("spot-drill", "counter-sink", "c'bore", "re-drill")
+    for verb, tooling, before in itertools.product(verbs, TOOLING, (True, False)):
+        lead, tail = (tooling, "") if before else ("", tooling)
+        note = f"{verb.capitalize()}{lead} the stud to Ø4 x 8 deep{tail}"
+        row = rows(jig(rod("stud", 10, 50, note)))["S1"]
+        expected = ("error", 1) if verb in SHAPING else ("not_applicable", 0)
+        if (row.status, row.numbers["claims"]) != expected:
+            wrong.append((note, row.status))
+    elsewhere = (" (then drill)", " and drill", " and counter-sink", " (spot, then drill)")
+    for verb, feature, before in itertools.product(SHAPING, elsewhere, (True, False)):
+        lead, tail = (feature, "") if before else ("", feature)
+        note = f"{verb.capitalize()}{lead} the stud to Ø4 x 8{tail}"
+        row = rows(jig(rod("stud", 10, 50, note)))["S1"]
+        if (row.status, row.numbers["claims"]) != ("not_applicable", 0):
+            wrong.append((note, row.status))
+    assert wrong == []
+
+
+NOT_EDGES = ("1/2", "1 / 2", "½", "1⁄2", "1∕2", "4½", "4 1/2", "8²", "8,5")
+NOT_EDGES += ("8-10", "8 - 10", "8–10", "8—10", "8−10")
+
+
+def test_a_fraction_range_or_split_number_is_no_edge_of_a_named_size():
+    # In any edge and with any unit: a fraction (ASCII, spaced, a vulgar or slashed glyph),
+    # a range in any dash, a superscript or a decimal comma is not a size's edge.
+    wrong = []
+    for edge, unit, position in itertools.product(NOT_EDGES, UNITS, range(5)):
+        cylinder = position < 2
+        edges = ["4", "8"] if cylinder else ["65.2", "11", "10"]
+        edges[position if cylinder else position - 2] = edge
+        size = " x ".join(e + unit for e in edges)
+        if cylinder:
+            solid = rod("stud", 10, 50, "Turn the stud to Ø" + size)
+        else:
+            solid = block("arm", [65.2, 11, 10], "Mill the arm to " + size)
+        row = rows(jig(solid))["S1"]
+        if (row.status, row.numbers["claims"]) != ("not_applicable", 0):
+            wrong.append((solid["note"], row.status))
+    assert wrong == []
+
+
+# Every Unicode punctuation mark but a parenthesis, and every glyph NFKC folds into one.
+PUNCTUATION = [chr(c) for c in range(sys.maxunicode + 1) if category(chr(c)).startswith("P")]
+OPENS = [p for p in PUNCTUATION if normalize("NFKC", p) == "("]
+CLOSES = [p for p in PUNCTUATION if normalize("NFKC", p) == ")"]
+PUNCTUATION = [p for p in PUNCTUATION if not set("()") & set(normalize("NFKC", p))]
+
+
+def test_a_parenthesis_that_closes_is_its_edge_s_whatever_punctuation_it_holds():
+    # Before the row or on any edge, nested or a second one: a closed annotation splits no
+    # clause and ends no size, whatever mark it holds (a ; included); the size goes on.
+    wrong = []
+    forms = ("(rough{p} finish later)", "(rough (check{p} measure))", "(rough) (check{p} measure)")
+    marks = [(p, "(", ")") for p in PUNCTUATION]
+    marks += [(";", o, c) for o, c in itertools.product(OPENS, CLOSES)]
+    places = [(2, None), (2, 0), (2, 1), (3, None), (3, 0), (3, 1), (3, 2)]
+    for (p, o, c), form, (arity, at) in itertools.product(marks, forms, places):
+        annotation = " " + form.format(p=p).replace("(", o).replace(")", c)
+        edges = ["4", "8"] if arity == 2 else ["65.2", "11", "10"]
+        if at is not None:
+            edges[at] += annotation
+        lead = annotation if at is None else ""
+        if arity == 2:
+            solid = rod("stud", 10, 50, f"Turn{lead} the stud to " + " x ".join(edges))
+        else:
+            solid = block("arm", [65.2, 11, 10], f"Mill{lead} the arm to " + " x ".join(edges))
+        row = rows(jig(solid))["S1"]
+        if (row.status, row.numbers["claims"]) != ("error", 1):
+            wrong.append((solid["note"], row.status))
+    assert wrong == []
+
+
+# Each glyph NFKC would turn into a digit (a fraction, a superscript or subscript digit)
+# or into no angle (º, ˚), and superscript fractions. The other superscripts and
+# subscripts, letters and signs (ª, ᴬ, ⁺, ⁽, ™), fold as NFKC folds them.
+SCRIPTS = [chr(c) for c in range(sys.maxunicode + 1)]
+SCRIPTS = [s for s in SCRIPTS if decomposition(s).startswith(("<fraction>", "<super>", "<sub>"))]
+KEPT = [s for s in SCRIPTS if any(d.isdigit() for d in normalize("NFKC", s))]
+KEPT += ["º", "˚", "¹/₂", "¹⁄₂", "¹ / ₂", "₁/₂"]
+FOLDED = [s for s in SCRIPTS if s not in KEPT]
+
+
+def test_a_kept_glyph_anywhere_in_the_clause_makes_a_named_size_ambiguous():
+    # Before the row, or after the size bare or in parentheses: a fraction, a superscript
+    # or subscript digit or an angle glyph leaves the size unread; a folded glyph does not.
+    wrong = []
+    forms = ("Turn from {g} rod the stud to 4 x 8", "Turn the stud to 4 x 8 (from {g} rod)")
+    forms += ("Turn the stud to 4 x 8 from {g} rod", "Mill from {g} bar the arm to 65.2 x 11 x 10")
+    forms += ("Mill the arm to 65.2 x 11 x 10 (from {g} bar)",)
+    for glyph, form in itertools.product(["", *KEPT, *FOLDED], forms):
+        note = form.format(g=glyph)
+        solid = rod("stud", 10, 50, note) if "stud" in note else block("arm", [65.2, 11, 10], note)
+        row = rows(jig(solid))["S1"]
+        expected = ("not_applicable", 0) if glyph in KEPT else ("error", 1)
+        if (row.status, row.numbers["claims"]) != expected:
+            wrong.append((note, row.status))
+    assert wrong == []
+
+
+@pytest.mark.parametrize("name", ["thread", "slot", "knurl", "recess", "groove"])
+def test_a_row_named_with_a_feature_word_is_read_by_its_name(name):
+    # The row's name is no governing text: "the thread" names the thread row, no verb.
+    row = rows(jig(rod(name, 10, 50, f"Turn the {name} to Ø4 x 8")))["S1"]
+    assert (row.status, row.numbers["claims"]) == ("error", 1)
+    row = rows(jig(rod(name, 10, 50, f"Drill the {name} to Ø4 x 8 deep")))["S1"]
+    assert (row.status, row.numbers["claims"]) == ("not_applicable", 0)
+
+
+def test_every_lead_and_edge_of_a_named_whole_size_restates_it():
+    wrong = []
+    for lead, edge, spacing, unit in itertools.product(
+        ("to Ø", "to Ø ", "Ø", "Ø ", "to ", ""), ("10", "?", "unknown"), SPACINGS, UNITS
+    ):
+        if edge == "unknown" and unit == "mm":
+            continue  # "unknownmm" is one word, not an edge and its unit
+        note = f"Turn the stud {lead}" + spacing.format(a=edge + unit, by="x", b="50" + unit)
+        row = rows(jig(rod("stud", 10, 50, note)))["S1"]
+        if (row.status, row.numbers["claims"]) != ("error", 1):
+            wrong.append((note, row.status))
+    for spacing, by, unit in itertools.product(SPACINGS, SEPARATORS, UNITS):
+        edges = spacing.format(a="65.2" + unit, by=by, b="11" + unit)
+        note = "Mill the arm to " + spacing.format(a=edges, by=by, b="10" + unit)
+        row = rows(jig(block("arm", [65.2, 11, 10], note)))["S1"]
+        if (row.status, row.numbers["claims"]) != ("error", 1):
+            wrong.append((note, row.status))
+    assert wrong == []
+
+
+def test_each_row_a_shared_note_names_is_its_own_restatement():
+    note = "drill rod: turn the head Ø10 x 3 and the screw Ø6.4 x 13.5"
+    row = rows(jig(rod("head", 10, 3, note), rod("screw", 6.35, 13.45, note)))["S1"]
+    assert (row.status, row.numbers["claims"]) == ("error", 2)
+    assert "head Ø10 × 3" in row.sentence and "screw Ø6.4 × 13.5" in row.sentence
+
+
+@pytest.mark.parametrize("right", [{"size_mm": [10, 20, 40]}, {"verify": True}])
+def test_every_row_a_shared_label_names_is_restated_none_discharges_another(right):
+    # Two rows labelled pad: a sibling the note agrees with must not hide the other's
+    # different (or withheld) size.
+    note = "Mill the pad to 10 x 20 x 30"
+    left = block("left", [10, 20, 30], note, label="pad")
+    data = jig(left, {**block("right", [10, 20, 30], note, label="pad"), **right})
+    row = rows(data)["S1"]
+    other = "pad 10 × 20 × 40" if "size_mm" in right else "pad ?"
+    assert (row.status, row.numbers["claims"]) == ("error", 2)
+    assert "pad 10 × 20 × 30" in row.sentence and other in row.sentence
+
+
+def test_each_withheld_row_a_shared_label_names_is_its_own_finding():
+    note = "Mill the pad to 10 x 20 x 30"
+    pads = [block(name, [10, 20, 30], note, label="pad", verify=True) for name in ("left", "right")]
+    row = rows(jig(*pads))["S1"]
+    assert (row.status, row.numbers["claims"]) == ("error", 2)
+    assert len(set(row.numbers["contradictions"])) == 2
+
+
+def test_only_the_named_row_s_size_is_read_beside_other_sizes():
+    note = "Saw the raw stock to 70 x 15 x 12; finish mill the arm to 65.2 x 11 x 10"
+    row = rows(jig(block("arm", [65.2, 11, 10], note)))["S1"]
+    assert (row.status, row.numbers["claims"]) == ("error", 1)
+    assert "65.2 x 11 x 10" in row.sentence and "70 x 15 x 12" not in row.sentence
+
+
+@pytest.mark.parametrize(
+    "note",
+    [
+        # No made row named: another feature, raw stock, an unnamed size.
+        "Mill the pocket to 4 x 5",
+        "Mill the pocket to 4 x 5 (+/- 0.1 mm)",
+        "Saw the raw stock to 70 x 15 x 12",
+        "1/2 x 3/8 in bar (bought), sawn and milled to 11 x 10 x 65.16",
+        "Mill to 65.2 x 11 x 10",
+        "turned Ø16 x 9.05 on the lathe",
+        # The named row, but not its whole size in the documented form.
+        "mill the arm to 11 x 10",
+        "mill the arm to 11 x 10 x 65.2 x 2",
+        "mill the arm to 7/16 x 3/8 x 2-9/16 in",
+        "mill the arm to about 11 x 10 x 65.2",
+        "mill the arm, sawn, to 11 x 10 x 65.2",
+        "the arm's nose to 11 x 10 x 65.2",
+        "the armature to 11 x 10 x 65.2",
+        "mill the arm to M6 x 11 x 10, the arm to 6061T6 x 11 x 10",
+        "mill the arm to 65.2 x 11 x 10 (approx, 45°)",
+    ],
+)
+def test_a_box_size_not_given_as_the_named_row_s_whole_size_is_not_read(note):
+    row = rows(jig(block("arm", [65.2, 11, 10], note)))["S1"]
+    assert (row.status, row.numbers["claims"]) == ("not_applicable", 0)
+
+
+@pytest.mark.parametrize(
+    "note",
+    [
+        "turn the thread end Ø6.30 x 17.5, the body to 6.50 for 14.06, the Ø9 x 3 head",
+        "drill 13/32 and counterbore Ø15.9 x 10.5; press the Ø4 x 16 dowels in",
+        "turn the thread portion Ø4.80 x 7.2 and the tail to 6.49 x 42 x 3 x 2",
+        "chamfer the stud to 0.5 x 45°, then the stud to 0.5 x 45 deg",
+        "the stud Ø6.49 x 76.5 x 2 off, the stud to 6.49-6.50 x 76.5",
+        "turn the stud to 6.49 x 76.5 x 3, the stud to Ø6.49",
+        "Drill Ø4 x 8 deep in the stud",
+        "Drill and tap the stud to Ø4 x 8 deep",
+        "spot-drill, then drill the stud Ø4 x 8 and counterbore the stud Ø6 x 3",
+        "Drill a hole in the stud to Ø4 x 8 deep",
+        # A clause with no verb of its own reads in its sentence's, a parenthesis that
+        # closes ends no clause, and a fraction anywhere in the clause makes it no size.
+        "Drill, with care, the stud to Ø4 x 8 deep",
+        "Drill (use a sharp bit; lubricate well) the stud to Ø4 x 8 deep",
+        "Turn from ½ in rod the stud to Ø6.49 x 76.5",
+    ],
+)
+def test_a_cylinder_size_not_given_as_the_named_row_s_whole_size_is_not_read(note):
+    row = rows(jig(rod("stud", 6.49, 76.5, note)))["S1"]
+    assert (row.status, row.numbers["claims"]) == ("not_applicable", 0)
+
+
+@pytest.mark.parametrize(
+    "note",
+    [
+        "turn from drill rod the stud Ø10 x 50",
+        "drill rod the stud Ø10 x 50",
+        "tap stock the stud 10 x 50",
+    ],
+)
+def test_a_feature_word_naming_a_tool_or_stock_governs_no_size(note):
+    row = rows(jig(rod("stud", 10, 50, note)))["S1"]
+    assert (row.status, row.numbers["claims"]) == ("error", 1)
+
+
+def test_a_bought_or_existing_part_s_note_restates_no_printed_size():
+    bought = block("stop", [10, 10, 10], "grind the stop to 10 x 10 x 10", supply="bought")
+    existing = block("jaw", [80, 10, 30], "mill the jaw to 80 x 10 x 30", supply="existing")
+    assert rows(jig(bought, existing))["S1"].numbers["claims"] == 0
+
+
+def test_the_restatement_quotes_the_table_s_own_size_cell():
+    # Made to 2 places the arm prints 65.16: the finding quotes the cell the table prints.
+    data = jig(block("arm", [65.1631, 11, 10], ARM.format("11 x 10 x 65.16")), decimals=2)
+    assert "arm 65.16 × 11 × 10" in rows(data)["S1"].sentence
+    traveler = _Traveler(data, [], {}, None)
+    traveler.setup = data.plan["setups"][0]
+    table = unescape(re.sub(r"<[^>]+>", "|", traveler.shop_made_tables(traveler.setup)))
+    assert "65.16 × 11 × 10" in table and "11 x 10 x 65.16" in table
+
+
+# ------------------------------------------------------------ picture cut vs CLEARANCE
+COLLAR = "clamp 2 pin:collar"
+
+
+def pictured(cut, *clearances, resolution=None):
+    """S1's setup picture dimensioning ``cut`` (``(mm, tag)``, or None) above the CLEARANCE
+    table's per-op ``clearances`` (``(op, mm, tag)``), on a mill of DRO ``resolution``."""
+    scene = {
+        "closest_cut": None if cut is None else {"mm": cut[0], "tag": cut[1]},
+        "cut_clearances": [{"op": op, "mm": mm, "tag": tag} for op, mm, tag in clearances],
+    }
+    data = bundle([{}], {"status": "ok", "setups": {"S1": {"render_scene": scene}}})
+    if resolution is None:
+        return data
+    mill = {"kind": "mill", "resolution_mm": resolution}
+    return replace(data, inventory={**INVENTORY, "machines": {"mill": mill}})
+
+
+def test_a_picture_cut_the_clearance_table_gives_otherwise_is_an_error():
+    # Rocker RK-B6: the S4 picture's 1.568 against op 27's own cut beside the same collar.
+    data = pictured((1.5684, COLLAR), ("25", 4.79372, COLLAR), ("27", 2.056593, COLLAR))
+    found = errors(data)["S1"]
+    assert "CUT 1.568 mm" in found and "op 27" in found and "2.057" in found
+    assert "collar" in found
+
+
+@pytest.mark.parametrize(
+    ("cut", "resolution"),
+    [
+        (2.0566, None),  # 2.057 both: the least of the two ops' cuts
+        (4.7937, None),  # the other op's, at the same printed value
+        (2.0612, 0.01),  # 2.06 both on a 0.01 grid
+    ],
+)
+def test_a_picture_cut_printed_as_one_op_s_row_passes(cut, resolution):
+    data = pictured(
+        (cut, COLLAR), ("25", 4.79372, COLLAR), ("27", 2.056593, COLLAR), resolution=resolution
+    )
+    row = rows(data)["S1"]
+    assert (row.status, row.numbers["claims"]) == ("pass", 1)
+
+
+def test_a_value_the_two_surfaces_round_apart_is_an_error():
+    # One clearance, 2.8045: the picture rounds the binary float (2.804), the table the
+    # written decimal (2.805).
+    found = errors(pictured((2.8045, COLLAR), ("27", 2.8045, COLLAR)))["S1"]
+    assert "CUT 2.804 mm" in found and "2.805" in found
+
+
+def test_a_picture_cut_beside_rows_not_computed_is_unknown():
+    row = rows(pictured((2.0566, COLLAR), ("27", "unknown", "unknown")))["S1"]
+    assert row.status == "unknown" and "CUT 2.057 mm" in row.sentence
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        # A tie: the picture names one parallel, the table the other, at one value.
+        pictured((11.4272, "parallel 1"), ("40", 11.427189, "parallel 2")),
+        # A file's or saw's cut alone: the table carries no row for it.
+        pictured((0.0, "clamp 1 kit:upper-button")),
+        # No cut to dimension.
+        pictured(None, ("27", 2.056593, COLLAR)),
+    ],
+    ids=["other-holder", "no-rows", "no-picture-cut"],
+)
+def test_a_picture_cut_with_no_row_of_its_holder_restates_nothing(data):
+    row = rows(data)["S1"]
+    assert (row.status, row.numbers["claims"]) == ("not_applicable", 0)

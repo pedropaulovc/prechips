@@ -140,6 +140,22 @@ def test_a_blade_that_finishes_the_setup_needs_no_re_touch():
     assert finding.numbers["derived_touches"] == []
 
 
+# A tool is the item it selects: ops naming "tools.turner" and touches naming "turner" (or
+# the reverse) are one tool, so no touch is invented and none goes missing.
+@pytest.mark.parametrize("op_spelling,touch_spelling", [("tools.", ""), ("", "tools.")])
+def test_one_tool_spelled_two_ways_is_one_dro_setter(op_spelling, touch_spelling):
+    ops = [{**row, "tool": op_spelling + row["tool"]} for row in LATHE_OPS]
+    zero = lathe_zero([{**BLADE, "tool": touch_spelling + BLADE["tool"]}])
+    for axis in ("x", "z"):
+        zero[axis]["tool"] = touch_spelling + zero[axis]["tool"]
+    finding = evaluate(bundle("lathe", zero, ops))[0]
+    assert finding.status == "pass"
+    assert finding.numbers["missing_touches"] == []
+    assert finding.numbers["derived_touches"] == []
+    # Each toolpost tool is set on centre once, before its first touch-off.
+    assert [row["touch"] for row in finding.numbers["tool_setting"]] == ["zero", "tool_touches"]
+
+
 def test_a_lathe_tool_change_with_no_diameter_to_touch_is_an_error():
     # The blade's X came from its own trial cut: no measured diameter stands for the
     # turning tool to touch, so its X Axis Set cannot be derived.
@@ -207,6 +223,8 @@ def mill_zero(z, retouch_after=()):
 
 
 DECK = {"face": "deck", "edge_mm": 10.0, "method": "touch", "tool": "centre"}
+# The setup's tool names, keyed by the item each tool reference selects.
+TURNER = {("tools", "turner"): "T1 turner"}
 
 
 def test_a_drill_after_the_centre_drill_that_set_z_is_re_touched_on_the_zero_face():
@@ -260,7 +278,7 @@ def test_a_listed_retouch_installs_the_incoming_tool_and_none_for_the_same_tool(
         True,
     )
     sheet, setup = sheet_of(data)
-    html = sheet.dro(setup, {"mill": "T1 end mill", "drill": "T2 drill"})
+    html = sheet.dro(setup, {("tools", "mill"): "T1 end mill", ("tools", "drill"): "T2 drill"})
     assert "before the next tool" not in html
     assert "After op 20, install T2 drill for op 30, then touch the top" in html
     assert "After op 10, T1 end mill stays in for op 20: re-touch the top" in html
@@ -289,8 +307,52 @@ def test_several_tool_changes_to_one_touch_name_their_ops_not_the_tools_again():
 def test_a_mill_tool_touch_installs_its_tool_first():
     ops = [op(10, "spot", "hole", "centre"), op(20, "drill", "hole", "drill")]
     sheet, setup = sheet_of(bundle("mill", mill_zero(DECK), ops))
-    html = sheet.dro(setup, {"centre": "T1 centre drill", "drill": "T2 drill"})
+    html = sheet.dro(
+        setup, {("tools", "centre"): "T1 centre drill", ("tools", "drill"): "T2 drill"}
+    )
     assert "Before op 20, install T2 drill, then re-touch it:" in html
+
+
+def _cells(html):
+    return [re.sub(r"<[^>]+>", "", cell).strip() for cell in re.findall(r"<td>(.*?)</td>", html)]
+
+
+@pytest.mark.parametrize("qualified", ["op", "touch"])
+def test_a_tool_keeps_one_t_number_however_its_ops_and_touches_spell_it(qualified):
+    # A tool is the (category, key) it selects: "tools.drill" and "drill" are one drill.
+    spell = {"op": ("tools.", ""), "touch": ("", "tools.")}[qualified]
+    ops = [
+        op(10, "spot", "hole", spell[0] + "centre"),
+        op(20, "drill", "hole", spell[0] + "drill"),
+        op(30, "drill", "hole", "drill"),
+    ]
+    zero = mill_zero({**DECK, "tool": spell[1] + "centre"})
+    data = bundle("mill", zero, ops)
+    sheet, setup = sheet_of(data)
+    numbers, tools, table = sheet.tool_table(setup)
+    cells = _cells(table)
+    assert [cell for cell in cells if re.fullmatch(r"T\d+", cell)] == ["T1", "T2"]
+    assert "20, 30" in cells
+    # Every op row prints its tool's one number; the zero names the tool that set it.
+    rows, _, _, _ = sheet.operations(setup, numbers, {"notes": 2})
+    printed = " ".join(_cells(rows))
+    assert "T3" not in printed and printed.count("T2") == 2, printed
+    assert "Before op 20, install T2" in sheet.dro(setup, tools)
+    assert tools and "T1" in sheet.touched_tool(spell[1] + "centre", tools, "spindle")
+
+
+def test_a_lathe_keeps_its_toolpost_numbers_however_its_setups_spell_the_machine():
+    first = [op(10, "rough_turn", "journal", "turner")]
+    data = bundle("lathe", lathe_zero([]), first)
+    second = {**data.plan["setups"][0], "id": "S2", "machine": "machines.lathe"}
+    second["ops"] = [op(10, "form_relief", "relief", "parter"), op(20, "face", "end", "turner")]
+    data.plan["setups"].append(second)
+    sheet = _Traveler(data, [], {}, {})
+    numbers, _, _ = sheet.tool_table(second)
+    # The turner keeps the number its first use on this lathe gave it.
+    assert sorted(numbers.values()) == ["T1", "T2"]
+    assert numbers[(("tools", "turner"), ("holders", None))] == "T1"
+    assert numbers[(("tools", "parter"), ("holders", None))] == "T2"
 
 
 def test_a_top_picked_up_after_a_facing_op_is_re_touched_where_that_op_left_it():
@@ -892,7 +954,7 @@ def test_the_datum_transfer_prints_before_the_zero_it_sets_up():
         "lathe", {**lathe_zero([]), "transfer": transfer}, [op(10, "turn", "j", "turner")]
     )
     sheet, setup = sheet_of(data)
-    html = sheet.dro(setup, {"turner": "T1 turner"})
+    html = sheet.dro(setup, TURNER)
     # Indicate, then touch off: the sweep comes before the zero table and its tool setting.
     assert html.index("Before zeroing: indicate the") < html.index("<table")
     assert html.index("Before zeroing: indicate the") < html.index("Before touching off")
@@ -931,7 +993,7 @@ def test_a_zero_measured_before_the_hold_is_measured_before_clamping():
     assert measure < steps.index("thrust face seated") < steps.index("Tighten the chuck")
     assert "measure Z M = length from the thrust face" in steps
     # The zero row then refers back to that reading instead of introducing M itself.
-    row = sheet.dro(setup, {"turner": "T1 turner"})
+    row = sheet.dro(setup, TURNER)
     assert "length from the thrust face" not in row and "M measured before clamping" in row
 
 
@@ -940,7 +1002,7 @@ def test_a_zero_measured_at_the_machine_stays_in_the_zero_table(before_hold):
     sheet, setup = measured_hold(before_hold)
     steps, _ = sheet.hold(setup)
     assert "length from the thrust face" not in steps
-    assert "M = length from the thrust face" in sheet.dro(setup, {"turner": "T1 turner"})
+    assert "M = length from the thrust face" in sheet.dro(setup, TURNER)
 
 
 def x_touch(x_face, before, ops=LATHE_OPS, x_method="paper on the measured diameter", x=None):
@@ -1057,7 +1119,7 @@ def test_an_authored_x_touch_prints_its_axis_set_and_stops_on_a_diameter_not_sho
     x_face, ops, stop
 ):
     sheet, setup = sheet_of(x_touch(x_face, 40, ops))
-    html = sheet.dro(setup, {"parter": "T4 blade", "turner": "T1 turner"})
+    html = sheet.dro(setup, {("tools", "parter"): "T4 blade", **TURNER})
     start = html.index("touch off T4 blade")
     line = html[start : html.index("Z —", start)]
     # The paper counts once on the radius, twice on a diameter display.
@@ -1068,7 +1130,7 @@ def test_an_authored_x_touch_prints_its_axis_set_and_stops_on_a_diameter_not_sho
 def x_printed(data, touch):
     """The X half of ``touch`` as the sheet prints it."""
     sheet, setup = sheet_of(data)
-    return sheet.tool_touch(setup, touch, {}).split("X — ", 1)[1].split(" Z — ", 1)[0]
+    return sheet.tool_touch(setup, touch, {}, "spindle").split("X — ", 1)[1].split(" Z — ", 1)[0]
 
 
 @pytest.mark.parametrize(

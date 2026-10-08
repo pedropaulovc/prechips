@@ -87,6 +87,18 @@ def test_a_vise_or_plate_is_squared_where_it_is_mounted_or_turned_on_a_mill():
     }
 
 
+# The vise on the mill is one vise on one mill however a setup spells either, so the next
+# setup's vise is still squared; spelling never re-mounts it nor leaves it unsquared.
+@pytest.mark.parametrize("first,second", [("", "fixtures."), ("fixtures.", "")])
+def test_a_vise_stays_squared_however_the_next_setup_spells_it_or_its_mill(first, second):
+    machines = {"": "machines.mill", "fixtures.": "mill"}
+    data = bundle(
+        setup("V1", first + "vise", machine=machines[first], jaws_along="x", fixed_jaw="rear"),
+        setup("V2", second + "vise", machine=machines[second], jaws_along="x", fixed_jaw="rear"),
+    )
+    assert hold_fields.align_due(data) == {"V1": "mounted"}
+
+
 @pytest.mark.parametrize(
     ("align", "status", "debt"),
     [

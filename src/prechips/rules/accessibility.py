@@ -6,6 +6,8 @@ stock outside a bounded op's box, or removes stock a later setup grips, presses,
 rests or supports on, is an error naming the row; an unknown check never passes the op.
 """
 
+from dataclasses import replace
+
 from prechips.findings import Finding
 from prechips.rules.geometry_common import (
     TURNING,
@@ -15,7 +17,7 @@ from prechips.rules.geometry_common import (
     fact_reason,
     op_contexts,
 )
-from prechips.rules.resolution import number
+from prechips.rules.resolution import identity, number
 
 _CHECKPOINT_KEYS = (
     "checkpoint_count",
@@ -53,7 +55,7 @@ def _checkpoints(detail):
     return values, hit, unknown
 
 
-def _engagement(setup, op, entry, feed_z, scale):
+def _engagement(bundle, setup, op, entry, feed_z, scale):
     """(status, declared Z, why) for one kernel ``rest_engagement`` entry: a follow rest
     whose jaws, set with the tool at the op's start, would meet a fixture component. The
     plan's ``hold.supports[].engage_at_z_mm`` (the cut Z the tool passes before the jaws
@@ -68,7 +70,7 @@ def _engagement(setup, op, entry, feed_z, scale):
             item.get("engage_at_z_mm", "unknown")
             for item in items
             if isinstance(item, dict)
-            and item.get("ref") == rest
+            and identity(bundle, item.get("ref"), "fixtures") == identity(bundle, rest, "fixtures")
             and (not isinstance(item.get("ops"), list) or op_number in item["ops"])
         ),
         "unknown",
@@ -120,6 +122,11 @@ def evaluate(bundle):
             if isinstance(minimum, dict) and key in minimum
         }
         checkpoints, checkpoint_hit, checkpoint_unknown = _checkpoints(detail)
+        # The whole turning tool's axial extent and its nose's over the same poses (or why
+        # they are unknown): the traveler's jaw distance, whatever the op's own verdict. A
+        # kernel that never posed the tool reports none: that is unknown, never absent.
+        keys = ("tool_z_mm", "nose_z_mm")
+        extent = {key: detail.get(key, "unknown") for key in keys} if turned else {}
         if blocked:
             occluded = any(number(value) and value > 0 for value in certain.values())
             if blocked.status == "unknown" and (occluded or checkpoint_hit):
@@ -135,13 +142,13 @@ def evaluate(bundle):
                         "accessibility",
                         blocked.subject,
                         "error",
-                        {**certain, **checkpoints},
+                        {**certain, **checkpoints, **extent},
                         cite,
                         f"{blocked.subject}: {message}.",
                     )
                 )
             else:
-                rows.append(blocked)
+                rows.append(replace(blocked, numbers={**blocked.numbers, **extent}))
             continue
         subject = f"{setup['id']}:{op['op']}"
         values = {
@@ -195,13 +202,12 @@ def evaluate(bundle):
             ]
             if standing and status == "error":
                 message += " (" + "; ".join(standing) + ")"
-        if isinstance(detail.get("blade_z_mm"), list):
-            values["blade_z_mm"] = detail["blade_z_mm"]
+        values.update(extent)
         engage = detail.get("rest_engagement")
         if isinstance(engage, list) and engage:
             scale = {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units"))
             feed = values.get("feed_z")
-            judged = [_engagement(setup, op, e, feed, scale) for e in engage]
+            judged = [_engagement(bundle, setup, op, e, feed, scale) for e in engage]
             values["rest_engagement"] = [
                 e | {"declared_z_mm": z} for e, (_, z, _) in zip(engage, judged, strict=True)
             ]

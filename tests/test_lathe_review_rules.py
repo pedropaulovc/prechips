@@ -319,7 +319,7 @@ def test_lathe_x_readings_are_in_the_dro_display_and_unknown_without_one(radius_
 def test_a_dome_table_prints_x_in_the_dro_display_or_withholds_it(radius_mode, shown):
     bundle = _on_display(_dome_bundle(rough_allowance_mm=0.2), radius_mode)
     _, _, sheet, setup = _traveler(bundle)
-    html = unescape(sheet.contours(setup, {"ar": "T1 AR"}))
+    html = unescape(sheet.contours(setup, {("tools", "ar"): "T1 AR"}))
     if shown:
         unit = "Ø" if shown == "diameter" else shown
         assert f"X is {shown}" in html
@@ -477,6 +477,92 @@ def test_millimetre_start_and_engagement_facts_print_in_inch_dro_coordinates():
         "START Z 2.000: 0.050 CLEAR OF dead centre — start no further out than Z 2.050"
     )
     assert sheet.rest_steps(setup, op)[0] == ["follow rest on: Z 2.000"]
+
+
+def test_the_jaw_clearance_is_the_tools_own_chuck_side_extent_not_the_z_its_op_names():
+    # The op names Z0.25; the insert's nose, posed on the profile, reaches Z0.104 on the
+    # chuck side: 2.104 from jaw fronts at Z-2, printed down the 0.01 grid as 2.10.
+    sheet, setup, op = _sheet("mm", 0.01, {"tool_z_mm": [0.104, 2.15], "feed_z": -1}, 1.75, 0.25)
+    setup["hold"]["pose"] = {"origin_mm": [0.0, 0.0, -2.0], "z": [0.0, 0.0, 1.0]}
+    sheet.records[("headroom", "S1")] = {"stock_od_mm": 10.0}
+    assert sheet.lathe_approaches(setup) == {"10": pytest.approx(2.10)}
+    assert "closest planned tool stop 2.10 mm from the jaws" in sheet.clearance(setup)
+    assert sheet.crash_boxes(setup, op) == ["JAWS Z -2.00: 2.10 clear — hand feed to a stop"]
+
+
+def _dome_tables(compensation=0.4):
+    """A dome's finish table (fed to its tool readings) and rough stair, op 10."""
+    rows = [{"z_mm": 1.75, "z_tool_mm": 1.75}, {"z_mm": 0.25, "z_tool_mm": 0.104}]
+    if compensation == "unknown":
+        rows = [{"z_mm": row["z_mm"]} for row in rows]
+    finish = {
+        "op": 10,
+        "method": "axial_table",
+        "tool_nose_compensation_mm": compensation,
+        "rows": rows,
+    }
+    stair = {"op": 10, "stage": "rough", "rows": [{"z_mm": 1.65}, {"z_mm": 0.45}]}
+    return {"contours": [finish], "stair_tables": [stair]}
+
+
+def test_a_tool_fed_to_its_tip_table_stands_where_the_table_puts_it_not_on_the_drawn_profile():
+    # The plan forms the dome 0.25 above the drawn one (a cut-to-fit end): the kernel stands
+    # the nose on the drawn profile down to Z-0.146, but the finish table feeds it to Z0.104
+    # at most, so the tool stops 8.104 from jaw fronts at Z-8, printed down the grid as 8.10.
+    numbers = {"tool_z_mm": [-0.146, 62.475], "nose_z_mm": [-0.146, 2.29], "feed_z": -1}
+    sheet, setup, op = _sheet("mm", 0.01, numbers, 1.75, 0.25)
+    setup["hold"]["pose"] = {"origin_mm": [0.0, 0.0, -8.0], "z": [0.0, 0.0, 1.0]}
+    sheet.records[("headroom", "S1")] = {"stock_od_mm": 10.0}
+    sheet.records[("coordinates", "S1")] = _dome_tables()
+    assert sheet.lathe_approaches(setup) == {"10": pytest.approx(8.10)}
+    assert "closest planned tool stop 8.10 mm from the jaws" in sheet.clearance(setup)
+    # A shank standing 1.6 below the nose at every pose goes with it: Z-1.496, so 6.50.
+    sheet.records[("accessibility", "S1:10")]["tool_z_mm"] = [-1.746, 62.475]
+    assert sheet.lathe_approaches(setup) == {"10": pytest.approx(6.50)}
+    # A table printing only the surface does not say where the nose stands.
+    sheet.records[("coordinates", "S1")] = _dome_tables("unknown")
+    assert sheet.lathe_approaches(setup) == {"10": "unknown"}
+    # Nor does a tool the kernel posed without its nose's extent.
+    sheet.records[("coordinates", "S1")] = _dome_tables()
+    del sheet.records[("accessibility", "S1:10")]["nose_z_mm"]
+    assert sheet.lathe_approaches(setup) == {"10": "unknown"}
+
+
+def test_a_tool_posed_within_the_kernels_hit_test_inset_of_its_ops_z_stands_at_that_z():
+    # Posed into the shoulder at the op's Z-23, the nose's outline stands 0.000977 past it: the
+    # kernel clears only its 0.001 inset section, so the tool stops at Z-23.00, 4.99 from -27.99.
+    numbers = {"tool_z_mm": [-23.000977, 82.88], "nose_z_mm": [-23.000977, 21.8], "feed_z": -1}
+    sheet, setup, op = _sheet("mm", 0.01, numbers, 21.0, -23.0)
+    setup["hold"]["pose"] = {"origin_mm": [0.0, 0.0, -27.99], "z": [0.0, 0.0, 1.0]}
+    sheet.records[("headroom", "S1")] = {"stock_od_mm": 10.0}
+    assert sheet.lathe_approaches(setup) == {"10": pytest.approx(4.99)}
+    record = sheet.records[("accessibility", "S1:10")]
+    # Farther past it than that, the outline is past the Z: down the grid, 4.98.
+    record["tool_z_mm"] = [-23.0015, 82.88]
+    assert sheet.lathe_approaches(setup) == {"10": pytest.approx(4.98)}
+    # A blade's far face 0.0005 short of a grid line, but a whole width from the op's Z, is the
+    # tool's own reach (3.9895): never printed as 3.99.
+    record["tool_z_mm"] = [-24.0005, 82.88]
+    assert sheet.lathe_approaches(setup) == {"10": pytest.approx(3.98)}
+    # Nor is a shank's: the nose posed exactly on the Z, a wider shank 0.0005 past it stands
+    # 4.9895 from the jaws, printed down the grid as 4.98.
+    record.update(tool_z_mm=[-23.0005, 82.88], nose_z_mm=[-23.0, 21.8])
+    assert sheet.lathe_approaches(setup) == {"10": pytest.approx(4.98)}
+
+
+@pytest.mark.parametrize("extent", [{"tool_z_mm": "unknown"}, {}], ids=["unknown", "absent"])
+def test_a_tool_the_kernel_could_not_pose_whole_has_an_unknown_jaw_clearance(extent):
+    # Its holder is undeclared, or the kernel stopped before posing it at all: the shank may
+    # stand nearer the jaws than the Z the op names, so no distance is printed and the op
+    # still gets its hand-feed check.
+    sheet, setup, op = _sheet("mm", 0.01, {**extent, "feed_z": -1}, 1.75, 0.25)
+    setup["hold"]["pose"] = {"origin_mm": [0.0, 0.0, -8.0], "z": [0.0, 0.0, 1.0]}
+    sheet.records[("headroom", "S1")] = {"stock_od_mm": 10.0}
+    assert sheet.lathe_approaches(setup) == {"10": "unknown"}
+    assert "closest tool approach not computed — check at the machine" in sheet.clearance(setup)
+    assert sheet.crash_boxes(setup, op) == [
+        "JAWS Z -8.00: tool clearance not computed — hand feed to a stop"
+    ]
 
 
 def test_a_follow_rest_z_is_printed_on_the_clear_side_of_the_dro_grid():
@@ -902,7 +988,7 @@ def test_a_sleeve_parted_after_a_touch_on_its_far_end_comes_out_full_length():
     assert sheet.z_target(setup, bundle.plan["setups"][0]["ops"][0]) == (
         "Z → -22.65 (chuck-side corner)"
     )
-    text = sheet.dro(setup, {"blade": "T3 blade"})
+    text = sheet.dro(setup, {("tools", "blade"): "T3 blade"})
     assert "Z — chuck-side corner on the north" in text
     assert "Z now reads the chuck-side corner" in text
 
@@ -1451,6 +1537,28 @@ def test_a_turning_window_prints_its_own_ends_whatever_an_earlier_window_left():
     assert not any("STOP" in part for part in sheet.tip(setup, finish))
 
 
+@pytest.mark.parametrize("op_spelling,touch_spelling", [("tools.", ""), ("", "tools.")])
+def test_a_toolpost_tool_is_one_tool_however_op_and_touch_spell_it(op_spelling, touch_spelling):
+    ops = [
+        {"op": 10, "do": "rough_turn", "feature": "body", "tool": op_spelling + "turner"},
+        {"op": 40, "do": "part_off", "tool": op_spelling + "blade", "to_z": -5.0},
+    ]
+    touch = {**_FACE_TOUCH, "corner": "chuck_side", "before_ops": [40]}
+    zero = {
+        "x": {"feature": "spindle_axis", "method": "trial_cut_measure", "tool": "turner"},
+        "z": {"face": "end", "edge_mm": 0.0, "method": "touch", "tool": "turner"},
+        "tool_touches": [{**touch, "tool": touch_spelling + touch["tool"]}],
+    }
+    zero["x"]["tool"] = zero["z"]["tool"] = touch_spelling + "turner"
+    bundle = _lathe(ops, {}, {"blade": _blade(), "turner": dict(_AR)}, zero=zero)
+    [finding] = zero_recipe.evaluate(bundle)
+    # Each toolpost tool is set once, before its first touch-off.
+    assert [(row["touch"], row["square_blade"]) for row in finding.numbers["tool_setting"]] == [
+        ("zero", "not_applicable"),
+        ("tool_touches", zero_recipe.SQUARE_BLADE),
+    ]
+
+
 def test_each_toolpost_tool_is_set_on_centre_before_its_first_touch_off():
     from prechips.sheet import _Traveler
 
@@ -1496,7 +1604,7 @@ def test_each_toolpost_tool_is_set_on_centre_before_its_first_touch_off():
     sheet = _Traveler(bundle, [], {}, None)
     setup = sheet.setup = bundle.plan["setups"][0]
     sheet.records[("zero_check", "S1")] = finding.numbers
-    text = sheet.dro(setup, {"blade": "T3 blade", "turner": "T1 turner"})
+    text = sheet.dro(setup, {("tools", "blade"): "T3 blade", ("tools", "turner"): "T1 turner"})
     blade = "Before touching off T3 blade: shim it level with the tailstock point; then square"
     assert text.count(blade) == 1
     assert text.index(blade) < text.index("Before op 40, touch off T3 blade")

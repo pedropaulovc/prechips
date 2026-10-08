@@ -8,6 +8,7 @@ import math
 import re
 from collections import defaultdict
 from dataclasses import dataclass, replace
+from decimal import ROUND_HALF_UP, Context, Decimal
 
 try:
     from .render_png import RenderCanvas
@@ -157,9 +158,19 @@ def _plain(value):
     return " ".join(text.split()).upper()
 
 
+def decimal_text(value, places):
+    """``value`` printed at ``places`` decimals as the shop rounds its written decimal: a
+    half-way value rounds away from zero on the float's own shortest decimal, never on its
+    binary expansion (2.8045 at three places is 2.805, not 2.804); zero prints unsigned.
+    The one rounding of a printed decimal, in pictures and sheet tables alike."""
+    exact = Decimal(repr(float(value)))
+    step = Decimal(1).scaleb(-places)
+    text = f"{exact.quantize(step, ROUND_HALF_UP, Context(prec=400)):f}"
+    return text.removeprefix("-") if float(text) == 0 else text
+
+
 def _mm(value):
-    text = f"{value:.2f}".rstrip("0").rstrip(".")
-    return "0" if text in ("", "-0") else text
+    return decimal_text(value, 2).rstrip("0").rstrip(".")
 
 
 def _dro(value, decimals):
@@ -168,8 +179,7 @@ def _dro(value, decimals):
     so a picture and its table never show one value rounded two ways; else :func:`_mm`."""
     if not isinstance(decimals, int) or isinstance(decimals, bool) or decimals < 0:
         return _mm(value)
-    text = f"{value:.{decimals}f}"
-    return text.removeprefix("-") if float(text) == 0 else text
+    return decimal_text(value, decimals)
 
 
 def _corners(box):
@@ -685,6 +695,7 @@ def _radial_steps(profiles):
 class _Diagram:
     grows_to_fit = False
     splits_sides = True
+    keyed_cut = False  # whether this picture keyed ``closest_cut`` (:meth:`_closest_cut`)
 
     def _dro(self, value):
         """``value`` as the traveler's tables print it (:func:`_dro`)."""
@@ -1016,6 +1027,8 @@ class _Diagram:
             point = self.canvas.project((large, 0, z))
             label = _shoulder(z, small, large, self.spec.get("decimals"))
             self.callouts.append(_Callout(label, [point], _INK))
+        if self.spec.get("key_closest_cut"):
+            self._closest_cut()
         self._labels()
         if self.position_badges:
             exclusion = None
@@ -1322,6 +1335,38 @@ class _Diagram:
             point = c.project(self.tool["tip_mm"])
             c.circle(*point, 4, fill=_GREEN)
             self.callouts.append(_Callout("PRIMARY TOOL", [point], _GREEN))
+
+    def _in_tile(self, point):
+        """Whether a setup point lies inside this picture's viewport."""
+        left, top, right, bottom = self.viewport
+        x, y = self.canvas.project(point)
+        return left <= x <= right and top <= y <= bottom
+
+    def _closest_cut(self):
+        """``closest_cut`` dimensioned and keyed ``CUT <mm> FROM <holder>`` when its middle
+        is this picture's to key (:meth:`_in_tile`); ``keyed_cut`` records that it was."""
+        cut = self.spec.get("closest_cut")
+        if not cut:
+            return
+        c = self.canvas
+        a, b = c.project(cut["from_mm"]), c.project(cut["to_mm"])
+        middle = ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)
+        if not self._in_tile([(cut["from_mm"][i] + cut["to_mm"][i]) / 2 for i in range(3)]):
+            return
+        c.line(a, b, _AMBER, width=3)
+        for point in (a, b):
+            c.circle(*point, 4, fill=_AMBER)
+        holder = _solid_name(cut["tag"])
+        for component in self.components:
+            if cut["tag"] not in component.get("meshes", ()):
+                continue
+            if component.get("meshes") == [cut["tag"]]:
+                holder = self._component_label(component)
+            elif component.get("code"):
+                holder = f"{_plain(component['code'])} {holder}"
+        label = f"CUT {self._dro(cut['mm'])} mm FROM {holder.upper()}"
+        self.callouts.append(_Callout(label, [middle], _AMBER))
+        self.keyed_cut = True
 
     def _measurements(self):
         c = self.canvas
@@ -2359,16 +2404,22 @@ def render_diagram(meshes, spec):
     between the rims so the near stop does not hide the work, a point on that plane
     (``section_mm``).
     """
-    debts, details = [], []
+    debts, details, here = [], [], False
     # A debt found while laying out is printed in the notes, which can move the layout:
-    # redraw until the printed notes are exactly the debts of the picture they sit in.
-    for attempt in range(4):
-        diagram, png = _main_diagram(meshes, {**spec, "notes": list(spec.get("notes", [])) + debts})
+    # redraw until the printed notes are exactly the debts of the picture they sit in. A
+    # clearance no detail band keys (none drawn, or none holds it) is keyed on the setup
+    # picture itself: a picture never drops its CUT dimension.
+    for attempt in range(5):
+        notes = list(spec.get("notes", [])) + debts
+        diagram, png = _main_diagram(meshes, {**spec, "notes": notes, "key_closest_cut": here})
         if attempt == 0:
             details = _holding_details(meshes, spec, diagram)
             guide = _guide_view(spec, diagram)
             if guide is not None:
                 details.append(guide)
+            here = bool(spec.get("closest_cut")) and not any(d.keyed_cut for d in details)
+            if here:
+                continue
         found = [debt for detail in details for debt in detail.render_debts]
         found += diagram.render_debts
         if found != debts:
@@ -2696,7 +2747,7 @@ class _HoldingDetail(_Diagram):
     def _title(self):
         index, count = self.tile
         title = "HOLDING DETAIL" if count == 1 else f"HOLDING DETAIL {index} OF {count}"
-        title += f" X{self.gain:.1f}"
+        title += f" X{decimal_text(self.gain, 1)}"
         zero = self.spec.get("zero_mm")
         axis = max(range(3), key=lambda i: abs(self.camera[0][i]))
         # A band or a window on the holding shows only a stretch of the work: say which.
@@ -2893,9 +2944,7 @@ class _HoldingDetail(_Diagram):
         if self.tile[1] > 1:
             axis = max(range(3), key=lambda i: abs(self.camera[0][i]))
             return self.frame[axis] <= point[axis] <= self.frame[axis + 3]
-        left, top, right, bottom = self.viewport
-        x, y = self.canvas.project(point)
-        return left <= x <= right and top <= y <= bottom
+        return super()._in_tile(point)
 
     def _plane_text(self, plane):
         zero = self.spec.get("zero_mm")
@@ -2927,29 +2976,6 @@ class _HoldingDetail(_Diagram):
         points = [self.canvas.project(stop["at_mm"]) for stop in stops]
         each = tuple(_stop_key([name]) for name in names)
         self.callouts.append(_Callout(_stop_key(names), points, _GREEN, each=each))
-
-    def _closest_cut(self):
-        cut = self.spec.get("closest_cut")
-        if not cut:
-            return
-        c = self.canvas
-        a, b = c.project(cut["from_mm"]), c.project(cut["to_mm"])
-        middle = ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)
-        if not self._in_tile([(cut["from_mm"][i] + cut["to_mm"][i]) / 2 for i in range(3)]):
-            return
-        c.line(a, b, _AMBER, width=3)
-        for point in (a, b):
-            c.circle(*point, 4, fill=_AMBER)
-        holder = _solid_name(cut["tag"])
-        for component in self.components:
-            if cut["tag"] not in component.get("meshes", ()):
-                continue
-            if component.get("meshes") == [cut["tag"]]:
-                holder = self._component_label(component)
-            elif component.get("code"):
-                holder = f"{_plain(component['code'])} {holder}"
-        label = f"CUT {self._dro(cut['mm'])} mm FROM {holder.upper()}"
-        self.callouts.append(_Callout(label, [middle], _AMBER))
 
 
 class _GuideView(_HoldingDetail):
@@ -3005,7 +3031,7 @@ class _GuideView(_HoldingDetail):
     def _title(self):
         nouns = {name.rsplit(" ", 1)[-1] for name in self.names}
         noun = nouns.pop() if len(nouns) == 1 else "GUIDE"
-        return f"VIEW ALONG THE {noun} AXIS X{self.gain:.1f}"
+        return f"VIEW ALONG THE {noun} AXIS X{decimal_text(self.gain, 1)}"
 
     def _facing(self):
         """Where this view looks from and which setup axes it draws right and up, as the
