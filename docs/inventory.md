@@ -447,7 +447,16 @@ Other holding solids come from the same accepted-fact rule, never defaults:
   An angle plate's (or posed shop-made fixture's) lowest box that is not bought
   is its base: HOLD prints its underside Z, an angle plate's working face (local
   y = 0, facing local -y) and the base's `fastener` as the hold-down; with any
-  such box untrusted, HOLD prints no setting line. None of these texts creates
+  such box untrusted, HOLD prints no setting line. A machine of kind `bench` or
+  `manual` has no machine table, so what fastens the item to one is off it
+  there; `table_mount` on a primitive marks it. `table_mount = "hardware"` is a
+  primitive that is that hardware (a hold-down screw, T-bolt or T-nut; never a
+  void): on a bench it is left out of the kernel scene, neither drawn nor an
+  obstacle. `table_mount = "fastener"` is a primitive whose stated `fastener` is
+  that hold-down (the base's): on a bench HOLD prints "the base is not held
+  down: its hold-down is for a machine table" in its place. Unmarked or unknown,
+  both are drawn and printed on every machine, and the SHOP-MADE FIXTURE table
+  lists the hardware either way. None of these texts creates
   geometry or trust. On a plan clamp with `restraint = "locate"`, `locates`
   names the drawn solid that must prove it bears on the work, and
   `bears = "bore" | "face"` on that solid says which proof it owes: its
