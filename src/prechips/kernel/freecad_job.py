@@ -2157,7 +2157,9 @@ def _edge_band(edge, radius):
     sector beside an arc (a pie once ``radius`` passes the arc's own), the ring or disc round
     a circle, so that with discs of ``radius`` about an open edge's ends they hold exactly
     the points within ``radius`` of it. Each is built whole, with no Boolean and whatever
-    the edge's orientation; a line shorter than ``PLANE_TOL`` has none."""
+    the edge's orientation. An open line or arc shorter than ``PLANE_TOL`` has none: every
+    point of it lies within half its length of an end, so the discs about its ends miss at
+    most a sliver that narrow, and OCC cannot pass an arc through three points that close."""
     first, last = edge.FirstParameter, edge.LastParameter
     a, m, b = edge.valueAt(first), edge.valueAt((first + last) / 2), edge.valueAt(last)
 
@@ -2167,9 +2169,9 @@ def _edge_band(edge, radius):
     def line(start, end):
         return Part.LineSegment(start, end).toShape()
 
+    if not edge.isClosed() and edge.Length <= PLANE_TOL:
+        return []
     if type(edge.Curve).__name__ == "Line":
-        if edge.Length <= PLANE_TOL:
-            return []
         side = V(-(b - a).y, (b - a).x, 0).normalize() * radius
         corners = [a + side, b + side, b - side, a - side]
         return [Part.Face(Part.makePolygon([*corners, corners[0]]))]
