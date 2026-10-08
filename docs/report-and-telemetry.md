@@ -367,6 +367,10 @@ Continuations retain the applicable original operation, table or worksheet title
 and units when they fit alongside original content advancing onto that page.
 Split fixture tables retain the original component/size context in their
 existing columns, not new assembly instructions.
+An original note title that cannot fit in its actual continuation body may
+continue as authored source text, in order and at working type size. Short titles
+remain atomic; repeated identity alone never counts as original source progress.
+This fallback neither splits complete figures nor duplicates recording fields.
 
 Operation groups retain authored order. A square beside the operation ID means
 **operation performed only — not inspection acceptance or clearance to proceed**.

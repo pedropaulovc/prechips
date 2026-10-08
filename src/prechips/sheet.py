@@ -253,6 +253,7 @@ _DUPLEX_JS = r"""(() => {
   // The fewest original ordinary-table row groups on either side of a feasible break.
   const KEEP = 3;
   const ADDED = "data-duplex", SPLIT = "data-duplex-split", STACKED = "data-duplex-stacked";
+  const CONTEXT_ROLE = "data-context-role";
   const originals = new Map();
   let CAP;
   const heading = (el) => el && /^H[1-6]$/.test(el.tagName);
@@ -261,6 +262,11 @@ _DUPLEX_JS = r"""(() => {
     return { top: r.top - parseFloat(s.marginTop), bottom: r.bottom + parseFloat(s.marginBottom) };
   }
   function paginate(section) {
+    // Recompute roles at this print width; source continuations inherit them only
+    // within this pass, never from an earlier pagination measurement.
+    section.querySelectorAll(".page-context").forEach((context) => {
+      context.removeAttribute(CONTEXT_ROLE);
+    });
     const title = [section.dataset.part, section.dataset.drawing,
       section.dataset.revision ? "rev " + section.dataset.revision : "REV NOT CONFIRMED",
       section.dataset.title || section.dataset.sheet].filter(Boolean).join(" · ");
@@ -536,8 +542,11 @@ _DUPLEX_JS = r"""(() => {
         const context = node.parentElement.closest(".page-context");
         if (context) {
           if (!atomicContexts.has(context)) {
-            atomicContexts.set(context,
-              fits(sourceBottom(el, [context, context.childNodes.length])));
+            const atomic = fits(sourceBottom(el, [context, context.childNodes.length]));
+            atomicContexts.set(context, atomic);
+            // A non-fitting original title must advance as source, not disappear
+            // from the progress test merely because its identity can be repeated.
+            if (!atomic) context.setAttribute(CONTEXT_ROLE, "source");
           }
           if (atomicContexts.get(context)) continue;
         }
@@ -576,12 +585,13 @@ _DUPLEX_JS = r"""(() => {
       return range.cloneContents();
     }
     function originalText(contents) {
-      // Retained whole figures advance authored source even without any text;
-      // repeatable identity/context and recording marks never do so alone.
-      const copy = contents.cloneNode(true);
-      if (copy.matches?.(".page-context, .record-continuation, [" + ADDED + "]")) return false;
+      // Retained whole figures and over-page original context advance source;
+      // short repeatable identities and recording marks never do so alone.
+      const copy = contents.cloneNode(true),
+        identityOnly = '.page-context:not([' + CONTEXT_ROLE + '="source"])';
+      if (copy.matches?.(identityOnly + ", .record-continuation, [" + ADDED + "]")) return false;
       copy.querySelectorAll(".performed-mark, .writing-blank, .record-continuation, "
-        + ".op-number, .page-context, [" + ADDED + "]").forEach((node) => node.remove());
+        + ".op-number, " + identityOnly + ", [" + ADDED + "]").forEach((node) => node.remove());
       return !!copy.matches?.("figure") || !!copy.querySelector("figure")
         || /[\p{L}\p{N}]/u.test(copy.textContent);
     }
@@ -664,7 +674,7 @@ _DUPLEX_JS = r"""(() => {
     // Only original source is fragmented. Repeated context is admitted whole,
     // and the writing box stays with the final measured source caption line.
     function fragment(el, relax = true) {
-      if (el.hasAttribute(ADDED) || el.matches(".page-context, .record-continuation")) return null;
+      if (el.hasAttribute(ADDED) || el.matches(".record-continuation")) return null;
       const points = pointsIn(el);
       // A glyph Range is not the final line box or table row. Prove the cloned
       // prefix's real formatting footprint before accepting the split point.
