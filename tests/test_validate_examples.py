@@ -15,10 +15,13 @@ from test_deep_hole_speed import DEEP, drill_bundle
 from test_operative_surface import plan as surface_plan
 from test_process_features import set_process_key, set_tool_fact, shaft
 
+from prechips.findings import Finding
 from prechips.inputs import load_bundle
 from prechips.kernel import run_geometry
 from prechips.model import Inventory
 from prechips.rules import (
+    RULES,
+    Rule,
     coordinates,
     indexing,
     prepared_blank,
@@ -27,7 +30,7 @@ from prechips.rules import (
     tool_resolves,
     zero_recipe,
 )
-from prechips.rules.resolution import inch_sizes, resolve
+from prechips.rules.resolution import inch_sizes, resolve, setup_items
 from prechips.rules.resolution import uncertain as resolved_uncertain
 from prechips.rules.tip_endpoints import evaluate as endpoint_findings
 
@@ -59,7 +62,7 @@ def zero_case(part, setup_id):
     )
     kernel = VALIDATOR["independent_kernel"](folder / "plan.toml")
     own = VALIDATOR["zero_inputs"](plan, features, inventory, policy, kernel)
-    return setup, finding, VALIDATOR["entries_for"](inventory), own
+    return setup, finding, VALIDATOR["Entries"](inventory), own
 
 
 @pytest.mark.parametrize(
@@ -106,7 +109,7 @@ def test_rejects_cone_indexing_arithmetic_even_when_unverified(corruption):
     finding = next(
         f for f in report["findings"] if f["rule"] == "indexing" and f["subject"] == "S5"
     )
-    entries = VALIDATOR["entries_for"](inventory)
+    entries = VALIDATOR["Entries"](inventory)
     VALIDATOR["check_indexing"](setup, features, entries, finding)
     corrupted = copy.deepcopy(finding)
     row = corrupted["numbers"]
@@ -328,6 +331,27 @@ def test_stickout_cannot_call_a_lathe_hold_inapplicable(freecad_kernel):
         VALIDATOR["check_stickout"](setup, plan, features, inventory, policy, finding, kernel)
 
 
+def test_stickout_reads_a_machine_selected_by_its_category_as_that_machine(freecad_kernel):
+    """A setup selecting its machine as ``machines.<key>`` is on that machine, as on its
+    bare key: the engine's stick-out finding (a lathe's verdict, another machine's
+    inapplicable) is accepted with its own status, and no other status is."""
+    plan_path = ROOT / "examples" / "pivot-shaft" / "plan.toml"
+    bundle = load_bundle(plan_path)
+    assert run_geometry(bundle)["status"] == "ok"
+    kernel = VALIDATOR["independent_kernel"](plan_path)
+    for setup in bundle.plan["setups"]:
+        setup["machine"] = f"machines.{setup['machine']}"
+    native = {f.subject: json.loads(json.dumps(f.to_dict())) for f in stickout.evaluate(bundle)}
+    assert {row["status"] for row in native.values()} - {"not_applicable"}
+    for setup in bundle.plan["setups"]:
+        args = (setup, bundle.plan, bundle.features, bundle.inventory, bundle.policy)
+        finding = native[setup["id"]]
+        VALIDATOR["check_stickout"](*args, finding, kernel)
+        for forged in sorted({"pass", "unknown", "error", "not_applicable"} - {finding["status"]}):
+            with pytest.raises(ValueError):
+                VALIDATOR["check_stickout"](*args, {**finding, "status": forged}, kernel)
+
+
 @pytest.fixture(scope="module")
 def shaft_bundle(freecad_kernel):
     bundle = load_bundle(ROOT / "examples" / "pivot-shaft" / "plan.toml")
@@ -449,7 +473,7 @@ def test_endpoint_oracle_checks_member_facts_units_and_action_specific_depth(act
     row = findings["blind_depth", "h"]["numbers"]["endpoints"][0]
     expected_tip = {"tap": 5.0, "ream": -13.675, "drill": -13.5}[action]
     assert row["tip_z"] == pytest.approx(expected_tip)
-    entries = VALIDATOR["entries_for"](bundle.inventory)
+    entries = VALIDATOR["Entries"](bundle.inventory)
     VALIDATOR["check_endpoints"](bundle.plan, bundle.features, findings, entries)
     field = {"tap": "flute_len_mm", "ream": "lead_mm", "drill": "point_mm"}[action]
     row[field] += 1.0
@@ -485,7 +509,7 @@ def centre_findings(tmp_path, where=None, key=None, value=None):
         set_tool_fact(plan, key, value)
     bundle = load_bundle(plan)
     findings = {(f.rule, f.subject): f.to_dict() for f in endpoint_findings(bundle)}
-    entries = VALIDATOR["entries_for"](bundle.inventory)
+    entries = VALIDATOR["Entries"](bundle.inventory)
     finding = findings["blind_depth", "plain_end_centre"]
     (row,) = finding["numbers"]["endpoints"]
     return (
@@ -558,7 +582,7 @@ def test_centre_oracle_takes_the_touched_surface_from_the_plan_not_the_report(tm
 def test_endpoint_oracle_takes_a_blind_hole_entry_from_the_plan(corruption):
     data = drill_bundle(depth_mm=40.0)
     findings = {(f.rule, f.subject): f.to_dict() for f in endpoint_findings(data)}
-    entries = VALIDATOR["entries_for"](data.inventory)
+    entries = VALIDATOR["Entries"](data.inventory)
     VALIDATOR["check_endpoints"](data.plan, data.features, findings, entries)
     (row,) = findings["blind_depth", "hole"]["numbers"]["endpoints"]
     if corruption == "surface":
@@ -575,7 +599,7 @@ def test_endpoint_oracle_takes_a_blind_hole_entry_from_the_plan(corruption):
 def printed_endpoint(data):
     """The engine's one endpoint row for ``data``'s hole and a validator call on it."""
     findings = {(f.rule, f.subject): f.to_dict() for f in endpoint_findings(data)}
-    entries = VALIDATOR["entries_for"](data.inventory)
+    entries = VALIDATOR["Entries"](data.inventory)
     (row,) = findings["blind_depth", "hole"]["numbers"]["endpoints"]
 
     def check():
@@ -637,7 +661,7 @@ def test_endpoint_oracle_starts_a_hole_on_the_face_its_producer_cut_on_its_own_g
     inventory.write_text(coarse, encoding="utf-8")
     data = load_bundle(path)
     row, check = printed_endpoint(data)
-    entries = VALIDATOR["entries_for"](data.inventory)
+    entries = VALIDATOR["Entries"](data.inventory)
     consumer = next(setup for setup in data.plan["setups"] if setup["id"] == "S2")
     grid = VALIDATOR["dro_grid"](consumer, data.features, entries)
     # Forged: the entry rounded on S2's grid and the drill run from there with its depth
@@ -672,7 +696,7 @@ def speed_finding(data):
         (f.rule, f.subject): f.to_dict()
         for f in [*endpoint_findings(data), *speeds_feeds.evaluate(data)]
     }
-    entries = VALIDATOR["entries_for"](data.inventory)
+    entries = VALIDATOR["Entries"](data.inventory)
     depths = VALIDATOR["check_endpoints"](data.plan, data.features, findings, entries)
     setup = data.plan["setups"][0]
     finding = findings["speeds_feeds", "S1:10"]
@@ -854,10 +878,64 @@ def test_reference_oracle_reads_identity_verification_as_the_checker_does(path, 
     The engine's verdict is accepted, every other one rejected."""
     data = drill_bundle()
     set_key(path, value)(data.inventory)
+    check_reference_verdict(data, path[1] if len(path) > 1 else "drill", verdict)
+
+
+# A verification and its opposite: an unverified identity's is a verified one.
+OPPOSITE = {True: False, False: True, "unknown": False}
+
+
+@pytest.mark.parametrize("prefix", [False, True])
+@pytest.mark.parametrize("flag", [True, False, "unknown"])
+def test_reference_oracle_reads_an_accessory_as_the_machine_listing_it(flag, prefix):
+    """A machine accessory is as verified as the record of the machine listing it, under
+    whatever key: a slash-bearing key names that machine, not a member of an identity its
+    prefix names (here, one carrying the opposite verification)."""
+    data = drill_bundle()
+    machines = data.inventory["machines"]
+    machines["spare/mill"] = {"kind": "mill", "included": ["spare-vise"], "verify": flag}
+    if prefix:
+        machines["spare"] = {"kind": "mill", "verify": OPPOSITE[flag]}
+    data.plan["setups"][0].setdefault("hold", {})["fixture"] = "spare-vise"
+    check_reference_verdict(data, "spare-vise", "pass" if flag is False else "unknown")
+
+
+@pytest.mark.parametrize("qualified", [False, True])
+@pytest.mark.parametrize("slot", ["checks", "zero"])
+@pytest.mark.parametrize("flag", [True, False, "unknown"])
+def test_reference_oracle_reads_each_item_in_the_category_its_slot_selects(flag, slot, qualified):
+    """One key two categories list is two items: the fixture a hold selects, and the gauge
+    an inspection check or a zero pick-up selects (a spindle slot reads gauges after
+    tools), are each as verified as their own record, never the other's, under the
+    subject the checker gives each. A selection naming its category (``gauges.pins``) is
+    that item, as its bare key in its slot is."""
+    data = drill_bundle()
+    data.inventory["fixtures"] = {"pins": {"kind": "fixture", "verify": OPPOSITE[flag]}}
+    data.inventory["gauges"] = {"pins": {"kind": "pin_gauge", "verify": flag}}
+    fixture, gauge = ("fixtures.pins", "gauges.pins") if qualified else ("pins", "pins")
+    setup = data.plan["setups"][0]
+    setup["hold"] = {"fixture": fixture}
+    if slot == "checks":
+        setup["ops"][0]["checks"] = {"dia": gauge}
+    else:
+        setup["zero"] = {"x": {"tool": gauge}}
+    subjects = {
+        (row.numbers.get("category"), row.numbers.get("reference")): row.subject
+        for row in tool_resolves.evaluate(data)
+        if "named_in" not in row.numbers
+    }
+    for category, flagged in (("gauges", flag), ("fixtures", OPPOSITE[flag])):
+        verdict = "pass" if flagged is False else "unknown"
+        check_reference_verdict(data, subjects[category, "pins"], verdict)
+
+
+def check_reference_verdict(data, subject, verdict):
+    """The engine's ``tool_resolves`` finding on ``subject`` is ``verdict``: the validator
+    accepts it, and rejects it with any other status."""
     Inventory.model_validate(data.inventory)
     findings = {(f.rule, f.subject): f.to_dict() for f in tool_resolves.evaluate(data)}
-    entries = VALIDATOR["entries_for"](data.inventory)
-    key = "tool_resolves", path[1] if len(path) > 1 else "drill"
+    entries = VALIDATOR["Entries"](data.inventory)
+    key = "tool_resolves", subject
     assert findings[key]["status"] == verdict
     VALIDATOR["check_references"](data.plan, entries, findings)
     for forged in sorted({"pass", "unknown", "error"} - {verdict}):
@@ -867,6 +945,62 @@ def test_reference_oracle_reads_identity_verification_as_the_checker_does(path, 
             )
 
 
+QUALIFIED_SELECTIONS = {
+    # slot: (category, key, its record, where the plan selects it)
+    "machine": ("machines", "mill", {"kind": "mill"}, lambda setup: (setup, "machine")),
+    "tool": ("tools", "drill", {"kind": "drill"}, lambda setup: (setup["ops"][0], "tool")),
+    "fixture": (
+        "fixtures",
+        "pins",
+        {"kind": "fixture"},
+        lambda setup: (setup.setdefault("hold", {}), "fixture"),
+    ),
+    "gauge": (
+        "gauges",
+        "pins",
+        {"kind": "pin_gauge"},
+        lambda setup: (setup["ops"][0].setdefault("checks", {}), "dia"),
+    ),
+}
+
+
+@pytest.mark.parametrize("qualified", [False, True])
+@pytest.mark.parametrize("flag", [True, False, "unknown", "absent"])
+@pytest.mark.parametrize("slot", sorted(QUALIFIED_SELECTIONS))
+def test_reference_coverage_reads_a_selection_as_the_item_it_selects(slot, flag, qualified):
+    """A machine, tool, fixture or gauge the plan selects by its bare key or by
+    ``<category>.<key>`` is the one item the checker selects: its native finding is
+    accepted with its own verdict (an item not listed an error), and no other status is."""
+    data = drill_bundle()
+    category, key, item, place = QUALIFIED_SELECTIONS[slot]
+    data.inventory.setdefault(category, {}).setdefault(key, item)
+    if flag == "absent":
+        key = "unlisted"
+    else:
+        data.inventory[category][key]["verify"] = flag
+    target, field = place(data.plan["setups"][0])
+    target[field] = f"{category}.{key}" if qualified else key
+    Inventory.model_validate(data.inventory)
+    findings = {(f.rule, f.subject): f.to_dict() for f in tool_resolves.evaluate(data)}
+    items = {name: row for name, row in findings.items() if "category" in row["numbers"]}
+    (selected,) = (
+        row
+        for row in items.values()
+        if (row["numbers"]["category"], row["numbers"]["reference"]) == (category, key)
+        and "named_in" not in row["numbers"]
+    )
+    verdict = "error" if flag == "absent" else "pass" if flag is False else "unknown"
+    assert selected["status"] == verdict
+    entries = VALIDATOR["Entries"](data.inventory)
+    VALIDATOR["check_references"](data.plan, entries, findings)
+    for name, row in items.items():
+        for forged in sorted({"pass", "unknown", "error"} - {row["status"]}):
+            with pytest.raises(ValueError):
+                VALIDATOR["check_references"](
+                    data.plan, entries, {**findings, name: {**row, "status": forged}}
+                )
+
+
 PILOTS = [
     ROOT / "examples" / "pivot-shaft" / "plan.toml",
     ROOT / "examples" / "rocker-arm" / "plan.toml",
@@ -874,6 +1008,13 @@ PILOTS = [
     ROOT / "examples" / "cone-pivot-post" / "built-up.toml",
 ]
 CATEGORIES = ("machines", "tools", "holders", "fixtures", "gauges")
+# Every slot a reference is read in: any category, a slot kind (resolution.SLOT_CATEGORIES)
+# or one category.
+SLOTS = (None, "workholding", "spindle", "process", *CATEGORIES)
+# Collections an identity may leave "unknown" (resolution.inventory_record).
+COLLECTIONS = ("members", "nominal_dia_mm", "nominal_dia_cite", "holders", "sizes", "sizes_mm")
+COLLECTIONS += ("sizes_in", "styles", "ranges_in", "heights_in", "flutes")
+COLLECTIONS += ("standard_accessories", "included")
 # Members a drill index's declared coverage generates, or not, and a qctp set's holder slots.
 INDEX_MEMBERS = ("#1", "#60", "#61", "A", "Z", "1/16", "1/4", "33/64", "1/2", "17/32")
 QCTP_MEMBERS = ("1-turning-facing", "2-boring-turning-facing", "4-heavy-boring", "7-parting")
@@ -901,16 +1042,21 @@ def identities(root, item):
 @functools.cache
 def pilot_inventories():
     """``[(inventory, refs)]``: each inventory the pilots read, as authored, with every
-    identity its pilots select."""
+    identity its pilots' setups select (resolution.setup_items)."""
     plans = {}
     for path in PILOTS:
-        plan = tomllib.loads(path.read_text(encoding="utf-8"))
-        inventory = (path.parent / plan["paths"]["inventory"]).resolve()
-        plans.setdefault(inventory, []).append(plan)
+        bundle = load_bundle(path)
+        inventory = (path.parent / bundle.plan["paths"]["inventory"]).resolve()
+        plans.setdefault(inventory, []).append(bundle)
     return [
         (
             tomllib.loads(path.read_text(encoding="utf-8")),
-            set().union(*(VALIDATOR["selected_refs"](plan) for plan in selecting)),
+            {
+                ref
+                for bundle in selecting
+                for setup in bundle.plan["setups"]
+                for _, ref, _ in setup_items(bundle, setup)
+            },
         )
         for path, selecting in plans.items()
     ]
@@ -925,11 +1071,7 @@ def declared_debts(item):
         *((f"present={flag}", {"present": flag}) for flag in (True, False, "unknown")),
         ("coverage", {"coverage": "verify on site"}),
         *((f"solid verify={flag}", {"solids": solids(flag)}) for flag in (True, False, "unknown")),
-        *(
-            (f"{key}=unknown", {key: "unknown"})
-            for key in VALIDATOR["UNKNOWN_MAPS"] + VALIDATOR["UNKNOWN_LISTS"]
-            if key in item
-        ),
+        *((f"{key}=unknown", {key: "unknown"}) for key in COLLECTIONS if key in item),
     ]
     if not any(key.startswith("body_dia") for key in item):
         edits += [
@@ -949,65 +1091,90 @@ def declared_debts(item):
     return result
 
 
+def rekeyed(root, item):
+    """``[(label, {key: record})]``: ``item`` under the slash-bearing key ``root/owner``
+    with each verification, alone or beside an identity of its prefix key ``root``
+    carrying the opposite one."""
+    owner, result = f"{root}/owner", []
+    for flag in (True, False, "unknown"):
+        prefix = {key: item[key] for key in ("kind",) if key in item}
+        record = {**item, "verify": flag}
+        result += [
+            (f"as {owner} verify={flag}", {owner: record}),
+            (
+                f"as {owner} verify={flag} beside {root}",
+                {owner: record, root: {**prefix, "verify": OPPOSITE[flag]}},
+            ),
+        ]
+    return result
+
+
 def mutations(inventory):
-    """``(label, category, root or None, edited category)``: each category left unknown,
-    and each identity of it left unknown or carrying each of its :func:`declared_debts`."""
+    """``(label, category, keys, edited category)``: each category left unknown, and each
+    identity of it left unknown, carrying each of its :func:`declared_debts`, or re-keyed
+    (:func:`rekeyed`); ``keys`` are the identities the edit touches."""
     for category in CATEGORIES:
         items = inventory.get(category, {})
-        yield f"{category}=unknown", category, None, "unknown"
+        yield f"{category}=unknown", category, (), "unknown"
         for root, item in items.items():
-            edits = [("unknown", "unknown")]
-            edits += declared_debts(item) if isinstance(item, dict) else []
-            for label, edited in edits:
-                yield f"{root} {label}", category, root, {**items, root: edited}
+            edits = [("unknown", {root: "unknown"})]
+            if isinstance(item, dict):
+                edits += [(label, {root: edited}) for label, edited in declared_debts(item)]
+                edits += rekeyed(root, item)
+            rest = {key: value for key, value in items.items() if key != root}
+            for label, keyed in edits:
+                yield f"{root} {label}", category, (root, *keyed), {**rest, **keyed}
 
 
 def verdicts(inventory, loaded, refs):
-    """``{ref: (validator, checker)}`` identity verdicts: error (does not resolve), unknown
-    (resolves unverified) or pass. The validator reads the ``inventory`` as authored; the
-    checker as it is ``loaded``."""
-    entries = VALIDATOR["entries_for"](inventory)
+    """``{(ref, slot): (validator, checker)}`` identity verdicts in every slot
+    (:data:`SLOTS`): error (does not resolve), unknown (resolves unverified) or pass. The
+    validator reads the ``inventory`` as authored; the checker as it is ``loaded``."""
+    entries = VALIDATOR["Entries"](inventory)
 
-    def validator(ref):
-        if not VALIDATOR["resolves"](ref, entries):
+    def validator(ref, slot):
+        if not entries.resolves(ref, slot):
             return "error"
-        return "unknown" if VALIDATOR["uncertain"](ref, entries) else "pass"
+        return "unknown" if entries.uncertain(ref, slot) else "pass"
 
-    def checker(ref):
-        item = resolve(loaded, None, ref)
+    def checker(ref, slot):
+        item = resolve(loaded, slot, ref)
         return "error" if item is None else "unknown" if resolved_uncertain(item) else "pass"
 
-    return {ref: (validator(ref), checker(ref)) for ref in refs}
+    pairs = [(ref, slot) for ref in refs for slot in SLOTS]
+    return {pair: (validator(*pair), checker(*pair)) for pair in pairs}
 
 
 def test_identity_oracle_resolves_and_verifies_every_identity_as_the_checker_does():
     """Differential: each identity of the pilots' inventory (selected, declared, member,
-    accessory, generated or undeclared) resolves through the validator's own reading to
-    the checker's verdict, as authored and with each category or identity left unknown or
-    carrying each declared, cleared or unknown verification, presence, coverage, fact,
-    listed solid, collection and member."""
+    accessory, generated, category-qualified or undeclared) resolves through the validator,
+    in every slot, to the checker's verdict on the inventory as the checker loads it: as
+    authored, and with each category or identity left unknown, re-keyed under a
+    slash-bearing name (beside its prefix's identity or not) or carrying each declared,
+    cleared or unknown verification, presence, coverage, fact, listed solid, collection and
+    member."""
     compared, disagreements = 0, []
     for inventory, selected in pilot_inventories():
         base = Inventory.model_validate(inventory).model_dump(exclude_unset=True)
         everything = {
-            root: identities(root, item)
+            root: identities(root, item) | {f"{category}.{root}"}
             for category in CATEGORIES
             for root, item in inventory[category].items()
         }
-        for label, category, root, edited in [(None, None, None, None), *mutations(inventory)]:
-            if root is None:
-                # The authored inventory, or a whole category left unknown: every identity.
-                scope = selected.union(*everything.values(), {"undeclared", "undeclared/x"})
-                edit = {} if category is None else {category: edited}
-            else:
-                scope = everything[root] | identities(root, edited[root])
-                edit = {category: edited}
+        for label, category, keys, edited in [("authored", None, (), None), *mutations(inventory)]:
+            edit = {} if category is None else {category: edited}
+            # The identities an edit touches, else (the authored inventory, or a whole
+            # category left unknown) every identity.
+            scope = set().union(
+                *(everything.get(key, set()) | identities(key, edited.get(key)) for key in keys)
+            )
+            scope = scope or selected.union(*everything.values(), {"undeclared", "undeclared/x"})
             loaded = {**base, **Inventory.model_validate(edit).model_dump(exclude_unset=True)}
             found = verdicts({**inventory, **edit}, loaded, scope)
             compared += len(found)
             disagreements += [
-                (label, ref, ours, theirs)
-                for ref, (ours, theirs) in sorted(found.items())
+                (label, ref, slot, ours, theirs)
+                for (ref, slot), (ours, theirs) in sorted(found.items(), key=str)
                 if ours != theirs
             ]
     assert compared > 10_000
@@ -1027,7 +1194,7 @@ def saw_finding(data):
             setup,
             setup["ops"][0],
             finding,
-            VALIDATOR["entries_for"](data.inventory),
+            VALIDATOR["Entries"](data.inventory),
             data.cutting_data,
             data.feature_definitions,
             {},
@@ -1120,7 +1287,7 @@ def test_endpoint_verdict_is_the_one_its_ops_tools_and_depth_guard_decide(hole, 
     if hole == "over_guard":
         data.features["features"]["hole"]["depth"] = 10.0
     findings = {(f.rule, f.subject): f.to_dict() for f in endpoint_findings(data)}
-    entries = VALIDATOR["entries_for"](data.inventory)
+    entries = VALIDATOR["Entries"](data.inventory)
     finding = findings["blind_depth", "hole"]
     native = {"through": "pass", "over_guard": "error", "no_guard": "unknown"}[hole]
     assert finding["status"] == native
@@ -1170,7 +1337,7 @@ def test_indexing_verdict_is_the_one_its_head_and_tolerance_decide(tolerance, ve
     )
     (finding,) = (f.to_dict() for f in indexing.evaluate(bundle) if f.subject == "S5")
     assert finding["status"] == native
-    entries = VALIDATOR["entries_for"](inventory)
+    entries = VALIDATOR["Entries"](inventory)
     VALIDATOR["check_indexing"](setup, features, entries, finding)
     for forged in sorted({"pass", "unknown", "error"} - {native}):
         finding["status"] = forged
@@ -1348,7 +1515,55 @@ ZERO_INVENTORY_EDITS = [
     ("pivot-bracket", "S2", [((*FINDER, "tip_in"), None), ((*FINDER, "tip_mm"), 5.08)], "pass"),
     # A machine the inventory lists as absent is no lathe.
     ("pivot-shaft", "S1", [(("machines", "PM-1127VF-LB", "present"), False)], "unknown"),
+    # An edge finder's procedure is the checker's: a band it does not state leaves the
+    # zero unknown, and one no spindle band turns is the error to stop on.
+    ("pivot-bracket", "S2", [((*FINDER, "rpm_range"), None)], "unknown"),
+    ("pivot-bracket", "S2", [((*FINDER, "rpm_range"), [5000, 6000])], "error"),
 ]
+
+
+def forged(value):
+    """A value other than ``value`` of its own shape."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return [] if isinstance(value, list) else {} if isinstance(value, dict) else "forged"
+    return value + 1
+
+
+@pytest.mark.parametrize(
+    ("part", "setup_id", "path"),
+    [
+        # An edge finder's procedure box: its tip, the band it runs at, its verdict.
+        ("pivot-bracket", "S2", ("axes", "x", "finder", "tip_dia_mm")),
+        ("pivot-bracket", "S2", ("axes", "y", "finder", "rpm")),
+        ("pivot-bracket", "S2", ("axes", "x", "finder", "status")),
+        ("pivot-bracket", "S2", ("axes", "y", "finder")),
+        # A lathe X touch: whether the diameter it measures stands, and its Axis Set.
+        ("pivot-shaft", "S2", ("tool_touches", 0, "x_face_status")),
+        ("pivot-shaft", "S2", ("tool_touches", 0, "x_axis_set")),
+        ("pivot-shaft", "S1", ("tool_touches", 0, "x_face_status")),
+    ],
+)
+def test_zero_rows_only_the_checker_derives_are_its_own_on_the_validators_inputs(
+    freecad_kernel, part, setup_id, path
+):
+    """A zero row the checker derives (an edge finder's procedure, a lathe touch's
+    measured diameter and Axis Set) is accepted as the checker derives it on the
+    validator's own inputs, and rejected moved or dropped: no report value stands in."""
+    setup, _, entries, own = zero_case(part, setup_id)
+    native = native_zero(part, setup_id)
+    VALIDATOR["check_zero"](setup, copy.deepcopy(native), entries, own)
+    *parents, key = path
+    for change in ("forge", "drop"):
+        finding = copy.deepcopy(native)
+        table = finding["numbers"]
+        for parent in parents:
+            table = table[parent]
+        if change == "forge":
+            table[key] = forged(table[key])
+        else:
+            del table[key]
+        with pytest.raises(ValueError):
+            VALIDATOR["check_zero"](setup, finding, entries, own)
 
 
 @pytest.mark.parametrize(("part", "setup_id", "edits", "verdict"), ZERO_INVENTORY_EDITS)
@@ -1361,7 +1576,7 @@ def test_zero_readiness_radius_and_lathe_come_from_the_inventory(
     edit = inventory_edits(*edits)
     before = native_zero(part, setup_id)
     edit(own.inventory)
-    entries = VALIDATOR["entries_for"](own.inventory)
+    entries = VALIDATOR["Entries"](own.inventory)
     native = native_zero(part, setup_id, inventory_edit=edit)
     assert native["status"] == verdict
     VALIDATOR["check_zero"](setup, copy.deepcopy(native), entries, own)
@@ -1374,9 +1589,17 @@ def test_zero_readiness_radius_and_lathe_come_from_the_inventory(
 
 
 def coverage_case():
-    """The built-up cone's plan, manifest and report findings keyed by rule and subject."""
-    plan, features, _, _, report = cone_inputs()
-    return plan, features, {(row["rule"], row["subject"]): row for row in report["findings"]}
+    """The built-up cone's plan, manifest and report findings keyed by rule and subject,
+    and the validator's coverage check on its own inventory read and bundle load."""
+    plan, features, inventory, _, report = cone_inputs()
+    entries = VALIDATOR["Entries"](inventory)
+    checked = VALIDATOR["checker_findings"](ROOT / "examples" / "cone-pivot-post" / "built-up.toml")
+
+    def check(policy, plan, features, findings):
+        VALIDATOR["check_required_coverage"](policy, plan, features, findings, entries, checked)
+
+    findings = {(row["rule"], row["subject"]): row for row in report["findings"]}
+    return plan, features, findings, check
 
 
 def coverage_row(rule, subject, selector, status="unknown"):
@@ -1392,10 +1615,9 @@ def coverage_row(rule, subject, selector, status="unknown"):
     ],
 )
 def test_required_coverage_comes_from_the_policy_not_the_report(rule, selector, subject):
-    plan, features, findings = coverage_case()
+    plan, features, findings, check = coverage_case()
     policy = {"required": {rule: selector}}
     key = (rule, subject)
-    check = VALIDATOR["check_required_coverage"]
     # A required subject no supported check covers has the checker's unknown coverage row.
     check(policy, plan, features, {**findings, key: coverage_row(rule, subject, selector)})
     # It cannot be dropped, approved or waived: no supported check exists to decide it.
@@ -1415,7 +1637,7 @@ def test_required_coverage_comes_from_the_policy_not_the_report(rule, selector, 
 
 
 def test_required_coverage_row_carries_the_policys_selector():
-    plan, features, findings = coverage_case()
+    plan, features, findings, check = coverage_case()
     # An empty selection's coverage row is required by the policy's selection of its
     # rule, never by the selector the report prints on it.
     policy = {"required": {"vise": []}}
@@ -1427,7 +1649,72 @@ def test_required_coverage_row_carries_the_policys_selector():
     key = ("not_implemented_check", "*")
     with pytest.raises(ValueError):
         row = coverage_row(*key, "forged")
-        VALIDATOR["check_required_coverage"](policy, plan, features, {**findings, key: row})
+        check(policy, plan, features, {**findings, key: row})
+
+
+def test_rules_only_the_checker_models_are_its_own_rows_on_the_validators_inputs(
+    freecad_kernel, tmp_path, monkeypatch
+):
+    """A rule of the checker's catalogue the validator does not model (consistency,
+    purchased_tooling, or one the checker adds later) is the rows its own rule gives on the
+    validator's own bundle load and kernel run: each is required with that rule's verdict
+    and evidence. A row dropped or fabricated, an unknown reported passed or waived, a
+    verdict moved either way, or one standing on other evidence is rejected. Here the shop
+    requires purchased tooling and the edge finder's receipt checks are unknown."""
+    examples = copy_examples(tmp_path)
+    for name, table, line in (
+        ("inventory/pedro-shop.toml", "[tools.edge-finder]\n", 'acceptance = "unknown"\n'),
+        ("shop-policy.toml", "[required]\n", 'purchased_tooling = "*"\n'),
+    ):
+        path = examples / name
+        text = path.read_text(encoding="utf-8")
+        assert table in text
+        path.write_text(text.replace(table, table + line, 1), encoding="utf-8")
+    plan_path = examples / "pivot-bracket" / "plan.toml"
+    bundle = load_bundle(plan_path)
+    assert run_geometry(bundle)["status"] == "ok"
+
+    def later(data):
+        return [
+            Finding("later_rule", s["id"], "unknown", {"setup": s["id"]}, [], "")
+            for s in data.plan["setups"]
+        ]
+
+    rule_subjects = VALIDATOR["rule_subjects"]
+    rules = [*RULES, Rule("later_rule", later)]
+    monkeypatch.setitem(rule_subjects.__globals__, "CHECKER_RULES", rules)
+    entries = VALIDATOR["Entries"](bundle.inventory)
+    checked = VALIDATOR["checker_findings"](plan_path)
+    domains = rule_subjects(bundle.plan, bundle.features, entries, checked)
+    assert set(domains["later_rule"]) == {setup["id"] for setup in bundle.plan["setups"]}
+    native = {
+        (f.rule, f.subject): json.loads(json.dumps(f.to_dict()))
+        for rule in rules
+        for f in rule.evaluate(bundle)
+    }
+    findings = {
+        (rule, subject): native.get((rule, subject), {"status": "pass", "numbers": {}})
+        for rule, subjects in domains.items()
+        for subject in subjects
+    }
+    receipts = {row["status"] for key, row in findings.items() if key[0] == "purchased_tooling"}
+    assert "unknown" in receipts
+    check = VALIDATOR["check_required_coverage"]
+
+    def rejected(changed):
+        with pytest.raises(ValueError):
+            check(bundle.policy, bundle.plan, bundle.features, changed, entries, checked)
+
+    check(bundle.policy, bundle.plan, bundle.features, findings, entries, checked)
+    for rule in ("later_rule", "consistency", "purchased_tooling"):
+        rejected({key: row for key, row in findings.items() if key[0] != rule})
+        rejected({**findings, (rule, "S99"): {"status": "pass", "numbers": {}}})
+        for key, row in findings.items():
+            if key[0] != rule:
+                continue
+            for status in sorted({"pass", "unknown", "error", "not_applicable"} - {row["status"]}):
+                rejected({**findings, key: {**row, "status": status}})
+            rejected({**findings, key: {**row, "numbers": {**row["numbers"], "forged": True}}})
 
 
 def cone_coordinates(tmp_path, setup_id, aim=None, measured=False):
@@ -1447,7 +1734,7 @@ def cone_coordinates(tmp_path, setup_id, aim=None, measured=False):
         assert run_geometry(bundle)["status"] == "ok"
     setup = next(setup for setup in bundle.plan["setups"] if setup["id"] == setup_id)
     finding = next(f for f in coordinates.evaluate(bundle) if f.subject == setup_id).to_dict()
-    entries = VALIDATOR["entries_for"](bundle.inventory)
+    entries = VALIDATOR["Entries"](bundle.inventory)
     kernel = VALIDATOR["independent_kernel"](plan_path)
 
     def check(plan=bundle.plan):
@@ -1638,7 +1925,7 @@ def test_coordinate_oracle_ends_a_kernel_span_where_its_own_kernel_run_measures_
     row["setup"][2] -= 5.0
     row["model"] = VALIDATOR["model_point"](row["setup"], frame)
     if "dro" in row:
-        entries = VALIDATOR["entries_for"](bundle.inventory)
+        entries = VALIDATOR["Entries"](bundle.inventory)
         grid = VALIDATOR["dro_grid"](setup, bundle.features, entries)
         row["dro"] = [VALIDATOR["dro_target"](value, grid) for value in row["setup"]]
         row["dro_xy"] = row["dro"][:2]
@@ -1745,7 +2032,7 @@ def test_prepared_blank_approval_comes_from_its_gauges_and_kernel_cut(rocker_bla
 @pytest.mark.parametrize("case", [None, "missing_gauge"])
 def test_prepared_blank_reports_the_gauges_it_cannot_resolve(rocker_blank, case):
     bundle, native, check = blank_case(rocker_blank, case)
-    entries = VALIDATOR["entries_for"](bundle.inventory)
+    entries = VALIDATOR["Entries"](bundle.inventory)
     # No setup names them, so no tool_resolves finding reads them.
     stock_only = {"stock": bundle.plan["stock"], "setups": []}
     assert VALIDATOR["check_references"](stock_only, entries, {}) == []
