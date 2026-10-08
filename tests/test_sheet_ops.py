@@ -234,6 +234,58 @@ def test_the_holding_nearest_the_cut_is_a_clearance_row_and_a_hand_feed_check_on
     assert "jaw" in obstacle and "hand feed past the LOC2 collar (1.570 mm)" in action
 
 
+def met(sheet, *tags):
+    """``sheet`` whose kernel swept op 60's moves off the cut into each of ``tags``."""
+    errors = [{"move": "the move at Z 5", "obstacle": tag, "volume_mm3": 8.0} for tag in tags]
+    facts = {"return_moves": 3, "return_errors": errors}
+    sheet.bundle.kernel = {"status": "ok", "ops": {"S1:60": facts}}
+    return sheet
+
+
+def test_a_move_back_between_levels_nearest_the_holding_is_named_as_that_move():
+    # Rocker S4C op 27: its move back between levels at Z5, not its cut, came nearest the
+    # holding; the row and the op's box name that move.
+    sheet, setup = near_holding(1.2)
+    sheet.report["renders"]["S1"]["scene"]["cut_clearances"][0]["move"] = "return"
+    record = {"op": 60, "raise_z": 5.0}
+    sheet.records[("coordinates", "S1")]["level_paths"] = [record]
+    ((_, _, obstacle, value, action),) = sheet.clearance_rows(setup, headroom(40.0), {})
+    assert (obstacle, value) == ("LOC2 collar beside the return at Z 5.000", "1.200")
+    assert action == "hand feed past the LOC2 collar; check the cutter clears it"
+    (box,) = sheet.crash_boxes(setup, setup["ops"][0])
+    assert box == "LOC2 COLLAR 1.200 mm FROM THE RETURN AT Z 5.000 — hand feed past it"
+    # The kernel proved that move meets the collar: no hand feed gets it past.
+    sheet.report["renders"]["S1"]["scene"]["cut_clearances"][0]["mm"] = 0.0
+    met(sheet, "clamp 2 diamond-pin:collar")
+    ((_, _, obstacle, value, action),) = sheet.clearance_rows(setup, headroom(40.0), {})
+    assert value == "0.000"
+    assert action == "STOP: a move off the cut meets the LOC2 collar; do not run"
+    (box,) = sheet.crash_boxes(setup, setup["ops"][0])
+    assert box == "LOC2 COLLAR 0.000 mm FROM THE RETURN AT Z 5.000 — STOP"
+
+
+@pytest.mark.parametrize(
+    ("mm", "expected"),
+    [
+        # The cut touches the collar too: the tie names the cut, still never hand-fed.
+        (0.0, "LOC2 COLLAR 0.000 mm FROM THE CUT — STOP"),
+        # No clearance measured at all: the hit alone stops the op.
+        ("unknown", "STOP: A MOVE OFF THE CUT MEETS THE LOC2 COLLAR"),
+    ],
+    ids=["tied-with-the-cut", "clearance-unknown"],
+)
+def test_a_move_off_the_cut_proven_to_meet_the_holding_stops_the_op_whatever_the_row_names(
+    mm, expected
+):
+    # Rocker S4C op 27 at a tie: a move off the cut the kernel proved meets the collar.
+    sheet, setup = near_holding(mm)
+    met(sheet, "clamp 2 diamond-pin:collar")
+    (box,) = sheet.crash_boxes(setup, setup["ops"][0])
+    assert box == expected
+    ((_, _, _, _, action),) = sheet.clearance_rows(setup, headroom(40.0), {})
+    assert "STOP: a move off the cut meets the LOC2 collar; do not run" in action, action
+
+
 def test_a_file_near_the_holding_is_a_clearance_row_and_a_check_on_its_own_op():
     # Filing the last of the profile brings the work 2.817 from the locator: the picture's
     # dimension, so a row of the table and a box on the file's op, never a machine op's.
@@ -373,6 +425,10 @@ def test_a_raster_block_says_how_to_lift_not_what_its_table_already_shows():
         assert narration not in block, (narration, block)
     # The passes are numbered: the table is where their count and ends are read.
     assert re.search(r"<td[^>]*>1</td>.*<td[^>]*>2</td>", html)
+    # From a pass's end to the next's start is the route the kernel sweeps (rule A″):
+    # straight across at the lift Z, so the sheet says so, never a route left to choose.
+    (lead,) = re.findall(r'<p class="lead-in">([^<]*)</p>', html)
+    assert "lift to the op's lift Z, rapid straight back to the next" in unescape(lead), lead
 
 
 def kernel_stock(box_mm, status="ok"):
@@ -1040,6 +1096,39 @@ def test_a_setup_with_any_cutting_op_keeps_the_machining_table():
     html = _bench_sheet([paint, {"op": 20, "do": "drill", "feature": "body"}])
     assert "<h2>OPERATIONS</h2>" in html and "FINISHING" not in html
     assert "rpm" in re.findall(r"<th>([^<]*)</th>", html)
+
+
+@pytest.mark.parametrize(
+    ("facts", "said"),
+    [
+        # The top of the stock and every holding solid, up onto the DRO grid: never under it.
+        ({"safe_z_mm": 20.0004}, "with the tool tip at or above Z 20.001, over the stock"),
+        # A holding component undrawn: no height is claimed safe between ops.
+        ({"safe_z_reason": "undrawn fixture components (clamp 1)"}, None),
+    ],
+    ids=["known", "unknown"],
+)
+def test_the_operations_heading_states_the_safe_z_the_kernel_proved_moves_between_ops_at(
+    facts, said
+):
+    # Rule A″: the kernel sweeps every mill op's tool from its first and last point up to
+    # this Z, so the only route between ops it proves clear is one at or above it.
+    from prechips.inputs import Bundle
+
+    data = Bundle(
+        plan={"setups": [{"id": "S1", "machine": "mill", "ops": [{"op": 10, "do": "drill"}]}]},
+        inventory={"machines": {"mill": {"kind": "mill"}}},
+        features={"units": "mm", "features": {}},
+        policy={},
+        cutting_data={},
+        paths={},
+        hashes={},
+        root=Path("."),
+        kernel={"status": "ok", "ops": {}, "setups": {"S1": facts}},
+    )
+    html, _, _, _ = _Traveler(data, [], {}, None).operations(data.plan["setups"][0], {}, {})
+    heading = unescape(re.search(r"<h2>(.*?)</h2>", html).group(1))
+    assert (said in heading) if said else ("tool tip at or above" not in heading), heading
 
 
 def _lathe_sheet(ops, hands):

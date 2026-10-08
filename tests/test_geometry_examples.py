@@ -25,14 +25,19 @@ GEOMETRY_RULES = {
     "fixture_interference",
 }
 # (bundle, plan, target setup, exit, rules that error on the target/part).
-# The prescribed sharp-corner wall poses also collide with the adjacent wall.
+# The prescribed sharp-corner wall poses also collide with the adjacent wall. The
+# long-reach pocket, which prints no route, cannot be proven clear of the holding on its
+# way to and from the safe Z between ops (rule A″), so it is unknown, never a pass.
 CASES = [
     ("rocker-jaw-occluded", "plan.toml", "S3", 2, {"accessibility"}),
     ("pocket-reach", "plan.toml", "S2", 2, {"reach", "accessibility"}),
-    ("pocket-reach", "long-reach.toml", "S2", 0, set()),
+    ("pocket-reach", "long-reach.toml", "S2", 4, set()),
     ("sharp-corner", "plan.toml", "S2", 2, {"internal_corner_radius", "accessibility"}),
     ("unclaimed-face", "plan.toml", "S2", 2, {"coverage"}),
 ]
+# The only debt an op whose plan prints no route carries: where it leaves and regains the
+# safe Z between ops is not stated, so those moves are unknown (rule A″).
+UNROUTED = "moves off the cut unproven clear of the holding: the kernel is told no move"
 
 
 def run_fixture(examples, name, plan_filename, out):
@@ -117,16 +122,20 @@ def test_every_holding_kind_is_modeled_and_its_strap_or_centre_occludes_the_top(
         "S5": ("modeled", "chuck_4jaw", []),
         "S6": ("modeled", "chuck_3jaw", []),
     }
-    access = {sid: finding(report, "accessibility", f"{sid}:10")["status"] for sid in kinds}
+    access = {sid: finding(report, "accessibility", f"{sid}:10") for sid in kinds}
     # Strap over the top face (S2, S3) and the head's dead centre on it (S4) occlude it.
-    assert access == {
-        "S1": "pass",
+    # The others clear the face; only their unrouted moves to and from the safe Z are unknown.
+    assert {sid: row["status"] for sid, row in access.items()} == {
+        "S1": "unknown",
         "S2": "error",
         "S3": "error",
         "S4": "error",
-        "S5": "pass",
-        "S6": "pass",
+        "S5": "unknown",
+        "S6": "unknown",
     }
+    for sid in ("S1", "S5", "S6"):
+        assert access[sid]["numbers"]["tool_hits"] == access[sid]["numbers"]["holder_hits"] == 0
+        assert UNROUTED in access[sid]["message"]
     # Every drawn solid only touches the puck and the other solids.
     assert {finding(report, "fixture_interference", sid)["status"] for sid in kinds} == {"pass"}
 
@@ -174,6 +183,8 @@ def test_fixture_errors_on_its_named_target_rules_only(
     assert {row["rule"] for row in target_errors} == rules
     assert all(
         row["status"] in {"pass", "not_applicable"}
+        or (row["rule"], row["status"]) == ("accessibility", "unknown")
+        and UNROUTED in row["message"]
         for row in report["findings"]
         if row["rule"] in GEOMETRY_RULES - rules
         and (
@@ -266,7 +277,7 @@ def test_declared_pose_is_what_completes_the_scene(tmp_path, freecad_kernel):
         encoding="utf-8",
     )
     result, vague, _ = traveler(bundle / "no-pose.toml", tmp_path / "vague")
-    assert result.returncode == exact["expected_exit"] == 0
+    assert result.returncode == exact["expected_exit"] == 4
     scene = vague["renders"]["S2"]["scene"]
     assert scene["jaws"] == "lateral_undeclared"
     assert scene["parallels"] == "not_modelled"

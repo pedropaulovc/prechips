@@ -283,7 +283,7 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
         table = table_checkpoints(subject, tables, op["op"], units)
         if table is not None:
             result["checkpoints"] = table
-        sweep = tool_paths(op, tables, units)
+        sweep = tool_paths(op, tables, units, subject)
         if sweep is not None:
             result["tool_paths"] = sweep
     if not turned and "keep_out" in record(op.get("contour")):
@@ -367,7 +367,7 @@ def face_sweep(op, tables, units):
     return {"sweep": {"paths": paths, "to_z_mm": to_z * scale}}
 
 
-def tool_paths(op, tables, units):
+def tool_paths(op, tables, units, subject):
     """Every cutter-centre move a milled op's coordinates tables command, in setup-frame mm,
     for the kernel's sweep of the tool and its holder against the holding:
     ``{"paths": [{"xy_mm", "z_mm": [low, high]}], "levels_mm": [low, high], "entry_z_mm"}``,
@@ -375,15 +375,25 @@ def tool_paths(op, tables, units):
 
     A printed pass or outline (a list ``cutter_centre``) is cut at every one of the op's
     Z levels (``z_levels.levels``, else its ``dro_to_z``), and its cutter stands at each end
-    from the lowest level up to where it enters and leaves: the op's start Z (its level
-    plan's ``dro_start_z``, else its profile's ``entry_z`` on the DRO grid; never its own
-    depth, which would leave the plunge and the holder above it out), and a raster's lift
-    Z. A raster is one way: its cutter rapids at the lift Z from each pass's end to the
-    next pass's start, and from the last back to the first when another level follows. An
-    arc table's rows (dict ``cutter_centre`` rows, ``tables``) reach the kernel as the op's
-    ``checkpoints``, clipped there for a bounded op; ``levels_mm`` and ``entry_z_mm`` stand
-    them the same way. ``{"reason": ...}`` when a pass, level, start or lift is unknown;
-    None when the op prints no cutter-centre path.
+    from the lowest level up to where it enters: the op's start Z (its level plan's
+    ``dro_start_z``, else its profile's ``entry_z`` on the DRO grid; never its own depth,
+    which would leave the plunge and the holder above it out). An arc table's rows (dict
+    ``cutter_centre`` rows, ``tables``) reach the kernel as the op's ``checkpoints``,
+    clipped there for a bounded op; ``levels_mm`` and ``entry_z_mm`` stand them the same
+    way.
+
+    Every op also gives ``returns``, how the traveler prints it moving off the cut (the
+    kernel's rule A″ sweep): ``again`` (another level follows, so the last piece returns to
+    the first), ``join_mm`` (half the DRO step: piece ends nearer than that join, as the
+    traveler joins them), ``route``, its pieces in the order the traveler prints them,
+    each an outline or raster pass's ``xy_mm`` or a printed table's first row id
+    (``table``), which the kernel resolves to that table's checkpoint paths as clipped (its
+    first and last point are where the op starts and ends, at the setup's safe Z), and,
+    for an op that returns to an entry (its coordinates ``level_paths`` record, op
+    ``subject``'s, carries a ``raise_z``: an open path of several levels, several pieces,
+    a raster), ``raise_z_mm``. ``{"reason": ...}`` when a pass, level or start is unknown,
+    its ``returns`` the same reason (a ``returns`` reason alone when only its raise Z or
+    DRO step is); None when the op prints no cutter-centre path.
     """
     name = op.get("op")
     profiles = [
@@ -393,9 +403,21 @@ def tool_paths(op, tables, units):
     ]
     if not profiles:
         return None
+    level = next(
+        (
+            record(path)
+            for path in record(tables).get("level_paths") or []
+            if str(record(path).get("op")) == str(name)
+        ),
+        {},
+    )
+
+    def unknown(why):
+        return {"reason": why, "returns": {"reason": why}}
+
     scale = {"mm": 1.0, "in": 25.4}.get(units)
     if scale is None:
-        return {"reason": f"feature units {units!r} are not mm or in"}
+        return unknown(f"feature units {units!r} are not mm or in")
     operation = next(
         (
             record(entry)
@@ -407,6 +429,7 @@ def tool_paths(op, tables, units):
     levels = record(operation.get("z_levels"))
     tips = levels.get("levels") or [operation.get("dro_to_z", UNKNOWN)]
     known = isinstance(tips, list) and all(map(number, tips))
+    grid = record(record(tables).get("dro_grid"))
     if levels:
         starts = [levels.get("dro_start_z", UNKNOWN)]
     else:
@@ -415,7 +438,6 @@ def tool_paths(op, tables, units):
         # traveler prints it (:func:`prechips.rules.level_entry.level_paths`).
         from prechips.rules.coordinates import dro_z
 
-        grid = record(record(tables).get("dro_grid"))
         step, places = grid.get("step"), grid.get("decimals")
         on_grid = number(step) and step > 0 and isinstance(places, int)
         starts = [
@@ -423,7 +445,7 @@ def tool_paths(op, tables, units):
             for profile in profiles
         ]
     if not (known and all(map(number, starts))):
-        return {"reason": f"op {name} Z levels or start Z are unknown"}
+        return unknown(f"op {name} Z levels or start Z are unknown")
     low, high = min(tips) * scale, max(tips) * scale
     entry = max(max(starts) * scale, high)
     paths, printed_tables = [], False
@@ -437,7 +459,7 @@ def tool_paths(op, tables, units):
             None,
         )
         if why is not None:
-            return {"reason": f"op {name} cutter-centre paths are unknown: {why}"}
+            return unknown(f"op {name} cutter-centre paths are unknown: {why}")
         centre = profile.get("cutter_centre")
         if isinstance(centre, list) and centre and all(isinstance(row, dict) for row in centre):
             printed_tables = True
@@ -449,28 +471,45 @@ def tool_paths(op, tables, units):
             and centre
             and all(isinstance(path, list) and path and all(map(_xy, path)) for path in centre)
         ):
-            return {"reason": f"op {name} cutter-centre paths are unknown"}
-        passes = [[[v * scale for v in point] for point in path] for path in centre]
-        top = entry
-        raster = profile.get("raster")
-        if isinstance(raster, dict):
-            lift = raster.get("lift_z")
-            if not number(lift):
-                return {"reason": f"op {name} raster lift Z is unknown"}
-            lift *= scale
-            top = max(top, lift)
-            again = len(tips) > 1
-            for k, path in enumerate(passes):
-                if k + 1 < len(passes) or again:
-                    rapid = [path[-1], passes[(k + 1) % len(passes)][0]]
-                    paths.append({"xy_mm": rapid, "z_mm": [lift, lift]})
-        for path in passes:
+            return unknown(f"op {name} cutter-centre paths are unknown")
+        for path in centre:
+            path = [[v * scale for v in point] for point in path]
             paths.append({"xy_mm": path, "z_mm": [low, high]})
             for end in dict.fromkeys(map(tuple, (path[0], path[-1]))):
-                paths.append({"xy_mm": [list(end)], "z_mm": [low, top]})
+                paths.append({"xy_mm": [list(end)], "z_mm": [low, entry]})
     result = {"paths": paths, "levels_mm": [low, high], "entry_z_mm": entry}
     if printed_tables:
         result["tables"] = True
+    result["returns"] = _returns(subject, name, tables, level, scale, len(tips) > 1)
+    return result
+
+
+def _returns(subject, name, tables, level, scale, again):
+    """:func:`tool_paths`'s ``returns`` for op ``name`` (op ``subject``), raising to its
+    ``level_paths`` record ``level``'s ``raise_z`` (plan units) when it carries one: its
+    pieces as :func:`prechips.rules.level_entry.path_pieces` orders them for the traveler,
+    a raster pass marked ``raster`` (each is an entry)."""
+    from prechips.rules.coordinates import row_id
+    from prechips.rules.level_entry import path_pieces
+
+    step = record(record(tables).get("dro_grid")).get("step")
+    raised = level.get("raise_z")
+    if "raise_z" in level and not number(raised):
+        return {"reason": f"op {name} raise Z between levels is unknown"}
+    if not (number(step) and step > 0):
+        return {"reason": f"op {name} DRO step is unknown"}
+    route = []
+    for points, raster, source in path_pieces(tables).get(str(name), []):
+        if not points:
+            continue  # the traveler enters no piece without a point
+        if source is not None:
+            route.append({"table": row_id(subject, *source, 0)})
+        else:
+            piece = {"xy_mm": [[v * scale for v in point] for point in points]}
+            route.append({**piece, "raster": True} if raster else piece)
+    result = {"again": again, "join_mm": step * scale / 2, "route": route}
+    if "raise_z" in level:
+        result["raise_z_mm"] = raised * scale
     return result
 
 

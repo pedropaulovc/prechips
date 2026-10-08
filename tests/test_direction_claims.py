@@ -267,9 +267,16 @@ def test_complementary_top_and_bottom_finishing_cuts_cover_a_two_sided_feature(
     tmp_path, monkeypatch, freecad_kernel
 ):
     bundle = _two_sided_bundle(tmp_path, monkeypatch, f'faces = ["{TOP}"]', f'faces = ["{BOTTOM}"]')
-    for rule in (accessibility, reach):
-        rows = _rows(rule, bundle)
-        assert rows["S1:20"].status == "pass" and rows["S2:10"].status == "pass", rule
+    access, reached = _rows(accessibility, bundle), _rows(reach, bundle)
+    for subject in ("S1:20", "S2:10"):
+        assert reached[subject].status == "pass", subject
+        # Each side clears its own face; only its moves to and from the safe Z between ops,
+        # which its plan prints no route for, are unknown (rule A″).
+        assert access[subject].status == "unknown"
+        assert access[subject].sentence == (
+            f"{subject}: moves off the cut unproven clear of the holding: the kernel is told"
+            " no move its tool is commanded through."
+        )
     assert _rows(finish_coverage, bundle)["broad"].status == "pass"
     assert _rows(coverage, bundle)["step-block"].status == "pass"
 

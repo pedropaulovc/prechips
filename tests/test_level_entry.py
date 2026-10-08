@@ -24,11 +24,22 @@ EXAMPLES = Path(__file__).resolve().parents[1] / "examples"
 PLUNGE_AT = re.compile(r"plunge[^;]*? at \d+ mm/min|plunge \d+ mm/min")
 
 
-def open_path(box_top, approach=2.0, plunge=True, center_cutting=True, operation=None, line=None):
+def open_path(
+    box_top,
+    approach=2.0,
+    plunge=True,
+    center_cutting=True,
+    operation=None,
+    line=None,
+    held=None,
+    lines=None,
+):
     """``level_paths`` for one open two-level line (0,-5) → (0,5) inside a 20 mm stock box
     whose top is ``box_top``, with the setup's stock top at Z0. ``operation`` replaces the
-    op's coordinates entry (its depth levels), ``line`` its join table; ``center_cutting``
-    None leaves it undeclared."""
+    op's coordinates entry (its depth levels), ``line`` its join table (``lines``, all its
+    join tables); ``center_cutting`` None leaves it undeclared; ``held`` is the kernel's
+    facts of its sweep of the moves back (its op facts ``return_moves``, ``return_errors``,
+    ``return_reason``)."""
     tool = {"kind": "endmill", "dia_mm": 6.0, "material": "HSS"}
     if center_cutting is not None:
         tool["center_cutting"] = center_cutting
@@ -53,13 +64,15 @@ def open_path(box_top, approach=2.0, plunge=True, center_cutting=True, operation
         kernel={
             "status": "ok",
             "setups": {"S1": {"stock_bbox_mm": [-10.0, -10.0, -10.0, 10.0, 10.0, box_top]}},
+            "ops": {"S1:20": held or {}},
         },
     )
     op = {"op": 20, "tool": "em", "approach_mm": approach}
     levels = {"op": 20, "z_levels": {"levels": [-1.0, -2.0], "dro_start_z": 0.0}}
     numbers = {
         "operations": [operation or levels],
-        "line_table": [line or {"op": 20, "stage": "rough", "dro_xy": [[0.0, -5.0], [0.0, 5.0]]}],
+        "line_table": lines
+        or [line or {"op": 20, "stage": "rough", "dro_xy": [[0.0, -5.0], [0.0, 5.0]]}],
     }
     states = [(op, {"top_z": 0.0}, {})]
 
@@ -69,23 +82,72 @@ def open_path(box_top, approach=2.0, plunge=True, center_cutting=True, operation
     return level_paths(bundle, {"id": "S1"}, numbers, states, GRID, "mm", coordinates.dro_z, top)
 
 
+HELD = {"return_moves": 3, "return_errors": []}
+
+
 def test_an_open_path_returns_over_the_stock_only_when_the_stock_box_proves_it():
     # Each level plunges at the path start; level 2 from level 1's Z, the open path then
     # raises approach_mm above the top to get back. A box top at Z1 is under that Z2 lift.
-    [record], debts = open_path(box_top=1.0)
+    [record], debts = open_path(box_top=1.0, held=HELD)
     assert debts == []
     assert record["levels"] == [-1.0, -2.0] and record["from_z"] == 0.0
     assert [down["air"] for down in record["entries"]] == [False]
     assert (record["raise_z"], record["raise_clear"], record["closed"]) == (2.0, True, False)
     assert record["plunge_mm_rev"] == 0.05
     # The same lift with stock standing to Z3 would drag the cutter back through the part.
-    [record], debts = open_path(box_top=3.0)
+    [record], debts = open_path(box_top=3.0, held=HELD)
     assert record["raise_clear"] is False
     assert debts == ["op 20 returns to its entry at Z 2, not above the stock it receives"]
     # No approach: no proven raise Z, so the return is debt, never assumed clear.
-    [record], debts = open_path(box_top=1.0, approach="unknown")
+    [record], debts = open_path(box_top=1.0, approach="unknown", held=HELD)
     assert record["raise_z"] == "unknown"
     assert any("raise Z is unknown" in debt for debt in debts)
+
+
+STUD = "clamp 1 kit/strap:stud"
+MEETS = {"move": "the move at Z 2", "obstacle": STUD, "volume_mm3": 8.0}
+PLAIN = "raise to Z 2.000, move straight"
+
+
+@pytest.mark.parametrize(
+    "held,clear,back",
+    [
+        (HELD, True, "raise to Z 2.000 (above the stock, clear of the holding), move straight"),
+        (None, "unknown", PLAIN),
+        ({**HELD, "return_reason": "undrawn components"}, "unknown", PLAIN),
+        ({**HELD, "return_errors": [MEETS]}, False, PLAIN),
+    ],
+    ids=["swept-clear", "not-swept", "holding-not-drawn", "meets-a-stud"],
+)
+def test_a_return_above_the_stock_is_clear_only_when_the_kernel_sweeps_it_clear_of_the_holding(
+    held, clear, back
+):
+    # Rocker S4C op 27: a raise the stock box put above the stock still drove the collet
+    # through a strap stud on the way back. The box proves nothing about the holding.
+    [record], debts = open_path(box_top=1.0, held=held)
+    assert record["raise_z"] == 2.0 and record["raise_clear"] == clear and debts == []
+    text = " ".join(level_text(record, plunge_mm_min=10, held=held).split())
+    assert f"Between levels, {back} back to X 0.000, Y -5.000." in text, text
+    assert ("above the stock" in text) is (clear is True), text
+    if clear is False:
+        assert record["raise_meets"] == [STUD]
+        assert text.endswith("STOP: a move off the cut meets the stud; do not run."), text
+    else:
+        assert "raise_meets" not in record and "STOP" not in text, text
+
+
+def test_each_printed_table_is_entered_anew_even_where_the_last_one_ended():
+    # Rocker S1 op 40: its tables join end to start and its note retracts clear between
+    # them. At one level the cutter still raises at each join and goes down again there, so
+    # that move is printed and (rule A″) swept, never left as one unbroken path.
+    first = {"op": 20, "stage": "rough", "sequence": 0, "dro_xy": [[0.0, -5.0], [0.0, 0.0]]}
+    second = {"op": 20, "stage": "rough", "sequence": 1, "dro_xy": [[0.0, 0.0], [0.0, 5.0]]}
+    operation = {"op": 20, "z_levels": {"levels": [-1.0], "dro_start_z": 0.0}}
+    [record], _ = open_path(1.0, operation=operation, lines=[first, second], held=HELD)
+    assert [down["xy"] for down in record["entries"]] == [[0.0, -5.0], [0.0, 0.0]]
+    assert (record["raise_z"], record["raise_clear"]) == (2.0, True)
+    text = " ".join(level_text(record, plunge_mm_min=10).split())
+    assert "raise to Z 2.000 (above the stock, clear of the holding)" in text, text
 
 
 def test_a_plunge_without_a_feed_is_debt():
@@ -131,13 +193,14 @@ def test_unknown_depth_levels_stay_unknown_never_one_level_at_the_depth(operatio
     assert record["entries"][0]["xy"] == [0.0, -5.0] and record["plunge_mm_rev"] == 0.05
 
 
-def level_text(record, plunge_mm_min=None):
+def level_text(record, plunge_mm_min=None, held=None):
     """The traveler's level-entry paragraph for op 20's ``record``; ``plunge_mm_min`` is its
-    speeds_feeds plunge feed."""
+    speeds_feeds plunge feed, ``held`` the kernel's op facts of its moves off the cut."""
     bundle = SimpleNamespace(
         plan={"setups": [{"id": "S1"}]}, features={"units": "mm"}, inventory={}, policy={}
     )
     bundle.feature_definitions = {}
+    bundle.kernel = {"status": "ok", "ops": {"S1:20": held or {}}}
     paths = {"level_paths": [record]}
     findings = [SimpleNamespace(rule="coordinates", subject="S1", numbers=paths)]
     if plunge_mm_min is not None:

@@ -1369,8 +1369,10 @@ def test_picture_contact_coordinates_print_on_the_setup_dro_grid_and_clearances_
         ({"op": "unknown", "blade": True}, "CUT 6.653 mm FROM FIXED JAW (SAW BLADE)"),
         ({"op": "unknown"}, "CUT 6.653 mm FROM FIXED JAW"),
         ({}, "CUT 6.653 mm FROM FIXED JAW"),
+        # Rocker S4C op 27: the move back between levels, not the cut, came nearest.
+        ({"op": "27", "move": "return"}, "RETURN 6.653 mm FROM FIXED JAW (OP 27)"),
     ],
-    ids=["op", "saw-op", "blade", "unknown-op", "no-op"],
+    ids=["op", "saw-op", "blade", "unknown-op", "no-op", "return"],
 )
 def test_the_picture_cut_names_the_op_it_belongs_to_and_never_a_guessed_one(named, label):
     # Rocker RK-B6: S4's least cut is op 40's, a bench file's; a reader checking op 27's
@@ -1388,7 +1390,7 @@ def test_the_picture_cut_names_the_op_it_belongs_to_and_never_a_guessed_one(name
     main = _Diagram(meshes, spec)
     main.render()
     (detail,) = _holding_details(meshes, spec, main)
-    cuts = [label for label, _ in detail.leaders if label.startswith("CUT ")]
+    cuts = [label for label, _ in detail.leaders if label.startswith(("CUT ", "RETURN "))]
     assert cuts == [label], cuts
     detail.canvas.assert_text_layout(min_scale=3)
 

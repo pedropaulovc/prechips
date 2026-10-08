@@ -1912,9 +1912,9 @@ def _raster(feature, op, offset, radius, frame, frames, sense, order, lift_z, gr
     The uncut stock lies ahead of the stepping cutter, so every pass's cutter-side wall
     normal is the open side's unit vector: each pass runs the way that cuts the op's
     ``direction`` with the spindle (:func:`_reversal`), else the order is unknown. The
-    cycle is one way: feed a pass, lift to ``lift_z``, rapid back to the next pass's start.
-    ``step_mm``, ``offset`` and ``radius`` are millimetres; the passes stand in plan units
-    (``scale`` mm per plan unit).
+    cycle is one way: feed a pass, lift to ``lift_z``, rapid straight back to the next
+    pass's start. ``step_mm``, ``offset`` and ``radius`` are millimetres; the passes stand
+    in plan units (``scale`` mm per plan unit).
     """
     face = op.get("do") in FACING
     contour = mapping(op.get("contour"))

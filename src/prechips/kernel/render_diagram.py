@@ -50,8 +50,11 @@ _EVERY_PASS = 8
 # sketches cannot all keep it grows taller.
 _SKETCH_PLOT_MIN = 30
 # The legend a path sketch prints once it has drawn a raster's lifted return: the cycle
-# is one way (feed a pass, lift, rapid back to the next pass's start).
+# is one way (feed a pass, lift, rapid straight back to the next pass's start).
 _RETURNS = "DASHED: LIFTED RETURN"
+# How the setup picture keys a closest cut the kernel found on a move off the cut
+# (``closest_cut`` ``move``): back to an entry, or to or from the safe Z between ops.
+MOVE_LABELS = {"return": "RETURN", "between": "SAFE-Z MOVE"}
 
 
 def _lifted_returns(paths):
@@ -1350,8 +1353,10 @@ class _Diagram:
     def _closest_cut(self):
         """``closest_cut`` dimensioned and keyed ``CUT <mm> FROM <holder> (OP <op>)`` when its
         middle is this picture's to key (:meth:`_in_tile`); ``keyed_cut`` records that it
-        was. The key names the op whose cut it is (a saw's blade path ``(SAW BLADE)`` when
-        its op has no number); one the kernel did not name names no op."""
+        was. A move the op makes off the cut is keyed by :data:`MOVE_LABELS` (``RETURN`` back
+        to an entry, ``SAFE-Z MOVE`` to or from the safe Z between ops), never read as the
+        cut. The key names the op whose cut it is (a saw's blade path ``(SAW BLADE)`` when its
+        op has no number); one the kernel did not name names no op."""
         cut = self.spec.get("closest_cut")
         if not cut:
             return
@@ -1371,7 +1376,8 @@ class _Diagram:
                 holder = self._component_label(component)
             elif component.get("code"):
                 holder = f"{_plain(component['code'])} {holder}"
-        label = f"CUT {self._dro(cut['mm'])} mm FROM {holder.upper()}"
+        move = MOVE_LABELS.get(cut.get("move"), "CUT")
+        label = f"{move} {self._dro(cut['mm'])} mm FROM {holder.upper()}"
         op = cut.get("op")
         if op not in (None, "", "unknown"):
             label += f" (OP {_plain(op).upper()})"
@@ -2176,8 +2182,8 @@ class _Diagram:
                 colour,
                 arrows=path.get("directed") is True,
             )
-        # The cycle is one way: each pass's lift and rapid back to the next pass's start is
-        # dashed, never drawn as a cut.
+        # The cycle is one way: each pass's lift and rapid straight back to the next pass's
+        # start is dashed, never drawn as a cut.
         for start, end in _lifted_returns(raster):
             _dashed(c, [[start, end]], project, colour)
             self.returns_drawn += 1

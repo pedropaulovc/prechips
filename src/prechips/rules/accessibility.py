@@ -4,6 +4,9 @@ Printed DRO checkpoints (coordinates arc/line tables) are checked in the kernel 
 checkpoint whose cutter meets the finished part, the op's rough leave, a fixture component or
 stock outside a bounded op's box, or removes stock a later setup grips, presses, locates,
 rests or supports on, is an error naming the row; an unknown check never passes the op.
+So are the moves an op makes off the cut to get back to an entry, between its levels and
+pieces (rule A″): the whole tool meeting a fixture component on one is an error naming the
+move; one the kernel cannot prove clear of the holding leaves the op unknown.
 """
 
 from dataclasses import replace
@@ -53,6 +56,28 @@ def _checkpoints(detail):
             "checkpoint_reason", "checkpoint check is unresolved"
         )
     return values, hit, unknown
+
+
+def _returns(detail):
+    """(numbers of the kernel's sweep of the moves off the cut: back to an entry, to or
+    from the safe Z between ops; certain-hit message or None, unknown reason or None);
+    nothing for an op that makes none."""
+    if "return_moves" not in detail and "return_reason" not in detail:
+        return {}, None, None
+    errors = detail.get("return_errors")
+    errors = errors if isinstance(errors, list) else []
+    values = {"return_moves": detail.get("return_moves", "unknown"), "return_errors": errors}
+    if errors:
+        listed = "; ".join(
+            f"{error['move']} meets {error['obstacle']} ({error['volume_mm3']} mm^3)"
+            for error in errors[:3]
+        )
+        more = f" (+{len(errors) - 3} more)" if len(errors) > 3 else ""
+        return values, f"a move off the cut breaks rule A″: {listed}{more}", None
+    if detail.get("return_reason") or not number(values["return_moves"]):
+        why = detail.get("return_reason", "its sweep is unresolved")
+        return values, None, f"moves off the cut unproven clear of the holding: {why}"
+    return values, None, None
 
 
 def _engagement(bundle, setup, op, entry, feed_z, scale):
@@ -122,6 +147,9 @@ def evaluate(bundle):
             if isinstance(minimum, dict) and key in minimum
         }
         checkpoints, checkpoint_hit, checkpoint_unknown = _checkpoints(detail)
+        returns, return_hit, return_unknown = _returns(detail)
+        hit = "; ".join(h for h in (checkpoint_hit, return_hit) if h) or None
+        unproven = "; ".join(u for u in (checkpoint_unknown, return_unknown) if u) or None
         # The whole turning tool's axial extent and its nose's over the same poses (or why
         # they are unknown): the traveler's jaw distance, whatever the op's own verdict. A
         # kernel that never posed the tool reports none: that is unknown, never absent.
@@ -129,20 +157,20 @@ def evaluate(bundle):
         extent = {key: detail.get(key, "unknown") for key in keys} if turned else {}
         if blocked:
             occluded = any(number(value) and value > 0 for value in certain.values())
-            if blocked.status == "unknown" and (occluded or checkpoint_hit):
+            if blocked.status == "unknown" and (occluded or hit):
                 message = (
                     "selected cutter or holder is certainly occluded by part/fixture material"
                     if occluded
-                    else checkpoint_hit
+                    else hit
                 )
-                if occluded and checkpoint_hit:
-                    message += "; " + checkpoint_hit
+                if occluded and hit:
+                    message += "; " + hit
                 rows.append(
                     Finding(
                         "accessibility",
                         blocked.subject,
                         "error",
-                        {**certain, **checkpoints, **extent},
+                        {**certain, **checkpoints, **returns, **extent},
                         cite,
                         f"{blocked.subject}: {message}.",
                     )
@@ -191,6 +219,7 @@ def evaluate(bundle):
                 "selected cutter or holder is certainly occluded by part/fixture material",
             )
         values.update(checkpoints)
+        values.update(returns)
         windows = detail.get("window_poses")
         if isinstance(windows, list) and windows:
             values["window_poses"] = windows
@@ -219,11 +248,11 @@ def evaluate(bundle):
                     "; ".join(notes) if status == "pass" else f"{message}; " + "; ".join(notes)
                 )
                 status = worst
-        if checkpoint_hit:
-            message = checkpoint_hit if status != "error" else f"{message}; {checkpoint_hit}"
+        if hit:
+            message = hit if status != "error" else f"{message}; {hit}"
             status = "error"
-        elif checkpoint_unknown and status != "error":
-            message = checkpoint_unknown if status == "pass" else f"{message}; {checkpoint_unknown}"
+        elif unproven and status != "error":
+            message = unproven if status == "pass" else f"{message}; {unproven}"
             status = "unknown"
         rows.append(
             Finding("accessibility", subject, status, values, cite, f"{subject}: {message}.")
