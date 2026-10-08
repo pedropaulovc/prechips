@@ -1118,7 +1118,7 @@ def test_a_picture_cut_printed_as_its_op_s_row_passes(cut, op, resolution):
 def test_a_half_way_value_prints_one_way_on_both_surfaces():
     # One clearance, 2.8045: the picture and the table both round the written decimal
     # half up (2.805), not the binary float (2.804), so they restate one value.
-    row = rows(pictured((2.8045, COLLAR), ("27", 2.8045, COLLAR)))["S1"]
+    row = rows(pictured((2.8045, COLLAR, {"op": "27"}), ("27", 2.8045, COLLAR)))["S1"]
     assert (row.status, row.numbers["claims"]) == ("pass", 1)
 
 
