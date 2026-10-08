@@ -3,6 +3,7 @@
 import base64
 import hashlib
 import math
+import os
 import sys
 from copy import deepcopy
 from pathlib import Path
@@ -720,10 +721,26 @@ def test_two_cold_candidates_share_one_batch_and_content_cache_invalidates(
     object.__setattr__(fresh, "kernel", None)
     kernel.run_geometry(fresh)
     assert len(calls) == 5
-    executable.write_bytes(b"updated kernel identity")
+    timestamp = executable.stat()
+    os.utime(
+        executable,
+        ns=(timestamp.st_atime_ns, timestamp.st_mtime_ns + 2_000_000_000),
+    )
+    object.__setattr__(fresh, "kernel", None)
+    kernel.run_geometry(fresh)
+    assert len(calls) == 5
+    assert finding(reach, fresh).numbers["reach_depth_mm"] == 8.0
+    # Changed bytes must invalidate even when file size and timestamp stay identical.
+    timestamp = executable.stat()
+    executable.write_bytes(b"other kernel identity")
+    os.utime(executable, ns=(timestamp.st_atime_ns, timestamp.st_mtime_ns))
+    assert executable.stat().st_size == timestamp.st_size
+    assert executable.stat().st_mtime_ns == timestamp.st_mtime_ns
+    result["ops"]["S1:10"]["reach_depth_mm"] = 9.0
     object.__setattr__(fresh, "kernel", None)
     kernel.run_geometry(fresh)
     assert len(calls) == 6
+    assert finding(reach, fresh).numbers["reach_depth_mm"] == 9.0
 
 
 def test_cache_reuses_content_at_different_step_path_and_rejects_digest_drift(
@@ -832,9 +849,14 @@ def test_engine_identity_read_failure_returns_error_without_executing(cache_cand
 
     monkeypatch.setattr(kernel, "_engine_digest", unavailable_engine)
     monkeypatch.setattr(kernel, "_execute", lambda *args: calls.append(args))
-    assert kernel.run_geometry(candidate)["status"] == "error"
+    result = kernel.run_geometry(candidate)
+    assert result["status"] == "error"
+    assert "test engine unavailable" in result["reason"]
     assert calls == []
-    assert finding(coverage, candidate).status == "unknown"
+    row = finding(coverage, candidate)
+    assert row.status == "error"
+    assert "test engine unavailable" in row.sentence
+    assert calls == []
 
 
 @pytest.mark.parametrize(

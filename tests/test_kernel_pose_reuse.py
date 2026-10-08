@@ -156,6 +156,45 @@ def measure(shape, queries, raw_boolean=False):
             )
     return rows
 
+def stock_snapshot(shape):
+    return {
+        "valid": shape.isValid(),
+        "volume": shape.Volume,
+        "orientation": shape.Orientation,
+        "solid_volumes": [solid.Volume for solid in shape.Solids],
+        "faces": len(shape.Faces),
+        "owned_faces": sum(len(solid.Faces) for solid in shape.Solids),
+        "shells_closed": [shell.isClosed() for shell in shape.Shells],
+        "degenerated_edges": sum(bool(edge.Degenerated) for edge in shape.Edges),
+    }
+
+def bounded_measure(shape, query):
+    before = stock_snapshot(shape)
+    region = engine._Culled(shape)
+    selected = sum(engine._cylinder_hits_box(*query, box, True) for box in region.boxes)
+    real_common = engine._culled_common
+    calls = 0
+
+    def counted_common(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        return real_common(*args, **kwargs)
+
+    engine._culled_common = counted_common
+    try:
+        answers = measure(shape, {"bounded": query}, raw_boolean=True)["bounded"]
+        common = region.common(*query)
+    finally:
+        engine._culled_common = real_common
+    return {
+        "before": before,
+        "after": stock_snapshot(shape),
+        "selected_faces": selected,
+        "answers": answers,
+        "common_volume": None if common is None else common.Volume,
+        "native_common_calls": calls,
+    }
+
 # 60x40x20 plate: pockets x 10..29.99975 and 30.00025..45 (y 5..35, floor z=5) leave
 # a 0.0005 mm web at x=30; an R3 through hole at (52, 20); solid strip x 0..10.
 plate = Part.makeBox(60, 40, 20)
@@ -213,6 +252,7 @@ rows["dimple"] = measure(dimple, {
     "bowl-bottom": (30.0, 20.0, 1.0, 12.0, 16.0),
     "beside-bowl": (25.2, 20.0, 0.15, 15.5, 16.0),
 })
+rows["dimple-bounded"] = bounded_measure(dimple, (5.0, 20.0, 2.0, 5.0, 15.0))
 finite = Part.makeBox(60, 40, 20)
 inverted = finite.reversed()
 rows["inverted_volume"] = inverted.Volume
@@ -506,6 +546,23 @@ def test_material_hit_respects_inner_shells_and_unanalysed_surfaces(
     certified, stock, name, expected
 ):
     assert _answers(certified[stock][name]) == {expected}
+    if stock == "dimple" and name == "beside-bowl":
+        row = certified["dimple-bounded"]
+        before = row["before"]
+        assert before["valid"] is True and before["solid_volumes"]
+        assert before["volume"] > 0
+        assert all(math.isfinite(volume) and volume > 0 for volume in before["solid_volumes"])
+        assert before["faces"] == before["owned_faces"] and all(before["shells_closed"])
+        assert before["degenerated_edges"] > 0 and row["selected_faces"] == 0
+        assert row["after"] == before
+        answers = row["answers"]
+        assert answers["raw_hit"] is True
+        assert _answers(answers) == {True}
+        assert answers["explicit_hit"] is True and answers["solid_hit"] is True
+        assert answers["certified"] is False
+        assert answers["raw_volume"] == pytest.approx(math.pi * 2.0**2 * 10.0, rel=1e-9)
+        assert row["common_volume"] == pytest.approx(answers["raw_volume"], rel=1e-9)
+        assert row["native_common_calls"] == 0
 
 
 @pytest.mark.parametrize("stock", ["inverted", "overlap"])

@@ -1542,16 +1542,13 @@ def _engine_digest():
 
 
 def _kernel_identity(executable):
-    """Identify the executed launcher from its current bytes and file identity."""
+    """Identify the executed launcher by its resolved path and current content."""
     executable = Path(executable)
-    stat = executable.stat()
     with executable.open("rb") as stream:
         executable_sha256 = hashlib.file_digest(stream, "sha256").hexdigest()
     identity = {
         "path": str(executable.resolve()),
         "sha256": executable_sha256,
-        "size": stat.st_size,
-        "mtime_ns": stat.st_mtime_ns,
     }
     return identity
 

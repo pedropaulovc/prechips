@@ -306,6 +306,8 @@ def test_inventory_reuse_returns_independent_nested_facts(inventory_probe, tmp_p
     first = engine.faces(step)
     first[0]["bbox_mm"][0] = 99
     first.append({"ref": "invented"})
+    stat = engine.executable.stat()
+    os.utime(engine.executable, ns=(stat.st_atime_ns, stat.st_mtime_ns + 2_000_000_000))
     copied = tmp_path / "copy.step"
     copied.write_bytes(step.read_bytes())
     other = Engine(tmp_path, engine.executable)

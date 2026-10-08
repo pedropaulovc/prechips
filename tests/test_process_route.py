@@ -14,6 +14,7 @@ from test_sheet_ops import Markup, content
 
 from prechips.inputs import BadInput, load_bundle
 from prechips.rules import RULES
+from prechips.sheet import _Traveler
 
 HEADER = re.compile(r"\[\[?([A-Za-z_][\w.\-]*)\]\]?\s*(#.*)?\n?")
 
@@ -346,17 +347,35 @@ def test_a_process_hold_must_lie_inside_its_drawing_band(tmp_path, band, status)
     assert row.numbers["process_holds"][0]["drawing_band"] == [1.994, 2.094]
 
 
+def printed_process_hold(plan, sid, op):
+    bundle = load_bundle(plan)
+    finding = evaluate("inspection", bundle)[f"{sid}:{op}"]
+    (hold,) = next(
+        step["process_holds"]
+        for setup in bundle.plan["setups"]
+        if setup["id"] == sid
+        for step in setup["ops"]
+        if step["op"] == op
+    )
+    sheet = _Traveler(bundle, [finding], {}, {})
+    markup = Markup(f"<div>{sheet.process_hold(hold)}</div>")
+    return finding, markup, markup.nodes[0]
+
+
 def test_a_process_hold_prints_as_a_shop_limit_not_a_drawing_limit(tmp_path):
     plan = copy_examples(tmp_path) / "rocker-arm" / "plan.toml"
     sid, op = hold_ream(plan, "[2.000, 2.010]")
-    _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
-    markup, node = operation(html, sid, op)
-    (hold,) = [
-        message for message in markup.find("inspection-message", node) if REASON in content(message)
-    ]
+    finding, markup, hold = printed_process_hold(plan, sid, op)
+    (numbers,) = finding.numbers["process_holds"]
+    assert numbers["drawing_band"] == [1.994, 2.094]
+    assert numbers["band"] == [2.000, 2.010]
+    assert numbers["inside_drawing_band"] is True
     words = content(hold)
-    assert "PROCESS HOLD" in words and "not a drawing limit" in words
-    assert REASON in words and "2.000–2.010" in words
+    assert "PROCESS HOLD" in words
+    assert "2.000–2.010" in words
+    # Full job/op ownership is exercised by the CLI keeper below.
+    assert REASON not in words
+    assert "2.00–2.09" not in words
     assert not markup.find("result-field", hold)
 
 
@@ -364,12 +383,12 @@ def test_a_process_hold_read_by_an_inch_gauge_prints_the_mm_digits_that_gauge_re
     # 0.0001 in is 0.00254 mm: the band reads to 0.001 mm, not to the conversion's five places.
     plan = copy_examples(tmp_path) / "rocker-arm" / "plan.toml"
     sid, op = hold_ream(plan, "[2.000, 2.010]", gauge="micrometers/0-1in")
-    _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
-    markup, node = operation(html, sid, op)
-    (hold,) = [
-        message for message in markup.find("inspection-message", node) if REASON in content(message)
-    ]
+    finding, markup, hold = printed_process_hold(plan, sid, op)
+    (numbers,) = finding.numbers["process_holds"]
+    assert numbers["drawing_band"] == [1.994, 2.094]
+    assert numbers["inside_drawing_band"] is True
     assert re.search(r"(?<![\d.])2\.000–2\.010(?!\d)", content(hold))
+    assert not markup.find("result-field", hold)
 
 
 def test_a_process_hold_names_an_exported_requirement(tmp_path):
@@ -498,11 +517,13 @@ def test_process_holds_reach_the_job_page_apart_from_the_drawing_limits(tmp_path
     assert len(cells) == 5
     assert content(cells[0]) == f"{sid} op {op}"
     assert authored["reason"] in content(cells[4])
+    assert content(job).count(authored["reason"]) == 1
+    assert authored["reason"] not in content(op_node)
     # The separate job summary and the owning operation retain the same authored hold.
     (message,) = [
         node
         for node in markup.find("inspection-message", op_node)
-        if authored["reason"] in content(node)
+        if "PROCESS HOLD" in content(node)
     ]
     assert not markup.find("result-field", message)
     for reading, drawing in (

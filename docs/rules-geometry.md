@@ -108,9 +108,9 @@ Successful (`status = "ok"`) results are cached as JSON under
 `~/.cache/prechips/geometry` without `LOCALAPPDATA`). The key is the SHA-256
 of the canonical job without its `step_path` (the STEP digest and every
 numeric input are inside), the digest of the engine's own `kernel/*.py`
-sources, and the kernel executable's resolved path, SHA-256, size and mtime.
+sources, and the kernel executable's resolved path and freshly read byte SHA-256.
 Changing a consumed geometry input, the STEP, the engine or the kernel
-executable therefore misses; moving the bundle does not. CI also namespaces
+executable bytes therefore misses; moving the bundle does not. CI also namespaces
 its external cache by the pinned native AppImage SHA and engine source digest.
 Host-only action/finishing metadata
 that is not consumed by transient preparation, tool OAL after projection is resolved, protective hold-method text, and the
@@ -1334,10 +1334,16 @@ tolerance-grown face boxes; positive-weight spline surfaces use their pole
 hulls. Unsupported or failed proofs fall back to the original native Boolean.
 The bounds trust the native face enclosure and inside classifier, and native
 Boolean completeness remains a checked assumption.
+The cylinder-query and prefetch paths allow bounding-box exclusions only for
+proven finite, positive-volume material. Those paths preserve the native Boolean
+answer for unsound stock, including reversed solids whose occupied material is
+the complement of their face bounds.
+Degenerated edges at cone apices or sphere poles still permit bounded occupancy
+classification, but disable the stricter ball-hit proof.
 
-P6 explicitly accepts skipping a stock Boolean once the hit is mathematically
-proven, even if the avoided solve might otherwise have raised. A Boolean that
-still runs is never caught or suppressed by this optimization. Certificates
+A mathematically proven hit skips its redundant stock Boolean, even if that
+solve would otherwise have raised. A Boolean that still runs is never caught or
+suppressed by this optimization. Certificates
 only count hits: they never prove a miss or replace a native shape, and actual
 pointed cutters bypass them. A count-only hit skips the intersection only when
 no finished face outside the already-proven reference union can add a hit

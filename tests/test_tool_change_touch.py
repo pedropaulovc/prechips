@@ -25,6 +25,11 @@ def sheet_text(html):
     return content(Markup(f"<div>{html}</div>").nodes[0])
 
 
+def paragraphs(html):
+    markup = Markup(html)
+    return [" ".join(content(node).split()) for node in markup.nodes if node["tag"] == "p"]
+
+
 def bundle(machine, zero, ops, stock_state=None):
     data = SimpleNamespace(
         plan={
@@ -283,11 +288,19 @@ def test_a_listed_retouch_installs_the_incoming_tool_and_none_for_the_same_tool(
         True,
     )
     sheet, setup = sheet_of(data)
-    html = sheet_text(sheet.dro(setup, {"mill": "T1 end mill", "drill": "T2 drill"}))
-    assert "before the next tool" not in html
-    assert "After op 20, install T2 drill for op 30, then touch the top" in html
-    assert "After op 10, T1 end mill stays in for op 20: re-touch the top" in html
-    assert "install T1" not in html
+    tools = {("tools", "mill"): "T1 end mill", ("tools", "drill"): "T2 drill"}
+    html = sheet.dro(setup, tools)
+    lines = paragraphs(html)
+    assert not re.search(r"install\s+T1\b", sheet_text(html))
+    (retained,) = [line for line in lines if re.search(r"\bAfter op 10\b", line)]
+    (incoming,) = [line for line in lines if re.search(r"\bAfter op 20\b", line)]
+    assert re.search(r"\bop 20\b", retained) and "T1 end mill" in retained
+    assert "install" not in retained
+    assert "top" in retained and "Axis Set Z 0.050" in retained
+    assert re.search(r"\bop 30\b", incoming) and "T2 drill" in incoming
+    assert incoming.index("install") < incoming.index("T2 drill") < incoming.index("touch")
+    assert "top" in incoming and "Axis Set Z 0.050" in incoming
+    assert finding.numbers["derived_touches"] == []
 
 
 def test_several_tool_changes_to_one_touch_name_their_ops_not_the_tools_again():
@@ -300,20 +313,30 @@ def test_several_tool_changes_to_one_touch_name_their_ops_not_the_tools_again():
         op(30, "drill", "hole", "drill"),
     ]
     sheet, setup = sheet_of(bundle("mill", zero, ops, {"top_z": 2.0}))
-    tools = {"mill": "T1 end mill", "centre": "T2 centre drill", "drill": "T3 drill"}
-    text = unescape(re.sub(r"<[^>]+>", " ", sheet.dro(setup, tools)))
-    (line,) = [part for part in re.split(r"\s{2,}", text) if "ops 20 and 30" in part]
-    assert "touch the top" in line and "Axis Set Z" in line, line
-    # The Z zero row names the tool that sets Z; the incoming tools are named nowhere.
+    tools = {
+        ("tools", "mill"): "T1 end mill",
+        ("tools", "centre"): "T2 centre drill",
+        ("tools", "drill"): "T3 drill",
+    }
+    html = sheet.dro(setup, tools)
+    lines = paragraphs(html)
+    (line,) = [line for line in lines if "install" in line and "Axis Set Z" in line]
+    # Both operation identities belong to the one shared touch, independently of list punctuation.
+    assert re.findall(r"\d+", line.split(":", 1)[0]) == ["20", "30"], line
+    assert line.index("install") < line.index("touch"), line
+    assert "top" in line and "Axis Set Z 0.050" in line, line
     for name in ("T2 centre drill", "T3 drill"):
-        assert name not in text, (name, text)
+        assert name not in sheet_text(html), (name, sheet_text(html))
 
 
 def test_a_mill_tool_touch_installs_its_tool_first():
     ops = [op(10, "spot", "hole", "centre"), op(20, "drill", "hole", "drill")]
     sheet, setup = sheet_of(bundle("mill", mill_zero(DECK), ops))
-    html = sheet_text(sheet.dro(setup, {"centre": "T1 centre drill", "drill": "T2 drill"}))
-    assert "Before op 20, install T2 drill, then re-touch it:" in html
+    tools = {("tools", "centre"): "T1 centre drill", ("tools", "drill"): "T2 drill"}
+    (line,) = [line for line in paragraphs(sheet.dro(setup, tools)) if "install" in line]
+    assert re.search(r"\bop 20\b", line), line
+    assert line.index("install") < line.index("T2 drill") < line.index("touch"), line
+    assert "deck" in line and "Axis Set Z 10.050" in line
 
 
 def _cells(html):
@@ -340,8 +363,24 @@ def test_a_tool_keeps_one_t_number_however_its_ops_and_touches_spell_it(qualifie
     rows, _, _, _ = sheet.operations(setup, numbers, {"notes": 2})
     printed = " ".join(_cells(rows))
     assert "T3" not in printed and printed.count("T2") == 2, printed
-    assert "Before op 20, install T2" in sheet.dro(setup, tools)
-    assert tools and "T1" in sheet.touched_tool(spell[1] + "centre", tools, "spindle")
+    markup = Markup(rows)
+    visible_tools = {}
+    for operation in markup.find("operation"):
+        (tool,) = markup.find("op-tool", operation)
+        (value,) = [node for node in markup.nodes if node["tag"] == "dd" and node["parent"] is tool]
+        visible_tools[operation["attrs"]["data-op"]] = content(value).strip()
+    assert visible_tools == {"10": "T1", "20": "T2", "30": "T2"}
+    [touch] = evaluate(data)[0].numbers["derived_touches"]
+    assert touch["before_ops"] == [20]
+    assert touch["tool"].removeprefix("tools.") == "drill"
+    (line,) = [line for line in paragraphs(sheet.dro(setup, tools)) if "install" in line]
+    assert re.search(r"\bop 20\b", line) and not re.search(r"\bop 30\b", line), line
+    name = tools[("tools", "drill")]
+    assert line.index("install") < line.index(name) < line.index("touch")
+    assert re.findall(r"\bT\d+\b", line) == ["T2"]
+    assert sheet.touched_tool(spell[1] + "centre", tools, "spindle") == tools[("tools", "centre")]
+    setter = sheet.touched_tool(spell[1] + "centre", tools, "spindle")
+    assert re.findall(r"\bT\d+\b", setter) == ["T1"]
 
 
 def test_a_lathe_keeps_its_toolpost_numbers_however_its_setups_spell_the_machine():
@@ -1142,9 +1181,14 @@ def test_an_authored_x_touch_prints_its_axis_set_and_stops_on_a_diameter_not_sho
     x_face, ops, stop
 ):
     sheet, setup = sheet_of(x_touch(x_face, 40, ops))
-    html = sheet_text(sheet.dro(setup, {"parter": "T4 blade", "turner": "T1 turner"}))
-    start = html.index("touch off T4 blade")
-    line = html[start : html.index("Z —", start)]
+    tools = {("tools", "parter"): "T4 blade", ("tools", "turner"): "T1 turner"}
+    (touch,) = [
+        line
+        for line in paragraphs(sheet.dro(setup, tools))
+        if "T4 blade" in line and "Axis Set X" in line
+    ]
+    assert re.search(r"\bop 40\b", touch), touch
+    line = touch.split("X —", 1)[1].split("Z —", 1)[0]
     # The paper counts once on the radius, twice on a diameter display.
     assert "Axis Set X measured Ø + 0.10" in line, line
     assert ("STOP" in line) is stop, line
@@ -1195,7 +1239,8 @@ def test_a_trial_cut_is_withdrawn_along_z_and_the_spindle_stopped_before_it_is_m
     touch = {**BLADE, "x_method": "trial_cut_measure"}
     del touch["x_face"]
     sheet, setup = sheet_of(bundle("lathe", lathe_zero([touch]), LATHE_OPS))
-    html = sheet.dro(setup, {"turner": "T1 turner", "parter": "T2 parter"})
+    tools = {("tools", "turner"): "T1 turner", ("tools", "parter"): "T2 parter"}
+    html = sheet.dro(setup, tools)
     text = " ".join(unescape(re.sub(r"<[^>]+>", " ", html)).split())
     steps = re.findall(r"trial cut.*?measure", text)
     assert len(steps) == 2, text

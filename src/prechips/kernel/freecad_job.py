@@ -181,6 +181,7 @@ import sys
 import tempfile
 import time
 from contextlib import contextmanager
+from enum import Enum
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -1735,13 +1736,21 @@ def _culled_common(shape, cylinder, solid=None):
     return common if common.Volume > HIT_MM3 else None
 
 
+class _StockSupport(Enum):
+    UNCHECKED = "unchecked"
+    UNSAFE = "unsafe"
+    BOUNDED = "bounded"
+    CERTIFIABLE = "certifiable"
+
+
 class _Culled:
     """Cull and memoize cylinder intersections against one immutable stock solid.
 
     Cached shapes are read-only and expire with their stock/own-face region.
     Cap retained material shapes; cheap empty answers do not retain any B-rep.
     Hits proven without a boolean keep only their exact cylinder, never a shape.
-    Boundary-box shortcuts require the same sound finite stock as certified balls.
+    Boundary-box shortcuts require bounded finite stock; ball proofs also exclude
+    degenerated edges.
     A loop that knows its cylinders hands their booleans to the worker pool first
     (:meth:`ahead`); ``common`` takes each answer where it would run that boolean.
     """
@@ -1763,7 +1772,7 @@ class _Culled:
         self.balls = None  # lazy [centre, verified or None] lists; [] disables proofs
         self.tol = None  # the shape's maximum tolerance, read with the balls
         self.bounds = None  # per-face _face_bound, built with the balls
-        self.sound = None  # lazy _sound verdict for bounded culling or stock-ball proofs
+        self.support = _StockSupport.UNCHECKED  # one lazy stock-validation result
         self.pending = {}  # (exact cylinder, id of its cutter solid or None) -> pool call
 
     def ahead(self, batch, cylinder, solid=None, recipe=None):
@@ -1776,10 +1785,10 @@ class _Culled:
             return
         if solid is None and cylinder in self.answers:
             return
-        if not any(_cylinder_hits_box(*cylinder, box, True) for box in self.boxes):
-            if self.sound is None:
-                self.sound = self._sound()
-            if self.sound:
+        face_free = not any(_cylinder_hits_box(*cylinder, box, True) for box in self.boxes)
+        if face_free:
+            support = self._stock_support()
+            if support is _StockSupport.BOUNDED or support is _StockSupport.CERTIFIABLE:
                 return
         call = batch.submit([self.shape], "culled_common", cylinder, recipe)
         if call is not None:
@@ -1801,10 +1810,12 @@ class _Culled:
         if cacheable and key in self.answers:
             return self.answers[key]
         face_free = not any(_cylinder_hits_box(*key, box, True) for box in self.boxes)
-        if face_free and self.sound is None:
-            self.sound = self._sound()
-        if face_free and self.sound:
-            # Only sound finite stock is empty beyond its face bounds.
+        bounded = False
+        if face_free:
+            support = self._stock_support()
+            bounded = support is _StockSupport.BOUNDED or support is _StockSupport.CERTIFIABLE
+        if bounded:
+            # Only bounded finite stock is empty beyond its face bounds.
             middle = (z0 + z1) / 2
             outside = self.box is not None and (
                 cx < self.box[0] - 1e-6
@@ -1879,8 +1890,8 @@ class _Culled:
                 continue
             if verified is None:
                 ball[1] = verified = self._ball_inside(ball[0])
-                if self.sound is False:
-                    self.balls = []  # an unsound stock never proves a ball
+                if self.support is _StockSupport.UNSAFE or self.support is _StockSupport.BOUNDED:
+                    self.balls = []  # non-certifiable stock never proves a ball
                     return False
             if verified:
                 self.proven.add(cylinder)
@@ -1925,44 +1936,53 @@ class _Culled:
     def _ball_inside(self, centre):
         """Whether a HIT_BALL_MM ball around ``centre`` lies in the stock, clear of every face.
 
-        Scalar face bounds come first, then the once-per-stock soundness gate, then the
+        Scalar face bounds come first, then the once-per-stock certifiability gate, then the
         native classifier. A native error only withholds the proof.
         """
         margin = HIT_BALL_MM + STOCK_TOL
         if not all(_clearance(centre, bound, self.tol) > margin for bound in self.bounds):
             return False
-        if self.sound is None:
-            self.sound = self._sound()
-        if not self.sound:
+        if self._stock_support() is not _StockSupport.CERTIFIABLE:
             return False
         try:
             return self.shape.isInside(V(*centre), 1e-9, False)
         except Exception:
             return False
 
-    def _sound(self):
-        """Whether the stock is valid closed solids, disjoint beyond tolerance, that own
-        every face, so a ball centred inside and clear of every face lies wholly inside."""
+    def _stock_support(self):
+        """Cached support for finite culls and the stricter stock-ball proof.
+
+        Bounded stock is valid closed positive-volume solids, disjoint beyond tolerance,
+        that own every face. Degenerated edges withhold ball proofs, not bounded culls.
+        """
+        if self.support is not _StockSupport.UNCHECKED:
+            return self.support
+        self.support = _StockSupport.UNSAFE
         try:
             shape = self.shape
             solids = shape.Solids
             if shape.ShapeType not in ("Solid", "CompSolid", "Compound") or not solids:
-                return False
+                return self.support
             if sum(len(solid.Faces) for solid in solids) != len(self.boxes):
-                return False
+                return self.support
             volumes = [solid.Volume for solid in solids]
             if not all(math.isfinite(volume) and volume > 0 for volume in volumes):
-                return False
+                return self.support
             if not all(shell.isClosed() for shell in shape.Shells):
-                return False
-            if any(edge.Degenerated for edge in shape.Edges):
-                return False
+                return self.support
             boxes = [_tolerant_box(solid) for solid in solids]
             if not all(_distant_box(a, b) for i, a in enumerate(boxes) for b in boxes[i + 1 :]):
-                return False
-            return shape.isValid()
+                return self.support
+            if not shape.isValid():
+                return self.support
+            self.support = (
+                _StockSupport.BOUNDED
+                if any(edge.Degenerated for edge in shape.Edges)
+                else _StockSupport.CERTIFIABLE
+            )
         except Exception:
-            return False
+            self.support = _StockSupport.UNSAFE
+        return self.support
 
     def common_solid(self, solid):
         """The solid's material inside an arbitrarily oriented cutter ``solid``, or None."""
