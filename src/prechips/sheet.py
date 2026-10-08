@@ -6412,12 +6412,13 @@ class _Traveler:
             # the one transform every carried Z took, at every place it holds.
             who = "each Z" if derived == stated else " and ".join(derived) + " Z"
             before = f"its Setup {move['before']['id']} Z"
-            plus = "−" if move["shift"] < 0 else "+"
-            shift = abs(move["shift"])
-            line += (
-                f" ({who} = {f'−({before})' if move['sign'] < 0 else before} {plus} "
-                f"{o(shift, max(self.decimals, _places(shift)))})"
-            )
+            shift = o(abs(move["shift"]), max(self.decimals, _places(abs(move["shift"]))))
+            if move["sign"] < 0:
+                # A flip: the shift first, so no reader takes the minus as covering it.
+                term = f"{'−' if move['shift'] < 0 else ''}{shift} − {before}"
+            else:
+                term = f"{before} {'−' if move['shift'] < 0 else '+'} {shift}"
+            line += f" ({who} = {term})"
         elif move and move["shift"] is None:
             # The Zs the sheet before printed are not whole steps of this DRO apart: say so,
             # rather than name a transform rounding each alone would break.
