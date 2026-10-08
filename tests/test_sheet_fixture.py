@@ -136,6 +136,63 @@ def test_angle_plate_base_and_working_face_print_in_the_setup_frame():
     ) in page
 
 
+@pytest.mark.parametrize(
+    ("kind", "mount", "held"),
+    [
+        # A bench has no machine table for the base's T-bolts to go into.
+        ("bench", "fastener", False),
+        ("manual", "fastener", False),
+        ("mill", "fastener", True),
+        # Unmarked or unknown, the declared hold-down prints wherever the plate stands.
+        ("bench", None, True),
+        ("bench", "unknown", True),
+    ],
+)
+def test_a_table_hold_down_is_not_printed_on_a_bench(kind, mount, held):
+    pose = {"origin_mm": [10, 0, -5], "x": [0, 1, 0], "z": [0, 0, 1]}
+    data = bundle([{"fixture": "angle", "pose": pose}])
+    data.inventory["machines"]["mill"]["kind"] = kind
+    if mount is not None:
+        data.inventory["fixtures"]["angle"]["solids"][0]["table_mount"] = mount
+    page = sheets(data)[0]
+    assert ("hold the base down with two 1/2-13 T-bolts." in page) is held
+    assert ("the base is not held down: its hold-down is for a machine table." in page) is not held
+
+
+@pytest.mark.parametrize(
+    ("kind", "verify", "setting"),
+    [
+        ("bench", False, "base flat on the bench, underside at Z -95; upright"),
+        ("mill", False, "base flat on the table, underside at Z -95; upright"),
+        # Unverified, the box may be no T-nut at all: no setting line, as for any such box.
+        ("bench", True, None),
+    ],
+)
+def test_table_mount_hardware_is_never_the_base(kind, verify, setting):
+    # An existing T-nut box hangs 20 below the plate's base, at Z -115…-95.
+    nut = {
+        "name": "t-nut",
+        "shape": "box",
+        "supply": "existing",
+        "at_mm": [-10, 30, -110],
+        "size_mm": [20, 10, 20],
+        "fastener": "9/16 T-nut",
+        "table_mount": "hardware",
+    }
+    pose = {"origin_mm": [10, 0, -5], "x": [0, 1, 0], "z": [0, 0, 1]}
+    data = bundle([{"fixture": "angle", "pose": pose}])
+    data.inventory["machines"]["mill"]["kind"] = kind
+    solids = data.inventory["fixtures"]["angle"]["solids"]
+    solids[0]["table_mount"] = "fastener"
+    solids.append({**nut, "verify": True} if verify else nut)
+    page = sheets(data)[0]
+    assert "9/16 T-nut" not in page
+    if setting is None:
+        assert "Angle plate: base" not in page
+    else:
+        assert f"Angle plate: {setting}" in page
+
+
 def test_later_setup_points_back_to_the_first_table_at_the_same_pose():
     first, later = sheets(bundle([{"fixture": "plate", "pose": TURNED}] * 2))
     assert "SHOP-MADE FIXTURE" in first
@@ -1256,6 +1313,31 @@ def test_make_operations_on_an_item_with_nothing_made_here_are_refused(supplies)
     Inventory.model_validate(plate(*supplies, "made"))
     with pytest.raises(ValidationError):
         Inventory.model_validate(plate(*supplies))
+
+
+@pytest.mark.parametrize(
+    ("mark", "accepted"),
+    [
+        ({"supply": "bought", "fastener": "1/2-13 SHCS", "table_mount": "hardware"}, True),
+        ({"fastener": "two 1/2-13 T-bolts", "table_mount": "fastener"}, True),
+        # Left off on a bench, a hole would leave its owner uncut there.
+        ({"void": True, "table_mount": "hardware"}, False),
+        # A hold-down mark on a solid with no hold-down marks nothing.
+        ({"table_mount": "fastener"}, False),
+        ({"fastener": " ", "table_mount": "fastener"}, False),
+    ],
+)
+def test_a_table_mount_mark_names_hardware_or_a_declared_hold_down(mark, accepted):
+    from pydantic import ValidationError
+
+    from prechips.model import Inventory
+
+    plate = {"kind": "custom", "solids": [cylinder("part", 0, 0, 8, 4, **mark)]}
+    if accepted:
+        Inventory.model_validate({"fixtures": {"plate": plate}})
+    else:
+        with pytest.raises(ValidationError):
+            Inventory.model_validate({"fixtures": {"plate": plate}})
 
 
 @pytest.mark.parametrize("where", ["tools", "gauges", "services", "member"])

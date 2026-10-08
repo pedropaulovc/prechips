@@ -13,6 +13,7 @@ from contextlib import nullcontext
 from pathlib import Path
 
 from prechips.measurements import angle_fact, length_fact, record_trusted
+from prechips.rules._bench import BENCH_KINDS
 from prechips.rules._envelope import measurement_item, tool_projection
 from prechips.rules.geometry_common import (
     TURNING_BLADE_KEYS,
@@ -701,12 +702,14 @@ def _pose(value):
     return {key: list(pose[key]) for key in ("origin_mm", "x", "z")}
 
 
-def _solids(item, owner):
+def _solids(item, owner, bench=False):
     """(engine primitives, debts) for an inventory item's authored ``solids``.
 
     A ``void`` primitive is cut from the owner's other primitives (or those it ``cuts``);
     a solid whose void is untrusted or malformed is not drawn, since uncut it would read
-    as material where the owner has a bore or slot.
+    as material where the owner has a bore or slot. On a ``bench`` there is no machine
+    table, so the hardware that fastens the item to one (``table_mount = "hardware"``) is
+    off it and not drawn; an untrusted solid's mark is untrusted with it, a debt as anywhere.
     """
     solids = record(item).get("solids", UNKNOWN)
     if not isinstance(solids, list) or not solids:
@@ -725,6 +728,9 @@ def _solids(item, owner):
             debts.append(f"{label}: {why}")
             if void:
                 bad_voids.append((name, cuts))
+            continue
+        if bench and solid.get("table_mount") == "hardware":
+            # Its own verify / measured qualify the mark too: only a trusted one is off.
             continue
         at, shape = solid.get("at_mm"), solid.get("shape")
         primitive = {"name": f"{owner}:{name}", "local": name, "shape": shape, "at_mm": at}
@@ -1151,6 +1157,9 @@ def hold_inputs(bundle, setup):
     fixture = measurement_item(bundle, "workholding", hold.get("fixture"))
     kind = record(fixture).get("kind", UNKNOWN)
     result = {"kind": kind, "method": hold.get("method", UNKNOWN)}
+    machine = measurement_item(bundle, "machines", setup.get("machine"))
+    # A bench has no machine table: the fixture's table-mount hardware is off it.
+    bench = record(machine).get("kind") in BENCH_KINDS
     # Scene-only debts (supports below the seat) and gaps (undrawn possible obstacles).
     debts, gaps = [], []
     if kind == "vise":
@@ -1158,13 +1167,12 @@ def hold_inputs(bundle, setup):
         _riser_inputs(bundle, hold, result, debts)
     elif kind in _CHUCK_JAWS:
         _chuck_inputs(fixture, hold, result, hold.get("fixture"))
-        machine = measurement_item(bundle, "machines", setup.get("machine"))
         _centre_inputs(bundle, machine, hold, result, gaps)
     elif kind == "dividing_head":
         reference = hold.get("chuck", UNKNOWN)
         chuck = measurement_item(bundle, "fixtures", reference) if reference != UNKNOWN else {}
         _chuck_inputs(chuck, hold, result, reference)
-        solids, missing = _solids(fixture, hold.get("fixture"))
+        solids, missing = _solids(fixture, hold.get("fixture"), bench)
         result["head_solids"] = solids
         gaps.extend(missing)
         # A dividing head's own tailstock carries the centre.
@@ -1175,7 +1183,7 @@ def hold_inputs(bundle, setup):
             result["reason"] = "Fixture pose/dimensions unmeasured or unavailable: pose"
         else:
             result["pose"] = pose
-        result["solids"], missing = _solids(fixture, hold.get("fixture"))
+        result["solids"], missing = _solids(fixture, hold.get("fixture"), bench)
         gaps.extend(missing)
     else:
         result["reason"] = "Fixture solids are not declared for this holding kind."

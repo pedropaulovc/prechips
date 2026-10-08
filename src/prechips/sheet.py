@@ -17,7 +17,7 @@ from .clamp_labels import clamp_labels
 from .joint_features import JOINT_PREP_LABEL, setup_ancestry
 from .measurements import length_fact, record_trusted
 from .model import reference_only, tolerance_requirements
-from .rules._bench import manual_bench
+from .rules._bench import BENCH_KINDS, manual_bench
 from .rules._envelope import measurement_item
 from .rules.coordinates import (
     CENTRE_OPS,
@@ -2167,7 +2167,9 @@ class _Traveler:
     def fixture_setting(self, setup, hold, uses):
         """Placement of a posed angle plate or shop-made fixture body: the base on the
         table/bench, an angle plate's working face (its local y = 0 face, facing local
-        -y) and the hold-down the base solid declares."""
+        -y) and the hold-down the base solid declares. A bench has no machine table, so a
+        hold-down marked ``table_mount = "fastener"`` is not fitted there: the line says the
+        base is not held down instead."""
         fixture = hold.get("fixture")
         if not isinstance(fixture, str):
             return []
@@ -2185,15 +2187,21 @@ class _Traveler:
             and not solid.get("void")
             and _supply(solid) != "bought"
         ]
-        # An unverified base gives no placement numbers.
+        # An unverified base gives no placement numbers. Table-mount hardware (a T-nut
+        # under the base) is never the base, once its own record is trusted to say so.
         if any(not record_trusted(solid, require_measured=False)[0] for solid, _ in boxes):
             boxes = []
-        boxes = [(solid, extents) for solid, extents in boxes if extents]
+        boxes = [
+            (solid, extents)
+            for solid, extents in boxes
+            if extents and solid.get("table_mount") != "hardware"
+        ]
         if not boxes:
             return []
         f = self.fixture_number
         base, (low, _) = min(boxes, key=lambda pair: pair[1][0][2])
-        surface = _FIXTURE_SURFACES.get(self.machine(setup).get("kind"))
+        kind = self.machine(setup).get("kind")
+        surface = _FIXTURE_SURFACES.get(kind)
         level = _setup_axis(_place(axes, [0.0, 0.0, 1.0], translate=False)) == (2, 1)
         name = "Angle plate" if angle_plate else self.reference(fixture, "workholding")
         name = name[:1].upper() + name[1:]
@@ -2210,7 +2218,9 @@ class _Traveler:
                     f"; upright working face at {'XYZ'[axis]} {f(axes[0][axis])}, "
                     f"facing {'+' if sign > 0 else '−'}{'XYZ'[axis]}"
                 )
-        if base.get("fastener"):
+        if base.get("fastener") and kind in BENCH_KINDS and base.get("table_mount") == "fastener":
+            line += "; the base is not held down: its hold-down is for a machine table"
+        elif base.get("fastener"):
             line += f"; hold the base down with {self.bench(base['fastener'], setup)}"
         return [line + "."]
 
