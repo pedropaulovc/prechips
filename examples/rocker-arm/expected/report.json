@@ -2230,11 +2230,11 @@
           },
           "inventory": {
             "path": "examples/inventory/pedro-shop.toml",
-            "sha256": "184a448fffae582201940ad4cf0d92bd690db38396dced63bed98f520ced2a42"
+            "sha256": "73160df393ec850b492cd7fcca3ae56e8ad3c47a8790456d00436e38f3b921ba"
           },
           "plan": {
             "path": "examples/rocker-arm/plan.toml",
-            "sha256": "cbd7e32c4a9c92c8d2f13a86d263e5d6737aa9bcc3cd47b7e7c2125517110413"
+            "sha256": "adc0ee6a6f689eba7adb142b02fd77529b5cee710951fe3d26fa31db189ce4ef"
           },
           "shop_policy": {
             "path": "examples/shop-policy.toml",
@@ -43541,201 +43541,59 @@
     {
       "cite": [
         "PLAN.md §4.1 coordinates",
-        "features declared frames and nominal geometry",
-        "plan contour steps, operation targets and stock allowances",
-        "inventory selected cutter nominal diameter",
-        "plan.frames.TA: author-declared setup frame",
-        "AUTHOR'S CHOICE",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117"
+        "inventory.machines.fitting-bench: kind bench",
+        "plan.setups.S4F.ops: manual bench actions only"
       ],
-      "message": "Feature targets use the declared model-to-setup basis; cutter tables use explicit nominal geometry and authored allowance.",
+      "message": "S4F: manual bench work has no DRO target or cutter-centre table.",
       "numbers": {
-        "arc_table": [],
-        "binding": "nominal",
-        "contours": [],
-        "dro_grid": {
-          "decimals": 3,
-          "step": 0.005
-        },
-        "entry_surfaces": [
-          {
-            "op": 30,
-            "profile_outer": -2.27825,
-            "top_edge": -2.27825
-          },
-          {
-            "op": 40,
-            "profile_outer": -2.27825,
-            "top_edge": -2.27825
-          },
-          {
-            "op": 43,
-            "profile_outer": -2.27825,
-            "top_edge": -2.27825
-          },
-          {
-            "op": 44,
-            "profile_outer": -2.27825,
-            "top_edge": -2.27825
-          },
-          {
-            "op": 50,
-            "profile_outer": -2.27825,
-            "top_edge": -2.27825
-          },
-          {
-            "op": 60,
-            "profile_outer": -2.27825,
-            "top_edge": -2.27825
-          },
-          {
-            "op": 70,
-            "profile_outer": -2.27825,
-            "top_edge": -2.27825
-          },
-          {
-            "op": 80,
-            "profile_outer": -2.27825,
-            "top_edge": -2.27825
-          },
-          {
-            "op": 90,
-            "profile_outer": -2.27825,
-            "top_edge": -2.27825
-          },
-          {
-            "op": 95,
-            "profile_outer": -2.27825,
-            "top_edge": -2.27825
-          }
-        ],
-        "frame": "TA",
-        "line_table": [],
+        "joint_method": "not_applicable",
+        "machine": "fitting-bench",
+        "machine_kind": "bench",
         "operations": [
           {
             "do": "file_to_line",
-            "feature": "top_edge",
             "op": 30
           },
           {
             "do": "file_to_line",
-            "feature": "profile_outer",
             "op": 40
           },
           {
             "do": "inspect",
-            "feature": "tip_land_pos_x",
             "op": 43
           },
           {
             "do": "inspect",
-            "feature": "tip_land_neg_x",
             "op": 44
           },
           {
             "do": "inspect",
-            "feature": "rod_hole",
             "op": 50
           },
           {
             "do": "inspect",
-            "feature": "hub_od",
             "op": 60
           },
           {
             "do": "deburr",
-            "feature": "profile_outer",
             "op": 70
           },
           {
             "do": "coating",
-            "feature": "profile_outer",
             "op": 80
           },
           {
             "do": "inspect",
-            "feature": "pivot_bore",
             "op": 90
           },
           {
             "do": "inspect",
-            "feature": "rod_hole",
             "op": 95
-          }
-        ],
-        "profiles": [],
-        "rows": [
-          {
-            "dro": [
-              133.065,
-              8.455,
-              -3.53
-            ],
-            "dro_xy": [
-              133.065,
-              8.455
-            ],
-            "feature": "rod_hole",
-            "model": [
-              133.06740213488345,
-              16.456064115939025,
-              0.0
-            ],
-            "setup": [
-              133.06740213488345,
-              8.456064115939025,
-              -3.52825
-            ]
-          },
-          {
-            "dro": [
-              0.0,
-              0.0,
-              -3.53
-            ],
-            "dro_xy": [
-              0.0,
-              0.0
-            ],
-            "feature": "hub_od",
-            "model": [
-              0.0,
-              8.0,
-              0.0
-            ],
-            "setup": [
-              0.0,
-              0.0,
-              -3.52825
-            ]
-          },
-          {
-            "dro": [
-              0.0,
-              0.0,
-              -3.53
-            ],
-            "dro_xy": [
-              0.0,
-              0.0
-            ],
-            "feature": "pivot_bore",
-            "model": [
-              0.0,
-              8.0,
-              0.0
-            ],
-            "setup": [
-              0.0,
-              0.0,
-              -3.52825
-            ]
           }
         ]
       },
       "rule": "coordinates",
-      "status": "pass",
+      "status": "not_applicable",
       "subject": "S4F"
     },
     {
@@ -44019,14 +43877,7 @@
         ],
         "same_setup": false,
         "tolerance_mm": 0.5,
-        "transfer": [
-          {
-            "from": "S4C",
-            "indicate": "lapped head of the shoulder screw",
-            "runout_limit_mm": 0.01,
-            "tool": "rocker-datum-indicator"
-          }
-        ]
+        "transfer": []
       },
       "rule": "datum_consistency",
       "status": "pass",
@@ -46222,10 +46073,10 @@
     {
       "cite": [
         "PLAN.md §8 M5; docs/rules-setup.md envelope: conservative setup stack",
-        "https://www.precisionmatthews.com/products/pm-30mv",
-        "inventory.machines.PM-30MV.envelope.spindle_to_table_max",
-        "https://www.precisionmatthews.com/products/pm-30mv",
-        "inventory.machines.PM-30MV.envelope.spindle_to_table_min",
+        "AUTHOR'S CHOICE: illustrative fitting station",
+        "inventory.machines.fitting-bench.envelope.spindle_to_table_max",
+        "AUTHOR'S CHOICE: illustrative fitting station",
+        "inventory.machines.fitting-bench.envelope.spindle_to_table_min",
         "kernel.bbox_mm: already-present STEP bounding box transformed to setup frame",
         "plan.setups.stock_state: physical supported stock height",
         "inventory.fixtures.rocker-profile-fixture.height",
@@ -47816,67 +47667,59 @@
     {
       "cite": [
         "PLAN.md §4.1 headroom",
-        "inventory: machine, fixture, support, tool and holder dimensions",
-        "plan: stock state and setup frame",
-        "https://www.precisionmatthews.com/products/pm-30mv",
-        "inventory.machines.PM-30MV.envelope.spindle_to_table_max",
-        "kernel.setups.S4F.stock_bbox_mm: setup-entry stock in the setup frame",
-        "inventory.machines.PM-30MV.envelope.travel.x",
-        "inventory.machines.PM-30MV.envelope.travel.y"
+        "inventory.machines.fitting-bench: kind bench",
+        "plan.setups.S4F.ops: manual bench actions only"
       ],
-      "message": "S4F: measured spindle stack and part/fixture travels fit.",
+      "message": "S4F: manual bench work has no spindle stack or machine travel.",
       "numbers": {
-        "bed_height_mm": 28.87175,
-        "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
-        "cut_tip_above_jaws_mm": {},
-        "fixture_height_mm": "unknown",
-        "fixture_verify": false,
-        "holder_gauge_len_mm": "unknown",
-        "insertion_mm": 25,
-        "jaw_obstruction": {
-          "jaw_top_z": "unknown",
-          "requires_path_check": false
-        },
-        "measurements": [],
-        "parallels_mm": "not_applicable",
-        "retained_rail_bottom_z": -11.52825,
-        "spindle_to_table_max_mm": 431.79999999999995,
-        "stacks": [],
-        "stock_bottom_z": -7.08,
-        "stock_entry_basis": "kernel setup-entry stock",
-        "stock_entry_bbox_mm": [
-          -170.0,
-          -28.0,
-          -11.52825,
-          170.0,
-          37.0,
-          4.47175
-        ],
-        "stock_extent_x_mm": 340.0,
-        "stock_extent_y_mm": 65.0,
-        "stock_height_mm": 11.52825,
-        "stock_top_above_jaws_mm": "unknown",
-        "stock_top_z": 0.0,
-        "sum_mm": "unknown",
-        "support_blocks_mm": 0,
-        "tool_oal_mm": "unknown",
-        "travel_checks": {
-          "x": {
-            "fixture_mm": 360.0,
-            "part_mm": 340.0,
-            "required_mm": 360.0,
-            "travel_mm": 584.1999999999999
+        "joint_method": "not_applicable",
+        "machine": "fitting-bench",
+        "machine_kind": "bench",
+        "operations": [
+          {
+            "do": "file_to_line",
+            "op": 30
           },
-          "y": {
-            "fixture_mm": 145.0,
-            "part_mm": 65.0,
-            "required_mm": 145.0,
-            "travel_mm": 222.25
+          {
+            "do": "file_to_line",
+            "op": 40
+          },
+          {
+            "do": "inspect",
+            "op": 43
+          },
+          {
+            "do": "inspect",
+            "op": 44
+          },
+          {
+            "do": "inspect",
+            "op": 50
+          },
+          {
+            "do": "inspect",
+            "op": 60
+          },
+          {
+            "do": "deburr",
+            "op": 70
+          },
+          {
+            "do": "coating",
+            "op": 80
+          },
+          {
+            "do": "inspect",
+            "op": 90
+          },
+          {
+            "do": "inspect",
+            "op": 95
           }
-        }
+        ]
       },
       "rule": "headroom",
-      "status": "pass",
+      "status": "not_applicable",
       "subject": "S4F"
     },
     {
@@ -49642,7 +49485,7 @@
         "inspection_method": [
           "Inspection box (buy and adapt before S4; example dimensions, plausible, not measured): a bought Suburban BXP-050505-G 127 mm cast-iron box parallel, 11/16 in (17.46) walls round one vertical through core. Mark its right side. AUTHOR'S CHOICE: the box is sold square within 0.0083 per 100, short of the 0.003 per 100 this check needs, so its actual base-to-right squareness is measured by reversal (steps 5 and 6) and the view-2 reading is corrected for it (step 16).",
           "Box windows, milled on the PM-30MV with light cuts, the box held by toe clamps on parallels, never in the vise: two 32 x 24 clamp windows through the left wall, 16.0 to 48.0 behind the front face, at 40 to 64 and 88 to 112 above the base; one 80 x 80 access window in the back wall, 23.5 from the left face and the base. Add only dimensioned work: only the taps cut the front face. Each window: drill a 7/16 start hole (tools.drill-index-115) at a corner at 500-600 rpm, 0.15 mm/rev, then mill it out with the 3/8 in 4-flute end mill (tools.endmills-lms-6784) at 600-700 rpm, 0.001 in/tooth, 1.0 mm a pass (MH 27th Table 14 p.1052, gray cast iron, taken as ASTM Class 30, 190-220 HB: HSS end milling 70 fpm; Table 15a p.1054 gray cast iron .001 in/tooth for a 1/4-1/2 in cutter at .050 in depth; Table 20 p.1068: HSS drilling 80 fpm, 700 rpm on the 7/16 in, held lower for the interrupted break-through). Drill #29 (tools.drill-index-115) at 1800-2200 rpm, 0.05 mm/rev (Table 20 p.1068: 80 fpm, 2250 rpm on the #29; p.1060: .001-.003 in/rev under 1/8 in) and tap two #8-32 holes 10.0 full thread (#29 drill 12.0 deep) by hand in the front face, 10.00 and 30.00 from the left face, 6.35 ±0.10 above the base.",
-          "C stop bar (make before S4; example dimensions, plausible, not measured): hardened O1 (58-62 HRC), lapped top and bottom to 12.700 ±0.003, parallel within 0.002, no nicks, burrs or stamping on the top face, on the front face at its left end, projecting 12.7 forward; the sequence and hardening route are in the inspection box's c-stop-bar row, with this cutting data. From a bought 1/2 x 1/2 x 18 in precision-ground O1 flat bar (Abrams Industries 102060), annealed (175-225 HB): (a) bandsaw 42 off with the 4/6 bi-metal blade on the 120 ft/min belt step, dry (MH 27th p.1142: O-1 200 fpm with coolant, 30-50% less dry). (b) PM-30MV, bar in the vise on parallels: mill both ends square to 40.0 with the 3/8 in 4-flute end mill (tools.endmills-lms-6784) at 450-500 rpm, 0.001 in/tooth, 0.5 mm a pass (MH 27th Table 12 p.1049, O1 at 175-225 HB: HSS end milling 50 fpm, 509 rpm on the 3/8 in; Table 15a p.1054 tool-steel rows .001-.002 in/tooth). (c) Same vise, a 40 x 12.7 side face up, X/Y picked up with the edge finder from the left end and the fixed-jaw side: centre drill, then drill #9 (0.196 in, 4.98) through at 10.0 and 30.0 from the left end on the face's centre line at 800-875 rpm, 0.05 mm/rev (MH 27th Table 18 p.1066, O1 at 175-225 HB: HSS drilling 45 fpm, 877 rpm on the #9; feed inside p.1060's .001-.003 in/rev for that size), and counterbore each Ø5/16 (7.94) x 4.8 deep with the 5/16 in 2-flute end mill at 550-600 rpm, a light quill plunge to the stop (Table 12 p.1049: 50 fpm, 611 rpm on the 5/16 in). (d) Harden, temper and lap as the c-stop-bar row says. Box holes, after the windows are milled: stand the box and the bar together on the granite, the bar pressed to the front face at its left end, and spot the front face through both bar holes with the #9 drill turned by hand; then, box on its base on parallels under toe clamps on the PM-30MV, drill #29 (0.136 in; MH 27th Table 4 p.1934) with the quill stop set so the tool tip stops 13.0 into the 17.46 front wall (full Ø to 12.0) at 1800-2200 rpm, 0.05 mm/rev (MH 27th Table 20 p.1068, gray cast iron: HSS drilling 80 fpm, 2247 rpm on the #29), and tap #8-32 UNC-2B by hand, the tools.taps-unc-hand/8-32-plug then the tools.taps-unc-hand/8-32-bottoming to 10.0 full thread. Fit: stand the box and the bar together on the granite, bar pressed to the front face, and tighten its two #8-32 x 5/8 in cap screws (about 8.0 of thread in the wall): its underside is then flush with the base and its lapped top 12.70 above it. No dowels.",
+          "C stop bar (make before S4; example dimensions, plausible, not measured): hardened O1 (58-62 HRC), lapped top and bottom to 12.700 ±0.003, parallel within 0.002, no nicks, burrs or stamping on the top face, on the front face at its left end, projecting 12.7 forward; the whole route, steps (a) to (g), follows. From a bought 1/2 x 1/2 x 18 in precision-ground O1 flat bar (Abrams Industries 102060), annealed (175-225 HB): (a) bandsaw 42 off with the 4/6 bi-metal blade on the 120 ft/min belt step, dry (MH 27th p.1142: O-1 200 fpm with coolant, 30-50% less dry). (b) PM-30MV, bar in the vise on parallels: mill both ends square to 40.0 with the 3/8 in 4-flute end mill (tools.endmills-lms-6784) at 450-500 rpm, 0.001 in/tooth, 0.5 mm a pass (MH 27th Table 12 p.1049, O1 at 175-225 HB: HSS end milling 50 fpm, 509 rpm on the 3/8 in; Table 15a p.1054 tool-steel rows .001-.002 in/tooth). (c) Same vise, a 40 x 12.7 side face up, X/Y picked up with the edge finder from the left end and the fixed-jaw side: centre drill, then drill #9 (0.196 in, 4.98) through at 10.0 and 30.0 from the left end on the face's centre line at 800-875 rpm, 0.05 mm/rev (MH 27th Table 18 p.1066, O1 at 175-225 HB: HSS drilling 45 fpm, 877 rpm on the #9; feed inside p.1060's .001-.003 in/rev for that size), and counterbore each Ø5/16 (7.94) x 4.8 deep with the 5/16 in 2-flute end mill at 550-600 rpm, a light quill plunge to the stop (Table 12 p.1049: 50 fpm, 611 rpm on the 5/16 in). (d) Harden (O1, torch, oil quench): coat the bar with ATP-641 anti-scale, heat it in the fire-brick chamber with the TS8000 torch (equalise at dull red, then an even cherry red one shade past non-magnetic on the pickup magnet, hold about 5 min), quench it moving in warm Park's AAA oil in the lidded M2A1 can and pull it hand-warm. (e) Temper at once: 400 °F for 2 h, air cool, twice, in the tempering oven checked with the oven thermometer (MH 27th p.496 Table 9: about Rc 60). (f) Lap. The finishing allowance is the bought bar's own oversize: before step (a), micrometer the 18 in bar every 25 and saw the 42 piece from a stretch reading 12.712-12.725, leaving 0.006-0.012 a side to lap off scale, skin and quench distortion; if no stretch reads 12.712, do not use the bar. Lap the bottom first on the cast-iron lap plate with 400 then 800 compound and kerosene, figure-8 strokes, turning the bar end for end every 20 strokes, until the whole face is an even grey. Then lap the top the same way, comparing it every few strokes on the granite against the 12.70 gauge-block stack (11.5 + 1.20) with the 1 µm test indicator at both ends and the middle, down to 12.700 ±0.003. Stress-relief temper at 350 °F for 1 h (AUTHOR'S CHOICE: under the 400 °F temper, so it cannot soften the bar), then give the top a final light 800 lap. (g) Check and record: thickness 12.700 ±0.003 at both ends and the middle, by the gauge-block comparison; parallelism within 0.002, the highest of those three readings less the lowest; hardness 58-62 HRC with the hardness files on a lapped face (the 55 file skates, the 60 file skates or barely bites); no nicks, burrs or stamping on the top face. Box holes, after the windows are milled: stand the box and the bar together on the granite, the bar pressed to the front face at its left end, and spot the front face through both bar holes with the #9 drill turned by hand; then, box on its base on parallels under toe clamps on the PM-30MV, drill #29 (0.136 in; MH 27th Table 4 p.1934) with the quill stop set so the tool tip stops 13.0 into the 17.46 front wall (full Ø to 12.0) at 1800-2200 rpm, 0.05 mm/rev (MH 27th Table 20 p.1068, gray cast iron: HSS drilling 80 fpm, 2247 rpm on the #29), and tap #8-32 UNC-2B by hand, the tools.taps-unc-hand/8-32-plug then the tools.taps-unc-hand/8-32-bottoming to 10.0 full thread. Fit: stand the box and the bar together on the granite, bar pressed to the front face, and tighten its two #8-32 x 5/8 in cap screws (about 8.0 of thread in the wall): its underside is then flush with the base and its lapped top 12.70 above it. No dowels.",
           "Equilibrate the part, the box, the gauge pins and the gauge blocks on the granite surface plate (gauges.granite-surface-plate) at 20 ±1 °C.",
           "Box squareness by reversal (each inspection session; never before the windows are milled), on the granite surface plate (gauges.granite-surface-plate), the 1 µm test indicator on the height gauge, a higher contact reading positive: (a) box on its base, indicator over the top face at one slider setting: read 10 in from the left face and 10 in from the right side; p = (right - left) x 100 / 107 = {p}. (b) Right side toward the gauge: read the right side at 10 and at 110 above the granite, moving only the slider; s1 = reading at 110 - reading at 10 = {s1}. (c) Roll the box over onto its top face about the axis square to the right side, so the right side still faces the gauge, and repeat (b): s2 = {s2}.",
           "Calculate: E_box = (s1 - s2 - p) / 2 = {E_box} per 100 (positive: the right side's top stands out past its foot, so the base-to-right angle is over 90°). The height-gauge column's own lean is in both s1 and s2 and cancels.",
@@ -63670,19 +63513,44 @@
     {
       "cite": [
         "plan.setups.S4F",
-        "inventory.machines.PM-30MV",
-        "https://www.precisionmatthews.com/products/pm-30mv",
+        "inventory.machines.fitting-bench",
+        "AUTHOR'S CHOICE: illustrative fitting station",
         "plan.frames.TA",
         "AUTHOR'S CHOICE",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117",
-        "inventory.machines.PM-30MV.envelope.travel.x",
-        "inventory.machines.PM-30MV.envelope.travel.y",
-        "inventory.machines.PM-30MV.envelope.travel.z"
+        "inventory.machines.fitting-bench.envelope.travel.x",
+        "inventory.machines.fitting-bench.envelope.travel.y",
+        "inventory.machines.fitting-bench.envelope.travel.z"
       ],
       "message": "S4F: no nonmanual mill operations require travel.",
       "numbers": {
-        "measurements": [],
+        "measurements": [
+          {
+            "cite": [
+              "inventory.machines.fitting-bench.envelope.travel.x"
+            ],
+            "id": "machines.fitting-bench.envelope.travel.x",
+            "instruction": "measure: fitting-bench X safe usable travel, stop-to-stop, steel rule or calipers, mm",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.machines.fitting-bench.envelope.travel.y"
+            ],
+            "id": "machines.fitting-bench.envelope.travel.y",
+            "instruction": "measure: fitting-bench Y safe usable travel, stop-to-stop, steel rule or calipers, mm",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.machines.fitting-bench.envelope.travel.z"
+            ],
+            "id": "machines.fitting-bench.envelope.travel.z",
+            "instruction": "measure: fitting-bench Z safe usable travel, stop-to-stop, steel rule or calipers, mm",
+            "units": "mm"
+          }
+        ],
         "operations": [],
         "travel_checks": {
           "x": {
@@ -63692,8 +63560,8 @@
             "minimum_required_mm": "unknown",
             "required_mm": "unknown",
             "required_verified": false,
-            "travel_mm": 584.1999999999999,
-            "travel_verified": true
+            "travel_mm": "unknown",
+            "travel_verified": false
           },
           "y": {
             "located_span_mm": "unknown",
@@ -63702,8 +63570,8 @@
             "minimum_required_mm": "unknown",
             "required_mm": "unknown",
             "required_verified": false,
-            "travel_mm": 222.25,
-            "travel_verified": true
+            "travel_mm": "unknown",
+            "travel_verified": false
           },
           "z": {
             "located_span_mm": "unknown",
@@ -63712,8 +63580,8 @@
             "minimum_required_mm": "unknown",
             "required_mm": "unknown",
             "required_verified": false,
-            "travel_mm": 355.59999999999997,
-            "travel_verified": true
+            "travel_mm": "unknown",
+            "travel_verified": false
           }
         }
       },
@@ -66222,90 +66090,63 @@
     {
       "cite": [
         "PLAN.md §4.1 zero recipe",
-        "Electronica EL400 Operation Manual §6.2 p20, §7.4 p31, §8.1 p37, §9.2.1 p62",
-        "plan zero and stock_state; inventory finder nominal size",
-        "plan.frames.TA: author-declared setup frame",
-        "AUTHOR'S CHOICE",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117"
+        "inventory.machines.fitting-bench: kind bench",
+        "plan.setups.S4F.ops: manual bench actions only"
       ],
-      "message": "Touch, Axis Set the compensated value, then jog without retouching and compare expected versus mirrored readings.",
+      "message": "S4F: manual bench work has no DRO zero to set.",
       "numbers": {
-        "axes": {
-          "x": {
-            "axis_set": 0.0,
-            "axis_set_status": "computed",
-            "check_jog_mm": 10.0,
-            "check_reading": 10.0,
-            "dro_direction": "right",
-            "edge": "lapped_shoulder_screw_head_axis",
-            "edge_mm": 0.0,
-            "from": "indicated",
-            "indicator_verify": false,
-            "jog_mm": 10.0,
-            "mirrored_reading": -10.0,
-            "paper_mm": "not_applicable",
-            "radius_mm": 0,
-            "sign": 1,
-            "tool": "rocker-datum-indicator"
+        "joint_method": "not_applicable",
+        "machine": "fitting-bench",
+        "machine_kind": "bench",
+        "operations": [
+          {
+            "do": "file_to_line",
+            "op": 30
           },
-          "y": {
-            "axis_set": 0.0,
-            "axis_set_status": "computed",
-            "check_jog_mm": 10.0,
-            "check_reading": 10.0,
-            "dro_direction": "away",
-            "edge": "lapped_shoulder_screw_head_axis",
-            "edge_mm": 0.0,
-            "from": "indicated",
-            "indicator_verify": false,
-            "jog_mm": 10.0,
-            "mirrored_reading": -10.0,
-            "paper_mm": "not_applicable",
-            "radius_mm": 0,
-            "sign": 1,
-            "tool": "rocker-datum-indicator"
+          {
+            "do": "file_to_line",
+            "op": 40
           },
-          "z": {
-            "axis_set": -2.22825,
-            "axis_set_status": "computed",
-            "check_jog_mm": 10.0,
-            "check_reading": 7.77175,
-            "dro_direction": "up",
-            "edge_mm": -2.27825,
-            "face": "strap_datum_b",
-            "jog_mm": 10.0,
-            "method": "paper",
-            "mirrored_reading": -12.22825,
-            "paper_mm": 0.05,
-            "radius_mm": "not_applicable",
-            "sign": 1,
-            "tool": "endmills-lms-6784/1-4in-4fl"
+          {
+            "do": "inspect",
+            "op": 43
+          },
+          {
+            "do": "inspect",
+            "op": 44
+          },
+          {
+            "do": "inspect",
+            "op": 50
+          },
+          {
+            "do": "inspect",
+            "op": 60
+          },
+          {
+            "do": "deburr",
+            "op": 70
+          },
+          {
+            "do": "coating",
+            "op": 80
+          },
+          {
+            "do": "inspect",
+            "op": 90
+          },
+          {
+            "do": "inspect",
+            "op": 95
           }
-        },
-        "binding": "nominal",
-        "derived_touches": [],
-        "dro": {
-          "mode": "abs",
-          "radius_mode": true
-        },
-        "frame": "TA",
-        "missing_touches": [],
-        "retouch": [],
-        "tool_touches": [],
-        "transfer": {
-          "from": "S4C",
-          "indicate": "lapped head of the shoulder screw",
-          "runout_limit_mm": 0.01,
-          "tool": "rocker-datum-indicator"
-        }
+        ]
       },
       "rule": "zero_check",
-      "status": "pass",
+      "status": "not_applicable",
       "subject": "S4F"
     }
   ],
-  "hash": "6c1a4860aa9d13a1220ffda675c322589816e14b50ff85fdc36cb86cf5629a83",
+  "hash": "71fcaf3657687316da64d54ce1d0c45fbf0f4456fff10944ed46f730167fd2ef",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -66317,11 +66158,11 @@
     },
     "inventory": {
       "path": "examples/inventory/pedro-shop.toml",
-      "sha256": "184a448fffae582201940ad4cf0d92bd690db38396dced63bed98f520ced2a42"
+      "sha256": "73160df393ec850b492cd7fcca3ae56e8ad3c47a8790456d00436e38f3b921ba"
     },
     "plan": {
       "path": "examples/rocker-arm/plan.toml",
-      "sha256": "cbd7e32c4a9c92c8d2f13a86d263e5d6737aa9bcc3cd47b7e7c2125517110413"
+      "sha256": "adc0ee6a6f689eba7adb142b02fd77529b5cee710951fe3d26fa31db189ce4ef"
     },
     "render:P1": {
       "path": "setup-S1.png",
@@ -66369,7 +66210,7 @@
     },
     "render:S4F": {
       "path": "setup-S12.png",
-      "sha256": "f4b4ca7aa01b23c3863b68aac60aa6c5c86372bc7589186c90aba2e7190068a9"
+      "sha256": "fd2d728a4aac80f6c99f1d946d7cc3ede22704b119be000719c235dbde6453e6"
     },
     "render:S4F:50:position_dia": {
       "path": "setup-S12-op50-position_dia.png",
@@ -69276,46 +69117,6 @@
           },
           {
             "exact": true,
-            "name": "rocker-profile-fixture:holddown-head-rl",
-            "role": "fixture"
-          },
-          {
-            "exact": true,
-            "name": "rocker-profile-fixture:holddown-shank-rl",
-            "role": "fixture"
-          },
-          {
-            "exact": true,
-            "name": "rocker-profile-fixture:holddown-head-ll",
-            "role": "fixture"
-          },
-          {
-            "exact": true,
-            "name": "rocker-profile-fixture:holddown-shank-ll",
-            "role": "fixture"
-          },
-          {
-            "exact": true,
-            "name": "rocker-profile-fixture:holddown-head-ru",
-            "role": "fixture"
-          },
-          {
-            "exact": true,
-            "name": "rocker-profile-fixture:holddown-shank-ru",
-            "role": "fixture"
-          },
-          {
-            "exact": true,
-            "name": "rocker-profile-fixture:holddown-head-lu",
-            "role": "fixture"
-          },
-          {
-            "exact": true,
-            "name": "rocker-profile-fixture:holddown-shank-lu",
-            "role": "fixture"
-          },
-          {
-            "exact": true,
             "name": "clamp 1 rocker-pivot-screw:washer",
             "role": "clamp"
           },
@@ -69633,7 +69434,7 @@
         "fixture_kind": "custom",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 2203,
+        "height_px": 1625,
         "jaw_front_oblique": false,
         "jaws": "not_applicable",
         "legend": [
@@ -69644,16 +69445,20 @@
         "parallels": "absent",
         "primary_op": null,
         "render_debts": [],
+        "section": {
+          "at_mm": 4.5,
+          "axis": "y"
+        },
         "shows": [
           "holding",
           "setup axes and zero",
           "material removed this setup (amber hatch)"
         ],
-        "view": "plan",
+        "view": "elevation",
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "f4b4ca7aa01b23c3863b68aac60aa6c5c86372bc7589186c90aba2e7190068a9"
+      "sha256": "fd2d728a4aac80f6c99f1d946d7cc3ede22704b119be000719c235dbde6453e6"
     }
   },
   "rules_version": "m5-rev10",
