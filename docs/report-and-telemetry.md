@@ -160,8 +160,12 @@ bolt and shim details do not force the pad, pin and clamp labels into tiny text.
 Custom-fixture badge boxes remain outside the projected stock, fixture plate,
 other fixture components and nominal part outline, in rows above and below it in
 the points' x order so their leaders never cross; leaders return to the
-unchanged physical component centres. A badged clamp or pad group's lane entry
-is the badges' key and draws no leader of its own. A trusted, explicitly labelled fixture
+unchanged physical component centres. The rows stay above the stock dimension
+row: a footer raised by long setup notes (a bench setup's `No machine cutting`
+list plus `NOT SHOWN` lines) lifts the scene, its badge bands and the stock
+dimension together, so each band keeps its usual depth and no badge is dropped.
+A badged clamp or pad group's lane entry is the badges' key and draws no leader
+of its own. A trusted, explicitly labelled fixture
 void gets a shop-caption leader at its posed centre, with `{name, label, role,
 center_mm}` recorded separately in `scene.fixture_detail_labels`. These
 annotations do not create solids, change geometry checks or resolve measurement
