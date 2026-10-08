@@ -2843,11 +2843,11 @@
           },
           "inventory": {
             "path": "examples/inventory/pedro-shop.toml",
-            "sha256": "fceeba5fc31bed16d1536d1b3d09f39ecce4babc416bc287620d48e63d5081bb"
+            "sha256": "70d4a3b128b07c337fa5b2144b44a4283e3febec3d57896df7fd2664380ba418"
           },
           "plan": {
             "path": "examples/cone-pivot-post/built-up.toml",
-            "sha256": "41678bad9ad74038abd33570d9245956f008a6730f3386ba89ea61591158192d"
+            "sha256": "59287ad7a3d6f8923d4505da32bdcaa29e853acc708ee997e0d8550c26809356"
           },
           "shop_policy": {
             "path": "examples/shop-policy.toml",
@@ -8533,12 +8533,12 @@
           "clamp": "AUTHOR'S CHOICE: seat a button in each end of the journal bore, close the soft jaws on the two buttons with the crank sleeve over the front jaw, tap B down on the parallels and tighten. Contact check before cutting: look along each jaw: daylight must show between the jaw and the body all round both buttons. The cap faces square the cross-bore to the jaws, so no clocking is needed; the jaw tops stay 8.6 mm under the head shoulder and 10.9 mm under the crank sleeve.",
           "fixed_jaw": "rear",
           "fixture": "vise-pm-6-tall-soft-jaws",
-          "grip_mm": 16.0,
+          "grip_mm": 15.0,
           "grip_on": "AUTHOR'S CHOICE: the two cone-sleeve caps, through one aluminium button on each, Z24.77..41.97 above foot B; the cap faces are square to the cross-bore; foot B seated on parallels",
           "jaw_above_parallels_mm": 50.8,
           "jaw_buttons": "cone-cap-jaw-buttons",
           "jaw_center_along_mm": 0.0,
-          "jaw_protection": "AUTHOR'S CHOICE: the jaw buttons (SHOP-MADE FIXTURE table and Make: line, sheet 2). The journal bore runs through, so the spigot cannot bottom and the 3.0 face seats on the cap. A Ø16 face is smaller than the Ø17.26 socket mouth, so it bears on the cap annulus only, never on the body, and holds the jaw 3 mm off the body.",
+          "jaw_protection": "AUTHOR'S CHOICE: the jaw buttons (SHOP-MADE FIXTURE table and Make: line, sheet 2). The journal bore runs through, so the spigot cannot bottom and the 3.0 face seats on the cap. A Ø15 face (HA MHA-DT-005-TL-03) is smaller than the Ø17.26 socket mouth, so it bears on the cap annulus only, never on the body, and holds the jaw 3 mm off the body.",
           "jaws_along": "x",
           "note": "AUTHOR'S CHOICE: Soft jaws and buttons: made once before first use to the two SHOP-MADE FIXTURE tables and their Make: lines (sheet 2), because the hardened plates stand 18.55 mm too low to reach the caps over the parallels.",
           "parallels": "parallels-lms-6745/1-2in",
@@ -19240,7 +19240,7 @@
       "message": "cone-cap-jaw-buttons: listed inventory identity resolves.",
       "numbers": {
         "category": "fixtures",
-        "dia_mm": 16.0,
+        "dia_mm": 15.0,
         "kind": "jaw_buttons",
         "present": true,
         "reference": "cone-cap-jaw-buttons",
@@ -24732,14 +24732,14 @@
       "numbers": {
         "claimed_in_jaws": [],
         "contact_grip_mm": [
-          16.0,
-          16.0
+          15.0,
+          15.0
         ],
         "jaw_separation_mm": 48.056,
-        "opening_mm": 153.3,
+        "opening_mm": 153.2,
         "parallel_pair": true,
         "parallels_height_mm": 12.7,
-        "required_grip_mm": 16.0,
+        "required_grip_mm": 15.0,
         "width_mm": 42.056
       },
       "rule": "vise",
@@ -26061,7 +26061,7 @@
       "subject": "S9"
     }
   ],
-  "hash": "73ba3e97bc1f55933dd3ab6be66954a620b8bb7e05f129740ef86f20ab08b017",
+  "hash": "76a155d40b76b830058dfd0e4f53180413619d2c9cbd889f03f69b9cf52fbdb7",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -26073,11 +26073,11 @@
     },
     "inventory": {
       "path": "examples/inventory/pedro-shop.toml",
-      "sha256": "fceeba5fc31bed16d1536d1b3d09f39ecce4babc416bc287620d48e63d5081bb"
+      "sha256": "70d4a3b128b07c337fa5b2144b44a4283e3febec3d57896df7fd2664380ba418"
     },
     "plan": {
       "path": "examples/cone-pivot-post/built-up.toml",
-      "sha256": "41678bad9ad74038abd33570d9245956f008a6730f3386ba89ea61591158192d"
+      "sha256": "59287ad7a3d6f8923d4505da32bdcaa29e853acc708ee997e0d8550c26809356"
     },
     "render:S1": {
       "path": "setup-S1.png",
@@ -26089,7 +26089,7 @@
     },
     "render:S11": {
       "path": "setup-S11.png",
-      "sha256": "a08f6c67346617d963c32a2a30aa1ae8a79f11c23ccf49cf36f2ce3f488e1d3d"
+      "sha256": "80ffc459fde534f0e66906d2aabe97f34bfe70a5f8b7084621cede727b4f0e2f"
     },
     "render:S11:110:angularity_dia": {
       "path": "setup-S11-op110-angularity_dia.png",
@@ -26492,7 +26492,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "a08f6c67346617d963c32a2a30aa1ae8a79f11c23ccf49cf36f2ce3f488e1d3d"
+      "sha256": "80ffc459fde534f0e66906d2aabe97f34bfe70a5f8b7084621cede727b4f0e2f"
     },
     "S12": {
       "fixture": "modeled",
