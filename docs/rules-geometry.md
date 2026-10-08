@@ -116,16 +116,33 @@ hashed bundle.
 ### Worker processes
 
 Booleans whose operands are known before the loop that needs them (each printed
-checkpoint row, each culled reach or pose cylinder against its stock) run in
-`PRECHIPS_KERNEL_WORKERS` extra `freecadcmd` processes: by default one per spare
-CPU, at most 8; `0` keeps every boolean in the engine. A worker runs the engine's
-own function on binary B-rep copies of the operands, which keep every double and
-their mutual sharing, so its answer is the engine's. Operands carrying a
-triangulation (a boolean reads it) and a row removal sharing a face or edge with
-its stock (a later render's mesh would reach it) stay in the engine. A call no
-worker has started yet is the engine's own; `PRECHIPS_KERNEL_POOL_WAIT=1` takes
-every pooled call from a worker, for tests. Facts do not depend on the worker
-count, which is not part of the cache key.
+checkpoint row's removal, rough-leave and stock booleans; each culled reach column
+and tool or holder pose cylinder against its stock) may run in extra `freecadcmd`
+worker processes. `PRECHIPS_KERNEL_WORKERS` sets how many: unset or empty, one per
+spare CPU (CPU count − 1), at most 8; `0`, or anything but a whole number, runs
+none and keeps every boolean in the engine. Workers exist only when the engine
+itself runs under `freecadcmd`, start with the first loop that shares operands and
+stop when the job ends. A loop hands its booleans to the workers in the order it
+takes them and takes each answer where it would compute it; caches, cache caps and
+control flow are those of the engine alone, and a loop's calls it never takes are
+cancelled when it ends.
+
+A worker runs the engine's own function on OCC binary B-rep copies of the
+operands, which keep every double, tolerance and location and the sub-shapes the
+operands of one call share, so its answer is the engine's. Operands carrying a
+triangulation (a boolean reads it, and binary B-rep drops it) are never sent, and
+a row removal sharing a face or edge with its stock (a later render's mesh would
+reach it) is recomputed in the engine. A call no worker has started yet, or whose
+worker failed, raised or was lost, is computed by the engine itself, raising as
+before. Facts therefore do not depend on the worker count, which is not part of
+the cache key; batch timing reports the answers workers gave as the non-operative
+`pool_answers`.
+
+`PRECHIPS_KERNEL_POOL_WAIT=1` is the deterministic test mode: the engine waits for
+a worker's answer to every call it handed out while any worker can still answer,
+instead of computing a call no worker has started, so which booleans workers
+answer does not depend on timing. Tests and audits use it; checks and travelers
+leave it unset.
 
 ## Face identity
 
