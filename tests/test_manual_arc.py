@@ -1282,3 +1282,52 @@ def test_a_manual_arc_in_unknown_units_is_unknown(tmp_path):
     row = coordinates_row(inch(tmp_path, STAIRS, units="unknown"))
     assert row.status == "unknown", row.sentence
     assert not arcs(row, 20)
+
+
+def boundary_boss(tmp_path):
+    """A 0.2 drill chain-drilling the Ø20 boss moved to Y 6.806673556724439 at a 0.29417
+    pitch: row 127's model Y, 2.0000001275 at 207.8181818181818°, rounds to 9 decimals
+    either way as its sine's last bit falls (the Windows CRT's -0.4666673232256736 against
+    glibc's -0.46666732322567367)."""
+    plan = scratch(
+        tmp_path,
+        op(20, "rough_profile", "{ method = 'chain_drill', pitch_mm = 0.29417 }", tool="drill")
+        + "rough_allowance_mm = 0.2\n",
+        target=ARC.replace("[20.0, 10.0, 0.0]", "[20.0, 6.806673556724439, 0.0]"),
+    )
+    inventory = plan.parent / "inventory.toml"
+    inventory.write_text(INVENTORY.replace("dia_mm = 3.0", "dia_mm = 0.2"), encoding="utf-8")
+    return plan
+
+
+@pytest.mark.parametrize("toward", [math.inf, -math.inf], ids=["up", "down"])
+@pytest.mark.parametrize(
+    "build",
+    [
+        lambda tmp_path: (scratch(tmp_path, STAIRS), None),
+        lambda tmp_path: (scratch(tmp_path, STAIRS, target=DISH), None),
+        lambda tmp_path: (
+            scratch(
+                tmp_path,
+                op(20, "finish_profile", "{ method = 'chords', count = 24 }"),
+                hold="fixture = 'table'",
+            ),
+            None,
+        ),
+        lambda tmp_path: (rotary_plan(tmp_path), SWING),
+        lambda tmp_path: (boundary_boss(tmp_path), None),
+    ],
+    ids=["convex stairs", "concave stairs", "chords", "rotary table", "decimal boundary"],
+)
+def test_cutter_centre_tables_read_the_same_whichever_last_bit_libm_rounds_to(
+    tmp_path, monkeypatch, build, toward
+):
+    # The Windows CRT's sine is not correctly rounded, so it can land an ULP either side of
+    # glibc's: the rocker's report differed between Windows and Linux in those bits alone,
+    # and no rounding of the table merges a pair that straddles its rounding boundary.
+    plan, swing = build(tmp_path)
+    exact = coordinates_row(plan, swing).numbers
+    for name in ("sin", "cos", "atan2"):
+        real = getattr(math, name)
+        monkeypatch.setattr(math, name, lambda *a, real=real: math.nextafter(real(*a), toward))
+    assert coordinates_row(plan, swing).numbers == exact

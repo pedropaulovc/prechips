@@ -2,7 +2,12 @@
 
 Both rules produce one subject per setup. Nominal numeric recipes and tables can
 remain useful while their status is unknown; they are not cleared toolpaths or
-measured first-article evidence. Report numbers retain precision. Bench drawing
+measured first-article evidence. Report numbers retain precision. Their sines,
+cosines and arctangents come from `prechips.trig` (fdlibm's algorithms in IEEE
+double arithmetic alone) and their squares are products, not the platform libm's
+`sin`, `cos`, `atan2` or `pow`, whose last bit differs between the Windows CRT
+and glibc: the same inputs give the same tables to the last bit on every
+platform, and nothing is rounded for print. Bench drawing
 station/feature reference points use the dimension's declared drawing precision;
 a known number without one prints its own value (six significant digits) rather
 than `?`, which stays reserved for unknown values. Operation-derived rows,

@@ -13,6 +13,7 @@ import math
 import re
 from html import escape
 
+from . import trig
 from .clamp_labels import clamp_labels
 from .joint_features import JOINT_PREP_LABEL, setup_ancestry
 from .measurements import length_fact, record_trusted
@@ -6038,7 +6039,7 @@ class _Traveler:
                 if not (compensated and _known(tip_x) and tip_x < 0):
                     continue
                 normal = math.radians(record.get("normal_deg", 0.0))
-                centre = record.get("radius_mm", 0.0) + compensation * math.cos(normal)
+                centre = record.get("radius_mm", 0.0) + compensation * trig.cos(normal)
                 where = "on the axis" if abs(centre) < 1e-6 else f"at radius {o(centre)}"
                 description += (
                     f". {row[0] or 'Z ' + row[2]} tool X {o(tip_x)} {x_unit} is intentional: "

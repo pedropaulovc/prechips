@@ -1394,6 +1394,21 @@ def _distance(a, b):
     return distance, [(p, q) for q, p in pairs], [info[3:] + info[:3] for info in infos]
 
 
+def _nearest_pair(pairs):
+    """One of ``distToShape``'s equally near ``pairs`` (a point on each shape), as rounded
+    (:func:`_r`) ``[x, y, z]`` lists, the same whichever order OCC lists them in. That
+    order follows the shapes' sub-shape order, which a boolean's last bits change from run
+    to run (a diamond pin in its hole is equally near along each land's edges), so the
+    pair whose second point is highest, then least Y, then least X wins, its first point
+    breaking a tie the same way."""
+
+    def key(point):
+        return (-point[2], point[1], point[0])
+
+    rounded = [[[_r(p.x), _r(p.y), _r(p.z)] for p in pair] for pair in pairs]
+    return min(rounded, key=lambda pair: (key(pair[1]), key(pair[0])))
+
+
 def _face_samples(face, spacing, interior_only=False):
     """(point, outward normal) pairs inside and, unless excluded, on the boundary."""
     samples, skipped = [], 0
@@ -8270,10 +8285,10 @@ class _Setup:
         """The holding solids touching the arriving stock, each with its contact outlines
         and plane, in setup axes: ``[{"tag", "lines_mm", "plane"}]``. A plane contact is the
         common area of a holding face and an opposed stock face on one plane; a curved one
-        is the solids' section, else their nearest point. A section view drops the half it
-        removes, cutting each outline at its plane. ``plane`` is the one setup-axis plane
-        ``[axis, value]`` of the contact pieces drawn, each measured whole, else None: a
-        seating face the section cuts to one edge keeps its height."""
+        is the solids' section, else their nearest point (:func:`_nearest_pair`). A section
+        view drops the half it removes, cutting each outline at its plane. ``plane`` is the
+        one setup-axis plane ``[axis, value]`` of the contact pieces drawn, each measured
+        whole, else None: a seating face the section cuts to one edge keeps its height."""
         stock = self.part
         stock_box = _bbox(stock)
         contacts = []
@@ -8315,8 +8330,7 @@ class _Setup:
                 if section:
                     pieces.append(section)
             if not pieces:
-                point = pairs[0][1]
-                pieces.append([[[point.x, point.y, point.z]]])
+                pieces.append([[_nearest_pair(pairs)[1]]])
             kept = [
                 (
                     _common_plane(piece),
@@ -8634,7 +8648,8 @@ class _Setup:
     @staticmethod
     def _nearest(shapes, solids):
         """The holding solid nearest any of ``shapes``, as ``{"mm", "tag", "from_mm",
-        "to_mm"}`` (the shape's point, then the solid's), or None when there is no pair."""
+        "to_mm"}`` (the shape's point, then the solid's: :func:`_nearest_pair`), or None
+        when there is no pair."""
         boxes = [(name, solid, _bbox(solid)) for name, solid in solids]
         pairs = []
         for shape in shapes:
@@ -8646,13 +8661,8 @@ class _Setup:
                 break
             distance, points, _ = _distance(shape, solid)
             if nearest is None or distance < nearest["mm"]:
-                near, far = points[0]
-                nearest = {
-                    "mm": distance,
-                    "tag": name,
-                    "from_mm": [near.x, near.y, near.z],
-                    "to_mm": [far.x, far.y, far.z],
-                }
+                near, far = _nearest_pair(points)
+                nearest = {"mm": distance, "tag": name, "from_mm": near, "to_mm": far}
         # Rounded as the CLEARANCE rows are: a picture prints the value its table prints.
         return nearest and {**nearest, "mm": _r(nearest["mm"])}
 

@@ -22866,7 +22866,7 @@
       "subject": "S5"
     }
   ],
-  "hash": "f8af49743622f359eb4428a72445d04104b05fd330b43a4c31f1268867c5693d",
+  "hash": "9b90d29c66cb7c37374587c5e1ece8092190581a4f0d0fbfb1cccdcf6a4d7817",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -22886,7 +22886,7 @@
     },
     "render:P1": {
       "path": "setup-S1.png",
-      "sha256": "d7fd4ce8a63d21fe061f546550a0ecdbd028a9ce2445b549530ea826505c38c4"
+      "sha256": "5944b8d159838a2e4534cae804d8b40cc041940ec77e5f19f973c6a8a11e1341"
     },
     "render:P2": {
       "path": "setup-S2.png",
@@ -22898,7 +22898,7 @@
     },
     "render:P4": {
       "path": "setup-S4.png",
-      "sha256": "e6856a9e2d1b3a5a0c0eb6057bd3d562b68374f114037618976d1d34031f59da"
+      "sha256": "e81e4ed0f76f37d17bf8312386644ba46d8c147e9606e48e60ca351a76868f53"
     },
     "render:P5": {
       "path": "setup-S5.png",
@@ -22910,7 +22910,7 @@
     },
     "render:S1": {
       "path": "setup-S7.png",
-      "sha256": "c518a27ef62321cd6eb386dbf49c0a01fe826c0eeb82277b4f6d0ee5644b5cb1"
+      "sha256": "3be6b6a2a1ebe7cb0403e34b49beec8df8de12e33bb6083609f4907fc4fa4935"
     },
     "render:S2": {
       "path": "setup-S8.png",
@@ -22918,15 +22918,15 @@
     },
     "render:S3": {
       "path": "setup-S9.png",
-      "sha256": "27e78625e459f0f1c663dd92e0a29d04c868732000bc38ea1bd88acd613c66cf"
+      "sha256": "27b63a4ad58ebb91e22f409aaca27e95ae07fc7c6079d834d1d6755a8ad410ae"
     },
     "render:S4": {
       "path": "setup-S10.png",
-      "sha256": "8764398bcab42f0b77a6f98bbc35f8b711a3df3ead10026543def17ca466b81d"
+      "sha256": "b5403c4ea03b1cdf06062c1fd7ea396d557dff5b2e5c3a18598c3c66e1d3595c"
     },
     "render:S4F": {
       "path": "setup-S11.png",
-      "sha256": "7b6db89ec0441c203e96ce50b6049d10f0aae7aef2514c05344f057161b87c90"
+      "sha256": "6e4c50d399b5c2412ace537f144929e01b7788b6a3a0c92875da33ef0968811e"
     },
     "render:S5": {
       "path": "setup-S12.png",
@@ -22949,7 +22949,7 @@
       "scene": {
         "closest_cut": {
           "from_mm": [
-            36.1,
+            -1.9,
             28.975,
             0.0
           ],
@@ -22957,9 +22957,9 @@
           "op": "10",
           "tag": "fixed_jaw",
           "to_mm": [
-            36.1,
+            -1.9,
             28.975,
-            -5.3297000000000025
+            -5.3297
           ]
         },
         "components": [
@@ -23017,7 +23017,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "d7fd4ce8a63d21fe061f546550a0ecdbd028a9ce2445b549530ea826505c38c4"
+      "sha256": "5944b8d159838a2e4534cae804d8b40cc041940ec77e5f19f973c6a8a11e1341"
     },
     "P2": {
       "fixture": "modeled",
@@ -23026,7 +23026,7 @@
         "closest_cut": {
           "from_mm": [
             -13.425,
-            -28.049999999999997,
+            -28.05,
             0.0
           ],
           "mm": 9.4297,
@@ -23034,8 +23034,8 @@
           "tag": "moving_jaw",
           "to_mm": [
             -13.425,
-            -28.049999999999997,
-            -9.429699999999997
+            -28.05,
+            -9.4297
           ]
         },
         "components": [
@@ -23106,7 +23106,7 @@
       "scene": {
         "closest_cut": {
           "from_mm": [
-            -1.8999999999999986,
+            -1.9,
             0.0,
             0.0
           ],
@@ -23114,9 +23114,9 @@
           "op": "10",
           "tag": "fixed_jaw",
           "to_mm": [
-            -1.8999999999999986,
+            -1.9,
             0.0,
-            -6.654700000000005
+            -6.6547
           ]
         },
         "components": [
@@ -23187,7 +23187,7 @@
       "scene": {
         "closest_cut": {
           "from_mm": [
-            36.1,
+            -1.9,
             26.2,
             0.0
           ],
@@ -23195,9 +23195,9 @@
           "op": "10",
           "tag": "fixed_jaw",
           "to_mm": [
-            36.1,
-            26.200000000000003,
-            -4.804699999999997
+            -1.9,
+            26.2,
+            -4.8047
           ]
         },
         "components": [
@@ -23255,7 +23255,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "e6856a9e2d1b3a5a0c0eb6057bd3d562b68374f114037618976d1d34031f59da"
+      "sha256": "e81e4ed0f76f37d17bf8312386644ba46d8c147e9606e48e60ca351a76868f53"
     },
     "P5": {
       "fixture": "modeled",
@@ -23273,7 +23273,7 @@
           "to_mm": [
             -11.525,
             -27.525,
-            -7.029700000000005
+            -7.0297
           ]
         },
         "components": [
@@ -23426,7 +23426,7 @@
         "closest_cut": {
           "from_mm": [
             -9.0,
-            22.2,
+            -4.0,
             -6.0
           ],
           "mm": 7.6547,
@@ -23434,8 +23434,8 @@
           "tag": "fixed_jaw",
           "to_mm": [
             -9.0,
-            22.200000000000003,
-            -13.654700000000005
+            -4.0,
+            -13.6547
           ]
         },
         "components": [
@@ -23568,7 +23568,7 @@
         ],
         "width_px": 1600
       },
-      "sha256": "c518a27ef62321cd6eb386dbf49c0a01fe826c0eeb82277b4f6d0ee5644b5cb1"
+      "sha256": "3be6b6a2a1ebe7cb0403e34b49beec8df8de12e33bb6083609f4907fc4fa4935"
     },
     "S2": {
       "fixture": "modeled",
@@ -23585,7 +23585,7 @@
           "tag": "fixed_jaw",
           "to_mm": [
             -9.0,
-            -22.200000000000003,
+            -22.2,
             10.3703
           ]
         },
@@ -23662,17 +23662,17 @@
       "scene": {
         "closest_cut": {
           "from_mm": [
-            -8.000000001999998,
-            -21.500000017999998,
-            -6.20000006890109e-08
+            -9.0,
+            -22.2,
+            0.0
           ],
           "mm": 2.3297,
           "op": "20",
           "tag": "fixed_jaw",
           "to_mm": [
-            -8.000000002000004,
-            -21.500000017999994,
-            -2.3297000000000025
+            -9.0,
+            -22.2,
+            -2.3297
           ]
         },
         "components": [
@@ -23775,7 +23775,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "27e78625e459f0f1c663dd92e0a29d04c868732000bc38ea1bd88acd613c66cf"
+      "sha256": "27b63a4ad58ebb91e22f409aaca27e95ae07fc7c6079d834d1d6755a8ad410ae"
     },
     "S4": {
       "fixture": "modeled",
@@ -23791,9 +23791,9 @@
           "op": "15",
           "tag": "clamp 1 clamping-kit-lms-1144/bracket-bridge:left-front-nut",
           "to_mm": [
-            -17.75157549631459,
+            -17.751575,
             -25.2,
-            -9.562299624499106
+            -9.5623
           ]
         },
         "components": [
@@ -23975,7 +23975,7 @@
         ],
         "width_px": 1600
       },
-      "sha256": "8764398bcab42f0b77a6f98bbc35f8b711a3df3ead10026543def17ca466b81d"
+      "sha256": "b5403c4ea03b1cdf06062c1fd7ea396d557dff5b2e5c3a18598c3c66e1d3595c"
     },
     "S4F": {
       "fixture": "modeled",
@@ -23983,17 +23983,17 @@
       "scene": {
         "closest_cut": {
           "from_mm": [
-            4.2862637786460336e-16,
-            -32.199999862,
-            -6.0
+            -0.580504,
+            -32.175888,
+            -5.038516
           ],
           "mm": 3.755,
           "op": "10",
           "tag": "clamp 1 bracket-arch-filing-buttons:stud-body",
           "to_mm": [
-            1.9869894622729895e-16,
-            -28.445,
-            -6.0
+            -0.269105,
+            -28.433822,
+            -5.038516
           ]
         },
         "components": [
@@ -24097,7 +24097,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "7b6db89ec0441c203e96ce50b6049d10f0aae7aef2514c05344f057161b87c90"
+      "sha256": "6e4c50d399b5c2412ace537f144929e01b7788b6a3a0c92875da33ef0968811e"
     },
     "S5": {
       "fixture": "modeled",
