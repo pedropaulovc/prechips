@@ -146,12 +146,27 @@ def test_installed_artifact_console_script_matches_module(tmp_path):
     identity = invoke(
         ["python"],
         "-c",
-        "import pathlib, shutil, sys, prechips; "
-        "root = pathlib.Path(sys.prefix).resolve(); "
-        "assert pathlib.Path(prechips.__file__).resolve().is_relative_to(root); "
-        "assert pathlib.Path(shutil.which('prechips')).resolve().is_relative_to(root)",
+        "import json, pathlib, shutil, sysconfig, prechips; "
+        "from importlib.metadata import distribution; "
+        "dist = distribution('prechips'); "
+        "scripts = [sysconfig.get_path('scripts')] + "
+        "[str(dist.locate_file(f).parent) for f in dist.files "
+        "if pathlib.PurePosixPath(str(f)).name.lower() in {'prechips', 'prechips.exe'}]; "
+        "print(json.dumps({'module': prechips.__file__, "
+        "'installed_module': str(dist.locate_file('prechips/__init__.py')), "
+        "'script': shutil.which('prechips'), 'script_dirs': scripts}))",
     )
     assert identity.returncode == 0, identity.stderr
+    installed_paths = json.loads(identity.stdout)
+    module_path = Path(installed_paths["module"]).resolve()
+    assert module_path == Path(installed_paths["installed_module"]).resolve(), installed_paths
+    assert not module_path.is_relative_to(ROOT.resolve()), installed_paths
+    assert installed_paths["script"], installed_paths
+    script_path = Path(installed_paths["script"]).resolve()
+    assert not script_path.is_relative_to(ROOT.resolve()), installed_paths
+    assert script_path.parent in {
+        Path(directory).resolve() for directory in installed_paths["script_dirs"]
+    }, installed_paths
 
     console = ["prechips"]
     module = ["python", "-m", "prechips.cli"]

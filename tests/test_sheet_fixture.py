@@ -127,9 +127,6 @@ class FixturePage:
             if node["tag"] in {"h2", "p", "li", "th", "td"}
         )
 
-    def __contains__(self, value):
-        return value in self.text
-
     def fixture(self):
         headings = [
             node
@@ -196,7 +193,7 @@ def sheets(data):
 
 def test_custom_fixture_solids_print_at_their_setup_frame_positions():
     page = sheets(bundle([{"fixture": "plate", "pose": TURNED}]))[0]
-    assert "SHOP-MADE FIXTURE" in page
+    assert "SHOP-MADE FIXTURE" in page.text
     # The 10 x 20 x 5 pad: local x 0..10 -> Y 50..60, local y 0..20 -> X 80..100.
     assert "X 80…100, Y 50…60, Z -20…-15" in page.fixture().position("pad")
     # The locating pin stands at local (5, 5) on the pad top: X 95, Y 55, Z -15 up 8.
@@ -233,8 +230,8 @@ def test_angle_plate_base_and_working_face_print_in_the_setup_frame():
 
 def test_later_setup_points_back_to_the_first_table_at_the_same_pose():
     first, later = sheets(bundle([{"fixture": "plate", "pose": TURNED}] * 2))
-    assert "SHOP-MADE FIXTURE" in first
-    assert "SHOP-MADE FIXTURE —" not in later
+    assert "SHOP-MADE FIXTURE" in first.text
+    assert "SHOP-MADE FIXTURE —" not in later.text
     (owner,) = [
         FixturePage(html)
         for html in first.printed_sheets
@@ -261,7 +258,7 @@ def test_moved_fixture_gets_its_own_table_in_the_new_frame():
     first, moved = sheets(
         bundle([{"fixture": "plate", "pose": TURNED}, {"fixture": "plate", "pose": IDENTITY}])
     )
-    assert "SHOP-MADE FIXTURE —" in moved
+    assert "SHOP-MADE FIXTURE —" in moved.text
     assert "X 0…10, Y 0…20, Z 0…5" in moved.fixture().position("pad")
     assert "X 80…100, Y 50…60, Z -20…-15" in first.fixture().position("pad")
 
@@ -279,8 +276,8 @@ def test_hold_labels_locators_apart_from_clamps_and_tightens_in_declared_order()
         "preload_direction": "clockwise",
     }
     page = sheets(bundle([hold]))[0]
-    assert "C1 clamp:" in page and "LOC2 locator:" in page and "C3 clamp:" in page
-    assert "Clamp 2" not in page
+    assert "C1 clamp:" in page.text and "LOC2 locator:" in page.text and "C3 clamp:" in page.text
+    assert "Clamp 2" not in page.text
     (action,) = [
         content(node)
         for node in descendants(page.markup, "li")
@@ -384,7 +381,7 @@ def test_holes_print_in_the_row_of_the_part_they_are_cut_in():
 
 
 def test_existing_shop_parts_drawn_for_clearance_are_not_made():
-    assert "vise" not in bridge_page()
+    assert "vise" not in bridge_page().text
 
 
 def test_made_parts_print_their_make_notes_and_differing_notes_stay_apart():
@@ -395,14 +392,14 @@ def test_made_parts_print_their_make_notes_and_differing_notes_stay_apart():
     ]
     collar = cylinder("collar", 40, 8.26, 10, 3, note=hard)
     table = bridge_page(*buttons, collar)
-    made = table[table.index("Component") : table.index("Bought hardware")]
-    assert "button ×2" in made, "identical parts with one note share a row"
+    assert [row["Component"] for row in table.rows()].count("button ×2") == 1
     # Rows sharing a make note are named together before it.
-    assert f"Make: button ×2, collar: {hard}; button C: mild steel." in table
+    make = table.line("Make:")
+    assert f"button ×2, collar: {hard}" in make and "button C: mild steel" in make
     # Bought hardware is not made, so its note is no make instruction: it prints apart.
     table = bridge_page(cylinder("bolt", 0, 0, 6, 20, supply="bought", note="zinc plated"))
-    assert "Notes: bolt: zinc plated." in table
-    assert "zinc" not in table.split("Notes:")[0]
+    assert "bolt: zinc plated" in table.line("Notes:")
+    assert all("zinc" not in line for line in table.paragraphs if not line.startswith("Notes:"))
 
 
 def test_notes_on_holes_and_on_bought_and_existing_parts_print():
@@ -416,11 +413,11 @@ def test_notes_on_holes_and_on_bought_and_existing_parts_print():
         "note": "the bought box parallel, as sold",
     }
     table = bridge_page(window, shell)
-    make = table[table.index("Make:") :]
+    make = table.line("Make:")
     # A made hole's note is how it is made; an existing part's note is not.
     assert "window: mill it light" in make
-    assert "Notes: shell: the bought box parallel, as sold." in table
-    assert "box parallel" not in make.split("Notes:")[0]
+    assert "shell: the bought box parallel, as sold" in table.line("Notes:")
+    assert "box parallel" not in make
 
 
 RECORD = {
@@ -455,12 +452,13 @@ def record_page(*records, gauges=None):
 def test_a_measured_and_recorded_value_prints_as_a_fill_in():
     square = {"check": "base-to-right squareness by reversal", "over_mm": 100}
     _, page = record_page(RECORD, square)
-    tir = page[page.index("head-to-shoulder TIR") :].split("|")[0]
+    page.fixture()
+    tir = page.line("head: head-to-shoulder TIR")
     assert "0.0005 in test indicator" in tir and "shoulder rolled in the V-block" in tir
     assert "≤ 0.010 mm" in tir and "goal ≤ 0.003 mm" in tir
     assert re.search(r"measured _{4,}", tir)
     # A record with no spec is a characterisation: written down, not judged.
-    square_line = page[page.index("base-to-right squareness") :].split("|")[0]
+    square_line = page.line("head: base-to-right squareness")
     assert re.search(r"measured _{4,} mm over 100 mm", square_line)
     assert "≤" not in square_line
 
@@ -510,8 +508,8 @@ def test_inventory_keys_named_in_make_notes_print_as_the_item():
         ],
     }
     page = sheets(data)[0]
-    assert "with test indicator on" in page and "gauges." not in page
-    assert "? granite-plate" in page
+    assert "with test indicator on" in page.text and "gauges." not in page.text
+    assert "? granite-plate" in page.text
     named = {f.subject: f.status for f in tool_resolves.evaluate(data) if f.numbers.get("named_in")}
     assert named["gauges.dti"] == "pass"
     assert named["gauges.granite-plate"] == "unknown"
@@ -522,7 +520,7 @@ def test_inventory_keys_named_in_make_notes_print_as_the_item():
 def test_a_gauge_named_only_in_a_record_or_prose_gets_its_receipt_check(where):
     from prechips.rules import purchased_tooling
 
-    data, _ = record_page(*([RECORD] if where == "record" else []))
+    data = record_bundle(*([RECORD] if where == "record" else []))
     data.inventory["gauges"]["dti"]["acceptance"] = "unknown"
     data.plan["setups"].append({**data.plan["setups"][0], "id": "S2"})
     text = "true the head on gauges.dti first"
@@ -532,10 +530,28 @@ def test_a_gauge_named_only_in_a_record_or_prose_gets_its_receipt_check(where):
         data.plan["setups"][0]["note"] = text
     elif where == "plan prerequisite":
         data.plan["stock"] = {"prerequisite": text}
-    found = {f.subject: f.status for f in purchased_tooling.evaluate(data)}
-    # The setup that first uses the item owns its receipt check; job-level prose is the
-    # first setup's. Unknown receipt criteria are never a pass.
-    assert found == {"S1": "unknown"}
+    findings = purchased_tooling.evaluate(data)
+    found = [(f.subject, f.status) for f in findings]
+    # Every setup using the gauge carries its unknown receipt debt; only job-level
+    # prose belongs solely to S1. Keep ordered rows so duplicate findings cannot hide.
+    expected = [("S1", "unknown")]
+    if where in {"record", "make note"}:
+        expected.append(("S2", "unknown"))
+    assert found == expected
+
+    # First-use ownership is a presentation rule, separate from per-setup findings.
+    traveler = _Traveler(data, findings, {}, None)
+    first = Markup(traveler.purchased_tooling(data.plan["setups"][0]))
+    assert len(descendants(first, "h3")) == 1
+    assert any("STOP:" in content(node) for node in first.find("stop"))
+    later = traveler.purchased_tooling(data.plan["setups"][1])
+    if where in {"record", "make note"}:
+        markup = Markup(later)
+        assert any(re.search(r"\bSetup\s+S1\b", content(node)) for node in descendants(markup, "p"))
+        assert not descendants(markup, "h3")
+        assert not descendants(markup, "table")
+    else:
+        assert not later
 
 
 def same_key_receipts(s1_note, s2_note=None, s1_slots=None):
@@ -866,7 +882,7 @@ def test_every_item_path_reads_only_the_item_its_slot_selects(
     traveler = _Traveler(data, [*receipts, index], {}, None)
     printed = traveler.purchased_tooling(setup)
     if path != "op.process_holds":  # an inspect op without its hold feature does not render
-        printed += sheets(data)[0]
+        printed += sheets(data)[0].text
     if kind == "workholding" and not shop_made:
         printed += traveler.indexing({**setup, "hold": {"index": {}, **setup["hold"]}})
     if kind in ("spindle", "tools"):
@@ -923,14 +939,19 @@ def drill_note(note):
 def test_a_named_member_is_the_whole_member_never_a_prefix(reference, status, printed):
     page, named = drill_note(f"Use {reference}.")
     assert named == {reference: status}
-    assert page[page.index("Use ") :].split("|")[0].endswith(printed)
+    make = page.fixture().line("Make:")
+    label = printed.rstrip(".")
+    assert label in make
+    if reference.startswith("gauges.pins/"):
+        diameter = {"1/4": 6.35, "1": 25.4}[reference.removeprefix("gauges.pins/")]
+        assert f"{diameter:g} mm {label}" in make
 
 
 def test_a_record_gauge_must_be_in_the_shop_list():
     from prechips.rules import tool_resolves
 
     data, page = record_page({**RECORD, "gauge": "no-such-gauge"})
-    assert "? no-such-gauge" in page
+    assert "? no-such-gauge" in page.text
     named = {f.subject: f.status for f in tool_resolves.evaluate(data) if f.numbers.get("named_in")}
     assert named["gauges.no-such-gauge"] == "unknown"
 
@@ -966,7 +987,7 @@ def test_custom_item_with_nothing_to_make_gets_no_table_or_pointer():
         ],
     }
     page = sheets(data)[0]
-    assert "SHOP-MADE" not in page and "shop-made" not in page
+    assert "SHOP-MADE" not in page.text and "shop-made" not in page.text
 
 
 def test_existing_part_drilled_here_lists_only_its_holes():
@@ -983,7 +1004,7 @@ def test_existing_part_drilled_here_lists_only_its_holes():
     assert "with 1 × M10 tapped: axis at X 40, Y 0; Z -20…-10" in table.position(
         "plate (existing part: make the holes only)"
     )
-    assert "100 × 100 × 10" not in table and "vise" not in table
+    assert "100 × 100 × 10" not in table.text and "vise" not in table.text
 
 
 def existing_tapped_fixture(count=1, identity_words=()):
@@ -1045,7 +1066,7 @@ def test_a_locating_solid_with_a_bore_in_it_is_a_fit_as_well_as_its_bore():
     table = bridge_page(stand, bore, fixture_make_decimals=1)
     assert table.row("stand")["Size mm"] == "Ø9.94 × 9.94"
     assert "Z -17…-7.06" in table.position("stand")
-    assert "Ø9.9 × 9.9" not in table and "-7.1" not in table
+    assert "Ø9.9 × 9.9" not in table.text and "-7.1" not in table.text
 
 
 # The shop's mill reads 0.005 mm; a pin locating the part stands in a hole in the beam.
@@ -1064,7 +1085,7 @@ def test_fixture_positions_print_on_the_mill_grid_one_value_per_place():
     assert "axis at X -0.37, Y 0; Z 8.26…14.26" in table.position("pin")
     # The hole the pin stands in prints the same X, not the 0.1 make precision.
     assert "with 1 × Ø4 hole: axis at X -0.37, Y 0; Z -1…11" in table.position("beam")
-    assert "-0.368" not in table and "X -0.4," not in table
+    assert "-0.368" not in table.text and "X -0.4," not in table.text
     # The locating pad's 2.3456 thickness and underside are on the grid too.
     assert table.row("pad")["Size mm"] == "10 × 10 × 2.345"
     assert "Z -2.345…0" in table.position("pad")
@@ -1082,7 +1103,7 @@ def test_a_fit_the_mill_grid_moves_beyond_the_drawing_tolerance_is_unknown(toler
     # The hole it stands in is the same place: never a different, silently moved value.
     assert f"with 1 × Ø4 hole: axis at {printed} Y 0" in table.position("beam")
     if "?" in printed:
-        assert "cannot hold" in table and "linear_3pl" in table
+        assert "cannot hold" in table.text and "linear_3pl" in table.text
 
 
 def test_separate_bought_parts_with_one_fastener_text_count_apart():
@@ -1113,7 +1134,7 @@ def test_unverified_primitive_prints_no_make_numbers():
     table = bridge_page(block)
     assert table.row("gauge block")["Size mm"] == "?"
     assert "? not set: unverified; verify before making" in table.position("gauge block")
-    assert "12.5 × 7 × 3" not in table and "X 70" not in table
+    assert "12.5 × 7 × 3" not in table.text and "X 70" not in table.text
 
 
 def test_existing_and_made_parts_of_one_size_keep_separate_rows():
@@ -1133,7 +1154,7 @@ def test_existing_and_made_parts_of_one_size_keep_separate_rows():
     )
     assert table.row("new")["Size mm"] == "10 × 10 × 5"
     assert "X 80…90, Y -5…5, Z 0…5" in table.position("new")
-    assert "old / new" not in table
+    assert "old / new" not in table.text
 
 
 def test_renumbered_clamp_gets_its_own_table_not_a_pointer():
@@ -1141,8 +1162,8 @@ def test_renumbered_clamp_gets_its_own_table_not_a_pointer():
     first, later = sheets(
         bundle([{"clamps": [clamp]}, {"clamps": [{"ref": "strap", "restraint": "none"}, clamp]}])
     )
-    assert "(C1)" in first
-    assert "SHOP-MADE FIXTURE —" in later
+    assert "(C1)" in first.text
+    assert "SHOP-MADE FIXTURE —" in later.text
     assert not any(
         "Setup S1" in content(node) and "SHOP-MADE FIXTURE table" in content(node)
         for node in descendants(later.markup, "li")
@@ -1174,7 +1195,7 @@ def test_hole_without_cuts_prints_in_every_part_it_passes_through():
     for component in ("lower", "upper"):
         assert table.row(component)["Size mm"] == "?"
         assert "? not set: its hole pin-hole is unverified" in table.position(component)
-    assert "X 60…70" not in table
+    assert "X 60…70" not in table.text
 
 
 def test_bought_primitives_count_together_only_when_they_touch():
@@ -1202,10 +1223,12 @@ def test_oblique_hole_without_cuts_withholds_the_part_it_may_cross():
     table = bridge_page(plate, hole)
     assert table.row("plate")["Size mm"] == "?"
     assert "? not set: oblique hole slant may cross it; name it in cuts" in table.position("plate")
-    assert "X 60…70" not in table
+    assert "X 60…70" not in table.text
     # Named in cuts, the hole prints in the plate's row.
     table = bridge_page(plate, {**hole, "cuts": ["plate"]})
-    assert "X 60…70, Y -5…5, Z 0…0.1|with 1 × Ø1 hole" in table
+    position = table.position("plate")
+    assert "X 60…70, Y -5…5, Z 0…0.1" in position
+    assert "with 1 × Ø1 hole" in position
 
 
 # A soft-jaw plate bolted to a vise jaw, drawn in its own frame: the vise places it.
@@ -1246,27 +1269,50 @@ def loose_page(hold, **items):
     data = bundle([hold])
     data.inventory["fixtures"].update(items)
     page = sheets(data)[0]
-    return page, page[page.index("SHOP-MADE FIXTURE —") :]
+    return page, FixturePage("".join(page.printed_sheets)).fixture()
 
 
 def test_an_item_the_hold_places_prints_its_make_table_in_its_own_frame():
     _, table = loose_page({"fixture": "soft-jaws", "jaws_along": "x"}, **{"soft-jaws": SOFT_JAWS})
-    assert "loose: placed as the HOLD says" in table
-    assert "? not posed" not in table
+    assert "loose: placed as the HOLD says" in table.text
+    assert "? not posed" not in table.text
     # Sizes and the bolt hole stand where the make table draws them, in the item frame.
-    assert "150 × 20 × 60" in table and "X 0…150, Y 0…20, Z 0…60" in table
-    assert "M10 jaw bolt" in table and "axis at X 25, Z 30" in table
+    assert "150 × 20 × 60" in table.text and "X 0…150, Y 0…20, Z 0…60" in table.text
+    assert "M10 jaw bolt" in table.text and "axis at X 25, Z 30" in table.text
 
 
 def test_jaw_buttons_get_a_make_table_and_the_hold_points_to_it():
     page, table = loose_page({"fixture": "angle", "jaw_buttons": "buttons"}, buttons=BUTTONS)
-    assert "Jaw buttons: " in page and "(shop-made: SHOP-MADE FIXTURE table, sheet 2)" in page
-    assert "Ø20 × 6" in table and "loose: placed as the HOLD says" in table
+    (step,) = [
+        content(node)
+        for node in descendants(page.markup, "li")
+        if content(node).startswith("Jaw buttons:")
+    ]
+    (owner,) = [
+        Markup(html)
+        for html in page.printed_sheets
+        if any(
+            content(node).startswith("SHOP-MADE FIXTURE —")
+            for node in descendants(Markup(html), "h2")
+        )
+    ]
+    (setup_title,) = [
+        content(node) for node in descendants(owner, "h2") if content(node).startswith("SETUP ")
+    ]
+    (fixture_title,) = [
+        content(node)
+        for node in descendants(owner, "h2")
+        if content(node).startswith("SHOP-MADE FIXTURE —")
+    ]
+    setup = re.match(r"SETUP (\S+) —", setup_title).group(1)
+    assert fixture_title.split(" — ", 1)[1] in step
+    assert "SHOP-MADE FIXTURE table" in step and f"Setup {setup}" in step
+    assert "Ø20 × 6" in table.text and "loose: placed as the HOLD says" in table.text
 
 
 def test_a_fixture_placed_by_its_pose_still_stops_without_one():
     _, table = loose_page({"fixture": "plate"})
-    assert "? not posed" in table and "loose" not in table
+    assert "? not posed" in table.text and "loose" not in table.text
 
 
 MAKE_OP = {
@@ -1295,12 +1341,21 @@ def make_page(*ops, item_ops=None, tools=None):
         **({} if item_ops is None else {"make_ops": item_ops}),
     }
     page = sheets(data)[0]
-    return data, page[page.index("SHOP-MADE FIXTURE") :]
+    return data, page.fixture()
 
 
-def make_lines(table):
-    """The table's numbered make-operation lines, in print order."""
-    return [line for line in table.split("|") if re.match(r"\d+\. ", line)]
+def make_lines(page):
+    """Numbered operations belonging to shop-made sections, in print order."""
+    lines = []
+    shop_made = False
+    for node in page.markup.nodes:
+        if node["tag"] == "h2":
+            shop_made = content(node).startswith("SHOP-MADE FIXTURE —")
+        elif shop_made and node["tag"] == "p":
+            line = content(node)
+            if re.match(r"\d+\. ", line):
+                lines.append(line)
+    return lines
 
 
 def test_each_make_operation_prints_one_cutting_data_line_in_order():
@@ -1475,7 +1530,7 @@ def test_a_held_item_without_a_make_table_still_prints_its_make_operations(slot)
         "solids": [cylinder("rest", 0, 0, 20, 6)],
         "make_ops": [MAKE_OP],
     }
-    first, second = (page.partition("SHOP-MADE")[2] for page in sheets(data))
+    first, second = sheets(data)
     # Once, before the first setup holding with it; its finding is the line's.
     (line,) = make_lines(first)
     assert not make_lines(second)
@@ -1498,7 +1553,7 @@ def test_a_machine_accessory_the_tools_do_not_list_is_no_make_tool(key):
     data, _ = make_page(item_ops=[MAKE_OP], tools={})
     data.inventory["machines"]["mill"][key] = ["endmill-6"]
     page = sheets(data)[0]
-    (line,) = make_lines(page[page.index("SHOP-MADE FIXTURE") :])
+    (line,) = make_lines(page)
     assert "? endmill-6" in line and "STOP" in line
     assert make_statuses(data) == ["error"]
     # Its receipt slot is the tools item, never the accessory: the tools list lacks it.
@@ -1584,17 +1639,17 @@ def test_make_operations_print_once_at_the_first_use(holds, tabled):
         "solids": [cylinder("rest", 0, 0, 20, 6)],
         "make_ops": [MAKE_OP],
     }
-    first, second = (page.partition("SHOP-MADE")[2] for page in sheets(data))
+    first, second = sheets(data)
     # Made before the first setup holding with it, whichever slot; never again later.
     (line,) = make_lines(first)
     assert MAKE_OP["cite"] in line and "STOP" not in line
-    assert not make_lines(second) and "Make before Setup S2" not in second
+    assert not make_lines(second) and "Make before Setup S2" not in second.text
     assert make_statuses(data) == ["pass"]
     # A later make table and the operations before it each name the other's sheet.
     if 2 in tabled:
-        assert "Setup S1 sheet 2" in second
+        assert "Setup S1 sheet 2" in second.text
     if 1 not in tabled:
-        assert "Setup S2 sheet 2" in first
+        assert "Setup S2 sheet 2" in first.text
 
 
 @pytest.mark.parametrize(

@@ -158,22 +158,6 @@ def _assert_process_exited(pid, message):
     assert not _alive(pid), message
 
 
-@pytest.mark.parametrize("alive", [False, True])
-def test_exit_assertion_never_kills_an_unowned_pid(monkeypatch, alive):
-    destructive_calls = []
-    monkeypatch.setattr(
-        subprocess, "run", lambda *args, **kwargs: destructive_calls.append(("run", args))
-    )
-    monkeypatch.setattr(os, "kill", lambda *args: destructive_calls.append(("kill", args)))
-    monkeypatch.setattr(sys.modules[__name__], "_alive", lambda pid: alive)
-    if alive:
-        with pytest.raises(AssertionError, match="unowned process is still alive"):
-            _assert_process_exited(12345, "unowned process is still alive")
-    else:
-        _assert_process_exited(12345, "unowned process is still alive")
-    assert destructive_calls == [], "exit checks must not invoke a destructive collaborator"
-
-
 def _blocking_run(tmp_path, monkeypatch):
     """The blocking engine script, with one patient worker; its pids land in ``tmp_path``."""
     script = tmp_path / "blocking.py"

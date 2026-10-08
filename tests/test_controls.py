@@ -5,7 +5,22 @@ import re
 import tomllib
 
 import pytest
-from test_cli import SYNTHETIC_KERNEL, copy_examples, rocker_s1_alone, traveler
+from test_cli import copy_examples, rocker_s1_alone, traveler
+from test_sheet_ops import Markup, content
+
+from prechips.findings import exit_code
+from prechips.inputs import load_bundle
+from prechips.rules import inspection, tool_resolves, zero_recipe
+from prechips.sheet import _Traveler
+
+
+def control_rows(plan, rule):
+    """Read the complete authored population through its actual rule consumer."""
+    # Full traveler/CLI integration remains in the native controls below; these
+    # local comparisons retain every authored setup, op and feature without running it twice.
+    bundle = load_bundle(plan)
+    rows = rule.evaluate(bundle)
+    return bundle, rows, {"findings": [row.to_dict() for row in rows]}
 
 
 def finding(report, rule, subject):
@@ -41,15 +56,20 @@ def test_removed_reamer_is_named_inventory_error(tmp_path):
         'dia_mm = 6.5\nshank_mm = 6.5\nlead_mm = 1.0\nunits = "mm"\n'
     )
     inventory.write_text(original + known, encoding="utf-8")
-    _, present, _ = traveler(plan, tmp_path / "present", setup=SYNTHETIC_KERNEL)
+    _, _, present = control_rows(plan, tool_resolves)
     assert finding(present, "tool_resolves", "control-reamer-6.5")["status"] == "pass"
     inventory.write_text(original, encoding="utf-8")
-    result, absent, html = traveler(plan, tmp_path / "absent", setup=SYNTHETIC_KERNEL)
-    assert result.returncode == 2, result.stderr
+    bundle, rows, absent = control_rows(plan, tool_resolves)
+    assert exit_code(rows, bundle.policy, bundle) == 2
     row = finding(absent, "tool_resolves", "control-reamer-6.5")
     assert row["status"] == "error"
     assert "reamer" in row["message"].lower()
-    assert "reamer" in (html + result.stderr).lower()
+    sheet = _Traveler(bundle, rows, {}, None)
+    for setup in bundle.plan["setups"]:
+        if any(op.get("tool") == "control-reamer-6.5" for op in setup.get("ops", [])):
+            _, _, html = sheet.tool_table(setup)
+            assert "reamer" in html.lower()
+            assert "not in the shop tool list" in html
 
 
 def test_reversed_dro_direction_swaps_expected_and_mirrored_readings(tmp_path):
@@ -60,7 +80,7 @@ def test_reversed_dro_direction_swaps_expected_and_mirrored_readings(tmp_path):
     assert authored["dro"]["direction"]["x"] == "right", "the control reverses an authored +X DRO"
     s1 = next(setup for setup in authored["setups"] if setup["id"] == "S1")
     jog = s1["zero"]["x"]["check_jog_mm"]
-    _, baseline, _ = traveler(plan, tmp_path / "baseline", setup=SYNTHETIC_KERNEL)
+    before_bundle, before_rows, baseline = control_rows(plan, zero_recipe)
     row = finding(baseline, "zero_check", "S1")
     assert row["status"] == "pass", row
     before = row["numbers"]["axes"]["x"]
@@ -70,7 +90,7 @@ def test_reversed_dro_direction_swaps_expected_and_mirrored_readings(tmp_path):
     authored["dro"]["direction"]["x"] = "left"
     assert count == 1 and tomllib.loads(reversed_text) == authored, "only the DRO X sense flips"
     plan.write_text(reversed_text, encoding="utf-8")
-    result, reversed_report, _ = traveler(plan, tmp_path / "reversed", setup=SYNTHETIC_KERNEL)
+    bundle, rows, reversed_report = control_rows(plan, zero_recipe)
     row = finding(reversed_report, "zero_check", "S1")
     after = row["numbers"]["axes"]["x"]
     # The touch-off is unchanged; only the reading the authored +X jog produces reverses.
@@ -80,7 +100,66 @@ def test_reversed_dro_direction_swaps_expected_and_mirrored_readings(tmp_path):
     assert after["check_reading"] == pytest.approx(before["mirrored_reading"])
     assert after["mirrored_reading"] == pytest.approx(before["check_reading"])
     assert row["status"] == "error"
-    assert result.returncode == 2
+    assert exit_code(rows, bundle.policy, bundle) == 2
+    # Exercise the operator's real zero table, not the complete geometry/report pipeline.
+    for data, findings, direction in (
+        (before_bundle, before_rows, "right"),
+        (bundle, rows, "left"),
+    ):
+        setup = next(item for item in data.plan["setups"] if item["id"] == "S1")
+        sheet = _Traveler(data, findings, {}, None)
+        sheet.setup = setup
+        _, tools, _ = sheet.tool_table(setup)
+        html = sheet.dro(setup, tools)
+        markup = Markup(html)
+        directions = next(
+            content(node)
+            for node in markup.nodes
+            if node["tag"] == "p" and content(node).startswith("Positive directions:")
+        )
+        x_direction = next(segment for segment in directions.split(";") if "X+" in segment)
+        assert direction in x_direction.split()
+        assert ("left" if direction == "right" else "right") not in x_direction.split()
+        assert "Axis Set each axis (never Preset)" in directions
+        assert "'if reversed' means STOP" in directions
+        zero_table = markup.find("zero")[0]
+        table_rows = [
+            node
+            for node in markup.nodes
+            if node["tag"] == "tr"
+            and node["parent"] is not None
+            and node["parent"]["parent"] is zero_table
+        ]
+        headings = [
+            content(node)
+            for node in markup.nodes
+            if node["tag"] == "th" and node["parent"] in table_rows
+        ]
+        assert headings == [
+            "axis",
+            "touch / pick up",
+            "Axis Set",
+            "check jog",
+            "must read",
+            "if reversed",
+        ]
+        x_cells = next(
+            cells
+            for table_row in table_rows
+            if (
+                cells := [
+                    content(node).strip()
+                    for node in markup.nodes
+                    if node["tag"] == "td" and node["parent"] is table_row
+                ]
+            )
+            and cells[0] == "X"
+        )
+        sign = 1 if direction == "right" else -1
+        assert float(x_cells[2]) == pytest.approx(before["axis_set"])
+        assert "+X" in x_cells[3]
+        assert float(x_cells[4]) == pytest.approx(before["axis_set"] + sign * jog)
+        assert float(x_cells[5]) == pytest.approx(before["axis_set"] - sign * jog)
 
 
 # A whole key/value line, including a multiline basic or literal string value or an array
@@ -100,7 +179,7 @@ def test_removed_position_check_is_named_error_not_size_coverage(tmp_path):
     examples = copy_examples(tmp_path)
     plan = examples / "rocker-arm" / "plan.toml"
     text = plan.read_text(encoding="utf-8")
-    _, baseline, _ = traveler(plan, tmp_path / "baseline", setup=SYNTHETIC_KERNEL)
+    _, _, baseline = control_rows(plan, inspection)
     # Remove each position check together with its inspection method and the set-up
     # sketches that illustrate that method; nothing else changes.
     expected = tomllib.loads(text)
@@ -122,8 +201,8 @@ def test_removed_position_check_is_named_error_not_size_coverage(tmp_path):
     stripped = POSITION_VIEW.sub("", POSITION_CHECK.sub("", text))
     assert tomllib.loads(stripped) == expected
     plan.write_text(stripped, encoding="utf-8")
-    result, report, _ = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
-    assert result.returncode == 2, result.stderr
+    bundle, rows, report = control_rows(plan, inspection)
+    assert exit_code(rows, bundle.policy, bundle) == 2
     for feature in sorted(features):
         subject = f"{feature}:position_dia"
         assert "op" in finding(baseline, "inspection", subject)["numbers"]

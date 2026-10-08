@@ -29,9 +29,9 @@ physical paper rehearsal and live prechips farm/App Insights acceptance remain
 pending. Exported CAD inputs are not evidence of those gates.
 See [PLAN.md](PLAN.md) for milestone status and unobserved acceptance work.
 
-Traveler readability baselines and native comparison observations are dated
-evidence in [PLAN §8](PLAN.md#8-milestones) and the
-[example guide](examples/README.md#dro-and-print-surfaces).
+Traveler readability baselines and native comparison observations are recorded
+in the example guide's [dated readability baselines](examples/README.md#dated-readability-baselines)
+and [native epsilon observation](examples/README.md#native-epsilon-observation).
 
 ## Install and check
 

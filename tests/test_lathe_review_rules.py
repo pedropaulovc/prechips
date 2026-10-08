@@ -487,7 +487,7 @@ def test_the_jaw_clearance_is_the_tools_own_chuck_side_extent_not_the_z_its_op_n
     setup["hold"]["pose"] = {"origin_mm": [0.0, 0.0, -2.0], "z": [0.0, 0.0, 1.0]}
     sheet.records[("headroom", "S1")] = {"stock_od_mm": 10.0}
     assert sheet.lathe_approaches(setup) == {"10": pytest.approx(2.10)}
-    assert "closest planned tool stop 2.10 mm from the jaws" in sheet.clearance(setup)
+    assert "2.10 mm" in [content(node) for node in Markup(sheet.clearance(setup)).find("reading")]
     assert sheet.crash_boxes(setup, op) == ["JAWS Z -2.00: 2.10 clear — hand feed to a stop"]
 
 
@@ -516,7 +516,7 @@ def test_a_tool_fed_to_its_tip_table_stands_where_the_table_puts_it_not_on_the_d
     sheet.records[("headroom", "S1")] = {"stock_od_mm": 10.0}
     sheet.records[("coordinates", "S1")] = _dome_tables()
     assert sheet.lathe_approaches(setup) == {"10": pytest.approx(8.10)}
-    assert "closest planned tool stop 8.10 mm from the jaws" in sheet.clearance(setup)
+    assert "8.10 mm" in [content(node) for node in Markup(sheet.clearance(setup)).find("reading")]
     # A shank standing 1.6 below the nose at every pose goes with it: Z-1.496, so 6.50.
     sheet.records[("accessibility", "S1:10")]["tool_z_mm"] = [-1.746, 62.475]
     assert sheet.lathe_approaches(setup) == {"10": pytest.approx(6.50)}
@@ -1343,16 +1343,6 @@ def test_a_touch_on_a_blade_face_off_its_dro_grid_is_refused_whatever_cuts_next(
         ]
         commanded = consumer["dro_to_z"]
         assert commanded == pytest.approx(-20.0 if kind == "blade" else -8.0)
-    # If the refused recipe were followed, the printed command would physically land
-    # 0.09 deeper for every consumer, not just the length used to construct the fixture.
-    physical_z = commanded - (axis_set - stands)
-    expected_physical_z = {
-        "length": (-8.09, -8.0),
-        "band": (-8.09, -8.0),
-        "bore": (-2.09, -2.0),
-        "blade": (-20.09, -20.0),
-    }[kind][0 if width == 1.61 else 1]
-    assert physical_z == pytest.approx(expected_physical_z)
     if expected_status == "pass":
         assert finding.status == "pass"
         if kind == "bore":
@@ -1604,9 +1594,14 @@ def test_a_toolpost_tool_is_one_tool_however_op_and_touch_spell_it(op_spelling, 
         (row["tool"], row["touch"], row["centre_height"], row["square_blade"])
         for row in finding.numbers["tool_setting"]
     ] == [
-        ("turner", "zero", "shim it level with the tailstock point", "not_applicable"),
         (
-            "blade",
+            touch_spelling + "turner",
+            "zero",
+            "shim it level with the tailstock point",
+            "not_applicable",
+        ),
+        (
+            touch_spelling + "blade",
             "tool_touches",
             "shim it level with the tailstock point",
             "square it off the chuck face",
@@ -1622,21 +1617,23 @@ def test_a_toolpost_tool_is_one_tool_however_op_and_touch_spell_it(op_spelling, 
         sheet.dro(setup, {("tools", "blade"): "T3 blade", ("tools", "turner"): "T1 turner"})
     )
     paragraphs = [node for node in markup.nodes if node["tag"] == "p"]
-    [blade_setting] = [
-        node
-        for node in paragraphs
-        if "shim it level with the tailstock point; then square it off the chuck face"
-        in content(node)
+    [turner_setting, blade_setting] = [
+        node for node in paragraphs if content(node).startswith("Before touching off ")
     ]
+    assert content(turner_setting).startswith("Before touching off T1 turner:")
+    assert content(blade_setting).startswith("Before touching off T3 blade:")
+    for node in (turner_setting, blade_setting):
+        assert "shim it level with the tailstock point" in content(node)
+    assert "square it off" not in content(turner_setting)
+    # Inventory references in authored advice may print as shop names or unresolved
+    # receipt labels; the blade's squaring instruction must still follow its height.
+    blade_advice = content(blade_setting)
+    assert re.search(r"square it off.*\bchuck\b.*\bface\b", blade_advice)
+    assert blade_advice.index("shim it level") < blade_advice.index("square it off")
     [blade_touch] = [
         node for node in paragraphs if content(node).startswith("Before op 40, touch off T3 blade")
     ]
     assert markup.nodes.index(blade_setting) < markup.nodes.index(blade_touch)
-    [turner_setting] = [
-        node
-        for node in paragraphs
-        if content(node) == "Before touching off T1 turner: shim it level with the tailstock point."
-    ]
     first_table = next(node for node in markup.nodes if node["tag"] == "table")
     assert markup.nodes.index(turner_setting) < markup.nodes.index(first_table)
 

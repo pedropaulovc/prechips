@@ -3191,6 +3191,7 @@ def check_coordinates(
         ends = {point.rsplit(" ", 1)[1] for owner, point in stations if owner == name}
         require(ends >= {"start", "end"}, f"{sid}: {name}: a kernel span lacks an end")
     standing = check_aims(context, setup, finding, frame, places)
+    unresolved_targets = False
     for row in rows:
         where = f"{sid}: {row['feature']}"
         # A row a plan aim moves stands at the moved point; its nominal target is checked
@@ -3199,6 +3200,7 @@ def check_coordinates(
         target = frame_point(standing[id(row)], frame) if moved else places[id(row)][1]
         near_values(row["setup"], target, f"{where}: setup coordinate")
         if "point" not in row:
+            unresolved_targets |= not all(map(numeric, target))
             require(
                 all(map(numeric, target)) or finding["status"] != "pass",
                 f"{where}: an unplaced located target cannot pass",
@@ -3249,14 +3251,7 @@ def check_coordinates(
     )
     if target_only:
         unresolved = frame == "unknown" or frame.get("binding") == "unknown"
-        unresolved |= any(
-            not all(
-                map(
-                    numeric, frame_point(located_point(definitions, context.frames, name)[1], frame)
-                )
-            )
-            for name in located
-        )
+        unresolved |= unresolved_targets
         status = "unknown" if unresolved else "pass"
         require(finding["status"] == status, f"{sid}: ordinary target verdict is not {status}")
 
@@ -3398,11 +3393,11 @@ def check_indexing(setup: dict, features: dict, entries: Entries, finding: dict)
     unresolved |= requested is None
     name = declaration.get("feature", "unknown")
     definitions = features.get("features", {})
-    feature = definitions.get(name, {})
+    feature = definitions.get(name, {}) if "feature" in declaration else {}
     invalid |= name != "unknown" and name not in definitions
     tolerance = (
         "unknown"
-        if name == "unknown"
+        if declaration.get("feature") == "unknown"
         else feature.get(
             "angle_tol_deg",
             "unknown"

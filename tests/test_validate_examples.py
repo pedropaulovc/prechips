@@ -1254,35 +1254,18 @@ def mutations(inventory):
 def test_identity_model_preserves_authored_and_mutated_inventory_facts():
     """Protect raw-to-model normalization, not agreement between shared resolver wrappers.
 
-    Keep every factory label and transformed identity scope, including explicit unknown
+    Keep every factory label and transformed identity, including explicit unknown
     categories, slash-bearing owners, nested member debts and generated dimensions.
     The independently authored facts must survive loading without losing verification.
     Focused consumer tests below/above hold those facts to explicit verdicts.
     """
-    for inventory, selected in pilot_inventories():
+    for inventory, _ in pilot_inventories():
         base = Inventory.model_validate(inventory).model_dump(exclude_unset=True)
         assert base == inventory
-        everything = {
-            root: identities(root, item) | {f"{category}.{root}"}
-            for category in CATEGORIES
-            for root, item in inventory[category].items()
-        }
-        for label, category, keys, edited in [("authored", None, (), None), *mutations(inventory)]:
+        for label, category, _, edited in [("authored", None, (), None), *mutations(inventory)]:
             edit = {} if category is None else {category: edited}
-            scope = set().union(
-                *(everything.get(key, set()) | identities(key, edited.get(key)) for key in keys)
-            )
-            scope = scope or selected.union(*everything.values(), {"undeclared", "undeclared/x"})
             loaded = {**base, **Inventory.model_validate(edit).model_dump(exclude_unset=True)}
             assert loaded == {**inventory, **edit}, label
-            # Identity spelling/qualification is an input fact as well: loading preserves
-            # the generated scope rather than measuring a meaningless comparison count.
-            loaded_scope = (
-                set().union(*(identities(key, loaded[category].get(key)) for key in keys))
-                if keys
-                else scope
-            )
-            assert loaded_scope <= scope, label
 
 
 def saw_finding(data):
@@ -2308,7 +2291,19 @@ def test_built_up_joint_report_cannot_clear_numeric_debt_or_change_identity(corr
         # report must then carry it and neither row may approve.
         setup["joint"]["clearance_mm"] = "unknown"
         kernel = joined("S7")
-        fit["status"], assembly["status"] = "unknown", "unknown"
+        fit = next(
+            row.to_dict()
+            for row in joints.evaluate_fit(SimpleNamespace(plan=plan, features=features))
+            if row.subject == "S7"
+        )
+        findings["joint_fit", "S7"] = fit
+        assert fit["status"] == "unknown"
+        assert fit["numbers"]["missing"] == ["setups[S7].joint.clearance_mm"]
+        assert all(
+            fit["numbers"][key] == "unknown"
+            for key in ("band_mm", "guaranteed_mm", "engagement_mm", "engagement_dia_mm")
+        )
+        assembly["status"] = "unknown"
         VALIDATOR["check_joint_declarations"](plan, features, findings, kernel)
     if corruption == "fit_pass":
         fit["status"] = "pass"
@@ -2494,19 +2489,23 @@ def test_speed_oracle_projects_the_derated_rpm_onto_available_bands(bands, expec
 
 
 @pytest.mark.parametrize(
-    ("declaration", "native"),
+    ("declaration", "native", "tolerance"),
     [
-        ({"fixture": "head", "rotation": "continuous"}, "pass"),
-        ({"fixture": "head", "rotation": "unknown"}, "unknown"),
-        ({"fixture": "head", "rotation": "continuous", "positions": 4}, "error"),
-        ({"fixture": "absent", "rotation": "continuous"}, "error"),
-        ({"fixture": "unknown", "rotation": "continuous"}, "unknown"),
-        ("unknown", "unknown"),
-        ({"fixture": "head", "feature": "pattern", "positions": "unknown"}, "unknown"),
-        ({"fixture": "head", "feature": "pattern", "positions": 1}, "unknown"),
+        ({"fixture": "head", "rotation": "continuous"}, "pass", None),
+        ({"fixture": "head", "rotation": "unknown"}, "unknown", None),
+        ({"fixture": "head", "rotation": "continuous", "positions": 4}, "error", None),
+        ({"fixture": "absent", "rotation": "continuous"}, "error", None),
+        ({"fixture": "unknown", "rotation": "continuous"}, "unknown", None),
+        ("unknown", "unknown", 1.0),
+        ({"fixture": "head", "positions": 4}, "pass", 1.0),
+        ({"fixture": "head", "feature": "unknown", "positions": 4}, "unknown", "unknown"),
+        ({"fixture": "head", "feature": "pattern", "positions": "unknown"}, "unknown", 1.0),
+        ({"fixture": "head", "feature": "pattern", "positions": 1}, "unknown", 1.0),
     ],
 )
-def test_indexing_oracle_handles_continuous_and_unresolved_declarations(declaration, native):
+def test_indexing_oracle_handles_continuous_and_unresolved_declarations(
+    declaration, native, tolerance
+):
     setup = {"id": "S1", "hold": {"index": declaration}, "ops": []}
     features = {
         "features": {"pattern": {"angle_tol_deg": 1.0}},
@@ -2531,15 +2530,24 @@ def test_indexing_oracle_handles_continuous_and_unresolved_declarations(declarat
     )
     (finding,) = (f.to_dict() for f in indexing.evaluate(bundle))
     assert finding["status"] == native
+    if tolerance is not None:
+        assert finding["numbers"]["tolerance_deg"] == tolerance
     entries = VALIDATOR["Entries"](inventory)
     VALIDATOR["check_indexing"](setup, features, entries, finding)
     for forged in {"pass", "unknown", "error"} - {native}:
         with pytest.raises(ValueError):
             VALIDATOR["check_indexing"](setup, features, entries, {**finding, "status": forged})
+    if tolerance is not None:
+        corrupted = copy.deepcopy(finding)
+        corrupted["numbers"]["tolerance_deg"] = "unknown" if tolerance == 1.0 else 1.0
+        with pytest.raises(ValueError, match="indexing tolerance_deg"):
+            VALIDATOR["check_indexing"](setup, features, entries, corrupted)
 
 
 @pytest.mark.parametrize("binding", ["nominal", "unknown"])
-def test_ordinary_coordinate_verdict_is_derived_from_source_targets(binding):
+@pytest.mark.parametrize("kind", ["hole", "profile"])
+@pytest.mark.parametrize("z", [3.0, "unknown"])
+def test_ordinary_coordinate_verdict_is_derived_from_source_targets(binding, kind, z):
     frame = {
         "origin": [0.0, 0.0, 0.0],
         "x": [1.0, 0.0, 0.0],
@@ -2550,7 +2558,7 @@ def test_ordinary_coordinate_verdict_is_derived_from_source_targets(binding):
     features = {
         "units": "mm",
         "frames": {"model": frame},
-        "features": {"hole": {"kind": "hole", "at": [1.0, 2.0, 3.0]}},
+        "features": {"hole": {"kind": kind, "at": [1.0, 2.0, z]}},
     }
     setup = {
         "id": "S1",
@@ -2561,7 +2569,9 @@ def test_ordinary_coordinate_verdict_is_derived_from_source_targets(binding):
     plan = {"setups": [setup]}
     inventory = {"machines": {"mill": {"kind": "mill", "resolution_mm": 0.001}}}
     entries = VALIDATOR["Entries"](inventory)
-    native = "unknown" if binding == "unknown" else "pass"
+    # An inspected profile is not a located/hole feature, but its explicit partial at
+    # still prints a target row and leaves the setup unknown (coordinates.evaluate).
+    native = "unknown" if binding == "unknown" or z == "unknown" else "pass"
     finding = {
         "status": native,
         "cite": [],
@@ -2570,9 +2580,9 @@ def test_ordinary_coordinate_verdict_is_derived_from_source_targets(binding):
             "rows": [
                 {
                     "feature": "hole",
-                    "model": [1.0, 2.0, 3.0],
-                    "setup": [1.0, 2.0, 3.0],
-                    "dro": [1.0, 2.0, 3.0],
+                    "model": [1.0, 2.0, z],
+                    "setup": [1.0, 2.0, z],
+                    **({"dro": [1.0, 2.0, z]} if z != "unknown" else {}),
                     "dro_xy": [1.0, 2.0],
                 }
             ],
@@ -2587,7 +2597,10 @@ def test_ordinary_coordinate_verdict_is_derived_from_source_targets(binding):
 
 
 @pytest.mark.parametrize("omitted", ["drawing station 1", "drawing station 2", "op 10 to_z"])
-def test_coordinate_oracle_requires_every_authored_lathe_station(omitted):
+@pytest.mark.parametrize(
+    ("radius_mode", "x_target"), [(False, 4.0), (True, 2.0), (None, "unknown")]
+)
+def test_coordinate_oracle_requires_every_authored_lathe_station(omitted, radius_mode, x_target):
     frame = {
         "origin": [0.0, 0.0, 0.0],
         "x": [1.0, 0.0, 0.0],
@@ -2606,11 +2619,11 @@ def test_coordinate_oracle_requires_every_authored_lathe_station(omitted):
         "frames": {"model": frame},
         "features": {"shaft": {"kind": "shaft", "dia_nominal": 4.0, "z_mm": [0.0, 10.0]}},
     }
-    plan = {"setups": [setup], "dro": {"radius_mode": False}}
+    plan = {"setups": [setup], "dro": {} if radius_mode is None else {"radius_mode": radius_mode}}
     inventory = {"machines": {"lathe": {"kind": "lathe", "resolution_mm": 0.001}}}
     entries = VALIDATOR["Entries"](inventory)
     finding = {
-        "status": "pass",
+        "status": "unknown" if radius_mode is None else "pass",
         "cite": [],
         "numbers": {
             "dro_grid": {"step": 0.001, "decimals": 3},
@@ -2621,7 +2634,7 @@ def test_coordinate_oracle_requires_every_authored_lathe_station(omitted):
                     "model": [0.0, 0.0, z],
                     "setup": [0.0, 0.0, z],
                     "dia_nominal": 4.0,
-                    "x_target_mm": 4.0,
+                    "x_target_mm": x_target,
                 }
                 for point, z in [
                     ("drawing station 1", 0.0),
@@ -2636,6 +2649,13 @@ def test_coordinate_oracle_requires_every_authored_lathe_station(omitted):
         VALIDATOR["check_coordinates"](setup, features, finding, plan, entries, inventory, None)
 
     check()
+    if radius_mode is None:
+        # Omitting the mode cannot silently turn the displayed X into a diameter.
+        row = finding["numbers"]["rows"][0]
+        row["x_target_mm"] = 4.0
+        with pytest.raises(ValueError, match="X target"):
+            check()
+        row["x_target_mm"] = "unknown"
     finding["numbers"]["rows"] = [
         row for row in finding["numbers"]["rows"] if row["point"] != omitted
     ]

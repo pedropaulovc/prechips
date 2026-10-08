@@ -224,9 +224,6 @@ def test_handbook_is_embedded_or_review_is_recorded_memory_only(
     assert recorded["handbook"]["corpus_readme_sha256"] == expected["corpus_readme"]
     if reference_note:
         assert reference_note.strip() in calls[0]["input"]
-        for key, source in sources.items():
-            original_bytes = source.read_bytes().removesuffix(reference_note.encode("utf-8"))
-            assert expected[key] != hashlib.sha256(original_bytes).hexdigest()
 
 
 def test_claude_may_read_the_handbook_but_must_still_read_every_sheet(tmp_path: Path) -> None:

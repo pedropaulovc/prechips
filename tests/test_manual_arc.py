@@ -376,7 +376,7 @@ def test_a_rough_stair_stands_off_the_line_by_a_nonnegative_leave(tmp_path, key,
             op(20, "rough_profile", "{ method = 'chain_drill', pitch_mm = 5.0 }", tool="drill"),
             {},
         ),
-        (op(20, "finish_profile", "{ method = 'chords', count = 24 }"), {}),
+        (op(20, "finish_profile", "{ method = 'chords', count = 24 }", approach_mm=2.0), {}),
         (
             DRILL_BORE
             + op(
@@ -991,7 +991,7 @@ def test_filing_to_buttons_through_the_axis_bore_files_inside_the_band(tmp_path)
         (BUTTONS, "fixture = 'fixtures.buttons'", "fixtures.buttons"),
         (
             BUTTONS,
-            "fixture = 'unknown'\nclamps = [{ kit = 'fixtures.buttons' }]",
+            "fixture = 'unknown'\nclamps = [{ ref = 'fixtures.buttons' }]",
             "clamp 1 fixtures.buttons",
         ),
     ],

@@ -272,8 +272,9 @@ still dials its parent's target, aimed or not.
   `face`, either by omitting `faces` (the feature's default claims) or by
   explicitly naming that face in a list. `faces = "unknown"` or a list
   containing only `"unknown"` cannot authorize movement. A known explicit
-  face remains a claim when another entry is `"unknown"`; the unresolved
-  entry supplies no additional face claim or finish coverage.
+  face still authorizes that faced aim when another entry is `"unknown"`.
+  This does not resolve the whole non-rotary coverage or finish-coverage claim:
+  a mixed known/unknown list leaves that claim unresolved.
 
 Anything else is bad input. The kernel job gets:
 

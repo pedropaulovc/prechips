@@ -300,30 +300,36 @@ def test_lathe_feed_prints_per_revolution_with_the_true_value(tmp_path):
     plan = ROOT / "examples" / "pivot-shaft" / "plan.toml"
     _, report, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
     ids = [setup["id"] for setup in tomllib.loads(plan.read_text(encoding="utf-8"))["setups"]]
-    per_rev = {}
+    feeds = {}
     for finding in findings(report, "speeds_feeds"):
         setup, _, op = finding["subject"].partition(":")
-        value = finding["numbers"].get("feed_mm_rev")
+        numbers = finding["numbers"]
+        value = numbers.get("feed_mm_rev")
         if isinstance(value, float):
-            per_rev[setup, op] = value
-    assert per_rev
+            feeds[setup, op] = value, numbers.get("feed_mm_min")
+    assert feeds
     pages = sections(html, "OPERATIONS")
     checked = set()
     for setup, page in zip(ids, pages, strict=True):
         markup = Markup(page)
         for operation in markup.find("operation"):
             op = operation["attrs"]["data-op"]
-            value = per_rev.get((setup, op))
-            if value is None:
+            values = feeds.get((setup, op))
+            if values is None:
                 continue
+            per_rev, per_min = values
             feed = content(markup.find("op-feed", operation)[0])
             printed = re.findall(r"([\d.]+) mm/rev", feed)
-            # A per-rev feed must never carry the mm/min magnitude.
-            assert len(printed) == 1, (op, feed)
-            assert float(printed[0]) == pytest.approx(value, abs=0.005), (op, feed)
-            assert "mm/min" not in feed, (op, feed)
+            assert feed.count("mm/rev") == len(printed) == 1, (op, feed)
+            assert float(printed[0]) == pytest.approx(per_rev, abs=0.005), (op, feed)
+            # The optional parenthetical is a different unit, not the primary feed.
+            secondary = re.findall(r"\(([\d.]+) mm/min\)", feed)
+            assert feed.count("mm/min") == len(secondary) <= 1, (op, feed)
+            if secondary:
+                assert isinstance(per_min, (int, float)), (op, per_min)
+                assert float(secondary[0]) == pytest.approx(per_min, abs=0.5), (op, feed)
             checked.add((setup, op))
-    assert checked == set(per_rev)
+    assert checked == set(feeds)
 
 
 def test_job_status_names_every_setup_that_has_a_stop(tmp_path):

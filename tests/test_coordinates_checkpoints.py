@@ -270,7 +270,7 @@ def test_rocker_join_records_carry_their_stage_allowance_and_offset():
         (row.subject, table["op"], table["stage"], kind)
         for row in rows
         for kind in ("arc_table", "line_table")
-        for table in row.numbers[kind]
+        for table in row.numbers.get(kind, [])
     }
     # The current manual recipe roughs these joined outlines; file_to_line finishes
     # them, not a superseded finish arc-table operation.
@@ -280,7 +280,7 @@ def test_rocker_join_records_carry_their_stage_allowance_and_offset():
         for kind in ("arc_table", "line_table")
     } <= populations
     for row in rows:
-        for table in (*row.numbers["arc_table"], *row.numbers["line_table"]):
+        for table in (*row.numbers.get("arc_table", []), *row.numbers.get("line_table", [])):
             assert table.get("rows") if "rows" in table else table["dro_xy"], table
             radius = next(
                 p["cutter_radius_mm"]

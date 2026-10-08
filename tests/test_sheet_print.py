@@ -304,8 +304,8 @@ def test_a_table_split_across_pages_never_strands_one_or_two_rows(tmp_path, coun
 
 
 def test_a_table_that_ends_its_sheet_leaves_no_short_tail_on_its_last_page(tmp_path):
-    # A long table, last on its sheet, after a filler of every height: where it runs onto
-    # a second page, that page carries at least half as many rows as the page before it.
+    # A long table, last on its sheet, after a filler of every height: every printed
+    # fragment keeps at least three original rows, without losing or duplicating any.
     from prechips.sheet import _table
 
     rows = [(str(n), f"row-{n}-end") for n in range(1, 61)]
@@ -314,11 +314,13 @@ def test_a_table_that_ends_its_sheet_leaves_no_short_tail_on_its_last_page(tmp_p
     texts = printed_pages(_sections([(filler, block) for filler in fillers]), tmp_path)
     split = 0
     for run in _runs(texts, len(fillers)):
-        printed = [n for n in (len(re.findall(r"row-\d+-end", t)) for t in run) if n]
+        page_rows = [re.findall(r"row-(\d+)-end", text) for text in run]
+        printed = [len(rows) for rows in page_rows if rows]
         assert sum(printed) == 60, printed
-        assert len(printed) == 1 or 2 * printed[-1] >= printed[-2], printed
-        split += len(printed) == 2
-    assert split, "Expected at least one two-page table run"
+        assert [row for rows in page_rows for row in rows] == [str(n) for n in range(1, 61)]
+        assert all(n >= 3 for n in printed), printed
+        split += len(printed) > 1
+    assert split, "Expected at least one split table run"
 
 
 def test_a_lathe_rpm_cell_prints_its_spindle_turn_as_one_word(tmp_path):

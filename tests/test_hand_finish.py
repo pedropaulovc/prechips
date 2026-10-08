@@ -105,11 +105,11 @@ kernel = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(kernel)
 run = kernel._Setup.run
 def observe(self):
-    facts = run(self)
+    facts, ops = run(self)
     if self.part is not None:
         facts["witness_valid"] = self.part.isValid()
         facts["witness_solids"] = len(self.part.Solids)
-    return facts
+    return facts, ops
 kernel._Setup.run = observe
 with open(out + "/filing-input.json", encoding="utf-8") as handle:
     result = kernel.run(json.load(handle))
@@ -305,7 +305,7 @@ def test_a_guided_file_stops_on_its_buttons_and_dimensions_the_holding_it_must_c
         (BUTTONS, "fixture = 'fixtures.buttons'", "fixtures.buttons"),
         (
             BUTTONS,
-            "fixture = 'unknown'\nclamps = [{ kit = 'fixtures.buttons' }]",
+            "fixture = 'unknown'\nclamps = [{ ref = 'fixtures.buttons' }]",
             "clamp 1 fixtures.buttons",
         ),
         (BUTTONS, "fixture = 'buttons'", "buttons"),

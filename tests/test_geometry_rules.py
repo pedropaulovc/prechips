@@ -754,14 +754,9 @@ def test_cache_reuses_content_at_different_step_path_and_rejects_digest_drift(
     kernel.run_geometry(moved)
     assert len(calls) == 1
     assert finding(coverage, moved).status == "pass"
-    for candidate, directory in ((bundle, "first-output"), (moved, "second-output")):
+    for candidate in (bundle, moved):
         assets = render_assets(candidate)
         assert assets == {"setup-S1.png": png}
-        output = tmp_path / directory
-        output.mkdir()
-        for name, raw in assets.items():
-            (output / name).write_bytes(raw)
-        assert (output / "setup-S1.png").read_bytes() == png
     relocated.write_bytes(b"unexpected drift")
     object.__setattr__(moved, "kernel", None)
     assert kernel.run_geometry(moved)["status"] == "unknown"
