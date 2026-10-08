@@ -21002,15 +21002,15 @@
         "entry_surfaces": [
           {
             "op": 5,
-            "rod_hole": 0.2
+            "rod_hole": -2.27825
           },
           {
             "op": 10,
-            "rod_hole": 0.0
+            "rod_hole": -2.27825
           },
           {
             "op": 15,
-            "rod_hole": -2.07825
+            "rod_hole": -2.27825
           },
           {
             "op": 20,
@@ -64323,7 +64323,7 @@
       "subject": "S4"
     }
   ],
-  "hash": "1f9f22f0e808273fad82051ebfbd14c5614206bb8fc8883af083a23d0e34ff78",
+  "hash": "997163f74ced9e28f6c350a68f1a4951fc51a0bc1c0df4a2a2124327d1a24f90",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
