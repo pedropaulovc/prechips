@@ -382,17 +382,18 @@ def tool_paths(op, tables, units, subject):
     clipped there for a bounded op; ``levels_mm`` and ``entry_z_mm`` stand them the same
     way.
 
-    An op that returns to an entry (its coordinates ``level_paths`` record, op
-    ``subject``'s, carries a ``raise_z``: an open path of several levels, several pieces, a
-    raster) also gives ``returns``, how the traveler prints it getting back: ``raise_z_mm``,
-    ``again`` (another level follows, so the last piece returns to the first), ``join_mm``
-    (half the DRO step: piece ends nearer than that join, as the traveler joins them) and
-    ``route``, its pieces in the order the traveler prints them, each an outline or raster
-    pass's ``xy_mm`` or a printed table's first row id (``table``), which the kernel
-    resolves to that table's checkpoint paths as clipped. ``{"reason": ...}`` when a pass,
-    level or start is unknown, its ``returns`` the same reason when the op returns (a
-    ``returns`` reason alone when only its raise Z or DRO step is); None when the op prints
-    no cutter-centre path.
+    Every op also gives ``returns``, how the traveler prints it moving off the cut (the
+    kernel's rule A″ sweep): ``again`` (another level follows, so the last piece returns to
+    the first), ``join_mm`` (half the DRO step: piece ends nearer than that join, as the
+    traveler joins them), ``route``, its pieces in the order the traveler prints them,
+    each an outline or raster pass's ``xy_mm`` or a printed table's first row id
+    (``table``), which the kernel resolves to that table's checkpoint paths as clipped (its
+    first and last point are where the op starts and ends, at the setup's safe Z), and,
+    for an op that returns to an entry (its coordinates ``level_paths`` record, op
+    ``subject``'s, carries a ``raise_z``: an open path of several levels, several pieces,
+    a raster), ``raise_z_mm``. ``{"reason": ...}`` when a pass, level or start is unknown,
+    its ``returns`` the same reason (a ``returns`` reason alone when only its raise Z or
+    DRO step is); None when the op prints no cutter-centre path.
     """
     name = op.get("op")
     profiles = [
@@ -412,9 +413,7 @@ def tool_paths(op, tables, units, subject):
     )
 
     def unknown(why):
-        return (
-            {"reason": why, "returns": {"reason": why}} if "raise_z" in level else {"reason": why}
-        )
+        return {"reason": why, "returns": {"reason": why}}
 
     scale = {"mm": 1.0, "in": 25.4}.get(units)
     if scale is None:
@@ -481,20 +480,21 @@ def tool_paths(op, tables, units, subject):
     result = {"paths": paths, "levels_mm": [low, high], "entry_z_mm": entry}
     if printed_tables:
         result["tables"] = True
-    if "raise_z" in level:
-        result["returns"] = _returns(subject, name, tables, level["raise_z"], scale, len(tips) > 1)
+    result["returns"] = _returns(subject, name, tables, level, scale, len(tips) > 1)
     return result
 
 
-def _returns(subject, name, tables, raised, scale, again):
-    """:func:`tool_paths`'s ``returns`` for op ``name`` (op ``subject``), raising to
-    ``raised`` (plan units): its pieces as :func:`prechips.rules.level_entry.path_pieces`
-    orders them for the traveler, a raster pass marked ``raster`` (each is an entry)."""
+def _returns(subject, name, tables, level, scale, again):
+    """:func:`tool_paths`'s ``returns`` for op ``name`` (op ``subject``), raising to its
+    ``level_paths`` record ``level``'s ``raise_z`` (plan units) when it carries one: its
+    pieces as :func:`prechips.rules.level_entry.path_pieces` orders them for the traveler,
+    a raster pass marked ``raster`` (each is an entry)."""
     from prechips.rules.coordinates import row_id
     from prechips.rules.level_entry import path_pieces
 
     step = record(record(tables).get("dro_grid")).get("step")
-    if not number(raised):
+    raised = level.get("raise_z")
+    if "raise_z" in level and not number(raised):
         return {"reason": f"op {name} raise Z between levels is unknown"}
     if not (number(step) and step > 0):
         return {"reason": f"op {name} DRO step is unknown"}
@@ -507,12 +507,10 @@ def _returns(subject, name, tables, raised, scale, again):
         else:
             piece = {"xy_mm": [[v * scale for v in point] for point in points]}
             route.append({**piece, "raster": True} if raster else piece)
-    return {
-        "raise_z_mm": raised * scale,
-        "again": again,
-        "join_mm": step * scale / 2,
-        "route": route,
-    }
+    result = {"again": again, "join_mm": step * scale / 2, "route": route}
+    if "raise_z" in level:
+        result["raise_z_mm"] = raised * scale
+    return result
 
 
 def _hand_inputs(bundle, setup, op, subject, finishing):

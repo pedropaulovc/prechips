@@ -2547,28 +2547,35 @@ def _tool_envelope(op, moves):
 def _between_levels(pieces, raise_z, again, join):
     """The moves (:func:`_tool_envelope`) a cutter makes off the cut to get back to an
     entry, as the traveler prints them (``prechips.rules.level_entry``): ``pieces`` in the
-    order it runs them, each ``(setup-frame xy points, lowest tip z, raster pass?)``. A
-    raster pass, or a piece whose start is more than ``join`` from the last one's end, is a
-    new entry: the cutter raises from the lowest level to ``raise_z`` at that end, moves
-    straight at that Z to the entry and goes back down there. When ``again`` (another level
-    follows) it does the same from the last piece's end back to the first piece's start,
-    unless the only entry is a path that ends where it starts."""
+    order it runs them, each ``(setup-frame xy points, lowest tip z, raster pass?, entered
+    anew?)``. A raster pass, a piece entered anew (a printed table's first path and the
+    piece after a table: the traveler retracts between tables, even where one starts where
+    the last ended), or a piece whose start is more than ``join`` from the last one's end,
+    is a new entry: the cutter raises from the lowest level to ``raise_z`` at that end,
+    moves straight at that Z to the entry and goes back down there (where the entry is that
+    end, it only raises and goes back down). When ``again`` (another level follows) it
+    does the same from the last piece's end back to the first piece's start, unless the
+    only entry is a path that ends where it starts. A raster lifts to
+    ``raise_z`` after its last pass too, as after every other. Raises :class:`_Unknown`
+    when it gets back to an entry with no ``raise_z`` (None: the traveler prints none)."""
     pieces = [piece for piece in pieces if piece[0]]
     if not pieces:
         return []
 
+    def stand(xy, low):
+        return ([xy], min(low, raise_z), max(low, raise_z), None)
+
     def hop(a, b):
-        (xy_a, low_a, _), (xy_b, low_b, _) = a, b
-        p, q = xy_a[-1], xy_b[0]
-        return [
-            ([p], min(low_a, raise_z), max(low_a, raise_z), None),
-            ([p, q], raise_z, raise_z, None),
-            ([q], min(low_b, raise_z), max(low_b, raise_z), None),
-        ]
+        if raise_z is None:
+            raise _Unknown("it gets back to an entry but the traveler prints no raise Z")
+        p, q = a[0][-1], b[0][0]
+        if math.dist(p, q) <= join:  # a retract at a join: up and back down where it is
+            return [stand(p, min(a[1], b[1]))]
+        return [stand(p, a[1]), ([p, q], raise_z, raise_z, None), stand(q, b[1])]
 
     moves, entries, last = [], 0, None
     for piece in pieces:
-        if last is None or piece[2] or math.dist(piece[0][0], last[0][-1]) > join:
+        if last is None or piece[2] or piece[3] or math.dist(piece[0][0], last[0][-1]) > join:
             entries += 1
             if last is not None:
                 moves += hop(last, piece)
@@ -2576,12 +2583,19 @@ def _between_levels(pieces, raise_z, again, join):
     closed = entries == 1 and not last[2] and math.dist(pieces[0][0][0], last[0][-1]) <= join
     if again and not closed:
         moves += hop(last, pieces[0])
+    if any(piece[2] for piece in pieces):
+        if raise_z is None:
+            raise _Unknown("its raster lifts after each pass but the traveler prints no lift Z")
+        moves.append(stand(last[0][-1], last[1]))
     return moves
 
 
-def _move_text(xy, low, high):
-    """A move between levels as a finding names it, in setup-frame mm."""
+def _move_text(xy, low, high, kind="return"):
+    """A move off the cut as a finding names it, in setup-frame mm: ``kind`` ``return``
+    (back to an entry) or ``between`` (to or from the safe Z between ops)."""
     at = [f"X {_r(x, 3):g}, Y {_r(y, 3):g}" for x, y in xy]
+    if kind == "between":
+        return f"the move between ops at {at[0]} between Z {_r(low, 3):g} and Z {_r(high, 3):g}"
     if len(at) == 1:
         return f"the raise or descent at {at[0]} between Z {_r(low, 3):g} and Z {_r(high, 3):g}"
     return f"the move at Z {_r(high, 3):g} from {at[0]} to {at[-1]}"
@@ -4538,6 +4552,12 @@ class _Setup:
                 if self._subject(op) in self.split_holds:
                     result["split_hold"] = self.split_holds[self._subject(op)]
                 ops[self._subject(op)] = result
+        # The Z every machine op starts and ends at (:meth:`_off_cut`), for the traveler.
+        if self.setup.get("machine_kind") != "lathe" and any(
+            not (_turned(op) or _sawn(op) or _hand(op)) for op in self.ops
+        ):
+            safe, why = self._safe_z()
+            facts.update({"safe_z_mm": safe} if why is None else {"safe_z_reason": why})
         self._rest_interference(facts, ops)
         if self.stock_reason is None:
             with _timed(phases, "stock_output"):
@@ -8706,10 +8726,12 @@ class _Setup:
         distance (:meth:`_nearest`) from what the op moves past the holding to its nearest
         solid ``tag``. A machine op moves its whole tool (:func:`_tool_envelope`: cutter,
         shank and holder) over every move it is commanded through (:meth:`_tool_moves`) and
-        every move it makes off the cut to get back to an entry (:meth:`_return_moves`), and
-        its cutter over all it takes off (:meth:`_taken_off`), which no printed path may leave
-        out: the row is the nearest of them, marked ``"move": "return"`` when a move back is
-        (``closest_cut`` keeps the mark). A bench file moves over what it files off,
+        every move it makes off the cut (:meth:`_off_cut`: back to an entry, and to and from
+        the safe Z between ops), and its cutter over all it takes off (:meth:`_taken_off`),
+        which no printed path may leave out: the row is the nearest of them, marked
+        ``"move": "return"`` when a move back to an entry is, ``"between"`` when a move to or
+        from the safe Z is (``closest_cut`` keeps the mark; a tie keeps the cut, then the
+        return). A bench file moves over what it files off,
         never its own guide stops (``stops``, keyed ``id(op)``: :meth:`_guide_stops`; another
         op's stop is holding to it), and one filing nothing carries no row. ``mm`` and
         ``tag`` are ``unknown``, never left out, for a move or
@@ -8745,19 +8767,25 @@ class _Setup:
                 back = None
                 if not _hand(op):
                     shapes += _tool_envelope(op, self._tool_moves(op))
-                    moves = self._return_moves(op)
-                    back = self._nearest(_tool_envelope(op, moves), held) if moves else None
+                    moves, pending = self._off_cut(op)
+                    if pending is not None:
+                        raise _Unknown(pending)
+                    for kind in ("return", "between"):
+                        kept = [move for move, of in moves if of == kind]
+                        found = self._nearest(_tool_envelope(op, kept), held) if kept else None
+                        if found is not None and (back is None or found["mm"] < back["mm"]):
+                            back = {**found, "move": kind}
                 near = self._nearest(shapes, held)
             except Exception:
                 rows.append({"op": number, "mm": UNKNOWN, "tag": UNKNOWN})
                 known = False
                 continue
             if back is not None and (near is None or back["mm"] < near["mm"]):
-                near = {**back, "move": "return"}
+                near = back
             if near is None:
                 continue
             row = {"op": number, "mm": _r(near["mm"]), "tag": near["tag"]}
-            rows.append({**row, "move": "return"} if "move" in near else row)
+            rows.append({**row, "move": near["move"]} if "move" in near else row)
             if closest is None or near["mm"] < closest["mm"]:
                 closest = {**near, "op": number}
         if blades:
@@ -8835,59 +8863,111 @@ class _Setup:
             raise _Unknown("the kernel is told no move its tool is commanded through")
         return moves
 
-    def _return_moves(self, op):
-        """The moves (:func:`_tool_envelope`) a milled op makes off the cut to get back to an
-        entry, between its levels and pieces, as the traveler prints them: its ``tool_paths``
-        ``returns`` route (:func:`_between_levels`), each printed table there its
-        checkpoint paths as clipped (a bounded table the clip leaves nothing of is not run),
-        stood from the op's lowest level, or the table's tip when lower. Empty for an op
-        that never returns; raises :class:`_Unknown` when a move is unknown."""
-        sweep = op.get("tool_paths")
-        back = sweep.get("returns") if isinstance(sweep, dict) else None
-        if not isinstance(back, dict):
-            return []
-        if back.get("reason"):
-            raise _Unknown(f"its moves between levels are unknown ({back['reason']})")
-        table = op.get("checkpoints") if isinstance(op.get("checkpoints"), dict) else {}
-        printed = {}
-        for path in table.get("paths", []):
-            printed.setdefault(path["table"], []).append(path)
-        floor = sweep["levels_mm"][0]
-        pieces = []
-        for step in back["route"]:
-            if "xy_mm" in step:
-                pieces.append((step["xy_mm"], floor, step.get("raster") is True))
-                continue
-            if table.get("reason"):
-                raise _Unknown(f"its printed checkpoints are unknown ({table['reason']})")
-            paths = printed.get(step["table"])
-            if paths is None and not table.get("bounded"):
-                raise _Unknown(f"its printed table {step['table']} reached the kernel as no path")
-            pieces += [(path["xy_mm"], min(floor, path["tip_z_mm"]), False) for path in paths or []]
-        return _between_levels(pieces, back["raise_z_mm"], back["again"], back["join_mm"])
+    def _safe_z(self):
+        """(the setup's safe Z between ops in mm, or None, and why it is unknown): the top of
+        the stock it receives and of every holding solid and undeclared jaw extension, so
+        that a tool with its tip there or above (all of it stands above its tip) meets none
+        of them, whatever its route; rounded up at the micrometre."""
+        if not self.fixture_ready:
+            return None, f"fixture solids unresolved ({self.fixture_reason})"
+        if self.fixture_gaps:
+            return None, f"undrawn fixture components ({'; '.join(self.fixture_gaps)})"
+        tops = [self.box[5], *(c["envelope_bbox"][5] for c in self.fixture)]
+        tops += [region[5] for _, region in self.fixture_possible]
+        return math.ceil(max(tops) * 1e6) / 1e6, None
+
+    def _off_cut(self, op):
+        """(the moves (:func:`_tool_envelope`) a machine op makes off the cut, each
+        ``(move, kind)``, and why some are unknown, else None), as the traveler prints them.
+        ``return``: back to an entry, between its levels, pieces, printed tables and raster
+        passes, and a raster's lift after its last pass: its ``tool_paths`` ``returns``
+        route (:func:`_between_levels`), each printed table there its checkpoint paths as
+        clipped (a bounded table the clip leaves nothing of is not run), stood from the op's
+        lowest level, or the table's tip when lower. ``between``: every op starts and ends
+        at the setup's safe Z (:meth:`_safe_z`), its tool going down from there at the op's
+        first entry and raising to it at its last point, each stood from the op's lowest
+        level there: a routed path's first and last point; for an op the host gives no route
+        for, every end of its commanded moves (:meth:`_tool_moves`; an axial tool's from its
+        entry), since any may be its first or last. A lathe setup's tools stand off along the
+        spindle axis instead: none. Raises :class:`_Unknown` when a move back is unknown."""
+        if self.setup.get("machine_kind") == "lathe" or _turned(op) or _sawn(op) or _hand(op):
+            return [], None
+        sweep = op.get("tool_paths") if isinstance(op.get("tool_paths"), dict) else {}
+        back, moves, ends = sweep.get("returns"), [], []
+        if isinstance(back, dict):
+            if back.get("reason"):
+                raise _Unknown(f"its moves off the cut are unknown ({back['reason']})")
+            table = op.get("checkpoints") if isinstance(op.get("checkpoints"), dict) else {}
+            printed = {}
+            for path in table.get("paths", []):
+                printed.setdefault(path["table"], []).append(path)
+            floor = sweep["levels_mm"][0]
+            pieces, fresh = [], False
+            for step in back["route"]:
+                if "xy_mm" in step:
+                    pieces.append((step["xy_mm"], floor, step.get("raster") is True, fresh))
+                    fresh = False
+                    continue
+                if table.get("reason"):
+                    raise _Unknown(f"its printed checkpoints are unknown ({table['reason']})")
+                paths = printed.get(step["table"])
+                if paths is None and not table.get("bounded"):
+                    raise _Unknown(
+                        f"its printed table {step['table']} reached the kernel as no path"
+                    )
+                for index, path in enumerate(paths or []):
+                    tip = min(floor, path["tip_z_mm"])
+                    pieces.append((path["xy_mm"], tip, False, index == 0))
+                fresh = True  # the piece after a printed table is entered anew
+            raised, again, join = back.get("raise_z_mm"), back["again"], back["join_mm"]
+            moves = [(move, "return") for move in _between_levels(pieces, raised, again, join)]
+            pieces = [piece for piece in pieces if piece[0]]
+            if pieces:
+                first, last = pieces[0], pieces[-1]
+                ends = [(first[0][0], first[1], None), (last[0][-1], last[1], None)]
+        if not ends:
+            try:
+                commanded = self._tool_moves(op)
+            except _Unknown:
+                raise
+            except Exception as exc:  # an op the kernel rejects, as in :meth:`_cut_clearances`
+                raise _Unknown(f"its commanded moves are unknown ({exc})") from exc
+            for xy, low, high, axial in commanded:
+                if axial is not None:
+                    ends.append((xy[0], high, axial))
+                else:
+                    ends += [(xy[0], low, None), (xy[-1], low, None)]
+        safe, why = self._safe_z()
+        if safe is None:
+            return moves, f"the safe Z between ops is unknown ({why})"
+        stood = {}
+        for xy, low, axial in ends:
+            if low < safe:  # a tip at or above the safe Z meets nothing
+                stood.setdefault((tuple(xy), low), axial)
+        for (xy, low), axial in stood.items():
+            moves.append((([list(xy)], low, safe, axial), "between"))
+        return moves, None
 
     def _return_facts(self, op, facts):
         """Rule A″ (docs/rules-geometry.md): the whole tool (:func:`_tool_envelope`) over
-        each move a milled op makes off the cut to get back to an entry
-        (:meth:`_return_moves`) against each placed fixture component serving the op. Facts:
-        ``return_moves`` (how many), ``return_errors`` (each certain hit: ``move``,
-        ``obstacle`` and ``volume_mm3``, the most any one tool part shares with it) and,
-        with none, ``return_reason`` when one may still be met: a move or tool dimension
-        unknown, the holding unresolved, a component undrawn, or a move reaching an
-        undeclared jaw extension. An op that never returns carries none of them."""
-        if _turned(op) or _sawn(op) or _hand(op):
-            return
+        each move a machine op makes off the cut (:meth:`_off_cut`: back to an entry, and to
+        and from the safe Z between ops) against each placed fixture component serving the
+        op. Facts: ``return_moves`` (how many), ``return_errors`` (each certain hit:
+        ``move``, ``obstacle`` and ``volume_mm3``, the most any one tool part shares with
+        it) and, with none, ``return_reason`` when one may still be met: a move, the safe Z
+        or a tool dimension unknown, the holding unresolved, a component undrawn, or a move
+        reaching an undeclared jaw extension. An op making none carries none of them."""
         try:
-            moves = self._return_moves(op)
-            if not moves:
+            moves, pending = self._off_cut(op)
+            if not moves and pending is None:
                 return
             facts["return_moves"] = len(moves)
-            swept = [(move, _tool_envelope(op, [move])) for move in moves]
+            swept = [(move, kind, _tool_envelope(op, [move])) for move, kind in moves]
         except _Unknown as exc:
             facts.update(return_errors=[], return_reason=str(exc))
             return
         errors, reached = [], set()
-        for (xy, low, high, _), pieces in swept:
+        for (xy, low, high, _), kind, pieces in swept:
             boxes = [_bbox(piece) for piece in pieces]
             for component in self.fixture if self.fixture_ready else []:
                 subjects = component.get("subjects", "all")
@@ -8900,7 +8980,7 @@ class _Setup:
                 if volume > HIT_MM3:
                     errors.append(
                         {
-                            "move": _move_text(xy, low, high),
+                            "move": _move_text(xy, low, high, kind),
                             "obstacle": component["name"],
                             "volume_mm3": _r(volume),
                         }
@@ -8915,7 +8995,7 @@ class _Setup:
         facts["return_errors"] = errors
         if errors:
             return
-        why = None
+        why = pending
         if not self.fixture_ready:
             why = f"fixture solids unresolved ({self.fixture_reason})"
         elif self.fixture_gaps:

@@ -298,7 +298,8 @@ stepping from `open_side`, else from the low side of the shorter span. Every
 pass runs one cutter radius past both ends of the area. `step_mm` and the
 cutter radius are millimetres, converted to plan units before the passes are
 placed. The cycle is one way: feed the pass, lift to the op's retract Z (its
-entry stock top plus `approach_mm`) and rapid back to the next pass's start; a
+entry stock top plus `approach_mm`) and rapid straight back to the next pass's
+start (the route the kernel sweeps, [rule A″](rules-geometry.md#accessibility)); a
 raster with no known lift Z keeps status unknown.
 Every raster value sits on the DRO grid on the safe side: pass ends and a
 face's edge passes round outward; a pocket's first pass rounds further outside
@@ -623,7 +624,10 @@ level for a single-depth op; `unknown` when coordinates could not compute the
 levels or the depth, never one level at the op's depth), `from_z` (level 1's start
 Z), `entries` (each place
 the cutter goes down, in the order the sheet prints the path: `xy`, `air`, `pass`
-for a raster pass), `raster` and `closed` (one piece that ends where it starts).
+for a raster pass; every raster pass, each printed table and the piece after one
+is entered anew, even where it starts where the last piece ended, since the plans
+retract clear between tables), `raster` and `closed` (one piece that ends where it
+starts).
 An entry is in `air` only when the cutter stands a radius plus the kernel's 1e-3
 mm tolerance outside the setup-entry `stock_bbox_mm` in X or Y; anything else
 plunges into material, level `k` from level `k-1`'s Z, which the same path cut
@@ -670,9 +674,10 @@ level gets down (`plunge from the level above (level 1 from Z a) at F mm/min`)
 and how it gets back between levels (`raise to Z R, move straight back to P1`,
 with `(above the stock, clear of the holding)` after `Z R` only when
 `raise_clear`, `stay at P1: the path ends where it starts`, or a raster's
-`lift to Z R, rapid straight back to pass 1`); a return that meets the holding
-(`raise_meets`) ends the statement `STOP: a move back meets the {solid}; do not
-run.` Unknown levels print no statement: the block keeps its
+`lift to Z R, rapid straight back to pass 1`); a move off the cut the kernel
+proved meets the holding (its op facts `return_errors`, rule A″) ends the statement
+`STOP: a move off the cut meets the {solid}; do not run.` Unknown levels print no
+statement: the block keeps its
 `? Depth levels not computed` line. The op row's feed cell adds `plunge F mm/min`; a
 plunge without one is `STOP: plunge feed not set — {plunge_reason}`, and the
 statement's plunge carries the same STOP instead of a feed. The contour heading and its

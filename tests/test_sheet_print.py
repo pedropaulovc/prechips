@@ -201,7 +201,7 @@ def test_a_contour_heading_and_its_raster_line_print_with_the_first_contour_bloc
     contours = (
         "<h2>CONTOURS — Setup S1 zero; cutter-centre X / Y</h2>"
         '<p class="lead-in">Rasters: feed each pass from → to, lift to the op\'s lift Z, '
-        "rapid back to the next pass's start.</p>"
+        "rapid straight back to the next pass's start.</p>"
         '<div class="contours"><div class="contour"><h3>S1 op 10 — relief</h3>'
         f'<table class="coords"><thead><tr><th>row</th><th>X</th></tr></thead>{rows}'
         "</table></div></div>"

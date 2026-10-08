@@ -25,13 +25,21 @@ PLUNGE_AT = re.compile(r"plunge[^;]*? at \d+ mm/min|plunge \d+ mm/min")
 
 
 def open_path(
-    box_top, approach=2.0, plunge=True, center_cutting=True, operation=None, line=None, held=None
+    box_top,
+    approach=2.0,
+    plunge=True,
+    center_cutting=True,
+    operation=None,
+    line=None,
+    held=None,
+    lines=None,
 ):
     """``level_paths`` for one open two-level line (0,-5) → (0,5) inside a 20 mm stock box
     whose top is ``box_top``, with the setup's stock top at Z0. ``operation`` replaces the
-    op's coordinates entry (its depth levels), ``line`` its join table; ``center_cutting``
-    None leaves it undeclared; ``held`` is the kernel's facts of its sweep of the moves back
-    (its op facts ``return_moves``, ``return_errors``, ``return_reason``)."""
+    op's coordinates entry (its depth levels), ``line`` its join table (``lines``, all its
+    join tables); ``center_cutting`` None leaves it undeclared; ``held`` is the kernel's
+    facts of its sweep of the moves back (its op facts ``return_moves``, ``return_errors``,
+    ``return_reason``)."""
     tool = {"kind": "endmill", "dia_mm": 6.0, "material": "HSS"}
     if center_cutting is not None:
         tool["center_cutting"] = center_cutting
@@ -63,7 +71,8 @@ def open_path(
     levels = {"op": 20, "z_levels": {"levels": [-1.0, -2.0], "dro_start_z": 0.0}}
     numbers = {
         "operations": [operation or levels],
-        "line_table": [line or {"op": 20, "stage": "rough", "dro_xy": [[0.0, -5.0], [0.0, 5.0]]}],
+        "line_table": lines
+        or [line or {"op": 20, "stage": "rough", "dro_xy": [[0.0, -5.0], [0.0, 5.0]]}],
     }
     states = [(op, {"top_z": 0.0}, {})]
 
@@ -117,14 +126,28 @@ def test_a_return_above_the_stock_is_clear_only_when_the_kernel_sweeps_it_clear_
     # through a strap stud on the way back. The box proves nothing about the holding.
     [record], debts = open_path(box_top=1.0, held=held)
     assert record["raise_z"] == 2.0 and record["raise_clear"] == clear and debts == []
-    text = " ".join(level_text(record, plunge_mm_min=10).split())
+    text = " ".join(level_text(record, plunge_mm_min=10, held=held).split())
     assert f"Between levels, {back} back to X 0.000, Y -5.000." in text, text
     assert ("above the stock" in text) is (clear is True), text
     if clear is False:
         assert record["raise_meets"] == [STUD]
-        assert text.endswith("STOP: a move back meets the stud; do not run."), text
+        assert text.endswith("STOP: a move off the cut meets the stud; do not run."), text
     else:
         assert "raise_meets" not in record and "STOP" not in text, text
+
+
+def test_each_printed_table_is_entered_anew_even_where_the_last_one_ended():
+    # Rocker S1 op 40: its tables join end to start and its note retracts clear between
+    # them. At one level the cutter still raises at each join and goes down again there, so
+    # that move is printed and (rule A″) swept, never left as one unbroken path.
+    first = {"op": 20, "stage": "rough", "sequence": 0, "dro_xy": [[0.0, -5.0], [0.0, 0.0]]}
+    second = {"op": 20, "stage": "rough", "sequence": 1, "dro_xy": [[0.0, 0.0], [0.0, 5.0]]}
+    operation = {"op": 20, "z_levels": {"levels": [-1.0], "dro_start_z": 0.0}}
+    [record], _ = open_path(1.0, operation=operation, lines=[first, second], held=HELD)
+    assert [down["xy"] for down in record["entries"]] == [[0.0, -5.0], [0.0, 0.0]]
+    assert (record["raise_z"], record["raise_clear"]) == (2.0, True)
+    text = " ".join(level_text(record, plunge_mm_min=10).split())
+    assert "raise to Z 2.000 (above the stock, clear of the holding)" in text, text
 
 
 def test_a_plunge_without_a_feed_is_debt():
@@ -170,13 +193,14 @@ def test_unknown_depth_levels_stay_unknown_never_one_level_at_the_depth(operatio
     assert record["entries"][0]["xy"] == [0.0, -5.0] and record["plunge_mm_rev"] == 0.05
 
 
-def level_text(record, plunge_mm_min=None):
+def level_text(record, plunge_mm_min=None, held=None):
     """The traveler's level-entry paragraph for op 20's ``record``; ``plunge_mm_min`` is its
-    speeds_feeds plunge feed."""
+    speeds_feeds plunge feed, ``held`` the kernel's op facts of its moves off the cut."""
     bundle = SimpleNamespace(
         plan={"setups": [{"id": "S1"}]}, features={"units": "mm"}, inventory={}, policy={}
     )
     bundle.feature_definitions = {}
+    bundle.kernel = {"status": "ok", "ops": {"S1:20": held or {}}}
     paths = {"level_paths": [record]}
     findings = [SimpleNamespace(rule="coordinates", subject="S1", numbers=paths)]
     if plunge_mm_min is not None:

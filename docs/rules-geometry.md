@@ -1053,30 +1053,42 @@ paragraph under [In-process stock](#in-process-stock)). Facts:
 makes the op an accessibility error listing the first three (and how many
 more); an unknown check makes the op `unknown`, never a pass.
 
-**Moves back to an entry (rule A″).** An op that gets back to an entry
-between its depth levels or pieces (a coordinates `level_paths` record with a
+**Moves off the cut (rule A″).** Every milled op sends the kernel how the
+traveler prints it moving off the cut (`tool_paths` `returns`): whether another
+level follows (`again`), its pieces in printed order, each an outline or raster
+pass, or a printed stair or chord arc table or join line table, which the
+kernel resolves to that table's checkpoint paths as clipped, and, for an op
+that gets back to an entry (a coordinates `level_paths` record with a
 `raise_z`: an open path of several levels, several pieces, a raster;
-[rules-coordinates](rules-coordinates.md#depth-levels-entry-and-return-level_paths))
-sends the kernel how the traveler prints it getting back (`tool_paths`
-`returns`): its `raise_z_mm`, whether another level follows (`again`), and its
-pieces in printed order, each an outline or raster pass, or a printed stair or
-chord arc table or join line table, which the kernel resolves to that table's
-checkpoint paths as clipped. Each piece starting more than half a DRO step
-from the last one's end, and every raster pass, is a new entry, and when
-`again` the last piece's end returns to the first piece's start (unless the
-one entry is a closed path). Each return is three moves: the stand from the
-op's lowest level (or the table's tip, when lower) up to the raise Z at the
-piece's end, the straight move at that Z to the next entry (the traveler's
-"move straight back to …"), and the descent there. The whole tool
+[rules-coordinates](rules-coordinates.md#depth-levels-entry-and-return-level_paths)),
+its `raise_z_mm`. Every raster pass, each printed table and the piece after
+one (the plans retract clear between tables, even where one starts where the
+last ended), and each piece starting more than half a DRO step from the last
+one's end is a new entry, and when `again` the last piece's end returns to the
+first piece's start (unless the one entry is a closed path). Each return is
+three moves: the stand from the op's lowest level (or the table's tip, when
+lower) up to the raise Z at the piece's end, the straight move at that Z to the
+next entry (the traveler's "move straight back to …", a raster's "rapid
+straight back"), and the descent there; at a join it is the stand alone. A
+raster also lifts to its raise Z after its last pass. A return or lift with no
+printed raise Z is unknown, never left unswept. Between ops (and holes) the
+tool moves at the setup's safe Z (`safe_z_mm`, a setup fact: the top of the
+stock it receives, of every holding solid and of every undeclared jaw
+extension, rounded up at the micrometre), so any route there meets none of
+them; the OPERATIONS heading prints it. Each op is swept up to it from its
+first and last point (an op with no printed route: every end of its commanded
+moves; a drill-like tool from its entry), each from the op's lowest level
+there. A holding not ready, or not wholly drawn, leaves the safe Z unknown
+(`safe_z_reason`), and so every op's moves between ops. The whole tool
 (cutter, shank and holder, as the CLEARANCE sweep) over each move is checked
 against each placed fixture component serving the op. Facts: `return_moves`
 (how many), `return_errors` (`move`, `obstacle`, `volume_mm3`: the most any one
 tool part shares with it, over 1e-6 mm³) and, with no error, `return_reason`
-when one may still be met: a move, its table or a tool dimension unknown, the
-holding unresolved, a component undrawn, or a move reaching an undeclared jaw
-extension. Any error makes the op an accessibility error naming the move and
-what it meets; a `return_reason` makes the op `unknown`, never a pass. An op
-that never returns carries none of these.
+when one may still be met: a move, its table, the safe Z or a tool dimension
+unknown, the holding unresolved, a component undrawn, or a move reaching an
+undeclared jaw extension. Any error makes the op an accessibility error naming
+the move and what it meets; a `return_reason` makes the op `unknown`, never a
+pass. Lathe setups, turned, sawn and bench ops carry none of these.
 
 A rough milling op's scalar `rough_allowance_mm` (a) is consumed by the
 engine as a leave in millimetres normal to the finished surface. Each rough
@@ -1953,7 +1965,8 @@ and pad keys at several heights name the pads each keys. It dimensions the
 closest cut in amber (`render_scene.closest_cut`: `mm`, the holding `tag`, the
 two end points and the `op` whose cut it is), the same value the CLEARANCE table
 prints for that op, keyed `CUT <mm> mm FROM <holder> (OP <op>)` (`RETURN <mm> mm …` when
-it is one of the op's moves back to an entry, below): never from the
+it is one of the op's moves back to an entry, `SAFE-Z MOVE <mm> mm …` when one to or
+from the safe Z between ops, below): never from the
 falling offcut of a saw setup, whose blade path is each saw op's kerf slab on its
 cut plane, across the stock and holding (`blade: true`, its saw op named, else
 keyed `(SAW BLADE)`). A cut whose op is unknown or absent names no op (and its
@@ -1973,12 +1986,16 @@ entry surface its profile names on the DRO grid; never its own depth), each
 printed arc-table checkpoint path at every level, and each hole, drill/spot/ream
 joint or centre-drill plunge from above the stock to its tip (a pointed tool's
 cone, a centre drill's own profile at its true outline, not the inset one that
-tests its cut). Another is that whole tool over every move it makes off the cut to
-get back to an entry, as rule A″ builds them (the raise at a piece's end, the
-straight move at the raise Z, a raster's rapid, the descent): when one of them is
-nearest, the row carries `"move": "return"` (so does `closest_cut`) and the table
-names it (`<solid> beside the return at Z <raise>`, the crash box `FROM THE RETURN
-AT Z <raise>`). The third is what the op takes off (its
+tests its cut). Another is that whole tool over every move it makes off the cut,
+as rule A″ builds them (back to an entry: the raise at a piece's end, the straight
+move at the raise Z, a raster's rapid, the descent, a raster's last lift; and to
+and from the safe Z between ops at its first and last point): when one of them is
+nearest, the row carries `"move": "return"` (`"between"` for a move to or from the
+safe Z; so does `closest_cut`; a tie keeps the cut) and the table names it
+(`<solid> beside the return at Z <raise>`, the crash box `FROM THE RETURN AT Z
+<raise>`; `beside the move to or from Z <safe>`). A move off the cut the kernel
+proved meets the holding stops the op whichever move the row names. The third is
+what the op takes off (its
 before-op stock less its after stock): the cutter goes wherever that material is,
 whether or not a printed path leads it there. A bench file's is what it takes off
 to the nearest holding solid but its own guide stops; a file that takes nothing
@@ -1998,7 +2015,7 @@ at most eight passes, labelled `PASS 1` … `PASS n` as the pass table numbers
 them (a longer raster is a band with its first and last pass), each with a
 direction arrow when the table gives a cutting sense; its `ARROWS: POINT ORDER`
 legend prints only when an arrow is drawn. The raster cycle is one way, so
-each lift and rapid back from a drawn pass's end to the next pass's start is
+each lift and rapid straight back from a drawn pass's end to the next pass's start is
 dashed in the op's colour under `DASHED: LIFTED RETURN`, and a return never
 reads as a cut; a band showing only its first and last pass draws none. An
 isometric or elevation view is detailed only when the band draws the stock at

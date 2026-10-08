@@ -1280,13 +1280,15 @@ setup Z for M5's travel screen. There is no invented default: absence or
 to measure/author it. It does not itself command a machine move or assert XY
 collision clearance. Feature extents/centres and commanded tip targets supply
 the other spans; see [M5 measured setup screens](rules-setup.md#m5-measured-inventory-screens).
-On a milled path that returns to an entry (a raster, a path in pieces, an open
-path cut in several depth levels) it also sets the raise Z the sheet prints,
-`approach_mm` above the current top; without it that return is coordinates debt
-([depth levels](rules-coordinates.md#coordinates)). Above the stock is not clear of
-the holding: the kernel sweeps the whole tool over each raise, straight move and
-descent at that Z against the fixture solids, and a move that meets a clamp or
-fixture is an accessibility error ([rule A″](rules-geometry.md#accessibility)).
+On a milled path that returns to an entry (a raster, a path in pieces or printed
+tables, an open path cut in several depth levels) it also sets the raise Z the sheet
+prints, `approach_mm` above the current top; without it that return is coordinates
+debt ([depth levels](rules-coordinates.md#coordinates)). Above the stock is not clear
+of the holding: the kernel sweeps the whole tool over each raise, straight move and
+descent at that Z, a raster's lift after its last pass, and each op's moves to and
+from the setup's safe Z between ops against the fixture solids, and a move that
+meets a clamp or fixture is an accessibility error
+([rule A″](rules-geometry.md#accessibility)).
 
 ## Contour
 

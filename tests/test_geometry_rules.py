@@ -1115,15 +1115,25 @@ def test_actual_fixture_scene_distinguishes_author_pose_and_measurement_debt(
     assert support_scene["render_scene"]["jaws"] == "exact"
     assert support_scene["render_scene"]["parallels"] != "exact"
     assert support_scene["fixture_rendered"] is False
-    # Missing below-seat render dimensions do not invalidate independent collisions.
+    # Missing below-seat render dimensions do not invalidate independent collisions: the
+    # op's sweep stays as the exact pose's, unknown only for the moves off the cut its
+    # plan never commands (rule A″: it prints no route for the finish pocket).
     assert finding(vise, unknown_support, "S2").status == "pass"
-    assert finding(accessibility, unknown_support, "S2:10").status == "pass"
+    exact_access = finding(accessibility, exact, "S2:10")
+    support_access = finding(accessibility, unknown_support, "S2:10")
+    assert support_access.status == exact_access.status == "unknown"
+    assert support_access.sentence == exact_access.sentence
+    assert support_access.sentence.startswith("S2:10: moves off the cut unproven clear")
+    assert support_access.numbers["sample_count"] > 0
+    assert support_access.numbers["tool_hits"] == support_access.numbers["holder_hits"] == 0
     assert finding(reach, unknown_support, "S2:10").status == "pass"
     unverified_scene = unverified_support.kernel["setups"]["S2"]
     assert unverified_scene["fixture_rendered"] is False
     assert unverified_scene["render_scene"]["debts"]
     assert finding(vise, unverified_support, "S2").status == "unknown"
-    assert finding(accessibility, unverified_support, "S2:10").status == "unknown"
+    unverified_access = finding(accessibility, unverified_support, "S2:10")
+    assert unverified_access.status == "unknown"
+    assert "parallels_height_mm" in unverified_access.sentence
 
 
 def test_actual_selected_projection_precedence_and_fact_local_trust(
@@ -1174,7 +1184,13 @@ def test_actual_selected_projection_precedence_and_fact_local_trust(
     monkeypatch.setenv("PRECHIPS_KERNEL_CACHE", str(tmp_path / "cache"))
     kernel.run_geometries(variants)
     clear = finding(accessibility, known, "S2:10")
-    assert clear.status == "pass"
+    # The selected pair clears the claimed faces; the op stays unknown only for the moves
+    # off the cut its plan never commands (rule A″: no route for the finish pocket).
+    assert clear.status == "unknown"
+    assert clear.sentence == (
+        "S2:10: moves off the cut unproven clear of the holding: the kernel is told no move"
+        " its tool is commanded through."
+    )
     assert clear.numbers["sample_count"] > 0
     assert clear.numbers["tool_hits"] == 0 and clear.numbers["holder_hits"] == 0
     assert clear.numbers["projection_mm"] == pytest.approx(75.0)
@@ -1183,5 +1199,7 @@ def test_actual_selected_projection_precedence_and_fact_local_trust(
     assert reached.numbers["reach_depth_mm"] == pytest.approx(45.0)
     assert reached.numbers["holder_wall_hits"] == 0
     for candidate in variants[1:]:
-        assert finding(accessibility, candidate, "S2:10").status == "unknown"
+        unproven = finding(accessibility, candidate, "S2:10")
+        assert unproven.status == "unknown"
+        assert "tool/holder dimensions are unmeasured" in unproven.sentence
         assert finding(reach, candidate, "S2:10").status == "unknown"

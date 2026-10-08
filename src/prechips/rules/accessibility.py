@@ -59,8 +59,9 @@ def _checkpoints(detail):
 
 
 def _returns(detail):
-    """(numbers of the kernel's sweep of the moves back to an entry, certain-hit message or
-    None, unknown reason or None); nothing for an op that never returns."""
+    """(numbers of the kernel's sweep of the moves off the cut: back to an entry, to or
+    from the safe Z between ops; certain-hit message or None, unknown reason or None);
+    nothing for an op that makes none."""
     if "return_moves" not in detail and "return_reason" not in detail:
         return {}, None, None
     errors = detail.get("return_errors")
@@ -72,10 +73,10 @@ def _returns(detail):
             for error in errors[:3]
         )
         more = f" (+{len(errors) - 3} more)" if len(errors) > 3 else ""
-        return values, f"a move back to an entry breaks rule A″: {listed}{more}", None
+        return values, f"a move off the cut breaks rule A″: {listed}{more}", None
     if detail.get("return_reason") or not number(values["return_moves"]):
         why = detail.get("return_reason", "its sweep is unresolved")
-        return values, None, f"moves back to an entry unproven clear of the holding: {why}"
+        return values, None, f"moves off the cut unproven clear of the holding: {why}"
     return values, None, None
 
 

@@ -844,10 +844,11 @@ def _restated_sizes(traveler, setup):
 
 def _picture_cut(bundle, setup):
     """The setup picture's ``CUT <mm> mm FROM <holder> (OP <op>)`` (the kernel's
-    ``closest_cut``; ``RETURN`` for a move back to an entry) against the CLEARANCE table's
-    row of the op it names (its ``cut_clearances``), each printed as its surface prints it at
-    the setup's DRO decimals: the picture must print that op's value beside the same holding
-    solid, from the same move. That op's row
+    ``closest_cut``; ``RETURN`` for a move back to an entry, ``SAFE-Z MOVE`` for one to or
+    from the safe Z between ops) against the CLEARANCE table's row of the op it names (its
+    ``cut_clearances``), each printed as its surface prints it at the setup's DRO
+    decimals: the picture must print that op's value beside the same holding solid, from
+    the same move. That op's row
     missing or not computed leaves it unknown, as does a cut naming no op (unknown, empty
     or absent): another op's row of the same value never stands in. A saw's blade path
     carries no row, so the cut it names restates none."""
@@ -894,8 +895,11 @@ def _picture_cut(bundle, setup):
 
 
 def _move(found):
-    """Which move a clearance is of: an op's move back to an entry, else its cut."""
-    return "return" if found.get("move") == "return" else "cut"
+    """Which move a clearance is of, as the picture keys it (lower case): an op's move off
+    the cut (``render_diagram.MOVE_LABELS``), else its cut."""
+    from prechips.kernel.render_diagram import MOVE_LABELS
+
+    return MOVE_LABELS.get(found.get("move"), "cut").lower()
 
 
 def _holder(tag):

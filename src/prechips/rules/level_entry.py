@@ -2,7 +2,9 @@
 
 For every mill op the coordinates rule prints a cutter path for (arc and join tables,
 outlines, raster passes), this walks the path pieces in the order the setup sheet prints
-them and records, per piece the cutter has to go down at:
+them and records, per piece the cutter has to go down at (a raster pass, a printed table
+and the piece after one, each entered anew even where it starts where the last ended, and
+any piece starting off the last one's end):
 
 * where it goes down: a cutter wholly outside the stock the setup receives (the kernel's
   setup-frame ``stock_bbox_mm``, by its as-is face tolerance) goes down in air; anything
@@ -16,8 +18,9 @@ them and records, per piece the cutter has to go down at:
   otherwise the cutter raises to the op's raise Z (``approach_mm`` above the current top,
   on the DRO grid, as a raster's lift) before moving straight to the next entry. That
   height is claimed clear (``raise_clear``) only when the kernel's stock box proves it
-  above the stock and the kernel's sweep of those moves proves them clear of the holding
-  (its op facts ``return_moves`` and ``return_errors``, docs/rules-geometry.md rule A″).
+  above the stock and the kernel's sweep of the moves off the cut proves them clear of the
+  holding (its op facts ``return_moves`` and ``return_errors``, docs/rules-geometry.md
+  rule A″).
 
 An op that plunges and has no known plunge feed (``speeds_feeds.plunge_row``, which has
 none for a tool not declared centre-cutting) is debt, as is a return without a known raise
@@ -180,16 +183,19 @@ def level_paths(bundle, setup, numbers, states, grid, units, dro_z, top):
         radius = length_mm(resolve(bundle, "tools", op.get("tool")) or {}, "dia")
         radius = radius / 2 if number(radius) else UNKNOWN
         raster = any(is_raster for _, is_raster, _ in pieces)
-        downs, last = [], None
-        for points, is_raster, _ in pieces:
+        downs, last, table = [], None, None
+        for points, is_raster, source in pieces:
             if not points:
                 continue
             first = points[0]
-            if is_raster or last is None or not _same(first, last, tolerance):
+            # A printed table is entered anew, and left anew, even where it starts where
+            # the last piece ended: the plans retract clear between tables.
+            fresh = source is not None or table is not None
+            if is_raster or last is None or fresh or not _same(first, last, tolerance):
                 downs.append(
                     {"xy": first, "air": in_air(box, first, radius, scale), "pass": is_raster}
                 )
-            last = points[-1]
+            last, table = points[-1], source
         if not downs:
             continue
         first_xy = downs[0]["xy"]

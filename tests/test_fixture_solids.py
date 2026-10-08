@@ -481,17 +481,18 @@ def test_a_tool_stands_over_its_whole_plunge_from_the_z_its_op_starts_at(engine,
     ]
 
 
-def _returning(raised):
+def _returning(raised, levels=(11.0, 10.0)):
     """Op S1:10's commanded paths as the host sends them: a U open to +Y, its arms X0 and
-    X40 (Y-10..30) about the stud of :func:`_studded`, cut at Z11 then Z10 from Z12. The
-    path is open: between its levels the traveler raises to ``raised`` at its end."""
+    X40 (Y-10..30) about the stud of :func:`_studded`, cut at ``levels`` (Z11 then Z10)
+    from Z12. The path is open: between its levels the traveler raises to ``raised`` at its
+    end (None: it prints no raise, as for one level)."""
     from prechips.kernel import tool_paths
 
     u = [[0.0, 30.0], [0.0, -10.0], [40.0, -10.0], [40.0, 30.0]]
     tables = {
-        "operations": [{"op": 10, "z_levels": {"levels": [11.0, 10.0], "dro_start_z": 12.0}}],
+        "operations": [{"op": 10, "z_levels": {"levels": list(levels), "dro_start_z": 12.0}}],
         "profiles": [{"op": 10, "cutter_centre": u}],
-        "level_paths": [{"op": 10, "raise_z": raised}],
+        "level_paths": [{"op": 10} if raised is None else {"op": 10, "raise_z": raised}],
         "dro_grid": {"step": 0.01, "decimals": 2},
     }
     return tool_paths({"op": 10}, tables, "mm", "S1:10")
@@ -509,12 +510,27 @@ def _studded(**extra):
     }
 
 
+def _hung(at, **extra):
+    """:func:`_studded`'s base and, for its stud, a 2 mm block of the strap at ``at``."""
+    hold = _studded(**extra)
+    hold["solids"] = [hold["solids"][0], _box("strap:block", at, [2.0, 2.0, 2.0])]
+    return hold
+
+
+def _ran(engine, step, ops, hold):
+    """The kernel's result for ``ops`` on the plate's tall stock, held by ``hold``."""
+    top = engine.refs(step, (0, 0, 10), (40, 20, 10))
+    return engine.run(engine.job(step, {"top": top}, [_setup(ops, hold)], stock=_TALL))
+
+
 def _returned(engine, step, raised, hold):
     """(op S1:10's kernel facts, its CLEARANCE rows) running :func:`_returning`."""
-    top = engine.refs(step, (0, 0, 10), (40, 20, 10))
-    ops = [_facing(tool_paths=_returning(raised))]
-    result = engine.run(engine.job(step, {"top": top}, [_setup(ops, hold)], stock=_TALL))
+    result = _ran(engine, step, [_facing(tool_paths=_returning(raised))], hold)
     return result["ops"]["S1:10"], _scene(result)["render_scene"]["cut_clearances"]
+
+
+def _moved(facts):
+    return [error["move"] for error in facts["return_errors"]]
 
 
 def test_a_move_back_between_levels_through_the_holding_is_a_hit_and_the_clearance(engine, parts):
@@ -522,7 +538,9 @@ def test_a_move_back_between_levels_through_the_holding_is_a_hit_and_the_clearan
     # Z15 (above the stock) at the U's end, crosses straight back to its start and goes
     # down there. That crossing drives the cutter through the stud: 4 x 4 x 5 of it.
     facts, rows = _returned(engine, parts["plate"], 15.0, _studded())
-    assert facts["return_moves"] == 3 and "return_reason" not in facts, facts
+    # Three moves back (up, across, down) and two between ops: up from the U's last point
+    # and down to its first from the safe Z, the stud's top Z20.
+    assert facts["return_moves"] == 5 and "return_reason" not in facts, facts
     [error] = facts["return_errors"]
     assert error["move"] == "the move at Z 15 from X 40, Y 30 to X 0, Y 30"
     assert (error["obstacle"], error["volume_mm3"]) == ("strap:stud", pytest.approx(80.0))
@@ -534,7 +552,7 @@ def test_a_move_back_clear_of_the_holding_is_proven_and_is_the_clearance(engine,
     # Raised to Z21 the crossing passes 1.0 over the stud's top: proven clear, and still
     # the nearest the op comes to the holding (its cut stays 8 from the stud).
     facts, rows = _returned(engine, parts["plate"], 21.0, _studded())
-    assert facts["return_moves"] == 3 and facts["return_errors"] == [], facts
+    assert facts["return_moves"] == 5 and facts["return_errors"] == [], facts
     assert "return_reason" not in facts
     assert rows == [{"op": "10", "mm": 1.0, "tag": "strap:stud", "move": "return"}]
     # An undrawn component may stand on that crossing: never proven clear.
@@ -542,6 +560,113 @@ def test_a_move_back_clear_of_the_holding_is_proven_and_is_the_clearance(engine,
     facts, rows = _returned(engine, parts["plate"], 21.0, _studded(gaps=gaps))
     assert facts["return_errors"] == [] and "undrawn fixture components" in facts["return_reason"]
     assert rows == [{"op": "10", "mm": "unknown", "tag": "unknown"}]
+
+
+@pytest.mark.parametrize(
+    ("raised", "block", "move"),
+    [
+        # Crossing at Z21 the holder (R10, 40..70 over the tip) meets a block at Z65..67 on
+        # the crossing's line; the shank (to Z61) and the cutter pass under it.
+        (21.0, [19.0, 29.0, 65.0], "the move at Z 21 from X 40, Y 30 to X 0, Y 30"),
+        # Crossing at Z15 the shank (R3, 10..40 over the tip) meets one at Z30..32; the
+        # holder (from Z55) passes over it, the cutter (to Z25) under.
+        (15.0, [19.0, 29.0, 30.0], "the move at Z 15 from X 40, Y 30 to X 0, Y 30"),
+        # Raising to Z50 at the U's end the holder climbs through one at X44..46, Z83..85;
+        # the shank and cutter (R3 about X40) pass 1 beside it, and the holder crosses over.
+        (50.0, [44.0, 29.0, 83.0], "the raise or descent at X 40, Y 30 between Z 10 and Z 50"),
+    ],
+    ids=["holder-crossing", "shank-crossing", "holder-raising"],
+)
+def test_a_move_back_is_swept_with_the_whole_tool_not_the_cutter_alone(
+    engine, parts, raised, block, move
+):
+    # The cut stays clear of each block: only that move of that part of the tool meets it.
+    facts, rows = _returned(engine, parts["plate"], raised, _hung(block))
+    assert move in _moved(facts), facts
+    hits = [error for error in facts["return_errors"] if error["move"] == move]
+    assert [(e["obstacle"], e["volume_mm3"]) for e in hits] == [("strap:block", 8.0)]
+    assert rows == [{"op": "10", "mm": 0.0, "tag": "strap:block", "move": "return"}]
+
+
+def test_a_raster_lifts_after_its_last_pass_through_the_holding(engine, parts):
+    # One pass at Y40, one level: nothing returns to an entry, but the traveler prints the
+    # raster's lift to Z21 after each pass, the last too. Lifting at X45 the holder (Z61..91
+    # by then) meets a block at Z83..85 that it passes 3 under while cutting.
+    from prechips.kernel import tool_paths
+
+    tables = {
+        "operations": [{"op": 10, "dro_to_z": 10.0}],
+        "profiles": [
+            {
+                "op": 10,
+                "cutter_centre": [[[-5.0, 40.0], [45.0, 40.0]]],
+                "entry_z": 12.0,
+                "raster": {"lift_z": 21.0},
+            }
+        ],
+        "dro_grid": {"step": 0.01, "decimals": 2},
+        "level_paths": [{"op": 10, "raise_z": 21.0}],
+    }
+    ops = [_facing(tool_paths=tool_paths({"op": 10}, tables, "mm", "S1:10"))]
+    facts = _ran(engine, parts["plate"], ops, _hung([44.0, 39.0, 83.0]))["ops"]["S1:10"]
+    lift = "the raise or descent at X 45, Y 40 between Z 10 and Z 21"
+    assert lift in _moved(facts), facts
+    # With no lift Z printed it is unknown, never left unswept.
+    tables["level_paths"] = [{"op": 10}]
+    ops = [_facing(tool_paths=tool_paths({"op": 10}, tables, "mm", "S1:10"))]
+    facts = _ran(engine, parts["plate"], ops, _hung([44.0, 39.0, 83.0]))["ops"]["S1:10"]
+    assert facts["return_errors"] == [] and "no lift Z" in facts["return_reason"], facts
+
+
+def test_each_printed_table_is_entered_anew_where_the_last_one_ended(engine, parts):
+    # Rocker S1 op 40: its tables join end to start, and its note retracts clear between
+    # them. The U printed as a stairs table then a join table meeting at X20 Y-10: there
+    # the cutter raises to the op's Z21 and goes back down, its holder (to Z91) through a
+    # block at Z83..85 it passes 1 under while cutting and entering (to Z82).
+    from prechips.kernel import table_checkpoints, tool_paths
+
+    stairs = [[0.0, 30.0], [0.0, -10.0], [20.0, -10.0]]
+    join = [[20.0, -10.0], [40.0, -10.0], [40.0, 30.0]]
+    rough = {"op": 10, "stage": "rough", "side": "+X", "dro_tip_z": 10.0, "cut_order": "forward"}
+    rows = [{"dro_xy": xy, "dro_tip_z": 10.0} for xy in stairs]
+    tables = {
+        "operations": [{"op": 10, "z_levels": {"levels": [11.0, 10.0], "dro_start_z": 12.0}}],
+        "profiles": [{"op": 10, "cutter_centre": [{"x": 0.0, "y": 30.0}]}],
+        "arc_table": [{**rough, "method": "stairs", "sequence": 0, "rows": rows}],
+        "line_table": [{**rough, "sequence": 1, "dro_xy": join, "setup_xy": join}],
+        "dro_grid": {"step": 0.01, "decimals": 2},
+        "level_paths": [{"op": 10, "raise_z": 21.0}],
+    }
+    op = _facing(
+        tool_paths=tool_paths({"op": 10}, tables, "mm", "S1:10"),
+        checkpoints=table_checkpoints("S1:10", tables, 10, "mm"),
+    )
+    facts = _ran(engine, parts["plate"], [op], _hung([19.0, -11.0, 83.0]))["ops"]["S1:10"]
+    assert _moved(facts) == ["the raise or descent at X 20, Y -10 between Z 10 and Z 21"], facts
+    assert facts["return_errors"][0]["volume_mm3"] == 8.0
+
+
+def test_every_op_starts_and_ends_at_the_safe_z_its_tool_is_swept_to(engine, parts):
+    # Two ops each cut the U at Z10 alone: neither returns to an entry, yet the tool gets
+    # from op 10's end (X40 Y30) to op 20's start (X0 Y30), and no route is printed for it
+    # but the safe Z: the top of the stock and holding, the block's Z85. Raising there at
+    # X40 Y30 the holder (R10) meets the block at X48..50, which the cut passes under.
+    u = _returning(None, levels=(10.0,))
+    ops = [_facing(tool_paths=u), _facing("S1:20", tool_paths=u)]
+    result = _ran(engine, parts["plate"], ops, _hung([48.0, 29.0, 83.0]))
+    assert _scene(result)["safe_z_mm"] == 85.0
+    raised = "the move between ops at X 40, Y 30 between Z 10 and Z 85"
+    for subject in ("S1:10", "S1:20"):
+        facts = result["ops"][subject]
+        assert facts["return_moves"] == 2 and _moved(facts) == [raised], facts
+    rows = _scene(result)["render_scene"]["cut_clearances"]
+    assert rows[0] == {"op": "10", "mm": 0.0, "tag": "strap:block", "move": "between"}
+    # Holding not wholly drawn: no safe Z, so no move between ops is proven.
+    gaps = ["clamp 1 near-cut pose is undeclared"]
+    result = _ran(engine, parts["plate"], ops, _hung([48.0, 29.0, 83.0], gaps=gaps))
+    assert "safe_z_mm" not in _scene(result) and _scene(result)["safe_z_reason"]
+    for facts in result["ops"].values():
+        assert facts["return_errors"] == [] and facts["return_reason"], facts
 
 
 _CENTRE_DRILL = r"""
@@ -648,7 +773,7 @@ def test_the_commanded_sweep_is_every_pass_at_every_level_and_every_move_between
     rows = {"op": 10, "cutter_centre": [{"id": "A1", "x": 0.0, "y": 0.0}]}
     assert tool_paths({"op": 10}, {**tables, "profiles": [rows]}, "mm", "S1:10")["tables"] is True
     failed = tool_paths({"op": 10}, {**tables, "profiles": [unknown]}, "mm", "S1:10")
-    assert "open side unknown" in failed["reason"] and "returns" not in failed
+    assert "open side unknown" in failed["reason"]
     assert tool_paths({"op": 30}, tables, "mm", "S1:30") is None
 
 
