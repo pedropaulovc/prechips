@@ -1674,15 +1674,34 @@ _DUPLEX_JS = r"""(() => {
     document.querySelectorAll(".blank-side, [" + ADDED + "]").forEach((el) => el.remove());
     // Restore the source DOM, not a second, partly split pagination layout. This also
     // restores text fragments, stacked blocks and authored list numbering before print.
-    for (const [section, original] of originals) {
-      section.replaceChildren(...[...original.childNodes].map((node) => node.cloneNode(true)));
+    for (const [section, { source, images }] of originals) {
+      const restored = source.cloneNode(true);
+      [...restored.querySelectorAll("img, svg image")].forEach((copy, index) => {
+        const image = images[index];
+        // A fresh image clone cannot paint until after beforeprint returns. Keep the
+        // loaded canonical leaf while restoring its pristine attributes and wrapper.
+        for (const attribute of [...image.attributes]) {
+          if (!copy.hasAttributeNS(attribute.namespaceURI, attribute.localName))
+            image.removeAttributeNS(attribute.namespaceURI, attribute.localName);
+        }
+        for (const attribute of copy.attributes) {
+          if (image.getAttributeNS(attribute.namespaceURI, attribute.localName) !== attribute.value)
+            image.setAttributeNS(attribute.namespaceURI, attribute.name, attribute.value);
+        }
+        image.replaceChildren(...copy.childNodes);
+        copy.replaceWith(image);
+      });
+      section.replaceChildren(...restored.childNodes);
       delete section.dataset.pages;
     }
   }
   function run() {
     const body = document.body, root = document.documentElement, saved = body.getAttribute("style");
     for (const section of document.querySelectorAll("section.page[data-sheet]")) {
-      if (!originals.has(section)) originals.set(section, section.cloneNode(true));
+      if (!originals.has(section)) originals.set(section, {
+        source: section.cloneNode(true),
+        images: [...section.querySelectorAll("img, svg image")]
+      });
     }
     try {
       reset();

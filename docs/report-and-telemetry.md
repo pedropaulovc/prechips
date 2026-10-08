@@ -350,6 +350,10 @@ therefore start on a front side. Operation groups and inspection records stay
 associated through continuation context; supported oversized content can
 continue rather than being compressed into smaller type. Without scripts the
 same content prints without duplex padding, so print single-sided.
+Before printing, the layout restores original text and wrappers while retaining
+the loaded image elements (including SVG images) without reloading unchanged
+sources; printed panels use the same canonical native source-pose image shown
+on screen.
 
 Headings, captions and authored lead-ins stay with what follows; the sign-off
 stays with the last operation. Ordinary read-only tables preserve the base's

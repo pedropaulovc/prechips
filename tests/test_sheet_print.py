@@ -1836,7 +1836,7 @@ _INSPECTION_PAGES = _SOURCE_PAGES.replace(
         image: [image.x.baseVal.value, image.y.baseVal.value,
           image.width.baseVal.value, image.height.baseVal.value],
         asset: image.getAttribute('href'),
-        imageComplete: !!svg.querySelector('image'),
+        imagePresent: !!svg.querySelector('image'),
         displayedRatio: svg.getBoundingClientRect().height / svg.getBoundingClientRect().width
       };
     }),
@@ -1858,7 +1858,7 @@ def _assert_whole_inspection_views(details, asset):
     assert [figure["ordinal"] for figure in figures] == list(range(1, len(figures) + 1))
     for figure, panel in zip(figures, scene["print_panels"], strict=True):
         assert panel["label"] in figure["identity"]
-        assert figure["owned"] and figure["imageComplete"]
+        assert figure["owned"] and figure["imagePresent"]
         assert figure["top"] >= -0.1 and figure["bottom"] <= figure["cap"] + 0.1
         assert figure["viewport"] == [0, panel["top_px"], 1600, panel["height_px"]]
         assert figure["image"] == [0, 0, 1600, scene["height_px"]]
@@ -1867,6 +1867,89 @@ def _assert_whole_inspection_views(details, asset):
     assert [figure["page"] for figure in figures] == sorted(figure["page"] for figure in figures)
     path = Path(url2pathname(urlsplit(asset["path"]).path))
     assert hashlib.sha256(path.read_bytes()).hexdigest() == asset["sha256"]
+
+
+@pytest.mark.parametrize("kind", ["svg-window", "html-img"])
+def test_beforeprint_restores_canonical_loaded_image_pixels(tmp_path, kind):
+    import pypdfium2 as pdfium
+    from PIL import Image
+
+    from prechips.sheet import _CSS, _DUPLEX_JS
+
+    asset = _inspection_asset(
+        tmp_path, ("Upper canonical view", "Lower canonical view"), [320, 480]
+    )
+    source_path = Path(url2pathname(urlsplit(asset["path"]).path))
+    with Image.open(source_path) as canonical:
+        expected_pixels = canonical.convert("RGB").tobytes()
+    expected_digest = hashlib.sha256(expected_pixels).hexdigest()
+    if kind == "svg-window":
+        sheet, setup, op, *_ = _inspection_consumer(asset)
+        source = sheet.inspection_sketch(setup, op, "dia")
+        bands = [(0, 320), (320, 480)]
+    else:
+        source = (
+            '<figure class="fixture-render"><figcaption>Whole canonical image</figcaption>'
+            f'<img src="{asset["path"]}" width="1600" height="800" '
+            'style="display:block;width:400px;height:auto"></figure>'
+        )
+        bands = [(0, 800)]
+    html = (
+        '<!doctype html><html><head><meta charset="utf-8">'
+        f"<style>{_CSS}</style><script>{_DUPLEX_JS}</script></head><body>"
+        '<section class="page" data-sheet="SETUP S1 sheet 1" data-part="Image retention">'
+        "<h1>Canonical image print control</h1>"
+        + source
+        + "</section><script>"
+        + "addEventListener('load', () => {"
+        + "for (const image of document.querySelectorAll('section img, section svg image')) {"
+        + "image.setAttribute('width', '1'); image.setAttribute('height', '1');"
+        + "image.style.opacity = '0'; image.setAttribute('data-mutated-image', '');"
+        + "}});</script></body></html>"
+    )
+    texts = printed_pages(html, tmp_path)
+    assert not any("PRINT LAYOUT ERROR" in text for text in texts)
+
+    document = pdfium.PdfDocument(str(tmp_path / "traveler.pdf"))
+    actual = []
+    try:
+        for index in range(len(document)):
+            page = document[index]
+            try:
+                objects = [
+                    obj
+                    for obj in page.get_objects(max_depth=10)
+                    if isinstance(obj, pdfium.PdfImage)
+                ]
+                if not objects:
+                    continue
+                raster = page.render(scale=1)
+                try:
+                    painted = raster.to_pil().convert("RGB")
+                    for obj in objects:
+                        # pypdfium manages this foreign bitmap through its buffer;
+                        # explicit close() is unsafe. Rendered-page bitmaps are owned.
+                        bitmap = obj.get_bitmap()
+                        pixels = bitmap.to_pil().convert("RGB")
+                        assert pixels.size == (1600, 800)
+                        assert hashlib.sha256(pixels.tobytes()).hexdigest() == expected_digest
+                        top_px, height_px = bands[len(actual)]
+                        left, bottom, right, top = obj.get_bounds()
+                        center_x = (left + right) / 2
+                        source_y = top_px + height_px / 2
+                        painted_y = page.get_height() - (top - source_y * (top - bottom) / 800)
+                        expected_y = min(799, int(source_y))
+                        offset = (expected_y * 1600 + 800) * 3
+                        expected_color = tuple(expected_pixels[offset : offset + 3])
+                        assert painted.getpixel((int(center_x), int(painted_y))) == expected_color
+                        actual.append(obj.get_bounds())
+                finally:
+                    raster.close()
+            finally:
+                page.close()
+    finally:
+        document.close()
+    assert len(actual) == len(bands)
 
 
 def test_note_before_whole_inspection_view_and_after_keeps_source_and_original_owner(
