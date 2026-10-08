@@ -132,12 +132,26 @@ def test_long_rough_and_finish_lathe_tables_keep_every_page_counted_and_sheets_o
             assert feature.replace("_", " ") in content(requirement)
             (blank,) = markup.find("writing-blank", record)
             assert content(blank) == ""
-    # Only the original front carries the section's approval banner. Continuations may
-    # copy setup/operation identities, but those copies are not new logical sheets.
+    # The original full heading identifies each logical front. Repeated status in
+    # a running header is a read-only reminder, not another logical sheet or approval.
     banners = [content(markup.find("banner", section)[0]) for section in sections]
     assert banners and all(banners)
     normalized = [" ".join(text.split()) for text in texts]
-    starts = [i for i, text in enumerate(normalized) if any(banner in text for banner in banners)]
+    headings = [
+        " ".join(
+            content(
+                next(
+                    node
+                    for node in markup.nodes
+                    if node["tag"] == "h2" and node["parent"] is section
+                )
+            ).split()
+        )
+        for section in sections
+    ]
+    starts = [
+        i for i, text in enumerate(normalized) if any(heading in text for heading in headings)
+    ]
     assert len(starts) == len(sections)
     assert all(banner in normalized[start] for banner, start in zip(banners, starts, strict=True))
     runs = [texts[start:end] for start, end in zip(starts, [*starts[1:], len(texts)], strict=True)]
@@ -146,6 +160,8 @@ def test_long_rough_and_finish_lathe_tables_keep_every_page_counted_and_sheets_o
         assert start % 2 == 0 and len(run) % 2 == 0
         counted = [text for text in run if text.strip()]
         assert all(not text.strip() for text in run[len(counted) :])
+        status = content(markup.find("banner", section)[0])
+        assert all(status in " ".join(text.split()) for text in counted)
         labels = [LABEL.search(text) for text in counted[1:]]
         assert all(labels), counted
         assert all(section["attrs"]["data-title"] in " ".join(text.split()) for text in counted[1:])
@@ -509,6 +525,148 @@ def test_continuations_repeat_full_applicable_contour_and_local_table_context(pr
         assert _body_rows(printed, table), "A repeated header needs retained original rows"
     assert seen == set(owners)
     assert len(printed.find("tick")) == len(original.find("tick")) == 6
+
+
+def test_public_crowded_contour_continuations_keep_status_and_owned_progress_locator(printed_sheet):
+    from types import SimpleNamespace
+
+    from prechips.sheet import render_traveler
+
+    # Explicitly synthetic resolved coordinate records exercise natural title
+    # crowding in the public writer, not a smaller paper or a patched fit function.
+    bundle = load_bundle(ROOT / "examples" / "rocker-arm" / "plan.toml")
+    bundle.plan["setups"] = [setup for setup in bundle.plan["setups"] if setup["id"] == "S1"]
+    bundle.plan["setups"][0]["ops"] = [
+        op for op in bundle.plan["setups"][0]["ops"] if op["op"] in (30, 40)
+    ]
+    depths = [-0.6 * (index + 1) / 240 for index in range(240)]
+    depths[-1] = -0.6
+    numbers = {"operations": [], "line_table": []}
+    for op in (30, 40):
+        numbers["operations"].append(
+            {
+                "op": op,
+                "dro_to_z": -0.6,
+                "z_levels": {
+                    "levels": depths,
+                    "count": len(depths),
+                    "dro_start_z": 0.0,
+                    "dro_to_z": -0.6,
+                    "doc_mm": 0.25,
+                },
+            }
+        )
+        for sequence in (0, 1):
+            points = [[1.25 + 0.25 * index, 2.5 + 2.0 * sequence] for index in range(90)]
+            numbers["line_table"].append(
+                {
+                    "op": op,
+                    "sequence": sequence,
+                    "side": "outside",
+                    "setup_xy": points,
+                    "dro_xy": points,
+                    "dro_tip_z": -0.6,
+                }
+            )
+    html = render_traveler(
+        bundle,
+        [SimpleNamespace(rule="coordinates", subject="S1", numbers=numbers, status="pass")],
+        {},
+    )
+    original = Markup(html)
+    expected_rows = [
+        [content(cell) for cell in _cells(original, row)]
+        for table in original.find("coords")
+        for row in _body_rows(original, table)
+    ]
+    expected_titles = [
+        content(node)
+        for node in original.nodes
+        if node["tag"] == "h3" and node["parent"] in original.find("contour")
+    ]
+    prepare = r"""() => {
+      const parsed = new DOMParser().parseFromString(__PUBLIC__, 'text/html');
+      const sections = [...parsed.querySelectorAll('section.page[data-sheet]')];
+      window.originalStatuses = Object.fromEntries(sections.map(section =>
+        [section.dataset.sheet, section.querySelector(':scope > .banner').textContent]));
+      document.querySelector('section.page').replaceWith(...sections);
+    }""".replace("__PUBLIC__", json.dumps(html).replace("<", "\\u003c"))
+    probe = r"""() => ({
+      sourceHTML: [...document.querySelectorAll('section.page[data-sheet]')]
+        .map(section => section.outerHTML).join(''),
+      runningStatuses: [...document.querySelectorAll('.cont-head')].map(head => ({
+        status: window.originalStatuses[head.closest('section').dataset.sheet],
+        text: head.textContent
+      })),
+      continuedHeaders: [...document.querySelectorAll('table.coords[data-duplex-split]')]
+        .map(table => {
+        const repeat = table.querySelector('thead .repeat[data-duplex]');
+        const section = table.closest('section.page'), sectionBox = section.getBoundingClientRect();
+        const tops = [sectionBox.top, ...[...section.querySelectorAll('.cont-head')]
+          .map(head => head.getBoundingClientRect().top)];
+        const top = repeat
+          ? tops.findLast(value => value <= repeat.getBoundingClientRect().top+.01) : null;
+        const capacity = Number(document.documentElement.dataset.pageCapacity);
+        const width = Number(document.documentElement.dataset.printWidth);
+        const glyphs = [];
+        if (repeat) {
+          const walker = document.createTreeWalker(repeat, NodeFilter.SHOW_TEXT);
+          let node;
+          while ((node = walker.nextNode())) {
+            if (!node.textContent.trim()) continue;
+            const range = document.createRange();
+            range.selectNodeContents(node);
+            glyphs.push(...[...range.getClientRects()].filter(box => box.width && box.height)
+              .map(box => ({left: box.left, right: box.right, top: box.top, bottom: box.bottom})));
+          }
+        }
+        const inside = box => box.left >= sectionBox.left-.01
+          && box.right <= sectionBox.left+width+.01
+          && box.top >= top-.01 && box.bottom <= top+capacity+.01;
+        return {
+          text: repeat?.textContent ?? '',
+          originalRows: [...table.tBodies].flatMap(body => [...body.rows]).length,
+          writable: table.querySelectorAll(
+            'thead .writing-blank,thead .tick,thead .performed-mark').length,
+          visible: repeat ? getComputedStyle(repeat).display !== 'none' : false,
+          glyphCount: glyphs.length,
+          glyphsFit: top !== null && glyphs.every(inside),
+          headerFits: repeat ? inside(repeat.getBoundingClientRect()) : false,
+          tableFits: table.getBoundingClientRect().bottom
+            + parseFloat(getComputedStyle(table).marginBottom) <= top+capacity+.01
+        };
+      })
+    })"""
+    _, details = printed_sheet("", probe, prepare)
+    printed = Markup(details["sourceHTML"])
+    assert details["runningStatuses"]
+    assert all(head["status"] in head["text"] for head in details["runningStatuses"])
+    assert [
+        [content(cell) for cell in _cells(printed, row)]
+        for table in printed.find("coords")
+        for row in _body_rows(printed, table)
+    ] == expected_rows
+    assert [
+        content(node)
+        for node in printed.nodes
+        if node["tag"] == "h3" and _original(node) and node["parent"] in printed.find("contour")
+    ] == expected_titles
+    assert [content(node) for node in printed.find("field-label")] == [
+        content(node) for node in original.find("field-label")
+    ]
+    assert all(_original(node) for node in printed.find("writing-blank"))
+    assert len(printed.find("tick")) == len(original.find("tick"))
+    compact_owners = set()
+    assert details["continuedHeaders"]
+    for header in details["continuedHeaders"]:
+        (op,) = [op for op in (30, 40) if f"S1 op {op}" in header["text"]]
+        assert f"Optional progress only: see S1 op {op} progress beside Done" in header["text"]
+        assert header["visible"] and header["originalRows"] and not header["writable"]
+        assert header["glyphCount"] > 0 and header["glyphsFit"] and header["headerFits"]
+        assert header["tableFits"]
+        if expected_titles[(30, 40).index(op)] not in header["text"]:
+            compact_owners.add(op)
+    assert compact_owners == {30, 40}
 
 
 def test_readings_continuations_repeat_only_their_own_title_and_original_units(printed_sheet):
@@ -1462,7 +1620,21 @@ def test_single_original_figure_fits_whole_or_refuses_with_measured_bounds(
         assert details == {"figurePages": [0], "images": 1}
         assert len(printed.find("fixture-render")) == 1
     else:
-        texts = printed_pages(_sections([(0, source)]), tmp_path)
+        if inside_note:
+            html = _sections([(0, source)])
+        else:
+            from test_sheet_ops import picture_sheet
+
+            sheet = picture_sheet([])
+            sheet.plan.update({"setups": [{"id": "S1"}], "quantity": 20})
+            sheet.checked = False
+            sheet.header = lambda setups: "<h2>JOB PAGE</h2><p>Original job instructions.</p>"
+            sheet.setup_section = lambda setup: [
+                ["<h2>SETUP S1 — sheet 1 of 2</h2><p>Original setup instructions.</p>"],
+                ["<h2>SETUP S1 — sheet 2 of 2: original complete view</h2>", source],
+            ]
+            html = sheet.render()
+        texts = printed_pages(html, tmp_path)
         refusal = " ".join(" ".join(texts).split())
         assert "PRINT LAYOUT ERROR" in refusal and "AuthoredWholeView" in refusal
         measured = re.search(
@@ -1575,24 +1747,78 @@ def test_mixed_worksheet_prompts_keep_sole_named_table_field_and_clear_underscor
     assert underscore["clearHeight"] >= 20 * 96 / 25.4 - 0.05
 
 
+@pytest.mark.parametrize(
+    "generated_headers", [False, True], ids=["departing-work", "full-identity"]
+)
 def test_original_stock_fixture_caption_moves_with_first_complete_setup_figure(
-    tmp_path, printed_sheet
+    tmp_path, printed_sheet, generated_headers
 ):
     from test_sheet_ops import picture_sheet
 
-    asset = _inspection_asset(tmp_path, ("Main setup", "Rear clamp"), [1400, 800])
+    height = 1785 if generated_headers else 1400
+    asset = _inspection_asset(tmp_path, ("Main setup", "Rear clamp"), [height, 800])
     panels = [
-        {"top_px": 0, "height_px": 1400, "role": "setup", "label": "Main setup"},
-        {"top_px": 1400, "height_px": 800, "role": "holding_detail", "label": "Rear clamp"},
+        {"top_px": 0, "height_px": height, "role": "setup", "label": "Main setup"},
+        {"top_px": height, "height_px": 800, "role": "holding_detail", "label": "Rear clamp"},
     ]
     sheet = picture_sheet(panels)
     sheet.arrival = lambda setup: "Ø12.000 × 35.000 mm stock blank"
     render = sheet.report["renders"]["S1"]
     render.update({"path": asset["path"], "sha256": asset["sha256"]})
     render["scene"].update({"debts": [], "render_debts": []})
+    render["scene"]["height_px"] = height + 800
     source = sheet.fixture_render({"id": "S1", "hold": {"fixture": "vise"}})
     original = Markup(source)
     (caption,) = [content(node) for node in original.nodes if node["tag"] == "p"]
+    prepare = None
+    if generated_headers:
+        heading = (
+            "SETUP S1 — sheet 2 of 2: holding picture, shop-made fixture, clearance, "
+            "feature map and inspection notes"
+        )
+        fronts = ["JOB PAGE", "SETUP S1 — sheet 1 of 2", "SETUP S2 — sheet 1 of 1"]
+        sheet.plan.update(
+            {
+                "drawing": {"number": "BRK-071"},
+                "quantity": 20,
+                "setups": [{"id": "S1"}, {"id": "S2"}],
+            }
+        )
+        sheet.checked = False
+        sheet.header = lambda setups: f"<h2>{fronts[0]}</h2><p>Original job instructions.</p>"
+        sheet.setup_section = lambda setup: (
+            [
+                [f"<h2>{fronts[1]}</h2><p>Original setup-front instructions.</p>"],
+                [f"<h2>{heading}</h2>", source],
+            ]
+            if setup["id"] == "S1"
+            else [[f"<h2>{fronts[2]}</h2><p>Original next-setup instructions.</p>"]]
+        )
+        public_html = sheet.render()
+        pages = [" ".join(text.split()) for text in printed_pages(public_html, tmp_path)]
+        assert not any("PRINT LAYOUT ERROR" in page for page in pages)
+        for front in fronts:
+            (start,) = [index for index, page in enumerate(pages) if front in page]
+            assert start % 2 == 0
+            assert "BRACKET · BRK-071 · rev B" in pages[start]
+            assert "qty 20" in pages[start] and "PLANNED — NOT APPROVED" in pages[start]
+            assert "Sign off" in pages[start]
+        (figure_page,) = [
+            index for index, page in enumerate(pages) if caption in page and "Main setup" in page
+        ]
+        assert heading in pages[figure_page]
+        assert "BRACKET · BRK-071 · rev B · qty 20 · PLANNED — NOT APPROVED" in pages[figure_page]
+        # Feed the generated logical continuation, including its original full header,
+        # to the DOM consumer. Do not manufacture a shortened fixture prefix.
+        prepare = r"""() => {
+          const parsed = new DOMParser().parseFromString(__PUBLIC__, 'text/html');
+          const original = parsed.querySelector('section[data-sheet="SETUP S1 sheet 2"]');
+          window.originalPrefix = [...original.children].slice(0, 3).map(node => node.outerHTML);
+          document.querySelector('section.page').replaceWith(original);
+          window.originalWords = original.innerText.match(/\S+/g);
+          window.originalStatus = original.querySelector(':scope > .banner').textContent;
+        }""".replace("__PUBLIC__", json.dumps(public_html).replace("<", "\\u003c"))
+        source = ""
     probe = _SOURCE_PAGES.replace(
         "pages: Number(section.dataset.pages),",
         r"""pages: Number(section.dataset.pages),
@@ -1612,20 +1838,92 @@ def test_original_stock_fixture_caption_moves_with_first_complete_setup_figure(
           };
         }),""",
     ).replace("__CAPTION__", json.dumps(caption))
-    printed, details = printed_sheet(
-        '<p>Original departing-page work.</p><div style="height:400px"></div>' + source,
-        probe,
+    if generated_headers:
+        probe = r"""() => {
+          const section = document.querySelector('section.page');
+          const current = section.innerHTML, root = document.documentElement;
+          const initialWords = section.innerText.match(/\S+/g);
+          let next = 0;
+          for (const word of initialWords) {
+            if (word === window.originalWords[next]) next += 1;
+          }
+          const originalWordsRetained = next === window.originalWords.length;
+          const height = root.style.getPropertyValue('--page-content-height');
+          root.style.setProperty('--page-content-height', '40in');
+          dispatchEvent(new Event('beforeprint'));
+          const restoredPrefix = [...section.children].slice(0, 3).map(node => node.outerHTML);
+          const restoredOriginalHeader = JSON.stringify(restoredPrefix)
+            === JSON.stringify(window.originalPrefix);
+          if (height) root.style.setProperty('--page-content-height', height);
+          else root.style.removeProperty('--page-content-height');
+          dispatchEvent(new Event('beforeprint'));
+          const restoredNormalLayout = section.innerHTML === current;
+          const tops = [section.getBoundingClientRect().top,
+            ...[...section.querySelectorAll('.cont-head')]
+              .map(node => node.getBoundingClientRect().top)];
+          const pageOf = node => tops.findLastIndex(
+            top => top <= node.getBoundingClientRect().top+.01);
+          const capacity = Number(root.dataset.pageCapacity);
+          return {
+            originalWordsRetained, restoredOriginalHeader, restoredNormalLayout,
+            continuationStatuses: [...section.querySelectorAll('.cont-head')]
+              .map(head => ({text: head.textContent, status: window.originalStatus})),
+            captions: [...section.querySelectorAll('p')]
+              .filter(node => node.textContent === __CAPTION__).map(node => ({
+                page: pageOf(node), original: !node.closest('[data-duplex]'),
+                figure: [...section.querySelectorAll('figure')].indexOf(node.closest('figure'))
+              })),
+            figures: [...section.querySelectorAll('figure')].map(figure => {
+              const svg = figure.querySelector('svg'), view = svg.viewBox.baseVal;
+              const image = svg.querySelector('image'), rect = figure.getBoundingClientRect();
+              // The viewBox aspect describes SVG content, not its border and padding.
+              const svgRect = svg.getBoundingClientRect(), svgStyle = getComputedStyle(svg);
+              const contentWidth = svgRect.width
+                - parseFloat(svgStyle.borderLeftWidth) - parseFloat(svgStyle.borderRightWidth)
+                - parseFloat(svgStyle.paddingLeft) - parseFloat(svgStyle.paddingRight);
+              const contentHeight = svgRect.height
+                - parseFloat(svgStyle.borderTopWidth) - parseFloat(svgStyle.borderBottomWidth)
+                - parseFloat(svgStyle.paddingTop) - parseFloat(svgStyle.paddingBottom);
+              return {
+                page: pageOf(figure), original: !figure.closest('[data-duplex]'),
+                viewport: [view.x, view.y, view.width, view.height],
+                asset: image.getAttribute('href'),
+                imageSize: [image.width.baseVal.value, image.height.baseVal.value],
+                whole: rect.bottom + parseFloat(getComputedStyle(figure).marginBottom)
+                  - tops[pageOf(figure)] <= capacity+.01,
+                unscaled: Math.abs(contentHeight - contentWidth * view.height/view.width) < .01
+              };
+            })
+          };
+        }""".replace("__CAPTION__", json.dumps(caption))
+    body = (
+        source
+        if generated_headers
+        else '<p>Original departing-page work.</p><div style="height:400px"></div>' + source
     )
-    _assert_source_on_every_page(details)
-    assert details["captions"] == [{"page": 1, "original": True, "figure": 0}]
-    assert len(details["figures"]) == 2 and details["figures"][0]["page"] == 1
+    printed, details = printed_sheet(
+        body,
+        probe,
+        prepare,
+    )
+    if generated_headers:
+        assert details["originalWordsRetained"]
+        assert details["restoredOriginalHeader"] and details["restoredNormalLayout"]
+        assert details["continuationStatuses"]
+        assert all(header["status"] in header["text"] for header in details["continuationStatuses"])
+        assert all(figure["whole"] and figure["unscaled"] for figure in details["figures"])
+    else:
+        _assert_source_on_every_page(details)
+    first_page = 0 if generated_headers else 1
+    assert details["captions"] == [{"page": first_page, "original": True, "figure": 0}]
+    assert len(details["figures"]) == 2 and details["figures"][0]["page"] == first_page
     assert all(figure["original"] for figure in details["figures"])
     assert [figure["viewport"] for figure in details["figures"]] == [
-        [0, 0, 1600, 1400],
-        [0, 1400, 1600, 800],
+        [0, 0, 1600, height],
+        [0, height, 1600, 800],
     ]
     assert all(
-        figure["asset"] == asset["path"] and figure["imageSize"] == [1600, 2200]
+        figure["asset"] == asset["path"] and figure["imageSize"] == [1600, height + 800]
         for figure in details["figures"]
     )
     assert sum(content(node) == caption for node in printed.nodes if node["tag"] == "p") == 1

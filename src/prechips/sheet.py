@@ -191,7 +191,8 @@ border: var(--rule-thin) solid var(--color-rule); }
 .fixture-render figcaption { margin-bottom: var(--space-xs); }
 .see { display: block; }
 .op-note { margin: var(--space-xs) 0; }
-.cont-head { font-size: var(--text-running); font-weight: bold; margin: 0 0 var(--space-sm);
+.cont-head, .compact-sheet-head { font-size: var(--text-running); font-weight: bold;
+margin: 0 0 var(--space-sm);
 border-bottom: var(--rule-thin) solid var(--color-ink); }
 .cont-count { display: block; white-space: nowrap; }
 .cont-context { display: block; font-size: var(--text-working); overflow-wrap: normal; }
@@ -269,6 +270,8 @@ _DUPLEX_JS = r"""(() => {
     section.querySelectorAll(".page-context").forEach((context) => {
       context.removeAttribute(CONTEXT_ROLE);
     });
+    const statusContents = [...(section.querySelector(":scope > .banner")?.childNodes || [])]
+      .map((node) => node.cloneNode(true));
     const title = [section.dataset.part, section.dataset.drawing,
       section.dataset.revision ? "rev " + section.dataset.revision : "REV NOT CONFIRMED",
       section.dataset.title || section.dataset.sheet].filter(Boolean).join(" · ");
@@ -324,6 +327,35 @@ _DUPLEX_JS = r"""(() => {
         });
       }
     });
+    // Each print pass starts from pristine children. Only repeated logical-sheet
+    // identity may use the running-header hierarchy to keep its first figure whole.
+    if (section.dataset.sheetRole === "continuation") {
+      const [meta, banner, heading, figure] = [...section.children];
+      if (meta?.matches(".meta") && banner?.matches(".banner")
+          && heading?.tagName === "H2" && figure?.tagName === "FIGURE") {
+        const required = box(figure).bottom - box(section).top;
+        if (required > CAP) {
+          const head = document.createElement("div");
+          head.className = "compact-sheet-head lead-in";
+          const identity = document.createElement("span"), title = document.createElement("span");
+          identity.className = title.className = "cont-title";
+          for (const item of [...meta.children, banner]) {
+            if (identity.childNodes.length) {
+              const separator = document.createElement("span");
+              separator.className = "compact-identity-separator";
+              separator.textContent = " · ";
+              identity.append(separator);
+            }
+            identity.append(...[...item.childNodes]);
+          }
+          title.append(...[...heading.childNodes]);
+          head.append(identity, document.createElement("br"), title);
+          meta.before(head);
+          meta.remove(); banner.remove(); heading.remove();
+          // The unchanged figure/caption must still fit with this measured header.
+        }
+      }
+    }
     let pageTop = box(section).top, pages = 1;
     let pageStart = [...section.children].find(
       (el) => !el.classList.contains("meta") && !el.classList.contains("banner")
@@ -402,6 +434,9 @@ _DUPLEX_JS = r"""(() => {
       const running = document.createElement("span");
       running.className = "cont-title";
       running.textContent = title + " (continued)";
+      if (statusContents.length) {
+        running.append(" · ", ...statusContents.map((node) => node.cloneNode(true)));
+      }
       const count = document.createElement("span");
       count.className = "cont-count";
       count.append(" · page " + pages + " of ");
@@ -801,12 +836,21 @@ _DUPLEX_JS = r"""(() => {
           row.remove();
           continue;
         }
-        const cell = row.cells[0], text = cell.textContent;
+        const cell = row.cells[0];
+        const locator = cell.querySelector("[data-continuation-locator]")?.cloneNode(true);
+        const titleCell = cell.cloneNode(true);
+        titleCell.querySelectorAll("[data-continuation-locator]").forEach((node) => node.remove());
+        const text = titleCell.textContent;
         const boundary = text.search(/[;.!?]\s/);
         const identity = /^.*?\bop\s+\d+\b/.exec(text)
           || /\([^()]*\)(?=\s+\(continued\)$)/.exec(text);
         if (row.classList.contains("repeat")) {
-          cell.textContent = identity ? identity[0] : "";
+          cell.replaceChildren();
+          if (identity) cell.append(identity[0]);
+          if (locator) {
+            if (cell.textContent) cell.append(" · ");
+            cell.append(locator);
+          }
         } else if (boundary >= 0) {
           const range = document.createRange(), walker = document.createTreeWalker(
             cell, NodeFilter.SHOW_TEXT
@@ -822,6 +866,10 @@ _DUPLEX_JS = r"""(() => {
           cell.replaceChildren(range.cloneContents());
         } else cell.replaceChildren();
         if (!cell.textContent || !fits(budget())) {
+          if (locator) {
+            throw new Error("A contour progress locator cannot share a page "
+              + "with original source progress.");
+          }
           row.remove();
         }
       }
@@ -1843,7 +1891,15 @@ def _ledger_row(row, headings):
 
 
 def _table(
-    headings, rows, css="", widths=None, continued=None, repeat=None, strong=(), context=None
+    headings,
+    rows,
+    css="",
+    widths=None,
+    continued=None,
+    repeat=None,
+    strong=(),
+    context=None,
+    repeat_locator=None,
 ):
     """Repeat the table's context on continuations. Each body is one keep-together group;
     operations use full-width ledger rows instead of compressed columns. ``strong``
@@ -1860,8 +1916,17 @@ def _table(
     result.extend((f"<table{attribute}>", columns, "<thead>"))
     for kind, title in (("continued", continued), ("repeat", repeat)):
         if title:
+            locator = (
+                '<span data-continuation-locator="progress">'
+                + _numeric_html(repeat_locator)
+                + "</span>"
+                if kind == "repeat" and repeat_locator
+                else ""
+            )
             result.append(
-                f'<tr class="{kind}"><th colspan="{count}">{_numeric_html(title)}</th></tr>'
+                f'<tr class="{kind}"><th colspan="{count}">{_numeric_html(title)}'
+                + (" · " + locator if locator else "")
+                + "</th></tr>"
             )
     if context:
         result.append(
@@ -4592,6 +4657,7 @@ class _Traveler:
                 pieces.append(_p(self.tool_setting(settings_at[("zero", axis)], tools)))
         top_feature = setup.get("stock_state", {}).get("top_feature")
         rows = []
+        measurements = []
         for axis in ("x", "y", "z"):
             if axis not in authored and axis not in axes:
                 continue
@@ -4664,6 +4730,15 @@ class _Traveler:
                 contact.append("M measured before clamping (HOLD)")
             elif touch.get("measure"):
                 contact.append("M = " + self.bench(touch["measure"]))
+            if method == "measure_then_set" and setup.get("id") not in (None, "", "unknown"):
+                owner = f"{setup['id']} {axis.upper()} M"
+                if before_hold:
+                    contact.append(f"{owner}: use the {axis.upper()} M field in HOLD")
+                else:
+                    unit = f" ({self.units})" if self.units in ("mm", "in") else ""
+                    measurements.append(
+                        '<p class="setup-measurement">' + _writing_field(owner + unit) + "</p>"
+                    )
             expected = self.reading(readings["check_reading"], computed.get("check_expression"))
             mirrored = self.reading(
                 readings["mirrored_reading"], computed.get("mirrored_expression")
@@ -4695,6 +4770,7 @@ class _Traveler:
                 widths=[9, 41, 13, 11, 13, 13],
             )
         )
+        pieces.extend(measurements)
         if not lathe and any(row[0] in ("X", "Y") for row in rows):
             # From a side pickup, +X / +Y runs the finder over the work at pickup height.
             # Its line leads in the steps: the pagination keeps it with them.
@@ -7146,6 +7222,31 @@ class _Traveler:
             if stepped and entry["parts"]:
                 # The whole path runs once per level: a box to tick as each level is done.
                 content += _levels(len(depths))
+            progress = (
+                stepped
+                and all(_known(z) for z in depths)
+                and setup.get("id") not in (None, "", "unknown")
+                and op.get("op") not in (None, "", "unknown")
+                and op.get("tool") not in (None, "unknown")
+                and bool(tool)
+                and any(
+                    not isinstance(description, list) and headings[:1] == ["P"] and rows
+                    for _, description, headings, rows, _ in entry["parts"]
+                )
+            )
+            progress_owner = f"{setup['id']} op {op_id} progress beside Done"
+            if progress:
+                content += (
+                    '<p class="path-progress">'
+                    + _numeric_html(
+                        f"{setup['id']} op {op_id} — Optional progress only; "
+                        "not level Done, inspection acceptance or clearance to resume: "
+                    )
+                    + _writing_field(f"{setup['id']} op {op_id} level")
+                    + " "
+                    + _writing_field(f"{setup['id']} op {op_id} last completed #")
+                    + "</p>"
+                )
             tool_missing = op.get("tool") in (None, "unknown") or not tool
             wide = self.lathe(setup)
             if tool_missing:
@@ -7192,6 +7293,11 @@ class _Traveler:
                             cells,
                             css="coords",
                             repeat=title,
+                            repeat_locator=(
+                                f"Optional progress only: see {progress_owner}"
+                                if progress
+                                else None
+                            ),
                             context=self.bench(description) + ".",
                             strong=[i for i, h in enumerate(shown) if h.startswith("tool ")],
                         )
@@ -7963,7 +8069,8 @@ class _Traveler:
             result.append(
                 f'<section class="page" data-sheet="{escape(label)}" data-title="{escape(title)}" '
                 f'data-part="{escape(part)}" data-drawing="{escape(_text(drawing.get("number")))}" '
-                f'data-revision="{escape(revision or "")}">'
+                f'data-revision="{escape(revision or "")}" '
+                f'data-sheet-role="{"front" if signed else "continuation"}">'
             )
             result.append(
                 f'<div class="meta"><h1>{escape(part.upper())} · '

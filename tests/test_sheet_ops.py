@@ -3213,3 +3213,250 @@ def test_printed_near_cap_atomic_source_uses_its_actual_continuation_body(printe
     assert details["input"]["height"] > field["available"]
     assert field["label"].strip()
     assert field["boxes"] == 1 and field["samePage"] and field["fits"]
+
+
+def recording_traveler(relative, setup_ids, records=None, change=None):
+    """Public output over authored examples and explicitly synthetic resolved records.
+
+    These display fixtures do not execute or claim a kernel verification.
+    """
+    from prechips.inputs import load_bundle
+    from prechips.sheet import render_traveler
+
+    bundle = load_bundle(Path(__file__).resolve().parents[1] / "examples" / relative)
+    bundle.plan["setups"] = [setup for setup in bundle.plan["setups"] if setup["id"] in setup_ids]
+    if change:
+        change(bundle)
+    findings = [
+        SimpleNamespace(rule=rule, subject=subject, numbers=numbers, status="pass")
+        for (rule, subject), numbers in (records or {}).items()
+    ]
+    return Markup(render_traveler(bundle, findings, {})), bundle
+
+
+def test_public_measured_setup_destinations_keep_distinct_owned_acquisitions():
+    records = {
+        ("zero_check", setup): {
+            "axes": {
+                "z": {
+                    "axis_set": f"M - {offset}",
+                    "check_reading": f"M - {offset - 1}",
+                    "mirrored_reading": f"M - {offset + 1}",
+                    "jog_mm": 1.0,
+                }
+            }
+        }
+        for setup, offset in (("P3", 64.95), ("P4", 15.95))
+    }
+    markup, bundle = recording_traveler("rocker-arm/plan.toml", {"P3", "P4"}, records)
+    fields = markup.find("setup-measurement")
+    assert [content(markup.find("field-label", field)[0]) for field in fields] == [
+        "P3 Z M (mm)",
+        "P4 Z M (mm)",
+    ]
+    for field, setup in zip(fields, bundle.plan["setups"], strict=True):
+        assert len(markup.find("writing-blank", field)) == 1
+        assert content(markup.find("writing-blank", field)[0]) == ""
+        section = field
+        while section["tag"] != "section":
+            section = section["parent"]
+        assert section["attrs"]["data-sheet"].startswith(f"SETUP {setup['id']} ")
+        assert not markup.find("inspection-record", field)
+        assert setup["zero"]["z"].get("measure_before_hold") is not True
+
+
+def test_public_before_hold_measurement_reuses_its_original_destination():
+    markup, bundle = recording_traveler("pivot-shaft/plan.toml", {"S2"})
+    fields = [
+        node
+        for node in markup.find("field")
+        if [content(label) for label in markup.find("field-label", node)] == ["Z M"]
+    ]
+    assert len(fields) == 1
+    assert len(markup.find("writing-blank", fields[0])) == 1
+    assert not markup.find("setup-measurement")
+    axes = markup.find("zero")[0]
+    assert "S2 Z M" in content(axes) and "HOLD" in content(axes)
+    assert not markup.find("writing-blank", axes)
+    setup = bundle.plan["setups"][0]
+    assert setup["zero"]["z"]["measure_before_hold"] is True
+
+
+@pytest.mark.parametrize("units", ["in", "unknown"])
+def test_public_setup_measurement_does_not_invent_units_or_hide_unknowns(units):
+    def change(bundle):
+        bundle.features["units"] = units
+        touch = bundle.plan["setups"][0]["zero"]["z"]
+        touch.update(offset_mm="unknown", gauge="unknown", measure="unknown")
+
+    markup, _ = recording_traveler("rocker-arm/plan.toml", {"P3"}, change=change)
+    (field,) = markup.find("setup-measurement")
+    expected = "P3 Z M (in)" if units == "in" else "P3 Z M"
+    assert content(markup.find("field-label", field)[0]) == expected
+    assert content(markup.find("writing-blank", field)[0]) == ""
+    axes = markup.find("zero")[0]
+    assert "unknown" in content(axes) or "?" in content(axes)
+    assert any("STOP" in content(node) for node in markup.nodes if node["tag"] == "p")
+
+
+@pytest.mark.parametrize("method", ["trial_cut_measure", "face_then_set", "touch", "unknown"])
+def test_public_other_zero_methods_do_not_manufacture_an_m_destination(method):
+    def change(bundle):
+        bundle.plan["setups"][0]["zero"]["z"]["method"] = method
+
+    markup, _ = recording_traveler("rocker-arm/plan.toml", {"P3"}, change=change)
+    assert not markup.find("setup-measurement")
+    assert not markup.find("writing-blank", markup.find("zero")[0])
+
+
+def test_public_measurements_are_axis_owned_and_require_a_resolved_setup():
+    def add_axis(bundle):
+        bundle.plan["setups"][0]["zero"]["x"] = {
+            "method": "measure_then_set",
+            "measure": "datum edge to raw side",
+            "gauge": "micrometers/2-3in",
+            "offset_mm": -12.0,
+        }
+
+    markup, _ = recording_traveler("rocker-arm/plan.toml", {"P3"}, change=add_axis)
+    assert [
+        content(label)
+        for area in markup.find("setup-measurement")
+        for label in markup.find("field-label", area)
+    ] == ["P3 X M (mm)", "P3 Z M (mm)"]
+    assert "datum edge to raw side" in content(markup.find("zero")[0])
+    assert all(
+        len(markup.find("writing-blank", area)) == 1 for area in markup.find("setup-measurement")
+    )
+
+    def unresolved_owner(bundle):
+        bundle.plan["setups"][0]["id"] = "unknown"
+
+    unresolved, _ = recording_traveler("rocker-arm/plan.toml", {"P3"}, change=unresolved_owner)
+    assert unresolved.find("zero")
+    assert not unresolved.find("setup-measurement")
+
+
+def recording_paths(levels=(-0.25, -0.5, -0.6), mode="numbered", tool_missing=False):
+    """Two authored operations with synthetic kernel line tables, never native geometry."""
+    records = {("coordinates", "S1"): {"operations": [], "line_table": []}}
+    numbers = records[("coordinates", "S1")]
+    for op in (30, 40):
+        numbers["operations"].append(
+            {
+                "op": op,
+                "dro_to_z": -0.6,
+                "z_levels": {
+                    "levels": list(levels),
+                    "count": len(levels),
+                    "dro_start_z": 0.0,
+                    "dro_to_z": -0.6,
+                    "doc_mm": 0.25,
+                },
+            }
+        )
+        for sequence, points in enumerate(([[1.25, 2.5], [3.75, 2.5]], [[3.75, 4.5]])):
+            numbers["line_table"].append(
+                {
+                    "op": op,
+                    "sequence": sequence,
+                    "side": "outside",
+                    "setup_xy": points if mode != "empty" else [],
+                    "dro_xy": points,
+                    "dro_tip_z": -0.6,
+                }
+            )
+    if mode == "description":
+        numbers["line_table"] = []
+        numbers["arc_table"] = [
+            {"op": op, "method": "rotary_table", "dro_tip_z": -0.6} for op in (30, 40)
+        ]
+    if mode == "raster":
+        numbers["line_table"] = []
+        numbers["profiles"] = [
+            {**contour_records(None)[("coordinates", "S1")]["profiles"][0], "op": op}
+            for op in (30, 40)
+        ]
+
+    def change(bundle):
+        setup = bundle.plan["setups"][0]
+        setup["ops"] = [op for op in setup["ops"] if op["op"] in (30, 40)]
+        if tool_missing:
+            for op in setup["ops"]:
+                op["tool"] = "unknown"
+
+    return recording_traveler("rocker-arm/plan.toml", {"S1"}, records, change)[0]
+
+
+def test_public_path_progress_has_one_owned_pair_and_read_only_table_locators():
+    markup = recording_paths()
+    owners = markup.find("contour")
+    assert len(owners) == 2
+    for owner, op in zip(owners, (30, 40), strict=True):
+        (progress,) = markup.find("path-progress", owner)
+        assert "Optional progress only" in content(progress)
+        assert "not level Done" in content(progress) and "clearance to resume" in content(progress)
+        assert [content(label) for label in markup.find("field-label", progress)] == [
+            f"S1 op {op} level",
+            f"S1 op {op} last completed #",
+        ]
+        assert len(markup.find("writing-blank", owner)) == 2
+        assert all(content(blank) == "" for blank in markup.find("writing-blank", owner))
+        assert len(markup.find("tick", owner)) == 3
+        assert all(f"level {level} of 3" in content(owner) for level in (1, 2, 3))
+        heading = next(
+            node for node in markup.nodes if node["tag"] == "h3" and node["parent"] is owner
+        )
+        assert all(z in content(heading) for z in ("-0.250", "-0.500", "-0.600"))
+        tables = markup.find("coords", owner)
+        assert len(tables) == 2
+        rows = []
+        for table in tables:
+            (repeat,) = markup.find("repeat", table)
+            assert f"S1 op {op} progress beside Done" in content(repeat)
+            assert not markup.find("writing-blank", table)
+            for row in markup.nodes:
+                if (
+                    row["tag"] == "tr"
+                    and row["parent"]["tag"] == "tbody"
+                    and row["parent"]["parent"] is table
+                ):
+                    cells = [
+                        node
+                        for node in markup.nodes
+                        if node["tag"] == "td" and node["parent"] is row
+                    ]
+                    rows.append([content(cell) for cell in cells])
+        assert [row[0] for row in rows] == ["1", "2", "3"]
+        assert [row[1:3] for row in rows] == [
+            ["1.250", "2.500"],
+            ["3.750", "2.500"],
+            ["3.750", "4.500"],
+        ]
+
+
+@pytest.mark.parametrize(
+    ("levels", "mode", "tool_missing"),
+    [
+        ((-0.6,), "raster", False),
+        (("unknown", "unknown"), "numbered", False),
+        ((-0.25, -0.6), "empty", False),
+        ((-0.25, -0.6), "description", False),
+        ((-0.25, -0.6), "numbered", True),
+    ],
+)
+def test_public_ineligible_paths_keep_existing_controls_without_progress(
+    levels, mode, tool_missing
+):
+    markup = recording_paths(levels, mode, tool_missing)
+    assert markup.find("contour")
+    assert not markup.find("path-progress")
+    for owner in markup.find("contour"):
+        assert not markup.find("writing-blank", owner)
+    if tool_missing:
+        assert not markup.find("coords")
+        assert any("tool not selected" in content(node) for node in markup.find("stop"))
+    elif mode == "numbered":
+        assert markup.find("coords")
+    elif mode == "description":
+        assert any(node["tag"] == "ol" for node in markup.nodes)

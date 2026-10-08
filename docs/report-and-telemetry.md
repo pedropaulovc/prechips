@@ -368,9 +368,11 @@ Headings, captions and authored lead-ins stay with what follows; the sign-off
 stays with the last operation. Ordinary read-only tables preserve the base's
 three-row widow/orphan policy when those original row groups fit on each side
 of the break. Side-by-side blocks that are too tall stack before splitting.
-Continuation headings name the part, drawing/revision and logical section and
-show the physical page number and total. Moved or split operations leave a
-pointer to the next physical page. Blank backs contain no instructions or ink.
+Continuation headings name the part, drawing/revision and logical section, retain
+the exact original printed status as a read-only reminder, and show the physical
+page number and total. They do not recompute approval or certify a new state.
+Moved or split operations leave a pointer to the next physical page. Blank backs
+contain no instructions or ink.
 Continuations retain the applicable original operation, table or worksheet title
 and units when they fit alongside original content advancing onto that page.
 Split fixture tables retain the original component/size context in their
@@ -379,6 +381,14 @@ An original note title that cannot fit in its actual continuation body may
 continue as authored source text, in order and at working type size. Short titles
 remain atomic; repeated identity alone never counts as original source progress.
 This fallback neither splits complete figures nor duplicates recording fields.
+A figure-bearing logical continuation keeps its complete first figure and stock
+caption together. If the original full repeated identity would make that group
+too tall, the same part, drawing, revision, quantity, status and complete logical
+heading use the established 10 pt running-metadata hierarchy. True setup fronts
+retain their full original headers. Working text, source captions and images do
+not shrink; a group that still exceeds the measured page capacity is refused.
+Each print pass restores the original full header and recomputes this decision,
+so resizing or printing again cannot reuse stale compacted content.
 
 Operation groups retain authored order. A square beside the operation ID means
 **operation performed only — not inspection acceptance or clearance to proceed**.
@@ -410,6 +420,27 @@ The generated sign-off area keeps its independent signature field. Its
 first-article reading reminder is a read-only pointer to the labeled inspection
 fields or worksheets, not a second unqualified measured-results blank.
 Approval, first-article evidence and all authored recording fields are unchanged.
+
+An actual `measure_then_set` DRO acquisition with a known setup, axis and plan
+units has one setup/axis-qualified empty **M** writing area. An existing before-HOLD
+measurement field remains the sole destination when that acquisition already
+printed one; the DRO recipe points to it instead of adding another blank. Gauge,
+measurement timing, span, offsets and set arithmetic remain authored; no
+`measure_before_hold` flag, inspection requirement or missing unit is inferred.
+
+A numbered contour operation with multiple known depth levels may have one
+**optional progress-only** current-level / last-completed-`#` pair beside its
+existing whole-level Done marks. Continuations point back to that original
+operation-owned area without repeating writable fields. Single-level, raster,
+unknown-depth, empty/list-only and stopped-tool cases gain no progress pair.
+These optional notes are not inspection acceptance, another Done record, a
+mandatory measurement or clearance/instructions to resume. Original depth
+levels, table rows, numbering and operation order remain unchanged.
+The read-only progress locator is separate from the repeated full contour title:
+it remains visible when crowded continuation context uses a compact setup/op
+identity. Both candidates are measured with original source progress; if even
+the compact identity and locator cannot fit, printing refuses instead of
+dropping the locator, duplicating fields or shrinking type.
 
 Terminal punctuation stays with the existing field caption rather than on an
 orphan line after its writing box. Calculation fields start on a shared left
