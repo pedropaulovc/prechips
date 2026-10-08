@@ -1844,8 +1844,8 @@ torque, or that the shop's real fixture matches its record.
 ## Renders
 
 For each setup with a numeric frame and derivable incoming stock the kernel
-returns a PNG 1600 pixels wide and 1000 tall (taller with holding detail bands,
-below) suitable for a wide printed setup figure. The camera
+returns a PNG 1600 pixels wide with panel-dependent height, suitable for
+semantic printed setup windows. The camera
 uses setup axes: a lathe elevation has +Z to the right, radial +X up and +Y
 away, with headstock/chuck left and tailstock right; a mill uses a front-right
 isometric view; a custom plate uses a plan view down setup -Z, and a custom
@@ -1868,7 +1868,10 @@ cross-section, checked at six meridians) prints `STOCK Ø` its largest diameter,
 its length left to the stock dimension; only other stock prints `STOCK BOX: X / Y
 / Z`. A stickout from a measured fit-up (`hold.stickout_fit` with a stated
 reading) is dimensioned `NOM STICKOUT … mm` and the setup notes say it is set as
-the measured fit-up + N mm. Steady rest
+the measured fit-up + N mm. When no jaw-front stickout dimension is drawn, its
+annotation uses the upper dimension-label row, clearing the stock-length label
+at full body size; it does not use a dimension-line coordinate as its text top.
+Steady rest
 rings are drawn as fixture solids; each follow rest's
 jaws are drawn and labelled posed for the first cutting sample of the first
 op it serves. An exposed-end detail makes short lathe stickouts legible; when
@@ -1879,10 +1882,59 @@ tables. Custom plates show pads, locators and authored clamp-action order.
 Table/vise-body/headstock/tailstock context outlines are marked schematic;
 they never add fabricated solids or authorize a cut. Inventory stop solids
 require `hold.stop_fixture` and a numeric `hold.stop_pose`.
-Every label prints at body size (21-pixel caps, about 7 pt on Letter); the
-renderer refuses smaller text. Setup notes come from the setup's declared ops,
+Every label is at least bitmap body scale 5 (35-pixel cap height, approximately
+11.8 pt at 1600 pixels across 7.5 inches); this is not a CSS font size or physical
+printer certification. The renderer refuses smaller text. Setup notes come from the setup's declared ops,
 bench actions included, so a deburr/coating/inspect setup says it has no
 machine cutting rather than "no material removed".
+Existing sketch captions wrap within their measured owner width at the same
+body type size, with line-height space reserved for every caption line. This
+changes layout only, not caption wording, coordinates, units or schema.
+The complete setup view, dimensions, leaders and setup-axes key remain together
+in the first band. If the measured key or setup-note rows exceed that band's
+remaining height, its fitting prefix stays there and the remaining rows continue
+in measured full-width bands owned by the same `setup` role, explicitly labelled
+`KEY + NOTES (CONTINUED)`. Legend text reserves a measured 60-pixel inner gutter
+before the notes column; body type, row order and key/sample associations are
+retained, with no row dropped, duplicated or cropped.
+These text-only continuations precede the independent sketches, holding and guide
+bands and share their 1792-pixel limit and exact-once canonical-image coverage.
+They do not invent another geometric view or repeat the first figure's stock
+caption. Setup geometry and label lanes that themselves exceed the printable
+bound are still refused truthfully.
+Band boundaries keep logical legend entries and notes whole whenever one entry
+fits a full text band. An entry longer than a whole band alone is continued at
+complete wrapped rows, identified by the source-entry ordinal (`LEGEND ENTRY 01`
+or `NOTE 01`, with `(CONTINUED)` on later fragments). These are layout identities,
+not new physical drawing keys. Their headers wrap with measured space reserved;
+substantive text still appears exactly once.
+The constructor measures a setup-specific continuation header only when the
+footer actually overflows. Primitive sketch callers whose text already fits keep
+their existing no-setup-identity construction contract; rendering a complete
+setup still requires its declared setup identity.
+
+Ordinary fitting setup bands keep their existing axes reservation and layout.
+Only when that conservative reservation would refuse a label-lane growth does
+the renderer paint the same complete axes key into its primitive-extent measuring
+canvas, retaining stroke/arrowhead/circle extents and full body cells plus the
+existing bottom padding. This measures space, not geometry or a smaller font.
+If the next growth estimate exceeds the resulting real paper budget, the original
+scene is laid out once at that maximum budget: moving its existing obstacles can
+make the earlier estimate non-minimal. Acceptance requires actual zero lane
+overflow and complete body-text bounds; a still-overflowing maximum attempt
+refuses immediately, without cropping or reusing a partial candidate. The same
+leader algorithm remains in use, although its resulting routes can move with the
+existing obstacles. A refusal names the private layout owner/setup/view and its
+forecast, attempted/maximum budgets, measured axes minimum, remaining overflow
+and pixel height/cap; these diagnostics are not physical facts or a public schema.
+
+Main-picture lane fitting and annotation-detail fitting have separate owners.
+An annotation detail measures its own rendered inset and callout overflow, grows
+that band within the 1792-pixel bound and retains the fallback from a two-op band
+to complete single-op bands. It never grows the main picture to fit detached
+annotations. An oversized complete single-op band is refused. Final composition
+adds fitted annotation, holding and guide bands once, preserving `CUT` keys and
+settled rendering debt.
 
 A leader that names a drawn solid (the stock, a jaw, a parallel, a clamp, a
 numbered clamp or pad badge) ends on that solid's own visible pixels, never on
@@ -2076,10 +2128,25 @@ the page, the way that orientation's height reading rises, under the note
 red contacts. What a sketch cannot show is a render debt on the setup's
 `render_debts` (`op <op> <requirement> sketch: NOT SHOWN: …`): an aid hidden in a
 view, or the whole sketch when the stock at its place in the route is unresolved.
+Each complete authored inspection view remains one 1600-pixel-wide band, at most
+1792 pixels high. Native `inspection_scenes` carries its canonical PNG's actual
+`width_px`, positive `height_px` and `print_panels` under the same exact
+`<op>:<requirement>` key. Each ordered panel records `top_px`, `height_px`,
+`role = "inspection"`, the exact authored title as `label` and its 1-based
+`view_ordinal`. Panels cover the PNG contiguously and retain all authored views.
+The traveler moves each view as a whole figure attached once to its original
+note or worksheet; it does not infer view boundaries from pixels.
 
 Alongside the image the engine returns `render_scene` with `fixture_kind`,
 `jaws`, `parallels`, `components`, `debts`, camera/resolution, plain-language
 `shows` / `legend`, annotation-only `render_debts` and shared `waypoints`.
+Actual PNG dimensions are `width_px` and `height_px`. Ordered `print_panels`
+records `{top_px, height_px, role, label}` partition that canonical image into
+full-width contiguous bands covering every pixel exactly once. Roles are
+`setup`, `profile_detail`, `path_detail` and `holding_detail`. The traveler uses
+these semantic windows at a common print scale, with panel/setup identity;
+there is no arbitrary whole-image crop, fit or downscale fallback. Panel
+presentation preserves coordinate units, geometry and visible rendering debt.
 `fixture_kind` is the inventory holding kind; `components` lists every drawn
 solid as `{name, role, exact}` (`exact = false` only for the vise's
 lateral-undeclared jaw extents; a follow rest adds role `follow_rest` and the

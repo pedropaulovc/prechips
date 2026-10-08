@@ -65,6 +65,11 @@ size is an inspection error, and a set with no `sizes_mm` leaves the pair unknow
 ([inspection](rules-inspection.md#go--no-go-limit-checks)). `range_mm` stays the
 span the set covers for ordinary span/resolution checks.
 
+Printed inspection gauge labels retain these authored item/member identities
+and source ownership. A writing area neither creates a missing gauge nor
+certifies its presence, size or capability; unresolved inventory still requires
+the existing add/resolve or measurement instruction. No inventory field is added.
+
 M2 holding checks use explicitly declared `sizes_mm` / `sizes_in` or a two-ended
 `range_mm` / `range_in` for the held stock diameter. A six-inch chuck body
 (`diameter_in`) says nothing about jaw capacity. Tailstock/steady exceptions

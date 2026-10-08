@@ -5,6 +5,7 @@ from html import unescape
 from pathlib import Path
 
 import pytest
+from test_sheet_ops import Markup, content
 
 from prechips.findings import Finding
 from prechips.inputs import Bundle
@@ -101,28 +102,116 @@ def bundle(holds):
     )
 
 
-def text(html):
-    return unescape(re.sub(r"<[^>]+>", "|", html))
+def descendants(markup, tag, owner=None):
+    result = []
+    for node in markup.nodes:
+        if node["tag"] != tag:
+            continue
+        parent = node
+        while parent is not None and parent is not owner:
+            parent = parent["parent"]
+        if owner is None or parent is owner:
+            result.append(node)
+    return result
+
+
+class FixturePage:
+    """Read inline text intact while retaining the actual table and cell owners."""
+
+    def __init__(self, html, printed_sheets=()):
+        self.markup = Markup(html)
+        self.printed_sheets = printed_sheets
+        self.text = "\n".join(
+            content(node)
+            for node in self.markup.nodes
+            if node["tag"] in {"h2", "p", "li", "th", "td"}
+        )
+
+    def __contains__(self, value):
+        return value in self.text
+
+    def fixture(self):
+        headings = [
+            node
+            for node in descendants(self.markup, "h2")
+            if content(node).startswith("SHOP-MADE FIXTURE —")
+        ]
+        assert len(headings) == 1
+        start = self.markup.nodes.index(headings[0])
+        end = next(
+            (
+                n
+                for n in range(start + 1, len(self.markup.nodes))
+                if self.markup.nodes[n]["tag"] == "h2"
+            ),
+            len(self.markup.nodes),
+        )
+        nodes = self.markup.nodes[start:end]
+        tables = [node for node in nodes if node["tag"] == "table"]
+        assert len(tables) == 1
+        self.table = tables[0]
+        self.paragraphs = [content(node) for node in nodes if node["tag"] == "p"]
+        self.text = "\n".join(
+            content(node) for node in nodes if node["tag"] in {"h2", "p", "th", "td"}
+        )
+        return self
+
+    def rows(self):
+        rows = []
+        headers = []
+        for row in descendants(self.markup, "tr", self.table):
+            heads = descendants(self.markup, "th", row)
+            if heads:
+                headers = [content(cell) for cell in heads]
+            cells = descendants(self.markup, "td", row)
+            if cells:
+                assert headers and len(cells) == len(headers)
+                rows.append(dict(zip(headers, map(content, cells), strict=True)))
+        assert rows
+        return rows
+
+    def row(self, component):
+        rows = [row for row in self.rows() if row["Component"] == component]
+        assert len(rows) == 1, (component, self.rows())
+        return rows[0]
+
+    def position(self, component):
+        row = self.row(component)
+        (position,) = [value for key, value in row.items() if key.startswith("Position, Setup ")]
+        return position
+
+    def line(self, prefix):
+        (line,) = [line for line in self.paragraphs if line.startswith(prefix)]
+        return line
 
 
 def sheets(data):
     traveler = _Traveler(data, [], {}, None)
-    return [text("".join(sum(traveler.setup_section(s), []))) for s in data.plan["setups"]]
+    pages = []
+    for setup in data.plan["setups"]:
+        printed = ["".join(blocks) for blocks in traveler.setup_section(setup)]
+        pages.append(FixturePage("".join(printed), printed))
+    return pages
 
 
 def test_custom_fixture_solids_print_at_their_setup_frame_positions():
     page = sheets(bundle([{"fixture": "plate", "pose": TURNED}]))[0]
     assert "SHOP-MADE FIXTURE" in page
     # The 10 x 20 x 5 pad: local x 0..10 -> Y 50..60, local y 0..20 -> X 80..100.
-    assert "X 80…100, Y 50…60, Z -20…-15" in page
+    assert "X 80…100, Y 50…60, Z -20…-15" in page.fixture().position("pad")
     # The locating pin stands at local (5, 5) on the pad top: X 95, Y 55, Z -15 up 8.
-    assert "axis at X 95, Y 55; Z -15…-7" in page
-    assert "datum bore" in page and "M6 stud" in page
+    assert "axis at X 95, Y 55; Z -15…-7" in page.position("pin")
+    assert page.row("pin")["Locates"] == "datum bore"
+    assert "M6 stud" in page.position("pad")
 
 
 def test_shim_stacks_print_their_drawn_nominal_once():
     page = sheets(bundle([{"fixture": "plate", "pose": TURNED}]))[0]
-    assert "2 shim stacks under the rail (shim R, shim L): 0.472 mm nominal" in page
+    (step,) = [
+        content(node) for node in descendants(page.markup, "li") if "shim stacks" in content(node)
+    ]
+    assert "2 shim stacks under the rail (shim R, shim L): 0.472 mm nominal" in step
+    assert step.count("0.472 mm nominal") == 1
 
 
 def test_angle_plate_base_and_working_face_print_in_the_setup_frame():
@@ -130,17 +219,42 @@ def test_angle_plate_base_and_working_face_print_in_the_setup_frame():
     # lies along setup +X, and the face itself at setup X 10.
     pose = {"origin_mm": [10, 0, -5], "x": [0, 1, 0], "z": [0, 0, 1]}
     page = sheets(bundle([{"fixture": "angle", "pose": pose}]))[0]
-    assert (
-        "Angle plate: base flat on the table, underside at Z -95; upright working face "
-        "at X 10, facing +X; hold the base down with two 1/2-13 T-bolts."
-    ) in page
+    (step,) = [
+        content(node) for node in descendants(page.markup, "li") if "Angle plate:" in content(node)
+    ]
+    for instruction in (
+        "base flat on the table",
+        "underside at Z -95",
+        "working face at X 10, facing +X",
+        "hold the base down with two 1/2-13 T-bolts",
+    ):
+        assert instruction in step
 
 
 def test_later_setup_points_back_to_the_first_table_at_the_same_pose():
     first, later = sheets(bundle([{"fixture": "plate", "pose": TURNED}] * 2))
     assert "SHOP-MADE FIXTURE" in first
     assert "SHOP-MADE FIXTURE —" not in later
-    assert "Setup S1 sheet 2" in later
+    (owner,) = [
+        FixturePage(html)
+        for html in first.printed_sheets
+        if any(
+            content(node).startswith("SHOP-MADE FIXTURE —")
+            for node in descendants(Markup(html), "h2")
+        )
+    ]
+    headings = [content(node) for node in descendants(owner.markup, "h2")]
+    assert any(heading.startswith("SETUP S1 —") for heading in headings)
+    (title,) = [heading for heading in headings if heading.startswith("SHOP-MADE FIXTURE —")]
+    item = title.split(" — ", 1)[1]
+    assert "X 80…100, Y 50…60, Z -20…-15" in owner.fixture().position("pad")
+    references = [
+        content(node)
+        for node in descendants(later.markup, "li")
+        if "SHOP-MADE FIXTURE table" in content(node)
+    ]
+    assert references
+    assert all("Setup S1" in reference and item in reference for reference in references)
 
 
 def test_moved_fixture_gets_its_own_table_in_the_new_frame():
@@ -148,7 +262,8 @@ def test_moved_fixture_gets_its_own_table_in_the_new_frame():
         bundle([{"fixture": "plate", "pose": TURNED}, {"fixture": "plate", "pose": IDENTITY}])
     )
     assert "SHOP-MADE FIXTURE —" in moved
-    assert "X 0…10, Y 0…20, Z 0…5" in moved
+    assert "X 0…10, Y 0…20, Z 0…5" in moved.fixture().position("pad")
+    assert "X 80…100, Y 50…60, Z -20…-15" in first.fixture().position("pad")
 
 
 def test_hold_labels_locators_apart_from_clamps_and_tightens_in_declared_order():
@@ -166,11 +281,19 @@ def test_hold_labels_locators_apart_from_clamps_and_tightens_in_declared_order()
     page = sheets(bundle([hold]))[0]
     assert "C1 clamp:" in page and "LOC2 locator:" in page and "C3 clamp:" in page
     assert "Clamp 2" not in page
-    assert (
-        "Seat the part against LOC2, turning it clockwise (viewed from above) to take up "
-        "the clearance; then tighten in order C3, C1: snug each in turn, then tighten each "
-        "fully in the same order to 12 N·m."
-    ) in page
+    (action,) = [
+        content(node)
+        for node in descendants(page.markup, "li")
+        if "tighten in order" in content(node)
+    ]
+    for instruction in (
+        "Seat the part against LOC2",
+        "clockwise (viewed from above)",
+        "tighten in order C3, C1",
+        "snug each in turn",
+        "tighten each fully in the same order to 12 N·m",
+    ):
+        assert instruction in action
 
 
 def cylinder(name, x, z, dia, length, **extra):
@@ -237,8 +360,7 @@ def bridge_page(*extra, precision=3, mill=None, tolerances=None, **policy_number
             *extra,
         ],
     }
-    page = sheets(data)[0]
-    return page[page.index("SHOP-MADE FIXTURE —") : page.index("CLEARANCE")]
+    return sheets(data)[0].fixture()
 
 
 def test_bought_hardware_is_one_line_not_made_rows():
@@ -246,16 +368,16 @@ def test_bought_hardware_is_one_line_not_made_rows():
     assert (
         "Bought hardware (not made): 2 × 3/8-16 x 2 in stud; 2 × washer Ø20.64 × 1.6; "
         "2 × 3/8-16 hex nut."
-    ) in table
-    made = table[table.index("Component") : table.index("Bought hardware")]
+    ) == table.line("Bought hardware")
+    made = "\n".join(" ".join(row.values()) for row in table.rows())
     for word in ("stud", "washer", "nut"):
         assert word not in made, word
 
 
 def test_holes_print_in_the_row_of_the_part_they_are_cut_in():
     table = bridge_page()
-    made = table[table.index("Component") : table.index("Bought hardware")]
-    beam = re.split(r"\|{4,}", made[made.index("beam") :])[0]
+    made = "\n".join(" ".join(row.values()) for row in table.rows())
+    beam = table.position("beam")
     assert ("with 2 × Ø10.5 hole: axis at X -20, Y 0; Z -1…11; axis at X 20, Y 0; Z -1…11") in beam
     # The nut threads are part of the bought nuts; no hole gets a row of its own.
     assert "clearance" not in made and "bore" not in made and "Ø9.525" not in made
@@ -824,8 +946,9 @@ def test_bought_part_drawn_as_head_and_shank_counts_once():
         )
     ]
     table = bridge_page(*parts)
-    assert "; 2 × M8 SHCS." in table
-    assert table.count("M8 SHCS") == 1
+    hardware = table.line("Bought hardware")
+    assert "; 2 × M8 SHCS." in hardware
+    assert hardware.count("M8 SHCS") == 1
 
 
 def test_custom_item_with_nothing_to_make_gets_no_table_or_pointer():
@@ -856,17 +979,62 @@ def test_existing_part_drilled_here_lists_only_its_holes():
     }
     hole = cylinder("tap", 40, -20, 8.5, 10, void=True, cuts=["plate"], fastener="M10 tapped")
     table = bridge_page(plate, hole)
-    assert "plate (existing part: make the holes only)" in table
-    assert "with 1 × M10 tapped: axis at X 40, Y 0; Z -20…-10" in table
+    assert table.row("plate (existing part: make the holes only)")["Size mm"] == "—"
+    assert "with 1 × M10 tapped: axis at X 40, Y 0; Z -20…-10" in table.position(
+        "plate (existing part: make the holes only)"
+    )
     assert "100 × 100 × 10" not in table and "vise" not in table
+
+
+def existing_tapped_fixture(count=1, identity_words=()):
+    """An existing plate whose only made features are the declared tapped holes."""
+    data = bundle([{"fixture": "plate", "pose": IDENTITY}])
+    data.inventory["fixtures"]["plate"]["solids"] = [
+        {
+            "name": "plate",
+            "shape": "box",
+            "at_mm": [0, -5, -20],
+            "size_mm": [100, 10, 10],
+            "supply": "existing",
+        },
+        *(
+            cylinder(
+                f"tap-{index}",
+                index,
+                -20,
+                8.5,
+                10,
+                void=True,
+                cuts=["plate"],
+                fastener=" ".join(["M10 tapped", f"Feature{index:03}", *identity_words]),
+            )
+            for index in range(count)
+        ),
+    ]
+    return data
+
+
+def test_existing_tapped_feature_identity_and_coordinates_keep_their_original_owner():
+    data = existing_tapped_fixture(2)
+    table = sheets(data)[0].fixture()
+    (row,) = table.rows()
+    assert row["Component"] == "plate (existing part: make the holes only)"
+    assert row["Size mm"] == "—"
+    assert list(row) == ["Component", "Size mm", "Position, Setup S1 X / Y / Z mm"]
+    clauses = row["Position, Setup S1 X / Y / Z mm"].split("with ")
+    assert clauses[0].split() == "X 0…100, Y -5…5, Z -20…-10".split()
+    assert [clause.split() for clause in clauses[1:]] == [
+        "1 × M10 tapped Feature000: axis at X 0, Y 0; Z -20…-10".split(),
+        "1 × M10 tapped Feature001: axis at X 1, Y 0; Z -20…-10".split(),
+    ]
 
 
 def test_fixture_numbers_print_at_policy_make_precision_and_fits_at_drawing_precision():
     table = bridge_page(fixture_make_decimals=1)
-    assert "60 × 10 × 8.3" in table
-    assert "Ø20.6 × 1.6" in table
+    assert table.row("beam")["Size mm"] == "60 × 10 × 8.3"
+    assert "Ø20.6 × 1.6" in table.line("Bought hardware")
     # The locating pad is a fit: drawing precision (3), not the make precision.
-    assert "10 × 10 × 2.346" in table
+    assert table.row("pad")["Size mm"] == "10 × 10 × 2.346"
 
 
 def test_a_locating_solid_with_a_bore_in_it_is_a_fit_as_well_as_its_bore():
@@ -875,7 +1043,8 @@ def test_a_locating_solid_with_a_bore_in_it_is_a_fit_as_well_as_its_bore():
     stand = cylinder("stand", 0, -17, 9.94, 9.94, locates="hub face")
     bore = cylinder("stand-bore", 0, -18, 4.5, 12, void=True, cuts=["stand"])
     table = bridge_page(stand, bore, fixture_make_decimals=1)
-    assert "Ø9.94 × 9.94" in table and "Z -17…-7.06" in table
+    assert table.row("stand")["Size mm"] == "Ø9.94 × 9.94"
+    assert "Z -17…-7.06" in table.position("stand")
     assert "Ø9.9 × 9.9" not in table and "-7.1" not in table
 
 
@@ -892,13 +1061,14 @@ DIAL = (
 def test_fixture_positions_print_on_the_mill_grid_one_value_per_place():
     table = bridge_page(*DIAL, precision="unknown", mill=FIVE_MICRON, fixture_make_decimals=1)
     # The pin is a fit: on the mill's 0.005 grid, not 3 places off it.
-    assert "axis at X -0.37, Y 0; Z 8.26…14.26" in table
+    assert "axis at X -0.37, Y 0; Z 8.26…14.26" in table.position("pin")
     # The hole the pin stands in prints the same X, not the 0.1 make precision.
-    assert "with 1 × Ø4 hole: axis at X -0.37, Y 0; Z -1…11" in table
+    assert "with 1 × Ø4 hole: axis at X -0.37, Y 0; Z -1…11" in table.position("beam")
     assert "-0.368" not in table and "X -0.4," not in table
     # The locating pad's 2.3456 thickness and underside are on the grid too.
-    assert "10 × 10 × 2.345" in table and "Z -2.345…0" in table
-    assert "19.1 × 5 × 5" in table
+    assert table.row("pad")["Size mm"] == "10 × 10 × 2.345"
+    assert "Z -2.345…0" in table.position("pad")
+    assert table.row("rail")["Size mm"] == "19.1 × 5 × 5"
 
 
 @pytest.mark.parametrize(
@@ -907,10 +1077,10 @@ def test_fixture_positions_print_on_the_mill_grid_one_value_per_place():
 )
 def test_a_fit_the_mill_grid_moves_beyond_the_drawing_tolerance_is_unknown(tolerances, printed):
     table = bridge_page(*DIAL, precision=3, mill=FIVE_MICRON, tolerances=tolerances)
-    pin = table[table.index("|pin|") :]
+    pin = table.position("pin")
     assert f"axis at {printed} Y 0; Z 8.26…14.26" in pin
     # The hole it stands in is the same place: never a different, silently moved value.
-    assert f"with 1 × Ø4 hole: axis at {printed} Y 0" in table
+    assert f"with 1 × Ø4 hole: axis at {printed} Y 0" in table.position("beam")
     if "?" in printed:
         assert "cannot hold" in table and "linear_3pl" in table
 
@@ -920,7 +1090,7 @@ def test_separate_bought_parts_with_one_fastener_text_count_apart():
     table = bridge_page(
         cylinder("screw-a", -40, 20, 8, 20, **screw), cylinder("screw-b", 40, 20, 8, 30, **screw)
     )
-    assert "; 2 × M8 SHCS." in table
+    assert "; 2 × M8 SHCS." in table.line("Bought hardware")
 
 
 def test_hole_through_stacked_parts_prints_in_every_part_it_cuts():
@@ -928,7 +1098,8 @@ def test_hole_through_stacked_parts_prints_in_every_part_it_cuts():
     upper = {"name": "upper", "shape": "box", "at_mm": [60, -5, 5], "size_mm": [10, 10, 4]}
     hole = cylinder("pin-hole", 65, 0, 3, 9, void=True, cuts=["lower", "upper"])
     table = bridge_page(lower, upper, hole)
-    assert table.count("with 1 × Ø3 hole: axis at X 65, Y 0; Z 0…9") == 2
+    for component in ("lower", "upper"):
+        assert table.position(component).count("with 1 × Ø3 hole: axis at X 65, Y 0; Z 0…9") == 1
 
 
 def test_unverified_primitive_prints_no_make_numbers():
@@ -940,7 +1111,8 @@ def test_unverified_primitive_prints_no_make_numbers():
         "verify": True,
     }
     table = bridge_page(block)
-    assert "gauge block" in table and "? not set: unverified; verify before making" in table
+    assert table.row("gauge block")["Size mm"] == "?"
+    assert "? not set: unverified; verify before making" in table.position("gauge block")
     assert "12.5 × 7 × 3" not in table and "X 70" not in table
 
 
@@ -955,8 +1127,13 @@ def test_existing_and_made_parts_of_one_size_keep_separate_rows():
     new = {"name": "new", "shape": "box", "at_mm": [80, -5, 0], "size_mm": [10, 10, 5]}
     hole = cylinder("tap", 65, 0, 5, 5, void=True, cuts=["old"], fastener="M6 tapped")
     table = bridge_page(old, new, hole)
-    assert "old (existing part: make the holes only)" in table
-    assert "old / new" not in table and "|new||10 × 10 × 5|" in table
+    assert table.row("old (existing part: make the holes only)")["Size mm"] == "—"
+    assert "with 1 × M6 tapped: axis at X 65, Y 0; Z 0…5" in table.position(
+        "old (existing part: make the holes only)"
+    )
+    assert table.row("new")["Size mm"] == "10 × 10 × 5"
+    assert "X 80…90, Y -5…5, Z 0…5" in table.position("new")
+    assert "old / new" not in table
 
 
 def test_renumbered_clamp_gets_its_own_table_not_a_pointer():
@@ -965,7 +1142,11 @@ def test_renumbered_clamp_gets_its_own_table_not_a_pointer():
         bundle([{"clamps": [clamp]}, {"clamps": [{"ref": "strap", "restraint": "none"}, clamp]}])
     )
     assert "(C1)" in first
-    assert "SHOP-MADE FIXTURE —" in later and "Setup S1 sheet 2" not in later
+    assert "SHOP-MADE FIXTURE —" in later
+    assert not any(
+        "Setup S1" in content(node) and "SHOP-MADE FIXTURE table" in content(node)
+        for node in descendants(later.markup, "li")
+    )
 
 
 def test_each_placement_of_an_item_builds_its_own_shim_stacks():
@@ -974,7 +1155,11 @@ def test_each_placement_of_an_item_builds_its_own_shim_stacks():
         {"ref": "plate", "restraint": "press", "pose": TURNED},
     ]
     page = sheets(bundle([{"clamps": clamps}]))[0]
-    assert "4 shim stacks under the rail (C1 shim R, C2 shim R, C1 shim L, C2 shim L)" in page
+    (step,) = [
+        content(node) for node in descendants(page.markup, "li") if "shim stacks" in content(node)
+    ]
+    assert "4 shim stacks under the rail (C1 shim R, C2 shim R, C1 shim L, C2 shim L)" in step
+    assert step.count("0.472 mm nominal") == 1
 
 
 def test_hole_without_cuts_prints_in_every_part_it_passes_through():
@@ -982,10 +1167,13 @@ def test_hole_without_cuts_prints_in_every_part_it_passes_through():
     upper = {"name": "upper", "shape": "box", "at_mm": [60, -5, 5], "size_mm": [10, 10, 4]}
     hole = cylinder("pin-hole", 65, 0, 3, 9, void=True)
     table = bridge_page(lower, upper, hole)
-    assert table.count("with 1 × Ø3 hole: axis at X 65, Y 0; Z 0…9") == 2
+    for component in ("lower", "upper"):
+        assert table.position(component).count("with 1 × Ø3 hole: axis at X 65, Y 0; Z 0…9") == 1
     # Unverified, the same hole withholds both parts it would cut.
     table = bridge_page(lower, upper, {**hole, "verify": True})
-    assert table.count("? not set: its hole pin-hole is unverified") == 2
+    for component in ("lower", "upper"):
+        assert table.row(component)["Size mm"] == "?"
+        assert "? not set: its hole pin-hole is unverified" in table.position(component)
     assert "X 60…70" not in table
 
 
@@ -994,10 +1182,10 @@ def test_bought_primitives_count_together_only_when_they_touch():
     # Parallel Ø8 shanks 9.9 apart: their bounding boxes overlap, the screws do not.
     near = cylinder("screw-a", 0, 20, 8, 20, **screw)
     apart = {**cylinder("screw-b", 7, 20, 8, 20, **screw), "at_mm": [7, 7, 20]}
-    assert "; 2 × M8 SHCS." in bridge_page(near, apart)
+    assert "; 2 × M8 SHCS." in bridge_page(near, apart).line("Bought hardware")
     # A Ø13 head resting on the end of its shank is one screw.
     head = cylinder("screw-head", 0, 40, 13, 8, **screw)
-    assert "; 1 × M8 SHCS." in bridge_page(near, head)
+    assert "; 1 × M8 SHCS." in bridge_page(near, head).line("Bought hardware")
 
 
 def test_oblique_hole_without_cuts_withholds_the_part_it_may_cross():
@@ -1012,7 +1200,8 @@ def test_oblique_hole_without_cuts_withholds_the_part_it_may_cross():
         "void": True,
     }
     table = bridge_page(plate, hole)
-    assert "? not set: oblique hole slant may cross it; name it in cuts" in table
+    assert table.row("plate")["Size mm"] == "?"
+    assert "? not set: oblique hole slant may cross it; name it in cuts" in table.position("plate")
     assert "X 60…70" not in table
     # Named in cuts, the hole prints in the plate's row.
     table = bridge_page(plate, {**hole, "cuts": ["plate"]})

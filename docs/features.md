@@ -33,6 +33,14 @@ target.
 that needs its own `checks.separation` inspection gauge. Supplying
 `separation = "unknown"` preserves the requirement without inventing its limits;
 omitting a listed `separation` value is bad input.
+
+Printed freeform recording areas attach to existing `feature:requirement`
+identities and usable authored limits. Equal displayed bands alone are not proof
+of a shared physical reading; a genuinely shared dimension remains one record.
+The layout does not fill omitted identities or unknown
+bands with nominal values, invented tolerances or result data; those debts stay
+visible. Handwritten readings do not amend the manifest.
+
 General vectors conventionally have three components and bands two; the model
 does not enforce every vector length or dimension-band ordering. Frame vectors
 are stricter: each supplied numeric/list origin or basis has exactly three

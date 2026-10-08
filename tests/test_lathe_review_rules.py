@@ -7,6 +7,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from test_sheet_ops import Markup, content
 
 from prechips.inputs import Bundle
 from prechips.rules import coordinates, op_chain, zero_recipe
@@ -767,7 +768,10 @@ def test_the_follow_rest_goes_on_with_the_spindle_stopped_and_it_restarts_before
     from prechips.inputs import load_bundle
     from prechips.sheet import render_traveler
 
-    bundle = load_bundle(copy_examples(tmp_path) / "pivot-shaft" / "plan.toml")
+    bundle = dataclasses.replace(
+        load_bundle(copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"),
+        kernel={"status": "ok", "ops": {}, "setups": {}, "mapping": {}},
+    )
     engage = {**_ENGAGE, "engage_z_mm": 155.474, "declared_z_mm": 152.0}
     clear = [
         Finding(
@@ -781,8 +785,11 @@ def test_the_follow_rest_goes_on_with_the_spindle_stopped_and_it_restarts_before
         for number in (10, 30)
     ]
     page = render_traveler(bundle, clear, {})
-    html = unescape(re.sub(r"<[^>]+>", " ", page))
-    step = re.search(r"at Z 152\.00: [^.]*", html).group(0)
+    markup = Markup(page)
+    [setup_page] = [
+        node for node in markup.find("page") if node["attrs"]["data-sheet"] == "SETUP S1 sheet 1"
+    ]
+    operations = {node["attrs"]["data-op"]: node for node in markup.find("operation", setup_page)}
     # Hands go near the work only once it has stopped, and the cut resumes on a running spindle.
     order = [
         "stop the feed, then the spindle",
@@ -791,15 +798,19 @@ def test_the_follow_rest_goes_on_with_the_spindle_stopped_and_it_restarts_before
         "restart the spindle",
         "then resume the feed",
     ]
-    found = [step.find(words) for words in order]
-    assert -1 not in found and found == sorted(found), step
-    # Ops 10 and 30 each print the sequence once, in the full-width line under the row;
-    # the narrow coordinate cell keeps only the Z.
-    full_width = re.findall(r'<span class="see">([^<]*)</span>', page)
-    assert sum("set the follow-rest jaws" in line for line in full_width) == 2
-    assert unescape(page).count("set the follow-rest jaws") == 2
-    # Each op's coordinate cell prints the Z its own engagement check cleared.
-    assert unescape(page).count("follow rest on: Z 152.00") == 2
+    for number in (10, 30):
+        owner = operations[str(number)]
+        [step] = [
+            content(node)
+            for node in markup.find("see", owner)
+            if "set the follow-rest jaws" in content(node)
+        ]
+        assert "at Z 152.00:" in step
+        found = [step.find(words) for words in order]
+        assert -1 not in found and found == sorted(found), step
+        [target] = markup.find("op-target", owner)
+        assert content(target).count("follow rest on: Z 152.00") == 1
+    assert sum("set the follow-rest jaws" in content(node) for node in markup.find("see")) == 2
 
 
 def test_each_op_sets_the_follow_rest_on_the_side_its_own_support_entry_declares(tmp_path):
@@ -826,7 +837,10 @@ def test_each_op_sets_the_follow_rest_on_the_side_its_own_support_entry_declares
         ),
         encoding="utf-8",
     )
-    bundle = load_bundle(plan)
+    bundle = dataclasses.replace(
+        load_bundle(plan),
+        kernel={"status": "ok", "ops": {}, "setups": {}, "mapping": {}},
+    )
     findings = [
         Finding(
             "accessibility",
@@ -841,11 +855,22 @@ def test_each_op_sets_the_follow_rest_on_the_side_its_own_support_entry_declares
         )
         for op, z in ((10, 152.0), (30, 151.0))
     ]
-    html = unescape(re.sub(r"<[^>]+>", " ", render_traveler(bundle, findings, {})))
-    op10 = re.search(r"at Z 152\.00: [^;]*;[^;]*", html).group(0)
-    op30 = re.search(r"at Z 151\.00: [^;]*;[^;]*", html).group(0)
-    assert "on the diameter just turned" in op10, op10
-    assert "on the uncut stock ahead of the tool" in op30, op30
+    markup = Markup(render_traveler(bundle, findings, {}))
+    [setup_page] = [
+        node for node in markup.find("page") if node["attrs"]["data-sheet"] == "SETUP S1 sheet 1"
+    ]
+    operations = {node["attrs"]["data-op"]: node for node in markup.find("operation", setup_page)}
+    for op, z, side in (
+        (10, 152.0, "on the diameter just turned"),
+        (30, 151.0, "on the uncut stock ahead of the tool"),
+    ):
+        [step] = [
+            content(node)
+            for node in markup.find("see", operations[str(op)])
+            if "set the follow-rest jaws" in content(node)
+        ]
+        assert f"at Z {z:.2f}:" in step
+        assert side in step, step
 
 
 _FACE_TOUCH = {"tool": "blade", "z_face": "shoulder", "edge_mm": 0.0, "paper_mm": 0.0}
@@ -1604,9 +1629,17 @@ def test_each_toolpost_tool_is_set_on_centre_before_its_first_touch_off():
     sheet = _Traveler(bundle, [], {}, None)
     setup = sheet.setup = bundle.plan["setups"][0]
     sheet.records[("zero_check", "S1")] = finding.numbers
-    text = sheet.dro(setup, {("tools", "blade"): "T3 blade", ("tools", "turner"): "T1 turner"})
+    markup = Markup(
+        sheet.dro(setup, {("tools", "blade"): "T3 blade", ("tools", "turner"): "T1 turner"})
+    )
+    paragraphs = [node for node in markup.nodes if node["tag"] == "p"]
     blade = "Before touching off T3 blade: shim it level with the tailstock point; then square"
-    assert text.count(blade) == 1
-    assert text.index(blade) < text.index("Before op 40, touch off T3 blade")
+    [blade_setting] = [node for node in paragraphs if content(node).startswith(blade)]
+    [blade_touch] = [
+        node for node in paragraphs if content(node).startswith("Before op 40, touch off T3 blade")
+    ]
+    assert markup.nodes.index(blade_setting) < markup.nodes.index(blade_touch)
     turner = "Before touching off T1 turner: shim it level with the tailstock point."
-    assert text.index(turner) < text.index("<table")
+    [turner_setting] = [node for node in paragraphs if content(node) == turner]
+    first_table = next(node for node in markup.nodes if node["tag"] == "table")
+    assert markup.nodes.index(turner_setting) < markup.nodes.index(first_table)

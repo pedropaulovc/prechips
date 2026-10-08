@@ -8,6 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 from test_kernel_geometry import Engine
+from test_sheet_ops import Markup, content
 
 from prechips.rules.zero_recipe import evaluate
 from prechips.sheet import _Traveler
@@ -18,6 +19,10 @@ DRO = {
     "radius_mode": False,
     "direction": {"x": "away_from_spindle_axis", "y": "away", "z": "toward_exposed_end"},
 }
+
+
+def sheet_text(html):
+    return content(Markup(f"<div>{html}</div>").nodes[0])
 
 
 def bundle(machine, zero, ops, stock_state=None):
@@ -187,7 +192,7 @@ def test_a_turned_diameter_formed_away_is_no_longer_touched():
         {"before_op": 30, "tool": "parter", "axes": ["x"], "dro_set_by": "turner"}
     ]
     # The sheet stops the operator at that op instead of printing a touch.
-    html = _Traveler(data, [finding], {}, {}).dro(data.plan["setups"][0], {})
+    html = sheet_text(_Traveler(data, [finding], {}, {}).dro(data.plan["setups"][0], {}))
     assert "STOP: before op 30" in html and "no X touch" in html
 
 
@@ -278,7 +283,7 @@ def test_a_listed_retouch_installs_the_incoming_tool_and_none_for_the_same_tool(
         True,
     )
     sheet, setup = sheet_of(data)
-    html = sheet.dro(setup, {("tools", "mill"): "T1 end mill", ("tools", "drill"): "T2 drill"})
+    html = sheet_text(sheet.dro(setup, {"mill": "T1 end mill", "drill": "T2 drill"}))
     assert "before the next tool" not in html
     assert "After op 20, install T2 drill for op 30, then touch the top" in html
     assert "After op 10, T1 end mill stays in for op 20: re-touch the top" in html
@@ -307,9 +312,7 @@ def test_several_tool_changes_to_one_touch_name_their_ops_not_the_tools_again():
 def test_a_mill_tool_touch_installs_its_tool_first():
     ops = [op(10, "spot", "hole", "centre"), op(20, "drill", "hole", "drill")]
     sheet, setup = sheet_of(bundle("mill", mill_zero(DECK), ops))
-    html = sheet.dro(
-        setup, {("tools", "centre"): "T1 centre drill", ("tools", "drill"): "T2 drill"}
-    )
+    html = sheet_text(sheet.dro(setup, {"centre": "T1 centre drill", "drill": "T2 drill"}))
     assert "Before op 20, install T2 drill, then re-touch it:" in html
 
 
@@ -954,10 +957,17 @@ def test_the_datum_transfer_prints_before_the_zero_it_sets_up():
         "lathe", {**lathe_zero([]), "transfer": transfer}, [op(10, "turn", "j", "turner")]
     )
     sheet, setup = sheet_of(data)
-    html = sheet.dro(setup, TURNER)
-    # Indicate, then touch off: the sweep comes before the zero table and its tool setting.
-    assert html.index("Before zeroing: indicate the") < html.index("<table")
-    assert html.index("Before zeroing: indicate the") < html.index("Before touching off")
+    markup = Markup(sheet.dro(setup, {("tools", "turner"): "T1 turner"}))
+    (transfer,) = markup.find("zero-transfer")
+    axes = markup.find("zero")[0]
+    setting = next(
+        node
+        for node in markup.nodes
+        if node["tag"] == "p" and content(node).startswith("Before touching off")
+    )
+    # One original sweep precedes both its tool setting and the zero table.
+    assert content(transfer).startswith("Before zeroing: indicate the")
+    assert markup.nodes.index(transfer) < markup.nodes.index(setting) < markup.nodes.index(axes)
 
 
 def measured_hold(before_hold):
@@ -989,20 +999,33 @@ def measured_hold(before_hold):
 def test_a_zero_measured_before_the_hold_is_measured_before_clamping():
     sheet, setup = measured_hold(True)
     steps, _ = sheet.hold(setup)
-    measure = steps.index("length from the thrust face to the stub end")
-    assert measure < steps.index("thrust face seated") < steps.index("Tighten the chuck")
-    assert "measure Z M = length from the thrust face" in steps
-    # The zero row then refers back to that reading instead of introducing M itself.
-    row = sheet.dro(setup, TURNER)
-    assert "length from the thrust face" not in row and "M measured before clamping" in row
+    markup = Markup(steps)
+    entries = [node for node in markup.nodes if node["tag"] == "li"]
+    measure = next(node for node in entries if "length from the thrust face" in content(node))
+    seat = next(node for node in entries if "thrust face seated" in content(node))
+    clamp = next(node for node in entries if "Tighten the chuck" in content(node))
+    assert entries.index(measure) < entries.index(seat) < entries.index(clamp)
+    assert "measure Z M = length from the thrust face" in content(measure)
+    assert len(markup.find("writing-blank")) == 1
+    assert [content(label) for label in markup.find("field-label", measure)] == ["Z M"]
+    # The zero row refers back to that sole original acquisition.
+    row_html = sheet.dro(setup, {("tools", "turner"): "T1 turner"})
+    row = Markup(row_html)
+    assert "length from the thrust face" not in sheet_text(row_html)
+    assert any("M measured before clamping" in content(node) for node in row.nodes)
+    assert not row.find("writing-blank")
 
 
 @pytest.mark.parametrize("before_hold", [None, False])
 def test_a_zero_measured_at_the_machine_stays_in_the_zero_table(before_hold):
     sheet, setup = measured_hold(before_hold)
     steps, _ = sheet.hold(setup)
-    assert "length from the thrust face" not in steps
-    assert "M = length from the thrust face" in sheet.dro(setup, TURNER)
+    markup = Markup(steps)
+    assert "length from the thrust face" not in sheet_text(steps)
+    assert not markup.find("field") and not markup.find("writing-blank")
+    assert "M = length from the thrust face" in sheet_text(
+        sheet.dro(setup, {("tools", "turner"): "T1 turner"})
+    )
 
 
 def x_touch(x_face, before, ops=LATHE_OPS, x_method="paper on the measured diameter", x=None):
@@ -1119,7 +1142,7 @@ def test_an_authored_x_touch_prints_its_axis_set_and_stops_on_a_diameter_not_sho
     x_face, ops, stop
 ):
     sheet, setup = sheet_of(x_touch(x_face, 40, ops))
-    html = sheet.dro(setup, {("tools", "parter"): "T4 blade", **TURNER})
+    html = sheet_text(sheet.dro(setup, {"parter": "T4 blade", "turner": "T1 turner"}))
     start = html.index("touch off T4 blade")
     line = html[start : html.index("Z —", start)]
     # The paper counts once on the radius, twice on a diameter display.

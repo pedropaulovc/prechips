@@ -71,11 +71,22 @@ establish), empty `{}` when the kernel returned none.
 An inspect op's set-up sketches (`inspection_views`, [plan](plan.md)) come back
 as `inspection_pngs_base64` keyed `<op>:<requirement>` and are written as
 `setup-S<n>-op<op>-<requirement>.png`; `renders.<setup id>.inspections` maps each
-key to its `{path, sha256}`, and the same record is added to `inputs` under
-`render:<setup id>:<op>:<requirement>`, so a sketch binds to approval like the
-setup picture. The traveler prints the sketch at the head of the requirement's
-worksheet or inspection note; a declared sketch the run did not return prints
-`NOT SHOWN: the set-up sketches for this check could not be drawn.`
+key to its `{path, sha256, scene}`. The matching `inputs` entry under
+`render:<setup id>:<op>:<requirement>` remains `{path, sha256}`, so a sketch binds
+to approval like the setup picture. Native `inspection_scenes` uses the same
+exact `<op>:<requirement>` keys as `inspection_pngs_base64`; each scene supplies
+the actual `width_px`, `height_px` and ordered `print_panels`.
+Inspection panels have `{top_px, height_px, role, label, view_ordinal}`:
+`role` is `inspection`, `label` is the exact authored view title and
+`view_ordinal` is its 1-based list position. The 1600-pixel-wide bands cover the
+positive PNG height once, contiguously and in full authored order; each complete
+view is at most 1792 pixels high. This is visual output metadata, not a new input
+field or physical measurement.
+The traveler attaches each complete view figure once to the original
+requirement's worksheet or inspection note. Pagination moves figures whole,
+without splitting pictures, titles or captions. A returned PNG with missing or
+malformed panel metadata is refused; a declared sketch the run did not return
+prints `NOT SHOWN: the set-up sketches for this check could not be drawn.`
 Bytes that are not a PNG signature are
 a prechips failure (exit 1), not bad input. `check` records the same
 `renders` / `render:<setup id>` entries (its report hash matches the
@@ -91,10 +102,10 @@ create PNGs or a sheet. Replacement and removal share the report transaction;
 a refusal restores every prior output, even if a stale target has already
 disappeared. No stale fixture image survives a successful run.
 The render is a deterministic software drawing of kernel geometry, 1600 pixels
-wide and 1000 tall plus any holding detail bands below (`scene.height_px`),
-with an engine-bundled bitmap font and the engine's own PNG encoder. No host
-font, clock, image service or machine-specific metadata participates in the
-bytes. Lathe views put the headstock/chuck on the left, the tailstock on the
+wide with panel-dependent height. `scene.width_px` and `scene.height_px` record
+the actual delivered PNG dimensions. It uses an engine-bundled bitmap font and
+the engine's own PNG encoder. No host font, clock, image service or
+machine-specific metadata participates in the bytes. Lathe views put the headstock/chuck on the left, the tailstock on the
 right and setup +Z along the spindle to the right; mills use setup-frame
 isometric views, and custom plates use a plan view. Labels identify the setup
 axes, Z0, named datums, jaws, supports and selected cutter approach. The amber
@@ -115,8 +126,10 @@ downstream stock debt; it never prevents other geometry facts being returned.
 The final PNG layout checks every normalized bitmap-text line, including axes,
 coordinate badges, inset headings, dimensions, legends and setup notes. Rounded
 line bounds must stay 8 pixels inside the canvas and at least 4 pixels apart,
-and every line prints at body size (bitmap scale 3: 21-pixel caps, about 7 pt on
-Letter); any collision, clipping or undersized text raises a render error.
+and every line is at least bitmap body scale 5: 35-pixel cap height, approximately
+11.8 pt at 1600 pixels across 7.5 inches. Cap height is not a CSS font size;
+any collision, clipping or undersized text raises a render error. This is a
+rendering contract, not physical printer or pen certification.
 Callout lanes rebalance between sides and tighten their leading rather than
 shrinking type; footers grow to hold their notes. A lane leader whose
 horizontal elbow would run along an axis through another callout's point is
@@ -138,6 +151,27 @@ no SETUP NOTES heading.
 
 `scene` additionally records `view`, `width_px`, `height_px`, plain-language
 `shows` / `legend`, `render_debts`, `primary_op`, and sparse `waypoints`.
+Ordered `scene.print_panels` records `{top_px, height_px, role, label}` describe
+full-width contiguous bands of the canonical PNG, covering its actual height
+exactly once, without gaps or repeated content. Roles are `setup`,
+`profile_detail`, `path_detail` and `holding_detail`. The traveler consumes these
+semantic windows at a common print scale, preserving geometry, annotation units
+and visible debt. Each window retains setup/part/revision and panel-order context.
+There is no arbitrary whole-image crop, fit or downscale fallback.
+Long setup keys and notes retain setup ownership. The complete geometric view,
+dimensions, leaders and axes stay in the first band; original text entries that
+do not fit continue in measured full-width `setup` bands labelled
+`KEY + NOTES (CONTINUED)`. Entries stay whole when they fit a continuation band;
+an individually oversized entry uses an explicit source-entry continuation
+header, not a new physical drawing key. Every original row is painted once at
+the same readable scale. The traveler reserves the stock caption for the first
+figure rather than repeating it on text continuations.
+The main picture fits its measured callout lanes separately from annotation
+details. Each annotation detail renders and measures its own content, then grows
+within the whole-band bound or falls back from two operations to separate
+single-operation bands. A complete single-operation band that cannot fit is
+refused. Annotation, holding and guide bands are composed once after fitting;
+cut-clearance keys and rendering debt remain attached to their actual owner.
 Mill keys are `{label, op, xy}` in setup mm; axial lathe keys use `xz`, whose
 X is the declared radius/diameter DRO target and whose Z is the table station.
 The same `P1`, `P2`, … keys annotate the profile inset and traveler coordinate
@@ -308,53 +342,166 @@ narrow for that precision, or with one limit unknown, prints each known limit
 exactly as declared, every digit it holds (`?–1234.567` at three places, never
 `?–1234.57`).
 
-Each setup then prints as one **front sheet** to run the setup from, followed
-by attached sheets the front sheet points to. Every sheet starts on a new
-page and its heading repeats the setup id and `sheet N of M`. All text is at
-least 8 pt.
+Each setup has a logical overview/operations section followed by attached
+picture, clearance, notes and contour sections as applicable. Physical pagination
+varies with content; no setup overview is promised to fit one physical page.
+Letter portrait uses 0.5-inch margins, 12 pt working text and at least 10 pt
+metadata in familiar offline Arial/Helvetica/sans-serif type. Drawing limits
+and operative values retain their existing precision and units.
+Ordinary read-only tables use 4 pt vertical and 8 pt horizontal cell padding
+at unchanged 12 pt text and 1.4 line height. Operation and handwriting areas
+retain larger task-specific spacing.
+Thread designations, ranges, fractions and their units stay together without
+splitting neighboring words. Fixture/check tables wrap at word boundaries and
+give identified long cells more room; dimensions and instruction text are unchanged.
 
-The front sheet is one physical sheet. When the op table does not fit on the
-front page it ends with `Operations continue on reverse, op 50` and continues
-on the back under the op column headings; a setup with few ops has a
-single-page front sheet.
+Print the whole file double-sided. The deterministic inline script measures
+content at print width on load and again before printing, places page breaks,
+repeats continuation context and table headings, and pads odd-length logical
+sections with an explicitly blank back. The job section and each setup section
+therefore start on a front side. Operation groups and inspection records stay
+associated through continuation context; supported oversized content can
+continue rather than being compressed into smaller type. Without scripts the
+same content prints without duplex padding, so print single-sided.
 
-Print the whole file double-sided. A small inline script in `traveler.html`
-(the same bytes every run; it changes only the page in the browser) lays out
-every sheet on load and again just before printing. It measures the sheet at the
-printed width, places each page break itself (headings and a table's caption
-stay with what follows, also when the heading opens a sheet and its first block
-is a row of contours; the sign-off stays with the last op row; a table that
-runs over is split into a copy with the same column headings, leaving at least
-three rows on each page: rows carry over to the next page, and a table too short
-for that moves whole with its heading, never shrinking the type; a table other
-than the op table whose last page would hold under half its rows splits at its
-middle instead when the rest then fits on one page, so its closing rows never
-stand alone; a heading's lead-in line stays with the block it introduces),
-opens every page after a sheet's first with `SETUP S2 — sheet 3 (continued) ·
-page 2 of 3`, and
-adds a `This side intentionally blank — SETUP S2 sheet 1 back` page after any
-sheet with an odd page count, the job page included. Every sheet therefore
-starts on a front side, and a single-page front sheet has a blank back. Contour
-blocks print in rows of three under the script and in three newspaper columns
-without it; a side-by-side row too tall for one page (contours, a lathe op's
-rough and finish tables, the hold picture beside its steps) is stacked before
-it is split, so every page it runs over is counted. With scripts disabled the
-same content prints without padding (sheets may then start on a back side, so
-print single-sided) and a running
-op table repeats `SETUP S2 — sheet 1 (continued): operations` with its column
-headings.
+Headings, captions and authored lead-ins stay with what follows; the sign-off
+stays with the last operation. Ordinary read-only tables preserve the base's
+three-row widow/orphan policy when those original row groups fit on each side
+of the break. Side-by-side blocks that are too tall stack before splitting.
+Continuation headings name the part, drawing/revision and logical section, retain
+the exact original printed status as a read-only reminder, and show the local
+page number and total within that logical section. They do not recompute approval
+or certify a new state.
+Moved or split operations leave a pointer to the next physical page. Blank backs
+contain no instructions or ink.
+Continuations retain the applicable original operation, table or worksheet title
+and units when they fit alongside original content advancing onto that page.
+Split fixture tables retain the original component/size context in their
+existing columns, not new assembly instructions.
+When a table's original instruction paragraph is complete and entirely visible
+on the current page, its structurally paired repeated instruction is not printed
+a second time on that page. Partial, off-page, unpaired or overflowing original
+instructions retain the existing measured continuation-context admission policy;
+they do not qualify for this same-page suppression. This does not compare prose
+to infer ownership or omit an independent instruction.
+The contour title has the same explicit ownership in its original heading and
+repeated table-title prefix. A complete original heading or uncompacted running
+title entirely on the same page makes only the duplicate title prefix unnecessary;
+the repeat row, progress locator, procedure, depth values and local instruction
+remain. Partial, compact, unpaired or overflowing canonical titles do not
+qualify. The existing measured repeat-compaction policy is unchanged, so this
+does not promise a full repeated title on every arbitrarily crowded page.
+Long ordinary table cells can continue without withholding a later complete
+prose cell that fits its own column beside that original row fragment. Admission
+measures the composed row and every retained whole cell; an overflowing trial
+leaves the existing continuation behavior unchanged. Each cell preserves its
+original content, whitespace and order in its original column. Writing fields
+and controls are not copied or treated as these whole-cell completion candidates.
+An original note title that cannot fit in its actual continuation body may
+continue as authored source text, in order and at working type size. Short titles
+remain atomic; repeated identity alone never counts as original source progress.
+This fallback neither splits complete figures nor duplicates recording fields.
+A figure-bearing logical continuation keeps its complete first figure and stock
+caption together. If the original full repeated identity would make that group
+too tall, the same part, drawing, revision, quantity, status and complete logical
+heading use the established 10 pt running-metadata hierarchy. True setup fronts
+retain their full original headers. Working text, source captions and images do
+not shrink; a group that still exceeds the measured page capacity is refused.
+Each print pass restores the original full header and recomputes this decision,
+so resizing or printing again cannot reuse stale compacted content.
 
-Front sheet (sheet 1), in this order:
+Operation groups retain authored order. A square beside the operation ID means
+**operation performed only — not inspection acceptance or clearance to proceed**.
+It is not approval and adds no schema field. A real inspection requirement
+without its own authored recording destination has one full-width white
+freeform readings/observations area below it, with at least 20 mm clear interior
+depth excluding labels, padding and borders. When that exact read-once
+feature/requirement group already has named or underscore fields in its
+referenced procedure, those fields are the sole recording destination; the
+generated fallback box is omitted, not duplicated elsewhere. Distinct
+requirements and separately banded result groups keep their own destinations.
+Known owner(s), authored band, gauge, method reference, existing units where
+applicable and nearby authored context stay associated. Identify feature/location
+when needed; no positions, reading counts, statistics or acceptance obligations
+are inferred. A true shared across-faces shoulder dimension remains one record;
+equal printed bands alone do not certify shared physical identity. Specifically
+named authored `{name}` procedure fields remain distinct, with a 35 × 10 mm
+clear interior floor. In prose, each named blank has its own line; worksheets
+and calculations retain their sole value fields. Existing standalone underscore recording prompts become
+full-width white fields at least 20 mm deep; their surrounding instruction text
+is unchanged. A typed coating operation without a genuine inspection record or
+authored recording prompt may carry **Additional writing space (optional)**.
+That area adds no requirement identity, target, mandatory check or acceptance
+obligation. Titles, source words, numbers and inspection methods are unchanged.
+Unknown requirement identities, bands and other debt stay visible and gain
+neither fabricated result data nor invented gauges.
+GO / NO-GO meaning and gauge/source ownership are unchanged.
+The generated sign-off area keeps its independent signature field. Its
+first-article reading reminder is a read-only pointer to the labeled inspection
+fields or worksheets, not a second unqualified measured-results blank.
+Approval, first-article evidence and all authored recording fields are unchanged.
+
+An actual `measure_then_set` DRO acquisition with a known setup, axis and plan
+units has one setup/axis-qualified empty **M** writing area. An existing before-HOLD
+measurement field remains the sole destination when that acquisition already
+printed one; the DRO recipe points to it instead of adding another blank. Gauge,
+measurement timing, span, offsets and set arithmetic remain authored; no
+`measure_before_hold` flag, inspection requirement or missing unit is inferred.
+
+A numbered contour operation with multiple known depth levels may have one
+**optional progress-only** current-level / last-completed-`#` pair beside its
+existing whole-level Done marks. Continuations point back to that original
+operation-owned area without repeating writable fields. Single-level, raster,
+unknown-depth, empty/list-only and stopped-tool cases gain no progress pair.
+These optional notes are not inspection acceptance, another Done record, a
+mandatory measurement or clearance/instructions to resume. Original depth
+levels, table rows, numbering and operation order remain unchanged.
+The read-only progress locator is separate from the repeated full contour title:
+it remains visible when crowded continuation context uses a compact setup/op
+identity. Both candidates are measured with original source progress; if even
+the compact identity and locator cannot fit, printing refuses instead of
+dropping the locator, duplicating fields or shrinking type.
+Recording-area pointers identify the actual printed setup/logical sheet and local
+page containing the sole original destination. Named procedure fields and
+unnamed authored recording areas remain distinct; progress pairs stay together.
+The paginator reserves an empty, measured read-only page counter before layout,
+using a conservative digit bound from the pristine source, not a guessed page.
+After all original content has been placed, it resolves each destination,
+fills the actual counter and verifies unchanged layout and complete containment.
+Missing or duplicated destinations, split progress pairs, changed reservations
+or escaped pointer text cause a truthful print-layout refusal. Each existing
+load/before-print pass restores the pristine source and rebuilds these pointers;
+generated context neither owns writing areas nor counts as source progress.
+
+Terminal punctuation stays with the existing field caption rather than on an
+orphan line after its writing box. Calculation fields start on a shared left
+alignment below their unchanged equation/instruction text. These layout groups
+preserve the authored characters and order, labels and clear writing interiors.
+
+The layout targets follow print-form guidance on proximity, readable type and
+space to write: [NN/g proximity](https://www.nngroup.com/articles/gestalt-proximity/),
+[Centre for Civic Design print forms](https://civicdesign.org/tools/pdf-forms/best-practices/)
+and [Universal Design document guidance](https://universaldesign.ie/communications-digital/customer-communications-toolkit-a-universal-design-approach/customer-communications-toolkit-a-universal-design-approach-navigation/written-communication-2/document-design).
+They do not certify machining usability; physical printer/pen/operator rehearsal
+remains pending. Intermediate CLI/PDF observations are recorded in
+[examples](../examples/README.md), not treated as final pagination acceptance.
+
+Setup overview/operations section, in this order:
 
 1. Title and status boxes. *STOP — do not run until resolved* lists one plain
    line per real problem with the ops it applies to (`Op 20 — tool or holder
    hits the part or the holding`); repeats are collapsed. *Not verified by the
    planner — confirm at the machine* names the unproved topics with their ops.
    Errors never print as `?`; unknowns never read as passes.
+   Pre-clamping acquisition requires explicit `measure_before_hold = true`
+   and an authored `measure`. The original HOLD step gets a 35 × 10 mm clear
+   writing field and the zero row refers back to it; there is no separate
+   MEASURED ZERO INPUTS section. Absent/false declarations retain measurement
+   at the machine.
 2. **HOLD**: a numbered clamping sequence (mount, supports, grip, stop,
-   tighten, then the authored notes) at full width; the holding picture is on
-   sheet 2 at a readable size. Without a render the front sheet prints `NO
-   PICTURE — the holding is not modelled; set up from the HOLD steps.` Below
+   tighten, then the authored notes) at full width; semantic picture panels
+   follow in the attached picture section. Without a render the overview prints
+   `NO PICTURE — the holding is not modelled; set up from the HOLD steps.` Below
    it, a small table of grip length, stickout, jaw-front Z and, on a lathe,
    centre tip Z and quill extension. Pose vectors and planner field names are
    not printed.
@@ -382,7 +529,9 @@ Front sheet (sheet 1), in this order:
    the axis were reversed — plus re-indicate and tool-change touch-offs (several
    changes to one touch print once, naming their ops: `Tool changes before ops
    20, 30 and 40: install the op's tool (the T number in its row), then …`; the
-   tools themselves stay in the TOOLS table and the op rows). On a
+   tools themselves stay in the TOOLS table and the op rows). Existing indicating/
+   transfer prerequisites appear before the zero table, without changing their
+   words, methods or limits. On a
    mill, an X or Y check jog from a side pickup would carry the finder over the
    work, so the sheet prints the check as steps: raise Z only, until the finder
    or indicator clears the work and everything clamped to it (checked by eye
@@ -400,41 +549,42 @@ Front sheet (sheet 1), in this order:
    from the − side and edge + r from the + side; a later setup on the same mill
    names `EDGE FINDER box, Setup S1 sheet 1`. A missing or unknown finder or
    spindle fact prints `STOP:`.
-6. **OPERATIONS**: op, action with depth of cut, feature, `T#` tool, rpm, feed,
-   Z target, cut direction and `limit: gauge` inspection. A lathe table with any
-   op measured in the chuck adds to its heading `measure only with the spindle
-   stopped and the tool withdrawn`. Lathe feed prints as
-   `mm/rev` with the resulting `mm/min` in brackets; mill and saw feeds print in
-   `mm/min`. Crash-relevant numbers (jaw front within 3 mm of a tool's nearest
-   approach, dead centre at the work end, tool tip within 3 mm of the jaw top,
-   holding within 3 mm of an op's tool sweep or of what a file takes off) and
-   per-op STOP
-   or CAUTION findings print as boxed lines under the op row, followed by the
-   op's own note (and the tip-depth derivation) on its own line and, for a
-   contour op, `See contour table on S2 sheet 3`. A blade relief's Z cell gives
-   each plunge's corner Z and the diameter it plunges to; the groove's extent
-   prints only where it differs from the row's own Z window, and the diameter's
-   drawing limits only when the inspection cell does not carry them. A computed
-   number printed at fewer decimals than it holds rounds half-way values up
-   (3.175 at two places is 3.18); a drawing limit rounds inward (DRAWING
-   REQUIREMENTS above). An inspection procedure is
-   cited as `[S2 sheet 2 note 1]`. An op row with its boxed lines and note
-   never splits across the front and back. A setup whose ops are all bench
-   steps (`inspect`, `deburr`, `coating`, `fit`, `scribe`, `release`, hand
-   finishing) prints **ASSEMBLY / FINISHING** instead: step, feature, material /
-   consumable (a coating's in-house consumable or outside service), action (the
-   op's own instruction, else its action) and inspection, with no empty
-   machining columns.
-7. The sign-off line, after the last op row (on the back when the ops run
-   over).
+6. **OPERATIONS**: full-width groups naming the op and action with depth of
+   cut, feature, `T#` tool, rpm, feed, Z target and cut direction, followed by
+   associated inspection records. A lathe table with any op measured in the
+   chuck adds to its heading `measure only with the spindle stopped and the
+   tool withdrawn`. Lathe feed prints as `mm/rev` with resulting `mm/min` in
+   brackets; mill and saw feeds print in `mm/min`. Crash-relevant numbers (jaw
+   front within 3 mm of a tool's nearest approach, dead centre at the work end,
+   tool tip within 3 mm of the jaw top, holding within 3 mm of an op's tool sweep
+   or of what a file takes off) and per-op STOP or CAUTION findings stay with
+   the operation, as do its note and tip-depth derivation. Contour and
+   inspection-note references identify their attached logical section; their
+   section numbers are not promises of physical page numbers. A blade relief's
+   Z field gives each plunge's corner Z and the diameter it plunges to; the
+   groove's extent prints only where it differs from the op's own Z window,
+   and the diameter's drawing limits only when the inspection record does not
+   carry them. A computed number printed at fewer decimals than it holds rounds
+   half-way values up (3.175 at two places is 3.18); a drawing limit rounds inward
+   (DRAWING REQUIREMENTS above). A setup whose ops are all bench steps
+   (`inspect`, `deburr`, `coating`, `fit`, `scribe`, `release`, hand finishing)
+   prints **ASSEMBLY / FINISHING** instead: step, feature, material / consumable
+   (a coating's in-house consumable or outside service), action (the op's own
+   instruction, else its action) and inspection, with no empty machining fields.
+   Mixed machining/manual setups retain the machining ledger; manual-only
+   groups preserve these five authored cells rather than inventing speeds,
+   targets or additional checks.
+   Manual finishing uses a short Step heading followed by the unchanged action
+   in normal working text, grouped into sentences rather than a long heading.
+7. The existing sign-off follows the operations and has its own writing area.
+   Neither that area nor a performed mark changes findings or approval state.
 
-Sheet 2, titled by what it carries (*holding picture, clearance, feature map
-and inspection notes*):
+Attached picture, clearance, feature-map and inspection-note section:
 
-1. The holding picture at full page width with its caption (`Setup S2 — part
-   as it arrives from Setup S1, held in the 6 in 3-jaw chuck.`; the key is
-   drawn in the picture) and its `NOT SHOWN:` lines. The image is referenced by
-   relative filename.
+1. Complete semantic picture windows, each with setup/part/revision identity,
+   panel order and caption, followed by `NOT SHOWN:` debt. The canonical PNG is
+   referenced by relative filename; `scene.print_panels` supplies the exact
+   windows rather than fitting the whole composite onto one page.
 2. **CLEARANCE** (not on bench or saw cut-off setups), machine specific. A lathe shows chuck
    Ø against swing, work Ø against swing over the cross-slide, length against
    between-centres, quill extension and the jaw-front distance to the closest
@@ -462,7 +612,9 @@ and inspection notes*):
    or an unproven holder wall clearance is a check-at-the-machine action; a jaw
    clearance within 3 mm asks for a hand-fed approach, holding within 3 mm of a
    cutter `hand feed past the …`, of a file `keep the file clear of the …`. Ops
-   with the same tool, obstacle, clearance and action share a row.
+   with the same tool, obstacle, clearance and action share a row. The existing
+   clearance action sentence occupies a full-width associated row, making the
+   complete action visible without changing its wording.
 3. **FEATURE MAP**. Lathe: each surface the setup cuts (one it only inspects,
    such as an as-supplied diameter, has no size to turn to and is left off):
    feature, the drawing's Ø limits (`—` for a process
@@ -475,14 +627,19 @@ and inspection notes*):
    its Z is the op row's) unless it carries an aim; a map with no row left is not
    printed. An aimed target adds one line: where to machine it, its offset from
    the drawing nominal and the band to inspect it to. Feature locations, not tool
-   tips.
+   tips. The existing qualification is in the repeatable table header so it
+   remains visible on continuation pages.
 4. **INSPECTION NOTES**: numbered inspection procedures, each starting with its
-   setup and op (`S2 op 30: …`). A procedure that works its readings through two
-   or more calculation lines is not a note but a worksheet on a sheet of its own
-   (see below).
+   setup and op (`S2 op 30: …`). Complete original operation context repeats
+   when it fits beside original source progress on a continuation page.
+   Only an authored step-list procedure with named brace readings and at least
+   two calculation lines becomes a worksheet on its own logical sheet (see below).
+   Inspection view figures belong only to that original note or worksheet.
+   Continuation context does not copy them, reading boxes or calculation/result
+   fields. A figure-only continuation still carries original source content.
 
-Sheet 3, *contours* (only when the setup has contour ops): **CONTOURS**, one
-block per contour op titled with its setup, op, tool and direction (`S2 op 50
+The attached *contours* section (only when the setup has contour ops) has one
+block per contour op titled with setup, op, tool and direction (`S2 op 50
 — top edge · T2 …`), the table at DRO precision and, when the render supplies
 `scene.waypoints`, a `P` column keyed to the labels drawn in the picture. A
 missing tool prints `STOP … tool not selected; do not run` instead of a table;
@@ -493,16 +650,20 @@ is not computed. A table the kernel clipped at the op's stock-removal bounds
 names the printed point it starts or stops at (`stops at P7: the stock past it
 is outside this op's area`). Long contour tables may run onto more pages
 ("paper is cheap"); every block still names its setup. A move number and each
-depth level's completion box with its `level k of N` print whole on one line,
-however narrow the block.
+ depth level's completion box with its `level k of N` print whole on one line,
+ however narrow the block. Each continuation admits complete original context
+ only when it fits beside original source progress; it never fragments added context.
 
-Worksheets, one sheet each after the contours (`SETUP S11 — sheet 4 of 4:
-worksheet, S11 op 110 angularity Ø`): the numbered steps, each naming the reading
-it takes (`[rJ1]`), a READINGS table (step, reading, a blank value cell) and the
-calculation lines with their blanks.
+Worksheets, one logical sheet each after the contours (`SETUP S11 — sheet 4 of 4:
+worksheet, S11 op 110 angularity Ø`): classification requires a step list,
+named `{name}` readings in its steps and at least two calculation lines.
+Steps retain their original numbers and use reading references (`[rJ1]`), not
+duplicate value boxes. READINGS supplies one value box per named reading at its
+source step. Original equations and calculation fields print once, after the
+readings; underscore prompts alone do not turn a procedure into a worksheet.
 
-The job page and each front sheet end with the sign-off line. Setup
-coordinates, Z targets and DRO values print at the DRO's display
+The job section and setup overview/operations section end with the existing
+sign-off. Setup coordinates, Z targets and DRO values print at the DRO's display
 precision (2 decimals in mm, 4 in inches); drawing limits keep the drawing's
 precision. Plan text is cleaned for the bench: author's-choice tags, face ids,
 inventory slugs, frame names and hashes are dropped, and frame `T1` reads as

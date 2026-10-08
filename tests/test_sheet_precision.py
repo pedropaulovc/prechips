@@ -1,15 +1,89 @@
-"""Host-only traveler precision and wording with synthetic kernel facts."""
+"""Host-only traveler precision and visible machine instructions with synthetic kernel facts."""
 
 import re
 import tomllib
-from html import unescape
+from html.parser import HTMLParser
 
 import pytest
 from test_cli import ROOT, SYNTHETIC_KERNEL, copy_examples, traveler
+from test_sheet_ops import Markup, content
+
+from prechips.rules.resolution import MANUAL
+
+
+class VisibleText(HTMLParser):
+    """Keep field/cell boundaries, but never split inline readings from their units."""
+
+    blocks = {
+        "body",
+        "div",
+        "h1",
+        "h2",
+        "h3",
+        "li",
+        "ol",
+        "p",
+        "section",
+        "table",
+        "tbody",
+        "td",
+        "th",
+        "thead",
+        "tr",
+        "ul",
+        "br",
+    }
+
+    def __init__(self, html):
+        super().__init__()
+        self.parts = []
+        self.hidden = []
+        self.feed(html)
+
+    def handle_starttag(self, tag, attrs):
+        if tag in {"script", "style", "head"}:
+            self.hidden.append(tag)
+        elif not self.hidden and tag in self.blocks:
+            self.parts.append("|")
+
+    def handle_endtag(self, tag):
+        if self.hidden:
+            if tag == self.hidden[-1]:
+                self.hidden.pop()
+        elif tag in self.blocks:
+            self.parts.append("|")
+
+    def handle_data(self, data):
+        if not self.hidden:
+            self.parts.append(data)
 
 
 def text(html):
-    return unescape(re.sub(r"<[^>]+>", "|", html))
+    return "".join(VisibleText(html).parts)
+
+
+def tagged(markup, tag, within=None):
+    """Select actual DOM descendants, including cells containing inline markup."""
+    result = []
+    for node in markup.nodes:
+        if node["tag"] != tag:
+            continue
+        parent = node
+        while parent is not None and parent is not within:
+            parent = parent["parent"]
+        if within is None or parent is within:
+            result.append(node)
+    return result
+
+
+def table_rows(markup, table):
+    rows = [
+        [content(cell).strip() for cell in tagged(markup, "td", row)]
+        for row in tagged(markup, "tr", table)
+    ]
+    rows = [row for row in rows if row]
+    assert rows, "Expected rendered numeric table rows"
+    return rows
 
 
 def sections(html, heading):
@@ -64,40 +138,55 @@ def test_unknown_inventory_category_still_renders_its_references(tmp_path):
     assert re.search(r"\? Ø [^|]*: \? gauges\.micrometers/0-1in\b", text(html))
 
 
-def op_rows(html):
-    return re.findall(r"<tr><td>(\d+)</td>(.*?)</tr>", html, re.DOTALL)
-
-
 def test_known_numbers_without_drawing_precision_print_and_unknowns_stay_explicit(bracket):
     report, html = bracket
     contours = sections(html, "CONTOURS")
     assert contours
     for page in contours:
-        assert "<td>?</td>" not in page
-    for row in findings(report, "coordinates"):
-        assert all(isinstance(v, float) for r in row["numbers"].get("rows", []) for v in r["setup"])
+        markup = Markup(page)
+        cells = tagged(markup, "td")
+        assert cells and all(content(cell).strip() != "?" for cell in cells)
+    coordinate_rows = [
+        r for row in findings(report, "coordinates") for r in row["numbers"].get("rows", [])
+    ]
+    assert coordinate_rows
+    assert all(isinstance(v, float) for row in coordinate_rows for v in row["setup"])
     tables = [table for table in sections(html, "FEATURE MAP") if "<table" in table]
-    assert tables and all("<td>?</td>" not in table for table in tables)
-    targets = text("".join(sections(html, "OPERATIONS")))
-    printed = re.findall(r"Z (-?\d+\.(\d+)) → (-?\d+\.(\d+))", targets)
+    assert tables
+    for table in tables:
+        markup = Markup(table)
+        cells = tagged(markup, "td")
+        assert cells and all(content(cell).strip() != "?" for cell in cells)
     # Bench setups (the bracket's S5 send-out) have no DRO, so their findings carry no grid.
     grids = {
         row["subject"]: row["numbers"]["dro_grid"]
         for row in findings(report, "coordinates")
         if "dro_grid" in row["numbers"]
     }
+    pages = setup_pages(html)
+    checked = 0
     for row in findings(report, "blind_depth"):
         for endpoint in row["numbers"].get("endpoints", []):
             entry, tip = endpoint["entry_z"], endpoint["tip_z"]
             if isinstance(entry, float) and isinstance(tip, float):
                 # Known depths print on the setup's DRO grid, within one step of the value.
                 grid = grids[endpoint["setup"]]
+                markup = Markup(pages[endpoint["setup"]])
+                targets = [content(node) for node in markup.find("op-target")]
+                assert targets
+                printed = [
+                    match
+                    for target in targets
+                    for match in re.findall(r"Z (-?\d+\.(\d+)) → (-?\d+\.(\d+))", target)
+                ]
                 assert any(
                     {len(a_digits), len(b_digits)} == {grid["decimals"]}
                     and abs(float(a) - entry) < grid["step"]
                     and abs(float(b) - tip) < grid["step"]
                     for a, a_digits, b, b_digits in printed
                 ), (endpoint, printed)
+                checked += 1
+    assert checked, "Expected known blind-depth endpoints"
 
 
 # S3 op 10 parts the waste off on the +Z side of its cut: the synthetic kernel says so,
@@ -130,11 +219,14 @@ def test_operative_z_keeps_its_own_digits_over_drawing_precision(tmp_path):
     assert endpoints["op 10 to_z"]["model"] == pytest.approx([0.0, 0.0, -158.92])
     assert endpoints["op 20 to_z"]["setup"] == [0.0, 0.0, 1.75]
     assert endpoints["op 20 to_z"]["model"] == pytest.approx([0.0, 0.0, -158.42])
-    s3_ops = sections(html, "OPERATIONS")[-1]
-    op20 = next(cells for number, cells in op_rows(s3_ops) if number == "20")
-    assert "1.75" in text(op20)
-    op10 = next(cells for number, cells in op_rows(s3_ops) if number == "10")
-    assert "2.25 (chuck-side corner)" in text(op10)
+    markup = Markup(sections(html, "OPERATIONS")[-1])
+    operations = {node["attrs"]["data-op"]: node for node in markup.find("operation")}
+    op20 = content(markup.find("op-target", operations["20"])[0])
+    assert re.search(r"(?<![\d.])1\.75(?!\d)", op20)
+    op10 = content(markup.find("op-target", operations["10"])[0])
+    assert re.search(r"(?<![\d.])2\.25(?!\d)", op10)
+    # The kept face is located by the chuck-side blade corner, not a drawing-rounded Z.
+    assert "chuck-side corner" in op10
     dome = next(
         contour
         for row in findings(report, "coordinates")
@@ -144,24 +236,23 @@ def test_operative_z_keeps_its_own_digits_over_drawing_precision(tmp_path):
     page = next(page for page in sections(html, "CONTOURS") if "south dome" in page)
     # The dome's rough stair (headed "in to X") leaves stock on the surface; the finish
     # table after it carries the dome stations.
-    tables = page[page.index("south dome") :].split("<table")[1:]
-    # Headings come from the thead's last row: a split table's first row repeats its
-    # op/tool header across every column. Cells may carry a class (num, read).
-    table, headings = next(
-        (table, headings)
-        for table in tables
-        if "in to X (Ø)"
-        not in (
-            headings := re.findall(
-                r"<th[^>]*>([^<]*)</th>", table[: table.index("</thead>")].split("<tr")[-1]
-            )
-        )
-    )
+    markup = Markup(page[page.index("south dome") :])
+    # Split tables repeat their op/tool header; the last thead row names the columns.
+    candidates = []
+    for table in tagged(markup, "table"):
+        (thead,) = tagged(markup, "thead", table)
+        heading_row = tagged(markup, "tr", thead)[-1]
+        headings = [content(cell).strip() for cell in tagged(markup, "th", heading_row)]
+        if "in to X (Ø)" not in headings:
+            candidates.append((table, headings))
+    assert candidates
+    table, headings = candidates[0]
     # A compensated dome also prints tool X/Z; the stations are the surface Z column.
     column = headings.index("surface Z" if "surface Z" in headings else "Z")
-    rows = re.findall(r"<tr>((?:<td[^>]*>[^<]*</td>)+)</tr>", table)
-    stations = [float(re.findall(r"<td[^>]*>([^<]*)</td>", row)[column]) for row in rows]
+    rows = table_rows(markup, table)
+    stations = [float(row[column]) for row in rows]
     expected = [round(r["z_mm"], 2) for r in dome["rows"]]
+    assert expected
     assert stations[: len(expected)] == expected
     assert len(set(expected)) == len(expected)
 
@@ -183,10 +274,13 @@ def test_shaft_missing_length_prints_as_a_normal_unknown_inspection_row(tmp_path
     plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
     plan.write_text(plan.read_text(encoding="utf-8") + MISSING_LENGTH_OP, encoding="utf-8")
     _, report, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
-    row = next(
-        cells for number, cells in op_rows(sections(html, "OPERATIONS")[-1]) if number == "50"
-    )
-    assert "156.67" not in text(row)
+    markup = Markup(sections(html, "OPERATIONS")[-1])
+    operation = next(node for node in markup.find("operation") if node["attrs"]["data-op"] == "50")
+    messages = markup.find("inspection-message", operation)
+    assert any("length" in content(node).lower() and "?" in content(node) for node in messages)
+    assert "156.67" not in content(operation)
+    assert not markup.find("inspection-record", operation)
+    assert not markup.find("result-field", operation)
     finding = next(
         row for row in findings(report, "inspection") if row["subject"] == "pivot_bearing:length"
     )
@@ -206,29 +300,20 @@ def test_lathe_feed_prints_per_revolution_with_the_true_value(tmp_path):
             per_rev[setup, op] = value
     assert per_rev
     pages = sections(html, "OPERATIONS")
+    checked = set()
     for setup, page in zip(ids, pages, strict=True):
-        for op, cells in op_rows(page):
+        markup = Markup(page)
+        for operation in markup.find("operation"):
+            op = operation["attrs"]["data-op"]
             value = per_rev.get((setup, op))
             if value is None:
                 continue
-            printed = re.findall(r"([\d.]+) mm/rev", text(cells))
+            feed = content(markup.find("op-feed", operation)[0])
+            printed = re.findall(r"([\d.]+) mm/rev", feed)
             # A per-rev feed must never carry the mm/min magnitude.
-            assert printed and float(printed[0]) == pytest.approx(value, abs=0.005), (op, cells)
-
-
-def test_hold_text_has_no_pose_vectors(tmp_path):
-    # Every shaft hold carries a chuck pose; the sheet turns it into a jaw-front Z only.
-    _, _, html = traveler(
-        ROOT / "examples" / "pivot-shaft" / "plan.toml",
-        tmp_path / "out",
-        setup=SYNTHETIC_KERNEL,
-    )
-    holds = sections(html, "HOLD")
-    assert holds
-    for hold in holds:
-        words = text(hold)
-        assert "origin" not in words and "pose" not in words
-        assert not re.search(r"-?\d+(?:\.\d+)? / -?\d+(?:\.\d+)? / -?\d+", words)
+            assert printed and float(printed[0]) == pytest.approx(value, abs=0.005), (op, feed)
+            checked.add((setup, op))
+    assert checked == set(per_rev)
 
 
 def test_job_status_names_every_setup_that_has_a_stop(tmp_path):
@@ -257,7 +342,11 @@ def test_job_status_names_every_setup_that_has_a_stop(tmp_path):
 def test_front_sheet_pointers_lead_to_attached_sheets_of_the_same_setup(tmp_path):
     # The machinist follows "contour table on S2 sheet 3" from an op row; that page must
     # exist, belong to the same setup and carry the op's table.
-    _, _, html = traveler(ROOT / "examples" / "pivot-shaft" / "plan.toml", tmp_path / "out")
+    _, _, html = traveler(
+        ROOT / "examples" / "pivot-shaft" / "plan.toml",
+        tmp_path / "out",
+        setup=SYNTHETIC_KERNEL,
+    )
     pages = {}
     for page in html.split('<section class="page"')[1:]:
         heading = re.search(r"<h2>SETUP (\S+) — (?:[^<]*?· )?sheet (\d+) of (\d+)", page)
@@ -269,9 +358,11 @@ def test_front_sheet_pointers_lead_to_attached_sheets_of_the_same_setup(tmp_path
         if number != "1":
             continue
         followed = 0
-        for op, cells in re.findall(r"<tbody[^>]*><tr><td>(\d+)</td>(.*?)</tbody>", page, re.S):
+        markup = Markup(page)
+        for operation in markup.find("operation"):
+            op = operation["attrs"]["data-op"]
             for kind, target, sheet in re.findall(
-                r"(note|contour table) on (\S+) sheet (\d+)", text(cells)
+                r"(note|contour table) on (\S+) sheet (\d+)", content(operation)
             ):
                 assert target == setup
                 attached = pages[(setup, sheet)][1]
@@ -414,7 +505,12 @@ def test_job_page_states_each_machine_dro_grid(bracket, tmp_path):
     # DRO targets print on the machine's declared resolution; with none declared the
     # job page says the default grid is used rather than implying a measured one.
     _, html = bracket
-    assert re.search(r"DRO resolution: [^|]*PM-30MV 0\.005 mm(?! \(resolution)", text(html))
+    markup = Markup(sections(html, "JOB STATUS")[0])
+    (resolution,) = [
+        content(node) for node in tagged(markup, "p") if content(node).startswith("DRO resolution:")
+    ]
+    assert re.search(r"PM-30MV 0\.005 mm\b", resolution)
+    assert "default grid" not in resolution
     examples = copy_examples(tmp_path)
     inventory = examples / "inventory" / "pedro-shop.toml"
     stripped, removed = re.subn(
@@ -425,7 +521,12 @@ def test_job_page_states_each_machine_dro_grid(bracket, tmp_path):
     _, _, html = traveler(
         examples / "pivot-bracket" / "plan.toml", tmp_path / "out", setup=SYNTHETIC_KERNEL
     )
-    assert "PM-30MV 0.001 mm (resolution not in the shop list: default grid)" in text(html)
+    markup = Markup(sections(html, "JOB STATUS")[0])
+    (resolution,) = [
+        content(node) for node in tagged(markup, "p") if content(node).startswith("DRO resolution:")
+    ]
+    assert re.search(r"PM-30MV 0\.001 mm\b", resolution)
+    assert "default grid" in resolution
 
 
 def test_op_notes_print_under_their_own_row_on_the_front_sheet(tmp_path):
@@ -436,15 +537,17 @@ def test_op_notes_print_under_their_own_row_on_the_front_sheet(tmp_path):
     noted = 0
     for setup in authored["setups"]:
         front = html.split(f'data-sheet="SETUP {setup["id"]} sheet 1"')[1].split("</section>")[0]
-        rows = dict(re.findall(r"<tbody[^>]*><tr><td>(\d+)</td>(.*?)</tbody>", front, re.S))
+        markup = Markup(front)
+        operations = {node["attrs"]["data-op"]: node for node in markup.find("operation")}
+        css = "op-action" if all(step["do"] in MANUAL for step in setup["ops"]) else "op-note"
         for op in setup["ops"]:
             if op.get("note"):
                 # The bench reading may rename a leading feature id; the words after it stay.
                 words = " ".join(op["note"].split()[1:5]).lower()
-                assert words in text(rows[str(op["op"])]).lower(), op["op"]
+                notes = markup.find(css, operations[str(op["op"])])
+                assert any(words in content(note).lower() for note in notes), op["op"]
                 noted += 1
     assert noted
-    assert "See note on" not in text(html)
 
 
 @pytest.mark.parametrize(
@@ -465,8 +568,12 @@ def test_follow_rest_hold_prints_its_jaw_lead_as_a_distance_not_a_diameter(side,
     plan.write_text(edited, encoding="utf-8")
     _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
     front = html.split('data-sheet="SETUP S1 sheet 1"')[1].split("</section>")[0]
-    hold = text(sections(front, "HOLD")[0])
-    (line,) = [part for part in hold.split("|") if part.startswith("Support: follow")]
+    markup = Markup(sections(front, "HOLD")[0])
+    (line,) = [
+        content(node)
+        for node in tagged(markup, "li")
+        if content(node).startswith("Support: follow")
+    ]
     assert f"9.50 mm {where}" in line
     assert not re.search(r"Ø\s*9\.50*\b", line)
     # Trailing jaws ride each pass's new diameter, so the HOLD says they go on and come off

@@ -9,15 +9,18 @@ hidden: they print as plain STOP lines, op-row boxes or a "not verified" line.
 from __future__ import annotations
 
 import functools
+import json
 import math
 import re
+from dataclasses import dataclass
 from html import escape
+from importlib.resources import files
 
 from . import trig
 from .clamp_labels import clamp_labels
 from .joint_features import JOINT_PREP_LABEL, setup_ancestry
 from .measurements import length_fact, record_trusted
-from .model import reference_only, tolerance_requirements
+from .model import TOLERANCE_REQUIREMENTS, reference_only, tolerance_requirements
 from .rules._bench import manual_bench
 from .rules._envelope import measurement_item
 from .rules.coordinates import (
@@ -75,123 +78,966 @@ from .rules.tip_endpoints import (
 from .rules.zero_recipe import DIRECTIONS as _SIGNS
 from .rules.zero_recipe import FACE_Z_TOL_MM
 
-_CSS = """@page { size: Letter portrait; margin: .4in; }
+_CSS = (
+    files("prechips").joinpath("tokens.css").read_text(encoding="utf-8")
+    + """
+@page { size: Letter portrait; margin: var(--page-margin); }
 * { box-sizing: border-box; }
-body { margin: 0; color: #000; background: #fff; font: 8pt/1.25 Arial, sans-serif; }
-.page { break-after: page; page-break-after: always; }
+html, body { overflow-x: clip; }
+body { margin: 0; color: var(--color-ink); background: var(--color-paper);
+font: var(--text-working)/var(--line-working) var(--font-working);
+font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.page { break-after: page; page-break-after: always; min-width: 0; }
 .page:last-child { break-after: auto; page-break-after: auto; }
-h1 { margin: 0; font-size: 12pt; } h2 { font-size: 9pt; margin: 5pt 0 2pt; \
-border-bottom: 1px solid #000; break-after: avoid; page-break-after: avoid; }
-h3 { font-size: 8pt; margin: 4pt 0 1pt; break-after: avoid; page-break-after: avoid; }
-p { margin: 2pt 0; } .meta { display: flex; justify-content: space-between; gap: 8pt; }
-.banner { border: 2px solid #000; text-align: center; font-weight: bold; padding: 1pt; \
-margin: 3pt 0; }
-.stop { border: 2.5px solid #000; padding: 2pt 4pt; margin: 3pt 0; font-weight: bold; \
-break-inside: avoid; }
-.unverified, .caution { border: 1px dashed #000; padding: 2pt 4pt; margin: 3pt 0; \
-break-inside: avoid; }
+h1, h2, h3, h4 { font-style: normal; line-height: 1.35; overflow-wrap: anywhere; }
+h1 { margin: 0; font-size: var(--text-title); }
+h2 { font-size: var(--text-section); margin: var(--space-lg) 0 var(--space-sm);
+border-bottom: var(--rule-thin) solid var(--color-ink);
+break-after: avoid; page-break-after: avoid; }
+h3, h4 { font-size: var(--text-operation); margin: var(--space-md) 0 var(--space-xs);
+break-after: avoid; page-break-after: avoid; }
+p { margin: var(--space-xs) 0; }
+.meta { display: flex; justify-content: space-between; gap: var(--space-sm);
+align-items: flex-start; font-size: var(--text-running); }
+.meta > * { min-width: 0; }
+.banner { border: var(--rule-warning) solid var(--color-ink); font-weight: bold;
+padding: var(--space-xs) var(--space-sm); margin: var(--space-sm) 0; }
+.stop { border: var(--rule-warning) solid var(--color-ink);
+padding: var(--space-sm); margin: var(--space-sm) 0; font-weight: bold; break-inside: avoid; }
+.unverified, .caution { border: var(--rule-thin) dashed var(--color-ink);
+padding: var(--space-sm); margin: var(--space-sm) 0; break-inside: avoid; }
 .caution { border-style: solid; }
-.stop p, .unverified p, .caution p { margin: 1pt 0; }
-ol, ul { margin: 2pt 0 2pt 1.6em; padding: 0; } li { margin: 0 0 1pt; }
-ol.steps { list-style: decimal; } .field, .reading { white-space: nowrap; } \
-.calc { margin: 1pt 0; font-weight: bold; } table.readings td { height: 16pt; }
-table { width: 100%; border-collapse: collapse; margin: 2pt 0; table-layout: fixed; }
-th, td { border: 1px solid #555; padding: 1pt 2pt; text-align: left; vertical-align: top; \
-overflow-wrap: anywhere; }
-th { background: #eee; } thead { display: table-header-group; }
+.stop p, .unverified p, .caution p { margin: var(--space-xs) 0; }
+ol, ul { margin: var(--space-xs) 0 var(--space-xs) 1.6em; padding: 0; }
+li { margin: 0 0 var(--space-xs); }
+ol.steps { list-style: decimal; }
+.tick { display: inline-block; width: var(--performed-size); height: var(--performed-size);
+border: var(--rule-thin) solid var(--color-ink); background: var(--color-paper);
+vertical-align: middle; margin-right: var(--space-xs); }
+.reading { white-space: nowrap; }
+.field, .result-field, .authored-blank { display: inline-flex; flex-direction: column;
+gap: var(--space-xs);
+max-width: 100%; vertical-align: top; break-inside: avoid; page-break-inside: avoid; }
+.writing-blank { display: block; box-sizing: content-box; min-width: var(--writing-width);
+min-height: var(--writing-height); padding: 0; border: var(--rule-thin) solid var(--color-ink);
+background: var(--color-paper); }
+.field { margin: var(--space-xs) var(--space-xs) var(--space-xs) 0; }
+.field.prose-field { display: flex; width: fit-content; }
+.result-field, .authored-blank { display: flex; width: 100%; margin-top: var(--space-sm); }
+.result-field .writing-blank, .authored-blank .writing-blank {
+min-height: var(--writing-result-height); }
+table.readings .field { display: flex; }
+.calc { margin: var(--space-sm) 0; font-weight: bold; }
+.calc { break-inside: avoid; page-break-inside: avoid; }
+.calc .field { display: flex; width: fit-content; }
+table { width: 100%; border-collapse: collapse; margin: var(--space-sm) 0; table-layout: fixed; }
+th, td { border: var(--rule-thin) solid var(--color-rule); padding: var(--space-xs) var(--space-sm);
+text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+th { background: var(--color-header); }
+.table-context th { font-weight: normal; background: var(--color-paper); }
+thead { display: table-header-group; }
 tr, tbody { break-inside: avoid; page-break-inside: avoid; }
-tr.warn td { border-top: 0; padding-left: 8pt; }
-tr.warn .box { display: inline-block; margin: 0 4pt 1pt 0; }
-td .box { display: block; border: 1.5px solid #000; font-weight: bold; padding: 0 2pt; \
-margin-top: 1pt; }
+tr.warn td { border-top: 0; }
+tr.warn .box { display: block; margin: 0 0 var(--space-xs); }
+.box { display: block; border: var(--rule-warning) solid var(--color-ink); font-weight: bold;
+padding: var(--space-xs) var(--space-sm); margin-top: var(--space-xs); }
 .keep { break-inside: avoid; page-break-inside: avoid; }
-.contours { columns: 3; column-gap: 8pt; }
-.contours.wide { columns: auto; }
-.contour { break-inside: avoid; page-break-inside: avoid; margin-bottom: 4pt; }
+.contours, .contours.wide { columns: auto; }
+.contour { break-inside: avoid; page-break-inside: avoid; margin-bottom: var(--space-md); }
 .contour.wide { column-span: all; }
-h4 { font-size: 8pt; margin: 3pt 0 1pt; break-after: avoid; page-break-after: avoid; }
-.stages { display: flex; gap: 8pt; align-items: flex-start; }
-.stages > div { flex: 1 1 0; min-width: 0; }
+.stages { display: block; }
+.stages > div { min-width: 0; }
 table.coords { table-layout: auto; }
 table.coords th { overflow-wrap: normal; }
 table.coords td.num { white-space: nowrap; overflow-wrap: normal; }
-.tick { display: inline-block; width: 7pt; height: 7pt; border: 1px solid #000; \
+.tick { display: inline-block; width: 7pt; height: 7pt; border: 1px solid var(--color-ink); \
 margin: 0 2pt -1pt 6pt; } .levels .level:first-child .tick { margin-left: 2pt; }
 .levels .level { white-space: nowrap; }
-th.read, td.read { font-weight: bold; } th.read { background: #ccc; }
-tr.repeat th { background: #fff; font-weight: bold; }
+.reading, td.num { white-space: nowrap; overflow-wrap: normal; }
+table.fixture, table.blank-check { table-layout: auto; }
+table.fixture th, table.fixture td, table.blank-check th, table.blank-check td {
+min-width: 12ch; overflow-wrap: anywhere; word-break: normal; hyphens: none; }
+table.fixture td[data-label="Fastener"] { min-width: 14ch; }
+.fixture-feature { display: inline-block; max-width: 100%;
+break-inside: avoid; page-break-inside: avoid; }
+@media screen and (max-width: 640px) {
+html:not(.print-measuring) table.fixture,
+html:not(.print-measuring) table.blank-check { table-layout: fixed; }
+html:not(.print-measuring) table.fixture thead tr:not(.repeat):not(.table-context),
+html:not(.print-measuring) table.blank-check thead tr:not(.repeat):not(.table-context),
+html:not(.print-measuring) table.fixture colgroup,
+html:not(.print-measuring) table.blank-check colgroup { display: none; }
+html:not(.print-measuring) table.fixture tbody,
+html:not(.print-measuring) table.blank-check tbody,
+html:not(.print-measuring) table.fixture tbody tr,
+html:not(.print-measuring) table.blank-check tbody tr { display: block; }
+html:not(.print-measuring) table.fixture td,
+html:not(.print-measuring) table.blank-check td { display: block; width: 100%; }
+html:not(.print-measuring) table.fixture td::before,
+html:not(.print-measuring) table.blank-check td::before {
+content: attr(data-label); display: block; font-weight: bold; }
+}
+th.read, td.read { font-weight: bold; }
+th.read { background: var(--color-reading-header); }
+tr.repeat th { background: var(--color-paper); font-weight: bold; }
 .paged table:not([data-duplex-split]) tr.repeat { display: none; }
-.hold-row { display: flex; gap: 8pt; align-items: flex-start; }
-.hold-steps { flex: 1 1 70%; min-width: 0; }
-.fixture-render { margin: 4pt 0; break-inside: avoid; page-break-inside: avoid; }
-.hold-row > .stop { flex: 0 0 30%; margin: 4pt 0 0; }
-.fixture-render img { display: block; width: auto; max-width: 100%; max-height: 8.9in; \
-margin: 0 auto; border: 1px solid #999; }
-.see { font-style: italic; }
-.op-note { margin: 1pt 0; }
-.cont-head { font-size: 9pt; font-weight: bold; margin: 0 0 2pt; border-bottom: 1px solid #000; }
-.more { margin: 2pt 0 0; text-align: right; font-weight: bold; }
+table:not([data-duplex-split]) tr.table-context { display: none; }
+.paged table thead tr.table-context[data-context-suppressed="same-page"] { display: none; }
+.paged table thead [data-title-repeat][data-title-suppressed] { display: none; }
+.hold-row { display: block; }
+.hold-steps { min-width: 0; }
+.fixture-render { margin: var(--space-sm) 0; break-inside: avoid; page-break-inside: avoid; }
+.fixture-render svg { display: block; width: 100%; height: auto;
+border: var(--rule-thin) solid var(--color-rule); }
+.fixture-render { margin-left: 0; margin-right: 0; }
+.fixture-render figcaption { margin-bottom: var(--space-xs); }
+.see { display: block; }
+.op-note { margin: var(--space-xs) 0; }
+.cont-head, .compact-sheet-head { font-size: var(--text-running); font-weight: bold;
+margin: 0 0 var(--space-sm);
+border-bottom: var(--rule-thin) solid var(--color-ink); }
+.cont-count { display: block; white-space: nowrap; }
+.cont-context { display: block; font-size: var(--text-working); overflow-wrap: normal; }
+.more { margin: var(--space-xs) 0 0; font-weight: bold; }
 table.operations { margin-top: 0; }
-tr.continued th { height: 14pt; padding: 0 0 1pt; font-size: 9pt; background: #fff; \
-border: 0; border-bottom: 1px solid #000; vertical-align: bottom; }
-h2:has(+ table.operations) { position: relative; z-index: 1; height: 14pt; \
-margin: 5pt 0 -14pt; background: #fff; display: flex; align-items: flex-end; }
+table.operations > thead th { background: var(--color-paper); }
+tr.continued th { background: var(--color-paper); font-size: var(--text-running); }
 .paged tr.continued { display: none; }
-.paged h2:has(+ table.operations) { position: static; height: auto; margin: 5pt 0 2pt; \
-display: block; }
-.signoff { margin-top: 6pt; break-before: avoid; page-break-before: avoid; }
-.contour-row { display: flex; gap: 8pt; align-items: flex-start; }
-.contour-row > .contour { flex: 0 0 calc((100% - 16pt) / 3); min-width: 0; }
-.contour-row > .contour.wide { flex: 1 1 100%; }
-.contour-row.tall, [data-duplex-stacked] { display: block; }
-.contours.wide .contour-row { display: block; }
-.blank-side { padding-top: 4in; text-align: center; font-weight: bold; }
-@media screen { body { max-width: 7.7in; margin: 12pt auto; } .page { margin-bottom: 24pt; } \
-.blank-side { display: none; } }
+.paged h2:has(+ table.operations) { position: static; height: auto;
+margin: var(--space-lg) 0 var(--space-sm); display: block; }
+.operation > tr > td { padding: var(--space-sm); border-left: 0; border-right: 0; }
+.op-head { display: flex; align-items: flex-start; gap: var(--space-sm); }
+.op-head h3 { margin: 0; min-width: 0; }
+.performed-mark { flex: 0 0 var(--performed-size); width: var(--performed-size);
+height: var(--performed-size); border: var(--rule-thin) solid var(--color-ink);
+background: var(--color-paper); margin-top: var(--space-xs); }
+.op-details { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+gap: var(--space-xs) var(--space-md); margin: var(--space-sm) 0 0; }
+.op-details > div { min-width: 0; }
+.op-details dt { font-weight: bold; }
+.op-details dd { margin: 0; }
+.inspection-layout { display: block; }
+.inspection-requirement { min-width: 0; }
+.inspection-requirement p { margin: 0; }
+.inspection-record > td { border-top-style: solid; }
+.operation-continuation .op-number { font-weight: bold; }
+.record-continuation { display: block; }
+.signoff { margin-top: var(--space-lg); break-before: avoid; page-break-before: avoid;
+display: flex; flex-wrap: wrap; gap: var(--space-md); }
+.signoff .field { flex: 1 1 52mm; }
+.signoff p { flex: 1 1 52mm; margin: 0; }
+.signoff .writing-blank { width: auto; }
+.contour-row, .contour-row.tall, [data-duplex-stacked] { display: block; }
+.contour-row > .contour { min-width: 0; }
+.blank-side { min-height: 1px; }
+@media screen {
+  body { max-width: var(--page-content-width); margin: var(--space-md) auto;
+  padding: 0 var(--space-sm); }
+  .page { margin-bottom: var(--space-lg); }
+  .blank-side { display: none; }
+  html:not(.print-measuring) table.coords { display: block; overflow-x: auto; }
+}
+@media screen and (max-width: 600px) {
+  html:not(.print-measuring) .meta { display: block; }
+  html:not(.print-measuring) .op-details { grid-template-columns: minmax(0, 1fr); }
+  html:not(.print-measuring) table:not(.operations) {
+  display: block; overflow-x: auto; table-layout: auto; }
+}
 """
+)
 # Duplex padding, run in the browser on load and before printing. Every sheet must end
 # on an even page so the next sheet starts on a front side when the whole file prints
 # double-sided. The script places the page breaks itself: it measures the sheet at the
 # printed width and starts a new page wherever the next block would cross it, keeping
 # headings (and a table's caption) with what follows, the sign-off with the last op row.
 # A table that runs over is split into a copy with the same column headings; an op table
-# says on its page which op it continues with, and a table whose rest ends the sheet
-# shares its rows evenly with that last page. Every page after a sheet's first opens
-# with the sheet's name and its page number. An odd count gets an "intentionally blank"
-# page. Without scripts the browser paginates the same content on its own, unpadded.
-_DUPLEX_JS = """(() => {
-  // Letter 11 in less .4 in margins = 979 px at 96 px/in. The sheet is measured by the
-  // same engine at the printed width, so a small band covers rounding only.
-  const CAP = 975;
-  // The fewest table rows a page break leaves on either side of it.
+# says on its page which op it continues with. Every page after a sheet's first opens
+# with part, setup/sheet identity and its page number. An odd count gets a truly blank
+# back. Without scripts the browser paginates the same content on its own, unpadded.
+_DUPLEX_JS = r"""(() => {
+  // The fewest original ordinary-table row groups on either side of a feasible break.
   const KEEP = 3;
-  // Room for a continued page's "(continued) · page n" line above its first block, px.
-  const HEAD_ROOM = 24;
-  const ADDED = "data-duplex";
-  const SPLIT = "data-duplex-split";
-  const STACKED = "data-duplex-stacked";
+  const ADDED = "data-duplex", SPLIT = "data-duplex-split", STACKED = "data-duplex-stacked";
+  const CONTEXT_ROLE = "data-context-role";
+  const originals = new Map();
+  let CAP;
   const heading = (el) => el && /^H[1-6]$/.test(el.tagName);
   function box(el) {
     const r = el.getBoundingClientRect(), s = getComputedStyle(el);
     return { top: r.top - parseFloat(s.marginTop), bottom: r.bottom + parseFloat(s.marginBottom) };
   }
+  const LOCATOR_TARGET = "data-locator-target", LOCATOR_REF = "data-locator-ref";
+  let locatorPass;
+  const locatorNodes = (root, selector) => [...root.querySelectorAll(selector)];
+  const locatorRect = (node) => {
+    const r = node.getBoundingClientRect();
+    return [r.left, r.top, r.right, r.bottom, r.width, r.height];
+  };
+  const locatorLines = (range) => [...range.getClientRects()].map(
+    (r) => [r.left, r.top, r.right, r.bottom, r.width, r.height]
+  );
+  function locatorVisible(node) {
+    for (let owner = node; owner; owner = owner.parentElement) {
+      const style = getComputedStyle(owner);
+      if (style.display === "none" || style.visibility === "hidden"
+          || style.visibility === "collapse") return false;
+    }
+    return node.getClientRects().length > 0;
+  }
+  const locatorStarts = (section) => [section, ...locatorNodes(section, ".cont-head")].map(
+    (node, index) => ({ node, page: index + 1, top: box(node).top })
+  );
+  function locatorPage(node) {
+    const section = node.closest("section.page[data-sheet]");
+    if (!section) throw new Error("A recording destination has no logical sheet.");
+    const start = locatorStarts(section).filter(
+      (entry) => entry.node === section || entry.node === node
+        || entry.node.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).at(-1);
+    const bounds = section.getBoundingClientRect();
+    return { sheet: section.dataset.sheet, identity: section.dataset.title || section.dataset.sheet,
+      page: start.page, top: start.top, bottom: start.top + CAP,
+      left: bounds.left, right: bounds.right };
+  }
+  const locatorWithin = (rect, bounds) => rect[0] >= bounds.left
+    && rect[2] <= bounds.right && rect[1] >= bounds.top && rect[3] <= bounds.bottom;
+  function cleanLocatorCopy(copy) {
+    for (const node of [copy, ...locatorNodes(copy, "*")]) {
+      node.removeAttribute(LOCATOR_TARGET);
+      node.removeAttribute("data-locator-group");
+    }
+    return copy;
+  }
+  function locatorReference(meta, instruction) {
+    const ref = document.createElement("span");
+    ref.setAttribute(LOCATOR_REF, meta.key);
+    ref.className = "fixed-locator-reference";
+    ref.append(instruction + " — " + meta.identity + ", page ");
+    const slot = document.createElement("span"), ink = document.createElement("span");
+    slot.className = "fixed-locator-digit";
+    slot.setAttribute("aria-readonly", "true");
+    ink.className = "fixed-locator-ink";
+    slot.append(ink);
+    ref.append(slot);
+    return ref;
+  }
+  function measureLocator(ref) {
+    const slot = ref.querySelector(".fixed-locator-digit"), style = getComputedStyle(ref);
+    const line = parseFloat(style.lineHeight);
+    if (!Number.isFinite(line) || line <= 0) {
+      throw new Error("A recording locator has no measured inherited line height.");
+    }
+    const probe = document.createElement("span");
+    probe.style.cssText = "position:absolute;visibility:hidden;white-space:nowrap;"
+      + "display:inline-block;padding:0;margin:0;border:0";
+    for (const property of ["font-family", "font-size", "font-weight", "font-style",
+      "font-stretch", "font-variant-numeric", "font-feature-settings",
+      "font-variation-settings", "font-kerning", "font-optical-sizing",
+      "letter-spacing", "word-spacing", "line-height"]) {
+      probe.style.setProperty(property, style.getPropertyValue(property));
+    }
+    document.body.append(probe);
+    let width;
+    try {
+      for (let digit = 0; digit <= 9; digit++) {
+        probe.textContent = String(digit).repeat(locatorPass.digits);
+        const measured = probe.getBoundingClientRect().width;
+        if (!Number.isFinite(measured) || measured <= 0
+            || !style.fontVariantNumeric.includes("tabular-nums")
+            || (width !== undefined && measured !== width)) {
+          throw new Error("A recording locator lacks measured tabular digit metrics.");
+        }
+        width = measured;
+      }
+    } finally { probe.remove(); }
+    // Empty reserved counters take exactly the same line box as the final ink.
+    slot.style.cssText = `display:inline-block;position:relative;width:${width}px;`
+      + `min-width:${width}px;max-width:${width}px;height:${line}px;min-height:${line}px;`
+      + `max-height:${line}px;line-height:${line}px;vertical-align:bottom;white-space:nowrap;`
+      + `flex:0 0 ${width}px;padding:0;margin:0;border:0`;
+    slot.firstElementChild.style.cssText = "position:absolute;left:0;top:0;display:block;"
+      + "white-space:nowrap;line-height:inherit;padding:0;margin:0;border:0";
+  }
+  function prepareLocators() {
+    locatorPass = { expected: new Map(), reservations: new Map() };
+    const sections = locatorNodes(document, "section.page[data-sheet]");
+    let units = 1n;
+    for (const section of sections) {
+      const walker = document.createTreeWalker(section, NodeFilter.SHOW_TEXT);
+      let node;
+      while ((node = walker.nextNode())) {
+        if (!node.parentElement.closest("script,style")) units += BigInt(node.length);
+      }
+      units += BigInt(locatorNodes(section,
+        "figure,.writing-blank,.tick,.performed-mark,input,select,textarea,button").length);
+      for (const owner of [section, ...locatorNodes(section, "*")]) {
+        for (const attribute of owner.attributes) {
+          if (attribute.name === "data-worksheet-title"
+              || attribute.name === "data-reading-context") units += BigInt(attribute.value.length);
+        }
+      }
+    }
+    if (units < 1n || units > BigInt(Number.MAX_SAFE_INTEGER)) {
+      throw new Error("The pristine recording-locator source bound is not integer-safe.");
+    }
+    locatorPass.bound = Number(units);
+    locatorPass.digits = String(locatorPass.bound).length;
+    for (const [sectionIndex, section] of sections.entries()) {
+      const identity = section.dataset.title || section.dataset.sheet;
+      if (!identity) throw new Error("A recording locator has no logical sheet identity.");
+      for (const [ordinal, blank] of locatorNodes(section, ".writing-blank").entries()) {
+        const field = blank.closest(".field,.result-field,.authored-blank");
+        if (!field) throw new Error("An original writing area has no structural owner.");
+        const name = field.querySelector(".field-label")?.textContent ?? "";
+        const key = JSON.stringify([section.dataset.sheet, sectionIndex, "field", ordinal, name]);
+        blank.setAttribute(LOCATOR_TARGET, key);
+        field.setAttribute("data-locator-field-key", key);
+        locatorPass.expected.set(key, { key, identity, section: section.dataset.sheet, name,
+          authored: field.classList.contains("authored-blank"), ordinal });
+      }
+      for (const [ordinal, group] of locatorNodes(section, ".path-progress").entries()) {
+        const children = locatorNodes(group, ".writing-blank");
+        if (children.length !== 2) {
+          throw new Error("A progress record must retain its level and last completed # together.");
+        }
+        const members = children.map((node) => node.getAttribute(LOCATOR_TARGET));
+        const key = JSON.stringify([section.dataset.sheet, sectionIndex, "progress pair", ordinal]);
+        const meta = { key, identity, section: section.dataset.sheet, members };
+        children.forEach((node) => node.setAttribute("data-locator-group", key));
+        locatorPass.expected.set(key, meta);
+        for (const locator of locatorNodes(group.closest(".contour"),
+          "[data-continuation-locator]")) {
+          const instruction = [...locator.childNodes].map((node) => node.cloneNode(true));
+          const ref = locatorReference(meta, "");
+          ref.firstChild.replaceWith(...instruction,
+            document.createTextNode(" — " + identity + ", page "));
+          locator.replaceChildren(ref);
+        }
+      }
+      for (const owner of locatorNodes(section, "[data-page-context]")) {
+        if (owner.matches(".contour")) continue;
+        const context = owner.querySelector(":scope > .page-context");
+        if (!context) continue;
+        for (const blank of locatorNodes(owner, ".writing-blank").filter(
+          (node) => node.closest("[data-page-context]") === owner
+        )) {
+          const meta = locatorPass.expected.get(blank.getAttribute(LOCATOR_TARGET));
+          const ref = locatorReference(meta, locatorInstruction(meta));
+          ref.prepend(" · ");
+          context.append(ref);
+        }
+      }
+      for (const note of locatorNodes(section, ".op-note,.op-action")) {
+        if (note.closest("[data-page-context]")) continue;
+        for (const blank of locatorNodes(note, ".writing-blank").filter(
+          (node) => node.closest(".op-note,.op-action") === note
+        )) {
+          const meta = locatorPass.expected.get(blank.getAttribute(LOCATOR_TARGET));
+          const ref = locatorReference(meta, locatorInstruction(meta));
+          ref.prepend(" · ");
+          note.append(ref);
+        }
+      }
+    }
+    locatorNodes(document, "[" + LOCATOR_REF + "]").forEach(measureLocator);
+    for (const meta of locatorPass.expected.values()) {
+      if (meta.members) continue;
+      const blank = locatorNodes(document, "[" + LOCATOR_TARGET + "]").find(
+        (node) => node.getAttribute(LOCATOR_TARGET) === meta.key
+      );
+      const ref = locatorReference(meta, locatorInstruction(meta));
+      ref.style.cssText = "position:absolute;visibility:hidden";
+      blank.parentElement.append(ref);
+      measureLocator(ref);
+      ref.remove();
+      ref.removeAttribute("style");
+      locatorPass.reservations.set(meta.key, ref);
+    }
+  }
+  const locatorInstruction = (meta) => meta.authored
+    ? "Original authored blank " + (meta.ordinal + 1) : "Original " + meta.name;
+  function locatorRegistry() {
+    for (const section of locatorNodes(document, "section.page[data-sheet]")) {
+      const actual = locatorStarts(section).length;
+      if (!Number.isSafeInteger(actual) || actual < 1 || actual > locatorPass.bound
+          || actual !== Number(section.dataset.pages)) {
+        throw new Error(
+          "Recording-locator local pages exceed or disagree with their source bound.");
+      }
+    }
+    const targets = locatorNodes(document, "[" + LOCATOR_TARGET + "]");
+    if (targets.some((node) => node.closest("[" + ADDED + "]"))) {
+      throw new Error("Generated context cannot own an original recording destination.");
+    }
+    const registry = [];
+    for (const meta of locatorPass.expected.values()) {
+      const places = [];
+      for (const member of meta.members ?? [meta.key]) {
+        const matches = targets.filter((node) => node.getAttribute(LOCATOR_TARGET) === member);
+        if (matches.length !== 1) {
+          throw new Error("An original recording destination is missing or duplicated.");
+        }
+        const blank = matches[0], page = locatorPage(blank),
+          field = blank.closest(".field,.result-field,.authored-blank");
+        if (!locatorVisible(blank) || !Number.isSafeInteger(page.page)
+            || page.page > locatorPass.bound || !locatorWithin(locatorRect(field), page)
+            || !locatorWithin(locatorRect(blank), page)) {
+          throw new Error("An original writing destination does not fit wholly on its local page.");
+        }
+        places.push({ member, page: page.page, sheet: page.sheet, identity: page.identity,
+          field: locatorRect(field), blank: locatorRect(blank),
+          top: page.top, bottom: page.bottom });
+      }
+      if (places.some((place) => place.sheet !== meta.section || place.identity !== meta.identity)
+          || (meta.members && new Set(places.map((place) => place.page)).size !== 1)) {
+        throw new Error(
+          "An original recording destination changed owner or split its progress pair.");
+      }
+      registry.push({ key: meta.key, page: places[0].page, places });
+    }
+    if (targets.some((node) => !locatorPass.expected.has(node.getAttribute(LOCATOR_TARGET)))) {
+      throw new Error("An original recording destination has an unknown identity.");
+    }
+    return registry;
+  }
+  function locatorLayout(registry) {
+    const nodes = locatorNodes(document, "section.page[data-sheet],section.page[data-sheet] *")
+      .filter((node) => locatorVisible(node)
+        && !node.matches(".fixed-locator-ink") && !node.closest(".fixed-locator-ink"));
+    const geometry = nodes.map((node) => [locatorRect(node), locatorLines(node)]);
+    const text = [], walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    let node;
+    while ((node = walker.nextNode())) {
+      if (node.parentElement.closest("script,style,.fixed-locator-ink")
+          || !locatorVisible(node.parentElement)) continue;
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      text.push([node.textContent, locatorLines(range)]);
+    }
+    const starts = locatorNodes(document, "section.page[data-sheet]").map(
+      (section) => [section.dataset.sheet, Number(section.dataset.pages),
+        locatorStarts(section).map((start) => [start.page, start.top]), locatorRect(section)]
+    );
+    return JSON.stringify([geometry, text, registry, CAP,
+      Number(document.documentElement.dataset.printWidth), starts]);
+  }
+  function finishLocators() {
+    const refs = locatorNodes(document, "[" + LOCATOR_REF + "]").filter(locatorVisible);
+    for (const ref of refs) {
+      const slot = ref.querySelector(".fixed-locator-digit"), style = slot.getAttribute("style");
+      measureLocator(ref);
+      if (slot.getAttribute("style") !== style) {
+        throw new Error("A recording locator changed its inherited reserved typography.");
+      }
+    }
+    const registry = locatorRegistry(), before = locatorLayout(registry),
+      byKey = new Map(registry.map((entry) => [entry.key, entry]));
+    for (const ref of refs) {
+      const target = byKey.get(ref.getAttribute(LOCATOR_REF));
+      const ink = ref.querySelector(".fixed-locator-digit")?.firstElementChild;
+      if (!target || !ink || ink.textContent !== "") {
+        throw new Error("A recording locator has no resolved original destination or empty slot.");
+      }
+      const value = String(target.page);
+      if (value.length > locatorPass.digits) {
+        throw new Error("A recording locator exceeds its source-bound digit reservation.");
+      }
+      ink.textContent = value;
+    }
+    if (before !== locatorLayout(locatorRegistry())) {
+      throw new Error("Recording-locator fill changed layout or the final destination registry.");
+    }
+    for (const ref of refs) {
+      const slot = ref.querySelector(".fixed-locator-digit"), ink = slot.firstElementChild,
+        page = locatorPage(ref), owner = ref.closest("tr,.cont-head,li,p,.op-action")
+          ?? ref.parentElement;
+      const ownerRect = locatorRect(owner), ownerBounds = { left: ownerRect[0],
+        top: ownerRect[1], right: ownerRect[2], bottom: ownerRect[3] },
+        refRects = locatorLines(ref), slotRect = locatorRect(slot);
+      if (!locatorWithin(slotRect, ownerBounds) || !locatorWithin(slotRect, page)) {
+        throw new Error("A recording-locator reservation escapes its owner or local print page.");
+      }
+      const walker = document.createTreeWalker(ref, NodeFilter.SHOW_TEXT);
+      let node;
+      while ((node = walker.nextNode())) {
+        for (let offset = 0; offset < node.length; offset++) {
+          const range = document.createRange();
+          range.setStart(node, offset);
+          range.setEnd(node, offset + 1);
+          for (const rect of locatorLines(range)) {
+            if (!rect[4] || !rect[5]) continue;
+            const containers = node.parentElement === ink ? [slotRect] : refRects;
+            if (!containers.some((bounds) => locatorWithin(rect,
+              { left: bounds[0], top: bounds[1], right: bounds[2], bottom: bounds[3] }))
+                || !locatorWithin(rect, ownerBounds) || !locatorWithin(rect, page)) {
+              throw new Error("A recording-locator glyph escapes its reservation or print owner.");
+            }
+          }
+        }
+      }
+    }
+  }
+  function locatorFieldContext(field) {
+    const meta = locatorPass.expected.get(field.getAttribute("data-locator-field-key"));
+    const nodes = [...(field.querySelector(".field-label")?.childNodes || [])];
+    if (!meta || locatorNodes(field.closest(".op-note,.op-action") ?? field,
+      "[" + LOCATOR_REF + "]").some((ref) => ref.getAttribute(LOCATOR_REF) === meta.key)) {
+      return nodes;
+    }
+    const ref = locatorPass.reservations.get(meta.key)?.cloneNode(true);
+    if (!ref) throw new Error("A recording reference lacks its pristine measured reservation.");
+    ref.prepend(" · ");
+    return [...nodes, ref];
+  }
   function paginate(section) {
-    const title = section.getAttribute("data-title") || section.getAttribute("data-sheet");
+    // Recompute roles at this print width; source continuations inherit them only
+    // within this pass, never from an earlier pagination measurement.
+    section.querySelectorAll(".page-context").forEach((context) => {
+      context.removeAttribute(CONTEXT_ROLE);
+    });
+    const statusContents = [...(section.querySelector(":scope > .banner")?.childNodes || [])]
+      .map((node) => node.cloneNode(true));
+    const title = [section.dataset.part, section.dataset.drawing,
+      section.dataset.revision ? "rev " + section.dataset.revision : "REV NOT CONFIRMED",
+      section.dataset.title || section.dataset.sheet].filter(Boolean).join(" · ");
+    const titleOwners = new Map();
+    for (const source of section.querySelectorAll("h3.page-context > [data-title-source]")) {
+      const key = source.dataset.titleSource, units = new Map();
+      const walker = document.createTreeWalker(source, NodeFilter.SHOW_TEXT), nodes = [];
+      while (walker.nextNode()) nodes.push(walker.currentNode);
+      nodes.forEach((node, ordinal) => {
+        const identity = key + ":text:" + ordinal, span = document.createElement("span");
+        span.dataset.titleUnit = identity;
+        units.set(identity, node.length);
+        node.replaceWith(span);
+        span.append(node);
+      });
+      // DOM text lengths and Range offsets are UTF-16 units, including non-BMP titles.
+      titleOwners.set(key, { length: source.textContent.length, units });
+    }
+    for (const repeat of section.querySelectorAll("[data-title-repeat]")) {
+      const key = repeat.dataset.titleRepeat;
+      if (!titleOwners.has(key)) continue;
+      const walker = document.createTreeWalker(repeat, NodeFilter.SHOW_TEXT), nodes = [];
+      while (walker.nextNode()) nodes.push(walker.currentNode);
+      nodes.forEach((node, ordinal) => {
+        const span = document.createElement("span");
+        span.dataset.titleUnit = key + ":text:" + ordinal;
+        node.replaceWith(span);
+        span.append(node);
+      });
+    }
+    function fullTitleCanonicalOnPage(key) {
+      const owner = titleOwners.get(key);
+      if (!owner?.units.size) return false;
+      const left = section.getBoundingClientRect().left,
+        right = left + Number(document.documentElement.dataset.printWidth);
+      const within = (r) => r.left >= left - .01 && r.right <= right + .01
+        && r.top >= pageTop - .01 && r.bottom <= pageTop + CAP + .01;
+      for (const span of section.querySelectorAll("[data-title-source]")) {
+        if (span.dataset.titleSource !== key) continue;
+        const running = span.closest(".cont-context"), original = span.closest("h3.page-context");
+        if (!running && (!original || span.closest("[" + ADDED + "]"))) continue;
+        if (span.textContent.length !== owner.length) continue;
+        const units = [...span.querySelectorAll("[data-title-unit]")];
+        if (units.length !== owner.units.size || units.some((node) =>
+          !owner.units.has(node.dataset.titleUnit)
+            || node.textContent.length !== owner.units.get(node.dataset.titleUnit))) continue;
+        if (!span.getClientRects().length || !within(span.getBoundingClientRect())
+            || [...span.querySelectorAll("*")].some((node) =>
+              [...node.getClientRects()].some((rect) => !within(rect)))) continue;
+        if (units.some((node) => {
+          const range = document.createRange();
+          range.selectNodeContents(node);
+          return [...range.getClientRects()].some((rect) => !within(rect));
+        })) continue;
+        return true;
+      }
+      return false;
+    }
+    function refreshTitleCopies(t) {
+      for (const span of t.tHead?.querySelectorAll("[data-title-repeat]") || []) {
+        const key = span.dataset.titleRepeat, owner = titleOwners.get(key),
+          units = [...span.querySelectorAll("[data-title-unit]")];
+        const whole = owner && span.textContent.length === owner.length
+          && units.length === owner.units.size && units.every((node) =>
+            owner.units.has(node.dataset.titleUnit)
+              && node.textContent.length === owner.units.get(node.dataset.titleUnit));
+        span.toggleAttribute("data-title-suppressed", !!whole && fullTitleCanonicalOnPage(key));
+      }
+    }
+    const contextHeads = new Map(
+      [...section.querySelectorAll("[data-page-context]")].map((owner) => [
+        owner.dataset.pageContext, owner.querySelector(":scope > .page-context")?.cloneNode(true)
+      ])
+    );
+    const operationHeads = new Map(
+      [...section.querySelectorAll("tbody.operation")].map((body) => [
+        body.dataset.op, [...body.rows].filter(
+          (row) => row.classList.contains("operation-main") || row.querySelector(".op-note")
+        ).map((row) => row.cloneNode(true))
+      ])
+    );
+    const instructionOwners = new Map();
+    function registerInstructionOwner(t, index) {
+      const intro = t.previousElementSibling,
+        mirror = t.tHead?.querySelector(":scope > tr.table-context");
+      if (!intro?.matches("p.table-intro") || !mirror
+          || intro.querySelector("figure,.field,.result-field,.authored-blank,"
+            + ".tick,.performed-mark,input")) return;
+      const key = "table:" + index + ":instruction", units = new Map();
+      intro.dataset.instructionSource = key;
+      mirror.dataset.instructionRef = key;
+      const walker = document.createTreeWalker(intro, NodeFilter.SHOW_TEXT), nodes = [];
+      while (walker.nextNode()) nodes.push(walker.currentNode);
+      nodes.forEach((node, ordinal) => {
+        const identity = key + ":text:" + ordinal, span = document.createElement("span");
+        span.dataset.instructionUnit = identity;
+        units.set(identity, node.length);
+        node.replaceWith(span);
+        span.append(node);
+      });
+      instructionOwners.set(key, units);
+    }
+    function fullInstructionOnPage(key) {
+      const units = instructionOwners.get(key);
+      if (!units?.size) return false;
+      const totals = new Map(), left = section.getBoundingClientRect().left,
+        right = left + Number(document.documentElement.dataset.printWidth);
+      const contained = (rect) => rect.left >= left - .01 && rect.right <= right + .01
+        && rect.top >= pageTop - .01 && rect.bottom <= pageTop + CAP + .01;
+      const fragments = [...section.querySelectorAll("[data-instruction-source]")].filter(
+        (node) => node.dataset.instructionSource === key && !node.closest("[" + ADDED + "]")
+      );
+      for (const fragment of fragments) {
+        const bounds = box(fragment);
+        if (bounds.top < pageTop - .01 || bounds.bottom > pageTop + CAP + .01
+            || !contained(fragment.getBoundingClientRect())
+            || [...fragment.querySelectorAll("*")].some((node) =>
+              !node.closest("[" + ADDED + "]")
+                && [...node.getClientRects()].some((rect) => !contained(rect)))) continue;
+        for (const unit of fragment.querySelectorAll("[data-instruction-unit]")) {
+          if (unit.closest("[" + ADDED + "]")) continue;
+          const identity = unit.dataset.instructionUnit;
+          if (!units.has(identity)) return false;
+          const range = document.createRange();
+          range.selectNodeContents(unit);
+          if ([...range.getClientRects()].some((rect) => !contained(rect))) continue;
+          totals.set(identity, (totals.get(identity) || 0) + unit.textContent.length);
+        }
+      }
+      return [...units].every(([identity, length]) => totals.get(identity) === length);
+    }
+    function refreshInstructionMirrors(t) {
+      for (const row of t.tHead?.querySelectorAll("[data-instruction-ref]") || []) {
+        if (fullInstructionOnPage(row.dataset.instructionRef)) {
+          row.dataset.contextSuppressed = "same-page";
+        } else row.removeAttribute("data-context-suppressed");
+      }
+    }
+    const ORDINARY_EXCLUSIONS = "figure,figcaption,.field,.result-field,.authored-blank,"
+      + ".writing-blank,.field-label,.tick,.performed-mark,input,textarea,select,button,svg,img,"
+      + ".record-continuation,.row-continuation,.page-context,.op-number,.op-details,"
+      + ".cont-head,[data-continuation-locator],.fixed-locator-reference,[" + ADDED + "]";
+    function ordinaryWholeCell(cell) {
+      if (cell?.nodeType !== Node.ELEMENT_NODE || !cell.matches("td,th")
+          || cell.closest("table.operations,[" + ADDED + "]")) return false;
+      const row = cell.parentElement;
+      if (row.matches(".operation-main,.inspection-record,.warn,.process-observations")
+          || cell.matches(ORDINARY_EXCLUSIONS) || cell.querySelector(ORDINARY_EXCLUSIONS)) {
+        return false;
+      }
+      if (cell.closest("table.fixture") && [...row.cells].indexOf(cell) < 2) return false;
+      for (const node of cell.querySelectorAll("*")) {
+        if (!/^(SPAN|BR|STRONG|B|EM|I)$/.test(node.tagName)
+            || [...node.classList].some(
+              (name) => !["reading", "fixture-feature"].includes(name)
+            )) return false;
+      }
+      const prose = cell.cloneNode(true);
+      prose.querySelectorAll(".reading").forEach((node) => node.remove());
+      return /\p{L}/u.test(prose.textContent);
+    }
+    function wholeCellPoints(el, points) {
+      if (el.tagName !== "TR" || el.closest("table.operations")) return points;
+      for (const cell of el.cells) {
+        if (ordinaryWholeCell(cell)) points.push([cell, cell.childNodes.length]);
+      }
+      return points.sort((a, b) => {
+        const left = document.createRange(), right = document.createRange();
+        left.setStart(...a);
+        left.collapse(true);
+        right.setStart(...b);
+        right.collapse(true);
+        return left.compareBoundaryPoints(Range.START_TO_START, right);
+      });
+    }
+    function residualSourcePayload(contents) {
+      const copy = contents.cloneNode(true);
+      copy.querySelectorAll("[" + ADDED + "],.record-continuation,.row-continuation,"
+        + ".fixed-locator-reference").forEach((node) => node.remove());
+      // Presence is not progress: whitespace and excluded original controls remain source.
+      return copy.textContent.length !== 0 || !!copy.querySelector(ORDINARY_EXCLUSIONS);
+    }
+    function cellColumnContains(cell) {
+      const rect = cell.getBoundingClientRect(), style = getComputedStyle(cell),
+        border = getComputedStyle(cell.closest("table")).borderCollapse === "collapse" ? .5 : 1;
+      const bounds = { left: rect.left + border * parseFloat(style.borderLeftWidth)
+          + parseFloat(style.paddingLeft),
+        right: rect.right - border * parseFloat(style.borderRightWidth)
+          - parseFloat(style.paddingRight),
+        top: rect.top + border * parseFloat(style.borderTopWidth) + parseFloat(style.paddingTop),
+        bottom: rect.bottom - border * parseFloat(style.borderBottomWidth)
+          - parseFloat(style.paddingBottom) };
+      const contained = (r) => r.left >= bounds.left - .1 && r.right <= bounds.right + .1
+        && r.top >= bounds.top - .1 && r.bottom <= bounds.bottom + .1;
+      const walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
+      while (walker.nextNode()) {
+        const node = walker.currentNode;
+        if (!node.textContent.trim() || node.parentElement.closest("[" + ADDED + "]")) continue;
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        if ([...range.getClientRects()].some(
+          (r) => r.width > 0 && r.height > 0 && !contained(r)
+        )) return false;
+      }
+      return [...cell.querySelectorAll(".reading,.fixture-feature")].every(
+        (node) => contained(node.getBoundingClientRect())
+      );
+    }
+    function admitWholeCells(el, point) {
+      let first = contentsAt(el, point), remaining = contentsAt(el, point, true);
+      const retained = [];
+      if (el.tagName === "TR" && ordinaryWholeCell(point[0])
+          && point[1] === point[0].childNodes.length) {
+        const slot = [...el.cells].indexOf(point[0]),
+          candidate = prefixBottom(el.closest("table"), el, first, [slot]);
+        if (!fits(candidate.bottom) || !candidate.contained) {
+          return { first, remaining, prefixCredit: false, tailCredit: originalText(remaining),
+            complete: false };
+        }
+        retained.push(slot);
+      }
+      if (el.tagName === "TR" && !el.closest("table.operations")) {
+        const original = [...el.cells];
+        for (let slot = 0; slot < original.length; slot++) {
+          if (first.children[slot].childNodes.length
+              || !remaining.children[slot].childNodes.length
+              || !ordinaryWholeCell(original[slot])) continue;
+          const contents = first.cloneNode(true);
+          contents.children[slot].replaceWith(original[slot].cloneNode(true));
+          const candidate = prefixBottom(el.closest("table"), el, contents, [...retained, slot]);
+          if (!fits(candidate.bottom) || !candidate.contained) continue;
+          first = contents;
+          remaining.children[slot].replaceChildren();
+          retained.push(slot);
+        }
+      }
+      const prefixCredit = originalText(first), tailCredit = originalText(remaining);
+      return { first, remaining, prefixCredit, tailCredit,
+        complete: prefixCredit && !residualSourcePayload(remaining) };
+    }
+    const tableHeads = new Map(), fixtureRows = new Map();
+    [...section.querySelectorAll("table")].forEach((t, index) => {
+      t.dataset.tableContext = String(index);
+      registerInstructionOwner(t, index);
+      const sources = [...t.querySelectorAll("thead > tr.repeat, "
+        + "thead > tr.table-context")].map((row) => row.cloneNode(true));
+      const candidate = (contents, css = "table-context") => {
+        const row = document.createElement("tr"), cell = document.createElement("th");
+        row.className = css;
+        row.dataset.optionalContext = "";
+        cell.colSpan = t.tHead.rows[t.tHead.rows.length - 1].cells.length;
+        cell.append(contents);
+        row.append(cell);
+        return row;
+      };
+      const op = t.closest(".contour")?.querySelector(":scope > .contour-context");
+      if (op) {
+        const copy = op.cloneNode(true);
+        const before = sources.findIndex((row) => row.classList.contains("table-context"));
+        sources.splice(before < 0 ? sources.length : before, 0, candidate(copy));
+      }
+      const worksheet = t.classList.contains("readings") ? t.closest(".worksheet") : null;
+      if (worksheet) {
+        for (const [html, css] of [
+          [worksheet.dataset.worksheetTitle, "repeat"],
+          ...JSON.parse(worksheet.dataset.readingContext).map((html) => [html, "table-context"])
+        ]) {
+          const contents = document.createElement("span");
+          contents.innerHTML = html;
+          sources.push(candidate(contents, css));
+        }
+      }
+      tableHeads.set(String(index), sources);
+      if (t.classList.contains("fixture")) {
+        [...t.tBodies].flatMap((body) => [...body.rows]).forEach((row, slot) => {
+          row.dataset.rowContext = index + ":" + slot;
+          fixtureRows.set(row.dataset.rowContext,
+            [...row.cells].slice(0, 2).map((cell) => cell.cloneNode(true)));
+        });
+      }
+    });
+    // Each print pass starts from pristine children. Only repeated logical-sheet
+    // identity may use the running-header hierarchy to keep its first figure whole.
+    if (section.dataset.sheetRole === "continuation") {
+      const [meta, banner, heading, figure] = [...section.children];
+      if (meta?.matches(".meta") && banner?.matches(".banner")
+          && heading?.tagName === "H2" && figure?.tagName === "FIGURE") {
+        const required = box(figure).bottom - box(section).top;
+        if (required > CAP) {
+          const head = document.createElement("div");
+          head.className = "compact-sheet-head lead-in";
+          const identity = document.createElement("span"), title = document.createElement("span");
+          identity.className = title.className = "cont-title";
+          for (const item of [...meta.children, banner]) {
+            if (identity.childNodes.length) {
+              const separator = document.createElement("span");
+              separator.className = "compact-identity-separator";
+              separator.textContent = " · ";
+              identity.append(separator);
+            }
+            identity.append(...[...item.childNodes]);
+          }
+          title.append(...[...heading.childNodes]);
+          head.append(identity, document.createElement("br"), title);
+          meta.before(head);
+          meta.remove(); banner.remove(); heading.remove();
+          // The unchanged figure/caption must still fit with this measured header.
+        }
+      }
+    }
     let pageTop = box(section).top, pages = 1;
     let pageStart = [...section.children].find(
       (el) => !el.classList.contains("meta") && !el.classList.contains("banner")
     );
     const fits = (bottom) => bottom - pageTop <= CAP;
+    function prefixBottom(t, end, contents = null, inspectSlots = null) {
+      refreshInstructionMirrors(t);
+      refreshTitleCopies(t);
+      // Measure the actual retained table, including its closing rule and margin.
+      // A same-slot probe preserves its columns, context and inherited typography.
+      const probe = t.cloneNode(false), range = document.createRange();
+      range.selectNodeContents(t);
+      if (contents) range.setEndBefore(end.parentElement);
+      else range.setEndAfter(end);
+      probe.append(range.cloneContents());
+      if (contents) {
+        const body = end.parentElement.cloneNode(false);
+        for (const row of end.parentElement.rows) {
+          const copy = row.cloneNode(row !== end);
+          if (row === end) copy.append(contents.cloneNode(true));
+          body.append(copy);
+          if (row === end) break;
+        }
+        probe.append(body);
+      }
+      t.before(probe);
+      try {
+        const bottom = box(probe).bottom;
+        if (inspectSlots === null) return bottom;
+        const row = [...probe.tBodies[probe.tBodies.length - 1].rows].at(-1),
+          bounds = probe.getBoundingClientRect(), left = section.getBoundingClientRect().left;
+        return { bottom, contained: [...new Set(inspectSlots)].every(
+          (slot) => cellColumnContains(row.cells[slot])
+        ) && bounds.left >= left - .1
+          && bounds.right <= left + Number(document.documentElement.dataset.printWidth) + .1 };
+      }
+      finally { probe.remove(); }
+    }
+    function textBottom(el, contents) {
+      const probe = el.cloneNode(false);
+      probe.append(contents.cloneNode(true));
+      el.before(probe);
+      try { return box(probe).bottom; }
+      finally { probe.remove(); }
+    }
+    function sourceBottom(el, point) {
+      const contents = contentsAt(el, point);
+      return el.tagName === "TR"
+        ? prefixBottom(el.closest("table"), el, contents) : textBottom(el, contents);
+    }
+    function pageProgress(el, relax = true) {
+      if (el.tagName === "TABLE") {
+        const progress = sourceProgress(el, el.tBodies[0]);
+        return progress ? () => prefixBottom(el, progress.row, progress.contents) : null;
+      }
+      for (const point of pointsIn(el)) {
+        const contents = contentsAt(el, point);
+        if (originalText(contents) && fits(textBottom(el, contents))) {
+          return () => textBottom(el, contents);
+        }
+      }
+      if (originalText(el) && fits(box(el).bottom)) return () => box(el).bottom;
+      return relax && prepareFields(el) ? pageProgress(el, false) : null;
+    }
+    function compactContext(el, suffix = "") {
+      const references = locatorNodes(el, "[" + LOCATOR_REF + "]")
+        .map((ref) => ref.cloneNode(true));
+      const identity = /^.*?\bop\s+\d+\b/.exec(el.textContent);
+      if (!identity) return false;
+      const range = document.createRange(),
+        walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      range.selectNodeContents(el);
+      let remaining = identity[0].length, node;
+      while ((node = walker.nextNode())) {
+        if (remaining <= node.length) {
+          range.setEnd(node, remaining);
+          el.replaceChildren(range.cloneContents(), suffix, ...references);
+          return true;
+        }
+        remaining -= node.length;
+      }
+      return false;
+    }
     function breakAt(el) {
       pages += 1;
       const head = document.createElement("p");
       head.className = "cont-head";
       head.setAttribute(ADDED, "");
-      head.textContent = title + " (continued) \\u00b7 page " + pages;
+      const running = document.createElement("span");
+      running.className = "cont-title";
+      running.textContent = title + " (continued)";
+      if (statusContents.length) {
+        running.append(" · ", ...statusContents.map((node) => node.cloneNode(true)));
+      }
+      const count = document.createElement("span");
+      count.className = "cont-count";
+      count.append(" · page " + pages + " of ");
+      const total = document.createElement("span");
+      total.className = "cont-page-total";
+      total.textContent = "?";
+      count.append(total);
+      // The count line is present during every fit/progress measurement. Its final
+      // digits cannot change the title wrapping or the preserved working context.
+      head.append(running, "\n", count);
+      const owner = el.closest("[data-page-context]");
       el.before(head);
       head.style.breakBefore = "page";
       pageTop = box(head).top;
       pageStart = el;
+      const source = owner && contextHeads.get(owner.dataset.pageContext);
+      if (source) {
+        let progress = pageProgress(el);
+        if (!progress) {
+          // A repeated long note title is not original progress. Keep its stable
+          // setup/op identity when the full repeat blocks the original remainder.
+          for (const repeated of el.querySelectorAll(".record-continuation")) {
+            compactContext(repeated, " (continued)");
+          }
+          progress = pageProgress(el);
+        }
+        if (!progress) return;
+        const context = document.createElement("span");
+        context.className = "cont-context";
+        context.append(...[...source.childNodes].map((node) => node.cloneNode(true)));
+        cleanLocatorCopy(context);
+        head.append("\n", context);
+        if (!fits(progress())) {
+          if (!compactContext(context)) context.replaceChildren();
+          if (!context.textContent || !fits(progress())) context.remove();
+        }
+      }
     }
     // What must start a page with `el`: the headings (and a table's caption) right above
     // it, a heading's lead-in line, and, when `el` opens its parent, what must start a
@@ -200,7 +1046,8 @@ _DUPLEX_JS = """(() => {
       let start = el;
       for (;;) {
         const prev = start.previousElementSibling;
-        const caption = prev && prev.tagName === "P" && start.tagName === "TABLE";
+        const caption = prev && prev.tagName === "P"
+          && /^(TABLE|OL|UL)$/.test(start.tagName) && !prev.hasAttribute(ADDED);
         if (heading(prev) || caption || (prev && prev.classList.contains("lead-in"))) {
           start = prev;
         } else if (!prev && start.parentElement !== section) {
@@ -219,12 +1066,16 @@ _DUPLEX_JS = """(() => {
         return false;
       }
       let more = null;
-      if (el.tagName === "TABLE" && el.classList.contains("operations") && el.tBodies.length) {
+      const operations = el.matches("table.operations") ? el
+        : heading(el) && el.nextElementSibling?.matches("table.operations")
+          ? el.nextElementSibling : null;
+      if (operations && operations.tBodies.length) {
         more = document.createElement("p");
         more.className = "more";
         more.setAttribute(ADDED, "");
         start.before(more);
-        const op = el.tBodies[0].rows[0].cells[0].textContent;
+        const op = operations.tBodies[0].dataset.op
+          || operations.tBodies[0].rows[0].cells[0].textContent;
         more.textContent = "Operations continue on reverse, op " + op;
         if (!fits(box(more).bottom)) {
           more.remove();
@@ -232,12 +1083,430 @@ _DUPLEX_JS = """(() => {
         }
       }
       breakAt(start);
+      const movedTable = el.tagName === "TABLE" ? el
+        : (heading(el) || el.classList.contains("table-intro"))
+          && el.nextElementSibling?.tagName === "TABLE" ? el.nextElementSibling : null;
+      if (movedTable && (tableHeads.get(movedTable.dataset.tableContext) || []).some(
+            (row) => row.hasAttribute("data-optional-context")
+          )) {
+        const progress = sourceProgress(movedTable, movedTable.tBodies[0]);
+        if (progress) {
+          movedTable.setAttribute(SPLIT, "");
+          tableContext(movedTable, progress, true);
+        }
+      }
       if (more && pages % 2 === 1) {
         more.textContent = more.textContent.replace("on reverse", "on the next sheet");
       }
       return true;
     }
-    // Rows from body `j` on go to a copy of `t` that starts the next page.
+    function pointsIn(el) {
+      const points = [], atomicContexts = new Map();
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
+        acceptNode(node) {
+          // A whole canonical view is source, but none of its SVG, title, caption
+          // or text descendants is a legal pagination boundary.
+          if (node.parentElement?.closest("figure, [" + ADDED + "]")) {
+            return NodeFilter.FILTER_REJECT;
+          }
+          return node.nodeType === Node.TEXT_NODE || node.matches("figure")
+            ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
+        }
+      });
+      let node;
+      while ((node = walker.nextNode())) {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          const parent = node.parentNode, slot = [...parent.childNodes].indexOf(node);
+          points.push([parent, slot], [parent, slot + 1]);
+          continue;
+        }
+        if (node.parentElement.closest(
+          ".field, .result-field, .authored-blank, .performed-mark, .reading, "
+            + ".record-continuation, .fixed-locator-reference, .op-details dt, [" + ADDED + "]"
+        )) continue;
+        const feature = node.parentElement.closest(".fixture-feature");
+        if (feature) {
+          if (!atomicContexts.has(feature)) {
+            const parent = feature.parentNode,
+              slot = [...parent.childNodes].indexOf(feature),
+              before = [parent, slot], after = [parent, slot + 1];
+            const prefix = originalText(contentsAt(el, before));
+            // First continue before a complete feature clause, never between its
+            // identity and coordinates. Only a clause that still cannot fit with
+            // no earlier original source may use the ordinary measured fallback.
+            const atomic = fits(sourceBottom(el, after)) || prefix;
+            atomicContexts.set(feature, atomic);
+            if (prefix) points.push(before);
+            if (atomic) points.push(after);
+          }
+          if (atomicContexts.get(feature)) continue;
+        }
+        const context = node.parentElement.closest(".page-context");
+        if (context) {
+          if (!atomicContexts.has(context)) {
+            const atomic = fits(sourceBottom(el, [context, context.childNodes.length]));
+            atomicContexts.set(context, atomic);
+            // A non-fitting original title must advance as source, not disappear
+            // from the progress test merely because its identity can be repeated.
+            if (!atomic) context.setAttribute(CONTEXT_ROLE, "source");
+          }
+          if (atomicContexts.get(context)) continue;
+        }
+        const text = node.textContent, matches = [...text.matchAll(/[ \t\r\n]+/g)];
+        for (const match of matches) points.push([node, match.index + match[0].length]);
+        if (!matches.length && text.length > 100) {
+          for (let offset = 1; offset < text.length; offset++) points.push([node, offset]);
+        }
+      }
+      return wholeCellPoints(el, points);
+    }
+    function rowContents(el, point, tail) {
+      // A Range across a row omits cells outside the range. Clone every slot,
+      // including empty ones, so later text stays beneath its original heading.
+      const index = [...el.cells].findIndex((cell) => cell.contains(point[0]));
+      const contents = document.createDocumentFragment();
+      for (const [slot, original] of [...el.cells].entries()) {
+        const copy = original.cloneNode(tail ? slot > index : slot < index);
+        if (slot === index) {
+          const part = document.createRange();
+          part.selectNodeContents(original);
+          if (tail) part.setStart(...point);
+          else part.setEnd(...point);
+          copy.append(part.cloneContents());
+        }
+        contents.append(copy);
+      }
+      return contents;
+    }
+    function contentsAt(el, point, tail = false) {
+      if (el.tagName === "TR") return rowContents(el, point, tail);
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      if (tail) range.setStart(...point);
+      else range.setEnd(...point);
+      return range.cloneContents();
+    }
+    function originalText(contents) {
+      // Retained whole figures and over-page original context advance source;
+      // short repeatable identities and recording marks never do so alone.
+      const copy = contents.cloneNode(true),
+        identityOnly = '.page-context:not([' + CONTEXT_ROLE + '="source"])';
+      if (copy.matches?.(identityOnly
+        + ", .record-continuation, .fixed-locator-reference, [" + ADDED + "]")) return false;
+      copy.querySelectorAll(".performed-mark, .writing-blank, .record-continuation, "
+        + ".fixed-locator-reference, .op-number, " + identityOnly + ", [" + ADDED + "]")
+        .forEach((node) => node.remove());
+      return !!copy.matches?.("figure") || !!copy.querySelector("figure")
+        || /[\p{L}\p{N}]/u.test(copy.textContent);
+    }
+    function sourceProgress(t, body, relax = true) {
+      const row = [...body.rows].find((source) => !source.hasAttribute(ADDED));
+      if (!row) return null;
+      for (const point of pointsIn(row)) {
+        const contents = contentsAt(row, point);
+        if (!originalText(contents)) continue;
+        if (fits(prefixBottom(t, row, contents))) return { row, point, contents };
+      }
+      if (originalText(row) && fits(prefixBottom(t, row))) {
+        return { row, point: null, contents: null };
+      }
+      return relax && prepareFields(row) ? sourceProgress(t, body, false) : null;
+    }
+    function progressBottom(t, progress) {
+      return prefixBottom(t, progress.row,
+        progress.point ? contentsAt(progress.row, progress.point) : progress.contents);
+    }
+    function contextBudget(t, progress) {
+      if (!t.classList.contains("operations")) {
+        const original = [...t.tBodies].filter(
+          (body) => !body.hasAttribute("data-duplex-fragment")
+        );
+        if (original.length >= KEEP && fits(prefixBottom(t, original[KEEP - 1]))) {
+          return () => prefixBottom(t, original[KEEP - 1]);
+        }
+      }
+      return () => progressBottom(t, progress);
+    }
+    function prepareFields(el) {
+      const selector = ".field, .result-field, .authored-blank";
+      const fields = el.matches(selector) ? [el] : [...el.querySelectorAll(selector)];
+      let changed = false;
+      for (const field of fields) {
+        if (field.closest("[" + ADDED + "]")
+            || fits(sourceBottom(el, [field, field.childNodes.length]))) continue;
+        const label = field.querySelector(".field-label");
+        if (!label) continue;
+        const range = document.createRange();
+        range.selectNodeContents(label);
+        const last = [...range.getClientRects()].filter((rect) => rect.width > 0).pop();
+        if (!last) continue;
+        const walker = document.createTreeWalker(label, NodeFilter.SHOW_TEXT);
+        let node, start = null;
+        while (!start && (node = walker.nextNode())) {
+          const offsets = [0];
+          if (!node.parentElement.closest(".reading")) {
+            for (const match of node.textContent.matchAll(/[ \t\r\n]+/g)) {
+              offsets.push(match.index + match[0].length);
+            }
+          }
+          for (const offset of offsets) {
+            if (offset >= node.textContent.length) continue;
+            range.setStart(node, offset);
+            range.setEnd(node, offset + 1);
+            if (range.getBoundingClientRect().top >= last.top) {
+              start = [node, offset]; break;
+            }
+          }
+        }
+        if (!start) continue;
+        range.selectNodeContents(label);
+        range.setEnd(...start);
+        const prose = document.createElement("span");
+        prose.className = "authored-label";
+        prose.append(range.cloneContents());
+        // Fitting short labels stay atomic; an empty prefix cannot advance source.
+        if (!/[\p{L}\p{N}]/u.test(prose.textContent)) continue;
+        range.selectNodeContents(label);
+        range.setStart(...start);
+        const caption = range.cloneContents();
+        field.before(prose);
+        label.replaceChildren(caption);
+        changed = true;
+      }
+      return changed;
+    }
+    // Only original source is fragmented. Repeated context is admitted whole,
+    // and the writing box stays with the final measured source caption line.
+    function fragment(el, relax = true) {
+      if (el.hasAttribute(ADDED) || el.matches(".record-continuation")) return null;
+      const points = pointsIn(el);
+      // A glyph Range is not the final line box or table row. Prove the cloned
+      // prefix's real formatting footprint before accepting the split point.
+      function bottomAt(point) {
+        return sourceBottom(el, point);
+      }
+      let low = 0, high = points.length - 1, best = -1;
+      while (low <= high) {
+        const middle = Math.floor((low + high) / 2);
+        if (bottomAt(points[middle]) <= pageTop + CAP) {
+          best = middle; low = middle + 1;
+        } else high = middle - 1;
+      }
+      for (; best >= 0; best--) {
+        const candidate = admitWholeCells(el, points[best]);
+        if (!candidate.prefixCredit) continue;
+        const first = candidate.first, remaining = candidate.remaining;
+        if (candidate.complete && el.tagName === "TR") {
+          el.replaceChildren(first);
+          return el;
+        }
+        if (!candidate.tailCredit) continue;
+        const rest = el.cloneNode(false);
+        rest.append(remaining);
+        if (rest.dataset.rowContext) rest.dataset.rowContinuation = "";
+        el.replaceChildren(first);
+        el.after(rest);
+        for (const field of rest.querySelectorAll(".op-details > div")) {
+          if (!field.querySelector("dd") || field.querySelector("dt")) continue;
+          const source = el.querySelector(".op-details > ." + field.className + " > dt");
+          if (source) {
+            const label = source.cloneNode(true);
+            label.setAttribute(ADDED, "");
+            field.prepend(label);
+          }
+        }
+        if (rest.classList.contains("inspection-record")) {
+          const identity = document.createElement("p");
+          identity.className = "record-continuation";
+          identity.textContent = rest.dataset.recordTitle + " (continued)";
+          rest.querySelector(".inspection-requirement").prepend(identity);
+        }
+        if (rest.tagName === "LI" && rest.dataset.pageContext) {
+          const identity = document.createElement("span");
+          identity.className = "record-continuation";
+          identity.textContent = rest.dataset.pageContext + " (continued)";
+          rest.prepend(identity);
+        }
+        const warning = rest.querySelector(".box")
+          || (rest.matches(".stop, .caution") ? rest : null);
+        if (warning) {
+          const word = /\b(STOP|HOLD|CAUTION)\b/.exec(el.textContent);
+          if (word) warning.prepend(word[1] + " (continued): ");
+        }
+        return rest;
+      }
+      if (relax && prepareFields(el)) return fragment(el, false);
+      for (const figure of el.querySelectorAll("figure")) {
+        const parent = figure.parentNode, slot = [...parent.childNodes].indexOf(figure);
+        if (!originalText(contentsAt(el, [parent, slot]))
+            && !fits(sourceBottom(el, [parent, slot + 1]))) {
+          refuseFigure(figure, sourceBottom(el, [parent, slot + 1]) - pageTop);
+        }
+      }
+      return null;
+    }
+    function contextRow(source) {
+      const row = cleanLocatorCopy(source.cloneNode(true));
+      row.classList.add("operation-continuation");
+      row.setAttribute(ADDED, "");
+      row.querySelectorAll(".performed-mark, .writing-blank, figure")
+        .forEach((mark) => mark.remove());
+      row.querySelectorAll(".field, .result-field, .authored-blank").forEach((field) => {
+        field.replaceWith(...locatorFieldContext(field));
+      });
+      const number = row.querySelector(".op-number");
+      if (number) number.append(" (continued)");
+      return row;
+    }
+    function operationContext(t, body, progress) {
+      const sources = operationHeads.get(body.dataset.op);
+      if (!sources || !body.hasAttribute("data-operation-continuation")) return;
+      const full = contextRow(sources[0]), identity = full.cloneNode(true);
+      identity.querySelector(".op-action").remove();
+      identity.querySelector(".op-head h3").replaceChildren(identity.querySelector(".op-number"));
+      identity.querySelector(".op-details").remove();
+      body.prepend(identity);
+      const accepted = () => fits(prefixBottom(t, progress.row, progress.contents));
+      if (!accepted()) {
+        identity.remove();
+        throw new Error("An operation identity cannot share a page with original source progress.");
+      }
+      identity.replaceWith(full);
+      if (!accepted()) {
+        full.replaceWith(identity);
+        const compact = full.querySelector(".op-details").cloneNode(true);
+        [...compact.children].forEach((field) => {
+          if (!field.matches(".op-tool, .op-target, .op-direction")) field.remove();
+        });
+        identity.cells[0].append(compact);
+        if (!accepted()) compact.remove();
+      }
+      const notes = sources.slice(1).map(contextRow);
+      const head = [...body.rows].find((row) => row.hasAttribute(ADDED));
+      head.after(...notes);
+      if (!accepted()) notes.forEach((row) => row.remove());
+    }
+    function tableContext(t, progress, optionalOnly = false) {
+      if (!t.hasAttribute(SPLIT)) return;
+      refreshInstructionMirrors(t);
+      refreshTitleCopies(t);
+      const budget = contextBudget(t, progress);
+      for (const source of tableHeads.get(t.dataset.tableContext) || []) {
+        if (optionalOnly && !source.hasAttribute("data-optional-context")) continue;
+        if (source.dataset.instructionRef && fullInstructionOnPage(source.dataset.instructionRef)) {
+          continue;
+        }
+        const row = cleanLocatorCopy(source.cloneNode(true));
+        row.setAttribute(ADDED, "");
+        row.querySelectorAll(".performed-mark, .writing-blank, .tick, figure")
+          .forEach((mark) => mark.remove());
+        row.querySelectorAll(".field, .result-field, .authored-blank").forEach((field) => {
+          field.replaceWith(...locatorFieldContext(field));
+        });
+        const columns = t.tHead.querySelector("tr:not(.repeat):not(.table-context)");
+        const followingContext = optionalOnly && row.classList.contains("table-context")
+          ? t.tHead.querySelector(`tr.table-context:not([${ADDED}])`) : null;
+        (followingContext || columns).before(row);
+        refreshTitleCopies(t);
+        if (fits(budget())) continue;
+        if (row.hasAttribute("data-optional-context")) {
+          row.remove();
+          continue;
+        }
+        const cell = row.cells[0];
+        const locator = cell.querySelector("[data-continuation-locator]")?.cloneNode(true);
+        const titleCell = cell.cloneNode(true);
+        titleCell.querySelectorAll("[data-continuation-locator]").forEach((node) => node.remove());
+        const text = titleCell.textContent;
+        const boundary = text.search(/[;.!?]\s/);
+        const identity = /^.*?\bop\s+\d+\b/.exec(text)
+          || /\([^()]*\)(?=\s+\(continued\)$)/.exec(text);
+        if (row.classList.contains("repeat")) {
+          cell.replaceChildren();
+          if (identity) cell.append(identity[0]);
+          if (locator) {
+            if (cell.textContent) cell.append(" · ");
+            cell.append(locator);
+          }
+        } else if (boundary >= 0) {
+          const range = document.createRange(), walker = document.createTreeWalker(
+            cell, NodeFilter.SHOW_TEXT
+          );
+          let remaining = boundary + 1, node;
+          range.selectNodeContents(cell);
+          while ((node = walker.nextNode())) {
+            if (remaining <= node.textContent.length) {
+              range.setEnd(node, remaining); break;
+            }
+            remaining -= node.textContent.length;
+          }
+          cell.replaceChildren(range.cloneContents());
+        } else cell.replaceChildren();
+        if (!cell.textContent || !fits(budget())) {
+          if (locator) {
+            throw new Error("A contour progress locator cannot share a page "
+              + "with original source progress.");
+          }
+          row.remove();
+        }
+      }
+    }
+    function fixtureContext(t, progress) {
+      const row = progress.row, source = fixtureRows.get(row.dataset.rowContext);
+      if (!source || !row.hasAttribute("data-row-continuation")) return;
+      const budget = contextBudget(t, progress), copies = [];
+      source.forEach((cell, slot) => {
+        if (originalText(row.cells[slot])) return;
+        const copy = document.createElement("span");
+        copy.className = "row-continuation";
+        copy.setAttribute(ADDED, "");
+        copy.append(...[...cell.childNodes].map((node) => node.cloneNode(true)));
+        copy.querySelectorAll(".performed-mark, .writing-blank, .tick")
+          .forEach((mark) => mark.remove());
+        if (slot === 0) copy.append(" (continued)");
+        row.cells[slot].prepend(copy);
+        copies.push(copy);
+      });
+      if (!fits(budget())) copies.forEach((copy) => copy.remove());
+    }
+    function splitBody(t, body) {
+      const rows = [...body.rows];
+      const ending = box(t).bottom - box(t.tBodies[t.tBodies.length - 1]).bottom;
+      let index = rows.findIndex((row) => !fits(box(row).bottom + ending));
+      while (index > 0 && !fits(prefixBottom(t, rows[index - 1]))) index -= 1;
+      if (index < 0) return false;
+      if (rows[index].hasAttribute(ADDED)) return false;
+      if (rows.slice(0, index).every((row) => row.hasAttribute(ADDED))) {
+        // No authored row fits beside the repeated heading: continue the oversized
+        // row itself, never emit a page containing only a continuation label.
+        const tail = fragment(rows[index]);
+        if (!tail) return false;
+        const completed = tail === rows[index];
+        index += 1;
+        // A complete original row has no fragment tail; following canonical rows still move.
+        if (completed && index >= body.rows.length) return true;
+      }
+      const rest = body.cloneNode(false);
+      if (!t.classList.contains("operations")) rest.setAttribute("data-duplex-fragment", "");
+      rest.append(...[...body.rows].slice(index));
+      body.after(rest);
+      if (rest.classList.contains("operation")) {
+        rest.setAttribute("data-operation-continuation", "");
+      }
+      return true;
+    }
+    function startTablePage(t) {
+      t.setAttribute(SPLIT, "");
+      t.tHead.querySelectorAll("tr.continued, tr.repeat, tr.table-context")
+        .forEach((row) => row.remove());
+      breakAt(t);
+      const progress = sourceProgress(t, t.tBodies[0]);
+      if (!progress) throw new Error("A continuation cannot advance its original source.");
+      operationContext(t, t.tBodies[0], progress);
+      tableContext(t, progress);
+      fixtureContext(t, progress);
+    }
+    // Bodies from j onward go to a copy with the same headings, on the next page.
     function cut(t, j) {
       const rest = t.cloneNode(false);
       rest.setAttribute(SPLIT, "");
@@ -245,13 +1514,15 @@ _DUPLEX_JS = """(() => {
         if (part.tagName !== "COLGROUP" && part.tagName !== "THEAD") continue;
         const copy = part.cloneNode(true);
         copy.querySelectorAll("tr.continued").forEach((row) => row.remove());
+        copy.querySelectorAll("tr.repeat, tr.table-context").forEach((row) => row.remove());
         rest.append(copy);
       }
       rest.append(...[...t.tBodies].slice(j));
       t.after(rest);
       let more = null;
       const pointer = (side) => {
-        const op = rest.tBodies[0].rows[0].cells[0].textContent;
+        const body = rest.tBodies[0];
+        const op = body.dataset.op || body.rows[0].cells[0].textContent;
         more.textContent = "Operations continue " + side + ", op " + op;
       };
       if (t.classList.contains("operations")) {
@@ -265,8 +1536,8 @@ _DUPLEX_JS = """(() => {
           pointer("on reverse");
         }
         if (!fits(box(more).bottom)) {
-          // One row and the pointer overflow: undo the split and start the table, with
-          // its heading, on the next page; at a page top already, drop the pointer.
+          // As in the base, move the table with its heading if even one group and
+          // the pointer cannot fit. At a page top, keep the group and omit the pointer.
           t.append(...[...rest.tBodies]);
           rest.remove();
           more.remove();
@@ -279,131 +1550,176 @@ _DUPLEX_JS = """(() => {
           more = null;
         }
       }
-      breakAt(rest);
+      startTablePage(rest);
       if (more) pointer(pages % 2 === 0 ? "on reverse" : "on the next sheet");
       table(rest);
     }
     function table(t) {
-      const over = () => [...t.tBodies].findIndex((tb) => !fits(box(tb).bottom));
+      const over = () => {
+        refreshInstructionMirrors(t);
+        refreshTitleCopies(t);
+        const bodies = [...t.tBodies];
+        if (!bodies.length) return -1;
+        const ending = box(t).bottom - box(bodies[bodies.length - 1]).bottom;
+        let index = bodies.findIndex((body) => !fits(box(body).bottom + ending));
+        while (index > 0 && !fits(prefixBottom(t, bodies[index - 1]))) index -= 1;
+        return index;
+      };
       let j = over();
       if (j === 0 && move(t)) j = over();
-      // A first row taller than the page stays with the table head: the browser splits it.
-      if (j === 0) j = 1;
-      const n = t.tBodies.length;
-      // Widow and orphan control: a split leaves at least KEEP rows on each page. Rows
-      // carry over to the next page; a table too short for KEEP on both sides moves
-      // whole with its heading (where moving gains a page top).
-      if (j > 0 && j < n && (j < KEEP || n - j < KEEP)) {
-        if (j >= KEEP && n - KEEP >= KEEP) {
-          j = n - KEEP;
-        } else if (move(t)) {
-          j = over();
-          if (j === 0) j = 1;
-          if (j > 0 && j < n && n - j < KEEP && n - KEEP >= KEEP) j = n - KEEP;
+      if (!t.classList.contains("operations")) {
+        const bodies = [...t.tBodies];
+        const authored = bodies.filter((body) => !body.hasAttribute("data-duplex-fragment"));
+        const countBefore = (index) => bodies.slice(0, index).filter(
+          (body) => !body.hasAttribute("data-duplex-fragment")
+        ).length;
+        // Only original ordinary-table groups count toward KEEP, never fragments
+        // or added context. Feasibility includes the retained table's closing geometry.
+        const tail = authored.length >= 2 * KEEP
+          ? bodies.indexOf(authored[authored.length - KEEP]) : -1;
+        if (j > 0 && j < bodies.length) {
+          const before = countBefore(j), after = authored.length - before;
+          if (before < KEEP || after < KEEP) {
+            if (before >= KEEP && tail > 0 && fits(prefixBottom(t, bodies[tail - 1]))) {
+              j = tail;
+            } else if (move(t)) {
+              j = over();
+              if (j > 0 && countBefore(j) >= KEEP && tail > 0
+                  && fits(prefixBottom(t, bodies[tail - 1]))) j = tail;
+            }
+          }
         }
       }
-      if (j > 0 && j < n) cut(t, balance(t, j));
+      // An authored caption may fit alone but not share even the first original row.
+      // Keep its words there, then admit bounded context beside real source progress.
+      if (j === 0 && t !== pageStart && !sourceProgress(t, t.tBodies[0])) {
+        startTablePage(t);
+        j = over();
+      }
+      if (j === 0) {
+        if (!splitBody(t, t.tBodies[0])) {
+          throw new Error(
+            "An over-page table record could not be continued without losing content."
+          );
+        }
+        j = 1;
+      }
+      if (j > 0 && j < t.tBodies.length) cut(t, j);
     }
-    // A table split at body `j` whose last rows, with all that follows them on the sheet,
-    // fit on the next page: that page would end the sheet, so the split shares the rows
-    // evenly rather than leave a short tail of closing rows on it alone. An op table keeps
-    // its own split (its pointer and sign-off place it).
-    function balance(t, j) {
-      const n = t.tBodies.length, half = Math.ceil(n / 2);
-      if (t.classList.contains("operations") || n - j >= n - half || n - half < KEEP) return j;
-      const head = t.tHead ? box(t.tHead).bottom - box(t.tHead).top : 0;
-      // The next page also opens with the continued-page line and the column headings
-      // (with the table's repeated name row, hidden on its first page).
-      const rest = box(section.lastElementChild).bottom - box(t.tBodies[half]).top;
-      return rest + 2 * head + HEAD_ROOM <= CAP ? half : j;
+    function refuseFigure(figure, required = box(figure).bottom - pageTop) {
+      const height = box(figure).bottom - box(figure).top;
+      const label = figure.querySelector("figcaption")?.textContent
+        || figure.getAttribute("aria-label") || "Untitled figure";
+      throw new Error(
+        `A complete figure cannot fit on a print page: ${label} `
+        + `(${height.toFixed(1)}px high; ${required.toFixed(1)}px required; `
+        + `${CAP.toFixed(1)}px page capacity).`
+      );
     }
     function walk(parent) {
       for (const el of [...parent.children]) {
+        if (!el.isConnected || el.hasAttribute(ADDED)) continue;
         const b = box(el);
         if (fits(b.bottom)) continue;
         if (el.tagName === "TABLE") {
           table(el);
         } else if (el.classList.contains("signoff")) {
-          // The sign-off never stands alone: take the last op row with it.
           const prev = el.previousElementSibling;
-          if (prev && prev.tagName === "TABLE" && prev.tBodies.length > 1) {
-            cut(prev, prev.tBodies.length - 1);
-          } else {
-            move(el);
-          }
+          if (prev && prev.tagName === "TABLE") {
+            // Reuse the table splitter with space reserved for the existing signoff,
+            // so even a one-operation continuation cannot leave it on a page alone.
+            const capacity = CAP;
+            CAP -= Math.max(b.bottom - box(prev).bottom, b.bottom - b.top);
+            try { table(prev); } finally { CAP = capacity; }
+          } else move(el);
+        } else if (el.tagName === "FIGURE") {
+          move(el);
+          if (!fits(box(el).bottom)) refuseFigure(el);
         } else if (b.bottom - b.top <= CAP && move(el) && fits(box(el).bottom)) {
           continue;
-        } else if (el.children.length) {
-          // Too tall to move whole: break inside it. Blocks standing side by side (a
-          // flex row: contour blocks, rough and finish stages) stack first, so the walk
-          // meets them one below another, each measured from where the last one ends.
+        } else if (el.children.length
+            && !el.matches("p, li, .page-context, .stop, .caution, .unverified")) {
           const s = getComputedStyle(el);
           if (s.display.endsWith("flex") && !s.flexDirection.startsWith("column")) {
             el.setAttribute(STACKED, "");
           }
           walk(el);
         } else {
-          // One unbreakable block taller than a page: the browser splits it.
-          const c = box(el), over = c.bottom - pageTop;
-          pages += Math.floor(over / CAP);
-          pageTop = c.bottom - (over % CAP);
+          move(el);
+          let current = el;
+          while (!fits(box(current).bottom)) {
+            const rest = fragment(current);
+            if (!rest) throw new Error(
+              "An over-page text block could not be continued without losing content."
+            );
+            breakAt(rest);
+            current = rest;
+          }
         }
       }
     }
     walk(section);
     section.querySelectorAll(".cont-head").forEach((head) => {
-      head.textContent += " of " + pages;
+      head.querySelector(".cont-page-total").textContent = String(pages);
     });
+    section.dataset.pages = pages;
     return pages;
   }
   function reset() {
     document.querySelectorAll(".blank-side, [" + ADDED + "]").forEach((el) => el.remove());
-    document.querySelectorAll("[" + STACKED + "]").forEach((el) => el.removeAttribute(STACKED));
-    // Re-join split tables, last piece first.
-    [...document.querySelectorAll("table[" + SPLIT + "]")].reverse().forEach((rest) => {
-      rest.previousElementSibling.append(...[...rest.tBodies]);
-      rest.remove();
-    });
+    // Restore the source DOM, not a second, partly split pagination layout. This also
+    // restores text fragments, stacked blocks and authored list numbering before print.
+    for (const [section, original] of originals) {
+      section.replaceChildren(...[...original.childNodes].map((node) => node.cloneNode(true)));
+      delete section.dataset.pages;
+    }
   }
   function run() {
-    const body = document.body, saved = body.getAttribute("style");
+    const body = document.body, root = document.documentElement, saved = body.getAttribute("style");
+    for (const section of document.querySelectorAll("section.page[data-sheet]")) {
+      if (!originals.has(section)) originals.set(section, section.cloneNode(true));
+    }
     try {
       reset();
-      // The script heads every page itself: the no-script repeated op heading goes.
-      document.documentElement.classList.add("paged");
-      // Contour blocks go in rows of three so each row is one measurable block; a wide
-      // block (a lathe profile) takes a row of its own.
-      document.querySelectorAll(".contours:not([data-rows])").forEach((c) => {
-        c.setAttribute("data-rows", "");
-        c.style.columns = "auto";
-        let row = null;
-        for (const block of [...c.children]) {
-          const wide = block.classList.contains("wide");
-          if (!row || wide || row.children.length === 3 || row.classList.contains("solo")) {
-            row = document.createElement("div");
-            row.className = wide ? "contour-row solo" : "contour-row";
-            c.append(row);
-          }
-          row.append(block);
-        }
-      });
-      // Measure at the printed width whatever the window size.
-      body.style.cssText = "max-width:none;width:7.7in;margin:0";
-      document.querySelectorAll(".contour-row").forEach((row) => {
-        row.classList.toggle("tall", row.getBoundingClientRect().height > CAP);
+      delete root.dataset.paginationError;
+      root.classList.add("paged", "print-measuring");
+      body.style.cssText = "max-width:none;width:var(--page-content-width);margin:0;padding:0";
+      const measure = document.createElement("div");
+      measure.style.cssText = "position:absolute;visibility:hidden;pointer-events:none;"
+        + "width:var(--page-content-width);height:var(--page-content-height)";
+      body.append(measure);
+      CAP = measure.getBoundingClientRect().height
+        - parseFloat(getComputedStyle(root).getPropertyValue("--page-rounding"));
+      root.dataset.pageCapacity = CAP;
+      root.dataset.printWidth = measure.getBoundingClientRect().width;
+      measure.remove();
+      prepareLocators();
+      document.querySelectorAll("ol").forEach((list) => {
+        [...list.children].filter((item) => item.tagName === "LI").forEach((item, index) => {
+          item.value = list.start + index;
+        });
       });
       for (const section of [...document.querySelectorAll("section.page[data-sheet]")]) {
         if (paginate(section) % 2 === 0) continue;
         const blank = document.createElement("section");
         blank.className = "page blank-side";
-        blank.textContent =
-          "This side intentionally blank \\u2014 " + section.getAttribute("data-sheet") + " back";
+        blank.setAttribute("aria-hidden", "true");
         section.after(blank);
       }
+      finishLocators();
     } catch (error) {
       reset();
-      document.documentElement.classList.remove("paged");
+      root.classList.remove("paged");
+      root.dataset.paginationError = error.message;
+      console.error("Traveler print pagination:", error);
+      const warning = document.createElement("p");
+      warning.className = "caution";
+      warning.setAttribute(ADDED, "");
+      warning.textContent = "PRINT LAYOUT ERROR — " + error.message;
+      body.prepend(warning);
     } finally {
+      locatorPass = null;
+      root.classList.remove("print-measuring");
       if (saved === null) body.removeAttribute("style");
       else body.setAttribute("style", saved);
     }
@@ -426,6 +1742,18 @@ _STOCK_BOX_TOL_MM = 1e-3
 # auto-sized columns would squeeze a move number to one digit a line.
 _NUMBER = re.compile(r"[-−+]?\d+\.\d+")
 _WHOLE = re.compile(r"\d+")
+_READING_VALUE = r"[-−+±]?(?:(?:\d+\s+)?\d+/\d+|\d+(?:\.\d+)?|\.\d+)"
+_READING_UNITS = r"(?:\s*(?:(?:mm|in)(?:/(?:rev|min))?|rpm|sfm|°)(?!\w))?"
+_READING = re.compile(
+    rf"(?<![\w.])[-−+][XYZ] (?:{_READING_VALUE}{_READING_UNITS}|\?)(?!\w|\.\d)"
+    rf"|(?<![\w.])(?:M\d+(?:\.\d+)?(?:\s*[x×]\s*\d+(?:\.\d+)?)?"
+    rf"|#\d+-\d+|\d+/\d+-\d+)"
+    rf"(?:\s*[x×]\s*{_READING_VALUE}{_READING_UNITS})?(?!\w|\.\d)"
+    rf"|(?<![\w.])(?:[XYZØRD]\s*(?:[→=]\s*)?)?{_READING_VALUE}"
+    rf"(?:\s*(?:[-–…±×]|\.\.\.)\s*(?:[ØRD]\s*)?{_READING_VALUE})*"
+    rf"{_READING_UNITS}(?!\w|\.\d)"
+    rf"|(?<![\d.])[-−+±]?(?:\d+\.\d+|\.\d+){_READING_UNITS}(?!\w|\.\d)"
+)
 # The job page's abbreviation key: (printed form, meaning); a key prints only when used.
 _ABBREVIATIONS = (
     (r"\bT\d+\b", "T# = tool number in that setup's TOOLS table."),
@@ -962,6 +2290,10 @@ class _Box(str):
     """A table-cell line printed as a bold boxed warning."""
 
 
+class _FixtureFeature(str):
+    """One unchanged fixture-feature identity and its complete location/depth clause."""
+
+
 # Every lathe X reading is a radius or a diameter: unread, each number is half or twice
 # the cut on the other display, so none prints.
 _X_DISPLAY_STOP = "STOP: X display not set (dro.radius_mode): X reads radius or diameter"
@@ -972,54 +2304,245 @@ class _Plain(str):
 
 
 class _Note(str):
-    """An op's own note, printed on its own line directly under the op's row."""
+    """An original note with repeatable identity and an optional requirement-owned sketch."""
+
+    def __new__(cls, text, context=None, sketch=""):
+        note = super().__new__(cls, text)
+        note.context = context
+        note.sketch = sketch
+        return note
+
+
+@dataclass(frozen=True)
+class _Inspection:
+    """One authored requirement and its associated result, never an acceptance mark."""
+
+    text: str
+    features: tuple[str, ...]
+    requirement: str
+    unit: str = ""
+    qualitative: bool = False
+    recording_at: str = ""
 
 
 class _Row(tuple):
     """Table cells plus full-width warnings printed beneath the row."""
 
-    def __new__(cls, cells, warnings=()):
+    def __new__(cls, cells, warnings=(), optional_observations=False):
         row = super().__new__(cls, cells)
         row.warnings = tuple(dict.fromkeys(warnings))
+        row.optional_observations = optional_observations
         return row
+
+
+def _numeric_html(text):
+    """Escape source text without splitting a signed numeric value from its units."""
+    text = str(text)
+    parts, end = [], 0
+    for reading in _READING.finditer(text):
+        parts.append(escape(text[end : reading.start()]))
+        parts.append(f'<span class="reading">{escape(reading.group())}</span>')
+        end = reading.end()
+    parts.append(escape(text[end:]))
+    return "".join(parts)
 
 
 def _p(text, css=""):
     attribute = f' class="{css}"' if css else ""
-    return f"<p{attribute}>{escape(str(text))}</p>"
+    return f"<p{attribute}>{_numeric_html(text)}</p>"
 
 
 def _cell_line(line):
     if isinstance(line, _Box):
-        return f'<span class="box">{escape(str(line))}</span>'
-    return escape(str(line))
+        return f'<span class="box">{_numeric_html(line)}</span>'
+    if isinstance(line, _FixtureFeature):
+        return f'<span class="fixture-feature">{_numeric_html(line)}</span>'
+    return _numeric_html(line)
 
 
-def _table(headings, rows, css="", widths=None, continued=None, repeat=None, strong=()):
-    """``continued`` is a heading row repeated with the column headings on every page the
-    table runs onto; on its first page the section heading is drawn over it. ``repeat``
-    is a heading row printed only on the pages the table continues onto (its block's own
-    heading names the first). ``strong`` columns are the ones the operator reads from;
-    a cell holding one number never wraps."""
+def _writing_field(label, css="field", *, punctuation=""):
+    caption = f'<span class="field-label">{_numeric_html(label)}</span>' if label else ""
+    if punctuation:
+        caption = f'<span class="field-caption">{caption}{_numeric_html(punctuation)}</span>'
+    return (
+        f'<span class="{css}">{caption}'
+        '<span class="writing-blank" aria-hidden="true"></span></span>'
+    )
+
+
+def _ledger_text(value):
+    lines = value if isinstance(value, (list, tuple)) else [value]
+    return "<br>".join(
+        _cell_line(line) if isinstance(line, _Box) else _fields(line) for line in lines
+    )
+
+
+def _warning_line(warning):
+    if isinstance(warning, _Note):
+        return f'<div class="op-note">{_fields(warning)}</div>'
+    if isinstance(warning, _Plain):
+        return f'<span class="see">{_numeric_html(warning)}</span>'
+    return _cell_line(_Box(warning))
+
+
+def _action_body(value):
+    lines = value if isinstance(value, (list, tuple)) else [value]
+    parts = []
+    for line in lines:
+        if isinstance(line, _Box):
+            parts.append(_cell_line(line))
+            continue
+        text, start = str(line), 0
+        fields = list(_FIELD.finditer(text))
+        for boundary in re.finditer(r"[.!?;]\s+(?=[A-Z])", text):
+            end = boundary.end()
+            if any(field.start() <= boundary.start() < field.end() for field in fields):
+                continue
+            parts.append(f"<p>{_fields(text[start:end])}</p>")
+            start = end
+        if start < len(text):
+            parts.append(f"<p>{_fields(text[start:])}</p>")
+    return "".join(parts)
+
+
+def _ledger_row(row, headings):
+    finishing = len(row) == 5
+    if finishing:
+        op, feature, consumable, action, checks = row
+        fields = ("feature", "consumable")
+        labels = headings[1:3]
+        values = (feature, consumable)
+    else:
+        op, action = row[:2]
+        checks = row[8]
+        fields = ("feature", "tool", "speed", "feed", "target", "direction")
+        labels, values = headings[2:8], row[2:8]
+    result = [
+        f'<tbody class="operation" data-op="{escape(op)}"><tr class="operation-main"><td>',
+        '<div class="op-head">',
+        '<span class="performed-mark" role="img" '
+        f'aria-label="Operation {escape(op)} performed mark"></span>',
+        f'<h3><span class="op-number">{"Step" if finishing else "Op"} {escape(op)}</span>'
+        + (
+            "</h3></div>" + f'<div class="op-action">{_action_body(action)}</div>'
+            if finishing
+            else f' — <span class="op-action">{_ledger_text(action)}</span></h3></div>'
+        ),
+        '<dl class="op-details">',
+    ]
+    for name, heading, value in zip(fields, labels, values, strict=True):
+        result.append(
+            f'<div class="op-{name}"><dt>{escape(heading)}</dt><dd>{_ledger_text(value)}</dd></div>'
+        )
+    result.append("</dl></td></tr>")
+    for warning in row.warnings:
+        result.append(f'<tr class="warn"><td>{_warning_line(warning)}</td></tr>')
+    for check in checks:
+        if not isinstance(check, _Inspection):
+            result.append(f'<tr class="inspection-message"><td>{_ledger_text(check)}</td></tr>')
+            continue
+        features = ", ".join(check.features)
+        label = "Readings / observations"
+        if check.unit and not check.qualitative:
+            label += f" ({check.unit})"
+        label += " — feature / location when applicable"
+        result.append(
+            f'<tr class="inspection-record" data-feature="{escape(features)}" '
+            f'data-features="{escape(json.dumps(check.features))}" '
+            f'data-requirement="{escape(check.requirement)}" '
+            f'data-record-title="{escape(features + " " + check.requirement)}"><td>'
+            '<div class="inspection-layout"><div class="inspection-requirement">'
+            + _p(check.text)
+            + "</div>"
+            + (
+                _p(f"Record in {check.recording_at}.")
+                if check.recording_at
+                else _writing_field(label, "result-field")
+            )
+            + "</div></td></tr>"
+        )
+    if (
+        row.optional_observations
+        and not any(isinstance(check, _Inspection) for check in checks)
+        and not _FIELD.search(str(action))
+        and not any(_FIELD.search(str(warning)) for warning in row.warnings)
+    ):
+        result.append(
+            '<tr class="process-observations" data-process="coating"><td>'
+            + _writing_field("Additional writing space (optional)", "result-field")
+            + "</td></tr>"
+        )
+    result.append("</tbody>")
+    return "".join(result)
+
+
+def _table(
+    headings,
+    rows,
+    css="",
+    widths=None,
+    continued=None,
+    repeat=None,
+    strong=(),
+    context=None,
+    repeat_locator=None,
+    repeat_owner=None,
+):
+    """Repeat the table's context on continuations. Each body is one keep-together group;
+    operations use full-width ledger rows instead of compressed columns. ``strong``
+    columns are the ones the operator reads from; a cell holding one number never wraps."""
+    ledger = css == "operations"
+    count = 1 if ledger else len(headings)
     columns = ""
-    if widths:
+    if widths and not ledger:
         columns = (
             "<colgroup>" + "".join(f'<col style="width:{w}%">' for w in widths) + "</colgroup>"
         )
     attribute = f' class="{css}"' if css else ""
-    result = [f"<table{attribute}>", columns, "<thead>"]
+    result = [_p(context, "table-intro")] if context else []
+    result.extend((f"<table{attribute}>", columns, "<thead>"))
     for kind, title in (("continued", continued), ("repeat", repeat)):
         if title:
-            result.append(
-                f'<tr class="{kind}"><th colspan="{len(headings)}">{escape(title)}</th></tr>'
+            locator = (
+                '<span data-continuation-locator="progress">'
+                + _numeric_html(repeat_locator)
+                + "</span>"
+                if kind == "repeat" and repeat_locator
+                else ""
             )
-    result.append("<tr>")
-    result.extend(
-        f'<th class="read">{escape(h)}</th>' if i in strong else f"<th>{escape(h)}</th>"
-        for i, h in enumerate(headings)
-    )
-    result.append("</tr></thead>")
+            rendered_title = _numeric_html(title)
+            if kind == "repeat" and repeat_owner:
+                rendered_title = (
+                    f'<span data-title-repeat="{escape(repeat_owner)}">'
+                    + rendered_title
+                    + "</span>"
+                )
+            result.append(
+                f'<tr class="{kind}"><th colspan="{count}">{rendered_title}'
+                + (" · " + locator if locator else "")
+                + "</th></tr>"
+            )
+    if context:
+        result.append(
+            f'<tr class="table-context"><th colspan="{count}">{_numeric_html(context)}</th></tr>'
+        )
+    if ledger:
+        result.append(
+            "<tr><th>Performed mark: operation performed only — "
+            "not inspection acceptance or clearance to proceed.</th></tr>"
+        )
+    else:
+        result.append("<tr>")
+        result.extend(
+            f'<th class="read">{escape(h)}</th>' if i in strong else f"<th>{escape(h)}</th>"
+            for i, h in enumerate(headings)
+        )
+        result.append("</tr>")
+    result.append("</thead>")
     for row in rows:
+        if ledger:
+            result.append(_ledger_row(row, headings))
+            continue
         # A row may carry full-width warning lines printed directly beneath it.
         warnings = list(row.warnings) if isinstance(row, _Row) else []
         result.append('<tbody class="op"><tr>' if warnings else "<tbody><tr>")
@@ -1030,25 +2553,22 @@ def _table(headings, rows, css="", widths=None, continued=None, repeat=None, str
                 if parts and not isinstance(line, _Box):
                     parts.append("<br>")
                 parts.append(_cell_line(line))
+            if css == "readings" and index == 2:
+                parts = [_writing_field(str(cell))]
             names = ["read"] if index in strong else []
             if isinstance(cell, str) and (
                 _NUMBER.fullmatch(cell) or (css == "coords" and _WHOLE.fullmatch(cell))
             ):
                 names.append("num")
-            attribute = f' class="{" ".join(names)}"' if names else ""
-            result.append(f"<td{attribute}>" + "".join(parts) + "</td>")
+            attributes = f' class="{" ".join(names)}"' if names else ""
+            if css in ("fixture", "blank-check"):
+                attributes += f' data-label="{escape(str(headings[index]))}"'
+            result.append(f"<td{attributes}>" + "".join(parts) + "</td>")
         result.append("</tr>")
         if warnings:
             result.append(
                 f'<tr class="warn"><td colspan="{len(headings)}">'
-                + "".join(
-                    f'<div class="op-note">{escape(w)}</div>'
-                    if isinstance(w, _Note)
-                    else f'<span class="see">{escape(w)}</span>'
-                    if isinstance(w, _Plain)
-                    else _cell_line(_Box(w))
-                    for w in warnings
-                )
+                + "".join(_warning_line(w) for w in warnings)
                 + "</td></tr>"
             )
         result.append("</tbody>")
@@ -1076,72 +2596,122 @@ class _Steps(tuple):
     sketch = ""
 
 
-class _Note(str):
-    """An inspection note authored as one text, printed with its set-up ``sketch``."""
-
-    sketch = ""
-
-
-# A step's ``{name}`` recording field: printed as a labelled blank to write the reading in.
-_FIELD = re.compile(r"\{([^{}]+)\}")
+# Discovery is brace-only: underscore prompts never become named worksheet readings.
+_NAMED_FIELD = re.compile(r"\{([^{}]+)\}")
+# Presentation also gives standalone authored underscore prompts real pen room.
+_FIELD = re.compile(r"\{([^{}]+)\}|(?<!\w)_{3,}(?!\w)")
 # A step starting with this prints apart from the numbered steps, as the calculation line.
 CALCULATION = "Calculate:"
 
 
-def _fields(text):
-    return _FIELD.sub(
-        lambda m: f'<span class="field">{m.group(1)} ____________</span>', escape(str(text))
-    )
+def _fields(text, *, prose=True):
+    text = str(text)
+    parts, end = [], 0
+    for field in _FIELD.finditer(text):
+        prefix = text[end : field.start()]
+        # A following decimal stays with its numeric token, not the field caption.
+        following = re.match(r"[.,;:!?]+(?![\d.,;:!?])", text[field.end() :])
+        punctuation = following.group() if following else ""
+        if field[1] is not None:
+            css = "field prose-field" if prose else "field"
+            parts.extend(
+                (_numeric_html(prefix), _writing_field(field[1], css, punctuation=punctuation))
+            )
+        else:
+            # Keep the authored sentence/calculation caption with its sole box.
+            boundaries = list(re.finditer(r"[.!?;]\s+", prefix))
+            start = boundaries[-1].end() if boundaries else 0
+            parts.extend(
+                (
+                    _numeric_html(prefix[:start]),
+                    _writing_field(prefix[start:], "authored-blank", punctuation=punctuation),
+                )
+            )
+        end = field.end() + len(punctuation)
+    parts.append(_numeric_html(text[end:]))
+    return "".join(parts)
 
 
 def _readings(steps):
     """The ``(step number, field)`` readings a stepwise procedure's steps record."""
-    return [(n, m.group(1)) for n, step in enumerate(steps, 1) for m in _FIELD.finditer(step)]
+    return [(n, m.group(1)) for n, step in enumerate(steps, 1) for m in _NAMED_FIELD.finditer(step)]
 
 
 def _worksheet(item):
-    """A stepwise procedure that records readings, laid out as its own worksheet (the sheet
-    heading names it): the numbered steps name each reading where it is taken, the
-    READINGS table has a line to write each in (with the step that takes it), and the
-    calculation lines work them."""
-    _, steps, calculations = item
+    """Keep source step references, one value field per named reading, and authored calculations."""
+    head, steps, calculations = item
+    unit_sentence = re.compile(
+        r"\bWrite (?:every|each|all) readings?\b(?:[^.!?]|\.(?=\d))*[.!?]?", re.I
+    )
+    units = list(
+        dict.fromkeys(
+            match.group() for step in steps for match in unit_sentence.finditer(str(step))
+        )
+    )
+    metadata = (
+        f' data-worksheet-title="{escape(_numeric_html(head.rstrip(":")))}"'
+        f' data-reading-context="{escape(json.dumps([_numeric_html(unit) for unit in units]))}"'
+    )
 
     def named(text):
-        return _FIELD.sub(lambda m: f'<b class="reading">[{m.group(1)}]</b>', escape(str(text)))
+        text = str(text)
+        parts, end = [], 0
+        for field in _NAMED_FIELD.finditer(text):
+            # Named readings refer to their sole table-owned box; all other
+            # source segments still receive the existing underscore pen space.
+            parts.append(_fields(text[end : field.start()]))
+            parts.append(f'<b class="reading">[{escape(field[1])}]</b>')
+            end = field.end()
+        parts.append(_fields(text[end:]))
+        return "".join(parts)
 
     return (
-        _p("Take each reading at its step and write it in the READINGS table.")
+        f'<div class="worksheet"{metadata}>'
+        + _p("Take each reading at its step and write it in the READINGS table.")
         + item.sketch
         + '<ol class="steps">'
         + "".join(f"<li>{named(step)}</li>" for step in steps)
         + "</ol><h2>READINGS</h2>"
         + _table(
             ["step", "reading", "value"],
-            [(str(n), f"[{name}]", "") for n, name in _readings(steps)],
+            [(str(n), f"[{name}]", name) for n, name in _readings(steps)],
             "readings",
             widths=[10, 30, 60],
         )
-        + "".join(f'<p class="calc">{_fields(line)}</p>' for line in calculations)
+        + "".join(f'<p class="calc">{_fields(line, prose=False)}</p>' for line in calculations)
+        + "</div>"
     )
 
 
 def _item(item):
     if not isinstance(item, _Steps):
-        return escape(str(item)) + getattr(item, "sketch", "")
+        context = getattr(item, "context", None)
+        if context:
+            return (
+                f'<span class="page-context">{_numeric_html(context)}</span>'
+                + _fields(str(item)[len(context) :])
+                + getattr(item, "sketch", "")
+            )
+        return _fields(item) + getattr(item, "sketch", "")
     head, steps, calculations = item
     return (
-        escape(head)
+        f'<span class="page-context">{_numeric_html(head)}</span>'
         + item.sketch
         + '<ol class="steps">'
         + "".join(f"<li>{_fields(step)}</li>" for step in steps)
         + "</ol>"
-        + "".join(f'<p class="calc">{_fields(line)}</p>' for line in calculations)
+        + "".join(f'<p class="calc">{_fields(line, prose=False)}</p>' for line in calculations)
     )
 
 
 def _list(items, ordered=True):
     tag = "ol" if ordered else "ul"
-    return f"<{tag}>" + "".join(f"<li>{_item(i)}</li>" for i in items) + f"</{tag}>"
+    rendered = []
+    for item in items:
+        context = item[0] if isinstance(item, _Steps) else getattr(item, "context", None)
+        attribute = f' data-page-context="{escape(context)}"' if context else ""
+        rendered.append(f"<li{attribute}>{_item(item)}</li>")
+    return f"<{tag}>" + "".join(rendered) + f"</{tag}>"
 
 
 def _box(css, heading, lines):
@@ -1708,6 +3278,7 @@ class _Traveler:
         return html
 
     # -------------------------------------------------------------- holding
+
     def hold(self, setup):
         hold = _mapping(setup.get("hold"))
         lathe = self.lathe(setup)
@@ -1837,7 +3408,10 @@ class _Traveler:
         below = (
             _table([name for name, _ in facts], [[value for _, value in facts]]) if facts else ""
         )
-        return "<h2>HOLD</h2>" + _list(steps), below + self.indexing(setup)
+        return (
+            "<h2>HOLD</h2>" + _list(steps),
+            below + self.indexing(setup),
+        )
 
     def align_step(self, setup, hold):
         """The step that squares a vise's fixed jaw, or an angle plate's locating face, to
@@ -1902,7 +3476,7 @@ class _Traveler:
             )
             if gauge not in (None, "unknown"):
                 line += " with the " + self.short_reference(gauge, "gauges")
-            steps.append(line + "; write it down for the DRO table.")
+            steps.append(line + "; write it down for the DRO table. " + "{" + axis.upper() + " M}")
         return steps
 
     def blank_checks(self, setup):
@@ -1942,7 +3516,12 @@ class _Traveler:
                 f"Process limits for the squared blank, not drawing limits: SETUP {receiver} "
                 "locates on these faces. File the edge burrs off and wipe the blank first."
             )
-            + _table(["check", "limit and method", "gauge"], rows, widths=[10, 65, 25])
+            + _table(
+                ["check", "limit and method", "gauge"],
+                rows,
+                css="blank-check",
+                widths=[14, 61, 25],
+            )
         )
 
     def jaw_buttons(self, reference, pointer=""):
@@ -2104,13 +3683,12 @@ class _Traveler:
         return self.shop_made_homes.setdefault((key, repr(uses[key][1])), setup["id"])
 
     def shop_made_pointer(self, setup, reference, uses):
-        """`` (shop-made: …)`` naming the sheet with the item's table; empty otherwise."""
+        """`` (shop-made: …)`` naming the setup with the item's table; empty otherwise."""
         key = self.holding_identity(setup, reference)
         if not isinstance(reference, str) or key not in uses:
             return ""
         home = self.shop_made_home(setup, key, uses)
-        where = "sheet 2" if home == setup["id"] else f"Setup {home} sheet 2"
-        return f" (shop-made: SHOP-MADE FIXTURE table, {where})"
+        return f" (shop-made: SHOP-MADE FIXTURE table, Setup {home})"
 
     @functools.cached_property
     def mill_grid(self):
@@ -2571,7 +4149,7 @@ class _Traveler:
                     for void, name in voids
                     for tag, axes in placed
                 )
-                positions.append(f"with {count} × {what}: {spots}")
+                positions.append(_FixtureFeature(f"with {count} × {what}: {spots}"))
             rows.append(
                 [
                     component,
@@ -2652,7 +4230,9 @@ class _Traveler:
                 _table(
                     [headings[c] for c in keep],
                     [[row[c] for c in keep] for row in rows],
+                    css="fixture",
                     widths=widths,
+                    repeat=title + " (continued)",
                 )
                 if rows
                 else ""
@@ -3027,10 +4607,13 @@ class _Traveler:
         html = "<h2>CLEARANCE — mill</h2>" + "".join(_p(line) for line in lines)
         if rows:
             html += _table(
-                ["op", "tool", "closest obstacle", "clearance mm", "action"],
-                rows,
+                ["op", "tool", "closest obstacle", "clearance mm"],
+                [
+                    _Row(row[:4], [_Plain("action: " + row[4])]) if row[4] else row[:4]
+                    for row in rows
+                ],
                 css="clearance",
-                widths=[9, 6, 45, 11, 29],
+                widths=[12, 12, 55, 21],
             )
         # One block: the pagination moves the whole section rather than leave its travel
         # lines on one page and its table on the next.
@@ -3654,7 +5237,7 @@ class _Traveler:
         # Executed order: the part is indicated true (or aligned) before any tool touches it.
         transfer = _mapping(authored.get("transfer"))
         if transfer:
-            pieces.append(_p(self.transfer_line(setup, transfer) + "."))
+            pieces.append(_p(self.transfer_line(setup, transfer) + ".", "zero-transfer"))
         axes = numbers.get("axes", {})
         # Each toolpost tool is set on centre (a blade also squared) before its first
         # touch-off in the setup: the zero's tools before the zero, the rest before theirs.
@@ -3668,6 +5251,7 @@ class _Traveler:
                 pieces.append(_p(self.tool_setting(settings_at[("zero", axis)], tools)))
         top_feature = setup.get("stock_state", {}).get("top_feature")
         rows = []
+        measurements = []
         for axis in ("x", "y", "z"):
             if axis not in authored and axis not in axes:
                 continue
@@ -3740,6 +5324,15 @@ class _Traveler:
                 contact.append("M measured before clamping (HOLD)")
             elif touch.get("measure"):
                 contact.append("M = " + self.bench(touch["measure"]))
+            if method == "measure_then_set" and setup.get("id") not in (None, "", "unknown"):
+                owner = f"{setup['id']} {axis.upper()} M"
+                if before_hold:
+                    contact.append(f"{owner}: use the {axis.upper()} M field in HOLD")
+                else:
+                    unit = f" ({self.units})" if self.units in ("mm", "in") else ""
+                    measurements.append(
+                        '<p class="setup-measurement">' + _writing_field(owner + unit) + "</p>"
+                    )
             expected = self.reading(readings["check_reading"], computed.get("check_expression"))
             mirrored = self.reading(
                 readings["mirrored_reading"], computed.get("mirrored_expression")
@@ -3767,9 +5360,11 @@ class _Traveler:
                     "if reversed",
                 ],
                 rows,
-                widths=[5, 45, 13, 11, 13, 13],
+                css="zero",
+                widths=[9, 38, 13, 14, 13, 13],
             )
         )
+        pieces.extend(measurements)
         if not lathe and any(row[0] in ("X", "Y") for row in rows):
             # From a side pickup, +X / +Y runs the finder over the work at pickup height.
             # Its line leads in the steps: the pagination keeps it with them.
@@ -4285,13 +5880,8 @@ class _Traveler:
                         ),
                     )
                 )
-            table = _table(
-                ["feature", "drawing Ø limits", heading, "cut from Z", "cut to Z"],
-                rows,
-                widths=[32, 17, 17, 17, 17],
-            )
-            if prefix is None:
-                table += _p(_X_DISPLAY_STOP + ".", "stop")
+            headings = ["feature", "drawing Ø limits", heading, "cut from Z", "cut to Z"]
+            widths = [32, 17, 17, 17, 17]
             note = (
                 {"diameter": "X reads diameter. ", "radius": "X reads radius. "}.get(display, "")
                 + "Z values are where this setup's cuts on each surface start "
@@ -4311,12 +5901,14 @@ class _Traveler:
                 )
                 for (feature, c) in grouped
             ]
-            table = _table(
-                ["feature", "reference point", "X", "Y", "Z"], rows, widths=[26, 38, 12, 12, 12]
-            )
+            headings = ["feature", "reference point", "X", "Y", "Z"]
+            widths = [26, 38, 12, 12, 12]
             note = "The op table gives the tool targets."
             note += "".join(f" {text}" for text in dict.fromkeys(filter(None, aims)))
-        return f"<h2>FEATURE MAP — {escape(self.zero_name(setup))}</h2>" + table + _p(note)
+        table = _table(headings, rows, css="feature-map", widths=widths, context=note)
+        if lathe and prefix is None:
+            table += _p(_X_DISPLAY_STOP + ".", "stop")
+        return f"<h2>FEATURE MAP — {escape(self.zero_name(setup))}</h2>" + table
 
     def reference_point(self, setup, feature, z):
         """What a feature-map row's X / Y / Z stand on, from the feature's own kind: an arc
@@ -4438,7 +6030,7 @@ class _Traveler:
             html = "<h2>TOOLS FOR THIS SETUP — pull before starting</h2>" + _table(
                 ["T", "tool", "insert / size / material", "holder / station", "ops"],
                 [(t, n, d, h, ", ".join(ops)) for t, n, d, h, ops in rows],
-                widths=[5, 22, 35, 26, 12],
+                widths=[9, 21, 33, 25, 12],
             )
         return numbers, by_tool, html
 
@@ -4771,7 +6363,7 @@ class _Traveler:
         ``Calculate:`` steps apart as the calculation lines; a string prints as before
         (:meth:`steps`)."""
         if not isinstance(procedure, list):
-            return f"{head}: {self.steps(procedure)}"
+            return _Note(f"{head}: {self.steps(procedure)}", head + ":")
         steps = [self.bench(step) for step in procedure]
         return _Steps(
             (
@@ -4824,7 +6416,9 @@ class _Traveler:
                     for feature in owners
                 ]
                 target = (
-                    bands[0]
+                    "?"
+                    if not bands
+                    else bands[0]
                     if len(set(bands)) == 1
                     else " / ".join(
                         f"{self.feature_name(feature)} {band}"
@@ -4848,7 +6442,7 @@ class _Traveler:
             line = f"{'? ' if unresolved else ''}{name} {target}: {gauge}"
             if pair == "unknown":
                 line += ", GO / NO-GO sizes not set"
-            elif pair:
+            elif pair and owners:
                 line += self.go_no_go(pair, owners[0], requirement, reference)
             datums = [
                 self.features.get(feature, {}).get("position_datums")
@@ -4859,15 +6453,70 @@ class _Traveler:
             if datums:
                 line += " to " + "|".join(map(_text, datums))
             method = methods.get(requirement)
+            recording_at = ""
             if method and method != "unknown":
                 head = f"{sid} op {op['op']} {name}"
                 item = self.note(head, method)
                 sketch = self.inspection_sketch(setup, op, requirement)
                 if sketch:
-                    item = item if isinstance(item, _Steps) else _Note(item)
                     item.sketch = sketch
-                line += f" [{place(item)}]"
-            rows.append(line)
+                destination = place(item)
+                line += f" [{destination}]"
+                has_fields = (
+                    any(_FIELD.search(step) for step in item[1])
+                    or any(_FIELD.search(step) for step in item[2])
+                    if isinstance(item, _Steps)
+                    else _FIELD.search(str(item))
+                )
+                if has_fields:
+                    recording_at = destination
+            if requirement in missing or requirement == "unknown" or not owners:
+                rows.append(line)
+                continue
+            # Equal bands retain the original read-once grouping. Distinct authored
+            # bands get distinct result associations, without copying method obligations.
+            groups = (
+                [(owners, target)]
+                if len(set(bands)) == 1
+                else [([feature], band) for feature, band in zip(owners, bands, strict=True)]
+            )
+            for group, band in groups:
+                values = [self.features.get(feature, {}).get(requirement) for feature in group]
+                known = all(
+                    value is not None
+                    and value != []
+                    and all(
+                        _known(item)
+                        or isinstance(item, str)
+                        and item.strip() not in ("", "unknown")
+                        for item in (value if isinstance(value, (list, tuple)) else [value])
+                    )
+                    for value in values
+                )
+                text = ", ".join(self.feature_name(feature) for feature in group)
+                text += " — " + line.replace(target, band, 1)
+                if not known:
+                    rows.append(text)
+                    continue
+                unit = ""
+                if requirement.endswith("_deg"):
+                    unit = "°"
+                elif requirement in TOLERANCE_REQUIREMENTS - {"finish_ra", "land_angle_deg"}:
+                    unit = self.units if self.units in ("mm", "in") else ""
+                rows.append(
+                    _Inspection(
+                        text,
+                        tuple(group),
+                        requirement,
+                        unit,
+                        qualitative=bool(pair)
+                        and pair != "unknown"
+                        or any(isinstance(value, str) for value in values),
+                        # A method owns only its exact read-once requirement group;
+                        # unrelated or separately banded results keep their own box.
+                        recording_at=recording_at if len(groups) == 1 else "",
+                    )
+                )
         for hold in op.get("process_holds", []):
             rows.append(self.process_hold(hold))
         note = op.get("inspection_note")
@@ -4880,21 +6529,67 @@ class _Traveler:
         return rows or ["—"]
 
     def inspection_sketch(self, setup, op, requirement):
-        """The figure of the set-up sketches an inspect op declares for ``requirement``
-        (``inspection_views``), drawn by the kernel; a NOT SHOWN line when declared but not
-        drawn; else empty."""
+        """One indivisible original-PNG window per complete authored inspection view."""
         if requirement not in _mapping(op.get("inspection_views")):
             return ""
         render = _mapping(self.report.get("renders", {}).get(setup["id"]))
         sketch = _mapping(render.get("inspections")).get(f"{op['op']}:{requirement}")
         if not sketch:
             return _p("NOT SHOWN: the set-up sketches for this check could not be drawn.")
-        alt = f"Setup {setup['id']} op {op['op']} {requirement} set-up sketches"
-        return (
-            '<figure class="fixture-render inspection-sketch">'
-            f'<img src="{escape(sketch["path"], quote=True)}" alt="{escape(alt, quote=True)}">'
-            "</figure>"
-        )
+        scene = _mapping(sketch.get("scene"))
+        width, height = scene.get("width_px"), scene.get("height_px")
+        panels = scene.get("print_panels")
+        identity = f"Setup {setup['id']} op {op['op']} {requirement}"
+        if (
+            width != 1600
+            or type(width) is not int
+            or type(height) is not int
+            or height <= 0
+            or not isinstance(panels, list)
+            or not panels
+        ):
+            raise ValueError(f"{identity} has no complete printable inspection geometry")
+        path = escape(sketch["path"], quote=True)
+        result, next_top = [], 0
+        for ordinal, panel in enumerate(panels, start=1):
+            panel = _mapping(panel)
+            top, panel_height = panel.get("top_px"), panel.get("height_px")
+            label = panel.get("label")
+            if type(panel_height) is int and panel_height > 1792:
+                raise ValueError(
+                    f"{identity} inspection view {ordinal} is {panel_height}px high; "
+                    "a complete view must fit within 1792px"
+                )
+            if (
+                panel.get("role") != "inspection"
+                or type(panel.get("view_ordinal")) is not int
+                or panel["view_ordinal"] != ordinal
+                or not isinstance(label, str)
+                or not label.strip()
+                or type(top) is not int
+                or top != next_top
+                or type(panel_height) is not int
+                or not 0 < panel_height <= 1792
+                or top + panel_height > height
+            ):
+                raise ValueError(f"{identity} inspection panels omit or repeat complete views")
+            next_top += panel_height
+            caption = f"{identity} · view {ordinal} of {len(panels)} — {label}"
+            result.append(
+                f'<figure class="fixture-render inspection-sketch" data-panel="{ordinal}" '
+                f'data-panel-role="inspection" data-view-ordinal="{ordinal}" '
+                f'data-panel-top="{top}" data-panel-height="{panel_height}">'
+                f"<figcaption>{escape(caption)}</figcaption>"
+                f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 {top} {width} {panel_height}" '
+                f'width="{width}" height="{panel_height}" role="img" '
+                f'aria-label="{escape(caption)}">'
+                f"<title>{escape(caption)}</title>"
+                f'<image href="{path}" x="0" y="0" width="{width}" height="{height}" '
+                'preserveAspectRatio="none"></image></svg></figure>'
+            )
+        if next_top != height:
+            raise ValueError(f"{identity} inspection panels omit image content")
+        return "".join(result)
 
     def process_hold(self, hold):
         """A shop limit inside the drawing band, printed apart from the drawing's own; a hold
@@ -5339,7 +7034,11 @@ class _Traveler:
             inspection = self.inspection(setup, op, inspection_notes, worksheets, sheets)
             if finishing:
                 cells = (_text(op["op"]), features, tool, instruction or ", ".join(action))
-                rows.append(_Row((*cells, inspection), boxes))
+                rows.append(
+                    _Row(
+                        (*cells, inspection), boxes, optional_observations=op.get("do") == "coating"
+                    )
+                )
                 continue
             rows.append(
                 _Row(
@@ -5355,6 +7054,7 @@ class _Traveler:
                         inspection,
                     ),
                     boxes,
+                    optional_observations=op.get("do") == "coating",
                 )
             )
         if finishing:
@@ -5677,7 +7377,10 @@ class _Traveler:
 
         text = get_down()
         if not several:
-            return _p(((text[:1].upper() + text[1:]) if raster else "Enter at " + text) + ".")
+            return _p(
+                ((text[:1].upper() + text[1:]) if raster else "Enter at " + text) + ".",
+                "contour-context",
+            )
         first = where(downs[0])
         if raster:
             after = f"lift to Z {o(raised)}{above}, rapid back to pass 1"
@@ -5687,7 +7390,8 @@ class _Traveler:
             after = f"raise to Z {o(raised)}{above}, move back to {first}"
         return _p(
             f"{len(depths)} depth levels, top first, at the Zs in the heading: run the whole "
-            f"path below at each. Get down {text}. Between levels, {after}."
+            f"path below at each. Get down {text}. Between levels, {after}.",
+            "contour-context",
         )
 
     def contours(self, setup, tools):
@@ -6093,7 +7797,12 @@ class _Traveler:
                 title += f" · Z {next(iter(entry['z']))}"
             if op.get("direction"):
                 title += f" · {self.direction(op['direction'])}"
-            content = f"<h3>{escape(title)}</h3>"
+            title_owner = f"contour:{op_id}"
+            content = (
+                '<h3 class="page-context">'
+                f'<span data-title-source="{escape(title_owner)}">{_numeric_html(title)}</span>'
+                "</h3>"
+            )
             note = self.level_entries(setup, op, waypoints) if op else ""
             if note:
                 content += note
@@ -6101,13 +7810,42 @@ class _Traveler:
                 # The heading lists the levels; the note says how to run them, once per op.
                 content += _p(
                     f"{len(depths)} depth levels: run the complete path below at each Z in the "
-                    "heading, in order, top level first."
+                    "heading, in order, top level first.",
+                    "contour-context",
                 )
             elif levels and levels.get("count") == "unknown":
-                content += _p("? Depth levels not computed — " + _text(levels.get("reason")) + ".")
+                content += _p(
+                    "? Depth levels not computed — " + _text(levels.get("reason")) + ".",
+                    "contour-context",
+                )
             if stepped and entry["parts"]:
                 # The whole path runs once per level: a box to tick as each level is done.
                 content += _levels(len(depths))
+            progress = (
+                stepped
+                and all(_known(z) for z in depths)
+                and setup.get("id") not in (None, "", "unknown")
+                and op.get("op") not in (None, "", "unknown")
+                and op.get("tool") not in (None, "unknown")
+                and bool(tool)
+                and any(
+                    not isinstance(description, list) and headings[:1] == ["P"] and rows
+                    for _, description, headings, rows, _ in entry["parts"]
+                )
+            )
+            progress_owner = f"{setup['id']} op {op_id} progress beside Done"
+            if progress:
+                content += (
+                    '<p class="path-progress">'
+                    + _numeric_html(
+                        f"{setup['id']} op {op_id} — Optional progress only; "
+                        "not level Done, inspection acceptance or clearance to resume: "
+                    )
+                    + _writing_field(f"{setup['id']} op {op_id} level")
+                    + " "
+                    + _writing_field(f"{setup['id']} op {op_id} last completed #")
+                    + "</p>"
+                )
             tool_missing = op.get("tool") in (None, "unknown") or not tool
             wide = self.lathe(setup)
             if tool_missing:
@@ -6149,12 +7887,18 @@ class _Traveler:
                     label = {0: "ROUGH", 1: "FINISH"}.get(rank[0]) if wide else None
                     pieces.append(
                         (f"<h4>{label}</h4>" if label else "")
-                        + _p(self.bench(description) + ".")
                         + _table(
                             shown,
                             cells,
                             css="coords",
                             repeat=title,
+                            repeat_owner=title_owner,
+                            repeat_locator=(
+                                f"Optional progress only: see {progress_owner}"
+                                if progress
+                                else None
+                            ),
+                            context=self.bench(description) + ".",
                             strong=[i for i, h in enumerate(shown) if h.startswith("tool ")],
                         )
                         + (_p(after) if after else "")
@@ -6168,7 +7912,7 @@ class _Traveler:
                 else:
                     content += "".join(pieces)
             css = "contour wide" if wide else "contour"
-            html.append(f'<div class="{css}">{content}</div>')
+            html.append(f'<div class="{css}" data-page-context="{escape(title)}">{content}</div>')
         heading = (
             f"<h2>CONTOURS — {escape(self.zero_name(setup))}; "
             + (
@@ -6224,7 +7968,7 @@ class _Traveler:
         return name if not name.startswith("Setup") else f"part as it arrives from {name}"
 
     def fixture_render(self, setup):
-        """The holding picture with its caption and NOT SHOWN lines."""
+        """Complete semantic windows of the canonical picture, with context and debts."""
         render = self.report.get("renders", {}).get(setup["id"])
         if not render:
             return ""
@@ -6245,14 +7989,49 @@ class _Traveler:
         lines.extend(str(debt) for debt in scene.get("render_debts") or [])
         if render.get("fixture") != "modeled" and not lines:
             lines.append("NOT SHOWN: part of the holding is not modelled.")
-        return (
-            '<figure class="fixture-render">'
-            f'<img src="{escape(render["path"], quote=True)}" '
-            f'alt="Setup {escape(setup["id"], quote=True)} holding picture">'
-            f"<figcaption>{escape(' '.join(caption))}"
-            + "".join(f"<br><b>{escape(line)}</b>" for line in lines)
-            + "</figcaption></figure>"
-        )
+        width, height = scene["width_px"], scene["height_px"]
+        panels = scene["print_panels"]
+        if not panels or not all(type(value) is int and value > 0 for value in (width, height)):
+            raise ValueError(f"Setup {setup['id']} has no complete printable image geometry")
+        path = escape(render["path"], quote=True)
+        part = _text(self.plan.get("part"))
+        revision = self.drawing_revision()
+        context = f"{part} · Setup {setup['id']}" + (f" · rev {revision}" if revision else "")
+        result = []
+        next_top = 0
+        for index, panel in enumerate(panels, start=1):
+            top, panel_height = panel["top_px"], panel["height_px"]
+            if (
+                type(top) is not int
+                or type(panel_height) is not int
+                or top != next_top
+                or panel_height <= 0
+                or top + panel_height > height
+            ):
+                raise ValueError(
+                    f"Setup {setup['id']} printable panels omit or repeat image content"
+                )
+            next_top += panel_height
+            label = (
+                f"{context} · {panel['role'].replace('_', ' ')} · panel {index} of {len(panels)}"
+                f" — {panel['label']}"
+            )
+            stock_caption = _p(" ".join(caption)) if index == 1 else ""
+            result.append(
+                f'<figure class="fixture-render" data-panel="{index}" '
+                f'data-panel-role="{escape(panel["role"])}" data-panel-top="{top}" '
+                f'data-panel-height="{panel_height}">'
+                f"<figcaption>{stock_caption}{escape(label)}</figcaption>"
+                f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 {top} {width} {panel_height}" '
+                f'width="{width}" height="{panel_height}" role="img" aria-label="{escape(label)}">'
+                f"<title>{escape(label)}</title>"
+                f'<image href="{path}" x="0" y="0" width="{width}" height="{height}" '
+                'preserveAspectRatio="none"></image></svg></figure>'
+            )
+        if next_top != height:
+            raise ValueError(f"Setup {setup['id']} printable panels omit image content")
+        result.extend(_p(line, "render-debt") for line in lines)
+        return "".join(result)
 
     # ------------------------------------------------------------------- route
     def setup_findings(self, setup):
@@ -6744,7 +8523,7 @@ class _Traveler:
                 )
                 for s in setups
             ],
-            widths=[8, 32, 25, 35],
+            widths=[12, 30, 25, 33],
         )
         html += self.requirements()
         html += self.process_holds(setups)
@@ -6878,15 +8657,20 @@ class _Traveler:
             f"<title>{escape(part)} traveler"
             f"</title><style>{_CSS}</style><script>{_DUPLEX_JS}</script></head><body>"
         ]
-        signoff = _p(
-            "Sign off: __________  First article / measured results: ____________________",
-            "signoff",
+        signoff = (
+            '<div class="signoff">'
+            + _writing_field("Sign off")
+            + "<p>First article: enter measured results in their labeled inspection fields "
+            "or worksheets.</p>" + "</div>"
         )
         for label, blocks, signed in pages:
             # Continuation pages open with the sheet's name: "SETUP S2 — sheet 3".
             title = label.upper() if label == "job page" else label.replace(" sheet ", " — sheet ")
             result.append(
-                f'<section class="page" data-sheet="{escape(label)}" data-title="{escape(title)}">'
+                f'<section class="page" data-sheet="{escape(label)}" data-title="{escape(title)}" '
+                f'data-part="{escape(part)}" data-drawing="{escape(_text(drawing.get("number")))}" '
+                f'data-revision="{escape(revision or "")}" '
+                f'data-sheet-role="{"front" if signed else "continuation"}">'
             )
             result.append(
                 f'<div class="meta"><h1>{escape(part.upper())} · '

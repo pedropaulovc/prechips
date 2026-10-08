@@ -77,14 +77,17 @@ inspection_methods.position_dia = [
 ]
 ```
 
-`{name}` prints as a labelled blank to write the reading in. A step beginning
-`Calculate:` prints apart from the numbered steps as the calculation line. A
-procedure whose readings are worked through two or more calculation lines is a
-worksheet: it prints on an attached sheet of its own after the contours (the op
-row names it, `[S11 sheet 4 worksheet]`), its steps naming each reading
-`[rJ1]` where it is taken, a READINGS table with one line to write each in and
-the step that takes it, then its calculation lines. A list
-is known only when every step is a non-empty string other than `"unknown"`.
+`{name}` normally prints as a labelled blank on its own line in prose. Worksheet
+and calculation fields remain single fields, not duplicate prose boxes. A step
+beginning `Calculate:` prints apart from the numbered steps. Only an authored
+step-list procedure with named brace readings in its steps and at least two
+calculation lines becomes a worksheet on an attached logical sheet after the
+contours (the op row names it, `[S11 sheet 4 worksheet]`). Its original numbered
+steps use references such as `[rJ1]`, without duplicate value boxes; READINGS
+provides one value box per named reading with its source step. Original equations
+and calculation fields print once. Standalone underscores do not count as named
+worksheet readings. A list is known only when every step is a non-empty string
+other than `"unknown"`.
 
 An inspect op may illustrate a stated procedure with set-up sketches:
 `inspection_views.<requirement>` is a non-empty list of views, one per way the
@@ -120,6 +123,12 @@ head of that requirement's worksheet or inspection note
 not `inspect`, or for a requirement with no `inspection_methods` entry, are
 `BadInput`.
 
+The traveler retains every authored view, in list order, with its own `title`.
+Each view prints as a complete figure attached once to the original requirement's
+worksheet or note. Continuations may move the figure whole and repeat applicable
+context, without duplicating reading or calculation fields. This layout adds no
+plan fields and changes no authored procedure.
+
 When an inspection requirement has no exported owner/band, an explicit operation
 may declare `missing_requirements = { length = "calipers" }` and
 `inspection_methods.length`. This uses the same gauge-reference mapping type as
@@ -129,6 +138,14 @@ The sheet prints `?`, the exact missing requirement identity and the authored
 procedure; reference-only dimensions such as `length_ref` are not substitutes.
 A name already in that feature's exported requirements is `BadInput` in
 `missing_requirements`; use `checks` so actual requirements cannot be bypassed.
+
+Paper records use the existing requirement-keyed `checks` and authored methods;
+they add no plan fields. One full-width freeform readings/observations area
+remains below each real requirement with its known owner(s), limits, gauge,
+method and authored context. It does not infer reading positions or counts.
+Authored `{name}` blanks remain separate named procedure fields, not invented
+samples or statistical summaries. Missing identities or bands remain visible
+as unresolved `?` instructions, without fabricated automatic measurement fields.
 
 `to_z` is an authored endpoint;
 `to_z_band` is a range, not a substitute for measured setup binding. An arc
@@ -1038,11 +1055,13 @@ pass sequence.
 | `after_op` | `int` |
 | `measure_before_hold` | `bool` (`measure_then_set`: M is read on the part before it is held) |
 
-The setup sheet prints in the order the operator works: a `measure_before_hold`
-M is the first HOLD step (`Before clamping, measure Z M = …`), and its DRO row
-then reads `M measured before clamping (HOLD)`; the datum transfer prints before
-the DRO ZERO table and its tool settings, so the work is indicated true before any
-tool touches it.
+Only explicit `measure_before_hold = true` with an authored `measure` places
+M acquisition in its original first HOLD step (`Before clamping, measure Z M = …`).
+That step has 35 × 10 mm clear pen room; no extra MEASURED ZERO INPUTS section is
+added. Its DRO row refers back to `M measured before clamping (HOLD)`.
+Absent/false declarations keep acquisition at the machine. The existing datum
+transfer prints before the DRO ZERO table and tool settings, with its source
+instructions and limits unchanged.
 
 ## Transfer
 

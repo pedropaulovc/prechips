@@ -34,6 +34,11 @@ shop never lists them and an omission cannot waive them. A setup with no joint o
 no centre has only `not_applicable` rows for them, which never block; a setup
 using no bought item with receipt checks has no `purchased_tooling` row.
 
+The traveler's operation-performed square records process progress only. It is
+not a rule `pass`, inspection acceptance, clearance to proceed, readiness or
+approval, and adds no policy selector or status. Handwritten marks cannot clear
+STOP/unknown findings or change the report's gate.
+
 When no policy path is supplied, the loader requires `tool_resolves`, `sizing`,
 `op_chain`, `blind_depth`, `inspection`, `coordinates`, and `zero_check` on `"*"`.
 The fallback is not an extra file and therefore has no file digest in inputs.

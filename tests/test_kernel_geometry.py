@@ -596,6 +596,21 @@ def test_an_inspect_ops_set_up_sketches_are_drawn_beside_the_setup_picture(engin
     width, height = struct.unpack(">II", png[16:24])
     # Two bands, each at least the 300 px drawing a band keeps.
     assert width == 1600 and height >= 2 * 300
+    scene = facts["inspection_scenes"][key]
+    assert (scene["width_px"], scene["height_px"]) == (width, height)
+    assert len(scene["print_panels"]) == len(views)
+    cursor = 0
+    for ordinal, (view, panel) in enumerate(zip(views, scene["print_panels"], strict=True), 1):
+        assert panel == {
+            "top_px": cursor,
+            "height_px": panel["height_px"],
+            "role": "inspection",
+            "label": view["title"],
+            "view_ordinal": ordinal,
+        }
+        assert 0 < panel["height_px"] <= 1792
+        cursor += panel["height_px"]
+    assert cursor == height
     assert "inspection_pngs_base64" not in baseline
 
 

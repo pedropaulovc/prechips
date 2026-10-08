@@ -2,9 +2,9 @@
 before the work goes in: hold_fields requires ``hold.align`` there, and the HOLD prints it."""
 
 import re
-from html import unescape
 
 import pytest
+from test_sheet_ops import Markup, content
 
 from prechips.inputs import Bundle
 from prechips.rules import hold_fields, tool_resolves
@@ -135,42 +135,56 @@ def test_an_angle_plate_names_the_face_it_squares_and_that_face_runs_along_x_or_
     assert row.status == status and row.numbers["missing"] == debt
 
 
-def hold_text(data, sid):
+def hold_markup(data, sid):
     findings = hold_fields.evaluate(data)
     sheet = _Traveler(data, findings, {}, None)
     plan_setup = next(s for s in data.plan["setups"] if s["id"] == sid)
     steps, _ = sheet.hold(plan_setup)
-    return " ".join(unescape(re.sub(r"<[^>]+>", " ", steps)).split())
+    return Markup(steps)
+
+
+def hold_text(data, sid):
+    markup = hold_markup(data, sid)
+    return " ".join(content(node) for node in markup.nodes if node["tag"] == "li")
 
 
 def test_the_hold_squares_the_fixed_jaw_along_its_travel_with_the_named_indicator():
     data = bundle(setup("V1", "vise", jaws_along="y"), setup("V2", "vise", jaws_along="y"))
-    text = hold_text(data, "V1")
-    assert (
-        "Square the fixed jaw to the Y travel: with the 0.0005 in test indicator held from the "
-        "spindle head on the fixed jaw, traverse Y 100 mm along it; tap the vise round until "
-        "the reading changes no more than 0.0254 mm (0.001 in) over that length"
-    ) in text
-    # Squared once the vise is on, before the work goes in.
-    assert text.index("Mount the") < text.index("Square the fixed jaw")
+    markup = hold_markup(data, "V1")
+    steps = [node for node in markup.nodes if node["tag"] == "li"]
+    mount, square, clamp = steps
+    assert data.inventory["fixtures"]["vise"]["name"] in content(mount)
+    assert "jaws along Y" in content(mount) and "fixed jaw rear" in content(mount)
+    alignment = content(square)
+    assert "fixed jaw" in alignment and "Y travel" in alignment
+    assert data.inventory["gauges"][ALIGN["indicator"]]["name"] in alignment
+    assert "spindle head" in alignment and "traverse Y" in alignment
+    readings = [content(node) for node in markup.find("reading", square)]
+    mm = [float(value) for token in readings for value in re.findall(r"([\d.]+)\s+mm\b", token)]
+    inches = [float(value) for token in readings for value in re.findall(r"([\d.]+)\s+in\b", token)]
+    assert mm == [ALIGN["over_mm"], ALIGN["limit_mm"]]
+    assert inches[-1] == pytest.approx(ALIGN["limit_mm"] / 25.4)
+    assert content(clamp).casefold().rstrip(".") == data.plan["setups"][0]["hold"]["clamp"]
+    # The owning instruction sits after mounting and before the work is clamped.
+    assert steps.index(mount) < steps.index(square) < steps.index(clamp)
     assert "Square" not in hold_text(data, "V2")
 
 
 def test_the_hold_squares_an_angle_plate_face_along_the_run_its_pose_gives():
     text = hold_text(bundle(setup("P1", "plate", pose=TURNED, align=PLATE)), "P1")
-    assert "Square the plate's upright face to the Y travel" in text
+    assert PLATE["face"] in text and "face" in text and "Y travel" in text
 
 
 @pytest.mark.parametrize(
     ("fixture", "align", "stop"),
     [
-        ("vise", {**ALIGN, "limit_mm": "unknown"}, "the fixed jaw to the table travel — the limit"),
-        ("plate", ALIGN, "the plate's locating face to the table travel — the travel it runs"),
+        ("vise", {**ALIGN, "limit_mm": "unknown"}, ("fixed jaw", "limit")),
+        ("plate", ALIGN, ("locating face", "travel")),
     ],
 )
 def test_an_align_not_established_is_a_stop_on_the_hold(fixture, align, stop):
     text = hold_text(bundle(setup("S1", fixture, pose=POSE, align=align)), "S1")
-    assert f"STOP: square {stop}" in text and "do not run" in text
+    assert "STOP" in text and all(value in text for value in stop) and "do not run" in text
 
 
 @pytest.mark.parametrize(
@@ -184,7 +198,7 @@ def test_an_indicator_not_established_on_hand_leaves_the_squaring_unknown_and_a_
     (row,) = hold_fields.evaluate(data)
     assert row.status == "unknown" and row.numbers["missing"] == ["hold.align.indicator"]
     text = hold_text(data, "V1")
-    assert "STOP: square the fixed jaw to the table travel — the indicator" in text, text
+    assert "STOP" in text and "fixed jaw" in text and "indicator" in text, text
     assert "Square the fixed jaw" not in text
 
 

@@ -1,0 +1,19 @@
+[
+  {
+    "date": "2026-10-07",
+    "macrostructure": "Narrative Workflow",
+    "theme": "existing monochrome print",
+    "genre": "technical print adaptation",
+    "enrichment": "existing kernel diagrams",
+    "nav": "none — paper document",
+    "footer": "repeated continuation identity",
+    "brief": "Machinist setup sheets: task ledger, preserved machining content and pen recording",
+    "theme_axes": "light / existing Arial sans / neutral",
+    "critique": "P5 H4 E4 S5 R4 V4",
+    "scope_exemptions": [
+      "Preserve existing offline fonts and black/white print palette",
+      "Physical writing floors in mm and named print spacing in pt",
+      "Marketing hero, nav, footer and motion patterns not applicable"
+    ]
+  }
+]

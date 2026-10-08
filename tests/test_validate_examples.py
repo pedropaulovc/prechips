@@ -6,6 +6,7 @@ import json
 import math
 import runpy
 import tomllib
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -24,13 +25,16 @@ from prechips.rules import (
     RULES,
     Rule,
     coordinates,
+    headroom,
     indexing,
+    joints,
     prepared_blank,
     speeds_feeds,
     stickout,
     tool_resolves,
     zero_recipe,
 )
+from prechips.rules._bench import manual_bench
 from prechips.rules.resolution import inch_sizes, resolve, setup_items
 from prechips.rules.resolution import uncertain as resolved_uncertain
 from prechips.rules.tip_endpoints import evaluate as endpoint_findings
@@ -67,14 +71,13 @@ def zero_case(part, setup_id):
 
 
 @pytest.mark.parametrize(
-    ("part", "setup_id", "reason"),
+    ("part", "feature", "action", "reason"),
     [
-        ("pivot-bracket", "S2", "touched edge"),  # Raw top, not the finished foot top.
-        ("pivot-bracket", "S4", "touched edge"),  # Ear inner face, not the raised stock top.
-        ("pivot-shaft", "S1", "touched edge"),  # The prepared plain end, not the blank end.
-        # A bench-measured edge: the shoulder-to-stub reading M sets the axis, so a
-        # consistent shift of its offset and every reading is still the wrong edge.
-        ("pivot-shaft", "S2", "measured-edge"),
+        ("pivot-bracket", "ear_relief", "rough_pocket", "touched edge"),
+        ("pivot-bracket", "outer_face", "face", "touched edge"),
+        ("pivot-shaft", "pivot_bearing", "finish_turn", "touched edge"),
+        # The bench shoulder-to-stub reading M, not its nominal length, sets Z.
+        ("pivot-shaft", "north_dome", "face", "measured-edge"),
     ],
 )
 def test_rejects_self_consistent_wrong_z_edge(freecad_kernel, part, setup_id, reason):
@@ -93,14 +96,31 @@ def test_rejects_self_consistent_wrong_z_edge(freecad_kernel, part, setup_id, re
         VALIDATOR["check_zero"](setup, corrupted, entries, own)
 
 
-def cone_inputs():
+def cone_inputs(*, fresh_pure=False):
     folder = ROOT / "examples" / "cone-pivot-post"
-    plan = tomllib.loads((folder / "built-up.toml").read_text(encoding="utf-8"))
-    features = tomllib.loads((folder / "features.toml").read_text(encoding="utf-8"))
-    inventory = tomllib.loads((folder / plan["paths"]["inventory"]).read_text(encoding="utf-8"))
-    policy = tomllib.loads((folder / plan["paths"]["policy"]).read_text(encoding="utf-8"))
+    bundle = load_bundle(folder / "built-up.toml")
     report = json.loads((folder / "expected" / "built-up" / "report.json").read_bytes())
-    return plan, features, inventory, policy, report
+    if fresh_pure:
+        # These checks consume rule evidence, not frozen SHA/path bindings.
+        # Refresh only non-kernel findings; keep native assembly evidence intact.
+        bench_bundle = replace(
+            bundle,
+            plan={
+                **bundle.plan,
+                "setups": [setup for setup in bundle.plan["setups"] if manual_bench(bundle, setup)],
+            },
+        )
+        derived = [
+            *zero_recipe.evaluate(bundle),
+            *joints.evaluate_fit(bundle),
+            *coordinates.evaluate(bench_bundle),
+            *headroom.evaluate(bench_bundle),
+        ]
+        refreshed = {(row.rule, row.subject): row.to_dict() for row in derived}
+        report["findings"] = [
+            refreshed.pop((row["rule"], row["subject"]), row) for row in report["findings"]
+        ] + list(refreshed.values())
+    return bundle.plan, bundle.features, bundle.inventory, bundle.policy, report
 
 
 @pytest.mark.parametrize("corruption", ["nearest", "spaces", "basic_band", "closure"])
@@ -2228,18 +2248,38 @@ def test_validator_rejects_silently_dropped_or_cleared_missing_requirement(statu
 
 
 @pytest.mark.parametrize(
-    "missing",
+    "rule",
     [
-        ("tool_resolves", "S4:40"),
-        ("inspection", "crank_socket:dia"),
-        ("joint_fit", "S7"),
-        ("joint_assembly", "S7"),
+        "tool_resolves",
+        "inspection",
+        "joint_fit",
+        "joint_assembly",
     ],
 )
-def test_built_up_subject_contract_excludes_manual_assembly_but_keeps_joint_debt(missing):
-    plan, features, inventory, _, report = cone_inputs()
+def test_built_up_subject_contract_excludes_manual_assembly_but_keeps_joint_debt(rule):
+    plan, features, inventory, _, report = cone_inputs(fresh_pure=True)
     findings = {(row["rule"], row["subject"]): row for row in report["findings"]}
-    # The exported fixture's fit action has tool="unknown", but no cutting assembly.
+    joint_setup = next(
+        s for s in plan["setups"] if s.get("joint", {}).get("socket") == "crank_socket"
+    )
+    cutting_setup, cutting_op = next(
+        (s, op)
+        for s in plan["setups"]
+        for op in s["ops"]
+        if op.get("feature") == "crank_socket" and op["do"] == "ream"
+    )
+    subject = {
+        "tool_resolves": f"{cutting_setup['id']}:{cutting_op['op']}",
+        "inspection": f"{joint_setup['joint']['socket']}:dia",
+        "joint_fit": joint_setup["id"],
+        "joint_assembly": joint_setup["id"],
+    }[rule]
+    missing = rule, subject
+    # Manual fitting has no cutting-assembly requirement; joint debt still does.
+    for setup in plan["setups"]:
+        if VALIDATOR["manual_bench"](inventory, setup) is not None:
+            for op in setup["ops"]:
+                findings.pop(("tool_resolves", f"{setup['id']}:{op['op']}"), None)
     VALIDATOR["check_subjects"](plan, features, findings, inventory)
     del findings[missing]
     with pytest.raises(ValueError, match=f"missing finding {missing[0]}:{missing[1]}"):
@@ -2273,7 +2313,7 @@ def joined(unresolved=None, error=None):
     "corruption", ["fit_pass", "missing", "socket", "assembly_pass", "branches"]
 )
 def test_built_up_joint_report_cannot_clear_numeric_debt_or_change_identity(corruption):
-    plan, features, _, _, report = cone_inputs()
+    plan, features, _, _, report = cone_inputs(fresh_pure=True)
     findings = {(row["rule"], row["subject"]): row for row in report["findings"]}
     kernel = joined()
     VALIDATOR["check_joint_declarations"](plan, features, findings, kernel)
@@ -2284,14 +2324,6 @@ def test_built_up_joint_report_cannot_clear_numeric_debt_or_change_identity(corr
         # The shipped joint resolves, so declare numeric debt in the plan: the
         # report must then carry it and neither row may approve.
         setup["joint"]["clearance_mm"] = "unknown"
-        result = VALIDATOR["fit"](SimpleNamespace(plan=plan, features=features), setup)
-        fit["numbers"].update(
-            band_mm="unknown",
-            guaranteed_mm="unknown",
-            engagement_mm="unknown",
-            engagement_dia_mm="unknown",
-            missing=result["missing"],
-        )
         kernel = joined("S7")
         fit["status"], assembly["status"] = "unknown", "unknown"
         VALIDATOR["check_joint_declarations"](plan, features, findings, kernel)

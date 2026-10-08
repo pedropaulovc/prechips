@@ -4,12 +4,13 @@ The example plans evolve, so each test first normalizes the state it exercises (
 authored coating ops, stop faces and process holds) and locates its targets structurally.
 """
 
+import json
 import re
 import tomllib
-from html import unescape
 
 import pytest
 from test_cli import SYNTHETIC_KERNEL, copy_examples, traveler
+from test_sheet_ops import Markup, content
 
 from prechips.inputs import BadInput, load_bundle
 from prechips.rules import RULES
@@ -82,12 +83,31 @@ def append_op(path, body):
     return f"{last['id']}:{number}"
 
 
-def op_rows(html, op):
-    return [
-        unescape(re.sub(r"<[^>]+>", "|", body))
-        for number, body in re.findall(r"<tr><td>(\d+)</td>(.*?)</tr>", html, re.DOTALL)
-        if number == str(op)
+def operation(html, setup, op):
+    """Find an operation by its setup and ledger identity, not its column layout."""
+    markup = Markup(html)
+    pages = [
+        node
+        for node in markup.nodes
+        if node["attrs"].get("data-sheet", "").startswith(f"SETUP {setup} sheet ")
     ]
+    (node,) = [
+        node
+        for page in pages
+        for node in markup.find("operation", page)
+        if node["attrs"]["data-op"] == str(op)
+    ]
+    return markup, node
+
+
+def inspection_record(markup, operation, features, requirement):
+    (record,) = [
+        node
+        for node in markup.find("inspection-record", operation)
+        if node["attrs"]["data-requirement"] == requirement
+        and set(json.loads(node["attrs"]["data-features"])) == set(features)
+    ]
+    return record
 
 
 # ------------------------------------------------------------------ finishing route
@@ -147,9 +167,12 @@ def test_an_outside_coating_names_the_service_and_what_it_applies(tmp_path):
     service = SERVICE + 'coating = "hot black oxide, matte"\n'
     inventory.write_text(inventory.read_text(encoding="utf-8") + service, encoding="utf-8")
     _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
-    (row,) = [row for row in op_rows(html, subject.split(":")[1]) if "coating" in row]
+    markup, node = operation(html, *subject.split(":"))
+    tool = content(markup.find("op-tool", node)[0])
+    assert "coating" in content(markup.find("op-action", node)[0])
     # The machinist must see what is sent out and to whom, not the item kind.
-    assert "outside: test-oxide-line (hot black oxide, matte)" in row
+    assert "outside" in tool
+    assert "test-oxide-line" in tool and "hot black oxide, matte" in tool
 
 
 def test_only_a_coating_op_names_a_process(tmp_path):
@@ -230,9 +253,13 @@ def test_one_inspect_op_reads_a_limit_the_drawing_gives_two_features(tmp_path):
         row = rows[f"{feature}:length"]
         assert (row.status, row.numbers["op"]) == ("pass", f"{sid}:{op}")
     _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
-    (row,) = [row for row in op_rows(html, op) if "shoulder north face" in row]
-    assert "shoulder north face, shoulder thrust" in row
-    assert row.count("0.99–2.01") == 1
+    markup, node = operation(html, sid, op)
+    feature = content(markup.find("op-feature", node)[0])
+    assert "shoulder north face" in feature and "shoulder thrust" in feature
+    record = inspection_record(markup, node, SHOULDER, "length")
+    assert content(record).count("0.99–2.01") == 1
+    assert len(markup.find("inspection-record", node)) == 1
+    assert len(markup.find("result-field", record)) == 1
 
 
 @pytest.mark.parametrize("action", ["face", "deburr"])
@@ -321,22 +348,28 @@ def test_a_process_hold_must_lie_inside_its_drawing_band(tmp_path, band, status)
 
 def test_a_process_hold_prints_as_a_shop_limit_not_a_drawing_limit(tmp_path):
     plan = copy_examples(tmp_path) / "rocker-arm" / "plan.toml"
-    _, op = hold_ream(plan, "[2.000, 2.010]")
+    sid, op = hold_ream(plan, "[2.000, 2.010]")
     _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
-    (row,) = [row for row in op_rows(html, op) if "PROCESS HOLD" in row]
-    assert "PROCESS HOLD — not a drawing limit" in row and "2.000–2.010" in row
-    # Why it holds prints once, on the job page; the op row points there.
-    assert "see job page" in row and REASON not in row
-    assert unescape(html).count(REASON) == 1
+    markup, node = operation(html, sid, op)
+    (hold,) = [
+        message for message in markup.find("inspection-message", node) if REASON in content(message)
+    ]
+    words = content(hold)
+    assert "PROCESS HOLD" in words and "not a drawing limit" in words
+    assert REASON in words and "2.000–2.010" in words
+    assert not markup.find("result-field", hold)
 
 
 def test_a_process_hold_read_by_an_inch_gauge_prints_the_mm_digits_that_gauge_resolves(tmp_path):
     # 0.0001 in is 0.00254 mm: the band reads to 0.001 mm, not to the conversion's five places.
     plan = copy_examples(tmp_path) / "rocker-arm" / "plan.toml"
-    _, op = hold_ream(plan, "[2.000, 2.010]", gauge="micrometers/0-1in")
+    sid, op = hold_ream(plan, "[2.000, 2.010]", gauge="micrometers/0-1in")
     _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
-    (row,) = [row for row in op_rows(html, op) if "PROCESS HOLD" in row]
-    assert "2.000–2.010" in row
+    markup, node = operation(html, sid, op)
+    (hold,) = [
+        message for message in markup.find("inspection-message", node) if REASON in content(message)
+    ]
+    assert re.search(r"(?<![\d.])2\.000–2\.010(?!\d)", content(hold))
 
 
 def test_a_process_hold_names_an_exported_requirement(tmp_path):
@@ -439,16 +472,54 @@ def test_a_dro_scale_reads_a_length_along_its_axis_never_a_diameter(tmp_path, re
 def test_process_holds_reach_the_job_page_apart_from_the_drawing_limits(tmp_path):
     plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
     sid, op = hold_span(plan)
+    bundle = load_bundle(plan)
+    (authored,) = next(
+        step["process_holds"]
+        for setup in bundle.plan["setups"]
+        if setup["id"] == sid
+        for step in setup["ops"]
+        if step["op"] == op
+    )
+    reference = bundle.feature_definitions[authored["feature"]][authored["requirement"]]
     _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
-    page = unescape(re.sub(r"<[^>]+>", "|", html))
-    job = page[: page.index("SETUP S")]
-    assert "PROCESS HOLDS — in-process limits, not drawing limits" in job
-    holds = job[job.index("PROCESS HOLDS") :]
-    for text in (f"{sid} op {op}", "scribe to faced end 1.50–2.00", "REF 156.67", FIT_UP):
-        assert text in holds, text
-    # The op row says what it reads and that the drawing gives the span only as REF.
-    (row,) = [row for row in op_rows(html, op) if "PROCESS HOLD" in row]
-    assert "scribe to faced end 1.50–2.00" in row and "REF 156.67" in row
+    markup, op_node = operation(html, sid, op)
+    job = next(node for node in markup.nodes if node["attrs"].get("data-sheet") == "job page")
+    job_rows = []
+    for node in markup.nodes:
+        if node["tag"] != "tr" or authored["reason"] not in content(node):
+            continue
+        ancestor = node
+        while ancestor is not None and ancestor is not job:
+            ancestor = ancestor["parent"]
+        if ancestor is job:
+            job_rows.append(node)
+    (job_row,) = job_rows
+    cells = [node for node in markup.nodes if node["tag"] == "td" and node["parent"] is job_row]
+    assert len(cells) == 5
+    assert content(cells[0]) == f"{sid} op {op}"
+    assert authored["reason"] in content(cells[4])
+    # The separate job summary and the owning operation retain the same authored hold.
+    (message,) = [
+        node
+        for node in markup.find("inspection-message", op_node)
+        if authored["reason"] in content(node)
+    ]
+    assert not markup.find("result-field", message)
+    for reading, drawing in (
+        (content(cells[1]), content(cells[3])),
+        (content(message), content(message)),
+    ):
+        assert authored["measure"] in reading
+        band = re.search(r"(?<![\d.])(\d+(?:\.\d+)?)–(\d+(?:\.\d+)?)(?!\d)", reading)
+        assert band is not None
+        assert [float(value) for value in band.groups()] == authored["band"]
+        caption = re.search(r"\bREF\s+(\d+(?:\.\d+)?)\b", drawing)
+        assert caption is not None
+        # An unqualified REF is printed to six significant digits, not binary float
+        # residue; the expected value still comes from this feature's actual definition.
+        assert caption.group(1) == f"{reference:.6g}"
+    # A reference span is not an invented drawing acceptance band.
+    assert "–" not in content(cells[3])
 
 
 # ------------------------------------------------- review regressions (PR #90, round 1)
@@ -637,8 +708,11 @@ def test_the_traveler_prints_which_pin_enters_and_which_does_not(tmp_path):
     )
     rewrite(plan, ("op", sid, op), "go_no_go", "{ dia = { go = 2.0, no_go = 2.09 } }")
     _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
-    (row,) = [row for row in op_rows(html, op) if "Ø 2.00–2.09" in row]
-    assert "GO 2.000 enters, NO-GO 2.090 does not" in row
+    markup, node = operation(html, sid, op)
+    record = inspection_record(markup, node, ["rod_hole"], "dia")
+    requirement = content(markup.find("inspection-requirement", record)[0])
+    assert "Ø 2.00–2.09" in requirement
+    assert "GO 2.000 enters" in requirement and "NO-GO 2.090 does not" in requirement
 
 
 @pytest.mark.parametrize("declared", ["unknown", {"dia": "unknown"}])  # whole op, one requirement
@@ -675,10 +749,12 @@ def test_the_traveler_prints_an_unknown_go_no_go_pair_as_unresolved(tmp_path, de
     )
     rewrite(plan, ("op", sid, op), "go_no_go", declared)
     _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
-    (row,) = [row for row in op_rows(html, op) if "Ø 2.00–2.09" in row]
+    markup, node = operation(html, sid, op)
+    record = inspection_record(markup, node, ["rod_hole"], "dia")
+    requirement = content(markup.find("inspection-requirement", record)[0])
     # The pins to use are not known: the row is flagged, never a bare gauge to read with.
-    assert "? Ø 2.00–2.09" in row and "GO / NO-GO sizes not set" in row
-    assert "enters" not in row
+    assert "? Ø 2.00–2.09" in requirement and "GO / NO-GO sizes not set" in requirement
+    assert "enters" not in requirement
 
 
 @pytest.mark.parametrize(
