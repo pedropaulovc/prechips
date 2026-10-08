@@ -11,9 +11,10 @@ from .resolution import (
     length_mm,
     number,
     operations,
-    record,
+    projection_holder,
     resolve,
     same_length,
+    select,
     uncertain,
 )
 from .tip_endpoints import FACING, HOLE_OPS, POCKETING
@@ -46,10 +47,9 @@ def evaluate(bundle):
         kind = (tool or {}).get("kind", UNKNOWN)
         numbers = {"operation": action, "tool": tool_ref, "holder": holder_ref, "tool_kind": kind}
         cite = [_PROXY_CITE]
-        if (
-            (action != UNKNOWN and action not in _CUTTING_OPS)
-            or "doc_mm" not in op
-            or (kind != UNKNOWN and kind not in _ENDMILL_KINDS)
+        # An endmill cutting op without its axial depth per pass is unresolved, never exempt.
+        if (action != UNKNOWN and action not in _CUTTING_OPS) or (
+            kind != UNKNOWN and kind not in _ENDMILL_KINDS
         ):
             result.append(
                 Finding(
@@ -58,8 +58,7 @@ def evaluate(bundle):
                     "not_applicable",
                     numbers,
                     cite,
-                    f"{subject}: engagement applies only to an endmill cutting operation "
-                    "with an authored DOC.",
+                    f"{subject}: engagement applies only to an endmill cutting operation.",
                 )
             )
             continue
@@ -69,10 +68,8 @@ def evaluate(bundle):
         oal, grip = length_mm(tool, "oal"), length_mm(holder, "grip")
         projection_fact = tool_projection(bundle, op, {}, cite, require_measured=False)
         projection = projection_fact["value"]
-        explicit = any(
-            holder_ref in record((tool or {}).get(field))
-            for field in ("projection_mm", "projection_in")
-        )
+        pair, conflict = projection_holder(bundle, tool, holder_ref)
+        explicit = pair is not None or conflict is not None
         basis = "selected tool/holder projection" if explicit else "tool OAL - selected holder grip"
         doc = op.get("doc_mm", UNKNOWN)
         missing = []
@@ -86,7 +83,9 @@ def evaluate(bundle):
             missing.append("resolved/verified selected holder")
         if not _positive(diameter):
             missing.append("explicit-unit tool diameter")
-        if not _positive(projection) or not projection_fact["verified"]:
+        if conflict:
+            missing.append(conflict)
+        elif not _positive(projection) or not projection_fact["verified"]:
             missing.append("positive selected tool/holder projection or OAL minus holder grip")
 
         ratio = projection / diameter if not missing else UNKNOWN
@@ -101,7 +100,7 @@ def evaluate(bundle):
             if _positive(doc):
                 recommended = doc * scale
         if not _positive(doc):
-            missing.append("positive authored DOC")
+            missing.append("positive authored axial depth per pass (doc_mm)")
         numbers.update(
             diameter_mm=diameter,
             tool_oal_mm=oal,
@@ -116,10 +115,12 @@ def evaluate(bundle):
             recommended_doc_mm=recommended,
             missing_inputs=missing,
         )
+        tool_category, tool_key, _ = select(bundle, tool_ref, "tools")
+        holder_category, holder_key, _ = select(bundle, holder_ref, "holders")
         cite.extend(
             [
-                f"inventory.tools.{tool_ref}: explicit-unit diameter/projection/OAL",
-                f"inventory.holders.{holder_ref}: selected holder grip/verification",
+                f"inventory.{tool_category}.{tool_key}: explicit-unit diameter/projection/OAL",
+                f"inventory.{holder_category}.{holder_key}: selected holder grip/verification",
                 f"plan.setups[{setup['id']}].ops[{op['op']}].doc_mm",
                 "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
                 "resolution.same_length: existing physical-length equality precision "
@@ -132,7 +133,7 @@ def evaluate(bundle):
             if over_limit:
                 message = (
                     f"Tool projection is {ratio:g}×D, above {_LIMIT_LD}×D; "
-                    "DOC reduction is unknown without positive authored DOC."
+                    "DOC reduction is unknown without a positive authored axial depth per pass."
                 )
         elif over_limit:
             status = "warn"

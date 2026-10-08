@@ -10,21 +10,32 @@ from prechips.rules.resolution import (
     EXPORTED_FRAMES,
     UNKNOWN,
     _citations,
+    authored,
     number,
+    projection_holder,
     record,
     resolve,
+    select,
     setup_frame_ref,
 )
 
 
-def measurement_item(bundle, category, reference):
-    """Resolve selected members without promoting item metadata into length facts."""
-    resolved = resolve(bundle, category, reference) or {}
-    if not resolved or not isinstance(reference, str):
-        return resolved
-    root, separator, _ = reference.partition("/")
-    authored = record(record(bundle.inventory.get(category)).get(root))
-    return authored if authored and not separator else resolved
+def measurement_item(bundle, slot, reference):
+    """The item ``slot`` selects (:func:`select`), its selected members resolved, without
+    promoting item metadata into length facts: a whole item is read as authored."""
+    return selected_item(bundle, slot, reference)[2]
+
+
+def selected_item(bundle, slot, reference):
+    """``(category, key, item)``: the category and key :func:`select` reads for
+    ``reference`` in ``slot``, and its :func:`measurement_item`. Citations and debts name
+    that key, never ``reference`` as spelled (``holders.collets/1/4`` is ``collets/1/4``)."""
+    category, key, _ = select(bundle, reference, slot)
+    resolved = resolve(bundle, slot, reference) or {}
+    if not resolved:
+        return category, key, resolved
+    stated = authored(bundle, category, key)
+    return category, key, stated if stated and "/" not in key else resolved
 
 
 def fact(item, field, category, identity, debts, cite, *, require_measured=True):
@@ -39,24 +50,29 @@ def fact(item, field, category, identity, debts, cite, *, require_measured=True)
 
 def tool_projection(bundle, op, debts, cite, *, require_measured=True):
     """Use only this exact tool/holder pair, otherwise selected OAL minus grip."""
-    tool_ref, holder_ref = op.get("tool", UNKNOWN), op.get("holder", UNKNOWN)
-    tool = measurement_item(bundle, "tools", tool_ref)
-    holder = measurement_item(bundle, "holders", holder_ref)
-    for field in ("projection_mm", "projection_in"):
-        if holder_ref in record(tool.get(field)):
-            result = length_fact(
-                tool, ("projection", holder_ref), require_measured=require_measured
-            )
-            citation = f"inventory.tools.{tool_ref}.{field}.{holder_ref}"
+    tool_category, tool_ref, tool = selected_item(bundle, "tools", op.get("tool", UNKNOWN))
+    holder_category, holder_ref, holder = selected_item(
+        bundle, "holders", op.get("holder", UNKNOWN)
+    )
+    pair, conflict = projection_holder(bundle, tool, op.get("holder", UNKNOWN))
+    if conflict:
+        citation = f"inventory.{tool_category}.{tool_ref}.projection"
+        cite.append(citation)
+        authoring_entry(debts, f"{tool_category}.{tool_ref}.projection", conflict, citation)
+        return {"value": UNKNOWN, "verified": False, "cite": [citation], "reason": conflict}
+    for field in ("projection_mm", "projection_in") if pair is not None else ():
+        if pair in record(tool.get(field)):
+            result = length_fact(tool, ("projection", pair), require_measured=require_measured)
+            citation = f"inventory.{tool_category}.{tool_ref}.{field}.{pair}"
             cite.extend([*result["cite"], citation])
             if not result["verified"]:
-                entry = measurement_entry("tools", tool_ref, ("projection", holder_ref))
+                entry = measurement_entry(tool_category, tool_ref, ("projection", pair))
                 entry["cite"] = [citation, *result["cite"]]
                 debts[entry["id"]] = entry
             return result
-    oal = fact(tool, "oal", "tools", tool_ref, debts, cite, require_measured=require_measured)
+    oal = fact(tool, "oal", tool_category, tool_ref, debts, cite, require_measured=require_measured)
     grip = fact(
-        holder, "grip", "holders", holder_ref, debts, cite, require_measured=require_measured
+        holder, "grip", holder_category, holder_ref, debts, cite, require_measured=require_measured
     )
     value = (
         oal["value"] - grip["value"]
@@ -191,46 +207,46 @@ def stock_extents(bundle, setup):
 
 def fixture_height(bundle, setup, debts, cite):
     hold = record(setup.get("hold"))
-    identity = hold.get("fixture", UNKNOWN)
-    fixture = measurement_item(bundle, "fixtures", identity)
+    category, identity, fixture = selected_item(bundle, "workholding", hold.get("fixture", UNKNOWN))
     if not fixture or fixture.get("kind") == UNKNOWN:
         authoring_entry(
             debts,
-            f"fixtures.{identity}.resolve",
+            f"{category}.{identity}.resolve",
             f"resolve: add or select an owned fixture for {identity} in inventory "
             f"and author plan.setups.{setup['id']}.hold.fixture",
-            f"inventory.fixtures.{identity}",
+            f"inventory.{category}.{identity}",
         )
         values, verified = [UNKNOWN], False
     else:
         field = "bed_height" if fixture.get("kind") == "vise" else "height"
-        height = fact(fixture, field, "fixtures", identity, debts, cite)
+        height = fact(fixture, field, category, identity, debts, cite)
         values, verified = [height["value"]], height["verified"]
     for field in ("parallels", "supports", "riser"):
         reference = hold.get(field)
         if reference in (None, "none", "not_applicable"):
             continue  # Known absence of an optional support is not a zero measurement.
-        support = measurement_item(bundle, "fixtures", reference)
+        category, reference, support = selected_item(bundle, "fixtures", reference)
         if not support or support.get("kind") == UNKNOWN:
             authoring_entry(
                 debts,
-                f"fixtures.{reference}.resolve",
+                f"{category}.{reference}.resolve",
                 f"resolve: add or select an owned fixture for {reference} in inventory "
                 f"and author plan.setups.{setup['id']}.hold.{field}",
-                f"inventory.fixtures.{reference}",
+                f"inventory.{category}.{reference}",
             )
             values.append(UNKNOWN)
             verified = False
             continue
-        value = fact(support, "height", "fixtures", reference, debts, cite)
+        value = fact(support, "height", category, reference, debts, cite)
         values.append(value["value"])
         verified &= value["verified"]
     return sum(values) if all(number(v) for v in values) else UNKNOWN, verified
 
 
 def machine_envelope(bundle, setup):
-    machine = measurement_item(bundle, "machines", setup.get("machine"))
-    return machine, record(machine.get("envelope"))
+    """``(key, machine)``: the setup machine's selected key and its measurement item."""
+    _, key, machine = selected_item(bundle, "machines", setup.get("machine"))
+    return key, machine
 
 
 def _known(value):
@@ -249,8 +265,12 @@ def _point(feature, source, target):
     return {axis: [point[i], point[i]] for i, axis in enumerate(AXES)}
 
 
-def _z_extent(op, before, extent, endpoint, tool, diameter, debts, cite, missing, errors, label):
-    """Bound the commanded tip, touched top and explicitly authored safe approach."""
+def _z_extent(
+    op, before, extent, endpoint, selected_tool, diameter, debts, cite, missing, errors, label
+):
+    """Bound the commanded tip, touched top and explicitly authored safe approach.
+    ``selected_tool`` is the op tool's :func:`selected_item`."""
+    tool_category, tool_ref, tool = selected_tool
     values = []
     complete = True
     if isinstance(extent, dict) and _band(extent.get("z")):
@@ -307,11 +327,11 @@ def _z_extent(op, before, extent, endpoint, tool, diameter, debts, cite, missing
             )
             endpoint_complete &= angle_verified
             if not angle_verified:
-                entry = measurement_entry("tools", op.get("tool", UNKNOWN), "point_angle")
+                entry = measurement_entry(tool_category, tool_ref, "point_angle")
                 debts[entry["id"]] = entry
-            cite.extend([*angle["cite"], f"inventory.tools.{op.get('tool', UNKNOWN)}.point_angle"])
+            cite.extend([*angle["cite"], f"inventory.{tool_category}.{tool_ref}.point_angle"])
         elif action == "ream":
-            lead = fact(tool, "lead", "tools", op.get("tool", UNKNOWN), debts, cite)
+            lead = fact(tool, "lead", tool_category, tool_ref, debts, cite)
             endpoint_complete &= lead["verified"] and _known(lead["value"])
         complete &= endpoint_complete
         if not endpoint_complete:
@@ -357,34 +377,40 @@ def authoring_entry(debts, identity, instruction, cite):
 
 def spindle_nose_band(bundle, op, before, extent, endpoint, debts, cite, missing, errors, label):
     """Shared tip band plus measured selected assembly, in setup-datum Z."""
-    tool_ref, holder_ref = op.get("tool", UNKNOWN), op.get("holder", UNKNOWN)
-    tool = measurement_item(bundle, "tools", tool_ref)
-    holder = measurement_item(bundle, "holders", holder_ref)
+    selected_tool = selected_item(bundle, "tools", op.get("tool", UNKNOWN))
+    selected_holder = selected_item(bundle, "holders", op.get("holder", UNKNOWN))
+    (tool_category, tool_ref, tool), (holder_category, holder_ref, holder) = (
+        selected_tool,
+        selected_holder,
+    )
     unresolved = False
-    for category, reference, item in (("tools", tool_ref, tool), ("holders", holder_ref, holder)):
+    for slot, (category, reference, item) in (
+        ("tool", selected_tool),
+        ("holder", selected_holder),
+    ):
         if not item or item.get("kind") == UNKNOWN:
             unresolved = True
             authoring_entry(
                 debts,
                 f"{category}.{reference}.resolve",
-                f"resolve: add or select an owned {category[:-1]} for {reference} in inventory "
-                f"and author {label}.{category[:-1]}",
+                f"resolve: add or select an owned {slot} for {reference} in inventory "
+                f"and author {label}.{slot}",
                 f"inventory.{category}.{reference}",
             )
     unknown_fact = {"value": UNKNOWN, "verified": False}
     if unresolved:
         gauge = projection = unknown_fact
     else:
-        gauge = fact(holder, "gauge_len", "holders", holder_ref, debts, cite)
+        gauge = fact(holder, "gauge_len", holder_category, holder_ref, debts, cite)
         projection = tool_projection(bundle, op, debts, cite)
     diameter = (
-        fact(tool, "dia", "tools", tool_ref, debts, cite)
+        fact(tool, "dia", tool_category, tool_ref, debts, cite)
         if op.get("do") == "drill" and tool and tool.get("kind") != UNKNOWN
         else unknown_fact
     )
     missing_start = len(missing)
     tip, complete = _z_extent(
-        op, before, extent, endpoint, tool, diameter, debts, cite, missing, errors, label
+        op, before, extent, endpoint, selected_tool, diameter, debts, cite, missing, errors, label
     )
     if len(missing) > missing_start:
         authoring_entry(debts, f"{label}.z_geometry", "; ".join(missing[missing_start:]), label)

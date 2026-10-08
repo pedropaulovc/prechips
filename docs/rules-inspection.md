@@ -32,8 +32,11 @@ its capability as unknown.
 
 Loading rejects any `checks.<requirement>` absent from that operation's feature
 exported `requirements` list, including when the list is wholly unknown. A name
-exported on another feature does not establish ownership. To retain an authored
-inspection for a requirement absent from the export, declare a separate inspect
+exported on another feature does not establish ownership. An `inspect` op naming
+a feature list may check a requirement any named feature exports; it is the
+check op for each named feature that exports it, so one reading of a limit the
+drawing gives two features covers both `feature:requirement` subjects. To retain
+an authored inspection for a requirement absent from the export, declare a separate inspect
 operation with `missing_requirements = { length = "calipers" }` and its
 `inspection_methods.length` procedure. A name already exported on the selected
 feature is rejected in `missing_requirements`; actual requirements must use checks.
@@ -62,10 +65,11 @@ For a `[low, high]` mm band, gauge range must cover both ends and resolution mus
 not exceed `high-low`. A scalar geometric tolerance needs resolution
 at most the tolerance and a known declared method. Non-mm/unknown limits stay unknown.
 Unverified gauge range/resolution cannot prove a dimensional error or pass.
-Roughness capability is unresolved without explicit range evidence; the current
-inventory schema does not expose the rule's `ra_range`/`range_ra` lookup, so do
-not add those extra keys to an M1 input or claim a shipped roughness capability
-pass. Scalar dimensions without an implemented capability branch stay unknown.
+Roughness capability is unresolved without explicit range evidence. A gauge of a
+roughness kind (e.g. `roughness_comparator`) declares it with the inventory field
+`ra_range = [low_um, high_um]`; the Ra limit must lie inside that range. Without
+`ra_range` (or with an unverified item) finish_ra stays unknown. Scalar dimensions
+without an implemented capability branch stay unknown.
 
 A numeric requirement band must contain any explicitly exported numeric
 `<requirement>_nominal` or `nominal_<requirement>`, inclusively. A contradiction is
@@ -108,11 +112,98 @@ Sentence templates:
   - `named gauge capability needs verification`
   - `unverified gauge dimensions cannot establish capability`
   - `exported nominal is outside the requirement band`
+  - `a GO / NO-GO pair is read only for a diameter`
+  - `GO / NO-GO direction is unresolved for a {kind} feature`
+  - `named gauge cannot make a GO / NO-GO check of this feature`
+  - `GO / NO-GO sizes accept work outside the band`
+  - `GO / NO-GO sizes accept no work`
+  - `the gauge lists no sizes_mm to hold the GO / NO-GO sizes`
+  - `the gauge has no GO / NO-GO size of that diameter`
+  - `GO / NO-GO sizes lie inside the band`
+  - `{setup}:{op}: <one of the GO / NO-GO messages>` when an earlier op's pair is worse
+    than the final check's
 
 Evidence: requirement, limits, finishing/check op, named gauge, kind, range,
 resolution and band width where available. Citations: PLAN §4.1 inspection,
 feature requirement manifest and inventory range/resolution/verification. A pin
 size check is not a position check; a declared gauge is not first-article data.
+
+## GO / NO-GO limit checks
+
+An op's `go_no_go = { <requirement> = { go = <mm>, no_go = <mm> } }` states the two
+sizes its `checks[<requirement>]` gauge uses; every key needs its `checks` entry
+(otherwise bad input). A pair is a limit check: the GO size must pass the work and
+the NO-GO size must not, so the gauge accepts the sizes between them. For a hole
+(`hole`, `counterbore`, `thread`, `threaded_hole`) the gauge must be a pin, pin set or plug and
+GO >= low limit, NO-GO <= high limit, GO < NO-GO. A boss or shaft is the mirror: a
+ring or snap gauge with NO-GO >= low limit, GO <= high limit, NO-GO < GO. Any
+other feature kind is `unknown`. A drawing check is judged against the band **as
+the traveler prints it**, rounded inward at the drawing precision (the rocker rod
+hole `[1.994, 2.094]` at 2 places prints, and is gauged as, 2.00–2.09). A pair
+outside the band is `error`: it accepts work the band rejects. Both sizes must be
+listed in the gauge's `sizes_mm`: a size not in the list is `error`, a gauge with
+no `sizes_mm` is `unknown`, and an unverified gauge is `unknown`. A declared pair
+replaces the span/resolution test for that check. The final check's pair grades
+`{feature}:{requirement}`; a pair on any earlier op that prints the same drawing
+band is graded the same way, recorded under `other_go_no_go`, and the worse status
+wins. Evidence adds `go_mm`, `no_go_mm`, `accept_band` and, when missing,
+`absent_sizes_mm`. The op row prints `<band>: <gauge>, GO <go> enters, NO-GO <no_go>
+does not` (`passes over` for a boss or shaft), at the gauge's digits. A pair declared
+`"unknown"` — the op's whole `go_no_go = "unknown"` (every requirement it checks) or one
+entry `go_no_go = { <requirement> = "unknown" }` — is still a limit check, on the final
+or an earlier op: `unknown` (`the GO / NO-GO pair is explicitly unknown`), never the
+span/resolution test. Its row is flagged `?` and prints `GO / NO-GO sizes not set`.
+
+## Process holds
+
+An op's `process_holds` adds one `{setup}:{op}` inspection subject. Each hold's
+`band` must lie inside its drawing requirement band, limits included. Only a
+scalar zone or maximum (`position_dia`, `coaxiality_dia`, `angularity_dia`,
+`finish_ra`) `v` reads as [0, v]; any other scalar is a nominal with no band, so
+the hold is `unknown`. Each hold's gauge is graded like a drawing check, against
+the hold band: it must be able to measure the requirement, span the band and
+resolve its width. A hold's own `go_no_go = { go, no_go }` makes that a limit
+check against the hold band, by the rules above. A hold reaching outside the drawing band is `error`
+(`process hold band outside the drawing band (…)`), and so is a gauge that cannot
+read it (`process hold gauge cannot hold the band (…)`). An unresolved drawing
+band, or an unknown, unlisted or unverified gauge, is `unknown`. Otherwise it is
+`pass`. A hold on a reference-only dimension (`length_ref`, with its `measure` and
+`cite`, see [plan](plan.md)) has no drawing band: `inside_drawing_band` is
+`not_applicable`, never `unknown`, and its gauge is graded against the hold band
+for the dimension it refers to (`length_ref` as a `length`). A `dro_scale` gauge (a
+machine axis read-out) reads only a length along its axis (`length`, `depth`,
+`height`, `thickness`, `station`); naming it for a diameter or a form is `error`.
+Evidence: each hold's band, drawing band, gauge, reason, `measure` and `cite` when
+given, `inside_drawing_band`, `gauge_status` and `gauge_message`. The sheet prints it as
+`PROCESS HOLD — not a drawing limit (why: see job page): <feature> <requirement>
+<band>: <gauge>`, followed by its GO / NO-GO pair when declared; the reason prints
+once, on the job page. A reference-only hold prints
+its `measure` for the requirement and adds `(drawing: <dimension> REF <value>, no
+limit)`. The band prints with the
+most decimals among its own limits, the drawing precision (none for a REF span) and
+one gauge step in mm: a 0.001 mm or a 0.0001 in
+(0.00254 mm) gauge reads 3 places, not the five of the inch conversion. The job page
+gathers every hold in **PROCESS HOLDS — in-process limits, not drawing limits**:
+setup / op, hold, gauge, the drawing's own limit and why.
+
+## `finish_route`
+
+One row per part. A coating applies the drawing `material.finish` to the cuts it
+follows, in plan order, on stock that carries them: in the same setup after the
+cut, or in a setup whose `stock_in` lineage contains the cut's setup. Every cut
+needs such a coating. So on a built-up part, each component is covered either
+by its own coating after its last cut, or by one coating of the joined assembly
+after the last cut on it. No coating at all, or a cut no coating covers (it
+removes the finish, or its component is never coated), is `warn` (a job-page
+caution). `uncoated_cuts` names those cuts. A cut covered only by a coating
+whose lineage has undeclared routing (a setup omitting `stock_in`), or an
+uncovered op of explicitly unknown action, is `unknown` (`unresolved_cuts`).
+Otherwise it is `pass`. An explicitly unknown finish is `unknown`; no declared
+finish is `not_applicable`. Whether each coating op's `process` resolves to an
+outside `services` item or in-house `consumables` is checked per op by
+`tool_resolves`: absent is `unknown`, unlisted is `error`, and a consumables
+entry whose product list is unknown, empty, or has a blank or `"unknown"`
+product is `unknown`.
 
 ## Angularity
 
@@ -124,7 +215,8 @@ requirement-keyed `checks.angularity_dia` gauge and an explicit datum-referenced
 inspection declaration; the rule does not infer a method from the gauge or parse
 datum letters out of prose. Missing checks are errors. Caliper-only certification
 is an error even with a declared narrative. Missing, empty or literal `"unknown"`
-methods, unknown limits, and missing/empty/unknown datum evidence stay unresolved.
+methods, a step list with any empty or `"unknown"` step, unknown limits, and
+missing/empty/unknown datum evidence stay unresolved.
 A capable geometric gauge, known datum list and method, adequate range and
 resolution are all required to pass a band.
 

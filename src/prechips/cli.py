@@ -7,6 +7,7 @@ import json
 import logging
 import math
 import os
+import re
 import sys
 import tomllib
 import uuid
@@ -15,8 +16,17 @@ from pathlib import Path
 from prechips import __version__, telemetry
 from prechips.findings import Finding, exit_code
 from prechips.inputs import BadInput, Bundle, load_bundle, load_inventory
-from prechips.report import build_report, canonical_bytes, render_assets, report_hash
+from prechips.report import (
+    build_report,
+    canonical_bytes,
+    inspection_sketch_names,
+    render_assets,
+    report_hash,
+)
 from prechips.rules.resolution import _citations
+
+# The picture files a run writes beside its report: a setup's, and its inspection sketches.
+_GENERATED_PNG = re.compile(r"setup-S\d+(?:-op\d+-[A-Za-z0-9_]+)?\.png")
 
 
 class Parser(argparse.ArgumentParser):
@@ -237,17 +247,17 @@ def _tools(args, tracing: telemetry.Telemetry) -> int:
         measurement_checklist,
     )
     from prechips.rules.resolution import (
+        authored,
         candidate_refs,
         length_mm,
         number,
-        record,
         resolve,
         uncertain,
     )
 
     path = args.inventory or os.environ.get("PRECHIPS_INVENTORY")
     if args.measure:
-        from prechips.rules import RULES
+        from prechips.rules import MEASUREMENT_RULES
 
         plans = args.plan
         if not plans:
@@ -256,7 +266,6 @@ def _tools(args, tracing: telemetry.Telemetry) -> int:
                 examples / "pivot-shaft" / "plan.toml",
                 examples / "rocker-arm" / "plan.toml",
                 examples / "pivot-bracket" / "plan.toml",
-                examples / "cone-pivot-post" / "plan.toml",
                 examples / "cone-pivot-post" / "built-up.toml",
             ]
         scoped_findings = []
@@ -265,7 +274,7 @@ def _tools(args, tracing: telemetry.Telemetry) -> int:
             bundle = load_bundle(plan, inventory=path)
             inventory_path = bundle.paths["inventory"]
             inventories.add(inventory_path)
-            for rule in RULES:
+            for rule in MEASUREMENT_RULES:
                 scoped_findings.extend(
                     (plan.as_posix(), inventory_path, finding) for finding in rule.evaluate(bundle)
                 )
@@ -308,7 +317,7 @@ def _tools(args, tracing: telemetry.Telemetry) -> int:
     for category, identity in candidate_refs(inventory):
         item = resolve(inventory, category, identity)
         if item is None:
-            item = record(record(inventory.get(category)).get(identity))
+            item = {} if "/" in identity else authored(inventory, category, identity)
         searchable = json.dumps({"id": identity, **item}, ensure_ascii=False).casefold()
         if text_words and not all(word in searchable for word in text_words):
             continue
@@ -359,9 +368,9 @@ def _tools(args, tracing: telemetry.Telemetry) -> int:
             "size_in": size_in,
             "holder_chain": item.get("standard", item.get("shank", item.get("series", "unknown"))),
         }
-        authored = record(record(inventory.get(category)).get(identity))
-        if category == "machines" and (authored.get("kind") == "mill" or "envelope" in authored):
-            row["envelope_measurements"] = envelope_measurements(authored)
+        stated = authored(inventory, category, identity) if "/" not in identity else {}
+        if category == "machines" and (stated.get("kind") == "mill" or "envelope" in stated):
+            row["envelope_measurements"] = envelope_measurements(stated)
             row["envelope_measurement_status"] = (
                 "measured"
                 if all(fact["verified"] for fact in row["envelope_measurements"].values())
@@ -503,7 +512,7 @@ def _stock_piece_volume(piece: dict, subject: str) -> dict:
 
 
 def _comparison_row(bundle: Bundle, report: dict, plan_label: str) -> dict:
-    from prechips.rules.resolution import number, record, resolve, selected_references
+    from prechips.rules.resolution import identity, number, record, resolve, setup_items
 
     stock = record(bundle.plan.get("stock"))
     components = stock.get("components")
@@ -539,26 +548,44 @@ def _comparison_row(bundle: Bundle, report: dict, plan_label: str) -> dict:
             raise BadInput(f"{plan_label}: sourced net volume exceeds authored stock volume.")
         waste = (stock_volume - net_volume) / stock_volume
     holds = [record(setup.get("hold")) for setup in bundle.plan["setups"]]
-    fixture_refs = selected_references({"setups": [{"hold": hold} for hold in holds]})
+    # Each holding item is the (category, key) it selects (identity), however the hold
+    # spells it: two spellings of one item are one entry, and one key in two categories
+    # is two items. A hold's align block names a gauge, not holding.
+    fixture_items = {
+        (category, reference)
+        for hold in holds
+        for category, reference, _ in setup_items(
+            bundle, {"hold": {k: v for k, v in hold.items() if k != "align"}}
+        )
+    }
+    unknown_fixture = False
     for hold in holds:
         if hold.get("fixture", "unknown") == "unknown":
-            fixture_refs.add("unknown")
+            unknown_fixture = True
         for key in ("parallels", "support", "supports", "riser"):
             if hold.get(key) == "unknown":
-                fixture_refs.add("unknown")
+                unknown_fixture = True
         supports = hold.get("supports")
         for support in supports if isinstance(supports, list) else []:
             if support == "unknown" or (
                 isinstance(support, dict) and support.get("ref", "unknown") == "unknown"
             ):
-                fixture_refs.add("unknown")
+                unknown_fixture = True
         if "index" in hold and record(hold["index"]).get("fixture", "unknown") == "unknown":
-            fixture_refs.add("unknown")
+            unknown_fixture = True
         # These fields can also be prose. Count them only when they name a declared fixture.
         for key in ("clamp", "stop", "locator", "jaw_protection"):
             reference = hold.get(key)
             if resolve(bundle, "fixtures", reference):
-                fixture_refs.add(reference)
+                fixture_items.add(identity(bundle, reference, "fixtures"))
+    # A key names its item alone unless another listed item shares it; then both print
+    # with their category.
+    shared = [key for _, key in fixture_items]
+    fixture_refs = {
+        f"{category}.{key}" if shared.count(key) > 1 else key for category, key in fixture_items
+    }
+    if unknown_fixture:
+        fixture_refs.add("unknown")
     counts = {}
     for finding in report["findings"]:
         counts[finding["status"]] = counts.get(finding["status"], 0) + 1
@@ -636,12 +663,12 @@ def _run(args, tracing: telemetry.Telemetry) -> int:
         names += tuple(
             f"setup-S{ordinal}.png" for ordinal, _ in enumerate(bundles[0].plan["setups"], start=1)
         )
+        names += inspection_sketch_names(bundles[0].plan)
     if args.verb in {"traveler", "check"}:
         names += tuple(
             path.name
             for path in sorted(out.glob("setup-S*.png"))
-            if path.name not in names
-            and path.name.removeprefix("setup-S").removesuffix(".png").isdecimal()
+            if path.name not in names and _GENERATED_PNG.fullmatch(path.name)
         )
     all_inputs = [path for bundle in bundles for path in bundle.paths.values()]
     if getattr(args, "approval", None):

@@ -1,0 +1,32 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["verdict", "summary", "blockers", "clutter", "clarity", "minor"],
+  "properties": {
+    "verdict": { "type": "string", "enum": ["CLEAR", "FIX"] },
+    "summary": { "type": "string", "minLength": 1 },
+    "blockers": { "$ref": "#/$defs/findings" },
+    "clutter": { "$ref": "#/$defs/findings" },
+    "clarity": { "$ref": "#/$defs/findings" },
+    "minor": { "$ref": "#/$defs/findings" }
+  },
+  "$defs": {
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["where", "issue", "fix"],
+        "properties": {
+          "where": {
+            "type": "string",
+            "minLength": 1,
+            "description": "page, setup and sheet, and section/op/picture, e.g. 'page 3, S1 sheet 1, OPERATIONS op 20'"
+          },
+          "issue": { "type": "string", "minLength": 1 },
+          "fix": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

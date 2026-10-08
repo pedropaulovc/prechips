@@ -8,11 +8,20 @@ import tomllib
 from contextlib import nullcontext
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
+from functools import cached_property
 from pathlib import Path
 
 from pydantic import ValidationError
 
-from prechips.model import CuttingData, Features, InputModel, Inventory, Plan, Policy
+from prechips.model import (
+    CuttingData,
+    Features,
+    InputModel,
+    Inventory,
+    Plan,
+    Policy,
+    reference_only,
+)
 
 
 class BadInput(Exception):
@@ -43,12 +52,53 @@ class Bundle:
             records[kind] = {"path": label, "sha256": self.hashes[kind]}
         return records
 
+    @cached_property
+    def feature_definitions(self) -> dict[str, dict]:
+        """Operative features: the exported manifest plus resolved plan joint and process
+        features.
+
+        ``features`` stays the original exported document (hash, faces and coverage).
+        """
+        return operative_definitions(self.plan, self.features)
+
+
+def operative_definitions(plan: dict, features: dict) -> dict[str, dict]:
+    """The exported manifest plus resolved plan joint and process features."""
+    from prechips import joint_features, process_features
+
+    return process_features.feature_definitions(
+        plan, joint_features.feature_definitions(plan, features), features.get("units", "unknown")
+    )
+
 
 def _span(kind: str, path: Path):
     from prechips import telemetry
 
     active = telemetry.current()
     return active.span("input.load", kind=kind, path=str(path)) if active else nullcontext()
+
+
+def _exported(feature: dict) -> list:
+    requirements = feature.get("requirements")
+    return requirements if isinstance(requirements, list) else []
+
+
+def _prepared_blank(plan: dict, ids: list[str]) -> None:
+    """A prepared blank names a known receiving setup and is cut from one rectangular root
+    stock; its size check (rule ``prepared_blank``) has no other root to trim. An explicitly
+    ``"unknown"`` preparation names no setup: the rule leaves it unknown."""
+    stock = plan.get("stock")
+    prepared = stock.get("prepared") if isinstance(stock, dict) else None
+    if prepared is None:
+        return
+    receiver = prepared.get("setup", "unknown") if isinstance(prepared, dict) else "unknown"
+    if receiver != "unknown" and receiver not in ids:
+        raise BadInput(f"stock.prepared.setup {receiver!r} is not a plan setup.")
+    if stock.get("components") or "dia_mm" in stock:
+        raise BadInput(
+            "stock.prepared squares one rectangular root stock; a round or built-up "
+            "stock has no box to trim."
+        )
 
 
 def _load(path: Path, model: type[InputModel], kind: str) -> tuple[dict, str]:
@@ -88,6 +138,9 @@ def load_bundle(
     policy: str | Path | None = None,
     cutting_data: str | Path | None = None,
 ) -> Bundle:
+    from prechips.rules.coordinates import aim_band_error, faced_aim_error
+    from prechips.rules.resolution import SAW_OPS, op_features
+
     plan_path = Path(plan_path).resolve()
     plan, plan_hash = _load(plan_path, Plan, "plan")
     if plan.get("features") == "unknown":
@@ -101,13 +154,40 @@ def load_bundle(
         raise BadInput("Plan and feature manifest name different parts.")
     if not features["features"]:
         raise BadInput("The feature manifest has no features.")
+    from prechips import joint_features, process_features
+
+    definitions = operative_definitions(plan, features)
+    for name, feature in features["features"].items():
+        faces = feature.get("faces")
+        for prefix, what in (
+            (joint_features.LABEL_PREFIX, "joint"),
+            (process_features.LABEL_PREFIX, "stock-preparation"),
+        ):
+            if isinstance(faces, list) and any(str(face).startswith(prefix) for face in faces):
+                raise BadInput(
+                    f"features.{name}.faces names a synthetic {prefix}* label; transient "
+                    f"{what} geometry never maps to finished STEP faces."
+                )
     setups = plan["setups"]
     if not isinstance(setups, list) or not setups:
         raise BadInput("The plan has no setups.")
     ids = [setup.get("id", "unknown") for setup in setups]
     if "unknown" in ids or len(set(ids)) != len(ids):
         raise BadInput("Setup ids must be known and unique.")
+    _prepared_blank(plan, ids)
     planned_frames = plan.get("frames") if isinstance(plan.get("frames"), dict) else {}
+    for name, aim in plan.get("aims", {}).items():
+        if aim["requirement"] not in _exported(definitions.get(name, {})):
+            raise BadInput(
+                f"aims.{name}: {aim['requirement']} is not an exported drawing requirement "
+                "of a manifest feature."
+            )
+        # The aimed value itself, before any DRO rounding could bring its target back in.
+        error = aim_band_error(features, name, definitions[name], aim) or faced_aim_error(
+            plan, features, name, aim
+        )
+        if error is not None:
+            raise BadInput(f"{error}.")
     for setup in setups:
         ops = setup.get("ops")
         if not isinstance(ops, list) or not ops:
@@ -116,29 +196,89 @@ def load_bundle(
         if "unknown" in op_ids or len(set(op_ids)) != len(op_ids):
             raise BadInput(f"{setup['id']}: operation numbers must be known and unique.")
         for op in ops:
-            if op.get("feature") not in features["features"]:
-                raise BadInput(f"{setup['id']}:{op['op']}: feature is not in the manifest.")
-            feature = features["features"][op["feature"]]
-            requirements = feature.get("requirements")
-            exported = requirements if isinstance(requirements, list) else []
+            for hold in op.get("process_holds", []):
+                held = definitions.get(hold["feature"], {})
+                where = f"{setup['id']}:{op['op']}: process hold {hold['feature']}"
+                if reference_only(held, hold["requirement"]):
+                    if hold.get("measure") is None or hold.get("cite") is None:
+                        raise BadInput(
+                            f"{where} {hold['requirement']} is reference-only (the drawing "
+                            "sets no limit): name what the gauge reads (measure) and where "
+                            "the band comes from (cite)."
+                        )
+                elif hold["requirement"] not in _exported(held):
+                    raise BadInput(
+                        f"{where} {hold['requirement']} is not an exported drawing requirement."
+                    )
+                elif hold.get("measure") is not None:
+                    raise BadInput(
+                        f"{where} {hold['requirement']}: only a hold on a reference-only "
+                        "dimension names a measure; this one reads its drawing requirement."
+                    )
+            if op.get("do") in SAW_OPS and "feature" not in op:
+                if op.get("checks") or op.get("missing_requirements"):
+                    raise BadInput(
+                        f"{setup['id']}:{op['op']}: saw inspection checks need a manifest feature."
+                    )
+                continue
+            names = op_features(op)
+            if not names or any(name not in definitions for name in names):
+                raise BadInput(
+                    f"{setup['id']}:{op['op']}: feature is neither in the manifest, "
+                    "plan.joint_features nor plan.process_features."
+                )
+            preparing = [name for name in names if process_features.process_of(definitions[name])]
+            if preparing:
+                authored = [key for key in ("faces", "checks", "missing_requirements") if key in op]
+                if authored or len(names) != 1:
+                    raise BadInput(
+                        f"{setup['id']}:{op['op']}: plan.process_features.{preparing[0]} is "
+                        "stock preparation; its op works that one feature alone and claims "
+                        "no finished faces, checks or drawing requirements"
+                        + (f" (remove {', '.join(authored)})." if authored else ".")
+                    )
+            label = "/".join(names)
+            exported = {item for name in names for item in _exported(definitions[name])}
             checks = op.get("checks")
             if isinstance(checks, dict):
                 for requirement in checks:
                     if requirement not in exported:
                         raise BadInput(
-                            f"{setup['id']}:{op['op']}: {op['feature']} checks.{requirement} "
+                            f"{setup['id']}:{op['op']}: {label} checks.{requirement} "
                             "is not in the exported requirements; use missing_requirements "
                             "for an absent requirement."
+                        )
+            limits = op.get("go_no_go")
+            if isinstance(limits, dict):
+                for requirement in limits:
+                    if not isinstance(checks, dict) or requirement not in checks:
+                        raise BadInput(
+                            f"{setup['id']}:{op['op']}: {label} go_no_go.{requirement} "
+                            "names no checks gauge; a GO / NO-GO pair needs its checks entry."
                         )
             missing = op.get("missing_requirements")
             if isinstance(missing, dict):
                 for requirement in missing:
                     if requirement in exported:
                         raise BadInput(
-                            f"{setup['id']}:{op['op']}: {op['feature']} "
+                            f"{setup['id']}:{op['op']}: {label} "
                             f"missing_requirements.{requirement} is already exported; "
                             "use checks for that requirement."
                         )
+        hold = setup.get("hold")
+        face = hold.get("stop_face") if isinstance(hold, dict) else None
+        if face not in (None, "unknown", "stock_end") and face not in definitions:
+            raise BadInput(
+                f"{setup['id']}: hold.stop_face {face!r} is neither a manifest feature, "
+                'plan.joint_features, plan.process_features nor "stock_end".'
+            )
+        centre = hold.get("centre_hole") if isinstance(hold, dict) else None
+        made = process_features.process_of(definitions.get(centre)) if centre else None
+        if centre is not None and (made is None or made["kind"] != "centre_hole"):
+            raise BadInput(
+                f"{setup['id']}: hold.centre_hole {centre!r} is not a "
+                "plan.process_features centre_hole."
+            )
         frame = setup.get("frame", "unknown")
         if (
             isinstance(features["frames"], dict)
@@ -224,7 +364,7 @@ def load_bundle(
             raise BadInput("The manifest STEP digest must be lowercase SHA-256 or unknown.")
         if "step" not in paths:
             raise BadInput("A known STEP digest requires its STEP bytes in the bundle.")
-    return Bundle(
+    bundle = Bundle(
         plan,
         features,
         resolved["inventory"],
@@ -234,3 +374,6 @@ def load_bundle(
         hashes,
         root,
     )
+    # Seed the cached operative mapping already resolved above; it is built once.
+    bundle.__dict__["feature_definitions"] = definitions
+    return bundle

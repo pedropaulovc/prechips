@@ -3,15 +3,15 @@
 from ..findings import Finding
 from .resolution import (
     UNKNOWN,
-    WORKHOLDING_CATEGORIES,
+    authored,
     fraction,
     inch_sizes,
-    inventory_category,
     inventory_record,
     number,
     record,
     resolve,
     same_length,
+    select,
     uncertain,
 )
 from .stickout import held_diameter, held_diameter_source
@@ -21,22 +21,26 @@ GRIPPING_KINDS = {"collet_set", "collet", "collet_chuck"}
 
 
 def _workholding(bundle, reference):
-    """Use M1 identities; set-root workholding can check its declared membership."""
+    """Use M1 identities (the hold fixture :func:`select` reads); set-root workholding can
+    check its declared membership."""
     if not isinstance(reference, str) or reference in (UNKNOWN, "none", "not_applicable"):
         return None, UNKNOWN
-    category = inventory_category(bundle, reference, WORKHOLDING_CATEGORIES)
-    if category is None:
-        return resolve(bundle, "fixtures", reference), UNKNOWN
-    root, separator, member = reference.partition("/")
-    parent = inventory_record(bundle.inventory[category][root])
+    # Everything below reads the key as selected: a category-qualified reference
+    # (``holders.collets/1/4``) is the same item, and the same member, as its bare key.
+    category, key, selected = select(bundle, reference, "workholding")
+    stated = authored(bundle, category, key)
+    if selected == UNKNOWN or not stated:
+        return resolve(bundle, "workholding", reference), UNKNOWN
+    root, separator, member = key.partition("/")
+    parent = inventory_record(stated)
     if parent.get("present") is False:
         return None, UNKNOWN
     if not separator:
-        return resolve(bundle, category, reference) or parent, UNKNOWN
+        return resolve(bundle, category, key) or parent, UNKNOWN
     children = record(parent.get("members"))
     if member in children:
         child = inventory_record(children[member])
-        item = resolve(bundle, category, reference)
+        item = resolve(bundle, category, key)
         if item is None:
             return None, UNKNOWN
         # A selected member must not inherit the entire parent set's sizes.
@@ -46,7 +50,7 @@ def _workholding(bundle, reference):
                 item[field] = child[field]
         return item, UNKNOWN
     if parent.get("kind") != "collet_set":
-        return resolve(bundle, category, reference), UNKNOWN
+        return resolve(bundle, category, key), UNKNOWN
     if member.endswith("mm"):
         size = fraction(member.removesuffix("mm"))
         choices = parent.get("sizes_mm", [])
@@ -116,9 +120,7 @@ def evaluate(bundle):
         item, selected_size = _workholding(bundle, reference)
         item = record(item)
         kind = item.get("kind", UNKNOWN)
-        relevant = _relevant(
-            item, kind, inventory_category(bundle, reference, WORKHOLDING_CATEGORIES)
-        )
+        relevant = _relevant(item, kind, select(bundle, reference, "workholding")[0])
         diameter = held_diameter(bundle, setup)
         sizes, ranges, unresolved = _capacity(item, selected_size)
         fits = number(diameter) and (

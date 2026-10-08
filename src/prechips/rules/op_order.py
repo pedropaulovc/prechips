@@ -1,12 +1,22 @@
 """Check authored execution order, not numeric operation sorting."""
 
 from ..findings import Finding
-from .resolution import MANUAL, operations, record
+from .resolution import MANUAL, op_feature, operations, record
 
 
 def evaluate(bundle):
     result = []
     route = operations(bundle)
+    ancestors = {}
+    for setup in bundle.plan["setups"]:
+        source = setup.get("stock_in")
+        refs = source if isinstance(source, list) else [source]
+        parents = set()
+        for ref in refs:
+            if ref in ancestors:
+                parents.add(ref)
+                parents.update(ancestors[ref])
+        ancestors[setup["id"]] = parents
     for setup in bundle.plan["setups"]:
         errors = []
         sid = setup["id"]
@@ -30,9 +40,9 @@ def evaluate(bundle):
                 continue
             before = route[:index]
             after = route[index + 1 :]
-            feature = op.get("feature")
+            feature = op_feature(op)
             action = op["do"]
-            spec = bundle.features["features"].get(feature, {})
+            spec = bundle.feature_definitions.get(feature, {})
             prerequisite_feature = (
                 spec.get("hole", spec.get("parent", feature))
                 if action == "counterbore"
@@ -78,11 +88,14 @@ def evaluate(bundle):
                     for s, o in before
                     if o.get("feature") == prerequisite_feature and o["do"] == "drill"
                 ]
-                if earlier and earlier[-1][0]["id"] != sid:
+                if earlier and not any(
+                    s["id"] == sid or s["id"] in ancestors[sid] for s, _ in earlier
+                ):
                     transfer = record(record(setup.get("zero")).get("transfer"))
-                    source = setup.get("stock_in")
-                    earlier_ids = {s["id"] for s, _ in before}
-                    if source not in earlier_ids and transfer.get("from") not in earlier_ids:
+                    drilled_ids = {s["id"] for s, _ in earlier}
+                    # Unrouted legacy input may declare a transfer; an explicit material
+                    # route cannot be certified by transferring datums from another blank.
+                    if "stock_in" in setup or transfer.get("from") not in drilled_ids:
                         errors.append(f"op {op['op']} has no incoming route from the drilled setup")
         nums = {
             "sequence": [f"{o['op']} {o['do']} {o.get('feature', '')}" for o in own],

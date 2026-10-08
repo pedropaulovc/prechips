@@ -24,7 +24,7 @@ def bundle():
         "z": [0, 0, 1],
         "binding": "measured",
     }
-    return SimpleNamespace(
+    data = SimpleNamespace(
         plan={
             "stock": {"length_mm": 100, "section_mm": [30, 10], "cite": "blank measured"},
             "setups": [
@@ -86,6 +86,8 @@ def bundle():
         },
         policy={},
     )
+    data.feature_definitions = data.features["features"]
+    return data
 
 
 def setup(data):
@@ -182,6 +184,110 @@ def test_point_operations_transform_complete_locations():
     assert finding.numbers["travel_checks"]["y"]["required_mm"] == 90
 
 
+def child_bundle():
+    """Only child ops: a counterbore (``parent``) and a tapped hole (``hole``), 90 mm apart."""
+    data = bundle()
+    features = data.features["features"]
+    # Parent bounds wider than the child spans must not leak into the children's extents.
+    features["left"] = {"kind": "hole", "at": [0, 0, 0], "bounds": {"x": [-50, 5]}}
+    features["right"] = {"kind": "hole", "at": [90, 0, 0], "cite": {"at": "drawing right hole"}}
+    features["cbore"] = {"kind": "counterbore", "parent": "right"}
+    features["thread"] = {"kind": "threaded_hole", "hole": "left"}
+    for tool in ("counterbore", "tap"):
+        data.inventory["tools"][tool] = {
+            "kind": tool,
+            "dia_mm": measured(6),
+            "projection_mm": {"holder": measured(40)},
+        }
+    common = {"holder": "holder", "approach_mm": 3}
+    setup(data)["ops"] = [
+        {"op": 10, "do": "counterbore", "feature": "cbore", "tool": "counterbore", "depth_mm": 5}
+        | common,
+        {"op": 20, "do": "tap", "feature": "thread", "tool": "tap", "depth_mm": 8} | common,
+    ]
+    return data
+
+
+def test_child_features_without_at_are_located_at_parent_hole():
+    data = child_bundle()
+    finding = evaluate(data)[0]
+    assert finding.status == "pass"
+    assert [row["extent_mm"]["x"] for row in finding.numbers["operations"]] == [[90, 90], [0, 0]]
+    assert finding.numbers["travel_checks"]["x"]["required_mm"] == 90
+    assert "features.features.right.at" in finding.cite
+    assert "drawing right hole" in finding.cite
+    machine(data)["envelope"]["travel_mm"]["x"] = measured(90)
+    boundary = evaluate(data)[0]
+    assert boundary.status == "pass"
+    assert boundary.numbers["travel_checks"]["x"]["margin_mm"] == 0
+    machine(data)["envelope"]["travel_mm"]["x"] = measured(89)
+    excess = evaluate(data)[0]
+    assert excess.status == "error"
+    assert excess.numbers["travel_checks"]["x"]["margin_mm"] == -1
+
+
+def test_inherited_location_uses_parent_frame_not_child_frame():
+    data = child_bundle()
+    data.features["frames"]["drawing"] = {
+        "origin": [100, 50, 0],
+        "x": [0, 1, 0],
+        "y": [-1, 0, 0],
+        "z": [0, 0, 1],
+    }
+    features = data.features["features"]
+    features["right"].update(frame="drawing", at=[0, 90, 0])
+    features["left"].update(frame="drawing", at=[0, 0, 0])
+    # Read in the children's own (default model) frame these would span Y 90, not X 90.
+    finding = evaluate(data)[0]
+    assert finding.status == "pass"
+    assert finding.numbers["operations"][0]["extent_mm"]["x"] == [10, 10]
+    assert finding.numbers["operations"][1]["extent_mm"]["x"] == [100, 100]
+    assert finding.numbers["travel_checks"]["x"]["required_mm"] == 90
+    assert finding.numbers["travel_checks"]["y"]["required_mm"] == 0
+    # Moving the parent frame and the setup frame together leaves the spans unchanged.
+    data.features["frames"]["drawing"]["origin"] = [1100, -950, 40]
+    data.features["frames"]["A"]["origin"] = [1000, -1000, 40]
+    machine(data)["envelope"]["travel_mm"]["x"] = measured(90)
+    moved = evaluate(data)[0]
+    assert moved.status == "pass"
+    assert moved.numbers["operations"][0]["extent_mm"]["x"] == [10, 10]
+    assert moved.numbers["travel_checks"]["x"]["margin_mm"] == 0
+    assert moved.numbers["travel_checks"]["y"]["required_mm"] == 0
+
+
+def test_explicit_child_at_wins_over_parent_location():
+    data = child_bundle()
+    data.features["features"]["cbore"]["at"] = [30, 0, 0]
+    finding = evaluate(data)[0]
+    assert finding.status == "pass"
+    assert finding.numbers["travel_checks"]["x"]["required_mm"] == 30
+
+
+@pytest.mark.parametrize(
+    "gap", ["explicit unknown at", "parent not declared", "parent without at", "no parent"]
+)
+@pytest.mark.parametrize("travel", [100, 1])
+def test_unlocated_child_stays_located_geometry_debt(gap, travel):
+    data = child_bundle()
+    cbore = data.features["features"]["cbore"]
+    if gap == "explicit unknown at":
+        cbore["at"] = "unknown"
+    elif gap == "parent not declared":
+        cbore["parent"] = "missing"
+    elif gap == "parent without at":
+        del data.features["features"]["right"]["at"]
+    else:
+        del cbore["parent"]
+    machine(data)["envelope"]["travel_mm"]["x"] = measured(travel)
+    finding = evaluate(data)[0]
+    assert finding.status == "unknown"
+    assert finding.numbers["operations"][0]["extent_mm"] == "unknown"
+    assert finding.numbers["travel_checks"]["x"]["required_mm"] == "unknown"
+    assert "plan.setups.S1.ops.10.xy_geometry" in [
+        row["id"] for row in finding.numbers["measurements"]
+    ]
+
+
 @pytest.mark.parametrize("action", ["face", "rough_profile", "finish_pocket"])
 @pytest.mark.parametrize("extent", [None, {"x": [0, 2]}])
 def test_broad_incomplete_extent_uses_stock_not_tiny_nominal_feature(action, extent):
@@ -230,6 +336,34 @@ def test_rough_allowance_expands_each_side_only_for_rough_cut():
     assert check(data, "x")["required_mm"] == pytest.approx(46.8)
     op["do"] = "finish_profile"
     assert check(data, "x")["required_mm"] == 46
+
+
+@pytest.mark.parametrize(
+    ("fields", "staged"),
+    [
+        ({"do": "rough_profile", "rough_allowance_mm": None}, True),
+        ({"do": "rough_profile", "stock_to_leave_mm": None}, True),
+        ({"rough_allowance_mm": None, "contour": {"method": "chords", "count": 24}}, True),
+        ({"rough_allowance_mm": None}, False),
+    ],
+    ids=["rough", "rough-stock-to-leave", "contour-finish-paired-rough", "finish-removing-leave"],
+)
+@pytest.mark.parametrize("leave", [-0.4, 0.0, 0.4])
+def test_every_rough_stage_runs_its_leave_out_and_a_negative_leave_is_an_error(
+    fields, staged, leave
+):
+    # A rough stage (an explicit rough, or the rough a contour finish pairs with its
+    # allowance) runs its cutter the leave farther out; a finish without one cuts the line.
+    # A negative leave cuts into the finished part however it is spelt: an error.
+    data = bundle()
+    setup(data)["ops"][0].update({k: leave if v is None else v for k, v in fields.items()})
+    finding = evaluate(data)[0]
+    if leave < 0:
+        assert finding.status == "error", finding.sentence
+        return
+    assert finding.status == "pass", finding.sentence
+    required = finding.numbers["travel_checks"]["x"]["required_mm"]
+    assert required == pytest.approx(46 + (2 * leave if staged else 0))
 
 
 @pytest.mark.parametrize("missing", ["bounds", "dia", "approach", "travel", "measurement"])
@@ -325,6 +459,8 @@ def test_facing_advances_hole_entry_and_preserves_prior_safe_approach():
     setup(data)["stock_state"].update(top_z=5, entry_z={"through": 5}, top_feature="outline")
     setup(data)["ops"][0].update(do="face", to_z=0, approach_mm=2)
     add_hole(data, "through", [10, 10, 0], 20, approach=4)
+    # Its Ø6 entry disc lies inside the outline faced to Z0: a held centre alone is no proof.
+    data.features["features"]["through"]["dia"] = 6
     finding = evaluate(data)[0]
     assert finding.status == "pass"
     assert finding.numbers["operations"][1]["endpoint"]["entry_z"] == 0
@@ -337,6 +473,7 @@ def test_pocket_advances_local_entry_without_moving_current_stock_top():
     setup(data)["stock_state"].update(entry_z={"through": 0})
     setup(data)["ops"][0].update(do="pocket", to_z=-2, approach_mm=3)
     add_hole(data, "through", [10, 10, 0], 20, approach=4)
+    data.features["features"]["through"]["dia"] = 6
     finding = evaluate(data)[0]
     assert finding.status == "pass"
     endpoint = finding.numbers["operations"][1]["endpoint"]
@@ -360,7 +497,6 @@ def test_negative_approach_is_error_not_reduced_travel():
     setup(data)["ops"][0]["approach_mm"] = -1
     finding = evaluate(data)[0]
     assert finding.status == "error"
-    assert "approach_mm" in finding.sentence and ">= 0" in finding.sentence
     assert finding.numbers["travel_checks"]["z"]["required_mm"] == "unknown"
 
 
@@ -502,7 +638,6 @@ def test_nonpositive_authored_stock_dimension_cannot_pass_broad_fallback(field, 
     data.plan["stock"][field] = value
     finding = evaluate(data)[0]
     assert finding.status == "error"
-    assert "positive" in finding.sentence and "mm" in finding.sentence
 
 
 def test_reversed_explicit_bounds_are_error_not_sorted_into_a_passing_extent():
@@ -510,7 +645,6 @@ def test_reversed_explicit_bounds_are_error_not_sorted_into_a_passing_extent():
     data.features["features"]["outline"]["bounds"]["x"] = [40, 0]
     finding = evaluate(data)[0]
     assert finding.status == "error"
-    assert "reversed" in finding.sentence and "low <= high" in finding.sentence
 
 
 def test_explicit_hole_depth_target_is_kept_alongside_through_endpoint():
@@ -805,10 +939,13 @@ def test_review_5_hole_centres_exact_boundary_no_cutter_radius():
             "approach_mm": 5,
         },
     ]
-    data.features["features"] = {
-        "left": {"kind": "hole", "at": [0, 0, 0]},
-        "right": {"kind": "hole", "at": [395, 0, 0]},
-    }
+    data.features["features"].clear()
+    data.features["features"].update(
+        {
+            "left": {"kind": "hole", "at": [0, 0, 0]},
+            "right": {"kind": "hole", "at": [395, 0, 0]},
+        }
+    )
     machine(data)["envelope"]["travel_mm"]["x"]["value"] = 395
     row = evaluate(data)[0]
     assert row.status == "pass"

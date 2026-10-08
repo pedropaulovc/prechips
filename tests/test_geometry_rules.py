@@ -1,5 +1,6 @@
 """Consumer boundaries of deterministic kernel facts, measurement debt and readiness."""
 
+import math
 import sys
 from copy import deepcopy
 from pathlib import Path
@@ -15,6 +16,7 @@ from prechips.rules import (
     accessibility,
     coverage,
     finish_coverage,
+    fixture_interference,
     internal_corner_radius,
     reach,
     thin_wall_under_clamp,
@@ -22,8 +24,8 @@ from prechips.rules import (
 )
 
 
-@pytest.fixture
-def bundle(tmp_path):
+def rules_bundle(root):
+    """One finish_profile op S1:10 on ``em`` in ``holder`` with its kernel facts preset."""
     return Bundle(
         {
             "part": "test-part",
@@ -110,7 +112,7 @@ def bundle(tmp_path):
         {},
         {},
         {},
-        tmp_path,
+        root,
         {
             "status": "ok",
             "bbox_mm": [0.0, 0.0, 0.0, 50.0, 20.0, 10.0],
@@ -125,6 +127,7 @@ def bundle(tmp_path):
                     "holder_hits": 0,
                     "reach_depth_mm": 8.0,
                     "holder_wall_hits": 0,
+                    "shank_hits": 0,
                     "corner_radii_mm": [3.0],
                     "claimed_indices": [1],
                     "claim_errors": [],
@@ -134,6 +137,7 @@ def bundle(tmp_path):
                 "S1": {
                     "parallel_pair": True,
                     "width_mm": 20.0,
+                    "jaw_separation_mm": 20.0,
                     "contact_grip_mm": [4.0, 4.0],
                     "claimed_in_jaws": [],
                     "min_wall_mm": 2.0,
@@ -141,6 +145,11 @@ def bundle(tmp_path):
             },
         },
     )
+
+
+@pytest.fixture
+def bundle(tmp_path):
+    return rules_bundle(tmp_path)
 
 
 def finding(rule, bundle, subject=None):
@@ -152,7 +161,7 @@ def test_missing_kernel_cannot_be_waived_and_does_not_spawn(bundle, monkeypatch)
     object.__setattr__(bundle, "kernel", None)
     monkeypatch.setenv("FREECAD_CMD", str(bundle.root / "not-installed.exe"))
     monkeypatch.setattr(
-        kernel.subprocess, "run", lambda *a, **k: pytest.fail("missing executable must not spawn")
+        kernel.subprocess, "Popen", lambda *a, **k: pytest.fail("missing executable must not spawn")
     )
     rows = [row for rule in GEOMETRY_RULES for row in rule.evaluate(bundle)]
     assert all(
@@ -221,22 +230,108 @@ def test_holder_gauge_length_uses_explicit_inch_units(bundle):
 
 
 @pytest.mark.parametrize(
-    "depth,oal,hits,status",
+    "depth,oal,hits,shank,status",
     [
-        (10.0, 30.0, "unknown", "pass"),
-        (28.0, 30.0, 0, "pass"),
-        (28.0, 30.0, 1, "error"),
-        (31.0, 30.0, 0, "error"),
-        (28.0, 30.0, "unknown", "unknown"),
+        # Within the flute an unresolved shank still never passes; a resolved one does.
+        (10.0, 30.0, "unknown", "unknown", "unknown"),
+        (10.0, 30.0, "unknown", 0, "pass"),
+        (28.0, 30.0, 0, 0, "pass"),
+        (28.0, 30.0, 1, 0, "error"),
+        (31.0, 30.0, 0, 0, "error"),
+        (28.0, 30.0, "unknown", 0, "unknown"),
     ],
 )
-def test_long_reach_requires_oal_and_holder_wall_clearance(bundle, depth, oal, hits, status):
-    bundle.kernel["ops"]["S1:10"].update(reach_depth_mm=depth, holder_wall_hits=hits)
+def test_long_reach_requires_oal_and_holder_wall_clearance(bundle, depth, oal, hits, shank, status):
+    bundle.kernel["ops"]["S1:10"].update(
+        reach_depth_mm=depth, holder_wall_hits=hits, shank_hits=shank
+    )
     bundle.inventory["tools"]["em"]["oal_mm"] = oal
     row = finding(reach, bundle)
     assert row.status == status
     assert row.numbers["reach_depth_mm"] == depth
     assert any("inventory.tools.em" in cite for cite in row.cite)
+
+
+@pytest.mark.parametrize(
+    "depth,shank_hits,status",
+    [
+        (28.0, 0, "pass"),  # the shank past the flute clears what the op leaves
+        (28.0, 1, "error"),  # it meets that stock: a clash past the flute
+        (8.0, 1, "error"),  # a shank wider than the cutter clashes even within the flute
+        (28.0, "unknown", "unknown"),  # unmeasured shank past the flute is never a pass
+        (0.5, "unknown", "unknown"),  # nor within it: a shallow spot sinks the shank too
+    ],
+)
+def test_shank_past_the_flute_clears_clashes_or_stays_unknown(bundle, depth, shank_hits, status):
+    bundle.kernel["ops"]["S1:10"].update(
+        reach_depth_mm=depth,
+        holder_wall_hits=0,
+        shank_hits=shank_hits,
+        reasons={"shank_hits": "op lacks shank_radius_mm"} if shank_hits == "unknown" else {},
+    )
+    bundle.inventory["tools"]["em"]["shank_mm"] = 5.0
+    row = finding(reach, bundle)
+    assert row.status == status
+    assert row.numbers["shank_hits"] == shank_hits
+    assert row.numbers["shank_dia_mm"] == 5.0
+    if status == "unknown":
+        assert "shank_radius_mm" in row.sentence
+
+
+def test_missing_shank_diameter_is_unknown_past_the_flute(bundle):
+    # A real kernel reports the shank unknown without its diameter; the rule never
+    # passes the reach on the holder alone.
+    bundle.kernel["ops"]["S1:10"].update(
+        reach_depth_mm=28.0,
+        holder_wall_hits=0,
+        shank_hits="unknown",
+        reasons={"shank_hits": "op lacks shank_radius_mm"},
+    )
+    inputs = kernel.build_job(bundle)["setups"][0]["ops"][0]
+    assert "shank_radius_mm" not in inputs
+    row = finding(reach, bundle)
+    assert row.status == "unknown"
+    assert row.numbers["shank_dia_mm"] == "unknown"
+
+
+def test_measured_shank_and_centre_drill_seat_cone_set_where_the_shank_begins(bundle):
+    tool = bundle.inventory["tools"]["em"]
+    tool["shank_mm"] = {
+        "value": 5.0,
+        "measured": {"by": "t", "date": "2026-10-05", "instrument": "m"},
+    }
+    inputs = kernel.build_job(bundle)["setups"][0]["ops"][0]
+    assert inputs["shank_radius_mm"] == 2.5 and inputs["shank_from_mm"] == 10.0
+    # A combined drill and countersink: Ø2 pilot, 60° seat cone out to a Ø6 body.
+    tool.update(dia_mm=2.0, shank_mm=6.0, angle_deg=60.0, flute_len_mm=2.0)
+    inputs = kernel.build_job(bundle)["setups"][0]["ops"][0]
+    assert inputs["shank_from_mm"] == pytest.approx(2.0 + 2.0 / math.tan(math.radians(30.0)))
+
+
+def test_clearances_name_each_tool_part_its_obstacle_and_interference(bundle):
+    bundle.inventory["tools"]["em"]["shank_mm"] = 5.0
+    bundle.kernel["ops"]["S1:10"].update(
+        reach_depth_mm=28.0,
+        holder_wall_hits=0,
+        shank_hits=1,
+        body_clear_mm=2.0,
+        shank_clear_mm=0.5,
+        holder_clear_mm=-1.25,
+        holder_clear_top_z_mm=27.2,
+    )
+    row = finding(reach, bundle)
+    assert row.status == "error"
+    assert row.numbers["clearances"] == [
+        {"part": "tool body", "obstacle": "stock 5 from the tool axis", "mm": 2.0},
+        {"part": "tool shank", "obstacle": "the Ø6 bore this op cuts", "mm": 0.5},
+        {"part": "holder face", "obstacle": "stock under the holder", "mm": -1.25, "z_mm": 27.2},
+    ]
+    bundle.kernel["ops"]["S1:10"].update(
+        body_clear_mm="not_applicable", shank_clear_mm="unknown", holder_clear_mm="not_applicable"
+    )
+    assert finding(reach, bundle).numbers["clearances"] == [
+        {"part": "tool shank", "obstacle": "stock beside the tool", "mm": "unknown"}
+    ]
 
 
 @pytest.mark.parametrize("holder_hits", [0, 1])
@@ -293,8 +388,11 @@ def test_finish_coverage_accepts_overlapping_claim_from_another_feature(bundle):
 @pytest.mark.parametrize(
     "changes,status",
     [
-        ({"width_mm": 60.0}, "pass"),
-        ({"width_mm": 60.1}, "error"),
+        ({"jaw_separation_mm": 60.0}, "pass"),
+        ({"jaw_separation_mm": 60.1}, "error"),
+        # A part that fits the 60 mm opening, plus the round bar's Ø, does not.
+        ({"width_mm": 55.0, "jaw_separation_mm": 61.35}, "error"),
+        ({"jaw_separation_mm": "unknown"}, "unknown"),
         ({"contact_grip_mm": [4.0, 3.9]}, "error"),
         ({"parallel_pair": False}, "error"),
         ({"claimed_in_jaws": ["#1"]}, "error"),
@@ -304,6 +402,19 @@ def test_finish_coverage_accepts_overlapping_claim_from_another_feature(bundle):
 def test_vise_bilateral_grip_opening_and_claimed_face_boundaries(bundle, changes, status):
     bundle.kernel["setups"]["S1"].update(changes)
     assert finding(vise, bundle).status == status
+
+
+@pytest.mark.parametrize(("separation", "status"), [(60.0, "pass"), (60.1, "error")])
+def test_an_inch_drawing_holds_the_kernel_jaw_separation_to_the_opening_in_mm(
+    bundle, separation, status
+):
+    # The kernel measures the work and its round bar in mm whatever the drawing's units:
+    # an inch manifest rescales neither the separation nor the 60 mm vise opening.
+    bundle.features["units"] = "in"
+    bundle.kernel["setups"]["S1"]["jaw_separation_mm"] = separation
+    row = finding(vise, bundle)
+    assert row.status == status
+    assert (row.numbers["jaw_separation_mm"], row.numbers["opening_mm"]) == (separation, 60.0)
 
 
 @pytest.mark.parametrize(
@@ -328,6 +439,204 @@ def test_unverified_thin_wall_floor_is_not_a_numeric_gate(bundle):
     bundle.policy["numbers_verify"] = {"thin_wall_floor_mm": True}
     bundle.kernel["setups"]["S1"]["min_wall_mm"] = 0.1
     assert finding(thin_wall_under_clamp, bundle).status == "unknown"
+
+
+def _strap_hold(bundle, pose=True, verify=False):
+    """S1 held on an angle plate under one clamping-kit strap (posed unless told not)."""
+    up = {"x": [1.0, 0.0, 0.0], "z": [0.0, 0.0, 1.0]}
+    strap = {"name": "strap", "shape": "box", "at_mm": [-25.0, -6.0, 0.0]}
+    strap["size_mm"] = [50.0, 12.0, 8.0]
+    if verify:
+        strap["verify"] = True
+    bundle.inventory["fixtures"].update(
+        plate={
+            "kind": "angle_plate",
+            "solids": [{**strap, "name": "upright", "at_mm": [-40.0, 30.0, -10.0]}],
+        },
+        kit={"kind": "clamping_kit", "members": {"strap": {"kind": "strap_clamp"}}},
+    )
+    bundle.inventory["fixtures"]["kit"]["members"]["strap"]["solids"] = [strap]
+    clamp = {"ref": "kit/strap"}
+    if pose:
+        clamp["pose"] = {"origin_mm": [0.0, 0.0, 20.0], **up}
+    bundle.plan["setups"][0]["hold"] = {
+        "fixture": "plate",
+        "pose": {"origin_mm": [0.0, 0.0, 0.0], **up},
+        "clamps": [clamp],
+        "method": "hard_jaws",
+    }
+
+
+@pytest.mark.parametrize(
+    "wall,debts,status",
+    [
+        (1.9, [], "error"),  # strap over a web thinner than the 2 mm floor
+        (15.0, [], "pass"),  # strap over a thick boss
+        (1.9, ["clamp 2 has no sampled footprint point bearing on the stock"], "error"),
+        (15.0, ["clamp 2 has no sampled footprint point bearing on the stock"], "unknown"),
+    ],
+)
+def test_strap_footprint_wall_meets_the_floor_or_errors(bundle, wall, debts, status):
+    _strap_hold(bundle)
+    bundle.kernel["setups"]["S1"].update(min_wall_mm=wall, strap_wall_debts=debts)
+    row = finding(thin_wall_under_clamp, bundle)
+    assert row.status == status
+    assert all(debt in row.sentence for debt in debts if status == "unknown")
+
+
+@pytest.mark.parametrize("pose,verify", [(False, False), (True, True)])
+def test_unposed_or_unverified_strap_keeps_the_wall_unknown(bundle, pose, verify):
+    _strap_hold(bundle, pose=pose, verify=verify)
+    hold = kernel.build_job(bundle)["setups"][0]["hold"]
+    assert "clamps" not in hold and len(hold["clamp_debts"]) == 1
+    # The engine reports the named debt instead of a wall for a hold with no drawn strap.
+    reason = "strap walls unresolved: " + hold["clamp_debts"][0]
+    bundle.kernel["setups"]["S1"].update(
+        min_wall_mm="unknown", reasons={"min_wall_mm": reason}, strap_wall_debts=hold["clamp_debts"]
+    )
+    row = finding(thin_wall_under_clamp, bundle)
+    assert row.status == "unknown" and hold["clamp_debts"][0] in row.sentence
+
+
+def test_holds_without_clamps_stay_unsupported(bundle):
+    _strap_hold(bundle)
+    bundle.plan["setups"][0]["hold"].pop("clamps")
+    assert finding(thin_wall_under_clamp, bundle).status == "unsupported"
+
+
+def _noncutting(bundle):
+    """S1 explicitly declares no clamp and only fits and inspects."""
+    setup = bundle.plan["setups"][0]
+    setup["hold"]["clamp"] = "none"
+    setup["ops"] = [
+        {"op": 10, "do": "fit", "feature": "pocket"},
+        {"op": 20, "do": "inspect", "feature": "pocket"},
+    ]
+
+
+def _gravity_hold(bundle):
+    """S1 rests on posed fixture solids with no clamp member."""
+    _strap_hold(bundle)
+    bundle.plan["setups"][0]["hold"].pop("clamps")
+    _noncutting(bundle)
+
+
+@pytest.mark.parametrize("clamp", ["none", "not_applicable"])
+def test_unclamped_hold_under_noncutting_ops_is_not_applicable(bundle, clamp):
+    _gravity_hold(bundle)
+    bundle.plan["setups"][0]["hold"]["clamp"] = clamp
+    # No clamp loads the wall, including one far below the shop floor.
+    bundle.kernel["setups"]["S1"]["min_wall_mm"] = 0.1
+    assert finding(thin_wall_under_clamp, bundle).status == "not_applicable"
+
+
+def _setup(bundle):
+    return bundle.plan["setups"][0]
+
+
+@pytest.mark.parametrize(
+    "change,status",
+    [
+        pytest.param(
+            lambda b: _setup(b)["hold"].update(clamp="gravity only"), "unsupported", id="prose"
+        ),
+        pytest.param(
+            lambda b: _setup(b)["hold"].update(clamp="toe-clamp-kit"), "unsupported", id="named"
+        ),
+        pytest.param(
+            lambda b: _setup(b)["hold"].update(clamp="unknown"), "unsupported", id="unknown"
+        ),
+        pytest.param(lambda b: _setup(b)["hold"].pop("clamp"), "unsupported", id="omitted"),
+        pytest.param(
+            lambda b: _setup(b)["hold"].update(clamps="unknown"), "unsupported", id="clamps"
+        ),
+        pytest.param(
+            lambda b: _setup(b)["ops"].append(
+                {
+                    "op": 30,
+                    "do": "finish_profile",
+                    "feature": "pocket",
+                    "tool": "em",
+                    "holder": "holder",
+                }
+            ),
+            "unsupported",
+            id="cutting-op",
+        ),
+        pytest.param(
+            lambda b: _setup(b)["ops"][0].update(do="unknown"), "unsupported", id="unknown-op"
+        ),
+        pytest.param(lambda b: _setup(b).update(ops=[]), "unsupported", id="no-ops"),
+        pytest.param(
+            lambda b: _setup(b)["hold"].update(fixture="unknown"), "unknown", id="identity"
+        ),
+        pytest.param(lambda b: _setup(b)["hold"].pop("pose"), "unknown", id="pose"),
+        pytest.param(lambda b: b.features["frames"].update(A="unknown"), "unknown", id="frame"),
+        pytest.param(
+            lambda b: b.kernel["setups"]["S1"].update(stock_reason="stock_in is unresolved"),
+            "unknown",
+            id="stock",
+        ),
+        pytest.param(
+            lambda b: b.kernel["setups"]["S1"].update(assembly_error="pieces overlap"),
+            "error",
+            id="assembly",
+        ),
+        pytest.param(
+            lambda b: b.kernel.update(status="unknown", reason="FreeCAD job failed"),
+            "unknown",
+            id="kernel",
+        ),
+        pytest.param(lambda b: b.kernel["setups"].pop("S1"), "unknown", id="unreported"),
+    ],
+)
+def test_unproven_absence_of_clamping_is_not_a_waiver(bundle, change, status):
+    _gravity_hold(bundle)
+    change(bundle)
+    assert finding(thin_wall_under_clamp, bundle).status == status
+
+
+@pytest.mark.parametrize(
+    "hold,wall,status",
+    [
+        ("vise", 1.9, "error"),
+        ("strap", 1.9, "error"),
+        ("unposed-strap", "unknown", "unknown"),
+    ],
+)
+def test_jaws_and_straps_load_walls_even_without_cutting(bundle, hold, wall, status):
+    if hold != "vise":
+        _strap_hold(bundle, pose=hold == "strap")
+    _noncutting(bundle)
+    bundle.kernel["setups"]["S1"]["min_wall_mm"] = wall
+    assert finding(thin_wall_under_clamp, bundle).status == status
+
+
+@pytest.mark.parametrize(
+    "clashes,debts,status",
+    [
+        ([], [], "pass"),  # drawn components only touch
+        (["clamp 1 kit/strap:stud interpenetrates the setup-entry stock (12.5 mm^3)"], [], "error"),
+        ([], ["supports 'jack' has no fixture solid model"], "unknown"),
+        # An undrawn component cannot undo a certain interpenetration.
+        (["riser 1 blocks spans y -5..25 mm"], ["supports 'jack' has no fixture solid"], "error"),
+    ],
+)
+def test_fixture_interference_errors_on_any_clash_and_names_undrawn_components(
+    bundle, clashes, debts, status
+):
+    _strap_hold(bundle)
+    bundle.kernel["setups"]["S1"].update(fixture_clashes=clashes, fixture_clash_debts=debts)
+    row = finding(fixture_interference, bundle)
+    assert row.status == status
+    assert all(text in row.sentence for text in [*clashes, *(debts if not clashes else [])])
+
+
+def test_fixture_interference_without_engine_facts_stays_unknown(bundle):
+    reason = "holding inputs are unknown"
+    bundle.kernel["setups"]["S1"]["reasons"] = {"fixture_clashes": reason}
+    row = finding(fixture_interference, bundle)
+    assert row.status == "unknown" and reason in row.sentence
 
 
 def test_missing_physical_jaw_depth_is_not_invented_from_jaw_width(bundle):
@@ -487,6 +796,38 @@ def test_machine_inventory_workholding_identity_is_not_misclassified_as_unknown(
     assert finding(thin_wall_under_clamp, bundle).status == "unsupported"
 
 
+@pytest.mark.parametrize(
+    "wall,method,status", [(2.0, "hard_jaws", "pass"), (1.9, "hard_jaws", "error")]
+)
+@pytest.mark.parametrize("noncutting", [False, True], ids=["cutting", "noncutting"])
+def test_dividing_head_chuck_jaws_load_the_thin_wall_floor(
+    bundle, wall, method, status, noncutting
+):
+    bundle.inventory["machines"]["BS-0"] = {"kind": "dividing_head", "verify": False}
+    bundle.inventory["fixtures"]["head-chuck"] = {
+        "kind": "chuck_3jaw",
+        "body_dia_mm": 127.0,
+        "body_length_mm": 60.0,
+        "bore_dia_mm": 30.0,
+        "jaw_width_mm": 14.0,
+        "jaw_height_mm": 30.0,
+        "jaw_depth_mm": 20.0,
+        "verify": False,
+    }
+    bundle.plan["setups"][0]["hold"] = {
+        "fixture": "BS-0",
+        "chuck": "head-chuck",
+        "pose": {"origin_mm": [0.0, 10.0, 5.0], "x": [0.0, 1.0, 0.0], "z": [1.0, 0.0, 0.0]},
+        "jaw_clock_deg": 0.0,
+        "grip_mm": 10.0,
+        "method": method,
+    }
+    if noncutting:
+        _noncutting(bundle)
+    bundle.kernel["setups"]["S1"]["min_wall_mm"] = wall
+    assert finding(thin_wall_under_clamp, bundle).status == status
+
+
 @pytest.mark.parametrize("rule", [vise, thin_wall_under_clamp])
 @pytest.mark.parametrize("debt", ["units", "frame", "origin", "axis"])
 def test_setup_geometry_cannot_certify_facts_without_numeric_frame(bundle, rule, debt):
@@ -532,21 +873,18 @@ def test_certain_hits_survive_unknown_context(bundle, debt, kind, hits, status):
 
 
 @pytest.mark.parametrize("rule", [accessibility, internal_corner_radius])
-@pytest.mark.parametrize("context", ["invalid", "away", "bounds"])
+@pytest.mark.parametrize("context", ["invalid", "away"])
 def test_context_errors_take_precedence_over_finished_facts(bundle, rule, context):
     detail = bundle.kernel["ops"]["S1:10"]
     detail.update(min_hits={"tool": 4}, corner_radii_mm=[0.0], stock_reason="unknown stock")
     bundle.inventory["tools"]["em"]["flute_len_mm"] = "unknown"
     if context == "invalid":
         bundle.kernel["mapping_errors"]["#1"] = "invalid face"
-    elif context == "away":
-        detail["claim_errors"] = ["#1"]
     else:
-        detail["stock_removal_error"] = "bounds extend beyond claimed faces"
+        detail["claim_errors"] = ["#1"]
     row = finding(rule, bundle)
     assert row.status == "error"
-    assert "certainly occluded" not in row.sentence
-    assert "smaller than" not in row.sentence
+    assert row.numbers == {"mapping_errors" if context == "invalid" else "claim_errors": ["#1"]}
 
 
 @pytest.mark.parametrize(

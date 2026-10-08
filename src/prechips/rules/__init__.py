@@ -9,6 +9,8 @@ from prechips.findings import Finding, Status
 from prechips.inputs import Bundle
 from prechips.rules import (
     accessibility,
+    centre_support,
+    consistency,
     construction,
     coordinates,
     coverage,
@@ -16,14 +18,21 @@ from prechips.rules import (
     engagement,
     envelope,
     finish_coverage,
+    finish_route,
+    fixture_interference,
     headroom,
     hold_fields,
     indexing,
     inspection,
     internal_corner_radius,
+    joints,
+    manual_arc,
     op_chain,
     op_order,
+    prepared_blank,
+    purchased_tooling,
     reach,
+    saw_cut,
     sizing,
     speeds_feeds,
     stickout,
@@ -45,6 +54,12 @@ class Rule:
     evaluate: Callable[[Bundle], list[Finding]]
 
 
+MEASUREMENT_RULES = [
+    Rule("headroom", headroom.evaluate),
+    Rule("envelope", envelope.evaluate),
+    Rule("travel", travel.evaluate),
+]
+
 RULES: list[Rule] = [
     Rule("tool_resolves", tool_resolves.evaluate),
     Rule("sizing", sizing.evaluate),
@@ -54,11 +69,13 @@ RULES: list[Rule] = [
     Rule("speeds_feeds", speeds_feeds.evaluate),
     Rule("zero_check", zero_recipe.evaluate),
     Rule("coordinates", coordinates.evaluate),
+    Rule("manual_arc", manual_arc.evaluate),
     Rule("inspection", inspection.evaluate),
     Rule("hold_fields", hold_fields.evaluate),
-    Rule("headroom", headroom.evaluate),
-    Rule("envelope", envelope.evaluate),
-    Rule("travel", travel.evaluate),
+    Rule("purchased_tooling", purchased_tooling.evaluate),
+    Rule("centre_support", centre_support.evaluate),
+    Rule("prepared_blank", prepared_blank.evaluate),
+    *MEASUREMENT_RULES,
     Rule("datum_consistency", datum_consistency.evaluate),
     Rule("turned_profile", turned_profile.evaluate),
     Rule("stickout", stickout.evaluate),
@@ -67,6 +84,9 @@ RULES: list[Rule] = [
     Rule("turning_deflection", turning_deflection.evaluate),
     Rule("engagement", engagement.evaluate),
     Rule("construction", construction.evaluate),
+    Rule("finish_route", finish_route.evaluate),
+    Rule("joint_fit", joints.evaluate_fit),
+    Rule("consistency", consistency.evaluate),
 ]
 
 GEOMETRY_RULES = [
@@ -77,6 +97,9 @@ GEOMETRY_RULES = [
     Rule("finish_coverage", finish_coverage.evaluate),
     Rule("vise", vise.evaluate),
     Rule("thin_wall_under_clamp", thin_wall_under_clamp.evaluate),
+    Rule("saw_cut", saw_cut.evaluate),
+    Rule("fixture_interference", fixture_interference.evaluate),
+    Rule("joint_assembly", joints.evaluate_assembly),
 ]
 RULES.extend(GEOMETRY_RULES)
 
@@ -98,7 +121,7 @@ def required_coverage(bundle: Bundle, findings: list[Finding]) -> list[Finding]:
         elif selector in {"holes", "toleranced_features"}:
             subjects = [
                 feature
-                for feature, item in bundle.features["features"].items()
+                for feature, item in bundle.feature_definitions.items()
                 if (
                     item.get("kind") in {"hole", "counterbore", "thread"}
                     if selector == "holes"

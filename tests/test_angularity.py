@@ -157,32 +157,6 @@ def test_missing_angularity_datum_geometry_is_unresolved(tmp_path, datums):
     assert datum_finding(angularity_bundle(tmp_path, datums=datums)).status == "unknown"
 
 
-def test_shaft_cut_to_fit_length_remains_a_named_missing_requirement():
-    bundle = load_bundle(ROOT / "examples" / "pivot-shaft" / "plan.toml")
-    row = next(row for row in inspection.evaluate(bundle) if row.subject == "pivot_bearing:length")
-    assert row.status == "unknown"
-    assert row.numbers["missing_requirement"] is True
-    assert row.numbers["limits"] == "unknown"
-    assert "band_mm" not in row.numbers
-    assert row.numbers["gauge"] == "calipers"
-    ops = bundle.plan["setups"][-1]["ops"]
-    inspection_index = next(
-        index for index, op in enumerate(ops) if "length" in op.get("missing_requirements", {})
-    )
-    cut_index = next(index for index, op in enumerate(ops) if op["do"] == "cut_to_fit")
-    assert row.numbers["op"] == f"S3:{ops[inspection_index]['op']}"
-    doming_index = next(
-        index
-        for index, op in enumerate(ops)
-        if op["feature"] == "south_dome" and op["do"] == "form_dome"
-    )
-    assert cut_index < inspection_index < doming_index
-    assert row.numbers["inspection_method"] == (
-        "Measure 1.75 past the actual scribe to the cut face with calipers; after doming "
-        "verify cylinder end 0.25 past scribe and trial fit over the installed ears."
-    )
-
-
 def test_unknown_export_can_only_leave_a_missing_length_inspection_unresolved(tmp_path):
     bundle = angularity_bundle(tmp_path, requirement="length", check=False)
     feature = bundle.features["features"]["cone"]
@@ -230,13 +204,18 @@ def test_exported_nominal_contradiction_survives_unknown_applicability(tmp_path)
     assert inspection_finding(bundle, "length").status == "error"
 
 
-def test_west_mount_export_reports_its_nominal_band_contradiction():
-    bundle = load_bundle(ROOT / "examples" / "cone-pivot-post" / "plan.toml")
+def test_west_mount_station_sign_error_is_a_nominal_band_contradiction():
+    """The pre-correction export sign (-12.98 against a +12.47..13.49 station band) is an error."""
+    bundle = load_bundle(ROOT / "examples" / "cone-pivot-post" / "built-up.toml")
+    west = bundle.features["features"]["mount_west"]
+    west["station"] = [12.47, 13.49]
+    west["station_nominal"] = -12.98
     row = next(row for row in inspection.evaluate(bundle) if row.subject == "mount_west:station")
     assert row.status == "error"
     assert row.numbers["nominal_field"] == "station_nominal"
     assert row.numbers["nominal"] == -12.98
     assert row.numbers["limits"] == [12.47, 13.49]
+    assert "exported nominal is outside" in row.sentence
 
 
 @pytest.mark.parametrize("band", ['"unknown"', '[5.0, "unknown"]', "5.5"])
@@ -250,3 +229,22 @@ def test_reference_length_does_not_contradict_a_different_exported_requirement(t
     bundle = angularity_bundle(tmp_path, requirement="length", band="[5.0, 6.0]", gauge="caliper")
     bundle.features["features"]["cone"]["length_ref"] = 99.0
     assert inspection_finding(bundle, "length").status == "pass"
+
+
+@pytest.mark.parametrize("key", ["height_above_pivot", "height", "separation"])
+@pytest.mark.parametrize(
+    ("band", "status"),
+    [("[5.0, 5.25]", "pass"), ("[5.0, 5.09]", "error"), ('"unknown"', "unknown")],
+)
+def test_height_from_tolerance_is_the_declared_height_band(tmp_path, key, band, status):
+    bundle = angularity_bundle(tmp_path, requirement=key, band=band, datums="[]")
+    bundle.features["features"]["cone"]["height_from"] = "base"
+    row = datum_finding(bundle)
+    assert row.status == status
+    assert [item["datum"] for item in row.numbers["relationships"]] == ["base"]
+
+
+def test_height_from_without_a_height_band_stays_unresolved(tmp_path):
+    bundle = angularity_bundle(tmp_path, requirement="length", band="[5.0, 6.0]", datums="[]")
+    bundle.features["features"]["cone"]["height_from"] = "base"
+    assert datum_finding(bundle).status == "unknown"

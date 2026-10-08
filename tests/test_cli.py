@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -13,6 +14,26 @@ from prechips.report import canonical_bytes, report_hash
 
 ROOT = Path(__file__).resolve().parents[1]
 
+# Host-only assertions need explicit geometry facts, not a real FreeCAD process.
+# These boxes are synthetic envelopes, never production machining evidence.
+SYNTHETIC_KERNEL = """
+from dataclasses import replace
+import prechips.cli as cli
+_load_bundle = cli.load_bundle
+def _synthetic_bundle(*args, **kwargs):
+    bundle = _load_bundle(*args, **kwargs)
+    boxes = {
+        "pivot-shaft": [-5, -5, -175, 5, 5, 5],
+        "pivot-bracket": [-9, -1, -4, 9, 33.2, 22.2],
+        "rocker-arm": [-170, -20, -8, 170, 45, 8],
+    }
+    bbox = boxes.get(bundle.paths["plan"].parent.name, [-10, -10, -10, 10, 10, 100])
+    return replace(bundle, kernel={
+        "status": "ok", "bbox_mm": bbox, "ops": {}, "setups": {}, "mapping": {},
+    })
+cli.load_bundle = _synthetic_bundle
+"""
+
 
 def run_cli(*args, env=None, setup=""):
     """Run the CLI in a clean environment; ``setup`` is Python run before ``main``."""
@@ -21,11 +42,11 @@ def run_cli(*args, env=None, setup=""):
         if key.startswith(("PRECHIPS_", "OTEL_")):
             environment.pop(key)
     environment["OTEL_SDK_DISABLED"] = "true"
-    if "--out" in args:
+    if "PRECHIPS_KERNEL_CACHE" in os.environ:
+        environment["PRECHIPS_KERNEL_CACHE"] = os.environ["PRECHIPS_KERNEL_CACHE"]
+    elif "--out" in args:
         out = Path(args[args.index("--out") + 1])
         environment["PRECHIPS_KERNEL_CACHE"] = str(out.parent / "kernel-cache")
-    elif "PRECHIPS_KERNEL_CACHE" in os.environ:
-        environment["PRECHIPS_KERNEL_CACHE"] = os.environ["PRECHIPS_KERNEL_CACHE"]
     environment.update(env or {})
     entry = (
         ["-c", f"{setup}\nimport sys\nfrom prechips.cli import main\nsys.exit(main(sys.argv[1:]))"]
@@ -48,8 +69,33 @@ def copy_examples(tmp_path):
     return Path(shutil.copytree(ROOT / "examples", tmp_path / "examples"))
 
 
-def traveler(plan, out, *args):
-    result = run_cli("traveler", plan, "--out", out, *args)
+# The rocker's prep: [stock.prepared] and the process faces and frames only P1-P5 use.
+_ROCKER_PREP = re.compile(
+    r"(?ms)^\[(?:stock\.prepared|process_features\.|frames\.P)[^\n]*\n.*?(?=^\[|\Z)"
+)
+
+
+def rocker_s1_alone(text):
+    """The rocker plan with S1, up to its first op, as its only setup. The prep setups
+    (P1-P5) and the tables only they use go, so S1 receives the plan [stock] itself and,
+    as the first setup on the mill, mounts the vise: it squares the fixed jaw as the prep
+    declared it."""
+    first, start = text.index("[[setups]]"), text.index('[[setups]]\nid = "S1"\n')
+    aligns = re.findall(r"(?m)^align = .*\n", text[first:start])
+    assert len(aligns) == 1, "the prep's vise mounting says how its fixed jaw is squared"
+    header = _ROCKER_PREP.sub("", text[:first])
+    s1, count = re.subn(
+        r"(?m)^stock_in = .*$", 'stock_in = "stock"', text[start:].split("[[setups.ops]]", 1)[0]
+    )
+    assert count == 1, "S1 names the stock it receives"
+    assert not re.search(r"(?m)^align = ", s1), "S1 keeps the vise the prep squared"
+    s1, count = re.subn(r"(?m)^\[setups\.hold\]\n", lambda m: m[0] + aligns[0], s1)
+    assert count == 1, "S1 declares one hold"
+    return header + s1
+
+
+def traveler(plan, out, *args, setup=""):
+    result = run_cli("traveler", plan, "--out", out, *args, setup=setup)
     assert result.returncode in {0, 2, 4}, result.stderr
     report = json.loads((out / "report.json").read_bytes())
     html = (out / "traveler.html").read_text(encoding="utf-8")
@@ -68,8 +114,8 @@ def test_empty_operations_rejects_before_outputs(tmp_path):
     examples = copy_examples(tmp_path)
     plan = examples / "rocker-arm" / "plan.toml"
     text = plan.read_text(encoding="utf-8")
-    # Keep a complete first setup, but remove every operation and later setup.
-    plan.write_text(text.split("[[setups.ops]]", 1)[0], encoding="utf-8")
+    # Keep a complete S1 as the only setup, but remove every operation.
+    plan.write_text(rocker_s1_alone(text), encoding="utf-8")
     out = tmp_path / "out"
     result = run_cli("traveler", plan, "--out", out)
     assert result.returncode == 3, result.stderr
@@ -97,13 +143,14 @@ def test_output_input_collision_rejects_before_any_write(tmp_path):
 )
 def test_malformed_otlp_setting_warns_once_and_keeps_unconfigured_result(variable, value, tmp_path):
     plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
-    plain = run_cli("check", plan, "--out", tmp_path / "plain")
+    plain = run_cli("check", plan, "--out", tmp_path / "plain", setup=SYNTHETIC_KERNEL)
     configured = run_cli(
         "check",
         plan,
         "--out",
         tmp_path / "configured",
         env={"OTEL_EXPORTER_OTLP_ENDPOINT": "http://127.0.0.1:9", variable: value},
+        setup=SYNTHETIC_KERNEL,
     )
     assert plain.returncode in {0, 2, 4}, plain.stderr
     assert configured.returncode == plain.returncode, configured.stderr
@@ -133,7 +180,7 @@ rules.RULES[0] = rules.Rule(first.name, lambda bundle: first.evaluate(bundle)[:1
 def test_internal_rule_failure_is_traceback_exit_1_not_bad_input(bug, tmp_path):
     plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
     out = tmp_path / "out"
-    result = run_cli("traveler", plan, "--out", out, setup=RULE_BUGS[bug])
+    result = run_cli("traveler", plan, "--out", out, setup=SYNTHETIC_KERNEL + RULE_BUGS[bug])
     assert result.returncode == 1, result.stderr
     assert "Traceback" in result.stderr
     assert not out.exists() or not tuple(out.iterdir())
@@ -177,7 +224,9 @@ def test_refused_traveler_output_leaves_prior_outputs_exactly(refusal, preexisti
         prior = {"report.json": b"earlier report\n", "traveler.html": b"earlier traveler\n"}
         for name, data in prior.items():
             (out / name).write_bytes(data)
-    result = run_cli("traveler", plan, "--out", out, setup=TRAVELER_REFUSALS[refusal])
+    result = run_cli(
+        "traveler", plan, "--out", out, setup=SYNTHETIC_KERNEL + TRAVELER_REFUSALS[refusal]
+    )
     assert result.returncode == 3, result.stderr
     assert "Traceback" not in result.stderr
     # No new report beside an old traveler, no staged temporaries left behind.
@@ -197,7 +246,7 @@ def test_refused_traveler_output_leaves_prior_outputs_exactly(refusal, preexisti
 )
 def test_stale_approval_names_only_compared_input_changes(prior_inputs, changed, tmp_path):
     plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
-    plain, report, _ = traveler(plan, tmp_path / "plain")
+    plain, report, _ = traveler(plan, tmp_path / "plain", setup=SYNTHETIC_KERNEL)
     inputs = {
         "absent": "",
         "empty": "\n[inputs]\n",
@@ -214,7 +263,9 @@ def test_stale_approval_names_only_compared_input_changes(prior_inputs, changed,
         'first_article = "Synthetic regression record, not shop evidence."\n' + inputs,
         encoding="utf-8",
     )
-    result, approved_report, html = traveler(plan, tmp_path / "stale", "--approval", approval)
+    result, approved_report, html = traveler(
+        plan, tmp_path / "stale", "--approval", approval, setup=SYNTHETIC_KERNEL
+    )
     assert result.returncode == plain.returncode
     assert approved_report == report
     warning = " ".join(result.stderr.split()).split("Approval no longer matches: ", 1)[1]
@@ -247,8 +298,10 @@ def test_stale_approval_names_only_compared_input_changes(prior_inputs, changed,
     ],
 )
 def test_explain_rejects_all_malformed_matches_before_any_finding_output(
-    field, value, missing, json_output, tmp_path
+    field, value, missing, json_output, tmp_path, monkeypatch
 ):
+    # Deliberately withdraw the kernel; completed pilots need not have missing facts.
+    monkeypatch.setenv("FREECAD_CMD", str(tmp_path / "unavailable-freecadcmd"))
     plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
     _, report, _ = traveler(plan, tmp_path / "plain")
     first = next(row for row in report["findings"] if row["status"] == "unknown")
@@ -271,7 +324,10 @@ def test_explain_rejects_all_malformed_matches_before_any_finding_output(
 
 
 @pytest.mark.parametrize("json_output", [False, True], ids=["human", "json"])
-def test_explain_valid_selected_finding_keeps_structured_evidence(json_output, tmp_path):
+def test_explain_valid_selected_finding_keeps_structured_evidence(
+    json_output, tmp_path, monkeypatch
+):
+    monkeypatch.setenv("FREECAD_CMD", str(tmp_path / "unavailable-freecadcmd"))
     plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
     _, report, _ = traveler(plan, tmp_path / "plain")
     row = next(row for row in report["findings"] if row["status"] == "unknown")

@@ -11,10 +11,13 @@ Subject: the plan's part name. Evidence contains `plan_construction` and
 The candidate must explicitly declare `construction = "one_piece"`,
 `"built_up"`, or `"unknown"`; omission remains unknown, never one-piece.
 
-Built-up construction has one prerequisite: the drawing manifest must explicitly
-declare `construction = "built_up_permitted"`, carried from a drawing-side
-permission note. Missing permission is not permission. Without the explicit
-value, the drawing permits one-piece construction only.
+The construction-permission rule has one prerequisite: the drawing manifest
+must explicitly declare `construction = "built_up_permitted"`, carried from a
+drawing-side permission note. Missing permission is not permission. Without the
+explicit value, the drawing permits one-piece construction only. Passing this
+permission rule does not prove a physical assembly: every `stock_in` array also
+requires the declared joint and prepared geometry described in
+[the plan format](plan.md) and [geometry rules](rules-geometry.md).
 
 - A built-up candidate passes only when the manifest explicitly declares
   `construction = "built_up_permitted"`.
@@ -58,8 +61,12 @@ clamp, stop, locator and jaw-protection values that resolve to inventory fixture
 are included even when their names do not use the selected-reference spelling.
 Explicit `none` and `not_applicable` are not fixtures. Unknown primary fixtures
 or explicitly unknown support/index references remain unknown; missing optional
-supports are not invented. Identities are de-duplicated and sorted, without
-claiming presence or measurement: the normal rule findings decide those facts.
+supports are not invented. Each identity is the `(category, key)` the reference
+selects, so two spellings of one item list it once. It lists by key alone,
+unless another listed item has the same key in another category (a
+`holders.holder` collet and a `fixtures.holder` plate); then each prints as
+`category.key`. The list is sorted, without claiming presence or measurement:
+the normal rule findings decide those facts.
 
 ## Volume arithmetic and numerical provenance
 

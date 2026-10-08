@@ -106,4 +106,121 @@ width_mm = 6.0
 height_mm = 20.0
 verify = false
 
+# Holding solids for fixture-holds/. Chucks are bored cylinders behind jaw boxes
+# (jaw_width tangential, jaw_height radial outward from the grip, jaw_depth axial ahead
+# of the body face); the jaws close on the stock in the kernel. Authored `solids` are
+# boxes (min corner, size) or cylinders in the item's own frame, placed by the plan pose.
+[fixtures.test-riser-blocks]
+kind = "blocks_123"
+length_mm = 60.0
+width_mm = 12.0
+height_mm = 10.0
+verify = false
+
+[fixtures.test-chuck-3jaw]
+kind = "chuck_3jaw"
+body_dia_mm = 125.0
+body_length_mm = 60.0
+bore_dia_mm = 30.0
+jaw_width_mm = 16.0
+jaw_height_mm = 25.0
+jaw_depth_mm = 20.0
+verify = false
+
+[fixtures.test-chuck-4jaw]
+kind = "chuck_4jaw"
+body_dia_mm = 160.0
+body_length_mm = 70.0
+bore_dia_mm = 40.0
+jaw_width_mm = 18.0
+jaw_height_mm = 30.0
+jaw_depth_mm = 24.0
+verify = false
+
+[fixtures.test-chuck-head]
+kind = "chuck_3jaw"
+body_dia_mm = 100.0
+body_length_mm = 50.0
+bore_dia_mm = 20.0
+jaw_width_mm = 12.0
+jaw_height_mm = 20.0
+jaw_depth_mm = 16.0
+verify = false
+
+# Tip to quill face; point_angle is the included cone angle.
+[fixtures.test-dead-centre]
+kind = "dead_centre"
+dia_mm = 18.0
+length_mm = 60.0
+point_angle = 60.0
+verify = false
+
+# Frame: origin under the puck axis on the plate's top face; the upright's face is y = 15.
+[fixtures.test-angle-plate]
+kind = "angle_plate"
+verify = false
+solids = [
+  { name = "upright", shape = "box", at_mm = [-40.0, 15.0, -10.0], size_mm = [80.0, 12.0, 50.0] },
+  { name = "base", shape = "box", at_mm = [-40.0, -40.0, -10.0], size_mm = [80.0, 55.0, 10.0] },
+]
+
+# A two-block nest on a floor plate; the blocks' inner faces are x = -15 and x = 15.
+[fixtures.test-nest]
+kind = "custom"
+verify = false
+solids = [
+  { name = "floor", shape = "box", at_mm = [-45.0, -20.0, -10.0], size_mm = [90.0, 40.0, 10.0] },
+  { name = "left", shape = "box", at_mm = [-45.0, -20.0, 0.0], size_mm = [30.0, 40.0, 10.0] },
+  { name = "right", shape = "box", at_mm = [15.0, -20.0, 0.0], size_mm = [30.0, 40.0, 10.0] },
+]
+
+# A plain floor plate with one tapped hole (a void) for fixture-holds/clash.toml.
+[fixtures.test-tapped-plate]
+kind = "custom"
+verify = false
+solids = [
+  { name = "floor", shape = "box", at_mm = [-45.0, -45.0, -10.0], size_mm = [90.0, 90.0, 10.0] },
+  { name = "tapped hole", void = true, shape = "cylinder", at_mm = [0.0, -22.0, -11.0], axis = [0.0, 0.0, 1.0], dia_mm = 8.0, length_mm = 12.0 },
+]
+
+# Strap frame: origin at the centre of the strap underside on the work, x along it.
+[fixtures.test-clamp-kit]
+kind = "clamping_kit"
+verify = false
+
+[fixtures.test-clamp-kit.members.strap]
+kind = "strap_clamp"
+solids = [
+  { name = "strap", shape = "box", at_mm = [-30.0, -6.0, 0.0], size_mm = [60.0, 12.0, 8.0] },
+]
+
+# A strap with its stud and heel, one assembly: the slot is a void cut from the beam only,
+# so the stud passes through it uncut. Stud axis at strap x = -22; heel under x -32..-27.
+[fixtures.test-clamp-kit.members.stud-strap]
+kind = "strap_clamp"
+solids = [
+  { name = "beam", shape = "box", at_mm = [-32.0, -6.0, 0.0], size_mm = [50.0, 12.0, 8.0] },
+  { name = "slot", void = true, cuts = ["beam"], shape = "box", at_mm = [-26.0, -4.0, -1.0], size_mm = [8.0, 8.0, 10.0] },
+  { name = "stud", shape = "cylinder", at_mm = [-22.0, 0.0, -30.0], axis = [0.0, 0.0, 1.0], dia_mm = 6.0, length_mm = 40.0 },
+  { name = "heel", shape = "box", at_mm = [-32.0, -6.0, -20.0], size_mm = [5.0, 12.0, 20.0] },
+]
+
+# Dividing head: solids hang from the spindle nose (origin at its centre, z toward the
+# work, x = the plan pose x); the plan names the chuck it carries.
+[machines.test-head]
+kind = "dividing_head"
+make = "synthetic test specification"
+verify = false
+solids = [
+  { name = "head", shape = "box", at_mm = [-60.0, -60.0, -120.0], size_mm = [120.0, 120.0, 120.0] },
+]
+
+[machines.test-head.tailstock]
+quill_dia_mm = 20.0
+
 [gauges]
+# Test indicator the target setups sweep their vise's fixed jaw with (hold.align).
+[gauges.test-dti]
+kind = "dial_test_indicator"
+resolution_mm = 0.002
+verify = false

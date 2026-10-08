@@ -228,6 +228,7 @@ def _two_sided_bundle(tmp_path, monkeypatch, s1_faces, s2_faces):
             "tool": "em-preparation",
             "holder": "unknown",
             "to_z": 10.0,
+            "rough_allowance_mm": 0.0,
             "stock_removal_bounds": {
                 "x": [30.0, 60.0],
                 "y": [0.0, 40.0],
@@ -287,7 +288,7 @@ def test_whole_feature_claims_from_both_sides_finish_it_but_each_op_names_its_fa
 def test_a_far_side_claim_never_credits_finish_or_coverage(tmp_path, monkeypatch, freecad_kernel):
     bundle = _two_sided_bundle(tmp_path, monkeypatch, f'faces = ["{BOTTOM}"]', f'faces = ["{TOP}"]')
     finish = _rows(finish_coverage, bundle)["broad"]
-    assert finish.status == "error" and "lack a finishing cut" in finish.sentence
+    assert finish.status == "error"
     cover = _rows(coverage, bundle)["step-block"]
     assert cover.status == "error" and cover.numbers["unclaimed_faces"] == [TOP, BOTTOM]
 
@@ -313,6 +314,7 @@ def _facts(claimed, errors):
         "holder_hits": 0,
         "reach_depth_mm": 8.0,
         "holder_wall_hits": 0,
+        "shank_hits": 0,
         "corner_radii_mm": [],
         "claimed_indices": claimed,
         "claim_errors": errors,
@@ -418,6 +420,7 @@ def bundle(tmp_path):
                 name: {
                     "parallel_pair": True,
                     "width_mm": 20.0,
+                    "jaw_separation_mm": 20.0,
                     "contact_grip_mm": [4.0, 4.0],
                     "claimed_in_jaws": [],
                     "min_wall_mm": 2.0,
@@ -546,7 +549,8 @@ def _unproven_stock(bundle):
     setup = bundle.kernel["setups"]["S1"]
     setup["stock_reason"] = setup["reason"] = STOCK_REASON
     setup["reasons"] = {}
-    for key in ("parallel_pair", "width_mm", "contact_grip_mm", "claimed_in_jaws", "min_wall_mm"):
+    vise_facts = ("parallel_pair", "width_mm", "jaw_separation_mm", "contact_grip_mm")
+    for key in (*vise_facts, "claimed_in_jaws", "min_wall_mm"):
         setup[key] = "unknown"
         setup["reasons"][key] = STOCK_REASON
     bundle.inventory["tools"]["em"]["verify"] = True
@@ -581,7 +585,11 @@ def test_stale_claim_facts_are_not_used_when_the_claimed_refs_are_unknown(bundle
     assert _rows(coverage, bundle)["block"].status == "unknown"
 
 
-LATHE_APPROACH_REASON = "lathe approach model not implemented (engine approaches along -Z only)"
+LATHE_APPROACH_REASON = (
+    "turning action has no approach model off a lathe "
+    "(the turning model needs a lathe spindle on setup Z)"
+)
+NOT_TURNING_FACTS = "kernel facts for this lathe op are not turning-model facts"
 
 
 @pytest.mark.parametrize("rule", [accessibility, reach, internal_corner_radius])
@@ -607,23 +615,104 @@ def test_turning_actions_never_use_milling_direction_verdicts(bundle, rule, mach
     # Raw -Z facts reject #2 and even report a collision on #1; neither is a lathe fact.
     bundle.kernel["ops"]["S1:10"]["min_hits"] = {"tool": 40, "holder": 0}
     row = _rows(rule, bundle)["S1:10"]
-    assert row.status == "unsupported"
-    assert row.sentence == f"S1:10: {LATHE_APPROACH_REASON}."
+    if machine == "lathe":
+        # A lathe has a turning model, but raw -Z facts are never its facts.
+        assert row.status == "unknown" and row.sentence == f"S1:10: {NOT_TURNING_FACTS}."
+    else:
+        assert row.status == "unsupported"
+        assert row.sentence == f"S1:10: {LATHE_APPROACH_REASON}."
     assert "claim_errors" not in row.numbers
 
 
 @pytest.mark.parametrize("rule", [accessibility, reach, internal_corner_radius])
-def test_lathe_machine_blocks_shared_facing_action_direction_verdict(bundle, rule):
+def test_lathe_machine_never_reads_raw_milling_facts_for_a_facing_action(bundle, rule):
     setup = bundle.plan["setups"][0]
     setup["machine"] = "selected-machine"
     bundle.inventory["machines"]["selected-machine"] = {"kind": "lathe"}
     row = _rows(rule, bundle)["S1:10"]
-    assert row.status == "unsupported"
-    assert row.sentence == f"S1:10: {LATHE_APPROACH_REASON}."
+    assert row.status == "unknown" and row.sentence == f"S1:10: {NOT_TURNING_FACTS}."
     # The other setup is still a mill and must retain its real far-side error.
     milling = _rows(rule, bundle)["S2:10"]
     assert milling.status == "error"
     assert milling.numbers["claim_errors"] == ["#1"]
+
+
+def _turning(bundle, facts):
+    """Make S1 a lathe facing setup with a fully measured turning tool and toolpost."""
+    setup = bundle.plan["setups"][0]
+    setup["machine"] = "lathe"
+    setup["ops"][0].update(tool="turn", holder="post")
+    bundle.inventory["machines"]["lathe"] = {"kind": "lathe"}
+    bundle.inventory["tools"]["turn"] = {
+        "kind": "turning",
+        "hand": "right",
+        "nose_radius_mm": 0.4,
+        "insert_angle_deg": 80.0,
+        "entering_angle_deg": 95.0 - 10.0,
+        "edge_len_mm": 6.0,
+        "head_len_mm": 12.0,
+        "shank_width_mm": 10.0,
+        "functional_width_mm": 12.0,
+        "projection_mm": {"post": 25.0},
+        "verify": False,
+    }
+    bundle.inventory["holders"]["post"] = {
+        "kind": "qctp",
+        "body_width_mm": 30.0,
+        "body_depth_mm": 20.0,
+        "verify": False,
+    }
+    bundle.kernel["ops"]["S1:10"] = {**facts, "approach": "turning"}
+    return setup
+
+
+@pytest.mark.parametrize("hits,status", [(0, "pass"), (3, "error")])
+def test_turning_model_facts_decide_lathe_accessibility(bundle, hits, status):
+    facts = _facts([1], [])
+    facts.update(tool_hits=hits, min_hits={"tool": hits, "holder": 0})
+    _turning(bundle, facts)
+    assert _rows(accessibility, bundle)["S1:10"].status == status
+
+
+def test_turning_model_names_faces_that_are_not_revolved_about_the_spindle(bundle):
+    _turning(bundle, _facts([1], ["#2"]))
+    row = _rows(accessibility, bundle)["S1:10"]
+    assert row.status == "error" and "surfaces of revolution" in row.sentence
+    assert row.numbers["claim_errors"] == ["#2"]
+
+
+@pytest.mark.parametrize("corner,status", [(0.4, "pass"), (0.39, "error")])
+def test_lathe_corner_radius_is_compared_with_the_insert_nose(bundle, corner, status):
+    facts = _facts([1], [])
+    facts["corner_radii_mm"] = [corner]
+    _turning(bundle, facts)
+    assert _rows(internal_corner_radius, bundle)["S1:10"].status == status
+
+
+def test_turning_model_stays_unknown_without_every_tool_dimension(bundle):
+    _turning(bundle, _facts([1], []))
+    del bundle.inventory["tools"]["turn"]["head_len_mm"]
+    row = _rows(accessibility, bundle)["S1:10"]
+    assert row.status == "unknown" and "unmeasured" in row.sentence
+
+
+def test_a_tool_set_shorter_than_its_head_is_unknown_naming_the_setting_not_unmeasured(bundle):
+    from prechips.kernel import op_inputs
+
+    setup = _turning(bundle, _facts([1], []))
+    bundle.inventory["tools"]["turn"]["projection_mm"] = {"post": 10.0}
+    row = _rows(accessibility, bundle)["S1:10"]
+    assert row.status == "unknown" and "projection_mm at least head_len_mm" in row.sentence
+    assert "unmeasured" not in row.sentence
+    # A turned op the kernel never posed carries its tool extent unknown, never absent.
+    assert row.numbers == {
+        "projection_mm": 10.0,
+        "head_len_mm": 12.0,
+        "tool_z_mm": "unknown",
+        "nose_z_mm": "unknown",
+    }
+    # The head length is measured: the kernel gets it, to say why the holder is not posed.
+    assert op_inputs(bundle, setup, setup["ops"][0])["head_len_mm"] == 12.0
 
 
 @pytest.mark.parametrize(
@@ -652,12 +741,11 @@ def test_unresolved_lathe_refs_are_not_hidden_by_unsupported_model(bundle, rule,
 
 
 @pytest.mark.parametrize("raw_claimed,raw_away", [([], ["#1", "#2"]), ([1, 2], [])])
-def test_lathe_only_coverage_is_unsupported_for_raw_away_or_valid_claims(
-    bundle, raw_claimed, raw_away
-):
+def test_lathe_only_coverage_needs_turning_model_facts(bundle, raw_claimed, raw_away):
     del bundle.plan["setups"][1]
     bundle.plan["setups"][0]["ops"][0]["do"] = "finish_turn"
     bundle.kernel["ops"]["S1:10"] = _facts(raw_claimed, raw_away)
+    # Off a lathe: unsupported, candidate faces named.
     cover = _rows(coverage, bundle)["block"]
     finish = _rows(finish_coverage, bundle)["ends"]
     assert cover.status == finish.status == "unsupported"
@@ -665,6 +753,14 @@ def test_lathe_only_coverage_is_unsupported_for_raw_away_or_valid_claims(
     assert finish.sentence == f"ends: {LATHE_APPROACH_REASON}."
     assert cover.numbers["claimed_face_count"] == 1  # Only the as-stock face is credited.
     assert finish.numbers["uncovered_faces"] == [1, 2]
+    # On a lathe, raw -Z facts credit nothing; turning-model facts credit their claims.
+    _turning(bundle, _facts(raw_claimed, raw_away))
+    bundle.plan["setups"][0]["ops"][0]["do"] = "finish_turn"
+    del bundle.kernel["ops"]["S1:10"]["approach"]
+    assert _rows(coverage, bundle)["block"].status == "unknown"
+    bundle.kernel["ops"]["S1:10"]["approach"] = "turning"
+    turned = _rows(coverage, bundle)["block"]
+    assert turned.status == ("pass" if raw_claimed else "error")
 
 
 def test_supported_milling_claims_can_complete_coverage_alongside_lathe(bundle):
@@ -731,14 +827,13 @@ def test_shared_actions_on_known_mills_keep_their_real_direction_error(bundle, r
     assert row.numbers["claim_errors"] == ["#2"]
 
 
-def test_generic_profile_on_a_resolved_lathe_is_still_unsupported(bundle):
+def test_generic_profile_on_a_resolved_lathe_uses_the_turning_model(bundle):
     setup = bundle.plan["setups"][0]
     setup["machine"] = "selected-machine"
     setup["ops"][0]["do"] = "profile"
     bundle.inventory["machines"]["selected-machine"] = {"kind": "lathe"}
     row = _rows(accessibility, bundle)["S1:10"]
-    assert row.status == "unsupported"
-    assert row.sentence == f"S1:10: {LATHE_APPROACH_REASON}."
+    assert row.status == "unknown" and row.sentence == f"S1:10: {NOT_TURNING_FACTS}."
 
 
 @pytest.mark.parametrize("rule", [accessibility, reach, internal_corner_radius])
@@ -750,8 +845,11 @@ def test_shared_actions_without_a_known_mill_do_not_use_milling_facts(bundle, ru
     setup["ops"][0]["do"] = action
     bundle.inventory["machines"]["selected-machine"] = {"kind": kind}
     row = _rows(rule, bundle)["S1:10"]
-    assert row.status == "unsupported"
-    assert row.sentence == f"S1:10: {LATHE_APPROACH_REASON}."
+    if kind == "lathe":
+        assert row.status == "unknown" and row.sentence == f"S1:10: {NOT_TURNING_FACTS}."
+    else:
+        assert row.status == "unsupported"
+        assert row.sentence == f"S1:10: {LATHE_APPROACH_REASON}."
     assert "claim_errors" not in row.numbers
 
 

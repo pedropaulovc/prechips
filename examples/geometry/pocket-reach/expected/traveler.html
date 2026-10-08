@@ -1,43 +1,353 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8"><title>pocket-block traveler</title><style>@page { size: Letter portrait; margin: .4in; }
+<html lang="en"><head><meta charset="utf-8"><meta name="prechips-version" content="0.1"><meta name="prechips-report" content="17fdf378c64954352ff751d08cf410877fa3835c371ec507635525fd74818bce"><title>pocket-block traveler</title><style>@page { size: Letter portrait; margin: .4in; }
 * { box-sizing: border-box; }
-body { margin: 0; color: #000; background: #fff; font: 8pt/1.2 Arial, sans-serif; }
+body { margin: 0; color: #000; background: #fff; font: 8pt/1.25 Arial, sans-serif; }
 .page { break-after: page; page-break-after: always; }
 .page:last-child { break-after: auto; page-break-after: auto; }
-h1 { margin: 0; font-size: 12pt; } h2 { font-size: 9pt; margin: 4pt 0 2pt; border-bottom: 1px solid #000; break-after: avoid; }
+h1 { margin: 0; font-size: 12pt; } h2 { font-size: 9pt; margin: 5pt 0 2pt; border-bottom: 1px solid #000; break-after: avoid; page-break-after: avoid; }
+h3 { font-size: 8pt; margin: 4pt 0 1pt; break-after: avoid; page-break-after: avoid; }
 p { margin: 2pt 0; } .meta { display: flex; justify-content: space-between; gap: 8pt; }
 .banner { border: 2px solid #000; text-align: center; font-weight: bold; padding: 1pt; margin: 3pt 0; }
-.byst p { margin: 1pt 0 1pt 1.3em; text-indent: -1.3em; }
+.stop { border: 2.5px solid #000; padding: 2pt 4pt; margin: 3pt 0; font-weight: bold; break-inside: avoid; }
+.unverified, .caution { border: 1px dashed #000; padding: 2pt 4pt; margin: 3pt 0; break-inside: avoid; }
+.caution { border-style: solid; }
+.stop p, .unverified p, .caution p { margin: 1pt 0; }
+ol, ul { margin: 2pt 0 2pt 1.6em; padding: 0; } li { margin: 0 0 1pt; }
+ol.steps { list-style: decimal; } .field, .reading { white-space: nowrap; } .calc { margin: 1pt 0; font-weight: bold; } table.readings td { height: 16pt; }
 table { width: 100%; border-collapse: collapse; margin: 2pt 0; table-layout: fixed; }
 th, td { border: 1px solid #555; padding: 1pt 2pt; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
 th { background: #eee; } thead { display: table-header-group; }
-tr { break-inside: avoid; page-break-inside: avoid; } .operations { font-size: 7.5pt; }
-.fixture-render { margin: 4pt 0; break-inside: avoid; }
-.fixture-render img { display: block; width: 100%; max-height: 1.7in; object-fit: contain; }
-.fixture-render figcaption { font-size: 7pt; }
-.foot { text-align: right; font-size: 7pt; margin-top: 5pt; break-inside: avoid; }
-@media screen { body { max-width: 7.7in; margin: 12pt auto; } .page { margin-bottom: 24pt; } }
-</style></head><body>
-<section class="page">
-<div class="meta"><h1>POCKET-BLOCK · ? · rev ?</h1><div>qty ?</div></div>
-<p>Header / route</p>
-<div class="banner">PLANNED — NOT APPROVED FOR THIS INPUT BUNDLE</div>
-<h2>BEFORE YOU START</h2><div class="byst"><p>No reported errors, warnings or unresolved checks for this section.</p></div><p>? Drawing revision is not confirmed.</p><p>Drawing material / finish: </p><h2>STOCK AND ROUTE</h2><p>form: rectangular bar; note: Authored 70 x 50 x 61 mm supply: 1 mm top allowance over the synthetic 60 mm block; the other five outer surfaces are supplied as-is. S1 declares a numeric clearing volume, not CAM proof.; length mm: 61; section mm: 70 / 50; origin mm: 0 / 0 / 0; axis: 0 / 0 / 1; section axis: 1 / 0 / 0; as is faces: #17/ADVANCED FACE[1]/ / #57/ADVANCED FACE[2]/ / #182/ADVANCED FACE[4]/ / #206/ADVANCED FACE[5]/ / #223/ADVANCED FACE[6]/</p><table class=""><colgroup><col style="width:10%"><col style="width:20%"><col style="width:70%"></colgroup><thead><tr><th>setup</th><th>starts from</th><th>machine / fixture</th></tr></thead><tbody><tr><td>S1</td><td>stock</td><td>test-mill / ?</td></tr><tr><td>S2</td><td>S1</td><td>test-mill / vise</td></tr></tbody></table><h2>DRAWING REQUIREMENTS</h2><table class=""><thead><tr><th>feature</th><th>requirement / acceptance band</th></tr></thead><tbody><tr><td>pocket</td><td>No drawing requirements declared.</td></tr></tbody></table><p>Kernel geometry findings use sampled tool / holder solids, not CAM toolpaths. An unresolved fixture is not a rendered holding proof. ? = unresolved. EM = endmill; CD = centre drill; DTI = test indicator; mic = micrometer. Keep the drawing at the bench.</p>
-<p>Sign off: __________  First article / measured results: ____________________</p>
-<p class="foot">prechips 0.1 · report 73bfdeaf</p>
+tr, tbody { break-inside: avoid; page-break-inside: avoid; }
+tr.warn td { border-top: 0; padding-left: 8pt; }
+tr.warn .box { display: inline-block; margin: 0 4pt 1pt 0; }
+td .box { display: block; border: 1.5px solid #000; font-weight: bold; padding: 0 2pt; margin-top: 1pt; }
+.keep { break-inside: avoid; page-break-inside: avoid; }
+.contours { columns: 3; column-gap: 8pt; }
+.contours.wide { columns: auto; }
+.contour { break-inside: avoid; page-break-inside: avoid; margin-bottom: 4pt; }
+.contour.wide { column-span: all; }
+h4 { font-size: 8pt; margin: 3pt 0 1pt; break-after: avoid; page-break-after: avoid; }
+.stages { display: flex; gap: 8pt; align-items: flex-start; }
+.stages > div { flex: 1 1 0; min-width: 0; }
+table.coords { table-layout: auto; }
+table.coords th { overflow-wrap: normal; }
+table.coords td.num { white-space: nowrap; overflow-wrap: normal; }
+.tick { display: inline-block; width: 7pt; height: 7pt; border: 1px solid #000; margin: 0 2pt -1pt 6pt; } .levels .level:first-child .tick { margin-left: 2pt; }
+.levels .level { white-space: nowrap; }
+th.read, td.read { font-weight: bold; } th.read { background: #ccc; }
+tr.repeat th { background: #fff; font-weight: bold; }
+.paged table:not([data-duplex-split]) tr.repeat { display: none; }
+.hold-row { display: flex; gap: 8pt; align-items: flex-start; }
+.hold-steps { flex: 1 1 70%; min-width: 0; }
+.fixture-render { margin: 4pt 0; break-inside: avoid; page-break-inside: avoid; }
+.hold-row > .stop { flex: 0 0 30%; margin: 4pt 0 0; }
+.fixture-render img { display: block; width: auto; max-width: 100%; max-height: 8.9in; margin: 0 auto; border: 1px solid #999; }
+.see { font-style: italic; }
+.op-note { margin: 1pt 0; }
+.cont-head { font-size: 9pt; font-weight: bold; margin: 0 0 2pt; border-bottom: 1px solid #000; }
+.more { margin: 2pt 0 0; text-align: right; font-weight: bold; }
+table.operations { margin-top: 0; }
+tr.continued th { height: 14pt; padding: 0 0 1pt; font-size: 9pt; background: #fff; border: 0; border-bottom: 1px solid #000; vertical-align: bottom; }
+h2:has(+ table.operations) { position: relative; z-index: 1; height: 14pt; margin: 5pt 0 -14pt; background: #fff; display: flex; align-items: flex-end; }
+.paged tr.continued { display: none; }
+.paged h2:has(+ table.operations) { position: static; height: auto; margin: 5pt 0 2pt; display: block; }
+.signoff { margin-top: 6pt; break-before: avoid; page-break-before: avoid; }
+.contour-row { display: flex; gap: 8pt; align-items: flex-start; }
+.contour-row > .contour { flex: 0 0 calc((100% - 16pt) / 3); min-width: 0; }
+.contour-row > .contour.wide { flex: 1 1 100%; }
+.contour-row.tall, [data-duplex-stacked] { display: block; }
+.contours.wide .contour-row { display: block; }
+.blank-side { padding-top: 4in; text-align: center; font-weight: bold; }
+@media screen { body { max-width: 7.7in; margin: 12pt auto; } .page { margin-bottom: 24pt; } .blank-side { display: none; } }
+</style><script>(() => {
+  // Letter 11 in less .4 in margins = 979 px at 96 px/in. The sheet is measured by the
+  // same engine at the printed width, so a small band covers rounding only.
+  const CAP = 975;
+  // The fewest table rows a page break leaves on either side of it.
+  const KEEP = 3;
+  // Room for a continued page's "(continued) · page n" line above its first block, px.
+  const HEAD_ROOM = 24;
+  const ADDED = "data-duplex";
+  const SPLIT = "data-duplex-split";
+  const STACKED = "data-duplex-stacked";
+  const heading = (el) => el && /^H[1-6]$/.test(el.tagName);
+  function box(el) {
+    const r = el.getBoundingClientRect(), s = getComputedStyle(el);
+    return { top: r.top - parseFloat(s.marginTop), bottom: r.bottom + parseFloat(s.marginBottom) };
+  }
+  function paginate(section) {
+    const title = section.getAttribute("data-title") || section.getAttribute("data-sheet");
+    let pageTop = box(section).top, pages = 1;
+    let pageStart = [...section.children].find(
+      (el) => !el.classList.contains("meta") && !el.classList.contains("banner")
+    );
+    const fits = (bottom) => bottom - pageTop <= CAP;
+    function breakAt(el) {
+      pages += 1;
+      const head = document.createElement("p");
+      head.className = "cont-head";
+      head.setAttribute(ADDED, "");
+      head.textContent = title + " (continued) \u00b7 page " + pages;
+      el.before(head);
+      head.style.breakBefore = "page";
+      pageTop = box(head).top;
+      pageStart = el;
+    }
+    // What must start a page with `el`: the headings (and a table's caption) right above
+    // it, a heading's lead-in line, and, when `el` opens its parent, what must start a
+    // page with the parent.
+    function lead(el) {
+      let start = el;
+      for (;;) {
+        const prev = start.previousElementSibling;
+        const caption = prev && prev.tagName === "P" && start.tagName === "TABLE";
+        if (heading(prev) || caption || (prev && prev.classList.contains("lead-in"))) {
+          start = prev;
+        } else if (!prev && start.parentElement !== section) {
+          start = start.parentElement;
+        } else {
+          return start;
+        }
+      }
+    }
+    // Start a new page at `el` with its lead; false when that gains nothing because the
+    // lead already opens this page. An op table moved whole leaves a pointer where it
+    // would have started, so the page it leaves says where the operations went.
+    function move(el) {
+      const start = lead(el);
+      if (start === pageStart || start.contains(pageStart) || box(start).top <= pageTop) {
+        return false;
+      }
+      let more = null;
+      if (el.tagName === "TABLE" && el.classList.contains("operations") && el.tBodies.length) {
+        more = document.createElement("p");
+        more.className = "more";
+        more.setAttribute(ADDED, "");
+        start.before(more);
+        const op = el.tBodies[0].rows[0].cells[0].textContent;
+        more.textContent = "Operations continue on reverse, op " + op;
+        if (!fits(box(more).bottom)) {
+          more.remove();
+          more = null;
+        }
+      }
+      breakAt(start);
+      if (more && pages % 2 === 1) {
+        more.textContent = more.textContent.replace("on reverse", "on the next sheet");
+      }
+      return true;
+    }
+    // Rows from body `j` on go to a copy of `t` that starts the next page.
+    function cut(t, j) {
+      const rest = t.cloneNode(false);
+      rest.setAttribute(SPLIT, "");
+      for (const part of [...t.children]) {
+        if (part.tagName !== "COLGROUP" && part.tagName !== "THEAD") continue;
+        const copy = part.cloneNode(true);
+        copy.querySelectorAll("tr.continued").forEach((row) => row.remove());
+        rest.append(copy);
+      }
+      rest.append(...[...t.tBodies].slice(j));
+      t.after(rest);
+      let more = null;
+      const pointer = (side) => {
+        const op = rest.tBodies[0].rows[0].cells[0].textContent;
+        more.textContent = "Operations continue " + side + ", op " + op;
+      };
+      if (t.classList.contains("operations")) {
+        more = document.createElement("p");
+        more.className = "more";
+        more.setAttribute(ADDED, "");
+        t.after(more);
+        pointer("on reverse");
+        while (t.tBodies.length > 1 && !fits(box(more).bottom)) {
+          rest.insertBefore(t.tBodies[t.tBodies.length - 1], rest.tBodies[0]);
+          pointer("on reverse");
+        }
+        if (!fits(box(more).bottom)) {
+          // One row and the pointer overflow: undo the split and start the table, with
+          // its heading, on the next page; at a page top already, drop the pointer.
+          t.append(...[...rest.tBodies]);
+          rest.remove();
+          more.remove();
+          if (move(t)) {
+            table(t);
+            return;
+          }
+          t.after(rest);
+          rest.append(...[...t.tBodies].slice(1));
+          more = null;
+        }
+      }
+      breakAt(rest);
+      if (more) pointer(pages % 2 === 0 ? "on reverse" : "on the next sheet");
+      table(rest);
+    }
+    function table(t) {
+      const over = () => [...t.tBodies].findIndex((tb) => !fits(box(tb).bottom));
+      let j = over();
+      if (j === 0 && move(t)) j = over();
+      // A first row taller than the page stays with the table head: the browser splits it.
+      if (j === 0) j = 1;
+      const n = t.tBodies.length;
+      // Widow and orphan control: a split leaves at least KEEP rows on each page. Rows
+      // carry over to the next page; a table too short for KEEP on both sides moves
+      // whole with its heading (where moving gains a page top).
+      if (j > 0 && j < n && (j < KEEP || n - j < KEEP)) {
+        if (j >= KEEP && n - KEEP >= KEEP) {
+          j = n - KEEP;
+        } else if (move(t)) {
+          j = over();
+          if (j === 0) j = 1;
+          if (j > 0 && j < n && n - j < KEEP && n - KEEP >= KEEP) j = n - KEEP;
+        }
+      }
+      if (j > 0 && j < n) cut(t, balance(t, j));
+    }
+    // A table split at body `j` whose last rows, with all that follows them on the sheet,
+    // fit on the next page: that page would end the sheet, so the split shares the rows
+    // evenly rather than leave a short tail of closing rows on it alone. An op table keeps
+    // its own split (its pointer and sign-off place it).
+    function balance(t, j) {
+      const n = t.tBodies.length, half = Math.ceil(n / 2);
+      if (t.classList.contains("operations") || n - j >= n - half || n - half < KEEP) return j;
+      const head = t.tHead ? box(t.tHead).bottom - box(t.tHead).top : 0;
+      // The next page also opens with the continued-page line and the column headings
+      // (with the table's repeated name row, hidden on its first page).
+      const rest = box(section.lastElementChild).bottom - box(t.tBodies[half]).top;
+      return rest + 2 * head + HEAD_ROOM <= CAP ? half : j;
+    }
+    function walk(parent) {
+      for (const el of [...parent.children]) {
+        const b = box(el);
+        if (fits(b.bottom)) continue;
+        if (el.tagName === "TABLE") {
+          table(el);
+        } else if (el.classList.contains("signoff")) {
+          // The sign-off never stands alone: take the last op row with it.
+          const prev = el.previousElementSibling;
+          if (prev && prev.tagName === "TABLE" && prev.tBodies.length > 1) {
+            cut(prev, prev.tBodies.length - 1);
+          } else {
+            move(el);
+          }
+        } else if (b.bottom - b.top <= CAP && move(el) && fits(box(el).bottom)) {
+          continue;
+        } else if (el.children.length) {
+          // Too tall to move whole: break inside it. Blocks standing side by side (a
+          // flex row: contour blocks, rough and finish stages) stack first, so the walk
+          // meets them one below another, each measured from where the last one ends.
+          const s = getComputedStyle(el);
+          if (s.display.endsWith("flex") && !s.flexDirection.startsWith("column")) {
+            el.setAttribute(STACKED, "");
+          }
+          walk(el);
+        } else {
+          // One unbreakable block taller than a page: the browser splits it.
+          const c = box(el), over = c.bottom - pageTop;
+          pages += Math.floor(over / CAP);
+          pageTop = c.bottom - (over % CAP);
+        }
+      }
+    }
+    walk(section);
+    section.querySelectorAll(".cont-head").forEach((head) => {
+      head.textContent += " of " + pages;
+    });
+    return pages;
+  }
+  function reset() {
+    document.querySelectorAll(".blank-side, [" + ADDED + "]").forEach((el) => el.remove());
+    document.querySelectorAll("[" + STACKED + "]").forEach((el) => el.removeAttribute(STACKED));
+    // Re-join split tables, last piece first.
+    [...document.querySelectorAll("table[" + SPLIT + "]")].reverse().forEach((rest) => {
+      rest.previousElementSibling.append(...[...rest.tBodies]);
+      rest.remove();
+    });
+  }
+  function run() {
+    const body = document.body, saved = body.getAttribute("style");
+    try {
+      reset();
+      // The script heads every page itself: the no-script repeated op heading goes.
+      document.documentElement.classList.add("paged");
+      // Contour blocks go in rows of three so each row is one measurable block; a wide
+      // block (a lathe profile) takes a row of its own.
+      document.querySelectorAll(".contours:not([data-rows])").forEach((c) => {
+        c.setAttribute("data-rows", "");
+        c.style.columns = "auto";
+        let row = null;
+        for (const block of [...c.children]) {
+          const wide = block.classList.contains("wide");
+          if (!row || wide || row.children.length === 3 || row.classList.contains("solo")) {
+            row = document.createElement("div");
+            row.className = wide ? "contour-row solo" : "contour-row";
+            c.append(row);
+          }
+          row.append(block);
+        }
+      });
+      // Measure at the printed width whatever the window size.
+      body.style.cssText = "max-width:none;width:7.7in;margin:0";
+      document.querySelectorAll(".contour-row").forEach((row) => {
+        row.classList.toggle("tall", row.getBoundingClientRect().height > CAP);
+      });
+      for (const section of [...document.querySelectorAll("section.page[data-sheet]")]) {
+        if (paginate(section) % 2 === 0) continue;
+        const blank = document.createElement("section");
+        blank.className = "page blank-side";
+        blank.textContent =
+          "This side intentionally blank \u2014 " + section.getAttribute("data-sheet") + " back";
+        section.after(blank);
+      }
+    } catch (error) {
+      reset();
+      document.documentElement.classList.remove("paged");
+    } finally {
+      if (saved === null) body.removeAttribute("style");
+      else body.setAttribute("style", saved);
+    }
+  }
+  addEventListener("load", run);
+  addEventListener("beforeprint", run);
+})();
+</script></head><body>
+<section class="page" data-sheet="job page" data-title="JOB PAGE">
+<div class="meta"><h1>POCKET-BLOCK · ? · REV NOT CONFIRMED</h1><div>qty ?</div></div>
+<div class="banner">PLANNED — NOT APPROVED</div>
+<h2>JOB STATUS</h2><div class="stop"><p>✗ STOP — do not run until resolved:</p><p>Drawing revision not confirmed — match the print revision first.</p><p>Setups S1, S2: STOP items on the setup page — do not run a setup until its STOPs are cleared.</p></div><ul><li>Not ready to run: clear the items above first.</li><li>NOT APPROVED: no first article is recorded; the first part made is the first article — sign it off below.</li></ul><p>Drawing material: ? not stated.</p><p>Speeds / feeds: no cited source — every op without a speed is a STOP.</p><p>DRO resolution: mill 0.001 mm (resolution not in the shop list: default grid). DRO targets print on this grid.</p><h2>STOCK AND ROUTE</h2><p>Stock: rectangular bar 70.000 × 50.000 × 61.000 long. Authored 70 x 50 x 61 mm supply: 1 mm top allowance over the synthetic 60 mm block; the other five outer surfaces are supplied as-is. S1 declares a numeric clearing volume, not CAM proof.</p><table><colgroup><col style="width:8%"><col style="width:32%"><col style="width:25%"><col style="width:35%"></colgroup><thead><tr><th>setup</th><th>starts from</th><th>machine</th><th>holding</th></tr></thead><tbody><tr><td>S1</td><td>the stock blank</td><td>mill</td><td>STOP: not chosen</td></tr></tbody><tbody><tr><td>S2</td><td>part as it arrives from Setup S1</td><td>mill</td><td>vise</td></tr></tbody></table><h2>DRAWING REQUIREMENTS</h2><table><colgroup><col style="width:30%"><col style="width:70%"></colgroup><thead><tr><th>feature</th><th>limits</th></tr></thead><tbody><tr><td>pocket</td><td>no toleranced requirement</td></tr></tbody><tbody><tr><td>all edges</td><td>? edge break not on the drawing; plan breaks edges 0.000 mm max</td></tr></tbody></table><p>T# = tool number in that setup&#x27;s TOOLS table. EM = endmill.</p>
+<p class="signoff">Sign off: __________  First article / measured results: ____________________</p>
 </section>
-<section class="page">
-<div class="meta"><h1>POCKET-BLOCK · ? · rev ?</h1><div>qty ?</div></div>
-<div class="banner">PLANNED — NOT APPROVED FOR THIS INPUT BUNDLE</div>
-<h2>SETUP S1 — test-mill</h2><h2>BEFORE YOU START</h2><div class="byst"><p>? Fixture solids are not declared for this holding kind.</p><p>? S1: spindle envelope remains unmeasured or unresolved. resolve: add or select an owned fixture for unknown in inventory and author plan.setups.S1.hold.fixture; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S1.ops.10.holder; measure: test-mill spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: test-mill spindle nose to table at full Z-down, steel rule or height gauge, mm; author: Measure plan.setups.S1.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock state.top z in mm; Author plan.setups.S1.ops.10.approach mm &gt;= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S1.ops.10 commanded to z, z from/z to or depth mm from the setup datum with a depth gauge or machine Z readout in mm.</p><p>? S1: holding declarations need hold.fixture, hold.stop, hold.grip mm, hold.clamp, hold.fixed jaw, stock state.top z, stock state.bottom z, ops.10.holder, ops.10.direction.</p><p>? op 10: selected tool/holder dimensions are unmeasured or unavailable.</p><p>? S1: selected collet/chuck identity is unresolved.</p><p>? S1: holding identity is unknown.</p><p>? S1: declared operation travel remains unmeasured or unresolved. Measure and declare plan.setups.S1.ops.10.rough allowance mm &gt;= 0 with calipers or a micrometer in mm per side of the rough cut; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S1.ops.10.holder; measure: test-mill X safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: test-mill Y safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: test-mill Z safe usable travel, stop-to-stop, steel rule or calipers, mm; author: Measure plan.setups.S1.ops.10 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length mm and section mm/dia mm with calipers instead of using a nominal feature width; author: Measure plan.setups.S1.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock state.top z in mm; Author plan.setups.S1.ops.10.approach mm &gt;= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S1.ops.10 commanded to z, z from/z to or depth mm from the setup datum with a depth gauge or machine Z readout in mm.</p><p>? S1: holding identity is unknown.</p><p>? Geometry unresolved: coordinates / frame binding; headroom / clearance. Close ? checks below.</p><p>? Tooling unresolved: RPM / feed; tool / holder / shank fit (all cutting ops). Close ? checks below.</p><p>? DRO / inspection unresolved: DRO / tool / trial-cut checks. Close ? checks below.</p></div><p>Starts from: stock; stock state: top z: ?; bottom z: ?</p><p>Hold: fixture: ?; fixed jaw: ?; stop: ?; clamp: ?; grip mm: ?</p><figure class="fixture-render"><img src="setup-S1.png" alt="S1 kernel setup view"><figcaption>? Kernel stock view only; fixture dimensions or jaw pose remain unresolved. jaws not drawn: Fixture solids are not declared for this holding kind.</figcaption></figure><p>Coolant: none; deburr maximum: 0 mm</p><p>Headroom / clearance — nominal, subject to verification. Stack (mm): bed ?; blocks 0; parallels —; supported stock ?; insertion 25; required ? / spindle capacity ?. Tools: projection ?, OAL ?, holder length ?, headroom ? mm. Jaw top Z ?; stock top ? mm above jaws. Envelope (mm): X stock 61, fixture ?, required ? / travel ?; Y stock 70, fixture ?, required ? / travel ?.</p><p>Synthetic rough preparation clears the top allowance and pocket before S2. Only the preparation cutter diameter is authored; its other dimensions, holder and preparation holding remain measurement debt.</p><h2>DRO ZERO — frame A, mm, ?, linear mode</h2><p>Direction (§6.2): . ABS Axis Set (§7.4), never Preset (§8.1). Jog without retouch; mirrored = STOP, correct Direction and redo touch / set / check.</p><table class=""><colgroup><col style="width:5%"><col style="width:43%"><col style="width:13%"><col style="width:13%"><col style="width:13%"><col style="width:13%"></colgroup><thead><tr><th>axis</th><th>touch / compensation</th><th>Axis Set</th><th>jog, no touch</th><th>must read</th><th>mirrored: STOP</th></tr></thead><tbody></tbody></table><h2>COORDINATES — frame A, mm; feature reference points</h2><p>? No resolved feature coordinates; use the explicit operation targets only where their local provenance is stated.</p><p>Feature points, not cutting tips; use Z tips in operations. → = towards. Measured binding: ?.</p><h2>OPERATIONS — RPM / feed are starting points, not limits</h2><table class="operations"><colgroup><col style="width:4%"><col style="width:10%"><col style="width:10%"><col style="width:18%"><col style="width:5%"><col style="width:7%"><col style="width:16%"><col style="width:5%"><col style="width:25%"></colgroup><thead><tr><th>op</th><th>do</th><th>feature</th><th>tool / holder</th><th>rpm</th><th>feed</th><th>Z tip</th><th>dir</th><th>inspection</th></tr></thead><tbody><tr><td>10</td><td>rough pocket</td><td>pocket</td><td>8 mm EM / ?</td><td>?</td><td>?</td><td>? tip endpoint</td><td>?</td><td>—</td></tr></tbody></table><p>10: Remove only outside-finished material in this declared setup-frame box. Floor coverage belongs to this prep claim, not to the wall-finishing poses.</p><p>RPM / feed source: approved plan starting-speed model; machine range; cutting-data source row</p>
-<p>Sign off: __________  First article / measured results: ____________________</p>
-<p class="foot">prechips 0.1 · report 73bfdeaf</p>
+<section class="page" data-sheet="SETUP S1 sheet 1" data-title="SETUP S1 — sheet 1">
+<div class="meta"><h1>POCKET-BLOCK · ? · REV NOT CONFIRMED</h1><div>qty ?</div></div>
+<div class="banner">PLANNED — NOT APPROVED</div>
+<h2>SETUP S1 — mill · sheet 1 of 2</h2><div class="stop"><p>✗ STOP — do not run until resolved:</p><p>Op 10 — no starting speed / feed</p><p>Op 10 — no Z target</p></div><div class="unverified"><p>? Not verified by the planner — confirm at the machine:</p><p>tool access (op 10); consistency; coordinates; cutter engagement (op 10); machine envelope; holding clearance; headroom and clearance; holding details; tool reach (op 10); starting speeds / feeds (op 10); chuck / collet size; thin walls under clamping; tool / holder fit (op 10); axis travel; vise grip; DRO zero check.</p></div><p>Synthetic rough preparation clears the top allowance and pocket before S2. The preparation cutter diameter and authored zero leave are declared; its other dimensions, holder and preparation holding remain measurement debt.</p><p>Starts from: the stock blank — top Z ? not set, bottom Z ? not set.</p>
+<div class="hold-row"><div class="hold-steps"><h2>HOLD</h2><ol><li>STOP: holding not chosen — do not run.</li><li>Stop: ?.</li><li>?.</li></ol></div></div><table><thead><tr><th>grip length mm</th></tr></thead><tbody><tr><td>? not set</td></tr></tbody></table><p>Coolant: none.</p>
+<h2>TOOLS FOR THIS SETUP — pull before starting</h2><table><colgroup><col style="width:5%"><col style="width:22%"><col style="width:35%"><col style="width:26%"><col style="width:12%"></colgroup><thead><tr><th>T</th><th>tool</th><th>insert / size / material</th><th>holder / station</th><th>ops</th></tr></thead><tbody><tr><td>T1</td><td>8 mm EM</td><td>Ø8.000</td><td>—</td><td>10</td></tr></tbody></table>
+<h2>DRO ZERO — Setup S1 zero, mm, linear mode</h2><table><colgroup><col style="width:5%"><col style="width:45%"><col style="width:13%"><col style="width:11%"><col style="width:13%"><col style="width:13%"></colgroup><thead><tr><th>axis</th><th>touch / pick up</th><th>Axis Set</th><th>check jog</th><th>must read</th><th>if reversed</th></tr></thead></table>
+<h2>OPERATIONS</h2><table class="operations"><colgroup><col style="width:4%"><col style="width:16%"><col style="width:12%"><col style="width:7%"><col style="width:6%"><col style="width:9%"><col style="width:11%"><col style="width:9%"><col style="width:26%"></colgroup><thead><tr class="continued"><th colspan="9">SETUP S1 — sheet 1 (continued): operations</th></tr><tr><th>op</th><th>do</th><th>feature</th><th>tool</th><th>rpm</th><th>feed</th><th>Z tip</th><th>direction</th><th>inspection: limit, gauge</th></tr></thead><tbody class="op"><tr><td>10</td><td>rough pocket, leave 0.000 mm per side</td><td>pocket</td><td>T1</td><td>STOP</td><td>STOP</td><td><span class="box">STOP: Z target not set</span></td><td>?</td><td>—</td></tr><tr class="warn"><td colspan="9"><div class="op-note">Remove only outside-finished material in this declared setup-frame box. Floor coverage belongs to this prep claim, not to the wall-finishing poses.</div></td></tr></tbody></table>
+<p class="signoff">Sign off: __________  First article / measured results: ____________________</p>
 </section>
-<section class="page">
-<div class="meta"><h1>POCKET-BLOCK · ? · rev ?</h1><div>qty ?</div></div>
-<div class="banner">PLANNED — NOT APPROVED FOR THIS INPUT BUNDLE</div>
-<h2>SETUP S2 — test-mill</h2><h2>BEFORE YOU START</h2><div class="byst"><p>✗ S2:10: selected cutter or holder is certainly occluded by part/fixture material.</p><p>✗ S2:10: depth exceeds flute length and the holder intersects walls.</p><p>? S2: spindle envelope remains unmeasured or unresolved. measure: parallels record height, steel rule or calipers, mm; measure: vise table to vise bed supporting the parallels or part, height gauge, mm; measure: R8 collet spindle nose to mounted holder exit face, steel rule or height gauge, mm; measure: R8 collet installed tool insertion from holder exit face, steel rule or calipers, mm; measure: test-mill spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: test-mill spindle nose to table at full Z-down, steel rule or height gauge, mm; author: Author plan.setups.S2.ops.10.approach mm &gt;= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; measure: 8 mm endmill selected tool overall length, steel rule or calipers, mm.</p><p>? S2: declared operation travel remains unmeasured or unresolved. measure: R8 collet spindle nose to mounted holder exit face, steel rule or height gauge, mm; measure: R8 collet installed tool insertion from holder exit face, steel rule or calipers, mm; measure: test-mill X safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: test-mill Y safe usable travel, stop-to-stop, steel rule or calipers, mm; measure: test-mill Z safe usable travel, stop-to-stop, steel rule or calipers, mm; author: Author plan.setups.S2.ops.10.approach mm &gt;= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; measure: 8 mm endmill selected tool overall length, steel rule or calipers, mm.</p><p>? Geometry unresolved: coordinates / frame binding; headroom / clearance. Close ? checks below.</p><p>? Tooling unresolved: RPM / feed. Close ? checks below.</p><p>? DRO / inspection unresolved: DRO / tool / trial-cut checks. Close ? checks below.</p></div><p>Starts from: S1; stock state: top feature: pocket; top z: 60; bottom z: 0</p><p>Hold: fixture: vise; jaws along: x; fixed jaw: rear; parallels: parallels; stop: left end against the fixed-jaw stop; clamp: hand snug, then quarter turn; grip mm: 6; jaw above supports mm: 8; jaw center along mm: 35; parallels centres mm: 35 / 5 / 35 / 45</p><figure class="fixture-render"><img src="setup-S2.png" alt="S2 kernel setup view"><figcaption>Kernel view: setup-entry stock and declared jaws / parallels; sampled checks are not a toolpath.</figcaption></figure><p>Coolant: none; deburr maximum: 0 mm</p><p>Headroom / clearance — nominal, subject to verification. Stack (mm): bed ?; blocks 0; parallels 20; supported stock 60; insertion 25; required ? / spindle capacity ?. Tools: projection 38, OAL 63, holder length 60, headroom ? mm. Jaw top Z 20; stock top 40 mm above jaws. Tip above jaws (mm): ops 10: -5. Cutter access unproved. Envelope (mm): X stock 61, fixture ?, required ? / travel ?; Y stock 70, fixture ?, required ? / travel ?.</p><p>Top face up on 20 mm parallels; jaws along X clamp the 50 mm width across Y.</p><h2>DRO ZERO — frame A, mm, ?, linear mode</h2><p>Direction (§6.2): . ABS Axis Set (§7.4), never Preset (§8.1). Jog without retouch; mirrored = STOP, correct Direction and redo touch / set / check.</p><table class=""><colgroup><col style="width:5%"><col style="width:43%"><col style="width:13%"><col style="width:13%"><col style="width:13%"><col style="width:13%"></colgroup><thead><tr><th>axis</th><th>touch / compensation</th><th>Axis Set</th><th>jog, no touch</th><th>must read</th><th>mirrored: STOP</th></tr></thead><tbody></tbody></table><h2>COORDINATES — frame A, mm; feature reference points</h2><p>? No resolved feature coordinates; use the explicit operation targets only where their local provenance is stated.</p><p>Feature points, not cutting tips; use Z tips in operations. → = towards. Measured binding: ?.</p><h2>OPERATIONS — RPM / feed are starting points, not limits</h2><table class="operations"><colgroup><col style="width:4%"><col style="width:10%"><col style="width:10%"><col style="width:18%"><col style="width:5%"><col style="width:7%"><col style="width:16%"><col style="width:5%"><col style="width:25%"></colgroup><thead><tr><th>op</th><th>do</th><th>feature</th><th>tool / holder</th><th>rpm</th><th>feed</th><th>Z tip</th><th>dir</th><th>inspection</th></tr></thead><tbody><tr><td>10</td><td>finish pocket</td><td>pocket</td><td>8 mm EM / R8 collet</td><td>?</td><td>?</td><td>→ 15</td><td>climb</td><td>—</td></tr></tbody></table><p>RPM / feed source: approved plan starting-speed model; machine range; cutting-data source row</p>
-<p>Sign off: __________  First article / measured results: ____________________</p>
-<p class="foot">prechips 0.1 · report 73bfdeaf</p>
+<section class="page" data-sheet="SETUP S1 sheet 2" data-title="SETUP S1 — sheet 2">
+<div class="meta"><h1>POCKET-BLOCK · ? · REV NOT CONFIRMED</h1><div>qty ?</div></div>
+<div class="banner">PLANNED — NOT APPROVED</div>
+<h2>SETUP S1 — sheet 2 of 2: holding picture and clearance</h2><figure class="fixture-render"><img src="setup-S1.png" alt="Setup S1 holding picture"><figcaption>Setup S1 — the stock blank, held in the ?.<br><b>NOT SHOWN: Fixture solids are not declared for this holding kind.</b><br><b>STOP: selected cutter dimensions are unresolved; do not run.</b></figcaption></figure>
+<div class="keep"><h2>CLEARANCE — mill</h2><p>? Not computed — check at the machine: spindle-to-table room (holding height not known); X travel; Y travel; tool stickout and headroom.</p><table class="clearance"><colgroup><col style="width:9%"><col style="width:6%"><col style="width:45%"><col style="width:11%"><col style="width:29%"></colgroup><thead><tr><th>op</th><th>tool</th><th>closest obstacle</th><th>clearance mm</th><th>action</th></tr></thead><tbody><tr><td>10</td><td>T1</td><td>—</td><td>?</td><td>holding beside the cut: not computed — check at the machine</td></tr></tbody></table></div>
+</section>
+<section class="page" data-sheet="SETUP S2 sheet 1" data-title="SETUP S2 — sheet 1">
+<div class="meta"><h1>POCKET-BLOCK · ? · REV NOT CONFIRMED</h1><div>qty ?</div></div>
+<div class="banner">PLANNED — NOT APPROVED</div>
+<h2>SETUP S2 — mill · sheet 1 of 2</h2><div class="stop"><p>✗ STOP — do not run until resolved:</p><p>Op 10 — tool or holder hits the part or the holding</p><p>Op 10 — depth exceeds flute length and the holder intersects walls.</p><p>Op 10 — no starting speed / feed</p></div><div class="unverified"><p>? Not verified by the planner — confirm at the machine:</p><p>consistency; coordinates; cutter engagement (op 10); machine envelope; headroom and clearance; starting speeds / feeds (op 10); axis travel; DRO zero check.</p></div><p>Top face up on 20 mm parallels; jaws along X clamp the 50 mm width across Y.</p><p>Starts from: part as it arrives from Setup S1 — top (pocket) at Z 60.000, bottom at Z 0.000.</p>
+<div class="hold-row"><div class="hold-steps"><h2>HOLD</h2><ol><li>Mount the vise; jaws along X; fixed jaw rear.</li><li>Square the fixed jaw to the X travel: with the dial test indicator held from the spindle head on the fixed jaw, traverse X 100 mm along it; tap the vise round until the reading changes no more than 0.0254 mm (0.001 in) over that length, tighten the vise to the table and sweep again.</li><li>Parallels: parallels.</li><li>Stop: left end against the fixed-jaw stop.</li><li>Hand snug, then quarter turn.</li></ol></div></div><table><thead><tr><th>grip length mm</th><th>jaw top above parallels mm</th><th>work top above jaw tops mm</th><th>jaw centre at X</th><th>parallels at (X, Y)</th></tr></thead><tbody><tr><td class="num">6.000</td><td class="num">8.000</td><td class="num">52.000</td><td class="num">35.000</td><td>(35.000, 5.000); (35.000, 45.000)</td></tr></tbody></table><p>Coolant: none.</p>
+<h2>TOOLS FOR THIS SETUP — pull before starting</h2><table><colgroup><col style="width:5%"><col style="width:22%"><col style="width:35%"><col style="width:26%"><col style="width:12%"></colgroup><thead><tr><th>T</th><th>tool</th><th>insert / size / material</th><th>holder / station</th><th>ops</th></tr></thead><tbody><tr><td>T1</td><td>8 mm EM</td><td>Ø8.000, flute 19.000, 4 flutes, HSS</td><td>R8 collet</td><td>10</td></tr></tbody></table>
+<h2>DRO ZERO — Setup S2 zero, mm, linear mode</h2><table><colgroup><col style="width:5%"><col style="width:45%"><col style="width:13%"><col style="width:11%"><col style="width:13%"><col style="width:13%"></colgroup><thead><tr><th>axis</th><th>touch / pick up</th><th>Axis Set</th><th>check jog</th><th>must read</th><th>if reversed</th></tr></thead></table>
+<h2>OPERATIONS</h2><table class="operations"><colgroup><col style="width:4%"><col style="width:16%"><col style="width:12%"><col style="width:7%"><col style="width:6%"><col style="width:9%"><col style="width:11%"><col style="width:9%"><col style="width:26%"></colgroup><thead><tr class="continued"><th colspan="9">SETUP S2 — sheet 1 (continued): operations</th></tr><tr><th>op</th><th>do</th><th>feature</th><th>tool</th><th>rpm</th><th>feed</th><th>Z tip</th><th>direction</th><th>inspection: limit, gauge</th></tr></thead><tbody class="op"><tr><td>10</td><td>finish pocket</td><td>pocket</td><td>T1</td><td>STOP</td><td>STOP</td><td>Z → 15.000</td><td>climb</td><td>—</td></tr><tr class="warn"><td colspan="9"><span class="box">TIP 5.000 BELOW JAW TOP — STOP</span><span class="box">STOP: tool or holder hits the part or the holding</span><span class="box">STOP: depth exceeds flute length and the holder intersects walls.</span></td></tr></tbody></table>
+<p class="signoff">Sign off: __________  First article / measured results: ____________________</p>
+</section>
+<section class="page" data-sheet="SETUP S2 sheet 2" data-title="SETUP S2 — sheet 2">
+<div class="meta"><h1>POCKET-BLOCK · ? · REV NOT CONFIRMED</h1><div>qty ?</div></div>
+<div class="banner">PLANNED — NOT APPROVED</div>
+<h2>SETUP S2 — sheet 2 of 2: holding picture and clearance</h2><figure class="fixture-render"><img src="setup-S2.png" alt="Setup S2 holding picture"><figcaption>Setup S2 — part as it arrives from Setup S1, held in the vise.</figcaption></figure>
+<div class="keep"><h2>CLEARANCE — mill</h2><p>? Not computed — check at the machine: spindle-to-table room (holding height not known); X travel; Y travel; tool stickout and headroom.</p><table class="clearance"><colgroup><col style="width:9%"><col style="width:6%"><col style="width:45%"><col style="width:11%"><col style="width:29%"></colgroup><thead><tr><th>op</th><th>tool</th><th>closest obstacle</th><th>clearance mm</th><th>action</th></tr></thead><tbody><tr><td>10</td><td>T1</td><td>jaw tops below the tool tip</td><td class="num">-5.000</td><td>STOP: the tip goes below the jaw tops; STOP: the holder hits a wall beside the cut; holder 7.000 below the stock top beside the tool (Z 60.000), to the walls: not computed — check at the machine; holding beside the cut: not computed — check at the machine</td></tr></tbody></table></div>
 </section>
 </body></html>

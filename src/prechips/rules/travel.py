@@ -2,6 +2,9 @@
 
 Located cutter envelopes are unioned in setup axes. Unlocated broad cuts use
 conservative stock spans without inventing where that stock sits in the frame.
+A child feature (``hole``/``parent``) without its own ``at`` is located at its
+parent's ``at`` in the parent's frame; it inherits no parent bounds.
+Saw cuts drive no spindle cutter and are skipped.
 """
 
 from prechips.findings import Finding
@@ -13,19 +16,22 @@ from prechips.rules._envelope import (
     authoring_entry,
     fact,
     machine_envelope,
-    measurement_item,
+    selected_item,
     spindle_nose_band,
     stock_extents,
     transformed_bounds,
     unknown_sentence,
 )
-from prechips.rules.coordinates import AXES, CENTRE_OPS
+from prechips.rules.coordinates import AXES, CENTRE_OPS, located_by
 from prechips.rules.resolution import (
     MANUAL,
+    SAW_OPS,
     UNKNOWN,
     _citations,
     record,
+    rough_leave,
     same_length,
+    saw_setup,
     setup_frame_ref,
 )
 
@@ -45,7 +51,7 @@ def _span(bands):
 
 
 def evaluate(bundle):
-    features = record(bundle.features.get("features"))
+    features = bundle.feature_definitions
     frames = record(bundle.features.get("frames"))
     endpoints = {
         (row["setup"], row["op"], row["feature"]): row
@@ -54,9 +60,9 @@ def evaluate(bundle):
     }
     findings = []
     for setup in bundle.plan["setups"]:
-        machine, _ = machine_envelope(bundle, setup)
+        machine_ref, machine = machine_envelope(bundle, setup)
         cite = _input_cite(setup, f"plan.setups.{setup['id']}")
-        cite.extend(_input_cite(machine, f"inventory.machines.{setup.get('machine', UNKNOWN)}"))
+        cite.extend(_input_cite(machine, f"inventory.machines.{machine_ref}"))
         if machine.get("kind") == "lathe":
             findings.append(
                 Finding(
@@ -66,6 +72,19 @@ def evaluate(bundle):
                     {},
                     cite,
                     f"{setup['id']}: mill XYZ travel does not apply to a lathe.",
+                )
+            )
+            continue
+        if saw_setup(setup):
+            findings.append(
+                Finding(
+                    "travel",
+                    setup["id"],
+                    "not_applicable",
+                    {},
+                    cite,
+                    f"{setup['id']}: saw cuts drive no spindle cutter, so mill XYZ "
+                    "cutter travel does not apply.",
                 )
             )
             continue
@@ -85,8 +104,8 @@ def evaluate(bundle):
             dimensions.extend((f"section_mm[{i}]", value) for i, value in enumerate(section))
         invalid_stock = [field for field, value in dimensions if _known(value) and value <= 0]
         manifest_mm = bundle.features.get("units") == "mm"
-        for op, before, _ in tip_endpoints.stock_states(setup, features):
-            if op.get("do") in MANUAL:
+        for op, before, _ in tip_endpoints.stock_states(bundle, setup):
+            if op.get("do") in MANUAL or op.get("do") in SAW_OPS:
                 continue
             label = f"plan.setups.{setup['id']}.ops.{op['op']}"
             name = op.get("feature", UNKNOWN)
@@ -113,7 +132,17 @@ def evaluate(bundle):
                 if manifest_mm
                 else UNKNOWN
             )
-            point = _point(feature, source, target) if manifest_mm else UNKNOWN
+            locator, locator_frame, locator_name = located_by(features, name, feature)
+            locator_source = record(frames.get(locator_frame))
+            if locator_name != name:
+                cite.extend(
+                    [
+                        f"features.features.{locator_name}.at",
+                        *_citations(locator.get("cite"), "at"),
+                    ]
+                )
+                cite.extend(_input_cite(locator_source, f"features.frames.{locator_frame}"))
+            point = _point(locator, locator_source, target) if manifest_mm else UNKNOWN
             if op.get("do") in CENTRE_OPS:
                 extent = point
             action = op.get("do", UNKNOWN)
@@ -139,9 +168,9 @@ def evaluate(bundle):
             base_action = action.removeprefix("rough_").removeprefix("finish_")
             broad = base_action in {"profile", "face", "pocket"}
             radius_needed = base_action == "profile"
-            tool = measurement_item(bundle, "tools", tool_ref)
+            tool_category, tool_key, tool = selected_item(bundle, "tools", tool_ref)
             diameter = (
-                fact(tool, "dia", "tools", tool_ref, debts, cite)
+                fact(tool, "dia", tool_category, tool_key, debts, cite)
                 if radius_needed and tool and tool.get("kind") != UNKNOWN
                 else {"value": UNKNOWN, "verified": False}
             )
@@ -154,10 +183,17 @@ def evaluate(bundle):
                     + "/".join(invalid_stock)
                     + " dimensions in mm"
                 )
-            rough = action.startswith("rough_")
-            allowance = op.get("rough_allowance_mm", UNKNOWN) if rough else 0
-            allowance_known = _known(allowance) and allowance >= 0
-            if not allowance_known:
+            # A rough stage runs its leave farther out than the finished line: an explicit
+            # rough, or the rough a contour finish pairs with its rough_allowance_mm (the
+            # coordinates rule prints both). A negative leave anywhere is refused, never
+            # padded; an unknown one a rough stage needs stays debt.
+            leave, refusal = rough_leave(op)
+            staged = action.startswith("rough_") or "contour" in op
+            allowance = leave if staged and leave is not None else 0
+            allowance_known = _known(allowance)
+            if refusal:
+                errors.append(f"op {op['op']} {refusal}")
+            elif not allowance_known:
                 missing.append(
                     f"Measure and declare {label}.rough_allowance_mm >= 0 with calipers "
                     "or a micrometer in mm per side of the rough cut"
@@ -252,7 +288,7 @@ def evaluate(bundle):
                 machine,
                 f"envelope.travel.{axis}",
                 "machines",
-                setup.get("machine", UNKNOWN),
+                machine_ref,
                 debts,
                 cite,
             )

@@ -33,7 +33,7 @@ frame = "A"
 coolant = "none"
 deburr_mm = 0.0
 stock_in = "stock"
-note = "Authored +Z half preparation. Only the preparation cutter diameter is authored; its other dimensions, holder and holding remain measurement debt. The numeric clearance derives material for the next setup."
+note = "Authored +Z half preparation. The preparation cutter diameter and authored zero leave are declared; its other dimensions, holder and holding remain measurement debt. The numeric clearance derives material for the next setup."
 
 hold = { fixture = "unknown", stop = "unknown", grip_mm = "unknown", clamp = "unknown", fixed_jaw = "unknown" }
 stock_state = { top_z = "unknown", bottom_z = "unknown" }
@@ -41,6 +41,7 @@ stock_state = { top_z = "unknown", bottom_z = "unknown" }
 [[setups.ops]]
 op = 10
 do = "rough_profile"
+rough_allowance_mm = 0.0 # author's choice: synthetic preparation clears to the finished surfaces
 feature = "profile_outer"
 tool = "em-preparation"
 holder = "unknown"
@@ -71,7 +72,7 @@ frame = "B"
 coolant = "none"
 deburr_mm = 0.0
 stock_in = "S1"
-note = "Opposed -Z half preparation, in authored frame B, with the same diameter-only cutter. Other preparation dimensions, holder and holding remain measurement debt; S3 uses the actual resulting material."
+note = "Opposed -Z half preparation, in authored frame B, with the same cutter diameter and authored zero leave. Other preparation dimensions, holder and holding remain measurement debt; S3 uses the actual resulting material."
 
 hold = { fixture = "unknown", stop = "unknown", grip_mm = "unknown", clamp = "unknown", fixed_jaw = "unknown" }
 stock_state = { top_z = "unknown", bottom_z = "unknown" }
@@ -79,6 +80,7 @@ stock_state = { top_z = "unknown", bottom_z = "unknown" }
 [[setups.ops]]
 op = 10
 do = "rough_profile"
+rough_allowance_mm = 0.0 # author's choice: synthetic preparation clears to the finished surfaces
 feature = "profile_outer"
 tool = "em-preparation"
 holder = "unknown"
@@ -120,6 +122,7 @@ bottom_z = -21.29464
 fixture = "test-vise-wide"
 jaws_along = "x"
 fixed_jaw = "rear"
+align = { indicator = "test-dti", limit_mm = 0.0254, over_mm = 100.0, cite = "synthetic test specification: fixed jaw squared to the X travel within 0.0254 mm over 100 mm of the 320 mm jaw; not a measured alignment" }
 parallels = "test-parallels-20"
 grip_on = "hub faces"
 grip_mm = 6.0

@@ -1,0 +1,1039 @@
+{
+ "as_is_faces": [],
+ "features": {
+  "body": [
+   "#550/ADVANCED_FACE[16]/HAF_BODY__P01",
+   "#885/ADVANCED_FACE[26]/HAF_BODY__P01"
+  ],
+  "cone_boss": [
+   "#643/ADVANCED_FACE[19]/HAF_CONE_BOSS__P01",
+   "#1271/ADVANCED_FACE[32]/HAF_CONE_BOSS__P01",
+   "#1357/ADVANCED_FACE[34]/HAF_CONE_BOSS__P02",
+   "#598/ADVANCED_FACE[17]/HAF_CONE_BOSS__P03",
+   "#712/ADVANCED_FACE[21]/HAF_CONE_BOSS__P03",
+   "#4/ADVANCED_FACE[1]/HAF_CONE_BOSS__P04"
+  ],
+  "cone_boss_north_face": [
+   "#1426/ADVANCED_FACE[36]/HAF_CONE_BOSS_NORTH_FACE__P01"
+  ],
+  "cone_boss_south_face": [
+   "#1234/ADVANCED_FACE[30]/HAF_CONE_BOSS_SOUTH_FACE__P01"
+  ],
+  "crank_bore": [
+   "#675/ADVANCED_FACE[20]/HAF_CRANK_BORE__P01",
+   "#867/ADVANCED_FACE[25]/HAF_CRANK_BORE__P01"
+  ],
+  "crank_boss": [
+   "#356/ADVANCED_FACE[10]/HAF_CRANK_BOSS__P01",
+   "#950/ADVANCED_FACE[28]/HAF_CRANK_BOSS__P01",
+   "#247/ADVANCED_FACE[6]/HAF_CRANK_BOSS__P02",
+   "#313/ADVANCED_FACE[8]/HAF_CRANK_BOSS__P02",
+   "#503/ADVANCED_FACE[15]/HAF_CRANK_BOSS__P03"
+  ],
+  "crank_boss_faces": [
+   "#329/ADVANCED_FACE[9]/HAF_CRANK_BOSS_FACES__P01",
+   "#291/ADVANCED_FACE[7]/HAF_CRANK_BOSS_FACES__P02"
+  ],
+  "foot_seat": [
+   "#218/ADVANCED_FACE[5]/HAF_FOOT_SEAT__P01"
+  ],
+  "head": [
+   "#738/ADVANCED_FACE[22]/HAF_HEAD__P01",
+   "#1096/ADVANCED_FACE[29]/HAF_HEAD__P01",
+   "#431/ADVANCED_FACE[12]/HAF_HEAD__P02"
+  ],
+  "journal_bore": [
+   "#77/ADVANCED_FACE[3]/HAF_JOURNAL_BORE__P01",
+   "#202/ADVANCED_FACE[4]/HAF_JOURNAL_BORE__P01"
+  ],
+  "mount_east": [
+   "#825/ADVANCED_FACE[24]/HAF_MOUNT_EAST__P01",
+   "#1412/ADVANCED_FACE[35]/HAF_MOUNT_EAST__P01"
+  ],
+  "mount_east_counterbore": [
+   "#1283/ADVANCED_FACE[33]/HAF_MOUNT_EAST_COUNTERBORE__P01",
+   "#462/ADVANCED_FACE[13]/HAF_MOUNT_EAST_COUNTERBORE__P02",
+   "#758/ADVANCED_FACE[23]/HAF_MOUNT_EAST_COUNTERBORE__P02"
+  ],
+  "mount_west": [
+   "#635/ADVANCED_FACE[18]/HAF_MOUNT_WEST__P01",
+   "#1244/ADVANCED_FACE[31]/HAF_MOUNT_WEST__P01"
+  ],
+  "mount_west_counterbore": [
+   "#493/ADVANCED_FACE[14]/HAF_MOUNT_WEST_COUNTERBORE__P01",
+   "#56/ADVANCED_FACE[2]/HAF_MOUNT_WEST_COUNTERBORE__P02",
+   "#904/ADVANCED_FACE[27]/HAF_MOUNT_WEST_COUNTERBORE__P02"
+  ]
+ },
+ "setups": [
+  {
+   "frame": {
+    "origin": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "x": [
+     1.0,
+     0.0,
+     0.0
+    ],
+    "y": [
+     0.0,
+     0.0,
+     1.0
+    ],
+    "z": [
+     0.0,
+     -1.0,
+     0.0
+    ]
+   },
+   "hold": {
+    "debts": [],
+    "fixed_jaw": "left",
+    "fixture_kind": "vise",
+    "gaps": [],
+    "jaw_above_parallels_mm": 32.245,
+    "jaw_center_along_mm": 14.1,
+    "jaw_depth_mm": 17.8054,
+    "jaw_height_mm": 44.945299999999996,
+    "jaw_width_mm": 158.6738,
+    "jaws_along": "y",
+    "kind": "vise",
+    "parallels_along": "y",
+    "parallels_centres_mm": [
+     [
+      -22.0,
+      14.1
+     ],
+     [
+      22.0,
+      14.1
+     ]
+    ],
+    "parallels_height_mm": 12.7,
+    "parallels_length_mm": 152.39999999999998,
+    "parallels_ref": "parallels-lms-6745/1-2in",
+    "parallels_width_mm": 3.175
+   },
+   "id": "S1",
+   "machine_kind": "mill",
+   "ops": [
+    {
+     "do": "face",
+     "feature": "foot_seat",
+     "flute_len_mm": 12.7,
+     "holder_gauge_len_mm": 6.0,
+     "holder_radius_mm": 15.875,
+     "projection_mm": 25.0,
+     "radius_mm": 4.7625,
+     "stock_removal_bounds": {
+      "x": [
+       -25.4,
+       25.4
+      ],
+      "y": [
+       -24.0,
+       25.768
+      ],
+      "z": [
+       0.0,
+       3.0
+      ]
+     },
+     "subject": "S1:10",
+     "to_z": 0.0
+    }
+   ],
+   "render": {
+    "axial_paths": [],
+    "clamp_order": [],
+    "clamp_order_declared": false,
+    "clamps": [],
+    "datums": [
+     {
+      "feature": "journal_bore",
+      "label": "DATUM A: cone journal bore cylinder"
+     },
+     {
+      "feature": "foot_seat",
+      "label": "DATUM B: foot seat plane"
+     }
+    ],
+    "ends": [],
+    "fixed_jaw_label": "FIXED JAW (left)",
+    "paths": [],
+    "preload": null,
+    "stickout_mm": null,
+    "tools": {
+     "10": "endmills-cone/3-8in-4fl-stub"
+    },
+    "waypoints": []
+   },
+   "stock_in": "stock"
+  },
+  {
+   "frame": {
+    "origin": [
+     0.0,
+     72.7,
+     50.6591
+    ],
+    "x": [
+     0.0,
+     -1.0,
+     0.0
+    ],
+    "y": [
+     1.0,
+     0.0,
+     0.0
+    ],
+    "z": [
+     0.0,
+     0.0,
+     1.0
+    ]
+   },
+   "hold": {
+    "body_dia_mm": 127.0,
+    "body_length_mm": 62.0,
+    "bore_dia_mm": 30.0,
+    "debts": [],
+    "fixture_kind": "dividing_head",
+    "gaps": [],
+    "grip_mm": 20.0,
+    "head_solids": [
+     {
+      "at_mm": [
+       -75.0,
+       -55.0,
+       -125.0
+      ],
+      "local": "housing",
+      "name": "BS-0:housing",
+      "shape": "box",
+      "size_mm": [
+       130.0,
+       110.0,
+       125.0
+      ]
+     },
+     {
+      "at_mm": [
+       -100.0,
+       -75.0,
+       -150.0
+      ],
+      "local": "base",
+      "name": "BS-0:base",
+      "shape": "box",
+      "size_mm": [
+       25.0,
+       150.0,
+       160.0
+      ]
+     }
+    ],
+    "jaw_clock_deg": 0.0,
+    "jaw_depth_mm": 20.0,
+    "jaw_height_mm": 32.0,
+    "jaw_width_mm": 14.0,
+    "jaws": 4,
+    "kind": "chuck",
+    "pose": {
+     "origin_mm": [
+      -44.3,
+      0.0,
+      -50.6591
+     ],
+     "x": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "z": [
+      1.0,
+      0.0,
+      0.0
+     ]
+    }
+   },
+   "id": "S2",
+   "machine_kind": "mill",
+   "ops": [
+    {
+     "do": "face",
+     "faces": [
+      "#291/ADVANCED_FACE[7]/HAF_CRANK_BOSS_FACES__P02"
+     ],
+     "feature": "crank_boss_faces",
+     "flute_len_mm": 31.75,
+     "holder_gauge_len_mm": 6.0,
+     "holder_radius_mm": 15.875,
+     "projection_mm": 48.0,
+     "radius_mm": 6.35,
+     "stock_removal_bounds": {
+      "x": [
+       -17.315,
+       17.315
+      ],
+      "y": [
+       -17.315,
+       17.315
+      ],
+      "z": [
+       0.0,
+       1.5409
+      ]
+     },
+     "subject": "S2:10",
+     "to_z": 0.0
+    },
+    {
+     "do": "rough_profile",
+     "faces": [
+      "#247/ADVANCED_FACE[6]/HAF_CRANK_BOSS__P02",
+      "#313/ADVANCED_FACE[8]/HAF_CRANK_BOSS__P02"
+     ],
+     "feature": "crank_boss",
+     "flute_len_mm": 31.75,
+     "holder_gauge_len_mm": 6.0,
+     "holder_radius_mm": 15.875,
+     "projection_mm": 48.0,
+     "radius_mm": 6.35,
+     "rough_allowance_mm": 0.3,
+     "stock_removal_bounds": {
+      "x": [
+       -25.0,
+       25.0
+      ],
+      "y": [
+       -25.4,
+       25.4
+      ],
+      "z": [
+       -29.2838,
+       1.5409
+      ]
+     },
+     "subject": "S2:20",
+     "to_z": -29.2838
+    },
+    {
+     "do": "finish_profile",
+     "faces": [
+      "#247/ADVANCED_FACE[6]/HAF_CRANK_BOSS__P02",
+      "#313/ADVANCED_FACE[8]/HAF_CRANK_BOSS__P02"
+     ],
+     "feature": "crank_boss",
+     "flute_len_mm": 31.75,
+     "holder_gauge_len_mm": 6.0,
+     "holder_radius_mm": 15.875,
+     "projection_mm": 48.0,
+     "radius_mm": 6.35,
+     "stock_removal_bounds": {
+      "x": [
+       -25.0,
+       25.0
+      ],
+      "y": [
+       -25.4,
+       25.4
+      ],
+      "z": [
+       -29.2838,
+       1.5409
+      ]
+     },
+     "subject": "S2:30",
+     "to_z": -29.2838
+    },
+    {
+     "do": "spot",
+     "feature": "crank_bore",
+     "flute_len_mm": 1.9,
+     "holder_gauge_len_mm": 95.0,
+     "holder_radius_mm": 25.4,
+     "hole": {
+      "complete_form": false,
+      "depth_mm": 2.0,
+      "entry_z_mm": 0.0,
+      "point_angle_deg": 118.0,
+      "thru": true
+     },
+     "projection_mm": 27.0,
+     "radius_mm": 0.99,
+     "subject": "S2:40"
+    },
+    {
+     "do": "drill",
+     "feature": "crank_bore",
+     "flute_len_mm": 84.1,
+     "holder_gauge_len_mm": 95.0,
+     "holder_radius_mm": 25.4,
+     "hole": {
+      "complete_form": false,
+      "depth_mm": "unknown",
+      "entry_z_mm": 0.0,
+      "point_angle_deg": 118.0,
+      "thru": true
+     },
+     "projection_mm": 119.0,
+     "radius_mm": 5.55625,
+     "subject": "S2:50"
+    },
+    {
+     "do": "ream",
+     "feature": "crank_bore",
+     "flute_len_mm": 44.5,
+     "holder_gauge_len_mm": 95.0,
+     "holder_radius_mm": 25.4,
+     "hole": {
+      "complete_form": true,
+      "depth_mm": "unknown",
+      "entry_z_mm": 0.0,
+      "thru": true
+     },
+     "projection_mm": 150.0,
+     "radius_mm": 5.715,
+     "subject": "S2:60"
+    }
+   ],
+   "render": {
+    "axial_paths": [],
+    "clamp_order": [],
+    "clamp_order_declared": false,
+    "clamps": [],
+    "datums": [
+     {
+      "feature": "journal_bore",
+      "label": "DATUM A: cone journal bore cylinder"
+     },
+     {
+      "feature": "foot_seat",
+      "label": "DATUM B: foot seat plane"
+     }
+    ],
+    "ends": [],
+    "fixed_jaw_label": "FIXED JAW (not_applicable)",
+    "paths": [],
+    "preload": null,
+    "stickout_mm": 117.0,
+    "tools": {
+     "10": "endmills-cone/1-2in-4fl",
+     "20": "endmills-cone/1-2in-4fl",
+     "30": "endmills-cone/1-2in-4fl",
+     "40": "center-drills-lms-4859/2",
+     "50": "drill-index-115/7-16in",
+     "60": "reamers-decimal/0.4500in"
+    },
+    "waypoints": []
+   },
+   "stock_in": "S1"
+  },
+  {
+   "frame": {
+    "origin": [
+     0.0,
+     72.7,
+     -21.3753
+    ],
+    "x": [
+     0.0,
+     -1.0,
+     0.0
+    ],
+    "y": [
+     -1.0,
+     0.0,
+     0.0
+    ],
+    "z": [
+     0.0,
+     0.0,
+     -1.0
+    ]
+   },
+   "hold": {
+    "body_dia_mm": 127.0,
+    "body_length_mm": 62.0,
+    "bore_dia_mm": 30.0,
+    "debts": [],
+    "fixture_kind": "dividing_head",
+    "gaps": [],
+    "grip_mm": 20.0,
+    "head_solids": [
+     {
+      "at_mm": [
+       -75.0,
+       -55.0,
+       -125.0
+      ],
+      "local": "housing",
+      "name": "BS-0:housing",
+      "shape": "box",
+      "size_mm": [
+       130.0,
+       110.0,
+       125.0
+      ]
+     },
+     {
+      "at_mm": [
+       -100.0,
+       -75.0,
+       -150.0
+      ],
+      "local": "base",
+      "name": "BS-0:base",
+      "shape": "box",
+      "size_mm": [
+       25.0,
+       150.0,
+       160.0
+      ]
+     }
+    ],
+    "jaw_clock_deg": 180.0,
+    "jaw_depth_mm": 20.0,
+    "jaw_height_mm": 32.0,
+    "jaw_width_mm": 14.0,
+    "jaws": 4,
+    "kind": "chuck",
+    "pose": {
+     "origin_mm": [
+      -44.3,
+      0.0,
+      -21.3753
+     ],
+     "x": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "z": [
+      1.0,
+      0.0,
+      0.0
+     ]
+    }
+   },
+   "id": "S3",
+   "machine_kind": "mill",
+   "ops": [
+    {
+     "do": "face",
+     "faces": [
+      "#329/ADVANCED_FACE[9]/HAF_CRANK_BOSS_FACES__P01"
+     ],
+     "feature": "crank_boss_faces",
+     "flute_len_mm": 12.7,
+     "holder_gauge_len_mm": 6.0,
+     "holder_radius_mm": 15.875,
+     "projection_mm": 25.0,
+     "radius_mm": 4.7625,
+     "stock_removal_bounds": {
+      "x": [
+       -15.7275,
+       15.7275
+      ],
+      "y": [
+       -15.7275,
+       15.7275
+      ],
+      "z": [
+       0.0,
+       2.6247
+      ]
+     },
+     "subject": "S3:10",
+     "to_z": 0.0
+    },
+    {
+     "do": "finish_profile",
+     "faces": [
+      "#356/ADVANCED_FACE[10]/HAF_CRANK_BOSS__P01",
+      "#950/ADVANCED_FACE[28]/HAF_CRANK_BOSS__P01",
+      "#503/ADVANCED_FACE[15]/HAF_CRANK_BOSS__P03"
+     ],
+     "feature": "crank_boss",
+     "flute_len_mm": 12.7,
+     "holder_gauge_len_mm": 6.0,
+     "holder_radius_mm": 15.875,
+     "projection_mm": 25.0,
+     "radius_mm": 4.7625,
+     "stock_removal_bounds": {
+      "x": [
+       -15.7275,
+       15.7275
+      ],
+      "y": [
+       -15.7275,
+       15.7275
+      ],
+      "z": [
+       -3.0267,
+       0.0
+      ]
+     },
+     "subject": "S3:20",
+     "to_z": -3.0267
+    }
+   ],
+   "render": {
+    "axial_paths": [],
+    "clamp_order": [],
+    "clamp_order_declared": false,
+    "clamps": [],
+    "datums": [
+     {
+      "feature": "journal_bore",
+      "label": "DATUM A: cone journal bore cylinder"
+     },
+     {
+      "feature": "foot_seat",
+      "label": "DATUM B: foot seat plane"
+     }
+    ],
+    "ends": [],
+    "fixed_jaw_label": "FIXED JAW (not_applicable)",
+    "paths": [],
+    "preload": null,
+    "stickout_mm": null,
+    "tools": {
+     "10": "endmills-cone/3-8in-4fl-stub",
+     "20": "endmills-cone/3-8in-4fl-stub"
+    },
+    "waypoints": []
+   },
+   "stock_in": "S2"
+  },
+  {
+   "frame": {
+    "origin": [
+     -4.552936314157771,
+     33.368,
+     -20.506140572258435
+    ],
+    "x": [
+     0.0,
+     -1.0,
+     0.0
+    ],
+    "y": [
+     -0.9762272058393484,
+     0.0,
+     0.21674972336567902
+    ],
+    "z": [
+     -0.21674972336567902,
+     0.0,
+     -0.9762272058393484
+    ]
+   },
+   "hold": {
+    "body_dia_mm": 127.0,
+    "body_length_mm": 62.0,
+    "bore_dia_mm": 30.0,
+    "debts": [],
+    "fixture_kind": "dividing_head",
+    "gaps": [],
+    "grip_mm": 20.0,
+    "head_solids": [
+     {
+      "at_mm": [
+       -75.0,
+       -55.0,
+       -125.0
+      ],
+      "local": "housing",
+      "name": "BS-0:housing",
+      "shape": "box",
+      "size_mm": [
+       130.0,
+       110.0,
+       125.0
+      ]
+     },
+     {
+      "at_mm": [
+       -100.0,
+       -75.0,
+       -150.0
+      ],
+      "local": "base",
+      "name": "BS-0:base",
+      "shape": "box",
+      "size_mm": [
+       25.0,
+       150.0,
+       160.0
+      ]
+     }
+    ],
+    "jaw_clock_deg": 192.5182,
+    "jaw_depth_mm": 20.0,
+    "jaw_height_mm": 32.0,
+    "jaw_width_mm": 14.0,
+    "jaws": 4,
+    "kind": "chuck",
+    "pose": {
+     "origin_mm": [
+      -83.632,
+      0.0,
+      -21.0055
+     ],
+     "x": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "z": [
+      1.0,
+      0.0,
+      0.0
+     ]
+    }
+   },
+   "id": "S4",
+   "machine_kind": "mill",
+   "ops": [
+    {
+     "do": "face",
+     "feature": "cone_boss_north_face",
+     "flute_len_mm": 12.7,
+     "holder_gauge_len_mm": 6.0,
+     "holder_radius_mm": 15.875,
+     "projection_mm": 25.0,
+     "radius_mm": 4.7625,
+     "stock_removal_bounds": {
+      "x": [
+       -13.36,
+       13.36
+      ],
+      "y": [
+       -13.36,
+       13.36
+      ],
+      "z": [
+       0.0,
+       7.9294
+      ]
+     },
+     "subject": "S4:10",
+     "to_z": 0.0
+    },
+    {
+     "do": "finish_profile",
+     "faces": [
+      "#643/ADVANCED_FACE[19]/HAF_CONE_BOSS__P01",
+      "#1271/ADVANCED_FACE[32]/HAF_CONE_BOSS__P01",
+      "#1357/ADVANCED_FACE[34]/HAF_CONE_BOSS__P02"
+     ],
+     "feature": "cone_boss",
+     "flute_len_mm": 12.7,
+     "holder_gauge_len_mm": 6.0,
+     "holder_radius_mm": 15.875,
+     "projection_mm": 25.0,
+     "radius_mm": 4.7625,
+     "stock_removal_bounds": {
+      "x": [
+       -13.36,
+       13.36
+      ],
+      "y": [
+       -13.36,
+       13.36
+      ],
+      "z": [
+       -1.69,
+       0.0
+      ]
+     },
+     "subject": "S4:20",
+     "to_z": -1.69
+    },
+    {
+     "do": "spot",
+     "feature": "journal_bore",
+     "flute_len_mm": 1.9,
+     "holder_gauge_len_mm": 95.0,
+     "holder_radius_mm": 25.4,
+     "hole": {
+      "complete_form": false,
+      "depth_mm": 2.0,
+      "entry_z_mm": 0.0,
+      "point_angle_deg": 118.0,
+      "thru": true
+     },
+     "projection_mm": 27.0,
+     "radius_mm": 0.99,
+     "subject": "S4:30"
+    },
+    {
+     "do": "drill",
+     "feature": "journal_bore",
+     "flute_len_mm": 92.1,
+     "holder_gauge_len_mm": 95.0,
+     "holder_radius_mm": 25.4,
+     "hole": {
+      "complete_form": false,
+      "depth_mm": "unknown",
+      "entry_z_mm": 0.0,
+      "point_angle_deg": 118.0,
+      "thru": true
+     },
+     "projection_mm": 125.0,
+     "radius_mm": 5.953,
+     "subject": "S4:40"
+    },
+    {
+     "do": "ream",
+     "feature": "journal_bore",
+     "flute_len_mm": 44.5,
+     "holder_gauge_len_mm": 95.0,
+     "holder_radius_mm": 25.4,
+     "hole": {
+      "complete_form": true,
+      "depth_mm": "unknown",
+      "entry_z_mm": 0.0,
+      "thru": true
+     },
+     "projection_mm": 150.0,
+     "radius_mm": 6.1405,
+     "subject": "S4:50"
+    }
+   ],
+   "render": {
+    "axial_paths": [],
+    "clamp_order": [],
+    "clamp_order_declared": false,
+    "clamps": [],
+    "datums": [
+     {
+      "feature": "journal_bore",
+      "label": "DATUM A: cone journal bore cylinder"
+     },
+     {
+      "feature": "foot_seat",
+      "label": "DATUM B: foot seat plane"
+     }
+    ],
+    "ends": [],
+    "fixed_jaw_label": "FIXED JAW (not_applicable)",
+    "paths": [],
+    "preload": null,
+    "stickout_mm": null,
+    "tools": {
+     "10": "endmills-cone/3-8in-4fl-stub",
+     "20": "endmills-cone/3-8in-4fl-stub",
+     "30": "center-drills-lms-4859/2",
+     "40": "drill-index-115/15-32in",
+     "50": "reamers-decimal/0.4835in"
+    },
+    "waypoints": []
+   },
+   "stock_in": "S3"
+  },
+  {
+   "frame": {
+    "origin": [
+     4.552936314157771,
+     33.368,
+     20.506140572258435
+    ],
+    "x": [
+     0.0,
+     -1.0,
+     0.0
+    ],
+    "y": [
+     0.9762272058393484,
+     0.0,
+     -0.21674972336567902
+    ],
+    "z": [
+     0.21674972336567902,
+     0.0,
+     0.9762272058393484
+    ]
+   },
+   "hold": {
+    "body_dia_mm": 127.0,
+    "body_length_mm": 62.0,
+    "bore_dia_mm": 30.0,
+    "debts": [],
+    "fixture_kind": "dividing_head",
+    "gaps": [],
+    "grip_mm": 20.0,
+    "head_solids": [
+     {
+      "at_mm": [
+       -75.0,
+       -55.0,
+       -125.0
+      ],
+      "local": "housing",
+      "name": "BS-0:housing",
+      "shape": "box",
+      "size_mm": [
+       130.0,
+       110.0,
+       125.0
+      ]
+     },
+     {
+      "at_mm": [
+       -100.0,
+       -75.0,
+       -150.0
+      ],
+      "local": "base",
+      "name": "BS-0:base",
+      "shape": "box",
+      "size_mm": [
+       25.0,
+       150.0,
+       160.0
+      ]
+     }
+    ],
+    "jaw_clock_deg": 12.5182,
+    "jaw_depth_mm": 20.0,
+    "jaw_height_mm": 32.0,
+    "jaw_width_mm": 14.0,
+    "jaws": 4,
+    "kind": "chuck",
+    "pose": {
+     "origin_mm": [
+      -83.632,
+      0.0,
+      -21.0055
+     ],
+     "x": [
+      0.0,
+      0.0,
+      1.0
+     ],
+     "z": [
+      1.0,
+      0.0,
+      0.0
+     ]
+    }
+   },
+   "id": "S5",
+   "machine_kind": "mill",
+   "ops": [
+    {
+     "do": "face",
+     "feature": "cone_boss_south_face",
+     "flute_len_mm": 31.75,
+     "holder_gauge_len_mm": 6.0,
+     "holder_radius_mm": 15.875,
+     "projection_mm": 48.0,
+     "radius_mm": 6.35,
+     "stock_removal_bounds": {
+      "x": [
+       -14.95,
+       14.95
+      ],
+      "y": [
+       -14.95,
+       14.95
+      ],
+      "z": [
+       0.0,
+       35.459
+      ]
+     },
+     "subject": "S5:10",
+     "to_z": 0.0
+    },
+    {
+     "do": "finish_profile",
+     "faces": [
+      "#598/ADVANCED_FACE[17]/HAF_CONE_BOSS__P03",
+      "#712/ADVANCED_FACE[21]/HAF_CONE_BOSS__P03",
+      "#4/ADVANCED_FACE[1]/HAF_CONE_BOSS__P04"
+     ],
+     "feature": "cone_boss",
+     "flute_len_mm": 31.75,
+     "holder_gauge_len_mm": 6.0,
+     "holder_radius_mm": 15.875,
+     "projection_mm": 48.0,
+     "radius_mm": 6.35,
+     "stock_removal_bounds": {
+      "x": [
+       -14.95,
+       14.95
+      ],
+      "y": [
+       -14.95,
+       14.95
+      ],
+      "z": [
+       -1.69,
+       0.0
+      ]
+     },
+     "subject": "S5:20",
+     "to_z": -1.69
+    }
+   ],
+   "render": {
+    "axial_paths": [],
+    "clamp_order": [],
+    "clamp_order_declared": false,
+    "clamps": [],
+    "datums": [
+     {
+      "feature": "journal_bore",
+      "label": "DATUM A: cone journal bore cylinder"
+     },
+     {
+      "feature": "foot_seat",
+      "label": "DATUM B: foot seat plane"
+     }
+    ],
+    "ends": [],
+    "fixed_jaw_label": "FIXED JAW (not_applicable)",
+    "paths": [],
+    "preload": null,
+    "stickout_mm": null,
+    "tools": {
+     "10": "endmills-cone/1-2in-4fl",
+     "20": "endmills-cone/1-2in-4fl",
+     "30": "tool not selected"
+    },
+    "waypoints": []
+   },
+   "stock_in": "S4"
+  }
+ ],
+ "stock": {
+  "axis": [
+   0.0,
+   1.0,
+   0.0
+  ],
+  "length_mm": 140.0,
+  "origin_mm": [
+   -25.4,
+   -3.0,
+   52.2
+  ],
+  "section_axis": [
+   1.0,
+   0.0,
+   0.0
+  ],
+  "section_mm": [
+   50.8,
+   76.2
+  ],
+  "shape": "box"
+ }
+}

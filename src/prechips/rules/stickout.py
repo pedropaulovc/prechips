@@ -1,7 +1,17 @@
 """Declared exposed finished diameter and selected support; no inferred shop limit."""
 
 from ..findings import Finding
-from .resolution import UNKNOWN, _citations, number, record, resolve, uncertain
+from .resolution import (
+    UNKNOWN,
+    _citations,
+    authored,
+    number,
+    record,
+    resolve,
+    same_length,
+    select,
+    uncertain,
+)
 from .turned_profile import exposed_profile
 
 SUPPORT_KINDS = {
@@ -62,23 +72,19 @@ def support_state(bundle, setup):
         "included", []
     )
     evidence = []
-    fixtures = record(bundle.inventory.get("fixtures"))
     for reference in sorted(refs):
+        category, key, _ = select(bundle, reference, "fixtures")
         item = resolve(bundle, "fixtures", reference)
         if item is not None and item.get("kind") == "accessory":
             item = None
-        if (
-            item is None
-            and reference in accessories
-            and reference.partition("/")[0] not in fixtures
-        ):
+        if item is None and key in accessories and not authored(bundle, category, key):
             item = {
                 "kind": "accessory",
                 "verify": machine is None or uncertain(machine),
                 "source": "inventory selected machine accessories",
             }
         kind = record(item).get("kind", UNKNOWN)
-        accessory_name = reference.lower().replace("-", "_")
+        accessory_name = key.lower().replace("-", "_")
         capable = kind in SUPPORT_KINDS or (
             kind in {"accessory", "dead_centre", "dead_center", "live_centre", "live_center"}
             and ("tailstock" in accessory_name.split("_") or accessory_name == "steady_rest")
@@ -106,6 +112,45 @@ def support_state(bundle, setup):
     return ("unknown" if unresolved else "not_applicable"), evidence
 
 
+def fit_state(hold, length):
+    """(status, numbers, why) for a stickout set from a measured fit-up
+    (``hold.stickout_fit = {measure, nominal_mm, add_mm}``): the printed ``stickout_mm``
+    is the nominal setting, ``nominal_mm + add_mm``, and the operator sets the measured
+    reading plus ``add_mm``. A sum that disagrees is an error; an unstated reading or an
+    unknown number is unknown. ``None`` when the stickout is not from a fit-up."""
+    fit = record(hold.get("stickout_fit"))
+    if not fit:
+        return None
+    measure = fit.get("measure", UNKNOWN)
+    nominal, add = fit.get("nominal_mm", UNKNOWN), fit.get("add_mm", UNKNOWN)
+    stated = isinstance(measure, str) and measure.strip() and measure != UNKNOWN
+    numbers = {"measure": measure, "nominal_mm": nominal, "add_mm": add, "stickout_mm": length}
+    if (
+        number(nominal)
+        and number(add)
+        and number(length)
+        and not same_length(nominal + add, length)
+    ):
+        return (
+            "error",
+            numbers,
+            (
+                f"stickout_mm {length:g} is not the fit-up nominal {nominal:g} + {add:g}: "
+                "make hold.stickout_fit and stickout_mm agree"
+            ),
+        )
+    if not (stated and number(nominal) and number(add) and number(length)):
+        return (
+            "unknown",
+            numbers,
+            (
+                "the stickout follows a fit-up whose reading, nominal or allowance is not "
+                "stated: complete hold.stickout_fit"
+            ),
+        )
+    return "pass", numbers, ""
+
+
 def evaluate(bundle):
     findings = []
     for setup in bundle.plan["setups"]:
@@ -113,7 +158,8 @@ def evaluate(bundle):
         kind = record(machine).get("kind", UNKNOWN)
         held = held_diameter(bundle, setup)
         geometry = exposed_profile(bundle, setup)
-        segments = geometry["segments"]
+        # Exposed stock beyond every finished feature counts at the kernel's stock radius.
+        segments = geometry["segments"] + geometry["stock_segments"]
         diameter = (
             min(segment["diameter_mm"] for segment in segments) if geometry["complete"] else UNKNOWN
         )
@@ -121,8 +167,8 @@ def evaluate(bundle):
             {
                 name
                 for segment in segments
-                if number(diameter) and segment["diameter_mm"] == diameter
-                for name in segment["features"]
+                if number(diameter) and same_length(segment["diameter_mm"], diameter)
+                for name in segment["features"] or ["kernel stock"]
             }
         )
         length = record(setup.get("hold")).get("stickout_mm", UNKNOWN)
@@ -135,13 +181,19 @@ def evaluate(bundle):
         support, support_evidence = support_state(bundle, setup)
         numbers = {
             "diameter_mm": diameter,
-            "diameter_source": "features declared finished profile in exposed setup Z",
+            "diameter_source": "features declared finished profile in exposed setup Z, "
+            "else the kernel's finished faces of revolution; exposed stock beyond every "
+            "finished feature from the kernel's stock profile",
             "diameter_features": diameter_features,
             "held_diameter_mm": held,
             "held_diameter_source": held_diameter_source(setup),
             "exposed_z_mm": geometry["exposed_z_mm"],
             "segments": segments,
             "unresolved": sorted(set(geometry["unresolved"])),
+            "unresolved_reasons": geometry["unresolved_reasons"],
+            "uncovered_z_mm": geometry["uncovered_z_mm"],
+            "stock_reason": geometry["stock_reason"],
+            "off_axis": geometry["off_axis"],
             "stickout_mm": length,
             "stickout_ld_max": ratio,
             "unsupported_limit_mm": limit,
@@ -158,7 +210,10 @@ def evaluate(bundle):
         elif not number(diameter):
             status, message = (
                 "unknown",
-                "the finished diameter or geometry in the exposed span is unresolved",
+                "the finished diameter or geometry in the exposed span is unresolved"
+                if not geometry["uncovered_z_mm"] or geometry["unresolved"]
+                else "part of the exposed span lies beyond every finished feature, and the "
+                f"in-process stock diameter there is unresolved ({geometry['stock_reason']})",
             )
         elif support == "pass":
             status, message = (
@@ -183,6 +238,14 @@ def evaluate(bundle):
                 "stick-out exceeds the unsupported shop limit; "
                 "add a listed tailstock/steady support",
             )
+        fit = fit_state(record(setup.get("hold")), length)
+        if fit is not None and status != "not_applicable":
+            fit_status, numbers["stickout_fit"], why = fit
+            rank = {"pass": 0, "unknown": 1, "error": 2}
+            if fit_status != "pass":
+                message += "; " + why
+                if rank[fit_status] > rank[status]:
+                    status = fit_status
         findings.append(
             Finding(
                 "stickout",
@@ -194,12 +257,14 @@ def evaluate(bundle):
                     held_diameter_source(setup),
                     "plan.setups.hold.stickout_mm; "
                     "inventory selected support identity/verification",
-                    "features declared finished diameters/z_mm/frame; "
+                    "features declared finished diameters/z_mm/frame, else the kernel's "
+                    "finished faces of revolution about setup Z; "
                     "plan.setups.frame and stock_state.north_end_z/south_end_z "
                     "define the exposed span; 25.4 mm/in",
                     *[
                         f"features.features.{name}: defines exposed minimum diameter"
                         for name in diameter_features
+                        if name != "kernel stock"
                     ],
                     *geometry["cite"],
                     *citations,

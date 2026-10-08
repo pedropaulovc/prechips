@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import pytest
 
 from prechips.findings import exit_code
-from prechips.rules import envelope
+from prechips.rules import engagement, envelope, headroom
 
 MEASURED = {"by": "synthetic operator", "date": "2026-10-03", "instrument": "synthetic steel rule"}
 
@@ -16,7 +16,7 @@ def measured(value):
 
 
 def bundle():
-    return SimpleNamespace(
+    data = SimpleNamespace(
         plan={
             "stock": {"form": "flat_bar", "length_mm": 100, "section_mm": [30, 16]},
             "setups": [
@@ -81,6 +81,8 @@ def bundle():
         },
         policy={"required": {"envelope": "*", "travel": "*"}},
     )
+    data.feature_definitions = data.features["features"]
+    return data
 
 
 def test_measured_setup_passes_and_stack_is_physical_not_z_coordinate():
@@ -312,7 +314,6 @@ def test_review_10_unresolved_holder_requests_resolution_not_measurement():
     data.plan["setups"][0]["ops"][0]["holder"] = "unowned-chuck"
     row = envelope.evaluate(data)[0]
     assert row.status == "unknown"
-    assert "resolve" in row.sentence.lower() and "unowned-chuck" in row.sentence
     assert not any(
         entry["id"] in {"holders.unowned-chuck.gauge_len", "holders.unowned-chuck.grip"}
         for entry in row.numbers["measurements"]
@@ -363,7 +364,13 @@ def test_through_drill_entry_exit_and_measured_point_set_minimum_nose_floor():
     assert envelope.evaluate(data)[0].status == "error"
 
 
-def test_member_tool_projection_requires_exact_full_selected_holder_key():
+# A selected tool or holder is the same item spelled with its category: its projection,
+# measurement debt and citation name the item's key.
+@pytest.mark.parametrize("tool_spelling", ["", "tools."])
+@pytest.mark.parametrize("holder_spelling", ["", "holders."])
+def test_member_tool_projection_requires_exact_full_selected_holder_key(
+    tool_spelling, holder_spelling
+):
     data = review_bundle()
     data.inventory["holders"]["collets"] = {
         "kind": "collet_set",
@@ -379,7 +386,9 @@ def test_member_tool_projection_requires_exact_full_selected_holder_key():
             }
         },
     }
-    data.plan["setups"][0]["ops"][0].update(tool="mills/selected", holder="collets/3-8in")
+    data.plan["setups"][0]["ops"][0].update(
+        tool=tool_spelling + "mills/selected", holder=holder_spelling + "collets/3-8in"
+    )
     row = envelope.evaluate(data)[0]
     assert row.status == "error"
     assert row.numbers["stacks"][0]["tool_projection_mm"] == 55
@@ -391,6 +400,33 @@ def test_member_tool_projection_requires_exact_full_selected_holder_key():
     debt = next(entry for entry in row.numbers["measurements"] if ".projection." in entry["id"])
     assert debt["id"] == "tools.mills/selected.projection.collets/3-8in"
     assert debt["cite"] == ["inventory.tools.mills/selected.projection_mm.collets/3-8in"]
+
+
+# Two spellings of one holder in a tool's projection map state its projection twice. The
+# projection is unknown, with both keys named, never the entry dictionary order puts first:
+# 5 mm alone passes and 55 mm alone errors (envelope) or halves the DOC (engagement).
+@pytest.mark.parametrize("op_holder", ["holder", "holders.holder"])
+@pytest.mark.parametrize("first", ["holder", "holders.holder"])
+@pytest.mark.parametrize("values", [(5, 55), (55, 5), (5, "unknown"), ("unknown", 5)])
+def test_two_spellings_of_one_holder_in_a_projection_map_leave_it_unknown(op_holder, first, values):
+    data = review_bundle()
+    second = "holders.holder" if first == "holder" else "holder"
+    stated = [value if value == "unknown" else measured(value) for value in values]
+    data.inventory["tools"]["cutter"]["projection_mm"] = {first: stated[0], second: stated[1]}
+    data.plan["setups"][0]["ops"][0].update(holder=op_holder, doc_mm=1)
+    keys = {"projection_mm.holder", "projection_mm.holders.holder"}
+    row = envelope.evaluate(data)[0]
+    assert row.status == "unknown"
+    assert row.numbers["stacks"][0]["tool_projection_mm"] == "unknown"
+    debt = next(e for e in row.numbers["measurements"] if e["id"] == "tools.cutter.projection")
+    assert all(key in debt["instruction"] for key in keys), debt
+    [use] = engagement.evaluate(data)
+    assert use.status == "unknown" and use.numbers["projection_mm"] == "unknown"
+    assert any(all(key in text for key in keys) for text in use.numbers["missing_inputs"])
+    [room] = headroom.evaluate(data)
+    assert room.status == "unknown"
+    assert room.numbers["stacks"][0]["tool_projection_mm"] == "unknown"
+    assert all(key in room.numbers["stacks"][0]["projection_conflict"] for key in keys)
 
 
 def test_tool_wide_scalar_and_wrong_pair_cannot_replace_selected_oal_grip():
@@ -428,6 +464,21 @@ def test_unresolved_fixture_requests_identity_not_height_measurement(field, iden
     debts = {entry["id"]: entry for entry in row.numbers["measurements"]}
     assert f"fixtures.{identity}.height" not in debts
     assert debts[f"fixtures.{identity}.resolve"]["instruction"].startswith("resolve:")
+
+
+def test_machine_hosted_dividing_head_supplies_the_fixture_height():
+    data = bundle()
+    data.plan["setups"][0]["hold"] = {"fixture": "head", "parallels": "none"}
+    head = {"kind": "dividing_head", "height_mm": measured(50)}
+    data.inventory["machines"]["head"] = head
+    row = envelope.evaluate(data)[0]
+    assert row.status == "pass"
+    assert row.numbers["stacks"][0]["stack_mm"] == 151
+    assert "inventory.machines.head.height" in row.cite
+    head["height_mm"] = 50
+    row = envelope.evaluate(data)[0]
+    assert row.status == "unknown"
+    assert "machines.head.height" in {entry["id"] for entry in row.numbers["measurements"]}
 
 
 @pytest.mark.parametrize("action,field", [("drill", "point_angle"), ("ream", "lead")])

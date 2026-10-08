@@ -1,11 +1,18 @@
-# Hand-authored PLAN rev 6 reference plan for MHA-065 (pivot shaft).
-# Route kept from the rev-3 fixture: the three-jaw chuck drives, the tailstock
-# dead centre supports S1, then explicit rechucks expose each dome. No lathe
-# dog, drive plate or between-centres drive is claimed (the drawing process
-# line says "between centres", parts/pivot-shaft.yaml:9; this route differs).
-# No cross-hole, flat or indexing exists on the part ("NO FLATS.",
-# pivot_shaft_spec.py:187). Blank, allowance, holding and DRO recipe numbers
-# are author's choices, not measurements. RPM remains unknown/derived.
+# Hand-authored PLAN rev 7 reference plan for MHA-065 (pivot shaft).
+# Route (senior-machinist rework of the rev-3 fixture): S0 grips the sawn
+# blank short at its plain (supply) end, faces that end and centre-drills it
+# from the tailstock; S1 grips the short north stub in the three-jaw chuck
+# with the tailstock dead centre in that centre, so every shoulder S1 finishes
+# faces the tailstock and a right-hand AR tool turns into it; S2 reverses onto
+# the finished body to turn the journal side, plunge the north relief and form
+# the north dome; S3 cuts the plain end to fit after fit-up scribing and forms
+# the south dome. The DIN 509 reliefs are plunged with a square HSS parting
+# blade, not profiled.
+# No lathe dog, drive plate or between-centres drive is claimed (the drawing
+# process line says "between centres", parts/pivot-shaft.yaml:9; this route
+# differs). No cross-hole, flat or indexing exists on the part ("NO FLATS.",
+# pivot_shaft_spec.py:187). Blank, allowance, holding, cutting and DRO recipe
+# numbers are example choices (plausible, not measured).
 part = "pivot-shaft"
 features = "features.toml"
 construction = "one_piece"   # author's route: all shaft geometry cut from the declared single bar
@@ -13,7 +20,8 @@ quantity = 1                 # harmonic-analyzer/cad/config/parts/pivot-shaft.ya
 
 [drawing]
 number = "MHA-065"           # parts/pivot-shaft.yaml:2
-revision = "unknown"         # export v40 exists (harmonic-analyzer/cad/config/release.yaml:next_revision); release/operator matching pending
+revision = "v40"             # export manifest revision (features.toml drawing.revision); illustrative plan, not released or approved
+cite = ["harmonic-analyzer/cad/config/parts/pivot-shaft.yaml:2", "harmonic-analyzer/cad/config/release.yaml:next_revision", "harmonic-analyzer/cad/scripts/_common.py:1751-1765"]
 
 [paths]
 inventory = "../inventory/pedro-shop.toml"
@@ -24,24 +32,27 @@ cutting_data = "../cutting-data.toml"
 form = "round_bar"
 material = "AISI 1018 cold-finished steel bar, Ø10"  # parts/pivot-shaft.yaml:4
 dia_mm = 10.0                # "STOCK 10 BAR" (pivot_shaft_spec.py:185); actual bar not measured
-length_mm = 215.0            # author's choice: prepared blank = 175 + 15 + 25
-north_allowance_mm = 15.0    # author's choice: sacrificial centre-seat stub past north apex
-south_grip_mm = 25.0         # author's choice: sacrificial chuck grip past supply station
+length_mm = 180.5            # author's choice: sawn blank = north stub 5 + supply 175 + 0.5 facing allowance on the plain end
+north_allowance_mm = 5.0     # author's choice: stub past the north apex, gripped in S1 with the journal length
 supply_length_mm = 175       # "SUPPLY 175 LONG, PLAIN END UNCUT." (pivot_shaft_spec.py:182,186)
 supply_datum = "north dome apex plane to south supply end"  # author's choice; drawing leaves datum unstated
 on_hand = false              # inventory stock = [] (pedro-shop.toml:7)
-prerequisite = "north centre seat for the dead centre; geometry not stated (drawing: CENTRES OK)"
+prerequisite = "blank sawn square to 180.5 long from the Ø10 bar"  # AUTHOR'S CHOICE: the saw cut stays a prerequisite because the bar it is sawn from is not declared (on_hand = false; no raw bar length), so a saw setup would have no stock to cut
+# Model frame: the sawn blank's south (plain) face centre, running +Z to the north stub end
+# (supply station = north apex 1.5 - 175 = -173.5, sawn 0.5 long = -174.0; north end =
+# apex + stub 5 = 6.5). S0 faces the plain end back to the supply station.
+origin_mm = [0.0, 0.0, -174.0]
+axis = [0.0, 0.0, 1.0]
+as_is_faces = ["#115/ADVANCED_FACE[5]/HAF_SHOULDER_OD__P01", "#414/ADVANCED_FACE[13]/HAF_SHOULDER_OD__P01"]  # Ø10 shoulder O.D. left as cold-finished bar (band 9.49–10.51); every other face is cut
 
-# The lathe has no DRO listed in the inventory (pedro-shop.toml:51-88). The
-# EL400 functions below are the manual's; installation on the PM-1127VF-LB
-# is unknown. The authored recipe requires X diametric, X+ away from the
-# spindle axis and Z+ toward the exposed end in every rechuck.
-# EL400 §9.2.1 p62: trial cut outside,
-# withdraw without disturbing X, measure, enter X; face or touch the end,
-# withdraw without Z motion, enter Z); §6.2 p20 Direction and Radial/Diametric;
-# §7.4 p31 Axis Set; §8.1 p37 Preset is distance-to-go and never used for zero.
+# The PM-1127VF-LB carries an example EL400 two-axis lathe DRO
+# (pedro-shop.toml machines.PM-1127VF-LB.dro). EL400 §9.2.1 p62: trial cut
+# outside, withdraw without disturbing X, measure, enter X; face or touch the
+# end, withdraw without Z motion, enter Z; §6.2 p20 Direction and
+# Radial/Diametric; §7.4 p31 Axis Set; §8.1 p37 Preset is distance-to-go and
+# never used for zero.
 [dro]
-controller = "unknown"
+controller = "el400"
 manual = "Electronica EL400 Operation Manual"
 manual_url = "https://www.dropros.com/documents/EL400%20OpManual.pdf"
 mode = "abs"
@@ -49,38 +60,50 @@ radius_mode = false          # author's choice: X diametric; a physical 10 mm X 
 
 [dro.direction]
 x = "away_from_spindle_axis" # author's choice: positive radial tool withdrawal
-z = "toward_exposed_end"     # author's choice: +T1/+T2 north, +T3 south; redo sign check after rechuck
+z = "toward_exposed_end"     # author's choice: +Z away from the chuck in every setup; redo sign check after rechuck
 
 # Plan-owned setup frames (PLAN.md §4.1; docs/plan.md "frames"). The exported
-# manifest declares only `model` and an unknown `setup`; these restore the
-# pre-export T1/T2/T3 transforms and citations verbatim (3a561db
-# examples/pivot-shaft/features.toml). Origins and axes are model coordinates.
-# The frame choice is the author's; the cited source geometry is CAD's.
+# manifest declares only `model` and an unknown `setup`. Origins and axes are
+# model coordinates; +Z always points away from the chuck. The frame choice is
+# the author's; the cited source geometry is CAD's.
 
-# S1: origin on the shoulder north face, z = -JournalLength = -6.0
-# (exported shoulder_north_face plane z = -6.0).
-[frames.T1]
-origin = [0.0, 0.0, -6.0]
+# S0: origin on the faced plain end (the supply station), model z = -173.5, +Z away from
+# the chuck toward the sawn end. Only waste is cut here; S3 removes it with the plain end.
+[frames.T0]
+origin = [0.0, 0.0, -173.5]
 x = [1.0, 0.0, 0.0]
-y = [0.0, 1.0, 0.0]
-z = [0.0, 0.0, 1.0]
-binding = "nominal"   # the face is cut in S1 op 10 and the DRO set on it
-note = "AUTHOR'S CHOICE: shoulder north face (seats on the north ear); +Z toward the north end"
+y = [0.0, -1.0, 0.0]
+z = [0.0, 0.0, -1.0]
+binding = "nominal"   # Z set on the sawn end, which op 10 then faces to Z0
+note = "AUTHOR'S CHOICE: the faced plain end; +Z toward the sawn end"
 cite = [
   "AUTHOR'S CHOICE",
-  "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:44",
-  "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:24",
+  "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:182,186",
+]
+
+# S1: origin on the shoulder thrust (south) face, model z = -7.5, +Z toward the
+# plain end (exported shoulder_thrust plane z = -7.5).
+[frames.T1]
+origin = [0.0, 0.0, -7.5]
+x = [1.0, 0.0, 0.0]
+y = [0.0, -1.0, 0.0]
+z = [0.0, 0.0, -1.0]
+binding = "nominal"   # Z set on the plain end (T1 Z166), the thrust face then faced to Z0
+note = "AUTHOR'S CHOICE: shoulder thrust face; +Z toward the plain (supply) end"
+cite = [
+  "AUTHOR'S CHOICE",
+  "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:43-44,110",
   "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:104-117",
 ]
 
-# S2: origin at the north apex plane, z = +DomeHeight = +1.5
+# S2: origin at the north apex plane, model z = +DomeHeight = +1.5
 # (exported north_dome base_z 0.0 + height_nominal 1.5).
 [frames.T2]
 origin = [0.0, 0.0, 1.5]
 x = [1.0, 0.0, 0.0]
 y = [0.0, 1.0, 0.0]
 z = [0.0, 0.0, 1.0]
-binding = "nominal"   # found by touching the shoulder north face (T2 z = -7.5)
+binding = "nominal"   # Z set on the stub end from a caliper reading off the S1 thrust face
 note = "AUTHOR'S CHOICE: north apex plane; +Z toward the north end"
 cite = [
   "AUTHOR'S CHOICE",
@@ -90,14 +113,13 @@ cite = [
 
 # S3: origin at the scribe the fitter makes at the south ear's outer face,
 # +Z toward the plain end. Nominal model position = -ShaftLength REF
-# (-156.67; exported south_dome base_z); the real position is the
-# installed-ear span, which no input supplies.
+# (-156.67; exported south_dome base_z).
 [frames.T3]
 origin = [0.0, 0.0, -156.67]
 x = [1.0, 0.0, 0.0]
 y = [0.0, -1.0, 0.0]
 z = [0.0, 0.0, -1.0]
-binding = "unknown"   # awaiting the measured span over both installed MHA-123 ears
+binding = "nominal"   # example (plausible, not measured): the scribe landed at the REF span; Z is aligned to the actual scribe
 note = "AUTHOR'S CHOICE: scribe at the south ear outer face, shoulder pushed north; +Z toward the plain end"
 cite = [
   "AUTHOR'S CHOICE",
@@ -106,200 +128,267 @@ cite = [
   "harmonic-analyzer/cad/scripts/build_pivot_shaft.py:85,433",
 ]
 
-# ---------------------------------------------------------------- S1
+# Plan-owned stock preparation (docs/plan.md "Process features"): S0 faces the plain end
+# and centre-drills it for S1's dead centre. Neither is a drawing surface; S3 parts both
+# off with the waste end.
+[process_features.plain_end]
+kind = "end_face"
+at = [0.0, 0.0, -173.5]
+axis = [0.0, 0.0, 1.0]
+note = "the sawn plain end faced square at the supply station"
+cite = [
+  "AUTHOR'S CHOICE: face the plain end square at the supply station (north apex 1.5 - supply 175 = -173.5) because a centre drill wanders on a sawn end and the dead centre needs a square seat",
+  "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:182,186",
+]
+
+[process_features.plain_end_centre]
+kind = "centre_hole"
+at = [0.0, 0.0, -173.5]
+axis = [0.0, 0.0, 1.0]
+size = "#2 plain combined drill and countersink"
+drill_dia_mm = 1.98           # Table 6 size 2: drill D 5/64 in
+drill_length_mm = 1.98        # Table 6 size 2: drill length C 5/64 in, tip to the countersink, point included
+mouth_dia_mm = 3.0            # AUTHOR'S CHOICE: a shallow seat (see cite)
+countersink_angle_deg = 60.0  # Table 6: 60° countersink, the dead centre's point angle
+cite = [
+  "Machinery's Handbook 27th ed. p.873 Table 6 Combined Drills and Countersinks, plain type, size 2: body A 3/16 in, drill D 5/64 in, drill length C 5/64 in, overall L 1-7/8 in, 60° countersink",
+  "AUTHOR'S CHOICE: Ø3.0 mouth, a shallow seat, so the dead-centre point sits 2.60 inside the end and the turning tool's trailing edge clears its cone by about 0.5 at the S1 Z166.3 start",
+  "harmonic-analyzer/cad/scripts/pivot_shaft_spec.py:185 (CENTRES OK)",
+]
+
+# ---------------------------------------------------------------- S0
+# T0 stations: faced plain end 0, sawn end 0.5, jaw fronts -14.5; centre mouth Ø3.0
+# on Z0, pilot point 2.86 deep. The rest of the bar runs back through the spindle bore.
 [[setups]]
-id = "S1"
+id = "S0"
 machine = "PM-1127VF-LB"
-frame = "T1"                 # plan.frames.T1 (author's choice; exported `setup` stays unknown)
+frame = "T0"                 # plan.frames.T0 (author's choice)
 coolant = "CRC cutting oil brushed on"  # author's choice; listed consumable, not a cutting-data claim
 deburr_mm = 0.25             # title block: break edges R0.25 OR CHAMFER 0.25 MAX (title_block.yaml:45)
-stock_in = "prepared_blank"
+stock_in = "stock"
 
 [setups.stock_state]
 od_mm = 10.0                 # bar as bought, nominal; not measured
-north_end_z = 22.5           # author's choice: north apex 7.5 + stub 15
-south_end_z = -192.5         # author's choice: 7.5 - supply 175 - grip 25
+north_end_z = -180.0         # sawn north end, inside the spindle bore
+south_end_z = 0.5            # sawn plain end, 0.5 proud of the faced end
 
 [setups.stock_state.local_thickness]
 # no holes on this part: nothing to pierce
 
 [setups.hold]
 fixture = "chuck-3jaw-6-d1-4"
-support = "dead_centre_tailstock_mt3"   # PM-1127VF-LB standard accessory (pedro-shop.toml:61)
-grip_on = "south grip allowance, past the supply station"
-grip_mm = 24.0              # author's choice: leave 1 mm of the 25 mm sacrificial grip outside jaws
-fixed_jaw = "not_applicable"            # scroll chuck (pedro-shop.toml:445)
+support = "none"             # the tailstock carries the drill chuck for op 20, not a centre
+grip_on = "AUTHOR'S CHOICE: 20 mm of plain bar behind the jaw fronts, near the sawn plain end; the rest of the blank runs back through the chuck and the spindle bore"
+grip_mm = 20.0
+fixed_jaw = "not_applicable"            # scroll chuck
 jaws_along = "not_applicable"
 parallels = "not_applicable"
 jaw_above_parallels_mm = "not_applicable"
-stop = "jaw fronts at T1 Z -168.5, 1 mm south of authored supply station"  # author's choice; tool envelope still needs bench check
-clamp = "tighten chuck key by hand at all three pinions; remove key; check grip before cutting"  # author's choice
-centre_lubrication = "CRC cutting oil on dead-centre seat; replenish between cuts"  # author's choice
-stickout_mm = 191.0         # author's choice: 22.5 - (-168.5), tailstock supported; not measured clearance
+stop_face = "stock_end"     # the sawn plain end: nothing is cut yet
+stop = "feed the blank north end first through the chuck into the spindle bore until the sawn plain end stands 15 mm out of the jaw fronts; check that with a steel rule before tightening"  # AUTHOR'S CHOICE: a short stick-out, so the end faces and centre-drills without chatter
+clamp = "tighten the chuck key at all three pinions; remove key"  # author's choice
+stickout_mm = 15.0          # author's choice: jaw fronts Z-14.5 to the sawn end Z0.5
+pose = { origin_mm = [0.0, 0.0, -14.5], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
+jaw_clock_deg = 0.0
 
 [setups.zero.x]
 feature = "spindle_axis"
 edge_mm = 0.0
 from = "+x"
-method = "trial_cut_measure"            # EL400 §9.2.1 p62
+method = "trial_cut_measure"            # EL400 §9.2.1 p62: skim the bar, measure, enter the diameter
 tool = "turning-tools-warner-lms-4132/AR"
 gauge = "micrometers/0-1in"
 check_jog_mm = 10.0         # author's choice: physical radial jog, +20 on diametric display
 
 [setups.zero.z]
-face = "shoulder_north_face"
-edge_mm = 0.0
+face = "plain end (sawn)"
+edge_mm = 0.5               # author's choice: the sawn end, 0.5 proud of the faced end
 from = "+z"
-method = "face_then_set"                # EL400 §9.2.1 p62: face, withdraw without Z motion
-after_op = 10
+method = "touch the sawn end with the spindle running until the first chip shows; no paper: the plain end is waste, parted off in S3"  # EL400 §9.2.1 p62: touch the end, withdraw without Z motion
 tool = "turning-tools-warner-lms-4132/AR"
-paper_mm = 0.0                          # tool on the cut face, no paper
+paper_mm = 0.0                          # direct touch on the waste plain end
 check_jog_mm = 10.0         # author's choice: physical axial jog, +10 on display
 retouch_after = []
-
-[[setups.zero.tool_touches]]
-tool = "turning-tools-warner-lms-4132/E"
-x_method = "touch the cylinder just measured by micrometer; Axis Set its measured diameter"  # author's choice
-gauge = "micrometers/0-1in"
-z_face = "shoulder_north_face"
-edge_mm = 0.0
-paper_mm = 0.0              # author's choice: direct contact, no paper
-method = "touch; withdraw along X without moving Z; Axis Set Z"  # author's choice
-before_ops = [80, 90]
 
 [[setups.ops]]
 op = 10
 do = "face"
-feature = "shoulder_north_face"
+feature = "plain_end"
 tool = "turning-tools-warner-lms-4132/AR"
 holder = "qctp-axa-lms-2280/1-turning-facing"
-to_z = 0.0                    # creates the shoulder north face = T1 origin
-direction = "radially_inward"  # author's choice: feed toward spindle axis
-note = "Cut the shoulder north step 22.5 mm from the prepared blank north end, then set T1 Z0; centre-seat geometry remains unmeasured."
+to_z = 0.0                    # the supply station
+to_dia = 0.0                  # face right across the centre: no pip for the centre drill
+doc_mm = 0.25               # two passes of 0.25; example (plausible, not measured); a light facing skim, below the smallest depth Machinery's Handbook 27th ed. Table 5a p.1035 tabulates, 0.04 in (1.0 mm)
+feed_mm_rev = 0.05          # example (plausible, not measured); .0020 in/rev, feed ratio 0.12 of the uncoated-carbide optimum .017 in/rev for 1018 at 125-175 HB (Table 1 p.1027), inside Table 5a p.1035's 0.10-1.00 feed-ratio rows
+direction = "radially_inward"  # author's choice: O.D. to centre
+note = "Two passes of 0.25 from the O.D. to the centre, the second to Z0. The tool point must be on centre height: a pip left at the centre makes the centre drill wander."
 
 [[setups.ops]]
 op = 20
+do = "center_drill"
+feature = "plain_end_centre"
+tool = "center-drills-lms-4859/2"
+holder = "drill-chuck-tailstock-mt3"
+note = "Lock the carriage clear of the end. Slide the tailstock up until the centre drill is about 5 mm off the faced end and lock it. Feed the quill by hand with oil on the drill; touch the end, then feed on the depth the quill scale shows, backing out twice to clear chips. The Ø3.0 mouth is the dead-centre seat for S1."  # AUTHOR'S CHOICE: the tailstock quill feeds the centre drill and its scale gives the depth, because the EL400 Z scale is on the carriage and cannot read the quill
+
+# ---------------------------------------------------------------- S1
+# T1 stations: shoulder north face -1.5, thrust face 0, south relief 0..2,
+# bearing 2..149.17 (finished) and on to the supply/plain end 166.
+[[setups]]
+id = "S1"
+machine = "PM-1127VF-LB"
+frame = "T1"                 # plan.frames.T1 (author's choice; exported `setup` stays unknown)
+coolant = "CRC cutting oil brushed on"  # author's choice; listed consumable, not a cutting-data claim
+deburr_mm = 0.25             # title block: break edges R0.25 OR CHAMFER 0.25 MAX (title_block.yaml:45)
+stock_in = "S0"
+
+[setups.stock_state]
+od_mm = 10.0                 # bar as bought, nominal; not measured
+north_end_z = -14.0          # author's choice: north apex -9 - stub 5
+south_end_z = 166.0          # plain end = supply station, faced and centre-drilled in S0
+
+[setups.stock_state.local_thickness]
+# no holes on this part: nothing to pierce
+
+[setups.hold]
+fixture = "chuck-3jaw-6-d1-4"
+# PM-1127VF-LB standard accessories: the MT3 dead centre in the plain-end centre, and the
+# carriage-mounted follow rest riding the freshly turned diameter 8 mm behind the tool on the
+# 26:1 body. AUTHOR'S CHOICE: the rest supports roughing too (between centres alone the Ø6.55
+# body would deflect ~0.47 mm under the 0.5 mm cut); its jaws are set on each new diameter at
+# Z152, in the end length that S3 cuts off, so the dwell mark never reaches the finished body.
+support = "dead_centre_tailstock_mt3"
+supports = [{ ref = "follow_rest", ops = [10, 30], jaw_lead_mm = 8.0, jaw_side = "turned", engage_at_z_mm = 152.0 }]  # AUTHOR'S CHOICE: jaws go on once the tool passes Z152, clear of the dead centre
+grip_on = "north end of the plain Ø10 bar: the 12.5 mm between the rule mark and the north end"
+grip_mm = 12.5             # author's choice: jaw fronts Z-1.5 to the north end Z-14; the dead centre carries the far end
+fixed_jaw = "not_applicable"            # scroll chuck
+jaws_along = "not_applicable"
+parallels = "not_applicable"
+jaw_above_parallels_mm = "not_applicable"
+stop_face = "stock_end"     # the north end of the plain bar: no turned face exists yet
+stop = "the bar arrives plain, with no shoulder yet: mark a line 12.5 mm from the north end with a steel rule and push the bar into the jaws until the mark is at the jaw fronts (Z-1.5), so the plain end stands 167.5 ±0.3 out from the jaw fronts; check that with the rule before tightening"  # AUTHOR'S CHOICE: ±0.3 rule placement; the Z zero is taken on the plain end, so this placement only sets the jaw room (1.2 mm or more to the thrust face)
+clamp = "snug the chuck, bring up the dead centre with light quill pressure, then tighten the chuck key at all three pinions; remove key"  # author's choice
+centre_lubrication = "CRC cutting oil on the dead-centre seat; replenish between passes. Never touch the quill with the spindle running: if the centre seat smokes or squeals as the bar warms, stop the feed, then the spindle; unlock the quill, back it off until the centre just turns free, bring it back in until the bar has no end play and the centre still turns with light finger drag, lock the quill, then restart the spindle and the feed"  # author's choice
+stickout_mm = 167.5         # author's choice: jaw fronts Z-1.5 to plain end Z166, tailstock supported
+pose = { origin_mm = [0.0, 0.0, -1.5], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
+jaw_clock_deg = 0.0
+centre_hole = "plain_end_centre"  # made by S0 op 20
+centre_hole_dia_mm = 3.0    # the S0 centre's Ø3.0 countersink mouth
+support_tip_mm = [0.0, 0.0, 163.4019]  # the 60° point seated in the Ø3.0 countersink: 166 - 1.5 / tan 30° = 163.40192
+quill_extension_mm = 30.0   # author's choice: quill 30 mm out of the tailstock barrel
+
+[setups.zero.x]
+feature = "spindle_axis"
+edge_mm = 0.0
+from = "+x"
+method = "trial_cut_measure"            # EL400 §9.2.1 p62: skim the bar, measure, enter the diameter
+tool = "hss-toolbit-3-8-rh"
+gauge = "micrometers/0-1in"
+check_jog_mm = 10.0         # author's choice: physical radial jog, +20 on diametric display
+
+[setups.zero.z]
+face = "plain end (faced and centre-drilled in S0)"
+edge_mm = 166.0             # author's choice: plain end = thrust face + 166 (supply 175 - apex-to-thrust 9)
+from = "+z"
+method = "touch with the spindle running until the first chip shows; no paper: the plain end is waste, parted off in S3"  # EL400 §9.2.1 p62: touch the end before the centre goes in, withdraw without Z motion
+tool = "hss-toolbit-3-8-rh"
+paper_mm = 0.0                          # direct touch on the waste plain end
+check_jog_mm = 10.0         # author's choice: physical axial jog, +10 on display
+retouch_after = []
+
+[[setups.zero.tool_touches]]
+tool = "parting-blade-lms-1728"
+x_method = "spindle stopped: mic the bearing Ø next to the thrust face (op 30 just finished it; one diameter, so the anvils sit anywhere on it); bring the blade tip in on that same spot through cigarette paper (0.05) until the paper drags"  # AUTHOR'S CHOICE: a paper touch on the measured finished bearing, because a cut ring inside the 2 mm relief could not be mic'd apart from the bearing and a cut on the bearing would mark it; D2 zero on the surface touched, measured where it is touched
+x_face = "pivot_bearing"
+x_paper_mm = 0.05            # cigarette paper
+gauge = "micrometers/0-1in"
+z_face = "shoulder_thrust"
+edge_mm = 0.0
+paper_mm = 0.05            # author's choice: cigarette paper keeps the blade corner off the finished thrust face
+method = "spindle stopped; feed the chuck-side corner in until the paper drags; withdraw along X without moving Z"  # author's choice; the sheet prints the Axis Set value
+after_op = 30
+before_ops = [50]
+
+[[setups.ops]]
+op = 5
+do = "inspect"              # the Ø10 shoulder stays as cold-finished bar: mic it, no cut
+feature = "shoulder_od"
+note = "Before op 10 makes the first cut on the part's body: mic the plain bar just in front of the jaw fronts, where the Ø10 shoulder stays as supplied, against 9.49–10.51. Out of the band: stop, the blank is from the wrong bar; do not turn it."  # AUTHOR'S CHOICE: check the as-supplied shoulder diameter before op 10, because the route keeps it uncut; S0 cut only the plain end that S3 parts off
+
+[setups.ops.checks]
+dia = "micrometers/0-1in"
+
+[[setups.ops]]
+op = 10
 do = "rough_turn"
-feature = "pivot_journal"
-tool = "turning-tools-warner-lms-4132/AR"
+feature = "pivot_bearing"
+tool = "hss-toolbit-3-8-rh"  # AUTHOR'S CHOICE: a ground HSS tool bit, not the carbide AR insert holder, for every turning, facing and dome cut on this Ø10 bar because carbide's Machinery's Handbook 27th ed. Table 1 p.1027 floor (300 fpm) needs 2900-4500 rpm at Ø6.35-10, past the lathe's 2000 rpm top speed, while the Table 1 HSS speeds (70-120 fpm) land at 850-1700 rpm
 holder = "qctp-axa-lms-2280/1-turning-facing"
-z_from = 0.0
-z_to = 7.5                    # out to the north apex plane: the dome is formed from this O.D.
-rough_allowance_mm = 0.2    # author's choice restored from rev 3, on diameter: rough Ø6.55
-direction = "toward_shoulder"  # author's choice: traverse Z7.5 to Z0; listed endpoints bound the cut
+z_from = 166.3               # author's choice: start 0.3 clear of the plain end
+z_to = 0.2                    # stop 0.2 short of the thrust face for the facing pass
+rough_allowance_mm = 0.2    # on diameter: rough Ø6.55
+doc_mm = 0.5                # four light passes Ø10 → Ø6.55 on the slender between-centres body; example (plausible, not measured), under the .125 in (3.2 mm) depth Machinery's Handbook 27th ed. bases its Table 1 p.1027 HSS speeds on (p.1026); the Table 5c p.1036 depth factor only raises speed for lighter cuts
+feed_mm_rev = 0.08          # example (plausible, not measured); .0031 in/rev, inside Machinery's Handbook 27th ed. Table 5c p.1036 HSS feed rows .002-.060 in/rev
+direction = "toward_chuck"  # author's choice: plain end to shoulder; cutting load pushes into the headstock
+note = "Four passes, Ø10 → Ø6.55; the rest jaws are reset on each new diameter at Z152 (S3 cuts that end length off). The Ø10 shoulder stays as bar."
+
+[[setups.ops]]
+op = 20
+do = "face"
+feature = "shoulder_thrust"
+tool = "hss-toolbit-3-8-rh"
+holder = "qctp-axa-lms-2280/1-turning-facing"
+to_z = 0.0                    # shoulder thrust face = T1 origin
+doc_mm = 0.2                # example (plausible, not measured); under the .125 in (3.2 mm) depth Machinery's Handbook 27th ed. bases its Table 1 p.1027 HSS speeds on (p.1026); the Table 5c p.1036 depth factor only raises speed for lighter cuts
+feed_mm_rev = 0.05          # example (plausible, not measured); .0020 in/rev, the .002 in (0.05 mm) row of Machinery's Handbook 27th ed. Table 5c p.1036 HSS feeds
+direction = "radially_outward"  # author's choice: finish the face from the body out to the shoulder O.D.
+note = "Op 10 left the body at Ø6.55, 0.2 short of the shoulder: feed out from the Ø6.55 body to the Ø10 O.D. The tool starts in the corner, so the face meets the body square, and the burr goes over the O.D. edge; op 30 then finishes the body to Ø6.35 right up to this face."
+
+[setups.ops.checks]
+finish_ra = "roughness-comparator"
 
 [[setups.ops]]
 op = 30
 do = "finish_turn"
-feature = "pivot_journal"
-tool = "turning-tools-warner-lms-4132/AR"
+feature = "pivot_bearing"
+tool = "hss-toolbit-3-8-rh"
 holder = "qctp-axa-lms-2280/1-turning-facing"
-z_from = 0.0
-z_to = 7.5
-direction = "toward_shoulder"  # author's choice: traverse Z7.5 to Z0
+z_from = 166.3               # author's choice: start 0.3 clear of the plain end
+z_to = 0.0
+doc_mm = 0.1                # Ø6.55 → Ø6.35; example (plausible, not measured), under the .125 in (3.2 mm) depth Machinery's Handbook 27th ed. bases its Table 1 p.1027 HSS speeds on (p.1026); the Table 5c p.1036 depth factor only raises speed for lighter cuts
+feed_mm_rev = 0.05          # example (plausible, not measured); .0020 in/rev, the .002 in (0.05 mm) row of Machinery's Handbook 27th ed. Table 5c p.1036 HSS feeds
+direction = "toward_chuck"  # author's choice: plain end to the thrust face in one pass
+note = "One pass, Ø6.55 → Ø6.35, with the rest jaws set on the finished diameter at Z152. After the pass end: spindle stopped, tool withdrawn along X, carriage run back clear; then mic at both ends and the middle for taper and check the finish with the comparator before moving on."
 
 [setups.ops.checks]
 dia = "micrometers/0-1in"
-finish_ra = "unknown"         # no roughness comparator in the inventory
-
-[[setups.ops]]
-op = 40
-do = "rough_turn"
-feature = "pivot_bearing"
-tool = "turning-tools-warner-lms-4132/AR"
-holder = "qctp-axa-lms-2280/1-turning-facing"
-z_from = -1.5
-z_to = -167.5               # author's choice: supply station = 7.5 - 175, not fitted length
-rough_allowance_mm = 0.2    # author's choice restored from rev 3, on diameter: rough Ø6.55
-direction = "toward_chuck"  # author's choice: feed toward south supply station, stop clear of jaws
+finish_ra = "roughness-comparator"
 
 [[setups.ops]]
 op = 50
-do = "finish_turn"
-feature = "pivot_bearing"
-tool = "turning-tools-warner-lms-4132/AR"
-holder = "qctp-axa-lms-2280/1-turning-facing"
-z_from = -1.5
-z_to = -167.5               # author's choice: through the supplied-length station, grip remains
-direction = "toward_chuck"  # author's choice: no final assembly length claimed
+do = "form_relief"
+feature = "south_relief"
+tool = "parting-blade-lms-1728"
+holder = "qctp-axa-lms-2280/7-parting"
+z_from = 0.0
+z_to = 2.0
+doc_mm = 0.33               # radial plunge depth Ø6.35 → Ø5.7
+feed_mm_rev = 0.02          # light plunge on the slender body; example (plausible, not measured); .0008 in/rev, inside Machinery's Handbook 27th ed. p.1132 circular form-tool feeds .0004-.0009 in/rev
+direction = "plunge_radial"  # author's choice: plunge flush at Z0..1.6, step to Z0.4..2.0, plunge again
 
 [setups.ops.checks]
-dia = "micrometers/0-1in"
-finish_ra = "unknown"
+dia = "calipers"
+width = "calipers"
 
 [[setups.ops]]
 op = 60
-do = "face"
+do = "deburr"
 feature = "shoulder_thrust"
-tool = "turning-tools-warner-lms-4132/AR"
-holder = "qctp-axa-lms-2280/1-turning-facing"
-to_z = -1.5                   # shoulder south face, 1.5 from the north face
-direction = "radially_inward"  # author's choice
-
-[setups.ops.checks]
-finish_ra = "unknown"
-
-[[setups.ops]]
-op = 70
-do = "finish_turn"
-feature = "shoulder_od"
-tool = "turning-tools-warner-lms-4132/AR"
-holder = "qctp-axa-lms-2280/1-turning-facing"
-z_from = -1.5
-z_to = 0.0
-direction = "toward_chuck"  # author's choice
-note = "Leave the Ø10 bar as supplied if it measures inside the band; otherwise skim it."
-
-[setups.ops.checks]
-dia = "micrometers/0-1in"
-
-[[setups.ops]]
-op = 71
-do = "inspect"
-feature = "shoulder_north_face"
-note = "Existing ShoulderLength check from op 70; the export assigns the shared length to both shoulder faces."
-[setups.ops.checks]
-length = "calipers"
-
-[[setups.ops]]
-op = 72
-do = "inspect"
-feature = "shoulder_thrust"
-note = "Same ShoulderLength caliper check, keyed to the exported south-face owner."
-[setups.ops.checks]
-length = "calipers"
-
-[[setups.ops]]
-op = 80
-do = "form_relief"
-feature = "north_relief"
-tool = "turning-tools-warner-lms-4132/E"
-holder = "qctp-axa-lms-2280/1-turning-facing"
-z_from = 0.0
-z_to = 2.0
-direction = "profile_toward_shoulder"  # author's choice: shallow traverse, not a blind plunge
-note = "Profile the groove flush to the shoulder north face; insert nose radius and reach are not in the inventory."
-
-[setups.ops.checks]
-dia = "calipers"
-width = "calipers"
-
-[[setups.ops]]
-op = 90
-do = "form_relief"
-feature = "south_relief"
-tool = "turning-tools-warner-lms-4132/E"
-holder = "qctp-axa-lms-2280/1-turning-facing"
-z_from = -1.5
-z_to = -3.5
-direction = "profile_toward_shoulder"  # author's choice
-note = "Profile the groove flush to the shoulder south face."
-
-[setups.ops.checks]
-dia = "calipers"
-width = "calipers"
+note = "Spindle stopped, lathe in neutral, carriage and follow rest run back clear. Turn the chuck by hand and break the two edges this setup made: the shoulder O.D. edge on the thrust face, and the bearing-side edge of the south relief at Z2. Use a fine needle file held at 45°, then a slip stone, to R0.25 or 0.25 chamfer max. Do not touch the thrust face, the relief floor or the bearing Ø. Check each edge under the 10x measuring loupe: the break shows all round, is no wider than 0.25 (2½ reticle divisions), and no burr catches a fingernail."  # AUTHOR'S CHOICE: hand deburr with the spindle stopped, the safe novice method on a lathe
 
 # ---------------------------------------------------------------- S2
+# T2 stations: apex 0, dome base -1.5, journal -1.5..-5.5, north relief
+# -5.5..-7.5, shoulder north face -7.5, thrust face -9, south relief -9..-11.
 [[setups]]
 id = "S2"
 machine = "PM-1127VF-LB"
@@ -309,83 +398,167 @@ deburr_mm = 0.25
 stock_in = "S1"
 
 [setups.stock_state]
-od_mm = 6.35                  # finished journal/body O.D., nominal
-north_end_z = 15.0          # author's choice: stub still past T2 apex Z0
-south_end_z = -200.0        # author's choice: supply 175 + south grip 25 from T2 apex
+od_mm = 6.35                  # finished body O.D., nominal (held diameter)
+north_end_z = 5.0           # author's choice: stub end, apex + 5
+south_end_z = -175.0        # supply length from the apex
 
 [setups.stock_state.local_thickness]
 # no holes on this part
 
 [setups.hold]
 fixture = "chuck-3jaw-6-d1-4"
-support = "none"              # tailstock withdrawn for dome access
-grip_on = "finished body near the shoulder, south of the south relief"
-grip_mm = 25.0             # author's choice: grip body from T2 Z -37 to -12
+support = "none"              # tailstock withdrawn: the dome is formed on the free end
+grip_on = "finished body south of the shoulder, thrust face seated against the jaw fronts"
+grip_mm = 25.0             # author's choice: body grip from T2 Z-34 to -9; the south relief sits under the jaw tips
 fixed_jaw = "not_applicable"
 jaws_along = "not_applicable"
 parallels = "not_applicable"
 jaw_above_parallels_mm = "not_applicable"
-stop = "jaw fronts at T2 Z -12, 4.5 mm south of shoulder north face"  # author's choice
-clamp = "tighten chuck key by hand at all three pinions; remove key; indicate after clamping"  # author's choice
-jaw_protection = "prepare clean paper sleeve under smooth, deburred jaw contacts; reject marks or slip"  # author's choice; bring sleeve, no inventory accessory claimed
-stickout_mm = 27.0          # author's choice: stub Z15 - jaw front Z(-12)
-
-[setups.zero.transfer]
-from = "S1"
-indicate = "pivot_bearing"
-gauge = "dial-indicator"
-runout_limit_mm = "unknown"   # no coaxiality tolerance on the drawing
+stop_face = "shoulder_thrust"  # faced in S1 op 20
+stop = "shoulder thrust face (Z-9) seated flat against all three jaw fronts: the axial stop for the reversal and what lines the part up. Snug the jaws, then check the seat with a cigarette paper: it must not slip between the thrust face and any jaw front; if it does, open the jaws, clean the face and the jaw fronts and seat again"  # AUTHOR'S CHOICE: the jaws centre the part on the finished bearing and the S1-faced thrust face, square to that bearing, squares it on the jaw fronts; the bearing is under the jaws, so no S1 surface is left in reach of an indicator
+clamp = "tighten chuck key by hand at all three pinions; remove key"  # author's choice
+jaw_protection = "clean paper sleeve under smooth, deburred jaw contacts; reject marks or slip"  # author's choice; no inventory accessory claimed
+stickout_mm = 14.0          # author's choice: stub end Z5 - jaw front Z-9
+pose = { origin_mm = [0.0, 0.0, -9.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
+jaw_clock_deg = 0.0
 
 [setups.zero.x]
 feature = "spindle_axis"
 edge_mm = 0.0
 from = "+x"
-method = "trial_cut_measure"  # on the north allowance stub, EL400 §9.2.1 p62
-tool = "turning-tools-warner-lms-4132/AR"
+method = "trial_cut_measure"  # on the north stub, EL400 §9.2.1 p62
+tool = "hss-toolbit-3-8-rh"
 gauge = "micrometers/0-1in"
 check_jog_mm = 10.0         # author's choice: physical radial jog
 
 [setups.zero.z]
-face = "shoulder_north_face"
-edge_mm = -7.5                # shoulder north face in T2: -(6.0 + 1.5)
+face = "north stub end"
+edge_mm = 5.0                 # nominal stub end (apex + 5); the Axis Set uses the measured length, not this
 from = "+z"
-method = "touch"              # EL400 §9.2.1 p62: touch, withdraw without Z motion
-tool = "turning-tools-warner-lms-4132/AR"
-paper_mm = 0.0
+method = "measure_then_set"  # the stub length carries the S1 bar placement and blank length, so measure it
+measure_before_hold = true   # M is read on the bench, before the part goes into the jaws
+gauge = "calipers"
+measure = "outside caliper length from the shoulder thrust face to the north stub end (nominal 14.0)"
+offset_mm = -9.0              # thrust face is T2 Z-9 (frame); M is measured from it
+tool = "hss-toolbit-3-8-rh"
+paper_mm = 0.0               # touch with the spindle running until the first chip shows: the stub end is waste, faced off in op 50
 check_jog_mm = 10.0         # author's choice: physical axial jog
 retouch_after = []
 
 [[setups.zero.tool_touches]]
-tool = "turning-tools-warner-lms-4132/E"
-x_method = "touch the cylinder just measured by micrometer; Axis Set its measured diameter"  # author's choice
+tool = "parting-blade-lms-1728"
+x_method = "spindle stopped: mic the journal Ø next to the shoulder north face (op 30 just finished it; one diameter, so the anvils sit anywhere on it); bring the blade tip in on that same spot through cigarette paper (0.05) until the paper drags"  # AUTHOR'S CHOICE: a paper touch on the measured finished journal, because a cut ring inside the 2 mm relief could not be mic'd apart from the journal and a cut on the journal would mark it; D2 zero on the surface touched, measured where it is touched
+x_face = "pivot_journal"
+x_paper_mm = 0.05            # cigarette paper
 gauge = "micrometers/0-1in"
 z_face = "shoulder_north_face"
 edge_mm = -7.5
-paper_mm = 0.0              # author's choice: direct contact
-method = "touch; withdraw along X without moving Z; Axis Set Z"  # author's choice
-before_ops = [20]
+paper_mm = 0.05            # author's choice: cigarette paper keeps the blade corner off the finished shoulder face
+method = "spindle stopped; feed the chuck-side corner in until the paper drags; withdraw along X without moving Z"  # author's choice; the sheet prints the Axis Set value
+after_op = 30
+before_ops = [40]
+
+# The blade's Axis Set replaced the HSS tool's zero; put the HSS tool bit back in holder #1 and
+# re-touch it before op 50 faces the stub off. X on the stub, which op 50 faces away, so the
+# finished journal keeps no touch mark.
+[[setups.zero.tool_touches]]
+tool = "hss-toolbit-3-8-rh"
+x_method = "spindle stopped: mic the stub Ø between Z0 and Z5 (op 30 turned it with the journal; op 50 faces it off); bring the tool nose in on the stub through cigarette paper (0.05) until the paper drags"  # AUTHOR'S CHOICE: the stub still stands before op 50 and is mic'd where it is touched; D2 zero on the surface touched, measured where it is touched
+x_face = "pivot_journal"     # the stub is the journal Ø, turned with it in op 30
+x_paper_mm = 0.05            # cigarette paper
+gauge = "micrometers/0-1in"
+z_face = "shoulder_north_face"
+edge_mm = -7.5
+paper_mm = 0.05            # author's choice: cigarette paper keeps the tool edge off the finished shoulder face, as for the blade
+method = "spindle stopped; bring this tool's Z-cutting edge in until the paper drags on the shoulder north face; withdraw along X without moving Z"  # author's choice; the sheet prints the Axis Set value
+after_op = 40
+before_ops = [50]
 
 [[setups.ops]]
 op = 10
-do = "face"
-feature = "north_dome"
-tool = "turning-tools-warner-lms-4132/AR"
+do = "rough_turn"
+feature = "pivot_journal"
+tool = "hss-toolbit-3-8-rh"
 holder = "qctp-axa-lms-2280/1-turning-facing"
-to_z = 0.0                    # temporary face at the north apex plane
-direction = "radially_inward"  # author's choice
-note = "Face off the north allowance and centre seat down to the apex plane."
+z_from = 5.0
+z_to = -7.3                   # stop 0.2 short of the shoulder north face
+rough_allowance_mm = 0.2    # on diameter: rough Ø6.55
+doc_mm = 0.5                # four passes; the short free stub stays stiff at this load; example (plausible, not measured), under the .125 in (3.2 mm) depth Machinery's Handbook 27th ed. bases its Table 1 p.1027 HSS speeds on (p.1026); the Table 5c p.1036 depth factor only raises speed for lighter cuts
+feed_mm_rev = 0.10          # example (plausible, not measured); .0039 in/rev, inside Machinery's Handbook 27th ed. Table 5c p.1036 HSS feed rows .002-.060 in/rev
+direction = "toward_chuck"  # author's choice: stub end to the shoulder
+note = "Rough the stub and journal together; the dome is formed from this O.D."
 
 [[setups.ops]]
 op = 20
+do = "face"
+feature = "shoulder_north_face"
+tool = "hss-toolbit-3-8-rh"
+holder = "qctp-axa-lms-2280/1-turning-facing"
+to_z = -7.5
+doc_mm = 0.2                # example (plausible, not measured); under the .125 in (3.2 mm) depth Machinery's Handbook 27th ed. bases its Table 1 p.1027 HSS speeds on (p.1026); the Table 5c p.1036 depth factor only raises speed for lighter cuts
+feed_mm_rev = 0.05          # example (plausible, not measured); .0020 in/rev, the .002 in (0.05 mm) row of Machinery's Handbook 27th ed. Table 5c p.1036 HSS feeds
+direction = "radially_outward"  # author's choice
+note = "Feed out from the journal to the Ø10 O.D.: the tool starts in the corner, so the face meets the journal square, and the burr goes over the O.D. edge."
+
+[[setups.ops]]
+op = 30
+do = "finish_turn"
+feature = "pivot_journal"
+tool = "hss-toolbit-3-8-rh"
+holder = "qctp-axa-lms-2280/1-turning-facing"
+z_from = 5.0
+z_to = -7.5
+doc_mm = 0.1                # example (plausible, not measured); under the .125 in (3.2 mm) depth Machinery's Handbook 27th ed. bases its Table 1 p.1027 HSS speeds on (p.1026); the Table 5c p.1036 depth factor only raises speed for lighter cuts
+feed_mm_rev = 0.05          # example (plausible, not measured); .0020 in/rev, the .002 in (0.05 mm) row of Machinery's Handbook 27th ed. Table 5c p.1036 HSS feeds
+direction = "toward_chuck"  # author's choice
+note = "After the pass: stop the spindle, withdraw the tool along X and run the carriage back clear before you mic the journal and check its finish with the comparator."
+
+[setups.ops.checks]
+dia = "micrometers/0-1in"
+finish_ra = "roughness-comparator"
+
+[[setups.ops]]
+op = 40
+do = "form_relief"
+feature = "north_relief"
+tool = "parting-blade-lms-1728"
+holder = "qctp-axa-lms-2280/7-parting"
+z_from = -7.5
+z_to = -5.5
+doc_mm = 0.33               # radial plunge depth Ø6.35 → Ø5.7, as S1 op 50
+feed_mm_rev = 0.02          # example (plausible, not measured); .0008 in/rev, inside Machinery's Handbook 27th ed. p.1132 circular form-tool feeds .0004-.0009 in/rev
+direction = "plunge_radial"  # author's choice: plunge flush at Z-7.5..-5.9, step to -7.1..-5.5, plunge again
+
+[setups.ops.checks]
+dia = "calipers"
+width = "calipers"
+
+[[setups.ops]]
+op = 50
+do = "face"
+feature = "north_dome"
+tool = "hss-toolbit-3-8-rh"
+holder = "qctp-axa-lms-2280/1-turning-facing"
+to_z = 0.0                    # temporary face at the north apex plane
+doc_mm = 1.0                # five facing passes off the 5 mm stub; example (plausible, not measured), under the .125 in (3.2 mm) depth Machinery's Handbook 27th ed. bases its Table 1 p.1027 HSS speeds on (p.1026); the Table 5c p.1036 depth factor only raises speed for lighter cuts
+feed_mm_rev = 0.08          # example (plausible, not measured); .0031 in/rev, inside Machinery's Handbook 27th ed. Table 5c p.1036 HSS feed rows .002-.060 in/rev
+direction = "radially_inward"  # author's choice
+note = "Face the stub off to the apex plane, feeding toward the centre; stop at centre height and check for a pip."
+
+[[setups.ops]]
+op = 60
 do = "form_dome"
 feature = "north_dome"
-tool = "turning-tools-warner-lms-4132/E"
+tool = "hss-toolbit-3-8-rh"   # 93° turning/facing bit reaches the near-axial apex faces a 60° profiling tool cannot
 holder = "qctp-axa-lms-2280/1-turning-facing"
 z_from = 0.0
 z_to = -1.5                   # apex 0.0, base -1.5, sphere R 4.11 centred at -4.11
+doc_mm = 0.1                # author's choice: one rough row per pass, so 0.10 axial per pass = the contour row step; example (plausible, not measured); under the .125 in (3.2 mm) depth Machinery's Handbook 27th ed. bases its Table 1 p.1027 HSS speeds on (p.1026); the Table 5c p.1036 depth factor only raises speed for lighter cuts
+feed_mm_rev = 0.05          # example (plausible, not measured); .0020 in/rev, the .002 in (0.05 mm) row of Machinery's Handbook 27th ed. Table 5c p.1036 HSS feeds
 direction = "apex_to_base"  # author's choice: hand traverse from T2 Z0 to -1.5
-contour = { method = "axial_table", step_mm = 0.1 }  # author's choice: target spherical surface, not nose-compensated toolpath
-note = "Forms the dome and with it the north end of the journal (JournalLength)."
+rough_allowance_mm = 0.2    # author's choice, on diameter: the rough stair leaves 0.1 normal to the sphere for the finish table
+contour = { method = "axial_table", step_mm = 0.1 }  # author's choice: rough stair rows, then the finish table (tool columns)
+note = "Forms the dome and with it the north end of the journal (JournalLength). Rough first, row by row down the ROUGH table on S2 sheet 3: each row is one pass, 0.10 deep in Z — at the row's Z, feed in along X from outside the work to the row's X, then back out. Then take the FINISH table. The 0.20 left on Ø is the finish allowance the rough rows leave, not a pass depth."
 
 [setups.ops.checks]
 height = "calipers"         # author's choice: axial outside-jaw contact at apex and visible base rim
@@ -394,10 +567,10 @@ height = "calipers"         # author's choice: axial outside-jaw contact at apex
 height = "With spindle stopped, align outside caliper jaws axially at apex and visible base rim; repeat around rim."  # author's choice
 
 [[setups.ops]]
-op = 30
+op = 70
 do = "inspect"               # manual: no tool, holder or cut
 feature = "pivot_journal"
-note = "JournalLength runs from the dome base edge (formed in op 20) to the shoulder north face."
+note = "JournalLength runs from the dome base edge (formed in op 60) to the shoulder north face."
 
 [setups.ops.checks]
 length = "calipers"         # author's choice: outside jaws, dome base rim to shoulder north face
@@ -405,23 +578,44 @@ length = "calipers"         # author's choice: outside jaws, dome base rim to sh
 [setups.ops.inspection_methods]
 length = "With spindle stopped, align outside caliper jaws axially at the dome base rim and shoulder north face; repeat around rim."  # author's choice
 
+[[setups.ops]]
+op = 71
+do = "inspect"
+feature = ["shoulder_north_face", "shoulder_thrust"]  # one drawing length, given to both shoulder faces
+note = "Shoulder length: caliper across the Ø10 shoulder, north face to thrust face."
+[setups.ops.checks]
+length = "calipers"
+
+[[setups.ops]]
+op = 80
+do = "deburr"
+feature = "shoulder_north_face"
+note = "Spindle stopped, lathe in neutral, carriage run back clear. Turn the chuck by hand and break the edges this setup made: the shoulder O.D. edge on the north face, the journal-side edge of the north relief at Z-5.5 and the dome base rim. Use the fine needle file held at 45°, then the slip stone, to R0.25 or 0.25 chamfer max. Do not touch the shoulder north face, the relief floor, the journal Ø or the dome. Check each edge under the 10x measuring loupe: the break shows all round, is no wider than 0.25 (2½ reticle divisions), and no burr catches a fingernail."  # AUTHOR'S CHOICE: hand deburr with the spindle stopped, before the part leaves this chucking
+
 # ---------------------------------------------------------------- S3
 # After fit-up scribes the shaft at the south ear's outer face
 # (draw_channel_assembly.py:101-110). The consumer comment names a saw cut
-# (draw_channel_assembly.py:78-79); no saw is in the inventory, so the rev-3
-# route faces the excess off on the lathe.
+# (draw_channel_assembly.py:78-79). AUTHOR'S CHOICE: the plain end is parted off
+# long on the lathe rather than on the bandsaw, because the finished Ø6.35 body
+# would need a saw vise cradle and the lathe already holds it true for the facing
+# and dome that follow; it is then faced to the band with the turning tool and the
+# dome formed on the faced end. The parting removes S0's centre with the waste end.
+# T3 stations: scribe 0, plain end 16.83 (supply 175), north apex -158.17,
+# north dome base rim -156.67.
 [[setups]]
 id = "S3"
 machine = "PM-1127VF-LB"
-frame = "T3"                 # plan.frames.T3 (author's choice; physical binding unknown)
+frame = "T3"                 # plan.frames.T3 (author's choice)
+note = "Trial fit before S3, off the lathe. Fit: push the shaft through both rocker-bank ears, shoulder hard against the north ear; ink the body at the south ear's outer face and scribe a light ring through the ink; remove the shaft. Measure: calipers from the plain end to the scribe (loupe on the scribe); nominal 16.83. Then: 16.33 to 17.33, go on. Outside that, clean the ear bores and shoulder, refit, re-ink, scribe again and re-measure. Still outside but 11.50 or more: go on, with stickout = your reading + 8 (every other S3 number is set from the scribe and stays as printed). Under 11.50: do not cut; the bank's ears are more than 5 mm off and the S1 follow-rest mark would land on the finished bearing; keep the shaft until the bank is corrected."  # AUTHOR'S CHOICE: the S3 numbers are all set from the scribe, so only the waste past it depends on the span; 11.50 keeps the S1 follow-rest jaw band (jaws 8 mm behind the tool stopped at T1 Z152, 10 mm deep: T1 Z155-165, 1-11 mm in from the plain end) beyond the S3 dome base Z0.25
 coolant = "CRC cutting oil brushed on"  # author's choice
 deburr_mm = 0.25
 stock_in = "S2"
 
 [setups.stock_state]
 od_mm = 6.35
-plain_end_z = "unknown"       # T3: supply end plus grip remnant past the scribe
-north_end_z = "unknown"
+plain_end_z = 16.83           # example: supply end 175 from the apex, scribe at the REF span
+north_end_z = -158.17         # north apex
+south_end_z = 16.83           # the plain end is the south end
 
 [setups.stock_state.local_thickness]
 # no holes on this part
@@ -429,29 +623,33 @@ north_end_z = "unknown"
 [setups.hold]
 fixture = "chuck-3jaw-6-d1-4"
 support = "none"
-grip_on = "body near the plain end, north of the scribe"
-grip_mm = 25.0             # author's choice: body grip from T3 Z -35 to -10
+grip_on = "body 8 mm and more north of the scribe"
+grip_mm = 25.0             # author's choice: body grip from T3 Z-33 to -8, clear of the dome tool
 fixed_jaw = "not_applicable"
 jaws_along = "not_applicable"
 parallels = "not_applicable"
 jaw_above_parallels_mm = "not_applicable"
-stop = "jaw fronts 10 mm north of actual fit-up scribe, T3 Z -10"  # author's choice; actual scribe position remains unmeasured
-clamp = "tighten chuck key by hand at all three pinions; remove key; indicate after clamping"  # author's choice
-jaw_protection = "prepare clean paper sleeve under smooth, deburred jaw contacts; reject marks or slip"  # author's choice; no listed accessory invented
-stickout_mm = "unknown"     # depends on actual scribe-to-supply-end length, not the 156.67 REF
+stop = "jaw fronts 8 mm north of the actual fit-up scribe, Z-8. Set it from the scribe, not from the number"  # author's choice: room for the dome tool and holder past the jaws
+clamp = "tighten chuck key by hand at all three pinions; remove key; then indicate the bearing between the jaw fronts and the scribe (Z-7 to -1)"  # author's choice
+jaw_protection = "clean paper sleeve under smooth, deburred jaw contacts; reject marks or slip"  # author's choice; no listed accessory invented
+stickout_mm = 24.83         # nominal: jaw front Z-8 to the nominal plain end Z16.83 = stickout_fit nominal + add
+stickout_fit = { measure = "trial-fit scribe-to-end reading", nominal_mm = 16.83, add_mm = 8.0 }  # the actual setting is the measured scribe-to-end reading + 8
+pose = { origin_mm = [0.0, 0.0, -8.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
+jaw_clock_deg = 0.0
 
 [setups.zero.transfer]
 from = "S2"
 indicate = "pivot_bearing"
 gauge = "dial-indicator"
-runout_limit_mm = "unknown"
+runout_limit_mm = 0.02        # author's choice: example limit next to the jaws
 
 [setups.zero.x]
 feature = "spindle_axis"
+edge = "spindle axis: trial cut only on the plain-end waste, from the plain end in to Z6 (all of it past the parting line, cut off in op 10); never on the bearing. Mic the land with the anvils between Z7 and the end"  # AUTHOR'S CHOICE: the arriving body is the finished Ø6.330-6.350 bearing; the land runs to the end so the micrometer anvils seat on it alone; Z6 lies past the op 10 cut (Z2.25 plus the blade) and inside the shortest permitted span (11.50)
 edge_mm = 0.0
 from = "+x"
-method = "trial_cut_measure"
-tool = "turning-tools-warner-lms-4132/AR"
+method = "trial_cut_measure"  # on the excess past the scribe
+tool = "hss-toolbit-3-8-rh"
 gauge = "micrometers/0-1in"
 check_jog_mm = 10.0         # author's choice: physical radial jog
 
@@ -460,52 +658,90 @@ face = "scribe"
 edge_mm = 0.0
 from = "+z"
 method = "align_tool_point_to_scribe"  # author's choice: stationary spindle, align point to centre of actual scribe
-tool = "turning-tools-warner-lms-4132/AR"
+tool = "hss-toolbit-3-8-rh"
 paper_mm = 0.0             # author's choice: no paper at scribe
 check_jog_mm = 10.0        # author's choice: physical axial jog
 retouch_after = []
 
 [[setups.zero.tool_touches]]
-tool = "turning-tools-warner-lms-4132/E"
-x_method = "touch the cylinder just measured by micrometer; Axis Set its measured diameter"  # author's choice
+tool = "parting-blade-lms-1728"
+x_method = "spindle stopped: mic the T3 trial-cut land again, anvils between Z7 and the end (the land stands until op 10 cuts it off); bring the blade tip in on that land through cigarette paper (0.05) until the paper drags"  # AUTHOR'S CHOICE: the zero's own trial-cut land is the one measured surface that stands before op 10; D2 zero on the surface touched, measured where it is touched
+x_face = "x_zero"
+x_paper_mm = 0.05            # cigarette paper
 gauge = "micrometers/0-1in"
-z_face = "cut_face_after_op10"
-edge_mm = 1.75             # author's choice: new apex plane after facing
-paper_mm = 0.0             # author's choice: direct contact
-method = "touch; withdraw along X without moving Z; Axis Set Z"  # author's choice
+z_face = "scribe"
+edge_mm = 0.0
+paper_mm = 0.0             # author's choice: chuck-side corner aligned to the scribe, stationary spindle
+method = "spindle stopped; align the chuck-side corner to the scribe; withdraw along X without moving Z"  # author's choice; the sheet prints the Axis Set value
+corner = "chuck_side"      # AUTHOR'S CHOICE: the chuck-side corner on the scribe because it forms the kept +Z dome end at Z2.25; a scribe has no face normal to give it
+before_ops = [10]
+
+# The blade's Axis Set replaced the HSS tool's zero; put the HSS tool bit back in holder #1 and
+# re-touch it before it faces and domes. Op 10 parted the trial-cut land off, so X is taken on
+# the body Ø left past the scribe, which ops 20 and 30 cut away.
+[[setups.zero.tool_touches]]
+tool = "hss-toolbit-3-8-rh"
+x_method = "spindle stopped: mic the body Ø between the jaw fronts and the parted end (Z-7 to Z2: one finished diameter, so the anvils sit anywhere on it); bring the tool nose in on the stub past the scribe, Z1 to Z2, through cigarette paper (0.05) until the paper drags"  # AUTHOR'S CHOICE: the trial-cut land is gone after op 10; the body stub past the scribe still stands, is the same diameter the micrometer reads, and ops 20 and 30 cut it away; D2 zero on the surface touched, measured where it is touched
+x_face = "pivot_bearing"
+x_paper_mm = 0.05            # cigarette paper
+gauge = "micrometers/0-1in"
+z_face = "scribe"
+edge_mm = 0.0
+paper_mm = 0.0             # author's choice: tool nose aligned to the scribe, stationary spindle, as for the zero
+method = "spindle stopped; align the tool nose to the centre of the scribe; withdraw along X without moving Z"  # author's choice; the sheet prints the Axis Set value
 after_op = 10
 before_ops = [20]
 
 [[setups.ops]]
 op = 10
 do = "cut_to_fit"
-feature = "south_dome" # exported final surface at the cut-to-fit plain end
-tool = "turning-tools-warner-lms-4132/AR"
-holder = "qctp-axa-lms-2280/1-turning-facing"
-to_z = 1.75                # author's choice: midpoint of sourced 1.5–2.0 past-scribe band; not absolute fitted length
-to_z_band = [1.5, 2.0]        # "CUT THE PLAIN END 1.5 TO 2.0 PAST THE SCRIBE"
-direction = "radially_inward"  # author's choice: repeated facing, not an undeclared parting blade
-note = "Face the excess and grip remnant off; no parting blade selected."
-
-[[setups.ops]]
-op = 15
-do = "inspect"
-feature = "pivot_bearing"
-missing_requirements = { length = "calipers" }  # author's choice: scribe-to-face transfer, then assembly fit check
-
-[setups.ops.inspection_methods]
-length = "Measure 1.75 past the actual scribe to the cut face with calipers; after doming verify cylinder end 0.25 past scribe and trial fit over the installed ears."  # author's choice; actual span remains unknown
+feature = "south_dome"     # exported final surface at the cut-to-fit plain end
+tool = "parting-blade-lms-1728"
+holder = "qctp-axa-lms-2280/7-parting"
+to_z = 2.25                # AUTHOR'S CHOICE: part the waste off 0.5 long so op 20 faces the apex to a DRO-set Z
+doc_mm = 3.2               # radial plunge to the centre of Ø6.35
+feed_mm_rev = 0.025         # example (plausible, not measured); .0010 in/rev, inside Machinery's Handbook 27th ed. p.1132 cutoff-tool feeds .0006-.0015 in/rev, hand-fed
+direction = "plunge_radial"  # author's choice
+note = "Part the waste off long, chuck-side blade corner at Z2.25. Plunge from X6.35 (the bearing Ø) to X0.00 on the DRO, 3.18 radial in total, pecking and clearing chips. Let the waste offcut drop into the chip tray; pick it up only with the spindle stopped. Op 20 faces off the parting pip."
 
 [[setups.ops]]
 op = 20
+do = "face"
+feature = "south_dome"
+tool = "hss-toolbit-3-8-rh"
+holder = "qctp-axa-lms-2280/1-turning-facing"
+to_z = 1.75                # author's choice: midpoint of the sourced "CUT THE PLAIN END 1.5 TO 2.0 PAST THE SCRIBE" band; the apex of the dome. A DRO-set Z, not a band: op 30 starts its table here
+doc_mm = 0.25              # two facing passes, Z2.25 → 1.75; example (plausible, not measured), under the .125 in (3.2 mm) depth Machinery's Handbook 27th ed. bases its Table 1 p.1027 HSS speeds on (p.1026); the Table 5c p.1036 depth factor only raises speed for lighter cuts
+feed_mm_rev = 0.05          # example (plausible, not measured); .0020 in/rev, the .002 in (0.05 mm) row of Machinery's Handbook 27th ed. Table 5c p.1036 HSS feeds
+direction = "radially_inward"  # author's choice
+# Fit-up band source: harmonic-analyzer/cad/scripts/draw_channel_assembly.py:82,101-110 (channel
+# assembly fit-up note, "CUT THE PLAIN END 1.5 TO 2.0 PAST THE SCRIBE"); the shaft drawing gives
+# the span only as pivot_bearing.length_ref 156.67 CUT TO FIT, so this is a process hold on that
+# REF span, not a drawing limit.
+process_holds = [{ feature = "pivot_bearing", requirement = "length_ref", measure = "scribe to faced end", band = [1.50, 2.00], gauge = "lathe-z-dro", reason = "AUTHOR'S CHOICE: channel assembly fit-up note, plain end 1.5 to 2.0 past the scribe; the shaft drawing leaves this span CUT TO FIT", cite = ["harmonic-analyzer/cad/scripts/draw_channel_assembly.py:82,101-110"] }]
+inspection_note = [
+  "Fit-up hold (see PROCESS HOLDS on the job page). Spindle stopped, lathe in neutral; read it on the Z DRO.",
+  "Check the zero: turn the chuck by hand until the scribe faces you. Bring T3, the HSS turning tool, back to the scribe under the 10x measuring loupe, its nose on the scribe as in its Z touch-off before op 20, and read Z: {Z_scribe}. It must read 0.00 ±0.05. If not, the part has slipped: tighten the chuck at all three pinions, set T3's Z on the scribe again as in that touch-off, then go on.",
+  "Bring T3's Z-cutting edge onto the faced end through cigarette paper (0.05) until the paper drags, and read Z: {Z_end}.",
+  "Calculate: scribe-to-end = Z_end − 0.05 = {result}",
+  "Work out the scribe-to-end on the calculation line below. 1.50 to 2.00: go on to op 30. Over 2.00: face again to Z1.75 and measure again. Under 1.50: the end is too short for the fit-up and cannot be put back; do not form the dome. The shaft is scrap: make a new one from a fresh blank, from the first setup.",
+]
+note = "Face the parted end to Z1.75 in two passes, feeding toward the centre; stop at centre height and check that no pip is left."
+
+[[setups.ops]]
+op = 30
 do = "form_dome"
 feature = "south_dome"
-tool = "turning-tools-warner-lms-4132/E"
+tool = "hss-toolbit-3-8-rh"   # same 93° bit as the north dome; a 60° profiling tool cannot reach the near-axial apex faces
 holder = "qctp-axa-lms-2280/1-turning-facing"
-z_from = 1.75              # author's choice: op 10 apex face
+z_from = 1.75              # author's choice: the op 20 faced end (apex), a deterministic DRO Z
 z_to = 0.25                # author's choice: apex 1.75 - sourced dome height 1.5
+doc_mm = 0.1                # author's choice: one rough row per pass, so 0.10 axial per pass = the contour row step; example (plausible, not measured); under the .125 in (3.2 mm) depth Machinery's Handbook 27th ed. bases its Table 1 p.1027 HSS speeds on (p.1026); the Table 5c p.1036 depth factor only raises speed for lighter cuts
+feed_mm_rev = 0.05          # example (plausible, not measured); .0020 in/rev, the .002 in (0.05 mm) row of Machinery's Handbook 27th ed. Table 5c p.1036 HSS feeds
 direction = "apex_to_base"  # author's choice
-contour = { method = "axial_table", step_mm = 0.1 }  # author's choice; tool nose geometry still unknown
+rough_allowance_mm = 0.2    # author's choice, on diameter: the rough stair leaves 0.1 normal to the sphere for the finish table
+contour = { method = "axial_table", step_mm = 0.1 }  # author's choice: rough stair rows, then the finish table (tool columns)
+note = "Rough first, row by row down the ROUGH table on S3 sheet 3: each row is one pass, 0.10 deep in Z — at the row's Z, feed in along X from outside the work to the row's X, then back out. Then take the FINISH table. The 0.20 left on Ø is the finish allowance the rough rows leave, not a pass depth."
 
 [setups.ops.checks]
 height = "calipers"         # author's choice: axial outside-jaw contact at apex and base rim
@@ -513,3 +749,15 @@ height = "calipers"         # author's choice: axial outside-jaw contact at apex
 [setups.ops.inspection_methods]
 height = "With spindle stopped, align outside caliper jaws axially at apex and visible base rim; repeat around rim and trial fit the assembly."  # author's choice
 
+[[setups.ops]]
+op = 35
+do = "deburr"
+feature = "south_dome"
+note = "Spindle stopped, lathe in neutral, carriage run back clear. Turn the chuck by hand and break the south dome base rim with the fine needle file held at 45°, then the slip stone, to R0.25 or 0.25 chamfer max. Do not touch the dome or the bearing Ø. Check it under the 10x measuring loupe: the break shows all round, is no wider than 0.25 (2½ reticle divisions), and no burr catches a fingernail. Deburr before the part comes out for oiling."  # AUTHOR'S CHOICE: hand deburr with the spindle stopped, before the op 40 oil film
+
+[[setups.ops]]
+op = 40
+do = "coating"
+feature = "pivot_bearing"
+process = "light-machine-oil"
+note = "Drawing finish: turned, oiled. Out of the chuck, on the bench: wipe off chips and cutting oil with a clean rag, then wipe a thin film of light machine oil over the whole shaft, domes included."
