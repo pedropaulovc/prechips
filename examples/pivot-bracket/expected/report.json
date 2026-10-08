@@ -1408,7 +1408,7 @@
           },
           "inventory": {
             "path": "examples/inventory/pedro-shop.toml",
-            "sha256": "184a448fffae582201940ad4cf0d92bd690db38396dced63bed98f520ced2a42"
+            "sha256": "73160df393ec850b492cd7fcca3ae56e8ad3c47a8790456d00436e38f3b921ba"
           },
           "plan": {
             "path": "examples/pivot-bracket/plan.toml",
@@ -22866,7 +22866,7 @@
       "subject": "S5"
     }
   ],
-  "hash": "d6e35dbb20f42759797db9871feec76a5b467c6b6f6c9e982bc4563610c1065c",
+  "hash": "d7389158a6f3cdd0da693bd322f7d22f24810c6df18ed7c4e96a062310411a92",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -22878,7 +22878,7 @@
     },
     "inventory": {
       "path": "examples/inventory/pedro-shop.toml",
-      "sha256": "184a448fffae582201940ad4cf0d92bd690db38396dced63bed98f520ced2a42"
+      "sha256": "73160df393ec850b492cd7fcca3ae56e8ad3c47a8790456d00436e38f3b921ba"
     },
     "plan": {
       "path": "examples/pivot-bracket/plan.toml",
