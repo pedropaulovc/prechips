@@ -605,7 +605,12 @@ fields are listed in the job's reason text and the dependent rules are `?`.
     clamp members the same way. A `void = true` primitive is cut from the
     same list's other primitives (or those named in its `cuts`), never drawn.
     A primitive with its own `verify = true` or an unmeasured dimension is not
-    drawn and becomes a debt; an unresolved void withholds what it cuts.
+    drawn and becomes a debt; an unresolved void withholds what it cuts. On a
+    machine of kind `bench` or `manual` (no machine table) the hold's fixture
+    (or dividing head) leaves out its `table_mount = "hardware"` primitives,
+    the screws or bolts that fasten it to a table (docs/inventory.md): off the
+    fixture there, they are neither drawn nor an obstacle and owe no debt.
+    Unmarked or unknown, a primitive is drawn on every machine.
   - Any other kind (collet, a support without a `dead_centre` model) carries
     `Fixture solids are not declared for this holding kind.` or, for an
     undrawn support beside drawn solids, a gap: clear samples stay `unknown`

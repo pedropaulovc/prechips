@@ -1293,6 +1293,10 @@ Bars = record(
 # fixture table).
 # ``supply``: made with its owner (default), ``bought`` hardware, or ``existing`` in the
 # shop (a machine's vise jaw drawn for clearance); only made solids are make-table rows.
+# ``table_mount``: what fastens the item to a machine table, which a bench (machine kind
+# ``bench`` or ``manual``) does not have: ``hardware`` on a solid that is that hardware (a
+# hold-down screw, T-bolt or T-nut), not drawn on a bench; ``fastener`` on a solid whose
+# ``fastener`` is that hold-down (the base's), not printed as fitted on a bench.
 # ``records``: values measured and written down when the part is made or received (a
 # head-to-shoulder TIR, a squareness by reversal), printed as fill-ins under the table.
 # A record says what is measured (``check``), optionally with which inventory ``gauge``
@@ -1323,6 +1327,7 @@ FixtureSolid = record(
         "shim": bool,
         "supply": Literal["made", "bought", "existing"],
         "bears": Literal["bore", "face"],
+        "table_mount": Literal["hardware", "fastener"],
         "cuts": list[str],
         "records": list[RecordBlank],
         "make_ops": MakeOps,
@@ -1613,6 +1618,18 @@ def _inventory_checks(item: Any, where: str) -> None:
         if not isinstance(solid, dict):
             continue
         name = solid.get("name", "?")
+        mount = solid.get("table_mount")
+        if mount == "hardware" and solid.get("void") is True:
+            # Left off on a bench, a void would leave its owner uncut there.
+            raise ValueError(
+                f"{where} solid {name}: a void is a hole in its owner, never table-mount "
+                'hardware; mark the screw or bolt solid table_mount = "hardware".'
+            )
+        if mount == "fastener" and str(solid.get("fastener", UNKNOWN)).strip() in ("", UNKNOWN):
+            raise ValueError(
+                f'{where} solid {name}: table_mount = "fastener" marks its hold-down '
+                "fastener, and it declares none."
+            )
         if "records" not in solid:
             continue
         records = solid["records"]

@@ -952,6 +952,36 @@ def test_unresolved_void_withholds_the_solids_it_cuts(cuts, drawn):
     assert "base solid plate: not drawn, its void bore is unresolved" in hold["gaps"]
 
 
+@pytest.mark.parametrize(
+    ("kind", "mount", "drawn"),
+    [
+        # A bench has no machine table: the screw that holds the plate to one is off.
+        ("bench", "hardware", ["plate:base"]),
+        ("manual", "hardware", ["plate:base"]),
+        ("mill", "hardware", ["plate:base", "plate:screw"]),
+        # Unmarked or unknown, the screw is drawn wherever the plate is.
+        ("bench", None, ["plate:base", "plate:screw"]),
+        ("bench", "unknown", ["plate:base", "plate:screw"]),
+        # The base's own fastener text, not the base, is what a "fastener" mark covers.
+        ("bench", "fastener", ["plate:base", "plate:screw"]),
+    ],
+)
+def test_table_mount_hardware_is_off_a_fixture_set_on_a_bench(kind, mount, drawn):
+    screw = {**_cylinder("screw", [0, 0, -2], 8, 12), "supply": "bought", "measured": MEASURED}
+    screw["fastener"] = "M8 SHCS into a T-slot T-nut"
+    if mount is not None:
+        screw["table_mount"] = mount
+    plate = {
+        "kind": "custom",
+        "solids": [{**_box("base", [-20, -20, 0], [40, 40, 10]), "measured": MEASURED}, screw],
+    }
+    bundle = _Inventory({"fixtures": {"plate": plate}, "machines": {"m": {"kind": kind}}})
+    pose = {"origin_mm": [0, 0, 0], **UP}
+    hold = hold_inputs(bundle, {"machine": "m", "hold": {"fixture": "plate", "pose": pose}})
+    assert [solid["name"] for solid in hold["solids"]] == drawn
+    assert hold["gaps"] == []
+
+
 def _measured(value):
     return {"value": value, "measured": MEASURED}
 
