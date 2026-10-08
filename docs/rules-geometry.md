@@ -1868,7 +1868,10 @@ cross-section, checked at six meridians) prints `STOCK Ø` its largest diameter,
 its length left to the stock dimension; only other stock prints `STOCK BOX: X / Y
 / Z`. A stickout from a measured fit-up (`hold.stickout_fit` with a stated
 reading) is dimensioned `NOM STICKOUT … mm` and the setup notes say it is set as
-the measured fit-up + N mm. Steady rest
+the measured fit-up + N mm. When no jaw-front stickout dimension is drawn, its
+annotation uses the upper dimension-label row, clearing the stock-length label
+at full body size; it does not use a dimension-line coordinate as its text top.
+Steady rest
 rings are drawn as fixture solids; each follow rest's
 jaws are drawn and labelled posed for the first cutting sample of the first
 op it serves. An exposed-end detail makes short lathe stickouts legible; when

@@ -461,6 +461,80 @@ def test_a_stickout_from_a_fit_up_is_labelled_nominal_with_its_setting():
     assert "STICKOUT 80 MM IS NOMINAL: SET IT AS THE MEASURED FIT-UP + 8 MM." in text, text
 
 
+@pytest.mark.parametrize("stickout", [105, 5])
+def test_public_wide_stock_and_stickout_rows_preserve_glyphs_and_projection(stickout):
+    """Synthetic complete tagged solid; the short caption is an adjacent layout control."""
+    stock = [0, 0, 0, 125, 20, 10]
+    meshes = [_block(stock, (160, 175, 185), "part")]
+    spec = {
+        "setup_id": "SYN-DIM",
+        "view": "plan",
+        "stock_box": stock,
+        "stickout_mm": stickout,
+        "decimals": 3,
+        "zero_mm": [0, 0, 0],
+        "datums": [{"label": "REFERENCE A", "point_mm": [0, 0, 10]}],
+    }
+    supplied = json.dumps({"meshes": meshes, "spec": spec}, sort_keys=True)
+    diagram, png = _composed_diagram(meshes, spec, [])
+    width, height, pixels = _decode_png(png)
+    assert json.dumps({"meshes": meshes, "spec": spec}, sort_keys=True) == supplied
+    assert width == 1600
+    stock_label = f"STOCK X {stock[3] - stock[0]:g} mm"
+    stickout_caption = f"STICKOUT {stickout:.3f} MM"
+    (stock_text,) = [box for box in diagram.canvas.text_boxes if box[0] == stock_label.upper()]
+    (stickout_text,) = [box for box in diagram.canvas.text_boxes if box[0] == stickout_caption]
+    assert stock_text[2] - stickout_text[4] >= 4
+    diagram.canvas.assert_text_layout(min_scale=5)
+    for box, colour in ((stock_text, _INK), (stickout_text, render_module._BLUE)):
+        text, left, top, right, bottom = box
+        assert bottom - top == 35
+        scale = (bottom - top) // 7
+        word_ink = [
+            (x, y)
+            for y in range(top, bottom)
+            for x in range(left, right)
+            if tuple(pixels[(y * width + x) * 3 : (y * width + x) * 3 + 3]) == colour
+        ]
+        assert min(x for x, _ in word_ink) == left
+        assert max(x for x, _ in word_ink) == right - 1
+        assert min(y for _, y in word_ink) == top
+        assert max(y for _, y in word_ink) == bottom - 1
+        # Inspect every real glyph cell, not a copied bitmap/reference text rendering.
+        # Alphanumerics span the full body height; punctuation must also survive.
+        for index, character in enumerate(text):
+            if character == " ":
+                continue
+            cell_left = left + index * 6 * scale
+            glyph_ink = [(x, y) for x, y in word_ink if cell_left <= x < cell_left + 5 * scale]
+            assert glyph_ink
+            if character.isalnum():
+                assert min(y for _, y in glyph_ink) == top
+                assert max(y for _, y in glyph_ink) == bottom - 1
+    first, second = diagram.dimensions[stock_label]
+    assert first[0] == diagram.canvas.project((stock[0], 10, 5))[0]
+    assert second[0] == diagram.canvas.project((stock[3], 10, 5))[0]
+    assert first[1] == second[1]
+    stock_start = next(path[0] for label, path in diagram.leaders if label == "STOCK")
+    assert _tag_at(diagram.canvas, *stock_start) == "part"
+    datum_start = next(path[0] for label, path in diagram.leaders if label == "DATUM REFERENCE A")
+    assert datum_start == diagram.canvas.project(spec["datums"][0]["point_mm"])
+    cursor = 0
+    for panel in diagram.print_panels:
+        assert panel["top_px"] == cursor
+        assert 0 < panel["height_px"] <= 1792
+        cursor += panel["height_px"]
+    assert cursor == height
+    assert all(
+        sum(
+            panel["top_px"] <= box[2] < box[4] <= panel["top_px"] + panel["height_px"]
+            for panel in diagram.print_panels
+        )
+        == 1
+        for box in diagram.canvas.text_boxes
+    )
+
+
 @pytest.mark.parametrize(
     "view,jaw", [("lathe", -40), ("lathe", None), ("plan", -40), ("plan", None)]
 )

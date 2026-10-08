@@ -1563,7 +1563,15 @@ class _Diagram:
             _dimension(c, first, second, label, colour)
             self.dimensions[label] = (first, second)
         if stickout is not None and (jaw_marker is None or self.view != "lathe"):
-            _text(c, 1568, y - _LEADING - 16, stickout_label, _BLUE, align="right", backing=True)
+            _text(
+                c,
+                1568,
+                y - _LEADING - 16 - _TEXT_HEIGHT - 8,
+                stickout_label,
+                _BLUE,
+                align="right",
+                backing=True,
+            )
 
     def _labels(self):
         """Two lanes of print-size keys. Type never shrinks: lanes rebalance, then tighten
