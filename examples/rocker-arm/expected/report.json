@@ -25,7 +25,7 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "Fixture pose/dimensions unmeasured or unavailable: jaw_depth_mm",
+      "message": "S1:10: selected tool/holder dimensions are unmeasured or unavailable.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -60,7 +60,7 @@
         "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "Fixture pose/dimensions unmeasured or unavailable: jaw_depth_mm",
+      "message": "S1:20: selected tool/holder dimensions are unmeasured or unavailable.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -95,7 +95,7 @@
         "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "Fixture pose/dimensions unmeasured or unavailable: jaw_depth_mm",
+      "message": "S1:25: selected tool/holder dimensions are unmeasured or unavailable.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -129,7 +129,7 @@
         "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "Fixture pose/dimensions unmeasured or unavailable: jaw_depth_mm",
+      "message": "S1:30: selected tool/holder dimensions are unmeasured or unavailable.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -166,7 +166,7 @@
         "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "Fixture pose/dimensions unmeasured or unavailable: jaw_depth_mm",
+      "message": "S1:40: selected tool/holder dimensions are unmeasured or unavailable.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -205,7 +205,7 @@
         "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit verified dimensions",
         "inventory.holders.r8-collets-lms-4860/3-8in: explicit-unit verified dimensions"
       ],
-      "message": "Fixture pose/dimensions unmeasured or unavailable: jaw_depth_mm",
+      "message": "S1:50: selected tool/holder dimensions are unmeasured or unavailable.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -242,7 +242,7 @@
         "plan.setups.S1.ops.60: selected action/tool/holder",
         "inventory.tools.center-drills-lms-4859/2: explicit-unit verified dimensions"
       ],
-      "message": "Fixture pose/dimensions unmeasured or unavailable: jaw_depth_mm",
+      "message": "S1:60: selected tool/holder dimensions are unmeasured or unavailable.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -280,7 +280,7 @@
         "inventory.tools.drill-index-115/1-4in: explicit-unit verified dimensions",
         "inventory declared fractional drill coverage × 25.4 mm/in"
       ],
-      "message": "Fixture pose/dimensions unmeasured or unavailable: jaw_depth_mm",
+      "message": "S1:70: selected tool/holder dimensions are unmeasured or unavailable.",
       "numbers": {},
       "rule": "accessibility",
       "status": "unknown",
@@ -1065,11 +1065,11 @@
           },
           "inventory": {
             "path": "examples/inventory/pedro-shop.toml",
-            "sha256": "9910c9f12013d89dc6745bb6ebfac62a4f4d0ad3ecab71d492fc03139b38a87b"
+            "sha256": "24ebd612e17d6672c42752f9a77cd943a42030c729a81d735f77bf1acf1021e1"
           },
           "plan": {
             "path": "examples/rocker-arm/plan.toml",
-            "sha256": "c9ff99a0431343048d6e457c54bf7425293361dd6d7edb041f34c50dbb585f0f"
+            "sha256": "d617cfc14591e760c89a26e6872512774a2e07614c0b1040c875ec894d42d344"
           },
           "shop_policy": {
             "path": "examples/shop-policy.toml",
@@ -9661,7 +9661,7 @@
         "plan.setups.stock_state.top_z/entry_z/local_thickness",
         "plan.setups.stock_state: physical supported stock height"
       ],
-      "message": "S1: spindle envelope remains unmeasured or unresolved. measure: blocks-123-lms-2881 record height, steel rule or calipers, mm; measure: parallels-lms-6745/1-2in record height, steel rule or calipers, mm; measure: vise-pm-6 table to vise bed supporting the parallels or part, height gauge, mm; resolve: add or select an owned holder for drill-chuck-r8 in inventory and author plan.setups.S1.ops.70.holder; measure: r8-collets-lms-4860/3-8in spindle nose to mounted holder exit face, steel rule or height gauge, mm; measure: r8-collets-lms-4860/3-8in installed tool insertion from holder exit face, steel rule or calipers, mm; measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: PM-30MV spindle nose to table at full Z-down, steel rule or height gauge, mm; author: Author plan.setups.S1.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S1.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S1.ops.25.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S1.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S1.ops.40.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S1.ops.50.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S1.ops.60.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S1.ops.70.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S1.ops.70 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; measure: drill-index-115/1-4in selected cutter diameter, micrometer, mm; measure: drill-index-115/1-4in included drill point angle, protractor, degrees; measure: endmills-lms-6784/3-8in-2fl selected tool overall length, steel rule or calipers, mm; measure: endmills-lms-6784/3-8in-4fl selected tool overall length, steel rule or calipers, mm.",
+      "message": "S1: spindle envelope remains unmeasured or unresolved. measure: blocks-123-lms-2881 record height, steel rule or calipers, mm; measure: parallels-lms-6745/1-2in record height, steel rule or calipers, mm; resolve: add or select an owned holder for drill-chuck-r8 in inventory and author plan.setups.S1.ops.70.holder; measure: r8-collets-lms-4860/3-8in spindle nose to mounted holder exit face, steel rule or height gauge, mm; measure: r8-collets-lms-4860/3-8in installed tool insertion from holder exit face, steel rule or calipers, mm; measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: PM-30MV spindle nose to table at full Z-down, steel rule or height gauge, mm; author: Author plan.setups.S1.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S1.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S1.ops.25.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S1.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S1.ops.40.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S1.ops.50.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S1.ops.60.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S1.ops.70.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.S1.ops.70 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; measure: drill-index-115/1-4in selected cutter diameter, micrometer, mm; measure: drill-index-115/1-4in included drill point angle, protractor, degrees; measure: endmills-lms-6784/3-8in-2fl selected tool overall length, steel rule or calipers, mm; measure: endmills-lms-6784/3-8in-4fl selected tool overall length, steel rule or calipers, mm.",
       "numbers": {
         "basis": "measured fixture bed/height + parallels/supports + supported part height + selected holder gauge + tool/holder projection + tip Z relative to part top; authored approach and deepest cut included; not a collision proof",
         "fixture_height_mm": "unknown",
@@ -9680,14 +9680,6 @@
             ],
             "id": "fixtures.parallels-lms-6745/1-2in.height",
             "instruction": "measure: parallels-lms-6745/1-2in record height, steel rule or calipers, mm",
-            "units": "mm"
-          },
-          {
-            "cite": [
-              "inventory.fixtures.vise-pm-6.bed_height"
-            ],
-            "id": "fixtures.vise-pm-6.bed_height",
-            "instruction": "measure: vise-pm-6 table to vise bed supporting the parallels or part, height gauge, mm",
             "units": "mm"
           },
           {
@@ -10011,7 +10003,7 @@
         "plan.setups.stock_state.top_z/entry_z/local_thickness",
         "plan.setups.stock_state: physical supported stock height"
       ],
-      "message": "S2: spindle envelope remains unmeasured or unresolved. measure: blocks-123-lms-2881 record height, steel rule or calipers, mm; measure: parallels-lms-6745/1-2in record height, steel rule or calipers, mm; measure: vise-pm-6 table to vise bed supporting the parallels or part, height gauge, mm; measure: r8-collets-lms-4860/3-8in spindle nose to mounted holder exit face, steel rule or height gauge, mm; measure: r8-collets-lms-4860/3-8in installed tool insertion from holder exit face, steel rule or calipers, mm; measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: PM-30MV spindle nose to table at full Z-down, steel rule or height gauge, mm; author: Author plan.setups.S2.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S2.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S2.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S2.ops.40.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S2.ops.50.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; measure: endmills-lms-6784/3-8in-2fl selected tool overall length, steel rule or calipers, mm; measure: endmills-lms-6784/3-8in-4fl selected tool overall length, steel rule or calipers, mm.",
+      "message": "S2: spindle envelope remains unmeasured or unresolved. measure: blocks-123-lms-2881 record height, steel rule or calipers, mm; measure: parallels-lms-6745/1-2in record height, steel rule or calipers, mm; measure: r8-collets-lms-4860/3-8in spindle nose to mounted holder exit face, steel rule or height gauge, mm; measure: r8-collets-lms-4860/3-8in installed tool insertion from holder exit face, steel rule or calipers, mm; measure: PM-30MV spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: PM-30MV spindle nose to table at full Z-down, steel rule or height gauge, mm; author: Author plan.setups.S2.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S2.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S2.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S2.ops.40.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Author plan.setups.S2.ops.50.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; measure: endmills-lms-6784/3-8in-2fl selected tool overall length, steel rule or calipers, mm; measure: endmills-lms-6784/3-8in-4fl selected tool overall length, steel rule or calipers, mm.",
       "numbers": {
         "basis": "measured fixture bed/height + parallels/supports + supported part height + selected holder gauge + tool/holder projection + tip Z relative to part top; authored approach and deepest cut included; not a collision proof",
         "fixture_height_mm": "unknown",
@@ -10030,14 +10022,6 @@
             ],
             "id": "fixtures.parallels-lms-6745/1-2in.height",
             "instruction": "measure: parallels-lms-6745/1-2in record height, steel rule or calipers, mm",
-            "units": "mm"
-          },
-          {
-            "cite": [
-              "inventory.fixtures.vise-pm-6.bed_height"
-            ],
-            "id": "fixtures.vise-pm-6.bed_height",
-            "instruction": "measure: vise-pm-6 table to vise bed supporting the parallels or part, height gauge, mm",
             "units": "mm"
           },
           {
@@ -10827,23 +10811,23 @@
       ],
       "message": "S1: headroom, travel or jaw-path geometry remains unmeasured or unresolved.",
       "numbers": {
-        "bed_height_mm": "unknown",
+        "bed_height_mm": 73.3044,
         "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
         "cut_tip_above_jaws_mm": {
-          "10": 3.2732499999999973,
-          "20": 1.1949999999999972,
-          "25": 0.9949999999999974,
-          "30": 1.1949999999999972,
-          "40": -0.055000000000002824,
-          "50": -0.055000000000002824
+          "10": 4.682949999999998,
+          "20": 2.604699999999998,
+          "25": 2.4046999999999983,
+          "30": 2.604699999999998,
+          "40": 1.354699999999998,
+          "50": 1.354699999999998
         },
-        "fixture_height_mm": 46.355,
+        "fixture_height_mm": 44.945299999999996,
         "fixture_verify": true,
         "holder_gauge_len_mm": "unknown",
         "insertion_mm": 25,
         "jaw_obstruction": {
-          "jaw_top_z": -3.2732499999999973,
-          "requires_path_check": true
+          "jaw_top_z": -4.682949999999998,
+          "requires_path_check": false
         },
         "measurements": [
           {
@@ -10968,7 +10952,7 @@
         "stock_extent_x_mm": 310.0,
         "stock_extent_y_mm": 45.0,
         "stock_height_mm": 16.0,
-        "stock_top_above_jaws_mm": 7.744999999999997,
+        "stock_top_above_jaws_mm": 9.154699999999998,
         "stock_top_z": 4.47175,
         "sum_mm": "unknown",
         "support_blocks_mm": 25.4,
@@ -11004,22 +10988,22 @@
       ],
       "message": "S2: headroom, travel or jaw-path geometry remains unmeasured or unresolved.",
       "numbers": {
-        "bed_height_mm": "unknown",
+        "bed_height_mm": 73.3044,
         "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
         "cut_tip_above_jaws_mm": {
-          "10": 3.2732499999999973,
-          "20": 0.9949999999999974,
-          "30": 0.9949999999999974,
-          "40": -0.055000000000002824,
-          "50": -0.055000000000002824
+          "10": 4.682949999999998,
+          "20": 2.4046999999999983,
+          "30": 2.4046999999999983,
+          "40": 1.354699999999998,
+          "50": 1.354699999999998
         },
-        "fixture_height_mm": 46.355,
+        "fixture_height_mm": 44.945299999999996,
         "fixture_verify": true,
         "holder_gauge_len_mm": "unknown",
         "insertion_mm": 25,
         "jaw_obstruction": {
-          "jaw_top_z": -3.2732499999999973,
-          "requires_path_check": true
+          "jaw_top_z": -4.682949999999998,
+          "requires_path_check": false
         },
         "measurements": [
           {
@@ -11111,7 +11095,7 @@
         "stock_extent_x_mm": 310.0,
         "stock_extent_y_mm": 45.0,
         "stock_height_mm": 16.0,
-        "stock_top_above_jaws_mm": 7.744999999999997,
+        "stock_top_above_jaws_mm": 9.154699999999998,
         "stock_top_z": 4.47175,
         "sum_mm": "unknown",
         "support_blocks_mm": 25.4,
@@ -11306,7 +11290,8 @@
           "fixture": "vise-pm-6",
           "grip_mm": 6.0,
           "grip_on": "full-thickness rectangular rails",
-          "jaw_above_parallels_mm": 8.255,
+          "jaw_above_parallels_mm": 6.8453,
+          "jaw_center_along_mm": 0.0,
           "jaws_along": "x",
           "note": "Grip the rails on the 1-2-3 blocks plus 1/2 in parallels; never rest the thinned strap on an unsupported island.",
           "parallels": "parallels-lms-6745/1-2in",
@@ -11344,7 +11329,8 @@
           "fixture": "vise-pm-6",
           "grip_mm": 6.0,
           "grip_on": "full-thickness rectangular rails and ears",
-          "jaw_above_parallels_mm": 8.255,
+          "jaw_above_parallels_mm": 6.8453,
+          "jaw_center_along_mm": 0.0,
           "jaws_along": "x",
           "note": "Seat the retained rails, not the thin strap or a hub rim.",
           "parallels": "parallels-lms-6745/1-2in",
@@ -15113,10 +15099,15 @@
         "https://www.precisionmatthews.com/products/vise-6in-highprec",
         "inventory.fixtures.parallels-lms-6745/1-2in: declared dimensions",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72",
-        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117"
+        "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117",
+        "shop-policy.numbers.thin_wall_floor_mm; PLAN.md §4.3 named soft jaws / mandrel / tape / wax"
       ],
-      "message": "Fixture pose/dimensions unmeasured or unavailable: jaw_depth_mm",
-      "numbers": {},
+      "message": "S1: grip-zone wall thickness or shop thin-wall floor is unmeasured.",
+      "numbers": {
+        "method": "unknown",
+        "min_wall_mm": 45.0,
+        "thin_wall_floor_mm": "unknown"
+      },
       "rule": "thin_wall_under_clamp",
       "status": "unknown",
       "subject": "S1"
@@ -17716,10 +17707,21 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:72-72",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117"
       ],
-      "message": "Fixture pose/dimensions unmeasured or unavailable: jaw_depth_mm",
-      "numbers": {},
+      "message": "S1: parallel gripped faces, opening, both-jaw grip and claimed-face exclusion fit declared parallels.",
+      "numbers": {
+        "claimed_in_jaws": [],
+        "contact_grip_mm": [
+          6.8453,
+          6.8453
+        ],
+        "opening_mm": 155.82899999999998,
+        "parallel_pair": true,
+        "parallels_height_mm": 12.7,
+        "required_grip_mm": 6.0,
+        "width_mm": 45.0
+      },
       "rule": "vise",
-      "status": "unknown",
+      "status": "pass",
       "subject": "S1"
     },
     {
@@ -18057,7 +18059,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "7ed104a9fdd9cb0291758056ecbded502c334265abaf2a99bd28c79cd84ea7a5",
+  "hash": "8bc045dcea90587c2692433a6ce198c76ed37dd751ee6642a5d4d788c690bcd7",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -18069,15 +18071,15 @@
     },
     "inventory": {
       "path": "examples/inventory/pedro-shop.toml",
-      "sha256": "9910c9f12013d89dc6745bb6ebfac62a4f4d0ad3ecab71d492fc03139b38a87b"
+      "sha256": "24ebd612e17d6672c42752f9a77cd943a42030c729a81d735f77bf1acf1021e1"
     },
     "plan": {
       "path": "examples/rocker-arm/plan.toml",
-      "sha256": "c9ff99a0431343048d6e457c54bf7425293361dd6d7edb041f34c50dbb585f0f"
+      "sha256": "d617cfc14591e760c89a26e6872512774a2e07614c0b1040c875ec894d42d344"
     },
     "render:S1": {
       "path": "setup-S1.png",
-      "sha256": "ca8b915e76efff697f39157673eb4827f4343973eb8d4fbbba031e7ac57cfbf5"
+      "sha256": "9c12d1f3e5b119f7f11a948d6abf875de27f9e73d726986ecbae83d7e92d068d"
     },
     "shop_policy": {
       "path": "examples/shop-policy.toml",
@@ -18095,12 +18097,12 @@
       "path": "setup-S1.png",
       "scene": {
         "debts": [
-          "jaws not drawn: Fixture pose/dimensions unmeasured or unavailable: jaw_depth_mm"
+          "parallels not drawn: parallels_width_mm, parallels_centres_mm undeclared"
         ],
-        "jaws": "absent",
-        "parallels": "absent"
+        "jaws": "exact",
+        "parallels": "not_modelled"
       },
-      "sha256": "ca8b915e76efff697f39157673eb4827f4343973eb8d4fbbba031e7ac57cfbf5"
+      "sha256": "9c12d1f3e5b119f7f11a948d6abf875de27f9e73d726986ecbae83d7e92d068d"
     }
   },
   "rules_version": "m5-rev8",

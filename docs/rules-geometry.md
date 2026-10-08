@@ -523,10 +523,12 @@ returns `render_scene = {jaws, parallels, debts}`: `jaws` is `absent`
 jaw_center_along_mm): dark jaws span only the part's <e> mm grip-zone
 extent; light strips show where the other <w−e> mm of each <w> mm jaw may
 lie`); `parallels` is `absent` (no usable hold inputs: non-vise holding or
-a vise with dimension/pose debt, as in the shipped rocker whose vise declares
-no `jaw_depth` and yields `jaws not drawn: Fixture pose/dimensions
-unmeasured or unavailable: jaw_depth_mm`), `exact` or
-`not_modelled`. `fixture_rendered` is true only when the jaws are placed and
+a vise with dimension/pose debt, debt `jaws not drawn: <fixture reason>`),
+`exact` or `not_modelled` (as in the shipped rocker S1, whose measured vise
+and declared `jaw_center_along_mm` give exact jaws while the parallels lack
+`width` and `parallels_centres_mm`: debt `parallels not drawn:
+parallels_width_mm, parallels_centres_mm undeclared`). `fixture_rendered` is
+true only when the jaws are placed and
 the debt list is empty, i.e. exact jaws and exact parallels. Everything else
 is a partial picture with its debts spelled out; a stock-only or envelope
 picture is not a holding proof. Non-derivable stock produces no figure. How
@@ -548,10 +550,12 @@ report and captioned is in
   only when the plan authors `jaw_center_along_mm` and
   `parallels_centres_mm` and the parallels row's height, length and width
   facts are accepted; otherwise the render is an envelope or part-only view
-  with named debts. The shipped example vise has no `jaw_depth` (its
-  item-level `verify = true` is identity debt for the declared-input rules,
-  not a geometry veto), and the shipped parallels have no length/width;
-  those are debts to declare, not values to invent.
+  with named debts. The shipped example vise records measured
+  `jaw_height` / `jaw_width` / `jaw_depth` / `opening` (its item-level
+  `verify = true` is identity debt for the declared-input rules, not a
+  geometry veto), while the shipped parallels declare no `width` and no
+  shipped plan declares `parallels_centres_mm`; those are debts to declare,
+  not values to invent.
 - Accessibility and reach are sampled/projected measurements with a fixed
   grid, not full swept toolpath simulation; a feature narrower than the
   sampling can be missed between samples. Chatter, clamp deformation and the
