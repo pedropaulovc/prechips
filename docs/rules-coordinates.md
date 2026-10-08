@@ -532,7 +532,8 @@ DRO before a coarser one) no one shift lands on it, and rounding each alone
 would move them apart: that transfer carries none, each Z prints on the grid by
 itself, and the "Starts from" line says no one shift carries them. Otherwise it
 prints every carried Z and names the one transform, at every place it holds
-(for example `top and rail bottoms Z = −(its Setup S1 Z) − 7.080`), when the
+(for example `top and rail bottoms Z = −7.080 − its Setup S1 Z`, a flip printing its
+shift first so the minus cannot read as covering it), when the
 shift is not the exact offset or a carried Z prints other than its stated Z
 would on the grid alone. With no producer, `operative_z` reads a carried Z only
 for the received surface itself: `top` or the `top_feature` at `top_z` (the Z
