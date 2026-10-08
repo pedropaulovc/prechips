@@ -17,13 +17,13 @@ from prechips.rules.resolution import (
     MANUAL,
     SAW_OPS,
     UNKNOWN,
+    identity,
     known_refs,
     op_feature,
     owns_feature,
     record,
     resolve,
     uncertain,
-    workholding_category,
 )
 from prechips.rules.tip_endpoints import HOLE_OPS
 
@@ -43,19 +43,20 @@ def align_due(bundle):
     from the setup before it on that machine. A setup on another fixture between them took
     the vise or plate off the table."""
     due, last = {}, {}
-    machines = record(bundle.inventory.get("machines"))
     for setup in bundle.plan["setups"]:
         machine = setup.get("machine")
-        if record(machines.get(machine)).get("kind") != "mill":
+        if record(resolve(bundle, "machines", machine)).get("kind") != "mill":
             continue
         hold = record(setup.get("hold"))
         ref = hold.get("fixture")
-        kind = record(resolve(bundle, workholding_category(bundle, ref), ref)).get("kind")
-        mounted = (ref, hold.get("jaws_along"), hold.get("pose"))
-        before, last[machine] = last.get(machine), mounted
+        kind = record(resolve(bundle, "workholding", ref)).get("kind")
+        # The machine and the fixture are the items they select, however a setup spells them.
+        mounted = (identity(bundle, ref, "workholding"), hold.get("jaws_along"), hold.get("pose"))
+        key = identity(bundle, machine, "machines")
+        before, last[key] = last.get(key), mounted
         if kind not in ALIGNED_FIXTURES:
             continue
-        if before is None or before[0] != ref:
+        if before is None or before[0] != mounted[0]:
             due[setup["id"]] = "mounted"
         elif kind == "vise" and before[1] != mounted[1]:
             due[setup["id"]] = "jaws turned"
@@ -66,7 +67,7 @@ def align_due(bundle):
 
 def _fixture(bundle, hold):
     ref = hold.get("fixture")
-    return record(resolve(bundle, workholding_category(bundle, ref), ref))
+    return record(resolve(bundle, "workholding", ref))
 
 
 def _face_solid(bundle, hold):
@@ -205,9 +206,7 @@ def evaluate(bundle):
         unknown_state = state == "unknown"
         hold = hold if isinstance(hold, dict) else {}
         state = state if isinstance(state, dict) else {}
-        machines = bundle.inventory.get("machines", {})
-        machine = machines.get(setup["machine"], {}) if isinstance(machines, dict) else {}
-        machine = machine if isinstance(machine, dict) else {}
+        machine = record(resolve(bundle, "machines", setup["machine"]))
         lathe = machine.get("kind") == "lathe"
         required = {
             "hold.fixture": hold.get("fixture"),
@@ -218,7 +217,7 @@ def evaluate(bundle):
             "deburr_mm": setup.get("deburr_mm"),
         }
         fixture_ref = hold.get("fixture")
-        fixture = resolve(bundle, workholding_category(bundle, fixture_ref), fixture_ref) or {}
+        fixture = resolve(bundle, "workholding", fixture_ref) or {}
         if fixture.get("kind") == "vise" or (
             not lathe and hold.get("fixed_jaw") != "not_applicable"
         ):

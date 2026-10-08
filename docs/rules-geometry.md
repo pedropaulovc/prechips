@@ -38,6 +38,7 @@ measurements only; it never emits citations.
 
 A run evaluates geometry at most once per bundle. The CLI builds a canonical
 JSON job per candidate (STEP path/digest, feature and explicit op face claims,
+the faces plan faced aims move ([plan aims](plan.md#aims)),
 authored stock envelope and `stock.as_is_faces`, normalized transient joint
 primitives and assembly declarations, setup order/frames/stock chain,
 hold geometry and cutting dimensions/endpoints), sends every job that is
@@ -424,8 +425,10 @@ at: the nose posed on the profile, each window end, a blade's both faces;
 which the rest of the outline stands rigidly about. The traveler's jaw distance
 uses the tool's chuck-side extent (in plan units, rounded toward the jaws), not
 only the Z its op names, in the op's jaw box and the CLEARANCE section alike;
-an extent within the kernel's 0.001 mm hit-test inset past the op's own Z (the
-outline posed against that face stands up to that far into it) is at that Z.
+a nose posed within the kernel's 0.001 mm hit-test inset past the op's own Z (it
+stands against that face up to that far into it), and itself the tool's lowest
+point, is at that Z; any other part's reach past the Z (a shank, a blade's far
+face) is the tool's own.
 An op fed to the imaginary-tip readings of a dome table and its rough stair
 ([coordinates](rules-coordinates.md#coordinates)) stands where those readings
 put the nose's lowest point, not on the drawn profile (a cut-to-fit end forms
@@ -433,8 +436,9 @@ the dome elsewhere than drawn); its outline goes with it, reaching below the
 lowest reading by `nose_z_mm` less `tool_z_mm` at their chuck-side ends. It is
 `unknown` (the jaw distance `not computed`, never the named Z) when the tool is
 not posed whole: a holder, tool dimension or claimed face the kernel cannot
-pose, or a claim it cannot sample; or when the op's dome table prints no tool
-readings. A
+pose, a claim it cannot sample, or an op the kernel stops before posing at all
+(a turning op with no extent is unknown, never absent); or when the op's dome
+table prints no tool readings. A
 facing/parting op posed at its `to_z`
 also records `faced_side`, the claimed faces' outward axial normal (+1 toward the
 free end, -1 toward the chuck): the blade stands on that side of `to_z`, so a
@@ -845,14 +849,28 @@ the claimed face's own width (along the spindle axis, through the box's whole
 depth), over the finished face's holes and edges too. Past each end of that
 width, where such stock also stands behind the plane, the op's own cutter of
 radius r steps from the plane up onto the skin and leaves the cusp of that step:
-before a vertical wall, the region under the arc of radius r tangent to the
-plane `sqrt(r² − (r − min(a, r))²)` past the end and through the skin's outer
-corner (when r ≤ a, tangent to its end face at height r), at the heights where
-both that stock and the skin's backing stand. No other op, earlier or later, is
-credited with clearing it. A flat-bottomed cutter steps square onto a floor's
-skin and leaves no cusp; a step past the end of an inclined planar claim's skin,
-or a claim on a surface neither planar nor curved analytic, makes the leave, and
-so the stock, unknown. A violation is not an
+before a vertical wall, at each height, what lies in front of the plane past the
+end that no disc of radius r covers whose centre clears, at once, everything the
+op keeps at and above that height (the stock behind the plane, the skin, the
+guard's `a` rounding of the wall's own convex edge and reserved columns). Beside
+that rounding the cusp reaches `sqrt((r + a)² − r²)` past the end, where the
+cutter touches the plane and the rounding; above the wall, where no guard stands,
+the skin's sharp outer corner alone bounds it, `sqrt(r² − (r − min(a, r))²)`.
+Heights where the kept shape is not upright are taken in slabs at most 0.25 mm
+deep, each keeping what that shape just above its foot leaves (the widest over
+the slab, since the shadow takes in all that stands above); a slab thinner than
+0.01 mm joins the one below. Each height's section is taken with a level face
+wider than the shape. Both growths by r
+are exact unions of the shape, the band beside each of its edges and one disc
+about each edge end (a free-form section edge is fitted with arcs within 1e-4 mm
+and reached that much farther, erring towards keeping stock); each is cut in one
+Boolean and checked after it: a legal centre nearer the kept shape than r, a disc
+overlapping it, a band whose covered and uncovered shares do not add up to it, or
+a failed Boolean makes the stock unknown. No other op,
+earlier or later, is credited with clearing it. A flat-bottomed cutter steps
+square onto a floor's skin and leaves no cusp; a step past the end of an inclined
+planar claim's skin, or a claim on a surface neither planar nor curved analytic,
+makes the leave, and so the stock, unknown. A violation is not an
 error verdict: it is named stock debt (the stock reason names the failed
 guard), so stock-dependent results for that setup and later setups selecting
 its output stay `unknown`, never clearance. Genuine collisions with finished
@@ -1673,22 +1691,36 @@ other clamps are unresolved: …`) while any debt remains.
 
 A clamp declared `restraint = "locate"` carries no clamping load, so it has no
 footprint run and adds nothing to `min_wall_mm`. Each of its drawn solids that
-declares `locates` must instead bear on the setup-entry stock by its own
-geometry. A radial pin bears in a bore: one of its convex cylinders stands in a
-concave cylinder of the stock on a parallel axis (its axis inside the bore, the
-two overlapping along it by more than 1e-3 mm), is no larger than the bore, lies
-wholly inside it and comes within 1e-3 mm of its wall, so the drawn contact
-cylinder has clearance but touches. A flat locator bears with a flat face within
-1e-3 mm of the stock whose 0.01 mm slab swept along its outward normal meets more
-than 1e-6 mm² of it. Either way the solid shares no more than 1e-3 mm³ with the
-stock. Another member touching the stock (a collar on the work) proves nothing.
-The kernel lists each proof under `locator_bearings` (clamp, solid, `bears` =
-`bore` with pin and bore diameters, axis offset, gap and engaged length, or
-`face` with its area). A locator that stands in no bore and has no bearing
-face, is larger than the bore it stands in, crosses its wall, stands clear of
-it, or overlaps the stock, and a locate clamp that draws no `locates` solid
-(an unmeasured locating solid is not drawn), is a named `strap_wall_debts`
-entry like a non-bearing strap.
+declares `locates` must instead bear on the setup-entry stock the way its
+`bears` declares, and only that way: neither proof stands in for the other.
+`bears = "bore"` is a radial pin. A convex cylinder of the solid stands in a
+concave cylinder of the stock when their axes are parallel, its axis lies inside
+the bore and the two overlap along it by more than 1e-3 mm. It bears in a bore
+whose full circle contains it and whose actual wall it comes within 1e-3 mm of,
+so the drawn contact cylinder has clearance but touches. It may pass clear
+through a larger section of the same hole (a counterbore) on the way. Running
+past a bore's full circle is not a fault by itself, because that part of the
+circle may be a neighbouring relief hole and not stock. Interference is
+measured as the stock the solid occupies (below), and the debt names each bore
+wall that this stock meets. Its end faces prove nothing: a loose pin resting on
+the floor of a blind bore, or a pin standing on the work beside or over its
+bore, is not located. `bears = "face"` is a flat locator. It needs a flat face
+within 1e-3 mm of the stock whose 0.01 mm slab, swept along its outward normal,
+meets more than 1e-6 mm² of it. Either way the solid shares no more than
+1e-3 mm³ with the stock. Another member touching the stock (a collar on the
+work) proves nothing. The kernel lists each proof under `locator_bearings`: the
+clamp, the solid and `bears`. A `bore` proof records the pin and bore
+diameters, the axis offset, the gap and the engaged length; a `face` proof
+records the face's area. Each of the following is a named `strap_wall_debts`
+entry, like a non-bearing strap:
+
+- a locator with no declared `bears`;
+- a pin that stands in no bore, or stands clear of every bore it stands in;
+- a flat locator with no bearing face;
+- a locator that shares more than 1e-3 mm³ with the stock (an oversize pin, or
+  one off its bore's axis that runs into the wall);
+- a locate clamp that draws no `locates` solid (an unmeasured locating solid is
+  not drawn).
 
 Separated parallel footprint lines from one clamp may meet the entry stock in
 one exact native compound intersection. Their segments and Boolean operand order
@@ -1857,17 +1889,22 @@ nearer of two distances to the nearest holding solid. One is its whole tool (the
 cutter to its flute length, a body at the larger of the cutter and shank radius to
 the shank's start, the shank to the projection and the holder over its gauge
 length) swept over every move it is commanded through: each pass or outline of
-its coordinates tables (`tool_paths`) at every Z level, each end standing up to the
-op's start Z or a raster's lift Z, a one-way raster's rapids at the lift Z, each
-printed arc-table checkpoint path at every level, and each hole, drill/spot/ream
-joint or centre-drill plunge from above the stock to its tip (a pointed tool's
-cone, a centre drill's own profile). The other is what the op takes off (its
+its coordinates tables (`tool_paths`) at every Z level, over the whole span it
+covers (a path doubling back along its line reaches its far point, not just its
+ends), each end standing up to the op's start Z (its level plan's start, else the
+entry surface its profile names on the DRO grid; never its own depth) or a
+raster's lift Z, a one-way raster's rapids at the lift Z, each printed arc-table
+checkpoint path at every level, and each hole, drill/spot/ream joint or
+centre-drill plunge from above the stock to its tip (a pointed tool's cone, a
+centre drill's own profile at its true outline, not the inset one that tests its
+cut). The other is what the op takes off (its
 before-op stock less its after stock): the cutter goes wherever that material is,
 whether or not a printed path leads it there. A bench file's is what it takes off
 to the nearest holding solid but its own guide stops; a file that takes nothing
 carries no row. `mm` and `tag` are `unknown` for a move or tool dimension the
 kernel is not told (an arc table that reaches it as no checkpoints, a raster or arc
-reason, an unmeasured shank), for the cut that stopped the stock builder and every
+reason, a start Z the tables do not give, an unmeasured shank), for the cut that
+stopped the stock builder and every
 later one, and for every op while the holding is not drawn whole (any
 `render_scene.debts`: an unresolved fixture, an undrawn component, an undeclared
 jaw extent), since what is not drawn may stand nearer than anything drawn;
@@ -1906,18 +1943,36 @@ under each pad) is keyed by the position badges, `PAD SLOTS AT L1-L6`, and gets
 no second leader into a badged point. A split key names each point it leads to.
 
 Holding-detail keys print a contact's plane on the setup's DRO grid
-(`dro_step_mm`, the step the fixture tables print positions at), so a key reads
-as the DRO is set. Closest-cut and clearance distances are measured values and
-never snap to the grid.
+(`dro_step_mm`, the step the fixture tables print positions at), rounded as the
+tables round (half a step away from zero, float noise in the quotient not
+counting; one shared rounding), so a key reads as the DRO is set and as the table
+prints it. Closest-cut and clearance distances are measured values and never snap
+to the grid; `closest_cut.mm` is rounded as the CLEARANCE rows are (six places).
+Every decimal a picture prints (DRO values, clearances, sizes, a band's gain) and
+every fixed-decimal number on the sheet goes through one rounding,
+`render_diagram.decimal_text`: the float's written decimal, a half-way value
+rounded away from zero (2.8045 at three places prints 2.805, never 2.804), so a
+picture and its table never print one value two ways.
 
 A guided bench file (a hand op whose `guide.buttons` kit is held in the setup,
-its solids named to the kernel by `guide_owner`) is not a cut to clear. The kit
-solids its cut reaches are where it stops (`render_scene.guide_stops` names them),
-and the kernel leaves them out of the file's `cut_clearances` row and so out of
-`closest_cut`: no `CUT 0.000 mm FROM` a filing button prints. The detail keys
+its solids named to the kernel by `guide_owner`, the kit's declared button OD by
+`guide_rim_dia_mm`) is not a cut to clear. A kit solid is a stop only when it is a
+button of that declared OD (a cylindrical face within the OD limits, widened by the
+stock tolerance), its cut reaches it, it is seated on the filed face (within the
+stock tolerance of the stock the file leaves, without biting into it), and that
+rim sets the filed boundary: the rim's cylinder, run along its axis, touches the
+cut where the cut meets the stock the file leaves and nowhere enters the cut. A
+button of the right OD whose rim stands over the unfiled wall is no stop. Those stops
+are named in `render_scene.guide_stops`, and the kernel leaves them out of the
+file's `cut_clearances` row and so out of `closest_cut`: no `CUT 0.000 mm FROM` a
+filing button prints. Any other kit solid the cut reaches (a stud, a tab touching
+the unfiled wall, a square block) is holding to clear and keeps its real `CUT`
+dimension. The detail keys
 them in green: `FILE STOPS ON BOTH BUTTON RIMS` for a matched pair, or one key
 per rim, `FILE STOPS ON UPPER BUTTON RIM`, when they lie apart. A real clearance
-to the rest of the kit (its stud) is still dimensioned. When the stops are turned
+to the rest of the kit (its stud) is still dimensioned: in the holding detail when
+one is drawn and keys it, else on the setup picture itself, so a picture never
+drops its `CUT` dimension because the detail band is not drawn. When the stops are turned
 solids on one axis that the setup picture does not already look along (within
 cos 0.99), a **guide view** band below the detail looks down that axis, enlarged
 (`VIEW ALONG THE BUTTON AXIS X14.6`, with the setup axes it draws right and up).
@@ -1931,17 +1986,24 @@ of the stock to file off, so the near button does not hide the work and the cut
 face shows what the file takes; the band notes `SECTION BETWEEN THE RIMS`.
 
 An inspect op's `inspection_views` ([plan](plan.md)) are drawn as one set-up
-sketch per requirement, a band per view, on the stock the setup leaves and in the
+sketch per requirement, a band per view, on the stock as the setup's route stands
+at that inspect op: after the last op before it that the kernel cuts (the job's
+inspection `after`, that op's subject, or the arriving stock when none precedes
+it), never the stock later ops leave. Only the pieces of it that hold the part
+are drawn: scrap a cut before the inspection released, such as a rail frame, is
+off the part when it is inspected. It is drawn in the
 part model's own axes: `up` up the page, seen from `toward`. The bands are
 returned as `inspection_pngs_base64` keyed `<op>:<requirement>`, apart from the
-setup picture. Each band titles its view and draws a hatched `SURFACE PLATE` line
+setup picture. Each band titles its view, wrapping a title too long for one line
+and moving the band down under it, and draws a hatched `SURFACE PLATE` line
 under the lowest solid. It keys every aid by name, on the aid's own visible
-pixels, and every mark at its point. A `reads` mark is green with a `+` arrow up
+pixels (each aid is drawn under its own tag, so an aid named like the work never
+borrows the work's pixels), and every mark at its point. A `reads` mark is green with a `+` arrow up
 the page, the way that orientation's height reading rises, under the note
 `+ ARROW: THE WAY A READING RISES (A HIGHER CONTACT READS +)`; other marks are
 red contacts. What a sketch cannot show is a render debt on the setup's
 `render_debts` (`op <op> <requirement> sketch: NOT SHOWN: …`): an aid hidden in a
-view, or the whole sketch when the setup's exit stock is unresolved.
+view, or the whole sketch when the stock at its place in the route is unresolved.
 
 Alongside the image the engine returns `render_scene` with `fixture_kind`,
 `jaws`, `parallels`, `components`, `debts`, camera/resolution, plain-language

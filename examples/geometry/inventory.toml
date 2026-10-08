@@ -219,3 +219,8 @@ solids = [
 quill_dia_mm = 20.0
 
 [gauges]
+# Test indicator the target setups sweep their vise's fixed jaw with (hold.align).
+[gauges.test-dti]
+kind = "dial_test_indicator"
+resolution_mm = 0.002
+verify = false

@@ -323,6 +323,28 @@ def test_the_hold_seats_the_centre_in_the_mouth_the_centre_drill_made(tmp_path, 
     assert row.numbers["mouth_dia_mm"] == MOUTH
 
 
+# ``support`` and ``supports`` naming one centre, bare in one and qualified in the other,
+# are one centre: the prepared seat passes. A second, different centre stays unknown.
+@pytest.mark.parametrize(
+    ("support", "supports", "status"),
+    [
+        ("{}", ["fixtures.{}"], "pass"),
+        ("fixtures.{}", ["{}"], "pass"),
+        ("{}", ["other-centre"], "unknown"),
+    ],
+    ids=["bare-qualified", "qualified-bare", "distinct"],
+)
+def test_one_centre_spelled_twice_in_the_hold_is_one_centre(tmp_path, support, supports, status):
+    bundle = load_bundle(shaft(tmp_path))
+    hold = next(s for s in bundle.plan["setups"] if s["id"] == "S1")["hold"]
+    key = hold["support"].removeprefix("fixtures.")
+    bundle.inventory["fixtures"]["other-centre"] = dict(bundle.inventory["fixtures"][key])
+    hold.update(support=support.format(key), supports=[s.format(key) for s in supports])
+    row = evaluate("centre_support", bundle)["S1"]
+    assert row.status == status, row.sentence
+    assert len(row.numbers["centres"]) == (1 if status == "pass" else 2)
+
+
 @pytest.mark.parametrize("mouth", [MOUTH, 4.0])
 def test_centre_depth_is_table_6_drill_length_plus_the_countersink_to_the_mouth(tmp_path, mouth):
     plan = shaft(tmp_path)

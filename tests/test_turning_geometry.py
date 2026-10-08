@@ -255,6 +255,16 @@ def test_a_dome_forms_nose_reaches_past_the_z_its_op_names(engine, shafts):
     assert formed["ops"]["S1:20"]["nose_z_mm"][0] == pytest.approx(35.6, abs=1e-3)
 
 
+def test_a_turning_tool_the_kernel_never_poses_has_an_unknown_reach(engine, shafts):
+    # Its claimed feature is undeclared: the kernel stops before posing the tool, so its
+    # reach along Z (the traveler's jaw distance) is unknown, never left out.
+    step = shafts["domed"]
+    detail = _formed(engine, step, [_turn("S1:10", "missing", z_from=40.0, z_to=36.0)])
+    detail = detail["ops"]["S1:10"]
+    assert detail["tool_z_mm"] == detail["nose_z_mm"] == "unknown"
+    assert detail["reasons"]["tool_z_mm"] == detail["reason"]
+
+
 def _blade(subject, feature, width, **extra):
     """A right-hand square-ended parting blade: two R0.1 corners on a front edge."""
     return {

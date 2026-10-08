@@ -55,7 +55,9 @@ requirement.
 **Mill DRO targets, aims and printed bands.** Off a lathe, a located row with a
 known setup point — an `at` or parent row, or each end of a kernel span (below) —
 also carries `dro`: that point at the nearest step of the setup machine's DRO grid
-(`dro_grid`), at most half a step away, which the sheet's feature map prints and a
+(`dro_grid`), at most half a step away (exactly half a step rounds away from zero,
+as the fixture tables and holding details round: `render_diagram.dro_steps`),
+which the sheet's feature map prints and a
 hole op dials (`dro_xy`). When the feature declares a height-like band
 (`height_above_pivot`, `height` or `separation`, the first one present) from a
 `height_from` reference, the row's `band_check` measures where the feature stands
@@ -87,8 +89,10 @@ source, printed band, nominal value and shift in mm), and the finding cites
 the drawing nominal and the reason. A child located by its parent's `at` dials its
 parent's target, aimed or not, and carries the parent's `aim`; an aim of the
 child's own would take it off that axis: it is refused (unknown, reason in
-`refused_aim.why`, cited too) and moves nothing. An aim never
-changes geometry, a claim, a kernel input or another feature's target. A
+`refused_aim.why`, cited too) and moves nothing. Such a target aim never
+changes geometry, a claim, a kernel input or another feature's target. A faced
+aim (one naming a `face`) moves no target here; the kernel cuts the part it
+makes ([plan aims](plan.md#aims)). A
 `value_mm` outside its printed band is refused before any rounding: bad input on
 load, an error in the rule, and the target stays nominal. An aim whose feature
 no mill setup's centre op names (only inspected, faced or profiled, cut through a
@@ -372,7 +376,8 @@ contour block heading lists every level and says to run the complete path at
 the first and repeat it at each level in order.
 
 **Hole targets.** Each located mill row (`rows`) carries `dro_xy`, its setup
-X/Y at the nearest DRO grid point (a hole axis has no safe side). A centre,
+X/Y at the nearest DRO grid point (a hole axis has no safe side; half a step
+rounds away from zero, as `dro` does). A centre,
 spot, drill, ream, tap, counterbore or bore op whose feature has exactly one
 located row prints that tool-axis X/Y on its op row; an unknown one prints a STOP.
 
@@ -507,8 +512,33 @@ or width is unknown, when whether the op leaves a face at `to_z` is unknown, or
 when the Z touch the producer cut on has an unknown edge
 or paper stand-off or meets a face standing at an unknown Z (`reads_unknown`);
 the surface then prints `?`. A touch on a produced face standing off the
-consumer's grid is refused under `zero_check` (Touched faces, below). Any other
-surface Z prints on the grid by `dro_z`. Hole endpoints
+consumer's grid is refused under `zero_check` (Touched faces, below). A setup
+that receives the part from one earlier setup (its `stock_in` names that setup;
+`tip_endpoints.transfer`) prints the surfaces it receives carried over, so the two
+sheets agree on their printed grid: the transfer's frames put every surface at
+`Z = ±Z_before + offset` (`−` when the part turns over; Zs along another axis, a
+joint or a supply carry nothing), and each `stock_state` Z it receives (`top_z`,
+`bottom_z`, the end Zs, `retained_rail_bottom_z`) that links to a surface the
+earlier sheet printed (its producer's printed Z, else its own arrival print)
+prints at `±` that printed Z plus one shift. The shift is the least value at or
+above the offset that lands those Zs on this setup's grid (the offset rounded
+once, up, when they are on it already); where that would print a top the setup's
+Z zero does not touch (no `top` zero, or one after an op) below its stated Z, the
+shift rises to the least that lands it on the grid at or above, so a tool clear
+of the printed top clears the stock. A top the Z zero touches prints carried
+even below its stated Z: the touch sets the DRO to read that number there. Zs
+the earlier sheet printed that are not whole steps of this grid apart (a finer
+DRO before a coarser one) no one shift lands on it, and rounding each alone
+would move them apart: that transfer carries none, each Z prints on the grid by
+itself, and the "Starts from" line says no one shift carries them. Otherwise it
+prints every carried Z and names the one transform, at every place it holds
+(for example `top and rail bottoms Z = −(its Setup S1 Z) − 7.080`), when the
+shift is not the exact offset or a carried Z prints other than its stated Z
+would on the grid alone. With no producer, `operative_z` reads a carried Z only
+for the received surface itself: `top` or the `top_feature` at `top_z` (the Z
+zero's surface, a level start on the top, a raster lift and a path's raise
+above it), the `bottom_feature` at `bottom_z`; an equal Z on another face is no
+proof. Any other surface Z prints on the grid by `dro_z`. Hole endpoints
 carry `dro_entry_z`, `dro_exit_face` and `dro_tip_z`, the tip worked from the
 printed entry (through: exit face) and rounded up again, and the `dro_depth_mm`
 or `dro_exit_mm` that leaves; a through tip short of the exit face prints a

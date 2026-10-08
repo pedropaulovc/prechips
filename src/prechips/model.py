@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import re
 from datetime import date
 from typing import Annotated, Any, Literal
 
@@ -166,7 +167,7 @@ Stock = record(
 StockState = record(
     "StockState",
     {
-        **texts("top_feature note"),
+        **texts("top_feature bottom_feature note"),
         **numbers(
             "top_z bottom_z retained_rail_bottom_z od_mm north_end_z south_end_z plain_end_z"
         ),
@@ -413,18 +414,26 @@ type Procedure = str | Annotated[list[str], Field(min_length=1)]
 
 
 class Aim(InputModel):
-    """A located feature's DRO target moved off its drawing nominal so its height-like band
-    from ``height_from`` (``height_above_pivot``, ``height`` or ``separation``) reads
-    ``value_mm``: a stated process choice printed beside the target, never geometry."""
+    """A drawing requirement held at a stated value inside its band: a process choice.
+
+    Without ``face``, a located feature's DRO target moved off its drawing nominal so its
+    height-like band from ``height_from`` (``height_above_pivot``, ``height`` or
+    ``separation``) reads ``value_mm``, printed beside the target, never geometry. With
+    ``face``, the faced length between the feature's ``lower_z`` and ``upper_z`` planes
+    held at ``value_mm`` by moving that one faced plane: the kernel cuts the part with the
+    face there."""
 
     requirement: str
     value_mm: float
     reason: str
+    face: str | None = None
 
     @model_validator(mode="after")
     def stated(self) -> Aim:
         _known_text(self.requirement, "An aim requirement")
         _known_text(self.reason, "An aim reason")
+        if self.face is not None:
+            _known_text(self.face, "An aim face")
         return self
 
 
@@ -1278,8 +1287,10 @@ Bars = record(
 # measured/verify qualify it, like a LengthMeasurement; nothing above it does. A ``void``
 # primitive (bore, tapped hole, slot) is not drawn: it is cut from the owner's other
 # primitives, or only from those named in ``cuts``. ``locates`` names the part face it
-# locates or carries, ``fastener`` its thread / fastener, and ``shim`` marks an
-# adjustable shim stack whose drawn thickness is the nominal (traveler fixture table).
+# locates or carries, ``bears`` how that locating solid bears on the work (its contact
+# cylinder in a ``bore``, or a flat ``face``), ``fastener`` its thread / fastener, and
+# ``shim`` marks an adjustable shim stack whose drawn thickness is the nominal (traveler
+# fixture table).
 # ``supply``: made with its owner (default), ``bought`` hardware, or ``existing`` in the
 # shop (a machine's vise jaw drawn for clearance); only made solids are make-table rows.
 # ``records``: values measured and written down when the part is made or received (a
@@ -1291,6 +1302,15 @@ RecordBlank = record(
     "RecordBlank",
     {**texts("check gauge how"), **numbers("max_mm goal_mm over_mm")},
 )
+# One operation that makes a shop-made item or one of its primitives (docs/inventory.md
+# "Shop-made fixtures"): how the piece is held, the ``tools`` key that cuts, the spindle
+# speed (a number or a [low, high] range), the feed with its unit (``0.05 mm/rev``), the
+# depth of cut per pass and the source of the cutting data. Each prints as one line.
+MakeOp = record(
+    "MakeOp",
+    {**texts("hold tool feed cite"), "rpm": float | LimitPair, "doc_mm": float},
+)
+MakeOps = Annotated[list[MakeOp], Field(min_length=1)]
 FixtureSolid = record(
     "FixtureSolid",
     {
@@ -1302,8 +1322,10 @@ FixtureSolid = record(
         "void": bool,
         "shim": bool,
         "supply": Literal["made", "bought", "existing"],
+        "bears": Literal["bore", "face"],
         "cuts": list[str],
         "records": list[RecordBlank],
+        "make_ops": MakeOps,
         "measured": Measurement,
         "verify": bool,
     },
@@ -1336,6 +1358,8 @@ InventoryItem = record(
         # Bought-finished tooling: what is bought, and its receipt checks.
         "purchase": str,
         "acceptance": Annotated[list[AcceptanceCheck], Field(min_length=1)],
+        # A shop-made item's make operations, one cutting-data line each.
+        "make_ops": MakeOps,
         **numbers(
             "headstock_tilt_deg swing_over_bed_in between_centres_in "
             "cross_slide_travel_in compound_travel_in weight_lb worm_ratio centre_height_in "
@@ -1568,8 +1592,9 @@ def _inventory_lengths(
 
 
 def _inventory_checks(item: Any, where: str) -> None:
-    """Receipt checks belong to bought items, and an edge finder's speed band is ordered
-    (docs/inventory.md "Purchased tooling", "Edge finder")."""
+    """Receipt checks belong to bought items and make operations to shop-made ones, and an
+    edge finder's speed band is ordered (docs/inventory.md "Purchased tooling", "Shop-made
+    fixtures", "Edge finder")."""
     if not isinstance(item, dict):
         return
     band = item.get("rpm_range")
@@ -1582,11 +1607,15 @@ def _inventory_checks(item: Any, where: str) -> None:
         for index, check in enumerate(checks):
             if isinstance(check, dict):
                 _acceptance_check(check, f"{where}.acceptance[{index}]")
+    _make_ops_checks(item, where)
     solids = item.get("solids")
     for solid in solids if isinstance(solids, list) else ():
-        if not isinstance(solid, dict) or "records" not in solid:
+        if not isinstance(solid, dict):
             continue
-        name, records = solid.get("name", "?"), solid["records"]
+        name = solid.get("name", "?")
+        if "records" not in solid:
+            continue
+        records = solid["records"]
         if not isinstance(records, list):
             raise ValueError(
                 f"{where} solid {name}: records must list what is measured (omit it for none)."
@@ -1596,7 +1625,106 @@ def _inventory_checks(item: Any, where: str) -> None:
                 _record_blank(blank, f"{where} solid {name}.records[{index}]")
     members = item.get("members")
     for name, member in members.items() if isinstance(members, dict) else ():
+        if _declares_make_ops(member):
+            # A member is its set's record with its own keys over it: its make operations
+            # would replace the set's, or print nowhere when the set is held whole.
+            raise ValueError(f"{where}/{name}: a set member has no make_ops of its own.")
         _inventory_checks(member, f"{where}/{name}")
+        if isinstance(member, dict) and _declares_make_ops({**item, "members": {}}):
+            # The member as the traveler reads it (the set's keys, its own over them) keeps
+            # the set's make operations: they must still be made here and print.
+            try:
+                _make_ops_checks({**item, **member}, f"{where}/{name}")
+            except ValueError as error:
+                kept = f"{error} (the make_ops are {where}'s, kept by its member)"
+                raise ValueError(kept) from None
+
+
+def _make_ops_checks(item: dict, where: str) -> None:
+    """Make operations only where a make table prints them: on a shop-made item with a
+    solid made here (or none drawn), and on a made primitive."""
+    made_here = item.get("shop_made") is True or item.get("kind") == "custom"
+    solids = item.get("solids")
+    shapes = [s for s in solids if isinstance(s, dict)] if isinstance(solids, list) else []
+    if "make_ops" in item:
+        _make_ops(item["make_ops"], f"{where}.make_ops", made_here)
+        # The traveler prints make operations on the item's make table, and an item none
+        # of whose solids is made here has none: never accepted, then left off.
+        if shapes and not any(s.get("supply", "made") == "made" for s in shapes):
+            raise ValueError(
+                f"{where}.make_ops: every solid is bought or existing, so nothing is made "
+                "here; state what is made, or drop make_ops."
+            )
+    for solid in shapes:
+        if "make_ops" in solid:
+            name = solid.get("name", "?")
+            supply = solid.get("supply", "made")
+            if supply != "made":
+                raise ValueError(
+                    f"{where} solid {name}: a {supply} primitive is not made here; give the "
+                    "make_ops to the hole made in it, or to the item."
+                )
+            _make_ops(solid["make_ops"], f"{where} solid {name}.make_ops", made_here)
+
+
+# The categories whose shop-made items print a make table, so their make operations: the
+# items a hold or an op's holder holds the work with.
+_MADE_CATEGORIES = ("fixtures", "holders", "machines")
+
+
+def _declares_make_ops(item: Any) -> bool:
+    """Whether ``item`` states ``make_ops``: its own, a solid's or a member's."""
+    if not isinstance(item, dict):
+        return False
+    solids = item.get("solids") if isinstance(item.get("solids"), list) else []
+    members = item.get("members") if isinstance(item.get("members"), dict) else {}
+    return (
+        "make_ops" in item
+        or any(isinstance(s, dict) and "make_ops" in s for s in solids)
+        or any(map(_declares_make_ops, members.values()))
+    )
+
+
+# A make operation's feed: a number or a low-high range, then its unit.
+_FEED_NUMBER = r"(?:\d+(?:\.\d*)?|\.\d+)"
+_MAKE_FEED = re.compile(
+    rf"{_FEED_NUMBER}(?:\s*[-–]\s*{_FEED_NUMBER})?\s*(?:mm|in)/(?:rev|min|tooth)"
+)
+_MAKE_OP_FIELDS = ("hold", "tool", "rpm", "feed", "doc_mm", "cite")
+
+
+def _make_ops(ops: Any, where: str, made_here: bool) -> None:
+    """Make operations belong to a shop-made item (``kind = "custom"`` or ``shop_made``).
+    Each states all six facts its line prints: its hold and ``tools`` key as text, its
+    speed (a number or an ordered range) and depth of cut as numbers > 0, its feed as a
+    number with its unit and the source of its cutting data. A fact not yet known is
+    ``unknown`` (the traveler prints ``?`` and a STOP), never omitted or blank."""
+    if not made_here:
+        raise ValueError(
+            f'{where}: only a shop-made item (kind = "custom" or shop_made = true) is made.'
+        )
+    for index, op in enumerate(ops if isinstance(ops, list) else ()):
+        if not isinstance(op, dict):
+            continue
+        at = f"{where}[{index}]"
+        for key in _MAKE_OP_FIELDS:
+            if key not in op:
+                raise ValueError(f"{at}: {key} must be stated, or be unknown.")
+        for key in ("hold", "tool", "feed", "cite"):
+            if isinstance(op[key], str) and not op[key].strip():
+                raise ValueError(f"{at}: {key} must be stated, or be unknown.")
+        feed = op["feed"]
+        if isinstance(feed, str) and feed != UNKNOWN and not _MAKE_FEED.fullmatch(feed.strip()):
+            raise ValueError(
+                f"{at}: feed {feed!r} must be a number with its unit: mm/rev, mm/min, "
+                "mm/tooth, in/rev, in/min or in/tooth."
+            )
+        if _numeric_pair(op["rpm"]):
+            _ordered(op["rpm"], f"{at}: rpm", floor=0.0, inclusive=False)
+        for key in ("rpm", "doc_mm"):
+            value = op[key]
+            if isinstance(value, int | float) and not isinstance(value, bool) and value <= 0:
+                raise ValueError(f"{at}: {key} must be > 0, or be unknown.")
 
 
 def _record_blank(blank: dict, where: str) -> None:
@@ -1678,6 +1806,11 @@ class Inventory(InputModel):
                         where = f"{category}.{identity}"
                         _inventory_lengths(item, where, tool=category == "tools")
                         _inventory_checks(item, where)
+                        if category not in _MADE_CATEGORIES and _declares_make_ops(item):
+                            raise ValueError(
+                                f"{where}: make_ops print on a holding item's make table; "
+                                f"only {', '.join(_MADE_CATEGORIES)} items have one."
+                            )
         return values
 
 

@@ -16,6 +16,8 @@ from ..findings import Finding
 from ..measurements import nominal_limits_mm
 from .resolution import (
     UNKNOWN,
+    authored,
+    identity,
     length_mm,
     number,
     record,
@@ -37,12 +39,13 @@ def acceptance_items(bundle, setup, job=False):
     notes and record blanks name (:func:`setup_named_references`, in the category they
     name); with ``job`` (the first setup) also the job page's. An item is its category and
     key: a ``fixtures.pins`` and a ``gauges.pins`` are two items, each with its own checks."""
-    uses = setup_items(bundle, setup)
-    uses += [tuple(name.split(".", 1)) for name in setup_named_references(bundle, setup, job=job)]
+    uses = [(category, ref) for category, ref, _ in setup_items(bundle, setup)]
+    named = setup_named_references(bundle, setup, job=job)
+    uses += [identity(bundle, name) for name in named]
     found = []
     for category, ref in uses:
         root, _, member = ref.partition("/")
-        raw = record(record(bundle.inventory.get(category)).get(root)) if category else {}
+        raw = authored(bundle, category, ref)
         owners = [(root, raw)]
         if member:
             owners.append((ref, record(record(raw.get("members")).get(member))))

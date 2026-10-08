@@ -16,7 +16,7 @@ from prechips.rules._envelope import (
     authoring_entry,
     fact,
     machine_envelope,
-    measurement_item,
+    selected_item,
     spindle_nose_band,
     stock_extents,
     transformed_bounds,
@@ -60,9 +60,9 @@ def evaluate(bundle):
     }
     findings = []
     for setup in bundle.plan["setups"]:
-        machine, _ = machine_envelope(bundle, setup)
+        machine_ref, machine = machine_envelope(bundle, setup)
         cite = _input_cite(setup, f"plan.setups.{setup['id']}")
-        cite.extend(_input_cite(machine, f"inventory.machines.{setup.get('machine', UNKNOWN)}"))
+        cite.extend(_input_cite(machine, f"inventory.machines.{machine_ref}"))
         if machine.get("kind") == "lathe":
             findings.append(
                 Finding(
@@ -168,9 +168,9 @@ def evaluate(bundle):
             base_action = action.removeprefix("rough_").removeprefix("finish_")
             broad = base_action in {"profile", "face", "pocket"}
             radius_needed = base_action == "profile"
-            tool = measurement_item(bundle, "tools", tool_ref)
+            tool_category, tool_key, tool = selected_item(bundle, "tools", tool_ref)
             diameter = (
-                fact(tool, "dia", "tools", tool_ref, debts, cite)
+                fact(tool, "dia", tool_category, tool_key, debts, cite)
                 if radius_needed and tool and tool.get("kind") != UNKNOWN
                 else {"value": UNKNOWN, "verified": False}
             )
@@ -288,7 +288,7 @@ def evaluate(bundle):
                 machine,
                 f"envelope.travel.{axis}",
                 "machines",
-                setup.get("machine", UNKNOWN),
+                machine_ref,
                 debts,
                 cite,
             )

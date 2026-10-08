@@ -366,7 +366,10 @@ Front sheet (sheet 1), in this order:
    it print one line naming that table's sheet.
 4. **TOOLS FOR THIS SETUP**: `T#`, tool, insert / size / material (with the
    shank, `shank Ø12.700`, when it differs from the cutting diameter), holder or
-   QCTP station and the ops that use it. Op rows carry only the `T#`.
+   QCTP station and the ops that use it. Op rows carry only the `T#`. One `T#`
+   per tool + holder pair, as the items they select: `tools.drill` and `drill`
+   are one drill, `holders.er20` and `er20` one holder. A lathe's pairs keep
+   their numbers on every setup on that machine, however the setups spell it.
 5. **DRO ZERO** (not on bench setups — a machine of kind `bench` or `manual`
    running only fit and inspect ops has no spindle, DRO or axes — nor on a saw
    cut-off setup, located by the cut plane in its op row): positive
@@ -436,9 +439,9 @@ and inspection notes*):
    chuck-side extent over every pose the kernel stands it at (accessibility
    `tool_z_mm`; for an op fed to a dome table's tool readings, its outline
    carried to where those readings put the nose, `nose_z_mm`), the same number
-   the op's jaw box prints; a tool the kernel could not pose whole, or a dome
-   table printing no tool readings, makes it `not computed — check at the
-   machine`. A mill
+   the op's jaw box prints; a turning tool the kernel could not pose whole or
+   never posed, or a dome table printing no tool readings, makes it `not computed
+   — check at the machine`. A mill
    shows one line for the tallest spindle-to-table stack
    (with the 25 mm tool-change room) against the room available, one for X/Y
    table travel, one `Not computed — check at the machine` line for uncomputed
