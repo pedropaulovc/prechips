@@ -1909,6 +1909,22 @@ The constructor measures a setup-specific continuation header only when the
 footer actually overflows. Primitive sketch callers whose text already fits keep
 their existing no-setup-identity construction contract; rendering a complete
 setup still requires its declared setup identity.
+
+Ordinary fitting setup bands keep their existing axes reservation and layout.
+Only when that conservative reservation would refuse a label-lane growth does
+the renderer paint the same complete axes key into its primitive-extent measuring
+canvas, retaining stroke/arrowhead/circle extents and full body cells plus the
+existing bottom padding. This measures space, not geometry or a smaller font.
+If the next growth estimate exceeds the resulting real paper budget, the original
+scene is laid out once at that maximum budget: moving its existing obstacles can
+make the earlier estimate non-minimal. Acceptance requires actual zero lane
+overflow and complete body-text bounds; a still-overflowing maximum attempt
+refuses immediately, without cropping or reusing a partial candidate. The same
+leader algorithm remains in use, although its resulting routes can move with the
+existing obstacles. A refusal names the private layout owner/setup/view and its
+forecast, attempted/maximum budgets, measured axes minimum, remaining overflow
+and pixel height/cap; these diagnostics are not physical facts or a public schema.
+
 Main-picture lane fitting and annotation-detail fitting have separate owners.
 An annotation detail measures its own rendered inset and callout overflow, grows
 that band within the 1792-pixel bound and retains the fallback from a two-op band

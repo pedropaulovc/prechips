@@ -772,6 +772,7 @@ class _Diagram:
         self.spec = spec
         self.input_meshes = list(meshes)
         self.extra = extra
+        self._measured_axes_height = None
         self.view = spec["view"]
         self.camera = (
             tuple(map(tuple, spec["camera"])) if spec.get("camera") else _CAMERAS[self.view]
@@ -866,12 +867,16 @@ class _Diagram:
         self.scene_bottom = 740
         self.note_lines = self._notes()
         self.legend_rows = self._legend()
-        axes_height = _FOOTER_TEXT_TOP + 320 + _FOOTER_BOTTOM_PAD
-        height = self.footer_top + axes_height
+        self.axes_height = _FOOTER_TEXT_TOP + 320 + _FOOTER_BOTTOM_PAD
+        height = self.footer_top + self.axes_height
         if height > _PANEL_MAX_HEIGHT:
-            raise ValueError(
-                "complete setup panel exceeds the printable Letter height at body size"
-            )
+            # Only the conservative reservation is being replaced, not any axes
+            # primitive or body cell. Ordinary already-fitting frames stay unchanged.
+            self.axes_height = self._axes_minimum()
+            height = self.footer_top + self.axes_height
+            if height > _PANEL_MAX_HEIGHT:
+                maximum = _PANEL_MAX_HEIGHT - (self.footer_top - extra) - self.axes_height
+                raise _setup_height_refusal(self, extra, maximum, None, height)
         capacity = _footer_capacity(self.footer_top)
         self.footer_legend_rows = len(self.legend_rows)
         self.footer_note_rows = len(self.note_lines)
@@ -883,7 +888,7 @@ class _Diagram:
             self.footer_legend_rows = _footer_end(self.legend_ends, 0, capacity, whole_capacity)
             self.footer_note_rows = _footer_end(self.note_ends, 0, capacity, whole_capacity)
         self.footer_rows = max(self.footer_legend_rows, self.footer_note_rows)
-        height = self.footer_top + max(axes_height, _footer_height(self.footer_rows))
+        height = self.footer_top + max(self.axes_height, _footer_height(self.footer_rows))
         self.dimension_y = self.footer_top - 146
         self.lanes = (290, self.footer_top - 140)
         self.lane_specs = ((32, 360, 410), (1208, 360, 1190))
@@ -2458,7 +2463,7 @@ class _Diagram:
     def _footer(self):
         c = self.canvas
         c.line((32, self.footer_top), (1568, self.footer_top), _INK, width=2)
-        self._triad(140, self.footer_top + 185)
+        self._triad(c, self.footer_top)
         _footer_text(
             c,
             self.footer_top,
@@ -2468,9 +2473,22 @@ class _Diagram:
             _footer_label(self.note_ends, 0, self.footer_note_rows, "SETUP NOTES", "NOTE"),
         )
 
-    def _triad(self, x, y):
-        c = self.canvas
-        _text(c, 32, self.footer_top + 23, "SETUP AXES")
+    def _axes_minimum(self):
+        """Actual unscaled axes primitives and full body cells, with the footer margin."""
+        if self._measured_axes_height is None:
+            measured = _ProfileCanvas(self.camera)
+            self._triad(measured, 0)
+            measured.assert_text_layout(min_scale=_BODY_SCALE)
+            bottom = max(
+                measured.drawn_bottom,
+                max((box[4] for box in measured.text_boxes), default=0),
+            )
+            self._measured_axes_height = bottom + _FOOTER_BOTTOM_PAD
+        return self._measured_axes_height
+
+    def _triad(self, c, footer_top):
+        x, y = 140, footer_top + 185
+        _text(c, 32, footer_top + 23, "SETUP AXES")
         right, up, toward = self.camera
         normal_axis = None
         label_boxes = []
@@ -2505,14 +2523,14 @@ class _Diagram:
             _text(c, left, top, label, colour)
         if normal_axis is not None:
             direction = "TOWARD" if toward[normal_axis] > 0 else "AWAY"
-            _text(c, 32, self.footer_top + 290, f"{'XYZ'[normal_axis]} {direction}", _MUTED)
+            _text(c, 32, footer_top + 290, f"{'XYZ'[normal_axis]} {direction}", _MUTED)
         else:
-            c.circle(37, self.footer_top + 307, 6, fill=_WHITE, outline=_MUTED)
-            c.circle(37, self.footer_top + 307, 2, fill=_MUTED)
+            c.circle(37, footer_top + 307, 6, fill=_WHITE, outline=_MUTED)
+            c.circle(37, footer_top + 307, 2, fill=_MUTED)
             # Keep the complete phrase inside the axes column, with a real gutter
             # before the adjacent legend's samples (not only its text boxes).
             for index, line in enumerate(_wrap(c, "VIEW NORMAL", 270)):
-                _text(c, 49, self.footer_top + 290 + index * _LEADING, line, _MUTED)
+                _text(c, 49, footer_top + 290 + index * _LEADING, line, _MUTED)
 
 
 def _footer_capacity(top, text_top=_FOOTER_TEXT_TOP):
@@ -2880,16 +2898,55 @@ def _compose_diagram(diagram, holding_details):
     return diagram, diagram.canvas.png()
 
 
+def _setup_height_refusal(diagram, forecast, maximum, overflow, height):
+    """Private layout diagnostics, never physical facts or a substitute render result."""
+    axes_minimum = diagram._axes_minimum()
+    return ValueError(
+        "complete setup panel exceeds the printable Letter height at body size"
+        f" (owner={type(diagram).__name__}, role=setup,"
+        f" setup_id={diagram.spec.get('setup_id')!r}, view={diagram.view!r},"
+        f" forecast_extra_px={forecast}, attempted_extra_px={diagram.extra},"
+        f" max_extra_px={maximum}, footer_top_px={diagram.footer_top},"
+        f" axes_min_px={axes_minimum},"
+        f" first_band_min_px={diagram.footer_top + axes_minimum},"
+        f" remaining_overflow_px={overflow!r}, height_px={height}, cap_px={_PANEL_MAX_HEIGHT})"
+    )
+
+
 def _main_diagram(meshes, spec):
     """Return ``(diagram, png)`` with only the main label lanes measured to fit.
     Text-footer continuations and independent sketches never grow the setup's geometry."""
-    extra = 0
+    extra = forecast = 0
+    maximum = None
+    attempting_maximum = False
     while True:
         diagram = _Diagram(meshes, spec, extra)
         png = diagram.render()
         if diagram.lane_overflow <= 0:
             return diagram, png
-        extra += math.ceil(diagram.lane_overflow)
+        if attempting_maximum:
+            raise _setup_height_refusal(
+                diagram, forecast, maximum, diagram.lane_overflow, diagram.canvas.height
+            )
+        forecast = extra + math.ceil(diagram.lane_overflow)
+        base = diagram.footer_top - extra
+        if maximum is None and base + forecast + diagram.axes_height > _PANEL_MAX_HEIGHT:
+            maximum = _PANEL_MAX_HEIGHT - base - diagram._axes_minimum()
+            if maximum < 0:
+                raise _setup_height_refusal(
+                    diagram, forecast, maximum, diagram.lane_overflow, diagram.canvas.height
+                )
+        if maximum is not None and forecast >= maximum:
+            if extra >= maximum:
+                raise _setup_height_refusal(
+                    diagram, forecast, maximum, diagram.lane_overflow, diagram.canvas.height
+                )
+            # The forecast can overestimate a repack after its obstacles move.
+            # Try the complete measured budget once; never clip a painted candidate.
+            extra = maximum
+            attempting_maximum = True
+        else:
+            extra = forecast
 
 
 def _holding_details(meshes, spec, diagram):

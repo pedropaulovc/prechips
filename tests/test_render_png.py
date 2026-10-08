@@ -2305,6 +2305,141 @@ def test_keys_too_many_for_their_lanes_move_the_footer_down_never_across_it():
     assert _decode_png(render_diagram([], spec)[0])[:2] == _decode_png(png)[:2]
 
 
+def _lane_pressure_scene(count):
+    """Synthetic tagged solid and declared datum points, not native geometry evidence."""
+    box = [0, 0, 0, 40, 20, 10]
+    spec = {
+        "setup_id": f"LANE{count}",
+        "view": "plan",
+        "stock_box": box,
+        "zero_mm": [0, 0, 0],
+        "datums": [
+            {"label": f"F{index:02d}", "point_mm": [40 * (index % 2), 20 * index / (count - 1), 10]}
+            for index in range(count)
+        ],
+    }
+    return [_block(box, (160, 175, 185), "part")], spec
+
+
+@pytest.mark.parametrize("count", [42, 44])
+def test_main_lane_pressure_reclaims_measured_axes_and_repacks_once_at_the_real_budget(
+    count, monkeypatch
+):
+    meshes, spec = _lane_pressure_scene(count)
+    # Unique tokens expose every source word through actual painted output, including
+    # the complete logical note that cannot fit beside the axes in the rescued band.
+    spec["notes"] = [" ".join(f"N{index:03d}" for index in range(1, 61))]
+    supplied = json.dumps({"meshes": meshes, "spec": spec}, sort_keys=True)
+    attempts = []
+    render = _Diagram.render
+
+    def observe(diagram):
+        png = render(diagram)
+        attempts.append(diagram)
+        return png
+
+    monkeypatch.setattr(_Diagram, "render", observe)
+    diagram, png = _composed_diagram(meshes, spec, [])
+    width, height, pixels = _decode_png(png)
+    assert json.dumps({"meshes": meshes, "spec": spec}, sort_keys=True) == supplied
+    assert width == 1600
+    assert attempts[0].extra == 0 and attempts[0].lane_overflow > 308
+    assert diagram.lane_overflow <= 0
+    assert diagram.axes_height < 424
+    maximum = 1792 - (diagram.footer_top - diagram.extra) - diagram.axes_height
+    assert 308 < diagram.extra <= maximum
+    assert sum(attempt.extra == maximum for attempt in attempts) <= 1
+    if math.ceil(attempts[0].lane_overflow) > maximum:
+        assert diagram.extra == maximum
+    assert diagram.camera == _FRONT
+    assert diagram.viewport == attempts[0].viewport
+    assert diagram.canvas.scale == attempts[0].canvas.scale
+    assert [diagram.canvas.project(p) for p in _corners(spec["stock_box"])] == [
+        attempts[0].canvas.project(p) for p in _corners(spec["stock_box"])
+    ]
+    assert diagram.dimensions.keys() == attempts[0].dimensions.keys()
+    for label, (first, second) in diagram.dimensions.items():
+        assert (first[0], second[0]) == tuple(p[0] for p in attempts[0].dimensions[label])
+        assert first[1] == second[1] < diagram.footer_top
+    stock = next(callout for callout in diagram.callouts if callout.label == "STOCK")
+    stock_start = next(path[0] for label, path in diagram.leaders if label == "STOCK")
+    assert _tag_at(diagram.canvas, *stock_start) in stock.targets
+    for index, datum in enumerate(spec["datums"]):
+        starts = [path[0] for label, path in diagram.leaders if label == f"DATUM F{index:02d}"]
+        assert starts == [diagram.canvas.project(datum["point_mm"])]
+    printed = [box[0] for box in diagram.canvas.text_boxes]
+    assert sorted(
+        int(number) for label in printed for number in re.findall(r"\bF(\d{2})\b", label)
+    ) == list(range(count))
+    assert [
+        int(number) for label in printed for number in re.findall(r"\bN(\d{3})\b", label)
+    ] == list(range(1, 61))
+    assert diagram.footer_details
+    first_band = diagram.print_panels[0]
+    axes = [
+        box
+        for box in diagram.canvas.text_boxes
+        if box[1] < 350 and diagram.footer_top < box[2] < first_band["height_px"]
+    ]
+    assert {"SETUP AXES", "X", "Y", "Z", "Z TOWARD"} <= {box[0] for box in axes}
+    assert max(box[4] for box in axes) + 16 <= first_band["height_px"]
+    diagram.canvas.assert_text_layout(min_scale=5)
+    cursor = 0
+    for panel in diagram.print_panels:
+        assert panel["top_px"] == cursor
+        assert 0 < panel["height_px"] <= 1792
+        cursor += panel["height_px"]
+    assert cursor == height
+    for _, left, top, right, bottom in diagram.canvas.text_boxes:
+        assert (
+            sum(
+                panel["top_px"] <= top < bottom <= panel["top_px"] + panel["height_px"]
+                for panel in diagram.print_panels
+            )
+            == 1
+        )
+        assert bottom - top >= 35
+        assert any(
+            tuple(pixels[(y * width + x) * 3 : (y * width + x) * 3 + 3]) != _WHITE
+            for y in range(top, bottom)
+            for x in range(left, right)
+        )
+
+
+def test_main_lane_actual_maximum_overflow_refuses_once_without_composing(monkeypatch):
+    meshes, spec = _lane_pressure_scene(60)
+    attempts, composed = [], []
+    render, compose = _Diagram.render, render_module._compose_diagram
+
+    def observe(diagram):
+        png = render(diagram)
+        attempts.append(diagram)
+        return png
+
+    def observe_compose(*args):
+        composed.append(args)
+        return compose(*args)
+
+    monkeypatch.setattr(_Diagram, "render", observe)
+    monkeypatch.setattr(render_module, "_compose_diagram", observe_compose)
+    with pytest.raises(ValueError, match="complete setup panel") as failure:
+        render_diagram(meshes, spec)
+    last = attempts[-1]
+    maximum = 1792 - (last.footer_top - last.extra) - last.axes_height
+    assert last.extra == maximum
+    assert last.lane_overflow > 0
+    assert sum(attempt.extra == maximum for attempt in attempts) == 1
+    assert not composed
+    message = str(failure.value)
+    assert "owner=_Diagram, role=setup" in message
+    assert "setup_id='LANE60', view='plan'" in message
+    assert f"attempted_extra_px={last.extra}" in message
+    assert f"max_extra_px={maximum}" in message
+    assert f"axes_min_px={last._axes_minimum()}" in message
+    assert f"remaining_overflow_px={last.lane_overflow!r}" in message
+    assert f"height_px={last.canvas.height}, cap_px=1792" in message
+
+
 @pytest.mark.parametrize("count", [14, 16])
 def test_a_wrapped_key_keeps_its_lines_apart_however_its_lane_spaces_the_rows(count):
     # Pivot-shaft S1: the headstock pushes the lane's rows to half pixels, and the two
