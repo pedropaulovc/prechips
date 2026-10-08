@@ -26,16 +26,27 @@ so its answer is the one the engine would compute:
 The pool only ever saves time: a call no worker has started, or whose worker failed, was
 lost or raised, is left to the engine, which computes it itself (raising as before). A
 loop's calls it never takes are cancelled when its batch closes.
+
+No worker outlives the engine, however the engine ends: the host's runaway guard kills it
+without running its cleanup, possibly while a worker is inside a boolean that cannot notice.
+On Windows the engine first puts itself in a job object that kills every process in it when
+its one handle closes, which the system does as the engine ends; its workers are born in
+that job. On Linux each worker has the kernel kill it when its parent dies. Elsewhere no
+worker starts. The workers' shape files live in a directory beside the job's output file,
+in the host's own job directory, which the host removes even after killing the engine.
 """
 
 from __future__ import annotations
 
 import collections
+import ctypes
 import itertools
 import os
 import secrets
 import shutil
+import signal
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -45,6 +56,77 @@ import Part
 
 DEPTH = 2  # calls in flight per worker: one running, one waiting
 KEY_ENV = "PRECHIPS_POOL_KEY"  # the listener's authentication key, for workers only
+PARENT_ENV = "PRECHIPS_POOL_PARENT"  # the engine's process id, for workers only
+
+_JOB = None  # Windows: this engine's kill-on-close job handle (0 when unavailable), never closed
+
+
+def _bound():
+    """Whether workers this process starts die with it: on Windows once it is in its own
+    kill-on-close job (whose handle it never closes: closing it would end the engine too);
+    on Linux through each worker's parent-death signal (:func:`serve`)."""
+    global _JOB
+    if sys.platform == "win32":
+        if _JOB is None:
+            _JOB = _kill_on_close_job()
+        return bool(_JOB)
+    return sys.platform.startswith("linux")
+
+
+class _BasicLimits(ctypes.Structure):  # JOBOBJECT_BASIC_LIMIT_INFORMATION
+    _fields_ = [
+        ("PerProcessUserTimeLimit", ctypes.c_int64),
+        ("PerJobUserTimeLimit", ctypes.c_int64),
+        ("LimitFlags", ctypes.c_uint32),
+        ("MinimumWorkingSetSize", ctypes.c_size_t),
+        ("MaximumWorkingSetSize", ctypes.c_size_t),
+        ("ActiveProcessLimit", ctypes.c_uint32),
+        ("Affinity", ctypes.c_size_t),
+        ("PriorityClass", ctypes.c_uint32),
+        ("SchedulingClass", ctypes.c_uint32),
+    ]
+
+
+class _ExtendedLimits(ctypes.Structure):  # JOBOBJECT_EXTENDED_LIMIT_INFORMATION
+    _fields_ = [
+        ("BasicLimitInformation", _BasicLimits),
+        ("IoInfo", ctypes.c_uint64 * 6),
+        ("ProcessMemoryLimit", ctypes.c_size_t),
+        ("JobMemoryLimit", ctypes.c_size_t),
+        ("PeakProcessMemoryUsed", ctypes.c_size_t),
+        ("PeakJobMemoryUsed", ctypes.c_size_t),
+    ]
+
+
+def _kill_on_close_job():
+    """A new job holding this process, set to kill every process in it when its last handle
+    closes; its handle (not inheritable), or 0 when Windows refuses any step."""
+    api = ctypes.WinDLL("kernel32", use_last_error=True)
+    api.CreateJobObjectW.restype = ctypes.c_void_p
+    api.CreateJobObjectW.argtypes = [ctypes.c_void_p, ctypes.c_wchar_p]
+    api.SetInformationJobObject.argtypes = [
+        ctypes.c_void_p,
+        ctypes.c_int,
+        ctypes.c_void_p,
+        ctypes.c_uint32,
+    ]
+    api.GetCurrentProcess.restype = ctypes.c_void_p
+    api.AssignProcessToJobObject.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+    api.CloseHandle.argtypes = [ctypes.c_void_p]
+    job = api.CreateJobObjectW(None, None)
+    if not job:
+        return 0
+    limits = _ExtendedLimits()
+    limits.BasicLimitInformation.LimitFlags = 0x2000  # JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+    extended = 9  # JobObjectExtendedLimitInformation
+    size = ctypes.sizeof(limits)
+    if not api.SetInformationJobObject(job, extended, ctypes.byref(limits), size):
+        api.CloseHandle(job)
+        return 0
+    if not api.AssignProcessToJobObject(job, api.GetCurrentProcess()):
+        api.CloseHandle(job)  # still empty: closing it kills nothing
+        return 0
+    return job
 
 
 class _Token:
@@ -120,8 +202,9 @@ class Pool:
     deterministic (tests and audits); otherwise the engine computes a call no worker has
     started yet itself."""
 
-    def __init__(self, size, command, patient=False):
+    def __init__(self, size, command, patient=False, parent=None):
         self.size, self.command, self.patient = size, command, patient
+        self.parent = parent  # where the pool's file directory goes (None: the temp dir)
         self.answered = 0
         self.directory = None
         self.listener = None
@@ -168,11 +251,14 @@ class Pool:
     def _start(self):
         if self.directory is not None or self.broken:
             return
+        if not _bound():
+            self.broken = True  # a worker could outlive the engine: run every call here
+            return
         try:
-            self.directory = tempfile.mkdtemp(prefix="prechips-pool-")
+            self.directory = tempfile.mkdtemp(prefix="prechips-pool-", dir=self.parent)
             key = secrets.token_bytes(32)
             self.listener = Listener(authkey=key)
-            environment = {**os.environ, KEY_ENV: key.hex()}
+            environment = {**os.environ, KEY_ENV: key.hex(), PARENT_ENV: str(os.getpid())}
             flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
             for _ in range(self.size):
                 self.processes.append(
@@ -338,7 +424,18 @@ class Pool:
 
 def serve(address, directory, functions):
     """A worker's loop: load shared shapes and run calls on them until told to stop or
-    the engine is gone."""
+    the engine is gone. On Linux it first has the kernel kill it when the engine dies, and
+    serves nothing when that cannot be set or the engine is already gone (its calls stay
+    the engine's); on Windows the engine's job does the same."""
+    if sys.platform.startswith("linux"):
+        # The signal fires when the engine thread that started this worker ends; workers
+        # start on the engine's main thread, so that is when the engine ends.
+        libc = ctypes.CDLL(None, use_errno=True)
+        libc.prctl.argtypes = [ctypes.c_int, *[ctypes.c_ulong] * 4]
+        if libc.prctl(1, int(signal.SIGKILL), 0, 0, 0) != 0:  # PR_SET_PDEATHSIG
+            return
+        if os.getppid() != int(os.environ[PARENT_ENV]):  # the engine ended first
+            return
     conn = Client(address, authkey=bytes.fromhex(os.environ[KEY_ENV]))
     shapes = {}
     while True:

@@ -13300,16 +13300,26 @@ _POOL_FUNCTIONS = {
 }
 
 
-def _pool():
+def _pool(target):
     """This run's worker pool: WORKERS_ENV processes, by default one per spare CPU up to
-    8, and none unless this process is freecadcmd (whose script can serve as a worker).
-    WAIT_ENV makes which booleans workers answer deterministic, for tests and audits."""
+    8, none when the value is not a whole number, and none unless this process is
+    freecadcmd (whose script can serve as a worker). Their files go beside ``target``, the
+    output file, in the host's job directory. WAIT_ENV makes which booleans workers answer
+    deterministic, for tests and audits."""
     command = [sys.executable, os.path.abspath(__file__), "--"]
     if not os.path.basename(sys.executable).lower().startswith("freecadcmd"):
         return boolean_pool.Pool(0, command)
     size = os.environ.get(WORKERS_ENV, "").strip()
-    size = min(8, (os.cpu_count() or 1) - 1) if not size else int(size) if size.isdigit() else 0
-    return boolean_pool.Pool(size, command, patient=os.environ.get(WAIT_ENV) == "1")
+    if not size:
+        size = min(8, (os.cpu_count() or 1) - 1)
+    else:
+        try:
+            size = int(size)
+        except ValueError:  # not a whole number (str.isdigit() also admits "²")
+            size = 0
+    patient = os.environ.get(WAIT_ENV) == "1"
+    parent = os.path.dirname(os.path.abspath(target))
+    return boolean_pool.Pool(size, command, patient=patient, parent=parent)
 
 
 def main(argv):
@@ -13327,7 +13337,7 @@ def main(argv):
     except (OSError, ValueError) as exc:
         result = {"status": "error", "reason": f"kernel job input unreadable: {exc}"}
     else:
-        _POOL = _pool()
+        _POOL = _pool(target)
         try:
             result = run(payload)
         finally:

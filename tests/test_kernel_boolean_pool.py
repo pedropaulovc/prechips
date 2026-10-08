@@ -3,15 +3,25 @@
 The engine hands checkpoint rows and culled cylinder booleans to ``freecadcmd`` worker
 processes (``src/prechips/kernel/boolean_pool.py``). ``PRECHIPS_KERNEL_POOL_WAIT`` makes the
 engine take every pooled boolean from a worker, so the same batch run with and without
-workers must print the same facts while the pooled run reports worker answers. Runs
-``freecad_job.py`` under ``freecadcmd`` and skips without it.
+workers must print the same facts while the pooled run reports worker answers. Workers
+never outlive the engine, even when the host's runaway guard kills it mid-boolean, and a
+worker count that is not a whole number runs no workers. Runs ``freecad_job.py`` under
+``freecadcmd`` and skips without it.
 """
 
+import ctypes
+import json
+import os
 import subprocess
+import sys
+import time
+from pathlib import Path
 
 import pytest
 from test_kernel_checkpoints import _AUTHOR, MITER, WEST, _bounded, _clamped, _job, _profile
-from test_kernel_geometry import Engine
+from test_kernel_geometry import ENGINE, Engine
+
+from prechips import kernel
 
 
 @pytest.fixture(scope="module")
@@ -62,3 +72,133 @@ def test_pooled_booleans_keep_every_fact_of_a_checkpointed_and_sampled_batch(
     assert _facts(pooled) == _facts(alone)
     errors = pooled["results"][0]["ops"]["S1:10"]["checkpoint_errors"]
     assert [error.get("later_setup") for error in errors] == ["S2"], errors
+
+
+@pytest.mark.parametrize("count", ["²", "-1", "two"])
+def test_a_worker_count_that_is_no_whole_number_runs_the_batch_without_workers(
+    tmp_path, freecad_kernel, monkeypatch, count
+):
+    # "²" is a digit to str.isdigit() but no number to int(): it must not abort the run.
+    monkeypatch.setenv("PRECHIPS_KERNEL_WORKERS", count)
+    response = Engine(tmp_path, freecad_kernel).run({"jobs": [], "timing": True})
+    assert response["results"] == []
+    assert response["timing"]["pool_answers"] == 0
+
+
+# The real engine with one extra pool function that blocks inside its worker, as a stuck
+# OCC boolean would; the engine waits for that answer until it is killed.
+_BLOCKING = r"""
+import importlib.util, json, os, sys, time
+from pathlib import Path
+
+here, engine = Path(os.environ["POOL_PROBE_DIR"]), os.environ["POOL_PROBE_ENGINE"]
+sys.path.insert(0, os.path.dirname(engine))
+spec = importlib.util.spec_from_file_location("pool_probe_engine", engine)
+job = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(job)
+import Part
+
+
+def blocked(shapes):
+    (here / "worker.json").write_text(json.dumps({"pid": os.getpid()}))
+    time.sleep(300)
+    return (shapes[0].Volume,)
+
+
+made = job._pool
+
+
+def pool(*args):
+    workers = made(*args)
+    workers.command[1] = os.path.abspath(__file__)
+    return workers
+
+
+def run(payload):
+    with job._ahead() as batch:
+        call = batch.submit([Part.makeBox(2, 3, 4)], "blocked")
+        record = {"pid": os.getpid(), "directory": job._POOL.directory}
+        (here / "engine.json").write_text(json.dumps(record))
+        return {"results": [], "value": job.boolean_pool.answer(call)}
+
+
+job._POOL_FUNCTIONS["blocked"] = blocked
+job._pool, job.run = pool, run
+job.main(sys.argv)
+"""
+
+
+def _alive(pid):
+    if sys.platform == "win32":
+        api = ctypes.WinDLL("kernel32", use_last_error=True)
+        api.OpenProcess.restype = ctypes.c_void_p
+        api.OpenProcess.argtypes = [ctypes.c_ulong, ctypes.c_int, ctypes.c_ulong]
+        api.WaitForSingleObject.argtypes = [ctypes.c_void_p, ctypes.c_ulong]
+        api.CloseHandle.argtypes = [ctypes.c_void_p]
+        handle = api.OpenProcess(0x00100000, False, pid)  # SYNCHRONIZE
+        if not handle:
+            return False
+        try:
+            return api.WaitForSingleObject(handle, 0) == 0x102  # WAIT_TIMEOUT: still running
+        finally:
+            api.CloseHandle(handle)
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    stat = Path(f"/proc/{pid}/stat")
+    return not stat.exists() or stat.read_text().rsplit(")", 1)[1].split()[0] != "Z"
+
+
+def _kill(pid):
+    if sys.platform == "win32":
+        subprocess.run(["taskkill", "/F", "/PID", str(pid)], capture_output=True)
+    else:
+        try:
+            os.kill(pid, 9)
+        except OSError:
+            pass
+
+
+def test_the_hosts_runaway_guard_leaves_no_worker_or_pool_file_behind(
+    tmp_path, freecad_kernel, monkeypatch
+):
+    script = tmp_path / "blocking.py"
+    script.write_text(_BLOCKING, encoding="utf-8")
+    monkeypatch.setenv("PRECHIPS_KERNEL_WORKERS", "1")
+    monkeypatch.setenv("PRECHIPS_KERNEL_POOL_WAIT", "1")
+    monkeypatch.setenv("POOL_PROBE_DIR", str(tmp_path))
+    monkeypatch.setenv("POOL_PROBE_ENGINE", str(ENGINE))
+
+    def guard(command, **options):
+        # The host's 600 s guard expiring while the worker is inside its boolean: kill the
+        # engine as subprocess.run does on its timeout, then report the timeout.
+        assert options["timeout"] == 600
+        command = [command[0], str(script), *command[2:]]
+        with subprocess.Popen(
+            command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        ) as process:
+            deadline = time.monotonic() + 300
+            while not (tmp_path / "worker.json").exists():
+                assert process.poll() is None, "the engine ended before its worker blocked"
+                assert time.monotonic() < deadline, "the worker never entered its boolean"
+                time.sleep(0.1)
+            process.kill()
+        raise subprocess.TimeoutExpired(command, options["timeout"])
+
+    monkeypatch.setattr(kernel.subprocess, "run", guard)
+    with pytest.raises(subprocess.TimeoutExpired):
+        kernel._execute(freecad_kernel, {"jobs": [], "timing": True})
+    monkeypatch.undo()
+    worker = json.loads((tmp_path / "worker.json").read_text())["pid"]
+    engine = json.loads((tmp_path / "engine.json").read_text())
+    try:
+        assert worker != engine["pid"], "the engine ran the blocked boolean itself"
+        directory = Path(engine["directory"])
+        deadline = time.monotonic() + 10
+        while _alive(worker) and time.monotonic() < deadline:
+            time.sleep(0.1)
+        assert not _alive(worker), "a busy worker outlived its killed engine"
+        assert not directory.exists(), f"the pool's shape files outlived the run: {directory}"
+    finally:
+        _kill(worker)

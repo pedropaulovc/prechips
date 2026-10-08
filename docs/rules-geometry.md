@@ -127,6 +127,16 @@ takes them and takes each answer where it would compute it; caches, cache caps a
 control flow are those of the engine alone, and a loop's calls it never takes are
 cancelled when it ends.
 
+No worker outlives the engine, however it ends, including when the host's
+600-second runaway guard kills it while a worker is inside a boolean. On Windows
+the engine puts itself in a job object set to kill every process in it when its
+only handle closes, which happens as the engine ends, and starts its workers in it;
+on Linux each worker asks the kernel to kill it when the engine dies and serves
+nothing if the engine is already gone. Where neither binding holds (Windows refuses
+the job, or another system), no worker starts. The workers' operand files live in a
+directory inside the host's job directory, beside the job's input and output, which
+the host removes after every run, a killed one included.
+
 A worker runs the engine's own function on OCC binary B-rep copies of the
 operands, which keep every double, tolerance and location and the sub-shapes the
 operands of one call share, so its answer is the engine's. Operands carrying a
