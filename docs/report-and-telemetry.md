@@ -402,8 +402,10 @@ Front sheet (sheet 1), in this order:
    op measured in the chuck adds to its heading `measure only with the spindle
    stopped and the tool withdrawn`. Lathe feed prints as
    `mm/rev` with the resulting `mm/min` in brackets; mill and saw feeds print in
-   `mm/min`. Crash-relevant numbers (jaw front within 3 mm of a tool stop, dead
-   centre at the work end, tool tip within 3 mm of the jaw top) and per-op STOP
+   `mm/min`. Crash-relevant numbers (jaw front within 3 mm of a tool's nearest
+   approach, dead centre at the work end, tool tip within 3 mm of the jaw top,
+   holding within 3 mm of an op's tool sweep or of what a file takes off) and
+   per-op STOP
    or CAUTION findings print as boxed lines under the op row, followed by the
    op's own note (and the tip-depth derivation) on its own line and, for a
    contour op, `See contour table on S2 sheet 3`. A blade relief's Z cell gives
@@ -433,18 +435,31 @@ and inspection notes*):
 2. **CLEARANCE** (not on bench or saw cut-off setups), machine specific. A lathe shows chuck
    Ø against swing, work Ø against swing over the cross-slide, length against
    between-centres, quill extension and the jaw-front distance to the closest
-   tool stop. A mill shows one line for the tallest spindle-to-table stack
+   tool approach: the least of each op's planned Zs and its whole tool's
+   chuck-side extent over every pose the kernel stands it at (accessibility
+   `tool_z_mm`; for an op fed to a dome table's tool readings, its outline
+   carried to where those readings put the nose, `nose_z_mm`), the same number
+   the op's jaw box prints; a turning tool the kernel could not pose whole or
+   never posed, or a dome table printing no tool readings, makes it `not computed
+   — check at the machine`. A mill
+   shows one line for the tallest spindle-to-table stack
    (with the 25 mm tool-change room) against the room available, one for X/Y
    table travel, one `Not computed — check at the machine` line for uncomputed
    items, then a table: op, tool, closest obstacle, clearance mm, action. Each
    cutting op's row takes the smallest known of its headroom margin, its DRO tip
    over the jaw tops, the holder face above the highest stock beside the tool
    (`projection_mm` less the reach from that stock's DRO surface Z to the op's
-   printed tip) and every `clearances` entry of its reach finding. A negative
+   printed tip), every `clearances` entry of its reach finding and the holding
+   solid nearest its whole tool over its commanded sweep or the material it takes
+   off, whichever is nearer
+   (`render_scene.cut_clearances`, the value the holding picture dimensions). A
+   bench file in a machine setup has a row of its own, with no tool: the holding
+   nearest what it files off. A negative
    clearance or a holder past the flute that hits a wall is a STOP; an unknown one
    or an unproven holder wall clearance is a check-at-the-machine action; a jaw
-   clearance within 3 mm asks for a hand-fed approach. Ops with the same tool,
-   obstacle, clearance and action share a row.
+   clearance within 3 mm asks for a hand-fed approach, holding within 3 mm of a
+   cutter `hand feed past the …`, of a file `keep the file clear of the …`. Ops
+   with the same tool, obstacle, clearance and action share a row.
 3. **FEATURE MAP**. Lathe: each surface the setup cuts (one it only inspects,
    such as an as-supplied diameter, has no size to turn to and is left off):
    feature, the drawing's Ø limits (`—` for a process

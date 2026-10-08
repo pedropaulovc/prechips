@@ -417,10 +417,29 @@ clear Z was computed, or when the plan units are unknown. The traveler prints it
 on the DRO grid rounded along the feed (the clear side) and rechecks the printed
 Z against the clear Z and `z_to`; with no such grid position it prints a STOP
 box. The Z sits in the op's coordinate cell; the per-pass set-on and pass-end
-release sequence prints once, full width ([plan](plan.md#reference)). A blade's
-`blade_z_mm` is its axial extent over its cutting poses; the
-traveler's jaw distance uses its chuck-side face (in plan units, rounded toward
-the jaws), not only the Z its op names. A facing/parting op posed at its `to_z`
+release sequence prints once, full width ([plan](plan.md#reference)). Every
+turning op's `tool_z_mm` is its whole tool's axial extent (insert or blade,
+head, shank and toolpost body, at their true outline) over every pose it stands
+at: the nose posed on the profile, each window end, a blade's both faces;
+`nose_z_mm` is its nose's (a blade's both corner arcs') over the same poses,
+which the rest of the outline stands rigidly about. The traveler's jaw distance
+uses the tool's chuck-side extent (in plan units, rounded toward the jaws), not
+only the Z its op names, in the op's jaw box and the CLEARANCE section alike;
+a nose posed within the kernel's 0.001 mm hit-test inset past the op's own Z (it
+stands against that face up to that far into it), and itself the tool's lowest
+point, is at that Z; any other part's reach past the Z (a shank, a blade's far
+face) is the tool's own.
+An op fed to the imaginary-tip readings of a dome table and its rough stair
+([coordinates](rules-coordinates.md#coordinates)) stands where those readings
+put the nose's lowest point, not on the drawn profile (a cut-to-fit end forms
+the dome elsewhere than drawn); its outline goes with it, reaching below the
+lowest reading by `nose_z_mm` less `tool_z_mm` at their chuck-side ends. It is
+`unknown` (the jaw distance `not computed`, never the named Z) when the tool is
+not posed whole: a holder, tool dimension or claimed face the kernel cannot
+pose, a claim it cannot sample, or an op the kernel stops before posing at all
+(a turning op with no extent is unknown, never absent); or when the op's dome
+table prints no tool readings. A
+facing/parting op posed at its `to_z`
 also records `faced_side`, the claimed faces' outward axial normal (+1 toward the
 free end, -1 toward the chuck): the blade stands on that side of `to_z`, so a
 +1 face is formed by a blade's chuck-side corner and a -1 face by its
@@ -1849,10 +1868,8 @@ face (or the section edges, else the nearest point). Its plane is measured on
 that whole contact before a section view cuts it: the outline is cut where it
 crosses the section plane and only the kept side is drawn, still keyed at the
 contact's own plane (a contact that is a point or a straight line names no
-plane). `closest_cut` is the smallest distance from this setup's
-removal to a holding solid; a setup that both files and machines measures it from
-its machine cuts only, the cuts the CLEARANCE table lists, so the picture's
-dimension is one of that table's rows. The detail frames the stock, the contacts and that
+plane). `closest_cut` is the least of the setup's `cut_clearances` (below) and,
+on a saw setup, the blade's path. The detail frames the stock, the contacts and that
 distance; it outlines each contact (solid where seen, dashed where hidden),
 keys it with its holding name and the setup coordinate of its plane (a support
 whose solids lie on different planes, such as the rocker's hub stand and rail
@@ -1862,16 +1879,37 @@ keeps its position badge; one whose solids seat the work on several planes keys
 each solid with its code, its own name and its plane, led to its own contact,
 and pad keys at several heights name the pads each keys. It dimensions the
 closest cut in amber (`render_scene.closest_cut`: `mm`, the holding `tag`, the
-two end points): from this setup's removal, or on a saw setup from the blade's
-path (each saw op's kerf slab on its cut plane, across the stock and holding),
-never from the falling offcut. A mill picture also carries
-`render_scene.cut_clearances`, one `{op, mm, tag}` per op the stock builder cut
-(the material it takes away to the nearest holding solid), which the CLEARANCE
-table prints op by op. `mm` and `tag` are `unknown` for the op whose cut stopped
-the stock builder and every later one, and for every op that removes material
-while the holding is not drawn whole (any `render_scene.debts`: an unresolved
-fixture, an undrawn component, an undeclared jaw extent), since what is not drawn
-may stand nearer than anything drawn; the table then says to check at the machine.
+two end points), the same value the CLEARANCE table prints for its op: never
+from the falling offcut of a saw setup, whose blade path is each saw op's kerf
+slab on its cut plane, across the stock and holding. A mill or bench picture also
+carries `render_scene.cut_clearances`, one `{op, mm, tag}` per op, which the
+CLEARANCE table prints op by op and each op's crash box checks within 3 mm (a file
+to keep clear of the solid, a cutter to hand feed past it). A machine op's is the
+nearer of two distances to the nearest holding solid. One is its whole tool (the
+cutter to its flute length, a body at the larger of the cutter and shank radius to
+the shank's start, the shank to the projection and the holder over its gauge
+length) swept over every move it is commanded through: each pass or outline of
+its coordinates tables (`tool_paths`) at every Z level, over the whole span it
+covers (a path doubling back along its line reaches its far point, not just its
+ends), each end standing up to the op's start Z (its level plan's start, else the
+entry surface its profile names on the DRO grid; never its own depth) or a
+raster's lift Z, a one-way raster's rapids at the lift Z, each printed arc-table
+checkpoint path at every level, and each hole, drill/spot/ream joint or
+centre-drill plunge from above the stock to its tip (a pointed tool's cone, a
+centre drill's own profile at its true outline, not the inset one that tests its
+cut). The other is what the op takes off (its
+before-op stock less its after stock): the cutter goes wherever that material is,
+whether or not a printed path leads it there. A bench file's is what it takes off
+to the nearest holding solid but its own guide stops; a file that takes nothing
+carries no row. `mm` and `tag` are `unknown` for a move or tool dimension the
+kernel is not told (an arc table that reaches it as no checkpoints, a raster or arc
+reason, a start Z the tables do not give, an unmeasured shank), for the cut that
+stopped the stock builder and every
+later one, and for every op while the holding is not drawn whole (any
+`render_scene.debts`: an unresolved fixture, an undrawn component, an undeclared
+jaw extent), since what is not drawn may stand nearer than anything drawn;
+`closest_cut` is then None, so the picture never dimensions a value the table calls
+unknown, and the table says to check at the machine.
 A path sketch draws every pass of a raster of
 at most eight passes, labelled `PASS 1` … `PASS n` as the pass table numbers
 them (a longer raster is a band with its first and last pass), each with a
@@ -1925,10 +1963,11 @@ stock tolerance of the stock the file leaves, without biting into it), and that
 rim sets the filed boundary: the rim's cylinder, run along its axis, touches the
 cut where the cut meets the stock the file leaves and nowhere enters the cut. A
 button of the right OD whose rim stands over the unfiled wall is no stop. Those stops
-are named in `render_scene.guide_stops`, and the kernel leaves them out of
-`closest_cut`, so no `CUT 0.000 mm FROM` a filing button prints. Any other kit
-solid the cut reaches (a stud, a tab touching the unfiled wall, a square block) is
-holding to clear and keeps its real `CUT` dimension. The detail keys
+are named in `render_scene.guide_stops`, and the kernel leaves them out of the
+file's `cut_clearances` row and so out of `closest_cut`: no `CUT 0.000 mm FROM` a
+filing button prints. Any other kit solid the cut reaches (a stud, a tab touching
+the unfiled wall, a square block) is holding to clear and keeps its real `CUT`
+dimension. The detail keys
 them in green: `FILE STOPS ON BOTH BUTTON RIMS` for a matched pair, or one key
 per rim, `FILE STOPS ON UPPER BUTTON RIM`, when they lie apart. A real clearance
 to the rest of the kit (its stud) is still dimensioned: in the holding detail when
