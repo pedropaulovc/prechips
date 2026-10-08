@@ -2230,7 +2230,7 @@
           },
           "inventory": {
             "path": "examples/inventory/pedro-shop.toml",
-            "sha256": "fceeba5fc31bed16d1536d1b3d09f39ecce4babc416bc287620d48e63d5081bb"
+            "sha256": "d55146afa8e79385af550d86f8bb5c56194c7d1c5aaa31ebb0d6672c69589c0a"
           },
           "plan": {
             "path": "examples/rocker-arm/plan.toml",
@@ -64159,7 +64159,7 @@
       "subject": "S4"
     }
   ],
-  "hash": "ecb6bceb23ce61c6a706b5fdd12ba1401512b537a189c87621dad99666a2cd0f",
+  "hash": "7190699c4ae229efb1d9e8a4ba8125be73406c0498c9973d79b36ef8eeea7791",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -64171,7 +64171,7 @@
     },
     "inventory": {
       "path": "examples/inventory/pedro-shop.toml",
-      "sha256": "fceeba5fc31bed16d1536d1b3d09f39ecce4babc416bc287620d48e63d5081bb"
+      "sha256": "d55146afa8e79385af550d86f8bb5c56194c7d1c5aaa31ebb0d6672c69589c0a"
     },
     "plan": {
       "path": "examples/rocker-arm/plan.toml",

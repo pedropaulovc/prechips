@@ -1408,7 +1408,7 @@
           },
           "inventory": {
             "path": "examples/inventory/pedro-shop.toml",
-            "sha256": "fceeba5fc31bed16d1536d1b3d09f39ecce4babc416bc287620d48e63d5081bb"
+            "sha256": "d55146afa8e79385af550d86f8bb5c56194c7d1c5aaa31ebb0d6672c69589c0a"
           },
           "plan": {
             "path": "examples/pivot-bracket/plan.toml",
@@ -17906,6 +17906,25 @@
     },
     {
       "cite": [
+        "inventory item named in prose",
+        "docs/inventory.md Shop-made fixtures"
+      ],
+      "message": "fixtures.bracket-ledge-clamp: named in angle-plate upright note; listed inventory identity resolves.",
+      "numbers": {
+        "category": "fixtures",
+        "named_in": [
+          "angle-plate upright note"
+        ],
+        "present": true,
+        "reference": "bracket-ledge-clamp",
+        "verified": true
+      },
+      "rule": "tool_resolves",
+      "status": "pass",
+      "subject": "fixtures.bracket-ledge-clamp"
+    },
+    {
+      "cite": [
         "inventory selected identity/declared member coverage",
         "PLAN.md §3.3"
       ],
@@ -18109,6 +18128,44 @@
       "rule": "tool_resolves",
       "status": "pass",
       "subject": "reamers-metric/6.5mm"
+    },
+    {
+      "cite": [
+        "inventory item named in prose",
+        "docs/inventory.md Shop-made fixtures"
+      ],
+      "message": "tools.tap-wrench-t-1-16-1-4: named in angle-plate upright note; listed inventory identity resolves.",
+      "numbers": {
+        "category": "tools",
+        "named_in": [
+          "angle-plate upright note"
+        ],
+        "present": true,
+        "reference": "tap-wrench-t-1-16-1-4",
+        "verified": true
+      },
+      "rule": "tool_resolves",
+      "status": "pass",
+      "subject": "tools.tap-wrench-t-1-16-1-4"
+    },
+    {
+      "cite": [
+        "inventory item named in prose",
+        "docs/inventory.md Shop-made fixtures"
+      ],
+      "message": "tools.taps-unc-hand/10-24-plug: named in angle-plate upright note; listed inventory identity resolves.",
+      "numbers": {
+        "category": "tools",
+        "named_in": [
+          "angle-plate upright note"
+        ],
+        "present": true,
+        "reference": "taps-unc-hand/10-24-plug",
+        "verified": true
+      },
+      "rule": "tool_resolves",
+      "status": "pass",
+      "subject": "tools.taps-unc-hand/10-24-plug"
     },
     {
       "cite": [
@@ -22866,7 +22923,7 @@
       "subject": "S5"
     }
   ],
-  "hash": "f8af49743622f359eb4428a72445d04104b05fd330b43a4c31f1268867c5693d",
+  "hash": "43a6b36fd2846d08896a1b96c7aeb7ac4c3b2287af81265e3242683d7d8a7569",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -22878,7 +22935,7 @@
     },
     "inventory": {
       "path": "examples/inventory/pedro-shop.toml",
-      "sha256": "fceeba5fc31bed16d1536d1b3d09f39ecce4babc416bc287620d48e63d5081bb"
+      "sha256": "d55146afa8e79385af550d86f8bb5c56194c7d1c5aaa31ebb0d6672c69589c0a"
     },
     "plan": {
       "path": "examples/pivot-bracket/plan.toml",
@@ -22922,7 +22979,7 @@
     },
     "render:S4": {
       "path": "setup-S10.png",
-      "sha256": "8764398bcab42f0b77a6f98bbc35f8b711a3df3ead10026543def17ca466b81d"
+      "sha256": "8c036fb0b7572a59cf6a8ed1e08b3dffaa67b6a9c74a29f864ddc8823efd02c7"
     },
     "render:S4F": {
       "path": "setup-S11.png",
@@ -23975,7 +24032,7 @@
         ],
         "width_px": 1600
       },
-      "sha256": "8764398bcab42f0b77a6f98bbc35f8b711a3df3ead10026543def17ca466b81d"
+      "sha256": "8c036fb0b7572a59cf6a8ed1e08b3dffaa67b6a9c74a29f864ddc8823efd02c7"
     },
     "S4F": {
       "fixture": "modeled",
