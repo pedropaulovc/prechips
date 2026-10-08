@@ -824,16 +824,16 @@ def _restated_sizes(traveler, setup):
     traveler.setup = setup
     uses = traveler.shop_made_uses(setup)
     claims, found = 0, []
-    for reference in uses:
-        if traveler.shop_made_home(setup, reference, uses) != setup["id"]:
+    for key, (reference, _) in uses.items():
+        if traveler.shop_made_home(setup, key, uses) != setup["id"]:
             continue
         traveler.fixture_unknowns = set()
         notes = {}
-        for members, size in traveler.shop_made_sizes(reference):
+        for members, size in traveler.shop_made_sizes(setup, reference):
             if members[0].get("note"):
                 note = traveler.bench(members[0]["note"]).rstrip(".")
                 notes.setdefault(note, []).append((members, size))
-        title = traveler.reference(reference, "fixtures")
+        title = traveler.shop_made_name(setup, reference)
         for note, rows in notes.items():
             c, f, _ = _note_sizes(traveler, title, note, rows)
             claims, found = claims + c, found + f

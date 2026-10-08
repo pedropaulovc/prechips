@@ -2090,6 +2090,11 @@ class _Traveler:
         (:func:`_holding_slot`): ``plate`` and ``fixtures.plate`` are one item."""
         return identity(self.bundle, reference, _holding_slot(setup, reference))
 
+    def shop_made_name(self, setup, reference):
+        """The shop name of a hold reference's item in its slot (:func:`_holding_slot`),
+        as its SHOP-MADE FIXTURE table titles it."""
+        return self.reference(reference, _holding_slot(setup, reference))
+
     def shop_made_home(self, setup, key, uses):
         """The setup whose sheet 2 prints this item's table: its first use at these poses
         under these HOLD labels (a renumbered clamp gets its own table)."""
@@ -2305,10 +2310,10 @@ class _Traveler:
             return f"Ø{f(solid.get('dia_mm'))} × {f(solid.get('length_mm'))}"
         return "?"
 
-    def shop_made_sizes(self, reference):
+    def shop_made_sizes(self, setup, reference):
         """``[(solids, size)]`` for each made SHOP-MADE FIXTURE row (:meth:`shop_made_rows`):
         its solids and Size mm cell, ``?`` for a row :meth:`shop_made_parts` withholds."""
-        _, made, withheld, _, drilled, fits = self.shop_made_parts(reference)
+        _, made, withheld, _, drilled, fits = self.shop_made_parts(setup, reference)
         sizes = []
         for members in self.shop_made_rows(made, withheld, drilled):
             first = members[0]
@@ -2617,7 +2622,7 @@ class _Traveler:
         spare = sum(w for c, w in enumerate(widths) if c not in keep)
         widths = [widths[c] + (spare if c == 2 else 0) for c in keep]
         users = [label for label, _ in placements if label and label != "stop"]
-        title = f"SHOP-MADE FIXTURE — {self.reference(reference, _holding_slot(setup, reference))}"
+        title = f"SHOP-MADE FIXTURE — {self.shop_made_name(setup, reference)}"
         title += f" ({', '.join(users)})" if users else ""
         # Its make operations print once, before the first setup holding with it (whichever
         # slot): a later table names that setup and points back to them.
