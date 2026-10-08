@@ -818,12 +818,17 @@ class _Diagram:
         self.lane_specs = ((32, 214, 249), (928, 210, 916))
         self.lane_split = 590
         viewport = (278, 225, 900, self.scene_bottom)
+        # Position badges pack in rows above and below the work, never lower than this:
+        # a longer footer lifts the band with the scene, so the lowest row stays clear of
+        # the stock dimension row it lifts too.
+        self.badge_plot = (278, 205, 900, self.scene_bottom - 27)
         if self.view in ("plan", "elevation") and (
             any(component.get("code") for component in self.components)
             or any(_role(component) == "pad" for component in self.components)
         ):
-            # Leave real exterior key bands even for a vertically tall fixture.
-            viewport = (278, 278, 900, 540)
+            # Leave real exterior key bands even for a vertically tall fixture: the band
+            # under the work is as deep under a raised footer as under the usual one.
+            viewport = (278, 278, 900, self.scene_bottom - 80)
         self.viewport = viewport
         self.canvas = RenderCanvas(self.meshes, self.camera, viewport, height=1000 + extra, fit=fit)
         self.stock_pixels = [self.canvas.project(p) for p in _corners(self.stock)]
@@ -1040,7 +1045,7 @@ class _Diagram:
             self._waypoint_badges(
                 self.position_badges,
                 lambda p: p,
-                (278, 205, 900, 593),
+                self.badge_plot,
                 prefix="",
                 colour=_FIXTURE,
                 exclusion=exclusion,

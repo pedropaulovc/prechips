@@ -608,6 +608,29 @@ def test_plan_view_pad_and_clamp_badges_have_separate_uncrossed_leaders(name):
     assert [label for label, _ in diagram.leaders if label in keyed] == []
 
 
+@pytest.mark.parametrize("name", ["rocker-s4", "rocker-s4f"])
+def test_position_badges_stay_clear_of_a_stock_dimension_a_long_footer_lifts(name):
+    # Rocker S4F on the fitting bench: its no-machine-cutting note and NOT SHOWN lines
+    # run to thirteen footer lines, which lift the footer and the stock dimension row into
+    # the band the pad and clamp badges under the work were packed in.
+    spec = _example_spec(name)
+    spec["notes"] = [f"NOTE {index}: FILE CLEAR OF THE PADS." for index in range(13)]
+    diagram, _ = _main_diagram([], spec)
+
+    assert diagram.dimension_y < 674  # the long footer lifted the stock dimension
+    boxes = {text: (x0, y0, x1, y1) for text, x0, y0, x1, y1 in diagram.canvas.text_boxes}
+    (stock,) = [label.upper() for label in diagram.dimensions if label.startswith("STOCK ")]
+    _, stock_top, _, _ = boxes[stock]
+    codes = {badge["label"] for badge in diagram.position_badges}
+    assert len(codes) >= 10
+    for code in codes:
+        # Every badge is printed; its frame (6 px round its text) stays above the
+        # stock dimension row and the footer, with the print gap to spare.
+        _, _, _, bottom = boxes[code]
+        assert bottom + 6 + 4 <= stock_top, (code, bottom, stock_top)
+        assert bottom + 6 + 4 <= diagram.footer_top, (code, bottom, diagram.footer_top)
+
+
 @pytest.mark.parametrize("keep_out", [None, [], [{"at": [5, 5], "dia_mm": 2}]])
 @pytest.mark.parametrize("axis", ["x", "y"])
 def test_raster_keep_out_draws_independent_segments_without_filling_clearance(keep_out, axis):
