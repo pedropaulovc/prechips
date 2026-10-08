@@ -894,7 +894,7 @@ def dro_nearest(value, grid):
 
 def _to_segment(point, a, b):
     delta = [b[i] - a[i] for i in range(2)]
-    span = delta[0] ** 2 + delta[1] ** 2
+    span = delta[0] * delta[0] + delta[1] * delta[1]
     t = sum((point[i] - a[i]) * delta[i] for i in range(2)) / span if span else 0.0
     t = max(0.0, min(1.0, t))
     return math.dist(point, [a[i] + t * delta[i] for i in range(2)])
@@ -968,9 +968,9 @@ def _segment_circle(segment, centre, radius):
     """Where ``segment`` (a point pair) crosses the circle of ``radius`` about ``centre``."""
     p, d = segment[0], [segment[1][i] - segment[0][i] for i in range(2)]
     f = [p[i] - centre[i] for i in range(2)]
-    a = d[0] ** 2 + d[1] ** 2
+    a = d[0] * d[0] + d[1] * d[1]
     b = 2 * (f[0] * d[0] + f[1] * d[1])
-    disc = b * b - 4 * a * (f[0] ** 2 + f[1] ** 2 - radius * radius)
+    disc = b * b - 4 * a * (f[0] * f[0] + f[1] * f[1] - radius * radius)
     if a == 0 or disc < 0:
         return []
     roots = ((-b - math.sqrt(disc)) / (2 * a), (-b + math.sqrt(disc)) / (2 * a))
@@ -1008,7 +1008,7 @@ def _sweep_vertices(legs, radius, focus=None):
             points.extend(end for side in sides for end in side)
             if focus is not None:
                 for a, b in sides:
-                    t = sum((focus[i] - a[i]) * (b[i] - a[i]) for i in range(2)) / span**2
+                    t = sum((focus[i] - a[i]) * (b[i] - a[i]) for i in range(2)) / (span * span)
                     if 0 < t < 1:
                         points.append([a[i] + t * (b[i] - a[i]) for i in range(2)])
         outlines.append((sides, [p] if span == 0 else [p, q]))
@@ -1296,7 +1296,7 @@ def _jog(arc, lines, centre, outward, walls, cutter, offset, scale):
         def across(k, point, exact=exact):
             """The fraction of leg k whose normal runs through ``point``."""
             delta = [exact[k + 1][i] - exact[k][i] for i in range(2)]
-            span = delta[0] ** 2 + delta[1] ** 2
+            span = delta[0] * delta[0] + delta[1] * delta[1]
             if span == 0:
                 return None
             return _fraction(sum((point[i] - exact[k][i]) * delta[i] for i in range(2)) / span)
@@ -1876,7 +1876,8 @@ def _outside_circle(segment, circle, radius, grid, scale):
     centre = circle["at"]
     island = circle["dia_mm"] / 2 / scale
     whole = [segment] if math.dist(a, b) > 1e-9 else []
-    reach_squared = (island + radius) ** 2 - (a[across] - centre[across]) ** 2
+    outer, off = island + radius, a[across] - centre[across]
+    reach_squared = outer * outer - off * off
     if reach_squared <= 0:  # tangent or outside: no interior crossing
         return whole, None
     reach = math.sqrt(reach_squared)
@@ -2253,7 +2254,7 @@ def _dome(name, feature, op, radius_mode, nose=UNKNOWN, edges=None):
     count = math.ceil(abs(apex - base) / step)
     for i in range(count + 1):
         z = base if i == count else apex - sign * i * step
-        squared = sphere * sphere - (z - centre) ** 2
+        squared = sphere * sphere - (z - centre) * (z - centre)
         if squared < -1e-10:
             return None
         radius = math.sqrt(max(0, squared))
@@ -2320,7 +2321,7 @@ def _dome_stair(name, feature, op, radius_mode, allowance, scale):
         return None  # facing rows come in from +Z: an apex toward the chuck has no stair
     centre = apex - sphere
     grown = sphere + allowance / 2 / scale
-    squared = sphere * sphere - (base - centre) ** 2
+    squared = sphere * sphere - (base - centre) * (base - centre)
     if squared < -1e-10:
         return None  # the window runs past the sphere: no dome caps that base
     work = math.sqrt(max(0.0, squared))
@@ -2329,7 +2330,7 @@ def _dome_stair(name, feature, op, radius_mode, allowance, scale):
     count = math.ceil((apex - base) / step)
     for i in range(1, count + 1):
         z = base if i == count else apex - i * step
-        radius = math.sqrt(max(0.0, grown * grown - (z - centre) ** 2))
+        radius = math.sqrt(max(0.0, grown * grown - (z - centre) * (z - centre)))
         if radius >= work - 1e-9:
             break
         rows.append(

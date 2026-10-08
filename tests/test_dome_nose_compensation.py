@@ -85,3 +85,12 @@ def test_a_zero_nose_reads_the_surface_itself():
         and row["z_tool_mm"] == pytest.approx(row["z_mm"])
         for row in table["rows"]
     )
+
+
+def test_a_dome_row_reads_the_same_last_bit_on_every_platform():
+    # A float ** 2 is the C library's pow, not a multiplication, and the Windows CRT squares
+    # 12.71352 one ULP above glibc: this row's radius read 1.5692384170673275 on Windows and
+    # 1.5692384170673366 on Linux, and the report keeps every bit of it.
+    op = _op(apex=12.81, base=12.71352, step=0.05)
+    table = _dome("dome", {"sphere_radius": 12.81}, op, radius_mode=True)
+    assert table["rows"][-1]["radius_mm"] == 1.5692384170673366
