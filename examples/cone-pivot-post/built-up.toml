@@ -1220,7 +1220,7 @@ note = "AUTHOR'S CHOICE: foot B down after the saw cut; 1 mm facing allowance ab
 fixture = "vise-pm-6-tall-soft-jaws"
 support = "none"
 grip_on = "AUTHOR'S CHOICE: the two cone-sleeve caps, through one aluminium button on each, Z24.77..41.97 above foot B; the cap faces are square to the cross-bore; foot B seated on parallels"
-grip_mm = 16.0
+grip_mm = 15.0
 fixed_jaw = "rear"
 jaws_along = "x"
 align = { indicator = "dti", limit_mm = 0.0254, over_mm = 100.0, cite = "AUTHOR'S CHOICE: the fixed jaw squared to 0.001 in (0.0254 mm) over 100 mm of the 6 in jaw because the shop test indicator (gauges.dti) reads 0.0005 in, so the limit is two graduations it resolves" }
@@ -1230,7 +1230,7 @@ parallels_centres_mm = [[0.0, -19.4], [0.0, 19.4]]
 jaw_above_parallels_mm = 50.8
 jaw_center_along_mm = 0.0
 jaw_buttons = "cone-cap-jaw-buttons"
-jaw_protection = "AUTHOR'S CHOICE: the jaw buttons (SHOP-MADE FIXTURE table and Make: line, sheet 2). The journal bore runs through, so the spigot cannot bottom and the 3.0 face seats on the cap. A Ø16 face is smaller than the Ø17.26 socket mouth, so it bears on the cap annulus only, never on the body, and holds the jaw 3 mm off the body."
+jaw_protection = "AUTHOR'S CHOICE: the jaw buttons (SHOP-MADE FIXTURE table and Make: line, sheet 2). The journal bore runs through, so the spigot cannot bottom and the 3.0 face seats on the cap. A Ø15 face (HA MHA-DT-005-TL-03) is smaller than the Ø17.26 socket mouth, so it bears on the cap annulus only, never on the body, and holds the jaw 3 mm off the body."
 stop = "AUTHOR'S CHOICE: foot B on two 1/2 in tall, 1/8 in thick parallels against the jaws, under the foot at Y+-17.8..21.0, clear of both hole exits at X+-12.67."
 clamp = "AUTHOR'S CHOICE: seat a button in each end of the journal bore, close the soft jaws on the two buttons with the crank sleeve over the front jaw, tap B down on the parallels and tighten. Contact check before cutting: look along each jaw: daylight must show between the jaw and the body all round both buttons. The cap faces square the cross-bore to the jaws, so no clocking is needed; the jaw tops stay 8.6 mm under the head shoulder and 10.9 mm under the crank sleeve."
 note = "AUTHOR'S CHOICE: Soft jaws and buttons: made once before first use to the two SHOP-MADE FIXTURE tables and their Make: lines (sheet 2), because the hardened plates stand 18.55 mm too low to reach the caps over the parallels."
