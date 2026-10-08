@@ -1151,9 +1151,11 @@ stand 5.63 mm below the Z +16 roughing floor. The S2/S3 X/Y pickups name where
 the raw faces survive: S2 touches the raw left side and free end at Z +20,
 above the jaws; S3 touches them at Z +8, between the jaw tops (Z −2.33) and the
 Z +16 step S2 left, after a preliminary edge-finder Z on the top. The S4
-angle-plate and bridge make rows print each hole as a drill size (#21 tap drill
-for #10-32, #7 and letter X free-fit clearances, Machinery's Handbook 27th ed.
-Table 4, p.1934), and each made or drilled part has a numbered Make note:
+angle-plate and bridge make rows print each hole as a drill size (#25 tap drill
+for #10-24 and the letter X free-fit clearance, Machinery's Handbook 27th ed.
+Table 4, p.1934; the ledge's #5 holes, 10.0 pitch, 22.6 width and the upright
+taps spotted through the ledge follow HA prints MHA-CH-008-TL-01/02), and each
+made or drilled part has a numbered Make note:
 material, stock, sizes, hole positions from named datum edges, the work-holding,
 drill speeds under Table 17 (p.1061, 1018) and Table 20 (p.1068, gray iron),
 feeds from p.1060, cast iron drilled and tapped dry (p.1147), and the fit: the
