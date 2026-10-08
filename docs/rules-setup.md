@@ -459,9 +459,10 @@ Three checks need no prose:
 
 - A `tighten = "hand"` clamp also declares `torque_nm`.
 - The setup picture's `CUT <mm> mm FROM <holder> (OP <op>)` (the kernel's
-  `closest_cut`) must print the CLEARANCE row of the op it names, beside the same
-  holding solid (the kernel's `cut_clearances`), each printed as its own surface
-  rounds it at the setup's DRO decimals; another op's row at the same value does
+  `closest_cut`; `RETURN <mm> mm …` for one of the op's moves back to an entry)
+  must print the CLEARANCE row of the op it names, beside the same holding solid
+  and from the same move (the kernel's `cut_clearances`), each printed as its own
+  surface rounds it at the setup's DRO decimals; another op's row at the same value does
   not stand in. The named op's row missing or not computed leaves the check
   unknown, and so does a picture cut naming no op (its op unknown, empty or
   absent): which row it restates cannot be checked. A saw's blade path carries

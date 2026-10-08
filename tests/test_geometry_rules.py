@@ -872,6 +872,38 @@ def test_certain_hits_survive_unknown_context(bundle, debt, kind, hits, status):
         assert exit_code([row], {"required": {}}, bundle) == 2
 
 
+_BACK = {"move": "the move at Z 5 from X 70, Y 0 to X -70, Y 0", "obstacle": "clamp 7 strap:stud"}
+
+
+@pytest.mark.parametrize(
+    "facts,status",
+    [
+        ({"return_moves": 3, "return_errors": []}, "pass"),
+        (
+            {"return_moves": 3, "return_errors": [], "return_reason": "undrawn components"},
+            "unknown",
+        ),
+        ({"return_errors": [], "return_reason": "its moves between levels are unknown"}, "unknown"),
+        ({"return_moves": 3, "return_errors": [{**_BACK, "volume_mm3": 80.0}]}, "error"),
+    ],
+    ids=["swept-clear", "holding-not-drawn", "moves-unknown", "meets-a-stud"],
+)
+def test_a_move_back_to_an_entry_must_be_proven_clear_of_the_holding(bundle, facts, status):
+    # Rocker S4C op 27: its sampled faces clear, but its move back between levels drove the
+    # collet through a strap stud. A certain hit is an error naming the move; a move the
+    # kernel could not prove clear never passes the op.
+    bundle.kernel["ops"]["S1:10"].update(facts)
+    row = finding(accessibility, bundle)
+    assert row.status == status, row.sentence
+    if status == "error":
+        assert f"{_BACK['move']} meets clamp 7 strap:stud (80.0 mm^3)" in row.sentence
+        assert exit_code([row], {"required": {}}, bundle) == 2
+    # A certain hit stands even when the sampled faces cannot be judged.
+    bundle.inventory["tools"]["em"]["flute_len_mm"] = "unknown"
+    row = finding(accessibility, bundle)
+    assert row.status == ("error" if status == "error" else "unknown"), row.sentence
+
+
 @pytest.mark.parametrize("rule", [accessibility, internal_corner_radius])
 @pytest.mark.parametrize("context", ["invalid", "away"])
 def test_context_errors_take_precedence_over_finished_facts(bundle, rule, context):

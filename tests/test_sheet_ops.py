@@ -234,6 +234,27 @@ def test_the_holding_nearest_the_cut_is_a_clearance_row_and_a_hand_feed_check_on
     assert "jaw" in obstacle and "hand feed past the LOC2 collar (1.570 mm)" in action
 
 
+def test_a_move_back_between_levels_nearest_the_holding_is_named_as_that_move():
+    # Rocker S4C op 27: its move back between levels at Z5, not its cut, came nearest the
+    # holding; the row and the op's box name that move.
+    sheet, setup = near_holding(1.2)
+    sheet.report["renders"]["S1"]["scene"]["cut_clearances"][0]["move"] = "return"
+    record = {"op": 60, "raise_z": 5.0}
+    sheet.records[("coordinates", "S1")]["level_paths"] = [record]
+    ((_, _, obstacle, value, action),) = sheet.clearance_rows(setup, headroom(40.0), {})
+    assert (obstacle, value) == ("LOC2 collar beside the return at Z 5.000", "1.200")
+    assert action == "hand feed past the LOC2 collar; check the cutter clears it"
+    (box,) = sheet.crash_boxes(setup, setup["ops"][0])
+    assert box == "LOC2 COLLAR 1.200 mm FROM THE RETURN AT Z 5.000 — hand feed past it"
+    # The kernel proved that move meets the collar: no hand feed gets it past.
+    sheet.report["renders"]["S1"]["scene"]["cut_clearances"][0]["mm"] = 0.0
+    record["raise_meets"] = ["clamp 2 diamond-pin:collar"]
+    ((_, _, obstacle, value, action),) = sheet.clearance_rows(setup, headroom(40.0), {})
+    assert value == "0.000" and action == "STOP: a move back meets the LOC2 collar; do not run"
+    (box,) = sheet.crash_boxes(setup, setup["ops"][0])
+    assert box == "LOC2 COLLAR 0.000 mm FROM THE RETURN AT Z 5.000 — STOP"
+
+
 def test_a_file_near_the_holding_is_a_clearance_row_and_a_check_on_its_own_op():
     # Filing the last of the profile brings the work 2.817 from the locator: the picture's
     # dimension, so a row of the table and a box on the file's op, never a machine op's.

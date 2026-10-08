@@ -14,8 +14,10 @@ them and records, per piece the cutter has to go down at:
   (``lowered``), not plunged; an equal start Z alone proves nothing clear at the entry;
 * how it gets back: a path that ends where it starts goes straight down to the next level;
   otherwise the cutter raises to the op's raise Z (``approach_mm`` above the current top,
-  on the DRO grid, as a raster's lift) before moving to the next entry. That height is
-  claimed above the stock only when the kernel's stock box proves it.
+  on the DRO grid, as a raster's lift) before moving straight to the next entry. That
+  height is claimed clear (``raise_clear``) only when the kernel's stock box proves it
+  above the stock and the kernel's sweep of those moves proves them clear of the holding
+  (its op facts ``return_moves`` and ``return_errors``, docs/rules-geometry.md rule A″).
 
 An op that plunges and has no known plunge feed (``speeds_feeds.plunge_row``, which has
 none for a tool not declared centre-cutting) is debt, as is a return without a known raise
@@ -68,15 +70,20 @@ def _xy(point):
     return list(point[:2]) if isinstance(point, list) else [UNKNOWN, UNKNOWN]
 
 
-def _pieces(numbers):
-    """``{op: [(points, raster)]}`` in the order the setup sheet prints each op's tables:
-    rough before finish, then the proven cut sequence, then listed order; outlines and
-    rasters after its arc and join tables."""
+def path_pieces(numbers):
+    """``{op: [(points, raster, table)]}`` in the order the setup sheet prints each op's
+    tables: rough before finish, then the proven cut sequence, then listed order; outlines and
+    rasters after its arc and join tables. ``table`` is the printed ``(kind, table)`` a piece
+    is (``arc_table`` or ``line_table``), None for an outline or a raster pass."""
     stages = {"rough": 0, "finish": 1}
     found = {}
     tables = [
-        *(("arc", t) for t in numbers.get("arc_table") or [] if t.get("method") in _PATH_METHODS),
-        *(("line", t) for t in numbers.get("line_table") or []),
+        *(
+            ("arc_table", t)
+            for t in numbers.get("arc_table") or []
+            if t.get("method") in _PATH_METHODS
+        ),
+        *(("line_table", t) for t in numbers.get("line_table") or []),
     ]
     skipped = {
         str(t.get("op"))
@@ -86,7 +93,7 @@ def _pieces(numbers):
     for kind, table in tables:
         points = (
             [row.get("dro_xy") for row in table.get("rows", [])]
-            if kind == "arc"
+            if kind == "arc_table"
             else list(table.get("dro_xy") or [])
         )
         sequence = table.get("sequence")
@@ -94,7 +101,7 @@ def _pieces(numbers):
             stages.get(table.get("stage"), 2),
             sequence if isinstance(sequence, int) else -1,
         )
-        found.setdefault(str(table.get("op")), []).append((rank, points, False))
+        found.setdefault(str(table.get("op")), []).append((rank, points, False, (kind, table)))
     arc_ops = {str(t.get("op")) for t in numbers.get("arc_table") or []}
     for profile in numbers.get("profiles") or []:
         op = str(profile.get("op"))
@@ -104,11 +111,11 @@ def _pieces(numbers):
         rank = (3, -1)
         if isinstance(profile.get("raster"), dict):
             for piece in points:
-                found.setdefault(op, []).append((rank, [_xy(p) for p in piece], True))
+                found.setdefault(op, []).append((rank, [_xy(p) for p in piece], True, None))
         else:
-            found.setdefault(op, []).append((rank, [_xy(p) for p in points], False))
+            found.setdefault(op, []).append((rank, [_xy(p) for p in points], False, None))
     return {
-        op: [(points, raster) for _, points, raster in sorted(pieces, key=lambda p: p[0])]
+        op: [piece[1:] for piece in sorted(pieces, key=lambda p: p[0])]
         for op, pieces in found.items()
         if op not in skipped
     }
@@ -116,6 +123,26 @@ def _pieces(numbers):
 
 def _same(a, b, tol):
     return all(number(v) for v in (*a[:2], *b[:2])) and math.dist(a[:2], b[:2]) <= tol
+
+
+def held_clear(bundle, subject):
+    """(whether the kernel proved every return move of op ``subject`` clear of the holding:
+    True, False on a certain hit, else ``unknown``; the holding solids it meets). Without
+    the kernel's sweep of them (``return_moves``) nothing is proven."""
+    kernel = getattr(bundle, "kernel", None)
+    facts = mapping(mapping(mapping(kernel).get("ops")).get(subject))
+    errors = facts.get("return_errors")
+    meets = sorted(
+        {str(e.get("obstacle")) for e in errors if isinstance(e, dict)}
+        if isinstance(errors, list)
+        else set()
+    )
+    if meets:
+        return False, meets
+    count = facts.get("return_moves")
+    if number(count) and count > 0 and not facts.get("return_reason"):
+        return True, []
+    return UNKNOWN, []
 
 
 def level_paths(bundle, setup, numbers, states, grid, units, dro_z, top):
@@ -131,7 +158,7 @@ def level_paths(bundle, setup, numbers, states, grid, units, dro_z, top):
     for profile in numbers.get("profiles") or []:
         profiles.setdefault(str(profile.get("op")), profile)
     records, debts = [], []
-    for op_id, pieces in _pieces(numbers).items():
+    for op_id, pieces in path_pieces(numbers).items():
         op, prior, done = before.get(op_id, ({}, {}, 0))
         printed_top = top(prior["top_z"], done=done) if "top_z" in prior else UNKNOWN
         entry = entries.get(op_id, {})
@@ -152,9 +179,9 @@ def level_paths(bundle, setup, numbers, states, grid, units, dro_z, top):
             start = printed_top if entry_z is None else dro_z(entry_z, grid)
         radius = length_mm(resolve(bundle, "tools", op.get("tool")) or {}, "dia")
         radius = radius / 2 if number(radius) else UNKNOWN
-        raster = any(is_raster for _, is_raster in pieces)
+        raster = any(is_raster for _, is_raster, _ in pieces)
         downs, last = [], None
-        for points, is_raster in pieces:
+        for points, is_raster, _ in pieces:
             if not points:
                 continue
             first = points[0]
@@ -203,6 +230,11 @@ def level_paths(bundle, setup, numbers, states, grid, units, dro_z, top):
                 else UNKNOWN
             )
             record["raise_z"] = raised
+            # The stock box clears the stock only; the kernel's sweep of the raises, moves
+            # and descents themselves must clear the holding (clamps stand above the stock).
+            held, meets = held_clear(bundle, f"{setup['id']}:{record['op']}")
+            if meets:
+                record["raise_meets"] = meets
             if not number(raised):
                 record["raise_clear"] = UNKNOWN
                 if not raster:  # a raster's unknown lift is already its own debt
@@ -211,14 +243,15 @@ def level_paths(bundle, setup, numbers, states, grid, units, dro_z, top):
                         "it needs approach_mm above a known top"
                     )
             elif box is None:
-                record["raise_clear"] = UNKNOWN
+                record["raise_clear"] = False if held is False else UNKNOWN
+            elif raised * scale < box[5] + STOCK_TOL_MM:
+                record["raise_clear"] = False
+                debts.append(
+                    f"op {record['op']} returns to its entry at Z {raised:g}, not above "
+                    "the stock it receives"
+                )
             else:
-                record["raise_clear"] = raised * scale >= box[5] + STOCK_TOL_MM
-                if not record["raise_clear"]:
-                    debts.append(
-                        f"op {record['op']} returns to its entry at Z {raised:g}, not above "
-                        "the stock it receives"
-                    )
+                record["raise_clear"] = held
         if "lowered" not in record and any(not down["air"] for down in downs):
             feed, _, why = plunge_row(bundle, op)
             record["plunge_mm_rev"] = feed

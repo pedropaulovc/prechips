@@ -630,13 +630,20 @@ plunges into material, level `k` from level `k-1`'s Z, which the same path cut
 at that spot. A raster, a path in several pieces or an open path in several
 levels returns to an entry (an unknown level count claims no return between levels):
 `raise_z` is `approach_mm` above the current top on
-the DRO grid (a raster's lift), and `raise_clear` is true only when the stock box
-proves it above the stock (unknown without a box; the sheet then claims nothing
-about it). An op with any plunge carries `plunge_mm_rev` (the cited `[[plunge]]`
-feed, see [cutting data](cutting-data.md#plunge), which only a tool declared
-`center_cutting = true` has) and, when unknown, `plunge_reason`. Fixture and clamp
-heights are not in the box: a raise Z is never
-claimed clear of them.
+the DRO grid (a raster's lift). The cutter gets back in a straight line at that
+Z: it raises at the last piece's end, moves straight to the next entry and goes
+down there. `raise_clear` is true only when the stock box proves `raise_z` above
+the stock and the kernel's sweep of those raises, moves and descents with the
+whole tool proves them clear of the holding (its op facts `return_moves` with no
+`return_errors` or `return_reason`, [rule A″](rules-geometry.md#accessibility));
+false when the box puts it below the stock or the kernel finds a move meeting a
+fixture component, whose names it carries as `raise_meets`; unknown otherwise
+(no box, no kernel sweep, or one that cannot prove the moves clear; the sheet
+then claims nothing about it). Fixture and clamp heights are not in the box: the
+box alone never claims a raise clear of them. An op with any plunge carries
+`plunge_mm_rev` (the cited `[[plunge]]` feed, see
+[cutting data](cutting-data.md#plunge), which only a tool declared
+`center_cutting = true` has) and, when unknown, `plunge_reason`.
 A single-level op whose level Z is the Z it starts from carries `lowered = "top"`
 only when the setup-entry `stock_bbox_mm` puts that level at or above the stock top
 (within the kernel's 1e-3 mm tolerance): nothing stands above it at any entry, so
@@ -660,9 +667,12 @@ at b; `lower to Z b, the top of the stock this op meets` when `lowered`; or `cle
 the stock: lower to Z`);
 several levels, whose Zs the block heading lists, as one statement of how each
 level gets down (`plunge from the level above (level 1 from Z a) at F mm/min`)
-and how it gets back between levels (`raise to Z R (above the stock), move back
-to P1`, `stay at P1: the path ends where it starts`, or a raster's `lift to Z R,
-rapid back to pass 1`). Unknown levels print no statement: the block keeps its
+and how it gets back between levels (`raise to Z R, move straight back to P1`,
+with `(above the stock, clear of the holding)` after `Z R` only when
+`raise_clear`, `stay at P1: the path ends where it starts`, or a raster's
+`lift to Z R, rapid straight back to pass 1`); a return that meets the holding
+(`raise_meets`) ends the statement `STOP: a move back meets the {solid}; do not
+run.` Unknown levels print no statement: the block keeps its
 `? Depth levels not computed` line. The op row's feed cell adds `plunge F mm/min`; a
 plunge without one is `STOP: plunge feed not set — {plunge_reason}`, and the
 statement's plunge carries the same STOP instead of a feed. The contour heading and its

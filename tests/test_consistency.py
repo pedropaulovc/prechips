@@ -1074,10 +1074,13 @@ COLLAR = "clamp 2 pin:collar"
 def pictured(cut, *clearances, resolution=None):
     """S1's setup picture dimensioning ``cut`` (``(mm, tag)``, ``(mm, tag, named)`` with
     ``named`` the kernel's op fields, or None) above the CLEARANCE table's per-op
-    ``clearances`` (``(op, mm, tag)``), on a mill of DRO ``resolution``."""
+    ``clearances`` (``(op, mm, tag)``, or with the row's further fields such as its
+    ``move``), on a mill of DRO ``resolution``."""
     scene = {
         "closest_cut": None if cut is None else {"mm": cut[0], "tag": cut[1], **dict(*cut[2:])},
-        "cut_clearances": [{"op": op, "mm": mm, "tag": tag} for op, mm, tag in clearances],
+        "cut_clearances": [
+            {"op": c[0], "mm": c[1], "tag": c[2], **dict(*c[3:])} for c in clearances
+        ],
     }
     data = bundle([{}], {"status": "ok", "setups": {"S1": {"render_scene": scene}}})
     if resolution is None:
@@ -1125,6 +1128,17 @@ def test_a_half_way_value_prints_one_way_on_both_surfaces():
 def test_a_picture_cut_beside_rows_not_computed_is_unknown():
     row = rows(pictured((2.0566, COLLAR, {"op": "27"}), ("27", "unknown", "unknown")))["S1"]
     assert row.status == "unknown" and "CUT 2.057 mm" in row.sentence
+
+
+def test_a_picture_return_restates_the_row_only_when_the_table_names_the_same_move():
+    # Rocker S4C op 27: its move back at Z5, not its cut, came 0.0 from the strap stud.
+    back = {"move": "return"}
+    data = pictured((0.0, COLLAR, {"op": "27", **back}), ("27", 0.0, COLLAR, back))
+    assert (rows(data)["S1"].status, rows(data)["S1"].numbers["claims"]) == ("pass", 1)
+    # The same value read as the cut in the table is a different claim.
+    found = errors(pictured((0.0, COLLAR, {"op": "27", **back}), ("27", 0.0, COLLAR)))["S1"]
+    assert '"RETURN 0.000 mm" from the collar for op 27' in found, found
+    assert "op 27's cut as 0.000" in found, found
 
 
 @pytest.mark.parametrize(

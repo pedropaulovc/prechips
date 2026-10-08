@@ -457,15 +457,19 @@ and inspection notes*):
    over the jaw tops, the holder face above the highest stock beside the tool
    (`projection_mm` less the reach from that stock's DRO surface Z to the op's
    printed tip), every `clearances` entry of its reach finding and the holding
-   solid nearest its whole tool over its commanded sweep or the material it takes
-   off, whichever is nearer
-   (`render_scene.cut_clearances`, the value the holding picture dimensions). A
+   solid nearest its whole tool over its commanded sweep or its moves back to an
+   entry between levels and pieces, or the material it takes off, whichever is
+   nearest (`render_scene.cut_clearances`, the value the holding picture
+   dimensions; a move back nearest reads `… beside the return at Z R`). A
    bench file in a machine setup has a row of its own, with no tool: the holding
    nearest what it files off. A negative
    clearance or a holder past the flute that hits a wall is a STOP; an unknown one
    or an unproven holder wall clearance is a check-at-the-machine action; a jaw
    clearance within 3 mm asks for a hand-fed approach, holding within 3 mm of a
-   cutter `hand feed past the …`, of a file `keep the file clear of the …`. Ops
+   cutter `hand feed past the …`, of a file `keep the file clear of the …`; a move
+   back the kernel proved meets the holding (rule A″) is `STOP: a move back meets
+   the …; do not run`, never a hand feed, and its op box reads `… FROM THE RETURN
+   AT Z R — STOP`. Ops
    with the same tool, obstacle, clearance and action share a row.
 3. **FEATURE MAP**. Lathe: each surface the setup cuts (one it only inspects,
    such as an as-supplied diameter, has no size to turn to and is left off):

@@ -3051,7 +3051,8 @@ class _Traveler:
         (headroom ``margin_mm``), the jaw tops (``cut_tip_above_jaws_mm``, as the op row's
         box measures it), the holder face above the highest stock beside the tool, any
         reach ``clearances`` entry and the holding solid nearest the op's tool sweep
-        (:meth:`cut_clearance`, a hand-feed check within the crash zone); an unknown one or
+        (:meth:`cut_clearance`, a hand-feed check within the crash zone; a STOP when the
+        kernel proved a move back to an entry meets the holding); an unknown one or
         an unproven wall clearance is the action. A bench file (``HAND_FINISH``) has no
         tool, head or jaws: its row is the holding nearest the material it files, a check to
         keep the file clear within the crash zone. Every Z printed is the surface's one DRO
@@ -3084,7 +3085,7 @@ class _Traveler:
                 self.reach_candidates(setup, op, candidates, actions)
             cut = self.cut_clearance(setup, op)
             if cut is not None:
-                beside = f"{cut[1]} beside the cut"
+                beside = f"{cut[1]} beside the {cut[2]}"
                 candidates.append((cut[0], beside))
             known = [c for c in candidates if _known(c[0])]
             actions.extend(
@@ -3101,7 +3102,11 @@ class _Traveler:
                 value, what = "?", "—"
             else:
                 continue
-            if cut is not None and _known(cut[0]) and cut[0] <= _CRASH_ZONE_MM:
+            meets = self.return_meets(setup, op.get("op"))
+            if meets:
+                # A move back proven to meet the holding: no hand feed gets past it.
+                actions.append(f"STOP: a move back meets the {', '.join(meets)}; do not run")
+            elif cut is not None and _known(cut[0]) and cut[0] <= _CRASH_ZONE_MM:
                 # Named with its distance when another obstacle is the row's closest.
                 near = cut[1] if what == beside else f"{cut[1]} ({o(cut[0])} mm)"
                 actions.append(
@@ -3488,7 +3493,11 @@ class _Traveler:
         if cut is not None and _known(cut[0]) and cut[0] <= _CRASH_ZONE_MM:
             hand = op.get("do") in HAND_FINISH
             check = "keep the file clear of it" if hand else "hand feed past it"
-            boxes.append(_Box(f"{cut[1].upper()} {o(cut[0])} mm FROM THE CUT — {check}"))
+            if cut[2] != "cut" and self.return_meets(setup, op.get("op")):
+                check = "STOP"
+            boxes.append(
+                _Box(f"{cut[1].upper()} {o(cut[0])} mm FROM THE {cut[2].upper()} — {check}")
+            )
         numbers = self.records.get(("headroom", setup["id"]), {})
         cuts = _mapping(numbers.get("cut_tip_above_jaws_mm"))
         planned = cuts.get(str(op["op"]), cuts.get(op["op"]))
@@ -3507,13 +3516,14 @@ class _Traveler:
         return boxes
 
     def cut_clearance(self, setup, op):
-        """``(mm, name)``: how near ``op`` comes to the holding, from the kernel's setup
+        """``(mm, name, move)``: how near ``op`` comes to the holding, from the kernel's setup
         picture (its ``cut_clearances``: a machine op's whole tool, cutter to holder, over
-        its commanded sweep, a bench file's removal; the picture dimensions the least of the
-        setup's), and the holding solid it is, as the HOLD names it (:meth:`holding_name`);
-        ``unknown`` where the kernel could not derive the tool, its sweep or the cut, or the
-        holding is not drawn whole; None when the kernel measured nothing for the op (no
-        picture, or no cut)."""
+        its commanded sweep and its moves back to an entry, a bench file's removal; the
+        picture dimensions the least of the setup's), the holding solid it is, as the HOLD
+        names it (:meth:`holding_name`), and where: ``cut``, or the op's return at its raise
+        Z (``level_paths``) when a move back is nearest; ``unknown`` where the kernel could
+        not derive the tool, its sweep or the cut, or the holding is not drawn whole; None
+        when the kernel measured nothing for the op (no picture, or no cut)."""
         render = _mapping(_mapping(self.report.get("renders")).get(setup["id"]))
         for row in _mapping(render.get("scene")).get("cut_clearances") or []:
             row = _mapping(row)
@@ -3521,7 +3531,11 @@ class _Traveler:
                 tag = row.get("tag")
                 known = isinstance(tag, str) and tag != "unknown"
                 name = self.holding_name(setup, tag) if known else "holding"
-                return row.get("mm", "unknown"), name
+                move = "cut"
+                if row.get("move") == "return":
+                    raised = self.level_path(setup, op.get("op")).get("raise_z")
+                    move = f"return at Z {self.operative(raised)}" if _known(raised) else "return"
+                return row.get("mm", "unknown"), name, move
         return None
 
     def holding_name(self, setup, tag):
@@ -5607,6 +5621,12 @@ class _Traveler:
                 return record
         return {}
 
+    def return_meets(self, setup, op_id):
+        """The holding solids the kernel found op ``op_id``'s moves back to an entry meeting
+        (level_entry ``raise_meets``), as the HOLD names them (:meth:`holding_name`)."""
+        tags = self.level_path(setup, op_id).get("raise_meets") or []
+        return [self.holding_name(setup, tag) for tag in tags]
+
     def plunge_feed(self, setup, op):
         """The op's plunge feed in mm/min, or a STOP, with coordinates' reason, when it
         plunges without a known one (a tool not proven centre-cutting has none); None when
@@ -5632,7 +5652,13 @@ class _Traveler:
             return ""
         feed = self.plunge_feed(setup, op)
         raised, raster = record.get("raise_z"), record.get("raster") is True
-        above = " (above the stock)" if record.get("raise_clear") is True else ""
+        # The stock box clears the raise of the stock; only the kernel's sweep of the moves
+        # back clears them of the holding (level_entry ``raise_clear``, ``raise_meets``).
+        above = (
+            " (above the stock, clear of the holding)" if record.get("raise_clear") is True else ""
+        )
+        meets = self.return_meets(setup, op.get("op"))
+        stop = f" STOP: a move back meets the {', '.join(meets)}; do not run." if meets else ""
         at = f" at {feed}"
         if feed is None or feed.startswith("STOP"):
             at = f" — {feed}" if feed else ""
@@ -5675,7 +5701,7 @@ class _Traveler:
                 )
             steps = []
             for index, down in enumerate(downs):
-                lead = "" if index == 0 else f"raise to Z {o(raised)}{above}, move to "
+                lead = "" if index == 0 else f"raise to Z {o(raised)}{above}, move straight to "
                 if lowered:
                     steps.append(f"{lead}{where(down)}: {lower}")
                 elif down.get("air"):
@@ -5686,17 +5712,18 @@ class _Traveler:
 
         text = get_down()
         if not several:
-            return _p(((text[:1].upper() + text[1:]) if raster else "Enter at " + text) + ".")
+            text = (text[:1].upper() + text[1:]) if raster else "Enter at " + text
+            return _p(f"{text}.{stop}")
         first = where(downs[0])
         if raster:
-            after = f"lift to Z {o(raised)}{above}, rapid back to pass 1"
+            after = f"lift to Z {o(raised)}{above}, rapid straight back to pass 1"
         elif record.get("closed") is True:
             after = f"stay at {first}: the path ends where it starts"
         else:
-            after = f"raise to Z {o(raised)}{above}, move back to {first}"
+            after = f"raise to Z {o(raised)}{above}, move straight back to {first}"
         return _p(
             f"{len(depths)} depth levels, top first, at the Zs in the heading: run the whole "
-            f"path below at each. Get down {text}. Between levels, {after}."
+            f"path below at each. Get down {text}. Between levels, {after}.{stop}"
         )
 
     def contours(self, setup, tools):

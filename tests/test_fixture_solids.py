@@ -468,17 +468,80 @@ def test_a_tool_stands_over_its_whole_plunge_from_the_z_its_op_starts_at(engine,
     }
     hold = _behind()
     hold["solids"] = [*hold["solids"], _box("plate:arm", [0.0, 9.5, 81.0], [10.0, 1.0, 1.0])]
-    ops = [_facing(tool_paths=tool_paths({"op": 10}, tables, "mm"))]
+    ops = [_facing(tool_paths=tool_paths({"op": 10}, tables, "mm", "S1:10"))]
     assert _clearances(engine, parts["plate"], ops, hold) == [
         {"op": "10", "mm": 0.0, "tag": "plate:arm"}
     ]
     # Tables that give no start Z leave the plunge, and so the row, unknown: never the
     # outline's own level.
     unstarted = {**tables, "profiles": [{**outline, "entry_z": "unknown"}]}
-    ops = [_facing(tool_paths=tool_paths({"op": 10}, unstarted, "mm"))]
+    ops = [_facing(tool_paths=tool_paths({"op": 10}, unstarted, "mm", "S1:10"))]
     assert _clearances(engine, parts["plate"], ops, hold) == [
         {"op": "10", "mm": "unknown", "tag": "unknown"}
     ]
+
+
+def _returning(raised):
+    """Op S1:10's commanded paths as the host sends them: a U open to +Y, its arms X0 and
+    X40 (Y-10..30) about the stud of :func:`_studded`, cut at Z11 then Z10 from Z12. The
+    path is open: between its levels the traveler raises to ``raised`` at its end."""
+    from prechips.kernel import tool_paths
+
+    u = [[0.0, 30.0], [0.0, -10.0], [40.0, -10.0], [40.0, 30.0]]
+    tables = {
+        "operations": [{"op": 10, "z_levels": {"levels": [11.0, 10.0], "dro_start_z": 12.0}}],
+        "profiles": [{"op": 10, "cutter_centre": u}],
+        "level_paths": [{"op": 10, "raise_z": raised}],
+        "dro_grid": {"step": 0.01, "decimals": 2},
+    }
+    return tool_paths({"op": 10}, tables, "mm", "S1:10")
+
+
+def _studded(**extra):
+    """The plate on a base (top Z0), a strap stud standing to Z20 at X18..22, Y28..32:
+    8 past the plate, 15 from either arm of :func:`_returning`'s U."""
+    return {
+        **_behind(**extra),
+        "solids": [
+            _box("plate:base", [-20.0, -20.0, -5.0], [80.0, 60.0, 5.0]),
+            _box("strap:stud", [18.0, 28.0, 0.0], [4.0, 4.0, 20.0]),
+        ],
+    }
+
+
+def _returned(engine, step, raised, hold):
+    """(op S1:10's kernel facts, its CLEARANCE rows) running :func:`_returning`."""
+    top = engine.refs(step, (0, 0, 10), (40, 20, 10))
+    ops = [_facing(tool_paths=_returning(raised))]
+    result = engine.run(engine.job(step, {"top": top}, [_setup(ops, hold)], stock=_TALL))
+    return result["ops"]["S1:10"], _scene(result)["render_scene"]["cut_clearances"]
+
+
+def test_a_move_back_between_levels_through_the_holding_is_a_hit_and_the_clearance(engine, parts):
+    # Rocker S4C op 27: the cut clears the strap, but between levels the cutter raises to
+    # Z15 (above the stock) at the U's end, crosses straight back to its start and goes
+    # down there. That crossing drives the cutter through the stud: 4 x 4 x 5 of it.
+    facts, rows = _returned(engine, parts["plate"], 15.0, _studded())
+    assert facts["return_moves"] == 3 and "return_reason" not in facts, facts
+    [error] = facts["return_errors"]
+    assert error["move"] == "the move at Z 15 from X 40, Y 30 to X 0, Y 30"
+    assert (error["obstacle"], error["volume_mm3"]) == ("strap:stud", pytest.approx(80.0))
+    # The CLEARANCE row is that crossing, named as one, never the cut's 8 mm.
+    assert rows == [{"op": "10", "mm": 0.0, "tag": "strap:stud", "move": "return"}]
+
+
+def test_a_move_back_clear_of_the_holding_is_proven_and_is_the_clearance(engine, parts):
+    # Raised to Z21 the crossing passes 1.0 over the stud's top: proven clear, and still
+    # the nearest the op comes to the holding (its cut stays 8 from the stud).
+    facts, rows = _returned(engine, parts["plate"], 21.0, _studded())
+    assert facts["return_moves"] == 3 and facts["return_errors"] == [], facts
+    assert "return_reason" not in facts
+    assert rows == [{"op": "10", "mm": 1.0, "tag": "strap:stud", "move": "return"}]
+    # An undrawn component may stand on that crossing: never proven clear.
+    gaps = ["clamp 1 near-cut pose is undeclared"]
+    facts, rows = _returned(engine, parts["plate"], 21.0, _studded(gaps=gaps))
+    assert facts["return_errors"] == [] and "undrawn fixture components" in facts["return_reason"]
+    assert rows == [{"op": "10", "mm": "unknown", "tag": "unknown"}]
 
 
 _CENTRE_DRILL = r"""
@@ -522,7 +585,7 @@ def _moves(sweep):
 
 
 def test_the_commanded_sweep_is_every_pass_at_every_level_and_every_move_between_them():
-    from prechips.kernel import tool_paths
+    from prechips.kernel import table_checkpoints, tool_paths
 
     levels = {"levels": [2.0, 0.0], "dro_start_z": 4.0}
     operations = [{"op": 10, "dro_to_z": 0.0, "z_levels": levels}, {"op": 20, "dro_to_z": 0.0}]
@@ -530,25 +593,47 @@ def test_the_commanded_sweep_is_every_pass_at_every_level_and_every_move_between
     raster = {"op": 10, "cutter_centre": passes, "raster": {"lift_z": 6.0}}
     outline = {"op": 20, "cutter_centre": [[0.0, 0.0], [5.0, 0.0], [5.0, 5.0]]}
     tables = {"operations": operations, "profiles": [raster, outline]}
-    # Each pass is cut at Z2 then Z0. After each the cutter lifts to Z6 and rapids to the
-    # next pass's start, the last back to the first for the next level: each pass end
-    # stands from the floor to the lift. Inch tables scale to millimetres.
-    sweep = tool_paths({"op": 10}, tables, "in")
+    # Each pass is cut at Z2 then Z0 and stands at its ends from the floor to the op's start
+    # Z4. Inch tables scale to millimetres.
+    sweep = tool_paths({"op": 10}, tables, "in", "S1:10")
     assert (sweep["levels_mm"], sweep["entry_z_mm"]) == ([0.0, 50.8], 101.6)
-    assert _moves(tool_paths({"op": 10}, tables, "mm")) == sorted(
+    assert _moves(tool_paths({"op": 10}, tables, "mm", "S1:10")) == sorted(
         [
             (((0.0, 0.0), (10.0, 0.0)), (0.0, 2.0)),
             (((0.0, 4.0), (10.0, 4.0)), (0.0, 2.0)),
-            *(((end,), (0.0, 6.0)) for end in ((0.0, 0.0), (10.0, 0.0), (0.0, 4.0), (10.0, 4.0))),
-            (((10.0, 0.0), (0.0, 4.0)), (6.0, 6.0)),
-            (((10.0, 4.0), (0.0, 0.0)), (6.0, 6.0)),
+            *(((end,), (0.0, 4.0)) for end in ((0.0, 0.0), (10.0, 0.0), (0.0, 4.0), (10.0, 4.0))),
         ]
     )
+    # How it gets back to each entry is the traveler's (``level_paths``): every pass is an
+    # entry it lifts to its raise Z6 to rapid to, the last back to the first for the next
+    # level. The kernel joins piece ends nearer than half the DRO step, as the traveler.
+    grid = {"step": 0.01, "decimals": 2}
+    returning = {**tables, "level_paths": [{"op": 10, "raise_z": 6.0}], "dro_grid": grid}
+    assert tool_paths({"op": 10}, returning, "mm", "S1:10")["returns"] == {
+        "raise_z_mm": 6.0,
+        "again": True,
+        "join_mm": 0.005,
+        "route": [{"xy_mm": path, "raster": True} for path in passes],
+    }
+    # A printed table is the kernel's checkpoint path of that table, run before the passes.
+    line = {"op": 10, "stage": "rough", "side": "+X", "dro_tip_z": 0.0}
+    line.update(dro_xy=[[0.0, 8.0], [10.0, 8.0]], setup_xy=[[0.0, 8.0], [10.0, 8.0]])
+    joined = {**returning, "line_table": [line]}
+    [printed] = table_checkpoints("S1:10", joined, 10, "mm")["paths"]
+    route = tool_paths({"op": 10}, joined, "mm", "S1:10")["returns"]["route"]
+    assert route[0] == {"table": printed["table"]} and len(route) == 3
+    # A raise Z the traveler cannot print, or a pass it cannot, leaves every move back unknown.
+    unraised = {**returning, "level_paths": [{"op": 10, "raise_z": "unknown"}]}
+    assert "raise Z" in tool_paths({"op": 10}, unraised, "mm", "S1:10")["returns"]["reason"]
+    unknown = {**raster, "raster_reason": "open side unknown"}
+    broken = tool_paths({"op": 10}, {**returning, "profiles": [unknown]}, "mm", "S1:10")
+    assert "open side unknown" in broken["reason"]
+    assert broken["returns"] == {"reason": broken["reason"]}
     # An outline at its one level stands at its ends from there up to its profile's entry
     # surface, as the DRO shows it (up the grid: 3.996 reads 4.00).
     outlined = {**tables, "profiles": [raster, {**outline, "entry_z": 3.996}]}
-    outlined["dro_grid"] = {"step": 0.01, "decimals": 2}
-    assert _moves(tool_paths({"op": 20}, outlined, "mm")) == sorted(
+    outlined["dro_grid"] = grid
+    assert _moves(tool_paths({"op": 20}, outlined, "mm", "S1:20")) == sorted(
         [
             (((0.0, 0.0), (5.0, 0.0), (5.0, 5.0)), (0.0, 0.0)),
             (((0.0, 0.0),), (0.0, 4.0)),
@@ -558,16 +643,13 @@ def test_the_commanded_sweep_is_every_pass_at_every_level_and_every_move_between
     # Without that surface, or a DRO grid to read it on, its start is unknown: never the
     # level itself.
     for given in (tables, {**outlined, "dro_grid": {}}):
-        assert "start Z are unknown" in tool_paths({"op": 20}, given, "mm")["reason"]
+        assert "start Z are unknown" in tool_paths({"op": 20}, given, "mm", "S1:20")["reason"]
     # An arc table's rows reach the kernel as its checkpoints; an unknown pass is unknown.
     rows = {"op": 10, "cutter_centre": [{"id": "A1", "x": 0.0, "y": 0.0}]}
-    assert tool_paths({"op": 10}, {**tables, "profiles": [rows]}, "mm")["tables"] is True
-    unknown = {**raster, "raster_reason": "open side unknown"}
-    assert (
-        "open side unknown"
-        in tool_paths({"op": 10}, {**tables, "profiles": [unknown]}, "mm")["reason"]
-    )
-    assert tool_paths({"op": 30}, tables, "mm") is None
+    assert tool_paths({"op": 10}, {**tables, "profiles": [rows]}, "mm", "S1:10")["tables"] is True
+    failed = tool_paths({"op": 10}, {**tables, "profiles": [unknown]}, "mm", "S1:10")
+    assert "open side unknown" in failed["reason"] and "returns" not in failed
+    assert tool_paths({"op": 30}, tables, "mm", "S1:30") is None
 
 
 def _web_hold(*origins):

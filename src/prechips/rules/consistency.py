@@ -68,9 +68,10 @@ Compared. A ``T<n>`` in a setup's or op's text names that setup's TOOLS row:
   [the] plug(s)`` or ``the plugs`` through: contradicts the pair;
 
 Three checks need no prose: ``tighten = "hand"`` with a ``torque_nm``; the setup picture's
-``CUT <mm> mm FROM <holder> (OP <op>)`` (the kernel's ``closest_cut``), which must print
-the CLEARANCE row of the op it names beside the same holding solid (its ``cut_clearances``;
-a cut naming no op is unknown), each as its own surface rounds it at the setup's DRO
+``CUT <mm> mm FROM <holder> (OP <op>)`` (the kernel's ``closest_cut``; ``RETURN`` for a
+move back to an entry), which must print the CLEARANCE row of the op it names beside the
+same holding solid, from the same move (its ``cut_clearances``; a cut naming no op is
+unknown), each as its own surface rounds it at the setup's DRO
 decimals; and ``stock_state``
 against the kernel's setup-entry stock, each height judged by the one evidence source its
 declaration names, never another in its place. A ``top_z`` / ``bottom_z`` whose
@@ -843,9 +844,10 @@ def _restated_sizes(traveler, setup):
 
 def _picture_cut(bundle, setup):
     """The setup picture's ``CUT <mm> mm FROM <holder> (OP <op>)`` (the kernel's
-    ``closest_cut``) against the CLEARANCE table's row of the op it names (its
-    ``cut_clearances``), each printed as its surface prints it at the setup's DRO decimals:
-    the picture must print that op's value beside the same holding solid. That op's row
+    ``closest_cut``; ``RETURN`` for a move back to an entry) against the CLEARANCE table's
+    row of the op it names (its ``cut_clearances``), each printed as its surface prints it at
+    the setup's DRO decimals: the picture must print that op's value beside the same holding
+    solid, from the same move. That op's row
     missing or not computed leaves it unknown, as does a cut naming no op (unknown, empty
     or absent): another op's row of the same value never stands in. A saw's blade path
     carries no row, so the cut it names restates none."""
@@ -866,7 +868,7 @@ def _picture_cut(bundle, setup):
         return 1, [], [f"the setup picture's cut from the {holder} has no measured value"]
     if cut.get("blade"):
         return 0, [], []
-    said = f'"CUT {_dro(cut["mm"], decimals)} mm" from the {holder}'
+    said = f'"{_move(cut).upper()} {_dro(cut["mm"], decimals)} mm" from the {holder}'
     op = cut.get("op")
     if op is None or str(op).strip() in ("", UNKNOWN):
         return (
@@ -883,10 +885,17 @@ def _picture_cut(bundle, setup):
         state = "has no CLEARANCE row" if row is None else "CLEARANCE row is not computed"
         return 1, [], [f"the setup picture prints {said}, but op {op} {state}"]
     value = _number(row["mm"], decimals)
-    if row.get("tag") == cut.get("tag") and value == _dro(cut["mm"], decimals):
+    if (row.get("tag"), _move(row)) == (cut.get("tag"), _move(cut)) and value == _dro(
+        cut["mm"], decimals
+    ):
         return 1, [], []
-    given = f"op {op}'s cut as {value} beside the {_holder(row.get('tag'))}"
+    given = f"op {op}'s {_move(row)} as {value} beside the {_holder(row.get('tag'))}"
     return 1, [f"the setup picture prints {said}, but its CLEARANCE table gives {given}"], []
+
+
+def _move(found):
+    """Which move a clearance is of: an op's move back to an entry, else its cut."""
+    return "return" if found.get("move") == "return" else "cut"
 
 
 def _holder(tag):
