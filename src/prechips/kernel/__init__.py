@@ -7,6 +7,7 @@ import json
 import math
 import os
 import shutil
+import signal
 import subprocess
 import tempfile
 from contextlib import nullcontext
@@ -1542,23 +1543,50 @@ def _valid_result(value):
     return isinstance(value, dict) and value.get("status") in {"ok", "unknown", "error"}
 
 
+def _run_kernel(command):
+    """``command`` run to its end under the runaway guard, which ends the whole kernel run.
+
+    ``command`` (FREECAD_CMD) may be a launcher that runs ``freecadcmd`` as its child
+    rather than replacing itself with it: the Linux AppImage's ``AppRun`` shell does. Killing
+    only the launcher, as :func:`subprocess.run` does on its timeout, would leave the engine
+    and its pool workers running. On POSIX the run therefore has its own session, whose
+    process group every process of the run inherits, and the guard kills that group; on
+    Windows ``command`` is the engine, and its job object ends its workers (boolean_pool)."""
+    posix = os.name == "posix"
+    with subprocess.Popen(
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        errors="replace",
+        start_new_session=posix,
+    ) as process:
+        try:
+            # Runaway guard: about twice the heaviest example's cold batch.
+            stdout, stderr = process.communicate(timeout=600)
+        except BaseException:  # the guard expired or the host is interrupted: end the run
+            # Until it is reaped, the launcher's pid stays reserved and names the run's group.
+            if posix and process.returncode is None:
+                os.killpg(process.pid, signal.SIGKILL)
+            else:
+                process.kill()
+            raise
+    return subprocess.CompletedProcess(process.args, process.returncode, stdout, stderr)
+
+
 def _execute(executable, job):
     with tempfile.TemporaryDirectory(prefix="prechips-kernel-") as directory:
         source = Path(directory) / "input.json"
         target = Path(directory) / "output.json"
         source.write_text(_json(job), encoding="utf-8")
-        process = subprocess.run(
+        process = _run_kernel(
             [
                 str(executable),
                 str(Path(__file__).with_name("freecad_job.py")),
                 "--",
                 str(source),
                 str(target),
-            ],
-            capture_output=True,
-            text=True,
-            errors="replace",
-            timeout=600,  # runaway guard: about twice the heaviest example's cold batch
+            ]
         )
         if process.returncode:
             detail = (process.stderr or process.stdout).strip()

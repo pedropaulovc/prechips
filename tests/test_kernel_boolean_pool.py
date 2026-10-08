@@ -170,23 +170,27 @@ def test_the_hosts_runaway_guard_leaves_no_worker_or_pool_file_behind(
     monkeypatch.setenv("POOL_PROBE_DIR", str(tmp_path))
     monkeypatch.setenv("POOL_PROBE_ENGINE", str(ENGINE))
 
-    def guard(command, **options):
-        # The host's 600 s guard expiring while the worker is inside its boolean: kill the
-        # engine as subprocess.run does on its timeout, then report the timeout.
-        assert options["timeout"] == 600
-        command = [command[0], str(script), *command[2:]]
-        with subprocess.Popen(
-            command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-        ) as process:
+    class Guarded(subprocess.Popen):
+        # The host's real launch and kill, with its 600 s guard expiring while the worker is
+        # inside its boolean: the engine is FREECAD_CMD's process or, under a launcher such
+        # as the Linux AppImage's AppRun shell, that process's child.
+        def __init__(self, command, **options):
+            super().__init__([command[0], str(script), *command[2:]], **options)
+
+        def communicate(self, input=None, timeout=None):
+            assert timeout == 600
             deadline = time.monotonic() + 300
             while not (tmp_path / "worker.json").exists():
-                assert process.poll() is None, "the engine ended before its worker blocked"
+                try:
+                    super().communicate(input, 0.1)
+                except subprocess.TimeoutExpired:
+                    pass
+                else:
+                    pytest.fail("the engine ended before its worker blocked")
                 assert time.monotonic() < deadline, "the worker never entered its boolean"
-                time.sleep(0.1)
-            process.kill()
-        raise subprocess.TimeoutExpired(command, options["timeout"])
+            raise subprocess.TimeoutExpired(self.args, timeout)
 
-    monkeypatch.setattr(kernel.subprocess, "run", guard)
+    monkeypatch.setattr(kernel.subprocess, "Popen", Guarded)
     with pytest.raises(subprocess.TimeoutExpired):
         kernel._execute(freecad_kernel, {"jobs": [], "timing": True})
     monkeypatch.undo()
@@ -195,10 +199,14 @@ def test_the_hosts_runaway_guard_leaves_no_worker_or_pool_file_behind(
     try:
         assert worker != engine["pid"], "the engine ran the blocked boolean itself"
         directory = Path(engine["directory"])
+        # Before _execute raises, the guard has SIGKILLed the run's process group (POSIX) or
+        # ended the engine, whose job then ends its workers (Windows); exits are asynchronous.
         deadline = time.monotonic() + 10
-        while _alive(worker) and time.monotonic() < deadline:
+        while (_alive(engine["pid"]) or _alive(worker)) and time.monotonic() < deadline:
             time.sleep(0.1)
+        assert not _alive(engine["pid"]), "the runaway guard left the engine running"
         assert not _alive(worker), "a busy worker outlived its killed engine"
         assert not directory.exists(), f"the pool's shape files outlived the run: {directory}"
     finally:
         _kill(worker)
+        _kill(engine["pid"])
