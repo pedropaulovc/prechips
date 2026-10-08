@@ -439,9 +439,9 @@ and inspection notes*):
    chuck-side extent over every pose the kernel stands it at (accessibility
    `tool_z_mm`; for an op fed to a dome table's tool readings, its outline
    carried to where those readings put the nose, `nose_z_mm`), the same number
-   the op's jaw box prints; a tool the kernel could not pose whole, or a dome
-   table printing no tool readings, makes it `not computed — check at the
-   machine`. A mill
+   the op's jaw box prints; a turning tool the kernel could not pose whole or
+   never posed, or a dome table printing no tool readings, makes it `not computed
+   — check at the machine`. A mill
    shows one line for the tallest spindle-to-table stack
    (with the 25 mm tool-change room) against the room available, one for X/Y
    table travel, one `Not computed — check at the machine` line for uncomputed

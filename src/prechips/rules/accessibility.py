@@ -123,9 +123,10 @@ def evaluate(bundle):
         }
         checkpoints, checkpoint_hit, checkpoint_unknown = _checkpoints(detail)
         # The whole turning tool's axial extent and its nose's over the same poses (or why
-        # they are unknown): the traveler's jaw distance, whatever the op's own verdict.
+        # they are unknown): the traveler's jaw distance, whatever the op's own verdict. A
+        # kernel that never posed the tool reports none: that is unknown, never absent.
         keys = ("tool_z_mm", "nose_z_mm")
-        extent = {key: detail[key] for key in keys if turned and key in detail}
+        extent = {key: detail.get(key, "unknown") for key in keys} if turned else {}
         if blocked:
             occluded = any(number(value) and value > 0 for value in certain.values())
             if blocked.status == "unknown" and (occluded or checkpoint_hit):

@@ -1910,11 +1910,12 @@ def _plunge(x, y, tip, radius, slope, top, seat=None):
     return _cutter(x, y, tip, radius, slope, flute, (shank, rise), top - tip - flute - rise)
 
 
-def _centre_drill_cutter(cut, x, y, tip, length):
+def _centre_drill_cutter(cut, x, y, tip, length, inset=LIFT):
     """The whole combined drill and countersink of centre ``cut`` on vertical axis (x, y),
     its point at ``tip`` and ``length`` mm long: the pilot point and pilot, the countersink
     opening on through the mouth to the body diameter, then the body. Every surface sits
-    ``LIFT`` inside the centre it cuts, so only stock outside that centre registers."""
+    ``inset`` inside the centre it cuts, ``LIFT`` by default so only stock outside that
+    centre registers; 0 is the tool's true outline, what it carries past the holding."""
     drill, body = cut["drill_dia_mm"] / 2, cut["body_dia_mm"] / 2
     slope = math.tan(math.radians(cut["countersink_angle_deg"] / 2))
     point = drill / math.tan(math.radians(cut["point_angle_deg"] / 2))
@@ -1924,11 +1925,11 @@ def _centre_drill_cutter(cut, x, y, tip, length):
     if top <= body_z + LIFT:
         raise _Unknown(f"{cut['label']}: the tool projection ends inside its countersink")
     profile = [
-        V(x, y, tip + LIFT),
-        V(x + drill - LIFT, y, tip + point + LIFT),
-        V(x + drill - LIFT, y, shoulder + LIFT),
-        V(x + body - LIFT, y, body_z + LIFT),
-        V(x + body - LIFT, y, top),
+        V(x, y, tip + inset),
+        V(x + drill - inset, y, tip + point + inset),
+        V(x + drill - inset, y, shoulder + inset),
+        V(x + body - inset, y, body_z + inset),
+        V(x + body - inset, y, top),
         V(x, y, top),
     ]
     return Part.Face(Part.makePolygon(profile + profile[:1])).revolve(V(x, y, tip), Z, 360)
@@ -2100,6 +2101,23 @@ def _level_offset(wire, distance):
     return moved
 
 
+def _span(wire):
+    """The two extreme vertices along the line of a level ``wire`` of straight edges whose
+    vertices all lie on that one line, else None: the whole span a path along it covers,
+    wherever it turns back between them (never just its first and last vertex)."""
+    if any(type(edge.Curve).__name__ != "Line" for edge in wire.Edges):
+        return None
+    points = [vertex.Point for vertex in wire.OrderedVertexes]
+    run = max(points, key=lambda point: (point - points[0]).Length) - points[0]
+    if run.Length <= PLANE_TOL:
+        return None
+    side = V(-run.y, run.x, 0).normalize()
+    if any(abs((point - points[0]).dot(side)) > PLANE_TOL for point in points):
+        return None
+    along = [(point - points[0]).dot(run) for point in points]
+    return points[along.index(min(along))], points[along.index(max(along))]
+
+
 def _stadium(start, end, radius):
     """The level region within ``radius`` of the segment ``start``-``end``."""
     run = end - start
@@ -2112,9 +2130,10 @@ def _stadium(start, end, radius):
 
 def _path_area(centre, radius):
     """The level region within ``radius`` of the level wire ``centre``: a 2r band round a
-    closed path, a sausage with r discs round an open path's ends. Its faces together
-    cover the region (they may overlap: each caller extrudes them one by one)."""
-    ends = _straight(centre)
+    closed path, a sausage with r discs round an open path's ends, the stadium round the
+    whole span of a path along one line. Its faces together cover the region (they may
+    overlap: each caller extrudes them one by one)."""
+    ends = _span(centre)
     if ends is not None:  # OCC finds no plane for a straight path
         return _stadium(*ends, radius)
     if centre.isClosed():
@@ -2370,8 +2389,9 @@ def _tool_envelope(op, moves):
     / 2) or None}`` is a drill-like tool: its point at the lowest tip and, with a seat
     cone (:func:`_seat`) below the holder face, that cone there and the bore its widest
     edge sweeps above it (:func:`_plunge`). ``{"centre": process centre}`` is the whole
-    centre drill (:func:`_centre_drill_cutter`) up to the holder face at the lowest tip,
-    its body above. Raises :class:`_Unknown` naming unmeasured dimensions."""
+    centre drill's true outline (:func:`_centre_drill_cutter`, no hit-test inset) up to the
+    holder face at the lowest tip, its body above. Raises :class:`_Unknown` naming
+    unmeasured dimensions."""
     keys = ["holder_radius_mm", "holder_gauge_len_mm", "projection_mm"]
     if any(axial is None or "centre" not in axial for *_, axial in moves):
         keys += ["radius_mm", "flute_len_mm"]
@@ -2391,7 +2411,7 @@ def _tool_envelope(op, moves):
         pieces = [(holder, low + projection, high + projection + gauge)]
         if axial is not None and "centre" in axial:
             (x, y), centre = xy[0], axial["centre"]
-            solids.append(_centre_drill_cutter(centre, x, y, low, projection))
+            solids.append(_centre_drill_cutter(centre, x, y, low, projection, inset=0.0))
             pieces.append((centre["body_dia_mm"] / 2, low + projection, high + projection))
         else:
             seated = axial is not None and seat is not None and start <= projection
@@ -9033,7 +9053,9 @@ class _Setup:
             facts["approach"] = TURNING
         elif _rotary(op):
             facts["approach"] = ROTARY
-        for key in ("claimed_indices", *self._MEASURED, "corner_radii_mm"):
+        # A turning tool never posed has no known reach along Z (the jaw clearance).
+        extent = ("tool_z_mm", "nose_z_mm") if _turned(op) else ()
+        for key in ("claimed_indices", *self._MEASURED, "corner_radii_mm", *extent):
             facts[key] = UNKNOWN
             facts["reasons"][key] = reason
         return facts

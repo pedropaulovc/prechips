@@ -8,6 +8,7 @@ import math
 import subprocess
 
 import pytest
+from test_kernel_contact_keys import _probe
 from test_kernel_geometry import Engine, _op, _setup, _vise
 
 from prechips.kernel import _engine_hold, hold_inputs
@@ -428,6 +429,64 @@ def test_a_closed_path_narrower_than_the_tool_is_swept_whole(engine, parts):
     ]
 
 
+def test_a_path_that_turns_back_along_its_line_is_swept_out_to_its_far_end(engine, parts):
+    # Out along X20 from Y0 to Y26 and back to Y10: the cutter reaches Y29, 1.0 from the
+    # upright (Y30), though neither end of the path comes nearer than Y10 (the cutter 17
+    # from it, the layer the op takes off 10).
+    path = {"xy_mm": [[20.0, 0.0], [20.0, 26.0], [20.0, 10.0]], "z_mm": [10.0, 10.0]}
+    expected = [{"op": "10", "mm": 1.0, "tag": "plate:upright"}]
+    for turned in (path, {**path, "xy_mm": path["xy_mm"][:2]}):
+        ops = [_facing(tool_paths={"paths": [turned]})]
+        assert _clearances(engine, parts["plate"], ops, _behind()) == expected
+
+
+def test_a_tool_stands_over_its_whole_plunge_from_the_z_its_op_starts_at(engine, parts):
+    # An outline at the plate's top, Z10, with no level plan: it starts from the surface its
+    # profile names, the raw stock's top Z12. Standing there the holder (40 above the tip,
+    # 30 long) reaches Z82, into an arm over the cut at Z81 that it misses by 1 at Z10.
+    from prechips.kernel import tool_paths
+
+    outline = {"op": 10, "cutter_centre": [[5.0, 10.0], [35.0, 10.0]], "entry_z": 12.0}
+    tables = {
+        "operations": [{"op": 10, "dro_to_z": 10.0}],
+        "profiles": [outline],
+        "dro_grid": {"step": 0.01, "decimals": 2},
+    }
+    hold = _behind()
+    hold["solids"] = [*hold["solids"], _box("plate:arm", [0.0, 9.5, 81.0], [10.0, 1.0, 1.0])]
+    ops = [_facing(tool_paths=tool_paths({"op": 10}, tables, "mm"))]
+    assert _clearances(engine, parts["plate"], ops, hold) == [
+        {"op": "10", "mm": 0.0, "tag": "plate:arm"}
+    ]
+    # Tables that give no start Z leave the plunge, and so the row, unknown: never the
+    # outline's own level.
+    unstarted = {**tables, "profiles": [{**outline, "entry_z": "unknown"}]}
+    ops = [_facing(tool_paths=tool_paths({"op": 10}, unstarted, "mm"))]
+    assert _clearances(engine, parts["plate"], ops, hold) == [
+        {"op": "10", "mm": "unknown", "tag": "unknown"}
+    ]
+
+
+_CENTRE_DRILL = r"""
+centre = {"label": "centre", "drill_dia_mm": 2.0, "body_dia_mm": 6.0, "drill_length_mm": 2.0,
+          "countersink_angle_deg": 60.0, "point_angle_deg": 118.0}
+tool = {"holder_radius_mm": 10.0, "holder_gauge_len_mm": 30.0, "projection_mm": 20.0}
+envelope = job._tool_envelope(tool, [([(0.0, 0.0)], 0.0, 10.0, {"centre": centre})])
+result = {}
+for x in args["faces"]:
+    block = Part.makeBox(1, 1, 1, V(x, -0.5, 8.0))
+    result[str(x)] = min(solid.distToShape(block)[0] for solid in envelope)
+"""
+
+
+def test_a_centre_drill_carries_its_whole_body_past_the_holding(tmp_path, freecad_kernel):
+    # A 6 mm body over a 2 mm pilot, its tip fed from Z10 to Z0: a block beside the body at
+    # Z8 whose face stands 0.0005 inside its radius (3) is met; 0.0005 outside, clear by that.
+    found = _probe(tmp_path, freecad_kernel, _CENTRE_DRILL, faces=[2.9995, 3.0005])
+    assert found["2.9995"] == pytest.approx(0.0, abs=1e-7)
+    assert found["3.0005"] == pytest.approx(0.0005, abs=1e-7)
+
+
 @pytest.mark.parametrize(
     "op",
     [
@@ -471,14 +530,21 @@ def test_the_commanded_sweep_is_every_pass_at_every_level_and_every_move_between
             (((10.0, 4.0), (0.0, 0.0)), (6.0, 6.0)),
         ]
     )
-    # An outline at its one level enters and leaves at its ends.
-    assert _moves(tool_paths({"op": 20}, tables, "mm")) == sorted(
+    # An outline at its one level stands at its ends from there up to its profile's entry
+    # surface, as the DRO shows it (up the grid: 3.996 reads 4.00).
+    outlined = {**tables, "profiles": [raster, {**outline, "entry_z": 3.996}]}
+    outlined["dro_grid"] = {"step": 0.01, "decimals": 2}
+    assert _moves(tool_paths({"op": 20}, outlined, "mm")) == sorted(
         [
             (((0.0, 0.0), (5.0, 0.0), (5.0, 5.0)), (0.0, 0.0)),
-            (((0.0, 0.0),), (0.0, 0.0)),
-            (((5.0, 5.0),), (0.0, 0.0)),
+            (((0.0, 0.0),), (0.0, 4.0)),
+            (((5.0, 5.0),), (0.0, 4.0)),
         ]
     )
+    # Without that surface, or a DRO grid to read it on, its start is unknown: never the
+    # level itself.
+    for given in (tables, {**outlined, "dro_grid": {}}):
+        assert "start Z are unknown" in tool_paths({"op": 20}, given, "mm")["reason"]
     # An arc table's rows reach the kernel as its checkpoints; an unknown pass is unknown.
     rows = {"op": 10, "cutter_centre": [{"id": "A1", "x": 0.0, "y": 0.0}]}
     assert tool_paths({"op": 10}, {**tables, "profiles": [rows]}, "mm")["tables"] is True

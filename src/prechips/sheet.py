@@ -27,6 +27,7 @@ from .rules.coordinates import (
     faced_aim_claims,
     row_id,
 )
+from .rules.geometry_common import TURNING, approach
 from .rules.hold_fields import align_indicator, align_travel
 from .rules.inspection import ZONES, go_no_go_pair
 from .rules.resolution import (
@@ -3175,9 +3176,10 @@ class _Traveler:
 
     def lathe_approaches(self, setup):
         """Distance from each op's nearest approach to the jaw fronts (exposed side +Z): the
-        least of its planned Zs and the chuck-side extent of its whole tool (accessibility
-        ``tool_z_mm``: insert or blade, head, shank and body), not just the Z its op names;
-        ``"unknown"`` when the kernel could not pose the whole tool.
+        least of its planned Zs and, for a turning op, the chuck-side extent of its whole
+        tool (accessibility ``tool_z_mm``: insert or blade, head, shank and body), not just
+        the Z its op names; ``"unknown"`` when the kernel could not pose the whole tool or
+        reported no extent for it.
 
         The kernel stands the tool on the drawn profile. An op fed to the imaginary-tip
         readings of its contour tables (:meth:`contour_tips`) stands where those put its
@@ -3196,24 +3198,32 @@ class _Traveler:
             zs = self.path_zs(setup, op)
             if not zs:
                 continue
-            numbers = _mapping(self.records.get(("accessibility", f"{setup['id']}:{op['op']}")))
-            if "tool_z_mm" in numbers:
-                tool, nose = numbers["tool_z_mm"], numbers.get("nose_z_mm")
+            if approach(self.bundle, setup, op) == TURNING:
+                key = ("accessibility", f"{setup['id']}:{op['op']}")
+                numbers = _mapping(self.records.get(key))
+                tool, nose = numbers.get("tool_z_mm", "unknown"), numbers.get("nose_z_mm")
                 known = isinstance(tool, list) and tool and all(_known(z) for z in tool)
+                posed = isinstance(nose, list) and nose and all(_known(z) for z in nose)
                 lowest = min(tool) if known else "unknown"
                 tips = self.contour_tips(setup, op)
+                named = min(zs) * scale if scale else None
                 if tips is not None:
-                    posed = isinstance(nose, list) and nose and all(_known(z) for z in nose)
                     lowest = (
                         min(tips) * scale - (nose[0] - tool[0])
                         if known and posed and tips != "unknown" and scale
                         else "unknown"
                     )
-                named = min(zs) * scale if scale else None
-                if _known(lowest) and named is not None and 0 <= named - lowest <= FACE_Z_TOL_MM:
-                    # The kernel poses the tool against the face at the op's named Z only to
-                    # its hit-test inset (LIFT, the 0.001 mm of FACE_Z_TOL_MM): an outline that
-                    # far past that Z stands at it. Any farther reach is the tool's own.
+                elif (
+                    known
+                    and posed
+                    and named is not None
+                    and tool[0] == nose[0]
+                    and 0 <= named - nose[0] <= FACE_Z_TOL_MM
+                ):
+                    # The kernel poses the nose against the face at the op's named Z only to
+                    # its hit-test inset (LIFT, the 0.001 mm of FACE_Z_TOL_MM): a nose that
+                    # far past that Z, and the tool's lowest point, stands at it. Any other
+                    # part's reach past it (a shank, a blade's far face) is the tool's own.
                     lowest = named
                 # Millimetres; down-rounded so the jaw gap is never overstated.
                 face = self.mm_on_grid(setup, lowest, up=False)

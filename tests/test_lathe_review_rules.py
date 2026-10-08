@@ -544,12 +544,18 @@ def test_a_tool_posed_within_the_kernels_hit_test_inset_of_its_ops_z_stands_at_t
     # tool's own reach (3.9895): never printed as 3.99.
     record["tool_z_mm"] = [-24.0005, 82.88]
     assert sheet.lathe_approaches(setup) == {"10": pytest.approx(3.98)}
+    # Nor is a shank's: the nose posed exactly on the Z, a wider shank 0.0005 past it stands
+    # 4.9895 from the jaws, printed down the grid as 4.98.
+    record.update(tool_z_mm=[-23.0005, 82.88], nose_z_mm=[-23.0, 21.8])
+    assert sheet.lathe_approaches(setup) == {"10": pytest.approx(4.98)}
 
 
-def test_a_tool_the_kernel_could_not_pose_whole_has_an_unknown_jaw_clearance():
-    # Its holder is undeclared: the shank may stand nearer the jaws than the Z the op
-    # names, so no distance is printed and the op still gets its hand-feed check.
-    sheet, setup, op = _sheet("mm", 0.01, {"tool_z_mm": "unknown", "feed_z": -1}, 1.75, 0.25)
+@pytest.mark.parametrize("extent", [{"tool_z_mm": "unknown"}, {}], ids=["unknown", "absent"])
+def test_a_tool_the_kernel_could_not_pose_whole_has_an_unknown_jaw_clearance(extent):
+    # Its holder is undeclared, or the kernel stopped before posing it at all: the shank may
+    # stand nearer the jaws than the Z the op names, so no distance is printed and the op
+    # still gets its hand-feed check.
+    sheet, setup, op = _sheet("mm", 0.01, {**extent, "feed_z": -1}, 1.75, 0.25)
     setup["hold"]["pose"] = {"origin_mm": [0.0, 0.0, -8.0], "z": [0.0, 0.0, 1.0]}
     sheet.records[("headroom", "S1")] = {"stock_od_mm": 10.0}
     assert sheet.lathe_approaches(setup) == {"10": "unknown"}

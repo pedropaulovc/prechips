@@ -374,13 +374,15 @@ def tool_paths(op, tables, units):
 
     A printed pass or outline (a list ``cutter_centre``) is cut at every one of the op's
     Z levels (``z_levels.levels``, else its ``dro_to_z``), and its cutter stands at each end
-    from the lowest level up to where it enters and leaves: the op's start Z
-    (``dro_start_z``), and a raster's lift Z. A raster is one way: its cutter rapids at the
-    lift Z from each pass's end to the next pass's start, and from the last back to the
-    first when another level follows. An arc table's rows (dict ``cutter_centre`` rows,
-    ``tables``) reach the kernel as the op's ``checkpoints``, clipped there for a bounded
-    op; ``levels_mm`` and ``entry_z_mm`` stand them the same way. ``{"reason": ...}`` when
-    a pass, level, start or lift is unknown; None when the op prints no cutter-centre path.
+    from the lowest level up to where it enters and leaves: the op's start Z (its level
+    plan's ``dro_start_z``, else its profile's ``entry_z`` on the DRO grid; never its own
+    depth, which would leave the plunge and the holder above it out), and a raster's lift
+    Z. A raster is one way: its cutter rapids at the lift Z from each pass's end to the
+    next pass's start, and from the last back to the first when another level follows. An
+    arc table's rows (dict ``cutter_centre`` rows, ``tables``) reach the kernel as the op's
+    ``checkpoints``, clipped there for a bounded op; ``levels_mm`` and ``entry_z_mm`` stand
+    them the same way. ``{"reason": ...}`` when a pass, level, start or lift is unknown;
+    None when the op prints no cutter-centre path.
     """
     name = op.get("op")
     profiles = [
@@ -404,11 +406,25 @@ def tool_paths(op, tables, units):
     levels = record(operation.get("z_levels"))
     tips = levels.get("levels") or [operation.get("dro_to_z", UNKNOWN)]
     known = isinstance(tips, list) and all(map(number, tips))
-    entry = levels.get("dro_start_z", max(tips) if known else UNKNOWN)
-    if not (known and number(entry)):
+    if levels:
+        starts = [levels.get("dro_start_z", UNKNOWN)]
+    else:
+        # One level: the op starts where its cutter enters, the surface its profile names
+        # (its feature's declared entry_z, else the current top) as the DRO shows it, as the
+        # traveler prints it (:func:`prechips.rules.level_entry.level_paths`).
+        from prechips.rules.coordinates import dro_z
+
+        grid = record(record(tables).get("dro_grid"))
+        step, places = grid.get("step"), grid.get("decimals")
+        on_grid = number(step) and step > 0 and isinstance(places, int)
+        starts = [
+            dro_z(profile.get("entry_z", UNKNOWN), (step, places)) if on_grid else UNKNOWN
+            for profile in profiles
+        ]
+    if not (known and all(map(number, starts))):
         return {"reason": f"op {name} Z levels or start Z are unknown"}
     low, high = min(tips) * scale, max(tips) * scale
-    entry = max(entry * scale, high)
+    entry = max(max(starts) * scale, high)
     paths, printed_tables = [], False
     for profile in profiles:
         why = next(
