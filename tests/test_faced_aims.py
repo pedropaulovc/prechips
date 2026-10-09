@@ -17,6 +17,7 @@ from test_kernel_geometry import Engine, _vise
 from prechips.inputs import BadInput, load_bundle
 from prechips.kernel import build_job, engine_job
 from prechips.rules.coordinates import faced_aims
+from prechips.sheet import _Traveler
 
 FEATURES = """part = "plate"
 units = "mm"
@@ -40,17 +41,21 @@ faces = ["#1/ADVANCED_FACE[1]/TOP", "#2/ADVANCED_FACE[2]/BOTTOM"]
 BOTTOM = "#2/ADVANCED_FACE[2]/BOTTOM"
 
 
-def _write(tmp_path, aim, op="finish_face", features=FEATURES):
+def _write(tmp_path, aim, op="finish_face", features=FEATURES, faces=(BOTTOM,)):
     (tmp_path / "inventory.toml").write_text('[machines.mill]\nkind = "mill"\n', encoding="utf-8")
     (tmp_path / "cutting.toml").write_text("", encoding="utf-8")
     (tmp_path / "features.toml").write_text(features, encoding="utf-8")
+    claims = ""
+    if isinstance(faces, tuple | list):
+        claims = f"faces = {list(faces)!r}\n"
+    elif faces is not None:
+        claims = f'faces = "{faces}"\n'
     (tmp_path / "plan.toml").write_text(
         'part = "plate"\nfeatures = "features.toml"\n'
         '[paths]\ninventory = "inventory.toml"\ncutting_data = "cutting.toml"\n'
         f"{aim}"
         '[[setups]]\nid = "S2"\nmachine = "mill"\nframe = "model"\n'
-        f'[[setups.ops]]\nop = 10\ndo = "{op}"\nfeature = "plate_faces"\n'
-        f'faces = ["{BOTTOM}"]\n',
+        f'[[setups.ops]]\nop = 10\ndo = "{op}"\nfeature = "plate_faces"\n' + claims,
         encoding="utf-8",
     )
     return tmp_path / "plan.toml"
@@ -79,6 +84,47 @@ def test_a_faced_aim_moves_its_face_by_the_aim_less_the_planes_separation(tmp_pa
     }
     # The kernel cuts that part: the aim reaches its job, and its geometry cache key.
     assert engine_job(build_job(bundle))["aimed_faces"] == [record]
+
+
+@pytest.mark.parametrize(
+    "faces",
+    [None, ["#1/ADVANCED_FACE[1]/TOP"], ["#1/ADVANCED_FACE[1]/TOP", "unknown"]],
+)
+def test_a_faced_move_requires_a_resolved_claim_or_feature_default(tmp_path, faces):
+    top = "#1/ADVANCED_FACE[1]/TOP"
+    bundle = load_bundle(_write(tmp_path, _aim(10.03, face=top), faces=faces))
+    (record,) = faced_aims(bundle)
+    assert record["face"] == top and record["value_mm"] == 10.03
+    assert record["delta_mm"] == pytest.approx(0.03)
+    assert engine_job(build_job(bundle))["aimed_faces"] == [record]
+
+
+@pytest.mark.parametrize(
+    "faces",
+    [[BOTTOM], "unknown", ["unknown"], []],
+)
+def test_loading_refuses_a_faced_move_without_a_resolved_claim(tmp_path, faces):
+    with pytest.raises(BadInput):
+        load_bundle(_write(tmp_path, _aim(10.03, face="#1/ADVANCED_FACE[1]/TOP"), faces=faces))
+
+
+def test_mixed_face_debt_keeps_the_faced_aim_on_the_last_claiming_op(tmp_path):
+    top = "#1/ADVANCED_FACE[1]/TOP"
+    path = _write(tmp_path, _aim(10.03, face=top), faces=[top])
+    with path.open("a", encoding="utf-8") as stream:
+        stream.write(
+            '[[setups.ops]]\nop = 20\ndo = "finish_face"\nfeature = "plate_faces"\n'
+            f'faces = ["{top}", "unknown"]\n'
+        )
+    bundle = load_bundle(path)
+    setup = bundle.plan["setups"][0]
+    early, late = setup["ops"]
+    traveler = _Traveler(bundle, [], {}, None)
+    assert traveler.faced_aim_note(setup, early) is None
+    note = traveler.faced_aim_note(setup, late)
+    assert note is not None
+    assert "10.03" in note and "10.00" in note and "10.05" in note
+    assert "probe" in note
 
 
 @pytest.mark.parametrize("value", [10.051, 9.999])

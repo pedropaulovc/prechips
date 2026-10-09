@@ -2,14 +2,23 @@
 
 Circular pockets and exact two-radius grooves admit covering tangent axes.
 Sharp line/arc or arc/arc corners that require a farther axis report the physical
-wall collision instead of accepting an uncovered sample. FreeCAD-backed tests
+wall collision instead of accepting an uncovered sample. Native corner probes
+compare covering collisions with independently placed, noncovering clear axes;
+public jobs attribute hits to the authored corner walls. FreeCAD-backed tests
 run ``src/prechips/kernel/freecad_job.py`` under ``freecadcmd`` and skip without it.
 """
 
+import json
+import math
+import os
 import subprocess
+from pathlib import Path
 
 import pytest
 from test_kernel_geometry import Engine, _op, _setup, _vise
+from test_kernel_planar_legal_centres import _AXIS_PROBE
+
+from prechips import kernel
 
 _AUTHOR = r"""
 import math
@@ -21,6 +30,7 @@ out = sys.argv[sys.argv.index("--") + 1]
 def save(name, shape):
     assert shape.isValid() and len(shape.Solids) == 1, name
     shape.exportStep(out + "/" + name + ".step")
+    shape.exportBrep(out + "/" + name + ".brep")
 
 block = Part.makeBox(60, 40, 20)
 # Circular pockets 6 deep (floor z=14) about (30, 20): R10, R3 and R2.5.
@@ -65,6 +75,32 @@ save("partial-gap", plate.fuse([
 """
 _AUTHORED = 10
 
+_CORNER_PROBE = (
+    _AXIS_PROBE
+    + r"""
+result = {}
+for name, point, radius, far in (
+    ("v-boss", (10, 20, 14), 1.5,
+        (10 + 8*math.cos(math.radians(7)), 20 + 8*math.sin(math.radians(7)))),
+    ("partial-gap", (29.99, 23.01, 10), 3, (32.99, 20.01)),
+):
+    solid = read(name)
+    floors = [face for face in solid.Faces
+        if isinstance(face.Surface, Part.Plane)
+        and abs(face.CenterOfMass.z - point[2]) < 1e-6
+        and job._normal_at(face, face.CenterOfMass).z > .99]
+    assert len(floors) == 1
+    result[name] = axis(name, job._bbox(floors[0]), point, radius)
+    result[name + "-far"] = {
+        "displacement": math.hypot(far[0]-point[0], far[1]-point[1]),
+        "collision_mm3": Part.makeCylinder(radius, 10,
+            V(far[0], far[1], point[2] + job.LIFT)).common(solid).Volume,
+    }
+with open(out + "/corners.json", "w", encoding="utf-8") as handle:
+    json.dump(result, handle)
+"""
+)
+
 
 @pytest.fixture(scope="module")
 def solids(tmp_path_factory, freecad_kernel):
@@ -81,6 +117,32 @@ def solids(tmp_path_factory, freecad_kernel):
     paths = {path.stem: path for path in directory.glob("*.step")}
     assert len(paths) == _AUTHORED, process.stdout[-2000:] + process.stderr[-2000:]
     return paths
+
+
+@pytest.fixture(scope="module")
+def native_corners(solids, freecad_kernel):
+    directory = solids["v-boss"].parent
+    script = directory / "corners.py"
+    script.write_text(_CORNER_PROBE, encoding="utf-8")
+    process = subprocess.run(
+        [freecad_kernel, str(script), "--", str(directory)],
+        capture_output=True,
+        text=True,
+        errors="replace",
+        timeout=600,
+        env={**os.environ, "KERNEL_SOURCE": str(Path(kernel.__file__).with_name("freecad_job.py"))},
+    )
+    report = directory / "corners.json"
+    assert report.exists(), process.stdout[-2000:] + process.stderr[-2000:]
+    return json.loads(report.read_text(encoding="utf-8"))
+
+
+def _assert_corner_collision(native, name, radius):
+    chosen, far = native[name], native[name + "-far"]
+    assert chosen["displacement"] <= radius + 1e-7, chosen
+    assert chosen["collision_mm3"] > 1e-6, chosen
+    assert far["displacement"] > radius, far
+    assert far["collision_mm3"] == pytest.approx(0, abs=1e-8), far
 
 
 @pytest.fixture
@@ -148,12 +210,25 @@ def test_tool_wider_than_its_circle_or_gap_reports_the_real_wall_hit(
     assert walls <= set(detail["hit_refs"]["tool"]), detail
 
 
-def test_a_sharp_v_corner_and_its_island_cannot_gain_a_noncovering_clear_axis(engine, solids):
-    # The V tip needs more than R of displacement even without the boss.
-    # A clear axis farther past that island cannot stand for the uncovered tip.
-    _, detail = _floor_op(engine, solids["v-boss"], (5, 2, 14), (45, 38, 14), 1.5)
+def test_a_sharp_v_corner_and_its_island_cannot_gain_a_noncovering_clear_axis(
+    engine, solids, native_corners
+):
+    _assert_corner_collision(native_corners, "v-boss", 1.5)
+    step = solids["v-boss"]
+    angle = math.radians(7)
+    wall_refs = set()
+    for sign in (-1, 1):
+        dx, dy = 30, sign * 30 * math.tan(math.radians(20))
+        x = 10 + dx * math.cos(angle) - dy * math.sin(angle)
+        y = 20 + dx * math.sin(angle) + dy * math.cos(angle)
+        refs = engine.refs(step, (10, min(20, y), 14), (x, max(20, y), 20), kind="Plane")
+        assert len(refs) == 1
+        wall_refs.update(refs)
+    _, detail = _floor_op(engine, step, (5, 2, 14), (45, 38, 14), 1.5)
     assert isinstance(detail["tool_hits"], int) and detail["tool_hits"] > 0, detail
     assert "tool_hits" not in detail["reasons"], detail
+    assert detail["obstacles"]["tool"] == ["part"], detail
+    assert wall_refs <= set(detail["hit_refs"]["tool"]), detail
 
 
 def test_plate_samples_beside_a_thin_rib_stand_clear_of_its_near_face_only(engine, solids):
@@ -170,9 +245,15 @@ def test_plate_sample_past_a_square_islands_convex_corner_stands_clear_of_it(eng
     assert detail["tool_hits"] == 0 and detail["obstacles"]["tool"] == [], detail
 
 
-def test_an_exact_width_slot_closed_by_an_island_retains_its_uncoverable_corner_hit(engine, solids):
-    # The A/B walls leave a closed 2R strip, but C caps its end with sharp
-    # corners. A pose beyond R cannot erase those samples' physical collisions.
-    _, detail = _floor_op(engine, solids["partial-gap"], (0, 0, 10), (60, 40, 10), 3.0)
+def test_an_exact_width_slot_closed_by_an_island_retains_its_uncoverable_corner_hit(
+    engine, solids, native_corners
+):
+    _assert_corner_collision(native_corners, "partial-gap", 3)
+    step = solids["partial-gap"]
+    cap = engine.refs(step, (29.99, 23.01, 10), (35.99, 23.01, 16), kind="Plane")
+    assert len(cap) == 1
+    _, detail = _floor_op(engine, step, (0, 0, 10), (60, 40, 10), 3.0)
     assert isinstance(detail["tool_hits"], int) and detail["tool_hits"] > 0, detail
     assert "tool_hits" not in detail["reasons"], detail
+    assert detail["obstacles"]["tool"] == ["part"], detail
+    assert set(cap) <= set(detail["hit_refs"]["tool"]), detail

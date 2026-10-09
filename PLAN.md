@@ -10,19 +10,23 @@
 > plain words; everything else it computed goes to a machine-readable report
 > no human has to read.
 
-Status: M1 local implementation and PR #5 cross-family/CodeRabbit review
-corrections completed; M2 declared-input implementation and all six PR #6
-review corrections are locally verified. M4 also delivers the sampled rotary
-approach: horizontal dividing-head top-dead-centre poses and window-clipped
-radial plus wall-tangent vertical cutter-column own-removal outside the
-finished part, with partial-face windows whose exact per-face union decides
-coverage and finish coverage. This is not continuous toolpath proof; its
-combined integration gate remains unobserved. Physical paper rehearsal and
-live parented farm/App Insights acceptance remain pending/unobserved. Rev 6,
-2026-10-03. Manual arcs (D1): the manual mill cuts arcs only by the 1898
-method (layout, single-axis stairs or a chain drill outside the line, bench
-filing to buttons or a template checked with a radius gauge, or chords / a
-rotary table); the MDI/`contouring` path and `arc_table` are removed.
+Status: the local declared-input, consumer-export, sampled geometry and
+measured-inventory interfaces are implemented. The rotary approach uses
+horizontal dividing-head top-dead-centre poses and window-clipped radial
+plus wall-tangent vertical cutter-column own-removal outside the finished
+part. Exact per-face unions decide coverage and finish coverage for
+partial-face windows. This is not continuous toolpath proof.
+For the current delivery, eight actual traveler invocations exited 0;
+two generations produced 48 byte-identical files, now frozen, and the
+example validator passed for 26 TOML inputs, four reference bundles and
+seven geometry controls. No final full-suite or ten-minute CI result has
+been observed. Physical paper rehearsal, first-article approval and live
+parented farm/App Insights acceptance remain pending/unobserved.
+Rev 6 design, with current delivery status. Manual arcs (D1): the manual
+mill cuts arcs only by the 1898 method (layout, single-axis stairs or a chain
+drill outside the line, bench filing to buttons or a template checked with a
+radius gauge, or chords / a rotary table); the MDI/`contouring` path and
+`arc_table` are removed.
 Sections below retain design intent; README and docs describe the shipped
 schema/CLI/rules. Rev 1 was traveler-first but promised geometric proofs
 it could not deliver. Revs 2–3 absorbed two adversarial
@@ -33,15 +37,13 @@ stock state per operation, the DRO recipe written against the EL400
 manual, inspection per requirement, one `unknown` contract, the
 error/warn/info vocabulary, and the telemetry requirements.
 
-Traveler readability work is limited to document structure and layout. It
+Traveler readability work is limited to document structure and layout and
 preserves machining facts, procedures, rule outcomes and declared input schemas.
-The current candidate's final all-page readability review and justified reference
-regeneration remain pending. Geometry and machining validation blockers are
-tracked separately in [issue 150](https://github.com/pedropaulovc/prechips/issues/150),
-not repaired through this layout work; a native geometry-comparison programme is
-outside this session's scope. Baseline and scoped observations are recorded in
-[examples/README.md](examples/README.md#dro-and-print-surfaces); they do not close
-physical paper/pen/operator or live-farm acceptance.
+Local artifact evidence and remaining acceptance gates are recorded in [§8](#8-milestones).
+See the example guide's [print and native acceptance limits](examples/README.md#print-and-native-acceptance-limits).
+Geometry and machining validation blockers are tracked in
+[issue 150](https://github.com/pedropaulovc/prechips/issues/150).
+Physical paper/pen/operator and live-farm acceptance remain unobserved.
 
 ## 1. Who this is for
 
@@ -386,8 +388,9 @@ contract:
 
 **Historical design sketch, not the current manifest.** The excerpt below
 predates M3: placeholder face names, inch-derived bands and material/profile
-assumptions are not current exported facts. The verbatim source-backed manifest
-is `examples/rocker-arm/features.toml`; that file is the operative input.
+assumptions are not current exported facts. The operative input is
+`examples/rocker-arm/features.toml`; its labelled example divergences are in
+the example guide.
 
 ```toml
 part = "rocker-arm"
@@ -506,12 +509,12 @@ because no rule consumes them. A length is one fact,
 `{ value, measured = { by, date, instrument }, verify }`, and only that fact's
 own record qualifies it: no block, item-root or source `measured`/`verify`
 inheritance, no coverage heuristics. Holders carry mounted gauge
-(`gauge_len_mm`/`_in`, one spelling) and grip; a tool's projection is a map
-keyed by the full holder reference it was measured in
-(`tools.<tool>.projection_mm.<holder>`), never a holder-wide or tool-wide
-scalar, with measured OAL − selected holder grip as the only fallback. Missing
-values stay `"unknown"`; vendor copies remain `verify = true`. See
-[inventory schema](docs/inventory.md).
+(`gauge_len_mm`/`_in`, one spelling) and grip; a tool's projection is a per-pair
+map. Short and qualified keys that resolve to the same selected holder name
+the same pair; duplicate keys for that holder make the projection unknown.
+Measured OAL minus selected holder grip is the fallback when no pair entry
+exists; an explicit unknown pair entry remains unknown. Vendor copies remain
+`verify = true`. See [measured envelopes and installed tool stacks](docs/inventory.md#measured-envelopes-and-installed-tool-stacks-m5).
 
 ### 3.4 `shop-policy.toml` — what must be confirmed (user-supplied, optional)
 
@@ -818,7 +821,7 @@ supersedes a gap, as does as-stock for `coverage` only. A per-op
 | rule | inputs | tier | on the sheet |
 |---|---|---|---|
 | turning deflection: δ = F·L³/(3EI) (cantilever) or /(48EI) (supported), F = K_c·a_p·f, K_c and E from `cutting-data.[[material]]` | plan.hold.stickout_mm, plan.ops (DOC, feed), features.dia, cutting-data.material | M2 | "Expected deflection 0.04 against ±0.1; take the last pass at 0.2." |
-| engagement: only milling cutters (endmill families) on cutting operations with an authored DOC; tool projection from the holder (the tool's `projection_mm` entry for the selected holder, else OAL − holder grip) / D ≤ 4 else halve DOC. Drills, reamers, taps and lathe tools are not applicable | inventory.tools (kind, OAL, projection map), inventory.holders (grip_mm), plan.ops (holder, DOC) | M2 | "3/8 EM at 4.5×D; halve the DOC or use the 1/2 holder." |
+| engagement: endmill-family cutters on cutting operations; positive authored DOC required (omitted or nonpositive DOC is unknown). Selected-holder tool projection / D ≤ 4 else halve DOC; projection identity and conflicts follow the [inventory contract](docs/inventory.md#measured-envelopes-and-installed-tool-stacks-m5). Drills, reamers, taps and lathe tools are not applicable | inventory.tools (kind, OAL, projection map), inventory.holders (grip_mm), plan.ops (holder, DOC) | M2 | "3/8 EM at 4.5×D; halve the DOC or use the 1/2 holder." |
 | tool life | needs a calibrated life table nobody ships | deferred | — |
 
 ### 4.5 Stock-form comparison (authored candidates, counted by prechips)
@@ -827,7 +830,9 @@ The author lists candidate stock forms as alternative plans; prechips emits
 setups, waste ratio, fixtures required and the rules each candidate trips,
 side by side. It does not pick a winner, and a built-up candidate is marked
 `✗ drawing permits one-piece only` unless `features.construction =
-"built_up_permitted"`. First case: `cone-pivot-post`. Tier: M2.
+"built_up_permitted"`. Tier: M2. The active `cone-pivot-post` example is the
+bonded-sleeve built-up route; its one-piece example comparison is retired.
+The generic `compare` command remains available for authored alternatives.
 
 ### 4.6 Non-deterministic residue, named
 
@@ -868,16 +873,16 @@ The hashed bundle is every file the run read: the five inputs, the STEP
 named by the manifest, and any asset a plan field references. A path in
 the plan that is not in the bundle is a bad input (exit 3).
 
-**Readiness has two halves and both bind to the report hash.** A sheet is
-*checked* when every required `(rule, subject)` is `pass` or
-`not_applicable`. It drops the `PLANNED` banner only when a first-article
-line in the logbook names the report hash it was cut from. **Approval and
-first-article evidence bind to the report's full input-bundle digest; any
-operative change resets readiness.** `prechips traveler` refuses to print a
-`CHECKED` sheet whose report hash differs from the approval record it is
-given (`--approval approvals.toml`), and prints `PLANNED` with a `!` line
-naming which input changed. The paper copy carries only the short id; the
-binding is enforced where the files are.
+Readiness and approval bind to the full report hash. Errors stop with exit 2;
+required warn/unknown/unsupported findings or missing required subjects stop
+with exit 4. An eligible report has exit 0 and `verification = "checked"`;
+required `info` and `not_applicable` do not block it. The traveler remains
+PLANNED until one root approval record has the exact report hash and nonblank
+first-article evidence. Optional `[inputs]` digest strings identify changed
+inputs when the record is stale. Approval cannot waive unresolved checks or
+authenticate the evidence. No hash prints on the paper; the HTML metadata
+carries the full report hash for tools. The operative approval format and
+renderer guards are in [report binding](docs/report-and-telemetry.md#eligibility-and-approval).
 
 ### 5.1 CLI shape
 
@@ -906,7 +911,7 @@ prechips tools [--inventory <toml>] [--measure [--plan <plan.toml>]...] [<query>
     passes or fails. Also prints each machine envelope limit as measured
     or unmeasured. --measure lists the measurement debt behind the
     current reports: the numbers.measurements entries of every unresolved
-    finding for the --plan files (default: the five shipped example
+    finding for the --plan files (default: the four shipped example
     plans), sorted and deduplicated by exact report id, set members and
     tool/holder pairs included, with instrument and units. It walks no
     inventory field a rule does not read; --inventory (or
@@ -1020,9 +1025,10 @@ relied on. The original required §4.2/4.3 discriminators were:
 the cylinder against a boss (must occlude), the claimed side wall
 (offset must clear; removing the offset must fail), an oversized cutter in
 a through-groove (opposing claimed wall must occlude), holder versus jaws,
-filleted-part booleans (`summing-lever`), and the thin-wall map. The M4
-regressions and their observed evidence are recorded in §8. Historical
-spike scripts stay out of tree at `C:/src/dt-logs/prechips-spike/`.
+filleted-part booleans (`summing-lever`), and the thin-wall map. Historical
+M4 regression evidence is preserved through the immutable §8 history link;
+§8 records current local validation and remaining acceptance. Spike scripts
+stay out of tree at `C:/src/dt-logs/prechips-spike/`.
 
 ## 7. Kept from the reviews, and why
 
@@ -1032,15 +1038,16 @@ spike scripts stay out of tree at `C:/src/dt-logs/prechips-spike/`.
   PMI, not a hand-typed file, with explicit unknowns.
 - **Policy lives with the shop, not in the plan**, and names its subjects.
 - **Selected tool, not "some tool".** The sizing check reads the op's tool.
-- **Readiness binds to the report hash** (§5). The one line restored from
-  rev 3; the machinist sees only the short id.
+- **Readiness binds to the report hash** (§5). The full hash is in report and
+  HTML metadata; no hash prints on the sheet.
 - **Physics as `!` lines, not gates**, and only where every input is
   declared (K_c and E from the shipped table, stick-out from the plan).
 - **No EL400 file format.** A DRO recipe on the sheet, with a check move.
 - **Stock-form comparison lists, it does not choose.**
-- **Pilots**: `pivot-shaft` (lathe, simple), `rocker-arm` (mill, medium),
-  `pivot-bracket` (mill, 3 setups, hard), `cone-pivot-post` (stock-form
-  comparison); the rev-1 `pivot-bushing` is retired.
+- **Pilots**: `pivot-shaft` (lathe), `rocker-arm` (mill),
+  `pivot-bracket` (mill, hand-authored manifest) and `cone-pivot-post`
+  (bonded-sleeve built-up route). The `pivot-bushing` and one-piece cone
+  comparison examples are retired.
 
 Dropped from revs 2–3: hashes on the sheet, rule ids on the sheet, per-finding
 citations on the sheet, 15-decimal evidence strings, `attestation.yaml` as a
@@ -1057,8 +1064,9 @@ sheet.
    formats, all twelve §4.1 M1 rules, five CLI verbs, canonical bound reports,
    approval gating and generated Letter HTML are implemented for the authored
    reference routes (including their setup pages and contour continuations).
-   Examples remain PLANNED with expected exits shaft 4 / rocker 2 / bracket 2;
-   M1 alone does not complete M2 feasibility, M3 export or M4 kernel geometry.
+   Examples remain PLANNED; [expected consumer CLI exits](examples/README.md#expected-consumer-cli-exits)
+   are maintained in the example guide. M1 alone does not complete M2
+   feasibility, M3 export or M4 kernel geometry.
    Local telemetry/exporter checks are not live farm evidence. **Physical
    `rocker-paper-rehearsal` and §5.2 parented farm telemetry acceptance remain
    pending/unobserved.** The original acceptance criteria remain:
@@ -1099,37 +1107,23 @@ sheet.
    supported stick-out, collet/chuck diameter capacity, exact-first indexing,
    turning-deflection and engagement proxies, and gated stock-form comparison
    are implemented. Lathe Z/spindle, diameter-mode X and cross-setup `transfer`
-   conventions remain the existing shaft route's; no cross-hole is added.
-   The original “shaft's cross-hole” indexing bullet is **superseded**: rev 6
-   declares no such feature. The first BS-0 case is the cone-pivot-post's
-   12.5182° cone-journal inclination (`positions = 1`, no repeated-pattern closure),
-   with authored full-envelope one-piece and block-plus-pressed-boss alternatives.
-   The drawing is one-piece only; the built-up candidate is refused.
-   **Historical local acceptance after PR #6 review corrections:** Ruff check and
-   format check (67 Python files); 575 pytest cases; all 12 TOML inputs / five
-   candidate goldens validated. Actual CLI travelers preserve exits
-   4 / 2 / 2 / 4 / 2 and cone comparison exits 2, with canonical golden parity.
-   The corrections use finished exposed stick-out D, explicit built-up permission,
-   full-pattern-only closure, endmill-with-DOC engagement, machine hold resolution
-   and one shared citation collector. All six findings were reproduced before
-   their fixes. Only changed rule output regenerated goldens (#1, #4 and #5).
-   Chromium showed the synthetic 30° × 3 open pattern's exact landings and
-   “Open pattern: no cycle closure.” This is not physical print evidence.
-   **Unobserved/pending:** measured chuck capacities/support/BS-0 inventory,
-   sourced K_c/E and a BASIC-angle landing allowance (now an HA export
-   follow-up, M3 item 7), printed traveler/operator rehearsal, independent hand
-   oracle and live prechips farm telemetry. The
-   then-pending M3/M4 binding is superseded by the delivered exports and kernel
-   work below. Unknown inputs remain `?`, not a numerical machining approval.
-3. **M3 — consumer export: consumer side done 2026-10-03; HA traveler tasks
-   and export fields remain open (listed below).**
+   conventions remain the existing shaft route's; it declares no cross-hole.
+   The cone-pivot-post's BS-0 case is its
+   12.5182° cone-journal inclination (`positions = 1`, no repeated-pattern
+   closure). Its active built-up route uses the labelled, user-approved
+   construction divergence; this is not permission inferred by the checker.
+   Current declared-input contracts are in the rule docs. Unknown inputs
+   remain `?`, not a numerical machining approval; paper rehearsal, the
+   independent hand oracle and live farm telemetry need separate evidence.
+3. **M3: consumer export support delivered; upstream follow-ups and combined
+   acceptance remain separate.**
    `examples/rocker-arm/`, `examples/pivot-shaft/` and
-   `examples/cone-pivot-post/` now contain verbatim generated `features.toml`
-   and their exact adjacent STEP files. Each manifest names that STEP, binds
-   its SHA-256, declares drawing revision and one-piece construction, preserves
-   sourced requirement/precision/citation records, and carries labelled
-   entity/ordinal face sets. These are actual exported inputs, not the former
-   hand-authored substitutes. Export delivery provenance and exact digests are
+   `examples/cone-pivot-post/` consume generated `features.toml` exports
+   and their exact adjacent STEP files. The manifests bind STEP SHA-256,
+   sourced requirement/precision/citation records and labelled entity/ordinal
+   face sets. The current examples include the explicitly labelled divergences
+   in the example guide and are not verbatim manifests. Export delivery provenance
+   and exact digests are
    recorded only in [examples/README.md](examples/README.md#m3-export-delivery-provenance).
    Python citations remain `file:line`; YAML citations are `file:dotted.key.path`.
    All plans remain authored and PLANNED. The pivot-bracket keeps hand-authored
@@ -1138,60 +1132,67 @@ sheet.
    No dimensioned bracket drawing is supplied, so its bands are illustrative
    example design intent rather than measured or exported drawing limits.
 
-   The exported contracts include expanded rocker datum/tip features, shaft
-   face splits, the cone journal's unknown requirement identity, and rendered
-   metric general bands. Current expected pilot exits are 4 / 2 / 2 / 2
-   (shaft / rocker / bracket / cone built-up).
-   Existing inspection choices follow the split exported feature owners with
-   unchanged gauges. Unknown requirement identities, measurements and methods
-   remain unresolved, not invented. Consumer handling of the export as delivered:
+   [Expected consumer CLI exits](examples/README.md#expected-consumer-cli-exits)
+   are maintained in the example guide. Existing inspection choices follow the
+   split exported feature owners with unchanged gauges.
+   Unknown requirement identities, measurements and methods remain unresolved,
+   not invented. Plausible example facts do not establish real shop capability.
 
-   - **Rocker top edge.** The export sets `top_edge_feature = "top_edge"` on
-     `profile_outer`, `tip_land_pos_x` and `tip_land_neg_x`. The coordinate rule
-     examines every linked feature instead of giving up when more than one
-     links, so the R800 top-edge cutter-centre tables are back in S1 op 40,
-     S2 op 40 and S3 op 30.
-   - **Shaft/cone setup frames.** Both exports carry `frames.setup = "unknown"`.
+   The following records the original `b11124ecf` export gaps. Where a current
+   example supplies a labelled divergence, the example guide is authoritative;
+   these original upstream gaps must not be mistaken for current example stops.
+
+   - **Rocker top edge.** At `b11124ecf`, the export set
+     `top_edge_feature = "top_edge"` on `profile_outer`, `tip_land_pos_x` and
+     `tip_land_neg_x`. The coordinate rule examined every linked feature instead
+     of giving up when more than one linked, restoring R800 top-edge cutter-centre
+     tables in S1 op 40, S2 op 40 and S3 op 30.
+   - **Shaft/cone setup frames.** Both exports carried `frames.setup = "unknown"`.
      The former shaft T1/T2/T3 and cone/built-up lathe and M2/J3/C4 transforms
-     are again plan-authored `[frames.<name>]` tables (existing Frame schema,
-     with author's-choice notes and plan citations), and the setups name them. They
-     are process-plan choices, not CAD facts; the verbatim exports are
-     unchanged. They restore coordinate/DRO, turned-profile, stick-out and
-     envelope numbers only where the exported geometry supports them. The exports
-     have no turned-feature axial extents (`z_mm`), so turned-profile and stick-out
-     segments that need them stay unknown. Neither dome exports a `base_radius`,
-     so shaft S2:20/S3:20 `speeds_feeds` `diameter_in` stays unknown.
-   - **Shaft cut-to-fit length.** The export's `pivot_bearing` carries only
-     `note = "CUT TO FIT: SPAN OVER BOTH MHA-123 EARS"` and `length_ref = 156.67`.
-     It has no length requirement or end-past-scribe band. The former `plain_end:length`
-     inspection is not dropped: the plan declares the calipers check as
-     `missing_requirements = { length = "calipers" }` on the `pivot_bearing`
-     inspect op S3:15, between the cut and doming so the cut face can still be
-     checked/reworked; the existing post-doming verification stays a forward
-     instruction. The report keeps an unknown `pivot_bearing:length` row with
-     `missing_requirement = true`. A `checks` entry for a requirement the feature
-     does not export is bad input, so a check can no longer be silently unread.
-   - **Cone volume.** The export has no `volume_mm3`/`volume_cite`, so comparison
-     keeps net volume and waste unknown. The historical handwritten analytic value
-     is not imported.
-   - **BASIC indexing angle.** `crank_bore` exports a BASIC angle
-     (`dimension_type`, cited to `BASIC_DIMENSIONS`) and no `angle_tol_deg`.
-     The consumer does not let a BASIC angle inherit the title-block ±1°, and it
-     does not turn the Ø0.10 angularity zone into degrees itself. So cone S3
-     `indexing` stays unknown. A source does exist in HA: it derives
-     `CRANK_BORE_ANGLE_LIMIT_DEG = degrees(atan(0.10 / CRANK_BOSS_LENGTH))`
-     ≈ 0.0795° (`cad/scripts/cone_pivot_post_spec.py:373`). That value is used
-     at `crank_mesh_stack.py:80` and tested at `test_cone_pivot_post_drawing.py:439`,
-     but it is not exported.
-   - **`mount_west` sign.** The export has `station_nominal = -12.98` (signed X)
-     but `station = [12.47, 13.49]` (built from `abs(ATTACHMENT_X)`). The
-     consumer's generic nominal-within-band input check reports
-     `mount_west:station` as an `error`. This is an
-     honest stop on an exported inconsistency. Prechips does not flip the sign or
-     drop the field.
+     became plan-authored `[frames.<name>]` tables (existing Frame schema,
+     with author's-choice notes and plan citations), named by the setups.
+     These were process-plan choices, not CAD facts. The frames supplied
+     coordinate/DRO, turned-profile, stick-out and envelope numbers only where
+     exported geometry supported them. The exports had no turned-feature axial
+     extents (`z_mm`), leaving dependent turned-profile and stick-out segments
+     unknown. Neither dome exported `base_radius`, leaving shaft S2:20/S3:20
+     `speeds_feeds` `diameter_in` unknown. Current example: see the
+     [example guide](examples/README.md#example-divergences-from-consumer-exports).
+   - **Shaft cut-to-fit length.** At `b11124ecf`, the export's `pivot_bearing`
+     carried only `note = "CUT TO FIT: SPAN OVER BOTH MHA-123 EARS"` and
+     `length_ref = 156.67`, without a length requirement or end-past-scribe band.
+     The plan retained the former `plain_end:length` calipers inspection as
+     `missing_requirements = { length = "calipers" }` on `pivot_bearing`
+     inspect op S3:15, between cutting and doming so the cut face could still be
+     checked/reworked; post-doming verification remained a forward instruction.
+     The report kept an unknown `pivot_bearing:length` row with
+     `missing_requirement = true`. A `checks` entry for an unexported requirement
+     was bad input. The current example instead carries a labelled fit-up hold
+     and claims no `pivot_bearing:length` inspection; see the
+     [example guide](examples/README.md#current-export-contract-changes).
+   - **Cone volume.** The export lacks sourced `volume_mm3`/`volume_cite`.
+     A stock comparison needs both to compute waste; handwritten analytic
+     volume is not imported as an export fact. The active cone route is not
+     a comparison case.
+   - **BASIC indexing angle.** At `b11124ecf`, `crank_bore` exported a BASIC angle
+     (`dimension_type`, cited to `BASIC_DIMENSIONS`) without `angle_tol_deg`.
+     The consumer neither inherited title-block ±1° nor converted the Ø0.10
+     angularity zone into degrees, so cone S3 `indexing` was unknown.
+     HA derived `CRANK_BORE_ANGLE_LIMIT_DEG = degrees(atan(0.10 / CRANK_BOSS_LENGTH))`
+     ≈ 0.0795° (`cad/scripts/cone_pivot_post_spec.py:373`), used it at
+     `crank_mesh_stack.py:80` and tested it at `test_cone_pivot_post_drawing.py:439`,
+     but did not export it. The current example supplies a labelled bound; see
+     the [example divergences](examples/README.md#example-divergences-from-consumer-exports).
+   - **`mount_west` sign.** At `b11124ecf`, the export had
+     `station_nominal = -12.98` (signed X) but `station = [12.47, 13.49]`
+     (built from `abs(ATTACHMENT_X)`). The consumer's generic nominal-within-band
+     input check reported `mount_west:station` as an `error`; it did not flip
+     the sign or drop the field. The current example has a labelled sign
+     correction; see the [example divergences](examples/README.md#example-divergences-from-consumer-exports).
 
-   **Open M3 items owned by harmonic-analyzer**, cited at `b11124ecf`. Each one
-   blocks claiming full HA integration:
+   **Upstream M3 follow-ups identified at harmonic-analyzer `b11124ecf`:**
+   these describe that delivery, not observed current HA status. Example
+   divergences do not close the upstream follow-ups or the combined gate.
 
    1. Add `check:traveler_pivot_shaft` and `check:traveler_cone_pivot_post` doit
       tasks. Only `check:traveler_rocker_arm` exists (`dodo.py:3521-3538`), and
@@ -1206,15 +1207,16 @@ sheet.
    6. Export the shaft cut-to-fit length requirement: the owning feature and an
       end-past-scribe acceptance band. The former hand-authored manifest carried
       `cut_past_scribe = [1.5, 2.0]` and `end_past_scribe = [0.0, 0.5]`; those
-      are historical, not imported. Until HA exports the requirement, the
-      `pivot_bearing:length` inspection stays unknown.
+      were historical and were not imported. The then-current
+      `pivot_bearing:length` inspection was unknown. The current example
+      claims no such inspection; see the [example guide](examples/README.md#current-export-contract-changes).
    7. Export `crank_bore.angle_tol_deg` from `CRANK_BORE_ANGLE_LIMIT_DEG`
       (≈ 0.0795°, `cone_pivot_post_spec.py:373`) with its citation, or record in
       HA why that bound is not an indexing landing allowance. The general ±1°
       is not that allowance.
    8. Make `mount_west.station_nominal` (−12.98) and its `station` band
       [12.47, 13.49] use the same sign (`cad/scripts/export_features.py:566`).
-      This clears the cone's `mount_west:station` error.
+      At that delivery, this would clear the cone's `mount_west:station` error.
 
    **Prechips integration status (separate from the HA export list):** the
    radial sampled turning approach is implemented, including modeled chuck
@@ -1223,86 +1225,33 @@ sheet.
    model coordinates and can feed explicitly selected nonprevious setups;
    fragmentation is checked per input piece. These are necessary-condition
    screens, not physical setup or toolpath certification; unresolved inputs
-   remain unknown. The dated gate evidence below predates this integration.
+   remain unknown.
    The far-side `cone_boss` claim error on the retired milled-pad route's
    S2:50 is gone with that route: the built-up cone is now a turned body and
    head with a cone sleeve and a crank sleeve, both turned on the lathe and
    bonded with retaining compound (`examples/README.md`, "Built-up cone route
    provenance"), so no cone-boss face is milled. Fixing HA's station sign alone
-   never cleared a machining stop. The built-up candidate now exits **0** on
-   the native CLI: every finding is pass or not_applicable and all eleven
-   setup scenes are modeled from exact components with no debts.
+   never cleared a machining stop. The current route and
+   [expected consumer CLI exits](examples/README.md#expected-consumer-cli-exits)
+   are recorded in the example guide. A clean example exit is not physical acceptance.
 
-   **Post-review consumer gate, observed 2026-10-03:** on implementation
-   `68aef8f`, `uv run ruff check . && uv run ruff format --check . &&
-   uv run pytest -q && uv run python scripts/validate_examples.py` exited 0
-   with `FREECAD_CMD=C:/Users/pedro/AppData/Local/Programs/FreeCAD 1.1/bin/freecadcmd.exe`
-   and `PRECHIPS_REQUIRE_KERNEL=1`: Ruff passed, **100 Python files** were
-   formatted, **1282 tests passed** (534.59 s), and all **24 TOML inputs** and
-   rev-6 reference bundles validated. Actual CLI regeneration and the final
-   frozen-output tests cover all five travelers and the cone comparison.
-   Traveler exits are **4 / 2 / 2 / 2 / 2**; comparison exits 2, with both
-   candidate exits 2 and cone net volume/waste still unknown.
+   **Observed local artifact validation:** eight actual traveler invocations
+   exited 0 across two generations of the four active plans. The generations
+   produced 48 byte-identical files, which are frozen. The example validator
+   passed for 26 TOML inputs, four reference bundles and seven geometry controls.
+   These observations do not establish fresh native bit-repeatability,
+   a final full-suite result or a ten-minute CI result. Physical print/operator
+   rehearsal, the independent hand oracle, first-article approval and §5.2
+   parented farm/App Insights acceptance remain unobserved.
 
-   **Legitimate golden changes from `7616f0a`:**
-   - Rocker `coordinates` S1/S2 op 40 and S3 op 30 regain the R800 top-edge
-     tables, **23 rows each**, with cutter-centre radii 795.0375 / 795.0375 /
-     795.2375 mm. Every linked profile/tip-land supplies and agrees on its
-     join; no link is ignored to manufacture the table.
-   - Shaft `inspection:pivot_bearing:length` is an explicit `unknown` at
-     S3:15, between cut op 10 and dome op 20. Its calipers gauge and original
-     procedure remain visible; zero/order findings do not change. Directional
-     rows for lathe cuts and their dependent finish rows now say `unsupported`,
-     not an invented axial-engine pass or failure.
-   - Shaft/cone setup coordinates and envelope facts regain plan-authored
-     transforms and their original citations; numeric facts are still nominal,
-     not measured setup bindings. Turned-profile axial segment arrays and the
-     diameter-in/stick-out facts needing missing `z_mm` / dome `base_radius`
-     remain explicitly unresolved (HA items 3–4 above), rather than invented.
-   - Cone `inspection:mount_west:station` changes from `unknown` to `error`
-     because exported −12.98 is outside [12.47, 13.49]. Restored milling
-     frames also expose the named, genuine far-side claims above; these stops
-     outrank the remaining unknown volume/allowance facts. The one-piece exit
-     therefore changes 4 → 2 and the comparison candidate exit follows it.
-   - Pivot-bracket finding content is unchanged. All six delivered STEP/feature
-     assets remain byte-identical to the original exports; goldens do not patch
-     or normalize the upstream data.
-
-   **Independent revision review:** the original seven findings and four
-   follow-up timing/diagnostic/domain/nominal-contract findings are resolved.
-   The read-only Opus review approved `68aef8f` with **zero open findings**;
-   it confirmed byte-identical exports, preserved zero/order findings, distinct
-   unsupported versus genuinely unclaimed faces, and no golden pass → nonpass
-   or error → pass transition. Chromium inspection of the regenerated shaft
-   shows cut / `? length ?` inspect / dome in order 10 / 15 / 20, with the
-   exact missing requirement and original procedure; the rocker displays all
-   three numeric top-edge cutter tables.
-
-   **Historical pre-review consumer gate, observed 2026-10-03:** on implementation
-   `5f51a2c` (before the seven findings above), `uv run ruff check . && uv run ruff format --check . &&
-   uv run pytest -q && uv run python scripts/validate_examples.py` exited 0
-   with `FREECAD_CMD=C:/Users/pedro/AppData/Local/Programs/FreeCAD 1.1/bin/freecadcmd.exe`
-   and `PRECHIPS_REQUIRE_KERNEL=1`: Ruff passed, 99 Python files were formatted,
-   **1042 tests passed** (519.14 s), and all 24 TOML inputs and reference bundles
-   validated. Actual CLI regeneration wrote all five report/traveler goldens,
-   the rocker S1 render and cone comparison; exits remain **4 / 2 / 2 / 4 / 2**
-   and comparison 2, with unknown cone net volume/waste. The suite reproduced
-   the frozen CLI bytes twice. FreeCAD mapped all exported references without
-   errors: rocker **18/18**, shaft **18/18**, cone **36/36**.
-   An extracted `git archive` implementation copy preserved all six delivered
-   assets byte-for-byte with matching adjacent STEP digests; its actual rocker
-   traveler exited 2 without invalid face references or inspection errors.
-   The first review confirmed the export byte/face binding, but the later Opus
-   review found seven numeric-content, inspection and disclosure regressions;
-   passing the old goldens did not detect those regressions.
-   Prior M1/M2/M4/M5 results below are historical, not the post-review gate.
-   The CAD-producing farm run is not a parented `prechips check` farm trace.
-   HA's existing `check:traveler_rocker_arm` invocation and §5.2 live telemetry
-   acceptance require their own observed evidence; the shaft/cone task names
-   are absent (open item 1 above). Physical paper rehearsal, independent hand
-   oracle and first-article approval remain separate.
+   Superseded implementation, review and golden/test run records are preserved
+   in [PLAN §8 at `dfcee1b4`](https://github.com/pedropaulovc/prechips/blob/dfcee1b4432dfa04c371620765bbc884754941a6/PLAN.md#8-milestones).
+   Their fixture sets, exits, test totals and timings are historical, not
+   acceptance evidence for the current four-plan delivery. Current export
+   provenance, labelled divergences and route choices live in the example guide.
 4. **M4 — geometry and workholding local deliverable** (§4.2–4.3).
-   Seven sampled B-rep rules execute in a separate FreeCAD process. STEP
+   Eight sampled B-rep rules execute in a separate FreeCAD process; native
+   saw cut-off makes nine M4 kernel rules in total. STEP
    byte identity and entity/ordinal/label references are checked before
    mapping by surface/area/bbox, never by imported face ordinal. An absent
    kernel yields one console `?` line and unknown geometry, not fabricated
@@ -1339,9 +1288,8 @@ sheet.
    point angle with the mouth on the touched entry surface; the kernel cuts only
    that centre and refuses a buried mouth. The pivot-shaft S0 faces and
    centre-drills the plain end; the saw cut stays a stock prerequisite (the bar
-   it is cut from is not
-   declared). The catalogue gains `centre_support`; `rules_version` is unchanged
-   until the integrator refreezes goldens.
+   it is cut from is not declared). The catalogue includes `centre_support`;
+   current reports and frozen bundles use `rules_version = "m5-rev10"`.
 
    **Mill blank preparation shipped (2026-10-07, round-5 MillPrep):** a
    rectangular root stock's planar `end_face`s are the six blank faces a mill
@@ -1353,8 +1301,7 @@ sheet.
    size/flat/square/parallel checks, printed as CHECK THE BLANK. A hold's
    `jaw_bar` round bar offsets the moving jaw; `headroom` clears a below-jaw
    cut wholly beyond the jaw ends. Rocker P1-P5 and bracket P1-P6 prepare
-   their blanks. Goldens are stale until the integrator refreezes them;
-   `rules_version` is unchanged.
+   their blanks.
 
    **Setup-picture details shipped (2026-10-07, review round 4):** a leader
    naming a solid ends on that solid's visible pixels or becomes a printed
@@ -1410,51 +1357,6 @@ sheet.
    (body, cone sleeve, crank sleeve) and two retaining-compound cylindrical joints.
    Manual-only bench setups have no zero/DRO/headroom screen, and routed mill
    headroom uses the actual setup-entry stock bbox rather than the raw blank.
-   **Scoped joint proof, 2026-10-06:** **449** affected host/native behavior
-   tests passed under FreeCAD 1.1, including finite-spigot late material loss,
-   rotated authored spans, full rectangle extents/contact and bulk-overlap refusal.
-   Actual synthetic bench `traveler` runs gave exit **0**, a passing
-   `joint_assembly` and one setup image for a known full butt interface;
-   changing its size to `"unknown"` gave exit **4**, unknown assembly and no
-   setup image. Both emitted traveler HTML. An authored 10×10 mm interface that
-   crossed the finished exterior now refused assembly (exit **2**, no image),
-   rather than being shortened to 10×2 mm and approved. The complete cone's
-   normalized native S1 prefix, with 20/25 mm grips, retained known stock after
-   its spring pass and had no tool/holder hits or false shoulder debt.
-   This is local engine evidence, not physical fixture or first-article approval.
-   **Sequential bonded-sleeve extension:** on the frozen integration `637f444`
-   plus the multi-joint engine, **296** scoped host/native behavior tests passed
-   under required FreeCAD 1.1. They cover three-component assembly plus singleton,
-   both-open sockets (including a small blocked cap), preserved sleeve cores,
-   fit/process debt precedence, ancestry and consumed-interface ownership.
-   A separate actual native batch produced known successive unions of
-   **3330.402372 mm³** and **4065.849212 mm³**; unknown clearance or cure withheld
-   both current and downstream output. Lost protected material remained a known
-   error even with unknown cure. Actual traveler HTML showed the preparation,
-   cure and no-disturb instructions, and visible STOP debt for unknown cure.
-   These synthetic engine proofs are not the complete cone pilot, a programme
-   gate or physical process/first-article approval.
-   **Integrated turning precision repair:** analytic cylinder/cone meridians now
-   avoid artificial chord-sag compensation; their straight profiles meet nominal
-   end-radius extensions exactly. Curved compensation, early region unification,
-   component ownership and strict validity rejection are unchanged.
-   The preserved ordinary prejoin-turn probe produced **1508.592792 mm³** of
-   known component stock and a known **3895.889050 mm³** assembly afterward.
-   The scoped joint/multi-joint/turning/profile battery passed **114** tests in
-   **285.09 s** under required FreeCAD 1.1, preserving the original regression
-   and the cross-drilled roughing/spring-pass stock-connectivity checks.
-   On integration `0f5e703` plus this repair, the actual built-up cone `traveler`
-   exited **0**, with **372 pass**, **279 not applicable**, no unknown/error
-   findings, and all **11** setup fixtures modeled without scene/render debt.
-   These local smoke proofs do not replace the full gate or machinist review.
-   **Consolidated joint-worktree gate:** locked `uv sync`, repository formatting
-   (**126** files) and the example validator (**27** TOML files; twelve traveler
-   bundles plus comparison) passed. The required-FreeCAD suite recorded
-   **1857 passed**, with one imported stale fixture-default assertion failing.
-   The repaired reference-pilot case passed after removing blanket fixture/default
-   approval assertions; its actual collision findings and authored data were not
-   changed. Remaining Ruff diagnostics are four unchanged base findings: three
-   native `zip` calls without `strict=` and one long raw FreeCAD author-script line.
    Each output subtracts its setup's derivable removals from its selected input.
    Facing's planar outer-wire sweep clears raw caps over hole mouths while
    preserving finished islands. Generic bounded clearing preserves known
@@ -1494,9 +1396,8 @@ sheet.
    Invalid supply, unbound as-stock faces or a non-derivable retained
    rail/profile mask yields a named unknown and no stock picture.
 
-   The nearest-legal-centre rule replaces the 2026-10-05 tangency and
-   whole-face-centroid floor rules: every sample of an ordinary +Z planar face,
-   concave corners included, stands at its actual tip height on the nearest
+   The nearest-legal-centre rule places every sample of an ordinary +Z planar
+   face, concave corners included, at its actual tip height on the nearest
    centre outside the branch's certain material and at least ρ (`r` finishing,
    `r + a` roughing) from its section there, moving at most ρ; ties within
    1e-7 mm go to the face centroid, then the least (x, y). No legal centre keeps
@@ -1599,7 +1500,7 @@ sheet.
    never a developer's hard-coded home. The cache hashes only engine inputs,
    not host-only finishing, resolved-projection OAL, wording or grip policy.
 
-   The combined catalogue is `m5-rev9`. Geometry reuses M5 fact-local length
+   The combined catalogue is `m5-rev10`. Geometry reuses M5 fact-local length
    lookup with nominal facts allowed: only that dimension's own verification
    or incomplete measurement record withholds it. Item/source/container
    flags never taint other dimensions. Projection maps use the full selected
@@ -1618,57 +1519,12 @@ sheet.
    not invent a cutter-dilated footprint. Preparation tooling/holding debt stays
    visible; target checks remain required and all errors remain fatal.
 
-   **Historical scoped M4 evidence (before the M3 consumption cutover):**
-   archived PNG signatures and STEP/report digests passed after binary
-   restaging. A Ø10 cutter in a 6 mm through-groove
-   reports 135 tool hits. The claimed-sidewall normal-offset test passes on
-   the offset engine and fails its hand-written no-offset mutant with 45
-   own-wall hits. Undefined normals yield named unknowns on clear faces,
-   while a definite wall collision retains an accessibility error.
-   A two-setup bounded clearing test jointly claims wall and floor and keeps
-   5 mm side rails: entry volume 66000 mm³, prepared volume 51600 mm³.
-   Opposing finished walls/retained rails remain obstacles after own-allowance
-   exclusion. Complementary finishing claims pass; swapped far-side claims fail.
-   Actual geometry-fixture CLI exits remain 2 / 2 / 0 / 2 / 2:
-   rocker target S3:10 has 56/65 jaw/boss hits; short pocket target S2:10
-   has 45 mm reach and 104 holder hits, while long-reach clears; sharp corners
-   fail the cutter radius; the step's +X end remains deliberately unclaimed.
-   Numeric preparation tests verify raw/intermediate/target material volumes,
-   exact target fixture scenes and bound render bytes.
-   Review regressions rejected a clearing box 27 mm outside its claimed
-   footprint; the following setup retained unknown reach/holding. A 1° drafted
-   wall (including a 200 mm-wide face) and a small retained ear named stock
-   debt. A fully specified facing operation reported 0 tool/holder hits,
-   5 mm entry-stock reach and 65 samples; reducing projection still hit the
-   holder. Certain collisions and a finished sharp corner remained errors
-   under unknown stock; explicit projection with unknown OAL still allowed
-   accessibility to pass while reach stayed unknown.
-   All ten actual travelers repeated byte-identically through independent
-   fresh cache roots before the corrected outputs were frozen. Regeneration
-   changed only rocker report/sheet, all five geometry report/sheets and the
-   synthetic rocker's three stock PNGs; other pilot bytes stayed unchanged.
-   Installed-kernel pilot exits stay 4 / 2 / 2 / 4 / 2. Seeded obsolete S1,
-   S2 and S99 images disappeared under both absent-kernel `traveler` and
-   `check`. Browser-served production S1 showed the raw grey rectangular bar,
-   a named missing jaw-depth caption and no later stock images. The long-
-   reach target showed its prepared pocket, exact jaws/parallels and the
-   setup-entry-stock caption; both 640 × 480 images loaded successfully.
-   **Historical project-wide acceptance after Opus r2 / CodeRabbit r1 fixes:**
-   `uv run ruff check . && uv run ruff format --check . && uv run pytest -q
-   && uv run python scripts/validate_examples.py` exited 0: 99 Python files
-   formatted, 1033 tests passed and all 24 TOML inputs plus frozen
-   report/sheet/render contracts validated. The first review gate exposed one
-   obsolete test requiring unknown stock to suppress certain hits; that test
-   and the obsolete stock-dependent corner parameter were removed, not re-pinned.
-   The new stock-debt/finished-fact regressions cover their correct precedence.
-   Corrected goldens retain pilot exits 4 / 2 / 2 / 4 / 2 and geometry exits
-   2 / 2 / 0 / 2 / 2 under `m5-rev8`.
-
    These are local sampled-solid checks, not CAM simulation, a measured
    production fixture, physical operator/setup verification or approval.
 5. **M5 — measured inventory**: spindle stack, travel limits, holder gauge
-   lengths; envelope checks leave `?`. **Implemented (PR #7 review cutover,
-   `m5-rev7`); shop measurements pending.** `machines.<id>.envelope` is the
+   lengths; unresolved envelope checks leave `?`. **Interface implemented;
+   real shop measurements remain separate from illustrative example records.**
+   `machines.<id>.envelope` is the
    single machine block (`travel` x/y/z, `spindle_to_table_max`/`min`) read by
    `headroom`, `envelope` and `travel`; the mill's top-level
    `spindle_to_table_max_in`/`travel_in`/`table_in` copies and the unread
@@ -1678,16 +1534,19 @@ sheet.
    plus the stock-top/posed-axis offset; child point-feature travel inherits
    a missing `at` from its named parent/hole without shadowing explicit input.
    Boundary regressions cover exact-limit pass, exceeded-limit error and
-   missing/unverified facts as debt. Shared example goldens/full validation
-   remain the integration owner's gate after all programme branches land.
+   missing/unverified facts as debt. Current local output freezing and example
+   validation are observed as recorded in M3 above; the final full-suite and
+   ten-minute CI results remain unobserved.
    Trust is fact-local `{ value, measured = { by, date, instrument }, verify }`,
    with no block/root/source inheritance, coverage heuristics or legacy-field
    redirect; a vendor nominal is evidence, never a certificate. The vise
    stack is `bed_height + parallels/supports + physical part height + holder
    gauge + tool projection`, never jaw height (jaw obstruction stays
    `headroom`'s separate check). Projection is a per-pair fact on the tool,
-   `tools.<tool>.projection_mm.<full holder reference>`, else measured OAL −
-   selected holder grip; holders carry only `gauge_len_mm/in` (one spelling)
+   resolved by selected-holder identity under the
+   [inventory contract](docs/inventory.md#measured-envelopes-and-installed-tool-stacks-m5),
+   with measured OAL minus selected holder grip as fallback; holders carry only
+   `gauge_len_mm/in` (one spelling)
    and `grip_mm`. `envelope` raises each op's nose by its highest authored
    approach/commanded Z against the maximum and lowers it to its deepest floor
    against the minimum; `travel` Z unions per-op spindle-nose positions
@@ -1698,47 +1557,36 @@ sheet.
    authoring instructions print once. Explicit unknown pair projections stay
    unknown; only absent pair entries permit OAL − grip fallback.
    `tools --measure [--plan …]` lists exactly the `numbers.measurements` debt
-   behind the current reports (default: the five example plans), sorted and
+   behind the current reports (default: the four example plans), sorted and
    deduplicated by scoped report id: plan inputs identify their plan, and
    separate inventories cannot collapse identical item/fact ids.
-   Pending in the shop, none invented: PM-30MV usable X/Y/Z travel and spindle
-   nose to table at full Z-up and Z-down with `measured` records; each
-   selected holder's mounted gauge length and grip; parallels and 1-2-3
-   block heights; each
-   selected tool's OAL and its projection in the holder it is used in (or
-   OAL/grip); cutter diameters, drill point angles and reamer leads the
-   examples select. Per-operation safe `approach_mm` and incomplete authored
-   extents remain plan-input debt, not shop measurements. Until those land,
-   envelope/travel rows stay `?` with measure/how instructions. The default
-   policy is unchanged; shops may require envelope/travel on `"*"`.
+   Real shop qualification still needs the PM-30MV usable X/Y/Z travel and
+   spindle nose to table at full Z-up and Z-down; each selected holder's
+   mounted gauge length and grip; parallels and 1-2-3 block heights; and each
+   selected tool's OAL, installed projection (or OAL/grip), cutter diameter,
+   drill point angle and reamer lead as applicable. The example inventory
+   supplies illustrative records labelled `example (plausible, not measured)`;
+   resolved example rows do not establish measured shop capability.
+   Per-operation safe `approach_mm` and incomplete authored extents remain
+   plan-input debt when unresolved, not shop measurements. `tools --measure`
+   lists unresolved report facts, not every illustrative value that must be
+   qualified before machining. The default policy is unchanged; shops may
+   require envelope/travel on `"*"`.
 
    **First shop measurements, recorded 2026-10-05.** Pedro Paulo Vezza Campos
    measured the PM 6 in vise (`fixtures.vise-pm-6`): jaw height 1.7695 in,
    jaw width 6.247 in, jaw depth 0.7005 / 0.7010 in (larger kept; jaw
    attribution not recorded), opening 6.135 in and bed height 2.886 in without
-   the swivel base. Each is a fact-local `measured` record; vendor nominals
-   stay as comments and the item's identity `verify = true` is kept. The
-   rocker S1/S2 and bracket S1/S2 jaw-overlap arithmetic now uses the measured
-   jaw height, and rocker S1/S2 author `jaw_center_along_mm = 0.0` (jaws
-   centred on the 310 mm blank). Regenerated with
-   `PRECHIPS_REQUIRE_KERNEL=1`, an isolated `PRECHIPS_KERNEL_CACHE` and
-   FreeCAD 1.1 via the README `prechips traveler` / `compare` commands: exits
-   stay **4 / 2 / 2 / 2 / 2**, comparison 2. Rocker S1 `vise` changes `?` →
-   pass (opening 155.829 mm vs 45 mm width, contact 6.8453 mm on both jaws vs
-   6.0 mm grip); its render scene changes from `jaws: absent` (missing
-   `jaw_depth_mm`) to `jaws: exact`, parallels still `not_modelled`
-   (no width or `parallels_centres_mm`). S1 `thin_wall_under_clamp` now
-   reaches the unknown shop floor (min wall 45 mm) and S1 `accessibility`
-   stops on unmeasured tool/holder dimensions instead of jaw depth. Rocker
-   and bracket `headroom` now carry bed 73.3044 mm and jaw 44.9453 mm (rocker
-   jaw top Z −4.68295, so no cut ends below the jaws); they stay `?` on other
-   debt. `fixtures.vise-pm-6.bed_height` leaves `tools --measure`. Shaft and
-   cone changed only their inventory digest. Gate on this change: `uv sync
-   --locked`, `uv run ruff check .`, `uv run ruff format --check .`,
-   `uv run pytest -q` (**1282 passed**, 644 s) and
-   `uv run python scripts/validate_examples.py` (24 TOML files, all bundles
-   validate) exited 0 with `FREECAD_CMD` set to FreeCAD 1.1. Parallels,
-   blocks, holders, tools and the PM-30MV envelope remain unmeasured.
+   the swivel base. Opening, jaw height/depth and bed height use calipers;
+   jaw width records "large calipers or steel rule (as reported; exceeds 6 in
+   caliper range)". The fact-local `measured` records are retained in
+   [`examples/inventory/pedro-shop.toml`](examples/inventory/pedro-shop.toml).
+   Vendor nominals remain comments and the item's identity `verify = true`
+   is kept. The larger depth reading is conservative for collision checks;
+   its individual jaw attribution remains unknown. Converted bed and jaw
+   heights are 73.3044 mm and 44.9453 mm. These attributed measurements do
+   not qualify the inventory's illustrative parallels, blocks, holders,
+   tools or PM-30MV envelope, and do not constitute first-article acceptance.
 
 ## 9. Decisions from review
 
@@ -1807,9 +1655,11 @@ R816 arc, hub Ø10.20 under the .XX band, datums A|B|C); the cutting-data
 pilot matrix cut to the rows M1 selects. Verdict after folding: approved
 for implementation.
 
-Open: who authors the rocker finishing fixture and the rail-release method
-(the plan author, as an S4 with its own sheet — before M1 ships the S3
-sheet names it); which measured prepared-blank surfaces define the M1
-fixture (S2's `stock_state`, measured on the first blank and written into
-the plan); where the approval record lives (`approvals.toml` beside the
-plan, one line per report hash, written by hand after the first article).
+The plan author owns the rocker finishing fixture and rail-release method,
+including their setup instructions and prepared-blank surface references.
+Those authored choices still need physical paper/setup and first-article
+acceptance. Approval is supplied explicitly as `--approval <path>`; there
+is no implicit beside-plan approval location. Each file contains one root
+record with the exact report hash and nonblank first-article evidence.
+Approval histories are rejected, and approval cannot waive unresolved
+checks. See [eligibility and approval](docs/report-and-telemetry.md#eligibility-and-approval).

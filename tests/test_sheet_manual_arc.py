@@ -453,18 +453,31 @@ def test_template_guide_and_unknown_stock_do_not_claim_a_filing_allowance(
     assert "at most" not in printed
 
 
-@pytest.mark.parametrize("missing", ["pin_dia_mm", "button_runout_mm", "files_to_mm"])
-def test_buttons_without_a_worst_case_band_print_a_stop(tmp_path, missing):
+@pytest.mark.parametrize(
+    ("missing", "reason"),
+    [
+        ("pin_dia_mm", "pin limits unknown; worst-case filing radius not established"),
+        (
+            "button_runout_mm",
+            "button runout limits unknown; worst-case filing radius not established",
+        ),
+        ("files_to_mm", "worst-case filing radius not established"),
+    ],
+)
+def test_buttons_without_a_worst_case_band_print_a_stop(tmp_path, missing, reason):
     filing = manual_record(30, "file_to_line")
-    guide = filing["guide"]
-    guide.pop("files_to_mm")
-    guide[missing] = "unknown"
+    operations = [{"op": 30, "do": "file_to_line", "feature": "arc"}]
+    control, control_setup = traveler(tmp_path, operations, manual=[filing], machine="bench")
+    valid = operation_text("".join(sum(control.setup_section(control_setup), [])), 30)
+    assert "R9.968 to R10.027 mm" in valid
+    assert "STOP" not in valid
+    filing["guide"][missing] = "unknown"
     sheet, setup = traveler(
         tmp_path,
-        [{"op": 30, "do": "file_to_line", "feature": "arc"}],
+        operations,
         manual=[filing],
         machine="bench",
     )
     printed = operation_text("".join(sum(sheet.setup_section(setup), [])), 30)
-    assert "STOP" in printed
+    assert f"STOP: {reason}" in printed
     assert not re.search(r"R\d+(\.\d+)? to R\d", printed)

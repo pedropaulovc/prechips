@@ -199,21 +199,23 @@ def centre_depth_mm(definition: Any) -> dict:
     The countersink of included angle ``a`` opens from the drill diameter ``D`` to the
     mouth ``M`` over ``(M - D) / 2 / tan(a / 2)``; the pilot's ``drill_length_mm`` (the
     Machinery's Handbook Table 6 drill length C, point included) runs on below it. Any
-    unknown size leaves every depth unknown.
+    unknown size or unrepresentable cone leaves its depth unknown.
     """
     process = process_of(definition) or {}
     drill, length, mouth, angle = (process.get(key, UNKNOWN) for key in _CENTRE_KEYS)
-    if not all(_number(value) for value in (drill, length, mouth, angle)):
+    tangent = math.tan(math.radians(angle / 2)) if _number(angle) else 0.0
+    if not all(_number(value) for value in (drill, length, mouth, angle)) or tangent <= 0:
         return {
             "countersink_depth_mm": UNKNOWN,
             "drill_length_mm": length if _number(length) else UNKNOWN,
             "depth_mm": UNKNOWN,
         }
-    countersink = (mouth - drill) / 2 / math.tan(math.radians(angle / 2))
+    countersink = (mouth - drill) / 2 / tangent
+    depth = countersink + length
     return {
-        "countersink_depth_mm": countersink,
+        "countersink_depth_mm": countersink if math.isfinite(countersink) else UNKNOWN,
         "drill_length_mm": length,
-        "depth_mm": countersink + length,
+        "depth_mm": depth if math.isfinite(depth) else UNKNOWN,
     }
 
 
@@ -236,6 +238,7 @@ def centre_tool(bundle, op: dict) -> dict:
     from prechips.measurements import angle_fact, length_fact, measurement_entry
     from prechips.rules._envelope import selected_item
     from prechips.rules.resolution import LENGTH_TOLERANCE_MM, resolve, same_length, uncertain
+    from prechips.rules.tip_endpoints import drill_point_mm
 
     process = process_of(bundle.feature_definitions.get(op.get("feature"))) or {}
     reference = op.get("tool", UNKNOWN)
@@ -281,8 +284,14 @@ def centre_tool(bundle, op: dict) -> dict:
         errors.append(f"tool {reference!r} point_angle {point:g} is no included angle")
     elif _number(point) and _number(drill) and _number(pilot):
         # Table 6 C includes the point: the pilot must run on past it.
-        tip = drill / 2 / math.tan(math.radians(point / 2))
-        if pilot - tip <= LENGTH_TOLERANCE_MM:
+        tip = drill_point_mm(drill, point)
+        if tip == UNKNOWN:
+            unknown.append(
+                f"tool {reference!r}'s pilot drill diameter {drill:g} is nonpositive"
+                if drill <= 0
+                else f"tool {reference!r}'s {point:g}° pilot point cone is unrepresentable"
+            )
+        elif pilot - tip <= LENGTH_TOLERANCE_MM:
             errors.append(
                 f"tool {reference!r}'s {point:g}° pilot point ({tip:g} mm) is not shorter "
                 f"than its {pilot:g} mm pilot_len"

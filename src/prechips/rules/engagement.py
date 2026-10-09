@@ -22,7 +22,7 @@ from .turned_profile import PROFILE_OPS
 
 _LIMIT_LD = 4
 _DOC_SCALE = 0.5
-_PROXY_CITE = "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+_PROXY_CITE = "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
 _ENDMILL_KINDS = {"endmill", "endmill_set"}
 _CUTTING_OPS = (
     FACING

@@ -173,7 +173,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.5 stock-form comparison, lines 573–577"
+        "PLAN.md §4.5 stock-form comparison"
       ],
       "message": "The candidate uses one-piece construction.",
       "numbers": {
@@ -314,7 +314,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)",
         "inventory.tools.em-preparation.oal",
         "inventory.holders.unknown.grip",
         "inventory.tools.em-preparation: explicit-unit diameter/projection/OAL",
@@ -352,7 +352,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)",
         "inventory.tools.em-8-std.oal",
         "inventory.holders.r8-collet-8mm.grip",
         "inventory.tools.em-8-std: explicit-unit diameter/projection/OAL",
@@ -1259,7 +1259,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1 stick-out (line 541)",
+        "PLAN.md §4.1 stick-out",
         "plan.stock.dia_mm",
         "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
         "features declared finished diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in"
@@ -1290,7 +1290,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1 stick-out (line 541)",
+        "PLAN.md §4.1 stick-out",
         "plan.stock.dia_mm",
         "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
         "features declared finished diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in"
@@ -1321,7 +1321,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.3 collet/chuck (line 558)",
+        "PLAN.md §4.3 collet/chuck",
         "plan.stock.dia_mm",
         "inventory selected workholding sizes_mm/sizes_in/range_mm/range_in; 25.4 mm/in"
       ],
@@ -1341,7 +1341,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.3 collet/chuck (line 558)",
+        "PLAN.md §4.3 collet/chuck",
         "plan.stock.dia_mm",
         "inventory selected workholding sizes_mm/sizes_in/range_mm/range_in; 25.4 mm/in"
       ],
@@ -1862,7 +1862,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
+        "PLAN.md §4.1 turned profile; §8 M2 spindle Z convention",
         "features declared nominal diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan setup frame and current/preceding grooving ops; 25.4 mm/in"
       ],
       "message": "S1: not a lathe setup.",
@@ -1883,7 +1883,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
+        "PLAN.md §4.1 turned profile; §8 M2 spindle Z convention",
         "features declared nominal diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan setup frame and current/preceding grooving ops; 25.4 mm/in"
       ],
       "message": "S2: not a lathe setup.",
@@ -1904,7 +1904,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)"
+        "PLAN.md §4.4 (Physics proxies)"
       ],
       "message": "S1:10: the static turning proxy does not apply to this operation.",
       "numbers": {
@@ -1917,7 +1917,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)"
+        "PLAN.md §4.4 (Physics proxies)"
       ],
       "message": "S2:10: the static turning proxy does not apply to this operation.",
       "numbers": {
@@ -2015,7 +2015,7 @@
       "subject": "S2"
     }
   ],
-  "hash": "667a4348c78c0d59c60df8700d2f088489714a4309a359117a895f6f8e71fb89",
+  "hash": "acc3078b6f27de21fb457f18514bfc0c62d3ebf97926fb3788c3cea5d6c93a78",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -2035,11 +2035,11 @@
     },
     "render:S1": {
       "path": "setup-S1.png",
-      "sha256": "06dbba7827fb6f7e9bfa709f0e63548faea7e03c90fd926b3a6ac74c405c7eaf"
+      "sha256": "dbedae50bfb327a19ece49a9ee513916cfffbb7a8cd0bb2f55eee81e72f43d6b"
     },
     "render:S2": {
       "path": "setup-S2.png",
-      "sha256": "4c91bdef6c76b8c19925015fa569145e359497a28cbfe9cd85d8af8bcfbbd489"
+      "sha256": "3bf0e721a07e542fec1491bf0370f73584cedf71bd6b5a68c938fe8a4f3ecc06"
     },
     "shop_policy": {
       "path": "examples/geometry/shop-policy.toml",
@@ -2071,7 +2071,7 @@
         "fixture_kind": null,
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 1000,
+        "height_px": 1484,
         "jaw_front_oblique": false,
         "jaws": "absent",
         "legend": [
@@ -2081,6 +2081,14 @@
         ],
         "parallels": "absent",
         "primary_op": null,
+        "print_panels": [
+          {
+            "height_px": 1484,
+            "label": "SETUP S1  /  ISOMETRIC VIEW",
+            "role": "setup",
+            "top_px": 0
+          }
+        ],
         "render_debts": [
           "STOP: selected cutter dimensions are unresolved; do not run."
         ],
@@ -2093,7 +2101,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "06dbba7827fb6f7e9bfa709f0e63548faea7e03c90fd926b3a6ac74c405c7eaf"
+      "sha256": "dbedae50bfb327a19ece49a9ee513916cfffbb7a8cd0bb2f55eee81e72f43d6b"
     },
     "S2": {
       "fixture": "modeled",
@@ -2133,7 +2141,7 @@
         "fixture_kind": "vise",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 1000,
+        "height_px": 1514,
         "jaw_front_oblique": false,
         "jaws": "exact",
         "legend": [
@@ -2143,6 +2151,14 @@
         ],
         "parallels": "exact",
         "primary_op": "10",
+        "print_panels": [
+          {
+            "height_px": 1514,
+            "label": "SETUP S2  /  ISOMETRIC VIEW",
+            "role": "setup",
+            "top_px": 0
+          }
+        ],
         "render_debts": [],
         "shows": [
           "holding",
@@ -2154,7 +2170,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "4c91bdef6c76b8c19925015fa569145e359497a28cbfe9cd85d8af8bcfbbd489"
+      "sha256": "3bf0e721a07e542fec1491bf0370f73584cedf71bd6b5a68c938fe8a4f3ecc06"
     }
   },
   "rules_version": "m5-rev10",

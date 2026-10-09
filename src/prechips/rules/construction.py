@@ -7,7 +7,7 @@ from prechips.rules.resolution import UNKNOWN, _citations
 def evaluate(bundle):
     candidate = bundle.plan.get("construction", UNKNOWN)
     permission = bundle.features.get("construction", UNKNOWN)
-    cite = ["PLAN.md §4.5 stock-form comparison, lines 573–577"] + _citations(
+    cite = ["PLAN.md §4.5 stock-form comparison"] + _citations(
         bundle.features.get("cite"), "construction"
     )
     numbers = {"plan_construction": candidate, "drawing_construction": permission}

@@ -3171,7 +3171,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.5 stock-form comparison, lines 573–577",
+        "PLAN.md §4.5 stock-form comparison",
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:352-358"
       ],
       "message": "The drawing explicitly permits built-up construction.",
@@ -5371,7 +5371,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S10:10: engagement applies only to an endmill cutting operation.",
       "numbers": {
@@ -5386,7 +5386,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)",
         "inventory.tools.endmills-lms-6784/3-4in-4fl.projection_mm.r8-collets-lms-4860/3-4in",
         "inventory.tools.endmills-lms-6784/3-4in-4fl: explicit-unit diameter/projection/OAL",
         "inventory.holders.r8-collets-lms-4860/3-4in: selected holder grip/verification",
@@ -5419,7 +5419,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S11:100: engagement applies only to an endmill cutting operation.",
       "numbers": {
@@ -5434,7 +5434,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S11:110: engagement applies only to an endmill cutting operation.",
       "numbers": {
@@ -5449,7 +5449,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S11:20: engagement applies only to an endmill cutting operation.",
       "numbers": {
@@ -5464,7 +5464,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S11:30: engagement applies only to an endmill cutting operation.",
       "numbers": {
@@ -5479,7 +5479,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S11:40: engagement applies only to an endmill cutting operation.",
       "numbers": {
@@ -5494,7 +5494,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S11:50: engagement applies only to an endmill cutting operation.",
       "numbers": {
@@ -5509,7 +5509,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)",
         "inventory.tools.endmills-lms-6784/7-16in-2fl.projection_mm.r8-collets-lms-4860/3-8in",
         "inventory.tools.endmills-lms-6784/7-16in-2fl: explicit-unit diameter/projection/OAL",
         "inventory.holders.r8-collets-lms-4860/3-8in: selected holder grip/verification",
@@ -5542,7 +5542,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)",
         "inventory.tools.endmills-lms-6784/7-16in-2fl.projection_mm.r8-collets-lms-4860/3-8in",
         "inventory.tools.endmills-lms-6784/7-16in-2fl: explicit-unit diameter/projection/OAL",
         "inventory.holders.r8-collets-lms-4860/3-8in: selected holder grip/verification",
@@ -5575,7 +5575,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S11:75: engagement applies only to an endmill cutting operation.",
       "numbers": {
@@ -5590,7 +5590,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S11:80: engagement applies only to an endmill cutting operation.",
       "numbers": {
@@ -5605,7 +5605,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S11:90: engagement applies only to an endmill cutting operation.",
       "numbers": {
@@ -5620,7 +5620,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S12:10: engagement applies only to an endmill cutting operation.",
       "numbers": {
@@ -5635,7 +5635,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S12:20: engagement applies only to an endmill cutting operation.",
       "numbers": {
@@ -5650,7 +5650,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S1:10: engagement applies only to an endmill cutting operation.",
       "numbers": {
@@ -5665,7 +5665,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S1:20: engagement applies only to an endmill cutting operation.",
       "numbers": {
@@ -5680,7 +5680,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S1:30: engagement applies only to an endmill cutting operation.",
       "numbers": {
@@ -5695,7 +5695,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S1:40: engagement applies only to an endmill cutting operation.",
       "numbers": {
@@ -5710,7 +5710,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S1:50: engagement applies only to an endmill cutting operation.",
       "numbers": {
@@ -5725,7 +5725,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S1:60: engagement applies only to an endmill cutting operation.",
       "numbers": {
@@ -5740,7 +5740,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S2:10: engagement applies only to an endmill cutting operation.",
       "numbers": {
@@ -5755,7 +5755,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S2:20: engagement applies only to an endmill cutting operation.",
       "numbers": {
@@ -5770,7 +5770,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S2:30: engagement applies only to an endmill cutting operation.",
       "numbers": {
@@ -5785,7 +5785,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S2:40: engagement applies only to an endmill cutting operation.",
       "numbers": {
@@ -5800,7 +5800,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S2:50: engagement applies only to an endmill cutting operation.",
       "numbers": {
@@ -5815,7 +5815,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S3:10: engagement applies only to an endmill cutting operation.",
       "numbers": {
@@ -5830,7 +5830,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S3:20: engagement applies only to an endmill cutting operation.",
       "numbers": {
@@ -5845,7 +5845,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S3:30: engagement applies only to an endmill cutting operation.",
       "numbers": {
@@ -5860,7 +5860,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S3:40: engagement applies only to an endmill cutting operation.",
       "numbers": {
@@ -5875,7 +5875,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S3:50: engagement applies only to an endmill cutting operation.",
       "numbers": {
@@ -5890,7 +5890,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S4:10: engagement applies only to an endmill cutting operation.",
       "numbers": {
@@ -5905,7 +5905,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S4:20: engagement applies only to an endmill cutting operation.",
       "numbers": {
@@ -5920,7 +5920,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S4:30: engagement applies only to an endmill cutting operation.",
       "numbers": {
@@ -5935,7 +5935,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S4:40: engagement applies only to an endmill cutting operation.",
       "numbers": {
@@ -5950,7 +5950,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S5:10: engagement applies only to an endmill cutting operation.",
       "numbers": {
@@ -5965,7 +5965,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S5:20: engagement applies only to an endmill cutting operation.",
       "numbers": {
@@ -5980,7 +5980,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S5:30: engagement applies only to an endmill cutting operation.",
       "numbers": {
@@ -5995,7 +5995,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S5:40: engagement applies only to an endmill cutting operation.",
       "numbers": {
@@ -6010,7 +6010,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S6:10: engagement applies only to an endmill cutting operation.",
       "numbers": {
@@ -6025,7 +6025,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S6:20: engagement applies only to an endmill cutting operation.",
       "numbers": {
@@ -6040,7 +6040,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S6:30: engagement applies only to an endmill cutting operation.",
       "numbers": {
@@ -6055,7 +6055,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S7:10: engagement applies only to an endmill cutting operation.",
       "numbers": {
@@ -6070,7 +6070,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S7:20: engagement applies only to an endmill cutting operation.",
       "numbers": {
@@ -6085,7 +6085,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S7:30: engagement applies only to an endmill cutting operation.",
       "numbers": {
@@ -6100,7 +6100,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S8:10: engagement applies only to an endmill cutting operation.",
       "numbers": {
@@ -6115,7 +6115,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S8:20: engagement applies only to an endmill cutting operation.",
       "numbers": {
@@ -6130,7 +6130,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S8:30: engagement applies only to an endmill cutting operation.",
       "numbers": {
@@ -6145,7 +6145,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S9:10: engagement applies only to an endmill cutting operation.",
       "numbers": {
@@ -6160,7 +6160,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S9:20: engagement applies only to an endmill cutting operation.",
       "numbers": {
@@ -6175,7 +6175,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)"
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
       ],
       "message": "S9:30: engagement applies only to an endmill cutting operation.",
       "numbers": {
@@ -16901,7 +16901,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1 stick-out (line 541)",
+        "PLAN.md §4.1 stick-out",
         "plan.setups.stock_state.od_mm",
         "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
         "features declared finished diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
@@ -17018,7 +17018,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1 stick-out (line 541)",
+        "PLAN.md §4.1 stick-out",
         "plan.stock.dia_mm",
         "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
         "features declared finished diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
@@ -17075,7 +17075,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1 stick-out (line 541)",
+        "PLAN.md §4.1 stick-out",
         "plan.stock.dia_mm",
         "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
         "features declared finished diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
@@ -17153,7 +17153,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1 stick-out (line 541)",
+        "PLAN.md §4.1 stick-out",
         "plan.stock.dia_mm",
         "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
         "features declared finished diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
@@ -17210,7 +17210,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1 stick-out (line 541)",
+        "PLAN.md §4.1 stick-out",
         "plan.setups.stock_state.od_mm",
         "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
         "features declared finished diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
@@ -17321,7 +17321,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1 stick-out (line 541)",
+        "PLAN.md §4.1 stick-out",
         "plan.setups.stock_state.od_mm",
         "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
         "features declared finished diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
@@ -17432,7 +17432,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1 stick-out (line 541)",
+        "PLAN.md §4.1 stick-out",
         "plan.stock.dia_mm",
         "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
         "features declared finished diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
@@ -17489,7 +17489,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1 stick-out (line 541)",
+        "PLAN.md §4.1 stick-out",
         "plan.stock.dia_mm",
         "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
         "features declared finished diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
@@ -17546,7 +17546,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1 stick-out (line 541)",
+        "PLAN.md §4.1 stick-out",
         "plan.stock.dia_mm",
         "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
         "features declared finished diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
@@ -17607,7 +17607,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1 stick-out (line 541)",
+        "PLAN.md §4.1 stick-out",
         "plan.stock.dia_mm",
         "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
         "features declared finished diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
@@ -17664,7 +17664,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1 stick-out (line 541)",
+        "PLAN.md §4.1 stick-out",
         "plan.stock.dia_mm",
         "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
         "features declared finished diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
@@ -17721,7 +17721,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1 stick-out (line 541)",
+        "PLAN.md §4.1 stick-out",
         "plan.stock.dia_mm",
         "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
         "features declared finished diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
@@ -17778,7 +17778,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.3 collet/chuck (line 558)",
+        "PLAN.md §4.3 collet/chuck",
         "plan.setups.stock_state.od_mm",
         "inventory selected workholding sizes_mm/sizes_in/range_mm/range_in; 25.4 mm/in"
       ],
@@ -17803,7 +17803,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.3 collet/chuck (line 558)",
+        "PLAN.md §4.3 collet/chuck",
         "plan.stock.dia_mm",
         "inventory selected workholding sizes_mm/sizes_in/range_mm/range_in; 25.4 mm/in"
       ],
@@ -17823,7 +17823,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.3 collet/chuck (line 558)",
+        "PLAN.md §4.3 collet/chuck",
         "plan.stock.dia_mm",
         "inventory selected workholding sizes_mm/sizes_in/range_mm/range_in; 25.4 mm/in"
       ],
@@ -17843,7 +17843,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.3 collet/chuck (line 558)",
+        "PLAN.md §4.3 collet/chuck",
         "plan.stock.dia_mm",
         "inventory selected workholding sizes_mm/sizes_in/range_mm/range_in; 25.4 mm/in"
       ],
@@ -17863,7 +17863,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.3 collet/chuck (line 558)",
+        "PLAN.md §4.3 collet/chuck",
         "plan.setups.stock_state.od_mm",
         "inventory selected workholding sizes_mm/sizes_in/range_mm/range_in; 25.4 mm/in"
       ],
@@ -17888,7 +17888,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.3 collet/chuck (line 558)",
+        "PLAN.md §4.3 collet/chuck",
         "plan.setups.stock_state.od_mm",
         "inventory selected workholding sizes_mm/sizes_in/range_mm/range_in; 25.4 mm/in"
       ],
@@ -17913,7 +17913,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.3 collet/chuck (line 558)",
+        "PLAN.md §4.3 collet/chuck",
         "plan.stock.dia_mm",
         "inventory selected workholding sizes_mm/sizes_in/range_mm/range_in; 25.4 mm/in"
       ],
@@ -17933,7 +17933,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.3 collet/chuck (line 558)",
+        "PLAN.md §4.3 collet/chuck",
         "plan.stock.dia_mm",
         "inventory selected workholding sizes_mm/sizes_in/range_mm/range_in; 25.4 mm/in"
       ],
@@ -17953,7 +17953,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.3 collet/chuck (line 558)",
+        "PLAN.md §4.3 collet/chuck",
         "plan.stock.dia_mm",
         "inventory selected workholding sizes_mm/sizes_in/range_mm/range_in; 25.4 mm/in"
       ],
@@ -17973,7 +17973,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.3 collet/chuck (line 558)",
+        "PLAN.md §4.3 collet/chuck",
         "plan.stock.dia_mm",
         "inventory selected workholding sizes_mm/sizes_in/range_mm/range_in; 25.4 mm/in"
       ],
@@ -17993,7 +17993,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.3 collet/chuck (line 558)",
+        "PLAN.md §4.3 collet/chuck",
         "plan.stock.dia_mm",
         "inventory selected workholding sizes_mm/sizes_in/range_mm/range_in; 25.4 mm/in"
       ],
@@ -18013,7 +18013,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.3 collet/chuck (line 558)",
+        "PLAN.md §4.3 collet/chuck",
         "plan.stock.dia_mm",
         "inventory selected workholding sizes_mm/sizes_in/range_mm/range_in; 25.4 mm/in"
       ],
@@ -22992,7 +22992,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
+        "PLAN.md §4.1 turned profile; §8 M2 spindle Z convention",
         "features declared nominal diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
         "harmonic-analyzer/cad/config/title_block.yaml:45",
         "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
@@ -23092,7 +23092,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
+        "PLAN.md §4.1 turned profile; §8 M2 spindle Z convention",
         "features declared nominal diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
         "plan.frames.B6: author-declared setup frame",
         "AUTHOR'S CHOICE",
@@ -23116,7 +23116,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
+        "PLAN.md §4.1 turned profile; §8 M2 spindle Z convention",
         "features declared nominal diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
         "plan.frames.M2: author-declared setup frame",
         "AUTHOR'S CHOICE",
@@ -23140,7 +23140,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
+        "PLAN.md §4.1 turned profile; §8 M2 spindle Z convention",
         "features declared nominal diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
         "plan.frames.R0: author-declared setup frame",
         "AUTHOR'S CHOICE",
@@ -23164,7 +23164,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
+        "PLAN.md §4.1 turned profile; §8 M2 spindle Z convention",
         "features declared nominal diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
         "AUTHOR'S CHOICE: illustrative retaining-compound joint",
         "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
@@ -23255,7 +23255,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
+        "PLAN.md §4.1 turned profile; §8 M2 spindle Z convention",
         "features declared nominal diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
         "AUTHOR'S CHOICE: illustrative retaining-compound joint",
         "harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg",
@@ -23346,7 +23346,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
+        "PLAN.md §4.1 turned profile; §8 M2 spindle Z convention",
         "features declared nominal diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
         "plan.frames.RH: author-declared setup frame",
         "AUTHOR'S CHOICE",
@@ -23370,7 +23370,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
+        "PLAN.md §4.1 turned profile; §8 M2 spindle Z convention",
         "features declared nominal diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
         "plan.frames.JS: author-declared setup frame",
         "AUTHOR'S CHOICE",
@@ -23394,7 +23394,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
+        "PLAN.md §4.1 turned profile; §8 M2 spindle Z convention",
         "features declared nominal diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
         "plan.frames.R0: author-declared setup frame",
         "AUTHOR'S CHOICE",
@@ -23418,7 +23418,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
+        "PLAN.md §4.1 turned profile; §8 M2 spindle Z convention",
         "features declared nominal diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
         "plan.frames.R0: author-declared setup frame",
         "AUTHOR'S CHOICE",
@@ -23442,7 +23442,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
+        "PLAN.md §4.1 turned profile; §8 M2 spindle Z convention",
         "features declared nominal diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
         "plan.frames.CH: author-declared setup frame",
         "AUTHOR'S CHOICE",
@@ -23466,7 +23466,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
+        "PLAN.md §4.1 turned profile; §8 M2 spindle Z convention",
         "features declared nominal diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
         "plan.frames.JH: author-declared setup frame",
         "AUTHOR'S CHOICE",
@@ -23490,7 +23490,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)"
+        "PLAN.md §4.4 (Physics proxies)"
       ],
       "message": "S10:10: the static turning proxy does not apply to this operation.",
       "numbers": {
@@ -23503,7 +23503,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)"
+        "PLAN.md §4.4 (Physics proxies)"
       ],
       "message": "S11:10: the static turning proxy does not apply to this operation.",
       "numbers": {
@@ -23516,7 +23516,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)"
+        "PLAN.md §4.4 (Physics proxies)"
       ],
       "message": "S11:100: the static turning proxy does not apply to this operation.",
       "numbers": {
@@ -23529,7 +23529,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)"
+        "PLAN.md §4.4 (Physics proxies)"
       ],
       "message": "S11:110: the static turning proxy does not apply to this operation.",
       "numbers": {
@@ -23542,7 +23542,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)"
+        "PLAN.md §4.4 (Physics proxies)"
       ],
       "message": "S11:20: the static turning proxy does not apply to this operation.",
       "numbers": {
@@ -23555,7 +23555,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)"
+        "PLAN.md §4.4 (Physics proxies)"
       ],
       "message": "S11:30: the static turning proxy does not apply to this operation.",
       "numbers": {
@@ -23568,7 +23568,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)"
+        "PLAN.md §4.4 (Physics proxies)"
       ],
       "message": "S11:40: the static turning proxy does not apply to this operation.",
       "numbers": {
@@ -23581,7 +23581,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)"
+        "PLAN.md §4.4 (Physics proxies)"
       ],
       "message": "S11:50: the static turning proxy does not apply to this operation.",
       "numbers": {
@@ -23594,7 +23594,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)"
+        "PLAN.md §4.4 (Physics proxies)"
       ],
       "message": "S11:60: the static turning proxy does not apply to this operation.",
       "numbers": {
@@ -23607,7 +23607,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)"
+        "PLAN.md §4.4 (Physics proxies)"
       ],
       "message": "S11:70: the static turning proxy does not apply to this operation.",
       "numbers": {
@@ -23620,7 +23620,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)"
+        "PLAN.md §4.4 (Physics proxies)"
       ],
       "message": "S11:75: the static turning proxy does not apply to this operation.",
       "numbers": {
@@ -23633,7 +23633,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)"
+        "PLAN.md §4.4 (Physics proxies)"
       ],
       "message": "S11:80: the static turning proxy does not apply to this operation.",
       "numbers": {
@@ -23646,7 +23646,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)"
+        "PLAN.md §4.4 (Physics proxies)"
       ],
       "message": "S11:90: the static turning proxy does not apply to this operation.",
       "numbers": {
@@ -23659,7 +23659,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)"
+        "PLAN.md §4.4 (Physics proxies)"
       ],
       "message": "S12:10: the static turning proxy does not apply to this operation.",
       "numbers": {
@@ -23672,7 +23672,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)"
+        "PLAN.md §4.4 (Physics proxies)"
       ],
       "message": "S12:20: the static turning proxy does not apply to this operation.",
       "numbers": {
@@ -23685,9 +23685,9 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)",
-        "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
-        "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
+        "PLAN.md §4.4 (Physics proxies)",
+        "PLAN.md §4.4 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
+        "PLAN.md §4.4 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
         "plan.setups[S1].hold.stickout_mm; ops[10].doc_mm/feed_mm_rev",
         "plan.setups[S1].stock_state.od_mm",
         "features.features.foot_seat: height acceptance band",
@@ -23741,9 +23741,9 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)",
-        "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
-        "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
+        "PLAN.md §4.4 (Physics proxies)",
+        "PLAN.md §4.4 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
+        "PLAN.md §4.4 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
         "plan.setups[S1].hold.stickout_mm; ops[20].doc_mm/feed_mm_rev",
         "features.features.head: declared nominal diameter",
         "plan.setups[S1].ops[20].rough_allowance_mm",
@@ -23792,9 +23792,9 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)",
-        "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
-        "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
+        "PLAN.md §4.4 (Physics proxies)",
+        "PLAN.md §4.4 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
+        "PLAN.md §4.4 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
         "plan.setups[S1].hold.stickout_mm; ops[30].doc_mm/feed_mm_rev",
         "features.features.head: declared nominal diameter",
         "features.features.head: dia acceptance band",
@@ -23848,9 +23848,9 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)",
-        "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
-        "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
+        "PLAN.md §4.4 (Physics proxies)",
+        "PLAN.md §4.4 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
+        "PLAN.md §4.4 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
         "plan.setups[S1].hold.stickout_mm; ops[40].doc_mm/feed_mm_rev",
         "features.features.body: declared nominal diameter",
         "plan.setups[S1].ops[40].rough_allowance_mm",
@@ -23899,9 +23899,9 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)",
-        "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
-        "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
+        "PLAN.md §4.4 (Physics proxies)",
+        "PLAN.md §4.4 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
+        "PLAN.md §4.4 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
         "plan.setups[S1].hold.stickout_mm; ops[50].doc_mm/feed_mm_rev",
         "features.features.body: declared nominal diameter",
         "features.features.body: dia acceptance band",
@@ -23955,7 +23955,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)"
+        "PLAN.md §4.4 (Physics proxies)"
       ],
       "message": "S1:60: the static turning proxy does not apply to this operation.",
       "numbers": {
@@ -23968,9 +23968,9 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)",
-        "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
-        "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
+        "PLAN.md §4.4 (Physics proxies)",
+        "PLAN.md §4.4 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
+        "PLAN.md §4.4 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
         "plan.setups[S2].hold.stickout_mm; ops[10].doc_mm/feed_mm_rev",
         "plan.setups[S2].stock_state.od_mm",
         "features.features.cone_boss_north_face: length acceptance band",
@@ -24024,9 +24024,9 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)",
-        "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
-        "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
+        "PLAN.md §4.4 (Physics proxies)",
+        "PLAN.md §4.4 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
+        "PLAN.md §4.4 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
         "plan.setups[S2].hold.stickout_mm; ops[20].doc_mm/feed_mm_rev",
         "features.features.cone_spigot: declared nominal diameter",
         "plan.setups[S2].ops[20].rough_allowance_mm",
@@ -24075,9 +24075,9 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)",
-        "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
-        "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
+        "PLAN.md §4.4 (Physics proxies)",
+        "PLAN.md §4.4 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
+        "PLAN.md §4.4 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
         "plan.setups[S2].hold.stickout_mm; ops[30].doc_mm/feed_mm_rev",
         "features.features.cone_spigot: declared nominal diameter",
         "features.features.cone_spigot: dia acceptance band",
@@ -24128,9 +24128,9 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)",
-        "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
-        "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
+        "PLAN.md §4.4 (Physics proxies)",
+        "PLAN.md §4.4 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
+        "PLAN.md §4.4 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
         "plan.setups[S2].hold.stickout_mm; ops[40].doc_mm/feed_mm_rev",
         "plan.setups[S2].stock_state.od_mm",
         "features.features.cone_boss_south_face: length acceptance band",
@@ -24184,7 +24184,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)"
+        "PLAN.md §4.4 (Physics proxies)"
       ],
       "message": "S2:50: the static turning proxy does not apply to this operation.",
       "numbers": {
@@ -24197,9 +24197,9 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)",
-        "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
-        "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
+        "PLAN.md §4.4 (Physics proxies)",
+        "PLAN.md §4.4 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
+        "PLAN.md §4.4 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
         "plan.setups[S3].hold.stickout_mm; ops[10].doc_mm/feed_mm_rev",
         "plan.setups[S3].stock_state.od_mm",
         "features.features.crank_boss_faces: length acceptance band",
@@ -24253,9 +24253,9 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)",
-        "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
-        "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
+        "PLAN.md §4.4 (Physics proxies)",
+        "PLAN.md §4.4 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
+        "PLAN.md §4.4 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
         "plan.setups[S3].hold.stickout_mm; ops[20].doc_mm/feed_mm_rev",
         "features.features.crank_spigot: declared nominal diameter",
         "plan.setups[S3].ops[20].rough_allowance_mm",
@@ -24304,9 +24304,9 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)",
-        "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
-        "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
+        "PLAN.md §4.4 (Physics proxies)",
+        "PLAN.md §4.4 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
+        "PLAN.md §4.4 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
         "plan.setups[S3].hold.stickout_mm; ops[30].doc_mm/feed_mm_rev",
         "features.features.crank_spigot: declared nominal diameter",
         "features.features.crank_spigot: dia acceptance band",
@@ -24357,9 +24357,9 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)",
-        "PLAN.md:567 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
-        "PLAN.md:567 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
+        "PLAN.md §4.4 (Physics proxies)",
+        "PLAN.md §4.4 F = K_c·doc_mm·feed_mm_rev; δ = F·L³/(3EI) or /(48EI)",
+        "PLAN.md §4.4 circular-section evaluation: I = π·D⁴/64; GPa-to-N/mm² conversion E_gpa × 1000",
         "plan.setups[S3].hold.stickout_mm; ops[40].doc_mm/feed_mm_rev",
         "plan.setups[S3].stock_state.od_mm",
         "features.features.crank_boss_faces: length acceptance band",
@@ -24413,7 +24413,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)"
+        "PLAN.md §4.4 (Physics proxies)"
       ],
       "message": "S3:50: the static turning proxy does not apply to this operation.",
       "numbers": {
@@ -24426,7 +24426,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)"
+        "PLAN.md §4.4 (Physics proxies)"
       ],
       "message": "S4:10: the static turning proxy does not apply to this operation.",
       "numbers": {
@@ -24439,7 +24439,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)"
+        "PLAN.md §4.4 (Physics proxies)"
       ],
       "message": "S4:20: the static turning proxy does not apply to this operation.",
       "numbers": {
@@ -24452,7 +24452,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)"
+        "PLAN.md §4.4 (Physics proxies)"
       ],
       "message": "S4:30: the static turning proxy does not apply to this operation.",
       "numbers": {
@@ -24465,7 +24465,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)"
+        "PLAN.md §4.4 (Physics proxies)"
       ],
       "message": "S4:40: the static turning proxy does not apply to this operation.",
       "numbers": {
@@ -24478,7 +24478,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)"
+        "PLAN.md §4.4 (Physics proxies)"
       ],
       "message": "S5:10: the static turning proxy does not apply to this operation.",
       "numbers": {
@@ -24491,7 +24491,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)"
+        "PLAN.md §4.4 (Physics proxies)"
       ],
       "message": "S5:20: the static turning proxy does not apply to this operation.",
       "numbers": {
@@ -24504,7 +24504,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)"
+        "PLAN.md §4.4 (Physics proxies)"
       ],
       "message": "S5:30: the static turning proxy does not apply to this operation.",
       "numbers": {
@@ -24517,7 +24517,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)"
+        "PLAN.md §4.4 (Physics proxies)"
       ],
       "message": "S5:40: the static turning proxy does not apply to this operation.",
       "numbers": {
@@ -24530,7 +24530,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)"
+        "PLAN.md §4.4 (Physics proxies)"
       ],
       "message": "S6:10: the static turning proxy does not apply to this operation.",
       "numbers": {
@@ -24543,7 +24543,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)"
+        "PLAN.md §4.4 (Physics proxies)"
       ],
       "message": "S6:20: the static turning proxy does not apply to this operation.",
       "numbers": {
@@ -24556,7 +24556,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)"
+        "PLAN.md §4.4 (Physics proxies)"
       ],
       "message": "S6:30: the static turning proxy does not apply to this operation.",
       "numbers": {
@@ -24569,7 +24569,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)"
+        "PLAN.md §4.4 (Physics proxies)"
       ],
       "message": "S7:10: the static turning proxy does not apply to this operation.",
       "numbers": {
@@ -24582,7 +24582,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)"
+        "PLAN.md §4.4 (Physics proxies)"
       ],
       "message": "S7:20: the static turning proxy does not apply to this operation.",
       "numbers": {
@@ -24595,7 +24595,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)"
+        "PLAN.md §4.4 (Physics proxies)"
       ],
       "message": "S7:30: the static turning proxy does not apply to this operation.",
       "numbers": {
@@ -24608,7 +24608,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)"
+        "PLAN.md §4.4 (Physics proxies)"
       ],
       "message": "S8:10: the static turning proxy does not apply to this operation.",
       "numbers": {
@@ -24621,7 +24621,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)"
+        "PLAN.md §4.4 (Physics proxies)"
       ],
       "message": "S8:20: the static turning proxy does not apply to this operation.",
       "numbers": {
@@ -24634,7 +24634,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)"
+        "PLAN.md §4.4 (Physics proxies)"
       ],
       "message": "S8:30: the static turning proxy does not apply to this operation.",
       "numbers": {
@@ -24647,7 +24647,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)"
+        "PLAN.md §4.4 (Physics proxies)"
       ],
       "message": "S9:10: the static turning proxy does not apply to this operation.",
       "numbers": {
@@ -24660,7 +24660,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)"
+        "PLAN.md §4.4 (Physics proxies)"
       ],
       "message": "S9:20: the static turning proxy does not apply to this operation.",
       "numbers": {
@@ -24673,7 +24673,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)"
+        "PLAN.md §4.4 (Physics proxies)"
       ],
       "message": "S9:30: the static turning proxy does not apply to this operation.",
       "numbers": {
@@ -26061,7 +26061,7 @@
       "subject": "S9"
     }
   ],
-  "hash": "9052372528ef203359dbfbf93a7493053d276601317a16da676d5bb73d1dd628",
+  "hash": "c0d67cbd2490aa5e824c93f3880f0123db80608084ba2cf395fb1c4615c294ba",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -26081,55 +26081,55 @@
     },
     "render:S1": {
       "path": "setup-S1.png",
-      "sha256": "7c2e6d6036f2c40dfaf3545c38a07fe1182e29cd4dc68e8079b289829a1d4299"
+      "sha256": "e81b7d9f686f2a5e7b3cebff47cada0cfee6f2f46ad66c894c3acfa02e0e8d17"
     },
     "render:S10": {
       "path": "setup-S10.png",
-      "sha256": "f67411b1765d364b44b006b0e36c85ceb8da9abf10d42d3dc500f105c24ccf98"
+      "sha256": "735c94a86bad5190abbeaa234f5b8c0e328d70e5df8fbd9bcf6d19343dd3a510"
     },
     "render:S11": {
       "path": "setup-S11.png",
-      "sha256": "80ffc459fde534f0e66906d2aabe97f34bfe70a5f8b7084621cede727b4f0e2f"
+      "sha256": "a857ab916621085bf0da5c85dfa3e727974d4f197890f503809e84422faad394"
     },
     "render:S11:110:angularity_dia": {
       "path": "setup-S11-op110-angularity_dia.png",
-      "sha256": "ba1571c8e910c23b50a65e66f39621b7cd4d37d27b10ece654da3d0f40dd8fe1"
+      "sha256": "b45a8b4c7c032f5a98d6becffafe01a9ad90a6d6064bad5ebe640d12229c17c4"
     },
     "render:S12": {
       "path": "setup-S12.png",
-      "sha256": "43d76488a59c2513da42d4393a9ad2117852b84016391ba02daeb7b6a18cbb56"
+      "sha256": "538bdcf0f87ae7890c5a158fccf6c118497cfed97b7227e84e247bf74573eeec"
     },
     "render:S2": {
       "path": "setup-S2.png",
-      "sha256": "96f38d1d8a6767de7855c7abe836fe57012e038091d4629405cc1c3a3ffb23c4"
+      "sha256": "137e71893203cd7c7da05fe956c537de976926497805a74dd23bf5c61e8d5f74"
     },
     "render:S3": {
       "path": "setup-S3.png",
-      "sha256": "2d3c8bf8e6f4d205382a9ee9bad9e470f808b68e690f67adbe2a8022aedc8ced"
+      "sha256": "f059eac6de728e310a87c68cecdfe3ab7f42453ce84b097258bdc45916897fad"
     },
     "render:S4": {
       "path": "setup-S4.png",
-      "sha256": "7184cb8ae89483732c67e1b2b1d0504b91b1642e5347551cbef987266282748a"
+      "sha256": "e243e5ceff4422e4fde5ff12de31b6594a4740436250f15f096ea28ff9426e48"
     },
     "render:S5": {
       "path": "setup-S5.png",
-      "sha256": "e9b3f0d1a75ad3e375d63d1a5c916df31987e1c28a1b6e41c1ab2873e3f1c893"
+      "sha256": "9a370355f6ef1a6646e43225aaa5b94f3b82a7fe0fd7d37d5041a4b454816ae1"
     },
     "render:S6": {
       "path": "setup-S6.png",
-      "sha256": "26ee0560d36a481b037ed10e325b2d073a18ea4dada93919d0e7e8ce9076e1a9"
+      "sha256": "3337f82338839f7f58fcf56d078c182253f327f4341cbda445221e1ced95af2d"
     },
     "render:S7": {
       "path": "setup-S7.png",
-      "sha256": "b7714b7c655d221dd4f85144252516ec64ffb4c1936857d2a7c5ba4fc5bfcdd7"
+      "sha256": "4f34caf5f7a7a1b856b48ae7114f20b30f97dfa98bbd48924b1b52539631c0bb"
     },
     "render:S8": {
       "path": "setup-S8.png",
-      "sha256": "e678c9734d2dfc0c54cab7cd85aed7deaeeed983344aff60a322aa2ff3f04ee2"
+      "sha256": "13f0e84af680a0ae16a62c99f12cb9436f8fc4653e479a5a0372c40cfdfad8b7"
     },
     "render:S9": {
       "path": "setup-S9.png",
-      "sha256": "e2627cb44fa4d4389957cf9dd7a26765a20023dda5fb3ec21c22f86d629b75f4"
+      "sha256": "b9cf182b4fcc2e2f4d66ddc1316d98511d08945fb636b8b93b8c3e946d8fdfca"
     },
     "shop_policy": {
       "path": "examples/shop-policy.toml",
@@ -26174,7 +26174,7 @@
         "fixture_kind": "chuck_3jaw",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 1000,
+        "height_px": 2376,
         "jaw_front_oblique": false,
         "jaws": "exact",
         "legend": [
@@ -26184,6 +26184,20 @@
         ],
         "parallels": "absent",
         "primary_op": "10",
+        "print_panels": [
+          {
+            "height_px": 1484,
+            "label": "SETUP S1  /  LATHE VIEW",
+            "role": "setup",
+            "top_px": 0
+          },
+          {
+            "height_px": 892,
+            "label": "JAW-END PROFILE",
+            "role": "profile_detail",
+            "top_px": 1484
+          }
+        ],
         "render_debts": [],
         "shows": [
           "holding",
@@ -26195,7 +26209,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "7c2e6d6036f2c40dfaf3545c38a07fe1182e29cd4dc68e8079b289829a1d4299"
+      "sha256": "e81b7d9f686f2a5e7b3cebff47cada0cfee6f2f46ad66c894c3acfa02e0e8d17"
     },
     "S10": {
       "fixture": "modeled",
@@ -26326,7 +26340,7 @@
         "fixture_kind": "custom",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 1700,
+        "height_px": 2321,
         "jaw_front_oblique": false,
         "jaws": "not_applicable",
         "legend": [
@@ -26336,6 +26350,20 @@
         ],
         "parallels": "absent",
         "primary_op": "10",
+        "print_panels": [
+          {
+            "height_px": 1484,
+            "label": "SETUP S10  /  ELEVATION VIEW",
+            "role": "setup",
+            "top_px": 0
+          },
+          {
+            "height_px": 837,
+            "label": "HOLDING DETAIL X2.6",
+            "role": "holding_detail",
+            "top_px": 1484
+          }
+        ],
         "render_debts": [],
         "saw_cuts": [
           {
@@ -26370,14 +26398,34 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "f67411b1765d364b44b006b0e36c85ceb8da9abf10d42d3dc500f105c24ccf98"
+      "sha256": "735c94a86bad5190abbeaa234f5b8c0e328d70e5df8fbd9bcf6d19343dd3a510"
     },
     "S11": {
       "fixture": "modeled",
       "inspections": {
         "110:angularity_dia": {
           "path": "setup-S11-op110-angularity_dia.png",
-          "sha256": "ba1571c8e910c23b50a65e66f39621b7cd4d37d27b10ece654da3d0f40dd8fe1"
+          "scene": {
+            "height_px": 1553,
+            "print_panels": [
+              {
+                "height_px": 809,
+                "label": "ORIENTATION 1: FOOT B ON THE PLATE (STEPS 5-6)",
+                "role": "inspection",
+                "top_px": 0,
+                "view_ordinal": 1
+              },
+              {
+                "height_px": 744,
+                "label": "ORIENTATION 2: ON ITS HEAD AND BODY, JOURNAL ROD LEVEL (STEPS 7-8)",
+                "role": "inspection",
+                "top_px": 809,
+                "view_ordinal": 2
+              }
+            ],
+            "width_px": 1600
+          },
+          "sha256": "b45a8b4c7c032f5a98d6becffafe01a9ad90a6d6064bad5ebe640d12229c17c4"
         }
       },
       "path": "setup-S11.png",
@@ -26470,7 +26518,7 @@
         "fixture_kind": "vise",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 1728,
+        "height_px": 3452,
         "jaw_front_oblique": false,
         "jaws": "exact",
         "legend": [
@@ -26480,6 +26528,26 @@
         ],
         "parallels": "exact",
         "primary_op": "10",
+        "print_panels": [
+          {
+            "height_px": 1514,
+            "label": "SETUP S11  /  ISOMETRIC VIEW",
+            "role": "setup",
+            "top_px": 0
+          },
+          {
+            "height_px": 980,
+            "label": "PROFILE SKETCH / XY",
+            "role": "path_detail",
+            "top_px": 1514
+          },
+          {
+            "height_px": 958,
+            "label": "HOLDING DETAIL X1.9",
+            "role": "holding_detail",
+            "top_px": 2494
+          }
+        ],
         "render_debts": [],
         "shows": [
           "holding",
@@ -26492,7 +26560,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "80ffc459fde534f0e66906d2aabe97f34bfe70a5f8b7084621cede727b4f0e2f"
+      "sha256": "a857ab916621085bf0da5c85dfa3e727974d4f197890f503809e84422faad394"
     },
     "S12": {
       "fixture": "modeled",
@@ -26546,7 +26614,7 @@
         "fixture_kind": "custom",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 1000,
+        "height_px": 1484,
         "jaw_front_oblique": false,
         "jaws": "not_applicable",
         "legend": [
@@ -26556,6 +26624,14 @@
         ],
         "parallels": "absent",
         "primary_op": null,
+        "print_panels": [
+          {
+            "height_px": 1484,
+            "label": "SETUP S12  /  ELEVATION VIEW",
+            "role": "setup",
+            "top_px": 0
+          }
+        ],
         "render_debts": [],
         "section": {
           "at_mm": 0.0,
@@ -26570,7 +26646,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "43d76488a59c2513da42d4393a9ad2117852b84016391ba02daeb7b6a18cbb56"
+      "sha256": "538bdcf0f87ae7890c5a158fccf6c118497cfed97b7227e84e247bf74573eeec"
     },
     "S2": {
       "fixture": "modeled",
@@ -26604,7 +26680,7 @@
         "fixture_kind": "chuck_3jaw",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 1000,
+        "height_px": 2286,
         "jaw_front_oblique": false,
         "jaws": "exact",
         "legend": [
@@ -26614,6 +26690,20 @@
         ],
         "parallels": "absent",
         "primary_op": "10",
+        "print_panels": [
+          {
+            "height_px": 1484,
+            "label": "SETUP S2  /  LATHE VIEW",
+            "role": "setup",
+            "top_px": 0
+          },
+          {
+            "height_px": 802,
+            "label": "JAW-END PROFILE",
+            "role": "profile_detail",
+            "top_px": 1484
+          }
+        ],
         "render_debts": [],
         "shows": [
           "holding",
@@ -26625,7 +26715,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "96f38d1d8a6767de7855c7abe836fe57012e038091d4629405cc1c3a3ffb23c4"
+      "sha256": "137e71893203cd7c7da05fe956c537de976926497805a74dd23bf5c61e8d5f74"
     },
     "S3": {
       "fixture": "modeled",
@@ -26659,7 +26749,7 @@
         "fixture_kind": "chuck_3jaw",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 1000,
+        "height_px": 2286,
         "jaw_front_oblique": false,
         "jaws": "exact",
         "legend": [
@@ -26669,6 +26759,20 @@
         ],
         "parallels": "absent",
         "primary_op": "10",
+        "print_panels": [
+          {
+            "height_px": 1484,
+            "label": "SETUP S3  /  LATHE VIEW",
+            "role": "setup",
+            "top_px": 0
+          },
+          {
+            "height_px": 802,
+            "label": "JAW-END PROFILE",
+            "role": "profile_detail",
+            "top_px": 1484
+          }
+        ],
         "render_debts": [],
         "shows": [
           "holding",
@@ -26680,7 +26784,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "2d3c8bf8e6f4d205382a9ee9bad9e470f808b68e690f67adbe2a8022aedc8ced"
+      "sha256": "f059eac6de728e310a87c68cecdfe3ab7f42453ce84b097258bdc45916897fad"
     },
     "S4": {
       "fixture": "modeled",
@@ -26764,7 +26868,7 @@
         "fixture_kind": "dividing_head",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 1000,
+        "height_px": 1484,
         "jaw_front_oblique": true,
         "jaws": "exact",
         "legend": [
@@ -26774,6 +26878,14 @@
         ],
         "parallels": "absent",
         "primary_op": "10",
+        "print_panels": [
+          {
+            "height_px": 1484,
+            "label": "SETUP S4  /  ISOMETRIC VIEW",
+            "role": "setup",
+            "top_px": 0
+          }
+        ],
         "render_debts": [],
         "shows": [
           "holding",
@@ -26785,7 +26897,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "7184cb8ae89483732c67e1b2b1d0504b91b1642e5347551cbef987266282748a"
+      "sha256": "e243e5ceff4422e4fde5ff12de31b6594a4740436250f15f096ea28ff9426e48"
     },
     "S5": {
       "fixture": "modeled",
@@ -26869,7 +26981,7 @@
         "fixture_kind": "dividing_head",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 1000,
+        "height_px": 1484,
         "jaw_front_oblique": true,
         "jaws": "exact",
         "legend": [
@@ -26879,6 +26991,14 @@
         ],
         "parallels": "absent",
         "primary_op": "10",
+        "print_panels": [
+          {
+            "height_px": 1484,
+            "label": "SETUP S5  /  ISOMETRIC VIEW",
+            "role": "setup",
+            "top_px": 0
+          }
+        ],
         "render_debts": [],
         "shows": [
           "holding",
@@ -26890,7 +27010,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "e9b3f0d1a75ad3e375d63d1a5c916df31987e1c28a1b6e41c1ab2873e3f1c893"
+      "sha256": "9a370355f6ef1a6646e43225aaa5b94f3b82a7fe0fd7d37d5041a4b454816ae1"
     },
     "S6": {
       "fixture": "modeled",
@@ -26944,7 +27064,7 @@
         "fixture_kind": "custom",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 1000,
+        "height_px": 1484,
         "jaw_front_oblique": false,
         "jaws": "not_applicable",
         "legend": [
@@ -26954,6 +27074,14 @@
         ],
         "parallels": "absent",
         "primary_op": null,
+        "print_panels": [
+          {
+            "height_px": 1484,
+            "label": "SETUP S6  /  ELEVATION VIEW",
+            "role": "setup",
+            "top_px": 0
+          }
+        ],
         "render_debts": [],
         "section": {
           "at_mm": 0.0,
@@ -26968,7 +27096,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "26ee0560d36a481b037ed10e325b2d073a18ea4dada93919d0e7e8ce9076e1a9"
+      "sha256": "3337f82338839f7f58fcf56d078c182253f327f4341cbda445221e1ced95af2d"
     },
     "S7": {
       "fixture": "modeled",
@@ -27022,7 +27150,7 @@
         "fixture_kind": "custom",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 1000,
+        "height_px": 1484,
         "jaw_front_oblique": false,
         "jaws": "not_applicable",
         "legend": [
@@ -27032,6 +27160,14 @@
         ],
         "parallels": "absent",
         "primary_op": null,
+        "print_panels": [
+          {
+            "height_px": 1484,
+            "label": "SETUP S7  /  ELEVATION VIEW",
+            "role": "setup",
+            "top_px": 0
+          }
+        ],
         "render_debts": [],
         "section": {
           "at_mm": 0.0,
@@ -27046,7 +27182,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "b7714b7c655d221dd4f85144252516ec64ffb4c1936857d2a7c5ba4fc5bfcdd7"
+      "sha256": "4f34caf5f7a7a1b856b48ae7114f20b30f97dfa98bbd48924b1b52539631c0bb"
     },
     "S8": {
       "fixture": "modeled",
@@ -27125,7 +27261,7 @@
         "fixture_kind": "dividing_head",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 1000,
+        "height_px": 1514,
         "jaw_front_oblique": true,
         "jaws": "exact",
         "legend": [
@@ -27135,6 +27271,14 @@
         ],
         "parallels": "absent",
         "primary_op": "10",
+        "print_panels": [
+          {
+            "height_px": 1514,
+            "label": "SETUP S8  /  ISOMETRIC VIEW",
+            "role": "setup",
+            "top_px": 0
+          }
+        ],
         "render_debts": [],
         "shows": [
           "holding",
@@ -27146,7 +27290,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "e678c9734d2dfc0c54cab7cd85aed7deaeeed983344aff60a322aa2ff3f04ee2"
+      "sha256": "13f0e84af680a0ae16a62c99f12cb9436f8fc4653e479a5a0372c40cfdfad8b7"
     },
     "S9": {
       "fixture": "modeled",
@@ -27225,7 +27369,7 @@
         "fixture_kind": "dividing_head",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 1000,
+        "height_px": 1634,
         "jaw_front_oblique": true,
         "jaws": "exact",
         "legend": [
@@ -27235,6 +27379,14 @@
         ],
         "parallels": "absent",
         "primary_op": "10",
+        "print_panels": [
+          {
+            "height_px": 1634,
+            "label": "SETUP S9  /  ISOMETRIC VIEW",
+            "role": "setup",
+            "top_px": 0
+          }
+        ],
         "render_debts": [],
         "shows": [
           "holding",
@@ -27246,7 +27398,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "e2627cb44fa4d4389957cf9dd7a26765a20023dda5fb3ec21c22f86d629b75f4"
+      "sha256": "b9cf182b4fcc2e2f4d66ddc1316d98511d08945fb636b8b93b8c3e946d8fdfca"
     }
   },
   "rules_version": "m5-rev10",

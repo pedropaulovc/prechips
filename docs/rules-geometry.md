@@ -73,10 +73,11 @@ The STEP must be bound before the kernel is called: an unknown `step_sha256`,
 no `step` asset, or bytes whose SHA-256 differs from the manifest value give
 `unknown` rows with `STEP bytes and their manifest SHA-256 are required for
 FreeCAD geometry.` or `STEP bytes do not match the manifest SHA-256; face
-identity is unresolved.` Only the hand-authored `examples/pivot-bracket` bundle
-has no STEP bytes, so every one of its geometry rows is `?` for this reason even
-with a kernel installed. `examples/rocker-arm`, `examples/pivot-shaft` and
-`examples/cone-pivot-post` bind the consumer's labelled exports
+identity is unresolved.` All four reference bundles bind adjacent consumer STEP
+exports. The bracket keeps a hand-authored manifest on the v39 STEP without
+feature labels; its illustrative acceptance bands are not drawing limits.
+`examples/rocker-arm`, `examples/pivot-shaft` and `examples/cone-pivot-post`
+bind the consumer's labelled exports
 (`HAF_<FEATURE>__P<nn>` labels; a periodic surface arrives as several
 `ADVANCED_FACE` patches under one feature label, each bound by its own
 entity/ordinal) with each feature's `faces` copied from that export. In the
@@ -108,16 +109,25 @@ Successful (`status = "ok"`) results are cached as JSON under
 `~/.cache/prechips/geometry` without `LOCALAPPDATA`). The key is the SHA-256
 of the canonical job without its `step_path` (the STEP digest and every
 numeric input are inside), the digest of the engine's own `kernel/*.py`
-sources, and the kernel executable's resolved path, SHA-256, size and mtime.
-Changing a consumed geometry input, the STEP, the engine or the FreeCAD build
-therefore misses; moving the bundle does not. Host-only action/finishing metadata
+sources, and the kernel executable's resolved path and freshly read byte SHA-256.
+Changing a consumed geometry input, the STEP, the engine or the kernel
+executable bytes therefore misses; moving the bundle does not.
+Host-only action/finishing metadata
 that is not consumed by transient preparation, tool OAL after projection is resolved, protective hold-method text, and the
 item-level `verify` / `present` / `source` flags around a consumed fact (which
 never enter the job) do not invalidate geometry. `unknown` and `error` results
-are never cached, and a cache that cannot be written changes nothing. A hit
-reproduces the same facts and the same render bytes as the run that produced
-it. The cache is a local convenience, not an input: it is not part of the
-hashed bundle.
+are never cached, and a cache that cannot be written leaves the returned facts
+unchanged. A hit returns the stored facts and render bytes of the run that
+produced it. Fresh native runs are not proven bit-repeatable; see the
+[print and native acceptance limits](../examples/README.md#print-and-native-acceptance-limits).
+The cache is not part of the hashed bundle.
+
+CI persists this local result-cache directory in a separate external cache.
+Its namespace includes runner OS/architecture, the pinned FreeCAD AppImage
+SHA-256, cache epoch and the `kernel/*.py` source digest. Each save key adds the
+unique workflow run ID and attempt; restore uses the matching namespace prefix.
+The workflow saves only after the test job succeeds
+([CI cache policy](../.github/workflows/ci.yml)).
 
 ### Worker processes
 
@@ -717,6 +727,9 @@ spigot preparation removes the exterior annulus within its declared axial
 interval. A blind drill includes the cone below its cylindrical depth, and
 that cone must not intrude into protected finished material. Drill/spot point
 geometry needs an accepted included angle, not a fabricated flat bottom.
+An accepted finite angle whose point slope underflows or point rise overflows
+also leaves action-named geometry and stock debt for either drill or spot;
+no substitute profile is built.
 Socket spotting uses its pointed tool profile and does not complete the
 full cylinder. Tapping and counterboring on transient joint features remain
 named stock debt until actual thread and pilot/step geometry is supported;
@@ -1331,10 +1344,16 @@ tolerance-grown face boxes; positive-weight spline surfaces use their pole
 hulls. Unsupported or failed proofs fall back to the original native Boolean.
 The bounds trust the native face enclosure and inside classifier, and native
 Boolean completeness remains a checked assumption.
+The cylinder-query and prefetch paths allow bounding-box exclusions only for
+proven finite, positive-volume material. Those paths preserve the native Boolean
+answer for unsound stock, including reversed solids whose occupied material is
+the complement of their face bounds.
+Degenerated edges at cone apices or sphere poles still permit bounded occupancy
+classification, but disable the stricter ball-hit proof.
 
-P6 explicitly accepts skipping a stock Boolean once the hit is mathematically
-proven, even if the avoided solve might otherwise have raised. A Boolean that
-still runs is never caught or suppressed by this optimization. Certificates
+A mathematically proven hit skips its redundant stock Boolean, even if that
+solve would otherwise have raised. A Boolean that still runs is never caught or
+suppressed by this optimization. Certificates
 only count hits: they never prove a miss or replace a native shape, and actual
 pointed cutters bypass them. A count-only hit skips the intersection only when
 no finished face outside the already-proven reference union can add a hit
@@ -2071,7 +2090,14 @@ band the buttons file to worst case over the kit's declared stack ([rules-coordi
 filing buttons](rules-coordinates.md): the button OD limits widened by the rim
 centre's shift off the bore axis), the band the traveler prints, proven exactly as the
 manual-arc rule proves it; a button drawn at its nominal OD is in it even when its
-bought OD band (a fit class such as g6) excludes the nominal. A kit solid is a stop
+bought OD band (a fit class such as g6) excludes the nominal.
+
+Guide selection compares resolved kit identities, so a fully qualified
+`fixtures.<kit>` reference and its short identity select the same held kit.
+The emitted `guide_owner` retains the actual held fixture or clamp label;
+identity normalization does not rename the scene's component owners.
+
+A kit solid is a stop
 only when it is a button of that band (an external rim: a convex cylindrical face
 within the band, widened by the stock tolerance; a bore of the band, as in a nut, is
 no rim), its cut reaches it, it is seated on

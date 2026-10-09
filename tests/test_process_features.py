@@ -110,6 +110,11 @@ def set_tool_fact(plan, key, value):
         ("tool", "point_angle", '"unknown"', "unknown"),
         ("tool", "point_angle", "{ value = 118, verify = true }", "unknown"),
         ("tool", "point_angle", "40", "error"),
+        # Valid finite angles whose derived cone underflows or overflows are unresolved,
+        # never a fabricated depth or an exception in the endpoint/kernel/support join.
+        ("tool", "point_angle", "5e-324", "unknown"),
+        ("matching angles", "countersink_angle_deg", "5e-324", "unknown"),
+        ("matching angles", "countersink_angle_deg", "1e-310", "unknown"),
         # An unconfirmed tool record leaves every endpoint it cuts unknown, centres included.
         ("tool", "oal_mm", "{ value = 47.6, verify = true }", "unknown"),
         ("tool", "verify", "true", "unknown"),
@@ -121,6 +126,9 @@ def test_a_centre_is_the_shape_its_selected_tool_cuts(tmp_path, where, key, valu
         set_process_key(plan, "plain_end_centre", key, value)
     elif where == "tool":
         set_tool_fact(plan, key, value)
+    elif where == "matching angles":
+        set_process_key(plan, "plain_end_centre", key, value)
+        set_tool_fact(plan, "angle_deg", value)
     bundle = load_bundle(plan)
     endpoint = evaluate("blind_depth", bundle)["plain_end_centre"]
     assert endpoint.status == status
@@ -129,10 +137,21 @@ def test_a_centre_is_the_shape_its_selected_tool_cuts(tmp_path, where, key, valu
     assert (row["depth_mm"] == "unknown") is (status != "pass")
     if status == "pass":
         assert row["depth_mm"] == pytest.approx(2.8633, abs=5e-5)
+        assert math.isfinite(row["depth_mm"])
     # The kernel cuts that same centre or none.
     setup = bundle.plan["setups"][0]
     op = next(op for op in setup["ops"] if op["do"] == "center_drill")
-    assert ("reason" in kernel.op_inputs(bundle, setup, op)["process_cut"]) is (status != "pass")
+    job = kernel.op_inputs(bundle, setup, op)
+    process_cut = job["process_cut"]
+    if where == "matching angles":
+        # An unresolved cone shoulder is omitted from the numeric kernel request.
+        assert "shank_from_mm" not in job
+    elif status == "pass":
+        assert math.isfinite(job["shank_from_mm"])
+        assert job["shank_from_mm"] > 0
+    assert ("reason" in process_cut) is (status != "pass")
+    if status != "pass":
+        assert process_cut["reason"]
     # A centre its maker cannot be shown to cut is no seat for S1's dead centre.
     assert evaluate("centre_support", bundle)["S1"].status == status
 

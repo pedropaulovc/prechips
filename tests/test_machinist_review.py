@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 import subprocess
@@ -20,8 +21,15 @@ _SPEC.loader.exec_module(mr)
 
 
 def _verdict(verdict: str = "CLEAR", **findings: list[dict[str, str]]) -> dict[str, Any]:
-    value: dict[str, Any] = {"verdict": verdict, "summary": "Runs as printed."}
-    value.update({key: findings.get(key, []) for key in mr.FINDING_KEYS})
+    value: dict[str, Any] = {
+        "verdict": verdict,
+        "summary": "Runs as printed.",
+        "blockers": [],
+        "clutter": [],
+        "clarity": [],
+        "minor": [],
+    }
+    value.update(findings)
     return value
 
 
@@ -31,7 +39,7 @@ FINDING = {"where": "page 3, S1 sheet 1, OPERATIONS op 20", "issue": "x", "fix":
 def test_gate_passes_only_clear_with_no_gating_finding() -> None:
     assert mr.is_pass(_verdict())
     assert mr.is_pass(_verdict(minor=[FINDING]))
-    for key in mr.GATING_KEYS:
+    for key in ("blockers", "clutter", "clarity"):
         assert not mr.is_pass(_verdict(**{key: [FINDING]})), key
     assert not mr.is_pass(_verdict("FIX"))
 
@@ -166,14 +174,25 @@ def _fake_codex(calls: list[dict[str, Any]]):
     return run
 
 
-@pytest.mark.parametrize("with_handbook", [False, True])
+@pytest.mark.parametrize(
+    "with_handbook, reference_note",
+    [(False, ""), (True, ""), (True, "# changed-reference-é\n")],
+    ids=["memory-only", "reference", "changed-reference-bytes"],
+)
 def test_handbook_is_embedded_or_review_is_recorded_memory_only(
-    tmp_path: Path, monkeypatch, with_handbook: bool
+    tmp_path: Path, monkeypatch, with_handbook: bool, reference_note: str
 ) -> None:
     assert mr.resolve_handbook(None, {}) is None
     handbook = None
     if with_handbook:
         root, manifest = _handbook(tmp_path, {1348: "1027"})
+        if reference_note:
+            for source in (
+                root / "corpus" / "pages" / "1348.md",
+                manifest,
+                root / "corpus" / "README.md",
+            ):
+                source.write_bytes(source.read_bytes() + reference_note.encode("utf-8"))
         handbook = mr.load_handbook(mr.resolve_handbook(root, {}), manifest)
     page = tmp_path / "page-1.png"
     page.write_bytes(b"png")
@@ -192,9 +211,19 @@ def test_handbook_is_embedded_or_review_is_recorded_memory_only(
         return
     assert "sentinel-row-1348" in calls[0]["input"]
     page_md = root / "corpus" / "pages" / "1348.md"
-    assert recorded["handbook"]["pages"][0]["sha256"] == mr._sha256(page_md)
-    assert recorded["handbook"]["manifest_sha256"] == mr._sha256(manifest)
-    assert recorded["handbook"]["corpus_readme_sha256"] == mr._sha256(root / "corpus" / "README.md")
+    sources = {
+        "page": page_md,
+        "manifest": manifest,
+        "corpus_readme": root / "corpus" / "README.md",
+    }
+    expected = {
+        key: hashlib.sha256(source.read_bytes()).hexdigest() for key, source in sources.items()
+    }
+    assert recorded["handbook"]["pages"][0]["sha256"] == expected["page"]
+    assert recorded["handbook"]["manifest_sha256"] == expected["manifest"]
+    assert recorded["handbook"]["corpus_readme_sha256"] == expected["corpus_readme"]
+    if reference_note:
+        assert reference_note.strip() in calls[0]["input"]
 
 
 def test_claude_may_read_the_handbook_but_must_still_read_every_sheet(tmp_path: Path) -> None:

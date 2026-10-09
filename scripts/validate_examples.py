@@ -2361,6 +2361,13 @@ def same(actual, expected, where: str) -> None:
         require(actual == expected, f"{where}: {actual!r} != {expected!r}")
 
 
+def near_values(actual, expected, where: str) -> None:
+    """Compare an entire numeric/unknown sequence, including its independent row count."""
+    require(isinstance(actual, list) and len(actual) == len(expected), f"{where}: count")
+    for observed, wanted in zip(actual, expected, strict=True):
+        near(observed, wanted, where)
+
+
 def selected_tool(ref, entries: Entries, key: str):
     """The selected tool's own authored ``key`` as the engine reads it (no fact record
     unwrapped); unknown for a reference that does not resolve to one tool."""
@@ -2489,22 +2496,39 @@ def deep_hole_derate(cutting: dict, operation: str, depth, diameter) -> tuple:
     return row["sfm_factor"], fields, record_uncertain(row)
 
 
-def spindle_range(machine: dict) -> tuple:
-    """The machine's ``(rpm_min, rpm_max)``: its spindle's own limits, else the ends of its
-    declared speed ranges; unknown otherwise."""
+def spindle_bands(machine: dict):
+    """Available spindle intervals, clipped to authored bounds; malformed bands stay unknown."""
     spindle = machine.get("spindle") if isinstance(machine.get("spindle"), dict) else {}
     low, high = spindle.get("rpm_min", "unknown"), spindle.get("rpm_max", "unknown")
-    declared = spindle.get("ranges_rpm")
-    ranges = [
-        band
-        for band in (declared if isinstance(declared, list) else [])
-        if isinstance(band, list) and len(band) == 2 and all(map(numeric, band))
-    ]
-    if not numeric(low) and ranges:
-        low = min(band[0] for band in ranges)
-    if not numeric(high) and ranges:
-        high = max(band[1] for band in ranges)
-    return low, high
+    declared = spindle.get("ranges_rpm", [[low, high]])
+    if not isinstance(declared, list) or not declared:
+        return "unknown"
+    bands = []
+    for band in declared:
+        if not (isinstance(band, list) and len(band) == 2 and all(map(numeric, band))):
+            return "unknown"
+        start = max(band[0], low) if numeric(low) else band[0]
+        end = min(band[1], high) if numeric(high) else band[1]
+        if start <= end:
+            bands.append((start, end))
+    return sorted(bands) or "unknown"
+
+
+def spindle_range(machine: dict) -> tuple:
+    """The extreme available RPMs, not a claim that speeds between bands are available."""
+    bands = spindle_bands(machine)
+    if bands == "unknown":
+        return "unknown", "unknown"
+    return min(start for start, _ in bands), max(end for _, end in bands)
+
+
+def available_rpm(rpm, machine: dict):
+    """The fastest available speed no higher than the rounded/clamped request."""
+    bands = spindle_bands(machine)
+    if not numeric(rpm) or bands == "unknown":
+        return "unknown"
+    candidates = [min(end, rpm) for start, end in bands if start <= rpm]
+    return max(candidates) if candidates else "unknown"
 
 
 def nearest50(rpm, low, high):
@@ -2658,7 +2682,7 @@ def check_speeds(
         if numeric(speed) and speed > 0 and numeric(diameter_in)
         else "unknown"
     )
-    rpm = nearest50(raw, low, high)
+    rpm = available_rpm(nearest50(raw, low, high), machine)
     near(row.get("rpm", "unknown"), rpm, f"{where}: RPM")
     operands = (rpm, per_rev) if lathe else (rpm, flutes, chip)
     feed = math.prod(operands) if all(map(positive, operands)) else "unknown"
@@ -3073,8 +3097,12 @@ def coordinate_place(context: SimpleNamespace, setup: dict, frame, row: dict, lo
             diameter = feature.get("dia", "unknown") if numeric(feature.get("dia")) else "unknown"
         if not numeric(diameter) and not span and numeric(feature.get("base_radius")):
             diameter = 2 * feature["base_radius"]
-        radius = context.plan.get("dro", {}).get("radius_mode") is True
-        target = diameter / 2 if radius and numeric(diameter) else diameter
+        radius = context.plan.get("dro", {}).get("radius_mode")
+        target = (
+            (diameter / 2 if radius is True else diameter)
+            if isinstance(radius, bool) and numeric(diameter)
+            else "unknown"
+        )
         same(row.get("dia_nominal", "unknown"), diameter, f"{where}: {label} nominal diameter")
         same(row.get("x_target_mm", "unknown"), target, f"{where}: {label} X target")
     else:
@@ -3141,23 +3169,38 @@ def check_coordinates(
     for row in rows:
         require(row.get("feature") in definitions, "unknown coordinate feature")
         places[id(row)] = coordinate_place(context, setup, frame, row, located)
-        for actual, expected in zip(row["model"], places[id(row)][0], strict=True):
-            near(actual, expected, f"{sid}: {row['feature']}: model coordinate")
+        near_values(row["model"], places[id(row)][0], f"{sid}: {row['feature']}: model coordinate")
     stations = [(row["feature"], row["point"]) for row in rows if "point" in row]
     require(len(set(stations)) == len(stations), f"{sid}: a station row repeats")
+    if lathe:
+        expected_stations = {
+            (name, f"drawing station {index + 1}")
+            for name in named
+            if name in definitions and isinstance(definitions[name].get("z_mm"), list)
+            for index in range(len(definitions[name]["z_mm"]))
+        }
+        expected_stations |= {
+            (op["feature"], f"op {op['op']} {field}")
+            for op in setup["ops"]
+            if isinstance(op.get("feature"), str) and op["feature"] in definitions
+            for field in ("to_z", "z_from", "z_to")
+            if numeric(op.get(field))
+        }
+        require(expected_stations <= set(stations), f"{sid}: an authored lathe station is missing")
     for name in {name for name, point in stations if "kernel span" in point}:
         ends = {point.rsplit(" ", 1)[1] for owner, point in stations if owner == name}
         require(ends >= {"start", "end"}, f"{sid}: {name}: a kernel span lacks an end")
     standing = check_aims(context, setup, finding, frame, places)
+    unresolved_targets = False
     for row in rows:
         where = f"{sid}: {row['feature']}"
         # A row a plan aim moves stands at the moved point; its nominal target is checked
         # as nominal_setup (check_aims).
         moved = id(row) in standing
         target = frame_point(standing[id(row)], frame) if moved else places[id(row)][1]
-        for actual, expected in zip(row["setup"], target, strict=True):
-            near(actual, expected, f"{where}: setup coordinate")
+        near_values(row["setup"], target, f"{where}: setup coordinate")
         if "point" not in row:
+            unresolved_targets |= not all(map(numeric, target))
             require(
                 all(map(numeric, target)) or finding["status"] != "pass",
                 f"{where}: an unplaced located target cannot pass",
@@ -3169,16 +3212,48 @@ def check_coordinates(
         if all(map(numeric, target)):
             dro = [dro_target(value, grid) for value in target]
             require(isinstance(row.get("dro"), list), f"{where}: printed DRO target")
-            for actual, expected in zip(row["dro"], dro, strict=True):
-                near(actual, expected, f"{where}: printed DRO target")
+            near_values(row["dro"], dro, f"{where}: printed DRO target")
             dialled_xy = dro[:2]
         else:
             require("dro" not in row, f"{where}: an unplaced target prints no DRO stop")
             require("point" not in row, f"{where}: an unplaced station row")
             dialled_xy = [dro_target(value, grid) for value in target[:2]]
         require(isinstance(row.get("dro_xy"), list), f"{where}: tool-axis DRO X/Y")
-        for actual, expected in zip(row["dro_xy"], dialled_xy, strict=True):
-            near(actual, expected, f"{where}: tool-axis DRO X/Y")
+        near_values(row["dro_xy"], dialled_xy, f"{where}: tool-axis DRO X/Y")
+    # A target-only mill setup has no contour, axial or height-band verdict to merge.
+    # Derive its whole verdict from the source frame and every source target, not from
+    # a self-consistent report's choice of pass/unknown/error.
+    target_only = not lathe and all(
+        op.get("do") in CENTRE_OPS | {"inspect"}
+        and not any(
+            key in op
+            for key in (
+                "contour",
+                "to_z",
+                "z_from",
+                "z_to",
+                "doc_mm",
+                "rough_allowance_mm",
+                "stock_to_leave_mm",
+                "to_z_band",
+                "stock_removal_bounds",
+            )
+        )
+        for op in setup["ops"]
+    )
+    target_only &= all(
+        name in definitions
+        and not any(key in definitions[name] for key in HEIGHT_BANDS)
+        and name not in plan.get("aims", {})
+        and located_point(definitions, context.frames, name)[0] not in plan.get("aims", {})
+        for name in named
+        if isinstance(name, str)
+    )
+    if target_only:
+        unresolved = frame == "unknown" or frame.get("binding") == "unknown"
+        unresolved |= unresolved_targets
+        status = "unknown" if unresolved else "pass"
+        require(finding["status"] == status, f"{sid}: ordinary target verdict is not {status}")
 
 
 class SheetText(HTMLParser):
@@ -3269,118 +3344,225 @@ def check_construction(plan: dict, features: dict, finding: dict) -> None:
 
 
 def check_indexing(setup: dict, features: dict, entries: Entries, finding: dict) -> None:
-    declaration = setup["hold"].get("index")
+    hold = setup.get("hold")
+    declaration = hold.get("index") if isinstance(hold, dict) else "unknown"
     if declaration is None:
         require(finding["status"] == "not_applicable", "undeclared indexing must be inapplicable")
         return
-    requested = (
-        Fraction(360, declaration["positions"])
-        if "angle_deg" not in declaration
-        else Fraction(str(declaration["angle_deg"]))
-    )
-    item = entries.record(declaration["fixture"], "workholding")
-    ratio = Fraction(str(item["worm_ratio"]))
-    # Independent exhaustive oracle: search complete turns and every space on
-    # EVERY inventory circle, plus every direct slot near the desired setting.
-    # It does not use the rule's rounding or candidate-generation helpers.
-    options = []
-    for method, plate, circle, multiplier in [
-        ("worm", plate, int(circle), ratio)
-        for plate, circles in item["plate_holes"].items()
-        for circle in circles
-    ] + [("direct", "direct", int(item["direct_index"]["positions"]), Fraction(1))]:
-        central_turn = int(abs(requested) * multiplier / 360)
-        for turns in range(max(0, central_turn - 1), central_turn + 2):
-            for spaces in range(circle):
-                for sign in (-1, 1):
-                    actual = sign * Fraction(360 * (turns * circle + spaces), circle) / multiplier
-                    options.append(
-                        (
-                            abs(actual - requested),
-                            method != "direct",
-                            plate,
-                            circle,
-                            sign * (turns * circle + spaces),
-                            actual,
-                            method,
-                            turns,
-                            spaces,
-                        )
-                    )
-    chosen = min(options)
-    _, _, plate, circle, signed_count, actual, method, turns, spaces = chosen
+    declaration = declaration if isinstance(declaration, dict) else {}
     row = finding["numbers"]
-    for key, expected in {
-        "fixture": declaration["fixture"],
-        "feature": declaration["feature"],
-        "positions": declaration["positions"],
-        "requested_angle_fraction": str(requested),
-        "method": method,
-        "plate": plate,
-        "circle": circle,
-        "turns": turns,
-        "spaces": spaces,
-        "direction": "reverse" if signed_count < 0 else "forward",
-        "exact": actual == requested,
-        "selection_complete": True,
-        "verified": not entries.uncertain(declaration["fixture"], "workholding"),
-    }.items():
-        require(row[key] == expected, f"{setup['id']}: indexing {key} disagrees with inventory")
-    near(row["requested_angle_deg"], float(requested), "indexing requested angle")
-    near(row["actual_angle_deg"], float(actual), "indexing nearest setting")
-    feature = features["features"][declaration["feature"]]
-    tolerance = feature.get(
-        "angle_tol_deg",
-        "unknown"
-        if feature.get("dimension_type") == "basic"
-        else features["general_tolerances"]["angular_deg"],
+    reference = declaration.get("fixture", "unknown")
+    item = entries.item(reference, "workholding")
+    kind = item.get("kind", "unknown") if item is not None else "unknown"
+    invalid = (item is None and reference != "unknown") or kind not in {"dividing_head", "unknown"}
+    unresolved = item is None or kind == "unknown" or entries.uncertain(reference, "workholding")
+    same(row.get("fixture"), reference, "indexing fixture")
+    require(
+        row.get("verified")
+        == (item is not None and not entries.uncertain(reference, "workholding")),
+        "indexing fixture verification",
     )
-    near(row["tolerance_deg"], tolerance, "indexing explicit feature tolerance")
-    errors = [
-        float(position * (actual - requested))
-        for position in range(1, declaration["positions"] + 1)
-    ]
-    require(len(row["position_errors_deg"]) == len(errors), "indexing landing count mismatch")
-    for observed, expected in zip(row["position_errors_deg"], errors, strict=True):
-        near(observed, expected, "indexing signed landing error")
-    near(row["max_position_error_deg"], max(map(abs, errors)), "indexing maximum landing error")
-    full_pattern = declaration["positions"] >= 2 and "angle_deg" not in declaration
-    if not full_pattern:
-        require(row["closure"] == "not_applicable", "open or single indexing has no closure")
-    else:
-        total = declaration["positions"] * actual
-        lower = total // 360
-        revolutions = min((lower, lower + 1), key=lambda k: (abs(total - 360 * k), k))
-        closure = row["closure"]
-        near(closure["target_angle_deg"], 360 * revolutions, "indexing full-pattern target")
-        near(closure["actual_angle_deg"], float(total), "indexing full-pattern total")
-        near(closure["error_deg"], float(total - 360 * revolutions), "indexing closure error")
-        expected = (
-            abs(total - 360 * revolutions) <= Fraction(str(tolerance))
-            if numeric(tolerance)
-            else "unknown"
+    if "rotation" in declaration:
+        rotation = declaration["rotation"]
+        same(row.get("rotation"), rotation, "indexing rotation")
+        invalid |= rotation not in {"continuous", "unknown"} or any(
+            key in declaration for key in ("positions", "angle_deg")
         )
-        require(closure["within_tolerance"] == expected, "indexing closure allowance mismatch")
-    # The verdict is the inventory's and the drawing's: a fixture that is not a dividing
-    # head or a negative tolerance contradicts the plan; an unknown kind or tolerance, or
-    # an unverified head, leaves it tentative; else every landing (and a full pattern's
-    # closure) inside the tolerance passes and any outside it errors.
-    kind = item.get("kind", "unknown")
+        unresolved |= rotation == "unknown"
+        require(
+            not {"actual_angle_deg", "position_errors_deg", "closure"} & row.keys(),
+            "continuous indexing has no angular landings",
+        )
+        status = "error" if invalid else "unknown" if unresolved else "pass"
+        require(finding["status"] == status, "continuous indexing verdict differs from its inputs")
+        return
+    item = item or {}
+    positions = declaration.get("positions", "unknown")
+    count_known = isinstance(positions, int) and not isinstance(positions, bool) and positions >= 1
+    invalid |= positions != "unknown" and not count_known
+    unresolved |= positions == "unknown"
+    full_pattern = count_known and positions >= 2 and "angle_deg" not in declaration
+    angle = declaration.get("angle_deg")
+    requested = (
+        Fraction(360, positions)
+        if full_pattern
+        else Fraction(str(angle))
+        if numeric(angle)
+        else None
+    )
+    unresolved |= requested is None
+    name = declaration.get("feature", "unknown")
+    definitions = features.get("features", {})
+    feature = definitions.get(name, {}) if "feature" in declaration else {}
+    invalid |= name != "unknown" and name not in definitions
+    tolerance = (
+        "unknown"
+        if declaration.get("feature") == "unknown"
+        else feature.get(
+            "angle_tol_deg",
+            "unknown"
+            if feature.get("dimension_type") == "basic"
+            else features.get("general_tolerances", {}).get("angular_deg", "unknown"),
+        )
+    )
     limit = Fraction(str(tolerance)) if numeric(tolerance) else None
-    if kind not in {"dividing_head", "unknown"} or (limit is not None and limit < 0):
-        status = "error"
-    elif limit is None or kind == "unknown":
-        status = "unknown"
-    elif entries.uncertain(declaration["fixture"], "workholding"):
-        status = "unknown"
+    invalid |= limit is not None and limit < 0
+    unresolved |= limit is None
+    for key, expected in {
+        "feature": name,
+        "positions": positions,
+        "requested_angle_fraction": str(requested) if requested is not None else "unknown",
+        "requested_angle_deg": float(requested) if requested is not None else "unknown",
+        "tolerance_deg": float(limit) if limit is not None and limit >= 0 else "unknown",
+    }.items():
+        same(row.get(key), expected, f"indexing {key}")
+    options, circles = [], []
+    missing, broken = False, False
+    direct = item.get("direct_index", {})
+    if direct == "unknown":
+        missing = True
+    elif isinstance(direct, dict) and direct:
+        count, step = direct.get("positions"), direct.get("step_deg")
+        missing |= count == "unknown" or step == "unknown"
+        count = Fraction(str(count)) if numeric(count) else None
+        step = Fraction(str(step)) if numeric(step) else None
+        if count is None and step is None:
+            missing = True
+        elif (count is not None and (count <= 0 or count.denominator != 1)) or (
+            step is not None and step <= 0
+        ):
+            broken = True
+        else:
+            count = count if count is not None else 360 / step
+            step = step if step is not None else 360 / count
+            if count.denominator != 1 or count * step != 360:
+                broken = True
+            else:
+                circles.append(("direct", "direct", int(count), Fraction(1)))
+    plates = item.get("plate_holes", "unknown")
+    ratio = item.get("worm_ratio")
+    ratio = Fraction(str(ratio)) if numeric(ratio) else None
+    if not isinstance(plates, dict):
+        missing = True
+    elif plates:
+        missing |= ratio is None
+        broken |= ratio is not None and ratio <= 0
+        for plate, holes in plates.items():
+            if not isinstance(holes, list):
+                missing = True
+                continue
+            for hole in holes:
+                if not numeric(hole):
+                    missing = True
+                elif hole <= 0 or Fraction(str(hole)).denominator != 1:
+                    broken = True
+                elif ratio is not None and ratio > 0:
+                    circles.append(("worm", plate, int(hole), ratio))
+    # Exhaust every space around the requested revolution, rather than sharing the rule's
+    # nearest-count helper. Equal signed half-steps choose the lower signed count.
+    if requested is not None:
+        for method, plate, circle, multiplier in circles:
+            central = int(abs(requested) * multiplier / 360)
+            for turns in range(max(0, central - 1), central + 2):
+                for spaces in range(circle):
+                    for sign in (-1, 1):
+                        count = sign * (turns * circle + spaces)
+                        actual = Fraction(360 * count, circle) / multiplier
+                        options.append(
+                            (
+                                abs(actual - requested),
+                                method != "direct",
+                                plate,
+                                circle,
+                                count,
+                                actual,
+                                method,
+                                turns,
+                                spaces,
+                            )
+                        )
+        require(
+            row.get("selection_complete") == (not missing and not broken),
+            "indexing selection completeness",
+        )
+        invalid |= broken
+        unresolved |= missing or not options
     else:
-        steps = [abs(position * (actual - requested)) for position in range(1, len(errors) + 1)]
-        closes = not full_pattern or abs(total - 360 * revolutions) <= limit
-        status = "pass" if closes and all(step <= limit for step in steps) else "error"
+        require(row.get("selection_complete") is False, "unknown request has no selection")
+    failed = False
+    if options:
+        _, _, plate, circle, count, actual, method, turns, spaces = min(options)
+        for key, expected in {
+            "method": method,
+            "plate": plate,
+            "circle": circle,
+            "turns": turns,
+            "spaces": spaces,
+            "direction": "reverse" if count < 0 else "forward",
+            "exact": actual == requested,
+            "actual_angle_deg": float(actual),
+            "step_error_deg": float(actual - requested),
+        }.items():
+            same(row.get(key), expected, f"indexing {key}")
+        errors = (
+            [(actual - requested) * position for position in range(1, positions + 1)]
+            if count_known
+            else []
+        )
+        near_values(
+            row.get("position_errors_deg"),
+            list(map(float, errors)),
+            "indexing signed landing errors",
+        )
+        same(
+            row.get("max_position_error_deg"),
+            float(max(map(abs, errors))) if errors else "unknown",
+            "indexing maximum landing error",
+        )
+        failed = limit is not None and limit >= 0 and any(abs(error) > limit for error in errors)
+        if full_pattern:
+            total = positions * actual
+            lower = total // 360
+            revolutions = min((lower, lower + 1), key=lambda k: (abs(total - 360 * k), k))
+            closure_error = total - 360 * revolutions
+            within = abs(closure_error) <= limit if limit is not None and limit >= 0 else "unknown"
+            closure = row.get("closure")
+            require(isinstance(closure, dict), "indexing full-pattern closure missing")
+            for key, expected in {
+                "revolutions": revolutions,
+                "target_angle_deg": 360 * revolutions,
+                "actual_angle_deg": float(total),
+                "error_deg": float(closure_error),
+                "within_tolerance": within,
+            }.items():
+                same(closure.get(key), expected, f"indexing closure {key}")
+            failed |= within is False
+    else:
+        for key in (
+            "actual_angle_deg",
+            "method",
+            "plate",
+            "circle",
+            "turns",
+            "spaces",
+            "direction",
+            "exact",
+        ):
+            same(row.get(key), "unknown", f"unresolved indexing {key}")
+        near_values(row.get("position_errors_deg"), [], "unresolved indexing landings")
+        same(row.get("max_position_error_deg"), "unknown", "unresolved indexing maximum error")
+        if full_pattern:
+            same(row.get("closure"), "unknown", "unresolved indexing cycle closure")
+    if not full_pattern:
+        same(
+            row.get("closure"),
+            "not_applicable" if "angle_deg" in declaration or positions == 1 else "unknown",
+            "indexing open-pattern closure",
+        )
+    status = "error" if invalid else "unknown" if unresolved else "error" if failed else "pass"
     require(
         finding["status"] == status,
-        f"{setup['id']}: indexing verdict {finding['status']} is not the {status} its "
-        "dividing head and tolerance decide",
+        f"{setup['id']}: indexing verdict is not the {status} its inputs decide",
     )
 
 
@@ -3780,6 +3962,32 @@ def check_stickout(
         status = "pass"
     else:
         status = "unknown" if support == "unknown" else "error"
+    fit = setup["hold"].get("stickout_fit")
+    if isinstance(fit, dict) and fit and status != "not_applicable":
+        expected = {
+            "measure": fit.get("measure", "unknown"),
+            "nominal_mm": fit.get("nominal_mm", "unknown"),
+            "add_mm": fit.get("add_mm", "unknown"),
+            "stickout_mm": length,
+        }
+        require(isinstance(row.get("stickout_fit"), dict), "stick-out fit evidence missing")
+        for key, value in expected.items():
+            same(row["stickout_fit"].get(key), value, f"stick-out fit {key}")
+        settled = all(map(numeric, (expected["nominal_mm"], expected["add_mm"], length)))
+        stated = isinstance(expected["measure"], str) and expected["measure"].strip()
+        stated = stated and expected["measure"] != "unknown"
+        fit_status = (
+            "error"
+            if settled and not same_length(expected["nominal_mm"] + expected["add_mm"], length)
+            else "unknown"
+            if not (settled and stated)
+            else "pass"
+        )
+        status = max((status, fit_status), key=STATUS_RANK.get)
+    else:
+        require(
+            "stickout_fit" not in row, "stick-out fit evidence without an applicable declaration"
+        )
     require(
         finding["status"] == status,
         f"stick-out verdict {finding['status']} is not the {status} its inputs decide",

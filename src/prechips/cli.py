@@ -188,47 +188,35 @@ def _read_approval(path: Path | None, report: dict, tracing: telemetry.Telemetry
             document = tomllib.loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, tomllib.TOMLDecodeError) as exc:
         raise BadInput(f"Cannot read approval record: {exc}") from exc
-    if "approvals" in document and set(document) != {"approvals"}:
-        raise BadInput("Unknown approval document key.")
-    records = document.get("approvals", [document])
-    if (
-        not isinstance(records, list)
-        or not records
-        or any(not isinstance(r, dict) for r in records)
-    ):
-        raise BadInput("Approval records must be TOML tables.")
-    exact = next((entry for entry in records if entry.get("hash") == report["hash"]), None)
-    record = exact or records[-1]
-    if not isinstance(record.get("hash"), str) or not isinstance(record.get("first_article"), str):
-        raise BadInput("An approval must name its report hash and first-article evidence.")
+    record = document
     allowed = {"hash", "first_article", "inputs"}
     if set(record) - allowed:
         raise BadInput("Unknown approval record key.")
+    if not isinstance(record.get("hash"), str) or not isinstance(record.get("first_article"), str):
+        raise BadInput("An approval must name its report hash and first-article evidence.")
+    old_inputs = record.get("inputs", {})
+    if not isinstance(old_inputs, dict) or any(
+        not isinstance(digest, str) for digest in old_inputs.values()
+    ):
+        raise BadInput("Approval inputs must be a table of digest strings.")
+    matches = record["hash"] == report["hash"]
     warnings = []
-    if exact is None:
-        old_inputs = record.get("inputs", {})
-        if not isinstance(old_inputs, dict):
-            raise BadInput("Approval inputs must be a table of input digests.")
+    if not matches:
         changed = []
         for name, current in report["inputs"].items():
             if name not in old_inputs:
                 continue
-            prior = old_inputs.get(name)
-            digest = prior.get("sha256") if isinstance(prior, dict) else prior
-            if digest != current["sha256"]:
+            if old_inputs[name] != current["sha256"]:
                 changed.append(name.replace("_", " "))
         description = ", ".join(changed) or "the operative bundle"
         warnings.append(
             f"Approval no longer matches: {description} changed. Repeat the first article."
         )
-    approved = (
-        exact is not None
-        and bool(record["first_article"].strip())
-        and report["verification"] == "checked"
-    )
-    if exact is not None and not record["first_article"].strip():
+    evidence_recorded = record["first_article"].strip().lower() not in ("", "unknown")
+    approved = matches and evidence_recorded and report["verification"] == "checked"
+    if matches and not evidence_recorded:
         warnings.append("No first-article evidence is recorded; the traveler remains planned.")
-    elif exact is not None and report["verification"] != "checked":
+    elif matches and report["verification"] != "checked":
         warnings.append(
             "The report still has unresolved shop-required checks; approval cannot waive them."
         )
@@ -590,7 +578,7 @@ def _comparison_row(bundle: Bundle, report: dict, plan_label: str) -> dict:
     for finding in report["findings"]:
         counts[finding["status"]] = counts.get(finding["status"], 0) + 1
     cite = [
-        "PLAN.md §4.5 stock-form comparison, lines 573–577",
+        "PLAN.md §4.5 stock-form comparison",
         "docs/rules-comparison.md: stock-volume and waste-ratio equations",
         f"{plan_label}:setups (authored setup count)",
     ]

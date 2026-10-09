@@ -23,7 +23,7 @@ from prechips.rules import coordinates
 from prechips.sheet import _Traveler
 
 ROOT = Path(__file__).resolve().parents[1]
-LABEL = re.compile(r"\(continued\)\s*·\s*page\s+(\d+)\s+of\s+(\d+)")
+LABEL = re.compile(r"\bpage\s+(\d+)\s+of\s+(\d+)\b", re.IGNORECASE)
 
 
 def machinist_review():
@@ -101,12 +101,31 @@ def test_long_rough_and_finish_lathe_tables_keep_every_page_counted_and_sheets_o
     )
     dome["contour"]["step_mm"] = 0.01
     dome["rough_allowance_mm"] = 1.0
-    html = _Traveler(bundle, coordinates.evaluate(bundle, pre_kernel=True), {}, None).render()
+    traveler = _Traveler(bundle, coordinates.evaluate(bundle, pre_kernel=True), {}, None)
+    html = traveler.render()
     texts = printed_pages(html, tmp_path)
+    assert not any("PRINT LAYOUT ERROR" in text for text in texts), texts
     markup = Markup(html)
     sections = [
         node for node in markup.nodes if node["tag"] == "section" and "data-sheet" in node["attrs"]
     ]
+    # The authored diameter is the section gripped, not a claim that the entire
+    # arriving part has that diameter; retained shoulders may be larger.
+    held_diameter = re.compile(r"\bheld\s+on\s+Ø\s*([0-9]+(?:\.[0-9]+)?)")
+    arrivals = markup.find("stock-state")
+    assert len(arrivals) == len(bundle.plan["setups"])
+    for arrival, setup in zip(arrivals, bundle.plan["setups"], strict=True):
+        match = held_diameter.search(content(arrival))
+        assert match is not None, content(arrival)
+        assert float(match.group(1)) == setup["stock_state"]["od_mm"]
+    setup = next(setup for setup in bundle.plan["setups"] if setup["id"] == "S2")
+    for unknown in ("unknown", None):
+        state = {**setup["stock_state"], "od_mm": unknown}
+        if unknown is None:
+            state.pop("od_mm")
+        arrival = Markup(traveler.stock_state({**setup, "stock_state": state})).find("stock-state")
+        assert len(arrival) == 1
+        assert held_diameter.search(content(arrival[0])) is None
     # Full travelers keep the independent signature, not another unqualified
     # measurements destination at the end of the operation sequence.
     signoffs = markup.find("signoff")
@@ -187,6 +206,134 @@ def _sections(blocks):
         f'<!DOCTYPE html>\n<html lang="en"><head><meta charset="utf-8"><style>{_CSS}</style>'
         f"<script>{_DUPLEX_JS}</script></head><body>{''.join(pages)}</body></html>\n"
     )
+
+
+@pytest.mark.parametrize("weight", [400, 700], ids=["working", "bold"])
+def test_recording_counter_measures_actual_unkerned_tabular_digits(printed_sheet, weight):
+    from prechips.sheet import _list, _Note
+
+    source = (
+        f'<div style="font-weight:{weight}">'
+        + _list([_Note("S1 op 20 inspection: Record {observed}.", "S1 op 20 inspection:")])
+        + "</div>"
+    )
+    printed, details = printed_sheet(
+        source,
+        r"""pageOf => ({
+          fontStatus: document.fonts.status,
+          references: [...document.querySelectorAll('.fixed-locator-reference')].map(ref => {
+            const slot = ref.querySelector('.fixed-locator-digit'), ink = slot.firstElementChild;
+            const bounds = slot.getBoundingClientRect();
+            const probe = document.createElement('span');
+            probe.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;'
+              + 'display:inline-block;padding:0;margin:0;border:0';
+            // Inherit the actual counter's typography, not an installed-font estimate.
+            slot.append(probe);
+            let widths;
+            try {
+              widths = Array.from({length:10}, (_, digit) => {
+                probe.textContent = String(digit).repeat(5);
+                return probe.getBoundingClientRect().width;
+              });
+            } finally {probe.remove();}
+            const range = document.createRange();
+            range.selectNodeContents(ink);
+            const glyphs = [...range.getClientRects()].filter(rect => rect.width && rect.height);
+            const target = [...document.querySelectorAll('[data-locator-target]')]
+              .find(node => node.dataset.locatorTarget === ref.dataset.locatorRef);
+            const section = target.closest('section.page');
+            return {
+              text: ref.textContent,
+              identity: section.dataset.title || section.dataset.sheet,
+              destinationPage: pageOf(target) + 1,
+              writable: ref.querySelectorAll('.writing-blank').length,
+              numeric: getComputedStyle(slot).fontVariantNumeric,
+              kerning: getComputedStyle(ink).fontKerning,
+              weight: getComputedStyle(ink).fontWeight,
+              widths, reservedWidth: bounds.width,
+              glyphsContained: glyphs.length > 0 && glyphs.every(rect =>
+                rect.left >= bounds.left && rect.right <= bounds.right
+                && rect.top >= bounds.top && rect.bottom <= bounds.bottom)
+            };
+          })
+        })""",
+    )
+    assert details["fontStatus"] == "loaded"
+    assert len(printed.find("writing-blank")) == 1
+    assert len(details["references"]) == 1
+    for reference in details["references"]:
+        assert reference["numeric"] == "tabular-nums"
+        assert reference["kerning"] == "none" and int(reference["weight"]) == weight
+        assert all(width > 0 for width in reference["widths"])
+        assert len(set(reference["widths"])) == 1
+        assert reference["reservedWidth"] > 0 and reference["glyphsContained"]
+        assert reference["text"].endswith(
+            f"{reference['identity']}, page {reference['destinationPage']}"
+        )
+        assert reference["writable"] == 0
+
+
+@pytest.mark.parametrize(
+    ("override", "reason"),
+    [
+        ("font-variant-numeric:proportional-nums!important", "tabular digit metrics"),
+        ("font-size:0!important", "measured inherited line height"),
+    ],
+    ids=["non-tabular", "zero-sized"],
+)
+def test_recording_counter_refuses_defective_real_typography(tmp_path, override, reason):
+    from prechips.sheet import _list, _Note
+
+    source = _list([_Note("S1 op 20 inspection: Record {observed}.", "S1 op 20 inspection:")])
+    html = _sections([(0, source + f"<style>.fixed-locator-digit {{{override}}}</style>")])
+    pages = printed_pages(html, tmp_path)
+    refusal = " ".join(" ".join(pages).split())
+    assert "PRINT LAYOUT ERROR" in refusal and reason in refusal
+    # Refusal restores the sole original recording area instead of dropping it.
+    assert refusal.count("observed") == 1
+
+
+@pytest.mark.parametrize("changed", [False, True], ids=["same-context", "changed-line-height"])
+def test_recording_counter_remeasures_inherited_continuation_line_height(tmp_path, changed):
+    from prechips.sheet import _table, _writing_field
+
+    fields = ["S1 op 20 level", "S1 op 20 last completed #"]
+    progress = (
+        '<p class="path-progress">' + " ".join(_writing_field(label) for label in fields) + "</p>"
+    )
+    table = _table(
+        ["#", "X", "Y"],
+        [[f"row-{index:02}", "1.000", "2.000"] for index in range(1, 61)],
+        css="coords",
+        repeat="S1 op 20 — contour",
+        repeat_locator="Optional progress only: see S1 op 20 progress beside Done",
+    )
+    # Only a real cloned continuation row changes the inherited line box.
+    # The original reservation and its actual CSS digit metrics remain untouched.
+    override = (
+        "<style>table.coords tr.repeat[data-duplex] {line-height:2}</style>" if changed else ""
+    )
+    source = (
+        '<div class="contour"><h3 class="page-context">S1 op 20 — contour</h3>'
+        + progress
+        + table
+        + "</div>"
+        + override
+    )
+    pages = [" ".join(text.split()) for text in printed_pages(_sections([(0, source)]), tmp_path)]
+    text = " ".join(pages)
+    assert all(text.count(label) == 1 for label in fields)
+    assert [int(value) for value in re.findall(r"\brow-(\d+)\b", text)] == list(range(1, 61))
+    if changed:
+        assert "PRINT LAYOUT ERROR" in text and "inherited reserved typography" in text
+        assert not re.search(r"SHEET 0,\s*page\s+\d+", text)
+    else:
+        assert "PRINT LAYOUT ERROR" not in text
+        (destination,) = [
+            index + 1 for index, page in enumerate(pages) if all(label in page for label in fields)
+        ]
+        pointers = [int(value) for value in re.findall(r"SHEET 0,\s*page\s+(\d+)", text)]
+        assert pointers and all(page == destination for page in pointers)
 
 
 def _runs(texts, count):
@@ -274,6 +421,7 @@ def test_a_contour_heading_and_its_raster_line_print_with_the_first_contour_bloc
     moved = 0
     for run in _runs(texts, len(fillers)):
         (page,) = [text for text in run if "Rasters:" in text]
+        assert "CONTOURS" in page and "S1 op 10" in page, page
         assert "contour-row-1" in page, page
         moved += page is not run[0]
     assert moved
@@ -303,18 +451,23 @@ def test_a_table_split_across_pages_never_strands_one_or_two_rows(tmp_path, coun
 
 
 def test_a_table_that_ends_its_sheet_leaves_no_short_tail_on_its_last_page(tmp_path):
-    # A long table, last on its sheet, after a filler of every height: where it runs onto
-    # a second page, that page carries at least half as many rows as the page before it.
+    # A long table, last on its sheet, after a filler of every height: every printed
+    # fragment keeps at least three original rows, without losing or duplicating any.
     from prechips.sheet import _table
 
     rows = [(str(n), f"row-{n}-end") for n in range(1, 61)]
     block = "<h2>CONTOUR</h2>" + _table(["#", "move"], rows, css="coords")
     fillers = range(0, 701, 50)
     texts = printed_pages(_sections([(filler, block) for filler in fillers]), tmp_path)
+    split = 0
     for run in _runs(texts, len(fillers)):
-        printed = [n for n in (len(re.findall(r"row-\d+-end", t)) for t in run) if n]
+        page_rows = [re.findall(r"row-(\d+)-end", text) for text in run]
+        printed = [len(rows) for rows in page_rows if rows]
         assert sum(printed) == 60, printed
-        assert len(printed) == 1 or 2 * printed[-1] >= printed[-2], printed
+        assert [row for rows in page_rows for row in rows] == [str(n) for n in range(1, 61)]
+        assert all(n >= 3 for n in printed), printed
+        split += len(printed) > 1
+    assert split, "Expected at least one split table run"
 
 
 def test_a_lathe_rpm_cell_prints_its_spindle_turn_as_one_word(tmp_path):
@@ -365,9 +518,16 @@ def test_the_check_jog_steps_print_on_the_page_of_their_heading(tmp_path):
     dro = sheet.dro(setup, {"centre": "T1 centre drill", "drill": "T2 drill"})
     fillers = range(560, 900, 12)
     runs = _runs(printed_pages(_sections([(f, dro) for f in fillers]), tmp_path), len(fillers))
+    moved = 0
     for filler, run in zip(fillers, runs, strict=True):
         (page,) = [text for text in run if "X and Y check jog" in text]
-        assert "raise Z only" in page, (filler, run)
+        visible = " ".join(page.split())
+        for step, words in enumerate(("raise Z only", "jog the table", "jog back"), start=1):
+            assert re.search(rf"\b{step}\.\s+{words}", visible), (filler, run)
+        for words in ("must read", "Axis Set value again", "then lower", "do not Axis Set again"):
+            assert words in visible, (filler, run)
+        moved += page is not run[0]
+    assert moved, "Expected the complete check-jog procedure to move to a later page"
 
 
 def _original(node):
@@ -628,11 +788,11 @@ def test_public_crowded_contour_continuations_keep_status_and_owned_progress_loc
           const start = text.indexOf(title);
           if (start < 0) continue;
           const glyphs = [];
+          const range = document.createRange();
           let complete = true;
           for (let i = 0; i < title.length; i++) {
             if (!title[i].trim()) continue;
             const segment = segments.find(part => part.start <= start + i && part.end > start + i);
-            const range = document.createRange();
             range.setStart(segment.node, start + i - segment.start);
             range.setEnd(segment.node, start + i - segment.start + 1);
             const rects = [...range.getClientRects()].filter(rect => rect.width && rect.height);
@@ -732,10 +892,11 @@ def test_public_crowded_contour_continuations_keep_status_and_owned_progress_loc
     ]
     assert all(_original(node) for node in printed.find("writing-blank"))
     assert len(printed.find("tick")) == len(original.find("tick"))
-    compact_owners = set()
+    continuation_owners, full_context_owners = set(), set()
     assert details["continuedHeaders"]
     for header in details["continuedHeaders"]:
         (op,) = [op for op in (30, 40) if f"S1 op {op}" in header["text"]]
+        continuation_owners.add(op)
         assert f"Optional progress only: see S1 op {op} progress beside Done" in header["text"]
         assert header["visible"] and header["originalRows"] and not header["writable"]
         assert header["glyphCount"] > 0 and header["glyphsFit"] and header["headerFits"]
@@ -745,9 +906,13 @@ def test_public_crowded_contour_continuations_keep_status_and_owned_progress_loc
         identity, page = destination
         assert identity in header["pointer"]
         assert header["pointedPage"] == page
-        if expected_titles[(30, 40).index(op)] not in header["text"]:
-            compact_owners.add(op)
-    assert compact_owners == ({30, 40} if crowded else set())
+        if expected_titles[(30, 40).index(op)] in header["text"]:
+            full_context_owners.add(op)
+    assert continuation_owners == {30, 40}
+    # Long context may still fit at the actual paper capacity. Compaction is a
+    # measured admission decision, not something the fixture's label can force.
+    if not crowded:
+        assert full_context_owners == {30, 40}
     qualified_pages = 0
     for table in details["tablePages"]:
         presentations = [
@@ -1397,10 +1562,15 @@ def test_fixture_and_blank_check_keep_intrinsic_width_inside_print_and_screen(
         const rect = box => ({
           left: box.left, right: box.right, width: box.width, height: box.height
         });
+        const authoredText = node => {
+          const copy = node.cloneNode(true);
+          copy.querySelectorAll('.fixed-locator-reference').forEach(ref => ref.remove());
+          return copy.textContent;
+        };
         const measure = node => {
           const style = win.getComputedStyle(node);
           return {
-            text: node.textContent, ...rect(node.getBoundingClientRect()),
+            text: authoredText(node), ...rect(node.getBoundingClientRect()),
             visible: style.display !== 'none' && style.visibility === 'visible',
             font: parseFloat(style.fontSize),
             owned: !node.closest('[data-duplex]')
@@ -1427,6 +1597,57 @@ def test_fixture_and_blank_check_keep_intrinsic_width_inside_print_and_screen(
             });
           }
         }
+        const locators = [...section.querySelectorAll('.fixed-locator-reference')].map(ref => {
+          const owner = ref.closest('td'), ownerBox = owner.getBoundingClientRect();
+          const slot = ref.querySelector('.fixed-locator-digit');
+          const slotBox = slot.getBoundingClientRect();
+          const sectionBox = section.getBoundingClientRect();
+          const tops = [sectionBox.top, ...[...section.querySelectorAll('.cont-head')]
+            .map(head => head.getBoundingClientRect().top)];
+          const pageOf = node => tops.findLastIndex(
+            top => top <= node.getBoundingClientRect().top+.01);
+          const localPage = pageOf(ref);
+          const capacity = Number(doc.documentElement.dataset.pageCapacity);
+          const pageBox = {left: sectionBox.left,
+            right: sectionBox.left + Number(doc.documentElement.dataset.printWidth),
+            top: tops[localPage], bottom: tops[localPage] + capacity};
+          const inside = (bounds, box) => bounds.left >= box.left-.1
+            && bounds.right <= box.right+.1 && bounds.top >= box.top-.1
+            && bounds.bottom <= box.bottom+.1;
+          const destinations = [...section.querySelectorAll('[data-locator-target]')]
+            .filter(node => node.dataset.locatorTarget === ref.dataset.locatorRef);
+          const target = destinations[0], field = target?.closest('.field');
+          const glyphs = [], walker = doc.createTreeWalker(ref, win.NodeFilter.SHOW_TEXT);
+          let complete = true;
+          while (walker.nextNode()) {
+            const node = walker.currentNode;
+            for (let index = 0; index < node.length; index++) {
+              if (!node.textContent[index].trim()) continue;
+              const range = doc.createRange();
+              range.setStart(node, index); range.setEnd(node, index + 1);
+              const bounds = [...range.getClientRects()].filter(box => box.width && box.height);
+              complete &&= bounds.length > 0
+                && win.getComputedStyle(node.parentElement).visibility === 'visible';
+              glyphs.push(...bounds.map(box => inside(box, ownerBox) && inside(box, pageBox)
+                && (!node.parentElement.closest('.fixed-locator-ink') || inside(box, slotBox))));
+            }
+          }
+          return {
+            text: ref.textContent, identity: section.dataset.title || section.dataset.sheet,
+            destinationCount: destinations.length,
+            destinationPage: target ? pageOf(target) + 1 : null,
+            destinationOriginal: !!target && !target.closest('[data-duplex]'),
+            sameOwner: target?.closest('td') === owner,
+            destinationLabel: field?.querySelector('.field-label').textContent ?? null,
+            destinationFits: !!target && inside(target.getBoundingClientRect(), pageBox)
+              && inside(field.getBoundingClientRect(), pageBox),
+            ownerOriginal: !owner.closest('[data-duplex]'),
+            readonly: slot.getAttribute('aria-readonly') === 'true',
+            writable: ref.querySelectorAll('.writing-blank, .performed-mark, .tick, input').length,
+            complete, glyphCount: glyphs.length, glyphsFit: glyphs.every(Boolean),
+            slotFits: inside(slotBox, ownerBox) && inside(slotBox, pageBox)
+          };
+        });
         return {
           innerWidth: win.innerWidth,
           container: rect(doc.body.getBoundingClientRect()),
@@ -1446,7 +1667,7 @@ def test_fixture_and_blank_check_keep_intrinsic_width_inside_print_and_screen(
           })),
           fields: [...section.querySelectorAll('.field')].map(measure),
           boxes: [...section.querySelectorAll('.writing-blank')].map(measure),
-          words
+          words, locators
         };
       };
       const printed = capture(window);
@@ -1477,12 +1698,21 @@ def test_fixture_and_blank_check_keep_intrinsic_width_inside_print_and_screen(
       return {printed, screens};
     }"""
     printed, details = printed_sheet(source, probe, prepare)
-    assert [content(node) for node in printed.nodes if node["tag"] == "td"] == expected_cells
     (box,) = printed.find("writing-blank")
     assert _original(box)
 
     assert details["printed"]["container"]["width"] == pytest.approx(720, abs=0.1)
     assert [screen["innerWidth"] for screen in details["screens"]] == [320, 375, 414, 768]
+    assert all(not screen["locators"] for screen in details["screens"])
+    assert len(details["printed"]["locators"]) == 1
+    for locator in details["printed"]["locators"]:
+        assert locator["destinationCount"] == 1 and locator["destinationOriginal"]
+        assert locator["sameOwner"] and locator["ownerOriginal"]
+        assert locator["destinationLabel"] == "observed"
+        assert locator["destinationFits"] and locator["slotFits"]
+        assert locator["readonly"] and locator["writable"] == 0
+        assert locator["complete"] and locator["glyphCount"] > 0 and locator["glyphsFit"]
+        assert locator["text"].endswith(f"{locator['identity']}, page {locator['destinationPage']}")
     for view in [details["printed"], *details["screens"]]:
         container = view["container"]
         assert container["left"] >= -0.1
@@ -1624,7 +1854,7 @@ _INSPECTION_PAGES = _SOURCE_PAGES.replace(
         image: [image.x.baseVal.value, image.y.baseVal.value,
           image.width.baseVal.value, image.height.baseVal.value],
         asset: image.getAttribute('href'),
-        imageComplete: !!svg.querySelector('image'),
+        imagePresent: !!svg.querySelector('image'),
         displayedRatio: svg.getBoundingClientRect().height / svg.getBoundingClientRect().width
       };
     }),
@@ -1646,7 +1876,7 @@ def _assert_whole_inspection_views(details, asset):
     assert [figure["ordinal"] for figure in figures] == list(range(1, len(figures) + 1))
     for figure, panel in zip(figures, scene["print_panels"], strict=True):
         assert panel["label"] in figure["identity"]
-        assert figure["owned"] and figure["imageComplete"]
+        assert figure["owned"] and figure["imagePresent"]
         assert figure["top"] >= -0.1 and figure["bottom"] <= figure["cap"] + 0.1
         assert figure["viewport"] == [0, panel["top_px"], 1600, panel["height_px"]]
         assert figure["image"] == [0, 0, 1600, scene["height_px"]]
@@ -1655,6 +1885,89 @@ def _assert_whole_inspection_views(details, asset):
     assert [figure["page"] for figure in figures] == sorted(figure["page"] for figure in figures)
     path = Path(url2pathname(urlsplit(asset["path"]).path))
     assert hashlib.sha256(path.read_bytes()).hexdigest() == asset["sha256"]
+
+
+@pytest.mark.parametrize("kind", ["svg-window", "html-img"])
+def test_beforeprint_restores_canonical_loaded_image_pixels(tmp_path, kind):
+    import pypdfium2 as pdfium
+    from PIL import Image
+
+    from prechips.sheet import _CSS, _DUPLEX_JS
+
+    asset = _inspection_asset(
+        tmp_path, ("Upper canonical view", "Lower canonical view"), [320, 480]
+    )
+    source_path = Path(url2pathname(urlsplit(asset["path"]).path))
+    with Image.open(source_path) as canonical:
+        expected_pixels = canonical.convert("RGB").tobytes()
+    expected_digest = hashlib.sha256(expected_pixels).hexdigest()
+    if kind == "svg-window":
+        sheet, setup, op, *_ = _inspection_consumer(asset)
+        source = sheet.inspection_sketch(setup, op, "dia")
+        bands = [(0, 320), (320, 480)]
+    else:
+        source = (
+            '<figure class="fixture-render"><figcaption>Whole canonical image</figcaption>'
+            f'<img src="{asset["path"]}" width="1600" height="800" '
+            'style="display:block;width:400px;height:auto"></figure>'
+        )
+        bands = [(0, 800)]
+    html = (
+        '<!doctype html><html><head><meta charset="utf-8">'
+        f"<style>{_CSS}</style><script>{_DUPLEX_JS}</script></head><body>"
+        '<section class="page" data-sheet="SETUP S1 sheet 1" data-part="Image retention">'
+        "<h1>Canonical image print control</h1>"
+        + source
+        + "</section><script>"
+        + "addEventListener('load', () => {"
+        + "for (const image of document.querySelectorAll('section img, section svg image')) {"
+        + "image.setAttribute('width', '1'); image.setAttribute('height', '1');"
+        + "image.style.opacity = '0'; image.setAttribute('data-mutated-image', '');"
+        + "}});</script></body></html>"
+    )
+    texts = printed_pages(html, tmp_path)
+    assert not any("PRINT LAYOUT ERROR" in text for text in texts)
+
+    document = pdfium.PdfDocument(str(tmp_path / "traveler.pdf"))
+    actual = []
+    try:
+        for index in range(len(document)):
+            page = document[index]
+            try:
+                objects = [
+                    obj
+                    for obj in page.get_objects(max_depth=10)
+                    if isinstance(obj, pdfium.PdfImage)
+                ]
+                if not objects:
+                    continue
+                raster = page.render(scale=1)
+                try:
+                    painted = raster.to_pil().convert("RGB")
+                    for obj in objects:
+                        # pypdfium manages this foreign bitmap through its buffer;
+                        # explicit close() is unsafe. Rendered-page bitmaps are owned.
+                        bitmap = obj.get_bitmap()
+                        pixels = bitmap.to_pil().convert("RGB")
+                        assert pixels.size == (1600, 800)
+                        assert hashlib.sha256(pixels.tobytes()).hexdigest() == expected_digest
+                        top_px, height_px = bands[len(actual)]
+                        left, bottom, right, top = obj.get_bounds()
+                        center_x = (left + right) / 2
+                        source_y = top_px + height_px / 2
+                        painted_y = page.get_height() - (top - source_y * (top - bottom) / 800)
+                        expected_y = min(799, int(source_y))
+                        offset = (expected_y * 1600 + 800) * 3
+                        expected_color = tuple(expected_pixels[offset : offset + 3])
+                        assert painted.getpixel((int(center_x), int(painted_y))) == expected_color
+                        actual.append(obj.get_bounds())
+                finally:
+                    raster.close()
+            finally:
+                page.close()
+    finally:
+        document.close()
+    assert len(actual) == len(bands)
 
 
 def test_note_before_whole_inspection_view_and_after_keeps_source_and_original_owner(

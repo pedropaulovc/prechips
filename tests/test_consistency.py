@@ -5,6 +5,7 @@ import re
 import sys
 from copy import deepcopy
 from dataclasses import replace
+from functools import cache
 from html import unescape
 from pathlib import Path
 from unicodedata import category, decomposition, normalize
@@ -117,7 +118,8 @@ def test_other_chucking_wording_is_not_read(note):
 def test_a_hand_tight_clamp_tightens_by_hand_on_the_sheet():
     hold = {"clamps": [{"ref": "buttons", "tighten": "hand"}], "clamp_order": [1]}
     page = sheet(bundle([{"hold": hold}]))
-    assert "Tighten C1 by hand only, no wrench." in page
+    assert re.search(r"C1\b[^|.;]*\bhand only\b", page)
+    assert re.search(r"C1\b[^|.;]*\bno wrench\b", page)
     assert "tighten fully" not in page
 
 
@@ -127,10 +129,11 @@ def test_mixed_hand_and_wrench_clamps_name_the_hand_ones():
         "clamp_order": [1, 2],
     }
     page = sheet(bundle([{"hold": hold}]))
-    assert (
-        "Tighten in order C1, C2: snug each in turn, then tighten each fully in the same "
-        "order; C2 by hand only, no wrench."
-    ) in page
+    assert re.search(r"order\b[^|.;]*\bC1,\s*C2\b", page)
+    assert re.search(r"\bsnug\b[^|.;]*\bthen\b[^|.;]*\btighten\b", page)
+    assert "fully" in page and "same order" in page
+    assert re.search(r"C2\b[^|.;]*\bhand only\b[^|.;]*\bno wrench\b", page)
+    assert not re.search(r"C1\b[^|.;:]*\bhand only\b", page)
 
 
 @pytest.mark.parametrize(
@@ -786,6 +789,11 @@ FEATURE = ("drill", "bore", "ream", "tap", "counterbore", "countersink", "spot",
 ANGLES = ("", "°", " deg", " degrees", " (deg)", " (°)", "º", " (nominal) (deg)", " mm. (deg)")
 
 
+def named_size_edges(note, name):
+    """Real parser output, independent of bundle construction and diagnostic prose."""
+    return [(key, edges) for key, _, edges in consistency._named_sizes(note, [(name,)])]
+
+
 def test_a_named_cylinder_size_is_restated_in_every_spacing_separator_unit_and_verb():
     # The stud prints Ø10 × 50. Only a feature verb (a hole or a chamfer) governing the
     # statement, or an angle on either edge, makes it something other than the size.
@@ -795,10 +803,10 @@ def test_a_named_cylinder_size_is_restated_in_every_spacing_separator_unit_and_v
     ):
         a, b = ("4" + angle, "8" + unit) if first else ("4" + unit, "8" + angle)
         note = f"{verb.title()} the stud to Ø" + spacing.format(a=a, by=by, b=b)
-        row = rows(jig(rod("stud", 10, 50, note)))["S1"]
-        expected = ("error", 1) if verb in SHAPING and not angle else ("not_applicable", 0)
-        if (row.status, row.numbers["claims"]) != expected:
-            wrong.append((note, row.status))
+        actual = named_size_edges(note, "stud")
+        expected = [(("stud",), 2)] if verb in SHAPING and not angle else []
+        if actual != expected:
+            wrong.append((note, actual))
     assert wrong == []
 
 
@@ -827,17 +835,17 @@ def test_the_verb_governs_a_named_size_whatever_tooling_text_its_clause_holds():
     for verb, tooling, before in itertools.product(verbs, TOOLING, (True, False)):
         lead, tail = (tooling, "") if before else ("", tooling)
         note = f"{verb.capitalize()}{lead} the stud to Ø4 x 8 deep{tail}"
-        row = rows(jig(rod("stud", 10, 50, note)))["S1"]
-        expected = ("error", 1) if verb in SHAPING else ("not_applicable", 0)
-        if (row.status, row.numbers["claims"]) != expected:
-            wrong.append((note, row.status))
+        actual = named_size_edges(note, "stud")
+        expected = [(("stud",), 2)] if verb in SHAPING else []
+        if actual != expected:
+            wrong.append((note, actual))
     elsewhere = (" (then drill)", " and drill", " and counter-sink", " (spot, then drill)")
     for verb, feature, before in itertools.product(SHAPING, elsewhere, (True, False)):
         lead, tail = (feature, "") if before else ("", feature)
         note = f"{verb.capitalize()}{lead} the stud to Ø4 x 8{tail}"
-        row = rows(jig(rod("stud", 10, 50, note)))["S1"]
-        if (row.status, row.numbers["claims"]) != ("not_applicable", 0):
-            wrong.append((note, row.status))
+        actual = named_size_edges(note, "stud")
+        if actual != []:
+            wrong.append((note, actual))
     assert wrong == []
 
 
@@ -854,21 +862,34 @@ def test_a_fraction_range_or_split_number_is_no_edge_of_a_named_size():
         edges = ["4", "8"] if cylinder else ["65.2", "11", "10"]
         edges[position if cylinder else position - 2] = edge
         size = " x ".join(e + unit for e in edges)
-        if cylinder:
-            solid = rod("stud", 10, 50, "Turn the stud to Ø" + size)
-        else:
-            solid = block("arm", [65.2, 11, 10], "Mill the arm to " + size)
-        row = rows(jig(solid))["S1"]
-        if (row.status, row.numbers["claims"]) != ("not_applicable", 0):
-            wrong.append((solid["note"], row.status))
+        name = "stud" if cylinder else "arm"
+        note = ("Turn the stud to Ø" if cylinder else "Mill the arm to ") + size
+        actual = named_size_edges(note, name)
+        if actual != []:
+            wrong.append((note, actual))
     assert wrong == []
 
 
-# Every Unicode punctuation mark but a parenthesis, and every glyph NFKC folds into one.
-PUNCTUATION = [chr(c) for c in range(sys.maxunicode + 1) if category(chr(c)).startswith("P")]
-OPENS = [p for p in PUNCTUATION if normalize("NFKC", p) == "("]
-CLOSES = [p for p in PUNCTUATION if normalize("NFKC", p) == ")"]
-PUNCTUATION = [p for p in PUNCTUATION if not set("()") & set(normalize("NFKC", p))]
+@cache
+def unicode_grammar_domains():
+    """Scan the complete Unicode domain once, only when its grammar tests execute."""
+    punctuation, opens, closes, scripts = [], [], [], []
+    for codepoint in range(sys.maxunicode + 1):
+        glyph = chr(codepoint)
+        folded = normalize("NFKC", glyph)
+        if category(glyph).startswith("P"):
+            if folded == "(":
+                opens.append(glyph)
+            if folded == ")":
+                closes.append(glyph)
+            if not set("()") & set(folded):
+                punctuation.append(glyph)
+        if decomposition(glyph).startswith(("<fraction>", "<super>", "<sub>")):
+            scripts.append(glyph)
+    kept = [s for s in scripts if any(d.isdigit() for d in normalize("NFKC", s))]
+    kept += ["º", "˚", "¹/₂", "¹⁄₂", "¹ / ₂", "₁/₂"]
+    folded = [s for s in scripts if s not in kept]
+    return tuple(punctuation), tuple(opens), tuple(closes), tuple(kept), tuple(folded)
 
 
 def test_a_parenthesis_that_closes_is_its_edge_s_whatever_punctuation_it_holds():
@@ -876,8 +897,9 @@ def test_a_parenthesis_that_closes_is_its_edge_s_whatever_punctuation_it_holds()
     # clause and ends no size, whatever mark it holds (a ; included); the size goes on.
     wrong = []
     forms = ("(rough{p} finish later)", "(rough (check{p} measure))", "(rough) (check{p} measure)")
-    marks = [(p, "(", ")") for p in PUNCTUATION]
-    marks += [(";", o, c) for o, c in itertools.product(OPENS, CLOSES)]
+    punctuation, opens, closes, _, _ = unicode_grammar_domains()
+    marks = [(p, "(", ")") for p in punctuation]
+    marks += [(";", o, c) for o, c in itertools.product(opens, closes)]
     places = [(2, None), (2, 0), (2, 1), (3, None), (3, 0), (3, 1), (3, 2)]
     for (p, o, c), form, (arity, at) in itertools.product(marks, forms, places):
         annotation = " " + form.format(p=p).replace("(", o).replace(")", c)
@@ -885,24 +907,13 @@ def test_a_parenthesis_that_closes_is_its_edge_s_whatever_punctuation_it_holds()
         if at is not None:
             edges[at] += annotation
         lead = annotation if at is None else ""
-        if arity == 2:
-            solid = rod("stud", 10, 50, f"Turn{lead} the stud to " + " x ".join(edges))
-        else:
-            solid = block("arm", [65.2, 11, 10], f"Mill{lead} the arm to " + " x ".join(edges))
-        row = rows(jig(solid))["S1"]
-        if (row.status, row.numbers["claims"]) != ("error", 1):
-            wrong.append((solid["note"], row.status))
+        name = "stud" if arity == 2 else "arm"
+        verb = "Turn" if arity == 2 else "Mill"
+        note = f"{verb}{lead} the {name} to " + " x ".join(edges)
+        actual = named_size_edges(note, name)
+        if actual != [((name,), arity)]:
+            wrong.append((note, actual))
     assert wrong == []
-
-
-# Each glyph NFKC would turn into a digit (a fraction, a superscript or subscript digit)
-# or into no angle (º, ˚), and superscript fractions. The other superscripts and
-# subscripts, letters and signs (ª, ᴬ, ⁺, ⁽, ™), fold as NFKC folds them.
-SCRIPTS = [chr(c) for c in range(sys.maxunicode + 1)]
-SCRIPTS = [s for s in SCRIPTS if decomposition(s).startswith(("<fraction>", "<super>", "<sub>"))]
-KEPT = [s for s in SCRIPTS if any(d.isdigit() for d in normalize("NFKC", s))]
-KEPT += ["º", "˚", "¹/₂", "¹⁄₂", "¹ / ₂", "₁/₂"]
-FOLDED = [s for s in SCRIPTS if s not in KEPT]
 
 
 def test_a_kept_glyph_anywhere_in_the_clause_makes_a_named_size_ambiguous():
@@ -912,14 +923,31 @@ def test_a_kept_glyph_anywhere_in_the_clause_makes_a_named_size_ambiguous():
     forms = ("Turn from {g} rod the stud to 4 x 8", "Turn the stud to 4 x 8 (from {g} rod)")
     forms += ("Turn the stud to 4 x 8 from {g} rod", "Mill from {g} bar the arm to 65.2 x 11 x 10")
     forms += ("Mill the arm to 65.2 x 11 x 10 (from {g} bar)",)
-    for glyph, form in itertools.product(["", *KEPT, *FOLDED], forms):
+    _, _, _, kept, folded = unicode_grammar_domains()
+    for glyph, form in itertools.product(["", *kept, *folded], forms):
         note = form.format(g=glyph)
-        solid = rod("stud", 10, 50, note) if "stud" in note else block("arm", [65.2, 11, 10], note)
-        row = rows(jig(solid))["S1"]
-        expected = ("not_applicable", 0) if glyph in KEPT else ("error", 1)
-        if (row.status, row.numbers["claims"]) != expected:
-            wrong.append((note, row.status))
+        name, arity = ("stud", 2) if "stud" in note else ("arm", 3)
+        actual = named_size_edges(note, name)
+        expected = [] if glyph in kept else [((name,), arity)]
+        if actual != expected:
+            wrong.append((note, actual))
     assert wrong == []
+
+
+@pytest.mark.parametrize(
+    ("note", "expected"),
+    [
+        ("Turn the stud to Ø4mmx8mm", ("error", 1)),
+        ("Turn the stud to 4（rough； finish later） x 8", ("error", 1)),
+        ("Turn from ™ rod the stud to 4 x 8", ("error", 1)),
+        ("Turn from ¹⁄₂ rod the stud to 4 x 8", ("not_applicable", 0)),
+        ("Turn the stud to 4 x 8º", ("not_applicable", 0)),
+        ("Turn the stud to 4 x 8 (then counter-sink)", ("not_applicable", 0)),
+    ],
+)
+def test_named_size_parser_classification_reaches_the_consistency_consumer(note, expected):
+    row = rows(jig(rod("stud", 10, 50, note)))["S1"]
+    assert (row.status, row.numbers["claims"]) == expected
 
 
 @pytest.mark.parametrize("name", ["thread", "slot", "knurl", "recess", "groove"])
@@ -939,15 +967,15 @@ def test_every_lead_and_edge_of_a_named_whole_size_restates_it():
         if edge == "unknown" and unit == "mm":
             continue  # "unknownmm" is one word, not an edge and its unit
         note = f"Turn the stud {lead}" + spacing.format(a=edge + unit, by="x", b="50" + unit)
-        row = rows(jig(rod("stud", 10, 50, note)))["S1"]
-        if (row.status, row.numbers["claims"]) != ("error", 1):
-            wrong.append((note, row.status))
+        actual = named_size_edges(note, "stud")
+        if actual != [(("stud",), 2)]:
+            wrong.append((note, actual))
     for spacing, by, unit in itertools.product(SPACINGS, SEPARATORS, UNITS):
         edges = spacing.format(a="65.2" + unit, by=by, b="11" + unit)
         note = "Mill the arm to " + spacing.format(a=edges, by=by, b="10" + unit)
-        row = rows(jig(block("arm", [65.2, 11, 10], note)))["S1"]
-        if (row.status, row.numbers["claims"]) != ("error", 1):
-            wrong.append((note, row.status))
+        actual = named_size_edges(note, "arm")
+        if actual != [(("arm",), 3)]:
+            wrong.append((note, actual))
     assert wrong == []
 
 
@@ -1060,10 +1088,10 @@ def test_a_bought_or_existing_part_s_note_restates_no_printed_size():
 def test_the_restatement_quotes_the_table_s_own_size_cell():
     # Made to 2 places the arm prints 65.16: the finding quotes the cell the table prints.
     data = jig(block("arm", [65.1631, 11, 10], ARM.format("11 x 10 x 65.16")), decimals=2)
-    assert "arm 65.16 × 11 × 10" in rows(data)["S1"].sentence
+    assert "65.16 × 11 × 10" in rows(data)["S1"].sentence
     traveler = _Traveler(data, [], {}, None)
     traveler.setup = data.plan["setups"][0]
-    table = unescape(re.sub(r"<[^>]+>", "|", traveler.shop_made_tables(traveler.setup)))
+    table = unescape(re.sub(r"<[^>]+>", "", traveler.shop_made_tables(traveler.setup)))
     assert "65.16 × 11 × 10" in table and "11 x 10 x 65.16" in table
 
 

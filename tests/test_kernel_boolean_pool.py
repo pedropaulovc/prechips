@@ -152,14 +152,10 @@ def _alive(pid):
     return not stat.exists() or stat.read_text().rsplit(")", 1)[1].split()[0] != "Z"
 
 
-def _kill(pid):
-    if sys.platform == "win32":
-        subprocess.run(["taskkill", "/F", "/PID", str(pid)], capture_output=True)
-    else:
-        try:
-            os.kill(pid, 9)
-        except OSError:
-            pass
+def _assert_process_exited(pid, message):
+    # These JSON records identify a former process, not an owned live process handle.
+    # A surviving (or reused) PID must fail the test, never become a cleanup target.
+    assert not _alive(pid), message
 
 
 def _blocking_run(tmp_path, monkeypatch):
@@ -176,20 +172,16 @@ def _blocking_run(tmp_path, monkeypatch):
 def _assert_nothing_left(tmp_path):
     worker = json.loads((tmp_path / "worker.json").read_text())["pid"]
     engine = json.loads((tmp_path / "engine.json").read_text())
-    try:
-        assert worker != engine["pid"], "the engine ran the blocked boolean itself"
-        directory = Path(engine["directory"])
-        # Before _execute ends, the host has SIGKILLed the run's process group (POSIX) or
-        # ended the engine, whose job then ends its workers (Windows); exits are asynchronous.
-        deadline = time.monotonic() + 10
-        while (_alive(engine["pid"]) or _alive(worker)) and time.monotonic() < deadline:
-            time.sleep(0.1)
-        assert not _alive(engine["pid"]), "the host left the engine running"
-        assert not _alive(worker), "a busy worker outlived its killed engine"
-        assert not directory.exists(), f"the pool's shape files outlived the run: {directory}"
-    finally:
-        _kill(worker)
-        _kill(engine["pid"])
+    assert worker != engine["pid"], "the engine ran the blocked boolean itself"
+    directory = Path(engine["directory"])
+    # Before _execute ends, the host has SIGKILLed the run's process group (POSIX) or
+    # ended the engine, whose job then ends its workers (Windows); exits are asynchronous.
+    deadline = time.monotonic() + 10
+    while (_alive(engine["pid"]) or _alive(worker)) and time.monotonic() < deadline:
+        time.sleep(0.1)
+    _assert_process_exited(engine["pid"], "the host left the engine running")
+    _assert_process_exited(worker, "a busy worker outlived its killed engine")
+    assert not directory.exists(), f"the pool's shape files outlived the run: {directory}"
 
 
 def _launch(script, launched):
@@ -197,7 +189,7 @@ def _launch(script, launched):
         # The host's real launch, of the blocking script in place of freecad_job.py.
         def __init__(self, command, **options):
             super().__init__([command[0], str(script), *command[2:]], **options)
-            launched.append(self.pid)
+            launched.append(self)
 
     return Launch
 
@@ -245,7 +237,7 @@ def test_an_interrupted_host_leaves_nothing_behind_when_its_launcher_died_first(
         deadline = time.monotonic() + 300
         while not (tmp_path / "worker.json").exists() and time.monotonic() < deadline:
             time.sleep(0.01)
-        os.kill(launched[0], signal.SIGKILL)
+        launched[0].kill()
         os.kill(os.getpid(), signal.SIGINT)
 
     monkeypatch.setattr(kernel.subprocess, "Popen", _launch(script, launched))

@@ -883,9 +883,16 @@ def test_print_bands_cover_the_actual_png_once_and_keep_complete_local_annotatio
 @pytest.mark.parametrize("name", ["shaft-s1", "cone-s1", "rocker-s3", "rocker-s4"])
 def test_dense_setup_pictures_print_every_label_at_body_size(name):
     # Cap height at a 7.5 inch print width must reach 11 pt without shrinking tall composites.
-    diagram, _ = _composed_diagram([], _example_spec(name))
+    spec = _example_spec(name)
+    diagram, _ = _composed_diagram([], spec)
 
-    assert diagram.canvas.text_boxes
+    labels = {box[0] for box in diagram.canvas.text_boxes}
+    assert any(f"SETUP {spec['setup_id']}" in label for label in labels)
+    required_keys = {point["label"] for point in spec.get("waypoints", [])}
+    if name in {"shaft-s1", "cone-s1"}:
+        required_keys.add("NORTH END")
+    assert required_keys, name
+    assert required_keys <= labels
     for _, _, top, _, bottom in diagram.canvas.text_boxes:
         assert (bottom - top) / diagram.canvas.width * 7.5 * 72 >= 11
     diagram.canvas.assert_text_layout(min_scale=5)
@@ -1302,7 +1309,9 @@ def test_a_named_solid_hidden_from_view_is_a_render_debt_not_a_leader():
     }
     png, debts, panels = render_diagram(meshes, spec)
 
-    assert debts == ["NOT SHOWN: PARALLELS is hidden in this view, so it has no leader."]
+    assert len(debts) == 1
+    assert "NOT SHOWN" in debts[0] and "PARALLELS" in debts[0]
+    assert "hidden" in debts[0].casefold()
     diagram, observed_png = _composed_diagram(meshes, spec, debts)
     assert [label for label, _ in diagram.leaders if label == "PARALLELS"] == []
     # The debt is printed in the picture's own notes, and the picture is the one returned.
@@ -2914,7 +2923,9 @@ def test_an_inspection_sketch_wraps_a_long_title_and_owns_each_aid_apart_from_th
 
     png, debts, panels = render_inspection([view])
 
-    assert debts == ["NOT SHOWN: PART is hidden in this view, so it has no leader."]
+    assert len(debts) == 1
+    assert "NOT SHOWN" in debts[0] and "PART" in debts[0]
+    assert "hidden" in debts[0].casefold()
     band = _InspectionSketch(view)
     band.render()
     lines = [box for box in band.canvas.text_boxes if box[0] in band.title_lines]

@@ -269,7 +269,12 @@ still dials its parent's target, aimed or not.
 - the feature to declare `lower_z` and `upper_z`, the planes in its frame that
   the faced length runs between;
 - a facing op (`face`, `rough_face` or `finish_face`) on the feature to claim
-  `face`, either by naming no `faces` or by naming that one.
+  `face`, either by omitting `faces` (the feature's default claims) or by
+  explicitly naming that face in a list. `faces = "unknown"` or a list
+  containing only `"unknown"` cannot authorize movement. A known explicit
+  face still authorizes that faced aim when another entry is `"unknown"`.
+  This does not resolve the whole non-rotary coverage or finish-coverage claim:
+  a mixed known/unknown list leaves that claim unresolved.
 
 Anything else is bad input. The kernel job gets:
 
@@ -370,6 +375,10 @@ actual removal; spotting does not complete a socket. Transient `tap` and
 `counterbore` operations leave named geometry debt until thread/step profiles
 are supported. A rough cut's allowance must be removed by a valid finishing
 cut before the selected branch can supply completed preparation to a join.
+A drilled socket also needs a representable finite point cone from its selected
+tool's included point angle. An underflowed zero tangent or nonfinite cone
+leaves the socket profile, completed preparation and dependent join unresolved;
+it does not become a flat-bottomed socket or borrow a CAD profile.
 
 ## Process features
 
@@ -1288,10 +1297,10 @@ reach, holder-wall and shank screens meet the stock earlier ops leave. This is
 one top-dead-centre pose per sample,
 not a continuous toolpath or proof of clearance while rotating between poses.
 
-`doc_mm` enables the engagement screen only for an endmill-family cutter on a
-cutting operation. Omitted DOC, noncutting actions and known drills, reamers,
-taps or lathe tools are `not_applicable`; an authored unknown DOC on an eligible
-operation remains unresolved, not an invented recommendation.
+`doc_mm` supplies the engagement screen's axial depth per pass for an
+endmill-family cutter on a cutting operation. Omitted, unknown or nonpositive
+DOC on an eligible operation remains unresolved. Known noncutting actions
+and known drills, reamers, taps or lathe tools are `not_applicable`.
 
 `approach_mm` is the authored nonnegative safe approach/retract distance along
 setup Z for M5's travel screen. There is no invented default: absence or

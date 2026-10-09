@@ -47,52 +47,257 @@ def mill(**envelope):
 
 
 @pytest.mark.parametrize(
-    "values",
+    "values,valid,location,category",
     [
-        # Malformed facts.
-        mill(travel_mm={"x": measured(100), "a": 50}),
-        mill(travel_mm={"x": {**measured(100), "units": "mm"}}),
-        mill(travel_mm={"x": {**measured(100), "verify": "false"}}),
-        mill(travel_mm={"x": measured(True)}),
-        mill(travel_mm={"x": {"measured": MEASURED}}),
-        mill(spindle_to_table_max_mm={"value": float("inf")}),
-        mill(spindle_to_table_max_mm={"value": "450"}),
-        {"holders": {"holder": {"gauge_len_mm": {**measured(40), "cite": "shop log"}}}},
-        # Provenance above a fact would be a silent second trust path.
-        {"holders": {"holder": {"gauge_len_mm": 40, "measured": MEASURED}}},
-        mill(measured=MEASURED, spindle_to_table_max_mm=450),
-        mill(travel_mm={"measured": MEASURED, "x": 500}),
-        mill(travel_mm={"verify": False, "x": measured(500)}),
-        # Envelope fields no rule reads.
-        mill(spindle_stack_mm={"r8": measured(20)}),
-        mill(table_length_mm=measured(800)),
-        mill(table_width_in=8.25),
-        mill(t_slot_pitch_mm=60),
-        mill(spindle_taper="R8"),
-        {"machines": {"mill": {"kind": "mill", "spindle_to_table_max_in": 17}}},
-        {"machines": {"mill": {"kind": "mill", "travel_in": {"x": 23}}}},
-        {"machines": {"mill": {"kind": "mill", "table_in": {"length": 33}}}},
-        # One authored unit per length stem.
-        {"holders": {"holder": {"gauge_len": 40, "units": "mm"}}},
-        {"holders": {"holder": {"gauge_len_mm": 40, "gauge_len_in": measured(2)}}},
-        {"fixtures": {"parallels": {"kind": "parallels", "width_mm": 6, "width_in": 0.25}}},
-        {"tools": {"drill": {"dia": 3, "units": "mm", "dia_in": 0.125}}},
-        {"tools": {"set": {"members": {"a": {"oal_mm": 50, "oal_in": 2}}}}},
-        mill(travel_mm={"x": measured(500)}, travel_in={"x": measured(20)}),
-        mill(spindle_to_table_max_mm=measured(450), spindle_to_table_max_in=17),
-        # Projection belongs to one (tool, holder) pair.
-        {"holders": {"holder": {"projection_mm": 40}}},
-        {"holders": {"holder": {"projection_mm": {"tool": measured(40)}}}},
-        {"holders": {"set": {"members": {"a": {"projection_in": {"t": 1}}}}}},
-        {"fixtures": {"vise": {"projection_mm": {"t": 1}}}},
-        {"tools": {"drill": {"projection_mm": 40}}},
-        {"tools": {"drill": {"projection_mm": measured(40)}}},
-        {"tools": {"drill": {"projection_mm": {"r8": 40}, "projection_in": {"er": 1}}}},
+        (
+            mill(travel_mm={"x": measured(100), "a": 50}),
+            mill(travel_mm={"x": measured(100)}),
+            ("machines", "mill", "envelope", "travel_mm", "a"),
+            "extra_forbidden",
+        ),
+        (
+            mill(travel_mm={"x": {**measured(100), "units": "mm"}}),
+            mill(travel_mm={"x": measured(100)}),
+            ("machines", "mill", "envelope", "travel_mm", "x", "units"),
+            "extra_forbidden",
+        ),
+        (
+            mill(travel_mm={"x": {**measured(100), "verify": "false"}}),
+            mill(travel_mm={"x": measured(100, verify=False)}),
+            ("machines", "mill", "envelope", "travel_mm", "x", "verify"),
+            "bool_type",
+        ),
+        (
+            mill(travel_mm={"x": measured(True)}),
+            mill(travel_mm={"x": measured(100)}),
+            ("machines", "mill", "envelope", "travel_mm", "x", "value"),
+            "float_type",
+        ),
+        (
+            mill(travel_mm={"x": {"measured": MEASURED}}),
+            mill(travel_mm={"x": measured(100)}),
+            ("machines", "mill", "envelope", "travel_mm", "x", "value"),
+            "missing",
+        ),
+        (
+            mill(spindle_to_table_max_mm={"value": float("inf")}),
+            mill(spindle_to_table_max_mm={"value": 450}),
+            ("machines", "mill", "envelope", "spindle_to_table_max_mm", "value"),
+            "finite_number",
+        ),
+        (
+            mill(spindle_to_table_max_mm={"value": "450"}),
+            mill(spindle_to_table_max_mm={"value": 450}),
+            ("machines", "mill", "envelope", "spindle_to_table_max_mm", "value"),
+            "float_type",
+        ),
+        (
+            {"holders": {"holder": {"gauge_len_mm": {**measured(40), "cite": "shop log"}}}},
+            {"holders": {"holder": {"gauge_len_mm": measured(40)}}},
+            ("holders", "holder", "gauge_len_mm", "cite"),
+            "extra_forbidden",
+        ),
+        (
+            {"holders": {"holder": {"gauge_len_mm": 40, "measured": MEASURED}}},
+            {"holders": {"holder": {"gauge_len_mm": measured(40)}}},
+            ("holders", "holder", "measured"),
+            "extra_forbidden",
+        ),
+        (
+            mill(measured=MEASURED, spindle_to_table_max_mm=450),
+            mill(spindle_to_table_max_mm=measured(450)),
+            ("machines", "mill", "envelope", "measured"),
+            "extra_forbidden",
+        ),
+        (
+            mill(travel_mm={"measured": MEASURED, "x": 500}),
+            mill(travel_mm={"x": measured(500)}),
+            ("machines", "mill", "envelope", "travel_mm", "measured"),
+            "extra_forbidden",
+        ),
+        (
+            mill(travel_mm={"verify": False, "x": measured(500)}),
+            mill(travel_mm={"x": measured(500, verify=False)}),
+            ("machines", "mill", "envelope", "travel_mm", "verify"),
+            "extra_forbidden",
+        ),
+        (
+            mill(spindle_stack_mm={"r8": measured(20)}),
+            mill(spindle_to_table_max_mm=measured(20)),
+            ("machines", "mill", "envelope", "spindle_stack_mm"),
+            "extra_forbidden",
+        ),
+        (
+            mill(table_length_mm=measured(800)),
+            mill(travel_mm={"x": measured(800)}),
+            ("machines", "mill", "envelope", "table_length_mm"),
+            "extra_forbidden",
+        ),
+        (
+            mill(table_width_in=8.25),
+            mill(travel_in={"y": 8.25}),
+            ("machines", "mill", "envelope", "table_width_in"),
+            "extra_forbidden",
+        ),
+        (
+            mill(t_slot_pitch_mm=60),
+            mill(travel_mm={"x": 60}),
+            ("machines", "mill", "envelope", "t_slot_pitch_mm"),
+            "extra_forbidden",
+        ),
+        (
+            mill(spindle_taper="R8"),
+            {"machines": {"mill": {"kind": "mill", "spindle": {"taper": "R8"}}}},
+            ("machines", "mill", "envelope", "spindle_taper"),
+            "extra_forbidden",
+        ),
+        (
+            {"machines": {"mill": {"kind": "mill", "spindle_to_table_max_in": 17}}},
+            mill(spindle_to_table_max_in=17),
+            ("machines", "mill", "spindle_to_table_max_in"),
+            "extra_forbidden",
+        ),
+        (
+            {"machines": {"mill": {"kind": "mill", "travel_in": {"x": 23}}}},
+            mill(travel_in={"x": 23}),
+            ("machines", "mill", "travel_in"),
+            "extra_forbidden",
+        ),
+        (
+            {"machines": {"mill": {"kind": "mill", "table_in": {"length": 33}}}},
+            mill(travel_in={"x": 33}),
+            ("machines", "mill", "table_in"),
+            "extra_forbidden",
+        ),
+        (
+            {"holders": {"holder": {"gauge_len": 40, "units": "mm"}}},
+            {"holders": {"holder": {"gauge_len_mm": 40}}},
+            ("holders", "holder", "gauge_len"),
+            "extra_forbidden",
+        ),
+        (
+            {"holders": {"holder": {"gauge_len_mm": 40, "gauge_len_in": measured(2)}}},
+            {"holders": {"holder": {"gauge_len_in": measured(2)}}},
+            (),
+            "value_error",
+        ),
+        (
+            {"fixtures": {"parallels": {"kind": "parallels", "width_mm": 6, "width_in": 0.25}}},
+            {"fixtures": {"parallels": {"kind": "parallels", "width_mm": 6}}},
+            (),
+            "value_error",
+        ),
+        (
+            {"tools": {"drill": {"dia": 3, "units": "mm", "dia_in": 0.125}}},
+            {"tools": {"drill": {"dia_mm": 3}}},
+            (),
+            "value_error",
+        ),
+        (
+            {"tools": {"set": {"members": {"a": {"oal_mm": 50, "oal_in": 2}}}}},
+            {"tools": {"set": {"members": {"a": {"oal_in": 2}}}}},
+            (),
+            "value_error",
+        ),
+        (
+            mill(travel_mm={"x": measured(500)}, travel_in={"x": measured(20)}),
+            mill(travel_mm={"x": measured(500)}),
+            (),
+            "value_error",
+        ),
+        (
+            mill(spindle_to_table_max_mm=measured(450), spindle_to_table_max_in=17),
+            mill(spindle_to_table_max_mm=measured(450)),
+            (),
+            "value_error",
+        ),
+        (
+            {"holders": {"holder": {"projection_mm": 40}}},
+            {"tools": {"tool": {"projection_mm": {"holder": 40}}}},
+            (),
+            "value_error",
+        ),
+        (
+            {"holders": {"holder": {"projection_mm": {"tool": measured(40)}}}},
+            {"tools": {"tool": {"projection_mm": {"holder": measured(40)}}}},
+            (),
+            "value_error",
+        ),
+        (
+            {"holders": {"set": {"members": {"a": {"projection_in": {"t": 1}}}}}},
+            {"tools": {"t": {"projection_in": {"set/a": 1}}}},
+            (),
+            "value_error",
+        ),
+        (
+            {"fixtures": {"vise": {"projection_mm": {"t": 1}}}},
+            {"tools": {"t": {"projection_mm": {"vise": 1}}}},
+            (),
+            "value_error",
+        ),
+        (
+            {"tools": {"drill": {"projection_mm": 40}}},
+            {"tools": {"drill": {"projection_mm": {"r8": 40}}}},
+            ("tools", "drill", "projection_mm"),
+            "dict_type",
+        ),
+        (
+            {"tools": {"drill": {"projection_mm": measured(40)}}},
+            {"tools": {"drill": {"projection_mm": {"r8": measured(40)}}}},
+            ("tools", "drill", "projection_mm", "measured"),
+            "missing",
+        ),
+        (
+            {"tools": {"drill": {"projection_mm": {"r8": 40}, "projection_in": {"er": 1}}}},
+            {"tools": {"drill": {"projection_mm": {"r8": 40, "er": 25.4}}}},
+            (),
+            "value_error",
+        ),
+        # Keep every former duplicate matrix row, including the inherited-unit axis collision.
+        (
+            {"tools": {"tool": {"dia_mm": 6, "dia_in": 0.25}}},
+            {"tools": {"tool": {"dia_in": 0.25}}},
+            (),
+            "value_error",
+        ),
+        (
+            {"tools": {"set": {"members": {"tool": {"oal_mm": 50, "oal_in": 2}}}}},
+            {"tools": {"set": {"members": {"tool": {"oal_mm": 50}}}}},
+            (),
+            "value_error",
+        ),
+        (
+            mill(spindle_to_table_min_mm=100, spindle_to_table_min_in=4),
+            mill(spindle_to_table_min_in=4),
+            (),
+            "value_error",
+        ),
+        (
+            mill(travel_mm={"x": 500}, travel_in={"x": 20}),
+            mill(travel_in={"x": 20}),
+            (),
+            "value_error",
+        ),
+        (mill(travel_in={"x": 20, "x_mm": 500}), mill(travel_in={"x": 20}), (), "value_error"),
     ],
 )
-def test_schema_rejects_malformed_unread_or_ambiguous_length_authoring(values):
-    with pytest.raises(ValidationError):
+def test_schema_rejects_malformed_unread_or_ambiguous_length_authoring(
+    values, valid, location, category
+):
+    inventory(valid)
+    with pytest.raises(ValidationError) as rejected:
         inventory(values)
+
+    def intended(error):
+        if error["type"] != category:
+            return False
+        if not location:
+            return error["loc"] == ()
+        # Pydantic union branch names are implementation details; the authored field path is not.
+        parts = iter(error["loc"])
+        return all(any(part == expected for part in parts) for expected in location)
+
+    assert any(intended(error) for error in rejected.value.errors())
 
 
 def test_schema_accepts_pair_projection_maps_and_one_unit_per_stem():
@@ -140,21 +345,6 @@ def test_inventory_range_lists_in_both_units_are_not_a_single_length():
     values = inventory({"gauges": {"gauge": {"range_mm": [0, 25.4], "range_in": [0, 1]}}})
     assert values["gauges"]["gauge"]["range_mm"] == [0, 25.4]
     assert values["gauges"]["gauge"]["range_in"] == [0, 1]
-
-
-@pytest.mark.parametrize(
-    "values",
-    [
-        {"tools": {"tool": {"dia_mm": 6, "dia_in": 0.25}}},
-        {"tools": {"set": {"members": {"tool": {"oal_mm": 50, "oal_in": 2}}}}},
-        mill(spindle_to_table_min_mm=100, spindle_to_table_min_in=4),
-        mill(travel_mm={"x": 500}, travel_in={"x": 20}),
-        mill(travel_in={"x": 20, "x_mm": 500}),
-    ],
-)
-def test_duplicate_single_length_facts_remain_rejected(values):
-    with pytest.raises(ValidationError):
-        inventory(values)
 
 
 @pytest.mark.parametrize(

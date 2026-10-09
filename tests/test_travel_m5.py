@@ -366,8 +366,19 @@ def test_every_rough_stage_runs_its_leave_out_and_a_negative_leave_is_an_error(
     assert required == pytest.approx(46 + (2 * leave if staged else 0))
 
 
-@pytest.mark.parametrize("missing", ["bounds", "dia", "approach", "travel", "measurement"])
-def test_missing_declared_fact_stays_unknown_and_exposes_consumed_debt(missing):
+@pytest.mark.parametrize(
+    "missing,debt_id,unknown_span_axes,unknown_margin_axes",
+    [
+        ("bounds", "plan.setups.S1.ops.10.xy_geometry", ("x", "y"), ("x", "y")),
+        ("dia", "tools.cutter.dia", ("x", "y"), ("x", "y")),
+        ("approach", "plan.setups.S1.ops.10.z_geometry", ("z",), ("z",)),
+        ("travel", "machines.mill.envelope.travel.x", (), ("x",)),
+        ("measurement", "machines.mill.envelope.travel.x", (), ("x",)),
+    ],
+)
+def test_missing_declared_fact_stays_unknown_and_exposes_consumed_debt(
+    missing, debt_id, unknown_span_axes, unknown_margin_axes
+):
     data = bundle()
     if missing == "bounds":
         data.features["features"]["outline"].pop("bounds")
@@ -382,7 +393,17 @@ def test_missing_declared_fact_stays_unknown_and_exposes_consumed_debt(missing):
         machine(data)["envelope"]["travel_mm"]["x"] = 100
     finding = evaluate(data)[0]
     assert finding.status == "unknown"
-    assert finding.numbers["measurements"]
+    debts = {entry["id"]: entry for entry in finding.numbers["measurements"]}
+    assert debt_id in debts
+    assert not any(identity.endswith(".resolve") for identity in debts)
+    checks = finding.numbers["travel_checks"]
+    for axis, known_span in (("x", 46), ("y", 26), ("z", 5)):
+        assert checks[axis]["required_mm"] == (
+            "unknown" if axis in unknown_span_axes else known_span
+        )
+        assert checks[axis]["margin_mm"] == (
+            "unknown" if axis in unknown_margin_axes else 100 - known_span
+        )
 
 
 @pytest.mark.parametrize("travel", [1, 1000])

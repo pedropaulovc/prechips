@@ -94,15 +94,24 @@ def test_measured_setup_passes_and_stack_is_physical_not_z_coordinate():
     assert envelope.evaluate(data)[0].numbers["stacks"][0]["stack_mm"] == 151
 
 
-def test_maximum_boundary_includes_safe_approach_and_overtall_stack_stops():
-    data = bundle()
+@pytest.mark.parametrize(
+    "review_geometry,boundary,rejected_limit,margin",
+    [(False, 156, 155, -1), (True, 141, 136, -5)],
+)
+def test_maximum_boundary_includes_safe_approach_and_overtall_stack_stops(
+    review_geometry, boundary, rejected_limit, margin
+):
+    data = review_bundle() if review_geometry else bundle()
+    data.inventory["fixtures"]["vise"]["bed_height_mm"] = measured(40)
     limits = data.inventory["machines"]["mill"]["envelope"]
-    limits["spindle_to_table_max_mm"] = measured(156)
-    assert envelope.evaluate(data)[0].status == "pass"
-    limits["spindle_to_table_max_mm"] = measured(155)
+    limits["spindle_to_table_max_mm"] = measured(boundary)
+    boundary_row = envelope.evaluate(data)[0]
+    assert boundary_row.status == "pass"
+    assert boundary_row.numbers["stacks"][0]["upper_margin_mm"] == 0
+    limits["spindle_to_table_max_mm"] = measured(rejected_limit)
     row = envelope.evaluate(data)[0]
     assert row.status == "error"
-    assert row.numbers["stacks"][0]["upper_margin_mm"] == -1
+    assert row.numbers["stacks"][0]["upper_margin_mm"] == margin
     assert exit_code([row], {"required": {}}) == 2
 
 
@@ -298,15 +307,6 @@ def test_review_3_minimum_must_reach_deepest_commanded_cut():
     row = envelope.evaluate(data)[0]
     assert row.status == "error"
     assert row.numbers["stacks"][0]["lower_margin_mm"] == -30
-
-
-def test_review_3_maximum_must_include_authored_safe_approach():
-    data = review_bundle()
-    data.inventory["fixtures"]["vise"]["bed_height_mm"] = measured(40)
-    data.inventory["machines"]["mill"]["envelope"]["spindle_to_table_max_mm"] = measured(136)
-    row = envelope.evaluate(data)[0]
-    assert row.status == "error"
-    assert row.numbers["stacks"][0]["upper_margin_mm"] == -5
 
 
 def test_review_10_unresolved_holder_requests_resolution_not_measurement():

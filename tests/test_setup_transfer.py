@@ -1,13 +1,14 @@
 """The printed Zs that link one setup's sheet to the next agree on the printed grid."""
 
+import json
 import math
 import re
-from html import unescape
 from pathlib import Path
 
 import pytest
 from test_operative_surface import FEATURES, ZERO
 from test_operative_surface import bundle as scratch_bundle
+from test_sheet_ops import Markup, content
 
 from prechips.inputs import load_bundle
 from prechips.rules import coordinates, zero_recipe
@@ -21,50 +22,97 @@ PILOTS = [
     "pivot-bracket/plan.toml",
     "cone-pivot-post/built-up.toml",
 ]
-LABELS = {
-    "top": "top_z",
-    "bottom": "bottom_z",
-    "north end": "north_end_z",
-    "south end": "south_end_z",
-    "plain end": "plain_end_z",
-    "rail bottoms": "retained_rail_bottom_z",
-}
+SURFACES = (
+    "top_z",
+    "bottom_z",
+    "north_end_z",
+    "south_end_z",
+    "plain_end_z",
+    "retained_rail_bottom_z",
+)
 # Z zero methods that set the DRO from a measurement, printing no touched surface.
 MEASURED = {"trial_cut_measure", "face_then_set", "measure_then_set"}
 _NUMBER = r"-?\d+(?:\.\d+)?"
-# The one transform a "Starts from" line names: who, turned over, from which setup, shift.
-_TRANSFORM = re.compile(r"\((each|[a-z ]+?) Z = (−\()?its Setup (\S+) Z\)? ([+−]) ([\d.]+)\)")
-# Its refusal, when no one shift lands the Zs before on this setup's grid.
-_REFUSED = "no one shift carries them"
 IDLE = "[[setups.ops]]\nop=90\ndo='deburr'\nfeature='target'\n"
 
 
+def _within(node, parent):
+    while node is not None:
+        if node is parent:
+            return True
+        node = node["parent"]
+    return False
+
+
+def _reading_z(node):
+    text = re.sub(r"([+-])\s+(?=\d)", r"\1", content(node).replace("−", "-"))
+    numbers = re.findall(_NUMBER, text)
+    assert len(numbers) == 1, content(node)
+    return float(numbers[0])
+
+
 def _sheets(page):
-    """Each setup's HTML, its sheets joined."""
+    """Each setup's parsed consumer-visible records, across all its sheets."""
+    markup = Markup(page)
     sheets = {}
-    parts = re.split(r'<section class="page" data-sheet="SETUP (\S+) sheet \d+"', page)
-    for setup, html in zip(parts[1::2], parts[2::2], strict=True):
-        sheets[setup] = sheets.get(setup, "") + html
+    for section in markup.find("page"):
+        label = section["attrs"].get("data-sheet", "")
+        match = re.fullmatch(r"SETUP (\S+) sheet \d+", label)
+        if match:
+            sheets.setdefault(match[1], []).extend(
+                node for node in markup.nodes if _within(node, section)
+            )
     return sheets
 
 
-def _arrival(html):
-    """``{stock_state key: printed Z}`` from the setup's "Starts from" line."""
-    line = re.search(r"Starts from:[^<]*", unescape(html)).group(0)
-    return {
-        LABELS[label]: float(z)
-        for label, z in re.findall(rf"({'|'.join(LABELS)})(?: \([^)]*\))? at Z ({_NUMBER})", line)
-    }
+def _records(nodes, attribute, value=None):
+    return [
+        node
+        for node in nodes
+        if attribute in node["attrs"] and (value is None or node["attrs"][attribute] == value)
+    ]
 
 
-def _cut_to(html):
-    """``{op: printed Z}``: the Z each op row's target ends at."""
-    rows = re.findall(r'<tbody class="op"><tr><td>([^<]+)</td>(.*?)</tr>', html)
+def _arrival(nodes):
+    """``{stock_state key: printed Z}`` from the visible arriving-surface readings."""
     found = {}
-    for op, cells in rows:
-        target = re.search(rf"<td>Z ({_NUMBER})(?: → ({_NUMBER}))?", cells)
-        if target:
-            found[op] = float(target[2] or target[1])
+    for surface in _records(nodes, "data-stock-surface"):
+        key = surface["attrs"]["data-stock-surface"]
+        assert key in SURFACES
+        readings = [
+            node
+            for node in nodes
+            if "reading" in node["attrs"].get("class", "").split() and _within(node, surface)
+        ]
+        if surface["attrs"].get("data-stock-state") == "unknown":
+            assert not readings, (key, content(surface))
+            continue
+        assert len(readings) == 1, (key, content(surface))
+        value = _reading_z(readings[0])
+        assert key not in found or found[key] == value
+        found[key] = value
+    assert found, "no consumer-visible arriving surface readings"
+    return found
+
+
+def _cut_to(nodes):
+    """``{op: printed Z}``: the Z each operation's visible target ends at."""
+    found = {}
+    for operation in _records(nodes, "data-op"):
+        targets = [
+            node
+            for node in nodes
+            if "op-target" in node["attrs"].get("class", "").split() and _within(node, operation)
+        ]
+        for target in targets:
+            values = [node for node in nodes if node["tag"] == "dd" and _within(node, target)]
+            assert len(values) == 1, content(target)
+            z = re.search(
+                rf"\bZ\s*(?:(?:{_NUMBER}|\?)\s*)?→\s*({_NUMBER})",
+                content(values[0]).replace("−", "-"),
+            )
+            if z:
+                found[operation["attrs"]["data-op"]] = float(z[1])
     return found
 
 
@@ -91,18 +139,16 @@ def _left(before, value, sheet):
         if facing and isinstance(z, (int, float)) and abs(z - value) <= 1e-9:
             return printed.get(str(op["op"]))
     state = before.get("stock_state", {})
-    keys = [k for k in LABELS.values() if abs(state.get(k, math.inf) - value) <= 1e-9]
+    keys = [k for k in SURFACES if abs(state.get(k, math.inf) - value) <= 1e-9]
     received = _arrival(sheet)
     return received.get(keys[0]) if keys else None
 
 
 def _check(bundle, sheets, setup, before, sign, offset):
-    """Assert the printed Zs ``setup`` receives from ``before`` follow one shift from the Zs
-    ``before`` printed, as any transform its line names says, or that its line refuses
-    when no one shift lands them on its grid; return how many Zs that shift links."""
-    html = sheets[setup["id"]]
-    line = re.search(r"Starts from:[^<]*", unescape(html)).group(0)
-    state, printed = setup["stock_state"], _arrival(html)
+    """Check the independently reconstructed shift against the displayed transfer,
+    or its refusal when the preceding readings cannot share this setup's grid."""
+    nodes = sheets[setup["id"]]
+    state, printed = setup["stock_state"], _arrival(nodes)
     grid = coordinates.dro_grid(bundle, setup)
     left, shifts = {}, {}
     for key, z in printed.items():
@@ -113,33 +159,62 @@ def _check(bundle, sheets, setup, before, sign, offset):
     where = f"{setup['id']} from {before['id']}: {printed} less ±{before['id']}'s Zs"
     for z in printed.values():
         assert abs(z / grid[0] - round(z / grid[0])) < 1e-6, f"{where}: {z} off its grid"
-    named, refused = _TRANSFORM.search(line), _REFUSED in line
-    assert not (named and refused), line
-    if named:
-        # Every Z the named transform covers took exactly it.
-        who, turned, source, plus, shift = named.groups()
-        keys = list(printed) if who == "each" else [LABELS[label] for label in who.split(" and ")]
-        assert (source, bool(turned)) == (before["id"], sign < 0), line
-        shift = float(shift) * (-1 if plus == "−" else 1)
-        assert all(abs(shifts[key] - shift) < 1e-6 for key in keys), (line, shifts)
+    transfers = _records(nodes, "data-transfer-before")
+    assert all(
+        node["attrs"].get("data-transfer-state") in {"linked", "refused", "unlinked"}
+        for node in transfers
+    ), transfers
+    named = [node for node in transfers if node["attrs"].get("data-transfer-state") == "linked"]
+    refused = [node for node in transfers if node["attrs"].get("data-transfer-state") == "refused"]
+    assert not (named and refused), transfers
+    for transform in named:
+        attrs = transform["attrs"]
+        keys = json.loads(attrs["data-transfer-surfaces"])
+        context = (attrs, shifts, before["id"], setup["id"])
+        assert keys and set(keys) <= set(printed), context
+        expression = content(transform).replace("−", "-")
+        source = rf"its Setup {re.escape(before['id'])} Z"
+        if re.search(rf"=\s*[^=]*?-\s*{source}\)", expression):
+            visible_sign = -1
+        elif re.search(rf"=\s*{source}\s*[+-]", expression):
+            visible_sign = 1
+        else:
+            pytest.fail(f"unreadable transfer source/orientation: {expression}")
+        assert visible_sign == sign, expression
+        if re.search(r"\beach Z\s*=", expression):
+            assert set(keys) == set(printed), (context, printed)
+        assert set(keys) <= set(shifts), context
+        readings = [
+            node for node in _records(nodes, "data-transfer-shift") if _within(node, transform)
+        ]
+        assert len(readings) == 1, attrs
+        shift = _reading_z(readings[0])
+        assert all(abs(shifts[key] - shift) < 1e-6 for key in keys), context
     if refused:
         # Only Zs not whole steps of this grid apart refuse; each then prints by itself.
+        assert all(node["attrs"]["data-transfer-before"] == before["id"] for node in refused)
         first = next(iter(left.values()))
         apart = [(z - first) / grid[0] for z in left.values()]
-        assert any(abs(n - round(n)) > 1e-6 for n in apart), (line, left)
+        assert any(abs(n - round(n)) > 1e-6 for n in apart), left
         for key, z in printed.items():
-            assert z == coordinates.dro_z(state[key], grid), (line, key)
+            assert z == coordinates.dro_z(state[key], grid), key
     else:
         # One shift links every surface the setup receives.
         assert len(set(shifts.values())) <= 1, f"{where} differ: {shifts}"
     zero = setup.get("zero", {}).get("z", {})
     top = printed.get("top_z")
     if zero.get("face") == "top" and "after_op" not in zero and top is not None:
-        # Its Z zero touches the top where the arrival line prints it (a measured touch
-        # sets the DRO from the measurement and prints no surface).
-        touch = re.search(rf"<td>Z</td><td>top;[^<]*surface at ({_NUMBER})", html)
+        # A measured zero sets from its measurement; a touch names the printed top.
+        touches = [
+            node
+            for node in _records(nodes, "data-zero-axis", "z")
+            if node["attrs"].get("data-zero-face") == "top"
+        ]
         measured = zero.get("method") in MEASURED
-        assert measured or (touch and float(touch[1]) == top), (where, touch and touch[0])
+        assert measured or (touches and all(_reading_z(touch) == top for touch in touches)), (
+            where,
+            [content(touch) for touch in touches],
+        )
     elif top is not None:
         # An untouched top never prints below the stock top.
         assert top >= state["top_z"] - 1e-9, f"{where}: top below {state['top_z']}"
@@ -190,19 +265,27 @@ def _turned_over(tmp_path, top, bottom, offset):
 
 
 @pytest.mark.parametrize(
-    "top, bottom, offset, linked",
+    "top, bottom, offset, linked, arriving",
     [
         # S1 prints 0.000 / -10.005: a half step apart on S2's 0.010 DRO, so no one shift.
-        (0.0, -10.008, 0.002, 0),
+        (0.0, -10.008, 0.002, 0, {"top_z": 10.01, "bottom_z": 0.01}),
         # S1 prints 0.005 / -10.005: whole steps apart, so one shift, 0.005, carries both.
-        (0.003, -10.008, 0.0, 2),
+        (0.003, -10.008, 0.0, 2, {"top_z": 10.01, "bottom_z": 0.0}),
     ],
 )
 def test_a_finer_sheets_zs_carry_onto_a_coarser_dro_by_one_shift_or_none(
-    tmp_path, top, bottom, offset, linked
+    tmp_path, top, bottom, offset, linked, arriving
 ):
     bundle = _turned_over(tmp_path, top, bottom, offset)
     findings = coordinates.evaluate(bundle) + zero_recipe.evaluate(bundle)
     sheets = _sheets(render_traveler(bundle, findings, {}))
     first, second = bundle.plan["setups"]
+    assert _arrival(sheets[second["id"]]) == arriving
+    if linked:
+        # This row's 0.005 shift differs from its zero frame offset: the sheet must
+        # show the linked transform, not merely happen to print compatible numbers.
+        shown = _records(sheets[second["id"]], "data-transfer-state", "linked")
+        assert shown and all(
+            node["attrs"].get("data-transfer-before") == first["id"] for node in shown
+        )
     assert _check(bundle, sheets, second, first, -1, offset) == linked

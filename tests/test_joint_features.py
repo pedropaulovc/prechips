@@ -7,6 +7,7 @@ import math
 import tomllib
 
 import pytest
+from pydantic import ValidationError
 from test_envelope_m5 import bundle as envelope_bundle
 from test_envelope_m5 import measured
 from test_input_contracts import FEATURES, bundle_files
@@ -174,37 +175,77 @@ def test_valid_cylinders_still_need_collinear_positive_engagement(
 
 
 @pytest.mark.parametrize(
-    "before, after",
+    "before, after, error_path, error_type",
     [
-        ('kind = "cylinder_bore"\n', ""),
-        ('kind = "cylinder_bore"', 'kind = "unknown"'),
-        ('cite = "AUTHOR\'S CHOICE: socket preparation"\n', ""),
-        ('cite = "AUTHOR\'S CHOICE: socket preparation"', "cite = []"),
-        ("axis = [0, 0, 1]\n", ""),
-        ("axis = [0, 0, 1]", "axis = [0, 0, 2]"),
-        ("dia = [10.0, 10.125]", "dia = [10.125, 10.0]"),
-        ("nominal_dia = 10.0\n", ""),
-        ("nominal_dia = 10.0", "nominal_dia = 11.0"),
-        ("depth = 5.0", "depth = 0.0"),
-        ("depth = 5.0", "depth = inf"),
-        ("thru = false", 'thru = "unknown"'),
-        ('component = "body"', 'component = "missing"'),
-        ('socket = "socket"', 'socket = "missing"'),
-        ('socket = "socket"', 'socket = "spigot"'),
-        ('method = "silver_braze"', 'method = "press"'),
-        ('kind = "cylindrical"\n', ""),
-        ('cite = "AUTHOR\'S CHOICE: diametral fit"\n', ""),
-        ('cite = "AUTHOR\'S CHOICE: diametral fit"', 'cite = "unknown"'),
-        ('stock_in = ["B", "P"]', 'stock_in = "B"'),
+        ('kind = "cylinder_bore"\n', "", ("joint_features", "socket", "kind"), "missing"),
+        (
+            'kind = "cylinder_bore"',
+            'kind = "unknown"',
+            ("joint_features", "socket", "kind"),
+            "literal_error",
+        ),
+        (
+            'cite = "AUTHOR\'S CHOICE: socket preparation"\n',
+            "",
+            ("joint_features", "socket", "cite"),
+            "missing",
+        ),
+        (
+            'cite = "AUTHOR\'S CHOICE: socket preparation"',
+            "cite = []",
+            ("joint_features", "socket"),
+            "value_error",
+        ),
+        ("axis = [0, 0, 1]\n", "", ("joint_features", "socket", "axis"), "missing"),
+        ("axis = [0, 0, 1]", "axis = [0, 0, 2]", ("joint_features", "socket"), "value_error"),
+        (
+            "dia = [10.0, 10.125]",
+            "dia = [10.125, 10.0]",
+            ("joint_features", "socket"),
+            "value_error",
+        ),
+        ("nominal_dia = 10.0\n", "", ("joint_features", "socket", "nominal_dia"), "missing"),
+        ("nominal_dia = 10.0", "nominal_dia = 11.0", ("joint_features", "socket"), "value_error"),
+        ("depth = 5.0", "depth = 0.0", ("joint_features", "socket"), "value_error"),
+        ("depth = 5.0", "depth = inf", ("joint_features", "socket", "depth"), "finite_number"),
+        ("thru = false", 'thru = "unknown"', ("joint_features", "socket", "thru"), "bool_type"),
+        ('component = "body"', 'component = "missing"', (), "value_error"),
+        ('socket = "socket"', 'socket = "missing"', (), "value_error"),
+        ('socket = "socket"', 'socket = "spigot"', (), "value_error"),
+        ('method = "silver_braze"', 'method = "press"', ("setups", 2, "joint"), "value_error"),
+        ('kind = "cylindrical"\n', "", ("setups", 2, "joint"), "missing"),
+        ('cite = "AUTHOR\'S CHOICE: diametral fit"\n', "", ("setups", 2, "joint"), "missing"),
+        (
+            'cite = "AUTHOR\'S CHOICE: diametral fit"',
+            'cite = "unknown"',
+            ("setups", 2, "joint"),
+            "value_error",
+        ),
+        ('stock_in = ["B", "P"]', 'stock_in = "B"', (), "value_error"),
         (
             'process = "AUTHOR\'S CHOICE: prepare, inspect and join coaxial components"',
             'process = "unknown"',
+            ("setups", 2, "joint"),
+            "value_error",
         ),
     ],
 )
-def test_malformed_joint_identity_or_known_geometry_is_bad_input(tmp_path, before, after):
-    with pytest.raises(BadInput):
+def test_malformed_joint_identity_or_known_geometry_is_bad_input(
+    tmp_path, before, after, error_path, error_type
+):
+    control = _load(tmp_path, _plan())
+    (fit,) = joints.evaluate_fit(control)
+    assert fit.status == "pass"
+    with pytest.raises(BadInput) as caught:
         _load(tmp_path, _plan().replace(before, after, 1))
+    cause = caught.value.__cause__
+    assert isinstance(cause, ValidationError)
+    errors = cause.errors()
+    assert any(
+        (error["loc"][: len(error_path)] == error_path if error_path else error["loc"] == ())
+        and error["type"] == error_type
+        for error in errors
+    ), errors
 
 
 def test_through_socket_still_requires_finite_positive_depth(tmp_path):

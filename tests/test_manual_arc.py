@@ -156,6 +156,44 @@ def on_grid(value, step=0.001):
     return abs(value / step - round(value / step)) < 1e-6
 
 
+def assert_printed_chord_band(table, band, scale=1.0):
+    """Intersect the cutter's inward tangent lines in physical mm, not reported radii."""
+    centre = [v * scale for v in table["centre_setup_xy"]]
+    lines = []
+    for chord in table["chords"]:
+        cut = chord["cut"]
+        assert cut["along"] in ("X", "Y")
+        # This fixture's dial rises clockwise; undo its physical clockwise index.
+        angle = math.radians(cut["index_deg"] or 0.0)
+        c, s = math.cos(angle), math.sin(angle)
+        normal = [-s, c] if cut["along"] == "X" else [c, s]
+        tangent = [c, s] if cut["along"] == "X" else [-s, c]
+        level = cut["at"] * scale
+        centre_level = sum(a * b for a, b in zip(normal, centre, strict=True))
+        scrap = math.copysign(1.0, level - centre_level)
+        lines.append((normal, level - scrap * 3.0, tangent, cut))
+
+    def join(first, second):
+        (a, da, _, _), (b, db, _, _) = first, second
+        det = a[0] * b[1] - a[1] * b[0]
+        assert abs(det) > 1e-9
+        return [(da * b[1] - a[1] * db) / det, (a[0] * db - da * b[0]) / det]
+
+    corners = [join(lines[k - 1], line) for k, line in enumerate(lines)]
+    for k, (_, _, tangent, cut) in enumerate(lines):
+        a, b = corners[k], corners[(k + 1) % len(corners)]
+        # The printed finite stroke must reach both joins, not merely its infinite line.
+        ends = sorted([cut["from"] * scale, cut["to"] * scale])
+        for point in (a, b):
+            feed = sum(v * t for v, t in zip(point, tangent, strict=True))
+            assert ends[0] - 1e-6 <= feed <= ends[1] + 1e-6
+        delta = [b[i] - a[i] for i in range(2)]
+        fraction = sum((centre[i] - a[i]) * delta[i] for i in range(2)) / sum(v * v for v in delta)
+        near = [a[i] + min(1.0, max(0.0, fraction)) * delta[i] for i in range(2)]
+        assert math.dist(centre, near) >= band[0] - 1e-6
+        assert max(math.dist(centre, a), math.dist(centre, b)) <= band[1] + 1e-6
+
+
 def change(path, old, new):
     """Rewrite the first ``old`` in the scratch file ``path`` as ``new``."""
     text = path.read_text(encoding="utf-8")
@@ -338,7 +376,7 @@ def test_a_rough_stair_stands_off_the_line_by_a_nonnegative_leave(tmp_path, key,
             op(20, "rough_profile", "{ method = 'chain_drill', pitch_mm = 5.0 }", tool="drill"),
             {},
         ),
-        (op(20, "finish_profile", "{ method = 'chords', count = 24 }"), {}),
+        (op(20, "finish_profile", "{ method = 'chords', count = 24 }", approach_mm=2.0), {}),
         (
             DRILL_BORE
             + op(
@@ -374,6 +412,38 @@ def test_a_leave_inside_the_finished_part_is_an_error_however_the_op_cuts(
             for p in row.numbers["profiles"]
             if p["op"] == 20 and isinstance(p["cutter_centre"], list)
         ]
+        return
+    printed = arcs(row, 20)
+    if "chain_drill" in ops:
+        # A chain alone leaves at least a drill radius, exceeding this shop's filing cap.
+        assert row.status == "error", row.sentence
+        assert row.numbers["arc_errors"]
+        assert not printed
+        (profile,) = [p for p in row.numbers["profiles"] if p["op"] == 20]
+        assert profile["offset_mm"] == pytest.approx(1.5 + leave)
+        assert profile["cutter_centre"] == "unknown"
+    elif "chords" in ops or "rotary_table" in ops:
+        assert row.status == "pass", row.sentence
+        assert len(printed) == 2
+        stages = {table["stage"]: table for table in printed}
+        assert set(stages) == {"rough", "finish"}
+        for stage, allowance in (("rough", leave), ("finish", 0.0)):
+            table = stages[stage]
+            assert table["allowance_mm"] == allowance
+            assert table["offset_mm"] == pytest.approx(3.0 + allowance)
+            assert table["cutter_centre_radius_mm"] == pytest.approx(13.0 + allowance)
+            assert len(table["rows"]) > 1
+            if "rotary" in table:
+                assert table["rotary"]["offset_x"] == pytest.approx(13.0 + allowance)
+            else:
+                assert len(table["chords"]) == 24
+                assert_printed_chord_band(table, (9.9 + allowance, 10.1 + allowance))
+    else:
+        # These pocket aliases author no contour: coordinates accepts the allowance but
+        # must not invent a tool path or claim that absent stage geometry is known.
+        assert row.status == "pass", row.sentence
+        assert not printed
+        assert not [p for p in row.numbers["profiles"] if p["op"] == 20]
 
 
 CHAIN = op(
@@ -576,6 +646,7 @@ def test_chords_are_proven_inside_the_band_with_cuts_on_the_dro_grid(tmp_path):
         assert cut["along"] == "X" and on_grid(cut["index_deg"], 0.1)
         assert all(on_grid(cut[key]) for key in ("at", "from", "to"))
     assert all(on_grid(v) for r in table["rows"] for v in r["dro_xy"])
+    assert_printed_chord_band(table, (9.9, 10.1))
 
 
 def test_slanted_chords_without_a_rotary_table_are_an_error(tmp_path):
@@ -629,8 +700,51 @@ def test_rotary_table_recipe_locks_the_offset_and_reads_the_dial_on_its_vernier(
     assert recipe["offset_axis"] == "X" and recipe["offset_x"] == pytest.approx(13.0)
     assert recipe["resolution_deg"] == 0.1 and recipe["sweep_deg"] == 360.0
     assert on_grid(recipe["start_deg"], 0.1) and recipe["start_deg"] == recipe["stop_deg"]
-    assert recipe["rotation"] in {"clockwise", "counterclockwise"}
+    assert recipe["rotation"] == "clockwise"
     assert recipe["work_radius_mm"] <= recipe["max_work_radius_mm"]
+
+
+@pytest.mark.parametrize("spindle", ["cw", "ccw"])
+@pytest.mark.parametrize("feed", ["conventional", "climb"])
+@pytest.mark.parametrize("shape", ["convex-full", "convex-partial", "concave-partial"])
+def test_rotary_feed_turns_the_work_back_from_the_physical_cut(tmp_path, spindle, feed, shape):
+    # At the rightmost point a CW cutter moves down its left (convex) contact side.
+    # Conventional traverse moves the cutter up, hence turns the work clockwise;
+    # an inside contact, reversed spindle, or climb feed each reverses that turn.
+    if shape == "convex-full":
+        target, sweep, ends = ARC, 360.0, (0.0, 0.0)
+    elif shape == "convex-partial":
+        target = (
+            "kind = 'profile'\nrequirements = ['radius']\nradius = [9.9, 10.1]\n"
+            "radius_nominal = 10.0\narc_centre = [20.0, 10.0, 0.0]\n"
+            "arc = 'upper_semicircle'\n"
+        )
+        sweep, ends = 180.0, (0.0, 180.0)
+    else:
+        target = (
+            "kind = 'profile'\nrequirements = ['radius']\nradius = [9.9, 10.1]\n"
+            "radius_nominal = 10.0\narc_centre = [20.0, 10.0, 0.0]\n"
+            "end = [26.0, 2.0]\n"
+        )
+        sweep, ends = 73.6, (233.2, 306.8)
+    plan = rotary_plan(tmp_path, target=target, step=1.0)
+    change(plan.with_name("inventory.toml"), "rotation = 'cw'", f"rotation = '{spindle}'")
+    if feed != "conventional":
+        change(plan, "direction = 'conventional'", f"direction = '{feed}'")
+        change(plan, "direction = 'conventional'", f"direction = '{feed}'")
+    row = coordinates_row(plan, stock_bbox=SWING)
+    assert row.status == "pass", row.sentence
+    (table,) = arcs(row, 20)
+    recipe = table["rotary"]
+    clockwise = (spindle == "cw") == (feed == "conventional")
+    if shape == "concave-partial":
+        clockwise = not clockwise
+    assert recipe["rotation"] == ("clockwise" if clockwise else "counterclockwise")
+    start, stop = ends if clockwise else ends[::-1]
+    assert recipe["start_deg"] == pytest.approx(start)
+    assert recipe["stop_deg"] == pytest.approx(stop)
+    assert recipe["sweep_deg"] == pytest.approx(sweep)
+    assert recipe["offset_x"] == pytest.approx(7.0 if shape == "concave-partial" else 13.0)
 
 
 def short_arc(tmp_path, span, vernier, clock):
@@ -871,17 +985,30 @@ def test_filing_to_buttons_through_the_axis_bore_files_inside_the_band(tmp_path)
 # The guide's kit and the hold's fixture are one item however each spells it: the kit is
 # held, so the band is proven, never a "not in the hold" debt.
 @pytest.mark.parametrize(
-    ("guide", "hold"),
+    ("guide", "hold", "owner"),
     [
-        (BUTTONS.replace("'buttons'", "'fixtures.buttons'"), "fixture = 'buttons'"),
-        (BUTTONS, "fixture = 'fixtures.buttons'"),
+        (BUTTONS.replace("'buttons'", "'fixtures.buttons'"), "fixture = 'buttons'", "buttons"),
+        (BUTTONS, "fixture = 'fixtures.buttons'", "fixtures.buttons"),
+        (
+            BUTTONS,
+            "fixture = 'unknown'\nclamps = [{ ref = 'fixtures.buttons' }]",
+            "clamp 1 fixtures.buttons",
+        ),
     ],
-    ids=["guide-qualified", "hold-qualified"],
+    ids=["guide-qualified", "hold-qualified", "clamp-qualified"],
 )
-def test_filing_buttons_are_held_however_the_guide_and_hold_spell_them(tmp_path, guide, hold):
-    row = filing(tmp_path, guide, hold=hold)
+def test_filing_buttons_are_held_however_the_guide_and_hold_spell_them(
+    tmp_path, guide, hold, owner
+):
+    plan = scratch(
+        tmp_path, DRILL_BORE + STAIRS + bench_op(30, "file_to_line", guide=guide), hold=hold
+    )
+    row = manual_row(plan, 30)
     assert row.status == "pass", row.sentence
     assert row.numbers["guide"]["files_to_mm"] == pytest.approx([9.963, 10.032])
+    filed = _filing_input(plan)
+    assert filed["guide_owner"] == owner
+    assert filed["guide_rim_dia_mm"] == pytest.approx([19.926, 20.064])
 
 
 # Each element of the stack, given more tolerance, widens the worst-case filed band.
@@ -928,7 +1055,8 @@ def _filing_input(plan):
 def test_the_kernel_finds_the_buttons_by_the_rim_band_the_stack_files_to(tmp_path):
     plan = scratch(tmp_path, FILE_BY_BUTTONS, hold="fixture = 'buttons'")
     change(plan.with_name("inventory.toml"), "[19.99, 20.0]", "[19.98, 19.993]")
-    reach = manual_row(plan, 30).numbers["guide"]["files_to_mm"]
+    reach = [9.958, 10.0285]
+    assert manual_row(plan, 30).numbers["guide"]["files_to_mm"] == pytest.approx(reach)
     filed = _filing_input(plan)
     assert filed["guide_owner"] == "buttons"
     low, high = filed["guide_rim_dia_mm"]
@@ -1255,6 +1383,7 @@ def test_inch_chords_offset_the_millimetre_cutter_inside_the_band_in_millimetres
     for chord in table["chords"]:
         low, high = chord["face_radius_mm"]
         assert band[0] - 1e-6 <= low <= high <= band[1] + 1e-6
+    assert_printed_chord_band(table, band, scale=25.4)
     # Each printed cutter-centre corner sits about a 3 mm cutter radius outside R1 in.
     for r in table["rows"]:
         assert math.dist(r["dro_xy"], table["centre_setup_xy"]) == pytest.approx(

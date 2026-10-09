@@ -724,6 +724,234 @@ def test_an_unbounded_pocket_lowers_another_entry_only_where_its_feature_holds_i
     assert end["dro_tip_z"] == pytest.approx(tip)
 
 
+@pytest.mark.parametrize("feature_bounds", [False, True], ids=["op-box-only", "also-feature-box"])
+def test_an_operation_box_lowers_only_the_entries_it_wholly_cuts(tmp_path, feature_bounds):
+    box = {"x": [0.0, 10.0], "y": [0.0, 10.0], "z": [-4.0, 0.0]}
+    plan = coordinate_bundle(
+        tmp_path,
+        "kind = 'hole'\nat = [5.0, 5.0, 0.0]\ndia = [2.0, 2.0]\n"
+        "[features.pocket]\nkind = 'pocket'\nframe = 'model'\nrequirements = []\n",
+        "[[setups.ops]]\nop = 10\ndo = 'rough_pocket'\nfeature = 'pocket'\n"
+        "tool = 'cutter'\nto_z = -4.0\n"
+        "stock_removal_bounds = { x = [0.0, 10.0], y = [0.0, 10.0], z = [-4.0, 0.0] }\n"
+        "[[setups.ops]]\nop = 20\ndo = 'drill'\nfeature = 'target'\ntool = 'drill'\n",
+    )
+    bundle = load_bundle(plan)
+    setup = bundle.plan["setups"][0]
+    setup["frame"] = "model"
+    features = bundle.feature_definitions
+    if feature_bounds:
+        features["pocket"]["bounds"] = box
+    features.update(
+        edge={"kind": "hole", "frame": "model", "at": [9.5, 5.0, 0.0], "dia": [2.0, 2.0]},
+        outside={"kind": "hole", "frame": "model", "at": [20.0, 5.0, 0.0], "dia": [2.0, 2.0]},
+        unresolved={"kind": "hole", "frame": "model", "dia": [2.0, 2.0]},
+    )
+    setup["stock_state"]["entry_z"] = dict.fromkeys(
+        ("target", "edge", "outside", "unresolved"), 0.0
+    )
+    cut = setup["ops"][0]
+    assert {
+        name: tip_endpoints.cut_coverage(bundle, setup, cut, features[name])
+        for name in ("target", "edge", "outside", "unresolved")
+    } == {"target": "whole", "edge": "partial", "outside": "partial", "unresolved": "unknown"}
+    (_, _, after), (_, before_drill, _) = stock_states(bundle, setup)
+    assert after["entry_z"] == {
+        "target": -4.0,
+        "edge": 0.0,
+        "outside": 0.0,
+        "unresolved": "unknown",
+    }
+    assert after["entry_from"] == {
+        "target": "S1 op 10 to_z",
+        "edge": "S1 stock_state.entry_z.edge",
+        "outside": "S1 stock_state.entry_z.outside",
+        "unresolved": "unknown",
+    }
+    assert before_drill["entry_z"] == after["entry_z"]
+    assert after["top_z"] == 0.0 and after["top_from"] == "S1 stock_state.top_z"
+
+
+@pytest.mark.parametrize("lowered", [False, True], ids=["received-entry", "earlier-cut-entry"])
+@pytest.mark.parametrize("through", [False, True], ids=["blind", "through"])
+@pytest.mark.parametrize(
+    ("floor", "span", "entry", "produced"),
+    [
+        (-2.0, [-2.0, 0.0], -4.0, False),
+        (-2.0, [-6.0, 0.0], -4.0, False),
+        (-6.0, [-6.0, -5.0], -4.0, False),
+        (-6.0, [-6.0, -4.0], -6.0, True),
+        (-4.0, [-4.0, 0.0], -4.0, True),
+        (-4.0 + tip_endpoints.SAME_Z / 2, [-4.0, 0.0], -4.0, True),
+        (-4.0 + 2 * tip_endpoints.SAME_Z, [-4.0, 0.0], -4.0, False),
+    ],
+    ids=[
+        "higher-box-above",
+        "higher-box-overlaps",
+        "lower-box-below",
+        "lowering",
+        "same-plane",
+        "same-plane-float-residue",
+        "higher-floor-outside-plane-tolerance",
+    ],
+)
+def test_a_boxed_cut_preserves_the_entry_it_does_not_remove(
+    tmp_path, lowered, through, floor, span, entry, produced
+):
+    # The local entry is already Z -4, either received or made by op 10. A later
+    # higher floor cannot restore its stock, even when its box includes that plane.
+    # Nor can a lower, disconnected removal box cut through the unremoved cap.
+    # A float-equivalent higher stop may own the producer, but must never raise
+    # the stored entry; a stop just outside SAME_Z retains the prior source.
+    first = (
+        "[[setups.ops]]\nop = 10\ndo = 'rough_pocket'\nfeature = 'pocket'\n"
+        "tool = 'cutter'\nto_z = -4.0\n"
+        "stock_removal_bounds = { x = [0.0, 10.0], y = [0.0, 10.0], z = [-4.0, 0.0] }\n"
+        if lowered
+        else ""
+    )
+    plan = coordinate_bundle(
+        tmp_path,
+        "kind = 'hole'\nat = [5.0, 5.0, -4.0]\ndia = 6.0\n"
+        f"thru = {str(through).lower()}\ndepth = [2.9, 5.0]\n"
+        "[features.pocket]\nkind = 'pocket'\nframe = 'model'\nrequirements = []\n",
+        first + "[[setups.ops]]\nop = 20\ndo = 'rough_pocket'\nfeature = 'pocket'\n"
+        f"tool = 'cutter'\nto_z = {floor}\n"
+        f"stock_removal_bounds = {{ x = [0.0, 10.0], y = [0.0, 10.0], z = {span} }}\n"
+        "[[setups.ops]]\nop = 30\ndo = 'drill'\nfeature = 'target'\ntool = 'drill'\n"
+        + ("exit_mm = 0.5\n" if through else "depth_mm = 3.0\n"),
+    )
+    bundle = load_bundle(plan)
+    setup = bundle.plan["setups"][0]
+    setup["frame"] = "model"
+    setup["stock_state"]["entry_z"] = {"target": 0.0 if lowered else -4.0}
+    bundle.inventory["machines"]["mill"]["resolution_mm"] = 0.005
+    states = {op["op"]: (before, after) for op, before, after in stock_states(bundle, setup)}
+    prior = "S1 op 10 to_z" if lowered else "S1 stock_state.entry_z.target"
+    source = "S1 op 20 to_z" if produced else prior
+    before, after = states[20]
+    assert before["entry_z"]["target"] == -4.0
+    assert before["entry_from"]["target"] == prior
+    assert after["entry_z"]["target"] == entry
+    assert after["entry_from"]["target"] == source
+    assert states[30][0]["entry_z"]["target"] == entry
+    assert states[30][0]["entry_from"]["target"] == source
+    assert after["top_z"] == 0.0 and after["top_from"] == "S1 stock_state.top_z"
+    (row,) = (r for r in tip_endpoints.evaluate(bundle) if r.subject == "target")
+    (end,) = row.numbers["endpoints"]
+    assert row.status == "pass"
+    assert row.to_dict()["cite"] == [
+        "PLAN.md §4.1 tip endpoints",
+        "features manifest hole geometry",
+        "plan stock_state and operation depth/exit",
+        "inventory selected tool geometry",
+    ]
+    assert end["entry_from"] == source
+    assert end["entry_z"] == end["dro_entry_z"] == entry
+    point = 6.0 / (2 * math.tan(math.radians(59.0)))
+    assert end["point_mm"] == pytest.approx(point)
+    assert end["tip_z"] == pytest.approx(entry - (10.5 if through else 3.0) - point)
+    assert end["dro_tip_z"] == pytest.approx(entry - (12.3 if through else 4.8))
+    if through:
+        assert end["local_thickness"] == 10.0
+        assert end["exit_face"] == end["dro_exit_face"] == entry - 10.0
+        assert end["dro_exit_mm"] == pytest.approx(2.3 - point)
+    else:
+        assert end["exit_face"] == "not_applicable"
+        assert end["total_depth_mm"] == pytest.approx(3.0 + point)
+        assert end["dro_depth_mm"] == pytest.approx(4.8 - point)
+
+
+@pytest.mark.parametrize(
+    ("entry", "span", "floor"),
+    [
+        (0.0, None, -4.0),
+        (0.0, "unknown", -4.0),
+        (0.0, [], -4.0),
+        (0.0, [0.0, -4.0], -4.0),
+        (0.0, [-4.0, -4.0], -4.0),
+        (0.0, [-3.0, 0.0], -4.0),
+        ("unknown", [-4.0, 0.0], -4.0),
+        (0.0, [-4.0, 0.0], "unknown"),
+    ],
+    ids=[
+        "missing-z",
+        "unknown-z",
+        "empty-z",
+        "reversed-z",
+        "flat-z",
+        "floor-outside",
+        "entry-debt",
+        "unknown-to-z",
+    ],
+)
+def test_a_boxed_cut_cannot_resolve_an_entry_without_known_removal_z(tmp_path, entry, span, floor):
+    plan = coordinate_bundle(
+        tmp_path,
+        "kind = 'hole'\nat = [5.0, 5.0, 0.0]\ndia = 6.0\nthru = false\ndepth = 5.0\n"
+        "[features.pocket]\nkind = 'pocket'\nframe = 'model'\nrequirements = []\n",
+        "[[setups.ops]]\nop = 10\ndo = 'rough_pocket'\nfeature = 'pocket'\n"
+        "tool = 'cutter'\nto_z = -4.0\n"
+        "stock_removal_bounds = { x = [0.0, 10.0], y = [0.0, 10.0], z = [-4.0, 0.0] }\n"
+        "[[setups.ops]]\nop = 20\ndo = 'drill'\nfeature = 'target'\ntool = 'drill'\n"
+        "depth_mm = 3.0\n",
+    )
+    bundle = load_bundle(plan)
+    setup = bundle.plan["setups"][0]
+    setup["frame"] = "model"
+    setup["stock_state"]["entry_z"] = {"target": entry}
+    setup["ops"][0]["to_z"] = floor
+    box = setup["ops"][0]["stock_removal_bounds"]
+    if span is None:
+        box.pop("z")
+    else:
+        box["z"] = span
+    (_, _, after), (_, before_drill, _) = stock_states(bundle, setup)
+    assert after["entry_z"] == before_drill["entry_z"] == {"target": "unknown"}
+    assert after["entry_from"] == before_drill["entry_from"] == {"target": "unknown"}
+    (row,) = (r for r in tip_endpoints.evaluate(bundle) if r.subject == "target")
+    (end,) = row.numbers["endpoints"]
+    assert row.status == "unknown"
+    assert end["entry_from"] == end["entry_z"] == end["tip_z"] == "unknown"
+    assert end["dro_entry_z"] == end["dro_tip_z"] == "unknown"
+
+
+def test_rocker_seeded_final_entry_keeps_the_finishing_ops_source_and_endpoints():
+    bundle = load_bundle(ROCKER)
+    setup = next(s for s in bundle.plan["setups"] if s["id"] == "S2")
+    # The seed is the eventual strap face, not the raw material above the hub.
+    # Only op 20 cuts that plane; equality must still credit its as-cut DRO Z.
+    assert setup["stock_state"]["top_z"] == 4.44825
+    assert setup["stock_state"]["entry_z"]["rod_hole"] == -2.27825
+    states = {op["op"]: (before, after) for op, before, after in stock_states(bundle, setup)}
+    for op in (5, 10, 15):
+        assert states[op][1]["entry_z"]["rod_hole"] == -2.27825
+        assert states[op][1]["entry_from"]["rod_hole"] == "S2 stock_state.entry_z.rod_hole"
+    assert states[5][1]["top_z"] == 0.2
+    assert states[10][1]["top_z"] == states[20][1]["top_z"] == 0.0
+    assert states[20][1]["entry_from"]["rod_hole"] == "S2 op 20 to_z"
+    (row,) = (r for r in tip_endpoints.evaluate(bundle) if r.subject == "rod_hole")
+    assert row.status == "pass"
+    spot, drill, ream = row.numbers["endpoints"]
+    assert [end["op"] for end in (spot, drill, ream)] == [32, 33, 34]
+    for end in (spot, drill, ream):
+        assert end["entry_z"] == -2.27825
+        assert end["entry_from"] == "S2 op 20 to_z"
+        assert end["dro_entry_z"] == -2.275
+    assert spot["tip_z"] == pytest.approx(-2.77825)
+    assert spot["dro_tip_z"] == -2.775
+    for end in (drill, ream):
+        assert end["local_thickness"] == 2.5235
+        assert end["exit_face"] == pytest.approx(-4.80175)
+        assert end["dro_exit_face"] == -4.8
+    assert drill["tip_z"] == pytest.approx(
+        -4.80175 - 1.85 / (2 * math.tan(math.radians(59.0))) - 1.5
+    )
+    assert drill["dro_tip_z"] == -6.855
+    assert ream["tip_z"] == pytest.approx(-6.70175)
+    assert ream["dro_tip_z"] == -6.7
+
+
 def test_an_op_naming_a_feature_list_proves_no_cut_of_any_surface(tmp_path):
     # Only an inspect op names a list; it cuts no one feature, so it covers nothing.
     bundle, setup = left_strip_faced(tmp_path)

@@ -77,10 +77,13 @@ or machining approval.
 are not file assets fetched or opened during the check. Python citations use
 `file:line` or line ranges; YAML citations use `file:dotted.key.path`.
 M3 exports replace the three drawn pilots' handwritten manifests; the bracket's
-absence of a dimensioned drawing remains explicit. Preserve exports verbatim, including
-unknown requirements and omitted optional fields: do not backfill facts from
-the superseded hand-authored manifests. Delivery provenance belongs in
-[examples/README.md](../examples/README.md), not extra manifest keys.
+absence of a dimensioned drawing remains explicit. Preserve source exports,
+unknown requirements and omitted optional fields except for user-approved,
+labelled [example divergences](../examples/README.md#example-divergences-from-consumer-exports).
+These illustrative examples are not verbatim source manifests. Do not silently
+backfill facts from superseded handwritten manifests.
+Delivery provenance and divergence authority belong beside the examples, not
+in extra manifest keys.
 Citation collection discards blank and `"unknown"` entries individually, without
 losing other known sources in the list. A per-dimension citation map supplies only
 the requested fact; whole-record provenance is collected in sorted key order.
@@ -134,16 +137,13 @@ child. Saw stock cuts may omit a feature entirely and never establish coverage
 or surface-finish credit for a manifest face.
 
 The optional root `volume_mm3` and `volume_cite` hold a sourced finished-part
-volume for stock comparison. Missing or unverified volume remains `"unknown"`;
+volume for the generic `compare` command's stock comparison. Missing or
+unverified volume remains `"unknown"`;
 prechips never substitutes a feature bounding box, guessed cone subtraction,
 or stock volume. Drawing `construction = "one_piece"` does not permit a
 built-up candidate; permission requires the literal `"built_up_permitted"`.
 Unknown or omitted drawing permission retains the one-piece-only restriction;
 it never permits built-up construction. A one-piece candidate needs no permission.
-
-In particular, the current cone export omits `volume_mm3` and `volume_cite`.
-Its finished volume/waste therefore stay unknown despite the older
-hand-authored fixture's analytic-volume citation.
 
 All five inputs are UTF-8 TOML, parsed by `tomllib` and strict Pydantic 2
 models in `src/prechips/model.py`. Unknown keys are forbidden at every modeled

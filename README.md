@@ -16,24 +16,23 @@ measurement checklist. It checks declared facts and sampled B-rep measurements,
 not a CAM simulation or a CAD model's machinability, and does not generate
 toolpaths.
 
-The local M1 implementation, PR #5 review corrections, M2 declared-input
-feasibility rules, M3 consumer-export bundles, M4 kernel rules and M5
-measured-inventory screens are present. M4 also delivers `approach = "rotary"`:
-horizontal dividing-head samples presented at top dead centre to a vertical
+The reference bundles include consumer-exported geometry. With `approach = "rotary"`,
+M4 evaluates horizontal dividing-head samples presented at top dead centre to a vertical
 cutter, with window-bounded radial and wall-tangent cutter-column removal
 outside the finished part. Op windows may claim part of a face; coverage and
 finish coverage need the exact union of the claiming windows to cover the
-whole face. This is sampled geometry, not continuous toolpath
-proof. The combined integration gate remains unobserved for this delivery;
-physical paper rehearsal and live prechips farm/App Insights acceptance remain
-pending. Exported CAD inputs are not evidence of those gates.
-See [PLAN.md](PLAN.md) for milestone status and unobserved acceptance work.
+whole face. This is sampled geometry, not continuous toolpath proof.
+Local artifact validation ran all four reference travelers twice; all eight
+invocations exited 0, and the two generations produced 48 byte-identical output
+files. The example validator passed for 26 TOML inputs, four reference bundles
+and seven geometry controls. A final full-suite run and the combined ten-minute
+CI gate remain unobserved for this delivery. Physical paper rehearsal,
+first-article machining and live prechips farm/App Insights acceptance also
+remain unobserved. Exported CAD inputs and artifact validation do not establish
+those acceptances. See [PLAN.md](PLAN.md) for the current contract and remaining
+acceptance work.
 
-The traveler readability work changes document structure and picture layout only;
-machining facts, authored procedures, rule outcomes and input schemas remain
-unchanged. Current-candidate validation, page review, native capture comparison
-and golden regeneration are pending. Earlier local checks are historical evidence,
-recorded separately in [examples/README.md](examples/README.md#dro-and-print-surfaces).
+See the example guide's [print and native acceptance limits](examples/README.md#print-and-native-acceptance-limits).
 
 ## Install and check
 
@@ -59,13 +58,24 @@ Without a kernel, geometry-dependent tests skip with `FreeCAD kernel not found`;
 the remaining tests still run, including explicit absent-kernel contracts.
 Set `PRECHIPS_REQUIRE_KERNEL=1` to make a missing kernel a test-session error.
 CI requires it and caches the official FreeCAD 1.1.0 Linux AppImage, pinned by
-version and SHA-256 and extracted without FUSE. The product still reports
-unknown geometry (`?`, exit 4) without FreeCAD; skips do not change that behavior.
+version and SHA-256 and extracted without FUSE. It runs the complete suite with
+two pytest workers and load-scope scheduling, caps extra native workers at one,
+records durations (complete in JUnit) and uploads the pytest log and JUnit
+results even on failure. Successful geometry results persist across runs in a
+cache namespaced by runner OS/architecture, pinned AppImage SHA-256, cache epoch
+and engine source digest. Each immutable save key also includes the run ID and
+attempt; restore uses the matching namespace prefix. Only successful test jobs
+publish the per-run cache.
+The product reports unknown geometry (`?`, exit 4) without FreeCAD;
+skips do not change that behavior.
+CI also sets `PRECHIPS_REQUIRE_PRINT_BROWSER=1`: a missing or unlaunchable
+print browser fails the session instead of skipping browser-print contracts.
+Local browser discovery remains optional. Browser PDF proof does not replace
+physical paper rehearsal.
 
-These are development commands, not claims that this documentation change ran
-them. The example validator checks the authored fixture contract; it is not a
-machining checker and its successful exit is 0 even when examples correctly
-stop with 4 or 2.
+Run these locally; the example validator checks the authored fixture contract.
+Its successful exit is 0 even when a checker/traveler output correctly stops
+with 4 or 2. It does not certify machining.
 
 ## Run the examples
 
@@ -78,8 +88,8 @@ uv run prechips traveler examples/pivot-bracket/plan.toml --out out/pivot-bracke
 uv run prechips traveler examples/cone-pivot-post/built-up.toml --out out/cone-pivot-post
 ```
 
-Current expected consumer CLI exits are **0 / 0 / 0 / 0** for shaft, rocker,
-bracket and cone built-up respectively (see [example evidence](examples/README.md)).
+See the [expected consumer CLI exits](examples/README.md#expected-consumer-cli-exits)
+for the four reference bundles.
 Inspection choices follow the exported feature owners. Missing
 tooling, holding and inspection capability keep their stops. The cone example
 carries explicitly labelled construction, signed-station, step-corner and copied
@@ -87,8 +97,10 @@ length/height-band divergences from the upstream export; these are not claims
 that the original drawing or export was corrected.
 Lathe geometry uses a radial sampled turning screen with modeled chuck obstacles;
 spindle-axis drilling actions retain the axial approach. Neither proves a toolpath.
-Only the consumer side of M3 is done; the HA follow-ups and the combined gate
-evidence are in PLAN §8 M3. Outputs are still written for exits 2 and 4.
+PLAN §8 M3 records the upstream follow-ups identified at harmonic-analyzer
+`b11124ecf`, local artifact/validator evidence and remaining acceptance gates;
+current HA status is not observed.
+Outputs are still written for exits 2 and 4.
 All example plans remain **authored** and their sheets **PLANNED**. The shaft
 and rocker consume harmonic-analyzer `features.toml` exports; the cone records
 its example divergences beside the affected fields. Each keeps its adjacent
@@ -141,7 +153,7 @@ package version. `--json` and `--verbose` default off.
   Machine rows also show the envelope with measured/unmeasured markers.
   **tools --measure** lists the measurement debt behind the current reports:
   every `numbers.measurements` entry an unresolved finding emits for the given
-  `--plan` files (default: the five shipped example plans), sorted and
+  `--plan` files (default: the four shipped example plans), sorted and
   deduplicated by exact report id, set members and tool/holder pairs included,
   each with what to measure, instrument, units and citation. It is not an
   inventory-wide field walk: nothing no rule reads is listed, and it adds no
@@ -234,9 +246,12 @@ and tool/holder projection need a fact-local
 measurement, and nothing is inherited from a block, item root or source. The
 mill's limits live only in `machines.PM-30MV.envelope` (travel X/Y/Z,
 spindle-to-table max/min), read by `headroom`, `envelope` and `travel` alike;
-the vendor nominals remain unchanged and `verify = true`, minimum clearance,
-vise bed height and every holder gauge/grip stay `"unknown"`, and no tool
-carries a projection yet. A tool's projection is a per-holder map
+the vendor nominals remain unchanged and `verify = true`. The example PM 6 in
+vise has a fact-local measured table-to-bed height of 2.886 in without the
+swivel base; its other measurements and provenance are in the
+[example guide](examples/README.md#files-and-expected-exits). Other example
+dimensions may be labelled plausible, not measured, and do not establish real
+shop capability. A tool's projection is a per-holder map
 (`tools.<tool>.projection_mm.<full holder ref>`), never a holder-wide or
 tool-wide number; when the selected pair has an entry that entry alone
 decides, so an `"unknown"` entry never falls back to OAL − grip, and only an
@@ -288,14 +303,17 @@ one `stock_height_mm` value and compares the transformed stock/fixture envelope
 with machine travel, not an unused nominal profile extent.
 
 A report with exit 0 is eligible, but its traveler still needs a matching report
-hash and nonblank first-article evidence to remove **PLANNED**. Approval cannot
-waive errors or required unresolved findings.
+hash and nonblank first-article evidence to remove **PLANNED**. Use one root
+record per approval file; see
+[eligibility and approval](docs/report-and-telemetry.md#eligibility-and-approval).
+Approval cannot waive errors or required unresolved findings.
 
 Indexing checks every landing; only a full pattern (`positions >= 2` and omitted
 `angle_deg`, step exactly `360 / positions`) has a closure check. Authored angles
 declare open patterns, even when their steps total a whole revolution.
-The engagement screen is for endmill-family cutting operations with an authored
-DOC; drills, reamers, taps, lathe tools and noncutting operations are not applicable.
+The engagement screen needs positive authored `doc_mm` for endmill-family
+cutting operations; omitted DOC is unresolved. Known drills, reamers, taps,
+lathe tools and noncutting operations are not applicable.
 Stick-out uses the smallest finished diameter along setup Z in the unsupported
 length, not held bar OD; unknown exposed geometry remains unresolved.
 
@@ -309,6 +327,11 @@ rows are `?` with one kernel-naming sentence on the console and exit 4; a
 kernel failure is `✗`. Successful facts are cached locally under
 `PRECHIPS_KERNEL_CACHE` (default `%LOCALAPPDATA%\prechips\geometry`) keyed by
 the STEP digest, consumed geometry inputs, engine source and kernel binary.
+A hit returns the stored facts of the
+run that produced it; the cache is not a bundle input. Fresh native runs are not
+proven bit-repeatable (see the
+[print and native acceptance limits](examples/README.md#print-and-native-acceptance-limits)).
+See the [cache contract](docs/rules-geometry.md#cache).
 Booleans known before the loop that needs them run in up to
 `PRECHIPS_KERNEL_WORKERS` extra `freecadcmd` processes (default one per spare CPU,
 at most 8; `0` keeps them in the job), with the same facts

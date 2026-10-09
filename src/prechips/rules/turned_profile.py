@@ -729,7 +729,7 @@ def evaluate(bundle):
                     "off_axis": off_axis,
                 },
                 [
-                    "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
+                    "PLAN.md §4.1 turned profile; §8 M2 spindle Z convention",
                     "features declared nominal diameters/z_mm/frame, else the kernel's "
                     "finished faces of revolution about setup Z; "
                     "plan setup frame and current/preceding grooving ops; 25.4 mm/in",

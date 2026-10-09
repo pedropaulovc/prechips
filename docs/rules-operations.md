@@ -70,9 +70,25 @@ One subject per feature, with an `endpoints` array for spot, drill, ream, tap,
 counterbore and bore operations, and for `center_drill` on a plan
 [process](plan.md#process-features) `centre_hole`.
 Stock-state facing/pocketing advances only the named or explicitly covered
-same-frame entry surfaces. Profiles never move the touched top; `top_feature`
-restricts which facing operation moves that top. Each record preserves entry
-origin, setup/op, point/lead, thickness, allowance and tip endpoint.
+same-frame entry surfaces. A known setup-frame `stock_removal_bounds` that
+contains a feature's whole X/Y footprint can advance its seeded local entry without
+requiring a redundant bounds box on the cutting op's own feature. For an operation
+with `stock_removal_bounds`, the box's Z interval must contain both the current entry
+and `to_z`. That boxed cut cannot numerically raise the entry; a higher floor outside
+the same-plane float tolerance (`SAME_Z`, 1e-9 plan units), or a box wholly above or
+below the entry, leaves its height and source unchanged. Unknown removal Z or an
+unknown entry remains debt for these boxed cuts, never a known entry inferred from
+X/Y coverage alone. A valid equal-Z boxed cut, including float residue within
+`SAME_Z`, still establishes its operation as the producer while keeping the lower
+numeric value of the current entry and `to_z`. These boxed constraints do not change
+the existing unboxed own-feature/explicit-footprint transitions.
+A seed can name the eventual hole-entry face, not the raw material
+boundary: the touched `top_z` of another feature does not replace that local entry.
+Partial coverage retains the uncut entry; unresolved coverage remains debt.
+Profiles never move the touched top; `top_feature` restricts which facing
+operation moves that top. An omitted local `entry_z` retains the existing
+stock-state top fallback. Each record preserves entry origin, setup/op,
+point/lead, thickness, allowance and tip endpoint.
 
 Arithmetic in mm: stock-state top/entry coordinates and operation `depth_mm`
 are machine millimetres even when the feature manifest uses inches. Feature
@@ -81,7 +97,9 @@ operation depth uses the upper `thread_depth`, or `depth` if no thread-depth
 field is present; an explicitly unknown operation depth does not fall back.
 
 - Drill point `P = D / (2*tan(included_point_angle/2))`, requiring D > 0 and
-  0 < angle < 180 degrees. Centre-seat angle is not drill point geometry.
+  0 < angle < 180 degrees and a finite cone length. An underflowed zero
+  tangent or nonfinite cone leaves the point length unknown; it never supplies
+  a zero-length tip. Centre-seat angle is not drill point geometry.
 - Spot: `tip_z = entry_z - depth_mm` (point is recorded, not added to spot depth).
 - Through drill: `exit_face = advanced entry_z - local_thickness[feature]`;
   `tip_z = exit_face - P - exit_mm`. A negative `exit_mm` (through ream too) is
@@ -108,8 +126,13 @@ field is present; an explicitly unknown operation depth does not fall back.
   and `countersink_angle_deg` its `angle_deg` (a centre-drill set's centre-seat
   angle, which a member may override), within 1e-6 mm / 1e-9°; `mouth_dia_mm`
   must not exceed its body (`shank`, Table 6 A); and its pilot `point_angle`
-  must be an included angle whose point (`dia / 2 / tan(point_angle / 2)`) is
-  shorter than `pilot_len`. The mouth must also be where the quill is touched:
+  must be an included angle whose finite point
+  (`dia / 2 / tan(point_angle / 2)`) is shorter than `pilot_len`.
+  An underflowed zero tangent or nonfinite pilot point, countersink depth or
+  combined centre depth remains unknown and cannot authorize native cutting
+  or centre support. The finite Table 6 drill length C stays visible as its
+  own fact; it cannot substitute for unresolved countersink geometry.
+  The mouth must also be where the quill is touched:
   `at`, transformed into the setup frame, must lie on the entry surface `entry_z`
   (1e-6 mm), `axis` must be the setup -Z feed and, on a lathe, the mouth must
   sit on the spindle axis (setup X = Y = 0, 1e-6 mm) the tailstock quill feeds

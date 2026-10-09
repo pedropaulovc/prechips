@@ -163,7 +163,8 @@ def test_a_face_with_any_normal_facing_away_is_rejected_whole(engine, solids):
     result = engine.run(engine.job(step, {"od": od}, setups))
     upright, sideways = result["ops"]["S1:10"], result["ops"]["S2:10"]
     assert upright["claim_errors"] == [] and len(upright["claimed_indices"]) == len(od)
-    assert sideways["claim_errors"] and set(sideways["claim_errors"]) <= set(od)
+    assert set(sideways["claim_errors"]) == set(od)
+    assert sideways["claimed_indices"] == []
 
 
 # --------------------------------------------------------------------------- loading
@@ -585,11 +586,11 @@ def test_stale_claim_facts_are_not_used_when_the_claimed_refs_are_unknown(bundle
     assert _rows(coverage, bundle)["block"].status == "unknown"
 
 
-LATHE_APPROACH_REASON = (
-    "turning action has no approach model off a lathe "
-    "(the turning model needs a lathe spindle on setup Z)"
-)
-NOT_TURNING_FACTS = "kernel facts for this lathe op are not turning-model facts"
+def _assert_approach_debt(row, subject, status, cause):
+    assert row.subject == subject and row.status == status
+    assert subject in row.sentence
+    assert all(term in row.sentence.lower() for term in cause), row.sentence
+    assert "claim_errors" not in row.numbers
 
 
 @pytest.mark.parametrize("rule", [accessibility, reach, internal_corner_radius])
@@ -617,11 +618,9 @@ def test_turning_actions_never_use_milling_direction_verdicts(bundle, rule, mach
     row = _rows(rule, bundle)["S1:10"]
     if machine == "lathe":
         # A lathe has a turning model, but raw -Z facts are never its facts.
-        assert row.status == "unknown" and row.sentence == f"S1:10: {NOT_TURNING_FACTS}."
+        _assert_approach_debt(row, "S1:10", "unknown", ("turning", "facts"))
     else:
-        assert row.status == "unsupported"
-        assert row.sentence == f"S1:10: {LATHE_APPROACH_REASON}."
-    assert "claim_errors" not in row.numbers
+        _assert_approach_debt(row, "S1:10", "unsupported", ("approach", "lathe"))
 
 
 @pytest.mark.parametrize("rule", [accessibility, reach, internal_corner_radius])
@@ -630,7 +629,7 @@ def test_lathe_machine_never_reads_raw_milling_facts_for_a_facing_action(bundle,
     setup["machine"] = "selected-machine"
     bundle.inventory["machines"]["selected-machine"] = {"kind": "lathe"}
     row = _rows(rule, bundle)["S1:10"]
-    assert row.status == "unknown" and row.sentence == f"S1:10: {NOT_TURNING_FACTS}."
+    _assert_approach_debt(row, "S1:10", "unknown", ("turning", "facts"))
     # The other setup is still a mill and must retain its real far-side error.
     milling = _rows(rule, bundle)["S2:10"]
     assert milling.status == "error"
@@ -749,15 +748,17 @@ def test_lathe_only_coverage_needs_turning_model_facts(bundle, raw_claimed, raw_
     cover = _rows(coverage, bundle)["block"]
     finish = _rows(finish_coverage, bundle)["ends"]
     assert cover.status == finish.status == "unsupported"
-    assert cover.sentence == f"block: {LATHE_APPROACH_REASON}."
-    assert finish.sentence == f"ends: {LATHE_APPROACH_REASON}."
+    _assert_approach_debt(cover, "block", "unsupported", ("approach", "lathe"))
+    _assert_approach_debt(finish, "ends", "unsupported", ("approach", "lathe"))
     assert cover.numbers["claimed_face_count"] == 1  # Only the as-stock face is credited.
     assert finish.numbers["uncovered_faces"] == [1, 2]
     # On a lathe, raw -Z facts credit nothing; turning-model facts credit their claims.
     _turning(bundle, _facts(raw_claimed, raw_away))
     bundle.plan["setups"][0]["ops"][0]["do"] = "finish_turn"
     del bundle.kernel["ops"]["S1:10"]["approach"]
-    assert _rows(coverage, bundle)["block"].status == "unknown"
+    unresolved = _rows(coverage, bundle)["block"]
+    assert unresolved.status == "unknown"
+    assert unresolved.numbers["claimed_face_count"] == 1
     bundle.kernel["ops"]["S1:10"]["approach"] = "turning"
     turned = _rows(coverage, bundle)["block"]
     assert turned.status == ("pass" if raw_claimed else "error")
@@ -833,7 +834,7 @@ def test_generic_profile_on_a_resolved_lathe_uses_the_turning_model(bundle):
     setup["ops"][0]["do"] = "profile"
     bundle.inventory["machines"]["selected-machine"] = {"kind": "lathe"}
     row = _rows(accessibility, bundle)["S1:10"]
-    assert row.status == "unknown" and row.sentence == f"S1:10: {NOT_TURNING_FACTS}."
+    _assert_approach_debt(row, "S1:10", "unknown", ("turning", "facts"))
 
 
 @pytest.mark.parametrize("rule", [accessibility, reach, internal_corner_radius])
@@ -846,11 +847,9 @@ def test_shared_actions_without_a_known_mill_do_not_use_milling_facts(bundle, ru
     bundle.inventory["machines"]["selected-machine"] = {"kind": kind}
     row = _rows(rule, bundle)["S1:10"]
     if kind == "lathe":
-        assert row.status == "unknown" and row.sentence == f"S1:10: {NOT_TURNING_FACTS}."
+        _assert_approach_debt(row, "S1:10", "unknown", ("turning", "facts"))
     else:
-        assert row.status == "unsupported"
-        assert row.sentence == f"S1:10: {LATHE_APPROACH_REASON}."
-    assert "claim_errors" not in row.numbers
+        _assert_approach_debt(row, "S1:10", "unsupported", ("approach", "lathe"))
 
 
 @pytest.mark.parametrize("action", ["profile", "form", "groove", "rough_groove", "finish_groove"])

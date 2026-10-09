@@ -120,9 +120,10 @@ measures it, and every job is then checked at it: deflection and clearance at th
 longer setting, and a reach still too short is a finding naming the setting. A
 tool kept set at two projections is two inventory tools.
 
-Engagement uses only the resolved `endmill` / `endmill_set` family on cutting
-operations with authored DOC. Long drills, reamers, taps and lathe tools do not
-receive a milling DOC-halving recommendation.
+Engagement uses the resolved `endmill` / `endmill_set` family on cutting
+operations; an omitted, unknown or nonpositive authored DOC leaves an eligible
+op unknown. Long drills, reamers, taps and lathe tools do not receive a milling
+DOC-halving recommendation.
 
 ## Bandsaw machines and blades
 
@@ -449,6 +450,8 @@ Other holding solids come from the same accepted-fact rule, never defaults:
   place, or `? <key>` when the shop list does not have it; `tool_resolves`
   checks it (docs/rules-tools.md) and `purchased_tooling` reads its receipt
   checks.
+  Registered bare names match whole reference tokens. They do not replace letters
+  inside ordinary words or parts of qualified names and member references.
   An angle plate's (or posed shop-made fixture's) lowest box that is not bought
   is its base: HOLD prints its underside Z, an angle plate's working face (local
   y = 0, facing local -y) and the base's `fastener` as the hold-down; with any

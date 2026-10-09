@@ -31,6 +31,7 @@ dev = [
     "pillow>=12.3.0",
     "pypdfium2>=5.14.0",
     "pytest>=8.3",
+    "pytest-xdist>=3.8.0",
     "ruff>=0.8",
 ]
 

@@ -1170,13 +1170,50 @@ def test_real_cone_worksheet_keeps_source_steps_equations_and_attachment_order(d
     worksheet = "".join(sections[-1])
     assert "worksheet, S11 op 110 angularity Ø" in worksheet
     markup = Markup(worksheet)
-    assert worksheet_readings(markup) == [
-        ("5", "[rJ1]", "rJ1"),
-        ("6", "[rC1]", "rC1"),
-        ("7", "[rJ2]", "rJ2"),
-        ("8", "[rC2]", "rC2"),
+    source_steps = [step for step in authored if not step.startswith("Calculate:")]
+    source_calculations = [step for step in authored if step.startswith("Calculate:")]
+    readings = [
+        (str(number), f"[{name}]", name)
+        for number, step in enumerate(source_steps, 1)
+        for name in re.findall(r"\{([^{}]+)\}", step)
     ]
-    assert not markup.find("field", markup.find("steps")[0])
+    assert [name for _, _, name in readings] == ["rJ1", "rC1", "rJ2", "rC2"]
+    assert worksheet_readings(markup) == readings
+    (steps,) = markup.find("steps")
+    instruction_rows = [
+        node for node in markup.nodes if node["tag"] == "li" and node["parent"] is steps
+    ]
+    assert len(instruction_rows) == len(source_steps) == 10
+    # Operational conditions, not full prose or registry display labels.
+    conditions = [
+        "qualify micrometer both ends middle agree within match size v blocks surface plate "
+        "dti top each turn full division fails not used",
+        "crank journal bore rod both ends under seat gravity low line pressing mouths "
+        "parallel axis clearance equally cancels",
+        "dti height gauge top lever mid travel higher sweep highest every reading mm inch dial",
+        "seating every position read press far mouth again agree within division not rocks "
+        "bellmouthed wipe reseat repeat roll half turn mean two rises bend cancels",
+        "parallel plate line second block end stop position a b first between base face "
+        "journal crank rise reading",
+        "stop position a tip outside north cap journal flush crank sleeve b south projecting",
+        "orientation foot b plate journal rod rise",
+        "orientation foot b plate crank rod rise",
+        "orientation head body chocked parallel each side wrap tape lower mouth cannot slide "
+        "roll journal rod within projecting crank sleeve end rising",
+        "orientation crank rod set dti zero a move b raise height gauge again ideal tan rise",
+    ]
+    facts = re.compile(r"\d+(?:\.\d+)?|Ø|±|[+−×=°]|\b(?:mm|in|inch)\b")
+    for row, source, required in zip(instruction_rows, source_steps, conditions, strict=True):
+        text = content(row)
+        assert "?" not in text
+        assert facts.findall(text) == facts.findall(source)
+        assert set(required.split()) <= set(re.findall(r"[a-z]+", text.lower()))
+        assert [
+            content(node)
+            for node in markup.find("reading", row)
+            if re.fullmatch(r"\[[^\[\]]+\]", content(node))
+        ] == [f"[{name}]" for name in re.findall(r"\{([^{}]+)\}", source)]
+    assert not markup.find("field", steps)
     calculations = markup.find("calc")
     assert [content(markup.find("field-label", row)[0]) for row in calculations] == [
         "e1",
@@ -1184,7 +1221,7 @@ def test_real_cone_worksheet_keeps_source_steps_equations_and_attachment_order(d
         "result",
     ]
     assert len(markup.find("writing-blank")) == 7
-    for row, source in zip(calculations, authored[-3:], strict=True):
+    for row, source in zip(calculations, source_calculations, strict=True):
         assert content(row) == re.sub(r"\{([^{}]+)\}", r"\1", source)
 
 
@@ -1491,18 +1528,28 @@ def test_the_hold_prints_the_jaw_buttons_measured_sizes(unmeasured):
         kernel={"status": "ok", "ops": {}},
     )
     hold, _ = _Traveler(data, [], {}, None).hold(setup)
-    (step,) = [s for s in re.findall(r"<li>(.*?)</li>", unescape(hold)) if "Jaw buttons" in s]
-    printed = {
-        "dia_mm": "face Ø16.000 mm",
-        "thickness_mm": "thickness 3.000 mm",
-        "spigot_dia_mm": "spigot Ø12.200 mm",
-        "spigot_length_mm": "spigot length 2.000 mm",
+    markup = Markup(hold)
+    (step,) = [
+        node for node in markup.nodes if node["tag"] == "li" and "Jaw buttons" in content(node)
+    ]
+    text = content(step)
+    labels = {
+        "dia_mm": "face Ø",
+        "thickness_mm": "thickness ",
+        "spigot_dia_mm": "spigot Ø",
+        "spigot_length_mm": "spigot length ",
     }
-    for key, text in printed.items():
-        assert (text in step) is (key != unmeasured), (key, step)
-    if unmeasured:
-        name = unmeasured.removesuffix("_mm").replace("_", " ")
-        assert f"{name} ? not measured" in step, step
+    marked = [content(node) for node in markup.find("reading", step)]
+    for key, label in labels.items():
+        values = re.findall(re.escape(label) + r"(\d+\.\d+) mm", text)
+        if key == unmeasured:
+            assert not values, (key, text)
+            assert label + "?" in text, (key, text)
+        else:
+            assert [float(value) for value in values] == [sizes[key]], (key, text)
+            assert any(
+                re.fullmatch(r"Ø?" + re.escape(values[0]) + r" mm", value) for value in marked
+            ), (key, marked)
 
 
 def _requirement_rows(features, **manifest):
@@ -2009,6 +2056,85 @@ def example_sheet(relative):
 
     bundle = load_bundle(Path(__file__).resolve().parents[1] / "examples" / relative)
     return _Traveler(bundle, [], {}, None)
+
+
+@pytest.mark.parametrize(
+    "instruction",
+    [
+        "Deburr top/bottom/sides then ship",
+        "Use S1/S2/S3 pickup",
+        "1/4-20 tap; use 1/4/20 chart",
+    ],
+)
+@pytest.mark.parametrize("field", ["operation.note", "operation.inspection_note", "hold.note"])
+def test_rendered_traveler_preserves_authored_slash_instructions(instruction, field):
+    from prechips.sheet import render_traveler
+
+    bundle = example_sheet("rocker-arm/plan.toml").bundle
+    setup = bundle.plan["setups"][0]
+    operation = setup["ops"][0]
+    repo_citation = "src/prechips/slash-fidelity.py:123"
+    url_citation = "https://example.invalid/slash-fidelity"
+    owner = setup["hold"] if field == "hold.note" else operation
+    owner[field.rsplit(".", 1)[-1]] = f"{instruction} {repo_citation} {url_citation}"
+    html = render_traveler(bundle, [], {})
+    markup = Markup(html)
+    setup_id, operation_id = setup["id"], str(operation["op"])
+    pages = [
+        page
+        for page in markup.find("page")
+        if page["attrs"]["data-sheet"].startswith(f"SETUP {setup_id} sheet ")
+    ]
+    if field == "operation.inspection_note":
+        blocks = [
+            node
+            for page in pages
+            for node in markup.find("keep", page)
+            if any(
+                child["parent"] is node and content(child) == "INSPECTION NOTES"
+                for child in markup.nodes
+            )
+        ]
+        prefix = f"{setup_id} op {operation_id}: "
+        notes = [
+            node
+            for block in blocks
+            for node in markup.nodes
+            if node["tag"] == "li"
+            and node["parent"]["parent"] is block
+            and content(node).startswith(prefix)
+        ]
+        assert [content(node).removeprefix(prefix) for node in notes] == [instruction]
+    elif field == "operation.note":
+        operations = [
+            node
+            for page in pages
+            for node in markup.find("operation", page)
+            if node["attrs"]["data-op"] == operation_id
+        ]
+        notes = [node for operation in operations for node in markup.find("op-note", operation)]
+        assert [content(node) for node in notes] == [instruction]
+    else:
+        blocks = [node for page in pages for node in markup.find("hold-steps", page)]
+        notes = [
+            node
+            for block in blocks
+            for node in markup.nodes
+            if node["tag"] == "li"
+            and node["parent"]["parent"] is block
+            and content(node).startswith("Note: ")
+        ]
+        assert [content(node).removeprefix("Note: ").removesuffix(".") for node in notes] == [
+            instruction
+        ]
+    instruction_blocks = [
+        node
+        for node in markup.nodes
+        if node["tag"] == "li" or "op-note" in node["attrs"].get("class", "").split()
+    ]
+    assert sum(content(node).count(instruction) for node in instruction_blocks) == 1
+    assert repo_citation not in html
+    assert url_citation not in html
 
 
 def test_explicit_before_hold_measurement_has_one_field_in_its_original_hold_step():
@@ -2847,21 +2973,60 @@ def test_printed_contour_fragments_keep_their_exact_local_introduction(printed_s
     source = shop(records).contours(POCKET, {("tools", "c"): "T1"})
     original = Markup(source)
     introductions = {
-        float(
-            content(next(node for node in original.find("num", table) if content(node)))
-        ): content(original.find("table-context", table)[0])
-        for table in original.find("coords")
+        str(index): content(original.find("table-context", table)[0])
+        for index, table in enumerate(node for node in original.nodes if node["tag"] == "table")
+        if "coords" in table["attrs"].get("class", "").split()
+    }
+    original_populations = {
+        str(index): sum(
+            node["tag"] == "tbody" and node["parent"] is table for node in original.nodes
+        )
+        for index, table in enumerate(node for node in original.nodes if node["tag"] == "table")
+        if "coords" in table["attrs"].get("class", "").split()
     }
     op_notes = [content(note) for note in original.find("contour-context")]
     assert op_notes
-    printed, _ = printed_sheet(source, "() => null")
+    original_repeat = original.find("repeat")[0]
+    (progress_instruction,) = {
+        content(node) for node in original.nodes if "data-continuation-locator" in node["attrs"]
+    }
+    printed, readings = printed_sheet(
+        source,
+        """pageOf => [...document.querySelectorAll('table.coords td.num')]
+          .filter(el => el.textContent.trim()).map(el => {
+            const range = document.createRange(); range.selectNodeContents(el);
+            const rects = [...range.getClientRects()].filter(r => r.width > 0);
+            const cell = el.getBoundingClientRect(), style = getComputedStyle(el);
+            const border = getComputedStyle(el.closest('table')).borderCollapse === 'collapse'
+              ? .5 : 1;
+            const left = cell.left + border * parseFloat(style.borderLeftWidth)
+              + parseFloat(style.paddingLeft);
+            const right = cell.right - border * parseFloat(style.borderRightWidth)
+              - parseFloat(style.paddingRight);
+            return {text: el.textContent, page: pageOf(el),
+              lines: [...new Set(rects.map(r => r.top))].length,
+              fits: rects.every(r => r.left >= left - .5 && r.right <= right + .5)};
+          })""",
+    )
+    assert readings and any(reading["page"] > 0 for reading in readings)
+    assert all(reading["lines"] == 1 and reading["fits"] for reading in readings)
+    assert [reading["text"] for reading in readings] == [
+        content(node)
+        for table in original.find("coords")
+        for node in original.find("num", table)
+        if node["tag"] == "td" and content(node).strip()
+    ]
     tables = printed.find("coords")
     assert len(tables) > 2
     assert len([node for node in printed.nodes if node["tag"] == "tbody"]) == 207
     assert len(set(introductions.values())) == 3
+    populations = dict.fromkeys(introductions, 0)
     for table in tables:
-        first = next(node for node in printed.find("num", table) if content(node))
-        local = introductions[float(content(first))]
+        owner_id = table["attrs"]["data-table-context"]
+        local = introductions[owner_id]
+        populations[owner_id] += sum(
+            node["tag"] == "tbody" and node["parent"] is table for node in printed.nodes
+        )
         contexts = [content(node) for node in printed.find("table-context", table)]
         assert contexts.count(local) == 1
         assert set(contexts).intersection(introductions.values()) == {local}
@@ -2869,7 +3034,29 @@ def test_printed_contour_fragments_keep_their_exact_local_introduction(printed_s
             for note in op_notes:
                 assert contexts.count(note) == 1
                 assert contexts.index(note) < contexts.index(local)
-        assert content(printed.find("repeat", table)[0]) == content(original.find("repeat")[0])
+        (repeat,) = printed.find("repeat", table)
+        (locator,) = printed.find("fixed-locator-reference", repeat)
+        assert locator["parent"]["attrs"]["data-continuation-locator"] == "progress"
+        owner = locator["attrs"]["data-locator-ref"]
+        destinations = [
+            node for node in printed.nodes if node["attrs"].get("data-locator-group") == owner
+        ]
+        assert len(destinations) == 2
+        assert all(
+            "writing-blank" in node["attrs"].get("class", "").split() for node in destinations
+        )
+        assert len({node["attrs"]["data-locator-target"] for node in destinations}) == 2
+        (digit,) = printed.find("fixed-locator-digit", locator)
+        assert digit["attrs"]["aria-readonly"] == "true"
+        assert not printed.find("writing-blank", locator)
+        reference_text = content(locator)
+        assert reference_text.startswith(progress_instruction)
+        assert reference_text.removeprefix(progress_instruction).strip()
+        # Remove only the generated address; retain its original progress instruction.
+        assert content(repeat).replace(reference_text, progress_instruction, 1) == content(
+            original_repeat
+        )
+    assert populations == original_populations
 
 
 def test_printed_authored_calculations_and_boxes_never_separate(printed_sheet):

@@ -14,13 +14,13 @@ from test_arithmetic import (
     one_setup,
     spot,
 )
-from test_cli import run_cli
+from test_cli import SYNTHETIC_KERNEL, run_cli
 
 from prechips.inputs import Bundle
-from prechips.rules import op_chain
+from prechips.rules import op_chain, tool_resolves
 
 
-def check(tmp_path, inventory):
+def check(tmp_path, inventory, *, setup=""):
     for name, text in (
         ("features.toml", FEATURES),
         ("inventory.toml", inventory),
@@ -30,25 +30,55 @@ def check(tmp_path, inventory):
     ):
         (tmp_path / name).write_text(text, encoding="utf-8")
     out = tmp_path / "out"
-    result = run_cli("check", tmp_path / "plan.toml", "--out", out)
+    result = run_cli("check", tmp_path / "plan.toml", "--out", out, setup=setup)
     assert result.returncode in {0, 2, 4}, result.stderr
     report = json.loads((out / "report.json").read_bytes())
     return result.returncode, {(f["rule"], f["subject"]): f for f in report["findings"]}
 
 
 @pytest.mark.parametrize(
-    "shank,status,code",
-    [('shank_in = "3/8"', "pass", 0), ('shank_in = "13/32"', "error", 2)],
+    "shank,status,expected_mm", [("3/8", "pass", 9.525), ("13/32", "error", 10.31875)]
 )
-def test_inch_shank_in_mm_collet_compares_physical_size(tmp_path, request, shank, status, code):
-    if code == 0:
-        request.getfixturevalue("freecad_kernel")
-    # 3/8 in converts to 9.524999999999999 mm; it is the 9.525 mm collet, 13/32 is not.
-    inventory = INVENTORY.replace("shank_mm = 10.0\nflutes = 4", shank + "\nflutes = 4", 1)
-    inventory = inventory.replace("capacity_mm = 10.0", "capacity_mm = 9.525")
-    result, findings = check(tmp_path, inventory)
-    assert findings[("tool_resolves", "S1:10")]["status"] == status
-    assert result == code
+def test_inch_shank_in_mm_collet_compares_physical_size(tmp_path, shank, status, expected_mm):
+    # Exercise the real assembly consumer without unrelated rules or native geometry.
+    bundle = Bundle(
+        features={},
+        plan={
+            "setups": [
+                {
+                    "id": "S1",
+                    "machine": "mill",
+                    "ops": [{"op": 10, "do": "face", "tool": "endmill", "holder": "collet"}],
+                }
+            ]
+        },
+        inventory={
+            "machines": {"mill": {"kind": "mill", "spindle": {"taper": "R8"}, "verify": False}},
+            "tools": {"endmill": {"kind": "endmill", "shank_in": shank, "verify": False}},
+            "holders": {
+                "collet": {"kind": "collet", "taper": "R8", "capacity_mm": 9.525, "verify": False}
+            },
+        },
+        policy={},
+        cutting_data={},
+        paths={},
+        hashes={},
+        root=tmp_path,
+    )
+    finding = next(row for row in tool_resolves.evaluate(bundle) if row.subject == "S1:10")
+    assert finding.status == status
+    assert finding.numbers["shank_mm"] == pytest.approx(expected_mm)
+    assert finding.numbers["holder_capacity_mm"] == 9.525
+
+
+def test_mismatched_inch_shank_reaches_cli_report_and_stop(tmp_path):
+    inventory = INVENTORY.replace(
+        "shank_mm = 10.0\nflutes = 4", 'shank_in = "13/32"\nflutes = 4', 1
+    ).replace("capacity_mm = 10.0", "capacity_mm = 9.525")
+    code, findings = check(tmp_path, inventory, setup=SYNTHETIC_KERNEL)
+    assert findings[("tool_resolves", "S1:10")]["status"] == "error"
+    assert findings[("tool_resolves", "S1:10")]["numbers"]["shank_mm"] == pytest.approx(10.31875)
+    assert code == 2
 
 
 @pytest.mark.parametrize("drill_in,status", [("3/8", "pass"), ("13/32", "error")])

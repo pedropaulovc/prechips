@@ -24,8 +24,12 @@ jobs:
     runs-on: ubuntu-latest
     env:
       PRECHIPS_REQUIRE_KERNEL: "1"
+      PRECHIPS_REQUIRE_PRINT_BROWSER: "1"
       FREECAD_VERSION: "1.1.0"
       FREECAD_SHA256: ef85f171f2d09eec93f358bc49c1730d33f72bfbd353e6465609b30e45acf2f0
+      PRECHIPS_KERNEL_CACHE_EPOCH: "1"
+      PYTEST_WORKERS: "2"
+      PRECHIPS_KERNEL_WORKERS: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -36,7 +40,7 @@ jobs:
         id: freecad-cache
         with:
           path: ~/.cache/prechips-freecad
-          key: freecad-linux-x86_64-${{ env.FREECAD_VERSION }}-${{ env.FREECAD_SHA256 }}
+          key: freecad-${{ runner.os }}-${{ runner.arch }}-${{ env.FREECAD_VERSION }}-${{ env.FREECAD_SHA256 }}
       - name: Install pinned FreeCAD kernel
         if: steps.freecad-cache.outputs.cache-hit != 'true'
         shell: bash
@@ -64,8 +68,35 @@ jobs:
         shell: bash
         run: |
           echo "FREECAD_CMD=$HOME/.cache/prechips-freecad/freecadcmd" >> "$GITHUB_ENV"
+          echo "PRECHIPS_KERNEL_CACHE=$RUNNER_TEMP/prechips-kernel-cache" >> "$GITHUB_ENV"
           "$HOME/.cache/prechips-freecad/freecadcmd" --version
-      - run: uv run pytest
+      - name: Restore successful geometry cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.PRECHIPS_KERNEL_CACHE }}
+          key: kernel-${{ runner.os }}-${{ runner.arch }}-${{ env.FREECAD_SHA256 }}-epoch${{ env.PRECHIPS_KERNEL_CACHE_EPOCH }}-${{ hashFiles('src/prechips/kernel/*.py') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            kernel-${{ runner.os }}-${{ runner.arch }}-${{ env.FREECAD_SHA256 }}-epoch${{ env.PRECHIPS_KERNEL_CACHE_EPOCH }}-${{ hashFiles('src/prechips/kernel/*.py') }}-
+      - name: Run full test suite with bounded workers
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p test-results
+          uv run pytest -n "$PYTEST_WORKERS" --dist loadscope --durations=0 \
+            --junitxml=test-results/pytest.xml 2>&1 | tee test-results/pytest.log
+      - name: Save successful geometry cache
+        if: success()
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.PRECHIPS_KERNEL_CACHE }}
+          key: kernel-${{ runner.os }}-${{ runner.arch }}-${{ env.FREECAD_SHA256 }}-epoch${{ env.PRECHIPS_KERNEL_CACHE_EPOCH }}-${{ hashFiles('src/prechips/kernel/*.py') }}-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Upload test durations and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-${{ runner.os }}-${{ runner.arch }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: test-results/
+          if-no-files-found: warn
 
   build:
     runs-on: ubuntu-latest
@@ -73,6 +104,24 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
       - run: uv build
+      - name: Exercise installed wheel and sdist outside checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p test-results
+          for artifact in dist/*.whl dist/*.tar.gz; do
+            PRECHIPS_INSTALLED_ARTIFACT="$(realpath "$artifact")" \
+              uv run pytest tests/test_cli.py::test_installed_artifact_console_script_matches_module \
+              --durations=0 --junitxml="test-results/$(basename "$artifact").xml" \
+              2>&1 | tee "test-results/$(basename "$artifact").log"
+          done
+      - name: Upload installed artifact smoke logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: installed-artifact-smoke
+          path: test-results/
+          if-no-files-found: warn
       - uses: actions/upload-artifact@v4
         with:
           name: dist

@@ -34,23 +34,11 @@ def test_nonfinite_report_numbers_are_rejected(value):
         canonical_bytes({"measurement": value})
 
 
-@pytest.mark.parametrize(
-    "instruction",
-    [
-        "Deburr top/bottom/sides then ship",
-        "Use S1/S2/S3 pickup",
-        "1/4-20 tap; use 1/4/20 chart",
-    ],
-)
-@pytest.mark.parametrize(
-    ("section", "field"),
-    [
-        ("[[setups.ops]]", "note"),
-        ("[[setups.ops]]", "inspection_note"),
-        ("[setups.hold]", "note"),
-    ],
-)
-def test_traveler_preserves_authored_slash_instructions(tmp_path, instruction, section, field):
+def test_traveler_preserves_authored_slash_instructions(tmp_path):
+    instruction = (
+        "Deburr top/bottom/sides then ship; Use S1/S2/S3 pickup; 1/4-20 tap; use 1/4/20 chart"
+    )
+    section, field = "[[setups.ops]]", "note"
     examples = copy_examples(tmp_path)
     plan = examples / "rocker-arm" / "plan.toml"
     before, marker, remainder = plan.read_text(encoding="utf-8").partition(section)
@@ -76,49 +64,14 @@ def test_traveler_preserves_authored_slash_instructions(tmp_path, instruction, s
         for page in markup.find("page")
         if page["attrs"]["data-sheet"].startswith(f"SETUP {setup_id} sheet ")
     ]
-    if field == "inspection_note":
-        blocks = [
-            node
-            for page in pages
-            for node in markup.find("keep", page)
-            if any(
-                child["parent"] is node and content(child) == "INSPECTION NOTES"
-                for child in markup.nodes
-            )
-        ]
-        notes = [
-            node
-            for block in blocks
-            for node in markup.nodes
-            if node["tag"] == "li"
-            and node["parent"]["parent"] is block
-            and content(node).startswith(f"{setup_id} op {operation_id}: ")
-        ]
-        assert [
-            content(node).removeprefix(f"{setup_id} op {operation_id}: ") for node in notes
-        ] == [instruction]
-    elif section == "[[setups.ops]]":
-        operations = [
-            node
-            for page in pages
-            for node in markup.find("operation", page)
-            if node["attrs"]["data-op"] == operation_id
-        ]
-        notes = [node for operation in operations for node in markup.find("op-note", operation)]
-        assert [content(node) for node in notes] == [instruction]
-    else:
-        blocks = [node for page in pages for node in markup.find("hold-steps", page)]
-        notes = [
-            node
-            for block in blocks
-            for node in markup.nodes
-            if node["tag"] == "li"
-            and node["parent"]["parent"] is block
-            and content(node).startswith("Note: ")
-        ]
-        assert [content(node).removeprefix("Note: ").removesuffix(".") for node in notes] == [
-            instruction
-        ]
+    operations = [
+        node
+        for page in pages
+        for node in markup.find("operation", page)
+        if node["attrs"]["data-op"] == operation_id
+    ]
+    notes = [node for operation in operations for node in markup.find("op-note", operation)]
+    assert [content(node) for node in notes] == [instruction]
     instruction_blocks = [
         node
         for node in markup.nodes

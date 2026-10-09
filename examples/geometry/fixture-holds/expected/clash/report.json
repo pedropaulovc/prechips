@@ -220,7 +220,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.5 stock-form comparison, lines 573–577"
+        "PLAN.md §4.5 stock-form comparison"
       ],
       "message": "The candidate uses one-piece construction.",
       "numbers": {
@@ -386,7 +386,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)",
         "inventory.tools.em-8-std.oal",
         "inventory.holders.r8-collet-8mm.grip",
         "inventory.tools.em-8-std: explicit-unit diameter/projection/OAL",
@@ -422,7 +422,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)",
         "inventory.tools.em-8-std.oal",
         "inventory.holders.r8-collet-8mm.grip",
         "inventory.tools.em-8-std: explicit-unit diameter/projection/OAL",
@@ -458,7 +458,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 engagement: projection/D ≤ 4, else halve DOC)",
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)",
         "inventory.tools.em-8-std.oal",
         "inventory.holders.r8-collet-8mm.grip",
         "inventory.tools.em-8-std: explicit-unit diameter/projection/OAL",
@@ -1803,7 +1803,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1 stick-out (line 541)",
+        "PLAN.md §4.1 stick-out",
         "plan.stock.dia_mm",
         "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
         "features declared finished diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in"
@@ -1834,7 +1834,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1 stick-out (line 541)",
+        "PLAN.md §4.1 stick-out",
         "plan.stock.dia_mm",
         "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
         "features declared finished diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in"
@@ -1865,7 +1865,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1 stick-out (line 541)",
+        "PLAN.md §4.1 stick-out",
         "plan.stock.dia_mm",
         "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
         "features declared finished diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in"
@@ -1896,7 +1896,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.3 collet/chuck (line 558)",
+        "PLAN.md §4.3 collet/chuck",
         "plan.stock.dia_mm",
         "inventory selected workholding sizes_mm/sizes_in/range_mm/range_in; 25.4 mm/in"
       ],
@@ -1916,7 +1916,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.3 collet/chuck (line 558)",
+        "PLAN.md §4.3 collet/chuck",
         "plan.stock.dia_mm",
         "inventory selected workholding sizes_mm/sizes_in/range_mm/range_in; 25.4 mm/in"
       ],
@@ -1936,7 +1936,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.3 collet/chuck (line 558)",
+        "PLAN.md §4.3 collet/chuck",
         "plan.stock.dia_mm",
         "inventory selected workholding sizes_mm/sizes_in/range_mm/range_in; 25.4 mm/in"
       ],
@@ -2664,7 +2664,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
+        "PLAN.md §4.1 turned profile; §8 M2 spindle Z convention",
         "features declared nominal diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan setup frame and current/preceding grooving ops; 25.4 mm/in"
       ],
       "message": "S1: not a lathe setup.",
@@ -2685,7 +2685,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
+        "PLAN.md §4.1 turned profile; §8 M2 spindle Z convention",
         "features declared nominal diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan setup frame and current/preceding grooving ops; 25.4 mm/in"
       ],
       "message": "S2: not a lathe setup.",
@@ -2706,7 +2706,7 @@
     },
     {
       "cite": [
-        "PLAN.md §4.1 turned profile (line 540); §8 M2 spindle Z convention",
+        "PLAN.md §4.1 turned profile; §8 M2 spindle Z convention",
         "features declared nominal diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan setup frame and current/preceding grooving ops; 25.4 mm/in"
       ],
       "message": "S3: not a lathe setup.",
@@ -2727,7 +2727,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)"
+        "PLAN.md §4.4 (Physics proxies)"
       ],
       "message": "S1:10: the static turning proxy does not apply to this operation.",
       "numbers": {
@@ -2740,7 +2740,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)"
+        "PLAN.md §4.4 (Physics proxies)"
       ],
       "message": "S2:10: the static turning proxy does not apply to this operation.",
       "numbers": {
@@ -2753,7 +2753,7 @@
     },
     {
       "cite": [
-        "PLAN.md:563-568 (§4.4 physics proxies)"
+        "PLAN.md §4.4 (Physics proxies)"
       ],
       "message": "S3:10: the static turning proxy does not apply to this operation.",
       "numbers": {
@@ -2889,7 +2889,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "d403bac0cec167642fb2ac38a6cc99179c105ee350f82caab17a50dc72c3626d",
+  "hash": "36ee0b99412e2a26a036d7c44fda90cb9ee00a2357752649e2f229d79b40d121",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -2909,15 +2909,15 @@
     },
     "render:S1": {
       "path": "setup-S1.png",
-      "sha256": "6e9d2db5d39e5edfd5d65ca928afbb4f9ab9bb0aa2a85535cb7fc63cdd36863b"
+      "sha256": "92592140bb468f8b274fbc8348b8c1a2b321ddc26a14cf393840f068e50334e8"
     },
     "render:S2": {
       "path": "setup-S2.png",
-      "sha256": "4c6a1781e722f9d494b7f579ef4885c3e52ca851eb02f0ffa8fe8b46f592166f"
+      "sha256": "7ad7de2bf679909c8df5b21ea741253dabbeea125f739223d0dc979b2a580af4"
     },
     "render:S3": {
       "path": "setup-S3.png",
-      "sha256": "5b4b9834e1b1fde4aa66e4d656dfa73a980302fbbaf8c77a9c61a7c3fc03bdd5"
+      "sha256": "79f7e1bb1e736a872fb86506437542f5f68afa9a6d4e399161b6d4445e204bde"
     },
     "shop_policy": {
       "path": "examples/geometry/shop-policy.toml",
@@ -2978,7 +2978,7 @@
         "fixture_kind": "vise",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 1000,
+        "height_px": 2472,
         "jaw_front_oblique": false,
         "jaws": "exact",
         "legend": [
@@ -2988,6 +2988,20 @@
         ],
         "parallels": "exact",
         "primary_op": "10",
+        "print_panels": [
+          {
+            "height_px": 1514,
+            "label": "SETUP S1  /  ISOMETRIC VIEW",
+            "role": "setup",
+            "top_px": 0
+          },
+          {
+            "height_px": 958,
+            "label": "HOLDING DETAIL X2.3",
+            "role": "holding_detail",
+            "top_px": 1514
+          }
+        ],
         "render_debts": [],
         "shows": [
           "holding",
@@ -2999,7 +3013,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "6e9d2db5d39e5edfd5d65ca928afbb4f9ab9bb0aa2a85535cb7fc63cdd36863b"
+      "sha256": "92592140bb468f8b274fbc8348b8c1a2b321ddc26a14cf393840f068e50334e8"
     },
     "S2": {
       "fixture": "unresolved",
@@ -3041,7 +3055,7 @@
         "fixture_kind": "custom",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 1728,
+        "height_px": 2472,
         "jaw_front_oblique": false,
         "jaws": "not_applicable",
         "legend": [
@@ -3051,6 +3065,20 @@
         ],
         "parallels": "absent",
         "primary_op": "10",
+        "print_panels": [
+          {
+            "height_px": 1514,
+            "label": "SETUP S2  /  PLAN VIEW",
+            "role": "setup",
+            "top_px": 0
+          },
+          {
+            "height_px": 958,
+            "label": "HOLDING DETAIL X6.6",
+            "role": "holding_detail",
+            "top_px": 1514
+          }
+        ],
         "render_debts": [
           "NOT SHOWN: tightening order is not declared; follow the hold instructions."
         ],
@@ -3064,7 +3092,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "4c6a1781e722f9d494b7f579ef4885c3e52ca851eb02f0ffa8fe8b46f592166f"
+      "sha256": "7ad7de2bf679909c8df5b21ea741253dabbeea125f739223d0dc979b2a580af4"
     },
     "S3": {
       "fixture": "modeled",
@@ -3104,7 +3132,7 @@
         "fixture_kind": "custom",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 1728,
+        "height_px": 2472,
         "jaw_front_oblique": false,
         "jaws": "not_applicable",
         "legend": [
@@ -3114,6 +3142,20 @@
         ],
         "parallels": "absent",
         "primary_op": "10",
+        "print_panels": [
+          {
+            "height_px": 1514,
+            "label": "SETUP S3  /  PLAN VIEW",
+            "role": "setup",
+            "top_px": 0
+          },
+          {
+            "height_px": 958,
+            "label": "HOLDING DETAIL X6.6",
+            "role": "holding_detail",
+            "top_px": 1514
+          }
+        ],
         "render_debts": [
           "NOT SHOWN: tightening order is not declared; follow the hold instructions."
         ],
@@ -3127,7 +3169,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "5b4b9834e1b1fde4aa66e4d656dfa73a980302fbbaf8c77a9c61a7c3fc03bdd5"
+      "sha256": "79f7e1bb1e736a872fb86506437542f5f68afa9a6d4e399161b6d4445e204bde"
     }
   },
   "rules_version": "m5-rev10",

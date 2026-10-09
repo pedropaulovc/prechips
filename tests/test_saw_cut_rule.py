@@ -134,8 +134,27 @@ def test_saw_stock_cut_does_not_need_a_finished_feature_claim(tmp_path, action):
         .replace('checks = "unknown"\n', "")
     )
     data = load_bundle(bundle_files(tmp_path, plan))
+    setup = data.plan["setups"][0]
+    op = setup["ops"][0]
+    assert "feature" not in op
+    assert op["do"] == action
     object.__setattr__(data, "kernel", bundle().kernel)
-    assert evaluate(data)[0].status == "unknown"
+    finding = evaluate(data)[0]
+    assert finding.status == "unknown"
+    assert finding.numbers["operation"] == action
+    assert finding.numbers["tool"] == "unknown"
+    assert "inventory.tools.unknown.kerf" in finding.cite
+
+    # Resolve the missing blade without inventing a finished-feature claim.
+    op.update(tool="blade", cut_plane={"axis": "y", "value": 87.75, "keep": "below"})
+    data.inventory["tools"] = bundle().inventory["tools"]
+    finding = evaluate(data)[0]
+    assert finding.status == "pass"
+    assert "feature" not in op
+    assert finding.numbers["operation"] == action
+    assert finding.numbers["tool"] == "blade"
+    assert finding.numbers["retained_boundary_mm"] == 87
+    assert finding.numbers["stock_volume_after_mm3"] == 100
 
 
 @pytest.mark.parametrize("action", ["face", "drill"])

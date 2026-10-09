@@ -47,8 +47,12 @@ gauge/grip, tool OAL and tool/holder projection) require a fact-local
 block/root/source record, a date or a citation is not evidence, and a vendor
 nominal is evidence in `numbers`, never a certificate. The mill's limits live
 only in `machines.<id>.envelope`; projection is a per-holder map on the tool,
-never a holder or tool scalar; the vise stack uses bed height, never jaw
-height. Keep fixture vendor flags and existing OAL facts intact. M5 rules
+never a holder or tool scalar. Short and qualified references to the same
+holder select the same identity; two entries for it, including entries in both
+unit maps, leave projection unknown. See
+[installed tool stacks](docs/inventory.md#measured-envelopes-and-installed-tool-stacks-m5).
+The vise stack uses bed height, never jaw height. Keep fixture vendor flags and
+existing OAL facts intact. M5 rules
 consume only an already-present successful kernel bbox; they never start a
 kernel. Missing approach/extent is plan-input debt and missing measurements
 retain concrete `measure:` instructions keyed by the exact fact consumed; an
@@ -104,8 +108,9 @@ physics inputs; unknown K_c/E, shop limits, `thin_wall_floor_mm` and verified
 capacity remain debt. Unit tests that need kernel facts must inject a synthetic
 `bundle.kernel` result (CLI subprocess tests can use `SYNTHETIC_KERNEL` from
 `tests/test_cli.py`). Real geometry integration tests must request the shared
-`freecad_kernel` session fixture, which shares one temporary
-`PRECHIPS_KERNEL_CACHE` with CLI subprocesses. Pilot CLI tests also request
+`freecad_kernel` session fixture. It honors an externally configured
+`PRECHIPS_KERNEL_CACHE`, otherwise creates one temporary session cache, shared
+with CLI subprocesses. CI persists successful entries. Pilot CLI tests also request
 `pilot_kernel_cache` and prepare their selected plan before launching the CLI:
 each distinct cold job runs under the kernel's own deadline, and later copies
 reuse it. The CLI helper's unchanged 60-second limit then covers warm-cache host
@@ -116,6 +121,13 @@ with `FreeCAD kernel not found` if discovery finds no executable.
 Absent-kernel tests must explicitly set `FREECAD_CMD` to a nonexistent path,
 never rely on the host lacking FreeCAD. Preserve discovery order and the
 product's unknown/exit-4 behavior.
+Read-only native face inventories may reuse immutable results with freshly
+checked STEP, recipe, engine and kernel identities. Returned containers must be
+independent. Use `Engine.faces(..., fresh=True)` when fresh native execution or
+operation ordering is the contract; `raw`/`run` execution remains uncached by
+that test helper. Keep exhaustive parser domains at the smallest real parser
+seam and retain consumer integration keepers; never shrink domains to meet a
+timing target.
 No physical rehearsal or live farm evidence is recorded merely because exporter tests pass.
 
 ## Local validation
@@ -138,18 +150,35 @@ is authoritative. `FREECAD_CMD=/nonexistent uv run pytest -q` exercises the
 kernel-free suite with geometry skips. `PRECHIPS_REQUIRE_KERNEL=1` turns a
 missing kernel into an error; CI sets it and installs the pinned, cached official
 FreeCAD 1.1.0 Linux AppImage so geometry tests cannot silently skip.
+CI runs the full suite with `-n 2 --dist loadscope --durations=0`, caps extra
+native workers with `PRECHIPS_KERNEL_WORKERS=1`, and retains the log and JUnit
+artifact on failure, with complete item durations in JUnit. Geometry
+persistence uses a runner OS/architecture, pinned AppImage SHA-256, engine
+source digest and epoch namespace. Immutable
+per-run save keys publish only on success. Cold/invalidation fixtures stay private.
+Package validation builds wheel and sdist and exercises installed consumers;
+repository-local imports do not establish artifact completeness.
+Report a runtime improvement only from cold and warm runs of the same
+required-kernel selection.
+CI requires an available, launchable print browser with
+`PRECHIPS_REQUIRE_PRINT_BROWSER=1`; absence fails the session. Local default
+browser skips remain optional. Availability does not establish layout
+correctness: the selected real print/PDF contracts still have to pass, and
+physical printed paper acceptance remains separate.
 
 The validator validates bundle contracts and expected report integrity; it does
 not certify machining. Its successful exit is 0 even when checker/traveler
-outputs correctly stop with 2 or 4. Current expected M3 CLI exits are
-4 / 2 / 2 / 0 (shaft / rocker / bracket / cone built-up).
+outputs correctly stop with 2 or 4. See the
+[expected consumer CLI exits](examples/README.md#expected-consumer-cli-exits);
+these illustrative examples remain PLANNED and are not evidence of measured
+shop readiness.
 Approved source-backed example corrections must retain their documented
 provenance, not erase requirements to recover an exit. Migrate existing
 inspection choices to the exact exported feature owners rather than dropping
 checks, inventing methods or changing gauges to force an exit. A check whose
 requirement the export lacks stays visible as an explicit `missing_requirements`
-unknown. Only the consumer side of M3 is done. Consult PLAN §8 M3 for the open
-HA items and the combined gate.
+unknown. Consult PLAN §8 M3 for upstream follow-ups identified at
+harmonic-analyzer `b11124ecf` (current HA status not observed) and the combined gate.
 Use the CLI examples in [README.md](README.md) and isolated output directories
 to exercise behavior.
 The cone's built-up candidate (turned body with two bonded sleeves) also remains
@@ -159,6 +188,9 @@ shaft cross-hole. Closure is checked only for a full pattern: `positions >= 2`
 with `angle_deg` omitted (step exactly `360 / positions`). Authored angles are
 open patterns: every landing is checked, with no closure. One setting also has
 no closure.
+Engagement applies to endmill-family cutting operations. An omitted or
+nonpositive authored `doc_mm` leaves an eligible operation unknown; see
+[engagement](docs/rules-physics.md#engagement).
 Keep regression tests about consumer-visible boundaries, not exact incidental
 prose or copied wiring. Tests must use temporary files and local telemetry
 collectors, not real shop state or production services. During parallel work,

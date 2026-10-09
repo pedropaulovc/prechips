@@ -128,6 +128,30 @@ def test_a_part_clamped_on_a_rotary_table_renders_exact_and_its_checkpoints_clea
     assert facts["checkpoint_count"] == len(rows)
     assert facts["checkpoint_errors"] == [] and facts["checkpoint_hits"] == 0, facts
 
+    # A separate printed position sinks the cutter 2 mm into solid table material:
+    # x=y=18 is outside the R15 part and beyond both 12 mm wide T-slots. Keep A0
+    # as an above-table clear control in the same checkpoint evaluation.
+    colliding_op = {
+        **op,
+        "checkpoints": {
+            "rows": [
+                rows[0],
+                {"id": "TABLE", "xy_mm": [18.0, 18.0], "tip_z_mm": -2.0},
+            ],
+            "paths": [],
+            "bounded": False,
+        },
+    }
+    colliding = engine.run(engine.job(puck, {"side": side}, [_setup([colliding_op], hold)]))
+    collision_facts = colliding["ops"]["S1:10"]
+    assert collision_facts["checkpoint_count"] == 2
+    assert collision_facts["checkpoint_hits"] == 1, collision_facts
+    errors = collision_facts["checkpoint_errors"]
+    assert [(error["row"], error["obstacle"]) for error in errors] == [
+        ("TABLE", "rotary-table:table")
+    ], errors
+    assert errors[0]["volume_mm3"] > 10.0, errors
+
 
 def test_a_rotary_table_hold_reaches_the_engine_as_posed_solids():
     table = {

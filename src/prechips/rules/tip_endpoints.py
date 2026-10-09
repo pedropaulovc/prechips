@@ -46,7 +46,7 @@ def records(value):
 
 
 def drill_point_mm(diameter_mm, point_angle_deg):
-    """Axial cone length: D / (2 tan(included angle / 2))."""
+    """Axial cone length: D / (2 tan(included angle / 2)); unrepresentable cones stay unknown."""
     if not (
         number(diameter_mm)
         and diameter_mm > 0
@@ -54,7 +54,11 @@ def drill_point_mm(diameter_mm, point_angle_deg):
         and 0 < point_angle_deg < 180
     ):
         return UNKNOWN
-    return diameter_mm / (2 * math.tan(math.radians(point_angle_deg / 2)))
+    tangent = math.tan(math.radians(point_angle_deg / 2))
+    if tangent <= 0:
+        return UNKNOWN
+    point = diameter_mm / (2 * tangent)
+    return point if math.isfinite(point) else UNKNOWN
 
 
 def _subtract(*values):
@@ -319,12 +323,16 @@ def cut_coverage(bundle, setup, op, target):
 def stock_states(bundle, setup):
     """Yield (op, before, after); profiles never move the touched top surface.
 
-    Entry values are separate from the setup's touched top. Explicit pocket/face
-    footprints may advance entry planes inside the cut, not adjoining strips. An op that
-    cut only part of a surface (:func:`cut_coverage`) advances neither it nor the top:
-    the surface keeps the uncut height its last whole producer left. One whose coverage
-    is unknown leaves that surface's Z, and its source, unknown.
-    Local thickness is authored at the eventual hole entry, not raw stock height.
+    Entry values are separate from the setup's touched top: a seeded hole entry may
+    name its eventual face, not the incoming material boundary. Explicit pocket/face
+    footprints (including an op's own clearing box) may advance entry planes inside the
+    cut, not adjoining strips. A clearing box must contain both the current entry and
+    its new floor in Z, and cannot raise that entry. A boxed cut within :data:`SAME_Z`
+    of the entry may still establish its producer, keeping the lower numeric Z.
+    An op that cut only part of a surface (:func:`cut_coverage`)
+    advances neither it nor the top; unknown coverage or removal Z leaves the entry
+    and its source unknown. Local thickness is authored at the eventual hole entry,
+    not raw stock height.
     """
     features = mapping(bundle.feature_definitions)
     stock = mapping(setup.get("stock_state"))
@@ -343,14 +351,38 @@ def stock_states(bundle, setup):
             name = op.get("feature")
             cut = mapping(features.get(name))
             made = f"{setup['id']} op {op['op']} to_z"
+            boxed = "stock_removal_bounds" in op
+            span = mapping(op.get("stock_removal_bounds")).get("z")
+            known_span = _span(span) and len(span) == 2 and span[0] < span[1]
             for target in entries:
-                if target != name and not _covers(cut, mapping(features.get(target))):
+                if not boxed and target != name and not _covers(cut, mapping(features.get(target))):
                     continue
                 coverage = cut_coverage(bundle, setup, op, mapping(features.get(target)))
-                if coverage != "partial":
-                    entries[target], origins[target] = (
-                        (op["to_z"], made) if coverage == "whole" else (UNKNOWN, UNKNOWN)
-                    )
+                if boxed:
+                    entry, floor = entries[target], op["to_z"]
+                    # Neither the touched top nor an XY box proves material above a
+                    # seeded local entry. A higher floor outside SAME_Z cannot
+                    # produce that entry; float-equivalent planes may share a source.
+                    if number(entry) and number(floor) and floor > entry + SAME_Z:
+                        continue
+                    if (
+                        known_span
+                        and number(entry)
+                        and not (span[0] - SAME_Z <= entry <= span[1] + SAME_Z)
+                    ):
+                        continue
+                    if coverage == "whole" and not (
+                        known_span
+                        and number(entry)
+                        and number(floor)
+                        and span[0] - SAME_Z <= floor <= span[1] + SAME_Z
+                    ):
+                        coverage = UNKNOWN
+                if coverage == "whole":
+                    entries[target] = min(entries[target], op["to_z"]) if boxed else op["to_z"]
+                    origins[target] = made
+                elif coverage != "partial":
+                    entries[target], origins[target] = UNKNOWN, UNKNOWN
             faced = mapping(features.get(stock.get("top_feature") or name))
             if op.get("do") in FACING and (
                 stock.get("top_feature") is None or name == stock["top_feature"]

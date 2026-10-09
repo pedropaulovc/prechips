@@ -25,13 +25,16 @@ import base64
 import hashlib
 import json
 import math
+import os
 import struct
 import subprocess
+import sys
 import tomllib
 from pathlib import Path
 
 import pytest
 
+from prechips import kernel
 from prechips.kernel.step_faces import FaceRefError, StepFile, face_ref, parse_ref
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -192,11 +195,14 @@ def solids(tmp_path_factory, freecad_kernel):
     return paths
 
 
+# Only immutable serialized face facts are shared; each reader gets its own containers.
+_FACE_INVENTORIES = {}
+
+
 class Engine:
     def __init__(self, directory, executable):
         self.directory = directory
         self.executable = executable
-        self.inventories = {}
 
     def raw(self, payload):
         return _run(payload, self.directory, self.executable)
@@ -223,12 +229,33 @@ class Engine:
             "setups": chained,
         }
 
-    def faces(self, step):
-        if step not in self.inventories:
-            result = self.run(self.job(step))
-            assert result["status"] == "ok", result
-            self.inventories[step] = result
-        return self.inventories[step]["faces"]
+    def faces(self, step, *, fresh=False):
+        """Reuse content-identical inventory probes, never execution/order probes.
+
+        Re-read STEP, native and engine identities on every request: a path is not an
+        identity. ``fresh=True`` keeps import-order and native-execution contracts direct.
+        """
+        job = self.job(step)
+        key = None
+        if not fresh:
+            try:
+                identity = kernel._kernel_identity(Path(self.executable))
+                recipe = {name: value for name, value in job.items() if name != "step_path"}
+                key = json.dumps(
+                    {"recipe": recipe, "engine": kernel._engine_digest(), "kernel": identity},
+                    sort_keys=True,
+                    separators=(",", ":"),
+                )
+            except OSError:
+                # An unreadable executable cannot authorize inventory reuse.
+                pass
+        if key is not None and key in _FACE_INVENTORIES:
+            return json.loads(_FACE_INVENTORIES[key])
+        result = self.run(job)
+        assert result["status"] == "ok", result
+        if key is not None:
+            _FACE_INVENTORIES[key] = json.dumps(result["faces"]).encode("utf-8")
+        return result["faces"]
 
     def refs(self, step, lo, hi, kind=None):
         """Refs of faces whose bounding box lies inside [lo, hi] (optionally of one kind)."""
@@ -246,6 +273,102 @@ class Engine:
 @pytest.fixture
 def engine(tmp_path, freecad_kernel):
     return Engine(tmp_path, freecad_kernel)
+
+
+@pytest.fixture
+def inventory_probe(tmp_path, monkeypatch):
+    """A counted native boundary, not a substitute for native geometry assertions."""
+    executable = tmp_path / "freecadcmd"
+    executable.write_bytes(b"native-A")
+    step = tmp_path / "part.step"
+    step.write_bytes(b"step-A")
+    monkeypatch.setattr(kernel, "_engine_digest", lambda: "engine-A")
+    monkeypatch.setattr(sys.modules[__name__], "_FACE_INVENTORIES", {})
+    executions = []
+
+    def execute(payload, directory, command):
+        executions.append(payload)
+        return json.dumps(
+            {
+                "status": "ok",
+                "faces": [
+                    {"ref": "face", "bbox_mm": [0, 0, 0, 1, 2, 3], "area_mm2": len(executions)}
+                ],
+            }
+        ).encode("utf-8")
+
+    monkeypatch.setattr(sys.modules[__name__], "_run", execute)
+    return Engine(tmp_path, executable), step, executions
+
+
+def test_inventory_reuse_returns_independent_nested_facts(inventory_probe, tmp_path):
+    engine, step, executions = inventory_probe
+    first = engine.faces(step)
+    first[0]["bbox_mm"][0] = 99
+    first.append({"ref": "invented"})
+    stat = engine.executable.stat()
+    os.utime(engine.executable, ns=(stat.st_atime_ns, stat.st_mtime_ns + 2_000_000_000))
+    copied = tmp_path / "copy.step"
+    copied.write_bytes(step.read_bytes())
+    other = Engine(tmp_path, engine.executable)
+    second = other.faces(copied)
+    assert second == [{"ref": "face", "bbox_mm": [0, 0, 0, 1, 2, 3], "area_mm2": 1}]
+    second[0]["bbox_mm"][1] = 88
+    assert engine.faces(step)[0]["bbox_mm"] == [0, 0, 0, 1, 2, 3]
+    assert len(executions) == 1
+
+
+@pytest.mark.parametrize("changed", ["step", "native", "recipe", "engine"])
+def test_inventory_reuse_invalidates_real_identity_or_recipe(inventory_probe, monkeypatch, changed):
+    engine, step, executions = inventory_probe
+    assert engine.faces(step)[0]["area_mm2"] == 1
+    if changed in {"step", "native"}:
+        path = {"step": step, "native": engine.executable}[changed]
+        stat = path.stat()
+        path.write_bytes(path.read_bytes().replace(b"A", b"B"))
+        os.utime(path, ns=(stat.st_atime_ns, stat.st_mtime_ns))
+    elif changed == "recipe":
+        original = engine.job
+        monkeypatch.setattr(engine, "job", lambda path: {**original(path), "version": 2})
+    else:
+        monkeypatch.setattr(kernel, "_engine_digest", lambda: "engine-B")
+    assert engine.faces(step)[0]["area_mm2"] == 2
+    assert engine.faces(step)[0]["area_mm2"] == 2
+    assert len(executions) == 2
+
+
+def test_fresh_inventory_and_raw_jobs_always_execute(inventory_probe):
+    engine, step, executions = inventory_probe
+    assert engine.faces(step)[0]["area_mm2"] == 1
+    assert engine.faces(step, fresh=True)[0]["area_mm2"] == 2
+    assert engine.faces(step, fresh=True)[0]["area_mm2"] == 3
+    assert json.loads(engine.raw(engine.job(step)))["faces"][0]["area_mm2"] == 4
+    assert engine.run(engine.job(step))["faces"][0]["area_mm2"] == 5
+    assert engine.faces(step)[0]["area_mm2"] == 1
+    assert len(executions) == 5
+
+
+def test_unreadable_native_identity_cannot_reuse_inventory(inventory_probe):
+    engine, step, executions = inventory_probe
+    assert engine.faces(step)[0]["area_mm2"] == 1
+    engine.executable.unlink()
+    assert engine.faces(step)[0]["area_mm2"] == 2
+    assert engine.faces(step)[0]["area_mm2"] == 3
+    assert len(executions) == 3
+
+
+@pytest.mark.parametrize("status", ["unknown", "error"])
+def test_unsuccessful_inventory_never_authorizes_reuse(inventory_probe, monkeypatch, status):
+    engine, step, executions = inventory_probe
+    original = engine.run
+    monkeypatch.setattr(
+        engine, "run", lambda job: {"status": status, "faces": [{"ref": "unresolved"}]}
+    )
+    with pytest.raises(AssertionError):
+        engine.faces(step)
+    monkeypatch.setattr(engine, "run", original)
+    assert engine.faces(step)[0]["area_mm2"] == 1
+    assert len(executions) == 1
 
 
 def _op(subject, feature, radius, flute, projection, holder_radius=10.0, gauge=30.0, oal=100.0):
@@ -613,6 +736,43 @@ def test_an_inspect_ops_set_up_sketches_are_drawn_beside_the_setup_picture(engin
     assert cursor == height
     assert "inspection_pngs_base64" not in baseline
 
+    # Inspect actual native output, not the view dictionaries handed to the renderer.
+    # The unequal pocket/stock dimensions make a camera transpose visible; the long
+    # gauge pin makes its axis visible; H2's reading flag adds a green upward arrow.
+    from test_render_png import _decode_png
+
+    def coloured_pixels(image, kind):
+        image_width, image_height, pixels = _decode_png(image)
+        selected = set()
+        for offset in range(0, len(pixels), 3):
+            red, green, blue = pixels[offset : offset + 3]
+            matches = {
+                "part": blue - green >= 3 and green - red >= 3,
+                "aid": red - green >= 8 and green - blue >= 15,
+                "reading": (red, green, blue) == (24, 91, 58),
+            }[kind]
+            if matches:
+                selected.add(offset // 3)
+        return image_width, image_height, selected
+
+    original = {kind: coloured_pixels(png, kind) for kind in ("part", "aid", "reading")}
+    assert all(mask[2] for mask in original.values())
+    for kind in ("part", "aid", "reading"):
+        changed = json.loads(json.dumps(inspection))
+        if kind == "part":
+            changed["views"][0].update(up=[0.0, 1.0, 0.0], toward=[0.0, 0.0, 1.0])
+        elif kind == "aid":
+            changed["views"][1]["aids"][0]["axis"] = [1.0, 0.0, 0.0]
+        else:
+            changed["views"][1]["marks"][1]["reads"] = False
+        setup["render"]["inspections"] = [changed]
+        changed_facts = engine.run(engine.job(step, setups=[setup]))["setups"]["S1"]
+        assert changed_facts["render_png_base64"] == baseline["render_png_base64"]
+        changed_png = base64.b64decode(changed_facts["inspection_pngs_base64"][key])
+        assert coloured_pixels(changed_png, kind) != original[kind], kind
+        if kind == "reading":
+            assert not coloured_pixels(changed_png, kind)[2]
+
 
 def test_pocket_reach_needs_long_projection_and_reports_corner_radius(engine, solids):
     step = solids["pocket"]
@@ -657,7 +817,8 @@ def test_mapping_survives_reordered_import_faces(engine, solids, tmp_path):
     reordered = "CLOSED_SHELL('',(" + ",".join(f"#{ref}" for ref in reversed(shell.refs)) + "))"
     permuted = tmp_path / "permuted.step"
     permuted.write_text(text.replace(shell.body, reordered), encoding="latin-1", newline="")
-    before, after = engine.faces(original), engine.faces(permuted)
+    before = engine.faces(original, fresh=True)
+    after = engine.faces(permuted, fresh=True)
     by_ref = {face["ref"]: face for face in after}
     assert len(after) == len(before) and all(face["ref"] for face in before)
     assert [face["ref"] for face in after] != [face["ref"] for face in before]

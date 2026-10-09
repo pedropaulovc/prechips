@@ -7,11 +7,14 @@ finish coverage credit a filed face only once the kernel filed it. Kernel cases 
 ``src/prechips/kernel/freecad_job.py`` under ``freecadcmd`` and skip without it.
 """
 
+import json
 import math
+import os
+import subprocess
 
 import pytest
 from test_geometry_rules import bundle  # noqa: F401  (pytest fixture)
-from test_kernel_geometry import Engine, _setup
+from test_kernel_geometry import ENGINE, Engine, _setup
 from test_kernel_rough_stock import (  # noqa: F401  (solids is a pytest fixture)
     ISLAND_BLANK,
     ISLAND_BOUNDS,
@@ -94,6 +97,47 @@ def test_a_file_takes_the_leave_off_its_claims_only_up_to_the_policy_cap(engine,
     assert "max_filing_stock_mm is unknown" in uncapped["setups"]["S3"]["stock_reason"]
 
 
+_STOCK_WITNESS = r"""
+import importlib.util, json, os, sys
+out = sys.argv[sys.argv.index("--") + 1]
+spec = importlib.util.spec_from_file_location("filing_kernel", os.environ["KERNEL_SOURCE"])
+kernel = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(kernel)
+run = kernel._Setup.run
+def observe(self):
+    facts, ops = run(self)
+    if self.part is not None:
+        facts["witness_valid"] = self.part.isValid()
+        facts["witness_solids"] = len(self.part.Solids)
+    return facts, ops
+kernel._Setup.run = observe
+with open(out + "/filing-input.json", encoding="utf-8") as handle:
+    result = kernel.run(json.load(handle))
+with open(out + "/filing-witness.json", "w", encoding="utf-8") as handle:
+    json.dump(result, handle)
+"""
+
+
+def _stock_witness(engine, payload):
+    """Observe native topology in the same jobs that supply the stock/claim facts."""
+    directory = engine.directory
+    (directory / "filing-input.json").write_text(json.dumps(payload), encoding="utf-8")
+    script = directory / "filing-witness.py"
+    script.write_text(_STOCK_WITNESS, encoding="utf-8")
+    report = directory / "filing-witness.json"
+    report.unlink(missing_ok=True)
+    process = subprocess.run(
+        [engine.executable, str(script), "--", str(directory)],
+        capture_output=True,
+        text=True,
+        errors="replace",
+        timeout=600,
+        env={**os.environ, "KERNEL_SOURCE": str(ENGINE)},
+    )
+    assert report.exists(), process.stdout[-2000:] + process.stderr[-2000:]
+    return json.loads(report.read_text(encoding="utf-8"))
+
+
 def test_walls_filed_in_turn_leave_no_crumb_in_their_corner(engine, solids):  # noqa: F811
     # Filing the west wall and then the south wall leaves what filing both at once does:
     # a stroke runs on past the corner, so the leave's rounded nib there is never
@@ -116,13 +160,14 @@ def test_walls_filed_in_turn_leave_no_crumb_in_their_corner(engine, solids):  # 
         ]
         return engine.job(step, features, setups, stock=ISLAND_BLANK)
 
-    in_turn, at_once = engine.run(
+    in_turn, at_once = _stock_witness(
+        engine,
         {
             "jobs": [
                 job(_file("S2:10", "west"), _file("S2:20", "south")),
                 job(_file("S2:10", "corner")),
             ]
-        }
+        },
     )["results"]
 
     for subject in ("S2:10", "S2:20"):
@@ -131,6 +176,14 @@ def test_walls_filed_in_turn_leave_no_crumb_in_their_corner(engine, solids):  # 
     assert "stock_reason" not in third, third.get("stock_reason")
     expected = at_once["setups"]["S3"]["stock_volume_mm3"]
     assert third["stock_volume_mm3"] == pytest.approx(expected, abs=0.01)
+    # A 60x40 rectangle keeps a 0.2 skin only on north/east and their quarter-circle join.
+    independent = 20 * (60 * 40 + LEAVE * (60 + 40) + math.pi * LEAVE**2 / 4)
+    for result in (in_turn, at_once):
+        retained = result["setups"]["S3"]
+        assert retained["witness_valid"] is True
+        assert retained["witness_solids"] == 1
+        assert retained["stock_bbox_mm"] == pytest.approx([5, 5, 0, 65.2, 45.2, 20])
+        assert retained["stock_volume_mm3"] == pytest.approx(independent, abs=0.01)
 
 
 def _box(name, at, size):
@@ -177,13 +230,22 @@ def test_a_guided_file_stops_on_its_buttons_and_dimensions_the_holding_it_must_c
     ]
     nut[1].update(void=True, cuts=["nut"])
 
-    def job(guided, button, *extra, machined=False, rims=(9.99, 10.01), south=None):
+    def job(
+        guided,
+        button,
+        *extra,
+        machined=False,
+        rims=(9.99, 10.01),
+        south=None,
+        guide_input=None,
+        owner="clamp 1 kit",
+    ):
         kit = {
-            "name": "clamp 1 kit",
+            "name": owner,
             "pose": origin,
             "solids": [
                 button,
-                _box("clamp 1 kit:stud", [20.0, 20.0, 20.0], [4.0, 4.0, 20.0]),
+                _box(f"{owner}:stud", [20.0, 20.0, 20.0], [4.0, 4.0, 20.0]),
                 *extra,
             ],
         }
@@ -201,6 +263,12 @@ def test_a_guided_file_stops_on_its_buttons_and_dimensions_the_holding_it_must_c
         if guided:
             filed["guide_owner"] = "clamp 1 kit"
             filed["guide_rim_dia_mm"] = list(rims) if isinstance(rims, tuple) else rims
+        if guide_input is not None:
+            for key in ("guide_owner", "guide_rim_dia_mm"):
+                if key in guide_input:
+                    filed[key] = guide_input[key]
+                else:
+                    filed.pop(key, None)
         ops = [filed]
         if south is not None:
             ops.append({**_file("S2:20", "south"), "guide_owner": "clamp 1 kit"})
@@ -222,9 +290,43 @@ def test_a_guided_file_stops_on_its_buttons_and_dimensions_the_holding_it_must_c
     jobs += [job(False, disc, machined=True), job(True, over)]
     jobs += [job(True, disc, rims="unknown"), job(True, block, rims="unknown")]
     jobs += [job(True, disc, *nut), job(True, corner, south="unknown")]
+    from test_manual_arc import (
+        BUTTONS,
+        DRILL_BORE,
+        STAIRS,
+        _filing_input,
+        bench_op,
+        change,
+        scratch,
+    )
+
+    variants = [
+        (BUTTONS.replace("'buttons'", "'fixtures.buttons'"), "fixture = 'buttons'", "buttons"),
+        (BUTTONS, "fixture = 'fixtures.buttons'", "fixtures.buttons"),
+        (
+            BUTTONS,
+            "fixture = 'unknown'\nclamps = [{ ref = 'fixtures.buttons' }]",
+            "clamp 1 fixtures.buttons",
+        ),
+        (BUTTONS, "fixture = 'buttons'", "buttons"),
+    ]
+    for k, (guide, hold_text, owner) in enumerate(variants):
+        plan = scratch(
+            engine.directory / f"guide-{k}",
+            DRILL_BORE + STAIRS + bench_op(30, "file_to_line", guide=guide),
+            hold=hold_text,
+        )
+        band = [19.926, 20.064]
+        if k == 3:
+            change(plan.with_name("inventory.toml"), "[19.99, 20.0]", "[19.98, 19.993]")
+            band = [19.916, 20.057]
+        filed = _filing_input(plan)
+        assert filed["guide_rim_dia_mm"] == pytest.approx(band)
+        button = {**disc, "name": f"{owner}:button", "dia_mm": 20.0, "at_mm": [15, 25, 20]}
+        jobs.append(job(True, button, guide_input=filed, owner=owner))
     results = engine.run({"jobs": jobs})["results"]
     guided, unguided, beside, square, mixed, overhung, undecided, unbanded, bored, split = (
-        result["setups"]["S2"]["render_scene"] for result in results
+        result["setups"]["S2"]["render_scene"] for result in results[:10]
     )
 
     assert guided["guide_stops"] == ["clamp 1 kit:button"]
@@ -277,6 +379,14 @@ def test_a_guided_file_stops_on_its_buttons_and_dimensions_the_holding_it_must_c
     assert west["mm"] == pytest.approx(5.0, abs=1e-3)
     assert south == {"op": "20", "mm": "unknown", "tag": "unknown"}
     assert split["closest_cut"] is None
+    for result, (_, _, owner) in zip(results[10:], variants, strict=True):
+        scene = result["setups"]["S2"]["render_scene"]
+        assert scene["guide_stops"] == [f"{owner}:button"]
+        assert scene["cut_clearances"] == [
+            {"op": "10", "tag": "plate:top", "mm": pytest.approx(5.0, abs=1e-3)}
+        ]
+        assert scene["closest_cut"]["tag"] == "plate:top"
+        assert scene["closest_cut"]["mm"] == pytest.approx(5.0, abs=1e-3)
 
 
 def _filed(data, claim):

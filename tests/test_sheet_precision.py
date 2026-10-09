@@ -111,7 +111,10 @@ def test_omitted_lathe_radius_mode_leaves_x_checks_unknown(tmp_path):
     authored = plan.read_text(encoding="utf-8")
     plan.write_text(re.sub(r"(?m)^radius_mode = .*\n", "", authored, count=1), encoding="utf-8")
     _, report, _ = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
-    for row in findings(report, "zero_check"):
+    zeros = findings(report, "zero_check")
+    assert len(zeros) == 4
+    assert {row["subject"] for row in zeros} == {"S0", "S1", "S2", "S3"}
+    for row in zeros:
         x = row["numbers"]["axes"]["x"]
         assert row["status"] == "unknown"
         for key in ("check_reading", "mirrored_reading", "check_expression", "mirrored_expression"):
@@ -172,7 +175,12 @@ def test_known_numbers_without_drawing_precision_print_and_unknowns_stay_explici
                 # Known depths print on the setup's DRO grid, within one step of the value.
                 grid = grids[endpoint["setup"]]
                 markup = Markup(pages[endpoint["setup"]])
-                targets = [content(node) for node in markup.find("op-target")]
+                (operation,) = [
+                    node
+                    for node in markup.find("operation")
+                    if node["attrs"]["data-op"] == str(endpoint["op"])
+                ]
+                targets = [content(node) for node in markup.find("op-target", operation)]
                 assert targets
                 printed = [
                     match
@@ -292,28 +300,36 @@ def test_lathe_feed_prints_per_revolution_with_the_true_value(tmp_path):
     plan = ROOT / "examples" / "pivot-shaft" / "plan.toml"
     _, report, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
     ids = [setup["id"] for setup in tomllib.loads(plan.read_text(encoding="utf-8"))["setups"]]
-    per_rev = {}
+    feeds = {}
     for finding in findings(report, "speeds_feeds"):
         setup, _, op = finding["subject"].partition(":")
-        value = finding["numbers"].get("feed_mm_rev")
+        numbers = finding["numbers"]
+        value = numbers.get("feed_mm_rev")
         if isinstance(value, float):
-            per_rev[setup, op] = value
-    assert per_rev
+            feeds[setup, op] = value, numbers.get("feed_mm_min")
+    assert feeds
     pages = sections(html, "OPERATIONS")
     checked = set()
     for setup, page in zip(ids, pages, strict=True):
         markup = Markup(page)
         for operation in markup.find("operation"):
             op = operation["attrs"]["data-op"]
-            value = per_rev.get((setup, op))
-            if value is None:
+            values = feeds.get((setup, op))
+            if values is None:
                 continue
+            per_rev, per_min = values
             feed = content(markup.find("op-feed", operation)[0])
             printed = re.findall(r"([\d.]+) mm/rev", feed)
-            # A per-rev feed must never carry the mm/min magnitude.
-            assert printed and float(printed[0]) == pytest.approx(value, abs=0.005), (op, feed)
+            assert feed.count("mm/rev") == len(printed) == 1, (op, feed)
+            assert float(printed[0]) == pytest.approx(per_rev, abs=0.005), (op, feed)
+            # The optional parenthetical is a different unit, not the primary feed.
+            secondary = re.findall(r"\(([\d.]+) mm/min\)", feed)
+            assert feed.count("mm/min") == len(secondary) <= 1, (op, feed)
+            if secondary:
+                assert isinstance(per_min, (int, float)), (op, per_min)
+                assert float(secondary[0]) == pytest.approx(per_min, abs=0.5), (op, feed)
             checked.add((setup, op))
-    assert checked == set(per_rev)
+    assert checked == set(feeds)
 
 
 def test_job_status_names_every_setup_that_has_a_stop(tmp_path):
@@ -542,10 +558,12 @@ def test_op_notes_print_under_their_own_row_on_the_front_sheet(tmp_path):
         css = "op-action" if all(step["do"] in MANUAL for step in setup["ops"]) else "op-note"
         for op in setup["ops"]:
             if op.get("note"):
-                # The bench reading may rename a leading feature id; the words after it stay.
-                words = " ".join(op["note"].split()[1:5]).lower()
+                # Display names replace feature-id joints; preserve the entire authored note.
+                expected = " ".join(op["note"].replace("_", " ").split()).casefold()
                 notes = markup.find(css, operations[str(op["op"])])
-                assert any(words in content(note).lower() for note in notes), op["op"]
+                assert any(
+                    expected in " ".join(content(note).split()).casefold() for note in notes
+                ), (setup["id"], op["op"], expected)
                 noted += 1
     assert noted
 

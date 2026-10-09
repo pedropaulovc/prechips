@@ -136,12 +136,21 @@ def test_unknown_compound_fact_is_debt_and_withholds_join(tmp_path, field):
 def test_compound_requires_positive_cure_and_declared_prep(field, value):
     plan = tomllib.loads(_plan())
     joint = compound(plan["setups"][-1]["joint"])
+    control = Plan.model_validate(copy.deepcopy(plan))
+    assert control.setups[-1].joint.method == "retaining_compound"
+    assert control.setups[-1].joint.cure_time_min > 0
+    assert control.setups[-1].joint.surface_prep
     if value is None:
         del joint[field]
     else:
         joint[field] = value
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError) as caught:
         Plan.model_validate(plan)
+    errors = caught.value.errors()
+    assert any(
+        error["loc"][:3] == ("setups", 2, "joint") and error["type"] == "value_error"
+        for error in errors
+    ), errors
 
 
 def test_silver_braze_does_not_require_compound_process_fields(tmp_path):

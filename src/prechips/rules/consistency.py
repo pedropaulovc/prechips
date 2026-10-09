@@ -769,23 +769,9 @@ def _arity(solid):
     return None
 
 
-def _note_sizes(traveler, title, note, rows):
-    """The SHOP-MADE FIXTURE rows (``rows``: solids, Size mm cell) whose whole size the make
-    note they print with restates unambiguously: ``the <row>`` (a solid's name or the row's
-    label) then :func:`_size_at` with as many edges as the row prints, in governing text
-    (:func:`_scope`, less the row's name) that is not :func:`_ambiguous`. Each row the name
-    denotes is its own finding, whatever the numbers or units say."""
-    from prechips.sheet import _solid_name
-
-    names = {}
-    for row in rows:
-        members, _ = row
-        label = members[0].get("label")
-        spelled = {_solid_name(s.get("name", "?")) for s in members}
-        for name in spelled | {label and traveler.bench(label)}:
-            if name:
-                key = tuple(t[1] for t in _tokens(name)[1])
-                names.setdefault(key, {})[id(members)] = row
+def _named_sizes(note, names):
+    """Unambiguous whole sizes after ``the <name>`` in a note: token-name key, authored
+    text and edge count. Names are token tuples; the longest matching name wins."""
     keys = sorted(names, key=len, reverse=True)
     text, tokens = _tokens(note)
     marks = _boundaries(text, tokens)
@@ -804,6 +790,29 @@ def _note_sizes(traveler, title, note, rows):
             continue
         after, edges = size
         said = text[tokens[i][2] : tokens[after - 1][3]]
+        found.append((key, said, edges))
+    return found
+
+
+def _note_sizes(traveler, title, note, rows):
+    """The SHOP-MADE FIXTURE rows (``rows``: solids, Size mm cell) whose whole size the make
+    note they print with restates unambiguously: ``the <row>`` (a solid's name or the row's
+    label) then :func:`_size_at` with as many edges as the row prints, in governing text
+    (:func:`_scope`, less the row's name) that is not :func:`_ambiguous`. Each row the name
+    denotes is its own finding, whatever the numbers or units say."""
+    from prechips.sheet import _solid_name
+
+    names = {}
+    for row in rows:
+        members, _ = row
+        label = members[0].get("label")
+        spelled = {_solid_name(s.get("name", "?")) for s in members}
+        for name in spelled | {label and traveler.bench(label)}:
+            if name:
+                key = tuple(t[1] for t in _tokens(name)[1])
+                names.setdefault(key, {})[id(members)] = row
+    found = []
+    for key, said, edges in _named_sizes(note, names):
         for members, cell in names[key].values():
             if _arity(members[0]) != edges:
                 continue
