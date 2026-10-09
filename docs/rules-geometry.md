@@ -727,6 +727,9 @@ spigot preparation removes the exterior annulus within its declared axial
 interval. A blind drill includes the cone below its cylindrical depth, and
 that cone must not intrude into protected finished material. Drill/spot point
 geometry needs an accepted included angle, not a fabricated flat bottom.
+An accepted finite angle whose point slope underflows or point rise overflows
+also leaves action-named geometry and stock debt for either drill or spot;
+no substitute profile is built.
 Socket spotting uses its pointed tool profile and does not complete the
 full cylinder. Tapping and counterboring on transient joint features remain
 named stock debt until actual thread and pilot/step geometry is supported;

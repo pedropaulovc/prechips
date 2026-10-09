@@ -206,6 +206,8 @@ def test_installed_artifact_console_script_matches_module(tmp_path):
     [
         ('hash = "current"\nfirst_article = "accepted"\n', "checked", True, 0),
         ('hash = "current"\nfirst_article = "  "\n', "checked", False, 1),
+        ('hash = "current"\nfirst_article = "unknown"\n', "checked", False, 1),
+        ('hash = "current"\nfirst_article = "  UnKnOwN  "\n', "checked", False, 1),
         ('hash = "current"\nfirst_article = "accepted"\n', "planned", False, 1),
         (
             'hash = "old"\nfirst_article = "accepted"\n'
@@ -215,7 +217,14 @@ def test_installed_artifact_console_script_matches_module(tmp_path):
             1,
         ),
     ],
-    ids=["exact", "blank-evidence", "unresolved-checks", "stale-input"],
+    ids=[
+        "exact",
+        "blank-evidence",
+        "unknown-evidence",
+        "normalized-unknown-evidence",
+        "unresolved-checks",
+        "stale-input",
+    ],
 )
 def test_approval_record_cannot_waive_report_binding(
     tmp_path, record, verification, approved, warning_count
@@ -239,6 +248,35 @@ def test_approval_record_cannot_waive_report_binding(
     if record.startswith('hash = "old"'):
         assert "features" in result["warnings"][0]
         assert "plan" not in result["warnings"][0]
+
+
+@pytest.mark.parametrize("verb", ["check", "traveler"])
+@pytest.mark.parametrize(
+    ("evidence", "recorded"),
+    [("  ", False), ("unknown", False), ("  UnKnOwN  ", False), ("FA-001 accepted", True)],
+    ids=["blank", "unknown", "normalized-unknown", "recorded"],
+)
+def test_approval_evidence_warnings_agree_with_traveler_status(verb, evidence, recorded, tmp_path):
+    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
+    plain, report, _ = traveler(plan, tmp_path / "plain", setup=SYNTHETIC_KERNEL)
+    assert report["verification"] != "checked"
+    approval = tmp_path / "approval.toml"
+    approval.write_text(
+        f'hash = "{report["hash"]}"\nfirst_article = "{evidence}"\n',
+        encoding="utf-8",
+    )
+    out = tmp_path / "out"
+    result = run_cli(verb, plan, "--out", out, "--approval", approval, setup=SYNTHETIC_KERNEL)
+    assert result.returncode == plain.returncode
+    assert json.loads((out / "report.json").read_bytes()) == report
+    assert ("first-article evidence" in result.stderr) is not recorded
+    assert ("unresolved shop-required checks" in result.stderr) is recorded
+    if verb == "traveler":
+        html = (out / "traveler.html").read_text(encoding="utf-8")
+        assert "PLANNED" in html
+        assert "CHECKED —" not in html
+        assert ("no first article is recorded" in html) is not recorded
+        assert ("a first article is recorded for this plan" in html) is recorded
 
 
 @pytest.mark.parametrize(

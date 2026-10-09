@@ -835,8 +835,8 @@ Traveler drawing dimensions retain declared precision, or their own digits
 when it is absent. Operative targets print computed values; only genuine
 unknowns print `?`. Contour DRO targets follow the rounding contract under
 [Rocker-arm supported route](#rocker-arm-supported-route). Transfer indication
-lists print as bench-readable text. Footer ids bind the reports; content is
-escaped and rows use natural overflow. These output contracts do not establish
+lists print as bench-readable text. HTML metadata binds each traveler to its
+report; content is escaped and rows use natural overflow. These output contracts do not establish
 measured inventory, physical holding safety or first-article acceptance.
 
 The bracket's authored route saws 38 mm from 19.05 × 31.75 mm

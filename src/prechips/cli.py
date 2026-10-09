@@ -212,10 +212,9 @@ def _read_approval(path: Path | None, report: dict, tracing: telemetry.Telemetry
         warnings.append(
             f"Approval no longer matches: {description} changed. Repeat the first article."
         )
-    approved = (
-        matches and bool(record["first_article"].strip()) and report["verification"] == "checked"
-    )
-    if matches and not record["first_article"].strip():
+    evidence_recorded = record["first_article"].strip().lower() not in ("", "unknown")
+    approved = matches and evidence_recorded and report["verification"] == "checked"
+    if matches and not evidence_recorded:
         warnings.append("No first-article evidence is recorded; the traveler remains planned.")
     elif matches and report["verification"] != "checked":
         warnings.append(

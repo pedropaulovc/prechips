@@ -743,12 +743,16 @@ def test_partial_spot_profile_does_not_claim_full_through_cylinder(engine, joint
         point_angle_deg=90.0,
     )
     facts = engine.run(job)
+    assert facts["status"] == "ok", facts
     stock = facts["setups"]["socket-cut"]
     assert math.pi * 1000 - stock["stock_out_volume_mm3"] == pytest.approx(
         math.pi * 2**2 * 2 / 3, abs=1e-3
     )
     assert stock["completed_joint_features"] == []
-    assert facts["ops"]["socket-cut:10"]["min_hits"]["tool"] == 0
+    detail = facts["ops"]["socket-cut:10"]
+    assert isinstance(detail["claimed_indices"], list) and detail["claimed_indices"]
+    assert detail["corner_radii_mm"] == []
+    assert detail["min_hits"]["tool"] == 0
     assert "assembly_error" in facts["setups"]["join"]
 
 
@@ -877,6 +881,7 @@ def test_through_drill_follows_setup_feed_from_either_authored_cylinder_cap(
     assert "assembly_error" not in facts["setups"]["join"]
 
 
+@pytest.mark.parametrize("action", ["drill", "spot"])
 @pytest.mark.parametrize(
     "point_angle, debt",
     [
@@ -885,13 +890,16 @@ def test_through_drill_follows_setup_feed_from_either_authored_cylinder_cap(
         (1e-310, "point cone"),
     ],
 )
-def test_unknown_drill_point_is_geometry_debt_not_an_invented_flat_cut(
-    engine, joint_solids, point_angle, debt
+def test_unknown_joint_point_is_geometry_debt_not_an_invented_flat_cut(
+    engine, joint_solids, action, point_angle, debt
 ):
     job = _joint_job(engine, joint_solids["joined"])
     op = job["setups"][0]["ops"][0]
-    op["do"] = "drill"
-    op["joint_cut"].update(action="drill", point_angle_deg=point_angle)
+    op["do"] = action
+    op["radius_mm"] = 5.0
+    op["joint_cut"].update(action=action, point_angle_deg=point_angle)
+    if action == "spot":
+        op["joint_cut"].update(op_depth_mm=2.0, completes=False)
     facts = engine.run(job)
     assert facts["status"] == "ok", facts
     socket = facts["setups"]["socket-cut"]
@@ -902,3 +910,4 @@ def test_unknown_drill_point_is_geometry_debt_not_an_invented_flat_cut(
     for key in ("claimed_indices", "tool_hits", "holder_hits", "corner_radii_mm"):
         assert detail[key] == "unknown"
         assert debt in detail["reasons"][key]
+        assert action in detail["reasons"][key]

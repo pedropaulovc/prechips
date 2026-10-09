@@ -242,10 +242,12 @@ features = "<prior SHA-256>"
 These placeholder strings illustrate shape, not supplied approval evidence.
 Approval histories (`[[approvals]]`) and report-style digest tables are not
 accepted. `hash` and `first_article` must be strings; every declared input
-digest must be a string. Only a full hash match, a nonblank first-article
-string, and an eligible report remove PLANNED. Neither a matching short id,
-a stale record nor an empty evidence string suffices. Approval parsing does
-not authenticate evidence or perform the first article; the shop owns its truth.
+digest must be a string. Only a full hash match, resolved first-article text,
+and an eligible report remove PLANNED. Whitespace-only evidence or literal
+`unknown` (case-insensitive, after trimming whitespace) is unresolved; a matching
+record warns that no first-article evidence is recorded. Neither a matching
+short id nor a stale record suffices. Approval parsing does not authenticate
+evidence or perform the first article; the shop owns its truth.
 
 Stale record warning: `Approval no longer matches: {changed input names} changed.
 Repeat the first article.` Only input names declared in the prior record and
