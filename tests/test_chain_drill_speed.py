@@ -270,3 +270,22 @@ def test_independent_oracle_checks_plain_drill_per_revolution_feed():
     row["numbers"]["axial_feed_mm_rev"] *= 2
     with pytest.raises(ValueError):
         check()
+
+
+def test_lathe_tailstock_drill_uses_planned_axial_feed_not_row_or_tooth_feed():
+    from test_validate_examples import speed_finding
+
+    data = drill_bundle(depth_mm=5.0)
+    data.inventory["machines"]["mill"]["kind"] = "lathe"
+    data.plan["setups"][0]["ops"][0]["feed_mm_rev"] = 0.03
+    data.cutting_data["cut"][0]["feed_mm_rev"] = 0.08
+    row, check = speed_finding(data)
+    assert row["status"] == "pass"
+    assert row["numbers"]["feed_direction"] == "axial"
+    assert row["numbers"]["feed_mm_rev"] == 0.03
+    assert row["numbers"]["axial_feed_mm_rev"] == 0.03
+    assert row["numbers"]["feed_mm_min"] == pytest.approx(row["numbers"]["rpm"] * 0.03)
+    check()
+    row["numbers"]["axial_feed_mm_rev"] = 0.08
+    with pytest.raises(ValueError):
+        check()
