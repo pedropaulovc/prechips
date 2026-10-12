@@ -104,6 +104,7 @@ def assert_grid_debt(row, status):
         pytest.param(None, id="missing"),
         pytest.param("unknown", id="explicit-unknown"),
         pytest.param(fact(status="assumed"), id="assumed"),
+        pytest.param(fact(status="illustrative"), id="illustrative"),
         pytest.param(fact(), id="measured"),
     ],
 )
@@ -124,7 +125,7 @@ def test_bare_saw_cut_does_not_consume_a_dro_grid(tmp_path, resolution):
     assert "DRO grid debt:" not in row.sentence
     # The report mapping must also be visible, not hidden by the saw renderer shortcut.
     shown = _Traveler(data, [row], {}, None).dro_resolution(data.plan["setups"])
-    assert shown is not None and "not used" in shown
+    assert shown is not None and "no coordinate targets" in shown
     assert "provisional" not in shown and "unverified" not in shown
     assert data.kernel is None
 
@@ -270,7 +271,7 @@ def test_unused_grid_does_not_clear_independent_frame_debt(tmp_path):
     assert measurement_checklist([row]) == []
 
 
-@pytest.mark.parametrize("contour", [None, {}, "unknown"])
+@pytest.mark.parametrize("contour", [None, {}], ids=["missing", "empty"])
 def test_stock_metadata_and_an_unlocated_feature_do_not_invent_a_dro_target(tmp_path, contour):
     data = bundle(tmp_path)
     data.features["features"]["body"] = {"kind": "profile", "frame": "model"}
@@ -280,11 +281,59 @@ def test_stock_metadata_and_an_unlocated_feature_do_not_invent_a_dro_target(tmp_
     if contour is not None:
         setup["ops"][0]["contour"] = contour
     row = coordinates.evaluate(data)[0]
-    assert row.status == ("unknown" if contour == "unknown" else "pass"), row.sentence
+    assert row.status == "pass", row.sentence
     assert all(row.numbers[key] == [] for key in TABLES)
     assert row.numbers["dro_grid"] == NOT_USED
     assert "dro_grid_debt" not in row.numbers
     assert measurement_checklist([row]) == []
+    assert not validator_uses_grid(data, {"dro_grid": NOT_USED})
+
+
+@pytest.mark.parametrize(
+    ("resolution", "status", "step"),
+    [
+        pytest.param(None, "missing", 0.001, id="missing"),
+        pytest.param(fact(status="assumed"), "assumed", 0.005, id="assumed"),
+        pytest.param(fact(status="illustrative"), "illustrative", 0.005, id="illustrative"),
+        pytest.param(fact(), "measured", 0.005, id="measured"),
+    ],
+)
+def test_an_authored_unknown_contour_consumes_the_grid_without_inventing_targets(
+    tmp_path, resolution, status, step
+):
+    data = bundle(tmp_path, resolution)
+    data.features["features"]["body"] = {"kind": "profile", "frame": "model"}
+    setup = data.plan["setups"][0]
+    setup["stock_state"]["entry_z"] = {"body": 9.0021}
+    setup["ops"][0].update(feature="body", contour="unknown")
+    row = coordinates.evaluate(data)[0]
+    assert row.status == "unknown", row.sentence
+    assert all(row.numbers[key] == [] for key in TABLES)
+    assert not row.numbers.get("level_paths")
+    assert not row.numbers.get("stair_tables")
+    assert not row.numbers.get("plunges")
+    assert row.numbers["dro_grid"] == {"step": step, "decimals": 3}
+    # No emitted targets: the independent oracle must retain the author's intent.
+    assert validator_uses_grid(data, {"dro_grid": NOT_USED})
+    if status == "measured":
+        assert "dro_grid_debt" not in row.numbers
+        assert "measurements" not in row.numbers
+        assert measurement_checklist([row]) == []
+        assert "DRO grid debt:" not in row.sentence
+    else:
+        assert_grid_debt(row, status)
+        data.inventory["machines"]["saw"]["resolution_mm"] = fact(value=step)
+        trusted = coordinates.evaluate(data)[0]
+        assert trusted.status == "unknown", trusted.sentence
+        assert "dro_grid_debt" not in trusted.numbers
+        assert "measurements" not in trusted.numbers
+        assert measurement_checklist([trusted]) == []
+        assert trusted.numbers == {
+            key: value
+            for key, value in row.numbers.items()
+            if key not in {"dro_grid_debt", "measurements"}
+        }
+    assert data.kernel is None
 
 
 @pytest.mark.parametrize("consumed", [False, True])

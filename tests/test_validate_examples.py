@@ -2223,7 +2223,7 @@ def test_zero_readiness_radius_and_lathe_come_from_the_inventory(
 
 def coverage_case():
     """The built-up cone's plan, manifest and report findings keyed by rule and subject,
-    and the validator's coverage check on its own inventory read and bundle load."""
+    and the validator's coverage check on its own inventory read and native bundle load."""
     plan, features, inventory, _, report = cone_inputs()
     entries = VALIDATOR["Entries"](inventory)
     checked = VALIDATOR["checker_findings"](ROOT / "examples" / "cone-pivot-post" / "built-up.toml")
@@ -2247,7 +2247,9 @@ def coverage_row(rule, subject, selector, status="unknown"):
         ("not_implemented_check", [], "*"),  # an empty selection of one
     ],
 )
-def test_required_coverage_comes_from_the_policy_not_the_report(rule, selector, subject):
+def test_required_coverage_comes_from_the_policy_not_the_report(
+    freecad_kernel, rule, selector, subject
+):
     plan, features, findings, check = coverage_case()
     policy = {"required": {rule: selector}}
     key = (rule, subject)
@@ -2269,7 +2271,7 @@ def test_required_coverage_comes_from_the_policy_not_the_report(rule, selector, 
         check(policy, plan, features, {**findings, **rows})
 
 
-def test_required_coverage_row_carries_the_policys_selector():
+def test_required_coverage_row_carries_the_policys_selector(freecad_kernel):
     plan, features, findings, check = coverage_case()
     # An empty selection's coverage row is required by the policy's selection of its
     # rule, never by the selector the report prints on it.

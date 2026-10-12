@@ -199,7 +199,8 @@ def test_underivable_rotary_removal_stops_the_stock_builder_and_meets_its_entry_
     assert result["status"] == "ok", result
     stopped = result["ops"]["S1:10"]
     assert stopped["claim_errors"] == []
-    assert isinstance(stopped["tool_hits"], int) and stopped["tool_hits"] > 0, stopped
+    assert stopped["tool_hits"] == stopped["min_hits"]["tool"] == "unknown", stopped
+    assert stopped["min_hits"]["holder"] == stopped["holder_hits"]
     assert stopped["obstacles"]["tool"] == ["part"], stopped
     assert "S1:10" in result["setups"]["S2"]["stock_reason"], result["setups"]["S2"]
 
@@ -233,6 +234,9 @@ def test_rotary_op_after_an_underivable_rotary_removal_keeps_only_its_certain_fi
     # because a cone is not a surface whose rotary removal is derived (not a boolean failure).
     assert stopped["claim_errors"] == [], stopped
     assert stopped["claimed_indices"] == result["features"]["cone"], stopped
+    # Its clear flute meets the known before-stock, an upper bound on every after-stock.
+    assert stopped["tool_hits"] == stopped["min_hits"]["tool"] == 0, stopped
+    assert "tool_hits" not in stopped.get("reasons", {}), stopped
     assert later["tool_hits"] == "unknown", later
     why = later["reasons"]["tool_hits"]
     assert "S1:10" in why and "Cone" in why, later

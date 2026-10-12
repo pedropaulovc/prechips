@@ -24,8 +24,10 @@ measurement debt only when an operation authors or emits at least one coordinate
 rounded to, or printed on, that machine's DRO grid. An authored `to_z`, `z_from`
 or `z_to`, a requested feature location, a nonempty lathe drawing-station list,
 or a contour requesting cutter-coordinate targets consumes the grid even when
-unknown geometry or binding prevents computing its rows. Empty outputs do not
-erase an authored target's debt. A missing or untrusted (including `assumed`)
+unknown geometry or binding prevents computing its rows. An explicit
+`contour = "unknown"` also authors a target request; an omitted or empty contour
+does not. Empty outputs do not erase an authored target's debt. A missing or
+untrusted (including `assumed`)
 consumed grid keeps the finding unknown with `dro_grid_debt` and the named
 `machines.<id>.resolution` measurement instruction; its declared step still
 places provisional targets, otherwise `DRO_DEFAULT_STEP` does. A trusted
@@ -34,10 +36,13 @@ consumed grid retains the same rounding and geometric judgments.
 Machine selection, stock-state metadata and an unlocated feature name alone
 consume no DRO coordinate. A bare `saw_cut` with no feature location, contour,
 Z target or coordinate table therefore reports
-`dro_grid = { step = "not used", decimals = "not used" }`, visibly as **not used**
-on the traveler, and has no resolution debt or fabricated numeric saw grid.
-Its coordinate finding remains pass when no independent geometry, frame or
-operation debt/error exists; **not used** clears none of those other checks.
+`dro_grid = { step = "not used", decimals = "not used" }`, visibly as **no coordinate
+targets** on the traveler, and has no coordinate-rule resolution debt or
+fabricated numeric saw grid. This does not claim that the machine's grid is
+unused by stock dimensions, pictures, touch-off recipes or tip-endpoint displays;
+those consumers retain their own rounding and debt. Its coordinate finding
+remains pass when no independent geometry, frame or operation debt/error exists;
+**no coordinate targets** clears none of those other checks.
 
 A feature-local point is transformed to model coordinates as
 `model = feature_frame.origin + sum(local[j]*feature_frame.basis[j])`.

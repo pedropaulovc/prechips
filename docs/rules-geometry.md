@@ -319,7 +319,13 @@ claimed meridians (a dome's pole included; a `to_z` op's samples moved onto
 the `to_z` plane it leaves) are checked against the profile after the op —
 the held stock minus the turned removals of the setup's turning ops up to and
 including this one — plus modeled fixture obstacles, including the rotating
-envelopes of placed chuck jaws. Each pose is chosen on that profile's
+envelopes of placed chuck jaws. For a stopping cut, only the tool's part-material
+hit test uses known before-stock; its original profile still controls pose sections,
+radial reach, rest placement and holders. Positive part hits and tool hits on
+trailing (`turned`-side) rests may depend on the uncredited own removal and are
+uncertain; independently posed `uncut`-side rests, chuck and other fixtures
+retain certainty. Holder minima are unchanged. Unknown upstream stock retains
+the blanket tool-minimum cap. Each pose is chosen on that original profile's
 meridian section: an insert's nose is tangent at the sample; a blade's front
 edge lies on a floor sample anywhere along it that keeps the blade clear, so
 it sits inside its groove and floor spans narrower than the blade are swept by
@@ -432,8 +438,10 @@ sample's angle. Cutter and holder obstacles exclude only the sampled face's
 thin inward shell. The flute meets the stock its setup's one op-order pass
 accepts after this op, like any milling flute (see
 [In-process stock](#in-process-stock)): a rotary removal that cannot be
-derived stops that pass, so its own flute meets all of its before-op stock and
-later flutes keep only finished-material obstacles, with tool certainty unknown.
+derived stops that pass. Its own flute meets its known before-op stock, but
+positive part hits may be its uncredited own removal; placed fixture hits
+retain a numeric certain minimum. Later flutes keep only finished-material
+obstacles, with tool certainty unknown.
 The holder obstacles retain
 setup-entry stock; reach, holder-wall and shank screens use the stock the op
 meets (see [`reach`](#reach)).
@@ -708,20 +716,26 @@ op's own cutter volume) is being cut, not an obstacle. A milling op claiming a
 face away from the approach is credited no removal and meets its before-op
 stock. If an earlier cut cannot be derived (unresolved claims or `to_z`, an
 underivable leave or clearing box, a split or emptied stock piece, a failed
-boolean), that op keeps its own known before-op stock and its flute meets all
-of it, never credited with the clearance that failed, but every later op's
-flute meets only finished material, less its independently accepted own hole
-cut when its claims, tool axis, radius and depth resolve without upstream
-stock. No unknown earlier removal or later cut is credited. Both the full
-tool-hit count and `min_hits.tool` are `unknown`, naming the stopping op;
-positive observed counts may remain in the reason as uncertain diagnostics,
-never numeric certain minima. This deliberately replaces the historical
-certain-tool-minimum claim for unknown stock only. A known before-op stock
-for the op that stops the builder, trusted-stock tool hits and genuine holder
-minima retain their existing certainty. Final profile-wall overstock
-and complete-form cap debts are judged once on the setup's end stock and never
-change an earlier op's before-op stock. Turning keeps its own turned-profile
-obstacle model, unchanged and independent of this pass. Finished face indices
+boolean), that op keeps its known before-op stock and its flute meets all of
+it, never credited with the clearance that failed. A positive tool observation
+against that before-stock may be its unresolved own removal, so its full tool
+count is `unknown` and its minimum retains only independent observations.
+Finished-face approach/orientation errors and independently placed fixture
+hits remain certain; rejected own removal cannot resolve either.
+A zero observed tool hit on that known before-stock remains a valid numeric
+zero: removal can only reduce that stock. Holder counts and minima are unchanged.
+Every later op's flute meets only finished material, less its independently
+accepted own hole cut when its claims, tool axis, radius and depth resolve
+without upstream stock. No unknown earlier removal or later cut is credited.
+Both the full tool-hit count and `min_hits.tool` stay `unknown` on unknown
+stock, naming the stopping op; positive observed counts are uncertain
+diagnostics, never numeric certain tool minima. Trusted-stock tool hits,
+genuine holder minima and finished-solid corner radii retain their certainty.
+Final profile-wall overstock and complete-form cap debts are judged once on
+the setup's end stock and never change an earlier op's before-op stock.
+Turning keeps its original turned-profile model for poses, reach, rests and
+holders; only its stopping tool's part-material test uses known before-stock.
+Finished face indices
 stay bound to the original STEP even when booleans change the stock's face
 order.
 
@@ -1113,8 +1127,12 @@ Within the supported milling domain, missing inputs normally yield `unknown`.
 Positive observed minimum hits still error despite unresolved fixture or
 dimensions when those minima are certain. Unknown stock cannot produce a
 numeric certain tool minimum: both `tool_hits` and `min_hits.tool` remain
-`unknown`; independently known holder minima are unchanged. Trusted-stock
-tool collisions still error. Invalid face claims remain errors first; an
+`unknown`; independently known holder minima are unchanged. On the stopping
+op, positive part hits may be its uncredited own removal. Independent approach
+orientation errors, placed fixtures, chuck and uncut-side rests retain numeric
+tool minima and error. Tool hits on turned-side rests whose pose depends on the
+rejected own removal are uncertain; holder minima are unchanged.
+Trusted-stock tool collisions still error. Invalid face claims remain errors first; an
 invalid clearing removal is named stock debt, not an error.
 On the claimed face set the kernel samples a cell-centred
 5×5 UV grid per face plus 2–12 points along every boundary edge and gives
@@ -1469,6 +1487,9 @@ The same accepted-cut claim/depth gates and geometry-located cutter are used;
 an unknown or invalid own cut receives no exclusion, no default envelope,
 and no other operation's cut. Unrelated finished material remains an obstacle,
 but tool hits on unknown stock remain uncertain rather than certain errors.
+Own-cut subtraction supports geometry diagnostics and the witness-mutation
+keeper; the blanket unknown-stock minimum cap means it is not itself a
+verdict-level guarantee.
 This exclusion does not clear holder obstacles: the holder cylinder is
 unchanged and meets the full actual setup-entry stock. Missing depth or entry
 facts and explicitly unknown through facts remain debt; an omitted `thru`
@@ -1605,7 +1626,9 @@ Numbers: `sample_count`, `tool_hits`, `holder_hits`, the five inputs, and
 `certain_tool_hits` / `certain_holder_hits` when observed hits are definite
 despite unresolved inputs, poses or undeclared jaw overhang. Unknown stock
 leaves `certain_tool_hits` unknown rather than a certain collision; holder
-minima retain their entry-material evidence.
+minima retain their entry-material evidence. A stopping op's known before-stock
+can establish a zero upper hit bound and independent fixture hits, but not
+certainty for its unresolved own part-material removal.
 
 - `{subject}: selected cutter or holder is certainly occluded by part/fixture material.` (error: any hit; also raised from positive `certain_*_hits` while aggregate counts or other inputs are unknown)
 - `{subject}: sampled claimed faces clear the selected cutter and holder cylinders.` (pass)

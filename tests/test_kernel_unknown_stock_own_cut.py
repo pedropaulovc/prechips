@@ -1,6 +1,6 @@
 """Unknown stock cannot turn an accepted own bore cut into a certain collision.
 
-One native launch authors two small solids and runs the public kernel jobs. A
+One native launch authors three small solids and runs the public kernel jobs. A
 read-only witness also intersects the actual flute regions with the bore-axis
 cylinder, independently of the hit-count certainty backstop. No geometry is
 mocked; ``freecad_kernel`` supplies the shared native executable. Mutation
@@ -10,6 +10,7 @@ production geometry cache entry.
 """
 
 import json
+import math
 import os
 import subprocess
 import time
@@ -70,6 +71,7 @@ shapes = {
     "neck": box.cut(Part.makeCylinder(2, 9, V(6, 6, -1))).cut(
         Part.makeCylinder(1, 12, V(6, 6, -1))
     ),
+    "pocket": box.cut(Part.makeCylinder(4, 6, V(6, 6, 5))),
 }
 jobs = {}
 for name, shape in shapes.items():
@@ -87,6 +89,17 @@ for name, shape in shapes.items():
     }
     inventory = run_native("inventory-" + name, base)
     assert inventory["status"] == "ok" and not inventory["mapping_errors"], inventory
+    if name == "pocket":
+        floor = [
+            face["ref"] for face in inventory["faces"]
+            if face["kind"] == "Plane"
+            and abs(face["bbox_mm"][2] - 5) < 1e-6
+            and abs(face["bbox_mm"][5] - 5) < 1e-6
+        ]
+        assert len(floor) == 1, inventory["faces"]
+        base["features"] = {"floor": floor}
+        jobs[name] = base
+        continue
     bore_top = 10 if name == "hole" else 8
     bore = [
         face["ref"] for face in inventory["faces"]
@@ -158,7 +171,11 @@ def witnessed_regions(setup, op, regions):
 engine._Setup._flute_regions = witnessed_regions
 results = {}
 for current, case in cases.items():
-    job = {**jobs[case["shape"]], "setups": case["setups"]}
+    job = {
+        **jobs[case["shape"]],
+        "setups": case["setups"],
+        "stock": case.get("stock", jobs[case["shape"]]["stock"]),
+    }
     result = run_native(current, job)
     assert result["status"] == "ok" and not result["mapping_errors"], result
     results[current] = result
@@ -218,6 +235,36 @@ def native_own_cut(tmp_path_factory, freecad_kernel):
         for shape in ("hole", "neck")
         for mode in ("trusted", "unknown-entry", "later-op")
     }
+    raw = {
+        "shape": "box",
+        "origin_mm": [0.0, 0.0, 0.0],
+        "axis": [1.0, 0.0, 0.0],
+        "section_axis": [0.0, 1.0, 0.0],
+        "length_mm": 12.0,
+        "section_mm": [12.0, 10.0],
+    }
+    for mode, to_z in (("trusted", 5.0), ("stopping", "unknown")):
+        pocket = {
+            **_op("S1:10", "floor", 1.0, 20.0, 30.0, holder_radius=1.0, gauge=2.0),
+            "do": "pocket",
+            "to_z": to_z,
+        }
+        cases[f"pocket-{mode}"] = {
+            "shape": "pocket",
+            "stock": raw,
+            "setups": [{**_setup([pocket], _HOLD), "stock_in": "stock"}],
+        }
+    jaw_op = {
+        **_op("S1:10", "top", 1.0, 3.0, 30.0, holder_radius=1.0, gauge=2.0),
+        "do": "face",
+        "to_z": "unknown",
+    }
+    jaw_hold = _vise(12.0, height=20.0, width=12.0, depth=2.0, centre=6.0)
+    cases["stopping-jaw"] = {
+        "shape": "hole",
+        "stock": {**raw, "section_mm": [12.0, 12.0]},
+        "setups": [{**_setup([jaw_op], jaw_hold), "stock_in": "stock"}],
+    }
     source.write_text(json.dumps(cases), encoding="utf-8")
     script = directory / "probe.py"
     script.write_text(_NATIVE, encoding="utf-8")
@@ -241,6 +288,7 @@ def native_own_cut(tmp_path_factory, freecad_kernel):
     )
     assert target.exists(), process.stdout[-2000:] + process.stderr[-2000:]
     report = json.loads(target.read_text(encoding="utf-8"))
+    report["cases"] = cases
     elapsed = time.monotonic() - started
     print(
         "own-cut native probe: direct_subprocess_launches=1, cache_writes=0, "
@@ -256,38 +304,57 @@ def _detail(native, case):
     return native["results"][case]["ops"][subject]
 
 
-def _accessibility(tmp_path, native, case):
+def _accessibility(tmp_path, native, case, feature="bore", action="ream", subject=None):
     """Feed actual native facts to the normal host rule, without a second native run."""
     result = native["results"][case]
-    sid, op_number = ("S1", 20) if case.endswith("later-op") else ("S2", 10)
+    sid, op_number = (
+        (subject.split(":")[0], int(subject.split(":")[1]))
+        if subject is not None
+        else ("S1", 20)
+        if case.endswith("later-op")
+        else ("S2", 10)
+    )
     bundle = rules_bundle(tmp_path)
     setup = bundle.plan["setups"][0]
     setup["id"] = sid
-    setup["ops"][0].update(op=op_number, do="ream", feature="bore")
+    setup["ops"][0].update(op=op_number, do=action, feature=feature)
+    source_setup = next(
+        source
+        for source in native["cases"][case]["setups"]
+        if any(op["subject"] == f"{sid}:{op_number}" for op in source["ops"])
+    )
+    target = next(op for op in source_setup["ops"] if op["subject"] == f"{sid}:{op_number}")
+    hold = source_setup["hold"]
+    if "to_z" in target:
+        setup["ops"][0]["to_z"] = target["to_z"]
     bundle.features["features"] = {
-        "bore": {
-            "kind": "hole",
-            "thru": True,
-            "diameter": [4.0, 4.4],
-            "faces": [result["faces"][index]["ref"] for index in result["features"]["bore"]],
+        feature: {
+            "kind": "hole" if feature == "bore" else "pocket",
+            **({"thru": True, "diameter": [4.0, 4.4]} if feature == "bore" else {}),
+            "faces": [result["faces"][index]["ref"] for index in result["features"][feature]],
         }
     }
     bundle.inventory["tools"]["em"].update(
-        kind="reamer",
-        dia_mm=measured(2 * _RADIUS),
-        flute_len_mm=measured(20.0),
-        projection_mm={"holder": measured(30.0)},
+        kind="reamer" if feature == "bore" else "endmill",
+        dia_mm=measured(2 * target["radius_mm"]),
+        flute_len_mm=measured(target["flute_len_mm"]),
+        projection_mm={"holder": measured(target["projection_mm"])},
     )
     bundle.inventory["holders"]["holder"].update(
-        gauge_dia_mm=measured(2.0), gauge_len_mm=measured(2.0)
+        gauge_dia_mm=measured(2 * target["holder_radius_mm"]),
+        gauge_len_mm=measured(target["holder_gauge_len_mm"]),
     )
-    setup["hold"].update(grip_mm=5.0, jaw_above_parallels_mm=2.0, jaw_center_along_mm=6.0)
+    setup["hold"].update(
+        grip_mm=hold["grip_mm"],
+        jaw_above_parallels_mm=hold["jaw_above_parallels_mm"],
+        jaw_center_along_mm=hold["jaw_center_along_mm"],
+    )
     bundle.inventory["fixtures"]["vise"].update(
         kind="vise",
-        jaw_width_mm=measured(12.0),
-        jaw_depth_mm=measured(2.0),
-        jaw_height_mm=measured(10.0),
-        opening_mm=measured(150.0),
+        jaw_width_mm=measured(hold["jaw_width_mm"]),
+        jaw_depth_mm=measured(hold["jaw_depth_mm"]),
+        jaw_height_mm=measured(hold["jaw_height_mm"]),
+        opening_mm=measured(hold["opening_mm"]),
     )
     bundle.inventory["fixtures"]["parallels"]["height_mm"] = measured(25.0)
     object.__setattr__(bundle, "kernel", deepcopy(result))
@@ -361,6 +428,40 @@ def test_stopping_op_keeps_its_known_before_stock(native_own_cut, mode):
     prep = result["ops"]["S1:10"]
     assert prep["tool_hits"] == prep["min_hits"]["tool"] == 0
     assert "stock_reason" not in prep
+
+
+def test_stopping_pocket_cannot_certify_its_nonempty_own_removal_as_a_collision(
+    native_own_cut, tmp_path
+):
+    trusted = native_own_cut["results"]["pocket-trusted"]
+    blocked = native_own_cut["results"]["pocket-stopping"]
+    stock = trusted["setups"]["S1"]
+    assert stock["stock_volume_mm3"] - stock["stock_out_volume_mm3"] == pytest.approx(
+        80.0 * math.pi
+    )
+    assert trusted["ops"]["S1:10"]["tool_hits"] == trusted["ops"]["S1:10"]["min_hits"]["tool"] == 0
+    detail = blocked["ops"]["S1:10"]
+    assert detail["obstacles"]["tool"] == ["part"]
+    assert detail["tool_hits"] == detail["min_hits"]["tool"] == "unknown"
+    assert detail["holder_hits"] == detail["min_hits"]["holder"] == 0
+    assert detail["corner_radii_mm"] == trusted["ops"]["S1:10"]["corner_radii_mm"]
+    assert "its own cut stopped the stock builder" in detail["reasons"]["tool_hits"]
+    assert "before-op stock is known" in detail["reasons"]["tool_hits"]
+    assert "to_z is unknown" in detail["reasons"]["tool_hits"]
+    row = _accessibility(tmp_path, native_own_cut, "pocket-stopping", "floor", "pocket", "S1:10")
+    assert row.status == "unknown", row
+
+
+def test_stopping_tool_keeps_its_certain_placed_jaw_collision(native_own_cut, tmp_path):
+    detail = native_own_cut["results"]["stopping-jaw"]["ops"]["S1:10"]
+    assert "part" in detail["obstacles"]["tool"]
+    assert {"fixed_jaw", "moving_jaw"} & set(detail["obstacles"]["tool"])
+    assert detail["tool_hits"] == "unknown"
+    assert detail["min_hits"]["tool"] > 0
+    assert detail["holder_hits"] == detail["min_hits"]["holder"] == 0
+    row = _accessibility(tmp_path, native_own_cut, "stopping-jaw", "top", "face", "S1:10")
+    assert row.status == "error", row
+    assert row.numbers["certain_tool_hits"] == detail["min_hits"]["tool"]
 
 
 @pytest.mark.parametrize("debt", ["radius", "claims", "depth", "to_z"])

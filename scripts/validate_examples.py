@@ -3578,8 +3578,10 @@ def coordinate_place(context: SimpleNamespace, setup: dict, frame, row: dict, lo
 def coordinates_use_grid(setup, definitions, frames, numbers, lathe):
     """Independently identify authored or emitted targets that require a DRO grid."""
     for op in setup["ops"]:
-        if any(key in op for key in ("to_z", "z_from", "z_to")) or (
-            isinstance(op.get("contour"), dict) and op["contour"]
+        if (
+            any(key in op for key in ("to_z", "z_from", "z_to"))
+            or op.get("contour") == "unknown"
+            or (isinstance(op.get("contour"), dict) and op["contour"])
         ):
             return True
         for name in op_features(op) or []:

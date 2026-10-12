@@ -651,6 +651,23 @@ for the separate jaw-obstruction check, never a stack layer. Parallels and
 support blocks carry their own heights. `point_angle` accepts the same
 `{ value, measured, verify }` record in degrees.
 
+The traveler's TOOLS table marks each displayed refused dimension in the
+dashed **Not verified** style, retaining its authored value beside the exact
+inventory field and measurement action. Trusted nominal or measured siblings
+stay plain; attribution prose does not qualify a dimension. Setup STOP
+summaries group affected operations by the consumed input, naming the T-number,
+tool record and concrete action for speed/feed, contour and depth debt. Drill
+point geometry and reamer chamfer/lead length are separate facts.
+
+CLEARANCE lists only the unresolved inputs its headroom finding consumed
+(for example riser dimensions, holder gauge length, installed projection and
+machine envelope limits), with their measurement actions. Authored fixture
+coordinates remain setup settings, not clearance certification. A declared
+positive DRO step still rounds printed instructions even when its grid is
+labelled **not verified**; an absent step uses the disclosed provisional
+default. **No coordinate targets** describes a coordinates nonconsumer, not
+a claim that no other printed settings use the machine's grid.
+
 `prechips tools --measure [--plan PLAN ...]` lists the measurement debt behind
 the current reports: every `numbers.measurements` entry that an unresolved
 applicable finding emits for the given plans (default: the four pilot plans for

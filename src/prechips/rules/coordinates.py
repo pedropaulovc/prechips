@@ -4329,8 +4329,8 @@ def evaluate(bundle, *, pre_kernel=False):
         for done, (op, before, after) in enumerate(stock_states(bundle, setup)):
             numbers["entry_surfaces"].append({"op": op["op"], **after["entry_z"]})
             contour = mapping(op.get("contour"))
-            # A contour authors cutter-coordinate targets before any rows can be computed.
-            grid_consumed |= bool(contour)
+            # Unknown authoring still requests targets; mapping it to {} loses that intent.
+            grid_consumed |= bool(contour) or op.get("contour") == UNKNOWN
             unknown |= op.get("contour") == UNKNOWN
             leave, refusal = rough_leave(op)
             if refusal:

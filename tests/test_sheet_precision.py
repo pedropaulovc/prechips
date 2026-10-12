@@ -617,7 +617,8 @@ def test_job_page_states_each_machine_dro_grid(tmp_path):
         content(node) for node in tagged(markup, "p") if content(node).startswith("DRO resolution:")
     ]
     assert re.search(r"PM-30MV 0\.005 mm\b", resolution)
-    assert "illustrative; grid unverified" in resolution
+    assert "grid not verified; confirm installed readout step before use" in resolution
+    assert resolution.count("not verified") == 1 and "†" not in resolution
     assert "default grid" not in resolution
     measured_grid, changed = re.subn(
         r"(?m)^resolution_mm = .*\n",

@@ -6586,6 +6586,19 @@ class _Setup:
                 self.skins[key] = (primitives, None)
         return self.skins[key]
 
+    def _stopping_tool_minimum(self, op, hits, own_cut_hits, independent_hits):
+        """A stopping op's known before-stock bounds hits, not its uncredited own cut."""
+        if id(op) == self.stopped_cut and own_cut_hits:
+            return independent_hits or UNKNOWN
+        return hits
+
+    def _stopping_tool_reason(self):
+        return (
+            f"its own cut stopped the stock builder ({self.built[1]}); "
+            "its before-op stock is known, but tool hits may depend on its uncredited own removal; "
+            "independent orientation/fixture hits remain certain"
+        )
+
     @staticmethod
     def _unproven(facts, reason):
         """Unknown stock blocks tool certainty; holder minima and corner radii survive."""
@@ -10495,6 +10508,7 @@ class _Setup:
             "hit_refs": {"tool": [], "holder": []},
             "min_hits": {"tool": UNKNOWN if unbuilt is not None else 0, "holder": 0},
         }
+        stopped = id(op) == self.stopped_cut
         solids = {}
         if isinstance(tool, str):
             facts["reasons"]["tool_hits"] = tool
@@ -10527,12 +10541,20 @@ class _Setup:
             if solid is None:
                 facts[kind + "_hits"] = UNKNOWN
                 continue
-            hit = solid.common(after).Volume > HIT_MM3
+            material = self.cuts[id(op)][0] if kind == "tool" and stopped else after
+            hit = solid.common(material).Volume > HIT_MM3
             obstacles = set(self._fixture_hits(solid)) if self.fixture_ready else set()
+            fixture_hits = int(bool(obstacles))
             if hit:
                 obstacles.add("part")
             certain = int(bool(obstacles))
-            facts["min_hits"][kind] = UNKNOWN if kind == "tool" and unbuilt is not None else certain
+            facts["min_hits"][kind] = (
+                UNKNOWN
+                if kind == "tool" and unbuilt is not None
+                else self._stopping_tool_minimum(op, certain, hit, fixture_hits)
+                if kind == "tool"
+                else certain
+            )
             facts["obstacles"][kind] = sorted(obstacles)
             if kind == "tool" and unbuilt is not None:
                 facts[kind + "_hits"] = UNKNOWN
@@ -10541,6 +10563,9 @@ class _Setup:
                     f"{certain} axial pose(s) hit the remaining finished or fixture obstacles, "
                     "but tool collision certainty is unproven"
                 )
+            elif kind == "tool" and stopped and hit:
+                facts[kind + "_hits"] = UNKNOWN
+                facts["reasons"][kind + "_hits"] = self._stopping_tool_reason()
             elif not self.fixture_ready or self.fixture_gaps or self.fixture_possible:
                 facts[kind + "_hits"] = UNKNOWN
                 facts["reasons"][kind + "_hits"] = (
@@ -11814,6 +11839,7 @@ class _Setup:
 
         # Per kind: certain hits, hits only in the undeclared jaw extension, labels, refs.
         counters = {"tool": [0, 0, set(), set()], "holder": [0, 0, set(), set()]}
+        tool_part_hits, tool_independent_hits = 0, 0
         with _ahead() as batch:
             # The pool runs each new pose's boolean ahead, in the order classify needs them.
             for index, _, ax, ay, tip, downward in placed:
@@ -11833,6 +11859,7 @@ class _Setup:
                         if kind == "tool":
                             counter[0] += 1
                             counter[2].add("part")
+                            tool_independent_hits += 1
                         continue
                     pose = (kind, index, cylinder)
                     if pose not in outcomes:
@@ -11842,6 +11869,9 @@ class _Setup:
                     if labels:
                         counter[0] += 1
                         counter[2].update(labels)
+                        if kind == "tool":
+                            tool_part_hits += "part" in labels
+                            tool_independent_hits += len(labels) > 1 or "part" not in labels
                     elif uncertain:
                         counter[1] += 1
         facts["obstacles"] = {kind: sorted(counters[kind][2]) for kind in counters}
@@ -11856,7 +11886,13 @@ class _Setup:
         ):
             key = kind + "_hits"
             certain, uncertain = counters[kind][0], counters[kind][1]
-            facts["min_hits"][kind] = UNKNOWN if kind == "tool" and unbuilt is not None else certain
+            facts["min_hits"][kind] = (
+                UNKNOWN
+                if kind == "tool" and unbuilt is not None
+                else self._stopping_tool_minimum(op, certain, tool_part_hits, tool_independent_hits)
+                if kind == "tool"
+                else certain
+            )
             if sample_reason:
                 facts[key] = UNKNOWN
                 reasons[key] = sample_reason
@@ -11870,6 +11906,9 @@ class _Setup:
                     f"{certain} sample(s) hit the remaining finished or fixture obstacles, "
                     "but tool collision certainty is unproven"
                 )
+            elif kind == "tool" and id(op) == self.stopped_cut and tool_part_hits:
+                facts[key] = UNKNOWN
+                reasons[key] = self._stopping_tool_reason()
             elif not self.fixture_ready:
                 facts[key] = UNKNOWN
                 reasons[key] = (
@@ -12712,6 +12751,10 @@ class _Setup:
             segments = []
             obstacle_reason = obstacle_reason or f"meridian section for tool poses failed ({exc})"
         part_box = _bbox(part) if part.Solids else self.box
+        tool_part, tool_box = part, part_box
+        if id(op) == self.stopped_cut:
+            tool_part = self.cuts[id(op)][0]
+            tool_box = _bbox(tool_part) if tool_part.Solids else self.box
         placed = self.fixture_ready
         outer = self._outer()
         subject = self._subject(op)
@@ -12720,6 +12763,13 @@ class _Setup:
         rest_gaps = list(blocked)
         counters = {"tool": [0, set(), set()], "holder": [0, set(), set()]}
         uncertain = {"tool": 0, "holder": 0}
+        tool_part_hits, tool_independent_hits = 0, 0
+        uncredited_tool_labels = {"part"}
+        if id(op) == self.stopped_cut:
+            # A trailing rest's set diameter depends on the rejected own turned removal.
+            uncredited_tool_labels.update(
+                f"follow rest {rest['name']}" for rest, _, _, _ in posed if rest["side"] == "turned"
+            )
         reach, wall_hits = 0.0, 0
         # A single-point tool facing to to_z feeds radially through stock it has just faced:
         # only material left by the op (a shoulder beside the nose) is buried depth. A blade
@@ -12762,8 +12812,9 @@ class _Setup:
                 if solid is None:
                     continue
                 labels = set(rest_hits[kind])
-                if _boxes_overlap(_bbox(solid), part_box):
-                    common = solid.common(part)
+                material, box = (tool_part, tool_box) if kind == "tool" else (part, part_box)
+                if _boxes_overlap(_bbox(solid), box):
+                    common = solid.common(material)
                     if common.Volume > HIT_MM3:
                         labels.add("part")
                         counters[kind][2].update(
@@ -12774,6 +12825,9 @@ class _Setup:
                 if labels:
                     counters[kind][0] += 1
                     counters[kind][1].update(labels)
+                    if kind == "tool":
+                        tool_part_hits += not labels.isdisjoint(uncredited_tool_labels)
+                        tool_independent_hits += not labels.issubset(uncredited_tool_labels)
                     if window is not None:
                         window["meets"].update(labels)
                 elif (
@@ -12814,7 +12868,14 @@ class _Setup:
                 facts["rest_engagement"] = engage
         facts["obstacles"] = {kind: sorted(counters[kind][1]) for kind in counters}
         facts["hit_refs"] = {kind: sorted(counters[kind][2]) for kind in counters}
-        facts["min_hits"] = {kind: counters[kind][0] for kind in counters}
+        facts["min_hits"] = {
+            kind: self._stopping_tool_minimum(
+                op, counters[kind][0], tool_part_hits, tool_independent_hits
+            )
+            if kind == "tool"
+            else counters[kind][0]
+            for kind in counters
+        }
         if radial_feed and obstacle is None:
             facts["reach_depth_mm"] = UNKNOWN
             reasons["reach_depth_mm"] = obstacle_reason or "the faced profile is unknown"
@@ -12831,6 +12892,9 @@ class _Setup:
             if kind == "holder" and holder_reason:
                 facts[key] = UNKNOWN
                 reasons[key] = holder_reason
+            elif kind == "tool" and id(op) == self.stopped_cut and tool_part_hits:
+                facts[key] = UNKNOWN
+                reasons[key] = self._stopping_tool_reason()
             elif obstacle_reason:
                 facts[key] = UNKNOWN
                 reasons[key] = f"{obstacle_reason}; {certain} sample(s) hit certain branch material"
@@ -13580,6 +13644,7 @@ class _Setup:
         leaves, _ = self._op_stock(op, 1)
         counters = {"tool": [0, set(), set()], "holder": [0, set(), set()]}
         uncertain = {"tool": 0, "holder": 0}
+        tool_part_hits, tool_independent_hits = 0, 0
         wall_hits = 0
         for index, phi, ax, ay, tip, downward in placed:
             solids = {}
@@ -13597,6 +13662,7 @@ class _Setup:
                     if kind == "tool":
                         counter[0] += 1
                         counter[1].add("part")
+                        tool_independent_hits += 1
                     continue
                 back = head.rotated(presented, -phi)
                 labels = set()
@@ -13613,6 +13679,9 @@ class _Setup:
                 if labels:
                     counter[0] += 1
                     counter[1].update(labels)
+                    if kind == "tool":
+                        tool_part_hits += "part" in labels
+                        tool_independent_hits += len(labels) > 1 or "part" not in labels
                 elif not self.fixture_ready or self.fixture_gaps:
                     uncertain[kind] += 1
         # Reach: highest material the op meets within r + band of the tool axis above each
@@ -13655,7 +13724,13 @@ class _Setup:
         facts["obstacles"] = {kind: sorted(counters[kind][1]) for kind in counters}
         facts["hit_refs"] = {kind: sorted(counters[kind][2]) for kind in counters}
         facts["min_hits"] = {
-            kind: UNKNOWN if kind == "tool" and unbuilt is not None else counters[kind][0]
+            kind: UNKNOWN
+            if kind == "tool" and unbuilt is not None
+            else self._stopping_tool_minimum(
+                op, counters[kind][0], tool_part_hits, tool_independent_hits
+            )
+            if kind == "tool"
+            else counters[kind][0]
             for kind in counters
         }
         for kind, missing in (
@@ -13673,6 +13748,9 @@ class _Setup:
                     f"{certain} sample(s) hit the remaining finished or fixture obstacles, "
                     "but tool collision certainty is unproven"
                 )
+            elif kind == "tool" and id(op) == self.stopped_cut and tool_part_hits:
+                facts[key] = UNKNOWN
+                reasons[key] = self._stopping_tool_reason()
             elif not self.fixture_ready:
                 facts[key] = UNKNOWN
                 reasons[key] = (

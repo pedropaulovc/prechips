@@ -1158,7 +1158,7 @@ def test_real_cone_worksheet_keeps_source_steps_equations_and_attachment_order(d
     sheet.clearance = lambda setup, tools: ""
     sheet.feature_map = lambda setup: "<h2>FEATURE MAP</h2>" if details else ""
     sheet.blank_checks = lambda setup: ""
-    sheet.contours = lambda setup, tools: "<h2>CONTOURS</h2>"
+    sheet.contours = lambda setup, tools, stops: "<h2>CONTOURS</h2>"
     original_operations = sheet.operations
 
     def operations(setup, tools, sheets):

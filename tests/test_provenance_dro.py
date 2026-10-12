@@ -311,13 +311,15 @@ def test_traveler_distinguishes_declared_untrusted_grid_from_absence(resolution,
     text = _Traveler(data, [], {}, None).dro_resolution(data.plan["setups"])
     assert f"{step:.3f} mm" in text
     if debt_status is None:
-        assert "†" not in text and "unverified" not in text and "default" not in text
+        assert "†" not in text and "not verified" not in text and "default" not in text
     elif debt_status == "missing":
-        assert "†" in text and "absent/unknown" in text and "provisional default grid" in text
+        assert "†" not in text and "absent/unknown" in text and "provisional default grid" in text
     else:
-        assert "0.005 mm†" in text and "grid unverified" in text
+        assert "0.005 mm" in text and "grid not verified" in text and "†" not in text
+        assert text.count("not verified") == 1
         assert "default" not in text and "not in the shop list" not in text
-        assert ("unmeasured" if debt_status == "nominal" else debt_status) in text
+        assert "confirm installed readout step before use" in text
+        assert "assumed" not in text and "illustrative" not in text and "unmeasured" not in text
 
 
 @pytest.mark.parametrize("status", ["assumed", "illustrative", "measured"])
