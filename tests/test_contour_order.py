@@ -1590,3 +1590,170 @@ def test_rocker_outline_fragments_chain_through_the_bottom_arc_in_cutting_order(
         # One fragment arrives at the arc's first row and the other leaves its last row.
         assert any(math.dist(line[-1], rows[0]) < 0.05 for line in lines), (subject, arc["op"])
         assert any(math.dist(line[0], rows[-1]) < 0.05 for line in lines), (subject, arc["op"])
+
+
+@pytest.mark.parametrize("paper", [0.0, 0.0024])
+@pytest.mark.parametrize("route", ["primary-derived", "explicit-touch", "listed-retouch"])
+def test_non_grid_carried_contact_anchors_operation_entry_depth_and_exit_to_its_typed_setting(
+    paper, route
+):
+    from test_tool_change_touch import carried_native_source_plane_bundle
+
+    nominal, typed = 21.0075, 21.005
+    bundle = carried_native_source_plane_bundle(nominal=nominal, source_grid=0.0005)
+    setup = bundle.plan["setups"][-1]
+    zero = setup["zero"]["z"]
+    face = zero["face"]
+    zero["paper_mm"] = paper
+    setup["stock_state"] = {
+        "top_z": nominal,
+        "top_feature": face,
+        "entry_z": {"hole": nominal},
+        "local_thickness": {"hole": 10.0},
+    }
+    setup["ops"][0]["depth_mm"] = 2.0
+    setup["ops"][1]["exit_mm"] = 0.5
+    if route == "explicit-touch":
+        setup["zero"]["tool_touches"] = [
+            {
+                "tool": "drill",
+                "z_face": face,
+                "edge_mm": nominal,
+                "paper_mm": paper,
+                "method": "touch_then_set",
+                "before_ops": [20],
+            }
+        ]
+    elif route == "listed-retouch":
+        zero.update(face="top", retouch_after=[10])
+    contact = zero_recipe.evaluate(bundle)[-1]
+    assert contact.status == "pass", contact.sentence
+    assert contact.numbers["axes"]["z"]["axis_set"] == typed
+    finding = next(row for row in tip_endpoints.evaluate(bundle) if row.subject == "hole")
+    assert finding.status == "pass", finding.sentence
+    spot, drill = finding.numbers["endpoints"]
+    residual = nominal + paper - typed
+    assert spot["physical_entry_z"] == drill["physical_entry_z"] == pytest.approx(nominal)
+    assert spot["dro_entry_z"] == drill["dro_entry_z"] == typed
+    assert spot["dro_tip_z"] == 19.005
+    assert spot["dro_depth_mm"] == pytest.approx(2.0 - paper)
+    assert spot["setting_residual_mm"] == pytest.approx(residual)
+    assert spot["dro_tip_z"] + residual >= spot["tip_z"] - tip_endpoints.SAME_Z
+    assert drill["dro_exit_face"] == 11.005
+    assert drill["physical_exit_face"] == pytest.approx(11.0075)
+    # The cut endpoint uses ordinary upward rounding, not contact-setting floor.
+    assert drill["dro_tip_z"] == 10.265
+    assert drill["dro_exit_mm"] == pytest.approx(
+        typed - paper - 10.0 - drill["point_mm"] - drill["dro_tip_z"]
+    )
+    assert drill["dro_exit_mm"] == pytest.approx(
+        drill["physical_exit_face"] - drill["point_mm"] - (drill["dro_tip_z"] + residual)
+    )
+
+
+def test_a_carried_contact_does_not_disable_blind_depth_guards_or_invent_an_unknown_endpoint():
+    from test_tool_change_touch import carried_native_source_plane_bundle
+
+    bundle = carried_native_source_plane_bundle(nominal=21.0075, source_grid=0.0005)
+    setup = bundle.plan["setups"][-1]
+    setup["stock_state"] = {"entry_z": {"hole": 21.0075}}
+    bundle.feature_definitions["hole"].update(thru=False, depth=[0.5, 1.0])
+    setup["ops"][1]["depth_mm"] = 2.0
+    finding = next(row for row in tip_endpoints.evaluate(bundle) if row.subject == "hole")
+    assert finding.status == "error"
+    drill = finding.numbers["endpoints"][1]
+    assert drill["depth_limit_mm"] == 1.0
+    assert drill["depth_floor_mm"] == 0.5
+    assert drill["total_depth_mm"] > drill["depth_limit_mm"]
+    assert drill["dro_entry_z"] == 21.005
+    # Remove the producer's usable Z registration: an analytical entry alone
+    # must not recover a numeric DRO entry/tip from the native nominal.
+    bundle.plan["setups"][1]["zero"]["z"]["paper_mm"] = "unknown"
+    setup["ops"][1]["depth_mm"] = 0.5
+    finding = next(row for row in tip_endpoints.evaluate(bundle) if row.subject == "hole")
+    assert finding.status == "unknown"
+    assert all(
+        row["dro_entry_z"] == row["dro_tip_z"] == "unknown" for row in finding.numbers["endpoints"]
+    )
+
+
+@pytest.mark.parametrize("pad_claim", ["known", "unknown"])
+def test_a_local_entry_cut_on_a_carried_dro_is_not_shifted_as_an_imported_plane_again(pad_claim):
+    from test_tool_change_touch import carried_native_source_plane_bundle, op
+
+    bundle = carried_native_source_plane_bundle(nominal=21.0075, source_grid=0.0005)
+    setup = bundle.plan["setups"][-1]
+    zero = setup["zero"]["z"]
+    face = zero["face"]
+    zero["tool"] = "mill"
+    # The local pad is away from the circular carried contact face. Re-touch
+    # that original face with the spotter; its setting is unchanged, while the
+    # hole enters the pad the mill has already cut on this same DRO.
+    bounds = {"x": [2.0, 3.0], "y": [-1.0, 1.0], "z": [18.0, 22.0]}
+    pad_ref = "#5/PAD"
+    bundle.feature_definitions["pad"] = {
+        "kind": "plane",
+        "frame": "JH",
+        "bounds": bounds,
+        "faces": [pad_ref],
+    }
+    pad_corners = [
+        coordinates.model_point([x, y, 19.0003], bundle.features["frames"]["JH"])
+        for x in bounds["x"]
+        for y in bounds["y"]
+    ]
+    bundle.kernel["mapping"][pad_ref] = 4
+    bundle.kernel["features"]["pad"] = [4]
+    bundle.kernel["faces"].append(
+        {
+            "index": 4,
+            "kind": "Plane",
+            "bbox_mm": [
+                *(min(point[i] for point in pad_corners) for i in range(3)),
+                *(max(point[i] for point in pad_corners) for i in range(3)),
+            ],
+        }
+    )
+    bundle.kernel["ops"]["S9:10"] = {
+        "approach": "axial",
+        "claimed_indices": [4] if pad_claim == "known" else "unknown",
+    }
+    bundle.feature_definitions["hole"].update(
+        frame="JH",
+        at=[2.5, 0.0, 21.0075],
+        axis=[0.0, 0.0, 1.0],
+        bounds={"x": [2.3, 2.7], "y": [-0.2, 0.2], "z": [18.0, 21.0075]},
+        thru=False,
+        depth=0.5,
+    )
+    setup["stock_state"] = {"entry_z": {"hole": 21.0075}}
+    setup["ops"] = [
+        op(10, "face", "pad", "mill", to_z=19.0003, stock_removal_bounds=bounds),
+        op(20, "spot", "hole", "centre/1", depth_mm=0.15),
+    ]
+    setup["zero"]["tool_touches"] = [
+        {
+            "tool": "centre/1",
+            "z_face": face,
+            "edge_mm": 21.0075,
+            "paper_mm": 0.0,
+            "method": "touch_then_set",
+            "before_ops": [20],
+        }
+    ]
+    contact = zero_recipe.evaluate(bundle)[-1]
+    if pad_claim == "unknown":
+        assert contact.status == "unknown"
+        assert contact.numbers["tool_touches"][0]["z_axis_set"] == "unknown"
+        return
+    assert contact.status == "pass", contact.sentence
+    assert contact.numbers["tool_touches"][0]["z_axis_set"] == 21.005
+    finding = next(row for row in tip_endpoints.evaluate(bundle) if row.subject == "hole")
+    assert finding.status == "pass", finding.sentence
+    [spot] = finding.numbers["endpoints"]
+    assert spot["entry_from"] == "S9 op 10 to_z"
+    assert spot["entry_z"] == 19.0003
+    assert spot["dro_entry_z"] == 19.005
+    assert spot["physical_entry_z"] == pytest.approx(19.0075)
+    assert spot["dro_tip_z"] == 18.855
+    assert spot["dro_depth_mm"] == pytest.approx(0.15)

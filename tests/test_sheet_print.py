@@ -513,9 +513,9 @@ def test_the_check_jog_steps_print_on_the_page_of_their_heading(tmp_path):
     # page ends, the line never stands at its foot with the steps on the next page.
     from test_tool_change_touch import DECK, bundle, mill_zero, op, sheet_of
 
-    ops = [op(10, "spot", "hole", "centre"), op(20, "drill", "hole", "drill")]
+    ops = [op(10, "spot", "hole", "centre/1"), op(20, "drill", "hole", "drill")]
     sheet, setup = sheet_of(bundle("mill", mill_zero(DECK), ops))
-    dro = sheet.dro(setup, {"centre": "T1 centre drill", "drill": "T2 drill"})
+    dro = sheet.dro(setup, {"centre/1": "T1 centre drill", "drill": "T2 drill"})
     fillers = range(560, 900, 12)
     runs = _runs(printed_pages(_sections([(f, dro) for f in fillers]), tmp_path), len(fillers))
     moved = 0

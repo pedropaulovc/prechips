@@ -1657,11 +1657,26 @@ def test_zero_oracle_uses_its_own_carried_physical_height_and_typed_setting(case
             else finding["numbers"]["axes"]["z"]
         )
         field = "z_axis_set" if case == "explicit-touch" else "axis_set"
-        assert row[field] == (21.01 if case == "explicit-touch" else 21.005)
-        assert row["setting_residual_mm"] == pytest.approx(
-            -0.0021 if case == "explicit-touch" else 0.0005
+        # Safe down from the as-cut contact: the source-plane producer's lathe grid left
+        # it at 21.01; the datum bundle's 21.0055 contact (plus 0.0024 paper) floors.
+        typed, residual = {
+            "native-source-plane": (21.01, 0.0),
+            "explicit-touch": (21.005, 0.0029),
+        }.get(case, (21.005, 0.0005))
+        assert row[field] == typed
+        assert row["setting_residual_mm"] == pytest.approx(residual)
+        forged = copy.deepcopy(finding)
+        forged_row = (
+            forged["numbers"]["tool_touches"][0]
+            if case == "explicit-touch"
+            else forged["numbers"]["retouch"][0]
+            if case == "listed-retouch"
+            else forged["numbers"]["axes"]["z"]
         )
-        row["setting_residual_mm"] = 0.0
+        forged_row["setting_residual_mm"] = residual + 0.001
+        with pytest.raises(ValueError):
+            VALIDATOR["check_zero"](setup, forged, entries, own)
+        row[field] = typed + 0.005  # rounded up: later tips would cut deeper
         with pytest.raises(ValueError):
             VALIDATOR["check_zero"](setup, finding, entries, own)
     if case == "native-datum":
@@ -1676,6 +1691,134 @@ def test_zero_oracle_uses_its_own_carried_physical_height_and_typed_setting(case
         row["touch_exclusion_dia_mm"] = 0.8
         with pytest.raises(ValueError):
             VALIDATOR["check_zero"](setup, finding, entries, own)
+
+
+def half_step_source_plane(depth=0.25, shift=0.0):
+    """The exact source native plane cut on a 0.0001 lathe grid, so it stands as cut at
+    21.0055; with 0.002 paper the contact is 21.0075, half a 0.005 mill step."""
+    data = carried_native_source_plane_bundle(source_grid=0.0001, shift=shift)
+    receiver = data.plan["setups"][-1]
+    receiver["zero"]["z"]["paper_mm"] = 0.002
+    receiver["ops"][0]["depth_mm"] = depth
+    return data
+
+
+def zero_oracle(data):
+    """The validator's zero inputs, entries and receiving setup for ``data``."""
+    own = VALIDATOR["zero_inputs"](
+        data.plan, data.features, data.inventory, data.policy, lambda: copy.deepcopy(data.kernel)
+    )
+    return data.plan["setups"][-1], VALIDATOR["Entries"](data.inventory), own
+
+
+@pytest.mark.parametrize(
+    ("depth", "diameter"),
+    [(0.15, 0.3), (0.25, 0.3 + 0.1 * math.tan(math.radians(30))), (0.8, 0.4)],
+    ids=["pilot-only", "countersink-mouth", "body-radius-cap"],
+)
+def test_zero_oracle_types_a_half_step_carried_contact_down_past_a_resolved_countersink(
+    depth, diameter
+):
+    data = half_step_source_plane(depth)
+    spot = data.plan["setups"][-1]["ops"][0]
+    assert spot["tool"] == "centre/1"
+    assert data.inventory["tools"]["centre"]["kind"] == "center_drill_set"
+    finding = zero_recipe.evaluate(data)[-1].to_dict()
+    assert finding["status"] == "pass", finding
+    zero, (touch,) = finding["numbers"]["axes"]["z"], finding["numbers"]["derived_touches"]
+    assert zero["edge_mm"] == pytest.approx(21.0055)
+    # 21.0075 types down to 21.005, never the nearest 21.010 a later tip would cut under.
+    assert zero["axis_set"] == touch["z_axis_set"] == 21.005
+    assert zero["setting_residual_mm"] == pytest.approx(0.0025)
+    assert touch["setting_residual_mm"] == pytest.approx(0.0025)
+    assert touch["touch_exclusion_dia_mm"] == pytest.approx(diameter)
+    setup, entries, own = zero_oracle(data)
+    VALIDATOR["check_zero"](setup, copy.deepcopy(finding), entries, own)
+    for path, field, value in (
+        (("axes", "z"), "axis_set", 21.01),
+        (("derived_touches", 0), "z_axis_set", 21.01),
+        (("derived_touches", 0), "touch_exclusion_dia_mm", 0.3 if depth > 0.15 else 0.25),
+    ):
+        forged = copy.deepcopy(finding)
+        forged["numbers"][path[0]][path[1]][field] = value
+        with pytest.raises(ValueError):
+            VALIDATOR["check_zero"](setup, forged, entries, own)
+
+
+def forge_carry(monkeypatch, target):
+    """Patch one checker carry helper to a plausible wrong answer."""
+    original = getattr(zero_recipe, target)
+
+    def nearest_setting(*args, **kwargs):
+        original(*args, **kwargs)
+        row, field = args[2], args[3]
+        typed, residual = row.get(field), row.get("setting_residual_mm")
+        if isinstance(typed, float) and isinstance(residual, float):
+            desired = typed + residual
+            row[field] = round(round(desired / 0.005) * 0.005, 6)
+            row["setting_residual_mm"] = round(desired - row[field], 9)
+
+    def raised_plane(*args, **kwargs):
+        height = original(*args, **kwargs)
+        return height + 0.005 if isinstance(height, float) else height
+
+    def narrow_footprint(*args, **kwargs):
+        footprint = original(*args, **kwargs)
+        return footprint if footprint is None else (footprint[0], footprint[1] / 2)
+
+    forged = {
+        "_carried_setting": nearest_setting,
+        "_plane_in_frame": raised_plane,
+        "_axial_cut_footprint": narrow_footprint,
+    }[target]
+    monkeypatch.setattr(zero_recipe, target, forged)
+
+
+@pytest.mark.parametrize("target", ["_carried_setting", "_plane_in_frame", "_axial_cut_footprint"])
+def test_zero_oracle_derives_a_carried_source_plane_without_the_checkers_carry(monkeypatch, target):
+    # A shared answer would agree with a forged checker; the oracle's own carry does not.
+    data = half_step_source_plane()
+    setup, entries, own = zero_oracle(data)
+    honest = zero_recipe.evaluate(data)[-1].to_dict()
+    VALIDATOR["check_zero"](setup, copy.deepcopy(honest), entries, own)
+    forge_carry(monkeypatch, target)
+    forged = zero_recipe.evaluate(data)[-1].to_dict()
+    assert forged != honest
+    with pytest.raises(ValueError):
+        VALIDATOR["check_zero"](setup, forged, entries, own)
+
+
+def test_endpoint_oracle_reads_a_carried_touch_off_its_typed_setting():
+    # Off grid: physical 21.0147 types down to 21.010; the native nominal 21.0102, where
+    # the received stock's top (the carried face) is entered, would round up to 21.015.
+    data = carried_native_source_plane_bundle(shift=0.0047)
+    receiver = data.plan["setups"][-1]
+    receiver["stock_state"] = {"top_z": 21.0102, "top_feature": receiver["zero"]["z"]["face"]}
+    findings = {(f.rule, f.subject): f.to_dict() for f in endpoint_findings(data)}
+    entries = VALIDATOR["Entries"](data.inventory)
+    spot = findings["blind_depth", "hole"]["numbers"]["endpoints"][0]
+    assert spot["entry_z"] == pytest.approx(21.0102)
+    assert spot["setting_residual_mm"] == pytest.approx(0.0047)
+    assert spot["physical_entry_z"] == pytest.approx(21.0147)
+    # The entry reads off the typed 21.010, not the raw plane re-rounded up to 21.015.
+    assert spot["dro_entry_z"] == pytest.approx(21.01)
+
+    def check(report):
+        VALIDATOR["check_endpoints"](
+            data.plan, data.features, report, entries, lambda: copy.deepcopy(data.kernel)
+        )
+
+    check(findings)
+    for field, value in (
+        ("dro_entry_z", spot["dro_entry_z"] + 0.005),
+        ("dro_tip_z", spot["dro_tip_z"] - 0.005),
+        ("setting_residual_mm", 0.0),
+        ("physical_entry_z", spot["entry_z"]),
+    ):
+        forged = copy.deepcopy(findings)
+        forged["blind_depth", "hole"]["numbers"]["endpoints"][0][field] = value
+        with pytest.raises(ValueError):
+            check(forged)
 
 
 @pytest.mark.parametrize(

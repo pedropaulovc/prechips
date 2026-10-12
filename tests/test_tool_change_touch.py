@@ -57,7 +57,7 @@ def bundle(machine, zero, ops, stock_state=None):
                     ("turner", "insert_holder"),
                     ("parter", "parting_blade"),
                     ("finder", "edge_finder"),
-                    ("centre", "center_drill"),
+                    ("centre", "center_drill_set"),
                     ("drill", "drill"),
                     ("mill", "endmill"),
                 )
@@ -69,6 +69,18 @@ def bundle(machine, zero, ops, stock_state=None):
     data.feature_definitions = data.features["features"]
     # An edge finder's EDGE FINDER box facts (docs/inventory.md "Edge finder").
     data.inventory["tools"]["finder"].update(finder_type="mechanical", rpm_range=[1000, 1200])
+    data.inventory["tools"]["centre"].update(
+        sizes=[1],
+        angle_deg=60,
+        members={
+            "1": {
+                "dia_mm": 1.98,
+                "pilot_len_mm": 1.98,
+                "shank_mm": 4.7625,
+                "point_angle": 118,
+            }
+        },
+    )
     return data
 
 
@@ -232,13 +244,13 @@ def mill_zero(z, retouch_after=()):
     }
 
 
-DECK = {"face": "deck", "edge_mm": 10.0, "method": "touch", "tool": "centre"}
+DECK = {"face": "deck", "edge_mm": 10.0, "method": "touch", "tool": "centre/1"}
 # The setup's tool names, keyed by the item each tool reference selects.
 TURNER = {("tools", "turner"): "T1 turner"}
 
 
 def test_a_drill_after_the_centre_drill_that_set_z_is_re_touched_on_the_zero_face():
-    ops = [op(10, "spot", "hole", "centre"), op(20, "drill", "hole", "drill")]
+    ops = [op(10, "spot", "hole", "centre/1"), op(20, "drill", "hole", "drill")]
     finding = evaluate(bundle("mill", mill_zero(DECK), ops))[0]
     assert finding.status == "pass"
     [touch] = finding.numbers["derived_touches"]
@@ -259,13 +271,13 @@ def carried_stock_bundle(*, journal=False):
     north, south, cylinder, hole = ("#1/NORTH", "#2/SOUTH", "#3/OD", "#4/BORE")
     feature = "cone_boss_north_face" if journal else "crank_boss_faces"
     zero = mill_zero(
-        {"face": feature, "edge_mm": stands, "method": "touch_then_set", "tool": "centre"}
+        {"face": feature, "edge_mm": stands, "method": "touch_then_set", "tool": "centre/1"}
     )
     zero["z"]["paper_mm"] = 0.0
     data = bundle(
         "mill",
         zero,
-        [op(10, "spot", "hole", "centre"), op(20, "drill", "hole", "drill")],
+        [op(10, "spot", "hole", "centre/1", depth_mm=0.15), op(20, "drill", "hole", "drill")],
     )
     consumer = data.plan["setups"][0]
     consumer.update(id="S9" if journal else "S8", frame="JH" if journal else "CH", stock_in="S7")
@@ -337,7 +349,12 @@ def carried_stock_bundle(*, journal=False):
     }
     data.inventory["machines"]["bench"] = {"kind": "bench"}
     data.inventory["machines"]["mill"]["resolution_mm"] = 0.005
-    data.inventory["tools"]["centre"].update(dia_mm=0.3, shank_mm=0.4, point_angle=118)
+    data.inventory["tools"]["centre"] = {
+        "kind": "center_drill_set",
+        "sizes": [1],
+        "angle_deg": 60,
+        "members": {"1": {"dia_mm": 0.3, "pilot_len_mm": 0.2, "shank_mm": 0.4, "point_angle": 118}},
+    }
     data.inventory["tools"]["drill"].update(dia_mm=0.8, point_angle=118)
     data.plan.update(
         stock={"as_is_faces": [], "components": [{"id": "body"}, {"id": "sleeve"}]},
@@ -401,10 +418,9 @@ def carried_stock_bundle(*, journal=False):
     return data
 
 
-def carried_native_datum_bundle():
+def carried_native_datum_bundle(*, physical=21.0055):
     """An oblique native plane whose source and received scenes prove its outline."""
     data = carried_stock_bundle(journal=True)
-    physical = 21.0055
     c, s = math.sin(math.radians(12.5)), math.cos(math.radians(12.5))
     source, consumer = data.plan["setups"][1], data.plan["setups"][-1]
     feature = consumer["zero"]["z"]["face"]
@@ -460,25 +476,28 @@ def carried_native_datum_bundle():
     return data
 
 
-def carried_native_source_plane_bundle():
+def carried_native_source_plane_bundle(*, nominal=21.0055, source_grid=0.01, shift=0.0):
     """The receiving world box is oblique; only the exact source native plane is flat."""
-    data = carried_native_datum_bundle()
+    data = carried_native_datum_bundle(physical=nominal)
     source, consumer = data.plan["setups"][1], data.plan["setups"][-1]
     feature = consumer["zero"]["z"]["face"]
     data.features["frames"]["J3"]["origin"] = [0.0, 0.0, 0.0]
     source["zero"]["z"]["edge_mm"] = 22.0
-    source["ops"][0]["to_z"] = 21.0055
-    data.inventory["machines"]["lathe"]["resolution_mm"] = 0.01
+    source["ops"][0]["to_z"] = nominal
+    data.inventory["machines"]["lathe"]["resolution_mm"] = source_grid
+    receiving = data.features["frames"][consumer["frame"]]
+    receiving["origin"] = [-shift * v for v in receiving["z"]]
+    consumer["zero"]["z"]["edge_mm"] = nominal + shift
     data.features["datums"] = {}
     data.kernel["setups"] = {
         source["id"]: {
             "revolved": {
                 feature: {
                     "kinds": ["Plane"],
-                    "z_mm": [21.0055, 21.0055],
+                    "z_mm": [nominal, nominal],
                     "radii_mm": [0.5, 1.0],
                     "end_radii_mm": [1.0, 1.0],
-                    "end_faces": [{"z_mm": 21.0055, "normal_z": 1}],
+                    "end_faces": [{"z_mm": nominal, "normal_z": 1}],
                 }
             }
         }
@@ -555,7 +574,7 @@ def measured_native_retouch_bundle(*, bounded=True):
         retouch_after=[10],
     )
     if not bounded:
-        del data.inventory["tools"]["centre"]["dia_mm"]
+        del data.inventory["tools"]["centre"]["members"]["1"]["dia_mm"]
     return data
 
 
@@ -624,7 +643,7 @@ def test_a_whole_prepared_face_carries_through_bonding_in_its_new_frame(journal)
         ["#1/NORTH"],
     )
     assert row.get("touch_exclusion_dia_mm", 0.0) == 0.0
-    assert touch["touch_exclusion_dia_mm"] == pytest.approx(0.4)
+    assert touch["touch_exclusion_dia_mm"] == pytest.approx(0.3)
 
 
 @pytest.mark.parametrize(
@@ -699,8 +718,8 @@ def test_a_stock_supplied_native_face_needs_no_new_facing_credit():
     assert finding.numbers["axes"]["z"]["axis_set"] == 0.0
 
 
-@pytest.mark.parametrize(("paper", "typed"), [(0.0, 21.005), (0.0024, 21.01)])
-def test_a_carried_native_datum_types_height_plus_paper_once_on_the_nearest_grid(paper, typed):
+@pytest.mark.parametrize(("paper", "typed"), [(0.0, 21.005), (0.0024, 21.005)])
+def test_a_carried_native_datum_types_height_plus_paper_once_on_the_safe_down_grid(paper, typed):
     data = carried_native_datum_bundle()
     data.plan["setups"][-1]["zero"]["z"]["paper_mm"] = paper
     finding = evaluate(data)[-1]
@@ -794,12 +813,160 @@ def test_an_exact_source_native_plane_carries_without_an_oblique_bbox_or_datum_g
     assert finding.status == "pass", finding.sentence
     row = finding.numbers["axes"]["z"]
     assert row["credited_faces"] == ["#1/NORTH"]
-    assert row["edge_mm"] == pytest.approx(21.0055)
-    assert row["axis_set"] == 21.005
-    assert row["setting_residual_mm"] == pytest.approx(0.0005)
+    assert row["edge_mm"] == pytest.approx(21.01)
+    assert row["native_edge_mm"] == pytest.approx(21.0055)
+    assert row["axis_set"] == 21.01
+    assert row["setting_residual_mm"] == 0.0
     [touch] = finding.numbers["derived_touches"]
-    assert touch["z_axis_set"] == 21.005
-    assert touch["touch_exclusion_dia_mm"] == pytest.approx(0.4)
+    assert touch["z_axis_set"] == 21.01
+    assert touch["touch_exclusion_dia_mm"] == pytest.approx(0.3)
+
+
+@pytest.mark.parametrize(
+    ("nominal", "source_grid", "receiving_grid", "shift", "physical", "typed"),
+    [
+        (21.0075, 0.0005, 0.005, 0.0, 21.0075, 21.005),
+        (-21.0075, 0.0005, 0.005, 0.0, -21.0075, -21.01),
+        (21.0035, 0.005, 0.01, 0.0, 21.005, 21.0),
+        (21.0055, 0.01, 0.005, -0.0025, 21.0075, 21.005),
+        (21.009999998, 0.000000001, 0.005, 0.0, 21.009999998, 21.005),
+        (-21.010000002, 0.000000001, 0.005, 0.0, -21.010000002, -21.015),
+    ],
+    ids=[
+        "half-step",
+        "negative-half-step",
+        "coarser-receiving-grid",
+        "oblique-rigid-offset",
+        "positive-near-grid",
+        "negative-near-grid",
+    ],
+)
+@pytest.mark.parametrize("route", ["primary-derived", "explicit-touch", "listed-retouch"])
+def test_every_carried_contact_is_safe_down_from_the_producer_as_cut_height(
+    nominal, source_grid, receiving_grid, shift, physical, typed, route
+):
+    data = carried_native_source_plane_bundle(nominal=nominal, source_grid=source_grid, shift=shift)
+    receiver = data.plan["setups"][-1]
+    zero = receiver["zero"]["z"]
+    face = zero["face"]
+    data.inventory["machines"]["mill"]["resolution_mm"] = receiving_grid
+    if route == "explicit-touch":
+        receiver["zero"]["tool_touches"] = [
+            {
+                "tool": "drill",
+                "z_face": face,
+                "edge_mm": nominal + shift,
+                "paper_mm": 0.0,
+                "method": "touch_then_set",
+                "before_ops": [20],
+            }
+        ]
+    elif route == "listed-retouch":
+        receiver["stock_state"] = {"top_z": nominal + shift, "top_feature": face}
+        zero.update(face="top", retouch_after=[10])
+    finding = evaluate(data)[-1]
+    assert finding.status == "pass", finding.sentence
+    primary = finding.numbers["axes"]["z"]
+    row = (
+        finding.numbers["derived_touches"][0]
+        if route == "primary-derived"
+        else finding.numbers["tool_touches"][0]
+        if route == "explicit-touch"
+        else finding.numbers["retouch"][0]
+    )
+    setting = row["axis_set" if route == "listed-retouch" else "z_axis_set"]
+    assert primary["edge_mm"] == pytest.approx(physical)
+    assert primary["native_edge_mm"] == pytest.approx(nominal + shift)
+    assert primary["axis_set"] == typed == setting
+    assert row["edge_mm" if route != "listed-retouch" else "top_z"] == pytest.approx(physical)
+    residual = physical - typed
+    assert residual >= 0
+    assert primary["setting_residual_mm"] == pytest.approx(residual)
+    assert row["setting_residual_mm"] == pytest.approx(residual)
+    assert primary["check_reading"] == pytest.approx(typed + 5.0)
+    assert primary["mirrored_reading"] == pytest.approx(typed - 5.0)
+    # The authored native nominal is valid provenance, but typing high would
+    # move every fixed DRO tip below its authored physical Z by that error.
+    authored_tip = physical - 2.0
+    reached = authored_tip + residual
+    assert reached >= authored_tip
+
+
+def test_same_setup_and_remounted_touches_agree_on_one_producer_as_cut_face():
+    data = carried_native_source_plane_bundle()
+    source, receiver = data.plan["setups"][1], data.plan["setups"][-1]
+    face = receiver["zero"]["z"]["face"]
+    source["ops"].append(op(20, "fit", face, "turner"))
+    source["zero"]["tool_touches"] = [
+        {
+            "tool": "turner",
+            "x_method": "trial_cut_measure",
+            "gauge": "mic",
+            "z_face": face,
+            "edge_mm": 21.0055,
+            "paper_mm": 0.0,
+            "method": "touch_then_set",
+            "before_ops": [20],
+        }
+    ]
+    findings = evaluate(data)
+    made = findings[1].numbers["tool_touches"][0]
+    carried = findings[-1].numbers["axes"]["z"]
+    assert findings[1].status == findings[-1].status == "pass"
+    assert made["edge_mm"] == carried["edge_mm"] == pytest.approx(21.01)
+    assert made["z_axis_set"] == carried["axis_set"] == 21.01
+    assert carried["setting_residual_mm"] == 0.0
+
+
+@pytest.mark.parametrize("debt", ["unknown-touch", "raw-cut-mismatch", "partial-cut"])
+def test_unknown_or_nonmatching_producer_never_supplies_a_nominal_as_cut_height(debt):
+    data = carried_native_source_plane_bundle()
+    source = data.plan["setups"][1]
+    if debt == "unknown-touch":
+        source["zero"]["z"]["paper_mm"] = "unknown"
+    elif debt == "raw-cut-mismatch":
+        source["ops"][0]["to_z"] = 21.02
+    else:
+        source["ops"][0]["stock_removal_bounds"] = {
+            "x": [-1.0, 0.0],
+            "y": [-1.0, 1.0],
+            "z": [21.0, 22.0],
+        }
+    finding = evaluate(data)[-1]
+    assert finding.status == "unknown"
+    assert finding.numbers["axes"]["z"]["axis_set"] == "unknown"
+    assert "credited_faces" not in finding.numbers["axes"]["z"]
+
+
+def test_keep_out_bounds_are_compared_with_the_producer_as_cut_plane_not_its_native_nominal():
+    data = carried_stock_bundle(journal=True)
+    source, bond, receiver = data.plan["setups"][1:]
+    source["ops"] = source["ops"][:1]
+    source["ops"][0]["to_z"] = 0.0055
+    data.inventory["machines"]["lathe"]["resolution_mm"] = 0.01
+    data.kernel["faces"][0]["bbox_mm"][2] = -21.0055
+    data.kernel["faces"][0]["bbox_mm"][5] = -21.0055
+    fact = data.kernel["setups"][source["id"]]["revolved"][receiver["zero"]["z"]["face"]]
+    fact.update(z_mm=[0.0055, 0.0055], end_faces=[{"z_mm": 0.0055, "normal_z": 1}])
+    receiver["zero"]["z"]["edge_mm"] = 21.0055
+    # This cut spans physical Z21.010 but not the native Z21.0055 box, even
+    # with LENGTH tolerance. Native-only disjointness must not credit survival.
+    bond.update(machine="mill", frame="JH")
+    bond["ops"].append(
+        op(
+            20,
+            "face",
+            "spigot",
+            "mill",
+            to_z=21.01,
+            stock_removal_bounds={"x": [-2.0, 2.0], "y": [-2.0, 2.0], "z": [21.009, 21.011]},
+        )
+    )
+    data.kernel["ops"]["S7:20"] = {"approach": "axial", "claimed_indices": [2], "faced_side": 1}
+    finding = evaluate(data)[-1]
+    assert finding.status == "unknown"
+    assert finding.numbers["axes"]["z"]["axis_set"] == "unknown"
+    assert "credited_faces" not in finding.numbers["axes"]["z"]
 
 
 @pytest.mark.parametrize("debt", ["missing", "wrong-binding", "flipped", "wrong-height"])
@@ -818,8 +985,8 @@ def test_source_native_plane_evidence_cannot_be_missing_misbound_flipped_or_wron
     finding = evaluate(data)[-1]
     assert finding.status == ("error" if debt == "wrong-height" else "unknown")
     if debt == "wrong-height":
-        assert finding.numbers["axes"]["z"]["axis_set"] == 21.005
-        assert "21.0055" in finding.sentence and "21.02" in finding.sentence
+        assert finding.numbers["axes"]["z"]["axis_set"] == 21.01
+        assert "21.01" in finding.sentence and "21.02" in finding.sentence
     else:
         assert finding.numbers["axes"]["z"]["axis_set"] == "unknown"
         assert "credited_faces" not in finding.numbers["axes"]["z"]
@@ -831,9 +998,62 @@ def test_axial_plunges_leave_a_proven_plane_with_a_cumulative_touch_exclusion(ai
     finding = evaluate(data)[-1]
     assert finding.status == "pass", finding.sentence
     before = {row["before_ops"][0]: row for row in finding.numbers["derived_touches"]}
-    assert before[20]["touch_exclusion_dia_mm"] == pytest.approx(0.4 + 2 * aim_shift)
+    assert before[20]["touch_exclusion_dia_mm"] == pytest.approx(0.3 + 2 * aim_shift)
     assert before[30]["touch_exclusion_dia_mm"] == pytest.approx(0.8 + 2 * aim_shift)
     assert all(row["credited_faces"] == ["#1/NORTH"] for row in before.values())
+
+
+@pytest.mark.parametrize(
+    ("depth", "diameter"),
+    [(0.15, 0.3), (0.2, 0.3), (0.25, 0.3 + 0.1 * math.tan(math.radians(30))), (0.8, 0.4)],
+    ids=["pilot-only", "pilot-end", "countersink-mouth", "body-radius-cap"],
+)
+@pytest.mark.parametrize("aim_shift", [0.0, 0.185])
+def test_resolved_combined_drill_member_bounds_its_engaged_mouth_and_aim_shift(
+    depth, diameter, aim_shift
+):
+    from prechips.rules.resolution import resolve
+
+    data = carry_with_through_drill(aim_shift=aim_shift)
+    receiver = data.plan["setups"][-1]
+    spot = receiver["ops"][0]
+    spot["depth_mm"] = depth
+    tool = resolve(data, "tools", spot["tool"])
+    assert spot["tool"] == "centre/1"
+    assert tool["kind"] == "center_drill_set"
+    assert tool["pilot_len_mm"] == 0.2
+    finding = evaluate(data)[-1]
+    assert finding.status == "pass", finding.sentence
+    touch = finding.numbers["derived_touches"][0]
+    assert touch["touch_exclusion_dia_mm"] == pytest.approx(diameter + 2 * aim_shift)
+
+
+@pytest.mark.parametrize(
+    "fact", ["dia_mm", "pilot_len_mm", "shank_mm", "point_angle", "angle_deg", "depth_mm"]
+)
+@pytest.mark.parametrize("missing", ["absent", "unknown", "unverified"])
+def test_combined_drill_missing_engagement_facts_leave_the_next_touch_unknown(fact, missing):
+    data = carried_stock_bundle()
+    receiver = data.plan["setups"][-1]
+    receiver["ops"][0]["depth_mm"] = 0.25
+    record = (
+        receiver["ops"][0]
+        if fact == "depth_mm"
+        else data.inventory["tools"]["centre"]
+        if fact == "angle_deg"
+        else data.inventory["tools"]["centre"]["members"]["1"]
+    )
+    if missing == "absent":
+        del record[fact]
+    elif missing == "unknown":
+        record[fact] = "unknown"
+    else:
+        record[fact] = {"value": record[fact], "verify": True}
+    finding = evaluate(data)[-1]
+    assert finding.status == "unknown"
+    touch = finding.numbers["derived_touches"][0]
+    assert touch["z_axis_set"] == "unknown"
+    assert "credited_faces" not in touch
 
 
 @pytest.mark.parametrize(
@@ -941,7 +1161,7 @@ def test_an_existing_native_parting_face_is_also_a_valid_carry_producer():
     source["ops"][0].update(do="part_off", tool="parter")
     finding = evaluate(data)[-1]
     assert finding.status == "pass", finding.sentence
-    assert finding.numbers["axes"]["z"]["axis_set"] == 21.005
+    assert finding.numbers["axes"]["z"]["axis_set"] == 21.01
     assert finding.numbers["axes"]["z"]["credited_faces"] == ["#1/NORTH"]
 
 
@@ -1020,7 +1240,7 @@ def test_a_listed_retouch_does_not_inherit_its_primary_measured_zero_mode(bounde
     assert row["axis_set"] == (0.0 if bounded else "unknown")
     if bounded:
         assert row["credited_faces"] == ["#1/NORTH"]
-        assert row["touch_exclusion_dia_mm"] == pytest.approx(0.4)
+        assert row["touch_exclusion_dia_mm"] == pytest.approx(0.3)
     else:
         assert "credited_faces" not in row
 
@@ -1062,7 +1282,7 @@ def test_a_listed_retouch_serves_only_the_next_tool():
     zero = mill_zero({"face": "top", "tool": "mill"}, retouch_after=[10])
     ops = [
         op(10, "face", "deck", "mill", to_z=0.0),
-        op(20, "spot", "hole", "centre"),
+        op(20, "spot", "hole", "centre/1"),
         op(30, "drill", "hole", "drill"),
     ]
     finding = evaluate(bundle("mill", zero, ops, {"top_z": 2.0}))[0]
@@ -1111,13 +1331,13 @@ def test_several_tool_changes_to_one_touch_name_their_ops_not_the_tools_again():
     zero = mill_zero({"face": "top", "tool": "mill"}, retouch_after=[10, 20])
     ops = [
         op(10, "face", "deck", "mill", to_z=0.0),
-        op(20, "spot", "hole", "centre"),
+        op(20, "spot", "hole", "centre/1"),
         op(30, "drill", "hole", "drill"),
     ]
     sheet, setup = sheet_of(bundle("mill", zero, ops, {"top_z": 2.0}))
     tools = {
         ("tools", "mill"): "T1 end mill",
-        ("tools", "centre"): "T2 centre drill",
+        ("tools", "centre/1"): "T2 centre drill",
         ("tools", "drill"): "T3 drill",
     }
     html = sheet.dro(setup, tools)
@@ -1132,9 +1352,9 @@ def test_several_tool_changes_to_one_touch_name_their_ops_not_the_tools_again():
 
 
 def test_a_mill_tool_touch_installs_its_tool_first():
-    ops = [op(10, "spot", "hole", "centre"), op(20, "drill", "hole", "drill")]
+    ops = [op(10, "spot", "hole", "centre/1"), op(20, "drill", "hole", "drill")]
     sheet, setup = sheet_of(bundle("mill", mill_zero(DECK), ops))
-    tools = {("tools", "centre"): "T1 centre drill", ("tools", "drill"): "T2 drill"}
+    tools = {("tools", "centre/1"): "T1 centre drill", ("tools", "drill"): "T2 drill"}
     (line,) = [line for line in paragraphs(sheet.dro(setup, tools)) if "install" in line]
     assert re.search(r"\bop 20\b", line), line
     assert line.index("install") < line.index("T2 drill") < line.index("touch"), line
@@ -1150,11 +1370,11 @@ def test_a_tool_keeps_one_t_number_however_its_ops_and_touches_spell_it(qualifie
     # A tool is the (category, key) it selects: "tools.drill" and "drill" are one drill.
     spell = {"op": ("tools.", ""), "touch": ("", "tools.")}[qualified]
     ops = [
-        op(10, "spot", "hole", spell[0] + "centre"),
+        op(10, "spot", "hole", spell[0] + "centre/1"),
         op(20, "drill", "hole", spell[0] + "drill"),
         op(30, "drill", "hole", "drill"),
     ]
-    zero = mill_zero({**DECK, "tool": spell[1] + "centre"})
+    zero = mill_zero({**DECK, "tool": spell[1] + "centre/1"})
     data = bundle("mill", zero, ops)
     sheet, setup = sheet_of(data)
     numbers, tools, table = sheet.tool_table(setup)
@@ -1180,8 +1400,10 @@ def test_a_tool_keeps_one_t_number_however_its_ops_and_touches_spell_it(qualifie
     name = tools[("tools", "drill")]
     assert line.index("install") < line.index(name) < line.index("touch")
     assert re.findall(r"\bT\d+\b", line) == ["T2"]
-    assert sheet.touched_tool(spell[1] + "centre", tools, "spindle") == tools[("tools", "centre")]
-    setter = sheet.touched_tool(spell[1] + "centre", tools, "spindle")
+    assert (
+        sheet.touched_tool(spell[1] + "centre/1", tools, "spindle") == tools[("tools", "centre/1")]
+    )
+    setter = sheet.touched_tool(spell[1] + "centre/1", tools, "spindle")
     assert re.findall(r"\bT\d+\b", setter) == ["T1"]
 
 
@@ -1202,10 +1424,10 @@ def test_a_lathe_keeps_its_toolpost_numbers_however_its_setups_spell_the_machine
 def test_a_top_picked_up_after_a_facing_op_is_re_touched_where_that_op_left_it():
     # The face runs before the zero (no tool has set Z yet); the centre drill then
     # touches the faced top, and the drill repeats that touch at -2, not the incoming 0.
-    zero = mill_zero({"face": "top", "tool": "centre", "after_op": 10})
+    zero = mill_zero({"face": "top", "tool": "centre/1", "after_op": 10})
     ops = [
         op(10, "face", "deck", "mill", to_z=-2.0),
-        op(20, "spot", "hole", "centre"),
+        op(20, "spot", "hole", "centre/1"),
         op(30, "drill", "hole", "drill"),
     ]
     finding = evaluate(bundle("mill", zero, ops, {"top_z": 0.0}))[0]
@@ -1276,7 +1498,7 @@ def test_a_top_touched_after_a_face_to_no_stated_depth_is_unknown(producer, dept
     zero = mill_zero(z, [10]) if producer == "retouch_after" else mill_zero({**z, "after_op": 10})
     ops = [
         op(10, "face", "deck", "mill", **depth),
-        op(20, "spot", "hole", "centre"),
+        op(20, "spot", "hole", "centre/1"),
         op(30, "drill", "hole", "drill"),
     ]
     finding = evaluate(bundle("mill", zero, ops, {"top_z": 10.0, "top_feature": "deck"}))[0]
@@ -1629,7 +1851,7 @@ def retouch_deck(data, retouch):
     if retouch == "listed":
         zero["z"] = {**zero["z"], "face": "top", "retouch_after": [10]}
     else:
-        touch = {"tool": "centre", "z_face": "deck", "edge_mm": 10.0, "paper_mm": 0.05}
+        touch = {"tool": "centre/1", "z_face": "deck", "edge_mm": 10.0, "paper_mm": 0.05}
         zero["tool_touches"] = [{**touch, "method": "touch_then_set", "before_ops": [20]}]
 
 
@@ -1639,7 +1861,7 @@ def test_a_datum_re_touched_after_a_cut_of_unknown_extent_stays_unproven(retouch
     # Z 10 is left is unknown; touching it again at its nominal Z 10 does not show it.
     data = deck_bundle("deck", [[0.0, 10.0]], footprint=False)
     ops = data.plan["setups"][0]["ops"]
-    ops[1:] = [op(20, "spot", "hole", "centre"), op(30, "drill", "hole", "drill")]
+    ops[1:] = [op(20, "spot", "hole", "centre/1"), op(30, "drill", "hole", "drill")]
     retouch_deck(data, retouch)
     finding = evaluate(data)[0]
     assert finding.status == "unknown"
@@ -1661,7 +1883,7 @@ def test_a_touch_at_a_z_its_surface_was_not_made_at_is_not_repeated(face, depth,
     data = deck_bundle("deck", [[0.0, 20.0]])
     ops = data.plan["setups"][0]["ops"]
     ops[0] = op(10, "face", "deck", "mill", **depth)
-    ops[1:] = [op(20, "spot", "hole", "centre"), op(30, "drill", "hole", "drill")]
+    ops[1:] = [op(20, "spot", "hole", "centre/1"), op(30, "drill", "hole", "drill")]
     retouch_deck(data, "authored")
     data.plan["setups"][0]["zero"]["tool_touches"][0]["z_face"] = face
     finding = evaluate(data)[0]
@@ -1682,7 +1904,7 @@ def test_a_datum_re_touched_between_partial_faces_keeps_the_first_cut(retouch):
     ops = data.plan["setups"][0]["ops"]
     right = {**ops[0], "op": 30, "stock_removal_bounds": {**ops[0]["stock_removal_bounds"]}}
     right["stock_removal_bounds"]["x"] = [10.0, 20.0]
-    ops[1:] = [op(20, "spot", "hole", "centre"), right, op(40, "drill", "hole", "drill")]
+    ops[1:] = [op(20, "spot", "hole", "centre/1"), right, op(40, "drill", "hole", "drill")]
     retouch_deck(data, retouch)
     finding = evaluate(data)[0]
     assert finding.status == "unknown"
@@ -1695,7 +1917,7 @@ def test_a_datum_re_touched_between_partial_faces_keeps_the_first_cut(retouch):
 
 @pytest.mark.parametrize("incoming", ["unknown", "not-in-inventory"])
 def test_an_unresolved_incoming_tool_keeps_the_tool_change_unknown(incoming):
-    ops = [op(10, "spot", "hole", "centre"), op(20, "drill", "hole", incoming)]
+    ops = [op(10, "spot", "hole", "centre/1"), op(20, "drill", "hole", incoming)]
     finding = evaluate(bundle("mill", mill_zero(DECK), ops))[0]
     assert finding.status == "unknown"
     assert finding.numbers["missing_touches"] == []
@@ -1705,7 +1927,7 @@ def test_an_unresolved_incoming_tool_keeps_the_tool_change_unknown(incoming):
 def test_a_setup_with_no_zero_has_no_tool_dro_to_change(machine):
     # No recipe set the DRO, so no tool cuts on another tool's Axis Set: the zero is
     # missing (unknown), not a tool change to touch off.
-    ops = [op(10, "spot", "hole", "centre"), op(20, "drill", "hole", "drill")]
+    ops = [op(10, "spot", "hole", "centre/1"), op(20, "drill", "hole", "drill")]
     if machine == "lathe":
         ops = [op(10, "face", "end", "turner"), op(20, "part_off", "relief", "parter")]
     finding = evaluate(bundle(machine, {}, ops))[0]
@@ -1722,13 +1944,13 @@ def test_a_measured_zero_gives_no_plan_z_to_re_touch_so_the_change_is_an_error()
         "gauge": "mic",
         "measure": "deck height above the vise floor",
         "offset_mm": -1.0,
-        "tool": "centre",
+        "tool": "centre/1",
     }
-    ops = [op(10, "spot", "hole", "centre"), op(20, "drill", "hole", "drill")]
+    ops = [op(10, "spot", "hole", "centre/1"), op(20, "drill", "hole", "drill")]
     finding = evaluate(bundle("mill", mill_zero(z), ops))[0]
     assert finding.status == "error"
     assert finding.numbers["missing_touches"] == [
-        {"before_op": 20, "tool": "drill", "axes": ["z"], "dro_set_by": "centre"}
+        {"before_op": 20, "tool": "drill", "axes": ["z"], "dro_set_by": "centre/1"}
     ]
 
 
@@ -1752,10 +1974,10 @@ def test_a_measured_z_zero_sets_the_measurement_plus_offset_and_paper(
         "gauge": "mic",
         "measure": "deck height above the vise floor",
         "offset_mm": -1.0,
-        "tool": "centre",
+        "tool": "centre/1",
         **change,
     }
-    finding = evaluate(bundle("mill", mill_zero(z), [op(10, "spot", "hole", "centre")]))[0]
+    finding = evaluate(bundle("mill", mill_zero(z), [op(10, "spot", "hole", "centre/1")]))[0]
     row = finding.numbers["axes"]["z"]
     assert (row["axis_set"], row["check_reading"], row["mirrored_reading"]) == (
         axis_set,
@@ -1782,7 +2004,7 @@ def test_a_mill_tool_touch_is_z_only_and_may_be_measured(measure, axis_set, stat
         "before_ops": [20],
     }
     zero = {**mill_zero(DECK), "tool_touches": [touch]}
-    ops = [op(10, "spot", "hole", "centre"), op(20, "drill", "hole", "drill")]
+    ops = [op(10, "spot", "hole", "centre/1"), op(20, "drill", "hole", "drill")]
     finding = evaluate(bundle("mill", zero, ops))[0]
     assert finding.status == status
     [row] = finding.numbers["tool_touches"]
@@ -2091,8 +2313,8 @@ def zero_rows(html):
 
 
 def test_a_credited_z_zero_prints_the_produced_plane_beside_its_axis_set():
-    ops = [op(10, "spot", "hole", "centre"), op(20, "drill", "hole", "drill")]
-    tools = {("tools", "centre"): "T1 centre drill", ("tools", "drill"): "T2 drill"}
+    ops = [op(10, "spot", "hole", "centre/1"), op(20, "drill", "hole", "drill")]
+    tools = {("tools", "centre/1"): "T1 centre drill", ("tools", "drill"): "T2 drill"}
     sheet, setup = credited(bundle("mill", mill_zero(DECK), ops), ("axes", "z"), [FACE])
     contact, axis_set = zero_rows(sheet.dro(setup, tools))["Z"]
     assert "deck" in contact and f"produced plane: {FACE}" in contact, contact
@@ -2106,15 +2328,15 @@ def test_a_credited_z_zero_prints_the_produced_plane_beside_its_axis_set():
 
 @pytest.mark.parametrize("faces", [[], "unknown"])
 def test_an_absent_or_unknown_credit_prints_no_plane(faces):
-    ops = [op(10, "spot", "hole", "centre"), op(20, "drill", "hole", "drill")]
+    ops = [op(10, "spot", "hole", "centre/1"), op(20, "drill", "hole", "drill")]
     sheet, setup = credited(bundle("mill", mill_zero(DECK), ops), ("axes", "z"), faces)
     html = sheet.dro(setup, {})
     assert "produced plane" not in sheet_text(html) and "unknown" not in zero_rows(html)["Z"][0]
 
 
 def test_a_credited_derived_touch_prints_the_produced_plane_after_its_axis_set():
-    ops = [op(10, "spot", "hole", "centre"), op(20, "drill", "hole", "drill")]
-    tools = {("tools", "centre"): "T1 centre drill", ("tools", "drill"): "T2 drill"}
+    ops = [op(10, "spot", "hole", "centre/1"), op(20, "drill", "hole", "drill")]
+    tools = {("tools", "centre/1"): "T1 centre drill", ("tools", "drill"): "T2 drill"}
     sheet, setup = credited(
         bundle("mill", mill_zero(DECK), ops), ("derived_touches", 0), [FACE, FACE + "b"]
     )
@@ -2143,7 +2365,7 @@ def test_a_credited_listed_retouch_prints_its_plane_and_an_uncredited_one_does_n
 
 
 def test_a_face_reference_is_escaped_not_rendered_as_markup():
-    ops = [op(10, "spot", "hole", "centre"), op(20, "drill", "hole", "drill")]
+    ops = [op(10, "spot", "hole", "centre/1"), op(20, "drill", "hole", "drill")]
     hostile = "#7/ADVANCED_FACE[1]/<b>&P"
     sheet, setup = credited(bundle("mill", mill_zero(DECK), ops), ("axes", "z"), [hostile])
     html = sheet.dro(setup, {})

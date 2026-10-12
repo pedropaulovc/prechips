@@ -431,8 +431,8 @@ def _native_plane_geometry(bundle, source, face, refs):
     }
 
 
-def _plane_in_frame(bundle, plane, setup):
-    """Transform the measured native plane point and outward normal, not its bbox."""
+def _plane_in_frame(bundle, plane, setup, *, physical=True):
+    """Rigidly carry the source's as-cut point, or its native nominal for identity."""
     from .coordinates import UNIT_MM, frame_axes, frame_point, model_point
 
     scale = UNIT_MM[bundle.features["units"]]
@@ -440,7 +440,8 @@ def _plane_in_frame(bundle, plane, setup):
     axes = frame_axes(setup_frame(bundle, setup))
     if not _native_basis(source_axes) or not _native_basis(axes):
         return None
-    point = model_point([0.0, 0.0, plane["z_mm"] / scale], plane["frame"])
+    source_z = plane.get("formed_z_mm", plane["z_mm"]) if physical else plane["z_mm"]
+    point = model_point([0.0, 0.0, source_z / scale], plane["frame"])
     height = frame_point(point, setup_frame(bundle, setup))[2]
     normal = [plane["normal_z"] * v for v in source_axes[2]]
     if not number(height) or not math.isfinite(height):
@@ -488,11 +489,31 @@ def _axial_cut_footprint(bundle, setup, op):
     if not diameter["verified"] or not number(diameter["value"]) or diameter["value"] <= 0:
         return None
     radius = diameter["value"] / 2
-    if tool.get("kind") == "center_drill":
+    if tool.get("kind") == "center_drill_set":
+        pilot = length_fact(tool, "pilot_len", require_measured=False)
         body = length_fact(tool, "shank", require_measured=False)
-        if not body["verified"] or not number(body["value"]) or body["value"] <= 0:
+        countersink = angle_fact(tool, "angle_deg", require_measured=False)
+        depth = op.get("depth_mm")
+        if not (
+            all(
+                fact["verified"] and number(fact["value"]) and math.isfinite(fact["value"])
+                for fact in (pilot, body, countersink)
+            )
+            and pilot["value"] > 0
+            and body["value"] >= diameter["value"]
+            and 0 < countersink["value"] < 180
+            and number(depth)
+            and math.isfinite(depth)
+            and depth > 0
+        ):
             return None
-        radius = max(radius, body["value"] / 2)
+        # The endpoint rounds up, so authored tip depth is a conservative upper
+        # bound. A combined drill's wider cone starts only after its pilot length.
+        radius = min(
+            body["value"] / 2,
+            radius
+            + max(0.0, depth - pilot["value"]) * math.tan(math.radians(countersink["value"] / 2)),
+        )
     if action in {"spot", "drill"}:
         angle = angle_fact(tool, "point_angle", require_measured=False)
         if not angle["verified"] or not number(angle["value"]) or not 0 < angle["value"] < 180:
@@ -506,7 +527,7 @@ def _primitive_spares_plane(bundle, setup, op, plane, excluded):
     from .coordinates import UNIT_MM, formed_z, frame_axes, frame_point, model_point
     from .geometry_common import finishing_subjects
 
-    if plane is None:
+    if plane is None or not number(plane.get("outer_radius_mm")):
         return False
     scale = UNIT_MM[bundle.features["units"]]
     frame = setup_frame(bundle, setup)
@@ -516,7 +537,10 @@ def _primitive_spares_plane(bundle, setup, op, plane, excluded):
         return False
     source_axis = source_axes[2]
     turned = [sum(a * b for a, b in zip(source_axis, axis, strict=True)) for axis in axes]
-    centre = frame_point(model_point([0.0, 0.0, plane["z_mm"] / scale], plane["frame"]), frame)
+    centre = frame_point(
+        model_point([0.0, 0.0, plane.get("formed_z_mm", plane["z_mm"]) / scale], plane["frame"]),
+        frame,
+    )
     if not all(number(v) and math.isfinite(v) for v in centre):
         return False
     action = op.get("do")
@@ -634,6 +658,27 @@ def _primitive_spares_plane(bundle, setup, op, plane, excluded):
     return True
 
 
+def _carry_boxes(bundle, setup, target, plane):
+    """Existing selected boxes translated only by a proved source cut's offset."""
+    from .coordinates import UNIT_MM, frame_axes
+
+    boxes, _ = _kernel_face_boxes(bundle, target, setup_frame(bundle, setup))
+    if boxes is None or plane is None or "formed_z_mm" not in plane:
+        return boxes
+    delta = (plane["formed_z_mm"] - plane["z_mm"]) / UNIT_MM[bundle.features["units"]]
+    if delta == 0.0:
+        return boxes
+    source_axes = frame_axes(plane["frame"])
+    axes = frame_axes(setup_frame(bundle, setup))
+    if not math.isfinite(delta) or not _native_basis(source_axes) or not _native_basis(axes):
+        return None
+    shift = [delta * sum(a * b for a, b in zip(source_axes[2], axis, strict=True)) for axis in axes]
+    return [
+        (ref, [[end + shift[i] for end in span] for i, span in enumerate(box)])
+        for ref, box in boxes
+    ]
+
+
 def _carry_cut(bundle, setup, op, target, plane=None, excluded=None):
     """Whether a cut invalidates the plane; preserve only proven bounded primitives."""
     from .coordinates import UNIT_MM
@@ -653,7 +698,7 @@ def _carry_cut(bundle, setup, op, target, plane=None, excluded=None):
             for span in spans
         ):
             return True
-        boxes, _ = _kernel_face_boxes(bundle, target, setup_frame(bundle, setup))
+        boxes = _carry_boxes(bundle, setup, target, plane)
         if boxes is None:
             return True
         tolerance = LENGTH_TOLERANCE_MM / UNIT_MM[bundle.features["units"]]
@@ -668,7 +713,7 @@ def _carry_cut(bundle, setup, op, target, plane=None, excluded=None):
     footprint = _axial_cut_footprint(bundle, setup, op)
     if footprint is not None:
         point, radius = footprint
-        boxes, _ = _kernel_face_boxes(bundle, target, setup_frame(bundle, setup))
+        boxes = _carry_boxes(bundle, setup, target, plane)
         scale = UNIT_MM[bundle.features["units"]]
         if boxes is not None and all(
             any(
@@ -934,6 +979,7 @@ def _carried_face_z(bundle, setup, face, done, debts, credited, constraint=None)
                             produced = number(height) and abs(height - to_z) <= tolerance
                             plane = scene_geometry or None
                     if produced and plane is not None:
+                        plane["formed_z_mm"] = formed_z(bundle, current, op) * scale
                         produced = number(_plane_in_frame(bundle, plane, setup))
                     elif produced:
                         side = face_normal_z(bundle, current, face, to_z)
@@ -956,7 +1002,15 @@ def _carried_face_z(bundle, setup, face, done, debts, credited, constraint=None)
                             # and a box alone establish no outward direction.
                             side = 1
                         if number(side) and side in (1, -1):
-                            normal = [side * v for v in frame_axes(setup_frame(bundle, current))[2]]
+                            source_frame = setup_frame(bundle, current)
+                            normal = [side * v for v in frame_axes(source_frame)[2]]
+                            plane = {
+                                "source": current["id"],
+                                "frame": source_frame,
+                                "z_mm": to_z * scale,
+                                "formed_z_mm": formed_z(bundle, current, op) * scale,
+                                "normal_z": side,
+                            }
                             produced = _native_normal_up(
                                 normal, frame_axes(setup_frame(bundle, setup))
                             )
@@ -965,10 +1019,8 @@ def _carried_face_z(bundle, setup, face, done, debts, credited, constraint=None)
                 if produced:
                     # Re-facing does not fill either a bounded or an unknown hole.
                     # The latter debt survives every cut on this same stock route.
-                    if row["plane"] is None:
-                        row["plane"] = plane
-                    if row["normal"] is None:
-                        row["normal"] = normal
+                    row["plane"] = plane
+                    row["normal"] = normal
                     row["present"] = UNKNOWN if row["area_unknown"] else True
                 elif row["present"] is not False:
                     excluded = []
@@ -1008,9 +1060,11 @@ def _carried_face_z(bundle, setup, face, done, debts, credited, constraint=None)
         for ref, z in zip(refs, heights, strict=True)
     ):
         return unknown(f"carried {face} has no finite +Z native plane in the receiving rigid frame")
-    if all(number(z) for z in heights) and max(heights) - min(heights) <= tolerance:
+    if all(number(z) for z in heights):
+        if max(heights) - min(heights) > tolerance:
+            return unknown(f"carried {face} has no single consistent as-cut physical plane")
         raw = max(heights)
-    elif raw is None:
+    elif any(number(z) for z in heights) or raw is None:
         return unknown(
             f"carried {face} needs its exact source native plane or stock-proven datum "
             "(native evidence gap: https://github.com/pedropaulovc/prechips/issues/203)"
@@ -1018,6 +1072,14 @@ def _carried_face_z(bundle, setup, face, done, debts, credited, constraint=None)
     if credited is not None:
         credited.extend(refs)
     if constraint is not None:
+        native_heights = [
+            _plane_in_frame(bundle, state[ref]["plane"], setup, physical=False)
+            if state[ref]["plane"] is not None
+            else None
+            for ref in refs
+        ]
+        if all(number(z) for z in native_heights):
+            constraint["native_edge_mm"] = max(native_heights)
         constraint["touch_exclusion_dia_mm"] = round(
             2 * max(state[ref]["excluded_mm"] for ref in refs), 9
         )
@@ -1598,6 +1660,44 @@ def z_readings(bundle, setup):
     return readings
 
 
+def carried_z_reading(bundle, setup, op, readings=None):
+    """The effective carried touch's physical edge and actual typed Z setting.
+
+    Resolve the touch at its own position, not after the op it serves. This reads
+    the same contact recipe as zero_check without evaluating endpoint rules or
+    replacing the separate physical/native evidence with a display coordinate.
+    None means this op does not read a carried native plane.
+    """
+    readings = z_readings(bundle, setup) if readings is None else readings
+    touch = readings.get(str(op.get("op")))
+    if touch is None or touch.get("method") in MEASURED:
+        return None
+    face, authored = touch.get("z_face"), touch.get("edge_mm")
+    native = mapping(setup.get("stock_state")).get("top_feature") if face == "top" else face
+    if not _kernel_face(bundle, native):
+        return None
+    done = _position(records(setup.get("ops")), touch) or 0
+    edge, credited, carried = _face_checker(bundle, setup, [], [])(
+        touch, face, authored, done, "the effective Z touch"
+    )
+    if not carried and number(edge):
+        return None
+    stand_off = paper_offset(
+        touch.get("paper_mm", UNKNOWN),
+        touch_side(bundle, setup, touch, face, edge, lathe_setup(bundle, setup)),
+    )
+    row = {
+        "edge_mm": edge,
+        "paper_offset_mm": stand_off,
+        "z_axis_set": edge + stand_off if number(edge) and number(stand_off) else UNKNOWN,
+        "native_edge_mm": authored,
+    }
+    if carried:
+        _carried_setting(bundle, setup, row, "z_axis_set", carried)
+        row["credited_faces"] = credited
+    return row
+
+
 def reads_unknown(bundle, setup, op, readings=None):
     """Whether ``op`` cuts on a DRO Z set at an unknown place: the Z touch it reads
     (:func:`z_readings`, unless given) has an unknown plan edge or paper stand-off
@@ -1739,7 +1839,8 @@ def face_stands(
     not the touch's authored edge. An unknown producer or a named native plane without
     a whole eligible producer is unknown unless its exact native face was supplied
     as-is or whole-produced upstream and survives its traced stock route. Carried
-    faces use their native geometry in the current frame, never the old DRO Z.
+    faces rigidly transform the producer's as-cut offset from their exact native
+    geometry, never substituting the nominal CAD height for a known cut.
     Other stock faces and faces cut before the producer's Z zero stand where the
     touch sets them (None).
     Optional collectors receive coverage debts, exact raw STEP refs and carried
@@ -1798,9 +1899,9 @@ def _face_checker(bundle, setup, errors, unknowns):
     """Return the standing physical edge, credited refs and whether it was carried.
 
     A same-setup producer keeps its exact DRO-step comparison. A carried face's
-    authored edge must instead agree with its transformed physical height within
-    LENGTH tolerance; the Axis Set separately rounds height plus paper to the
-    nearest current display step. Measured touches remain independent.
+    authored edge must agree with its transformed native nominal or as-cut height
+    within LENGTH tolerance; the +Z Axis Set separately rounds height plus paper
+    down to the current display step. Measured touches remain independent.
     """
     from .coordinates import dro_grid, dro_z, formed_z
 
@@ -1846,7 +1947,10 @@ def _face_checker(bundle, setup, errors, unknowns):
             from .coordinates import UNIT_MM
 
             tolerance = LENGTH_TOLERANCE_MM / UNIT_MM[bundle.features["units"]]
-            if number(edge) and abs(edge - stands) > tolerance:
+            nominal = carried[0].get("native_edge_mm")
+            if number(edge) and not any(
+                number(z) and abs(edge - z) <= tolerance for z in (stands, nominal)
+            ):
                 errors.append(
                     f"{who} on {face} uses edge {edge:g}; "
                     f"the carried face physically stands at {stands:g}"
@@ -1867,13 +1971,24 @@ def _face_checker(bundle, setup, errors, unknowns):
 
 
 def _carried_setting(bundle, setup, row, field, constraint=None):
-    """Type height plus paper on the nearest grid, retaining its physical residual."""
-    from .coordinates import UNIT_MM, dro_grid, dro_nearest
+    """Type a +Z contact height safely down, retaining its nonnegative residual."""
+    from .coordinates import UNIT_MM, _grid, dro_grid
 
     if constraint is not None:
         row.update(constraint)
     desired = row[field]
-    shown = dro_nearest(desired, dro_grid(bundle, setup))
+    grid = dro_grid(bundle, setup)
+    shown = _grid(desired, *grid, False) if number(desired) else UNKNOWN
+    if (
+        number(shown)
+        and shown > desired
+        and not math.isclose(
+            shown, desired, rel_tol=0.0, abs_tol=4 * max(math.ulp(shown), math.ulp(desired))
+        )
+    ):
+        # _grid tolerates a millionth of a step for cut coordinates. Contact
+        # must never inherit a genuinely high setting, only float roundoff.
+        shown = round(shown - grid[0], grid[1])
     row[field] = shown
     scale = UNIT_MM.get(bundle.features.get("units"))
     row["setting_residual_mm"] = (

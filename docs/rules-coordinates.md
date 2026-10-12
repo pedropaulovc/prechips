@@ -1101,8 +1101,12 @@ report JSON carries them. The traveler prints them beside the Z Axis Set as
 A whole credited face may carry through the traced `stock_in` lineage into
 a bonded or remounted setup. An intervening cut that can lower that face, or
 whose effect is unknown for it, breaks the credit; an untraceable stock link
-also leaves it unknown. The new height comes from the credited face's geometry
-in the receiving setup, never its old setup's `to_z`. A transformed native box
+also leaves it unknown. The new physical height carries the producer's AS-CUT
+`formed_z`, not the native CAD nominal. The source native plane establishes
+identity, orientation and raw nominal Z; its point is displaced by
+`formed_z - native_z` along source setup Z, then that displaced point and the
+normal pass through the recorded source and receiving rigid frames.
+A transformed native box
 proves the height only when its setup-Z span is flat within length tolerance.
 An enclosing box whose oblique turn loses the plane's coordinate correlation
 cannot prove it. Exact existing native plane evidence can: a source setup's
@@ -1121,7 +1125,13 @@ No kernel run or new native fields are added for this.
 An axial drill, ream, spot or counterbore parallel to the face normal preserves
 the plane outside its bounded footprint. The worst-case radial footprint
 includes its cutter and aim shift, and native geometry must prove nonempty
-remaining face area outside it. The credited touch then carries
+remaining face area outside it.
+For a resolved `center_drill_set` member, engagement no deeper than its pilot
+length uses the pilot radius; deeper engagement uses
+`pilot_radius + (depth - pilot_length) * tan(countersink_half_angle)`,
+bounded by the body radius. Missing member geometry leaves the footprint
+unknown; the pilot alone cannot prove clearance after the countersink engages.
+The credited touch then carries
 `touch_exclusion_dia_mm` in physical millimetres (zero before any relevant
 plunge); the card requires `touch the face outside Ø… mm` when it is positive,
 with that diameter rounded outward to the sheet's millimetre precision. A
@@ -1129,13 +1139,23 @@ footprint covering the face, an oblique plunge, a lateral sweep that could
 lower it or any unbounded effect leaves the carry unknown, never a guessed Z.
 
 A carried face was not cut onto this frame's grid. Its authored edge must
-agree with its transformed physical height within length tolerance, else an
-error names both. From above, its Axis Set is the nearest DRO-grid value of
-height plus paper, not the one-sided cut rounding above. The finding records
-the signed `setting_residual_mm` (physical setting minus printed setting, in
-mm), no more than half a step. For a 21.0055 face on a 0.005 grid with no
-paper, type 21.005 and retain the +0.0005 residual: 21.0055 cannot be entered
-on that DRO.
+agree with the transformed physical height or the exact raw native plane
+within the existing length tolerance, else an error names the mismatch.
+An authored nominal edge matching that raw plane does not contradict a
+proven producer's rounded AS-CUT height. An unknown producer cut cannot
+invent an AS-CUT height: it stays unknown unless the existing native-fallback
+rule explicitly proves the fallback.
+From above, its Axis Set rounds physical height plus paper **down** to the
+receiving DRO grid, unlike the upward rounding of a cut endpoint. The finding
+records `setting_residual_mm` (physical height plus paper minus typed setting,
+in mm), nonnegative and at most one receiving step. With no paper, a physical
+21.0075 face on a 0.005 grid sets 21.005, retaining +0.0025 mm; it must not set
+21.010 and make later authored tips cut deeper. S2's raw nominal 21.0055
+faces to 21.01 on its lathe's 0.01 grid; carried unchanged into S9 it is
+physical 21.010 and sets 21.010, residual zero.
+Every later operation's operative entry, depth, exit and breakthrough uses
+the actual typed Axis Set; physical face height remains separate evidence.
+Cut endpoints still use ordinary upward `dro_z` and retain their depth guards.
 
 Templates:
 

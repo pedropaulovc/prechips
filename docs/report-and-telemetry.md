@@ -544,6 +544,14 @@ Setup overview/operations section, in this order:
    from the − side and edge + r from the + side; a later setup on the same mill
    names `EDGE FINDER box, Setup S1 sheet 1`. A missing or unknown finder or
    spindle fact prints `STOP:`.
+   For a proven carried planar Z contact, the physical face height prints
+   separately from the report's typed Axis Set. The producer's AS-CUT height
+   travels through the recorded rigid frames; the +Z contact setting rounds
+   down to the receiving grid, retaining a nonnegative residual of at most
+   one step. The renderer does not re-round that face or setting. Subsequent
+   operation entry, depth, exit and breakthrough prose consumes the checked
+   operative endpoint rows using that actual Axis Set. Authored dimensional
+   notes are not rewritten by a general prose substitution.
 6. **OPERATIONS**: full-width groups naming the op and action with depth of
    cut, feature, `T#` tool, rpm, feed, Z target and cut direction, followed by
    associated inspection records. A lathe table with any op measured in the
