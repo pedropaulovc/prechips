@@ -1102,6 +1102,14 @@ sheet.
    distances keep the true blade extents. Each toolpost tool's first touch-off
    in a lathe setup is preceded by setting it on centre height (and squaring a
    blade), from the toolpost's cited words.
+   **Bounded facing of bounds-free faces (2026-10-11, #188):** a facing op's
+   `stock_removal_bounds` advance the top or entry of a `kind = "face"` feature
+   without `bounds` only when they hold the box enclosing every listed face's
+   already-present matched kernel `bbox_mm` (converted to manifest units and
+   posed in the setup frame); a partial box keeps the unfaced stock and credits
+   no producer. Missing kernel/mapping/bbox/frame inputs stay `?` with
+   `zero_check` naming the feature and the input; explicit invalid `bounds` never
+   fall back. No schema change.
 2. **M2 — local declared-input implementation completed 2026-10-03.**
    Turned-profile monotonicity,
    supported stick-out, collet/chuck diameter capacity, exact-first indexing,

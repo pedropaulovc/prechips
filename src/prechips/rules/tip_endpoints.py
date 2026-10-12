@@ -244,18 +244,77 @@ def _frame(bundle, feature):
     return mapping(mapping(bundle.features.get("frames")).get(feature.get("frame", "model")))
 
 
-def _setup_footprint(bundle, setup, target):
-    """The setup-frame X/Y box enclosing ``target``'s footprint (:func:`_corners`), else
-    None. Turned against the setup it holds more than the feature, so it can prove a
-    surface held, never a cut. A process end face's footprint is its section of the stock
-    this setup receives (:func:`prechips.process_features.arriving_bounds`)."""
+def _kernel_face_corners(bundle, target, frame):
+    """Conservative model-space boxes of every geometry-matched face, in ``frame``.
+
+    Kernel boxes are millimetres, unlike plan/frame coordinates. They can prove a
+    bounded region contains the whole surface, never that its enclosing box was cut.
+    Missing identities or boxes must not silently shrink the surface to known patches.
+    """
+    from .coordinates import UNIT_MM, frame_point
+
+    refs = target.get("faces")
+    if not (
+        isinstance(refs, list)
+        and refs
+        and all(isinstance(ref, str) and ref != UNKNOWN for ref in refs)
+    ):
+        return None, "no footprint: provide feature bounds or a complete feature faces list"
+    kernel = mapping(getattr(bundle, "kernel", None))
+    if kernel.get("status") != "ok":
+        return None, (
+            "no footprint: feature bounds are absent and a successful kernel face "
+            "mapping/bbox_mm is missing"
+        )
+    scale = UNIT_MM.get(bundle.features.get("units"))
+    if scale is None:
+        return None, "no footprint: feature units are unknown"
+    matched = mapping(kernel.get("mapping"))
+    errors = mapping(kernel.get("mapping_errors"))
+    faces = {face.get("index"): face for face in map(mapping, records(kernel.get("faces")))}
+    points = []
+    for ref in refs:
+        index = matched.get(ref)
+        if ref in errors or not isinstance(index, int) or isinstance(index, bool):
+            return None, f"no footprint: kernel.mapping has no matched face for {ref}"
+        box = mapping(faces.get(index)).get("bbox_mm")
+        if not (
+            isinstance(box, list)
+            and len(box) == 6
+            and all(number(v) and math.isfinite(v) for v in box)
+            and all(box[i] <= box[i + 3] for i in range(3))
+        ):
+            return None, (
+                f"no footprint: kernel.faces[{index}].bbox_mm is missing or malformed for {ref}"
+            )
+        spans = [[box[i] / scale, box[i + 3] / scale] for i in range(3)]
+        points.extend(frame_point(list(p), frame) for p in itertools.product(*spans))
+    if not all(number(v) and math.isfinite(v) for p in points for v in p):
+        return None, "no footprint: setup frame origin/x/y/z is unknown or malformed"
+    return points, None
+
+
+def _setup_footprint(bundle, setup, target, debts=None):
+    """The setup-frame X/Y box enclosing ``target``'s footprint, else None.
+
+    Declared bounds/discs take precedence; a face without bounds can use the existing
+    kernel's geometry-matched boxes. Either enclosing box proves containment, never a
+    cut. A process end face uses its section of the arriving stock.
+    """
     from prechips.process_features import arriving_bounds, process_of
 
     if process_of(target) and target.get("bounds"):
         target = {**target, "bounds": arriving_bounds(bundle, setup, target)}
-    points = _corners(bundle, target, setup_frame(bundle, setup))
+    frame = setup_frame(bundle, setup)
+    points = _corners(bundle, target, frame)
     if points is None:
-        return None
+        reason = "no footprint: feature bounds/plane/at or setup frame origin/x/y/z is unknown"
+        if target.get("kind") == "face" and "bounds" not in target:
+            points, reason = _kernel_face_corners(bundle, target, frame)
+        if points is None:
+            if debts is not None:
+                debts.append(reason)
+            return None
     return [[min(p[i] for p in points), max(p[i] for p in points)] for i in range(2)]
 
 
@@ -295,21 +354,22 @@ def cut_region(op):
     return region if all(_span(s) and len(s) == 2 for s in region) else None
 
 
-def cut_coverage(bundle, setup, op, target):
+def cut_coverage(bundle, setup, op, target, debts=None):
     """How much of surface ``target`` the cut ``op`` made: ``"whole"``, ``"partial"`` or
-    ``UNKNOWN``. An op without ``stock_removal_bounds`` cuts all of its own feature, and
-    of another surface what its feature holds (:func:`_feature_holds`). Else its
-    :func:`cut_region` and ``target``'s footprint (:func:`_setup_footprint`) decide:
-    ``"whole"`` when the region holds it, ``"partial"`` when it does not. An unknown
-    region or footprint leaves it unknown, never whole; overlap or a held ``at`` point is
-    never whole."""
+    ``UNKNOWN``. An unbounded op cuts its own feature; another surface needs exact
+    declared containment (:func:`_feature_holds`). A bounded op's :func:`cut_region`
+    must hold the target's entire declared or matched-STEP :func:`_setup_footprint`.
+    Unknown inputs leave coverage unknown, never whole; optional ``debts`` names them.
+    """
     name = op_feature(op)  # None for an inspect op's feature list: it cuts no feature
     own = mapping(mapping(bundle.feature_definitions).get(name))
     if "stock_removal_bounds" not in op:
         if name is not None and target == own:
             return "whole"
         return _feature_holds(bundle, setup, own, target)
-    region, held = cut_region(op), _setup_footprint(bundle, setup, target)
+    region, held = cut_region(op), _setup_footprint(bundle, setup, target, debts)
+    if region is None and debts is not None:
+        debts.append("stock_removal_bounds.x/y is missing or malformed")
     if held is None or region is None:
         return UNKNOWN
     if all(
@@ -712,19 +772,21 @@ def forms_face(bundle, setup, op):
     return UNKNOWN
 
 
-def _producer(bundle, setup, value, face, done, source, path=False):
+def _producer(bundle, setup, value, face, done, source, path=False, debts=None):
     ops = setup.get("ops", [])
     features = bundle.feature_definitions
     if source is None and face == "top" and done:
         states = list(stock_states(bundle, setup))[:done]
         source = states[-1][2]["top_from"] if states else None
-    if source == UNKNOWN:
+    unknown_source = source == UNKNOWN
+    # Preserve the unknown stock source, but trace its cut when a touch asks why.
+    if unknown_source and debts is None:
         return UNKNOWN
     match = re.fullmatch(r"(\S+) op (\S+) to_z", source) if isinstance(source, str) else None
     if match and match[1] == setup.get("id"):
         return next(((setup, op) for op in ops if str(op.get("op")) == match[2]), None)
     if not isinstance(face, str):
-        return None
+        return UNKNOWN if unknown_source else None
     frame = setup.get("frame")
     cuts = [
         (earlier, op)
@@ -732,7 +794,7 @@ def _producer(bundle, setup, value, face, done, source, path=False):
         if frame not in (None, UNKNOWN) and earlier.get("frame") == frame
         for op in earlier.get("ops", [])
     ]
-    if face != "top":
+    if face != "top" or unknown_source:
         cuts += [(setup, op) for op in ops[:done]]
     top = mapping(setup.get("stock_state")).get("top_feature")
     for cut_setup, op in reversed(cuts):
@@ -758,17 +820,21 @@ def _producer(bundle, setup, value, face, done, source, path=False):
         # An op that cut only part of the surface did not produce it: the uncut part
         # still stands where its last whole producer left it. Unknown coverage proves
         # neither.
-        coverage = cut_coverage(bundle, cut_setup, op, surface)
+        missing = [] if debts is not None else None
+        coverage = cut_coverage(bundle, cut_setup, op, surface, missing)
         if coverage == UNKNOWN:
+            if debts is not None:
+                surface_name = top or name if face == "top" else face
+                debts.extend(f"coverage unknown for {surface_name}: {reason}" for reason in missing)
             return UNKNOWN
         if coverage != "whole":
             continue
-        if forms is True and number(to_z) and abs(to_z - value) > SAME_Z:
+        if forms is True and number(to_z) and number(value) and abs(to_z - value) > SAME_Z:
             # It left this face at another Z: the face at value is not its.
-            return None
+            return UNKNOWN if unknown_source else None
         # Where it left the face; unknown when that is (:func:`formed_z`).
-        return cut_setup, op
-    return None
+        return UNKNOWN if unknown_source else (cut_setup, op)
+    return UNKNOWN if unknown_source else None
 
 
 def _centre_mouth(bundle, setup, feature, entry):

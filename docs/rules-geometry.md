@@ -946,6 +946,16 @@ unresolved S1 profile removal rather than drawing the finished arm or
 inventing rail dimensions. A known current setup remains checkable/drawable
 even when its output stock is unresolved for the next setup.
 
+The coordinate/stock-surface tracker can prove that a bounded facing op covered
+a `kind = "face"` feature without authored `bounds` using the already-present
+kernel's geometry-matched STEP face `bbox_mm` records. Every listed face is
+required; their boxes, converted from mm and transformed into the setup frame,
+conservatively enclose the whole footprint. Containment establishes the faced
+surface's Z for later touches; overlap or a disjoint patch does not. Missing
+face identities, boxes, units or setup-frame inputs remain named footprint debt.
+This starts no additional kernel job and does not enlarge an unbounded cut or
+certify a toolpath ([coverage and touched Z](rules-coordinates.md#coordinates)).
+
 ### Saw cut-off
 
 `saw_cut` and `cut_off` use an authored setup-axis blade-centre `cut_plane`
