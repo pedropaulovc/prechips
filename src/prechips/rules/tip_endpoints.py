@@ -69,8 +69,8 @@ def _operative(row, bundle, setup, face, op):
     """Add the actual DRO endpoint, preserving physical carry evidence separately.
 
     A carried touch supplies its typed setting, not another rounding of the raw
-    native plane. Cuts still round upward; depth and breakthrough use the face's
-    coordinate on that same setting, including paper and any sub-grid residual.
+    native plane. Cuts still round upward. A through exit is a dimension-derived
+    bound, not another face's native or as-cut plane identity.
     """
     from .coordinates import UNIT_MM, dro_grid, dro_z
     from .zero_recipe import _framed, carried_z_reading
@@ -105,13 +105,12 @@ def _operative(row, bundle, setup, face, op):
         )
         row["setting_residual_mm"] = reading.get("setting_residual_mm", UNKNOWN)
         if through:
-            exit_face = (
-                row["exit_face"] + shift if number(row["exit_face"]) and number(shift) else UNKNOWN
-            )
-            row["physical_exit_face"] = (
-                row["exit_face"] + physical_shift
-                if number(row["exit_face"]) and number(physical_shift)
-                else UNKNOWN
+            # The stock's local thickness can be its allowed maximum. It bounds
+            # break-through from this physical entry, but identifies no opposite
+            # plane whose own producer offset could be inherited from the entry.
+            exit_face = _subtract(entry, row["local_thickness"])
+            row["physical_exit_bound_z"] = _subtract(
+                row["physical_entry_z"], row["local_thickness"]
             )
             row["dro_exit_face"] = dro_z(exit_face, grid)
             shift = _subtract(row["dro_exit_face"], row["exit_face"])

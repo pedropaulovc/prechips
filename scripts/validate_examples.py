@@ -1800,12 +1800,15 @@ def plunge_footprint(own, entries: Entries, setup: dict, op: dict) -> tuple | No
     model_axis = [sum(axis[i] * own_axes[i][j] for i in range(3)) for j in range(3)]
     if off_z_deg([dot(model_axis, basis) for basis in axes]) > CARRY_DIRECTION_TOLERANCE_DEG:
         return None
+    # The planned point reads plan aims, which ask whether a mill setup dials the hole
+    # (:func:`dialled`): the same plan, features, frames, inventory and entries.
     context = SimpleNamespace(
         plan=own.plan,
         features=own.features,
         definitions=own.feature_definitions,
         frames=frames,
         entries=entries,
+        inventory=entries.inventory,
     )
     point = planned_model_point(context, name)
     if point is None:
@@ -2836,9 +2839,13 @@ def printed_entry(stock: SimpleNamespace, setup: dict, entry, face: str, source,
     return dro_up(cut, grid)
 
 
-# What an endpoint read off a carried Z touch adds: where its surfaces physically stand
-# and the residual its touch's typed setting left.
-CARRIED_ENDPOINT = ("physical_entry_z", "physical_exit_face", "setting_residual_mm")
+# What an endpoint read off a carried Z touch adds: where its entry physically stands,
+# the bound a through hole's exit stands at under it (the as-cut entry less the local
+# thickness, never an identified exit plane) and the residual its typed setting left.
+CARRIED_ENDPOINT = ("physical_entry_z", "physical_exit_bound_z", "setting_residual_mm")
+# Fields no endpoint carries: an as-cut exit plane (the local thickness bounds the exit,
+# never names it) or a schema for that bound's source beyond its own name.
+UNCLAIMED_EXIT = ("physical_exit_face", "exit_bound_from")
 
 
 def plus(*values):
@@ -2857,8 +2864,9 @@ def check_printed_endpoint(row: dict, where: str, grid: tuple, planned: dict) ->
     An op whose DRO Z a carried touch set (``planned["carried"]``, :func:`zero_rows`)
     reads every plan Z off that touch's typed setting instead: moved by the setting less
     its stand-off less the plane's native height, its entry and a through exit rounded
-    up, a blind tip rounded up from its own moved Z; its physical entry and exit stand
-    off native by the as-cut offset, and it repeats the setting's residual. An entry an
+    up, a blind tip rounded up from its own moved Z; its physical entry stands off native
+    by the as-cut offset, a through exit's bound by the same (the as-cut entry less the
+    planned thickness), and it repeats the setting's residual. An entry an
     op of this setup cut under its zero (``planned["local"]``, that cut's printed face)
     already stands on this DRO: it moves by that face less the nominal, and stands
     physically higher by the residual. A carried touch that cannot be placed leaves them
@@ -2892,10 +2900,12 @@ def check_printed_endpoint(row: dict, where: str, grid: tuple, planned: dict) ->
         physical_entry = plus(entry, physical)
         same(row.get("physical_entry_z", "unknown"), physical_entry, f"{where}: physical entry")
         if through:
-            physical_exit = plus(exit_face, physical)
-            same(row.get("physical_exit_face", "unknown"), physical_exit, f"{where}: physical exit")
+            bound, field = plus(exit_face, physical), "physical_exit_bound_z"
+            same(row.get(field, "unknown"), bound, f"{where}: physical exit bound")
         else:
-            require("physical_exit_face" not in row, f"{where}: a blind endpoint has no exit face")
+            require("physical_exit_bound_z" not in row, f"{where}: a blind endpoint has no exit")
+    for key in UNCLAIMED_EXIT:
+        require(key not in row, f"{where}: no endpoint claims an as-cut exit plane ({key})")
     if through:
         printed_exit = dro_up(read_exit, grid)
         same(row.get("dro_exit_face", "unknown"), printed_exit, f"{where}: printed exit face")

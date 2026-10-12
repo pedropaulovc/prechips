@@ -1268,6 +1268,12 @@ physical 21.010 and sets 21.010, residual zero.
 Every later operation's operative entry, depth, exit and breakthrough uses
 the actual typed Axis Set; physical face height remains separate evidence.
 Cut endpoints still use ordinary upward `dro_z` and retain their depth guards.
+For a through hole, `physical_exit_bound_z` is physical entry minus the
+declared `local_thickness`: a dimension-derived worst-case exit boundary,
+not evidence of an independently identified native exit plane. Its operative
+`dro_exit_face`, tip and breakthrough margin remain conservatively anchored
+to the typed entry. A longest allowed thickness does not establish the
+actual opposite face's AS-CUT height.
 
 Templates:
 

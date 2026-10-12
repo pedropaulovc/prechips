@@ -2395,7 +2395,9 @@
             "exit_face": "not_applicable",
             "feature": "crank_bore",
             "op": 10,
+            "physical_entry_z": 0.0,
             "point_mm": 0.5948520128372847,
+            "setting_residual_mm": 0.0,
             "setup": "S8",
             "tip_z": -2.0
           },
@@ -2411,7 +2413,10 @@
             "feature": "crank_bore",
             "local_thickness": 72.08,
             "op": 20,
+            "physical_entry_z": 0.0,
+            "physical_exit_bound_z": -72.08,
             "point_mm": 3.3648194665543376,
+            "setting_residual_mm": 0.0,
             "setup": "S8",
             "tip_z": -75.94481946655434
           },
@@ -2428,6 +2433,9 @@
             "lead_mm": 1.0,
             "local_thickness": 72.08,
             "op": 30,
+            "physical_entry_z": 0.0,
+            "physical_exit_bound_z": -72.08,
+            "setting_residual_mm": 0.0,
             "setup": "S8",
             "tip_z": -73.58
           }
@@ -2619,14 +2627,16 @@
             "exit_face": "not_applicable",
             "feature": "journal_bore",
             "op": 10,
+            "physical_entry_z": 21.01,
             "point_mm": 0.5948520128372847,
+            "setting_residual_mm": 0.0,
             "setup": "S9",
             "tip_z": 19.0055
           },
           {
             "dro_entry_z": 21.01,
             "dro_exit_face": -21.07,
-            "dro_exit_mm": 0.4953147703589522,
+            "dro_exit_mm": 0.4998147703589524,
             "dro_tip_z": -25.19,
             "entry_from": "S9 stock_state.entry_z.journal_bore",
             "entry_z": 21.0055,
@@ -2635,14 +2645,17 @@
             "feature": "journal_bore",
             "local_thickness": 42.08,
             "op": 20,
+            "physical_entry_z": 21.01,
+            "physical_exit_bound_z": -21.069999999999997,
             "point_mm": 3.620185229641051,
+            "setting_residual_mm": 0.0,
             "setup": "S9",
             "tip_z": -25.194685229641046
           },
           {
             "dro_entry_z": 21.01,
             "dro_exit_face": -21.07,
-            "dro_exit_mm": 0.4955000000000034,
+            "dro_exit_mm": 0.5000000000000036,
             "dro_tip_z": -22.57,
             "entry_from": "S9 stock_state.entry_z.journal_bore",
             "entry_z": 21.0055,
@@ -2652,6 +2665,9 @@
             "lead_mm": 1.0,
             "local_thickness": 42.08,
             "op": 30,
+            "physical_entry_z": 21.01,
+            "physical_exit_bound_z": -21.069999999999997,
+            "setting_residual_mm": 0.0,
             "setup": "S9",
             "tip_z": -22.574499999999997
           }
@@ -2847,7 +2863,7 @@
           },
           "plan": {
             "path": "examples/cone-pivot-post/built-up.toml",
-            "sha256": "59287ad7a3d6f8923d4505da32bdcaa29e853acc708ee997e0d8550c26809356"
+            "sha256": "08bd140bfac5c4c7270dc3272a3342d712957832142082daf4080324e3b54056"
           },
           "shop_policy": {
             "path": "examples/shop-policy.toml",
@@ -22514,7 +22530,9 @@
               "exit_face": "not_applicable",
               "feature": "crank_bore",
               "op": 10,
+              "physical_entry_z": 0.0,
               "point_mm": 0.5948520128372847,
+              "setting_residual_mm": 0.0,
               "setup": "S8",
               "tip_z": -2.0
             },
@@ -22577,7 +22595,10 @@
               "feature": "crank_bore",
               "local_thickness": 72.08,
               "op": 20,
+              "physical_entry_z": 0.0,
+              "physical_exit_bound_z": -72.08,
               "point_mm": 3.3648194665543376,
+              "setting_residual_mm": 0.0,
               "setup": "S8",
               "tip_z": -75.94481946655434
             },
@@ -22641,6 +22662,9 @@
               "lead_mm": 1.0,
               "local_thickness": 72.08,
               "op": 30,
+              "physical_entry_z": 0.0,
+              "physical_exit_bound_z": -72.08,
+              "setting_residual_mm": 0.0,
               "setup": "S8",
               "tip_z": -73.58
             },
@@ -22795,7 +22819,9 @@
               "exit_face": "not_applicable",
               "feature": "journal_bore",
               "op": 10,
+              "physical_entry_z": 21.01,
               "point_mm": 0.5948520128372847,
+              "setting_residual_mm": 0.0,
               "setup": "S9",
               "tip_z": 19.0055
             },
@@ -22849,7 +22875,7 @@
             "endpoint": {
               "dro_entry_z": 21.01,
               "dro_exit_face": -21.07,
-              "dro_exit_mm": 0.4953147703589522,
+              "dro_exit_mm": 0.4998147703589524,
               "dro_tip_z": -25.19,
               "entry_from": "S9 stock_state.entry_z.journal_bore",
               "entry_z": 21.0055,
@@ -22858,7 +22884,10 @@
               "feature": "journal_bore",
               "local_thickness": 42.08,
               "op": 20,
+              "physical_entry_z": 21.01,
+              "physical_exit_bound_z": -21.069999999999997,
               "point_mm": 3.620185229641051,
+              "setting_residual_mm": 0.0,
               "setup": "S9",
               "tip_z": -25.194685229641046
             },
@@ -22912,7 +22941,7 @@
             "endpoint": {
               "dro_entry_z": 21.01,
               "dro_exit_face": -21.07,
-              "dro_exit_mm": 0.4955000000000034,
+              "dro_exit_mm": 0.5000000000000036,
               "dro_tip_z": -22.57,
               "entry_from": "S9 stock_state.entry_z.journal_bore",
               "entry_z": 21.0055,
@@ -22922,6 +22951,9 @@
               "lead_mm": 1.0,
               "local_thickness": 42.08,
               "op": 30,
+              "physical_entry_z": 21.01,
+              "physical_exit_bound_z": -21.069999999999997,
+              "setting_residual_mm": 0.0,
               "setup": "S9",
               "tip_z": -22.574499999999997
             },
@@ -25888,6 +25920,7 @@
             "jog_mm": 10.0,
             "method": "touch_then_set",
             "mirrored_reading": -10.0,
+            "native_edge_mm": 0.0,
             "paper_mm": 0.0,
             "radius_mm": "not_applicable",
             "setting_residual_mm": 0.0,
@@ -25907,11 +25940,12 @@
             ],
             "edge_mm": 0.0,
             "method": "touch_then_set",
+            "native_edge_mm": 0.0,
             "paper_mm": 0.0,
             "repeats": "zero",
             "setting_residual_mm": 0.0,
             "tool": "cone-crank-drill-11p2",
-            "touch_exclusion_dia_mm": 2.35,
+            "touch_exclusion_dia_mm": 2.373094011,
             "z_axis_set": 0.0,
             "z_face": "crank_boss_faces"
           },
@@ -25924,6 +25958,7 @@
             ],
             "edge_mm": 0.0,
             "method": "touch_then_set",
+            "native_edge_mm": 0.0,
             "paper_mm": 0.0,
             "repeats": "zero",
             "setting_residual_mm": 0.0,
@@ -26031,23 +26066,24 @@
             "tool": "dti"
           },
           "z": {
-            "axis_set": 21.005,
+            "axis_set": 21.01,
             "axis_set_status": "computed",
             "check_jog_mm": 10.0,
-            "check_reading": 31.005,
+            "check_reading": 31.01,
             "credited_faces": [
               "#1426/ADVANCED_FACE[36]/HAF_CONE_BOSS_NORTH_FACE__P01"
             ],
             "dro_direction": "toward_exposed_end",
-            "edge_mm": 21.0055,
+            "edge_mm": 21.01,
             "face": "cone_boss_north_face",
             "from": "+z",
             "jog_mm": 10.0,
             "method": "touch_then_set",
-            "mirrored_reading": 11.004999999999999,
+            "mirrored_reading": 11.010000000000002,
+            "native_edge_mm": 21.0055,
             "paper_mm": 0.0,
             "radius_mm": "not_applicable",
-            "setting_residual_mm": 0.0005,
+            "setting_residual_mm": 0.0,
             "sign": 1,
             "tool": "center-drills-lms-4859/2",
             "touch_exclusion_dia_mm": 0.0
@@ -26062,14 +26098,15 @@
             "credited_faces": [
               "#1426/ADVANCED_FACE[36]/HAF_CONE_BOSS_NORTH_FACE__P01"
             ],
-            "edge_mm": 21.0055,
+            "edge_mm": 21.01,
             "method": "touch_then_set",
+            "native_edge_mm": 21.0055,
             "paper_mm": 0.0,
             "repeats": "zero",
-            "setting_residual_mm": 0.0005,
+            "setting_residual_mm": 0.0,
             "tool": "cone-journal-drill-12p05",
-            "touch_exclusion_dia_mm": 1.984,
-            "z_axis_set": 21.005,
+            "touch_exclusion_dia_mm": 2.007094011,
+            "z_axis_set": 21.01,
             "z_face": "cone_boss_north_face"
           },
           {
@@ -26079,14 +26116,15 @@
             "credited_faces": [
               "#1426/ADVANCED_FACE[36]/HAF_CONE_BOSS_NORTH_FACE__P01"
             ],
-            "edge_mm": 21.0055,
+            "edge_mm": 21.01,
             "method": "touch_then_set",
+            "native_edge_mm": 21.0055,
             "paper_mm": 0.0,
             "repeats": "zero",
-            "setting_residual_mm": 0.0005,
+            "setting_residual_mm": 0.0,
             "tool": "reamers-decimal/0.4835in",
             "touch_exclusion_dia_mm": 12.054,
-            "z_axis_set": 21.005,
+            "z_axis_set": 21.01,
             "z_face": "cone_boss_north_face"
           }
         ],
@@ -26132,7 +26170,7 @@
     },
     "plan": {
       "path": "examples/cone-pivot-post/built-up.toml",
-      "sha256": "59287ad7a3d6f8923d4505da32bdcaa29e853acc708ee997e0d8550c26809356"
+      "sha256": "08bd140bfac5c4c7270dc3272a3342d712957832142082daf4080324e3b54056"
     },
     "render:S1": {
       "path": "setup-S1.png",

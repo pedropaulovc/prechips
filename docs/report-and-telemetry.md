@@ -592,6 +592,11 @@ Setup overview/operations section, in this order:
    operation entry, depth, exit and breakthrough prose consumes the checked
    operative endpoint rows using that actual Axis Set. Authored dimensional
    notes are not rewritten by a general prose substitution.
+   A through endpoint's dimension-derived exit boundary is conservative,
+   not native exit-plane credit: `physical_exit_bound_z` records physical
+   entry minus `local_thickness`. The printed breakthrough target and margin
+   use the checked operative boundary, without claiming the independently
+   cut opposite face stands at that bound.
 6. **OPERATIONS**: full-width groups naming the op and action with depth of
    cut, feature, `T#` tool, rpm, feed, Z target and cut direction, followed by
    associated inspection records. A lathe table with any op measured in the
