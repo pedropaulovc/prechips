@@ -10045,8 +10045,6 @@ def reference_label(bundle, reference, slot=None) -> str:
                 name = _text(kind)
             name = name.removesuffix(" set")
     if member and not named_member:
-        if record.get("kind") in {"reamer", "reamers"}:
-            name = "reamer"
         if record.get("kind") == "micrometer_set":
             member = member.removesuffix("in") + " in"
         elif record.get("kind") == "qctp_set":

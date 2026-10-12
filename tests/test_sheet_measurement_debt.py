@@ -1430,7 +1430,8 @@ def test_scope_derived_reissue_and_legend_keep_authored_m_and_selected_reamer_me
     job = content(Markup(sheet.job_measurement_box()).find("measurement-stop")[0])
     assert "Bare M is an authored measurement variable" in job
     assert "Bare M is a touch-off reading" not in job
-    assert "6.5 mm reamer" == sheet.tool_name("reamers/6.5mm")
+    # Shared render.tools wording stays stable; #206 owns the key-moving singular fix.
+    assert "6.5 mm reamers" == sheet.tool_name("reamers/6.5mm")
     stopped = content(
         Markup(
             sheet.setup_status_boxes(
