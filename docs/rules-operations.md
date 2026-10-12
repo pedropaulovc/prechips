@@ -72,8 +72,8 @@ counterbore and bore operations, and for `center_drill` on a plan
 Stock-state facing/pocketing advances only the named or explicitly covered
 same-frame entry surfaces. A known setup-frame `stock_removal_bounds` that
 contains a feature's whole X/Y footprint (its declared one, or for a bounds-free
-face the box enclosing every listed face's matched kernel `bbox_mm`; see
-[coordinates](rules-coordinates.md)) can advance its seeded local entry without
+face each listed plane at the op's `to_z` by its own matched kernel `bbox_mm`;
+see [coordinates](rules-coordinates.md)) can advance its seeded local entry without
 requiring a redundant bounds box on the cutting op's own feature. For an operation
 with `stock_removal_bounds`, the box's Z interval must contain both the current entry
 and `to_z`. That boxed cut cannot numerically raise the entry; a higher floor outside

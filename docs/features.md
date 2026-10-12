@@ -72,9 +72,10 @@ matches zero or several imported faces is a mapping error (`✗`) on every
 geometry rule that needs the feature; an omitted, `"unknown"` or empty list
 keeps those rules `?`. The M1/M2 declared-input rules read it only through an
 already-present kernel result, never starting the kernel: a `kind = "face"`
-feature without `bounds` takes its bounded-cut coverage footprint from the
-matched boxes of every listed face (see
-[coordinates](rules-coordinates.md)); authored `bounds`, even unknown or
+feature without `bounds` takes its bounded-cut coverage from the matched boxes
+of its listed faces, every one of which must resolve; only the planes lying at
+the cutting op's `to_z` are covered and credited (see
+[coordinates](rules-coordinates.md)). Authored `bounds`, even unknown or
 malformed, take precedence. The schema is unchanged.
 See [geometry rules](rules-geometry.md#face-identity).
 

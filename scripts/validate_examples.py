@@ -2,7 +2,7 @@
 
 Run: uv run python scripts/validate_examples.py
 Shared input definitions determine operation applicability and required joint debt;
-finished-face coverage still uses only the original exported manifest.
+finished-face coverage uses authored inputs and the validator's own kernel facts.
 
 Z pickups use stock_state.top_z for face = "top"; other named touch surfaces
 must supply edge_mm in the zero recipe. Report values never define the edge.
@@ -1683,6 +1683,7 @@ def derive_zero(setup: dict, own, entries: Entries) -> tuple:
         face = recipe.get("face", recipe.get("feature"))
         done = zero_rules._position(ops, {"after_op": recipe.get("after_op")}) or 0
         paper, stand_off, contact = "not_applicable", None, "unknown"
+        credited, carried = [], False
         if axis == "z" or method == "trial_cut_measure":
             radius = "not_applicable"
         elif approach == "indicated":
@@ -1698,6 +1699,13 @@ def derive_zero(setup: dict, own, entries: Entries) -> tuple:
             if recipe.get("face") == "top":
                 # The top as the ops through after_op left it, not the incoming top.
                 edge = tops[done]
+            edge, credited, carried = face_check(
+                {**recipe, "from": recipe.get("from", "unknown")},
+                face,
+                edge,
+                done,
+                "the Z zero touch",
+            )
             paper = recipe.get("paper_mm", "unknown")
             side = zero_rules.touch_side(own, setup, recipe, face, edge, lathe)
             stand_off = paper_stand_off(paper, side)
@@ -1708,6 +1716,8 @@ def derive_zero(setup: dict, own, entries: Entries) -> tuple:
             contact = edge + (-1 if approach == f"-{axis}" else 1) * radius
         scale = {True: 1, False: 2}.get(radius_mode, "unknown") if axis == "x" and lathe else 1
         values = zero_readings(axis, recipe, sign, scale, contact, stand_off, lathe, gauge_ok)
+        if carried:
+            zero_rules._carried_setting(own, setup, values, "axis_set", carried)
         row = {key: value for key, value in recipe.items() if key != "retouch_after"}
         row.update(
             values,
@@ -1725,6 +1735,8 @@ def derive_zero(setup: dict, own, entries: Entries) -> tuple:
                 else "unknown"
             ),
         )
+        if credited:
+            row["credited_faces"] = credited
         if method in MEASURED_ZERO:
             row["check_expression"] = values["check_reading"]
             row["mirrored_expression"] = values["mirrored_reading"]
@@ -1733,7 +1745,6 @@ def derive_zero(setup: dict, own, entries: Entries) -> tuple:
             row["indicator_verify" if approach == "indicated" else "finder_verify"] = not tool_ok
         if axis == "z":
             blade_corner(row, recipe, face, edge, "the Z zero touch")
-            face_check(recipe, face, edge, done, "the Z zero touch")
         axes[axis] = row
         unknown |= "unknown" in values.values() or not tool_ok
     z = zero["z"] if isinstance(zero.get("z"), dict) else {}
@@ -1742,16 +1753,31 @@ def derive_zero(setup: dict, own, entries: Entries) -> tuple:
     retouch = []
     for index, (op, _, after) in enumerate(states):
         if isinstance(listed, list) and op.get("op") in listed:
-            top = tops[index + 1]
-            axis_set = top + paper if numeric(top) and numeric(paper) else "unknown"
-            retouch.append({"op": op["op"], "top_z": top, "paper_mm": paper, "axis_set": axis_set})
-            unknown |= axis_set == "unknown"
             who = f"the retouch after op {op['op']}"
-            face_check({}, "top", top, 0, who, after["top_from"])
+            top, credited, carried = face_check(
+                zero_rules._retouch_recipe(z),
+                "top",
+                tops[index + 1],
+                index + 1,
+                who,
+                after["top_from"],
+            )
+            axis_set = top + paper if numeric(top) and numeric(paper) else "unknown"
+            row = {"op": op["op"], "top_z": top, "paper_mm": paper, "axis_set": axis_set}
+            if carried:
+                zero_rules._carried_setting(own, setup, row, "axis_set", carried)
+            if credited:
+                row["credited_faces"] = credited
+            retouch.append(row)
+            unknown |= row["axis_set"] == "unknown"
     x_scale = {True: 1, False: 2}.get(radius_mode, "unknown") if lathe else "unknown"
     touches = []
     for record in zero.get("tool_touches") if isinstance(zero.get("tool_touches"), list) else []:
         edge, paper = record.get("edge_mm", "unknown"), record.get("paper_mm", "unknown")
+        who = f"the {record.get('tool', 'unknown')} touch"
+        edge, credited, carried = face_check(
+            record, record.get("z_face"), edge, zero_rules._position(ops, record) or 0, who
+        )
         side = zero_rules.touch_side(own, setup, record, record.get("z_face"), edge, lathe)
         stand_off = paper_stand_off(paper, side)
         trial_cut = record.get("x_method") == "trial_cut_measure"
@@ -1770,12 +1796,16 @@ def derive_zero(setup: dict, own, entries: Entries) -> tuple:
             z_set = bench_edge(offset + stand_off) if known else "unknown"
         else:
             z_set = edge + stand_off if numeric(edge) and numeric(stand_off) else "unknown"
-        row = {**record, "x_axis_set": x_set, "z_axis_set": z_set}
-        who = f"the {record.get('tool', 'unknown')} touch"
+        row = {**record, "edge_mm": edge, "x_axis_set": x_set, "z_axis_set": z_set}
+        if carried:
+            zero_rules._carried_setting(own, setup, row, "z_axis_set", carried)
+        if credited:
+            row["credited_faces"] = credited
         blade_corner(row, record, record.get("z_face"), edge, who)
-        face_check(record, record.get("z_face"), edge, zero_rules._position(ops, record) or 0, who)
         touches.append(row)
-        unknown |= "unknown" in (x_set, z_set) or not ready(record.get("tool"), "spindle")
+        unknown |= "unknown" in (x_set, row["z_axis_set"]) or not ready(
+            record.get("tool"), "spindle"
+        )
     derived, missing, changes_unknown, _, served = zero_rules.tool_changes(
         own, setup, zero, lathe, x_scale, touches
     )
@@ -1787,9 +1817,28 @@ def derive_zero(setup: dict, own, entries: Entries) -> tuple:
         row.update(served.get(str(row["op"]), idle))
     for row in derived:
         who = f"the {row.get('tool', 'unknown')} re-touch"
-        blade_corner(row, row, row.get("z_face"), row.get("edge_mm"), who)
         done = zero_rules._position(ops, row) or 0
-        face_check(row, row.get("z_face"), row.get("edge_mm"), done, who)
+        previous = row.get("edge_mm")
+        offset = (
+            row["z_axis_set"] - previous
+            if numeric(previous) and numeric(row.get("z_axis_set"))
+            else "unknown"
+        )
+        edge, credited, carried = face_check(row, row.get("z_face"), previous, done, who)
+        if carried:
+            offset = paper_stand_off(
+                row.get("paper_mm", "unknown"),
+                zero_rules.touch_side(own, setup, row, row.get("z_face"), edge, lathe),
+            )
+        if row.get("z_face"):
+            row["edge_mm"] = edge
+            row["z_axis_set"] = edge + offset if numeric(edge) and numeric(offset) else "unknown"
+            if carried:
+                zero_rules._carried_setting(own, setup, row, "z_axis_set", carried)
+            unknown |= row["z_axis_set"] == "unknown"
+        if credited:
+            row["credited_faces"] = credited
+        blade_corner(row, row, row.get("z_face"), row.get("edge_mm"), who)
     unknown |= bool(face_unknowns)
     numbers = {
         "frame": setup.get("frame", "unknown"),
@@ -1971,11 +2020,11 @@ def check_centre_endpoint(
 
 def entry_surface(stock: SimpleNamespace, setup: dict, op: dict) -> tuple:
     """``(Z, source, face)`` of the surface ``op``'s feature is entered from, advanced from
-    the setup's authored ``stock_state`` through its preceding ops by the plan alone: the
-    plan-only stock advance (``stock_states``) the engine shares, as it shares
-    ``operative_definitions``; ``face`` is the feature when it has its own ``entry_z``
-    surface, else ``"top"``. ``stock`` carries the authored plan, manifest and operative
-    definitions only; no report value enters it."""
+    the setup's authored ``stock_state`` through its preceding ops by ``stock_states``,
+    which the engine shares, as it shares ``operative_definitions``. ``face`` is the feature
+    when it has its own ``entry_z`` surface, else ``"top"``. ``stock`` carries the authored
+    plan, manifest, inventory and operative definitions plus independently obtained kernel
+    facts; no report value enters it."""
     name = op["feature"]
     before = next(state for current, state, _ in stock_states(stock, setup) if current is op)
     face = name if name in before["entry_z"] else "top"
@@ -2066,7 +2115,8 @@ def entry_producer(stock: SimpleNamespace, setup: dict, entry, face: str, source
     """The plan op whose cut left the surface a hole op of ``setup`` enters at nominal
     ``entry`` (:func:`entry_surface`), as ``(setup, op)``; None when no op cut it, so the
     authored surface stands; unknown when one may have cut it to an unknown Z or over an
-    unknown part of it. From the plan alone: the op of ``setup`` that ``source`` names;
+    unknown part of it. From authored inputs and independent kernel facts: the op of
+    ``setup`` that ``source`` names;
     else the last op, in the setups ``setup`` receives stock from (``lineage``) and shares
     a known frame with, that cut the whole surface (``cut_coverage``): for ``"top"`` a
     facing op on the setup's ``top_feature`` (any, when it names none), for a feature one
@@ -2179,7 +2229,9 @@ def check_printed_endpoint(row: dict, where: str, grid: tuple, planned: dict) ->
     same(row.get("depth_floor_mm", "unknown"), floor, f"{where}: depth band floor")
 
 
-def check_endpoints(plan: dict, features: dict, findings: dict, entries: Entries) -> dict:
+def check_endpoints(
+    plan: dict, features: dict, findings: dict, entries: Entries, kernel=None
+) -> dict:
     """Hold every ``blind_depth`` endpoint row to the plan, from its entry surface on,
     and the endpoint it prints to the setup's DRO grid (:func:`check_printed_endpoint`).
     The rows are exactly the plan's hole ops on the feature (a centre's, its
@@ -2192,10 +2244,19 @@ def check_endpoints(plan: dict, features: dict, findings: dict, entries: Entries
     as the plan derives it (a through hole's local thickness, a blind or tapped hole's
     planned depth, a drilled centre's prepared depth), never the point or exit lead.
     Chain drills add their before-state entry-to-to_z penetration. No reported
-    operand enters either depth."""
+    operand enters either depth. Surface coverage uses ``entries.inventory`` and the
+    validator's own kernel getter (``kernel``, :func:`independent_kernel`), as
+    :func:`zero_inputs` does. With no getter, native evidence is absent: a face needing
+    it stays unknown; authored bounds need none. No report value supplies either input."""
     setups = {setup["id"]: setup for setup in plan["setups"]}
     definitions = operative_definitions(plan, features)
-    stock = SimpleNamespace(plan=plan, features=features, feature_definitions=definitions)
+    stock = SimpleNamespace(
+        plan=plan,
+        features=features,
+        inventory=entries.inventory,
+        feature_definitions=definitions,
+        kernel=kernel() if kernel is not None else None,
+    )
     units = features.get("units")
     depths = {}
     for (rule, name), finding in findings.items():
@@ -4212,7 +4273,7 @@ def validate_fixture(
     check_joint_declarations(plan, features, findings, kernel)
     missing = check_references(plan, entries, findings)
     missing += check_prepared_blank(plan, features, inventory, findings, kernel)
-    depths = check_endpoints(plan, features, findings, entries)
+    depths = check_endpoints(plan, features, findings, entries, kernel)
     definitions = operative_definitions(plan, features)
     own = functools.cache(lambda: zero_inputs(plan, features, inventory, policy, kernel))
     for setup in plan["setups"]:

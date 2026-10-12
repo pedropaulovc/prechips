@@ -16,6 +16,15 @@ from test_deep_hole_speed import DEEP, drill_bundle
 from test_operative_surface import plan as surface_plan
 from test_process_features import set_process_key, set_tool_fact, shaft
 from test_sheet_fixture import END_MILL, MAKE_OP
+from test_tool_change_touch import (
+    carried_bbox_mill_bundle,
+    carried_native_datum_bundle,
+    carried_native_source_plane_bundle,
+    carried_stock_bundle,
+    carry_with_refaced_hole,
+    carry_with_through_drill,
+    measured_native_retouch_bundle,
+)
 
 from prechips.findings import Finding
 from prechips.inputs import load_bundle
@@ -635,6 +644,107 @@ def printed_endpoint(data):
 
     check()
     return row, check
+
+
+def faced_endpoint_bundle(tmp_path):
+    """Scratch S2 drills from a bounded face S1 cut on its coarser grid."""
+    data = load_bundle(surface_plan(tmp_path, coarse=True, depth="[2.95, 3.0]"))
+    producer, consumer = data.plan["setups"]
+    target = data.features["features"]["target"]
+    target.update(kind="face")
+    # Model frame Z is setup A's Z + 1; these authored bounds describe the cut plane.
+    target["bounds"]["z"] = [-1.27825, -1.27825]
+    op = producer["ops"][0]
+    op["stock_removal_bounds"] = {
+        "x": [-6.0, 16.0],
+        "y": [-3.0, 9.0],
+        "z": [-4.0, 0.0],
+    }
+    op["contour"] = {
+        "method": "linear_table",
+        "sweep_frame": "A",
+        "step_mm": 2.0,
+        "keep_out": [{"at": [100.0, 100.0], "dia_mm": 2.0}],
+    }
+    producer["stock_state"]["top_feature"] = "target"
+    consumer["stock_state"]["top_feature"] = "target"
+    del consumer["stock_state"]["entry_z"]
+    return data
+
+
+def test_endpoint_oracle_uses_inventory_for_authored_face_coverage_without_a_kernel(tmp_path):
+    # The island is far outside the face, but proving that still needs the cutter radius.
+    # Keep the four-argument oracle call in printed_endpoint: omitted inventory used to
+    # derive an unknown printed entry, not a signature error. No native evidence is needed.
+    row, check = printed_endpoint(faced_endpoint_bundle(tmp_path))
+    assert row["entry_z"] == -2.27825
+    assert row["dro_entry_z"] == -2.27
+    row["dro_entry_z"] = "unknown"
+    with pytest.raises(ValueError, match="printed entry Z"):
+        check()
+
+
+@pytest.mark.parametrize("available", [True, False], ids=["matched-plane", "missing-kernel"])
+def test_endpoint_oracle_needs_independent_native_evidence_for_a_face_without_bounds(
+    tmp_path, available
+):
+    data = faced_endpoint_bundle(tmp_path)
+    target = data.features["features"]["target"]
+    del target["bounds"]
+    ref = "#40/ADVANCED_FACE[1]/NONE"
+    target["faces"] = [ref]
+    producer, consumer = data.plan["setups"]
+    # S1's pre-cut stock top is Z0, not the future native floor at NOMINAL.
+    # Bind only S2's received top to that floor; zeroing on a yet-uncut CAD face
+    # would correctly leave S1's cut station unknown.
+    del producer["stock_state"]["top_feature"]
+    producer["stock_in"] = "stock"
+    for context in (producer, consumer):
+        context["zero"]["z"]["from"] = "+z"
+    # Synthetic native geometry in model mm, not measurement claims or report operands.
+    facts = {
+        "status": "ok",
+        "mapping": {ref: 0},
+        "faces": [
+            {
+                "index": 0,
+                "kind": "Plane",
+                "bbox_mm": [0.0, 0.0, -1.27825, 20.0, 10.0, -1.27825],
+            }
+        ],
+        "ops": {
+            f"{producer['id']}:{producer['ops'][0]['op']}": {
+                "approach": "milling",
+                "claimed_indices": [0],
+                "faced_side": 1,
+            }
+        },
+    }
+    independent = copy.deepcopy(facts) if available else None
+    reported = replace(data, kernel=facts if available else None)
+    findings = {(f.rule, f.subject): f.to_dict() for f in endpoint_findings(reported)}
+    entries = VALIDATOR["Entries"](data.inventory)
+    (row,) = findings["blind_depth", "hole"]["numbers"]["endpoints"]
+    assert row["entry_z"] == -2.27825
+    assert row["dro_entry_z"] == (-2.27 if available else "unknown")
+
+    def check():
+        return VALIDATOR["check_endpoints"](
+            data.plan, data.features, findings, entries, lambda: independent
+        )
+
+    check()
+    if available:
+        # Even a report with complete numeric endpoints cannot supply missing native facts.
+        with pytest.raises(ValueError, match="printed entry Z.*unknown"):
+            VALIDATOR["check_endpoints"](data.plan, data.features, findings, entries)
+        independent["mapping"].clear()
+    else:
+        # An unavailable kernel leaves the native surface unknown, never a known entry.
+        VALIDATOR["check_endpoints"](data.plan, data.features, findings, entries)
+        row["dro_entry_z"] = -2.27
+    with pytest.raises(ValueError, match="printed entry Z.*unknown"):
+        check()
 
 
 @pytest.mark.parametrize(
@@ -1430,6 +1540,142 @@ def test_indexing_verdict_is_the_one_its_head_and_tolerance_decide(tolerance, ve
         finding["status"] = forged
         with pytest.raises(ValueError):
             VALIDATOR["check_indexing"](setup, features, entries, finding)
+
+
+@pytest.mark.parametrize(
+    ("case", "verdict"),
+    [
+        ("bonded-stock", "pass"),
+        ("native-datum", "pass"),
+        ("native-source-plane", "pass"),
+        ("through-drill", "pass"),
+        ("lateral-sweep", "unknown"),
+        ("bbox-mill", "pass"),
+        ("flipped-bbox-mill", "unknown"),
+        ("supplied-no-normal", "unknown"),
+        ("measured-retouch", "pass"),
+        ("measured-retouch-unknown", "unknown"),
+        ("measured-retouch-wrong-edge", "error"),
+        ("bounded-reface", "pass"),
+        ("unknown-reface", "unknown"),
+        ("missing-native-datum", "unknown"),
+        ("intervening-cut", "unknown"),
+        ("wrong-edge", "error"),
+        ("explicit-touch", "pass"),
+        ("listed-retouch", "pass"),
+        ("measured", "pass"),
+    ],
+)
+def test_zero_oracle_uses_its_own_carried_physical_height_and_typed_setting(case, verdict):
+    if case in {"bonded-stock", "intervening-cut", "wrong-edge"}:
+        data = carried_stock_bundle()
+    elif case == "native-source-plane":
+        data = carried_native_source_plane_bundle()
+    elif case in {"through-drill", "lateral-sweep"}:
+        data = carry_with_through_drill(aim_shift=0.185)
+    elif case in {"bbox-mill", "flipped-bbox-mill", "supplied-no-normal"}:
+        data = carried_bbox_mill_bundle(
+            mode="supplied" if case == "supplied-no-normal" else "axial",
+            flipped=case == "flipped-bbox-mill",
+        )
+    elif case in {
+        "measured-retouch",
+        "measured-retouch-unknown",
+        "measured-retouch-wrong-edge",
+    }:
+        data = measured_native_retouch_bundle(bounded=case != "measured-retouch-unknown")
+    elif case in {"bounded-reface", "unknown-reface"}:
+        data = carry_with_refaced_hole(bounded=case == "bounded-reface", later_setup=True)
+    else:
+        data = carried_native_datum_bundle()
+    setup = data.plan["setups"][-1]
+    z = setup["zero"]["z"]
+    if case == "missing-native-datum":
+        for native in data.kernel["setups"].values():
+            native["render_scene"]["datums"] = []
+    elif case == "lateral-sweep":
+        setup["ops"][1].update(do="face", to_z=0.0)
+    elif case == "measured-retouch-wrong-edge":
+        setup["stock_state"]["top_z"] = 0.01
+    elif case == "intervening-cut":
+        bond = data.plan["setups"][-2]
+        bond.update(
+            machine="mill",
+            ops=[
+                {
+                    "op": 20,
+                    "do": "face",
+                    "feature": "spigot",
+                    "tool": "mill",
+                    "to_z": 0.0,
+                    "stock_removal_bounds": {
+                        "x": [-2.0, 2.0],
+                        "y": [-2.0, 2.0],
+                        "z": [-22.0, -20.0],
+                    },
+                }
+            ],
+        )
+        data.kernel["ops"]["S7:20"] = {"claimed_indices": [2]}
+    elif case == "wrong-edge":
+        z["edge_mm"] = 0.01
+    elif case == "explicit-touch":
+        setup["zero"]["tool_touches"] = [
+            {
+                "tool": "drill",
+                "z_face": z["face"],
+                "edge_mm": 21.0055,
+                "paper_mm": 0.0024,
+                "method": "touch_then_set",
+                "before_ops": [20],
+            }
+        ]
+    elif case == "listed-retouch":
+        setup["stock_state"] = {"top_z": 21.0055, "top_feature": z["face"]}
+        z.update(face="top", retouch_after=[10])
+    elif case == "measured":
+        data.kernel["setups"][setup["id"]]["render_scene"]["datums"] = []
+        z.update(method="measure_then_set", gauge="mic", measure="bench reading", offset_mm=1.0)
+        setup["ops"] = setup["ops"][:1]
+    finding = zero_recipe.evaluate(data)[-1].to_dict()
+    assert finding["status"] == verdict
+    entries = VALIDATOR["Entries"](data.inventory)
+    own = VALIDATOR["zero_inputs"](
+        data.plan, data.features, data.inventory, data.policy, lambda: copy.deepcopy(data.kernel)
+    )
+    VALIDATOR["check_zero"](setup, copy.deepcopy(finding), entries, own)
+    forged = copy.deepcopy(finding)
+    forged["status"] = "unknown" if verdict != "unknown" else "pass"
+    with pytest.raises(ValueError):
+        VALIDATOR["check_zero"](setup, forged, entries, own)
+    if case in {"native-datum", "native-source-plane", "explicit-touch", "listed-retouch"}:
+        row = (
+            finding["numbers"]["tool_touches"][0]
+            if case == "explicit-touch"
+            else finding["numbers"]["retouch"][0]
+            if case == "listed-retouch"
+            else finding["numbers"]["axes"]["z"]
+        )
+        field = "z_axis_set" if case == "explicit-touch" else "axis_set"
+        assert row[field] == (21.01 if case == "explicit-touch" else 21.005)
+        assert row["setting_residual_mm"] == pytest.approx(
+            -0.0021 if case == "explicit-touch" else 0.0005
+        )
+        row["setting_residual_mm"] = 0.0
+        with pytest.raises(ValueError):
+            VALIDATOR["check_zero"](setup, finding, entries, own)
+    if case == "native-datum":
+        for native in own.kernel["setups"].values():
+            native["render_scene"]["datums"] = []
+        complete = zero_recipe.evaluate(data)[-1].to_dict()
+        with pytest.raises(ValueError):
+            VALIDATOR["check_zero"](setup, complete, entries, own)
+    if case == "through-drill":
+        row = finding["numbers"]["derived_touches"][-1]
+        assert row["touch_exclusion_dia_mm"] == pytest.approx(1.17)
+        row["touch_exclusion_dia_mm"] = 0.8
+        with pytest.raises(ValueError):
+            VALIDATOR["check_zero"](setup, finding, entries, own)
 
 
 @pytest.mark.parametrize(
