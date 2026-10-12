@@ -10663,12 +10663,12 @@
         "bed_height_mm": 68.7,
         "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
         "cut_tip_above_jaws_mm": {},
-        "fixture_height_mm": "unknown",
+        "fixture_height_mm": "not_applicable",
         "fixture_verify": false,
         "holder_gauge_len_mm": 95.0,
         "insertion_mm": 25,
         "jaw_obstruction": {
-          "jaw_top_z": "unknown",
+          "jaw_top_z": "not_applicable",
           "requires_path_check": false
         },
         "measurements": [],
@@ -10745,7 +10745,7 @@
         "stock_extent_x_mm": 16.0,
         "stock_extent_y_mm": 33.2,
         "stock_height_mm": 25.2,
-        "stock_top_above_jaws_mm": "unknown",
+        "stock_top_above_jaws_mm": "not_applicable",
         "stock_top_z": 1.0,
         "sum_mm": 294.9,
         "support_blocks_mm": 0,
@@ -20256,27 +20256,48 @@
       "numbers": {
         "measurements": [
           {
+            "category": "machines",
             "cite": [
               "inventory.machines.fitting-bench.envelope.travel.x"
             ],
+            "field": [
+              "envelope",
+              "travel",
+              "x"
+            ],
             "id": "machines.fitting-bench.envelope.travel.x",
-            "instruction": "measure: fitting-bench X safe usable travel, stop-to-stop, steel rule or calipers, mm",
+            "identity": "fitting-bench",
+            "instruction": "measure: fitting-bench X safe usable travel, stop-to-stop, calibrated DRO or indicator, mm",
             "units": "mm"
           },
           {
+            "category": "machines",
             "cite": [
               "inventory.machines.fitting-bench.envelope.travel.y"
             ],
+            "field": [
+              "envelope",
+              "travel",
+              "y"
+            ],
             "id": "machines.fitting-bench.envelope.travel.y",
-            "instruction": "measure: fitting-bench Y safe usable travel, stop-to-stop, steel rule or calipers, mm",
+            "identity": "fitting-bench",
+            "instruction": "measure: fitting-bench Y safe usable travel, stop-to-stop, calibrated DRO or indicator, mm",
             "units": "mm"
           },
           {
+            "category": "machines",
             "cite": [
               "inventory.machines.fitting-bench.envelope.travel.z"
             ],
+            "field": [
+              "envelope",
+              "travel",
+              "z"
+            ],
             "id": "machines.fitting-bench.envelope.travel.z",
-            "instruction": "measure: fitting-bench Z safe usable travel, stop-to-stop, steel rule or calipers, mm",
+            "identity": "fitting-bench",
+            "instruction": "measure: fitting-bench Z safe usable travel, stop-to-stop, calibrated DRO or indicator, mm",
             "units": "mm"
           }
         ],
@@ -20334,27 +20355,48 @@
       "numbers": {
         "measurements": [
           {
+            "category": "machines",
             "cite": [
               "inventory.machines.finishing-bench.envelope.travel.x"
             ],
+            "field": [
+              "envelope",
+              "travel",
+              "x"
+            ],
             "id": "machines.finishing-bench.envelope.travel.x",
-            "instruction": "measure: finishing-bench X safe usable travel, stop-to-stop, steel rule or calipers, mm",
+            "identity": "finishing-bench",
+            "instruction": "measure: finishing-bench X safe usable travel, stop-to-stop, calibrated DRO or indicator, mm",
             "units": "mm"
           },
           {
+            "category": "machines",
             "cite": [
               "inventory.machines.finishing-bench.envelope.travel.y"
             ],
+            "field": [
+              "envelope",
+              "travel",
+              "y"
+            ],
             "id": "machines.finishing-bench.envelope.travel.y",
-            "instruction": "measure: finishing-bench Y safe usable travel, stop-to-stop, steel rule or calipers, mm",
+            "identity": "finishing-bench",
+            "instruction": "measure: finishing-bench Y safe usable travel, stop-to-stop, calibrated DRO or indicator, mm",
             "units": "mm"
           },
           {
+            "category": "machines",
             "cite": [
               "inventory.machines.finishing-bench.envelope.travel.z"
             ],
+            "field": [
+              "envelope",
+              "travel",
+              "z"
+            ],
             "id": "machines.finishing-bench.envelope.travel.z",
-            "instruction": "measure: finishing-bench Z safe usable travel, stop-to-stop, steel rule or calipers, mm",
+            "identity": "finishing-bench",
+            "instruction": "measure: finishing-bench Z safe usable travel, stop-to-stop, calibrated DRO or indicator, mm",
             "units": "mm"
           }
         ],
@@ -22923,7 +22965,7 @@
       "subject": "S5"
     }
   ],
-  "hash": "8835dba9544cac611bdb76f9500550cdf9acc5be5a012f4a9405f1753f2c2020",
+  "hash": "c2cb792361a5173817c70b49003e06fd58f5a1b2ea9b4d0d7953d2beadb7eb98",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

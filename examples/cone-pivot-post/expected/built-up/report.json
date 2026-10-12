@@ -2435,10 +2435,15 @@
         "kind": "hole",
         "measurements": [
           {
+            "category": "tools",
             "cite": [
               "inventory.tools.reamers-decimal/0.4500in.lead"
             ],
+            "field": [
+              "lead"
+            ],
             "id": "tools.reamers-decimal/0.4500in.lead",
+            "identity": "reamers-decimal/0.4500in",
             "instruction": "measure: reamers-decimal/0.4500in reamer lead length, steel rule or calipers, mm (assumed value, not physically measured)",
             "reason": "This fact's measurement is assumed (by: example value (realistic, not a shop measurement)), not a physical shop measurement.",
             "status": "assumed",
@@ -2671,10 +2676,15 @@
         "kind": "hole",
         "measurements": [
           {
+            "category": "tools",
             "cite": [
               "inventory.tools.reamers-decimal/0.4835in.lead"
             ],
+            "field": [
+              "lead"
+            ],
             "id": "tools.reamers-decimal/0.4835in.lead",
+            "identity": "reamers-decimal/0.4835in",
             "instruction": "measure: reamers-decimal/0.4835in reamer lead length, steel rule or calipers, mm (assumed value, not physically measured)",
             "reason": "This fact's measurement is assumed (by: example value (realistic, not a shop measurement)), not a physical shop measurement.",
             "status": "assumed",
@@ -6828,10 +6838,15 @@
             "units": "mm"
           },
           {
+            "category": "tools",
             "cite": [
               "inventory.tools.reamers-decimal/0.4500in.lead"
             ],
+            "field": [
+              "lead"
+            ],
             "id": "tools.reamers-decimal/0.4500in.lead",
+            "identity": "reamers-decimal/0.4500in",
             "instruction": "measure: reamers-decimal/0.4500in reamer lead length, steel rule or calipers, mm (assumed value, not physically measured)",
             "units": "mm"
           }
@@ -6954,10 +6969,15 @@
             "units": "mm"
           },
           {
+            "category": "tools",
             "cite": [
               "inventory.tools.reamers-decimal/0.4835in.lead"
             ],
+            "field": [
+              "lead"
+            ],
             "id": "tools.reamers-decimal/0.4835in.lead",
+            "identity": "reamers-decimal/0.4835in",
             "instruction": "measure: reamers-decimal/0.4835in reamer lead length, steel rule or calipers, mm (assumed value, not physically measured)",
             "units": "mm"
           }
@@ -21576,27 +21596,48 @@
       "numbers": {
         "measurements": [
           {
+            "category": "machines",
             "cite": [
               "inventory.machines.cone-bond-bench.envelope.travel.x"
             ],
+            "field": [
+              "envelope",
+              "travel",
+              "x"
+            ],
             "id": "machines.cone-bond-bench.envelope.travel.x",
-            "instruction": "measure: cone-bond-bench X safe usable travel, stop-to-stop, steel rule or calipers, mm",
+            "identity": "cone-bond-bench",
+            "instruction": "measure: cone-bond-bench X safe usable travel, stop-to-stop, calibrated DRO or indicator, mm",
             "units": "mm"
           },
           {
+            "category": "machines",
             "cite": [
               "inventory.machines.cone-bond-bench.envelope.travel.y"
             ],
+            "field": [
+              "envelope",
+              "travel",
+              "y"
+            ],
             "id": "machines.cone-bond-bench.envelope.travel.y",
-            "instruction": "measure: cone-bond-bench Y safe usable travel, stop-to-stop, steel rule or calipers, mm",
+            "identity": "cone-bond-bench",
+            "instruction": "measure: cone-bond-bench Y safe usable travel, stop-to-stop, calibrated DRO or indicator, mm",
             "units": "mm"
           },
           {
+            "category": "machines",
             "cite": [
               "inventory.machines.cone-bond-bench.envelope.travel.z"
             ],
+            "field": [
+              "envelope",
+              "travel",
+              "z"
+            ],
             "id": "machines.cone-bond-bench.envelope.travel.z",
-            "instruction": "measure: cone-bond-bench Z safe usable travel, stop-to-stop, steel rule or calipers, mm",
+            "identity": "cone-bond-bench",
+            "instruction": "measure: cone-bond-bench Z safe usable travel, stop-to-stop, calibrated DRO or indicator, mm",
             "units": "mm"
           }
         ],
@@ -22345,27 +22386,48 @@
       "numbers": {
         "measurements": [
           {
+            "category": "machines",
             "cite": [
               "inventory.machines.cone-bond-bench.envelope.travel.x"
             ],
+            "field": [
+              "envelope",
+              "travel",
+              "x"
+            ],
             "id": "machines.cone-bond-bench.envelope.travel.x",
-            "instruction": "measure: cone-bond-bench X safe usable travel, stop-to-stop, steel rule or calipers, mm",
+            "identity": "cone-bond-bench",
+            "instruction": "measure: cone-bond-bench X safe usable travel, stop-to-stop, calibrated DRO or indicator, mm",
             "units": "mm"
           },
           {
+            "category": "machines",
             "cite": [
               "inventory.machines.cone-bond-bench.envelope.travel.y"
             ],
+            "field": [
+              "envelope",
+              "travel",
+              "y"
+            ],
             "id": "machines.cone-bond-bench.envelope.travel.y",
-            "instruction": "measure: cone-bond-bench Y safe usable travel, stop-to-stop, steel rule or calipers, mm",
+            "identity": "cone-bond-bench",
+            "instruction": "measure: cone-bond-bench Y safe usable travel, stop-to-stop, calibrated DRO or indicator, mm",
             "units": "mm"
           },
           {
+            "category": "machines",
             "cite": [
               "inventory.machines.cone-bond-bench.envelope.travel.z"
             ],
+            "field": [
+              "envelope",
+              "travel",
+              "z"
+            ],
             "id": "machines.cone-bond-bench.envelope.travel.z",
-            "instruction": "measure: cone-bond-bench Z safe usable travel, stop-to-stop, steel rule or calipers, mm",
+            "identity": "cone-bond-bench",
+            "instruction": "measure: cone-bond-bench Z safe usable travel, stop-to-stop, calibrated DRO or indicator, mm",
             "units": "mm"
           }
         ],
@@ -22423,27 +22485,48 @@
       "numbers": {
         "measurements": [
           {
+            "category": "machines",
             "cite": [
               "inventory.machines.cone-bond-bench.envelope.travel.x"
             ],
+            "field": [
+              "envelope",
+              "travel",
+              "x"
+            ],
             "id": "machines.cone-bond-bench.envelope.travel.x",
-            "instruction": "measure: cone-bond-bench X safe usable travel, stop-to-stop, steel rule or calipers, mm",
+            "identity": "cone-bond-bench",
+            "instruction": "measure: cone-bond-bench X safe usable travel, stop-to-stop, calibrated DRO or indicator, mm",
             "units": "mm"
           },
           {
+            "category": "machines",
             "cite": [
               "inventory.machines.cone-bond-bench.envelope.travel.y"
             ],
+            "field": [
+              "envelope",
+              "travel",
+              "y"
+            ],
             "id": "machines.cone-bond-bench.envelope.travel.y",
-            "instruction": "measure: cone-bond-bench Y safe usable travel, stop-to-stop, steel rule or calipers, mm",
+            "identity": "cone-bond-bench",
+            "instruction": "measure: cone-bond-bench Y safe usable travel, stop-to-stop, calibrated DRO or indicator, mm",
             "units": "mm"
           },
           {
+            "category": "machines",
             "cite": [
               "inventory.machines.cone-bond-bench.envelope.travel.z"
             ],
+            "field": [
+              "envelope",
+              "travel",
+              "z"
+            ],
             "id": "machines.cone-bond-bench.envelope.travel.z",
-            "instruction": "measure: cone-bond-bench Z safe usable travel, stop-to-stop, steel rule or calipers, mm",
+            "identity": "cone-bond-bench",
+            "instruction": "measure: cone-bond-bench Z safe usable travel, stop-to-stop, calibrated DRO or indicator, mm",
             "units": "mm"
           }
         ],
@@ -22549,10 +22632,15 @@
             "units": "mm"
           },
           {
+            "category": "tools",
             "cite": [
               "inventory.tools.reamers-decimal/0.4500in.lead"
             ],
+            "field": [
+              "lead"
+            ],
             "id": "tools.reamers-decimal/0.4500in.lead",
+            "identity": "reamers-decimal/0.4500in",
             "instruction": "measure: reamers-decimal/0.4500in reamer lead length, steel rule or calipers, mm (assumed value, not physically measured)",
             "units": "mm"
           }
@@ -22847,10 +22935,15 @@
             "units": "mm"
           },
           {
+            "category": "tools",
             "cite": [
               "inventory.tools.reamers-decimal/0.4835in.lead"
             ],
+            "field": [
+              "lead"
+            ],
             "id": "tools.reamers-decimal/0.4835in.lead",
+            "identity": "reamers-decimal/0.4835in",
             "instruction": "measure: reamers-decimal/0.4835in reamer lead length, steel rule or calipers, mm (assumed value, not physically measured)",
             "units": "mm"
           }
@@ -26153,7 +26246,7 @@
       "subject": "S9"
     }
   ],
-  "hash": "fcc10302a17d29ab2885a26d13616fbd4af98b46a7eef4c740442b04f54751e0",
+  "hash": "2e7d6351449a1b82f39a8740b28bb494466eb1e3c7e5928a60effc77efa26b09",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
