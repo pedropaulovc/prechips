@@ -1005,3 +1005,49 @@ def test_compact_operation_stops_require_identical_scope_and_refs(stops, expecte
         assert compact == list(stops.items())
     else:
         assert set(compact[0][1]) == set(next(iter(stops.values())))
+
+
+@pytest.mark.parametrize(
+    "row_actions",
+    [
+        ("Check holder face and holding beside the cut ?M1.",) * 2,
+        ("Check holder face ?M1.", "Check holding beside the cut ?M2."),
+        ("Check holder face ?M1.", ""),
+        ("Check holder face ?M1.", "Check holder face ?M1.", "Check holding ?M2."),
+    ],
+)
+def test_clearance_shares_only_an_identical_nonempty_action_for_every_row(monkeypatch, row_actions):
+    bundle = data()
+    setup = bundle.plan["setups"][0]
+    sheet = _Traveler(bundle, [finding("headroom", "S1", {"stacks": []})], {}, None)
+    rows = [
+        (str(index * 10), f"T{index}", f"Stock beside tool ?M{index}", "?", action)
+        for index, action in enumerate(row_actions, 1)
+    ]
+    original = deepcopy(rows)
+    monkeypatch.setattr(sheet, "clearance_rows", lambda setup, numbers, tools: rows)
+    markup = Markup(sheet.clearance(setup))
+    table = markup.find("clearance")[0]
+    bodies = [node for node in markup.nodes if node["tag"] == "tbody" and node["parent"] is table]
+    assert len(bodies) == len(rows)
+    common = bool(row_actions[0]) and all(action == row_actions[0] for action in row_actions)
+    for body, row in zip(bodies, rows, strict=True):
+        cells = [
+            node
+            for node in markup.nodes
+            if node["tag"] == "td"
+            and node["parent"]["parent"] is body
+            and node["parent"]["attrs"].get("class") != "warn"
+        ]
+        assert [content(cell) for cell in cells] == list(row[:4])
+        if row[4]:
+            assert content(body).count(row[4]) == (0 if common else 1)
+    text = content(markup.nodes[0])
+    if common:
+        assert text.count(row_actions[0]) == 1
+        assert "action for every clearance row: " + row_actions[0] in text
+        assert not markup.find("see", within=table)
+    else:
+        assert "action for every clearance row:" not in text
+        assert len(markup.find("see", within=table)) == sum(bool(action) for action in row_actions)
+    assert rows == original

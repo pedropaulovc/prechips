@@ -1306,7 +1306,8 @@ def test_a_bench_finishing_setup_prints_a_finishing_table_not_empty_machining_co
     assert "deburr" in content(markup.find("op-action", deburred)[0])
     for operation in (painted, deburred):
         assert len(markup.find("performed-mark", operation)) == 1
-        assert markup.find("inspection-message", operation)
+        assert not markup.find("inspection-message", operation)
+        assert not markup.find("inspection-record", operation)
         for css in ("op-speed", "op-feed", "op-target", "op-direction", "op-tool"):
             assert not markup.find(css, operation)
 
@@ -1756,6 +1757,32 @@ def ledger(features, ops):
     html, notes, worksheets, stops = sheet.operations(sheet.setup, T4, {"notes": 2, "contours": 3})
     assert not worksheets
     return Markup(html), notes, stops
+
+
+def test_empty_inspection_has_no_placeholder_row_but_real_checks_and_messages_remain():
+    markup, _, _ = ledger(
+        {"bore": {"kind": "hole", "dia": [6.33, 6.35]}},
+        [
+            {"op": 10, "do": "face", "feature": "bore", "tool": "c"},
+            {"op": 20, "do": "inspect", "feature": "bore", "tool": "c", "checks": {"dia": "mic"}},
+            {"op": 30, "do": "inspect", "feature": "bore", "tool": "c", "checks": "unknown"},
+        ],
+    )
+    empty, checked, unknown = markup.find("operation")
+    assert not markup.find("inspection-message", within=empty)
+    assert not markup.find("inspection-record", within=empty)
+    assert not markup.find("writing-blank", within=empty)
+    assert len(markup.find("performed-mark", within=empty)) == 1
+    (record,) = markup.find("inspection-record", within=checked)
+    assert record["attrs"]["data-requirement"] == "dia"
+    assert json.loads(record["attrs"]["data-features"]) == ["bore"]
+    assert "6.330–6.350" in content(record)
+    assert len(markup.find("result-field", within=record)) == 1
+    assert len(markup.find("writing-blank", within=record)) == 1
+    assert not markup.find("inspection-message", within=checked)
+    (message,) = markup.find("inspection-message", within=unknown)
+    assert content(message) == "? inspection checks not set"
+    assert not markup.find("inspection-record", within=unknown)
 
 
 def test_task_ledger_preserves_authored_operation_order_fields_and_attached_safety():
@@ -2480,7 +2507,7 @@ def test_coating_does_not_duplicate_existing_requirement_or_authored_prompt_area
     assert not other.find("process-observations")
 
 
-def test_grouped_clearance_actions_keep_the_supplied_check_in_full_width_rows():
+def test_grouped_clearance_actions_keep_the_supplied_check_once_above_all_rows():
     operations = [
         {"op": op, "do": "pocket", "feature": "surface", "tool": "c"}
         for op in (10, 20, 40, 45, 50, 55)
@@ -2509,16 +2536,25 @@ def test_grouped_clearance_actions_keep_the_supplied_check_in_full_width_rows():
     bodies = [node for node in markup.nodes if node["tag"] == "tbody"]
     assert len(bodies) == len(supplied) == 2
     assert [row[0] for row in supplied] == ["10, 40, 45", "20, 50, 55"]
+    actions = [
+        node
+        for node in markup.nodes
+        if node["tag"] == "p" and content(node).startswith("action for every clearance row:")
+    ]
+    assert len(actions) == 1
+    action = actions[0]
+    assert content(action) == "action for every clearance row: " + supplied[0][4]
+    assert all(row[4] == supplied[0][4] for row in supplied)
+    assert "check the tip clears the jaws before plunging" in content(action)
+    assert content(markup.nodes[0]).count(supplied[0][4]) == 1
     for body, row in zip(bodies, supplied, strict=True):
         summary = next(
             node for node in markup.nodes if node["tag"] == "tr" and node["parent"] is body
         )
         cells = [node for node in markup.nodes if node["tag"] == "td" and node["parent"] is summary]
         assert [content(cell) for cell in cells] == list(row[:4])
-        action = markup.find("see", body)[0]
+        assert not markup.find("see", body)
         assert row[4] in content(action)
-        assert "check the tip clears the jaws before plunging" in content(action)
-        assert int(action["parent"]["attrs"]["colspan"]) == len(cells)
 
 
 def test_shaft_fit_up_prose_fields_keep_their_source_and_sole_boxes():

@@ -611,7 +611,9 @@ Setup overview/operations section, in this order:
    spindle fact prints `STOP:`.
 6. **OPERATIONS**: full-width groups naming the op and action with depth of
    cut, feature, `T#` tool, rpm, feed, Z target and cut direction, followed by
-   associated inspection records. A lathe table with any op measured in the
+   associated inspection records, without an empty placeholder row when there
+   is no inspection. Actual checks, messages and recording fields remain.
+   A lathe table with any op measured in the
    chuck adds to its heading `measure only with the spindle stopped and the
    tool withdrawn`. Turning feed prints as `mm/rev` with resulting `mm/min` in
    brackets; drill feeds print `axial` mm/min with mm/rev for hand feeding,
@@ -674,9 +676,10 @@ Attached picture, clearance, feature-map and inspection-note section:
    or an unproven holder wall clearance is a check-at-the-machine action; a jaw
    clearance within 3 mm asks for a hand-fed approach, holding within 3 mm of a
    cutter `hand feed past the …`, of a file `keep the file clear of the …`. Ops
-   with the same tool, obstacle, clearance and action share a row. The existing
-   clearance action sentence occupies a full-width associated row, making the
-   complete action visible without changing its wording.
+   with the same tool, obstacle, clearance and action share a row. An identical
+   nonempty action for every row prints once immediately above the table,
+   explicitly scoped to every clearance row. Otherwise each complete action
+   occupies its full-width associated row without changing its wording.
 3. **FEATURE MAP**. Lathe: each surface the setup cuts (one it only inspects,
    such as an as-supplied diameter, has no size to turn to and is left off):
    feature, the drawing's Ø limits (`—` for a process

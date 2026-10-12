@@ -5134,10 +5134,17 @@ class _Traveler:
                 )
         html = "<h2>CLEARANCE — mill</h2>" + "".join(_p(line) for line in lines)
         if rows:
+            common_action = rows[0][4]
+            if common_action and all(row[4] == common_action for row in rows):
+                html += _p("action for every clearance row: " + common_action)
+            else:
+                common_action = ""
             html += _table(
                 ["op", "tool", "closest obstacle", "clearance mm"],
                 [
-                    _Row(row[:4], [_Plain("action: " + row[4])]) if row[4] else row[:4]
+                    _Row(row[:4], [_Plain("action: " + row[4])])
+                    if row[4] and not common_action
+                    else row[:4]
                     for row in rows
                 ],
                 css="clearance",
@@ -7088,7 +7095,7 @@ class _Traveler:
                 self.note(head, note) if isinstance(note, list) else f"{head}: {self.bench(note)}"
             )
             rows.append(f"see {place(item)}")
-        return rows or ["—"]
+        return rows
 
     def inspection_sketch(self, setup, op, requirement):
         """One indivisible original-PNG window per complete authored inspection view."""
