@@ -1438,14 +1438,14 @@ def test_a_lathe_op_whose_turn_is_unknown_leaves_the_known_turns_in_their_cells(
     html, rows, stops = _lathe_sheet(ops, {"rh": "right", "bit": None})
     assert rows["10"][-1] == "FORWARD"
     assert "whenever it runs" not in html
-    assert stops["spindle direction not known"] == ["20"]
+    assert stops["spindle direction not known — the tool's hand is not declared"] == ["20"]
 
 
 def test_a_lathe_tool_without_a_declared_hand_is_a_stop_not_a_guessed_direction():
     ops = [{"op": 10, "do": "face", "feature": "body", "tool": "bit"}]
     html, rows, stops = _lathe_sheet(ops, {"bit": None})
     assert "STOP: spindle direction not known" in " ".join(rows["10"])
-    assert stops["spindle direction not known"] == ["10"]
+    assert stops["spindle direction not known — the tool's hand is not declared"] == ["10"]
     assert "FORWARD" not in html
 
 
@@ -1750,7 +1750,7 @@ def ledger(features, ops):
     sheet.rest_engagement = lambda setup, op: []
     sheet.unset_z = lambda setup, op, target: target
     sheet.crash_boxes = lambda setup, op: [_Box(op["safety"])] if op.get("safety") else []
-    sheet.manual_arc_lines = lambda setup, op, stops: []
+    sheet.manual_arc_lines = lambda setup, op: []
     sheet.tip_note = lambda setup, op: None
     sheet.direction = lambda direction: direction
     html, notes, worksheets, stops = sheet.operations(sheet.setup, T4, {"notes": 2, "contours": 3})
@@ -2777,7 +2777,7 @@ def printed_sheet(tmp_path):
     thread.start()
     canary = f"http://127.0.0.1:{proxy.server_port}/browser-fixture-positive-control"
 
-    def print_html(source, probe, prepare=None):
+    def print_html(source, probe, prepare=None, *, expected_error=None):
         document = tmp_path / "traveler.html"
         document.write_text(
             '<!doctype html><html><head><meta charset="utf-8">'
@@ -2852,8 +2852,10 @@ def printed_sheet(tmp_path):
         )
         assert report is not None, result.stderr
         output = json.loads(content(report))
-        assert output["error"] is None, output["error"]
+        assert output["error"] == expected_error, output["error"]
         assert output["idempotent"]
+        if expected_error is not None:
+            return Markup(output["html"]), output["details"]
         assert output["overflows"] == 0
         assert output["blankBack"] == (output["pages"] % 2 == 1)
         return Markup(output["html"]), output["details"]
@@ -2867,7 +2869,7 @@ def printed_sheet(tmp_path):
 
 
 @pytest.mark.parametrize("column", [1, 2])
-def test_printed_tool_fragments_keep_every_value_under_its_original_heading(printed_sheet, column):
+def test_printed_tools_refuse_an_oversized_whole_row_instead_of_splitting_it(printed_sheet, column):
     sheet = example_sheet("rocker-arm/plan.toml")
     words = " ".join(f"AuthoredWord{index:04}" for index in range(180))
     sheet.tool_name = lambda reference: words if column == 1 else "Authored cutter"
@@ -2881,27 +2883,11 @@ def test_printed_tool_fragments_keep_every_value_under_its_original_heading(prin
     _, _, source = sheet.tool_table(setup)
     original = Markup(source)
     expected = [content(node) for node in original.nodes if node["tag"] == "td"]
-    printed, _ = printed_sheet(source, "() => null")
-    tables = [node for node in printed.nodes if node["tag"] == "table"]
-    assert len(tables) > 1
-    values = [[] for _ in expected]
-    for table in tables:
-        body_rows = [
-            node
-            for node in printed.nodes
-            if node["tag"] == "tr"
-            and node["parent"]["tag"] == "tbody"
-            and node["parent"]["parent"] is table
-        ]
-        for row in body_rows:
-            cells = [
-                node for node in printed.nodes if node["tag"] == "td" and node["parent"] is row
-            ]
-            assert len(cells) == len(expected)
-            assert all(cell["attrs"].get("colspan", "1") == "1" for cell in cells)
-            for target, cell in zip(values, cells, strict=True):
-                target.append(content(cell))
-    assert ["".join(parts) for parts in values] == expected
+    printed, _ = printed_sheet(
+        source, "() => null", expected_error="A complete TOOLS row cannot fit on a print page."
+    )
+    assert not any("data-duplex-fragment" in node["attrs"] for node in printed.nodes)
+    assert [content(node) for node in printed.nodes if node["tag"] == "td"] == expected
 
 
 def test_printed_inspection_continuations_repeat_the_whole_operation_without_marks(printed_sheet):

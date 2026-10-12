@@ -930,9 +930,12 @@ def test_unverified_solids_and_undeclared_supports_become_gaps():
     assert hold["measurement_debts"] == [
         {
             "id": "fixtures.angle.solids.upright",
+            "category": "fixtures",
+            "identity": "angle",
+            "field": ["solids", "upright"],
             "instruction": (
-                "measure: angle fixture solid upright dimensions and origin, "
-                "steel rule or calipers, mm"
+                "measure: angle fixture solid upright length, width and height, and position "
+                "from its mounting datum, calipers and height gauge, mm"
             ),
             "units": "mm",
             "status": "unmeasured",

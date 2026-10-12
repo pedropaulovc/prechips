@@ -314,8 +314,8 @@ def evaluate(bundle):
             if travel["verified"] and not verified:
                 missing.append(
                     f"Measure inventory.machines.{setup.get('machine', UNKNOWN)}."
-                    f"envelope.travel.{axis} safe usable stop-to-stop stroke with a steel rule "
-                    "or calipers and record a finite nonnegative travel in mm"
+                    f"envelope.travel.{axis} safe usable stop-to-stop stroke with a calibrated "
+                    "DRO or indicator and record a finite nonnegative travel in mm"
                 )
             lower_margin = (
                 travel["value"] - minimum_required

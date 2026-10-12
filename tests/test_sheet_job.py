@@ -105,9 +105,9 @@ def test_example_fixture_dimensions_are_labelled_once_and_marked_on_their_rows(t
     _, html = run(tmp_path, "rocker-arm/plan.toml", _illustrative_rocker_fixtures)
     markup = Markup(html)
     legends = [node for node in tagged(markup, "p") if "†" in content(node)]
-    # The marked example-dimension legend belongs to the job page, once.
+    # The authored-setting legend belongs to the job page, once; no installed clearance.
     assert len(legends) == 1
-    assert "assumed/illustrative fixture dimensions: not measured; confirm before making" in (
+    assert "Make-to-drawing expected settings; check the physical fixture as made" in (
         content(legends[0])
     )
     assert "†" in text(pages(html)[0])

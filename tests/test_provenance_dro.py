@@ -318,7 +318,8 @@ def test_traveler_distinguishes_declared_untrusted_grid_from_absence(resolution,
         assert "0.005 mm" in text and "grid not verified" in text and "†" not in text
         assert text.count("not verified") == 1
         assert "default" not in text and "not in the shop list" not in text
-        assert "confirm installed readout step before use" in text
+        assert "installed readout step" in text and "see setup STOPs" in text
+        assert "confirm installed readout" not in text
         assert "assumed" not in text and "illustrative" not in text and "unmeasured" not in text
 
 

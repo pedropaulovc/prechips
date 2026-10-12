@@ -5,7 +5,7 @@ from datetime import date
 import pytest
 from pydantic import ValidationError
 
-from prechips.measurements import angle_fact, length_fact, nominal_length_mm
+from prechips.measurements import angle_fact, length_debt, length_fact, nominal_length_mm
 from prechips.model import Inventory
 from prechips.rules.resolution import length_mm, resolve
 
@@ -374,6 +374,10 @@ def test_item_flags_neither_block_nor_promote_fact_local_trust(context):
     nominal = {**context, "dia_mm": 6}
     assert length_fact(nominal, "dia")["verified"] is False
     assert length_fact(nominal, "dia", require_measured=False)["verified"] is True
+    assert length_debt(nominal, "dia", "tools", "cutter", require_measured=False) is None
+    required = length_debt(nominal, "dia", "tools", "cutter", require_measured=True)
+    assert required["status"] == "nominal"
+    assert required["reason"] == length_fact(nominal, "dia")["reason"]
 
 
 def test_root_and_block_measurements_never_certify_a_bare_value():

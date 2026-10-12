@@ -43,7 +43,9 @@ def fact(item, field, category, identity, debts, cite, *, require_measured=True)
     cite.extend(result["cite"])
     cite.append(f"inventory.{category}.{identity}.{field}")
     if not result["verified"]:
-        entry = measurement_entry(category, identity, field, status=result["measurement_status"])
+        entry = measurement_entry(
+            category, identity, field, status=result["measurement_status"], item=item
+        )
         debts[entry["id"]] = entry
     return result
 
@@ -71,6 +73,7 @@ def tool_projection(bundle, op, debts, cite, *, require_measured=True):
                     tool_ref,
                     ("projection", pair),
                     status=result["measurement_status"],
+                    item=tool,
                 )
                 entry["cite"] = [citation, *result["cite"]]
                 debts[entry["id"]] = entry
@@ -354,7 +357,11 @@ def _z_extent(
             endpoint_complete &= angle_verified
             if not angle_verified:
                 entry = measurement_entry(
-                    tool_category, tool_ref, "point_angle", status=angle["measurement_status"]
+                    tool_category,
+                    tool_ref,
+                    "point_angle",
+                    status=angle["measurement_status"],
+                    item=tool,
                 )
                 debts[entry["id"]] = entry
             cite.extend([*angle["cite"], f"inventory.{tool_category}.{tool_ref}.point_angle"])

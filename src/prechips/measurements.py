@@ -214,20 +214,30 @@ def angle_fact(item, field, *, require_measured=True):
     return _fact(item, value, fact, "No numeric angle in degrees is recorded.", require_measured)
 
 
-def measurement_entry(category, identity, field, *, status=None):
-    """A report/checklist identity for one consumed fact, including tool/holder pairs."""
-    parts = field if isinstance(field, tuple) else tuple(field.split("."))
+def measurement_entry(category, identity, field, *, status=None, item=None, subject=None):
+    """Describe one consumed fact; display context never changes its identity or trust.
+
+    Tuple/list paths preserve exact member and holder keys, including embedded dots.
+    ``item`` supplies only kind/shape context and ``subject`` only the shop-facing name.
+    """
+    exact = isinstance(field, (tuple, list))
+    parts = tuple(field) if exact else tuple(field.split("."))
     canonical = (
         (parts[0].removesuffix("_mm").removesuffix("_in"), *parts[1:])
-        if isinstance(field, tuple)
+        if exact
         else tuple(part.removesuffix("_mm").removesuffix("_in") for part in parts)
     )
     field = ".".join(canonical)
     identity_field = f"{category}.{identity}.{field}"
+    item = item if isinstance(item, dict) else {}
+    kind = item.get("kind")
+    centre_drill = kind in {"center_drill", "center_drill_set"}
+    made = item.get("shop_made") is True or kind == "custom"
     instrument, units = "steel rule or calipers", "mm"
-    description = f"record {field}"
+    description = " ".join(part.replace("_", " ") for part in canonical)
     if field.startswith("envelope.travel."):
         description = f"{field.rsplit('.', 1)[-1].upper()} safe usable travel, stop-to-stop"
+        instrument = "calibrated DRO or indicator"
     elif field == "envelope.spindle_to_table_max":
         description = "spindle nose to table at full Z-up"
         instrument = "steel rule or height gauge"
@@ -241,10 +251,48 @@ def measurement_entry(category, identity, field, *, status=None):
         description = "spindle nose to mounted holder exit face"
         instrument = "steel rule or height gauge"
     elif field.startswith("projection."):
-        description = f"holder face to tool tip installed in {parts[-1]}"
+        description = "holder face to mounted tool tip"
     elif field == "bed_height":
-        description = "table to vise bed supporting the parallels or part"
+        description = (
+            "table to vise bed supporting the parallels or part"
+            if kind == "vise"
+            else "table to work-support contact surface"
+        )
         instrument = "height gauge"
+        if made and kind != "vise":
+            description = f"drawing support height; check as made: {description}"
+            instrument = "calipers or height gauge"
+    elif field in {"length", "width", "height"} and category in {"fixtures", "holders", "machines"}:
+        description = {
+            "length": "overall fixture length along its local X axis",
+            "width": "overall fixture width along its local Y axis",
+            "height": "fixture height, bottom bearing face to top contact surface",
+        }[field]
+        if kind in {"parallels", "parallels_set"}:
+            description = {
+                "length": "parallel length along the jaws",
+                "width": "parallel width across the clamp axis",
+                "height": "parallel height between its bottom and top bearing faces",
+            }[field]
+        instrument = "calipers or height gauge" if field == "height" else "steel rule or calipers"
+        if made:
+            description = f"drawing {field}; check as made: {description}"
+    elif field in {"jaw_height", "jaw_width", "jaw_depth", "opening"}:
+        description = {
+            "jaw_height": (
+                "jaw height above its supporting bed" if kind == "vise" else "jaw height"
+            ),
+            "jaw_width": "jaw face width",
+            "jaw_depth": "jaw depth, gripping face to back",
+            "opening": "usable jaw opening",
+        }[field]
+        if kind in {"chuck_3jaw", "chuck_4jaw", "follow_rest"} and field != "opening":
+            jaw_owner = "follow rest" if kind == "follow_rest" else "chuck"
+            description = {
+                "jaw_height": f"{jaw_owner} jaw radial height outward from the gripping surface",
+                "jaw_width": f"{jaw_owner} jaw tangential width",
+                "jaw_depth": f"{jaw_owner} jaw axial depth",
+            }[field]
     elif field == "resolution":
         description = (
             "gauge least readable step"
@@ -259,26 +307,108 @@ def measurement_entry(category, identity, field, *, status=None):
     elif field in {"ra_range", "range_ra"}:
         description = "usable surface-roughness comparison range"
         instrument, units = "roughness standard or comparator", "µm"
-    elif field.startswith("solids."):
-        description = f"fixture solid {field.removeprefix('solids.')} dimensions and origin"
+    elif canonical[0] == "solids":
+        name = ".".join(canonical[1:])
+        solids = item.get("solids")
+        solid = next(
+            (
+                value
+                for value in (solids if isinstance(solids, list) else ())
+                if isinstance(value, dict) and value.get("name") == name
+            ),
+            {},
+        )
+        label = solid.get("label") or name.replace("_", " ").replace("-", " ")
+        shape = solid.get("shape")
+        if shape == "box":
+            description = (
+                f"fixture solid {label} length, width and height, and position from its "
+                "mounting datum"
+            )
+            instrument = "calipers and height gauge"
+        elif shape == "cylinder":
+            description = (
+                f"fixture solid {label} bore diameter, depth and axis position from its "
+                "mounting datum"
+                if solid.get("void") is True
+                else f"fixture solid {label} diameter, axial length and axis position from "
+                "its mounting datum"
+            )
+            instrument = (
+                "bore gauge, depth gauge and height gauge"
+                if solid.get("void") is True
+                else "micrometer or calipers, and height gauge"
+            )
+        else:
+            description = f"fixture solid {label} dimensions and position from its mounting datum"
+            instrument = "calipers and height gauge"
+        if made and solid.get("supply", "made") == "made":
+            description = f"drawing dimensions; check as made: {description}"
     elif field == "flute_len":
-        description = "selected cutter usable flute length"
+        description = (
+            "centre drill usable cutting length"
+            if centre_drill
+            else "selected cutter usable flute length"
+        )
+        instrument = "calipers"
+    elif field == "shank":
+        description = (
+            "centre drill countersink body diameter A (Table 6 A)"
+            if centre_drill
+            else "shank diameter"
+        )
+        instrument = "micrometer or calipers"
+    elif field == "reach":
+        description = "usable cutting reach"
+        instrument = "calipers or optical comparator"
+    elif field == "nose_radius":
+        description = "cutting-edge nose radius"
+        instrument = "radius gauge or optical comparator"
+    elif field == "blade_width":
+        description = "grooving or parting blade front cutting-edge width"
+        instrument = "micrometer or calipers"
+    elif field in {
+        "edge_len",
+        "head_len",
+        "shank_width",
+        "functional_width",
+        "body_width",
+        "body_depth",
+    }:
+        description = {
+            "edge_len": "insert cutting-edge length",
+            "head_len": "tool head length from the nose to the shank",
+            "shank_width": "tool shank width",
+            "functional_width": "nose centre to tool shank back face",
+            "body_width": "holder body width along the spindle axis",
+            "body_depth": "holder body depth in the radial direction",
+        }[field]
+        instrument = "calipers"
     elif field == "gauge_dia":
         description = "mounted holder outside diameter"
+        instrument = "micrometer or calipers"
     elif field == "max_work":
         description = "rotary table supported work-diameter limit"
     elif field == "bore_dia":
         description = "central bore diameter"
-        instrument = "micrometer"
+        instrument = "inside micrometer or bore gauge"
     elif field == "tip":
         description = "edge finder contacting-tip diameter"
         instrument = "micrometer"
     elif field == "point_angle":
-        description = "included drill point angle"
-        instrument, units = "protractor", "degrees"
+        description = "pilot point included angle" if centre_drill else "included drill point angle"
+        instrument, units = "drill point gauge or protractor", "degrees"
     elif field == "dia":
-        description = "selected cutter diameter"
-        instrument = "micrometer"
+        description = (
+            "centre drill pilot diameter D (Table 6 D)"
+            if centre_drill
+            else "jaw bar outside diameter"
+            if category == "fixtures" and kind == "round_bar"
+            else "fixture outside diameter"
+            if category == "fixtures"
+            else "selected cutter diameter"
+        )
+        instrument = "micrometer or calipers" if centre_drill else "micrometer"
     elif field == "oal":
         description = "selected tool overall length"
     elif field == "grip":
@@ -286,63 +416,130 @@ def measurement_entry(category, identity, field, *, status=None):
     elif field == "lead":
         description = "reamer lead length"
     elif field == "pilot_len":
-        description = "centre drill pilot length, countersink start to point tip (Table 6 C)"
+        description = (
+            "centre drill pilot length, countersink start to point tip (Table 6 C)"
+            if centre_drill
+            else "pilot length, shoulder to point tip"
+        )
         instrument = "calipers"
     elif field == "angle_deg":
-        description = "centre drill countersink included angle"
+        description = (
+            "centre drill countersink included angle" if centre_drill else "included angle"
+        )
+        instrument, units = "protractor", "degrees"
+    elif field in {"insert_angle_deg", "entering_angle_deg"}:
+        description = {
+            "insert_angle_deg": "insert included angle",
+            "entering_angle_deg": "installed cutting-edge entering angle",
+        }[field]
         instrument, units = "protractor", "degrees"
     elif field.endswith("_deg"):
         instrument, units = "protractor", "degrees"
-    instruction = f"measure: {identity} {description}, {instrument}, {units}"
+    elif field in {"body_dia", "quill_dia", "tailstock.quill_dia", "spigot_dia"}:
+        description = {
+            "body_dia": "fixture body outside diameter",
+            "quill_dia": "tailstock quill outside diameter",
+            "tailstock.quill_dia": "tailstock quill outside diameter",
+            "spigot_dia": "locating spigot diameter",
+        }[field]
+        instrument = "micrometer or calipers"
+    elif field in {"body_length", "spigot_length", "thickness", "centre_height"}:
+        description = {
+            "body_length": "fixture body axial length",
+            "spigot_length": "locating spigot length from its shoulder",
+            "thickness": "fixture thickness between its bearing faces",
+            "centre_height": "base contact face to spindle or centre axis",
+        }[field]
+        instrument = "height gauge" if field == "centre_height" else "calipers"
+    elif field == "kerf":
+        description = "saw blade cutting width across the tooth set"
+        instrument = "micrometer or calipers"
+    elif field in {"button_dia_limits", "button_bore_limits", "pin_dia_limits"}:
+        description = {
+            "button_dia_limits": "filing button outside-diameter limits",
+            "button_bore_limits": "filing button bore-diameter limits",
+            "pin_dia_limits": "filing button pin-diameter limits",
+        }[field]
+        instrument = "bore gauge" if field == "button_bore_limits" else "micrometer"
+    elif field == "button_runout":
+        description = "filing button outside-diameter runout about its bore"
+        instrument = "dial indicator on a fitted mandrel"
+    elif field == "range" and category == "gauges":
+        description = "gauge usable measuring range"
+        instrument = "calibrated gauge blocks or length standard"
+    elif field == "verify":
+        description = "physical dimensions and condition required by the selected setup"
+        instrument = "appropriate calibrated gauges and visual inspection"
+    display_subject = identity if subject is None else subject
+    instruction = f"measure: {display_subject} {description}, {instrument}, {units}"
     if status in {"assumed", "illustrative"}:
         instruction += f" ({status} value, not physically measured)"
     return {
         "id": identity_field,
+        "category": category,
+        "identity": identity,
+        "field": list(canonical),
         "instruction": instruction,
         "units": units,
         "cite": [f"inventory.{identity_field}"],
     }
 
 
-def _debt_entry(category, identity, field, status, reason, cite):
-    entry = measurement_entry(category, identity, field, status=status)
+def _debt_entry(category, identity, field, status, reason, cite, *, item=None):
+    entry = measurement_entry(category, identity, field, status=status, item=item)
     entry["status"] = status
     entry["reason"] = reason
     entry["cite"] = sorted(set(entry["cite"]) | set(cite))
     return entry
 
 
-def _fact_debt(fact, field, category, identity):
+def _fact_debt(fact, field, category, identity, *, item):
     if fact["verified"]:
         return None
     status = fact["measurement_status"]
     if status == UNKNOWN:
         status = "missing" if fact["value"] == UNKNOWN else "nominal"
-    return _debt_entry(category, identity, field, status, fact["reason"], fact["cite"])
+    return _debt_entry(category, identity, field, status, fact["reason"], fact["cite"], item=item)
 
 
 def length_debt(item, field, category, identity, *, require_measured=False):
     """One refused consumed length, with a stable id and current trust diagnostics."""
     return _fact_debt(
-        length_fact(item, field, require_measured=require_measured), field, category, identity
+        length_fact(item, field, require_measured=require_measured),
+        field,
+        category,
+        identity,
+        item=item,
     )
 
 
 def limits_debt(item, field, category, identity, *, require_measured=False):
     """One refused consumed length-limit pair, never inferred from attribution prose."""
     return _fact_debt(
-        limits_fact(item, field, require_measured=require_measured), field, category, identity
+        limits_fact(item, field, require_measured=require_measured),
+        field,
+        category,
+        identity,
+        item=item,
     )
 
 
-def record_debt(item, category, identity, field, *, require_measured=False):
-    """One refused whole-record fact, such as a named fixture solid."""
+def record_debt(item, category, identity, field, *, require_measured=False, owner=None):
+    """One refused whole-record fact; ``owner`` gives scalar/solid facts display context."""
     trusted, reason = record_trusted(item, require_measured=require_measured)
     if trusted:
         return None
     measured = item.get("measured") if isinstance(item, dict) else None
     status = measured.get("status", "assumed") if isinstance(measured, dict) else "unmeasured"
-    return _debt_entry(category, identity, field, status, reason, _cites(item))
+    return _debt_entry(
+        category,
+        identity,
+        field,
+        status,
+        reason,
+        _cites(item),
+        item=item if owner is None else owner,
+    )
 
 
 def envelope_measurements(item):

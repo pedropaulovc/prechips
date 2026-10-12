@@ -3,6 +3,7 @@
 No examples, frozen shop inputs, native geometry preparation or subprocesses are used.
 """
 
+import re
 from copy import deepcopy
 from pathlib import Path
 
@@ -12,7 +13,31 @@ from test_sheet_ops import Markup, content
 from prechips.findings import Finding
 from prechips.inputs import Bundle
 from prechips.measurements import length_debt, measurement_entry
-from prechips.sheet import _Traveler
+from prechips.rules._envelope import measurement_item
+from prechips.sheet import _Box, _Plain, _Traveler
+
+
+def actions(markup):
+    return {
+        node["attrs"]["data-measurement-id"]: node
+        for node in markup.nodes
+        if "data-measurement-id" in node["attrs"]
+    }
+
+
+def marker_for(sheet, entry):
+    return "?" + sheet.measurement_registry()[entry["id"]][0]
+
+
+def full_action(sheet, entry):
+    return measurement_entry(
+        entry["category"],
+        entry["identity"],
+        tuple(entry["field"]),
+        item=measurement_item(sheet.bundle, entry["category"], entry["identity"]),
+        subject=sheet.measurement_subject(entry),
+    )["instruction"]
+
 
 FRAME = {
     "origin": [0.0, 0.0, 0.0],
@@ -143,9 +168,13 @@ def test_tools_marks_only_the_refused_dimension_with_its_record_and_action(
             tool, consumed, "tools", "cutter", require_measured=field == "projection"
         )
         assert label in content(marked[0])
-        assert entry["id"] in content(marked[0])
-        assert entry["instruction"] in content(marked[0])
-        assert "Not verified" in content(marked[0])
+        assert marker_for(sheet, entry) in content(marked[0])
+        assert entry["id"] not in content(marked[0])
+        assert "measure:" not in content(marked[0])
+        summary = Markup(sheet.setup_status_boxes([], [], []))
+        assert full_action(sheet, entry) in content(actions(summary)[entry["id"]])
+        assert content(marked[0]) == f"{label} {marker_for(sheet, entry)}"
+        assert content(summary.find("stop")[0]).count("?M# marks an unverified input") == 1
         assert "HSS" not in content(marked[0])
         if field != "dia":
             assert "Ø6.350" not in content(marked[0])
@@ -159,9 +188,12 @@ def test_tools_retains_unrelated_bare_nominals_but_marks_unmeasured_installed_pr
     tool.update({"verify": True, "projection_mm": {"collet": 28.0}, "flute_len_mm": 20.0})
     setup = bundle.plan["setups"][0]
     setup["ops"][0]["holder"] = "collet"
-    _, _, html = _Traveler(bundle, [], {}, None).tool_table(setup)
+    sheet = _Traveler(bundle, [], {}, None)
+    _, _, html = sheet.tool_table(setup)
     (marked,) = Markup(html).find("unverified")
-    assert "tools.cutter.projection.collet" in content(marked)
+    assert marker_for(
+        sheet, length_debt(tool, ("projection", "collet"), "tools", "cutter", require_measured=True)
+    ) in content(marked)
     assert "projection 28.000" in content(marked)
     assert "Ø6.350" not in content(marked) and "flute 20.000" not in content(marked)
 
@@ -174,7 +206,7 @@ def test_parting_blade_name_never_repeats_a_refused_width_as_a_certain_size():
     markup = Markup(html)
     (marked,) = markup.find("unverified")
     assert "blade width 1.600" in content(marked)
-    assert "tools.cutter.blade_width" in content(marked)
+    assert "?M1" in content(marked) and "tools.cutter.blade_width" not in content(marked)
     assert "1.6 mm parting blade" not in content(
         next(n for n in markup.nodes if n["tag"] == "table")
     )
@@ -288,29 +320,44 @@ def test_setup_stop_summary_covers_contour_cutter_and_depth_debt_once_per_consum
     original = deepcopy([f.to_dict() for f in findings])
     sheet = _Traveler(bundle, findings, {}, None)
     pages = sheet.setup_section(bundle.plan["setups"][0])
-    front = Markup("".join(pages[0]))
-    summary = content(front.find("stop")[0])
-    assert summary.count(cutter["id"]) == 1
-    assert "Ops 10, 20" in summary and "T1" in summary and "Test cutter" in summary
-    assert cutter["instruction"] in summary
-    assert "assumed value, not physically measured" in summary
-    assert summary.count(lead["id"]) == 1
-    assert "Op 40" in summary and "T3" in summary and "Test reamer" in summary
-    assert lead["instruction"] in summary
-    assert "tools.drill.point_angle" in summary and "T2" in summary and "Test drill" in summary
-    assert "included drill point angle, protractor, degrees" in summary
-    assert "fixtures.unused.length" not in summary
-    assert "tools.other" not in summary
-    operation_rows = {node["attrs"]["data-op"]: node for node in front.find("operation")}
-    drill = content(operation_rows["30"])
-    reamer = content(operation_rows["40"])
-    assert "drill point length unknown" in drill and "tools.drill.point_angle" in drill
-    assert lead["id"] not in drill
-    assert "reamer chamfer / lead length unknown" in reamer and lead["id"] in reamer
+    markup = Markup("".join(block for page in pages for block in page))
+    summary = markup.find("stop")[0]
+    entries = actions(markup)
+    assert set(entries) == {
+        cutter["id"],
+        lead["id"],
+        "tools.drill.point_angle",
+    }
+    for _, entry in sheet.measurement_registry().values():
+        instruction = full_action(sheet, entry)
+        assert content(summary).count(instruction) == 1
+        assert sum(content(node).count("measure:") for node in entries.values()) == len(entries)
+        assert content(entries[entry["id"]]).count("Record measured value here [____]") == 1
+        assert entry["id"] not in content(summary)
+    assert "Ops 10, 20" in content(summary) and "T1" in content(summary)
+    assert "Test cutter" in content(summary)
+    assert content(summary).count("?M# marks an unverified input") == 1
+    assert "assumed value, not physically measured" not in content(summary)
+    assert "synthetic example, not a physical shop measurement" not in content(summary)
+    assert "by:" not in content(summary)
+    assert "T3" in content(summary) and "Test reamer" in content(summary)
+    assert "T2" in content(summary) and "Test drill" in content(summary)
+    point_action = content(entries["tools.drill.point_angle"])
+    assert "included drill point angle, drill point gauge or protractor, degrees" in point_action
+    rows = {node["attrs"]["data-op"]: node for node in markup.find("operation")}
+    drill, reamer = content(rows["30"]), content(rows["40"])
+    point = sheet.measurement_registry()["tools.drill.point_angle"][0]
+    assert "drill point length unknown" in drill and f"?{point}" in drill
+    assert marker_for(sheet, lead) not in drill
+    assert "reamer chamfer / lead length unknown" in reamer and marker_for(sheet, lead) in reamer
     assert "drill point length unknown" not in reamer
-    attached = "".join(block for page in pages[1:] for block in page)
-    contour_stops = [content(node) for node in Markup(attached).find("stop")]
-    assert contour_stops and all(cutter["id"] in stop for stop in contour_stops)
+    assert "return this traveler for reissue" in content(summary)
+    assert "Measurements do not clear planned speeds, depths, contours or clearance" in content(
+        summary
+    )
+    defined = {node["attrs"]["data-measurement-label"] for node in entries.values()}
+    references = {node["attrs"]["data-measurement-ref"] for node in markup.find("measurement-ref")}
+    assert references == defined
     assert [f.to_dict() for f in findings] == original
 
 
@@ -323,7 +370,8 @@ def test_depth_stop_still_routes_when_speed_feed_is_already_known():
     pages = sheet.setup_section(setup)
     summary = content(Markup("".join(pages[0])).find("stop")[0])
     assert "Op 40" in summary and "T1" in summary and "Test reamer" in summary
-    assert lead["id"] in summary and lead["instruction"] in summary
+    assert lead["id"] in actions(Markup("".join(pages[0])))
+    assert full_action(sheet, lead) in summary
     assert "no starting speed / feed" not in summary
 
 
@@ -341,61 +389,62 @@ def test_each_speed_or_contour_stop_independently_names_its_consumed_field_and_a
     sheet = _Traveler(bundle, findings, {}, None)
     pages = sheet.setup_section(setup)
     summary = content(Markup("".join(pages[0])).find("stop")[0])
-    assert cutter["id"] in summary and cutter["instruction"] in summary
+    assert cutter["id"] in actions(Markup("".join(pages[0])))
+    assert full_action(sheet, cutter) in summary
     assert "T1" in summary and "Test cutter" in summary
-    assert "assumed value, not physically measured" in summary
-    assert summary.count(cutter["id"]) == 1
+    assert summary.count("?M# marks an unverified input") == 1
+    assert "assumed value, not physically measured" not in summary
+    assert summary.count(full_action(sheet, cutter)) == 1
     assert "fixtures.unused" not in summary
 
 
-def test_clearance_names_exact_headroom_debt_and_groups_repeated_actions_without_new_inputs():
+def test_clearance_uses_compact_fact_references_and_full_kind_aware_actions_only_in_summary():
     bundle = data()
+    setup = bundle.plan["setups"][0]
+    setup["hold"] = {"fixture": "riser"}
+    setup["ops"][0]["holder"] = "collet"
+    bundle.inventory["fixtures"] = {
+        "riser": {
+            "kind": "custom",
+            "name": "Test riser",
+            "bed_height_mm": fact(18.5, "assumed"),
+            "length_mm": fact(120.0, "assumed"),
+        }
+    }
+    tool = bundle.inventory["tools"]["cutter"]
+    tool["oal_mm"] = fact(60.0, "assumed")
+    tool["projection_mm"] = {"collet": fact(28.0, "assumed")}
+    bundle.inventory["holders"]["collet"]["gauge_len_mm"] = fact(30.0, "assumed")
     entries = [
-        length_debt({field + "_mm": fact(value, "assumed")}, field, category, key)
-        for category, key, field, value in (
-            ("fixtures", "riser", "bed_height", 18.5),
-            ("fixtures", "riser", "length", 120.0),
-            ("holders", "collet", "gauge_len", 30.0),
-            ("tools", "cutter", "oal", 60.0),
-            ("tools", "other", "oal", 50.0),
+        length_debt(bundle.inventory[category][key], field, category, key)
+        for category, key, field in (
+            ("fixtures", "riser", "bed_height"),
+            ("fixtures", "riser", "length"),
+            ("holders", "collet", "gauge_len"),
+            ("tools", "cutter", "oal"),
+            ("tools", "cutter", ("projection", "collet")),
         )
     ]
-    projection = length_debt(
-        {"projection_mm": {"collet": fact(28.0, "assumed")}},
-        ("projection", "collet"),
-        "tools",
-        "cutter",
-    )
-    limit = measurement_entry("machines", "mill", "envelope.spindle_to_table_max", status="assumed")
-    entries += [projection, limit, entries[0]]
     numbers = {
         "bed_height_mm": "unknown",
-        "fixture_height_mm": 18.5,
         "sum_mm": "unknown",
-        "spindle_to_table_max_mm": 400.0,
-        "stacks": [{"op": 10, "tool": "cutter", "sum_mm": "unknown", "margin_mm": "unknown"}],
-        "measurements": entries,
+        "stacks": [{"op": 10, "tool": "cutter", "margin_mm": "unknown"}],
+        "measurements": [*entries, entries[0]],
     }
     sheet = _Traveler(bundle, [finding("headroom", "S1", numbers)], {}, None)
-    setup = bundle.plan["setups"][0]
     before = deepcopy(numbers)
-    html = sheet.clearance(setup, sheet.tool_table(setup)[0])
-    text = content(next(n for n in Markup(html).nodes if n["tag"] == "div"))
-    assert "holding height not known" not in text
-    for entry in {e["id"]: e for e in entries}.values():
-        assert text.count(entry["id"]) == 1
-    assert (
-        "measure: riser table to vise bed supporting the parallels or part, height gauge, mm"
-        in text
-    )
-    assert (
-        "measure: collet spindle nose to mounted holder exit face, steel rule or height gauge, mm"
-        in text
-    )
-    assert "measure: cutter, other selected tool overall length, steel rule or calipers, mm" in text
-    assert projection["instruction"] in text and limit["instruction"] in text
+    tool_numbers, _, _ = sheet.tool_table(setup)
+    text = "".join(node for node in Markup(sheet.clearance(setup, tool_numbers)).nodes[0]["text"])
+    assert "measure:" not in text
     assert "Authored fixture coordinates are setup settings, not verified clearance" in text
-    assert "fixtures.unused" not in text
+    for entry in entries:
+        assert marker_for(sheet, entry) in text and entry["id"] not in text
+    summary = Markup(sheet.setup_status_boxes([], [], []))
+    for entry in entries:
+        assert content(summary.find("stop")[0]).count(full_action(sheet, entry)) == 1
+    riser = content(actions(summary)[entries[0]["id"]])
+    assert "Test riser" in riser and "work-support contact surface" in riser
+    assert "vise" not in riser and "parallels" not in riser and "jaws" not in riser
     assert numbers == before
 
 
@@ -423,7 +472,7 @@ def test_dro_header_has_one_inline_hedge_no_orphan_mark_and_preserves_other_roun
         if node["tag"] == "p" and content(node).startswith("DRO resolution:")
     ]
     assert "0.005 mm" in resolution and "grid not verified" in resolution
-    assert "confirm installed readout step before use" in resolution
+    assert "test installed readout step" in resolution and "see setup STOPs" in resolution
     assert "assumed" not in resolution
     assert resolution.count("not verified") == 1
     assert "†" not in resolution
@@ -459,9 +508,11 @@ def test_a_grid_rounded_depth_stop_names_only_the_consumed_resolution_debt():
     pages = sheet.setup_section(bundle.plan["setups"][0])
     front = Markup("".join(pages[0]))
     summary = content(front.find("stop")[0])
-    assert "machines.mill.resolution" in summary and "T1" in summary and "Test cutter" in summary
+    assert "machines.mill.resolution" in actions(front)
+    assert "test" in summary and "T1" not in content(actions(front)["machines.mill.resolution"])
     assert "installed DRO least readable step, installed readout and indicator check, mm" in summary
-    assert "assumed value, not physically measured" in summary
+    assert summary.count("?M# marks an unverified input") == 1
+    assert "assumed value, not physically measured" not in summary
     assert "DRO depth rounded; feature depth band unknown" in summary
     assert "tools.cutter.dia" not in summary
 
@@ -488,11 +539,12 @@ def test_a_refused_tool_nose_offset_stop_names_the_cutter_radius_record_and_acti
     numbers, _, _ = sheet.tool_table(setup)
     html, _, _, stops = sheet.operations(setup, numbers, {"notes": 2, "contours": 3})
     debt = length_debt(bundle.inventory["tools"]["cutter"], "nose_radius", "tools", "cutter")
-    named = [text for text in stops if debt["id"] in text]
+    named = [text for text in stops if "tool-nose offset not computed" in text]
     assert len(named) == 1 and stops[named[0]] == ["10"]
     assert "T1" in named[0] and "Test profiling tool" in named[0]
-    assert debt["instruction"] in named[0]
-    assert debt["id"] in content(Markup(html).find("operation")[0])
+    assert marker_for(sheet, debt) in named[0]
+    assert "measure:" not in named[0]
+    assert marker_for(sheet, debt) in content(Markup(html).find("operation")[0])
 
 
 @pytest.mark.parametrize("resolution", [None, "unknown"])
@@ -538,8 +590,9 @@ def test_tool_identity_does_not_repeat_a_refused_diameter_as_a_certain_size(
     assert sheet.tool_name("cutter") == name
     if untrusted:
         (marked,) = markup.find("unverified")
-        assert "Ø8.000" in content(marked) and "tools.cutter.dia" in content(marked)
-        assert measurement_entry("tools", "cutter", "dia")["instruction"] in content(marked)
+        entry = length_debt(tool, "dia", "tools", "cutter")
+        assert "Ø8.000" in content(marked) and marker_for(sheet, entry) in content(marked)
+        assert "measure:" not in content(marked) and entry["id"] not in content(marked)
     else:
         assert not markup.find("unverified")
 
@@ -571,7 +624,8 @@ def test_refused_member_diameter_keeps_the_authored_catalogue_member_name():
     cells = [node for node in markup.nodes if node["tag"] == "td"]
     assert content(cells[1]) == member
     (marked,) = markup.find("unverified")
-    assert "Ø9.525" in content(marked) and "tools.cutter/3-8in.dia" in content(marked)
+    assert "Ø9.525" in content(marked) and "?M1" in content(marked)
+    assert "tools.cutter/3-8in.dia" not in content(marked)
 
 
 @pytest.mark.parametrize("kind", ["endmill", "drill", "reamer"])
@@ -583,3 +637,241 @@ def test_bare_nominal_tool_diameter_keeps_its_existing_identity_prefix(kind):
     cells = [node for node in markup.nodes if node["tag"] == "td"]
     assert content(cells[1]) == "8 mm Catalogue cutter"
     assert not markup.find("unverified")
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        "STOP: no tool",
+        "STOP: spindle direction not known — the tool's hand is not declared",
+        "STOP: plunge feed not set — cutter is not proven centre-cutting",
+        "STOP: X endpoint diameter not set",
+        "STOP: the follow rest's jaw side or lead is not known",
+        "STOP: START Z 12.000 is not checked clear of the rest",
+        "STOP: PATH ENDS 0.500 INSIDE JAWS (Z 2.000)",
+        "TIP 0.500 BELOW JAW TOP — STOP",
+        "STOP: manual arc not proven",
+        "Bench filing; STOP: filing stock limit not established",
+    ],
+)
+def test_setup_semantic_stop_union_is_the_union_of_actual_operation_rows(monkeypatch, extra):
+    bundle, findings, _, _ = stopped_setup()
+    sheet = _Traveler(bundle, findings, {}, None)
+    monkeypatch.setattr(sheet, "crash_boxes", lambda setup, op: [_Box(extra)])
+    # A full-width plain manual/action clause is also a STOP producer, not just _Box.
+    monkeypatch.setattr(
+        sheet,
+        "rest_steps",
+        lambda setup, op: ([], [_Plain("Pass sequence; STOP: rest return not checked")]),
+    )
+    pages = sheet.setup_section(bundle.plan["setups"][0])
+    markup = Markup("".join(block for page in pages for block in page))
+    summary = markup.find("stop")[0]
+    row_union = set()
+    for row in markup.find("operation"):
+        for node in [*markup.find("box", row), *markup.find("see", row)]:
+            text = content(node)
+            matches = list(re.finditer(r"\bSTOP\b", text))
+            for index, match in enumerate(matches):
+                end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
+                kind = text[match.end() : end].lstrip(": —").strip().rstrip(".; ")
+                if not kind:
+                    kind = text[: match.start()].rstrip(" —:").strip()
+                row_union.add(kind)
+    assert row_union
+    # Summary op lines are independently read off the final markup. No debt-text-only
+    # shortcut can satisfy this, because rpm, feed and endpoint kinds occur alongside M#.
+    summary_union = {
+        re.sub(r"^(?:Ops? [\d, ]+|All ops) — ", "", content(node)).removesuffix(
+            " — return traveler for reissue."
+        )
+        for node in markup.nodes
+        if node["tag"] == "p"
+        and node["parent"] is summary
+        and re.match(r"^(?:Ops? [\d, ]+|All ops) — ", content(node))
+    }
+    assert summary_union == row_union
+    for kind in (
+        "no starting rpm",
+        "no starting feed",
+        "drill point length unknown",
+        "reamer chamfer / lead length unknown",
+        "contour points not computed",
+    ):
+        assert any(kind in line for line in summary_union)
+    assert all("measure:" not in line for line in row_union)
+
+
+def test_consumed_bare_shank_has_one_refused_value_while_unconsumed_nominals_stay_plain():
+    bundle = data(
+        tools={
+            "cutter": {
+                "kind": "endmill",
+                "name": "Catalogue cutter",
+                "dia_mm": 8.0,
+                "shank_mm": 8.0,
+            }
+        }
+    )
+    setup = bundle.plan["setups"][0]
+    shank = length_debt(
+        bundle.inventory["tools"]["cutter"], "shank", "tools", "cutter", require_measured=True
+    )
+    bundle.kernel["measurement_debts"] = {
+        "setups": {},
+        "ops": {
+            "S1:10": [shank],
+            "S2:10": [length_debt({"oal_mm": fact(50.0, "assumed")}, "oal", "tools", "cutter")],
+        },
+    }
+    sheet = _Traveler(bundle, [], {}, None)
+    _, _, html = sheet.tool_table(setup)
+    markup = Markup(html)
+    (marked,) = markup.find("unverified")
+    assert "shank Ø8.000" in content(marked) and marker_for(sheet, shank) in content(marked)
+    assert content(markup.find("tools")[0]).count("shank Ø8.000") == 1
+    assert "tools.cutter.oal" not in sheet.measurement_registry()
+    del bundle.kernel["measurement_debts"]
+    _, _, plain = _Traveler(bundle, [], {}, None).tool_table(setup)
+    assert not Markup(plain).find("unverified")
+    assert "Ø8.000" in content(Markup(plain).find("tools")[0])
+
+
+def test_refused_diameter_does_not_add_a_competing_plain_same_size_shank():
+    bundle = data(
+        tools={
+            "cutter": {
+                "kind": "endmill",
+                "name": "Test cutter",
+                "dia_mm": fact(8.0, "assumed"),
+                "shank_mm": 8.0,
+            }
+        }
+    )
+    _, _, html = _Traveler(bundle, [], {}, None).tool_table(bundle.plan["setups"][0])
+    markup = Markup(html)
+    assert "shank Ø8.000" not in content(markup.find("tools")[0])
+    assert "Ø8.000 ?M1" in content(markup.find("unverified")[0])
+
+
+def test_registry_preserves_dotted_member_and_holder_identities_and_resets_per_setup():
+    bundle = data(
+        tools={
+            "cutters": {
+                "kind": "endmill_set",
+                "members": {
+                    "6.5mm": {
+                        "name": "Metric cutter",
+                        "dia_mm": fact(6.5, "assumed"),
+                        "projection_mm": {"collets/6.5mm": fact(28.0, "assumed")},
+                    }
+                },
+            }
+        }
+    )
+    bundle.inventory["holders"] = {
+        "collets": {"kind": "collet_set", "members": {"6.5mm": {"name": "Metric collet"}}}
+    }
+    first = bundle.plan["setups"][0]
+    first["ops"][0].update(tool="cutters/6.5mm", holder="collets/6.5mm")
+    second = deepcopy(first)
+    second["id"] = "S2"
+    bundle.plan["setups"].append(second)
+    sheet = _Traveler(bundle, [], {}, None)
+    for setup in (first, second):
+        _, _, html = sheet.tool_table(setup)
+        registry = sheet.measurement_registry(setup)
+        projection = registry["tools.cutters/6.5mm.projection.collets/6.5mm"][1]
+        assert projection["identity"] == "cutters/6.5mm"
+        assert projection["field"] == ["projection", "collets/6.5mm"]
+        assert {marker for marker, _ in registry.values()} == {"M1", "M2"}
+        assert "cutters/" not in content(Markup(html).find("tools")[0])
+        assert "collets/" not in content(Markup(html).find("tools")[0])
+    assert sheet._setup_measurements["S1"] is not sheet._setup_measurements["S2"]
+
+
+def test_late_hold_and_dro_measurements_close_in_the_front_stop_box(monkeypatch):
+    bundle = data()
+    sheet = _Traveler(bundle, [], {}, None)
+    entry = length_debt({"height_mm": fact(12.0, "assumed")}, "height", "fixtures", "block")
+    bundle.inventory["fixtures"] = {
+        "block": {"kind": "custom", "name": "Support block", "height_mm": fact(12.0, "assumed")}
+    }
+
+    def hold(setup):
+        return "<p>Support height " + sheet.measurement_marker(entry) + "</p>", ""
+
+    monkeypatch.setattr(sheet, "hold", hold)
+    monkeypatch.setattr(
+        sheet, "dro", lambda setup, tools: "<p>Readout " + sheet.measurement_marker(entry) + "</p>"
+    )
+    pages = sheet.setup_section(bundle.plan["setups"][0])
+    markup = Markup("".join(pages[0]))
+    assert entry["id"] in actions(markup)
+    assert (
+        len(
+            [
+                node
+                for node in markup.nodes
+                if node["attrs"].get("data-measurement-id") == entry["id"]
+            ]
+        )
+        == 1
+    )
+    assert "Support block" in content(actions(markup)[entry["id"]])
+    assert "Make-to-drawing expected settings are not installed measurements" in content(
+        markup.find("stop")[0]
+    )
+    assert all(
+        node["attrs"]["data-measurement-ref"] == "M1" for node in markup.find("measurement-ref")
+    )
+
+
+def test_el400_owns_the_installed_readout_step_action_without_changing_printed_grid():
+    bundle = data()
+    bundle.plan["dro"].update(controller="el400", manual="Electronica EL400 Operation Manual")
+    bundle.inventory["machines"]["mill"]["resolution_mm"] = fact(0.005, "assumed")
+    entry = length_debt(bundle.inventory["machines"]["mill"], "resolution", "machines", "mill")
+    sheet = _Traveler(
+        bundle,
+        [
+            finding(
+                "coordinates",
+                "S1",
+                {"dro_grid": {"step": 0.005, "decimals": 3}, "measurements": [entry]},
+            )
+        ],
+        {},
+        None,
+    )
+    pages = sheet.setup_section(bundle.plan["setups"][0])
+    markup = Markup("".join(pages[0]))
+    action = actions(markup)["machines.mill.resolution"]
+    assert "measure: EL400 installed DRO least readable step" in content(action)
+    header = sheet.dro_resolution(bundle.plan["setups"])
+    assert "0.005 mm" in header and "EL400 installed readout step" in header
+    assert "Setup S1 ?M" in header and "confirm installed readout" not in header
+    assert sheet.surface_z(bundle.plan["setups"][0], 7.497) == 7.5
+    assert sheet.operative(7.5) == "7.500"
+
+
+@pytest.mark.parametrize(
+    ("field", "dimension"),
+    [
+        (("envelope", "swing_over_bed"), "swing over bed"),
+        (("envelope", "between_centres"), "between centres"),
+        (("envelope", "swing_over_cross_slide"), "swing over cross slide"),
+    ],
+)
+def test_compact_dimension_fallback_never_prints_database_field_spelling(field, dimension):
+    bundle = data(ops=[])
+    bundle.inventory["machines"]["mill"].update(kind="lathe", name="Test lathe")
+    sheet = _Traveler(bundle, [], {}, None)
+    entry = measurement_entry("machines", "mill", field, status="assumed")
+    line = " ".join(sheet.measurement_lines([entry]))
+    assert line == f"Test lathe {dimension} ?M1"
+    assert "_".join(field) not in line
+    summary = Markup(sheet.setup_status_boxes([], [], []))
+    assert entry["id"] in actions(summary)
+    assert content(summary.find("stop")[0]).count("?M# marks an unverified input") == 1
+    assert full_action(sheet, entry) in content(actions(summary)[entry["id"]])

@@ -2553,3 +2553,61 @@ def test_original_stock_fixture_caption_moves_with_first_complete_setup_figure(
     assert sum(content(node) == caption for node in printed.nodes if node["tag"] == "p") == 1
     path = Path(url2pathname(urlsplit(asset["path"]).path))
     assert hashlib.sha256(path.read_bytes()).hexdigest() == asset["sha256"]
+
+
+def test_tools_pull_list_rows_and_short_measurement_markers_print_whole(printed_sheet):
+    from test_sheet_measurement_debt import data, fact
+
+    tools = {
+        f"cutter-{index}": {
+            "kind": "endmill",
+            "name": f"Pull-list cutter {index}",
+            "dia_mm": fact(6.35, "assumed"),
+            "shank_mm": fact(8.0, "assumed"),
+            "flute_len_mm": fact(20.0, "assumed"),
+            "oal_mm": fact(60.0, "assumed"),
+        }
+        for index in range(1, 19)
+    }
+    ops = [
+        {"op": index * 10, "do": "face", "feature": "deck", "tool": f"cutter-{index}", "to_z": 8.0}
+        for index in range(1, 19)
+    ]
+    bundle = data(ops, tools)
+    sheet = _Traveler(bundle, [], {}, None)
+    _, _, source = sheet.tool_table(bundle.plan["setups"][0])
+    original = Markup(source)
+    expected = [content(node) for node in original.nodes if node["tag"] == "tbody"]
+    printed, details = printed_sheet(
+        '<p>Original work before the pull list.</p><div style="height:550px"></div>' + source,
+        r"""pageOf => ({
+          pages: Number(document.querySelector('section.page').dataset.pages),
+          rows: [...document.querySelectorAll('table.tools tbody')].map(body => {
+            const row = body.rows[0], rect = row.getBoundingClientRect();
+            const tops = [document.querySelector('section.page').getBoundingClientRect().top,
+              ...[...document.querySelectorAll('.cont-head')]
+                .map(head => head.getBoundingClientRect().top)];
+            const endPage = tops.findLastIndex(top => top < rect.bottom-.01);
+            return {
+              page: pageOf(row), endPage,
+              fragments: body.hasAttribute('data-duplex-fragment'),
+              text: body.textContent
+            };
+          }),
+          markers: [...document.querySelectorAll('table.tools .measurement-ref')].map(mark => ({
+            text: mark.textContent, lines: mark.getClientRects().length,
+            whiteSpace: getComputedStyle(mark).whiteSpace
+          }))
+        })""",
+    )
+    assert details["pages"] > 1
+    assert len(details["rows"]) == len(expected)
+    assert [row["text"] for row in details["rows"]] == expected
+    assert all(row["page"] == row["endPage"] and not row["fragments"] for row in details["rows"])
+    assert all(mark["lines"] == 1 and mark["whiteSpace"] == "nowrap" for mark in details["markers"])
+    assert [content(node) for node in printed.find("measurement-ref")] == [
+        content(node) for node in original.find("measurement-ref")
+    ]
+    assert "PRINT LAYOUT ERROR" not in "".join(
+        content(node) for node in printed.nodes if node["tag"] == "section"
+    )

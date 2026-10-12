@@ -380,13 +380,17 @@ Other holding solids come from the same accepted-fact rule, never defaults:
   parallel cylinders and axis-aligned cylinders against boxes; a primitive an
   oblique void may cross is not set ("? not set: oblique hole … may cross it;
   name it in cuts") until `cuts` names it. A void that cuts only bought
-  hardware is not listed. A primitive whose own `verify`/`measured` leaves it
-  untrusted, or that an untrusted void cuts, prints "? not set: … verify before
-  making" instead of a size and position, as the setup render leaves it out.
-  A row whose primitive or hole carries an example measurement (`measured.by`
-  starting `example`) is marked `†` after its component name; the job page then
-  prints the one legend for the mark (`† example fixture dimensions (plausible,
-  not measured): confirm before making`) instead of a sentence on every table.
+  hardware is not listed. Made primitives' dimensions and positions are
+  expected make-to-drawing settings, not observations of the installed fixture;
+  unresolved authored dimensions still print "? not set". Bought or existing
+  primitives whose own physical provenance is refused retain that refusal,
+  independently of the drawing targets for holes made here. Native geometry
+  remains unresolved until its required physical inputs are established.
+  A row whose primitive or hole has a measurement record with a status other
+  than `measured` is marked `†` after its component name; attribution prose is
+  never read for that decision. The job page prints one legend:
+  `† Make-to-drawing expected settings; check the physical fixture as made
+  before use. These settings do not clear installed-measurement STOPs.`
   Per-primitive `supply` is `made` (default), `bought` (hardware: one "Bought
   hardware (not made)" line under the table, named by its `fastener` or its
   name and size; primitives with one `fastener` text that touch or overlap,
@@ -651,18 +655,28 @@ for the separate jaw-obstruction check, never a stack layer. Parallels and
 support blocks carry their own heights. `point_angle` accepts the same
 `{ value, measured, verify }` record in degrees.
 
-The traveler's TOOLS table marks each displayed refused dimension in the
-dashed **Not verified** style, retaining its authored value beside the exact
-inventory field and measurement action. Trusted nominal or measured siblings
-stay plain; attribution prose does not qualify a dimension. Setup STOP
-summaries group affected operations by the consumed input, naming the T-number,
-tool record and concrete action for speed/feed, contour and depth debt. Drill
-point geometry and reamer chamfer/lead length are separate facts.
+The traveler's TOOLS table marks each displayed refused dimension individually,
+retaining its authored value with a short **? M1**-style reference to that
+setup's STOP box. Trusted nominal or measured siblings stay plain; attribution
+prose does not qualify a dimension. Each setup prints the full measurement
+instruction once per consumed input, naming the T-number or record's shop name,
+the dimension and the instrument. Every operation's STOP kind remains in the
+summary, including no starting speed/feed, unknown contours and unset depths.
+Drill point geometry and reamer chamfer/lead length are separate facts.
+Record the measured value in the box and return the traveler for re-issue:
+measuring alone does not compute a missing contour, depth, speed or feed.
+The rest of the setup uses the same short references, not repeated instructions;
+TOOLS rows stay together in print.
 
 CLEARANCE lists only the unresolved inputs its headroom finding consumed
 (for example riser dimensions, holder gauge length, installed projection and
-machine envelope limits), with their measurement actions. Authored fixture
-coordinates remain setup settings, not clearance certification. A declared
+machine envelope limits), with references to their setup measurement items.
+Fixture instructions follow the actual fixture kind: a riser has no vise bed,
+parallels or jaw height to measure. Make-to-drawing fixture dimensions print as
+authored targets, distinct from measuring the installed fixture after making;
+that presentation does not certify its physical dimensions or clearance.
+Authored fixture coordinates remain setup settings, not clearance certification.
+A declared
 positive DRO step still rounds printed instructions even when its grid is
 labelled **not verified**; an absent step uses the disclosed provisional
 default. **No coordinate targets** describes a coordinates nonconsumer, not
@@ -685,12 +699,18 @@ the plan path. When multiple effective inventories apply, inventory ids and
 instructions are qualified by their source path so equal item names cannot
 merge unrelated facts; plans sharing an inventory still share its measurement
 debt. Every other `tools` display still requires `--inventory` or
-`PRECHIPS_INVENTORY`. JSON emits the same entries with ids,
-instructions, units and citations: lengths use mm, point angles use degrees,
-and add/resolve instructions use identity units. Normal `tools` prints the envelope and
-marks each limit measured or unmeasured. Applicable M5 `?` sheet sentences also
-state what to measure and how; unresolved tools, holders, fixtures and supports
-are told to add or resolve an owned identity, not to measure an item the shop
+`PRECHIPS_INVENTORY`. JSON emits the same entries with ids, instructions,
+units, citations and structured category, identity and field parts, so a
+set-member name containing a decimal point is never split to infer its field.
+Lengths use mm, point angles use degrees, and add/resolve instructions use
+identity units. Instructions use the actual record kind: a centre drill's
+`dia` is its pilot diameter and its `shank` is the countersink body diameter;
+measure either diameter with a micrometer or calipers. Measure usable machine
+travel with a calibrated readout or indicator, not a steel rule.
+Normal `tools` prints the envelope and marks each limit measured or unmeasured.
+Applicable M5 `?` sheet sentences refer to the setup's measurement item;
+unresolved tools, holders, fixtures and supports are told to add or resolve an
+owned identity, not to measure an item the shop
 does not own.
 
 This evaluates the actual applicable rules and may need native in-process

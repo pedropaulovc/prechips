@@ -90,7 +90,9 @@ def _limit(machine, identity, field, debts, cite):
     cite.extend(result["cite"])
     cite.append(f"inventory.machines.{identity}.{field}")
     if not result["verified"]:
-        entry = measurement_entry("machines", identity, field, status=result["measurement_status"])
+        entry = measurement_entry(
+            "machines", identity, field, status=result["measurement_status"], item=machine
+        )
         debts[entry["id"]] = entry
     return result
 
@@ -336,15 +338,18 @@ def evaluate(bundle):
         top = state.get("top_z", _UNKNOWN)
         stock_height = top - bottom if _numeric(top) and _numeric(bottom) else _UNKNOWN
         head = fixture.get("kind") == "dividing_head"
+        jaw_fixture = fixture.get("kind") in {"vise", "chuck_3jaw", "chuck_4jaw"}
         bed = (
             _UNKNOWN
             if head
             else _length(bundle, fixture, "bed_height", "workholding", fixture_ref, consumed)
         )
         jaw = (
-            length_mm(fixture, "jaw_height")
+            _length(bundle, fixture, "jaw_height", "workholding", fixture_ref, consumed)
+            if jaw_fixture
+            else length_mm(fixture, "jaw_height")
             if head
-            else _length(bundle, fixture, "jaw_height", "workholding", fixture_ref, consumed)
+            else "not_applicable"
         )
         spindle = _limit(machine, machine_ref, "envelope.spindle_to_table_max", debts, cite)
         numbers = {
@@ -463,7 +468,7 @@ def evaluate(bundle):
         # The vise jaw rises from the supported stock bottom; a head's chuck jaws do not.
         jaw_top_z = (
             "not_applicable"
-            if head
+            if head or not jaw_fixture
             else bottom + jaw - support_stack
             if all(_numeric(v) for v in (bottom, jaw, support_stack))
             else _UNKNOWN
@@ -472,7 +477,7 @@ def evaluate(bundle):
             top - jaw_top_z
             if _numeric(top) and _numeric(jaw_top_z)
             else "not_applicable"
-            if head
+            if head or not jaw_fixture
             else _UNKNOWN
         )
         faces = None if head else _jaw_faces(bundle, setup)

@@ -128,22 +128,41 @@ def test_traveler_marks_unmeasured_values_by_status_not_attribution(status):
 
 
 @pytest.mark.parametrize("status", ["measured", "assumed", "illustrative", None])
-def test_traveler_withholds_and_names_unmeasured_fixture_dimensions(status):
+def test_traveler_prints_make_targets_without_promoting_as_made_fixture_certainty(status):
     from test_sheet_fixture import IDENTITY, sheets
     from test_sheet_fixture import bundle as fixture_bundle
 
+    from prechips.measurements import record_debt
+
     data = fixture_bundle([{"fixture": "plate", "pose": IDENTITY}])
-    solid = data.inventory["fixtures"]["plate"]["solids"][0]
+    fixture = data.inventory["fixtures"]["plate"]
+    solid = fixture["solids"][0]
     solid["measured"] = fact(10, status)["measured"]
+    expected_trust = status == "measured"
+    assert record_trusted(solid, require_measured=True)[0] is expected_trust
+    debt = record_debt(
+        solid, "fixtures", "plate", ("solids", "pad"), require_measured=True, owner=fixture
+    )
+    if debt:
+        data.kernel["measurement_debts"] = {"setups": {"S1": [debt]}, "ops": {}}
     page = sheets(data)[0]
-    if status == "measured":
+    # Authored drawing targets are usable settings, not proof of the installed/as-made part.
+    assert "Make-to-drawing expected dimensions and positions" in page.text
+    assert "X 0…10, Y 0…20, Z 0…5" in page.text
+    if expected_trust:
         assert "pad †" not in page.text
-        assert "X 0…10, Y 0…20, Z 0…5" in page.text
+        assert debt is None
     else:
         assert "pad †" in page.text
-        assert (status or "assumed") in page.text
-        assert "not physically measured" in page.text
-        assert "X 0…10, Y 0…20, Z 0…5" not in page.text
+        assert "STOP — do not run this setup" in page.text
+        assert "Record measured value here [____]" in page.text
+        assert "return this traveler for reissue" in page.text
+        assert debt["id"] in {
+            node["attrs"].get("data-measurement-id") for node in page.markup.nodes
+        }
+        assert debt["status"] == (status or "assumed")
+    assert record_trusted(solid, require_measured=True)[0] is expected_trust
+    assert solid["measured"] == fact(10, status)["measured"]
 
 
 @pytest.mark.parametrize("status", ["measured", "assumed", "illustrative", None])

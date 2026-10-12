@@ -136,10 +136,14 @@ def test_underivable_earlier_cut_leaves_later_flute_unknown_with_its_finished_hi
     # Finished-material observations do not certify a flute collision under unknown stock.
     assert stopped["min_hits"]["tool"] == "unknown"
     assert stopped["holder_hits"] == finish["holder_hits"]
-    # Known before-stock cannot certify the stopping rough's unresolved own removal.
+    # The stopping rough's cutter stands at the west wall, outside its rejected EAST
+    # box. Those before-stock hits cannot be its own removal and remain certain.
     rough = unknown["ops"]["S1:10"]
-    assert rough["tool_hits"] == rough["min_hits"]["tool"] == "unknown", rough
+    assert rough["tool_hits"] == rough["min_hits"]["tool"] > 0, rough
     assert rough["obstacles"]["tool"] == ["part"], rough
+    assert "its own cut stopped the stock builder" not in rough.get("reasons", {}).get(
+        "tool_hits", ""
+    )
     assert rough["min_hits"]["holder"] == rough["holder_hits"]
     assert "S1:10" in unknown["setups"]["S2"]["stock_reason"]
 

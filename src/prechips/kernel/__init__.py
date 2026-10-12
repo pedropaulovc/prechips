@@ -112,10 +112,18 @@ def _length_debt(item, field, require_measured):
         entry = length_debt(item, field, category, key, require_measured=require_measured)
         if entry is not None:
             if prefix:
-                entry["id"] = f"{category}.{key}.{prefix}{field}"
-                entry["cite"] = [f"inventory.{entry['id']}", *entry["cite"]]
-                entry["instruction"] = entry["instruction"].replace(
-                    f"record {field}", f"record {prefix}{field}"
+                canonical = (
+                    *prefix.rstrip(".").split("."),
+                    *entry["field"],
+                )
+                display = measurement_entry(
+                    category, key, canonical, status=entry["status"], item=item
+                )
+                entry.update(
+                    id=display["id"],
+                    field=display["field"],
+                    instruction=display["instruction"],
+                    cite=[*display["cite"], *entry["cite"]],
                 )
             state["debts"][entry["id"]] = entry
 
@@ -125,9 +133,12 @@ def _record_debt(item, value, field, fact=None):
     if state is None or id(item) not in state["items"]:
         return None
     _, category, key, prefix = state["items"][id(item)]
-    entry = record_debt(value, category, key, prefix + field, require_measured=False)
+    parts = field if isinstance(field, tuple) else tuple(field.split("."))
+    if prefix:
+        parts = (*prefix.rstrip(".").split("."), *parts)
+    entry = record_debt(value, category, key, parts, require_measured=False, owner=item)
     if entry is None and fact is not None and not fact["verified"]:
-        entry = measurement_entry(category, key, prefix + field)
+        entry = measurement_entry(category, key, parts, item=item)
         entry.update(
             status="missing" if fact["value"] == UNKNOWN else fact["measurement_status"],
             reason=fact["reason"],
@@ -142,7 +153,7 @@ def _host_only_debt(item, field):
     state = _INPUT_DEBTS.get()
     if state is not None and id(item) in state["items"]:
         _, category, key, prefix = state["items"][id(item)]
-        state["host_only"].add(measurement_entry(category, key, prefix + field)["id"])
+        state["host_only"].add(measurement_entry(category, key, prefix + field, item=item)["id"])
 
 
 def _projection(bundle, op):
@@ -885,7 +896,7 @@ def _solids(item, owner):
         cuts = cuts if isinstance(cuts, list) and cuts else None
         trusted, _ = record_trusted(solid, require_measured=False)
         if not trusted:
-            entry = _record_debt(item, solid, f"solids.{name}")
+            entry = _record_debt(item, solid, ("solids", name))
             debts.append(entry["id"] if entry is not None else f"{label}: untrusted solid")
             if void:
                 bad_voids.append((name, cuts))

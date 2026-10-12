@@ -258,6 +258,9 @@ def test_shared_setup_and_operation_ids_keep_each_plans_authoring_debt(tmp_path)
     assert instructions[0] != instructions[1]
     assert sum(entry["id"] == SPINDLE_MIN for entry in entries) == 1
     assert by_id[SPINDLE_MIN]["units"] == "mm"
+    assert by_id[SPINDLE_MIN]["category"] == "machines"
+    assert by_id[SPINDLE_MIN]["identity"] == "PM-30MV"
+    assert by_id[SPINDLE_MIN]["field"] == ["envelope", "spindle_to_table_min"]
     assert by_id[SPINDLE_MIN]["cite"] == [f"inventory.{SPINDLE_MIN}"]
     assert not by_id[SPINDLE_MIN]["instruction"].startswith(f"{inventory.as_posix()}: ")
     reversed_result = run_cli(*common, "--plan", second, "--plan", first, setup=SYNTHETIC_KERNEL)

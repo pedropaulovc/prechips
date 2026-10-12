@@ -699,7 +699,9 @@ def cut_order(machine, op, *, machine_ref=None):
         return sense, {"cut_order": direction, "spindle_rotation": rotation}
     order = {"cut_order": UNKNOWN, "cut_order_reason": reason}
     if direction in _CUT_SENSE and not trusted and machine_ref is not None:
-        debt = record_debt(rotation_record, "machines", machine_ref, "spindle.rotation")
+        debt = record_debt(
+            rotation_record, "machines", machine_ref, "spindle.rotation", owner=machine
+        )
         if debt:
             order["measurements"] = [debt]
     return None, order

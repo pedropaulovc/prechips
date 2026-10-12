@@ -24,7 +24,8 @@ operative catalogue changes the bound report and invalidates prior approvals;
 reports from earlier catalogues, including `m5-rev10` and `m5-rev11`, must be regenerated and
 reapproved.
 A finding's `numbers.measurements` lists the exact fact ids (set member or
-tool/holder pair included) whose measurement would resolve it; `tools --measure`
+tool/holder pair included) whose measurement would resolve it, together with
+structured category, identity and canonical field parts. `tools --measure`
 is the sorted, deduplicated union of those lists over the current plans.
 
 Canonical bytes are UTF-8 JSON, sorted keys, two-space indentation,
@@ -350,11 +351,12 @@ different plan or drawing (both: the first part made is the first article), or
 one recorded for this plan while it still has open items, which approval cannot
 waive — and each `Before S1:` stock prerequisite, such as `obtain the stock —
 not on hand`), the drawing material and finish, a one-line speeds/feeds source,
-the legend `† assumed/illustrative fixture dimensions: not measured; confirm
-before making` when a SHOP-MADE FIXTURE row carries the mark (a dimension or
-primitive whose own `measured.status` is not `measured`), the DRO manual
+the legend `† Make-to-drawing expected settings; check the physical fixture as
+made before use. These settings do not clear installed-measurement STOPs.` when
+a SHOP-MADE FIXTURE row carries the mark (a dimension or primitive whose own
+measurement record's status is not `measured`), the DRO manual
 named once, the `DRO resolution:` of each routed machine (its inventory
-`resolution`, marked with its `measured.status` when that is not `measured`,
+`resolution`, linked to its setup measurement item when not verified,
 or the default grid said as such; a lathe adds whether X reads
 diameter or radius), **STOCK AND ROUTE** (stock size at the DRO resolution of
 the setup that receives that stock, supply notes and a setup → machine → holding
@@ -529,11 +531,19 @@ remains pending. Intermediate CLI/PDF observations are recorded in
 
 Setup overview/operations section, in this order:
 
-1. Title and status boxes. *STOP — do not run until resolved* lists one plain
-   line per real problem with the ops it applies to (`Op 20 — tool or holder
-   hits the part or the holding`); repeats are collapsed. *Not verified by the
-   planner — confirm at the machine* names the unproved topics with their ops.
-   Errors never print as `?`; unknowns never read as passes.
+1. Title and status boxes. *STOP — do not run until resolved* includes the
+   union of every STOP kind carried by the setup's operations, with the affected
+   ops and clearing action; measurement-backed speed/feed, contour and depth
+   stops are not replaced or hidden by their measurement references.
+   Each consumed untrusted input has one numbered `M1`-style item in that box,
+   with the tool/record's shop name, dimension, instrument and writing space.
+   The full instruction appears there once; TOOLS cells, operation rows and
+   CLEARANCE use short `? M1` references to the same item. TOOLS rows do not
+   split across pages. The box directs the machinist to record the measured
+   value and return the traveler for re-issue; a missing computed contour,
+   depth, speed or feed cannot be cleared by measuring at the machine.
+   Planner-unresolved topics remain named with their ops. Errors never print
+   as `?`; unknowns never read as passes.
    Pre-clamping acquisition requires explicit `measure_before_hold = true`
    and an authored `measure`. The original HOLD step gets a 35 × 10 mm clear
    writing field and the zero row refers back to it; there is no separate
