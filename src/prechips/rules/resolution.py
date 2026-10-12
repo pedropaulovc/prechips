@@ -629,6 +629,22 @@ def resolve(bundle_or_inventory, slot, reference):
     return item
 
 
+def _member_nominal(item, field, value):
+    """Infer a member size only when it cannot replace that fact's refused record."""
+    from prechips.measurements import length_keys, record_trusted
+
+    stem = field.removesuffix("_mm").removesuffix("_in")
+    keys = length_keys(item, stem, item.get("units"), bare=True)
+    if any(
+        isinstance(item[key], dict)
+        and ("value" in item[key] or "measured" in item[key])
+        and not record_trusted(item[key], require_measured=False)[0]
+        for key in keys
+    ):
+        return
+    item[field] = value
+
+
 def _item(entry, separator, member):
     """A listed entry as :func:`select` returns it: the record, merged with its member's (a
     member listed ``{}`` is its set's)."""
@@ -652,25 +668,24 @@ def _item(entry, separator, member):
         choices = inch_sizes(item.get("sizes_in", item.get("heights_in", [])))
         if size is None or size not in {fraction(v) for v in choices}:
             return None
-        item[
-            {
-                "collet_set": "capacity_mm",
-                "parallels_set": "height_mm",
-                "countersink_set": "dia_mm",
-            }[kind]
-        ] = float(size) * 25.4
+        field = {
+            "collet_set": "capacity_mm",
+            "parallels_set": "height_mm",
+            "countersink_set": "dia_mm",
+        }[kind]
+        _member_nominal(item, field, float(size) * 25.4)
     elif kind in {"reamers", "drill_set"}:
         if member.endswith("mm"):
             selected = fraction(member.removesuffix("mm"))
             if selected is None or selected not in {fraction(v) for v in item.get("sizes_mm", [])}:
                 return None
-            item["dia_mm"] = float(selected)
+            _member_nominal(item, "dia_mm", float(selected))
         elif (
             member.endswith("in")
             and size is not None
             and size in {fraction(v) for v in inch_sizes(item.get("sizes_in"))}
         ):
-            item["dia_mm"] = float(size) * 25.4
+            _member_nominal(item, "dia_mm", float(size) * 25.4)
         else:
             return None
     elif kind == "endmill_set":
@@ -682,10 +697,11 @@ def _item(entry, separator, member):
         choices = {fraction(v) for v in inch_sizes(item.get("sizes_in"))}
         if size is None or size not in choices or flutes not in flute_counts(item.get("flutes")):
             return None
-        item.update(dia_mm=float(size) * 25.4, flutes=flutes)
+        _member_nominal(item, "dia_mm", float(size) * 25.4)
+        item["flutes"] = flutes
         for shank, sizes in record(item.get("shank_in")).items():
             if isinstance(sizes, list) and size in {fraction(v) for v in sizes}:
-                item["shank_mm"] = float(fraction(shank)) * 25.4
+                _member_nominal(item, "shank_mm", float(fraction(shank)) * 25.4)
     elif kind == "center_drill_set":
         selected = member.removeprefix("#")
         if not selected.isdigit() or int(selected) not in item.get("sizes", []):
@@ -705,8 +721,12 @@ def _item(entry, separator, member):
         )
         if not valid:
             return None
-        item["dia_mm"] = item.get("nominal_dia_mm", {}).get(
-            member, float(size) * 25.4 if size is not None else UNKNOWN
+        _member_nominal(
+            item,
+            "dia_mm",
+            item.get("nominal_dia_mm", {}).get(
+                member, float(size) * 25.4 if size is not None else UNKNOWN
+            ),
         )
         item["dia_cite"] = item.get("nominal_dia_cite", {}).get(
             member, "inventory declared fractional drill coverage × 25.4 mm/in"

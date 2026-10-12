@@ -72,7 +72,8 @@ rows are illustrative example values, labelled `example (plausible, not
 measured)` and checked against the cited published ranges; they are not shop
 measurements, and a cutting-data cite is never read as one (only an inventory
 fact's own [`measured.status`](inventory.md#measured-envelopes-and-installed-tool-stacks-m5)
-is). Missing sources, values, geometry or material verification remain
+is). Cutting-data rows carry no `status` field: their trust is the existing
+cite/verify contract on this page, unchanged. Missing sources, values, geometry or material verification remain
 unresolved, not zero deflection. Adding a numerical row requires real source
 evidence.
 

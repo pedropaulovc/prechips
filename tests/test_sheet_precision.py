@@ -397,8 +397,8 @@ def test_lathe_feed_prints_per_revolution_with_the_true_value(tmp_path):
 
 
 def test_job_status_names_every_setup_that_has_a_stop(tmp_path):
-    # The job page must name all stopped setups. Unselecting the blade stops its three
-    # consumers; the shipped illustrative preparation evidence also leaves S0 stopped.
+    # The job page must name all stopped setups. Unselect the blade for S1-S3 and
+    # S0's centre drill, so every stop is owned by this test, not example provenance.
     plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
     authored = plan.read_text(encoding="utf-8")
     blade_consumers = {
@@ -410,6 +410,13 @@ def test_job_status_names_every_setup_that_has_a_stop(tmp_path):
     unselected = authored.replace(
         'tool = "parting-blade-lms-1728"\nholder', 'tool = "unknown"\nholder'
     )
+    unselected, changed = re.subn(
+        r'tool = "center-drills-lms-4859/2"\nholder',
+        'tool = "unknown"\nholder',
+        unselected,
+        count=1,
+    )
+    assert changed == 1
     plan.write_text(unselected, encoding="utf-8")
     _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
     stopped = [
@@ -587,24 +594,36 @@ def test_job_status_lists_stock_to_obtain_before_the_first_setup(tmp_path):
     assert "obtain the stock" not in text(sections(html, "JOB STATUS")[0])
 
 
-def test_job_page_states_each_machine_dro_grid(bracket, tmp_path):
-    # An illustrative DRO step is not measured evidence, so it uses the default
-    # grid just like a missing declaration; a local explicit measurement uses its own grid.
-    _, html = bracket
+def test_job_page_states_each_machine_dro_grid(tmp_path):
+    # An illustrative DRO still controls instruction rounding but never certifies
+    # a judgement. Only an absent declaration uses the provisional default grid.
+    examples = copy_examples(tmp_path)
+    inventory = examples / "inventory" / "pedro-shop.toml"
+    authored = inventory.read_text(encoding="utf-8")
+    illustrative_grid, changed = re.subn(
+        r"(?m)^resolution_mm = .*\n",
+        'resolution_mm = { value = 0.005, measured = { status = "illustrative", '
+        'by = "synthetic test operator", date = "2026-10-05", instrument = "DRO readout" } }\n',
+        authored,
+        count=1,
+    )
+    assert changed == 1
+    inventory.write_text(illustrative_grid, encoding="utf-8")
+    _, _, html = traveler(
+        examples / "pivot-bracket" / "plan.toml", tmp_path / "illustrative", setup=SYNTHETIC_KERNEL
+    )
     markup = Markup(sections(html, "JOB STATUS")[0])
     (resolution,) = [
         content(node) for node in tagged(markup, "p") if content(node).startswith("DRO resolution:")
     ]
-    assert re.search(r"PM-30MV 0\.001 mm\b", resolution)
-    assert "default grid" in resolution
-    examples = copy_examples(tmp_path)
-    inventory = examples / "inventory" / "pedro-shop.toml"
-    authored = inventory.read_text(encoding="utf-8")
+    assert re.search(r"PM-30MV 0\.005 mm\b", resolution)
+    assert "illustrative; grid unverified" in resolution
+    assert "default grid" not in resolution
     measured_grid, changed = re.subn(
         r"(?m)^resolution_mm = .*\n",
         'resolution_mm = { value = 0.005, measured = { status = "measured", '
         'by = "synthetic test operator", date = "2026-10-05", instrument = "DRO readout" } }\n',
-        authored,
+        illustrative_grid,
         count=1,
     )
     assert changed == 1

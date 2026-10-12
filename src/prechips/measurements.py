@@ -94,7 +94,17 @@ def _resolve(item, field):
             unit = _UNITS.get(mapping.get("units"), unit)
             keys = length_keys(mapping, part, unit, bare=index < len(parts) - 1)
         if len(keys) > 1:
-            return UNKNOWN, None, f"{' and '.join(keys)} author one length twice."
+            refused = next(
+                (
+                    mapping[key]
+                    for key in keys
+                    if isinstance(mapping[key], dict)
+                    and "value" in mapping[key]
+                    and not _trust(mapping[key], False)[0]
+                ),
+                None,
+            )
+            return UNKNOWN, refused, f"{' and '.join(keys)} author one length twice."
         if not keys:
             return UNKNOWN, None, _NO_LENGTH
         key = keys[0]
@@ -154,7 +164,8 @@ def _cites(item):
 def _fact(item, value, fact, reason, require_measured):
     verified, trust = _trust(fact, require_measured)
     if value == UNKNOWN:
-        verified, trust = False, reason
+        trust = f"{reason} {trust}" if not verified and fact is not None else reason
+        verified = False
     measured = fact.get("measured") if isinstance(fact, dict) else None
     status = measured.get("status", "assumed") if isinstance(measured, dict) else UNKNOWN
     return {
@@ -197,11 +208,6 @@ def _angle(item, field):
     return (raw, fact) if number(raw) else (UNKNOWN, fact)
 
 
-def nominal_angle_deg(item, field):
-    """A degree value, unwrapping a fact record, without imposing measurement readiness."""
-    return _angle(item, field)[0]
-
-
 def angle_fact(item, field, *, require_measured=True):
     """A degree fact under the same fact-local trust as ``length_fact``."""
     value, fact = _angle(item, field)
@@ -228,6 +234,9 @@ def measurement_entry(category, identity, field, *, status=None):
     elif field == "envelope.spindle_to_table_min":
         description = "spindle nose to table at full Z-down"
         instrument = "steel rule or height gauge"
+    elif field == "spindle.rotation":
+        description = "spindle rotation direction in the declared viewing convention"
+        instrument, units = "safe direction observation", "cw/ccw"
     elif field == "gauge_len":
         description = "spindle nose to mounted holder exit face"
         instrument = "steel rule or height gauge"
@@ -236,6 +245,34 @@ def measurement_entry(category, identity, field, *, status=None):
     elif field == "bed_height":
         description = "table to vise bed supporting the parallels or part"
         instrument = "height gauge"
+    elif field == "resolution":
+        description = (
+            "gauge least readable step"
+            if category == "gauges"
+            else "installed DRO least readable step"
+        )
+        instrument = (
+            "installed gauge graduations and calibration check"
+            if category == "gauges"
+            else "installed readout and indicator check"
+        )
+    elif field in {"ra_range", "range_ra"}:
+        description = "usable surface-roughness comparison range"
+        instrument, units = "roughness standard or comparator", "µm"
+    elif field.startswith("solids."):
+        description = f"fixture solid {field.removeprefix('solids.')} dimensions and origin"
+    elif field == "flute_len":
+        description = "selected cutter usable flute length"
+    elif field == "gauge_dia":
+        description = "mounted holder outside diameter"
+    elif field == "max_work":
+        description = "rotary table supported work-diameter limit"
+    elif field == "bore_dia":
+        description = "central bore diameter"
+        instrument = "micrometer"
+    elif field == "tip":
+        description = "edge finder contacting-tip diameter"
+        instrument = "micrometer"
     elif field == "point_angle":
         description = "included drill point angle"
         instrument, units = "protractor", "degrees"
@@ -254,6 +291,8 @@ def measurement_entry(category, identity, field, *, status=None):
     elif field == "angle_deg":
         description = "centre drill countersink included angle"
         instrument, units = "protractor", "degrees"
+    elif field.endswith("_deg"):
+        instrument, units = "protractor", "degrees"
     instruction = f"measure: {identity} {description}, {instrument}, {units}"
     if status in {"assumed", "illustrative"}:
         instruction += f" ({status} value, not physically measured)"
@@ -265,18 +304,63 @@ def measurement_entry(category, identity, field, *, status=None):
     }
 
 
+def _debt_entry(category, identity, field, status, reason, cite):
+    entry = measurement_entry(category, identity, field, status=status)
+    entry["status"] = status
+    entry["reason"] = reason
+    entry["cite"] = sorted(set(entry["cite"]) | set(cite))
+    return entry
+
+
+def _fact_debt(fact, field, category, identity):
+    if fact["verified"]:
+        return None
+    status = fact["measurement_status"]
+    if status == UNKNOWN:
+        status = "missing" if fact["value"] == UNKNOWN else "nominal"
+    return _debt_entry(category, identity, field, status, fact["reason"], fact["cite"])
+
+
+def length_debt(item, field, category, identity, *, require_measured=False):
+    """One refused consumed length, with a stable id and current trust diagnostics."""
+    return _fact_debt(
+        length_fact(item, field, require_measured=require_measured), field, category, identity
+    )
+
+
+def limits_debt(item, field, category, identity, *, require_measured=False):
+    """One refused consumed length-limit pair, never inferred from attribution prose."""
+    return _fact_debt(
+        limits_fact(item, field, require_measured=require_measured), field, category, identity
+    )
+
+
+def record_debt(item, category, identity, field, *, require_measured=False):
+    """One refused whole-record fact, such as a named fixture solid."""
+    trusted, reason = record_trusted(item, require_measured=require_measured)
+    if trusted:
+        return None
+    measured = item.get("measured") if isinstance(item, dict) else None
+    status = measured.get("status", "assumed") if isinstance(measured, dict) else "unmeasured"
+    return _debt_entry(category, identity, field, status, reason, _cites(item))
+
+
 def envelope_measurements(item):
     """Per-dimension M5 envelope limits, each qualified only by its own fact."""
     return {field: length_fact(item, f"envelope.{field}") for field in ENVELOPE_LENGTH_FIELDS}
 
 
-def measurement_checklist(findings):
-    """Only measurement debt that produced an unknown on the current input plans."""
+def measurement_checklist(findings, *, debts=()):
+    """Consumed refused facts: rule unknowns plus host-only kernel input debt."""
     entries = {}
+    current_debts = list(debts)
     for finding in findings:
-        if finding.status != UNKNOWN:
-            continue
-        for entry in finding.numbers.get("measurements", []):
-            existing = entries.setdefault(entry["id"], {**entry, "cite": []})
-            existing["cite"] = sorted(set(existing["cite"]) | set(entry["cite"]))
+        if finding.status == UNKNOWN:
+            current_debts.extend(finding.numbers.get("measurements", []))
+    for entry in current_debts:
+        existing = entries.setdefault(entry["id"], {**entry, "cite": []})
+        existing["cite"] = sorted(set(existing["cite"]) | set(entry["cite"]))
+        for key in ("status", "reason"):
+            if key in entry and key not in existing:
+                existing[key] = entry[key]
     return [entries[key] for key in sorted(entries)]

@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
+from test_envelope_m5 import measured
 
 from prechips import kernel
 from prechips.inputs import BadInput, load_bundle
@@ -243,6 +244,14 @@ def test_unbound_frames_stay_unknown_without_inventing_a_bench_binding(tmp_path,
             inventory={
                 **bundle.inventory,
                 "tools": {"indicator": {"kind": "indicator", "verify": False}},
+                # Only this zero-recipe baseline needs a physical test DRO grid.
+                "machines": {
+                    **bundle.inventory["machines"],
+                    "mill": {
+                        **bundle.inventory["machines"]["mill"],
+                        "resolution_mm": measured(0.001),
+                    },
+                },
             },
         )
         bound = dataclasses.replace(

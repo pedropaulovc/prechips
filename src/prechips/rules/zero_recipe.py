@@ -7,6 +7,7 @@ from itertools import pairwise, product
 
 from ..findings import Finding
 from ..joint_features import _lineage
+from ..measurements import length_debt, length_keys, measurement_checklist
 from ._bench import manual_bench, not_applicable
 from .geometry_common import TURNING_BLADE_KINDS, approach
 from .resolution import (
@@ -59,6 +60,12 @@ DIRECTIONS = {
 }
 
 
+def _touch_diameter(tool):
+    """Use the contact tip when authored; only an absent tip can use the tool diameter."""
+    field = "tip" if length_keys(tool, "tip", tool.get("units"), bare=True) else "dia"
+    return length_mm(tool, field), field
+
+
 def finder_procedure(bundle, setup, tool):
     """The EDGE FINDER box's facts for an X/Y pick-up with ``tool``: its type, tip Ø and
     radius, and the rpm bands it runs at on this setup's mill (its own band intersected
@@ -68,9 +75,7 @@ def finder_procedure(bundle, setup, tool):
     error where no spindle band turns any of the finder's band. An electronic finder
     signals contact with the spindle stopped, so it needs no speed."""
     kind = tool.get("finder_type", UNKNOWN)
-    tip = length_mm(tool, "tip")
-    if not number(tip):
-        tip = length_mm(tool, "dia")
+    tip, _ = _touch_diameter(tool)
     band = tool.get("rpm_range", UNKNOWN)
     missing = [
         name
@@ -956,19 +961,23 @@ def _framed(setup, op):
 def _face_checker(bundle, setup, errors, unknowns):
     """A function checking that a Z touch sets its DRO where its face stands: the face as
     the sheet prints it, on this setup's DRO grid (:func:`operative_z`), must be exactly
-    where it stands (:func:`face_stands`). A face standing off the grid is set where it
-    is not, and every Z the tool then cuts to lands off by the difference: it collects
-    into ``errors``. A face standing at an unknown Z collects into ``unknowns``. A
-    measured touch reads its face and is not checked."""
-    from .coordinates import dro_grid, dro_z
+    where it stands (:func:`face_stands`). A face standing off a verified grid is set
+    where it is not, and every Z the tool then cuts to lands off by the difference:
+    it collects into ``errors``. An unknown face Z or unverified grid collects into
+    ``unknowns``. A measured touch reads its face and is not checked."""
+    from .coordinates import dro_grid, dro_grid_debt, dro_z
 
     grid = dro_grid(bundle, setup)
+    grid_debt = dro_grid_debt(bundle, setup)
 
     def check(touch, face, edge, done, who, source=None):
         if touch.get("method") in MEASURED or not face:
             return
         stands = face_stands(bundle, setup, face, edge, done, source)
         if stands is None:
+            return
+        if grid_debt:
+            unknowns.append(f"{who} on {face}: {grid_debt}")
             return
         if not number(stands):
             unknowns.append(f"{who} on {face}")
@@ -981,6 +990,8 @@ def _face_checker(bundle, setup, errors, unknowns):
 
 
 def evaluate(bundle):
+    from .coordinates import dro_grid_debt, dro_grid_measurements
+
     result = []
     dro = mapping(bundle.plan.get("dro"))
     for setup in bundle.plan["setups"]:
@@ -1022,6 +1033,7 @@ def evaluate(bundle):
         face_check = _face_checker(bundle, setup, face_errors, face_unknowns)
         # The edge finder's procedure facts (:func:`finder_procedure`) of each pick-up.
         finder_status = set()
+        tip_measurements = []
 
         unknown = (
             not frame
@@ -1053,17 +1065,17 @@ def evaluate(bundle):
                 if axis == "z" or method == "trial_cut_measure"
                 else 0
                 if indicated
-                else length_mm(tool, "tip")
+                else _touch_diameter(tool)[0]
             )
-            if (
-                axis != "z"
-                and not indicated
-                and method != "trial_cut_measure"
-                and not number(radius)
-            ):
-                radius = length_mm(tool, "dia")
             if not indicated and number(radius):
                 radius /= 2
+            if axis != "z" and not indicated and method not in MEASURED and tool:
+                _, field = _touch_diameter(tool)
+                category, tool_ref = identity(bundle, recipe.get("tool"), "spindle")
+                if tool.get("kind") != UNKNOWN:
+                    debt = length_debt(tool, field, category, tool_ref)
+                    if debt:
+                        tip_measurements.append(debt)
             if axis == "z" and recipe.get("face") == "top":
                 # The top as the ops up to and including after_op left it, not the
                 # incoming stock top.
@@ -1260,6 +1272,14 @@ def evaluate(bundle):
             "derived_touches": derived,
             "missing_touches": missing,
         }
+        grid_debt = dro_grid_debt(bundle, setup) if face_unknowns else None
+        if grid_debt:
+            numbers["dro_grid_debt"] = grid_debt
+            numbers["measurements"] = dro_grid_measurements(bundle, setup)
+        if tip_measurements:
+            numbers["measurements"] = measurement_checklist(
+                [], debts=[*numbers.get("measurements", []), *tip_measurements]
+            )
         if lathe:
             numbers["tool_setting"] = tool_setting(bundle, setup, zero, touches, derived)
         if "transfer" in zero:
@@ -1333,7 +1353,11 @@ def evaluate(bundle):
             )
         if face_unknowns:
             sentence += (
-                " A Z touch meets a face its op left at an unknown Z ("
+                (
+                    " A Z touch cannot be certified on an unverified DRO grid ("
+                    if grid_debt
+                    else " A Z touch meets a face its op left at an unknown Z ("
+                )
                 + "; ".join(face_unknowns)
                 + "): its Axis Set is not known."
             )

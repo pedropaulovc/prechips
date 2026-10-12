@@ -27,6 +27,7 @@ from .rules.coordinates import (
     CENTRE_OPS,
     OVERSHOOT_NOTE,
     dro_grid,
+    dro_grid_debt,
     dro_z,
     faced_aim_claims,
     row_id,
@@ -8640,8 +8641,19 @@ class _Traveler:
             machine = self.machine(setup)
             step, decimals = dro_grid(self.bundle, setup)
             grid = f"{self.reference(reference, 'machines')} {step:.{decimals}f} {self.units}"
-            if not _known(length_mm(machine, "resolution")):
-                grid += " (resolution not in the shop list: default grid)"
+            fact = length_fact(machine, "resolution")
+            if not _known(fact["value"]) or fact["value"] <= 0:
+                grid += f"{EXAMPLE_MARK} (resolution absent/unknown: provisional default grid)"
+            elif dro_grid_debt(self.bundle, setup):
+                status = fact["measurement_status"]
+                label = (
+                    "unmeasured"
+                    if status == UNKNOWN
+                    else "measured record incomplete or verification required"
+                    if status == "measured"
+                    else status
+                )
+                grid += f"{EXAMPLE_MARK} ({label}; grid unverified)"
             if machine.get("kind") == "lathe":
                 radius = _mapping(self.plan.get("dro")).get("radius_mode")
                 grid += (

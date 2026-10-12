@@ -2,7 +2,8 @@
 form op's printed table starts at its ``z_from``: that Z must be a deterministic face."""
 
 from ..findings import Finding
-from .resolution import length_mm, number, operations, resolve, same_length, uncertain
+from ..measurements import length_debt
+from .resolution import length_mm, number, operations, resolve, same_length, select, uncertain
 
 
 def _forms(op):
@@ -143,6 +144,11 @@ def evaluate(bundle):
             elif not same_length(expected, actual):
                 errors.append("selected tap drill differs from thread specification")
         status = "error" if errors else "unknown" if unknown else "pass"
+        if status == "unknown" and "tap" in actions and tool:
+            category, identity, _ = select(bundle, drills[-1].get("tool"), "tools")
+            debt = length_debt(tool, "dia", category, identity)
+            if debt is not None:
+                nums["measurements"] = [debt]
         result.append(
             Finding(
                 "op_chain",

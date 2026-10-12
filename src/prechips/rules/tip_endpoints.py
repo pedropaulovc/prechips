@@ -7,7 +7,7 @@ import itertools
 import math
 import re
 
-from prechips.measurements import angle_fact
+from prechips.measurements import angle_fact, length_debt
 
 from ..findings import Finding
 from ..model import UNIT_TOLERANCE
@@ -16,6 +16,7 @@ from .resolution import (
     MANUAL,
     SAW_OPS,
     UNKNOWN,
+    identity,
     length_mm,
     number,
     op_feature,
@@ -73,9 +74,12 @@ def _operative(row, bundle, setup, face):
     then rounds up, never deeper than worked. ``dro_depth_mm`` is the depth that leaves
     below the entry, held to ``depth_floor_mm`` (unknown unless a band end is authored);
     ``dro_exit_mm`` the break-through it leaves below the nominal exit face, the lower."""
-    from .coordinates import dro_grid, dro_z
+    from .coordinates import dro_grid, dro_grid_debt, dro_z
 
     grid = dro_grid(bundle, setup)
+    grid_debt = dro_grid_debt(bundle, setup)
+    if grid_debt:
+        row["dro_grid_debt"] = grid_debt
     through = row["exit_face"] != "not_applicable"
     row["dro_entry_z"] = operative_z(bundle, setup, row["entry_z"], face, source=row["entry_from"])
     if through:
@@ -863,6 +867,8 @@ def centre_check(bundle, setup, op):
 def evaluate(bundle):
     from prechips.process_features import source_cite
 
+    from .coordinates import dro_grid_measurements
+
     features = bundle.feature_definitions
     endpoints = {name: [] for name in features}
     unresolved = set()
@@ -987,12 +993,30 @@ def evaluate(bundle):
             # presence and verify debt), which centre_support reads through centre_check.
             if not centre and (row.get("tip_z") == UNKNOWN or not tool or uncertain(tool)):
                 unresolved.add(name)
+            if not centre and action == "ream":
+                category, tool_ref = identity(bundle, op.get("tool"), "tools")
+                debt = length_debt(tool, "lead", category, tool_ref) if tool else None
+                if debt:
+                    debts.setdefault(name, {})[debt["id"]] = debt
+            if not centre and action == "drill":
+                machine = resolve(bundle, "machines", setup.get("machine")) or {}
+                if machine.get("kind") == "lathe":
+                    category, tool_ref = identity(bundle, op.get("tool"), "tools")
+                    debt = length_debt(tool, "dia", category, tool_ref) if tool else None
+                    if debt:
+                        debts.setdefault(name, {})[debt["id"]] = debt
             face = name if name in before["entry_z"] else "top"
             _operative(row, bundle, setup, face)
+            if row.get("dro_grid_debt"):
+                unresolved.add(name)
+                debts.setdefault(name, {}).update(
+                    (item["id"], item) for item in dro_grid_measurements(bundle, setup)
+                )
             endpoints[name].append(row)
     result = []
     for name, feature in features.items():
         rows = endpoints[name]
+        grid_debts = sorted({row["dro_grid_debt"] for row in rows if "dro_grid_debt" in row})
         if feature.get("kind") not in _HOLE_KINDS | {"centre_hole"}:
             status, sentence = "not_applicable", "Not a hole; no tip endpoint applies."
         elif name in errors or name in negative_exit or name in centre_errors:
@@ -1022,6 +1046,8 @@ def evaluate(bundle):
                 "Hole tip endpoints and blind-depth guards are computed from the advanced "
                 "local entry surfaces.",
             )
+        if grid_debts:
+            sentence += " DRO grid debt: " + "; ".join(grid_debts)
         result.append(
             Finding(
                 "blind_depth",
@@ -1030,6 +1056,7 @@ def evaluate(bundle):
                 {
                     "kind": feature.get("kind", UNKNOWN),
                     "endpoints": rows,
+                    **({"dro_grid_debt": "; ".join(grid_debts)} if grid_debts else {}),
                     **(
                         {"measurements": [debts[name][key] for key in sorted(debts[name])]}
                         if debts.get(name)

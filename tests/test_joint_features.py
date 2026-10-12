@@ -385,6 +385,7 @@ binding = "nominal"
     bundle = _load(tmp_path, text, features)
     fixture = envelope_bundle()
     bundle.inventory.update(fixture.inventory)
+    bundle.inventory["machines"]["mill"]["resolution_mm"] = measured(0.001)
     bundle.inventory["tools"]["drill"] = {
         "kind": "drill",
         "dia_mm": measured(10.0),
@@ -762,10 +763,20 @@ def test_blind_joint_depth_converts_model_units_but_operation_depth_stays_mm(
 ):
     text = _plan().replace("depth = 5.0", "depth = 1.0", 1)
     bundle = _load(tmp_path, text, FEATURES.replace('units = "mm"', f'units = "{units}"'))
-    bundle.plan["setups"][0]["stock_state"] = {"top_z": 0.0}
-    bundle.plan["setups"][0]["ops"][0]["depth_mm"] = 20.0
+    # Only the model depth changes units; drill geometry and the machine grid are
+    # independent, trusted synthetic controls for the endpoint judgement.
+    setup = bundle.plan["setups"][0]
+    setup["machine"] = "mill"
+    setup["stock_state"] = {"top_z": 0.0}
+    setup["ops"][0]["depth_mm"] = 20.0
+    bundle.inventory["machines"]["mill"]["resolution_mm"] = measured(0.005)
     bundle.inventory["tools"] = {
-        "drill": {"kind": "drill", "dia_mm": 1.0, "point_angle": 118.0, "verify": False}
+        "drill": {
+            "kind": "drill",
+            "dia_mm": measured(1.0),
+            "point_angle": measured(118.0),
+            "verify": False,
+        }
     }
     row = next(row for row in tip_endpoints.evaluate(bundle) if row.subject == "socket")
     assert row.status == status

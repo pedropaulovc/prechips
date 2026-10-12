@@ -11,10 +11,90 @@
         "harmonic-analyzer/cad/scripts/build_rocker_arm.py:149-166",
         "plan.setups.S1: frame and hold",
         "plan.setups.S1.ops.10: selected action/tool/holder",
-        "inventory.tools.em-preparation: explicit-unit verified dimensions"
+        "inventory.tools.em-preparation: explicit-unit verified dimensions",
+        "inventory.holders.unknown.gauge_dia",
+        "inventory.holders.unknown.gauge_len",
+        "inventory.holders.unknown.grip",
+        "inventory.machines.test-mill.resolution",
+        "inventory.tools.em-preparation.flute_len",
+        "inventory.tools.em-preparation.oal",
+        "inventory.tools.em-preparation.shank"
       ],
-      "message": "Fixture solids are not declared for this holding kind.",
-      "numbers": {},
+      "message": "Fixture solids are not declared for this holding kind. Refused kernel facts: holders.unknown.gauge_dia (missing): No numeric length with explicit millimetre or inch units is recorded; holders.unknown.gauge_len (missing): No numeric length with explicit millimetre or inch units is recorded; holders.unknown.grip (missing): No numeric length with explicit millimetre or inch units is recorded; machines.test-mill.resolution (missing): No numeric length with explicit millimetre or inch units is recorded; tools.em-preparation.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.em-preparation.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.em-preparation.shank (missing): No numeric length with explicit millimetre or inch units is recorded.",
+      "numbers": {
+        "measurements": [
+          {
+            "cite": [
+              "inventory.holders.unknown.gauge_dia"
+            ],
+            "id": "holders.unknown.gauge_dia",
+            "instruction": "measure: unknown mounted holder outside diameter, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.holders.unknown.gauge_len"
+            ],
+            "id": "holders.unknown.gauge_len",
+            "instruction": "measure: unknown spindle nose to mounted holder exit face, steel rule or height gauge, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.holders.unknown.grip"
+            ],
+            "id": "holders.unknown.grip",
+            "instruction": "measure: unknown installed tool insertion from holder exit face, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.machines.test-mill.resolution"
+            ],
+            "id": "machines.test-mill.resolution",
+            "instruction": "measure: test-mill installed DRO least readable step, installed readout and indicator check, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.tools.em-preparation.flute_len"
+            ],
+            "id": "tools.em-preparation.flute_len",
+            "instruction": "measure: em-preparation selected cutter usable flute length, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.tools.em-preparation.oal"
+            ],
+            "id": "tools.em-preparation.oal",
+            "instruction": "measure: em-preparation selected tool overall length, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.tools.em-preparation.shank"
+            ],
+            "id": "tools.em-preparation.shank",
+            "instruction": "measure: em-preparation record shank, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ]
+      },
       "rule": "accessibility",
       "status": "unknown",
       "subject": "S1:10"
@@ -29,10 +109,90 @@
         "harmonic-analyzer/cad/scripts/build_rocker_arm.py:149-166",
         "plan.setups.S2: frame and hold",
         "plan.setups.S2.ops.10: selected action/tool/holder",
-        "inventory.tools.em-preparation: explicit-unit verified dimensions"
+        "inventory.tools.em-preparation: explicit-unit verified dimensions",
+        "inventory.holders.unknown.gauge_dia",
+        "inventory.holders.unknown.gauge_len",
+        "inventory.holders.unknown.grip",
+        "inventory.machines.test-mill.resolution",
+        "inventory.tools.em-preparation.flute_len",
+        "inventory.tools.em-preparation.oal",
+        "inventory.tools.em-preparation.shank"
       ],
-      "message": "Fixture solids are not declared for this holding kind.",
-      "numbers": {},
+      "message": "Fixture solids are not declared for this holding kind. Refused kernel facts: holders.unknown.gauge_dia (missing): No numeric length with explicit millimetre or inch units is recorded; holders.unknown.gauge_len (missing): No numeric length with explicit millimetre or inch units is recorded; holders.unknown.grip (missing): No numeric length with explicit millimetre or inch units is recorded; machines.test-mill.resolution (missing): No numeric length with explicit millimetre or inch units is recorded; tools.em-preparation.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.em-preparation.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.em-preparation.shank (missing): No numeric length with explicit millimetre or inch units is recorded.",
+      "numbers": {
+        "measurements": [
+          {
+            "cite": [
+              "inventory.holders.unknown.gauge_dia"
+            ],
+            "id": "holders.unknown.gauge_dia",
+            "instruction": "measure: unknown mounted holder outside diameter, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.holders.unknown.gauge_len"
+            ],
+            "id": "holders.unknown.gauge_len",
+            "instruction": "measure: unknown spindle nose to mounted holder exit face, steel rule or height gauge, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.holders.unknown.grip"
+            ],
+            "id": "holders.unknown.grip",
+            "instruction": "measure: unknown installed tool insertion from holder exit face, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.machines.test-mill.resolution"
+            ],
+            "id": "machines.test-mill.resolution",
+            "instruction": "measure: test-mill installed DRO least readable step, installed readout and indicator check, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.tools.em-preparation.flute_len"
+            ],
+            "id": "tools.em-preparation.flute_len",
+            "instruction": "measure: em-preparation selected cutter usable flute length, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.tools.em-preparation.oal"
+            ],
+            "id": "tools.em-preparation.oal",
+            "instruction": "measure: em-preparation selected tool overall length, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.tools.em-preparation.shank"
+            ],
+            "id": "tools.em-preparation.shank",
+            "instruction": "measure: em-preparation record shank, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ]
+      },
       "rule": "accessibility",
       "status": "unknown",
       "subject": "S2:10"
@@ -309,6 +469,79 @@
       "numbers": {
         "claims": 1,
         "contradictions": [],
+        "dro_grid_debt": "machine test-mill declares no positive numeric DRO resolution, so its grid is provisional",
+        "measurements": [
+          {
+            "cite": [
+              "inventory.holders.unknown.gauge_dia"
+            ],
+            "id": "holders.unknown.gauge_dia",
+            "instruction": "measure: unknown mounted holder outside diameter, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.holders.unknown.gauge_len"
+            ],
+            "id": "holders.unknown.gauge_len",
+            "instruction": "measure: unknown spindle nose to mounted holder exit face, steel rule or height gauge, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.holders.unknown.grip"
+            ],
+            "id": "holders.unknown.grip",
+            "instruction": "measure: unknown installed tool insertion from holder exit face, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.machines.test-mill.resolution"
+            ],
+            "id": "machines.test-mill.resolution",
+            "instruction": "measure: test-mill installed DRO least readable step, installed readout and indicator check, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.tools.em-preparation.flute_len"
+            ],
+            "id": "tools.em-preparation.flute_len",
+            "instruction": "measure: em-preparation selected cutter usable flute length, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.tools.em-preparation.oal"
+            ],
+            "id": "tools.em-preparation.oal",
+            "instruction": "measure: em-preparation selected tool overall length, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.tools.em-preparation.shank"
+            ],
+            "id": "tools.em-preparation.shank",
+            "instruction": "measure: em-preparation record shank, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ],
         "unchecked": [
           "stock_state.top_z is unknown, stock_state.bottom_z is unknown, so the authored stock is not compared",
           "the setup picture's nearest cut cannot be compared: CLEARANCE rows for ops 10 are not computed"
@@ -328,6 +561,79 @@
       "numbers": {
         "claims": 1,
         "contradictions": [],
+        "dro_grid_debt": "machine test-mill declares no positive numeric DRO resolution, so its grid is provisional",
+        "measurements": [
+          {
+            "cite": [
+              "inventory.holders.unknown.gauge_dia"
+            ],
+            "id": "holders.unknown.gauge_dia",
+            "instruction": "measure: unknown mounted holder outside diameter, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.holders.unknown.gauge_len"
+            ],
+            "id": "holders.unknown.gauge_len",
+            "instruction": "measure: unknown spindle nose to mounted holder exit face, steel rule or height gauge, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.holders.unknown.grip"
+            ],
+            "id": "holders.unknown.grip",
+            "instruction": "measure: unknown installed tool insertion from holder exit face, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.machines.test-mill.resolution"
+            ],
+            "id": "machines.test-mill.resolution",
+            "instruction": "measure: test-mill installed DRO least readable step, installed readout and indicator check, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.tools.em-preparation.flute_len"
+            ],
+            "id": "tools.em-preparation.flute_len",
+            "instruction": "measure: em-preparation selected cutter usable flute length, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.tools.em-preparation.oal"
+            ],
+            "id": "tools.em-preparation.oal",
+            "instruction": "measure: em-preparation selected tool overall length, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.tools.em-preparation.shank"
+            ],
+            "id": "tools.em-preparation.shank",
+            "instruction": "measure: em-preparation record shank, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ],
         "unchecked": [
           "stock_state.top_z is unknown, stock_state.bottom_z is unknown, so the authored stock is not compared",
           "the setup picture's nearest cut cannot be compared: CLEARANCE rows for ops 10 are not computed"
@@ -347,6 +653,19 @@
       "numbers": {
         "claims": 2,
         "contradictions": [],
+        "dro_grid_debt": "machine test-mill declares no positive numeric DRO resolution, so its grid is provisional",
+        "measurements": [
+          {
+            "cite": [
+              "inventory.machines.test-mill.resolution"
+            ],
+            "id": "machines.test-mill.resolution",
+            "instruction": "measure: test-mill installed DRO least readable step, installed readout and indicator check, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ],
         "unchecked": [
           "stock_state.top_z 8 is top_feature profile_outer's face, whose height the kernel did not give (no planar face of profile_outer faces +Z), so it is not compared",
           "the setup picture's nearest cut cannot be compared: CLEARANCE rows for ops 10 are not computed"
@@ -377,7 +696,7 @@
         "plan contour steps, operation targets and stock allowances",
         "inventory selected cutter nominal diameter"
       ],
-      "message": "Feature targets use the declared model-to-setup basis; cutter tables use explicit nominal geometry and authored allowance. Missing geometry or unverified tool/frame binding prevents a cleared toolpath.",
+      "message": "Feature targets use the declared model-to-setup basis; cutter tables use explicit nominal geometry and authored allowance. DRO grid debt: machine test-mill declares no positive numeric DRO resolution, so its grid is provisional Missing geometry or unverified tool/frame binding prevents a cleared toolpath.",
       "numbers": {
         "arc_table": [],
         "binding": "unknown",
@@ -386,6 +705,7 @@
           "decimals": 3,
           "step": 0.001
         },
+        "dro_grid_debt": "machine test-mill declares no positive numeric DRO resolution, so its grid is provisional",
         "entry_surfaces": [
           {
             "op": 10
@@ -393,6 +713,18 @@
         ],
         "frame": "A",
         "line_table": [],
+        "measurements": [
+          {
+            "cite": [
+              "inventory.machines.test-mill.resolution"
+            ],
+            "id": "machines.test-mill.resolution",
+            "instruction": "measure: test-mill installed DRO least readable step, installed readout and indicator check, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ],
         "operations": [
           {
             "direction": "unknown",
@@ -417,7 +749,7 @@
         "plan contour steps, operation targets and stock allowances",
         "inventory selected cutter nominal diameter"
       ],
-      "message": "Feature targets use the declared model-to-setup basis; cutter tables use explicit nominal geometry and authored allowance. Missing geometry or unverified tool/frame binding prevents a cleared toolpath.",
+      "message": "Feature targets use the declared model-to-setup basis; cutter tables use explicit nominal geometry and authored allowance. DRO grid debt: machine test-mill declares no positive numeric DRO resolution, so its grid is provisional Missing geometry or unverified tool/frame binding prevents a cleared toolpath.",
       "numbers": {
         "arc_table": [],
         "binding": "unknown",
@@ -426,6 +758,7 @@
           "decimals": 3,
           "step": 0.001
         },
+        "dro_grid_debt": "machine test-mill declares no positive numeric DRO resolution, so its grid is provisional",
         "entry_surfaces": [
           {
             "op": 10
@@ -433,6 +766,18 @@
         ],
         "frame": "B",
         "line_table": [],
+        "measurements": [
+          {
+            "cite": [
+              "inventory.machines.test-mill.resolution"
+            ],
+            "id": "machines.test-mill.resolution",
+            "instruction": "measure: test-mill installed DRO least readable step, installed readout and indicator check, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ],
         "operations": [
           {
             "direction": "unknown",
@@ -457,7 +802,7 @@
         "plan contour steps, operation targets and stock allowances",
         "inventory selected cutter nominal diameter"
       ],
-      "message": "Feature targets use the declared model-to-setup basis; cutter tables use explicit nominal geometry and authored allowance. Missing geometry or unverified tool/frame binding prevents a cleared toolpath.",
+      "message": "Feature targets use the declared model-to-setup basis; cutter tables use explicit nominal geometry and authored allowance. DRO grid debt: machine test-mill declares no positive numeric DRO resolution, so its grid is provisional Missing geometry or unverified tool/frame binding prevents a cleared toolpath.",
       "numbers": {
         "arc_table": [],
         "binding": "unknown",
@@ -466,6 +811,7 @@
           "decimals": 3,
           "step": 0.001
         },
+        "dro_grid_debt": "machine test-mill declares no positive numeric DRO resolution, so its grid is provisional",
         "entry_surfaces": [
           {
             "op": 10
@@ -473,6 +819,18 @@
         ],
         "frame": "V",
         "line_table": [],
+        "measurements": [
+          {
+            "cite": [
+              "inventory.machines.test-mill.resolution"
+            ],
+            "id": "machines.test-mill.resolution",
+            "instruction": "measure: test-mill installed DRO least readable step, installed readout and indicator check, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ],
         "operations": [
           {
             "direction": "conventional",
@@ -647,13 +1005,35 @@
         "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
         "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
       ],
-      "message": "S1:10: Engagement proxy needs resolved/verified selected holder, positive selected tool/holder projection or OAL minus holder grip, positive authored axial depth per pass (doc_mm).",
+      "message": "S1:10: Engagement proxy needs resolved/verified selected holder, positive selected tool/holder projection or OAL minus holder grip, positive authored axial depth per pass (doc_mm). Refused kernel facts: holders.unknown.grip (missing): No numeric length with explicit millimetre or inch units is recorded; tools.em-preparation.oal (missing): No numeric length with explicit millimetre or inch units is recorded.",
       "numbers": {
         "diameter_mm": 8.0,
         "doc_mm": "unknown",
         "doc_scale": "unknown",
         "holder": "unknown",
         "holder_grip_mm": "unknown",
+        "measurements": [
+          {
+            "cite": [
+              "inventory.holders.unknown.grip"
+            ],
+            "id": "holders.unknown.grip",
+            "instruction": "measure: unknown installed tool insertion from holder exit face, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.tools.em-preparation.oal"
+            ],
+            "id": "tools.em-preparation.oal",
+            "instruction": "measure: em-preparation selected tool overall length, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ],
         "missing_inputs": [
           "resolved/verified selected holder",
           "positive selected tool/holder projection or OAL minus holder grip",
@@ -685,13 +1065,35 @@
         "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
         "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
       ],
-      "message": "S2:10: Engagement proxy needs resolved/verified selected holder, positive selected tool/holder projection or OAL minus holder grip, positive authored axial depth per pass (doc_mm).",
+      "message": "S2:10: Engagement proxy needs resolved/verified selected holder, positive selected tool/holder projection or OAL minus holder grip, positive authored axial depth per pass (doc_mm). Refused kernel facts: holders.unknown.grip (missing): No numeric length with explicit millimetre or inch units is recorded; tools.em-preparation.oal (missing): No numeric length with explicit millimetre or inch units is recorded.",
       "numbers": {
         "diameter_mm": 8.0,
         "doc_mm": "unknown",
         "doc_scale": "unknown",
         "holder": "unknown",
         "holder_grip_mm": "unknown",
+        "measurements": [
+          {
+            "cite": [
+              "inventory.holders.unknown.grip"
+            ],
+            "id": "holders.unknown.grip",
+            "instruction": "measure: unknown installed tool insertion from holder exit face, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.tools.em-preparation.oal"
+            ],
+            "id": "tools.em-preparation.oal",
+            "instruction": "measure: em-preparation selected tool overall length, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ],
         "missing_inputs": [
           "resolved/verified selected holder",
           "positive selected tool/holder projection or OAL minus holder grip",
@@ -1227,10 +1629,24 @@
       "cite": [
         "PLAN.md §4.3 fixture_interference",
         "kernel: STEP SHA-256 19070131b1ae87020768e24acea45dd8462773c76131630dd299f0188745ef15; FreeCAD B-rep measurements",
-        "plan.setups.S1: frame and hold"
+        "plan.setups.S1: frame and hold",
+        "inventory.machines.test-mill.resolution"
       ],
-      "message": "S1: holding identity is unknown.",
-      "numbers": {},
+      "message": "S1: holding identity is unknown. Refused kernel facts: machines.test-mill.resolution (missing): No numeric length with explicit millimetre or inch units is recorded.",
+      "numbers": {
+        "measurements": [
+          {
+            "cite": [
+              "inventory.machines.test-mill.resolution"
+            ],
+            "id": "machines.test-mill.resolution",
+            "instruction": "measure: test-mill installed DRO least readable step, installed readout and indicator check, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ]
+      },
       "rule": "fixture_interference",
       "status": "unknown",
       "subject": "S1"
@@ -1239,10 +1655,24 @@
       "cite": [
         "PLAN.md §4.3 fixture_interference",
         "kernel: STEP SHA-256 19070131b1ae87020768e24acea45dd8462773c76131630dd299f0188745ef15; FreeCAD B-rep measurements",
-        "plan.setups.S2: frame and hold"
+        "plan.setups.S2: frame and hold",
+        "inventory.machines.test-mill.resolution"
       ],
-      "message": "S2: holding identity is unknown.",
-      "numbers": {},
+      "message": "S2: holding identity is unknown. Refused kernel facts: machines.test-mill.resolution (missing): No numeric length with explicit millimetre or inch units is recorded.",
+      "numbers": {
+        "measurements": [
+          {
+            "cite": [
+              "inventory.machines.test-mill.resolution"
+            ],
+            "id": "machines.test-mill.resolution",
+            "instruction": "measure: test-mill installed DRO least readable step, installed readout and indicator check, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ]
+      },
       "rule": "fixture_interference",
       "status": "unknown",
       "subject": "S2"
@@ -1312,6 +1742,16 @@
             ],
             "id": "machines.test-mill.envelope.travel.y",
             "instruction": "measure: test-mill Y safe usable travel, stop-to-stop, steel rule or calipers, mm",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.tools.em-preparation.oal"
+            ],
+            "id": "tools.em-preparation.oal",
+            "instruction": "measure: em-preparation selected tool overall length, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
             "units": "mm"
           }
         ],
@@ -1406,6 +1846,16 @@
             "id": "machines.test-mill.envelope.travel.y",
             "instruction": "measure: test-mill Y safe usable travel, stop-to-stop, steel rule or calipers, mm",
             "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.tools.em-preparation.oal"
+            ],
+            "id": "tools.em-preparation.oal",
+            "instruction": "measure: em-preparation selected tool overall length, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
           }
         ],
         "parallels_mm": "not_applicable",
@@ -1485,6 +1935,36 @@
           "requires_path_check": false
         },
         "measurements": [
+          {
+            "cite": [
+              "inventory.fixtures.test-vise-wide.bed_height"
+            ],
+            "id": "fixtures.test-vise-wide.bed_height",
+            "instruction": "measure: test-vise-wide table to vise bed supporting the parallels or part, height gauge, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.fixtures.test-vise-wide.length"
+            ],
+            "id": "fixtures.test-vise-wide.length",
+            "instruction": "measure: test-vise-wide record length, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.fixtures.test-vise-wide.width"
+            ],
+            "id": "fixtures.test-vise-wide.width",
+            "instruction": "measure: test-vise-wide record width, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
           {
             "cite": [
               "inventory.machines.test-mill.envelope.spindle_to_table_max"
@@ -2178,10 +2658,79 @@
         "harmonic-analyzer/cad/scripts/build_rocker_arm.py:149-166",
         "plan.setups.S1: frame and hold",
         "plan.setups.S1.ops.10: selected action/tool/holder",
-        "inventory.tools.em-preparation: explicit-unit verified dimensions"
+        "inventory.tools.em-preparation: explicit-unit verified dimensions",
+        "inventory.holders.unknown.gauge_dia",
+        "inventory.holders.unknown.gauge_len",
+        "inventory.holders.unknown.grip",
+        "inventory.tools.em-preparation.flute_len",
+        "inventory.tools.em-preparation.oal",
+        "inventory.tools.em-preparation.shank"
       ],
-      "message": "S1:10: selected tool/holder dimensions are unmeasured or unavailable.",
-      "numbers": {},
+      "message": "S1:10: selected tool/holder dimensions are unmeasured or unavailable. Refused kernel facts: holders.unknown.gauge_dia (missing): No numeric length with explicit millimetre or inch units is recorded; holders.unknown.gauge_len (missing): No numeric length with explicit millimetre or inch units is recorded; holders.unknown.grip (missing): No numeric length with explicit millimetre or inch units is recorded; tools.em-preparation.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.em-preparation.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.em-preparation.shank (missing): No numeric length with explicit millimetre or inch units is recorded.",
+      "numbers": {
+        "measurements": [
+          {
+            "cite": [
+              "inventory.holders.unknown.gauge_dia"
+            ],
+            "id": "holders.unknown.gauge_dia",
+            "instruction": "measure: unknown mounted holder outside diameter, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.holders.unknown.gauge_len"
+            ],
+            "id": "holders.unknown.gauge_len",
+            "instruction": "measure: unknown spindle nose to mounted holder exit face, steel rule or height gauge, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.holders.unknown.grip"
+            ],
+            "id": "holders.unknown.grip",
+            "instruction": "measure: unknown installed tool insertion from holder exit face, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.tools.em-preparation.flute_len"
+            ],
+            "id": "tools.em-preparation.flute_len",
+            "instruction": "measure: em-preparation selected cutter usable flute length, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.tools.em-preparation.oal"
+            ],
+            "id": "tools.em-preparation.oal",
+            "instruction": "measure: em-preparation selected tool overall length, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.tools.em-preparation.shank"
+            ],
+            "id": "tools.em-preparation.shank",
+            "instruction": "measure: em-preparation record shank, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ]
+      },
       "rule": "reach",
       "status": "unknown",
       "subject": "S1:10"
@@ -2196,10 +2745,79 @@
         "harmonic-analyzer/cad/scripts/build_rocker_arm.py:149-166",
         "plan.setups.S2: frame and hold",
         "plan.setups.S2.ops.10: selected action/tool/holder",
-        "inventory.tools.em-preparation: explicit-unit verified dimensions"
+        "inventory.tools.em-preparation: explicit-unit verified dimensions",
+        "inventory.holders.unknown.gauge_dia",
+        "inventory.holders.unknown.gauge_len",
+        "inventory.holders.unknown.grip",
+        "inventory.tools.em-preparation.flute_len",
+        "inventory.tools.em-preparation.oal",
+        "inventory.tools.em-preparation.shank"
       ],
-      "message": "S2:10: selected tool/holder dimensions are unmeasured or unavailable.",
-      "numbers": {},
+      "message": "S2:10: selected tool/holder dimensions are unmeasured or unavailable. Refused kernel facts: holders.unknown.gauge_dia (missing): No numeric length with explicit millimetre or inch units is recorded; holders.unknown.gauge_len (missing): No numeric length with explicit millimetre or inch units is recorded; holders.unknown.grip (missing): No numeric length with explicit millimetre or inch units is recorded; tools.em-preparation.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.em-preparation.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.em-preparation.shank (missing): No numeric length with explicit millimetre or inch units is recorded.",
+      "numbers": {
+        "measurements": [
+          {
+            "cite": [
+              "inventory.holders.unknown.gauge_dia"
+            ],
+            "id": "holders.unknown.gauge_dia",
+            "instruction": "measure: unknown mounted holder outside diameter, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.holders.unknown.gauge_len"
+            ],
+            "id": "holders.unknown.gauge_len",
+            "instruction": "measure: unknown spindle nose to mounted holder exit face, steel rule or height gauge, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.holders.unknown.grip"
+            ],
+            "id": "holders.unknown.grip",
+            "instruction": "measure: unknown installed tool insertion from holder exit face, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.tools.em-preparation.flute_len"
+            ],
+            "id": "tools.em-preparation.flute_len",
+            "instruction": "measure: em-preparation selected cutter usable flute length, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.tools.em-preparation.oal"
+            ],
+            "id": "tools.em-preparation.oal",
+            "instruction": "measure: em-preparation selected tool overall length, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.tools.em-preparation.shank"
+            ],
+            "id": "tools.em-preparation.shank",
+            "instruction": "measure: em-preparation record shank, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ]
+      },
       "rule": "reach",
       "status": "unknown",
       "subject": "S2:10"
@@ -2687,10 +3305,24 @@
       "cite": [
         "PLAN.md §4.3 thin_wall_under_clamp",
         "kernel: STEP SHA-256 19070131b1ae87020768e24acea45dd8462773c76131630dd299f0188745ef15; FreeCAD B-rep measurements",
-        "plan.setups.S1: frame and hold"
+        "plan.setups.S1: frame and hold",
+        "inventory.machines.test-mill.resolution"
       ],
-      "message": "S1: holding identity is unknown.",
-      "numbers": {},
+      "message": "S1: holding identity is unknown. Refused kernel facts: machines.test-mill.resolution (missing): No numeric length with explicit millimetre or inch units is recorded.",
+      "numbers": {
+        "measurements": [
+          {
+            "cite": [
+              "inventory.machines.test-mill.resolution"
+            ],
+            "id": "machines.test-mill.resolution",
+            "instruction": "measure: test-mill installed DRO least readable step, installed readout and indicator check, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ]
+      },
       "rule": "thin_wall_under_clamp",
       "status": "unknown",
       "subject": "S1"
@@ -2699,10 +3331,24 @@
       "cite": [
         "PLAN.md §4.3 thin_wall_under_clamp",
         "kernel: STEP SHA-256 19070131b1ae87020768e24acea45dd8462773c76131630dd299f0188745ef15; FreeCAD B-rep measurements",
-        "plan.setups.S2: frame and hold"
+        "plan.setups.S2: frame and hold",
+        "inventory.machines.test-mill.resolution"
       ],
-      "message": "S2: holding identity is unknown.",
-      "numbers": {},
+      "message": "S2: holding identity is unknown. Refused kernel facts: machines.test-mill.resolution (missing): No numeric length with explicit millimetre or inch units is recorded.",
+      "numbers": {
+        "measurements": [
+          {
+            "cite": [
+              "inventory.machines.test-mill.resolution"
+            ],
+            "id": "machines.test-mill.resolution",
+            "instruction": "measure: test-mill installed DRO least readable step, installed readout and indicator check, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ]
+      },
       "rule": "thin_wall_under_clamp",
       "status": "unknown",
       "subject": "S2"
@@ -3465,10 +4111,24 @@
       "cite": [
         "PLAN.md §4.3 vise",
         "kernel: STEP SHA-256 19070131b1ae87020768e24acea45dd8462773c76131630dd299f0188745ef15; FreeCAD B-rep measurements",
-        "plan.setups.S1: frame and hold"
+        "plan.setups.S1: frame and hold",
+        "inventory.machines.test-mill.resolution"
       ],
-      "message": "S1: holding identity is unknown.",
-      "numbers": {},
+      "message": "S1: holding identity is unknown. Refused kernel facts: machines.test-mill.resolution (missing): No numeric length with explicit millimetre or inch units is recorded.",
+      "numbers": {
+        "measurements": [
+          {
+            "cite": [
+              "inventory.machines.test-mill.resolution"
+            ],
+            "id": "machines.test-mill.resolution",
+            "instruction": "measure: test-mill installed DRO least readable step, installed readout and indicator check, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ]
+      },
       "rule": "vise",
       "status": "unknown",
       "subject": "S1"
@@ -3477,10 +4137,24 @@
       "cite": [
         "PLAN.md §4.3 vise",
         "kernel: STEP SHA-256 19070131b1ae87020768e24acea45dd8462773c76131630dd299f0188745ef15; FreeCAD B-rep measurements",
-        "plan.setups.S2: frame and hold"
+        "plan.setups.S2: frame and hold",
+        "inventory.machines.test-mill.resolution"
       ],
-      "message": "S2: holding identity is unknown.",
-      "numbers": {},
+      "message": "S2: holding identity is unknown. Refused kernel facts: machines.test-mill.resolution (missing): No numeric length with explicit millimetre or inch units is recorded.",
+      "numbers": {
+        "measurements": [
+          {
+            "cite": [
+              "inventory.machines.test-mill.resolution"
+            ],
+            "id": "machines.test-mill.resolution",
+            "instruction": "measure: test-mill installed DRO least readable step, installed readout and indicator check, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ]
+      },
       "rule": "vise",
       "status": "unknown",
       "subject": "S2"
@@ -3587,7 +4261,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "b6042de29b2e6f4cdf0792ad5eefa93ba01f3521f4c9a676b2303dc36ac96eb8",
+  "hash": "27ca11c93d6e6bfcd8220e5b580b37519c81b2018af99134e7764a4c890e3d28",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -3802,7 +4476,7 @@
       "sha256": "a2d806d278b4db0a531277cb409a6fe3d85c45958eb832153772090a4748eb08"
     }
   },
-  "rules_version": "m5-rev11",
+  "rules_version": "m5-rev12",
   "step_sha256": "19070131b1ae87020768e24acea45dd8462773c76131630dd299f0188745ef15",
   "verification": "planned"
 }

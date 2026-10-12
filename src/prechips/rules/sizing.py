@@ -2,6 +2,7 @@
 
 from ..findings import Finding
 from ..joint_features import source_cite
+from ..measurements import length_debt
 from .internal_corner_radius import corner_allowance_mm
 from .resolution import (
     SAW_OPS,
@@ -12,6 +13,7 @@ from .resolution import (
     record,
     resolve,
     same_length,
+    select,
     uncertain,
 )
 
@@ -90,6 +92,15 @@ def evaluate(bundle):
                     if status == "pass"
                     else "tool nose or reach cannot cover the groove design"
                 )
+            if status == "unknown" and tool:
+                category, identity, _ = select(bundle, tool_ref, "tools")
+                debts = [
+                    entry
+                    for field in ("nose_radius", "reach")
+                    if (entry := length_debt(tool, field, category, identity)) is not None
+                ]
+                if debts:
+                    nums["measurements"] = debts
             result.append(Finding("sizing", name, status, nums, cite, f"{name}: {message}."))
             continue
         if feature["kind"] not in {"hole", "counterbore"} or feature.get("thread"):
@@ -148,5 +159,10 @@ def evaluate(bundle):
         if number(dia):
             nums["tool_dia_in"] = dia / 25.4
             cite.append(tool.get("dia_cite", "inventory explicit size; 25.4 mm/in"))
+        if status == "unknown" and tool:
+            category, identity, _ = select(bundle, tool_ref, "tools")
+            debt = length_debt(tool, "dia", category, identity)
+            if debt is not None:
+                nums["measurements"] = [debt]
         result.append(Finding("sizing", name, status, nums, cite, f"{name}: {sentence}."))
     return result

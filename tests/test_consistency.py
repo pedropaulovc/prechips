@@ -11,6 +11,7 @@ from pathlib import Path
 from unicodedata import category, decomposition, normalize
 
 import pytest
+from test_envelope_m5 import measured
 
 from prechips.inputs import Bundle
 from prechips.rules import consistency
@@ -1108,9 +1109,8 @@ def pictured(cut, *clearances, resolution=None):
         "cut_clearances": [{"op": op, "mm": mm, "tag": tag} for op, mm, tag in clearances],
     }
     data = bundle([{}], {"status": "ok", "setups": {"S1": {"render_scene": scene}}})
-    if resolution is None:
-        return data
-    mill = {"kind": "mill", "resolution_mm": resolution}
+    # This isolated picture/table comparison owns its synthetic physical grid.
+    mill = {"kind": "mill", "resolution_mm": measured(0.001 if resolution is None else resolution)}
     return replace(data, inventory={**INVENTORY, "machines": {"mill": mill}})
 
 

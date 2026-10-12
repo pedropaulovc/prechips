@@ -160,10 +160,14 @@ package version. `--json` and `--verbose` default off.
   deduplicated by exact report id, set members and tool/holder pairs included,
   each with what to measure, instrument, units and citation. It is not an
   inventory-wide field walk: nothing no rule reads is listed, and it adds no
-  tool purchases or unlisted set members. It evaluates only the host-side
-  rules that emit measurement debt (headroom, envelope, travel, tip_endpoints
-  / blind_depth and turning_deflection) and never launches FreeCAD;
-  referenced inputs and STEP hashes are still validated.
+  tool purchases or unlisted set members. It evaluates every rule on the host
+  (no FreeCAD discovery, execution or cache: the run starts from a truthful
+  `geometry was not requested` unknown kernel result) and adds the facts the
+  kernel job builder refuses, so there is no partial list of
+  "measurement rules". The contract is completeness:
+  measuring every listed fact clears every recorded-provenance `?` of those
+  plans; a provenance `?` the list does not name is a checklist bug.
+  Referenced inputs and STEP hashes are still validated.
   `--plan` is only valid with `--measure`.
 - **compare** writes `compare.json` and a side-by-side table (JSON with `--json`):
   candidate identity, part, setup count, required fixtures, waste ratio, findings
@@ -258,9 +262,11 @@ the vendor nominals remain unchanged and `verify = true`. The example PM 6 in
 vise has a fact-local measured table-to-bed height of 2.886 in without the
 swivel base; its other measurements and provenance are in the
 [example guide](examples/README.md#files-and-expected-exits). Other example
-dimensions are labelled `status = "illustrative"`: they are debt for every
-rule that reads them, and do not establish real
-shop capability. A tool's projection is a per-holder map
+dimensions are demonstration fixtures: realistic values whose
+`status = "measured"` record carries the exact marker
+`by = "example value (realistic, not a shop measurement)"`, so they exercise
+the measured branch without establishing real shop capability; a few are
+deliberately `status = "assumed"` and stay `?`. A tool's projection is a per-holder map
 (`tools.<tool>.projection_mm.<full holder ref>`), never a holder-wide or
 tool-wide number; when the selected pair has an entry that entry alone
 decides, so an `"unknown"` entry never falls back to OAL − grip, and only an

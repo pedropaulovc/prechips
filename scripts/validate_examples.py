@@ -27,15 +27,14 @@ from prechips.findings import ALWAYS_REQUIRED
 from prechips.inputs import load_bundle, operative_definitions
 from prechips.joint_features import LABEL_PREFIX, fit, label, present, setup_span_mm
 from prechips.kernel import run_geometry
-from prechips.measurements import length_fact, nominal_length_mm
-from prechips.model import UNIT_TOLERANCE, Plan, tolerance_requirements
+from prechips.model import UNIT_TOLERANCE, Inventory, Plan, tolerance_requirements
 from prechips.process_features import ACTIONS as PROCESS_ACTIONS
 from prechips.process_features import ANGLE_TOLERANCE_DEG
 from prechips.process_features import LABEL_PREFIX as PROCESS_PREFIX
 from prechips.rules import RULES as CHECKER_RULES
 from prechips.rules import tool_resolves as identity_rule
 from prechips.rules import zero_recipe as zero_rules
-from prechips.rules._bench import manual_bench
+from prechips.rules._bench import BENCH_KINDS, manual_bench
 from prechips.rules.coordinates import (
     CENTRE_OPS,
     DRO_DEFAULT_STEP,
@@ -102,10 +101,47 @@ ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES = ROOT / "examples"
 PARTS = ("pivot-shaft", "rocker-arm", "pivot-bracket")
 EXPECTED_EXIT = {
-    "pivot-shaft": 4,
-    "rocker-arm": 4,
-    "pivot-bracket": 4,
+    "pivot-shaft": 0,
+    "rocker-arm": 0,
+    "pivot-bracket": 0,
     "cone-pivot-post/built-up.toml": 4,
+}
+# Worked fixtures exercise the measured branch without claiming shop observations.
+EXAMPLE_MEASUREMENT = {
+    "by": "example value (realistic, not a shop measurement)",
+    "date": "2026-10-11",
+    "instrument": "example fixture (no physical measurement)",
+}
+EXAMPLE_DEMO_FACT_COUNT = 817
+REAL_PEDRO_FACTS = {
+    ("fixtures", "vise-pm-6", "jaw_width_in"): (
+        6.247,
+        "large calipers or steel rule (as reported; exceeds 6 in caliper range)",
+    ),
+    ("fixtures", "vise-pm-6", "opening_in"): (6.135, "calipers"),
+    ("fixtures", "vise-pm-6", "jaw_height_in"): (1.7695, "calipers"),
+    ("fixtures", "vise-pm-6", "jaw_depth_in"): (0.7010, "calipers"),
+    ("fixtures", "vise-pm-6", "bed_height_in"): (2.886, "calipers"),
+    ("fixtures", "vise-pm-6-tall-soft-jaws", "bed_height_in"): (
+        2.886,
+        "calipers (vise-pm-6 reading, unchanged by the jaw plates)",
+    ),
+}
+EXAMPLE_ASSUMED_LEADS = {
+    ("tools", "reamers-decimal", "members", "0.4500in", "lead_mm"): (
+        "cone-pivot-post/built-up.toml",
+        "S8",
+        30,
+        "reamers-decimal/0.4500in",
+        "crank_bore",
+    ),
+    ("tools", "reamers-decimal", "members", "0.4835in", "lead_mm"): (
+        "cone-pivot-post/built-up.toml",
+        "S9",
+        30,
+        "reamers-decimal/0.4835in",
+        "journal_bore",
+    ),
 }
 # (bundle, plan, expected dir, exit, discriminating rule, modeled setups, setups the rule
 # errors on). Setups outside the modeled set must render as partial pictures with debts.
@@ -421,6 +457,211 @@ def accepted(fact) -> bool:
         return False
 
 
+def inventory_provenance_fields(source: str):
+    """Comment/note-labelled physical facts, classified by their actual schema path.
+
+    TOML supplies the values and quoted identities; source lines supply only adjacent
+    comments. Plain capability collections retain bare-nominal handling and exact source
+    disclosure, not fictitious length records or automatic item-verification demotions.
+    A catalogue nominal without a local provenance marker stays nominal.
+    """
+    document = tomllib.loads(source)
+    schema = Inventory.model_json_schema()
+    definitions = schema["$defs"]
+    marker = re.compile(r"\b(?:example|illustrative)\b|\bmeasured\s*=", re.IGNORECASE)
+    tokens = re.compile(r"""("(?:\\.|[^"\\])*"|'[^']*')|(?P<comment>\#.*)""")
+    plain_capabilities = {"range_mm", "range_in", "ra_range", "sizes_mm", "blade_speed_sfm"}
+
+    def branches(node):
+        if "$ref" in node:
+            yield from branches(definitions[node["$ref"].rsplit("/", 1)[1]])
+        elif "anyOf" in node:
+            for child in node["anyOf"]:
+                yield from branches(child)
+        else:
+            yield node
+
+    def field_schema(path):
+        nodes = [schema]
+        for key in path:
+            children = []
+            for node in nodes:
+                for branch in branches(node):
+                    child = branch.get("properties", {}).get(key)
+                    if child is None:
+                        child = branch.get("additionalProperties")
+                    if isinstance(child, dict):
+                        children.append(child)
+            nodes = children
+        return nodes
+
+    def keys(authored):
+        value = tomllib.loads(f"{authored} = 0")
+        path = []
+        while isinstance(value, dict):
+            ((key, value),) = value.items()
+            path.append(key)
+        return tuple(path)
+
+    table_path, comments = (), []
+    for line_number, line in enumerate(source.splitlines(), 1):
+        comment = next((match for match in tokens.finditer(line) if match["comment"]), None)
+        code = line[: comment.start()] if comment else line
+        if not code.strip():
+            if comment:
+                comments.append(comment["comment"])
+            else:
+                comments.clear()
+            continue
+        code = code.strip()
+        if code.startswith("["):
+            # Array tables (shop stock) use plain Stock fields, not InventoryItem facts.
+            table_path = () if code.startswith("[[") else keys(code[1:-1])
+            comments.clear()
+            continue
+        if not table_path or "=" not in code or code.startswith("{"):
+            comments.clear()
+            continue
+        authored_key = code.partition("=")[0].strip()
+        key_token = r"""(?:[\w-]+|"(?:\\.|[^"\\])*"|'[^']*')"""
+        if re.fullmatch(rf"{key_token}(?:\s*\.\s*{key_token})*", authored_key) is None:
+            comments.clear()
+            continue
+        path = table_path + keys(authored_key)
+        item = document
+        notes = []
+        for key in table_path:
+            item = item[key]
+            if isinstance(item, dict):
+                notes.append(item.get("note", ""))
+        value = item
+        for key in path[len(table_path) :]:
+            value = value[key]
+        prose = [*comments, comment["comment"] if comment else "", *notes]
+        comments.clear()
+        if not any(isinstance(text, str) and marker.search(text) for text in prose):
+            continue
+        nodes = field_schema(path)
+        record_capable = any(
+            {"value", "measured"} <= branch.get("properties", {}).keys()
+            for node in nodes
+            for branch in branches(node)
+        )
+        fact_value = value.get("value", "unknown") if isinstance(value, dict) else value
+        physical = (
+            numeric(fact_value)
+            or (isinstance(fact_value, str) and fraction(fact_value) is not None)
+            or (isinstance(fact_value, list) and bool(fact_value) and all(map(numeric, fact_value)))
+        )
+        if physical and (record_capable or path[-1] in plain_capabilities and nodes):
+            yield path, line_number, item, value, record_capable
+
+
+def check_inventory_provenance(source: str, where: str = "inventory") -> dict:
+    """No comment-only capability may stand in for a schema-supported fact record."""
+    found = {"record_fields": set(), "plain_fields": set()}
+    lines = source.splitlines()
+    for path, line, _item, value, record_capable in inventory_provenance_fields(source):
+        label = ".".join(path)
+        location = f"{where}:{line}: {label}"
+        if record_capable:
+            require(
+                isinstance(value, dict) and isinstance(value.get("measured"), dict),
+                f"{location}: provenance comment/note requires a fact-local measured record",
+            )
+            found["record_fields"].add(path)
+        else:
+            comments = [lines[line - 1].partition("#")[2]]
+            previous = line - 2
+            while previous >= 0 and lines[previous].lstrip().startswith("#"):
+                comments.append(lines[previous])
+                previous -= 1
+            require(
+                not isinstance(value, dict)
+                and any(EXAMPLE_MEASUREMENT["by"] in comment for comment in comments),
+                f"{location}: example bare nominal requires the exact source disclosure marker",
+            )
+            found["plain_fields"].add(path)
+    return found
+
+
+def example_measurement_records(node, path=()):
+    """Every authored measured record, including fixture solids and member facts."""
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if key == "measured" and isinstance(value, dict):
+                yield path, node
+            else:
+                yield from example_measurement_records(value, path + (key,))
+    elif isinstance(node, list):
+        for index, value in enumerate(node):
+            yield from example_measurement_records(value, path + (str(index),))
+
+
+def check_example_measurements(inventory: dict, plans: dict) -> dict:
+    """Strict demo markers, unchanged real observations and two actually selected leads.
+
+    This is authoring policy for the shared worked inventory, not a production trust
+    exception: ASSUMED still fails ``accepted`` and no plain field gains a wrapper."""
+    real, demo, assumed = set(), set(), set()
+    for path, fact in example_measurement_records(inventory):
+        label = ".".join(path)
+        measurement = fact["measured"]
+        if path in REAL_PEDRO_FACTS:
+            value, instrument = REAL_PEDRO_FACTS[path]
+            require(
+                fact.get("value") == value
+                and measurement
+                == {
+                    "status": "measured",
+                    "by": "Pedro Paulo Vezza Campos",
+                    "date": "2026-10-05",
+                    "instrument": instrument,
+                },
+                f"{label}: actual Pedro measurement changed",
+            )
+            real.add(path)
+            continue
+        status = "assumed" if path in EXAMPLE_ASSUMED_LEADS else "measured"
+        require(
+            measurement == {"status": status, **EXAMPLE_MEASUREMENT},
+            f"{label}: demonstration fixture requires exact {status} marker metadata",
+        )
+        demo.add(path)
+        if path in EXAMPLE_ASSUMED_LEADS:
+            require(fact.get("value") == 1.0, f"{label}: deliberately assumed lead value changed")
+            assumed.add(path)
+    require(real == REAL_PEDRO_FACTS.keys(), "shared inventory lost an actual Pedro record")
+    require(assumed == EXAMPLE_ASSUMED_LEADS.keys(), "shared inventory lost an assumed lead")
+    anchors = {
+        ("machines", "PM-30MV", "resolution_mm"),
+        ("machines", "PM-1127VF-LB", "resolution_mm"),
+        ("tools", "endmills-lms-6784", "members", "3-8in-4fl", "dia_mm"),
+        ("gauges", "radius-gauge", "resolution_mm"),
+    }
+    require(anchors <= demo, "shared inventory demonstration scan lost its fact anchors")
+    require(
+        len(demo) == EXAMPLE_DEMO_FACT_COUNT,
+        "shared inventory demonstration measurement count changed",
+    )
+    consumers = {}
+    for path, (filename, sid, number, reference, feature) in EXAMPLE_ASSUMED_LEADS.items():
+        require(filename in plans, f"{filename}: assumed lead's consuming plan missing")
+        selected = {
+            (plan_name, setup["id"], op["op"], op.get("do"), op.get("feature"))
+            for plan_name, plan in plans.items()
+            for setup in plan["setups"]
+            for op in setup["ops"]
+            if op.get("tool") == reference
+        }
+        require(
+            selected == {(filename, sid, number, "ream", feature)},
+            f"{'.'.join(path)}: assumed lead must be selected only by {sid}:{number} {feature}",
+        )
+        consumers[path] = (filename, sid, number, "blind_depth", feature)
+    return {"real": real, "demo": demo, "assumed": assumed, "consumers": consumers}
+
+
 def centre_tool_facts(ref: str, entries: Entries) -> dict:
     """The selected centre drill's own accepted D, C, countersink angle, body and point
     (``CENTRE_TOOL_FACTS``) in mm and degrees; any other fact is unknown."""
@@ -539,7 +780,7 @@ def read_report(path: Path) -> dict:
         == ("checked" if report.get("expected_exit") == 0 else "planned"),
         f"{path}: unearned readiness",
     )
-    require(report.get("rules_version") == "m5-rev11", f"{path}: stale rule catalogue")
+    require(report.get("rules_version") == "m5-rev12", f"{path}: stale rule catalogue")
     previous = None
     for finding in report["findings"]:
         key = finding["rule"], finding["subject"]
@@ -770,6 +1011,17 @@ def check_required_coverage(
     check_make_ops(plan, entries, findings)
     for rule, own in domains.items():
         for subject, row in own.items() if isinstance(own, dict) else ():
+            if rule == "consistency":
+                setup = next((s for s in plan["setups"] if s["id"] == subject), None)
+                if (
+                    setup is not None
+                    and "kernel setup picture: closest_cut and per-op cut_clearances" in row["cite"]
+                    and not dro_grid_trusted(setup, features, entries, plan)
+                ):
+                    require(
+                        findings[rule, subject]["status"] in {"unknown", "error"},
+                        f"consistency:{subject}: an unverified picture grid cannot pass",
+                    )
             require(
                 findings[rule, subject] == row,
                 f"{rule}:{subject}: not the checker's own row on the validator's inputs",
@@ -1330,9 +1582,9 @@ def written_procedure(method) -> bool:
 
 
 def gauge_resolution(gauge: dict):
-    """The gauge's resolution when its own fact trusts it, else unknown."""
-    fact = length_fact(gauge, "resolution", require_measured=False)
-    return fact["value"] if fact["verified"] else "unknown"
+    """Independent fact-local acceptance and unit conversion; debt is never a number."""
+    entries = Entries({"gauges": {"selected": gauge}})
+    return tool_length_mm("selected", "resolution", entries, "gauges")
 
 
 def blank_size_check(gauge, band: list, features: dict, row: dict) -> str:
@@ -1346,7 +1598,8 @@ def blank_size_check(gauge, band: list, features: dict, row: dict) -> str:
     kind = gauge.get("kind", "unknown")
     span = gauge.get("range_mm")
     if not isinstance(span, list):
-        maximum = nominal_length_mm(gauge, "range")
+        entries = Entries({"gauges": {"selected": gauge}})
+        maximum = tool_length_mm("selected", "range", entries, "gauges")
         span = [0, maximum] if numeric(maximum) else "unknown"
     resolution = gauge_resolution(gauge)
     row.update(gauge_kind=kind, range_mm=span, resolution_mm=resolution)
@@ -1710,7 +1963,22 @@ def derive_zero(setup: dict, own, entries: Entries) -> tuple:
     tops = [z for z, _ in zero_rules._tops(own, setup, states)]
     corner_errors, face_errors, face_unknowns = [], [], []
     blade_corner = zero_rules._corner_recorder(own, setup, lathe, corner_errors)
-    face_check = zero_rules._face_checker(own, setup, face_errors, face_unknowns)
+    grid = dro_grid(setup, own.features, entries, plan)
+    grid_trusted = dro_grid_trusted(setup, own.features, entries, plan)
+
+    def face_check(touch, face, edge, done, who, source=None):
+        if touch.get("method") in MEASURED_ZERO or not face:
+            return
+        stands = zero_rules.face_stands(own, setup, face, edge, done, source)
+        if stands is None:
+            return
+        if not grid_trusted or not numeric(stands):
+            face_unknowns.append(f"{who} on {face}")
+            return
+        shown = dro_up(stands, grid)
+        if round(shown - stands, 9):
+            face_errors.append(f"{who} sets {face} as Z {shown:g}, which stands at {stands:g}")
+
     unknown = (
         not frame
         or frame.get("binding") == "unknown"
@@ -2176,7 +2444,7 @@ def printed_entry(stock: SimpleNamespace, setup: dict, entry, face: str, source,
     that face has no plan-only derivation, rejected. Every setup's DRO zero is held to
     its recipe by :func:`check_zero`."""
     features = stock.features
-    grid = dro_grid(setup, features, entries)
+    grid = dro_grid(setup, features, entries, stock.plan)
     if not numeric(entry):
         return "unknown"
     producer = entry_producer(stock, setup, entry, face, source, entries)
@@ -2193,7 +2461,7 @@ def printed_entry(stock: SimpleNamespace, setup: dict, entry, face: str, source,
             f"{cut_setup['id']}:{op.get('op')}: a lathe face cut by what may be a blade stands "
             "where its corner reading leaves it; no plan-only entry surface",
         )
-    cut = dro_up(op.get("to_z", "unknown"), dro_grid(cut_setup, features, entries))
+    cut = dro_up(op.get("to_z", "unknown"), dro_grid(cut_setup, features, entries, stock.plan))
     return dro_up(cut, grid)
 
 
@@ -2278,6 +2546,11 @@ def check_endpoints(plan: dict, features: dict, findings: dict, entries: Entries
             op = next(op for op in setup["ops"] if op["op"] == row["op"])
             require(op["feature"] == row["feature"], "endpoint mismatched feature")
             where = f"{row['setup']}:{row['op']}"
+            grid_trusted = dro_grid_trusted(setup, features, entries, plan)
+            require(
+                bool(row.get("dro_grid_debt")) is not grid_trusted,
+                f"{where}: endpoint grid debt is not its source measurement's trust",
+            )
             feature = definitions[op["feature"]]
             action = op["do"]
             entry, source, face = entry_surface(stock, setup, op)
@@ -2296,10 +2569,12 @@ def check_endpoints(plan: dict, features: dict, findings: dict, entries: Entries
                     f"{where}: only a plan centre hole has a centre endpoint",
                 )
                 cut, verdict = check_centre_endpoint(plan, features, setup, op, row, entries, entry)
-                verdicts.append(verdict)
+                verdicts.append("unknown" if verdict == "pass" and not grid_trusted else verdict)
                 depths[row["setup"], row["op"]] = cut if positive(cut) else "unknown"
                 planned.update(depth=cut, tip=difference(entry, cut))
-                check_printed_endpoint(row, where, dro_grid(setup, features, entries), planned)
+                check_printed_endpoint(
+                    row, where, dro_grid(setup, features, entries, plan), planned
+                )
                 continue
             elif action in {"spot", "tap"}:
                 depth = planned_depth_mm(op, feature, units)
@@ -2379,10 +2654,12 @@ def check_endpoints(plan: dict, features: dict, findings: dict, entries: Entries
                         verdict = "unknown"
                     elif total > limit and not unverified:
                         verdict = "error"
-            if verdict != "error" and (not numeric(tip) or missing or unverified):
+            if verdict != "error" and (
+                not numeric(tip) or missing or unverified or not grid_trusted
+            ):
                 verdict = "unknown"
             verdicts.append(verdict)
-            check_printed_endpoint(row, where, dro_grid(setup, features, entries), planned)
+            check_printed_endpoint(row, where, dro_grid(setup, features, entries, plan), planned)
         verdict = max(verdicts, key=STATUS_RANK.get, default="unknown")
         require(
             finding["status"] == verdict,
@@ -3083,19 +3360,64 @@ def check_aims(context: SimpleNamespace, setup: dict, finding: dict, frame, plac
     return standing
 
 
-def dro_grid(setup: dict, features: dict, entries: Entries) -> tuple:
-    """``(step, decimals)``: the setup machine's DRO grid in manifest units, from the
-    inventory alone: its one authored positive ``resolution`` length, else
-    ``DRO_DEFAULT_STEP`` (so too for units other than mm or in); the decimals print one
-    step exactly."""
-    scale = UNIT_MM.get(features.get("units"))
-    record = machine_record(setup, entries)
+def declared_dro_resolution(record: dict) -> tuple:
+    """The independently read nominal resolution in mm and its authored fact."""
     authored = [key for key in ("resolution_mm", "resolution_in") if key in record]
     authored += ["resolution"] if "resolution" in record and "units" in record else []
-    resolution = "unknown"
-    if scale is not None and len(authored) == 1:
-        resolution = tool_length_mm(setup.get("machine"), "resolution", entries, "machines")
-    step = resolution / scale if positive(resolution) else DRO_DEFAULT_STEP
+    if len(authored) != 1:
+        return "unknown", None
+    key = authored[0]
+    fact = record[key]
+    value = fact.get("value", "unknown") if isinstance(fact, dict) else fact
+    unit = "in" if key.endswith("_in") else "mm" if key.endswith("_mm") else record["units"]
+    if unit == "mm":
+        return (value if numeric(value) else "unknown"), fact
+    if unit in {"in", "inch"}:
+        inches = fraction(str(value))
+        return (float(inches) * 25.4 if inches is not None else "unknown"), fact
+    return "unknown", fact
+
+
+def dro_grid_source(setup: dict, entries: Entries, plan: dict | None = None) -> dict:
+    """A bench without its own positive declaration inherits its supplying machine."""
+    machine = machine_record(setup, entries)
+    resolution, _ = declared_dro_resolution(machine)
+    if positive(resolution) or machine.get("kind") not in BENCH_KINDS or plan is None:
+        return setup
+    return next(
+        (
+            source
+            for source in reversed(lineage(SimpleNamespace(plan=plan), setup))
+            if machine_record(source, entries).get("kind") not in BENCH_KINDS
+        ),
+        setup,
+    )
+
+
+def dro_grid_trusted(
+    setup: dict, features: dict, entries: Entries, plan: dict | None = None
+) -> bool:
+    """Judging requires the effective grid's own positive, complete measured fact."""
+    source = dro_grid_source(setup, entries, plan)
+    resolution, fact = declared_dro_resolution(machine_record(source, entries))
+    return (
+        features.get("units") in UNIT_MM
+        and positive(resolution)
+        and isinstance(fact, dict)
+        and isinstance(fact.get("measured"), dict)
+        and accepted(fact)
+    )
+
+
+def dro_grid(setup: dict, features: dict, entries: Entries, plan: dict | None = None) -> tuple:
+    """The nominal grid: keep declared precision regardless of judging trust.
+
+    Only an absent/unread positive step uses ``DRO_DEFAULT_STEP``. A bench inherits
+    its source machine's declaration and trust when its plan is available."""
+    scale = UNIT_MM.get(features.get("units"))
+    source = dro_grid_source(setup, entries, plan)
+    resolution, _ = declared_dro_resolution(machine_record(source, entries))
+    step = resolution / scale if scale is not None and positive(resolution) else DRO_DEFAULT_STEP
     decimals = next((d for d in range(9) if abs(round(step, d) - step) <= 1e-12), 9)
     return step, decimals
 
@@ -3246,7 +3568,13 @@ def check_coordinates(
     )
     rows = numbers.get("rows", [])
     lathe = machine_kind(setup, entries) == "lathe"
-    grid = dro_grid(setup, features, entries)
+    grid = dro_grid(setup, features, entries, plan)
+    grid_trusted = dro_grid_trusted(setup, features, entries, plan)
+    require(
+        bool(numbers.get("dro_grid_debt")) is not grid_trusted,
+        f"{sid}: coordinate grid debt is not its source measurement's trust",
+    )
+    require(grid_trusted or finding["status"] != "pass", f"{sid}: an unverified grid cannot pass")
     shown = numbers.get("dro_grid")
     require(isinstance(shown, dict) and set(shown) == {"step", "decimals"}, f"{sid}: DRO grid")
     near(shown["step"], grid[0], f"{sid}: DRO grid step")
@@ -3347,7 +3675,7 @@ def check_coordinates(
     )
     if target_only:
         unresolved = frame == "unknown" or frame.get("binding") == "unknown"
-        unresolved |= unresolved_targets
+        unresolved |= unresolved_targets or not grid_trusted
         status = "unknown" if unresolved else "pass"
         require(finding["status"] == status, f"{sid}: ordinary target verdict is not {status}")
 
@@ -4431,6 +4759,19 @@ def main() -> int:
         documents = {
             path.resolve(): tomllib.loads(path.read_text(encoding="utf-8")) for path in paths
         }
+        for path, document in documents.items():
+            if any(
+                key in document for key in ("machines", "tools", "holders", "fixtures", "gauges")
+            ):
+                check_inventory_provenance(path.read_text(encoding="utf-8"), str(path))
+        check_example_measurements(
+            documents[(EXAMPLES / "inventory" / "pedro-shop.toml").resolve()],
+            {
+                path.relative_to(EXAMPLES).as_posix(): document
+                for path, document in documents.items()
+                if "setups" in document
+            },
+        )
         require(not list(EXAMPLES.rglob("*.yaml")), "obsolete YAML examples remain")
         require(not list(EXAMPLES.rglob("*.csv")), "obsolete external coordinate files remain")
         print(f"Parsed {len(documents)} TOML files.")

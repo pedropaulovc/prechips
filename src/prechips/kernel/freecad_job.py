@@ -10561,18 +10561,22 @@ class _Setup:
             return self._saw_facts(op, self.cuts[id(op)][2])
         owner = self.owner
         process = op.get("process_cut")
+        process_reason = None
         if isinstance(process, dict):
-            if process.get("reason"):
-                return self._op_unknown(op, process["reason"])
-            if not _turned(op):
+            process_reason = process.get("reason") or None
+            if process_reason is None and not _turned(op):
                 if self.stock_reason is not None:
-                    return self._op_unknown(op, self.stock_reason)
-                if process.get("kind") != "end_face":
+                    process_reason = self.stock_reason
+                elif process.get("kind") != "end_face":
                     return self._process_axial_op(op)
-                # A milled end face is sampled like any milled claim: its transient section.
-                _, reason = self._process_removal(op, self.part)
-                if reason is not None:
-                    return self._op_unknown(op, reason)
+                else:
+                    _, process_reason = self._process_removal(op, self.part)
+            if process_reason is not None and (
+                process.get("kind") != "end_face" or _hand(op) or _turned(op) or _rotary(op)
+            ):
+                return self._op_unknown(op, process_reason)
+            # A milled end face's validated claims and corners do not need its cutter
+            # sweep. Keep that geometry, but do not sample an unknown physical cut.
         if isinstance(op.get("joint_cut"), dict):
             if self.stock_reason is not None:
                 return self._op_unknown(op, self.stock_reason)
@@ -10671,10 +10675,10 @@ class _Setup:
             if not isinstance(corner, list):
                 reasons["corner_radii_mm"] = corner
             radius = _positive(op, "radius_mm")
-            if radius is None:
+            if process_reason is not None or radius is None:
                 for key in self._MEASURED:
                     facts[key] = UNKNOWN
-                    reasons[key] = "op lacks a measured cutter radius_mm"
+                    reasons[key] = process_reason or "op lacks a measured cutter radius_mm"
             else:
                 self._sample_facts(op, sampled, radius, facts)
                 if undefined:

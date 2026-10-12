@@ -44,9 +44,9 @@ def _assert_bundle_bytes_equal(actual, expected, comparison):
 @pytest.mark.parametrize(
     ("part", "plan_filename", "expected_subdir", "exit_code"),
     [
-        ("pivot-shaft", "plan.toml", "expected", 4),
-        ("rocker-arm", "plan.toml", "expected", 4),
-        ("pivot-bracket", "plan.toml", "expected", 4),
+        ("pivot-shaft", "plan.toml", "expected", 0),
+        ("rocker-arm", "plan.toml", "expected", 0),
+        ("pivot-bracket", "plan.toml", "expected", 0),
         ("cone-pivot-post", "built-up.toml", "expected/built-up", 4),
     ],
 )

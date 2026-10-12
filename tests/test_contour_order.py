@@ -229,6 +229,7 @@ def keep_out_face(tmp_path, circles, direction="conventional", sweep_frame="A", 
         f"sweep_frame = '{sweep_frame}', "
         "sweep_bounds = { x = [0.0, 20.0], y = [0.0, 10.0], z = [0.0, 1.0] }, "
         f"keep_out = {circles} }}\n",
+        resolution=0.001 if resolution is None else resolution,
     )
     if sweep_frame == "B":
         features = plan.with_name("features.toml")
@@ -238,12 +239,6 @@ def keep_out_face(tmp_path, circles, direction="conventional", sweep_frame="A", 
                 "x = [1.0, 0.0, 0.0]\ny = [0.0, -1.0, 0.0]\nz = [0.0, 0.0, -1.0]\n"
                 "binding = 'measured'\n"
             )
-    if resolution is not None:
-        inventory = plan.with_name("inventory.toml")
-        text = inventory.read_text(encoding="utf-8").replace(
-            "kind = 'mill'\n", f"kind = 'mill'\nresolution_mm = {resolution}\n", 1
-        )
-        inventory.write_text(text, encoding="utf-8")
     row = next(row for row in coordinates.evaluate(load_bundle(plan)) if row.subject == "S1")
     (profile,) = row.numbers["profiles"]
     return row, profile
@@ -480,10 +475,11 @@ def test_an_inch_plan_face_raster_steps_and_overruns_in_inches(tmp_path):
     )
     bundle = load_bundle(plan)
     bundle.features["units"] = "in"
+    bundle.inventory["machines"]["mill"]["resolution_mm"] = measured(0.0254)
     row = next(row for row in coordinates.evaluate(bundle) if row.subject == "S1")
     (profile,) = row.numbers["profiles"]
     passes = profile["cutter_centre"]
-    # A 2 in x 1 in face, Ø6 mm cutter, 4 mm step on the default 0.001 in DRO grid: passes
+    # A 2 in x 1 in face, Ø6 mm cutter, 4 mm step on a measured 0.001 in DRO grid: passes
     # no more than 4/25.4 in apart across the 1 in span, each running at least 3/25.4 in
     # (rounded outward to the grid, so less than one step more) past both ends of the 2 in
     # span.
@@ -510,6 +506,7 @@ def test_an_inch_plan_keep_out_island_clears_by_its_millimetre_diameter(tmp_path
     )
     bundle = load_bundle(plan)
     bundle.features["units"] = "in"
+    bundle.inventory["machines"]["mill"]["resolution_mm"] = measured(0.0254)
     row = next(row for row in coordinates.evaluate(bundle) if row.subject == "S1")
     (profile,) = row.numbers["profiles"]
     assert row.status == "pass", (row.sentence, profile.get("raster_reason"))
@@ -826,7 +823,7 @@ def test_a_boxed_cut_preserves_the_entry_it_does_not_remove(
     setup = bundle.plan["setups"][0]
     setup["frame"] = "model"
     setup["stock_state"]["entry_z"] = {"target": 0.0 if lowered else -4.0}
-    bundle.inventory["machines"]["mill"]["resolution_mm"] = 0.005
+    bundle.inventory["machines"]["mill"]["resolution_mm"] = measured(0.005)
     states = {op["op"]: (before, after) for op, before, after in stock_states(bundle, setup)}
     prior = "S1 op 10 to_z" if lowered else "S1 stock_state.entry_z.target"
     source = "S1 op 20 to_z" if produced else prior

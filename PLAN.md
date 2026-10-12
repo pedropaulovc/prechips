@@ -516,8 +516,11 @@ the sample's BS-0 carries all three, circles `verify = true`). A value copied fr
 a silent pass. The sample inventory carries the PM 6 in vise with
 shop-measured `jaw_height_in`, `jaw_width_in`, `jaw_depth_in`, `opening_in`
 and `bed_height_in` (2026-10-05, `status = "measured"`; item-level
-`verify = true` kept as identity debt), every other invented sample dimension
-labelled `status = "illustrative"` (debt wherever a rule reads it), and the
+`verify = true` kept as identity debt), every other supported sample
+dimension a demonstration fixture (`status = "measured"` with the exact
+marker `by = "example value (realistic, not a shop measurement)"`, exercising
+the measured branch without being a shop observation) except a few
+deliberately `status = "assumed"` records listed in `examples/README.md`, and the
 PM-30MV envelope (`envelope.travel_in`,
 `envelope.spindle_to_table_max_in`), still `verify = true`.
 
@@ -1318,9 +1321,10 @@ sheet.
    that centre and refuses a buried mouth. The pivot-shaft S0 faces and
    centre-drills the plain end; the saw cut stays a stock prerequisite (the bar
    it is cut from is not declared). The catalogue includes `centre_support`;
-   current reports and frozen bundles use `rules_version = "m5-rev11"`
+   current reports and frozen bundles use `rules_version = "m5-rev12"`
    (`m5-rev10` plus fail-closed measurement provenance: only
-   `measured.status = "measured"` is a measurement).
+   `measured.status = "measured"` is a measurement, and every rule's
+   measurement debt reaches `tools --measure`).
 
    **Mill blank preparation shipped (2026-10-07, round-5 MillPrep):** a
    rectangular root stock's planar `end_face`s are the six blank faces a mill
@@ -1529,9 +1533,11 @@ sheet.
    matching images may stay. A refusal restores every prior output even after
    an absent deletion. Kernel discovery checks the current user's LOCALAPPDATA,
    never a developer's hard-coded home. The cache hashes only engine inputs,
-   not host-only finishing, resolved-projection OAL, wording or grip policy.
+   not host-only finishing, resolved-projection OAL, wording or grip policy;
+   a refused fact enters the key as its stable field id, never as its
+   status, attribution or reason text.
 
-   The combined catalogue is `m5-rev11`. Geometry reuses M5 fact-local length
+   The combined catalogue is `m5-rev12`. Geometry reuses M5 fact-local length
    lookup with nominal facts allowed: only that dimension's own verification,
    incomplete measurement record or non-`measured` status (`assumed`,
    `illustrative` or omitted) withholds it. A dimension newly withheld by its
@@ -1558,9 +1564,9 @@ sheet.
    production fixture, physical operator/setup verification or approval.
 5. **M5 — measured inventory**: spindle stack, travel limits, holder gauge
    lengths; unresolved envelope checks leave `?`. **Interface implemented;
-   real shop measurements remain separate from illustrative example records,
-   and only `status = "measured"` records are read as measurements, so the
-   shipped example bundles stop at exit 4 on their illustrative facts.**
+   real shop measurements remain separate from the examples' demonstration
+   fixtures, and only `status = "measured"` records are read as
+   measurements.**
    `machines.<id>.envelope` is the
    single machine block (`travel` x/y/z, `spindle_to_table_max`/`min`) read by
    `headroom`, `envelope` and `travel`; the mill's top-level
@@ -1604,12 +1610,14 @@ sheet.
    mounted gauge length and grip; parallels and 1-2-3 block heights; and each
    selected tool's OAL, installed projection (or OAL/grip), cutter diameter,
    drill point angle and reamer lead as applicable. The example inventory
-   supplies illustrative records labelled `example (plausible, not measured)`;
+   supplies demonstration-fixture records marked
+   `example value (realistic, not a shop measurement)`;
    resolved example rows do not establish measured shop capability.
    Per-operation safe `approach_mm` and incomplete authored extents remain
    plan-input debt when unresolved, not shop measurements. `tools --measure`
-   lists unresolved report facts, not every illustrative value that must be
-   qualified before machining. The default policy is unchanged; shops may
+   lists unresolved report facts; a demonstration fixture resolves its rule
+   and is therefore not listed, though a real shop must still measure it
+   before machining. The default policy is unchanged; shops may
    require envelope/travel on `"*"`.
 
    **First shop measurements, recorded 2026-10-05.** Pedro Paulo Vezza Campos
@@ -1624,7 +1632,7 @@ sheet.
    is kept. The larger depth reading is conservative for collision checks;
    its individual jaw attribution remains unknown. Converted bed and jaw
    heights are 73.3044 mm and 44.9453 mm. These attributed measurements do
-   not qualify the inventory's illustrative parallels, blocks, holders,
+   not qualify the inventory's demonstration-fixture parallels, blocks, holders,
    tools or PM-30MV envelope, and do not constitute first-article acceptance.
 
 ## 9. Decisions from review

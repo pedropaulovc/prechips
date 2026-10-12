@@ -3,6 +3,7 @@
 from types import SimpleNamespace
 
 import pytest
+from test_envelope_m5 import measured
 
 from prechips.rules import speeds_feeds
 
@@ -38,7 +39,14 @@ def drill_bundle(*, depth_mm=None, thickness=None, deep=(DEEP,), action="drill")
             },
         },
         inventory={
-            "machines": {"mill": {"kind": "mill", "spindle": {"rpm_min": 50, "rpm_max": 3000}}},
+            "machines": {
+                "mill": {
+                    "kind": "mill",
+                    # This isolated depth/speed fixture owns the 0.001 mm grid it judges.
+                    "resolution_mm": measured(0.001),
+                    "spindle": {"rpm_min": 50, "rpm_max": 3000},
+                },
+            },
             "tools": {
                 "drill": {
                     "kind": "drill",

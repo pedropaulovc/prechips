@@ -8,7 +8,7 @@ and, only when the kernel returned a setup render, `renders`.
 Findings sort lexicographically by `(rule, subject)` and contain `rule`,
 `subject`, `status`, `numbers`, `cite`, `message` (not `sentence` or a separate
 severity). No clock timestamp enters the report.
-The current catalogue is `rules_version = "m5-rev11"`: fail-closed measurement
+The current catalogue is `rules_version = "m5-rev12"`: fail-closed measurement
 provenance (a fact is measured only by its own `measured.status = "measured"`
 with complete `by`/`date`/`instrument`; `assumed`, `illustrative` or an omitted
 status is debt, and `by` text is never read for trust) on top of the `m5-rev10`
@@ -21,7 +21,7 @@ renders, and the examples-complete rules (identity-keyed tool selection, shop-ma
 make operations, face aims, whole-tool clearance with guide stops and op-named
 picture cuts, one-fact consistency across tables and pictures). Changing the
 operative catalogue changes the bound report and invalidates prior approvals;
-reports from earlier catalogues, including `m5-rev10`, must be regenerated and
+reports from earlier catalogues, including `m5-rev10` and `m5-rev11`, must be regenerated and
 reapproved.
 A finding's `numbers.measurements` lists the exact fact ids (set member or
 tool/holder pair included) whose measurement would resolve it; `tools --measure`
@@ -354,7 +354,8 @@ the legend `† assumed/illustrative fixture dimensions: not measured; confirm
 before making` when a SHOP-MADE FIXTURE row carries the mark (a dimension or
 primitive whose own `measured.status` is not `measured`), the DRO manual
 named once, the `DRO resolution:` of each routed machine (its inventory
-`resolution`, or the default grid said as such; a lathe adds whether X reads
+`resolution`, marked with its `measured.status` when that is not `measured`,
+or the default grid said as such; a lathe adds whether X reads
 diameter or radius), **STOCK AND ROUTE** (stock size at the DRO resolution of
 the setup that receives that stock, supply notes and a setup → machine → holding
 table, machines by display name: an inventory `name`, a maker's model number,
@@ -757,6 +758,24 @@ places: elapsed time uses a monotonic clock, while CPU time uses the FreeCAD
 process CPU clock, not host CPU or machine-wide utilization. Setup totals include
 their phases and operations; do not add those nested measurements to the totals.
 Batch measurements include orchestration and are not a sum of job measurements.
+
+The host's geometry result also carries `measurement_debts =
+{ setups: { <setup id>: [entries] }, ops: { "<setup>:<op>": [entries] } }`:
+the facts the job builder refused for that setup or op, each a
+`numbers.measurements` entry (`id`, `instruction`, `units`, `cite`) plus the
+record's current `status` and `reason`. A whole authored solid is identified
+as `fixtures.<selected inventory member>.solids.<name>`, the item that
+declares it, not the clamp the picture draws it under. It is host-only,
+rebuilt on every
+call (cache hit, fresh run or unavailable kernel alike) and never written to
+the native cache; the native job and cache key see refused inputs only as a
+sorted list of stable field ids, never attribution or reason text, and
+host-only comparisons (OAL under an explicit projection, vise opening) are
+not native inputs at all. Geometry findings that
+depend on a refused fact (`fixture_interference`, thin-wall and `vise`
+included, even when the setup context itself succeeded) attach those entries
+to their `unknown` result, naming the exact ids, current status and reason,
+upstream stock lineage included.
 
 The host exports `kernel.setup` spans with `setup_id`, and nested `kernel.op`
 spans with both `setup_id` and `subject`. Freshly executed work carries measured

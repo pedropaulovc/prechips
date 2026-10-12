@@ -5,7 +5,7 @@ from datetime import date
 import pytest
 from pydantic import ValidationError
 
-from prechips.measurements import angle_fact, length_fact, nominal_angle_deg, nominal_length_mm
+from prechips.measurements import angle_fact, length_fact, nominal_length_mm
 from prechips.model import Inventory
 from prechips.rules.resolution import length_mm, resolve
 
@@ -518,10 +518,9 @@ def test_point_angle_is_a_fact_local_degree_value():
     tool = {"verify": True, "point_angle": measured(118)}
     fact = angle_fact(tool, "point_angle")
     assert (fact["value"], fact["verified"]) == (118, True)
-    assert nominal_angle_deg(tool, "point_angle") == 118
     vendor = {"point_angle": 118}
     assert angle_fact(vendor, "point_angle")["verified"] is False
-    assert nominal_angle_deg(vendor, "point_angle") == 118
+    assert angle_fact(vendor, "point_angle", require_measured=False)["value"] == 118
     debt = {"point_angle": measured(135, verify=True)}
     assert angle_fact(debt, "point_angle")["verified"] is False
     assert angle_fact({"point_angle": "unknown"}, "point_angle")["value"] == "unknown"

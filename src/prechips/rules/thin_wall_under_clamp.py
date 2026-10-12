@@ -1,7 +1,12 @@
 """Measured grip-zone wall below the shop floor needs a named protective method."""
 
 from prechips.findings import Finding
-from prechips.rules.geometry_common import fact_reason, setup_contexts, strap_clamped
+from prechips.rules.geometry_common import (
+    fact_reason,
+    setup_contexts,
+    strap_clamped,
+    with_measurement_debts,
+)
 from prechips.rules.resolution import number, record, same_length
 
 _PROTECTED = {"soft_jaws", "soft jaws", "mandrel", "tape", "wax"}
@@ -66,8 +71,11 @@ def evaluate(bundle):
                     "wall is below the shop floor; name soft jaws, mandrel, tape or wax",
                 )
         rows.append(
-            Finding(
-                "thin_wall_under_clamp", subject, status, values, cite, f"{subject}: {message}."
+            with_measurement_debts(
+                Finding(
+                    "thin_wall_under_clamp", subject, status, values, cite, f"{subject}: {message}."
+                ),
+                inputs["measurement_debts"],
             )
         )
     return rows

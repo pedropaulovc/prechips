@@ -386,15 +386,11 @@ def test_an_unknown_level_plan_prints_its_warning_never_a_full_depth_plunge(tmp_
 
 def grid_bundle(tmp_path):
     """The scratch bundle on a 0.005 mm DRO, with a bench setup S2 after S1."""
-    plan = coordinate_bundle(tmp_path, SLAB, outline("finish_profile"))
+    plan = coordinate_bundle(tmp_path, SLAB, outline("finish_profile"), resolution=0.005)
     root = plan.parent
     inventory = root / "inventory.toml"
     inventory.write_text(
-        inventory.read_text(encoding="utf-8").replace(
-            "[machines.mill]\nkind = 'mill'\n",
-            "[machines.mill]\nkind = 'mill'\nresolution_mm = 0.005\n",
-        )
-        + "[machines.bench]\nkind = 'bench'\n",
+        inventory.read_text(encoding="utf-8") + "[machines.bench]\nkind = 'bench'\n",
         encoding="utf-8",
     )
     plan.write_text(

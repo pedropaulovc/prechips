@@ -112,6 +112,7 @@ def synthetic_centre_tool(plan):
 
 def synthetic_shaft_cutting_geometry(bundle):
     """Finite, test-owned S0/S1 tool/chuck geometry for the native centre/claim scenarios."""
+    bundle.inventory["machines"]["PM-1127VF-LB"]["resolution_mm"] = measured(0.01)
     toolpost = "qctp-axa-lms-2280/1-turning-facing"
     for tool, width in (
         (bundle.inventory["tools"]["turning-tools-warner-lms-4132"]["members"]["AR"], 11.0),
@@ -128,6 +129,7 @@ def synthetic_shaft_cutting_geometry(bundle):
         }.items():
             tool[key] = measured(value)
         tool["projection_mm"] = {toolpost: measured(20.0)}
+    bundle.inventory["tools"]["hss-toolbit-3-8-rh"]["shank_in"] = measured(0.375)
     holder = bundle.inventory["holders"]["qctp-axa-lms-2280"]["members"]["1-turning-facing"]
     holder.update(body_width_mm=measured(60.0), body_depth_mm=measured(32.0))
     bundle.inventory["holders"]["drill-chuck-tailstock-mt3"].update(
@@ -135,7 +137,16 @@ def synthetic_shaft_cutting_geometry(bundle):
     )
     drill = bundle.inventory["tools"]["center-drills-lms-4859"]["members"]["2"]
     drill["projection_mm"] = {"drill-chuck-tailstock-mt3": measured(27.0)}
-    chuck = bundle.inventory["fixtures"]["chuck-3jaw-6-d1-4"]
+    # Replace the illustrative chuck/range with a fresh, finite test-owned record.
+    chuck = {
+        "kind": "chuck_3jaw",
+        "mount": "D1-4",
+        "fits": "PM-1127VF-LB",
+        "scroll": True,
+        "range_mm": [3.0, 140.0],
+        "note": "synthetic test chuck and gripping range",
+    }
+    bundle.inventory["fixtures"]["chuck-3jaw-6-d1-4"] = chuck
     for key, value in {
         "body_dia_mm": 158.0,
         "body_length_mm": 72.0,

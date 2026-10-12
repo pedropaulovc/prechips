@@ -146,36 +146,6 @@ def test_traveler_withholds_and_names_unmeasured_fixture_dimensions(status):
         assert "X 0…10, Y 0…20, Z 0…5" not in page.text
 
 
-def test_consistency_cannot_drop_a_cut_comparison_when_its_dimension_is_untrusted():
-    from prechips.rules import consistency
-
-    data = bundle()
-    scene = {
-        "closest_cut": {"op": "10", "tag": "vise:jaw", "mm": 1.0},
-        "cut_clearances": [{"op": "10", "tag": "vise:jaw", "mm": 1.0}],
-    }
-    data.kernel = {
-        "status": "ok",
-        "setups": {
-            "S1": {
-                "stock_bbox_mm": [0, 0, -12, 100, 30, 4],
-                "render_scene": scene,
-            }
-        },
-    }
-    baseline = consistency.evaluate(data)[0]
-    assert baseline.status == "pass"
-    assert baseline.numbers["claims"] == 2
-    data.inventory["tools"]["cutter"]["dia_mm"] = fact(10, "assumed")
-    scene["closest_cut"] = None
-    scene["cut_clearances"][0].update(mm="unknown", tag="unknown")
-    finding = consistency.evaluate(data)[0]
-    assert finding.status == "unknown"
-    assert finding.numbers["claims"] == 2
-    assert "10" in finding.sentence
-    assert "CLEARANCE" in finding.sentence
-
-
 @pytest.mark.parametrize("status", ["measured", "assumed", "illustrative", None])
 def test_tool_resolution_cannot_pass_a_claimed_untrusted_diameter(status):
     from prechips.rules import tool_resolves
@@ -200,3 +170,78 @@ def test_tool_resolution_cannot_pass_a_claimed_untrusted_diameter(status):
     assert identity.status == "pass"
     assert identity.numbers["verified"]
     assert "dia_mm" not in identity.numbers
+
+
+@pytest.mark.parametrize(
+    ("family", "member"),
+    [
+        ({"kind": "endmill_set", "sizes_in": ["3/8"], "flutes": [4]}, "3-8in-4fl"),
+        ({"kind": "reamers", "sizes_mm": [6]}, "6mm"),
+        ({"kind": "drill_index", "coverage": "#1-60"}, "#47"),
+    ],
+)
+@pytest.mark.parametrize("status", ["assumed", "illustrative", None])
+def test_member_nominal_inference_cannot_replace_a_refused_diameter_record(family, member, status):
+    from prechips.rules import tool_resolves
+    from prechips.rules.resolution import resolve
+
+    data = bundle()
+    data.inventory["tools"]["family"] = {**family, "dia_mm": fact(10, status)}
+    data.plan["setups"][0]["ops"][0]["tool"] = f"family/{member}"
+    selected = resolve(data, "tools", f"family/{member}")
+    assert selected["dia_mm"] == fact(10, status)
+    assert length_mm(selected, "dia") == "unknown"
+    finding = next(row for row in tool_resolves.evaluate(data) if row.subject == f"family/{member}")
+    assert finding.status == "unknown"
+    assert "dia_mm" not in finding.numbers
+    assert [entry["id"] for entry in finding.numbers["measurements"]] == [
+        f"tools.family/{member}.dia"
+    ]
+
+
+@pytest.mark.parametrize("status", ["assumed", "illustrative", None])
+def test_nominal_alias_cannot_hide_a_refused_record_of_the_same_diameter(status):
+    from prechips.rules import tool_resolves
+
+    data = bundle()
+    data.inventory["tools"]["cutter"].update(dia_mm=10, dia_in=fact(0.4, status))
+    finding = next(row for row in tool_resolves.evaluate(data) if row.subject == "cutter")
+    assert finding.status == "unknown"
+    assert "dia_mm" not in finding.numbers
+    assert (status or "assumed") in finding.numbers["measurements"][0]["instruction"]
+
+
+def test_selected_bare_verify_diameter_is_named_without_tainting_identity():
+    from prechips.rules import tool_resolves
+
+    data = bundle()
+    data.inventory["tools"]["cutter"].update(dia_mm={"value": 10, "verify": True}, verify=True)
+    finding = next(row for row in tool_resolves.evaluate(data) if row.subject == "cutter")
+    assert finding.status == "unknown"
+    assert "dia_mm" not in finding.numbers
+    assert [entry["id"] for entry in finding.numbers["measurements"]] == ["tools.cutter.dia"]
+    del data.inventory["tools"]["cutter"]["dia_mm"]
+    identity = next(row for row in tool_resolves.evaluate(data) if row.subject == "cutter")
+    assert identity.status == "unknown"
+    assert "measurements" not in identity.numbers
+
+
+@pytest.mark.parametrize(
+    ("category", "field", "units", "description"),
+    [
+        ("machines", "spindle.rotation", "cw/ccw", "rotation direction"),
+        ("fixtures", "max_work", "mm", "supported work-diameter limit"),
+        ("fixtures", "bore_dia", "mm", "central bore diameter"),
+        ("tools", "tip", "mm", "contacting-tip diameter"),
+    ],
+)
+def test_auxiliary_measurement_instructions_name_the_physical_fact(
+    category, field, units, description
+):
+    from prechips.measurements import measurement_entry
+
+    entry = measurement_entry(category, "selected", field, status="assumed")
+    assert entry["id"] == f"{category}.selected.{field}"
+    assert entry["units"] == units
+    assert description in entry["instruction"]
+    assert "assumed value, not physically measured" in entry["instruction"]

@@ -161,6 +161,30 @@ def finding(rule, bundle, subject=None):
 
 
 def test_missing_kernel_cannot_be_waived_and_does_not_spawn(bundle, monkeypatch):
+    # Isolate missing-kernel behavior from the factory's optional tool/fixture facts.
+    for category, identity, field, value in (
+        ("tools", "em", "shank_mm", 6.0),
+        ("fixtures", "parallels", "length_mm", 50.0),
+        ("fixtures", "parallels", "width_mm", 6.0),
+    ):
+        bundle.inventory[category][identity][field] = {
+            "value": value,
+            "measured": {
+                "status": "measured",
+                "by": "test",
+                "date": "2026-10-12",
+                "instrument": "synthetic calipers",
+            },
+        }
+    bundle.inventory["machines"]["mill"]["resolution_mm"] = {
+        "value": 0.005,
+        "measured": {
+            "status": "measured",
+            "by": "test",
+            "date": "2026-10-12",
+            "instrument": "synthetic installed readout",
+        },
+    }
     object.__setattr__(bundle, "kernel", None)
     monkeypatch.setenv("FREECAD_CMD", str(bundle.root / "not-installed.exe"))
     monkeypatch.setattr(
@@ -386,6 +410,45 @@ def test_finish_coverage_accepts_overlapping_claim_from_another_feature(bundle):
     bundle.kernel["features"]["finish_face"] = [1]
     rows = finish_coverage.evaluate(bundle)
     assert {row.subject: row.status for row in rows} == {"pocket": "pass", "finish_face": "pass"}
+
+
+@pytest.mark.parametrize(
+    "unresolved,pocket_status",
+    [
+        # A hand finisher whose stock-chain facts are unknown names only face #2.
+        ({"do": "file_to_line", "feature": "finish_face"}, "pass"),
+        # An unknown action on a feature still bounds the faces it could finish.
+        ({"do": "unknown", "feature": "finish_face"}, "pass"),
+        # Unknown face refs bound nothing: every finish row stays conservatively unknown.
+        ({"do": "file_to_line", "feature": "finish_face", "faces": "unknown"}, "unknown"),
+    ],
+    ids=["unresolved-hand-finish", "unknown-action", "unbounded-refs"],
+)
+def test_finish_coverage_debt_is_scoped_to_the_unresolved_claims_faces(
+    bundle, unresolved, pocket_status
+):
+    bundle.features["features"]["finish_face"] = {
+        "kind": "face",
+        "faces": ["#2"],
+        "finish_ra": 1.6,
+        "requirements": ["finish_ra"],
+    }
+    bundle.kernel["features"]["finish_face"] = [2]
+    before = finding(finish_coverage, bundle, "pocket")
+    assert before.status == "pass"
+    bundle.plan["setups"][0]["ops"].append({"op": 20, **unresolved})
+    bundle.kernel["ops"]["S1:20"] = {
+        "approach": "hand",
+        "claimed_indices": "unknown",
+        "claim_errors": [],
+        "reasons": {"claimed_indices": "stock deeper than max_filing_stock_mm"},
+    }
+    rows = {row.subject: row for row in finish_coverage.evaluate(bundle)}
+    assert rows["finish_face"].status == "unknown"
+    assert "finishing operation claims are unresolved" in rows["finish_face"].sentence
+    assert rows["pocket"].status == pocket_status
+    if pocket_status == "pass":
+        assert rows["pocket"] == before
 
 
 @pytest.mark.parametrize(

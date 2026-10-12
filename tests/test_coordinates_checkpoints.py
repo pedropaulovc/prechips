@@ -52,6 +52,7 @@ def plan(tmp_path, bounded=True, do="rough_profile", resolution=None, band=None)
             else "contour = { method = 'linear_table' }\n"
         )
         + bounds,
+        resolution=0.001 if resolution is None else resolution,
     )
     root = path.parent
     if band is not None:
@@ -60,13 +61,6 @@ def plan(tmp_path, bounded=True, do="rough_profile", resolution=None, band=None)
             "requirements = []\n", f"requirements = ['thickness']\nthickness = {list(band)}\n"
         )
         features.write_text(text, encoding="utf-8")
-    if resolution is not None:
-        inventory = root / "inventory.toml"
-        text = inventory.read_text(encoding="utf-8").replace(
-            "[machines.mill]\nkind = 'mill'\n",
-            f"[machines.mill]\nkind = 'mill'\nresolution_mm = {resolution}\n",
-        )
-        inventory.write_text(text, encoding="utf-8")
     return path
 
 

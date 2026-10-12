@@ -82,9 +82,12 @@ names neither. The band is the one the sheet prints, rounded inward at its
 drawing precision. A target outside it is
 an error (`Located target band error: …`, value in mm). A distance that cannot be
 measured, a band that is not two numbers, feature units other than mm or in, or a
-provisional DRO grid — the machine's `resolution` unknown or not qualified by its
-own complete measurement, so `DRO_DEFAULT_STEP` stands in — keeps the setup
-unknown; the provisional grid still places the printed targets. A plan
+DRO grid that is not the machine's own trusted `resolution` — the fact unknown
+(so `DRO_DEFAULT_STEP` stands in) or declared but not qualified by its own
+`status = "measured"` record (its declared step still rounds the printed
+targets, never a finer fallback) — keeps the setup
+unknown with that resolution in its measurement debt; the grid still places
+the printed targets. A plan
 [`aims`](plan.md#aims) entry moves the feature's own target along that same
 direction so its band reads `value_mm`, converted to the manifest units, on every
 setup that locates it. The row keeps the unaimed point as `nominal_setup`, records
@@ -369,8 +372,9 @@ naming them. Each table is recorded under `arc_table` (its joins under
   resolution: an arc too short to keep a reading inside it is an error. The
   setup-entry stock (kernel `stock_bbox_mm`) must swing inside the table's
   `max_work`. Off-axis centres, no table, no earlier centre hole or a swing over
-  `max_work` are errors; unknown dial, centre or swing facts, or a table
-  flagged to verify, are unknown.
+  `max_work` are errors; unknown dial, centre or swing facts, a table
+  flagged to verify, or a `max_work`/`bore_dia` whose own record is not
+  trusted are unknown, the untrusted fact named in `numbers.measurements`.
 
 Every manual-arc table is cut in the plan's feature units (`mm` or `in`, else
 unknown) and records its millimetre facts (`*_mm`) in millimetres: the cutter,
@@ -503,7 +507,8 @@ and `climb` when it is negative; `ccw` inverts both. Each table is reversed
 when its geometric order disagrees with the op's `direction`, so the −X join
 fragment, the bottom arc and the +X fragment chain end to start. Each record
 carries `cut_order` (the authored direction) and `spindle_rotation`. An op
-`direction` other than `conventional`/`climb`, an undeclared spindle rotation,
+`direction` other than `conventional`/`climb`, an undeclared or untrusted spindle rotation
+(listed in the finding's `numbers.measurements`),
 unknown setup points or a degenerate witness set `cut_order = "unknown"` with
 `cut_order_reason`, keep the geometric order, and make the setup's
 coordinates finding `unknown` with
@@ -545,12 +550,17 @@ all use these clipped rows and their ids; the op's removal stays its box.
 **Printed values.** The operator cuts what the DRO shows. One rule serves
 every axis: the DRO grid is the setup machine's declared inventory
 `resolution` (`resolution_mm` or `resolution_in`), else 0.001 plan units
-(`DRO_DEFAULT_STEP`), printed at the decimals of one step (`dro_grid`). Every
-arc row and join point carries `dro_xy`, the nearest grid point no nearer each
-finite wall than the exact point or the authored cutter-centre offset,
-whichever is less (a corner of its grid cell, else up to two steps out, else
-unknown). For chain drilling, the nearest finite finished-wall side guard above
-also applies; unsigned distance alone cannot admit a finished-side point.
+(`DRO_DEFAULT_STEP`), printed at the decimals of one step (`dro_grid`). A
+declared resolution whose own record is `assumed`/`illustrative` (or omitted
+status) is still the step instructions round on, but every rule that judges a
+value on that grid (`zero_check`, `blind_depth`, `tip_endpoints`,
+`consistency`, `coordinates`) is unknown naming that resolution as debt, and
+the sheet prints the declared step with its status rather than the default
+grid. Every arc row and join point carries `dro_xy`, the nearest grid point no
+nearer each finite wall than the exact point or the authored cutter-centre
+offset, whichever is less (a corner of its grid cell, else up to two steps out,
+else unknown). For chain drilling, the nearest finite finished-wall side guard
+above also applies; unsigned distance alone cannot admit a finished-side point.
 A table end and the join it meets print one value. Every table carries
 `dro_tip_z`, and each profile and operation
 `dro_to_z`: the authored depth rounded up, never deeper (−2.07825 prints −2.078
@@ -940,7 +950,8 @@ an ear's inner face) uses its own authored edge; stock top is not its fallback.
 
 An X/Y pick-up with an `edge_finder` tool (not `from = "indicated"`) records the
 finder's procedure facts on its row as `finder`: `finder_type`, `tip_dia_mm`
-(`tip_in`/`tip_mm`, else `dia`), `radius_mm`, the finder's `finder_rpm_range`,
+(`tip_in`; a tip absent altogether reads the catalogue `dia`, a tip declared
+`"unknown"` stays unknown), `radius_mm`, the finder's `finder_rpm_range`,
 the setup machine's spindle bands `machine_rpm` (`[[lo, hi], …]`: `ranges_rpm`,
 each clipped to a stated `rpm_min`/`rpm_max`, else `[[rpm_min, rpm_max]]`) and
 `rpm`, the bands it runs at (the finder's band intersected with each spindle

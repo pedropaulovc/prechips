@@ -12,10 +12,20 @@ import subprocess
 import tempfile
 import time
 from contextlib import nullcontext
+from contextvars import ContextVar
+from functools import wraps
 from pathlib import Path
 
-from prechips.measurements import angle_fact, length_fact, record_trusted
-from prechips.rules._envelope import measurement_item, tool_projection
+from prechips.measurements import (
+    angle_fact,
+    length_debt,
+    length_fact,
+    limits_fact,
+    measurement_entry,
+    record_debt,
+    record_trusted,
+)
+from prechips.rules._envelope import selected_item, tool_projection
 from prechips.rules.geometry_common import (
     TURNING_BLADE_KEYS,
     TURNING_BLADE_KINDS,
@@ -26,6 +36,7 @@ from prechips.rules.resolution import (
     HAND_FINISH,
     identity,
     number,
+    projection_holder,
     record,
     resolve,
     rough_leave,
@@ -57,19 +68,120 @@ def discover_kernel():
     )
 
 
+# Scoped to one input preparation, never shared across concurrent bundles or native jobs.
+_INPUT_DEBTS = ContextVar("kernel_input_debts", default=None)
+
+
+def _collect_debts(prepare):
+    @wraps(prepare)
+    def collected(*args, **kwargs):
+        state = {"items": {}, "debts": {}, "host_only": set()}
+        token = _INPUT_DEBTS.set(state)
+        try:
+            result = prepare(*args, **kwargs)
+            result["measurement_debts"] = [state["debts"][key] for key in sorted(state["debts"])]
+            result["refused_fields"] = sorted(state["debts"].keys() - state["host_only"])
+            return result
+        finally:
+            _INPUT_DEBTS.reset(token)
+
+    return collected
+
+
+def measurement_item(bundle, slot, reference):
+    category, key, item = selected_item(bundle, slot, reference)
+    state = _INPUT_DEBTS.get()
+    if state is not None:
+        state["items"][id(item)] = (item, category, key, "")
+    return item
+
+
+def _nested_item(item, field):
+    nested = record(record(item).get(field))
+    state = _INPUT_DEBTS.get()
+    if state is not None and id(item) in state["items"]:
+        _, category, key, prefix = state["items"][id(item)]
+        state["items"][id(nested)] = (nested, category, key, prefix + field + ".")
+    return nested
+
+
+def _length_debt(item, field, require_measured):
+    state = _INPUT_DEBTS.get()
+    if state is not None and id(item) in state["items"]:
+        _, category, key, prefix = state["items"][id(item)]
+        entry = length_debt(item, field, category, key, require_measured=require_measured)
+        if entry is not None:
+            if prefix:
+                entry["id"] = f"{category}.{key}.{prefix}{field}"
+                entry["cite"] = [f"inventory.{entry['id']}", *entry["cite"]]
+                entry["instruction"] = entry["instruction"].replace(
+                    f"record {field}", f"record {prefix}{field}"
+                )
+            state["debts"][entry["id"]] = entry
+
+
+def _record_debt(item, value, field, fact=None):
+    state = _INPUT_DEBTS.get()
+    if state is None or id(item) not in state["items"]:
+        return None
+    _, category, key, prefix = state["items"][id(item)]
+    entry = record_debt(value, category, key, prefix + field, require_measured=False)
+    if entry is None and fact is not None and not fact["verified"]:
+        entry = measurement_entry(category, key, prefix + field)
+        entry.update(
+            status="missing" if fact["value"] == UNKNOWN else fact["measurement_status"],
+            reason=fact["reason"],
+        )
+    if entry is not None:
+        state["debts"][entry["id"]] = entry
+    return entry
+
+
+def _host_only_debt(item, field):
+    """A consumed host comparison that cannot change the native geometry payload."""
+    state = _INPUT_DEBTS.get()
+    if state is not None and id(item) in state["items"]:
+        _, category, key, prefix = state["items"][id(item)]
+        state["host_only"].add(measurement_entry(category, key, prefix + field)["id"])
+
+
+def _projection(bundle, op):
+    debts = {}
+    result = tool_projection(bundle, op, debts, [], require_measured=False)
+    tool = measurement_item(bundle, "tools", op.get("tool"))
+    pair, conflict = projection_holder(bundle, tool, op.get("holder"))
+    if pair is not None or conflict:
+        # OAL is still consumed by reach, but native placement uses the selected pair.
+        _host_only_debt(tool, "oal")
+    if conflict:
+        state = _INPUT_DEBTS.get()
+        if state is not None:
+            for key, entry in debts.items():
+                state["debts"][key] = {**entry, "status": UNKNOWN, "reason": conflict}
+    elif pair is not None:
+        _length_debt(tool, ("projection", pair), False)
+    else:
+        _length_debt(tool, "oal", False)
+        _length_debt(measurement_item(bundle, "holders", op.get("holder")), "grip", False)
+    return result
+
+
 def _accepted_length(item, field):
     fact = length_fact(item, field, require_measured=False)
+    _length_debt(item, field, False)
     return fact["value"] if fact["verified"] else UNKNOWN
 
 
 def _accepted_angle(item, field):
     fact = angle_fact(item, field, require_measured=False)
+    _record_debt(item, record(item).get(field), field, fact)
     return fact["value"] if fact["verified"] else UNKNOWN
 
 
 def _measured_length(item, field):
     """A positive measured length fact, else unknown (rest jaws and bodies)."""
     fact = length_fact(item, field, require_measured=True)
+    _length_debt(item, field, True)
     value = fact["value"] if fact["verified"] else UNKNOWN
     return value if number(value) and value > 0 else UNKNOWN
 
@@ -87,8 +199,10 @@ def _shank_from(tool, values):
     shank = values["shank_radius_mm"]
     if not (number(flute) and flute > 0):
         return UNKNOWN
+    if not (number(cutter) and number(shank)) or shank <= cutter:
+        return flute
     seat = _accepted_angle(tool, "angle_deg")
-    if not (number(seat) and number(cutter) and number(shank)) or shank <= cutter:
+    if not number(seat):
         return flute
     if not 0 < seat < 180:
         return UNKNOWN
@@ -103,7 +217,7 @@ def _turning_values(bundle, op):
     """Insert, head, shank and toolpost-body facts in mm/degrees, or what is missing."""
     tool = measurement_item(bundle, "tools", op.get("tool"))
     holder = measurement_item(bundle, "holders", op.get("holder"))
-    projection = tool_projection(bundle, op, {}, [], require_measured=False)
+    projection = _projection(bundle, op)
     hand = record(tool).get("hand", UNKNOWN)
     values = {
         "radius_mm": _accepted_length(tool, "nose_radius"),
@@ -148,6 +262,7 @@ def _turning_values(bundle, op):
     return values, sorted(set(missing))
 
 
+@_collect_debts
 def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
     """One op's kernel inputs; ``tables`` is its setup's coordinates numbers, whose printed
     cutter-centre checkpoints the kernel checks against the stock model (``checkpoints``)."""
@@ -180,7 +295,7 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
     else:
         tool = measurement_item(bundle, "tools", op.get("tool"))
         holder = measurement_item(bundle, "holders", op.get("holder"))
-        projection = tool_projection(bundle, op, {}, [], require_measured=False)
+        projection = _projection(bundle, op)
         values = {
             "radius_mm": _accepted_length(tool, "dia"),
             "flute_len_mm": _accepted_length(tool, "flute_len"),
@@ -209,6 +324,16 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
     }
     joint_cut = joint_operation(bundle, op, result["finishing"])
     if joint_cut is not None:
+        if op.get("do") in {"spot", "drill", "ream"}:
+            tool = measurement_item(bundle, "tools", op.get("tool"))
+            _accepted_length(tool, "dia")
+            if op.get("do") in {"spot", "drill"}:
+                _accepted_angle(tool, "point_angle")
+            if joint_cut.get("reason") and (
+                not number(joint_cut.get("diameter_mm"))
+                or joint_cut.get("point_angle_deg") == UNKNOWN
+            ):
+                result.setdefault("refusal_reasons", []).append("joint_cut")
         result["joint_cut"] = joint_cut
     process_cut = process_operation(bundle, op)
     if process_cut is not None:
@@ -216,11 +341,18 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
             # The kernel cuts only the centre the selected tool itself makes, closed by its
             # own accepted pilot point: never an assumed angle.
             binding = centre_tool(bundle, op)
+            tool = measurement_item(bundle, "tools", op.get("tool"))
+            for field in ("dia", "pilot_len", "shank"):
+                _accepted_length(tool, field)
+            for field in ("angle_deg", "point_angle"):
+                _accepted_angle(tool, field)
             if binding["status"] != "pass":
                 process_cut["reason"] = (
                     f"{process_cut['label']} is not the centre tool {op.get('tool')!r} cuts: "
                     + "; ".join(binding["reasons"])
                 )
+                if binding["status"] == "unknown":
+                    result.setdefault("refusal_reasons", []).append("process_cut")
             else:
                 process_cut["point_angle_deg"] = binding["tool"]["point_angle_deg"]
                 process_cut["body_dia_mm"] = binding["tool"]["body_dia_mm"]
@@ -281,8 +413,7 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
             if number(entry) and number(thickness) and number(allowance) and allowance >= 0:
                 result["hole"]["exit_z_mm"] = entry - thickness - allowance
         if op.get("do") in {"spot", "drill"}:
-            point = angle_fact(tool, "point_angle", require_measured=False)
-            result["hole"]["point_angle_deg"] = point["value"] if point["verified"] else UNKNOWN
+            result["hole"]["point_angle_deg"] = _accepted_angle(tool, "point_angle")
     if "stock_removal_bounds" in op:
         result["stock_removal_bounds"] = removal_bounds(op["stock_removal_bounds"], units)
     if tables is not None and not turned:
@@ -498,7 +629,7 @@ def _hand_inputs(bundle, setup, op, subject, finishing):
     from prechips.rules.coordinates import filing_cap
     from prechips.rules.geometry_common import HAND, finishing_subjects
     from prechips.rules.manual_arc import rim_band
-    from prechips.rules.resolution import identity, resolve
+    from prechips.rules.resolution import identity
 
     result = {
         "subject": subject,
@@ -529,7 +660,14 @@ def _hand_inputs(bundle, setup, op, subject, finishing):
     )
     if isinstance(kit, str) and kit != UNKNOWN and owner is not None:
         result["guide_owner"] = owner
-        item = resolve(bundle, "fixtures", kit)
+        item = measurement_item(bundle, "fixtures", kit)
+        _record_debt(item, item, "verify")
+        for field in ("button_dia_limits", "button_bore_limits", "pin_dia_limits"):
+            fact = limits_fact(item, field, require_measured=False)
+            keys = [field + suffix for suffix in ("_mm", "_in") if field + suffix in item]
+            raw = item[keys[0]] if len(keys) == 1 else None
+            _record_debt(item, raw, field, fact)
+        _accepted_length(item, "button_runout")
         scale = {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units"))
         reach = rim_band(bundle, item, guide.get("bore"), scale) if scale else None
         result["guide_rim_dia_mm"] = [2 * r for r in reach] if reach else UNKNOWN
@@ -745,9 +883,10 @@ def _solids(item, owner):
         void = solid.get("void") is True
         cuts = solid.get("cuts", UNKNOWN)
         cuts = cuts if isinstance(cuts, list) and cuts else None
-        trusted, why = record_trusted(solid, require_measured=False)
+        trusted, _ = record_trusted(solid, require_measured=False)
         if not trusted:
-            debts.append(f"{label}: {why}")
+            entry = _record_debt(item, solid, f"solids.{name}")
+            debts.append(entry["id"] if entry is not None else f"{label}: untrusted solid")
             if void:
                 bad_voids.append((name, cuts))
             continue
@@ -804,6 +943,7 @@ def _solids(item, owner):
 
 def _vise_inputs(bundle, hold, fixture, result):
     missing = []
+    _host_only_debt(fixture, "opening")
     for key in ("fixed_jaw", "jaws_along"):
         value = hold.get(key, UNKNOWN)
         result[key] = value
@@ -997,9 +1137,10 @@ def _centre_inputs(bundle, machine, hold, result, gaps):
     values = {
         "dia_mm": _positive_length(item, "dia"),
         "length_mm": _positive_length(item, "length"),
-        "quill_dia_mm": _positive_length(record(machine.get("tailstock")), "quill_dia"),
+        "quill_dia_mm": _positive_length(_nested_item(machine, "tailstock"), "quill_dia"),
     }
     angle = angle_fact(item, "point_angle", require_measured=False)
+    _record_debt(item, record(item).get("point_angle"), "point_angle", angle)
     values["point_angle_deg"] = (
         angle["value"] if angle["verified"] and 0 < angle["value"] < 180 else UNKNOWN
     )
@@ -1171,6 +1312,7 @@ def _supports_inputs(bundle, setup, hold, result, debts, gaps):
         result["steady_rests"] = steady
 
 
+@_collect_debts
 def hold_inputs(bundle, setup):
     hold = record(setup.get("hold"))
     fixture = measurement_item(bundle, "workholding", hold.get("fixture"))
@@ -1311,6 +1453,14 @@ def build_job(bundle):
                 ),
             }
         )
+        debts = {
+            entry["id"]: entry
+            for entry in [
+                *setups[-1]["hold"]["measurement_debts"],
+                *coordinates.get(setup["id"], {}).get("measurements", []),
+            ]
+        }
+        setups[-1]["measurement_debts"] = [debts[key] for key in sorted(debts)]
     aimed = faced_aims(bundle)
     return {
         "version": 1,
@@ -1329,6 +1479,12 @@ def build_job(bundle):
         **({"aimed_faces": aimed} if aimed else {}),
         "stock": stock_inputs(bundle),
         "setups": setups,
+        "measurement_debts": {
+            "setups": {setup["id"]: setup["measurement_debts"] for setup in setups},
+            "ops": {
+                op["subject"]: op["measurement_debts"] for setup in setups for op in setup["ops"]
+            },
+        },
     }
 
 
@@ -1429,6 +1585,7 @@ _ENGINE_OP = (
     *TURNING_HOLDER_KEYS,
     "corners",
     *TURNING_BLADE_KEYS,
+    "refused_fields",
 )
 _ENGINE_HOLD = (
     "fixed_jaw",
@@ -1480,6 +1637,7 @@ _ENGINE_COMMON = (
     "gaps",
     "follow_rests",
     "steady_rests",
+    "refused_fields",
 )
 
 
@@ -1515,6 +1673,16 @@ def _engine_hold(hold):
     return result
 
 
+def _engine_op(op):
+    result = {key: op[key] for key in _ENGINE_OP if key in op}
+    for key in op.get("refusal_reasons", []):
+        result[key] = {
+            **result[key],
+            "reason": "Refused kernel inputs: " + ", ".join(op["refused_fields"]),
+        }
+    return result
+
+
 def engine_job(job):
     """Only the fields freecad_job.py reads; host-only inputs never key the geometry cache."""
     return {
@@ -1532,7 +1700,7 @@ def engine_job(job):
                 "id": setup["id"],
                 "frame": setup["frame"],
                 "hold": _engine_hold(setup["hold"]),
-                "ops": [{key: op[key] for key in _ENGINE_OP if key in op} for op in setup["ops"]],
+                "ops": [_engine_op(op) for op in setup["ops"]],
                 "stock_in": setup["stock_in"],
                 "joint": setup.get("joint"),
                 "machine_kind": setup["machine_kind"],
@@ -1738,6 +1906,7 @@ def run_geometries(bundles):
     pending = [bundle for bundle in bundles if getattr(bundle, "kernel", None) is None]
     if not pending:
         return [bundle.kernel for bundle in bundles]
+    prepared = {id(bundle): build_job(bundle) for bundle in pending}
     active = telemetry.current()
     with (
         active.span("kernel.geometry", candidates=len(pending)) if active else nullcontext()
@@ -1770,7 +1939,7 @@ def run_geometries(bundles):
                     )
             if identity is not None:
                 for bundle in pending:
-                    job = engine_job(build_job(bundle))
+                    job = engine_job(prepared[id(bundle)])
                     if job["step_path"] == UNKNOWN or job["step_sha256"] == UNKNOWN:
                         object.__setattr__(
                             bundle,
@@ -1873,6 +2042,12 @@ def run_geometries(bundles):
                         _export_timing(active, result, "execution")
                         for bundle in consumers:
                             object.__setattr__(bundle, "kernel", dict(result))
+    for bundle in pending:
+        object.__setattr__(
+            bundle,
+            "kernel",
+            {**bundle.kernel, "measurement_debts": prepared[id(bundle)]["measurement_debts"]},
+        )
     return [bundle.kernel for bundle in bundles]
 
 

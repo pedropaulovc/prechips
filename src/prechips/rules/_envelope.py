@@ -5,7 +5,7 @@ from itertools import product
 
 from prechips.measurements import angle_fact, length_fact, measurement_entry
 from prechips.rules import tip_endpoints
-from prechips.rules.coordinates import AXES, frame_point, model_point
+from prechips.rules.coordinates import AXES, frame_axes, frame_point, model_point
 from prechips.rules.resolution import (
     EXPORTED_FRAMES,
     UNKNOWN,
@@ -131,7 +131,12 @@ def _supported_extents(extents, setup):
 
 
 def stock_extents(bundle, setup):
-    """Use an already-returned STEP bbox, else the authored blank, in setup axes."""
+    """Use an already-returned STEP bbox, else the authored blank, in setup axes.
+
+    A host-only caller can explicitly mark geometry pending. Unknown axes a numeric
+    setup transform could derive from that bbox are then computation debt, not requests
+    to measure a new physical fact; known stock-state heights still take precedence.
+    """
     frame, owner = setup_frame_ref(bundle, setup)
     # Exported frames keep their historical label; a plan-owned frame names itself.
     basis = owner if owner == EXPORTED_FRAMES else f"{owner}.{setup.get('frame')}"
@@ -204,7 +209,23 @@ def stock_extents(bundle, setup):
             and all(number(v) for v in [*basis, *dimensions])
             else UNKNOWN
         )
-    return _supported_extents(extents, setup), [
+    extents = _supported_extents(extents, setup)
+    if (
+        kernel.get("geometry_pending") is True
+        and bundle.features.get("units") in {"mm", "in"}
+        and not any(number(value) and value <= 0 for value in dimensions)
+        and all(
+            isinstance(frame.get(key), list)
+            and len(frame[key]) == 3
+            and all(number(value) for value in frame[key])
+            for key in ("origin", *AXES)
+        )
+        and all(number(value) for axis in frame_axes(frame) for value in axis)
+    ):
+        pending = [axis for axis in AXES if not number(extents[axis])]
+        if pending:
+            extents["geometry_pending_axes"] = pending
+    return extents, [
         *extent_cite,
         "plan.setups.stock_state: physical supported stock height",
     ]

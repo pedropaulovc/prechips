@@ -1,5 +1,7 @@
 """Shared geometry debt/provenance boundaries; no host-side geometric guesses."""
 
+from dataclasses import replace
+
 from prechips.findings import Finding
 from prechips.rules.datum_consistency import _cuts
 from prechips.rules.resolution import (
@@ -379,6 +381,60 @@ def rotary_debt_text(row):
     return f"{row['ref']} ({row['reason']})"
 
 
+def kernel_measurement_debts(job, setup, op=None, *, fixture=False, stock=False):
+    """Current host facts behind this context, including its routed stock ancestry."""
+    attachment = job.get("measurement_debts", {})
+    debts = {}
+    setups = {entry["id"]: entry for entry in job["setups"]}
+
+    def add(entries):
+        debts.update((entry["id"], entry) for entry in entries)
+
+    def upstream(sid, visited):
+        if sid in visited or sid not in setups:
+            return
+        visited.add(sid)
+        source = setups[sid]
+        refs = source["stock_in"]
+        for ref in refs if isinstance(refs, list) else [refs]:
+            upstream(ref, visited)
+        if sid != setup["id"]:
+            add(attachment.get("setups", {}).get(sid, []))
+        for cut in source["ops"]:
+            if sid == setup["id"] and op is not None and cut["subject"] == (f"{sid}:{op['op']}"):
+                break
+            add(attachment.get("ops", {}).get(cut["subject"], []))
+
+    if op is not None:
+        add(attachment.get("ops", {}).get(f"{setup['id']}:{op['op']}", []))
+    if fixture:
+        add(attachment.get("setups", {}).get(setup["id"], []))
+    if stock:
+        upstream(setup["id"], set())
+    return [debts[key] for key in sorted(debts)]
+
+
+def with_measurement_debts(finding, entries):
+    """Unknown rows retain exact stable fact IDs and fresh provenance diagnostics."""
+    if finding.status != UNKNOWN or not entries:
+        return finding
+    debts = {entry["id"]: entry for entry in finding.numbers.get("measurements", [])}
+    debts.update((entry["id"], entry) for entry in entries)
+    ordered = [debts[key] for key in sorted(debts)]
+    diagnosis = "; ".join(
+        f"{entry['id']} ({entry.get('status', UNKNOWN)}): {entry['reason'].rstrip('.')}"
+        if entry.get("reason")
+        else f"{entry['id']} ({entry.get('status', UNKNOWN)})"
+        for entry in ordered
+    )
+    return replace(
+        finding,
+        numbers={**finding.numbers, "measurements": ordered},
+        cite=list(dict.fromkeys([*finding.cite, *(c for e in ordered for c in e["cite"])])),
+        sentence=f"{finding.sentence.rstrip('.')}. Refused kernel facts: {diagnosis}.",
+    )
+
+
 def op_contexts(bundle, rule, required=(), fixture=False, stock=True, turning=None):
     """Per-op context; ``turning`` names the required inputs of turning-model ops."""
     from prechips.kernel import build_job, run_geometry
@@ -419,6 +475,16 @@ def op_contexts(bundle, rule, required=(), fixture=False, stock=True, turning=No
         # Raw -Z collision/stock/corner facts never establish turning or rotary results.
         stale = not approach_facts(bundle, facts, setup, op)
         detail = {} if approach_reason or stale else record(record(facts.get("ops")).get(subject))
+        inputs = {
+            **inputs,
+            "measurement_debts": kernel_measurement_debts(
+                job,
+                setup,
+                op,
+                fixture=fixture,
+                stock=stock and bool(detail.get("stock_reason")),
+            ),
+        }
         if blocked is None:
             if cutting_action(op) is False:
                 blocked = Finding(
@@ -576,6 +642,10 @@ def op_contexts(bundle, rule, required=(), fixture=False, stock=True, turning=No
                         "holder clamps the head and its clearance is not modelled: set "
                         "projection_mm at least head_len_mm.",
                     )
+                    # Both comparison inputs are accepted facts. This setting refuses
+                    # placement before fixture, DRO or reach facts can decide clearance.
+                    yield setup, op, facts, detail, inputs, cite, blocked
+                    continue
                 elif any(not number(inputs.get(key)) for key in keys):
                     blocked = Finding(
                         rule,
@@ -586,6 +656,8 @@ def op_contexts(bundle, rule, required=(), fixture=False, stock=True, turning=No
                         f"{subject}: selected tool/holder dimensions are unmeasured "
                         "or unavailable.",
                     )
+        if blocked is not None:
+            blocked = with_measurement_debts(blocked, inputs["measurement_debts"])
         yield setup, op, facts, detail, inputs, cite, blocked
 
 
@@ -609,6 +681,12 @@ def setup_contexts(bundle, rule):
         detail = record(record(facts.get("setups")).get(subject))
         blocked = unavailable(bundle, rule, subject, facts, cite)
         unloaded = rule == "thin_wall_under_clamp" and unclamped_noncutting(setup, inputs)
+        inputs = {
+            **inputs,
+            "measurement_debts": kernel_measurement_debts(
+                job, setup, fixture=True, stock=bool(detail.get("stock_reason"))
+            ),
+        }
         if blocked is None:
             if detail.get("assembly_error"):
                 blocked = Finding(
@@ -676,6 +754,8 @@ def setup_contexts(bundle, rule):
                     f"{subject}: every operation is non-cutting and the {inputs['kind']} hold "
                     "declares no clamp, so no wall is under clamping load.",
                 )
+        if blocked is not None:
+            blocked = with_measurement_debts(blocked, inputs["measurement_debts"])
         yield setup, facts, detail, inputs, cite, blocked
 
 

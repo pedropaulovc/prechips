@@ -12,29 +12,40 @@ telemetry live beside them.
 
 ## Sources and fixtures
 
-### Examples policy (illustrative plausible data)
+### Examples policy (demonstration fixtures, not shop observations)
 
 Everything under `examples/` (shop inventory, policy, cutting data, plans and
-example features) is **illustrative**; real shop inputs come later. The examples
-carry a plausible value for every fact the checker consumes so that each pilot
-bundle shows a complete route; those values are not measurements, so rules
-that require one stay `?` and the expected exits in
-[examples/README.md](examples/README.md#expected-consumer-cli-exits) record
-that honestly. Every invented physical fact is labelled fact-locally as
-`measured = { status = "illustrative", by = "example (plausible, not measured)", date = "2026-10-05", instrument = "<plausible instrument>" }`;
-invented non-length facts (cutting-data rows, policy floors, gauge/identity
-confirmations) carry a cite or comment that names them as example values. Real
-measurements (the five `fixtures.vise-pm-6` facts measured by Pedro Paulo Vezza
-Campos, and the soft-jaw item's copy of that vise's bed height) carry
-`status = "measured"` and their real `by`; never relabel or
-overwrite them, and never set `status = "measured"` on a value nobody
-physically measured. Do not revert the
-example values back to `"unknown"`, and do not copy them into a real shop file:
-they are not evidence. The checker's semantics do **not** change for examples:
-`unknown` is never a pass, missing data stays `?`, verify debt stays debt, an
-`illustrative`/`assumed` record is debt, and exit
-codes are unchanged. Engine limitations are fixed in the engine, not worked around
-with example-specific special cases.
+example features) is worked-example data; real shop inputs come later. The
+examples carry a realistic value for every fact the checker consumes so that
+each pilot bundle shows a complete route: actual catalogue, vendor or standard
+values with their citations where known, otherwise realistic values, never a
+value chosen merely to satisfy a check. A supported example record exercises
+the engine's measured branch as a **demonstration fixture**: it carries
+`measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" }`
+(those exact strings, one marker). That is disclosure, not an observation:
+the engine never parses `by`/`instrument` prose to change trust, so such a
+record passes the rules exactly as a real measurement would, and nothing
+about it is a shop migration instruction — a real shop sets
+`status = "measured"` only after a physical measurement
+([migration rule](docs/inventory.md#measured-envelopes-and-installed-tool-stacks-m5)).
+Never copy example values into a real shop file. A few recorded facts are
+deliberately left `status = "assumed"` so their local `?` rows stay
+instructive; [examples/README.md](examples/README.md) lists their exact ids
+and consuming rows. A plain field the public schema cannot wrap in a record
+(item roots, `Number`/`Vector` capability fields) stays a bare nominal under
+the existing nominal allowance, with a real citation or a source comment
+carrying the demo marker, never a fabricated record wrapper or an artificial
+`verify = true`. Invented non-length facts (cutting-data rows, policy floors,
+gauge/identity confirmations) carry a cite or comment naming them as example
+values; cutting-data rows have no `status` field and keep their cite
+semantics. The six real Pedro Paulo Vezza Campos measurements (the five
+`fixtures.vise-pm-6` facts and the soft-jaw item's copy of that vise's bed
+height) keep their exact metadata; never relabel or overwrite them. Do not
+revert example values to `"unknown"`. The checker's semantics do **not**
+change for examples: `unknown` is never a pass, missing data stays `?`,
+verify debt stays debt, an `assumed`/`illustrative`/omitted-status record is
+debt, and exit codes are unchanged. Engine limitations are fixed in the
+engine, not worked around with example-specific special cases.
 
 ### Real inputs and engine fixtures
 

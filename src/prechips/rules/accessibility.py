@@ -16,6 +16,7 @@ from prechips.rules.geometry_common import (
     blade_keys,
     fact_reason,
     op_contexts,
+    with_measurement_debts,
 )
 from prechips.rules.resolution import identity, number
 
@@ -226,6 +227,9 @@ def evaluate(bundle):
             message = checkpoint_unknown if status == "pass" else f"{message}; {checkpoint_unknown}"
             status = "unknown"
         rows.append(
-            Finding("accessibility", subject, status, values, cite, f"{subject}: {message}.")
+            with_measurement_debts(
+                Finding("accessibility", subject, status, values, cite, f"{subject}: {message}."),
+                inputs["measurement_debts"],
+            )
         )
     return rows

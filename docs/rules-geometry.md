@@ -301,7 +301,14 @@ entering angle 90°, sides running straight back to `head_len`; an unmeasured
 `blade_width` leaves the row `unknown`. A tool set out of its holder by less
 than its `head_len` (projection shorter than the head) leaves the holder unposed:
 every turning rule on the op is `unknown` naming the setting ("set projection_mm
-at least head_len_mm"), never a crash or an "unmeasured" head. Claimed
+at least head_len_mm"), never a crash or an "unmeasured" head. That
+invalid-setting conclusion is drawn only from trusted `projection` and
+`head_len` facts: an `assumed`/`illustrative`/omitted-status projection or
+head is unmeasured debt naming that fact, never compared and never a pass;
+unknown tool or nose extents beside trusted ones still leave the op
+`unknown`; and unrelated setup debt (parallel length/width, the DRO grid,
+optional reach facts) is not consumed by, and not attached to, this
+conclusion. Claimed
 faces must be surfaces of revolution about setup Z on the outside; other faces
 are claim errors; internal (bore) claims stay `unknown`. Samples on the
 claimed meridians (a dome's pole included; a `to_z` op's samples moved onto
@@ -567,7 +574,15 @@ the same holder gauge/grip, tool OAL and projection facts (and `headroom` on
 the envelope limits) separately, so an op can be geometrically checked while
 its spindle stack is still M5 measurement debt. See
 [inventory](inventory.md#kernel-geometry-facts-m4). Missing
-fields are listed in the job's reason text and the dependent rules are `?`.
+fields are listed in the job's reason text and the dependent rules are `?`;
+each refused fact is also a `numbers.measurements` entry on those findings,
+naming the field and the status of the record it refused (stock provenance
+included), so `tools --measure` sees kernel-side debt without a kernel run.
+The engine job and its cache key carry only the stable ids of the refused
+fields, never status, attribution or reason text. Applicability is decided
+before unrelated trust: a rule that does not apply to an op (a concave edge
+with no cutter radius to check, an op with no stock loaded) is
+`not_applicable` rather than debt on a fact it would never read.
 
 - Per cutting op (noncutting actions are `not_applicable`; an unknown `do` is
   `unknown`): `radius_mm` (tool `dia` / 2), `flute_len_mm`,
@@ -584,6 +599,23 @@ fields are listed in the job's reason text and the dependent rules are `?`.
   neither is an engine input (the per-feature `complete_form` hole owner below
   is). Accessibility does not require OAL when the
   selected projection is known.
+  [Engagement](rules-physics.md#engagement) uses that installed projection and
+  the tool diameter for its L/D verdict; its `tool_oal_mm` and `holder_grip_mm`
+  diagnostics read `"not used"` when an explicit pair projection is authored.
+  Those unused lengths are not read or claimed as numeric facts, and their
+  assumed, illustrative, status-less, incomplete or missing measurement records
+  cannot change this verdict or add engagement length debt. Selected tool/holder
+  verification is still required: the existing inventory identity contract treats
+  a nested `verify = true` or `"unknown"` as item verification debt, even on an
+  unused length. That leaves engagement `unknown` with the exact selected item's
+  `.verify` debt, separately from length provenance. Only the OAL-minus-grip fallback
+  consumes those two lengths and reports their numeric values or `"unknown"`,
+  with exact selected-fact debt when either is refused. A complete fact-local
+  `status = "measured"` record qualifies a consumed length; a bare explicit-unit
+  nominal retains engagement's existing nominal allowance. Unrelated holder
+  facts and unselected set members are not engagement measurement debt.
+  These diagnostic labels do not change installed projection, native admission
+  or geometry cache identity.
 - Per spot or drill op on a hole feature: `point_angle_deg`, the selected
   tool's included `point_angle`, always sent. A plain nominal or accepted
   fact passes its number; a missing, `"unknown"` or debt-carrying angle is
@@ -1698,7 +1730,12 @@ corner is checked when the op claims both walls; legal-centre floor poses do not
 expand this rule's claimed-face scope.
 A concave cylinder with an off-axis axis, an oblique concave edge, or any
 other concave curved claimed surface cannot be reduced to one radius and
-makes the row `unknown` with that face/edge named. Numbers:
+makes the row `unknown` with that face/edge named. A refused preparation
+radius (an untrusted cutter or stock-prep fact) does not erase what the
+kernel did compute: valid corner claims it already judged keep their result,
+an op with no concave corner at all stays `not_applicable` rather than
+becoming debt on a fact it never needed, and only the stock and hits that
+depend on the refused fact are `unknown`, naming it. Numbers:
 `corner_radii_mm` (sorted), `tool_radius_mm`, `minimum_corner_radius_mm`,
 `cad_sharp_corners` and `corner_radius_max_design_mm`.
 These are finished-solid facts, independent of unknown in-process stock;
@@ -1805,7 +1842,11 @@ of its uncovered faces have mapped turning finish claims. A genuinely unclaimed
 face still errors, and a complete set of supported milling finish claims still
 passes even when other lathe operations exist. Invalid/missing face mappings
 retain their error/unknown precedence, and an unresolved rotary finishing
-union is `unknown` ahead of `unsupported` and errors.
+union is `unknown` ahead of `unsupported` and errors. Measurement debt on a
+finishing claim is bounded to the faces that claim leaves unresolved: a
+feature whose other faces are covered by trusted claims keeps that coverage,
+while a reference the kernel cannot bound at all (an unmapped or unbounded
+face set) remains a global `unknown`.
 
 Rotary finishing claims credit a face only through
 `rotary_coverage.finish`, the union of the finishing rotary ops' window

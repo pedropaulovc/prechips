@@ -307,6 +307,19 @@
       "numbers": {
         "claims": 2,
         "contradictions": [],
+        "dro_grid_debt": "machine test-mill declares no positive numeric DRO resolution, so its grid is provisional",
+        "measurements": [
+          {
+            "cite": [
+              "inventory.machines.test-mill.resolution"
+            ],
+            "id": "machines.test-mill.resolution",
+            "instruction": "measure: test-mill installed DRO least readable step, installed readout and indicator check, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ],
         "unchecked": [
           "the setup picture's nearest cut cannot be compared: CLEARANCE rows for ops 10 are not computed"
         ]
@@ -325,6 +338,19 @@
       "numbers": {
         "claims": 2,
         "contradictions": [],
+        "dro_grid_debt": "machine test-mill declares no positive numeric DRO resolution, so its grid is provisional",
+        "measurements": [
+          {
+            "cite": [
+              "inventory.machines.test-mill.resolution"
+            ],
+            "id": "machines.test-mill.resolution",
+            "instruction": "measure: test-mill installed DRO least readable step, installed readout and indicator check, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ],
         "unchecked": [
           "the setup picture's nearest cut cannot be compared: CLEARANCE rows for ops 10 are not computed"
         ]
@@ -343,6 +369,19 @@
       "numbers": {
         "claims": 2,
         "contradictions": [],
+        "dro_grid_debt": "machine test-mill declares no positive numeric DRO resolution, so its grid is provisional",
+        "measurements": [
+          {
+            "cite": [
+              "inventory.machines.test-mill.resolution"
+            ],
+            "id": "machines.test-mill.resolution",
+            "instruction": "measure: test-mill installed DRO least readable step, installed readout and indicator check, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ],
         "unchecked": [
           "the setup picture's nearest cut cannot be compared: CLEARANCE rows for ops 10 are not computed"
         ]
@@ -361,6 +400,19 @@
       "numbers": {
         "claims": 2,
         "contradictions": [],
+        "dro_grid_debt": "machine test-mill declares no positive numeric DRO resolution, so its grid is provisional",
+        "measurements": [
+          {
+            "cite": [
+              "inventory.machines.test-mill.resolution"
+            ],
+            "id": "machines.test-mill.resolution",
+            "instruction": "measure: test-mill installed DRO least readable step, installed readout and indicator check, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ],
         "unchecked": [
           "the setup picture's nearest cut cannot be compared: CLEARANCE rows for ops 10 are not computed"
         ]
@@ -379,6 +431,19 @@
       "numbers": {
         "claims": 2,
         "contradictions": [],
+        "dro_grid_debt": "machine test-mill declares no positive numeric DRO resolution, so its grid is provisional",
+        "measurements": [
+          {
+            "cite": [
+              "inventory.machines.test-mill.resolution"
+            ],
+            "id": "machines.test-mill.resolution",
+            "instruction": "measure: test-mill installed DRO least readable step, installed readout and indicator check, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ],
         "unchecked": [
           "the setup picture's nearest cut cannot be compared: CLEARANCE rows for ops 10 are not computed"
         ]
@@ -397,6 +462,19 @@
       "numbers": {
         "claims": 2,
         "contradictions": [],
+        "dro_grid_debt": "machine test-mill declares no positive numeric DRO resolution, so its grid is provisional",
+        "measurements": [
+          {
+            "cite": [
+              "inventory.machines.test-mill.resolution"
+            ],
+            "id": "machines.test-mill.resolution",
+            "instruction": "measure: test-mill installed DRO least readable step, installed readout and indicator check, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ],
         "unchecked": [
           "the setup picture's nearest cut cannot be compared: CLEARANCE rows for ops 10 are not computed"
         ]
@@ -425,7 +503,7 @@
         "plan contour steps, operation targets and stock allowances",
         "inventory selected cutter nominal diameter"
       ],
-      "message": "Feature targets use the declared model-to-setup basis; cutter tables use explicit nominal geometry and authored allowance. Missing geometry or unverified tool/frame binding prevents a cleared toolpath.",
+      "message": "Feature targets use the declared model-to-setup basis; cutter tables use explicit nominal geometry and authored allowance. DRO grid debt: machine test-mill declares no positive numeric DRO resolution, so its grid is provisional Missing geometry or unverified tool/frame binding prevents a cleared toolpath.",
       "numbers": {
         "arc_table": [],
         "binding": "unknown",
@@ -434,6 +512,7 @@
           "decimals": 3,
           "step": 0.001
         },
+        "dro_grid_debt": "machine test-mill declares no positive numeric DRO resolution, so its grid is provisional",
         "entry_surfaces": [
           {
             "op": 10
@@ -441,6 +520,18 @@
         ],
         "frame": "A",
         "line_table": [],
+        "measurements": [
+          {
+            "cite": [
+              "inventory.machines.test-mill.resolution"
+            ],
+            "id": "machines.test-mill.resolution",
+            "instruction": "measure: test-mill installed DRO least readable step, installed readout and indicator check, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ],
         "operations": [
           {
             "direction": "climb",
@@ -466,7 +557,7 @@
         "plan contour steps, operation targets and stock allowances",
         "inventory selected cutter nominal diameter"
       ],
-      "message": "Feature targets use the declared model-to-setup basis; cutter tables use explicit nominal geometry and authored allowance. Missing geometry or unverified tool/frame binding prevents a cleared toolpath.",
+      "message": "Feature targets use the declared model-to-setup basis; cutter tables use explicit nominal geometry and authored allowance. DRO grid debt: machine test-mill declares no positive numeric DRO resolution, so its grid is provisional Missing geometry or unverified tool/frame binding prevents a cleared toolpath.",
       "numbers": {
         "arc_table": [],
         "binding": "unknown",
@@ -475,6 +566,7 @@
           "decimals": 3,
           "step": 0.001
         },
+        "dro_grid_debt": "machine test-mill declares no positive numeric DRO resolution, so its grid is provisional",
         "entry_surfaces": [
           {
             "op": 10
@@ -482,6 +574,18 @@
         ],
         "frame": "A",
         "line_table": [],
+        "measurements": [
+          {
+            "cite": [
+              "inventory.machines.test-mill.resolution"
+            ],
+            "id": "machines.test-mill.resolution",
+            "instruction": "measure: test-mill installed DRO least readable step, installed readout and indicator check, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ],
         "operations": [
           {
             "direction": "climb",
@@ -507,7 +611,7 @@
         "plan contour steps, operation targets and stock allowances",
         "inventory selected cutter nominal diameter"
       ],
-      "message": "Feature targets use the declared model-to-setup basis; cutter tables use explicit nominal geometry and authored allowance. Missing geometry or unverified tool/frame binding prevents a cleared toolpath.",
+      "message": "Feature targets use the declared model-to-setup basis; cutter tables use explicit nominal geometry and authored allowance. DRO grid debt: machine test-mill declares no positive numeric DRO resolution, so its grid is provisional Missing geometry or unverified tool/frame binding prevents a cleared toolpath.",
       "numbers": {
         "arc_table": [],
         "binding": "unknown",
@@ -516,6 +620,7 @@
           "decimals": 3,
           "step": 0.001
         },
+        "dro_grid_debt": "machine test-mill declares no positive numeric DRO resolution, so its grid is provisional",
         "entry_surfaces": [
           {
             "op": 10
@@ -523,6 +628,18 @@
         ],
         "frame": "A",
         "line_table": [],
+        "measurements": [
+          {
+            "cite": [
+              "inventory.machines.test-mill.resolution"
+            ],
+            "id": "machines.test-mill.resolution",
+            "instruction": "measure: test-mill installed DRO least readable step, installed readout and indicator check, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ],
         "operations": [
           {
             "direction": "climb",
@@ -548,7 +665,7 @@
         "plan contour steps, operation targets and stock allowances",
         "inventory selected cutter nominal diameter"
       ],
-      "message": "Feature targets use the declared model-to-setup basis; cutter tables use explicit nominal geometry and authored allowance. Missing geometry or unverified tool/frame binding prevents a cleared toolpath.",
+      "message": "Feature targets use the declared model-to-setup basis; cutter tables use explicit nominal geometry and authored allowance. DRO grid debt: machine test-mill declares no positive numeric DRO resolution, so its grid is provisional Missing geometry or unverified tool/frame binding prevents a cleared toolpath.",
       "numbers": {
         "arc_table": [],
         "binding": "unknown",
@@ -557,6 +674,7 @@
           "decimals": 3,
           "step": 0.001
         },
+        "dro_grid_debt": "machine test-mill declares no positive numeric DRO resolution, so its grid is provisional",
         "entry_surfaces": [
           {
             "op": 10
@@ -564,6 +682,18 @@
         ],
         "frame": "A",
         "line_table": [],
+        "measurements": [
+          {
+            "cite": [
+              "inventory.machines.test-mill.resolution"
+            ],
+            "id": "machines.test-mill.resolution",
+            "instruction": "measure: test-mill installed DRO least readable step, installed readout and indicator check, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ],
         "operations": [
           {
             "direction": "climb",
@@ -589,7 +719,7 @@
         "plan contour steps, operation targets and stock allowances",
         "inventory selected cutter nominal diameter"
       ],
-      "message": "Feature targets use the declared model-to-setup basis; cutter tables use explicit nominal geometry and authored allowance. Missing geometry or unverified tool/frame binding prevents a cleared toolpath.",
+      "message": "Feature targets use the declared model-to-setup basis; cutter tables use explicit nominal geometry and authored allowance. DRO grid debt: machine test-mill declares no positive numeric DRO resolution, so its grid is provisional Missing geometry or unverified tool/frame binding prevents a cleared toolpath.",
       "numbers": {
         "arc_table": [],
         "binding": "unknown",
@@ -598,6 +728,7 @@
           "decimals": 3,
           "step": 0.001
         },
+        "dro_grid_debt": "machine test-mill declares no positive numeric DRO resolution, so its grid is provisional",
         "entry_surfaces": [
           {
             "op": 10
@@ -605,6 +736,18 @@
         ],
         "frame": "A",
         "line_table": [],
+        "measurements": [
+          {
+            "cite": [
+              "inventory.machines.test-mill.resolution"
+            ],
+            "id": "machines.test-mill.resolution",
+            "instruction": "measure: test-mill installed DRO least readable step, installed readout and indicator check, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ],
         "operations": [
           {
             "direction": "climb",
@@ -630,7 +773,7 @@
         "plan contour steps, operation targets and stock allowances",
         "inventory selected cutter nominal diameter"
       ],
-      "message": "Feature targets use the declared model-to-setup basis; cutter tables use explicit nominal geometry and authored allowance. Missing geometry or unverified tool/frame binding prevents a cleared toolpath.",
+      "message": "Feature targets use the declared model-to-setup basis; cutter tables use explicit nominal geometry and authored allowance. DRO grid debt: machine test-mill declares no positive numeric DRO resolution, so its grid is provisional Missing geometry or unverified tool/frame binding prevents a cleared toolpath.",
       "numbers": {
         "arc_table": [],
         "binding": "unknown",
@@ -639,6 +782,7 @@
           "decimals": 3,
           "step": 0.001
         },
+        "dro_grid_debt": "machine test-mill declares no positive numeric DRO resolution, so its grid is provisional",
         "entry_surfaces": [
           {
             "op": 10
@@ -646,6 +790,18 @@
         ],
         "frame": "A",
         "line_table": [],
+        "measurements": [
+          {
+            "cite": [
+              "inventory.machines.test-mill.resolution"
+            ],
+            "id": "machines.test-mill.resolution",
+            "instruction": "measure: test-mill installed DRO least readable step, installed readout and indicator check, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ],
         "operations": [
           {
             "direction": "climb",
@@ -1751,6 +1907,36 @@
         "measurements": [
           {
             "cite": [
+              "inventory.fixtures.test-vise.bed_height"
+            ],
+            "id": "fixtures.test-vise.bed_height",
+            "instruction": "measure: test-vise table to vise bed supporting the parallels or part, height gauge, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.fixtures.test-vise.length"
+            ],
+            "id": "fixtures.test-vise.length",
+            "instruction": "measure: test-vise record length, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.fixtures.test-vise.width"
+            ],
+            "id": "fixtures.test-vise.width",
+            "instruction": "measure: test-vise record width, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
               "inventory.machines.test-mill.envelope.spindle_to_table_max"
             ],
             "id": "machines.test-mill.envelope.spindle_to_table_max",
@@ -1842,6 +2028,46 @@
           "requires_path_check": false
         },
         "measurements": [
+          {
+            "cite": [
+              "inventory.fixtures.test-angle-plate.bed_height"
+            ],
+            "id": "fixtures.test-angle-plate.bed_height",
+            "instruction": "measure: test-angle-plate table to vise bed supporting the parallels or part, height gauge, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.fixtures.test-angle-plate.jaw_height"
+            ],
+            "id": "fixtures.test-angle-plate.jaw_height",
+            "instruction": "measure: test-angle-plate record jaw_height, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.fixtures.test-angle-plate.length"
+            ],
+            "id": "fixtures.test-angle-plate.length",
+            "instruction": "measure: test-angle-plate record length, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.fixtures.test-angle-plate.width"
+            ],
+            "id": "fixtures.test-angle-plate.width",
+            "instruction": "measure: test-angle-plate record width, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
           {
             "cite": [
               "inventory.machines.test-mill.envelope.spindle_to_table_max"
@@ -1946,6 +2172,46 @@
         "measurements": [
           {
             "cite": [
+              "inventory.fixtures.test-nest.bed_height"
+            ],
+            "id": "fixtures.test-nest.bed_height",
+            "instruction": "measure: test-nest table to vise bed supporting the parallels or part, height gauge, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.fixtures.test-nest.jaw_height"
+            ],
+            "id": "fixtures.test-nest.jaw_height",
+            "instruction": "measure: test-nest record jaw_height, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.fixtures.test-nest.length"
+            ],
+            "id": "fixtures.test-nest.length",
+            "instruction": "measure: test-nest record length, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.fixtures.test-nest.width"
+            ],
+            "id": "fixtures.test-nest.width",
+            "instruction": "measure: test-nest record width, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
               "inventory.machines.test-mill.envelope.spindle_to_table_max"
             ],
             "id": "machines.test-mill.envelope.spindle_to_table_max",
@@ -2048,6 +2314,36 @@
           "requires_path_check": false
         },
         "measurements": [
+          {
+            "cite": [
+              "inventory.machines.test-head.centre_height"
+            ],
+            "id": "machines.test-head.centre_height",
+            "instruction": "measure: test-head record centre_height, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.machines.test-head.length"
+            ],
+            "id": "machines.test-head.length",
+            "instruction": "measure: test-head record length, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.machines.test-head.width"
+            ],
+            "id": "machines.test-head.width",
+            "instruction": "measure: test-head record width, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
           {
             "cite": [
               "inventory.machines.test-mill.envelope.spindle_to_table_max"
@@ -2155,6 +2451,36 @@
         "measurements": [
           {
             "cite": [
+              "inventory.fixtures.test-chuck-4jaw.bed_height"
+            ],
+            "id": "fixtures.test-chuck-4jaw.bed_height",
+            "instruction": "measure: test-chuck-4jaw table to vise bed supporting the parallels or part, height gauge, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.fixtures.test-chuck-4jaw.length"
+            ],
+            "id": "fixtures.test-chuck-4jaw.length",
+            "instruction": "measure: test-chuck-4jaw record length, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.fixtures.test-chuck-4jaw.width"
+            ],
+            "id": "fixtures.test-chuck-4jaw.width",
+            "instruction": "measure: test-chuck-4jaw record width, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
               "inventory.machines.test-mill.envelope.spindle_to_table_max"
             ],
             "id": "machines.test-mill.envelope.spindle_to_table_max",
@@ -2257,6 +2583,36 @@
           "requires_path_check": true
         },
         "measurements": [
+          {
+            "cite": [
+              "inventory.fixtures.test-chuck-3jaw.bed_height"
+            ],
+            "id": "fixtures.test-chuck-3jaw.bed_height",
+            "instruction": "measure: test-chuck-3jaw table to vise bed supporting the parallels or part, height gauge, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.fixtures.test-chuck-3jaw.length"
+            ],
+            "id": "fixtures.test-chuck-3jaw.length",
+            "instruction": "measure: test-chuck-3jaw record length, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "inventory.fixtures.test-chuck-3jaw.width"
+            ],
+            "id": "fixtures.test-chuck-3jaw.width",
+            "instruction": "measure: test-chuck-3jaw record width, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
           {
             "cite": [
               "inventory.machines.test-mill.envelope.spindle_to_table_max"
@@ -3696,10 +4052,23 @@
         "plan.setups.S1: frame and hold",
         "inventory.fixtures.test-vise: declared dimensions",
         "inventory.fixtures.test-parallels-20: declared dimensions",
-        "shop-policy.numbers.thin_wall_floor_mm; PLAN.md §4.3 named soft jaws / mandrel / tape / wax"
+        "shop-policy.numbers.thin_wall_floor_mm; PLAN.md §4.3 named soft jaws / mandrel / tape / wax",
+        "inventory.machines.test-mill.resolution"
       ],
-      "message": "S1: no sampled clamp line meets material at both jaw contact planes.",
+      "message": "S1: no sampled clamp line meets material at both jaw contact planes. Refused kernel facts: machines.test-mill.resolution (missing): No numeric length with explicit millimetre or inch units is recorded.",
       "numbers": {
+        "measurements": [
+          {
+            "cite": [
+              "inventory.machines.test-mill.resolution"
+            ],
+            "id": "machines.test-mill.resolution",
+            "instruction": "measure: test-mill installed DRO least readable step, installed readout and indicator check, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ],
         "method": "unknown",
         "min_wall_mm": "unknown",
         "thin_wall_floor_mm": 2.0
@@ -5510,7 +5879,7 @@
       "subject": "S6"
     }
   ],
-  "hash": "a000ed8b81ff83366535be909773e7b2637fbeb072fb4eef7d2e1a2c4e7fd486",
+  "hash": "36b22d6d4da9c32dd1b3a33ea2db701420f4edcc4db54d45571ca6289376b8f3",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -6035,7 +6404,7 @@
       "sha256": "400652435f0698af5ef99d3d9c56d5bc91cc8a340534123c3ab92fac3cbed0f7"
     }
   },
-  "rules_version": "m5-rev11",
+  "rules_version": "m5-rev12",
   "step_sha256": "cbcb933eb13cf48ffe8687036c7a805546f1589ee4199c7cd9ebfff47cff1fac",
   "verification": "planned"
 }

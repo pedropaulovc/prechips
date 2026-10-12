@@ -7,6 +7,7 @@ from html import unescape
 from types import SimpleNamespace
 
 import pytest
+from test_envelope_m5 import measured
 from test_kernel_geometry import Engine
 from test_sheet_ops import Markup, content
 
@@ -45,11 +46,19 @@ def bundle(machine, zero, ops, stock_state=None):
                 }
             ],
         },
-        features={"frames": {"F": {"binding": "nominal"}}, "features": {"journal": {}}},
+        features={
+            "units": "mm",
+            "frames": {"F": {"binding": "nominal"}},
+            "features": {"journal": {}},
+        },
         inventory={
             "machines": {
-                "lathe": {"kind": "lathe"},
-                "mill": {"kind": "mill", "spindle": {"rpm_min": 50, "rpm_max": 3000}},
+                "lathe": {"kind": "lathe", "resolution_mm": measured(0.001)},
+                "mill": {
+                    "kind": "mill",
+                    "resolution_mm": measured(0.001),
+                    "spindle": {"rpm_min": 50, "rpm_max": 3000},
+                },
             },
             "tools": {
                 name: {"kind": kind, "tip_in": 0.2}

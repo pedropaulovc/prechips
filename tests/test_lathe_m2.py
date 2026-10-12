@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 from test_cli import run_cli
+from test_envelope_m5 import measured
 
 from prechips.findings import exit_code
 from prechips.inputs import Bundle
@@ -69,7 +70,9 @@ def bundle():
             },
         },
         inventory={
-            "machines": {"lathe": {"kind": "lathe", "verify": False}},
+            "machines": {
+                "lathe": {"kind": "lathe", "verify": False, "resolution_mm": measured(0.001)}
+            },
             "fixtures": {
                 "chuck": {"kind": "chuck_3jaw", "range_mm": [6.0, 14.0], "verify": False},
                 "tailstock": {"kind": "tailstock", "verify": False},

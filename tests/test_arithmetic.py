@@ -35,6 +35,9 @@ requirements = ["dia", "thru"]
 INVENTORY = """[machines.mill]
 kind = "mill"
 verify = false
+[machines.mill.resolution_mm]
+value = 0.001
+measured = { status = "measured", by = "test", date = "2026-10-03", instrument = "DRO readout" }
 [machines.mill.envelope]
 [machines.mill.envelope.spindle_to_table_max_mm]
 value = 400.0

@@ -14,6 +14,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from test_envelope_m5 import measured
 from test_geometry_rules import finding, rules_bundle
 from test_kernel_geometry import IDENTITY, Engine, _op, _vise
 
@@ -115,7 +116,7 @@ def _bundle(tmp_path):
             "features": {"pocket": {"kind": "pocket", "faces": ["#1"], "finish_ra": 1.6}},
         },
         {
-            "machines": {"mill": {"kind": "mill"}},
+            "machines": {"mill": {"kind": "mill", "resolution_mm": measured(0.001)}},
             "tools": {
                 "em": {
                     "kind": "endmill",

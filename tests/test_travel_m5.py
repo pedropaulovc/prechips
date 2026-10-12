@@ -69,6 +69,7 @@ def bundle():
                 "mill": {
                     "kind": "mill",
                     "verify": False,
+                    "resolution_mm": measured(0.001),
                     "envelope": {
                         "travel_mm": {
                             "x": measured(100),

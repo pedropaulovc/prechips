@@ -9,7 +9,7 @@ from test_cli import ROOT, SYNTHETIC_KERNEL, copy_examples, run_cli
 from prechips import kernel
 from prechips.inputs import load_bundle
 from prechips.measurements import measurement_checklist
-from prechips.rules import MEASUREMENT_RULES
+from prechips.rules import envelope, headroom, tip_endpoints, travel, turning_deflection
 
 SPINDLE_MIN = "machines.PM-30MV.envelope.spindle_to_table_min"
 SPINDLE_MAX = "machines.PM-30MV.envelope.spindle_to_table_max"
@@ -125,6 +125,19 @@ def measurement_ids(entries):
     return {entry["id"] for entry in entries}
 
 
+def add_unselected_resolution(inventory):
+    inventory.write_text(
+        inventory.read_text(encoding="utf-8") + """
+[gauges.unselected-checklist-gauge]
+kind = "calipers"
+resolution_mm = { value = 0.1, measured = { status = "illustrative","""
+        """ by = "isolated unselected fixture", date = "2026-10-11","""
+        """ instrument = "example caliper graduations" } }
+""",
+        encoding="utf-8",
+    )
+
+
 def check_report(plan, out, *args):
     result = run_cli("check", plan, "--out", out, *args, setup=SYNTHETIC_KERNEL)
     assert result.returncode in {0, 2, 4}, result.stderr
@@ -157,6 +170,7 @@ def test_plan_scoped_checklist_names_report_members_and_debt_free_unknowns(tmp_p
         'tools.endmills-lms-6784.members."3-8in-4fl".projection_mm',
         '"r8-collets-lms-4860/3-8in"',
     )
+    add_unselected_resolution(inventory)
     result = run_cli(
         "tools",
         "--measure",
@@ -176,9 +190,12 @@ def test_plan_scoped_checklist_names_report_members_and_debt_free_unknowns(tmp_p
     assert "holders.r8-collets-lms-4860/3-8in.gauge_len" in ids
     # An unknown grip needs measurement even though this holder has no verify flag.
     assert "holders.r8-collets-lms-4860/3-8in.grip" in ids
-    assert not any(identity.startswith("gauges.") for identity in ids)
+    assert "gauges.unselected-checklist-gauge.resolution" not in ids
     assert not any("leadscrew" in identity or "plate_holes" in identity for identity in ids)
-    assert not any(identity.startswith("holders.qctp-") for identity in ids)
+    assert not any(
+        identity.startswith("holders.qctp-") and identity.endswith((".gauge_len", ".grip"))
+        for identity in ids
+    )
 
 
 def test_repeated_plans_union_measurement_debt_without_adding_lathe_holder_gauges(tmp_path):
@@ -195,7 +212,10 @@ def test_repeated_plans_union_measurement_debt_without_adding_lathe_holder_gauge
     expected = unresolved_measurements(check_report(mill, tmp_path / "mill"), mill)
     expected |= unresolved_measurements(check_report(lathe, tmp_path / "lathe"), lathe)
     assert set(ids) == expected
-    assert not any(identity.startswith("holders.qctp-") for identity in ids)
+    assert not any(
+        identity.startswith("holders.qctp-") and identity.endswith((".gauge_len", ".grip"))
+        for identity in ids
+    )
     reversed_result = run_cli(*common, "--plan", lathe, "--plan", mill, setup=SYNTHETIC_KERNEL)
     assert reversed_result.returncode == 0, reversed_result.stderr
     assert reversed_result.stdout == result.stdout
@@ -321,6 +341,8 @@ def test_unprewarmed_measurement_rules_keep_derived_geometry_unknown_and_fact_de
 ):
     examples = copy_examples(tmp_path)
     inventory = examples / "inventory" / "pedro-shop.toml"
+    # The other inventory facts are trusted controls. Remove only the spindle
+    # maximum; an unavailable derived stock box is geometry debt, not a measurement.
     forget(
         inventory, "machines.PM-30MV.envelope", "spindle_to_table_max_in", "spindle_to_table_max_mm"
     )
@@ -332,7 +354,11 @@ def test_unprewarmed_measurement_rules_keep_derived_geometry_unknown_and_fact_de
 
     monkeypatch.setattr(kernel, "run_geometry", refuse_geometry)
     monkeypatch.setattr(kernel, "run_geometries", refuse_geometry)
-    findings = [finding for rule in MEASUREMENT_RULES for finding in rule.evaluate(bundle)]
+    findings = [
+        finding
+        for module in (tip_endpoints, headroom, envelope, travel, turning_deflection)
+        for finding in module.evaluate(bundle)
+    ]
     received = next(
         finding for finding in findings if finding.rule == "headroom" and finding.subject == "P2"
     )
@@ -344,11 +370,7 @@ def test_unprewarmed_measurement_rules_keep_derived_geometry_unknown_and_fact_de
     assert received.numbers["stock_entry_reason"]
     assert received.numbers["stock_entry_basis"] == "kernel setup-entry stock"
     assert "kernel.setups.P2.stock_bbox_mm: setup-entry stock in the setup frame" in received.cite
-    assert {
-        SPINDLE_MAX,
-        "machines.PM-30MV.envelope.travel.x",
-        "machines.PM-30MV.envelope.travel.y",
-    } == measurement_ids(received.numbers["measurements"])
+    assert {SPINDLE_MAX} == measurement_ids(received.numbers["measurements"])
     by_id = {entry["id"]: entry for entry in measurement_checklist(findings)}
     debt = by_id[SPINDLE_MAX]
     assert debt["units"] == "mm"
@@ -363,6 +385,7 @@ def test_default_examples_checklist_shares_one_inventory_debt_across_default_pla
     inventory = tmp_path / "inventory.toml"
     inventory.write_bytes((ROOT / "examples" / "inventory" / "pedro-shop.toml").read_bytes())
     forget_spindle_minimum(inventory)
+    add_unselected_resolution(inventory)
     result = run_cli(
         "tools",
         "--measure",
@@ -378,7 +401,8 @@ def test_default_examples_checklist_shares_one_inventory_debt_across_default_pla
     ids = [entry["id"] for entry in json.loads(result.stdout)]
     # One override inventory: its debt is unprefixed and listed once for every default plan.
     assert ids.count(SPINDLE_MIN) == 1
-    assert not any(identity.startswith("gauges.") or ".leadscrew." in identity for identity in ids)
+    assert "gauges.unselected-checklist-gauge.resolution" not in ids
+    assert not any(".leadscrew." in identity for identity in ids)
 
 
 def test_human_checklist_and_angle_units_match_the_current_measurement_debt(tmp_path):

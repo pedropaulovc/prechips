@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pytest
 from test_cli import SYNTHETIC_KERNEL, traveler
+from test_envelope_m5 import measured
 from test_headroom import coordinate_bundle
 from test_sheet_ops import Markup, content
 
@@ -54,7 +55,7 @@ def face(op, to_z):
 def bundle(tmp_path, features, operations, coarse=False):
     """The scratch bundle on an absolute up-reading DRO; mills on the 0.005 grid, S1's on
     0.010 when ``coarse``."""
-    path = coordinate_bundle(tmp_path, features, operations)
+    path = coordinate_bundle(tmp_path, features, operations, resolution=STEP)
     text = path.read_text(encoding="utf-8").replace(
         "[[setups]]",
         "[dro]\nmode = 'abs'\n[dro.direction]\nx = 'right'\ny = 'away'\nz = 'up'\n[[setups]]",
@@ -68,9 +69,10 @@ def bundle(tmp_path, features, operations, coarse=False):
         .split("[tools.", 1)[0]
         .replace("machines.mill", "machines.coarse")
     )
-    stock = stock.replace(MILL, f"{MILL}resolution_mm = {STEP}\n")
     stock += coarse_mill.replace(
-        "kind = 'mill'\n", f"kind = 'mill'\nresolution_mm = {2 * STEP}\n", 1
+        f"resolution_mm = {{ value = {STEP},",
+        f"resolution_mm = {{ value = {2 * STEP},",
+        1,
     )
     inventory.write_text(stock, encoding="utf-8")
     return path
@@ -260,8 +262,8 @@ def turned_from(tmp_path, cut, shaft_xy):
     direction = {"x": "right", "y": "away", "z": "up"}
     dro = {"controller": "EL400", "mode": "abs", "radius_mode": False, "direction": direction}
     machines = {
-        "coarse": {"kind": "mill", "resolution_mm": 2 * STEP},
-        "fine": {"kind": "lathe", "resolution_mm": STEP},
+        "coarse": {"kind": "mill", "resolution_mm": measured(2 * STEP)},
+        "fine": {"kind": "lathe", "resolution_mm": measured(STEP)},
     }
     tools = {"cutter": {"kind": "endmill", "dia_mm": 6.0, "nose_radius_mm": 0.0}}
     frames = {"A": {**FRAME, "binding": "nominal"}, "model": {**FRAME, "binding": "nominal"}}

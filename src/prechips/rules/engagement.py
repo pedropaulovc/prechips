@@ -5,7 +5,9 @@ from __future__ import annotations
 import math
 
 from ..findings import Finding
-from ._envelope import tool_projection
+from ..measurements import length_debt, record_debt
+from ._envelope import selected_item, tool_projection
+from .geometry_common import with_measurement_debts
 from .resolution import (
     UNKNOWN,
     length_mm,
@@ -14,7 +16,6 @@ from .resolution import (
     projection_holder,
     resolve,
     same_length,
-    select,
     uncertain,
 )
 from .tip_endpoints import FACING, HOLE_OPS, POCKETING
@@ -63,14 +64,43 @@ def evaluate(bundle):
             )
             continue
 
+        tool_category, tool_key, tool_item = selected_item(bundle, "tools", tool_ref)
+        holder_category, holder_key, holder_item = selected_item(bundle, "holders", holder_ref)
         holder = resolve(bundle, "holders", holder_ref)
+        debts = {}
         diameter = length_mm(tool, "dia")
-        oal, grip = length_mm(tool, "oal"), length_mm(holder, "grip")
-        projection_fact = tool_projection(bundle, op, {}, cite, require_measured=False)
+        projection_fact = tool_projection(bundle, op, debts, cite, require_measured=False)
         projection = projection_fact["value"]
         pair, conflict = projection_holder(bundle, tool, holder_ref)
         explicit = pair is not None or conflict is not None
         basis = "selected tool/holder projection" if explicit else "tool OAL - selected holder grip"
+        if explicit:
+            numbers.update(tool_oal_mm="not used", holder_grip_mm="not used")
+        consumed = [(tool_item, "dia", tool_category, tool_key)]
+        if pair is not None and conflict is None:
+            consumed.append((tool_item, ("projection", pair), tool_category, tool_key))
+        elif not explicit:
+            numbers.update(
+                tool_oal_mm=length_mm(tool, "oal"),
+                holder_grip_mm=length_mm(holder, "grip"),
+            )
+            consumed.extend(
+                [
+                    (tool_item, "oal", tool_category, tool_key),
+                    (holder_item, "grip", holder_category, holder_key),
+                ]
+            )
+        for item, field, category, key in consumed:
+            entry = length_debt(item, field, category, key, require_measured=False)
+            if entry is not None:
+                debts[entry["id"]] = entry
+        for item, category, key in (
+            (tool, tool_category, tool_key),
+            (holder, holder_category, holder_key),
+        ):
+            entry = record_debt(item, category, key, "verify", require_measured=False)
+            if entry is not None:
+                debts[entry["id"]] = entry
         doc = op.get("doc_mm", UNKNOWN)
         missing = []
         if action == UNKNOWN:
@@ -103,8 +133,6 @@ def evaluate(bundle):
             missing.append("positive authored axial depth per pass (doc_mm)")
         numbers.update(
             diameter_mm=diameter,
-            tool_oal_mm=oal,
-            holder_grip_mm=grip,
             projection_mm=projection,
             projection_basis=basis,
             projection_ld=ratio,
@@ -115,12 +143,13 @@ def evaluate(bundle):
             recommended_doc_mm=recommended,
             missing_inputs=missing,
         )
-        tool_category, tool_key, _ = select(bundle, tool_ref, "tools")
-        holder_category, holder_key, _ = select(bundle, holder_ref, "holders")
+        measurements = [debts[key] for key in sorted(debts)]
+        tool_dimensions = "diameter/projection" if explicit else "diameter/OAL"
+        holder_dimensions = "verification" if explicit else "grip/verification"
         cite.extend(
             [
-                f"inventory.{tool_category}.{tool_key}: explicit-unit diameter/projection/OAL",
-                f"inventory.{holder_category}.{holder_key}: selected holder grip/verification",
+                f"inventory.{tool_category}.{tool_key}: explicit-unit {tool_dimensions}",
+                f"inventory.{holder_category}.{holder_key}: selected holder {holder_dimensions}",
                 f"plan.setups[{setup['id']}].ops[{op['op']}].doc_mm",
                 "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
                 "resolution.same_length: existing physical-length equality precision "
@@ -148,6 +177,9 @@ def evaluate(bundle):
                 "this engagement proxy requires no DOC reduction."
             )
         result.append(
-            Finding("engagement", subject, status, numbers, cite, f"{subject}: {message}")
+            with_measurement_debts(
+                Finding("engagement", subject, status, numbers, cite, f"{subject}: {message}"),
+                measurements,
+            )
         )
     return result
