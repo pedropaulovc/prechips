@@ -58,6 +58,15 @@ a plan centre must carry its own Table 6 geometry: pilot `dia` (D), `pilot_len`
 shorter than `pilot_len`; `flute_len` stays the cutting length reach compares.
 `chart` is a source citation, never a downloaded chart.
 
+Resolved `drill`, `drill_index` and `drill_set` tools used for
+`rough_profile` / `chain_drill` select drilling cutting data, not an end-mill
+profile row. The normal cited per-tool `chart` still takes precedence over
+the shop row; retain an authored chart when it records a deliberate lower
+feed, rather than adding one merely to work around row selection.
+Mill drilling's axial mm/rev is chip load times the resolved flute count;
+missing or nonpositive flutes leave it unresolved. See
+[cutting data](cutting-data.md) for chart requirements and axial feed operands.
+
 A limit-gauge set (`pin_gauge`, `pin_gauge_set` or `plug_gauge` for holes;
 `ring_gauge` or `snap_gauge` for a boss or shaft) lists the sizes it physically
 holds in `sizes_mm`. A plan GO / NO-GO pair may only name listed sizes: an unlisted

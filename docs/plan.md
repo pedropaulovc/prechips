@@ -1332,6 +1332,12 @@ path cut in several depth levels) it also sets the raise Z the sheet prints,
 | `sweep_bounds` | `Bounds` |
 | `keep_out` | list of `{ at = [x, y], dia_mm = d }` circles |
 
+A `rough_profile` with `method = "chain_drill"` and a resolved drill-kind
+tool performs drilling, so its speed/feed lookup selects `operation = "drill"`.
+Other contour methods and end-mill chain contours retain profile data.
+The axial feed, tool-chart precedence and before-stock penetration used for
+deep-hole derating are defined in [cutting data](cutting-data.md).
+
 `keep_out` centres use `sweep_frame`, defaulting to the feature's frame.
 Positive `dia_mm` islands exclude the whole cutter: pass centres clear each
 island radius plus cutter radius. Crossing passes split into independent,
