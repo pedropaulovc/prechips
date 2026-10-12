@@ -191,7 +191,7 @@ import FreeCAD  # noqa: E402
 import Part  # noqa: E402
 from render_diagram import (  # noqa: E402
     _common_plane,
-    _profile_outline_deflection,
+    _nominal_outline_deflection,
     _shared_plane,
     render_diagram,
     render_inspection,
@@ -8240,13 +8240,9 @@ class _Setup:
             for edge in self.faces[index].Edges:
                 if edge.Length > STOCK_TOL:
                     edges.setdefault(edge.hashCode(), edge)
-        # The finished outline is enlarged in the profile sketch, unlike the stock mesh.
-        # Keep its chord error within half a pixel at that panel's maximum scale.
-        outline_tolerance = _profile_outline_deflection(sketch, waypoints)
-        if outline_tolerance is None:
-            outline_tolerance = tolerance
-        else:
-            outline_tolerance = min(tolerance, outline_tolerance)
+        # Nominal edges appear in both profile plots and magnified guide-axis details.
+        # Bound sketch error when available and cap for magnified guide-axis details.
+        outline_tolerance = min(tolerance, _nominal_outline_deflection(sketch, waypoints))
         spec = {
             "setup_id": self.setup.get("id"),
             "view": view,

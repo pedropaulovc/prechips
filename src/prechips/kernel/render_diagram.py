@@ -4,6 +4,7 @@ All millimetre measurements come from ``spec``. Outlined machine/table context i
 screen-space symbolism, deliberately separate from the modelled fixture geometry.
 """
 
+import bisect
 import math
 import re
 from collections import defaultdict
@@ -75,6 +76,15 @@ _SKETCH_CHORD_ERROR_PX = 0.5
 _SKETCH_Y_EXAG_MAX = 4
 _SKETCH_Y_EXAG_MIN_PLOT_PX = 24
 _SKETCH_Y_EXAG_MIN_WIDTH_PX = 60
+# Guide details fit a frame padded by at least 1 mm per side into this 720 px viewport.
+_DETAIL_VIEW_LEFT_PX = 440
+_DETAIL_VIEW_RIGHT_PX = 1160
+_GUIDE_FRAME_PAD_MM = 1.0
+_DETAIL_MAX_SCALE_PX_PER_MM = (
+    0.9 * (_DETAIL_VIEW_RIGHT_PX - _DETAIL_VIEW_LEFT_PX) / (2 * _GUIDE_FRAME_PAD_MM)
+)
+_DETAIL_OUTLINE_DEFLECTION_MM = _SKETCH_CHORD_ERROR_PX / _DETAIL_MAX_SCALE_PX_PER_MM
+_DRAWN_OUTLINE_CELL_PX = 100  # Quantize projected coincidences to 0.01 px.
 
 # The legend a path sketch prints once it has drawn a raster's lifted return: the cycle
 # is one way (feed a pass, lift, rapid back to the next pass's start).
@@ -296,6 +306,15 @@ def _profile_outline_deflection(paths, waypoints):
         )
         if scale
         else None
+    )
+
+
+def _nominal_outline_deflection(paths, waypoints):
+    """Model-space chord error safe for both profile plots and zoomed guide-axis details."""
+    sketch_bound = _profile_outline_deflection(paths, waypoints)
+    return min(
+        _DETAIL_OUTLINE_DEFLECTION_MM,
+        sketch_bound if sketch_bound is not None else _DETAIL_OUTLINE_DEFLECTION_MM,
     )
 
 
@@ -718,30 +737,59 @@ def _dash_segments(polylines, project, clip=None):
 
 
 def _outline_point_key(point):
-    """Stable endpoint identity for joining separately discretized native edges."""
+    """Stable identity for native endpoints used by leader placement."""
     return tuple(round(float(value), 6) for value in point)
 
 
-def _continuous_outline_paths(polylines):
-    """Join native outline edges at shared vertices so dashes carry across each contour.
+def _identity_projection(point):
+    return point
 
-    A branch is kept as a path endpoint: without the source face loops there is no
-    unambiguous way to choose which branch continues the contour.
+
+def _drawn_outline_paths(polylines, project):
+    """Join unique nominal chords in the rendered plane before carrying their dash phase.
+
+    Splitting at every existing vertex makes collinear overlaps share one path. Branches
+    remain path endpoints because, without source face loops, their continuation is ambiguous.
     """
-    edges, endpoints = [], []
-    incidence = defaultdict(list)
-    closed, paths = [], []
+    where, chords = {}, set()
     for line in polylines:
-        if len(line) < 2:
-            continue
-        points = tuple(line)
-        start, end = _outline_point_key(points[0]), _outline_point_key(points[-1])
-        if start == end:
-            closed.append(points)
-            continue
-        index = len(edges)
-        edges.append(points)
-        endpoints.append((start, end))
+        points = []
+        for point in line:
+            pixel = tuple(float(value) for value in project(point))
+            cell = tuple(round(value * _DRAWN_OUTLINE_CELL_PX) for value in pixel)
+            if cell not in where or pixel < where[cell]:
+                where[cell] = pixel
+            if not points or points[-1] != cell:
+                points.append(cell)
+        for start, end in zip(points, points[1:], strict=False):
+            if start != end:
+                chords.add((start, end) if start < end else (end, start))
+    if not chords:
+        return []
+
+    vertices = sorted(where)
+    x_values = [point[0] for point in vertices]
+    pieces = set()
+    for start, end in sorted(chords):
+        dx, dy = end[0] - start[0], end[1] - start[1]
+        length_squared = dx * dx + dy * dy
+        first = bisect.bisect_left(x_values, min(start[0], end[0]) - 1)
+        last = bisect.bisect_right(x_values, max(start[0], end[0]) + 1)
+        cuts = []
+        for index in range(first, last):
+            vertex = vertices[index]
+            vx, vy = vertex[0] - start[0], vertex[1] - start[1]
+            along = vx * dx + vy * dy
+            if 0 < along < length_squared and (vx * dy - vy * dx) ** 2 <= length_squared:
+                cuts.append((along, vertex))
+        cuts.sort()
+        stops = [start, *(vertex for _, vertex in cuts), end]
+        pieces.update((a, b) if a < b else (b, a) for a, b in zip(stops, stops[1:], strict=False))
+
+    edge_cells = sorted(pieces)
+    edges = [(where[start], where[end]) for start, end in edge_cells]
+    incidence = defaultdict(list)
+    for index, (start, end) in enumerate(edge_cells):
         incidence[start].append(index)
         incidence[end].append(index)
 
@@ -753,6 +801,7 @@ def _continuous_outline_paths(polylines):
         for index in connected
     )
     branch_index = 0
+    paths = []
     while unvisited:
         while branch_index < len(branch_starts) and branch_starts[branch_index][1] not in unvisited:
             branch_index += 1
@@ -760,9 +809,9 @@ def _continuous_outline_paths(polylines):
             start, index = branch_starts[branch_index]
             branch_index += 1
         else:
-            index = min(unvisited, key=lambda edge: (tuple(sorted(endpoints[edge])), edge))
-            start = min(endpoints[index])
-        first, last = endpoints[index]
+            index = min(unvisited)
+            start = edge_cells[index][0]
+        first, last = edge_cells[index]
         path = list(edges[index] if first == start else reversed(edges[index]))
         unvisited.remove(index)
         current = last if first == start else first
@@ -771,7 +820,7 @@ def _continuous_outline_paths(polylines):
             if not next_edges:
                 break
             next_index = next_edges[0]
-            first, last = endpoints[next_index]
+            first, last = edge_cells[next_index]
             next_path = edges[next_index]
             if first != current:
                 next_path = tuple(reversed(next_path))
@@ -779,7 +828,7 @@ def _continuous_outline_paths(polylines):
             unvisited.remove(next_index)
             current = last if first == current else first
         paths.append(tuple(path))
-    return [*closed, *paths]
+    return paths
 
 
 def _outline_anchor_points(polylines):
@@ -928,7 +977,6 @@ class _Diagram:
         self.nominal = [line for line in spec.get("nominal_outline_mm", []) if len(line) >= 2]
         if self.view == "lathe":
             self.nominal = []
-        self.nominal_paths = _continuous_outline_paths(self.nominal)
         self.nominal_anchors = _outline_anchor_points(self.nominal)
         self.is_vise = any(_role(c) in ("fixed_jaw", "moving_jaw", "jaw") for c in self.components)
         self.is_chuck = self.view == "lathe" or any(
@@ -1368,7 +1416,8 @@ class _Diagram:
                 )
 
     def _nominal_overlay(self, project, clip=None, faint=False):
-        _dashed(self.canvas, self.nominal_paths, project, _NOMINAL_FAINT if faint else _BLUE, clip)
+        paths = _drawn_outline_paths(self.nominal, project)
+        _dashed(self.canvas, paths, _identity_projection, _NOMINAL_FAINT if faint else _BLUE, clip)
 
     def _component_label(self, component):
         """A holding component's printed name: role groups, jaw names and plural kits."""
@@ -3225,7 +3274,7 @@ def _detail_viewport(frame, camera, extra=0, top=100):
     """The detail band's viewport: full width, and only as tall as the framed geometry
     needs at that width, between the room its keys need and the full band, plus
     ``extra`` rows the keys turned out to need; ``top`` below the band's header."""
-    left, right = 440, 1160
+    left, right = _DETAIL_VIEW_LEFT_PX, _DETAIL_VIEW_RIGHT_PX
     top = max(top, 200 + _BADGE_PITCH)
     xs = [_dot3(p, camera[0]) for p in _corners(frame)]
     ys = [_dot3(p, camera[1]) for p in _corners(frame)]
@@ -3702,7 +3751,7 @@ class _GuideView(_HoldingDetail):
             points.append(self.tail)
         low = [min(p[i] for p in points) for i in range(3)]
         high = [max(p[i] for p in points) for i in range(3)]
-        pads = [0.05 * (high[i] - low[i]) + 1.0 for i in range(3)]
+        pads = [0.05 * (high[i] - low[i]) + _GUIDE_FRAME_PAD_MM for i in range(3)]
         frame = [low[i] - pads[i] for i in range(3)] + [high[i] + pads[i] for i in range(3)]
         meshes = [tuple(mesh) for mesh in guide["meshes"]]
         # Header space belongs to this view, not to the setup's label lanes.
@@ -3720,7 +3769,6 @@ class _GuideView(_HoldingDetail):
         super().__init__(meshes, spec, frame, camera, gain, (1, 1), extra, top)
         self.gain = self.canvas.scale / main_scale
         self.nominal = [line for line in spec.get("nominal_outline_mm", []) if len(line) >= 2]
-        self.nominal_paths = _continuous_outline_paths(self.nominal)
         self.nominal_anchors = _outline_anchor_points(self.nominal)
 
     def _title(self):

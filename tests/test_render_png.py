@@ -15,11 +15,11 @@ from prechips.kernel.render_diagram import (
     _INK,
     _AnnotationDetail,
     _compose_diagram,
-    _continuous_outline_paths,
     _corners,
     _dash_segments,
     _dashed,
     _Diagram,
+    _drawn_outline_paths,
     _guide_view,
     _holding_details,
     _HoldingDetail,
@@ -1572,21 +1572,19 @@ def test_profile_outline_deflection_bounds_circle_chord_error_at_sketch_scale(mo
             "directed": True,
         }
     ]
+    segments = 128
     circle = [
         [
-            [
-                radius * math.cos(start + math.pi * index / 4),
-                radius * math.sin(start + math.pi * index / 4),
-                0,
-            ]
-            for index in range(5)
+            radius * math.cos(2 * math.pi * index / segments),
+            radius * math.sin(2 * math.pi * index / segments),
+            0,
         ]
-        for start in (0, math.pi)
+        for index in range(segments + 1)
     ]
     spec = _example_spec("rocker-s1")
     spec["paths"] = paths
     spec["waypoints"] = []
-    spec["nominal_outline_mm"] = circle
+    spec["nominal_outline_mm"] = [circle]
     scales = []
     xy_projector = render_module._xy_projector
 
@@ -1601,13 +1599,47 @@ def test_profile_outline_deflection_bounds_circle_chord_error_at_sketch_scale(mo
     scale_x, scale_y = scales[0]
     assert scale_y == pytest.approx(4 * scale_x)
     tolerance = _profile_outline_deflection(paths, [])
-    assert tolerance * max(scale_x, scale_y) <= 0.5
+    max_scale = max(scale_x, scale_y)
+    assert tolerance * max_scale <= 0.5
+    sagitta = radius * (1 - math.cos(math.pi / segments))
+    assert sagitta * max_scale <= 0.5
 
 
 def test_profile_outline_deflection_floors_sliver_extents():
-    path = {"op": "20", "xy": [[0, 0], [1e-5, 1]]}
+    thin = {"op": "20", "xy": [[0, 0], [1e-5, 1]]}
+    sliver = {"op": "20", "xy": [[0, 0], [1e-5, 1e-5]]}
 
-    assert _profile_outline_deflection([path], []) >= 1e-3
+    assert _profile_outline_deflection([thin], []) >= 1e-3
+    assert _profile_outline_deflection([sliver], []) is None
+    assert render_module._nominal_outline_deflection([sliver], []) >= 1e-3
+
+
+@pytest.mark.parametrize("radius", [5.1, 3.25])
+def test_guide_axis_outline_deflection_bounds_circle_chord_error(radius):
+    meshes, spec, _ = _guided_buttons()
+    tolerance = render_module._nominal_outline_deflection([], [])
+    short_span = {"op": "20", "xy": [[0, 0], [1, 0.1]]}
+    assert render_module._nominal_outline_deflection([short_span], []) == pytest.approx(1e-3)
+    segments = 128
+    circle = [
+        [
+            170 + radius * math.cos(2 * math.pi * index / segments),
+            20 + radius * math.sin(2 * math.pi * index / segments),
+            0,
+        ]
+        for index in range(segments + 1)
+    ]
+    spec["paths"] = []
+    spec["waypoints"] = []
+    spec["nominal_outline_mm"] = [circle]
+    main, _ = _main_diagram(meshes, spec)
+    view = _guide_view(spec, main)
+
+    assert view is not None
+    assert view.canvas.scale <= render_module._DETAIL_MAX_SCALE_PX_PER_MM
+    sagitta = radius * (1 - math.cos(math.pi / segments))
+    assert tolerance * view.canvas.scale <= 0.5
+    assert sagitta * view.canvas.scale <= 0.5
 
 
 def test_finished_outline_dash_phase_continues_across_native_edges():
@@ -1619,8 +1651,8 @@ def test_finished_outline_dash_phase_continues_across_native_edges():
     edges = [(vertices[index], vertices[(index + 1) % count]) for index in range(count)]
     edges = [*edges[::2], *(tuple(reversed(edge)) for edge in edges[1::2])]
 
-    (path,) = _continuous_outline_paths(edges)
-    fragments = list(_dash_segments([path], lambda point: point[:2]))
+    (path,) = _drawn_outline_paths(edges, lambda point: point[:2])
+    fragments = list(_dash_segments([path], render_module._identity_projection))
     outline_length = sum(math.dist(a, b) for a, b in zip(path, path[1:], strict=False))
     ink_length = sum(math.dist(*fragment) for fragment in fragments)
 
@@ -1628,6 +1660,75 @@ def test_finished_outline_dash_phase_continues_across_native_edges():
     assert len(path) == count + 1
     assert ink_length < outline_length * 0.7
     assert all(math.dist(*fragment) <= 8 + 1e-8 for fragment in fragments)
+
+
+def test_finished_outline_overlaps_render_once_with_even_dash_phase():
+    def project(point):
+        return (60 + 10 * point[0], 60 - 10 * point[1])
+
+    def render_dashed(edges, projector=project):
+        canvas = _canvas(width=200, height=120)
+        paths = _drawn_outline_paths(edges, projector)
+        _dashed(canvas, paths, render_module._identity_projection, render_module._BLUE)
+        return canvas
+
+    def render_solid(edges, projector=project):
+        canvas = _canvas(width=200, height=120)
+        for path in _drawn_outline_paths(edges, projector):
+            for start, end in zip(path, path[1:], strict=False):
+                canvas.line(start, end, render_module._BLUE, width=2)
+        return canvas
+
+    def ink_pixels(canvas):
+        rgb = canvas.rgb
+        colour = bytes(render_module._BLUE)
+        return sum(rgb[offset : offset + 3] == colour for offset in range(0, len(rgb), 3))
+
+    start, middle, end = (0, 0, 0), (1, 0, 0), (2, 0, 0)
+    line = (start, end)
+    cases = [
+        ("reversed duplicate", [line, tuple(reversed(line))], [line]),
+        ("same-direction duplicate", [line, line], [line]),
+        ("joint split", [(start, middle), (middle, end)], [line]),
+        ("shared-start overlap", [line, (start, middle)], [line]),
+        ("interior subsegment", [line, ((0.5, 0, 0), (1.5, 0, 0))], [line]),
+    ]
+    rectangle = ((0, 0, 0), (2, 0, 0), (2, 1, 0), (0, 1, 0), (0, 0, 0))
+    lower_rectangle = tuple((point[0], point[1], -2) for point in rectangle)
+    seams = [((point[0], point[1], 0), (point[0], point[1], -2)) for point in rectangle[:-1]]
+    cases.append(("plan-coincident rectangle", [rectangle, lower_rectangle, *seams], [rectangle]))
+    steps = 24
+    upper = tuple(
+        (2 * math.cos(math.pi * index / steps), 2 * math.sin(math.pi * index / steps), 0)
+        for index in range(steps + 1)
+    )
+    lower = tuple(
+        (
+            2 * math.cos(math.pi + math.pi * index / steps),
+            2 * math.sin(math.pi + math.pi * index / steps),
+            0,
+        )
+        for index in range(steps + 1)
+    )
+    cases.append(("two-semicircle cycle", [upper, lower, tuple(reversed(upper))], [upper, lower]))
+
+    for name, copies, unique in cases:
+        rendered = render_dashed(copies)
+        expected = render_dashed(unique)
+
+        assert rendered.rgb == expected.rgb, name
+
+    long_line = ((0, 0, 0), (20, 0, 0))
+    ratio_edges = [long_line, tuple(reversed(long_line)), ((5, 0, 0), (15, 0, 0))]
+    ratio_unique = [long_line]
+
+    def ratio_project(point):
+        return (40 + 5 * point[0], 60 - 5 * point[1])
+
+    rendered = render_dashed(ratio_edges, ratio_project)
+    assert rendered.rgb == render_dashed(ratio_unique, ratio_project).rgb
+    ratio = ink_pixels(rendered) / ink_pixels(render_solid(ratio_unique, ratio_project))
+    assert 0.6 <= ratio <= 0.75
 
 
 def test_finished_outline_callout_anchor_is_independent_of_tessellation_density():
@@ -2913,10 +3014,12 @@ def test_a_datum_face_turned_away_from_the_view_is_marked_hidden_not_drawn_in_fr
     # Isometric from +Z: a datum on the block's underside cannot be the face in front.
     z = 0 if hidden else 10
     outline = [[0, 0, z], [20, 0, z], [20, 20, z], [0, 20, z], [0, 0, z]]
+    # Coincident projections keep the nominal blue and hidden datum styles separate.
     spec = {
         "setup_id": "S2",
         "view": "isometric",
         "stock_box": [0, 0, 0, 20, 20, 10],
+        "nominal_outline_mm": [outline],
         "datums": [
             {
                 "label": "B: strap face",
@@ -2941,7 +3044,9 @@ def test_a_datum_face_turned_away_from_the_view_is_marked_hidden_not_drawn_in_fr
         assert (30, 35, 40) in inked
     else:
         assert "HIDDEN" not in label and "UNDERSIDE" not in label
-        assert marker_top != (30, 35, 40)
+        edge = [diagram.canvas.project([t, 0, z]) for t in range(2, 19)]
+        inked = [_pixel(diagram.canvas, math.floor(px), math.floor(py)) for px, py in edge]
+        assert render_module._BLUE in inked
 
 
 def _view_camera(up, toward):
