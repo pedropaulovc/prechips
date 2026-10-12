@@ -97,6 +97,13 @@ are machine millimetres even when the feature manifest uses inches. Feature
 depth limits are converted from the manifest's units. A tap without an
 operation depth uses the upper `thread_depth`, or `depth` if no thread-depth
 field is present; an explicitly unknown operation depth does not fall back.
+For a resolved centre-drill member used to spot, carried-face touch exclusion
+uses the same explicit operation `depth_mm` as the tip endpoint: the pilot
+radius expands by `max(0, depth_mm - pilot_len_mm) * tan(angle_deg / 2)`,
+capped at the body's `shank_mm / 2`. A feature-only spot depth is not an
+operation depth and leaves preservation unknown. Missing, unknown or unverified
+engagement facts also remain debt; located aim and DRO-grid shifts still enlarge
+the exclusion.
 
 - Drill point `P = D / (2*tan(included_point_angle/2))`, requiring D > 0 and
   0 < angle < 180 degrees and a finite cone length. An underflowed zero

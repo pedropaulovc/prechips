@@ -1265,6 +1265,21 @@ in mm), nonnegative and at most one receiving step. With no paper, a physical
 21.010 and make later authored tips cut deeper. S2's raw nominal 21.0055
 faces to 21.01 on its lathe's 0.01 grid; carried unchanged into S9 it is
 physical 21.010 and sets 21.010, residual zero.
+For a unit-converted grid with a recurring decimal step, contact equality uses
+the actual printed grid-line value at the grid's display precision, not an
+ideal step quotient. Only binary roundoff may meet that line from below;
+the native length tolerance never permits rounding a genuinely lower contact
+up onto it.
+For an imported hole entry, `stock_state.entry_z.<feature>` (or `top_z`
+when it supplies that entry) must remain the transformed **native nominal**
+within the physical length tolerance of 0.000001 mm, in the manifest's units.
+Only the touch's authored edge may alternatively name the proven AS-CUT height.
+Entering that AS-CUT height in both fields would apply the producer offset
+twice: it is a deterministic `error` naming the authored stock-state field,
+with no numeric operative entry, tip or through exit offered. Unknown native
+evidence or an unknown entry stays unknown, not a mismatch. An entry advanced
+by a cut in this same setup already belongs to its own DRO and keeps that
+local producer's endpoint rather than being shifted as imported stock.
 Every later operation's operative entry, depth, exit and breakthrough uses
 the actual typed Axis Set; physical face height remains separate evidence.
 Cut endpoints still use ordinary upward `dro_z` and retain their depth guards.

@@ -1028,6 +1028,81 @@ def test_resolved_combined_drill_member_bounds_its_engaged_mouth_and_aim_shift(
     assert touch["touch_exclusion_dia_mm"] == pytest.approx(diameter + 2 * aim_shift)
 
 
+@pytest.mark.parametrize("depth", [0.25, 0.8], ids=["countersink-mouth", "body-radius-cap"])
+@pytest.mark.parametrize("aim_shift", [0.0, 0.185])
+def test_combined_drill_footprint_and_blind_depth_use_the_same_explicit_spot_depth(
+    depth, aim_shift
+):
+    from prechips.rules.tip_endpoints import evaluate as evaluate_depth
+
+    data = carry_with_through_drill(aim_shift=aim_shift)
+    receiver = data.plan["setups"][-1]
+    receiver["ops"][0]["depth_mm"] = depth
+    data.feature_definitions["hole"]["depth"] = [0.2, 1.0]
+    finding = evaluate(data)[-1]
+    assert finding.status == "pass", finding.sentence
+    endpoint_finding = next(row for row in evaluate_depth(data) if row.subject == "hole")
+    spot_endpoint = next(
+        row
+        for row in endpoint_finding.numbers["endpoints"]
+        if row["setup"] == receiver["id"] and row["op"] == 10
+    )
+    assert spot_endpoint["depth_mm"] == depth
+    touch = finding.numbers["derived_touches"][0]
+    diameter = min(0.4, 0.3 + 2 * (spot_endpoint["depth_mm"] - 0.2) * math.tan(math.radians(30)))
+    assert touch["touch_exclusion_dia_mm"] == pytest.approx(diameter + 2 * aim_shift)
+
+
+@pytest.mark.parametrize("debt", ["absent", "unknown", "unverified", "unknown-upper-band", "known"])
+def test_combined_drill_feature_only_spot_depth_leaves_next_touch_unknown(debt):
+    data = carry_with_through_drill()
+    receiver = data.plan["setups"][-1]
+    del receiver["ops"][0]["depth_mm"]
+    feature = data.feature_definitions["hole"]
+    if debt == "unknown":
+        feature["depth"] = "unknown"
+    elif debt == "unverified":
+        feature["depth"] = {"value": 0.25, "verify": True}
+    elif debt == "unknown-upper-band":
+        feature["depth"] = [0.2, "unknown"]
+    elif debt == "known":
+        feature["depth"] = [0.2, 0.25]
+    finding = evaluate(data)[-1]
+    assert finding.status == "unknown"
+    touch = finding.numbers["derived_touches"][0]
+    assert touch["z_axis_set"] == "unknown"
+    assert "credited_faces" not in touch
+
+
+@pytest.mark.parametrize("depth", ["unknown", {"value": 0.25, "verify": True}])
+def test_combined_drill_unknown_explicit_depth_cannot_fall_back_to_known_feature_depth(depth):
+    data = carry_with_through_drill()
+    receiver = data.plan["setups"][-1]
+    receiver["ops"][0]["depth_mm"] = depth
+    data.feature_definitions["hole"]["depth"] = 0.25
+    finding = evaluate(data)[-1]
+    assert finding.status == "unknown"
+    touch = finding.numbers["derived_touches"][0]
+    assert touch["z_axis_set"] == "unknown"
+    assert "credited_faces" not in touch
+
+
+@pytest.mark.parametrize("feature_depth", ["absent", "unknown", "unverified", 0.8])
+def test_combined_drill_explicit_depth_does_not_inherit_feature_engagement(feature_depth):
+    data = carry_with_through_drill()
+    receiver = data.plan["setups"][-1]
+    receiver["ops"][0]["depth_mm"] = 0.25
+    feature = data.feature_definitions["hole"]
+    if feature_depth == "unverified":
+        feature["depth"] = {"value": 0.8, "verify": True}
+    elif feature_depth != "absent":
+        feature["depth"] = feature_depth
+    finding = evaluate(data)[-1]
+    assert finding.status == "pass", finding.sentence
+    touch = finding.numbers["derived_touches"][0]
+    assert touch["touch_exclusion_dia_mm"] == pytest.approx(0.3 + 0.1 * math.tan(math.radians(30)))
+
+
 @pytest.mark.parametrize(
     "fact", ["dia_mm", "pilot_len_mm", "shank_mm", "point_angle", "angle_deg", "depth_mm"]
 )

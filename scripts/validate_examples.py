@@ -1822,7 +1822,7 @@ def plunge_footprint(own, entries: Entries, setup: dict, op: dict) -> tuple | No
         facts = centre_tool_facts(tool, entries)
         pilot, length = facts["drill_dia_mm"], facts["drill_length_mm"]
         body, angle = facts["body_dia_mm"], facts["countersink_angle_deg"]
-        depth = op.get("depth_mm")
+        depth = planned_depth_mm(op, feature, own.features.get("units"))
         if not (
             positive(pilot)
             and positive(length)
@@ -2866,7 +2866,9 @@ def check_printed_endpoint(row: dict, where: str, grid: tuple, planned: dict) ->
     its stand-off less the plane's native height, its entry and a through exit rounded
     up, a blind tip rounded up from its own moved Z; its physical entry stands off native
     by the as-cut offset, a through exit's bound by the same (the as-cut entry less the
-    planned thickness), and it repeats the setting's residual. An entry an
+    planned thickness), and it repeats the setting's residual. An imported entry
+    must match the carried native nominal within physical length tolerance; an
+    authored AS-CUT entry is a named input error, not another Z to shift. An entry an
     op of this setup cut under its zero (``planned["local"]``, that cut's printed face)
     already stands on this DRO: it moves by that face less the nominal, and stands
     physically higher by the residual. A carried touch that cannot be placed leaves them
@@ -2891,6 +2893,14 @@ def check_printed_endpoint(row: dict, where: str, grid: tuple, planned: dict) ->
             scale = planned.get("units_mm")
             known = numeric(residual) and scale is not None
             physical = plus(shift, residual / scale) if known else "unknown"
+        else:
+            scale = planned.get("units_mm")
+            if numeric(entry) and numeric(native) and scale is not None:
+                require(
+                    abs(entry - native) * scale <= LENGTH_TOLERANCE_MM,
+                    f"{where}: Bad input: {planned['source']} must equal the carried native "
+                    f"entry Z {native:g} within {LENGTH_TOLERANCE_MM:g} mm; got {entry:g}",
+                )
         surface = dro_up(plus(entry, shift), grid)
         read_exit = plus(exit_face, shift) if through else exit_face
         blind_shift = shift
@@ -3008,7 +3018,12 @@ def check_endpoints(
             surface = "not_applicable"
             if carried is None:
                 surface = printed_entry(stock, setup, entry, face, source, entries)
-            planned = {"entry": entry, "surface": surface, "exit_face": "not_applicable"}
+            planned = {
+                "entry": entry,
+                "source": source,
+                "surface": surface,
+                "exit_face": "not_applicable",
+            }
             if carried is not None:
                 producer = entry_producer(stock, setup, entry, face, source, entries)
                 local = isinstance(producer, tuple) and producer[0] is setup

@@ -69,8 +69,10 @@ def _operative(row, bundle, setup, face, op):
     """Add the actual DRO endpoint, preserving physical carry evidence separately.
 
     A carried touch supplies its typed setting, not another rounding of the raw
-    native plane. Cuts still round upward. A through exit is a dimension-derived
-    bound, not another face's native or as-cut plane identity.
+    native plane. An imported entry must name that native nominal; return a
+    named input error otherwise, without offering an operative stop. Cuts still
+    round upward. A through exit is a dimension-derived bound, not another
+    face's native or as-cut plane identity.
     """
     from .coordinates import UNIT_MM, dro_grid, dro_z
     from .zero_recipe import _framed, carried_z_reading
@@ -78,6 +80,7 @@ def _operative(row, bundle, setup, face, op):
     grid = dro_grid(bundle, setup)
     through = row["exit_face"] != "not_applicable"
     reading = carried_z_reading(bundle, setup, op)
+    bad_input = None
     if reading is not None:
         reference = reading["native_edge_mm"]
         anchor = _subtract(reading["z_axis_set"], reading["paper_offset_mm"])
@@ -96,6 +99,20 @@ def _operative(row, bundle, setup, face, op):
                 if number(shift) and number(residual) and scale is not None
                 else UNKNOWN
             )
+        else:
+            scale = UNIT_MM.get(bundle.features.get("units"))
+            if (
+                number(row["entry_z"])
+                and number(reference)
+                and "credited_faces" in reading
+                and scale is not None
+                and abs(row["entry_z"] - reference) * scale > LENGTH_TOLERANCE_MM
+            ):
+                bad_input = (
+                    f"{row['entry_from']} must equal the carried native entry Z {reference:g} "
+                    f"within {LENGTH_TOLERANCE_MM:g} mm; got {row['entry_z']:g}"
+                )
+                shift = physical_shift = UNKNOWN
         entry = row["entry_z"] + shift if number(row["entry_z"]) and number(shift) else UNKNOWN
         row["dro_entry_z"] = dro_z(entry, grid)
         row["physical_entry_z"] = (
@@ -131,6 +148,7 @@ def _operative(row, bundle, setup, face, op):
     elif "depth_mm" in row:
         row["dro_depth_mm"] = _subtract(row["depth_mm"], _subtract(row["dro_tip_z"], tip))
         row.setdefault("depth_floor_mm", UNKNOWN)
+    return bad_input
 
 
 def _feature_depth_mm(feature, field, units, end=1):
@@ -1190,6 +1208,7 @@ def evaluate(bundle):
     negative_exit = set()
     # Per centre: why it is not the centre its selected tool cuts from the touched surface.
     centre_errors = {}
+    input_errors = {}
     debts = {}
     for setup in bundle.plan["setups"]:
         for op, before, _ in stock_states(bundle, setup):
@@ -1307,7 +1326,9 @@ def evaluate(bundle):
             if not centre and (row.get("tip_z") == UNKNOWN or not tool or uncertain(tool)):
                 unresolved.add(name)
             face = name if name in before["entry_z"] else "top"
-            _operative(row, bundle, setup, face, op)
+            bad_input = _operative(row, bundle, setup, face, op)
+            if bad_input is not None:
+                input_errors.setdefault(name, []).append(bad_input)
             if row.get("dro_tip_z") == UNKNOWN:
                 unresolved.add(name)
             endpoints[name].append(row)
@@ -1316,7 +1337,9 @@ def evaluate(bundle):
         rows = endpoints[name]
         if feature.get("kind") not in _HOLE_KINDS | {"centre_hole"}:
             status, sentence = "not_applicable", "Not a hole; no tip endpoint applies."
-        elif name in errors or name in negative_exit or name in centre_errors:
+        elif (
+            name in errors or name in negative_exit or name in centre_errors or name in input_errors
+        ):
             sentence = " ".join(
                 text
                 for flagged, text in (
@@ -1327,6 +1350,7 @@ def evaluate(bundle):
                         "The centre is not the one its selected tool cuts from the touched "
                         f"entry surface: {'; '.join(centre_errors.get(name, []))}.",
                     ),
+                    (input_errors, f"Bad input: {'; '.join(input_errors.get(name, []))}."),
                 )
                 if name in flagged
             )

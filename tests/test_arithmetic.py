@@ -167,7 +167,7 @@ z = "up"
 ALIGN = 'align = { indicator = "dti", limit_mm = 0.0254, over_mm = 100.0, cite = "scratch" }\n'
 
 
-def setup(sid, retouch, extra="", align=ALIGN):
+def setup(sid, retouch, extra="", align=ALIGN, top_z=0.5):
     return f"""[[setups]]
 id = "{sid}"
 machine = "mill"
@@ -175,7 +175,7 @@ frame = "A"
 coolant = "flood"
 deburr_mm = 0.2
 {extra}[setups.stock_state]
-top_z = 0.5
+top_z = {top_z}
 bottom_z = -10.0
 [setups.stock_state.local_thickness]
 h1 = 10.0
@@ -270,7 +270,8 @@ def one_setup(*ops):
 def test_release_may_precede_the_next_setups_cuts(tmp_path, freecad_kernel):
     # PLAN's own route: release the part from S1, then S2 cuts again.
     s1 = one_setup(face(), spot(), drill(), release(40))
-    s2 = setup("S2", "[10]", 'stock_in = "S1"\n', align="") + face()
+    # S1's face op left the imported stock top at Z 0.0, not the raw blank's 0.5.
+    s2 = setup("S2", "[10]", 'stock_in = "S1"\n', align="", top_z=0.0) + face()
     code, findings = check(tmp_path, s1, s2)
     assert findings[("order", "S1")]["status"] == "pass"
     assert code == 0
