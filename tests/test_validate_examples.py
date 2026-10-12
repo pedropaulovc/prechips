@@ -1745,6 +1745,37 @@ def test_zero_oracle_types_a_half_step_carried_contact_down_past_a_resolved_coun
             VALIDATOR["check_zero"](setup, forged, entries, own)
 
 
+def test_zero_oracle_moves_a_carried_plunge_footprint_by_its_dialled_aim():
+    # The planned point reads the hole's plan aim, which asks whether a mill setup dials
+    # it (an inventory question); the aimed spot's countersink mouth widens the keep-off.
+    data = half_step_source_plane(depth=0.25)
+    hole = data.feature_definitions["hole"]
+    data.feature_definitions["reference_axis"] = {
+        "kind": "boss",
+        "frame": "model",
+        "at": [hole["at"][0], hole["at"][1] - 1.0, hole["at"][2]],
+        "axis": list(hole["axis"]),
+    }
+    hole.update(height_from="reference_axis", separation=[0.9, 1.5], precision={"separation": 3})
+    data.plan["aims"] = {
+        "hole": {
+            "requirement": "separation",
+            "value_mm": 1.185,
+            "reason": "Synthetic dialled aim moves the carried plunge footprint",
+        }
+    }
+    finding = zero_recipe.evaluate(data)[-1].to_dict()
+    assert finding["status"] == "pass", finding
+    (touch,) = finding["numbers"]["derived_touches"]
+    mouth = 0.15 + 0.05 * math.tan(math.radians(30))
+    assert touch["touch_exclusion_dia_mm"] == pytest.approx(2 * (mouth + 0.185))
+    setup, entries, own = zero_oracle(data)
+    VALIDATOR["check_zero"](setup, copy.deepcopy(finding), entries, own)
+    touch["touch_exclusion_dia_mm"] = 2 * mouth  # the unaimed footprint
+    with pytest.raises(ValueError):
+        VALIDATOR["check_zero"](setup, finding, entries, own)
+
+
 def forge_carry(monkeypatch, target):
     """Patch one checker carry helper to a plausible wrong answer."""
     original = getattr(zero_recipe, target)
@@ -1788,20 +1819,39 @@ def test_zero_oracle_derives_a_carried_source_plane_without_the_checkers_carry(m
         VALIDATOR["check_zero"](setup, forged, entries, own)
 
 
-def test_endpoint_oracle_reads_a_carried_touch_off_its_typed_setting():
+@pytest.mark.parametrize("thickness", [2.0, None], ids=["declared-thickness", "no-thickness"])
+def test_endpoint_oracle_reads_a_carried_touch_off_its_typed_setting(thickness):
     # Off grid: physical 21.0147 types down to 21.010; the native nominal 21.0102, where
     # the received stock's top (the carried face) is entered, would round up to 21.015.
     data = carried_native_source_plane_bundle(shift=0.0047)
     receiver = data.plan["setups"][-1]
     receiver["stock_state"] = {"top_z": 21.0102, "top_feature": receiver["zero"]["z"]["face"]}
+    if thickness is not None:
+        # The through drill's planned local thickness: the only source of its exit bound.
+        receiver["stock_state"]["local_thickness"] = {"hole": thickness}
+    drill = receiver["ops"][1]
+    assert drill["do"] == "drill" and data.feature_definitions["hole"]["thru"] is True
+    drill["exit_mm"] = 0.1
     findings = {(f.rule, f.subject): f.to_dict() for f in endpoint_findings(data)}
     entries = VALIDATOR["Entries"](data.inventory)
-    spot = findings["blind_depth", "hole"]["numbers"]["endpoints"][0]
+    rows = findings["blind_depth", "hole"]["numbers"]["endpoints"]
+    spot, through = rows
     assert spot["entry_z"] == pytest.approx(21.0102)
-    assert spot["setting_residual_mm"] == pytest.approx(0.0047)
     assert spot["physical_entry_z"] == pytest.approx(21.0147)
     # The entry reads off the typed 21.010, not the raw plane re-rounded up to 21.015.
     assert spot["dro_entry_z"] == pytest.approx(21.01)
+    for row in rows:
+        assert row["setting_residual_mm"] == pytest.approx(0.0047)
+        assert "physical_exit_face" not in row
+    assert "physical_exit_bound_z" not in spot
+    if thickness is None:
+        # No planned thickness: the exit and its bound stay honestly unknown.
+        assert through["exit_face"] == "unknown"
+        assert through["physical_exit_bound_z"] == "unknown"
+    else:
+        assert through["exit_face"] == pytest.approx(19.0102)
+        # The as-cut entry less the planned thickness: a bound, not an as-cut exit plane.
+        assert through["physical_exit_bound_z"] == pytest.approx(19.0147)
 
     def check(report):
         VALIDATOR["check_endpoints"](
@@ -1809,14 +1859,25 @@ def test_endpoint_oracle_reads_a_carried_touch_off_its_typed_setting():
         )
 
     check(findings)
-    for field, value in (
-        ("dro_entry_z", spot["dro_entry_z"] + 0.005),
-        ("dro_tip_z", spot["dro_tip_z"] - 0.005),
-        ("setting_residual_mm", 0.0),
-        ("physical_entry_z", spot["entry_z"]),
-    ):
+    forgeries = [
+        (0, "dro_entry_z", spot["dro_entry_z"] + 0.005),
+        (0, "dro_tip_z", spot["dro_tip_z"] - 0.005),
+        (0, "setting_residual_mm", 0.0),
+        (0, "physical_entry_z", spot["entry_z"]),
+        # A blind spot has no exit to bound; an invented one is a forgery.
+        (0, "physical_exit_bound_z", spot["tip_z"]),
+        # No endpoint names an as-cut exit plane the local thickness only bounds.
+        (0, "physical_exit_face", spot["tip_z"]),
+        (1, "physical_exit_face", 19.0147),
+        (1, "setting_residual_mm", 0.0),
+        # Neither a nominal exit nor a number for an unknown one.
+        (1, "physical_exit_bound_z", 19.0102 if thickness is not None else 19.0147),
+    ]
+    if thickness is not None:
+        forgeries.append((1, "dro_exit_face", through["dro_exit_face"] + 0.005))
+    for index, field, value in forgeries:
         forged = copy.deepcopy(findings)
-        forged["blind_depth", "hole"]["numbers"]["endpoints"][0][field] = value
+        forged["blind_depth", "hole"]["numbers"]["endpoints"][index][field] = value
         with pytest.raises(ValueError):
             check(forged)
 

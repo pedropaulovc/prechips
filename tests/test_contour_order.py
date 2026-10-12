@@ -1640,15 +1640,93 @@ def test_non_grid_carried_contact_anchors_operation_entry_depth_and_exit_to_its_
     assert spot["setting_residual_mm"] == pytest.approx(residual)
     assert spot["dro_tip_z"] + residual >= spot["tip_z"] - tip_endpoints.SAME_Z
     assert drill["dro_exit_face"] == 11.005
-    assert drill["physical_exit_face"] == pytest.approx(11.0075)
+    assert drill["physical_exit_bound_z"] == pytest.approx(11.0075)
     # The cut endpoint uses ordinary upward rounding, not contact-setting floor.
     assert drill["dro_tip_z"] == 10.265
     assert drill["dro_exit_mm"] == pytest.approx(
         typed - paper - 10.0 - drill["point_mm"] - drill["dro_tip_z"]
     )
     assert drill["dro_exit_mm"] == pytest.approx(
-        drill["physical_exit_face"] - drill["point_mm"] - (drill["dro_tip_z"] + residual)
+        drill["physical_exit_bound_z"] - drill["point_mm"] - (drill["dro_tip_z"] + residual)
     )
+
+
+@pytest.mark.parametrize(
+    ("source_grid", "north_z", "south_z", "exit_bound"),
+    [(0.01, 21.01, -21.05, -21.07), (0.0005, 21.0055, -21.0505, -21.0745)],
+)
+def test_carried_through_exit_is_a_thickness_bound_not_a_translated_opposite_producer_plane(
+    source_grid, north_z, south_z, exit_bound
+):
+    from test_tool_change_touch import carried_native_source_plane_bundle, op
+
+    bundle = carried_native_source_plane_bundle(source_grid=source_grid)
+    source, setup = bundle.plan["setups"][1], bundle.plan["setups"][-1]
+    north = setup["zero"]["z"]["face"]
+    south_ref = "#2/SOUTH"
+    bundle.feature_definitions["south"] = {
+        "kind": "face",
+        "frame": "model",
+        "faces": [south_ref],
+    }
+    bundle.kernel["features"]["south"] = [1]
+    bundle.kernel["setups"][source["id"]]["revolved"]["south"] = {
+        "kinds": ["Plane"],
+        "z_mm": [-21.0505, -21.0505],
+        "end_radii_mm": [1.0, 1.0],
+        "end_faces": [{"z_mm": -21.0505, "normal_z": -1}],
+    }
+    corners = [
+        coordinates.model_point([x, y, -21.0505], bundle.features["frames"]["J3"])
+        for x in (-1.0, 1.0)
+        for y in (-1.0, 1.0)
+    ]
+    bundle.kernel["faces"][1]["bbox_mm"] = [
+        *(min(point[i] for point in corners) for i in range(3)),
+        *(max(point[i] for point in corners) for i in range(3)),
+    ]
+    bundle.inventory["tools"]["parter"]["blade_width_mm"] = 1.0
+    parting = op(40, "part_off", "south", "parter", faces=[south_ref], to_z=-21.0505)
+    source["ops"].append(parting)
+    source["zero"]["tool_touches"] = [
+        {
+            "tool": "parter",
+            "x_method": "trial_cut_measure",
+            "x_paper_mm": 0.0,
+            "gauge": "mic",
+            "z_face": north,
+            "edge_mm": 21.0055,
+            "paper_mm": 0.0,
+            "corner": "chuck_side",
+            "method": "touch_then_set",
+            "before_ops": [40],
+        }
+    ]
+    bundle.kernel["ops"][f"{source['id']}:40"] = {
+        "approach": "turning",
+        "claimed_indices": [1],
+        "faced_side": -1,
+    }
+    # This is a worst-case dimensional hold, not the measured/produced distance
+    # to the south face. Each end's own cut rounding gives a different offset.
+    setup["stock_state"] = {
+        "entry_z": {"hole": 21.0055},
+        "local_thickness": {"hole": 42.08},
+    }
+    setup["ops"][1]["exit_mm"] = 0.5
+    assert coordinates.formed_z(bundle, source, source["ops"][0]) == north_z
+    assert coordinates.formed_z(bundle, source, parting) == south_z
+    contact = zero_recipe.evaluate(bundle)[-1]
+    assert contact.status == "pass", contact.sentence
+    finding = next(row for row in tip_endpoints.evaluate(bundle) if row.subject == "hole")
+    assert finding.status == "pass", finding.sentence
+    drill = finding.numbers["endpoints"][1]
+    assert drill["physical_entry_z"] == pytest.approx(north_z)
+    assert drill["local_thickness"] == 42.08
+    assert drill["physical_exit_bound_z"] == pytest.approx(exit_bound)
+    assert drill["physical_exit_bound_z"] < south_z
+    assert "physical_exit_face" not in drill
+    assert north_z - south_z <= drill["local_thickness"]
 
 
 def test_a_carried_contact_does_not_disable_blind_depth_guards_or_invent_an_unknown_endpoint():
