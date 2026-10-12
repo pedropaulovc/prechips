@@ -1378,16 +1378,24 @@ uses the 1898 manual arc method:
    stair corner, every full hole and every break-out between neighbouring holes
    must stay outside the finished line, and the stock left for the file
    (allowance + the stair cusp measured along the wall normal, or the maximum
-   of allowance + drill radius, printed arc break-out radial depth and printed
-   straight-join break-out wall-normal distance, including finite corner runout)
+   of allowance + drill radius, printed arc break-out radial depth and the
+   greatest nearest-finished-wall distance of the retained printed
+   straight-join break-out polyline)
    must not exceed the shop policy `numbers.max_filing_stock_mm` unless a later
    rough cuts the same faces again. Missing or unestablished caps remain unknown.
    Both rough methods support straight joins. Chain holes use the same
    drill-radius + allowance offset on each finite join leg, with exact
-   endpoints/miter and equal spacing no greater than `pitch_mm`. Kernel bounded
-   clips precede chain validation and cap enforcement: excluded joins leave no
-   debt. Arc and join tables report the same worst-stage stock; chain errors
-   retain stock/cap profile facts even when cut tables are withheld. Hole
+   endpoints/miter and nominal equal spacing no greater than `pitch_mm` (DRO
+   grid snapping can move the printed spacing). Method, stage and full-hole
+   outside-the-line errors are preconditions found before any clip; kernel
+   bounded clips then keep only whole authored hole rows, never a swept-chord
+   interpolation point, before web/break-out validation, and the cap is
+   enforced once on what remains: omitted joins add no join debt while an arc
+   or other table remains, while a wholly excluded or disconnected stage keeps
+   its existing clip debt. Arc and join tables report the same worst-stage
+   stock; chain errors retain stock/cap profile facts where the residual was
+   computed (a precondition error may prevent it), even when cut tables are
+   withheld. Hole
    repositioning is not a handwheel cut ([coordinates](rules-coordinates.md#coordinates)).
 3. **File to the line**: `do = "file_to_line"` with a `guide`: hardened filing
    `buttons` (an inventory `fixtures` kit with `kind = "filing_buttons"` and the

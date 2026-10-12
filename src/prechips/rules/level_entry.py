@@ -71,18 +71,23 @@ def _xy(point):
 def _pieces(numbers):
     """``{op: [(points, raster)]}`` in the order the setup sheet prints each op's tables:
     rough before finish, then the proven cut sequence, then listed order; outlines and
-    rasters after its arc and join tables."""
+    rasters only for ops without those tables."""
     stages = {"rough": 0, "finish": 1}
     found = {}
     tables = [
         *(("arc", t) for t in numbers.get("arc_table") or [] if t.get("method") in _PATH_METHODS),
-        *(("line", t) for t in numbers.get("line_table") or []),
+        *(("line", t) for t in numbers.get("line_table") or [] if t.get("method") != "chain_drill"),
     ]
     skipped = {
         str(t.get("op"))
         for t in numbers.get("arc_table") or []
         if t.get("method") not in _PATH_METHODS
     }
+    skipped.update(
+        str(t.get("op"))
+        for t in numbers.get("line_table") or []
+        if t.get("method") == "chain_drill"
+    )
     for kind, table in tables:
         points = (
             [row.get("dro_xy") for row in table.get("rows", [])]
@@ -95,11 +100,15 @@ def _pieces(numbers):
             sequence if isinstance(sequence, int) else -1,
         )
         found.setdefault(str(table.get("op")), []).append((rank, points, False))
-    arc_ops = {str(t.get("op")) for t in numbers.get("arc_table") or []}
+    table_ops = {
+        str(table.get("op"))
+        for kind in ("arc_table", "line_table")
+        for table in numbers.get(kind) or []
+    }
     for profile in numbers.get("profiles") or []:
         op = str(profile.get("op"))
         points = profile.get("cutter_centre")
-        if op in arc_ops or not isinstance(points, list) or not points:
+        if op in table_ops or not isinstance(points, list) or not points:
             continue
         rank = (3, -1)
         if isinstance(profile.get("raster"), dict):

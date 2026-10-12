@@ -234,18 +234,29 @@ naming them. Each table is recorded under `arc_table` (its joins under
   segment must stay outside the line (it runs inside it is an error), and the
   file meets `stock_left_mm` = the maximum of allowance + drill radius, the
   radial depth left by the actual printed arc centre-to-centre break-outs, and
-  the straight-wall-normal distance to the printed join break-outs (including
-  finite corner runout when a wall normal meets it). Straight joins use the
+  the greatest distance from the retained printed join centre-to-centre
+  break-out polyline to the nearest finite finished wall (nearest-wall
+  distance, not one wall's normal, so a concave neighbour wall does not
+  over-report corner runout). Straight joins use the
   same drill-radius + allowance offset as the arc. Each finite straight leg
-  includes its exact join endpoints/miter and divides into equal intervals no
-  longer than `pitch_mm`; holes are repositioning checkpoints, not handwheel
-  cutting moves. Join tables print hole numbers, checkpoint P, X/Y and Z,
-  drill size, pitch, break-out instructions and the reported stock/cap or
-  `recut_by`. Arc and join records share the worst residual of their rough stage.
-  Kernel clips at `stock_removal_bounds` apply before hole/web/break-out
-  validation and stock-cap enforcement; excluded joins create no debt.
+  keeps its exact join endpoints/miter, and its nominal holes divide the leg
+  into equal intervals no longer than `pitch_mm`; snapping each hole onto the
+  DRO grid can move the printed spacing off that bound. Holes are repositioning
+  checkpoints, not handwheel cutting moves. Join tables print hole numbers,
+  checkpoint P, X/Y and Z, drill size, pitch, break-out instructions and the
+  reported stock/cap or `recut_by`. Arc and join records share the worst
+  residual of their rough stage. Method, stage and full-hole-outside-the-line
+  errors are preconditions found on the authored tables before any clip, and
+  stay errors even for holes a clip would exclude. Kernel clips at
+  `stock_removal_bounds` then keep only whole authored hole rows (a chain is
+  never cut at a swept-chord interpolation point) before the web/break-out
+  checks, and the stock cap is enforced once on the retained tables. Omitted
+  joins add no join debt while an arc or other table remains; a stage the
+  clip excludes entirely, or retained pieces that no longer connect, keeps the
+  existing clip debt.
   When a chain error withholds cut tables, profile facts still report
-  `stock_left_mm` and `stock_cap_mm` for diagnosis, not permission to cut.
+  `stock_left_mm` and `stock_cap_mm` where the residual was computed (a
+  precondition error may prevent it), for diagnosis, not permission to cut.
 - `chords` (finish; `count` straight chords): the chord ends sit on the edge
   radius that centres each chord's sagitta `c²/8R` in the feature's radial band
   (`dia` halved for a full circle, `bottom_radius` or `radius` otherwise); a

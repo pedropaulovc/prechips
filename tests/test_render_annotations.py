@@ -87,6 +87,63 @@ def test_mirrored_line_points_keep_their_signed_setup_coordinates():
     _assert_table_keys(waypoints)
 
 
+@pytest.mark.parametrize("method", ["chain_drill", "stairs", "chords", None])
+def test_join_only_annotations_label_only_printed_checkpoints_not_raw_profile_points(method):
+    printed = [[1.0, 0.0], [2.0, 0.0], [2.0, 1.0], [3.0, 1.0], [3.0, 2.0]]
+    raw = [[x + 0.0004, y + 0.0004] for x, y in printed]
+    line = {
+        "op": 10,
+        "stage": "rough",
+        "side": "west",
+        "setup_xy": raw,
+        "dro_xy": printed,
+        "dro_tip_z": -2.0,
+    }
+    if method is not None:
+        line["method"] = method
+    if method == "stairs":
+        line.update(stair_cusp_mm=0.1, overshoot=[False, False, True, False, False])
+    numbers = {
+        "line_table": [line],
+        "profiles": [{"op": "10", "cutter_centre": raw}],
+    }
+
+    paths, waypoints = contour_annotations(numbers, 1.0, "S1")
+    (table,) = coordinates.checkpoints("S1:10", numbers, 10)
+
+    assert paths == [{"op": "10", "xy": printed, "directed": False}]
+    checkpoints = {row: xy for row, xy, _, _ in table["rows"]}
+    assert list(checkpoints.values()) == printed
+    selected = [0, 2, 4] if method == "stairs" else list(range(len(printed)))
+    ids = list(checkpoints)
+    assert [row for waypoint in waypoints for row in waypoint["rows"]] == [
+        ids[index] for index in selected
+    ]
+    assert set(_point_keys(waypoints, 10)) == {tuple(printed[index]) for index in selected}
+    assert all(
+        waypoint["xy"] == checkpoints[row] for waypoint in waypoints for row in waypoint["rows"]
+    )
+    _assert_table_keys(waypoints)
+
+
+@pytest.mark.parametrize("unavailable", ["kernel_clip", "unknown-point", "empty-table"])
+def test_join_only_table_without_drawable_points_never_falls_back_to_raw_profile(unavailable):
+    points = [[1.0, 0.0], [2.0, 1.0], [3.0, 2.0]]
+    line = {"op": 10, "method": "chain_drill", "dro_xy": points}
+    if unavailable == "kernel_clip":
+        line["kernel_clip"] = True
+    elif unavailable == "unknown-point":
+        line["dro_xy"] = [points[0], ["unknown", 1.0], points[-1]]
+    else:
+        line["dro_xy"] = []
+    numbers = {
+        "line_table": [line],
+        "profiles": [{"op": 10, "cutter_centre": points}],
+    }
+
+    assert contour_annotations(numbers, 1.0, "S1") == ([], [])
+
+
 def test_inch_contour_points_and_waypoint_keys_are_converted_to_millimetres():
     numbers = {"line_table": [{"op": 10, "dro_xy": [[0.25, -0.5], [1.0, 0.75], [1.0, -0.5]]}]}
 

@@ -282,10 +282,15 @@ The PM-30MV is a manual mill: arcs follow the 1898 manual method
 ([plan Manual arcs](docs/plan.md#manual-arcs)). A `scribe` op lays out the
 centre, radius and ends; a rough op steps single-axis `stairs` or drills a
 `chain_drill` outside the line, including straight joins: each finite drill leg
-has exact endpoints and equal spacing no greater than the pitch. Every corner,
-full hole and break-out is proven outside the line after bounded clipping;
-excluded joins leave no debt and the worst radial/normal residual is held to
-the shop policy's cited `max_filing_stock_mm`; a
+keeps exact endpoints and nominal holes at equal intervals no greater than the
+pitch (DRO-grid snapping can move the printed spacing). Method, stage and
+full-hole-outside-the-line errors are found before clipping; bounded clipping
+then keeps only whole authored hole rows, every retained web and break-out is
+proven outside the line, omitted joins add no join debt while other tables
+remain (a wholly excluded or disconnected stage keeps its clip debt), and the worst residual
+(arc radial depth, and the join break-out polyline's greatest distance to the
+nearest finished wall) is held once to the shop policy's cited
+`max_filing_stock_mm`; a
 `file_to_line` op at the bench files to hardened buttons pinned through the
 arc's bore (or a template) and checks R with a radius gauge whose range covers
 it. `chords` (sagitta proven inside the band, ends on the DRO grid) and a

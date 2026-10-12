@@ -303,6 +303,44 @@ def test_chain_drill_straight_joins_keep_checkpoints_clips_and_stock(tmp_path, r
     assert table_rows(unproved_markup, unproved_tables[0])[0] == ["1", "P1", "12.800", "1.500"]
 
 
+@pytest.mark.parametrize("method", ["stairs", "chords"])
+def test_join_only_milled_tables_never_reprint_the_unsnapped_generic_profile(tmp_path, method):
+    raw = [[12.8004, 1.5004], [12.8004, 4.0004]]
+    line = {
+        "method": method,
+        "op": 20,
+        "stage": "rough",
+        "side": "west",
+        "setup_xy": raw,
+        "dro_xy": [[12.8, 1.5], [12.8, 4]],
+        "dro_tip_z": -2.125,
+    }
+    if method == "stairs":
+        line.update(jog=[None, "Y"], stair_cusp_mm=0.1)
+    sheet, setup = traveler(
+        tmp_path,
+        [{"op": 20, "do": "rough_profile", "feature": "arc", "tool": "cutter"}],
+        {
+            "line_table": [line],
+            "profiles": [{"op": 20, "contour": {"method": method}, "cutter_centre": raw}],
+        },
+    )
+
+    html = sheet.contours(setup, {("tools", "cutter"): "6 mm endmill"})
+    markup, _, tables = coordinate_tables(html)
+    (table,) = tables
+    expected = [["1", "P1", "12.800", "1.500"], ["2", "P2", "12.800", "4.000"]]
+    if method == "stairs":
+        expected[0].append("")
+        expected[1].append("Y")
+    assert table_rows(markup, table) == expected
+    printed = text(html)
+    assert "Straight joins on the west side" in printed
+    assert "Cutter-centre checkpoints" not in printed
+    assert ("one handwheel axis per row" in printed) is (method == "stairs")
+    no_programming(html)
+
+
 def test_chords_print_endpoints_length_sagitta_index_and_radius_band(tmp_path):
     arc = arc_record("chords")
     arc.update(

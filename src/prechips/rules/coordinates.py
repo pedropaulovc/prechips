@@ -1419,9 +1419,10 @@ def _arc(
     within the contour's ``cusp_mm`` (:func:`_stair_angles`, :func:`_respaced`; joins are
     split likewise) and step in single-axis moves of a cutter of radius ``cutter``
     (:func:`_jog`, which drops a tangent row a move runs through); ``chain_drill`` rows
-    are hole centres no more than ``pitch_mm`` apart along the path; ``rotary_table`` rows
-    sample the cutter-centre arc every ``step_deg``; ``chords`` rows are the ``count + 1``
-    chord vertices :func:`_chords` replaces.
+    are nominal hole centres equally spaced no more than ``pitch_mm`` apart along the
+    path (DRO-grid snapping can change that spacing); ``rotary_table`` rows sample the
+    cutter-centre arc every ``step_deg``; ``chords`` rows are the ``count + 1`` chord
+    vertices :func:`_chords` replaces.
     """
     radius = _nominal(feature, "radius")
     centre = feature.get("arc_centre", feature.get("at"))
@@ -2735,10 +2736,11 @@ def _kernel_clip(subject, arcs, lines, clips):
     with stock outside the op's stock_removal_bounds.
 
     Each piece keeps the printed rows the kernel names and adds its clip points, marked
-    ``clipped_at``. A table cut into pieces lists each as ``fragment`` [k, n]; tables
-    sharing a kept end are one path. A path left in more than one piece is debt: no
-    credited cut links the pieces and none is reconnected. Facts that do not match the
-    printed tables, or no piece at all, leave the stage unprinted with a reason.
+    ``clipped_at``, except a drilled chain keeps only whole hole rows: a swept chord's
+    boundary intersection is not another drill position. A table cut into pieces lists
+    each as ``fragment`` [k, n]; tables sharing a kept end are one path. A path left in
+    more than one piece is debt: no credited cut links the pieces and none is reconnected.
+    Facts that do not match the tables, or no piece at all, leave a reason.
     """
     paths = {
         entry.get("table"): entry for entry in clips.get("paths", []) if isinstance(entry, dict)
@@ -2754,6 +2756,12 @@ def _kernel_clip(subject, arcs, lines, clips):
         pieces = entry.get("pieces")
         if entry.get("rows") != len(rows) or not isinstance(pieces, list):
             return [], [], "the kernel's clip does not match its printed table"
+        if table.get("method") == "chain_drill":
+            pieces = [
+                kept
+                for piece in pieces
+                if (kept := [point for point in piece if "after" not in mapping(point)])
+            ]
         built = [[_clip_row(rows, point, marker) for point in piece] for piece in pieces]
         if any(row is None for piece in built for row in piece):
             return [], [], "the kernel's clip does not match its printed table"
@@ -3011,7 +3019,8 @@ def _holes(arc, walls, drill, allowance, label, scale):
     for k, gap in enumerate(clear, start=1):
         if gap < -_INSIDE_TOL:
             errors.append(f"{label}: hole {k} reaches {-gap * scale:.3f} past the line")
-    deepest = 0.0
+    outward = 1 if convex else -1
+    deepest = max(outward * (math.dist(p, centre) - radius) for p in holes)
     for k, (a, b) in enumerate(itertools.pairwise(holes), start=1):
         if math.dist(a, b) <= 2 * drill + _WALL_TOL:
             errors.append(
@@ -3102,46 +3111,78 @@ def _chain(arcs, lines, walls, drill, allowance, cap, label, scale, recut=None):
 
 
 def _join_stock(holes, walls):
-    """Deepest straight-wall-normal distance to a printed centre-to-centre break-out.
-    Ray depth is affine between projected vertices; its extrema are the finite wall
-    ends and those projections. Missing rays belong to portions excluded by bounds."""
-    deepest = 0.0
-    legs = list(itertools.pairwise(holes))
-    for wall in walls:
-        a, b = wall["ends"]
+    """Greatest distance from the printed break-out polyline to its nearest finite wall.
+
+    A wall's squared distance along a straight run is convex quadratic until its
+    nearest point changes between an end and the wall interior. The minimum of those
+    distances can peak only at a regime end or a crossing of two wall distances.
+    Evaluate those finite candidates, including Voronoi switches inside a run.
+    """
+    ends = [wall["ends"] for wall in walls]
+    deepest = max((min(_to_segment(p, *wall) for wall in ends) for p in holes), default=0.0)
+    for a, b in itertools.pairwise(holes):
         delta = [b[i] - a[i] for i in range(2)]
-        span = sum(value * value for value in delta)
-        if span == 0:
-            continue
-        normal = wall["normal"]
-        spots = {0.0, 1.0}
-        for point in holes:
-            t = _fraction(sum((point[i] - a[i]) * delta[i] for i in range(2)) / span)
-            if t is not None:
-                spots.add(t)
-        for t in spots:
-            face = [a[i] + t * delta[i] for i in range(2)]
-            hits = []
-            for p, q in legs:
-                direction = [q[i] - p[i] for i in range(2)]
-                relative = [p[i] - face[i] for i in range(2)]
-                divisor = _cross(normal, direction)
-                if abs(divisor) < 1e-15:
-                    if abs(_cross(relative, normal)) <= _WALL_TOL:
-                        depths = [
-                            sum((point[i] - face[i]) * normal[i] for i in range(2))
-                            for point in (p, q)
-                        ]
-                        if max(depths) >= -_WALL_TOL:
-                            hits.append(max(0.0, min(depths)))
-                    continue
-                along = _fraction(_cross(relative, normal) / divisor)
-                depth = _cross(relative, direction) / divisor
-                if along is not None and depth >= -_WALL_TOL:
-                    hits.append(max(0.0, depth))
-            if hits:
-                deepest = max(deepest, min(hits))
+        stops = {0.0, 1.0}
+        for p, q in ends:
+            direction = [q[i] - p[i] for i in range(2)]
+            span = sum(v * v for v in direction)
+            along = sum(delta[i] * direction[i] for i in range(2))
+            if span and along:
+                start = sum((a[i] - p[i]) * direction[i] for i in range(2))
+                for boundary in (0.0, span):
+                    t = _fraction((boundary - start) / along)
+                    if t is not None:
+                        stops.add(t)
+        for low, high in itertools.pairwise(sorted(stops)):
+            p = [a[i] + low * delta[i] for i in range(2)]
+            q = [a[i] + high * delta[i] for i in range(2)]
+            squares = [_wall_square(p, q, wall) for wall in ends]
+            candidates = {0.0, 1.0}
+            for u, v in itertools.combinations(squares, 2):
+                candidates.update(_square_crossings([u[i] - v[i] for i in range(3)]))
+            for t in candidates:
+                point = [p[i] + t * (q[i] - p[i]) for i in range(2)]
+                deepest = max(deepest, min(_to_segment(point, *wall) for wall in ends))
     return deepest
+
+
+def _wall_square(a, b, ends):
+    """Squared wall distance coefficients on one fixed nearest-point regime."""
+    p, q = ends
+    direction = [q[i] - p[i] for i in range(2)]
+    span = sum(v * v for v in direction)
+    relative = [a[i] - p[i] for i in range(2)]
+    step = [b[i] - a[i] for i in range(2)]
+    start = sum(relative[i] * direction[i] for i in range(2)) / span if span else 0.0
+    advance = sum(step[i] * direction[i] for i in range(2)) / span if span else 0.0
+    middle = start + advance / 2
+    if 0 < middle < 1:
+        relative = [relative[i] - start * direction[i] for i in range(2)]
+        step = [step[i] - advance * direction[i] for i in range(2)]
+    elif middle >= 1:
+        relative = [a[i] - q[i] for i in range(2)]
+    return (
+        sum(v * v for v in step),
+        2 * sum(relative[i] * step[i] for i in range(2)),
+        sum(v * v for v in relative),
+    )
+
+
+def _square_crossings(square):
+    """Roots in [0, 1] of a difference of squared wall distances."""
+    largest = max(abs(v) for v in square)
+    if not largest:
+        return []
+    a, b, c = (v / largest for v in square)
+    if abs(a) < 1e-14:
+        roots = [-c / b] if abs(b) >= 1e-14 else []
+    else:
+        discriminant = b * b - 4 * a * c
+        if discriminant < -1e-14:
+            return []
+        root = -0.5 * (b + math.copysign(math.sqrt(max(0.0, discriminant)), b))
+        roots = [root / a, c / root] if root else [-b / (2 * a)]
+    return [t for value in roots if (t := _fraction(value)) is not None]
 
 
 def _rotate(point, degrees):
@@ -3614,17 +3655,51 @@ def _recut_by(bundle, op):
     return last
 
 
-def _manual(bundle, setup, op, stage, allowance, arcs, lines, walls, label, scale):
-    """(errors, debts) of one arc stage cut by its manual method (:data:`ARC_METHODS`); the
-    tables' geometry is plan units, ``scale`` mm per unit."""
-    arc = arcs[0] if arcs else lines[0]
-    method = arc["method"]
+def _manual_preconditions(op, stage, arcs, lines, label):
+    """Method/stage/join constraints independent of any stock-removal clip."""
+    method = (arcs[0] if arcs else lines[0])["method"]
     if method in ROUGH_METHODS and stage != "rough":
         return [f"{label}: {method} only roughs outside the line; file_to_line finishes it"], []
     if method not in ROUGH_METHODS and lines:
         return [], [f"{label}: {method} along the arc's straight joins is not computed"]
     if method in FINISH_METHODS and "stock_removal_bounds" in op:
         return [], [f"{label}: {method} cuts its whole arc; stock_removal_bounds cannot clip it"]
+    return [], []
+
+
+def _chain_preconditions(op, stage, arcs, lines, walls, label, scale):
+    """Reject invalid authored holes before the kernel can omit them by clipping."""
+    errors, debts = _manual_preconditions(op, stage, arcs, lines, label)
+    if errors or debts:
+        return errors, debts
+    for table in (*arcs, *lines):
+        drill = table["cutter_radius_mm"]
+        if not walls or not number(drill):
+            continue
+        drill /= scale
+        holes = [row["dro_xy"] for row in table["rows"]] if "rows" in table else table["dro_xy"]
+        name = label if "rows" in table else f"{label} {table['side']} join"
+        for k, point in enumerate(holes, start=1):
+            if _pair(point):
+                gap = min(wall(point) for wall in walls) - drill
+                if "rows" in table:
+                    radial = math.dist(point, table["centre_setup_xy"]) - table["wall_radius_mm"]
+                    if table["cutter_centre_radius_mm"] < table["wall_radius_mm"]:
+                        radial = -radial
+                    gap = min(gap, radial - drill)
+                if gap < -_INSIDE_TOL:
+                    errors.append(f"{name}: hole {k} reaches {-gap * scale:.3f} past the line")
+    return errors, debts
+
+
+def _manual(bundle, setup, op, stage, allowance, arcs, lines, walls, label, scale):
+    """(errors, debts) of one arc stage cut by its manual method (:data:`ARC_METHODS`); the
+    tables' geometry is plan units, ``scale`` mm per unit."""
+    arc = arcs[0] if arcs else lines[0]
+    method = arc["method"]
+    errors, debts = _manual_preconditions(op, stage, arcs, lines, label)
+    if errors or debts:
+        return errors, debts
     cap = filing_cap(bundle)
     recut = _recut_by(bundle, op)
     if method == "stairs":
@@ -3960,7 +4035,11 @@ def evaluate(bundle, *, pre_kernel=False):
                     if scale is None:
                         debts = [f"{label}: the feature units are not mm or in"]
                     elif arcs:
-                        if not clipped_chain:
+                        if clipped_chain:
+                            errors, debts = _chain_preconditions(
+                                op, stage, arcs, lines, walls, label, scale
+                            )
+                        else:
                             errors, debts = _manual(
                                 bundle,
                                 setup,
@@ -3988,10 +4067,18 @@ def evaluate(bundle, *, pre_kernel=False):
                                 debt = f"its bounds clip is unknown: {why}"
                             else:
                                 arcs, lines, debt = _kernel_clip(subject, arcs, lines, clips)
-                    if clipped_chain and not pre_kernel and (arcs or lines) and scale is not None:
-                        errors, debts = _manual(
+                    if (
+                        clipped_chain
+                        and not blocked
+                        and not pre_kernel
+                        and (arcs or lines)
+                        and scale is not None
+                    ):
+                        more, unknown_debts = _manual(
                             bundle, setup, op, stage, allowance, arcs, lines, walls, label, scale
                         )
+                        errors.extend(more)
+                        debts.extend(unknown_debts)
                     if method == "chain_drill":
                         measured = [
                             table for table in (*arcs, *lines) if number(table.get("stock_left_mm"))
@@ -4019,11 +4106,7 @@ def evaluate(bundle, *, pre_kernel=False):
                                 arcs[0]["rows"] if len(arcs) == 1 else [arc["rows"] for arc in arcs]
                             )
                         else:
-                            profile["cutter_centre"] = (
-                                lines[0]["setup_xy"]
-                                if len(lines) == 1
-                                else [line["setup_xy"] for line in lines]
-                            )
+                            profile["cutter_centre"] = []
                         unordered.update(
                             item["cut_order_reason"]
                             for item in (*arcs, *lines)

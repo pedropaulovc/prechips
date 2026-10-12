@@ -619,60 +619,59 @@ def exact_join_vertices(tip=JOIN_TIP):
     return [circle(p, u, 10.0 - offset, JOIN_TOP), miter, circle(q, v, 20.0 + offset, JOIN_BOTTOM)]
 
 
-def printed_join_residual(row, tip=JOIN_TIP):
-    """Rebuild residual from printed centre breakouts, not the rule's reported stock.
+def finite_wall_residual(points, walls, tolerance=1e-10):
+    """Maximum nearest-finite-wall distance over a retained break-out polyline.
 
-    Finite wall-normal rays meet either leg, including corner runout. Their depth is
-    piecewise affine: wall ends and projected printed vertices include its extrema.
-    Normals missing every retained segment belong outside the retained cut footprint.
+    Distance to a finite segment is convex along each break-out segment. Thus the
+    smaller of the walls' endpoint maxima bounds the nearest-wall distance above.
+    Subdivide only intervals whose bound can still exceed the observed maximum.
+    This oracle uses point/segment distances, never wall normals or ray intersections.
     """
-    offset = JOIN_DRILL / 2 + JOIN_ALLOWANCE
-    stock = offset
-    (arc,) = arcs(row, 20)
-    centre, wall = arc["centre_setup_xy"], arc["wall_radius_mm"]
-    holes = [item["dro_xy"] for item in arc["rows"]]
-    stock = max(stock, *(math.dist(point, centre) - wall for point in holes))
+    distances = [[segment_distance(point, *wall) for wall in walls] for point in points]
+    worst = max(min(values) for values in distances)
+    pending = [
+        (a, b, da, db)
+        for (a, da), (b, db) in itertools.pairwise(zip(points, distances, strict=True))
+    ]
+    while pending:
+        a, b, da, db = pending.pop()
+        upper = min(max(x, y) for x, y in zip(da, db, strict=True))
+        if upper <= worst + tolerance:
+            continue
+        middle = [(x + y) / 2 for x, y in zip(a, b, strict=True)]
+        dm = [segment_distance(middle, *wall) for wall in walls]
+        worst = max(worst, min(dm))
+        pending.extend(((a, middle, da, dm), (middle, b, dm, db)))
+    return worst
+
+
+def printed_join_residual(row, tip=JOIN_TIP):
+    """Rebuild stock from printed centre break-outs and the fixture's finite walls."""
+    stock = JOIN_DRILL / 2 + JOIN_ALLOWANCE
+    for arc in arcs(row, 20):
+        centre, wall = arc["centre_setup_xy"], arc["wall_radius_mm"]
+        holes = [item["dro_xy"] for item in arc["rows"]]
+        stock = max(stock, *(math.dist(point, centre) - wall for point in holes))
     for line in joined_chain_lines(row):
         side = 1 if line["side"] == "+X" else -1
-        walls = [[side * point[0] - 5.0, point[1] - 2.0] for point in (JOIN_TOP, tip, JOIN_BOTTOM)]
-        points = line["dro_xy"]
-        segments = list(itertools.pairwise(points))
-        for a, b in itertools.pairwise(walls):
-            length = math.dist(a, b)
-            tangent = [(b[i] - a[i]) / length for i in range(2)]
-            normal = [-side * tangent[1], side * tangent[0]]
-            stations = [0.0, length]
-            stations += [sum((point[i] - a[i]) * tangent[i] for i in range(2)) for point in points]
-            for station in stations:
-                if not -1e-9 <= station <= length + 1e-9:
-                    continue
-                source = [a[i] + station * tangent[i] for i in range(2)]
-                hits = []
-                for p, q in segments:
-                    delta = [q[i] - p[i] for i in range(2)]
-                    divisor = normal[0] * delta[1] - normal[1] * delta[0]
-                    if abs(divisor) < 1e-12:
-                        continue
-                    relative = [p[i] - source[i] for i in range(2)]
-                    depth = (relative[0] * delta[1] - relative[1] * delta[0]) / divisor
-                    fraction = (relative[0] * normal[1] - relative[1] * normal[0]) / divisor
-                    if depth >= -1e-9 and -1e-9 <= fraction <= 1.0 + 1e-9:
-                        hits.append(depth)
-                if hits:
-                    stock = max(stock, min(hits))
+        vertices = [
+            [side * point[0] - 5.0, point[1] - 2.0] for point in (JOIN_TOP, tip, JOIN_BOTTOM)
+        ]
+        stock = max(stock, finite_wall_residual(line["dro_xy"], list(itertools.pairwise(vertices))))
     return stock
 
 
 def synthetic_join_clip(bundle, requested, select):
-    """Return an isolated kernel clip selected from the actual requested checkpoint IDs."""
+    """Inject clip pieces of actual row IDs and optional raw fractional kernel points."""
     paths = []
     for table in coordinates.checkpoints("S1:20", requested.numbers, 20):
-        indices = select(table)
+        selected = select(table)
+        points = [{"row": item} if isinstance(item, int) else dict(item) for item in selected]
         paths.append(
             {
                 "table": table["rows"][0][0],
                 "rows": len(table["rows"]),
-                "pieces": [[{"row": index} for index in indices]] if indices else [],
+                "pieces": [points] if points else [],
             }
         )
     kernel = {
@@ -688,6 +687,128 @@ def synthetic_join_clip(bundle, requested, select):
         },
     }
     return dataclasses.replace(bundle, kernel=kernel)
+
+
+@pytest.mark.parametrize(
+    ("points", "walls", "expected"),
+    [
+        (
+            [[1.0, 0.5], [3.0, 0.5]],
+            [[[0.0, 0.0], [0.0, 1.0]], [[4.0, 0.0], [4.0, 1.0]]],
+            2.0,
+        ),
+        ([[0.0, 2.0], [2.0, 2.0]], [[[0.0, 0.0], [1.0, 0.0]]], math.sqrt(5.0)),
+    ],
+    ids=["interior-nearest-wall-switch", "finite-wall-endpoint"],
+)
+def test_finite_wall_residual_oracle_covers_the_whole_breakout(points, walls, expected):
+    assert finite_wall_residual(points, walls) == pytest.approx(expected, abs=1e-9)
+
+
+@pytest.mark.parametrize("kind", ["line_table", "arc_table"], ids=["join", "arc"])
+@pytest.mark.parametrize("fraction", [0.2, 0.5], ids=["shorter-than-a-drill", "off-pitch"])
+def test_bounded_chain_clip_retains_only_actual_holes(tmp_path, kind, fraction):
+    bundle = load_bundle(joined_chain_plan(tmp_path, bounded=True))
+    requested = joined_chain_finding(bundle, pre_kernel=True)
+    selected = next(
+        table
+        for table in coordinates.checkpoints("S1:20", requested.numbers, 20)
+        if table["kind"] == kind and (kind == "arc_table" or table["name"] == "S1:20 rough line +X")
+    )
+    a, b = [item[1] for item in selected["rows"][:2]]
+    exact = [a[axis] + fraction * (b[axis] - a[axis]) for axis in range(2)]
+    fractional_point = {
+        "after": 0,
+        "t": fraction,
+        "exact_xy": exact,
+        "dro_xy": [round(value, 3) for value in exact],
+    }
+    clipped = synthetic_join_clip(
+        bundle,
+        requested,
+        lambda table: [{"row": 0}, fractional_point] if table["name"] == selected["name"] else [],
+    )
+    row = joined_chain_finding(clipped)
+    # The kernel clips a swept chord, but neither its short nor its wider clip point
+    # is a drilled hole. Only row 0 may reach the printed table or hole validation.
+    assert row.status == "pass", row.sentence
+    assert row.numbers.get("arc_errors", []) == row.numbers.get("arc_debts", []) == []
+    if kind == "arc_table":
+        assert joined_chain_lines(row) == []
+        (retained,) = arcs(row, 20)
+        assert retained["rows"] == arcs(requested, 20)[0]["rows"][:1]
+        assert "clipped_at" not in retained["rows"][0]
+    else:
+        assert arcs(row, 20) == []
+        (retained,) = joined_chain_lines(row)
+        original = next(line for line in joined_chain_lines(requested) if line["side"] == "+X")
+        for column in ("model_xy", "setup_xy", "dro_xy", "overshoot"):
+            assert retained[column] == original[column][:1]
+        assert row.numbers["profiles"][0]["cutter_centre"] == []
+    assert retained["method"] == "chain_drill"
+    dropped_key = "dropped_rows" if kind == "arc_table" else "dropped_points"
+    assert retained[dropped_key] == len(selected["rows"]) - 1
+    assert retained["pitch_mm"] == 0.0
+    assert retained["stock_left_mm"] == pytest.approx(printed_join_residual(row), abs=1e-8)
+    (checkpoint,) = coordinates.checkpoints("S1:20", row.numbers, 20)
+    assert len(checkpoint["rows"]) == 1
+    assert checkpoint["rows"][0][1] == a
+    assert checkpoint["rows"][0][1] != fractional_point["dro_xy"]
+
+
+@pytest.mark.parametrize("clip_state", ["absent", "empty"])
+def test_bounded_chain_finish_stage_is_an_error_before_clipping(tmp_path, clip_state):
+    bundle = load_bundle(joined_chain_plan(tmp_path, bounded=True))
+    setup = bundle.plan["setups"][0]
+    # Zero allowance makes rough and finish request identical geometry and row counts.
+    rough = {**setup["ops"][0], "rough_allowance_mm": 0.0}
+    bundle = dataclasses.replace(
+        bundle, plan={**bundle.plan, "setups": [{**setup, "ops": [rough]}]}
+    )
+    if clip_state == "empty":
+        requested = joined_chain_finding(bundle, pre_kernel=True)
+        bundle = synthetic_join_clip(bundle, requested, lambda table: [])
+        for path in bundle.kernel["ops"]["S1:20"]["checkpoint_clips"]["paths"]:
+            path["table"] = path["table"].replace(" rough ", " finish ")
+    finish = {**rough, "do": "finish_profile"}
+    bundle = dataclasses.replace(
+        bundle, plan={**bundle.plan, "setups": [{**setup, "ops": [finish]}]}
+    )
+    row = joined_chain_finding(bundle)
+    assert row.status == "error", row.sentence
+    assert "chain_drill only roughs outside the line" in errors(row)
+    assert arcs(row, 20) == joined_chain_lines(row) == []
+
+
+@pytest.mark.parametrize("clip_state", ["absent", "empty"])
+def test_bounded_chain_full_holes_inside_line_are_errors_before_clipping(
+    tmp_path, monkeypatch, clip_state
+):
+    bundle = load_bundle(joined_chain_plan(tmp_path, bounded=True))
+    if clip_state == "empty":
+        requested = joined_chain_finding(bundle, pre_kernel=True)
+        bundle = synthetic_join_clip(bundle, requested, lambda table: [])
+    make_arc = coordinates._arc
+
+    def inside_holes(*args, **kwargs):
+        arc_tables, lines, walls = make_arc(*args, **kwargs)
+        # Inject invalid printed centres without changing the checkpoint identities
+        # or counts. Every full hole now lies inside the convex arc's finished wall.
+        centre = arc_tables[0]["centre_setup_xy"]
+        for arc in arc_tables:
+            for item in arc["rows"]:
+                item["dro_xy"] = list(centre)
+        for line in lines:
+            line["dro_xy"] = [list(centre) for point in line["dro_xy"]]
+        return arc_tables, lines, walls
+
+    monkeypatch.setattr(coordinates, "_arc", inside_holes)
+    row = joined_chain_finding(bundle)
+    assert row.status == "error", row.sentence
+    assert any(
+        "hole " in error and "past the line" in error for error in row.numbers.get("arc_errors", [])
+    )
+    assert arcs(row, 20) == joined_chain_lines(row) == []
 
 
 def test_chain_drill_spaces_both_finite_join_legs_and_preserves_kernel_consumers(tmp_path):
@@ -842,8 +963,8 @@ def test_kernel_excludes_invalid_short_chain_joins_before_validation(tmp_path):
     assert profile["stock_left_mm"] == arc["stock_left_mm"]
 
 
-@pytest.mark.parametrize(("cap", "over_cap"), [(1.0, True), (2.1, False)])
-def test_retained_chain_join_normal_aligned_breakout_reports_actual_stock(cap, over_cap):
+@pytest.mark.parametrize(("cap", "over_cap"), [(1.0, True), (3.1, False)])
+def test_retained_chain_join_breakout_reports_farthest_finite_wall_distance(cap, over_cap):
     wall = [[0.0, 0.0], [10.0, 0.0]]
     line = {
         "dro_xy": [[5.0, 2.0], [5.0, 3.0]],
@@ -860,17 +981,72 @@ def test_retained_chain_join_normal_aligned_breakout_reports_actual_stock(cap, o
         label="retained join",
         scale=1.0,
     )
-    # At wall X5 the outward normal meets the finite retained breakout first at Y2,
-    # not at the nominal radius-plus-allowance floor of 0.35.
-    assert line["stock_left_mm"] == pytest.approx(2.0)
+    # The full retained break-out reaches Y3, even though a wall-normal ray first
+    # meets it at Y2. The residual is the worst nearest-wall distance, not first contact.
+    residual = finite_wall_residual(line["dro_xy"], [wall])
+    assert residual == pytest.approx(3.0)
+    assert line["stock_left_mm"] == pytest.approx(residual)
     assert line["stock_cap_mm"] == cap
     assert debts == []
     assert bool(errors) is over_cap
     if over_cap:
         assert any(
-            "leaves up to 2.000" in error and "more than the shop's 1 cap" in error
+            "leaves up to 3.000" in error and "more than the shop's 1 cap" in error
             for error in errors
         )
+
+
+def test_concave_chain_join_stock_is_nearest_finite_wall_distance_not_ray_runout():
+    turn = math.radians(80.0)
+    direction = [math.cos(turn), math.sin(turn)]
+    normals = [[0.0, 1.0], [-direction[1], direction[0]]]
+    walls = [
+        [[-10.0, 0.0], [0.0, 0.0]],
+        [[0.0, 0.0], [10.0 * value for value in direction]],
+    ]
+    drill, allowance, cap = 0.25, 0.1, 1.0
+    offset = drill + allowance
+    miter = [offset * (direction[0] - 1.0) / direction[1], offset]
+    start = [-9.0, offset]
+    end = [9.0 * direction[axis] + offset * normals[1][axis] for axis in range(2)]
+    holes = [
+        [start[axis] + k / 6 * (miter[axis] - start[axis]) for axis in range(2)] for k in range(7)
+    ] + [
+        [miter[axis] + k / 6 * (end[axis] - miter[axis]) for axis in range(2)] for k in range(1, 7)
+    ]
+    assert all(math.dist(a, b) > 2 * drill for a, b in itertools.pairwise(holes))
+    assert all(
+        min(
+            sum((point[axis] - wall[0][axis]) * normal[axis] for axis in range(2))
+            for wall, normal in zip(walls, normals, strict=True)
+        )
+        >= offset - 1e-9
+        for point in holes
+    )
+    residual = finite_wall_residual(holes, walls)
+    assert residual == pytest.approx(0.350, abs=1e-9)
+    line = {
+        "dro_xy": holes,
+        "side": "synthetic",
+        "join_walls": [
+            {"ends": wall, "normal": normal} for wall, normal in zip(walls, normals, strict=True)
+        ],
+    }
+    chain_errors, chain_debts = coordinates._chain(
+        arcs=[],
+        lines=[line],
+        walls=[lambda point, wall=wall: segment_distance(point, *wall) for wall in walls],
+        drill=drill,
+        allowance=allowance,
+        cap=cap,
+        label="concave retained join",
+        scale=1.0,
+    )
+    # A single-wall normal can overreach to 0.35 / cos(80°) = 2.016 mm, but that
+    # point is much nearer the other finished wall. It must not trip the 1 mm cap.
+    assert chain_errors == chain_debts == []
+    assert line["stock_left_mm"] == pytest.approx(residual, abs=1e-9)
+    assert line["stock_cap_mm"] == cap
 
 
 def test_kernel_keeps_only_a_connected_partial_chain_join(tmp_path):

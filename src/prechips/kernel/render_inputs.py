@@ -63,9 +63,12 @@ def contour_annotations(numbers, scale, setup_id):
             elif rows:
                 match.setdefault("rows", []).extend(rows)
 
-    arc_ops = set()
+    table_ops = {
+        str(table.get("op"))
+        for kind in ("arc_table", "line_table")
+        for table in numbers.get(kind, [])
+    }
     for arc in numbers.get("arc_table", []):
-        arc_ops.add(arc.get("op"))
         rows = arc.get("rows", [])
         if not rows or arc.get("kernel_clip") is True:
             continue
@@ -95,7 +98,7 @@ def contour_annotations(numbers, scale, setup_id):
             [row_id(subject, "line_table", line, i) for i in range(len(points))],
         )
     for profile in numbers.get("profiles", []):
-        if profile.get("op") in arc_ops:
+        if str(profile.get("op")) in table_ops:
             continue
         points = profile.get("cutter_centre", [])
         if not isinstance(points, list) or not points:

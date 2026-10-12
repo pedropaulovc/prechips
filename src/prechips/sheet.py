@@ -7671,19 +7671,18 @@ class _Traveler:
             if line.get("method") != "chain_drill":
                 headings = ["P", "", "X", "Y", "Z", "handwheel axis"]
             entry["parts"].append((order(entry, line), description, headings, rows, after))
-        arc_ops = {str(arc.get("op")) for arc in numbers.get("arc_table", []) or []}
-        arc_ops.update(
-            str(line.get("op"))
-            for line in numbers.get("line_table", []) or []
-            if line.get("method") == "chain_drill"
-        )
+        table_ops = {
+            str(table.get("op"))
+            for kind in ("arc_table", "line_table")
+            for table in numbers.get(kind, []) or []
+        }
         raster_stages = {}
         for profile in numbers.get("profiles", []):
             if isinstance(profile, dict) and isinstance(profile.get("raster"), dict):
                 raster_stages.setdefault(str(profile.get("op")), set()).add(profile.get("stage"))
         for profile in numbers.get("profiles", []):
             op = str(profile.get("op"))
-            if op in arc_ops:
+            if op in table_ops:
                 continue
             points = profile.get("cutter_centre")
             entry = block(op)
