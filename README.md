@@ -448,6 +448,9 @@ only on that proof). Contour tables
 repeat their op, tool and Z on a continued page and never wrap a coordinate; a Z
 every row shares prints only there, never as a column, and the point rows are
 numbered on through the op's tables.
+A drill roughing a profile by `chain_drill` uses drilling cutting data and
+prints an axial feed; its plunge feed is the same drilling feed, not an
+end-mill `[[plunge]]` recommendation.
 The mill CLEARANCE section prints a short stack/travel verdict and a per-op table
 of the closest obstacle (headroom, jaw tops, holder face above the stock beside
 the tool, a reach finding's declared clearances, or the holding solid the kernel

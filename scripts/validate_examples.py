@@ -2621,6 +2621,13 @@ def check_speeds(
     tool = op.get("tool", "unknown")
     diameter = cutting_diameter_mm(setup, op, entries, definitions, features.get("units"), lathe)
     operation = CUT_OPERATIONS.get(op["do"], op["do"])
+    if (
+        op["do"] == "rough_profile"
+        and isinstance(op.get("contour"), dict)
+        and op.get("contour", {}).get("method") == "chain_drill"
+        and selected_tool(tool, entries, "kind") in {"drill", "drill_index", "drill_set"}
+    ):
+        operation = "drill"
     tool_material = selected_tool(tool, entries, "material")
     require(row.get("operation") == operation, f"{where}: cutting-data operation")
     require((row.get("material"), row.get("material_class")) == material, f"{where}: material")

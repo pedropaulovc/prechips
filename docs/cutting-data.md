@@ -17,6 +17,15 @@ else from the same cited row or tool chart, under the
 same citation and verify rules as the chip load. Numbers are starting points,
 not cut-force or stability limits.
 
+A `rough_profile` whose contour method is `chain_drill` and whose tool kind
+is `drill` (including `drill_index`/`drill_set` members) selects
+`operation = "drill"`, not an end-mill `profile` row.
+The drilling chip load times flutes is its axial feed per revolution, also
+used for plunge; `[[plunge]]` is exclusively end-mill data. A tool chart
+still has precedence but is not needed to work around chain-drill lookup.
+Keep a cited per-tool chart when it records a deliberate drilling feed
+choice: removing it selects the shop row's feed, which may be higher.
+
 The operation ledger keeps the cited speed/feed recommendation beside its
 action in authored order. Marking that operation performed does not accept the
 recommendation or verify actual cutting conditions. The paper layout adds no

@@ -213,7 +213,17 @@ Machinery's Handbook 27th ed. p.1132 centre-drill feeds by drill size. A mill op
 report the `feed_mm_rev` evaluated, the one the sheet prints. Verified material,
 tool and machine facts are needed.
 
-A non-lathe op that cuts a `contour` also reports its plunge feed: `plunge_mm_rev`
+For a `rough_profile` with `contour.method = "chain_drill"` and a tool whose
+kind is `drill` or a `drill_index`/`drill_set` member, the normalized cutting
+action is `drill`, not `profile`.
+It selects the drilling `[[cut]]` row (or the drill's cited chart), without
+requiring chart overrides or disguised end-mill rows. Its `feed_mm_min` is
+axial feed; the traveler labels it **axial**. A drill is centre-cutting by
+kind: its `plunge_mm_rev` is that same drilling chip load times flute count,
+and `plunge_mm_min` equals its axial feed. End-mill `[[plunge]]` rows and
+`center_cutting` declarations do not govern a drill.
+
+A non-lathe end-mill op that cuts a `contour` also reports its plunge feed: `plunge_mm_rev`
 from the one matching cited `[[plunge]]` row (material class, tool material, tool
 diameter; see [cutting data](cutting-data.md#plunge)) for a tool declared
 `center_cutting = true` (any other has none), `plunge_mm_min = RPM *

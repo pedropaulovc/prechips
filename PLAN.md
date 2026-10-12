@@ -197,6 +197,9 @@ Rules for the sheet:
   the tool vendor's chart when the inventory entry names one
   (`chart = "<url or doc>"`), otherwise Machinery's Handbook 31. The
   citation is one line per setup, not per cell.
+  Implemented: drill-kind `rough_profile`/`chain_drill` selects drilling
+  data, prints axial feed and derives plunge from drilling chip load ×
+  flutes, without end-mill plunge data or a centre-cutting declaration.
 - **Units: coordinates in the drawing's unit, tool sizes as bought.** The
   harmonic-analyzer drawings are mm; the DRO and the tooling are inch. Both
   appear only where they meet, on the sizing line ("0.2510 in (6.375 mm)").

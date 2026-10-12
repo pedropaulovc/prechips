@@ -6776,6 +6776,8 @@ class _Traveler:
                 feed.append(f"({_number(per_min, 0)} mm/min)")
         else:
             feed = _number(per_min, 0) + " mm/min" if _known(per_min) else "STOP"
+            if numbers.get("feed_direction") == "axial":
+                feed = "axial " + feed
         return speed, feed, not (_known(rpm) and (_known(per_rev) or _known(per_min)))
 
     def unset_z(self, setup, op, target):
