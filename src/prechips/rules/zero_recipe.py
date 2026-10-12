@@ -897,8 +897,59 @@ def _native_surface_planes(bundle, setup, face, to_z):
     return list(refs) if number(height) and abs(height - to_z) <= tolerance else []
 
 
-def _carried_face_z(bundle, setup, face, done, debts, credited, constraint=None):
-    """A prepared plane carried by its stock DAG, with any bounded touch keep-off."""
+def _carried_native_plane_groups(bundle, route, setup, face, boxes):
+    """Raw receiving planes, before any stock or as-cut credit; None for proof gaps."""
+    from .coordinates import UNIT_MM
+
+    scale = UNIT_MM[bundle.features["units"]]
+    tolerance = LENGTH_TOLERANCE_MM / scale
+    kernel = mapping(getattr(bundle, "kernel", None))
+    kinds = {
+        item.get("index"): item.get("kind") for item in map(mapping, records(kernel.get("faces")))
+    }
+    matched = mapping(kernel.get("mapping"))
+    target = mapping(bundle.feature_definitions.get(face))
+    heights = []
+    for ref, box in boxes:
+        if not all(number(z) and math.isfinite(z) for z in box[2]):
+            return None
+        if kinds.get(matched.get(ref)) not in (None, UNKNOWN, "Plane"):
+            return None
+        if box[2][1] - box[2][0] <= tolerance:
+            height = box[2][1]
+        else:
+            # A rotated world AABB is not a plane. Only exact source-native
+            # geometry or this same named source datum can supply its raw Z.
+            source_heights = []
+            for source in route:
+                if source.get("id") == setup.get("id"):
+                    continue
+                plane = _native_plane_geometry(bundle, source, face, [ref])
+                if plane is None and target.get("faces") == [ref]:
+                    geometry = {}
+                    _native_scene_plane(bundle, source, face, geometry)
+                    plane = geometry or None
+                if plane is not None:
+                    native = _plane_in_frame(bundle, plane, setup, physical=False)
+                    if number(native) and math.isfinite(native):
+                        source_heights.append(native)
+            if not source_heights or max(source_heights) - min(source_heights) > tolerance:
+                return None
+            height = max(source_heights)
+        heights.append((height, ref))
+    groups = []
+    for height, ref in sorted(heights):
+        # Matching uses LENGTH, but it cannot merge distinct native planes.
+        # Only the same numerical plane groups its exactly coplanar refs.
+        if not groups or height != groups[-1]["z"]:
+            groups.append({"z": height, "refs": [ref]})
+        else:
+            groups[-1]["refs"].append(ref)
+    return groups
+
+
+def _carried_face_z(bundle, setup, face, edge, done, debts, credited, constraint=None, errors=None):
+    """The selected prepared plane carried by its stock DAG, with bounded touch keep-off."""
     from .coordinates import UNIT_MM, formed_z, frame_axes
 
     def unknown(reason):
@@ -932,12 +983,13 @@ def _carried_face_z(bundle, setup, face, done, debts, credited, constraint=None)
         return unknown(f"{detail}{reason}")
     scale = UNIT_MM[bundle.features["units"]]
     tolerance = LENGTH_TOLERANCE_MM / scale
-    if any(box[2][1] - box[2][0] > tolerance for _, box in boxes):
-        raw = _native_scene_plane(bundle, setup, face)
-        refs = [ref for ref, _ in boxes]
-    else:
-        raw = max(box[2][1] for _, box in boxes)
-        refs = [ref for ref, box in boxes if abs(box[2][1] - raw) <= tolerance]
+    groups = _carried_native_plane_groups(bundle, route, setup, face, boxes)
+    if not groups:
+        return unknown(
+            f"{face} needs exact native plane heights in the receiving frame "
+            "(native evidence gap: https://github.com/pedropaulovc/prechips/issues/203)"
+        )
+    refs = [ref for ref, _ in boxes]
     kernel = mapping(getattr(bundle, "kernel", None))
     mapping_refs = mapping(kernel.get("mapping"))
     supply_gaps = []
@@ -1029,25 +1081,55 @@ def _carried_face_z(bundle, setup, face, done, debts, credited, constraint=None)
             if cuts is False:
                 continue
             claims, away, invalid = op_claims(bundle, kernel, current, op)
+            forms = forms_face(bundle, current, op)
+            framed = _framed(current, op)
             for ref in refs:
                 surface = {**target, "faces": [ref]}
                 row = state[ref]
                 produced, plane, normal = False, None, None
-                if (
+                potential = (
                     not receiving
-                    and cuts is True
-                    and not stock_debt
-                    and claims is not None
-                    and not away
-                    and not invalid
-                    and mapping_refs[ref] in claims
-                    and forms_face(bundle, current, op) is True
-                    and _framed(current, op)
-                    and _native_basis(frame_axes(setup_frame(bundle, current)))
-                    and number(formed_z(bundle, current, op))
-                    and cut_coverage(bundle, current, op, target) == "whole"
+                    and cuts is not False
+                    and (
+                        claims is None
+                        and op.get("feature") == face
+                        or claims is not None
+                        and mapping_refs[ref] in claims
+                    )
+                    and forms is not False
+                    and framed
+                )
+                if potential and (
+                    stock_debt
+                    or cuts is not True
+                    or forms is not True
+                    or claims is None
+                    or away
+                    or invalid
+                    or not _native_basis(frame_axes(setup_frame(bundle, current)))
+                ):
+                    row["present"] = UNKNOWN
+                    row["plane"] = row["normal"] = None
+                    row["area_unknown"] = True
+                    continue
+                coverage = cut_coverage(bundle, current, op, target) if potential else None
+                if coverage == UNKNOWN:
+                    row["present"] = UNKNOWN
+                    row["plane"] = row["normal"] = None
+                    row["area_unknown"] = True
+                    continue
+                if (
+                    potential
+                    and coverage == "whole"
                     and ref in (_native_surface_planes(bundle, current, face, op.get("to_z")) or ())
                 ):
+                    formed = formed_z(bundle, current, op)
+                    if not number(formed) or not math.isfinite(formed):
+                        # An eligible native producer with unresolved physical
+                        # height is potential supply, not proven absence.
+                        row["present"] = UNKNOWN
+                        row["plane"] = row["normal"] = None
+                        continue
                     plane = _native_plane_geometry(bundle, current, face, [ref])
                     native, _ = _kernel_face_boxes(bundle, surface, setup_frame(bundle, current))
                     to_z = op.get("to_z")
@@ -1064,7 +1146,7 @@ def _carried_face_z(bundle, setup, face, done, debts, credited, constraint=None)
                             produced = number(height) and abs(height - to_z) <= tolerance
                             plane = scene_geometry or None
                     if produced and plane is not None:
-                        plane["formed_z_mm"] = formed_z(bundle, current, op) * scale
+                        plane["formed_z_mm"] = formed * scale
                         produced = number(_plane_in_frame(bundle, plane, setup))
                     elif produced:
                         side = face_normal_z(bundle, current, face, to_z)
@@ -1093,14 +1175,16 @@ def _carried_face_z(bundle, setup, face, done, debts, credited, constraint=None)
                                 "source": current["id"],
                                 "frame": source_frame,
                                 "z_mm": to_z * scale,
-                                "formed_z_mm": formed_z(bundle, current, op) * scale,
+                                "formed_z_mm": formed * scale,
                                 "normal_z": side,
                             }
                             produced = _native_normal_up(
                                 normal, frame_axes(setup_frame(bundle, setup))
                             )
                         else:
-                            produced = False
+                            row["present"] = UNKNOWN
+                            row["plane"] = row["normal"] = None
+                            continue
                 if produced:
                     # Re-facing does not fill either a bounded or an unknown hole.
                     # The latter debt survives every cut on this same stock route.
@@ -1118,16 +1202,86 @@ def _carried_face_z(bundle, setup, face, done, debts, credited, constraint=None)
                         row["excluded_mm"] = max(row["excluded_mm"], *excluded)
         outputs[current["id"]] = state
     state = outputs[setup["id"]]
+
+    def standing(group):
+        rows = [state[ref] for ref in group["refs"]]
+        if not all(row["present"] is True and row["plane"] is not None for row in rows):
+            return None
+        heights = [_plane_in_frame(bundle, row["plane"], setup) for row in rows]
+        if not all(number(z) and math.isfinite(z) for z in heights):
+            return None
+        return max(heights) if max(heights) - min(heights) <= tolerance else None
+
+    def could_face_up(group):
+        """A proven wrong-way native member cannot be an eligible physical candidate."""
+        receiving_axes = frame_axes(setup_frame(bundle, setup))
+        for ref in group["refs"]:
+            plane = state[ref]["plane"]
+            planes = (
+                [plane]
+                if plane is not None
+                else [
+                    _native_plane_geometry(bundle, source, face, [ref])
+                    for source in route
+                    if source.get("id") != setup.get("id")
+                ]
+            )
+            for native in planes:
+                if native is None:
+                    continue
+                axes = frame_axes(native["frame"])
+                if not _native_basis(axes) or native.get("normal_z") not in (1, -1):
+                    continue
+                normal = [native["normal_z"] * v for v in axes[2]]
+                if not _native_normal_up(normal, receiving_axes):
+                    return False
+        return True
+
+    if len(groups) == 1:
+        # Keep the established single-plane contradiction check: credit its
+        # physical standing plane, then compare the authored edge separately.
+        selected = groups[0]
+    else:
+        physical = [standing(group) for group in groups]
+        matches = [
+            group
+            for group, height in zip(groups, physical, strict=True)
+            if abs(group["z"] - edge) <= tolerance
+            or number(height)
+            and abs(height - edge) <= tolerance
+        ]
+        if len(matches) > 1:
+            return unknown(f"{face} edge {edge:g} matches multiple distinct native plane groups")
+        if any(
+            (
+                any(state[ref]["present"] == UNKNOWN for ref in group["refs"])
+                or any(state[ref]["present"] is True for ref in group["refs"])
+                and height is None
+            )
+            and could_face_up(group)
+            for group, height in zip(groups, physical, strict=True)
+        ):
+            detail = f" ({'; '.join(dict.fromkeys(supply_gaps))})" if supply_gaps else ""
+            return unknown(f"{face} has incomplete eligible carried-plane height proof{detail}")
+        if not matches:
+            known = ", ".join(f"{group['z']:g}" for group in groups)
+            carried = ", ".join(f"{z:g}" for z in physical if number(z))
+            detail = (
+                f"edge {edge:g} matches no native plane of {face}; "
+                f"known native heights are {known}"
+                f"; eligible as-cut heights are {carried or 'none'}"
+            )
+            if errors is not None:
+                errors.append(detail)
+            return unknown(detail)
+        selected = matches[0]
+    selected_refs = set(selected["refs"])
+    raw = selected["z"]
+    refs = [ref for ref, _ in boxes if ref in selected_refs]
     if not all(state[ref]["present"] is True for ref in refs):
-        missing_geometry = (
-            " (native evidence gap: https://github.com/pedropaulovc/prechips/issues/203)"
-            if raw is None
-            else ""
-        )
         detail = f" ({'; '.join(dict.fromkeys(supply_gaps))})" if supply_gaps else ""
         return unknown(
-            f"no surviving credited stock plane with a bounded touch area for {face}"
-            f"{detail}{missing_geometry}"
+            f"no surviving credited stock plane with a bounded touch area for {face}{detail}"
         )
     if any(
         state[ref]["plane"] is None
@@ -1150,7 +1304,7 @@ def _carried_face_z(bundle, setup, face, done, debts, credited, constraint=None)
         if max(heights) - min(heights) > tolerance:
             return unknown(f"carried {face} has no single consistent as-cut physical plane")
         raw = max(heights)
-    elif any(number(z) for z in heights) or raw is None:
+    elif any(number(z) for z in heights):
         return unknown(
             f"carried {face} needs its exact source native plane or stock-proven datum "
             "(native evidence gap: https://github.com/pedropaulovc/prechips/issues/203)"
@@ -1917,7 +2071,16 @@ def _corner_recorder(bundle, setup, lathe, errors):
 
 
 def face_stands(
-    bundle, setup, face, edge, done=0, source=None, debts=None, credited=None, carried=None
+    bundle,
+    setup,
+    face,
+    edge,
+    done=0,
+    source=None,
+    debts=None,
+    credited=None,
+    carried=None,
+    errors=None,
 ):
     """Where ``face`` physically stands once ``setup``'s first ``done`` ops have run.
 
@@ -1929,8 +2092,9 @@ def face_stands(
     geometry, never substituting the nominal CAD height for a known cut.
     Other stock faces and faces cut before the producer's Z zero stand where the
     touch sets them (None).
-    Optional collectors receive coverage debts, exact raw STEP refs and carried
-    touch-footprint constraints, never metadata on the input dicts.
+    Optional collectors receive coverage debts, exact raw STEP refs, carried
+    touch-footprint constraints and complete multi-plane edge contradictions,
+    never metadata on the input dicts.
     """
     from .coordinates import formed_z
 
@@ -1957,7 +2121,9 @@ def face_stands(
             # Only a producer inside THIS setup keeps its formed-Z/grid check.
             return UNKNOWN
         constraint = {}
-        stands = _carried_face_z(bundle, setup, native, done, debts, credited, constraint)
+        stands = _carried_face_z(
+            bundle, setup, native, edge, done, debts, credited, constraint, errors
+        )
         if number(stands) and carried is not None:
             carried.append(constraint)
         return stands
@@ -1996,8 +2162,13 @@ def _face_checker(bundle, setup, errors, unknowns):
     def check(touch, face, edge, done, who, source=None):
         if touch.get("method") in MEASURED or not face:
             return edge, [], False
-        debts, credited, carried = [], [], []
-        stands = face_stands(bundle, setup, face, edge, done, source, debts, credited, carried)
+        debts, credited, carried, contradictions = [], [], [], []
+        stands = face_stands(
+            bundle, setup, face, edge, done, source, debts, credited, carried, contradictions
+        )
+        if contradictions:
+            errors.extend(f"{who} on {face}: {reason}" for reason in contradictions)
+            return UNKNOWN, [], False
         if number(edge) and not number(stands):
             # Strict producer matching may reject the authored edge. Recover only
             # the physical face for the contradiction check below, not raw credit
