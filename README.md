@@ -290,11 +290,13 @@ is then clipped at drill granularity (offset path intersected with the bounds
 eroded by the drill radius, each retained arc or leg regenerated with equal
 nominal intervals within pitch that still leave a web, a too-short span
 dropping its end hole rather than failing, every hole snapped to a safe grid
-point: interiors within one step, ends and junctions within about three steps
-or backed off inward along the true curve; every actual hole cylinder
+point: every hole searches a symmetric square of three grid steps per axis,
+choosing the nearest safe point by Euclidean distance; ends and junctions
+may back off inward along the true curve; every actual hole cylinder
 judged; swept-chord clip points never become holes), every retained web and
-break-out is proven outside the line, the table says stock past the bound is
-not cleared, omitted joins add no join debt while other tables remain (a
+break-out is proven outside the line, the table names only true dropped ends
+and piece breaks where stock beyond is not cleared, omitted joins add no join
+debt while other tables remain (a
 wholly excluded or disconnected stage keeps its clip debt), and the worst
 residual (arc radial depth, and the join break-out polyline's greatest
 distance to the nearest finished wall) is held once to the shop policy's cited

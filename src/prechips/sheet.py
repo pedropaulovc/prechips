@@ -2239,7 +2239,7 @@ def _number(value, precision=None):
 
 
 def _leftover(arc):
-    """Where a manual-arc rough's leftover stock goes: a later rough, else the file."""
+    """Residual-stock verb phrase; its caption supplies the subject and punctuation."""
     left = _number(arc.get("stock_left_mm"), 3)
     recut = arc.get("recut_by")
     if isinstance(recut, str) and recut:
@@ -7260,7 +7260,12 @@ class _Traveler:
                     fragment[0] < fragment[1] or (dropped[1] if known_ends else flags[1]),
                 ]
             elif known_ends:
-                flags = [flags[0] or dropped[0], flags[1] or dropped[1]]
+                # Regenerated rows all carry provenance markers, not end-stop flags.
+                flags = (
+                    list(dropped)
+                    if table.get("regeneration") == "true_curve"
+                    else [flags[0] or dropped[0], flags[1] or dropped[1]]
+                )
             for index, flag, verb in ((0, flags[0], "starts"), (last, flags[1], "stops")):
                 if flag:
                     point = rows[index][label_column] or f"hole #{index + 1}"
@@ -7569,7 +7574,7 @@ class _Traveler:
                     )
                 description += (
                     f"; rough stairs kept outside {self.arc_line(setup, arc.get('op'))}, "
-                    "one handwheel axis per row, " + _leftover(arc)
+                    "one handwheel axis per row; this " + _leftover(arc)
                 )
             elif method == "chain_drill":
                 headings = ["hole #", "P", "X", "Y"]
@@ -7582,8 +7587,7 @@ class _Traveler:
                         f"Single retained hole: drill Ø{_number(arc.get('drill_dia_mm'))} mm; "
                         "hole outside " + self.arc_line(setup, arc.get("op"))
                     )
-                    stock = _leftover(arc)
-                    after = stock[:1].upper() + stock[1:] + "."
+                    after = "Drilling " + _leftover(arc) + "."
                 else:
                     description = (
                         f"Chain drill: drill Ø{_number(arc.get('drill_dia_mm'))} mm, "
@@ -7591,7 +7595,9 @@ class _Traveler:
                         + self.arc_line(setup, arc.get("op"))
                     )
                     after = (
-                        f"After drilling, {_text(arc.get('break_out'))}; " + _leftover(arc) + "."
+                        f"After drilling, {_text(arc.get('break_out'))}; this "
+                        + _leftover(arc)
+                        + "."
                     )
             elif method == "chords":
                 headings = [
@@ -7730,8 +7736,7 @@ class _Traveler:
                         f"drill Ø{_number(line.get('drill_dia_mm'))} mm; hole outside "
                         + self.arc_line(setup, line.get("op"))
                     )
-                    stock = _leftover(line)
-                    after = stock[:1].upper() + stock[1:] + "."
+                    after = "Drilling " + _leftover(line) + "."
                 else:
                     description = (
                         f"Chain drill straight joins on the {side} side: "
@@ -7740,7 +7745,9 @@ class _Traveler:
                         + self.arc_line(setup, line.get("op"))
                     )
                     after = (
-                        f"After drilling, {_text(line.get('break_out'))}; " + _leftover(line) + "."
+                        f"After drilling, {_text(line.get('break_out'))}; this "
+                        + _leftover(line)
+                        + "."
                     )
                 description += self.cut_order(line) + self.clip(
                     line, line.get("clipped_at") or [], rows

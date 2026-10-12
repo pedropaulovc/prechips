@@ -9635,20 +9635,23 @@ class _Setup:
             ]
 
         def options(exact, curve, geometry, boundary):
-            reach = 3 if boundary else 1
-            base = [math.floor(v / step) for v in exact]
+            # Search the same coordinate square for every hole. A circular
+            # one-step cutoff can reject every safe scrap-side diagonal.
+            reach = 3
+            spans = [
+                range(math.ceil(v / step - reach), math.floor(v / step + reach) + 1) for v in exact
+            ]
             neighbours = incident(exact) if boundary else []
             candidates = (
-                [round((base[0] + i) * step, decimals), round((base[1] + j) * step, decimals)]
-                for i in range(1 - reach, reach + 1)
-                for j in range(1 - reach, reach + 1)
+                [round(i * step, decimals), round(j * step, decimals)]
+                for i in spans[0]
+                for j in spans[1]
             )
             return sorted(
                 (
                     point
                     for point in candidates
-                    if (boundary or math.dist(point, exact) <= step + tol)
-                    and inside(point)
+                    if inside(point)
                     and safe(point, exact, curve, geometry, boundary)
                     and all(safe(point, exact, c, g, True) for c, g in neighbours)
                 ),
@@ -9766,8 +9769,16 @@ class _Setup:
         def populate(curve, geometry, index, low, high, length):
             start = backed_end(curve, geometry, low, high, length)
             if start is None:
-                return []
+                raise _ClipUnknown(
+                    f"chain curve {index + 1}: no safe DRO-grid drill centre after "
+                    "full-interval search and back-off"
+                )
             end = backed_end(curve, geometry, high, start, length)
+            if end is None:
+                raise _ClipUnknown(
+                    f"chain curve {index + 1}: no safe DRO-grid end drill centre after "
+                    "full-interval search and back-off"
+                )
             span = (end - start) * length
             pitch = geometry["pitch_mm"] / scale
             minimum = max(1, math.ceil(span / pitch))

@@ -390,6 +390,59 @@ def _endpoint_regeneration_cases():
     return controls
 
 
+def _unsnappable_interval_cases():
+    """Fixed finite walls leave one local DRO wedge empty, not the whole bounds."""
+    radius, pitch = 1.8, 4.0
+    walls = [{"kind": "line", "ends": [[x, 0.0], [x, 24.0]]} for x in (2.0, 8.2)]
+    cases = []
+    for name, legs in (
+        ("bad-first", ("bad", "good")),
+        ("bad-last", ("good", "bad")),
+        ("all-unsnappable", ("bad",)),
+        ("safe-only", ("good",)),
+    ):
+        tables = [
+            (leg, [[0.2 if leg == "bad" else 10.0, y] for y in (4.0, 8.0, 12.0, 16.0, 20.0)])
+            for leg in legs
+        ]
+        checkpoints = _printed("S1:10", "rough", tables, bounded=True)
+        checkpoints["dro"] = {"step": 1.0, "decimals": 0, "scale": 1.0}
+        bad_tables = []
+        for leg, path in zip(legs, checkpoints["paths"], strict=True):
+            x, normal = (0.2, [-1.0, 0.0]) if leg == "bad" else (10.0, [1.0, 0.0])
+            path.update(
+                method="chain_drill",
+                chain_geometry={
+                    "pitch_mm": pitch,
+                    "offset": radius,
+                    "setup_origin": [0.0, 0.0],
+                    "basis": [[1.0, 0.0], [0.0, 1.0]],
+                    "curves": [{"kind": "line", "ends": [[x, 4.0], [x, 20.0]], "normal": normal}],
+                    "walls": deepcopy(walls),
+                },
+            )
+            if leg == "bad":
+                bad_tables.append(path["table"])
+        cases.append(
+            {
+                "name": f"unsnappable-{name}",
+                "unsnappable": name,
+                "bad_tables": bad_tables,
+                "paths": checkpoints["paths"],
+                "checkpoints": checkpoints,
+                "bounds": {"x": [-1.6, 13.8], "y": [2.2, 21.8], "z": [0.0, 3.0]},
+                "radius": radius,
+                "allowance": 0.0,
+                "dro": checkpoints["dro"],
+                "finished": {
+                    "kind": "polygon",
+                    "points": [[2.0, 0.0], [8.2, 0.0], [8.2, 24.0], [2.0, 24.0]],
+                },
+            }
+        )
+    return cases
+
+
 def test_bounded_chain_holes_regenerate_safe_true_curve_endpoints(regeneration_boundaries):
     controls = [(case, result) for case, result in regeneration_boundaries if "control" in case]
     assert {(case["family"], case["control"]) for case, _ in controls} == {
@@ -421,17 +474,12 @@ def test_bounded_chain_holes_regenerate_safe_true_curve_endpoints(regeneration_b
         assert piece
         nominal = [point["exact_xy"] for point in piece]
         printed = [point["dro_xy"] for point in piece]
-        for index, (point, exact, actual) in enumerate(zip(piece, nominal, printed, strict=True)):
+        for point, exact, actual in zip(piece, nominal, printed, strict=True):
             assert point["generated"] is True
             assert "after" not in point and "t" not in point
             assert point["model_xy"] == exact
             assert all(abs(value / step - round(value / step)) < 1e-7 for value in actual)
-            if index in (0, len(piece) - 1):
-                assert max(abs(a - b) for a, b in zip(exact, actual, strict=True)) <= (
-                    3 * step + tol
-                )
-            else:
-                assert math.dist(exact, actual) <= step + tol
+            assert max(abs(a - b) for a, b in zip(exact, actual, strict=True)) <= 3 * step + tol
             for axis, key in enumerate(("x", "y")):
                 lo, hi = case["bounds"][key]
                 assert lo + drill - tol <= actual[axis] <= hi - drill + tol
@@ -543,6 +591,114 @@ def test_bounded_chain_holes_regenerate_safe_true_curve_endpoints(regeneration_b
             )
         else:
             assert facts["checkpoint_hits"] == 0 and facts["checkpoint_errors"] == [], facts
+
+
+def _assert_unsnappable_interval_oracle(case, result):
+    """Exhaust the whole retained line's neighbourhood, not the engine's walk samples."""
+    proof, drill, step = result["unsnappable_oracle"], case["radius"], case["dro"]["step"]
+    inner = [[lo + drill, hi - drill] for lo, hi in (case["bounds"][key] for key in ("x", "y"))]
+    assert inner[0] == pytest.approx([0.2, 12.0])
+    assert inner[1] == pytest.approx([4.0, 20.0])
+    assert proof["global_grid_count"] == 12 * 17
+    # The globally legal grid is populated, and the other wall has a safe witness.
+    assert all(lo <= value <= hi for value, (lo, hi) in zip((10.0, 4.0), inner, strict=True))
+    assert proof["safe_witness"]["wall_gaps"] == pytest.approx([8.0, drill])
+    assert proof["safe_witness"]["scrap_signed_gap"] == pytest.approx(drill)
+    assert {entry["table"] for entry in proof["intervals"]} == set(case["bad_tables"])
+    assert proof["intervals"]
+    paths = {path["table"]: path for path in case["paths"]}
+    for entry in proof["intervals"]:
+        geometry = paths[entry["table"]]["chain_geometry"]
+        (curve,) = geometry["curves"]
+        a, b = curve["ends"]
+        wall = geometry["walls"][0]
+        assert a == [0.2, 4.0] and b == [0.2, 20.0]
+        assert math.dist(a, b) == 16.0
+        assert entry["nominal_wall_gaps"] == pytest.approx([drill, drill])
+        # Radius erosion rules out x=0; the three-step neighbourhood rules out
+        # x>=4. The finite wall covers every admissible y, so x=1,2,3 all have
+        # gap <=1 <1.8, including the tempting wrong-side x=3 candidate.
+        expected = {(x, y) for x in (1.0, 2.0, 3.0) for y in range(4, 21)}
+        assert {tuple(candidate["point"]) for candidate in entry["candidates"]} == expected
+        for candidate in entry["candidates"]:
+            point = candidate["point"]
+            assert all(lo <= value <= hi for value, (lo, hi) in zip(point, inner, strict=True))
+            assert _segment_gap(point, a, b) <= 3 * step
+            gap = _segment_gap(point, *wall["ends"])
+            assert gap <= 1.0 < drill
+            assert candidate["wall_gap"] == pytest.approx(gap, abs=LENGTH_TOLERANCE_MM)
+            assert candidate["scrap_signed_gap"] < drill - LENGTH_TOLERANCE_MM
+        assert any(candidate["scrap_signed_gap"] < 0 for candidate in entry["candidates"])
+
+
+def _assert_unsnappable_clip_unknown(result):
+    facts = result["facts"]
+    clips = facts["checkpoint_clips"]
+    reason = clips.get("reason", "")
+    assert "no safe DRO-grid" in reason, facts
+    assert "full-interval" in reason, facts
+    assert "first contact could not be derived" not in reason
+    assert clips["paths"] == []
+    assert result["entry"] is None and result["evidence"] == []
+    assert facts["checkpoint_count"] == 0
+    assert facts["checkpoint_hits"] == "unknown" and facts["checkpoint_errors"] == []
+    assert reason in facts["checkpoint_reason"]
+    assert result["rows"] == result["checkpoint_paths"] == []
+    assert reason in result["table_reason"]
+    assert result["sketch_paths"] == result["waypoints"] == []
+    (debt,) = result["sketch_debts"]
+    assert "NOT SHOWN" in debt and reason in debt
+
+
+def _assert_snappable_companion(regeneration_boundaries):
+    case, result = next(
+        (case, result)
+        for case, result in regeneration_boundaries
+        if case.get("unsnappable") == "safe-only"
+    )
+    facts, entry = result["facts"], result["entry"]
+    assert "reason" not in facts["checkpoint_clips"] and "checkpoint_reason" not in facts, facts
+    assert facts["checkpoint_hits"] == 0 and facts["checkpoint_errors"] == [], facts
+    assert facts["checkpoint_count"] == 5
+    assert entry["dropped_ends"] == [False, False]
+    (piece,) = entry["pieces"]
+    expected = [[10.0, y] for y in (4.0, 8.0, 12.0, 16.0, 20.0)]
+    assert [point["dro_xy"] for point in piece] == expected
+    assert [row["xy_mm"] for row in result["rows"]] == expected
+    assert len(result["evidence"]) == len(piece) == 5
+    for proof in result["evidence"]:
+        assert proof["actual_wall_gaps"] == pytest.approx([8.0, case["radius"]])
+        assert proof["finished_volume"] <= 1e-7
+        assert proof["outside_bounds_volume"] <= 1e-7
+        assert proof["fixture_volume"] <= 1e-7
+    assert min(math.dist(a, b) for a, b in zip(expected, expected[1:], strict=False)) > (
+        2 * case["radius"] + LENGTH_TOLERANCE_MM
+    )
+
+
+@pytest.mark.parametrize("order", ("bad-first", "bad-last"))
+def test_unsnappable_chain_interval_invalidates_other_safe_path(regeneration_boundaries, order):
+    case, result = next(
+        (case, result)
+        for case, result in regeneration_boundaries
+        if case.get("unsnappable") == order
+    )
+    assert len(case["paths"]) == 2 and len(case["bad_tables"]) == 1
+    assert (case["paths"][0]["table"] in case["bad_tables"]) == (order == "bad-first")
+    _assert_snappable_companion(regeneration_boundaries)
+    _assert_unsnappable_interval_oracle(case, result)
+    _assert_unsnappable_clip_unknown(result)
+
+
+def test_all_unsnappable_chain_intervals_report_concrete_unknown(regeneration_boundaries):
+    case, result = next(
+        (case, result)
+        for case, result in regeneration_boundaries
+        if case.get("unsnappable") == "all-unsnappable"
+    )
+    assert {path["table"] for path in case["paths"]} == set(case["bad_tables"])
+    _assert_unsnappable_interval_oracle(case, result)
+    _assert_unsnappable_clip_unknown(result)
 
 
 def _regeneration_case(name, curves, walls, bounds, finished, **details):
@@ -763,7 +919,7 @@ def _regeneration_cases():
 
 
 def _nearest_endpoint_cases():
-    """Non-grid crossings in every D4 image, with unique nearest-safe grid points.
+    """Non-grid crossings and junctions in every D4 image, with unique safe minima.
 
     The finite sector deliberately ends before its offset circle meets the bound:
     clearance to its real end/caps, not the infinite supporting circle, decides safety.
@@ -860,6 +1016,108 @@ def _nearest_endpoint_cases():
         }
         bases.append(case)
 
+    junction = [10.12337, 8.23441]
+    turn = math.radians(2.0)
+    direction, normal = [math.cos(turn), -math.sin(turn)], [math.sin(turn), math.cos(turn)]
+    corner = [
+        junction[0] - offset * math.sin(turn) / (1 + math.cos(turn)),
+        junction[1] - offset,
+    ]
+    wall_ends = [
+        [corner[0] - 20.0, corner[1]],
+        [corner[i] + 20.0 * direction[i] for i in range(2)],
+    ]
+    # A shallow convex corner leaves less than one grid step of radial slack.
+    # Ordinary rounding can therefore be too close to its finite wall vertex.
+    miter = _regeneration_case(
+        "nearest-convex-miter",
+        [
+            {
+                "kind": "line",
+                "ends": [[junction[0] - 12.0, junction[1]], junction],
+                "normal": [0.0, 1.0],
+            },
+            {
+                "kind": "line",
+                "ends": [junction, [junction[i] + 12.0 * direction[i] for i in range(2)]],
+                "normal": normal,
+            },
+        ],
+        [
+            {"kind": "line", "ends": [wall_ends[0], corner]},
+            {"kind": "line", "ends": [corner, wall_ends[1]]},
+        ],
+        (-40.0, 40.0, -40.0, 40.0),
+        {"kind": "polygon", "points": [corner, *wall_ends]},
+        junction=junction,
+    )
+    miter["nearest"] = {
+        "family": "convex-miter",
+        "endpoints": [junction],
+        "junction": True,
+    }
+    bases.append(miter)
+
+    # Close to a grid line, but not a metric tie: the finite line end admits a
+    # tempting inward snap that the incident arc rejects (and conversely).
+    centre = [0.13700004, -0.24855]
+    junction = circle_point(0.0)
+    wall_radius = radius - offset
+    join_wall = {
+        "kind": "line",
+        "ends": [circle_point(0.0, wall_radius), [centre[0] + wall_radius, centre[1] + 20.0]],
+    }
+    arc = {
+        "kind": "arc",
+        "centre": centre,
+        "radius": radius,
+        "start_deg": 0.0,
+        "sweep_deg": -30.0,
+        "outward": 1,
+        "angle_start_deg": 0.0,
+        "angle_sweep_deg": -30.0,
+    }
+    # The finished circle and its tangent-sided extension share a real boundary
+    # junction. Both finite incident walls constrain the mandatory shared hole.
+    arc_join = _regeneration_case(
+        "nearest-arc-join-junction",
+        [
+            {
+                "kind": "line",
+                "ends": [[junction[0], junction[1] + 12.0], junction],
+                "normal": [1.0, 0.0],
+            },
+        ],
+        [join_wall],
+        (-40.0, 40.0, -40.0, 40.0),
+        {
+            "kind": "arc-join",
+            "circle": {"centre": centre, "radius": wall_radius},
+            "points": [
+                [centre[0] - wall_radius, centre[1]],
+                [centre[0] + wall_radius, centre[1]],
+                [centre[0] + wall_radius, centre[1] + 20.0],
+                [centre[0] - wall_radius, centre[1] + 20.0],
+            ],
+        },
+        junction=junction,
+    )
+    arc_join["paths"].extend(
+        _regeneration_case(
+            "nearest-arc-join-arc",
+            [arc],
+            [{**arc, "radius": wall_radius, "sweep_deg": -90.0}],
+            (-40.0, 40.0, -40.0, 40.0),
+            arc_join["finished"],
+        )["paths"]
+    )
+    arc_join["nearest"] = {
+        "family": "arc-join-junction",
+        "endpoints": [junction],
+        "junction": True,
+    }
+    bases.append(arc_join)
+
     cases = []
     rotations = (
         [[1, 0], [0, 1]],
@@ -895,12 +1153,12 @@ def _nearest_endpoint_cases():
 
                 case = deepcopy(base)
                 case["name"] += f"-r{quarter_turns}-{'reflect' if reflected else 'direct'}"
-                geometry = case["paths"][0]["chain_geometry"]
-                for curve in geometry["curves"] + geometry["walls"]:
-                    transform_curve(curve)
-                geometry["setup_origin"] = transform(geometry["setup_origin"])
-                geometry["basis"] = [transform(axis) for axis in geometry["basis"]]
                 for path in case["paths"]:
+                    geometry = path["chain_geometry"]
+                    for curve in geometry["curves"] + geometry["walls"]:
+                        transform_curve(curve)
+                    geometry["setup_origin"] = transform(geometry["setup_origin"])
+                    geometry["basis"] = [transform(axis) for axis in geometry["basis"]]
                     path["xy_mm"] = [transform(point) for point in path["xy_mm"]]
                 box = case["bounds"]
                 corners = [transform([x, y]) for x in box["x"] for y in box["y"]]
@@ -915,9 +1173,13 @@ def _nearest_endpoint_cases():
                     assert protected["arc"] is geometry["walls"][0]
                 else:
                     protected["points"] = [transform(point) for point in protected["points"]]
+                    if protected["kind"] == "arc-join":
+                        protected["circle"]["centre"] = transform(protected["circle"]["centre"])
                 case["nearest"]["endpoints"] = [
                     transform(point) for point in case["nearest"]["endpoints"]
                 ]
+                if "junction" in case:
+                    case["junction"] = transform(case["junction"])
                 case["nearest"]["transform"] = matrix
                 cases.append(case)
     return cases
@@ -957,15 +1219,24 @@ def signed_finished_gap(point, finished):
     return -distance if finished.isInside(centre, 1e-9, False) else distance
 
 
-def endpoint_candidates(case, piece, walls, finished):
+def endpoint_candidates(case, piece, walls, finished, exacts=None):
     # Measure an exhaustive grid square, without calling any engine safety helper.
     step, decimals = case["dro"]["step"], case["dro"]["decimals"]
     drill, box = case["radius"], case["bounds"]
     results = []
-    for index, exact in zip((0, len(piece) - 1), case["nearest"]["endpoints"]):
+    for exact in case["nearest"]["endpoints"] if exacts is None else exacts:
+        # Authored targets can be interior holes or shared table endpoints.
+        matches = [i for i, point in enumerate(piece)
+                   if math.dist(point["exact_xy"], exact) <= 1e-9]
+        if not matches and exacts is not None:
+            results.append({"missing": True, "exact_xy": exact})
+            continue
+        assert matches, case["name"]
+        index = matches[0]
+        assert all(piece[i]["dro_xy"] == piece[index]["dro_xy"] for i in matches), case["name"]
         nominal = Part.Vertex(V(*exact, 0))
         nominal_gaps = [nominal.distToShape(wall)[0] for wall in walls]
-        others = [point["dro_xy"] for i, point in enumerate(piece) if i != index]
+        others = [point["dro_xy"] for i, point in enumerate(piece) if i not in matches]
         # Integer grid bounds derive from a symmetric metric window, not the
         # snapper's floor/base/offset loops. Reverse enumeration forbids relying
         # on the first candidate or reproducing its point-sorting tie-break.
@@ -993,6 +1264,8 @@ def endpoint_candidates(case, piece, walls, finished):
         actual = piece[index]["dro_xy"]
         cylinder = Part.makeCylinder(drill, 3, V(*actual, 0))
         results.append({
+            "index": index,
+            "indices": matches,
             "nominal_wall_gaps": nominal_gaps,
             "candidates": candidates,
             "actual_cylinder_wall_gaps": [cylinder.distToShape(wall)[0] for wall in walls],
@@ -1004,9 +1277,58 @@ def endpoint_candidates(case, piece, walls, finished):
     return results
 
 
+def unsnappable_interval_oracle(case, walls, finished):
+    # A Cartesian lattice enumeration covers every y of the retained line,
+    # independently of choices(), backed_end(), and their half-step samples.
+    drill, step = case["radius"], case["dro"]["step"]
+    inner = [[lo + drill, hi - drill] for lo, hi in (case["bounds"][key] for key in ("x", "y"))]
+    grid = [range(math.ceil(lo / step), math.floor(hi / step) + 1) for lo, hi in inner]
+    witness = Part.Vertex(V(10.0, 4.0, 0))
+    intervals = []
+    for path in case["paths"]:
+        if path["table"] not in case["bad_tables"]:
+            continue
+        curve = path["chain_geometry"]["curves"][0]
+        a, b = curve["ends"]
+        spans = [
+            range(math.ceil(max(lo, min(a[i], b[i]) - 3 * step) / step),
+                  math.floor(min(hi, max(a[i], b[i]) + 3 * step) / step) + 1)
+            for i, (lo, hi) in enumerate(inner)
+        ]
+        candidates = []
+        for x in spans[0]:
+            for y in spans[1]:
+                point = [x * step, y * step]
+                vertex = Part.Vertex(V(*point, 0))
+                candidates.append({
+                    "point": point,
+                    "wall_gap": vertex.distToShape(walls[0])[0],
+                    "scrap_signed_gap": signed_finished_gap(point, finished),
+                })
+        intervals.append({
+            "table": path["table"],
+            "nominal_wall_gaps": [
+                Part.Vertex(V(*point, 0)).distToShape(walls[0])[0] for point in (a, b)
+            ],
+            "candidates": candidates,
+        })
+    return {
+        "global_grid_count": len(grid[0]) * len(grid[1]),
+        "safe_witness": {
+            "wall_gaps": [witness.distToShape(wall)[0] for wall in walls],
+            "scrap_signed_gap": signed_finished_gap([10.0, 4.0], finished),
+        },
+        "intervals": intervals,
+    }
+
+
 for case in cases:
     geometry = case["paths"][0]["chain_geometry"]
-    walls = [wall_edge(wall) for wall in geometry["walls"]]
+    wall_specs = (
+        [wall for path in case["paths"] for wall in path["chain_geometry"]["walls"]]
+        if "nearest" in case else geometry["walls"]
+    )
+    walls = [wall_edge(wall) for wall in wall_specs]
     protected = case["finished"]
     if protected["kind"] == "circle":
         finished = Part.makeCylinder(protected["radius"], 3, V(*protected["centre"], 0))
@@ -1020,6 +1342,11 @@ for case in cases:
     else:
         vertices = [V(*point, 0) for point in protected["points"]]
         finished = Part.Face(Part.makePolygon(vertices + [vertices[0]])).extrude(V(0, 0, 3))
+        if protected["kind"] == "arc-join":
+            circle = protected["circle"]
+            finished = finished.fuse(
+                Part.makeCylinder(circle["radius"], 3, V(*circle["centre"], 0))
+            ).removeSplitter()
     assert finished.isValid(), case["name"]
     box = case["bounds"]
     bounds = Part.makeBox(box["x"][1] - box["x"][0], box["y"][1] - box["y"][0],
@@ -1027,7 +1354,7 @@ for case in cases:
     details = {}
     if "checkpoints" in case:
         # Supply explicit native state at the checkpoint seam. Each control
-        # gets a fresh setup/op; no unrelated paths share its web constraints.
+        # gets a fresh setup/op; only that case's paths share its web constraints.
         # The production clip, full-radius guard, errors and sketch all run.
         op = {
             "subject": "S1:10",
@@ -1056,27 +1383,40 @@ for case in cases:
         facts = {}
         setup._checkpoint_facts(op, facts)
         setup._finish_checkpoints([])
-        (entry,) = facts["checkpoint_clips"]["paths"]
-        pieces = entry["pieces"]
+        entries = facts["checkpoint_clips"]["paths"]
+        entry = entries[0] if len(entries) == 1 else None
+        pieces = [piece for entry in entries for piece in entry["pieces"]]
         sketch_paths, waypoints, sketch_debts = setup._clipped_sketch({})
         details = {
             "facts": facts,
             "rows": op["checkpoints"]["rows"],
+            "checkpoint_paths": op["checkpoints"]["paths"],
+            "table_reason": op["checkpoints"].get("reason"),
             "sketch_paths": sketch_paths,
             "waypoints": waypoints,
             "sketch_debts": sketch_debts,
         }
+        if "unsnappable" in case:
+            details["unsnappable_oracle"] = unsnappable_interval_oracle(case, walls, finished)
     else:
         regenerated = engine._Setup._regenerate_chain(
             case["paths"], box, case["radius"], case["dro"]
         )
-        (entry, pieces), = regenerated
         if "nearest" in case:
+            entry = regenerated[0][0]
+            pieces = [piece for _, table_pieces in regenerated for piece in table_pieces]
+            details["entries"] = [table_entry for table_entry, _ in regenerated]
             details["repeat_matches"] = regenerated == engine._Setup._regenerate_chain(
                 case["paths"], box, case["radius"], case["dro"]
             )
-            (piece,) = pieces
-            details["nearest"] = endpoint_candidates(case, piece, walls, finished)
+            points = [point for piece in pieces for point in piece]
+            details["nearest"] = endpoint_candidates(case, points, walls, finished)
+            if case["nearest"]["family"] == "arc-join-junction":
+                details["line_nearest"] = endpoint_candidates(
+                    case, points, walls, finished, case["paths"][0]["xy_mm"]
+                )
+        else:
+            (entry, pieces), = regenerated
     evidence = []
     for piece in pieces:
         for point in piece:
@@ -1101,7 +1441,7 @@ with open(directory + "/answers.json", "w", encoding="utf-8") as stream:
 def regeneration_boundaries(tmp_path_factory, freecad_kernel):
     """One cheap native batch; no STEP import, stock-prefix rebuild or consumer model."""
     directory = tmp_path_factory.mktemp("regeneration-boundaries")
-    cases = _regeneration_cases() + _nearest_endpoint_cases()
+    cases = _regeneration_cases() + _nearest_endpoint_cases() + _unsnappable_interval_cases()
     (directory / "cases.json").write_text(json.dumps(cases), encoding="utf-8")
     script = directory / "probe.py"
     script.write_text(_REGENERATION_NATIVE, encoding="utf-8")
@@ -1142,7 +1482,7 @@ def _assert_regenerated_cylinders(case, result):
     points = [point for piece in entry["pieces"] for point in piece]
     assert points and len(points) == len(result["evidence"])
     for piece in entry["pieces"]:
-        for index, point in enumerate(piece):
+        for point in piece:
             exact, actual, model = (point[key] for key in ("exact_xy", "dro_xy", "model_xy"))
             assert point["generated"] is True and "after" not in point and "t" not in point
             reconstructed = [
@@ -1152,13 +1492,9 @@ def _assert_regenerated_cylinders(case, result):
             ]
             assert exact == pytest.approx(reconstructed, abs=tol)
             assert all(abs(value / step - round(value / step)) < 1e-7 for value in actual)
-            boundary = index in (0, len(piece) - 1) or point.get("overshoot") is True
-            if boundary:
-                assert max(abs(a - b) for a, b in zip(exact, actual, strict=True)) <= 3 * step + tol
-            else:
-                assert math.dist(exact, actual) <= step + tol
+            assert max(abs(a - b) for a, b in zip(exact, actual, strict=True)) <= 3 * step + tol
             if "angle_deg" in point:
-                (curve,) = geometry["curves"]
+                (curve,) = [curve for curve in geometry["curves"] if curve["kind"] == "arc"]
                 assert math.dist(exact, curve["centre"]) == pytest.approx(curve["radius"], abs=tol)
                 angle = math.radians(point["angle_deg"])
                 assert exact == pytest.approx(
@@ -1170,7 +1506,12 @@ def _assert_regenerated_cylinders(case, result):
                 )
             else:
                 assert (
-                    min(_segment_gap(exact, *curve["ends"]) for curve in geometry["curves"]) <= tol
+                    min(
+                        _segment_gap(exact, *curve["ends"])
+                        for curve in geometry["curves"]
+                        if curve["kind"] == "line"
+                    )
+                    <= tol
                 )
         # Actual full cylinders need webs, including between non-neighbouring holes.
         assert all(
@@ -1286,7 +1627,13 @@ def test_endpoint_grid_candidates_are_independently_safe_nearest_and_d4_equivari
     determinism without inventing a tie contract that could conflict with D4 symmetry.
     """
     cases = [(case, result) for case, result in regeneration_boundaries if "nearest" in case]
-    families = {"line-crossing", "circle-crossing", "finite-arc-end"}
+    families = {
+        "line-crossing",
+        "circle-crossing",
+        "finite-arc-end",
+        "convex-miter",
+        "arc-join-junction",
+    }
     assert len(cases) == 8 * len(families)
     for family in families:
         transforms = {
@@ -1297,26 +1644,83 @@ def test_endpoint_grid_candidates_are_independently_safe_nearest_and_d4_equivari
         assert len(transforms) == 8, family
     reference = {}
     for case, result in cases:
-        _assert_regenerated_cylinders(case, result)
+        shared_junction = case["nearest"].get("junction", False)
+        piece = []
+        evidence_start = 0
+        for path, entry in zip(case["paths"], result["entries"], strict=True):
+            (table_piece,) = entry["pieces"]
+            assert len(table_piece) >= 3
+            evidence_end = evidence_start + len(table_piece)
+            _assert_regenerated_cylinders(
+                {**case, "paths": [path]},
+                {"entry": entry, "evidence": result["evidence"][evidence_start:evidence_end]},
+            )
+            evidence_start = evidence_end
+            assert entry["dropped_ends"] == [False, not shared_junction]
+            geometry = path["chain_geometry"]
+            if (
+                case["nearest"]["family"] == "arc-join-junction"
+                and geometry["curves"][0]["kind"] == "line"
+            ):
+                assert path["kind"] == "line_table"
+                assert entry["rows"] == len(path["ids"]) == len(path["xy_mm"]) == 4
+                assert len(table_piece) == 4
+                for point, exact in zip(table_piece, path["xy_mm"], strict=True):
+                    assert point["exact_xy"] == pytest.approx(exact, abs=1e-9)
+                    assert "angle_deg" not in point
+            if shared_junction and len(geometry["curves"]) == 2:
+                splits = [
+                    i
+                    for i, point in enumerate(table_piece)
+                    if math.dist(point["exact_xy"], case["junction"]) <= 1e-9
+                ]
+                (split,) = splits
+                assert 0 < split < len(table_piece) - 1
+                assert table_piece[split]["overshoot"] is True
+                legs = [table_piece[: split + 1], table_piece[split:]]
+            else:
+                legs = [table_piece]
+            for curve, leg in zip(geometry["curves"], legs, strict=True):
+                exact_gaps = [
+                    math.dist(a["exact_xy"], b["exact_xy"])
+                    if curve["kind"] == "line"
+                    else curve["radius"] * abs(math.radians(b["angle_deg"] - a["angle_deg"]))
+                    for a, b in zip(leg, leg[1:], strict=False)
+                ]
+                assert exact_gaps == pytest.approx([exact_gaps[0]] * len(exact_gaps), abs=2e-6)
+                assert max(exact_gaps) <= geometry["pitch_mm"] + 2e-6
+            piece.extend(table_piece)
+        assert evidence_start == len(result["evidence"])
         assert result["repeat_matches"] is True, case["name"]
-        entry = result["entry"]
-        assert entry["dropped_ends"] == [False, True]
-        (piece,) = entry["pieces"]
-        assert len(piece) >= 3
         geometry = case["paths"][0]["chain_geometry"]
-        exact_gaps = [
-            math.dist(a["exact_xy"], b["exact_xy"])
-            if geometry["curves"][0]["kind"] == "line"
-            else geometry["curves"][0]["radius"]
-            * abs(math.radians(b["angle_deg"] - a["angle_deg"]))
-            for a, b in zip(piece, piece[1:], strict=False)
-        ]
-        assert exact_gaps == pytest.approx([exact_gaps[0]] * len(exact_gaps), abs=2e-6)
-        assert max(exact_gaps) <= geometry["pitch_mm"] + 2e-6
-        endpoint_indices = (0, len(piece) - 1)
-        for index, exact, proof in zip(
-            endpoint_indices, case["nearest"]["endpoints"], result["nearest"], strict=True
-        ):
+        if shared_junction:
+            (proof,) = result["nearest"]
+            assert len(proof["indices"]) == len(case["paths"])
+            if len(case["paths"]) == 2:
+                end_index = len(result["entries"][0]["pieces"][0]) - 1
+                assert proof["indices"] == [end_index, end_index + 1]
+        else:
+            assert [proof["indices"] for proof in result["nearest"]] == [[0], [len(piece) - 1]]
+        for i, a in enumerate(piece):
+            for b in piece[i + 1 :]:
+                if math.dist(a["exact_xy"], b["exact_xy"]) <= LENGTH_TOLERANCE_MM:
+                    assert a["dro_xy"] == b["dro_xy"]
+                else:
+                    assert math.dist(a["dro_xy"], b["dro_xy"]) > (
+                        2 * case["radius"] + LENGTH_TOLERANCE_MM
+                    )
+        targets = list(zip(case["nearest"]["endpoints"], result["nearest"], strict=True))
+        if case["nearest"]["family"] == "arc-join-junction":
+            line_exacts = case["paths"][0]["xy_mm"]
+            assert len(result["line_nearest"]) == len(line_exacts) == 4
+            assert all(not proof.get("missing", False) for proof in result["line_nearest"]), (
+                case["name"],
+                result["line_nearest"],
+            )
+            assert [proof["index"] for proof in result["line_nearest"]] == list(range(4))
+            targets.extend(zip(line_exacts, result["line_nearest"], strict=True))
+        for exact, proof in targets:
+            index = proof["index"]
             assert piece[index]["exact_xy"] == pytest.approx(exact, abs=1e-9), case["name"]
             candidates = proof["candidates"]
             assert len(candidates) == 36
@@ -1326,6 +1730,7 @@ def test_endpoint_grid_candidates_are_independently_safe_nearest_and_d4_equivari
                     min(candidate["bound_gaps"]) >= -1e-9
                     and candidate["scrap_signed_gap"] >= case["radius"] + case["allowance"] - 1e-9
                     and candidate["minimum_web"] > LENGTH_TOLERANCE_MM
+                    and min(candidate["wall_gaps"]) >= case["radius"] + case["allowance"] - 1e-9
                     and all(
                         actual >= min(nominal, geometry["offset"]) - 1e-9
                         for nominal, actual in zip(
@@ -1333,6 +1738,12 @@ def test_endpoint_grid_candidates_are_independently_safe_nearest_and_d4_equivari
                         )
                     )
                 )
+
+            if shared_junction:
+                # These translations make naive rounding unsafe: the finite native
+                # incident walls, not an unconstrained grid tie-break, decide the hole.
+                closest = min(candidates, key=lambda candidate: candidate["distance_squared"])
+                assert not safe(closest), case["name"]
 
             legal = [candidate for candidate in candidates if safe(candidate)]
             assert len(legal) >= 2, case["name"]
@@ -1344,10 +1755,39 @@ def test_endpoint_grid_candidates_are_independently_safe_nearest_and_d4_equivari
             )
             step = case["dro"]["step"]
             assert runner_up - nearest["distance_squared"] > 1e-6 * step**2, case["name"]
+            if (
+                case["nearest"]["family"] == "arc-join-junction"
+                and proof is not result["nearest"][0]
+            ):
+                # All four authored line holes have native-safe grid choices, but
+                # none in the former one-step Euclidean disc. They must not cause
+                # the full 12 mm leg to lose its free start or its interior holes.
+                assert all(candidate["distance_squared"] > step**2 for candidate in legal)
             # Every omitted grid point is at least three steps away on one axis.
             # This winner is closer, proving global nearest, not just local nearest.
             assert nearest["distance_squared"] < (3 * step) ** 2, case["name"]
             assert piece[index]["dro_xy"] == nearest["point"], case["name"]
+            assert all(piece[i]["dro_xy"] == nearest["point"] for i in proof["indices"])
+            if case["nearest"]["family"] == "arc-join-junction" and proof is result["nearest"][0]:
+                # Each table's nearest point under only its own native finite wall
+                # is closer, but fails the OTHER incident wall. This requires the
+                # global prepass to constrain both tables' shared commanded hole.
+                for wall_index in range(len(proof["nominal_wall_gaps"])):
+                    local = [
+                        candidate
+                        for candidate in candidates
+                        if min(candidate["bound_gaps"]) >= -1e-9
+                        and candidate["minimum_web"] > LENGTH_TOLERANCE_MM
+                        and candidate["wall_gaps"][wall_index]
+                        >= min(proof["nominal_wall_gaps"][wall_index], geometry["offset"]) - 1e-9
+                    ]
+                    local_nearest = min(local, key=lambda candidate: candidate["distance_squared"])
+                    assert local_nearest["distance_squared"] < nearest["distance_squared"]
+                    other_wall = 1 - wall_index
+                    assert local_nearest["wall_gaps"][other_wall] < (
+                        min(proof["nominal_wall_gaps"][other_wall], geometry["offset"]) - 1e-9
+                    )
+                    assert not safe(local_nearest)
             assert proof["actual_cylinder_wall_gaps"] == pytest.approx(
                 [gap - case["radius"] for gap in nearest["wall_gaps"]], abs=1e-8
             )

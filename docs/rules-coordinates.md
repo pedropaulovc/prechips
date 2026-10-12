@@ -263,18 +263,21 @@ naming them. Each table is recorded under `arc_table` (its joins under
   is no longer than `pitch_mm` and still leaves a web (centres more than a
   drill diameter apart); exact junctions stay shared. A span too short for any
   such spacing omits its clipped end hole (reported as a dropped end, never as
-  a fabricated no-web error or unknown). Every actual hole then snaps onto the
-  DRO grid on the safe side (inside the bound, never nearer the finished or
-  offset line than its nominal point): interior holes within one grid step,
-  end and junction holes within three grid coordinates each way or backed off
-  inward along the true curve until a safe grid point exists, so a clipped end
-  is not promised within one step of the true bound crossing. Every actual
+  a fabricated no-web error). Every actual hole then snaps onto the DRO grid
+  on the safe side (inside the bound, never nearer the finished or offset line
+  than its nominal point). All holes search the symmetric square within three
+  grid steps on each axis and choose the nearest safe point by Euclidean
+  distance, with a deterministic coordinate tie-break. A diagonal is not
+  rejected merely for lying outside a one-step circle. Ends and junctions may
+  back off inward along the true curve; a clipped end is therefore not promised
+  within one step of the true bound crossing. Every actual
   hole cylinder is judged; the printed spacing is the DRO spacing, which can
   differ from the nominal interval. A raw swept-chord
   intersection never becomes an extra hole. The web/break-out checks and the
-  single stock-cap enforcement run on that regenerated chain. Its table ends
-  with an explicit end condition: stock past the bound is not cleared and is
-  not part of the chiselled chain. Omitted joins add no join debt while an arc
+  single stock-cap enforcement run on that regenerated chain. Its table names
+  only genuine dropped ends and piece breaks where stock beyond is not cleared
+  or part of the chiselled chain; an intact arc/join junction continues into
+  the adjacent table. Omitted joins add no join debt while an arc
   or other table remains; a stage the clip excludes entirely, or retained
   pieces that no longer connect, keeps the existing clip debt.
   When a chain error withholds cut tables, profile facts still report
@@ -626,6 +629,12 @@ supports on is an accessibility error naming the row; an unresolved check is
 run-out past the land and taper walls into scrap. The traveler prints
 "corner overshoot into scrap — OK" on that row only when the kernel proved the
 op's rows clear; a row with an error keeps its error and prints no note.
+
+For a regenerated chain table (`regeneration = "true_curve"`), row clip markers
+record provenance, not where the chain stops. The traveler names only its
+`dropped_ends` and genuine breaks between retained pieces. A retained arc/join
+junction carries the chain on into the adjacent table; it never gets a note
+excluding that next leg from the breakout.
 
 Exact message:
 

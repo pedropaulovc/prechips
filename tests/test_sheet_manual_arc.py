@@ -3,11 +3,17 @@
 import re
 
 import pytest
+from test_manual_arc import (
+    JOIN_DRILL,
+    joined_chain_finding,
+    joined_chain_plan,
+    synthetic_join_clip,
+)
 from test_sheet_ops import Markup, content
 from test_sheet_precision import VisibleText, table_rows, tagged
 
 from prechips.findings import Finding
-from prechips.inputs import Bundle
+from prechips.inputs import Bundle, load_bundle
 from prechips.rules.coordinates import row_id
 from prechips.rules.resolution import LENGTH_TOLERANCE_MM
 from prechips.sheet import _Traveler
@@ -203,6 +209,14 @@ def test_stairs_print_every_corner_and_single_handwheel_axis(tmp_path):
     assert "outside the finished outline" in rough_context and "scribed" not in printed
     assert all("one handwheel axis per row" in value for value in (rough_context, join_context))
     assert "leaves at most 0.420 mm for the file" in rough_context and "cap 0.5 mm" in rough_context
+    # The stock clause has a subject, and the caption keeps exactly one terminal period.
+    assert (
+        "one handwheel axis per row; this leaves at most 0.420 mm for the file (cap 0.5 mm)"
+        in rough_context
+    )
+    assert ", leaves at most" not in rough_context
+    for caption in (rough_context, join_context):
+        assert caption.endswith(".") and not re.search(r"\.\s*[.;]", caption)
     # Every move is at one Z: it heads the block and each table's continued-page heading
     # (one per table), and no row repeats it.
     (heading,) = tagged(markup, "h3", owner)
@@ -252,8 +266,10 @@ def test_chain_drill_prints_holes_then_breakout_and_filing_stock(tmp_path):
         if "chisel the webs out along the hole line" in content(node)
     ]
     assert markup.nodes.index(table) < markup.nodes.index(breakout)
-    assert "leaves at most 0.420 mm for the file" in content(breakout)
-    assert "cap 0.5 mm" in content(breakout)
+    sentence = content(breakout)
+    assert "; this leaves at most 0.420 mm for the file (cap 0.5 mm)." in sentence
+    assert sentence.count("leaves at most") == 1 and sentence.endswith(" mm).")
+    assert not re.search(r"\.\s*[.;]", sentence), "one terminal period"
 
 
 @pytest.mark.parametrize("kind", ["arc_table", "line_table"])
@@ -352,7 +368,10 @@ def test_single_retained_chain_hole_has_no_pitch_or_web_breakout(tmp_path, kind,
     assert row[:2] == ["1", "P5"]
     assert [float(value) for value in row[-2:]] == pytest.approx(point)
     assert "Single retained hole" in printed and "drill Ø1 mm" in printed
-    assert "Leaves at most 0.420 mm for the file (cap 0.5 mm)." in printed
+    # The stock sentence names what leaves it and closes with exactly one period.
+    assert "Drilling leaves at most 0.420 mm for the file (cap 0.5 mm)." in printed
+    assert "Leaves at most" not in printed and ".." not in printed
+    assert printed.count("leaves at most") == 1
     assert (
         "retained hole P5: stock beyond its bounded ends is outside this op's area "
         "and not cleared by drilling."
@@ -433,12 +452,79 @@ def test_bounded_65_hole_chain_names_only_its_actual_first_and_last_holes(tmp_pa
         assert "P5" not in caption, "an interior hole must not become a fragment breakpoint"
 
 
+def test_fully_retained_regenerated_chain_prints_no_end_stops_at_its_junctions(tmp_path):
+    # A bounded op whose box covers the whole chain: the kernel regenerates every arc and
+    # join hole (each carrying the clip marker as provenance) and drops none. The arc and
+    # both joins continue through their shared holes, so no caption may say the chain
+    # starts or stops at a bound, or that stock beyond a hole is outside this op.
+    bundle = load_bundle(joined_chain_plan(tmp_path, bounded=True))
+    requested = joined_chain_finding(bundle, pre_kernel=True)
+    clipped = synthetic_join_clip(
+        bundle, requested, lambda table: range(len(table["rows"])), regenerated=True
+    )
+    marker = clipped.kernel["ops"]["S1:20"]["checkpoint_clips"]["clipped_at"]
+    row = joined_chain_finding(clipped)
+    assert row.status == "pass", row.sentence
+    tables = [
+        (kind, table)
+        for kind in ("arc_table", "line_table")
+        for table in row.numbers[kind]
+        if table["op"] == 20
+    ]
+    arc_ends, line_ends = set(), set()
+    for kind, table in tables:
+        assert table["regeneration"] == "true_curve" and "fragment" not in table
+        assert table["dropped_ends"] == [False, False]
+        if kind == "arc_table":
+            points = [item["dro_xy"] for item in table["rows"]]
+            markers = [item["clipped_at"] for item in table["rows"]]
+        else:
+            points, markers = table["dro_xy"], table["clipped_at"]
+        assert len(markers) == len(points) > 1 and all(item == marker for item in markers)
+        (arc_ends if kind == "arc_table" else line_ends).update(
+            tuple(points[index]) for index in (0, -1)
+        )
+    assert arc_ends and arc_ends <= line_ends, "the arc continues into a join at each end"
+
+    setup = clipped.plan["setups"][0]
+    html = _Traveler(clipped, [row], {}, None).contours(
+        setup, {("tools", "drill"): f"{JOIN_DRILL} mm drill"}
+    )
+    printed = text(html)
+    markup, _, printed_tables = coordinate_tables(html)
+    assert len(printed_tables) == len(tables) >= 2
+    assert "STOP" not in printed
+    for coordinate_table in printed_tables:
+        (context,) = markup.find("table-context", coordinate_table)
+        caption = " ".join(content(context).split())
+        assert caption.startswith("Chain ") and "drill Ø0.5 mm" in caption
+        assert "every hole outside the finished outline" in caption
+        assert caption.endswith(".") and not re.search(r"\.\s*[.;]", caption)
+        for phrase in (
+            "starts at ",
+            "stops at ",
+            "outside this op's area",
+            "not for this breakout",
+            "retained hole",
+            "stock beyond",
+            "piece ",
+        ):
+            assert phrase not in caption, caption
+    assert "outside this op's area" not in printed and "not cleared by drilling" not in printed
+    assert printed.count("After drilling, ") == len(tables)
+    assert "; this leaves at most " in printed and ".." not in printed
+
+
 @pytest.mark.parametrize("flags", [[True, False], [False, True], [True, True], [False, False]])
-def test_chain_clip_flags_name_only_the_corresponding_end_not_interior_holes(flags):
+def test_legacy_chain_clip_markers_name_only_the_corresponding_end_not_interior_holes(flags):
+    # A chain the kernel clipped from named rows (no regeneration) still reads its end
+    # markers; an interior marker never turns a hole into a break point.
     table = {"method": "chain_drill", "dropped_ends": [False, False]}
     rows = [["P4"], ["P5"], ["P6"]]
+    marker = "stock_removal_bounds"
+    markers = [marker if flags[0] else None, marker, marker if flags[1] else None]
 
-    note = _Traveler.clip(table, [flags[0], True, flags[1]], rows)
+    note = _Traveler.clip(table, markers, rows)
 
     assert note.count("starts at ") == int(flags[0])
     assert note.count("stops at ") == int(flags[1])
@@ -446,6 +532,33 @@ def test_chain_clip_flags_name_only_the_corresponding_end_not_interior_holes(fla
     assert ("stops at P6" in note) is flags[1]
     assert "P5" not in note
     assert note.count("not for this breakout") == int(any(flags))
+
+
+@pytest.mark.parametrize(
+    "dropped_ends", [[True, False], [False, True], [True, True], [False, False]]
+)
+def test_regenerated_chain_end_clauses_follow_dropped_ends_not_row_markers(dropped_ends):
+    # Every regenerated true-curve hole carries the clip marker as provenance; only the
+    # explicit dropped_ends say whether an actual end stops at the bound.
+    table = {
+        "method": "chain_drill",
+        "kernel_clip": True,
+        "regeneration": "true_curve",
+        "dropped_ends": dropped_ends,
+    }
+    rows = [["P4"], ["P5"], ["P6"]]
+
+    note = _Traveler.clip(table, ["stock_removal_bounds"] * 3, rows)
+
+    assert note.count("starts at ") == int(dropped_ends[0])
+    assert note.count("stops at ") == int(dropped_ends[1])
+    assert ("starts at P4" in note) is dropped_ends[0]
+    assert ("stops at P6" in note) is dropped_ends[1]
+    assert "P5" not in note
+    assert ("outside this op's area" in note) is any(dropped_ends)
+    assert note.count("not for this breakout") == int(any(dropped_ends))
+    if not any(dropped_ends):
+        assert note == "", "a fully retained chain adds no end clause"
 
 
 @pytest.mark.parametrize(

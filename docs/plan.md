@@ -1396,13 +1396,16 @@ uses the 1898 manual arc method:
    still leave a web (a span too short for that omits its clipped end hole as
    a dropped end, never a fabricated no-web error), and every actual hole
    snaps to the DRO grid on the safe side (inside the bound, not nearer the
-   finished or offset line): interior holes within one grid step, end and
-   junction holes within about three steps or backed off inward along the true
-   curve to a safe grid point. Every actual hole cylinder is judged; a
+   finished or offset line): every hole searches a symmetric square of three
+   grid steps per axis and chooses the nearest safe point by Euclidean
+   distance with a deterministic coordinate tie-break; ends and junctions may
+   back off inward along the true curve. Every actual hole cylinder is judged; a
    swept-chord intersection never becomes an extra hole.
-   Web/break-out validation and the single cap enforcement run on that chain,
-   whose table says stock past the bound is not cleared and is not part of the
-   chiselled chain. Omitted joins add no join debt while an arc or other table
+   Web/break-out validation and the single cap enforcement run on that chain.
+   Its table names only dropped ends and genuine piece breaks as stops where
+   stock beyond is not cleared or part of the chiselled chain; an intact
+   arc/join junction continues into the adjacent table. Omitted joins add no
+   join debt while an arc or other table
    remains, while a wholly excluded or disconnected stage keeps its existing
    clip debt. Arc and join tables report the same worst-stage stock; chain
    errors retain stock/cap profile facts where the residual was computed (a
