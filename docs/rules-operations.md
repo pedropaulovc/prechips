@@ -194,6 +194,14 @@ be multiples of 50). A spindle's `ranges_rpm` bands (each clipped to a stated
 `rpm_min`/`rpm_max`) give those limits; an RPM in a gap between two bands
 drops to the top of the band below, never a speed the spindle cannot select,
 and any unknown band endpoint leaves the RPM unknown.
+
+For `chain_drill`, depth is its feature's before-state `entry_z` (else the
+before-state stock `top_z`) minus its authored `to_z`, converted from manifest
+units to mm. Earlier face/pocket cuts advance that stock state only on their
+normal coverage proof; a preceding chain drill never becomes the next start.
+Approach air, drill-point extensions and exit leads are not added. Missing or
+nonpositive penetration keeps a named deep-hole derate unresolved.
+
 Mill feed in mm/min is `RPM * flute_count * chip_load_mm_per_tooth`. Lathe
 feed in mm/min is `RPM * feed_mm_rev`: the op's planned `feed_mm_rev` when
 declared (the feed `turning_deflection` loads the cut with; a planned
@@ -218,10 +226,17 @@ kind is `drill` or a `drill_index`/`drill_set` member, the normalized cutting
 action is `drill`, not `profile`.
 It selects the drilling `[[cut]]` row (or the drill's cited chart), without
 requiring chart overrides or disguised end-mill rows. Its `feed_mm_min` is
-axial feed; the traveler labels it **axial**. A drill is centre-cutting by
-kind: its `plunge_mm_rev` is that same drilling chip load times flute count,
-and `plunge_mm_min` equals its axial feed. End-mill `[[plunge]]` rows and
-`center_cutting` declarations do not govern a drill.
+axial feed; the traveler labels it **axial** and prints the feed per revolution
+beside mm/min for hand feeding the quill. A drill on this `chain_drill` action
+is centre-cutting by kind: its `plunge_mm_rev` is that same drilling chip load
+times flute count, and `plunge_mm_min` equals its axial feed. End-mill
+`[[plunge]]` rows and `center_cutting` declarations do not govern this action.
+Other contour methods retain their declared centre-cutting/plunge semantics.
+
+Every ordinary drill operation also reports `feed_direction = "axial"` and
+`axial_feed_mm_rev` (chip load × flutes on a mill; the evaluated per-revolution
+feed on a lathe). Its feed cell prints `axial 52 mm/min (0.025 mm/rev)`, for
+example. An unresolved feed still prints `STOP`, never `axial STOP`.
 
 A non-lathe end-mill op that cuts a `contour` also reports its plunge feed: `plunge_mm_rev`
 from the one matching cited `[[plunge]]` row (material class, tool material, tool

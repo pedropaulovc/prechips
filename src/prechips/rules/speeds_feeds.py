@@ -12,8 +12,9 @@ revolution. A mill op has no feed override.
 A cited ``[[deep_hole]]`` row derates the sfm of its ``operation`` (row or
 chart) by ``sfm_factor`` before the RPM is derived, once the hole's depth is
 more than ``depth_over_dia`` diameters; the deepest such threshold governs. The
-depth is the material the full diameter cuts: a through hole's local thickness,
-a blind hole's planned depth, never the point or exit lead.
+depth is a through hole's local thickness or a blind hole's planned depth.
+Chain drilling uses its before-state entry-to-``to_z`` penetration; no air
+approach, point extension or exit lead is added.
 
 A saw cut (``saw_cut``/``cut_off``) has no spindle: its one canonical
 ``operation = "saw_cut"`` row supplies blade linear speed (``sfm``) and descent
@@ -21,11 +22,11 @@ feed (``feed_mm_min``) directly. There is no diameter band, tool chart or
 override; the sourced speed is clamped to the machine's inclusive
 ``blade_speed_sfm`` range and no RPM is derived.
 
-A mill op with a ``contour`` path also carries its plunge feed. A drill is
-centre-cutting by kind and uses its cited drilling chip load times flute count,
-never an end-mill ``[[plunge]]`` row. An end mill requires an explicit
-``center_cutting = true`` and one cited ``[[plunge]]`` row. Neither changes this
-finding's status; coordinates decides which end-mill paths plunge into stock.
+A mill op with a ``contour`` path also carries its plunge feed. A drill doing
+``chain_drill`` is centre-cutting by kind and uses its cited drilling chip load
+times flute count, never an end-mill ``[[plunge]]`` row. Other contour methods
+require an explicit ``center_cutting = true`` and one cited ``[[plunge]]`` row.
+Neither changes this finding's status; coordinates decides which paths plunge.
 """
 
 from __future__ import annotations
@@ -163,15 +164,28 @@ def _positive(value):
 
 
 def _hole_depths(bundle):
-    """Material depth each hole op's full diameter cuts, keyed ``(setup, op)``: a through
-    hole's local thickness, a blind hole's planned depth; the point and exit lead are
-    not hole depth."""
+    """Cutting depth keyed ``(setup, op)``: ordinary holes exclude point/exit lead;
+    chain drilling uses the before-state feature entry (else top) minus ``to_z``.
+    Profile ops do not lower that start for the next chain drill."""
     depths = {}
     for finding in tip_endpoints.evaluate(bundle):
         for row in records(finding.numbers.get("endpoints")):
             through = row.get("exit_face", "not_applicable") != "not_applicable"
             depth = row.get("local_thickness" if through else "depth_mm", UNKNOWN)
             depths[(row["setup"], row["op"])] = depth if _positive(depth) else UNKNOWN
+    for setup in bundle.plan["setups"]:
+        for op, before, _ in tip_endpoints.stock_states(bundle, setup):
+            tool = resolve(bundle, "tools", op.get("tool")) or {}
+            if (
+                op.get("do") != "rough_profile"
+                or mapping(op.get("contour")).get("method") != "chain_drill"
+                or tool.get("kind") not in DRILL_KINDS
+            ):
+                continue
+            start = before["entry_z"].get(op.get("feature"), before["top_z"])
+            end = op.get("to_z", UNKNOWN)
+            depth = manifest_mm(bundle, start - end) if number(start) and number(end) else UNKNOWN
+            depths[(setup["id"], op["op"])] = depth if _positive(depth) else UNKNOWN
     return depths
 
 
@@ -451,8 +465,15 @@ def evaluate(bundle):
                 "cutting_data_row": source,
                 "rpm_range_verify": uncertain(machine),
             }
-            if not lathe and action == "drill" and isinstance(op.get("contour"), dict):
+            if action == "drill" and tool.get("kind") in DRILL_KINDS:
                 numbers["feed_direction"] = "axial"
+                numbers["axial_feed_mm_rev"] = (
+                    per_rev
+                    if lathe
+                    else flutes * chip
+                    if _positive(flutes) and _positive(chip)
+                    else UNKNOWN
+                )
             plunge_cite = UNKNOWN
             if not lathe and isinstance(op.get("contour"), dict):
                 plunge, plunge_cite, why = plunge_row(bundle, op)

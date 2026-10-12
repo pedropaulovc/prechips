@@ -8,9 +8,10 @@ from prechips.sheet import _Traveler
 
 
 def chain_bundle(diameter=6.35):
-    data = drill_bundle(deep=(), action="rough_profile")
+    data = drill_bundle(action="rough_profile")
     op = data.plan["setups"][0]["ops"][0]
     op["contour"] = {"method": "chain_drill", "pitch_mm": 4.0}
+    op["to_z"] = -5.0
     data.inventory["tools"]["drill"]["dia_mm"] = diameter
     data.cutting_data["cut"] = [
         {
@@ -55,7 +56,7 @@ def test_chain_drill_selects_drill_row_not_matching_endmill_row(diameter):
     assert "end-mill plunge source" not in finding.cite
     setup = data.plan["setups"][0]
     _, feed, stop = _Traveler(data, [finding], {}, None).speeds(setup, setup["ops"][0], False)
-    assert feed.startswith("axial ") and feed.endswith(" mm/min")
+    assert feed.startswith("axial ") and feed.endswith(" (0.025 mm/rev)")
     assert not stop
 
 
@@ -96,30 +97,36 @@ def test_tool_kind_alone_or_contour_method_alone_does_not_change_action(method, 
     assert finding.numbers["operation"] == "profile"
     assert finding.numbers["cutting_data_row"] == "end-mill source"
     assert "feed_direction" not in finding.numbers
+    assert finding.numbers["plunge_mm_rev"] == "unknown"
 
 
-def test_example_validator_checks_drilling_action_and_rejects_profile_claim():
+def check_speed_oracle(data, row):
     from test_validate_examples import VALIDATOR
 
-    data = chain_bundle()
+    entries = VALIDATOR["Entries"](data.inventory)
+    depths = VALIDATOR["check_endpoints"](data.plan, data.features, {}, entries)
     setup = data.plan["setups"][0]
-    [finding] = speeds_feeds.evaluate(data)
-    row = finding.to_dict()
-    args = (
+    VALIDATOR["check_speeds"](
         data.plan,
         data.features,
         setup,
         setup["ops"][0],
         row,
-        VALIDATOR["Entries"](data.inventory),
+        entries,
         data.cutting_data,
         data.feature_definitions,
-        {},
+        depths,
     )
-    VALIDATOR["check_speeds"](*args)
+
+
+def test_example_validator_checks_drilling_action_and_rejects_profile_claim():
+    data = chain_bundle()
+    [finding] = speeds_feeds.evaluate(data)
+    row = finding.to_dict()
+    check_speed_oracle(data, row)
     row["numbers"]["operation"] = "profile"
     with pytest.raises(ValueError):
-        VALIDATOR["check_speeds"](*args)
+        check_speed_oracle(data, row)
 
 
 @pytest.mark.parametrize("kind", ["drill_index", "drill_set"])
@@ -139,3 +146,102 @@ def test_chain_drill_resolves_family_members_as_drills(kind):
     assert finding.numbers["operation"] == "drill"
     assert finding.numbers["cutting_data_row"] == "drilling source"
     assert finding.numbers["plunge_mm_rev"] == pytest.approx(0.0254)
+    check_speed_oracle(data, finding.to_dict())
+
+
+@pytest.mark.parametrize(
+    "depth,rpm,derate", [(5.0, 900, "not_applicable"), (20.0, 450, "deep row")]
+)
+def test_chain_drill_material_depth_drives_deep_hole_derate(depth, rpm, derate):
+    data = chain_bundle()
+    data.plan["setups"][0]["ops"][0]["to_z"] = -depth
+    [finding] = speeds_feeds.evaluate(data)
+    assert finding.status == "pass"
+    assert finding.numbers["depth_over_dia"] == pytest.approx(depth / 6.35)
+    assert finding.numbers["deep_hole_row"] == derate
+    assert finding.numbers["rpm"] == rpm
+    assert finding.numbers["feed_mm_min"] == pytest.approx(rpm * 0.0254)
+    check_speed_oracle(data, finding.to_dict())
+
+
+@pytest.mark.parametrize("flutes", [None, 0, -2, "unknown"])
+def test_missing_or_nonpositive_drill_flutes_leave_axial_feed_unknown(flutes):
+    data = chain_bundle()
+    data.inventory["tools"]["drill"]["flutes"] = flutes
+    [finding] = speeds_feeds.evaluate(data)
+    assert finding.status == "unknown"
+    assert finding.numbers["feed_mm_min"] == "unknown"
+    assert finding.numbers["plunge_mm_rev"] == "unknown"
+    setup = data.plan["setups"][0]
+    _, feed, stop = _Traveler(data, [finding], {}, None).speeds(setup, setup["ops"][0], False)
+    assert feed == "STOP"
+    assert stop
+
+
+def test_uncertain_drill_chart_leaves_plunge_unresolved():
+    data = chain_bundle()
+    data.inventory["tools"]["drill"].update(
+        chart="own drill chart", sfm=50.0, chip_load_mm_per_tooth=0.01, verify=True
+    )
+    [finding] = speeds_feeds.evaluate(data)
+    assert finding.status == "unknown"
+    assert finding.numbers["plunge_mm_rev"] == "unknown"
+
+
+def test_stairs_with_declared_centre_cutting_keeps_profile_plunge_semantics():
+    data = chain_bundle()
+    data.plan["setups"][0]["ops"][0]["contour"]["method"] = "stairs"
+    data.inventory["tools"]["drill"]["center_cutting"] = True
+    [finding] = speeds_feeds.evaluate(data)
+    assert finding.numbers["operation"] == "profile"
+    assert finding.numbers["plunge_mm_rev"] == 0.5
+    assert "end-mill plunge source" in finding.cite
+
+
+def test_plain_drill_card_prints_axial_speed_and_feed_per_revolution():
+    data = drill_bundle(depth_mm=5.0)
+    [finding] = speeds_feeds.evaluate(data)
+    setup = data.plan["setups"][0]
+    _, feed, stop = _Traveler(data, [finding], {}, None).speeds(setup, setup["ops"][0], False)
+    assert feed == "axial 155 mm/min (0.100 mm/rev)"
+    assert not stop
+
+
+def test_chain_drill_uses_its_entry_plane_and_manifest_units_not_approach_air():
+    data = chain_bundle()
+    data.features["units"] = "in"
+    setup = data.plan["setups"][0]
+    setup["stock_state"]["top_z"] = 2.0
+    setup["stock_state"]["entry_z"] = {"hole": 1.0}
+    setup["ops"][0].update(to_z=0.5, approach_mm=100.0)
+    [finding] = speeds_feeds.evaluate(data)
+    assert finding.status == "pass"
+    assert finding.numbers["depth_over_dia"] == 2.0
+    assert finding.numbers["deep_hole_row"] == "not_applicable"
+    check_speed_oracle(data, finding.to_dict())
+
+
+def test_preceding_chain_drill_does_not_lower_next_chain_start():
+    data = chain_bundle()
+    setup = data.plan["setups"][0]
+    setup["ops"][0]["to_z"] = -20.0
+    setup["ops"].append({**setup["ops"][0], "op": 20})
+    findings = speeds_feeds.evaluate(data)
+    assert [row.status for row in findings] == ["pass", "pass"]
+    assert [row.numbers["depth_over_dia"] for row in findings] == pytest.approx(
+        [20.0 / 6.35, 20.0 / 6.35]
+    )
+
+
+@pytest.mark.parametrize("start,end", [("unknown", -5.0), (0.0, "unknown"), (0.0, 1.0)])
+def test_unknown_or_noncutting_chain_depth_stays_unresolved(start, end):
+    data = chain_bundle()
+    setup = data.plan["setups"][0]
+    setup["stock_state"]["top_z"] = start
+    setup["ops"][0]["to_z"] = end
+    [finding] = speeds_feeds.evaluate(data)
+    assert finding.status == "unknown"
+    assert finding.numbers["depth_over_dia"] == "unknown"
+    _, feed, stop = _Traveler(data, [finding], {}, None).speeds(setup, setup["ops"][0], False)
+    assert feed == "STOP"
+    assert stop

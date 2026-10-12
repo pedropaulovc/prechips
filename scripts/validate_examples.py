@@ -2190,8 +2190,9 @@ def check_endpoints(plan: dict, features: dict, findings: dict, entries: Entries
     or unverified tool) unknown, else pass; a non-hole feature's is not applicable.
     Returns the material depth each hole op's full diameter cuts, keyed ``(setup, op)``,
     as the plan derives it (a through hole's local thickness, a blind or tapped hole's
-    planned depth, a drilled centre's prepared depth), never the point or exit lead and
-    never the report's own depth."""
+    planned depth, a drilled centre's prepared depth), never the point or exit lead.
+    Chain drills add their before-state entry-to-to_z penetration. No reported
+    operand enters either depth."""
     setups = {setup["id"]: setup for setup in plan["setups"]}
     definitions = operative_definitions(plan, features)
     stock = SimpleNamespace(plan=plan, features=features, feature_definitions=definitions)
@@ -2337,6 +2338,22 @@ def check_endpoints(plan: dict, features: dict, findings: dict, entries: Entries
             f"{name}: endpoint verdict {finding['status']} is not the {verdict} its plan "
             "ops, tools and depth guard decide",
         )
+    for setup in plan["setups"]:
+        for op in setup["ops"]:
+            if (
+                op.get("do") != "rough_profile"
+                or not isinstance(op.get("contour"), dict)
+                or op["contour"].get("method") != "chain_drill"
+                or selected_tool(op.get("tool"), entries, "kind")
+                not in {"drill", "drill_index", "drill_set"}
+            ):
+                continue
+            start, _, _ = entry_surface(stock, setup, op)
+            end, scale = op.get("to_z", "unknown"), UNIT_MM.get(units)
+            depth = (
+                (start - end) * scale if numeric(start) and numeric(end) and scale else "unknown"
+            )
+            depths[(setup["id"], op["op"])] = depth if positive(depth) else "unknown"
     return depths
 
 

@@ -548,8 +548,10 @@ Setup overview/operations section, in this order:
    cut, feature, `T#` tool, rpm, feed, Z target and cut direction, followed by
    associated inspection records. A lathe table with any op measured in the
    chuck adds to its heading `measure only with the spindle stopped and the
-   tool withdrawn`. Lathe feed prints as `mm/rev` with resulting `mm/min` in
-   brackets; mill and saw feeds print in `mm/min`. Crash-relevant numbers (jaw
+   tool withdrawn`. Turning feed prints as `mm/rev` with resulting `mm/min` in
+   brackets; drill feeds print `axial` mm/min with mm/rev for hand feeding,
+   while other mill and saw feeds print in `mm/min`. Unknown feed cells start
+   with `STOP`. Crash-relevant numbers (jaw
    front within 3 mm of a tool's nearest approach, dead centre at the work end,
    tool tip within 3 mm of the jaw top, holding within 3 mm of an op's tool sweep
    or of what a file takes off) and per-op STOP or CAUTION findings stay with

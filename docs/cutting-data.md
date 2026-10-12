@@ -25,6 +25,11 @@ used for plunge; `[[plunge]]` is exclusively end-mill data. A tool chart
 still has precedence but is not needed to work around chain-drill lookup.
 Keep a cited per-tool chart when it records a deliberate drilling feed
 choice: removing it selects the shop row's feed, which may be higher.
+Drill feed cells show both axial mm/min and mm/rev for a hand-fed quill;
+the latter is the same chip load times flute count, not another recommendation.
+Chain drills also consume matching `[[deep_hole]]` rows: depth is the
+before-state feature entry (else stock top) minus `to_z` in manifest units,
+converted to mm, not the previous chain op's endpoint or its approach lift.
 
 The operation ledger keeps the cited speed/feed recommendation beside its
 action in authored order. Marking that operation performed does not accept the
