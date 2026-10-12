@@ -2638,6 +2638,9 @@ def test_grouped_measurement_actions_print_whole_with_full_size_side_by_side_bla
             measurement_entry("fixtures", "support", ("solids", f"pad-{index}"))
         )
     sheet.measurement_marker(measurement_entry("tools", "cutter", ("point_angle",)))
+    bundle.inventory["holders"]["second"] = {"kind": "collet", "name": "Second collet"}
+    for holder in ("collet", "second"):
+        sheet.measurement_marker(measurement_entry("tools", "cutter", ("projection", holder)))
     source = sheet.setup_status_boxes(["Retain the original setup STOP action."], [], [])
     original = Markup(source)
     expected = {
@@ -2684,7 +2687,10 @@ def test_grouped_measurement_actions_print_whole_with_full_size_side_by_side_bla
     assert {row["id"]: (row["marker"], row["text"]) for row in details["rows"]} == expected
     assert all(row["page"] == row["endPage"] and not row["fragments"] for row in details["rows"])
     assert all(
-        row["subject"] == sheet.measurement_subject(sheet.measurement_registry()[row["id"]][1])
+        row["subject"]
+        == sheet.measurement_subject(
+            sheet.measurement_registry()[row["id"]][1], include_holder=False
+        )
         for row in details["rows"]
     )
     assert all(

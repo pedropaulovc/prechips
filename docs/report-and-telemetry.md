@@ -544,8 +544,9 @@ Setup overview/operations section, in this order:
    depth, speed or feed cannot be cleared by measuring at the machine.
    Planner-unresolved topics remain named with their ops. Errors never print
    as `?`; unknowns never read as passes.
-   Measurement-action tables group fields under the input's shop name (with
-   separate installed-holder and readout-controller groups). Each original M
+   Measurement-action tables group fields under the input's shop name. Installed
+   projections identify their selected holder in each action row; the readout
+   controller remains a distinct group. Each original M
    item keeps its own field-specific action and 35 × 10 mm recording blank;
    the unit sits beside the blank rather than repeating the recording directive
    above it. Rows stay whole and continuation context retains the input name.

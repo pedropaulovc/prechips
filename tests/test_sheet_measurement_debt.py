@@ -909,7 +909,7 @@ def test_measurement_actions_group_actual_records_without_changing_the_canonical
     expected = deepcopy(sheet.measurement_registry())
     markup = Markup(sheet.setup_status_boxes([], [], []))
     groups = markup.find("measurement-actions")
-    assert len(groups) == 6
+    assert len(groups) == 4
     ids = [
         node["attrs"]["data-measurement-id"]
         for node in markup.nodes
@@ -928,10 +928,16 @@ def test_measurement_actions_group_actual_records_without_changing_the_canonical
     assert content(groups[0]).count("Test cutter") == 1
     assert "M1 —" in content(groups[0]) and "M3 —" in content(groups[0])
     assert "M2 —" in content(groups[1]) and "M1 —" not in content(groups[1])
-    assert "Test cutter in Test collet" in content(groups[2])
-    assert "Test cutter in Second collet" in content(groups[3])
-    assert "Shop mill" in content(groups[4]) and "EL400" not in content(groups[4])
-    assert "EL400" in content(groups[5]) and "Shop mill" not in content(groups[5])
+    for canonical, holder in (
+        ("tools.cutter.projection.collet", "Test collet"),
+        ("tools.cutter.projection.second", "Second collet"),
+    ):
+        row = actions(markup)[canonical]
+        assert row["parent"]["parent"] is groups[0]
+        assert content(row).count(f"in {holder}: measure: its holder face to mounted tool tip") == 1
+        assert "Test cutter" not in content(row)
+    assert "Shop mill" in content(groups[2]) and "EL400" not in content(groups[2])
+    assert "EL400" in content(groups[3]) and "Shop mill" not in content(groups[3])
     assert len(markup.find("writing-blank")) == len(expected)
     assert [content(node) for node in markup.find("field-label")] == ["mm"] * len(expected)
     text = content(markup.find("stop")[0])

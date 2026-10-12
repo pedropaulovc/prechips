@@ -3156,7 +3156,7 @@ class _Traveler:
         )
         return self.bench(match[0] if match else controller)
 
-    def measurement_subject(self, entry):
+    def measurement_subject(self, entry, *, include_holder=True):
         category, key = entry["category"], entry["identity"]
         setup = getattr(self, "setup", None) or getattr(self, "_measurement_setup", None)
         if category == "machines" and entry["field"] == ["resolution"]:
@@ -3170,7 +3170,7 @@ class _Traveler:
                 )
             )
             name = " ".join([*marks, self.tool_name(f"{category}.{key}")])
-        if entry["field"][0] == "projection" and len(entry["field"]) > 1:
+        if include_holder and entry["field"][0] == "projection" and len(entry["field"]) > 1:
             name += " in " + self.reference(entry["field"][1], "holders")
         return name
 
@@ -3314,13 +3314,19 @@ class _Traveler:
     def measurement_actions(self):
         groups = {}
         for marker, entry in self.measurement_registry().values():
-            groups.setdefault(self.measurement_record(entry), []).append((marker, entry))
+            record = self.measurement_record(entry)
+            # A tool's installed projections share its heading; each projection row
+            # names its selected holder so the blank still belongs to one exact record.
+            if entry["field"][0] == "projection":
+                record = (*record[:2], None)
+            groups.setdefault(record, []).append((marker, entry))
         html = ""
         for entries in groups.values():
+            subject = self.measurement_subject(entries[0][1], include_holder=False)
             html += (
                 '<table class="measurement-actions"><colgroup><col>'
                 '<col class="record-column"></colgroup><thead><tr>'
-                f'<th scope="col">{_numeric_html(self.measurement_subject(entries[0][1]))}</th>'
+                f'<th scope="col">{_numeric_html(subject)}</th>'
                 '<th scope="col">Record</th></tr></thead>'
             )
             for marker, entry in entries:
@@ -3332,10 +3338,13 @@ class _Traveler:
                     subject="its",
                 )
                 units = "°" if action["units"] == "degrees" else action["units"]
+                context = ""
+                if entry["field"][0] == "projection" and len(entry["field"]) > 1:
+                    context = "in " + self.reference(entry["field"][1], "holders") + ": "
                 html += (
                     f'<tbody><tr data-measurement-id="{escape(entry["id"])}" '
                     f'data-measurement-label="{marker}"><td>'
-                    + _numeric_html(f"{marker} — {action['instruction']}.")
+                    + _numeric_html(f"{marker} — {context}{action['instruction']}.")
                     + "</td><td>"
                     + _writing_field(units)
                     + "</td></tr></tbody>"
