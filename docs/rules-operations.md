@@ -64,6 +64,54 @@ Templates:
 Evidence: authored sequence and violations. Citations: PLAN §4.1 and plan
 setup/operation sequence plus `stock_in`/`zero.transfer`.
 
+## Component-supplied touch planes (`zero_check`)
+
+A bounds-free native face may be touched in a later setup without a new facing
+operation when its exact STEP face is listed in `stock.as_is_faces` and its
+own component root proves that it arrives as that surface. The global as-is
+check validates the joined stock union only; it cannot credit a sleeve face to
+a body branch. A component supply is an exact declared `stock.<component id>`
+on the validated upstream route, consumed alone by its root setup. A joined
+root, an undeclared stock-like name or a literal `stock` alongside components
+is not component-local proof. Ordinary single-stock seeding is unchanged.
+
+Component credit requires all of these existing facts:
+
+- The root's `stock_state.top_feature` or `bottom_feature` names the touched
+  feature. Its matching pre-cut native `stock_faces_mm` side (`up` or `down`)
+  has finite `face_z` and `stock_z`, equal within the absolute physical length
+  tolerance of **1e-6 mm**. A reason, missing height or stock-height mismatch is
+  debt, not a supplied face.
+- The exact geometry-matched source native plane resolves the selected STEP
+  face, its source-frame Z and outward normal. Its Z agrees with the pre-cut
+  face height within that same physical tolerance. A model AABB or generic
+  revolved geometry alone proves no entering component material.
+- The same component root's `render_scene` contains the exact named datum for
+  that feature, with a finite coplanar outline and the matching outward normal
+  and Z. Native datum emission requires the named surface to be on that
+  component's material. This additional proof is necessary:
+  `stock_faces_mm` intentionally retains a same-Z height even when the stock
+  carries a face only in part.
+- The component root has no entering or retained-stock debt. The plane then
+  survives the existing stock-DAG operation and bounded-touch-area checks.
+
+The render datum describes the root's material after its operations; it never
+bootstraps an as-is supply when the pre-cut proof is absent or mismatched.
+A datum on a later joined or receiving solid cannot replace either root proof.
+Unrelated roots that do not name the target remain unseeded, not declared
+geometrically absent; they do not poison a separately proven supplier. A named
+candidate with missing proof remains unknown. With no proven supplier, the
+unknown names the component and face instead of silently treating it as absent.
+
+The supplied plane is carried through the normal rigid-frame rules, not reset
+to a model-box height or a later cut's nominal Z. A source `down` face may
+become receiving +Z after a rigid flip; credit still requires a finite +Z
+outward plane and a known above/+Z touch in the receiving setup. Subsequent
+cuts retain the same preservation, bounded exclusion and tool-change touch
+rules as an upstream-prepared face. Missing component proof prints no credited
+face or numeric contact setting.
+
+
 ## `blind_depth` (tip endpoints)
 
 One subject per feature, with an `endpoints` array for spot, drill, ream, tap,
