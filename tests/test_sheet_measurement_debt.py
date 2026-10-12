@@ -688,16 +688,23 @@ def test_setup_semantic_stop_union_is_the_union_of_actual_operation_rows(monkeyp
     assert row_union
     # Summary op lines are independently read off the final markup. No debt-text-only
     # shortcut can satisfy this, because rpm, feed and endpoint kinds occur alongside M#.
-    summary_union = {
-        re.sub(r"^(?:Ops? [\d, ]+|All ops) — ", "", content(node)).removesuffix(
-            " — return traveler for reissue."
-        )
+    summary_lines = [
+        re.sub(r"^(?:Ops? [\d, ]+|All ops) — ", "", content(node))
         for node in markup.nodes
         if node["tag"] == "p"
         and node["parent"] is summary
         and re.match(r"^(?:Ops? [\d, ]+|All ops) — ", content(node))
-    }
+    ]
+    summary_union = set()
+    for line in summary_lines:
+        if re.fullmatch(r"no starting rpm(?: \?M\d+)*; no starting feed(?: \?M\d+)*", line):
+            summary_union.update(line.split("; "))
+        else:
+            summary_union.add(line)
     assert summary_union == row_union
+    assert all("return traveler for reissue" not in line for line in summary_lines)
+    directive = "Record the measured values here and return this traveler for reissue"
+    assert content(summary).count(directive) == 1
     for kind in (
         "no starting rpm",
         "no starting feed",
@@ -959,3 +966,42 @@ def test_measurement_actions_group_actual_records_without_changing_the_canonical
         f"?M{index}" for index in range(1, 8)
     ]
     assert all(entry["id"] not in " ".join(lines) for entry in entries)
+
+
+@pytest.mark.parametrize(
+    ("stops", "expected"),
+    [
+        (
+            {"no starting rpm ?M1 ?M2": ["10", "20"], "no starting feed ?M1 ?M2": ["20", "10"]},
+            ["no starting rpm ?M1 ?M2; no starting feed ?M1 ?M2"],
+        ),
+        (
+            {"no starting feed": ["10"], "no starting rpm": ["10"]},
+            ["no starting rpm; no starting feed"],
+        ),
+        (
+            {"no starting rpm ?M1": ["10"], "no starting feed ?M2": ["10"]},
+            ["no starting rpm ?M1", "no starting feed ?M2"],
+        ),
+        (
+            {"no starting rpm ?M1": ["10"], "no starting feed ?M1": ["20"]},
+            ["no starting rpm ?M1", "no starting feed ?M1"],
+        ),
+        (
+            {
+                "no starting rpm ?M1 — obtain approved cutting data": ["10"],
+                "no starting feed ?M1": ["10"],
+            },
+            ["no starting rpm ?M1 — obtain approved cutting data", "no starting feed ?M1"],
+        ),
+    ],
+)
+def test_compact_operation_stops_require_identical_scope_and_refs(stops, expected):
+    original = deepcopy(stops)
+    compact = list(_Traveler.compact_operation_stops(stops))
+    assert [text for text, _ in compact] == expected
+    assert stops == original
+    if len(compact) == len(stops):
+        assert compact == list(stops.items())
+    else:
+        assert set(compact[0][1]) == set(next(iter(stops.values())))

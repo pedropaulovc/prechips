@@ -3368,6 +3368,23 @@ class _Traveler:
                     if text:
                         yield text
 
+    @staticmethod
+    def compact_operation_stops(stops):
+        """Pair only the producer's plain rpm/feed STOPs with identical scope and refs."""
+        emitted = set()
+        for text, ops in stops.items():
+            if text in emitted:
+                continue
+            match = re.fullmatch(r"no starting (rpm|feed)((?: \?M\d+)*)", text)
+            if match:
+                other_kind = "feed" if match[1] == "rpm" else "rpm"
+                other = f"no starting {other_kind}{match[2]}"
+                if other in stops and set(ops) == set(stops[other]):
+                    emitted.add(other)
+                    yield f"no starting rpm{match[2]}; no starting feed{match[2]}", ops
+                    continue
+            yield text, ops
+
     def setup_status_boxes(self, stops, cautions, topics):
         actions = self.measurement_actions()
         html = ""
@@ -9367,13 +9384,13 @@ class _Traveler:
         )
         for block in [steps, hold_below, dro_html, purchased, *details.values()]:
             for text in self.rendered_stops(block):
-                stops.append(f"{text} — return traveler for reissue.")
+                stops.append(text)
         for text, ops in contour_stops.items():
             op_stops.setdefault(text, []).extend(ops)
         every = self.cutting_ops(setup)
-        for text, ops in op_stops.items():
+        for text, ops in self.compact_operation_stops(op_stops):
             label = _ops_label(ops, every)
-            stops.append(f"{label[:1].upper() + label[1:]} — {text} — return traveler for reissue.")
+            stops.append(f"{label[:1].upper() + label[1:]} — {text}")
         count = 1 + bool(details) + bool(contours) + len(worksheets)
         title = (
             f"SETUP {sid} — {machine}"
