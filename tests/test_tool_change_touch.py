@@ -74,6 +74,7 @@ def bundle(machine, zero, ops, stock_state=None):
             "gauges": {"mic": {"kind": "micrometer"}},
         },
         policy={},
+        kernel=None,
     )
     data.feature_definitions = data.features["features"]
     # An edge finder's EDGE FINDER box facts (docs/inventory.md "Edge finder").

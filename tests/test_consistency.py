@@ -987,25 +987,43 @@ def test_each_row_a_shared_note_names_is_its_own_restatement():
     assert "head Ø10 × 3" in row.sentence and "screw Ø6.4 × 13.5" in row.sentence
 
 
-@pytest.mark.parametrize("right", [{"size_mm": [10, 20, 40]}, {"verify": True}])
-def test_every_row_a_shared_label_names_is_restated_none_discharges_another(right):
+def slant(x):
+    """An oblique made hole over X ``x``…``x + 10`` naming no ``cuts``: the SHOP-MADE table
+    withholds (prints ``?`` for) every made row it may cross. A made row's own size is an
+    expected drawing setting, so ``verify`` on it withholds nothing."""
+    return {
+        "name": "slant",
+        "shape": "cylinder",
+        "at_mm": [x, 5, -40],
+        "axis": [0.6, 0, 0.8],
+        "dia_mm": 1,
+        "length_mm": 100,
+        "void": True,
+    }
+
+
+@pytest.mark.parametrize("other", ["size", "withheld"])
+def test_every_row_a_shared_label_names_is_restated_none_discharges_another(other):
     # Two rows labelled pad: a sibling the note agrees with must not hide the other's
     # different (or withheld) size.
     note = "Mill the pad to 10 x 20 x 30"
     left = block("left", [10, 20, 30], note, label="pad")
-    data = jig(left, {**block("right", [10, 20, 30], note, label="pad"), **right})
-    row = rows(data)["S1"]
-    other = "pad 10 × 20 × 40" if "size_mm" in right else "pad ?"
+    size = [10, 20, 30] if other == "withheld" else [10, 20, 40]
+    right = block("right", size, note, label="pad", at_mm=[100, 0, 0])
+    solids = [left, right] + ([slant(100)] if other == "withheld" else [])
+    row = rows(jig(*solids))["S1"]
+    expected = "pad ?" if other == "withheld" else "pad 10 × 20 × 40"
     assert (row.status, row.numbers["claims"]) == ("error", 2)
-    assert "pad 10 × 20 × 30" in row.sentence and other in row.sentence
+    assert "pad 10 × 20 × 30" in row.sentence and expected in row.sentence
 
 
 def test_each_withheld_row_a_shared_label_names_is_its_own_finding():
     note = "Mill the pad to 10 x 20 x 30"
-    pads = [block(name, [10, 20, 30], note, label="pad", verify=True) for name in ("left", "right")]
-    row = rows(jig(*pads))["S1"]
+    pads = [block(name, [10, 20, 30], note, label="pad") for name in ("left", "right")]
+    row = rows(jig(*pads, slant(0)))["S1"]
     assert (row.status, row.numbers["claims"]) == ("error", 2)
     assert len(set(row.numbers["contradictions"])) == 2
+    assert all("pad ?" in found for found in row.numbers["contradictions"])
 
 
 def test_only_the_named_row_s_size_is_read_beside_other_sizes():

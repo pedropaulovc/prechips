@@ -157,7 +157,13 @@ def shop(records, kind="mill"):
     sheet = bare(3)
     sheet.records = records
     sheet.report = {}
-    sheet.bundle = SimpleNamespace(features={"units": "mm"}, inventory={}, plan={"setups": []})
+    sheet.bundle = SimpleNamespace(
+        features={"units": "mm"},
+        inventory={},
+        plan={"setups": []},
+        kernel=None,
+    )
+    sheet.findings = []
     sheet.plan = sheet.bundle.plan
     sheet.units = "mm"
     sheet.bench = lambda text, setup=None: text
@@ -2916,6 +2922,7 @@ def test_printed_tools_refuse_an_oversized_whole_row_instead_of_splitting_it(pri
         "machine": "mill",
         "ops": [{"op": 30, "do": "pocket", "tool": "c", "holder": "h"}],
     }
+    sheet.plan["setups"] = [setup]
     _, _, source = sheet.tool_table(setup)
     original = Markup(source)
     expected = [content(node) for node in original.nodes if node["tag"] == "td"]

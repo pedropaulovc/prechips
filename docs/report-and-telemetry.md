@@ -535,26 +535,42 @@ Setup overview/operations section, in this order:
    union of every STOP kind carried by the setup's operations, with the affected
    ops and clearing action; measurement-backed speed/feed, contour and depth
    stops are not replaced or hidden by their measurement references.
-   Each consumed untrusted input has one numbered `M1`-style item in that box,
-   with the tool/record's shop name, dimension, instrument and writing space.
-   The full instruction appears there once; TOOLS cells, operation rows and
-   CLEARANCE use short `? M1` references to the same item. TOOLS rows do not
-   split across pages. The box directs the machinist to record the measured
-   value and return the traveler for re-issue; a missing computed contour,
-   depth, speed or feed cannot be cleared by measuring at the machine.
+   Only untrusted facts actually consumed by a refused decision enter the
+   **job-wide measurement register**, printed once in the JOB section. A
+   selected inventory item or a prerequisite finding's diagnostic measurement
+   union is not local consumption evidence. Prerequisite-only UNKNOWN setups
+   stay STOPped by the true upstream cause, naming the source setup/op and its
+   JOB measurement refs, without unrelated local Record rows. A bench setup
+   with no unresolved consumed decision has no measurement STOP and is absent
+   from the JOB's stopped-setup list.
+   Canonical record/field identity plus physical subfield and installed
+   holder/configuration define one physical quantity. All setups reuse its
+   global `?M1` marker; numbering and display order are deterministic and
+   ascending. The full instruction, instrument and 35 × 10 mm blank appear
+   once per physical quantity, with source setup groups and tool numbers in
+   shop language. Composite fixture solids have individual dimensional and
+   position rows, each bound to the original canonical record and each with
+   its own blank; measuring them does not promote the original fact's trust.
+   Box length/width/height and cylinder diameter/axial length or depth follow
+   the actual shape; local X/Y/Z placement quantities each have their own row.
+   Position rows name the minimum corner for boxes and base centre for
+   cylinders, relative to the fixture-local origin.
+   TOOLS, operations and CLEARANCE use only short refs. The JOB readout line
+   names the readout controller and its single global step ref. Bare M means
+   the authored measurement variable, not necessarily a touch-off reading.
+   TOOLS rows and individual recording rows stay whole. Continuation context
+   retains the input name; direction units break at the slash in `cw/ccw`,
+   never inside either abbreviation, without shrinking the blank. Record the
+   measured values and return the traveler for reissue:
+   measurement alone does not clear the actual STOP decisions named on setup
+   pages. Reissue wording refers to those decisions, not irrelevant generic
+   speeds/depths/contours. Every operation STOP kind stays in the summary.
+   An operation's independent engagement, speed/feed, cut-order or saw-kerf
+   decision retains its consumed facts even when a different stock-dependent
+   decision is blocked. Eager native refusal lists alone are not consumption.
    Planner-unresolved topics remain named with their ops. Errors never print
-   as `?`; unknowns never read as passes.
-   Measurement-action tables group fields under the input's shop name. Installed
-   projections identify their selected holder in each action row; the readout
-   controller remains a distinct group. Each original M
-   item keeps its own field-specific action and 35 × 10 mm recording blank;
-   the unit sits beside the blank rather than repeating the recording directive
-   above it. Long unit captions wrap within their recording cell without
-   shrinking the blank. Rows stay whole and continuation context retains the
-   input name.
-   Short-reference lists also name each input once, retaining every consumed
-   dimension and its original M marker rather than repeating the input name
-   for each field.
+   as `?`; unknowns never read as passes. Report finding statuses, full payloads
+   and cache identities are unchanged by this renderer projection.
    Pre-clamping acquisition requires explicit `measure_before_hold = true`
    and an authored `measure`. The original HOLD step gets a 35 × 10 mm clear
    writing field and the zero row refers back to it; there is no separate

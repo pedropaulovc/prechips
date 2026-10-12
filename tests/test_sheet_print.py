@@ -2626,13 +2626,19 @@ def test_grouped_measurement_actions_print_whole_with_full_size_side_by_side_bla
             "kind": "custom",
             "name": "Measurement support",
             "solids": [
-                {"name": f"pad-{index}", "label": f"Support pad {index}", "shape": "box"}
+                {
+                    "name": f"pad-{index}",
+                    "label": f"Support pad {index}",
+                    "shape": "box",
+                    "size_mm": [20.0, 15.0, 10.0],
+                    "at_mm": [float(index) * 25.0, 0.0, 0.0],
+                }
                 for index in range(24)
             ],
         }
     }
     sheet = _Traveler(bundle, [], {}, None)
-    sheet.measurement_registry(bundle.plan["setups"][0])
+    sheet.measurement_registry()
     for index in range(24):
         sheet.measurement_marker(
             measurement_entry("fixtures", "support", ("solids", f"pad-{index}"))
@@ -2642,7 +2648,10 @@ def test_grouped_measurement_actions_print_whole_with_full_size_side_by_side_bla
     for holder in ("collet", "second"):
         sheet.measurement_marker(measurement_entry("tools", "cutter", ("projection", holder)))
     sheet.measurement_marker(measurement_entry("machines", "mill", ("spindle", "rotation")))
-    source = sheet.setup_status_boxes(["Retain the original setup STOP action."], [], [])
+    sheet.finalize_measurements([])
+    source = sheet.job_measurement_box() + sheet.setup_status_boxes(
+        ["Retain the original setup STOP action."], [], []
+    )
     original = Markup(source)
     expected = {
         node["attrs"]["data-measurement-id"]: (

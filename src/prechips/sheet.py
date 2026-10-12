@@ -1795,6 +1795,7 @@ _READING_VALUE = r"[-−+±]?(?:(?:\d+\s+)?\d+/\d+|\d+(?:\.\d+)?|\.\d+)"
 _READING_UNITS = r"(?:\s*(?:(?:mm|in)(?:/(?:rev|min))?|rpm|sfm|°)(?!\w))?"
 _READING = re.compile(
     r"\?M\d+\b|"
+    r"\b(?:cw|ccw)\b|"
     rf"(?<![\w.])[-−+][XYZ] (?:{_READING_VALUE}{_READING_UNITS}|\?)(?!\w|\.\d)"
     rf"|(?<![\w.])(?:M\d+(?:\.\d+)?(?:\s*[x×]\s*\d+(?:\.\d+)?)?"
     rf"|#\d+-\d+|\d+/\d+-\d+)"
@@ -2424,7 +2425,12 @@ def _cell_line(line):
 
 
 def _writing_field(label, css="field", *, punctuation=""):
-    caption = f'<span class="field-label">{_numeric_html(label)}</span>' if label else ""
+    label_html = (
+        '<span class="reading">cw</span>/<wbr><span class="reading">ccw</span>'
+        if label == "cw/ccw"
+        else _numeric_html(label)
+    )
+    caption = f'<span class="field-label">{label_html}</span>' if label else ""
     if punctuation:
         caption = f'<span class="field-caption">{caption}{_numeric_html(punctuation)}</span>'
     return (
@@ -2851,6 +2857,9 @@ class _Traveler:
                 self.frames.setdefault(frame, []).append(setup["id"])
         self.setup = None
         self.setup_stops = {}
+        self._job_measurements = {}
+        self.measurement_sources = {}
+        self.setup_measurement_ids = {}
         # Ops of the current setup with a block on its contour sheet; set by contours().
         self.contour_ops = set()
         # (shop-made reference, its poses) -> the setup whose sheet 2 prints its table.
@@ -3135,14 +3144,104 @@ class _Traveler:
     def tool_name(self, reference):
         return tool_label(self.bundle, reference)
 
-    def measurement_registry(self, setup=None):
-        """Stable local M numbers; canonical inventory identities stay off the paper."""
-        setup = setup or getattr(self, "setup", None) or getattr(self, "_measurement_setup", None)
+    def measurement_registry(self):
+        """One job-wide map, bound to canonical facts and composite physical leaves."""
+        if not hasattr(self, "_job_measurements"):
+            self._job_measurements = {}
+            self.measurement_sources = {}
+            self.setup_measurement_ids = {}
+        return self._job_measurements
+
+    def measurement_quantities(self, entry):
+        """Split an aggregate fact without changing its provenance or trust."""
+        if not {"id", "category", "identity", "field"} <= entry.keys():
+            return []
+        parts = entry["field"]
+        if parts[0] != "solids" or entry.get("physical_field"):
+            return [entry]
+        item = measurement_item(self.bundle, entry["category"], entry["identity"])
+        solid = next((s for s in item.get("solids") or [] if s.get("name") == parts[1]), {})
+        fields = []
+        if solid.get("shape") == "box":
+            fields.extend(
+                (("size_mm", axis), f"{name} along local {axis.upper()}", "calipers")
+                for axis, name in zip("xyz", ("length", "width", "height"), strict=True)
+            )
+        elif solid.get("shape") == "cylinder":
+            fields.extend(
+                [
+                    (
+                        ("dia_mm",),
+                        "bore diameter" if solid.get("void") else "diameter",
+                        "bore gauge" if solid.get("void") else "micrometer or calipers",
+                    ),
+                    (
+                        ("length_mm",),
+                        "depth" if solid.get("void") else "axial length",
+                        "depth gauge" if solid.get("void") else "calipers",
+                    ),
+                ]
+            )
+        if isinstance(solid.get("at_mm"), list) and len(solid["at_mm"]) == 3:
+            anchor = "minimum corner" if solid.get("shape") == "box" else "base centre"
+            fields.extend(
+                (
+                    ("at_mm", axis),
+                    f"{anchor} local {axis.upper()} position from the fixture-local origin",
+                    "height gauge",
+                )
+                for axis in "xyz"
+            )
+        if not fields:
+            return [entry]
+        label = self.bench(solid.get("label") or _solid_name(parts[1]))
+        made = (item.get("shop_made") is True or item.get("kind") == "custom") and solid.get(
+            "supply", "made"
+        ) == "made"
+        return [
+            {
+                **entry,
+                "id": entry["id"] + "#" + ".".join(field),
+                "binding": entry["id"],
+                "physical_field": list(field),
+                "dimension": f"{label} {description}",
+                "shop_instruction": (
+                    f"measure: its {label} {description}"
+                    + (" as made" if made else "")
+                    + f", {instrument}, mm"
+                ),
+                "units": "mm",
+            }
+            for field, description, instrument in fields
+        ]
+
+    def register_measurements(self, entries, setup=None):
+        registry = self.measurement_registry()
+        setup = setup or getattr(self, "setup", None)
         sid = _mapping(setup).get("id")
-        if not hasattr(self, "_setup_measurements"):
-            self._setup_measurements = {}
-        self._measurement_setup = setup
-        return self._setup_measurements.setdefault(sid, {})
+        for entry in entries:
+            for quantity in self.measurement_quantities(entry):
+                registry.setdefault(quantity["id"], (f"M{len(registry) + 1}", quantity))
+                if sid:
+                    self.setup_measurement_ids.setdefault(sid, set()).add(quantity["id"])
+                    self.measurement_sources.setdefault(quantity["id"], set()).add(sid)
+
+    def finalize_measurements(self, sheets):
+        """Number once after all consumers have rendered; rewrite their short refs once."""
+        registry = self.measurement_registry()
+        ordered = sorted(registry.items())
+        renumber = {marker: f"M{index}" for index, (_, (marker, _)) in enumerate(ordered, 1)}
+        self._job_measurements = {
+            key: (renumber[marker], entry) for key, (marker, entry) in ordered
+        }
+        pattern = re.compile(r"(?<=\?)M\d+\b|(?<=data-measurement-ref=\")M\d+\b")
+        return [
+            [
+                [pattern.sub(lambda m: renumber.get(m[0], m[0]), block) for block in blocks]
+                for blocks in setup_sheets
+            ]
+            for setup_sheets in sheets
+        ]
 
     def dro_controller_name(self):
         """Use the model's casing from its existing manual title, not the plan key."""
@@ -3160,24 +3259,30 @@ class _Traveler:
 
     def measurement_subject(self, entry, *, include_holder=True):
         category, key = entry["category"], entry["identity"]
-        setup = getattr(self, "setup", None) or getattr(self, "_measurement_setup", None)
+        setups = self.plan.get("setups", [])
         if category == "machines" and entry["field"] == ["resolution"]:
             return self.dro_controller_name()
         name = self.reference(f"{category}.{key}", category)
-        if category == "tools" and setup:
-            numbers = tool_numbers(self.bundle, setup)
-            marks = list(
-                dict.fromkeys(
-                    number for (tool, _), number in numbers.items() if tool == (category, key)
+        if category == "tools":
+            marks = []
+            for setup in setups:
+                if setup["id"] not in self.measurement_sources.get(entry["id"], set()):
+                    continue
+                numbers = tool_numbers(self.bundle, setup)
+                marks.extend(
+                    f"{setup['id']} {number}"
+                    for (tool, _), number in numbers.items()
+                    if tool == (category, key)
                 )
-            )
-            name = " ".join([*marks, self.tool_name(f"{category}.{key}")])
+            name = " ".join([*dict.fromkeys(marks), self.tool_name(f"{category}.{key}")])
         if include_holder and entry["field"][0] == "projection" and len(entry["field"]) > 1:
             name += " in " + self.reference(entry["field"][1], "holders")
         return name
 
     def measurement_dimension(self, entry):
         """Short dimension labels, not a second measurement-instruction source."""
+        if entry.get("dimension"):
+            return entry["dimension"]
         parts = entry["field"]
         item = measurement_item(self.bundle, entry["category"], entry["identity"])
         centre = item.get("kind") in {"center_drill", "center_drill_set"}
@@ -3219,13 +3324,17 @@ class _Traveler:
             return " ".join(_text(part).replace("_", " ") for part in parts[1:])
         return labels.get(parts[0], " ".join(_text(part).replace("_", " ") for part in parts))
 
-    def measurement_marker(self, entry):
-        if not {"category", "identity", "field"} <= entry.keys():
-            return ""
+    def measurement_reference(self, entry):
         registry = self.measurement_registry()
-        if entry["id"] not in registry:
-            registry[entry["id"]] = (f"M{len(registry) + 1}", entry)
-        return "?" + registry[entry["id"]][0]
+        return " ".join(
+            "?" + registry[q["id"]][0]
+            for q in self.measurement_quantities(entry)
+            if q["id"] in registry
+        )
+
+    def measurement_marker(self, entry):
+        self.register_measurements([entry])
+        return self.measurement_reference(entry)
 
     def measurement_record(self, entry):
         """The physical input context shared by full actions and short references."""
@@ -3243,9 +3352,9 @@ class _Traveler:
 
     def measurement_lines(self, entries):
         physical = [
-            entry
+            quantity
             for entry in {entry["id"]: entry for entry in entries}.values()
-            if {"category", "identity", "field"} <= entry.keys()
+            for quantity in self.measurement_quantities(entry)
         ]
         groups = {}
         for entry in physical:
@@ -3269,62 +3378,366 @@ class _Traveler:
             subject = f"{number} {self.tool_name(op.get('tool'))}"
         return f"{subject} {self.measurement_dimension(entry)} " + self.measurement_marker(entry)
 
-    def collect_measurements(self, setup):
-        """Only consumed/dependent inputs of this setup, including host-only native debt."""
-        selected = {(category, key) for category, key, _ in setup_items(self.bundle, setup)}
-        op_ids = {str(op["op"]) for op in setup.get("ops", [])}
-        entries = {}
+    def stock_dependency(self, setup):
+        """The exported entry-stock prerequisite, not its diagnostic measurement union."""
+        unresolved = [f for f in self.setup_findings(setup) if _status(f) == "unknown"]
+        if not unresolved:
+            return None
+        kernel = _mapping(self.bundle.kernel)
+        detail = _mapping(_mapping(kernel.get("setups")).get(setup["id"]))
+        reason = detail.get("stock_reason")
+        missing_entry = any(
+            _field(f, "rule") == "consistency"
+            and "the kernel gave no setup-entry stock box for this setup"
+            in _field(f, "numbers", {}).get("unchecked", [])
+            for f in unresolved
+        )
+        if not reason and not missing_entry:
+            return None
+        if not reason:
+            return {"reason": "setup-entry stock is not established", "source": None, "op": None}
+        # The kernel exports the stopper's subject only as the leading token of
+        # stock_out_reason, propagated unchanged as stock_reason. Validate it against
+        # the actual route and source op; never infer a source from a diagnostic union.
+        routes = {s["id"]: s for s in self.plan.get("setups", [])}
+        ancestors, pending = set(), [setup]
+        while pending:
+            current = pending.pop()
+            incoming = current.get("stock_in")
+            for sid in incoming if isinstance(incoming, list) else [incoming]:
+                if sid in routes and sid not in ancestors:
+                    ancestors.add(sid)
+                    pending.append(routes[sid])
+        match = re.match(r"([^:\s]+):(\d+)\b", str(reason))
+        if match and match[1] in ancestors:
+            source = routes[match[1]]
+            source_detail = _mapping(_mapping(kernel.get("setups")).get(match[1]))
+            op = next((op for op in source["ops"] if str(op["op"]) == match[2]), None)
+            if (
+                op
+                and not source_detail.get("stock_reason")
+                and source_detail.get("stock_out_reason") == reason
+            ):
+                return {"reason": reason, "source": source, "op": op}
+        return {"reason": reason, "source": None, "op": None}
 
-        def collect(value, dependent=False):
-            if isinstance(value, list):
-                for child in value:
-                    collect(child, dependent)
-            elif isinstance(value, dict):
-                if value.get("setup", setup["id"]) != setup["id"]:
-                    return
-                if "op" in value and str(value["op"]).split(":")[-1] not in op_ids:
-                    return
-                if {"id", "category", "identity", "field"} <= value.keys():
-                    if dependent or (value["category"], value["identity"]) in selected:
-                        entries.setdefault(value["id"], value)
-                    return
-                for child in value.values():
-                    if isinstance(child, (dict, list)):
-                        collect(child, dependent)
+    def causal_measurements(self, entries, reason, op=None):
+        """Native input names in the exported causal reason bind exact physical facts."""
+        if not entries or not reason:
+            return []
+        tool = identity(self.bundle, _mapping(op).get("tool"), "tools")
+        holder = identity(self.bundle, _mapping(op).get("holder"), "holders")
+        radius = (
+            "nose_radius"
+            if op and approach(self.bundle, self.setup_for_op(op), op) == TURNING
+            else "dia"
+        )
+        fields = {
+            "radius_mm": (tool, radius),
+            "shank_radius_mm": (tool, "shank"),
+            "flute_len_mm": (tool, "flute_len"),
+            "oal_mm": (tool, "oal"),
+            "projection_mm": (tool, "projection"),
+            "holder_radius_mm": (holder, "gauge_dia"),
+            "holder_gauge_len_mm": (holder, "gauge_len"),
+            "point_angle_deg": (tool, "point_angle"),
+            "lead_mm": (tool, "lead"),
+        }
+        consumed = {
+            field
+            for native, field in fields.items()
+            if re.search(rf"(?<!\w){re.escape(native)}(?!\w)", str(reason))
+        }
+        return [
+            entry
+            for entry in entries
+            if ((entry["category"], entry["identity"]), entry["field"][0]) in consumed
+            or entry["id"] in str(reason)
+        ]
+
+    def setup_for_op(self, op):
+        return next(s for s in self.plan.get("setups", []) if any(o is op for o in s["ops"]))
+
+    def stock_source_measurements(self, dependency):
+        source, op = dependency["source"], dependency["op"]
+        if not source or not op:
+            return []
+        kernel = _mapping(self.bundle.kernel)
+        subject = f"{source['id']}:{op['op']}"
+        detail = _mapping(_mapping(kernel.get("ops")).get(subject))
+        reason = _mapping(detail.get("reasons")).get("stock_removal_bounds")
+        if (
+            not isinstance(reason, str)
+            or "radius_mm" not in reason
+            or reason not in dependency["reason"]
+        ):
+            return []
+        debts = _mapping(kernel.get("measurement_debts"))
+        selected = identity(self.bundle, op.get("tool"), "tools")
+        radius = "nose_radius" if approach(self.bundle, source, op) == TURNING else "dia"
+        return [
+            entry
+            for entry in _mapping(debts.get("ops")).get(subject, [])
+            if (entry["category"], entry["identity"]) == selected and entry["field"] == [radius]
+        ]
+
+    def upstream_stock_stop(self, setup):
+        dependency = self.stock_dependency(setup)
+        if not dependency:
+            return None
+        source, op = dependency["source"], dependency["op"]
+        if source and op:
+            entries = self.stock_source_measurements(dependency)
+            self.register_measurements(entries, source)
+            refs = " ".join(self.measurement_reference(entry) for entry in entries)
+            return (
+                f"Depends on Setup {source['id']} op {op['op']} — upstream stock not established"
+                + (
+                    " — "
+                    + "; ".join(
+                        self.measurement_dimension(entry) + " " + self.measurement_reference(entry)
+                        for entry in entries
+                    )
+                    + " not established"
+                    if refs
+                    else " — " + self.bench(dependency["reason"])
+                )
+                + "; resolve that source stock decision"
+                + (" after recording its JOB measurements" if refs else "")
+                + " and reissue this traveler."
+            )
+        return (
+            "Setup-entry stock not established — "
+            + self.bench(dependency["reason"])
+            + "; resolve the upstream stock prerequisite and reissue this traveler."
+        )
+
+    def collect_measurements(self, setup):
+        """Consumer-owned payloads only; native/prerequisite diagnostic unions are not inputs."""
+        entries = {}
+        kernel = _mapping(self.bundle.kernel)
+        debts = _mapping(kernel.get("measurement_debts"))
+        prerequisite = self.stock_dependency(setup)
+        geometry = {
+            "accessibility",
+            "reach",
+            "internal_corner_radius",
+            "fixture_interference",
+            "thin_wall_under_clamp",
+            "vise",
+        }
+
+        def collect(values):
+            for entry in values or []:
+                if (
+                    isinstance(entry, dict)
+                    and {"id", "category", "identity", "field"} <= entry.keys()
+                ):
+                    entries.setdefault(entry["id"], entry)
 
         for finding in self.setup_findings(setup):
-            if _field(finding, "rule") != "blind_depth":
-                collect(_field(finding, "numbers", {}))
+            if _status(finding) not in ("unknown", "error"):
+                continue
+            rule, subject = _field(finding, "rule"), _field(finding, "subject", "")
+            numbers = _field(finding, "numbers", {})
+            if rule == "coordinates":
+                # coordinates owns this list: grid, cut order and actual generated path
+                # inputs. It is not geometry_common's diagnostic prerequisite union.
+                from prechips.rules.coordinates import dro_grid_source
+
+                selected = {
+                    (category, reference)
+                    for category, reference, _ in setup_items(self.bundle, setup)
+                }
+                source = dro_grid_source(self.bundle, setup)
+                selected.add(identity(self.bundle, source.get("machine"), "machines"))
+                collect(
+                    entry
+                    for entry in numbers.get("measurements", [])
+                    if (entry["category"], entry["identity"]) in selected
+                )
+                for records in numbers.values():
+                    if isinstance(records, list):
+                        for record in records:
+                            if isinstance(record, dict) and any(
+                                str(op["op"]) == str(record.get("op")) for op in setup["ops"]
+                            ):
+                                collect(
+                                    entry
+                                    for entry in record.get("measurements", [])
+                                    if (entry["category"], entry["identity"]) in selected
+                                )
+            elif rule == "consistency":
+                if not prerequisite and numbers.get("dro_grid_debt"):
+                    collect(
+                        entry
+                        for entry in numbers.get("measurements", [])
+                        if entry["category"] == "machines" and entry["field"] == ["resolution"]
+                    )
+            elif rule == "saw_cut":
+                op = next((o for o in setup["ops"] if subject == f"{setup['id']}:{o['op']}"), None)
+                selected = identity(self.bundle, _mapping(op).get("tool"), "tools")
+                # The host saw decision reads its own blade kerf even when native stock
+                # is blocked. The rest of this list may be an upstream diagnostic union.
+                collect(
+                    entry
+                    for entry in numbers.get("measurements", [])
+                    if (entry["category"], entry["identity"]) == selected
+                    and entry["field"] == ["kerf"]
+                )
+            elif rule in geometry:
+                if prerequisite and rule != "internal_corner_radius":
+                    continue
+                op_detail = _mapping(_mapping(kernel.get("ops")).get(subject))
+                if op_detail.get("stock_reason") and rule != "internal_corner_radius":
+                    continue
+                if rule == "internal_corner_radius":
+                    radii = numbers.get("corner_radii_mm")
+                    if (
+                        isinstance(radii, list)
+                        and radii
+                        and not _known(numbers.get("tool_radius_mm"))
+                    ):
+                        op = next(
+                            (o for o in setup["ops"] if subject == f"{setup['id']}:{o['op']}"), None
+                        )
+                        selected = identity(self.bundle, _mapping(op).get("tool"), "tools")
+                        collect(
+                            entry
+                            for entry in numbers.get("measurements", [])
+                            if (entry["category"], entry["identity"]) == selected
+                            and entry["field"] in [["dia"], ["nose_radius"]]
+                        )
+                    continue
+                values = numbers.get("measurements", [])
+                if ":" in subject:
+                    op = next(
+                        (o for o in setup["ops"] if subject == f"{setup['id']}:{o['op']}"), None
+                    )
+                    selected = {
+                        identity(self.bundle, _mapping(op).get("tool"), "tools"),
+                        identity(self.bundle, _mapping(op).get("holder"), "holders"),
+                    }
+                    values = [
+                        entry
+                        for entry in values
+                        if (entry["category"], entry["identity"]) in selected
+                    ]
+                    depth, flute = numbers.get("reach_depth_mm"), numbers.get("flute_len_mm")
+                    turning = op is not None and approach(self.bundle, setup, op) == TURNING
+                    oal_consumed = (
+                        rule == "reach"
+                        and _status(finding) == "unknown"
+                        and op is not None
+                        and _known(depth)
+                        and _known(flute)
+                        and depth >= 0
+                        and depth > flute
+                        and numbers.get("holder_wall_hits") == 0
+                        and (turning or numbers.get("shank_hits") == 0)
+                        and any(entry["field"] == ["oal"] for entry in values)
+                    )
+                    if oal_consumed:
+                        from prechips.kernel import op_inputs
+                        from prechips.rules.geometry_common import TURNING_HOLDER_KEYS
+
+                        # Reuse accepted input qualification, not eager debt membership.
+                        # This reads host inputs only; it does not run the native kernel.
+                        inputs = op_inputs(
+                            self.bundle,
+                            setup,
+                            op,
+                            tables=self.records.get(("coordinates", setup["id"]), {}),
+                        )
+                        holder_keys = (
+                            (*TURNING_HOLDER_KEYS, "projection_mm", "shank_width_mm", "head_len_mm")
+                            if turning
+                            else ("holder_radius_mm", "holder_gauge_len_mm", "projection_mm")
+                        )
+                        oal_consumed = all(_known(inputs.get(key)) for key in holder_keys)
+                    values = [
+                        entry for entry in values if entry["field"] != ["oal"] or oal_consumed
+                    ]
+                else:
+                    selected = {
+                        identity(self.bundle, reference, category)
+                        for category, reference, _ in setup_items(self.bundle, setup)
+                        if category in WORKHOLDING_CATEGORIES
+                    }
+                    values = [
+                        entry
+                        for entry in values
+                        if (entry["category"], entry["identity"]) in selected
+                        and entry["field"] != ["opening"]
+                        and not (
+                            entry["category"] == "machines"
+                            and entry["field"][0] in {"resolution", "spindle", "envelope"}
+                        )
+                    ]
+                collect(values)
+            elif rule not in {"blind_depth", "tool_resolves"}:
+                collect(numbers.get("measurements"))
         for op in setup.get("ops", []):
             collect(self.endpoint_measurements(setup, op))
-        debts = _mapping(_mapping(self.bundle.kernel).get("measurement_debts"))
-        collect(_mapping(debts.get("setups")).get(setup["id"], []), dependent=True)
-        for subject, values in _mapping(debts.get("ops")).items():
-            if subject.startswith(setup["id"] + ":") and subject.split(":")[-1] in op_ids:
-                collect(values, dependent=True)
+            subject = f"{setup['id']}:{op['op']}"
+            detail = _mapping(_mapping(kernel.get("ops")).get(subject))
+            stock_reason = detail.get("stock_reason") or _mapping(prerequisite).get("reason")
+            reasons = []
+            for value in _mapping(detail.get("reasons")).values():
+                value = str(value)
+                if stock_reason and stock_reason in value:
+                    continue
+                if (
+                    "stock before this op is unknown" in value
+                    or "in-process stock unknown:" in value
+                ):
+                    continue
+                source = re.search(r"([^:\s]+):(\d+)\b", value)
+                if source and f"{source[1]}:{source[2]}" != subject:
+                    continue
+                reasons.append(value)
+            collect(
+                self.causal_measurements(
+                    _mapping(debts.get("ops")).get(subject, []), "; ".join(reasons), op
+                )
+            )
         return [entries[key] for key in sorted(entries)]
 
     def fixture_measurement_marks(self, setup, reference, field):
         selected = self.holding_identity(setup, reference)
         return " ".join(
             "?" + marker
-            for marker, entry in self.measurement_registry(setup).values()
-            if (entry["category"], entry["identity"]) == selected
+            for marker, entry in self.measurement_registry().values()
+            if entry["id"] in self.setup_measurement_ids.get(setup["id"], set())
+            and (entry["category"], entry["identity"]) == selected
             and entry["field"][: len(field)] == list(field)
         )
 
     def measurement_actions(self):
-        groups = {}
+        groups = []
+        previous = None
         for marker, entry in self.measurement_registry().values():
             record = self.measurement_record(entry)
-            # A tool's installed projections share its heading; each projection row
-            # names its selected holder so the blank still belongs to one exact record.
             if entry["field"][0] == "projection":
                 record = (*record[:2], None)
-            groups.setdefault(record, []).append((marker, entry))
+            if record != previous:
+                groups.append([])
+                previous = record
+            groups[-1].append((marker, entry))
         html = ""
-        for entries in groups.values():
+        for entries in groups:
             subject = self.measurement_subject(entries[0][1], include_holder=False)
+            sources = sorted(
+                {
+                    sid
+                    for _, entry in entries
+                    for sid in self.measurement_sources.get(entry["id"], ())
+                }
+            )
+            if sources:
+                subject += (
+                    " — source Setup" + ("s " if len(sources) > 1 else " ") + ", ".join(sources)
+                )
             html += (
                 '<table class="measurement-actions"><colgroup><col>'
                 '<col class="record-column"></colgroup><thead><tr>'
@@ -3332,19 +3745,14 @@ class _Traveler:
                 '<th scope="col">Record</th></tr></thead>'
             )
             for marker, entry in entries:
-                action = measurement_entry(
-                    entry["category"],
-                    entry["identity"],
-                    tuple(entry["field"]),
-                    item=measurement_item(self.bundle, entry["category"], entry["identity"]),
-                    subject="its",
-                )
+                action = self.measurement_action(entry)
                 units = "°" if action["units"] == "degrees" else action["units"]
                 context = ""
                 if entry["field"][0] == "projection" and len(entry["field"]) > 1:
                     context = "in " + self.reference(entry["field"][1], "holders") + ": "
                 html += (
                     f'<tbody><tr data-measurement-id="{escape(entry["id"])}" '
+                    f'data-measurement-binding="{escape(entry.get("binding", entry["id"]))}" '
                     f'data-measurement-label="{marker}"><td>'
                     + _numeric_html(f"{marker} — {context}{action['instruction']}.")
                     + "</td><td>"
@@ -3353,6 +3761,53 @@ class _Traveler:
                 )
             html += "</table>"
         return html
+
+    def measurement_action(self, entry):
+        """Shop wording derives from the physical field, never a report phrase rewrite."""
+        if entry.get("shop_instruction"):
+            return {"instruction": entry["shop_instruction"], "units": entry["units"]}
+        item = measurement_item(self.bundle, entry["category"], entry["identity"])
+        action = measurement_entry(
+            entry["category"], entry["identity"], tuple(entry["field"]), item=item, subject="its"
+        )
+        centre = item.get("kind") in {"center_drill", "center_drill_set"}
+        field = entry["field"]
+        descriptions = {
+            "dia": ("centre drill pilot diameter", "micrometer or calipers"),
+            "shank": ("centre drill countersink body diameter", "micrometer or calipers"),
+            "pilot_len": ("centre drill pilot length, countersink start to point tip", "calipers"),
+        }
+        if centre and len(field) == 1 and field[0] in descriptions:
+            description, instrument = descriptions[field[0]]
+            action["instruction"] = f"measure: its {description}, {instrument}, mm"
+        if (item.get("shop_made") is True or item.get("kind") == "custom") and field == [
+            "bed_height"
+        ]:
+            action["instruction"] = (
+                "measure: its as-made support height, table to work-support contact surface, "
+                "calipers or height gauge, mm"
+            )
+        return action
+
+    def job_measurement_box(self):
+        actions = self.measurement_actions()
+        if not actions:
+            return ""
+        return (
+            '<h2>JOB MEASUREMENT REGISTER</h2><div class="stop measurement-stop">'
+            + _p(
+                "?M# marks an unverified decision input; check and record it below. "
+                "Make-to-drawing expected settings are not installed measurements. "
+                "Bare M is an authored measurement variable; follow its named measurement."
+            )
+            + actions
+            + _p(
+                "Record the measured values here and return this traveler for reissue. "
+                "Measurement alone does not clear the STOP decisions named on the setup "
+                "pages; do not run a blocked setup until the corrected traveler is issued."
+            )
+            + "</div>"
+        )
 
     @staticmethod
     def operation_stops(values):
@@ -3388,24 +3843,15 @@ class _Traveler:
             yield text, ops
 
     def setup_status_boxes(self, stops, cautions, topics):
-        actions = self.measurement_actions()
+        """Only actual decision stops belong here; recording lives once in the JOB."""
         html = ""
-        if stops or actions:
-            css = "stop measurement-stop" if actions else "stop"
-            html = f'<div class="{css}">' + _p("STOP — do not run this setup:")
+        if stops:
+            html = '<div class="stop">' + _p("STOP — do not run this setup:")
             html += "".join(_p(line) for line in dict.fromkeys(stops))
-            if actions:
-                html += _p(
-                    "?M# marks an unverified input; check and record it below. Make-to-drawing "
-                    "expected settings are not installed measurements. "
-                    "Bare M is a touch-off reading."
-                )
-            html += actions
             html += (
                 _p(
-                    "Record the measured values here and return this traveler for reissue. "
-                    "Measurements do not clear planned speeds, depths, contours or clearance "
-                    "at the machine; do not run until the corrected traveler is issued."
+                    "Clear the decisions named above and return this traveler for reissue; "
+                    "do not run until the corrected traveler is issued."
                 )
                 + "</div>"
             )
@@ -3468,7 +3914,10 @@ class _Traveler:
             debt = length_debt(tool, "lead", category, reference)
             if debt:
                 entries.append(debt)
-        return list({entry["id"]: entry for entry in entries}.values())
+        return sorted(
+            {entry["id"]: entry for entry in entries}.values(),
+            key=lambda entry: (entry["field"] != ["point_angle"], entry["id"]),
+        )
 
     def tool_detail(self, reference, holder=None):
         item = resolve(self.bundle, "tools", reference)
@@ -3501,10 +3950,8 @@ class _Traveler:
             if fact["verified"] and not consumed:
                 detail.append(text)
             else:
-                debt = consumed or length_debt(
-                    item, field, category, key, require_measured=require_measured
-                )
-                detail.append(_Unverified(f"{text} {self.measurement_marker(debt)}"))
+                marker = self.measurement_reference(consumed) if consumed else "? not verified"
+                detail.append(_Unverified(f"{text} {marker}"))
 
         dimension("nose_radius", "nose R")
         if item.get("size_in"):
@@ -5022,6 +5469,7 @@ class _Traveler:
             return "<h2>CLEARANCE</h2>" + _p("? Clearance not computed — check it at the machine.")
 
         selected_machine = identity(self.bundle, setup.get("machine"), "machines")
+        consumed = {entry["id"] for entry in self.collect_measurements(setup)}
 
         def machine_marks(field):
             return "".join(
@@ -5029,6 +5477,7 @@ class _Traveler:
                 for entry in numbers.get("measurements", [])
                 if (entry.get("category"), entry.get("identity")) == selected_machine
                 and entry.get("field") == list(field)
+                and entry.get("id") in consumed
             )
 
         def fits(need, have):
@@ -5127,7 +5576,7 @@ class _Traveler:
             missing.append("tool stickout and headroom")
         if missing:
             lines.append(unknown + "; ".join(missing) + ".")
-        debts = numbers.get("measurements", [])
+        debts = [entry for entry in numbers.get("measurements", []) if entry.get("id") in consumed]
         if debts:
             lines.extend(self.measurement_lines(debts))
             if any(entry.get("category") == "fixtures" for entry in debts):
@@ -6549,9 +6998,7 @@ class _Traveler:
         checked against), one per tool + holder pair (:meth:`tool_pair`). Returns the numbers
         by pair, the setup's names by tool (:func:`identity`) and the TOOLS table."""
         numbers = tool_numbers(self.bundle, setup)
-        self.measurement_registry(setup)
-        for entry in self.collect_measurements(setup):
-            self.measurement_marker(entry)
+        self.register_measurements(self.collect_measurements(setup), setup)
         rows, by_tool = {}, {}
         for op in setup.get("ops", []):
             reference = op.get("tool")
@@ -9237,22 +9684,19 @@ class _Traveler:
                 grids[key] = f"{self.reference(reference, 'machines')} — no coordinate targets"
                 continue
             step, decimals = dro_grid(self.bundle, setup)
-            grid = f"{self.reference(reference, 'machines')} {step:.{decimals}f} {self.units}"
+            grid = f"{self.dro_controller_name()} {step:.{decimals}f} {self.units}"
             if not _known(fact["value"]) or fact["value"] <= 0:
                 grid += " (resolution absent/unknown: provisional default grid)"
             elif dro_grid_debt(self.bundle, setup):
                 name = self.dro_controller_name()
-                refs = []
-                for routed in setups:
-                    if identity(self.bundle, routed.get("machine"), "machines") != key:
-                        continue
-                    for marker, entry in (
-                        getattr(self, "_setup_measurements", {}).get(routed["id"], {}).values()
-                    ):
-                        if entry["field"] == ["resolution"] and entry["category"] == "machines":
-                            refs.append(f"Setup {routed['id']} ?{marker}")
+                refs = [
+                    "?" + marker
+                    for marker, entry in self.measurement_registry().values()
+                    if (entry["category"], entry["identity"]) == key
+                    and entry["field"] == ["resolution"]
+                ]
                 grid += f" (grid not verified; {name} installed readout step"
-                grid += "; " + (", ".join(refs) if refs else "see setup STOPs") + ")"
+                grid += " " + (refs[0] if refs else "— not consumed by a stopped decision") + ")"
             if machine.get("kind") == "lathe":
                 radius = _mapping(self.plan.get("dro")).get("radius_mode")
                 grid += (
@@ -9287,6 +9731,26 @@ class _Traveler:
                 f"Setup{'s' if len(stopped) > 1 else ''} {', '.join(stopped)}: STOP items on "
                 "the setup page — do not run a setup until its STOPs are cleared."
             )
+        upstream_groups = {}
+        for setup in setups:
+            dependency = self.stock_dependency(setup)
+            if dependency and dependency["source"] and dependency["op"]:
+                key = (dependency["source"]["id"], str(dependency["op"]["op"]))
+                upstream_groups.setdefault(key, (dependency, []))[1].append(setup["id"])
+        for (source, op), (dependency, dependents) in upstream_groups.items():
+            refs = " ".join(
+                self.measurement_reference(entry)
+                for entry in self.stock_source_measurements(dependency)
+            )
+            stops.append(
+                f"Setups {', '.join(dependents)}: upstream stock depends on Setup {source} op {op}"
+                + (
+                    f" — source JOB measurements {refs}"
+                    if refs
+                    else " — " + self.bench(dependency["reason"])
+                )
+                + "; resolve the source stock decision and reissue."
+            )
         html = "<h2>JOB STATUS</h2>"
         html += self.status_boxes(stops, cautions, topics)
         html += _list(self.job_state(topics), ordered=False)
@@ -9302,6 +9766,7 @@ class _Traveler:
             )
         lines.append(self.dro_resolution(setups))
         html += "".join(_p(line) for line in lines if line)
+        html += self.job_measurement_box()
         html += "<h2>STOCK AND ROUTE</h2>"
         stock = _mapping(self.plan.get("stock"))
         components = stock.get("components")
@@ -9355,7 +9820,7 @@ class _Traveler:
         """
         self.setup = setup
         sid = setup["id"]
-        self.measurement_registry(setup).clear()
+        self.register_measurements(self.collect_measurements(setup), setup)
         machine = self.reference(setup.get("machine"), "machines")
         kind = self.machine(setup).get("kind")
         tool_numbers, tools, tool_html = self.tool_table(setup)
@@ -9391,6 +9856,9 @@ class _Traveler:
         stops, cautions, topics = self.status_lines(
             self.setup_findings(setup), setup, skip_ops=True
         )
+        upstream = self.upstream_stock_stop(setup)
+        if upstream:
+            stops.append(upstream)
         for block in [steps, hold_below, dro_html, purchased, *details.values()]:
             for text in self.rendered_stops(block):
                 stops.append(text)
@@ -9406,7 +9874,16 @@ class _Traveler:
             + (f" ({_text(kind)})" if kind and _text(kind) not in machine else "")
             + f" · sheet 1 of {count}"
         )
-        self.setup_stops[sid] = len(set(stops)) + len(self.measurement_registry())
+        local = [
+            entry
+            for key, (_, entry) in self.measurement_registry().items()
+            if key in self.setup_measurement_ids.get(sid, set())
+        ]
+        if local:
+            stops.extend(
+                "Unverified decision input — " + line for line in self.measurement_lines(local)
+            )
+        self.setup_stops[sid] = len(set(stops))
         status = f"<h2>{escape(title)}</h2>" + self.setup_status_boxes(stops, cautions, topics)
         if setup.get("note"):
             status += _p(self.bench(setup["note"], setup))
@@ -9448,7 +9925,7 @@ class _Traveler:
     def render(self):
         setups = self.plan.get("setups", [])
         # Setup pages are built first so the job status can name every stopped setup.
-        sheets = [self.setup_section(s) for s in setups]
+        sheets = self.finalize_measurements([self.setup_section(s) for s in setups])
         # The job page's abbreviation key names only what these sheets print.
         self.sheet_text = " ".join(
             re.sub(r"<[^>]+>", " ", block)
@@ -9568,6 +10045,8 @@ def reference_label(bundle, reference, slot=None) -> str:
                 name = _text(kind)
             name = name.removesuffix(" set")
     if member and not named_member:
+        if record.get("kind") in {"reamer", "reamers"}:
+            name = "reamer"
         if record.get("kind") == "micrometer_set":
             member = member.removesuffix("in") + " in"
         elif record.get("kind") == "qctp_set":

@@ -656,26 +656,56 @@ support blocks carry their own heights. `point_angle` accepts the same
 `{ value, measured, verify }` record in degrees.
 
 The traveler's TOOLS table marks each displayed refused dimension individually,
-retaining its authored value with a short **? M1**-style reference to that
-setup's STOP box. Trusted nominal or measured siblings stay plain; attribution
-prose does not qualify a dimension. Each setup prints the full measurement
-instruction once per consumed input, naming the T-number or record's shop name,
-the dimension and the instrument. Every operation's STOP kind remains in the
-summary, including no starting speed/feed, unknown contours and unset depths.
-Drill point geometry and reamer chamfer/lead length are separate facts.
-Record the measured value in the box and return the traveler for re-issue:
-measuring alone does not compute a missing contour, depth, speed or feed.
-The rest of the setup uses the same short references, not repeated instructions;
+retaining its authored value. A fact actually consumed by a refused decision
+uses a short **?M1**-style reference to the **job-wide measurement register**;
+unconsumed catalogue information can be marked unverified without creating a
+STOP or a recording item. Trusted nominal or measured siblings stay plain;
+attribution prose does not qualify a dimension.
+The JOB section prints each physical quantity's full instruction and one
+35 × 10 mm recording blank exactly once. Canonical record and field identity,
+including the installed holder/configuration, determine reuse across setups,
+not its display name. Composite fixture records retain their canonical binding
+and have separate items for their dimensional and position leaves.
+Box solids have individual local-axis length, width and height entries;
+cylindrical solids have diameter and axial length/depth entries. Each authored
+local X/Y/Z position is recorded separately, not on a shared dimensions blank.
+Position entries identify the box's minimum corner or the cylinder's base
+centre in the fixture-local frame; they are not generic mounting measurements.
+The register's numbers and display order are ascending and deterministic.
+Source setup groups and tool numbers identify where each fact is consumed.
+Every operation's actual STOP kind remains in its setup summary. Record the
+values in the JOB register and return the traveler for reissue: measurement
+alone does not recompute the blocked decisions named on those setup pages.
+Bare M is an authored measurement variable, not necessarily a touch-off reading.
 TOOLS rows stay together in print.
 
-CLEARANCE lists only the unresolved inputs its headroom finding consumed
+CLEARANCE lists only the unresolved inputs its headroom decision consumed
 (for example riser dimensions, holder gauge length, installed projection and
-machine envelope limits), with references to their setup measurement items.
+machine envelope limits), with references to the same job measurement items.
 Fixture instructions follow the actual fixture kind: a riser has no vise bed,
 parallels or jaw height to measure. Make-to-drawing fixture dimensions print as
 authored targets, distinct from measuring the installed fixture after making;
 that presentation does not certify its physical dimensions or clearance.
 Authored fixture coordinates remain setup settings, not clearance certification.
+A diagnostic measurement union is not proof that every listed fact was
+consumed locally. When a setup is blocked before its entry stock can be
+derived, it remains STOPped by the true upstream stock decision, referring to
+the source setup/op and its existing JOB measurement items. It does not acquire
+irrelevant local fixture or machine recording rows. A manual bench setup with
+no unresolved consumed decision has no measurement STOP and is not included
+in the JOB's stopped-setup list merely because selected inventory is assumed.
+For an unresolved stock prerequisite without an attributable dimensional
+consumer, the true reason remains STOPped without guessing a measurement.
+Eligibility belongs to the individual decision, not to the whole operation:
+independently evaluated tool engagement, speeds/feeds, cutting direction or
+saw kerf still keep their actually consumed facts while stock is blocked.
+An eager native refusal list alone does not establish a local consumer.
+The JOB readout line names the installed DRO controller (for example EL400),
+not the machine model, and reuses one global readout-step reference. Centre
+drill instructions name the pilot and countersink body directly, without
+referring to a table absent from the traveler. Shop-made support height is
+measured as made from table to work-support contact surface.
+Drill point-length STOP references name the point angle before cutter diameter.
 A declared
 positive DRO step still rounds printed instructions even when its grid is
 labelled **not verified**; an absent step uses the disclosed provisional

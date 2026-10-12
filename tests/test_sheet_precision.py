@@ -616,9 +616,9 @@ def test_job_page_states_each_machine_dro_grid(tmp_path):
     (resolution,) = [
         content(node) for node in tagged(markup, "p") if content(node).startswith("DRO resolution:")
     ]
-    assert re.search(r"PM-30MV 0\.005 mm\b", resolution)
+    assert re.search(r"EL400 0\.005 mm\b", resolution)
     assert "grid not verified; EL400 installed readout step" in resolution
-    assert "Setup S" in resolution and "?M" in resolution
+    assert len(re.findall(r"\?M\d+\b", resolution)) == 1 and "Setup S" not in resolution
     assert resolution.count("not verified") == 1 and "†" not in resolution
     assert "default grid" not in resolution
     measured_grid, changed = re.subn(
@@ -639,7 +639,7 @@ def test_job_page_states_each_machine_dro_grid(tmp_path):
         for node in tagged(measured_markup, "p")
         if content(node).startswith("DRO resolution:")
     ]
-    assert re.search(r"PM-30MV 0\.005 mm\b", measured_resolution)
+    assert re.search(r"EL400 0\.005 mm\b", measured_resolution)
     assert "default grid" not in measured_resolution
     stripped, removed = re.subn(
         r"(?m)^resolution_mm = .*\n", "", inventory.read_text(encoding="utf-8"), count=1
@@ -653,7 +653,7 @@ def test_job_page_states_each_machine_dro_grid(tmp_path):
     (resolution,) = [
         content(node) for node in tagged(markup, "p") if content(node).startswith("DRO resolution:")
     ]
-    assert re.search(r"PM-30MV 0\.001 mm\b", resolution)
+    assert re.search(r"EL400 0\.001 mm\b", resolution)
     assert "default grid" in resolution
 
 
