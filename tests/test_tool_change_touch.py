@@ -418,6 +418,34 @@ def carried_stock_bundle(*, journal=False):
     return data
 
 
+def carried_supplied_component_bundle():
+    """Existing sleeve/body route, with the sleeve face proven before any cut."""
+    data = carried_stock_bundle(journal=True)
+    source, receiver = data.plan["setups"][1], data.plan["setups"][-1]
+    feature = receiver["zero"]["z"]["face"]
+    source["ops"] = []
+    source["stock_state"] = {"top_z": 0.0, "top_feature": feature}
+    data.plan["stock"]["as_is_faces"] = ["#1/NORTH"]
+    data.features["datums"] = {"D": {"feature": feature, "surface": "north sleeve face"}}
+    facts = data.kernel["setups"][source["id"]]
+    facts["stock_faces_mm"] = {feature: {"up": {"face_z": 0.0, "stock_z": 0.0}}}
+    facts["render_scene"] = {
+        "datums": [
+            {
+                "label": "DATUM D: north sleeve face",
+                "normal": [0.0, 0.0, 1.0],
+                "outline_mm": [
+                    [[-1.0, -1.0, 0.0], [1.0, -1.0, 0.0]],
+                    [[1.0, -1.0, 0.0], [1.0, 1.0, 0.0]],
+                    [[1.0, 1.0, 0.0], [-1.0, 1.0, 0.0]],
+                    [[-1.0, 1.0, 0.0], [-1.0, -1.0, 0.0]],
+                ],
+            }
+        ]
+    }
+    return data
+
+
 def carried_native_datum_bundle(*, physical=21.0055):
     """An oblique native plane whose source and received scenes prove its outline."""
     data = carried_stock_bundle(journal=True)
@@ -551,7 +579,7 @@ def carried_bbox_mill_bundle(*, mode="axial", flipped=False):
         face.update(kind="Cylinder")
         face["bbox_mm"][5] = face["bbox_mm"][2] + 0.0005
     elif mode == "supplied":
-        source.update(stock_in="stock", ops=[])
+        source["ops"] = []
         data.plan["stock"]["as_is_faces"] = ["#1/NORTH"]
     if flipped:
         data.features["frames"]["JH"].update(y=[1.0, 0.0, 0.0], z=[0.0, 0.0, 1.0])
@@ -708,14 +736,237 @@ def test_a_carried_plane_keeps_its_physical_edge_comparison():
     assert "stands at 0" in finding.sentence
 
 
-def test_a_stock_supplied_native_face_needs_no_new_facing_credit():
+def test_a_component_supplied_native_face_needs_no_new_facing_credit():
+    data = carried_supplied_component_bundle()
+    source = data.plan["setups"][1]
+    assert source["stock_in"] == "stock.sleeve" and source["ops"] == []
+    assert data.plan["setups"][-1]["zero"]["z"]["from"] == "+z"
+    finding = evaluate(data)[-1]
+    assert finding.status == "pass", finding.sentence
+    row = finding.numbers["axes"]["z"]
+    assert row["axis_set"] == 21.0 and row["credited_faces"] == ["#1/NORTH"]
+    [touch] = finding.numbers["derived_touches"]
+    assert touch["z_axis_set"] == 21.0 and touch["credited_faces"] == ["#1/NORTH"]
+    assert touch["touch_exclusion_dia_mm"] == pytest.approx(0.3)
+
+
+@pytest.mark.parametrize("side", ["-z", "unknown"])
+def test_a_component_supplied_plane_still_requires_an_above_touch(side):
+    data = carried_supplied_component_bundle()
+    data.plan["setups"][-1]["zero"]["z"]["from"] = side
+    finding = evaluate(data)[-1]
+    assert finding.status == "unknown"
+    row = finding.numbers["axes"]["z"]
+    assert row["axis_set"] == "unknown" and "credited_faces" not in row
+
+
+def test_a_plain_stock_supplied_native_face_keeps_its_existing_seed_behavior():
     data = carried_stock_bundle()
-    data.plan["stock"]["as_is_faces"] = ["#1/NORTH", "#2/SOUTH"]
-    data.plan["setups"][1]["ops"] = data.plan["setups"][1]["ops"][1:]
-    data.plan["setups"][1]["stock_in"] = "stock"
+    source, receiver = data.plan["setups"][1], data.plan["setups"][-1]
+    data.plan["stock"] = {"as_is_faces": ["#1/NORTH", "#2/SOUTH"]}
+    source.update(stock_in="stock", ops=source["ops"][1:])
+    receiver["stock_in"] = source["id"]
+    data.plan["setups"] = [source, receiver]
     finding = evaluate(data)[-1]
     assert finding.status == "pass", finding.sentence
     assert finding.numbers["axes"]["z"]["axis_set"] == 0.0
+
+
+def test_a_component_bottom_face_can_flip_rigidly_into_receiving_plus_z():
+    data = carried_supplied_component_bundle()
+    source, receiver = data.plan["setups"][1], data.plan["setups"][-1]
+    feature = receiver["zero"]["z"]["face"]
+    data.features["frames"][source["frame"]].update(y=[0.0, 1.0, 0.0], z=[0.0, 0.0, 1.0])
+    source["stock_state"] = {"bottom_z": 0.0, "bottom_feature": feature}
+    facts = data.kernel["setups"][source["id"]]
+    facts["stock_faces_mm"][feature] = {"down": {"face_z": 0.0, "stock_z": 0.0}}
+    facts["revolved"][feature]["end_faces"][0]["normal_z"] = -1
+    facts["render_scene"]["datums"][0]["normal"] = [0.0, 0.0, -1.0]
+    finding = evaluate(data)[-1]
+    assert finding.status == "pass", finding.sentence
+    assert finding.numbers["axes"]["z"]["axis_set"] == 21.0
+    [touch] = finding.numbers["derived_touches"]
+    assert touch["z_axis_set"] == 21.0 and touch["credited_faces"] == ["#1/NORTH"]
+
+
+@pytest.mark.parametrize(
+    "debt",
+    [
+        "not-as-is",
+        "unnamed-root",
+        "missing-pre-cut",
+        "missing-stock-height",
+        "pre-cut-reason",
+        "missing-source-plane",
+        "wrong-source-plane",
+        "missing-mapping",
+        "missing-datum",
+        "wrong-datum-label",
+        "wrong-datum-feature",
+        "wrong-datum-height",
+        "wrong-datum-normal",
+        "wrong-stock-side",
+        "stock-debt",
+        "stock-out-debt",
+    ],
+)
+def test_a_component_as_is_seed_requires_its_own_existing_native_proofs(debt):
+    data = carried_supplied_component_bundle()
+    source, receiver = data.plan["setups"][1], data.plan["setups"][-1]
+    feature = receiver["zero"]["z"]["face"]
+    facts = data.kernel["setups"][source["id"]]
+    if debt == "not-as-is":
+        data.plan["stock"]["as_is_faces"] = []
+    elif debt == "unnamed-root":
+        source["stock_state"] = {}
+    elif debt == "missing-pre-cut":
+        del facts["stock_faces_mm"]
+    elif debt == "missing-stock-height":
+        del facts["stock_faces_mm"][feature]["up"]["stock_z"]
+    elif debt == "pre-cut-reason":
+        facts["stock_faces_mm"][feature]["up"] = {
+            "reason": f"the entering stock does not carry the face of {feature}"
+        }
+    elif debt == "missing-source-plane":
+        del facts["revolved"]
+    elif debt == "wrong-source-plane":
+        plane = facts["revolved"][feature]
+        plane["z_mm"] = [0.01, 0.01]
+        plane["end_faces"][0]["z_mm"] = 0.01
+    elif debt == "missing-mapping":
+        del data.kernel["mapping"]["#1/NORTH"]
+    elif debt == "missing-datum":
+        del facts["render_scene"]
+    elif debt == "wrong-datum-label":
+        facts["render_scene"]["datums"][0]["label"] = "DATUM B: another surface"
+    elif debt == "wrong-datum-feature":
+        data.features["datums"]["D"]["feature"] = "hole"
+    elif debt == "wrong-datum-height":
+        for edge in facts["render_scene"]["datums"][0]["outline_mm"]:
+            for point in edge:
+                point[2] = 0.01
+    elif debt == "wrong-datum-normal":
+        facts["render_scene"]["datums"][0]["normal"] = [0.0, 0.0, -1.0]
+    elif debt == "wrong-stock-side":
+        source["stock_state"] = {"bottom_z": 0.0, "bottom_feature": feature}
+    elif debt == "stock-debt":
+        facts["stock_reason"] = "unresolved entering sleeve"
+    elif debt == "stock-out-debt":
+        facts["stock_out_reason"] = "unresolved retained sleeve"
+    finding = evaluate(data)[-1]
+    assert finding.status == "unknown"
+    assert "stock.sleeve" in finding.sentence and feature in finding.sentence
+    row = finding.numbers["axes"]["z"]
+    assert row["axis_set"] == "unknown" and "credited_faces" not in row
+    [touch] = finding.numbers["derived_touches"]
+    assert touch["z_axis_set"] == "unknown" and "credited_faces" not in touch
+
+
+@pytest.mark.parametrize(
+    ("face_z", "stock_z", "status"),
+    [
+        (0.0, 0.0, "pass"),
+        (0.0, 5e-7, "pass"),
+        (5e-7, 0.0, "pass"),
+        (0.0, 2e-6, "unknown"),
+        (2e-6, 0.0, "unknown"),
+        (0.01, 0.01, "unknown"),
+        (math.nan, 0.0, "unknown"),
+        (math.inf, 0.0, "unknown"),
+        (0.0, math.nan, "unknown"),
+        (0.0, -math.inf, "unknown"),
+    ],
+)
+def test_component_pre_cut_heights_use_finite_absolute_physical_length_equality(
+    face_z, stock_z, status
+):
+    data = carried_supplied_component_bundle()
+    source, receiver = data.plan["setups"][1], data.plan["setups"][-1]
+    feature = receiver["zero"]["z"]["face"]
+    data.kernel["setups"][source["id"]]["stock_faces_mm"][feature]["up"].update(
+        face_z=face_z, stock_z=stock_z
+    )
+    finding = evaluate(data)[-1]
+    assert finding.status == status, finding.sentence
+    row = finding.numbers["axes"]["z"]
+    assert row["axis_set"] == (21.0 if status == "pass" else "unknown")
+    if status == "unknown":
+        assert "stock.sleeve" in finding.sentence and feature in finding.sentence
+        assert "credited_faces" not in row
+
+
+@pytest.mark.parametrize("named", [False, True], ids=["no-candidate", "wrong-component"])
+def test_a_body_route_cannot_borrow_the_sleeves_global_as_is_face(named):
+    data = carried_supplied_component_bundle()
+    body, source, _, receiver = data.plan["setups"]
+    feature = receiver["zero"]["z"]["face"]
+    receiver["stock_in"] = body["id"]
+    if named:
+        body["stock_state"] = {"bottom_z": -21.0, "bottom_feature": feature}
+        data.kernel["setups"][body["id"]] = {
+            "revolved": data.kernel["setups"][source["id"]]["revolved"],
+            "stock_faces_mm": {
+                feature: {"reason": f"the entering body does not carry the face of {feature}"}
+            },
+        }
+    finding = evaluate(data)[-1]
+    assert finding.status == "unknown"
+    assert "stock.body" in finding.sentence and feature in finding.sentence
+    row = finding.numbers["axes"]["z"]
+    assert row["axis_set"] == "unknown" and "credited_faces" not in row
+    [touch] = finding.numbers["derived_touches"]
+    assert touch["z_axis_set"] == "unknown" and "credited_faces" not in touch
+
+
+def test_a_joined_union_is_not_a_component_local_as_is_stock_root():
+    data = carried_supplied_component_bundle()
+    source, receiver = data.plan["setups"][1], data.plan["setups"][-1]
+    source["stock_in"] = ["stock.body", "stock.sleeve"]
+    receiver["stock_in"] = source["id"]
+    data.plan["setups"] = [source, receiver]
+    finding = evaluate(data)[-1]
+    assert finding.status == "unknown"
+    assert "stock.sleeve" in finding.sentence and "single-component" in finding.sentence
+    assert "credited_faces" not in finding.numbers["axes"]["z"]
+
+
+def test_an_undeclared_stock_prefix_cannot_seed_a_component_face():
+    data = carried_supplied_component_bundle()
+    data.plan["setups"][1]["stock_in"] = "stock.sleeve-lookalike"
+    finding = evaluate(data)[-1]
+    assert finding.status == "unknown"
+    assert "stock.sleeve-lookalike" in finding.sentence
+    assert "credited_faces" not in finding.numbers["axes"]["z"]
+
+
+def test_partial_component_carry_at_the_same_z_is_not_a_whole_supplied_datum():
+    data = carried_supplied_component_bundle()
+    source, receiver = data.plan["setups"][1], data.plan["setups"][-1]
+    feature = receiver["zero"]["z"]["face"]
+    facts = data.kernel["setups"][source["id"]]
+    assert facts["stock_faces_mm"][feature]["up"] == {"face_z": 0.0, "stock_z": 0.0}
+    # Native stock_faces_mm retains same-Z proof for a partly carried face.
+    # A datum on the later joined/received solid cannot replace the root's
+    # missing on-surface datum, which requires the whole named surface.
+    datum = facts["render_scene"]["datums"][0]
+    facts["render_scene"]["datums"] = []
+    data.kernel["setups"][receiver["id"]] = {
+        "render_scene": {
+            "datums": [
+                {
+                    **datum,
+                    "outline_mm": [
+                        [[p[0], p[1], 21.0] for p in edge] for edge in datum["outline_mm"]
+                    ],
+                }
+            ]
+        }
+    }
+    finding = evaluate(data)[-1]
+    assert finding.status == "unknown"
+    assert "stock.sleeve" in finding.sentence and "on-surface datum" in finding.sentence
+    row = finding.numbers["axes"]["z"]
+    assert row["axis_set"] == "unknown" and "credited_faces" not in row
 
 
 @pytest.mark.parametrize(("paper", "typed"), [(0.0, 21.005), (0.0024, 21.005)])
@@ -1271,10 +1522,7 @@ def test_every_carried_touch_route_retains_the_same_bounded_exclusion(route):
 
 
 def test_a_supplied_native_face_with_known_outward_normal_cannot_borrow_an_upward_bbox():
-    data = carried_stock_bundle(journal=True)
-    data.plan["stock"]["as_is_faces"] = ["#1/NORTH"]
-    source = data.plan["setups"][1]
-    source.update(stock_in="stock", ops=[])
+    data = carried_supplied_component_bundle()
     data.features["frames"]["JH"].update(y=[1.0, 0.0, 0.0], z=[0.0, 0.0, 1.0])
     data.plan["setups"][-1]["zero"]["z"]["edge_mm"] = -21.0
     finding = evaluate(data)[-1]

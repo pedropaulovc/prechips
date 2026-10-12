@@ -292,11 +292,13 @@ def _stock_route(bundle, setup):
     by_id = {s.get("id"): s for s in setups}
     order = {s.get("id"): i for i, s in enumerate(setups)}
     stock = mapping(bundle.plan.get("stock"))
-    supplies = {"stock"} | {
-        f"stock.{component['id']}"
-        for component in records(stock.get("components"))
-        if isinstance(component, dict) and isinstance(component.get("id"), str)
-    }
+    components = records(stock.get("components"))
+    component_ids = [mapping(component).get("id") for component in components]
+    if not all(isinstance(cid, str) and cid.strip() and cid != UNKNOWN for cid in component_ids):
+        return None
+    if len(set(component_ids)) != len(component_ids):
+        return None
+    supplies = {f"stock.{cid}" for cid in component_ids} if components else {"stock"}
     routed, visiting = set(), set()
 
     def visit(current):
@@ -731,7 +733,7 @@ def _carry_cut(bundle, setup, op, target, plane=None, excluded=None):
     )
 
 
-def _native_scene_plane(bundle, setup, face, geometry=None):
+def _native_scene_plane(bundle, setup, face, geometry=None, *, normal_z=1):
     """Raw setup-Z of this exact datum's stock-proven native outline, or None."""
     from .coordinates import UNIT_MM
 
@@ -761,8 +763,9 @@ def _native_scene_plane(bundle, setup, face, geometry=None):
     datum = datums[0]
     normal, outline = datum.get("normal"), datum.get("outline_mm")
     if not (
-        _native_unit(normal)
-        and math.degrees(math.atan2(math.hypot(*normal[:2]), normal[2]))
+        normal_z in (1, -1)
+        and _native_unit(normal)
+        and math.degrees(math.atan2(math.hypot(*normal[:2]), normal_z * normal[2]))
         <= _NATIVE_DIRECTION_TOLERANCE_DEG
         and isinstance(outline, list)
         and outline
@@ -790,11 +793,56 @@ def _native_scene_plane(bundle, setup, face, geometry=None):
                 source=setup["id"],
                 frame=setup_frame(bundle, setup),
                 z_mm=max(heights),
-                normal_z=1,
+                normal_z=normal_z,
                 outer_radius_mm=radius,
                 radius_is_upper=False,
             )
     return max(heights) / scale
+
+
+def _component_supply_plane(bundle, setup, source, face, ref):
+    """Tie an as-is plane to this component's entering stock, not the joined union."""
+    kernel = mapping(getattr(bundle, "kernel", None))
+    facts = mapping(mapping(kernel.get("setups")).get(setup.get("id")))
+
+    def missing(detail):
+        return None, f"{source} as-is face {face} ({ref}): {detail}"
+
+    if facts.get("stock_reason") or facts.get("stock_out_reason"):
+        return missing("component root has unresolved stock")
+    state = mapping(setup.get("stock_state"))
+    sides = [
+        side
+        for field, side in (("top_feature", "up"), ("bottom_feature", "down"))
+        if state.get(field) == face
+    ]
+    if not sides:
+        return missing("component root needs its named pre-cut stock face")
+    measured = mapping(mapping(facts.get("stock_faces_mm")).get(face))
+    if measured.get("reason"):
+        return missing(f"pre-cut stock face is unresolved ({measured['reason']})")
+    plane = _native_plane_geometry(bundle, setup, face, [ref])
+    if plane is None:
+        return missing("exact mapped source native plane is missing")
+    side = "up" if plane["normal_z"] == 1 else "down"
+    if side not in sides:
+        return missing(f"component root does not name this {side} stock face")
+    height = mapping(measured.get(side))
+    face_z, stock_z = height.get("face_z"), height.get("stock_z")
+    if height.get("reason") or not all(number(z) and math.isfinite(z) for z in (face_z, stock_z)):
+        return missing("pre-cut stock face needs finite face_z and stock_z")
+    if (
+        abs(face_z - stock_z) > LENGTH_TOLERANCE_MM
+        or abs(face_z - plane["z_mm"]) > LENGTH_TOLERANCE_MM
+    ):
+        return missing("pre-cut stock height does not match the exact source face plane")
+    geometry = {}
+    _native_scene_plane(bundle, setup, face, geometry, normal_z=plane["normal_z"])
+    if not geometry or abs(geometry["z_mm"] - face_z) > LENGTH_TOLERANCE_MM:
+        # stock_faces_mm permits partial carry. Only this component's own
+        # on-surface datum additionally proves the named surface still exists.
+        return missing("component-local whole on-surface datum is missing or mismatched")
+    return plane, None
 
 
 def _native_surface_planes(bundle, setup, face, to_z):
@@ -861,12 +909,27 @@ def _carried_face_z(bundle, setup, face, done, debts, credited, constraint=None)
     target = mapping(bundle.feature_definitions.get(face))
     route = _stock_route(bundle, setup)
     if route is None:
-        return unknown(f"untraceable stock_in lineage for {face}")
+        roots = [current.get("stock_in") for current in records(bundle.plan.get("setups"))]
+        return unknown(f"untraceable stock_in lineage for {face}: {roots!r}")
+    stock = mapping(bundle.plan.get("stock"))
+    supplied = records(stock.get("as_is_faces"))
+    components = {f"stock.{component['id']}" for component in records(stock.get("components"))}
     if not _native_basis(frame_axes(setup_frame(bundle, setup))):
         return unknown(f"{face} has no finite unit-axis receiving setup frame")
     boxes, reason = _kernel_face_boxes(bundle, target, setup_frame(bundle, setup))
     if boxes is None:
-        return unknown(reason)
+        roots = [
+            source
+            for current in route
+            for source in (
+                current["stock_in"]
+                if isinstance(current["stock_in"], list)
+                else [current["stock_in"]]
+            )
+            if source in components
+        ]
+        detail = f"{face} on {', '.join(dict.fromkeys(roots))}: " if roots else ""
+        return unknown(f"{detail}{reason}")
     scale = UNIT_MM[bundle.features["units"]]
     tolerance = LENGTH_TOLERANCE_MM / scale
     if any(box[2][1] - box[2][0] > tolerance for _, box in boxes):
@@ -877,8 +940,37 @@ def _carried_face_z(bundle, setup, face, done, debts, credited, constraint=None)
         refs = [ref for ref, box in boxes if abs(box[2][1] - raw) <= tolerance]
     kernel = mapping(getattr(bundle, "kernel", None))
     mapping_refs = mapping(kernel.get("mapping"))
-    supplied = records(mapping(bundle.plan.get("stock")).get("as_is_faces"))
+    supply_gaps = []
     outputs = {}
+
+    def seed(current, incoming, source, ref):
+        present, plane = source == "stock" and ref in supplied, None
+        if source in components and ref not in supplied:
+            supply_gaps.append(f"{source} face {face} ({ref}) is not declared stock as-is")
+        if source in components and ref in supplied:
+            if incoming != [source]:
+                present = UNKNOWN
+                supply_gaps.append(
+                    f"{source} as-is face {face} ({ref}) needs a single-component stock root"
+                )
+            else:
+                plane, reason = _component_supply_plane(bundle, current, source, face, ref)
+                named = mapping(current.get("stock_state"))
+                present = plane is not None
+                if reason and face in (named.get("top_feature"), named.get("bottom_feature")):
+                    present = UNKNOWN
+                # An unrelated component does not supply this named face. Its
+                # missing proof is reported if no component actually supplies it.
+                if reason:
+                    supply_gaps.append(reason)
+        return {
+            "present": present,
+            "plane": plane,
+            "normal": None,
+            "area_unknown": False,
+            "excluded_mm": 0.0,
+        }
+
     for current in route:
         receiving = current.get("id") == setup.get("id")
         incoming = current.get("stock_in")
@@ -886,15 +978,7 @@ def _carried_face_z(bundle, setup, face, done, debts, credited, constraint=None)
         state = {}
         for ref in refs:
             inputs = [
-                outputs[source][ref]
-                if source in outputs
-                else {
-                    "present": source == "stock" and ref in supplied,
-                    "plane": None,
-                    "normal": None,
-                    "area_unknown": False,
-                    "excluded_mm": 0.0,
-                }
+                outputs[source][ref] if source in outputs else seed(current, incoming, source, ref)
                 for source in incoming
             ]
             present = (
@@ -1040,9 +1124,10 @@ def _carried_face_z(bundle, setup, face, done, debts, credited, constraint=None)
             if raw is None
             else ""
         )
+        detail = f" ({'; '.join(dict.fromkeys(supply_gaps))})" if supply_gaps else ""
         return unknown(
             f"no surviving credited stock plane with a bounded touch area for {face}"
-            f"{missing_geometry}"
+            f"{detail}{missing_geometry}"
         )
     if any(
         state[ref]["plane"] is None
