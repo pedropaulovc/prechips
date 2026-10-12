@@ -2641,6 +2641,7 @@ def test_grouped_measurement_actions_print_whole_with_full_size_side_by_side_bla
     bundle.inventory["holders"]["second"] = {"kind": "collet", "name": "Second collet"}
     for holder in ("collet", "second"):
         sheet.measurement_marker(measurement_entry("tools", "cutter", ("projection", holder)))
+    sheet.measurement_marker(measurement_entry("machines", "mill", ("spindle", "rotation")))
     source = sheet.setup_status_boxes(["Retain the original setup STOP action."], [], [])
     original = Markup(source)
     expected = {
@@ -2664,7 +2665,13 @@ def test_grouped_measurement_actions_print_whole_with_full_size_side_by_side_bla
               blankRect = blank.getBoundingClientRect(),
               style = getComputedStyle(blank),
               label = row.querySelector('.field-label').getBoundingClientRect(),
-              field = row.querySelector('.field');
+              field = row.querySelector('.field'),
+              cell = row.cells[1].getBoundingClientRect(),
+              cellStyle = getComputedStyle(row.cells[1]),
+              left = cell.left + parseFloat(cellStyle.paddingLeft)
+                + .5 * parseFloat(cellStyle.borderLeftWidth),
+              right = cell.right - parseFloat(cellStyle.paddingRight)
+                - .5 * parseFloat(cellStyle.borderRightWidth);
             return {
               id: row.dataset.measurementId, marker: row.dataset.measurementLabel,
               subject: row.closest('table').tHead.rows[0].cells[0].textContent,
@@ -2676,6 +2683,9 @@ def test_grouped_measurement_actions_print_whole_with_full_size_side_by_side_bla
               height: blankRect.height - parseFloat(style.borderTopWidth)
                 - parseFloat(style.borderBottomWidth),
               direction: getComputedStyle(field).flexDirection,
+              unit: row.querySelector('.field-label').textContent,
+              recordFits: label.left >= left-.1 && label.right <= right+.1
+                && blankRect.left >= left-.1 && blankRect.right <= right+.1,
               beside: label.right <= blankRect.left+.01
                 && label.top < blankRect.bottom && label.bottom > blankRect.top
             };
@@ -2698,6 +2708,8 @@ def test_grouped_measurement_actions_print_whole_with_full_size_side_by_side_bla
         for row in details["rows"]
     )
     assert all(row["direction"] == "row" and row["beside"] for row in details["rows"])
+    assert all(row["recordFits"] for row in details["rows"])
+    assert any(row["unit"] == "cw/ccw" for row in details["rows"])
     text = "".join(content(node) for node in printed.nodes if node["tag"] == "p")
     assert text.count("Record the measured values here and return this traveler for reissue") == 1
     assert text.count("Retain the original setup STOP action.") == 1

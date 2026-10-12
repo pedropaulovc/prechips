@@ -549,7 +549,9 @@ Setup overview/operations section, in this order:
    controller remains a distinct group. Each original M
    item keeps its own field-specific action and 35 × 10 mm recording blank;
    the unit sits beside the blank rather than repeating the recording directive
-   above it. Rows stay whole and continuation context retains the input name.
+   above it. Long unit captions wrap within their recording cell without
+   shrinking the blank. Rows stay whole and continuation context retains the
+   input name.
    Short-reference lists also name each input once, retaining every consumed
    dimension and its original M marker rather than repeating the input name
    for each field.

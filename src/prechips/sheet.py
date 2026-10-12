@@ -148,6 +148,8 @@ table.measurement-actions col.record-column {
 width: calc(var(--writing-width) + 12mm + 2 * var(--space-sm)); }
 table.measurement-actions .field { flex-direction: row; align-items: center;
 margin: 0; white-space: nowrap; }
+table.measurement-actions .field-label { min-width: 0; white-space: normal;
+overflow-wrap: anywhere; }
 table.measurement-actions .writing-blank { flex-shrink: 0; }
 tr.warn td { border-top: 0; }
 tr.warn .box { display: block; margin: 0 0 var(--space-xs); }
