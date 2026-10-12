@@ -229,6 +229,13 @@ op row prints Z as that corner's reading. Each toolpost tool's first touch-off i
 a setup is preceded by setting it on centre height, and squaring a blade to the
 spindle axis ([zero_check](docs/rules-coordinates.md#zero_check)).
 
+A facing op's `stock_removal_bounds` advance a bounds-free `kind = "face"`
+feature's top only when they hold the box enclosing all its listed faces, taken
+from an already-present matched kernel result (never started for this); a
+partial box keeps the unfaced stock, and a missing kernel, mapping or face box
+stays `?` with `zero_check` naming the feature and the missing input
+([coordinates](docs/rules-coordinates.md)).
+
 The literal `"unknown"` never means zero, absence, approval or a pass. A
 `verify = true` inventory entry is verification debt, not certified geometry:
 on an item it leaves that identity unresolved for the declared-input rules,

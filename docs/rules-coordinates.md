@@ -597,13 +597,25 @@ footprint. The footprint comes from the feature's own `bounds` (Z from `at` when
 they omit it), else from a round feature's `at` ± half its largest `dia` (else
 ± its `radius`) across its principal `axis`, which must be a unit vector within
 `1e-6`: a scaled or zero `axis` has no known footprint. Only its `plane` value
-can supply an omitted axis. When the bounds hold the footprint, coverage is whole. When they
+can supply an omitted axis. A `kind = "face"` feature with no `bounds` key takes
+its footprint from every ref in its `faces` list instead: each ref's
+geometry-matched STEP face in an already-present successful kernel result
+(`mapping` to `faces[].bbox_mm`, model-space mm), converted to manifest units and
+posed in the setup frame; the footprint is the X/Y box enclosing all those face
+boxes. That enclosing box is conservative: it can prove that bounds hold the whole
+surface, never that an unbounded op cut it. Authored `bounds` that are unknown,
+empty, malformed or missing an axis are never replaced by the kernel box. When
+the bounds hold the footprint, coverage is whole. When they
 miss part of it, coverage is partial: the op neither advances that top or entry
 nor produces the surface, which keeps the uncut height its last whole producer
 left. When the bounds or the footprint are unknown, omitted, empty or malformed,
 coverage is unknown: that top or entry, its producer and its operative Z stay
-unknown and are never credited. A faced surface therefore needs its footprint
-authored. An op without `stock_removal_bounds` cuts its whole feature. For another
+unknown and are never credited. A missing kernel result, unlisted `faces`, an
+unmatched ref, a face record without `bbox_mm`, unknown manifest units or an
+unknown setup frame leaves a bounds-free face's footprint unknown; `zero_check`
+names the touched feature and that missing input. The rule never starts the
+kernel. A faced surface therefore needs its footprint authored or matched. An op
+without `stock_removal_bounds` cuts its whole feature. For another
 surface, containment is proven in that feature's own frame, where its box is
 exact: the setup Z must run along one of the frame's axes, and the box enclosing
 the surface there must lie within the feature's spans on the other two. Overlap
@@ -1099,7 +1111,9 @@ source's recipe names its own tool's edge, so the re-touch is tool-neutral:
   - it is unnamed (a zero with no `face`);
   - an op on a feature the plan does not name has run since it was made, or a
     face op while the stock's `top_feature` is unresolved (the top);
-  - an op's coverage of it is unknown, it may be gone, or a touch on it disagrees
+  - an op's coverage of it is unknown (a footprint missing an input names the
+    touched feature and that input, such as the kernel result, an unmatched
+    `faces` ref or its `bbox_mm`), it may be gone, or a touch on it disagrees
     with (or cannot be checked against) the Z its op made or the tracked top's;
   - partial cuts together leave no land of it, or it is not shown to fill its
     footprint.

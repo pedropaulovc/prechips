@@ -27,7 +27,10 @@ geometry rules `?`. See [geometry rules](rules-geometry.md).
 Use `[[setups]]` and `[[setups.ops]]`. `stock_state` records received surfaces in
 the setup frame; `local_thickness` is per hole, not the whole bar thickness.
 `top_feature` identifies the touched face that facing advances; `top_z` is then
-that feature's +Z face. `bottom_feature` likewise names the seated face: `bottom_z`
+that feature's +Z face. A facing op with `stock_removal_bounds` advances it only
+when the box holds that feature's whole X/Y footprint: its `bounds`, or for a
+bounds-free `kind = "face"` the matched kernel boxes of all its `faces`
+([coordinates](rules-coordinates.md)). `bottom_feature` likewise names the seated face: `bottom_z`
 is that feature's -Z face. The kernel gives each named face's height and the
 entering stock's over it, and [consistency](rules-setup.md#consistency) compares
 them with `top_z` / `bottom_z`. `entry_z` permits

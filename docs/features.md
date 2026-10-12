@@ -70,7 +70,12 @@ faces of the imported solid by each referenced `ADVANCED_FACE`'s own geometry
 STEP ordinal order. A reference that is malformed, missing from the STEP, or
 matches zero or several imported faces is a mapping error (`✗`) on every
 geometry rule that needs the feature; an omitted, `"unknown"` or empty list
-keeps those rules `?`. The M1/M2 declared-input rules still do not read it.
+keeps those rules `?`. The M1/M2 declared-input rules read it only through an
+already-present kernel result, never starting the kernel: a `kind = "face"`
+feature without `bounds` takes its bounded-cut coverage footprint from the
+matched boxes of every listed face (see
+[coordinates](rules-coordinates.md)); authored `bounds`, even unknown or
+malformed, take precedence. The schema is unchanged.
 See [geometry rules](rules-geometry.md#face-identity).
 
 `step_sha256` is `"unknown"` or a lowercase 64-hex SHA-256. A known digest

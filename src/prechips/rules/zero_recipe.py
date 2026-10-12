@@ -923,7 +923,7 @@ def _corner_recorder(bundle, setup, lathe, errors):
     return record
 
 
-def face_stands(bundle, setup, face, edge, done=0, source=None):
+def face_stands(bundle, setup, face, edge, done=0, source=None, debts=None):
     """Where the ``face`` a Z touch at plan ``edge`` meets physically stands once
     ``setup``'s first ``done`` ops have run, when an op cut it under a set Z DRO: that op's
     :func:`formed_z` (unknown when a blade's corner, side or width is, or whether it left
@@ -935,8 +935,11 @@ def face_stands(bundle, setup, face, edge, done=0, source=None):
     from .coordinates import formed_z
 
     if not number(edge):
+        # An unknown top can itself be missing its footprint; retain that input debt.
+        if debts is not None:
+            _producer(bundle, setup, edge, face, done, source, debts=debts)
         return None
-    producer = _producer(bundle, setup, edge, face, done, source)
+    producer = _producer(bundle, setup, edge, face, done, source, debts=debts)
     if producer == UNKNOWN:
         return UNKNOWN
     if producer is None or not _framed(*producer):
@@ -967,11 +970,13 @@ def _face_checker(bundle, setup, errors, unknowns):
     def check(touch, face, edge, done, who, source=None):
         if touch.get("method") in MEASURED or not face:
             return
-        stands = face_stands(bundle, setup, face, edge, done, source)
-        if stands is None:
+        debts = []
+        stands = face_stands(bundle, setup, face, edge, done, source, debts)
+        if stands is None and not debts:
             return
         if not number(stands):
-            unknowns.append(f"{who} on {face}")
+            detail = f" ({'; '.join(debts)})" if debts else ""
+            unknowns.append(f"{who} on {face}{detail}")
             return
         shown = dro_z(stands, grid)
         if round(shown - stands, 9):
