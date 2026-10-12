@@ -11,11 +11,13 @@ whose contacts are unresolved leaves the rows unknown. FreeCAD-backed tests run
 ``src/prechips/kernel/freecad_job.py`` under ``freecadcmd`` and skip without it.
 """
 
+import json
 import math
+import os
 import subprocess
 
 import pytest
-from test_kernel_geometry import Engine, _op, _setup, _vise
+from test_kernel_geometry import ENGINE, Engine, _op, _setup, _vise
 from test_kernel_held_split import UP, _box
 from test_kernel_stock_prefix import BLANK, HOLD
 
@@ -271,12 +273,10 @@ def test_a_bounded_path_that_leaves_and_reenters_its_box_is_two_pieces(engine, i
     assert facts["checkpoint_count"] == 6
 
 
-def test_bounded_chain_holes_regenerate_safe_true_curve_endpoints(engine, island):
-    drill = 1.0
-    tol = LENGTH_TOLERANCE_MM
-    west = engine.refs(island, *WEST, kind="Plane")
-    assert len(west) == 1
-    jobs, expected = [], []
+def _endpoint_regeneration_cases():
+    """Eight isolated physical controls without eight complete stock-prefix jobs."""
+    drill, tol = 1.0, LENGTH_TOLERANCE_MM
+    controls = []
     for family, bounds, pitch, kind in (
         ("finished wall", (0.0, 70.0, -5.0, 55.0), 20.0, "line_table"),
         ("uncut stock", (0.0, 70.0, -5.0, 5.0), 4.0, "arc_table"),
@@ -327,9 +327,9 @@ def test_bounded_chain_holes_regenerate_safe_true_curve_endpoints(engine, island
             cases.append((name, penetration, curve, wall, points))
         if kind == "arc_table":
             for name, radius in (("isolated tangent", 6.0), ("short retained span", 6.05)):
-                # A lower arc about (35, 10) just touches the eroded y=4 bound at
-                # R6. Increasing R to 6.05 leaves a real arc shorter than Ø2: the
-                # native clip emits its actual holes for the host's no-web error.
+                # R6 has one isolated full-cylinder contact. At R6.05 the real
+                # retained arc is shorter than Ø2, so it must become one hole,
+                # not a pair of overlapping endpoint cylinders.
                 curve = {
                     "kind": "arc",
                     "centre": [35.0, 10.0],
@@ -349,8 +349,10 @@ def test_bounded_chain_holes_regenerate_safe_true_curve_endpoints(engine, island
                 ]
                 tables.append((f"{family} {name}", points))
                 cases.append((name, 0.0, curve, wall, points))
-        checkpoints = _printed("S1:10", "rough", tables, bounded=True, kind=kind)
-        for path, (_, _, curve, wall, _) in zip(checkpoints["paths"], cases, strict=True):
+        for table, case in zip(tables, cases, strict=True):
+            checkpoints = _printed("S1:10", "rough", [table], bounded=True, kind=kind)
+            (path,) = checkpoints["paths"]
+            _, _, curve, wall, _ = case
             path.update(
                 method="chain_drill",
                 chain_geometry={
@@ -362,113 +364,687 @@ def test_bounded_chain_holes_regenerate_safe_true_curve_endpoints(engine, island
                     "walls": [wall],
                 },
             )
-        op = {
-            **_bounded([], box=bounds),
-            "radius_mm": drill,
-            "rough_allowance_mm": 0.0,
-            "contour": {"method": "chain_drill", "pitch_mm": pitch},
-            "checkpoints": checkpoints,
-        }
-        jobs.append(engine.job(island, {"west": west}, [_setup([op], HOLD)], stock=BLANK))
-        expected.append((family, bounds, pitch, checkpoints, cases))
-    # All eight controls use one native batch and the existing shared authored solid.
-    results = engine.run({"jobs": jobs})["results"]
-    assert len(results) == len(expected)
-    for result, (family, bounds, pitch, checkpoints, cases) in zip(results, expected, strict=True):
-        assert result["status"] == "ok", (family, result)
-        facts = result["ops"]["S1:10"]
-        clips = facts["checkpoint_clips"]
-        assert "reason" not in clips, (family, clips)
-        step = checkpoints["dro"]["step"]
-        kept = 0
-        for entry, path, (name, penetration, curve, _, authored) in zip(
-            clips["paths"], checkpoints["paths"], cases, strict=True
-        ):
-            assert entry["rows"] == len(authored)
-            assert entry["regeneration"] == "true_curve"
-            assert entry["clip_points"] == []
-            (piece,) = entry["pieces"]
-            assert piece
-            kept += len(piece)
-            nominal = [point["exact_xy"] for point in piece]
-            printed = [point["dro_xy"] for point in piece]
-            for point, exact, actual in zip(piece, nominal, printed, strict=True):
-                assert point["generated"] is True
-                assert "after" not in point and "t" not in point
-                assert point["model_xy"] == exact
+            controls.append(
+                {
+                    "name": table[0],
+                    "family": family,
+                    "control": case[0],
+                    "penetration": case[1],
+                    "paths": checkpoints["paths"],
+                    "checkpoints": checkpoints,
+                    "bounds": {
+                        "x": list(bounds[:2]),
+                        "y": list(bounds[2:]),
+                        "z": [0.0, 3.0],
+                    },
+                    "radius": drill,
+                    "allowance": 0.0,
+                    "dro": checkpoints["dro"],
+                    "finished": {
+                        "kind": "polygon",
+                        "points": [[5.0, 5.0], [65.0, 5.0], [65.0, 45.0], [5.0, 45.0]],
+                    },
+                }
+            )
+    return controls
+
+
+def test_bounded_chain_holes_regenerate_safe_true_curve_endpoints(regeneration_boundaries):
+    controls = [(case, result) for case, result in regeneration_boundaries if "control" in case]
+    assert {(case["family"], case["control"]) for case, _ in controls} == {
+        ("finished wall", "tangent"),
+        ("finished wall", "within length tolerance"),
+        ("finished wall", "overlap"),
+        ("uncut stock", "tangent"),
+        ("uncut stock", "within length tolerance"),
+        ("uncut stock", "overlap"),
+        ("uncut stock", "isolated tangent"),
+        ("uncut stock", "short retained span"),
+    }
+    assert len(controls) == 8
+    tol = LENGTH_TOLERANCE_MM
+    for case, result in controls:
+        family, name, penetration = case["family"], case["control"], case["penetration"]
+        drill, step = case["radius"], case["dro"]["step"]
+        (path,) = case["paths"]
+        geometry = path["chain_geometry"]
+        (curve,) = geometry["curves"]
+        authored, pitch = path["xy_mm"], geometry["pitch_mm"]
+        facts, entry = result["facts"], result["entry"]
+        assert "reason" not in facts["checkpoint_clips"], facts
+        assert "checkpoint_reason" not in facts, facts
+        assert entry["rows"] == len(authored)
+        assert entry["regeneration"] == "true_curve"
+        assert entry["clip_points"] == []
+        (piece,) = entry["pieces"]
+        assert piece
+        nominal = [point["exact_xy"] for point in piece]
+        printed = [point["dro_xy"] for point in piece]
+        for index, (point, exact, actual) in enumerate(zip(piece, nominal, printed, strict=True)):
+            assert point["generated"] is True
+            assert "after" not in point and "t" not in point
+            assert point["model_xy"] == exact
+            assert all(abs(value / step - round(value / step)) < 1e-7 for value in actual)
+            if index in (0, len(piece) - 1):
+                assert max(abs(a - b) for a, b in zip(exact, actual, strict=True)) <= (
+                    3 * step + tol
+                )
+            else:
                 assert math.dist(exact, actual) <= step + tol
-                for axis, (lo, hi) in enumerate((bounds[:2], bounds[2:])):
-                    assert lo + drill - tol <= actual[axis] <= hi - drill + tol
-            if curve["kind"] == "line":
-                assert nominal[0] == pytest.approx(curve["ends"][0], abs=tol)
-                assert nominal[-1] == pytest.approx(curve["ends"][-1], abs=tol)
-                assert entry["dropped_ends"] == [False, False]
-                gaps = [math.dist(a, b) for a, b in zip(nominal, nominal[1:], strict=False)]
-                assert all(actual[0] <= 4.0 + penetration + tol for actual in printed)
-            else:
-                radius, centre = curve["radius"], curve["centre"]
-                if name in ("isolated tangent", "short retained span"):
-                    half_width = math.sqrt(max(0.0, radius**2 - 6.0**2))
-                    start, end = [35.0 - half_width, 4.0], [35.0 + half_width, 4.0]
-                    assert nominal[0] == pytest.approx(start, abs=tol)
+            for axis, key in enumerate(("x", "y")):
+                lo, hi = case["bounds"][key]
+                assert lo + drill - tol <= actual[axis] <= hi - drill + tol
+        if curve["kind"] == "line":
+            assert nominal[0] == pytest.approx(curve["ends"][0], abs=tol)
+            assert nominal[-1] == pytest.approx(curve["ends"][-1], abs=tol)
+            assert entry["dropped_ends"] == [False, False]
+            gaps = [math.dist(a, b) for a, b in zip(nominal, nominal[1:], strict=False)]
+            assert all(actual[0] <= 4.0 + penetration + tol for actual in printed)
+        else:
+            radius, centre = curve["radius"], curve["centre"]
+            if name in ("isolated tangent", "short retained span"):
+                half_width = math.sqrt(max(0.0, radius**2 - 6.0**2))
+                start, end = [35.0 - half_width, 4.0], [35.0 + half_width, 4.0]
+                assert nominal[0] == pytest.approx(start, abs=tol)
+                assert len(piece) == 1 and entry["dropped_ends"] == [True, True]
+                if name == "isolated tangent":
                     assert nominal[-1] == pytest.approx(end, abs=tol)
-                    assert entry["dropped_ends"] == [True, True]
-                    if name == "isolated tangent":
-                        assert len(piece) == 1
-                        assert printed == [[35.0, 4.0]]
-                        assert all(math.dist(point, printed[0]) > tol for point in authored)
-                        waypoints = result["setups"]["S1"]["render_scene"]["waypoints"]
-                        assert any(
-                            waypoint["op"] == "10"
-                            and math.dist(waypoint["xy"], printed[0]) <= tol
-                            and path["ids"][0] in waypoint["rows"]
-                            for waypoint in waypoints
-                        )
+                    assert printed == [[35.0, 4.0]]
+                    assert all(math.dist(point, printed[0]) > tol for point in authored)
                 else:
-                    end = (
-                        [35.0 + math.sqrt(radius**2 - 24.0**2), 4.0]
-                        if penetration > tol
-                        else [35.0, radius - 20.0]
+                    assert nominal[0] != pytest.approx(end, abs=tol)
+                assert result["sketch_debts"] == []
+                assert result["sketch_paths"] == [{"op": "10", "xy": printed, "directed": True}]
+                (waypoint,) = result["waypoints"]
+                assert waypoint["op"] == "10"
+                assert waypoint["xy"] == printed[0]
+                assert waypoint["rows"] == [path["ids"][0]]
+            else:
+                # At LENGTH/2 the nominal end stays within bounds tolerance.
+                # A grid point past the finite wall's 90-degree endpoint can
+                # clear its end cap even when it lies inside the infinite circle.
+                end = (
+                    [35.0 + math.sqrt(radius**2 - 24.0**2), 4.0]
+                    if penetration > tol
+                    else authored[-1]
+                )
+                assert nominal[0] == pytest.approx(authored[0], abs=tol)
+                assert nominal[-1] == pytest.approx(end, abs=tol)
+                assert entry["dropped_ends"] == [False, penetration > tol]
+                if name == "within length tolerance":
+                    (wall,) = geometry["walls"]
+                    wall_end = [centre[0], centre[1] + wall["radius"]]
+                    assert printed[-1][0] < centre[0]
+                    assert math.dist(printed[-1], centre) < radius
+                    assert math.dist(printed[-1], wall_end) >= (
+                        min(math.dist(nominal[-1], wall_end), geometry["offset"]) - 1e-9
                     )
-                    assert nominal[0] == pytest.approx(authored[0], abs=tol)
-                    assert nominal[-1] == pytest.approx(end, abs=tol)
-                    assert entry["dropped_ends"] == [False, penetration > tol]
-                assert math.dist(printed[-1], end) <= step + tol
-                for exact, actual in zip(nominal, printed, strict=True):
-                    assert math.dist(exact, centre) == pytest.approx(radius, abs=tol)
-                    assert math.dist(actual, centre) >= radius - tol
-                angles = [point["angle_deg"] for point in piece]
-                gaps = [
-                    radius * math.radians(b - a) for a, b in zip(angles, angles[1:], strict=False)
-                ]
-                if penetration > tol:
-                    assert authored[-1][1] + drill > bounds[3] + tol
-                    assert path["ids"][-1] in entry["dropped_rows"]
-                    assert math.dist(printed[-1], authored[-1]) > step
-            dro_gaps = [math.dist(a, b) for a, b in zip(printed, printed[1:], strict=False)]
-            if name == "isolated tangent":
-                assert gaps == dro_gaps == []
-            else:
-                assert gaps == pytest.approx([gaps[0]] * len(gaps), abs=2 * tol)
-                assert max(gaps) <= pitch + 2 * tol
-                assert max(dro_gaps) <= pitch + 2 * step + 2 * tol
-                if name == "short retained span":
-                    assert min(dro_gaps) < 2 * drill - tol
-                else:
-                    assert min(dro_gaps) > 2 * drill + tol
-        assert facts["checkpoint_count"] == kept
-        if family == "finished wall":
-            # The deliberately overlapping true line is still an authored cut:
-            # it must surface as a finished-part collision, never disappear.
-            overlap = checkpoints["paths"][-1]["name"]
-            assert facts["checkpoint_hits"] > 0
-            assert facts["checkpoint_errors"]
+                assert math.dist(printed[-1], end) <= 3 * math.sqrt(2) * step + tol
+            for point, exact, actual in zip(piece, nominal, printed, strict=True):
+                assert math.dist(exact, centre) == pytest.approx(radius, abs=tol)
+                angle = math.radians(point["angle_deg"])
+                assert exact == pytest.approx(
+                    [centre[0] + radius * math.cos(angle), centre[1] + radius * math.sin(angle)],
+                    abs=tol,
+                )
+                radial_tolerance = tol if point is piece[0] or point is piece[-1] else 1e-9
+                assert math.dist(actual, centre) >= radius - radial_tolerance
+            angles = [point["angle_deg"] for point in piece]
+            gaps = [radius * math.radians(b - a) for a, b in zip(angles, angles[1:], strict=False)]
+            if penetration > tol:
+                assert authored[-1][1] + drill > case["bounds"]["y"][1] + tol
+                assert path["ids"][-1] in entry["dropped_rows"]
+                assert math.dist(printed[-1], authored[-1]) > step
+        dro_gaps = [math.dist(a, b) for a, b in zip(printed, printed[1:], strict=False)]
+        if name in ("isolated tangent", "short retained span"):
+            assert gaps == dro_gaps == []
+        else:
+            assert gaps == pytest.approx([gaps[0]] * len(gaps), abs=2 * tol)
+            assert max(gaps) <= pitch + 2 * tol
+            assert max(dro_gaps) <= pitch + 2 * step + 2 * tol
             assert all(
-                error["row"].startswith(overlap) and error["obstacle"] == "finished part"
-                for error in facts["checkpoint_errors"]
+                math.dist(a, b) > 2 * drill + tol
+                for index, a in enumerate(printed)
+                for b in printed[index + 1 :]
+            )
+        assert facts["checkpoint_count"] == len(piece)
+        assert [row["xy_mm"] for row in result["rows"]] == printed
+        assert all(row["method"] == "chain_drill" for row in result["rows"])
+        assert len(result["evidence"]) == len(piece)
+        overlap = family == "finished wall" and name == "overlap"
+        for proof in result["evidence"]:
+            assert proof["outside_bounds_volume"] <= 1e-7
+            assert proof["fixture_volume"] <= 1e-7
+            for nominal_gap, actual_gap in zip(
+                proof["nominal_wall_gaps"], proof["actual_wall_gaps"], strict=True
+            ):
+                assert actual_gap >= min(nominal_gap, geometry["offset"]) - 1e-9
+            if overlap:
+                assert proof["finished_volume"] > 1e-7
+            else:
+                assert proof["finished_volume"] <= 1e-7
+        if not overlap:
+            # Tangency is a real zero-gap, zero-volume contact, not a clear
+            # result obtained by shaving the commanded cylinder radius.
+            assert min(proof["finished_gap"] for proof in result["evidence"]) == pytest.approx(
+                0.0, abs=tol
+            )
+        if overlap:
+            # Real full-radius cylinders must produce the production row errors;
+            # clipping cannot reinterpret finished-part overlap as discardable stock.
+            assert facts["checkpoint_hits"] == len(piece)
+            assert len(facts["checkpoint_errors"]) == len(piece)
+            assert all(
+                error["row"] == row["id"]
+                and error["obstacle"] == "finished part"
+                and error["volume_mm3"] > 0
+                for error, row in zip(facts["checkpoint_errors"], result["rows"], strict=True)
             )
         else:
             assert facts["checkpoint_hits"] == 0 and facts["checkpoint_errors"] == [], facts
+
+
+def _regeneration_case(name, curves, walls, bounds, finished, **details):
+    """Generic authored inputs, independent of any consumer STEP or recipe."""
+    radius, pitch, allowance = 1.435, 4.2, 0.1
+    points = []
+    for curve in curves:
+        length = (
+            math.dist(*curve["ends"])
+            if curve["kind"] == "line"
+            else curve["radius"] * abs(math.radians(curve["sweep_deg"]))
+        )
+        count = math.ceil(length / pitch)
+        leg = []
+        for i in range(count + 1):
+            if curve["kind"] == "line":
+                a, b = curve["ends"]
+                point = [a[axis] + (b[axis] - a[axis]) * i / count for axis in range(2)]
+            else:
+                angle = math.radians(curve["start_deg"] + i / count * curve["sweep_deg"])
+                point = [
+                    curve["centre"][0] + curve["radius"] * math.cos(angle),
+                    curve["centre"][1] + curve["radius"] * math.sin(angle),
+                ]
+            leg.append(point)
+        points.extend(leg[1:] if points and math.dist(points[-1], leg[0]) < 1e-9 else leg)
+    kind = "arc_table" if curves[0]["kind"] == "arc" else "line_table"
+    printed = _printed("S1:10", "rough", [(name, points)], bounded=True, kind=kind)
+    (path,) = printed["paths"]
+    path.update(
+        method="chain_drill",
+        chain_geometry={
+            "pitch_mm": pitch,
+            "offset": radius + allowance,
+            "setup_origin": [2.3, -4.7],
+            "basis": [[0.0, -1.0], [1.0, 0.0]],
+            "curves": curves,
+            "walls": walls,
+        },
+    )
+    return {
+        "name": name,
+        "paths": [path],
+        "bounds": {"x": list(bounds[:2]), "y": list(bounds[2:]), "z": [0.0, 3.0]},
+        "radius": radius,
+        "allowance": allowance,
+        "dro": printed["dro"],
+        "finished": finished,
+        **details,
+    }
+
+
+def _regeneration_cases():
+    radius, offset = 1.435, 1.535
+    cases = []
+    for angle in (90.0, 30.0, 2.0):
+        # X=.0009/Y=.0001 leaves no one-step outward/inside endpoint snap.
+        # Near tangency, the endpoint may need to advance on the actual circle.
+        endpoint = [20.0009, 20.0001]
+        centre = [
+            endpoint[0] - 30.0 * math.cos(math.radians(angle)),
+            endpoint[1] - 30.0 * math.sin(math.radians(angle)),
+        ]
+        curve = {
+            "kind": "arc",
+            "centre": centre,
+            "radius": 30.0,
+            "start_deg": angle + 35.0,
+            "sweep_deg": -35.0 - angle / 2,
+            "outward": 1,
+            "angle_start_deg": angle + 35.0,
+            "angle_sweep_deg": -35.0 - angle / 2,
+        }
+        wall = {**curve, "radius": 30.0 - offset}
+        cases.append(
+            _regeneration_case(
+                f"boundary-{angle:g}",
+                [curve],
+                [wall],
+                (-70.0, endpoint[0] + radius, -70.0, 70.0),
+                {"kind": "circle", "centre": centre, "radius": wall["radius"]},
+                boundary=endpoint,
+            )
+        )
+
+    junction = [10.0001, 10.0001]
+    turn = math.radians(112.4)
+    normal = [math.sin(turn), math.cos(turn)]
+    direction = [math.cos(turn), -math.sin(turn)]
+    corner = [junction[0] - offset * normal[0] / (1 + normal[1]), junction[1] - offset]
+    first = [[junction[0] - 12.0, junction[1]], junction]
+    second = [junction, [junction[i] + 12.0 * direction[i] for i in range(2)]]
+    wall_ends = [
+        [corner[0] - 20.0, corner[1]],
+        [corner[i] + 20.0 * direction[i] for i in range(2)],
+    ]
+    cases.append(
+        _regeneration_case(
+            "convex-67.6-miter",
+            [
+                {"kind": "line", "ends": first, "normal": [0.0, 1.0]},
+                {"kind": "line", "ends": second, "normal": normal},
+            ],
+            [
+                {"kind": "line", "ends": [wall_ends[0], corner]},
+                {"kind": "line", "ends": [corner, wall_ends[1]]},
+            ],
+            (-70.0, 70.0, -70.0, 70.0),
+            {"kind": "polygon", "points": [corner, *wall_ends]},
+            junction=junction,
+        )
+    )
+
+    corner = [value - offset for value in junction]
+    right = [corner[0] + 20.0, corner[1]]
+    up = [corner[0], corner[1] + 20.0]
+    cases.append(
+        _regeneration_case(
+            "concave-90-miter",
+            [
+                {
+                    "kind": "line",
+                    "ends": [[junction[0] + 12.0, junction[1]], junction],
+                    "normal": [0.0, 1.0],
+                },
+                {
+                    "kind": "line",
+                    "ends": [junction, [junction[0], junction[1] + 12.0]],
+                    "normal": [1.0, 0.0],
+                },
+            ],
+            [
+                {"kind": "line", "ends": [right, corner]},
+                {"kind": "line", "ends": [corner, up]},
+            ],
+            (-70.0, 70.0, -70.0, 70.0),
+            {
+                "kind": "polygon",
+                "points": [
+                    corner,
+                    right,
+                    [right[0], corner[1] - 20.0],
+                    [corner[0] - 20.0, corner[1] - 20.0],
+                    [corner[0] - 20.0, up[1]],
+                    up,
+                ],
+            },
+            junction=junction,
+        )
+    )
+
+    line = {"kind": "line", "ends": [[-10.0, 0.0001], [20.0, 0.0001]], "normal": [0.0, 1.0]}
+    wall = {"kind": "line", "ends": [[-10.0, 0.0001 - offset], [20.0, 0.0001 - offset]]}
+    for length, holes in ((1.0, 1), (4.5, 2), (5.0, 2), (8.5, 3)):
+        cases.append(
+            _regeneration_case(
+                f"length-{length:g}",
+                [line],
+                [wall],
+                (0.0001 - radius, 0.0001 + length + radius, -10.0, 10.0),
+                {
+                    "kind": "polygon",
+                    "points": [[-10.0, -6.0], [20.0, -6.0], *reversed(wall["ends"])],
+                },
+                length=length,
+                holes=holes,
+            )
+        )
+
+    cases.append(
+        _regeneration_case(
+            "short-junction-tail",
+            [
+                {
+                    "kind": "line",
+                    "ends": [[junction[0] - 12.0, junction[1]], junction],
+                    "normal": [0.0, 1.0],
+                },
+                {
+                    "kind": "line",
+                    "ends": [junction, [junction[0], junction[1] - 5.0]],
+                    "normal": [1.0, 0.0],
+                },
+            ],
+            [
+                {"kind": "line", "ends": [[corner[0] - 20.0, corner[1]], corner]},
+                {"kind": "line", "ends": [corner, [corner[0], corner[1] - 20.0]]},
+            ],
+            (-70.0, 70.0, junction[1] - 1.0 - radius, 70.0),
+            {
+                "kind": "polygon",
+                "points": [corner, [corner[0] - 20.0, corner[1]], [corner[0], corner[1] - 20.0]],
+            },
+            junction=junction,
+        )
+    )
+    centre = [0.00037, 0.00041]
+    curve = {
+        "kind": "arc",
+        "centre": centre,
+        "radius": 10.0,
+        "start_deg": 0.0,
+        "sweep_deg": 360.0,
+        "outward": 1,
+        "angle_start_deg": 0.0,
+        "angle_sweep_deg": 360.0,
+    }
+    cases.append(
+        _regeneration_case(
+            "closed-retained-seam",
+            [curve],
+            [{**curve, "radius": 10.0 - offset}],
+            (centre[0] + 5.0 - radius, centre[0] + 11.0 + radius, -20.0, 20.0),
+            {"kind": "circle", "centre": centre, "radius": 10.0 - offset},
+        )
+    )
+    return cases + _endpoint_regeneration_cases()
+
+
+_REGENERATION_NATIVE = r"""
+import importlib.util
+import json
+import os
+import sys
+import FreeCAD, Part
+
+V = FreeCAD.Vector
+spec = importlib.util.spec_from_file_location("checkpoint_engine", os.environ["ENGINE"])
+engine = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(engine)
+directory = sys.argv[sys.argv.index("--") + 1]
+with open(directory + "/cases.json", encoding="utf-8") as stream:
+    cases = json.load(stream)
+answers = []
+fixture = Part.makeBox(5, 5, 3, V(72, 72, 0))
+blank = Part.makeBox(70, 60, 3, V(0, -5, 0))
+
+
+def wall_edge(wall):
+    if wall["kind"] == "line":
+        return Part.makeLine(*(V(*point, 0) for point in wall["ends"]))
+    ends = sorted((wall["start_deg"], wall["start_deg"] + wall["sweep_deg"]))
+    return Part.makeCircle(wall["radius"], V(*wall["centre"], 0), V(0, 0, 1), *ends)
+
+
+for case in cases:
+    geometry = case["paths"][0]["chain_geometry"]
+    walls = [wall_edge(wall) for wall in geometry["walls"]]
+    protected = case["finished"]
+    if protected["kind"] == "circle":
+        finished = Part.makeCylinder(protected["radius"], 3, V(*protected["centre"], 0))
+    else:
+        vertices = [V(*point, 0) for point in protected["points"]]
+        finished = Part.Face(Part.makePolygon(vertices + [vertices[0]])).extrude(V(0, 0, 3))
+    assert finished.isValid(), case["name"]
+    box = case["bounds"]
+    bounds = Part.makeBox(box["x"][1] - box["x"][0], box["y"][1] - box["y"][0],
+                          3, V(box["x"][0], box["y"][0], 0))
+    details = {}
+    if "checkpoints" in case:
+        # Supply explicit native state at the checkpoint seam. Each control
+        # gets a fresh setup/op; no unrelated paths share its web constraints.
+        # The production clip, full-radius guard, errors and sketch all run.
+        op = {
+            "subject": "S1:10",
+            "do": "rough_profile",
+            "radius_mm": case["radius"],
+            "rough_allowance_mm": 0.0,
+            "to_z": 0.0,
+            "stock_removal_bounds": box,
+            "contour": {"method": "chain_drill", "pitch_mm": geometry["pitch_mm"]},
+            "checkpoints": case["checkpoints"],
+        }
+        setup = engine._Setup(None, {"id": "S1", "ops": [op]}, held=blank)
+        setup.matrix = FreeCAD.Matrix()
+        setup.finished = setup.protected = finished
+        setup.part = blank
+        setup.box = engine._bbox(blank)
+        setup.stock_states = [blank]
+        setup.cuts = {id(op): (blank, None, None)}
+        setup.fixture = [{
+            "name": "fixture",
+            "envelope": fixture,
+            "envelope_bbox": engine._bbox(fixture),
+            "subjects": "all",
+        }]
+        setup.fixture_ready = True
+        facts = {}
+        setup._checkpoint_facts(op, facts)
+        setup._finish_checkpoints([])
+        (entry,) = facts["checkpoint_clips"]["paths"]
+        pieces = entry["pieces"]
+        sketch_paths, waypoints, sketch_debts = setup._clipped_sketch({})
+        details = {
+            "facts": facts,
+            "rows": op["checkpoints"]["rows"],
+            "sketch_paths": sketch_paths,
+            "waypoints": waypoints,
+            "sketch_debts": sketch_debts,
+        }
+    else:
+        regenerated = engine._Setup._regenerate_chain(
+            case["paths"], box, case["radius"], case["dro"]
+        )
+        (entry, pieces), = regenerated
+    evidence = []
+    for piece in pieces:
+        for point in piece:
+            exact = Part.Vertex(V(*point["exact_xy"], 0))
+            actual = Part.Vertex(V(*point["dro_xy"], 0))
+            cylinder = Part.makeCylinder(case["radius"], 3, V(*point["dro_xy"], 0))
+            evidence.append({
+                "nominal_wall_gaps": [exact.distToShape(wall)[0] for wall in walls],
+                "actual_wall_gaps": [actual.distToShape(wall)[0] for wall in walls],
+                "finished_volume": cylinder.common(finished).Volume,
+                "finished_gap": cylinder.distToShape(finished)[0],
+                "outside_bounds_volume": cylinder.cut(bounds).Volume,
+                "fixture_volume": cylinder.common(fixture).Volume,
+            })
+    answers.append({"entry": entry, "evidence": evidence, **details})
+with open(directory + "/answers.json", "w", encoding="utf-8") as stream:
+    json.dump(answers, stream)
+"""
+
+
+@pytest.fixture(scope="module")
+def regeneration_boundaries(tmp_path_factory, freecad_kernel):
+    """One cheap native batch; no STEP import, stock-prefix rebuild or consumer model."""
+    directory = tmp_path_factory.mktemp("regeneration-boundaries")
+    cases = _regeneration_cases()
+    (directory / "cases.json").write_text(json.dumps(cases), encoding="utf-8")
+    script = directory / "probe.py"
+    script.write_text(_REGENERATION_NATIVE, encoding="utf-8")
+    process = subprocess.run(
+        [freecad_kernel, str(script), "--", str(directory)],
+        env={**os.environ, "ENGINE": str(ENGINE)},
+        capture_output=True,
+        text=True,
+        errors="replace",
+        timeout=60,
+    )
+    answers = directory / "answers.json"
+    assert process.returncode == 0 and answers.exists(), (
+        process.stdout[-2000:] + process.stderr[-2000:]
+    )
+    results = json.loads(answers.read_text(encoding="utf-8"))
+    assert len(results) == len(cases)
+    return list(zip(cases, results, strict=True))
+
+
+def _segment_gap(point, a, b):
+    """Finite-segment distance by endpoint/projection tests, not wall normals."""
+    length = math.dist(a, b)
+    along = sum((point[i] - a[i]) * (b[i] - a[i]) for i in range(2)) / length
+    if along <= 0:
+        return math.dist(point, a)
+    if along >= length:
+        return math.dist(point, b)
+    return abs((b[0] - a[0]) * (point[1] - a[1]) - (b[1] - a[1]) * (point[0] - a[0])) / length
+
+
+def _assert_regenerated_cylinders(case, result):
+    """Independent OCC finite-wall/solid oracles, not the snapping algorithm."""
+    tol, step = LENGTH_TOLERANCE_MM, case["dro"]["step"]
+    entry, geometry = result["entry"], case["paths"][0]["chain_geometry"]
+    assert entry["regeneration"] == "true_curve"
+    assert "reason" not in entry and entry["clip_points"] == []
+    points = [point for piece in entry["pieces"] for point in piece]
+    assert points and len(points) == len(result["evidence"])
+    for piece in entry["pieces"]:
+        for index, point in enumerate(piece):
+            exact, actual, model = (point[key] for key in ("exact_xy", "dro_xy", "model_xy"))
+            assert point["generated"] is True and "after" not in point and "t" not in point
+            reconstructed = [
+                geometry["setup_origin"][axis]
+                + sum(model[i] * geometry["basis"][i][axis] for i in range(2))
+                for axis in range(2)
+            ]
+            assert exact == pytest.approx(reconstructed, abs=tol)
+            assert all(abs(value / step - round(value / step)) < 1e-7 for value in actual)
+            boundary = index in (0, len(piece) - 1) or point.get("overshoot") is True
+            if boundary:
+                assert max(abs(a - b) for a, b in zip(exact, actual, strict=True)) <= 3 * step + tol
+            else:
+                assert math.dist(exact, actual) <= step + tol
+            if "angle_deg" in point:
+                (curve,) = geometry["curves"]
+                assert math.dist(exact, curve["centre"]) == pytest.approx(curve["radius"], abs=tol)
+                angle = math.radians(point["angle_deg"])
+                assert exact == pytest.approx(
+                    [
+                        curve["centre"][0] + curve["radius"] * math.cos(angle),
+                        curve["centre"][1] + curve["radius"] * math.sin(angle),
+                    ],
+                    abs=tol,
+                )
+            else:
+                assert (
+                    min(_segment_gap(exact, *curve["ends"]) for curve in geometry["curves"]) <= tol
+                )
+        # Actual full cylinders need webs, including between non-neighbouring holes.
+        assert all(
+            math.dist(a["dro_xy"], b["dro_xy"]) > 2 * case["radius"] + tol
+            for i, a in enumerate(piece)
+            for b in piece[i + 1 :]
+        )
+    for proof in result["evidence"]:
+        assert proof["finished_volume"] <= 1e-7
+        assert proof["finished_gap"] >= case["allowance"] - 2 * tol
+        assert proof["outside_bounds_volume"] <= 1e-7
+        assert proof["fixture_volume"] <= 1e-7
+        for nominal, actual in zip(
+            proof["nominal_wall_gaps"], proof["actual_wall_gaps"], strict=True
+        ):
+            assert actual >= min(nominal, geometry["offset"]) - 1e-9
+            assert actual >= case["radius"] + case["allowance"] - 1e-9
+
+
+def test_non_grid_boundaries_and_both_miters_have_safe_actual_cylinders(regeneration_boundaries):
+    for case, result in regeneration_boundaries:
+        if not ("boundary" in case or "miter" in case["name"]):
+            continue
+        _assert_regenerated_cylinders(case, result)
+        (piece,) = result["entry"]["pieces"]
+        assert len(piece) >= 3
+        if "boundary" in case:
+            assert result["entry"]["dropped_ends"] == [False, True]
+            end = piece[-1]
+            assert (
+                math.dist(end["exact_xy"], case["boundary"]) > LENGTH_TOLERANCE_MM
+                or math.dist(end["dro_xy"], end["exact_xy"]) > case["dro"]["step"]
+            )
+            angles = [point["angle_deg"] for point in piece]
+            gaps = [
+                30.0 * abs(math.radians(b - a)) for a, b in zip(angles, angles[1:], strict=False)
+            ]
+            assert gaps == pytest.approx([gaps[0]] * len(gaps), abs=2e-6)
+            assert max(gaps) <= 4.2 + 2e-6
+        else:
+            assert result["entry"]["dropped_ends"] == [False, False]
+            joins = [
+                point for point in piece if math.dist(point["exact_xy"], case["junction"]) <= 1e-6
+            ]
+            assert len(joins) == 1 and joins[0]["overshoot"] is True
+            split = piece.index(joins[0])
+            for leg in (piece[: split + 1], piece[split:]):
+                gaps = [
+                    math.dist(a["exact_xy"], b["exact_xy"])
+                    for a, b in zip(leg, leg[1:], strict=False)
+                ]
+                assert gaps == pytest.approx([gaps[0]] * len(gaps), abs=2e-6)
+                assert max(gaps) <= 4.2 + 2e-6
+            if case["name"] == "concave-90-miter":
+                assert math.dist(joins[0]["exact_xy"], joins[0]["dro_xy"]) > case["dro"]["step"]
+
+
+def test_clipped_lengths_and_short_junction_tail_preserve_actual_webs(regeneration_boundaries):
+    for case, result in regeneration_boundaries:
+        if "length" not in case and case["name"] != "short-junction-tail":
+            continue
+        _assert_regenerated_cylinders(case, result)
+        (piece,) = result["entry"]["pieces"]
+        if "length" in case:
+            assert len(piece) == case["holes"]
+            assert result["entry"]["dropped_ends"] == [True, True]
+            assert all(
+                -1e-6 <= point["exact_xy"][0] - 0.0001 <= case["length"] + 1e-6 for point in piece
+            )
+        else:
+            assert result["entry"]["dropped_ends"] == [False, True]
+            assert piece[-1]["exact_xy"] == pytest.approx(case["junction"], abs=1e-6)
+            assert piece[-1]["overshoot"] is True
+            assert (
+                sum(math.dist(point["exact_xy"], case["junction"]) <= 1e-6 for point in piece) == 1
+            )
+        gaps = [
+            math.dist(a["exact_xy"], b["exact_xy"]) for a, b in zip(piece, piece[1:], strict=False)
+        ]
+        if gaps:
+            assert gaps == pytest.approx([gaps[0]] * len(gaps), abs=2e-6)
+            assert max(gaps) <= 4.2 + 2e-6
+
+
+def test_a_clipped_360_chain_keeps_one_continuous_piece_across_zero(regeneration_boundaries):
+    case, result = next(
+        (case, result)
+        for case, result in regeneration_boundaries
+        if case["name"] == "closed-retained-seam"
+    )
+    _assert_regenerated_cylinders(case, result)
+    entry = result["entry"]
+    (piece,) = entry["pieces"]
+    assert entry["dropped_ends"] == [True, True]
+    angles = [point["angle_deg"] for point in piece]
+    assert 290.0 < angles[0] < 310.0 < 360.0 < 410.0 < angles[-1] < 430.0
+    assert all(a < b for a, b in zip(angles, angles[1:], strict=False))
+    assert sum(abs(angle - 360.0) <= 1e-6 for angle in angles) == 1
+    assert len({tuple(point["dro_xy"]) for point in piece}) == len(piece)
+    gaps = [10.0 * math.radians(b - a) for a, b in zip(angles, angles[1:], strict=False)]
+    assert max(gaps) <= 4.2 + 2e-6
+    seam = angles.index(next(angle for angle in angles if abs(angle - 360.0) <= 1e-6))
+    for leg in (gaps[:seam], gaps[seam:]):
+        assert leg == pytest.approx([leg[0]] * len(leg), abs=2e-6)
 
 
 def test_a_corner_miter_into_retained_scrap_is_legal_and_noted(engine, island):

@@ -1062,21 +1062,38 @@ before-op stock or a boolean is unresolved, and then no row remains.
 A bounded `chain_drill` path is not swept: the kernel intersects its true
 drill-centre offset curves (`chain_geometry`: the arc and finite join lines,
 their walls, pitch and offset in the setup frame) with the bounds box eroded
-by the full drill radius, to `PLANE_TOL`, and regenerates every retained
-interval as one chain of equal nominal intervals no longer than the pitch,
-keeping exact junctions; an exact tangent contact keeps its one real hole.
-Each generated hole snaps at most one DRO grid step, inside the eroded box and
-on the scrap side of every curve meeting it (no nearer any wall than the
-nominal point or the offset). A fractional swept-chord intersection never
-becomes a hole. The chain's `checkpoint_clips` entry carries
-`regeneration = "true_curve"`, `pieces` of `generated` points (`exact_xy`,
-`dro_xy`, `model_xy` in the feature plane, an arc hole's `angle_deg`, and
-`overshoot` at an exact miter), `dropped_ends` (whether the chain's first or
-last nominal end was lost), the authored `dropped_rows`, and empty
+by the full drill radius, to `PLANE_TOL`. A closed arc's retained fragments
+across its seam are one span; an exact tangent contact keeps its one real
+hole. Each retained arc or straight-leg span is regenerated on its own with
+equal nominal intervals along that curve (not one uniform respacing across a
+miter): the hole count is chosen so the nominal spacing is no longer than the
+pitch and still leaves a web (centres more than a drill diameter apart), and
+exact junctions between legs are kept and shared across tables. A span too
+short for any such spacing omits its clipped end hole (a junction's shared
+point stays unless the short tail is the chain's own end) and records that in
+`dropped_ends`; a clipped span never fabricates a no-web error or an unknown,
+so only authored geometry errors remain errors. Every actual hole snaps onto
+the DRO grid inside the eroded box and on the scrap side of every curve
+meeting it (no nearer any wall than the nominal point or the offset): an
+interior hole within one grid step of its nominal point; an end or junction
+hole, whose one-step wedge may hold no safe grid point, within the box of
+three grid coordinates each way, else backed off inward along the true curve
+until a safe grid point exists; a junction's shared point is one fixed DRO
+point across its tables. A backed-off end hole is therefore not promised within one
+step of the true bound intersection (the shipped rocker trial happens to keep
+its ends within one step; that is evidence, not the guarantee). A fractional
+swept-chord intersection never becomes a hole. The chain's `checkpoint_clips`
+entry carries `regeneration = "true_curve"`, `pieces` of `generated` points
+(`exact_xy`, the nominal point on the true offset curve the hole was generated
+at, after any back-off; `dro_xy`, the actual centre; `model_xy` in the feature
+plane; an arc hole's `angle_deg`, continuous across a closed arc's seam; and `overshoot` at an exact miter),
+`dropped_ends` (whether the chain's first or last nominal end was lost to the
+clip or to a short tail), the authored `dropped_rows`, and empty
 `clip_points`; `clipped_at` names the true offset curve at the eroded bounds
 and `precision_mm` is `PLANE_TOL`. Unknown or disconnected chain geometry, a
-box too small for one full drill, no safe grid point within a step, or no
-surviving centre leaves the clip unknown, never a partial table. The kept
+box too small for one full drill, a hole with no safe grid point after its
+search and back-off, or no surviving centre leaves the clip unknown, never a
+partial table. The kept
 rows, renamed per piece with the coordinates row-id formats, are the only rows
 the row check and the setup picture's waypoints use; a bounded op's removal
 stays its box, never a printed run-out. Each

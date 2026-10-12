@@ -283,11 +283,15 @@ The PM-30MV is a manual mill: arcs follow the 1898 manual method
 centre, radius and ends; a rough op steps single-axis `stairs` or drills a
 `chain_drill` outside the line, including straight joins: each finite drill leg
 keeps exact endpoints and nominal holes at equal intervals no greater than the
-pitch (DRO-grid snapping can move the printed spacing). Method, stage and
-full-hole-outside-the-line errors are found before clipping; a bounded chain
+pitch (DRO-grid snapping can move the printed spacing). Method, stage,
+full-hole-outside-the-line and requested-pitch-leaves-no-web errors are found
+before clipping; a bounded chain
 is then clipped at drill granularity (offset path intersected with the bounds
-eroded by the drill radius, ends snapped at most one grid step to the safe
-side, holes respaced as one chain within pitch, every actual hole cylinder
+eroded by the drill radius, each retained arc or leg regenerated with equal
+nominal intervals within pitch that still leave a web, a too-short span
+dropping its end hole rather than failing, every hole snapped to a safe grid
+point: interiors within one step, ends and junctions within about three steps
+or backed off inward along the true curve; every actual hole cylinder
 judged; swept-chord clip points never become holes), every retained web and
 break-out is proven outside the line, the table says stock past the bound is
 not cleared, omitted joins add no join debt while other tables remain (a

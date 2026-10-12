@@ -1386,14 +1386,20 @@ uses the 1898 manual arc method:
    Both rough methods support straight joins. Chain holes use the same
    drill-radius + allowance offset on each finite join leg, with exact
    endpoints/miter and nominal equal spacing no greater than `pitch_mm` (DRO
-   grid snapping can move the printed spacing). Method, stage and full-hole
-   outside-the-line errors are preconditions found before any clip. A bounded
+   grid snapping can move the printed spacing). Method, stage, full-hole
+   outside-the-line and requested no-web (authored `pitch_mm` no greater than
+   the drill diameter) errors are preconditions found before any clip. A bounded
    chain is then clipped at drill granularity: the drill-centre offset arc and
-   joins are intersected with the bounds eroded by the full drill radius, each
-   end snaps at most one DRO grid step to the safe side (inside the bound, not
-   nearer the finished or offset line), the retained path is respaced as one
-   chain of equal nominal intervals within `pitch_mm`, and every actual hole
-   cylinder is judged; a swept-chord intersection never becomes an extra hole.
+   joins are intersected with the bounds eroded by the full drill radius (a
+   closed arc's seam fragments are one span), each retained arc or leg is
+   regenerated on its own with equal nominal intervals within `pitch_mm` that
+   still leave a web (a span too short for that omits its clipped end hole as
+   a dropped end, never a fabricated no-web error), and every actual hole
+   snaps to the DRO grid on the safe side (inside the bound, not nearer the
+   finished or offset line): interior holes within one grid step, end and
+   junction holes within about three steps or backed off inward along the true
+   curve to a safe grid point. Every actual hole cylinder is judged; a
+   swept-chord intersection never becomes an extra hole.
    Web/break-out validation and the single cap enforcement run on that chain,
    whose table says stock past the bound is not cleared and is not part of the
    chiselled chain. Omitted joins add no join debt while an arc or other table

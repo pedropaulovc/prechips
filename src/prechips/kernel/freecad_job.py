@@ -9444,10 +9444,10 @@ class _Setup:
 
         Lengths in ``chain_geometry`` are plan units; pitch and bounds are mm. Each
         retained arc or straight leg has equal nominal intervals <= pitch, with exact
-        junctions forced and shared across tables. Snapping is at most one grid step,
-        inside the full-radius eroded box and on the scrap side of every incident curve.
-        Missing geometry and impossible snaps fail closed. Short spans retain their actual
-        holes for the host's concrete no-web checks; an isolated legal contact is one hole.
+        junctions forced and shared across tables. Interior snaps stay within one grid
+        step; ends use a three-step safe box, backing off on the true curve if necessary.
+        The full-radius eroded box and finite-wall clearances constrain every snap.
+        Short clipped tails lose their end hole rather than acquire overlapping holes.
         Returned model coordinates invert the supplied feature-plane basis at the nominal
         curve point; ``dro_xy`` alone commands the actual cylinder.
         """
@@ -9607,50 +9607,192 @@ class _Setup:
                 raise _ClipUnknown(f"{path['table']}: finite join legs are disconnected")
             geometries.append(geometry)
 
-        def safe(point, exact, curve, geometry):
-            if curve["kind"] == "arc":
-                if curve["outward"] * (math.dist(point, curve["centre"]) - curve["radius"]) < -tol:
+        web = max(tol, 1e-9)
+        separation = 2 * drill + web
+
+        def safe(point, exact, curve, geometry, boundary):
+            if not boundary:
+                if curve["kind"] == "arc":
+                    if (
+                        curve["outward"] * (math.dist(point, curve["centre"]) - curve["radius"])
+                        < -1e-9
+                    ):
+                        return False
+                elif sum((point[i] - exact[i]) * curve["normal"][i] for i in range(2)) < -1e-9:
                     return False
-            elif sum((point[i] - exact[i]) * curve["normal"][i] for i in range(2)) < -tol:
-                return False
             return all(
-                gap(w, point) >= min(gap(w, exact), geometry["offset"]) - tol
+                gap(w, point) >= min(gap(w, exact), geometry["offset"]) - 1e-9
                 for w in geometry["walls"]
             )
 
-        snapped = []
-
-        def snap(exact, curve, geometry):
-            for nominal, actual in snapped:
-                if math.dist(nominal, exact) <= tol:
-                    if not safe(actual, exact, curve, geometry):
-                        raise _ClipUnknown("shared chain junction has incompatible safe sides")
-                    return actual
-            base = [math.floor(v / step) for v in exact]
-            options = sorted(
-                (
-                    [round((base[0] + i) * step, decimals), round((base[1] + j) * step, decimals)]
-                    for i in range(-1, 3)
-                    for j in range(-1, 3)
-                ),
-                key=lambda p: (math.dist(p, exact), p),
-            )
-            incident = [
+        def incident(exact):
+            return [
                 (c, g)
                 for g in geometries
                 for c in g["curves"]
-                if any(math.dist(at(c, t), exact) <= tol for t in (0, 1))
+                for t in (0, 1)
+                if math.dist(at(c, t), exact) <= tol
             ]
-            for point in options:
-                if (
-                    math.dist(point, exact) <= step + tol
+
+        def options(exact, curve, geometry, boundary):
+            reach = 3 if boundary else 1
+            base = [math.floor(v / step) for v in exact]
+            neighbours = incident(exact) if boundary else []
+            candidates = (
+                [round((base[0] + i) * step, decimals), round((base[1] + j) * step, decimals)]
+                for i in range(1 - reach, reach + 1)
+                for j in range(1 - reach, reach + 1)
+            )
+            return sorted(
+                (
+                    point
+                    for point in candidates
+                    if (boundary or math.dist(point, exact) <= step + tol)
                     and inside(point)
-                    and safe(point, exact, curve, geometry)
-                    and all(safe(point, exact, c, g) for c, g in incident)
-                ):
-                    snapped.append((exact, point))
-                    return point
-            raise _ClipUnknown("no safe DRO grid point within one step of the true chain curve")
+                    and safe(point, exact, curve, geometry, boundary)
+                    and all(safe(point, exact, c, g, True) for c, g in neighbours)
+                ),
+                key=lambda p: (math.dist(p, exact), p),
+            )
+
+        # Only true shared endpoints are fixed globally. Trial interior snaps must not
+        # change the phase or the chosen junction of a later table.
+        junctions = []
+        for geometry in geometries:
+            for curve in geometry["curves"]:
+                for t in (0, 1):
+                    exact = at(curve, t)
+                    if any(math.dist(exact, nominal) <= tol for nominal, _ in junctions):
+                        continue
+                    if len(incident(exact)) > 1:
+                        choices = options(exact, curve, geometry, True)
+                        if choices:
+                            junctions.append((exact, choices[0]))
+
+        def junction(exact):
+            return next(
+                (actual for nominal, actual in junctions if math.dist(nominal, exact) <= tol),
+                None,
+            )
+
+        def choices(curve, geometry, t, boundary):
+            exact = at(curve, t)
+            shared = junction(exact) if boundary else None
+            return [shared] if shared is not None else options(exact, curve, geometry, boundary)
+
+        def backed_end(curve, geometry, start, end, length):
+            if choices(curve, geometry, start, True):
+                return start
+            # A near-tangent box crossing can leave an empty safe wedge at its exact
+            # boundary. Walk inward on the actual curve, never on a chord or midpoint
+            # of unrelated walls. The wider grid box overlaps consecutive samples.
+            count = max(1, math.ceil(abs(end - start) * length / (step / 2)))
+            for k in range(1, count + 1):
+                t = start + (end - start) * k / count
+                if choices(curve, geometry, t, True):
+                    return t
+            return None
+
+        def generated(curve, geometry, index, t, actual):
+            exact = at(curve, t)
+            delta = [exact[i] - geometry["setup_origin"][i] for i in range(2)]
+            point = {
+                "generated": True,
+                "exact_xy": exact,
+                "dro_xy": actual,
+                "model_xy": [
+                    sum(delta[i] * axis[i] for i in range(2)) for axis in geometry["basis"]
+                ],
+                "overshoot": curve["kind"] == "line"
+                and ((index > 0 and t == 0) or (index + 1 < len(geometry["curves"]) and t == 1)),
+            }
+            if curve["kind"] == "arc":
+                point["angle_deg"] = curve["angle_start_deg"] + t * curve["angle_sweep_deg"]
+            return point
+
+        retained = [{"exact_xy": exact, "dro_xy": actual} for exact, actual in junctions]
+
+        def spaced(exact, actual, others):
+            return all(
+                math.dist(exact, point["exact_xy"]) <= tol
+                and math.dist(actual, point["dro_xy"]) <= tol
+                or math.dist(actual, point["dro_xy"]) > separation
+                for point in others
+            )
+
+        def sample(curve, geometry, index, low, high, count, require_web=True):
+            parameters = [
+                low + (high - low) * k / count if count else low for k in range(count + 1)
+            ]
+            # Pick the two ends together, then reserve the far end while selecting
+            # interiors. A nearest snap that destroys the last web is not a solution.
+            first = choices(curve, geometry, low, True)
+            last = choices(curve, geometry, high, True) if count else first
+            for a in first:
+                begin = generated(curve, geometry, index, low, a)
+                if require_web and not spaced(begin["exact_xy"], a, retained):
+                    continue
+                if not count:
+                    return [begin]
+                for b in last:
+                    end = generated(curve, geometry, index, high, b)
+                    if require_web and not spaced(end["exact_xy"], b, retained):
+                        continue
+                    if require_web and not spaced(end["exact_xy"], b, [begin]):
+                        continue
+                    piece = [begin]
+                    for t in parameters[1:-1]:
+                        exact = at(curve, t)
+                        actual = next(
+                            (
+                                p
+                                for p in choices(curve, geometry, t, False)
+                                if not require_web
+                                or (
+                                    spaced(exact, p, retained)
+                                    and spaced(exact, p, piece)
+                                    and spaced(exact, p, [end])
+                                )
+                            ),
+                            None,
+                        )
+                        if actual is None:
+                            break
+                        piece.append(generated(curve, geometry, index, t, actual))
+                    else:
+                        return [*piece, end]
+            return None
+
+        def populate(curve, geometry, index, low, high, length):
+            start = backed_end(curve, geometry, low, high, length)
+            if start is None:
+                return []
+            end = backed_end(curve, geometry, high, start, length)
+            span = (end - start) * length
+            pitch = geometry["pitch_mm"] / scale
+            minimum = max(1, math.ceil(span / pitch))
+            maximum = math.floor(span / separation)
+            for count in range(minimum, maximum + 1):
+                piece = sample(curve, geometry, index, start, end, count)
+                if piece is not None:
+                    return piece
+            fixed_start = junction(at(curve, start)) is not None
+            fixed_end = junction(at(curve, end)) is not None
+            if low == start == 0 and high == end == 1 and fixed_start and fixed_end:
+                # Both authored junctions are mandatory: clipping did not create this
+                # infeasible interval. Keep the geometry for the host's concrete
+                # authored no-web error rather than silently unlinking valid tables.
+                return sample(curve, geometry, index, start, end, minimum, False) or []
+            # No count fits the whole interval. Keep its shared junction, if any, and
+            # shorten only the free END. All retained intervals remain equal and <=pitch.
+            reverse = fixed_end and not fixed_start
+            for count in range(min(minimum - 1, maximum), -1, -1):
+                run = min(span, count * pitch) / length
+                a, b = (end - run, end) if reverse else (start, start + run)
+                piece = sample(curve, geometry, index, a, b, count)
+                if piece is not None:
+                    return piece
+            return []
 
         result = []
         for path, geometry in zip(paths, geometries, strict=True):
@@ -9662,30 +9804,10 @@ class _Setup:
                     else curve["radius"] * abs(math.radians(curve["sweep_deg"]))
                 )
                 for low, high in intervals(curve):
-                    span = (high - low) * length
-                    count = math.ceil(span * scale / geometry["pitch_mm"])
-                    piece = []
-                    for k in range(count + 1):
-                        t = low + (high - low) * k / count if count else low
-                        exact = at(curve, t)
-                        actual = snap(exact, curve, geometry)
-                        delta = [exact[i] - geometry["setup_origin"][i] for i in range(2)]
-                        point = {
-                            "generated": True,
-                            "exact_xy": exact,
-                            "dro_xy": actual,
-                            "model_xy": [
-                                sum(delta[i] * axis[i] for i in range(2))
-                                for axis in geometry["basis"]
-                            ],
-                            "overshoot": curve["kind"] == "line"
-                            and ((index > 0 and t == 0) or (index + 1 < len(curves) and t == 1)),
-                        }
-                        if curve["kind"] == "arc":
-                            point["angle_deg"] = (
-                                curve["angle_start_deg"] + t * curve["angle_sweep_deg"]
-                            )
-                        piece.append(point)
+                    piece = populate(curve, geometry, index, low, high, length)
+                    if not piece:
+                        continue
+                    retained.extend(piece)
                     if (
                         pieces
                         and math.dist(pieces[-1][-1]["exact_xy"], piece[0]["exact_xy"]) <= tol
@@ -9693,6 +9815,22 @@ class _Setup:
                         pieces[-1].extend(piece[1:])
                     else:
                         pieces.append(piece)
+            closed = (
+                len(curves) == 1
+                and curves[0]["kind"] == "arc"
+                and abs(curves[0]["sweep_deg"]) == 360
+            )
+            if (
+                closed
+                and len(pieces) > 1
+                and math.dist(pieces[0][0]["exact_xy"], at(curves[0], 0)) <= tol
+                and math.dist(pieces[-1][-1]["exact_xy"], at(curves[0], 1)) <= tol
+            ):
+                # As for swept paths, the last and first fragments meet at one seam
+                # hole. Shift only the angular phase, not nominal/model coordinates.
+                sweep = curves[0]["angle_sweep_deg"]
+                first = [{**point, "angle_deg": point["angle_deg"] + sweep} for point in pieces[0]]
+                pieces = [pieces[-1] + first[1:], *pieces[1:-1]]
             dropped = [
                 not pieces or math.dist(pieces[0][0]["exact_xy"], at(curves[0], 0)) > tol,
                 not pieces or math.dist(pieces[-1][-1]["exact_xy"], at(curves[-1], 1)) > tol,

@@ -721,6 +721,48 @@ def synthetic_join_clip(bundle, requested, select, *, regenerated=False):
     return dataclasses.replace(bundle, kernel=kernel)
 
 
+@pytest.mark.parametrize("pitch", [JOIN_DRILL / 2, JOIN_DRILL], ids=["below-dia", "equal-dia"])
+@pytest.mark.parametrize(
+    "retained_kind", [None, "arc_table", "line_table"], ids=["empty", "arc", "join"]
+)
+def test_bad_requested_chain_pitch_is_refused_before_a_bounds_clip_omits_holes(
+    tmp_path, pitch, retained_kind
+):
+    plan = joined_chain_plan(tmp_path, bounded=True)
+    valid = load_bundle(plan)
+    requested = joined_chain_finding(valid, pre_kernel=True)
+    tables = coordinates.checkpoints("S1:20", requested.numbers, 20)
+    assert requested.status == "pass" and tables
+    selected = next(
+        table
+        for table in tables
+        if table["kind"] == (retained_kind or "arc_table")
+        and (table["kind"] == "arc_table" or table["name"] == "S1:20 rough line +X")
+    )
+    index = len(selected["rows"]) // 2
+    change(plan, f"pitch_mm = {JOIN_PITCH}", f"pitch_mm = {pitch}")
+    invalid = load_bundle(plan)
+    # The injected clip would hide every neighbouring hole, or even every hole.
+    # Invalid authored pitch is independent of that retained geometry and must
+    # stop before the clip can turn it into a superficially legal singleton.
+    clipped = synthetic_join_clip(
+        invalid,
+        requested,
+        lambda table: (
+            [index] if retained_kind is not None and table["name"] == selected["name"] else []
+        ),
+        regenerated=True,
+    )
+    for pre_kernel in (True, False):
+        row = joined_chain_finding(clipped, pre_kernel=pre_kernel)
+        assert row.status == "error", row.sentence
+        assert "pitch" in errors(row) and "no web" in errors(row)
+        assert arcs(row, 20) == joined_chain_lines(row) == []
+        assert coordinates.checkpoints("S1:20", row.numbers, 20) == []
+        (profile,) = row.numbers["profiles"]
+        assert "no web" in profile["arc_reason"] and "clip_reason" not in profile
+
+
 @pytest.mark.parametrize(
     ("points", "walls", "expected"),
     [
@@ -780,7 +822,7 @@ def test_bounded_chain_clip_retains_only_actual_holes(tmp_path, kind, fraction):
     assert retained["method"] == "chain_drill"
     dropped_key = "dropped_rows" if kind == "arc_table" else "dropped_points"
     assert retained[dropped_key] == len(selected["rows"]) - 1
-    assert retained["pitch_mm"] == 0.0
+    assert "pitch_mm" not in retained and "break_out" not in retained
     assert retained["stock_left_mm"] == pytest.approx(printed_join_residual(row), abs=1e-8)
     (checkpoint,) = coordinates.checkpoints("S1:20", row.numbers, 20)
     assert len(checkpoint["rows"]) == 1
@@ -844,7 +886,7 @@ def test_bounded_chain_regenerated_whole_holes_preserve_legal_endpoints_and_spac
     assert max(gaps) <= JOIN_PITCH + 0.002
 
 
-def test_a_regenerated_short_chain_span_is_a_concrete_no_web_error(tmp_path):
+def test_a_regenerated_short_chain_span_keeps_one_hole_without_false_no_web(tmp_path):
     bundle = load_bundle(joined_chain_plan(tmp_path, tip=(6.2, -8.0), bounded=True))
     requested = joined_chain_finding(bundle, pre_kernel=True)
     selected = next(
@@ -857,28 +899,52 @@ def test_a_regenerated_short_chain_span_is_a_concrete_no_web_error(tmp_path):
         key=lambda i: math.dist(selected["rows"][i][1], selected["rows"][i + 1][1]),
     )
     assert math.dist(selected["rows"][index][1], selected["rows"][index + 1][1]) < JOIN_DRILL
+    # A clipped tail cannot fit both endpoint cylinders. The native contract
+    # keeps the first real hole and reports the omitted end, never fabricating
+    # a second overlapping hole for a host no-web error.
     clipped = synthetic_join_clip(
         bundle,
         requested,
-        lambda table: [index, index + 1] if table["name"] == selected["name"] else [],
+        lambda table: [index] if table["name"] == selected["name"] else [],
         regenerated=True,
     )
     row = joined_chain_finding(clipped)
-    assert row.status == "error", row.sentence
-    assert "no web" in errors(row)
-    assert not row.numbers.get("arc_debts", [])
-    assert arcs(row, 20) == joined_chain_lines(row) == []
+    assert row.status == "pass", row.sentence
+    assert not row.numbers.get("arc_errors", []) and not row.numbers.get("arc_debts", [])
+    assert arcs(row, 20) == []
+    (retained,) = joined_chain_lines(row)
+    assert retained["regeneration"] == "true_curve"
+    assert retained["dropped_ends"][1] is True
+    original = next(line for line in joined_chain_lines(requested) if line["side"] == "+X")
+    assert retained["setup_xy"] == [original["setup_xy"][index]]
+    assert retained["model_xy"] == [original["model_xy"][index]]
+    assert retained["dro_xy"] == [original["dro_xy"][index]] == [selected["rows"][index][1]]
+    # Setup/model columns remain the honest true-curve nominal; only the DRO
+    # checkpoint is the actual snapped cylinder centre.
+    assert retained["setup_xy"] != retained["dro_xy"]
+    assert retained["setup_xy"][0] == pytest.approx(
+        [retained["model_xy"][0][0] - 5.0, retained["model_xy"][0][1] - 2.0], abs=1e-12
+    )
+    assert "pitch_mm" not in retained and "break_out" not in retained
+    assert retained["drill_dia_mm"] == JOIN_DRILL
+    assert retained["hole_clear_mm"] >= JOIN_ALLOWANCE - 1e-6
+    assert retained["stock_left_mm"] == pytest.approx(
+        printed_join_residual(row, tip=(6.2, -8.0)), abs=1e-8
+    )
     (profile,) = row.numbers["profiles"]
     assert "clip_reason" not in profile
+    (checkpoint,) = coordinates.checkpoints("S1:20", row.numbers, 20)
+    assert checkpoint["rows"][0][1:] == selected["rows"][index][1:]
 
 
-def test_a_regenerated_legal_singleton_hole_remains_a_coordinate_checkpoint(tmp_path):
+@pytest.mark.parametrize("kind", ["arc_table", "line_table"], ids=["arc", "join"])
+def test_a_regenerated_legal_singleton_hole_remains_a_coordinate_checkpoint(tmp_path, kind):
     bundle = load_bundle(joined_chain_plan(tmp_path, bounded=True))
     requested = joined_chain_finding(bundle, pre_kernel=True)
     selected = next(
         table
         for table in coordinates.checkpoints("S1:20", requested.numbers, 20)
-        if table["kind"] == "arc_table"
+        if table["kind"] == kind and (kind == "arc_table" or table["name"] == "S1:20 rough line +X")
     )
     index = len(selected["rows"]) // 2
     assert 0 < index < len(selected["rows"]) - 1
@@ -891,15 +957,157 @@ def test_a_regenerated_legal_singleton_hole_remains_a_coordinate_checkpoint(tmp_
     row = joined_chain_finding(clipped)
     assert row.status == "pass", row.sentence
     assert not row.numbers.get("arc_errors", []) and not row.numbers.get("arc_debts", [])
-    (retained,) = arcs(row, 20)
-    assert joined_chain_lines(row) == []
+    if kind == "arc_table":
+        (retained,) = arcs(row, 20)
+        assert joined_chain_lines(row) == []
+        assert len(retained["rows"]) == 1
+    else:
+        (retained,) = joined_chain_lines(row)
+        assert arcs(row, 20) == []
+        assert len(retained["dro_xy"]) == 1
     assert retained["regeneration"] == "true_curve"
     assert retained["dropped_ends"] == [True, True]
-    assert len(retained["rows"]) == 1
-    assert retained["pitch_mm"] == 0.0
+    assert "pitch_mm" not in retained and "break_out" not in retained
+    assert retained["drill_dia_mm"] == JOIN_DRILL
+    assert retained["hole_clear_mm"] >= JOIN_ALLOWANCE - 1e-6
+    assert retained["stock_left_mm"] == pytest.approx(printed_join_residual(row), abs=1e-8)
     (checkpoint,) = coordinates.checkpoints("S1:20", row.numbers, 20)
     assert len(checkpoint["rows"]) == 1
     assert checkpoint["rows"][0][1:] == selected["rows"][index][1:]
+
+
+@pytest.mark.parametrize(("length", "count"), [(1.0, 1), (4.5, 2), (5.0, 2), (8.5, 3)])
+def test_feasible_bounded_chain_lengths_validate_actual_holes_without_debt(length, count):
+    drill, allowance, pitch = 1.435, 0.1, 4.2
+    exact = [[0.0001 + pitch * i, 0.0001] for i in range(count)]
+    printed = [[round(point[0] + 0.0009, 3), 0.001] for point in exact]
+    wall = [[-10.0, 0.0001 - drill - allowance], [20.0, 0.0001 - drill - allowance]]
+    line = {
+        "method": "chain_drill",
+        "regeneration": "true_curve",
+        "side": "bounded synthetic",
+        "setup_xy": exact,
+        "model_xy": exact,
+        "dro_xy": printed,
+        "join_walls": [{"ends": wall, "normal": [0.0, 1.0]}],
+        "dropped_ends": [True, True],
+        # These inherited authored fields must disappear for an actual singleton.
+        "pitch_mm": pitch,
+        "break_out": coordinates.CHAIN_BREAK_OUT,
+    }
+    chain_errors, chain_debts = coordinates._chain(
+        arcs=[],
+        lines=[line],
+        walls=[lambda point: segment_distance(point, *wall)],
+        drill=drill,
+        allowance=allowance,
+        cap=2.0,
+        label="bounded synthetic",
+        scale=1.0,
+    )
+    assert chain_errors == chain_debts == []
+    assert line["dropped_ends"] == [True, True]
+    assert all(0.0001 <= point[0] <= 0.0001 + length for point in printed)
+    assert length - (exact[-1][0] - exact[0][0]) < 2 * drill
+    assert all(
+        2 * drill + 1e-6 < math.dist(a, b) <= pitch + 0.002 for a, b in itertools.pairwise(printed)
+    )
+    assert all(math.dist(a, b) <= pitch + 1e-9 for a, b in itertools.pairwise(exact))
+    assert all(segment_distance(point, *wall) - drill >= allowance for point in printed)
+    assert line["drill_dia_mm"] == 2 * drill
+    assert line["hole_clear_mm"] >= allowance
+    assert line["stock_left_mm"] == pytest.approx(finite_wall_residual(printed, [wall]), abs=1e-9)
+    assert line["stock_cap_mm"] == 2.0
+    if count == 1:
+        assert "pitch_mm" not in line and "break_out" not in line
+    else:
+        assert line["pitch_mm"] == pytest.approx(pitch)
+        assert line["break_out"] == coordinates.CHAIN_BREAK_OUT
+
+
+@pytest.mark.parametrize("full_circle", [False, True], ids=["retained-seam", "whole-circle"])
+def test_a_regenerated_full_circle_reports_only_actual_seam_closure(tmp_path, full_circle):
+    xlo = -40.0 if full_circle else 20.0
+    plan = scratch(
+        tmp_path,
+        op(
+            20,
+            "rough_profile",
+            "{ method = 'chain_drill', pitch_mm = 4.2 }",
+            tool="drill",
+            allowance=0.1,
+            stock_removal_bounds=(f"{{ x = [{xlo}, 40.0], y = [-40.0, 40.0], z = [-10.0, 0.0] }}"),
+        ),
+        policy=POLICY.replace("max_filing_stock_mm = 0.5", "max_filing_stock_mm = 3.0"),
+    )
+    change(
+        plan.with_name("inventory.toml"),
+        "kind = 'drill'\ndia_mm = 3.0",
+        "kind = 'drill'\ndia_mm = 2.87",
+    )
+    bundle = load_bundle(plan)
+    requested = joined_chain_finding(bundle, pre_kernel=True)
+    (original,) = arcs(requested, 20)
+    assert original["full_circle"] is True
+    rows = original["rows"]
+    # A native seam-connected retained interval traverses the last authored
+    # angles, the single 360-degree hole, then unwrapped angles beyond 360.
+    # Model/setup XY stay on the original circle; only the phase is unwrapped.
+    selected = (
+        list(range(len(rows)))
+        if full_circle
+        else [len(rows) - 3, len(rows) - 2, len(rows) - 1, 1, 2]
+    )
+    clipped = synthetic_join_clip(bundle, requested, lambda table: selected, regenerated=True)
+    (entry,) = clipped.kernel["ops"]["S1:20"]["checkpoint_clips"]["paths"]
+    entry["dropped_ends"] = [not full_circle, not full_circle]
+    (piece,) = entry["pieces"]
+    if not full_circle:
+        for point in piece[3:]:
+            point["angle_deg"] += 360.0
+    row = joined_chain_finding(clipped)
+    assert row.status == "pass", row.sentence
+    assert row.numbers.get("arc_errors", []) == row.numbers.get("arc_debts", []) == []
+    assert joined_chain_lines(row) == []
+    (retained,) = arcs(row, 20)
+    assert "fragment" not in retained
+    assert retained["full_circle"] is full_circle
+    assert retained["regeneration"] == "true_curve"
+    assert retained["dropped_ends"] == [not full_circle, not full_circle]
+    assert len(retained["rows"]) == len(selected)
+    angles = [point["angle_deg"] for point in retained["rows"]]
+    if full_circle:
+        assert angles[0] == pytest.approx(0.0) and angles[-1] == pytest.approx(360.0)
+    else:
+        assert angles[0] < 360.0 < angles[-1]
+    assert all(a < b for a, b in itertools.pairwise(angles))
+    assert sum(abs(angle - 360.0) <= 1e-6 for angle in angles) == 1
+    centre = retained["centre_setup_xy"]
+    nominal_radius = retained["cutter_centre_radius_mm"]
+    holes = [point["dro_xy"] for point in retained["rows"]]
+    assert len({tuple(point) for point in holes}) == len(holes) - full_circle
+    if full_circle:
+        assert holes[0] == holes[-1]
+    for point, index in zip(retained["rows"], selected, strict=True):
+        assert point["model_xy"] == rows[index]["model_xy"]
+        assert point["setup_xy"] == rows[index]["setup_xy"]
+        assert point["setup_xy"] == pytest.approx(
+            [point["model_xy"][0] - 5.0, point["model_xy"][1] - 2.0], abs=1e-9
+        )
+        assert math.dist(point["setup_xy"], centre) == pytest.approx(nominal_radius, abs=1e-8)
+        assert math.dist(point["dro_xy"], centre) >= retained["wall_radius_mm"] + 1.435 + 0.1 - 1e-6
+        assert xlo + 1.435 - 1e-6 <= point["dro_xy"][0] <= 40.0 - 1.435 + 1e-6
+    nominal_gaps = [nominal_radius * math.radians(b - a) for a, b in itertools.pairwise(angles)]
+    assert max(nominal_gaps) <= 4.2 + 1e-6
+    assert nominal_gaps == pytest.approx([nominal_gaps[0]] * len(nominal_gaps), abs=1e-8)
+    assert all(math.dist(a, b) > 2.87 + 1e-6 for a, b in itertools.pairwise(holes))
+    assert all(
+        segment_distance(centre, a, b) >= retained["wall_radius_mm"] - 1e-6
+        for a, b in itertools.pairwise(holes)
+    )
+    (checkpoint,) = coordinates.checkpoints("S1:20", row.numbers, 20)
+    assert [item[1] for item in checkpoint["rows"]] == holes
+    assert len(checkpoint["chain_geometry"]["curves"]) == 1
 
 
 @pytest.mark.parametrize("clip_state", ["absent", "empty"])

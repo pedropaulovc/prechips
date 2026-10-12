@@ -7226,46 +7226,71 @@ class _Traveler:
 
     @staticmethod
     def clip(table, markers, rows, label_column=0):
-        """Clipped cutter ends, disconnected pieces and stock beyond excluded end holes.
+        """Name real clipped ends, not every generated hole that carries a clip marker.
 
-        A dropped hole is not a synthetic clip point; ``dropped_ends`` identifies stock
-        the surviving hole chain does not clear even without ``clipped_at`` markers.
+        Whole-hole exclusions use ``dropped_ends``; a split chain's 1-based fragment
+        identifies its internal break ends. Neither invents another drill position.
+        A singleton names the stock drilling leaves, never a web breakout.
         """
         ends = []
-        for index, marker in enumerate(markers):
-            if not marker or index >= len(rows):
-                continue
-            point = rows[index][label_column] or f"row {index + 1}"
-            ends.append(("starts at " if index == 0 else "stops at ") + point)
+        fragment = table.get("fragment")
+        chain = table.get("method") == "chain_drill"
+        if chain and rows:
+            last = len(rows) - 1
+            flags = [bool(markers and markers[0]), last < len(markers) and bool(markers[last])]
+            dropped = table.get("dropped_ends")
+            known_ends = (
+                isinstance(dropped, list)
+                and len(dropped) == 2
+                and all(isinstance(end, bool) for end in dropped)
+            )
+            split = (
+                isinstance(fragment, list)
+                and len(fragment) == 2
+                and all(
+                    isinstance(value, int) and not isinstance(value, bool) for value in fragment
+                )
+                and 1 <= fragment[0] <= fragment[1]
+                and fragment[1] > 1
+            )
+            if split:
+                flags = [
+                    fragment[0] > 1 or (dropped[0] if known_ends else flags[0]),
+                    fragment[0] < fragment[1] or (dropped[1] if known_ends else flags[1]),
+                ]
+            elif known_ends:
+                flags = [flags[0] or dropped[0], flags[1] or dropped[1]]
+            for index, flag, verb in ((0, flags[0], "starts"), (last, flags[1], "stops")):
+                if flag:
+                    point = rows[index][label_column] or f"hole #{index + 1}"
+                    ends.append(f"{verb} at {point}")
+        elif not chain:
+            for index, marker in enumerate(markers):
+                if not marker or index >= len(rows):
+                    continue
+                point = rows[index][label_column] or f"row {index + 1}"
+                ends.append(("starts at " if index == 0 else "stops at ") + point)
         text = ""
         if ends:
-            text = (
-                f"; {' and '.join(ends)}: the stock past "
-                + ("it" if len(ends) == 1 else "them")
-                + " is outside this op's area"
-            )
-        dropped = table.get("dropped_ends")
-        if (
-            table.get("method") == "chain_drill"
-            and rows
-            and isinstance(dropped, list)
-            and len(dropped) == 2
-            and all(isinstance(end, bool) for end in dropped)
-        ):
-            stock = []
-            for index, end, where in (
-                (0, dropped[0], "before the first"),
-                (len(rows) - 1, dropped[1], "past the last"),
-            ):
-                if end:
-                    hole = rows[index][label_column] or f"#{index + 1}"
-                    stock.append(f"{where} printed hole {hole}")
-            if stock:
-                text += (
-                    f"; stock {' and '.join(stock)} is not cleared by this op; "
-                    "do not include it in this hole-chain breakout"
+            if chain and len(rows) == 1:
+                point = rows[0][label_column] or "#1"
+                text = (
+                    f"; retained hole {point}: stock beyond its bounded "
+                    + ("end" if len(ends) == 1 else "ends")
+                    + " is outside this op's area and not cleared by drilling."
                 )
-        fragment = table.get("fragment")
+            elif chain:
+                text = (
+                    f"; {' and '.join(ends)}: stock beyond "
+                    + ("it" if len(ends) == 1 else "them")
+                    + " is outside this op's area, not for this breakout."
+                )
+            else:
+                text = (
+                    f"; {' and '.join(ends)}: the stock past "
+                    + ("it" if len(ends) == 1 else "them")
+                    + " is outside this op's area"
+                )
         if isinstance(fragment, list) and len(fragment) == 2:
             text += (
                 f"; piece {fragment[0]} of {fragment[1]}: no cut links the pieces, so the "
@@ -7551,12 +7576,22 @@ class _Traveler:
                     [str(index), label, o(xy[0]), o(xy[1])]
                     for index, (label, xy) in enumerate(zip(labels, points, strict=True), 1)
                 ]
-                description = (
-                    f"Chain drill: drill Ø{_number(arc.get('drill_dia_mm'))} mm, "
-                    f"pitch {_number(arc.get('pitch_mm'))} mm; every hole outside "
-                    + self.arc_line(setup, arc.get("op"))
-                )
-                after = f"After drilling, {_text(arc.get('break_out'))}; " + _leftover(arc) + "."
+                if len(rows) == 1:
+                    description = (
+                        f"Single retained hole: drill Ø{_number(arc.get('drill_dia_mm'))} mm; "
+                        "hole outside " + self.arc_line(setup, arc.get("op"))
+                    )
+                    stock = _leftover(arc)
+                    after = stock[:1].upper() + stock[1:] + "."
+                else:
+                    description = (
+                        f"Chain drill: drill Ø{_number(arc.get('drill_dia_mm'))} mm, "
+                        f"pitch {_number(arc.get('pitch_mm'))} mm; every hole outside "
+                        + self.arc_line(setup, arc.get("op"))
+                    )
+                    after = (
+                        f"After drilling, {_text(arc.get('break_out'))}; " + _leftover(arc) + "."
+                    )
             elif method == "chords":
                 headings = [
                     "chord #",
@@ -7688,17 +7723,29 @@ class _Traveler:
             description += self.clip(line, line.get("clipped_at") or [], rows)
             after = None
             if line.get("method") == "chain_drill":
-                description = (
-                    f"Chain drill straight joins on the {side} side: "
-                    f"drill Ø{_number(line.get('drill_dia_mm'))} mm, "
-                    f"pitch {_number(line.get('pitch_mm'))} mm; every hole outside "
-                    + self.arc_line(setup, line.get("op"))
-                    + self.cut_order(line)
-                    + self.clip(line, line.get("clipped_at") or [], rows)
+                if len(rows) == 1:
+                    description = (
+                        f"Single retained hole on the {side} join: "
+                        f"drill Ø{_number(line.get('drill_dia_mm'))} mm; hole outside "
+                        + self.arc_line(setup, line.get("op"))
+                    )
+                    stock = _leftover(line)
+                    after = stock[:1].upper() + stock[1:] + "."
+                else:
+                    description = (
+                        f"Chain drill straight joins on the {side} side: "
+                        f"drill Ø{_number(line.get('drill_dia_mm'))} mm, "
+                        f"pitch {_number(line.get('pitch_mm'))} mm; every hole outside "
+                        + self.arc_line(setup, line.get("op"))
+                    )
+                    after = (
+                        f"After drilling, {_text(line.get('break_out'))}; " + _leftover(line) + "."
+                    )
+                description += self.cut_order(line) + self.clip(
+                    line, line.get("clipped_at") or [], rows
                 )
                 rows = [[str(index), *row[:-1]] for index, row in enumerate(rows, 1)]
                 headings = ["hole #", "P", "", "X", "Y", "Z"]
-                after = f"After drilling, {_text(line.get('break_out'))}; " + _leftover(line) + "."
             elif axes:
                 description += "; one handwheel axis per row"
                 if _known(line.get("stair_cusp_mm")):

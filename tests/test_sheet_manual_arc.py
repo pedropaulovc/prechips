@@ -25,6 +25,22 @@ def coordinate_tables(html):
     return markup, owner, markup.find("coords", owner)
 
 
+def chain_captions(markup, owner, table):
+    """Read the screen introduction and its continuation-header mirror separately."""
+    (intro,) = markup.find("table-intro", owner)
+    (context,) = markup.find("table-context", table)
+    siblings = [node for node in markup.nodes if node["parent"] is table["parent"]]
+    assert intro["tag"] == "p" and siblings[siblings.index(table) - 1] is intro
+    assert context["tag"] == "tr" and context["parent"]["tag"] == "thead"
+    assert context["parent"]["parent"] is table
+    captions = [" ".join(content(node).split()) for node in (intro, context)]
+    assert captions[0] == captions[1], "the continuation header must mirror the introduction"
+    # Account for both legitimate copies without hiding any extra end instruction.
+    for phrase in ("starts at ", "stops at ", "not for this breakout"):
+        assert content(owner).count(phrase) == sum(caption.count(phrase) for caption in captions)
+    return captions
+
+
 def headers(markup, table):
     (head,) = tagged(markup, "thead", table)
     rows = tagged(markup, "tr", head)
@@ -269,21 +285,194 @@ def test_excluded_end_holes_dispose_uncleared_stock_without_synthetic_clip_point
 
     html = sheet.contours(setup, {("tools", "cutter"): "1 mm drill"})
     printed = text(html)
-    markup, _, tables = coordinate_tables(html)
+    markup, owner, tables = coordinate_tables(html)
     (coordinate_table,) = tables
     rows = table_rows(markup, coordinate_table)
 
     assert len(rows) == 3, "dropped endpoints must not add interpolated drill positions"
-    assert ("before the first printed hole " in printed) is dropped_ends[0]
-    assert ("past the last printed hole " in printed) is dropped_ends[1]
-    if dropped_ends[0]:
-        assert f"before the first printed hole {'P1' if labelled else '#1'}" in printed
-    if dropped_ends[1]:
-        assert f"past the last printed hole {'P3' if labelled else '#3'}" in printed
-    assert ("not cleared by this op" in printed) is any(dropped_ends)
-    assert ("do not include it in this hole-chain breakout" in printed) is any(dropped_ends)
+    for caption in chain_captions(markup, owner, coordinate_table):
+        assert caption.count("starts at ") == int(dropped_ends[0])
+        assert caption.count("stops at ") == int(dropped_ends[1])
+        if dropped_ends[0]:
+            assert f"starts at {'P1' if labelled else 'hole #1'}" in caption
+        if dropped_ends[1]:
+            assert f"stops at {'P3' if labelled else 'hole #3'}" in caption
+        assert ("outside this op's area" in caption) is any(dropped_ends)
+        assert caption.count("not for this breakout") == int(any(dropped_ends))
     assert "leaves at most 0.420 mm for the file" in printed
     assert "clipped" not in printed, "whole excluded holes are not newly clipped hole centres"
+
+
+@pytest.mark.parametrize("kind", ["arc_table", "line_table"])
+@pytest.mark.parametrize("units", ["mm", "in"])
+def test_single_retained_chain_hole_has_no_pitch_or_web_breakout(tmp_path, kind, units):
+    scale = 25.4 if units == "in" else 1.0
+    point = [0.25, -0.5]
+    table = arc_record("chain_drill")
+    table.update(
+        kernel_clip=True,
+        regeneration="true_curve",
+        dropped_ends=[True, True],
+        drill_dia_mm=1,
+        pitch_mm=1.5,
+        break_out="chisel the webs out along the hole centres",
+    )
+    if kind == "arc_table":
+        table["rows"] = [{"dro_xy": point, "clipped_at": "stock_removal_bounds"}]
+    else:
+        table.pop("rows")
+        table.update(
+            setup_xy=[point],
+            dro_xy=[point],
+            clipped_at=["stock_removal_bounds"],
+            side="west",
+        )
+    sheet, setup = traveler(
+        tmp_path,
+        [{"op": 20, "do": "rough_profile", "feature": "arc", "tool": "cutter"}],
+        {kind: [table]},
+        units=units,
+    )
+    sheet.report["renders"]["S1"]["scene"]["waypoints"] = [
+        {
+            "op": "20",
+            "label": "P5",
+            "xy": [value * scale for value in point],
+            "rows": [row_id("S1:20", kind, table, 4)],
+        }
+    ]
+
+    html = sheet.contours(setup, {("tools", "cutter"): "1 mm drill"})
+    printed = text(html)
+    markup, _, tables = coordinate_tables(html)
+    (coordinate_table,) = tables
+    (row,) = table_rows(markup, coordinate_table)
+
+    assert row[:2] == ["1", "P5"]
+    assert [float(value) for value in row[-2:]] == pytest.approx(point)
+    assert "Single retained hole" in printed and "drill Ø1 mm" in printed
+    assert "Leaves at most 0.420 mm for the file (cap 0.5 mm)." in printed
+    assert (
+        "retained hole P5: stock beyond its bounded ends is outside this op's area "
+        "and not cleared by drilling."
+    ) in printed
+    assert not re.search(r"\b(?:pitch|chisel|webs?|breakout)\b|break-out", printed, re.I)
+    assert "starts at " not in printed and "stops at " not in printed
+
+
+@pytest.mark.parametrize("flags", [[True, False], [False, True], [True, True], [False, False]])
+def test_singleton_bound_disposition_never_implies_a_web_breakout(flags):
+    table = {"method": "chain_drill", "dropped_ends": flags}
+
+    note = _Traveler.clip(table, [], [["P5"]])
+
+    assert ("retained hole P5" in note) is any(flags)
+    assert ("not cleared by drilling" in note) is any(flags)
+    assert "starts at " not in note and "stops at " not in note
+    assert "breakout" not in note
+    if any(flags):
+        end = "end" if sum(flags) == 1 else "ends"
+        assert f"stock beyond its bounded {end} is outside this op's area" in note
+
+
+@pytest.mark.parametrize("kind", ["arc_table", "line_table"])
+@pytest.mark.parametrize("units", ["mm", "in"])
+def test_bounded_65_hole_chain_names_only_its_actual_first_and_last_holes(tmp_path, kind, units):
+    scale = 25.4 if units == "in" else 1.0
+    points_mm = [[float(index), index * (64 - index) / 100] for index in range(65)]
+    points = [[value / scale for value in point] for point in points_mm]
+    table = arc_record("chain_drill")
+    table.update(
+        kernel_clip=True,
+        regeneration="true_curve",
+        dropped_ends=[True, True],
+        drill_dia_mm=1,
+        pitch_mm=1.5,
+        break_out="chisel the webs out along the hole centres",
+    )
+    markers = ["stock_removal_bounds"] * 65
+    if kind == "arc_table":
+        table["rows"] = [
+            {"dro_xy": point, "clipped_at": marker}
+            for point, marker in zip(points, markers, strict=True)
+        ]
+    else:
+        table.pop("rows")
+        table.update(setup_xy=points, dro_xy=points, clipped_at=markers, side="west")
+    sheet, setup = traveler(
+        tmp_path,
+        [{"op": 20, "do": "rough_profile", "feature": "arc", "tool": "cutter"}],
+        {kind: [table]},
+        units=units,
+    )
+    sheet.report["renders"]["S1"]["scene"]["waypoints"] = [
+        {
+            "op": "20",
+            "label": label,
+            "xy": points_mm[index],
+            "rows": [row_id("S1:20", kind, table, index + 1)],
+        }
+        for index, label in ((0, "P4"), (32, "P5"), (64, "P6"))
+    ]
+
+    html = sheet.contours(setup, {("tools", "cutter"): "1 mm drill"})
+    markup, owner, tables = coordinate_tables(html)
+    (coordinate_table,) = tables
+    rows = table_rows(markup, coordinate_table)
+
+    assert len(rows) == 65
+    assert [rows[index][1] for index in (0, 32, 64)] == ["P4", "P5", "P6"]
+    for caption in chain_captions(markup, owner, coordinate_table):
+        assert caption.count("starts at ") == 1
+        assert caption.count("stops at ") == 1
+        assert "starts at P4 and stops at P6" in caption
+        assert "stock beyond them is outside this op's area, not for this breakout." in caption
+        assert "stops at row" not in caption and "starts at row" not in caption
+        assert "P5" not in caption, "an interior hole must not become a fragment breakpoint"
+
+
+@pytest.mark.parametrize("flags", [[True, False], [False, True], [True, True], [False, False]])
+def test_chain_clip_flags_name_only_the_corresponding_end_not_interior_holes(flags):
+    table = {"method": "chain_drill", "dropped_ends": [False, False]}
+    rows = [["P4"], ["P5"], ["P6"]]
+
+    note = _Traveler.clip(table, [flags[0], True, flags[1]], rows)
+
+    assert note.count("starts at ") == int(flags[0])
+    assert note.count("stops at ") == int(flags[1])
+    assert ("starts at P4" in note) is flags[0]
+    assert ("stops at P6" in note) is flags[1]
+    assert "P5" not in note
+    assert note.count("not for this breakout") == int(any(flags))
+
+
+@pytest.mark.parametrize(
+    ("fragment", "dropped_ends", "start", "stop"),
+    [
+        ([1, 3], [False, False], False, True),
+        ([2, 3], [False, False], True, True),
+        ([3, 3], [False, False], True, False),
+        ([1, 3], [True, False], True, True),
+        ([3, 3], [False, True], True, True),
+    ],
+)
+def test_split_chain_names_only_real_fragment_break_ends(fragment, dropped_ends, start, stop):
+    table = {
+        "method": "chain_drill",
+        "fragment": fragment,
+        "dropped_ends": dropped_ends,
+    }
+    rows = [["P4"], ["P5"], ["P6"]]
+
+    note = _Traveler.clip(table, [True, True, True], rows)
+
+    assert note.count("starts at ") == int(start)
+    assert note.count("stops at ") == int(stop)
+    assert ("starts at P4" in note) is start
+    assert ("stops at P6" in note) is stop
+    assert "P5" not in note
+    assert f"piece {fragment[0]} of {fragment[1]}: no cut links the pieces" in note
+    assert "stock between them is not cleared by this op" in note
 
 
 @pytest.mark.parametrize("kind", ["arc_table", "line_table"])

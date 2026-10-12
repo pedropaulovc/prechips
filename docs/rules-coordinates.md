@@ -244,18 +244,33 @@ naming them. Each table is recorded under `arc_table` (its joins under
   DRO grid can move the printed spacing off that bound. Holes are repositioning
   checkpoints, not handwheel cutting moves. Join tables print hole numbers,
   checkpoint P, X/Y and Z, drill size, pitch, break-out instructions and the
-  reported stock/cap or `recut_by`; each P label names the printed DRO X/Y
+  reported stock/cap or `recut_by`; a table left with a single hole prints no
+  pitch or break-out sentence (there is no neighbour to break through to).
+  Each P label names the printed DRO X/Y
   point it stands on (matched within 1e-6 mm), never a hole index that a clip
   or respacing could shift. Arc and join records share the worst residual of
-  their rough stage. Method, stage and full-hole-outside-the-line errors are
-  preconditions found on the authored tables before any clip, and stay errors
-  even for holes a clip would exclude. A bounded chain (`stock_removal_bounds`)
+  their rough stage. Method, stage, full-hole-outside-the-line and requested
+  no-web errors (an authored `pitch_mm` no greater than the selected drill's
+  diameter can leave no web at any spacing) are preconditions found on the
+  authored tables before any clip, and stay errors even for holes a clip would
+  exclude; a clip's single-hole or dropped-end result never hides them. A
+  bounded chain (`stock_removal_bounds`)
   is clipped by the kernel at drill granularity: it intersects the
   drill-centre offset arc and join lines with the bounds eroded by the full
-  drill radius, snaps each end inward by at most one DRO grid step on the safe
-  side (inside the bound, never nearer the finished or offset line), regenerates
-  the retained path as one chain of equal nominal intervals no longer than
-  `pitch_mm`, and judges every actual hole cylinder. A raw swept-chord
+  drill radius (a closed arc's fragments across its seam are one span), then
+  regenerates each retained arc or straight leg on its own with equal nominal
+  intervals along that curve, choosing the hole count so the nominal spacing
+  is no longer than `pitch_mm` and still leaves a web (centres more than a
+  drill diameter apart); exact junctions stay shared. A span too short for any
+  such spacing omits its clipped end hole (reported as a dropped end, never as
+  a fabricated no-web error or unknown). Every actual hole then snaps onto the
+  DRO grid on the safe side (inside the bound, never nearer the finished or
+  offset line than its nominal point): interior holes within one grid step,
+  end and junction holes within three grid coordinates each way or backed off
+  inward along the true curve until a safe grid point exists, so a clipped end
+  is not promised within one step of the true bound crossing. Every actual
+  hole cylinder is judged; the printed spacing is the DRO spacing, which can
+  differ from the nominal interval. A raw swept-chord
   intersection never becomes an extra hole. The web/break-out checks and the
   single stock-cap enforcement run on that regenerated chain. Its table ends
   with an explicit end condition: stock past the bound is not cleared and is

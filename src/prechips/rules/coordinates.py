@@ -2903,6 +2903,18 @@ def _kernel_clip(subject, arcs, lines, clips, scale=1.0):
         for k, piece in enumerate(built, start=1):
             if arc:
                 clipped = {**table, "rows": piece, "dropped_rows": dropped}
+                if entry.get("regeneration") == "true_curve":
+                    clipped["full_circle"] = (
+                        len(piece) > 1
+                        and math.isclose(
+                            abs(piece[-1]["angle_deg"] - piece[0]["angle_deg"]),
+                            360.0,
+                            rel_tol=0.0,
+                            abs_tol=1e-9,
+                        )
+                        and math.dist(piece[0]["dro_xy"], piece[-1]["dro_xy"]) * scale
+                        <= LENGTH_TOLERANCE_MM
+                    )
             else:
                 columns = {
                     key: [row.get(key) for row in piece] for key in _STEPPED_COLUMNS if key in table
@@ -3147,7 +3159,8 @@ def _holes(arc, walls, drill, allowance, label, scale):
     centre). Record the most material between the line and a run along the arc's radius
     (a concave arc's run bulges away from the line), never less than the allowance plus
     a drill radius. Geometry and the ``drill`` radius are plan units; recorded measures
-    are mm (``scale`` mm per unit). The whole stage's cap is enforced by :func:`_chain`."""
+    are mm (``scale`` mm per unit). The whole stage's cap is enforced by :func:`_chain`.
+    A retained singleton has neither a hole-to-hole pitch nor webs to break out."""
     holes = [row["dro_xy"] for row in arc["rows"]]
     centre, radius = arc["centre_setup_xy"], arc["wall_radius_mm"]
     known = _pair(centre) and number(radius) and bool(holes) and all(_pair(p) for p in holes)
@@ -3178,11 +3191,17 @@ def _holes(arc, walls, drill, allowance, label, scale):
     stock = max(allowance + drill * scale, deepest * scale)
     arc.update(
         drill_dia_mm=2 * drill * scale,
-        pitch_mm=max((math.dist(a, b) for a, b in itertools.pairwise(holes)), default=0) * scale,
         hole_clear_mm=min(clear) * scale,
         stock_left_mm=stock,
-        break_out=CHAIN_BREAK_OUT,
     )
+    if len(holes) > 1:
+        arc.update(
+            pitch_mm=max(math.dist(a, b) for a, b in itertools.pairwise(holes)) * scale,
+            break_out=CHAIN_BREAK_OUT,
+        )
+    else:
+        arc.pop("pitch_mm", None)
+        arc.pop("break_out", None)
     return errors, []
 
 
@@ -3232,11 +3251,17 @@ def _chain(arcs, lines, walls, drill, allowance, cap, label, scale, recut=None):
         deepest = _join_stock(holes, join_walls)
         line.update(
             drill_dia_mm=2 * drill * scale,
-            pitch_mm=max((math.dist(a, b) for a, b in legs), default=0) * scale,
             hole_clear_mm=min(clear) * scale,
             stock_left_mm=max(allowance + drill * scale, deepest * scale),
-            break_out=CHAIN_BREAK_OUT,
         )
+        if legs:
+            line.update(
+                pitch_mm=max(math.dist(a, b) for a, b in legs) * scale,
+                break_out=CHAIN_BREAK_OUT,
+            )
+        else:
+            line.pop("pitch_mm", None)
+            line.pop("break_out", None)
     tables = [table for table in (*arcs, *lines) if number(table.get("stock_left_mm"))]
     if not tables:
         return errors, debts
@@ -3811,6 +3836,11 @@ def _chain_preconditions(op, stage, arcs, lines, walls, label, scale):
     """Reject invalid authored holes before the kernel can omit them by clipping."""
     errors, debts = _manual_preconditions(op, stage, arcs, lines, label)
     if errors or debts:
+        return errors, debts
+    pitch = mapping(op.get("contour")).get("pitch_mm")
+    radius = (arcs[0] if arcs else lines[0]).get("cutter_radius_mm")
+    if number(pitch) and number(radius) and pitch <= 2 * radius + _WALL_TOL * scale:
+        errors.append(f"{label}: pitch {pitch:g} mm leaves no web for a {2 * radius:g} mm drill")
         return errors, debts
     for table in (*arcs, *lines):
         drill = table["cutter_radius_mm"]
