@@ -191,6 +191,7 @@ import FreeCAD  # noqa: E402
 import Part  # noqa: E402
 from render_diagram import (  # noqa: E402
     _common_plane,
+    _profile_outline_deflection,
     _shared_plane,
     render_diagram,
     render_inspection,
@@ -8239,6 +8240,13 @@ class _Setup:
             for edge in self.faces[index].Edges:
                 if edge.Length > STOCK_TOL:
                     edges.setdefault(edge.hashCode(), edge)
+        # The finished outline is enlarged in the profile sketch, unlike the stock mesh.
+        # Keep its chord error within half a pixel at that panel's maximum scale.
+        outline_tolerance = _profile_outline_deflection(sketch, waypoints)
+        if outline_tolerance is None:
+            outline_tolerance = tolerance
+        else:
+            outline_tolerance = min(tolerance, outline_tolerance)
         spec = {
             "setup_id": self.setup.get("id"),
             "view": view,
@@ -8270,7 +8278,7 @@ class _Setup:
             "notes": notes + render_debts,
             # Only the finished faces this setup cuts: the overlay shows the cuts' target.
             "nominal_outline_mm": [
-                [[p.x, p.y, p.z] for p in edge.discretize(Deflection=tolerance)]
+                [[p.x, p.y, p.z] for p in edge.discretize(Deflection=outline_tolerance)]
                 for edge in edges.values()
             ]
             if not lathe

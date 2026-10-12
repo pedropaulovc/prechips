@@ -22,6 +22,7 @@ from prechips.kernel.render_diagram import (
     _holding_details,
     _HoldingDetail,
     _main_diagram,
+    _profile_outline_deflection,
     _solid_name,
     _tag_at,
     render_diagram,
@@ -1557,6 +1558,49 @@ def test_isometric_axes_phrase_keeps_pixel_gutter_from_colored_legend_samples():
     assert pixels == diagram.canvas.rgb
     assert width == 1600 and height / width * 7.5 <= 8.4
     diagram.canvas.assert_text_layout(min_scale=5)
+
+
+@pytest.mark.parametrize("radius", [5.1, 3.25])
+def test_profile_outline_deflection_bounds_circle_chord_error_at_sketch_scale(radius):
+    circle = [
+        [radius, 0],
+        [0, radius],
+        [-radius, 0],
+        [0, -radius],
+        [radius, 0],
+    ]
+    tolerance = _profile_outline_deflection([{"op": "20", "xy": circle}], [])
+    scale = 4 * (1600 - 2 * 32 - 72) / (2 * radius)
+    segments = math.ceil(math.pi / math.acos(1 - tolerance / radius))
+    maximum_error_px = scale * radius * (1 - math.cos(math.pi / segments))
+
+    assert maximum_error_px <= 0.5
+    assert segments > 6
+
+
+def test_profile_outline_deflection_includes_single_xy_waypoints():
+    path = [{"op": "20", "xy": [[0, 0], [1, 1]]}]
+    path_only = _profile_outline_deflection(path, [])
+    with_waypoint = _profile_outline_deflection(path, [{"op": "20", "xy": [10, 0]}])
+    waypoint_only = _profile_outline_deflection(
+        [],
+        [
+            {"op": "20", "xy": [0, 0]},
+            {"op": "20", "xy": [10, 10]},
+        ],
+    )
+
+    assert with_waypoint > path_only
+    assert waypoint_only is not None
+
+
+def test_profile_outline_deflection_ignores_degenerate_ops():
+    path = [{"op": "10", "xy": [[0, 0], [10, 10]]}]
+    degenerate = {"op": "20", "xy": [[0, 0], [0, 0]]}
+    expected = _profile_outline_deflection(path, [])
+
+    assert _profile_outline_deflection([degenerate], []) is None
+    assert _profile_outline_deflection([*path, degenerate], []) == expected
 
 
 @pytest.mark.parametrize("surface_color", [(120, 98, 76), (160, 175, 185)])

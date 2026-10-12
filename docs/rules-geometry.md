@@ -2031,6 +2031,10 @@ its point keys would sit closer than their badges need (a jaw-end dome), it is
 enlarged until they stand apart, as in the shaft's S2 and S3. Contour
 sketches show both sides and share `P` waypoint keys with the coordinate
 tables. Custom plates show pads, locators and authored clamp-action order.
+For non-degenerate profile-sketch extents, dashed finished-outline edges are
+discretized to at most 0.5 px chord error at the largest possible sketch scale,
+including the renderer's maximum Y exaggeration, independent of stock bbox.
+Degenerate-only sketches fall back to the existing stock-scale tolerance.
 Table/vise-body/headstock/tailstock context outlines are marked schematic;
 they never add fabricated solids or authorize a cut. Inventory stop solids
 require `hold.stop_fixture` and a numeric `hold.stop_pose`.

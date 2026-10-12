@@ -64,6 +64,15 @@ _EVERY_PASS = 8
 # The least height a profile sketch's plot keeps between its key rows; a picture whose
 # sketches cannot all keep it grows taller.
 _SKETCH_PLOT_MIN = 30
+_SKETCH_SPAN_EPSILON_MM = 1e-9
+# Finished-outline chords stay within half a pixel at the largest possible profile-sketch
+# scale. A one-op band may use the full page width and grow to this height.
+_SKETCH_PLOT_WIDTH_PX = 1600 - 2 * 32 - 72
+_SKETCH_CHORD_ERROR_PX = 0.5
+_SKETCH_Y_EXAG_MAX = 4
+_SKETCH_Y_EXAG_MIN_PLOT_PX = 24
+_SKETCH_Y_EXAG_MIN_WIDTH_PX = 60
+
 # The legend a path sketch prints once it has drawn a raster's lifted return: the cycle
 # is one way (feed a pass, lift, rapid back to the next pass's start).
 _RETURNS = "DASHED: LIFTED RETURN"
@@ -231,6 +240,55 @@ def _xy_projector(bounds, centre, scales):
         )
 
     return project
+
+
+def _profile_outline_deflection(paths, waypoints):
+    """Maximum model-space chord error for a half-pixel profile-sketch outline.
+
+    Path ``xy`` values are point lists; waypoint ``xy`` values are single points.
+    """
+    bounds = {}
+    for items in (paths, waypoints):
+        for item in items:
+            points = item.get("xy")
+            if not isinstance(points, (list, tuple)):
+                continue
+            if len(points) >= 2 and all(isinstance(value, (int, float)) for value in points[:2]):
+                points = (points,)
+            extent = bounds.setdefault(
+                str(item.get("op", "")), [math.inf, math.inf, -math.inf, -math.inf]
+            )
+            for point in points:
+                if not isinstance(point, (list, tuple)) or len(point) < 2:
+                    continue
+                x, y = point[:2]
+                if not (
+                    isinstance(x, (int, float))
+                    and isinstance(y, (int, float))
+                    and math.isfinite(x)
+                    and math.isfinite(y)
+                ):
+                    continue
+                extent[0] = min(extent[0], x)
+                extent[1] = min(extent[1], y)
+                extent[2] = max(extent[2], x)
+                extent[3] = max(extent[3], y)
+
+    scale = 0.0
+    for xmin, ymin, xmax, ymax in bounds.values():
+        span_x, span_y = xmax - xmin, ymax - ymin
+        # Coincident points have no useful scale; avoid turning the plot epsilon into
+        # millions of outline segments.
+        if span_x <= _SKETCH_SPAN_EPSILON_MM and span_y <= _SKETCH_SPAN_EPSILON_MM:
+            continue
+        factor = min(
+            _SKETCH_PLOT_WIDTH_PX / max(span_x, _SKETCH_SPAN_EPSILON_MM),
+            _PANEL_MAX_HEIGHT / max(span_y, _SKETCH_SPAN_EPSILON_MM),
+        )
+        # A narrower multi-op panel may enable Y exaggeration even when a full-width
+        # estimate does not; bound every sketch by the renderer's maximum stretch.
+        scale = max(scale, factor * _SKETCH_Y_EXAG_MAX)
+    return _SKETCH_CHORD_ERROR_PX / scale if scale else None
 
 
 def _centre(box):
@@ -2122,10 +2180,13 @@ class _Diagram:
         the scale its width allows, declares the Y exaggeration it is drawn at."""
         xmin, ymin, xmax, ymax = _bounds(points)
         span_x, span_y = xmax - xmin, ymax - ymin
-        factor = (width - 72) / max(span_x, 1e-9)
+        factor = (width - 72) / max(span_x, _SKETCH_SPAN_EPSILON_MM)
         lines = 0
-        if 0 < span_y * factor < 24 and span_x * factor >= 60:
-            lines = len(_wrap(self.canvas, "Y EXAG x4", width - 16))
+        if (
+            0 < span_y * factor < _SKETCH_Y_EXAG_MIN_PLOT_PX
+            and span_x * factor >= _SKETCH_Y_EXAG_MIN_WIDTH_PX
+        ):
+            lines = len(_wrap(self.canvas, f"Y EXAG x{_SKETCH_Y_EXAG_MAX}", width - 16))
         widths = [_badge_width(self.canvas, label) for label, _ in keys]
         up, down = _band_rows([(x, -y) for _, (x, y) in keys], widths, width - 12)
         return lines, up, down
@@ -2155,11 +2216,14 @@ class _Diagram:
         plot_top = band_top + _BADGE_PITCH * up + 6
         plot_bottom = bottom - _BADGE_PITCH * down - 6
         room = max(plot_bottom - plot_top, _SKETCH_PLOT_MIN)
-        factor = min((width - 72) / max(span_x, 1e-9), room / max(span_y, 1e-9))
+        factor = min(
+            (width - 72) / max(span_x, _SKETCH_SPAN_EPSILON_MM),
+            room / max(span_y, _SKETCH_SPAN_EPSILON_MM),
+        )
         factor_y = factor
         if lines:
             # Limit graphic distortion even when the key bands leave ample space.
-            stretch = math.floor(min(room / (span_y * factor), 4))
+            stretch = math.floor(min(room / (span_y * factor), _SKETCH_Y_EXAG_MAX))
             if stretch > 1:
                 factor_y = factor * stretch
                 exaggeration = f"Y EXAG x{_mm(stretch)}"
