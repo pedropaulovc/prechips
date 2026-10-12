@@ -1614,17 +1614,39 @@ def test_profile_outline_deflection_floors_sliver_extents():
     assert render_module._nominal_outline_deflection([sliver], []) >= 1e-3
 
 
-@pytest.mark.parametrize("radius", [5.1, 3.25])
-def test_guide_axis_outline_deflection_bounds_circle_chord_error(radius):
+@pytest.mark.parametrize(
+    ("radius", "minimum_padded_frame"),
+    [(5.1, False), (3.25, False), (0.5, True)],
+    ids=["radius_5_1", "radius_3_25", "minimum_padded_frame"],
+)
+def test_guide_axis_outline_deflection_bounds_circle_chord_error(radius, minimum_padded_frame):
     meshes, spec, _ = _guided_buttons()
+    if minimum_padded_frame:
+        # A sub-millimetre rim and its nearby stock leave the 1 mm minimum padding to
+        # set every side of the guide frame.
+        spec["guide_stops"] = [
+            {
+                "tag": "kit:upper-button",
+                "at_mm": [0.25, 0, 0],
+                "rim_mm": [[[0.25, -0.02, 0], [0.25, 0.02, 0]]],
+            }
+        ]
+        spec["guide_view"] = {
+            "axis_mm": [[0, 0, 0], [0, 0, 1]],
+            "meshes": [
+                _block([0.2, -0.02, -0.02, 0.3, 0.02, 0.02], (120, 98, 76), "kit:upper-button"),
+                _block([0, -0.02, -0.02, 0.15, 0.02, 0.02], (226, 177, 60), "removal"),
+            ],
+        }
     tolerance = render_module._nominal_outline_deflection([], [])
     short_span = {"op": "20", "xy": [[0, 0], [1, 0.1]]}
     assert render_module._nominal_outline_deflection([short_span], []) == pytest.approx(1e-3)
     segments = 128
+    centre = (0.25, 0) if minimum_padded_frame else (170, 20)
     circle = [
         [
-            170 + radius * math.cos(2 * math.pi * index / segments),
-            20 + radius * math.sin(2 * math.pi * index / segments),
+            centre[0] + radius * math.cos(2 * math.pi * index / segments),
+            centre[1] + radius * math.sin(2 * math.pi * index / segments),
             0,
         ]
         for index in range(segments + 1)
@@ -1637,6 +1659,8 @@ def test_guide_axis_outline_deflection_bounds_circle_chord_error(radius):
 
     assert view is not None
     assert view.canvas.scale <= render_module._DETAIL_MAX_SCALE_PX_PER_MM
+    if minimum_padded_frame:
+        assert all(2 < view.frame[i + 3] - view.frame[i] < 2.5 for i in range(3))
     sagitta = radius * (1 - math.cos(math.pi / segments))
     assert tolerance * view.canvas.scale <= 0.5
     assert sagitta * view.canvas.scale <= 0.5
