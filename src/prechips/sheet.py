@@ -143,6 +143,12 @@ thead { display: table-header-group; }
 tr, tbody { break-inside: avoid; page-break-inside: avoid; }
 table.tools tbody, table.tools tr { break-inside: avoid; page-break-inside: avoid; }
 .measurement-ref { white-space: nowrap; overflow-wrap: normal; }
+.measurement-stop { break-inside: auto; page-break-inside: auto; }
+table.measurement-actions col.record-column {
+width: calc(var(--writing-width) + 12mm + 2 * var(--space-sm)); }
+table.measurement-actions .field { flex-direction: row; align-items: center;
+margin: 0; white-space: nowrap; }
+table.measurement-actions .writing-blank { flex-shrink: 0; }
 tr.warn td { border-top: 0; }
 tr.warn .box { display: block; margin: 0 0 var(--space-xs); }
 .box { display: block; border: var(--rule-warning) solid var(--color-ink); font-weight: bold;
@@ -1213,6 +1219,10 @@ _DUPLEX_JS = r"""(() => {
     function sourceProgress(t, body, relax = true) {
       const row = [...body.rows].find((source) => !source.hasAttribute(ADDED));
       if (!row) return null;
+      if (t.classList.contains("measurement-actions")) {
+        return originalText(row) && fits(prefixBottom(t, row))
+          ? { row, point: null, contents: null } : null;
+      }
       for (const point of pointsIn(row)) {
         const contents = contentsAt(row, point);
         if (!originalText(contents)) continue;
@@ -1481,8 +1491,8 @@ _DUPLEX_JS = r"""(() => {
       if (!fits(budget())) copies.forEach((copy) => copy.remove());
     }
     function splitBody(t, body) {
-      // A TOOLS row is one pull-list record, never a prose continuation.
-      if (t.classList.contains("tools")) return false;
+      // Pull-list records and measurement actions stay whole, including their blanks.
+      if (t.matches("table.tools, table.measurement-actions")) return false;
       const rows = [...body.rows];
       const ending = box(t).bottom - box(t.tBodies[t.tBodies.length - 1]).bottom;
       let index = rows.findIndex((row) => !fits(box(row).bottom + ending));
@@ -1614,7 +1624,9 @@ _DUPLEX_JS = r"""(() => {
           throw new Error(
             t.classList.contains("tools")
               ? "A complete TOOLS row cannot fit on a print page."
-              : "An over-page table record could not be continued without losing content."
+              : t.classList.contains("measurement-actions")
+                ? "A complete measurement action cannot fit on a print page."
+                : "An over-page table record could not be continued without losing content."
           );
         }
         j = 1;
@@ -1653,7 +1665,8 @@ _DUPLEX_JS = r"""(() => {
         } else if (b.bottom - b.top <= CAP && move(el) && fits(box(el).bottom)) {
           continue;
         } else if (el.children.length
-            && !el.matches("p, li, .page-context, .stop, .caution, .unverified")) {
+            && !el.matches("p, li, .page-context, .stop:not(.measurement-stop), "
+              + ".caution, .unverified")) {
           const s = getComputedStyle(el);
           if (s.display.endsWith("flex") && !s.flexDirection.startsWith("column")) {
             el.setAttribute(STACKED, "");
@@ -3279,20 +3292,45 @@ class _Traveler:
         )
 
     def measurement_actions(self):
-        html = ""
+        groups = {}
         for marker, entry in self.measurement_registry().values():
             category, key, field = entry["category"], entry["identity"], tuple(entry["field"])
-            item = measurement_item(self.bundle, category, key)
-            action = measurement_entry(
-                category, key, field, item=item, subject=self.measurement_subject(entry)
+            # Group by actual records, not rendered names. Installed projection belongs
+            # to its selected holder; the controller readout is not the machine envelope.
+            context = (
+                identity(self.bundle, field[1], "holders")
+                if field[0] == "projection" and len(field) > 1
+                else "readout"
+                if category == "machines" and field == ("resolution",)
+                else None
             )
+            groups.setdefault((category, key, context), []).append((marker, entry))
+        html = ""
+        for entries in groups.values():
             html += (
-                f'<p data-measurement-id="{escape(entry["id"])}" '
-                f'data-measurement-label="{marker}">'
-                + _numeric_html(f"{marker} — {action['instruction']}. ")
-                + _writing_field(f"Record measured value here [____] ({action['units']})")
-                + "</p>"
+                '<table class="measurement-actions"><colgroup><col>'
+                '<col class="record-column"></colgroup><thead><tr>'
+                f'<th scope="col">{_numeric_html(self.measurement_subject(entries[0][1]))}</th>'
+                '<th scope="col">Record</th></tr></thead>'
             )
+            for marker, entry in entries:
+                action = measurement_entry(
+                    entry["category"],
+                    entry["identity"],
+                    tuple(entry["field"]),
+                    item=measurement_item(self.bundle, entry["category"], entry["identity"]),
+                    subject="its",
+                )
+                units = "°" if action["units"] == "degrees" else action["units"]
+                html += (
+                    f'<tbody><tr data-measurement-id="{escape(entry["id"])}" '
+                    f'data-measurement-label="{marker}"><td>'
+                    + _numeric_html(f"{marker} — {action['instruction']}.")
+                    + "</td><td>"
+                    + _writing_field(units)
+                    + "</td></tr></tbody>"
+                )
+            html += "</table>"
         return html
 
     @staticmethod
@@ -3315,7 +3353,8 @@ class _Traveler:
         actions = self.measurement_actions()
         html = ""
         if stops or actions:
-            html = '<div class="stop">' + _p("STOP — do not run this setup:")
+            css = "stop measurement-stop" if actions else "stop"
+            html = f'<div class="{css}">' + _p("STOP — do not run this setup:")
             html += "".join(_p(line) for line in dict.fromkeys(stops))
             if actions:
                 html += _p(

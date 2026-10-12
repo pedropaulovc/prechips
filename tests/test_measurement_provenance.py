@@ -155,7 +155,8 @@ def test_traveler_prints_make_targets_without_promoting_as_made_fixture_certaint
     else:
         assert "pad †" in page.text
         assert "STOP — do not run this setup" in page.text
-        assert "Record measured value here [____]" in page.text
+        assert "Record the measured values here" in page.text
+        assert "Record measured value here [____]" not in page.text
         assert "return this traveler for reissue" in page.text
         assert debt["id"] in {
             node["attrs"].get("data-measurement-id") for node in page.markup.nodes

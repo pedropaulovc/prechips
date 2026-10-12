@@ -30,12 +30,13 @@ def marker_for(sheet, entry):
 
 
 def full_action(sheet, entry):
+    """The complete leaf instruction; its subject is supplied by the group heading."""
     return measurement_entry(
         entry["category"],
         entry["identity"],
         tuple(entry["field"]),
         item=measurement_item(sheet.bundle, entry["category"], entry["identity"]),
-        subject=sheet.measurement_subject(entry),
+        subject="its",
     )["instruction"]
 
 
@@ -332,7 +333,7 @@ def test_setup_stop_summary_covers_contour_cutter_and_depth_debt_once_per_consum
         instruction = full_action(sheet, entry)
         assert content(summary).count(instruction) == 1
         assert sum(content(node).count("measure:") for node in entries.values()) == len(entries)
-        assert content(entries[entry["id"]]).count("Record measured value here [____]") == 1
+        assert "Record measured value here [____]" not in content(entries[entry["id"]])
         assert entry["id"] not in content(summary)
     assert "Ops 10, 20" in content(summary) and "T1" in content(summary)
     assert "Test cutter" in content(summary)
@@ -443,7 +444,8 @@ def test_clearance_uses_compact_fact_references_and_full_kind_aware_actions_only
     for entry in entries:
         assert content(summary.find("stop")[0]).count(full_action(sheet, entry)) == 1
     riser = content(actions(summary)[entries[0]["id"]])
-    assert "Test riser" in riser and "work-support contact surface" in riser
+    assert "Test riser" in content(summary.find("stop")[0])
+    assert "Test riser" not in riser and "work-support contact surface" in riser
     assert "vise" not in riser and "parallels" not in riser and "jaws" not in riser
     assert numbers == before
 
@@ -818,7 +820,8 @@ def test_late_hold_and_dro_measurements_close_in_the_front_stop_box(monkeypatch)
         )
         == 1
     )
-    assert "Support block" in content(actions(markup)[entry["id"]])
+    assert "Support block" in content(markup.find("stop")[0])
+    assert "Support block" not in content(actions(markup)[entry["id"]])
     assert "Make-to-drawing expected settings are not installed measurements" in content(
         markup.find("stop")[0]
     )
@@ -847,7 +850,8 @@ def test_el400_owns_the_installed_readout_step_action_without_changing_printed_g
     pages = sheet.setup_section(bundle.plan["setups"][0])
     markup = Markup("".join(pages[0]))
     action = actions(markup)["machines.mill.resolution"]
-    assert "measure: EL400 installed DRO least readable step" in content(action)
+    assert "EL400" in content(markup.find("measurement-actions")[0])
+    assert "measure: its installed DRO least readable step" in content(action)
     header = sheet.dro_resolution(bundle.plan["setups"])
     assert "0.005 mm" in header and "EL400 installed readout step" in header
     assert "Setup S1 ?M" in header and "confirm installed readout" not in header
@@ -875,3 +879,56 @@ def test_compact_dimension_fallback_never_prints_database_field_spelling(field, 
     assert entry["id"] in actions(summary)
     assert content(summary.find("stop")[0]).count("?M# marks an unverified input") == 1
     assert full_action(sheet, entry) in content(actions(summary)[entry["id"]])
+
+
+def test_measurement_actions_group_actual_records_without_changing_the_canonical_m_map():
+    bundle = data()
+    bundle.plan["dro"].update(controller="el400", manual="Electronica EL400 Operation Manual")
+    bundle.inventory["machines"]["mill"]["name"] = "Shop mill"
+    bundle.inventory["holders"]["second"] = {"kind": "collet", "name": "Second collet"}
+    # Identical paper names must not collapse distinct inventory records.
+    bundle.inventory["tools"]["other"] = deepcopy(bundle.inventory["tools"]["cutter"])
+    sheet = _Traveler(bundle, [], {}, None)
+    sheet.measurement_registry(bundle.plan["setups"][0])
+    specs = [
+        ("tools", "cutter", ("dia",)),
+        ("tools", "other", ("dia",)),
+        ("tools", "cutter", ("shank",)),
+        ("tools", "cutter", ("projection", "collet")),
+        ("tools", "cutter", ("projection", "second")),
+        ("machines", "mill", ("envelope", "travel", "x")),
+        ("machines", "mill", ("resolution",)),
+    ]
+    for category, key, field in specs:
+        sheet.measurement_marker(measurement_entry(category, key, field))
+    expected = deepcopy(sheet.measurement_registry())
+    markup = Markup(sheet.setup_status_boxes([], [], []))
+    groups = markup.find("measurement-actions")
+    assert len(groups) == 6
+    ids = [
+        node["attrs"]["data-measurement-id"]
+        for node in markup.nodes
+        if "data-measurement-id" in node["attrs"]
+    ]
+    assert sorted(ids) == sorted(expected) and len(ids) == len(set(ids))
+    assert sheet.measurement_registry() == expected
+    for canonical, (marker, entry) in expected.items():
+        row = actions(markup)[canonical]
+        assert row["tag"] == "tr"
+        assert row["attrs"]["data-measurement-label"] == marker
+        assert content(row).count(full_action(sheet, entry)) == 1
+        assert content(row).count(f"{marker} —") == 1
+        assert len(markup.find("writing-blank", within=row)) == 1
+        assert canonical not in content(markup.find("stop")[0])
+    assert content(groups[0]).count("Test cutter") == 1
+    assert "M1 —" in content(groups[0]) and "M3 —" in content(groups[0])
+    assert "M2 —" in content(groups[1]) and "M1 —" not in content(groups[1])
+    assert "Test cutter in Test collet" in content(groups[2])
+    assert "Test cutter in Second collet" in content(groups[3])
+    assert "Shop mill" in content(groups[4]) and "EL400" not in content(groups[4])
+    assert "EL400" in content(groups[5]) and "Shop mill" not in content(groups[5])
+    assert len(markup.find("writing-blank")) == len(expected)
+    assert [content(node) for node in markup.find("field-label")] == ["mm"] * len(expected)
+    text = content(markup.find("stop")[0])
+    assert "Record measured value here" not in text and "[____]" not in text
+    assert text.count("Record the measured values here and return this traveler for reissue") == 1

@@ -2611,3 +2611,88 @@ def test_tools_pull_list_rows_and_short_measurement_markers_print_whole(printed_
     assert "PRINT LAYOUT ERROR" not in "".join(
         content(node) for node in printed.nodes if node["tag"] == "section"
     )
+
+
+def test_grouped_measurement_actions_print_whole_with_full_size_side_by_side_blanks(
+    printed_sheet,
+):
+    from test_sheet_measurement_debt import data
+
+    from prechips.measurements import measurement_entry
+
+    bundle = data()
+    bundle.inventory["fixtures"] = {
+        "support": {
+            "kind": "custom",
+            "name": "Measurement support",
+            "solids": [
+                {"name": f"pad-{index}", "label": f"Support pad {index}", "shape": "box"}
+                for index in range(24)
+            ],
+        }
+    }
+    sheet = _Traveler(bundle, [], {}, None)
+    sheet.measurement_registry(bundle.plan["setups"][0])
+    for index in range(24):
+        sheet.measurement_marker(
+            measurement_entry("fixtures", "support", ("solids", f"pad-{index}"))
+        )
+    sheet.measurement_marker(measurement_entry("tools", "cutter", ("point_angle",)))
+    source = sheet.setup_status_boxes(["Retain the original setup STOP action."], [], [])
+    original = Markup(source)
+    expected = {
+        node["attrs"]["data-measurement-id"]: (
+            node["attrs"]["data-measurement-label"],
+            content(node),
+        )
+        for node in original.nodes
+        if "data-measurement-id" in node["attrs"]
+    }
+    printed, details = printed_sheet(
+        '<p>Original work before measurement STOP.</p><div style="height:550px"></div>' + source,
+        r"""pageOf => ({
+          pages: Number(document.querySelector('section.page').dataset.pages),
+          rows: [...document.querySelectorAll('[data-measurement-id]')].map(row => {
+            const rect = row.getBoundingClientRect(),
+              tops = [document.querySelector('section.page').getBoundingClientRect().top,
+                ...[...document.querySelectorAll('.cont-head')]
+                  .map(head => head.getBoundingClientRect().top)],
+              blank = row.querySelector('.writing-blank'),
+              blankRect = blank.getBoundingClientRect(),
+              style = getComputedStyle(blank),
+              label = row.querySelector('.field-label').getBoundingClientRect(),
+              field = row.querySelector('.field');
+            return {
+              id: row.dataset.measurementId, marker: row.dataset.measurementLabel,
+              subject: row.closest('table').tHead.rows[0].cells[0].textContent,
+              text: row.textContent, page: pageOf(row),
+              endPage: tops.findLastIndex(top => top < rect.bottom-.01),
+              fragments: !!row.closest('[data-duplex-fragment]'),
+              width: blankRect.width - parseFloat(style.borderLeftWidth)
+                - parseFloat(style.borderRightWidth),
+              height: blankRect.height - parseFloat(style.borderTopWidth)
+                - parseFloat(style.borderBottomWidth),
+              direction: getComputedStyle(field).flexDirection,
+              beside: label.right <= blankRect.left+.01
+                && label.top < blankRect.bottom && label.bottom > blankRect.top
+            };
+          })
+        })""",
+    )
+    assert details["pages"] > 1
+    assert len(details["rows"]) == len(expected)
+    assert {row["id"]: (row["marker"], row["text"]) for row in details["rows"]} == expected
+    assert all(row["page"] == row["endPage"] and not row["fragments"] for row in details["rows"])
+    assert all(
+        row["subject"] == sheet.measurement_subject(sheet.measurement_registry()[row["id"]][1])
+        for row in details["rows"]
+    )
+    assert all(
+        row["width"] >= 35 * 96 / 25.4 - 0.1 and row["height"] >= 10 * 96 / 25.4 - 0.1
+        for row in details["rows"]
+    )
+    assert all(row["direction"] == "row" and row["beside"] for row in details["rows"])
+    text = "".join(content(node) for node in printed.nodes if node["tag"] == "p")
+    assert text.count("Record the measured values here and return this traveler for reissue") == 1
+    assert text.count("Retain the original setup STOP action.") == 1
+    assert "Record measured value here" not in text and "PRINT LAYOUT ERROR" not in text
