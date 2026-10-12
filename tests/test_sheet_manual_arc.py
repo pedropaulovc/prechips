@@ -35,6 +35,7 @@ def chain_captions(markup, owner, table):
     assert context["parent"]["parent"] is table
     captions = [" ".join(content(node).split()) for node in (intro, context)]
     assert captions[0] == captions[1], "the continuation header must mirror the introduction"
+    assert all(not re.search(r"\.\s*[.;]", caption) for caption in captions)
     # Account for both legitimate copies without hiding any extra end instruction.
     for phrase in ("starts at ", "stops at ", "not for this breakout"):
         assert content(owner).count(phrase) == sum(caption.count(phrase) for caption in captions)
@@ -368,6 +369,7 @@ def test_singleton_bound_disposition_never_implies_a_web_breakout(flags):
 
     assert ("retained hole P5" in note) is any(flags)
     assert ("not cleared by drilling" in note) is any(flags)
+    assert not note.endswith("."), "the containing caption supplies its terminal period"
     assert "starts at " not in note and "stops at " not in note
     assert "breakout" not in note
     if any(flags):

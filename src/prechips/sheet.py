@@ -7231,6 +7231,7 @@ class _Traveler:
         Whole-hole exclusions use ``dropped_ends``; a split chain's 1-based fragment
         identifies its internal break ends. Neither invents another drill position.
         A singleton names the stock drilling leaves, never a web breakout.
+        These are sentence fragments: the coordinate caption owns the final period.
         """
         ends = []
         fragment = table.get("fragment")
@@ -7277,13 +7278,13 @@ class _Traveler:
                 text = (
                     f"; retained hole {point}: stock beyond its bounded "
                     + ("end" if len(ends) == 1 else "ends")
-                    + " is outside this op's area and not cleared by drilling."
+                    + " is outside this op's area and not cleared by drilling"
                 )
             elif chain:
                 text = (
                     f"; {' and '.join(ends)}: stock beyond "
                     + ("it" if len(ends) == 1 else "them")
-                    + " is outside this op's area, not for this breakout."
+                    + " is outside this op's area, not for this breakout"
                 )
             else:
                 text = (
