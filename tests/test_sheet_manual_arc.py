@@ -9,6 +9,7 @@ from test_sheet_precision import VisibleText, table_rows, tagged
 from prechips.findings import Finding
 from prechips.inputs import Bundle
 from prechips.rules.coordinates import row_id
+from prechips.rules.resolution import LENGTH_TOLERANCE_MM
 from prechips.sheet import _Traveler
 
 
@@ -46,7 +47,7 @@ def no_programming(html):
     )
 
 
-def traveler(tmp_path, operations, numbers=None, manual=None, machine="mill"):
+def traveler(tmp_path, operations, numbers=None, manual=None, machine="mill", units="mm"):
     setup = {
         "id": "S1",
         "machine": machine,
@@ -57,7 +58,7 @@ def traveler(tmp_path, operations, numbers=None, manual=None, machine="mill"):
     data = Bundle(
         plan={"setups": [setup]},
         features={
-            "units": "mm",
+            "units": units,
             "features": {
                 "arc": {"kind": "profile", "name": "outer arc", "requirements": []},
                 "centre_bore": {"kind": "hole", "name": "centre bore", "requirements": []},
@@ -79,6 +80,7 @@ def traveler(tmp_path, operations, numbers=None, manual=None, machine="mill"):
         root=tmp_path,
         kernel={"status": "ok", "ops": {}},
     )
+    scale = 25.4 if units == "in" else 1.0
     findings = []
     waypoints = []
     if numbers is not None:
@@ -86,11 +88,13 @@ def traveler(tmp_path, operations, numbers=None, manual=None, machine="mill"):
         for table_name in ("arc_table", "line_table"):
             for table in numbers.get(table_name, []):
                 rows = table.get("rows", []) if table_name == "arc_table" else table["dro_xy"]
-                for index, _ in enumerate(rows):
+                for index, row in enumerate(rows):
+                    point = row.get("dro_xy") if table_name == "arc_table" else row
                     waypoints.append(
                         {
                             "op": str(table["op"]),
                             "label": f"P{len(waypoints) + 1}",
+                            "xy": [value * scale for value in point],
                             "rows": [row_id(f"S1:{table['op']}", table_name, table, index)],
                         }
                     )
@@ -181,7 +185,7 @@ def test_stairs_print_every_corner_and_single_handwheel_axis(tmp_path):
     assert "rough stairs" in rough_context.lower()
     assert "outside the finished outline" in rough_context and "scribed" not in printed
     assert all("one handwheel axis per row" in value for value in (rough_context, join_context))
-    assert "at most 0.420 mm for the file" in rough_context and "cap 0.5 mm" in rough_context
+    assert "leaves at most 0.420 mm for the file" in rough_context and "cap 0.5 mm" in rough_context
     # Every move is at one Z: it heads the block and each table's continued-page heading
     # (one per table), and no row repeats it.
     (heading,) = tagged(markup, "h3", owner)
@@ -231,8 +235,180 @@ def test_chain_drill_prints_holes_then_breakout_and_filing_stock(tmp_path):
         if "chisel the webs out along the hole line" in content(node)
     ]
     assert markup.nodes.index(table) < markup.nodes.index(breakout)
-    assert "at most 0.420 mm for the file" in content(breakout)
+    assert "leaves at most 0.420 mm for the file" in content(breakout)
     assert "cap 0.5 mm" in content(breakout)
+
+
+@pytest.mark.parametrize("kind", ["arc_table", "line_table"])
+@pytest.mark.parametrize(
+    "dropped_ends", [[True, False], [False, True], [True, True], [False, False]]
+)
+@pytest.mark.parametrize("labelled", [False, True])
+def test_excluded_end_holes_dispose_uncleared_stock_without_synthetic_clip_points(
+    tmp_path, kind, dropped_ends, labelled
+):
+    table = arc_record("chain_drill")
+    table.update(
+        drill_dia_mm=1,
+        pitch_mm=1.5,
+        break_out="chisel the webs out along the hole centres",
+        dropped_ends=dropped_ends,
+    )
+    if kind == "arc_table":
+        table["dropped_rows"] = 2
+    else:
+        points = [row["dro_xy"] for row in table.pop("rows")]
+        table.update(setup_xy=points, dro_xy=points, side="west", dropped_points=2)
+    sheet, setup = traveler(
+        tmp_path,
+        [{"op": 20, "do": "rough_profile", "feature": "arc", "tool": "cutter"}],
+        {kind: [table]},
+    )
+    if not labelled:
+        sheet.report["renders"]["S1"]["scene"]["waypoints"] = []
+
+    html = sheet.contours(setup, {("tools", "cutter"): "1 mm drill"})
+    printed = text(html)
+    markup, _, tables = coordinate_tables(html)
+    (coordinate_table,) = tables
+    rows = table_rows(markup, coordinate_table)
+
+    assert len(rows) == 3, "dropped endpoints must not add interpolated drill positions"
+    assert ("before the first printed hole " in printed) is dropped_ends[0]
+    assert ("past the last printed hole " in printed) is dropped_ends[1]
+    if dropped_ends[0]:
+        assert f"before the first printed hole {'P1' if labelled else '#1'}" in printed
+    if dropped_ends[1]:
+        assert f"past the last printed hole {'P3' if labelled else '#3'}" in printed
+    assert ("not cleared by this op" in printed) is any(dropped_ends)
+    assert ("do not include it in this hole-chain breakout" in printed) is any(dropped_ends)
+    assert "leaves at most 0.420 mm for the file" in printed
+    assert "clipped" not in printed, "whole excluded holes are not newly clipped hole centres"
+
+
+@pytest.mark.parametrize("kind", ["arc_table", "line_table"])
+@pytest.mark.parametrize("removed", [(0,), (0, 2), (0, 2, 8)])
+@pytest.mark.parametrize("units", ["mm", "in"])
+def test_clipped_hole_labels_follow_geometry_not_stale_original_row_ids(
+    tmp_path, kind, removed, units
+):
+    scale = 25.4 if units == "in" else 1.0
+    original_mm = [
+        [-6, 0],
+        [-5, 1],
+        [-4, 2],
+        [-2, 3],
+        [0, 4],
+        [2, 3],
+        [4, 2],
+        [5, 1],
+        [6, 0],
+    ]
+    original = [[value / scale for value in point] for point in original_mm]
+    kept = [index for index in range(len(original)) if index not in removed]
+    table = {
+        "op": 20,
+        "method": "chain_drill",
+        "stage": "rough",
+        "side": "west",
+        "dro_tip_z": -2,
+        "drill_dia_mm": 1,
+        "pitch_mm": 1.5,
+        "break_out": "chisel the webs out along the hole centres",
+        "stock_left_mm": 0.4,
+        "stock_cap_mm": 0.5,
+    }
+    if kind == "arc_table":
+        table.update(
+            rows=[{"dro_xy": point} for point in original],
+            centre_setup_xy=[0, 0],
+            cutter_centre_radius_mm=6,
+        )
+        clipped = {**table, "rows": [table["rows"][index] for index in kept]}
+    else:
+        table.update(setup_xy=original, dro_xy=original)
+        clipped = {
+            **table,
+            "setup_xy": [original[index] for index in kept],
+            "dro_xy": [original[index] for index in kept],
+        }
+    sheet, setup = traveler(
+        tmp_path,
+        [{"op": 20, "do": "rough_profile", "feature": "arc", "tool": "cutter"}],
+        {kind: [clipped]},
+        units=units,
+    )
+    # Native pictures keep original sparse row provenance after clipping changes both
+    # the first hole and the row index of the actual arc midpoint.
+    sheet.report["renders"]["S1"]["scene"]["waypoints"] = [
+        {
+            "op": "20",
+            "label": label,
+            "xy": original_mm[index],
+            "rows": [row_id("S1:20", kind, table, index)],
+        }
+        for index, label in ((0, "P4"), (4, "P5"), (8, "P6"))
+    ]
+
+    html = sheet.contours(setup, {("tools", "cutter"): "1 mm drill"})
+    markup, _, tables = coordinate_tables(html)
+    (printed,) = tables
+    rows = table_rows(markup, printed)
+
+    assert len(rows) == len(kept), "labels must not introduce a replacement hole"
+    labels = [row[1] for row in rows]
+    assert labels == ["P5" if index == 4 else "P6" if index == 8 else "" for index in kept]
+    assert "P4" not in text(html), "an excluded endpoint must not alias the first retained hole"
+    assert labels[kept.index(4)] == "P5", "the centre label belongs on the actual centre hole"
+    assert ("P6" in labels) is (8 in kept)
+
+
+@pytest.mark.parametrize("units", ["mm", "in"])
+def test_waypoint_matching_uses_nearest_geometry_and_physical_length_tolerance(tmp_path, units):
+    sheet, _ = traveler(tmp_path, [], units=units)
+    scale = 25.4 if units == "in" else 1.0
+    target = [2.0, -3.0]
+    point = [value / scale for value in target]
+    row = "stale row 0"
+    waypoints = [
+        {"op": "30", "label": "other op", "xy": target, "rows": [row]},
+        {"op": "20", "label": "index only", "rows": [row]},
+        {"op": "20", "label": "wrong hole", "xy": [2.01, -3.0], "rows": [row]},
+        {
+            "op": "20",
+            "label": "farther",
+            "xy": [2 + LENGTH_TOLERANCE_MM * 0.75, -3],
+            "rows": [row],
+        },
+        {
+            "op": "20",
+            "label": "nearest",
+            "xy": [2 + LENGTH_TOLERANCE_MM * 0.25, -3],
+            "rows": ["original row 4"],
+        },
+    ]
+
+    assert sheet.waypoint(waypoints, 20, point, row) == "nearest"
+    outside = [{**waypoints[-1], "xy": [2 + LENGTH_TOLERANCE_MM * 2, -3]}]
+    assert sheet.waypoint(outside, 20, point, row) == ""
+    assert sheet.waypoint(waypoints, 20, ["unknown", -3], row) == ""
+    assert sheet.waypoint(waypoints, 20, None, row) == ""
+    boundary = [{"op": "20", "label": "at tolerance", "xy": [LENGTH_TOLERANCE_MM, 0]}]
+    assert sheet.waypoint(boundary, 20, [0, 0], row) == "at tolerance"
+
+
+def test_common_points_keep_colocated_labels_and_legacy_geometry_lookup(tmp_path):
+    sheet, _ = traveler(tmp_path, [])
+    waypoints = [
+        {"op": "20", "label": "P1", "xy": [2, -3], "rows": ["arc row"]},
+        {"op": "20", "label": "P2", "xy": [2, -3], "rows": ["join row"]},
+        {"op": "30", "label": "P3", "xz": [4, -5]},
+    ]
+
+    assert sheet.waypoint(waypoints, 20, [2, -3], "arc row") == "P1"
+    assert sheet.waypoint(waypoints, 20, [2, -3], "join row") == "P2"
+    assert sheet.waypoint(waypoints, 20, [2, -3]) == "P1"
+    assert sheet.waypoint(waypoints, 30, [4, -5]) == "P3"
 
 
 @pytest.mark.parametrize("recut_by", [None, "S1:30"])
@@ -293,7 +469,7 @@ def test_chain_drill_straight_joins_keep_checkpoints_clips_and_stock(tmp_path, r
     assert "Z -2.125" in printed
     assert "handwheel" not in printed and "stair" not in printed
     assert "chisel the webs out along the hole line" in printed
-    assert "at most 1.200 mm for " + (recut_by or "the file") in printed
+    assert "leaves at most 1.200 mm for " + (recut_by or "the file") in printed
     assert ("cap 1.5 mm" in printed) is (recut_by is None)
     # An unproved coordinate flag alone must not label a reposition as safe overshoot.
     sheet.records[("accessibility", "S1:20")] = {"checkpoint_overshoot_ok": []}

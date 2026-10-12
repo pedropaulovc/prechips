@@ -29,10 +29,13 @@ radius gauge, or chords / a rotary table); the MDI/`contouring` path and
 `arc_table` are removed. Shipped straight joins support stairs and chain drilling:
 finite drill legs retain exact endpoints and nominal equal spacing within pitch
 (DRO snapping may shift printed spacing); after method/stage/full-hole
-preconditions, bounded clips keep only whole authored hole rows, omitted joins
-add no join debt while other tables remain (wholly excluded or disconnected
-stages keep clip debt); reported stock/cap uses the worst printed break-out
-residual (arc radial depth, join polyline nearest-finished-wall distance), capped once.
+preconditions, a bounded chain is clipped at drill granularity (offset path
+against bounds eroded by the drill radius, safe-side grid snap, respaced as one
+chain within pitch, actual cylinders judged; no swept-chord clip holes) and
+prints that stock past the bound is not cleared; omitted joins add no join
+debt while other tables remain (wholly excluded or disconnected stages keep
+clip debt); reported stock/cap uses the worst printed break-out residual (arc
+radial depth, join polyline nearest-finished-wall distance), capped once.
 Sections below retain design intent; README and docs describe the shipped
 schema/CLI/rules. Rev 1 was traveler-first but promised geometric proofs
 it could not deliver. Revs 2–3 absorbed two adversarial

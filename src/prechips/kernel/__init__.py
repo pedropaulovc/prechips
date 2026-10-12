@@ -595,6 +595,11 @@ def table_checkpoints(subject, tables, op, units):
     ``table`` (first row id), ``name``, ``kind`` and ``cutter_side``, and ``dro`` the DRO
     grid (plan-unit ``step``, ``decimals``, mm ``scale``) its clip points print on; the
     row-id formats (``row_format``, ``fragment_format``) name the pieces' rows.
+
+    Chain drilling also carries ``method`` and internal ``chain_geometry``: exact finite
+    offset arcs/joins and walls, a feature-plane-to-setup basis (plan units), and physical
+    ``pitch_mm``. The native kernel regenerates bounded holes from these curves, never
+    from rounded row chords; the public input schema is unchanged.
     """
     from prechips.rules.coordinates import FRAGMENT_FORMAT, ROW_FORMAT, checkpoints
 
@@ -612,7 +617,12 @@ def table_checkpoints(subject, tables, op, units):
         for name, xy, tip, overshoot in path["rows"]:
             if isinstance(xy, list) and len(xy) == 2 and all(number(v) for v in (*xy, tip)):
                 xy_mm = [v * scale for v in xy]
-                point = {"id": name, "xy_mm": xy_mm, "tip_z_mm": tip * scale}
+                point = {
+                    "id": name,
+                    "xy_mm": xy_mm,
+                    "tip_z_mm": tip * scale,
+                    "method": path["method"],
+                }
                 points.append({**point, "overshoot": True} if overshoot else point)
             else:
                 unknown.append(name)
@@ -630,6 +640,8 @@ def table_checkpoints(subject, tables, op, units):
                     "ids": [point["id"] for point in points],
                     "overshoot": [point.get("overshoot") is True for point in points],
                     "stepped": path["stepped"],
+                    "method": path["method"],
+                    "chain_geometry": path["chain_geometry"],
                 }
             )
         elif len(points) == len(path["rows"]):

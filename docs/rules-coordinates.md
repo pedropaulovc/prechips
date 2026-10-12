@@ -244,16 +244,24 @@ naming them. Each table is recorded under `arc_table` (its joins under
   DRO grid can move the printed spacing off that bound. Holes are repositioning
   checkpoints, not handwheel cutting moves. Join tables print hole numbers,
   checkpoint P, X/Y and Z, drill size, pitch, break-out instructions and the
-  reported stock/cap or `recut_by`. Arc and join records share the worst
-  residual of their rough stage. Method, stage and full-hole-outside-the-line
-  errors are preconditions found on the authored tables before any clip, and
-  stay errors even for holes a clip would exclude. Kernel clips at
-  `stock_removal_bounds` then keep only whole authored hole rows (a chain is
-  never cut at a swept-chord interpolation point) before the web/break-out
-  checks, and the stock cap is enforced once on the retained tables. Omitted
-  joins add no join debt while an arc or other table remains; a stage the
-  clip excludes entirely, or retained pieces that no longer connect, keeps the
-  existing clip debt.
+  reported stock/cap or `recut_by`; each P label names the printed DRO X/Y
+  point it stands on (matched within 1e-6 mm), never a hole index that a clip
+  or respacing could shift. Arc and join records share the worst residual of
+  their rough stage. Method, stage and full-hole-outside-the-line errors are
+  preconditions found on the authored tables before any clip, and stay errors
+  even for holes a clip would exclude. A bounded chain (`stock_removal_bounds`)
+  is clipped by the kernel at drill granularity: it intersects the
+  drill-centre offset arc and join lines with the bounds eroded by the full
+  drill radius, snaps each end inward by at most one DRO grid step on the safe
+  side (inside the bound, never nearer the finished or offset line), regenerates
+  the retained path as one chain of equal nominal intervals no longer than
+  `pitch_mm`, and judges every actual hole cylinder. A raw swept-chord
+  intersection never becomes an extra hole. The web/break-out checks and the
+  single stock-cap enforcement run on that regenerated chain. Its table ends
+  with an explicit end condition: stock past the bound is not cleared and is
+  not part of the chiselled chain. Omitted joins add no join debt while an arc
+  or other table remains; a stage the clip excludes entirely, or retained
+  pieces that no longer connect, keeps the existing clip debt.
   When a chain error withholds cut tables, profile facts still report
   `stock_left_mm` and `stock_cap_mm` where the residual was computed (a
   precondition error may prevent it), for diagnosis, not permission to cut.

@@ -36,6 +36,7 @@ from .rules.hold_fields import align_indicator, align_travel
 from .rules.inspection import ZONES, go_no_go_pair
 from .rules.resolution import (
     HAND_FINISH,
+    LENGTH_TOLERANCE_MM,
     MAKE_OP_FIELDS,
     MANUAL,
     NAMED_REFERENCE,
@@ -2242,8 +2243,8 @@ def _leftover(arc):
     left = _number(arc.get("stock_left_mm"), 3)
     recut = arc.get("recut_by")
     if isinstance(recut, str) and recut:
-        return f"leaving at most {left} mm for {recut}"
-    return f"leaving at most {left} mm for the file (cap {_number(arc.get('stock_cap_mm'))} mm)"
+        return f"leaves at most {left} mm for {recut}"
+    return f"leaves at most {left} mm for the file (cap {_number(arc.get('stock_cap_mm'))} mm)"
 
 
 def _places(value):
@@ -7170,25 +7171,35 @@ class _Traveler:
         return [_mapping(p) for p in points] if isinstance(points, list) else []
 
     def waypoint(self, waypoints, op, point, row=None):
-        """A table row's picture label: the waypoint listing its row id ``row`` (an arc or
-        join table row, keyed by the same printed rows as the picture), else the waypoint at
-        its ``point`` (any other table)."""
+        """The nearest same-op picture key at the actual DRO point, within length tolerance.
+
+        Picture points are mm; table points are in plan units. Native clipped sketches
+        can retain original row ids after holes disappear, so an id only breaks a tie
+        between keys at the same point, never establishes a geometric match.
+        """
+        scale = {"mm": 1.0, "in": 25.4}.get(self.units)
+        if (
+            scale is None
+            or not isinstance(point, (list, tuple))
+            or len(point) != 2
+            or not all(map(_known, point))
+        ):
+            return ""
+        target = [value * scale for value in point]
+        matches = []
         for record in waypoints:
             if str(record.get("op")) != str(op):
                 continue
-            if row is not None:
-                if row in (record.get("rows") or []):
-                    return str(record.get("label", ""))
-                continue
-            xy = record.get("xy", record.get("xz"))
-            if (
-                isinstance(xy, list)
-                and len(xy) == 2
-                and all(_known(v) for v in (*xy, *point))
-                and math.dist(xy, point) <= 0.01
-            ):
-                return str(record.get("label", ""))
-        return ""
+            xy = record.get("xy") if row is not None else record.get("xy", record.get("xz"))
+            if isinstance(xy, (list, tuple)) and len(xy) == 2 and all(map(_known, xy)):
+                distance = math.dist(xy, target)
+                if distance <= LENGTH_TOLERANCE_MM:
+                    matches.append(
+                        (distance, row is None or row not in (record.get("rows") or []), record)
+                    )
+        if not matches:
+            return ""
+        return str(min(matches, key=lambda match: match[:2])[2].get("label", ""))
 
     def cut_order(self, table, narrate=True):
         """Stage, then a cutting order only where coordinates established one. With
@@ -7214,14 +7225,17 @@ class _Traveler:
         return text + f"; rows NOT in an established cutting order: {reason}"
 
     @staticmethod
-    def clip(table, markers, rows):
-        """Where the kernel clipped this table at its op's stock_removal_bounds, named by
-        the printed row the cutter starts or stops at, and the piece no cut links."""
+    def clip(table, markers, rows, label_column=0):
+        """Clipped cutter ends, disconnected pieces and stock beyond excluded end holes.
+
+        A dropped hole is not a synthetic clip point; ``dropped_ends`` identifies stock
+        the surviving hole chain does not clear even without ``clipped_at`` markers.
+        """
         ends = []
         for index, marker in enumerate(markers):
             if not marker or index >= len(rows):
                 continue
-            point = rows[index][0] or f"row {index + 1}"
+            point = rows[index][label_column] or f"row {index + 1}"
             ends.append(("starts at " if index == 0 else "stops at ") + point)
         text = ""
         if ends:
@@ -7230,6 +7244,27 @@ class _Traveler:
                 + ("it" if len(ends) == 1 else "them")
                 + " is outside this op's area"
             )
+        dropped = table.get("dropped_ends")
+        if (
+            table.get("method") == "chain_drill"
+            and rows
+            and isinstance(dropped, list)
+            and len(dropped) == 2
+            and all(isinstance(end, bool) for end in dropped)
+        ):
+            stock = []
+            for index, end, where in (
+                (0, dropped[0], "before the first"),
+                (len(rows) - 1, dropped[1], "past the last"),
+            ):
+                if end:
+                    hole = rows[index][label_column] or f"#{index + 1}"
+                    stock.append(f"{where} printed hole {hole}")
+            if stock:
+                text += (
+                    f"; stock {' and '.join(stock)} is not cleared by this op; "
+                    "do not include it in this hole-chain breakout"
+                )
         fragment = table.get("fragment")
         if isinstance(fragment, list) and len(fragment) == 2:
             text += (
@@ -7484,7 +7519,7 @@ class _Traveler:
                 points.append(record.get("dro_xy") or ["unknown", "unknown"])
                 entry["z"].add(o(record.get("dro_tip_z", arc.get("dro_tip_z"))))
                 key = row_id(subject, "arc_table", arc, index)
-                labels.append(self.waypoint(waypoints, arc.get("op"), None, key))
+                labels.append(self.waypoint(waypoints, arc.get("op"), points[-1], key))
             centre = arc.get("centre_setup_xy") or ["unknown", "unknown"]
             description = (
                 f"Cutter-centre arc R{o(arc.get('cutter_centre_radius_mm'))} "
@@ -7616,7 +7651,10 @@ class _Traveler:
                 entry["stops"].append("manual arc method not established")
                 continue
             description += self.cut_order(arc) + self.clip(
-                arc, [row.get("clipped_at") for row in samples], rows
+                arc,
+                [row.get("clipped_at") for row in samples],
+                rows,
+                label_column=1 if method == "chain_drill" else 0,
             )
             entry["parts"].append((order(entry, arc), description, headings, rows, after))
         for line in numbers.get("line_table", []):
@@ -7635,7 +7673,7 @@ class _Traveler:
                 entry["z"].add(o(line.get("dro_tip_z")))
                 rows.append(
                     [
-                        self.waypoint(waypoints, line.get("op"), None, key),
+                        self.waypoint(waypoints, line.get("op"), dro, key),
                         OVERSHOOT_NOTE if ok else "",
                         o(dro[0]),
                         o(dro[1]),

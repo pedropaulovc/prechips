@@ -2,8 +2,9 @@
 
 The kernel stands the op's cutter cylinder at each printed row, from its tip up above the
 setup-entry stock. Finished material, the op's leave and fixture solids always error. A
-bounded op's printed paths are first clipped where its cutter first meets stock outside its
-clearing box: a path that leaves and re-enters is pieces, never reconnected. An unbounded
+bounded chain regenerates whole holes on true curves inside its radius-eroded clearing
+box. Other bounded paths clip where their cutter first meets stock past that box.
+Paths that leave and re-enter are pieces, never reconnected. An unbounded
 profile op's printed run-out is credited removal: its corner miter may nick retained scrap,
 but never stock a later setup grips, presses, locates, rests or supports on; a later setup
 whose contacts are unresolved leaves the rows unknown. FreeCAD-backed tests run
@@ -19,6 +20,7 @@ from test_kernel_held_split import UP, _box
 from test_kernel_stock_prefix import BLANK, HOLD
 
 from prechips.rules.coordinates import FRAGMENT_FORMAT, ROW_FORMAT
+from prechips.rules.resolution import LENGTH_TOLERANCE_MM
 
 _AUTHOR = r"""
 import sys
@@ -59,14 +61,22 @@ def engine(tmp_path, freecad_kernel):
     return Engine(tmp_path, freecad_kernel)
 
 
-def _printed(subject, stage, tables, tip=0.0, overshoot=(), bounded=False):
-    """Coordinates checkpoints as build_job passes them: each ``(name, points)`` line table
-    a path of named rows, its cutter clearing from the left of its travel; ``overshoot``
+def _printed(
+    subject,
+    stage,
+    tables,
+    tip=0.0,
+    overshoot=(),
+    bounded=False,
+    kind="line_table",
+):
+    """Coordinates checkpoints as build_job passes them: each ``(name, points)`` table
+    is a path of named rows, its cutter clearing from the left of its travel; ``overshoot``
     names the corner-miter row ids. A ``bounded`` op's tables print on a 0.001 mm DRO."""
     rows, paths = [], []
     for name, points in tables:
         name = f"{subject} {stage} {name}"
-        ids = [name + ROW_FORMAT["line_table"].format(i) for i in range(len(points))]
+        ids = [name + ROW_FORMAT[kind].format(i) for i in range(len(points))]
         for row_id, xy in zip(ids, points, strict=True):
             row = {"id": row_id, "xy_mm": list(xy), "tip_z_mm": tip}
             rows.append({**row, "overshoot": True} if row_id in overshoot else row)
@@ -74,7 +84,7 @@ def _printed(subject, stage, tables, tip=0.0, overshoot=(), bounded=False):
             {
                 "table": ids[0],
                 "name": name,
-                "kind": "line_table",
+                "kind": kind,
                 "cutter_side": "left",
                 "directed": True,
                 "xy_mm": [list(xy) for xy in points],
@@ -259,6 +269,206 @@ def test_a_bounded_path_that_leaves_and_reenters_its_box_is_two_pieces(engine, i
         "S1:10 rough line -X[1]",
     ]
     assert facts["checkpoint_count"] == 6
+
+
+def test_bounded_chain_holes_regenerate_safe_true_curve_endpoints(engine, island):
+    drill = 1.0
+    tol = LENGTH_TOLERANCE_MM
+    west = engine.refs(island, *WEST, kind="Plane")
+    assert len(west) == 1
+    jobs, expected = [], []
+    for family, bounds, pitch, kind in (
+        ("finished wall", (0.0, 70.0, -5.0, 55.0), 20.0, "line_table"),
+        ("uncut stock", (0.0, 70.0, -5.0, 5.0), 4.0, "arc_table"),
+    ):
+        cases, tables = [], []
+        for name, penetration in (
+            ("tangent", 0.0),
+            ("within length tolerance", tol / 2),
+            ("overlap", 0.01),
+        ):
+            if kind == "line_table":
+                # At x=4 the endpoint cylinders touch just the finite west-wall
+                # corners (5, 5) and (5, 45). Finished overlap remains a row-check error,
+                # never stock that the bounds clip may silently remove.
+                curve = {
+                    "kind": "line",
+                    "ends": [[4.0 + penetration, 5.0], [4.0 + penetration, 45.0]],
+                    "normal": [-1.0, 0.0],
+                }
+                wall = {
+                    "kind": "line",
+                    "ends": [[5.0 + penetration, 5.0], [5.0 + penetration, 45.0]],
+                }
+                points = [[4.0 + penetration, y] for y in (5.0, 25.0, 45.0)]
+            else:
+                # The true R24 offset circle ends at (35, 4), point-tangent to the
+                # y=5 bound for a radius-1 cylinder. An overlapping authored end
+                # requires a new circle/bound intersection, not a chord clip hole.
+                radius = 24.0 + penetration
+                curve = {
+                    "kind": "arc",
+                    "centre": [35.0, -20.0],
+                    "radius": radius,
+                    "start_deg": 45.0,
+                    "sweep_deg": 45.0,
+                    "outward": 1,
+                    "angle_start_deg": 45.0,
+                    "angle_sweep_deg": 45.0,
+                }
+                wall = {**curve, "radius": radius - drill}
+                count = math.ceil(radius * math.radians(45.0) / pitch)
+                angles = [math.radians(45.0 + 45.0 * i / count) for i in range(count + 1)]
+                points = [
+                    [35.0 + radius * math.cos(angle), -20.0 + radius * math.sin(angle)]
+                    for angle in angles
+                ]
+            tables.append((f"{family} {name}", points))
+            cases.append((name, penetration, curve, wall, points))
+        if kind == "arc_table":
+            for name, radius in (("isolated tangent", 6.0), ("short retained span", 6.05)):
+                # A lower arc about (35, 10) just touches the eroded y=4 bound at
+                # R6. Increasing R to 6.05 leaves a real arc shorter than Ø2: the
+                # native clip emits its actual holes for the host's no-web error.
+                curve = {
+                    "kind": "arc",
+                    "centre": [35.0, 10.0],
+                    "radius": radius,
+                    "start_deg": 225.0,
+                    "sweep_deg": 90.0,
+                    "outward": 1,
+                    "angle_start_deg": 225.0,
+                    "angle_sweep_deg": 90.0,
+                }
+                wall = {**curve, "radius": radius - drill}
+                count = math.ceil(radius * math.radians(90.0) / pitch)
+                angles = [math.radians(225.0 + 90.0 * i / count) for i in range(count + 1)]
+                points = [
+                    [35.0 + radius * math.cos(angle), 10.0 + radius * math.sin(angle)]
+                    for angle in angles
+                ]
+                tables.append((f"{family} {name}", points))
+                cases.append((name, 0.0, curve, wall, points))
+        checkpoints = _printed("S1:10", "rough", tables, bounded=True, kind=kind)
+        for path, (_, _, curve, wall, _) in zip(checkpoints["paths"], cases, strict=True):
+            path.update(
+                method="chain_drill",
+                chain_geometry={
+                    "pitch_mm": pitch,
+                    "offset": drill,
+                    "setup_origin": [0.0, 0.0],
+                    "basis": [[1.0, 0.0], [0.0, 1.0]],
+                    "curves": [curve],
+                    "walls": [wall],
+                },
+            )
+        op = {
+            **_bounded([], box=bounds),
+            "radius_mm": drill,
+            "rough_allowance_mm": 0.0,
+            "contour": {"method": "chain_drill", "pitch_mm": pitch},
+            "checkpoints": checkpoints,
+        }
+        jobs.append(engine.job(island, {"west": west}, [_setup([op], HOLD)], stock=BLANK))
+        expected.append((family, bounds, pitch, checkpoints, cases))
+    # All eight controls use one native batch and the existing shared authored solid.
+    results = engine.run({"jobs": jobs})["results"]
+    assert len(results) == len(expected)
+    for result, (family, bounds, pitch, checkpoints, cases) in zip(results, expected, strict=True):
+        assert result["status"] == "ok", (family, result)
+        facts = result["ops"]["S1:10"]
+        clips = facts["checkpoint_clips"]
+        assert "reason" not in clips, (family, clips)
+        step = checkpoints["dro"]["step"]
+        kept = 0
+        for entry, path, (name, penetration, curve, _, authored) in zip(
+            clips["paths"], checkpoints["paths"], cases, strict=True
+        ):
+            assert entry["rows"] == len(authored)
+            assert entry["regeneration"] == "true_curve"
+            assert entry["clip_points"] == []
+            (piece,) = entry["pieces"]
+            assert piece
+            kept += len(piece)
+            nominal = [point["exact_xy"] for point in piece]
+            printed = [point["dro_xy"] for point in piece]
+            for point, exact, actual in zip(piece, nominal, printed, strict=True):
+                assert point["generated"] is True
+                assert "after" not in point and "t" not in point
+                assert point["model_xy"] == exact
+                assert math.dist(exact, actual) <= step + tol
+                for axis, (lo, hi) in enumerate((bounds[:2], bounds[2:])):
+                    assert lo + drill - tol <= actual[axis] <= hi - drill + tol
+            if curve["kind"] == "line":
+                assert nominal[0] == pytest.approx(curve["ends"][0], abs=tol)
+                assert nominal[-1] == pytest.approx(curve["ends"][-1], abs=tol)
+                assert entry["dropped_ends"] == [False, False]
+                gaps = [math.dist(a, b) for a, b in zip(nominal, nominal[1:], strict=False)]
+                assert all(actual[0] <= 4.0 + penetration + tol for actual in printed)
+            else:
+                radius, centre = curve["radius"], curve["centre"]
+                if name in ("isolated tangent", "short retained span"):
+                    half_width = math.sqrt(max(0.0, radius**2 - 6.0**2))
+                    start, end = [35.0 - half_width, 4.0], [35.0 + half_width, 4.0]
+                    assert nominal[0] == pytest.approx(start, abs=tol)
+                    assert nominal[-1] == pytest.approx(end, abs=tol)
+                    assert entry["dropped_ends"] == [True, True]
+                    if name == "isolated tangent":
+                        assert len(piece) == 1
+                        assert printed == [[35.0, 4.0]]
+                        assert all(math.dist(point, printed[0]) > tol for point in authored)
+                        waypoints = result["setups"]["S1"]["render_scene"]["waypoints"]
+                        assert any(
+                            waypoint["op"] == "10"
+                            and math.dist(waypoint["xy"], printed[0]) <= tol
+                            and path["ids"][0] in waypoint["rows"]
+                            for waypoint in waypoints
+                        )
+                else:
+                    end = (
+                        [35.0 + math.sqrt(radius**2 - 24.0**2), 4.0]
+                        if penetration > tol
+                        else [35.0, radius - 20.0]
+                    )
+                    assert nominal[0] == pytest.approx(authored[0], abs=tol)
+                    assert nominal[-1] == pytest.approx(end, abs=tol)
+                    assert entry["dropped_ends"] == [False, penetration > tol]
+                assert math.dist(printed[-1], end) <= step + tol
+                for exact, actual in zip(nominal, printed, strict=True):
+                    assert math.dist(exact, centre) == pytest.approx(radius, abs=tol)
+                    assert math.dist(actual, centre) >= radius - tol
+                angles = [point["angle_deg"] for point in piece]
+                gaps = [
+                    radius * math.radians(b - a) for a, b in zip(angles, angles[1:], strict=False)
+                ]
+                if penetration > tol:
+                    assert authored[-1][1] + drill > bounds[3] + tol
+                    assert path["ids"][-1] in entry["dropped_rows"]
+                    assert math.dist(printed[-1], authored[-1]) > step
+            dro_gaps = [math.dist(a, b) for a, b in zip(printed, printed[1:], strict=False)]
+            if name == "isolated tangent":
+                assert gaps == dro_gaps == []
+            else:
+                assert gaps == pytest.approx([gaps[0]] * len(gaps), abs=2 * tol)
+                assert max(gaps) <= pitch + 2 * tol
+                assert max(dro_gaps) <= pitch + 2 * step + 2 * tol
+                if name == "short retained span":
+                    assert min(dro_gaps) < 2 * drill - tol
+                else:
+                    assert min(dro_gaps) > 2 * drill + tol
+        assert facts["checkpoint_count"] == kept
+        if family == "finished wall":
+            # The deliberately overlapping true line is still an authored cut:
+            # it must surface as a finished-part collision, never disappear.
+            overlap = checkpoints["paths"][-1]["name"]
+            assert facts["checkpoint_hits"] > 0
+            assert facts["checkpoint_errors"]
+            assert all(
+                error["row"].startswith(overlap) and error["obstacle"] == "finished part"
+                for error in facts["checkpoint_errors"]
+            )
+        else:
+            assert facts["checkpoint_hits"] == 0 and facts["checkpoint_errors"] == [], facts
 
 
 def test_a_corner_miter_into_retained_scrap_is_legal_and_noted(engine, island):

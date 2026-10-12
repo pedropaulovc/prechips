@@ -1387,14 +1387,20 @@ uses the 1898 manual arc method:
    drill-radius + allowance offset on each finite join leg, with exact
    endpoints/miter and nominal equal spacing no greater than `pitch_mm` (DRO
    grid snapping can move the printed spacing). Method, stage and full-hole
-   outside-the-line errors are preconditions found before any clip; kernel
-   bounded clips then keep only whole authored hole rows, never a swept-chord
-   interpolation point, before web/break-out validation, and the cap is
-   enforced once on what remains: omitted joins add no join debt while an arc
-   or other table remains, while a wholly excluded or disconnected stage keeps
-   its existing clip debt. Arc and join tables report the same worst-stage
-   stock; chain errors retain stock/cap profile facts where the residual was
-   computed (a precondition error may prevent it), even when cut tables are
+   outside-the-line errors are preconditions found before any clip. A bounded
+   chain is then clipped at drill granularity: the drill-centre offset arc and
+   joins are intersected with the bounds eroded by the full drill radius, each
+   end snaps at most one DRO grid step to the safe side (inside the bound, not
+   nearer the finished or offset line), the retained path is respaced as one
+   chain of equal nominal intervals within `pitch_mm`, and every actual hole
+   cylinder is judged; a swept-chord intersection never becomes an extra hole.
+   Web/break-out validation and the single cap enforcement run on that chain,
+   whose table says stock past the bound is not cleared and is not part of the
+   chiselled chain. Omitted joins add no join debt while an arc or other table
+   remains, while a wholly excluded or disconnected stage keeps its existing
+   clip debt. Arc and join tables report the same worst-stage stock; chain
+   errors retain stock/cap profile facts where the residual was computed (a
+   precondition error may prevent it), even when cut tables are
    withheld. Hole
    repositioning is not a handwheel cut ([coordinates](rules-coordinates.md#coordinates)).
 3. **File to the line**: `do = "file_to_line"` with a `guide`: hardened filing

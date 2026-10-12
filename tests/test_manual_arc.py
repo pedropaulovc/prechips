@@ -661,19 +661,51 @@ def printed_join_residual(row, tip=JOIN_TIP):
     return stock
 
 
-def synthetic_join_clip(bundle, requested, select):
-    """Inject clip pieces of actual row IDs and optional raw fractional kernel points."""
+def synthetic_join_clip(bundle, requested, select, *, regenerated=False):
+    """Inject selected authored rows, their true-curve regeneration, or raw clip points."""
     paths = []
     for table in coordinates.checkpoints("S1:20", requested.numbers, 20):
-        selected = select(table)
-        points = [{"row": item} if isinstance(item, int) else dict(item) for item in selected]
-        paths.append(
-            {
-                "table": table["rows"][0][0],
-                "rows": len(table["rows"]),
-                "pieces": [points] if points else [],
-            }
-        )
+        selected = list(select(table))
+        if regenerated:
+            original = next(
+                item
+                for item in requested.numbers[table["kind"]]
+                if coordinates.row_id("S1:20", table["kind"], item, 0) == table["rows"][0][0]
+            )
+            points = []
+            for index in selected:
+                if table["kind"] == "arc_table":
+                    item = original["rows"][index]
+                else:
+                    item = {
+                        key: original[key][index]
+                        for key in ("model_xy", "setup_xy", "dro_xy", "overshoot")
+                    }
+                point = {
+                    "generated": True,
+                    "exact_xy": item["setup_xy"],
+                    "dro_xy": item["dro_xy"],
+                    "model_xy": item["model_xy"],
+                    "overshoot": item.get("overshoot", False),
+                }
+                if "angle_deg" in item:
+                    point["angle_deg"] = item["angle_deg"]
+                points.append(point)
+        else:
+            points = [{"row": item} if isinstance(item, int) else dict(item) for item in selected]
+        entry = {
+            "table": table["rows"][0][0],
+            "rows": len(table["rows"]),
+            "pieces": [points] if points else [],
+        }
+        if regenerated:
+            entry.update(
+                regeneration="true_curve",
+                dropped_ends=[0 not in selected, len(table["rows"]) - 1 not in selected],
+                dropped_rows=[item[0] for i, item in enumerate(table["rows"]) if i not in selected],
+                clip_points=[],
+            )
+        paths.append(entry)
     kernel = {
         "status": "ok",
         "ops": {
@@ -754,6 +786,120 @@ def test_bounded_chain_clip_retains_only_actual_holes(tmp_path, kind, fraction):
     assert len(checkpoint["rows"]) == 1
     assert checkpoint["rows"][0][1] == a
     assert checkpoint["rows"][0][1] != fractional_point["dro_xy"]
+
+
+@pytest.mark.parametrize("kind", ["line_table", "arc_table"], ids=["join", "arc"])
+def test_bounded_chain_regenerated_whole_holes_preserve_legal_endpoints_and_spacing(
+    tmp_path,
+    kind,
+):
+    bundle = load_bundle(joined_chain_plan(tmp_path, bounded=True))
+    requested = joined_chain_finding(bundle, pre_kernel=True)
+    tables = coordinates.checkpoints("S1:20", requested.numbers, 20)
+    selected = next(
+        table
+        for table in tables
+        if table["kind"] == kind and (kind == "arc_table" or table["name"] == "S1:20 rough line +X")
+    )
+    if kind == "arc_table":
+        (original,) = arcs(requested, 20)
+    else:
+        original = next(line for line in joined_chain_lines(requested) if line["side"] == "+X")
+    # Legal tangent endpoints remain the same true-curve holes. Explicit generated
+    # provenance must not make coordinates invent a different pitch or a chord hole.
+    clipped = synthetic_join_clip(
+        bundle,
+        requested,
+        lambda table: list(range(len(table["rows"]))) if table["name"] == selected["name"] else [],
+        regenerated=True,
+    )
+    row = joined_chain_finding(clipped)
+    assert row.status == "pass", row.sentence
+    assert row.numbers.get("arc_errors", []) == row.numbers.get("arc_debts", []) == []
+    if kind == "arc_table":
+        assert joined_chain_lines(row) == []
+        (retained,) = arcs(row, 20)
+        for column in ("model_xy", "setup_xy", "dro_xy", "angle_deg"):
+            assert [item[column] for item in retained["rows"]] == [
+                item[column] for item in original["rows"]
+            ]
+    else:
+        assert arcs(row, 20) == []
+        (retained,) = joined_chain_lines(row)
+        for column in ("model_xy", "setup_xy", "dro_xy", "overshoot"):
+            assert retained[column] == original[column]
+    assert retained["method"] == "chain_drill"
+    assert retained["regeneration"] == "true_curve"
+    assert retained["dropped_ends"] == [False, False]
+    assert "fragment" not in retained
+    dropped_key = "dropped_rows" if kind == "arc_table" else "dropped_points"
+    assert retained[dropped_key] == 0
+    (checkpoint,) = coordinates.checkpoints("S1:20", row.numbers, 20)
+    assert checkpoint["rows"] == selected["rows"]
+    authored = [item[1] for item in selected["rows"]]
+    assert checkpoint["rows"][0][1] == authored[0]
+    assert checkpoint["rows"][-1][1] == authored[-1]
+    gaps = [math.dist(a, b) for a, b in itertools.pairwise(authored)]
+    assert retained["pitch_mm"] == pytest.approx(max(gaps), abs=1e-9)
+    assert max(gaps) <= JOIN_PITCH + 0.002
+
+
+def test_a_regenerated_short_chain_span_is_a_concrete_no_web_error(tmp_path):
+    bundle = load_bundle(joined_chain_plan(tmp_path, tip=(6.2, -8.0), bounded=True))
+    requested = joined_chain_finding(bundle, pre_kernel=True)
+    selected = next(
+        table
+        for table in coordinates.checkpoints("S1:20", requested.numbers, 20)
+        if table["name"] == "S1:20 rough line +X"
+    )
+    index = min(
+        range(len(selected["rows"]) - 1),
+        key=lambda i: math.dist(selected["rows"][i][1], selected["rows"][i + 1][1]),
+    )
+    assert math.dist(selected["rows"][index][1], selected["rows"][index + 1][1]) < JOIN_DRILL
+    clipped = synthetic_join_clip(
+        bundle,
+        requested,
+        lambda table: [index, index + 1] if table["name"] == selected["name"] else [],
+        regenerated=True,
+    )
+    row = joined_chain_finding(clipped)
+    assert row.status == "error", row.sentence
+    assert "no web" in errors(row)
+    assert not row.numbers.get("arc_debts", [])
+    assert arcs(row, 20) == joined_chain_lines(row) == []
+    (profile,) = row.numbers["profiles"]
+    assert "clip_reason" not in profile
+
+
+def test_a_regenerated_legal_singleton_hole_remains_a_coordinate_checkpoint(tmp_path):
+    bundle = load_bundle(joined_chain_plan(tmp_path, bounded=True))
+    requested = joined_chain_finding(bundle, pre_kernel=True)
+    selected = next(
+        table
+        for table in coordinates.checkpoints("S1:20", requested.numbers, 20)
+        if table["kind"] == "arc_table"
+    )
+    index = len(selected["rows"]) // 2
+    assert 0 < index < len(selected["rows"]) - 1
+    clipped = synthetic_join_clip(
+        bundle,
+        requested,
+        lambda table: [index] if table["name"] == selected["name"] else [],
+        regenerated=True,
+    )
+    row = joined_chain_finding(clipped)
+    assert row.status == "pass", row.sentence
+    assert not row.numbers.get("arc_errors", []) and not row.numbers.get("arc_debts", [])
+    (retained,) = arcs(row, 20)
+    assert joined_chain_lines(row) == []
+    assert retained["regeneration"] == "true_curve"
+    assert retained["dropped_ends"] == [True, True]
+    assert len(retained["rows"]) == 1
+    assert retained["pitch_mm"] == 0.0
+    (checkpoint,) = coordinates.checkpoints("S1:20", row.numbers, 20)
+    assert len(checkpoint["rows"]) == 1
+    assert checkpoint["rows"][0][1:] == selected["rows"][index][1:]
 
 
 @pytest.mark.parametrize("clip_state", ["absent", "empty"])
@@ -888,6 +1034,17 @@ def test_chain_drill_spaces_both_finite_join_legs_and_preserves_kernel_consumers
     )
     checkpoints = kernel_op["checkpoints"]
     assert kernel_op["tool_paths"]["tables"] is True
+    for path in checkpoints["paths"]:
+        assert path["method"] == "chain_drill"
+        geometry = path["chain_geometry"]
+        assert geometry["pitch_mm"] == JOIN_PITCH
+        assert geometry["offset"] == pytest.approx(JOIN_DRILL / 2 + JOIN_ALLOWANCE)
+        assert geometry["setup_origin"] == pytest.approx([-5.0, -2.0])
+        assert geometry["basis"] == [[1.0, 0.0], [0.0, 1.0]]
+        assert geometry["walls"]
+        assert geometry["curves"]
+        curve_kind = "arc" if path["kind"] == "arc_table" else "line"
+        assert all(curve["kind"] == curve_kind for curve in geometry["curves"])
     for line in lines:
         expected_ids = [
             f"S1:20 rough line {line['side']}[{index}]" for index in range(len(line["dro_xy"]))
@@ -1998,8 +2155,16 @@ def boundary_boss(tmp_path):
         ),
         lambda tmp_path: (rotary_plan(tmp_path), SWING),
         lambda tmp_path: (boundary_boss(tmp_path), None),
+        lambda tmp_path: (joined_chain_plan(tmp_path), None),
     ],
-    ids=["convex stairs", "concave stairs", "chords", "rotary table", "decimal boundary"],
+    ids=[
+        "convex stairs",
+        "concave stairs",
+        "chords",
+        "rotary table",
+        "decimal boundary",
+        "finite chain joins",
+    ],
 )
 def test_cutter_centre_tables_read_the_same_whichever_last_bit_libm_rounds_to(
     tmp_path, monkeypatch, build, toward

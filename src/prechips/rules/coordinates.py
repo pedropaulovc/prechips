@@ -31,6 +31,7 @@ from ._bench import manual_bench, not_applicable
 from .datum_consistency import _cuts
 from .resolution import (
     HAND_FINISH,
+    LENGTH_TOLERANCE_MM,
     UNKNOWN,
     _citations,
     length_mm,
@@ -1423,6 +1424,9 @@ def _arc(
     path (DRO-grid snapping can change that spacing); ``rotary_table`` rows sample the
     cutter-centre arc every ``step_deg``; ``chords`` rows are the ``count + 1`` chord
     vertices :func:`_chords` replaces.
+
+    Chain-drill ``chain_geometry`` preserves unrounded pre-grid curves and walls using
+    the same deterministic trigonometry as the nominal rows, not platform libm angles.
     """
     radius = _nominal(feature, "radius")
     centre = feature.get("arc_centre", feature.get("at"))
@@ -1579,13 +1583,36 @@ def _arc(
         return arc
 
     arc = table(angles)
-    walls, miters = [], []  # point -> distance to each feature wall; join miter points
+    walls, miters, wall_geometry = [], [], []
     known = all(number(v) for v in centre_xy)  # else no wall is placed and no DRO value
 
     def rim(wall_radius, end_xy):
         """point -> distance to the wall arc of ``wall_radius`` about the centre: mirrored
         from ``end_xy`` through its lowest point (an upper semicircle's highest), a full
         circle when ``end_xy`` is None. Never its circle past its ends."""
+        start_angle, sweep = 0.0, 360.0
+        if end_xy is not None:
+            dip = -wall_radius if vertical_angle else wall_radius
+            mirror = [2 * centre[0] - end_xy[0], end_xy[1]]
+            a, b, m = (setup_xy(q) for q in (end_xy, mirror, [centre[0], centre[1] + dip]))
+            if all(_pair(p) for p in (a, b, m, centre_xy)):
+                angles = [
+                    math.degrees(trig.atan2(p[1] - centre_xy[1], p[0] - centre_xy[0]))
+                    for p in (a, b, m)
+                ]
+                start_angle = angles[0]
+                sweep = (angles[1] - start_angle) % 360
+                if (angles[2] - start_angle) % 360 > sweep:
+                    sweep -= 360
+        wall_geometry.append(
+            dict(
+                kind="arc",
+                centre=centre_xy,
+                radius=wall_radius,
+                start_deg=start_angle,
+                sweep_deg=sweep,
+            )
+        )
         if end_xy is None:
             return lambda p: abs(math.dist(p, centre_xy) - wall_radius)
         dip = -wall_radius if vertical_angle else wall_radius
@@ -1603,6 +1630,7 @@ def _arc(
     for a, b in ([setup_xy(a), setup_xy(b)] for a, b in lands):
         known = known and all(number(v) for v in (*a, *b))
         walls.append(lambda p, a=a, b=b: _to_segment(p, a, b))
+        wall_geometry.append({"kind": "line", "ends": [a, b]})
     lines = []
     if bottom and joins:
         sides = (-1, 1) if feature.get("mirror_symmetric") is True else (1,)
@@ -1624,6 +1652,7 @@ def _arc(
             known = known and all(number(v) for point in ends for v in point)
             for a, b in itertools.pairwise(ends):
                 walls.append(lambda p, a=a, b=b: _to_segment(p, a, b))
+                wall_geometry.append({"kind": "line", "ends": [a, b]})
             miters.append(xy[1])
             normal = [
                 local[0][i] - wall[i] if number(local[0][i]) and number(wall[i]) else UNKNOWN
@@ -1678,6 +1707,65 @@ def _arc(
         for line in lines:
             _split(line, contour["cusp_mm"] / scale)
     elif method == "chain_drill":
+        # Preserve the true finite geometry before nominal hole spacing and DRO rounding.
+        # model_xy is feature-plane XY, not world XY; the affine basis preserves that
+        # provenance even for translated, rotated and reflected setup frames.
+        origin = setup_xy([0.0, 0.0])
+        axes = [setup_xy([1.0, 0.0]), setup_xy([0.0, 1.0])]
+        basis = (
+            [[p[j] - origin[j] for j in range(2)] for p in axes]
+            if _pair(origin) and all(_pair(p) for p in axes)
+            else None
+        )
+        common = {
+            "pitch_mm": contour["pitch_mm"],
+            "offset": offset,
+            "setup_origin": origin,
+            "basis": basis,
+            "walls": wall_geometry,
+        }
+        if basis is not None and arc["rows"]:
+            first, last = arc["rows"][0], arc["rows"][-1]
+            hand = 1 if _cross(*basis) > 0 else -1
+            polar = math.degrees(
+                trig.atan2(
+                    first["setup_xy"][1] - centre_xy[1],
+                    first["setup_xy"][0] - centre_xy[0],
+                )
+            )
+            arc["chain_geometry"] = {
+                **common,
+                "curves": [
+                    {
+                        "kind": "arc",
+                        "centre": centre_xy,
+                        "radius": cutter_radius,
+                        "start_deg": polar,
+                        "sweep_deg": hand * (last["angle_deg"] - first["angle_deg"]),
+                        "angle_start_deg": first["angle_deg"],
+                        "angle_sweep_deg": last["angle_deg"] - first["angle_deg"],
+                        "outward": outward,
+                    }
+                ],
+            }
+        for line in lines:
+            curves = []
+            for a, b in itertools.pairwise(line["setup_xy"]):
+                run = [b[i] - a[i] for i in range(2)]
+                length = math.hypot(*run)
+                candidates = line["join_walls"]
+                normal = (
+                    min(
+                        (wall["normal"] for wall in candidates),
+                        key=lambda n: (
+                            abs(sum(run[i] * n[i] for i in range(2))) if _pair(n) else math.inf
+                        ),
+                    )
+                    if candidates and length
+                    else [UNKNOWN, UNKNOWN]
+                )
+                curves.append({"kind": "line", "ends": [a, b], "normal": normal})
+            line["chain_geometry"] = {**common, "curves": curves}
         for line in lines:
             _split_chain(line, contour["pitch_mm"] / scale)
     walls = walls if known else []
@@ -2654,6 +2742,8 @@ def checkpoints(subject, numbers, op):
                     "cutter_side": table.get("cutter_side", UNKNOWN),
                     "directed": table.get("cut_order") in _CUT_SENSE,
                     "stepped": "stair_cusp_mm" in table,
+                    "method": table.get("method"),
+                    "chain_geometry": table.get("chain_geometry"),
                 }
             )
     return result
@@ -2701,6 +2791,25 @@ def _clip_row(rows, point, marker):
     ``row`` itself, or the clip point a fraction ``t`` along the printed chord after row
     ``after`` at its exact setup XY ``exact_xy``, printed at its safe-side ``dro_xy``."""
     point = mapping(point)
+    if point.get("generated") is True:
+        exact, printed, model = (point.get(key) for key in ("exact_xy", "dro_xy", "model_xy"))
+        if not rows or not all(_pair(p) for p in (exact, printed, model)):
+            return None
+        row = {
+            "setup_xy": exact,
+            "dro_xy": printed,
+            "model_xy": model,
+            "overshoot": point.get("overshoot") is True,
+            "clipped_at": marker,
+        }
+        for key in ("tip_z", "dro_tip_z"):
+            if key in rows[0]:
+                row[key] = rows[0][key]
+        if "angle_deg" in rows[0]:
+            if not number(point.get("angle_deg")):
+                return None
+            row.update(angle_deg=point["angle_deg"], x=exact[0], y=exact[1])
+        return row
     clipped = "after" in point
     index = point.get("after" if clipped else "row")
     if not isinstance(index, int) or not 0 <= index < len(rows) - clipped:
@@ -2730,16 +2839,17 @@ def _pair(value):
     return isinstance(value, list) and len(value) == 2 and all(number(v) for v in value)
 
 
-def _kernel_clip(subject, arcs, lines, clips):
+def _kernel_clip(subject, arcs, lines, clips, scale=1.0):
     """(arc pieces, line pieces, debt or None): one stage's printed tables as the kernel
     clipped them (``clips``: the op's ``checkpoint_clips``) at the cutter's first contact
     with stock outside the op's stock_removal_bounds.
 
-    Each piece keeps the printed rows the kernel names and adds its clip points, marked
-    ``clipped_at``, except a drilled chain keeps only whole hole rows: a swept chord's
-    boundary intersection is not another drill position. A table cut into pieces lists
-    each as ``fragment`` [k, n]; tables sharing a kept end are one path. A path left in
-    more than one piece is debt: no credited cut links the pieces and none is reconnected.
+    Each piece keeps the printed rows the kernel names, or a drilled chain's regenerated
+    true-curve holes with explicit nominal model/setup coordinates and actual DRO XY.
+    Raw swept-chord ``after,t`` intersections never become drill positions.
+    A table cut into pieces lists each as ``fragment`` [k, n]; shared ends are one path.
+    A path left in more than one piece is debt: no credited cut links the pieces and
+    none is reconnected.
     Facts that do not match the tables, or no piece at all, leave a reason.
     """
     paths = {
@@ -2747,7 +2857,7 @@ def _kernel_clip(subject, arcs, lines, clips):
     }
     marker = clips.get("clipped_at", UNKNOWN)
     result = {"arc_table": [], "line_table": []}
-    count, ends = 0, []
+    ends = []
     tables = [("arc_table", arc) for arc in arcs] + [("line_table", line) for line in lines]
     for kind, table in tables:
         arc = kind == "arc_table"
@@ -2762,21 +2872,34 @@ def _kernel_clip(subject, arcs, lines, clips):
                 for piece in pieces
                 if (kept := [point for point in piece if "after" not in mapping(point)])
             ]
+            if entry.get("regeneration") == "true_curve" and (
+                not all(
+                    mapping(point).get("generated") is True for piece in pieces for point in piece
+                )
+                or not isinstance(entry.get("dropped_ends"), list)
+                or len(entry["dropped_ends"]) != 2
+                or not all(type(flag) is bool for flag in entry["dropped_ends"])
+            ):
+                return [], [], "the kernel's regenerated chain provenance is incomplete"
         built = [[_clip_row(rows, point, marker) for point in piece] for piece in pieces]
         if any(row is None for piece in built for row in piece):
             return [], [], "the kernel's clip does not match its printed table"
         kept = [mapping(point).get("row") for piece in pieces for point in piece]
         if len(built) == 1 and kept == list(range(len(rows))):
             built = None
-        count += 1 if built is None else len(built)
         end = len(rows) - 1
         first = built is None or bool(pieces) and mapping(pieces[0][0]).get("row") == 0
         last = built is None or bool(pieces) and mapping(pieces[-1][-1]).get("row") == end
-        ends.append((first, rows[0]["setup_xy"], last, rows[-1]["setup_xy"]))
+        dropped_ends = entry.get("dropped_ends", [not first, not last])
+        for piece in [rows] if built is None else built:
+            if piece:
+                ends.append((piece[0].get("dro_xy"), piece[-1].get("dro_xy")))
         if built is None:
             result[kind].append(table)
             continue
         dropped = len(rows) - len({row for row in kept if row is not None})
+        if entry.get("regeneration") == "true_curve":
+            dropped = len(entry.get("dropped_rows", []))
         for k, piece in enumerate(built, start=1):
             if arc:
                 clipped = {**table, "rows": piece, "dropped_rows": dropped}
@@ -2790,13 +2913,30 @@ def _kernel_clip(subject, arcs, lines, clips):
                 clipped["dropped_points"] = dropped
                 if not any(clipped["overshoot"]):
                     clipped.pop("overshoot_note", None)
+            if table.get("method") == "chain_drill":
+                clipped["dropped_ends"] = [
+                    k == 1 and dropped_ends[0],
+                    k == len(built) and dropped_ends[1],
+                ]
+                if entry.get("regeneration") == "true_curve":
+                    clipped["regeneration"] = "true_curve"
             if len(built) > 1:
                 clipped["fragment"] = [k, len(built)]
             result[kind].append(clipped)
-    for a, b in itertools.combinations(ends, 2):
-        for x, y in ((0, 0), (0, 2), (2, 0), (2, 2)):
-            if a[x] and b[y] and _joined(a[x + 1], b[y + 1]):
-                count -= 1
+    # Connected components of actual retained endpoints, not old source-row indices.
+    # Unioning components (rather than subtracting pair matches) also handles a closed
+    # chain or a shared endpoint represented in more than two tables honestly.
+    groups = list(range(len(ends)))
+    for i, a in enumerate(ends):
+        for j, b in enumerate(ends[:i]):
+            if any(
+                _pair(x) and _pair(y) and math.dist(x, y) * scale <= LENGTH_TOLERANCE_MM
+                for x in a
+                for y in b
+            ):
+                old, new = groups[i], groups[j]
+                groups = [new if group == old else group for group in groups]
+    count = len(set(groups))
     if not result["arc_table"] and not result["line_table"]:
         return (
             [],
@@ -4066,7 +4206,7 @@ def evaluate(bundle, *, pre_kernel=False):
                                 arcs, lines = [], []
                                 debt = f"its bounds clip is unknown: {why}"
                             else:
-                                arcs, lines, debt = _kernel_clip(subject, arcs, lines, clips)
+                                arcs, lines, debt = _kernel_clip(subject, arcs, lines, clips, scale)
                     if (
                         clipped_chain
                         and not blocked

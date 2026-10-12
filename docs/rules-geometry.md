@@ -1042,7 +1042,9 @@ except as the rough leave below moves it.
 **Printed checkpoints (rule A′).** For an op whose coordinates tables print
 cutter-centre rows ([rules-coordinates](rules-coordinates.md)), the kernel
 stands the op's cutter cylinder (radius less 0.001 mm) at every printed row's
-displayed setup XY from its displayed tip up above the setup-entry stock.
+displayed setup XY from its displayed tip up above the setup-entry stock; a
+`chain_drill` row stands its drill cylinder at its full radius from its
+actual tip Z, since each hole is a real drilled cylinder, not a lifted sweep.
 A bounded op's tables arrive whole and are clipped first: the kernel sweeps
 that cylinder along each printed path and ends it where its common volume with
 the op's before-op stock outside its `stock_removal_bounds` box, less the
@@ -1056,7 +1058,25 @@ seam are one); one with no legal part has none. Facts: `checkpoint_clips`
 `rows`, `pieces` of `row` indices and clip points `after` a row at fraction `t`
 with `exact_xy` and `dro_xy` in plan units, `dropped_rows`, `clip_points`), or
 its `reason` when the clip is unknown: the frame, cutter radius, DRO grid,
-before-op stock or a boolean is unresolved, and then no row remains. The kept
+before-op stock or a boolean is unresolved, and then no row remains.
+A bounded `chain_drill` path is not swept: the kernel intersects its true
+drill-centre offset curves (`chain_geometry`: the arc and finite join lines,
+their walls, pitch and offset in the setup frame) with the bounds box eroded
+by the full drill radius, to `PLANE_TOL`, and regenerates every retained
+interval as one chain of equal nominal intervals no longer than the pitch,
+keeping exact junctions; an exact tangent contact keeps its one real hole.
+Each generated hole snaps at most one DRO grid step, inside the eroded box and
+on the scrap side of every curve meeting it (no nearer any wall than the
+nominal point or the offset). A fractional swept-chord intersection never
+becomes a hole. The chain's `checkpoint_clips` entry carries
+`regeneration = "true_curve"`, `pieces` of `generated` points (`exact_xy`,
+`dro_xy`, `model_xy` in the feature plane, an arc hole's `angle_deg`, and
+`overshoot` at an exact miter), `dropped_ends` (whether the chain's first or
+last nominal end was lost), the authored `dropped_rows`, and empty
+`clip_points`; `clipped_at` names the true offset curve at the eroded bounds
+and `precision_mm` is `PLANE_TOL`. Unknown or disconnected chain geometry, a
+box too small for one full drill, no safe grid point within a step, or no
+surviving centre leaves the clip unknown, never a partial table. The kept
 rows, renamed per piece with the coordinates row-id formats, are the only rows
 the row check and the setup picture's waypoints use; a bounded op's removal
 stays its box, never a printed run-out. Each

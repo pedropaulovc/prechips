@@ -8807,9 +8807,12 @@ class _Setup:
                 tip = path["tip_z_mm"]
                 low, high = sweep.get("levels_mm", (tip, tip))
                 low, high = min(low, tip), max(high, tip)
-                moves.append((path["xy_mm"], low, high, None))
-                for end in (path["xy_mm"][0], path["xy_mm"][-1]):
-                    moves.append(([end], low, max(entry, high), None))
+                if path.get("method") == "chain_drill":
+                    moves.extend(([point], low, max(entry, high), None) for point in path["xy_mm"])
+                else:
+                    moves.append((path["xy_mm"], low, high, None))
+                    for end in (path["xy_mm"][0], path["xy_mm"][-1]):
+                        moves.append(([end], low, max(entry, high), None))
         elif sweep.get("tables"):
             raise _Unknown("its arc tables reached the kernel as no printed checkpoints")
         if isinstance(op.get("hole"), dict):
@@ -8876,10 +8879,11 @@ class _Setup:
 
     def _clipped_sketch(self, annotation):
         """(sketch paths, waypoints, render debts): the annotation's sketch plus each bounded
-        op's clipped printed paths (:meth:`_clip_checkpoints`), keyed like the tables by
-        their row ``rows`` ids: an arc piece at its ends and apex, a stair-stepped join at
-        its ends and miters, any other join at every point. A bounded op whose clip is
-        unknown draws no path, only a debt; no unclipped path."""
+        op's clipped printed paths (:meth:`_clip_checkpoints`). Row ids are references,
+        not geometry identities: same-op waypoints merge only within PLANE_TOL (1e-6 mm)
+        of their actual DRO XY. An arc piece marks its ends and apex, a stair-stepped join
+        its ends and miters, any other join every point. Unknown clips draw only debt.
+        """
         paths = list(annotation.get("paths", []))
         waypoints = [dict(waypoint) for waypoint in annotation.get("waypoints", [])]
         debts = []
@@ -8893,7 +8897,7 @@ class _Setup:
                 continue
             for path in table.get("paths", []):
                 points, ids = path["xy_mm"], path["ids"]
-                if len(points) < 2:
+                if not points:
                     continue
                 paths.append({"op": name, "xy": points, "directed": path.get("directed") is True})
                 count = len(points)
@@ -8912,7 +8916,7 @@ class _Setup:
                             for w in waypoints
                             if w.get("op") == name
                             and isinstance(w.get("xy"), list)
-                            and math.dist(w["xy"], point) ** 2 < 1e-8
+                            and math.dist(w["xy"], point) <= PLANE_TOL
                         ),
                         None,
                     )
@@ -9280,7 +9284,8 @@ class _Setup:
         clearing box: the box is all it may remove. Any other op has none: what its printed
         paths cut is credited (:meth:`_run_out`), so retained scrap they nick is removed, and
         only its guard, fixtures and later-setup contacts limit them (rule A′,
-        :meth:`_finish_checkpoints`).
+        :meth:`_finish_checkpoints`). A derived empty remainder is also None, with its
+        obstacle name but no unknown reason: it has no volume to hit and no bounding box.
         """
         if "stock_removal_bounds" not in op:
             return None, None, None
@@ -9291,7 +9296,10 @@ class _Setup:
         if why is not None:
             return None, name, why
         try:
-            return before.cut(box), name, None
+            retained = before.cut(box)
+            if retained.isNull() or retained.Volume <= HIT_MM3:
+                return None, name, None
+            return retained, name, None
         except Exception as exc:
             return None, name, f"its stock outside the box could not be derived ({exc})"
 
@@ -9345,6 +9353,9 @@ class _Setup:
         printed row. Only the clipped rows and paths remain in ``checkpoints``: the row check
         (:meth:`_checkpoint_facts`), the run-out and the sketch use nothing else. When the
         clip is unknown no row remains and the table says why.
+        Chain drilling instead intersects the true offset curves with the full-radius
+        eroded XY rectangle at PLANE_TOL, then regenerates and judges actual cylinders.
+        No fractional swept-chord intersection is a drilled hole.
         """
         clips = {"clipped_at": CLIP_CONTACT, "precision_mm": CLIP_PRECISION_MM, "paths": []}
         facts["checkpoint_clips"] = clips
@@ -9366,7 +9377,23 @@ class _Setup:
         clipped = []
         if why is None:
             try:
-                clipped = [self._clip_path(path, obstacle, radius, dro) for path in table["paths"]]
+                chain = [p for p in table["paths"] if p.get("method") == "chain_drill"]
+                regenerated = (
+                    iter(self._regenerate_chain(chain, op.get("stock_removal_bounds"), radius, dro))
+                    if chain
+                    else iter(())
+                )
+                clipped = [
+                    next(regenerated)
+                    if path.get("method") == "chain_drill"
+                    else self._clip_path(path, obstacle, radius, dro)
+                    for path in table["paths"]
+                ]
+                if chain:
+                    clips["precision_mm"] = PLANE_TOL
+                    clips["clipped_at"] = (
+                        "true offset curve at full-radius eroded stock_removal_bounds"
+                    )
             except _ClipUnknown as exc:
                 why = str(exc)
             except Exception as exc:  # OCC booleans and offsets
@@ -9390,14 +9417,303 @@ class _Setup:
                     else [v * dro["scale"] for v in point["dro_xy"]]
                     for point in piece
                 ]
-                flags = ["row" in point and path["overshoot"][point["row"]] for point in piece]
+                flags = [
+                    path["overshoot"][point["row"]]
+                    if "row" in point
+                    else point.get("overshoot") is True
+                    for point in piece
+                ]
                 for row, point, flag in zip(ids, xy, flags, strict=True):
-                    rows.append({"id": row, "xy_mm": point, "tip_z_mm": path["tip_z_mm"]})
+                    rows.append(
+                        {
+                            "id": row,
+                            "xy_mm": point,
+                            "tip_z_mm": path["tip_z_mm"],
+                            "method": path.get("method"),
+                        }
+                    )
                     if flag:
                         rows[-1]["overshoot"] = True
                 paths.append({**path, "xy_mm": xy, "ids": ids, "overshoot": flags})
         table["rows"], table["paths"] = rows, paths
         self.run_outs.pop(id(op), None)  # a run-out is only ever of the clipped paths
+
+    @staticmethod
+    def _regenerate_chain(paths, bounds, radius, dro):
+        """Regenerate bounded drill positions on true finite curves, not swept chords.
+
+        Lengths in ``chain_geometry`` are plan units; pitch and bounds are mm. Each
+        retained arc or straight leg has equal nominal intervals <= pitch, with exact
+        junctions forced and shared across tables. Snapping is at most one grid step,
+        inside the full-radius eroded box and on the scrap side of every incident curve.
+        Missing geometry and impossible snaps fail closed. Short spans retain their actual
+        holes for the host's concrete no-web checks; an isolated legal contact is one hole.
+        Returned model coordinates invert the supplied feature-plane basis at the nominal
+        curve point; ``dro_xy`` alone commands the actual cylinder.
+        """
+        scale, step, decimals = dro["scale"], dro["step"], dro["decimals"]
+        tol, drill = PLANE_TOL / scale, radius / scale
+        if not isinstance(bounds, dict):
+            raise _ClipUnknown("chain bounds are unknown")
+        inner = []
+        for axis in ("x", "y"):
+            span = bounds.get(axis)
+            if not (isinstance(span, list) and len(span) == 2 and all(map(_number, span))):
+                raise _ClipUnknown("chain bounds need numeric X and Y spans")
+            inner.append([(span[0] + radius) / scale, (span[1] - radius) / scale])
+        if any(lo > hi for lo, hi in inner):
+            raise _ClipUnknown("no full drill cylinder fits inside the bounds")
+
+        def pair(p):
+            return isinstance(p, list) and len(p) == 2 and all(map(_number, p))
+
+        def valid(curve, wall=False):
+            if not isinstance(curve, dict):
+                return False
+            if curve.get("kind") == "arc":
+                return (
+                    pair(curve.get("centre"))
+                    and _positive(curve, "radius")
+                    and _number(curve.get("start_deg"))
+                    and _number(curve.get("sweep_deg"))
+                    and 0 < abs(curve["sweep_deg"]) <= 360
+                    and (
+                        wall
+                        or (
+                            curve.get("outward") in (-1, 1)
+                            and _number(curve.get("angle_start_deg"))
+                            and _number(curve.get("angle_sweep_deg"))
+                        )
+                    )
+                )
+            ends = curve.get("ends")
+            return (
+                curve.get("kind") == "line"
+                and isinstance(ends, list)
+                and len(ends) == 2
+                and all(map(pair, ends))
+                and math.dist(*ends) > tol
+                and (
+                    wall
+                    or (pair(curve.get("normal")) and abs(math.hypot(*curve["normal"]) - 1) <= 1e-9)
+                )
+            )
+
+        def at(curve, t):
+            if curve["kind"] == "line":
+                a, b = curve["ends"]
+                return [a[i] + t * (b[i] - a[i]) for i in range(2)]
+            angle = math.radians(curve["start_deg"] + t * curve["sweep_deg"])
+            return [
+                curve["centre"][i] + curve["radius"] * v
+                for i, v in enumerate((math.cos(angle), math.sin(angle)))
+            ]
+
+        def parameters(curve, angle):
+            start, sweep = curve["start_deg"], curve["sweep_deg"]
+            low, high = sorted((start, start + sweep))
+            return [
+                (angle + 360 * k - start) / sweep
+                for k in range(math.ceil((low - angle) / 360), math.floor((high - angle) / 360) + 1)
+            ]
+
+        def gap(curve, point):
+            if curve["kind"] == "arc":
+                centre = curve["centre"]
+                angle = math.degrees(math.atan2(point[1] - centre[1], point[0] - centre[0]))
+                if parameters(curve, angle):
+                    return abs(math.dist(point, centre) - curve["radius"])
+                return min(math.dist(point, at(curve, t)) for t in (0, 1))
+            a, b = curve["ends"]
+            run = [b[i] - a[i] for i in range(2)]
+            t = max(
+                0,
+                min(1, sum((point[i] - a[i]) * run[i] for i in range(2)) / sum(v * v for v in run)),
+            )
+            return math.dist(point, at(curve, t))
+
+        def inside(point):
+            return all(lo - tol <= point[i] <= hi + tol for i, (lo, hi) in enumerate(inner))
+
+        def intervals(curve):
+            cuts = [0.0, 1.0]
+            if curve["kind"] == "arc":
+                for angle in (0, 90, 180, 270):
+                    cuts.extend(parameters(curve, angle))
+            for axis, span in enumerate(inner):
+                for edge in span:
+                    if curve["kind"] == "line":
+                        a, b = curve["ends"]
+                        delta = b[axis] - a[axis]
+                        if delta:
+                            cuts.append((edge - a[axis]) / delta)
+                    else:
+                        ratio = (edge - curve["centre"][axis]) / curve["radius"]
+                        if -1 <= ratio <= 1:
+                            angle = math.degrees(
+                                math.acos(ratio) if axis == 0 else math.asin(ratio)
+                            )
+                            for theta in (angle, -angle if axis == 0 else 180 - angle):
+                                cuts.extend(parameters(curve, theta))
+            cuts = sorted(set(t for t in cuts if 0 <= t <= 1))
+            result = []
+            for a, b in zip(cuts, cuts[1:], strict=False):
+                if all(inside(at(curve, t)) for t in (a, (a + b) / 2, b)):
+                    if result and result[-1][1] == a:
+                        result[-1][1] = b
+                    else:
+                        result.append([a, b])
+            # An exact tangent can leave one legal centre and no positive-length arc.
+            # Keep that real hole; do not invent a minimum-length interval around it.
+            result.extend(
+                [t, t]
+                for t in cuts
+                if inside(at(curve, t)) and not any(a <= t <= b for a, b in result)
+            )
+            return sorted(result)
+
+        geometries = []
+        for path in paths:
+            geometry = path.get("chain_geometry")
+            if not isinstance(geometry, dict):
+                raise _ClipUnknown(f"{path['table']}: true chain geometry is unknown")
+            basis, origin = geometry.get("basis"), geometry.get("setup_origin")
+            curves, walls = geometry.get("curves"), geometry.get("walls")
+            if not (
+                _positive(geometry, "pitch_mm")
+                and _number(geometry.get("offset"))
+                and geometry["offset"] >= drill - tol
+                and pair(origin)
+                and isinstance(basis, list)
+                and len(basis) == 2
+                and all(map(pair, basis))
+                and all(
+                    abs(sum(basis[i][k] * basis[j][k] for k in range(2)) - (i == j)) <= 1e-9
+                    for i in range(2)
+                    for j in range(2)
+                )
+                and isinstance(curves, list)
+                and curves
+                and all(valid(c) for c in curves)
+                and isinstance(walls, list)
+                and walls
+                and all(valid(w, True) for w in walls)
+            ):
+                raise _ClipUnknown(f"{path['table']}: true chain geometry is incomplete")
+            if any(
+                math.dist(at(a, 1), at(b, 0)) > tol
+                for a, b in zip(curves, curves[1:], strict=False)
+            ):
+                raise _ClipUnknown(f"{path['table']}: finite join legs are disconnected")
+            geometries.append(geometry)
+
+        def safe(point, exact, curve, geometry):
+            if curve["kind"] == "arc":
+                if curve["outward"] * (math.dist(point, curve["centre"]) - curve["radius"]) < -tol:
+                    return False
+            elif sum((point[i] - exact[i]) * curve["normal"][i] for i in range(2)) < -tol:
+                return False
+            return all(
+                gap(w, point) >= min(gap(w, exact), geometry["offset"]) - tol
+                for w in geometry["walls"]
+            )
+
+        snapped = []
+
+        def snap(exact, curve, geometry):
+            for nominal, actual in snapped:
+                if math.dist(nominal, exact) <= tol:
+                    if not safe(actual, exact, curve, geometry):
+                        raise _ClipUnknown("shared chain junction has incompatible safe sides")
+                    return actual
+            base = [math.floor(v / step) for v in exact]
+            options = sorted(
+                (
+                    [round((base[0] + i) * step, decimals), round((base[1] + j) * step, decimals)]
+                    for i in range(-1, 3)
+                    for j in range(-1, 3)
+                ),
+                key=lambda p: (math.dist(p, exact), p),
+            )
+            incident = [
+                (c, g)
+                for g in geometries
+                for c in g["curves"]
+                if any(math.dist(at(c, t), exact) <= tol for t in (0, 1))
+            ]
+            for point in options:
+                if (
+                    math.dist(point, exact) <= step + tol
+                    and inside(point)
+                    and safe(point, exact, curve, geometry)
+                    and all(safe(point, exact, c, g) for c, g in incident)
+                ):
+                    snapped.append((exact, point))
+                    return point
+            raise _ClipUnknown("no safe DRO grid point within one step of the true chain curve")
+
+        result = []
+        for path, geometry in zip(paths, geometries, strict=True):
+            curves, pieces = geometry["curves"], []
+            for index, curve in enumerate(curves):
+                length = (
+                    math.dist(*curve["ends"])
+                    if curve["kind"] == "line"
+                    else curve["radius"] * abs(math.radians(curve["sweep_deg"]))
+                )
+                for low, high in intervals(curve):
+                    span = (high - low) * length
+                    count = math.ceil(span * scale / geometry["pitch_mm"])
+                    piece = []
+                    for k in range(count + 1):
+                        t = low + (high - low) * k / count if count else low
+                        exact = at(curve, t)
+                        actual = snap(exact, curve, geometry)
+                        delta = [exact[i] - geometry["setup_origin"][i] for i in range(2)]
+                        point = {
+                            "generated": True,
+                            "exact_xy": exact,
+                            "dro_xy": actual,
+                            "model_xy": [
+                                sum(delta[i] * axis[i] for i in range(2))
+                                for axis in geometry["basis"]
+                            ],
+                            "overshoot": curve["kind"] == "line"
+                            and ((index > 0 and t == 0) or (index + 1 < len(curves) and t == 1)),
+                        }
+                        if curve["kind"] == "arc":
+                            point["angle_deg"] = (
+                                curve["angle_start_deg"] + t * curve["angle_sweep_deg"]
+                            )
+                        piece.append(point)
+                    if (
+                        pieces
+                        and math.dist(pieces[-1][-1]["exact_xy"], piece[0]["exact_xy"]) <= tol
+                    ):
+                        pieces[-1].extend(piece[1:])
+                    else:
+                        pieces.append(piece)
+            dropped = [
+                not pieces or math.dist(pieces[0][0]["exact_xy"], at(curves[0], 0)) > tol,
+                not pieces or math.dist(pieces[-1][-1]["exact_xy"], at(curves[-1], 1)) > tol,
+            ]
+            entry = {
+                "table": path["table"],
+                "rows": len(path["xy_mm"]),
+                "regeneration": "true_curve",
+                "pieces": pieces,
+                "dropped_ends": dropped,
+                "dropped_rows": [
+                    row
+                    for row, xy in zip(path["ids"], path["xy_mm"], strict=True)
+                    if not inside([v / scale for v in xy])
+                ],
+                "clip_points": [],
+            }
+            result.append((entry, pieces))
+        if not any(pieces for _, pieces in result):
+            raise _ClipUnknown("no drill centre fits the full-radius eroded bounds")
+        return result
 
     def _clip_path(self, path, obstacle, radius, dro):
         """(its ``checkpoint_clips`` entry, its legal pieces) for one printed path.
@@ -9411,7 +9727,9 @@ class _Setup:
         points (``after`` a row at fraction ``t``, ``exact_xy`` and ``dro_xy`` in plan
         units). A path that leaves and re-enters legality is several pieces, never
         reconnected (a closed path's pieces across its seam are one); one with no legal part
-        has none. Pieces no longer than CLIP_PRECISION_MM are dropped.
+        has none. Pieces no longer than CLIP_PRECISION_MM are dropped. An absent obstacle
+        means the derived stock remainder is empty, not that its geometry is unknown;
+        :meth:`_clip_checkpoints` keeps unresolved stock out of this method.
         """
         xy, ids = path["xy_mm"], path["ids"]
         count, z0, top = len(xy), path["tip_z_mm"] + LIFT, self.box[5] + COVER_MM
@@ -9513,7 +9831,7 @@ class _Setup:
                 f"no DRO grid point near its clip after {ids[i]} is clear and no nearer its walls"
             )
 
-        if z0 >= top:
+        if obstacle is None or z0 >= top:
             pieces = [[{"row": i} for i in range(count)]]
         elif count == 1:
             pieces = [[{"row": 0}]] if not meets(points[0], points[0]) else []
@@ -9620,18 +9938,21 @@ class _Setup:
             # The pool runs every row's booleans ahead; one token keeps their sharing.
             calls = {}
             for index, row in enumerate(rows):
-                (x, y), z0 = row["xy_mm"], row["tip_z_mm"] + LIFT
+                chain = row.get("method") == "chain_drill"
+                (x, y), z0 = row["xy_mm"], row["tip_z_mm"] + (0 if chain else LIFT)
                 if z0 < top:
-                    cylinder = (x, y, radius - LIFT, z0, top)
+                    cylinder = (x, y, radius if chain else radius - LIFT, z0, top)
                     args = (present, boxes, checked, cylinder)
                     calls[index] = batch.submit(loaded, "checkpoint_row", *args)
             for index, row in enumerate(rows):
-                (x, y), z0 = row["xy_mm"], row["tip_z_mm"] + LIFT
+                chain = row.get("method") == "chain_drill"
+                (x, y), z0 = row["xy_mm"], row["tip_z_mm"] + (0 if chain else LIFT)
                 if z0 >= top:
                     continue
-                cylinder = (x, y, radius - LIFT, z0, top)
-                tool = Part.makeCylinder(radius - LIFT, top - z0, V(x, y, z0))
-                reach = radius - LIFT + PLANE_TOL
+                rho = radius if chain else radius - LIFT
+                cylinder = (x, y, rho, z0, top)
+                tool = Part.makeCylinder(rho, top - z0, V(x, y, z0))
+                reach = rho + PLANE_TOL
                 near = (x - reach, y - reach, z0 - PLANE_TOL, x + reach, y + reach, top + PLANE_TOL)
                 taken = boolean_pool.answer(calls.get(index))
                 if taken is None:

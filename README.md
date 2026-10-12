@@ -284,12 +284,16 @@ centre, radius and ends; a rough op steps single-axis `stairs` or drills a
 `chain_drill` outside the line, including straight joins: each finite drill leg
 keeps exact endpoints and nominal holes at equal intervals no greater than the
 pitch (DRO-grid snapping can move the printed spacing). Method, stage and
-full-hole-outside-the-line errors are found before clipping; bounded clipping
-then keeps only whole authored hole rows, every retained web and break-out is
-proven outside the line, omitted joins add no join debt while other tables
-remain (a wholly excluded or disconnected stage keeps its clip debt), and the worst residual
-(arc radial depth, and the join break-out polyline's greatest distance to the
-nearest finished wall) is held once to the shop policy's cited
+full-hole-outside-the-line errors are found before clipping; a bounded chain
+is then clipped at drill granularity (offset path intersected with the bounds
+eroded by the drill radius, ends snapped at most one grid step to the safe
+side, holes respaced as one chain within pitch, every actual hole cylinder
+judged; swept-chord clip points never become holes), every retained web and
+break-out is proven outside the line, the table says stock past the bound is
+not cleared, omitted joins add no join debt while other tables remain (a
+wholly excluded or disconnected stage keeps its clip debt), and the worst
+residual (arc radial depth, and the join break-out polyline's greatest
+distance to the nearest finished wall) is held once to the shop policy's cited
 `max_filing_stock_mm`; a
 `file_to_line` op at the bench files to hardened buttons pinned through the
 arc's bore (or a template) and checks R with a radius gauge whose range covers
