@@ -129,12 +129,15 @@ def test_traveler_marks_unmeasured_values_by_status_not_attribution(status):
 
 @pytest.mark.parametrize("status", ["measured", "assumed", "illustrative", None])
 def test_traveler_prints_make_targets_without_promoting_as_made_fixture_certainty(status):
-    from test_sheet_fixture import IDENTITY, sheets
+    from test_sheet_fixture import IDENTITY, FixturePage
     from test_sheet_fixture import bundle as fixture_bundle
 
+    from prechips.findings import Finding
     from prechips.measurements import record_debt
+    from prechips.sheet import _Traveler
 
     data = fixture_bundle([{"fixture": "plate", "pose": IDENTITY}])
+    setup = data.plan["setups"][0]
     fixture = data.inventory["fixtures"]["plate"]
     solid = fixture["solids"][0]
     solid["measured"] = fact(10, status)["measured"]
@@ -143,25 +146,56 @@ def test_traveler_prints_make_targets_without_promoting_as_made_fixture_certaint
     debt = record_debt(
         solid, "fixtures", "plate", ("solids", "pad"), require_measured=True, owner=fixture
     )
+    assert (debt is None) is expected_trust
     if debt:
         data.kernel["measurement_debts"] = {"setups": {"S1": [debt]}, "ops": {}}
-    page = sheets(data)[0]
-    # Authored drawing targets are usable settings, not proof of the installed/as-made part.
+
+    def render(findings):
+        traveler = _Traveler(data, findings, {}, None)
+        printed = ["".join(blocks) for blocks in traveler.setup_section(setup)]
+        return traveler, FixturePage("".join(printed), printed)
+
+    # Authored drawing targets are usable settings, not proof of the installed/as-made part;
+    # the record alone, with no decision consuming it, stops nothing and records nothing.
+    traveler, page = render([])
     assert "Make-to-drawing expected dimensions and positions" in page.text
     assert "X 0…10, Y 0…20, Z 0…5" in page.text
-    if expected_trust:
-        assert "pad †" not in page.text
-        assert debt is None
-    else:
+    assert ("pad †" in page.text) is not expected_trust
+    assert "STOP — do not run this setup" not in page.text
+    assert traveler.setup_stops["S1"] == 0
+    assert not traveler.measurement_registry()
+    assert traveler.job_measurement_box() == ""
+    assert "Record measured value here [____]" not in page.text
+    if not expected_trust:
+        # The drawn-fixture decision refusing the untrusted pad record is the consumer
+        # (fixture_interference unknown with the exact refused fact attached).
+        consumer = Finding(
+            "fixture_interference",
+            "S1",
+            "unknown",
+            {"measurements": [debt]},
+            [],
+            "S1: fixture is not drawn.",
+        )
+        traveler, page = render([consumer])
+        assert "Make-to-drawing expected dimensions and positions" in page.text
+        assert "X 0…10, Y 0…20, Z 0…5" in page.text
         assert "pad †" in page.text
         assert "STOP — do not run this setup" in page.text
-        assert "Record the measured values here" in page.text
-        assert "Record measured value here [____]" not in page.text
+        assert traveler.setup_stops["S1"] > 0
         assert "return this traveler for reissue" in page.text
-        assert debt["id"] in {
-            node["attrs"].get("data-measurement-id") for node in page.markup.nodes
+        assert "Record measured value here [____]" not in page.text
+        register = FixturePage(traveler.job_measurement_box())
+        assert "Record the measured values here" in register.text
+        assert "return this traveler for reissue" in register.text
+        bindings = {
+            node["attrs"]["data-measurement-binding"]
+            for node in register.markup.nodes
+            if "data-measurement-id" in node["attrs"]
         }
+        assert bindings == {debt["id"]}
         assert debt["status"] == (status or "assumed")
+        assert consumer.numbers["measurements"] == [debt]
     assert record_trusted(solid, require_measured=True)[0] is expected_trust
     assert solid["measured"] == fact(10, status)["measured"]
 

@@ -308,19 +308,42 @@ def test_grid_dependent_depth_residual_is_unknown_until_the_declared_grid_is_ver
 @pytest.mark.parametrize(("resolution", "debt_status", "step"), resolution_cases())
 def test_traveler_distinguishes_declared_untrusted_grid_from_absence(resolution, debt_status, step):
     data = bundle(resolution)
-    text = _Traveler(data, [], {}, None).dro_resolution(data.plan["setups"])
+    setups = data.plan["setups"]
+    text = _Traveler(data, [], {}, None).dro_resolution(setups)
     assert f"{step:.3f} mm" in text
     if debt_status is None:
         assert "†" not in text and "not verified" not in text and "default" not in text
-    elif debt_status == "missing":
+        return
+    if debt_status == "missing":
         assert "†" not in text and "absent/unknown" in text and "provisional default grid" in text
-    else:
-        assert "0.005 mm" in text and "grid not verified" in text and "†" not in text
-        assert text.count("not verified") == 1
-        assert "default" not in text and "not in the shop list" not in text
-        assert "installed readout step" in text and "see setup STOPs" in text
-        assert "confirm installed readout" not in text
-        assert "assumed" not in text and "illustrative" not in text and "unmeasured" not in text
+        return
+    # A declared, untrusted step: the grid prints as declared and is named unverified
+    # once, with no per-setup instruction and no provisional-default or shop-list wording.
+    assert "0.005 mm" in text and "grid not verified" in text and "†" not in text
+    assert text.count("not verified") == 1
+    assert "default" not in text and "not in the shop list" not in text
+    assert "installed readout step" in text and "confirm installed readout" not in text
+    assert "assumed" not in text and "illustrative" not in text and "unmeasured" not in text
+    # Nothing consumed the step: the header says so and binds no JOB record.
+    assert "not consumed by a stopped decision" in text and "?M" not in text
+    # The coordinate decision refusing the step is the consumer: the setup page registers
+    # the exact refused fact once, and the header then cites its JOB record instead.
+    row = coordinates.evaluate(data)[0]
+    assert_grid_debt(row, debt_status)
+    (entry,) = row.numbers["measurements"]
+    traveler = _Traveler(data, [row], {}, None)
+    traveler.register_measurements(traveler.collect_measurements(setups[0]), setups[0])
+    assert list(traveler.measurement_registry()) == [entry["id"]]
+    consumed = traveler.dro_resolution(setups)
+    assert f"{step:.3f} mm" in consumed and "grid not verified" in consumed
+    assert consumed.count("not verified") == 1
+    assert "not consumed by a stopped decision" not in consumed
+    assert f"el400 installed readout step {traveler.measurement_reference(entry)})" in consumed
+    assert consumed.count("?M") == 1
+    assert "default" not in consumed and "confirm installed readout" not in consumed
+    assert "assumed" not in consumed and "illustrative" not in consumed
+    assert "unmeasured" not in consumed and "†" not in consumed
+    assert row.numbers["measurements"] == [entry]
 
 
 @pytest.mark.parametrize("status", ["assumed", "illustrative", "measured"])
