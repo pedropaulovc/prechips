@@ -1022,6 +1022,9 @@ def test_certain_accessibility_hit_fails_even_when_other_extent_is_unresolved(
 @pytest.mark.parametrize("kind", ["tool", "holder"])
 @pytest.mark.parametrize("hits,status", [(0, "unknown"), (4, "error")])
 def test_certain_hits_survive_unknown_context(bundle, debt, kind, hits, status):
+    if (debt, kind, hits) == ("stock", "tool", 4):
+        # Unknown stock cannot produce a certain tool minimum.
+        hits, status = "unknown", "unknown"
     detail = bundle.kernel["ops"]["S1:10"]
     detail.update(tool_hits="unknown", holder_hits="unknown", min_hits={kind: hits})
     if debt == "stock":
@@ -1032,7 +1035,9 @@ def test_certain_hits_survive_unknown_context(bundle, debt, kind, hits, status):
         bundle.inventory["tools"]["em"]["flute_len_mm"] = "unknown"
     row = finding(accessibility, bundle)
     assert row.status == status
-    if hits:
+    if hits == "unknown":
+        assert "certain_tool_hits" not in row.numbers
+    elif hits:
         assert row.numbers["certain_" + kind + "_hits"] == hits
         assert exit_code([row], {"required": {}}, bundle) == 2
 
