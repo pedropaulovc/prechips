@@ -2031,10 +2031,16 @@ its point keys would sit closer than their badges need (a jaw-end dome), it is
 enlarged until they stand apart, as in the shaft's S2 and S3. Contour
 sketches show both sides and share `P` waypoint keys with the coordinate
 tables. Custom plates show pads, locators and authored clamp-action order.
-For non-degenerate profile-sketch extents, dashed finished-outline edges are
-discretized to at most 0.5 px chord error at the largest possible sketch scale,
-including the renderer's maximum Y exaggeration, independent of stock bbox.
-Degenerate-only sketches fall back to the existing stock-scale tolerance.
+For each profile operation with at least one XY span above 0.01 mm, dashed
+finished-outline edges are discretized to at most 0.5 px chord error at the
+largest possible sketch scale. The bound is `min(4W/sx, H/sy)`, with `sx` and
+`sy` floored at 0.01 mm: the full-width plot scale with maximum fourfold Y
+exaggeration, capped by the print-band height. Outline tolerance is floored at
+0.001 mm so sliver operations cannot force runaway tessellation. Connected
+native edges are joined before dashing, preserving dash phase across the contour;
+callout candidates use native edge endpoints, not tessellation samples, so
+leader placement is independent of rendering density. Degenerate-only sketches
+fall back to the existing stock-scale tolerance.
 Table/vise-body/headstock/tailstock context outlines are marked schematic;
 they never add fabricated solids or authorize a cut. Inventory stop solids
 require `hold.stop_fixture` and a numeric `hold.stop_pose`.

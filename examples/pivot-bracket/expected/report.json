@@ -15809,14 +15809,12 @@
       ],
       "message": "Starting RPM and feed are sourced; raw RPM is rounded to nearest 50, then clamped to the actual machine range.",
       "numbers": {
-        "axial_feed_mm_rev": 0.11,
         "chip_load_mm_per_tooth": 0.055,
         "cutting_data_row": "example (plausible, not measured); speed inside Machinery's Handbook 27th ed. (Industrial Press, 2004) Table 17 p.1061 traditional HSS drilling speeds for plain carbon steels 1006-1026, 60-100 fpm (100 at 100-125 HB, 90 at 125-175, 70 at 175-225, 60 at 225-275); 2 flutes x 0.055 mm = 0.11 mm/rev (.0043 in/rev), inside the same handbook's p.1060 drill feeds for the traditional speeds 0.002-0.006 in/rev for 1/8-1/4 in drills and 0.004-0.010 in/rev for 1/4-1/2 in drills",
         "deep_hole_row": "not_applicable",
         "deep_hole_sfm_factor": 1.0,
         "depth_over_dia": 1.3123359580052494,
         "diameter_in": 0.18000000000000002,
-        "feed_direction": "axial",
         "feed_mm_min": 187.0,
         "flutes": 2,
         "material": "Plain Carbon Steel",
@@ -15872,14 +15870,12 @@
       ],
       "message": "Starting RPM and feed are sourced; raw RPM is rounded to nearest 50, then clamped to the actual machine range.",
       "numbers": {
-        "axial_feed_mm_rev": 0.11,
         "chip_load_mm_per_tooth": 0.055,
         "cutting_data_row": "example (plausible, not measured); speed inside Machinery's Handbook 27th ed. (Industrial Press, 2004) Table 17 p.1061 traditional HSS drilling speeds for plain carbon steels 1006-1026, 60-100 fpm (100 at 100-125 HB, 90 at 125-175, 70 at 175-225, 60 at 225-275); 2 flutes x 0.055 mm = 0.11 mm/rev (.0043 in/rev), inside the same handbook's p.1060 drill feeds for the traditional speeds 0.002-0.006 in/rev for 1/8-1/4 in drills and 0.004-0.010 in/rev for 1/4-1/2 in drills",
         "deep_hole_row": "not_applicable",
         "deep_hole_sfm_factor": 1.0,
         "depth_over_dia": 1.3123359580052494,
         "diameter_in": 0.18000000000000002,
-        "feed_direction": "axial",
         "feed_mm_min": 187.0,
         "flutes": 2,
         "material": "Plain Carbon Steel",
@@ -16013,14 +16009,12 @@
       ],
       "message": "Starting RPM and feed are sourced; raw RPM is rounded to nearest 50, then clamped to the actual machine range.",
       "numbers": {
-        "axial_feed_mm_rev": 0.11,
         "chip_load_mm_per_tooth": 0.055,
         "cutting_data_row": "example (plausible, not measured); speed inside Machinery's Handbook 27th ed. (Industrial Press, 2004) Table 17 p.1061 traditional HSS drilling speeds for plain carbon steels 1006-1026, 60-100 fpm (100 at 100-125 HB, 90 at 125-175, 70 at 175-225, 60 at 225-275); 2 flutes x 0.055 mm = 0.11 mm/rev (.0043 in/rev), inside the same handbook's p.1060 drill feeds for the traditional speeds 0.002-0.006 in/rev for 1/8-1/4 in drills and 0.004-0.010 in/rev for 1/4-1/2 in drills",
         "deep_hole_row": "not_applicable",
         "deep_hole_sfm_factor": 1.0,
         "depth_over_dia": 0.9602458229306702,
         "diameter_in": 0.24600000000000002,
-        "feed_direction": "axial",
         "feed_mm_min": 137.5,
         "flutes": 2,
         "material": "Plain Carbon Steel",
@@ -22929,7 +22923,7 @@
       "subject": "S5"
     }
   ],
-  "hash": "74f26a560d3e356eea9719a8c9e7c0f4c1626e41ac88ef7b225a73b20d64e1b1",
+  "hash": "bf97071aad1ceeff3226984340ee0810be8665be13f5125cf0358e338c28960d",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -22973,23 +22967,23 @@
     },
     "render:S1": {
       "path": "setup-S7.png",
-      "sha256": "8b7238680df0a63d8c895088154eeb54992eb79af42a82a472864952c1d5c743"
+      "sha256": "653e8113c18224c530540eeb2b7201cedfb593e5fe97bbe3fe2bda3fbcd70948"
     },
     "render:S2": {
       "path": "setup-S8.png",
-      "sha256": "5d2b272a200ccba8563a681be50f195e55d11998d3ed9404670cb7f81da87f80"
+      "sha256": "8bea75e20adb8960180ede3dbe64980b9e90e117cf25469788e5d2d25027f952"
     },
     "render:S3": {
       "path": "setup-S9.png",
-      "sha256": "8d0d4abd5a98fc1899fffe921c350b0857e437eef6122b9d5e38b76af60c9608"
+      "sha256": "679244f1e67c02f6c31409c58907fe7e18f10d4b1519ee86924014606ea11db5"
     },
     "render:S4": {
       "path": "setup-S10.png",
-      "sha256": "e23446a21727c50cdd3e0dee4251296f73e883597ced26a0180af2be076ef8c4"
+      "sha256": "f414c7729452536110589b1b6d0cbcee7193797ab1d7a391cab784767fe74ef2"
     },
     "render:S4F": {
       "path": "setup-S11.png",
-      "sha256": "1a7426c5d5ab7939e31fb9e850ed64dd70322351173595b48558c4acf8f7ab3e"
+      "sha256": "d5785117899d1b2b778b6e7f34e497db3e1ea23c9e6d52b9fb2c03390677ec1e"
     },
     "render:S5": {
       "path": "setup-S12.png",
@@ -23777,7 +23771,7 @@
         ],
         "width_px": 1600
       },
-      "sha256": "8b7238680df0a63d8c895088154eeb54992eb79af42a82a472864952c1d5c743"
+      "sha256": "653e8113c18224c530540eeb2b7201cedfb593e5fe97bbe3fe2bda3fbcd70948"
     },
     "S2": {
       "fixture": "modeled",
@@ -23889,7 +23883,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "5d2b272a200ccba8563a681be50f195e55d11998d3ed9404670cb7f81da87f80"
+      "sha256": "8bea75e20adb8960180ede3dbe64980b9e90e117cf25469788e5d2d25027f952"
     },
     "S3": {
       "fixture": "modeled",
@@ -24042,7 +24036,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "8d0d4abd5a98fc1899fffe921c350b0857e437eef6122b9d5e38b76af60c9608"
+      "sha256": "679244f1e67c02f6c31409c58907fe7e18f10d4b1519ee86924014606ea11db5"
     },
     "S4": {
       "fixture": "modeled",
@@ -24262,7 +24256,7 @@
         ],
         "width_px": 1600
       },
-      "sha256": "e23446a21727c50cdd3e0dee4251296f73e883597ced26a0180af2be076ef8c4"
+      "sha256": "f414c7729452536110589b1b6d0cbcee7193797ab1d7a391cab784767fe74ef2"
     },
     "S4F": {
       "fixture": "modeled",
@@ -24404,7 +24398,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "1a7426c5d5ab7939e31fb9e850ed64dd70322351173595b48558c4acf8f7ab3e"
+      "sha256": "d5785117899d1b2b778b6e7f34e497db3e1ea23c9e6d52b9fb2c03390677ec1e"
     },
     "S5": {
       "fixture": "modeled",

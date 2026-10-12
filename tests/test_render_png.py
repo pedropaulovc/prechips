@@ -15,13 +15,16 @@ from prechips.kernel.render_diagram import (
     _INK,
     _AnnotationDetail,
     _compose_diagram,
+    _continuous_outline_paths,
     _corners,
+    _dash_segments,
     _dashed,
     _Diagram,
     _guide_view,
     _holding_details,
     _HoldingDetail,
     _main_diagram,
+    _outline_anchor_points,
     _profile_outline_deflection,
     _solid_name,
     _tag_at,
@@ -1561,27 +1564,102 @@ def test_isometric_axes_phrase_keeps_pixel_gutter_from_colored_legend_samples():
 
 
 @pytest.mark.parametrize("radius", [5.1, 3.25])
-def test_profile_outline_deflection_bounds_circle_chord_error_at_sketch_scale(radius):
-    circle = [
-        [radius, 0],
-        [0, radius],
-        [-radius, 0],
-        [0, -radius],
-        [radius, 0],
+def test_profile_outline_deflection_bounds_circle_chord_error_at_sketch_scale(monkeypatch, radius):
+    paths = [
+        {
+            "op": "20",
+            "xy": [[-12, 0], [12, 0], [12, 0.1], [-12, 0.1], [-12, 0]],
+            "directed": True,
+        }
     ]
-    tolerance = _profile_outline_deflection([{"op": "20", "xy": circle}], [])
-    scale = 4 * (1600 - 2 * 32 - 72) / (2 * radius)
-    segments = math.ceil(math.pi / math.acos(1 - tolerance / radius))
-    maximum_error_px = scale * radius * (1 - math.cos(math.pi / segments))
+    circle = [
+        [
+            [
+                radius * math.cos(start + math.pi * index / 4),
+                radius * math.sin(start + math.pi * index / 4),
+                0,
+            ]
+            for index in range(5)
+        ]
+        for start in (0, math.pi)
+    ]
+    spec = _example_spec("rocker-s1")
+    spec["paths"] = paths
+    spec["waypoints"] = []
+    spec["nominal_outline_mm"] = circle
+    scales = []
+    xy_projector = render_module._xy_projector
 
-    assert maximum_error_px <= 0.5
-    assert segments > 6
+    def observe_projector(bounds, centre, factors):
+        scales.append(factors)
+        return xy_projector(bounds, centre, factors)
+
+    monkeypatch.setattr(render_module, "_xy_projector", observe_projector)
+    _composed_diagram([], spec)
+
+    assert len(scales) == 1
+    scale_x, scale_y = scales[0]
+    assert scale_y == pytest.approx(4 * scale_x)
+    tolerance = _profile_outline_deflection(paths, [])
+    assert tolerance * max(scale_x, scale_y) <= 0.5
+
+
+def test_profile_outline_deflection_floors_sliver_extents():
+    path = {"op": "20", "xy": [[0, 0], [1e-5, 1]]}
+
+    assert _profile_outline_deflection([path], []) >= 1e-3
+
+
+def test_finished_outline_dash_phase_continues_across_native_edges():
+    count = 96
+    vertices = [
+        (20 * math.cos(2 * math.pi * index / count), 20 * math.sin(2 * math.pi * index / count), 0)
+        for index in range(count)
+    ]
+    edges = [(vertices[index], vertices[(index + 1) % count]) for index in range(count)]
+    edges = [*edges[::2], *(tuple(reversed(edge)) for edge in edges[1::2])]
+
+    (path,) = _continuous_outline_paths(edges)
+    fragments = list(_dash_segments([path], lambda point: point[:2]))
+    outline_length = sum(math.dist(a, b) for a, b in zip(path, path[1:], strict=False))
+    ink_length = sum(math.dist(*fragment) for fragment in fragments)
+
+    assert path[0] == path[-1]
+    assert len(path) == count + 1
+    assert ink_length < outline_length * 0.7
+    assert all(math.dist(*fragment) <= 8 + 1e-8 for fragment in fragments)
+
+
+def test_finished_outline_callout_anchor_is_independent_of_tessellation_density():
+    def render_outline(segments):
+        spec = _example_spec("rocker-s1")
+        spec["nominal_outline_mm"] = [
+            [
+                [
+                    5.1 * math.cos(start + math.pi * index / segments),
+                    5.1 * math.sin(start + math.pi * index / segments),
+                    0,
+                ]
+                for index in range(segments + 1)
+            ]
+            for start in (0, math.pi)
+        ]
+        diagram, _ = _composed_diagram([], spec)
+        return diagram
+
+    coarse = render_outline(4)
+    dense = render_outline(64)
+    coarse_leaders = [path for label, path in coarse.leaders if label == "FINISHED OUTLINE"]
+    dense_leaders = [path for label, path in dense.leaders if label == "FINISHED OUTLINE"]
+
+    assert _outline_anchor_points(coarse.nominal) == _outline_anchor_points(dense.nominal)
+    assert coarse_leaders == dense_leaders
 
 
 def test_profile_outline_deflection_includes_single_xy_waypoints():
     path = [{"op": "20", "xy": [[0, 0], [1, 1]]}]
     path_only = _profile_outline_deflection(path, [])
-    with_waypoint = _profile_outline_deflection(path, [{"op": "20", "xy": [10, 0]}])
+    with_waypoint = _profile_outline_deflection(path, [{"op": "20", "xy": [100, 0]}])
     waypoint_only = _profile_outline_deflection(
         [],
         [

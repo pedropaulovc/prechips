@@ -65,6 +65,9 @@ _EVERY_PASS = 8
 # sketches cannot all keep it grows taller.
 _SKETCH_PLOT_MIN = 30
 _SKETCH_SPAN_EPSILON_MM = 1e-9
+# Tiny/sliver sketch extents do not justify unbounded detail in a raster overlay.
+_PROFILE_OUTLINE_MIN_SPAN_MM = 0.01
+_PROFILE_OUTLINE_MIN_DEFLECTION_MM = 1e-3
 # Finished-outline chords stay within half a pixel at the largest possible profile-sketch
 # scale. A one-op band may use the full page width and grow to this height.
 _SKETCH_PLOT_WIDTH_PX = 1600 - 2 * 32 - 72
@@ -277,18 +280,23 @@ def _profile_outline_deflection(paths, waypoints):
     scale = 0.0
     for xmin, ymin, xmax, ymax in bounds.values():
         span_x, span_y = xmax - xmin, ymax - ymin
-        # Coincident points have no useful scale; avoid turning the plot epsilon into
-        # millions of outline segments.
-        if span_x <= _SKETCH_SPAN_EPSILON_MM and span_y <= _SKETCH_SPAN_EPSILON_MM:
+        if span_x <= _PROFILE_OUTLINE_MIN_SPAN_MM and span_y <= _PROFILE_OUTLINE_MIN_SPAN_MM:
             continue
-        factor = min(
-            _SKETCH_PLOT_WIDTH_PX / max(span_x, _SKETCH_SPAN_EPSILON_MM),
-            _PANEL_MAX_HEIGHT / max(span_y, _SKETCH_SPAN_EPSILON_MM),
+        scale_x = (
+            _SKETCH_Y_EXAG_MAX * _SKETCH_PLOT_WIDTH_PX / max(span_x, _PROFILE_OUTLINE_MIN_SPAN_MM)
         )
+        scale_y = _PANEL_MAX_HEIGHT / max(span_y, _PROFILE_OUTLINE_MIN_SPAN_MM)
         # A narrower multi-op panel may enable Y exaggeration even when a full-width
         # estimate does not; bound every sketch by the renderer's maximum stretch.
-        scale = max(scale, factor * _SKETCH_Y_EXAG_MAX)
-    return _SKETCH_CHORD_ERROR_PX / scale if scale else None
+        scale = max(scale, min(scale_x, scale_y))
+    return (
+        max(
+            _SKETCH_CHORD_ERROR_PX / scale,
+            _PROFILE_OUTLINE_MIN_DEFLECTION_MM,
+        )
+        if scale
+        else None
+    )
 
 
 def _centre(box):
@@ -681,7 +689,7 @@ def _keys_crowd(points, scale):
 
 
 def _dash_segments(polylines, project, clip=None):
-    """Clipped on-dash fragments, retaining phase across tessellated chords of an edge."""
+    """Clipped on-dash fragments, retaining phase across tessellated chords of a path."""
     for polyline in polylines:
         pixels = [project(p) for p in polyline]
         phase = 0.0
@@ -707,6 +715,85 @@ def _dash_segments(polylines, project, clip=None):
                         yield segment
                 distance += run
                 phase = (phase + run) % 14
+
+
+def _outline_point_key(point):
+    """Stable endpoint identity for joining separately discretized native edges."""
+    return tuple(round(float(value), 6) for value in point)
+
+
+def _continuous_outline_paths(polylines):
+    """Join native outline edges at shared vertices so dashes carry across each contour.
+
+    A branch is kept as a path endpoint: without the source face loops there is no
+    unambiguous way to choose which branch continues the contour.
+    """
+    edges, endpoints = [], []
+    incidence = defaultdict(list)
+    closed, paths = [], []
+    for line in polylines:
+        if len(line) < 2:
+            continue
+        points = tuple(line)
+        start, end = _outline_point_key(points[0]), _outline_point_key(points[-1])
+        if start == end:
+            closed.append(points)
+            continue
+        index = len(edges)
+        edges.append(points)
+        endpoints.append((start, end))
+        incidence[start].append(index)
+        incidence[end].append(index)
+
+    unvisited = set(range(len(edges)))
+    branch_starts = sorted(
+        (vertex, index)
+        for vertex, connected in incidence.items()
+        if len(connected) != 2
+        for index in connected
+    )
+    branch_index = 0
+    while unvisited:
+        while branch_index < len(branch_starts) and branch_starts[branch_index][1] not in unvisited:
+            branch_index += 1
+        if branch_index < len(branch_starts):
+            start, index = branch_starts[branch_index]
+            branch_index += 1
+        else:
+            index = min(unvisited, key=lambda edge: (tuple(sorted(endpoints[edge])), edge))
+            start = min(endpoints[index])
+        first, last = endpoints[index]
+        path = list(edges[index] if first == start else reversed(edges[index]))
+        unvisited.remove(index)
+        current = last if first == start else first
+        while len(incidence[current]) == 2:
+            next_edges = [edge for edge in incidence[current] if edge in unvisited]
+            if not next_edges:
+                break
+            next_index = next_edges[0]
+            first, last = endpoints[next_index]
+            next_path = edges[next_index]
+            if first != current:
+                next_path = tuple(reversed(next_path))
+            path.extend(next_path[1:])
+            unvisited.remove(next_index)
+            current = last if first == current else first
+        paths.append(tuple(path))
+    return [*closed, *paths]
+
+
+def _outline_anchor_points(polylines):
+    """Native-edge endpoints for leader choices, independent of tessellation density."""
+    points = {}
+    for line in polylines:
+        if len(line) < 2:
+            continue
+        for point in (line[0], line[-1]):
+            candidate = tuple(point)
+            key = _outline_point_key(candidate)
+            if key not in points or candidate < points[key]:
+                points[key] = candidate
+    return tuple(points[key] for key in sorted(points))
 
 
 def _dashed(canvas, polylines, project, colour, clip=None, halo_width=0):
@@ -841,6 +928,8 @@ class _Diagram:
         self.nominal = [line for line in spec.get("nominal_outline_mm", []) if len(line) >= 2]
         if self.view == "lathe":
             self.nominal = []
+        self.nominal_paths = _continuous_outline_paths(self.nominal)
+        self.nominal_anchors = _outline_anchor_points(self.nominal)
         self.is_vise = any(_role(c) in ("fixed_jaw", "moving_jaw", "jaw") for c in self.components)
         self.is_chuck = self.view == "lathe" or any(
             _role(c).startswith("chuck") for c in self.components
@@ -1150,12 +1239,13 @@ class _Diagram:
         self._context()
         if self.nominal:
             self._nominal_overlay(self.canvas.project)
+            anchors = tuple(self.canvas.project(point) for point in self.nominal_anchors)
             self.callouts.append(
                 _Callout(
                     "FINISHED OUTLINE",
                     [self.canvas.project(self.nominal[0][0])],
                     _BLUE,
-                    along=tuple(self.canvas.project(p) for line in self.nominal for p in line),
+                    along=anchors,
                 )
             )
         self._components()
@@ -1278,7 +1368,7 @@ class _Diagram:
                 )
 
     def _nominal_overlay(self, project, clip=None, faint=False):
-        _dashed(self.canvas, self.nominal, project, _NOMINAL_FAINT if faint else _BLUE, clip)
+        _dashed(self.canvas, self.nominal_paths, project, _NOMINAL_FAINT if faint else _BLUE, clip)
 
     def _component_label(self, component):
         """A holding component's printed name: role groups, jaw names and plural kits."""
@@ -3630,6 +3720,8 @@ class _GuideView(_HoldingDetail):
         super().__init__(meshes, spec, frame, camera, gain, (1, 1), extra, top)
         self.gain = self.canvas.scale / main_scale
         self.nominal = [line for line in spec.get("nominal_outline_mm", []) if len(line) >= 2]
+        self.nominal_paths = _continuous_outline_paths(self.nominal)
+        self.nominal_anchors = _outline_anchor_points(self.nominal)
 
     def _title(self):
         nouns = {name.rsplit(" ", 1)[-1] for name in self.names}
@@ -3657,12 +3749,13 @@ class _GuideView(_HoldingDetail):
             _text(c, 34, self.note_y + index * _LEADING, line, _MUTED)
         self._nominal_overlay(c.project, clip=self.viewport)
         if self.nominal:
+            anchors = tuple(c.project(point) for point in self.nominal_anchors)
             self.callouts.append(
                 _Callout(
                     "FINISHED OUTLINE",
                     [c.project(self.nominal[0][0])],
                     _BLUE,
-                    along=tuple(c.project(p) for line in self.nominal for p in line),
+                    along=anchors,
                 )
             )
         self._file()
