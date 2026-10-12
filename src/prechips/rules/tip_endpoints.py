@@ -65,28 +65,70 @@ def _subtract(*values):
     return values[0] - sum(values[1:]) if all(number(v) for v in values) else UNKNOWN
 
 
-def _operative(row, bundle, setup, face):
-    """Add the endpoint as the DRO shows it, every Z on the setup's grid (``dro_z``):
-    ``dro_entry_z`` is the entry surface ``face`` as its producer cut it
-    (:func:`operative_z`), ``dro_exit_face`` the exit face. The tip keeps its analytical
-    distance below the surface it is worked from (the entry; a through hole's exit face),
-    then rounds up, never deeper than worked. ``dro_depth_mm`` is the depth that leaves
-    below the entry, held to ``depth_floor_mm`` (unknown unless a band end is authored);
-    ``dro_exit_mm`` the break-through it leaves below the nominal exit face, the lower."""
-    from .coordinates import dro_grid, dro_z
+def _operative(row, bundle, setup, face, op):
+    """Add the actual DRO endpoint, preserving physical carry evidence separately.
+
+    A carried touch supplies its typed setting, not another rounding of the raw
+    native plane. Cuts still round upward; depth and breakthrough use the face's
+    coordinate on that same setting, including paper and any sub-grid residual.
+    """
+    from .coordinates import UNIT_MM, dro_grid, dro_z
+    from .zero_recipe import _framed, carried_z_reading
 
     grid = dro_grid(bundle, setup)
     through = row["exit_face"] != "not_applicable"
-    row["dro_entry_z"] = operative_z(bundle, setup, row["entry_z"], face, source=row["entry_from"])
-    if through:
-        row["dro_exit_face"] = dro_z(row["exit_face"], grid)
-    surface, worked = ("dro_exit_face", "exit_face") if through else ("dro_entry_z", "entry_z")
-    shift = _subtract(row[surface], row[worked])
+    reading = carried_z_reading(bundle, setup, op)
+    if reading is not None:
+        reference = reading["native_edge_mm"]
+        anchor = _subtract(reading["z_axis_set"], reading["paper_offset_mm"])
+        shift = _subtract(anchor, reference)
+        physical_shift = _subtract(reading["edge_mm"], reference)
+        producer = _producer(bundle, setup, row["entry_z"], face, 0, row["entry_from"])
+        if producer not in (None, UNKNOWN) and producer[0] is setup and _framed(*producer):
+            # A local cut already ran on this DRO: its printed face is not an
+            # imported native coordinate to shift by the contact offset again.
+            formed = operative_z(bundle, setup, row["entry_z"], face, source=row["entry_from"])
+            shift = _subtract(formed, row["entry_z"])
+            residual = reading.get("setting_residual_mm", UNKNOWN)
+            scale = UNIT_MM.get(bundle.features.get("units"))
+            physical_shift = (
+                shift + residual / scale
+                if number(shift) and number(residual) and scale is not None
+                else UNKNOWN
+            )
+        entry = row["entry_z"] + shift if number(row["entry_z"]) and number(shift) else UNKNOWN
+        row["dro_entry_z"] = dro_z(entry, grid)
+        row["physical_entry_z"] = (
+            row["entry_z"] + physical_shift
+            if number(row["entry_z"]) and number(physical_shift)
+            else UNKNOWN
+        )
+        row["setting_residual_mm"] = reading.get("setting_residual_mm", UNKNOWN)
+        if through:
+            exit_face = (
+                row["exit_face"] + shift if number(row["exit_face"]) and number(shift) else UNKNOWN
+            )
+            row["physical_exit_face"] = (
+                row["exit_face"] + physical_shift
+                if number(row["exit_face"]) and number(physical_shift)
+                else UNKNOWN
+            )
+            row["dro_exit_face"] = dro_z(exit_face, grid)
+            shift = _subtract(row["dro_exit_face"], row["exit_face"])
+    else:
+        row["dro_entry_z"] = operative_z(
+            bundle, setup, row["entry_z"], face, source=row["entry_from"]
+        )
+        if through:
+            exit_face = row["exit_face"]
+            row["dro_exit_face"] = dro_z(exit_face, grid)
+        surface, worked = ("dro_exit_face", "exit_face") if through else ("dro_entry_z", "entry_z")
+        shift = _subtract(row[surface], row[worked])
     tip = row["tip_z"] + shift if number(row["tip_z"]) and number(shift) else UNKNOWN
     row["dro_tip_z"] = dro_z(tip, grid)
     if through:
         lead = row.get("lead_mm", row.get("point_mm", UNKNOWN))
-        row["dro_exit_mm"] = _subtract(row["exit_face"], lead, row["dro_tip_z"])
+        row["dro_exit_mm"] = _subtract(exit_face, lead, row["dro_tip_z"])
     elif "depth_mm" in row:
         row["dro_depth_mm"] = _subtract(row["depth_mm"], _subtract(row["dro_tip_z"], tip))
         row.setdefault("depth_floor_mm", UNKNOWN)
@@ -1266,7 +1308,9 @@ def evaluate(bundle):
             if not centre and (row.get("tip_z") == UNKNOWN or not tool or uncertain(tool)):
                 unresolved.add(name)
             face = name if name in before["entry_z"] else "top"
-            _operative(row, bundle, setup, face)
+            _operative(row, bundle, setup, face, op)
+            if row.get("dro_tip_z") == UNKNOWN:
+                unresolved.add(name)
             endpoints[name].append(row)
     result = []
     for name, feature in features.items():

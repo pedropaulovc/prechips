@@ -2187,8 +2187,8 @@ def _produced_plane(row):
 
 def _carried(row):
     """Whether a zero_check row's Axis Set is a carried setting: the rule already put the
-    height plus paper on this setup's grid nearest (``setting_residual_mm`` names the
-    physical residual it retains), so the sheet prints that setting as the report
+    height plus paper on this setup's safe-down grid (``setting_residual_mm`` names the
+    nonnegative physical residual it retains), so the sheet prints that setting as the report
     carries it and never moves it again. Any other row's setting still follows the
     surface as this setup's DRO shows it (:meth:`_Traveler.datum_z`)."""
     return isinstance(row, dict) and "setting_residual_mm" in row
@@ -5405,8 +5405,8 @@ class _Traveler:
                 key: computed.get(key) for key in ("axis_set", "check_reading", "mirrored_reading")
             }
             if axis == "z" and _known(edge) and _carried(computed):
-                # A carried height: the report's setting (nearest grid) and jog readings
-                # print as computed; the surface prints at its own physical height.
+                # A carried height: the report's typed setting and jog readings print
+                # as computed; the surface retains its separate physical height.
                 shown_edge = self.physical(edge)
             elif axis == "z" and _known(edge):
                 # The touched surface as the DRO shows it; Axis Set and the jog readings
@@ -6200,7 +6200,8 @@ class _Traveler:
                 return ["quill depth not set", _Box("STOP: centre depth unknown")]
             return [f"quill {o(depth)} past touching the end"]
         if endpoint:
-            # A hole op prints its endpoint as the DRO shows it (blind_depth's dro_* values).
+            # Consume checked operative endpoints, including the actual carried Axis Set;
+            # never re-round their raw native entry or exit face in the renderer.
             entry = endpoint.get("dro_entry_z")
             parts = [f"Z {o(entry)} → {o(endpoint.get('dro_tip_z'))}"]
             if endpoint.get("exit_face", "not_applicable") != "not_applicable":

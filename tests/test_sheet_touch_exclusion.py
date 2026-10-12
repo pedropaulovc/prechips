@@ -22,8 +22,8 @@ from test_tool_change_touch import (
 from prechips.rules.zero_recipe import evaluate
 from prechips.sheet import _outward_mm, _Traveler
 
-OPS = [op(10, "spot", "hole", "centre"), op(20, "drill", "hole", "drill")]
-TOOLS = {("tools", "centre"): "T1 centre drill", ("tools", "drill"): "T2 drill"}
+OPS = [op(10, "spot", "hole", "centre/1"), op(20, "drill", "hole", "drill")]
+TOOLS = {("tools", "centre/1"): "T1 centre drill", ("tools", "drill"): "T2 drill"}
 MILL_TOOLS = {("tools", "mill"): "T1 end mill", ("tools", "drill"): "T2 drill"}
 FACED = [
     op(10, "face", "deck", "mill", to_z=0.0),
@@ -193,20 +193,25 @@ def test_a_retouch_with_an_unknown_exclusion_is_not_folded_into_a_numeric_one():
     assert "11.57" not in second
 
 
-# A carried face stands at a physical height off this setup's 0.001 grid (21.0055); the
-# rule already typed height plus paper on the nearest grid line and kept the residual
-# (``setting_residual_mm``). The sheet prints that setting exactly, never the one-sided
-# round-up of the surface (21.006) nor the setting shifted by it again, and prints the
-# surface at its physical height. Paper on top (+Z side) and under (−Z side) both.
+# A carried AS-CUT face stands off this setup's 0.001 grid (21.0055); the rule
+# already typed height plus paper on the safe-down grid and kept its nonnegative
+# residual (``setting_residual_mm``). Print that report setting exactly, never
+# round the physical surface up to 21.006 or move the setting a second time.
+# Physical evidence retains every digit. Paper on top (+Z) and under (−Z) both.
 EDGE = 21.0055
 CARRIED = [
+    ({"paper_mm": 0.05, "from": "+z"}, 21.055, 0.0005),
+    ({"paper_mm": 0.05, "from": "-z"}, 20.955, 0.0005),
+    ({"paper_mm": 0.0, "from": "+z"}, 21.005, 0.0005),
+]
+# Deliberately inconsistent rows exercise display fidelity, not rule acceptance.
+ADVERSARIAL_CARRIED = [
     ({"paper_mm": 0.05, "from": "+z"}, 21.056, -0.0005),
     ({"paper_mm": 0.05, "from": "-z"}, 20.956, -0.0005),
-    ({"paper_mm": 0.0, "from": "+z"}, 21.005, 0.0005),
 ]
 
 
-@pytest.mark.parametrize(("touch", "axis_set", "residual"), CARRIED)
+@pytest.mark.parametrize(("touch", "axis_set", "residual"), CARRIED + ADVERSARIAL_CARRIED)
 def test_a_carried_z_zero_prints_the_report_setting_and_the_physical_surface(
     touch, axis_set, residual
 ):
@@ -235,7 +240,7 @@ def test_a_same_setup_z_zero_still_follows_the_surface_the_dro_shows():
 
 
 @pytest.mark.parametrize("kind", ["tool_touches", "derived_touches"])
-@pytest.mark.parametrize(("touch", "axis_set", "residual"), CARRIED)
+@pytest.mark.parametrize(("touch", "axis_set", "residual"), CARRIED + ADVERSARIAL_CARRIED)
 def test_a_carried_tool_touch_prints_the_report_setting_exactly(kind, touch, axis_set, residual):
     data = bundle("mill", mill_zero(DECK), OPS)
     derived = evaluate(data)[0].numbers["derived_touches"][0]
@@ -255,7 +260,7 @@ def test_a_carried_tool_touch_prints_the_report_setting_exactly(kind, touch, axi
     assert "21.006" not in line, line
 
 
-@pytest.mark.parametrize(("touch", "axis_set", "residual"), CARRIED)
+@pytest.mark.parametrize(("touch", "axis_set", "residual"), CARRIED + ADVERSARIAL_CARRIED)
 def test_a_carried_listed_retouch_prints_the_report_setting_exactly(touch, axis_set, residual):
     zero = mill_zero({"face": "top", "tool": "mill", **touch}, retouch_after=[10, 20])
     data = bundle("mill", zero, FACED, {"top_z": 2.0})
@@ -272,3 +277,67 @@ def test_a_carried_listed_retouch_prints_the_report_setting_exactly(touch, axis_
     paper = f"{touch['paper_mm']:.3f}"
     assert f"(Z 21.0055) with {paper} paper → Axis Set Z {axis_set:.3f}." in first, first
     assert "21.006" not in first, first
+
+
+def test_adversarial_carried_row_still_displays_report_not_renderer_rounding():
+    # Presentation is not a second rule evaluator: even a forged negative residual
+    # must not silently change the reported Axis Set or hide the physical evidence.
+    sheet, setup = with_rows(
+        bundle("mill", mill_zero(DECK), OPS),
+        (("axes", "z"), {"edge_mm": EDGE, "axis_set": 21.056, "setting_residual_mm": -0.0005}),
+    )
+    contact, printed = zero_rows(sheet.dro(setup, TOOLS))["Z"]
+    assert printed == "21.056"
+    assert "surface at 21.0055" in contact
+
+
+def test_non_grid_carried_touch_operations_consume_checked_typed_axis_set():
+    # Synthetic report deliberately keeps raw/physical heights distinct from the
+    # checked operative endpoints. The sheet must use the latter, not dro_z(raw).
+    physical, typed = 21.0075, 21.005
+    data = bundle("mill", mill_zero({**DECK, "paper_mm": 0.0}), OPS)
+    data.inventory["machines"]["mill"]["resolution_mm"] = 0.005
+    sheet, setup = with_rows(
+        data,
+        (
+            ("axes", "z"),
+            {"edge_mm": physical, "axis_set": typed, "setting_residual_mm": physical - typed},
+        ),
+    )
+    spot, drill = setup["ops"]
+    sheet.records["blind_depth", "hole"] = {
+        "endpoints": [
+            {
+                "setup": setup["id"],
+                "op": spot["op"],
+                "entry_z": physical,
+                "dro_entry_z": typed,
+                "tip_z": physical - 2.0,
+                "dro_tip_z": 19.005,
+                "depth_mm": 2.0,
+                "dro_depth_mm": 2.0,
+                "depth_floor_mm": 2.0,
+                "exit_face": "not_applicable",
+            },
+            {
+                "setup": setup["id"],
+                "op": drill["op"],
+                "entry_z": physical,
+                "dro_entry_z": typed,
+                "exit_face": physical - 10.0,
+                "dro_exit_face": 11.005,
+                "tip_z": 10.505,
+                "dro_tip_z": 10.505,
+                "lead_mm": 0.0,
+                "dro_exit_mm": 0.5,
+            },
+        ]
+    }
+    contact, printed = zero_rows(sheet.dro(setup, TOOLS))["Z"]
+    assert printed == "21.005"
+    assert "surface at 21.0075" in contact
+    assert sheet.tip(setup, spot) == ["Z 21.005 → 19.005", "depth 2.000"]
+    assert sheet.tip(setup, drill) == ["Z 21.005 → 10.505", "breaks through at 11.005"]
+    assert sheet.tip_note(setup, drill) == (
+        "Break through: the full diameter runs at least 0.500 past the exit face."
+    )
