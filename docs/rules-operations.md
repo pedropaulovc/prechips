@@ -111,6 +111,62 @@ cuts retain the same preservation, bounded exclusion and tool-change touch
 rules as an upstream-prepared face. Missing component proof prints no credited
 face or numeric contact setting.
 
+## Carried multi-plane touch selection (`zero_check`)
+
+A bounds-free named face may contain STEP planes at several Z heights. The
+authored contact edge selects the native plane group; it is not automatically
+the highest member of the feature's bounding box. The rule traces every group
+internally, but only the uniquely selected group's exact raw STEP refs receive
+credit. An unprepared upper member does not prevent contact on a separately
+prepared lower +Z member, and selecting a prepared maximum member keeps the
+same behavior.
+
+Each group has its exact raw native height in the receiving frame. Flat
+geometry-matched native boxes can provide that height; an oblique world box
+cannot. An oblique plane instead requires its exact source native plane or
+named stock-proven source datum, rigidly transformed into the receiving frame.
+Missing or inconsistent native height proof is unknown, never a maximum-box
+or nearest-plane fallback.
+
+An authored edge matches a group within the absolute physical length
+tolerance of **1e-6 mm**, in either millimetre or inch manifests, at either:
+
+- its exact transformed native height; or
+- its traced, eligible producer's actual as-cut height after the source DRO
+  grid and rigid frame transform.
+
+These are two ways to identify the same group, not two separate groups. In
+contrast, distinct native planes are not merged merely because their heights
+are within the matching tolerance. Exactly coplanar numerical planes may
+share one group and credit all its refs. If two distinct groups match through
+any combination of native and eligible as-cut heights, the contact is
+**unknown**; the checker never picks the nearest one or the one that happens
+to have a producer.
+
+With complete plane/eligible-height proof, no matching group on a multi-plane
+face is an **error** naming the authored edge and known candidate heights.
+There is no invented numeric Axis Set and no borrowed credited face. Missing
+eligible physical-height proof stays **unknown**, not proof that the plane is
+absent or that the no-match comparison is complete. An eligible whole-plane
+producer with an unknown formed height carries that height debt; a later
+genuinely proved whole producer may replace it without clearing any prior
+unknown cut-area debt.
+
+An independently proved non-+Z member is known ineligibility, not missing
+physical proof, and does not poison another uniquely selected valid +Z group.
+It still participates in raw native matching and ambiguity; if selected, its
+normal is rejected by the existing +Z contact rule. Unknown intersecting cut
+or touch-area debt on the selected group remains unresolved.
+
+Selection does not establish stock presence, +Z orientation, touch side or
+surviving touch land. The chosen group still needs the normal existing
+producer/supply, lineage, rigid-frame, bounded-area and above-touch proofs,
+including the component-root facts described above. A matched but unfaced or
+wrong-facing member remains unknown. A single native plane retains its
+existing physical/native edge contradiction check and its proved physical
+standing height.
+
+
 
 ## `blind_depth` (tip endpoints)
 

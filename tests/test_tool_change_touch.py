@@ -418,6 +418,45 @@ def carried_stock_bundle(*, journal=False):
     return data
 
 
+def carried_two_level_bundle(
+    *, units="mm", prepared="lower", lower_mm=0.0, upper_mm=10.0, source_grid_mm=0.005
+):
+    """The existing component DAG, with two +Z native planes and one whole producer."""
+    data = carried_stock_bundle()
+    source, receiver = data.plan["setups"][1], data.plan["setups"][-1]
+    scale = 25.4 if units == "in" else 1.0
+    feature = receiver["zero"]["z"]["face"]
+    ref, index, height = (
+        ("#1/NORTH", 0, lower_mm) if prepared == "lower" else ("#2/SOUTH", 1, upper_mm)
+    )
+    data.features["units"] = units
+    source["frame"] = receiver["frame"] = "model"
+    source["zero"]["z"]["edge_mm"] = (height + 1.0) / scale
+    source["ops"] = [
+        op(10, "face", feature, "turner", faces=[ref], to_z=height / scale, to_dia=0.0)
+    ]
+    receiver["zero"]["z"]["edge_mm"] = height / scale
+    data.inventory["machines"]["lathe"]["resolution_mm"] = source_grid_mm
+    data.kernel["faces"][0]["bbox_mm"] = [-3.0, -3.0, lower_mm, 3.0, 3.0, lower_mm]
+    data.kernel["faces"][1]["bbox_mm"] = [-1.0, -1.0, upper_mm, 1.0, 1.0, upper_mm]
+    data.kernel["ops"][f"{source['id']}:10"].update(claimed_indices=[index], faced_side=1)
+    data.kernel["setups"][source["id"]]["revolved"][feature].update(
+        z_mm=[lower_mm, upper_mm],
+        end_radii_mm=[3.0, 1.0],
+        end_faces=[
+            {"z_mm": lower_mm, "normal_z": 1},
+            {"z_mm": upper_mm, "normal_z": 1},
+        ],
+    )
+    data.feature_definitions["hole"]["at"] = [
+        (1.5 if prepared == "lower" else 0.0) / scale,
+        0.0,
+        height / scale,
+    ]
+    data.feature_definitions["hole"]["axis"] = [0.0, 0.0, -1.0]
+    return data
+
+
 def carried_supplied_component_bundle():
     """Existing sleeve/body route, with the sleeve face proven before any cut."""
     data = carried_stock_bundle(journal=True)
@@ -674,6 +713,209 @@ def test_a_whole_prepared_face_carries_through_bonding_in_its_new_frame(journal)
     assert touch["touch_exclusion_dia_mm"] == pytest.approx(0.3)
 
 
+@pytest.mark.parametrize("units", ["mm", "in"])
+@pytest.mark.parametrize(
+    ("prepared", "height_mm", "credited"),
+    [("lower", 0.0, ["#1/NORTH"]), ("upper", 10.0, ["#2/SOUTH"])],
+    ids=["lower-plus-z-uncredited-upper", "credited-maximum-member"],
+)
+def test_a_carried_multi_plane_face_selects_the_authored_edge_not_bbox_max(
+    units, prepared, height_mm, credited
+):
+    data = carried_two_level_bundle(units=units, prepared=prepared)
+    scale = 25.4 if units == "in" else 1.0
+    finding = evaluate(data)[-1]
+    assert finding.status == "pass", finding.sentence
+    row = finding.numbers["axes"]["z"]
+    assert row["edge_mm"] * scale == pytest.approx(height_mm, rel=0, abs=1e-6)
+    assert row["native_edge_mm"] * scale == pytest.approx(height_mm, rel=0, abs=1e-6)
+    assert row["credited_faces"] == credited
+    [touch] = finding.numbers["derived_touches"]
+    assert touch["credited_faces"] == credited
+    assert touch["edge_mm"] * scale == pytest.approx(height_mm, rel=0, abs=1e-6)
+    assert touch["z_axis_set"] == row["axis_set"]
+
+
+@pytest.mark.parametrize("units", ["mm", "in"])
+@pytest.mark.parametrize("offset_mm", [-1e-6, -5e-7, 0.0, 5e-7, 1e-6])
+def test_multi_plane_edge_selection_uses_absolute_physical_length_tolerance(units, offset_mm):
+    data = carried_two_level_bundle(units=units)
+    scale = 25.4 if units == "in" else 1.0
+    data.plan["setups"][-1]["zero"]["z"]["edge_mm"] = offset_mm / scale
+    finding = evaluate(data)[-1]
+    assert finding.status == "pass", finding.sentence
+    row = finding.numbers["axes"]["z"]
+    assert row["axis_set"] == 0.0 and row["credited_faces"] == ["#1/NORTH"]
+
+
+@pytest.mark.parametrize("units", ["mm", "in"])
+def test_distinct_nearby_native_plane_groups_are_ambiguous_not_nearest(units):
+    data = carried_two_level_bundle(units=units, upper_mm=1.5e-6)
+    scale = 25.4 if units == "in" else 1.0
+    data.plan["setups"][-1]["zero"]["z"]["edge_mm"] = 6e-7 / scale
+    finding = evaluate(data)[-1]
+    assert finding.status == "unknown"
+    assert "multiple distinct native plane groups" in finding.sentence
+    row = finding.numbers["axes"]["z"]
+    assert row["axis_set"] == "unknown" and "credited_faces" not in row
+
+
+@pytest.mark.parametrize("units", ["mm", "in"])
+def test_a_multi_plane_group_can_be_identified_by_its_proven_as_cut_height(units):
+    data = carried_two_level_bundle(units=units, lower_mm=21.0055, upper_mm=30.0)
+    scale = 25.4 if units == "in" else 1.0
+    receiver = data.plan["setups"][-1]
+    receiver["zero"]["z"]["edge_mm"] = 21.01 / scale
+    receiver["ops"] = []
+    finding = evaluate(data)[-1]
+    assert finding.status == "pass", finding.sentence
+    row = finding.numbers["axes"]["z"]
+    assert row["edge_mm"] * scale == pytest.approx(21.01, rel=0, abs=1e-6)
+    assert row["native_edge_mm"] * scale == pytest.approx(21.0055, rel=0, abs=1e-6)
+    assert row["credited_faces"] == ["#1/NORTH"]
+
+
+@pytest.mark.parametrize("units", ["mm", "in"])
+def test_near_native_groups_are_not_deduplicated_when_physical_and_native_matches_overlap(units):
+    data = carried_two_level_bundle(
+        units=units, lower_mm=10.0000002, upper_mm=10.0000011, source_grid_mm=2e-6
+    )
+    scale = 25.4 if units == "in" else 1.0
+    receiver = data.plan["setups"][-1]
+    receiver["zero"]["z"]["edge_mm"] = 10.000002 / scale
+    receiver["ops"] = []
+    finding = evaluate(data)[-1]
+    assert finding.status == "unknown"
+    assert "multiple distinct native plane groups" in finding.sentence
+    row = finding.numbers["axes"]["z"]
+    assert row["axis_set"] == "unknown" and "credited_faces" not in row
+
+
+@pytest.mark.parametrize("units", ["mm", "in"])
+@pytest.mark.parametrize("edge_mm", [0.0, 5.0], ids=["native-match", "unresolved-physical-match"])
+def test_an_eligible_multi_plane_producer_with_unknown_height_is_not_complete_no_match(
+    units, edge_mm
+):
+    data = carried_two_level_bundle(units=units)
+    scale = 25.4 if units == "in" else 1.0
+    source, receiver = data.plan["setups"][1], data.plan["setups"][-1]
+    source["zero"]["z"]["paper_mm"] = "unknown"
+    receiver["zero"]["z"]["edge_mm"] = edge_mm / scale
+    receiver["ops"] = []
+    finding = evaluate(data)[-1]
+    assert finding.status == "unknown"
+    assert "incomplete eligible carried-plane height proof" in finding.sentence
+    row = finding.numbers["axes"]["z"]
+    assert row["axis_set"] == "unknown" and "credited_faces" not in row
+
+
+@pytest.mark.parametrize("units", ["mm", "in"])
+@pytest.mark.parametrize("debt", ["stock", "frame", "claims", "normal", "action", "coverage"])
+def test_missing_relevant_multi_plane_proof_cannot_become_a_complete_height_error(units, debt):
+    data = carried_two_level_bundle(units=units)
+    scale = 25.4 if units == "in" else 1.0
+    source, receiver = data.plan["setups"][1], data.plan["setups"][-1]
+    receiver["zero"]["z"]["edge_mm"] = 5.0 / scale
+    receiver["ops"] = []
+    if debt == "stock":
+        data.kernel["setups"][source["id"]]["stock_reason"] = "unresolved component stock"
+    elif debt == "frame":
+        source["frame"] = "unmapped-source-frame"
+    elif debt == "claims":
+        data.kernel["ops"][f"{source['id']}:10"]["claimed_indices"] = "unknown"
+    elif debt == "normal":
+        del data.kernel["setups"][source["id"]]["revolved"]
+        del data.kernel["ops"][f"{source['id']}:10"]["faced_side"]
+    elif debt == "action":
+        source["ops"][0]["do"] = "unknown"
+    elif debt == "coverage":
+        source["ops"][0]["stock_removal_bounds"] = {
+            "x": "unknown",
+            "y": [-4.0 / scale, 4.0 / scale],
+            "z": [-1.0 / scale, 1.0 / scale],
+        }
+    finding = evaluate(data)[-1]
+    assert finding.status == "unknown"
+    assert "incomplete eligible carried-plane height proof" in finding.sentence
+    row = finding.numbers["axes"]["z"]
+    assert row["axis_set"] == "unknown" and "credited_faces" not in row
+
+
+@pytest.mark.parametrize("units", ["mm", "in"])
+@pytest.mark.parametrize("edge_mm", [-2e-6, 2e-6, 5.0, 10.01])
+def test_no_matching_known_multi_plane_height_is_an_error_without_plane_borrowing(units, edge_mm):
+    data = carried_two_level_bundle(units=units)
+    scale = 25.4 if units == "in" else 1.0
+    edge = edge_mm / scale
+    data.plan["setups"][-1]["zero"]["z"]["edge_mm"] = edge
+    expected_candidates = f"known native heights are 0, {10.0 / scale:g}"
+    finding = evaluate(data)[-1]
+    assert finding.status == "error"
+    assert expected_candidates in finding.sentence
+    assert f"edge {edge:g}" in finding.sentence and "known native heights" in finding.sentence
+    assert "matches no native plane" in finding.sentence
+    row = finding.numbers["axes"]["z"]
+    assert row["axis_set"] == "unknown" and "credited_faces" not in row
+    assert all("credited_faces" not in touch for touch in finding.numbers["derived_touches"])
+
+
+def test_a_selected_native_plane_group_credits_only_its_exact_coplanar_refs():
+    data = carried_two_level_bundle()
+    source, receiver = data.plan["setups"][1], data.plan["setups"][-1]
+    feature = receiver["zero"]["z"]["face"]
+    patch = "#5/LOWER_PATCH"
+    data.feature_definitions[feature]["faces"] = [patch, "#2/SOUTH", "#1/NORTH"]
+    data.kernel["mapping"][patch] = 4
+    data.kernel["features"][feature] = [4, 1, 0]
+    data.kernel["faces"].append(
+        {"index": 4, "kind": "Plane", "bbox_mm": [3.5, -1.0, 0.0, 4.5, 1.0, 0.0]}
+    )
+    data.kernel["setups"][source["id"]]["revolved"][feature]["end_faces"].append(
+        {"z_mm": 0.0, "normal_z": 1}
+    )
+    source["ops"][0]["faces"] = [patch, "#1/NORTH"]
+    data.kernel["ops"][f"{source['id']}:10"]["claimed_indices"] = [4, 0]
+    receiver["ops"] = []
+    finding = evaluate(data)[-1]
+    assert finding.status == "pass", finding.sentence
+    row = finding.numbers["axes"]["z"]
+    assert row["axis_set"] == 0.0 and row["credited_faces"] == [patch, "#1/NORTH"]
+
+
+@pytest.mark.parametrize(
+    "debt", ["missing-native", "missing-normal", "unfaced-member", "wrong-normal", "oblique-gap"]
+)
+def test_a_matching_multi_plane_member_still_needs_its_own_carried_proof(debt):
+    data = carried_two_level_bundle()
+    source, receiver = data.plan["setups"][1], data.plan["setups"][-1]
+    feature = receiver["zero"]["z"]["face"]
+    if debt == "missing-native":
+        del data.kernel["faces"][0]["bbox_mm"]
+    elif debt == "missing-normal":
+        del data.kernel["setups"][source["id"]]["revolved"]
+        del data.kernel["ops"][f"{source['id']}:10"]["faced_side"]
+    elif debt == "unfaced-member":
+        receiver["zero"]["z"]["edge_mm"] = 10.0
+    elif debt == "wrong-normal":
+        data.kernel["setups"][source["id"]]["revolved"][feature]["end_faces"][0]["normal_z"] = -1
+        data.kernel["ops"][f"{source['id']}:10"]["faced_side"] = -1
+    elif debt == "oblique-gap":
+        c, s = math.cos(math.radians(12.5)), math.sin(math.radians(12.5))
+        data.features["frames"]["oblique"] = {
+            "origin": [0.0, 0.0, 0.0],
+            "x": [c, 0.0, -s],
+            "y": [0.0, 1.0, 0.0],
+            "z": [s, 0.0, c],
+            "binding": "nominal",
+        }
+        receiver["frame"] = "oblique"
+        data.kernel["setups"] = {}
+    finding = evaluate(data)[-1]
+    assert finding.status == "unknown"
+    row = finding.numbers["axes"]["z"]
+    assert row["axis_set"] == "unknown" and "credited_faces" not in row
+
+
 @pytest.mark.parametrize(
     "debt",
     [
@@ -728,12 +970,12 @@ def test_a_carried_plane_requires_an_above_touch(side):
 
 
 def test_a_carried_plane_keeps_its_physical_edge_comparison():
-    data = carried_stock_bundle()
-    data.plan["setups"][-1]["zero"]["z"]["edge_mm"] = 0.01
+    data = carried_stock_bundle(journal=True)
+    data.plan["setups"][-1]["zero"]["z"]["edge_mm"] = 21.01
     finding = evaluate(data)[-1]
     assert finding.status == "error"
-    assert finding.numbers["axes"]["z"]["axis_set"] == 0.0
-    assert "stands at 0" in finding.sentence
+    assert finding.numbers["axes"]["z"]["axis_set"] == 21.0
+    assert "stands at 21" in finding.sentence
 
 
 def test_a_component_supplied_native_face_needs_no_new_facing_credit():
@@ -1574,8 +1816,13 @@ def test_a_listed_retouch_after_a_measured_zero_still_checks_its_physical_edge()
     finding = evaluate(data)[-1]
     assert finding.status == "error"
     assert finding.numbers["axes"]["z"]["axis_set"] == "M +1"
-    assert finding.numbers["retouch"][0]["axis_set"] == 0.0
-    assert "carried face physically stands at 0" in finding.sentence
+    [row] = finding.numbers["retouch"]
+    assert row["axis_set"] == row["top_z"] == "unknown"
+    assert "credited_faces" not in row
+    assert "the retouch after op 10 on top: edge 0.01" in finding.sentence
+    assert "matches no native plane of crank_boss_faces" in finding.sentence
+    assert "known native heights are -72, 0" in finding.sentence
+    assert "eligible as-cut heights are 0" in finding.sentence
 
 
 @pytest.mark.parametrize("later_setup", [False, True], ids=["same-setup", "downstream-setup"])
