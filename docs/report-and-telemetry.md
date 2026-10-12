@@ -549,6 +549,9 @@ Setup overview/operations section, in this order:
    item keeps its own field-specific action and 35 × 10 mm recording blank;
    the unit sits beside the blank rather than repeating the recording directive
    above it. Rows stay whole and continuation context retains the input name.
+   Short-reference lists also name each input once, retaining every consumed
+   dimension and its original M marker rather than repeating the input name
+   for each field.
    Pre-clamping acquisition requires explicit `measure_before_hold = true`
    and an authored `measure`. The original HOLD step gets a 35 × 10 mm clear
    writing field and the zero row refers back to it; there is no separate

@@ -3225,16 +3225,36 @@ class _Traveler:
             registry[entry["id"]] = (f"M{len(registry) + 1}", entry)
         return "?" + registry[entry["id"]][0]
 
+    def measurement_record(self, entry):
+        """The physical input context shared by full actions and short references."""
+        category, key, field = entry["category"], entry["identity"], tuple(entry["field"])
+        # Installed projection belongs to its selected holder; the controller readout
+        # is not the machine envelope. Human names never determine record identity.
+        context = (
+            identity(self.bundle, field[1], "holders")
+            if field[0] == "projection" and len(field) > 1
+            else "readout"
+            if category == "machines" and field == ("resolution",)
+            else None
+        )
+        return category, key, context
+
     def measurement_lines(self, entries):
         physical = [
             entry
             for entry in {entry["id"]: entry for entry in entries}.values()
             if {"category", "identity", "field"} <= entry.keys()
         ]
+        groups = {}
+        for entry in physical:
+            # Register in original input order before grouping interleaved records.
+            dimension = self.measurement_dimension(entry) + " " + self.measurement_marker(entry)
+            groups.setdefault(self.measurement_record(entry), []).append((entry, dimension))
         return [
-            f"{self.measurement_subject(entry)} {self.measurement_dimension(entry)} "
-            + self.measurement_marker(entry)
-            for entry in physical
+            self.measurement_subject(values[0][0])
+            + " "
+            + "; ".join(dimension for _, dimension in values)
+            for values in groups.values()
         ]
 
     def measurement_stop(self, op, number, entry):
@@ -3294,17 +3314,7 @@ class _Traveler:
     def measurement_actions(self):
         groups = {}
         for marker, entry in self.measurement_registry().values():
-            category, key, field = entry["category"], entry["identity"], tuple(entry["field"])
-            # Group by actual records, not rendered names. Installed projection belongs
-            # to its selected holder; the controller readout is not the machine envelope.
-            context = (
-                identity(self.bundle, field[1], "holders")
-                if field[0] == "projection" and len(field) > 1
-                else "readout"
-                if category == "machines" and field == ("resolution",)
-                else None
-            )
-            groups.setdefault((category, key, context), []).append((marker, entry))
+            groups.setdefault(self.measurement_record(entry), []).append((marker, entry))
         html = ""
         for entries in groups.values():
             html += (

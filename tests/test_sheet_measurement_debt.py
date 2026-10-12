@@ -440,6 +440,11 @@ def test_clearance_uses_compact_fact_references_and_full_kind_aware_actions_only
     assert "Authored fixture coordinates are setup settings, not verified clearance" in text
     for entry in entries:
         assert marker_for(sheet, entry) in text and entry["id"] not in text
+    assert text.count("Test riser") == 1
+    assert (
+        f"Test riser work-support height {marker_for(sheet, entries[0])}; "
+        f"length {marker_for(sheet, entries[1])}"
+    ) in text
     summary = Markup(sheet.setup_status_boxes([], [], []))
     for entry in entries:
         assert content(summary.find("stop")[0]).count(full_action(sheet, entry)) == 1
@@ -932,3 +937,19 @@ def test_measurement_actions_group_actual_records_without_changing_the_canonical
     text = content(markup.find("stop")[0])
     assert "Record measured value here" not in text and "[____]" not in text
     assert text.count("Record the measured values here and return this traveler for reissue") == 1
+    short_sheet = _Traveler(bundle, [], {}, None)
+    short_sheet.measurement_registry(bundle.plan["setups"][0])
+    entries = [entry for _, entry in expected.values()]
+    lines = short_sheet.measurement_lines([*entries, entries[0]])
+    assert len(lines) == 6
+    assert short_sheet.measurement_registry() == expected
+    assert lines[0] == sheet.measurement_subject(entries[0]) + " cutter Ø ?M1; shank Ø ?M3"
+    assert lines[1] == sheet.measurement_subject(entries[1]) + " cutter Ø ?M2"
+    assert lines[2] == sheet.measurement_subject(entries[3]) + " installed projection ?M4"
+    assert lines[3] == sheet.measurement_subject(entries[4]) + " installed projection ?M5"
+    assert lines[4] == "Shop mill X usable travel ?M6"
+    assert lines[5] == "EL400 readout step ?M7"
+    assert sorted(re.findall(r"\?M\d+\b", " ".join(lines))) == [
+        f"?M{index}" for index in range(1, 8)
+    ]
+    assert all(entry["id"] not in " ".join(lines) for entry in entries)
