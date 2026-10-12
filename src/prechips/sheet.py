@@ -8633,10 +8633,24 @@ class _Traveler:
         """Each routed machine's DRO step, once per machine however setups spell it: the
         grid every printed DRO target is on."""
         grids = {}
+        not_used = {"step": "not used", "decimals": "not used"}
+        used = {
+            identity(self.bundle, setup.get("machine"), "machines")
+            for setup in setups
+            if _mapping(self.records.get(("coordinates", setup["id"]))).get("dro_grid")
+            not in (None, not_used)
+        }
+        has_targets = False
         for setup in setups:
             reference = setup.get("machine")
             key = identity(self.bundle, reference, "machines")
-            if key in grids or saw_setup(setup) or manual_bench(self.bundle, setup):
+            if key in grids or manual_bench(self.bundle, setup):
+                continue
+            coordinates = _mapping(self.records.get(("coordinates", setup["id"])))
+            if coordinates.get("dro_grid") == not_used and key not in used:
+                grids[key] = f"{self.reference(reference, 'machines')} grid: not used"
+                continue
+            if saw_setup(setup) and not coordinates:
                 continue
             machine = self.machine(setup)
             step, decimals = dro_grid(self.bundle, setup)
@@ -8664,9 +8678,11 @@ class _Traveler:
                     else " (X: ? radius or diameter)"
                 )
             grids[key] = grid
+            has_targets = True
         if not grids:
             return None
-        return "DRO resolution: " + "; ".join(grids.values()) + ". DRO targets print on this grid."
+        suffix = ". DRO targets print on this grid." if has_targets else "."
+        return "DRO resolution: " + "; ".join(grids.values()) + suffix
 
     def header(self, setups):
         routed = {id(f) for setup in setups for f in self.setup_findings(setup)}

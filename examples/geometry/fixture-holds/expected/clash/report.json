@@ -476,7 +476,7 @@
         "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)",
         "inventory.tools.em-8-std.oal",
         "inventory.holders.r8-collet-8mm.grip",
-        "inventory.tools.em-8-std: explicit-unit diameter/projection/OAL",
+        "inventory.tools.em-8-std: explicit-unit diameter/OAL",
         "inventory.holders.r8-collet-8mm: selected holder grip/verification",
         "plan.setups[S1].ops[10].doc_mm",
         "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
@@ -512,7 +512,7 @@
         "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)",
         "inventory.tools.em-8-std.oal",
         "inventory.holders.r8-collet-8mm.grip",
-        "inventory.tools.em-8-std: explicit-unit diameter/projection/OAL",
+        "inventory.tools.em-8-std: explicit-unit diameter/OAL",
         "inventory.holders.r8-collet-8mm: selected holder grip/verification",
         "plan.setups[S2].ops[10].doc_mm",
         "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
@@ -548,7 +548,7 @@
         "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)",
         "inventory.tools.em-8-std.oal",
         "inventory.holders.r8-collet-8mm.grip",
-        "inventory.tools.em-8-std: explicit-unit diameter/projection/OAL",
+        "inventory.tools.em-8-std: explicit-unit diameter/OAL",
         "inventory.holders.r8-collet-8mm: selected holder grip/verification",
         "plan.setups[S3].ops[10].doc_mm",
         "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
@@ -3099,7 +3099,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "e0d747afd8dac1897ce28f4d8583c2ce1818e087f1322c230e0ac6f10f5fdbde",
+  "hash": "f2d13dfa623dcffc8624728641aecfe4564ef52b58d30b8195a057068bed01d7",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

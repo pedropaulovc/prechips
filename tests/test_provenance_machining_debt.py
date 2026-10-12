@@ -666,12 +666,11 @@ def test_invalid_turning_setting_does_not_acquire_unconsumed_context_debts(tmp_p
     data.inventory["tools"]["turn"]["reach_mm"] = fact(5.0, case)
     setup = data.plan["setups"][0]
     job = kernel.build_job(data)
-    # Input preparation retains these debts for their real downstream consumers.
+    # Fixture/reach preparation retains real consumer debt; this op authors no DRO target.
     entries = kernel_measurement_debts(job, setup, setup["ops"][0], fixture=True)
     assert {entry["id"] for entry in entries} == {
         "fixtures.parallels.length",
         "fixtures.parallels.width",
-        "machines.lathe.resolution",
         "tools.turn.reach",
     }
     [row] = accessibility.evaluate(data)

@@ -27,6 +27,7 @@ from prechips.findings import ALWAYS_REQUIRED
 from prechips.inputs import load_bundle, operative_definitions
 from prechips.joint_features import LABEL_PREFIX, fit, label, present, setup_span_mm
 from prechips.kernel import run_geometry
+from prechips.measurements import length_debt, record_debt
 from prechips.model import UNIT_TOLERANCE, Inventory, Plan, tolerance_requirements
 from prechips.process_features import ACTIONS as PROCESS_ACTIONS
 from prechips.process_features import ANGLE_TOLERANCE_DEG
@@ -1582,9 +1583,13 @@ def written_procedure(method) -> bool:
 
 
 def gauge_resolution(gauge: dict):
-    """Independent fact-local acceptance and unit conversion; debt is never a number."""
-    entries = Entries({"gauges": {"selected": gauge}})
-    return tool_length_mm("selected", "resolution", entries, "gauges")
+    """Independent fact-local acceptance and unit conversion; debt is never a number.
+
+    ``gauge`` is already resolved, possibly a micrometer-set member. Retain an explicit
+    member identity so Entries does not reject that record as an unselected whole set.
+    """
+    entries = Entries({"gauges": {"selected": {"members": {"resolved": gauge}}}})
+    return tool_length_mm("selected/resolved", "resolution", entries, "gauges")
 
 
 def blank_size_check(gauge, band: list, features: dict, row: dict) -> str:
@@ -1598,8 +1603,8 @@ def blank_size_check(gauge, band: list, features: dict, row: dict) -> str:
     kind = gauge.get("kind", "unknown")
     span = gauge.get("range_mm")
     if not isinstance(span, list):
-        entries = Entries({"gauges": {"selected": gauge}})
-        maximum = tool_length_mm("selected", "range", entries, "gauges")
+        entries = Entries({"gauges": {"selected": {"members": {"resolved": gauge}}}})
+        maximum = tool_length_mm("selected/resolved", "range", entries, "gauges")
         span = [0, maximum] if numeric(maximum) else "unknown"
     resolution = gauge_resolution(gauge)
     row.update(gauge_kind=kind, range_mm=span, resolution_mm=resolution)
@@ -1641,11 +1646,30 @@ def blank_form_check(gauge, method, limit, row: dict) -> str:
     return "error" if resolution > limit + 1e-9 else "pass"
 
 
+def blank_gauge_debts(gauge: dict, ref: str, inventory: dict, fields: tuple) -> list:
+    """Name only the refused facts an independently decided gauge check consumes.
+
+    Shared checklist constructors supply canonical debt descriptions, never the verdict
+    or numeric capability; those still come from Entries and the blank check itself.
+    """
+    category, name, _ = select_item(inventory, ref, "gauges")
+    debts = []
+    for field in fields:
+        raw_range = field == "range" and isinstance(gauge.get("range_mm"), list)
+        debt = None if raw_range else length_debt(gauge, field, category, name)
+        if debt is None and gauge.get("verify") in (True, "unknown"):
+            debt = record_debt(gauge, category, name, field)
+        if debt:
+            debts.append(debt)
+    return debts
+
+
 def blank_gauge_checks(prepared: dict, bands: dict, features: dict, inventory: dict, numbers):
     """``(worst, missing)``: each declared blank check read through the inventory's gauges
     (the gauges table, then a machine's own accessories): a gauge the inventory lacks is an
     error and missing, else :func:`blank_size_check` or :func:`blank_form_check` decides
-    the row. The rows go to ``numbers["checks"]``."""
+    the row. The rows go to ``numbers["checks"]``; unknown checks retain their exact
+    consumed-fact checklist debt, deduplicated on an unknown aggregate."""
 
     def plan_record(name):
         value = prepared.get(name)
@@ -1657,18 +1681,41 @@ def blank_gauge_checks(prepared: dict, bands: dict, features: dict, inventory: d
         ref = checks.get(key, "unknown")
         row = {"gauge": ref}
         gauge = resolve_item(inventory, "gauges", ref) if ref != "unknown" else None
+        consumed = ()
         if ref != "unknown" and gauge is None:
             status = "error"
             missing.append(ref)
         elif key in bands:
             row["limits_mm"] = [round(v, 6) for v in bands[key]]
             status = blank_size_check(gauge, bands[key], features, row)
+            if (
+                gauge
+                and gauge.get("kind") in PREPARED_SIZE_GAUGES
+                and features.get("units") == "mm"
+            ):
+                consumed = ("range", "resolution")
         else:
             status = blank_form_check(gauge, methods.get(key), limits.get(key), row)
+            if (
+                gauge
+                and gauge.get("kind") in PREPARED_FORM_GAUGES
+                and written_procedure(methods.get(key))
+                and numeric(limits.get(key))
+                and limits[key] > 0
+            ):
+                consumed = ("resolution",)
+        if status == "unknown" and consumed:
+            debts = blank_gauge_debts(gauge, ref, inventory, consumed)
+            if debts:
+                row["measurements"] = debts
         row["status"] = status
         rows[key] = row
         worst = max(worst, status, key=STATUS_RANK.get)
     numbers["checks"] = rows
+    if worst == "unknown":
+        debts = {debt["id"]: debt for row in rows.values() for debt in row.get("measurements", [])}
+        if debts:
+            numbers["measurements"] = [debts[key] for key in sorted(debts)]
     return worst, missing
 
 
@@ -3528,6 +3575,34 @@ def coordinate_place(context: SimpleNamespace, setup: dict, frame, row: dict, lo
     return model, local
 
 
+def coordinates_use_grid(setup, definitions, frames, numbers, lathe):
+    """Independently identify authored or emitted targets that require a DRO grid."""
+    for op in setup["ops"]:
+        if any(key in op for key in ("to_z", "z_from", "z_to")) or (
+            isinstance(op.get("contour"), dict) and op["contour"]
+        ):
+            return True
+        for name in op_features(op) or []:
+            feature = definitions.get(name, {})
+            if feature.get("kind") in LOCATED_KINDS or op.get("do") in CENTRE_OPS:
+                return True
+            locator, _ = located_point(definitions, frames, name)
+            at = definitions.get(locator, {}).get("at")
+            if isinstance(at, list) and len(at) == 3:
+                return True
+            if lathe and isinstance(feature.get("z_mm"), list) and feature["z_mm"]:
+                return True
+    if any(
+        numbers.get(key)
+        for key in ("rows", "profiles", "arc_table", "line_table", "contours", "level_paths")
+    ):
+        return True
+    return any(
+        any(key in operation for key in ("dro_to_z", "blade", "z_levels"))
+        for operation in numbers.get("operations", [])
+    )
+
+
 def check_coordinates(
     setup: dict,
     features: dict,
@@ -3570,15 +3645,30 @@ def check_coordinates(
     lathe = machine_kind(setup, entries) == "lathe"
     grid = dro_grid(setup, features, entries, plan)
     grid_trusted = dro_grid_trusted(setup, features, entries, plan)
-    require(
-        bool(numbers.get("dro_grid_debt")) is not grid_trusted,
-        f"{sid}: coordinate grid debt is not its source measurement's trust",
-    )
-    require(grid_trusted or finding["status"] != "pass", f"{sid}: an unverified grid cannot pass")
+    uses_grid = coordinates_use_grid(setup, definitions, context.frames, numbers, lathe)
     shown = numbers.get("dro_grid")
     require(isinstance(shown, dict) and set(shown) == {"step", "decimals"}, f"{sid}: DRO grid")
-    near(shown["step"], grid[0], f"{sid}: DRO grid step")
-    require(shown["decimals"] == grid[1], f"{sid}: DRO grid decimals")
+    if uses_grid:
+        require(
+            bool(numbers.get("dro_grid_debt")) is not grid_trusted,
+            f"{sid}: coordinate grid debt is not its source measurement's trust",
+        )
+        require(
+            grid_trusted or finding["status"] != "pass", f"{sid}: an unverified grid cannot pass"
+        )
+        near(shown["step"], grid[0], f"{sid}: DRO grid step")
+        require(shown["decimals"] == grid[1], f"{sid}: DRO grid decimals")
+    else:
+        require(shown == {"step": "not used", "decimals": "not used"}, f"{sid}: unused DRO grid")
+        require(not numbers.get("dro_grid_debt"), f"{sid}: unused grid carries decision debt")
+        require(
+            not any(
+                entry.get("id", "").startswith("machines.")
+                and entry.get("id", "").endswith(".resolution")
+                for entry in numbers.get("measurements", [])
+            ),
+            f"{sid}: unused grid carries a measurement instruction",
+        )
     centred = {op.get("feature") for op in setup["ops"] if op.get("do") in CENTRE_OPS}
     named = dict.fromkeys(name for op in setup["ops"] for name in op_features(op) or [None])
     located = [

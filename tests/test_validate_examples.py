@@ -491,7 +491,7 @@ def test_accepts_cited_kernel_revolved_bases_without_declared_diameters(freecad_
         for path in (ROOT / "examples").rglob("*.toml")
     }
     code, missing = VALIDATOR["validate_fixture"]("pivot-shaft", documents)
-    assert code == 4  # cited geometry cannot clear the example's illustrative shop facts
+    assert code == 0  # explicit measured-branch demo facts preserve the worked positive control
     assert missing == []
 
 
@@ -2680,6 +2680,205 @@ def blank_case(rocker_blank, case=None):
         )
 
     return bundle, native, check
+
+
+@pytest.fixture
+def host_rocker_blank(monkeypatch):
+    """Raw authored inputs with explicitly synthetic handed-on stock, never a native run."""
+    bundle = load_bundle(ROOT / "examples" / "rocker-arm" / "plan.toml")
+    raw = {
+        name: tomllib.loads(bundle.paths[name].read_text(encoding="utf-8"))
+        for name in ("plan", "features", "inventory")
+    }
+    bundle = replace(
+        bundle,
+        **raw,
+        kernel={
+            "status": "ok",
+            "setups": {
+                "P5": {
+                    "stock_out_bbox_mm": [-170.0, -20.0, -8.0, 170.0, 45.0, 8.0],
+                    "stock_out_volume_mm3": 340.0 * 65.0 * 16.0,
+                }
+            },
+        },
+    )
+
+    def injected_geometry(selected):
+        if selected.kernel is None:
+            pytest.fail("the host prepared-blank oracle fixture must never request native geometry")
+        return selected.kernel
+
+    monkeypatch.setattr("prechips.kernel.run_geometry", injected_geometry)
+    return bundle
+
+
+def test_prepared_member_oracle_reads_the_authored_nominal_micrometer_resolution(host_rocker_blank):
+    bundle, native, check = blank_case((host_rocker_blank, host_rocker_blank.kernel))
+    assert bundle.inventory["gauges"]["micrometers"]["resolution_in"] == 0.0001
+    assert native["status"] == "pass"
+    for key in ("section_0", "section_1"):
+        assert native["numbers"]["checks"][key]["resolution_mm"] == pytest.approx(0.00254)
+    assert check(native) == []
+
+
+@pytest.mark.parametrize("qualified", [False, True])
+@pytest.mark.parametrize("status", ["measured", "assumed", "illustrative", None])
+@pytest.mark.parametrize(
+    ("field", "value"), [("resolution_mm", 0.00254), ("resolution_in", 0.0001)]
+)
+def test_prepared_member_oracle_keeps_fact_local_trust_and_named_debt(
+    host_rocker_blank, qualified, status, field, value
+):
+    gauge = host_rocker_blank.inventory["gauges"]["micrometers"]
+    gauge.pop("resolution_in")
+    fact = synthetic_fact(value)
+    if status is None:
+        del fact["measured"]["status"]
+    else:
+        fact["measured"]["status"] = status
+    gauge[field] = fact
+    if qualified:
+        checks = host_rocker_blank.plan["stock"]["prepared"]["checks"]
+        for key in ("section_0", "section_1"):
+            checks[key] = f"gauges.{checks[key]}"
+    _, native, check = blank_case((host_rocker_blank, host_rocker_blank.kernel))
+    trusted = status == "measured"
+    assert native["status"] == ("pass" if trusted else "unknown")
+    assert check(native) == []
+    rows = native["numbers"]["checks"]
+    for key in ("section_0", "section_1"):
+        assert rows[key]["status"] == ("pass" if trusted else "unknown")
+        if trusted:
+            assert rows[key]["resolution_mm"] == pytest.approx(0.00254)
+            assert "measurements" not in rows[key]
+        else:
+            assert rows[key]["resolution_mm"] == "unknown"
+            assert len(rows[key]["measurements"]) == 1
+    if trusted:
+        assert "measurements" not in native["numbers"]
+    else:
+        debts = native["numbers"]["measurements"]
+        assert {debt["id"] for debt in debts} == {
+            "gauges.micrometers/0-1in.resolution",
+            "gauges.micrometers/2-3in.resolution",
+        }
+        for debt in debts:
+            assert debt["status"] == (status or "assumed")
+            assert debt["instruction"].startswith("measure:")
+            assert f"inventory.{debt['id']}" in debt["cite"]
+        forged = copy.deepcopy(native)
+        forged["status"] = "pass"
+        for key in ("section_0", "section_1"):
+            forged["numbers"]["checks"][key]["status"] = "pass"
+            forged["numbers"]["checks"][key]["resolution_mm"] = 0.00254
+        with pytest.raises(ValueError, match="verdict"):
+            check(forged)
+        for missing in ("row", "aggregate"):
+            unnamed = copy.deepcopy(native)
+            if missing == "row":
+                del unnamed["numbers"]["checks"]["section_0"]["measurements"]
+            else:
+                del unnamed["numbers"]["measurements"]
+            with pytest.raises(ValueError, match="evidence"):
+                check(unnamed)
+
+
+@pytest.mark.parametrize("status", ["measured", "assumed", "illustrative", None])
+def test_prepared_form_oracle_retains_named_resolution_debt(host_rocker_blank, status):
+    gauge = host_rocker_blank.inventory["gauges"]["dti"]
+    fact = synthetic_fact(0.0005)
+    if status is None:
+        del fact["measured"]["status"]
+    else:
+        fact["measured"]["status"] = status
+    gauge["resolution_in"] = fact
+    _, native, check = blank_case((host_rocker_blank, host_rocker_blank.kernel))
+    trusted = status == "measured"
+    assert native["status"] == ("pass" if trusted else "unknown")
+    assert check(native) == []
+    for key in ("flat", "square", "parallel"):
+        row = native["numbers"]["checks"][key]
+        assert row["status"] == ("pass" if trusted else "unknown")
+        if trusted:
+            assert row["resolution_mm"] == pytest.approx(0.0127)
+            assert "measurements" not in row
+        else:
+            assert row["resolution_mm"] == "unknown"
+            assert [debt["id"] for debt in row["measurements"]] == ["gauges.dti.resolution"]
+    if trusted:
+        assert "measurements" not in native["numbers"]
+    else:
+        debts = native["numbers"]["measurements"]
+        assert len(debts) == 1
+        assert debts[0]["id"] == "gauges.dti.resolution"
+        assert debts[0]["status"] == (status or "assumed")
+        assert debts[0]["instruction"].startswith("measure:")
+        forged = copy.deepcopy(native)
+        forged["status"] = "pass"
+        with pytest.raises(ValueError, match="verdict"):
+            check(forged)
+
+
+@pytest.mark.parametrize("status", ["measured", "assumed", "illustrative", None])
+def test_resolved_member_scalar_range_oracle_keeps_its_own_trust(status):
+    fact = synthetic_fact(300.0)
+    if status is None:
+        del fact["measured"]["status"]
+    else:
+        fact["measured"]["status"] = status
+    gauge = {
+        "kind": "micrometer_set",
+        "range_mm": fact,
+        "resolution_mm": synthetic_fact(0.001),
+    }
+    row = {}
+    verdict = VALIDATOR["blank_size_check"](gauge, [20.0, 20.1], {"units": "mm"}, row)
+    assert row["resolution_mm"] == 0.001
+    if status == "measured":
+        assert verdict == "pass"
+        assert row["range_mm"] == [0.0, 300.0]
+    else:
+        assert verdict == "unknown"
+        assert row["range_mm"] == "unknown"
+
+
+@pytest.mark.parametrize("verification", [True, "unknown"])
+@pytest.mark.parametrize("location", ["fact", "item"])
+def test_prepared_member_oracle_preserves_legacy_verification_debt(
+    host_rocker_blank, verification, location
+):
+    gauge = host_rocker_blank.inventory["gauges"]["micrometers"]
+    if location == "fact":
+        gauge["resolution_in"] = synthetic_fact(0.0001) | {"verify": verification}
+    else:
+        gauge["verify"] = verification
+    _, native, check = blank_case((host_rocker_blank, host_rocker_blank.kernel))
+    assert native["status"] == "unknown"
+    assert check(native) == []
+    # Resolution's legacy verify flag propagates to the selected member's identity;
+    # both consumed dimensions retain their debt, including its generated raw range.
+    assert {debt["id"] for debt in native["numbers"]["measurements"]} == {
+        f"gauges.micrometers/{member}.{field}"
+        for member in ("0-1in", "2-3in")
+        for field in ("range", "resolution")
+    }
+    forged = copy.deepcopy(native)
+    forged["status"] = "pass"
+    with pytest.raises(ValueError, match="verdict"):
+        check(forged)
+
+
+@pytest.mark.parametrize("case", ["kernel_unavailable", "cut_unexplained", "cut_missing"])
+def test_prepared_member_oracle_never_approves_an_underivable_cut(host_rocker_blank, case):
+    _, native, check = blank_case((host_rocker_blank, host_rocker_blank.kernel), case)
+    assert native["status"] == "unknown"
+    assert check(native) == []
+    assert "measurements" not in native["numbers"]
+    forged = copy.deepcopy(native)
+    forged["status"] = "pass"
+    with pytest.raises(ValueError, match="verdict"):
+        check(forged)
 
 
 @pytest.mark.parametrize(

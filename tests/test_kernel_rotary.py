@@ -236,7 +236,7 @@ def test_rotary_op_after_an_underivable_rotary_removal_keeps_only_its_certain_fi
     assert later["tool_hits"] == "unknown", later
     why = later["reasons"]["tool_hits"]
     assert "S1:10" in why and "Cone" in why, later
-    assert later["min_hits"]["tool"] == alone["tool_hits"], later
+    assert later["min_hits"]["tool"] == "unknown", later
     assert later["obstacles"]["tool"] == ["part"], later
 
 

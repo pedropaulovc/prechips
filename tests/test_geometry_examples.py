@@ -309,10 +309,51 @@ def test_reference_rocker_arm_binds_the_labelled_export_without_certifying_examp
     tmp_path, pilot_kernel_cache
 ):
     examples = copy_examples(tmp_path)
+    inventory = examples / "inventory" / "pedro-shop.toml"
+    authored = inventory.read_text(encoding="utf-8")
+    # The shared demo legitimately exercises the measured branch. This negative
+    # control makes only the preparation cutter diameter and P1 parallel height
+    # assumed in the local copy, keeping their values and every Pedro fact intact.
+    for table, field in (
+        ('tools.endmills-lms-6784.members."3-4in-4fl"', "dia_mm"),
+        ('fixtures.parallels-lms-6745.members."1-1-4in"', "height_in"),
+    ):
+        section = re.search(
+            rf"^\[{re.escape(table)}\]\n.*?(?=^\[|\Z)",
+            authored,
+            re.MULTILINE | re.DOTALL,
+        )
+        assert section is not None, table
+        replacement, count = re.subn(
+            rf'(^{field} = \{{[^\n]*?measured = \{{ )status = "measured"',
+            r'\1status = "assumed"',
+            section[0],
+            flags=re.MULTILINE,
+        )
+        assert count == 1, (table, field)
+        authored = authored[: section.start()] + replacement + authored[section.end() :]
+    inventory.write_text(authored, encoding="utf-8")
     plan = examples / "rocker-arm" / "plan.toml"
     pilot_kernel_cache(plan)
     result, report, _ = traveler(plan, tmp_path / "ref")
     assert result.returncode == report["expected_exit"] == 4, result.stderr
+    assert not any(row["status"] == "error" for row in report["findings"])
+    preparation = finding(report, "accessibility", "P1:10")
+    assert preparation["status"] == "unknown"
+    assert {(entry["id"], entry["status"]) for entry in preparation["numbers"]["measurements"]} == {
+        ("tools.endmills-lms-6784/3-4in-4fl.dia", "assumed"),
+        ("fixtures.parallels-lms-6745/1-1-4in.height", "assumed"),
+    }
+    assert all(
+        entry["id"] in preparation["message"]
+        and entry["reason"]
+        == (
+            "This fact's measurement is assumed "
+            "(by: example value (realistic, not a shop measurement)), "
+            "not a physical shop measurement."
+        )
+        for entry in preparation["numbers"]["measurements"]
+    )
     raw = (examples / "rocker-arm" / "rocker-arm.STEP").read_bytes()
     assert (
         report["step_sha256"]
@@ -320,8 +361,8 @@ def test_reference_rocker_arm_binds_the_labelled_export_without_certifying_examp
         == hashlib.sha256(raw).hexdigest()
     )
     assert report["inputs"]["step"]["path"] == "examples/rocker-arm/rocker-arm.STEP"
-    # Only the initial stock has a render: its illustrative preparation cutter cannot
-    # derive the stock handed to the remaining setups.
+    # Only the initial stock has a render: the locally assumed preparation cutter
+    # cannot derive the stock handed to the remaining setups.
     assert set(report["renders"]) == {"P1"}
     prepared = finding(report, "prepared_blank", "stock.prepared")
     assert prepared["status"] == "unknown"

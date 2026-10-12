@@ -806,7 +806,7 @@ def test_unknown_boss_stock_does_not_report_other_component_as_certain_obstacle(
     }
     job["setups"].insert(2, probe)
     detail = engine.run(job)["ops"]["probe:10"]
-    assert detail["min_hits"] == {"tool": 0, "holder": 0}
+    assert detail["min_hits"] == {"tool": "unknown", "holder": 0}
     assert detail["tool_hits"] == "unknown"
     assert detail["holder_hits"] == "unknown"
 

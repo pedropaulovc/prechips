@@ -390,7 +390,7 @@ def _rest_row(monkeypatch, engage_z, declared, units="mm", window=(166.0, 0.2)):
     setup = {"id": "S1", "hold": {"supports": [rest]}}
     op = {"op": 10, "do": "rough_turn", "z_from": window[0], "z_to": window[1]}
     inputs = {key: 1.0 for key in TURNING_TOOL_KEYS + TURNING_HOLDER_KEYS}
-    inputs.update(approach=TURNING, feed_z=-1)
+    inputs.update(approach=TURNING, feed_z=-1, measurement_debts=[])
     detail = {
         "sample_count": 19,
         "tool_hits": 0,

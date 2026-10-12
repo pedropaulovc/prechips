@@ -132,8 +132,8 @@ def test_underivable_earlier_cut_leaves_later_flute_unknown_with_its_finished_hi
     reason = stopped["reasons"]["tool_hits"]
     assert "the stock before this op is unknown" in reason and "S1:10" in reason, reason
     assert "lie outside its stock_removal_bounds" in reason
-    # Certain finished-material hits stay certain; the holder keeps the entry stock.
-    assert stopped["min_hits"]["tool"] == finish["tool_hits"]
+    # Finished-material observations do not certify a flute collision under unknown stock.
+    assert stopped["min_hits"]["tool"] == "unknown"
     assert stopped["holder_hits"] == finish["holder_hits"]
     # The op whose cut stops the builder keeps the known stock before it.
     rough = unknown["ops"]["S1:10"]

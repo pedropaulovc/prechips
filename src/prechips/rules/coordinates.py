@@ -4153,11 +4153,10 @@ def evaluate(bundle, *, pre_kernel=False):
             for op in setup["ops"]
         ]
         grid = dro_grid(bundle, setup)
-        numbers["dro_grid"] = {"step": grid[0], "decimals": grid[1]}
         grid_debt = dro_grid_debt(bundle, setup)
-        if grid_debt:
-            numbers["dro_grid_debt"] = grid_debt
-            numbers["measurements"] = dro_grid_measurements(bundle, setup)
+        # Authored Z targets consume the grid even when their calculation stays unknown.
+        # Merely selecting a machine (a bare saw cut, for example) consumes no DRO fact.
+        grid_consumed = any(key in op for op in setup["ops"] for key in ("to_z", "z_from", "z_to"))
         declared = mapping(mapping(setup.get("stock_state")).get("entry_z"))
         # The stock top before op ``done`` as the setup prints it: a path starts or lifts
         # from that surface.
@@ -4199,7 +4198,7 @@ def evaluate(bundle, *, pre_kernel=False):
                 cleared.append((op.get("feature"), _xy_box(op), op["to_z"]))
         entries = {str(entry.get("op")): entry for entry in numbers["operations"]}
         residuals = [] if grid_debt else _z_residuals(bundle, setup, grid, features, entries)
-        unknown = bool(grid_debt) or not frame or frame.get("binding") == UNKNOWN or blade_unknown
+        unknown = not frame or frame.get("binding") == UNKNOWN or blade_unknown
         if lathe:
             from .geometry_common import _AXIAL_LATHE_ACTIONS
 
@@ -4256,6 +4255,8 @@ def evaluate(bundle, *, pre_kernel=False):
             located = name in located_names
             vector = isinstance(at, list) and len(at) == 3
             placed = vector and all(number(value) for value in at)
+            # A requested location remains a grid consumer if its frame/geometry fails.
+            grid_consumed |= located or vector
             why = None
             if located and not placed and (lathe or name in revolved_names):
                 # A feature the kernel measured revolved about setup Z through X0 Y0 is
@@ -4302,6 +4303,8 @@ def evaluate(bundle, *, pre_kernel=False):
                 numbers["rows"].append(row)
                 unknown |= UNKNOWN in local
             if lathe:
+                stations = feature.get("z_mm")
+                grid_consumed |= isinstance(stations, list) and bool(stations)
                 numbers["rows"].extend(
                     _lathe_rows(name, feature, setup, frame, frames, dro.get("radius_mode"))
                 )
@@ -4326,6 +4329,8 @@ def evaluate(bundle, *, pre_kernel=False):
         for done, (op, before, after) in enumerate(stock_states(bundle, setup)):
             numbers["entry_surfaces"].append({"op": op["op"], **after["entry_z"]})
             contour = mapping(op.get("contour"))
+            # A contour authors cutter-coordinate targets before any rows can be computed.
+            grid_consumed |= bool(contour)
             unknown |= op.get("contour") == UNKNOWN
             leave, refusal = rough_leave(op)
             if refusal:
@@ -4602,6 +4607,15 @@ def evaluate(bundle, *, pre_kernel=False):
                 numbers["level_paths"] = paths
             plan_debts.extend(path_debts)
             path_measurements = [entry for path in paths for entry in path.get("measurements", [])]
+        if grid_consumed:
+            numbers["dro_grid"] = {"step": grid[0], "decimals": grid[1]}
+            if grid_debt:
+                numbers["dro_grid_debt"] = grid_debt
+                numbers["measurements"] = dro_grid_measurements(bundle, setup)
+                unknown = True
+        else:
+            numbers["dro_grid"] = {"step": "not used", "decimals": "not used"}
+            grid_debt = None
         measurements = [
             entry
             for path in (

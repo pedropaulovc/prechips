@@ -6588,15 +6588,16 @@ class _Setup:
 
     @staticmethod
     def _unproven(facts, reason):
-        """Unknown stock blocks clearance; only component-certain hits and corner radii survive."""
+        """Unknown stock blocks tool certainty; holder minima and corner radii survive."""
         why = f"in-process stock unknown: {reason}"
         facts["stock_reason"] = reason
         facts["reason"] = why
         reasons = facts.setdefault("reasons", {})
-        for kind in ("tool", "holder"):
-            value = facts.get(kind + "_hits")
-            if _number(value):
-                facts.setdefault("min_hits", {}).setdefault(kind, value)
+        minimum = facts.setdefault("min_hits", {})
+        minimum["tool"] = UNKNOWN
+        value = facts.get("holder_hits")
+        if _number(value):
+            minimum.setdefault("holder", value)
         clearances = (key for key in (*CLEARANCE_KEYS, "holder_clear_top_z_mm") if key in facts)
         for key in (
             "tool_hits",
@@ -6608,7 +6609,9 @@ class _Setup:
             *clearances,
         ):
             facts[key] = UNKNOWN
-            reasons[key] = why
+            reasons[key] = (
+                f"{why}; {reasons[key]}" if key == "tool_hits" and key in reasons else why
+            )
 
     @staticmethod
     def _subject(op):
@@ -10479,6 +10482,9 @@ class _Setup:
         solid is unknown."""
         radius = _positive(op, "radius_mm")
         flute = _positive(op, "flute_len_mm")
+        unbuilt = self.stock_reason
+        if unbuilt is None:
+            unbuilt = self.cuts[id(op)][2]
         facts = {
             "reasons": {},
             "claimed_indices": self._indices(op),
@@ -10487,7 +10493,7 @@ class _Setup:
             "corner_radii_mm": [],
             "obstacles": {"tool": [], "holder": []},
             "hit_refs": {"tool": [], "holder": []},
-            "min_hits": {"tool": 0, "holder": 0},
+            "min_hits": {"tool": UNKNOWN if unbuilt is not None else 0, "holder": 0},
         }
         solids = {}
         if isinstance(tool, str):
@@ -10526,9 +10532,16 @@ class _Setup:
             if hit:
                 obstacles.add("part")
             certain = int(bool(obstacles))
-            facts["min_hits"][kind] = certain
+            facts["min_hits"][kind] = UNKNOWN if kind == "tool" and unbuilt is not None else certain
             facts["obstacles"][kind] = sorted(obstacles)
-            if not self.fixture_ready or self.fixture_gaps or self.fixture_possible:
+            if kind == "tool" and unbuilt is not None:
+                facts[kind + "_hits"] = UNKNOWN
+                facts["reasons"][kind + "_hits"] = (
+                    f"the stock before this op is unknown ({unbuilt}); "
+                    f"{certain} axial pose(s) hit the remaining finished or fixture obstacles, "
+                    "but tool collision certainty is unproven"
+                )
+            elif not self.fixture_ready or self.fixture_gaps or self.fixture_possible:
                 facts[kind + "_hits"] = UNKNOWN
                 facts["reasons"][kind + "_hits"] = (
                     self.fixture_reason or "fixture geometry is incomplete"
@@ -11166,20 +11179,44 @@ class _Setup:
         Earlier ops' material is absent only because their accepted cuts removed it; later
         cuts are never credited, nor is the cut of an op that stopped the builder: it meets
         its whole before-op stock. A milling op with a claim facing away from the approach
-        is credited no removal either; a hole op always is. Once an earlier cut is
-        underivable the stock before this op is unknown: only finished material, present in
-        any real stock, remains a flute obstacle. Accessibility's holder obstacles never see
+        is credited no removal either; a hole op always is. Unknown upstream stock keeps
+        only finished material, less an independently derivable own hole cut: that cut's
+        claims, tool axis, radius and depth do not need the upstream removal. Unknown or
+        invalid own cuts receive no credit. Accessibility's holder obstacles never see
         this; they keep the setup-entry ``regions``.
         """
-        if self.stock_reason is not None:
-            return regions
-        before, after, unknown = self.cuts[id(op)]
+        unknown = self.stock_reason
         if unknown is not None:
-            stock = self.finished
-        elif isinstance(op.get("hole"), dict) or not self._claims(op)[1]:
-            stock = after
+            stock = self.part
         else:
-            stock = before
+            before, after, unknown = self.cuts[id(op)]
+            if unknown is not None:
+                stock = self.finished
+            elif isinstance(op.get("hole"), dict) or not self._claims(op)[1]:
+                stock = after
+            else:
+                stock = before
+        if (
+            unknown is not None
+            and isinstance(op.get("hole"), dict)
+            and not _hand(op)
+            and not _turned(op)
+            and not _rotary(op)
+            and not isinstance(op.get("joint_cut"), dict)
+            and not isinstance(op.get("process_cut"), dict)
+        ):
+            # _cut's claim/depth gates reuse _sample_facts' cached own hole record, never
+            # another op's clearance or a guessed stock envelope. Milling cuts need stock.
+            try:
+                plan, why = self._cut(op, self.part)
+                own = plan[0] if why is None else None
+                if own is not None and own.isValid():
+                    kept = stock.cut(own)
+                    if kept.isNull() or kept.isValid():
+                        stock = kept
+            except Exception:
+                # The stock is already unknown; a failed own cut cannot clear an obstacle.
+                pass
         if stock is self.part:
             return regions
         gone = self.part.cut(stock)
@@ -11697,8 +11734,10 @@ class _Setup:
             for index in indices
         }
         flute_regions = self._flute_regions(op, regions)
-        # Why the stock before this op is unknown: its flute then met finished material only.
-        unbuilt = None if self.stock_reason is not None else self.cuts[id(op)][2]
+        # Unknown setup entry or an earlier stopped cut cannot establish tool certainty.
+        unbuilt = self.stock_reason
+        if unbuilt is None:
+            unbuilt = self.cuts[id(op)][2]
         region_reason = (
             "; ".join(reason for _, reason in regions.values() if reason is not None) or None
         )
@@ -11817,7 +11856,7 @@ class _Setup:
         ):
             key = kind + "_hits"
             certain, uncertain = counters[kind][0], counters[kind][1]
-            facts["min_hits"][kind] = certain
+            facts["min_hits"][kind] = UNKNOWN if kind == "tool" and unbuilt is not None else certain
             if sample_reason:
                 facts[key] = UNKNOWN
                 reasons[key] = sample_reason
@@ -11828,7 +11867,8 @@ class _Setup:
                 facts[key] = UNKNOWN
                 reasons[key] = (
                     f"the stock before this op is unknown ({unbuilt}); "
-                    f"{certain} sample(s) certainly hit finished or fixture material"
+                    f"{certain} sample(s) hit the remaining finished or fixture obstacles, "
+                    "but tool collision certainty is unproven"
                 )
             elif not self.fixture_ready:
                 facts[key] = UNKNOWN
@@ -13526,8 +13566,10 @@ class _Setup:
         seat = _seat_solid(op)
         regions = {index: self._region(index) for index in indices}
         flute_regions = self._flute_regions(op, regions)
-        # Why the stock before this op is unknown: its flute then met finished material only.
-        unbuilt = None if self.stock_reason is not None else self.cuts[id(op)][2]
+        # The shared flute regions cannot establish tool certainty on unknown stock.
+        unbuilt = self.stock_reason
+        if unbuilt is None:
+            unbuilt = self.cuts[id(op)][2]
         region_reason = (
             "; ".join(reason for _, reason in regions.values() if reason is not None) or None
         )
@@ -13612,7 +13654,10 @@ class _Setup:
             reasons["shank_hits"] = shank_why
         facts["obstacles"] = {kind: sorted(counters[kind][1]) for kind in counters}
         facts["hit_refs"] = {kind: sorted(counters[kind][2]) for kind in counters}
-        facts["min_hits"] = {kind: counters[kind][0] for kind in counters}
+        facts["min_hits"] = {
+            kind: UNKNOWN if kind == "tool" and unbuilt is not None else counters[kind][0]
+            for kind in counters
+        }
         for kind, missing in (
             ("tool", "op lacks flute_len_mm" if flute is None else flute_reason),
             ("holder", holder_reason),
@@ -13625,7 +13670,8 @@ class _Setup:
                 facts[key] = UNKNOWN
                 reasons[key] = (
                     f"the stock before this op is unknown ({unbuilt}); "
-                    f"{certain} sample(s) certainly hit finished or fixture material"
+                    f"{certain} sample(s) hit the remaining finished or fixture obstacles, "
+                    "but tool collision certainty is unproven"
                 )
             elif not self.fixture_ready:
                 facts[key] = UNKNOWN
