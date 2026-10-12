@@ -2693,6 +2693,27 @@ def check_speeds(
         same(row.get("feed_mm_rev", "unknown"), per_rev, f"{where}: feed per revolution")
     else:
         require("feed_mm_rev" not in row, f"{where}: a mill op feeds per tooth")
+    drilling = operation == "drill" and selected_tool(tool, entries, "kind") in {
+        "drill",
+        "drill_index",
+        "drill_set",
+    }
+    if drilling:
+        require(row.get("feed_direction") == "axial", f"{where}: drilling feed is axial")
+        require("axial_feed_mm_rev" in row, f"{where}: drilling feed per revolution is reported")
+        axial = (
+            per_rev
+            if lathe
+            else flutes * chip
+            if positive(flutes) and positive(chip)
+            else "unknown"
+        )
+        near(row["axial_feed_mm_rev"], axial, f"{where}: axial feed per revolution")
+    else:
+        require(
+            "feed_direction" not in row and "axial_feed_mm_rev" not in row,
+            f"{where}: non-drilling feed has no drilling direction or per-revolution operand",
+        )
     depth = depths.get((setup["id"], op["op"]), "unknown")
     factor, derate, unresolved = deep_hole_derate(cutting, operation, depth, diameter)
     deep_fields = {"depth_over_dia", "deep_hole_row", "deep_hole_sfm_factor"}

@@ -245,3 +245,28 @@ def test_unknown_or_noncutting_chain_depth_stays_unresolved(start, end):
     _, feed, stop = _Traveler(data, [finding], {}, None).speeds(setup, setup["ops"][0], False)
     assert feed == "STOP"
     assert stop
+
+
+@pytest.mark.parametrize("field", ["feed_direction", "axial_feed_mm_rev"])
+@pytest.mark.parametrize("corruption", ["missing", "wrong"])
+def test_independent_oracle_rejects_incorrect_chain_axial_feed_evidence(field, corruption):
+    data = chain_bundle()
+    [finding] = speeds_feeds.evaluate(data)
+    row = finding.to_dict()
+    check_speed_oracle(data, row)
+    if corruption == "missing":
+        del row["numbers"][field]
+    else:
+        row["numbers"][field] = "table" if field == "feed_direction" else 0.0127
+    with pytest.raises(ValueError):
+        check_speed_oracle(data, row)
+
+
+def test_independent_oracle_checks_plain_drill_per_revolution_feed():
+    from test_validate_examples import speed_finding
+
+    row, check = speed_finding(drill_bundle(depth_mm=5.0))
+    check()
+    row["numbers"]["axial_feed_mm_rev"] *= 2
+    with pytest.raises(ValueError):
+        check()
