@@ -10658,6 +10658,9 @@
               50
             ],
             "corner_from": "face normal",
+            "credited_faces": [
+              "#491/ADVANCED_FACE[17]/HAF_SHOULDER_THRUST__P01"
+            ],
             "edge_mm": 0.0,
             "gauge": "micrometers/0-1in",
             "method": "spindle stopped; feed the chuck-side corner in until the paper drags; withdraw along X without moving Z",
@@ -10775,6 +10778,9 @@
               40
             ],
             "corner_from": "face normal",
+            "credited_faces": [
+              "#63/ADVANCED_FACE[3]/HAF_SHOULDER_NORTH_FACE__P01"
+            ],
             "edge_mm": -7.5,
             "gauge": "micrometers/0-1in",
             "method": "spindle stopped; feed the chuck-side corner in until the paper drags; withdraw along X without moving Z",
@@ -10793,6 +10799,9 @@
             "after_op": 40,
             "before_ops": [
               50
+            ],
+            "credited_faces": [
+              "#63/ADVANCED_FACE[3]/HAF_SHOULDER_NORTH_FACE__P01"
             ],
             "edge_mm": -7.5,
             "gauge": "micrometers/0-1in",
@@ -10950,7 +10959,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "501e73058010e0982bd204c6e18e67517eadc42c0a2028239ba5a3602824feca",
+  "hash": "948327f71f8d576ca632fc1d5bdcd0e33ef503c0613edd76e66476a4908fb585",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

@@ -25005,6 +25005,9 @@
             "before_ops": [
               50
             ],
+            "credited_faces": [
+              "#218/ADVANCED_FACE[5]/HAF_FOOT_SEAT__P01"
+            ],
             "edge_mm": 0.0,
             "gauge": "micrometers/1-2in",
             "method": "touch_then_set",
@@ -25291,7 +25294,10 @@
               40
             ],
             "corner_from": "face normal",
-            "edge_mm": 21.0055,
+            "credited_faces": [
+              "#1426/ADVANCED_FACE[36]/HAF_CONE_BOSS_NORTH_FACE__P01"
+            ],
+            "edge_mm": 21.01,
             "gauge": "micrometers/0-1in",
             "method": "touch_then_set",
             "paper_mm": 0.0,
@@ -25300,7 +25306,7 @@
             "x_axis_set": "measured D",
             "x_face_status": "pass",
             "x_method": "trial_cut_measure",
-            "z_axis_set": 21.0055,
+            "z_axis_set": 21.01,
             "z_face": "cone_boss_north_face"
           }
         ]
@@ -25403,6 +25409,9 @@
               40
             ],
             "corner_from": "face normal",
+            "credited_faces": [
+              "#329/ADVANCED_FACE[9]/HAF_CRANK_BOSS_FACES__P01"
+            ],
             "edge_mm": 0.0,
             "gauge": "micrometers/0-1in",
             "method": "touch_then_set",
@@ -25869,6 +25878,9 @@
             "axis_set_status": "computed",
             "check_jog_mm": 10.0,
             "check_reading": 10.0,
+            "credited_faces": [
+              "#329/ADVANCED_FACE[9]/HAF_CRANK_BOSS_FACES__P01"
+            ],
             "dro_direction": "toward_exposed_end",
             "edge_mm": 0.0,
             "face": "crank_boss_faces",
@@ -25878,8 +25890,10 @@
             "mirrored_reading": -10.0,
             "paper_mm": 0.0,
             "radius_mm": "not_applicable",
+            "setting_residual_mm": 0.0,
             "sign": 1,
-            "tool": "center-drills-lms-4859/2"
+            "tool": "center-drills-lms-4859/2",
+            "touch_exclusion_dia_mm": 0.0
           }
         },
         "binding": "nominal",
@@ -25888,11 +25902,16 @@
             "before_ops": [
               20
             ],
+            "credited_faces": [
+              "#329/ADVANCED_FACE[9]/HAF_CRANK_BOSS_FACES__P01"
+            ],
             "edge_mm": 0.0,
             "method": "touch_then_set",
             "paper_mm": 0.0,
             "repeats": "zero",
+            "setting_residual_mm": 0.0,
             "tool": "cone-crank-drill-11p2",
+            "touch_exclusion_dia_mm": 2.35,
             "z_axis_set": 0.0,
             "z_face": "crank_boss_faces"
           },
@@ -25900,11 +25919,16 @@
             "before_ops": [
               30
             ],
+            "credited_faces": [
+              "#329/ADVANCED_FACE[9]/HAF_CRANK_BOSS_FACES__P01"
+            ],
             "edge_mm": 0.0,
             "method": "touch_then_set",
             "paper_mm": 0.0,
             "repeats": "zero",
+            "setting_residual_mm": 0.0,
             "tool": "reamers-decimal/0.4500in",
+            "touch_exclusion_dia_mm": 11.57,
             "z_axis_set": 0.0,
             "z_face": "crank_boss_faces"
           }
@@ -26007,21 +26031,26 @@
             "tool": "dti"
           },
           "z": {
-            "axis_set": 21.0055,
+            "axis_set": 21.005,
             "axis_set_status": "computed",
             "check_jog_mm": 10.0,
-            "check_reading": 31.0055,
+            "check_reading": 31.005,
+            "credited_faces": [
+              "#1426/ADVANCED_FACE[36]/HAF_CONE_BOSS_NORTH_FACE__P01"
+            ],
             "dro_direction": "toward_exposed_end",
             "edge_mm": 21.0055,
             "face": "cone_boss_north_face",
             "from": "+z",
             "jog_mm": 10.0,
             "method": "touch_then_set",
-            "mirrored_reading": 11.005500000000001,
+            "mirrored_reading": 11.004999999999999,
             "paper_mm": 0.0,
             "radius_mm": "not_applicable",
+            "setting_residual_mm": 0.0005,
             "sign": 1,
-            "tool": "center-drills-lms-4859/2"
+            "tool": "center-drills-lms-4859/2",
+            "touch_exclusion_dia_mm": 0.0
           }
         },
         "binding": "nominal",
@@ -26030,24 +26059,34 @@
             "before_ops": [
               20
             ],
+            "credited_faces": [
+              "#1426/ADVANCED_FACE[36]/HAF_CONE_BOSS_NORTH_FACE__P01"
+            ],
             "edge_mm": 21.0055,
             "method": "touch_then_set",
             "paper_mm": 0.0,
             "repeats": "zero",
+            "setting_residual_mm": 0.0005,
             "tool": "cone-journal-drill-12p05",
-            "z_axis_set": 21.0055,
+            "touch_exclusion_dia_mm": 1.984,
+            "z_axis_set": 21.005,
             "z_face": "cone_boss_north_face"
           },
           {
             "before_ops": [
               30
             ],
+            "credited_faces": [
+              "#1426/ADVANCED_FACE[36]/HAF_CONE_BOSS_NORTH_FACE__P01"
+            ],
             "edge_mm": 21.0055,
             "method": "touch_then_set",
             "paper_mm": 0.0,
             "repeats": "zero",
+            "setting_residual_mm": 0.0005,
             "tool": "reamers-decimal/0.4835in",
-            "z_axis_set": 21.0055,
+            "touch_exclusion_dia_mm": 12.054,
+            "z_axis_set": 21.005,
             "z_face": "cone_boss_north_face"
           }
         ],
