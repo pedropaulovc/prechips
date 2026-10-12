@@ -302,14 +302,16 @@
     {
       "cite": [
         "plan setups S1: hold, zero, stock_state and notes",
-        "kernel setup-entry stock box"
+        "kernel setup-entry stock box",
+        "kernel setup picture: closest_cut and per-op cut_clearances"
       ],
-      "message": "A stated fact cannot be compared: stock_state.top_z is unknown, stock_state.bottom_z is unknown, so the authored stock is not compared.",
+      "message": "A stated fact cannot be compared: stock_state.top_z is unknown, stock_state.bottom_z is unknown, so the authored stock is not compared; the setup picture's nearest cut cannot be compared: CLEARANCE rows for ops 10 are not computed.",
       "numbers": {
-        "claims": 0,
+        "claims": 1,
         "contradictions": [],
         "unchecked": [
-          "stock_state.top_z is unknown, stock_state.bottom_z is unknown, so the authored stock is not compared"
+          "stock_state.top_z is unknown, stock_state.bottom_z is unknown, so the authored stock is not compared",
+          "the setup picture's nearest cut cannot be compared: CLEARANCE rows for ops 10 are not computed"
         ]
       },
       "rule": "consistency",
@@ -319,14 +321,16 @@
     {
       "cite": [
         "plan setups S2: hold, zero, stock_state and notes",
-        "kernel setup-entry stock box"
+        "kernel setup-entry stock box",
+        "kernel setup picture: closest_cut and per-op cut_clearances"
       ],
-      "message": "A stated fact cannot be compared: stock_state.top_z is unknown, stock_state.bottom_z is unknown, so the authored stock is not compared.",
+      "message": "A stated fact cannot be compared: stock_state.top_z is unknown, stock_state.bottom_z is unknown, so the authored stock is not compared; the setup picture's nearest cut cannot be compared: CLEARANCE rows for ops 10 are not computed.",
       "numbers": {
-        "claims": 0,
+        "claims": 1,
         "contradictions": [],
         "unchecked": [
-          "stock_state.top_z is unknown, stock_state.bottom_z is unknown, so the authored stock is not compared"
+          "stock_state.top_z is unknown, stock_state.bottom_z is unknown, so the authored stock is not compared",
+          "the setup picture's nearest cut cannot be compared: CLEARANCE rows for ops 10 are not computed"
         ]
       },
       "rule": "consistency",
@@ -336,14 +340,16 @@
     {
       "cite": [
         "plan setups S3: hold, zero, stock_state and notes",
-        "kernel setup-entry stock box"
+        "kernel setup-entry stock box",
+        "kernel setup picture: closest_cut and per-op cut_clearances"
       ],
-      "message": "A stated fact cannot be compared: stock_state.top_z 8 is top_feature profile_outer's face, whose height the kernel did not give (no planar face of profile_outer faces +Z), so it is not compared.",
+      "message": "A stated fact cannot be compared: stock_state.top_z 8 is top_feature profile_outer's face, whose height the kernel did not give (no planar face of profile_outer faces +Z), so it is not compared; the setup picture's nearest cut cannot be compared: CLEARANCE rows for ops 10 are not computed.",
       "numbers": {
-        "claims": 1,
+        "claims": 2,
         "contradictions": [],
         "unchecked": [
-          "stock_state.top_z 8 is top_feature profile_outer's face, whose height the kernel did not give (no planar face of profile_outer faces +Z), so it is not compared"
+          "stock_state.top_z 8 is top_feature profile_outer's face, whose height the kernel did not give (no planar face of profile_outer faces +Z), so it is not compared",
+          "the setup picture's nearest cut cannot be compared: CLEARANCE rows for ops 10 are not computed"
         ]
       },
       "rule": "consistency",
@@ -3581,7 +3587,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "116735ae54dad30ce4100ed4da677b53828c2784c1509834cffa03e8d13344d0",
+  "hash": "b6042de29b2e6f4cdf0792ad5eefa93ba01f3521f4c9a676b2303dc36ac96eb8",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -3601,15 +3607,15 @@
     },
     "render:S1": {
       "path": "setup-S1.png",
-      "sha256": "992ccc3a90b6818c5c64a641fb32e6070ce708b0c7f8e744be3c2c3bd3e24e82"
+      "sha256": "37b250fca9b79ad5c13a43a9595da3a9cf08c9ce1fe71169835ff3b356c364c4"
     },
     "render:S2": {
       "path": "setup-S2.png",
-      "sha256": "c9e17939d8a0bed542b4e4782f39603a3e3cb91420bf043fe7808f0c9610b233"
+      "sha256": "e790e717490f0361f65fb05a826f726998377e2fbf06f9909c58a903a0f41fc9"
     },
     "render:S3": {
       "path": "setup-S3.png",
-      "sha256": "bdb14e8465cbbc246ff6d0024fe9339a20dd16b118bff3f1f84e7bd92b9aee48"
+      "sha256": "a2d806d278b4db0a531277cb409a6fe3d85c45958eb832153772090a4748eb08"
     },
     "shop_policy": {
       "path": "examples/geometry/rocker-jaw-occluded/shop-policy.toml",
@@ -3671,7 +3677,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "992ccc3a90b6818c5c64a641fb32e6070ce708b0c7f8e744be3c2c3bd3e24e82"
+      "sha256": "37b250fca9b79ad5c13a43a9595da3a9cf08c9ce1fe71169835ff3b356c364c4"
     },
     "S2": {
       "fixture": "unresolved",
@@ -3722,7 +3728,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "c9e17939d8a0bed542b4e4782f39603a3e3cb91420bf043fe7808f0c9610b233"
+      "sha256": "e790e717490f0361f65fb05a826f726998377e2fbf06f9909c58a903a0f41fc9"
     },
     "S3": {
       "fixture": "modeled",
@@ -3793,10 +3799,10 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "bdb14e8465cbbc246ff6d0024fe9339a20dd16b118bff3f1f84e7bd92b9aee48"
+      "sha256": "a2d806d278b4db0a531277cb409a6fe3d85c45958eb832153772090a4748eb08"
     }
   },
-  "rules_version": "m5-rev10",
+  "rules_version": "m5-rev11",
   "step_sha256": "19070131b1ae87020768e24acea45dd8462773c76131630dd299f0188745ef15",
   "verification": "planned"
 }

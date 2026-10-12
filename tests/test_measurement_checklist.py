@@ -344,7 +344,11 @@ def test_unprewarmed_measurement_rules_keep_derived_geometry_unknown_and_fact_de
     assert received.numbers["stock_entry_reason"]
     assert received.numbers["stock_entry_basis"] == "kernel setup-entry stock"
     assert "kernel.setups.P2.stock_bbox_mm: setup-entry stock in the setup frame" in received.cite
-    assert measurement_ids(received.numbers["measurements"]) == {SPINDLE_MAX}
+    assert {
+        SPINDLE_MAX,
+        "machines.PM-30MV.envelope.travel.x",
+        "machines.PM-30MV.envelope.travel.y",
+    } == measurement_ids(received.numbers["measurements"])
     by_id = {entry["id"]: entry for entry in measurement_checklist(findings)}
     debt = by_id[SPINDLE_MAX]
     assert debt["units"] == "mm"

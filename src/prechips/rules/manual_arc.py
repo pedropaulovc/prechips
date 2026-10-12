@@ -16,7 +16,7 @@ unknown.
 from __future__ import annotations
 
 from prechips.findings import Finding
-from prechips.measurements import nominal_limits_mm
+from prechips.measurements import limits_fact
 from prechips.rules.coordinates import (
     _CENTRE_FORMS,
     ROUGH_METHODS,
@@ -126,7 +126,10 @@ def _guide_stack(bundle, item, bore, scale):
     (``button_runout_mm``, a TIR) and ``bore``'s drawing limits in feature units times
     ``scale`` (``bore_dia_mm``). Each is read from its own fact, measurement not required;
     UNKNOWN when it is not declared."""
-    stack = {key: nominal_limits_mm(item, stem) for stem, key, _ in _STACK}
+    stack = {}
+    for stem, key, _ in _STACK:
+        fact = limits_fact(item, stem, require_measured=False)
+        stack[key] = fact["value"] if fact["verified"] else UNKNOWN
     runout = length_mm(item, "button_runout")
     stack["button_runout_mm"] = runout if number(runout) and runout >= 0 else UNKNOWN
     hole = record(bundle.feature_definitions.get(bore)).get("dia")

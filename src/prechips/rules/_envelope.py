@@ -43,7 +43,7 @@ def fact(item, field, category, identity, debts, cite, *, require_measured=True)
     cite.extend(result["cite"])
     cite.append(f"inventory.{category}.{identity}.{field}")
     if not result["verified"]:
-        entry = measurement_entry(category, identity, field)
+        entry = measurement_entry(category, identity, field, status=result["measurement_status"])
         debts[entry["id"]] = entry
     return result
 
@@ -66,7 +66,12 @@ def tool_projection(bundle, op, debts, cite, *, require_measured=True):
             citation = f"inventory.{tool_category}.{tool_ref}.{field}.{pair}"
             cite.extend([*result["cite"], citation])
             if not result["verified"]:
-                entry = measurement_entry(tool_category, tool_ref, ("projection", pair))
+                entry = measurement_entry(
+                    tool_category,
+                    tool_ref,
+                    ("projection", pair),
+                    status=result["measurement_status"],
+                )
                 entry["cite"] = [citation, *result["cite"]]
                 debts[entry["id"]] = entry
             return result
@@ -327,7 +332,9 @@ def _z_extent(
             )
             endpoint_complete &= angle_verified
             if not angle_verified:
-                entry = measurement_entry(tool_category, tool_ref, "point_angle")
+                entry = measurement_entry(
+                    tool_category, tool_ref, "point_angle", status=angle["measurement_status"]
+                )
                 debts[entry["id"]] = entry
             cite.extend([*angle["cite"], f"inventory.{tool_category}.{tool_ref}.point_angle"])
         elif action == "ream":

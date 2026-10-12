@@ -82,7 +82,10 @@ keeps a hand-authored `features.toml` on the consumer v39 STEP
 (`6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc`).
 There is no dimensioned bracket drawing, so its acceptance bands are
 illustrative example design intent, not measured or imported drawing limits.
-Exported face sets do not establish operation coverage, measured setup binding
+Exported face sets, CAD source metadata and citations do not establish
+operation coverage, measured setup binding, a physical shop measurement (that
+is only an inventory fact's own
+[`measured.status = "measured"`](inventory.md#measured-envelopes-and-installed-tool-stacks-m5))
 or machining approval.
 `cite`, `cite_root`, and per-dimension citations identify evidence and
 are not file assets fetched or opened during the check. Python citations use

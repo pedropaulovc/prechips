@@ -2023,17 +2023,17 @@ _MAKE_OP_WORDS = {
 }
 
 
-# A shop-made fixture value authored as an example: the job page explains the mark once.
+# A non-measured shop-made fixture value: the job page explains the mark once.
 EXAMPLE_MARK = "†"
 EXAMPLE_LEGEND = (
-    f"{EXAMPLE_MARK} example fixture dimensions (plausible, not measured): confirm before making."
+    f"{EXAMPLE_MARK} assumed/illustrative fixture dimensions: not measured; confirm before making."
 )
 
 
 def _example(record):
-    """A primitive or length whose own measurement is labelled as an example value."""
-    by = _mapping(_mapping(record).get("measured")).get("by", "")
-    return isinstance(by, str) and by.startswith("example")
+    """A primitive or length whose own provenance cannot certify a shop measurement."""
+    measured = _mapping(record).get("measured")
+    return isinstance(measured, dict) and measured.get("status", "assumed") != "measured"
 
 
 def _void_parents(void, solids, made):
@@ -4092,9 +4092,15 @@ class _Traveler:
         solids = [s for s in item.get("solids") or [] if isinstance(s, dict)]
         # Made solids, and existing parts (a bought angle plate) only for holes cut here.
         made = [s for s in solids if not s.get("void") and _supply(s) != "bought"]
-        withheld = {
-            id(s): "unverified" for s in solids if not record_trusted(s, require_measured=False)[0]
-        }
+        withheld = {}
+        for solid in solids:
+            if not record_trusted(solid, require_measured=False)[0]:
+                status = _mapping(solid.get("measured")).get("status", "assumed")
+                withheld[id(solid)] = (
+                    f"{status} dimensions (not physically measured)"
+                    if _example(solid)
+                    else "unverified"
+                )
         holes, drilled = {}, set()
         for void in (s for s in solids if s.get("void") and _supply(s) == "made"):
             name = void.get("name", "?")
@@ -4107,7 +4113,7 @@ class _Traveler:
             for parent in parents:
                 drilled.add(id(parent))
                 if id(void) in withheld:
-                    withheld.setdefault(id(parent), f"its hole {name} is unverified")
+                    withheld.setdefault(id(parent), f"its hole {name} is {withheld[id(void)]}")
                 else:
                     holes.setdefault(id(parent), []).append(void)
         fits = set()
@@ -4158,6 +4164,9 @@ class _Traveler:
             first = members[0]
             if first.get("note"):
                 notes.setdefault(self.bench(first["note"]).rstrip("."), []).append(component)
+            if any(map(_example, members)):
+                component += f" {EXAMPLE_MARK}"
+                self.example_marks = True
             fit = id(first) in fits
             if id(first) in withheld:
                 where = f"? not set: {withheld[id(first)]}; verify before making"
@@ -4173,9 +4182,6 @@ class _Traveler:
                 for solid, name in zip(members, tags, strict=True)
                 for void in holes.get(id(solid), [])
             ]
-            if any(map(_example, members)) or any(_example(void) for void, _ in cut):
-                component += f" {EXAMPLE_MARK}"
-                self.example_marks = True
             kinds = {}
             for void, name in cut:
                 key = (

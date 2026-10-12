@@ -102,10 +102,10 @@ ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES = ROOT / "examples"
 PARTS = ("pivot-shaft", "rocker-arm", "pivot-bracket")
 EXPECTED_EXIT = {
-    "pivot-shaft": 0,
-    "rocker-arm": 0,
-    "pivot-bracket": 0,
-    "cone-pivot-post/built-up.toml": 0,
+    "pivot-shaft": 4,
+    "rocker-arm": 4,
+    "pivot-bracket": 4,
+    "cone-pivot-post/built-up.toml": 4,
 }
 # (bundle, plan, expected dir, exit, discriminating rule, modeled setups, setups the rule
 # errors on). Setups outside the modeled set must render as partial pictures with debts.
@@ -374,27 +374,31 @@ def tool_record(ref, key: str, entries: Entries, slot: str = "tools"):
 
 
 def tool_field(ref, key: str, entries: Entries, slot: str = "tools"):
-    value = tool_record(ref, key, entries, slot)
-    return value.get("value", "unknown") if isinstance(value, dict) else value
+    fact = tool_record(ref, key, entries, slot)
+    if not accepted(fact):
+        return "unknown"
+    return fact.get("value", "unknown") if isinstance(fact, dict) else fact
 
 
 def tool_length_mm(ref, field: str, entries: Entries, slot: str = "tools"):
-    value = tool_field(ref, f"{field}_mm", entries, slot)
-    if numeric(value):
-        return value
-    inches = fraction(str(tool_field(ref, f"{field}_in", entries, slot)))
-    if inches is not None:
-        return float(inches) * 25.4
-    value = tool_field(ref, field, entries, slot)
+    record = entries.record(ref, slot)
     units = tool_field(ref, "units", entries, slot)
-    if numeric(value) and units in {"mm", "in", "inch"}:
-        return value if units == "mm" else value * 25.4
-    return "unknown"
+    names = [key for key in (f"{field}_mm", f"{field}_in") if key in record]
+    if field in record and units in {"mm", "in", "inch"}:
+        names.append(field)
+    if len(names) != 1:
+        return "unknown"
+    key = names[0]
+    value = tool_field(ref, key, entries, slot)
+    if key.endswith("_mm") or key == field and units == "mm":
+        return value if numeric(value) else "unknown"
+    inches = fraction(str(value))
+    return float(inches) * 25.4 if inches is not None else "unknown"
 
 
 def accepted(fact) -> bool:
-    """A fact is accepted unless its own record declares verification debt: ``verify``
-    true or unknown, or a ``measured`` record short of its by, date and instrument."""
+    """Bare nominal facts retain their contract; a declared measurement is trusted only
+    with explicit measured status and complete fact-local metadata, never by its prose."""
     if not isinstance(fact, dict):
         return True
     if fact.get("verify") is True or fact.get("verify") == "unknown":
@@ -402,11 +406,18 @@ def accepted(fact) -> bool:
     measured = fact.get("measured", "unknown")
     if measured == "unknown":
         return True
-    if not isinstance(measured, dict) or set(measured) != {"by", "date", "instrument"}:
+    if not isinstance(measured, dict) or set(measured) != {"status", "by", "date", "instrument"}:
+        return False
+    if measured["status"] != "measured" or not all(
+        isinstance(measured[key], str)
+        and measured[key].strip()
+        and measured[key].strip() != "unknown"
+        for key in ("by", "date", "instrument")
+    ):
         return False
     try:
         return date.fromisoformat(measured["date"]).isoformat() == measured["date"]
-    except (TypeError, ValueError):
+    except ValueError:
         return False
 
 
@@ -528,7 +539,7 @@ def read_report(path: Path) -> dict:
         == ("checked" if report.get("expected_exit") == 0 else "planned"),
         f"{path}: unearned readiness",
     )
-    require(report.get("rules_version") == "m5-rev10", f"{path}: stale rule catalogue")
+    require(report.get("rules_version") == "m5-rev11", f"{path}: stale rule catalogue")
     previous = None
     for finding in report["findings"]:
         key = finding["rule"], finding["subject"]
@@ -1114,12 +1125,12 @@ def check_make_ops(plan: dict, entries: Entries, findings: dict) -> None:
 
 
 def check_references(plan: dict, entries: Entries, findings: dict) -> list:
-    """Every item the plan selects or names (:func:`identity_rows`) has its reference
-    finding, naming that category and reference, with the verdict of the item that
-    category selects (:class:`Entries`): one not listed an error naming it (a named one
-    unknown), one listed but unverified unknown, else pass. Every identity a plan slot
-    names (:func:`selected_refs`) is one of those items, as resolution.select names it
-    (:meth:`Entries.identities`). Returns the subjects not listed."""
+    """Every selected or named item has its category/reference finding. Missing selected
+    items are errors (named items unknown); inherited identity verification stays unknown.
+    A selected diameter's declared measurement must independently qualify its numeric
+    claim, else the finding is unknown, unverified and carries no diameter. Bare nominal
+    diameters retain their contract; prose-only names remain identity-only. Every plan
+    slot is covered by its selected identity. Returns the subjects not listed."""
     rows = identity_rows(plan, entries)
     items = {(category, reference) for category, reference, _ in rows.values()}
     for ref in sorted(selected_refs(plan)):
@@ -1147,10 +1158,50 @@ def check_references(plan: dict, entries: Entries, findings: dict) -> list:
         elif not entries.resolves(ref, category):
             require(finding["status"] == "error", f"{subject}: missing item must be an error")
             missing.append(subject)
-        elif entries.uncertain(ref, category):
-            require(finding["status"] == "unknown", f"{subject}: inherited verify must be unknown")
         else:
-            require(finding["status"] == "pass", f"{subject}: available identity must resolve")
+            item = entries.record(ref, category)
+            diameter_keys = [name for name in ("dia_mm", "dia_in") if name in item]
+            if "dia" in item and item.get("units") in {"mm", "in", "inch"}:
+                diameter_keys.append("dia")
+            measurements = [
+                item[name]
+                for name in diameter_keys
+                if isinstance(item[name], dict)
+                and "value" in item[name]
+                and isinstance(item[name].get("measured"), dict)
+            ]
+            diameter = tool_length_mm(ref, "dia", entries, category)
+            diameter_debt = bool(measurements) and (
+                not numeric(diameter) or any(not accepted(fact) for fact in measurements)
+            )
+            unverified = entries.uncertain(ref, category)
+            if unverified:
+                require(
+                    finding["status"] == "unknown",
+                    f"{subject}: inherited verify must be unknown",
+                )
+            elif diameter_debt:
+                require(
+                    finding["status"] == "unknown",
+                    f"{subject}: untrusted measured diameter must be unknown",
+                )
+            else:
+                require(finding["status"] == "pass", f"{subject}: available identity must resolve")
+            if diameter_debt:
+                require(
+                    finding["numbers"].get("verified") is False,
+                    f"{subject}: untrusted measured diameter must be unverified",
+                )
+                require(
+                    "dia_mm" not in finding["numbers"],
+                    f"{subject}: untrusted measured diameter must not be reported",
+                )
+            elif numeric(diameter):
+                require(
+                    finding["numbers"].get("verified") is (not unverified),
+                    f"{subject}: diameter evidence must keep its identity verification",
+                )
+                near(finding["numbers"].get("dia_mm"), diameter, f"{subject}: selected diameter")
     return missing
 
 
@@ -1690,9 +1741,9 @@ def derive_zero(setup: dict, own, entries: Entries) -> tuple:
         else:
             # A finder's tip, else its body, diameter halved, as the spindle slot selects it
             # (a set member's own or its set's, in mm or inches, as a fact or a bare length).
-            tool = entries.record(recipe.get("tool"), "spindle")
-            tip = nominal_length_mm(tool, "tip")
-            diameter = tip if numeric(tip) else nominal_length_mm(tool, "dia")
+            reference = recipe.get("tool")
+            tip = tool_length_mm(reference, "tip", entries, "spindle")
+            diameter = tip if numeric(tip) else tool_length_mm(reference, "dia", entries, "spindle")
             radius = diameter / 2 if numeric(diameter) else "unknown"
         if axis == "z":
             if recipe.get("face") == "top":

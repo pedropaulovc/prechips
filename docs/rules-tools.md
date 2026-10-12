@@ -23,6 +23,11 @@ fit, so `3/8` in and `9.525` mm agree. Unverified assemblies clear dimensional
 mismatch conclusions and stay unknown. A missing item's error is owned by its
 reference finding; its assembly finding stays unknown.
 An explicitly unknown operation action also makes its assembly fit unknown.
+A selected tool whose identity row also claims its `dia` through a
+`measured` record with `status` `assumed`, `illustrative` or omitted is
+unknown, naming that record: the identity is not read past an unmeasured
+diameter claim. A bare nominal catalogue `dia` or a pure identity row is
+unchanged.
 
 An inventory item named in prose as `<category>.<key>[/<member>]` (a plan note
 or cite, a make note, record check or `how`, or make operation `hold` or `cite`

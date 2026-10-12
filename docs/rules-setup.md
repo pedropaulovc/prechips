@@ -307,9 +307,11 @@ travel pass; declare a correctly unit-bound millimetre manifest instead.
 Each M5 finding cites the input fields and retains nominal vendor numbers only
 as evidence. A missing value stays `"unknown"`. Limits, fixture heights, holder
 gauge/grip, tool OAL/projection and cutter geometry require a complete
-fact-local `measured = { by, date, instrument }`; `verify = true`, a block or
-root record, a source flag or a citation cannot establish a pass or a measured
-overrun. A known verified axis/stack violation still stops if other
+fact-local `measured = { status = "measured", by, date, instrument }`;
+`verify = true`, a block or root record, a source flag, a citation or a record
+whose status is `assumed`/`illustrative` (or omitted) cannot establish a pass
+or a measured overrun: the row stays `?` naming that status and `by`.
+A known verified axis/stack violation still stops if other
 measurements remain unknown. Every unresolved applicable row carries concrete
 `measure:` instructions, keyed by the exact fact consumed (set member or
 tool/holder pair included); an operation whose holder does not resolve is told
@@ -472,7 +474,9 @@ Three checks need no prose:
   rounds it at the setup's DRO decimals; another op's row at the same value does
   not stand in. The named op's row missing or not computed leaves the check
   unknown, and so does a picture cut naming no op (its op unknown, empty or
-  absent): which row it restates cannot be checked. A saw's blade path carries
+  absent): which row it restates cannot be checked. A setup whose
+  `cut_clearances` holds uncomputed rows with no `closest_cut` is unknown
+  naming those ops, never a silent pass. A saw's blade path carries
   no row, so the cut it names restates none.
 - `stock_state` heights are checked against the kernel's setup-entry stock,
   beyond its 0.001 mm stock tolerance. Each height is judged by the one evidence

@@ -8,7 +8,12 @@ import pytest
 from prechips.findings import exit_code
 from prechips.rules import engagement, envelope, headroom
 
-MEASURED = {"by": "synthetic operator", "date": "2026-10-03", "instrument": "synthetic steel rule"}
+MEASURED = {
+    "status": "measured",
+    "by": "synthetic operator",
+    "date": "2026-10-03",
+    "instrument": "synthetic steel rule",
+}
 
 
 def measured(value):

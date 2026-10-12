@@ -300,91 +300,109 @@
     {
       "cite": [
         "plan setups S1: hold, zero, stock_state and notes",
-        "kernel setup-entry stock box"
+        "kernel setup-entry stock box",
+        "kernel setup picture: closest_cut and per-op cut_clearances"
       ],
-      "message": "Every fact this rule reads agrees with its one source.",
+      "message": "A stated fact cannot be compared: the setup picture's nearest cut cannot be compared: CLEARANCE rows for ops 10 are not computed.",
       "numbers": {
-        "claims": 1,
+        "claims": 2,
         "contradictions": [],
-        "unchecked": []
+        "unchecked": [
+          "the setup picture's nearest cut cannot be compared: CLEARANCE rows for ops 10 are not computed"
+        ]
       },
       "rule": "consistency",
-      "status": "pass",
+      "status": "unknown",
       "subject": "S1"
     },
     {
       "cite": [
         "plan setups S2: hold, zero, stock_state and notes",
-        "kernel setup-entry stock box"
+        "kernel setup-entry stock box",
+        "kernel setup picture: closest_cut and per-op cut_clearances"
       ],
-      "message": "Every fact this rule reads agrees with its one source.",
+      "message": "A stated fact cannot be compared: the setup picture's nearest cut cannot be compared: CLEARANCE rows for ops 10 are not computed.",
       "numbers": {
-        "claims": 1,
+        "claims": 2,
         "contradictions": [],
-        "unchecked": []
+        "unchecked": [
+          "the setup picture's nearest cut cannot be compared: CLEARANCE rows for ops 10 are not computed"
+        ]
       },
       "rule": "consistency",
-      "status": "pass",
+      "status": "unknown",
       "subject": "S2"
     },
     {
       "cite": [
         "plan setups S3: hold, zero, stock_state and notes",
-        "kernel setup-entry stock box"
+        "kernel setup-entry stock box",
+        "kernel setup picture: closest_cut and per-op cut_clearances"
       ],
-      "message": "Every fact this rule reads agrees with its one source.",
+      "message": "A stated fact cannot be compared: the setup picture's nearest cut cannot be compared: CLEARANCE rows for ops 10 are not computed.",
       "numbers": {
-        "claims": 1,
+        "claims": 2,
         "contradictions": [],
-        "unchecked": []
+        "unchecked": [
+          "the setup picture's nearest cut cannot be compared: CLEARANCE rows for ops 10 are not computed"
+        ]
       },
       "rule": "consistency",
-      "status": "pass",
+      "status": "unknown",
       "subject": "S3"
     },
     {
       "cite": [
         "plan setups S4: hold, zero, stock_state and notes",
-        "kernel setup-entry stock box"
+        "kernel setup-entry stock box",
+        "kernel setup picture: closest_cut and per-op cut_clearances"
       ],
-      "message": "Every fact this rule reads agrees with its one source.",
+      "message": "A stated fact cannot be compared: the setup picture's nearest cut cannot be compared: CLEARANCE rows for ops 10 are not computed.",
       "numbers": {
-        "claims": 1,
+        "claims": 2,
         "contradictions": [],
-        "unchecked": []
+        "unchecked": [
+          "the setup picture's nearest cut cannot be compared: CLEARANCE rows for ops 10 are not computed"
+        ]
       },
       "rule": "consistency",
-      "status": "pass",
+      "status": "unknown",
       "subject": "S4"
     },
     {
       "cite": [
         "plan setups S5: hold, zero, stock_state and notes",
-        "kernel setup-entry stock box"
+        "kernel setup-entry stock box",
+        "kernel setup picture: closest_cut and per-op cut_clearances"
       ],
-      "message": "Every fact this rule reads agrees with its one source.",
+      "message": "A stated fact cannot be compared: the setup picture's nearest cut cannot be compared: CLEARANCE rows for ops 10 are not computed.",
       "numbers": {
-        "claims": 1,
+        "claims": 2,
         "contradictions": [],
-        "unchecked": []
+        "unchecked": [
+          "the setup picture's nearest cut cannot be compared: CLEARANCE rows for ops 10 are not computed"
+        ]
       },
       "rule": "consistency",
-      "status": "pass",
+      "status": "unknown",
       "subject": "S5"
     },
     {
       "cite": [
         "plan setups S6: hold, zero, stock_state and notes",
-        "kernel setup-entry stock box"
+        "kernel setup-entry stock box",
+        "kernel setup picture: closest_cut and per-op cut_clearances"
       ],
-      "message": "Every fact this rule reads agrees with its one source.",
+      "message": "A stated fact cannot be compared: the setup picture's nearest cut cannot be compared: CLEARANCE rows for ops 10 are not computed.",
       "numbers": {
-        "claims": 1,
+        "claims": 2,
         "contradictions": [],
-        "unchecked": []
+        "unchecked": [
+          "the setup picture's nearest cut cannot be compared: CLEARANCE rows for ops 10 are not computed"
+        ]
       },
       "rule": "consistency",
-      "status": "pass",
+      "status": "unknown",
       "subject": "S6"
     },
     {
@@ -5492,7 +5510,7 @@
       "subject": "S6"
     }
   ],
-  "hash": "12923b4bb2df8b1824e4718e589be199eee375bba56ad6089ef67f74dea14ac2",
+  "hash": "a000ed8b81ff83366535be909773e7b2637fbeb072fb4eef7d2e1a2c4e7fd486",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -5512,27 +5530,27 @@
     },
     "render:S1": {
       "path": "setup-S1.png",
-      "sha256": "ebe3055f84828c172b8d8c3eded7ab3f9132a219f5bf7c3afc38a5bd0aaf4edf"
+      "sha256": "92592140bb468f8b274fbc8348b8c1a2b321ddc26a14cf393840f068e50334e8"
     },
     "render:S2": {
       "path": "setup-S2.png",
-      "sha256": "2e5ad96dd1ee23b97066adeac8ef0644bbee9cbd74705d3ba86f10ea539fc95b"
+      "sha256": "1b4b96eea5145b50045ddbeff2ab0ec66fd04672727990c8d5af79947d9d4542"
     },
     "render:S3": {
       "path": "setup-S3.png",
-      "sha256": "ca77f6d2c22e5079d2769e0c4eb53e5679a240f062c4b54a5b183ff77b0d7934"
+      "sha256": "090cba33f4a94f56a52e8c9160601095d376464aa20fb12d90eedd7da4822891"
     },
     "render:S4": {
       "path": "setup-S4.png",
-      "sha256": "550661be6a7ce67a980709ac2254429297ed10de4a4e7b8492719801dcaf7ebb"
+      "sha256": "749ebcc518a0ecdc32a5ed30741b254c1337c44d1dd1c65a0302b23bb439091d"
     },
     "render:S5": {
       "path": "setup-S5.png",
-      "sha256": "70962b9eda2abab6d149d890ae267a5c2e2024b2a2f5cab526bc5503be646495"
+      "sha256": "06731449a056d37bd054b9dc19ae59ccb110143e0bd2e5c7d96bd2e31538d657"
     },
     "render:S6": {
       "path": "setup-S6.png",
-      "sha256": "bb5abe1c49a33406218c7564455fec383233f53973360e8216440c132ad5c5f2"
+      "sha256": "400652435f0698af5ef99d3d9c56d5bc91cc8a340534123c3ab92fac3cbed0f7"
     },
     "shop_policy": {
       "path": "examples/geometry/shop-policy.toml",
@@ -5628,7 +5646,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "ebe3055f84828c172b8d8c3eded7ab3f9132a219f5bf7c3afc38a5bd0aaf4edf"
+      "sha256": "92592140bb468f8b274fbc8348b8c1a2b321ddc26a14cf393840f068e50334e8"
     },
     "S2": {
       "fixture": "modeled",
@@ -5698,7 +5716,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "2e5ad96dd1ee23b97066adeac8ef0644bbee9cbd74705d3ba86f10ea539fc95b"
+      "sha256": "1b4b96eea5145b50045ddbeff2ab0ec66fd04672727990c8d5af79947d9d4542"
     },
     "S3": {
       "fixture": "modeled",
@@ -5775,7 +5793,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "ca77f6d2c22e5079d2769e0c4eb53e5679a240f062c4b54a5b183ff77b0d7934"
+      "sha256": "090cba33f4a94f56a52e8c9160601095d376464aa20fb12d90eedd7da4822891"
     },
     "S4": {
       "fixture": "modeled",
@@ -5865,7 +5883,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "550661be6a7ce67a980709ac2254429297ed10de4a4e7b8492719801dcaf7ebb"
+      "sha256": "749ebcc518a0ecdc32a5ed30741b254c1337c44d1dd1c65a0302b23bb439091d"
     },
     "S5": {
       "fixture": "modeled",
@@ -5945,7 +5963,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "70962b9eda2abab6d149d890ae267a5c2e2024b2a2f5cab526bc5503be646495"
+      "sha256": "06731449a056d37bd054b9dc19ae59ccb110143e0bd2e5c7d96bd2e31538d657"
     },
     "S6": {
       "fixture": "modeled",
@@ -6014,10 +6032,10 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "bb5abe1c49a33406218c7564455fec383233f53973360e8216440c132ad5c5f2"
+      "sha256": "400652435f0698af5ef99d3d9c56d5bc91cc8a340534123c3ab92fac3cbed0f7"
     }
   },
-  "rules_version": "m5-rev10",
+  "rules_version": "m5-rev11",
   "step_sha256": "cbcb933eb13cf48ffe8687036c7a805546f1589ee4199c7cd9ebfff47cff1fac",
   "verification": "planned"
 }

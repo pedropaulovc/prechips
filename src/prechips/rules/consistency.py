@@ -866,9 +866,19 @@ def _picture_cut(bundle, setup):
     facts = record(record(record(run_geometry(bundle)).get("setups")).get(setup["id"]))
     scene = record(facts.get("render_scene"))
     cut = record(scene.get("closest_cut"))
-    if not cut:
-        return 0, [], []
     rows = [record(row) for row in scene.get("cut_clearances") or []]
+    if not cut:
+        unresolved = [str(row.get("op", UNKNOWN)) for row in rows if not number(row.get("mm"))]
+        if unresolved:
+            return (
+                1,
+                [],
+                [
+                    "the setup picture's nearest cut cannot be compared: CLEARANCE rows "
+                    f"for ops {', '.join(unresolved)} are not computed"
+                ],
+            )
+        return 0, [], []
     decimals = dro_grid(bundle, setup)[1]
     holder = _holder(cut.get("tag"))
     if not number(cut.get("mm")):

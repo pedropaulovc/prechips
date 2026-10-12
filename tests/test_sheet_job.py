@@ -60,6 +60,9 @@ def test_example_fixture_dimensions_are_labelled_once_and_marked_on_their_rows(r
     legends = [node for node in tagged(markup, "p") if "†" in content(node)]
     # The marked example-dimension legend belongs to the job page, once.
     assert len(legends) == 1
+    assert "assumed/illustrative fixture dimensions: not measured; confirm before making" in (
+        content(legends[0])
+    )
     assert "†" in text(pages(html)[0])
     tables = sections(html, "SHOP-MADE FIXTURE")
     assert tables and all("†" in table for table in tables)
@@ -68,14 +71,16 @@ def test_example_fixture_dimensions_are_labelled_once_and_marked_on_their_rows(r
     assert "†" not in text(plain)
 
 
-def test_only_rows_with_example_dimensions_carry_the_mark(tmp_path):
+def test_only_rows_with_non_measured_dimensions_carry_the_mark(tmp_path):
     def measured_arm(examples):
         inventory = examples / "inventory" / "pedro-shop.toml"
         authored = inventory.read_text(encoding="utf-8")
-        arm = 'by = "example (plausible, not measured)", date = "2026-10-05", instrument = '
-        arm += '"calipers and steel rule, arm section and length"'
+        arm = 'status = "illustrative", by = "example (plausible, not measured)", '
+        arm += 'date = "2026-10-05", instrument = "calipers and steel rule, arm section and length"'
         assert authored.count(arm) == 1
-        measured = arm.replace("example (plausible, not measured)", "a test shop measurement")
+        # This one synthetic solid is explicit evidence for the mark test; the other
+        # shipped fixture rows retain their illustrative provenance.
+        measured = arm.replace('status = "illustrative"', 'status = "measured"')
         inventory.write_text(authored.replace(arm, measured), encoding="utf-8")
 
     _, html = run(tmp_path, "rocker-arm/plan.toml", measured_arm)
@@ -125,13 +130,28 @@ def test_mill_xy_check_jogs_are_made_raised_clear_of_the_work(bracket, shaft):
     assert all("raise Z" not in text(zero) for zero in sections(plain, "DRO ZERO"))
 
 
-def test_job_page_stock_sizes_print_on_the_receiving_machine_grid(shaft, rocker):
+def test_job_page_stock_sizes_print_on_the_receiving_machine_grid():
+    def stock_markup(folder, machine, resolution):
+        bundle = load_bundle(ROOT / "examples" / folder / "plan.toml")
+        # Only this formatting regression supplies synthetic evidence for its DRO grid.
+        bundle.inventory["machines"][machine]["resolution_mm"] = {
+            "value": resolution,
+            "measured": {
+                "status": "measured",
+                "by": "synthetic test operator",
+                "date": "2026-10-05",
+                "instrument": "synthetic DRO readout",
+            },
+        }
+        html = _Traveler(bundle, [], {}, None).header(bundle.plan["setups"])
+        return Markup(sections(html, "STOCK AND ROUTE")[0])
+
     # The shaft bar goes to the 0.01 lathe; the rocker blank to the 0.005 mill.
-    markup = Markup(sections(shaft[1], "STOCK AND ROUTE")[0])
+    markup = stock_markup("pivot-shaft", "PM-1127VF-LB", 0.01)
     (stock,) = [content(node) for node in tagged(markup, "p") if content(node).startswith("Stock:")]
     assert "Ø10.00 × 180.50 long" in stock, stock
     assert not re.search(r"\d\.\d{3}", stock), stock
-    markup = Markup(sections(rocker[1], "STOCK AND ROUTE")[0])
+    markup = stock_markup("rocker-arm", "PM-30MV", 0.005)
     (stock,) = [content(node) for node in tagged(markup, "p") if content(node).startswith("Stock:")]
     assert "76.200 × 19.050 × 345.000 long" in stock, stock
     # The prepared blank is printed as CHECK THE BLANK, never as a raw field dump.

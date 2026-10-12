@@ -7,7 +7,7 @@ import itertools
 import math
 import re
 
-from prechips.measurements import nominal_angle_deg
+from prechips.measurements import angle_fact
 
 from ..findings import Finding
 from ..model import UNIT_TOLERANCE
@@ -894,9 +894,10 @@ def evaluate(bundle):
             }
             tool = resolve(bundle, "tools", op.get("tool")) or {}
             action = op["do"]
+            angle = angle_fact(tool, "point_angle", require_measured=False)
             point = drill_point_mm(
                 length_mm(tool, "dia"),
-                nominal_angle_deg(tool, "point_angle"),
+                angle["value"] if angle["verified"] else UNKNOWN,
             )
             if centre:
                 fields, status, reasons, debt = centre_endpoint(bundle, setup, op, feature, entry)

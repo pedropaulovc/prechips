@@ -8,6 +8,7 @@ import math
 
 import pytest
 from test_cli import copy_examples
+from test_envelope_m5 import measured
 from test_process_route import HEADER, blocks, drop_setup_key, evaluate, rewrite, setups
 
 from prechips import kernel
@@ -65,6 +66,7 @@ def test_a_dead_centre_rides_only_in_a_centre_an_earlier_setup_drilled(
     tmp_path, change, status, made
 ):
     plan = shaft(tmp_path)
+    synthetic_centre_tool(plan)
     if change == "no centre drill":
         rewrite(plan, ("op", *centre_drill(plan)), remove=True)
     if change == "undeclared routing":
@@ -87,6 +89,62 @@ def set_tool_fact(plan, key, value):
     body = [line for line in lines[start + 1 : end] if not line.startswith(f"{key} =")]
     added = [] if value is None else [f"{key} = {value}\n"]
     inventory.write_text("".join([*lines[: start + 1], *added, *body, *lines[end:]]), "utf-8")
+
+
+def synthetic_centre_tool(plan):
+    """Known #2 drill for centre-shape tests, not a certification of the example inventory."""
+    for key, value in {
+        "dia_mm": 1.98,
+        "shank_in": 0.1875,
+        "flute_len_mm": 1.9,
+        "pilot_len_mm": 1.98,
+        "oal_mm": 47.6,
+        "point_angle": 118,
+    }.items():
+        set_tool_fact(
+            plan,
+            key,
+            f'{{ value = {value}, measured = {{ status = "measured", '
+            'by = "synthetic test operator", date = "2026-10-05", '
+            'instrument = "synthetic centre drill specification" } }',
+        )
+
+
+def synthetic_shaft_cutting_geometry(bundle):
+    """Finite, test-owned S0/S1 tool/chuck geometry for the native centre/claim scenarios."""
+    toolpost = "qctp-axa-lms-2280/1-turning-facing"
+    for tool, width in (
+        (bundle.inventory["tools"]["turning-tools-warner-lms-4132"]["members"]["AR"], 11.0),
+        (bundle.inventory["tools"]["hss-toolbit-3-8-rh"], 10.1),
+    ):
+        for key, value in {
+            "nose_radius_mm": 0.4,
+            "insert_angle_deg": 60.0,
+            "entering_angle_deg": 93.0,
+            "edge_len_mm": 11.0,
+            "head_len_mm": 14.0,
+            "shank_width_mm": 9.525,
+            "functional_width_mm": width,
+        }.items():
+            tool[key] = measured(value)
+        tool["projection_mm"] = {toolpost: measured(20.0)}
+    holder = bundle.inventory["holders"]["qctp-axa-lms-2280"]["members"]["1-turning-facing"]
+    holder.update(body_width_mm=measured(60.0), body_depth_mm=measured(32.0))
+    bundle.inventory["holders"]["drill-chuck-tailstock-mt3"].update(
+        gauge_len_mm=measured(85.0), gauge_dia_mm=measured(50.8), grip_mm=measured(20.0)
+    )
+    drill = bundle.inventory["tools"]["center-drills-lms-4859"]["members"]["2"]
+    drill["projection_mm"] = {"drill-chuck-tailstock-mt3": measured(27.0)}
+    chuck = bundle.inventory["fixtures"]["chuck-3jaw-6-d1-4"]
+    for key, value in {
+        "body_dia_mm": 158.0,
+        "body_length_mm": 72.0,
+        "bore_dia_mm": 40.0,
+        "jaw_width_mm": 16.0,
+        "jaw_height_mm": 45.0,
+        "jaw_depth_mm": 25.0,
+    }.items():
+        chuck[key] = measured(value)
 
 
 @pytest.mark.parametrize(
@@ -122,6 +180,7 @@ def set_tool_fact(plan, key, value):
 )
 def test_a_centre_is_the_shape_its_selected_tool_cuts(tmp_path, where, key, value, status):
     plan = shaft(tmp_path)
+    synthetic_centre_tool(plan)
     if where == "plan":
         set_process_key(plan, "plain_end_centre", key, value)
     elif where == "tool":
@@ -174,6 +233,7 @@ def test_a_centre_is_the_shape_its_selected_tool_cuts(tmp_path, where, key, valu
 )
 def test_a_centre_mouth_lies_on_the_surface_the_quill_is_touched_on(tmp_path, key, value, status):
     plan = shaft(tmp_path)
+    synthetic_centre_tool(plan)
     set_process_key(plan, "plain_end_centre", key, value)
     bundle = load_bundle(plan)
     endpoint = evaluate("blind_depth", bundle)["plain_end_centre"]
@@ -185,6 +245,7 @@ def test_a_centre_mouth_lies_on_the_surface_the_quill_is_touched_on(tmp_path, ke
 
 def test_an_unknown_quill_touch_surface_leaves_the_centre_unknown(tmp_path):
     plan = shaft(tmp_path)
+    synthetic_centre_tool(plan)
     # Op 10 faces the plain end the quill is touched on; its height is now unknown.
     rewrite(plan, ("op", "S0", 10), "to_z", '"unknown"')
     bundle = load_bundle(plan)
@@ -211,12 +272,14 @@ def test_the_kernel_drills_only_the_tool_s_centre_from_the_exposed_stock_surface
     tmp_path, freecad_kernel, where, value, status
 ):
     plan = shaft(tmp_path)
+    synthetic_centre_tool(plan)
     only_first_setup(plan)
     if where == "at":
         set_process_key(plan, "plain_end_centre", "at", value)
     else:
         set_tool_fact(plan, "pilot_len_mm", value)
     bundle = load_bundle(plan)
+    synthetic_shaft_cutting_geometry(bundle)
     assert kernel.run_geometry(bundle)["status"] == "ok"
     rows = rules(bundle, "accessibility", "reach")
     assert {name: rows[name]["S0:20"].status for name in rows} == {
@@ -324,6 +387,7 @@ def test_a_prepared_centre_never_hides_another_support_that_may_be_a_centre(
     tmp_path, supports, seat, status
 ):
     plan = shaft(tmp_path)
+    synthetic_centre_tool(plan)
     add_supports(plan)
     rewrite(plan, ("hold", "S1"), "supports", supports)
     rewrite(plan, ("hold", "S1"), "centre_hole_dia_mm", repr(seat))
@@ -336,6 +400,7 @@ def test_a_prepared_centre_never_hides_another_support_that_may_be_a_centre(
 @pytest.mark.parametrize(("seat", "status"), [(MOUTH, "pass"), (4.0, "error"), (2.5, "error")])
 def test_the_hold_seats_the_centre_in_the_mouth_the_centre_drill_made(tmp_path, seat, status):
     plan = shaft(tmp_path)
+    synthetic_centre_tool(plan)
     rewrite(plan, ("hold", "S1"), "centre_hole_dia_mm", repr(seat))
     row = evaluate("centre_support", load_bundle(plan))["S1"]
     assert row.status == status
@@ -354,7 +419,9 @@ def test_the_hold_seats_the_centre_in_the_mouth_the_centre_drill_made(tmp_path, 
     ids=["bare-qualified", "qualified-bare", "distinct"],
 )
 def test_one_centre_spelled_twice_in_the_hold_is_one_centre(tmp_path, support, supports, status):
-    bundle = load_bundle(shaft(tmp_path))
+    plan = shaft(tmp_path)
+    synthetic_centre_tool(plan)
+    bundle = load_bundle(plan)
     hold = next(s for s in bundle.plan["setups"] if s["id"] == "S1")["hold"]
     key = hold["support"].removeprefix("fixtures.")
     bundle.inventory["fixtures"]["other-centre"] = dict(bundle.inventory["fixtures"][key])
@@ -367,6 +434,7 @@ def test_one_centre_spelled_twice_in_the_hold_is_one_centre(tmp_path, support, s
 @pytest.mark.parametrize("mouth", [MOUTH, 4.0])
 def test_centre_depth_is_table_6_drill_length_plus_the_countersink_to_the_mouth(tmp_path, mouth):
     plan = shaft(tmp_path)
+    synthetic_centre_tool(plan)
     set_process_key(plan, "plain_end_centre", "mouth_dia_mm", repr(mouth))
     rows = evaluate("blind_depth", load_bundle(plan))["plain_end_centre"].numbers["endpoints"]
     countersink = (mouth - DRILL) / 2 / math.tan(math.radians(ANGLE / 2))
@@ -424,7 +492,9 @@ def rules(bundle, *names):
 
 def test_a_process_face_cut_on_a_drawing_plane_never_finishes_that_face(tmp_path, freecad_kernel):
     plan = shaft(tmp_path)
-    before = rules(load_bundle(plan), "finish_coverage")["finish_coverage"]["shoulder_thrust"]
+    before_bundle = load_bundle(plan)
+    synthetic_shaft_cutting_geometry(before_bundle)
+    before = rules(before_bundle, "finish_coverage")["finish_coverage"]["shoulder_thrust"]
     assert before.status == "pass"
     # The same facing pass, now preparing a plan process face laid on the thrust plane.
     block = thrust_face_op(plan)
@@ -439,6 +509,8 @@ def test_a_process_face_cut_on_a_drawing_plane_never_finishes_that_face(tmp_path
         + 'cite = ["test: a process face on the exported shoulder thrust plane"]\n',
         encoding="utf-8",
     )
-    after = rules(load_bundle(plan), "finish_coverage")["finish_coverage"]["shoulder_thrust"]
+    after_bundle = load_bundle(plan)
+    synthetic_shaft_cutting_geometry(after_bundle)
+    after = rules(after_bundle, "finish_coverage")["finish_coverage"]["shoulder_thrust"]
     assert after.status == "error"
     assert set(after.numbers["uncovered_faces"]) == set(before.numbers["required_faces"])

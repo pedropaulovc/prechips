@@ -140,14 +140,16 @@
     {
       "cite": [
         "plan setups S1: hold, zero, stock_state and notes",
-        "kernel setup-entry stock box"
+        "kernel setup-entry stock box",
+        "kernel setup picture: closest_cut and per-op cut_clearances"
       ],
-      "message": "A stated fact cannot be compared: stock_state.top_z is unknown, stock_state.bottom_z is unknown, so the authored stock is not compared.",
+      "message": "A stated fact cannot be compared: stock_state.top_z is unknown, stock_state.bottom_z is unknown, so the authored stock is not compared; the setup picture's nearest cut cannot be compared: CLEARANCE rows for ops 10 are not computed.",
       "numbers": {
-        "claims": 0,
+        "claims": 1,
         "contradictions": [],
         "unchecked": [
-          "stock_state.top_z is unknown, stock_state.bottom_z is unknown, so the authored stock is not compared"
+          "stock_state.top_z is unknown, stock_state.bottom_z is unknown, so the authored stock is not compared",
+          "the setup picture's nearest cut cannot be compared: CLEARANCE rows for ops 10 are not computed"
         ]
       },
       "rule": "consistency",
@@ -157,14 +159,16 @@
     {
       "cite": [
         "plan setups S2: hold, zero, stock_state and notes",
-        "kernel setup-entry stock box"
+        "kernel setup-entry stock box",
+        "kernel setup picture: closest_cut and per-op cut_clearances"
       ],
-      "message": "A stated fact cannot be compared: stock_state.top_z 20 is top_feature step's face, which the kernel finishes at Z 10.0000; no band of step is proved to be its faces' separation, so the departure is not judged.",
+      "message": "A stated fact cannot be compared: stock_state.top_z 20 is top_feature step's face, which the kernel finishes at Z 10.0000; no band of step is proved to be its faces' separation, so the departure is not judged; the setup picture's nearest cut cannot be compared: CLEARANCE rows for ops 10 are not computed.",
       "numbers": {
-        "claims": 1,
+        "claims": 2,
         "contradictions": [],
         "unchecked": [
-          "stock_state.top_z 20 is top_feature step's face, which the kernel finishes at Z 10.0000; no band of step is proved to be its faces' separation, so the departure is not judged"
+          "stock_state.top_z 20 is top_feature step's face, which the kernel finishes at Z 10.0000; no band of step is proved to be its faces' separation, so the departure is not judged",
+          "the setup picture's nearest cut cannot be compared: CLEARANCE rows for ops 10 are not computed"
         ]
       },
       "rule": "consistency",
@@ -2015,7 +2019,7 @@
       "subject": "S2"
     }
   ],
-  "hash": "4ea094c1866c3e81b1734abab80f60e1095bea57b67cdbe7817dcc5f3c28288a",
+  "hash": "6276129cc0c873842ac13be0ef7501e88db9894caf12ccbf0bc98285e29f512b",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -2035,11 +2039,11 @@
     },
     "render:S1": {
       "path": "setup-S1.png",
-      "sha256": "edf18752107b68218f6a09eb9a9938ae7c774c348bdb9a6f2c5b6eb819db43b6"
+      "sha256": "dbedae50bfb327a19ece49a9ee513916cfffbb7a8cd0bb2f55eee81e72f43d6b"
     },
     "render:S2": {
       "path": "setup-S2.png",
-      "sha256": "529d85b1a18e36f3259b12fe2e9489e5aed37216e215feef29bc0f6af8d2f91d"
+      "sha256": "3bf0e721a07e542fec1491bf0370f73584cedf71bd6b5a68c938fe8a4f3ecc06"
     },
     "shop_policy": {
       "path": "examples/geometry/shop-policy.toml",
@@ -2101,7 +2105,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "edf18752107b68218f6a09eb9a9938ae7c774c348bdb9a6f2c5b6eb819db43b6"
+      "sha256": "dbedae50bfb327a19ece49a9ee513916cfffbb7a8cd0bb2f55eee81e72f43d6b"
     },
     "S2": {
       "fixture": "modeled",
@@ -2170,10 +2174,10 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "529d85b1a18e36f3259b12fe2e9489e5aed37216e215feef29bc0f6af8d2f91d"
+      "sha256": "3bf0e721a07e542fec1491bf0370f73584cedf71bd6b5a68c938fe8a4f3ecc06"
     }
   },
-  "rules_version": "m5-rev10",
+  "rules_version": "m5-rev11",
   "step_sha256": "6eb79bedf8985fb140b6f6bc5c4561c0c929f0f9332e124816ea752d6979caca",
   "verification": "planned"
 }

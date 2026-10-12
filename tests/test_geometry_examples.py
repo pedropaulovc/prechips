@@ -305,14 +305,14 @@ def test_declared_pose_is_what_completes_the_scene(tmp_path, freecad_kernel):
     )
 
 
-def test_reference_rocker_arm_binds_the_labelled_export_and_models_each_setup(
+def test_reference_rocker_arm_binds_the_labelled_export_without_certifying_example_dimensions(
     tmp_path, pilot_kernel_cache
 ):
     examples = copy_examples(tmp_path)
     plan = examples / "rocker-arm" / "plan.toml"
     pilot_kernel_cache(plan)
     result, report, _ = traveler(plan, tmp_path / "ref")
-    assert result.returncode == 0, result.stderr
+    assert result.returncode == report["expected_exit"] == 4, result.stderr
     raw = (examples / "rocker-arm" / "rocker-arm.STEP").read_bytes()
     assert (
         report["step_sha256"]
@@ -320,19 +320,23 @@ def test_reference_rocker_arm_binds_the_labelled_export_and_models_each_setup(
         == hashlib.sha256(raw).hexdigest()
     )
     assert report["inputs"]["step"]["path"] == "examples/rocker-arm/rocker-arm.STEP"
-    prep = {"P1", "P2", "P3", "P4", "P5"}
-    assert set(report["renders"]) == prep | {"S1", "S2", "S3", "S3F", "S4"}
+    # Only the initial stock has a render: its illustrative preparation cutter cannot
+    # derive the stock handed to the remaining setups.
+    assert set(report["renders"]) == {"P1"}
+    prepared = finding(report, "prepared_blank", "stock.prepared")
+    assert prepared["status"] == "unknown"
+    assert "cutter radius is unknown" in prepared["message"]
     for _setup, render in report["renders"].items():
-        assert render["fixture"] == "modeled"
-        assert render["scene"]["debts"] == []
-        assert all(component["exact"] for component in render["scene"]["components"])
+        assert render["fixture"] != "modeled"
+        assert render["scene"]["debts"]
         image = (tmp_path / "ref" / render["path"]).read_bytes()
         assert image.startswith(b"\x89PNG\r\n\x1a\n")
         assert hashlib.sha256(image).hexdigest() == render["sha256"]
     for subject in ("S2:10", "S3:20"):
-        assert finding(report, "accessibility", subject)["status"] != "unknown"
+        assert finding(report, "accessibility", subject)["status"] == "unknown"
     coverage = finding(report, "coverage", "rocker-arm")
-    assert coverage["numbers"]["claimed_face_count"] == coverage["numbers"]["face_count"]
+    assert coverage["status"] == "unknown"
+    assert coverage["numbers"]["claimed_face_count"] == coverage["numbers"]["face_count"] == 18
     assert coverage["numbers"]["unclaimed_faces"] == []
 
 

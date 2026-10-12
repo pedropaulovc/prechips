@@ -15,6 +15,7 @@ from urllib.parse import urlsplit
 from urllib.request import url2pathname
 
 import pytest
+from test_envelope_m5 import measured
 from test_sheet_ops import Markup, content
 from test_sheet_ops import printed_sheet as printed_sheet
 
@@ -92,6 +93,14 @@ def test_long_rough_and_finish_lathe_tables_keep_every_page_counted_and_sheets_o
     # A 0.01 axial step and a 1.0 rough leave run the shaft's S2 dome rough and finish
     # tables, printed side by side when short, over several pages each, unequal in length.
     bundle = load_bundle(ROOT / "examples" / "pivot-shaft" / "plan.toml")
+    # The long compensated dome table needs its own known nose and DRO grid,
+    # not a blanket certification of the shipped shaft inventory.
+    bundle.inventory["machines"]["PM-1127VF-LB"]["resolution_mm"] = measured(0.01)
+    bundle.inventory["tools"]["hss-toolbit-3-8-rh"].update(
+        nose_radius_mm=measured(0.4),
+        entering_angle_deg=measured(93.0),
+        insert_angle_deg=measured(60.0),
+    )
     (dome,) = (
         op
         for setup in bundle.plan["setups"]

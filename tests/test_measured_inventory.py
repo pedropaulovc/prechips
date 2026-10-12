@@ -9,7 +9,12 @@ from prechips.measurements import angle_fact, length_fact, nominal_angle_deg, no
 from prechips.model import Inventory
 from prechips.rules.resolution import length_mm, resolve
 
-MEASURED = {"by": "test machinist", "date": "2026-01-15", "instrument": "height gauge"}
+MEASURED = {
+    "status": "measured",
+    "by": "test machinist",
+    "date": "2026-01-15",
+    "instrument": "height gauge",
+}
 
 
 def inventory(values):
@@ -23,7 +28,7 @@ def measured(value, **metadata):
 @pytest.mark.parametrize(
     "metadata",
     [
-        {"by": "machinist", "date": "2026-01-15"},
+        {"status": "measured", "by": "machinist", "date": "2026-01-15"},
         {**MEASURED, "by": " "},
         {**MEASURED, "date": "unknown"},
         {**MEASURED, "date": "yesterday"},
@@ -382,6 +387,7 @@ def test_root_and_block_measurements_never_certify_a_bare_value():
         "verified": False,
         "cite": [],
         "reason": length_fact({"gauge_len_mm": 40}, "gauge_len")["reason"],
+        "measurement_status": "unknown",
     }
     assert length_fact(item, "envelope.travel.x")["verified"] is False
     assert length_fact(item, "envelope.travel.x")["value"] == 500
@@ -393,7 +399,8 @@ def test_local_verify_debt_survives_its_own_measurement(verify):
     x = length_fact(item, "envelope.travel.x", require_measured=False)
     assert (x["value"], x["verified"]) == (500, False)
     assert length_fact(item, "envelope.travel.y")["verified"] is True
-    assert length_mm(item, "envelope.travel.x") == 500
+    assert length_mm(item, "envelope.travel.x") == "unknown"
+    assert nominal_length_mm(item, "envelope.travel.x") == 500
 
 
 def test_unmeasured_local_fact_is_nominal_only_when_measurement_is_not_required():
@@ -474,7 +481,7 @@ def test_missing_values_or_explicit_units_stay_unknown(item):
 @pytest.mark.parametrize(
     "metadata",
     [
-        {"by": "tester"},
+        {"status": "measured", "by": "tester"},
         {**MEASURED, "date": "yesterday"},
     ],
 )

@@ -9,6 +9,7 @@ import math
 
 import pytest
 from test_cli import SYNTHETIC_KERNEL, copy_examples, run_cli
+from test_envelope_m5 import measured
 from test_process_features import rules
 from test_process_route import HEADER, drop_setup_key, evaluate, rewrite
 
@@ -241,7 +242,16 @@ def hold_sent(plan, setup):
 def test_the_jaw_round_bar_must_resolve_before_the_vise_is_placed(tmp_path, bar, placed):
     plan = bracket(tmp_path)
     rewrite(plan, ("hold", "P2"), "jaw_bar", bar)
-    hold = hold_sent(plan, "P2")
+    bundle = load_bundle(plan)
+    # The resolving scenario owns its round bar and support height; the shipped
+    # bar's illustrative label is never treated as a measurement.
+    bundle.inventory["fixtures"]["jaw-round-bar"].update(
+        dia_mm=measured(6.35), length_mm=measured(152.4)
+    )
+    bundle.inventory["fixtures"]["parallels-lms-6745"]["members"]["1in"]["height_in"] = measured(1)
+    hold = next(entry for entry in engine_job(build_job(bundle))["setups"] if entry["id"] == "P2")[
+        "hold"
+    ]
     if placed:
         assert hold["jaw_bar"]["dia_mm"] == pytest.approx(6.35)
         assert "reason" not in hold
@@ -252,8 +262,8 @@ def test_the_jaw_round_bar_must_resolve_before_the_vise_is_placed(tmp_path, bar,
 
 _BUTTONS = '\n[fixtures.jaw-buttons]\nkind = "jaw_buttons"\nname = "two jaw buttons with spigots"\n'
 _MEASURED = (
-    "{{ value = {}, measured = {{ by = "
-    '"example (plausible, not measured)", date = "2026-10-05", instrument = "caliper" }} }}'
+    '{{ value = {}, measured = {{ status = "measured", by = '
+    '"synthetic test operator", date = "2026-10-05", instrument = "caliper" }} }}'
 )
 
 
@@ -280,7 +290,13 @@ def test_jaw_buttons_must_resolve_every_measurement_before_the_vise_is_placed(
     )
     inventory.write_text(inventory.read_text(encoding="utf-8") + _BUTTONS + item, encoding="utf-8")
     rewrite(plan, ("hold", "P4"), "jaw_buttons", reference)
-    hold = hold_sent(plan, "P4")
+    bundle = load_bundle(plan)
+    bundle.inventory["fixtures"]["parallels-lms-6745"]["members"]["1-1-4in"]["height_in"] = (
+        measured(1.25)
+    )
+    hold = next(entry for entry in engine_job(build_job(bundle))["setups"] if entry["id"] == "P4")[
+        "hold"
+    ]
     if placed:
         assert hold["jaw_buttons"] == {"name": "jaw-buttons", **sizes}
         assert "reason" not in hold
@@ -291,7 +307,29 @@ def test_jaw_buttons_must_resolve_every_measurement_before_the_vise_is_placed(
 
 def test_a_mill_process_face_on_a_drawing_plane_never_claims_that_face(tmp_path, freecad_kernel):
     plan = bracket(tmp_path)
-    before = rules(load_bundle(plan), "coverage")["coverage"]["pivot-bracket"]
+
+    def known_cut_bundle():
+        bundle = load_bundle(plan)
+        # This ownership comparison needs the actual cut stock, including the filed arch.
+        # Supply finite synthetic cutting evidence only for this native scenario.
+        synthetic_prep_geometry(bundle)
+        machine = bundle.inventory["machines"]["PM-30MV"]
+        machine["spindle"]["rotation"] = {"value": "cw", "measured": measured(0)["measured"]}
+        tools = bundle.inventory["tools"]
+        tools["endmills-lms-6784"]["members"]["3-8in-4fl"]["dia_mm"] = measured(9.525)
+        tools["bracket-long-endmill"]["dia_mm"] = measured(9.525)
+        tools["bracket-long-spot-drill"].update(dia_mm=measured(6.35), point_angle=measured(120))
+        tools["bracket-spot-drill"].update(dia_mm=measured(9.525), point_angle=measured(120))
+        for member, diameter in (("#15", 4.572), ("D", 6.2484)):
+            tools["drill-index-115"]["members"][member].update(
+                dia_mm=measured(diameter), point_angle=measured(118)
+            )
+        tools["reamers-metric"]["members"]["6.5mm"].update(
+            dia_mm=measured(6.512), lead_mm=measured(1.0)
+        )
+        return bundle
+
+    before = rules(known_cut_bundle(), "coverage")["coverage"]["pivot-bracket"]
     assert before.status == "pass"
     # The same S1 facing pass, now preparing a plan process face laid on the seat plane
     # (model y = 0, material on +y): it removes the same slab, yet claims no STEP face.
@@ -305,7 +343,7 @@ def test_a_mill_process_face_on_a_drawing_plane_never_claims_that_face(tmp_path,
         + 'cite = ["test: a process face on the exported seat plane"]\n',
         encoding="utf-8",
     )
-    after = rules(load_bundle(plan), "coverage")["coverage"]["pivot-bracket"]
+    after = rules(known_cut_bundle(), "coverage")["coverage"]["pivot-bracket"]
     assert after.status == "error"
     assert after.numbers["unclaimed_faces"] == ["#473/ADVANCED_FACE[16]/NONE"]
 
@@ -330,6 +368,27 @@ def _loose_bar(bundle):
     bundle.inventory["fixtures"]["jaw-round-bar"]["length_mm"]["value"] = 25.4
 
 
+def synthetic_prep_geometry(bundle):
+    """Known preparation cutter and supports, only for the isolated native blank routes."""
+    tool = bundle.inventory["tools"]["endmills-lms-6784"]["members"]["3-4in-4fl"]
+    tool.update(
+        dia_mm=measured(19.05),
+        flute_len_mm=measured(33.3),
+        oal_mm=measured(82.6),
+        projection_mm={"r8-collets-lms-4860/3-4in": measured(57.0)},
+    )
+    bundle.inventory["holders"]["r8-collets-lms-4860"].update(
+        gauge_len_mm=measured(6.0), gauge_dia_mm=measured(31.75), grip_mm=measured(25.0)
+    )
+    pairs = bundle.inventory["fixtures"]["parallels-lms-6745"]["members"]
+    for member, height in (("1-2in", 0.5), ("5-8in", 0.625), ("1in", 1.0), ("1-1-4in", 1.25)):
+        pairs[member]["height_in"] = measured(height)
+    bundle.inventory["fixtures"]["jaw-round-bar"].update(
+        dia_mm=measured(6.35), length_mm=measured(152.4)
+    )
+    bundle.inventory["machines"]["PM-30MV"]["resolution_mm"] = measured(0.005)
+
+
 @pytest.fixture(scope="module")
 def prep_routes(tmp_path_factory, freecad_kernel):
     """``{case: (whole plan, its prep route)}`` after one FreeCAD batch over the routes.
@@ -346,6 +405,8 @@ def prep_routes(tmp_path_factory, freecad_kernel):
     bundles = {}
     for name, (folder, count, change) in cases.items():
         whole, route = (load_bundle(examples / folder / "plan.toml") for _ in range(2))
+        synthetic_prep_geometry(whole)
+        synthetic_prep_geometry(route)
         for bundle in (whole, route) if change else ():
             change(bundle)
         route.plan["setups"] = route.plan["setups"][:count]

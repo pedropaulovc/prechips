@@ -142,7 +142,8 @@ limits. The blade declares its `material` for cutting-data selection and a
 positive `kerf_mm` or `kerf_in`, using the ordinary `MeasuredLength` form or
 trusted nominal scalar. Declaring kerf in both units is rejected, and explicit
 fact-local verification debt withholds geometry. Illustrative example
-measurements must use the examples policy's plausible/not-measured label.
+measurements must carry `status = "illustrative"` and are debt like any other
+unmeasured record.
 
 Saw operations need no spindle taper, holder, shank diameter, tool OAL or
 projection. A mill/bench may host the saw operation but must also declare its
@@ -274,10 +275,12 @@ Every dimension the kernel consumes is a `MeasuredLength`: a plain nominal
 number, or a `{ value, measured, verify }` record. It enters the FreeCAD job
 when it resolves to a positive length through the single-spelling `_mm` /
 `_in` lookup and its own record carries no debt — no `verify = true` or
-`verify = "unknown"`, and no incomplete `measured` record. A nominal number
+`verify = "unknown"`, and no `measured` record that is incomplete or whose
+`status` is not `measured`. A nominal number
 needs no `by`/`date`/`instrument`; a fact whose own record says
-`verify = true` or whose `measured` is incomplete is debt for that dimension
-only. An item's `verify`, `present` or `source` flags, a set root's or member
+`verify = true`, whose `measured` is incomplete, or whose `measured.status` is
+`assumed` or `illustrative` (an omitted status is `assumed`) is debt for that
+dimension only. An item's `verify`, `present` or `source` flags, a set root's or member
 container's flags and `coverage` text are identity provenance for the
 declared-input rules: they never withhold a numeric fact from the kernel, and
 nothing is inherited from them. The M5 `envelope` and `travel` screens read
@@ -326,8 +329,9 @@ Other holding solids come from the same accepted-fact rule, never defaults:
   member such as a strap) may author `solids = [{name, shape, at_mm,
   size_mm}]` boxes or `{name, shape = "cylinder", at_mm, axis, dia_mm,
   length_mm}` cylinders in its own frame. Each primitive is trusted on its
-  own: a primitive whose record carries `verify = true` / `"unknown"` or an
-  incomplete `measured` is not drawn and is named as debt.
+  own: a primitive whose record carries `verify = true` / `"unknown"`, an
+  incomplete `measured` or a `measured` whose status is not `measured` is not
+  drawn and is named as debt.
 - A primitive with `void = true` (a bore, tapped or clearance hole, stud
   slot) is not drawn: it is cut from the same `solids` list's other
   primitives, or only from those it names in `cuts = ["<name>", …]`, and
@@ -559,16 +563,30 @@ my_holder = "unknown"
 ```
 
 For a measured fact replace the unknown with
-`{ value = <actual measurement>, measured = { by = "<operator>", date = "YYYY-MM-DD", instrument = "<actual instrument>" } }`.
-`by`, `date` and `instrument` must be nonblank known strings. Do not put these
-template placeholders into operative inventory. A vendor copy instead carries
-`{ value = <nominal>, verify = true }`.
+`{ value = <actual measurement>, measured = { status = "measured", by = "<operator>", date = "YYYY-MM-DD", instrument = "<actual instrument>" } }`.
+`status` is one of `measured`, `assumed` or `illustrative`; an omitted `status`
+is `assumed`. `by`, `date` and `instrument` must be nonblank known strings. Do
+not put these template placeholders into operative inventory. A vendor copy
+instead carries `{ value = <nominal>, verify = true }`.
+
+**Migration rule.** Set `status = "measured"` only once an actual physical
+measurement of that fact exists, recording who took it, when and with what. A
+placeholder an operator authorised but nobody measured is `status = "assumed"`
+(what an omitted status already means); a worked-example value is
+`status = "illustrative"`. `by` is attribution, never a status: the text in
+`by` is not read to decide trust, so a record like
+`{ by = "example (plausible, not measured)" }` without `status = "measured"`
+is assumed, and one with `status = "measured"` would be trusted whatever `by`
+says. No example, bundle or policy opt-in bypasses this.
 
 Trust is fact-local. A physical dimension an M5 rule reads (envelope limits,
 fixture bed/parallel/support heights, holder gauge and grip, tool OAL, the
 tool/holder projection, cutter diameter, drill point angle, reamer lead) counts
 as measured only when that fact's own record carries a complete
-`measured = { by, date, instrument }` and no `verify = true` or `"unknown"`. Nothing is
+`measured = { status = "measured", by, date, instrument }` and no `verify = true`
+or `"unknown"`. An `assumed` or `illustrative` record (or one with no `status`)
+never qualifies the fact: the row stays `?` and names the status and `by` of
+the record it refused. Nothing is
 inherited or inferred: `measured` on an envelope block, an item root or a
 `source` record is rejected by the schema; `source.verify`, `coverage` text,
 `present`, a date or a citation is provenance, not measurement; an explicit
@@ -579,7 +597,8 @@ and yields `?`, never a pass or a measured overrun. Clearing `verify` without
 a `measured` record is not measurement either. Kernel geometry and engagement
 read the same facts with measurement *not* required, so the readiness they
 report is nominal-geometry readiness, not the physical measurement readiness
-these screens report; both honour the fact's own `verify`/`measured` debt.
+these screens report; both honour the fact's own `verify`/`measured` debt,
+including an assumed or illustrative status.
 
 Each length stem has one authored unit key: `gauge_len_mm` or `gauge_len_in`,
 `oal_mm` or `oal_in`, `projection_mm` or `projection_in`, `bed_height_mm` or
@@ -648,7 +667,7 @@ unavailable physical facts remain unknown.
 
 | Record | Fields |
 |---|---|
-| `Measurement` | Required strings `by`, ISO calendar `date` (`YYYY-MM-DD`), `instrument`; none may be blank or `"unknown"` |
+| `Measurement` | `status`: `"measured"`, `"assumed"` or `"illustrative"` (default `"assumed"` when omitted); required strings `by`, ISO calendar `date` (`YYYY-MM-DD`), `instrument`; none may be blank or `"unknown"`. Only `status = "measured"` with all three complete qualifies a fact |
 | `LengthMeasurement` | Required `value: Number`; optional `measured: Measurement`, `verify: bool` (each may be `"unknown"`); no `cite` |
 | `MeasuredLength` / `MeasuredAngle` | `Number` or `LengthMeasurement` (mm/in, or degrees for `point_angle`) |
 | `LimitsMeasurement` | Required `value: [Number, Number]` (`[least, greatest]`); optional `measured: Measurement`, `verify: bool` (each may be `"unknown"`); no `cite` |
@@ -659,7 +678,8 @@ unavailable physical facts remain unknown.
 
 All envelope/travel fields are optional and accept `"unknown"`; their absence
 remains measurement debt. A date or a citation is provenance, not an automatic
-claim that a fact is measured. Every dimension kernel geometry consumes — tool
+claim that a fact is measured, and neither is the text of `by`: only
+`status = "measured"` is. Every dimension kernel geometry consumes — tool
 `dia` / `flute_len` / `oal`, holder `gauge_dia` / `gauge_len` / `grip`, the
 projection map, vise `jaw_height` / `jaw_width` / `jaw_depth` / `opening` and
 parallels `height` / `length` / `width` — is typed `MeasuredLength`, so a shop

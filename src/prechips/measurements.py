@@ -29,7 +29,7 @@ def length_keys(mapping, part, unit, *, bare=False):
 
 
 def _complete(value):
-    if not isinstance(value, dict) or set(value) != {"by", "date", "instrument"}:
+    if not isinstance(value, dict) or set(value) != {"status", "by", "date", "instrument"}:
         return False
     if not all(
         isinstance(text, str) and text.strip() and text.strip() != UNKNOWN
@@ -48,12 +48,23 @@ def _trust(fact, require_measured):
         if fact.get("verify") is True or fact.get("verify") == UNKNOWN:
             return False, "This fact explicitly requires verification."
         measured = fact.get("measured", UNKNOWN)
-        if _complete(measured):
-            return True, "This fact is qualified by its own complete shop measurement."
+        if isinstance(measured, dict):
+            status = measured.get("status", "assumed")
+            if status != "measured":
+                by = measured.get("by", UNKNOWN)
+                return False, (
+                    f"This fact's measurement is {status} (by: {by}), "
+                    "not a physical shop measurement."
+                )
+            if _complete(measured):
+                return True, "This fact is qualified by its own complete shop measurement."
         if measured != UNKNOWN:
             return False, "This fact's measurement record is incomplete."
     if require_measured:
-        return False, "No complete fact-local measurement (by, date, instrument) is recorded."
+        return False, (
+            "No complete fact-local measurement (status = measured, by, date, instrument) "
+            "is recorded."
+        )
     return True, "Trusted nominal value; this fact declares no verification debt."
 
 
@@ -144,18 +155,37 @@ def _fact(item, value, fact, reason, require_measured):
     verified, trust = _trust(fact, require_measured)
     if value == UNKNOWN:
         verified, trust = False, reason
-    return {"value": value, "verified": verified, "cite": _cites(item), "reason": trust}
+    measured = fact.get("measured") if isinstance(fact, dict) else None
+    status = measured.get("status", "assumed") if isinstance(measured, dict) else UNKNOWN
+    return {
+        "value": value,
+        "verified": verified,
+        "cite": _cites(item),
+        "reason": trust,
+        "measurement_status": status,
+    }
 
 
 def length_fact(item, field, *, require_measured=True):
     """Return a millimetre fact qualified only by its own ``{value, measured, verify}``.
 
-    A complete local measurement qualifies the value unless that fact's own
-    ``verify`` is true or unknown. Item, block and source flags never qualify or
-    disqualify it. A bare nominal is trusted only when ``require_measured`` is false.
+    An explicitly measured, complete local record qualifies the value unless that fact's
+    own ``verify`` is true or unknown. Assumed, illustrative and status-less records never
+    qualify it. A bare nominal is trusted only when ``require_measured`` is false.
     """
     value, fact, reason = _resolve(item, field)
     return _fact(item, value, fact, reason, require_measured)
+
+
+def limits_fact(item, field, *, require_measured=True):
+    """A length-limit pair under the same fact-local trust as ``length_fact``."""
+    value = nominal_limits_mm(item, field)
+    keys = length_keys(item, field, None) if isinstance(item, dict) else []
+    raw = item[keys[0]] if len(keys) == 1 else None
+    fact = raw if isinstance(raw, dict) and "value" in raw else None
+    return _fact(
+        item, value, fact, "No positive ordered length-limit pair is recorded.", require_measured
+    )
 
 
 def _angle(item, field):
@@ -178,7 +208,7 @@ def angle_fact(item, field, *, require_measured=True):
     return _fact(item, value, fact, "No numeric angle in degrees is recorded.", require_measured)
 
 
-def measurement_entry(category, identity, field):
+def measurement_entry(category, identity, field, *, status=None):
     """A report/checklist identity for one consumed fact, including tool/holder pairs."""
     parts = field if isinstance(field, tuple) else tuple(field.split("."))
     canonical = (
@@ -224,9 +254,12 @@ def measurement_entry(category, identity, field):
     elif field == "angle_deg":
         description = "centre drill countersink included angle"
         instrument, units = "protractor", "degrees"
+    instruction = f"measure: {identity} {description}, {instrument}, {units}"
+    if status in {"assumed", "illustrative"}:
+        instruction += f" ({status} value, not physically measured)"
     return {
         "id": identity_field,
-        "instruction": f"measure: {identity} {description}, {instrument}, {units}",
+        "instruction": instruction,
         "units": units,
         "cite": [f"inventory.{identity_field}"],
     }

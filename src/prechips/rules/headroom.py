@@ -90,7 +90,7 @@ def _limit(machine, identity, field, debts, cite):
     cite.extend(result["cite"])
     cite.append(f"inventory.machines.{identity}.{field}")
     if not result["verified"]:
-        entry = measurement_entry("machines", identity, field)
+        entry = measurement_entry("machines", identity, field, status=result["measurement_status"])
         debts[entry["id"]] = entry
     return result
 

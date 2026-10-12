@@ -632,7 +632,8 @@ def test_measured_gauge_resolution_preserves_capability_and_trust(
 ):
     path = bundle_files(tmp_path, _plan())
     measurement = (
-        '{by = "Inspector", date = "2026-10-05", instrument = "Resolution standard"}'
+        '{status = "measured", by = "Inspector", date = "2026-10-05", '
+        'instrument = "Resolution standard"}'
         if measured
         else '"unknown"'
     )

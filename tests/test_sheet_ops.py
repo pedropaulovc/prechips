@@ -7,6 +7,7 @@ import random
 import re
 import subprocess
 import threading
+from copy import deepcopy
 from html import unescape
 from html.parser import HTMLParser
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -921,9 +922,12 @@ def rocker():
 def through(**row):
     """(a sheet over a through op 60's endpoint as tip_endpoints derives it on the rocker's
     S1 0.005 mm DRO grid, the endpoint, the setup)."""
+    from test_envelope_m5 import measured
+
     from prechips.rules.tip_endpoints import _operative
 
-    bundle = rocker()
+    bundle = deepcopy(rocker())
+    bundle.inventory["machines"]["PM-30MV"]["resolution_mm"] = measured(0.005)
     setup = bundle.plan["setups"][0]
     endpoint = {"setup": setup["id"], "op": 60, "entry_z": 0.0, "entry_from": "stock", **row}
     _operative(endpoint, bundle, setup, "top")
@@ -1495,7 +1499,7 @@ def test_a_turn_over_names_where_the_old_plus_x_end_goes(x_after, ends):
     )
 
 
-_MEASURED = {"by": "test", "date": "2026-10-05", "instrument": "caliper"}
+_MEASURED = {"status": "measured", "by": "test", "date": "2026-10-05", "instrument": "caliper"}
 
 
 @pytest.mark.parametrize("unmeasured", [None, "spigot_length_mm", "thickness_mm"])

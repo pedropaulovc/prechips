@@ -14,6 +14,7 @@ import math
 from pathlib import Path
 
 import pytest
+from test_envelope_m5 import measured
 from test_headroom import coordinate_bundle
 
 from prechips.inputs import load_bundle
@@ -264,6 +265,18 @@ def test_a_finish_depth_the_dro_leaves_above_its_face_past_its_band_is_an_error(
 
 def test_rocker_join_records_carry_their_stage_allowance_and_offset():
     bundle = load_bundle(ROCKER)
+    # Known synthetic cutter/DRO/spindle inputs, only for the joined-table contract.
+    machine = bundle.inventory["machines"]["PM-30MV"]
+    machine["resolution_mm"] = measured(0.005)
+    machine["spindle"]["rotation"] = {"value": "cw", "measured": measured(0)["measured"]}
+    for member, diameter in (
+        ("3-8in-2fl", 9.525),
+        ("1-4in-2fl", 6.35),
+        ("1-4in-4fl", 6.35),
+    ):
+        bundle.inventory["tools"]["endmills-lms-6784"]["members"][member]["dia_mm"] = measured(
+            diameter
+        )
     rows = coordinates.evaluate(bundle, pre_kernel=True)
     assert rows
     populations = {
@@ -304,6 +317,17 @@ def _to_segment(point, a, b):
 
 def test_printed_join_points_keep_the_authored_offset_from_every_land_and_taper():
     bundle = load_bundle(ROCKER)
+    machine = bundle.inventory["machines"]["PM-30MV"]
+    machine["resolution_mm"] = measured(0.005)
+    machine["spindle"]["rotation"] = {"value": "cw", "measured": measured(0)["measured"]}
+    for member, diameter in (
+        ("3-8in-2fl", 9.525),
+        ("1-4in-2fl", 6.35),
+        ("1-4in-4fl", 6.35),
+    ):
+        bundle.inventory["tools"]["endmills-lms-6784"]["members"][member]["dia_mm"] = measured(
+            diameter
+        )
     features = bundle.feature_definitions
     frames = bundle.features["frames"]
     setups = {setup["id"]: setup for setup in bundle.plan["setups"]}

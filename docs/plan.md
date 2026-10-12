@@ -902,7 +902,10 @@ exactly two `[x, y]` setup-frame centres of the parallels; together with the
 parallels row's fact-local `height`, `length` (along the jaws) and `width`
 (along the clamp axis) they place two parallel solids with tops at the stock
 seat. Nominal numbers are usable for geometry, not evidence of a measured
-shop setup. Both poses are declarations the author must measure at the bench; the
+shop setup; a plan never carries measurement records, and a shop dimension
+counts as measured only under the inventory's fact-local
+[`measured.status` contract](inventory.md#measured-envelopes-and-installed-tool-stacks-m5).
+Both poses are declarations the author must measure at the bench; the
 kernel never infers a jaw centre or a parallel position, and only a setup
 with exact jaws and, when selected, exact parallels is captioned as modeled.
 Either field may be `"unknown"` (any unknown coordinate is a render debt, not

@@ -39,7 +39,12 @@ bored.cut(Part.makeCylinder(3, 3, V(32, 10, 8))).exportStep(out + "/relieved.ste
 bored.cut(Part.makeCylinder(3, 12, V(32, 10, -1))).exportStep(out + "/cross-relieved.step")
 """
 
-MEASURED = {"by": "test", "date": "2026-10-05", "instrument": "test fixture author"}
+MEASURED = {
+    "status": "measured",
+    "by": "test",
+    "date": "2026-10-05",
+    "instrument": "test fixture author",
+}
 
 
 @pytest.fixture(scope="module")

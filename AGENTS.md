@@ -17,16 +17,22 @@ telemetry live beside them.
 Everything under `examples/` (shop inventory, policy, cutting data, plans and
 example features) is **illustrative**; real shop inputs come later. The examples
 carry a plausible value for every fact the checker consumes so that each pilot
-bundle shows a complete, passing route. Every invented physical fact is labelled
-fact-locally as
-`measured = { by = "example (plausible, not measured)", date = "2026-10-05", instrument = "<plausible instrument>" }`;
+bundle shows a complete route; those values are not measurements, so rules
+that require one stay `?` and the expected exits in
+[examples/README.md](examples/README.md#expected-consumer-cli-exits) record
+that honestly. Every invented physical fact is labelled fact-locally as
+`measured = { status = "illustrative", by = "example (plausible, not measured)", date = "2026-10-05", instrument = "<plausible instrument>" }`;
 invented non-length facts (cutting-data rows, policy floors, gauge/identity
 confirmations) carry a cite or comment that names them as example values. Real
-measurements (for example `fixtures.vise-pm-6`, measured by Pedro Paulo Vezza
-Campos) keep their real `by`; never relabel or overwrite them. Do not revert the
+measurements (the five `fixtures.vise-pm-6` facts measured by Pedro Paulo Vezza
+Campos, and the soft-jaw item's copy of that vise's bed height) carry
+`status = "measured"` and their real `by`; never relabel or
+overwrite them, and never set `status = "measured"` on a value nobody
+physically measured. Do not revert the
 example values back to `"unknown"`, and do not copy them into a real shop file:
 they are not evidence. The checker's semantics do **not** change for examples:
-`unknown` is never a pass, missing data stays `?`, verify debt stays debt and exit
+`unknown` is never a pass, missing data stays `?`, verify debt stays debt, an
+`illustrative`/`assumed` record is debt, and exit
 codes are unchanged. Engine limitations are fixed in the engine, not worked around
 with example-specific special cases.
 
@@ -43,7 +49,9 @@ than inventing a gauge. Preserve source citations
 next to the facts they support; author's process choices are not measured facts.
 M5 physical dimensions (machine `envelope` limits, fixture bed height, holder
 gauge/grip, tool OAL and tool/holder projection) require a fact-local
-`{ value, measured = { by, date, instrument } }`; `verify = false` alone, a
+`{ value, measured = { status = "measured", by, date, instrument } }`; an
+omitted `status` is `assumed`, `by` is attribution the rules never read for
+trust, and `verify = false` alone, a
 block/root/source record, a date or a citation is not evidence, and a vendor
 nominal is evidence in `numbers`, never a certificate. The mill's limits live
 only in `machines.<id>.envelope`; projection is a per-holder map on the tool,

@@ -13,7 +13,7 @@ carries the list.
 from __future__ import annotations
 
 from ..findings import Finding
-from ..measurements import nominal_limits_mm
+from ..measurements import limits_fact
 from .resolution import (
     UNKNOWN,
     authored,
@@ -84,7 +84,8 @@ def _limit(item, check):
     stem = name.removesuffix("_mm").removesuffix("_in")
     if name not in item:
         return {"limits_mm": UNKNOWN}, f"limits {name} is not stated on the item"
-    pair = nominal_limits_mm(item, stem)
+    fact = limits_fact(item, stem, require_measured=False)
+    pair = fact["value"] if fact["verified"] else UNKNOWN
     if _known_pair(pair):
         return {"limits_mm": pair}, None
     single = length_mm(item, stem)

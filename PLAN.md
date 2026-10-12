@@ -515,8 +515,10 @@ the sample's BS-0 carries all three, circles `verify = true`). A value copied fr
 `verify = true` and anything that depends on it is a `?` on the sheet, never
 a silent pass. The sample inventory carries the PM 6 in vise with
 shop-measured `jaw_height_in`, `jaw_width_in`, `jaw_depth_in`, `opening_in`
-and `bed_height_in` (2026-10-05; item-level `verify = true` kept as identity
-debt) and the PM-30MV envelope (`envelope.travel_in`,
+and `bed_height_in` (2026-10-05, `status = "measured"`; item-level
+`verify = true` kept as identity debt), every other invented sample dimension
+labelled `status = "illustrative"` (debt wherever a rule reads it), and the
+PM-30MV envelope (`envelope.travel_in`,
 `envelope.spindle_to_table_max_in`), still `verify = true`.
 
 M5's shipped inventory shape makes `machines.<id>.envelope` the only home for
@@ -524,9 +526,12 @@ the mill limits any rule reads: X/Y/Z travel and spindle-nose-to-table max/min.
 There is no top-level `spindle_to_table_max_in`/`travel_in`/`table_in` copy,
 and no table size, T-slot pitch, spindle taper or spindle-stack entries,
 because no rule consumes them. A length is one fact,
-`{ value, measured = { by, date, instrument }, verify }`, and only that fact's
-own record qualifies it: no block, item-root or source `measured`/`verify`
-inheritance, no coverage heuristics. Holders carry mounted gauge
+`{ value, measured = { status, by, date, instrument }, verify }`, and only that fact's
+own record qualifies it: `status` is `measured`, `assumed` or `illustrative`
+(omitted means `assumed`), only `measured` with complete `by`/`date`/`instrument`
+qualifies, `by` text is never read for trust, and there is no block, item-root
+or source `measured`/`verify`
+inheritance and no coverage heuristics. Holders carry mounted gauge
 (`gauge_len_mm`/`_in`, one spelling) and grip; a tool's projection is a per-pair
 map. Short and qualified keys that resolve to the same selected holder name
 the same pair; duplicate keys for that holder make the projection unknown.
@@ -1313,7 +1318,9 @@ sheet.
    that centre and refuses a buried mouth. The pivot-shaft S0 faces and
    centre-drills the plain end; the saw cut stays a stock prerequisite (the bar
    it is cut from is not declared). The catalogue includes `centre_support`;
-   current reports and frozen bundles use `rules_version = "m5-rev10"`.
+   current reports and frozen bundles use `rules_version = "m5-rev11"`
+   (`m5-rev10` plus fail-closed measurement provenance: only
+   `measured.status = "measured"` is a measurement).
 
    **Mill blank preparation shipped (2026-10-07, round-5 MillPrep):** a
    rectangular root stock's planar `end_face`s are the six blank faces a mill
@@ -1524,9 +1531,13 @@ sheet.
    never a developer's hard-coded home. The cache hashes only engine inputs,
    not host-only finishing, resolved-projection OAL, wording or grip policy.
 
-   The combined catalogue is `m5-rev10`. Geometry reuses M5 fact-local length
-   lookup with nominal facts allowed: only that dimension's own verification
-   or incomplete measurement record withholds it. Item/source/container
+   The combined catalogue is `m5-rev11`. Geometry reuses M5 fact-local length
+   lookup with nominal facts allowed: only that dimension's own verification,
+   incomplete measurement record or non-`measured` status (`assumed`,
+   `illustrative` or omitted) withholds it. A dimension newly withheld by its
+   status changes that bundle's engine job, so such bundles do one cold
+   kernel run under the new catalogue; bundles whose geometry inputs are bare
+   nominals keep their cached entries. Item/source/container
    flags never taint other dimensions. Projection maps use the full selected
    holder reference; an explicitly unknown selected pair stays unknown,
    without an OAL−grip fallback. M5 physical stack/envelope readiness still
@@ -1547,7 +1558,9 @@ sheet.
    production fixture, physical operator/setup verification or approval.
 5. **M5 — measured inventory**: spindle stack, travel limits, holder gauge
    lengths; unresolved envelope checks leave `?`. **Interface implemented;
-   real shop measurements remain separate from illustrative example records.**
+   real shop measurements remain separate from illustrative example records,
+   and only `status = "measured"` records are read as measurements, so the
+   shipped example bundles stop at exit 4 on their illustrative facts.**
    `machines.<id>.envelope` is the
    single machine block (`travel` x/y/z, `spindle_to_table_max`/`min`) read by
    `headroom`, `envelope` and `travel`; the mill's top-level
@@ -1561,7 +1574,9 @@ sheet.
    missing/unverified facts as debt. Current local output freezing and example
    validation are observed as recorded in M3 above; the final full-suite and
    ten-minute CI results remain unobserved.
-   Trust is fact-local `{ value, measured = { by, date, instrument }, verify }`,
+   Trust is fact-local `{ value, measured = { status, by, date, instrument }, verify }`,
+   where only `status = "measured"` with complete metadata qualifies and `by`
+   is attribution the rules never read,
    with no block/root/source inheritance, coverage heuristics or legacy-field
    redirect; a vendor nominal is evidence, never a certificate. The vise
    stack is `bed_height + parallels/supports + physical part height + holder

@@ -12,7 +12,12 @@ from prechips.rules.travel import evaluate
 def measured(value):
     return {
         "value": value,
-        "measured": {"by": "shop tester", "date": "2026-01-01", "instrument": "steel rule"},
+        "measured": {
+            "status": "measured",
+            "by": "shop tester",
+            "date": "2026-01-01",
+            "instrument": "steel rule",
+        },
     }
 
 
@@ -435,7 +440,12 @@ def test_fact_local_measured_axis_overrides_vendor_verify_debt():
         x={
             "value": 45,
             "verify": False,
-            "measured": {"by": "shop", "date": "2026-01-01", "instrument": "steel rule"},
+            "measured": {
+                "status": "measured",
+                "by": "shop",
+                "date": "2026-01-01",
+                "instrument": "steel rule",
+            },
         },
         y="unknown",
         z="unknown",
@@ -732,7 +742,12 @@ def test_inline_measured_drill_diameter_sets_tip_but_not_xy_centre_travel():
     drill["dia_mm"] = {
         "value": 8,
         "verify": False,
-        "measured": {"by": "shop", "date": "2026-01-01", "instrument": "micrometer"},
+        "measured": {
+            "status": "measured",
+            "by": "shop",
+            "date": "2026-01-01",
+            "instrument": "micrometer",
+        },
     }
     finding = evaluate(data)[0]
     assert finding.status == "pass"
@@ -750,7 +765,12 @@ def test_measured_diameter_does_not_certify_verify_true_nominal_drill_point():
     drill["dia_mm"] = {
         "value": 8,
         "verify": False,
-        "measured": {"by": "shop", "date": "2026-01-01", "instrument": "micrometer"},
+        "measured": {
+            "status": "measured",
+            "by": "shop",
+            "date": "2026-01-01",
+            "instrument": "micrometer",
+        },
     }
     machine(data)["envelope"]["travel_mm"]["z"] = measured(1)
     finding = evaluate(data)[0]
@@ -890,7 +910,12 @@ def test_manifest_units_cannot_be_silently_read_as_millimetres(units):
 
 def review_travel_bundle():
     data = bundle()
-    provenance = {"by": "synthetic operator", "date": "2026-10-03", "instrument": "steel rule"}
+    provenance = {
+        "status": "measured",
+        "by": "synthetic operator",
+        "date": "2026-10-03",
+        "instrument": "steel rule",
+    }
 
     def measured(value):
         return {"value": value, "measured": deepcopy(provenance)}

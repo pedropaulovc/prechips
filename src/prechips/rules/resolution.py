@@ -253,9 +253,10 @@ def inventory_record(value):
 
 
 def length_mm(item, field):
-    from prechips.measurements import nominal_length_mm
+    from prechips.measurements import length_fact
 
-    return nominal_length_mm(item, field)
+    fact = length_fact(item, field, require_measured=False)
+    return fact["value"] if fact["verified"] else UNKNOWN
 
 
 # The categories each kind of slot reads, in order; any other slot reads its one category.

@@ -55,9 +55,11 @@ class Rule:
 
 
 MEASUREMENT_RULES = [
+    Rule("blind_depth", tip_endpoints.evaluate),
     Rule("headroom", headroom.evaluate),
     Rule("envelope", envelope.evaluate),
     Rule("travel", travel.evaluate),
+    Rule("turning_deflection", turning_deflection.evaluate),
 ]
 
 RULES: list[Rule] = [
@@ -65,7 +67,6 @@ RULES: list[Rule] = [
     Rule("sizing", sizing.evaluate),
     Rule("op_chain", op_chain.evaluate),
     Rule("order", op_order.evaluate),
-    Rule("blind_depth", tip_endpoints.evaluate),
     Rule("speeds_feeds", speeds_feeds.evaluate),
     Rule("zero_check", zero_recipe.evaluate),
     Rule("coordinates", coordinates.evaluate),
@@ -81,7 +82,6 @@ RULES: list[Rule] = [
     Rule("stickout", stickout.evaluate),
     Rule("stock_diameter", stock_diameter.evaluate),
     Rule("indexing", indexing.evaluate),
-    Rule("turning_deflection", turning_deflection.evaluate),
     Rule("engagement", engagement.evaluate),
     Rule("construction", construction.evaluate),
     Rule("finish_route", finish_route.evaluate),

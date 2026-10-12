@@ -17,8 +17,13 @@ clearance proof, approved route or first article.
 
 The examples are illustrative. Shop facts the checker needs but nobody has
 measured (tool, holder, gauge, machine and fixture dimensions) carry plausible
-values labelled `measured = { by = "example (plausible, not measured)", ... }`;
-Pedro's real `vise-pm-6` measurements are the only true measurements. Cutting
+values labelled `measured = { status = "illustrative", by = "example (plausible, not measured)", ... }`;
+Pedro's real `vise-pm-6` measurements, labelled `status = "measured"`, are the
+only true measurements. An `illustrative` (or `assumed`, the default for an
+omitted status) record is debt wherever a rule reads it: it keeps the
+illustrative number visible as evidence but never certifies the fact, so the
+pilot bundles' required rows that read those facts stay `?` and the bundles
+exit 4 ([expected exits](#expected-consumer-cli-exits)). Cutting
 rows and policy floors cite `example (plausible)`. Unknown semantics are
 unchanged: anything still `unknown` keeps its finding unknown.
 
@@ -94,13 +99,15 @@ Shared inputs:
   verification flags. Categories are `fixtures`, `gauges` and `holders`;
   unavailable facts use the string `"unknown"`. Tool and holder dimensions
   supplied for the illustrative routes carry plausible example values labelled
-  not measured. The centre-drill's 60° centre-seat
+  `status = "illustrative"`, not measured. The centre-drill's 60° centre-seat
   angle is **not** a drill-point angle. Only the PM 6 in vise carries shop
   measurements: on 2026-10-05 Pedro Paulo Vezza Campos measured its jaw
   height (1.7695 in), jaw width (6.247 in), jaw-plate depth (0.7005 / 0.7010 in;
   the larger is recorded, which jaw gave which reading was not noted), maximum
   opening (6.135 in) and table-to-bed height without the swivel base
-  (2.886 in). Each value carries its own `measured` record; the vendor
+  (2.886 in). Each of those five values (and the soft-jaw item's copied bed
+  reading, the same physical vise bed) carries its own
+  `measured = { status = "measured", ... }` record; the vendor
   nominals stay beside it as comments, and the item's `verify = true`
   identity flag is kept. The rocker and bracket plans' jaw-overlap arithmetic
   uses the measured jaw height. Bracket S1/S2/S3 use 19.5453 / 10.3703 /
@@ -137,13 +144,21 @@ are recorded in [PLAN §8 M3](../PLAN.md#8-milestones).
 The operative expectations are in [`tests/test_examples.py`](../tests/test_examples.py).
 The table describes the authored fixture contract. Integration proof and
 remaining acceptance are tracked in [PLAN §8 M3](../PLAN.md#8-milestones).
+Before measurement status existed these four bundles exited **0**, because
+their `example (plausible, not measured)` records were read as shop
+measurements. With those records labelled `status = "illustrative"` the
+required rules that read them stay `?`, and the regenerated reports for all
+four bundles exit **4** (observed on regeneration, no error taking
+precedence). That is the honest result, not a regression to mask: the
+validator still exits 0 because each bundle agrees with its expectation; the
+provenance debt is a separate matter from that gate.
 
 | Part | What it demonstrates | Expected exit |
 |---|---|---|
-| `pivot-shaft` | A short-gripped prep setup (S0) faces the plain end and #2 centre-drills it from the tailstock; then three-jaw drive with the tailstock dead centre in that centre and a follow rest, journals/shoulder/both reliefs/both domes, then indicated rechucks and assembly-dependent plain-end fitting. No final hole, flat or indexing. | **0** |
-| `rocker-arm` | Bounded rough/finish facing inside a retained rail frame, modeled magnetic end stop, permanent rod-hole pin and supported hub ream, the hub filed round to buttons on the pivot bore at the bench (S3F), then shoulder-screw profiling roughed in single-axis stairs and filed to a scribed template, with independently held scrap. | **0** |
-| `pivot-bracket` | Seat-up, foot-top-up and side-on ear setups; full raw-top facing, walls-first/floor-last L-foot relief, arched ear (single-axis stairs, then filed to buttons on the cross bore at the bench), reamed cross-bore and two hold-down holes. The v39 STEP is bound; bands remain explicitly illustrative without a dimensioned drawing. | **0** |
-| `cone-pivot-post/built-up.toml` | Twelve setups: a turned body and head plus cone and crank sleeves bonded into reamed sockets, with dividing-head, bench-cradle, saw-cradle and soft-jaw holds. | **0** |
+| `pivot-shaft` | A short-gripped prep setup (S0) faces the plain end and #2 centre-drills it from the tailstock; then three-jaw drive with the tailstock dead centre in that centre and a follow rest, journals/shoulder/both reliefs/both domes, then indicated rechucks and assembly-dependent plain-end fitting. No final hole, flat or indexing. | **4** (illustrative measurements) |
+| `rocker-arm` | Bounded rough/finish facing inside a retained rail frame, modeled magnetic end stop, permanent rod-hole pin and supported hub ream, the hub filed round to buttons on the pivot bore at the bench (S3F), then shoulder-screw profiling roughed in single-axis stairs and filed to a scribed template, with independently held scrap. | **4** (illustrative measurements) |
+| `pivot-bracket` | Seat-up, foot-top-up and side-on ear setups; full raw-top facing, walls-first/floor-last L-foot relief, arched ear (single-axis stairs, then filed to buttons on the cross bore at the bench), reamed cross-bore and two hold-down holes. The v39 STEP is bound; bands remain explicitly illustrative without a dimensioned drawing. | **4** (illustrative measurements) |
+| `cone-pivot-post/built-up.toml` | Twelve setups: a turned body and head plus cone and crank sleeves bonded into reamed sockets, with dividing-head, bench-cradle, saw-cradle and soft-jaw holds. | **4** (illustrative measurements) |
 
 ### Rocker-arm supported route
 
@@ -387,8 +402,9 @@ T-slot pitch and spindle-stack entries are not modeled; taper remains vendor
 identity under `machines.PM-30MV.spindle`. Fact-local measurement requirements
 are in [the inventory format](../docs/inventory.md). The measured vise bed
 height is documented under shared inputs; unmeasured dimensions follow the
-[examples policy](#examples-policy-plausible-labelled-values). Plausible records
-do not establish real operator/date/instrument measurements.
+[examples policy](#examples-policy-plausible-labelled-values). Illustrative
+records do not establish real operator/date/instrument measurements, and the
+rules refuse them by their `status`, not by reading the `by` text.
 
 `verify = true` with a known nominal number is measurement debt. Vendor
 machine/vise/support geometry, edge-finder dimensions, instrument capability and
@@ -631,8 +647,8 @@ SHA-256 those bytes. The HTML carries the full report hash in
 `<meta name="prechips-report">`; no hash prints on the sheet.
 HTML is an output, not an input to its own report.
 `.gitattributes` pins fixture line endings to LF.
-The implemented rule vocabulary is `m5-rev9` (the combined M4 geometry and M5
-measured-inventory catalogue), as emitted by `report.py`. Regeneration and gate
+The implemented rule vocabulary is `m5-rev11` (the combined M4 geometry and M5
+measured-inventory catalogue with fail-closed measurement status), as emitted by `report.py`. Regeneration and gate
 evidence belongs to [PLAN §8 M3](../PLAN.md#8-milestones).
 The report retains the reference ABI's `message` and `expected_exit` names.
 Finite floats use the JSON encoder's shortest round-trip representation, not drawing-format rounding. Drawing precision

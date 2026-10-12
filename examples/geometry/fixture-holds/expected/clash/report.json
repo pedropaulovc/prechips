@@ -176,46 +176,55 @@
     {
       "cite": [
         "plan setups S1: hold, zero, stock_state and notes",
-        "kernel setup-entry stock box"
+        "kernel setup-entry stock box",
+        "kernel setup picture: closest_cut and per-op cut_clearances"
       ],
-      "message": "Every fact this rule reads agrees with its one source.",
+      "message": "A stated fact cannot be compared: the setup picture's nearest cut cannot be compared: CLEARANCE rows for ops 10 are not computed.",
       "numbers": {
-        "claims": 1,
+        "claims": 2,
         "contradictions": [],
-        "unchecked": []
+        "unchecked": [
+          "the setup picture's nearest cut cannot be compared: CLEARANCE rows for ops 10 are not computed"
+        ]
       },
       "rule": "consistency",
-      "status": "pass",
+      "status": "unknown",
       "subject": "S1"
     },
     {
       "cite": [
         "plan setups S2: hold, zero, stock_state and notes",
-        "kernel setup-entry stock box"
+        "kernel setup-entry stock box",
+        "kernel setup picture: closest_cut and per-op cut_clearances"
       ],
-      "message": "Every fact this rule reads agrees with its one source.",
+      "message": "A stated fact cannot be compared: the setup picture's nearest cut cannot be compared: CLEARANCE rows for ops 10 are not computed.",
       "numbers": {
-        "claims": 1,
+        "claims": 2,
         "contradictions": [],
-        "unchecked": []
+        "unchecked": [
+          "the setup picture's nearest cut cannot be compared: CLEARANCE rows for ops 10 are not computed"
+        ]
       },
       "rule": "consistency",
-      "status": "pass",
+      "status": "unknown",
       "subject": "S2"
     },
     {
       "cite": [
         "plan setups S3: hold, zero, stock_state and notes",
-        "kernel setup-entry stock box"
+        "kernel setup-entry stock box",
+        "kernel setup picture: closest_cut and per-op cut_clearances"
       ],
-      "message": "Every fact this rule reads agrees with its one source.",
+      "message": "A stated fact cannot be compared: the setup picture's nearest cut cannot be compared: CLEARANCE rows for ops 10 are not computed.",
       "numbers": {
-        "claims": 1,
+        "claims": 2,
         "contradictions": [],
-        "unchecked": []
+        "unchecked": [
+          "the setup picture's nearest cut cannot be compared: CLEARANCE rows for ops 10 are not computed"
+        ]
       },
       "rule": "consistency",
-      "status": "pass",
+      "status": "unknown",
       "subject": "S3"
     },
     {
@@ -2889,7 +2898,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "fcb25e063e8e75c48a3d82a96124105c38035154b6ddaeeb21444050a25a281d",
+  "hash": "fb8205b9de647a03930db5a0a591621052655980a1a34a2b0e0e005b721db200",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -2909,15 +2918,15 @@
     },
     "render:S1": {
       "path": "setup-S1.png",
-      "sha256": "ebe3055f84828c172b8d8c3eded7ab3f9132a219f5bf7c3afc38a5bd0aaf4edf"
+      "sha256": "92592140bb468f8b274fbc8348b8c1a2b321ddc26a14cf393840f068e50334e8"
     },
     "render:S2": {
       "path": "setup-S2.png",
-      "sha256": "a50c56b2b03b553a06a22aaa7215799fee462ea06a84be7458a53635c0469a1b"
+      "sha256": "7ad7de2bf679909c8df5b21ea741253dabbeea125f739223d0dc979b2a580af4"
     },
     "render:S3": {
       "path": "setup-S3.png",
-      "sha256": "52784529973d391ccb8f6c17e3f8f2679344ca6472a385ef967ee95c59276e18"
+      "sha256": "79f7e1bb1e736a872fb86506437542f5f68afa9a6d4e399161b6d4445e204bde"
     },
     "shop_policy": {
       "path": "examples/geometry/shop-policy.toml",
@@ -3013,7 +3022,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "ebe3055f84828c172b8d8c3eded7ab3f9132a219f5bf7c3afc38a5bd0aaf4edf"
+      "sha256": "92592140bb468f8b274fbc8348b8c1a2b321ddc26a14cf393840f068e50334e8"
     },
     "S2": {
       "fixture": "unresolved",
@@ -3092,7 +3101,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "a50c56b2b03b553a06a22aaa7215799fee462ea06a84be7458a53635c0469a1b"
+      "sha256": "7ad7de2bf679909c8df5b21ea741253dabbeea125f739223d0dc979b2a580af4"
     },
     "S3": {
       "fixture": "modeled",
@@ -3169,10 +3178,10 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "52784529973d391ccb8f6c17e3f8f2679344ca6472a385ef967ee95c59276e18"
+      "sha256": "79f7e1bb1e736a872fb86506437542f5f68afa9a6d4e399161b6d4445e204bde"
     }
   },
-  "rules_version": "m5-rev10",
+  "rules_version": "m5-rev11",
   "step_sha256": "cbcb933eb13cf48ffe8687036c7a805546f1589ee4199c7cd9ebfff47cff1fac",
   "verification": "planned"
 }

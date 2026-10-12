@@ -25,7 +25,7 @@ import math
 
 from .. import trig
 from ..findings import Finding
-from ..measurements import angle_fact, length_fact
+from ..measurements import angle_fact, length_fact, record_trusted
 from ..model import tolerance_requirements
 from ._bench import manual_bench, not_applicable
 from .datum_consistency import _cuts
@@ -671,18 +671,18 @@ def cut_order(machine, op):
     """(required sign of (n x t)·Z or None, order record) from op direction and spindle.
 
     Only an authored ``conventional``/``climb`` op on a machine whose spindle ``rotation``
-    is declared (bare, or a ``{value, measured}`` fact not flagged ``verify``) has a
+    is declared (bare, or a trusted fact-local record) has a
     cutting order; anything else keeps the order unknown.
     """
     direction = op.get("direction", UNKNOWN)
     rotation = mapping(mapping(machine).get("spindle")).get("rotation", UNKNOWN)
-    flagged = isinstance(rotation, dict) and rotation.get("verify") is True
+    trusted, why = record_trusted(rotation, require_measured=False)
     if isinstance(rotation, dict):
         rotation = rotation.get("value", UNKNOWN)
     if direction not in _CUT_SENSE:
         reason = f"op direction {direction!r} is neither conventional nor climb"
-    elif flagged:
-        reason = "the machine spindle rotation is flagged verify"
+    elif not trusted:
+        reason = f"the machine spindle rotation is unverified: {why}"
     elif rotation not in _SPINDLE_SENSE:
         reason = "the machine spindle rotation is not declared"
     else:

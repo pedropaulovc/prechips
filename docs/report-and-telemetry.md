@@ -8,7 +8,11 @@ and, only when the kernel returned a setup render, `renders`.
 Findings sort lexicographically by `(rule, subject)` and contain `rule`,
 `subject`, `status`, `numbers`, `cite`, `message` (not `sentence` or a separate
 severity). No clock timestamp enters the report.
-The current catalogue is `rules_version = "m5-rev10"`: the M5 review cutover
+The current catalogue is `rules_version = "m5-rev11"`: fail-closed measurement
+provenance (a fact is measured only by its own `measured.status = "measured"`
+with complete `by`/`date`/`instrument`; `assumed`, `illustrative` or an omitted
+status is debt, and `by` text is never read for trust) on top of the `m5-rev10`
+M5 review cutover
 (bed-height vise stack, per-pair tool projection, approach/floor-aware envelope,
 spindle-nose Z travel, unpadded hole centres, one `envelope` machine block,
 fact-local trust, no `holder_stack` rule), dividing-head/child-centre fixes,
@@ -17,7 +21,7 @@ renders, and the examples-complete rules (identity-keyed tool selection, shop-ma
 make operations, face aims, whole-tool clearance with guide stops and op-named
 picture cuts, one-fact consistency across tables and pictures). Changing the
 operative catalogue changes the bound report and invalidates prior approvals;
-reports from earlier catalogues, including `m5-rev9`, must be regenerated and
+reports from earlier catalogues, including `m5-rev10`, must be regenerated and
 reapproved.
 A finding's `numbers.measurements` lists the exact fact ids (set member or
 tool/holder pair included) whose measurement would resolve it; `tools --measure`
@@ -346,8 +350,9 @@ different plan or drawing (both: the first part made is the first article), or
 one recorded for this plan while it still has open items, which approval cannot
 waive — and each `Before S1:` stock prerequisite, such as `obtain the stock —
 not on hand`), the drawing material and finish, a one-line speeds/feeds source,
-the legend `† example fixture dimensions (plausible, not measured): confirm
-before making` when a SHOP-MADE FIXTURE row carries the mark, the DRO manual
+the legend `† assumed/illustrative fixture dimensions: not measured; confirm
+before making` when a SHOP-MADE FIXTURE row carries the mark (a dimension or
+primitive whose own `measured.status` is not `measured`), the DRO manual
 named once, the `DRO resolution:` of each routed machine (its inventory
 `resolution`, or the default grid said as such; a lathe adds whether X reads
 diameter or radius), **STOCK AND ROUTE** (stock size at the DRO resolution of

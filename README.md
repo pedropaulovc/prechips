@@ -161,7 +161,8 @@ package version. `--json` and `--verbose` default off.
   each with what to measure, instrument, units and citation. It is not an
   inventory-wide field walk: nothing no rule reads is listed, and it adds no
   tool purchases or unlisted set members. It evaluates only the host-side
-  measurement rules (headroom, envelope and travel) and never launches FreeCAD;
+  rules that emit measurement debt (headroom, envelope, travel, tip_endpoints
+  / blind_depth and turning_deflection) and never launches FreeCAD;
   referenced inputs and STEP hashes are still validated.
   `--plan` is only valid with `--measure`.
 - **compare** writes `compare.json` and a side-by-side table (JSON with `--json`):
@@ -245,15 +246,20 @@ built-in required-rule set.
 
 M5 machine envelope limits, fixture bed height, holder gauge/grip, tool OAL
 and tool/holder projection need a fact-local
-`measured = { by, date, instrument }`; clearing `verify` alone is not
-measurement, and nothing is inherited from a block, item root or source. The
+`measured = { status = "measured", by, date, instrument }`; `status` is
+`measured`, `assumed` or `illustrative` (omitted means `assumed`), only
+`measured` with complete `by`/`date`/`instrument` qualifies a fact, the text
+of `by` is attribution the rules never read for trust, clearing `verify`
+alone is not measurement, and nothing is inherited from a block, item root or
+source. The
 mill's limits live only in `machines.PM-30MV.envelope` (travel X/Y/Z,
 spindle-to-table max/min), read by `headroom`, `envelope` and `travel` alike;
 the vendor nominals remain unchanged and `verify = true`. The example PM 6 in
 vise has a fact-local measured table-to-bed height of 2.886 in without the
 swivel base; its other measurements and provenance are in the
 [example guide](examples/README.md#files-and-expected-exits). Other example
-dimensions may be labelled plausible, not measured, and do not establish real
+dimensions are labelled `status = "illustrative"`: they are debt for every
+rule that reads them, and do not establish real
 shop capability. A tool's projection is a per-holder map
 (`tools.<tool>.projection_mm.<full holder ref>`), never a holder-wide or
 tool-wide number; when the selected pair has an entry that entry alone
@@ -381,7 +387,9 @@ tool `dia` / `flute_len` / `oal`, the holder `gauge_dia` / `gauge_len` /
 `grip` and the tool/holder projection are read as M5 fact-local length
 facts with measurement not required: a plain nominal number is accepted
 geometry without `by`/`date`/`instrument`, a fact whose own record carries
-`verify = true` or an incomplete `measured` is debt for that dimension only,
+`verify = true`, an incomplete `measured` or a `measured` whose `status` is
+not `measured` (`assumed`, `illustrative` or omitted) is debt for that
+dimension only,
 and an item-level `verify` / `present` / `source` flag never withholds that
 item's numbers from the kernel. The M5 `envelope` / `travel` screens
 separately require complete shop measurements of the same holder gauge/grip,

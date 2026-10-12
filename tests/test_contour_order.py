@@ -4,6 +4,7 @@ import math
 from pathlib import Path
 
 import pytest
+from test_envelope_m5 import measured
 from test_headroom import coordinate_bundle
 
 from prechips.inputs import load_bundle
@@ -87,7 +88,7 @@ def test_outside_contours_follow_spindle_direction_and_setup_frame(
     [
         ("'conventional'", None, "spindle rotation is not declared"),
         ("'conventional'", "'unknown'", "spindle rotation is not declared"),
-        ("'conventional'", "{ value = 'cw', verify = true }", "flagged verify"),
+        ("'conventional'", "{ value = 'cw', verify = true }", "explicitly requires verification"),
         ("'unknown'", "'cw'", "neither conventional nor climb"),
         ("'positive_setup_x'", "'cw'", "neither conventional nor climb"),
     ],
@@ -918,6 +919,20 @@ def test_a_boxed_cut_cannot_resolve_an_entry_without_known_removal_z(tmp_path, e
 
 def test_rocker_seeded_final_entry_keeps_the_finishing_ops_source_and_endpoints():
     bundle = load_bundle(ROCKER)
+    # The entry-source scenario owns a known DRO grid and its three hole-making tools.
+    bundle.inventory["machines"]["PM-30MV"]["resolution_mm"] = measured(0.005)
+    tools = bundle.inventory["tools"]
+    for member in ("3-8in-2fl", "3-8in-4fl"):
+        tools["endmills-lms-6784"]["members"][member]["dia_mm"] = measured(9.525)
+    tools["center-drills-lms-4859"]["members"]["2"].update(
+        dia_mm=measured(1.98), point_angle=measured(118), oal_mm=measured(47.6)
+    )
+    tools["rocker-rod-pilot-drill"]["members"]["1.85mm"].update(
+        dia_mm=measured(1.85), point_angle=measured(118)
+    )
+    tools["rocker-rod-reamer"]["members"]["2.0mm"].update(
+        dia_mm=measured(2.004), lead_mm=measured(0.4)
+    )
     setup = next(s for s in bundle.plan["setups"] if s["id"] == "S2")
     # The seed is the eventual strap face, not the raw material above the hub.
     # Only op 20 cuts that plane; equality must still credit its as-cut DRO Z.
@@ -1065,6 +1080,18 @@ def rocker_profile_chains(bundle):
 @pytest.mark.parametrize("direction", ["conventional", "climb"])
 def test_rocker_outline_fragments_chain_through_the_bottom_arc_in_cutting_order(direction):
     bundle = load_bundle(ROCKER)
+    # Cutter-centre traversal is isolated from the example's unresolved physical evidence.
+    bundle.inventory["machines"]["PM-30MV"]["resolution_mm"] = measured(0.005)
+    bundle.inventory["machines"]["PM-30MV"]["spindle"]["rotation"] = {
+        "value": "cw",
+        "measured": measured(0)["measured"],
+    }
+    for member in ("3-8in-2fl", "3-8in-4fl"):
+        bundle.inventory["tools"]["endmills-lms-6784"]["members"][member]["dia_mm"] = measured(
+            9.525
+        )
+    for member in ("1-4in-2fl", "1-4in-4fl"):
+        bundle.inventory["tools"]["endmills-lms-6784"]["members"][member]["dia_mm"] = measured(6.35)
     for setup in bundle.plan["setups"]:
         for op in setup["ops"]:
             if "contour" in op:

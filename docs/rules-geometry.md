@@ -554,8 +554,10 @@ Numeric fields reach the kernel only when they resolve to a positive
 explicit-unit length through the M5 fact-local lookup with measurement *not*
 required: a plain nominal number, or a `{ value, measured, verify }` record
 whose own `verify` is absent/false and whose `measured`, when present, is
-complete. A fact whose own `verify` is `true`/`"unknown"` or whose `measured`
-record is incomplete is debt for that dimension only. An item-level `verify`,
+complete with `status = "measured"`. A fact whose own `verify` is
+`true`/`"unknown"`, whose `measured` record is incomplete, or whose
+`measured.status` is `assumed` or `illustrative` (omitted means `assumed`) is
+debt for that dimension only. An item-level `verify`,
 `present` or `source` flag, a set root's or member container's flags and
 `coverage` text are identity provenance for the declared-input rules; they
 never withhold a numeric fact from the kernel, and nothing is inherited from

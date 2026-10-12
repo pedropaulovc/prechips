@@ -12,7 +12,7 @@ from prechips.inputs import load_bundle
 from prechips.rules import coordinates
 from prechips.rules.headroom import evaluate
 
-MEASURED = {"by": "test", "date": "2026-10-03", "instrument": "steel rule"}
+MEASURED = {"status": "measured", "by": "test", "date": "2026-10-03", "instrument": "steel rule"}
 
 
 def measured(value):
