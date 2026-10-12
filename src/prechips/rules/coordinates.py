@@ -3124,10 +3124,17 @@ def _join_stock(holes, walls):
             hits = []
             for p, q in legs:
                 direction = [q[i] - p[i] for i in range(2)]
+                relative = [p[i] - face[i] for i in range(2)]
                 divisor = _cross(normal, direction)
                 if abs(divisor) < 1e-15:
+                    if abs(_cross(relative, normal)) <= _WALL_TOL:
+                        depths = [
+                            sum((point[i] - face[i]) * normal[i] for i in range(2))
+                            for point in (p, q)
+                        ]
+                        if max(depths) >= -_WALL_TOL:
+                            hits.append(max(0.0, min(depths)))
                     continue
-                relative = [p[i] - face[i] for i in range(2)]
                 along = _fraction(_cross(relative, normal) / divisor)
                 depth = _cross(relative, direction) / divisor
                 if along is not None and depth >= -_WALL_TOL:

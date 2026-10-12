@@ -842,6 +842,37 @@ def test_kernel_excludes_invalid_short_chain_joins_before_validation(tmp_path):
     assert profile["stock_left_mm"] == arc["stock_left_mm"]
 
 
+@pytest.mark.parametrize(("cap", "over_cap"), [(1.0, True), (2.1, False)])
+def test_retained_chain_join_normal_aligned_breakout_reports_actual_stock(cap, over_cap):
+    wall = [[0.0, 0.0], [10.0, 0.0]]
+    line = {
+        "dro_xy": [[5.0, 2.0], [5.0, 3.0]],
+        "side": "synthetic",
+        "join_walls": [{"ends": wall, "normal": [0.0, 1.0]}],
+    }
+    errors, debts = coordinates._chain(
+        arcs=[],
+        lines=[line],
+        walls=[lambda point: segment_distance(point, *wall)],
+        drill=0.25,
+        allowance=0.1,
+        cap=cap,
+        label="retained join",
+        scale=1.0,
+    )
+    # At wall X5 the outward normal meets the finite retained breakout first at Y2,
+    # not at the nominal radius-plus-allowance floor of 0.35.
+    assert line["stock_left_mm"] == pytest.approx(2.0)
+    assert line["stock_cap_mm"] == cap
+    assert debts == []
+    assert bool(errors) is over_cap
+    if over_cap:
+        assert any(
+            "leaves up to 2.000" in error and "more than the shop's 1 cap" in error
+            for error in errors
+        )
+
+
 def test_kernel_keeps_only_a_connected_partial_chain_join(tmp_path):
     bundle = load_bundle(joined_chain_plan(tmp_path, bounded=True))
     requested = joined_chain_finding(bundle, pre_kernel=True)
