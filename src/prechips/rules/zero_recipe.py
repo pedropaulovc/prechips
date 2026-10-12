@@ -454,6 +454,7 @@ def _axial_cut_footprint(bundle, setup, op):
     from ..measurements import angle_fact, length_fact
     from ._envelope import measurement_item
     from .coordinates import dro_grid, dro_point, frame_axes, frame_point, planned_point
+    from .tip_endpoints import hole_depth_mm
 
     action = op.get("do")
     if action not in {"spot", "drill", "ream", "counterbore"}:
@@ -493,7 +494,7 @@ def _axial_cut_footprint(bundle, setup, op):
         pilot = length_fact(tool, "pilot_len", require_measured=False)
         body = length_fact(tool, "shank", require_measured=False)
         countersink = angle_fact(tool, "angle_deg", require_measured=False)
-        depth = op.get("depth_mm")
+        depth = hole_depth_mm(op, feature, bundle.features.get("units"))
         if not (
             all(
                 fact["verified"] and number(fact["value"]) and math.isfinite(fact["value"])
@@ -507,7 +508,7 @@ def _axial_cut_footprint(bundle, setup, op):
             and depth > 0
         ):
             return None
-        # The endpoint rounds up, so authored tip depth is a conservative upper
+        # The endpoint rounds up, so resolved tip depth is a conservative upper
         # bound. A combined drill's wider cone starts only after its pilot length.
         radius = min(
             body["value"] / 2,
@@ -1978,7 +1979,7 @@ def _carried_setting(bundle, setup, row, field, constraint=None):
         row.update(constraint)
     desired = row[field]
     grid = dro_grid(bundle, setup)
-    shown = _grid(desired, *grid, False) if number(desired) else UNKNOWN
+    shown = _grid(desired, *grid, True) if number(desired) else UNKNOWN
     if (
         number(shown)
         and shown > desired
@@ -1986,8 +1987,9 @@ def _carried_setting(bundle, setup, row, field, constraint=None):
             shown, desired, rel_tol=0.0, abs_tol=4 * max(math.ulp(shown), math.ulp(desired))
         )
     ):
-        # _grid tolerates a millionth of a step for cut coordinates. Contact
-        # must never inherit a genuinely high setting, only float roundoff.
+        # Start from the upper printed line: a converted inch step recurs, so
+        # its printed line can lie just below the ideal step quotient. Keep
+        # that line only for binary roundoff, never a genuinely higher setting.
         shown = round(shown - grid[0], grid[1])
     row[field] = shown
     scale = UNIT_MM.get(bundle.features.get("units"))

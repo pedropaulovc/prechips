@@ -12,6 +12,7 @@ from types import SimpleNamespace
 
 import pytest
 from test_cli import copy_examples
+from test_contour_order import carried_entry_bundle
 from test_deep_hole_speed import DEEP, drill_bundle
 from test_operative_surface import plan as surface_plan
 from test_process_features import set_process_key, set_tool_fact, shaft
@@ -44,7 +45,7 @@ from prechips.rules import (
     zero_recipe,
 )
 from prechips.rules._bench import manual_bench
-from prechips.rules.resolution import inch_sizes, setup_items
+from prechips.rules.resolution import LENGTH_TOLERANCE_MM, inch_sizes, setup_items
 from prechips.rules.tip_endpoints import evaluate as endpoint_findings
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -1776,6 +1777,28 @@ def test_zero_oracle_moves_a_carried_plunge_footprint_by_its_dialled_aim():
         VALIDATOR["check_zero"](setup, finding, entries, own)
 
 
+@pytest.mark.parametrize(
+    "depth", [0.25, "unknown", None], ids=["op-wins", "op-debt", "feature-only"]
+)
+def test_zero_oracle_keeps_a_centre_drill_footprint_on_the_resolved_op_depth(depth):
+    data = half_step_source_plane()
+    data.feature_definitions["hole"]["depth"] = [0.1, 0.15]
+    spot = data.plan["setups"][-1]["ops"][0]
+    if depth is None:
+        del spot["depth_mm"]
+    else:
+        spot["depth_mm"] = depth
+    setup, entries, own = zero_oracle(data)
+    footprint = VALIDATOR["plunge_footprint"](own, entries, setup, spot)
+    if depth == 0.25:
+        assert footprint is not None
+        assert footprint[1] == pytest.approx(0.15 + 0.05 * math.tan(math.radians(30)))
+    else:
+        assert footprint is None
+    finding = zero_recipe.evaluate(data)[-1].to_dict()
+    VALIDATOR["check_zero"](setup, copy.deepcopy(finding), entries, own)
+
+
 def forge_carry(monkeypatch, target):
     """Patch one checker carry helper to a plausible wrong answer."""
     original = getattr(zero_recipe, target)
@@ -1880,6 +1903,128 @@ def test_endpoint_oracle_reads_a_carried_touch_off_its_typed_setting(thickness):
         forged["blind_depth", "hole"]["numbers"]["endpoints"][index][field] = value
         with pytest.raises(ValueError):
             check(forged)
+
+
+@pytest.mark.parametrize("edge", [21.0055, 21.01], ids=["native-edge", "as-cut-edge"])
+@pytest.mark.parametrize("entry", [21.0055, "unknown"], ids=["native-entry", "unknown-entry"])
+def test_endpoint_oracle_accepts_only_the_nominal_or_unknown_carried_entry(edge, entry):
+    data = carried_entry_bundle()
+    setup = data.plan["setups"][-1]
+    setup["zero"]["z"]["edge_mm"] = edge
+    setup["stock_state"]["entry_z"]["hole"] = entry
+    findings = {(f.rule, f.subject): f.to_dict() for f in endpoint_findings(data)}
+    VALIDATOR["check_endpoints"](
+        data.plan,
+        data.features,
+        findings,
+        VALIDATOR["Entries"](data.inventory),
+        lambda: copy.deepcopy(data.kernel),
+    )
+
+
+@pytest.mark.parametrize(
+    ("below_in", "typed"),
+    [(0.0, 0.827165354), (1e-8, 0.826968504)],
+    ids=["printed-grid-line", "genuinely-below-grid-line"],
+)
+def test_carried_inch_contact_uses_the_printed_grid_line_without_rounding_a_lower_contact_up(
+    below_in, typed
+):
+    data = carried_entry_bundle("in")
+    setup, entries, own = zero_oracle(data)
+    frame = data.features["frames"][setup["frame"]]
+    frame["origin"] = [below_in * value for value in frame["z"]]
+    setup["zero"]["z"]["edge_mm"] -= below_in
+    setup["stock_state"]["entry_z"]["hole"] -= below_in
+    finding = zero_recipe.evaluate(data)[-1].to_dict()
+    contact = finding["numbers"]["axes"]["z"]
+    assert finding["status"] == "pass", finding
+    assert contact["axis_set"] == typed
+    # The genuine displacement is below native LENGTH tolerance, but is not
+    # binary roundoff: even that lower contact must never type the higher line.
+    assert 0 <= contact["setting_residual_mm"] <= 0.005
+    assert contact["setting_residual_mm"] == pytest.approx(
+        (contact["edge_mm"] - typed) * 25.4, abs=1e-9
+    )
+    VALIDATOR["check_zero"](setup, copy.deepcopy(finding), entries, own)
+    findings = {(f.rule, f.subject): f.to_dict() for f in endpoint_findings(data)}
+    assert all(
+        row["dro_entry_z"] == typed
+        for row in findings["blind_depth", "hole"]["numbers"]["endpoints"]
+    )
+    VALIDATOR["check_endpoints"](
+        data.plan, data.features, findings, entries, lambda: copy.deepcopy(data.kernel)
+    )
+
+
+@pytest.mark.parametrize("units", ["mm", "in"])
+@pytest.mark.parametrize("side", [-1, 1])
+@pytest.mark.parametrize("inside", [True, False], ids=["within-tolerance", "past-tolerance"])
+def test_endpoint_oracle_uses_its_own_physical_native_entry_tolerance(units, side, inside):
+    data = carried_entry_bundle(units)
+    setup, entries, own = zero_oracle(data)
+    carried = VALIDATOR["zero_rows"](setup, own, entries)[2][str(setup["ops"][0]["op"])]
+    scale = {"mm": 1.0, "in": 25.4}[units]
+    nominal = carried["native"]
+    # Stay either side of the boundary beyond rigid-frame float residue; this
+    # oracle's native height is independently calculated, not the checker's.
+    fraction = 0.999 if inside else 1.001
+    entry = nominal + side * fraction * LENGTH_TOLERANCE_MM / scale
+    assert (abs(entry - nominal) * scale <= LENGTH_TOLERANCE_MM) is inside
+    setup["stock_state"]["entry_z"]["hole"] = entry
+    findings = {(f.rule, f.subject): f.to_dict() for f in endpoint_findings(data)}
+
+    def check():
+        VALIDATOR["check_endpoints"](
+            data.plan, data.features, findings, entries, lambda: copy.deepcopy(data.kernel)
+        )
+
+    if inside:
+        check()
+    else:
+        with pytest.raises(ValueError, match=r"Bad input: S9 stock_state\.entry_z\.hole"):
+            check()
+
+
+@pytest.mark.parametrize("edge", [21.0055, 21.01], ids=["native-edge", "both-as-cut"])
+def test_endpoint_oracle_rejects_an_as_cut_entry_and_a_self_consistent_double_shift(edge):
+    data = carried_entry_bundle()
+    setup = data.plan["setups"][-1]
+    setup["zero"]["z"]["edge_mm"] = edge
+    setup["stock_state"]["entry_z"]["hole"] = 21.01
+    findings = {(f.rule, f.subject): f.to_dict() for f in endpoint_findings(data)}
+    assert findings["blind_depth", "hole"]["status"] == "error"
+    entries = VALIDATOR["Entries"](data.inventory)
+    grid = VALIDATOR["dro_grid"](setup, data.features, entries)
+
+    def check(report):
+        VALIDATOR["check_endpoints"](
+            data.plan, data.features, report, entries, lambda: copy.deepcopy(data.kernel)
+        )
+
+    with pytest.raises(ValueError, match=r"Bad input: S9 stock_state\.entry_z\.hole"):
+        check(findings)
+    forged = copy.deepcopy(findings)
+    forged["blind_depth", "hole"]["status"] = "pass"
+    shift = 21.01 - 21.0055
+    for row in forged["blind_depth", "hole"]["numbers"]["endpoints"]:
+        row["dro_entry_z"] = VALIDATOR["dro_up"](row["entry_z"] + shift, grid)
+        row["physical_entry_z"] = row["entry_z"] + shift
+        if row["exit_face"] == "not_applicable":
+            worked = row["tip_z"] + shift
+            row["dro_tip_z"] = VALIDATOR["dro_up"](worked, grid)
+            row["dro_depth_mm"] = row["depth_mm"] - (row["dro_tip_z"] - worked)
+        else:
+            read_exit = row["exit_face"] + shift
+            row["dro_exit_face"] = VALIDATOR["dro_up"](read_exit, grid)
+            row["physical_exit_bound_z"] = row["physical_entry_z"] - row["local_thickness"]
+            row["dro_tip_z"] = VALIDATOR["dro_up"](
+                row["tip_z"] + row["dro_exit_face"] - row["exit_face"], grid
+            )
+            row["dro_exit_mm"] = read_exit - row["point_mm"] - row["dro_tip_z"]
+    assert forged["blind_depth", "hole"]["numbers"]["endpoints"][0]["dro_entry_z"] == 21.015
+    with pytest.raises(ValueError, match=r"Bad input: S9 stock_state\.entry_z\.hole"):
+        check(forged)
 
 
 @pytest.mark.parametrize(

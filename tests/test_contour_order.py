@@ -1592,6 +1592,109 @@ def test_rocker_outline_fragments_chain_through_the_bottom_arc_in_cutting_order(
         assert any(math.dist(line[0], rows[-1]) < 0.05 for line in lines), (subject, arc["op"])
 
 
+def carried_entry_bundle(units="mm"):
+    """The carried source-plane fixture, with a nominal entry in model units."""
+    from test_tool_change_touch import carried_native_source_plane_bundle
+
+    bundle = carried_native_source_plane_bundle()
+    scale = {"mm": 1.0, "in": 25.4}[units]
+    bundle.features["units"] = units
+    for frame in bundle.features["frames"].values():
+        frame["origin"] = [value / scale for value in frame["origin"]]
+    for feature in bundle.feature_definitions.values():
+        if "at" in feature:
+            feature["at"] = [value / scale for value in feature["at"]]
+    for setup in bundle.plan["setups"]:
+        if "zero" in setup:
+            setup["zero"]["z"]["edge_mm"] /= scale
+        for op in setup["ops"]:
+            if "to_z" in op:
+                op["to_z"] /= scale
+    receiver = bundle.plan["setups"][-1]
+    receiver["stock_state"] = {
+        "entry_z": {"hole": 21.0055 / scale},
+        "local_thickness": {"hole": 10.0 / scale},
+    }
+    receiver["ops"][1]["exit_mm"] = 0.5
+    return bundle
+
+
+@pytest.mark.parametrize(
+    ("edge", "entry", "verdict"),
+    [
+        ("native", "native", "pass"),
+        ("as-cut", "native", "pass"),
+        ("native", "as-cut", "error"),
+        ("as-cut", "as-cut", "error"),
+        ("native", "unknown", "unknown"),
+        ("as-cut", "unknown", "unknown"),
+    ],
+)
+def test_a_carried_entry_is_native_even_when_the_authored_touch_edge_is_as_cut(
+    edge, entry, verdict
+):
+    bundle = carried_entry_bundle()
+    setup = bundle.plan["setups"][-1]
+    setup["zero"]["z"]["edge_mm"] = 21.0055 if edge == "native" else 21.01
+    setup["stock_state"]["entry_z"]["hole"] = {
+        "native": 21.0055,
+        "as-cut": 21.01,
+        "unknown": "unknown",
+    }[entry]
+    assert bundle.inventory["tools"]["centre"]["kind"] == "center_drill_set"
+    contact = zero_recipe.evaluate(bundle)[-1]
+    assert contact.status == "pass", contact.sentence
+    finding = next(row for row in tip_endpoints.evaluate(bundle) if row.subject == "hole")
+    assert finding.status == verdict, finding.sentence
+    spot, drill = finding.numbers["endpoints"]
+    if verdict == "pass":
+        assert spot["dro_entry_z"] == drill["dro_entry_z"] == 21.01
+        assert spot["physical_entry_z"] == drill["physical_entry_z"] == pytest.approx(21.01)
+        return
+    assert spot["dro_entry_z"] == drill["dro_entry_z"] == "unknown"
+    assert spot["dro_tip_z"] == drill["dro_tip_z"] == "unknown"
+    assert spot["physical_entry_z"] == drill["physical_entry_z"] == "unknown"
+    assert drill["dro_exit_face"] == drill["physical_exit_bound_z"] == "unknown"
+    if verdict == "error":
+        assert "Bad input" in finding.sentence
+        assert "S9 stock_state.entry_z.hole" in finding.sentence
+        assert "native" in finding.sentence
+    else:
+        assert "Bad input" not in finding.sentence
+
+
+@pytest.mark.parametrize("units", ["mm", "in"])
+@pytest.mark.parametrize("side", [-1, 1])
+@pytest.mark.parametrize("inside", [True, False], ids=["within-tolerance", "past-tolerance"])
+def test_carried_entry_native_equality_uses_the_physical_length_tolerance(units, side, inside):
+    bundle = carried_entry_bundle(units)
+    setup = bundle.plan["setups"][-1]
+    scale = {"mm": 1.0, "in": 25.4}[units]
+    nominal = zero_recipe.carried_z_reading(bundle, setup, setup["ops"][0])["native_edge_mm"]
+    boundary = nominal + side * LENGTH_TOLERANCE_MM / scale
+    entry = math.nextafter(boundary, nominal if inside else side * math.inf)
+    assert (abs(entry - nominal) * scale <= LENGTH_TOLERANCE_MM) is inside
+    setup["stock_state"]["entry_z"]["hole"] = entry
+    finding = next(row for row in tip_endpoints.evaluate(bundle) if row.subject == "hole")
+    assert finding.status == ("pass" if inside else "error"), finding.sentence
+    if not inside:
+        assert "S9 stock_state.entry_z.hole" in finding.sentence
+        assert all(row["dro_entry_z"] == "unknown" for row in finding.numbers["endpoints"])
+
+
+def test_an_unplaced_carried_plane_does_not_invent_a_native_entry_mismatch():
+    bundle = carried_entry_bundle()
+    setup = bundle.plan["setups"][-1]
+    setup["zero"]["z"]["edge_mm"] = setup["stock_state"]["entry_z"]["hole"] = 21.01
+    bundle.plan["setups"][1]["zero"]["z"]["paper_mm"] = "unknown"
+    finding = next(row for row in tip_endpoints.evaluate(bundle) if row.subject == "hole")
+    assert finding.status == "unknown", finding.sentence
+    assert "Bad input" not in finding.sentence
+    assert all(
+        row["dro_entry_z"] == row["dro_tip_z"] == "unknown" for row in finding.numbers["endpoints"]
+    )
+
+
 @pytest.mark.parametrize("paper", [0.0, 0.0024])
 @pytest.mark.parametrize("route", ["primary-derived", "explicit-touch", "listed-retouch"])
 def test_non_grid_carried_contact_anchors_operation_entry_depth_and_exit_to_its_typed_setting(

@@ -31,8 +31,8 @@ ZERO = "[setups.zero.z]\nface = '{}'\n{}method = 'paper'\npaper_mm = 0.05\ncheck
 MILL = "[machines.mill]\nkind = 'mill'\n"
 
 
-def setup(sid):
-    """A same-frame fine-grid setup that receives S1's stock, its top on S1's face."""
+def setup(sid, touch_edge=NOMINAL):
+    """A fine-grid setup receiving S1's stock; its touch names the standing face."""
     return (
         f"[[setups]]\nid = '{sid}'\nmachine = 'mill'\nframe = 'A'\nstock_in = 'S1'\n"
         "coolant = 'unknown'\ndeburr_mm = 'unknown'\n"
@@ -40,7 +40,7 @@ def setup(sid):
         "clamp = 'unknown'\nfixed_jaw = 'unknown'\n"
         f"[setups.stock_state]\ntop_z = {NOMINAL}\nbottom_z = -10.0\n"
         f"entry_z = {{ hole = {NOMINAL} }}\nlocal_thickness = {{ hole = 7.72175 }}\n"
-        + ZERO.format("target", f"edge_mm = {NOMINAL}\n")
+        + ZERO.format("target", f"edge_mm = {touch_edge}\n")
     )
 
 
@@ -76,20 +76,33 @@ def bundle(tmp_path, features, operations, coarse=False):
     return path
 
 
-def plan(tmp_path, exit_mm=1.0, depth=None, do="drill", drilled=BLIND, coarse=False, detour=None):
+def plan(
+    tmp_path,
+    exit_mm=1.0,
+    depth=None,
+    do="drill",
+    drilled=BLIND,
+    coarse=False,
+    detour=None,
+    touch_edge=None,
+):
     """S1 finishes ``target`` to Z -2.27825; S2, same frame, receives S1's stock, starts on
     it, zeroes Z on it and ``do``-s ``hole`` from it: through the 7.72175 mm below it,
     ``exit_mm`` past the exit face, or, given a ``depth`` band (or bare upper limit),
     blind and ``drilled`` deep. Given a ``detour`` Z, an S2 that also receives S1's stock
-    refaces ``target`` to it first, and the consumer is S3, which never receives that cut."""
+    refaces ``target`` to it first, and the consumer is S3, which never receives that cut.
+    Coarse-source pickups touch its known as-cut -2.27, not the off-grid CAD nominal;
+    CAD-native entry and local thickness remain unchanged."""
     features = FEATURES
     if depth is not None:
         features = FEATURES.replace("thru = true\n", f"thru = false\ndepth = {depth}\n")
+    if touch_edge is None:
+        touch_edge = -2.27 if coarse else NOMINAL
     operations = (
         ZERO.format("top", "")
         + face(10, NOMINAL)
-        + (setup("S2") + face(10, detour) if detour is not None else "")
-        + setup("S2" if detour is None else "S3")
+        + (setup("S2", touch_edge) + face(10, detour) if detour is not None else "")
+        + setup("S2" if detour is None else "S3", touch_edge)
         + f"[[setups.ops]]\nop = 10\ndo = '{do}'\nfeature = 'hole'\ntool = 'drill'\n"
         + (f"exit_mm = {exit_mm}\n" if depth is None else f"depth_mm = {drilled}\n")
     )
@@ -177,6 +190,26 @@ def test_later_setup_prints_the_checked_as_cut_face(tmp_path, coarse, checked):
     assert exit_face == -10.0
     assert on_grid(tip) and endpoint["tip_z"] <= tip < endpoint["tip_z"] + STEP
     assert "-2.278" not in text and (not coarse or "-2.275" not in text)
+
+
+def test_later_setup_rejects_raw_touch_edge_on_the_wrong_grid(tmp_path):
+    """Legacy declared bounds are not native-plane credit for a different DRO step."""
+    _, report, _ = traveler(
+        plan(tmp_path, coarse=True, touch_edge=NOMINAL),
+        tmp_path / "out",
+        setup=SYNTHETIC_KERNEL,
+    )
+    row = next(
+        row for row in report["findings"] if (row["rule"], row["subject"]) == ("zero_check", "S2")
+    )
+    assert row["status"] == "error"
+    mismatch = re.search(
+        r"uses edge (-?\d+(?:\.\d+)?) \(DRO Z (-?\d+(?:\.\d+)?)\); "
+        r"the face stands at (-?\d+(?:\.\d+)?)",
+        row["message"],
+    )
+    assert mismatch is not None
+    assert tuple(map(float, mismatch.groups())) == (NOMINAL, -2.275, -2.27)
 
 
 def test_top_zero_after_an_op_is_the_top_that_op_left(tmp_path):
