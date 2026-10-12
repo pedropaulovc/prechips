@@ -235,6 +235,74 @@ def test_chain_drill_prints_holes_then_breakout_and_filing_stock(tmp_path):
     assert "cap 0.5 mm" in content(breakout)
 
 
+@pytest.mark.parametrize("recut_by", [None, "S1:30"])
+def test_chain_drill_straight_joins_keep_checkpoints_clips_and_stock(tmp_path, recut_by):
+    line = {
+        "method": "chain_drill",
+        "op": 20,
+        "stage": "rough",
+        "side": "west",
+        "setup_xy": [[12.8, 1.5], [12.8, 4]],
+        "model_xy": [[12.8, 1.5], [12.8, 4]],
+        "dro_xy": [[12.8, 1.5], [12.8, 4]],
+        "dro_tip_z": -2.125,
+        "drill_dia_mm": 2,
+        "pitch_mm": 2.5,
+        "hole_clear_mm": 0.2,
+        "stock_left_mm": 1.2,
+        "stock_cap_mm": 1.5,
+        "break_out": "chisel the webs out along the hole line",
+        "overshoot": [True, False],
+        "clipped_at": [True, True],
+        "fragment": [1, 2],
+    }
+    if recut_by:
+        line["recut_by"] = recut_by
+    sheet, setup = traveler(
+        tmp_path,
+        [{"op": 20, "do": "rough_profile", "feature": "arc", "tool": "cutter"}],
+        {
+            "line_table": [line],
+            "profiles": [
+                {
+                    "op": 20,
+                    "contour": {"method": "chain_drill"},
+                    "cutter_centre": [[99, 88]],
+                }
+            ],
+        },
+    )
+    key = row_id("S1:20", "line_table", line, 0)
+    sheet.records[("accessibility", "S1:20")] = {"checkpoint_overshoot_ok": [key]}
+    html = sheet.contours(setup, {("tools", "cutter"): "2 mm drill"})
+    markup, owner, tables = coordinate_tables(html)
+    (table,) = tables
+    assert headers(markup, table) == ["hole #", "P", "", "X", "Y"]
+    rows = table_rows(markup, table)
+    assert rows[0][:2] == ["1", "P1"]
+    assert rows[0][-2:] == ["12.800", "1.500"]
+    assert rows[0][2], "proven overshoot must retain its annotation"
+    assert rows[1] == ["2", "P2", "", "12.800", "4.000"]
+    printed = text(html)
+    assert "99.000" not in printed, "join-only chain must not print a generic path too"
+    assert "Chain drill straight joins" in printed
+    assert "drill Ø2 mm" in printed and "pitch 2.5 mm" in printed
+    assert "every hole outside the finished outline" in printed
+    assert "starts at P1 and stops at P2" in printed
+    assert "piece 1 of 2: no cut links the pieces" in printed
+    assert "Z -2.125" in printed
+    assert "handwheel" not in printed and "stair" not in printed
+    assert "chisel the webs out along the hole line" in printed
+    assert "at most 1.200 mm for " + (recut_by or "the file") in printed
+    assert ("cap 1.5 mm" in printed) is (recut_by is None)
+    # An unproved coordinate flag alone must not label a reposition as safe overshoot.
+    sheet.records[("accessibility", "S1:20")] = {"checkpoint_overshoot_ok": []}
+    unproved = sheet.contours(setup, {("tools", "cutter"): "2 mm drill"})
+    unproved_markup, _, unproved_tables = coordinate_tables(unproved)
+    assert headers(unproved_markup, unproved_tables[0]) == ["hole #", "P", "X", "Y"]
+    assert table_rows(unproved_markup, unproved_tables[0])[0] == ["1", "P1", "12.800", "1.500"]
+
+
 def test_chords_print_endpoints_length_sagitta_index_and_radius_band(tmp_path):
     arc = arc_record("chords")
     arc.update(

@@ -1377,10 +1377,18 @@ uses the 1898 manual arc method:
    rough would cut into the finished part). Every
    stair corner, every full hole and every break-out between neighbouring holes
    must stay outside the finished line, and the stock left for the file
-   (allowance + the stair cusp measured along the wall normal, or the larger of
-   allowance + drill radius and the deepest break-out material) must not exceed
-   the shop policy `numbers.max_filing_stock_mm` unless a later rough cuts the
-   same faces again ([coordinates](rules-coordinates.md#coordinates)).
+   (allowance + the stair cusp measured along the wall normal, or the maximum
+   of allowance + drill radius, printed arc break-out radial depth and printed
+   straight-join break-out wall-normal distance, including finite corner runout)
+   must not exceed the shop policy `numbers.max_filing_stock_mm` unless a later
+   rough cuts the same faces again. Missing or unestablished caps remain unknown.
+   Both rough methods support straight joins. Chain holes use the same
+   drill-radius + allowance offset on each finite join leg, with exact
+   endpoints/miter and equal spacing no greater than `pitch_mm`. Kernel bounded
+   clips precede chain validation and cap enforcement: excluded joins leave no
+   debt. Arc and join tables report the same worst-stage stock; chain errors
+   retain stock/cap profile facts even when cut tables are withheld. Hole
+   repositioning is not a handwheel cut ([coordinates](rules-coordinates.md#coordinates)).
 3. **File to the line**: `do = "file_to_line"` with a `guide`: hardened filing
    `buttons` (an inventory `fixtures` kit with `kind = "filing_buttons"` and the
    declared limits of every element between its rims and the bore axis

@@ -1638,6 +1638,36 @@ def _arc(
                 "tip_z": op.get("to_z", UNKNOWN),
                 "join_method": "line-line miter and exact line-circle intersections",
             }
+            if method == "chain_drill":
+                join_walls = []
+                for a, b in itertools.pairwise(
+                    (top_end, feature["radial_tip_end"], feature["bottom_end"])
+                ):
+                    shifted, _ = _offset_line(a, b, 1.0)
+                    normal_model = [shifted[i] - a[i] for i in range(2)]
+                    base = setup_xy([centre[0] + side * (a[0] - centre[0]), a[1]])
+                    away = setup_xy(
+                        [
+                            centre[0] + side * (a[0] - centre[0] + normal_model[0]),
+                            a[1] + normal_model[1],
+                        ]
+                    )
+                    normal_setup = (
+                        [away[i] - base[i] for i in range(2)]
+                        if _pair(away) and _pair(base)
+                        else [UNKNOWN, UNKNOWN]
+                    )
+                    join_walls.append(
+                        {
+                            "ends": ends[len(join_walls) : len(join_walls) + 2],
+                            "normal": normal_setup,
+                        }
+                    )
+                line.update(
+                    method=method,
+                    cutter_radius_mm=cutter * scale if number(cutter) else UNKNOWN,
+                    join_walls=join_walls,
+                )
             reverse = _reversal(local[0], local[1], normal, sense)
             lines.append(_ordered(line, reverse, order, ("model_xy", "setup_xy")))
             line["cutter_side"] = _side(local[0], local[1], normal, reverse)
@@ -1646,6 +1676,9 @@ def _arc(
     if method == "stairs":
         for line in lines:
             _split(line, contour["cusp_mm"] / scale)
+    elif method == "chain_drill":
+        for line in lines:
+            _split_chain(line, contour["pitch_mm"] / scale)
     walls = walls if known else []
     if space is not None and walls:
 
@@ -1717,6 +1750,20 @@ def _split(line, cusp):
             model.append(_between(line["model_xy"][k - 1], line["model_xy"][k], i / pieces))
             setup.append(_between(a, b, i / pieces))
         model.append(line["model_xy"][k])
+        setup.append(b)
+    line.update(model_xy=model, setup_xy=setup)
+
+
+def _split_chain(line, pitch):
+    """Equal-pitch hole centres on each finite join leg, retaining the exact miter and
+    line-circle intersections (shared ends print once through :func:`_printed`)."""
+    model, setup = [line["model_xy"][0]], [line["setup_xy"][0]]
+    for k, (a, b) in enumerate(itertools.pairwise(line["setup_xy"])):
+        pieces = max(1, math.ceil(math.dist(a, b) / pitch)) if _pair(a) and _pair(b) else 1
+        for i in range(1, pieces):
+            model.append(_between(line["model_xy"][k], line["model_xy"][k + 1], i / pieces))
+            setup.append(_between(a, b, i / pieces))
+        model.append(line["model_xy"][k + 1])
         setup.append(b)
     line.update(model_xy=model, setup_xy=setup)
 
@@ -2945,17 +2992,17 @@ def _leaves(cap, recut):
     return {"recut_by": recut} if recut else {"stock_cap_mm": cap}
 
 
-def _holes(arc, walls, drill, allowance, cap, label, scale, recut=None):
+def _holes(arc, walls, drill, allowance, label, scale):
     """(errors, debts): a drilled chain keeps every hole's full diameter outside the line,
     a web between neighbours and, once the webs are broken out along the straight runs
     between hole centres, every run outside the line (a convex arc's run dips toward its
-    centre) and at most ``cap`` for the file: the most material between the line and a
-    run along the arc's radius (a concave arc's run bulges away from the line), never
-    less than the allowance plus a drill radius. Geometry and the ``drill`` radius are
-    plan units, the allowance and recorded measures mm (``scale`` mm per unit)."""
+    centre). Record the most material between the line and a run along the arc's radius
+    (a concave arc's run bulges away from the line), never less than the allowance plus
+    a drill radius. Geometry and the ``drill`` radius are plan units; recorded measures
+    are mm (``scale`` mm per unit). The whole stage's cap is enforced by :func:`_chain`."""
     holes = [row["dro_xy"] for row in arc["rows"]]
     centre, radius = arc["centre_setup_xy"], arc["wall_radius_mm"]
-    known = _pair(centre) and number(radius) and all(_pair(p) for p in holes)
+    known = _pair(centre) and number(radius) and bool(holes) and all(_pair(p) for p in holes)
     if not walls or not number(drill) or not known:
         return [], [f"{label}: its hole centres or the finished line are unknown"]
     convex = arc["cutter_centre_radius_mm"] > radius
@@ -2982,16 +3029,112 @@ def _holes(arc, walls, drill, allowance, cap, label, scale, recut=None):
     stock = max(allowance + drill * scale, deepest * scale)
     arc.update(
         drill_dia_mm=2 * drill * scale,
-        pitch_mm=max(math.dist(a, b) for a, b in itertools.pairwise(holes)) * scale,
+        pitch_mm=max((math.dist(a, b) for a, b in itertools.pairwise(holes)), default=0) * scale,
         hole_clear_mm=min(clear) * scale,
         stock_left_mm=stock,
         break_out=CHAIN_BREAK_OUT,
-        **_leaves(cap, recut),
     )
-    if recut:
-        return errors, []
-    more, debts = _filed(stock, cap, f"{label} chain drill")
-    return errors + more, debts
+    return errors, []
+
+
+def _chain(arcs, lines, walls, drill, allowance, cap, label, scale, recut=None):
+    """Validate the retained arc and straight-join holes, then enforce one worst-stage
+    filing residual. Bounds are applied first, so excluded joins owe no cut or stock."""
+    errors, debts = [], []
+    for arc in arcs:
+        more, unknown = _holes(arc, walls, drill, allowance, label, scale)
+        errors.extend(more)
+        debts.extend(unknown)
+    for line in lines:
+        holes = line["dro_xy"]
+        join_walls = line.get("join_walls", [])
+        if (
+            not walls
+            or not number(drill)
+            or not holes
+            or not all(_pair(p) for p in holes)
+            or not join_walls
+            or not all(
+                _pair(wall["normal"]) and all(_pair(p) for p in wall["ends"]) for wall in join_walls
+            )
+        ):
+            debts.append(f"{label}: its join hole centres or the finished line are unknown")
+            continue
+        clear = [min(wall(p) for wall in walls) - drill for p in holes]
+        for k, gap in enumerate(clear, start=1):
+            if gap < -_INSIDE_TOL:
+                errors.append(
+                    f"{label} {line['side']} join: hole {k} reaches "
+                    f"{-gap * scale:.3f} past the line"
+                )
+        legs = list(itertools.pairwise(holes))
+        for k, (a, b) in enumerate(legs, start=1):
+            if math.dist(a, b) <= 2 * drill + _WALL_TOL:
+                errors.append(
+                    f"{label} {line['side']} join: holes {k} and {k + 1} are "
+                    f"{math.dist(a, b) * scale:.3f} mm apart, "
+                    f"no web for a {2 * drill * scale:g} mm drill to run against"
+                )
+            if any(_segment_cross((a, b), wall["ends"]) for wall in join_walls):
+                errors.append(
+                    f"{label} {line['side']} join: the break-out between holes "
+                    f"{k} and {k + 1} crosses the finished line"
+                )
+        deepest = _join_stock(holes, join_walls)
+        line.update(
+            drill_dia_mm=2 * drill * scale,
+            pitch_mm=max((math.dist(a, b) for a, b in legs), default=0) * scale,
+            hole_clear_mm=min(clear) * scale,
+            stock_left_mm=max(allowance + drill * scale, deepest * scale),
+            break_out=CHAIN_BREAK_OUT,
+        )
+    tables = [table for table in (*arcs, *lines) if number(table.get("stock_left_mm"))]
+    if not tables:
+        return errors, debts
+    stock = max(table["stock_left_mm"] for table in tables)
+    for table in tables:
+        table.update(stock_left_mm=stock, **_leaves(cap, recut))
+    if not recut:
+        more, unknown = _filed(stock, cap, f"{label} chain drill")
+        errors.extend(more)
+        debts.extend(unknown)
+    return errors, debts
+
+
+def _join_stock(holes, walls):
+    """Deepest straight-wall-normal distance to a printed centre-to-centre break-out.
+    Ray depth is affine between projected vertices; its extrema are the finite wall
+    ends and those projections. Missing rays belong to portions excluded by bounds."""
+    deepest = 0.0
+    legs = list(itertools.pairwise(holes))
+    for wall in walls:
+        a, b = wall["ends"]
+        delta = [b[i] - a[i] for i in range(2)]
+        span = sum(value * value for value in delta)
+        if span == 0:
+            continue
+        normal = wall["normal"]
+        spots = {0.0, 1.0}
+        for point in holes:
+            t = _fraction(sum((point[i] - a[i]) * delta[i] for i in range(2)) / span)
+            if t is not None:
+                spots.add(t)
+        for t in spots:
+            face = [a[i] + t * delta[i] for i in range(2)]
+            hits = []
+            for p, q in legs:
+                direction = [q[i] - p[i] for i in range(2)]
+                divisor = _cross(normal, direction)
+                if abs(divisor) < 1e-15:
+                    continue
+                relative = [p[i] - face[i] for i in range(2)]
+                along = _fraction(_cross(relative, normal) / divisor)
+                depth = _cross(relative, direction) / divisor
+                if along is not None and depth >= -_WALL_TOL:
+                    hits.append(max(0.0, depth))
+            if hits:
+                deepest = max(deepest, min(hits))
+    return deepest
 
 
 def _rotate(point, degrees):
@@ -3467,11 +3610,11 @@ def _recut_by(bundle, op):
 def _manual(bundle, setup, op, stage, allowance, arcs, lines, walls, label, scale):
     """(errors, debts) of one arc stage cut by its manual method (:data:`ARC_METHODS`); the
     tables' geometry is plan units, ``scale`` mm per unit."""
-    arc = arcs[0]
+    arc = arcs[0] if arcs else lines[0]
     method = arc["method"]
     if method in ROUGH_METHODS and stage != "rough":
         return [f"{label}: {method} only roughs outside the line; file_to_line finishes it"], []
-    if method != "stairs" and lines:
+    if method not in ROUGH_METHODS and lines:
         return [], [f"{label}: {method} along the arc's straight joins is not computed"]
     if method in FINISH_METHODS and "stock_removal_bounds" in op:
         return [], [f"{label}: {method} cuts its whole arc; stock_removal_bounds cannot clip it"]
@@ -3482,7 +3625,7 @@ def _manual(bundle, setup, op, stage, allowance, arcs, lines, walls, label, scal
     if method == "chain_drill":
         drill = arc["cutter_radius_mm"]
         drill = drill / scale if number(drill) else UNKNOWN
-        return _holes(arc, walls, drill, allowance, cap, label, scale, recut)
+        return _chain(arcs, lines, walls, drill, allowance, cap, label, scale, recut)
     features, frames = bundle.feature_definitions, mapping(bundle.features.get("frames"))
     feature = mapping(features.get(arc["feature"]))
     table = rotary_table(bundle, setup)
@@ -3806,30 +3949,56 @@ def evaluate(bundle, *, pre_kernel=False):
                     for table in (*arcs, *lines):
                         table.update(stage=stage, allowance_mm=allowance, offset_mm=offset)
                     errors, debts = [], []
+                    clipped_chain = bounded and method == "chain_drill"
                     if scale is None:
                         debts = [f"{label}: the feature units are not mm or in"]
                     elif arcs:
+                        if not clipped_chain:
+                            errors, debts = _manual(
+                                bundle,
+                                setup,
+                                op,
+                                stage,
+                                allowance,
+                                arcs,
+                                lines,
+                                walls,
+                                label,
+                                scale,
+                            )
+                    elif number(offset):
+                        debts = [f"{label}: no {method} rows: contour.{_NEEDS[method]} is unknown"]
+                    debt = None
+                    blocked = errors or any("stair_reason" in t for t in (*arcs, *lines))
+                    if not blocked and bounded and (arcs or lines):
+                        if pre_kernel:
+                            for table in (*arcs, *lines):
+                                table["kernel_clip"] = True
+                        else:
+                            clips, why = _clip_facts(bundle, subject)
+                            if clips is None:
+                                arcs, lines = [], []
+                                debt = f"its bounds clip is unknown: {why}"
+                            else:
+                                arcs, lines, debt = _kernel_clip(subject, arcs, lines, clips)
+                    if clipped_chain and not pre_kernel and (arcs or lines) and scale is not None:
                         errors, debts = _manual(
                             bundle, setup, op, stage, allowance, arcs, lines, walls, label, scale
                         )
-                    elif number(offset):
-                        debts = [f"{label}: no {method} rows: contour.{_NEEDS[method]} is unknown"]
+                    if method == "chain_drill":
+                        measured = [
+                            table for table in (*arcs, *lines) if number(table.get("stock_left_mm"))
+                        ]
+                        if measured:
+                            profile.update(
+                                stock_left_mm=max(table["stock_left_mm"] for table in measured),
+                                **_leaves(filing_cap(bundle), _recut_by(bundle, op)),
+                            )
                     arc_errors.extend(errors)
                     arc_debts.extend(debts)
-                    if errors or any("stair_reason" in t for t in (*arcs, *lines)):
+                    if errors or blocked:
                         profile["arc_reason"] = (errors + debts)[0]
                         refused, arcs, lines = True, [], []
-                    debt = None
-                    if bounded and (arcs or lines) and pre_kernel:
-                        for table in (*arcs, *lines):
-                            table["kernel_clip"] = True
-                    elif bounded and (arcs or lines):
-                        clips, why = _clip_facts(bundle, subject)
-                        if clips is None:
-                            arcs, lines = [], []
-                            debt = f"its bounds clip is unknown: {why}"
-                        else:
-                            arcs, lines, debt = _kernel_clip(subject, arcs, lines, clips)
                     if debt:
                         profile["clip_reason"] = debt
                         clip_debts.append(f"op {op['op']} {stage}: {debt}")
@@ -3838,9 +4007,16 @@ def evaluate(bundle, *, pre_kernel=False):
                         numbers["arc_table"].extend(arcs)
                         numbers["line_table"].extend(lines)
                         # Clip pieces stay separate lists: nothing reconnects them.
-                        profile["cutter_centre"] = (
-                            arcs[0]["rows"] if len(arcs) == 1 else [arc["rows"] for arc in arcs]
-                        )
+                        if arcs:
+                            profile["cutter_centre"] = (
+                                arcs[0]["rows"] if len(arcs) == 1 else [arc["rows"] for arc in arcs]
+                            )
+                        else:
+                            profile["cutter_centre"] = (
+                                lines[0]["setup_xy"]
+                                if len(lines) == 1
+                                else [line["setup_xy"] for line in lines]
+                            )
                         unordered.update(
                             item["cut_order_reason"]
                             for item in (*arcs, *lines)

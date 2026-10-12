@@ -26,7 +26,10 @@ Rev 6 design, with current delivery status. Manual arcs (D1): the manual
 mill cuts arcs only by the 1898 method (layout, single-axis stairs or a chain
 drill outside the line, bench filing to buttons or a template checked with a
 radius gauge, or chords / a rotary table); the MDI/`contouring` path and
-`arc_table` are removed.
+`arc_table` are removed. Shipped straight joins support stairs and chain drilling:
+finite drill legs retain exact endpoints and equal spacing within pitch;
+bounded exclusions create no debt, and reported stock/cap uses the worst
+printed radial/normal break-out residual.
 Sections below retain design intent; README and docs describe the shipped
 schema/CLI/rules. Rev 1 was traveler-first but promised geometric proofs
 it could not deliver. Revs 2–3 absorbed two adversarial

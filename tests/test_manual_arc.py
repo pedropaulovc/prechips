@@ -531,6 +531,352 @@ def test_a_chain_breaks_out_along_its_hole_centres_outside_the_line_and_in_the_c
     assert table["stock_left_mm"] >= deepest - 1e-9
 
 
+# A synthetic finite outline, unrelated to any consumer STEP: the upper concave R10
+# meets a land, a corner and a taper, then the convex R20 bottom arc. Both sides mirror.
+JOIN_TOP = (6.0, -8.0)
+JOIN_TIP = (16.0, -10.0)
+JOIN_BOTTOM = (12.0, -16.0)
+JOIN_DRILL = 0.5
+JOIN_ALLOWANCE = 0.1
+JOIN_PITCH = 1.5
+
+
+def joined_chain_plan(tmp_path, *, cap=1.0, bounded=False, tip=JOIN_TIP):
+    """Build only temporary synthetic inputs; kernel facts are injected per test."""
+    policy = '[required]\ncoordinates = "*"\nmanual_arc = "*"\n'
+    if cap is not None:
+        policy += (
+            f"[numbers]\nmax_filing_stock_mm = {cap}\n"
+            '[numbers_cite]\nmax_filing_stock_mm = "synthetic test filing cap"\n'
+            "[numbers_verify]\nmax_filing_stock_mm = false\n"
+        )
+    target = (
+        "kind = 'profile'\nrequirements = []\narc_centre = [0.0, 0.0, 0.0]\n"
+        "bottom_radius = 20.0\nbottom_radius_nominal = 20.0\n"
+        f"radial_tip_end = {list(tip)}\nbottom_end = {list(JOIN_BOTTOM)}\n"
+        "top_edge_feature = 'top'\nmirror_symmetric = true\n"
+        "[features.top]\nkind = 'profile'\nframe = 'model'\nrequirements = []\n"
+        "radius = 10.0\nradius_nominal = 10.0\narc_centre = [0.0, 0.0, 0.0]\n"
+        f"end = {list(JOIN_TOP)}\n"
+    )
+    more = (
+        {"stock_removal_bounds": ("{ x = [-30.0, 30.0], y = [-30.0, 30.0], z = [-10.0, 0.0] }")}
+        if bounded
+        else {}
+    )
+    plan = scratch(
+        tmp_path,
+        op(
+            20,
+            "rough_profile",
+            f"{{ method = 'chain_drill', pitch_mm = {JOIN_PITCH} }}",
+            tool="drill",
+            allowance=JOIN_ALLOWANCE,
+            **more,
+        ),
+        target=target,
+        policy=policy,
+    )
+    change(
+        plan.with_name("inventory.toml"),
+        "kind = 'drill'\ndia_mm = 3.0",
+        f"kind = 'drill'\ndia_mm = {JOIN_DRILL}",
+    )
+    return plan
+
+
+def joined_chain_finding(bundle, *, pre_kernel=False):
+    return next(
+        row for row in coordinates.evaluate(bundle, pre_kernel=pre_kernel) if row.subject == "S1"
+    )
+
+
+def joined_chain_lines(row):
+    return [line for line in row.numbers["line_table"] if line["op"] == 20]
+
+
+def exact_join_vertices(tip=JOIN_TIP):
+    """Independently intersect the two offset lines and their finite arc endpoints."""
+    offset = JOIN_DRILL / 2 + JOIN_ALLOWANCE
+
+    def cross(a, b):
+        return a[0] * b[1] - a[1] * b[0]
+
+    def line(a, b):
+        span = math.dist(a, b)
+        u = [(b[i] - a[i]) / span for i in range(2)]
+        return [a[0] - offset * u[1], a[1] + offset * u[0]], u
+
+    def circle(p, u, radius, endpoint):
+        along = sum(p[i] * u[i] for i in range(2))
+        root = math.sqrt(along**2 - sum(v**2 for v in p) + radius**2)
+        points = [[p[i] + t * u[i] for i in range(2)] for t in (-along - root, -along + root)]
+        return min(points, key=lambda point: math.dist(point, endpoint))
+
+    (p, u), (q, v) = line(JOIN_TOP, tip), line(tip, JOIN_BOTTOM)
+    t = cross([q[i] - p[i] for i in range(2)], v) / cross(u, v)
+    miter = [p[i] + t * u[i] for i in range(2)]
+    return [circle(p, u, 10.0 - offset, JOIN_TOP), miter, circle(q, v, 20.0 + offset, JOIN_BOTTOM)]
+
+
+def printed_join_residual(row, tip=JOIN_TIP):
+    """Rebuild residual from printed centre breakouts, not the rule's reported stock.
+
+    Finite wall-normal rays meet either leg, including corner runout. Their depth is
+    piecewise affine: wall ends and projected printed vertices include its extrema.
+    Normals missing every retained segment belong outside the retained cut footprint.
+    """
+    offset = JOIN_DRILL / 2 + JOIN_ALLOWANCE
+    stock = offset
+    (arc,) = arcs(row, 20)
+    centre, wall = arc["centre_setup_xy"], arc["wall_radius_mm"]
+    holes = [item["dro_xy"] for item in arc["rows"]]
+    stock = max(stock, *(math.dist(point, centre) - wall for point in holes))
+    for line in joined_chain_lines(row):
+        side = 1 if line["side"] == "+X" else -1
+        walls = [[side * point[0] - 5.0, point[1] - 2.0] for point in (JOIN_TOP, tip, JOIN_BOTTOM)]
+        points = line["dro_xy"]
+        segments = list(itertools.pairwise(points))
+        for a, b in itertools.pairwise(walls):
+            length = math.dist(a, b)
+            tangent = [(b[i] - a[i]) / length for i in range(2)]
+            normal = [-side * tangent[1], side * tangent[0]]
+            stations = [0.0, length]
+            stations += [sum((point[i] - a[i]) * tangent[i] for i in range(2)) for point in points]
+            for station in stations:
+                if not -1e-9 <= station <= length + 1e-9:
+                    continue
+                source = [a[i] + station * tangent[i] for i in range(2)]
+                hits = []
+                for p, q in segments:
+                    delta = [q[i] - p[i] for i in range(2)]
+                    divisor = normal[0] * delta[1] - normal[1] * delta[0]
+                    if abs(divisor) < 1e-12:
+                        continue
+                    relative = [p[i] - source[i] for i in range(2)]
+                    depth = (relative[0] * delta[1] - relative[1] * delta[0]) / divisor
+                    fraction = (relative[0] * normal[1] - relative[1] * normal[0]) / divisor
+                    if depth >= -1e-9 and -1e-9 <= fraction <= 1.0 + 1e-9:
+                        hits.append(depth)
+                if hits:
+                    stock = max(stock, min(hits))
+    return stock
+
+
+def synthetic_join_clip(bundle, requested, select):
+    """Return an isolated kernel clip selected from the actual requested checkpoint IDs."""
+    paths = []
+    for table in coordinates.checkpoints("S1:20", requested.numbers, 20):
+        indices = select(table)
+        paths.append(
+            {
+                "table": table["rows"][0][0],
+                "rows": len(table["rows"]),
+                "pieces": [[{"row": index} for index in indices]] if indices else [],
+            }
+        )
+    kernel = {
+        "status": "ok",
+        "ops": {
+            "S1:20": {
+                "checkpoint_clips": {
+                    "clipped_at": "synthetic first contact outside stock_removal_bounds",
+                    "precision_mm": 1e-4,
+                    "paths": paths,
+                }
+            }
+        },
+    }
+    return dataclasses.replace(bundle, kernel=kernel)
+
+
+def test_chain_drill_spaces_both_finite_join_legs_and_preserves_kernel_consumers(tmp_path):
+    bundle = load_bundle(joined_chain_plan(tmp_path))
+    row = joined_chain_finding(bundle)
+    assert row.status == "pass", row.sentence
+    lines = joined_chain_lines(row)
+    assert {line["side"] for line in lines} == {"-X", "+X"}
+    vertices = exact_join_vertices()
+    (arc,) = arcs(row, 20)
+    for line in lines:
+        assert line["method"] == "chain_drill" and "jog" not in line
+        side = 1 if line["side"] == "+X" else -1
+        points = [[side * point[0], point[1]] for point in line["model_xy"]]
+        if math.dist(points[0], vertices[0]) > math.dist(points[-1], vertices[0]):
+            points.reverse()
+        first_count = math.ceil(math.dist(vertices[0], vertices[1]) / JOIN_PITCH)
+        second_count = math.ceil(math.dist(vertices[1], vertices[2]) / JOIN_PITCH)
+        assert len(points) == first_count + second_count + 1
+        for actual, expected in zip(
+            (points[0], points[first_count], points[-1]), vertices, strict=True
+        ):
+            assert actual == pytest.approx(expected, abs=1e-8)
+        for leg, count in (
+            (points[: first_count + 1], first_count),
+            (points[first_count:], second_count),
+        ):
+            gaps = [math.dist(a, b) for a, b in itertools.pairwise(leg)]
+            assert len(gaps) == count
+            assert max(gaps) <= JOIN_PITCH + 1e-9
+            assert gaps == pytest.approx([gaps[0]] * count, abs=1e-8)
+            for index, point in enumerate(leg):
+                assert point == pytest.approx(
+                    [
+                        leg[0][axis] + index / count * (leg[-1][axis] - leg[0][axis])
+                        for axis in range(2)
+                    ],
+                    abs=1e-8,
+                )
+        assert all(math.dist(a, b) > JOIN_DRILL for a, b in itertools.pairwise(line["dro_xy"]))
+        assert sum(line["overshoot"]) == 1
+        assert (
+            len(line["model_xy"])
+            == len(line["setup_xy"])
+            == len(line["dro_xy"])
+            == len(line["overshoot"])
+        )
+        for model, setup in zip(line["model_xy"], line["setup_xy"], strict=True):
+            assert setup == pytest.approx([model[0] - 5.0, model[1] - 2.0], abs=1e-9)
+        arc_end = next(
+            item for item in (arc["rows"][0], arc["rows"][-1]) if side * item["model_xy"][0] > 0
+        )
+        end = min(
+            (0, len(line["setup_xy"]) - 1),
+            key=lambda i: math.dist(line["setup_xy"][i], arc_end["setup_xy"]),
+        )
+        assert line["setup_xy"][end] == pytest.approx(arc_end["setup_xy"], abs=1e-8)
+        assert line["dro_xy"][end] == arc_end["dro_xy"]
+
+    residual = printed_join_residual(row)
+    for table in (arc, *lines):
+        assert table["drill_dia_mm"] == JOIN_DRILL
+        assert table["pitch_mm"] <= JOIN_PITCH + 0.002
+        assert table["hole_clear_mm"] >= JOIN_ALLOWANCE - 1e-6
+        assert table["stock_left_mm"] == pytest.approx(residual, abs=1e-8)
+        assert table["stock_cap_mm"] == 1.0
+        assert table["break_out"] == coordinates.CHAIN_BREAK_OUT
+    (profile,) = row.numbers["profiles"]
+    assert profile["stock_left_mm"] == pytest.approx(residual, abs=1e-8)
+    assert profile["stock_cap_mm"] == 1.0
+
+    kernel_op = next(
+        op
+        for setup in build_job(bundle)["setups"]
+        for op in setup["ops"]
+        if op["subject"] == "S1:20"
+    )
+    checkpoints = kernel_op["checkpoints"]
+    assert kernel_op["tool_paths"]["tables"] is True
+    for line in lines:
+        expected_ids = [
+            f"S1:20 rough line {line['side']}[{index}]" for index in range(len(line["dro_xy"]))
+        ]
+        path = next(path for path in checkpoints["paths"] if path["table"] == expected_ids[0])
+        assert path["ids"] == expected_ids
+        assert path["xy_mm"] == line["dro_xy"]
+        assert path["overshoot"] == line["overshoot"]
+        assert path["stepped"] is False
+        checked = {point["id"]: point for point in checkpoints["rows"]}
+        assert [checked[name]["xy_mm"] for name in expected_ids] == line["dro_xy"]
+        assert all(checked[name]["tip_z_mm"] == line["dro_tip_z"] for name in expected_ids)
+
+
+def test_chain_join_cap_error_keeps_concrete_residual_in_profile_numbers(tmp_path):
+    passing = joined_chain_finding(load_bundle(joined_chain_plan(tmp_path / "passing")))
+    assert passing.status == "pass", passing.sentence
+    residual = printed_join_residual(passing)
+    cap = 0.3
+    row = joined_chain_finding(load_bundle(joined_chain_plan(tmp_path / "over-cap", cap=cap)))
+    assert row.status == "error", row.sentence
+    assert f"leaves up to {residual:.3f}" in errors(row)
+    assert "more than the shop's 0.3 cap" in errors(row)
+    assert row.numbers["arc_table"] == row.numbers["line_table"] == []
+    (profile,) = row.numbers["profiles"]
+    assert profile["stock_left_mm"] == pytest.approx(residual, abs=1e-8)
+    assert profile["stock_cap_mm"] == cap
+
+
+def test_chain_join_without_a_filing_cap_retains_numerical_stock_and_debt(tmp_path):
+    row = joined_chain_finding(load_bundle(joined_chain_plan(tmp_path, cap=None)))
+    assert row.status == "unknown", row.sentence
+    assert "sets no max_filing_stock_mm" in debts(row)
+    assert {line["side"] for line in joined_chain_lines(row)} == {"-X", "+X"}
+    residual = printed_join_residual(row)
+    for table in (*arcs(row, 20), *joined_chain_lines(row), *row.numbers["profiles"]):
+        assert table["stock_left_mm"] == pytest.approx(residual, abs=1e-8)
+        assert table["stock_cap_mm"] == "unknown"
+
+
+def test_kernel_excludes_invalid_short_chain_joins_before_validation(tmp_path):
+    # This land is shorter than the drill diameter even after exact offset joins.
+    # Raw holes have no web; excluded join holes are not a cut and cannot veto the arc.
+    tip = (6.2, -8.0)
+    vertices = exact_join_vertices(tip)
+    assert math.dist(vertices[0], vertices[1]) < JOIN_DRILL
+    unbounded = joined_chain_finding(load_bundle(joined_chain_plan(tmp_path / "raw", tip=tip)))
+    assert unbounded.status == "error" and "no web" in errors(unbounded)
+
+    bundle = load_bundle(joined_chain_plan(tmp_path / "bounded", tip=tip, cap=0.36, bounded=True))
+    requested = joined_chain_finding(bundle, pre_kernel=True)
+    assert {line["side"] for line in joined_chain_lines(requested)} == {"-X", "+X"}
+    assert not requested.numbers.get("arc_errors", [])
+    assert all(
+        table["bounded"] for table in coordinates.checkpoints("S1:20", requested.numbers, 20)
+    )
+    clipped = synthetic_join_clip(
+        bundle,
+        requested,
+        lambda table: list(range(len(table["rows"]))) if table["kind"] == "arc_table" else [],
+    )
+    row = joined_chain_finding(clipped)
+    assert row.status == "pass", row.sentence
+    assert joined_chain_lines(row) == []
+    assert row.numbers.get("arc_errors", []) == row.numbers.get("arc_debts", []) == []
+    (arc,) = arcs(row, 20)
+    assert arc["rows"] == arcs(requested, 20)[0]["rows"]
+    assert arc["stock_left_mm"] == pytest.approx(printed_join_residual(row, tip), abs=1e-8)
+    assert arc["stock_left_mm"] <= arc["stock_cap_mm"] == 0.36
+    (profile,) = row.numbers["profiles"]
+    assert "clip_reason" not in profile
+    assert profile["cutter_centre"] == arc["rows"]
+    assert profile["stock_left_mm"] == arc["stock_left_mm"]
+
+
+def test_kernel_keeps_only_a_connected_partial_chain_join(tmp_path):
+    bundle = load_bundle(joined_chain_plan(tmp_path, bounded=True))
+    requested = joined_chain_finding(bundle, pre_kernel=True)
+    (arc,) = arcs(requested, 20)
+    line = next(line for line in joined_chain_lines(requested) if line["side"] == "+X")
+    count = len(line["dro_xy"])
+    ends = [arc["rows"][0]["dro_xy"], arc["rows"][-1]["dro_xy"]]
+    from_start = any(line["dro_xy"][0] == point for point in ends)
+    kept = list(range(count // 2)) if from_start else list(range(count // 2, count))
+    row = joined_chain_finding(
+        synthetic_join_clip(
+            bundle,
+            requested,
+            lambda table: (
+                list(range(len(table["rows"])))
+                if table["kind"] == "arc_table"
+                else kept
+                if table["name"] == "S1:20 rough line +X"
+                else []
+            ),
+        )
+    )
+    assert row.status == "pass", row.sentence
+    (partial,) = joined_chain_lines(row)
+    assert partial["side"] == "+X" and partial["method"] == "chain_drill"
+    assert partial["dro_xy"] == [line["dro_xy"][index] for index in kept]
+    assert partial["dropped_points"] == count - len(kept)
+    assert "jog" not in partial and "fragment" not in partial
+    residual = printed_join_residual(row)
+    assert partial["stock_left_mm"] == arcs(row, 20)[0]["stock_left_mm"]
+    assert partial["stock_left_mm"] == pytest.approx(residual, abs=1e-8)
+    (profile,) = row.numbers["profiles"]
+    assert "clip_reason" not in profile
+
+
 def test_filing_stock_over_the_cap_is_an_error_unless_a_later_rough_recuts_it(tmp_path):
     coarse = op(20, "rough_profile", "{ method = 'stairs', cusp_mm = 0.4 }", allowance=0.45)
     row = coordinates_row(scratch(tmp_path / "alone", coarse))

@@ -7648,16 +7648,35 @@ class _Traveler:
             side = _text(line.get("side"))
             description = f"Straight joins on the {side} side" + self.cut_order(line)
             description += self.clip(line, line.get("clipped_at") or [], rows)
-            if axes:
+            after = None
+            if line.get("method") == "chain_drill":
+                description = (
+                    f"Chain drill straight joins on the {side} side: "
+                    f"drill Ø{_number(line.get('drill_dia_mm'))} mm, "
+                    f"pitch {_number(line.get('pitch_mm'))} mm; every hole outside "
+                    + self.arc_line(setup, line.get("op"))
+                    + self.cut_order(line)
+                    + self.clip(line, line.get("clipped_at") or [], rows)
+                )
+                rows = [[str(index), *row[:-1]] for index, row in enumerate(rows, 1)]
+                headings = ["hole #", "P", "", "X", "Y", "Z"]
+                after = f"After drilling, {_text(line.get('break_out'))}; " + _leftover(line) + "."
+            elif axes:
                 description += "; one handwheel axis per row"
                 if _known(line.get("stair_cusp_mm")):
                     # A bound: rounded up onto the DRO grid, never printed finer than it.
                     step = dro_grid(self.bundle, setup)[0]
                     cusp = math.ceil(round(line["stair_cusp_mm"] / step, 6)) * step
                     description += f", the stair leaves ≤ {o(cusp)}"
-            headings = ["P", "", "X", "Y", "Z", "handwheel axis"]
-            entry["parts"].append((order(entry, line), description, headings, rows, None))
+            if line.get("method") != "chain_drill":
+                headings = ["P", "", "X", "Y", "Z", "handwheel axis"]
+            entry["parts"].append((order(entry, line), description, headings, rows, after))
         arc_ops = {str(arc.get("op")) for arc in numbers.get("arc_table", []) or []}
+        arc_ops.update(
+            str(line.get("op"))
+            for line in numbers.get("line_table", []) or []
+            if line.get("method") == "chain_drill"
+        )
         raster_stages = {}
         for profile in numbers.get("profiles", []):
             if isinstance(profile, dict) and isinstance(profile.get("raster"), dict):

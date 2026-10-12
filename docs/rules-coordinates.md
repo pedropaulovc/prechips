@@ -232,8 +232,20 @@ naming them. Each table is recorded under `arc_table` (its joins under
   (centres more than a drill diameter apart); either failure is an error. The
   webs are broken out along the hole centres (`break_out`): every centre-to-centre
   segment must stay outside the line (it runs inside it is an error), and the
-  file meets `stock_left_mm` = the larger of allowance + drill radius and the
-  deepest material the break-out leaves off the line along a radius.
+  file meets `stock_left_mm` = the maximum of allowance + drill radius, the
+  radial depth left by the actual printed arc centre-to-centre break-outs, and
+  the straight-wall-normal distance to the printed join break-outs (including
+  finite corner runout when a wall normal meets it). Straight joins use the
+  same drill-radius + allowance offset as the arc. Each finite straight leg
+  includes its exact join endpoints/miter and divides into equal intervals no
+  longer than `pitch_mm`; holes are repositioning checkpoints, not handwheel
+  cutting moves. Join tables print hole numbers, checkpoint P, X/Y and Z,
+  drill size, pitch, break-out instructions and the reported stock/cap or
+  `recut_by`. Arc and join records share the worst residual of their rough stage.
+  Kernel clips at `stock_removal_bounds` apply before hole/web/break-out
+  validation and stock-cap enforcement; excluded joins create no debt.
+  When a chain error withholds cut tables, profile facts still report
+  `stock_left_mm` and `stock_cap_mm` for diagnosis, not permission to cut.
 - `chords` (finish; `count` straight chords): the chord ends sit on the edge
   radius that centres each chord's sagitta `c²/8R` in the feature's radial band
   (`dia` halved for a full circle, `bottom_radius` or `radius` otherwise); a
@@ -282,7 +294,7 @@ faces to the file (`recut_by`), instead of the cap. The claim test does not
 compare depth: an op between them may cut the same faces from the other side.
 Rough methods on a finish stage are an error (`file_to_line` finishes them);
 finish methods cannot be clipped by `stock_removal_bounds` (unknown); methods
-other than `stairs` along straight joins are unknown. A diagonal edge on a
+other than `stairs` and `chain_drill` along straight joins are unknown. A diagonal edge on a
 `linear_table` outline is unknown: single-axis stairs along an outline are not
 computed. Rasters and outlines whose edges are all axis-parallel need no
 manual-arc method.
