@@ -9,6 +9,7 @@ from test_headroom import coordinate_bundle
 from prechips.inputs import load_bundle
 from prechips.model import Contour
 from prechips.rules import coordinates, tip_endpoints, zero_recipe
+from prechips.rules.resolution import LENGTH_TOLERANCE_MM
 from prechips.rules.tip_endpoints import _producer, operative_z, stock_states
 
 ROCKER = Path(__file__).resolve().parents[1] / "examples/rocker-arm/plan.toml"
@@ -613,10 +614,12 @@ def test_a_face_footprint_takes_its_plane_for_an_omitted_axis(tmp_path, x, top):
 
 # A manifest face with no bounds: its footprint is the matched STEP faces the kernel boxed.
 FACE_ONLY = "kind = 'face'\n"
-# Model-space mm STEP face boxes. Setup frame A sits at model (5, 2, 1), square: NEAR spans
-# setup X/Y 1..9, inside op 10's box X/Y 0..10; FAR spans setup X 21..29, beyond it.
-NEAR = (6.0, 3.0, 1.0, 14.0, 11.0, 1.0)
-FAR = (26.0, 3.0, 1.0, 34.0, 11.0, 1.0)
+# Model-space mm STEP plane boxes. Setup frame A sits at model (5, 2, 1), square: NEAR spans
+# setup X/Y 1..9, inside op 10's box X/Y 0..10, and FAR setup X 21..29, beyond it; both lie
+# at setup Z -8.8, op 10's floor. UNDER has NEAR's footprint at setup Z -9.5, below it.
+NEAR = (6.0, 3.0, -7.8, 14.0, 11.0, -7.8)
+FAR = (26.0, 3.0, -7.8, 34.0, 11.0, -7.8)
+UNDER = (6.0, 3.0, -8.5, 14.0, 11.0, -8.5)
 
 
 def matched_faces(bundle, *boxes):
@@ -628,6 +631,59 @@ def matched_faces(bundle, *boxes):
     kernel = {"status": "ok", "mapping": {ref: i for i, ref in enumerate(refs)}, "faces": faces}
     object.__setattr__(bundle, "kernel", kernel)
     return refs
+
+
+def bounded(setup, region, **extra):
+    """Op 10 cutting the setup X/Y ``region`` instead of its own box."""
+    box = {"x": region[0], "y": region[1], "z": [-10.0, 1.0]}
+    return {**setup["ops"][0], "stock_removal_bounds": box, **extra}
+
+
+def zero_on_raw_top(bundle, setup, retouch_after=(), touches=(), side="+z"):
+    """The setup's zero, set with the cutter on the raw top before op 10 (Z met from
+    ``side``, X and Y picked up), with listed retouches and explicit tool ``touches``."""
+    bundle.plan["dro"] = {
+        "controller": "EL400",
+        "mode": "abs",
+        "direction": {"x": "right", "y": "away", "z": "up"},
+    }
+    setup["zero"] = {
+        axis: {
+            "edge": axis,
+            "edge_mm": 0.0,
+            "from": f"-{axis}",
+            "tool": "cutter",
+            "check_jog_mm": 5.0,
+        }
+        for axis in ("x", "y")
+    }
+    setup["zero"]["z"] = {
+        "face": "top",
+        "from": side,
+        "tool": "cutter",
+        "paper_mm": 0.1,
+        "check_jog_mm": 1.0,
+        "retouch_after": list(retouch_after),
+    }
+    setup["zero"]["tool_touches"] = list(touches)
+    return zero_recipe.evaluate(bundle)[0]
+
+
+def named_face_touch(bundle, setup, edge, paper=0.1):
+    """The zero check with the cutter touched on 'target' at plan ``edge`` after op 10,
+    and that touch's row."""
+    # Like a local faced pad on a larger raw blank, the named face is not the stock top.
+    setup["stock_state"]["top_feature"] = "unknown"
+    touch = {
+        "tool": "cutter",
+        "z_face": "target",
+        "edge_mm": edge,
+        "paper_mm": paper,
+        "after_op": 10,
+        "before_ops": [20],
+    }
+    recipe = zero_on_raw_top(bundle, setup, touches=[touch])
+    return recipe, recipe.numbers["tool_touches"][0]
 
 
 @pytest.mark.parametrize(
@@ -642,14 +698,16 @@ def matched_faces(bundle, *boxes):
 def test_a_box_holding_every_matched_face_of_an_unbounded_face_produces_the_top(
     tmp_path, top_feature, boxes, box
 ):
-    # Op 10's box holds the enclosing box of every STEP face the feature lists: it faced
+    # Op 10's box holds every STEP plane the feature lists, each at op 10's floor: it faced
     # all of the top, so a Z touch after it reads op 10's DRO Z.
     bundle, setup = left_strip_faced(tmp_path, FACE_ONLY, box)
     if top_feature is not None:
         setup["stock_state"]["top_feature"] = top_feature
-    matched_faces(bundle, *boxes)
+    refs = matched_faces(bundle, *boxes)
     target = bundle.feature_definitions["target"]
-    assert tip_endpoints.cut_coverage(bundle, setup, setup["ops"][0], target) == "whole"
+    credited = []
+    coverage = tip_endpoints.cut_coverage(bundle, setup, setup["ops"][0], target, None, credited)
+    assert coverage == "whole" and credited == refs
     (_, _, after), _ = stock_states(bundle, setup)
     assert after["top_z"] == -8.8 and after["top_from"] == "S1 op 10 to_z"
     producer = _producer(bundle, setup, -8.8, "top", 1, None)
@@ -668,7 +726,9 @@ def test_a_box_missing_any_matched_face_leaves_the_unfaced_top(tmp_path, boxes):
     bundle, setup = left_strip_faced(tmp_path, FACE_ONLY)
     matched_faces(bundle, *boxes)
     target = bundle.feature_definitions["target"]
-    assert tip_endpoints.cut_coverage(bundle, setup, setup["ops"][0], target) == "partial"
+    credited = []
+    coverage = tip_endpoints.cut_coverage(bundle, setup, setup["ops"][0], target, None, credited)
+    assert coverage == "partial" and credited == []
     (_, _, after), _ = stock_states(bundle, setup)
     assert after["top_z"] == 0.0 and after["top_from"] == "S1 stock_state.top_z"
     assert operative_z(bundle, setup, 0.0, "top", done=1) == 0.0
@@ -676,52 +736,172 @@ def test_a_box_missing_any_matched_face_leaves_the_unfaced_top(tmp_path, boxes):
 
 
 @pytest.mark.parametrize(
-    ("boxes", "edge", "standing"),
-    [((NEAR,), -8.8, -8.8), ((FAR,), 0.0, None), ((NEAR, FAR), 0.0, None)],
-    ids=["faced-face", "unfaced-area", "partly-faced-surface"],
+    ("boxes", "edge"),
+    [((NEAR,), -8.8), ((FAR,), 0.0), ((NEAR, FAR), 0.0), ((FAR,), -8.8)],
+    ids=["faced-face", "unfaced-area", "partly-faced-surface", "unfaced-at-floor"],
 )
-def test_a_named_face_tool_touch_credits_only_a_whole_bounded_face(tmp_path, boxes, edge, standing):
+def test_a_named_face_tool_touch_reads_only_a_wholly_faced_plane(tmp_path, boxes, edge):
+    # A face named only by its STEP faces stands where a whole producer left it. One op 10
+    # faced part of, or none of, has no known Z: the raw-stock height is no fallback.
     bundle, setup = left_strip_faced(tmp_path, FACE_ONLY)
-    matched_faces(bundle, *boxes)
-    # Like a local faced pad on a larger raw blank, the named face is not the stock top.
-    setup["stock_state"]["top_feature"] = "unknown"
-    bundle.plan["dro"] = {
-        "controller": "EL400",
-        "mode": "abs",
-        "direction": {"x": "right", "y": "away", "z": "up"},
-    }
-    setup["zero"] = {
-        axis: {
-            "edge": axis,
-            "edge_mm": 0.0,
-            "from": f"-{axis}",
-            "tool": "cutter",
-            "check_jog_mm": 5.0,
-        }
-        for axis in ("x", "y")
-    }
-    setup["zero"]["z"] = {
-        "face": "top",
-        "from": "+z",
-        "tool": "cutter",
-        "paper_mm": 0.1,
-        "check_jog_mm": 1.0,
-        "retouch_after": [],
-    }
-    setup["zero"]["tool_touches"] = [
-        {
-            "tool": "cutter",
-            "z_face": "target",
-            "edge_mm": edge,
-            "paper_mm": 0.1,
-            "after_op": 10,
-            "before_ops": [20],
-        }
-    ]
-    assert zero_recipe.face_stands(bundle, setup, "target", edge, done=1) == standing
-    recipe = zero_recipe.evaluate(bundle)[0]
+    refs = matched_faces(bundle, *boxes)
+    recipe, row = named_face_touch(bundle, setup, edge)
+    stands = zero_recipe.face_stands(bundle, setup, "target", edge, done=1)
+    if boxes == (NEAR,):
+        assert stands == -8.8
+        assert recipe.status == "pass", recipe.sentence
+        assert row["z_axis_set"] == pytest.approx(-8.7)
+        assert row["credited_faces"] == refs
+        return
+    assert stands == "unknown"
+    assert recipe.status == "unknown"
+    assert row["z_axis_set"] == "unknown"
+    assert "credited_faces" not in row
+
+
+@pytest.mark.parametrize("path", ["tool_touches", "retouch", "derived_touches"])
+def test_every_touch_reading_a_wholly_faced_plane_names_the_step_faces_it_reads(tmp_path, path):
+    # Z is set on the raw top before op 10 faces NEAR at its floor. Whatever touch reads
+    # that floor after it, explicit, listed retouch or the drill's derived re-touch, sets
+    # op 10's Z and names the STEP face op 10 produced.
+    bundle, setup = left_strip_faced(tmp_path, FACE_ONLY)
+    refs = matched_faces(bundle, NEAR)
+    if path == "tool_touches":
+        recipe, row = named_face_touch(bundle, setup, -8.8)
+        axis_set = row["z_axis_set"]
+    else:
+        if path == "derived_touches":
+            setup["ops"][1] = {
+                "op": 20,
+                "do": "drill",
+                "feature": "target",
+                "tool": "drill",
+                "holder": "unknown",
+                "depth_mm": 3.0,
+            }
+        recipe = zero_on_raw_top(bundle, setup, retouch_after=[10] if path == "retouch" else [])
+        (row,) = recipe.numbers[path]
+        axis_set = row["axis_set" if path == "retouch" else "z_axis_set"]
     assert recipe.status == "pass", recipe.sentence
-    assert recipe.numbers["tool_touches"][0]["z_axis_set"] == pytest.approx(edge + 0.1)
+    assert axis_set == pytest.approx(-8.7)
+    assert row["credited_faces"] == refs
+
+
+@pytest.mark.parametrize(("boxes", "whole"), [((NEAR, UNDER), True), ((UNDER,), False)])
+def test_only_a_listed_plane_at_the_floor_is_credited(tmp_path, boxes, whole):
+    # A feature listing a plane at op 10's floor and one below it: op 10 faced the first,
+    # not the underside, so only the first is credited. With no listed plane at the floor,
+    # what op 10 faced is unknown, and a touch on the feature has no known Z.
+    bundle, setup = left_strip_faced(tmp_path, FACE_ONLY)
+    refs = matched_faces(bundle, *boxes)
+    target = bundle.feature_definitions["target"]
+    debts, credited = [], []
+    coverage = tip_endpoints.cut_coverage(bundle, setup, setup["ops"][0], target, debts, credited)
+    recipe, row = named_face_touch(bundle, setup, -8.8)
+    if whole:
+        assert coverage == "whole" and credited == refs[:1]
+        assert recipe.status == "pass", recipe.sentence
+        assert row["z_axis_set"] == pytest.approx(-8.7)
+        assert row["credited_faces"] == refs[:1]
+        return
+    assert coverage == "unknown" and credited == []
+    assert "to_z" in " ".join(debts)
+    assert recipe.status == "unknown"
+    assert row["z_axis_set"] == "unknown" and "credited_faces" not in row
+    assert "target" in recipe.sentence
+
+
+@pytest.mark.parametrize("side", ["unknown", "-z"])
+def test_a_retouch_on_a_faced_plane_from_no_side_known_above_never_passes(tmp_path, side):
+    # Op 10 faced its plane from above. A touch on it from an unknown side, or from below,
+    # may meet another face, so it takes no credit and sets no known Z.
+    bundle, setup = left_strip_faced(tmp_path, FACE_ONLY)
+    matched_faces(bundle, NEAR)
+    recipe = zero_on_raw_top(bundle, setup, retouch_after=[10], side=side)
+    assert recipe.status == "unknown"
+    (row,) = recipe.numbers["retouch"]
+    assert "credited_faces" not in row
+
+
+# Keep-out circles in the face's model frame: over NEAR; 3.5 mm off it, inside the Ø6
+# cutter's reach of the Ø2 island; far off it.
+@pytest.mark.parametrize(
+    ("at", "whole"),
+    [
+        ([10.0, 7.0], False),
+        ([17.5, 7.0], False),
+        ([40.0, 30.0], True),
+        ([1e200, 1e200], True),
+    ],
+    ids=["island-over-face", "cutter-reaches-face", "clear", "finite-far-island"],
+)
+def test_a_keep_out_island_near_a_matched_face_leaves_it_partly_faced(tmp_path, at, whole):
+    # The whole cutter stays clear of an island, so the land within its radius of the
+    # island stands uncut: the box holding the face is no proof the face was cut.
+    bundle, setup = left_strip_faced(tmp_path, FACE_ONLY)
+    refs = matched_faces(bundle, NEAR)
+    op = setup["ops"][0]
+    op["contour"] = {"method": "linear_table", "step_mm": 4.0}
+    op["contour"]["keep_out"] = [{"at": at, "dia_mm": 2.0}]
+    target = bundle.feature_definitions["target"]
+    credited = []
+    coverage = tip_endpoints.cut_coverage(bundle, setup, op, target, None, credited)
+    (_, _, after), _ = stock_states(bundle, setup)
+    if whole:
+        assert coverage == "whole" and credited == refs
+        assert after["top_z"] == -8.8
+        assert _producer(bundle, setup, -8.8, "target", 1, None)[1]["op"] == 10
+        return
+    assert coverage == "partial" and credited == []
+    assert after["top_z"] == 0.0 and after["top_from"] == "S1 stock_state.top_z"
+    assert _producer(bundle, setup, -8.8, "target", 1, None) is None
+    recipe, row = named_face_touch(bundle, setup, -8.8)
+    assert recipe.status == "unknown"
+    assert row["z_axis_set"] == "unknown" and "credited_faces" not in row
+
+
+def test_a_keep_out_beside_a_matched_face_under_an_unknown_cutter_is_unknown(tmp_path):
+    # Whether the cutter reaches the face from this island is its unknown radius.
+    bundle, setup = left_strip_faced(tmp_path, FACE_ONLY)
+    matched_faces(bundle, NEAR)
+    op = setup["ops"][0]
+    op["contour"] = {"method": "linear_table", "step_mm": 4.0}
+    op["contour"]["keep_out"] = [{"at": [17.5, 7.0], "dia_mm": 2.0}]
+    bundle.inventory["tools"]["cutter"]["dia_mm"] = "unknown"
+    target = bundle.feature_definitions["target"]
+    debts, credited = [], []
+    assert tip_endpoints.cut_coverage(bundle, setup, op, target, debts, credited) == "unknown"
+    assert credited == [] and "keep_out" in " ".join(debts)
+    (_, _, after), _ = stock_states(bundle, setup)
+    assert after["top_z"] == after["top_from"] == "unknown"
+
+
+@pytest.mark.parametrize(
+    ("region", "expected"),
+    [
+        ([[0.0, 13.0], [-6.0, 6.0]], "whole"),
+        ([[20.0, 30.0], [-6.0, 6.0]], "partial"),
+        ([[0.0, 13.0], [-4.0, 6.0]], "unknown"),
+    ],
+    ids=["enclosing", "disjoint", "overlapping"],
+)
+def test_a_turned_setup_decides_only_what_the_faces_rebounded_box_proves(
+    tmp_path, region, expected
+):
+    # Turned 45° about Z, NEAR's model box poses as a square standing on a corner, and its
+    # setup box (X 1.41..12.73, Y ±5.66) holds twice its area. A region holding that box
+    # holds the face and one clear of it misses the face, but one crossing it may hold all
+    # of a diagonal strip or miss part of it: that proves neither.
+    bundle, setup = left_strip_faced(tmp_path, FACE_ONLY)
+    bundle.features["frames"]["A"].update(x=[C, C, 0.0], y=[-C, C, 0.0])
+    refs = matched_faces(bundle, NEAR)
+    target = bundle.feature_definitions["target"]
+    debts, credited = [], []
+    op = bounded(setup, region)
+    assert tip_endpoints.cut_coverage(bundle, setup, op, target, debts, credited) == expected
+    assert credited == (refs if expected == "whole" else [])
+    if expected == "unknown":
+        assert "approximation" in " ".join(debts)
 
 
 def _mapping_error(bundle, refs):
@@ -760,6 +940,10 @@ def _unknown_frame_origin(bundle, refs):
     bundle.features["frames"]["A"]["origin"] = "unknown"
 
 
+def _unknown_units(bundle, refs):
+    bundle.features["units"] = "unknown"
+
+
 # Each removes one input of the matched-face footprint; the word names that input.
 MISSING_FOOTPRINT = {
     "no kernel": (_no_kernel, "kernel"),
@@ -769,6 +953,7 @@ MISSING_FOOTPRINT = {
     "no face record": (_no_face_record, "bbox_mm"),
     "no faces list": (_no_faces_list, "faces"),
     "unknown setup origin": (_unknown_frame_origin, "origin"),
+    "unknown units": (_unknown_units, "units"),
     "mapping error": (_mapping_error, "#41/ADVANCED_FACE[2]/NONE"),
     "unknown face member": (_unknown_face_member, "faces"),
 }
@@ -782,7 +967,9 @@ def test_a_matched_face_footprint_missing_an_input_stays_unknown_and_names_it(tm
     refs = matched_faces(bundle, NEAR, FAR)
     remove(bundle, refs)
     target = bundle.feature_definitions["target"]
-    assert tip_endpoints.cut_coverage(bundle, setup, setup["ops"][0], target) == "unknown"
+    credited = []
+    coverage = tip_endpoints.cut_coverage(bundle, setup, setup["ops"][0], target, None, credited)
+    assert coverage == "unknown" and credited == []
     (_, _, after), _ = stock_states(bundle, setup)
     assert after["top_z"] == after["top_from"] == "unknown"
     assert _producer(bundle, setup, -8.8, "target", 1, None) == "unknown"
@@ -820,35 +1007,114 @@ def test_explicit_invalid_face_bounds_stay_debt_beside_a_kernel_box(tmp_path, bo
 INCH_FACE = (25.4, 76.2, 12.7, 50.8, 127.0, 12.7)
 INCH_ORIGIN = [0.5, 1.0, 0.25]
 INCH_SETUPS = {
-    # (setup x, y, z axes in model coordinates, the face's setup X/Y footprint in inches)
-    "translated": (([1.0, 0, 0], [0, 1.0, 0], [0, 0, 1.0]), [[0.5, 1.5], [2.0, 4.0]]),
-    "turned 90": (([0, 1.0, 0], [-1.0, 0, 0], [0, 0, 1.0]), [[2.0, 4.0], [-1.5, -0.5]]),
-    "flipped": (([1.0, 0, 0], [0, -1.0, 0], [0, 0, -1.0]), [[0.5, 1.5], [-4.0, -2.0]]),
+    # (setup x, y, z axes in model coordinates, the face's setup X/Y footprint in inches,
+    # and its setup Z: the floor of the op that faces it)
+    "translated": (([1.0, 0, 0], [0, 1.0, 0], [0, 0, 1.0]), [[0.5, 1.5], [2.0, 4.0]], 0.25),
+    "turned 90": (([0, 1.0, 0], [-1.0, 0, 0], [0, 0, 1.0]), [[2.0, 4.0], [-1.5, -0.5]], 0.25),
+    "flipped": (([1.0, 0, 0], [0, -1.0, 0], [0, 0, -1.0]), [[0.5, 1.5], [-4.0, -2.0]], -0.25),
 }
 
 
 @pytest.mark.parametrize("pose", INCH_SETUPS)
 def test_a_matched_face_box_moves_into_the_setup_frame_in_manifest_units(tmp_path, pose):
     # The kernel's model-space mm box, converted to inches and posed in the setup frame:
-    # a cut box exactly on it holds it, and one pulled in from any side does not.
+    # a cut box past it on every side holds it, and one pulled in from any side does not.
     bundle, setup = left_strip_faced(tmp_path, FACE_ONLY)
     bundle.features["units"] = "in"
-    (x, y, z), footprint = INCH_SETUPS[pose]
+    (x, y, z), footprint, to_z = INCH_SETUPS[pose]
     bundle.features["frames"]["A"].update(origin=INCH_ORIGIN, x=x, y=y, z=z)
-    matched_faces(bundle, INCH_FACE)
+    refs = matched_faces(bundle, INCH_FACE)
     target = bundle.feature_definitions["target"]
 
     def coverage(region):
-        box = {"x": region[0], "y": region[1], "z": [-10.0, 1.0]}
-        op = {**setup["ops"][0], "stock_removal_bounds": box}
-        return tip_endpoints.cut_coverage(bundle, setup, op, target)
+        credited = []
+        op = bounded(setup, region, to_z=to_z)
+        result = tip_endpoints.cut_coverage(bundle, setup, op, target, None, credited)
+        assert credited == (refs if result == "whole" else [])
+        return result
 
-    assert coverage(footprint) == "whole"
+    padded = [[low - 0.01, high + 0.01] for low, high in footprint]
+    assert coverage(padded) == "whole"
     for axis in range(2):
         for end, step in ((0, 0.01), (1, -0.01)):
-            region = [list(span) for span in footprint]
-            region[axis][end] += step
+            region = [list(span) for span in padded]
+            region[axis][end] = footprint[axis][end] + step
             assert coverage(region) == "partial", (axis, end)
+
+
+@pytest.mark.parametrize(
+    ("units", "box", "footprint", "to_z", "tolerance"),
+    [
+        ("mm", NEAR, [[1.0, 9.0], [1.0, 9.0]], -8.8, LENGTH_TOLERANCE_MM),
+        ("in", INCH_FACE, [[0.5, 1.5], [2.0, 4.0]], 0.25, LENGTH_TOLERANCE_MM / 25.4),
+    ],
+)
+def test_a_cut_edge_within_the_kernel_length_tolerance_of_a_face_edge_is_unknown(
+    tmp_path, units, box, footprint, to_z, tolerance
+):
+    # The kernel's face box is good to its length tolerance: a cut edge within that of the
+    # face's edge may lie on either side of it. Only past it does the cut hold the face
+    # (whole) or leave land beyond it (partial).
+    bundle, setup = left_strip_faced(tmp_path, FACE_ONLY)
+    bundle.features["units"] = units
+    if units == "in":
+        bundle.features["frames"]["A"]["origin"] = INCH_ORIGIN
+    refs = matched_faces(bundle, box)
+    target = bundle.feature_definitions["target"]
+    padded = [[low - 1.0, high + 1.0] for low, high in footprint]
+    # Each side's cut edge, in tolerances inside the face's edge.
+    for inside, expected in ((-2, "whole"), (-0.5, "unknown"), (0, "unknown"), (0.5, "unknown")):
+        for axis in range(2):
+            for end, inward in ((0, 1), (1, -1)):
+                region = [list(span) for span in padded]
+                region[axis][end] = footprint[axis][end] + inward * inside * tolerance
+                debts, credited = [], []
+                op = bounded(setup, region, to_z=to_z)
+                result = tip_endpoints.cut_coverage(bundle, setup, op, target, debts, credited)
+                assert result == expected, (inside, axis, end)
+                assert credited == (refs if expected == "whole" else [])
+                if expected == "unknown":
+                    assert "boundary" in " ".join(debts)
+    for axis in range(2):
+        for end, inward in ((0, 1), (1, -1)):
+            region = [list(span) for span in padded]
+            region[axis][end] = footprint[axis][end] + inward * 2 * tolerance
+            op = bounded(setup, region, to_z=to_z)
+            assert tip_endpoints.cut_coverage(bundle, setup, op, target) == "partial"
+
+
+@pytest.mark.parametrize(
+    ("to_z", "edge", "status", "axis_set"),
+    [
+        (5.21875, 5.21875, "pass", 5.27),
+        (7.497, 7.497, "pass", 7.55),
+        (7.497, 7.5, "pass", 7.55),
+        (5.21875, 5.215, "error", 5.27),
+    ],
+    ids=["off-grid-floor", "rounded-up-floor", "grid-edge", "edge-on-another-step"],
+)
+def test_a_touch_on_a_faced_plane_sets_the_dro_where_the_face_stands(
+    tmp_path, to_z, edge, status, axis_set
+):
+    # On a 0.005 grid the DRO stops op 10 at its floor rounded up, and the face stands
+    # there: the touch sets that Z plus 0.05 paper, so the trial's 5.21875 and 7.497 floors
+    # set 5.270 and 7.550, not 5.26875 and 7.547. An authored edge the DRO reads on that
+    # same step is the grid's rounding; one on another step contradicts the face, named
+    # with its DRO reading and where the face stands.
+    bundle, setup = left_strip_faced(tmp_path, FACE_ONLY)
+    bundle.inventory["machines"]["mill"]["resolution_mm"] = 0.005
+    setup["stock_state"]["top_z"] = 8.0
+    op = setup["ops"][0]
+    op["to_z"] = to_z
+    op["stock_removal_bounds"]["z"] = [to_z, 8.0]
+    refs = matched_faces(bundle, (6.0, 3.0, to_z + 1.0, 14.0, 11.0, to_z + 1.0))
+    recipe, row = named_face_touch(bundle, setup, edge, paper=0.05)
+    assert recipe.status == status, recipe.sentence
+    assert row["z_axis_set"] == pytest.approx(axis_set)
+    assert row["credited_faces"] == refs
+    if status == "error":
+        # The edge 5.215 reads 5.215 on the grid; the face stands at 5.22.
+        assert "5.215" in recipe.sentence and "5.22" in recipe.sentence
 
 
 @pytest.mark.parametrize("size", [{"dia": 4.0}, {"radius": 2.0}])

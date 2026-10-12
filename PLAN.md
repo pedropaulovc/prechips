@@ -1104,12 +1104,23 @@ sheet.
    blade), from the toolpost's cited words.
    **Bounded facing of bounds-free faces (2026-10-11, #188):** a facing op's
    `stock_removal_bounds` advance the top or entry of a `kind = "face"` feature
-   without `bounds` only when they hold the box enclosing every listed face's
-   already-present matched kernel `bbox_mm` (converted to manifest units and
-   posed in the setup frame); a partial box keeps the unfaced stock and credits
-   no producer. Missing kernel/mapping/bbox/frame inputs stay `?` with
-   `zero_check` naming the feature and the input; explicit invalid `bounds` never
-   fall back. No schema change.
+   without `bounds` only when every listed face resolves in the already-present
+   matched kernel result and each listed plane whose posed `bbox_mm` lies at the
+   op's `to_z` (within `LENGTH_TOLERANCE_MM`) is held inside them beyond that
+   tolerance; only those planes are credited (`credited_faces`, printed as
+   `produced plane:`). No plane at `to_z`, a box edge within the tolerance, a
+   non-permutation setup turn over-approximating the box, or a `contour.keep_out`
+   island grown by the cutter radius meeting the face leaves it `?` or partial;
+   a partial cut credits no producer. A named face without a whole producer
+   or a traced, preserved carry has no known Z. Same-setup touches set the
+   face's standing DRO Z: an edge whose `dro_z` is another step is `✗`.
+   Carried faces use their transformed native plane and the nearest enterable
+   Axis Set, with the residual recorded. An axial plunge with a proved
+   remaining annulus requires touching outside its computed diameter;
+   an oblique plane lacking exact native source-plane or datum evidence stays `?`.
+   Missing kernel/mapping/bbox/units/frame/
+   radius inputs stay `?` with `zero_check` naming the feature and the input;
+   explicit invalid `bounds` never fall back. No schema change.
 2. **M2 — local declared-input implementation completed 2026-10-03.**
    Turned-profile monotonicity,
    supported stick-out, collet/chuck diameter capacity, exact-first indexing,

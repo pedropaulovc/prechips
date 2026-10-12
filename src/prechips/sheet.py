@@ -13,6 +13,7 @@ import json
 import math
 import re
 from dataclasses import dataclass
+from decimal import Decimal
 from html import escape
 from importlib.resources import files
 
@@ -2169,6 +2170,67 @@ def _known(value):
     return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
 
 
+def _produced_plane(row):
+    """The STEP faces a Z touch's cut was credited with (zero_check ``credited_faces``):
+    the raw refs, printed as the report carries them, never through
+    :meth:`_Traveler.bench`, which strips ids. No credit, no claim: an absent or
+    empty list prints nothing."""
+    faces = row.get("credited_faces") if isinstance(row, dict) else None
+    if not isinstance(faces, list):
+        return None
+    faces = [face for face in faces if isinstance(face, str) and face]
+    if not faces:
+        return None
+    return "produced plane: " + ", ".join(faces)
+
+
+def _carried(row):
+    """Whether a zero_check row's Axis Set is a carried setting: the rule already put the
+    height plus paper on this setup's grid nearest (``setting_residual_mm`` names the
+    physical residual it retains), so the sheet prints that setting as the report
+    carries it and never moves it again. Any other row's setting still follows the
+    surface as this setup's DRO shows it (:meth:`_Traveler.datum_z`)."""
+    return isinstance(row, dict) and "setting_residual_mm" in row
+
+
+def _touch_outside(row):
+    """Where a credited Z touch may land (zero_check ``touch_exclusion_dia_mm``): the
+    complete circular footprint about the faced surface's axis that its cut and every
+    intervening axial plunge may have taken, cutter radius and aim shift included, as a
+    diameter in physical mm whatever the plan's units. The diameter prints rounded
+    outward to 0.001 mm (:func:`_outward_mm`) so the printed circle never admits a
+    touch the rule excluded. An absent field, or a zero one (the face was cut before any
+    bounded axial plunge: nothing to keep off), is no exclusion and prints nothing; a
+    field that is present but not a non-negative length prints the constraint with its
+    Ø unknown, never as a number."""
+    if not isinstance(row, dict) or "touch_exclusion_dia_mm" not in row:
+        return None
+    dia = row["touch_exclusion_dia_mm"]
+    if _known(dia) and dia == 0:
+        return None
+    if not (_known(dia) and dia > 0):
+        return "touch the face outside its cut footprint (Ø ? mm)"
+    return f"touch the face outside Ø{_outward_mm(dia)} mm"
+
+
+def _outward_mm(value):
+    """A known positive mm length as text on the 0.001 mm grid, rounded outward (up): the
+    exact decimal ceiling of the number's own decimal spelling, in integer arithmetic
+    (no float product, no decimal-context precision), so neither float residue
+    (1.0000000001 → 1.001, not 1.000) nor significant-digit display (1234.5608 →
+    1234.561, not 1234.56) brings it back inward, and an integer or huge value prints
+    every digit unchanged; only trailing fractional zeros are trimmed (11.570 → 11.57,
+    12.000 → 12)."""
+    if isinstance(value, int):
+        return str(value)
+    _, digits, exponent = Decimal(repr(float(value))).as_tuple()
+    coefficient = int("".join(map(str, digits)) or "0")
+    shift = exponent + 3  # value = coefficient × 10**exponent; steps are 0.001 mm
+    steps = coefficient * 10**shift if shift >= 0 else -(-coefficient // 10**-shift)
+    whole, fraction = divmod(steps, 1000)
+    return f"{whole}.{fraction:03d}".rstrip("0").rstrip(".")
+
+
 def _inward(low, high, unit="mm", places=None):
     """``(low, high)`` texts of a band given in mm, in ``unit`` (``mm`` to 0.001, ``in`` to
     0.0001, or to ``places`` decimals, a drawing's precision), rounded inward (low up, high
@@ -3053,6 +3115,14 @@ class _Traveler:
         if isinstance(value, dict) and "value" in value:
             value = value["value"]
         return _number(value, self.decimals if decimals is None else decimals)
+
+    def physical(self, value):
+        """A carried surface's physical height, in plan units, at its own decimals and at
+        least the DRO's: off this grid it prints every digit (21.0055), never rounded to
+        a grid line it does not stand on; unknown stays ``?``."""
+        if not _known(value):
+            return _text(value)
+        return self.operative(value, max(self.decimals, _places(value)))
 
     def band(self, value, feature, dimension):
         """A drawing acceptance band (``6.330–6.350``) at the drawing's own precision,
@@ -5333,7 +5403,11 @@ class _Traveler:
             readings = {
                 key: computed.get(key) for key in ("axis_set", "check_reading", "mirrored_reading")
             }
-            if axis == "z" and _known(edge):
+            if axis == "z" and _known(edge) and _carried(computed):
+                # A carried height: the report's setting (nearest grid) and jog readings
+                # print as computed; the surface prints at its own physical height.
+                shown_edge = self.physical(edge)
+            elif axis == "z" and _known(edge):
                 # The touched surface as the DRO shows it; Axis Set and the jog readings
                 # move with it.
                 done = self.ops_done(setup, after=touch.get("after_op"))
@@ -5346,9 +5420,12 @@ class _Traveler:
                     for key, value in readings.items()
                 }
                 edge = surface
+                shown_edge = o(edge)
+            else:
+                shown_edge = o(edge)
             measured = method in {"trial_cut_measure", "face_then_set", "measure_then_set"}
             if _known(edge) and touch.get("from") != "indicated" and not measured:
-                shown_surface = f"surface at {o(edge)}"
+                shown_surface = f"surface at {shown_edge}"
                 start = len("; ".join(contact)) + 2
                 if isinstance(target, str) and target not in ("", "unknown"):
                     zero_surface = (axis, target, start, start + len(shown_surface))
@@ -5365,6 +5442,12 @@ class _Traveler:
                 contact.append(f"paper {o(paper)}" if paper else "direct contact, no paper")
             if touch.get("after_op") not in (None, "unknown"):
                 contact.append(f"after op {_text(touch['after_op'])}")
+            plane = _produced_plane(computed)
+            if plane:
+                contact.append(plane)
+            outside = _touch_outside(computed)
+            if outside:
+                contact.append(outside)
             before_hold = touch.get("measure_before_hold") is True and touch.get("measure")
             if touch.get("gauge") and not before_hold:
                 contact.append("measure with " + self.short_reference(touch["gauge"], "gauges"))
@@ -5450,16 +5533,24 @@ class _Traveler:
         }
         surface = self.feature_name(top_feature) if top_feature else "the top"
         for record in numbers.get("retouch", []):
-            # The top as the op that last faced it left it, else as the DRO shows it.
-            top = self.surface_z(
-                setup, record.get("top_z"), tops.get(str(record.get("op"))), face="top"
-            )
             paper = record.get("paper_mm")
-            axis_set = top + paper if _known(top) and _known(paper) else "unknown"
-            key = (o(top), o(paper), o(axis_set))
+            if _carried(record):
+                # A carried top: its physical height, and the setting as the report
+                # computed it on this grid.
+                top = self.physical(record.get("top_z"))
+                axis_set = o(record.get("axis_set"))
+            else:
+                # The top as the op that last faced it left it, else as the DRO shows it.
+                top = self.surface_z(
+                    setup, record.get("top_z"), tops.get(str(record.get("op"))), face="top"
+                )
+                axis_set = top + paper if _known(top) and _known(paper) else "unknown"
+                top, axis_set = o(top), o(axis_set)
+            key = (top, o(paper), axis_set, _produced_plane(record), _touch_outside(record))
             retouches.setdefault(key, []).append(record)
-        for (top, paper, axis_set), records in retouches.items():
-            touch = f"touch {surface} (Z {top}) with {paper} paper → Axis Set Z {axis_set}."
+        for (top, paper, axis_set, plane, outside), records in retouches.items():
+            touch = f"touch {surface} (Z {top}) with {paper} paper → Axis Set Z {axis_set}"
+            touch += "".join(f"; {note}" for note in (plane, outside) if note) + "."
             changes = []
             for record in records:
                 after, served = _text(record.get("op")), record.get("next_op")
@@ -5829,7 +5920,11 @@ class _Traveler:
             edge = touch.get("edge_mm")
             axis_set = touch.get("z_axis_set", edge)
             surface = "unknown"
-            if _known(edge) and _known(axis_set):
+            if _carried(touch) and _known(edge):
+                # A carried face: the report's setting prints as computed, the face at
+                # its physical height.
+                surface = edge
+            elif _known(edge) and _known(axis_set):
                 # The touched face as the DRO shows it when this tool comes in.
                 done = self.ops_done(setup, before=touch.get("before_ops"))
                 surface = self.datum_z(setup, z_face, edge, done)
@@ -5844,7 +5939,8 @@ class _Traveler:
                 text = f"Z — {corner} corner on the {self.bench(z_face)}"
                 words = words.replace("this tool's Z-cutting edge", f"this blade's {corner} corner")
             if "repeats" in touch and _known(surface):
-                text += f" (Z {self.operative(surface)})"
+                shown = self.physical(surface) if _carried(touch) else self.operative(surface)
+                text += f" (Z {shown})"
             text += f": {words}"
             if touch.get("z_measure"):
                 gauge = touch.get("z_gauge")
@@ -5858,6 +5954,12 @@ class _Traveler:
                 text += f": Z now reads the {corner} corner"
             elif blade:
                 text += ". STOP: which blade corner this touch sets is not known — plan it"
+            plane = _produced_plane(touch)
+            if plane:
+                text += f"; {plane}"
+            outside = _touch_outside(touch)
+            if outside:
+                text += f"; {outside}"
             parts.append(text + ".")
         return " ".join(parts)
 
