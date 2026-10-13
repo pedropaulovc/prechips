@@ -2386,3 +2386,802 @@ def test_cutter_centre_tables_read_the_same_whichever_last_bit_libm_rounds_to(
         real = getattr(math, name)
         monkeypatch.setattr(math, name, lambda *a, real=real: math.nextafter(real(*a), toward))
     assert coordinates_row(plan, swing).numbers == exact
+
+
+def finite_line_cylinder_gap(point, ends, normal, drill):
+    """Cylinder support against a finite face, or distance to its actual end cap.
+
+    The interior case uses the cylinder's extreme point along the scrap normal;
+    outside the face's tangential extent only its nearest endpoint remains a wall.
+    """
+    a, b = ends
+    tangent = [b[i] - a[i] for i in range(2)]
+    projection = sum((point[i] - a[i]) * tangent[i] for i in range(2))
+    if 0 <= projection <= sum(value * value for value in tangent):
+        support = [point[i] - drill * normal[i] for i in range(2)]
+        return sum((support[i] - a[i]) * normal[i] for i in range(2))
+    return min(math.dist(point, end) for end in ends) - drill
+
+
+def joined_cylinder_gaps(point, drill):
+    """Cylinder support against the nearest finite material boundary.
+
+    Distances choose the local boundary; cylinder support establishes its side.
+    The nested R10 and R20 arcs must not become global opposing half-planes.
+    The cylinder must also miss every other finite boundary, regardless of side.
+    """
+    boundaries = []
+    for side in (-1, 1):
+        vertices = [[side * p[0], p[1]] for p in (JOIN_TOP, JOIN_TIP, JOIN_BOTTOM)]
+        for a, b in itertools.pairwise(vertices):
+            tangent = [b[i] - a[i] for i in range(2)]
+            length = math.hypot(*tangent)
+            normal = [-side * tangent[1] / length, side * tangent[0] / length]
+            boundaries.append(
+                (
+                    segment_distance(point, a, b),
+                    finite_line_cylinder_gap(point, [a, b], normal, drill),
+                )
+            )
+    radial = math.hypot(*point)
+    for radius, endpoint, scrap in ((10.0, JOIN_TOP, -1), (20.0, JOIN_BOTTOM, 1)):
+        if radial and point[1] <= 0 and abs(point[0]) / radial <= endpoint[0] / radius:
+            boundaries.append((abs(radial - radius), scrap * (radial - radius) - drill))
+        else:
+            distance = min(math.dist(point, [side * endpoint[0], endpoint[1]]) for side in (-1, 1))
+            boundaries.append((distance, distance - drill))
+    nearest = min(distance for distance, _ in boundaries)
+    return [distance - drill for distance, _ in boundaries] + [
+        gap for distance, gap in boundaries if abs(distance - nearest) <= 1e-9
+    ]
+
+
+@pytest.mark.parametrize("turn", range(4))
+@pytest.mark.parametrize("reflection", [-1, 1], ids=["reflected", "direct"])
+@pytest.mark.parametrize("resolution", [1.0, 3.0, 10.0])
+def test_unbounded_joined_chain_prints_only_scrap_side_cylinders(
+    tmp_path, monkeypatch, turn, reflection, resolution
+):
+    plan = joined_chain_plan(tmp_path, cap=100.0)
+    change(
+        plan.with_name("inventory.toml"),
+        "kind = 'mill'",
+        f"kind = 'mill'\nresolution_mm = {resolution}",
+    )
+    bundle = load_bundle(plan)
+    assert "stock_removal_bounds" not in bundle.plan["setups"][0]["ops"][0]
+    # Exact integer D4 bases avoid trigonometric noise; translated origins exercise
+    # the model/setup conversion rather than an origin-only supporting-line check.
+    x = [(1, 0), (0, 1), (-1, 0), (0, -1)][turn]
+    y = (-reflection * x[1], reflection * x[0])
+    origin = [5.0, 2.0, 1.0]
+    bundle.features["frames"]["A"].update(x=[*x, 0.0], y=[*y, 0.0], origin=origin)
+    stamped = []
+    printed = coordinates._printed
+
+    def capture(arcs, lines, grid, walls, offset):
+        printed(arcs, lines, grid, walls, offset)
+        stamped.extend(
+            (point, "rows" in table)
+            for table in (*arcs, *lines)
+            for point in (
+                [item["dro_xy"] for item in table["rows"]] if "rows" in table else table["dro_xy"]
+            )
+        )
+
+    monkeypatch.setattr(coordinates, "_printed", capture)
+    row = joined_chain_finding(bundle)
+    assert stamped, "Exercise the primary generator, not just a clearance helper"
+    for point, is_arc in stamped:
+        if point == ["unknown", "unknown"]:
+            continue
+        model = [origin[i] + x[i] * point[0] + y[i] * point[1] for i in range(2)]
+        assert min(joined_cylinder_gaps(model, JOIN_DRILL / 2)) >= JOIN_ALLOWANCE - 1e-6
+        if is_arc:
+            radial = math.hypot(*model)
+            if radial and model[1] <= 0 and abs(model[0]) / radial <= JOIN_BOTTOM[0] / 20.0:
+                gap = radial - 20.0 - JOIN_DRILL / 2
+            else:
+                gap = (
+                    min(
+                        math.dist(model, [side * JOIN_BOTTOM[0], JOIN_BOTTOM[1]])
+                        for side in (-1, 1)
+                    )
+                    - JOIN_DRILL / 2
+                )
+            assert gap >= JOIN_ALLOWANCE - 1e-6
+    for table in (*arcs(row, 20), *joined_chain_lines(row)):
+        assert table["hole_clear_mm"] >= JOIN_ALLOWANCE - 1e-6
+
+
+@pytest.mark.parametrize("scale", [1.0, 25.4], ids=["mm", "inch"])
+@pytest.mark.parametrize("scrap", [-1, 1], ids=["minus-normal", "plus-normal"])
+@pytest.mark.parametrize("regenerated", [False, True], ids=["unbounded", "retained"])
+def test_chain_and_preconditions_refuse_finished_side_parallel_holes(scale, scrap, regenerated):
+    wall = [[-20.0 / scale, 1.5 / scale], [40.0 / scale, 1.5 / scale]]
+    drill = 1.0 / scale
+    holes = [[0.0, (1.5 - scrap * 1.5) / scale], [10.0 / scale, (1.5 - scrap * 1.5) / scale]]
+    normal = [0.0, float(scrap)]
+    line = {
+        "method": "chain_drill",
+        "side": "signed synthetic",
+        "dro_xy": holes,
+        "cutter_radius_mm": 1.0,
+        "join_walls": [{"ends": wall, "normal": normal}],
+    }
+    if regenerated:
+        line.update(regeneration="true_curve", dropped_ends=[True, True])
+    walls = [lambda point: segment_distance(point, *wall)]
+    assert all(
+        finite_line_cylinder_gap(point, wall, normal, drill) * scale == pytest.approx(-2.5)
+        for point in holes
+    )
+    assert math.dist(*holes) * scale - 2.0 == pytest.approx(8.0)
+    pre_errors, pre_debts = coordinates._chain_preconditions(
+        {"contour": {"method": "chain_drill", "pitch_mm": 10.0}},
+        "rough",
+        [],
+        [line],
+        walls,
+        "signed chain",
+        scale,
+    )
+    chain_errors, chain_debts = coordinates._chain(
+        [], [line], walls, drill, 0.5, 5.0, "signed chain", scale
+    )
+    assert pre_errors and not pre_debts
+    assert chain_errors and not chain_debts
+    assert line["hole_clear_mm"] < 0
+
+
+@pytest.mark.parametrize("kind", ["arc_table", "line_table"], ids=["arc", "join"])
+def test_actual_regenerated_hole_on_another_finished_wall_side_is_refused(tmp_path, kind):
+    bundle = load_bundle(joined_chain_plan(tmp_path, bounded=True, cap=100.0))
+    requested = joined_chain_finding(bundle, pre_kernel=True)
+    selected = next(
+        table
+        for table in coordinates.checkpoints("S1:20", requested.numbers, 20)
+        if table["kind"] == kind
+    )
+    index = len(selected["rows"]) // 2
+    clipped = synthetic_join_clip(
+        bundle,
+        requested,
+        lambda table: [index] if table["name"] == selected["name"] else [],
+        regenerated=True,
+    )
+    entry = next(
+        entry
+        for entry in clipped.kernel["ops"]["S1:20"]["checkpoint_clips"]["paths"]
+        if entry["pieces"]
+    )
+    (point,) = entry["pieces"][0]
+    # A hole on the finished side of the finite right land also lies inside the
+    # bottom arc. The retained singleton has no web or break-out to reveal it.
+    model = [10.0, -12.0]
+    setup = [model[0] - 5.0, model[1] - 2.0]
+    assert math.hypot(*model) - 20.0 - JOIN_DRILL / 2 < 0
+    assert min(joined_cylinder_gaps(model, JOIN_DRILL / 2)) < -JOIN_DRILL / 2
+    point.update(exact_xy=setup, dro_xy=setup, model_xy=model)
+    row = joined_chain_finding(clipped)
+    assert row.status == "error", row.sentence
+    assert row.numbers.get("arc_errors")
+    assert arcs(row, 20) == joined_chain_lines(row) == []
+
+
+def test_finite_join_endpoint_cap_does_not_extend_a_finished_half_plane():
+    wall = [[0.0, 0.0], [1.0, 0.0]]
+    normal = [0.0, 1.0]
+    drill, allowance = 0.25, 0.1
+    # Both cylinders are below the supporting line, but beyond its finite end.
+    holes = [[2.0, -1.0], [3.0, -1.0]]
+    line = {
+        "method": "chain_drill",
+        "side": "finite cap",
+        "dro_xy": holes,
+        "join_walls": [{"ends": wall, "normal": normal}],
+    }
+    assert all(finite_line_cylinder_gap(p, wall, normal, drill) > allowance for p in holes)
+    chain_errors, chain_debts = coordinates._chain(
+        [],
+        [line],
+        [lambda point: segment_distance(point, *wall)],
+        drill,
+        allowance,
+        5.0,
+        "finite cap",
+        1.0,
+    )
+    assert chain_errors == chain_debts == []
+    assert line["hole_clear_mm"] == pytest.approx(math.sqrt(2.0) - drill)
+
+
+def test_arc_holes_and_preconditions_refuse_another_finite_finished_wall(tmp_path, monkeypatch):
+    bundle = load_bundle(joined_chain_plan(tmp_path, cap=100.0))
+    captured = []
+    printed = coordinates._printed
+
+    def capture(arcs, lines, grid, walls, offset):
+        captured.extend(walls)
+        printed(arcs, lines, grid, walls, offset)
+
+    monkeypatch.setattr(coordinates, "_printed", capture)
+    row = joined_chain_finding(bundle)
+    (original,) = arcs(row, 20)
+    model = [10.0, -12.0]
+    setup = [model[0] - 5.0, model[1] - 2.0]
+    arc = dict(original, rows=[dict(original["rows"][0], dro_xy=setup)])
+    assert math.hypot(*model) - 20.0 - JOIN_DRILL / 2 < 0
+    assert min(joined_cylinder_gaps(model, JOIN_DRILL / 2)) < 0
+    pre_errors, pre_debts = coordinates._chain_preconditions(
+        bundle.plan["setups"][0]["ops"][0], "rough", [arc], [], captured, "cross-wall", 1.0
+    )
+    hole_errors, hole_debts = coordinates._holes(
+        arc, captured, JOIN_DRILL / 2, JOIN_ALLOWANCE, "cross-wall", 1.0
+    )
+    assert pre_errors and not pre_debts
+    assert hole_errors and not hole_debts
+    assert arc["hole_clear_mm"] < 0
+
+
+def test_chain_grid_without_a_safe_cylinder_leaves_concrete_unknown():
+    lower = [[-100.0, 1.5], [100.0, 1.5]]
+    upper = [[-100.0, 4.5], [100.0, 4.5]]
+    drill, allowance = 1.0, 0.5
+    line = {
+        "method": "chain_drill",
+        "side": "narrow scrap channel",
+        "setup_xy": [[0.0, 3.0], [10.0, 3.0]],
+        "join_walls": [
+            {"ends": lower, "normal": [0.0, 1.0]},
+            {"ends": upper, "normal": [0.0, -1.0]},
+        ],
+    }
+    # Legacy distance callables are unsigned; the primary printer must consume
+    # the actual finite faces and their signed scrap normals from the line.
+    # Every permitted grid candidate projects inside both of these finite faces.
+    walls = [
+        lambda point: segment_distance(point, *lower),
+        lambda point: segment_distance(point, *upper),
+    ]
+    candidates = [[x, y] for x in range(-20, 41, 10) for y in range(-20, 41, 10)]
+    assert not any(
+        min(
+            finite_line_cylinder_gap(point, lower, [0.0, 1.0], drill),
+            finite_line_cylinder_gap(point, upper, [0.0, -1.0], drill),
+        )
+        >= allowance
+        for point in candidates
+    )
+    coordinates._printed([], [line], (10.0, 0), walls, drill + allowance)
+    assert line["dro_xy"] == [["unknown", "unknown"], ["unknown", "unknown"]]
+    chain_errors, chain_debts = coordinates._chain(
+        [], [line], walls, drill, allowance, 5.0, "narrow channel", 1.0
+    )
+    assert not chain_errors and chain_debts
+    assert "hole_clear_mm" not in line and "drill_dia_mm" not in line
+
+
+@pytest.mark.parametrize("kind", ["arc_table", "line_table"], ids=["arc", "join"])
+def test_retained_regenerated_chain_cylinders_keep_the_finite_scrap_clearance(tmp_path, kind):
+    bundle = load_bundle(joined_chain_plan(tmp_path, bounded=True))
+    requested = joined_chain_finding(bundle, pre_kernel=True)
+    selected = next(
+        table
+        for table in coordinates.checkpoints("S1:20", requested.numbers, 20)
+        if table["kind"] == kind
+    )
+    index = len(selected["rows"]) // 2
+    row = joined_chain_finding(
+        synthetic_join_clip(
+            bundle,
+            requested,
+            lambda table: [index] if table["name"] == selected["name"] else [],
+            regenerated=True,
+        )
+    )
+    assert row.status == "pass", row.sentence
+    (retained,) = arcs(row, 20) if kind == "arc_table" else joined_chain_lines(row)
+    holes = (
+        [item["dro_xy"] for item in retained["rows"]] if kind == "arc_table" else retained["dro_xy"]
+    )
+    for point in holes:
+        model = [point[0] + 5.0, point[1] + 2.0]
+        assert min(joined_cylinder_gaps(model, JOIN_DRILL / 2)) >= JOIN_ALLOWANCE - 1e-6
+        if kind == "arc_table":
+            assert math.hypot(*model) - 20.0 - JOIN_DRILL / 2 >= JOIN_ALLOWANCE - 1e-6
+    assert retained["hole_clear_mm"] >= JOIN_ALLOWANCE - 1e-6
+
+
+# Region-level regressions deliberately do not reuse finite_line_cylinder_gap:
+# the shared concave vertex belongs to one finished L, not two independent caps.
+def concave_region_basis(turn, reflection):
+    x = [(1, 0), (0, 1), (-1, 0), (0, -1)][turn]
+    return x, (-reflection * x[1], reflection * x[0])
+
+
+def concave_region_place(point, basis, shift, scale):
+    x, y = basis
+    return [(shift[i] + x[i] * point[0] + y[i] * point[1]) / scale for i in range(2)]
+
+
+def concave_region_model(point, basis, shift, scale):
+    delta = [point[i] * scale - shift[i] for i in range(2)]
+    return [sum(delta[i] * vector[i] for i in range(2)) for vector in basis]
+
+
+def concave_region_polygon(corner=(3.0, 3.0), extent=10000.0):
+    cx, cy = corner
+    return [
+        [-extent, -extent],
+        [extent, -extent],
+        [extent, cy],
+        [cx, cy],
+        [cx, extent],
+        [-extent, extent],
+    ]
+
+
+def concave_region_inside(point, polygon):
+    """Independent exact straight-polygon ray crossing, including the boundary."""
+    if any(
+        segment_distance(point, a, b) == 0
+        for a, b in zip(polygon, polygon[1:] + polygon[:1], strict=True)
+    ):
+        return True
+    crossings = 0
+    for a, b in zip(polygon, polygon[1:] + polygon[:1], strict=True):
+        if (a[1] > point[1]) != (b[1] > point[1]):
+            at = a[0] + (point[1] - a[1]) * (b[0] - a[0]) / (b[1] - a[1])
+            crossings += at > point[0]
+    return bool(crossings % 2)
+
+
+def concave_region_disk_gap(point, drill=1.0, corner=(3.0, 3.0), polygon=None):
+    """Physical-mm disk gap to finished material, not an edge-cap acceptance copy.
+
+    Open local fixture: material is x <= cx OR y <= cy. Distance from an
+    inside centre to the scrap quadrant is the norm of its coordinate deficits.
+    A supplied closed fixture instead uses its actual polygon membership and
+    nearest finite boundary, including its remote convex edges.
+    """
+    if polygon is not None:
+        distance = min(
+            segment_distance(point, a, b)
+            for a, b in zip(polygon, polygon[1:] + polygon[:1], strict=True)
+        )
+        return (-distance if concave_region_inside(point, polygon) else distance) - drill
+    dx, dy = point[0] - corner[0], point[1] - corner[1]
+    signed = min(dx, dy) if dx > 0 and dy > 0 else -math.hypot(max(-dx, 0.0), max(-dy, 0.0))
+    return signed - drill
+
+
+def concave_region_fixture(
+    turn=0,
+    reflection=1,
+    scale=1.0,
+    closed=False,
+    shift=(0.0, 0.0),
+    nominal=(4.5, 4.5),
+    corner=(3.0, 3.0),
+    arm=10.0,
+    extent=10000.0,
+):
+    basis = concave_region_basis(turn, reflection)
+
+    def place(point):
+        return concave_region_place(point, basis, shift, scale)
+
+    polygon = concave_region_polygon(corner, extent) if closed else None
+    if closed:
+        authored = []
+        for a, b in zip(polygon, polygon[1:] + polygon[:1], strict=True):
+            length = math.dist(a, b)
+            authored.append(([a, b], [(b[1] - a[1]) / length, (a[0] - b[0]) / length]))
+    else:
+        cx, cy = corner
+        authored = [
+            ([list(corner), [cx + arm, cy]], [0.0, 1.0]),
+            ([list(corner), [cx, cy + arm]], [1.0, 0.0]),
+        ]
+    walls = [
+        {
+            "kind": "line",
+            "ends": [place(p) for p in ends],
+            "normal": [basis[0][i] * normal[0] + basis[1][i] * normal[1] for i in range(2)],
+        }
+        for ends, normal in authored
+    ]
+    line = {
+        "method": "chain_drill",
+        "side": "closed finished L" if closed else "open concave shared vertex",
+        "setup_xy": [place(nominal)],
+        "model_xy": [list(nominal)],
+        "cutter_radius_mm": 1.0,
+        "join_walls": walls,
+        "chain_geometry": {"walls": walls},
+    }
+    unsigned = [lambda p, ends=wall["ends"]: segment_distance(p, *ends) for wall in walls]
+
+    def gap(point):
+        return concave_region_disk_gap(
+            concave_region_model(point, basis, shift, scale), corner=corner, polygon=polygon
+        )
+
+    return line, unsigned, gap, place
+
+
+def concave_region_nearest(exact, grid, gap, allowance=0.5):
+    """Enumerate ALL safe grid points within +/-10 indices, independently of the rule."""
+    step, decimals = grid
+    base = [math.floor(value / step) for value in exact]
+    candidates = []
+    for i, j in itertools.product(range(-10, 11), repeat=2):
+        point = [
+            round((base[0] + i) * step, decimals),
+            round((base[1] + j) * step, decimals),
+        ]
+        if gap(point) >= allowance:
+            candidates.append((math.dist(exact, point), point))
+    assert candidates, "Independent full-safety enumeration needs a positive DRO witness"
+    best = min(distance for distance, _ in candidates)
+    outside = min(
+        *[exact[i] - (base[i] - 11) * step for i in range(2)],
+        *[(base[i] + 11) * step - exact[i] for i in range(2)],
+    )
+    assert best < outside, "The +/-10 window must establish global nearest optimality"
+    return best, [point for distance, point in candidates if distance == best]
+
+
+@pytest.mark.parametrize("turn", range(4))
+@pytest.mark.parametrize("reflection", [-1, 1], ids=["reflected", "direct"])
+@pytest.mark.parametrize("scale", [1.0, 25.4], ids=["mm", "inch"])
+@pytest.mark.parametrize("closed", [False, True], ids=["open", "closed"])
+@pytest.mark.parametrize("phase", range(3), ids=["observed", "translated", "off-grid-phase"])
+def test_concave_region_coarse_grid_prints_nearest_safe_singleton(
+    turn, reflection, scale, closed, phase
+):
+    step = (10.0 if scale == 1.0 else 0.5) if phase < 2 else (3.0 if scale == 1.0 else 0.125)
+    shift = [
+        (0.0, 0.0),
+        (3 * step * scale, -2 * step * scale),
+        (step * scale / 4, -3 * step * scale / 8),
+    ][phase]
+    grid = (step, 0 if scale == 1.0 else 3)
+    line, walls, gap, place = concave_region_fixture(turn, reflection, scale, closed, shift)
+    exact = line["setup_xy"][0]
+    best, winners = concave_region_nearest(exact, grid, gap)
+    # The observed coarse-phase winner (0,0) was a whole-disk gouge; (10,10)
+    # is a genuinely safe and independently enumerated replacement in mm.
+    assert gap(place([0.0, 0.0])) == pytest.approx(-math.sqrt(18.0) - 1.0)
+    assert gap(place([10.0, 10.0])) == pytest.approx(6.0)
+    coordinates._printed([], [line], grid, walls, 1.5 / scale)
+    (actual,) = line["dro_xy"]
+    assert all(isinstance(value, (int, float)) for value in actual), winners
+    assert gap(actual) >= 0.5
+    assert actual in winners
+    assert math.dist(exact, actual) == best
+    pre_errors, pre_debts = coordinates._chain_preconditions(
+        {"contour": {"method": "chain_drill", "pitch_mm": 10.0}},
+        "rough",
+        [],
+        [line],
+        walls,
+        "concave nearest witness",
+        scale,
+    )
+    actual_errors, actual_debts = coordinates._chain(
+        [], [line], walls, 1.0 / scale, 0.5, 10000.0, "concave nearest witness", scale
+    )
+    assert pre_errors == pre_debts == actual_errors == actual_debts == []
+    assert line["hole_clear_mm"] >= 0.5
+    assert line["hole_clear_mm"] == pytest.approx(gap(actual))
+    assert "pitch_mm" not in line and "break_out" not in line
+
+
+@pytest.mark.parametrize("turn", range(4))
+@pytest.mark.parametrize("reflection", [-1, 1], ids=["reflected", "direct"])
+@pytest.mark.parametrize("scale", [1.0, 25.4], ids=["mm", "inch"])
+@pytest.mark.parametrize("closed", [False, True], ids=["open", "closed"])
+@pytest.mark.parametrize("regenerated", [False, True], ids=["authored", "actual-retained"])
+def test_concave_region_singleton_gouge_is_refused_by_both_stages(
+    turn, reflection, scale, closed, regenerated
+):
+    line, walls, gap, place = concave_region_fixture(turn, reflection, scale, closed)
+    actual = place([0.0, 0.0])
+    line["dro_xy"] = [actual]
+    if regenerated:
+        line.update(regeneration="true_curve", dropped_ends=[True, True])
+    # Its WHOLE radius-1 disk lies in finished material; a singleton owes no
+    # web or break-out, so only the region predicate can catch this gouge.
+    assert concave_region_inside([0.0, 0.0], concave_region_polygon())
+    assert 0.0 + 1.0 < 3.0
+    assert gap(actual) == pytest.approx(-math.sqrt(18.0) - 1.0)
+    pre_errors, pre_debts = coordinates._chain_preconditions(
+        {"contour": {"method": "chain_drill", "pitch_mm": 10.0}},
+        "rough",
+        [],
+        [line],
+        walls,
+        "whole-disk gouge",
+        scale,
+    )
+    actual_errors, actual_debts = coordinates._chain(
+        [], [line], walls, 1.0 / scale, 0.5, 10000.0, "whole-disk gouge", scale
+    )
+    assert pre_errors and not pre_debts
+    assert actual_errors and not actual_debts
+    assert line["hole_clear_mm"] == pytest.approx(gap(actual))
+    assert "pitch_mm" not in line and "break_out" not in line
+
+
+@pytest.mark.parametrize("turn", range(4))
+@pytest.mark.parametrize("reflection", [-1, 1], ids=["reflected", "direct"])
+@pytest.mark.parametrize("closed", [False, True], ids=["open", "closed"])
+def test_concave_region_equal_distance_safe_ties_remain_nearest(turn, reflection, closed):
+    line, walls, gap, _ = concave_region_fixture(
+        turn, reflection, closed=closed, nominal=(15.0, 5.0), arm=10000.0
+    )
+    best, winners = concave_region_nearest(line["setup_xy"][0], (10.0, 0), gap)
+    assert len(winners) == 2
+    coordinates._printed([], [line], (10.0, 0), walls, 1.5)
+    (actual,) = line["dro_xy"]
+    assert actual in winners
+    assert gap(actual) >= 0.5
+    assert math.dist(line["setup_xy"][0], actual) == best
+
+
+@pytest.mark.parametrize("turn", range(4))
+@pytest.mark.parametrize("reflection", [-1, 1], ids=["reflected", "direct"])
+@pytest.mark.parametrize("scale", [1.0, 25.4], ids=["mm", "inch"])
+def test_closed_concave_outline_uses_true_polygon_membership(turn, reflection, scale):
+    line, walls, gap, place = concave_region_fixture(
+        turn, reflection, scale, closed=True, nominal=(-25.0, 0.0), extent=20.0
+    )
+    polygon = concave_region_polygon(extent=20.0)
+    assert concave_region_inside([0.0, 0.0], polygon)
+    assert not concave_region_inside([-25.0, 0.0], polygon)
+    assert not concave_region_inside([10.0, 10.0], polygon)
+    assert gap(place([0.0, 0.0])) < 0
+    # Outside the actual remote finite edge is scrap, even though x <= 3.
+    line["dro_xy"] = [place([-25.0, 0.0])]
+    pre_errors, pre_debts = coordinates._chain_preconditions(
+        {"contour": {"method": "chain_drill", "pitch_mm": 10.0}},
+        "rough",
+        [],
+        [line],
+        walls,
+        "closed polygon outside",
+        scale,
+    )
+    actual_errors, actual_debts = coordinates._chain(
+        [], [line], walls, 1.0 / scale, 0.5, 10000.0, "closed polygon outside", scale
+    )
+    assert pre_errors == pre_debts == actual_errors == actual_debts == []
+    assert line["hole_clear_mm"] == pytest.approx(4.0)
+
+
+@pytest.mark.parametrize("turn", range(4))
+@pytest.mark.parametrize("reflection", [-1, 1], ids=["reflected", "direct"])
+@pytest.mark.parametrize("scale", [1.0, 25.4], ids=["mm", "inch"])
+def test_genuine_open_free_endpoint_cap_keeps_actual_and_authored_holes(turn, reflection, scale):
+    basis = concave_region_basis(turn, reflection)
+
+    def place(point):
+        return concave_region_place(point, basis, (7.0, -11.0), scale)
+
+    wall = {
+        "kind": "line",
+        "ends": [place([0.0, 0.0]), place([1.0, 0.0])],
+        "normal": list(basis[1]),
+    }
+    point = place([2.0, -1.0])
+    line = {
+        "method": "chain_drill",
+        "side": "genuine free cap",
+        "setup_xy": [point],
+        "dro_xy": [point],
+        "cutter_radius_mm": 0.25,
+        "join_walls": [wall],
+        "chain_geometry": {"walls": [wall]},
+    }
+    walls = [lambda p: segment_distance(p, *wall["ends"])]
+    # Below the support line is nevertheless safe beyond an isolated finite end.
+    independent_gap = math.dist([2.0, -1.0], [1.0, 0.0]) - 0.25
+    assert independent_gap >= 0.1
+    pre_errors, pre_debts = coordinates._chain_preconditions(
+        {"contour": {"method": "chain_drill", "pitch_mm": 10.0}},
+        "rough",
+        [],
+        [line],
+        walls,
+        "genuine free cap",
+        scale,
+    )
+    actual_errors, actual_debts = coordinates._chain(
+        [], [line], walls, 0.25 / scale, 0.1, 10000.0, "genuine free cap", scale
+    )
+    assert pre_errors == pre_debts == actual_errors == actual_debts == []
+    assert line["hole_clear_mm"] == pytest.approx(independent_gap)
+
+
+def joined_region_disk_gap(point, drill):
+    """True material membership of the supported joined profile, independently.
+
+    Its vertical sections are bounded above by the finite R10 rim / top lands
+    and below by the finite R20 rim / bottom tapers. The two mirrored tips are
+    the actual finite limits. Unsigned boundary distances do not decide side.
+    """
+    x, y = abs(point[0]), point[1]
+    if x <= JOIN_TOP[0]:
+        upper = -math.sqrt(100.0 - x * x)
+    else:
+        upper = JOIN_TOP[1] + (x - JOIN_TOP[0]) * (
+            (JOIN_TIP[1] - JOIN_TOP[1]) / (JOIN_TIP[0] - JOIN_TOP[0])
+        )
+    if x <= JOIN_BOTTOM[0]:
+        lower = -math.sqrt(400.0 - x * x)
+    else:
+        lower = JOIN_BOTTOM[1] + (x - JOIN_BOTTOM[0]) * (
+            (JOIN_TIP[1] - JOIN_BOTTOM[1]) / (JOIN_TIP[0] - JOIN_BOTTOM[0])
+        )
+    inside = x <= JOIN_TIP[0] and lower <= y <= upper
+    distances = []
+    for side in (-1, 1):
+        vertices = [[side * p[0], p[1]] for p in (JOIN_TOP, JOIN_TIP, JOIN_BOTTOM)]
+        distances.extend(segment_distance(point, a, b) for a, b in itertools.pairwise(vertices))
+    radial = math.hypot(*point)
+    for radius, endpoint in [(10.0, JOIN_TOP), (20.0, JOIN_BOTTOM)]:
+        if radial and point[1] <= 0 and x / radial <= endpoint[0] / radius:
+            distances.append(abs(radial - radius))
+        else:
+            distances.append(
+                min(math.dist(point, [side * endpoint[0], endpoint[1]]) for side in (-1, 1))
+            )
+    signed = -min(distances) if inside else min(distances)
+    return signed - drill
+
+
+def test_supported_joined_profile_builds_one_closed_signed_six_wall_region(tmp_path, monkeypatch):
+    from prechips.kernel.chain_boundary import compile_clearance
+
+    bundle = load_bundle(joined_chain_plan(tmp_path, cap=100.0))
+    captured = []
+    printed = coordinates._printed
+
+    def capture(arc_tables, line_tables, grid, walls, offset):
+        captured.extend(table["chain_geometry"]["walls"] for table in (*arc_tables, *line_tables))
+        return printed(arc_tables, line_tables, grid, walls, offset)
+
+    monkeypatch.setattr(coordinates, "_printed", capture)
+    row = joined_chain_finding(bundle)
+    assert row.status == "pass", row.sentence
+    assert captured, "Use the real evaluate generator, not a substituted geometry packet"
+    for walls in captured:
+        assert len(walls) == 6
+        assert compile_clearance(walls, 1e-7).closed
+        rim = [wall for wall in walls if wall["kind"] == "arc"]
+        assert len(rim) == 2
+        assert next(wall for wall in rim if wall["radius"] == 10.0)["outward"] == -1
+        assert next(wall for wall in rim if wall["radius"] == 20.0)["outward"] == 1
+        assert all("normal" in wall for wall in walls if wall["kind"] == "line")
+    for table in (*arcs(row, 20), *joined_chain_lines(row)):
+        holes = [item["dro_xy"] for item in table["rows"]] if "rows" in table else table["dro_xy"]
+        assert holes
+        for point in holes:
+            model = [point[0] + 5.0, point[1] + 2.0]
+            assert joined_region_disk_gap(model, JOIN_DRILL / 2) >= JOIN_ALLOWANCE
+
+
+@pytest.mark.parametrize("kind", ["arc", "line"])
+@pytest.mark.parametrize("regenerated", [False, True], ids=["authored", "actual-retained"])
+def test_actual_region_positive_disk_gap_below_allowance_is_refused(kind, regenerated):
+    drill, allowance = 1.0, 0.5
+    if kind == "arc":
+        wall = {
+            "kind": "arc",
+            "centre": [0.0, 0.0],
+            "radius": 10.0,
+            "start_deg": 0.0,
+            "sweep_deg": 360.0,
+            "outward": 1,
+        }
+        point = [11.25, 0.0]
+        table = {
+            "method": "chain_drill",
+            "centre_setup_xy": [0.0, 0.0],
+            "wall_radius_mm": 10.0,
+            "cutter_centre_radius_mm": 11.5,
+            "cutter_radius_mm": 1.0,
+            "full_circle": True,
+            "rows": [{"setup_xy": point, "dro_xy": point}],
+            "chain_geometry": {"walls": [wall]},
+        }
+        arc_tables, line_tables = [table], []
+        walls = [lambda p: abs(math.hypot(*p) - 10.0)]
+        independent_gap = math.hypot(*point) - 10.0 - drill
+    else:
+        wall = {
+            "kind": "line",
+            "ends": [[-20.0, 0.0], [20.0, 0.0]],
+            "normal": [0.0, 1.0],
+        }
+        point = [0.0, 1.25]
+        table = {
+            "method": "chain_drill",
+            "side": "positive disk gap but short allowance",
+            "cutter_radius_mm": 1.0,
+            "setup_xy": [point],
+            "dro_xy": [point],
+            "join_walls": [wall],
+            "chain_geometry": {"walls": [wall]},
+        }
+        arc_tables, line_tables = [], [table]
+        walls = [lambda p: segment_distance(p, *wall["ends"])]
+        independent_gap = point[1] - drill
+    if regenerated:
+        table.update(regeneration="true_curve", dropped_ends=[True, True])
+    assert 0.0 < independent_gap < allowance
+    pre_errors, pre_debts = coordinates._chain_preconditions(
+        {"contour": {"method": "chain_drill", "pitch_mm": 10.0}},
+        "rough",
+        arc_tables,
+        line_tables,
+        walls,
+        "short actual allowance",
+        1.0,
+    )
+    actual_errors, actual_debts = coordinates._chain(
+        arc_tables, line_tables, walls, drill, allowance, 10000.0, "short actual allowance", 1.0
+    )
+    # The author's pre-clip whole-hole guard is not an allowance certificate.
+    # Actual-stage acceptance must nevertheless owe the complete radius + allowance.
+    assert pre_errors == pre_debts == []
+    assert actual_errors and not actual_debts
+    assert table["hole_clear_mm"] == pytest.approx(0.25)
+    assert "pitch_mm" not in table and "break_out" not in table
+
+
+@pytest.mark.parametrize("kind", ["arc", "line"])
+def test_chain_missing_finished_geometry_owes_debt_without_printed_holes(kind):
+    if kind == "arc":
+        table = {
+            "method": "chain_drill",
+            "centre_setup_xy": [0.0, 0.0],
+            "wall_radius_mm": 10.0,
+            "cutter_centre_radius_mm": 11.5,
+            "cutter_radius_mm": 1.0,
+            "full_circle": False,
+            "rows": [{"setup_xy": [11.5, 0.0]}],
+            "chain_geometry": {"walls": []},
+        }
+        arc_tables, line_tables = [table], []
+    else:
+        table = {
+            "method": "chain_drill",
+            "side": "missing finished wall",
+            "cutter_radius_mm": 1.0,
+            "setup_xy": [[0.0, 1.5]],
+            "join_walls": [],
+        }
+        arc_tables, line_tables = [], [table]
+    coordinates._printed(arc_tables, line_tables, (1.0, 0), [], 1.5)
+    printed = [row["dro_xy"] for row in table["rows"]] if kind == "arc" else table["dro_xy"]
+    assert printed == [[coordinates.UNKNOWN, coordinates.UNKNOWN]]
+    pre_errors, pre_debts = coordinates._chain_preconditions(
+        {"contour": {"method": "chain_drill", "pitch_mm": 4.0}},
+        "rough",
+        arc_tables,
+        line_tables,
+        [],
+        "missing finished geometry",
+        1.0,
+    )
+    assert not pre_errors and pre_debts
+    assert any("finished scrap side" in debt for debt in pre_debts)
+    actual_errors, actual_debts = coordinates._chain(
+        arc_tables, line_tables, [], 1.0, 0.5, 5.0, "missing finished geometry", 1.0
+    )
+    assert not actual_errors and actual_debts
+    assert any("finished line" in debt for debt in actual_debts)
+    assert all(key not in table for key in ("hole_clear_mm", "drill_dia_mm", "stock_left_mm"))

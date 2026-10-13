@@ -920,6 +920,94 @@ def _to_arc(centre, radius, a, b, middle):
     return distance
 
 
+def _finished_boundary(walls):
+    return next((wall for wall in walls if hasattr(wall, "cuts_segment")), None)
+
+
+def _boundary_walls(walls, geometry, tolerance=_JOIN_TOL):
+    """One compiled finished-region predicate; unknown topology never becomes unsigned."""
+    from ..kernel.chain_boundary import compile_clearance
+
+    if not walls:
+        return []
+    try:
+        boundary = compile_clearance(geometry, tolerance)
+    except ValueError:
+        return []
+    return [*walls, boundary]
+
+
+def _chain_wall_geometry(tables):
+    """Carry known authored sides onto finite walls without inventing missing geometry."""
+    geometry = next(
+        (
+            mapping(table.get("chain_geometry")).get("walls")
+            for table in tables
+            if mapping(table.get("chain_geometry")).get("walls")
+        ),
+        None,
+    )
+    if geometry is None:
+        return [
+            {"kind": "line", **wall} for table in tables for wall in table.get("join_walls", [])
+        ]
+    if not isinstance(geometry, list) or not all(isinstance(wall, dict) for wall in geometry):
+        return None
+    result = []
+    for source in geometry:
+        wall = dict(source)
+        for table in tables:
+            if (
+                wall.get("kind") == "arc"
+                and "outward" not in wall
+                and _pair(wall.get("centre"))
+                and _pair(table.get("centre_setup_xy"))
+                and number(wall.get("radius"))
+                and number(table.get("wall_radius_mm"))
+                and number(table.get("cutter_centre_radius_mm"))
+                and math.dist(wall["centre"], table["centre_setup_xy"]) <= _WALL_TOL
+                and abs(wall["radius"] - table["wall_radius_mm"]) <= _WALL_TOL
+            ):
+                wall["outward"] = (
+                    1 if table["cutter_centre_radius_mm"] > table["wall_radius_mm"] else -1
+                )
+            if wall.get("kind") == "line" and "normal" not in wall:
+                for join in table.get("join_walls", []):
+                    if wall.get("ends") == join.get("ends"):
+                        wall["normal"] = join.get("normal")
+        result.append(wall)
+    return result
+
+
+def _signed_chain_walls(tables, walls):
+    """Compile the actual packet's closed region or explicitly open finite boundary."""
+    if _finished_boundary(walls) is not None:
+        return walls
+    geometry = _chain_wall_geometry(tables)
+    return _boundary_walls(walls, geometry) if geometry or geometry is None else walls
+
+
+def _chain_arc_walls(arc, walls):
+    """Retain a known finite primary wall when a direct caller has no compiled packet."""
+    if _finished_boundary(walls) is not None:
+        return walls
+    geometry = _chain_wall_geometry([arc])
+    if geometry is None:
+        return []
+    if not geometry and arc.get("full_circle"):
+        geometry = [
+            {
+                "kind": "arc",
+                "centre": arc["centre_setup_xy"],
+                "radius": arc["wall_radius_mm"],
+                "start_deg": 0.0,
+                "sweep_deg": 360.0,
+                "outward": (1 if arc["cutter_centre_radius_mm"] > arc["wall_radius_mm"] else -1),
+            }
+        ]
+    return _boundary_walls(walls, geometry)
+
+
 def _ray_capsule(origin, direction, a, b, radius):
     """How far along the unit ``direction`` from ``origin`` the ray first meets the sweep
     of a cutter of ``radius`` moved from ``a`` to ``b`` (the capsule about that segment):
@@ -1037,15 +1125,20 @@ def _material(face, normal, legs, radius):
 
 
 def _dro_xy(xy, grid, walls, offset):
-    """``xy`` as the DRO prints it on ``grid`` (:func:`dro_grid`), on the safe side: the
-    nearest grid point no nearer any wall (``walls``: point -> distance) than ``xy`` or
-    than the authored cutter-centre ``offset``, whichever is less; a corner of its grid
-    cell, else up to two steps out, else unknown."""
+    """Nearest DRO point preserving wall floors and the chain's whole-disk allowance.
+
+    Unsigned search constraints keep the authored gap or offset, whichever is less.
+    The compiled finished boundary always requires the complete cutter-centre offset.
+    A cell corner, else up to two steps out, else unknown.
+    """
     if not walls or not all(number(v) for v in xy):
         return [UNKNOWN, UNKNOWN]
     step, decimals = grid
     base = [_grid(v, step, decimals, False) for v in xy]
-    floors = [min(wall(xy), offset) - _WALL_TOL for wall in walls]
+    floors = [
+        (offset if hasattr(wall, "cuts_segment") else min(wall(xy), offset)) - _WALL_TOL
+        for wall in walls
+    ]
     for reach in (1, 3):
         span = range(1 - reach, reach + 1)
         options = [
@@ -1064,21 +1157,23 @@ def _printed(arcs, lines, grid, walls, offset):
     (:func:`_dro_xy`) and ``dro_tip_z`` (:func:`dro_z`). The sheet prints these; the kernel
     clips, checks and credits them. Points within _JOIN_TOL of each other (a table end and
     the join it meets) print one value."""
+    walls = _signed_chain_walls([*arcs, *lines], walls)
     done = []
 
-    def dro(xy):
+    def dro(xy, distances=walls):
         if all(number(v) for v in xy):
             for point, value in done:
                 if math.dist(point, xy) <= _JOIN_TOL:
                     return value
-        value = _dro_xy(xy, grid, walls, offset)
+        value = _dro_xy(xy, grid, distances, offset)
         done.append((xy, value))
         return value
 
     for arc in arcs:
         arc["dro_tip_z"] = dro_z(arc.get("tip_z"), grid)
+        distances = _chain_arc_walls(arc, walls) if arc.get("method") == "chain_drill" else walls
         for row in arc["rows"]:
-            row["dro_xy"] = dro(row["setup_xy"])
+            row["dro_xy"] = dro(row["setup_xy"], distances)
             row["dro_tip_z"] = dro_z(row.get("tip_z"), grid)
     for line in lines:
         line["dro_tip_z"] = dro_z(line.get("tip_z"), grid)
@@ -1586,7 +1681,7 @@ def _arc(
     walls, miters, wall_geometry = [], [], []
     known = all(number(v) for v in centre_xy)  # else no wall is placed and no DRO value
 
-    def rim(wall_radius, end_xy):
+    def rim(wall_radius, end_xy, scrap=outward):
         """point -> distance to the wall arc of ``wall_radius`` about the centre: mirrored
         from ``end_xy`` through its lowest point (an upper semicircle's highest), a full
         circle when ``end_xy`` is None. Never its circle past its ends."""
@@ -1613,12 +1708,14 @@ def _arc(
                 sweep_deg=sweep,
             )
         )
-        if end_xy is None:
-            return lambda p: abs(math.dist(p, centre_xy) - wall_radius)
-        dip = -wall_radius if vertical_angle else wall_radius
-        mirror = [2 * centre[0] - end_xy[0], end_xy[1]]
-        a, b, m = (setup_xy(q) for q in (end_xy, mirror, [centre[0], centre[1] + dip]))
-        return _to_arc(centre_xy, wall_radius, a, b, m)
+        distance = (
+            (lambda p: abs(math.dist(p, centre_xy) - wall_radius))
+            if end_xy is None
+            else _to_arc(centre_xy, wall_radius, a, b, m)
+        )
+        if method == "chain_drill":
+            wall_geometry[-1]["outward"] = scrap
+        return distance
 
     if known:
         if full:
@@ -1627,10 +1724,21 @@ def _arc(
             walls.append(rim(radius, feature["bottom_end"] if bottom else feature["end"]))
         else:
             walls.append(rim(radius, [centre[0] + radius, centre[1]]))
-    for a, b in ([setup_xy(a), setup_xy(b)] for a, b in lands):
+    for model_a, model_b in lands:
+        a, b = setup_xy(model_a), setup_xy(model_b)
         known = known and all(number(v) for v in (*a, *b))
-        walls.append(lambda p, a=a, b=b: _to_segment(p, a, b))
+
+        def distance(point, a=a, b=b):
+            return _to_segment(point, a, b)
+
+        walls.append(distance)
         wall_geometry.append({"kind": "line", "ends": [a, b]})
+        if known and method == "chain_drill":
+            shifted, _ = _offset_line(model_a, model_b, 1.0)
+            side = 1 if model_a[0] >= centre[0] else -1
+            away = setup_xy([model_a[i] + side * (shifted[i] - model_a[i]) for i in range(2)])
+            normal = [away[i] - a[i] for i in range(2)]
+            wall_geometry[-1]["normal"] = normal
     lines = []
     if bottom and joins:
         sides = (-1, 1) if feature.get("mirror_symmetric") is True else (1,)
@@ -1640,7 +1748,7 @@ def _arc(
         left = [shifted[i] - top_end[i] for i in range(2)]
         top_r = _nominal(top, "radius")
         if known:
-            walls.append(rim(top_r, top_end))
+            walls.append(rim(top_r, top_end, -1))
         for side in sides:
             xy = [[centre[0] + side * (p[0] - centre[0]), p[1]] for p in joins]
             local = [setup_xy(p) for p in xy]
@@ -1698,6 +1806,9 @@ def _arc(
                     cutter_radius_mm=cutter * scale if number(cutter) else UNKNOWN,
                     join_walls=join_walls,
                 )
+                if known:
+                    for geometry, join in zip(wall_geometry[-2:], join_walls, strict=True):
+                        geometry["normal"] = join["normal"]
             reverse = _reversal(local[0], local[1], normal, sense)
             lines.append(_ordered(line, reverse, order, ("model_xy", "setup_xy")))
             line["cutter_side"] = _side(local[0], local[1], normal, reverse)
@@ -1769,6 +1880,8 @@ def _arc(
         for line in lines:
             _split_chain(line, contour["pitch_mm"] / scale)
     walls = walls if known else []
+    if method == "chain_drill" and walls:
+        walls = _boundary_walls(walls, wall_geometry, LENGTH_TOLERANCE_MM / scale)
     if space is not None and walls:
 
         def measure(angles):
@@ -3161,6 +3274,7 @@ def _holes(arc, walls, drill, allowance, label, scale):
     a drill radius. Geometry and the ``drill`` radius are plan units; recorded measures
     are mm (``scale`` mm per unit). The whole stage's cap is enforced by :func:`_chain`.
     A retained singleton has neither a hole-to-hole pitch nor webs to break out."""
+    walls = _chain_arc_walls(arc, walls)
     holes = [row["dro_xy"] for row in arc["rows"]]
     centre, radius = arc["centre_setup_xy"], arc["wall_radius_mm"]
     known = _pair(centre) and number(radius) and bool(holes) and all(_pair(p) for p in holes)
@@ -3168,10 +3282,16 @@ def _holes(arc, walls, drill, allowance, label, scale):
         return [], [f"{label}: its hole centres or the finished line are unknown"]
     convex = arc["cutter_centre_radius_mm"] > radius
     errors = []
+    boundary = _finished_boundary(walls)
     clear = [min(wall(p) for wall in walls) - drill for p in holes]
     for k, gap in enumerate(clear, start=1):
         if gap < -_INSIDE_TOL:
             errors.append(f"{label}: hole {k} reaches {-gap * scale:.3f} past the line")
+        elif number(allowance) and gap < allowance / scale - _WALL_TOL:
+            errors.append(
+                f"{label}: hole {k} leaves {gap * scale:.3f} mm stock, "
+                f"below the {allowance:g} mm allowance"
+            )
     outward = 1 if convex else -1
     deepest = max(outward * (math.dist(p, centre) - radius) for p in holes)
     for k, (a, b) in enumerate(itertools.pairwise(holes), start=1):
@@ -3181,11 +3301,11 @@ def _holes(arc, walls, drill, allowance, label, scale):
                 f"no web for a {2 * drill * scale:g} mm drill to run against"
             )
         near, far = _to_segment(centre, a, b), max(math.dist(a, centre), math.dist(b, centre))
-        least, most = (near - radius, far - radius) if convex else (radius - far, radius - near)
-        if least < -_INSIDE_TOL:
+        most = far - radius if convex else radius - near
+        if boundary.cuts_segment(a, b):
             errors.append(
-                f"{label}: the break-out between holes {k} and {k + 1} runs "
-                f"{-least * scale:.3f} past the line"
+                f"{label}: the break-out between holes {k} and {k + 1} "
+                "runs past the line into finished material"
             )
         deepest = max(deepest, most)
     stock = max(allowance + drill * scale, deepest * scale)
@@ -3209,6 +3329,8 @@ def _chain(arcs, lines, walls, drill, allowance, cap, label, scale, recut=None):
     """Validate the retained arc and straight-join holes, then enforce one worst-stage
     filing residual. Bounds are applied first, so excluded joins owe no cut or stock."""
     errors, debts = [], []
+    walls = _signed_chain_walls([*arcs, *lines], walls)
+    boundary = _finished_boundary(walls)
     for arc in arcs:
         more, unknown = _holes(arc, walls, drill, allowance, label, scale)
         errors.extend(more)
@@ -3235,6 +3357,11 @@ def _chain(arcs, lines, walls, drill, allowance, cap, label, scale, recut=None):
                     f"{label} {line['side']} join: hole {k} reaches "
                     f"{-gap * scale:.3f} past the line"
                 )
+            elif number(allowance) and gap < allowance / scale - _WALL_TOL:
+                errors.append(
+                    f"{label} {line['side']} join: hole {k} leaves {gap * scale:.3f} mm stock, "
+                    f"below the {allowance:g} mm allowance"
+                )
         legs = list(itertools.pairwise(holes))
         for k, (a, b) in enumerate(legs, start=1):
             if math.dist(a, b) <= 2 * drill + _WALL_TOL:
@@ -3243,7 +3370,7 @@ def _chain(arcs, lines, walls, drill, allowance, cap, label, scale, recut=None):
                     f"{math.dist(a, b) * scale:.3f} mm apart, "
                     f"no web for a {2 * drill * scale:g} mm drill to run against"
                 )
-            if any(_segment_cross((a, b), wall["ends"]) for wall in join_walls):
+            if boundary is not None and boundary.cuts_segment(a, b):
                 errors.append(
                     f"{label} {line['side']} join: the break-out between holes "
                     f"{k} and {k + 1} crosses the finished line"
@@ -3842,17 +3969,24 @@ def _chain_preconditions(op, stage, arcs, lines, walls, label, scale):
     if number(pitch) and number(radius) and pitch <= 2 * radius + _WALL_TOL * scale:
         errors.append(f"{label}: pitch {pitch:g} mm leaves no web for a {2 * radius:g} mm drill")
         return errors, debts
+    walls = _signed_chain_walls([*arcs, *lines], walls)
     for table in (*arcs, *lines):
         drill = table["cutter_radius_mm"]
+        name = label if "rows" in table else f"{label} {table['side']} join"
         if not walls or not number(drill):
+            debts.append(f"{name}: its finished scrap side or drill radius is unknown")
             continue
         drill /= scale
         holes = [row["dro_xy"] for row in table["rows"]] if "rows" in table else table["dro_xy"]
-        name = label if "rows" in table else f"{label} {table['side']} join"
+        distances = _chain_arc_walls(table, walls) if "rows" in table else walls
+        if not distances:
+            debts.append(f"{name}: its finished scrap side is unknown")
+            continue
         for k, point in enumerate(holes, start=1):
             if _pair(point):
-                gap = min(wall(point) for wall in walls) - drill
+                gap = min(wall(point) for wall in distances) - drill
                 if "rows" in table:
+                    # These are authored holes, not regenerated finite-wall cap endpoints.
                     radial = math.dist(point, table["centre_setup_xy"]) - table["wall_radius_mm"]
                     if table["cutter_centre_radius_mm"] < table["wall_radius_mm"]:
                         radial = -radial

@@ -1386,8 +1386,34 @@ uses the 1898 manual arc method:
    Both rough methods support straight joins. Chain holes use the same
    drill-radius + allowance offset on each finite join leg, with exact
    endpoints/miter and nominal equal spacing no greater than `pitch_mm` (DRO
-   grid snapping can move the printed spacing). Method, stage, full-hole
-   outside-the-line and requested no-web (authored `pitch_mm` no greater than
+   grid snapping can move the printed spacing).
+   Host DRO selection and kernel regeneration/actual-hole acceptance use one
+   shared pure finite-boundary predicate for bounded and unbounded chains.
+   Actual closed finished loops (joined bottom outlines and full circles
+   included) use point-in-region plus nearest finite-boundary distance,
+   negative in kept material. Unordered exact arcs and lines connect by real
+   endpoints; authored scrap normals determine the kept side. True open arcs
+   and current partial top-plus-land wall packets have no complete finished
+   loop in the packet. The top packet omits tapers and the bottom arc even
+   when the host model has those linked facts; fuller actual closed-boundary
+   transport is tracked in
+   [#212](https://github.com/pedropaulovc/prechips/issues/212).
+   No closure is invented: the open fallback uses oriented finite projections,
+   real free-end
+   caps and shared-concave-vertex sector classification. Conservative ties
+   do not globally AND distant supporting half-planes. Missing or ambiguous
+   region geometry, inconsistent occupancy or unsupported topology remains
+   unknown, never an unsigned-distance pass. No admissible grid point leaves
+   cut tables withheld. Closed-loop break-outs test kept-region entry against
+   the whole finite boundary, not only their own join lines.
+   Unsigned wall distances intentionally still measure filing stock/residual,
+   not scrap-side acceptance; T6 enforces `numbers.max_filing_stock_mm` on
+   the actual regenerated residual. Every actual cylinder still needs web,
+   bounds and the existing 3D collision/accessibility backstop. The open
+   fallback is not full-part region proof. Internal wall normals/outward
+   signs add no user schema, policy knob or tolerance; the shared
+   `kernel/*.py` helper changes the source digest and re-keys every kernel job.
+   Method, stage, full-hole outside-the-line and requested no-web (authored `pitch_mm` no greater than
    the drill diameter) errors are preconditions found before any clip. A bounded
    chain is then clipped at drill granularity: the drill-centre offset arc and
    joins are intersected with the bounds eroded by the full drill radius (a
@@ -1403,17 +1429,16 @@ uses the 1898 manual arc method:
    snapped placement leaves no positive web at any such count omits its
    clipped end hole as
    a dropped end, never a fabricated no-web error), and every actual hole
-   snaps to the DRO grid inside the bound and on the finished material's
-   scrap side for every curve it was generated on or meets (an interior hole
-   tests the authored line's normal side or the authored circle's scrap side;
-   a bounded end or shared junction, on a leg or an arc alike, tests its
-   signed gap to the actual finished wall, parallel plane or concentric, at
-   least the smaller of the nominal wall gap and the offset within that
-   wall's finite segment or sweep, and the actual finite cap distance beyond
-   its ends; a junction is tested
-   against every curve meeting it, and the bound never waives the test; as
-   an extra guard, not nearer the finished or offset line than its nominal
-   point): every hole searches a symmetric square of three
+   snaps to the DRO grid inside the bound and passes that same predicate
+   with clearance for the whole drill and allowance. Bounds never waive
+   region membership for a closed loop or the finite-projection/free-end/
+   concave-shared-vertex fallback for a true open packet.
+   Nominal-distance/offset guards remain additional placement constraints,
+   not independent unsigned side acceptance. The authored radial whole-hole
+   check is intentionally preserved before clipping; a regenerated,
+   physically safe finite-cap hole beyond the actual sweep may nevertheless
+   lie inside the authored supporting circle. Every hole searches a symmetric
+   square of three
    grid steps per axis and chooses the nearest safe point by Euclidean
    distance with a deterministic coordinate tie-break; ends and junctions may
    back off inward along the true curve, and a hole with no such grid

@@ -11,6 +11,7 @@ whose contacts are unresolved leaves the rows unknown. FreeCAD-backed tests run
 ``src/prechips/kernel/freecad_job.py`` under ``freecadcmd`` and skip without it.
 """
 
+import ast
 import json
 import math
 import os
@@ -22,6 +23,7 @@ from test_kernel_geometry import ENGINE, Engine, _op, _setup, _vise
 from test_kernel_held_split import UP, _box
 from test_kernel_stock_prefix import BLANK, HOLD
 
+from prechips.kernel import chain_boundary
 from prechips.rules.coordinates import FRAGMENT_FORMAT, ROW_FORMAT
 from prechips.rules.resolution import LENGTH_TOLERANCE_MM
 
@@ -62,6 +64,39 @@ def island(tmp_path_factory, freecad_kernel):
 @pytest.fixture
 def engine(tmp_path, freecad_kernel):
     return Engine(tmp_path, freecad_kernel)
+
+
+@pytest.fixture(scope="module")
+def pure_chain_regeneration():
+    """Run the native primitive without FreeCAD, with its real shared predicate."""
+    tree = ast.parse(ENGINE.read_text(encoding="utf-8"))
+    helpers = [
+        node
+        for node in tree.body
+        if (
+            isinstance(node, (ast.FunctionDef, ast.ClassDef))
+            and node.name in {"_number", "_positive", "_ClipUnknown"}
+            or isinstance(node, ast.Assign)
+            and any(
+                isinstance(target, ast.Name) and target.id == "PLANE_TOL" for target in node.targets
+            )
+        )
+    ]
+    setup = next(
+        node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "_Setup"
+    )
+    regenerate = next(
+        node
+        for node in setup.body
+        if isinstance(node, ast.FunctionDef) and node.name == "_regenerate_chain"
+    )
+    regenerate.decorator_list = []
+    namespace = {"math": math, "chain_boundary": chain_boundary}
+    exec(
+        compile(ast.Module(body=[*helpers, regenerate], type_ignores=[]), str(ENGINE), "exec"),
+        namespace,
+    )
+    return namespace["_regenerate_chain"], namespace["_ClipUnknown"]
 
 
 def _printed(
@@ -300,6 +335,7 @@ def _endpoint_regeneration_cases():
                 wall = {
                     "kind": "line",
                     "ends": [[5.0 + penetration, 5.0], [5.0 + penetration, 45.0]],
+                    "normal": [-1.0, 0.0],
                 }
                 points = [[4.0 + penetration, y] for y in (5.0, 25.0, 45.0)]
             else:
@@ -393,7 +429,10 @@ def _endpoint_regeneration_cases():
 def _unsnappable_interval_cases():
     """Fixed finite walls leave one local DRO wedge empty, not the whole bounds."""
     radius, pitch = 1.8, 4.0
-    walls = [{"kind": "line", "ends": [[x, 0.0], [x, 24.0]]} for x in (2.0, 8.2)]
+    walls = [
+        {"kind": "line", "ends": [[x, 0.0], [x, 24.0]], "normal": normal}
+        for x, normal in ((2.0, [-1.0, 0.0]), (8.2, [1.0, 0.0]))
+    ]
     cases = []
     for name, legs in (
         ("bad-first", ("bad", "good")),
@@ -757,7 +796,7 @@ def _clipped_count_cases():
     for span in (0.5, 0.499):
         name = f"clipped-count-{span:g}"
         curve = {"kind": "line", "ends": [[-5.0, 0.35], [5.0, 0.35]], "normal": [0.0, 1.0]}
-        wall = {"kind": "line", "ends": [[-10.0, 0.0], [10.0, 0.0]]}
+        wall = {"kind": "line", "ends": [[-10.0, 0.0], [10.0, 0.0]], "normal": [0.0, 1.0]}
         printed = _printed("S1:10", "rough", [(name, curve["ends"])], bounded=True)
         (path,) = printed["paths"]
         path.update(
@@ -841,8 +880,8 @@ def _regeneration_cases():
                 {"kind": "line", "ends": second, "normal": normal},
             ],
             [
-                {"kind": "line", "ends": [wall_ends[0], corner]},
-                {"kind": "line", "ends": [corner, wall_ends[1]]},
+                {"kind": "line", "ends": [wall_ends[0], corner], "normal": [0.0, 1.0]},
+                {"kind": "line", "ends": [corner, wall_ends[1]], "normal": normal},
             ],
             (-70.0, 70.0, -70.0, 70.0),
             {"kind": "polygon", "points": [corner, *wall_ends]},
@@ -869,8 +908,8 @@ def _regeneration_cases():
                 },
             ],
             [
-                {"kind": "line", "ends": [right, corner]},
-                {"kind": "line", "ends": [corner, up]},
+                {"kind": "line", "ends": [right, corner], "normal": [0.0, 1.0]},
+                {"kind": "line", "ends": [corner, up], "normal": [1.0, 0.0]},
             ],
             (-70.0, 70.0, -70.0, 70.0),
             {
@@ -889,7 +928,11 @@ def _regeneration_cases():
     )
 
     line = {"kind": "line", "ends": [[-10.0, 0.0001], [20.0, 0.0001]], "normal": [0.0, 1.0]}
-    wall = {"kind": "line", "ends": [[-10.0, 0.0001 - offset], [20.0, 0.0001 - offset]]}
+    wall = {
+        "kind": "line",
+        "ends": [[-10.0, 0.0001 - offset], [20.0, 0.0001 - offset]],
+        "normal": [0.0, 1.0],
+    }
     for length, holes in ((1.0, 1), (4.5, 2), (5.0, 2), (8.5, 3)):
         cases.append(
             _regeneration_case(
@@ -922,8 +965,16 @@ def _regeneration_cases():
                 },
             ],
             [
-                {"kind": "line", "ends": [[corner[0] - 20.0, corner[1]], corner]},
-                {"kind": "line", "ends": [corner, [corner[0], corner[1] - 20.0]]},
+                {
+                    "kind": "line",
+                    "ends": [[corner[0] - 20.0, corner[1]], corner],
+                    "normal": [0.0, 1.0],
+                },
+                {
+                    "kind": "line",
+                    "ends": [corner, [corner[0], corner[1] - 20.0]],
+                    "normal": [1.0, 0.0],
+                },
             ],
             (-70.0, 70.0, junction[1] - 1.0 - radius, 70.0),
             {
@@ -980,6 +1031,7 @@ def _nearest_endpoint_cases():
             [endpoint[i] + run * direction[i] - offset * normal[i] for i in range(2)]
             for run in (-25.0, 25.0)
         ],
+        "normal": normal,
     }
     line_case = _regeneration_case(
         "nearest-line-crossing",
@@ -1030,12 +1082,20 @@ def _nearest_endpoint_cases():
             "radius": radius - offset,
             "start_deg": 0.0,
             "sweep_deg": 25.0 if finite else 45.0,
+            "outward": 1,
         }
         walls = [wall]
         if finite:
             walls.extend(
-                {"kind": "line", "ends": [circle_point(angle, wall["radius"]), centre]}
-                for angle in (0.0, 25.0)
+                {
+                    "kind": "line",
+                    "ends": [circle_point(angle, wall["radius"]), centre],
+                    "normal": [
+                        side * math.sin(math.radians(angle)),
+                        -side * math.cos(math.radians(angle)),
+                    ],
+                }
+                for angle, side in ((0.0, 1), (25.0, -1))
             )
             finished = {"kind": "sector", "arc": wall}
         else:
@@ -1082,8 +1142,8 @@ def _nearest_endpoint_cases():
             },
         ],
         [
-            {"kind": "line", "ends": [wall_ends[0], corner]},
-            {"kind": "line", "ends": [corner, wall_ends[1]]},
+            {"kind": "line", "ends": [wall_ends[0], corner], "normal": [0.0, 1.0]},
+            {"kind": "line", "ends": [corner, wall_ends[1]], "normal": normal},
         ],
         (-40.0, 40.0, -40.0, 40.0),
         {"kind": "polygon", "points": [corner, *wall_ends]},
@@ -1104,6 +1164,7 @@ def _nearest_endpoint_cases():
     join_wall = {
         "kind": "line",
         "ends": [circle_point(0.0, wall_radius), [centre[0] + wall_radius, centre[1] + 20.0]],
+        "normal": [1.0, 0.0],
     }
     arc = {
         "kind": "arc",
@@ -1229,7 +1290,7 @@ def _signed_boundary_cases():
     for family, control in (("line", False), ("line", True), ("arc", False)):
         if family == "line":
             curve = {"kind": "line", "ends": [[-5.0, 1.0], [5.0, 1.0]], "normal": [0.0, 1.0]}
-            wall = {"kind": "line", "ends": [[-10.0, 0.0], [10.0, 0.0]]}
+            wall = {"kind": "line", "ends": [[-10.0, 0.0], [10.0, 0.0]], "normal": [0.0, 1.0]}
             finished = {
                 "kind": "polygon",
                 "points": [
@@ -1412,7 +1473,17 @@ def _finite_arc_side_cases():
             ]
             for angle in (start, start + sweep)
         ]
-        walls = [wall, *({"kind": "line", "ends": [end, wall["centre"]]} for end in wall_ends)]
+        walls = [
+            wall,
+            *(
+                {
+                    "kind": "line",
+                    "ends": [end, wall["centre"]],
+                    "normal": [side * end[1] / wall["radius"], -side * end[0] / wall["radius"]],
+                }
+                for end, side in zip(wall_ends, (1, -1), strict=True)
+            ),
+        ]
         bounds = (
             (2.0 - drill, 3.6 + drill, 2.0 - drill, 3.6 + drill)
             if control == "unsafe"
@@ -1473,8 +1544,8 @@ def _finite_line_cap_cases():
         [-9.946042544639084, -16.55284520388322],
     ]
     walls = [
-        {"kind": "line", "ends": [wall_ends[0], corner]},
-        {"kind": "line", "ends": [corner, wall_ends[1]]},
+        {"kind": "line", "ends": [wall_ends[0], corner], "normal": curves[0]["normal"]},
+        {"kind": "line", "ends": [corner, wall_ends[1]], "normal": curves[1]["normal"]},
     ]
     # The closure is deep in material, remote from the junction and both 12 mm legs.
     back = [corner[i] - 20.0 * sum(curve["normal"][i] for curve in curves) for i in range(2)]
@@ -1517,6 +1588,188 @@ def _finite_line_cap_cases():
             "finished": {"kind": "polygon", "points": [corner, wall_ends[0], back, wall_ends[1]]},
         }
     ]
+
+
+def _region_clearance_cases(scales=(1.0,)):
+    """The observed concave cap gouge, with real closure or without it, in every D4 image."""
+    cases = []
+    polygon = [
+        [3.0, 3.0],
+        [13.0, 3.0],
+        [13.0, -30.0],
+        [-30.0, -30.0],
+        [-30.0, 13.0],
+        [3.0, 13.0],
+    ]
+    curves = [
+        {"kind": "line", "ends": [[10.5, 4.5], [4.5, 4.5]], "normal": [0.0, 1.0]},
+        {"kind": "line", "ends": [[4.5, 4.5], [4.5, 10.5]], "normal": [1.0, 0.0]},
+    ]
+    open_walls = [
+        {"kind": "line", "ends": [[3.0, 3.0], [13.0, 3.0]], "normal": [0.0, 1.0]},
+        {"kind": "line", "ends": [[3.0, 3.0], [3.0, 13.0]], "normal": [1.0, 0.0]},
+    ]
+    # These authored synthetic closing edges belong to the actual finite L solid.
+    # Clockwise travel has material on the right, so its scrap normal is on the left.
+    closed_walls = []
+    for a, b in zip(polygon, polygon[1:] + polygon[:1], strict=True):
+        length = math.dist(a, b)
+        closed_walls.append(
+            {
+                "kind": "line",
+                "ends": [a, b],
+                "normal": [-(b[1] - a[1]) / length, (b[0] - a[0]) / length],
+            }
+        )
+    rotations = (
+        [[1, 0], [0, 1]],
+        [[0, -1], [1, 0]],
+        [[-1, 0], [0, -1]],
+        [[0, 1], [-1, 0]],
+    )
+    translation = [20.0, -30.0]
+    for closed in (False, True):
+        for control in ("keeper", "refusal"):
+            for scale in scales:
+                for reflected in (False, True):
+                    for turn, rotation in enumerate(rotations):
+                        matrix = [[row[0] * (-1 if reflected else 1), row[1]] for row in rotation]
+
+                        def vector(point, matrix=matrix):
+                            return [sum(row[i] * point[i] for i in range(2)) for row in matrix]
+
+                        def transformed_mm(point, vector=vector):
+                            return [value + translation[i] for i, value in enumerate(vector(point))]
+
+                        def transformed(point, transformed_mm=transformed_mm, scale=scale):
+                            return [value / scale for value in transformed_mm(point)]
+
+                        name = (
+                            f"region-{'closed' if closed else 'open'}-{control}-{scale:g}"
+                            f"-{int(reflected)}-{turn}"
+                        )
+                        nominal = [curves[0]["ends"][0], [4.5, 4.5], curves[1]["ends"][1]]
+                        (path,) = _printed(
+                            "S1:10",
+                            "rough",
+                            [(name, [transformed_mm(p) for p in nominal])],
+                            bounded=True,
+                        )["paths"]
+                        geometry = {
+                            "pitch_mm": 20.0,
+                            "offset": 1.5 / scale,
+                            "setup_origin": transformed([0.0, 0.0]),
+                            "basis": [vector([1.0, 0.0]), vector([0.0, 1.0])],
+                            "curves": deepcopy(curves),
+                            "walls": deepcopy(closed_walls if closed else open_walls),
+                        }
+                        for wall in geometry["curves"] + geometry["walls"]:
+                            wall["ends"] = [transformed(p) for p in wall["ends"]]
+                            wall["normal"] = vector(wall["normal"])
+                        path.update(method="chain_drill", chain_geometry=geometry)
+                        high = 12.0 if control == "keeper" else 9.0
+                        corners = [
+                            transformed_mm([x, y]) for x in (-1.0, high) for y in (-1.0, high)
+                        ]
+                        cases.append(
+                            {
+                                "name": name,
+                                "paths": [path],
+                                "bounds": {
+                                    **{
+                                        key: [
+                                            min(p[i] for p in corners),
+                                            max(p[i] for p in corners),
+                                        ]
+                                        for i, key in enumerate(("x", "y"))
+                                    },
+                                    "z": [0.0, 3.0],
+                                },
+                                "radius": 1.0,
+                                "allowance": 0.5,
+                                "dro": {
+                                    "step": 10.0 / scale,
+                                    "decimals": 8 if scale != 1.0 else 0,
+                                    "scale": scale,
+                                },
+                                "junction": transformed([4.5, 4.5]),
+                                "finished": {
+                                    "kind": "polygon",
+                                    "points": [transformed_mm(p) for p in polygon],
+                                },
+                                "region_clearance": {
+                                    "closed": closed,
+                                    "control": control,
+                                    "scale": scale,
+                                    "matrix": matrix,
+                                    "translation_mm": translation,
+                                    "expected": transformed([10.0, 10.0]),
+                                    "gouge": transformed([0.0, 0.0]),
+                                },
+                            }
+                        )
+    return cases
+
+
+@pytest.mark.parametrize(
+    "case", _region_clearance_cases(scales=(1.0, 25.4)), ids=lambda case: case["name"]
+)
+def test_bounded_regeneration_uses_actual_region_for_concave_cap_and_closed_loop(
+    pure_chain_regeneration, case
+):
+    regenerate, unknown = pure_chain_regeneration
+    if case["region_clearance"]["control"] == "refusal":
+        with pytest.raises(unknown, match="no safe DRO-grid drill centre"):
+            regenerate(case["paths"], case["bounds"], case["radius"], case["dro"])
+        return
+    ((entry, pieces),) = regenerate(case["paths"], case["bounds"], case["radius"], case["dro"])
+    assert entry["regeneration"] == "true_curve"
+    (point,) = [point for piece in pieces for point in piece]
+    assert point["exact_xy"] == pytest.approx(case["junction"], abs=1e-6 / case["dro"]["scale"])
+    assert point["dro_xy"] == pytest.approx(case["region_clearance"]["expected"], abs=1e-8)
+    assert point["dro_xy"] != case["region_clearance"]["gouge"]
+    # Independently: (10,10) is in the L's open scrap square, 7 mm from both walls;
+    # the nearer (0,0) and its whole radius-1 disk are finished material.
+    assert 10.0 - 3.0 - case["radius"] >= case["allowance"]
+    assert case["radius"] < 3.0
+
+
+def test_regeneration_compiles_identical_wall_packets_once(pure_chain_regeneration, monkeypatch):
+    regenerate, unknown = pure_chain_regeneration
+    case = next(
+        case
+        for case in _region_clearance_cases()
+        if case["region_clearance"]["control"] == "refusal"
+    )
+    duplicate = deepcopy(case["paths"][0])
+    duplicate["table"] += "-other"
+    case["paths"].append(duplicate)
+    original = chain_boundary.compile_clearance
+    packets = []
+
+    def counted(walls, tolerance):
+        packets.append(walls)
+        return original(walls, tolerance)
+
+    monkeypatch.setattr(chain_boundary, "compile_clearance", counted)
+    with pytest.raises(unknown, match="no safe DRO-grid drill centre"):
+        regenerate(case["paths"], case["bounds"], case["radius"], case["dro"])
+    assert len(packets) == 1
+
+
+@pytest.mark.parametrize("missing", (False, True))
+def test_regeneration_invalid_or_missing_wall_side_is_unknown(pure_chain_regeneration, missing):
+    regenerate, unknown = pure_chain_regeneration
+    case = _region_clearance_cases()[0]
+    wall = case["paths"][0]["chain_geometry"]["walls"][0]
+    if missing:
+        wall.pop("normal")
+        reason = "true chain geometry is incomplete"
+    else:
+        wall["normal"] = [1.0, 0.0]
+        reason = "finished-region clearance is unknown"
+    with pytest.raises(unknown, match=reason):
+        regenerate(case["paths"], case["bounds"], case["radius"], case["dro"])
 
 
 _REGENERATION_NATIVE = r"""
@@ -1881,6 +2134,36 @@ def finite_line_cap_oracle(case, pieces, walls, finished):
     }
 
 
+def region_clearance_oracle(case, walls, finished):
+    # Enumerate the entire eroded box; OCC's actual L solid, not a side predicate,
+    # decides which coarse-grid cylinders are in scrap and preserve the allowance.
+    drill, step = case["radius"], case["dro"]["step"]
+    box = case["bounds"]
+    spans = [
+        range(math.ceil((box[key][0] + drill) / step),
+              math.floor((box[key][1] - drill) / step) + 1)
+        for key in ("x", "y")
+    ]
+    candidates = []
+    for x in spans[0]:
+        for y in spans[1]:
+            point = [x * step, y * step]
+            cylinder = Part.makeCylinder(drill, 3, V(*point, 0))
+            candidates.append({
+                "point": point,
+                "centre_gap": signed_finished_gap(point, finished),
+                "finished_gap": cylinder.distToShape(finished)[0],
+                "finished_volume": cylinder.common(finished).Volume,
+                "wall_gaps": [Part.Vertex(V(*point, 0)).distToShape(wall)[0] for wall in walls],
+            })
+    gouge = case["region_clearance"]["gouge"]
+    return {
+        "candidates": candidates,
+        "gouge_inside": finished.isInside(V(*gouge, 1.5), 1e-9, False),
+        "gouge_volume": Part.makeCylinder(drill, 3, V(*gouge, 0)).common(finished).Volume,
+    }
+
+
 for case in cases:
     geometry = case["paths"][0]["chain_geometry"]
     wall_specs = (
@@ -1964,7 +2247,9 @@ for case in cases:
             )
         except engine._ClipUnknown as error:
             if not any(
-                key in case for key in ("signed_boundary", "finite_arc_side", "finite_line_cap")
+                key in case for key in (
+                    "signed_boundary", "finite_arc_side", "finite_line_cap", "region_clearance",
+                )
             ):
                 raise
             details["unknown_reason"] = str(error)
@@ -2025,6 +2310,8 @@ for case in cases:
         details["finite_arc_side_oracle"] = finite_arc_side_oracle(case, pieces, walls, finished)
     if "finite_line_cap" in case:
         details["finite_line_cap_oracle"] = finite_line_cap_oracle(case, pieces, walls, finished)
+    if "region_clearance" in case:
+        details["region_clearance_oracle"] = region_clearance_oracle(case, walls, finished)
     answers.append({"entry": entry, "evidence": evidence, **details})
 with open(directory + "/answers.json", "w", encoding="utf-8") as stream:
     json.dump(answers, stream)
@@ -2044,6 +2331,7 @@ def regeneration_boundaries(tmp_path_factory, freecad_kernel):
         + _tiny_tangent_arc_cases()
         + _finite_arc_side_cases()
         + _finite_line_cap_cases()
+        + _region_clearance_cases()
     )
     (directory / "cases.json").write_text(json.dumps(cases), encoding="utf-8")
     script = directory / "probe.py"
@@ -2063,6 +2351,43 @@ def regeneration_boundaries(tmp_path_factory, freecad_kernel):
     results = json.loads(answers.read_text(encoding="utf-8"))
     assert len(results) == len(cases)
     return list(zip(cases, results, strict=True))
+
+
+@pytest.mark.parametrize("closed", (False, True))
+@pytest.mark.parametrize("control", ("keeper", "refusal"))
+@pytest.mark.parametrize("reflected", (False, True))
+@pytest.mark.parametrize("turn", range(4))
+def test_native_bounded_concave_corner_and_closed_region_coarse_grid(
+    regeneration_boundaries, closed, control, reflected, turn
+):
+    case, result = next(
+        (case, result)
+        for case, result in regeneration_boundaries
+        if case["name"]
+        == f"region-{'closed' if closed else 'open'}-{control}-1-{int(reflected)}-{turn}"
+    )
+    oracle = result["region_clearance_oracle"]
+    assert oracle["gouge_inside"] is True
+    assert oracle["gouge_volume"] == pytest.approx(3 * math.pi * case["radius"] ** 2, abs=1e-7)
+    required = case["radius"] + case["allowance"]
+    legal = [
+        candidate
+        for candidate in oracle["candidates"]
+        if candidate["centre_gap"] >= required - 1e-9
+    ]
+    if control == "refusal":
+        assert legal == []
+        assert result["entry"] is None and result["evidence"] == []
+        assert "no safe DRO-grid drill centre" in result["unknown_reason"]
+        return
+    (nearest,) = legal
+    assert nearest["point"] == pytest.approx(case["region_clearance"]["expected"], abs=1e-9)
+    assert nearest["finished_volume"] <= 1e-7
+    assert nearest["finished_gap"] >= case["allowance"] - LENGTH_TOLERANCE_MM
+    _assert_regenerated_cylinders(case, result)
+    (point,) = [point for piece in result["entry"]["pieces"] for point in piece]
+    assert point["exact_xy"] == pytest.approx(case["junction"], abs=1e-9)
+    assert point["dro_xy"] == nearest["point"]
 
 
 @pytest.mark.parametrize("control", ("exact", "tiny-joins"))
