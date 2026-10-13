@@ -261,8 +261,15 @@ naming them. Each table is recorded under `arc_table` (its joins under
   regenerates each retained arc or straight leg on its own with equal nominal
   intervals along that curve, choosing the hole count so the nominal spacing
   is no longer than `pitch_mm` and still leaves a web (centres more than a
-  drill diameter apart); exact junctions stay shared. A span too short for any
-  such spacing omits its clipped end hole (reported as a dropped end, never as
+  drill diameter apart); that web is judged on the actual snapped DRO centres,
+  not the nominal span alone: for a retained span longer than the length
+  tolerance, the pitch-required count is always tried at its snapped
+  positions, even when it exceeds the nominal-length web bound, and any higher
+  nominally feasible count is also tried before the span is shortened (a span
+  within that tolerance, an isolated point, keeps its one hole); exact
+  junctions stay shared. A span whose snapped
+  placement leaves no positive web at any such count omits its clipped end
+  hole (reported as a dropped end, never as
   a fabricated no-web error). Every actual hole then snaps onto the DRO grid
   on the safe side (inside the bound, never nearer the finished or offset line
   than its nominal point). All holes search the symmetric square within three

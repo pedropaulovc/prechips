@@ -751,6 +751,44 @@ def _regeneration_case(name, curves, walls, bounds, finished, **details):
     }
 
 
+def _clipped_count_cases():
+    """A long authored line whose retained ends need snap-aware hole counts."""
+    cases = []
+    for span in (0.5, 0.499):
+        name = f"clipped-count-{span:g}"
+        curve = {"kind": "line", "ends": [[-5.0, 0.35], [5.0, 0.35]], "normal": [0.0, 1.0]}
+        wall = {"kind": "line", "ends": [[-10.0, 0.0], [10.0, 0.0]]}
+        printed = _printed("S1:10", "rough", [(name, curve["ends"])], bounded=True)
+        (path,) = printed["paths"]
+        path.update(
+            method="chain_drill",
+            chain_geometry={
+                "pitch_mm": 0.75,
+                "offset": 0.35,
+                "setup_origin": [2.3, -4.7],
+                "basis": [[0.0, -1.0], [1.0, 0.0]],
+                "curves": [curve],
+                "walls": [wall],
+            },
+        )
+        cases.append(
+            {
+                "name": name,
+                "count_span": span,
+                "paths": [path],
+                "bounds": {"x": [-0.25, span + 0.25], "y": [-10.25, 10.25], "z": [0.0, 3.0]},
+                "radius": 0.25,
+                "allowance": 0.1,
+                "dro": printed["dro"],
+                "finished": {
+                    "kind": "polygon",
+                    "points": [[-10.0, -10.0], [10.0, -10.0], [10.0, 0.0], [-10.0, 0.0]],
+                },
+            }
+        )
+    return cases
+
+
 def _regeneration_cases():
     radius, offset = 1.435, 1.535
     cases = []
@@ -1322,6 +1360,49 @@ def unsnappable_interval_oracle(case, walls, finished):
     }
 
 
+def clipped_count_oracle(case, walls, finished, bounds):
+    # Enumerate endpoint grid neighbourhoods independently of engine safe()/sample().
+    # Their whole three-step window is included, not just the eventual printed pair.
+    drill, step, box = case["radius"], case["dro"]["step"], case["bounds"]
+    endpoints = [[0.0, 0.35], [case["count_span"], 0.35]]
+    candidates = []
+    for endpoint in endpoints:
+        safe = []
+        for ix in range(round(endpoint[0] / step) - 3, round(endpoint[0] / step) + 4):
+            for iy in range(round(endpoint[1] / step) - 3, round(endpoint[1] / step) + 4):
+                point = [round(ix * step, 3), round(iy * step, 3)]
+                if not all(box[key][0] + drill - 1e-6 <= point[i]
+                           <= box[key][1] - drill + 1e-6 for i, key in enumerate(("x", "y"))):
+                    continue
+                if any(Part.Vertex(V(*point, 0)).distToShape(wall)[0] < 0.35 - 1e-9
+                       for wall in walls):
+                    continue
+                if signed_finished_gap(point, finished) < drill + case["allowance"] - 1e-9:
+                    continue
+                safe.append(point)
+        candidates.append(safe)
+    proof = {
+        "endpoints": endpoints,
+        "candidates": candidates,
+        "maximum_web": max(math.dist(a, b) - 2 * drill
+                           for a in candidates[0] for b in candidates[1]),
+    }
+    if case["count_span"] == 0.5:
+        # An authored witness proves existence, not a required production tie-break.
+        witness = [[0.0, 0.35], [0.5, 0.352]]
+        cylinders = [Part.makeCylinder(drill, 3, V(*point, 0)) for point in witness]
+        proof["witness"] = witness
+        proof["witness_evidence"] = [{
+            "wall_gaps": [Part.Vertex(V(*point, 0)).distToShape(wall)[0] for wall in walls],
+            "finished_gap": cylinder.distToShape(finished)[0],
+            "finished_volume": cylinder.common(finished).Volume,
+            "outside_bounds_volume": cylinder.cut(bounds).Volume,
+        } for point, cylinder in zip(witness, cylinders)]
+        proof["witness_native_web"] = cylinders[0].distToShape(cylinders[1])[0]
+        proof["witness_overlap_volume"] = cylinders[0].common(cylinders[1]).Volume
+    return proof
+
+
 for case in cases:
     geometry = case["paths"][0]["chain_geometry"]
     wall_specs = (
@@ -1431,6 +1512,14 @@ for case in cases:
                 "outside_bounds_volume": cylinder.cut(bounds).Volume,
                 "fixture_volume": cylinder.common(fixture).Volume,
             })
+    if "count_span" in case:
+        details["count_oracle"] = clipped_count_oracle(case, walls, finished, bounds)
+        cylinders = [Part.makeCylinder(case["radius"], 3, V(*point["dro_xy"], 0))
+                     for piece in pieces for point in piece]
+        details["pair_evidence"] = [{
+            "web": a.distToShape(b)[0],
+            "overlap_volume": a.common(b).Volume,
+        } for i, a in enumerate(cylinders) for b in cylinders[i + 1:]]
     answers.append({"entry": entry, "evidence": evidence, **details})
 with open(directory + "/answers.json", "w", encoding="utf-8") as stream:
     json.dump(answers, stream)
@@ -1441,7 +1530,12 @@ with open(directory + "/answers.json", "w", encoding="utf-8") as stream:
 def regeneration_boundaries(tmp_path_factory, freecad_kernel):
     """One cheap native batch; no STEP import, stock-prefix rebuild or consumer model."""
     directory = tmp_path_factory.mktemp("regeneration-boundaries")
-    cases = _regeneration_cases() + _nearest_endpoint_cases() + _unsnappable_interval_cases()
+    cases = (
+        _regeneration_cases()
+        + _nearest_endpoint_cases()
+        + _unsnappable_interval_cases()
+        + _clipped_count_cases()
+    )
     (directory / "cases.json").write_text(json.dumps(cases), encoding="utf-8")
     script = directory / "probe.py"
     script.write_text(_REGENERATION_NATIVE, encoding="utf-8")
@@ -1594,6 +1688,72 @@ def test_clipped_lengths_and_short_junction_tail_preserve_actual_webs(regenerati
         if gaps:
             assert gaps == pytest.approx([gaps[0]] * len(gaps), abs=2e-6)
             assert max(gaps) <= 4.2 + 2e-6
+
+
+def _assert_clipped_count_safety(case, result):
+    _assert_regenerated_cylinders(case, result)
+    points = [point for piece in result["entry"]["pieces"] for point in piece]
+    for point in points:
+        for axis, key in enumerate(("x", "y")):
+            assert case["bounds"][key][0] - 1e-6 <= point["dro_xy"][axis] - case["radius"]
+            assert point["dro_xy"][axis] + case["radius"] <= case["bounds"][key][1] + 1e-6
+    for pair in result["pair_evidence"]:
+        assert pair["web"] > 1e-6
+        assert pair["overlap_volume"] <= 1e-7
+    return points
+
+
+def test_clipped_long_line_keeps_two_snapped_endpoint_holes_below_nominal_web_limit(
+    regeneration_boundaries,
+):
+    case, result = next(
+        (case, result) for case, result in regeneration_boundaries if case.get("count_span") == 0.5
+    )
+    proof = result["count_oracle"]
+    witness = proof["witness"]
+    assert case["count_span"] < 2 * case["radius"] + 1e-6
+    assert math.dist(*witness) - 2 * case["radius"] > 1e-6
+    assert proof["maximum_web"] > 1e-6
+    assert proof["witness_native_web"] > 1e-6
+    assert proof["witness_overlap_volume"] <= 1e-7
+    for point, candidates, evidence in zip(
+        witness, proof["candidates"], proof["witness_evidence"], strict=True
+    ):
+        assert point in candidates
+        for axis, key in enumerate(("x", "y")):
+            assert case["bounds"][key][0] + case["radius"] <= point[axis]
+            assert point[axis] <= case["bounds"][key][1] - case["radius"]
+        assert all(gap >= 0.35 - 1e-9 for gap in evidence["wall_gaps"])
+        assert evidence["finished_gap"] >= 0.1 - 1e-9
+        assert evidence["finished_volume"] <= 1e-7
+        assert evidence["outside_bounds_volume"] <= 1e-7
+    points = _assert_clipped_count_safety(case, result)
+    assert len(points) == 2
+    assert result["entry"]["dropped_ends"] == [True, True]
+    assert points[0]["exact_xy"] == pytest.approx(proof["endpoints"][0], abs=1e-6)
+    assert points[-1]["exact_xy"] == pytest.approx(proof["endpoints"][-1], abs=1e-6)
+
+
+def test_clipped_long_line_without_feasible_endpoint_web_drops_free_tail(
+    regeneration_boundaries,
+):
+    case, result = next(
+        (case, result)
+        for case, result in regeneration_boundaries
+        if case.get("count_span") == 0.499
+    )
+    proof = result["count_oracle"]
+    assert all(proof["candidates"])
+    assert max(
+        math.dist(a, b) - 2 * case["radius"]
+        for a in proof["candidates"][0]
+        for b in proof["candidates"][1]
+    ) == pytest.approx(proof["maximum_web"], abs=1e-12)
+    assert proof["maximum_web"] < 0
+    points = _assert_clipped_count_safety(case, result)
+    assert len(points) == 1
+    assert result["entry"]["dropped_ends"] == [True, True]
+    assert points[0]["exact_xy"] == pytest.approx(proof["endpoints"][0], abs=1e-6)
 
 
 def test_a_clipped_360_chain_keeps_one_continuous_piece_across_zero(regeneration_boundaries):

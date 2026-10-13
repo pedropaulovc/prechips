@@ -9444,8 +9444,8 @@ class _Setup:
 
         Lengths in ``chain_geometry`` are plan units; pitch and bounds are mm. Each
         retained arc or straight leg has equal nominal intervals <= pitch, with exact
-        junctions forced and shared across tables. Interior snaps stay within one grid
-        step; ends use a three-step safe box, backing off on the true curve if necessary.
+        junctions forced and shared across tables. Every hole searches a three-step
+        square per axis; ends back off on the true curve if necessary.
         The full-radius eroded box and finite-wall clearances constrain every snap.
         Short clipped tails lose their end hole rather than acquire overlapping holes.
         Returned model coordinates invert the supplied feature-plane basis at the nominal
@@ -9782,7 +9782,11 @@ class _Setup:
             span = (end - start) * length
             pitch = geometry["pitch_mm"] / scale
             minimum = max(1, math.ceil(span / pitch))
+            # Snapped cylinders can leave a web even when nominal endpoints cannot.
+            # Judge the pitch-required count before a nominal bound shortens the span.
             maximum = math.floor(span / separation)
+            if span > tol:
+                maximum = max(minimum, maximum)
             for count in range(minimum, maximum + 1):
                 piece = sample(curve, geometry, index, start, end, count)
                 if piece is not None:

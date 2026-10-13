@@ -1067,10 +1067,17 @@ across its seam are one span; an exact tangent contact keeps its one real
 hole. Each retained arc or straight-leg span is regenerated on its own with
 equal nominal intervals along that curve (not one uniform respacing across a
 miter): the hole count is chosen so the nominal spacing is no longer than the
-pitch and still leaves a web (centres more than a drill diameter apart), and
-exact junctions between legs are kept and shared across tables. A span too
-short for any such spacing omits its clipped end hole (a junction's shared
-point stays unless the short tail is the chain's own end) and records that in
+pitch and still leaves a web (centres more than a drill diameter apart). That
+web is judged on the actual snapped DRO centres, not on the nominal span
+alone: for a retained span longer than the length tolerance, the
+pitch-required count is always tried at its snapped positions, even when it
+exceeds the nominal-length web bound, and any higher nominally feasible count
+is also tried before the span is shortened; a span within that tolerance (an
+isolated point, such as an exact tangent contact) keeps its one real hole.
+Exact junctions between legs are kept and shared across tables. A span whose
+snapped placement leaves no positive web at any such count omits its clipped
+end hole (a junction's shared point stays unless the short tail is the chain's
+own end) and records that in
 `dropped_ends`; clipping alone does not fabricate a no-web error. Every actual
 hole snaps onto
 the DRO grid inside the eroded box and on the scrap side of every curve

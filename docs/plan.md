@@ -1393,7 +1393,14 @@ uses the 1898 manual arc method:
    joins are intersected with the bounds eroded by the full drill radius (a
    closed arc's seam fragments are one span), each retained arc or leg is
    regenerated on its own with equal nominal intervals within `pitch_mm` that
-   still leave a web (a span too short for that omits its clipped end hole as
+   still leave a web judged on the actual snapped DRO centres, not the nominal
+   span alone (for a retained span longer than the length tolerance, the
+   pitch-required count is always tried at its snapped positions, even when it
+   exceeds the nominal-length web bound, and any higher nominally feasible
+   count is also tried before shortening; an isolated point within that
+   tolerance keeps its one hole; a span whose
+   snapped placement leaves no positive web at any such count omits its
+   clipped end hole as
    a dropped end, never a fabricated no-web error), and every actual hole
    snaps to the DRO grid on the safe side (inside the bound, not nearer the
    finished or offset line): every hole searches a symmetric square of three
