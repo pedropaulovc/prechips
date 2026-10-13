@@ -9610,18 +9610,45 @@ class _Setup:
         web = max(tol, 1e-9)
         separation = 2 * drill + web
 
+        def finished_gap(wall, point, curve):
+            if (
+                curve["kind"] == "arc"
+                and wall["kind"] == "arc"
+                and math.dist(curve["centre"], wall["centre"]) <= tol
+            ):
+                angle = math.degrees(
+                    math.atan2(point[1] - wall["centre"][1], point[0] - wall["centre"][0])
+                )
+                if parameters(wall, angle):
+                    return curve["outward"] * (math.dist(point, wall["centre"]) - wall["radius"])
+            elif curve["kind"] == "line" and wall["kind"] == "line":
+                a, b = wall["ends"]
+                dx, dy = b[0] - a[0], b[1] - a[1]
+                nx, ny = curve["normal"]
+                if abs(dx * nx + dy * ny) <= 1e-9 * math.hypot(dx, dy):
+                    projection = (point[0] - a[0]) * dx + (point[1] - a[1]) * dy
+                    if 0 <= projection <= dx * dx + dy * dy:
+                        return (point[0] - a[0]) * nx + (point[1] - a[1]) * ny
+            # Beyond a finite wall's projection the real end cap, not an
+            # infinite supporting line or circle, decides cylinder clearance.
+            return gap(wall, point)
+
         def safe(point, exact, curve, geometry, boundary):
-            if not boundary:
-                if curve["kind"] == "arc":
-                    if (
-                        curve["outward"] * (math.dist(point, curve["centre"]) - curve["radius"])
-                        < -1e-9
-                    ):
-                        return False
-                elif sum((point[i] - exact[i]) * curve["normal"][i] for i in range(2)) < -1e-9:
+            if curve["kind"] == "arc":
+                if (
+                    not boundary
+                    and curve["outward"] * (math.dist(point, curve["centre"]) - curve["radius"])
+                    < -1e-9
+                ):
                     return False
+            elif (
+                not boundary
+                and sum((point[i] - exact[i]) * curve["normal"][i] for i in range(2)) < -1e-9
+            ):
+                return False
             return all(
-                gap(w, point) >= min(gap(w, exact), geometry["offset"]) - 1e-9
+                (finished_gap(w, point, curve) if boundary else gap(w, point))
+                >= min(gap(w, exact), geometry["offset"]) - 1e-9
                 for w in geometry["walls"]
             )
 
@@ -9781,12 +9808,10 @@ class _Setup:
                 )
             span = (end - start) * length
             pitch = geometry["pitch_mm"] / scale
-            minimum = max(1, math.ceil(span / pitch))
+            minimum = 0 if span <= tol else max(1, math.ceil(span / pitch))
             # Snapped cylinders can leave a web even when nominal endpoints cannot.
             # Judge the pitch-required count before a nominal bound shortens the span.
-            maximum = math.floor(span / separation)
-            if span > tol:
-                maximum = max(minimum, maximum)
+            maximum = max(minimum, math.floor(span / separation))
             for count in range(minimum, maximum + 1):
                 piece = sample(curve, geometry, index, start, end, count)
                 if piece is not None:

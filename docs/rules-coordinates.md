@@ -266,18 +266,33 @@ naming them. Each table is recorded under `arc_table` (its joins under
   tolerance, the pitch-required count is always tried at its snapped
   positions, even when it exceeds the nominal-length web bound, and any higher
   nominally feasible count is also tried before the span is shortened (a span
-  within that tolerance, an isolated point, keeps its one hole); exact
+  within that tolerance, whether an isolated point or a tiny retained arc or
+  leg between two shared junctions, keeps exactly one hole, never a duplicate
+  row at the same centre); exact
   junctions stay shared. A span whose snapped
   placement leaves no positive web at any such count omits its clipped end
   hole (reported as a dropped end, never as
   a fabricated no-web error). Every actual hole then snaps onto the DRO grid
-  on the safe side (inside the bound, never nearer the finished or offset line
-  than its nominal point). All holes search the symmetric square within three
+  inside the bound and on the finished material's scrap side for every curve
+  it was generated on or meets: an interior hole tests the authored line's
+  normal side or the authored circle's scrap side; a bounded end or a shared
+  junction, on a leg or an arc alike, tests its signed gap to the actual
+  finished wall (the parallel wall plane for a leg, the concentric wall for
+  an arc), which must be at least the smaller of the nominal wall gap and the
+  offset wherever its projection lands within that wall's finite segment or
+  sweep, and beyond the ends tests the actual distance to the finite cap
+  instead, so such a hole may lie on the finished side of the infinite
+  supporting line or circle while the actual finished material is clear. A
+  junction is tested against every curve meeting it, and the bound never
+  waives the test. As an extra guard, no hole is ever nearer the finished or
+  offset line than its nominal point. All holes search the symmetric square within three
   grid steps on each axis and choose the nearest safe point by Euclidean
   distance, with a deterministic coordinate tie-break. A diagonal is not
   rejected merely for lying outside a one-step circle. Ends and junctions may
   back off inward along the true curve; a clipped end is therefore not promised
-  within one step of the true bound crossing. Every actual
+  within one step of the true bound crossing. A hole with no such grid
+  candidate after its full search and back-off leaves the whole clip unknown,
+  never a hole in finished material. Every actual
   hole cylinder is judged; the printed spacing is the DRO spacing, which can
   differ from the nominal interval. A raw swept-chord
   intersection never becomes an extra hole. The web/break-out checks and the

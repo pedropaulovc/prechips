@@ -1223,6 +1223,302 @@ def _nearest_endpoint_cases():
     return cases
 
 
+def _signed_boundary_cases():
+    """The reviewed coarse-grid input, its safe control, and a circular counterpart."""
+    cases = []
+    for family, control in (("line", False), ("line", True), ("arc", False)):
+        if family == "line":
+            curve = {"kind": "line", "ends": [[-5.0, 1.0], [5.0, 1.0]], "normal": [0.0, 1.0]}
+            wall = {"kind": "line", "ends": [[-10.0, 0.0], [10.0, 0.0]]}
+            finished = {
+                "kind": "polygon",
+                "points": [
+                    [-20.0, -20.0],
+                    [20.0, -20.0],
+                    [20.0, 0.0],
+                    [-20.0, 0.0],
+                ],
+            }
+            box = {
+                "x": [-4.25, 4.25] if control else [-1.25, 1.25],
+                "y": [-10.25, 2.35 if control else 1.35],
+            }
+            xy = curve["ends"]
+        else:
+            curve = {
+                "kind": "arc",
+                "centre": [0.0, 0.0],
+                "radius": 1.0,
+                "start_deg": 0.0,
+                "sweep_deg": 180.0,
+                "outward": 1,
+                "angle_start_deg": 0.0,
+                "angle_sweep_deg": 180.0,
+            }
+            wall = {**curve, "radius": 0.5, "sweep_deg": 360.0, "angle_sweep_deg": 360.0}
+            finished = {"kind": "circle", "centre": [0.0, 0.0], "radius": 0.5}
+            box = {"x": [-1.35, 1.35], "y": [-1.35, 1.35]}
+            xy = [[1.0, 0.0], [-1.0, 0.0]]
+        # The untransformed negative line is exactly the archived before-proof input.
+        path = {
+            "table": "scrap-boundary[0]",
+            "name": "scrap-boundary",
+            "kind": f"{family}_table",
+            "cutter_side": "left",
+            "directed": True,
+            "xy_mm": xy,
+            "tip_z_mm": 0.0,
+            "ids": ["scrap-boundary[0]", "scrap-boundary[1]"],
+            "overshoot": [False, False],
+            "method": "chain_drill",
+            "chain_geometry": {
+                "pitch_mm": 4.0,
+                "offset": 1.0 if family == "line" else 0.5,
+                "setup_origin": [0.0, 0.0],
+                "basis": [[1.0, 0.0], [0.0, 1.0]],
+                "curves": [curve],
+                "walls": [wall],
+            },
+        }
+        base = {
+            "paths": [path],
+            "bounds": box,
+            "radius": 0.25,
+            "allowance": 0.0,
+            "dro": {"step": 2.0, "decimals": 0, "scale": 1.0},
+            "finished": finished,
+        }
+        rotations = ([[1, 0], [0, 1]], [[0, -1], [1, 0]], [[-1, 0], [0, -1]], [[0, 1], [-1, 0]])
+        for reflected in (False, True):
+            for turn, rotation in enumerate(rotations):
+                case = deepcopy(base)
+                matrix = [[row[0] * (-1 if reflected else 1), row[1]] for row in rotation]
+
+                def transform(point, matrix=matrix):
+                    return [sum(row[i] * point[i] for i in range(2)) for row in matrix]
+
+                case["name"] = (
+                    f"signed-boundary-{family}-{'safe' if control else 'unsafe'}"
+                    f"-{int(reflected)}-{turn}"
+                )
+                case["signed_boundary"] = {"family": family, "control": control, "matrix": matrix}
+                geometry = case["paths"][0]["chain_geometry"]
+                for item in geometry["curves"] + geometry["walls"]:
+                    if item["kind"] == "line":
+                        item["ends"] = [transform(p) for p in item["ends"]]
+                        if "normal" in item:
+                            item["normal"] = transform(item["normal"])
+                    else:
+                        item["centre"] = transform(item["centre"])
+                        start = math.radians(item["start_deg"])
+                        direction = transform([math.cos(start), math.sin(start)])
+                        item["start_deg"] = math.degrees(math.atan2(direction[1], direction[0]))
+                        item["sweep_deg"] *= -1 if reflected else 1
+                        item["angle_start_deg"] = item["start_deg"]
+                        item["angle_sweep_deg"] = item["sweep_deg"]
+                geometry["basis"] = [transform(axis) for axis in geometry["basis"]]
+                case["paths"][0]["xy_mm"] = [transform(p) for p in case["paths"][0]["xy_mm"]]
+                if reflected:
+                    case["paths"][0]["cutter_side"] = "right"
+                corners = [transform([x, y]) for x in box["x"] for y in box["y"]]
+                case["bounds"] = {
+                    key: [min(p[i] for p in corners), max(p[i] for p in corners)]
+                    for i, key in enumerate(("x", "y"))
+                }
+                if family == "line":
+                    case["finished"]["points"] = [transform(p) for p in case["finished"]["points"]]
+                cases.append(case)
+    return cases
+
+
+def _tiny_tangent_arc_cases():
+    """Exact isolated tangency and a sub-tolerance arc with two authored joins."""
+    cases = []
+    for tiny in (False, True):
+        middle = math.degrees(0.5e-6)
+        spans = (
+            [(0.0, 90.0), (90.0, middle), (90.0 + middle, 90.0 - middle)]
+            if tiny
+            else [(0.0, 180.0)]
+        )
+        curves = [
+            {
+                "kind": "arc",
+                "centre": [0.0, 0.0],
+                "radius": 1.0,
+                "start_deg": start,
+                "sweep_deg": sweep,
+                "outward": 1,
+                "angle_start_deg": start,
+                "angle_sweep_deg": sweep,
+            }
+            for start, sweep in spans
+        ]
+        wall = {
+            "kind": "arc",
+            "centre": [0.0, 0.0],
+            "radius": 0.65,
+            "start_deg": 0.0,
+            "sweep_deg": 180.0,
+            "outward": 1,
+            "angle_start_deg": 0.0,
+            "angle_sweep_deg": 180.0,
+        }
+        case = _regeneration_case(
+            "tiny-authored-tangent-joins" if tiny else "exact-isolated-tangent",
+            curves,
+            [wall],
+            (-2.25, 2.25, 0.75, 3.25),
+            {"kind": "circle", "centre": [0.0, 0.0], "radius": 0.65},
+            tangent_singleton="tiny-joins" if tiny else "exact",
+        )
+        case["radius"], case["allowance"] = 0.25, 0.1
+        case["dro"] = {"step": 0.001, "decimals": 3, "scale": 1.0}
+        case["paths"][0]["chain_geometry"].update(pitch_mm=0.75, offset=0.35)
+        cases.append(case)
+    return cases
+
+
+def _finite_arc_side_cases():
+    """Distinguish material inside a finite arc span from its clear end cap."""
+    drill, allowance, pitch = 0.25, 0.25, 0.75
+    curve = {
+        "kind": "arc",
+        "centre": [0.0, 0.0],
+        "radius": 4.0,
+        "start_deg": 30.0,
+        "sweep_deg": 30.0,
+        "outward": 1,
+        "angle_start_deg": 30.0,
+        "angle_sweep_deg": 30.0,
+    }
+    cases = []
+    for control, start, sweep, step, decimals in (
+        ("unsafe", 20.0, 50.0, 2.0, 0),
+        ("safe-cap", 0.0, 40.0, 0.001, 3),
+    ):
+        wall = {
+            **curve,
+            "radius": 3.5,
+            "start_deg": start,
+            "sweep_deg": sweep,
+            "angle_start_deg": start,
+            "angle_sweep_deg": sweep,
+        }
+        wall_ends = [
+            [
+                wall["radius"] * math.cos(math.radians(angle)),
+                wall["radius"] * math.sin(math.radians(angle)),
+            ]
+            for angle in (start, start + sweep)
+        ]
+        walls = [wall, *({"kind": "line", "ends": [end, wall["centre"]]} for end in wall_ends)]
+        bounds = (
+            (2.0 - drill, 3.6 + drill, 2.0 - drill, 3.6 + drill)
+            if control == "unsafe"
+            else (-10.0, 10.0, -10.0, curve["radius"] * math.sin(math.radians(45.0)) + drill)
+        )
+        name = f"finite-arc-side-{control}"
+        case = _regeneration_case(
+            name,
+            [deepcopy(curve)],
+            walls,
+            bounds,
+            {"kind": "sector", "arc": wall},
+            finite_arc_side=control,
+        )
+        count = math.ceil(curve["radius"] * math.radians(curve["sweep_deg"]) / pitch)
+        angles = [
+            math.radians(curve["start_deg"] + i * curve["sweep_deg"] / count)
+            for i in range(count + 1)
+        ]
+        points = [
+            [curve["radius"] * math.cos(angle), curve["radius"] * math.sin(angle)]
+            for angle in angles
+        ]
+        (path,) = _printed("S1:10", "rough", [(name, points)], bounded=True, kind="arc_table")[
+            "paths"
+        ]
+        geometry = case["paths"][0]["chain_geometry"]
+        geometry.update(pitch_mm=pitch, offset=drill + allowance)
+        path.update(method="chain_drill", chain_geometry=geometry)
+        case.update(
+            paths=[path],
+            radius=drill,
+            allowance=allowance,
+            dro={"step": step, "decimals": decimals, "scale": 1.0},
+        )
+        cases.append(case)
+    return cases
+
+
+def _finite_line_cap_cases():
+    """187193:miter:30:0: real convex caps permit an inward authored-side snap."""
+    junction = [-29.906261005050702, -18.892132020622505]
+    curves = [
+        {
+            "kind": "line",
+            "ends": [[-39.403207070833055, -26.227526721906212], junction],
+            "normal": [-0.6112828917736424, 0.7914121721485293],
+        },
+        {
+            "kind": "line",
+            "ends": [junction, [-18.013967103070648, -17.287966895416226]],
+            "normal": [-0.1336804271005234, 0.9910244918316709],
+        },
+    ]
+    corner = [-29.7665323812725, -19.22645374589369]
+    wall_ends = [
+        [-45.59477582424309, -31.452111581366538],
+        [-9.946042544639084, -16.55284520388322],
+    ]
+    walls = [
+        {"kind": "line", "ends": [wall_ends[0], corner]},
+        {"kind": "line", "ends": [corner, wall_ends[1]]},
+    ]
+    # The closure is deep in material, remote from the junction and both 12 mm legs.
+    back = [corner[i] - 20.0 * sum(curve["normal"][i] for curve in curves) for i in range(2)]
+    name = "finite-line-corner-cap"
+    (path,) = _printed(
+        "S1:10",
+        "rough",
+        [(name, [curves[0]["ends"][0], junction, curves[1]["ends"][1]])],
+        bounded=True,
+        kind="line_table",
+    )["paths"]
+    path.update(
+        method="chain_drill",
+        chain_geometry={
+            "pitch_mm": 1.5,
+            "offset": 0.35,
+            "setup_origin": junction,
+            "basis": [
+                [0.7914121721485293, 0.6112828917736424],
+                [-0.6112828917736424, 0.7914121721485293],
+            ],
+            "curves": curves,
+            "walls": walls,
+        },
+    )
+    return [
+        {
+            "name": name,
+            "finite_line_cap": True,
+            "junction": junction,
+            "paths": [path],
+            "bounds": {
+                "x": [-99.90626100505071, 40.0937389949493],
+                "y": [-88.89213202062251, 51.107867979377495],
+                "z": [0.0, 3.0],
+            },
+            "radius": 0.25,
+            "allowance": 0.1,
+            "dro": {"step": 0.001, "decimals": 3, "scale": 1.0},
+            "finished": {"kind": "polygon", "points": [corner, wall_ends[0], back, wall_ends[1]]},
+        }
+    ]
+
+
 _REGENERATION_NATIVE = r"""
 import importlib.util
 import json
@@ -1403,6 +1699,188 @@ def clipped_count_oracle(case, walls, finished, bounds):
     return proof
 
 
+def signed_boundary_oracle(case, finished):
+    # Exhaust a generous +/-10 grid-index square. Signed half-plane/radial
+    # distances are authored geometry, not unsigned OCC wall distance or safe().
+    family = case["signed_boundary"]["family"]
+    matrix = case["signed_boundary"]["matrix"]
+    drill, step = case["radius"], case["dro"]["step"]
+    candidates = []
+    for ix in range(-10, 11):
+        for iy in range(-10, 11):
+            point = [ix * step, iy * step]
+            if not all(case["bounds"][key][0] + drill - 1e-9 <= point[i]
+                       <= case["bounds"][key][1] - drill + 1e-9
+                       for i, key in enumerate(("x", "y"))):
+                continue
+            # D4 inverse is the transpose, independent of production normals.
+            canonical = [sum(matrix[j][i] * point[j] for j in range(2)) for i in range(2)]
+            wall_signed = canonical[1] if family == "line" else math.hypot(*canonical) - 0.5
+            candidates.append({
+                "point": point,
+                "curve_signed": (
+                    canonical[1] - 1.0 if family == "line" else math.hypot(*canonical) - 1.0
+                ),
+                "finished_cylinder_signed_gap": wall_signed - drill,
+                "native_finished_signed_gap": signed_finished_gap(point, finished),
+                "native_finished_inside": finished.isInside(V(*point, 1.5), 1e-9, False),
+                "native_finished_volume": Part.makeCylinder(
+                    drill, 3, V(*point, 0)
+                ).common(finished).Volume,
+            })
+    return candidates
+
+
+def finite_arc_side_oracle(case, pieces, walls, finished):
+    # Supporting-circle sign applies only when the radial projection lies on
+    # the finite finished arc. Beyond it, independently measure its real caps.
+    geometry = case["paths"][0]["chain_geometry"]
+    (curve,) = geometry["curves"]
+    arc = case["finished"]["arc"]
+    drill, step, decimals = case["radius"], case["dro"]["step"], case["dro"]["decimals"]
+    cap_points = [
+        [arc["centre"][0] + arc["radius"] * math.cos(math.radians(angle)),
+         arc["centre"][1] + arc["radius"] * math.sin(math.radians(angle))]
+        for angle in (arc["start_deg"], arc["start_deg"] + arc["sweep_deg"])
+    ]
+    inner = [[case["bounds"][key][0] + drill, case["bounds"][key][1] - drill] for key in ("x", "y")]
+    bound_indices = [[math.ceil(lo / step), math.floor(hi / step)] for lo, hi in inner]
+    if case["finite_arc_side"] == "unsafe":
+        target = [
+            curve["centre"][0] + curve["radius"] * math.cos(math.radians(45.0)),
+            curve["centre"][1] + curve["radius"] * math.sin(math.radians(45.0)),
+        ]
+        spans = [range(lo, hi + 1) for lo, hi in bound_indices]
+    else:
+        y = inner[1][1]
+        target = [
+            curve["centre"][0] + math.sqrt(curve["radius"]**2 - (y - curve["centre"][1])**2),
+            y,
+        ]
+        # Exhaust +/-10 steps, rather than mirror the production three-step loop.
+        spans = [
+            range(math.floor((value + 10 * step) / step),
+                  math.ceil((value - 10 * step) / step) - 1, -1)
+            for value in target
+        ]
+    nominal = Part.Vertex(V(*target, 0))
+    nominal_gaps = [nominal.distToShape(wall)[0] for wall in walls]
+    points = [point for piece in pieces for point in piece]
+    others = [point["dro_xy"] for point in points[:-1]]
+    candidates = []
+    for ix in spans[0]:
+        for iy in spans[1]:
+            point = [round(ix * step, decimals), round(iy * step, decimals)]
+            if not all(lo - 1e-9 <= point[i] <= hi + 1e-9 for i, (lo, hi) in enumerate(inner)):
+                continue
+            radial = math.dist(point, arc["centre"])
+            angle = math.degrees(
+                math.atan2(point[1] - arc["centre"][1], point[0] - arc["centre"][0])
+            )
+            progress = ((angle - arc["start_deg"]) if arc["sweep_deg"] > 0
+                        else (arc["start_deg"] - angle)) % 360.0
+            projected = progress <= abs(arc["sweep_deg"]) + 1e-12
+            closest_cap = min(cap_points, key=lambda cap: math.dist(point, cap))
+            cap_gap = math.dist(point, closest_cap) - drill
+            cap_projection = sum(
+                (point[i] - arc["centre"][i]) * (closest_cap[i] - arc["centre"][i])
+                for i in range(2)
+            ) / arc["radius"]
+            signed_gap = arc["outward"] * (radial - arc["radius"]) - drill if projected else cap_gap
+            vertex = Part.Vertex(V(*point, 0))
+            candidate = {
+                "point": point,
+                "distance_squared": sum((point[i] - target[i])**2 for i in range(2)),
+                "projection_within_finite_wall": projected,
+                "projection_strictly_inside_finite_wall": 0.0 < progress < abs(arc["sweep_deg"]),
+                "authored_circle_signed_side": curve["outward"] * (
+                    math.dist(point, curve["centre"]) - curve["radius"]
+                ),
+                "finite_arc_signed_cylinder_gap": signed_gap,
+                "finite_cap_cylinder_gap": cap_gap,
+                "closest_cap_radial_projection": cap_projection,
+                "native_finished_signed_gap": signed_finished_gap(point, finished),
+                "wall_gaps": [vertex.distToShape(wall)[0] for wall in walls],
+                "bound_gaps": [
+                    gap for i, (lo, hi) in enumerate(inner)
+                    for gap in (point[i] - lo, hi - point[i])
+                ],
+                "minimum_web": min(
+                    (math.dist(point, other) - 2 * drill for other in others), default=None
+                ),
+            }
+            if case["finite_arc_side"] == "unsafe":
+                candidate["native_finished_volume"] = Part.makeCylinder(
+                    drill, 3, V(*point, 0)
+                ).common(finished).Volume
+            candidates.append(candidate)
+    return {"target": target, "bound_grid_indices": bound_indices,
+            "nominal_wall_gaps": nominal_gaps, "candidates": candidates}
+
+
+def finite_line_cap_oracle(case, pieces, walls, finished):
+    # OCC measures the actual finite material; authored infinite sides are evidence,
+    # never a safety predicate. No production snap/side/gap helper participates.
+    geometry = case["paths"][0]["chain_geometry"]
+    target, drill, step = case["junction"], case["radius"], case["dro"]["step"]
+    points = [point for piece in pieces for point in piece]
+    indices = [i for i, point in enumerate(points)
+               if math.dist(point["exact_xy"], target) <= 1e-9]
+    others = [point["dro_xy"] for i, point in enumerate(points) if i not in indices]
+    nominal = Part.Vertex(V(*target, 0))
+    nominal_gaps = [nominal.distToShape(wall)[0] for wall in walls]
+    spans = [
+        range(math.floor((value + 10 * step) / step),
+              math.ceil((value - 10 * step) / step) - 1, -1)
+        for value in target
+    ]
+    candidates = []
+    for ix in spans[0]:
+        for iy in spans[1]:
+            point = [round(index * step, case["dro"]["decimals"]) for index in (ix, iy)]
+            vertex = Part.Vertex(V(*point, 0))
+            projections = []
+            for spec in geometry["walls"]:
+                a, b = spec["ends"]
+                projections.append(sum((point[i] - a[i]) * (b[i] - a[i])
+                                       for i in range(2)) / math.dist(a, b)**2)
+            candidates.append({
+                "point": point,
+                "distance_squared": sum((point[i] - target[i])**2 for i in range(2)),
+                "wall_projection_fractions": projections,
+                "authored_line_signed_sides": [
+                    sum((point[i] - curve["ends"][0][i]) * curve["normal"][i]
+                        for i in range(2)) for curve in geometry["curves"]
+                ],
+                "native_finished_signed_gap": signed_finished_gap(point, finished),
+                "wall_gaps": [vertex.distToShape(wall)[0] for wall in walls],
+                "bound_gaps": [
+                    gap for i, key in enumerate(("x", "y"))
+                    for gap in (point[i] - drill - case["bounds"][key][0],
+                                case["bounds"][key][1] - point[i] - drill)
+                ],
+                "minimum_web": min(
+                    (math.dist(point, other) - 2 * drill for other in others), default=None
+                ),
+            })
+    actual_cylinders = [
+        Part.makeCylinder(drill, 3, V(*points[i]["dro_xy"], 0)) for i in indices
+    ]
+    return {
+        "target": target, "indices": indices, "nominal_wall_gaps": nominal_gaps,
+        "candidates": candidates,
+        "actual_cylinders": [{
+            "wall_gaps": [cylinder.distToShape(wall)[0] for wall in walls],
+            "finished_gap": cylinder.distToShape(finished)[0],
+            "finished_volume": cylinder.common(finished).Volume,
+            "minimum_web": min(
+                (cylinder.distToShape(Part.makeCylinder(drill, 3, V(*other, 0)))[0]
+                 for other in others), default=None
+            ),
+        } for cylinder in actual_cylinders],
+    }
+
+
 for case in cases:
     geometry = case["paths"][0]["chain_geometry"]
     wall_specs = (
@@ -1480,10 +1958,20 @@ for case in cases:
         if "unsnappable" in case:
             details["unsnappable_oracle"] = unsnappable_interval_oracle(case, walls, finished)
     else:
-        regenerated = engine._Setup._regenerate_chain(
-            case["paths"], box, case["radius"], case["dro"]
-        )
-        if "nearest" in case:
+        try:
+            regenerated = engine._Setup._regenerate_chain(
+                case["paths"], box, case["radius"], case["dro"]
+            )
+        except engine._ClipUnknown as error:
+            if not any(
+                key in case for key in ("signed_boundary", "finite_arc_side", "finite_line_cap")
+            ):
+                raise
+            details["unknown_reason"] = str(error)
+            regenerated = None
+        if regenerated is None:
+            entry, pieces = None, []
+        elif "nearest" in case:
             entry = regenerated[0][0]
             pieces = [piece for _, table_pieces in regenerated for piece in table_pieces]
             details["entries"] = [table_entry for table_entry, _ in regenerated]
@@ -1512,6 +2000,19 @@ for case in cases:
                 "outside_bounds_volume": cylinder.cut(bounds).Volume,
                 "fixture_volume": cylinder.common(fixture).Volume,
             })
+    if "signed_boundary" in case:
+        details["signed_boundary_oracle"] = signed_boundary_oracle(case, finished)
+        for proof, point in zip(evidence, (point for piece in pieces for point in piece)):
+            actual = point["dro_xy"]
+            matrix = case["signed_boundary"]["matrix"]
+            canonical = [sum(matrix[j][i] * actual[j] for j in range(2)) for i in range(2)]
+            radial = math.hypot(*canonical)
+            proof["curve_signed"] = (
+                canonical[1] - 1.0 if case["signed_boundary"]["family"] == "line" else radial - 1.0
+            )
+            proof["finished_cylinder_signed_gap"] = (
+                canonical[1] if case["signed_boundary"]["family"] == "line" else radial - 0.5
+            ) - case["radius"]
     if "count_span" in case:
         details["count_oracle"] = clipped_count_oracle(case, walls, finished, bounds)
         cylinders = [Part.makeCylinder(case["radius"], 3, V(*point["dro_xy"], 0))
@@ -1520,6 +2021,10 @@ for case in cases:
             "web": a.distToShape(b)[0],
             "overlap_volume": a.common(b).Volume,
         } for i, a in enumerate(cylinders) for b in cylinders[i + 1:]]
+    if "finite_arc_side" in case:
+        details["finite_arc_side_oracle"] = finite_arc_side_oracle(case, pieces, walls, finished)
+    if "finite_line_cap" in case:
+        details["finite_line_cap_oracle"] = finite_line_cap_oracle(case, pieces, walls, finished)
     answers.append({"entry": entry, "evidence": evidence, **details})
 with open(directory + "/answers.json", "w", encoding="utf-8") as stream:
     json.dump(answers, stream)
@@ -1535,6 +2040,10 @@ def regeneration_boundaries(tmp_path_factory, freecad_kernel):
         + _nearest_endpoint_cases()
         + _unsnappable_interval_cases()
         + _clipped_count_cases()
+        + _signed_boundary_cases()
+        + _tiny_tangent_arc_cases()
+        + _finite_arc_side_cases()
+        + _finite_line_cap_cases()
     )
     (directory / "cases.json").write_text(json.dumps(cases), encoding="utf-8")
     script = directory / "probe.py"
@@ -1554,6 +2063,255 @@ def regeneration_boundaries(tmp_path_factory, freecad_kernel):
     results = json.loads(answers.read_text(encoding="utf-8"))
     assert len(results) == len(cases)
     return list(zip(cases, results, strict=True))
+
+
+@pytest.mark.parametrize("control", ("exact", "tiny-joins"))
+def test_tangent_singleton_has_one_unique_actual_cylinder(regeneration_boundaries, control):
+    case, result = next(
+        (case, result)
+        for case, result in regeneration_boundaries
+        if case.get("tangent_singleton") == control
+    )
+    entry = result["entry"]
+    assert "reason" not in entry and entry["regeneration"] == "true_curve"
+    points = [point for piece in entry["pieces"] for point in piece]
+    assert len(points) == len(result["evidence"]) == 1, result
+    assert points[0]["dro_xy"] == pytest.approx([0.0, 1.0], abs=1e-9)
+    assert points[0]["exact_xy"] == pytest.approx([0.0, 1.0], abs=LENGTH_TOLERANCE_MM)
+    proof = result["evidence"][0]
+    assert proof["finished_volume"] <= 1e-7
+    assert proof["finished_gap"] >= case["allowance"] - 2 * LENGTH_TOLERANCE_MM
+    assert proof["outside_bounds_volume"] <= 1e-7
+    assert proof["fixture_volume"] <= 1e-7
+
+
+@pytest.mark.parametrize("family", ("line", "arc"))
+@pytest.mark.parametrize("reflected", (0, 1))
+@pytest.mark.parametrize("turn", range(4))
+def test_wrong_side_boundary_grid_reports_concrete_unknown(
+    regeneration_boundaries,
+    family,
+    reflected,
+    turn,
+):
+    case, result = next(
+        (case, result)
+        for case, result in regeneration_boundaries
+        if case["name"] == f"signed-boundary-{family}-unsafe-{reflected}-{turn}"
+    )
+    # The before-fix failure must be the unsafe engine outcome, not an oracle
+    # mismatch encountered before checking whether regeneration was refused.
+    reason = result.get("unknown_reason", "")
+    assert "no safe DRO-grid" in reason and "full-interval" in reason, result
+    assert result["entry"] is None and result["evidence"] == []
+    candidates = result["signed_boundary_oracle"]
+    assert candidates
+    assert not any(
+        p["curve_signed"] >= -1e-9 and p["finished_cylinder_signed_gap"] >= -1e-9
+        for p in candidates
+    )
+    for candidate in candidates:
+        if family == "line":
+            # The finite 3D shell includes Z faces: its inside distance is not
+            # the depth below the infinite XY plane. Occupancy and signed
+            # membership independently agree with that plane's side instead.
+            plane_gap = candidate["finished_cylinder_signed_gap"] + case["radius"]
+            assert candidate["native_finished_inside"] == (plane_gap < -1e-9)
+            if plane_gap < -1e-9:
+                assert candidate["native_finished_signed_gap"] < 0
+            elif plane_gap > 1e-9:
+                assert candidate["native_finished_signed_gap"] > 0
+            else:
+                assert candidate["native_finished_signed_gap"] == pytest.approx(
+                    0.0, abs=LENGTH_TOLERANCE_MM
+                )
+            assert (candidate["native_finished_volume"] > 1e-7) == (
+                candidate["finished_cylinder_signed_gap"] < -LENGTH_TOLERANCE_MM
+            )
+        else:
+            assert candidate["native_finished_signed_gap"] - case["radius"] == pytest.approx(
+                candidate["finished_cylinder_signed_gap"],
+                abs=LENGTH_TOLERANCE_MM,
+            )
+
+
+@pytest.mark.parametrize("reflected", (0, 1))
+@pytest.mark.parametrize("turn", range(4))
+def test_safe_coarse_grid_boundary_control_stays_on_scrap_side(
+    regeneration_boundaries,
+    reflected,
+    turn,
+):
+    case, result = next(
+        (case, result)
+        for case, result in regeneration_boundaries
+        if case["name"] == f"signed-boundary-line-safe-{reflected}-{turn}"
+    )
+    safe = [
+        p
+        for p in result["signed_boundary_oracle"]
+        if p["curve_signed"] >= -1e-9 and p["finished_cylinder_signed_gap"] >= -1e-9
+    ]
+    assert len(safe) >= 2
+    _assert_regenerated_cylinders(case, result)
+    assert len(result["evidence"]) >= 2
+    for proof in result["evidence"]:
+        assert proof["curve_signed"] >= -1e-9
+        assert proof["finished_cylinder_signed_gap"] >= -1e-9
+
+
+def test_finite_arc_in_span_wrong_side_grid_reports_concrete_unknown(
+    regeneration_boundaries,
+):
+    case, result = next(
+        (case, result)
+        for case, result in regeneration_boundaries
+        if case.get("finite_arc_side") == "unsafe"
+    )
+    # Fail on the old engine's unsafe acceptance before considering any oracle.
+    reason = result.get("unknown_reason", "")
+    assert "no safe DRO-grid" in reason and "full-interval" in reason, result
+    assert result["entry"] is None and result["evidence"] == []
+    oracle = result["finite_arc_side_oracle"]
+    candidates = oracle["candidates"]
+    assert candidates
+    x_indices, y_indices = oracle["bound_grid_indices"]
+    assert {tuple(candidate["point"]) for candidate in candidates} == {
+        (ix * case["dro"]["step"], iy * case["dro"]["step"])
+        for ix in range(x_indices[0], x_indices[1] + 1)
+        for iy in range(y_indices[0], y_indices[1] + 1)
+    }
+    arc = case["finished"]["arc"]
+    for candidate in candidates:
+        assert candidate["projection_within_finite_wall"]
+        assert candidate["projection_strictly_inside_finite_wall"]
+        expected = math.dist(candidate["point"], arc["centre"]) - arc["radius"] - case["radius"]
+        assert candidate["finite_arc_signed_cylinder_gap"] == pytest.approx(expected, abs=1e-9)
+        assert expected < 0
+        assert candidate["native_finished_signed_gap"] - case["radius"] == pytest.approx(
+            expected, abs=LENGTH_TOLERANCE_MM
+        )
+        assert candidate["native_finished_volume"] > 1e-7
+    required_centre_gap = case["radius"] + case["allowance"]
+    assert not any(
+        candidate["finite_arc_signed_cylinder_gap"] >= case["allowance"] - 1e-9
+        and candidate["native_finished_signed_gap"] >= required_centre_gap - 1e-9
+        for candidate in candidates
+    )
+
+
+def test_finite_arc_clear_cap_keeps_independently_nearest_grid_endpoint(
+    regeneration_boundaries,
+):
+    case, result = next(
+        (case, result)
+        for case, result in regeneration_boundaries
+        if case.get("finite_arc_side") == "safe-cap"
+    )
+    assert "unknown_reason" not in result, result
+    _assert_regenerated_cylinders(case, result)
+    entry, oracle = result["entry"], result["finite_arc_side_oracle"]
+    (piece,) = entry["pieces"]
+    assert len(piece) >= 2
+    assert entry["dropped_ends"] == [False, True]
+    assert piece[-1]["exact_xy"] == pytest.approx(oracle["target"], abs=1e-9)
+    geometry = case["paths"][0]["chain_geometry"]
+    required_centre_gap = case["radius"] + case["allowance"]
+    legal = [
+        candidate
+        for candidate in oracle["candidates"]
+        if min(candidate["bound_gaps"]) >= -1e-9
+        and candidate["finite_arc_signed_cylinder_gap"] >= case["allowance"] - 1e-9
+        and candidate["native_finished_signed_gap"] >= required_centre_gap - 1e-9
+        and candidate["minimum_web"] > LENGTH_TOLERANCE_MM
+        and all(
+            actual >= required_centre_gap - 1e-9
+            and actual >= min(nominal, geometry["offset"]) - 1e-9
+            for nominal, actual in zip(
+                oracle["nominal_wall_gaps"], candidate["wall_gaps"], strict=True
+            )
+        )
+    ]
+    assert len(legal) >= 2
+    nearest = min(legal, key=lambda candidate: candidate["distance_squared"])
+    runner_up = min(
+        candidate["distance_squared"] for candidate in legal if candidate is not nearest
+    )
+    assert runner_up - nearest["distance_squared"] > 1e-6 * case["dro"]["step"] ** 2
+    # Every omitted lattice point is >=10 steps away along one axis, proving
+    # this strict metric winner globally nearest without pinning its coordinate.
+    assert nearest["distance_squared"] < (10 * case["dro"]["step"]) ** 2
+    assert piece[-1]["dro_xy"] == nearest["point"]
+    assert nearest["projection_within_finite_wall"] is False
+    assert nearest["authored_circle_signed_side"] < 0
+    assert nearest["finite_cap_cylinder_gap"] >= case["allowance"]
+    assert nearest["closest_cap_radial_projection"] > case["finished"]["arc"]["radius"]
+    actual = result["evidence"][-1]
+    assert actual["finished_gap"] == pytest.approx(
+        nearest["native_finished_signed_gap"] - case["radius"], abs=1e-8
+    )
+    assert actual["finished_gap"] == pytest.approx(nearest["finite_cap_cylinder_gap"], abs=1e-8)
+    assert actual["finished_gap"] >= case["allowance"] - LENGTH_TOLERANCE_MM
+    assert actual["finished_volume"] <= 1e-7
+
+
+def test_finite_line_corner_cap_keeps_independently_nearest_shared_junction(
+    regeneration_boundaries,
+):
+    case, result = next(
+        (case, result) for case, result in regeneration_boundaries if case.get("finite_line_cap")
+    )
+    assert "unknown_reason" not in result, result
+    _assert_regenerated_cylinders(case, result)
+    entry, oracle = result["entry"], result["finite_line_cap_oracle"]
+    geometry = case["paths"][0]["chain_geometry"]
+    assert [math.dist(*curve["ends"]) for curve in geometry["curves"]] == pytest.approx(
+        [12.0, 12.0], abs=1e-9
+    )
+    assert [math.dist(*wall["ends"]) for wall in geometry["walls"]] == pytest.approx(
+        [20.0, 20.0], abs=1e-9
+    )
+    assert entry["dropped_ends"] == [False, False]
+    points = [point for piece in entry["pieces"] for point in piece]
+    shared = [point for point in points if math.dist(point["exact_xy"], oracle["target"]) <= 1e-9]
+    assert shared and len(shared) == len(oracle["indices"])
+    assert all(point["overshoot"] is True for point in shared)
+    required = case["radius"] + case["allowance"]
+    legal = [
+        candidate
+        for candidate in oracle["candidates"]
+        if min(candidate["bound_gaps"]) >= -1e-9
+        and candidate["native_finished_signed_gap"] >= required - 1e-9
+        and candidate["minimum_web"] > LENGTH_TOLERANCE_MM
+        and all(
+            actual >= required - 1e-9 and actual >= min(nominal, geometry["offset"]) - 1e-9
+            for nominal, actual in zip(
+                oracle["nominal_wall_gaps"], candidate["wall_gaps"], strict=True
+            )
+        )
+    ]
+    assert len(legal) >= 2
+    nearest = min(legal, key=lambda candidate: candidate["distance_squared"])
+    runner_up = min(
+        candidate["distance_squared"] for candidate in legal if candidate is not nearest
+    )
+    assert runner_up - nearest["distance_squared"] > 1e-6 * case["dro"]["step"] ** 2
+    # Omitted grid points are >=10 steps away on one axis: the winner is global.
+    assert nearest["distance_squared"] < (10 * case["dro"]["step"]) ** 2
+    assert all(point["dro_xy"] == nearest["point"] for point in shared)
+    assert nearest["wall_projection_fractions"][0] > 1.0
+    assert nearest["wall_projection_fractions"][1] < 0.0
+    assert min(nearest["authored_line_signed_sides"]) < 0.0
+    physical_gap = nearest["native_finished_signed_gap"] - case["radius"]
+    assert physical_gap >= case["allowance"]
+    assert physical_gap == pytest.approx(min(nearest["wall_gaps"]) - case["radius"], abs=1e-8)
+    for index, cylinder in zip(oracle["indices"], oracle["actual_cylinders"], strict=True):
+        assert points[index]["dro_xy"] == nearest["point"]
+        assert cylinder["finished_gap"] == pytest.approx(physical_gap, abs=1e-8)
+        assert cylinder["finished_volume"] <= 1e-7
+        assert min(cylinder["wall_gaps"]) >= case["allowance"] - 1e-8
+        assert cylinder["minimum_web"] > LENGTH_TOLERANCE_MM
+        assert result["evidence"][index]["finished_gap"] == pytest.approx(physical_gap, abs=1e-8)
 
 
 def _segment_gap(point, a, b):

@@ -1397,16 +1397,28 @@ uses the 1898 manual arc method:
    span alone (for a retained span longer than the length tolerance, the
    pitch-required count is always tried at its snapped positions, even when it
    exceeds the nominal-length web bound, and any higher nominally feasible
-   count is also tried before shortening; an isolated point within that
-   tolerance keeps its one hole; a span whose
+   count is also tried before shortening; a span within that
+   tolerance, an isolated point or a tiny retained arc or leg between two
+   shared junctions, keeps exactly one hole, never a duplicate row; a span whose
    snapped placement leaves no positive web at any such count omits its
    clipped end hole as
    a dropped end, never a fabricated no-web error), and every actual hole
-   snaps to the DRO grid on the safe side (inside the bound, not nearer the
-   finished or offset line): every hole searches a symmetric square of three
+   snaps to the DRO grid inside the bound and on the finished material's
+   scrap side for every curve it was generated on or meets (an interior hole
+   tests the authored line's normal side or the authored circle's scrap side;
+   a bounded end or shared junction, on a leg or an arc alike, tests its
+   signed gap to the actual finished wall, parallel plane or concentric, at
+   least the smaller of the nominal wall gap and the offset within that
+   wall's finite segment or sweep, and the actual finite cap distance beyond
+   its ends; a junction is tested
+   against every curve meeting it, and the bound never waives the test; as
+   an extra guard, not nearer the finished or offset line than its nominal
+   point): every hole searches a symmetric square of three
    grid steps per axis and chooses the nearest safe point by Euclidean
    distance with a deterministic coordinate tie-break; ends and junctions may
-   back off inward along the true curve. Every actual hole cylinder is judged; a
+   back off inward along the true curve, and a hole with no such grid
+   candidate after that full search and back-off leaves the whole clip
+   unknown, never a hole in finished material. Every actual hole cylinder is judged; a
    swept-chord intersection never becomes an extra hole.
    Web/break-out validation and the single cap enforcement run on that chain.
    Its table names only dropped ends and genuine piece breaks as stops where

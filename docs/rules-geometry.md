@@ -1073,15 +1073,28 @@ alone: for a retained span longer than the length tolerance, the
 pitch-required count is always tried at its snapped positions, even when it
 exceeds the nominal-length web bound, and any higher nominally feasible count
 is also tried before the span is shortened; a span within that tolerance (an
-isolated point, such as an exact tangent contact) keeps its one real hole.
+isolated point such as an exact tangent contact, or a tiny retained arc or leg
+between two shared junctions) keeps exactly one real hole, never a duplicate
+row at the same centre.
 Exact junctions between legs are kept and shared across tables. A span whose
 snapped placement leaves no positive web at any such count omits its clipped
 end hole (a junction's shared point stays unless the short tail is the chain's
 own end) and records that in
 `dropped_ends`; clipping alone does not fabricate a no-web error. Every actual
 hole snaps onto
-the DRO grid inside the eroded box and on the scrap side of every curve
-meeting it (no nearer any wall than the nominal point or the offset). Every
+the DRO grid inside the eroded box and on the finished material's scrap side
+for every curve it was generated on or meets. An interior hole tests the
+authored line's normal side or the authored circle's scrap side. A bounded
+end or a shared junction, on a leg or an arc alike, tests its signed gap to
+the actual finished wall (the parallel wall plane for a leg, the concentric
+wall for an arc): at least the smaller of the nominal wall gap and the offset
+wherever the hole's projection lands within that wall's finite segment or
+sweep; beyond the ends it tests the actual distance to the finite cap
+instead, so such a hole may lie on the finished side of the infinite
+supporting line or circle while the actual finished material is clear. A junction is
+tested against every curve meeting it, and the bound never waives the test.
+As an extra guard, no hole sits nearer any wall than the
+nominal point or the offset. Every
 hole searches the symmetric square within three grid steps on each axis;
 the nearest safe point wins by Euclidean distance with a deterministic
 coordinate tie-break. A diagonal is not rejected by a one-step circular
@@ -1089,7 +1102,9 @@ cutoff. Ends and junctions may back off inward along the true curve until a
 safe grid point exists; a junction's shared point is one fixed DRO point
 across its tables. A backed-off end hole is therefore not promised within one
 step of the true bound intersection (the shipped rocker trial happens to keep
-its ends within one step; that is evidence, not the guarantee). A fractional
+its ends within one step; that is evidence, not the guarantee). A hole with no
+such grid candidate after its full search and back-off is never placed in
+finished material; it leaves the clip unknown, as below. A fractional
 swept-chord intersection never becomes a hole. The chain's `checkpoint_clips`
 entry carries `regeneration = "true_curve"`, `pieces` of `generated` points
 (`exact_xy`, the nominal point on the true offset curve the hole was generated
@@ -1100,8 +1115,9 @@ clip or to a short tail), the authored `dropped_rows`, and empty
 `clip_points`; `clipped_at` records regeneration against the true offset curve
 at the eroded bounds, not a separate end stop at every marked row, and
 `precision_mm` is `PLANE_TOL`. Unknown or disconnected chain geometry, a
-box too small for one full drill, any retained interval with no safe grid point
-after its full search and back-off, or no surviving centre leaves the entire
+box too small for one full drill, any retained interval with no safe grid
+point after its full search and back-off (an end or junction included), or
+no surviving centre leaves the entire
 clip unknown, even when another piece survives: never a partial table.
 Deliberately shortening a free end to preserve a positive web remains allowed.
 The kept
