@@ -2889,7 +2889,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "36ee0b99412e2a26a036d7c44fda90cb9ee00a2357752649e2f229d79b40d121",
+  "hash": "4752e757acdf2f38f402f679ebae8573fec261746f05f7db6431950ffa659111",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -2909,15 +2909,15 @@
     },
     "render:S1": {
       "path": "setup-S1.png",
-      "sha256": "92592140bb468f8b274fbc8348b8c1a2b321ddc26a14cf393840f068e50334e8"
+      "sha256": "d8a09c69c50d2072e765b94a78c3a49c8f24a1c3718de174f6d8729c5ee2ba30"
     },
     "render:S2": {
       "path": "setup-S2.png",
-      "sha256": "7ad7de2bf679909c8df5b21ea741253dabbeea125f739223d0dc979b2a580af4"
+      "sha256": "0248d18c6912e464e9ce31113c74b02b7128b39903aac5968d1d2b4f0b70b1a8"
     },
     "render:S3": {
       "path": "setup-S3.png",
-      "sha256": "79f7e1bb1e736a872fb86506437542f5f68afa9a6d4e399161b6d4445e204bde"
+      "sha256": "1c01efa21d1b7e711e749982cba624777d320128a03885a011677a8db8e8d5b4"
     },
     "shop_policy": {
       "path": "examples/geometry/shop-policy.toml",
@@ -3013,7 +3013,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "92592140bb468f8b274fbc8348b8c1a2b321ddc26a14cf393840f068e50334e8"
+      "sha256": "d8a09c69c50d2072e765b94a78c3a49c8f24a1c3718de174f6d8729c5ee2ba30"
     },
     "S2": {
       "fixture": "unresolved",
@@ -3092,7 +3092,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "7ad7de2bf679909c8df5b21ea741253dabbeea125f739223d0dc979b2a580af4"
+      "sha256": "0248d18c6912e464e9ce31113c74b02b7128b39903aac5968d1d2b4f0b70b1a8"
     },
     "S3": {
       "fixture": "modeled",
@@ -3169,7 +3169,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "79f7e1bb1e736a872fb86506437542f5f68afa9a6d4e399161b6d4445e204bde"
+      "sha256": "1c01efa21d1b7e711e749982cba624777d320128a03885a011677a8db8e8d5b4"
     }
   },
   "rules_version": "m5-rev10",

@@ -54995,12 +54995,14 @@
       ],
       "message": "Starting RPM and feed are sourced; raw RPM is rounded to nearest 50, then clamped to the actual machine range.",
       "numbers": {
+        "axial_feed_mm_rev": 0.11,
         "chip_load_mm_per_tooth": 0.055,
         "cutting_data_row": "example (plausible, not measured); speed inside Machinery's Handbook 27th ed. (Industrial Press, 2004) Table 17 p.1061 traditional HSS drilling speeds for plain carbon steels 1006-1026, 60-100 fpm (100 at 100-125 HB, 90 at 125-175, 70 at 175-225, 60 at 225-275); 2 flutes x 0.055 mm = 0.11 mm/rev (.0043 in/rev), inside the same handbook's p.1060 drill feeds for the traditional speeds 0.002-0.006 in/rev for 1/8-1/4 in drills and 0.004-0.010 in/rev for 1/4-1/2 in drills",
         "deep_hole_row": "not_applicable",
         "deep_hole_sfm_factor": 1.0,
         "depth_over_dia": 1.8449923180334165,
         "diameter_in": 0.24600000000000002,
+        "feed_direction": "axial",
         "feed_mm_min": 137.5,
         "flutes": 2,
         "material": "1018 low-carbon steel",
@@ -55233,12 +55235,14 @@
       ],
       "message": "Starting RPM and feed are sourced; raw RPM is rounded to nearest 50, then clamped to the actual machine range.",
       "numbers": {
+        "axial_feed_mm_rev": 0.04,
         "chip_load_mm_per_tooth": 0.02,
         "cutting_data_row": "example (plausible, not measured); speed inside Machinery's Handbook 27th ed. (Industrial Press, 2004) Table 17 p.1061 traditional HSS drilling speeds for plain carbon steels 1006-1026, 60-100 fpm (100 at 100-125 HB, 90 at 125-175, 70 at 175-225, 60 at 225-275); 2 flutes x 0.02 mm = .0016 in/rev, inside the same handbook's p.1060 drill feeds for the traditional speeds 0.001-0.003 in/rev for drills smaller than 1/8 in (p.1132 automatic-screw-machine twist drills in mild steel: 1/16 in .002, 1/8 in .0035). Where the mill's top speed clamps the RPM of a small drill the surface speed falls, never rises",
         "deep_hole_row": "not_applicable",
         "deep_hole_sfm_factor": 1.0,
         "depth_over_dia": 1.364054054054054,
         "diameter_in": 0.07283464566929135,
+        "feed_direction": "axial",
         "feed_mm_min": 120.0,
         "flutes": 2,
         "material": "1018 low-carbon steel",
@@ -64323,7 +64327,7 @@
       "subject": "S4"
     }
   ],
-  "hash": "c46fd9da90cc8f0d40e028f851fb6dd04202ff181d8f8c2730d392e70b448908",
+  "hash": "e817ccb1e0e4f648afb1290aca9247e9910f766594c93621575f0fa967019021",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

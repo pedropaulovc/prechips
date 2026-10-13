@@ -1902,7 +1902,7 @@
       "subject": "S2"
     }
   ],
-  "hash": "7eb317915a1d9b47f9c9399a823651d850d954b1abf8bf34e02179dbd448a47e",
+  "hash": "e0389fc721d6e8a890c5ce7b0c8f32d86297c6705af1aded9ed0654e64767ae8",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -1922,11 +1922,11 @@
     },
     "render:S1": {
       "path": "setup-S1.png",
-      "sha256": "52ae5263d15a33ad09756d7c0bdcfdd0bc74f253fa0b7a5c5d16b55f345989e4"
+      "sha256": "3f42fb6c68029068076e2b375150651d516e92423bac32a4929f0c77ca30ca0a"
     },
     "render:S2": {
       "path": "setup-S2.png",
-      "sha256": "e507d2ddcc1dbc55dcb6bb95eec35a9eb6b6d4738334ae094057bb8ab5844925"
+      "sha256": "ba7eae09175dcc2dfbd2aab9a7260f35349b5759ad24c0f04ab43d3e1d8910a5"
     },
     "shop_policy": {
       "path": "examples/geometry/shop-policy.toml",
@@ -1988,7 +1988,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "52ae5263d15a33ad09756d7c0bdcfdd0bc74f253fa0b7a5c5d16b55f345989e4"
+      "sha256": "3f42fb6c68029068076e2b375150651d516e92423bac32a4929f0c77ca30ca0a"
     },
     "S2": {
       "fixture": "modeled",
@@ -2057,7 +2057,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "e507d2ddcc1dbc55dcb6bb95eec35a9eb6b6d4738334ae094057bb8ab5844925"
+      "sha256": "ba7eae09175dcc2dfbd2aab9a7260f35349b5759ad24c0f04ab43d3e1d8910a5"
     }
   },
   "rules_version": "m5-rev10",
