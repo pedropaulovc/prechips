@@ -263,8 +263,9 @@ bounded footprint; the card then requires touching outside the computed
 diameter. Radius extrema alone prove no usable circular land, pending #208.
 An oblique plane without exact native source-plane or bound datum evidence
 stays `?`, never an assumed Z.
-Each touch row lists the credited STEP refs as `credited_faces`, which the traveler prints
-as `produced plane: …` ([coordinates](docs/rules-coordinates.md)).
+Each touch row retains the credited STEP refs as `credited_faces` in the report JSON
+for validation, not on the operator card; the traveler names the face and any
+required contact constraint ([coordinates](docs/rules-coordinates.md)).
 
 The literal `"unknown"` never means zero, absence, approval or a pass. A
 `verify = true` inventory entry is verification debt, not certified geometry:

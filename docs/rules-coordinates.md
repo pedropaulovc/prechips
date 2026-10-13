@@ -1206,9 +1206,9 @@ from above: off a lathe a tool touch comes down on its face, and a zero or
 listed retouch must come `from = "+z"`. An unknown or other side may meet
 another face, so it is `unknown` and takes no credit. Each zero-check row that
 reads such a producer (`axes.z`, `tool_touches`, `derived_touches`, `retouch`)
-lists the raw STEP refs credited in `credited_faces`, absent when none, and the
-report JSON carries them. The traveler prints them beside the Z Axis Set as
-`produced plane: <refs>`.
+lists the raw STEP refs credited in `credited_faces`, absent when none. The
+report JSON retains those proof refs for validation; the operator traveler names
+the face and any required contact constraint, without raw native entity IDs.
 
 A whole credited face may carry through the traced `stock_in` lineage into
 a bonded or remounted setup. An intervening cut that can lower that face, or

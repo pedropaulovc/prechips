@@ -2014,6 +2014,81 @@ def test_endpoint_oracle_reads_a_carried_touch_off_its_typed_setting(thickness):
             check(forged)
 
 
+@pytest.mark.parametrize("land", [True, False], ids=["usable-land", "unproven-land"])
+@pytest.mark.parametrize("endpoint", ["blind", "through", "centre", "over-guard"])
+def test_endpoint_oracle_requires_its_own_carried_datum_before_passing(land, endpoint, monkeypatch):
+    data = carried_rectangular_source_plane_bundle()
+    receiver = data.plan["setups"][-1]
+    receiver["stock_state"] = {
+        "top_z": 21.0055,
+        "top_feature": receiver["zero"]["z"]["face"],
+    }
+    # The initial spot has a primary contact. A different tool must retouch the
+    # native plane after that plunge; only its filled rectangle proves usable land.
+    data.kernel["faces"][0]["fills_bbox"] = land
+    second = receiver["ops"][1]
+    if endpoint == "centre":
+        tools = data.inventory["tools"]["centre"]
+        tools["sizes"].append(2)
+        tools["members"]["2"] = copy.deepcopy(tools["members"]["1"])
+        data.plan["process_features"] = {
+            "seat": {
+                "kind": "centre_hole",
+                "at": [0.0, 0.0, 21.0055],
+                "axis": [0.0, 0.0, -1.0],
+                "drill_dia_mm": 0.3,
+                "drill_length_mm": 0.2,
+                "mouth_dia_mm": 0.35,
+                "countersink_angle_deg": 60.0,
+                "cite": ["test: a synthetic centre on the carried native source plane"],
+            }
+        }
+        data.feature_definitions = VALIDATOR["operative_definitions"](data.plan, data.features)
+        second.update(do="center_drill", feature="seat", tool="centre/2")
+        subject = "seat"
+    else:
+        subject = "hole"
+        hole = data.feature_definitions["hole"]
+        hole["thru"] = endpoint == "through"
+        if hole["thru"]:
+            receiver["stock_state"]["local_thickness"] = {"hole": 0.5}
+            second["exit_mm"] = 0.1
+        else:
+            hole["depth"] = 0.2 if endpoint == "over-guard" else 1.0
+            second["depth_mm"] = 0.25
+    findings = {(f.rule, f.subject): f.to_dict() for f in endpoint_findings(data)}
+    finding = findings["blind_depth", subject]
+    expected = "error" if endpoint == "over-guard" else "pass" if land else "unknown"
+    assert finding["status"] == expected
+    row = finding["numbers"]["endpoints"][-1]
+    assert VALIDATOR["numeric"](row["tip_z"])
+    assert VALIDATOR["numeric"](row["dro_tip_z"]) is land
+
+    # Reports were produced before these traps. The supported rectangular route
+    # must now derive its datum from the oracle's own kernel getter, not checker
+    # surface helpers or a zero finding's status.
+    def checker_surface(*args, **kwargs):
+        pytest.fail("endpoint oracle called a checker surface helper")
+
+    for helper in ("face_stands", "_carried_face_z", "_rectangular_spares_plunge"):
+        monkeypatch.setattr(zero_recipe, helper, checker_surface)
+    findings["zero_check", receiver["id"]] = {"status": "unknown" if land else "pass"}
+    entries = VALIDATOR["Entries"](data.inventory)
+
+    def check(report):
+        return VALIDATOR["check_endpoints"](
+            data.plan, data.features, report, entries, lambda: copy.deepcopy(data.kernel)
+        )
+
+    depths = check(findings)
+    # Datum debt changes the verdict, never the independently planned material depth.
+    assert VALIDATOR["positive"](depths[receiver["id"], second["op"]])
+    forged = copy.deepcopy(findings)
+    forged["blind_depth", subject]["status"] = "unknown" if expected != "unknown" else "pass"
+    with pytest.raises(ValueError, match=rf"endpoint verdict .* is not the {expected}"):
+        check(forged)
+
+
 @pytest.mark.parametrize("edge", [21.0055, 21.01], ids=["native-edge", "as-cut-edge"])
 @pytest.mark.parametrize("entry", [21.0055, "unknown"], ids=["native-entry", "unknown-entry"])
 def test_endpoint_oracle_accepts_only_the_nominal_or_unknown_carried_entry(edge, entry):

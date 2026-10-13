@@ -1,5 +1,5 @@
 {
-  "expected_exit": 0,
+  "expected_exit": 4,
   "findings": [
     {
       "cite": [
@@ -2381,7 +2381,7 @@
         "plan stock_state and operation depth/exit",
         "inventory selected tool geometry"
       ],
-      "message": "Hole tip endpoints and blind-depth guards are computed from the advanced local entry surfaces.",
+      "message": "Hole endpoints need the missing or unverified entry, tool geometry or depth inputs.",
       "numbers": {
         "endpoints": [
           {
@@ -2402,10 +2402,10 @@
             "tip_z": -2.0
           },
           {
-            "dro_entry_z": 0.0,
-            "dro_exit_face": -72.08,
-            "dro_exit_mm": 0.49518053344566226,
-            "dro_tip_z": -75.94,
+            "dro_entry_z": "unknown",
+            "dro_exit_face": "unknown",
+            "dro_exit_mm": "unknown",
+            "dro_tip_z": "unknown",
             "entry_from": "S8 stock_state.entry_z.crank_bore",
             "entry_z": 0.0,
             "exit_face": -72.08,
@@ -2413,18 +2413,18 @@
             "feature": "crank_bore",
             "local_thickness": 72.08,
             "op": 20,
-            "physical_entry_z": 0.0,
-            "physical_exit_bound_z": -72.08,
+            "physical_entry_z": "unknown",
+            "physical_exit_bound_z": "unknown",
             "point_mm": 3.3648194665543376,
-            "setting_residual_mm": 0.0,
+            "setting_residual_mm": "unknown",
             "setup": "S8",
             "tip_z": -75.94481946655434
           },
           {
-            "dro_entry_z": 0.0,
-            "dro_exit_face": -72.08,
-            "dro_exit_mm": 0.5,
-            "dro_tip_z": -73.58,
+            "dro_entry_z": "unknown",
+            "dro_exit_face": "unknown",
+            "dro_exit_mm": "unknown",
+            "dro_tip_z": "unknown",
             "entry_from": "S8 stock_state.entry_z.crank_bore",
             "entry_z": 0.0,
             "exit_face": -72.08,
@@ -2433,9 +2433,9 @@
             "lead_mm": 1.0,
             "local_thickness": 72.08,
             "op": 30,
-            "physical_entry_z": 0.0,
-            "physical_exit_bound_z": -72.08,
-            "setting_residual_mm": 0.0,
+            "physical_entry_z": "unknown",
+            "physical_exit_bound_z": "unknown",
+            "setting_residual_mm": "unknown",
             "setup": "S8",
             "tip_z": -73.58
           }
@@ -2443,7 +2443,7 @@
         "kind": "hole"
       },
       "rule": "blind_depth",
-      "status": "pass",
+      "status": "unknown",
       "subject": "crank_bore"
     },
     {
@@ -2613,7 +2613,7 @@
         "plan stock_state and operation depth/exit",
         "inventory selected tool geometry"
       ],
-      "message": "Hole tip endpoints and blind-depth guards are computed from the advanced local entry surfaces.",
+      "message": "Hole endpoints need the missing or unverified entry, tool geometry or depth inputs.",
       "numbers": {
         "endpoints": [
           {
@@ -2634,10 +2634,10 @@
             "tip_z": 19.0055
           },
           {
-            "dro_entry_z": 21.01,
-            "dro_exit_face": -21.07,
-            "dro_exit_mm": 0.4998147703589524,
-            "dro_tip_z": -25.19,
+            "dro_entry_z": "unknown",
+            "dro_exit_face": "unknown",
+            "dro_exit_mm": "unknown",
+            "dro_tip_z": "unknown",
             "entry_from": "S9 stock_state.entry_z.journal_bore",
             "entry_z": 21.0055,
             "exit_face": -21.074499999999997,
@@ -2645,18 +2645,18 @@
             "feature": "journal_bore",
             "local_thickness": 42.08,
             "op": 20,
-            "physical_entry_z": 21.01,
-            "physical_exit_bound_z": -21.069999999999997,
+            "physical_entry_z": "unknown",
+            "physical_exit_bound_z": "unknown",
             "point_mm": 3.620185229641051,
-            "setting_residual_mm": 0.0,
+            "setting_residual_mm": "unknown",
             "setup": "S9",
             "tip_z": -25.194685229641046
           },
           {
-            "dro_entry_z": 21.01,
-            "dro_exit_face": -21.07,
-            "dro_exit_mm": 0.5000000000000036,
-            "dro_tip_z": -22.57,
+            "dro_entry_z": "unknown",
+            "dro_exit_face": "unknown",
+            "dro_exit_mm": "unknown",
+            "dro_tip_z": "unknown",
             "entry_from": "S9 stock_state.entry_z.journal_bore",
             "entry_z": 21.0055,
             "exit_face": -21.074499999999997,
@@ -2665,9 +2665,9 @@
             "lead_mm": 1.0,
             "local_thickness": 42.08,
             "op": 30,
-            "physical_entry_z": 21.01,
-            "physical_exit_bound_z": -21.069999999999997,
-            "setting_residual_mm": 0.0,
+            "physical_entry_z": "unknown",
+            "physical_exit_bound_z": "unknown",
+            "setting_residual_mm": "unknown",
             "setup": "S9",
             "tip_z": -22.574499999999997
           }
@@ -2675,7 +2675,7 @@
         "kind": "hole"
       },
       "rule": "blind_depth",
-      "status": "pass",
+      "status": "unknown",
       "subject": "journal_bore"
     },
     {
@@ -22584,10 +22584,10 @@
             "conservative_stock_spans_mm": "not_applicable",
             "do": "drill",
             "endpoint": {
-              "dro_entry_z": 0.0,
-              "dro_exit_face": -72.08,
-              "dro_exit_mm": 0.49518053344566226,
-              "dro_tip_z": -75.94,
+              "dro_entry_z": "unknown",
+              "dro_exit_face": "unknown",
+              "dro_exit_mm": "unknown",
+              "dro_tip_z": "unknown",
               "entry_from": "S8 stock_state.entry_z.crank_bore",
               "entry_z": 0.0,
               "exit_face": -72.08,
@@ -22595,10 +22595,10 @@
               "feature": "crank_bore",
               "local_thickness": 72.08,
               "op": 20,
-              "physical_entry_z": 0.0,
-              "physical_exit_bound_z": -72.08,
+              "physical_entry_z": "unknown",
+              "physical_exit_bound_z": "unknown",
               "point_mm": 3.3648194665543376,
-              "setting_residual_mm": 0.0,
+              "setting_residual_mm": "unknown",
               "setup": "S8",
               "tip_z": -75.94481946655434
             },
@@ -22650,10 +22650,10 @@
             "conservative_stock_spans_mm": "not_applicable",
             "do": "ream",
             "endpoint": {
-              "dro_entry_z": 0.0,
-              "dro_exit_face": -72.08,
-              "dro_exit_mm": 0.5,
-              "dro_tip_z": -73.58,
+              "dro_entry_z": "unknown",
+              "dro_exit_face": "unknown",
+              "dro_exit_mm": "unknown",
+              "dro_tip_z": "unknown",
               "entry_from": "S8 stock_state.entry_z.crank_bore",
               "entry_z": 0.0,
               "exit_face": -72.08,
@@ -22662,9 +22662,9 @@
               "lead_mm": 1.0,
               "local_thickness": 72.08,
               "op": 30,
-              "physical_entry_z": 0.0,
-              "physical_exit_bound_z": -72.08,
-              "setting_residual_mm": 0.0,
+              "physical_entry_z": "unknown",
+              "physical_exit_bound_z": "unknown",
+              "setting_residual_mm": "unknown",
               "setup": "S8",
               "tip_z": -73.58
             },
@@ -22873,10 +22873,10 @@
             "conservative_stock_spans_mm": "not_applicable",
             "do": "drill",
             "endpoint": {
-              "dro_entry_z": 21.01,
-              "dro_exit_face": -21.07,
-              "dro_exit_mm": 0.4998147703589524,
-              "dro_tip_z": -25.19,
+              "dro_entry_z": "unknown",
+              "dro_exit_face": "unknown",
+              "dro_exit_mm": "unknown",
+              "dro_tip_z": "unknown",
               "entry_from": "S9 stock_state.entry_z.journal_bore",
               "entry_z": 21.0055,
               "exit_face": -21.074499999999997,
@@ -22884,10 +22884,10 @@
               "feature": "journal_bore",
               "local_thickness": 42.08,
               "op": 20,
-              "physical_entry_z": 21.01,
-              "physical_exit_bound_z": -21.069999999999997,
+              "physical_entry_z": "unknown",
+              "physical_exit_bound_z": "unknown",
               "point_mm": 3.620185229641051,
-              "setting_residual_mm": 0.0,
+              "setting_residual_mm": "unknown",
               "setup": "S9",
               "tip_z": -25.194685229641046
             },
@@ -22939,10 +22939,10 @@
             "conservative_stock_spans_mm": "not_applicable",
             "do": "ream",
             "endpoint": {
-              "dro_entry_z": 21.01,
-              "dro_exit_face": -21.07,
-              "dro_exit_mm": 0.5000000000000036,
-              "dro_tip_z": -22.57,
+              "dro_entry_z": "unknown",
+              "dro_exit_face": "unknown",
+              "dro_exit_mm": "unknown",
+              "dro_tip_z": "unknown",
               "entry_from": "S9 stock_state.entry_z.journal_bore",
               "entry_z": 21.0055,
               "exit_face": -21.074499999999997,
@@ -22951,9 +22951,9 @@
               "lead_mm": 1.0,
               "local_thickness": 42.08,
               "op": 30,
-              "physical_entry_z": 21.01,
-              "physical_exit_bound_z": -21.069999999999997,
-              "setting_residual_mm": 0.0,
+              "physical_entry_z": "unknown",
+              "physical_exit_bound_z": "unknown",
+              "setting_residual_mm": "unknown",
               "setup": "S9",
               "tip_z": -22.574499999999997
             },
@@ -25840,7 +25840,7 @@
         "AUTHOR'S CHOICE",
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:49-57"
       ],
-      "message": "Touch, Axis Set the compensated value, then jog without retouching and compare expected versus mirrored readings. Each tool change is touched off on the last touched or faced surface still standing.",
+      "message": "Touch, Axis Set the compensated value, then jog without retouching and compare expected versus mirrored readings. Each tool change is touched off on the last touched or faced surface still standing. Measured setup/tool or trial-cut verification remains unknown. A Z touch meets a face its op left at an unknown Z (the cone-crank-drill-11p2 re-touch on crank_boss_faces (crank_boss_faces has incomplete eligible carried-plane height proof (stock.body face crank_boss_faces (#329/ADVANCED_FACE[9]/HAF_CRANK_BOSS_FACES__P01) is not declared stock as-is; stock.body face crank_boss_faces (#291/ADVANCED_FACE[7]/HAF_CRANK_BOSS_FACES__P02) is not declared stock as-is; stock.cone face crank_boss_faces (#329/ADVANCED_FACE[9]/HAF_CRANK_BOSS_FACES__P01) is not declared stock as-is; stock.cone face crank_boss_faces (#291/ADVANCED_FACE[7]/HAF_CRANK_BOSS_FACES__P02) is not declared stock as-is; stock.crank face crank_boss_faces (#329/ADVANCED_FACE[9]/HAF_CRANK_BOSS_FACES__P01) is not declared stock as-is; stock.crank face crank_boss_faces (#291/ADVANCED_FACE[7]/HAF_CRANK_BOSS_FACES__P02) is not declared stock as-is; S8 op 10 has no proven usable touch land: an overlapping plunge needs a native fills_bbox rectangle retaining a 0.5 mm square; circular/holed shape topology is unproven (native evidence gap: https://github.com/pedropaulovc/prechips/issues/208))); the reamers-decimal/0.4500in re-touch on crank_boss_faces (crank_boss_faces has incomplete eligible carried-plane height proof (stock.body face crank_boss_faces (#329/ADVANCED_FACE[9]/HAF_CRANK_BOSS_FACES__P01) is not declared stock as-is; stock.body face crank_boss_faces (#291/ADVANCED_FACE[7]/HAF_CRANK_BOSS_FACES__P02) is not declared stock as-is; stock.cone face crank_boss_faces (#329/ADVANCED_FACE[9]/HAF_CRANK_BOSS_FACES__P01) is not declared stock as-is; stock.cone face crank_boss_faces (#291/ADVANCED_FACE[7]/HAF_CRANK_BOSS_FACES__P02) is not declared stock as-is; stock.crank face crank_boss_faces (#329/ADVANCED_FACE[9]/HAF_CRANK_BOSS_FACES__P01) is not declared stock as-is; stock.crank face crank_boss_faces (#291/ADVANCED_FACE[7]/HAF_CRANK_BOSS_FACES__P02) is not declared stock as-is; S8 op 10 has no proven usable touch land: an overlapping plunge needs a native fills_bbox rectangle retaining a 0.5 mm square; circular/holed shape topology is unproven (native evidence gap: https://github.com/pedropaulovc/prechips/issues/208); S8 op 20 has no proven usable touch land: an overlapping plunge needs a native fills_bbox rectangle retaining a 0.5 mm square; circular/holed shape topology is unproven (native evidence gap: https://github.com/pedropaulovc/prechips/issues/208)))): its Axis Set is not known.",
       "numbers": {
         "axes": {
           "x": {
@@ -25935,36 +25935,24 @@
             "before_ops": [
               20
             ],
-            "credited_faces": [
-              "#329/ADVANCED_FACE[9]/HAF_CRANK_BOSS_FACES__P01"
-            ],
-            "edge_mm": 0.0,
+            "edge_mm": "unknown",
             "method": "touch_then_set",
-            "native_edge_mm": 0.0,
             "paper_mm": 0.0,
             "repeats": "zero",
-            "setting_residual_mm": 0.0,
             "tool": "cone-crank-drill-11p2",
-            "touch_exclusion_dia_mm": 2.373094011,
-            "z_axis_set": 0.0,
+            "z_axis_set": "unknown",
             "z_face": "crank_boss_faces"
           },
           {
             "before_ops": [
               30
             ],
-            "credited_faces": [
-              "#329/ADVANCED_FACE[9]/HAF_CRANK_BOSS_FACES__P01"
-            ],
-            "edge_mm": 0.0,
+            "edge_mm": "unknown",
             "method": "touch_then_set",
-            "native_edge_mm": 0.0,
             "paper_mm": 0.0,
             "repeats": "zero",
-            "setting_residual_mm": 0.0,
             "tool": "reamers-decimal/0.4500in",
-            "touch_exclusion_dia_mm": 11.57,
-            "z_axis_set": 0.0,
+            "z_axis_set": "unknown",
             "z_face": "crank_boss_faces"
           }
         ],
@@ -25988,7 +25976,7 @@
         }
       },
       "rule": "zero_check",
-      "status": "pass",
+      "status": "unknown",
       "subject": "S8"
     },
     {
@@ -26000,7 +25988,7 @@
         "AUTHOR'S CHOICE",
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:59-67"
       ],
-      "message": "Touch, Axis Set the compensated value, then jog without retouching and compare expected versus mirrored readings. Each tool change is touched off on the last touched or faced surface still standing.",
+      "message": "Touch, Axis Set the compensated value, then jog without retouching and compare expected versus mirrored readings. Each tool change is touched off on the last touched or faced surface still standing. Measured setup/tool or trial-cut verification remains unknown. A Z touch meets a face its op left at an unknown Z (the cone-journal-drill-12p05 re-touch on cone_boss_north_face (no surviving credited stock plane with a bounded touch area for cone_boss_north_face (stock.body face cone_boss_north_face (#1426/ADVANCED_FACE[36]/HAF_CONE_BOSS_NORTH_FACE__P01) is not declared stock as-is; stock.cone face cone_boss_north_face (#1426/ADVANCED_FACE[36]/HAF_CONE_BOSS_NORTH_FACE__P01) is not declared stock as-is; stock.crank face cone_boss_north_face (#1426/ADVANCED_FACE[36]/HAF_CONE_BOSS_NORTH_FACE__P01) is not declared stock as-is; S9 op 10 has no proven usable touch land: an overlapping plunge needs a native fills_bbox rectangle retaining a 0.5 mm square; circular/holed shape topology is unproven (native evidence gap: https://github.com/pedropaulovc/prechips/issues/208))); the reamers-decimal/0.4835in re-touch on cone_boss_north_face (no surviving credited stock plane with a bounded touch area for cone_boss_north_face (stock.body face cone_boss_north_face (#1426/ADVANCED_FACE[36]/HAF_CONE_BOSS_NORTH_FACE__P01) is not declared stock as-is; stock.cone face cone_boss_north_face (#1426/ADVANCED_FACE[36]/HAF_CONE_BOSS_NORTH_FACE__P01) is not declared stock as-is; stock.crank face cone_boss_north_face (#1426/ADVANCED_FACE[36]/HAF_CONE_BOSS_NORTH_FACE__P01) is not declared stock as-is; S9 op 10 has no proven usable touch land: an overlapping plunge needs a native fills_bbox rectangle retaining a 0.5 mm square; circular/holed shape topology is unproven (native evidence gap: https://github.com/pedropaulovc/prechips/issues/208); S9 op 20 has no proven usable touch land: an overlapping plunge needs a native fills_bbox rectangle retaining a 0.5 mm square; circular/holed shape topology is unproven (native evidence gap: https://github.com/pedropaulovc/prechips/issues/208)))): its Axis Set is not known.",
       "numbers": {
         "axes": {
           "x": {
@@ -26095,36 +26083,24 @@
             "before_ops": [
               20
             ],
-            "credited_faces": [
-              "#1426/ADVANCED_FACE[36]/HAF_CONE_BOSS_NORTH_FACE__P01"
-            ],
-            "edge_mm": 21.01,
+            "edge_mm": "unknown",
             "method": "touch_then_set",
-            "native_edge_mm": 21.0055,
             "paper_mm": 0.0,
             "repeats": "zero",
-            "setting_residual_mm": 0.0,
             "tool": "cone-journal-drill-12p05",
-            "touch_exclusion_dia_mm": 2.007094011,
-            "z_axis_set": 21.01,
+            "z_axis_set": "unknown",
             "z_face": "cone_boss_north_face"
           },
           {
             "before_ops": [
               30
             ],
-            "credited_faces": [
-              "#1426/ADVANCED_FACE[36]/HAF_CONE_BOSS_NORTH_FACE__P01"
-            ],
-            "edge_mm": 21.01,
+            "edge_mm": "unknown",
             "method": "touch_then_set",
-            "native_edge_mm": 21.0055,
             "paper_mm": 0.0,
             "repeats": "zero",
-            "setting_residual_mm": 0.0,
             "tool": "reamers-decimal/0.4835in",
-            "touch_exclusion_dia_mm": 12.054,
-            "z_axis_set": 21.01,
+            "z_axis_set": "unknown",
             "z_face": "cone_boss_north_face"
           }
         ],
@@ -26150,11 +26126,11 @@
         }
       },
       "rule": "zero_check",
-      "status": "pass",
+      "status": "unknown",
       "subject": "S9"
     }
   ],
-  "hash": "1b11c7145ecc97d34bbed4ba83d28c5e74e65369c0ad8ed7acd8c10be5f0563e",
+  "hash": "56e411a4747615ae1855c6f45957dbe37cab6f17358424b3bc1277fb6043670b",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -27496,5 +27472,5 @@
   },
   "rules_version": "m5-rev10",
   "step_sha256": "5719f3f9ec779ae255f9c880a59c5eba338526576279b4f94a8c22e675e4aa1b",
-  "verification": "checked"
+  "verification": "planned"
 }

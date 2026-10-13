@@ -2934,7 +2934,7 @@ def plus(*values):
     return sum(values) if all(map(numeric, values)) else "unknown"
 
 
-def check_printed_endpoint(row: dict, where: str, grid: tuple, planned: dict) -> None:
+def check_printed_endpoint(row: dict, where: str, grid: tuple, planned: dict):
     """Hold the endpoint the traveler prints (``dro_*``) to the plan-derived one on the
     setup's DRO grid: the entry surface as its producer cut it (``planned["surface"]``,
     :func:`printed_entry`); a through hole's exit face rounded up; the tip keeping its
@@ -2953,7 +2953,8 @@ def check_printed_endpoint(row: dict, where: str, grid: tuple, planned: dict) ->
     op of this setup cut under its zero (``planned["local"]``, that cut's printed face)
     already stands on this DRO: it moves by that face less the nominal, and stands
     physically higher by the residual. A carried touch that cannot be placed leaves them
-    all unknown, never the nominal's."""
+    all unknown, never the nominal's. Returns the independently computed printed tip Z,
+    numeric only when the planned endpoint and its DRO datum are known."""
     entry, tip, exit_face = planned["entry"], planned["tip"], planned["exit_face"]
     through = exit_face != "not_applicable"
     carried = planned.get("carried")
@@ -3011,12 +3012,13 @@ def check_printed_endpoint(row: dict, where: str, grid: tuple, planned: dict) ->
         left = difference(read_exit, planned["lead"], printed_tip)
         same(row.get("dro_exit_mm", "unknown"), left, f"{where}: printed break-through")
         require("dro_depth_mm" not in row, f"{where}: a through endpoint prints no depth")
-        return
+        return printed_tip
     require("dro_exit_mm" not in row, f"{where}: a blind endpoint has no break-through")
     depth = difference(planned["depth"], difference(printed_tip, worked))
     same(row.get("dro_depth_mm", "unknown"), depth, f"{where}: printed depth")
     floor = planned.get("floor", "unknown")
     same(row.get("depth_floor_mm", "unknown"), floor, f"{where}: depth band floor")
+    return printed_tip
 
 
 def check_endpoints(
@@ -3026,10 +3028,11 @@ def check_endpoints(
     and the endpoint it prints to the setup's DRO grid (:func:`check_printed_endpoint`).
     The rows are exactly the plan's hole ops on the feature (a centre's, its
     center_drill ops) and the finding's verdict is the one those ops, their tools and
-    the feature's depth guard decide: a contradiction (a tip past the depth guard, a tap
-    flute shorter than its depth, a negative through allowance, a centre its tool does
-    not cut) is an error, anything unresolved (no op, an unknown tip or guard, a missing
-    or unverified tool) unknown, else pass; a non-hole feature's is not applicable.
+    the feature's depth guard and DRO datum decide: a contradiction (a tip past the depth
+    guard, a tap flute shorter than its depth, a negative through allowance, a centre its
+    tool does not cut) is an error, anything unresolved (no op, an unknown tip, guard or
+    printed datum, a missing or unverified tool) unknown, else pass; a non-hole feature's
+    is not applicable.
     Returns the material depth each hole op's full diameter cuts, keyed ``(setup, op)``,
     as the plan derives it (a through hole's local thickness, a blind or tapped hole's
     planned depth, a drilled centre's prepared depth), never the point or exit lead.
@@ -3123,10 +3126,14 @@ def check_endpoints(
                     f"{where}: only a plan centre hole has a centre endpoint",
                 )
                 cut, verdict = check_centre_endpoint(plan, features, setup, op, row, entries, entry)
-                verdicts.append(verdict)
                 depths[row["setup"], row["op"]] = cut if positive(cut) else "unknown"
                 planned.update(depth=cut, tip=difference(entry, cut))
-                check_printed_endpoint(row, where, dro_grid(setup, features, entries), planned)
+                printed_tip = check_printed_endpoint(
+                    row, where, dro_grid(setup, features, entries), planned
+                )
+                if verdict != "error" and not numeric(printed_tip):
+                    verdict = "unknown"
+                verdicts.append(verdict)
                 continue
             elif action in {"spot", "tap"}:
                 depth = planned_depth_mm(op, feature, units)
@@ -3206,15 +3213,19 @@ def check_endpoints(
                         verdict = "unknown"
                     elif total > limit and not unverified:
                         verdict = "error"
-            if verdict != "error" and (not numeric(tip) or missing or unverified):
+            printed_tip = check_printed_endpoint(
+                row, where, dro_grid(setup, features, entries), planned
+            )
+            if verdict != "error" and (
+                not numeric(tip) or not numeric(printed_tip) or missing or unverified
+            ):
                 verdict = "unknown"
             verdicts.append(verdict)
-            check_printed_endpoint(row, where, dro_grid(setup, features, entries), planned)
         verdict = max(verdicts, key=STATUS_RANK.get, default="unknown")
         require(
             finding["status"] == verdict,
             f"{name}: endpoint verdict {finding['status']} is not the {verdict} its plan "
-            "ops, tools and depth guard decide",
+            "ops, tools, depth guard and DRO datum decide",
         )
     for setup in plan["setups"]:
         for op in setup["ops"]:

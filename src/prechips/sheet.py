@@ -2171,20 +2171,6 @@ def _known(value):
     return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
 
 
-def _produced_plane(row):
-    """The STEP faces a Z touch's cut was credited with (zero_check ``credited_faces``):
-    the raw refs, printed as the report carries them, never through
-    :meth:`_Traveler.bench`, which strips ids. No credit, no claim: an absent or
-    empty list prints nothing."""
-    faces = row.get("credited_faces") if isinstance(row, dict) else None
-    if not isinstance(faces, list):
-        return None
-    faces = [face for face in faces if isinstance(face, str) and face]
-    if not faces:
-        return None
-    return "produced plane: " + ", ".join(faces)
-
-
 def _carried(row):
     """Whether a zero_check row's Axis Set is a carried setting: the rule already put the
     height plus paper on this setup's safe-down grid (``setting_residual_mm`` names the
@@ -5443,9 +5429,6 @@ class _Traveler:
                 contact.append(f"paper {o(paper)}" if paper else "direct contact, no paper")
             if touch.get("after_op") not in (None, "unknown"):
                 contact.append(f"after op {_text(touch['after_op'])}")
-            plane = _produced_plane(computed)
-            if plane:
-                contact.append(plane)
             outside = _touch_outside(computed)
             if outside:
                 contact.append(outside)
@@ -5547,11 +5530,11 @@ class _Traveler:
                 )
                 axis_set = top + paper if _known(top) and _known(paper) else "unknown"
                 top, axis_set = o(top), o(axis_set)
-            key = (top, o(paper), axis_set, _produced_plane(record), _touch_outside(record))
+            key = (top, o(paper), axis_set, _touch_outside(record))
             retouches.setdefault(key, []).append(record)
-        for (top, paper, axis_set, plane, outside), records in retouches.items():
+        for (top, paper, axis_set, outside), records in retouches.items():
             touch = f"touch {surface} (Z {top}) with {paper} paper → Axis Set Z {axis_set}"
-            touch += "".join(f"; {note}" for note in (plane, outside) if note) + "."
+            touch += (f"; {outside}" if outside else "") + "."
             changes = []
             for record in records:
                 after, served = _text(record.get("op")), record.get("next_op")
@@ -5955,9 +5938,6 @@ class _Traveler:
                 text += f": Z now reads the {corner} corner"
             elif blade:
                 text += ". STOP: which blade corner this touch sets is not known — plan it"
-            plane = _produced_plane(touch)
-            if plane:
-                text += f"; {plane}"
             outside = _touch_outside(touch)
             if outside:
                 text += f"; {outside}"

@@ -3039,14 +3039,15 @@ def zero_rows(html):
     return {cells[i]: (cells[i + 1], cells[i + 2]) for i in range(0, len(cells), 6)}
 
 
-def test_a_credited_z_zero_prints_the_produced_plane_beside_its_axis_set():
+def test_a_credited_z_zero_keeps_native_proof_in_the_report_not_the_contact():
     ops = [op(10, "spot", "hole", "centre/1"), op(20, "drill", "hole", "drill")]
     tools = {("tools", "centre/1"): "T1 centre drill", ("tools", "drill"): "T2 drill"}
     sheet, setup = credited(bundle("mill", mill_zero(DECK), ops), ("axes", "z"), [FACE])
     contact, axis_set = zero_rows(sheet.dro(setup, tools))["Z"]
-    assert "deck" in contact and f"produced plane: {FACE}" in contact, contact
+    assert "deck" in contact and "produced plane" not in contact and FACE not in contact, contact
+    assert sheet.records[("zero_check", setup["id"])]["axes"]["z"]["credited_faces"] == [FACE]
     assert axis_set == "10.050"
-    # Without a credit the row claims no plane, and no face id is invented.
+    # Native proof metadata never changes the operator's named contact or setting.
     plain, setup = sheet_of(bundle("mill", mill_zero(DECK), ops))
     html = plain.dro(setup, tools)
     assert zero_rows(html)["Z"][1] == "10.050"
@@ -3061,19 +3062,21 @@ def test_an_absent_or_unknown_credit_prints_no_plane(faces):
     assert "produced plane" not in sheet_text(html) and "unknown" not in zero_rows(html)["Z"][0]
 
 
-def test_a_credited_derived_touch_prints_the_produced_plane_after_its_axis_set():
+def test_a_credited_derived_touch_keeps_native_proof_out_of_the_operator_recipe():
     ops = [op(10, "spot", "hole", "centre/1"), op(20, "drill", "hole", "drill")]
     tools = {("tools", "centre/1"): "T1 centre drill", ("tools", "drill"): "T2 drill"}
     sheet, setup = credited(
         bundle("mill", mill_zero(DECK), ops), ("derived_touches", 0), [FACE, FACE + "b"]
     )
     (line,) = [line for line in paragraphs(sheet.dro(setup, tools)) if "install" in line]
-    assert f"Axis Set Z 10.050; produced plane: {FACE}, {FACE}b." in line, line
-    # The ids print as the report carries them: joints and brackets intact.
-    assert "ADVANCED FACE" not in line
+    assert "Axis Set Z 10.050." in line and "produced plane" not in line and FACE not in line, line
+    assert sheet.records[("zero_check", setup["id"])]["derived_touches"][0]["credited_faces"] == [
+        FACE,
+        FACE + "b",
+    ]
 
 
-def test_a_credited_listed_retouch_prints_its_plane_and_an_uncredited_one_does_not():
+def test_a_credited_listed_retouch_keeps_native_proof_out_of_both_operator_recipes():
     zero = mill_zero({"face": "top", "tool": "mill"}, retouch_after=[10, 20])
     ops = [
         op(10, "face", "deck", "mill", to_z=0.0),
@@ -3087,14 +3090,19 @@ def test_a_credited_listed_retouch_prints_its_plane_and_an_uncredited_one_does_n
     lines = paragraphs(sheet.dro(setup, tools))
     (first,) = [line for line in lines if re.search(r"\bAfter op 10\b", line)]
     (second,) = [line for line in lines if re.search(r"\bAfter op 20\b", line)]
-    assert f"Axis Set Z 0.050; produced plane: {FACE}." in first, first
+    assert "Axis Set Z 0.050." in first, first
+    assert "produced plane" not in first and FACE not in first, first
     assert "Axis Set Z 0.050." in second and "produced plane" not in second, second
+    assert sheet.records[("zero_check", setup["id"])]["retouch"][ops_listed.index(10)][
+        "credited_faces"
+    ] == [FACE]
 
 
-def test_a_face_reference_is_escaped_not_rendered_as_markup():
+def test_a_native_proof_reference_never_becomes_operator_markup():
     ops = [op(10, "spot", "hole", "centre/1"), op(20, "drill", "hole", "drill")]
     hostile = "#7/ADVANCED_FACE[1]/<b>&P"
     sheet, setup = credited(bundle("mill", mill_zero(DECK), ops), ("axes", "z"), [hostile])
     html = sheet.dro(setup, {})
-    assert "<b>" not in html and "&lt;b&gt;&amp;P" in html
-    assert hostile in zero_rows(html)["Z"][0]
+    assert "<b>" not in html and "&lt;b&gt;&amp;P" not in html
+    assert hostile not in zero_rows(html)["Z"][0]
+    assert sheet.records[("zero_check", setup["id"])]["axes"]["z"]["credited_faces"] == [hostile]

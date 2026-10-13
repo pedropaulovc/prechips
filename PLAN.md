@@ -1125,9 +1125,10 @@ sheet.
    without `bounds` only when every listed face resolves in the already-present
    matched kernel result and each listed plane whose posed `bbox_mm` lies at the
    op's `to_z` (within `LENGTH_TOLERANCE_MM`) is held inside them beyond that
-   tolerance; only those planes are credited (`credited_faces`, printed as
-   `produced plane:`). No plane at `to_z`, a box edge within the tolerance, a
-   non-permutation setup turn over-approximating the box, or a `contour.keep_out`
+   tolerance; only those planes are credited (`credited_faces`, retained in the
+   report JSON rather than printed on the operator card). No plane at `to_z`,
+   a box edge within the tolerance, a non-permutation setup turn over-approximating
+   the box, or a `contour.keep_out`
    island grown by the cutter radius meeting the face leaves it `?` or partial;
    a partial cut credits no producer. A named face without a whole producer
    or a traced, preserved carry has no known Z. Same-setup touches set the
