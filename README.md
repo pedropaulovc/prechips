@@ -300,7 +300,13 @@ debt while other tables remain (a
 wholly excluded or disconnected stage keeps its clip debt), and the worst
 residual (arc radial depth, and the join break-out polyline's greatest
 distance to the nearest finished wall) is held once to the shop policy's cited
-`max_filing_stock_mm`; a
+`max_filing_stock_mm`. The kernel credits an unbounded chain with its actual
+drilled cylinders only: the webs stay in stock until a later known removal
+(no sweep between centres, no corridor or +Z claim sweep), retained webs on a
+claimed wall are named stock debt pointing at `stock_removal_bounds`, and
+declaring that box on the chain op is the author's certification of the
+actual break-out footprint, not a demonstrated toolpath (explicit break-out
+phase: [#213](https://github.com/pedropaulovc/prechips/issues/213)); a
 `file_to_line` op at the bench files to hardened buttons pinned through the
 arc's bore (or a template) and checks R with a radius gauge whose range covers
 it. `chords` (sagitta proven inside the band, ends on the DRO grid) and a
@@ -694,7 +700,8 @@ is never credited with a later op's removal. Missing surface normals or
 unresolved pose facts never become clearance or reach passes.
 Facing uses a planar outer-wire sweep to clear raw caps over hole mouths
 while preserving finished islands. `stock_removal_bounds` is an authored
-cleared footprint (possibly several passes), not capped to the claims' XY
+cleared footprint (possibly several passes, or a chain drill's certified
+break-out), not capped to the claims' XY
 bounding box plus cutter radius and not a toolpath proof; known radius,
 finite bounds, stock intersection, finished protection, exact claim/piece
 contact, future hole columns and no split of an original solid still apply.

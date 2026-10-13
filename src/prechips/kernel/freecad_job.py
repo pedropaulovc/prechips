@@ -655,6 +655,30 @@ def _positive(record, key):
     return float(value) if _number(value) and value > 0 else None
 
 
+def _unbounded_chain(op):
+    """Whether ``op`` is an unbounded chain-drill profile: a profile action with no
+    ``stock_removal_bounds`` whose printed ``checkpoints`` carry at least one nonempty path
+    and only ``chain_drill`` ones (each path's ``method``, the stock contract; rows are the
+    collision payload). Its discrete holes certify only drilling: the webs between them
+    stay stock, and no claim sweep, wall corridor or lineage band is credited
+    (:meth:`_Setup._op_sweep`, :meth:`_Setup._cut`); an authored ``stock_removal_bounds``
+    certifies the actual break-out. A missing, empty or other path method is not a chain."""
+    table = op.get("checkpoints")
+    if (
+        op.get("do") not in PROFILE_ACTIONS
+        or "stock_removal_bounds" in op
+        or not isinstance(table, dict)
+        or not isinstance(table.get("paths"), list)
+    ):
+        return False
+    printed = [
+        path for path in table["paths"] if not (isinstance(path, dict) and path.get("xy_mm") == [])
+    ]
+    return bool(printed) and all(
+        isinstance(path, dict) and path.get("method") == "chain_drill" for path in printed
+    )
+
+
 def _islands(op):
     """(an op's raster keep-out ``(islands, printed, skipped)``, or None, and why it is
     unknown). ``islands`` are setup-frame ``(x, y, radius)`` mm circles its passes keep the
@@ -5197,8 +5221,10 @@ class _Setup:
         paths sweep (:meth:`_run_out`); other claims sweep along +Z. Either way unclaimed
         rails, ears, webs and overstock past them stay. A
         lower-leave op also cuts the lineage leave off its claimed lateral faces of ``stock``
-        (:meth:`_band`). A raster split round keep-out islands removes neither, in its own
-        cut or its band, where its printed pieces do not sweep (:func:`_unswept`).
+        (:meth:`_band`). An unbounded chain-drill profile (:func:`_unbounded_chain`) removes
+        only its discrete holes: no corridor, claim sweep or lineage band. A raster split
+        round keep-out islands removes neither, in its own cut or its band, where its
+        printed pieces do not sweep (:func:`_unswept`).
         """
         process = op.get("process_cut")
         if isinstance(process, dict) and process.get("reason"):
@@ -5256,11 +5282,13 @@ class _Setup:
             removal, why = self._removal(op, valid, to_z, leave)
         if why is not None:
             return None, why
-        band, why = self._band(
-            stock, valid, to_z, leave, carried, self._reach_window(op, leave, carried)
-        )
-        if why is not None:
-            return None, why
+        band = None
+        if not _unbounded_chain(op):
+            band, why = self._band(
+                stock, valid, to_z, leave, carried, self._reach_window(op, leave, carried)
+            )
+            if why is not None:
+                return None, why
         if keep[0] and (removal is not None or band):
             # Its printed pieces sweep neither an island nor the cusps between their ends:
             # whatever its box, claims or the lineage leave would remove there stays.
@@ -5370,7 +5398,8 @@ class _Setup:
         rotary one) claims with a horizontal normal component must be clear of overstock
         beyond its op's guard at its interior (:meth:`_protect` within the claims' reach,
         the guard's derivable window); merely sweeping a sliver from a drafted wall does
-        not prove it cleared.
+        not prove it cleared. An unbounded chain-drill profile's holes leave their webs, so
+        its debt points at the stock_removal_bounds that would certify their break-out.
         Each complete-form hole op's own claimed caps (``cap_completion`` in its ``ops``
         facts) must likewise be clear of it, even when its cut removes nothing new; touched
         caps are named there and make the output stock debt.
@@ -5403,12 +5432,21 @@ class _Setup:
                     return None, f"{subject} {why}; {where}"
                 covered = self._covered(overstock, claimed, to_z, reach)
                 if covered:
+                    if _unbounded_chain(op):
+                        remedy = (
+                            "its unbounded chain_drill holes certify only drilling, so the "
+                            "webs between them stay stock; declare stock_removal_bounds on "
+                            "the op to certify the actual break-out/chisel removal"
+                        )
+                    else:
+                        remedy = (
+                            "the setup approach does not fully clear this profile wall and "
+                            "the op declares no stock_removal_bounds (cleared XY footprint, "
+                            "retained rail/ear volume of an interrupted profile) for it"
+                        )
                     return None, (
                         f"{subject}: overstock still touches claimed wall(s) "
-                        f"{', '.join(covered)} above its to_z; the setup approach does not "
-                        "fully clear this profile wall and the op declares no "
-                        "stock_removal_bounds (cleared XY footprint, retained rail/ear volume "
-                        f"of an interrupted profile) for it; {where}"
+                        f"{', '.join(covered)} above its to_z; {remedy}; {where}"
                     )
             forms = [
                 (self._subject(op), ops[self._subject(op)]["cap_completion"])
@@ -5924,7 +5962,8 @@ class _Setup:
         A facing action sweeps each planar claim's outer loop, so raw pins over hole
         mouths go too; subtracting the guard still keeps islands, bosses and the leave. The
         whole sweep is guarded and its pieces judged by claim contact before ``to_z``
-        clips them.
+        clips them. An unbounded chain-drill profile's pieces are its actual hole
+        cylinders: each guarded hole is drilled whether or not it borders a claim.
         """
         faces, sweep, why = self._op_sweep(op, valid, to_z)
         if why is not None:
@@ -5934,11 +5973,12 @@ class _Setup:
         cut, why = self._protect(sweep, leave, _sweep_window(sweep))
         if why is not None:
             return None, why
+        drilled = _unbounded_chain(op)
         kept = [
             piece
             for piece in cut.Solids
             if piece.Volume > HIT_MM3
-            and any(_distance(piece, f)[0] < leave + STOCK_TOL for f in faces)
+            and (drilled or any(_distance(piece, f)[0] < leave + STOCK_TOL for f in faces))
         ]
         if not kept:
             return None, None
@@ -5958,11 +5998,20 @@ class _Setup:
         cutter-centre paths the sheet prints for it (:meth:`_run_out`). The operator cuts
         what is printed, corner miters and run-outs included, so that is credited; stock
         past both, an unclaimed web or a clamped rail, stays. Rule A′ keeps a printed row
-        off stock a later setup contacts (:meth:`_finish_checkpoints`).
+        off stock a later setup contacts (:meth:`_finish_checkpoints`). An unbounded
+        chain-drill profile (:func:`_unbounded_chain`) clears only its actual holes: no
+        claim sweep or corridor, and no design, so all each hole removes is scrap.
         """
         action = op.get("do")
         if action not in PROFILE_ACTIONS:
             return (*self._sweep(valid, action), None)
+        if _unbounded_chain(op):
+            radius = _positive(op, "radius_mm")
+            if radius is None:
+                return [], None, "the cutter radius is unknown, so its drilled holes are unknown"
+            self.designs[id(op)] = None
+            holes, why = self._run_out(op, radius)
+            return ([], None, why) if why is not None else ([], holes, None)
         walls = [index for index in valid if _vertical(self.faces[index], Z)]
         rest = [index for index in valid if index not in walls]
         faces, sweep = self._sweep(rest, action) if rest else ([], None)
@@ -6000,7 +6049,8 @@ class _Setup:
         Each printed table (``checkpoints`` ``paths``: the values the DRO shows, an arc's
         rows as chords, a join's points) is one level polyline; every point within the
         radius of it stands from the table's printed tip to above the setup-entry stock, as
-        :meth:`_corridor` does.
+        :meth:`_corridor` does. A ``chain_drill`` table's rows are discrete holes, each its
+        own single-point path: the drill never travels between them.
         """
         if id(op) in self.run_outs:
             return self.run_outs[id(op)]
@@ -6009,7 +6059,12 @@ class _Setup:
         try:
             if table.get("reason"):
                 raise ValueError(table["reason"])
-            paths = [(path["xy_mm"], path["tip_z_mm"]) for path in table.get("paths", [])]
+            paths = []
+            for path in table.get("paths", []):
+                if path.get("method") == "chain_drill":
+                    paths.extend(([point], path["tip_z_mm"]) for point in path["xy_mm"])
+                else:
+                    paths.append((path["xy_mm"], path["tip_z_mm"]))
             swept = _centre_sweep(paths, radius, top)
             if swept is not None:
                 result = swept, None
@@ -9307,7 +9362,8 @@ class _Setup:
     def _designed(self, op):
         """(setup-frame volume a printed op clears by design, or None, and why it is
         unknown): a bounded op's clearing box, else its claim sweeps and cutter corridor
-        before its printed run-out (:meth:`_op_sweep`). What a row removes past it is scrap."""
+        before its printed run-out (:meth:`_op_sweep`); an unbounded chain-drill profile
+        has none. What a row removes past it is scrap."""
         if "stock_removal_bounds" in op:
             if not self.stock_states:
                 return None, f"in-process stock unknown: {self.stock_reason}"

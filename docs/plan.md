@@ -1236,7 +1236,9 @@ and strictly increasing. It declares the material outside the finished part
 that this cutting operation clears inside that volume, leaving everything
 outside it unchanged. Its faces still need valid cutting claims from this
 setup. The box is the explicit cleared footprint, for example the envelope of
-several roughing passes; it is not capped to the claimed faces' XY bounding box
+several roughing passes or, on a `chain_drill` op, the author's certification
+of the actual drilled-and-chiselled break-out footprint; it is not capped to
+the claimed faces' XY bounding box
 dilated by the cutter radius. The cutter radius must still be known: if it is
 unknown, the bounds are `?` with a reason naming the missing cutter radius, and
 later stock stays unresolved. Removal is the box's intersection with the
@@ -1257,7 +1259,10 @@ while reach, holder-wall and shank screens see it ([`reach`](rules-geometry.md#r
 authored process/fixture volume, not a
 measured toolpath or proof that the whole toolpath is safe. Without it, any claimed wall
 whose interior still touches overstock above `to_z` (including a drafted wall)
-needs a named stock-out debt; a contour checkpoint bbox is not a clearing volume.
+needs a named stock-out debt; a contour checkpoint bbox is not a clearing volume,
+and an unbounded `chain_drill` op's webs are such overstock: the kernel removes
+its discrete holes only and keeps the webs in stock until a later known
+removal (see [Manual arcs](#manual-arcs)).
 
 `approach = "rotary"` mills on a horizontal dividing head: each sample of the
 claimed faces' windowed portions is turned about the head axis to top dead
@@ -1372,7 +1377,8 @@ uses the 1898 manual arc method:
 2. **Rough outside the line**: a `rough_*` op with
    `contour = { method = "stairs", cusp_mm = … }` (single-axis stair corners on
    the DRO grid) or `{ method = "chain_drill", pitch_mm = … }` (drilled holes,
-   webs chiselled out along the hole centres), plus a nonnegative
+   webs chiselled out along the hole centres; the kernel credits the drilled
+   holes, not the chiselling, see below), plus a nonnegative
    `rough_allowance_mm` (a negative leave, here or on any op, is an error: the
    rough would cut into the finished part). Every
    stair corner, every full hole and every break-out between neighbouring holes
@@ -1456,6 +1462,21 @@ uses the 1898 manual arc method:
    precondition error may prevent it), even when cut tables are
    withheld. Hole
    repositioning is not a handwheel cut ([coordinates](rules-coordinates.md#coordinates)).
+   In-process stock: an unbounded chain (no `stock_removal_bounds`) removes
+   only each actual hole cylinder; the positive webs between holes, the stock
+   between the holes and the claimed wall and any rail or ear beyond them stay
+   in stock until a later op really cuts them. It gets no cutter corridor,
+   no +Z claim sweep, no lineage band and no drill-radius sweep between hole
+   centres, unlike a milling profile. Those retained webs are then overstock
+   on the claimed wall: the op is named stock debt pointing at
+   `stock_removal_bounds`, and later setups descending from it stay unknown
+   through the ordinary propagation. Declare `stock_removal_bounds` on the
+   chain op to certify the actual drilled-and-chiselled footprint, under the
+   same finite-box, setup-entry-stock and protected-material rules as any
+   bounded op; it is the author's certification, not a demonstrated toolpath.
+   Ordinary milling ops and bounded boxes are unchanged. A dedicated
+   break-out/chisel phase or schema is tracked in
+   [#213](https://github.com/pedropaulovc/prechips/issues/213); none exists yet.
 3. **File to the line**: `do = "file_to_line"` with a `guide`: hardened filing
    `buttons` (an inventory `fixtures` kit with `kind = "filing_buttons"` and the
    declared limits of every element between its rims and the bore axis

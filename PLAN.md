@@ -37,7 +37,11 @@ true-curve back-off, actual cylinders judged; no swept-chord clip holes) and
 prints that stock past the bound is not cleared; omitted joins add no join
 debt while other tables remain (wholly excluded or disconnected stages keep
 clip debt); reported stock/cap uses the worst printed break-out residual (arc
-radial depth, join polyline nearest-finished-wall distance), capped once.
+radial depth, join polyline nearest-finished-wall distance), capped once. The
+kernel credits an unbounded chain with its discrete drilled cylinders only
+(webs stay stock, named as overstock debt pointing at `stock_removal_bounds`,
+which certifies the author's break-out footprint); an explicit break-out phase
+is tracked in [#213](https://github.com/pedropaulovc/prechips/issues/213).
 Sections below retain design intent; README and docs describe the shipped
 schema/CLI/rules. Rev 1 was traveler-first but promised geometric proofs
 it could not deliver. Revs 2–3 absorbed two adversarial

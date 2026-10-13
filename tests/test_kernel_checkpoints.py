@@ -7,7 +7,8 @@ box. Other bounded paths clip where their cutter first meets stock past that box
 Paths that leave and re-enter are pieces, never reconnected. An unbounded
 profile op's printed run-out is credited removal: its corner miter may nick retained scrap,
 but never stock a later setup grips, presses, locates, rests or supports on; a later setup
-whose contacts are unresolved leaves the rows unknown. FreeCAD-backed tests run
+whose contacts are unresolved leaves the rows unknown. An unbounded chain-drill op removes
+only its discrete hole cylinders: the webs between them stay stock. FreeCAD-backed tests run
 ``src/prechips/kernel/freecad_job.py`` under ``freecadcmd`` and skip without it.
 """
 
@@ -23,7 +24,7 @@ from test_kernel_geometry import ENGINE, Engine, _op, _setup, _vise
 from test_kernel_held_split import UP, _box
 from test_kernel_stock_prefix import BLANK, HOLD
 
-from prechips.kernel import chain_boundary
+from prechips.kernel import chain_boundary, table_checkpoints
 from prechips.rules.coordinates import FRAGMENT_FORMAT, ROW_FORMAT
 from prechips.rules.resolution import LENGTH_TOLERANCE_MM
 
@@ -3113,3 +3114,488 @@ def test_a_run_out_that_parts_the_stock_is_refused_by_the_held_split_check(engin
     # Rule A′ cannot judge the rows against a later setup whose entry stock is unknown.
     assert facts["checkpoint_hits"] == "unknown"
     assert "later setup S2's entry stock is unknown" in facts["checkpoint_reason"]
+
+
+# ------------------------------------------------------------ discrete chain-drill stock
+
+# Two radius-1 drill holes 0.5 mm west of the island's west wall (x = 5): an arc table's
+# rows 20 degrees apart on R10 about (-6.5, 18), and a line table's rows 4 mm apart. Each
+# pair leaves a positive physical web between its cylinders (1.4729635533 and 2 mm).
+DRILL = 1.0
+CHAIN_HOLES = {
+    "arc_table": [
+        [-6.5 + 10.0 * math.cos(math.radians(angle)), 18.0 + 10.0 * math.sin(math.radians(angle))]
+        for angle in (0.0, 20.0)
+    ],
+    "line_table": [[3.5, 20.0], [3.5, 24.0]],
+}
+PROBE = 0.05  # mm: a 0.1 mm diameter column at the midpoint between a table's two holes
+# An authored clearing box over the west strip around the line table's holes.
+BOX = {"x": [0.0, 5.0], "y": [10.0, 30.0], "z": [0.0, 20.0]}
+
+
+def _exported(kind):
+    """A chain-drill table's checkpoints exactly as the production exporter passes them."""
+    points = CHAIN_HOLES[kind]
+    table = {
+        "op": 10,
+        "stage": "finish",
+        "method": "chain_drill",
+        "side": "+Y",
+        "dro_tip_z": 0.0,
+        "cut_order": "conventional",
+        "cutter_side": "left",
+    }
+    if kind == "arc_table":
+        table["rows"] = [{"dro_xy": list(point)} for point in points]
+    else:
+        table["setup_xy"] = table["dro_xy"] = [list(point) for point in points]
+    checkpoints = table_checkpoints("S1:10", {kind: [table]}, 10, "mm")
+    (path,) = checkpoints["paths"]
+    assert path["method"] == "chain_drill" and path["xy_mm"] == points, path
+    assert [row["method"] for row in checkpoints["rows"]] == ["chain_drill"] * len(points)
+    return checkpoints
+
+
+def _milled(checkpoints):
+    """The same printed rows with no path method: ordinary milling, never a vacuous chain."""
+    milled = deepcopy(checkpoints)
+    for entry in (*milled["rows"], *milled["paths"]):
+        entry.pop("method", None)
+        entry.pop("chain_geometry", None)
+    return milled
+
+
+def _bounded_chain(checkpoints):
+    """A table as a bounded op prints it: whole, on a 0.001 mm DRO, its chain paths with
+    their true finite line and the west wall (the bounds clip is not judged here)."""
+    table = deepcopy(checkpoints)
+    table.update(
+        bounded=True,
+        dro={"step": 0.001, "decimals": 3, "scale": 1.0},
+        row_format=ROW_FORMAT,
+        fragment_format=FRAGMENT_FORMAT,
+    )
+    for path in table["paths"]:
+        if path.get("method") == "chain_drill":
+            path["chain_geometry"] = {
+                "pitch_mm": 4.2,
+                "offset": 1.5,
+                "setup_origin": [0.0, 0.0],
+                "basis": [[1.0, 0.0], [0.0, 1.0]],
+                "curves": [{"kind": "line", "ends": path["xy_mm"], "normal": [-1.0, 0.0]}],
+                "walls": [
+                    {"kind": "line", "ends": [[5.0, 5.0], [5.0, 45.0]], "normal": [-1.0, 0.0]}
+                ],
+            }
+    return table
+
+
+def _chain_op(checkpoints, allowance=0.0, bounds=None):
+    """A full-depth profile of the west wall with a radius-1 drill printing ``checkpoints``;
+    rough when it leaves ``allowance``."""
+    op = {
+        **_op("S1:10", "west", DRILL, 25.0, 30.0),
+        "do": "rough_profile" if allowance else "finish_profile",
+        "to_z": 0.0,
+        "checkpoints": checkpoints,
+    }
+    if allowance:
+        op["rough_allowance_mm"] = allowance
+    if bounds is not None:
+        op["stock_removal_bounds"] = bounds
+    return op
+
+
+_DISPATCH = ("_cut", "_removal", "_op_sweep", "_run_out")
+# Whatever exists of these in the engine under test; a missing one is never required.
+_DISPATCH_HELPERS = {
+    "_number",
+    "_positive",
+    "_unbounded_chain",
+    "_turned",
+    "_rotary",
+    "_hand",
+    "_sawn",
+    "_islands",
+    "_segments",
+}
+_DISPATCH_CONSTANTS = {
+    "HIT_MM3",
+    "STOCK_TOL",
+    "COVER_MM",
+    "PROFILE_ACTIONS",
+    "TURNING",
+    "ROTARY",
+    "HAND",
+    "SAW_ACTIONS",
+}
+
+
+class _Pieces:
+    """Boolean-free solids whose pieces keep their identity: a fuse is their union."""
+
+    def __init__(self, *tags):
+        self.tags = list(tags)
+
+    @property
+    def Solids(self):
+        return [_Pieces(tag) for tag in self.tags]
+
+    @property
+    def Volume(self):
+        return float(len(self.tags))
+
+    def fuse(self, others):
+        return _Pieces(*self.tags, *(tag for other in others for tag in other.tags))
+
+    def common(self, other):
+        return self
+
+
+@pytest.fixture(scope="module")
+def stock_dispatch():
+    """The engine's own stock dispatch, ``_cut`` through ``_removal``, ``_op_sweep`` and
+    ``_run_out``, without FreeCAD. Only the cutter-centre sweep, wall corridor, lineage band,
+    clearing box and guard are recorded stand-ins; every decision is production code."""
+    tree = ast.parse(ENGINE.read_text(encoding="utf-8"))
+    nodes = [
+        node
+        for node in tree.body
+        if (
+            isinstance(node, ast.FunctionDef)
+            and node.name in _DISPATCH_HELPERS
+            or isinstance(node, ast.Assign)
+            and any(
+                isinstance(target, ast.Name) and target.id in _DISPATCH_CONSTANTS
+                for target in node.targets
+            )
+        )
+    ]
+    setup = next(
+        node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "_Setup"
+    )
+    methods = [
+        node for node in setup.body if isinstance(node, ast.FunctionDef) and node.name in _DISPATCH
+    ]
+    assert sorted(node.name for node in methods) == sorted(_DISPATCH)
+    sweeps = []
+
+    def centre_sweep(paths, radius, top):
+        sweeps.append([(tuple(map(tuple, xy)), z0) for xy, z0 in paths])
+        tags = [
+            ("hole" if len(xy) == 1 else "path", tuple(map(tuple, xy)))
+            for xy, z0 in paths
+            if z0 < top
+        ]
+        return _Pieces(*tags) if tags else None
+
+    namespace = {
+        "math": math,
+        "Z": (0.0, 0.0, 1.0),
+        "_bbox": lambda shape: (0.0, -5.0, 0.0, 70.0, 55.0, 20.0),
+        "_centre_sweep": centre_sweep,
+        "_vertical": lambda face, axis: True,
+        # Only the corridor borders the claimed wall; every hole stands 0.5 mm off it.
+        "_distance": lambda piece, face: (0.0 if piece.tags == ["corridor"] else 0.5,),
+        "_sweep_window": lambda sweep: None,
+    }
+    module = ast.Module(body=[*nodes, *methods], type_ignores=[])
+    exec(compile(module, str(ENGINE), "exec"), namespace)
+    production = type("Dispatch", (), {name: namespace[name] for name in _DISPATCH})
+
+    def cut(op):
+        calls = {"corridor_calls": [], "band_calls": [], "bounded_calls": []}
+
+        class Setup(production):
+            faces, part = ["west wall"], "entry stock"
+
+            def __init__(self):
+                self.run_outs, self.designs = {}, {}
+
+            def _claims(self, op):
+                return [0], [], None
+
+            def _guarded(self, op):
+                return op.get("rough_allowance_mm", 0.0), None
+
+            def _carried(self, op):
+                return 0.3  # an earlier op's larger lineage leave
+
+            def _reach_window(self, op, leave, carried):
+                return None
+
+            def _sweep(self, valid, action):
+                return [], None
+
+            def _protect(self, shape, leave, window):
+                return shape, None
+
+            def _above(self, z):
+                return None
+
+            def _corridor(self, walls, radius, to_z):
+                calls["corridor_calls"].append(walls)
+                return _Pieces("corridor"), None
+
+            def _band(self, stock, valid, to_z, leave, carried, window):
+                calls["band_calls"].append(carried)
+                return [[_Pieces("band")]], None
+
+            def _bounded(self, bounds, *args):
+                calls["bounded_calls"].append(bounds)
+                return _Pieces("box"), None
+
+        setup = Setup()
+        sweeps.clear()
+        result, why = setup._cut(op, "entry stock")
+        assert why is None, why
+        removal, band = result
+        design = setup.designs.get(id(op), "unset")
+        return {
+            "removal": None if removal is None else removal.tags,
+            "band": [[piece.tags for piece in group] for group in band],
+            "sweeps": list(sweeps),
+            "design": design.tags if isinstance(design, _Pieces) else design,
+            **calls,
+        }
+
+    return cut
+
+
+@pytest.mark.parametrize("allowance", (0.0, 0.25))
+@pytest.mark.parametrize("kind", sorted(CHAIN_HOLES))
+def test_unbounded_chain_drill_removes_only_its_discrete_hole_cylinders(
+    stock_dispatch, kind, allowance
+):
+    points = [tuple(point) for point in CHAIN_HOLES[kind]]
+    cut = stock_dispatch(_chain_op(_exported(kind), allowance))
+    # One single-point path per printed row: the drill never travels between its holes.
+    assert cut["sweeps"] == [[((point,), 0.0) for point in points]]
+    # Every actual hole, though 0.5 mm off the claimed wall past a 0.25 mm leave; no more.
+    assert cut["removal"] == [("hole", (point,)) for point in points]
+    # No wall corridor or lineage band, and no design: all a hole removes is A′ scrap.
+    assert cut["corridor_calls"] == [] and cut["band_calls"] == [] and cut["band"] == []
+    assert cut["design"] is None
+
+
+@pytest.mark.parametrize("kind", sorted(CHAIN_HOLES))
+def test_unbounded_milling_of_the_same_rows_keeps_its_sweep_corridor_and_band(stock_dispatch, kind):
+    points = tuple(tuple(point) for point in CHAIN_HOLES[kind])
+    cut = stock_dispatch(_chain_op(_milled(_exported(kind)), 0.25))
+    assert cut["sweeps"] == [[(points, 0.0)]]
+    assert cut["corridor_calls"] == [[0]] and cut["design"] == ["corridor"]
+    assert "corridor" in cut["removal"]
+    assert cut["band_calls"] == [0.3] and cut["band"] == [[["band"]]]
+
+
+def _untagged_rows(checkpoints):
+    """The same table with its rows' method tags removed: the path is the stock contract,
+    the row the collision payload."""
+    table = deepcopy(checkpoints)
+    for row in table["rows"]:
+        row.pop("method", None)
+    return table
+
+
+@pytest.mark.parametrize("kind", sorted(CHAIN_HOLES))
+def test_chain_path_methods_drill_discrete_holes_without_row_method_tags(stock_dispatch, kind):
+    points = [tuple(point) for point in CHAIN_HOLES[kind]]
+    cut = stock_dispatch(_chain_op(_untagged_rows(_exported(kind)), 0.25))
+    assert cut["sweeps"] == [[((point,), 0.0) for point in points]]
+    assert cut["removal"] == [("hole", (point,)) for point in points]
+    assert cut["corridor_calls"] == [] and cut["band_calls"] == [] and cut["design"] is None
+
+
+@pytest.mark.parametrize("method", (None, "", "stairs"))
+def test_a_missing_empty_or_other_path_method_mills_despite_chain_row_tags(stock_dispatch, method):
+    table = _exported("line_table")
+    for path in table["paths"]:
+        path.pop("method")
+        if method is not None:
+            path["method"] = method
+    points = tuple(tuple(point) for point in CHAIN_HOLES["line_table"])
+    cut = stock_dispatch(_chain_op(table, 0.25))
+    # Chain-tagged rows never make the path's stock a chain: it sweeps continuously.
+    assert all(row["method"] == "chain_drill" for row in table["rows"])
+    assert cut["sweeps"] == [[(points, 0.0)]]
+    assert cut["corridor_calls"] == [[0]] and cut["design"] == ["corridor"]
+    assert cut["band_calls"] == [0.3] and cut["band"] == [[["band"]]]
+
+
+def test_a_mixed_table_drills_its_chain_rows_and_keeps_milling_credit(stock_dispatch):
+    chain, milled = _exported("line_table"), _milled(_exported("arc_table"))
+    mixed = {
+        **chain,
+        "rows": chain["rows"] + milled["rows"],
+        "paths": chain["paths"] + milled["paths"],
+    }
+    cut = stock_dispatch(_chain_op(mixed))
+    holes = [((tuple(point),), 0.0) for point in CHAIN_HOLES["line_table"]]
+    arc = (tuple(tuple(point) for point in CHAIN_HOLES["arc_table"]), 0.0)
+    assert cut["sweeps"] == [[*holes, arc]]
+    # Not every path is a chain, so the milling path's corridor and band stay credited.
+    assert cut["corridor_calls"] == [[0]] and cut["band_calls"] == [0.3]
+
+
+@pytest.mark.parametrize("kind", sorted(CHAIN_HOLES))
+def test_a_bounded_chain_keeps_its_authored_clearing_box(stock_dispatch, kind):
+    cut = stock_dispatch(_chain_op(_exported(kind), 0.25, BOX))
+    assert cut["bounded_calls"] == [BOX] and cut["removal"] == ["box"]
+    assert cut["sweeps"] == [] and cut["corridor_calls"] == []
+    assert cut["band_calls"] == [0.3] and cut["band"] == [[["band"]]]
+
+
+_DISCRETE_NATIVE = r"""
+import importlib.util
+import json
+import os
+import sys
+import FreeCAD, Part
+
+V = FreeCAD.Vector
+spec = importlib.util.spec_from_file_location("discrete_engine", os.environ["ENGINE"])
+engine = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(engine)
+directory = sys.argv[sys.argv.index("--") + 1]
+with open(directory + "/cases.json", encoding="utf-8") as stream:
+    cases = json.load(stream)
+built = {}
+finish = engine._Setup._finish
+
+
+def recorded(self, ops):
+    # The builder's actual end stock, recorded before the production wall/debt judgement.
+    built[str(self.setup.get("id"))] = self.built
+    return finish(self, ops)
+
+
+engine._Setup._finish = recorded
+
+
+def column(xy, radius):
+    return Part.makeCylinder(radius, 18.0, V(xy[0], xy[1], 1.0))
+
+
+answers = []
+for case in cases:
+    built.clear()
+    result = engine.run(case["job"])
+    stock, why = built.get("S1", (None, "setup S1 never finished"))
+    holes, probe = case["holes"], case["probe"]
+    web = [(a + b) / 2 for a, b in zip(*holes)]
+    probes = {f"hole {i}": column(hole, probe) for i, hole in enumerate(holes)}
+    probes["web"] = column(web, probe)
+    # The continuous capsule the exact base credited, built by the production helper.
+    credited = engine._centre_sweep([(holes, 0.0)], case["radius"], 20.0 + engine.COVER_MM)
+    answers.append({
+        "status": result.get("status"),
+        "built_reason": why,
+        "built_volume": None if stock is None else stock.Volume,
+        "probes": {
+            name: {
+                "volume": solid.Volume,
+                "in_stock": None if stock is None else stock.common(solid).Volume,
+            }
+            for name, solid in probes.items()
+        },
+        "credited_web": credited.common(probes["web"]).Volume,
+        "setups": {
+            sid: {key: facts.get(key) for key in ("stock_reason", "stock_out_reason")}
+            for sid, facts in result.get("setups", {}).items()
+        },
+    })
+with open(directory + "/answers.json", "w", encoding="utf-8") as stream:
+    json.dump(answers, stream)
+"""
+
+
+@pytest.fixture(scope="module")
+def discrete_stock(tmp_path_factory, freecad_kernel, island):
+    """One native batch of whole jobs on the island: each records its first setup's actual
+    built stock at :meth:`_Setup._finish` and probes it, then the job runs on unchanged."""
+    directory = tmp_path_factory.mktemp("discrete-stock")
+    engine = Engine(directory, freecad_kernel)
+    ops = {}
+    for kind in sorted(CHAIN_HOLES):
+        ops[f"chain {kind}"] = _chain_op(_exported(kind))
+        ops[f"milled {kind}"] = _chain_op(_milled(_exported(kind)))
+    ops["chain line_table rough"] = _chain_op(_exported("line_table"), 0.25)
+    bounded = _bounded_chain(_exported("line_table"))
+    ops["bounded chain"] = _chain_op(bounded, bounds=BOX)
+    ops["bounded milled"] = _chain_op(_milled(bounded), bounds=BOX)
+    cases = [
+        {
+            "job": _job(engine, island, [op], west=WEST),
+            "holes": CHAIN_HOLES["arc_table" if "arc_table" in name else "line_table"],
+            "probe": PROBE,
+            "radius": DRILL,
+        }
+        for name, op in ops.items()
+    ]
+    (directory / "cases.json").write_text(json.dumps(cases), encoding="utf-8")
+    script = directory / "probe.py"
+    script.write_text(_DISCRETE_NATIVE, encoding="utf-8")
+    process = subprocess.run(
+        [freecad_kernel, str(script), "--", str(directory)],
+        env={**os.environ, "ENGINE": str(ENGINE)},
+        capture_output=True,
+        text=True,
+        errors="replace",
+        timeout=600,
+    )
+    answers = directory / "answers.json"
+    assert process.returncode == 0 and answers.exists(), (
+        process.stdout[-2000:] + process.stderr[-2000:]
+    )
+    results = json.loads(answers.read_text(encoding="utf-8"))
+    assert len(results) == len(ops)
+    return dict(zip(ops, results, strict=True))
+
+
+def _drilled(probe):
+    return probe["in_stock"] <= 1e-6
+
+
+def _whole(probe):
+    return probe["in_stock"] == pytest.approx(probe["volume"], rel=1e-9)
+
+
+@pytest.mark.parametrize("name", ("chain arc_table", "chain line_table", "chain line_table rough"))
+def test_native_unbounded_chain_drills_holes_keeps_webs_and_points_at_bounds(discrete_stock, name):
+    answer = discrete_stock[name]
+    holes = CHAIN_HOLES["arc_table" if "arc_table" in name else "line_table"]
+    web = [(a + b) / 2 for a, b in zip(*holes, strict=True)]
+    # Independent geometry: the whole probe clears both drilled discs.
+    assert min(math.dist(web, hole) for hole in holes) - DRILL - PROBE > 0.6
+    assert answer["status"] == "ok" and answer["built_reason"] is None, answer
+    probes = answer["probes"]
+    assert all(_drilled(probes[f"hole {i}"]) for i in range(len(holes))), probes
+    # The web stays stock, though the base's continuous capsule held all of it.
+    assert _whole(probes["web"]), probes
+    assert answer["credited_web"] == pytest.approx(probes["web"]["volume"], rel=1e-9)
+    reason = answer["setups"]["S1"]["stock_out_reason"]
+    assert "overstock still touches claimed wall(s)" in reason, reason
+    assert all(word in reason for word in ("chain_drill", "stock_removal_bounds", "break-out"))
+    # The next setup inherits that debt and its pointer, never a guessed stock.
+    assert answer["setups"]["S2"]["stock_reason"] == reason
+
+
+@pytest.mark.parametrize("kind", sorted(CHAIN_HOLES))
+def test_native_unbounded_milling_of_the_same_rows_still_clears_the_web(discrete_stock, kind):
+    answer = discrete_stock[f"milled {kind}"]
+    assert answer["status"] == "ok" and answer["built_reason"] is None, answer
+    assert all(_drilled(probe) for probe in answer["probes"].values()), answer["probes"]
+    assert answer["setups"]["S1"]["stock_out_reason"] is None, answer["setups"]
+    assert answer["setups"]["S2"]["stock_reason"] is None, answer["setups"]
+
+
+def test_native_bounded_chain_removes_its_authored_box_like_milling(discrete_stock):
+    chain, milled = discrete_stock["bounded chain"], discrete_stock["bounded milled"]
+    for answer in (chain, milled):
+        assert answer["status"] == "ok" and answer["built_reason"] is None, answer
+        assert all(_drilled(probe) for probe in answer["probes"].values()), answer["probes"]
+        assert answer["setups"]["S1"]["stock_out_reason"] is None, answer["setups"]
+    # The box (5 x 20 x 20 mm, all outside the island) is all either removes.
+    assert chain["built_volume"] == pytest.approx(milled["built_volume"], abs=1e-6)
+    assert chain["built_volume"] == pytest.approx(70.0 * 60.0 * 20.0 - 2000.0, abs=1e-3)

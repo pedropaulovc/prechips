@@ -265,7 +265,17 @@ naming them. Each table is recorded under `arc_table` (its joins under
   keeps its exact join endpoints/miter, and its nominal holes divide the leg
   into equal intervals no longer than `pitch_mm`; snapping each hole onto the
   DRO grid can move the printed spacing off that bound. Holes are repositioning
-  checkpoints, not handwheel cutting moves. Join tables print hole numbers,
+  checkpoints, not handwheel cutting moves, and the kernel credits an unbounded
+  chain with removing only its actual drilled cylinders: the webs between
+  them, and the stock between them and the claimed wall, stay in stock until
+  a later known removal (no drill-radius sweep between centres, no cutter
+  corridor, no +Z claim sweep), so retained webs beside a claimed wall are
+  named stock debt pointing at `stock_removal_bounds`; declaring that box on
+  the chain op is the author's certification of the actual break-out/chisel
+  footprint, not a demonstrated toolpath
+  ([rules-geometry](rules-geometry.md#in-process-stock); explicit break-out
+  phase tracked in [#213](https://github.com/pedropaulovc/prechips/issues/213)).
+  Join tables print hole numbers,
   checkpoint P, X/Y and Z, drill size, pitch, break-out instructions and the
   reported stock/cap or `recut_by`; a table left with a single hole prints no
   pitch or break-out sentence (there is no neighbour to break through to).
