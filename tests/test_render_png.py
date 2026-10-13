@@ -1,11 +1,15 @@
 """Consumer-visible raster, camera, visibility and print-label contracts; no FreeCAD."""
 
+import bisect
 import json
 import math
+import random
 import re
 import struct
 import zlib
+from collections import defaultdict
 from pathlib import Path
+from time import perf_counter
 
 import pytest
 
@@ -21,6 +25,7 @@ from prechips.kernel.render_diagram import (
     _Diagram,
     _drawn_outline_paths,
     _guide_view,
+    _GuideView,
     _holding_details,
     _HoldingDetail,
     _main_diagram,
@@ -1666,6 +1671,258 @@ def test_guide_axis_outline_deflection_bounds_circle_chord_error(radius, minimum
     assert sagitta * view.canvas.scale <= 0.5
 
 
+def _reference_outline_paths(polylines, project, *, x_scan=False):
+    """Frozen pre-index topology, with an all-cell oracle or the old X-only scan."""
+    where, chords = {}, set()
+    for line in polylines:
+        points = []
+        for point in line:
+            pixel = tuple(float(value) for value in project(point))
+            cell = tuple(round(value * 100) for value in pixel)
+            if cell not in where or pixel < where[cell]:
+                where[cell] = pixel
+            if not points or points[-1] != cell:
+                points.append(cell)
+        for start, end in zip(points, points[1:], strict=False):
+            if start != end:
+                chords.add((start, end) if start < end else (end, start))
+    vertices = sorted(where)
+    x_values = [point[0] for point in vertices]
+    pieces = set()
+    for start, end in sorted(chords):
+        dx, dy = end[0] - start[0], end[1] - start[1]
+        length_squared = dx * dx + dy * dy
+        if x_scan:
+            first = bisect.bisect_left(x_values, min(start[0], end[0]) - 1)
+            last = bisect.bisect_right(x_values, max(start[0], end[0]) + 1)
+            candidates = vertices[first:last]
+        else:
+            candidates = vertices
+        cuts = []
+        for vertex in candidates:
+            vx, vy = vertex[0] - start[0], vertex[1] - start[1]
+            along = vx * dx + vy * dy
+            if 0 < along < length_squared and (vx * dy - vy * dx) ** 2 <= length_squared:
+                cuts.append((along, vertex))
+        cuts.sort()
+        stops = [start, *(vertex for _, vertex in cuts), end]
+        pieces.update((a, b) if a < b else (b, a) for a, b in zip(stops, stops[1:], strict=False))
+    edge_cells = sorted(pieces)
+    edges = [(where[start], where[end]) for start, end in edge_cells]
+    incidence = defaultdict(list)
+    for index, (start, end) in enumerate(edge_cells):
+        incidence[start].append(index)
+        incidence[end].append(index)
+    unvisited = set(range(len(edges)))
+    branch_starts = sorted(
+        (vertex, index)
+        for vertex, connected in incidence.items()
+        if len(connected) != 2
+        for index in connected
+    )
+    branch_index = 0
+    paths = []
+    while unvisited:
+        while branch_index < len(branch_starts) and branch_starts[branch_index][1] not in unvisited:
+            branch_index += 1
+        if branch_index < len(branch_starts):
+            start, index = branch_starts[branch_index]
+            branch_index += 1
+        else:
+            index = min(unvisited)
+            start = edge_cells[index][0]
+        first, last = edge_cells[index]
+        path = list(edges[index] if first == start else reversed(edges[index]))
+        unvisited.remove(index)
+        current = last if first == start else first
+        while len(incidence[current]) == 2:
+            next_edges = [edge for edge in incidence[current] if edge in unvisited]
+            if not next_edges:
+                break
+            next_index = next_edges[0]
+            first, last = edge_cells[next_index]
+            next_path = edges[next_index]
+            if first != current:
+                next_path = tuple(reversed(next_path))
+            path.extend(next_path[1:])
+            unvisited.remove(next_index)
+            current = last if current == first else first
+        paths.append(tuple(path))
+    return paths
+
+
+@pytest.mark.parametrize("name", sorted(path.stem for path in _SPECS.glob("*.json")))
+def test_finished_outline_index_matches_existing_example_specs(name):
+    spec = _example_spec(name)
+    diagram = _Diagram([], spec)
+    lines = spec["nominal_outline_mm"]
+    project = diagram.canvas.project
+    expected = _reference_outline_paths(lines, project)
+
+    assert _drawn_outline_paths(lines, project) == expected
+    assert _reference_outline_paths(lines, project, x_scan=True) == expected
+
+
+@pytest.mark.parametrize(
+    "cells",
+    [
+        [[(-500, -100), (500, -100)], [(300, -100), (-300, -100)], [(0, -100), (0, 300)]],
+        [[(-100, -500), (-100, 500)], [(-99, 0), (-99, 0)], [(-98, 100), (-98, 100)]],
+        [[(-500, -500), (500, 500)], [(0, 1), (0, 1)], [(0, 2), (0, 2)]],
+        [[(-500, 500), (500, -500)], [(-100, 100), (100, -100)]],
+        [[(-2, -1), (2, -1)], [(0, 0), (0, 0)], [(0, 1), (0, 1)]],
+        [[(0, 0), (1, 1)], [(0, 1), (0, 1)], [(1, 0), (1, 0)]],
+        [[(-100, -100), (-100, -100)]],
+        [],
+    ],
+    ids=[
+        "reversed-overlap-and-t",
+        "vertical-one-cell-boundary",
+        "diagonal-and-zero-chords",
+        "negative-slope-overlap",
+        "horizontal-one-cell-boundary",
+        "tiny-diagonal-tied-cuts",
+        "only-zero-chord",
+        "empty",
+    ],
+)
+def test_finished_outline_index_matches_all_cell_oracle_at_boundaries(cells):
+    lines = [[(x / 100, y / 100, 0) for x, y in line] for line in cells]
+
+    def project(point):
+        return point[:2]
+
+    expected = _reference_outline_paths(lines, project)
+
+    assert _drawn_outline_paths(lines, project) == expected
+    assert _reference_outline_paths(lines, project, x_scan=True) == expected
+
+
+def test_finished_outline_index_keeps_collapsed_source_cells_and_canonical_projection_aliases():
+    lines = [
+        [(-2, 0, 0), (2, 0, 0)],
+        [(0.004, 0.009, 7), (-0.004, 0.011, -7)],  # One quantized cell, no source chord.
+        [(0.004, 0.009, 7), (0.004, 0.009, -7)],
+    ]
+
+    def project(point):
+        return point[:2]
+
+    expected = [((-2.0, 0.0), (-0.004, 0.011), (2.0, 0.0))]
+
+    assert _reference_outline_paths(lines, project) == expected
+    assert _drawn_outline_paths(lines, project) == expected
+    assert _drawn_outline_paths(list(reversed(lines)), project) == expected
+
+
+def test_finished_outline_index_matches_deterministic_randomized_all_cell_oracle():
+    randomizer = random.Random(198)
+    for scene in range(100):
+        cells = [(randomizer.randint(-800, 800), randomizer.randint(-800, 800)) for _ in range(18)]
+        cells += [(0, 0), (100, 0), (-100, 0), (0, 100), (0, -100)]
+        lines = []
+        for _ in range(24):
+            a, b = randomizer.sample(cells, 2)
+            line = [(a[0] / 100, a[1] / 100, 0), (b[0] / 100, b[1] / 100, 0)]
+            lines.append(line)
+            if randomizer.randrange(3) == 0:
+                lines.append(list(reversed(line)))
+            if randomizer.randrange(3) == 0:
+                middle = ((a[0] + b[0]) / 200, (a[1] + b[1]) / 200, 4)
+                lines.append([line[0], middle])
+                lines.append([middle, line[-1]])
+        for x, y in cells:
+            # Aliased Z plus subcell jitter exercises the canonical floating tie minimum.
+            pixel = (x / 100 - 0.004, y / 100 + 0.004, scene)
+            lines.append([pixel, (x / 100 + 0.004, y / 100 - 0.004, -scene)])
+
+        def project(point):
+            return point[:2]
+
+        expected = _reference_outline_paths(lines, project)
+        assert _drawn_outline_paths(lines, project) == expected, scene
+        assert _reference_outline_paths(lines, project, x_scan=True) == expected, scene
+        randomizer.shuffle(lines)
+        assert _drawn_outline_paths(lines, project) == expected, scene
+
+
+@pytest.mark.parametrize("end", [(800, 800), (800, -800), (-100, 800), (800, -100)])
+def test_finished_outline_strip_query_is_an_exact_predicate_superset(end):
+    start = (-100, -100)
+    cells = [(x, y) for x in range(-103, 804, 7) for y in range(-103, 804, 7)]
+    cells += [(x, y) for x in range(-102, 103) for y in range(-102, 103)]
+    queried = []
+
+    class RecordingGrid(defaultdict):
+        def get(self, key, default=None):
+            queried.append(key)
+            return super().get(key, default)
+
+    grid = RecordingGrid(list)
+    for cell in set(cells):
+        grid[(cell[0] // 100, cell[1] // 100)].append(cell)
+    candidates = list(render_module._outline_cell_candidates(grid, start, end))
+    dx, dy = end[0] - start[0], end[1] - start[1]
+    length_squared = dx * dx + dy * dy
+    accepted = {
+        (x, y)
+        for x, y in cells
+        if 0 < (x - start[0]) * dx + (y - start[1]) * dy < length_squared
+        and ((x - start[0]) * dy - (y - start[1]) * dx) ** 2 <= length_squared
+    }
+
+    assert accepted <= set(candidates)
+    assert len(candidates) == len(set(candidates))
+    # A rectangle scan visits quadratically many diagonal bins; a strip does not.
+    assert len(queried) <= 3 * (math.ceil(abs(dx) / 100) + math.ceil(abs(dy) / 100) + 3)
+
+
+def _dense_outline_circles(*, diagonals=False):
+    """The identical 200 x 300 workload for the regression and old/new timing recipe."""
+    lines = []
+    for circle in range(200):
+        cx, cy = (circle % 20) * 30 - 300, (circle // 20) * 30 - 150
+        points = [
+            (
+                cx + 10 * math.cos(2 * math.pi * index / 300),
+                cy + 10 * math.sin(2 * math.pi * index / 300),
+                0,
+            )
+            for index in range(300)
+        ]
+        lines.append([*points, points[0]])
+    if diagonals:
+        for index in range(100):
+            offset = (index - 50) / 5
+            lines.extend(
+                [
+                    [(-320, -170 + offset, 0), (300, 150 + offset, 0)],
+                    [(-320, 150 + offset, 0), (300, -170 + offset, 0)],
+                ]
+            )
+    return lines
+
+
+@pytest.mark.parametrize("diagonals", [False, True], ids=["circles", "long-diagonal-chords"])
+def test_finished_outline_dense_index_performance(diagonals):
+    lines = _dense_outline_circles(diagonals=diagonals)
+    started = perf_counter()
+    paths = _drawn_outline_paths(lines, lambda point: point[:2])
+    elapsed = perf_counter() - started
+
+    long_chords = len(lines) - 200
+    print(f"outline-index circles=200 chords=300 long-diagonals={long_chords}: {elapsed:.6f}s")
+    # Target <1 s; leave scheduling headroom on the shared Windows development host.
+    assert elapsed < 3.0
+    if not diagonals:
+        assert len(paths) == 200
+        assert all(len(path) == 301 and path[0] == path[-1] for path in paths)
+    else:
+        assert paths
+        assert min(point[0] for path in paths for point in path) == -320
+        assert max(point[0] for path in paths for point in path) == 300
+
+
 def test_finished_outline_dash_phase_continues_across_native_edges():
     count = 96
     vertices = [
@@ -2432,6 +2689,196 @@ def _guided_buttons(stops=2):
         + [_block(box, (120, 98, 76), name) for name, box in solids.items()],
     }
     return meshes, spec, removal
+
+
+def _guide_outline_scene(fraction_lines):
+    """Place test outlines relative to the real, independently fitted guide viewport."""
+    meshes, spec, _ = _guided_buttons()
+    spec["paths"] = []
+    spec["waypoints"] = []
+    probe = _GuideView(spec, _FRONT, 1)
+    left, top, right, bottom = probe.viewport
+    cx, cy = probe.canvas._world_centre
+    px, py = probe.canvas._pixel_centre
+    scale = probe.canvas.scale
+    spec["nominal_outline_mm"] = [
+        [
+            (
+                cx + (left + x * (right - left) - px) / scale,
+                cy - (top + y * (bottom - top) - py) / scale,
+                0,
+            )
+            for x, y in line
+        ]
+        for line in fraction_lines
+    ]
+    return meshes, spec
+
+
+@pytest.mark.parametrize(
+    ("line", "expected"),
+    [
+        ([(-0.5, 0.3), (0.4, 0.3), (1.5, 0.3)], [(0, 0.3), (1, 0.3)]),
+        ([(-0.5, 0.3), (0.4, 0.3)], [(0.4, 0.3)]),
+        ([(0.4, 0.3), (1.5, 0.3)], [(0.4, 0.3)]),
+        ([(-0.2, -0.2), (1.2, 1.2)], [(0, 0), (1, 1)]),
+        (
+            [(-0.2, -0.2 + 1e-12), (1.2, 1.2 + 1e-12)],
+            [(0, 1e-12), (1 - 1e-12, 1)],
+        ),
+    ],
+    ids=[
+        "both-native-ends-outside-no-interior-sample-anchor",
+        "last-native-end-visible",
+        "original-primary-visible",
+        "closed-corner-crossings",
+        "near-corner-crossings",
+    ],
+)
+def test_guide_finished_outline_anchors_only_visible_endpoints_or_clip_crossings(
+    monkeypatch, line, expected
+):
+    _, spec = _guide_outline_scene([line])
+    view = _GuideView(spec, _FRONT, 1)
+    labels = render_module._Diagram._labels
+    primaries = []
+
+    def observe_labels(diagram):
+        primaries.extend(
+            item.points[0] for item in diagram.callouts if item.label == "FINISHED OUTLINE"
+        )
+        return labels(diagram)
+
+    monkeypatch.setattr(_GuideView, "_labels", observe_labels)
+    view.render()
+    left, top, right, bottom = view.viewport
+    (callout,) = [item for item in view.callouts if item.label == "FINISHED OUTLINE"]
+    original = view.canvas.project(view.nominal[0][0])
+    original_visible = left <= original[0] <= right and top <= original[1] <= bottom
+    assert primaries == [original if original_visible else callout.along[0]]
+    actual = [((x - left) / (right - left), (y - top) / (bottom - top)) for x, y in callout.along]
+
+    assert len(actual) == len(expected)
+    for found, wanted in zip(actual, expected, strict=True):
+        assert found == pytest.approx(wanted, abs=1e-10)
+    assert all(left <= x <= right and top <= y <= bottom for x, y in callout.along)
+    (leader,) = [path for label, path in view.leaders if label == "FINISHED OUTLINE"]
+    assert leader[0] in callout.along
+    pixels = [view.canvas.project(point) for point in view.nominal[0]]
+    assert (
+        min(_point_segment_px(leader[0], a, b) for a, b in zip(pixels, pixels[1:], strict=False))
+        < 1e-9
+    )
+    assert not any("FINISHED OUTLINE" in debt for debt in view.render_debts)
+
+
+@pytest.mark.parametrize(
+    ("a", "b"),
+    [
+        ((-0.7, 0.1), (1.3, 0.9)),
+        ((1.3, 0.9), (-0.7, 0.1)),
+        # Exact binary offsets enter at (0, 1); decimal offsets need not be symmetric.
+        ((-1e6, 1 + 2**-40), (1e6, 1 - 2**-40)),
+        ((-0.2, -0.2 + 1e-12), (1.2, 1.2 + 1e-12)),
+        ((-0.5, 0.5), (0.5, -0.5)),
+        ((0, 0), (2, 0.5)),
+    ],
+)
+def test_guide_finished_outline_clip_roundoff_keeps_closed_boundary_candidates(a, b):
+    lines = [[a, b]]
+    anchors = render_module._visible_outline_anchors(
+        lines, _outline_anchor_points(lines), render_module._identity_projection, (0, 0, 1, 1)
+    )
+    clipped = render_module._clip_segment(a, b, (0, 0, 1, 1))
+
+    assert clipped is not None
+    assert anchors
+    assert all(0 <= x <= 1 and 0 <= y <= 1 for x, y in anchors)
+    assert all(min(math.dist(point, end) for end in clipped) < 1e-9 for point in anchors)
+
+
+def test_guide_finished_outline_wholly_outside_is_explicit_debt_and_layout_settles(monkeypatch):
+    meshes, spec = _guide_outline_scene([[(3, 3), (4, 3)]])
+    main_diagram = render_module._main_diagram
+    note_attempts = []
+
+    def observe(meshes, spec):
+        note_attempts.append(tuple(spec.get("notes", [])))
+        return main_diagram(meshes, spec)
+
+    monkeypatch.setattr(render_module, "_main_diagram", observe)
+    diagram, _ = _composed_diagram(meshes, spec)
+    (guide,) = diagram.guide_details
+    debt = "NOT SHOWN: FINISHED OUTLINE is outside this view, so it has no leader."
+
+    assert guide.render_debts.count(debt) == 1
+    assert diagram.render_debts.count(debt) == 1
+    assert not any(label == "FINISHED OUTLINE" for label, _ in guide.leaders)
+    assert not any(item.label == "FINISHED OUTLINE" for item in guide.callouts)
+    assert len(note_attempts) == 2  # One discovery pass, one pass printing the fixed debt.
+    assert debt not in note_attempts[0]
+    assert note_attempts[1].count(debt) == 1
+    printed = " ".join(box[0] for box in diagram.canvas.text_boxes)
+    assert printed.count(debt.upper()) == 1
+
+
+def test_guide_finished_outline_fully_visible_retains_byte_identical_old_callouts(monkeypatch):
+    _, spec = _guide_outline_scene([[(0.8, 0.3), (0.5, 0.4), (0.2, 0.3)]])
+    current = _GuideView(spec, _FRONT, 1)
+    current.render()
+
+    def old_candidates(polylines, native_anchors, project, viewport):
+        return tuple(project(point) for point in native_anchors)
+
+    monkeypatch.setattr(render_module, "_visible_outline_anchors", old_candidates)
+    baseline = _GuideView(spec, _FRONT, 1)
+    baseline.render()
+
+    assert current.callouts == baseline.callouts
+    assert current.leaders == baseline.leaders
+    assert current.canvas.png() == baseline.canvas.png()
+
+
+@pytest.mark.parametrize("view", ["plan", "elevation", "isometric"])
+@pytest.mark.parametrize("camera", [_FRONT, render_module._CAMERAS["isometric"]])
+def test_other_native_outline_anchor_caller_frames_every_endpoint(view, camera):
+    lines = [[(-2000, -500, -70), (0, 700, 50), (3000, -200, 90)]]
+    spec = {
+        "view": view,
+        "camera": camera,
+        "stock_box": [-1, -1, -1, 1, 1, 1],
+        "nominal_outline_mm": lines,
+    }
+    diagram = _Diagram([], spec)
+    left, top, right, bottom = diagram.viewport
+
+    assert diagram.nominal_anchors == _outline_anchor_points(lines)
+    assert all(
+        left < x < right and top < y < bottom
+        for x, y in (diagram.canvas.project(point) for line in lines for point in line)
+    )
+
+
+@pytest.mark.parametrize("stops", [1, 2])
+def test_other_along_anchor_caller_frames_all_guide_rim_vertices(stops):
+    _, spec, _ = _guided_buttons(stops)
+    view = _GuideView(spec, _FRONT, 1)
+    view.render()
+    left, top, right, bottom = view.viewport
+    rims = [item for item in view.callouts if item.label.startswith("FILE STOPS ON")]
+
+    assert rims
+    assert all(
+        left <= x <= right and top <= y <= bottom
+        for item in rims
+        for x, y in (*item.points, *item.along)
+    )
+    assert all(
+        view._in_tile(point)
+        for stop in spec["guide_stops"]
+        for run in stop["rim_mm"]
+        for point in run
+    )
 
 
 @pytest.mark.parametrize("stops", [2, 1], ids=["both_rims", "one_rim"])

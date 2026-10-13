@@ -119,6 +119,24 @@ reliefs without hiding the full stock length in the main view. Mill/custom
 views overlay a dashed **nominal part outline**, including behind arriving
 stock, solely to locate the drawing relative to pads, pins and coordinate keys.
 That outline is never a claim that the supply already has the finished shape.
+Projected outline coincidences retain 0.01-pixel quantization and the canonical
+minimum floating coordinate in each cell. One two-dimensional, one-pixel-bin
+index contains every cell, including collapsed source edges. Each chord queries
+only its intersected strip, conservatively padded by one quantized cell, then
+uses the exact existing along/cross-product test before sorting cuts and walking
+paths. Index construction is O(V); candidate discovery costs the number of strip
+bins visited plus their stored cells, not all vertices in an X range or a
+diagonal's bounding rectangle. Cut and path ordering remain deterministic.
+The guide-axis **FINISHED OUTLINE** leader chooses visible native edge endpoints
+first, retaining the original primary endpoint when visible. Only when none is
+visible may it use actual projected-segment viewport crossings, never arbitrary
+interior tessellation vertices or clamped offscreen endpoints. The closed viewport
+boundary is a valid anchor; clipping roundoff is normalized only within a few
+ulps of that boundary. An outline wholly outside the guide view has no callout
+and prints `NOT SHOWN: FINISHED OUTLINE is outside this view, so it has no leader.`
+through the existing settled-debt notes. Fully visible callouts are unchanged.
+The main setup view frames all nominal vertices; guide-rim callouts likewise
+frame all rim vertices, so those other endpoint-placement callers remain visible.
 Selected cutters use the traveler's short human tool names. A separate feed
 arrow, when the plan declares its direction, is a direction symbol, not a path.
 An unresolved saw cut plane produces a plain STOP annotation and retains its

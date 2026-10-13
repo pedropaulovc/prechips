@@ -4,7 +4,6 @@ All millimetre measurements come from ``spec``. Outlined machine/table context i
 screen-space symbolism, deliberately separate from the modelled fixture geometry.
 """
 
-import bisect
 import math
 import re
 from collections import defaultdict
@@ -745,6 +744,28 @@ def _identity_projection(point):
     return point
 
 
+def _outline_cell_candidates(grid, start, end):
+    """Cells in a one-cell-wide chord strip, without scanning its bounding rectangle."""
+    size = _DRAWN_OUTLINE_CELL_PX  # One pixel per bin; cells themselves remain 0.01 px.
+    dx, dy = end[0] - start[0], end[1] - start[1]
+    for x_bin in range((start[0] - 1) // size, (end[0] + 1) // size + 1):
+        if dx:
+            # A qualifying cell's perpendicular foot can be one cell outside its bin.
+            # Intersect that expanded X slab with the chord, then bound Y exactly with
+            # integer floor/ceil division. Padding Y by one cell includes both slopes.
+            low_x = max(start[0], x_bin * size - 1)
+            high_x = min(end[0], (x_bin + 1) * size)
+            low_y = start[1] * dx + dy * (low_x - start[0])
+            high_y = start[1] * dx + dy * (high_x - start[0])
+            first_y = (min(low_y, high_y) // dx - 1) // size
+            last_y = ((max(low_y, high_y) + dx - 1) // dx + 1) // size
+        else:
+            first_y = (min(start[1], end[1]) - 1) // size
+            last_y = (max(start[1], end[1]) + 1) // size
+        for y_bin in range(first_y, last_y + 1):
+            yield from grid.get((x_bin, y_bin), ())
+
+
 def _drawn_outline_paths(polylines, project):
     """Join unique nominal chords in the rendered plane before carrying their dash phase.
 
@@ -767,17 +788,17 @@ def _drawn_outline_paths(polylines, project):
     if not chords:
         return []
 
-    vertices = sorted(where)
-    x_values = [point[0] for point in vertices]
+    grid = defaultdict(list)
+    for vertex in where:
+        grid[(vertex[0] // _DRAWN_OUTLINE_CELL_PX, vertex[1] // _DRAWN_OUTLINE_CELL_PX)].append(
+            vertex
+        )
     pieces = set()
     for start, end in sorted(chords):
         dx, dy = end[0] - start[0], end[1] - start[1]
         length_squared = dx * dx + dy * dy
-        first = bisect.bisect_left(x_values, min(start[0], end[0]) - 1)
-        last = bisect.bisect_right(x_values, max(start[0], end[0]) + 1)
         cuts = []
-        for index in range(first, last):
-            vertex = vertices[index]
+        for vertex in _outline_cell_candidates(grid, start, end):
             vx, vy = vertex[0] - start[0], vertex[1] - start[1]
             along = vx * dx + vy * dy
             if 0 < along < length_squared and (vx * dy - vy * dx) ** 2 <= length_squared:
@@ -843,6 +864,43 @@ def _outline_anchor_points(polylines):
             if key not in points or candidate < points[key]:
                 points[key] = candidate
     return tuple(points[key] for key in sorted(points))
+
+
+def _visible_outline_anchors(polylines, native_anchors, project, viewport):
+    """Prefer visible native endpoints; otherwise use only actual viewport crossings."""
+    left, top, right, bottom = viewport
+
+    def inside(point):
+        return left <= point[0] <= right and top <= point[1] <= bottom
+
+    anchors = tuple(point for native in native_anchors if inside(point := project(native)))
+    if anchors:
+        return anchors
+    crossings = {}
+    for line in polylines:
+        pixels = [project(point) for point in line]
+        for a, b in zip(pixels, pixels[1:], strict=False):
+            segment = _clip_segment(a, b, viewport)
+            if segment is None:
+                continue
+            for source, clipped in zip((a, b), segment, strict=True):
+                if inside(source):
+                    continue  # A visible tessellation vertex is not a new native anchor.
+                point = list(clipped)
+                for axis, low, high in ((0, left, right), (1, top, bottom)):
+                    # The clipping multiply/add can land a few ulps beyond its boundary.
+                    # Normalize only these computed crossings, never an offscreen source.
+                    tolerance = 4 * max(
+                        math.ulp(a[axis]), math.ulp(b[axis]), math.ulp(low), math.ulp(high)
+                    )
+                    if low - tolerance <= point[axis] < low:
+                        point[axis] = low
+                    elif high < point[axis] <= high + tolerance:
+                        point[axis] = high
+                candidate = tuple(point)
+                if inside(candidate):
+                    crossings[candidate] = None
+    return tuple(sorted(crossings))
 
 
 def _dashed(canvas, polylines, project, colour, clip=None, halo_width=0):
@@ -3797,15 +3855,19 @@ class _GuideView(_HoldingDetail):
             _text(c, 34, self.note_y + index * _LEADING, line, _MUTED)
         self._nominal_overlay(c.project, clip=self.viewport)
         if self.nominal:
-            anchors = tuple(c.project(point) for point in self.nominal_anchors)
-            self.callouts.append(
-                _Callout(
-                    "FINISHED OUTLINE",
-                    [c.project(self.nominal[0][0])],
-                    _BLUE,
-                    along=anchors,
-                )
+            anchors = _visible_outline_anchors(
+                self.nominal, self.nominal_anchors, c.project, self.viewport
             )
+            if anchors:
+                primary = c.project(self.nominal[0][0])
+                left, top, right, bottom = self.viewport
+                if not (left <= primary[0] <= right and top <= primary[1] <= bottom):
+                    primary = anchors[0]
+                self.callouts.append(_Callout("FINISHED OUTLINE", [primary], _BLUE, along=anchors))
+            else:
+                self.render_debts.append(
+                    "NOT SHOWN: FINISHED OUTLINE is outside this view, so it has no leader."
+                )
         self._file()
         self._rims()
         self._holding()
